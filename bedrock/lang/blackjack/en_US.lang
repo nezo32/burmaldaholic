@@ -67,3 +67,12 @@ config.burmaldaholic.blackjack.betTimerTicks=Betting time (ticks)
 config.burmaldaholic.blackjack.insuranceTimerTicks=Insurance decision time (ticks)
 config.burmaldaholic.blackjack.turnTimerTicks=Turn time (ticks)
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+entity.burmaldaholic:blackjack_dealer.name=Blackjack Dealer
+item.spawn_egg.entity.burmaldaholic:blackjack_dealer.name=Blackjack Dealer Spawn Egg
+action.interact.burmaldaholic.blackjack.play=Play Blackjack
+gui.burmaldaholic.blackjack.dealer_line=Dealer: %1  %2
+gui.burmaldaholic.blackjack.seat_player=Seat %1 — %2
+gui.burmaldaholic.blackjack.insurance_line=Insurance: %1
+gui.burmaldaholic.blackjack.no_bet=No bet yet
+gui.burmaldaholic.blackjack.turn_of=%1 is playing…
+msg.burmaldaholic.blackjack.result_line=Blackjack: %1

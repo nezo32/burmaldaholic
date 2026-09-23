@@ -1,0 +1,9 @@
+{
+  "format_version": "1.21.40",
+  "burmaldaholic:blackjack_table": {
+    "sound": "wood"
+  },
+  "burmaldaholic:blackjack_table_high_roller": {
+    "sound": "wood"
+  }
+}
