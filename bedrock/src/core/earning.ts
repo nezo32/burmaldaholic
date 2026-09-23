@@ -45,7 +45,8 @@ export class Earning {
     private readonly config: ConfigService,
     private readonly active: () => boolean,
   ) {
-    this.debris = new ChunkedList('burmaldaholic:core.placed_debris', 65_536);
+    // CONFIG.md economy.ore.placedDebrisLedgerSize (FIFO, default 4096, max 65 536).
+    this.debris = new ChunkedList('burmaldaholic:core.placed_debris', () => this.config.int('economy.ore.placedDebrisLedgerSize'));
   }
 
   start(): void {

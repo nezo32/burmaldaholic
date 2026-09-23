@@ -12,7 +12,6 @@
       "minecraft:health": { "value": 20, "max": 20 },
       "minecraft:damage_sensor": { "triggers": [{ "cause": "all", "deals_damage": "no" }] },
       "minecraft:physics": {},
-      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
       "minecraft:persistent": {},
       "minecraft:knockback_resistance": { "value": 1.0 },
       "minecraft:movement": { "value": 0.0 },

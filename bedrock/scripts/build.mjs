@@ -74,9 +74,10 @@ function manifests() {
     ],
     // Pack settings: shown when the pack is applied to a world (e.g. at world creation) and
     // in the pack's gear menu. Read via world.getPackSettings() (stable since @minecraft/server 2.8.0).
+    // Texts are lang keys resolved from BP/texts (scripts/validate-packs.mjs checks they exist).
     settings: [
-      { type: 'label', text: 'msg.burmaldaholic.core.settings.label' },
-      { type: 'toggle', name: 'burmaldaholic:casino_mode', text: 'msg.burmaldaholic.core.settings.enabled', default: true },
+      { type: 'label', text: 'gamerule.burmaldaholic.casino_mode.description' },
+      { type: 'toggle', name: 'burmaldaholic:casino_mode', text: 'gamerule.burmaldaholic.casino_mode', default: true },
     ],
     metadata,
   };

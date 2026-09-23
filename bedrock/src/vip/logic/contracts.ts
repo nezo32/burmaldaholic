@@ -278,7 +278,7 @@ export const SMELT_OUTPUTS: readonly string[] = [
   'minecraft:smooth_stone',
   'minecraft:brick',
   'minecraft:nether_brick',
-  'minecraft:terracotta',
+  'minecraft:hardened_clay', // Bedrock id of plain terracotta (smelted clay)
   'minecraft:deepslate',
   'minecraft:cracked_stone_bricks',
   'minecraft:sponge',

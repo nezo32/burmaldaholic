@@ -167,6 +167,8 @@ write('items/core/chip_5', chip('#c62828', '#f5f5f5'));
 write('items/core/chip_25', chip('#2e7d32', '#f5f5f5'));
 write('items/core/chip_100', chip('#262626', '#f5f5f5'));
 write('items/core/chip_500', chip('#6a1b9a', '#f3d34a'));
+// Golden Chip trophy (GAME_DESIGN §16.3 High Roller loot, decorative)
+write('items/core/golden_chip', chip('#e0a800', '#fff1a8'));
 write('items/core/casino_card', card());
 // Cashier (wood + brass) and Nether cashier (blackstone + gold)
 write('blocks/core/cashier_front', cashierFront('#8a5a2b', '#c9a13a', 3));

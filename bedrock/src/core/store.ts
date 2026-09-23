@@ -29,14 +29,19 @@ export const worldJson = {
 
 const CHUNK_CHARS = 30_000;
 
-/** FIFO list of strings persisted across several world properties, capped at `cap` entries. */
+/** FIFO list of strings persisted across several world properties, capped at `cap` entries (a number or a live config read). */
 export class ChunkedList {
   private items: string[] | undefined;
 
   constructor(
     private readonly id: string,
-    private readonly cap: number,
+    private readonly cap: number | (() => number),
   ) {}
+
+  private limit(): number {
+    const c = typeof this.cap === 'function' ? this.cap() : this.cap;
+    return Number.isFinite(c) ? Math.max(0, Math.floor(c)) : 0;
+  }
 
   private load(): string[] {
     if (this.items) return this.items;
@@ -57,7 +62,8 @@ export class ChunkedList {
     const a = this.load();
     if (a.includes(v)) return;
     a.push(v);
-    while (a.length > this.cap) a.shift();
+    const cap = this.limit();
+    while (a.length > cap) a.shift();
     this.save();
   }
 

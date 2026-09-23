@@ -112,7 +112,8 @@ export const UNSAFE_GROUND: readonly string[] = [
   'minecraft:bedrock',
   'minecraft:barrier',
   'minecraft:structure_void',
-  'minecraft:light_block',
+  // Bedrock splits the light block by level: minecraft:light_block_0 … _15
+  ...Array.from({ length: 16 }, (_, i) => `minecraft:light_block_${i}`),
   'minecraft:end_portal',
   'minecraft:portal',
   'minecraft:end_gateway',

@@ -17,6 +17,9 @@
     "burmaldaholic_chip_500": {
       "textures": "textures/items/core/chip_500"
     },
+    "burmaldaholic_golden_chip": {
+      "textures": "textures/items/core/golden_chip"
+    },
     "burmaldaholic_casino_card": {
       "textures": "textures/items/core/casino_card"
     }

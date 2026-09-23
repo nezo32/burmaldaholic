@@ -32,10 +32,6 @@
         ]
       },
       "minecraft:physics": {},
-      "minecraft:pushable": {
-        "is_pushable": false,
-        "is_pushable_by_piston": false
-      },
       "minecraft:persistent": {},
       "minecraft:fire_immune": {},
       "minecraft:knockback_resistance": {
