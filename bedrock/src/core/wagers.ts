@@ -681,11 +681,12 @@ export class WagerService {
   /** A Soul Wager lost while offline: the death happens once the player is on and the casino open. */
   private applyPendingSoul(player: Player): void {
     if (player.getDynamicProperty(SOUL_PENDING_PROP) !== true || !isCasinoEnabled()) return;
-    player.setDynamicProperty(SOUL_PENDING_PROP, undefined);
+    // The flag is cleared only when the death happens, so logging out during the delay keeps it pending.
     system.runTimeout(() => {
-      if (!player.isValid) return;
-      if (isCasinoEnabled()) this.killBySoulWager(player);
-      else player.setDynamicProperty(SOUL_PENDING_PROP, true);
+      if (!player.isValid || !isCasinoEnabled()) return;
+      if (player.getDynamicProperty(SOUL_PENDING_PROP) !== true) return;
+      player.setDynamicProperty(SOUL_PENDING_PROP, undefined);
+      this.killBySoulWager(player);
     }, 40);
   }
 

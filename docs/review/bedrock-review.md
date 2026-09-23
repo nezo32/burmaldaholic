@@ -223,3 +223,39 @@ and `npm run check:spec` pass.
 
 `docs/architecture/bedrock.md` is updated too: the `onLeave` signature and leave policy, `detach`,
 and the edition notes on hearts and trades.
+
+---
+
+## Re-review (fixes 2713023, 3e82eb5)
+
+**Verdict: APPROVE.** `npm run build`, `npm test` (48 files, 802 tests) and `npm run lint`
+(tsc, eslint, arch, strings, packs) pass.
+
+Verified end to end:
+- **B1:** `Tables.end` passes `leavePolicy(reason)` to every `onLeave`, and only `casino_off`
+  refunds. Roulette keeps the slip, and an abandoned slip still spins (`round.update`
+  treats unseated slips as ready). Craps `autoComplete`s and settles. Poker marks the seat
+  `leaving`, auto-folds it within 10 ticks (`drive`), and cashes it out at hand end.
+  Blackjack, slots and extras never refunded. Owner close, casino broke and a removed dealer
+  NPC now play out too. That is correct, because bankroll exposure was reserved when the bet
+  was placed. No chips are minted or lost on these paths.
+- **M1:** the live entry (player+table) and the parked entry (player+table+hand) never
+  overwrite each other. `addBuyIn` and `park` add to what is there. `payPending` never pays
+  a live entry while its seat exists, and `cashOut` either clears (online) or parks
+  (offline) exactly once. Rejoin, rebuy at another table and top-up all trace clean. A
+  legacy `{id: n}` entry is paid once.
+- **M2:** the dormancy counter is only advanced while the mode is on, and penalties are
+  rebased lazily. Offline hearts and soul deaths wait until the mode is on.
+- **m1, m3, m5, m6, m7, m8, m9:** confirmed in code.
+
+Remaining (minor, not blocking):
+- **r1:** `core/wagers.ts:682` `applyPendingSoul` clears the flag before the 40-tick delay. A
+  player who logs out within 2 s of joining escapes a Soul Wager lost while offline. The old
+  code had the same gap. Fix: clear the flag inside `killBySoulWager`.
+- **r2:** `games/poker/index.ts:363-374`. Casino mode turning off only reaches seats with a
+  session. A disconnected or leaving seat mid-hand stays seated after `abortHand`, and no hand
+  is scheduled for it. Its chips stay in the live entry and are not paid until the player
+  stands up from the table, or the server restarts. No chips are lost. This was already the
+  case before the fixes.
+- **r3:** m2 trade detection is still heuristic, with `dailyCap` as the bound. That is
+  acceptable.
