@@ -103,3 +103,12 @@ config.burmaldaholic.extras.diceDuel.pvpRakePercent=PvP duel rake (%%)
 config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks=Challenge timeout (ticks)
 config.burmaldaholic.extras.diceDuel.maxDistance=Max duel distance
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.extras.scratch.cell.creeper=Creeper
+msg.burmaldaholic.extras.scratch.bought=You bought: %1 for %2
+gui.burmaldaholic.extras.dice.tie_house=Tie on %1 — the house takes it
+gui.burmaldaholic.extras.dice.challenge_body=%1 challenges you to a Dice Duel for %2
+gui.burmaldaholic.extras.dice.rules_pvp=Each rolls two dice, the higher total takes the pot. Ties re-roll; three ties refund both stakes.
+gui.burmaldaholic.extras.dice.pending_entry=%1 — %2
+gui.burmaldaholic.extras.dice.opponent_line=Opponent: %1
+msg.burmaldaholic.extras.dice.target_unavailable=%1 can't take a duel right now
+msg.burmaldaholic.extras.dice.cancelled=The duel with %1 is off

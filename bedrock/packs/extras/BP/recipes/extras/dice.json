@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "burmaldaholic:dice"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:bone_block"
+      },
+      {
+        "item": "minecraft:black_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:bone_block"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:dice",
+      "count": 2
+    }
+  }
+}

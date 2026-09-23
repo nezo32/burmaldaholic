@@ -1,0 +1,23 @@
+{
+  "resource_pack_name": "burmaldaholic",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "burmaldaholic_wheel_front": {
+      "textures": "textures/blocks/extras/wheel_front"
+    },
+    "burmaldaholic_wheel_side": {
+      "textures": "textures/blocks/extras/wheel_side"
+    },
+    "burmaldaholic_plinko_front": {
+      "textures": "textures/blocks/extras/plinko_front"
+    },
+    "burmaldaholic_plinko_side": {
+      "textures": "textures/blocks/extras/plinko_side"
+    },
+    "burmaldaholic_plinko_top": {
+      "textures": "textures/blocks/extras/plinko_top"
+    }
+  }
+}

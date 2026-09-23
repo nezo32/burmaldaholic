@@ -103,3 +103,12 @@ config.burmaldaholic.extras.diceDuel.pvpRakePercent=Комиссия за дуэ
 config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks=Время на ответ (тики)
 config.burmaldaholic.extras.diceDuel.maxDistance=Макс. дистанция дуэли
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.extras.scratch.cell.creeper=Крипер
+msg.burmaldaholic.extras.scratch.bought=Куплено: %1 за %2
+gui.burmaldaholic.extras.dice.tie_house=Ничья на %1 — забирает заведение
+gui.burmaldaholic.extras.dice.challenge_body=%1 вызывает вас на дуэль на костях, ставка %2
+gui.burmaldaholic.extras.dice.rules_pvp=Каждый бросает две кости, большая сумма забирает банк. Ничья — переброс; после трёх ничьих ставки возвращаются.
+gui.burmaldaholic.extras.dice.pending_entry=%1 — %2
+gui.burmaldaholic.extras.dice.opponent_line=Соперник: %1
+msg.burmaldaholic.extras.dice.target_unavailable=%1 сейчас не может принять дуэль
+msg.burmaldaholic.extras.dice.cancelled=Дуэль с игроком %1 отменена

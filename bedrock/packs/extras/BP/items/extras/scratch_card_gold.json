@@ -1,0 +1,26 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "burmaldaholic:scratch_card_gold",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "burmaldaholic_scratch_card_gold"
+        }
+      },
+      "minecraft:display_name": {
+        "value": "item.burmaldaholic.scratch_card_gold"
+      },
+      "minecraft:max_stack_size": 16,
+      "minecraft:rarity": "rare",
+      "burmaldaholic:extras_scratch": {
+        "kind": "gold"
+      }
+    }
+  }
+}
