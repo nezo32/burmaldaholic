@@ -1,0 +1,17 @@
+{
+  "roulette_spin": {
+    "subtitle": "subtitles.burmaldaholic.roulette_spin",
+    "sounds": [
+      {
+        "name": "minecraft:random/wood_click",
+        "pitch": 1.4,
+        "volume": 0.6
+      },
+      {
+        "name": "minecraft:random/click",
+        "pitch": 1.8,
+        "volume": 0.4
+      }
+    ]
+  }
+}

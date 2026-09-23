@@ -63,5 +63,11 @@
 	"config.burmaldaholic.roulette.spinTicks": "Spin animation (ticks)",
 	"config.burmaldaholic.roulette.maxBettors": "Max players",
 	"config.burmaldaholic.roulette.historyLength": "History length",
-	"subtitles.burmaldaholic.roulette_spin": "Roulette spins"
+	"subtitles.burmaldaholic.roulette_spin": "Roulette spins",
+	"gui.burmaldaholic.roulette.error.inside_max": "Inside bets are limited to %1$s per position",
+	"gui.burmaldaholic.roulette.error.total_max": "Your bets per spin are limited to %1$s",
+	"gui.burmaldaholic.roulette.error.min_total": "At this table, bet at least %1$s per spin",
+	"gui.burmaldaholic.roulette.ready_count": "Ready: %1$s of %2$s",
+	"gui.burmaldaholic.roulette.short.odd": "Odd",
+	"gui.burmaldaholic.roulette.short.even": "Even"
 }

@@ -2,8 +2,9 @@ package dev.nezo.burmaldaholic.games.roulette.client;
 
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.client.module.ClientModuleContext;
+import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 
-/** Client half of the "roulette" module (screens, renderers, HUD, client payload receivers). */
+/** Client half of the "roulette" module: the betting-layout screen for both tables. */
 public final class RouletteClientModule implements CasinoClientModule {
 	@Override
 	public String id() {
@@ -12,6 +13,7 @@ public final class RouletteClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
-		// TODO(roulette): e.g. ctx.tableScreen(RouletteModule.TABLE, RouletteScreen::new);
+		ctx.tableScreen(RouletteModule.TABLE, RouletteScreen::new);
+		ctx.tableScreen(RouletteModule.HIGH_ROLLER_TABLE, RouletteScreen::new);
 	}
 }

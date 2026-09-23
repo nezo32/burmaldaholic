@@ -6,7 +6,7 @@
 	"gui.burmaldaholic.roulette.title_high_roller": "Рулетка — хайроллеры",
 	"gui.burmaldaholic.roulette.place_bets": "Делайте ваши ставки",
 	"gui.burmaldaholic.roulette.no_more_bets": "Ставок больше нет",
-	"gui.burmaldaholic.roulette.add_bet": "Добавить ставку",
+	"gui.burmaldaholic.roulette.add_bet": "Ещё ставка",
 	"gui.burmaldaholic.roulette.clear_bets": "Убрать ставки",
 	"gui.burmaldaholic.roulette.your_bets": "Ваши ставки",
 	"gui.burmaldaholic.roulette.no_bets": "Ставок пока нет",
@@ -63,5 +63,11 @@
 	"config.burmaldaholic.roulette.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.roulette.maxBettors": "Макс. игроков",
 	"config.burmaldaholic.roulette.historyLength": "Длина истории",
-	"subtitles.burmaldaholic.roulette_spin": "Крутится рулетка"
+	"subtitles.burmaldaholic.roulette_spin": "Крутится рулетка",
+	"gui.burmaldaholic.roulette.error.inside_max": "Внутренняя ставка — не больше %1$s на позицию",
+	"gui.burmaldaholic.roulette.error.total_max": "Все ставки на один спин — не больше %1$s",
+	"gui.burmaldaholic.roulette.error.min_total": "За этим столом ставка на спин — от %1$s",
+	"gui.burmaldaholic.roulette.ready_count": "Готовы: %1$s из %2$s",
+	"gui.burmaldaholic.roulette.short.odd": "Нечёт",
+	"gui.burmaldaholic.roulette.short.even": "Чёт"
 }
