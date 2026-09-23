@@ -1,3 +1,26 @@
 {
-	"burmaldaholic.multiplayer.name": "Мультиплеер"
+	"msg.burmaldaholic.multiplayer.charter_placed": "Казино получило лицензию! Сбор: %1$s. Ваша зона — %2$s вокруг лицензии.",
+	"msg.burmaldaholic.multiplayer.charter_fee_missing": "Лицензионный сбор — %1$s. Возвращайтесь с деньгами.",
+	"msg.burmaldaholic.multiplayer.charter_overlap": "Слишком близко к другому казино или к точке спавна",
+	"msg.burmaldaholic.multiplayer.charter_limit": "У вас уже максимум казино",
+	"msg.burmaldaholic.multiplayer.charter_removed": "Лицензия снята. Из кассы возвращено %1$s; ваши столы неактивны.",
+	"msg.burmaldaholic.multiplayer.table_linked": "%1$s теперь часть вашего казино",
+	"msg.burmaldaholic.multiplayer.table_protected": "Этот стол принадлежит казино игрока %1$s",
+	"msg.burmaldaholic.multiplayer.table_inactive": "У этого стола нет лицензии. Владелец должен привязать его к лицензии казино.",
+	"msg.burmaldaholic.multiplayer.casino_broke": "Ваше казино закрыто: в кассе не хватает даже на минимальные ставки. Пополните, чтобы открыться.",
+	"msg.burmaldaholic.multiplayer.casino_reopened": "Ваше казино снова открыто",
+	"msg.burmaldaholic.multiplayer.bankroll_deposit": "Касса +%1$s (теперь %2$s)",
+	"msg.burmaldaholic.multiplayer.bankroll_withdraw": "Касса −%1$s (теперь %2$s)",
+	"msg.burmaldaholic.multiplayer.bankroll_reserved": "Можно забрать только %1$s — остальное покрывает открытые ставки",
+	"msg.burmaldaholic.multiplayer.entered_casino": "Вы входите в казино игрока %1$s",
+	"msg.burmaldaholic.multiplayer.seat_taken": "Это место занято",
+	"msg.burmaldaholic.multiplayer.table_left_distance": "Вы отошли от стола",
+	"config.burmaldaholic.ownership.enabled": "Казино игроков",
+	"config.burmaldaholic.ownership.licenseFee": "Лицензионный сбор",
+	"config.burmaldaholic.ownership.claimRadius": "Радиус зоны",
+	"config.burmaldaholic.ownership.maxPerPlayer": "Казино на игрока",
+	"config.burmaldaholic.ownership.protectTables": "Защищать столы владельца",
+	"config.burmaldaholic.ownership.explosionProof": "Столы не взрываются",
+	"config.burmaldaholic.multiplayer.tableLeaveDistance": "Дистанция выхода из-за стола",
+	"config.burmaldaholic.multiplayer.spectatorRadius": "Радиус зрителей"
 }

@@ -2,7 +2,11 @@
 	"required": true,
 	"package": "dev.nezo.burmaldaholic.core.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"AbstractVillagerMixin",
+		"BlockItemMixin",
+		"MobMixin"
+	],
 	"client": [
 		"client.CreateWorldGameTabMixin"
 	],

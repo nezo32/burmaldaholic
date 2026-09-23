@@ -4,7 +4,7 @@ import java.util.Objects;
 
 /** Service locator for the active {@link Economy} implementation (core may swap it). */
 public final class Economies {
-	private static Economy economy = new AttachmentEconomy();
+	private static Economy economy = new LedgerEconomy();
 
 	private Economies() {}
 
@@ -12,7 +12,7 @@ public final class Economies {
 		return economy;
 	}
 
-	/** Core only. */
+	/** Core / tests only. */
 	public static void set(Economy impl) {
 		economy = Objects.requireNonNull(impl);
 	}

@@ -37,6 +37,12 @@ Reference template: <https://github.com/FabricMC/fabric-example-mod> (branch for
   `GameRuleBuilder`. Lang keys: `gamerule.<ns>.<path>`, `.description`, category `gamerule.category.<ns>.<path>`.
 - Fabric data attachments add `getAttached/setAttached` to entities via **interface injection**
   (class tweaker) — they are not in the vanilla jar; the linkage check knows this.
+- `Player#drop(ItemStack, boolean)` does not exist in 26.3 → use `core.util.Inventories.giveOrDrop`.
+- 26.2 moved the entity-type constants to `EntityTypes`; compare registry ids
+  (`BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()`) or tags instead of constants. Most ore tags
+  (`diamond_ores`…) are not constants in `BlockTags` either: `TagKey.create(Registries.BLOCK, Identifier.withDefaultNamespace(...))`.
+- `SavedDataType(id, ctor, codec, null)` works (Fabric patches the null data-fix type); `server.getDataStorage()`
+  is the world-global storage.
 - 26.3's client uses SDL3; under plain `xvfb-run` it fails with "Couldn't find matching GLX visual".
   Client game tests therefore run locally only on 26.2 so far (see §6).
 
@@ -111,15 +117,22 @@ java/
 | `core.module` | | core | `CasinoModule`, `ModuleContext`, `ModuleLoader`, `Namespaces` |
 | `core.registry` | | core | `ModRegistrar` (blocks/items/BE/menus/sounds), `CasinoCreativeTab` |
 | `core.mode` | | core | `CasinoMode` (game rule toggle + `isEnabled` guard) |
-| `core.config` | | core | `ConfigManager`, `ConfigHandle`, `CoreConfig(s)` |
-| `core.economy` | | core | `Economy` API, `Economies` locator, `AttachmentEconomy` default impl |
+| `core.config` | | core | `CasinoConfig` (typed access to every CONFIG.md key), `ConfigManager`, `ConfigBinder`, `@Range/@Size/@Family/@Member`, `sections/*Config` |
+| `core.economy` | | core | `Economy` API (+ `Batch`, `Bankrolls`, `CreditHook`), `AccountId`, `Economies` locator, `Ledger` (pure), `LedgerEconomy` |
+| `core.data` | | core | `CasinoWorldData` (world saved data: balances, bankrolls, player records), `PlayerRecord` |
+| `core.chips` / `core.cashier` | | core | chip items, `ChipMath`, Casino Card, `CashierBlockEntity` |
+| `core.earnings` | | core | ores / mobs / trades (`Earnings`, pure `RewardRules`), merged action-bar toasts |
+| `core.wager` | | core | `Stakes` (chips, item, XP, hearts, soul), `BetLimits`, `HeartPenalties`, `PawnRules` (pure) |
+| `core.service` | | core | `CoreServices` providers (`VipTierProvider`, `DebtProvider`, `GoldenHourProvider`, `TableOwnershipProvider`), `VipTiers` |
+| `core.command` | | core | `/casino` (alias `/burmaldaholic`) + `CasinoCommands.extend` |
+| `core.util` | | core | `Result<T>`, `Inventories` |
 | `core.events` | | core | `CasinoEvents` (`PLAY_RESOLVED`, `BALANCE_CHANGED`) — cross-module bus |
 | `core.network` | | core | `Payloads` helper, generic `TableActionPayload`/`TableSyncPayload`, `CasinoModeSyncPayload` |
-| `core.rng` | | core | `OddsService`, `CasinoRng`, `OddsModifier`, `OddsContext`, `StreakTracker` |
+| `core.rng` | | core | `OddsService` (fair RNG + streak re-draw `play`), `CasinoRng`, `OddsModifier`, `OddsContext`, `StreakRules` (pure), `StreakTracker` (persistent) |
 | `core.text` | | core | `Plural` (p1/p21/p2/p5), `Texts` (numbers, plural components) |
-| `core.table` | | core | `CasinoTableBlock`, `CasinoTableBlockEntity`, `CasinoTableMenu`, `TableType`, `TableRegistrar` |
+| `core.table` | | core | `CasinoTableBlock` (facing, ticker), `CasinoTableBlockEntity` (seats, bets, timers, refunds), `TableSeats`, `CasinoTableMenu`, `TableType`, `TableRegistrar` |
 | `core.mixin[.client]` | | core | e.g. `CreateWorldGameTabMixin` |
-| `client` (client set) | | core | `BurmaldaholicClient`, `ClientModuleList`, `CoreClientModule`, `client.table.CasinoTableScreen`, `ClientTableCache`, `client.config` (Mod Menu) |
+| `client` (client set) | | core | `BurmaldaholicClient`, `ClientModuleList`, `CoreClientModule`, `ClientCasinoState`, `client.hud` (`CasinoHud`, `HudSegment`), `client.table.CasinoTableScreen`, `ClientTableCache`, `client.cashier`, `client.config` (generated Mod Menu screen) |
 | `games.blackjack` | `blackjack` | dev | |
 | `games.poker` | `poker` | dev | |
 | `games.slots` | `slots` | dev | |
@@ -127,7 +140,7 @@ java/
 | `games.craps` | `craps` | dev | |
 | `games.extras` | `extras` | dev | coin flip, wheel, scratch cards, plinko, dice duel |
 | `loan` | `loan` | dev | loan shark, debt, collectors |
-| `chaos` | `chaos` | dev | chaos events, golden hour, **streak odds modifier** |
+| `chaos` | `chaos` | dev | chaos events, golden hour (implements `GoldenHourProvider`); streak math itself is core |
 | `lastchance` | `lastchance` | dev | |
 | `worldgen` | `worldgen` | dev | structures (+ data pack) |
 | `vip` | `vip` | dev | |
@@ -164,7 +177,8 @@ Rules:
   for odds effects. Need something new in core? Ask J-core (it's a shared package).
 - All randomness through `OddsService.get().rng(new OddsContext(player.getUUID(), ID, bet))`:
   `nextInt/shuffle` are fair and never modified; `chance(p)` / `weighted(..., favourable)` pass the
-  player-favourable probability through modifiers (order: 100 streak, 200 vip, 300 chaos, 400 lastchance).
+  player-favourable probability through modifiers (order: 200 vip, 300 chaos, 400 lastchance). RNG games
+  (slots, wheel, plinko, scratch, coin flip) draw through `OddsService.play(...)`, which applies the §14 streak re-draw.
 - After settling a bet fire `CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new PlayResult(ID, bet, payout))`
   (feeds streaks, VIP progress, Last Chance, statistics).
 
@@ -175,7 +189,8 @@ Rules:
 | `ctx.registry().block/blockWithItem/item/blockEntity/menu/sound(...)` | vanilla registration with `setId`, creative-tab auto-add |
 | `ctx.tables().register("blackjack_table", BlackjackTableBlockEntity::new)` | block + item + BE type + menu type → `TableType` |
 | `ctx.payloads().serverbound(name, codec, handler)` / `clientbound(name, codec)` | custom payloads (C2S handler gated by casino mode) |
-| `ctx.config(Section.class, Section::new)` / `ctx.config("streak", ...)` | config section (must be an owned name) |
+| `CasinoConfig.blackjack().decks` | every CONFIG.md key (core registers all sections); `ctx.config("blackjack_x", ...)` only for extra, non-spec sections |
+| `ctx.hudSegment(...)` (client) | add lines to the casino HUD |
 | `ctx.key("gui", "hit")` | `gui.burmaldaholic.<module>.hit` |
 
 ### Ownership (`java/config/namespaces.properties`)
@@ -220,15 +235,16 @@ an owned folder (`textures/gui/blackjack/cards.png`). `checkAssetOwnership` fail
 Never create `assets/burmaldaholic/lang/*` or `sounds.json` — they are generated.
 
 ### Lang
-Edit only `src/main/lang/<module>/en_us.json` **and** `ru_ru.json` (same keys, same placeholders;
-use keys from `docs/design/STRINGS.md`). `mergeLang` fails on: missing/extra keys between languages,
+Fragments are **generated** from `docs/design/STRINGS.md` by `python3 java/tools/gen_lang.py` (§9.1) and already
+contain every key of your module. Edit only `src/main/lang/<module>/en_us.json` **and** `ru_ru.json` (same keys,
+same placeholders) and only for keys that are not (yet) in STRINGS.md — the generator keeps those. `mergeLang` fails on: missing/extra keys between languages,
 placeholder mismatch (`%s`, `%1$s`; anything else like `%d` is rejected), duplicate keys across modules,
 keys outside the module's namespaces, non-string values, incomplete plural sets.
 Key shape: `<category>.burmaldaholic.<owned-name>...`, e.g. `block.burmaldaholic.blackjack_table`,
 `gui.burmaldaholic.blackjack.hit`, `config.burmaldaholic.streak.max`.
 
 **Plurals** (shared with Bedrock): define `<base>.p1`, `.p21`, `.p2`, `.p5` in both languages and use
-`Texts.plural("burmaldaholic.core.chips", n)` (or `Plural.key(base, n)`). p1: n==1; p21: n%10==1 &&
+`Texts.chips(n)` / `Texts.plural("unit.burmaldaholic.heart", n)` (or `Plural.key(base, n)`). p1: n==1; p21: n%10==1 &&
 n%100!=11 (21, 101…); p2: n%10∈2..4 && n%100∉12..14; p5: everything else.
 
 **No hardcoded text**: `checkNoLiterals` bans `Component.literal(`, bare `literal(`,
@@ -245,15 +261,9 @@ Most games need none (generic table payloads). Otherwise: a record implementing
 `ClientPlayNetworking.registerGlobalReceiver` in your client module. Validate every field server-side.
 
 ### Config
-```java
-public final class BlackjackConfig { public int decks = 6; public Limits limits = new Limits(); ... }
-public static ConfigHandle<BlackjackConfig> CONFIG;           // in register(): CONFIG = ctx.config(BlackjackConfig.class, BlackjackConfig::new);
-CONFIG.get().decks                                             // always read through get()
-```
-One file `config/burmaldaholic.json`, top-level object per section, nested objects follow the dotted
-keys in `docs/design/CONFIG.md`; missing keys → defaults, unknown keys logged and dropped, file
-rewritten complete. Mod Menu opens `CasinoConfigScreen` (J-core turns it into a generated editor with
-`config.burmaldaholic.<key>` labels; clamping, per-world overrides and `/casino config` are J-core TODOs).
+Every key of `docs/design/CONFIG.md` already exists (see §9.4): read it with `CasinoConfig.<section>()`, e.g.
+`CasinoConfig.blackjack().decks`, `CasinoConfig.chaos().weight.get("mob_wave")`. Always call the accessor
+again (values change on reload / world override / client sync). New keys: ask core.
 
 ### Mixins
 Each module has its own pre-registered config `src/main/resources/burmaldaholic.<module>.mixins.json`
@@ -304,14 +314,154 @@ Access wideners/class tweakers are a shared file — request from core.
 
 ---
 
-## 8. What exists vs. what J-core adds next
+## 8. What exists
 
-Done in the skeleton (builds; 48 unit tests, server GameTests and the client GameTest pass on 26.2;
-build + tests pass with `-Pmc=26.3`; linkage vs 26.3 passes): module system + all stubs, namespace
-ownership, casino-mode game rule (default ON per GAME_DESIGN §2.1) + Create World toggle + client sync,
-config loader, economy API with attachment storage, odds service + streak tracker, events, plural
-helper, generic table block/BE/menu/screen + payloads, Mod Menu hook, all build checks.
+Core (this wave): lang fragments generated from STRINGS.md for all 13 modules (1 380 keys, `java/tools/gen_lang.py`),
+chips / Casino Card / Cashier + Nether Cashier (textures from `java/tools/gen_core_assets.py`, models, loot, recipes),
+world-saved ledger with atomic batches and bankroll accounts, earnings (ores, mobs, trades), every CONFIG.md key with
+clamping, per-world override, `/casino config`, client sync and a generated Mod Menu screen, HUD with extension point,
+player status sync, persistent streak + §14 re-draw, stake service (chips / item / XP / hearts / soul), table framework
+(seats, bets, bankroll exposure, timers, disconnect/restart refunds), `/casino balance`. Tests: unit tests for all pure
+logic (incl. a CONFIG.md coverage test), server GameTests for economy/cashier/stakes/trades, and the client GameTest
+(screenshots of the config screen, HUD and cashier in `build/run/clientGameTest/screenshots`).
 
-J-core TODO (per docs/design): chips/cashier/casino card, HUD, `/casino` commands, config clamping,
-per-world overrides and client config sync, generated config screen, persistence of streaks,
-earnings (ores/mobs/trading), contracts, wagers.
+Still open in core: Casino Menu screen + `B` keybind (the card only shows the balance), contracts (§3.4.4; config and
+lang exist), chip font glyphs (U+E100…, UI.md §0.1 — the HUD uses the chip item icon), per-player HUD settings,
+advancements (§19), core sound events (`chip_place`, `win`, … need .ogg files).
+
+---
+
+## 9. Core API for feature devs
+
+Everything below is server-side and server-thread only unless marked *client*. All of it is guarded by
+casino mode already where noted; your own entry points (items, blocks, events) must still check
+`CasinoMode.isEnabled(...)`.
+
+### 9.1 Lang (`java/tools/gen_lang.py`)
+```bash
+python3 java/tools/gen_lang.py           # regenerate src/main/lang/<module>/{en_us,ru_ru}.json from docs/design/STRINGS.md
+python3 java/tools/gen_lang.py --check   # CI/pre-commit: exit 1 if a fragment differs from the spec
+python3 java/tools/gen_lang.py --prune   # also drop keys that are not in STRINGS.md
+```
+- Every STRINGS.md row goes to exactly one module: the feature module that **owns the key's name**
+  per `config/namespaces.properties` (e.g. `block.burmaldaholic.blackjack_table` → blackjack,
+  `hud.burmaldaholic.streak.lucky` → chaos because chaos owns `streak`, `advancement.burmaldaholic.jackpot.*` → slots),
+  otherwise core. So your fragment already holds all your keys — **use them, don't rename them**.
+- Re-running overwrites spec keys with the spec text and **keeps** extra keys (warning) unless `--prune`.
+  New player-facing text goes into STRINGS.md first (design), then re-run. Java-only keys that cannot be in
+  STRINGS.md go into `java/tools/lang_java_only.json` (core).
+- Numbers: `Texts.number(n)` ("12 500"); counted nouns: `Texts.chips(n)` (nominative, arg type `chips`),
+  `Texts.chipsAcc(n)` (`chips_acc`), `Texts.plural("unit.burmaldaholic.heart", n)`. Ids/symbols only: `Texts.raw(s)`.
+
+### 9.2 Money — `Economies.get()` (`core.economy.Economy`)
+```java
+long   balance(ServerPlayer p)                         long balance(MinecraftServer s, UUID offline)
+boolean tryWithdraw(ServerPlayer p, long n, Transaction why)   // atomic; false = changed nothing
+long   deposit(ServerPlayer p, long n, Transaction why)       // returns chips actually added (cap, garnishment)
+long   deposit(MinecraftServer s, UUID offline, long n, Transaction why)
+void   setBalance(MinecraftServer s, UUID p, long n, Transaction why)   // admin
+TxResult transfer(MinecraftServer s, AccountId from, AccountId to, long n, Transaction why)
+Batch  batch(MinecraftServer s)   // .debit(acc, n).credit(acc, n)...commit(why) — all legs or none
+Bankrolls bankrolls(MinecraftServer s)  // open(id, owner) get(id) reserve(id, n) release(id, n) close(id)
+void   addCreditHook(CreditHook h)      // loan: garnish PAYOUT/EARNING credits
+```
+- `AccountId.player(uuid)`, `AccountId.bankroll("multiplayer:charter/...")`, `AccountId.HOUSE` (infinite bank).
+- `Transaction.bet(gameId)`, `.payout(gameId)`, `.refund(gameId)`, `.earning(detail)`, `Transaction.of(module, detail)`;
+  `Kind` decides garnishment (`PAYOUT`, `EARNING` are garnishable).
+- Balances live in world saved data (`CasinoWorldData`): survive death, work offline, capped at `economy.maxBalance`
+  (excess lost + `msg.burmaldaholic.core.balance_capped`). `CasinoEvents.BALANCE_CHANGED` fires for online players.
+```java
+// PvP dice duel: both stakes escrowed atomically, winner paid minus rake
+eco.batch(server).debit(AccountId.player(a), s).debit(AccountId.player(b), s).credit(AccountId.HOUSE, 2 * s).commit(Transaction.bet("extras"));
+```
+
+### 9.3 Randomness — `OddsService.get()`
+```java
+CasinoRng rng = OddsService.get().rng(new OddsContext(player.getUUID(), "roulette", bet)); // table games: fair only
+int pocket = rng.nextInt(37);  rng.shuffle(deck);  rng.nextDouble();
+// RNG games (slots, wheel, plinko, scratch, coin flip): §14 streak re-draw built in
+Spin s = OddsService.get().play(ctx, 0.8976 /* RTP §17 */, () -> machine.spin(rng), r -> r.payout() < bet);
+OddsService.get().addModifier("chaos", 300, (ctx, p) -> p);   // optional tilt of rng.chance()/weighted()
+```
+`StreakTracker.get(uuid)` reads the persistent streak (decays lazily); core updates it from `PLAY_RESOLVED` and sends
+the §14 streak messages. `debug.fixedSeed ≠ 0` makes all draws deterministic (tests).
+
+### 9.4 Config — `CasinoConfig`
+All 19 CONFIG.md sections are registered by core (`core/config/sections/*Config.java`): `CasinoConfig.core()`,
+`economy()`, `contracts()`, `wager()`, `vip()`, `blackjack()`, `poker()`, `slots()`, `roulette()`, `craps()`,
+`extras()`, `loan()`, `chaos()`, `streak()`, `lastChance()`, `worldgen()`, `ownership()`, `multiplayer()`, `debug()`.
+Families are maps: `chaos().weight.get("mob_wave")`, `chaos().event.get("curse").enabled`,
+`contracts().weight`, `wager().appraisal` (item id → chips), `slots().copper.weights/pays/berryPartial`.
+- Files: `config/burmaldaholic.json` (global, rewritten complete) + `<world>/data/burmaldaholic_config.json` (override,
+  wins). Wrong type → that field's default, out of range → clamped (`@Range`), unknown → dropped; all logged.
+- `/casino config get|set|reset <key> [value]`, `/casino config reload` (level 2; `set` writes the world override).
+- Clients receive the effective config on join/change (`ConfigSyncPayload`), so `CasinoConfig.x()` on the client
+  shows the server's limits. Mod Menu: generated editor for the global file (labels `config.burmaldaholic.<key>`).
+- Adding a key = add a field (with `@Range`) to the section class + the row to CONFIG.md/STRINGS.md; ask core.
+
+### 9.5 Bets and stakes — `core.wager`
+```java
+Component err = BetLimits.validate(player, amount, min, tableMax);   // null = ok; min ≤ bet ≤ min(tableMax, VIP max) ≤ balance
+long max = BetLimits.maxBet(player, tableMax);
+Result<Stake> r = Stakes.chips(player, "extras", amount, min, tableMax); // validates + debits (house-banked)
+Result<Stake> r = Stakes.heldItem(player, "extras");      // appraisal table, undamaged/unenchanted/unnamed, escrowed
+Result<Stake> r = Stakes.xp(player, "extras", levels);    // V = floor(points / wager.xp.pointsPerChip), escrowed
+Result<Stake> r = Stakes.hearts(player, "extras", h);     // −2h max health for wager.hearts.durationTicks on loss
+Result<Stake> r = Stakes.soul(player, "extras");          // Hardcore + wager.hardcoreSoulWager; coin flip only
+if (!r.isOk()) { show(r.error()); return; }
+Stakes.settle(player, r.value(), Stakes.Outcome.WIN, (long) Math.floor(r.value().value() * 0.96)); // fires PLAY_RESOLVED
+Stakes.refund(player, stake);                             // cancelled round
+```
+`Stake.value()` is V in chips (what you pay against and what counts as wagered). Only offer pawn stakes where §4.3 allows.
+
+### 9.6 Tables — `CasinoTableBlockEntity`
+```java
+public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
+    @Override protected int seatCount() { return CasinoConfig.blackjack().seats; }
+    @Override protected long minBet() { return CasinoConfig.blackjack().minBet; }
+    @Override public void onAction(ServerPlayer p, String action, CompoundTag args) {
+        switch (action) {
+            case "bet" -> {
+                long amount = args.getLongOr("amount", 0);
+                if (placeBet(p, amount, 8 * amount /* worst-case payout, §18.2 */).isOk()) { setPhase("betting"); startTimer("bet", CasinoConfig.blackjack().betTimerTicks); }
+            }
+            case "double" -> placeBet(p, stakeOf(p.getUUID()), minBet(), 0, 0, false); // doubles may exceed the max
+        }
+        syncViewers();
+    }
+    @Override protected void onTimer(String id) { if (id.equals("bet")) deal(); }
+    @Override protected void onPlayerLeft(UUID id, LeaveReason why) { standAndSettle(id); } // §4.1 auto-complete
+    void finish(UUID id, long totalReturn) { settle(id, totalReturn); }  // pays house/bankroll, PLAY_RESOLVED, streak
+    @Override public CompoundTag writeClientState(ServerPlayer viewer) { CompoundTag t = baseState(viewer); /* + your fields */ return t; }
+}
+```
+- Free: `"sit"` / `"leave"` actions, seats (`seats()`, `sit`, `leave`, `isSeated`), distance/disconnect removal
+  (`multiplayer.tableLeaveDistance`), `placeBet` (validation incl. owned-table rules: owner can't play, closed,
+  owner min/max, bankroll reservation → `house_broke`/`exposure`), `settle(uuid, payout)` / `refund(uuid)` (offline-safe),
+  open stakes saved with the block entity and **refunded on reload** (`core.roundTimeoutRefund`) or when the block
+  breaks, `setPhase`/`startTimer`/`ticksLeft`/`onTimer`, `sendError(player, component)` (red line on the screen),
+  `baseState(viewer)` (phase, timers, seats, seat, stake, balance, min, max). Default `onPlayerLeft` refunds.
+- Blocks face the placer (`CasinoTableBlock.FACING`): blockstate needs `facing=north|east|south|west` variants.
+- *client* `CasinoTableScreen`: `state()`, `sendAction`, `balance()/minBet()/maxBet()/myStake()/mySeat()/phase()`,
+  `timerSeconds(id)`, `seatNames()`, `limitsLine()`, `button(label, x, y, minWidth, onPress)` (auto-width for RU),
+  `showError`, felt background. Register with `ctx.tableScreen(MyModule.TABLE, MyScreen::new)`.
+
+### 9.7 Providers — `CoreServices` (implement once, in your module's `register`)
+| Module | Call | Core uses it for |
+|---|---|---|
+| vip | `CoreServices.setVip((server, uuid) -> tier)` (`VipTierProvider`, may override `maxBet`) | bet limits, HUD badge, emerald rate, stakes |
+| loan | `CoreServices.setDebt(DebtProvider)` (`owed`, `inDefault`, `ticksToDeadline`) + `Economies.get().addCreditHook(...)` | cashier withdrawable/freeze, HUD loan line, garnishment |
+| chaos | `CoreServices.setGoldenHour(server -> remainingTicks)` | HUD timer, gold balance |
+| multiplayer | `CoreServices.setTableOwnership((level, pos) -> Optional.of(new OwnedTable(owner, bankrollId, min, max, open)))` | bets/payouts via bankroll, exposure, owner rules |
+`VipTiers.name(tier)` (colored translated name), `VipTiers.maxBet(tier)` (config).
+
+### 9.8 Events, earnings, commands, HUD
+- `CasinoEvents.PLAY_RESOLVED` — fire after every settled wager if you don't use `settle`/`Stakes.settle`
+  (they fire it). Not fired for offline players. `CasinoEvents.BALANCE_CHANGED` — online balance changes.
+- `Earnings.markNoReward(entity)` — chaos-wave mobs and debt collectors never pay kill rewards (spawner mobs are
+  marked automatically).
+- `CasinoCommands.extend(root -> root.then(Commands.literal("debt")...))` — sub-commands under `/casino`.
+- *client* `ctx.hudSegment("loan_hud", 250, (hud, out) -> out.accept(HudLine.of(text)))` — HUD lines; read
+  `ClientCasinoState` / your own synced data. Core segments: 0 balance, 100 streak + VIP, 200 loan, 300 Golden Hour.
+- `CoreContent.CASHIER`, `Chips.item(100)`, `ChipItem.valueOf(stack)`, `Inventories.giveOrDrop(player, stack)`
+  (use it instead of `Player#drop`, which changed in 26.3).

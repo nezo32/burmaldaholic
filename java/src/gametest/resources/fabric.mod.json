@@ -6,7 +6,8 @@
 	"environment": "*",
 	"entrypoints": {
 		"fabric-gametest": [
-			"dev.nezo.burmaldaholic.gametest.CoreGameTests"
+			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests"

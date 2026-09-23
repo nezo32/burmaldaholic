@@ -1,3 +1,14 @@
 {
-	"burmaldaholic.worldgen.name": "Казино"
+	"gui.burmaldaholic.worldgen.village_casino": "Казино «Счастливый житель»",
+	"gui.burmaldaholic.worldgen.piglin_parlor": "Пиглинский салон",
+	"gui.burmaldaholic.worldgen.high_roller": "Лаунж хайроллеров",
+	"msg.burmaldaholic.worldgen.entered": "Добро пожаловать: %1$s",
+	"msg.burmaldaholic.worldgen.entered_subtitle": "Играйте ответственно. Ну или хотя бы зрелищно.",
+	"advancement.burmaldaholic.piglin_parlor.title": "Свинство и азарт",
+	"advancement.burmaldaholic.piglin_parlor.description": "Зайдите в пиглинский салон",
+	"config.burmaldaholic.worldgen.enabled": "Генерировать казино",
+	"config.burmaldaholic.worldgen.villageCasino.chance": "Шанс казино в деревне",
+	"config.burmaldaholic.worldgen.piglinParlor.chance": "Шанс пиглинского салона",
+	"config.burmaldaholic.worldgen.highRoller.chance": "Шанс лаунжа хайроллеров",
+	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Возрождение ростовщика (тики)"
 }

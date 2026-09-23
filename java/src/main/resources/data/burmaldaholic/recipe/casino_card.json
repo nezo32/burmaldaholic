@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:gold_nugget",
+    "minecraft:emerald"
+  ],
+  "result": {
+    "id": "burmaldaholic:casino_card"
+  }
+}

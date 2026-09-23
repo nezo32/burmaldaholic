@@ -11,13 +11,15 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
  */
 public final class TableType<BE extends CasinoTableBlockEntity> {
 	private final String name;
+	private final String moduleId;
 	private CasinoTableBlock block;
 	private Item item;
 	private BlockEntityType<BE> blockEntityType;
 	private ExtendedMenuType<CasinoTableMenu, BlockPos> menuType;
 
-	TableType(String name) {
+	TableType(String name, String moduleId) {
 		this.name = name;
+		this.moduleId = moduleId;
 	}
 
 	void bind(CasinoTableBlock block, Item item, BlockEntityType<BE> beType, ExtendedMenuType<CasinoTableMenu, BlockPos> menuType) {
@@ -27,8 +29,14 @@ public final class TableType<BE extends CasinoTableBlockEntity> {
 		this.menuType = menuType;
 	}
 
+	/** Registry path, e.g. {@code blackjack_table}. */
 	public String name() {
 		return name;
+	}
+
+	/** Owning module id (default game id for transactions/events). */
+	public String moduleId() {
+		return moduleId;
 	}
 
 	public CasinoTableBlock block() {

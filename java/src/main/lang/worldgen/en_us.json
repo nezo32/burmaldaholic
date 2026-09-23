@@ -1,3 +1,14 @@
 {
-	"burmaldaholic.worldgen.name": "Casinos"
+	"gui.burmaldaholic.worldgen.village_casino": "Lucky Villager Casino",
+	"gui.burmaldaholic.worldgen.piglin_parlor": "Piglin Parlor",
+	"gui.burmaldaholic.worldgen.high_roller": "High Roller Lounge",
+	"msg.burmaldaholic.worldgen.entered": "Welcome to %1$s",
+	"msg.burmaldaholic.worldgen.entered_subtitle": "Please gamble responsibly. Or at least entertainingly.",
+	"advancement.burmaldaholic.piglin_parlor.title": "Snouts and Ladders",
+	"advancement.burmaldaholic.piglin_parlor.description": "Enter a Piglin Parlor",
+	"config.burmaldaholic.worldgen.enabled": "Generate casinos",
+	"config.burmaldaholic.worldgen.villageCasino.chance": "Village casino chance",
+	"config.burmaldaholic.worldgen.piglinParlor.chance": "Piglin Parlor chance",
+	"config.burmaldaholic.worldgen.highRoller.chance": "High Roller Lounge chance",
+	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Loan Shark respawn (ticks)"
 }

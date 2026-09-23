@@ -38,8 +38,13 @@ abstract class CreateWorldGameTabMixin {
 			return;
 		}
 		WorldCreationUiState state = screen.getUiState();
-		CycleButton<Boolean> button = CycleButton.onOffBuilder(state.getGameRules().get(CasinoMode.rule()))
-			.withTooltip(value -> Tooltip.create(Component.translatable("gamerule.burmaldaholic.casino_mode.description")))
+		String key = "gui.burmaldaholic.core.create_world.casino_mode";
+		CycleButton<Boolean> button = CycleButton.booleanBuilder(
+				Component.translatable(key, Component.translatable("gui.burmaldaholic.common.on")),
+				Component.translatable(key, Component.translatable("gui.burmaldaholic.common.off")),
+				state.getGameRules().get(CasinoMode.rule()))
+			.displayOnlyValue()
+			.withTooltip(value -> Tooltip.create(Component.translatable(key + ".tooltip")))
 			.create(0, 0, 210, 20, Component.translatable("gamerule.burmaldaholic.casino_mode"), (b, value) -> {
 				GameRules rules = state.getGameRules();
 				rules.set(CasinoMode.rule(), value, null);

@@ -69,18 +69,14 @@ public final class ModuleContext {
 	}
 
 	/**
-	 * A config section ({@code "<section>": {...}} in config/burmaldaholic.json), e.g. "blackjack",
-	 * or "streak" for chaos. The section must be owned by this module (see namespaces.properties).
-	 * {@code type} is a plain class with public mutable fields (nested classes allowed) and a
-	 * no-arg constructor whose field initialisers are the defaults from docs/design/CONFIG.md.
+	 * An EXTRA config section for module-private settings that are not in docs/design/CONFIG.md.
+	 * Every CONFIG.md key already exists and is read with {@code CasinoConfig.<section>()} (registered
+	 * by core, so {@code ctx.config("blackjack", ...)} would clash). The section must be owned by this
+	 * module (namespaces.properties), e.g. {@code "blackjack_debug"}. {@code type} is a plain class with
+	 * public mutable fields (nested classes allowed, {@code @Range} for clamping) and a no-arg constructor.
 	 */
 	public <T> ConfigHandle<T> config(String section, Class<T> type, Supplier<T> defaults) {
 		checkOwned(section);
 		return ConfigManager.get().register(section, type, defaults);
-	}
-
-	/** Shortcut for the section named after the module. */
-	public <T> ConfigHandle<T> config(Class<T> type, Supplier<T> defaults) {
-		return config(moduleId, type, defaults);
 	}
 }

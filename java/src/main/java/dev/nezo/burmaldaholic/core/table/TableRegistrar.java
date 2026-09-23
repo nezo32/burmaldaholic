@@ -41,8 +41,19 @@ public final class TableRegistrar {
 
 	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory,
 			BlockBehaviour.Properties props) {
-		TableType<BE> type = new TableType<>(name);
-		CasinoTableBlock block = ctx.registry().blockWithItem(name, p -> new CasinoTableBlock(p, type), props);
+		return register(name, beFactory, props, CasinoTableBlock::new);
+	}
+
+	/** Custom block class (e.g. a different shape); it must extend {@link CasinoTableBlock}. */
+	@FunctionalInterface
+	public interface BlockFactory {
+		CasinoTableBlock create(BlockBehaviour.Properties props, TableType<?> type);
+	}
+
+	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory,
+			BlockBehaviour.Properties props, BlockFactory blockFactory) {
+		TableType<BE> type = new TableType<>(name, ctx.moduleId());
+		CasinoTableBlock block = ctx.registry().blockWithItem(name, p -> blockFactory.create(p, type), props);
 		BlockEntityType<BE> beType = ctx.registry().blockEntity(name, (pos, state) -> beFactory.create(type, pos, state), block);
 		ExtendedMenuType<CasinoTableMenu, BlockPos> menuType = ctx.registry().menu(name,
 			(syncId, inventory, pos) -> new CasinoTableMenu(type, syncId, inventory, pos), BlockPos.STREAM_CODEC);

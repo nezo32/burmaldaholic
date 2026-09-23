@@ -1,6 +1,6 @@
 package dev.nezo.burmaldaholic.core.table;
 
-import dev.nezo.burmaldaholic.core.config.CoreConfigs;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -37,7 +37,7 @@ public class CasinoTableMenu extends AbstractContainerMenu {
 
 	@Override
 	public boolean stillValid(Player player) {
-		double max = CoreConfigs.core().maxTableDistance;
+		double max = CasinoConfig.multiplayer().tableLeaveDistance;
 		return player.level().getBlockState(pos).is(tableType.block())
 			&& player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= max * max;
 	}

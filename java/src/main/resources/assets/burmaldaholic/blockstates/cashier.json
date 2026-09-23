@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/core/cashier"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/core/cashier",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/core/cashier",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/core/cashier",
+      "y": 270
+    }
+  }
+}

@@ -1,3 +1,26 @@
 {
-	"burmaldaholic.multiplayer.name": "Multiplayer"
+	"msg.burmaldaholic.multiplayer.charter_placed": "Casino licensed! License fee: %1$s. Your claim: %2$s around the charter.",
+	"msg.burmaldaholic.multiplayer.charter_fee_missing": "The license fee is %1$s. Come back with money.",
+	"msg.burmaldaholic.multiplayer.charter_overlap": "Too close to another casino or spawn",
+	"msg.burmaldaholic.multiplayer.charter_limit": "You already own the maximum number of casinos",
+	"msg.burmaldaholic.multiplayer.charter_removed": "Charter removed. %1$s returned from the bankroll; your tables are now inactive.",
+	"msg.burmaldaholic.multiplayer.table_linked": "%1$s is now part of your casino",
+	"msg.burmaldaholic.multiplayer.table_protected": "This table belongs to %1$s's casino",
+	"msg.burmaldaholic.multiplayer.table_inactive": "This table has no license. Its owner must link it to a charter.",
+	"msg.burmaldaholic.multiplayer.casino_broke": "Your casino is closed: the bankroll can't cover the minimum bets. Top it up to reopen.",
+	"msg.burmaldaholic.multiplayer.casino_reopened": "Your casino is open again",
+	"msg.burmaldaholic.multiplayer.bankroll_deposit": "Bankroll +%1$s (now %2$s)",
+	"msg.burmaldaholic.multiplayer.bankroll_withdraw": "Bankroll −%1$s (now %2$s)",
+	"msg.burmaldaholic.multiplayer.bankroll_reserved": "You can only withdraw %1$s — the rest covers open bets",
+	"msg.burmaldaholic.multiplayer.entered_casino": "You enter %1$s's casino",
+	"msg.burmaldaholic.multiplayer.seat_taken": "That seat is taken",
+	"msg.burmaldaholic.multiplayer.table_left_distance": "You walked away from the table",
+	"config.burmaldaholic.ownership.enabled": "Player casinos",
+	"config.burmaldaholic.ownership.licenseFee": "License fee",
+	"config.burmaldaholic.ownership.claimRadius": "Claim radius",
+	"config.burmaldaholic.ownership.maxPerPlayer": "Casinos per player",
+	"config.burmaldaholic.ownership.protectTables": "Protect owned tables",
+	"config.burmaldaholic.ownership.explosionProof": "Explosion-proof tables",
+	"config.burmaldaholic.multiplayer.tableLeaveDistance": "Leave-table distance",
+	"config.burmaldaholic.multiplayer.spectatorRadius": "Spectator radius"
 }

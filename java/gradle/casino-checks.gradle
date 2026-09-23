@@ -220,13 +220,18 @@ def checkAssetOwnership = tasks.register('checkAssetOwnership') {
 	roots.each { if (it.exists()) inputs.dir(it) }
 	inputs.dir(langRoot)
 	inputs.file(namespacesFile)
+	def coreIdsFile = file('config/core-ids.txt')
+	inputs.file(coreIdsFile).optional()
 	def marker = rootProject.layout.buildDirectory.file('checks/checkAssetOwnership.ok')
 	outputs.file(marker)
 	doLast {
 		def modules = moduleIds()
 		def ns = namespaces()
-		// Files the core team owns regardless of name.
+		// Files the core team owns regardless of name, plus files named after a core id (config/core-ids.txt).
 		def coreOwned = ['icon.png'] as Set
+		def coreIds = coreIdsFile.exists()
+			? coreIdsFile.readLines('UTF-8').collect { it.trim() }.findAll { it && !it.startsWith('#') } as Set
+			: [] as Set
 		def problems = []
 		roots.findAll { it.exists() }.each { root ->
 			root.eachFileRecurse(groovy.io.FileType.FILES) { f ->
@@ -237,6 +242,8 @@ def checkAssetOwnership = tasks.register('checkAssetOwnership') {
 					return
 				}
 				if (rel in coreOwned) return
+				def base = parts.last().contains('.') ? parts.last().substring(0, parts.last().lastIndexOf('.')) : parts.last()
+				if (base in coreIds) return
 				// Ignore the category folder(s) (e.g. textures/block/...). Ownership = any path segment
 				// (after the first) that equals a module id, or file name starting with `<module>_`.
 				def rest = parts.drop(1)

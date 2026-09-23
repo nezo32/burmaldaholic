@@ -30,10 +30,10 @@ public final class CasinoCreativeTab {
 
 	public static void register() {
 		CreativeModeTab tab = FabricCreativeModeTab.builder()
-			.title(Component.translatable("itemGroup.burmaldaholic.core"))
+			.title(Component.translatable("itemGroup.burmaldaholic.main"))
 			.icon(() -> new ItemStack(icon))
 			.displayItems((params, output) -> ITEMS.forEach(output::accept))
 			.build();
-		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Burmaldaholic.id("core"), tab);
+		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Burmaldaholic.id("main"), tab);
 	}
 }

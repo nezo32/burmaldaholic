@@ -2,21 +2,44 @@ package dev.nezo.burmaldaholic.client.table;
 
 import dev.nezo.burmaldaholic.core.network.TableActionPayload;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
+import dev.nezo.burmaldaholic.core.text.Texts;
+import java.util.ArrayList;
+import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Base screen for tables: renders {@link #state()} and sends input with {@link #sendAction}.
- * NEVER decide outcomes on the client. All text via Component.translatable.
+ * Base screen for tables: renders {@link #state()} (sent by the block entity) and sends input with
+ * {@link #sendAction}. NEVER decide outcomes on the client. All text via Component.translatable.
+ *
+ * <p>Provided: a felt panel ({@link #extractBackground}, override for textures), the title, an error
+ * line (server {@code sendError}, shown 60 ticks), helpers for the common state fields written by
+ * {@code CasinoTableBlockEntity#baseState} ({@link #balance()}, {@link #minBet()}, {@link #maxBet()},
+ * {@link #mySeat()}, {@link #seatNames()}, {@link #timerSeconds}), and {@link #button} which sizes
+ * buttons to their (translated, possibly Russian) label as UI.md §0.1 requires.
  */
 public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTableMenu> {
+	protected static final int FELT = 0xFF1E5E3A;
+	protected static final int FELT_BORDER = 0xFF0E2E1C;
+	protected static final int TEXT = 0xFFFFFFFF;
+	protected static final int ERROR = 0xFFFF5555;
 	private CompoundTag state = new CompoundTag();
+	private @Nullable Component error;
+	private int errorTicks;
 
 	protected CasinoTableScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
-		super(menu, inventory, title);
+		this(menu, inventory, title, 256, 200);
+	}
+
+	protected CasinoTableScreen(CasinoTableMenu menu, Inventory inventory, Component title, int width, int height) {
+		super(menu, inventory, title, width, height);
 		this.inventoryLabelY = -10_000; // slot-less menus: hide the "Inventory" label
 	}
 
@@ -39,11 +62,102 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 	/** Rebuild widgets / animations here. */
 	protected void onStateChanged(CompoundTag newState) {}
 
+	public void showError(Component message) {
+		this.error = message;
+		this.errorTicks = 60;
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (errorTicks > 0 && --errorTicks == 0) {
+			error = null;
+		}
+	}
+
 	protected void sendAction(String action, CompoundTag args) {
 		ClientPlayNetworking.send(new TableActionPayload(menu.pos(), action, args));
 	}
 
 	protected void sendAction(String action) {
 		sendAction(action, new CompoundTag());
+	}
+
+	// ---- common state helpers -----------------------------------------------------------------
+
+	protected long balance() {
+		return state.getLongOr("balance", 0);
+	}
+
+	protected long minBet() {
+		return state.getLongOr("min", 1);
+	}
+
+	protected long maxBet() {
+		return state.getLongOr("max", 0);
+	}
+
+	protected long myStake() {
+		return state.getLongOr("stake", 0);
+	}
+
+	protected int mySeat() {
+		return state.getIntOr("seat", -1);
+	}
+
+	protected String phase() {
+		return state.getStringOr("phase", "idle");
+	}
+
+	/** Seconds left on a server timer, or -1. */
+	protected long timerSeconds(String id) {
+		long ticks = state.getCompoundOrEmpty("timers").getLongOr(id, -1);
+		return ticks < 0 ? -1 : (ticks + 19) / 20;
+	}
+
+	/** Player names per seat index ("" = empty). */
+	protected List<String> seatNames() {
+		int count = state.getIntOr("seat_count", 0);
+		List<String> names = new ArrayList<>();
+		for (int i = 0; i < count; i++) {
+			names.add("");
+		}
+		ListTag seats = state.getListOrEmpty("seats");
+		for (int i = 0; i < seats.size(); i++) {
+			CompoundTag s = seats.getCompoundOrEmpty(i);
+			int index = s.getIntOr("index", -1);
+			if (index >= 0 && index < names.size()) {
+				names.set(index, s.getStringOr("name", ""));
+			}
+		}
+		return names;
+	}
+
+	/** "Min 1 · Max 1 000" line. */
+	protected Component limitsLine() {
+		return Component.translatable("gui.burmaldaholic.common.limits", Texts.number(minBet()), Texts.number(maxBet()));
+	}
+
+	/** A button as wide as its label needs (min {@code minWidth}), at GUI-relative {@code x, y}. */
+	protected Button button(Component label, int x, int y, int minWidth, Button.OnPress onPress) {
+		int w = Math.max(minWidth, font.width(label) + 8);
+		return addRenderableWidget(Button.builder(label, onPress).bounds(leftPos + x, topPos + y, w, 20).build());
+	}
+
+	// ---- rendering ----------------------------------------------------------------------------
+
+	@Override
+	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+		super.extractBackground(graphics, mouseX, mouseY, a);
+		graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, FELT_BORDER);
+		graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, FELT);
+	}
+
+	@Override
+	protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
+		graphics.text(font, title, titleLabelX, titleLabelY, TEXT, true);
+		if (error != null) {
+			graphics.centeredText(font, error, imageWidth / 2, imageHeight - 12, ERROR);
+		}
 	}
 }
