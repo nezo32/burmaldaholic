@@ -284,7 +284,7 @@ cost. Mints: earnings (§3.4), loans, Golden Hour bonuses, jackpot seeds, loot c
 IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SETTLED (credit payout)
 ```
 - Debit happens when the bet is **confirmed**, never before. If the balance is insufficient the
-  bet is rejected with `msg.burmaldaholic.core.insufficient_funds`.
+  bet is rejected with `gui.burmaldaholic.error.insufficient_funds`.
 - If the player disconnects between STAKED and SETTLED: the round is auto-completed by the
   server with the game's default action (blackjack: stand; craps: bets stay working until
   resolved; roulette: spin proceeds) and the payout is credited to the balance. No refunds.
@@ -377,7 +377,8 @@ Only **one active loan** per player. Amounts fixed; availability by VIP tier.
 | Life-changing | 50 000 | 7 MCD | Diamond |
 
 **Interest (flat, charged once):** `due = ceil(principal × (1 + rate))`, where
-`rate = baseRate(difficulty) − 0.02 × min(goodStanding, 5)`, floored at 0.10.
+`rate = baseRate(difficulty) − 0.02 × min(goodStanding, 5) − (VIP ≥ Platinum ? 0.02 : 0)`,
+floored at 0.10.
 `baseRate`: Peaceful/Easy 0.15, Normal 0.20, Hard/Hardcore 0.25. `goodStanding` is the count of
 loans repaid on time (never decreases except on default, which resets it to 0).
 

@@ -12,7 +12,7 @@ the numbers used throughout `GAME_DESIGN.md` (section references in the last col
 | Editing | Config screen (Mod Menu integration, client) for single-player; `/casino config get/set/reset <key> [value]` (permission level 2) on servers; reload with `/casino config reload`. | Casino Card → Admin → World settings (ops only): one ActionForm per module listing keys → ModalForm per group (toggle for bool, slider for small int ranges, text field otherwise, dropdown for enums). `/scriptevent burmaldaholic:config set <key> <value>`. |
 | Validation | Out-of-range values are **clamped** to the range and a warning is logged / shown to the editor. Wrong type → default. | Same. |
 | Sync | Server sends the effective config subset needed for UI (limits, payouts tables) to clients on join and on change. | Not needed (UI is server-built forms). |
-| Labels | `config.burmaldaholic.<key>` and `config.burmaldaholic.<key>.tooltip` (see STRINGS.md §config). | Same keys. |
+| Labels | `config.burmaldaholic.<key>`; `.tooltip` only where STRINGS.md §config lists one; keys with `<…>` use the family template key (STRINGS.md §config "Family templates"). | Same keys. |
 
 Types: `bool`, `int` (32-bit, except where `long`), `double`, `enum(...)`, `list<…>`.
 Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in `Percent`.
