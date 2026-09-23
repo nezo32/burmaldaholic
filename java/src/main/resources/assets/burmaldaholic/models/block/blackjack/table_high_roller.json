@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "burmaldaholic:block/blackjack/felt_high_roller",
+    "side": "burmaldaholic:block/blackjack/side_high_roller",
+    "bottom": "minecraft:block/obsidian"
+  }
+}

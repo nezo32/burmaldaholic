@@ -65,5 +65,11 @@
 	"config.burmaldaholic.blackjack.seats": "Мест за столом",
 	"config.burmaldaholic.blackjack.betTimerTicks": "Время на ставки (тики)",
 	"config.burmaldaholic.blackjack.insuranceTimerTicks": "Время на страховку (тики)",
-	"config.burmaldaholic.blackjack.turnTimerTicks": "Время на ход (тики)"
+	"config.burmaldaholic.blackjack.turnTimerTicks": "Время на ход (тики)",
+	"entity.burmaldaholic.blackjack_dealer": "Дилер блэкджека",
+	"item.burmaldaholic.blackjack_dealer_spawn_egg": "Яйцо призыва дилера блэкджека",
+	"gui.burmaldaholic.blackjack.sit": "Сесть за стол",
+	"gui.burmaldaholic.blackjack.no_bet": "Ещё без ставки",
+	"gui.burmaldaholic.blackjack.turn_of": "Ходит %1$s…",
+	"msg.burmaldaholic.blackjack.no_table": "Дилеру нужен стол для блэкджека совсем рядом"
 }

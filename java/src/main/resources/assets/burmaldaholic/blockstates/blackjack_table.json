@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/blackjack/table"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/blackjack/table",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/blackjack/table",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/blackjack/table",
+      "y": 270
+    }
+  }
+}
