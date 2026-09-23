@@ -22,5 +22,22 @@
 	"config.burmaldaholic.ownership.protectTables": "Защищать столы владельца",
 	"config.burmaldaholic.ownership.explosionProof": "Столы не взрываются",
 	"config.burmaldaholic.multiplayer.tableLeaveDistance": "Дистанция выхода из-за стола",
-	"config.burmaldaholic.multiplayer.spectatorRadius": "Радиус зрителей"
+	"config.burmaldaholic.multiplayer.spectatorRadius": "Радиус зрителей",
+	"msg.burmaldaholic.multiplayer.charter_foreign": "Это лицензия казино игрока %1$s",
+	"msg.burmaldaholic.multiplayer.casinos_disabled": "Казино игроков на этом сервере отключены",
+	"msg.burmaldaholic.multiplayer.table_saved": "%1$s: настройки сохранены",
+	"msg.burmaldaholic.multiplayer.linked_none": "В вашей зоне нет непривязанных столов",
+	"msg.burmaldaholic.multiplayer.linked_count": "Привязано столов: %1$s",
+	"gui.burmaldaholic.multiplayer.owner": "Владелец: %1$s",
+	"gui.burmaldaholic.multiplayer.claim": "Зона: %1$s вокруг %2$s",
+	"gui.burmaldaholic.multiplayer.tables_count": "Столы: %1$s",
+	"gui.burmaldaholic.multiplayer.limit_hint": "Оставьте мин. и макс. пустыми — будут лимиты самой игры. Максимум — не выше %1$s.",
+	"gui.burmaldaholic.multiplayer.error_min_max": "Минимальная ставка не может быть больше максимальной",
+	"gui.burmaldaholic.multiplayer.error_over_global": "Лимиты ставок не могут быть выше %1$s",
+	"gui.burmaldaholic.multiplayer.rounds": "Сыграно раундов: сегодня %1$s, всего %2$s",
+	"gui.burmaldaholic.multiplayer.toggle": "%1$s: %2$s",
+	"gui.burmaldaholic.multiplayer.save": "Сохранить",
+	"gui.burmaldaholic.multiplayer.page": "Страница %1$s из %2$s",
+	"gui.burmaldaholic.multiplayer.negative": "−%1$s",
+	"gui.burmaldaholic.multiplayer.spectate": "%1$s: игроков %2$s/%3$s · в игре %4$s"
 }
