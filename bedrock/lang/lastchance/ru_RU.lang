@@ -31,6 +31,6 @@ config.burmaldaholic.lastChance.hardcoreMode.tooltip=Ва-банк: выжить
 config.burmaldaholic.lastChance.hardcore.chance=Шанс успеха в хардкоре
 config.burmaldaholic.lastChance.hardcore.cooldownTicks=Перезарядка в хардкоре (тики)
 config.burmaldaholic.lastChance.hardcore.minStake=Мин. фишек для хардкора
-config.burmaldaholic.lastChance.hardcore.heartCost=Навсегда отнимается здоровья
+config.burmaldaholic.lastChance.hardcore.heartCost=Потеря здоровья навсегда
 config.burmaldaholic.lastChance.hardcore.minMaxHealth=Мин. максимум здоровья для сделки
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----

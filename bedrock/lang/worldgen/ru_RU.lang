@@ -4,7 +4,7 @@
 gui.burmaldaholic.worldgen.village_casino=Казино «Счастливый житель»
 gui.burmaldaholic.worldgen.piglin_parlor=Пиглинский салон
 gui.burmaldaholic.worldgen.high_roller=Лаунж хайроллеров
-msg.burmaldaholic.worldgen.entered=Добро пожаловать: %1
+msg.burmaldaholic.worldgen.entered=Добро пожаловать в %1
 msg.burmaldaholic.worldgen.entered_subtitle=Играйте ответственно. Ну или хотя бы зрелищно.
 gui.burmaldaholic.croupier.title=Крупье
 gui.burmaldaholic.croupier.shop=Купить лотерею и монетки
@@ -28,7 +28,7 @@ gui.burmaldaholic.worldgen.shop.offer=%1 — %2
 gui.burmaldaholic.worldgen.dealer.play=Играть: %1
 gui.burmaldaholic.worldgen.admin.build=Построить казино здесь
 gui.burmaldaholic.worldgen.admin.title=Постройка казино
-gui.burmaldaholic.worldgen.admin.body=Здание появится прямо перед вами (к северу), входом к вам.
+gui.burmaldaholic.worldgen.admin.body=Здание появится прямо перед вами (к северу), входом в вашу сторону.
 msg.burmaldaholic.worldgen.bought=Куплено: %1 за %2
 msg.burmaldaholic.worldgen.built=%1 открывает двери
 msg.burmaldaholic.worldgen.build_failed=Здесь казино не построить

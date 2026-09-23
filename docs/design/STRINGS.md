@@ -220,10 +220,10 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gui.burmaldaholic.common.back` | Back | Назад |
 | `gui.burmaldaholic.common.close` | Close | Закрыть |
 | `gui.burmaldaholic.common.next` | Next | Далее |
-| `gui.burmaldaholic.common.leave` | Leave table | Выйти из-за стола |
+| `gui.burmaldaholic.common.leave` | Leave table | Покинуть стол |
 | `gui.burmaldaholic.common.leave_seat` | Press Sneak to leave the seat | Нажмите «Красться», чтобы встать |
 | `gui.burmaldaholic.common.play_again` | Play again | Ещё раз |
-| `gui.burmaldaholic.common.change_bet` | Change bet | Изменить ставку |
+| `gui.burmaldaholic.common.change_bet` | Change bet | Сменить ставку |
 | `gui.burmaldaholic.common.bet` | Bet | Ставка |
 | `gui.burmaldaholic.common.bet_amount` | Bet: %1$s | Ставка: %1$s |
 | `gui.burmaldaholic.common.exact_amount` | Or type an exact amount | Или введите точную сумму |
@@ -235,19 +235,19 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gui.burmaldaholic.common.deal` | Deal | Раздать |
 | `gui.burmaldaholic.common.spin` | Spin | Крутить |
 | `gui.burmaldaholic.common.place_bet` | Place bet | Поставить |
-| `gui.burmaldaholic.common.ready` | Ready | Готов |
+| `gui.burmaldaholic.common.ready` | Ready | Готово |
 | `gui.burmaldaholic.common.balance` | Balance: %1$s | Баланс: %1$s |
 | `gui.burmaldaholic.common.limits` | Min %1$s · Max %2$s | Мин. %1$s · Макс. %2$s |
 | `gui.burmaldaholic.common.total_bet` | Total bet: %1$s | Общая ставка: %1$s |
 | `gui.burmaldaholic.common.timer` | Time left: %1$s | Осталось: %1$s |
-| `gui.burmaldaholic.common.auto_action` | Auto-%1$s in %2$s | Авто-действие «%1$s» через %2$s |
+| `gui.burmaldaholic.common.auto_action` | Auto-%1$s in %2$s | Авто: «%1$s» через %2$s |
 | `gui.burmaldaholic.common.waiting_players` | Waiting for other players… | Ждём остальных игроков… |
 | `gui.burmaldaholic.common.seat` | Seat %1$s | Место %1$s |
 | `gui.burmaldaholic.common.seat_empty` | Empty seat | Свободно |
 | `gui.burmaldaholic.common.you` | You | Вы |
 | `gui.burmaldaholic.common.history` | History | История |
 | `gui.burmaldaholic.common.rules` | Rules | Правила |
-| `gui.burmaldaholic.common.paytable` | Paytable | Таблица выплат |
+| `gui.burmaldaholic.common.paytable` | Paytable | Выплаты |
 | `gui.burmaldaholic.common.locked` | Locked | Закрыто |
 | `gui.burmaldaholic.common.requires_vip` | Requires %1$s VIP | Нужен ВИП-статус «%1$s» |
 | `gui.burmaldaholic.common.stake_type` | Stake type | Что ставим |
@@ -334,8 +334,8 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `msg.burmaldaholic.core.deposited` | Deposited %1$s. Balance: %2$s | Внесено: %1$s. Баланс: %2$s |
 | `msg.burmaldaholic.core.withdrawn` | Withdrew %1$s. Balance: %2$s | Снято: %1$s. Баланс: %2$s |
 | `msg.burmaldaholic.core.no_chips_to_deposit` | You have no chips to deposit | Вам нечего внести — фишек нет |
-| `msg.burmaldaholic.core.bought_chips` | Bought %1$s for %2$s | Куплено %1$s за %2$s |
-| `msg.burmaldaholic.core.sold_chips` | Sold %1$s for %2$s | Продано %1$s за %2$s |
+| `msg.burmaldaholic.core.bought_chips` | Bought %1$s for %2$s | Куплено: %1$s за %2$s |
+| `msg.burmaldaholic.core.sold_chips` | Sold %1$s for %2$s | Продано: %1$s за %2$s |
 | `msg.burmaldaholic.core.big_win` | Big win: %1$s takes %2$s at %3$s! | Крупный выигрыш: %1$s забирает %2$s — %3$s! |
 | `msg.burmaldaholic.core.round_refunded` | The server restarted mid-round. Your bet of %1$s was refunded. | Сервер перезапустился посреди раунда. Ставка %1$s возвращена. |
 | `msg.burmaldaholic.core.auto_completed` | You left mid-round. The dealer finished it for you: %1$s | Вы ушли посреди раунда. Дилер доиграл за вас: %1$s |
@@ -374,7 +374,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gui.burmaldaholic.menu.settings.corner.bottom_left` | Bottom left | Слева снизу |
 | `gui.burmaldaholic.menu.settings.corner.bottom_right` | Bottom right | Справа снизу |
 | `gui.burmaldaholic.menu.settings.sounds` | Casino sounds | Звуки казино |
-| `gui.burmaldaholic.menu.settings.auto_muck` | Poker: auto-muck losing hands | Покер: автоматически сбрасывать проигравшие руки |
+| `gui.burmaldaholic.menu.settings.auto_muck` | Poker: auto-muck losing hands | Покер: автосброс проигравших рук |
 | `gui.burmaldaholic.menu.admin.world_settings` | World settings | Настройки мира |
 | `gui.burmaldaholic.menu.admin.give_chips` | Give chips | Выдать фишки |
 | `gui.burmaldaholic.menu.admin.take_chips` | Take chips | Забрать фишки |
@@ -415,7 +415,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gui.burmaldaholic.contracts.reward` | Reward: %1$s | Награда: %1$s |
 | `gui.burmaldaholic.contracts.reroll` | Reroll (%1$s) | Сменить (%1$s) |
 | `gui.burmaldaholic.contracts.rerolled_already` | Already rerolled today | Сегодня уже меняли |
-| `gui.burmaldaholic.contracts.done` | Done | Выполнено |
+| `gui.burmaldaholic.contracts.done` | Done | Готово |
 | `gui.burmaldaholic.contracts.resets_in` | New contracts in %1$s | Новые заказы через %1$s |
 | `gui.burmaldaholic.contracts.task.mine_iron` | Mine iron ore: %1$s | Добыть железную руду: %1$s |
 | `gui.burmaldaholic.contracts.task.mine_coal` | Mine coal ore: %1$s | Добыть угольную руду: %1$s |
@@ -445,15 +445,15 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 |-----|----|----|
 | `gui.burmaldaholic.wager.title` | Stake something else | Поставить в залог |
 | `gui.burmaldaholic.wager.item_value` | %1$s — appraised at %2$s | %1$s — оценка: %2$s |
-| `gui.burmaldaholic.wager.xp_levels` | Levels to stake | Сколько уровней поставить |
+| `gui.burmaldaholic.wager.xp_levels` | Levels to stake | Уровней на кон |
 | `gui.burmaldaholic.wager.xp_value` | %1$s — worth %2$s | %1$s — это %2$s |
-| `gui.burmaldaholic.wager.hearts` | Hearts to stake | Сколько сердец поставить |
+| `gui.burmaldaholic.wager.hearts` | Hearts to stake | Сердец на кон |
 | `gui.burmaldaholic.wager.hearts_value` | %1$s for %2$s — worth %3$s | %1$s на %2$s — это %3$s |
 | `gui.burmaldaholic.wager.hearts_warning` | If you lose, your max health drops for one day | Проиграете — максимум здоровья уменьшится на сутки |
-| `msg.burmaldaholic.wager.item_lost` | The house keeps your %1$s | %1$s остаётся у заведения |
-| `msg.burmaldaholic.wager.item_returned` | Your %1$s is returned, plus %2$s | %1$s возвращается к вам, плюс %2$s |
+| `msg.burmaldaholic.wager.item_lost` | The house keeps your %1$s | Заведение оставляет себе: %1$s |
+| `msg.burmaldaholic.wager.item_returned` | Your %1$s is returned, plus %2$s | Возвращаем вам: %1$s — и сверху %2$s |
 | `msg.burmaldaholic.wager.xp_lost` | You lost %1$s | Вы потеряли %1$s |
-| `msg.burmaldaholic.wager.hearts_lost` | You lost %1$s until tomorrow | Вы лишились: %1$s до завтра |
+| `msg.burmaldaholic.wager.hearts_lost` | You lost %1$s until tomorrow | Минус %1$s до завтра |
 | `msg.burmaldaholic.wager.hearts_restored` | Your borrowed hearts have been returned | Одолженные сердца вернулись на место |
 | `msg.burmaldaholic.wager.soul_cooldown` | Your soul is still being processed. Try again in %1$s | Ваша душа ещё на рассмотрении. Попробуйте через %1$s |
 
@@ -604,12 +604,12 @@ fallback, narration).
 | `gui.burmaldaholic.poker.choose_stakes` | Choose stakes | Выберите лимит |
 | `gui.burmaldaholic.poker.buy_in` | Buy-in | Бай-ин |
 | `gui.burmaldaholic.poker.buy_in_range` | Buy-in: %1$s – %2$s | Бай-ин: %1$s – %2$s |
-| `gui.burmaldaholic.poker.sit_down` | Sit down | Сесть за стол |
-| `gui.burmaldaholic.poker.top_up` | Top up | Докупить фишки |
-| `gui.burmaldaholic.poker.stand_up` | Stand up | Встать из-за стола |
-| `gui.burmaldaholic.poker.sit_out` | Sit out | Пропускать раздачи |
-| `gui.burmaldaholic.poker.sit_in` | I'm back | Вернуться в игру |
-| `gui.burmaldaholic.poker.next_hand` | Next hand | Следующая раздача |
+| `gui.burmaldaholic.poker.sit_down` | Sit down | Сесть |
+| `gui.burmaldaholic.poker.top_up` | Top up | Докупить |
+| `gui.burmaldaholic.poker.stand_up` | Stand up | Встать |
+| `gui.burmaldaholic.poker.sit_out` | Sit out | Отойти |
+| `gui.burmaldaholic.poker.sit_in` | I'm back | Вернуться |
+| `gui.burmaldaholic.poker.next_hand` | Next hand | Новая раздача |
 | `gui.burmaldaholic.poker.fold` | Fold | Пас |
 | `gui.burmaldaholic.poker.fold.tooltip` | Fold — give up this hand | Фолд — сбросить карты |
 | `gui.burmaldaholic.poker.check` | Check | Чек |
@@ -640,7 +640,7 @@ fallback, narration).
 | `gui.burmaldaholic.poker.folded` | Folded | Пас |
 | `gui.burmaldaholic.poker.all_in_tag` | All-in | Олл-ин |
 | `gui.burmaldaholic.poker.show` | Show cards | Показать карты |
-| `gui.burmaldaholic.poker.muck` | Muck | Сбросить молча |
+| `gui.burmaldaholic.poker.muck` | Muck | Не показывать |
 | `gui.burmaldaholic.poker.bots` | Bots | Боты |
 | `gui.burmaldaholic.poker.bot.fish` | Fish | Рыба |
 | `gui.burmaldaholic.poker.bot.regular` | Regular | Регуляр |
@@ -664,12 +664,12 @@ fallback, narration).
 | `msg.burmaldaholic.poker.action.all_in` | %1$s is ALL-IN for %2$s | %1$s: ОЛЛ-ИН на %2$s |
 | `msg.burmaldaholic.poker.action.small_blind` | %1$s posts small blind %2$s | %1$s ставит малый блайнд %2$s |
 | `msg.burmaldaholic.poker.action.big_blind` | %1$s posts big blind %2$s | %1$s ставит большой блайнд %2$s |
-| `msg.burmaldaholic.poker.wins_pot` | %1$s wins %2$s with %3$s | Банк %2$s забирает %1$s — %3$s |
-| `msg.burmaldaholic.poker.wins_uncontested` | %1$s wins %2$s — everyone folded | Банк %2$s забирает %1$s — все спасовали |
-| `msg.burmaldaholic.poker.wins_side_pot` | %1$s wins side pot %2$s with %3$s | Побочный банк %2$s забирает %1$s — %3$s |
+| `msg.burmaldaholic.poker.wins_pot` | %1$s wins %2$s with %3$s | %1$s забирает банк (%2$s) — %3$s |
+| `msg.burmaldaholic.poker.wins_uncontested` | %1$s wins %2$s — everyone folded | %1$s забирает банк (%2$s) — все спасовали |
+| `msg.burmaldaholic.poker.wins_side_pot` | %1$s wins side pot %2$s with %3$s | %1$s забирает побочный банк (%2$s) — %3$s |
 | `msg.burmaldaholic.poker.split_pot` | Split pot: %1$s each | Банк делится: по %1$s |
 | `msg.burmaldaholic.poker.timeout` | Time's up — auto %1$s | Время вышло — авто-%1$s |
-| `msg.burmaldaholic.poker.sat_out` | You were moved to sitting out after missed turns | Вы пропустили ходы и теперь пропускаете раздачи |
+| `msg.burmaldaholic.poker.sat_out` | You were moved to sitting out after missed turns | Вы долго не ходили — теперь вы пропускаете раздачи |
 | `msg.burmaldaholic.poker.removed` | You left the table. %1$s returned to your balance | Вы встали из-за стола. На баланс возвращено: %1$s |
 | `msg.burmaldaholic.poker.bot_joins` | %1$s (%2$s) joins the table | За стол садится %1$s (%2$s) |
 | `msg.burmaldaholic.poker.bot_busts` | %1$s is out of chips and leaves | У игрока %1$s кончились фишки — место освобождается |
@@ -687,7 +687,7 @@ fallback, narration).
 | `gui.burmaldaholic.slots.line_bet` | Line bet: %1$s | Ставка на линию: %1$s |
 | `gui.burmaldaholic.slots.lines` | Paylines: %1$s | Линий: %1$s |
 | `gui.burmaldaholic.slots.jackpot` | JACKPOT %1$s | ДЖЕКПОТ %1$s |
-| `gui.burmaldaholic.slots.last_win` | Last win: %1$s | Последний выигрыш: %1$s |
+| `gui.burmaldaholic.slots.last_win` | Last win: %1$s | Прошлый выигрыш: %1$s |
 | `gui.burmaldaholic.slots.no_win` | No win this time | В этот раз мимо |
 | `gui.burmaldaholic.slots.line_win` | Line %1$s: ×%2$s → %3$s | Линия %1$s: ×%2$s → %3$s |
 | `gui.burmaldaholic.slots.spin_total` | Spin result: %1$s | Итог вращения: %1$s |
@@ -733,7 +733,7 @@ fallback, narration).
 | `gui.burmaldaholic.roulette.title_high_roller` | Roulette — High Rollers | Рулетка — хайроллеры |
 | `gui.burmaldaholic.roulette.place_bets` | Place your bets | Делайте ваши ставки |
 | `gui.burmaldaholic.roulette.no_more_bets` | No more bets | Ставок больше нет |
-| `gui.burmaldaholic.roulette.add_bet` | Add bet | Добавить ставку |
+| `gui.burmaldaholic.roulette.add_bet` | Add bet | Ещё ставка |
 | `gui.burmaldaholic.roulette.clear_bets` | Clear bets | Убрать ставки |
 | `gui.burmaldaholic.roulette.your_bets` | Your bets | Ваши ставки |
 | `gui.burmaldaholic.roulette.no_bets` | No bets yet | Ставок пока нет |
@@ -798,17 +798,17 @@ fallback, narration).
 | `gui.burmaldaholic.craps.shooter` | Shooter: %1$s | Бросает: %1$s |
 | `gui.burmaldaholic.craps.you_shoot` | You're the shooter | Бросаете вы |
 | `gui.burmaldaholic.craps.point_on` | Point: %1$s | Поинт: %1$s |
-| `gui.burmaldaholic.craps.point_off` | Come-out roll | Первый бросок (кам-аут) |
+| `gui.burmaldaholic.craps.point_off` | Come-out roll | Первый бросок |
 | `gui.burmaldaholic.craps.last_roll` | Last roll: %1$s + %2$s = %3$s | Последний бросок: %1$s + %2$s = %3$s |
 | `gui.burmaldaholic.craps.come_point` | Come bet on %1$s | Кам-ставка на %1$s |
-| `gui.burmaldaholic.craps.odds_multiple` | Odds must be a multiple of %1$s | Сумма коэффициента должна быть кратна %1$s |
+| `gui.burmaldaholic.craps.odds_multiple` | Odds must be a multiple of %1$s | Ставка на коэффициент должна быть кратна %1$s |
 | `gui.burmaldaholic.craps.odds_max` | Max odds: %1$s | Макс. коэффициент: %1$s |
 | `gui.burmaldaholic.craps.line_only_come_out` | Line bets only on the come-out roll | Ставки на линию — только на первом броске |
 | `gui.burmaldaholic.craps.need_line_bet` | The shooter needs a Pass or Don't Pass bet | Бросающему нужна ставка на пасс-лайн или не-пасс |
 | `gui.burmaldaholic.craps.rules.1` | Pass: 7 or 11 wins, 2, 3, 12 loses. Otherwise hit the point before a 7. | Пасс-лайн: 7 или 11 — победа, 2, 3, 12 — проигрыш. Иначе нужно выбросить поинт раньше семёрки. |
 | `gui.burmaldaholic.craps.rules.2` | Field: 3, 4, 9, 10, 11 pay 1:1 · 2 pays 2:1 · 12 pays 3:1 | Филд: 3, 4, 9, 10, 11 платят 1:1 · 2 платит 2:1 · 12 платит 3:1 |
 | `gui.burmaldaholic.craps.rules.3` | Odds pay true odds with no house edge: up to 3-4-5× | Коэффициент платит по честным шансам без преимущества заведения: до 3-4-5× |
-| `msg.burmaldaholic.craps.natural` | %1$s — natural! Pass wins | %1$s — натурал! Пасс-лайн выигрывает |
+| `msg.burmaldaholic.craps.natural` | %1$s — natural! Pass wins | %1$s — натуральный бросок! Пасс-лайн выигрывает |
 | `msg.burmaldaholic.craps.craps` | %1$s — craps! Pass loses | %1$s — крэпс! Пасс-лайн проигрывает |
 | `msg.burmaldaholic.craps.bar_12` | 12 — Don't Pass pushes | 12 — ставка не-пасс остаётся при своих |
 | `msg.burmaldaholic.craps.point_set` | The point is %1$s | Поинт — %1$s |
@@ -817,7 +817,7 @@ fallback, narration).
 | `msg.burmaldaholic.craps.new_shooter` | New shooter: %1$s | Новый бросающий: %1$s |
 | `msg.burmaldaholic.craps.come_moved` | Your Come bet moves to %1$s | Ваша кам-ставка переходит на %1$s |
 | `msg.burmaldaholic.craps.field_win` | Field pays %1$s | Филд приносит %1$s |
-| `msg.burmaldaholic.craps.odds_returned` | Come odds were off on the come-out roll and are returned | Коэффициент на кам не работал на первом броске и возвращён |
+| `msg.burmaldaholic.craps.odds_returned` | Come odds were off on the come-out roll and are returned | Коэффициент на кам не играл на первом броске — ставка возвращена |
 | `msg.burmaldaholic.craps.auto_roll` | The shooter took too long — the dice roll themselves | Бросающий задумался — кости бросились сами |
 
 ---
@@ -853,7 +853,7 @@ fallback, narration).
 | `gui.burmaldaholic.extras.wheel.segment.bust` | Bust | Мимо |
 | `gui.burmaldaholic.extras.wheel.segment.creeper` | Creeper | Крипер |
 | `gui.burmaldaholic.extras.wheel.segment.half` | Half back | Половина |
-| `gui.burmaldaholic.extras.wheel.segment.money_back` | Money back | Своё назад |
+| `gui.burmaldaholic.extras.wheel.segment.money_back` | Money back | При своих |
 | `gui.burmaldaholic.extras.wheel.segment.double` | Double | Удвоение |
 | `gui.burmaldaholic.extras.wheel.segment.triple` | Triple | Утроение |
 | `gui.burmaldaholic.extras.wheel.segment.emerald` | Emerald ×5 | Изумруд ×5 |
@@ -920,7 +920,7 @@ fallback, narration).
 | `msg.burmaldaholic.extras.dice.pvp_result` | Dice Duel: %1$s beats %2$s and takes %3$s | Дуэль на костях: %1$s обыгрывает соперника (%2$s) и забирает %3$s |
 | `msg.burmaldaholic.extras.dice.pvp_refund` | Three ties in a row — the dice refuse to decide. Stakes returned. | Три ничьи подряд — кости отказываются решать. Ставки возвращены. |
 | `msg.burmaldaholic.extras.dice.already_pending` | You already have a challenge pending | У вас уже есть неотвеченный вызов |
-| `msg.burmaldaholic.extras.dice.self` | Dueling yourself? Bold, but no. | Дуэль с самим собой? Смело, но нет. |
+| `msg.burmaldaholic.extras.dice.self` | Dueling yourself? Bold, but no. | Дуэль с собственным отражением? Смело, но нет. |
 
 ---
 
@@ -1005,7 +1005,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `dialog.burmaldaholic.loan.repaid.4` | Come back anytime. I mean it. Financially. | Заходите ещё. Я серьёзно. В финансовом смысле. |
 | `dialog.burmaldaholic.loan.overdue.1` | Well, well. Look who remembered where I live. | Так-так. Смотри-ка, кто вспомнил дорогу. |
 | `dialog.burmaldaholic.loan.overdue.2` | You're late. I don't like late. My associates like it even less. | Платёж просрочен. Я этого не люблю. Мои ребята — ещё больше. |
-| `dialog.burmaldaholic.loan.overdue.3` | We were on "you" terms. Now we're on "you owe" terms. | Мы были на «вы». Теперь мы на «ты мне должен». |
+| `dialog.burmaldaholic.loan.overdue.3` | We were on "you" terms. Now we're on "you owe" terms. | Мы были на «вы». Теперь на «ты». И на «где мои фишки». |
 | `dialog.burmaldaholic.loan.overdue.4` | Every day you're late, the number gets bigger. Math is cruel. | Каждый день просрочки — число растёт. Математика жестока. |
 | `dialog.burmaldaholic.loan.overdue.5` | Pay up and we forget this ever happened. Mostly. | Плати — и забудем об этом. Почти. |
 | `dialog.burmaldaholic.loan.refuse_vip.1` | That kind of money is for people with a better card than yours. | Такие суммы — для тех, у кого карта покруче вашей. |
@@ -1018,14 +1018,14 @@ All variants of one base receive the same arguments; a variant may ignore them.
 
 | Key | EN | RU |
 |-----|----|----|
-| `dialog.burmaldaholic.collector.demand.1` | Evening. We're from the bank. You know why we're here. | Добрый вечер. Мы из банка. Сам знаешь, зачем пришли. |
+| `dialog.burmaldaholic.collector.demand.1` | Evening. We're from the bank. You know why we're here. | Добрый вечер. Мы из банка. Знаешь ведь, зачем мы пришли. |
 | `dialog.burmaldaholic.collector.demand.2` | %1$s. That's the number. Say it with us. | %1$s. Вот такая цифра. Повтори за нами. |
 | `dialog.burmaldaholic.collector.demand.3` | Nice house. Would be a shame if we had to wait inside it. | Хороший дом. Жалко будет, если придётся ждать внутри. |
 | `dialog.burmaldaholic.collector.demand.4` | The boss says hi. The boss also says pay. | Шеф передаёт привет. И ещё шеф говорит: плати. |
 | `dialog.burmaldaholic.collector.demand.5` | We can do this the easy way, or the other way. We brought equipment for both. | Можно по-хорошему, можно по-другому. Инструмент есть для обоих вариантов. |
 | `dialog.burmaldaholic.collector.hostile.1` | Wrong answer. | Неправильный ответ. |
 | `dialog.burmaldaholic.collector.hostile.2` | Okay. The other way it is. | Ладно. Значит, по-другому. |
-| `dialog.burmaldaholic.collector.hostile.3` | Boys, he's not paying. | Парни, платить не хочет. |
+| `dialog.burmaldaholic.collector.hostile.3` | Boys, we've got a non-payer. | Парни, платить не хочет. |
 | `dialog.burmaldaholic.collector.hostile.4` | Running only raises the late fee. | Бегать бесполезно — только пени набегут. |
 | `dialog.burmaldaholic.collector.hostile.5` | Nothing personal. It's accounting. | Ничего личного. Это бухгалтерия. |
 | `dialog.burmaldaholic.collector.paid.1` | Pleasure doing business. We were never here. | Приятно было иметь дело. Нас тут не было. |
@@ -1085,13 +1085,13 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.chaos.weather.thunder` | Thunder rolls in | Надвигается гроза |
 | `msg.burmaldaholic.chaos.deferred` | Something is waiting for you to finish your game… | Что-то ждёт, пока вы доиграете… |
 | `msg.burmaldaholic.chaos.golden_hour.title` | GOLDEN HOUR | «ЗОЛОТОЙ ЧАС» |
-| `msg.burmaldaholic.chaos.golden_hour.subtitle` | Winnings ×%1$s for %2$s | Выигрыши ×%1$s в течение %2$s |
-| `msg.burmaldaholic.chaos.golden_hour.start` | Golden Hour has begun! All casino winnings are multiplied by %1$s for %2$s. | Начался «Золотой час»! Все выигрыши в казино умножаются на %1$s в течение %2$s. |
+| `msg.burmaldaholic.chaos.golden_hour.subtitle` | Winnings ×%1$s for %2$s | Выигрыши ×%1$s · время: %2$s |
+| `msg.burmaldaholic.chaos.golden_hour.start` | Golden Hour has begun! All casino winnings are multiplied by %1$s for %2$s. | Начался «Золотой час»! На %2$s все выигрыши в казино умножаются на %1$s. |
 | `msg.burmaldaholic.chaos.golden_hour.start_by` | %1$s rang in Golden Hour with three clocks! | «Золотой час» объявлен — трое часов у игрока %1$s! |
 | `msg.burmaldaholic.chaos.golden_hour.ending` | Golden Hour ends in %1$s | «Золотой час» закончится через %1$s |
 | `msg.burmaldaholic.chaos.golden_hour.end` | Golden Hour is over. Back to regular odds. | «Золотой час» окончен. Шансы снова обычные. |
 | `msg.burmaldaholic.chaos.golden_hour.bonus` | Golden Hour bonus: +%1$s | Бонус «Золотого часа»: +%1$s |
-| `msg.burmaldaholic.chaos.golden_hour.cap` | You've hit this Golden Hour's bonus limit (%1$s) | Вы выбрали лимит бонусов этого «Золотого часа» (%1$s) |
+| `msg.burmaldaholic.chaos.golden_hour.cap` | You've hit this Golden Hour's bonus limit (%1$s) | Лимит бонусов этого «Золотого часа» исчерпан (%1$s) |
 | `msg.burmaldaholic.chaos.big_win_buff` | Luck rubs off: %1$s | Удача заразительна: %1$s |
 
 ---
@@ -1126,7 +1126,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.village_casino` | Lucky Villager Casino | Казино «Счастливый житель» |
 | `gui.burmaldaholic.worldgen.piglin_parlor` | Piglin Parlor | Пиглинский салон |
 | `gui.burmaldaholic.worldgen.high_roller` | High Roller Lounge | Лаунж хайроллеров |
-| `msg.burmaldaholic.worldgen.entered` | Welcome to %1$s | Добро пожаловать: %1$s |
+| `msg.burmaldaholic.worldgen.entered` | Welcome to %1$s | Добро пожаловать в %1$s |
 | `msg.burmaldaholic.worldgen.entered_subtitle` | Please gamble responsibly. Or at least entertainingly. | Играйте ответственно. Ну или хотя бы зрелищно. |
 | `gui.burmaldaholic.croupier.title` | Croupier | Крупье |
 | `gui.burmaldaholic.croupier.shop` | Buy scratch cards and coins | Купить лотерею и монетки |
@@ -1148,7 +1148,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.charter.title` | Casino Charter | Лицензия казино |
 | `gui.burmaldaholic.charter.overview` | Overview | Обзор |
 | `gui.burmaldaholic.charter.tables` | Tables | Столы |
-| `gui.burmaldaholic.charter.bankroll` | Bankroll | Касса заведения |
+| `gui.burmaldaholic.charter.bankroll` | Bankroll | Касса |
 | `gui.burmaldaholic.charter.stats` | Stats | Статистика |
 | `gui.burmaldaholic.charter.bankroll_value` | Bankroll: %1$s | Касса заведения: %1$s |
 | `gui.burmaldaholic.charter.reserved` | Reserved for open bets: %1$s | Зарезервировано под ставки: %1$s |
@@ -1162,8 +1162,8 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.charter.rake` | Poker rake collected: %1$s | Собрано рейка: %1$s |
 | `gui.burmaldaholic.charter.table_row` | %1$s at %2$s | %1$s — %2$s |
 | `gui.burmaldaholic.charter.table_open` | Open | Открыт |
-| `gui.burmaldaholic.charter.table_min` | Minimum bet | Минимальная ставка |
-| `gui.burmaldaholic.charter.table_max` | Maximum bet | Максимальная ставка |
+| `gui.burmaldaholic.charter.table_min` | Minimum bet | Мин. ставка |
+| `gui.burmaldaholic.charter.table_max` | Maximum bet | Макс. ставка |
 | `gui.burmaldaholic.charter.table_bots` | Poker bots | Покерные боты |
 | `gui.burmaldaholic.charter.link_tables` | Link unlinked tables in range | Привязать столы в зоне |
 | `gui.burmaldaholic.charter.no_tables` | No tables yet. Place some inside your claim. | Столов пока нет. Поставьте их в своей зоне. |
@@ -1216,7 +1216,7 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.hot_shooter.description` | Make three points in a row as the craps shooter | Выбросьте три поинта подряд в крэпсе |
 | `advancement.burmaldaholic.plinko_edge.title` | Edge Case | Крайний случай |
 | `advancement.burmaldaholic.plinko_edge.description` | Land the ball in an outermost bin on High risk | Попадите шариком в крайнюю лунку на высоком риске |
-| `advancement.burmaldaholic.scratch_top.title` | Scratch That | Стёр — и обомлел |
+| `advancement.burmaldaholic.scratch_top.title` | Scratch That | Счастливый билет |
 | `advancement.burmaldaholic.scratch_top.description` | Win the top prize on a scratch card | Выиграйте главный приз в лотерею |
 | `advancement.burmaldaholic.on_fire.title` | On Fire | В ударе |
 | `advancement.burmaldaholic.on_fire.description` | Reach a lucky streak of 10 | Дойдите до серии удачи ×10 |
@@ -1255,7 +1255,7 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.the_house.title` | Be the House | Сам себе казино |
 | `advancement.burmaldaholic.the_house.description` | Place a Casino Charter | Установите лицензию казино |
 | `advancement.burmaldaholic.house_always_wins.title` | The House Always Wins | Заведение всегда в плюсе |
-| `advancement.burmaldaholic.house_always_wins.description` | Earn 10 000 chips of profit with your own casino | Заработайте 10 000 фишек прибыли на своём казино |
+| `advancement.burmaldaholic.house_always_wins.description` | Earn 10 000 chips of profit with your own casino | Заработайте 10 000 фишек прибыли в своём казино |
 | `advancement.burmaldaholic.bankrupt.title` | Bankrupt | Банкрот |
 | `advancement.burmaldaholic.bankrupt.description` | Have your casino close because the bankroll ran dry | Доведите своё казино до закрытия из-за пустой кассы |
 | `advancement.burmaldaholic.piglin_parlor.title` | Snouts and Ladders | Свинство и азарт |
@@ -1297,7 +1297,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.section.worldgen` | World generation | Генерация мира |
 | `config.burmaldaholic.section.ownership` | Player casinos | Казино игроков |
 | `config.burmaldaholic.section.debug` | Debug | Отладка |
-| `config.burmaldaholic.reset` | Reset to default | Сбросить по умолчанию |
+| `config.burmaldaholic.reset` | Reset to default | Сбросить к стандартным |
 | `config.burmaldaholic.saved` | Settings saved | Настройки сохранены |
 | `config.burmaldaholic.clamped` | %1$s was out of range and set to %2$s | Значение %1$s вне диапазона — установлено %2$s |
 | `config.burmaldaholic.invalid` | %1$s: invalid value | %1$s: недопустимое значение |
@@ -1445,7 +1445,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.blackjack.maxHands` | Max hands after splits | Макс. рук после сплитов |
 | `config.burmaldaholic.blackjack.resplitAces` | Re-split aces | Повторный сплит тузов |
 | `config.burmaldaholic.blackjack.insurance` | Insurance | Страховка |
-| `config.burmaldaholic.blackjack.lateSurrender` | Surrender | Сдача |
+| `config.burmaldaholic.blackjack.lateSurrender` | Surrender | Право сдаться |
 | `config.burmaldaholic.blackjack.minBet` | Minimum bet | Минимальная ставка |
 | `config.burmaldaholic.blackjack.highRollerMinBet` | High Roller minimum bet | Мин. ставка у хайроллеров |
 | `config.burmaldaholic.blackjack.highRollerMaxMultiplier` | High Roller max bet multiplier | Множитель макс. ставки хайроллеров |
@@ -1530,7 +1530,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.extras.plinko.medium` | Plinko multipliers: Medium | Множители Плинко: средний риск |
 | `config.burmaldaholic.extras.plinko.high` | Plinko multipliers: High | Множители Плинко: высокий риск |
 | `config.burmaldaholic.extras.diceDuel.enabled` | Dice Duel | Дуэль на костях |
-| `config.burmaldaholic.extras.diceDuel.houseWinsTieOn` | Tie totals the house wins | Ничьи в пользу заведения |
+| `config.burmaldaholic.extras.diceDuel.houseWinsTieOn` | Tie totals won by the house | Ничьи в пользу заведения |
 | `config.burmaldaholic.extras.diceDuel.pvpEnabled` | Player vs player duels | Дуэли между игроками |
 | `config.burmaldaholic.extras.diceDuel.pvpRakePercent` | PvP duel rake (%%) | Комиссия за дуэль игроков (%%) |
 | `config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks` | Challenge timeout (ticks) | Время на ответ (тики) |
@@ -1545,7 +1545,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.loan.rate.easy` | Interest: Easy/Peaceful | Проценты: лёгкая/мирная |
 | `config.burmaldaholic.loan.rate.normal` | Interest: Normal | Проценты: нормальная |
 | `config.burmaldaholic.loan.rate.hard` | Interest: Hard/Hardcore | Проценты: сложная/хардкор |
-| `config.burmaldaholic.loan.goodStandingDiscount` | Discount per on-time loan | Скидка за каждый займ, погашенный вовремя |
+| `config.burmaldaholic.loan.goodStandingDiscount` | Discount per on-time loan | Скидка за погашение вовремя |
 | `config.burmaldaholic.loan.goodStandingMaxSteps` | Max on-time discounts | Макс. число скидок |
 | `config.burmaldaholic.loan.minRate` | Minimum interest | Минимальные проценты |
 | `config.burmaldaholic.loan.platinumDiscount` | Platinum VIP discount | Скидка для ВИП «Платина» |
@@ -1575,7 +1575,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.chaos.ambientIntervalTicks` | Chaos check interval (ticks) | Интервал проверки хаоса (тики) |
 | `config.burmaldaholic.chaos.ambientChance` | Chaos chance per check | Шанс хаоса за проверку |
 | `config.burmaldaholic.chaos.playerCooldownTicks` | Per-player cooldown (ticks) | Перезарядка на игрока (тики) |
-| `config.burmaldaholic.chaos.bigWin.multiple` | Big win: min multiple of bet | Крупный выигрыш: мин. кратность ставке |
+| `config.burmaldaholic.chaos.bigWin.multiple` | Big win: min multiple of bet | Крупный выигрыш: мин. кратность ставки |
 | `config.burmaldaholic.chaos.bigWin.minChips` | Big win: min chips | Крупный выигрыш: мин. фишек |
 | `config.burmaldaholic.chaos.bigWin.buffChance` | Big win blessing chance | Шанс благословения за крупный выигрыш |
 | `config.burmaldaholic.chaos.chipShower.min` | Chip shower min | Фишкопад: минимум |
@@ -1627,7 +1627,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.lastChance.hardcore.chance` | Hardcore success chance | Шанс успеха в хардкоре |
 | `config.burmaldaholic.lastChance.hardcore.cooldownTicks` | Hardcore cooldown (ticks) | Перезарядка в хардкоре (тики) |
 | `config.burmaldaholic.lastChance.hardcore.minStake` | Hardcore minimum chips | Мин. фишек для хардкора |
-| `config.burmaldaholic.lastChance.hardcore.heartCost` | Permanent health cost | Навсегда отнимается здоровья |
+| `config.burmaldaholic.lastChance.hardcore.heartCost` | Permanent health cost | Потеря здоровья навсегда |
 | `config.burmaldaholic.lastChance.hardcore.minMaxHealth` | Minimum max health to be eligible | Мин. максимум здоровья для сделки |
 | `config.burmaldaholic.worldgen.enabled` | Generate casinos | Генерировать казино |
 | `config.burmaldaholic.worldgen.villageCasino.chance` | Village casino chance | Шанс казино в деревне |
@@ -1659,9 +1659,9 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `subtitles.burmaldaholic.roulette_spin` | Roulette spins | Крутится рулетка |
 | `subtitles.burmaldaholic.slot_spin` | Reels spin | Крутятся барабаны |
 | `subtitles.burmaldaholic.win` | Winning jingle | Звон выигрыша |
-| `subtitles.burmaldaholic.lose` | Losing thud | Глухой проигрыш |
+| `subtitles.burmaldaholic.lose` | Losing thud | Глухой стук проигрыша |
 | `subtitles.burmaldaholic.jackpot` | Jackpot fanfare | Фанфары джекпота |
-| `subtitles.burmaldaholic.coin_flip` | Coin flips | Подброшена монетка |
+| `subtitles.burmaldaholic.coin_flip` | Coin flips | Подбрасывается монетка |
 | `subtitles.burmaldaholic.plinko_peg` | Ball plinks | Шарик стучит по штырькам |
 | `subtitles.burmaldaholic.wheel_tick` | Wheel ticks | Щёлкает колесо |
 | `subtitles.burmaldaholic.scratch` | Card scratched | Стирается билет |
