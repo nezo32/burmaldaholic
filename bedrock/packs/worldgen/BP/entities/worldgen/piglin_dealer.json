@@ -1,0 +1,40 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "burmaldaholic:piglin_dealer",
+      "is_spawnable": true,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["burmaldaholic_npc", "piglin_dealer", "mob"] },
+      "minecraft:collision_box": { "width": 0.6, "height": 1.9 },
+      "minecraft:health": { "value": 20, "max": 20 },
+      "minecraft:damage_sensor": { "triggers": [{ "cause": "all", "deals_damage": "no" }] },
+      "minecraft:fire_immune": {},
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:persistent": {},
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:movement": { "value": 0.0 },
+      "minecraft:behavior.look_at_player": { "priority": 1, "look_distance": 8, "probability": 0.8 },
+      "minecraft:behavior.random_look_around": { "priority": 2 },
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "on_interact": {
+              "filters": { "test": "is_family", "subject": "other", "value": "player" },
+              "event": "burmaldaholic:talk",
+              "target": "self"
+            },
+            "interact_text": "action.interact.burmaldaholic.talk",
+            "swing": true
+          }
+        ]
+      }
+    },
+    "events": {
+      "burmaldaholic:talk": {}
+    }
+  }
+}

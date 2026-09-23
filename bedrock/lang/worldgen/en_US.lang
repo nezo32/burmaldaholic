@@ -23,3 +23,12 @@ config.burmaldaholic.worldgen.piglinParlor.chance=Piglin Parlor chance
 config.burmaldaholic.worldgen.highRoller.chance=High Roller Lounge chance
 config.burmaldaholic.worldgen.loanSharkRespawnTicks=Loan Shark respawn (ticks)
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+action.interact.burmaldaholic.talk=Talk
+gui.burmaldaholic.worldgen.shop.offer=%1 — %2
+gui.burmaldaholic.worldgen.dealer.play=Play: %1
+gui.burmaldaholic.worldgen.admin.build=Build a casino here
+gui.burmaldaholic.worldgen.admin.title=Build a casino
+gui.burmaldaholic.worldgen.admin.body=The building appears right in front of you (to the north), entrance facing you.
+msg.burmaldaholic.worldgen.bought=Bought %1 for %2
+msg.burmaldaholic.worldgen.built=%1 is open for business
+msg.burmaldaholic.worldgen.build_failed=Couldn't build a casino here

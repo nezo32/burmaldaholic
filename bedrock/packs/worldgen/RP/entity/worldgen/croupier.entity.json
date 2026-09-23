@@ -1,0 +1,15 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "burmaldaholic:croupier",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/worldgen/croupier" },
+      "geometry": { "default": "geometry.burmaldaholic.croupier" },
+      "animations": { "look_at_target": "animation.common.look_at_target" },
+      "scripts": { "animate": ["look_at_target"] },
+      "render_controllers": ["controller.render.burmaldaholic_worldgen_npc"],
+      "spawn_egg": { "base_color": "#1d1d24", "overlay_color": "#b3122e" }
+    }
+  }
+}
