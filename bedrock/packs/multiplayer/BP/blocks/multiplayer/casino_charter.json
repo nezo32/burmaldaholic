@@ -1,0 +1,38 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:block": {
+    "description": {
+      "identifier": "burmaldaholic:casino_charter",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:display_name": "block.burmaldaholic.casino_charter",
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:light_emission": 7,
+      "minecraft:map_color": "#d4a52a",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "burmaldaholic_casino_charter_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "burmaldaholic_casino_charter_top",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "burmaldaholic_casino_charter_bottom",
+          "render_method": "opaque"
+        }
+      },
+      "burmaldaholic:casino_charter": {}
+    }
+  }
+}

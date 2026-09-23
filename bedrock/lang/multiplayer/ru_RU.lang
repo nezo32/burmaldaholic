@@ -49,3 +49,13 @@ config.burmaldaholic.ownership.explosionProof=Столы не взрываютс
 config.burmaldaholic.multiplayer.tableLeaveDistance=Дистанция выхода из-за стола
 config.burmaldaholic.multiplayer.spectatorRadius=Радиус зрителей
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.charter.owner=Владелец: %1
+gui.burmaldaholic.charter.tables_count=Столы: %1
+gui.burmaldaholic.charter.table_closed=Закрыт
+gui.burmaldaholic.charter.limit_hint=Оставьте мин. и макс. пустыми — будут лимиты самой игры. Максимум — не выше %1.
+gui.burmaldaholic.charter.error_min_max=Минимальная ставка не может быть больше максимальной
+gui.burmaldaholic.charter.rounds=Сыграно раундов: %1
+msg.burmaldaholic.multiplayer.table_saved=%1: настройки сохранены
+msg.burmaldaholic.multiplayer.linked_none=В вашей зоне нет непривязанных столов
+msg.burmaldaholic.multiplayer.charter_foreign=Это лицензия казино игрока %1
+msg.burmaldaholic.multiplayer.casinos_disabled=Казино игроков на этом сервере отключены

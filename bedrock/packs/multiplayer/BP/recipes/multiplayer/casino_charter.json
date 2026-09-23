@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "burmaldaholic:casino_charter"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "GEG",
+      "CLC",
+      "GGG"
+    ],
+    "key": {
+      "G": {
+        "item": "minecraft:gold_block"
+      },
+      "E": {
+        "item": "minecraft:emerald_block"
+      },
+      "C": {
+        "item": "burmaldaholic:chip_500"
+      },
+      "L": {
+        "item": "minecraft:lodestone"
+      }
+    },
+    "unlock": [
+      {
+        "item": "burmaldaholic:chip_500"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:casino_charter"
+    }
+  }
+}
