@@ -1,0 +1,3 @@
+## chaos module strings. Keys: msg.burmaldaholic.chaos.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.chaos.name=Chaos Events
+msg.burmaldaholic.chaos.config.enabled=Enable Chaos Events

@@ -116,8 +116,8 @@ The release pipeline passes the version derived from the tag to the builds. **Bo
 **Bedrock (`bedrock/`)**, run as `npm ci && npm run build && npm test`:
 - `npm run build` reads `process.env.MOD_VERSION` and writes it into every `manifest.json`
   (`header.version` and the matching `modules[].version` / `dependencies[].version` between our
-  own packs) as `[major, minor, patch]` (Bedrock manifests only take three integers; drop the
-  pre-release suffix, optionally keeping it in a display string such as the pack description).
+  own packs). Manifest `format_version` 3 takes a semver string (`"1.2.3"`, pre-release suffix
+  allowed); format 2 takes `[major, minor, patch]`. This project uses format 3.
 - Scripts `build`, `test` and `lint` must exist (CI runs all three); `package-lock.json` must be committed.
 - Output: exactly one `bedrock/dist/*.mcaddon` (e.g. `Burmaldaholic.mcaddon`; the release renames
   it to `Burmaldaholic-1.2.3.mcaddon` automatically).

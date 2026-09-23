@@ -1,0 +1,3 @@
+## loan module strings. Keys: msg.burmaldaholic.loan.*
+msg.burmaldaholic.loan.name=Ростовщик
+msg.burmaldaholic.loan.config.enabled=Включить: Ростовщик

@@ -1,0 +1,3 @@
+## lastchance module strings. Keys: msg.burmaldaholic.lastchance.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.lastchance.name=Last Chance
+msg.burmaldaholic.lastchance.config.enabled=Enable Last Chance

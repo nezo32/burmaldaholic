@@ -1,0 +1,3 @@
+## multiplayer module strings. Keys: msg.burmaldaholic.multiplayer.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.multiplayer.name=Multiplayer
+msg.burmaldaholic.multiplayer.config.enabled=Enable Multiplayer

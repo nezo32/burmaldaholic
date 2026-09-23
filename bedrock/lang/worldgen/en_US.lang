@@ -1,0 +1,3 @@
+## worldgen module strings. Keys: msg.burmaldaholic.worldgen.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.worldgen.name=Casino Buildings
+msg.burmaldaholic.worldgen.config.enabled=Enable Casino Buildings

@@ -1,0 +1,3 @@
+## roulette module strings. Keys: msg.burmaldaholic.roulette.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.roulette.name=Roulette
+msg.burmaldaholic.roulette.config.enabled=Enable Roulette

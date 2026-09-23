@@ -1,0 +1,3 @@
+## poker module strings. Keys: msg.burmaldaholic.poker.*
+msg.burmaldaholic.poker.name=Покер
+msg.burmaldaholic.poker.config.enabled=Включить: Покер

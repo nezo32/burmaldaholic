@@ -1,0 +1,1272 @@
+# Burmaldaholic — Game Design Specification
+
+Status: **v1.0, implementation-ready**. Owner: lead game design (D1).
+Audience: Java (Fabric) team, Bedrock (Script API) team, testers, localization.
+
+This document is **normative**. Both editions implement the same rules, numbers and state machines.
+Where the two engines force a different technique, the *observable result* must be the same; the
+section says which parts may differ ("Edition note").
+
+Companion files:
+
+| File | Contents |
+|------|----------|
+| `CONFIG.md` | Every tunable value (key, type, default, range). Numbers in this file are the **defaults** of those keys. |
+| `UI.md` | Screens, forms, HUD, layout rules. |
+| `LOCALIZATION.md` | Key scheme, placeholders, plural helper, glossary, tone. |
+| `STRINGS.md` | Every player-facing string, EN + RU, grouped by module. |
+
+Conventions used below:
+
+- **Chips** are integers. There are no fractional chips anywhere. Every payout formula ends with
+  `floor()` unless stated otherwise; the fractional remainder stays with the house (the bank).
+- "Payout X:1" means the player gets the stake back **plus** X × stake. "Multiplier X×" means the
+  player receives X × stake in total (stake included).
+- **RTP** = expected total return / total staked. **House edge (HE)** = 1 − RTP.
+- Time is measured in **game ticks of world time** (`world.getTime()` Java / `system.currentTick` is
+  NOT acceptable because it resets; Bedrock must use `world.getAbsoluteTime()`), so timers keep
+  running while a player is offline. 20 ticks = 1 s; **1 Minecraft day (MCD) = 24000 ticks = 20 min**.
+- "Tier max" means the VIP tier maximum bet (§12).
+- Module names in brackets, e.g. **[loan]**, are the ownership units used in `STRINGS.md` and in
+  the code package layout.
+- All randomness is server-side. Clients only animate results the server already decided.
+  Shuffles are Fisher–Yates with a uniform RNG. Java: one `java.util.random.RandomGenerator`
+  (`L64X128MixRandom` or `SecureRandom`) per game instance; Bedrock: `Math.random()`.
+
+---
+
+## 1. Overview
+
+Burmaldaholic turns a survival world into a casino economy. Players earn **chips** by playing
+normal Minecraft (mining, fighting, trading, daily contracts), then gamble them at tables and
+machines found in generated casinos or built themselves. Gambling feeds back into survival: a
+**Loan Shark** lends chips and sends **Debt Collectors** when you default, **chaos events** rain
+diamonds or mobs on you, **Last Chance** flips a coin when you die, and a **Lucky/Unlucky streak**
+nudges RNG games. Everything is fair-feeling but the house wins slightly (§17 summary table).
+
+Modules (each maps to one Wave-3 feature team):
+
+| Module | Section |
+|--------|---------|
+| core (mode, economy, HUD, cashier, contracts, wagers) | §2–§4 |
+| blackjack | §6 |
+| poker | §7 |
+| slots | §8 |
+| roulette | §9 |
+| craps | §10 |
+| extras (coin flip, wheel, scratch cards, plinko, dice duel) | §11 |
+| loan (Loan Shark + Debt Collectors) | §5 |
+| chaos (events, Golden Hour) | §13 |
+| streak | §14 |
+| lastchance | §15 |
+| worldgen | §16 |
+| vip | §12 |
+| multiplayer (hosted tables, owned casinos) | §18 |
+| advancements | §19 |
+
+---
+
+## 2. Mode activation and difficulty
+
+### 2.1 Casino mode switch
+
+Casino mode is a per-world flag `core.casinoMode` (bool). When **false** the mod is *dormant*: no
+HUD, no earning, no chaos, no Last Chance, no debt, tables show "Casino mode is off" and do
+nothing; all saved data (balances, loans, ownership) is preserved untouched. When **true**
+everything in this document is active.
+
+**Java (Fabric):**
+- Registered as a boolean game rule `burmaldaholic:casino_mode` (category "Burmaldaholic"), shown
+  on the world-creation screen **Game** tab → "More → Game Rules" and editable by ops later with
+  `/gamerule burmaldaholic:casino_mode <true|false>`.
+- The mod additionally adds a toggle button **"Casino Mode: ON/OFF"** to the *Game* tab of the
+  Create World screen (default **ON**) that writes the same game rule, so the choice is visible
+  without digging into game rules.
+- Worldgen structures ship in a built-in data pack `burmaldaholic:casinos` that is enabled by
+  default in the Data Packs list of world creation. If the pack is disabled, casinos do not
+  generate but gameplay still works (players craft their own tables).
+- The game-rule value is the source of truth; `config/burmaldaholic.json` never overrides it.
+
+**Bedrock (add-on):**
+- The mode exists only if the behavior pack + resource pack are applied to the world.
+- On first world load, the first player with operator permission receives a **Setup form**
+  (ModalForm: toggle "Casino mode" default ON, dropdown "Last Chance in Hardcore", toggle
+  "Chaos events", submit "Open the casino"). The result is saved to world dynamic property
+  `burmaldaholic:casino_mode` and the config overrides (§ CONFIG.md "Storage").
+- Until the form is answered, the mode is ON with defaults (a dismissed form re-appears on that
+  op's next join, max 3 times, then defaults are kept silently).
+- Ops change it later from **Casino Card → Admin → World settings** or with
+  `/scriptevent burmaldaholic:admin casino_mode true|false`.
+- Worldgen structures are part of the behavior pack and are toggled by `worldgen.enabled`
+  (only affects chunks generated afterwards).
+
+### 2.2 Vanilla difficulty is never altered
+
+The mod **never** changes the world difficulty, the Hardcore flag, `keepInventory`, natural
+regeneration or any vanilla game rule. It only *reads* difficulty to scale its own mechanics.
+"Hardcore" below means the world's hardcore flag is set (Java `LevelProperties.isHardcore()`,
+Bedrock `world.isHardcore`). A Hardcore world always runs at Hard difficulty, so every "Hard" value
+applies to it too, plus the Hardcore overrides.
+
+### 2.3 Difficulty interaction table (defaults)
+
+| Mechanic | Peaceful | Easy | Normal | Hard | Hardcore |
+|----------|----------|------|--------|------|----------|
+| Mob-kill chip rewards | n/a (few mobs) | ×1.0 | ×1.0 | ×1.25 | ×1.25 |
+| Chaos `mob_wave` | never (rerolled) | 3 mobs | 4 mobs | 6 mobs | 6 mobs |
+| Last Chance success chance | 0.60 | 0.60 | 0.50 | 0.40 | disabled by default; High-Stakes variant 0.50 (§15.3) |
+| Last Chance cost (on success) | 10 % balance | 10 % | 10 % | 10 % | all chips + 1 permanent heart |
+| Loan interest (base) | 15 % | 15 % | 20 % | 25 % | 25 % |
+| Loan late fee per overdue MCD | 5 % | 5 % | 10 % | 15 % | 15 % |
+| Debt Collectors | never; **Asset Freeze** instead (§5.6) | squad −1 Collector, HP ×0.75 | base | squad +1 Collector, HP ×1.25 | as Hard; plus a collector kill that ends the debtor is final (no Last Chance vs. collectors) |
+| Heart wager | allowed | allowed | allowed | allowed | allowed (temporary only) |
+| Soul Wager (§4.6) | — | — | — | — | only if `wager.hardcoreSoulWager=true` (default false) |
+
+---
+
+## 3. Economy
+
+### 3.1 Two forms of money
+
+1. **Balance** (account): an integer per player, stored server-side (Java: player persistent
+   data attachment; Bedrock: player dynamic property `burmaldaholic:balance`). Shown on the HUD.
+   Survives death. All wagers are debited from the balance; all winnings are credited to it.
+   Range `0 … economy.maxBalance` (default 1 000 000 000). Credits beyond the cap are lost with
+   message `msg.burmaldaholic.core.balance_capped`. Balance can never go negative; debt is a
+   separate number (§5).
+2. **Chip items**: physical, tradable, droppable, stackable (64) items. They drop on death like
+   any item and can be stolen, stored in chests, traded between players.
+
+| Item id | Value | Color | Rarity (name color) |
+|---------|-------|-------|---------------------|
+| `chip_1` | 1 | white | common |
+| `chip_5` | 5 | red | common |
+| `chip_25` | 25 | green | uncommon (yellow) |
+| `chip_100` | 100 | black | rare (aqua) |
+| `chip_500` | 500 | purple | epic (light purple) |
+
+Chip items do nothing on their own. Right-click with a chip item: shows value tooltip only.
+
+### 3.2 Cashier (block `cashier`)
+
+A workstation block (1×1×1, directional, model: counter with a brass grille). Right-click opens
+the Cashier screen (UI.md §4). Functions:
+
+| Action | Rule |
+|--------|------|
+| **Deposit** | Takes all chip items from the player's inventory (or only the selected stack, player's choice) and adds their value to the balance. |
+| **Withdraw** | Player enters an amount A ≤ withdrawable (below). Converted greedily into the largest denominations (500, 100, 25, 5, 1). If inventory is full, the rest drops at the player's feet. |
+| **Buy chips** | 1 emerald → `economy.emeraldBuyRate` chips (default 8; Gold VIP+ 9). |
+| **Sell chips** | `economy.emeraldSellRate` chips (default 10) → 1 emerald. Only whole emeralds. |
+| **Contracts** | Opens the contracts tab (§3.5). |
+| **Loan status** | Read-only; paying is done at the Loan Shark or via the Casino Card. |
+
+`withdrawable = max(0, balance − outstandingDebt)` — you cannot turn borrowed money into items
+(anti-abuse, §5.8). While a loan is **in default**, withdraw is completely disabled.
+Nether cashiers (Piglin Parlor, §16.2) additionally trade gold ingots: buy 1 gold ingot → 3 chips,
+sell 12 chips → 1 gold ingot.
+
+Crafting (shaped):
+```
+G E G      G = gold ingot, E = emerald, C = chest
+I C I      I = iron ingot
+I I I
+```
+
+### 3.3 Casino Card (item `casino_card`)
+
+Every player receives one Casino Card on first join while casino mode is on (once per player;
+re-craftable: paper + gold nugget + emerald, shapeless). Using it opens the **Casino Menu**
+(UI.md §3): balance, streak, VIP progress, contracts, loan (pay/view), achievements (Bedrock),
+dice-duel challenges, owned-casino management, admin page (ops only), settings (HUD position).
+Java also binds the menu to a key (default `B`, "Open Casino Menu"); the card works in both.
+
+### 3.4 Earning chips (credited straight to balance)
+
+Every credit shows an action-bar toast `msg.burmaldaholic.core.earned` ("+20 chips (Diamond ore)").
+Toasts within 20 ticks are merged. All rates are config keys `economy.ore.*`, `economy.mob.*`.
+
+#### 3.4.1 Ores (per ore block broken by a player)
+
+Rewarded when a player breaks the ore **and it drops its normal loot** (tool is correct tier; no
+Silk Touch). Fortune does **not** multiply. Deepslate variants give the same as normal variants.
+Creative mode: no reward.
+
+| Ore | Chips | | Ore | Chips |
+|-----|-------|-|-----|-------|
+| Coal | 1 | | Lapis | 2 |
+| Copper | 1 | | Emerald | 15 |
+| Iron | 2 | | Diamond | 20 |
+| Gold (overworld) | 4 | | Nether quartz | 1 |
+| Redstone | 1 | | Nether gold | 1 |
+| Ancient debris | 50 | | Gilded blackstone | 0 |
+
+Anti-exploit: ancient debris drops itself even without Silk Touch, so player-placed debris is
+tracked in a **placed-debris ledger** (per dimension, set of block positions, FIFO cap 4096). Breaking
+a ledgered position gives 0 and removes the entry. All other ores need Silk Touch to be moved, and
+Silk Touch mining gives 0, so each ore block pays at most once.
+
+#### 3.4.2 Mob kills
+
+Rewarded when a mob dies and the vanilla "killed by player" condition holds (the same condition
+that makes it drop XP: player dealt damage within the last 100 ticks). Multiplied by the
+difficulty factor in §2.3.
+
+| Category | Mobs | Chips |
+|----------|------|-------|
+| Passive / ambient / tamed / villagers | cow, sheep, bat, villager, iron golem, … | 0 |
+| Common hostile | zombie (all variants incl. husk, drowned, zombie villager), skeleton, stray, bogged, spider, cave spider, silverfish, endermite, slime & magma cube (size ≥ 2 only), vex, zombified piglin | 2 |
+| Uncommon hostile | creeper, phantom, pillager, hoglin, zoglin, piglin, drowned with trident, enderman, blaze | 3–4 (creeper 3, phantom 3, pillager 3, hoglin 4, zoglin 4, piglin 3, enderman 4, blaze 4) |
+| Tough hostile | witch 5, vindicator 5, wither skeleton 5, ghast 6, guardian 4, breeze 8, shulker 8, piglin brute 10, creaking 5 (when its heart is broken by a player) | as listed |
+| Mini-boss | evoker 20, ravager 25, elder guardian 100 | as listed |
+| Boss | warden 250, wither 500, ender dragon 1000 (first kill in the world) / 200 (later kills) | as listed |
+| Debt Collector squad, chaos-wave mobs, mobs spawned by spawners/trial spawners | — | 0 |
+
+Anti-farm diminishing returns (per player, per mob type): count kills of that type in the last
+`economy.mob.windowTicks` (6000). Kills 1–20 pay 100 %, 21–60 pay 25 % (floor, min 0), 61+ pay 0.
+Spawner detection — Java: `SpawnReason.SPAWNER`/`TRIAL_SPAWNER` stored on the entity; Bedrock:
+`entitySpawn` cause `Spawned` within 5 blocks of a `mob_spawner`/`trial_spawner` block is tagged
+`burmaldaholic:spawner` (best-effort; the diminishing window is the main guard).
+
+#### 3.4.3 Villager trading
+
+Each completed villager or wandering-trader trade: `chips = 1 + (emeralds given or received in
+that trade)`, capped at 10 per trade and `economy.trade.dailyCap` = 200 chips per player per MCD.
+(Java: `TradeOfferUsed` callback / Bedrock: detect via inventory diff when the trade screen closes
+— edition note: Bedrock may approximate by crediting on emerald count change while the trade UI
+is open; the cap makes both equivalent in practice.)
+
+#### 3.4.4 Contracts (daily tasks)
+
+- Each player has **3 contract slots** (Platinum 4, Diamond+ 5). Contracts are generated at the
+  first moment the player is online on a new world day (`floor(worldTime / 24000)` changed).
+  Unfinished contracts expire at day rollover without penalty.
+- Contracts are drawn without duplicates from the pool below with weights. Target amounts scale
+  with VIP tier index t (0 = Bronze): `target = base × (1 + 0.25 t)` rounded up;
+  `reward = baseReward × (1 + 0.25 t)` × VIP contract bonus (§12).
+- **Reroll** one contract: costs `contracts.rerollCost` (10) chips, max 1 reroll per slot per day.
+- Progress counts only while casino mode is on. Completion credits immediately with a toast and
+  sound.
+
+| Id | Task (target base) | Reward base | Weight |
+|----|--------------------|-------------|--------|
+| `mine_iron` | Mine 24 iron ore | 50 | 10 |
+| `mine_coal` | Mine 48 coal ore | 30 | 8 |
+| `mine_diamond` | Mine 3 diamond ore | 80 | 5 |
+| `kill_zombie` | Kill 12 zombies | 40 | 10 |
+| `kill_skeleton` | Kill 10 skeletons | 40 | 8 |
+| `kill_creeper` | Kill 5 creepers | 45 | 6 |
+| `kill_any` | Kill 25 hostile mobs | 60 | 8 |
+| `trade` | Complete 6 villager trades | 40 | 8 |
+| `fish` | Catch 8 fish | 30 | 6 |
+| `harvest` | Harvest 64 crops (wheat, carrots, potatoes, beetroot) | 30 | 6 |
+| `wager` | Wager 500 chips in total | 30 | 8 |
+| `win_blackjack` | Win 3 blackjack hands | 40 | 5 |
+| `spin_slots` | Spin slot machines 30 times | 25 | 5 |
+| `roulette_red` | Win 2 bets on red at roulette | 35 | 4 |
+| `play_poker` | Play 10 poker hands to showdown or fold | 40 | 3 |
+| `explore_nether` | Travel 500 blocks in the Nether | 60 | 3 |
+| `smelt` | Smelt 32 items | 25 | 3 |
+
+### 3.5 Sinks (where chips leave the world)
+
+House edge on house-banked games; loan interest and late fees; cashier spread (8 vs 10 per
+emerald); contract rerolls; casino license fee (§18); poker rake at non-owned tables; Last Chance
+cost. Mints: earnings (§3.4), loans, Golden Hour bonuses, jackpot seeds, loot chests.
+
+---
+
+## 4. Wagers and non-chip stakes
+
+### 4.1 Generic wager lifecycle (all house-banked games)
+
+```
+IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SETTLED (credit payout)
+```
+- Debit happens when the bet is **confirmed**, never before. If the balance is insufficient the
+  bet is rejected with `msg.burmaldaholic.core.insufficient_funds`.
+- If the player disconnects between STAKED and SETTLED: the round is auto-completed by the
+  server with the game's default action (blackjack: stand; craps: bets stay working until
+  resolved; roulette: spin proceeds) and the payout is credited to the balance. No refunds.
+- If the server stops mid-round, on load every STAKED round is **refunded** (bets returned) and
+  logged. Games persist no mid-round state except craps line bets (which are also refunded).
+- Every settled wager updates: lifetime wagered (VIP), streak (§14), contracts, statistics.
+  Wagered amount = total chips put at risk in that round (including doubles, splits, odds).
+
+### 4.2 Bet limits
+
+Min bet is per table/machine (below). Max bet = min(table max, VIP tier max §12). The UI never
+offers amounts outside `[min, max]`; the server re-validates.
+
+### 4.3 Non-chip stakes ("Pawn" wagers)
+
+Allowed only on the one-bet games: **Coin Flip, Dice Duel (vs house), Wheel of Fortune**, and
+**roulette even-money bets** (red/black, odd/even, low/high). One pawn stake per round, cannot
+be mixed with chips in the same bet. The stake is converted to a **stake value V** in chips:
+
+- **Win**: the stake is returned untouched **and** the player receives the chip winnings as if V
+  chips had been bet (e.g. coin flip pays `floor(V × 0.96)`).
+- **Loss**: the stake is forfeited (item destroyed, levels removed, hearts lost for a duration).
+- V must be ≤ tier max bet; otherwise the stake is refused.
+
+#### 4.3.1 Items
+
+Only items in the **appraisal table** are accepted, undamaged, unenchanted, unnamed, one stack
+(the held stack). V = appraisal × count.
+
+| Item | Value | Item | Value |
+|------|-------|------|-------|
+| Iron ingot | 2 | Diamond | 20 |
+| Gold ingot | 4 | Diamond block | 180 |
+| Emerald | 8 | Netherite scrap | 40 |
+| Emerald block | 72 | Netherite ingot | 150 |
+| Lapis block | 15 | Ancient debris | 45 |
+| Golden apple | 30 | Enchanted golden apple | 300 |
+| Totem of Undying | 150 | Heart of the Sea | 200 |
+| Nether star | 400 | Elytra (full durability) | 500 |
+| Trident (full durability) | 250 | Echo shard | 25 |
+
+#### 4.3.2 XP levels
+
+Stake L levels, 1 ≤ L ≤ current level, L ≤ 30. V = `floor(points(L) / 4)` where `points(L)` is
+the vanilla XP-point total between level (current − L) and current. On loss, remove exactly those
+points (player ends at level current − L with the same progress fraction set to 0).
+
+#### 4.3.3 Temporary max hearts
+
+- Stake h hearts, 1 ≤ h ≤ `wager.hearts.maxPerBet` (3). V = h × `wager.hearts.valuePerHeart` (100).
+- On loss: add an attribute modifier to `max_health`: id `burmaldaholic:heart_wager_<n>`,
+  amount −2h, operation add, expiring after `wager.hearts.durationTicks` (24000 = 1 MCD) of world
+  time (counts while offline; persists through death/respawn; re-applied on join).
+- Cap: the sum of active heart-wager penalties ≤ `wager.hearts.maxTotal` (5 hearts), and the
+  resulting max health is never below 10 HP. Stakes that would break the cap are refused.
+- If current health > new max health, health is clamped (no damage event, no death).
+
+### 4.4 Hardcore Soul Wager
+
+Only if the world is Hardcore **and** `wager.hardcoreSoulWager = true` (default **false**).
+- Available on **Coin Flip only**. Requires two confirmations (UI.md §11.1) and a 5-second hold.
+- V = max(`wager.soul.minValue` 1000, current balance). Win pays 1:1 → +V chips.
+- Loss: player dies immediately (damage type `burmaldaholic:soul_wager`, bypasses armor, totems
+  and Last Chance). Death message `death.attack.burmaldaholic.soul_wager`.
+- Cooldown `wager.soul.cooldownTicks` (72000 = 3 MCD) per player.
+
+---
+
+## 5. Loan Shark and Debt Collectors [loan]
+
+### 5.1 Loan Shark NPC
+
+Entity `burmaldaholic:loan_shark`: humanoid (villager-sized, suit + gold chain texture), 40 HP,
+invulnerable to players while a loan screen is open, neutral (never attacks), does not despawn,
+cannot be leashed or traded with normally. Spawns 1 per village casino (§16.1) and in the Piglin
+Parlor as a piglin-skinned variant ("Piglin Moneylender"); spawn egg in creative. Killing him
+does **not** erase debt (debt belongs to the world bank); he drops 1 emerald and respawns in
+his casino after 1 MCD. Right-click opens the Loan screen with a random greeting line.
+
+### 5.2 Loan products
+
+Only **one active loan** per player. Amounts fixed; availability by VIP tier.
+
+| Loan | Principal | Deadline | Min VIP |
+|------|-----------|----------|---------|
+| Pocket money | 100 | 3 MCD | Bronze |
+| Rent | 500 | 3 MCD | Bronze |
+| Business | 2 000 | 5 MCD | Silver |
+| Serious | 10 000 | 7 MCD | Gold |
+| Life-changing | 50 000 | 7 MCD | Diamond |
+
+**Interest (flat, charged once):** `due = ceil(principal × (1 + rate))`, where
+`rate = baseRate(difficulty) − 0.02 × min(goodStanding, 5)`, floored at 0.10.
+`baseRate`: Peaceful/Easy 0.15, Normal 0.20, Hard/Hardcore 0.25. `goodStanding` is the count of
+loans repaid on time (never decreases except on default, which resets it to 0).
+
+**Deadline:** `deadlineTick = issueTick + days × 24000`. The HUD shows the remaining time when a
+loan is active (UI.md §2).
+
+**Cooldown:** after a default is fully repaid, no new loan for `loan.defaultCooldownDays` (5) MCD.
+
+### 5.3 Repayment
+
+- Pay any amount 1…min(balance, owed) at the Loan Shark or from the Casino Card.
+- Paying the full owed amount closes the loan. On time → `goodStanding += 1`.
+- Early repayment does not reduce interest.
+
+### 5.4 Loan state machine
+
+```
+NONE ──take──▶ ACTIVE ──paid in full──▶ NONE (goodStanding+1)
+                 │
+        tick ≥ deadline
+                 ▼
+             DEFAULT ──paid in full──▶ NONE (goodStanding=0, cooldown 5 MCD)
+                 │ each MCD boundary after deadline: owed += ceil(owedAtDeadline × lateFee)
+                 │   (simple, not compound), capped at 2 × dueAtIssue
+                 │ collection waves (§5.5) / Asset Freeze in Peaceful (§5.6)
+```
+Warnings: chat + sound at 1 MCD and at 2400 ticks (2 min) before the deadline.
+While in DEFAULT: **garnishment** — 50 % (`loan.garnishPercent`) of every chip credit (ores, mobs,
+trades, contracts, game winnings) goes to the debt first; withdraw/transfer disabled; new loans
+disabled; the player cannot start a Dice Duel or own-casino deposit.
+
+### 5.5 Debt Collectors (Easy/Normal/Hard/Hardcore)
+
+**Wave schedule:** first wave spawns `loan.firstWaveDelayTicks` (600) after entering DEFAULT; then
+one wave at every subsequent MCD boundary while in DEFAULT. If the debtor is offline, the wave is
+queued and spawns 1200 ticks after they next join (max one queued wave). Only one live wave per
+debtor at a time. Wave number w = 1, 2, 3, … (per default episode).
+
+**Squad composition** by owed amount D at spawn time (then difficulty modifier, then escalation
+`+ min(w − 1, 3)` extra Collectors):
+
+| Owed D | Collectors | Repo Men | Accountant | Enforcer |
+|--------|-----------|----------|------------|----------|
+| < 500 | 2 | 0 | 0 | 0 |
+| 500 – 2 999 | 2 | 1 | 0 | 0 |
+| 3 000 – 14 999 | 3 | 2 | 1 | 0 |
+| ≥ 15 000 | 4 | 2 | 1 | 1 |
+
+Difficulty: Easy −1 Collector (min 1) and HP ×0.75; Hard/Hardcore +1 Collector and HP ×1.25.
+Hard cap: 10 squad members.
+
+**Units** (all are custom illager entities, team "collectors", immune to their own friendly fire,
+not raid members, never join raids, don't pick up items):
+
+| Unit | Id | Base HP | Weapon / attack | Speed | Notes |
+|------|----|---------|-----------------|-------|-------|
+| Collector | `debt_collector` | 24 | melee 5 (iron-axe look, "baseball bat" model) | 0.33 | vindicator AI, may open wooden doors |
+| Repo Man | `repo_man` | 24 | crossbow 4–6 | 0.30 | keeps 8–12 blocks distance |
+| Accountant | `accountant` | 28 | "Audit": 5 evoker-fang-like paper fangs, 6 dmg, cooldown 100 t; applies Weakness I 200 t on hit | 0.28 | squad leader, speaks the dialogue, no vexes |
+| Enforcer | `enforcer` | 80 | melee 12, knockback 1.5 | 0.30 | knockback resistance 0.75, "Big guy" model |
+
+**Spawn:** 24–40 blocks horizontally from the debtor, on a valid surface in the same dimension
+(solid top face, 2 air blocks, light ignored, not in water/lava, inside world border). Up to 16
+attempts per member; if no spot, retry the whole wave after 600 ticks. Not inside a boss-fight
+zone (see chaos safety §13.4).
+
+**Behavior state machine:**
+```
+APPROACH (non-hostile, 600 t max): walk to debtor.
+   Leader within 6 blocks → NEGOTIATE: leader stops, says a demand line; debtor gets a form/screen
+      "Pay in full" | "Pay part (≥ 50 %)" | "Refuse". 200 t to answer (timeout = Refuse).
+      Pay in full  → loan closes → PAID.
+      Pay ≥ 50 %   → owed reduced → LEAVING (this wave ends; next wave next MCD).
+      Refuse       → HOSTILE.
+   APPROACH timeout → HOSTILE.
+HOSTILE: target only the debtor, and any entity that damages a squad member.
+   Despawn after 6000 t, if debtor dies (after Repossession) or changes dimension (wave re-queued
+   for next MCD), or if > 96 blocks away from debtor for 200 t.
+PAID / LEAVING: stop attacking, say line, walk away 100 t, despawn with poof particles.
+```
+Any time the debt reaches 0 (by any means — payment, garnishment, admin), every live squad of
+that debtor switches to PAID immediately.
+
+**No griefing (regardless of `mobGriefing`):** never break or place blocks, never pick up items,
+never trample farmland, never ignite anything; Repo Man bolts don't break anything. They may open
+wooden doors (like vindicators). They never target other players, pets or villagers unless hit.
+
+**Repossession (debtor killed by a squad member):**
+`seized = min(owed, floor(balance × 0.5))` is moved from balance to the debt. Additionally the
+single highest-appraised item (§4.3.1 table, by stack value) in the debtor's inventory is
+removed and credited to the debt at appraisal value (message names the item). Chip items the
+player dropped on death stay on the ground (collectors don't touch them). The wave then ends.
+
+**Drops when killed:** Collector/Repo Man: 0–1 emerald, 10 % "Overdue Notice" (flavor paper item);
+Accountant: 1–2 emeralds + "Ledger Page" (flavor) ; Enforcer: 2–4 emeralds, 1 iron block 25 %.
+No chips, no XP beyond vanilla illager XP (5). Killing collectors does not reduce the debt.
+
+### 5.6 Peaceful: Asset Freeze
+
+No collectors spawn in Peaceful. Instead, at DEFAULT and at every MCD boundary while in DEFAULT:
+`seize = min(owed, floor(balance × 0.5))` is taken from the balance, garnishment is 100 %, and the
+player cannot wager at all until the debt is repaid. Switching difficulty mid-default applies the
+new rule at the next wave/boundary.
+
+### 5.7 Hardcore
+
+Loans work as on Hard. Collectors use Hard scaling. Death to a collector is final (Hardcore
+death); Last Chance never triggers against damage from a squad member in Hardcore.
+
+### 5.8 Anti-grief / abuse rules
+
+1. One loan at a time; no new loan while in default or during the post-default cooldown.
+2. `withdrawable = balance − owed` (can't convert borrowed chips to items); no player-to-player
+   balance transfers while owing (Dice Duel challenges also blocked).
+3. Debt is world-bound and survives death, relog, dimension change and difficulty change.
+4. Collectors never grief (above), don't spawn in other players' claimed casinos' *interior*
+   (they spawn outside the claim and walk in), don't count toward mob-kill rewards, and cap one
+   wave per MCD, so they cannot be farmed.
+5. Operators: `/casino debt <player> clear|set <n>` (Java command; Bedrock scriptevent/admin form).
+
+---
+
+## 6. Blackjack [blackjack]
+
+### 6.1 Rules (defaults)
+
+| Rule | Value | Config key |
+|------|-------|-----------|
+| Decks | 6 | `blackjack.decks` (1–8) |
+| Shuffle | Reshuffle when ≥ 75 % of the shoe has been dealt, before the next round | `blackjack.penetration` |
+| Dealer on soft 17 | **Stands (S17)** | `blackjack.dealerHitsSoft17` = false |
+| Hole card / peek | Dealer takes a hole card; peeks for blackjack when the up-card is A or 10-value | — |
+| Blackjack pays | 3:2 | `blackjack.blackjackPayout` = 1.5 |
+| Double down | On any first two cards, for an amount equal to the original bet; exactly one more card | — |
+| Double after split | Yes | `blackjack.doubleAfterSplit` |
+| Split | Two cards of the **same rank** (K+K yes, K+Q no). Re-split up to **4 hands** total | `blackjack.maxHands` = 4 |
+| Split aces | Once; each ace gets exactly one card; no re-split, no hit, no double; A+10 after split = 21, **not** blackjack (pays 1:1) | `blackjack.resplitAces` = false |
+| Insurance | Offered when up-card is A; up to half the main bet; pays 2:1 | — |
+| Even money | Offered instead of insurance when the player has blackjack vs A; pays 1:1 immediately | — |
+| Surrender | Off | `blackjack.lateSurrender` = false |
+| Push | Stake returned | — |
+
+**House edge (6 decks, S17, DAS, resplit to 4, no RSA, no surrender, peek): ≈ 0.41 %**
+with perfect basic strategy (typical players ~1.5–2 %). With H17: +0.22 %. Insurance bet itself:
+HE 7.47 % (6 decks). Payout rounding: 3:2 on odd bets is floored (e.g. bet 5 → +7).
+
+### 6.2 Hand values
+
+A = 1 or 11, 2–10 face value, J/Q/K = 10. A hand is **soft** if it contains an ace counted as 11.
+Blackjack = exactly two cards, A + 10-value, on an unsplit hand. Bust > 21.
+
+### 6.3 Round state machine (one table, up to 5 seats)
+
+```
+BETTING   : seated players place bets (min..max). Ends when every seated player has pressed
+            "Deal" or after blackjack.betTimerTicks (300 = 15 s) from the FIRST bet. Seats with
+            no bet sit this round out.
+DEAL      : shuffle if needed; one card up to each seat (seat order 1→5), dealer up-card,
+            second card to each seat, dealer hole card (face down).
+INSURANCE : if dealer up = A: each seat without BJ gets Insurance [0..bet/2] / No; seat with
+            BJ gets Even money Yes/No. Timer 200 t → "No".
+PEEK      : if dealer up ∈ {A,10-value}: check hole. Dealer BJ → reveal, settle all
+            (player BJ pushes, insurance pays 2:1, others lose main bet) → SETTLE.
+PLAYER_TURNS : seats in order; hands in order (split hands left→right).
+            Actions: Hit, Stand, Double (2 cards only, balance ≥ bet), Split (pair, balance ≥ bet,
+            hands < 4). Hand auto-stands at 21. Player BJ is settled immediately at 3:2 after peek.
+            Turn timer blackjack.turnTimerTicks (400 = 20 s) → auto Stand. Disconnect → auto Stand.
+DEALER    : reveal hole; if every player hand is bust or already settled, skip drawing.
+            Else draw until total ≥ 17 (S17: stand on all 17; H17: hit soft 17).
+SETTLE    : win 1:1, BJ 3:2, push returns, lose. Credit balances, update streak/VIP/contracts.
+            Show result 60 t → BETTING.
+```
+Single player: the table starts DEAL immediately on "Deal" (no wait).
+
+### 6.4 Limits (per main bet)
+
+Standard table min 1, max = tier max. High-Roller table (End City, or configured by owner): min 100,
+max = 2 × tier max, requires Gold VIP. Doubles/splits may exceed the max (they equal the bet).
+
+---
+
+## 7. Texas Hold'em [poker]
+
+### 7.1 Format
+
+No-Limit Texas Hold'em, 2–6 seats (6-max), cash game. One standard 52-card deck, shuffled every hand.
+
+| Stake level | SB / BB | Buy-in (40–100 BB) | Min VIP |
+|-------------|---------|--------------------|---------|
+| Micro | 1 / 2 | 80 – 200 | Bronze |
+| Low | 5 / 10 | 400 – 1 000 | Silver |
+| Mid | 25 / 50 | 2 000 – 5 000 | Gold |
+| High | 100 / 200 | 8 000 – 20 000 | Diamond |
+
+The table block is configured by its placer (stake level, bots on/off, bot tier mix) — worldgen
+tables have fixed configs (§16). Buy-in moves chips from balance to the table stack; leaving the
+table (between hands) returns the stack to the balance. Top-up allowed between hands up to 100 BB.
+
+### 7.2 Hand ranking (high to low)
+
+Royal flush (A-K-Q-J-10 same suit, is a straight flush) > Straight flush > Four of a kind > Full
+house > Flush > Straight > Three of a kind > Two pair > One pair > High card. Ace is high, or low
+only in A-2-3-4-5 ("wheel", 5-high straight). Best 5 of 7 cards. Ties broken by kickers in rank
+order; suits never break ties. Identical best-5 → split pot.
+
+Evaluator contract (both editions, unit-tested with the same vectors):
+`evaluate(cards[7]) -> int` where higher is better; `category << 20 | ranks packed 4 bits × 5`.
+
+### 7.3 Hand flow
+
+```
+SEATING  : ≥ 2 players with chips (humans + bots) → start. Button moves 1 seat clockwise each hand
+           (dead-button not used; if the next seat is empty it simply advances).
+BLINDS   : SB = seat left of button, BB = next. Heads-up: button posts SB and acts first preflop.
+           Players who can't cover the blind post all-in.
+PREFLOP  : 2 hole cards each. Action starts left of BB. BB has the option.
+FLOP     : burn 1, 3 community cards. Action starts left of button.
+TURN     : burn 1, 1 card.  RIVER: burn 1, 1 card.
+SHOWDOWN : last aggressor shows first (else first active left of button); others may muck when
+           losing (auto-muck option; bots always show when winning).
+AWARD    : pots from side pots outwards; odd chip to the first winner left of the button.
+```
+**Betting (No-Limit):** actions Fold, Check (if nothing to call), Call, Bet/Raise, All-in.
+Min bet = BB. Min raise increment = the previous bet/raise increment in this round (≥ BB). An
+all-in that is less than a full raise does **not** reopen betting for players who already acted.
+Round ends when all active players have acted and matched the highest bet (or are all-in).
+
+**Side pots:** at the end of each betting round, sort all-in contribution levels ascending;
+for each level L build a pot = Σ over all players of min(contribution, L) − previous levels,
+eligible = non-folded players with contribution ≥ L. Folded players' chips go into pots but they
+are never eligible. Uncalled excess of the largest bet is returned to its owner before showdown.
+
+**Timeouts:** each human action has `poker.actionTimerTicks` (600 = 30 s). Timeout → Check if
+possible, else Fold. 2 consecutive timeouts → "sitting out" (auto-fold, blinds still posted
+when due). Sitting out for 3 hands or disconnected at hand end → removed, stack returned to
+balance. Being > 8 blocks from the table at hand start → sitting out.
+
+**Rake (house edge on PvP pots):** `rake = min(floor(pot × 0.05), 3 × BB)`, taken from each pot
+that saw a flop ("no flop, no drop") **and** had ≥ 2 human contributors. Rake goes to the table
+owner's bankroll in an owned casino (§18), otherwise it is removed (bank sink). Pots where the
+only human faces bots are not raked (the bots are the house).
+
+### 7.4 Bots
+
+Bots fill empty seats when `poker.botsEnabled` and ≥ 1 human is seated (max seats − humans − 1
+free seat kept for walk-ins). Bots are **funded by the house**: each bot buys in for 100 BB from
+nowhere; bot winnings disappear into the bank; a busted bot leaves and is replaced next hand.
+Bot names come from a fixed list (not localized, e.g. "Lucky Steve", "Grandpa Pavel",
+"Creeper42", "Mr. Blocksworth"); the tier is shown as a colored tag (Fish/Regular/Shark).
+Think time: random 20–60 ticks per action.
+
+Definitions: **Chen score** C (Bill Chen formula, integer-rounded up). **Position**: early =
+first 2 to act preflop, late = cutoff/button, middle otherwise. **Equity E**: Monte-Carlo share of
+pot won vs N random opponent hands (N = active opponents), with `samples` iterations, board
+completed randomly. **Pot odds** `po = toCall / (pot + toCall)`.
+
+| Tier | Preflop | Postflop | Randomness |
+|------|---------|----------|------------|
+| **Fish** | Calls with C ≥ 4; raises 3 BB only with C ≥ 12; calls any raise ≤ 20 % of stack if C ≥ 6; never folds a pocket pair preflop to a raise ≤ 10 BB | No simulation. Made hand ≥ one pair: call any bet ≤ pot; two pair+: bet 50 % pot; nothing: check/fold; bluff-bet 5 % | ±10 % sizing |
+| **Regular** | Open-raise to 3 BB (+1 BB per limper) if C ≥ 8 early / 7 middle / 6 late or SB; call a raise if C ≥ 9; 3-bet to 3× if C ≥ 11; else fold (BB checks when possible) | `samples = 200`. E ≥ 0.65 → bet/raise 66 % pot; E ≥ po + 0.05 → call; no bet facing → check, except continuation-bet 50 % pot on flop 30 % of the time if preflop raiser; else fold | 10 % chance to take the next-lower action |
+| **Shark** | Regular thresholds − 1; 3-bet bluff 8 % with suited connectors and suited aces; tracks each human's VPIP over the last 20 hands and widens calling range by 1 C when VPIP > 40 % | `samples = 500`, opponents who raised preflop sample only from their top 40 % Chen hands. E ≥ 0.85 → 20 % overbet all-in, 15 % slowplay (check/call), else raise 75 % pot; E ≥ 0.6 → bet 60 % pot; draws (flop E ≥ 0.30) semi-bluff 40 %; call if E ≥ po; fold otherwise | Sizing 50–75 % pot uniform |
+
+Default seat mix when bots fill: Micro/Low: Fish 50 %, Regular 40 %, Shark 10 %; Mid: 30/50/20; High:
+10/50/40 (config `poker.botMix.*`). Bots never collude (each decides only from its own cards and
+public info). Performance note: Monte-Carlo may be spread over ticks (Bedrock `system.runJob`).
+
+**House edge**: PvP: rake ≈ 3–5 % of raked pots. Vs bots: depends on skill; with the default mix
+an average survival player loses ≈ 5 BB/100 hands; a skilled player can beat Fish/Regular tables
+(intended — poker is the "skill" game).
+
+---
+
+## 8. Slots [slots]
+
+### 8.1 Common mechanics
+
+- Screen shows a 3×3 window (3 reels × 3 rows). **Each of the 9 cells is drawn independently**
+  from the machine's symbol weights (no reel strips). This makes every payline's distribution
+  identical, so per-line RTP = machine RTP.
+- Bet = line bet × number of lines (fixed per machine; all lines always played).
+- A line pays the **single best** combination on it. Evaluation per line (cells a, b, c left→right):
+  1. If a = b = c and it is a special symbol (Creeper, TNT, Ender Pearl, Clock, Nether Star) →
+     special result (table).
+  2. If a = b = c = Wild → Wild payout.
+  3. Else for every regular symbol S: if each cell is S or Wild → candidate payout(S). Take max.
+     (Wild never substitutes for specials; three Wilds use rule 2.)
+  4. Else "Berry" partial: count leading berries from the left (Wild does not count here):
+     1 → pays 2×, 2 → pays 3×. (3 berries is covered by rule 3.)
+- Payout per line = floor(multiplier × line bet). Spin result = sum of all lines.
+- Special triggers are applied **after** crediting: at most one chaos event per spin (priority
+  Star > Clock > Pearl > TNT/Creeper). If chaos is disabled, specials still pay their payout
+  and no event fires.
+- Spin animation: 40–60 ticks; server result is final before animation starts.
+
+### 8.2 Tier 1 — "Copper Bandit" (`slot_machine_copper`)
+
+1 payline (middle row). Line bet 1–min(tier max, 50). No jackpot.
+
+| Symbol | Weight | 3 of a kind pays |
+|--------|--------|------------------|
+| Sweet Berries | 24 | 10× (1 lead → 2×, 2 lead → 3×) |
+| Apple | 20 | 10× |
+| Golden Carrot | 16 | 20× |
+| Emerald | 12 | 30× |
+| Diamond | 8 | 60× |
+| Redstone Seven | 5 | 150× |
+| Creeper | 15 | 0 → chaos `mob_wave` |
+| **Total** | 100 | |
+
+**RTP 89.76 %, HE 10.24 %.** Hit frequency 25.4 %. 3 Creepers 1 in 296 spins.
+
+### 8.3 Tier 2 — "Golden Reels" (`slot_machine_gold`)
+
+3 paylines (top, middle, bottom rows). Line bet 1–min(tier max/3, 100) → spin bet 3–300.
+Progressive jackpot contribution 1 % of every spin bet.
+
+| Symbol | Weight | 3 of a kind pays |
+|--------|--------|------------------|
+| Sweet Berries | 22 | 8× (1 lead → 2×, 2 lead → 3×) |
+| Apple | 19 | 7× |
+| Golden Carrot | 16 | 11× |
+| Emerald | 12 | 25× |
+| Diamond | 8 | 50× |
+| Redstone Seven | 5 | 100× |
+| Totem (Wild) | 3 | 200× (three Wilds) |
+| Creeper | 8 | 0 → chaos `mob_wave` |
+| Ender Pearl | 5 | 10× → chaos `random_teleport` |
+| Nether Star | 2 | **Progressive jackpot** (§8.5) |
+| **Total** | 100 | |
+
+**Base RTP 92.71 % + jackpot 1.00 % = 93.71 %, HE 6.29 %.** Per-line hit 24.5 %.
+Jackpot 1 in 125 000 lines (≈ 1 in 41 667 spins).
+
+### 8.4 Tier 3 — "Netherite High Roller" (`slot_machine_netherite`)
+
+5 paylines: 3 rows + 2 diagonals (top-left→bottom-right, bottom-left→top-right). Requires Gold VIP.
+Line bet 2–min(tier max/5, 500) → spin bet 10–2 500. Jackpot contribution 1.5 %.
+
+| Symbol | Weight | 3 of a kind pays |
+|--------|--------|------------------|
+| Sweet Berries | 20 | 8× (1 lead → 2×, 2 lead → 3×) |
+| Apple | 19 | 9× |
+| Golden Carrot | 16 | 14× |
+| Emerald | 12 | 25× |
+| Diamond | 9 | 50× |
+| Redstone Seven | 6 | 100× |
+| Totem (Wild) | 3 | 250× |
+| TNT | 6 | 0 → chaos `mob_wave` |
+| Ender Pearl | 5 | 10× → chaos `random_teleport` |
+| Clock | 2 | 50× → **Golden Hour** starts server-wide (§13.3, cooldown respected; if on cooldown: pays 50× only) |
+| Nether Star | 2 | **Progressive jackpot** |
+| **Total** | 100 | |
+
+**Base RTP 94.54 % + jackpot 1.50 % = 96.04 %, HE 3.96 %.** Per-line hit 22.5 %.
+
+Contribution breakdown (per line, for tests): see appendix A.
+
+### 8.5 Progressive jackpot
+
+- One pool per tier per world (Gold, Netherite), stored in world data. Seeds: Gold 5 000,
+  Netherite 50 000 (`slots.jackpot.seed.*`), minted by the bank.
+- Every spin adds `floor(spinBet × contribution)`; fractional parts accumulate in a hidden
+  remainder so the long-run rate is exact.
+- Win (3 Nether Stars on any line): `award = floor(pool × min(1, spinBet / machineMaxSpinBet))`.
+  Pool −= award; if pool < seed, pool = seed (bank tops up). Multiple star lines in one spin
+  still award once. Server-wide announcement + chaos `diamond_rain` for the winner +
+  `chip_shower` for every player within 16 blocks.
+- Owned-casino machines (§18) have **no** progressive: 3 stars pay a fixed 1000× line bet
+  (RTP then 93.51 % / 95.34 %).
+
+---
+
+## 9. European Roulette [roulette]
+
+Single-zero wheel 0–36. Red: 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36; the rest of 1–36 black;
+0 green. Wheel order (clockwise, for animation): 0-32-15-19-4-21-2-25-17-34-6-27-13-36-11-30-8-23-10-5-24-16-33-1-20-14-31-9-22-18-29-7-28-12-35-3-26.
+
+| Bet | Covers | Payout | HE |
+|-----|--------|--------|----|
+| Straight | 1 number (incl. 0) | 35:1 | 2.70 % |
+| Split | 2 adjacent numbers on the layout (incl. 0-1, 0-2, 0-3) | 17:1 | 2.70 % |
+| Street | 3 numbers in a row (1-2-3 … 34-35-36) | 11:1 | 2.70 % |
+| Trio | 0-1-2 or 0-2-3 | 11:1 | 2.70 % |
+| Corner | 4 numbers in a square (e.g. 1-2-4-5) | 8:1 | 2.70 % |
+| First Four | 0-1-2-3 | 8:1 | 2.70 % |
+| Six Line | 2 adjacent streets (e.g. 1–6) | 5:1 | 2.70 % |
+| Dozen | 1–12, 13–24, 25–36 | 2:1 | 2.70 % |
+| Column | 1st (1,4,…,34), 2nd (2,…,35), 3rd (3,…,36) | 2:1 | 2.70 % |
+| Red / Black | 18 numbers | 1:1 | 2.70 % |
+| Odd / Even | 18 numbers (0 is neither) | 1:1 | 2.70 % |
+| Low (1–18) / High (19–36) | 18 numbers | 1:1 | 2.70 % |
+
+Zero rule: all outside bets lose on 0 (`roulette.laPartage` = false; if true, even-money bets
+lose only half on 0 → HE 1.35 % on those bets).
+
+Limits: table min per spin 1; each individual bet ≥ 1; **total per spin ≤ tier max**; each
+inside bet ≤ tier max / 4. High-roller table: min total 100, max 2 × tier max.
+
+State machine: `BETTING (roulette.betTimerTicks 500 = 25 s from the first bet in multiplayer;
+single player can press Spin) → NO_MORE_BETS (20 t) → SPIN (100 t animation) → RESULT (60 t,
+settle) → BETTING`. Players may repeat last bets ("Rebet") or clear before NO_MORE_BETS. History of
+the last 12 results is shown.
+
+---
+
+## 10. Craps [craps]
+
+Two six-sided dice. One **shooter** at a time; any seated player (up to 6) may bet.
+
+### 10.1 Bets
+
+| Bet | Rules | Payout | HE |
+|-----|-------|--------|----|
+| Pass Line | Come-out: 7/11 win, 2/3/12 lose, else that number becomes the **point**. Then: point before 7 wins, 7 before point loses. Contract bet (cannot be removed after point is set). | 1:1 | 1.41 % |
+| Don't Pass | Come-out: 2/3 win, **12 push (bar 12)**, 7/11 lose. Then: 7 before point wins, point before 7 loses. | 1:1 | 1.36 % |
+| Come | Placed when a point is on; next roll acts as its own come-out for this bet (7/11 win, 2/3/12 lose, else moves to its come point). | 1:1 | 1.41 % |
+| Don't Come | Mirror of Don't Pass for come bets (bar 12). | 1:1 | 1.36 % |
+| Field | One roll: 3,4,9,10,11 pay 1:1; **2 pays 2:1; 12 pays 3:1**; 5,6,7,8 lose. | see rule | 2.78 % |
+| Odds (take) | Behind Pass/Come once a point exists. Max **3-4-5×**: 3× on 4/10, 4× on 5/9, 5× on 6/8. | true odds 2:1 (4/10), 3:2 (5/9), 6:5 (6/8) | 0 % |
+| Odds (lay) | Behind Don't Pass/Don't Come. Max = amount that wins 6× the flat bet. | 1:2 (4/10), 2:3 (5/9), 5:6 (6/8) | 0 % |
+
+Odds-bet amounts are restricted so payouts are whole: take 5/9 → even amounts; take 6/8 →
+multiples of 5; lay 4/10 → multiples of 2; lay 5/9 → multiples of 3; lay 6/8 → multiples of 6.
+The UI snaps down to the nearest valid amount. Come-bet odds are **off** on the come-out roll
+(returned if 7 on come-out). Combined Pass + full 3-4-5× odds HE ≈ 0.37 %.
+
+### 10.2 Point logic / state machine
+
+```
+COME_OUT (puck OFF): bets allowed: Pass, Don't Pass, Field (and come-bet odds adjustments).
+   roll → 7/11: pass wins, DP loses. 2/3: pass loses, DP wins. 12: pass loses, DP push.
+          4,5,6,8,9,10: point = roll, puck ON → POINT.
+POINT: bets allowed: Come, Don't Come, Field, Odds. Pass/Don't Pass can only be placed on the
+   come-out roll (v1 rule).
+   roll = point → pass wins (+odds), DP loses; puck OFF → COME_OUT (same shooter).
+   roll = 7     → "seven-out": pass loses, DP wins, all come bets with points lose, don't-come
+                  with points win; field loses; puck OFF → COME_OUT, **next shooter**.
+   other rolls  → resolve field and come/don't-come moves.
+```
+Shooter must have a Pass or Don't Pass bet on come-out. Roll button available to the shooter
+only; timer `craps.rollTimerTicks` (400 = 20 s) → auto roll. Betting window before each roll:
+`craps.betWindowTicks` (160 = 8 s) in multiplayer. Shooter rotation: clockwise among seated
+players with a line bet; single player is always the shooter.
+
+Limits: each flat bet (Pass/DP/Come/DC/Field) 1…tier max; odds not counted in the max.
+
+---
+
+## 11. Extras [extras]
+
+### 11.1 Coin Flip (Lucky Coin item `lucky_coin`, usable anywhere, vs the house)
+
+Choose Heads/Tails, stake 1…tier max. Win pays **0.96:1** (floor) i.e. 1.96× total.
+**RTP 98.0 %, HE 2.0 %.** Streak adjustment applies (§14). Pawn stakes and Soul Wager allowed.
+Lucky Coin: crafted from 1 gold ingot + 1 chip_5 (shapeless), not consumed.
+
+### 11.2 Wheel of Fortune (`wheel_of_fortune` block, 3×3 face multiblock-looking model, 1 block hitbox)
+
+Single bet 1…tier max/2; spin; the segment's multiplier × stake is paid (floor). 54 segments:
+
+| Segment | Count | Multiplier |
+|---------|-------|-----------|
+| Bust | 25 | 0× |
+| Creeper | 1 | 0× → chaos `mob_wave` |
+| Half back | 5 | 0.5× |
+| Money back | 11 | 1× |
+| Double | 7 | 2× |
+| Triple | 3 | 3× |
+| Emerald | 1 | 5× |
+| Diamond | 1 | 10× |
+
+**RTP = 51.5/54 = 95.37 %, HE 4.63 %.** Segment order around the wheel (index 0–53) is fixed in
+appendix B so both editions animate identically.
+
+### 11.3 Scratch Cards (items)
+
+Bought from a Croupier NPC, the Cashier "Shop" tab or loot. The outcome is decided on **first
+scratch** (server), stored in the item's data, so unscratched cards are fungible and streak applies.
+
+| Card | Price | Min VIP | Prizes (chips : probability) | RTP |
+|------|-------|---------|------------------------------|-----|
+| `scratch_card` (Basic) | 10 | Bronze | 10 : 0.22, 20 : 0.10, 50 : 0.03, 100 : 0.01, 500 : 0.002, 2 500 : 0.0001; else 0 | **79.5 %** (HE 20.5 %) |
+| `scratch_card_gold` | 100 | Silver | 100 : 0.20, 200 : 0.10, 500 : 0.05, 1 000 : 0.01, 5 000 : 0.001, 25 000 : 0.0002; else 0 | **85.0 %** (HE 15 %) |
+
+Card face: 3×3 cells with prize symbols. Winning card: exactly 3 cells show the prize symbol;
+the other 6 show other symbols, each at most twice. Losing card: no symbol appears 3+ times.
+1 % of losing cards are **Creeper cards** (3 creeper cells, no prize) → chaos `mob_wave`.
+Player scratches cell by cell (Java: click cells; Bedrock: "Scratch next"/"Scratch all").
+Unscratched card stack 16; scratched card becomes `scratch_card_used` (junk, stack 64).
+
+### 11.4 Plinko (`plinko_machine` block)
+
+12 rows of pegs, ball ends in bin k ~ Binomial(12, ½) (12 independent left/right coin flips;
+animate that exact path). Choose risk Low/Medium/High; bet 1…tier max/5. Payout = floor(bet × mult).
+
+| Bin | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|-----|---|---|---|---|---|---|---|---|---|---|----|----|----|
+| P (×4096) | 1 | 12 | 66 | 220 | 495 | 792 | 924 | 792 | 495 | 220 | 66 | 12 | 1 |
+| Low | 10 | 3 | 1.6 | 1.4 | 1.0 | 1.0 | 0.5 | 1.0 | 1.0 | 1.4 | 1.6 | 3 | 10 |
+| Medium | 33 | 11 | 4 | 2 | 1.0 | 0.6 | 0.3 | 0.6 | 1.0 | 2 | 4 | 11 | 33 |
+| High | 170 | 24 | 8.1 | 2 | 0.6 | 0.2 | 0.2 | 0.2 | 0.6 | 2 | 8.1 | 24 | 170 |
+
+**RTP: Low 96.56 %, Medium 96.57 %, High 96.70 %** (HE ≈ 3.4 %).
+
+### 11.5 Dice Duel
+
+**Vs house** (at any Craps table's side menu or `dice` item used on air): player and dealer each roll
+2d6; higher total wins 1:1; ties **push**, except a tie on **7** which the house wins.
+**HE = (6/36)² = 2.78 %.** Bet 1…tier max. Pawn stakes allowed.
+
+**PvP**: use the `dice` item on another player (or Casino Card → Challenges) → the target gets a
+challenge (stake S, 30 s to accept). Both stakes are escrowed from balances; each rolls 2d6,
+higher wins the pot minus `extras.diceDuel.pvpRakePercent` (0 %); ties re-roll up to 3 times,
+then both stakes are refunded. Both players must be within 16 blocks, not in debt default, and
+not the same player. Max 1 pending outgoing challenge per player.
+
+---
+
+## 12. VIP tiers [vip]
+
+Tier by **lifetime chips wagered** W (never decreases; tiers are never lost).
+
+| # | Tier | W ≥ | Max bet | Perks |
+|---|------|-----|---------|-------|
+| 0 | Bronze | 0 | 100 | Micro poker, Basic scratch cards, loans 100/500 |
+| 1 | Silver | 5 000 | 250 | Low poker, Gold scratch cards, loan 2 000, +5 % contract rewards, silver name tag on tables |
+| 2 | Gold | 25 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, emerald buy rate 9, +10 % contracts, 2 % cashback, gold win particles |
+| 3 | Platinum | 100 000 | 2 500 | 4 contract slots, loan interest −2 %, 3 % cashback, "Platinum" chat title |
+| 4 | Diamond | 500 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
+| 5 | Netherite | 2 500 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
+
+**Cashback:** at each MCD boundary, `cashback = floor(max(0, netLossToday) × rate)` where
+netLossToday = (wagered − returned) on house-banked games that day. Paid by the bank, never on
+PvP poker or owned casinos. Because it is a percentage of *net losses*, effective HE becomes
+`HE × (1 − rate)` — the house edge never flips.
+
+Promotion: title + sound + chat; cosmetics are client-side particle/name-color only.
+
+---
+
+## 13. Chaos layer [chaos]
+
+Toggle `chaos.enabled` (default true). Chaos never runs in dormant mode.
+
+### 13.1 Triggers
+
+1. **Ambient roll**: every `chaos.ambientIntervalTicks` (6000 = 5 min) per eligible online player,
+   with probability `chaos.ambientChance` (0.08) choose an event from the ambient weights.
+2. **Slot/wheel/scratch specials** (§8, §11) → the named event (bypasses the ambient chance, but
+   still respects safety and per-player cooldown — if blocked, the payout still happens).
+3. **Big win**: a single settlement with net profit ≥ 50 × stake and ≥ 500 chips → 30 % chance of
+   `lucky_buff`.
+4. **Jackpot** → `diamond_rain` for winner + `chip_shower` for players within 16 blocks.
+5. **Sunset roll** (Golden Hour): once per MCD at time-of-day 12000, probability
+   `chaos.goldenHour.sunsetChance` (0.10).
+
+Per-player cooldown between events: `chaos.playerCooldownTicks` (3000). Golden Hour has its own
+cooldown (below).
+
+### 13.2 Events
+
+| Id | Kind | Ambient weight | Effect | Duration |
+|----|------|----------------|--------|----------|
+| `chip_shower` | good | 18 | 20–100 chips as chip items (chip_1 and chip_5 mix) pop out around the player (radius 2) | instant |
+| `lucky_buff` | good | 20 | One of: Speed II, Haste II, Regeneration I, Strength I, Luck I, Jump Boost II, Fire Resistance | 1200–3600 t |
+| `diamond_rain` | good | 4 | 3–6 diamonds (Hard/Hardcore: 2–5) drop from 6 blocks above within radius 3, or at feet if no headroom; particle "rain" | 100 t |
+| `xp_fountain` | good | 12 | 50–150 XP in orbs | 60 t |
+| `curse` | bad | 16 | One of: Slowness I, Mining Fatigue I, Hunger I, Weakness I, Bad Luck (Unluck) I, Glowing | 600–1800 t |
+| `mob_wave` | bad | 12 | N hostile mobs (§2.3 counts) at 8–16 blocks; mobs tagged `burmaldaholic:chaos` | mobs despawn after 6000 t |
+| `random_teleport` | neutral | 8 | Teleport 32–256 blocks horizontally to a safe spot | instant |
+| `weather_change` | neutral | 8 | Overworld only: clear → rain, rain → thunder, thunder → clear | 6000 t |
+| `golden_hour` | good, **server-wide** | 2 | §13.3 | 3600 t |
+
+Mob-wave composition by dimension: Overworld zombies/skeletons/spiders (equal), Nether
+skeletons/magma cubes (size 2), End endermites/skeletons. No creepers (no block damage ever).
+
+### 13.3 Golden Hour
+
+- Server-wide. While active, **net winnings** of house-banked games (all except PvP poker and PvP
+  dice) are multiplied by `chaos.goldenHour.multiplier` (2.0): bonus = floor(netWin × (m − 1)),
+  paid by the bank (also at owned casinos — owners never pay it).
+- Bonus cap per player per Golden Hour: `chaos.goldenHour.bonusCap` (5 000).
+- Duration 3600 t (3 min). Cooldown between Golden Hours: `chaos.goldenHour.cooldownTicks`
+  (24000). Start/end announced to all players (title + chat + bell sound); HUD shows a timer.
+
+### 13.4 Safety rules (all events)
+
+An event is **skipped** (and not rerolled, except `mob_wave` in Peaceful which is rerolled from the
+remaining events) if any applies:
+- Player is in Creative or Spectator, dead, or within 200 t after respawn, or sleeping.
+- Player has a casino screen/form open → event is **deferred** until closed (max 600 t, then skip).
+- `mob_wave`: difficulty Peaceful; player within 64 blocks of a Wither, Warden or Ender Dragon;
+  inside a claimed casino (§18) interior; fewer than N valid spawn spots found in 16 attempts each.
+- `random_teleport`: player gliding, riding, falling (fall distance > 3), in a boss zone (as above),
+  or during a card/table round. Target must be: inside world border, same dimension, chunk
+  already generated **or** loadable (max 1 synchronous chunk load), a solid full top block that
+  is not lava/magma/fire/campfire/cactus/sweet berry bush/powder snow/pointed dripstone/water,
+  2 air (non-liquid) blocks above, Y > dimension min Y + 5, Nether Y < 120 (never onto the roof),
+  End: only above end stone with ≥ 3 solid blocks below. 16 attempts; failure → skip silently.
+  Pets that are sitting stay; leashed mobs are not teleported. After teleport: 60 t Resistance V.
+- `diamond_rain`/`chip_shower` never spawn items into lava/void (spawn at feet instead).
+- `weather_change` only in the Overworld; elsewhere reroll once from good events.
+- Buff/curse effects are never lethal (no Poison, Wither, Instant Damage, Levitation).
+
+---
+
+## 14. Lucky / Unlucky streak [streak]
+
+Per player integer **S ∈ [−10, +10]**, persisted.
+
+**Update on each settled house-banked or PvP wager** with stake ≥ 1:
+- Win (net > 0): `S = max(S, 0) + 1`, capped at +10.
+- Loss (net < 0): `S = min(S, 0) − 1`, capped at −10.
+- Push / net 0: unchanged.
+- Decay: for every `streak.decayTicks` (12000) of world time without a settled wager, S moves 1
+  toward 0.
+
+**Effect** — only on **RNG games** (slots, wheel, plinko, scratch cards, coin flip). Table games
+(blackjack, poker, roulette, craps, dice duel) are always honest; the streak there is cosmetic.
+After the outcome is drawn, if it is a **losing outcome** (total return < stake), with probability
+`r` the whole outcome is re-drawn once and the second draw is final:
+```
+r_raw = S > 0 ? 0.005 × S          (lucky, max 0.05)
+      : S < 0 ? 0.003 × |S|        (pity, max 0.03)
+      : 0
+r_cap = max(0, (1 − streak.minHouseEdge) / RTP_game − 1)   // minHouseEdge = 0.01
+r     = min(r_raw, r_cap)
+```
+Proof of the cap: a re-draw replaces a return < stake with an expected return RTP, so
+`RTP' ≤ RTP × (1 + r) ≤ 1 − minHouseEdge`. The house edge therefore never drops below 1 % on
+any game, whatever the streak. `RTP_game` values are the constants in §17 (Plinko uses the chosen
+risk's value; slots use the tier's total RTP incl. jackpot).
+
+Examples: coin flip r_cap = 0.0102; Copper slots r_cap = 0.103 (so full 5 % applies).
+
+**HUD:** S > 0 shows flame icon(s) and "Lucky ×S" in gold; S < 0 shows a rain-cloud icon and
+"Unlucky ×|S|" in gray-blue; |S| ≥ 7 pulses. S = 0 hides the streak line.
+Additionally |S| = 10 grants the advancements "On Fire" / "Black Cat".
+
+---
+
+## 15. Last Chance [lastchance]
+
+### 15.1 Trigger
+
+When a player would die (Java: Fabric `ServerLivingEntityEvents.ALLOW_DEATH`; after vanilla
+totem check), and all conditions hold:
+- casino mode on, `lastChance.enabled`, not Hardcore (see §15.3 for Hardcore),
+- the player holds no Totem of Undying (vanilla totem takes priority),
+- damage type is not `out_of_world`/void, `/kill` (`generic_kill`), `soul_wager`,
+- cooldown ready: `worldTime ≥ lastChanceUsedAt + lastChance.cooldownTicks` (24000),
+then flip: success with probability p(difficulty) (§2.3: 0.60 / 0.60 / 0.50 / 0.40).
+
+**Success:** death is cancelled; health = ceil(maxHealth / 2); fire extinguished; Resistance V for
+60 t and Regeneration I for 100 t; cost `floor(balance × lastChance.costPercent/100)` (10 %) taken
+from balance; title "HEADS — Last Chance!"; totem-like particles + coin sound.
+**Failure:** normal death proceeds; title "TAILS…" shown on the death screen chat.
+The cooldown starts on **either** outcome. Cooldown remaining is shown in the Casino Menu.
+
+Edition note (Bedrock): the Script API cannot cancel death reliably. Required observable result:
+the player does not lose items/XP and continues at the death position with half health. Allowed
+implementation: before-damage interception if available in the target API version; otherwise
+snapshot inventory/XP/position when an `entityHurt` leaves health ≤ 8, and on `entityDie` with a
+successful flip: clear the dropped item entities of that death (within 3 blocks, same tick),
+force-respawn, teleport back, restore snapshot. Architecture doc (R2) decides.
+
+### 15.2 Multiplayer
+
+Last Chance announcement goes to all players ("%1$s flipped a coin with Death and won").
+
+### 15.3 Hardcore
+
+`lastChance.hardcoreMode` enum: **`DISABLED` (default)** | `HIGH_STAKES`.
+HIGH_STAKES: success chance 0.50 (fixed); eligible only if balance + chip items in inventory ≥ 100
+and max health ≥ 8 HP; cooldown 120000 t (5 MCD).
+- Success: balance set to 0 **and** all chip items in the player's inventory destroyed, **and** a
+  permanent `max_health` modifier −2 HP (`burmaldaholic:last_chance_scar`, stacks) is applied;
+  revive at half (new) max health.
+- Failure: Hardcore death (vanilla spectator). The stake is not taken (you're dead anyway).
+The setting is chosen in the setup (Bedrock) / config + world-creation (Java) and shown in
+the world's Casino Menu "Rules" page so players know.
+
+---
+
+## 16. Worldgen [worldgen]
+
+All structures only generate in newly generated chunks while `worldgen.enabled` (and the Java data
+pack) is on. Tables in structures are ordinary blocks (breakable; drop themselves) flagged as
+**house tables** (bank-funded). Structure NBT/`.mcstructure` files are authored once and exported
+for both editions; sizes below are bounding boxes (X × Y × Z).
+
+### 16.1 Village Casino ("Lucky Villager")
+
+- Size 17 × 10 × 17, one palette variant per village type (plains, desert, savanna, taiga, snowy)
+  via block replacement processors (Java) / separate files (Bedrock).
+- Frequency target: **≈ 1 per 3 villages** (`worldgen.villageCasino.chance` 0.35).
+  Java: added as a jigsaw element to each village's `houses` pool with a weight calibrated to that
+  frequency, max 1 per village. Bedrock: custom jigsaw structure with the village structure-set
+  spacing (34/8) in village biomes, frequency 0.35 — so it may appear next to or near villages
+  (accepted edition difference).
+- Contents: Cashier ×1; Blackjack table ×1 (standard); Roulette table ×1; Copper Bandit ×3;
+  Golden Reels ×1; Wheel of Fortune ×1; Loan Shark ×1; Croupier (villager-like NPC, sells scratch
+  cards 10/100 chips and Lucky Coins 25 chips) ×1; neon-ish glowstone/redstone-lamp sign "CASINO";
+  back room with 1 loot chest `burmaldaholic:chests/village_casino`.
+- Loot (4–7 rolls): chip_1 ×5–20 (w 30), chip_5 ×2–8 (w 25), chip_25 ×1–3 (w 12), scratch_card
+  ×1–3 (w 15), emerald ×2–6 (w 12), golden carrot ×2–5 (w 8), lucky_coin ×1 (w 5), casino_card
+  (w 3).
+
+### 16.2 Nether casino — "Piglin Parlor"
+
+- Inside bastion remnants: `worldgen.piglinParlor.chance` 0.30 of bastions, placed as an extra room
+  appended to the bastion (Java: added to bastion jigsaw pools; Bedrock: standalone structure in
+  basalt-deltas-excluded Nether biomes adjacent to bastion spacing — accepted difference).
+- Size 21 × 12 × 21, blackstone/gold/crimson palette.
+- Contents: Craps table ×1; Poker table ×1 (Low stakes, 3 bots, mix Regular-heavy); Golden Reels ×2;
+  Plinko ×1; Nether Cashier ×1 (gold ingot exchange); **Piglin Dealers ×2** (piglin model with vest,
+  neutral, never zombify, admire gold but never take items); Piglin Moneylender (Loan Shark variant) ×1.
+- Piglin Dealers are **not** bastion piglins: normal bastion piglins still behave vanilla; entering
+  the Parlor does not anger them unless blocks/chests are broken (vanilla rules).
+- Loot `chests/piglin_parlor` (5–8 rolls): gold ingot ×4–12, gold block ×1 (w 8), chip_25 ×2–6,
+  chip_100 ×1–2 (w 10), scratch_card_gold ×1 (w 8), netherite scrap ×1 (w 3), lucky_coin (w 5).
+
+### 16.3 End City High Roller Lounge
+
+- `worldgen.highRoller.chance` 0.20 of End Cities, placed as a top-floor room on a tower.
+- Size 13 × 9 × 13, purpur/obsidian/end-rod palette.
+- Contents: Netherite High Roller slots ×2; High-Roller Blackjack table ×1 (min 100, max 2× tier,
+  Gold VIP); High-Roller Roulette ×1 (min 100); Cashier ×1; **Shulker Croupier** (cosmetic
+  shulker-skinned NPC, sells gold scratch cards).
+- Loot `chests/high_roller` (3–5 rolls): chip_100 ×2–5, chip_500 ×1–2 (w 10), diamond ×2–6,
+  enchanted book (random, w 10), scratch_card_gold ×1–2, `golden_chip` trophy (w 4, decorative,
+  "Worth nothing. Priceless.").
+
+### 16.4 Craftable blocks (so players can build casinos)
+
+| Block | Recipe (shaped) |
+|-------|-----------------|
+| `blackjack_table` | green wool ×3 / planks ×3 / fence, chip_25, fence |
+| `poker_table` | green wool ×3 / dark oak planks ×3 / fence, chip_100, fence |
+| `roulette_table` | green wool ×3 / planks ×3 / fence, compass, fence |
+| `craps_table` | green wool ×3 / planks ×3 / fence, dice, fence |
+| `slot_machine_copper` | copper ingot ×7, redstone, chip_5 |
+| `slot_machine_gold` | gold ingot ×7, redstone block, chip_25 |
+| `slot_machine_netherite` | netherite ingot, gold block ×6, redstone block, chip_100 |
+| `wheel_of_fortune` | planks ×4, stick ×3, clock, chip_25 |
+| `plinko_machine` | glass ×3, iron bars ×4, iron ingot, chip_5 |
+| `cashier` | §3.2 |
+| `casino_charter` | §18.2 |
+| `dice` (item ×2) | bone block + black dye |
+
+Blocks require no power; the machine *is* the dealer.
+
+---
+
+## 17. House edge summary (defaults)
+
+| Game | RTP | House edge | Streak-adjustable |
+|------|-----|-----------|-------------------|
+| Blackjack (basic strategy) | 99.59 % | 0.41 % | no |
+| Blackjack insurance | 92.53 % | 7.47 % | no |
+| Poker vs players | rake ≤ 5 % of raked pots | — | no |
+| Slots — Copper Bandit | 89.76 % | 10.24 % | yes |
+| Slots — Golden Reels | 93.71 % | 6.29 % | yes |
+| Slots — Netherite High Roller | 96.04 % | 3.96 % | yes |
+| Roulette (any bet) | 97.30 % | 2.70 % | no |
+| Craps Pass / Come | 98.59 % | 1.41 % | no |
+| Craps Don't Pass / Don't Come | 98.64 % | 1.36 % | no |
+| Craps Field | 97.22 % | 2.78 % | no |
+| Craps Odds | 100 % | 0 % | no |
+| Coin Flip | 98.00 % | 2.00 % | yes |
+| Wheel of Fortune | 95.37 % | 4.63 % | yes |
+| Scratch Basic / Gold | 79.5 % / 85.0 % | 20.5 % / 15.0 % | yes |
+| Plinko L / M / H | 96.56 / 96.57 / 96.70 % | ≈ 3.4 % | yes |
+| Dice Duel vs house | 97.22 % | 2.78 % | no |
+
+Testers: every RNG game gets a 10⁷-round Monte-Carlo test asserting |RTP − expected| < 0.3 %
+(Plinko High and Netherite slots: 10⁸ or exact enumeration, due to variance).
+
+---
+
+## 18. Multiplayer [multiplayer]
+
+### 18.1 Player-hosted tables
+
+Any placed table/machine outside a claim is a **house table** (bank-funded). Multiplayer tables:
+Blackjack (5 seats), Poker (6 seats), Roulette (8 bettors), Craps (6 seats). Seat by using the table;
+leave with the "Leave" button or by walking > 8 blocks away (between rounds; mid-round the
+disconnect rules of each game apply). Spectators within 8 blocks see public table state (Java:
+render over the table; Bedrock: no live view — action bar summary).
+
+### 18.2 Player-owned casinos
+
+- **Casino Charter** block (`casino_charter`), recipe: gold block, emerald block, gold block /
+  chip_500, lodestone, chip_500 / gold block ×3. Placing it costs the license fee
+  `ownership.licenseFee` (1 000 chips, from balance; refused if unaffordable).
+- Claim: cylinder of radius `ownership.claimRadius` (24) blocks around the charter, full height.
+  Must not overlap another claim or spawn protection. Max `ownership.maxPerPlayer` (1) charters.
+- Every casino block placed **by the owner** inside the claim links to it (becomes an *owned
+  table*). Blocks placed before the claim can be linked from the charter screen.
+- **Owner bankroll**: separate account on the charter. Owner deposits/withdraws from/to balance.
+  All owned-table stakes go into the bankroll; all payouts come from it. The owner therefore
+  earns the house edge. Poker rake at owned tables → bankroll.
+- Owner settings per table: min bet, max bet (≤ global table max; tier max still applies to the
+  player), open/closed, bots on/off (poker). Owner **cannot** play at their own tables.
+- **Solvency (reservation rule):** before accepting any stake, compute the round's worst-case
+  payout (max total the house could pay for all bets currently placed in that round, e.g.
+  roulette: max over the 37 outcomes; blackjack: 8 × bet (4 hands doubled) + insurance; slots:
+  highest line pay × lines × line bet; plinko: max mult × bet; craps: sum of max wins incl. odds).
+  `reserved += worstCase`. Accept only if `reserved ≤ bankroll`. On settlement, bankroll changes by
+  the real result and the reservation is released. Owner withdrawals are limited to
+  `bankroll − reserved`.
+- **Insolvency:** if bankroll < the smallest worst-case of any table at its minimum bet, all owned
+  tables show **"Closed — the house is broke"** and refuse bets; the owner is notified. They
+  reopen automatically when the bankroll is topped up. The bank never pays for an owner.
+- Protection: only the owner (and ops) can break linked tables and the charter; explosions don't
+  destroy them. Other blocks in the claim are **not** protected (this is not a land-claim mod).
+- Breaking the charter: bankroll (minus reservations, after open rounds settle) is returned to
+  the owner's balance; linked tables become **inactive** (not house tables) until re-linked.
+- Golden Hour bonuses and cashback at owned tables are paid by the bank, not the owner.
+- Statistics on the charter screen: today's/total handle, payouts, rake, profit.
+
+---
+
+## 19. Advancements [advancements]
+
+Java: real advancements (tab "Burmaldaholic", background: green felt). Bedrock: no custom
+advancements → **Achievements** page in the Casino Menu + toast (title bar) using the same keys;
+progress stored in player dynamic property. Keys: `advancement.burmaldaholic.<id>.title` /
+`.description`.
+
+| Id | Parent | Condition | Frame |
+|----|--------|-----------|-------|
+| `root` | — | Casino mode on and player holds any chip or Casino Card | task |
+| `first_bet` | root | Settle any wager | task |
+| `beginners_luck` | first_bet | Win a wager | task |
+| `natural` | beginners_luck | Get a blackjack | task |
+| `split_personality` | natural | Play 4 hands from splits in one round | goal |
+| `royal_flush` | beginners_luck | Win a poker pot with a royal flush | challenge |
+| `shark_hunter` | beginners_luck | Bust a Shark bot | goal |
+| `three_sevens` | beginners_luck | Hit 3 Redstone Sevens on a slot line | goal |
+| `jackpot` | three_sevens | Win a progressive jackpot | challenge |
+| `zero_hero` | beginners_luck | Win a straight bet on 0 | goal |
+| `hot_shooter` | beginners_luck | Make 3 points in a row as craps shooter | goal |
+| `plinko_edge` | beginners_luck | Land in bin 0 or 12 on Plinko High | challenge |
+| `scratch_top` | first_bet | Win the top prize on any scratch card | challenge |
+| `on_fire` | beginners_luck | Reach streak +10 | goal |
+| `black_cat` | first_bet | Reach streak −10 | goal |
+| `loan_taken` | root | Take a loan | task |
+| `knock_knock` | loan_taken | Default on a loan | task |
+| `hostile_takeover` | knock_knock | Kill an entire Debt Collector squad | goal |
+| `clean_slate` | loan_taken | Repay a loan on time | task |
+| `not_today` | root | Survive via Last Chance | goal |
+| `scarred` | not_today | Survive a High-Stakes Last Chance in Hardcore | challenge |
+| `heart_on_the_line` | first_bet | Win a heart wager | task |
+| `devils_deal` | heart_on_the_line | Win a Soul Wager | challenge |
+| `golden_hour` | root | Win during Golden Hour | task |
+| `beam_me_up` | root | Be teleported by chaos | task |
+| `vip_silver` … `vip_netherite` | chain from root | Reach each VIP tier (5 entries: silver, gold, platinum, diamond, netherite) | task/goal/challenge for netherite |
+| `the_house` | root | Place a Casino Charter | goal |
+| `house_always_wins` | the_house | Owned casino earns 10 000 net profit | challenge |
+| `bankrupt` | the_house | Your casino closes for insolvency | task |
+| `piglin_parlor` | root | Enter a Piglin Parlor | task |
+| `high_roller` | piglin_parlor | Place a bet in the End City High Roller Lounge | goal |
+
+
+---
+
+## Appendix A — Slot per-line probability breakdown (test vectors)
+
+Copper Bandit (RTP 0.89760): 1 berry p=0.182400 (×2), 2 berry 0.043776 (×3), 3 berry 0.013824,
+3 apple 0.008000, 3 carrot 0.004096, 3 emerald 0.001728, 3 diamond 0.000512, 3 seven 0.000125,
+3 creeper 0.003375. P(no win) = 0.74554.
+
+Golden Reels (base 0.92713): 1 berry 0.169950, 2 berry 0.036300, 3 berry* 0.015598, 3 apple*
+0.010621, 3 carrot* 0.006832, 3 emerald* 0.003348, 3 diamond* 0.001304, 3 seven* 0.000485,
+3 wild 0.000027, 3 pearl 0.000125, 3 creeper 0.000512, 3 star 0.000008. (* includes wild
+substitutions.) P(no win) = 0.75541.
+
+Netherite (base 0.94535): 1 berry 0.158620, 2 berry 0.030800, 3 berry* 0.012140, 3 apple* 0.010621,
+3 carrot* 0.006832, 3 emerald* 0.003348, 3 diamond* 0.001701, 3 seven* 0.000702, 3 wild 0.000027,
+3 pearl 0.000125, 3 clock 0.000008, 3 tnt 0.000216, 3 star 0.000008. P(no win) = 0.77508.
+
+## Appendix B — Wheel of Fortune segment order
+
+Index 0…53 clockwise from the pointer at rest. Codes: B=Bust, C=Creeper, H=0.5×, M=1×, D=2×,
+T=3×, E=5×, X=10×.
+
+```
+X B M B D B M B H B D B M B T B M B D B H B M B D B E
+B M B D B H B M B T B M B D B H B M B T B C M H D M B
+```
+(27 + 27 = 54 entries; counts: B 25, C 1, H 5, M 11, D 7, T 3, E 1, X 1 — tests must assert.)

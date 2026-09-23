@@ -1,0 +1,3 @@
+## slots module strings. Keys: msg.burmaldaholic.slots.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.slots.name=Slots
+msg.burmaldaholic.slots.config.enabled=Enable Slots

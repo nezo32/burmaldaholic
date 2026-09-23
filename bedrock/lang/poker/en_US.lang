@@ -1,0 +1,3 @@
+## poker module strings. Keys: msg.burmaldaholic.poker.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.poker.name=Poker
+msg.burmaldaholic.poker.config.enabled=Enable Poker

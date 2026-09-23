@@ -1,0 +1,3 @@
+## extras module strings. Keys: msg.burmaldaholic.extras.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.extras.name=Extra Games
+msg.burmaldaholic.extras.config.enabled=Enable Extra Games

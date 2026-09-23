@@ -1,0 +1,3 @@
+## loan module strings. Keys: msg.burmaldaholic.loan.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.loan.name=Loan Shark
+msg.burmaldaholic.loan.config.enabled=Enable Loan Shark

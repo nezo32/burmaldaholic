@@ -1,0 +1,3 @@
+## vip module strings. Keys: msg.burmaldaholic.vip.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.vip.name=VIP
+msg.burmaldaholic.vip.config.enabled=Enable VIP

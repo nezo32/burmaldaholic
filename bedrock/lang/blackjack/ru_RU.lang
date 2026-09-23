@@ -1,0 +1,3 @@
+## blackjack module strings. Keys: msg.burmaldaholic.blackjack.*
+msg.burmaldaholic.blackjack.name=Блэкджек
+msg.burmaldaholic.blackjack.config.enabled=Включить: Блэкджек

@@ -1,0 +1,3 @@
+## craps module strings. Keys: msg.burmaldaholic.craps.*  Placeholders: %1$s, %2$s ...
+msg.burmaldaholic.craps.name=Craps
+msg.burmaldaholic.craps.config.enabled=Enable Craps

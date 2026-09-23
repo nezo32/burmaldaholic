@@ -1,0 +1,32 @@
+{
+  "name": "burmaldaholic-bedrock",
+  "version": "0.1.0",
+  "description": "Burmaldaholic casino add-on for Minecraft Bedrock (Script API)",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build.mjs --dev --no-zip",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit && eslint . && node scripts/check-arch.mjs && node scripts/check-strings.mjs",
+    "check:lang": "node scripts/lang.mjs",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@minecraft/server": "2.8.0",
+    "@minecraft/server-ui": "2.1.0",
+    "@types/node": "22.20.4",
+    "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "fflate": "0.8.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "5.0.1"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  }
+}
