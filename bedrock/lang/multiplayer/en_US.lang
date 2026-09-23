@@ -49,3 +49,13 @@ config.burmaldaholic.ownership.explosionProof=Explosion-proof tables
 config.burmaldaholic.multiplayer.tableLeaveDistance=Leave-table distance
 config.burmaldaholic.multiplayer.spectatorRadius=Spectator radius
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.charter.owner=Owner: %1
+gui.burmaldaholic.charter.tables_count=Tables: %1
+gui.burmaldaholic.charter.table_closed=Closed
+gui.burmaldaholic.charter.limit_hint=Leave Min / Max empty to use the game's own limits. Max is capped at %1.
+gui.burmaldaholic.charter.error_min_max=The minimum bet can't be above the maximum
+gui.burmaldaholic.charter.rounds=Rounds played: %1
+msg.burmaldaholic.multiplayer.table_saved=%1: settings saved
+msg.burmaldaholic.multiplayer.linked_none=No unlinked tables found in your claim
+msg.burmaldaholic.multiplayer.charter_foreign=This charter belongs to %1's casino
+msg.burmaldaholic.multiplayer.casinos_disabled=Player casinos are disabled on this server
