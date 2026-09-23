@@ -2,7 +2,9 @@
 	"required": true,
 	"package": "dev.nezo.burmaldaholic.loan.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"BetLimitsMixin"
+	],
 	"client": [],
 	"server": [],
 	"injectors": {

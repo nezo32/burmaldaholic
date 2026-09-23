@@ -111,5 +111,8 @@
 	"config.burmaldaholic.loan.collectorHealthMultiplier.easy": "Здоровье коллекторов: лёгкая",
 	"config.burmaldaholic.loan.collectorHealthMultiplier.hard": "Здоровье коллекторов: сложная",
 	"config.burmaldaholic.loan.peacefulSeizePercent": "Арест счёта: списание в день (%%)",
-	"subtitles.burmaldaholic.loan_shark_idle": "Ростовщик напевает"
+	"subtitles.burmaldaholic.loan_shark_idle": "Ростовщик напевает",
+	"gui.burmaldaholic.loan.admin.info": "Займ (%1$s): %2$s · погашено вовремя: %3$s",
+	"gui.burmaldaholic.loan.admin.wave_sent": "Коллекторы отправлены: %1$s",
+	"gui.burmaldaholic.loan.admin.wave_failed": "Волны не будет: у игрока нет просрочки, бригада уже в пути, коллекторы выключены или рядом нет безопасного места"
 }
