@@ -499,7 +499,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gui.burmaldaholic.vip.perk.netherite_slots` | Netherite High Roller slots | Автомат «Незеритовый хайроллер» |
 | `gui.burmaldaholic.vip.perk.high_roller` | High Roller tables | Столы хайроллеров |
 | `gui.burmaldaholic.vip.perk.emerald_rate` | Better emerald rate at the Cashier | Выгодный курс изумрудов в кассе |
-| `gui.burmaldaholic.vip.perk.cashback` | %1$s%% daily cashback on net losses | Ежедневный кешбэк %1$s %% от проигрыша |
+| `gui.burmaldaholic.vip.perk.cashback` | %1$s%% daily cashback on expected losses | Ежедневный кешбэк %1$s %% от ожидаемого проигрыша |
 | `gui.burmaldaholic.vip.perk.loan_discount` | −2%% loan interest | −2 %% по займам |
 | `gui.burmaldaholic.vip.perk.cosmetic_name` | Colored name at tables | Цветное имя за столами |
 | `gui.burmaldaholic.vip.perk.cosmetic_particles` | Win particles | Эффекты при выигрыше |

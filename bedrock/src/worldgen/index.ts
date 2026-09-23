@@ -14,7 +14,8 @@ import { ActionFormData } from '@minecraft/server-ui';
 import { type Dimension, type Player, type Vector3, system, world } from '@minecraft/server';
 import { type CasinoModule, type ModuleContext, type Raw, isOperator, showForm, t, worldTick } from '../core';
 import { type CasinoInfo, WORLDGEN_SERVICE, type WorldgenApi } from './api';
-import { HOME_PROP, NPC_TAG, buildCasino, npcHome, spawnNpc } from './builder';
+import { LOAN_SERVICE, type LoanApi } from '../loan/api';
+import { HOME_PROP, NPC_TAG, buildCasino, isLoanRole, npcHome, setLoanApi, spawnNpc } from './builder';
 import { type CasinoRecord, PRESETS, casinoBox, findCasinoAt, respawnDecision, tableSlotAt } from './logic/casinos';
 import { type CasinoKind, KIND_LAYOUT, layout, villageLayoutId, villageStyleForBiome } from './logic/layouts';
 import { type Site, SiteIndex } from './logic/sites';
@@ -178,7 +179,10 @@ class Worldgen implements WorldgenApi {
           .map((e) => e.getDynamicProperty(HOME_PROP))
           .filter((h): h is string => typeof h === 'string'),
       );
-      l.npcs.forEach((_, i) => {
+      const loanRespawns = !!this.ctx.services.get<LoanApi>(LOAN_SERVICE);
+      l.npcs.forEach((npc, i) => {
+        // The loan module respawns its own sharks (1 MCD after death): don't double-spawn them.
+        if (loanRespawns && isLoanRole(npc.role)) return;
         const home = npcHome(rec, i);
         const d = respawnDecision(homes.has(home), this.missingSince.get(home), now, respawnTicks);
         if (d.missingSince === undefined) this.missingSince.delete(home);
@@ -236,6 +240,7 @@ export const worldgenModule: CasinoModule = {
   onWorldLoad(ctx) {
     const wg = new Worldgen(ctx);
     ctx.services.provide<WorldgenApi>(WORLDGEN_SERVICE, wg);
+    setLoanApi(() => ctx.services.get<LoanApi>(LOAN_SERVICE));
     new Npcs(ctx).subscribe();
     wg.start();
     ctx.admin.addAction({ id: 'worldgen.build', label: t('gui.burmaldaholic.worldgen.admin.build'), run: (op) => wg.adminBuild(op) });

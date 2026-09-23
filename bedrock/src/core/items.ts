@@ -124,6 +124,13 @@ export function heldItem(player: Player): { stack: ItemStack | undefined; slot: 
   return { stack: container(player)?.getItem(slot), slot };
 }
 
+/** The stack in an inventory slot (0–8 hotbar, 9–35 main inventory). */
+export function itemAt(player: Player, slot: number): { stack: ItemStack | undefined; slot: number } {
+  const c = container(player);
+  if (!c || !Number.isInteger(slot) || slot < 0 || slot >= c.size) return { stack: undefined, slot };
+  return { stack: c.getItem(slot), slot };
+}
+
 /** Clear a slot (after taking a pawn stake). */
 export function clearSlot(player: Player, slot: number): void {
   container(player)?.setItem(slot, undefined);

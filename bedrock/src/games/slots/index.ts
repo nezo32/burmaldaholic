@@ -35,7 +35,7 @@ import {
   worldJson,
   writeJson,
 } from '../../core';
-import { CHAOS_SERVICE } from '../../chaos/api';
+import { CHAOS_SERVICE, type ChaosApi } from '../../chaos/api';
 import { JACKPOT_SHOWER_RADIUS, SLOTS_SERVICE, type SlotsApi, type SlotsHouse, type SlotsHouseResolver, type SlotsSpinEvent, type SlotsTriggerEvent } from './api';
 import {
   AUTO_BIG_WIN_MULTIPLE,
@@ -211,9 +211,15 @@ class SlotsGame implements SlotsApi {
     this.resolver = r;
   }
 
-  private houseAt(table: TableRef): SlotsHouse | undefined {
+  /**
+   * Who banks this machine: an explicit slots resolver if one was installed, otherwise core's
+   * house resolver (multiplayer registers it for owned casinos). Owner / closed / broke checks
+   * go through core's wager vetoes (`ctx.wagers.check`).
+   */
+  private houseAt(table: TableRef, player?: Player): SlotsHouse | undefined {
     try {
-      return this.resolver?.(table.dimension.id, table.location);
+      if (this.resolver) return this.resolver(table.dimension.id, table.location);
+      return player ? { house: this.ctx.wagers.resolveHouse(player, 'slots', table.key) } : undefined;
     } catch (e) {
       this.ctx.log.error('slots house resolver failed', e);
       return undefined;
@@ -235,10 +241,10 @@ class SlotsGame implements SlotsApi {
       const min = this.ctx.config.int('slots.netherite.minVipTier');
       if (this.ctx.limits.tier(player) < min) return t('gui.burmaldaholic.error.vip_required', this.ctx.limits.tierName(min));
     }
-    const h = this.houseAt(table);
+    const h = this.houseAt(table, player);
     if (h?.closed) return t('gui.burmaldaholic.error.table_closed');
     if (h?.ownerId && h.ownerId === player.id) return t('gui.burmaldaholic.error.owner_cannot_play');
-    return undefined;
+    return this.ctx.wagers.check(player, 'slots', table.key);
   }
 
   private state(s: TableSession): MachineState {
@@ -282,7 +288,7 @@ class SlotsGame implements SlotsApi {
     if (!s.isActive()) return;
     const p = s.player;
     const st = this.state(s);
-    const house = this.houseAt(s.table);
+    const house = this.houseAt(s.table, p);
     const owned = house?.house.kind === 'bankroll';
     const { table } = this.machine(st.tier, owned);
     const r = this.range(p, st.tier);
@@ -357,7 +363,7 @@ class SlotsGame implements SlotsApi {
 
   private async paytable(s: TableSession): Promise<void> {
     const st = this.state(s);
-    const owned = this.houseAt(s.table)?.house.kind === 'bankroll';
+    const owned = this.houseAt(s.table, s.player)?.house.kind === 'bankroll';
     const form = new ActionFormData()
       .title(t('gui.burmaldaholic.common.paytable'))
       .body(lines(...paytableLines(this.machine(st.tier, owned).table)))
@@ -373,7 +379,7 @@ class SlotsGame implements SlotsApi {
     const st = this.state(s);
     if (!this.ctx.isCasinoEnabled()) return t('gui.burmaldaholic.error.casino_off');
     if (!this.ctx.config.bool('slots.enabled')) return t('gui.burmaldaholic.error.disabled');
-    const h = this.houseAt(s.table);
+    const h = this.houseAt(s.table, p);
     if (h?.closed) return t('gui.burmaldaholic.error.table_closed');
     const owned = h?.house.kind === 'bankroll';
     const house: HouseRef = h?.house ?? BANK;
@@ -390,7 +396,9 @@ class SlotsGame implements SlotsApi {
         minTier: st.tier === 'netherite' ? this.ctx.config.int('slots.netherite.minVipTier') : undefined,
       },
       house,
+      tableKey: s.table.key,
       worstCase: worstCaseReturn(table, lineBet),
+      houseEdge: Math.max(0, 1 - rtp),
       notify: false,
     });
     if (!r.ok) return r.error;
@@ -596,14 +604,12 @@ class SlotsGame implements SlotsApi {
       }
       return;
     }
-    // Fallback: a chaos service exposing trigger(player, eventId).
-    const chaos = this.ctx.services.get<{ trigger?: (p: Player, id: string) => unknown }>(CHAOS_SERVICE);
-    if (typeof chaos?.trigger !== 'function') return;
+    // Fallback: call the chaos service directly (ChaosApi contract, source 'slots').
+    const chaos = this.ctx.services.get<ChaosApi>(CHAOS_SERVICE);
+    if (!chaos) return;
     try {
-      if (ev.event === 'jackpot') {
-        chaos.trigger(ev.player, 'diamond_rain');
-        for (const q of ev.nearbyPlayers ?? []) chaos.trigger(q, 'chip_shower');
-      } else chaos.trigger(ev.player, ev.event);
+      if (ev.event === 'jackpot') chaos.jackpot(ev.player);
+      else chaos.trigger(ev.player, ev.event, { source: 'slots' });
     } catch (err) {
       this.ctx.log.error('chaos.trigger failed', err);
     }

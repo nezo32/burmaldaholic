@@ -377,7 +377,8 @@ export const lastchanceModule: CasinoModule = {
     ctx.services.provide(LASTCHANCE_SERVICE, api);
 
     ctx.menu.add({
-      id: 'rules',
+      // namespaced: menu ids are global (MenuRegistry.add replaces an entry with the same id)
+      id: 'lastchance.rules',
       order: 70,
       label: t('gui.burmaldaholic.menu.rules'),
       icon: 'textures/items/totem',

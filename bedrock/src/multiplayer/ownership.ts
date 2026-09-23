@@ -2,14 +2,15 @@
  * Player-owned casinos (GAME_DESIGN §18.2): Casino Charter claim, owned tables, owner bankroll
  * (core bankroll account), house P&L routing, reservation/insolvency, protection.
  *
- * Integration with the core tables framework:
- *  - Games that use `MultiplayerApi.houseFor(table.key)` bank rounds in the owner's bankroll
- *    with core's reservation rule (`wagers.place({house, worstCase})`).
- *  - Games that keep `house: BANK` are still routed: on `wagers.onSettled` the house result of
- *    a chip round played at an owned table is moved bank <-> bankroll (without an up-front
- *    reservation; a loss is capped at the unreserved bankroll, the rest is logged).
- *  - Seating is guarded for every game through `world.beforeEvents.playerInteractWithBlock`
- *    (owner can't play, table closed, house broke, inactive table) and `checkTable` for canJoin.
+ * Integration with core (registered in start(), applies to every game automatically):
+ *  - `wagers.setHouseResolver`: rounds at an owned table (the player's table session, or the
+ *    `tableKey` a game passes) are banked by the owner's bankroll with core's reservation rule.
+ *  - `wagers.setLimitsResolver`: owner min/max narrow the game's limits.
+ *  - `wagers.addVeto`: owner can't play at their own tables, closed table, broke house,
+ *    inactive table.
+ *  - Fallback: a round a game explicitly banked with `house: BANK` at an owned table is still
+ *    routed on `wagers.onSettled` (moved bank <-> bankroll without an up-front reservation).
+ *  - Seating is also guarded through `world.beforeEvents.playerInteractWithBlock`.
  */
 import { type Block, type Dimension, type Player, type StartupEvent, type Vector3, ItemStack, system, world } from '@minecraft/server';
 import {
@@ -21,6 +22,7 @@ import {
   type TableLimits,
   GAME_IDS,
   type GameId,
+  HOUSE_PROFIT_ACHIEVEMENT,
   HudPriority,
   TABLE_COMPONENT,
   chips,
@@ -48,6 +50,7 @@ import {
   mayBreak,
   newOwnedTable,
   parseTableKey,
+  profit,
   recordRake,
   recordRound,
   routeHouseResult,
@@ -136,6 +139,9 @@ export class Ownership implements MultiplayerApi {
       }),
     );
     ctx.wagers.onSettled((e) => this.onSettled(e));
+    ctx.wagers.setHouseResolver((_p, _game, key) => (key ? this.houseFor(key) : undefined));
+    ctx.wagers.setLimitsResolver((_p, _game, key, base) => (key ? this.limitsFor(key, base) : base));
+    ctx.wagers.addVeto((p, info) => (info.tableKey ? this.checkTable(p, info.tableKey) : undefined));
     world.afterEvents.playerSpawn.subscribe(
       ctx.guard((e) => {
         if (e.initialSpawn) this.onJoin(e.player);
@@ -307,6 +313,7 @@ export class Ownership implements MultiplayerApi {
     };
     this.store.addCasino(c);
     this.relinkInactive(c);
+    this.ctx.achievements.unlock(player, 'the_house');
     player.sendMessage(t('msg.burmaldaholic.multiplayer.charter_placed', chips(fee), unit('block', c.radius)));
     this.ctx.log.info(`casino ${c.id} claimed by ${player.name} at ${c.dimension} ${x},${y},${z}`);
     this.checkSolvency(c, true);
@@ -343,9 +350,7 @@ export class Ownership implements MultiplayerApi {
       if (this.ctx.economy.bankroll(cl.id).reserved > 0) continue;
       const amount = this.ctx.economy.closeBankroll(cl.id);
       this.store.doneClosing(cl.id);
-      const owner = world.getAllPlayers().find((p) => p.id === cl.ownerId);
-      if (owner) this.payOwner(owner, amount);
-      else if (amount > 0) this.store.addPayout(cl.ownerId, amount);
+      this.ctx.economy.creditById(cl.ownerId, amount, 'multiplayer.charter_removed', t('msg.burmaldaholic.multiplayer.charter_removed', chips(amount)));
     }
   }
 
@@ -475,8 +480,8 @@ export class Ownership implements MultiplayerApi {
       return;
     }
     // Fallback: the game let the bank settle a round played at an owned table.
-    if (e.stakeKind !== 'chips' || !e.player.isValid) return;
-    const key = this.tableOf(e.player);
+    if (e.stakeKind !== 'chips') return;
+    const key = e.tableKey ?? (e.player?.isValid ? this.tableOf(e.player) : undefined);
     const c = key ? this.activeCasinoOf(key) : undefined;
     if (!c) return;
     const r = routeHouseResult(this.ctx.economy.bankroll(c.id), e.staked, e.totalReturn);
@@ -505,10 +510,13 @@ export class Ownership implements MultiplayerApi {
 
   /** Re-evaluate the insolvency rule; notify the owner and close seats on a change. */
   checkSolvency(c: Casino, quiet = false): void {
+    const st = this.store.stats(c.id);
+    if (st && profit(st.total) >= HOUSE_PROFIT_ACHIEVEMENT) this.ctx.achievements.unlock(c.ownerId, 'house_always_wins');
     const broke = isBroke(this.ctx.economy.bankroll(c.id), this.exposure(c), this.overrides);
     if (broke === !!c.broke) return;
     c.broke = broke;
     this.store.saveRegistry();
+    if (broke) this.ctx.achievements.unlock(c.ownerId, 'bankrupt');
     if (broke) for (const [k] of this.store.tablesOf(c.id)) system.run(() => this.ctx.tables.closeTable(k, 'broken'));
     if (quiet) return;
     const owner = world.getAllPlayers().find((p) => p.id === c.ownerId);

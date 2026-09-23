@@ -134,7 +134,7 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `vip.maxBet.platinum` | int | 2500 | | |
 | `vip.maxBet.diamond` | int | 10000 | | |
 | `vip.maxBet.netherite` | int | 50000 | | |
-| `vip.cashback.gold` | double | 0.02 | 0.0–0.5 | Fraction of daily net loss. |
+| `vip.cashback.gold` | double | 0.02 | 0.0–0.5 | Fraction of the day's **theoretical loss** (Σ stake × house edge, GAME_DESIGN §12). ⚠ Changed 2026-09: was a fraction of daily net loss (+EV on low-edge games). |
 | `vip.cashback.platinum` | double | 0.03 | 0.0–0.5 | |
 | `vip.cashback.diamond` | double | 0.04 | 0.0–0.5 | |
 | `vip.cashback.netherite` | double | 0.05 | 0.0–0.5 | |

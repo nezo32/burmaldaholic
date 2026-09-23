@@ -11,7 +11,9 @@ import type { ConfigService } from './config';
 import type { Hud } from './hud';
 import { applyCredit, withdrawable } from './logic/economy-math';
 import { type BankrollState, type TxLeg, applyDelta, bankrollAvailable, planTransaction, releaseBankroll, settleBankroll, toScore, tryReserve } from './logic/ledger';
+import { withChips, withMessage } from './logic/offline';
 import { type Raw, chips, t } from './logic/rawtext';
+import { offlineStore, onlinePlayer } from './offline';
 import { worldJson } from './store';
 
 export const BALANCE_PROP = 'burmaldaholic:balance';
@@ -112,6 +114,20 @@ export class Economy {
     if (r.credited > 0) this.write(player, r.balance, r.credited, reason);
     if (r.capped) player.sendMessage(t('msg.burmaldaholic.core.balance_capped'));
     return r.credited;
+  }
+
+  /**
+   * Credit a player who may be offline (owner payouts, offline round results): credited now
+   * when online, otherwise queued and applied on their next join. `message` is sent with it.
+   */
+  creditById(playerId: string, amount: number, reason: string, message?: Raw): void {
+    const p = onlinePlayer(playerId);
+    if (p) {
+      if (amount > 0) this.credit(p, amount, reason);
+      if (message) p.sendMessage(message);
+      return;
+    }
+    offlineStore.update(playerId, (e) => (message ? withMessage(withChips(e, amount), message) : withChips(e, amount)));
   }
 
   /** Debit exactly `amount`; false (nothing changes) if the balance is too low. */

@@ -1,0 +1,180 @@
+/**
+ * WagerService integration test with a fake @minecraft/server: offline settlement must pay
+ * exactly once (settle while offline, rejoin, restart before rejoin, double settle calls).
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+type Props = Map<string, unknown>;
+const worldProps: Props = new Map();
+const online: FakePlayer[] = [];
+let spawnHandler: ((e: { player: FakePlayer; initialSpawn: boolean }) => void) | undefined;
+
+class FakePlayer {
+  isValid = true;
+  props: Props = new Map();
+  messages: unknown[] = [];
+  level = 0;
+  constructor(
+    readonly id: string,
+    readonly name: string,
+  ) {}
+  getDynamicProperty(k: string) {
+    return this.props.get(k);
+  }
+  setDynamicProperty(k: string, v: unknown) {
+    if (v === undefined) this.props.delete(k);
+    else this.props.set(k, v);
+  }
+  sendMessage(m: unknown) {
+    this.messages.push(m);
+  }
+  getComponent() {
+    return undefined;
+  }
+  addTag() {}
+  removeTag() {}
+  playSound() {}
+}
+
+vi.mock('@minecraft/server', () => ({
+  world: {
+    getDynamicProperty: (k: string) => worldProps.get(k),
+    setDynamicProperty: (k: string, v: unknown) => (v === undefined ? worldProps.delete(k) : worldProps.set(k, v)),
+    getDynamicPropertyIds: () => [...worldProps.keys()],
+    getAllPlayers: () => online.filter((p) => p.isValid),
+    getAbsoluteTime: () => 1000,
+    getEntity: (id: string) => online.find((p) => p.id === id && p.isValid),
+    sendMessage: () => {},
+    isHardcore: false,
+    scoreboard: { getObjective: () => undefined, addObjective: () => undefined },
+    afterEvents: { playerSpawn: { subscribe: (fn: typeof spawnHandler) => (spawnHandler = fn) } },
+  },
+  system: { runInterval: () => 0, runTimeout: () => 0, run: () => 0, currentTick: 0, clearRun: () => {} },
+  EntityComponentTypes: { Health: 'minecraft:health', Inventory: 'minecraft:inventory' },
+  ItemComponentTypes: { Durability: 'minecraft:durability', Enchantable: 'minecraft:enchantable' },
+  ItemStack: class {},
+}));
+vi.mock('@minecraft/server-ui', () => ({ ActionFormData: class {}, ModalFormData: class {}, MessageFormData: class {}, FormCancelationReason: {}, uiManager: {} }));
+
+const { ConfigService } = await import('./config');
+const { Economy } = await import('./economy');
+const { Limits } = await import('./limits');
+const { StreakService } = await import('./streak');
+const { WagerService } = await import('./wagers');
+
+const BAL = 'burmaldaholic:balance';
+
+function setup() {
+  const config = new ConfigService();
+  const economy = new Economy(config, { actionbar: () => {} } as never);
+  const wagers = new WagerService(economy, new Limits(config), config, new StreakService(config));
+  wagers.start();
+  return { economy, wagers };
+}
+
+/** A disconnect: the old Player object turns invalid. A rejoin creates a new object. */
+function disconnect(p: FakePlayer) {
+  p.isValid = false;
+  online.splice(online.indexOf(p), 1);
+}
+function rejoin(old: FakePlayer): FakePlayer {
+  const p = new FakePlayer(old.id, old.name);
+  p.props = new Map(old.props);
+  online.push(p);
+  spawnHandler?.({ player: p, initialSpawn: true });
+  return p;
+}
+
+describe('WagerService offline settlement', () => {
+  beforeEach(() => {
+    worldProps.clear();
+    online.length = 0;
+  });
+
+  it('settle while offline pays once on rejoin; a second settle call is a no-op', () => {
+    const { wagers } = setup();
+    const alex = new FakePlayer('-1', 'Alex');
+    alex.setDynamicProperty(BAL, 1000);
+    online.push(alex);
+    const r = wagers.place(alex as never, { game: 'blackjack', stake: { kind: 'chips', amount: 100 }, limits: {} });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(alex.getDynamicProperty(BAL)).toBe(900);
+    disconnect(alex);
+    const ev = wagers.settle(r.ticket, alex as never, 250);
+    expect(ev?.deferred).toBe(true);
+    expect(wagers.settle(r.ticket, alex as never, 250)).toBeUndefined();
+    const back = rejoin(alex);
+    expect(back.getDynamicProperty(BAL)).toBe(1150);
+    // a later join pays nothing more
+    disconnect(back);
+    const again = rejoin(back);
+    expect(again.getDynamicProperty(BAL)).toBe(1150);
+  });
+
+  it('a restart between the offline settlement and the rejoin does not refund the round too', () => {
+    const first = setup();
+    const bea = new FakePlayer('-2', 'Bea');
+    bea.setDynamicProperty(BAL, 500);
+    online.push(bea);
+    const r = first.wagers.place(bea as never, { game: 'roulette', stake: { kind: 'chips', amount: 200 }, skipLimits: true });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    disconnect(bea);
+    first.wagers.settle(r.ticket, undefined, 0); // lost while offline
+    // server restart: new boot, new service
+    setup();
+    const back = rejoin(bea);
+    expect(back.getDynamicProperty(BAL)).toBe(300); // not refunded
+  });
+
+  it('an open round of an earlier run is still refunded on join', () => {
+    const first = setup();
+    const cy = new FakePlayer('-3', 'Cy');
+    cy.setDynamicProperty(BAL, 500);
+    online.push(cy);
+    const r = first.wagers.place(cy as never, { game: 'craps', stake: { kind: 'chips', amount: 50 }, skipLimits: true });
+    expect(r.ok).toBe(true);
+    disconnect(cy);
+    setup();
+    const back = rejoin(cy);
+    expect(back.getDynamicProperty(BAL)).toBe(500);
+  });
+
+  it('refund while offline, and a stale Player object of a player who is back online', () => {
+    const { wagers } = setup();
+    const dee = new FakePlayer('-4', 'Dee');
+    dee.setDynamicProperty(BAL, 100);
+    online.push(dee);
+    const r1 = wagers.place(dee as never, { game: 'blackjack', stake: { kind: 'chips', amount: 40 }, limits: {} });
+    const r2 = wagers.place(dee as never, { game: 'blackjack', stake: { kind: 'chips', amount: 10 }, limits: {} });
+    if (!r1.ok || !r2.ok) throw new Error('place failed');
+    disconnect(dee);
+    wagers.refund(r1.ticket, dee as never);
+    const back = rejoin(dee);
+    expect(back.getDynamicProperty(BAL)).toBe(90);
+    // the table still holds the old (invalid) Player object: core resolves the online one
+    wagers.settle(r2.ticket, dee as never, 20);
+    expect(back.getDynamicProperty(BAL)).toBe(110);
+  });
+
+  it('vetoes, house resolver and prepaid rounds', () => {
+    const { wagers } = setup();
+    const eve = new FakePlayer('-5', 'Eve');
+    eve.setDynamicProperty(BAL, 1000);
+    online.push(eve);
+    wagers.addVeto((_p, i) => (i.tableKey === 'frozen' ? { translate: 'x' } : undefined));
+    const houses: string[] = [];
+    wagers.setHouseResolver((_p, game, key) => {
+      houses.push(`${game}@${key}`);
+      return undefined;
+    });
+    expect(wagers.place(eve as never, { game: 'wheel', stake: { kind: 'chips', amount: 10 }, tableKey: 'frozen', notify: false }).ok).toBe(false);
+    expect(wagers.place(eve as never, { game: 'wheel', stake: { kind: 'chips', amount: 10 }, tableKey: 't1', notify: false }).ok).toBe(true);
+    expect(houses).toEqual(['wheel@t1']);
+    const ev = wagers.record(eve as never, { game: 'scratch', staked: 25, totalReturn: 100 });
+    expect(ev.net).toBe(75);
+    expect(eve.getDynamicProperty(BAL)).toBe(1000 - 10 + 100);
+    expect(ev.theoreticalLoss).toBeCloseTo(25 * 0.15, 6);
+  });
+});

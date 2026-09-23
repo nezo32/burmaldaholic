@@ -110,6 +110,7 @@ export const coreModule: CasinoModule = {
     });
 
     // Casino Menu core pages.
+    menu.add({ id: 'core.achievements', order: 40, label: t('gui.burmaldaholic.menu.achievements'), icon: 'textures/items/book_enchanted', open: (p) => runtime.achievements.open(p) });
     menu.add({ id: 'core.settings', order: 80, label: t('gui.burmaldaholic.menu.settings'), open: (p) => settings(p) });
     menu.add({ id: 'core.admin', order: 90, label: t('gui.burmaldaholic.menu.admin'), visible: isOperator, open: (p) => admin.open(p) });
   },

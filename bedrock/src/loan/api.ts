@@ -13,8 +13,15 @@ export const PIGLIN_MONEYLENDER_ID = 'burmaldaholic:piglin_moneylender';
 export const SQUAD_ENTITY_IDS = ['burmaldaholic:debt_collector', 'burmaldaholic:repo_man', 'burmaldaholic:accountant', 'burmaldaholic:enforcer'] as const;
 /** Every Debt Collector squad member spawned by a wave carries this tag. */
 export const SQUAD_TAG = 'burmaldaholic_loan_squad';
-/** Player tag while a squad is hunting them (collectors target it). */
+/** Player tag while a squad is hunting them (informational; any squad). */
 export const DEBTOR_TAG = 'burmaldaholic_loan_debtor';
+/**
+ * Per-debtor target tag `burmaldaholic_loan_debtor_<slot>`: each live squad gets a slot and its
+ * members only target the player carrying that slot's tag (two debtors near each other are
+ * never mixed up). Collector entity JSON has one targeting component group per slot.
+ */
+export const DEBTOR_SLOT_TAG = 'burmaldaholic_loan_debtor_';
+export const DEBTOR_SLOTS = 8;
 
 export type LoanStatus = 'none' | 'active' | 'default';
 

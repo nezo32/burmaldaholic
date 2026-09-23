@@ -32,6 +32,9 @@ export class MenuRegistry {
 
   /** Add or replace (same id) a hub button. */
   add(e: MenuEntry): void {
+    // Ids are global: namespace them (`<module>.<page>`). A replacement is logged so accidental
+    // collisions (two modules using e.g. 'rules') are visible in the Content Log.
+    if (this.entries.some((x) => x.id === e.id)) log.warn(`menu entry '${e.id}' replaced`);
     this.entries = this.entries.filter((x) => x.id !== e.id);
     this.entries.push(e);
     this.entries.sort((a, b) => a.order - b.order);

@@ -6,6 +6,16 @@
  * Houses: the world bank or an owned casino bankroll (reservation rule §18.2).
  * Open rounds are persisted per player; after a server restart they are refunded on the
  * player's next join (config core.roundTimeoutRefund) with msg.burmaldaholic.core.round_refunded.
+ *
+ * Integration hooks (installed by feature modules, applied to EVERY game automatically):
+ *  - house resolver (multiplayer): which bankroll banks a round at a table (`tableKey`)
+ *  - limits resolver (multiplayer): owner min/max narrowing
+ *  - vetoes (loan Asset Freeze, owner can't play / closed / broke)
+ * The table key defaults to the player's current table session.
+ *
+ * Offline settlement: settle/refund/record work when the player has disconnected (see
+ * logic/offline.ts): chips/pawns are parked and applied on the next join, onSettled fires
+ * then (with `deferred: true`). Calling settle/refund twice for a ticket is a no-op.
  */
 import {
   EntityComponentTypes,
@@ -20,8 +30,19 @@ import {
 } from '@minecraft/server';
 import type { ConfigService } from './config';
 import { type Economy, type HouseRef, BANK } from './economy';
-import { clearSlot, giveItems, heldItem } from './items';
+import { clearSlot, giveItems, heldItem, itemAt } from './items';
 import type { Limits, TableLimits } from './limits';
+import { houseEdgeOf, theoreticalLoss } from './logic/house-edge';
+import {
+  type DeferredSettle,
+  type OfflineEntry,
+  planRecovery,
+  withAchievement,
+  withItem,
+  withMessage,
+  withResolved,
+  withSettled,
+} from './logic/offline';
 import { outcomeOfNet } from './logic/streak';
 import { type Raw, chips, chipsAcc, t, unit } from './logic/rawtext';
 import {
@@ -37,6 +58,7 @@ import {
   xpStakeValue,
 } from './logic/wager-math';
 import { createLogger } from './log';
+import { livePlayer, offlineStore } from './offline';
 import { readJson, worldJson, worldTick, writeJson } from './store';
 import type { StreakService } from './streak';
 
@@ -57,8 +79,8 @@ export const gameLabel = (g: GameId): Raw => t(`gui.burmaldaholic.common.game.${
 
 export type Stake =
   | { kind: 'chips'; amount: number }
-  /** the player's held stack (appraisal table, undamaged/unenchanted/unnamed) */
-  | { kind: 'item' }
+  /** a hotbar/inventory stack (appraisal table, undamaged/unenchanted/unnamed); default: the held slot */
+  | { kind: 'item'; slot?: number }
   | { kind: 'xp'; levels: number }
   | { kind: 'hearts'; hearts: number }
   | { kind: 'soul' };
@@ -83,6 +105,32 @@ export interface PlaceOptions {
   soulAllowed?: boolean;
   /** Send the error to the player's chat (default true). Forms may prefer to show it inline. */
   notify?: boolean;
+  /**
+   * Table the round is played at (house resolver, owner limits, vetoes). Default: the key of
+   * the player's current table session.
+   */
+  tableKey?: string;
+  /** House edge of this bet for the theoretical loss (default: the game's, core/logic/house-edge). */
+  houseEdge?: number;
+}
+
+/** Who banks a round at a table; undefined = the world bank. */
+export type HouseResolver = (player: Player, game: GameId, tableKey: string | undefined) => HouseRef | undefined;
+/** Narrow a game's table limits (owner min/max). Must be idempotent. */
+export type LimitsResolver = (player: Player, game: GameId, tableKey: string | undefined, base: TableLimits) => TableLimits;
+/** Refuse a new stake (Raw error) or allow it (undefined). */
+export type WagerVeto = (player: Player, info: { game: GameId; tableKey: string | undefined; stake?: Stake }) => Raw | undefined;
+
+/** A prepaid round (e.g. a bought scratch card): the stake was already paid elsewhere. */
+export interface RecordOptions {
+  game: GameId;
+  /** chips the player paid for the round */
+  staked: number;
+  /** total return (credited by core) */
+  totalReturn: number;
+  house?: HouseRef;
+  tableKey?: string;
+  houseEdge?: number;
 }
 
 /** An open (STAKED) round. Treat as opaque; pass it back to settle/refund/raise. */
@@ -101,6 +149,10 @@ export interface WagerTicket {
   xpLevels?: number;
   hearts?: number;
   boot: number;
+  /** table the round is played at */
+  readonly tableKey?: string;
+  /** Σ stake × house edge so far (VIP cashback) */
+  theo: number;
   /** per-round data a game may keep with the ticket (not persisted) */
   data?: unknown;
 }
@@ -108,7 +160,9 @@ export interface WagerTicket {
 export type PlaceResult = { ok: true; ticket: WagerTicket } | { ok: false; error: Raw };
 
 export interface SettledEvent {
+  /** the (online) player; for a deferred event the Player object of their join */
   player: Player;
+  playerId: string;
   game: GameId;
   /** chips put at risk (stake value V for pawns) — lifetime wagered for VIP */
   staked: number;
@@ -120,6 +174,12 @@ export interface SettledEvent {
   house: HouseRef;
   /** false for PvP rounds (poker pots, dice duels) reported with recordPvp */
   houseBanked: boolean;
+  /** table the round was played at, if any */
+  tableKey?: string;
+  /** Σ stake × house edge (VIP cashback base; 0 for PvP) */
+  theoreticalLoss: number;
+  /** settled while the player was offline; fired on their next join */
+  deferred?: boolean;
 }
 export type SettledListener = (e: SettledEvent) => void;
 
@@ -128,6 +188,11 @@ export class WagerService {
   private readonly listeners: SettledListener[] = [];
   private boot = 0;
   private seq = 0;
+  private houseResolver: HouseResolver | undefined;
+  private limitsResolver: LimitsResolver | undefined;
+  private readonly vetoes: WagerVeto[] = [];
+  private tableKeyOf: (player: Player) => string | undefined = () => undefined;
+  private achievementSink: ((playerId: string, id: string) => void) | undefined;
 
   constructor(
     private readonly economy: Economy,
@@ -140,6 +205,81 @@ export class WagerService {
     this.listeners.push(l);
   }
 
+  // ---- integration hooks -----------------------------------------------------------------
+
+  /** Multiplayer: bankroll of an owned table (applies to every game that does not pass `house`). */
+  setHouseResolver(r: HouseResolver | undefined): void {
+    this.houseResolver = r;
+  }
+
+  /** Multiplayer: owner min/max narrowing of every game's limits. */
+  setLimitsResolver(r: LimitsResolver | undefined): void {
+    this.limitsResolver = r;
+  }
+
+  /** Loan Asset Freeze, owned-table checks... Checked by place() (not raise/settle). */
+  addVeto(v: WagerVeto): void {
+    this.vetoes.push(v);
+  }
+
+  /** Core wiring: the player's current table key (tables service). */
+  setTableKeyProvider(fn: (player: Player) => string | undefined): void {
+    this.tableKeyOf = fn;
+  }
+
+  /** Core wiring: achievements (queued for offline players by the owner of the sink). */
+  setAchievementSink(fn: (playerId: string, id: string) => void): void {
+    this.achievementSink = fn;
+  }
+
+  private keyFor(player: Player, tableKey: string | undefined): string | undefined {
+    if (tableKey !== undefined) return tableKey;
+    try {
+      return this.tableKeyOf(player);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Who banks a round of `game` at `tableKey` (default: the player's current table). */
+  resolveHouse(player: Player, game: GameId, tableKey?: string): HouseRef {
+    const key = this.keyFor(player, tableKey);
+    try {
+      return this.houseResolver?.(player, game, key) ?? BANK;
+    } catch (e) {
+      log.error('house resolver failed', e);
+      return BANK;
+    }
+  }
+
+  /** The game's limits after owner narrowing: use it for bet prompts so they match place(). */
+  limitsFor(player: Player, game: GameId, base: TableLimits = {}, tableKey?: string): TableLimits {
+    const key = this.keyFor(player, tableKey);
+    try {
+      return this.limitsResolver ? this.limitsResolver(player, game, key, base) : base;
+    } catch (e) {
+      log.error('limits resolver failed', e);
+      return base;
+    }
+  }
+
+  /**
+   * Whether the player may stake at all right now (Asset Freeze, owner at own table, closed or
+   * broke house). Also for PvP entry points (poker buy-in, dice duels) and canJoin.
+   */
+  check(player: Player, game: GameId, tableKey?: string, stake?: Stake): Raw | undefined {
+    const key = this.keyFor(player, tableKey);
+    for (const v of this.vetoes) {
+      try {
+        const err = v(player, { game, tableKey: key, stake });
+        if (err) return err;
+      } catch (e) {
+        log.error('wager veto failed', e);
+      }
+    }
+    return undefined;
+  }
+
   // ---- lifecycle -----------------------------------------------------------------------
 
   /** Called by core at world load. */
@@ -147,9 +287,9 @@ export class WagerService {
     this.boot = (worldJson.read<number>(BOOT_PROP, 0) || 0) + 1;
     worldJson.write(BOOT_PROP, this.boot);
     this.economy.resetReservations();
-    for (const p of world.getAllPlayers()) this.recover(p);
+    for (const p of world.getAllPlayers()) this.join(p);
     world.afterEvents.playerSpawn.subscribe((e) => {
-      if (e.initialSpawn) this.recover(e.player);
+      if (e.initialSpawn) this.join(e.player);
       this.enforceHearts(e.player);
     });
     system.runInterval(() => {
@@ -175,15 +315,20 @@ export class WagerService {
 
   private tryPlace(player: Player, o: PlaceOptions): PlaceResult {
     const fail = (error: Raw): PlaceResult => ({ ok: false, error });
-    const house = o.house ?? BANK;
+    const tableKey = this.keyFor(player, o.tableKey);
+    const veto = this.check(player, o.game, tableKey, o.stake);
+    if (veto) return fail(veto);
+    const house = o.house ?? this.resolveHouse(player, o.game, tableKey);
+    const limits = o.limits || !o.skipLimits ? this.limitsFor(player, o.game, o.limits ?? {}, tableKey) : undefined;
+    const edge = typeof o.houseEdge === 'number' && o.houseEdge >= 0 ? o.houseEdge : houseEdgeOf(o.game);
     const s = o.stake;
     if (s.kind !== 'chips') {
       if (s.kind === 'soul' ? !o.soulAllowed : !o.pawnAllowed) return fail(t('gui.burmaldaholic.error.invalid_bet_position'));
       if (house.kind !== 'bank') return fail(t('gui.burmaldaholic.error.pawn_not_accepted'));
       if (s.kind !== 'soul' && !this.config.bool('wager.pawnEnabled')) return fail(t('gui.burmaldaholic.error.disabled'));
     }
-    const tierMax = this.limits.tierMax(player, o.limits?.tierMultiplier);
-    const ticket: WagerTicket = { id: `${this.boot}.${++this.seq}`, playerId: player.id, game: o.game, kind: s.kind, value: 0, house, reserved: 0, boot: this.boot };
+    const tierMax = this.limits.tierMax(player, limits?.tierMultiplier);
+    const ticket: WagerTicket = { id: `${this.boot}.${++this.seq}`, playerId: player.id, game: o.game, kind: s.kind, value: 0, house, reserved: 0, boot: this.boot, tableKey, theo: 0 };
 
     // 1. Compute the stake value and validate (nothing taken yet).
     let value: number;
@@ -192,7 +337,7 @@ export class WagerService {
       case 'chips': {
         value = Math.floor(s.amount);
         if (!o.skipLimits) {
-          const err = this.limits.check(player, value, o.limits, this.economy.balance(player));
+          const err = this.limits.check(player, value, limits, this.economy.balance(player));
           if (err) return fail(err);
         } else if (value > this.economy.balance(player) || value <= 0) {
           return fail(t('gui.burmaldaholic.error.insufficient_funds', chips(this.economy.balance(player))));
@@ -202,7 +347,7 @@ export class WagerService {
       }
       case 'item': {
         if (!this.config.bool('wager.items.enabled')) return fail(t('gui.burmaldaholic.error.disabled'));
-        const { stack, slot } = heldItem(player);
+        const { stack, slot } = s.slot === undefined ? heldItem(player) : itemAt(player, s.slot);
         if (!stack) return fail(t('gui.burmaldaholic.error.pawn_not_accepted'));
         const short = stack.typeId.replace(/^minecraft:/, '');
         const key = `wager.appraisal.${short}`;
@@ -255,6 +400,7 @@ export class WagerService {
       }
     }
     ticket.value = value;
+    ticket.theo = theoreticalLoss(value, edge);
 
     // 2. Bankroll exposure.
     if (house.kind === 'bankroll') {
@@ -274,7 +420,7 @@ export class WagerService {
    * Add chips to an open chip stake (double down, split, insurance, craps odds). Not limited
    * by the max bet (§6.4) but by the balance and the bankroll exposure.
    */
-  raise(ticket: WagerTicket, player: Player, amount: number, extraWorstCase = amount * 2): boolean {
+  raise(ticket: WagerTicket, player: Player, amount: number, extraWorstCase = amount * 2, houseEdge?: number): boolean {
     if (ticket.kind !== 'chips' || !this.open.has(ticket.id)) return false;
     if (ticket.house.kind === 'bankroll' && !this.economy.reserve(ticket.house.id, extraWorstCase)) {
       player.sendMessage(t('gui.burmaldaholic.error.exposure'));
@@ -285,6 +431,7 @@ export class WagerService {
       return false;
     }
     ticket.value += Math.floor(amount);
+    ticket.theo += theoreticalLoss(Math.floor(amount), typeof houseEdge === 'number' && houseEdge >= 0 ? houseEdge : houseEdgeOf(ticket.game));
     if (ticket.house.kind === 'bankroll') ticket.reserved += extraWorstCase;
     this.persist(player);
     return true;
@@ -293,31 +440,76 @@ export class WagerService {
   /**
    * Settle a round. `totalReturn` = everything the player gets back INCLUDING the stake, in
    * chips (0 = lost, stake = push, 2 × stake = 1:1 win). Pawn stakes are returned on a
-   * win/push and forfeited on a loss. `player` may be offline-safe (pass the Player you had).
+   * win/push and forfeited on a loss. `player` may have disconnected: the result is then
+   * parked and applied on their next join (onSettled fires then, `deferred: true`).
+   * Returns undefined when the ticket was already settled/refunded.
    */
-  settle(ticket: WagerTicket, player: Player, totalReturn: number): SettledEvent | undefined {
+  settle(ticket: WagerTicket, player: Player | undefined, totalReturn: number): SettledEvent | undefined {
     if (!this.open.delete(ticket.id)) return undefined;
     const ret = Math.max(0, Math.floor(totalReturn));
     const staked = ticket.value;
     const net = ret - staked;
-    try {
-      if (ticket.kind === 'chips') this.payout(ticket, player, ret);
-      else this.settlePawn(ticket, player, ret);
-    } finally {
-      this.persist(player);
+    const live = livePlayer(player, ticket.playerId);
+    if (ticket.house.kind === 'bankroll' && ticket.kind === 'chips') {
+      this.economy.settleBankroll(ticket.house.id, { reserved: ticket.reserved, stake: ticket.value, payout: ret });
     }
-    if (staked >= 1 && player.isValid) this.streaks.recordFor(player, outcomeOfNet(net));
-    const ev: SettledEvent = { player, game: ticket.game, staked, totalReturn: ret, net, stakeKind: ticket.kind, house: ticket.house, houseBanked: true };
+    const base: DeferredSettle = { game: ticket.game, staked, totalReturn: ret, stakeKind: ticket.kind, house: ticket.house, tableKey: ticket.tableKey, theoreticalLoss: ticket.theo };
+    if (!live) {
+      offlineStore.update(ticket.playerId, (e) => withSettled(withResolved(this.settleOffline(e, ticket, ret), ticket.id), base));
+      log.info(`settled ${ticket.game} round ${ticket.id} of offline player ${ticket.playerId} (return ${ret})`);
+      return { ...base, game: ticket.game, stakeKind: ticket.kind, player: player as Player, playerId: ticket.playerId, net, houseBanked: true, deferred: true };
+    }
+    try {
+      if (ticket.kind === 'chips') {
+        if (ret > 0) this.economy.credit(live, ret, `${ticket.game}.payout`);
+      } else this.settlePawn(ticket, live, ret);
+    } finally {
+      this.persist(live);
+    }
+    const ev = this.finish(live, base, true);
     this.announce(ev);
-    this.emit(ev);
     return ev;
   }
 
-  /** Cancel an open round and give the stake back (no streak/VIP effect). */
-  refund(ticket: WagerTicket, player: Player): void {
+  /** Cancel an open round and give the stake back (no streak/VIP effect). Offline-safe. */
+  refund(ticket: WagerTicket, player: Player | undefined): void {
     if (!this.open.delete(ticket.id)) return;
-    this.refundStored(ticket, player);
-    this.persist(player);
+    const live = livePlayer(player, ticket.playerId);
+    if (ticket.house.kind === 'bankroll' && ticket.boot === this.boot) this.economy.release(ticket.house.id, ticket.reserved);
+    if (!live) {
+      offlineStore.update(ticket.playerId, (e) => withResolved(this.refundOffline(e, ticket), ticket.id));
+      return;
+    }
+    this.refundTo(ticket, live);
+    this.persist(live);
+  }
+
+  /**
+   * Record a prepaid round (the stake was paid earlier, e.g. a bought scratch card): credits
+   * `totalReturn`, updates the streak, announces big wins and fires onSettled. No limits,
+   * no vetoes (the purchase already happened). Offline-safe.
+   */
+  record(player: Player, o: RecordOptions): SettledEvent {
+    const staked = Math.max(0, Math.floor(o.staked));
+    const ret = Math.max(0, Math.floor(o.totalReturn));
+    const edge = typeof o.houseEdge === 'number' && o.houseEdge >= 0 ? o.houseEdge : houseEdgeOf(o.game);
+    const house = o.house ?? BANK;
+    const base: DeferredSettle = { game: o.game, staked, totalReturn: ret, stakeKind: 'chips', house, tableKey: o.tableKey, theoreticalLoss: theoreticalLoss(staked, edge) };
+    if (house.kind === 'bankroll') {
+      // The prepaid stake went to the bank: move the house result into the bankroll.
+      this.economy.transact([{ account: { bankroll: house.id }, delta: staked - ret }, { account: 'bank', delta: ret - staked }], `${o.game}.record`);
+    }
+    const pid = player.isValid ? player.id : safeId(player);
+    const live = pid ? livePlayer(player, pid) : undefined;
+    if (!live) {
+      if (pid) offlineStore.update(pid, (e) => withSettled({ ...e, chips: e.chips + ret }, base));
+      else log.warn(`${o.game}: prepaid round of an unknown offline player lost (${ret})`);
+      return { ...base, game: o.game, stakeKind: 'chips', player, playerId: pid ?? '', net: ret - staked, houseBanked: true, deferred: true };
+    }
+    if (ret > 0) this.economy.credit(live, ret, `${o.game}.payout`);
+    const ev = this.finish(live, base, true);
+    this.announce(ev);
+    return ev;
   }
 
   /**
@@ -325,18 +517,44 @@ export class WagerService {
    * economy.transact: updates the streak and fires onSettled (houseBanked=false).
    */
   recordPvp(player: Player, game: GameId, staked: number, net: number): void {
+    if (!player.isValid) return;
     if (staked >= 1) this.streaks.recordFor(player, outcomeOfNet(net));
-    this.emit({ player, game, staked, totalReturn: staked + net, net, stakeKind: 'chips', house: BANK, houseBanked: false });
+    this.emit({ player, playerId: player.id, game, staked, totalReturn: staked + net, net, stakeKind: 'chips', house: BANK, houseBanked: false, theoreticalLoss: 0 });
+  }
+
+  /**
+   * Send a message to a player now, or on their next join when offline (e.g. "your bets were
+   * played out: +40 chips").
+   */
+  tell(playerId: string, message: Raw): void {
+    const p = livePlayer(undefined, playerId);
+    if (p) p.sendMessage(message);
+    else offlineStore.update(playerId, (e) => withMessage(e, message));
+  }
+
+  /** Streak + onSettled for a live player. */
+  private finish(player: Player, d: DeferredSettle, houseBanked: boolean, deferred = false): SettledEvent {
+    const net = d.totalReturn - d.staked;
+    if (d.staked >= 1) this.streaks.recordFor(player, outcomeOfNet(net));
+    const ev: SettledEvent = {
+      player,
+      playerId: player.id,
+      game: d.game as GameId,
+      staked: d.staked,
+      totalReturn: d.totalReturn,
+      net,
+      stakeKind: d.stakeKind as Stake['kind'],
+      house: d.house,
+      houseBanked,
+      tableKey: d.tableKey,
+      theoreticalLoss: d.theoreticalLoss,
+      deferred: deferred || undefined,
+    };
+    this.emit(ev);
+    return ev;
   }
 
   // ---- internals -----------------------------------------------------------------------
-
-  private payout(ticket: WagerTicket, player: Player, ret: number): void {
-    if (ticket.house.kind === 'bankroll') {
-      this.economy.settleBankroll(ticket.house.id, { reserved: ticket.reserved, stake: ticket.value, payout: ret });
-    }
-    if (ret > 0) this.economy.credit(player, ret, `${ticket.game}.payout`);
-  }
 
   private settlePawn(ticket: WagerTicket, player: Player, ret: number): void {
     const { returnPawn, chips: paid } = pawnSettlement(ticket.value, ret);
@@ -369,10 +587,64 @@ export class WagerService {
     if (ticket.xpRemoved) player.addExperience(ticket.xpRemoved);
   }
 
-  private refundStored(ticket: WagerTicket, player: Player): void {
-    if (ticket.house.kind === 'bankroll' && ticket.boot === this.boot) this.economy.release(ticket.house.id, ticket.reserved);
+  private refundTo(ticket: WagerTicket, player: Player): void {
     if (ticket.kind === 'chips') this.economy.credit(player, ticket.value, `${ticket.game}.refund`);
     else this.returnPawn(ticket, player);
+  }
+
+  // ---- offline settlement ----------------------------------------------------------------
+
+  /** Park the result of a round for an offline player (pure on the entry, except config reads). */
+  private settleOffline(e: OfflineEntry, ticket: WagerTicket, ret: number): OfflineEntry {
+    if (ticket.kind === 'chips') return { ...e, chips: e.chips + ret };
+    const { returnPawn, chips: paid } = pawnSettlement(ticket.value, ret);
+    let n: OfflineEntry = { ...e, chips: e.chips + paid };
+    if (ticket.kind === 'soul') {
+      if (!returnPawn) n.soulDeath = true;
+      n.soulCooldown = worldTick() + this.config.int('wager.soul.cooldownTicks');
+      return n;
+    }
+    if (returnPawn) return this.refundOffline(n, ticket, false);
+    if (ticket.hearts) n = { ...n, hearts: [...n.hearts, { hearts: ticket.hearts, until: worldTick() + this.config.int('wager.hearts.durationTicks') }] };
+    return n;
+  }
+
+  private refundOffline(e: OfflineEntry, ticket: WagerTicket, chipsToo = true): OfflineEntry {
+    if (ticket.kind === 'chips') return chipsToo ? { ...e, chips: e.chips + ticket.value } : e;
+    let n = e;
+    if (ticket.item) n = withItem(n, ticket.item.typeId, ticket.item.amount);
+    if (ticket.xpRemoved) n = { ...n, xp: n.xp + ticket.xpRemoved };
+    return n;
+  }
+
+  /** Apply what was parked while the player was offline. Returns the resolved ticket ids. */
+  private applyOffline(player: Player): string[] {
+    const e = offlineStore.take(player.id);
+    if (e.chips > 0) this.economy.credit(player, e.chips, 'core.offline');
+    for (const i of e.items) giveItems(player, i.typeId, i.amount);
+    if (e.xp > 0) player.addExperience(e.xp);
+    if (e.hearts.length) {
+      const list = this.penalties(player).filter((p) => p.until > worldTick());
+      writeJson(player, HEARTS_PROP, [...list, ...e.hearts]);
+      this.enforceHearts(player);
+    }
+    if (e.soulCooldown) player.setDynamicProperty(SOUL_CD_PROP, e.soulCooldown);
+    for (const m of e.messages) player.sendMessage(m as Raw);
+    for (const d of e.settled) this.finish(player, d, true, true);
+    for (const id of e.achievements) this.achievementSink?.(player.id, id);
+    if (e.soulDeath) system.runTimeout(() => player.isValid && this.killBySoulWager(player), 40);
+    return e.resolved;
+  }
+
+  /** First spawn: offline results, then refund rounds of an earlier server run (§4.1). */
+  private join(player: Player): void {
+    let resolved: string[] = [];
+    try {
+      resolved = this.applyOffline(player);
+    } catch (err) {
+      log.error(`offline results of ${player.name} failed`, err);
+    }
+    this.recover(player, resolved);
   }
 
   private killBySoulWager(player: Player): void {
@@ -385,6 +657,11 @@ export class WagerService {
   private announce(e: SettledEvent): void {
     if (!this.config.bool('core.announceBigWins') || e.net < this.config.num('core.bigWinThreshold')) return;
     world.sendMessage(t('msg.burmaldaholic.core.big_win', e.player.name, chipsAcc(e.net), gameLabel(e.game)));
+  }
+
+  /** Offline achievements: queue for a player id (used by core achievements). */
+  queueAchievement(playerId: string, id: string): void {
+    offlineStore.update(playerId, (e) => withAchievement(e, id));
   }
 
   private emit(e: SettledEvent): void {
@@ -403,14 +680,14 @@ export class WagerService {
     writeJson(player, TICKETS_PROP, mine.length ? mine : undefined);
   }
 
-  /** Refund rounds left open by a previous server run (§4.1). */
-  private recover(player: Player): void {
+  /** Refund rounds left open by a previous server run (§4.1); drop rounds settled offline. */
+  private recover(player: Player, resolved: readonly string[]): void {
     const stored = readJson<WagerTicket[]>(player, TICKETS_PROP, []);
-    const stale = stored.filter((w) => w.boot !== this.boot);
-    if (!stale.length) return;
-    for (const w of stale) {
+    const plan = planRecovery(stored, resolved, this.boot);
+    if (!plan.refund.length && !plan.dropped.length) return;
+    for (const w of plan.refund) {
       if (this.config.bool('core.roundTimeoutRefund')) {
-        this.refundStored(w, player);
+        this.refundTo(w, player);
         player.sendMessage(t('msg.burmaldaholic.core.round_refunded', chips(w.value)));
       }
       log.info(`refunded stale ${w.game} round ${w.id} of ${player.name} (${w.value})`);
@@ -447,6 +724,15 @@ export class WagerService {
     if (!h) return;
     const cap = cappedMaxHealth(h.effectiveMax, activeHearts(live, now));
     if (h.currentValue > cap) h.setCurrentValue(cap);
+  }
+}
+
+/** Id of a possibly-invalid Player object (undefined when the engine refuses to read it). */
+function safeId(p: Player): string | undefined {
+  try {
+    return p.id;
+  } catch {
+    return undefined;
   }
 }
 

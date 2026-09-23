@@ -99,7 +99,7 @@ function revealPending(s: TableSession): void {
   p.sendMessage(pending.text);
   if (pending.code === 'C') {
     p.sendMessage(color('§2', t('msg.burmaldaholic.extras.wheel.creeper')));
-    triggerChaos(p, 'mob_wave');
+    triggerChaos(p, 'mob_wave', 'wheel');
   }
 }
 

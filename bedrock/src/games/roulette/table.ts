@@ -4,13 +4,13 @@
  * settle() once with the total return), Bedrock forms (UI.md §7) and the action-bar spin.
  *
  * Disconnects (GAME_DESIGN §4.1): the spin proceeds. Bettors who are offline at settlement are
- * settled on their next join (the ticket stays open until then; a server restart refunds it
- * through core). Table broken / casino mode off: open bets are refunded.
+ * settled through core anyway (core parks the payout and applies it on their next join, with
+ * the result text); only the VIP `roulette_red` contract progress waits here for the join.
+ * Table broken / casino mode off: open bets are refunded.
  */
 import { type Player, system, world } from '@minecraft/server';
 import { ActionFormData, type ActionFormResponse, ModalFormData, type ModalFormResponse } from '@minecraft/server-ui';
 import {
-  BANK,
   HudPriority,
   type ModuleContext,
   ModalLayout,
@@ -34,6 +34,7 @@ import {
   unit,
 } from '../../core';
 import { VIP_SERVICE, type VipApi } from '../../vip/api';
+import { WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
 import type { RouletteApi, RouletteSpinEntry, RouletteSpinEvent } from './api';
 import {
   type Bet,
@@ -68,6 +69,7 @@ const RESULT_TICKS = 60;
 
 interface TableRt {
   readonly key: string;
+  readonly ref: TableRef;
   readonly highRoller: boolean;
   readonly round: RouletteRound;
   /** open wager per bettor (player id) */
@@ -76,14 +78,6 @@ interface TableRt {
   wheelPos: number;
 }
 
-interface Pending {
-  ticket: WagerTicket;
-  /** total return to settle with; undefined = refund */
-  totalReturn?: number;
-  text?: Raw;
-  /** winning bets on red (vip contract roulette_red) */
-  redWins?: number;
-}
 
 type MainAction = 'add' | 'rebet' | 'clear' | 'ready' | 'refresh' | 'leave';
 
@@ -91,8 +85,8 @@ export class RouletteGame implements RouletteApi {
   private readonly tables = new Map<string, TableRt>();
   /** last spin's slip per player (Rebet) */
   private readonly lastBets = new Map<string, Bet[]>();
-  /** settlements/refunds of players who were offline */
-  private readonly pending = new Map<string, Pending[]>();
+  /** winning red bets of players who were offline at settlement (vip contract, reported on join) */
+  private readonly pendingRed = new Map<string, number>();
   /** form generation per player: bumped when the server closes forms, stale responses are ignored */
   private readonly epochs = new Map<string, number>();
   /** last dropdown index per player and bet type */
@@ -118,7 +112,7 @@ export class RouletteGame implements RouletteApi {
     ctx.tables.register({
       id: 'roulette',
       seats: () => ctx.config.int('roulette.maxBettors'),
-      canJoin: () => (ctx.config.bool('roulette.enabled') ? undefined : t('gui.burmaldaholic.error.disabled')),
+      canJoin: (p, table) => (ctx.config.bool('roulette.enabled') ? ctx.wagers.check(p, 'roulette', table.key) : t('gui.burmaldaholic.error.disabled')),
       onOpen: (s) => this.onOpen(s),
       onLeave: (s, reason) => {
         if (reason === 'broken' || reason === 'casino_off') this.refundPlayer(this.tables.get(s.table.key), s.playerId, s.player);
@@ -144,7 +138,8 @@ export class RouletteGame implements RouletteApi {
     if (!rt) {
       rt = {
         key: ref.key,
-        highRoller: ref.variant === 'high_roller',
+        ref,
+        highRoller: ref.variant === 'high_roller' || this.presetAt(ref)?.id === 'high_roller_roulette',
         round: new RouletteRound(this.timings(), this.ctx.config.int('roulette.historyLength')),
         tickets: new Map(),
         wheelPos: 0,
@@ -162,12 +157,25 @@ export class RouletteGame implements RouletteApi {
   private limitsFor(p: Player, rt: TableRt): SlipLimits {
     const c = this.ctx.config;
     const mult = rt.highRoller ? c.num('roulette.highRollerMaxMultiplier') : 1;
+    const preset = this.presetAt(rt.ref);
+    // Owner min/max of an owned table (multiplayer, via core's limits resolver).
+    const own = this.ctx.wagers.limitsFor(p, 'roulette', { min: Math.max(c.int('roulette.minBet'), preset?.minBet ?? 0) }, rt.key);
+    const tierMax = this.ctx.limits.tierMax(p, mult * (preset?.tierMultiplier ?? 1));
     return slipLimits({
-      tierMax: this.ctx.limits.tierMax(p, mult),
-      minBet: c.int('roulette.minBet'),
+      tierMax: own.tableMax === undefined ? tierMax : Math.min(tierMax, own.tableMax),
+      minBet: own.min ?? c.int('roulette.minBet'),
       insideMaxFraction: c.num('roulette.insideMaxFraction'),
       minTotal: rt.highRoller ? c.int('roulette.highRollerMinTotal') : 0,
     });
+  }
+
+  /** Worldgen table preset (High Roller Lounge roulette: min bet 100). */
+  private presetAt(ref: TableRef) {
+    try {
+      return this.ctx.services.get<WorldgenApi>(WORLDGEN_SERVICE)?.tablePreset(ref.dimension.id, ref.location);
+    } catch {
+      return undefined;
+    }
   }
 
   private seated(rt: TableRt): TableSession[] {
@@ -193,7 +201,8 @@ export class RouletteGame implements RouletteApi {
     const after = worstCase(merged, la);
     const ticket = rt.tickets.get(p.id);
     if (!ticket) {
-      const r = this.ctx.wagers.place(p, { game: 'roulette', stake: { kind: 'chips', amount }, skipLimits: true, house: BANK, worstCase: after, notify: false });
+      // House: the world bank, or an owner's bankroll at an owned table (core house resolver).
+      const r = this.ctx.wagers.place(p, { game: 'roulette', stake: { kind: 'chips', amount }, skipLimits: true, tableKey: rt.key, worstCase: after, notify: false });
       if (!r.ok) return r.error;
       rt.tickets.set(p.id, r.ticket);
     } else if (!this.ctx.wagers.raise(ticket, p, amount, Math.max(0, after - before))) {
@@ -219,34 +228,17 @@ export class RouletteGame implements RouletteApi {
     const ticket = rt.tickets.get(playerId);
     rt.tickets.delete(playerId);
     if (!ticket) return;
-    const p = player?.isValid ? player : onlinePlayer(playerId);
-    if (p) {
-      this.ctx.wagers.refund(ticket, p);
-      p.sendMessage(t('msg.burmaldaholic.roulette.bets_refunded', chips(totalStaked(bets) || ticket.value)));
-    } else this.addPending(playerId, { ticket });
+    // Offline-safe: core parks the refund for a disconnected player.
+    this.ctx.wagers.refund(ticket, player ?? onlinePlayer(playerId));
+    this.ctx.wagers.tell(playerId, t('msg.burmaldaholic.roulette.bets_refunded', chips(totalStaked(bets) || ticket.value)));
   }
 
-  private addPending(playerId: string, p: Pending): void {
-    const list = this.pending.get(playerId) ?? [];
-    list.push(p);
-    this.pending.set(playerId, list);
-  }
-
-  /** Settle rounds that finished while the player was offline. */
+  /** VIP contract progress of spins settled while the player was offline. */
   private flushPending(player: Player): void {
-    const list = this.pending.get(player.id);
-    if (!list || !player.isValid) return;
-    this.pending.delete(player.id);
-    for (const x of list) {
-      if (x.totalReturn === undefined) {
-        this.ctx.wagers.refund(x.ticket, player);
-        player.sendMessage(t('msg.burmaldaholic.roulette.bets_refunded', chips(x.ticket.value)));
-      } else {
-        this.ctx.wagers.settle(x.ticket, player, x.totalReturn);
-        this.reportRed(player, x.redWins ?? 0);
-        if (x.text) player.sendMessage(t('msg.burmaldaholic.core.auto_completed', x.text));
-      }
-    }
+    const red = this.pendingRed.get(player.id);
+    if (!red || !player.isValid) return;
+    this.pendingRed.delete(player.id);
+    this.reportRed(player, red);
   }
 
   private vip(): VipApi | undefined {
@@ -317,12 +309,9 @@ export class RouletteGame implements RouletteApi {
       const ticket = rt.tickets.get(id);
       rt.tickets.delete(id);
       if (!ticket) continue;
-      const p = onlinePlayer(id);
-      if (p) {
-        this.ctx.wagers.refund(ticket, p);
-        p.sendMessage(t(`${K}.error.min_total`, chips(minTotal)));
-        p.sendMessage(t('msg.burmaldaholic.roulette.bets_refunded', chips(ticket.value)));
-      } else this.addPending(id, { ticket });
+      this.ctx.wagers.refund(ticket, onlinePlayer(id));
+      this.ctx.wagers.tell(id, t(`${K}.error.min_total`, chips(minTotal)));
+      this.ctx.wagers.tell(id, t('msg.burmaldaholic.roulette.bets_refunded', chips(ticket.value)));
     }
   }
 
@@ -357,10 +346,13 @@ export class RouletteGame implements RouletteApi {
       const text = resultRaw(result, s.staked, s.totalReturn);
       if (ticket) {
         const redWins = bets.filter((b, i) => b.type === 'red' && (s.returns[i] ?? 0) > b.amount).length;
-        if (p) {
-          this.ctx.wagers.settle(ticket, p, s.totalReturn);
-          this.reportRed(p, redWins);
-        } else this.addPending(id, { ticket, totalReturn: s.totalReturn, text, redWins });
+        // Offline-safe: core parks the payout of a disconnected bettor until they rejoin.
+        this.ctx.wagers.settle(ticket, p, s.totalReturn);
+        if (p) this.reportRed(p, redWins);
+        else {
+          if (redWins > 0) this.pendingRed.set(id, (this.pendingRed.get(id) ?? 0) + redWins);
+          this.ctx.wagers.tell(id, t('msg.burmaldaholic.core.auto_completed', text));
+        }
       }
       if (p) {
         p.sendMessage(text);
@@ -541,6 +533,8 @@ export class RouletteGame implements RouletteApi {
     form.button(t('gui.burmaldaholic.common.back'));
     const res = await this.show<ActionFormResponse>(s, form);
     if (!res) return; // closed with X: still seated, using the table re-opens the main form
+    // ActionFormResponse.selection is "the index of the button that was pushed" (server-ui
+    // 2.1.0 typings): headers/labels/dividers are not counted, so `types` (buttons only) matches.
     const type = res.selection === undefined ? undefined : types[res.selection];
     if (!type) return this.showMain(s);
     return this.showBetDetails(s, type);

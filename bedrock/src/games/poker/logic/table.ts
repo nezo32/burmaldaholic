@@ -59,6 +59,8 @@ export interface BotFillOptions {
   enabled: boolean;
   mix: readonly number[];
   buyIn: number;
+  /** cap on bots at this table (worldgen presets, e.g. 3 in the Piglin Parlor) */
+  maxBots?: number;
 }
 
 export class TableModel {
@@ -141,11 +143,12 @@ export class TableModel {
   }
 
   /** Bots wanted: 0 without humans, else max seats − humans − 1 (a seat kept for walk-ins), at least 1 when a human is alone. */
-  botTarget(enabled: boolean): number {
+  botTarget(enabled: boolean, maxBots?: number): number {
     const humans = this.humans().length;
     if (!enabled || humans === 0) return 0;
     const free = this.settings.maxSeats - humans;
-    return Math.max(humans === 1 ? Math.min(1, free) : 0, free - 1);
+    const target = Math.max(humans === 1 ? Math.min(1, free) : 0, free - 1);
+    return maxBots === undefined ? target : Math.max(0, Math.min(target, Math.floor(maxBots)));
   }
 
   /**
@@ -163,7 +166,7 @@ export class TableModel {
         this.seats[i] = undefined;
       }
     }
-    const target = this.botTarget(o.enabled);
+    const target = this.botTarget(o.enabled, o.maxBots);
     let bots = this.bots();
     while (bots.length > target) {
       const b = bots[bots.length - 1]!;

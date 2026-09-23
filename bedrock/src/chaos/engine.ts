@@ -31,7 +31,7 @@ import {
   worldJson,
   worldTick,
 } from '../core';
-import { MULTIPLAYER_SERVICE } from '../multiplayer/api';
+import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../multiplayer/api';
 import type { ChaosApi, ChaosSource, ChaosTriggerOptions, ChaosTriggerResult } from './api';
 import {
   BUFFS,
@@ -230,9 +230,13 @@ export class ChaosEngine implements ChaosApi {
   }
 
   private inClaim(p: Player): boolean {
-    const mp = this.ctx.services.get<{ isInsideClaim?(dimension: Dimension, location: Vector3): boolean }>(MULTIPLAYER_SERVICE);
+    return this.claimAt(p.dimension, p.location);
+  }
+
+  /** Inside a player casino claim (multiplayer): no mob waves there, no teleports into one. */
+  private claimAt(dim: Dimension, at: Vector3): boolean {
     try {
-      return typeof mp?.isInsideClaim === 'function' ? mp.isInsideClaim(p.dimension, p.location) : false;
+      return this.ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE)?.isInsideClaim(dim, at) ?? false;
     } catch {
       return false;
     }
@@ -398,6 +402,7 @@ export class ChaosEngine implements ChaosApi {
       for (let a = 0; a < 16 && !spot; a++) {
         const o = randomOffset(this.rng.next(), this.rng.next(), minD, maxD);
         spot = findSpawnSpot(dim, Math.floor(p.location.x) + o.dx, Math.floor(p.location.z) + o.dz, p.location.y);
+        if (spot && this.claimAt(dim, spot)) spot = undefined;
       }
       if (!spot) return 'failed'; // fewer than N valid spots: skip the whole wave (§13.4)
       spots.push(spot);
@@ -440,6 +445,7 @@ export class ChaosEngine implements ChaosApi {
       const y = findLanding(dim, x, z, from.y);
       if (y === undefined) continue;
       const to = { x: x + 0.5, y: y + 1, z: z + 0.5 };
+      if (this.claimAt(dim, to)) continue;
       try {
         p.teleport(to, { dimension: dim, keepVelocity: false });
       } catch (err) {
@@ -451,6 +457,7 @@ export class ChaosEngine implements ChaosApi {
       const dist = Math.round(Math.hypot(to.x - from.x, to.z - from.z));
       this.announce(p, 'random_teleport', t('msg.burmaldaholic.chaos.random_teleport.title'), t('msg.burmaldaholic.chaos.random_teleport.subtitle', unit('block', dist)));
       p.sendMessage(t('msg.burmaldaholic.chaos.random_teleport.chat', lit([x, y + 1, z].join(', '))));
+      this.ctx.achievements.unlock(p, 'beam_me_up');
       return 'ok';
     }
     return 'failed'; // no safe spot: skip silently (§13.4)
@@ -537,7 +544,8 @@ export class ChaosEngine implements ChaosApi {
 
     // Big win buff (§13.1.3) and Golden Hour bonus (§13.3).
     ctx.wagers.onSettled((e) => {
-      if (!this.isEnabled() || !e.player.isValid) return;
+      // Rounds settled while the player was offline (fired on join) earn no buff / bonus.
+      if (!this.isEnabled() || e.deferred || !e.player.isValid) return;
       if (e.houseBanked && e.net > 0) {
         try {
           this.goldenBonus(e.player, e.net);

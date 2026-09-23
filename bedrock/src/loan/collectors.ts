@@ -6,7 +6,7 @@
  * orphaned squad members after restarts.
  *
  * Entities (packs/loan/BP/entities/loan): component groups switched by the events
- * `burmaldaholic:approach|negotiate|hostile|leave`. Targeting filters on DEBTOR_TAG, which only
+ * `burmaldaholic:approach|negotiate|hostile|leave`. Targeting filters on the squad's per-debtor slot tag (DEBTOR_SLOT_TAG + slot, component group `burmaldaholic:target_<slot>`), which only
  * the hunted player carries while a squad is live.
  */
 import {
@@ -16,6 +16,7 @@ import {
   type EntityInventoryComponent,
   type EntityItemComponent,
   type Player,
+  type Vector3,
   EntityComponentTypes,
   EntityDamageCause,
   system,
@@ -23,7 +24,8 @@ import {
 } from '@minecraft/server';
 import { ActionFormData, uiManager } from '@minecraft/server-ui';
 import { type Raw, HudPriority, NO_REWARD_TAG, chips, color, duration, lines, mathRng, showForm, t, variant, worldTick } from '../core';
-import { DEBTOR_TAG, SQUAD_ENTITY_IDS, SQUAD_TAG } from './api';
+import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../multiplayer/api';
+import { DEBTOR_SLOTS, DEBTOR_SLOT_TAG, DEBTOR_TAG, SQUAD_ENTITY_IDS, SQUAD_TAG } from './api';
 import {
   type Cell,
   type EndReason,
@@ -41,6 +43,7 @@ import {
   bestAppraised,
   classify,
   findSpawn,
+  freeSlot,
   newSquad,
   onDebtorJoin,
   partialPayment,
@@ -76,6 +79,20 @@ interface Squad {
   debtorDead: boolean;
   lastAudit: number;
   negotiating: boolean;
+  /** per-debtor target slot (DEBTOR_SLOT_TAG + slot on the debtor, target_<slot> on members) */
+  slot: number;
+}
+
+/** Tag / untag the hunted player: generic DEBTOR_TAG + the squad's slot tag (members target only it). */
+function tagDebtor(p: Player | undefined, slot: number, on: boolean): void {
+  if (!p?.isValid) return;
+  if (on) {
+    p.addTag(DEBTOR_TAG);
+    p.addTag(DEBTOR_SLOT_TAG + slot);
+  } else {
+    p.removeTag(DEBTOR_TAG);
+    for (const t of p.getTags()) if (t.startsWith(DEBTOR_SLOT_TAG)) p.removeTag(t);
+  }
 }
 
 const say = (key: keyof typeof VARIANTS, ...args: (Raw | number)[]): Raw => variant(mathRng, key, VARIANTS[key], ...args);
@@ -127,7 +144,7 @@ export class Collectors {
     world.afterEvents.playerSpawn.subscribe(
       ctx.guard((e) => {
         if (!e.initialSpawn) return;
-        if (!this.squadOf(e.player.id)) e.player.removeTag(DEBTOR_TAG);
+        if (!this.squadOf(e.player.id)) tagDebtor(e.player, 0, false);
         let rec = this.svc.record(e.player);
         if (this.queuedOffline.delete(e.player.id)) rec = waveQueued(rec);
         const j = onDebtorJoin(rec, worldTick(), ctx.config.int('loan.offlineWaveDelayTicks'));
@@ -193,11 +210,22 @@ export class Collectors {
     const units = squadMembers(comp);
     const cell = cellReader(dim);
     const rules = { ...DEFAULT_SPAWN_RULES, minY: dim.heightRange.min, maxY: dim.heightRange.max };
-    const spots = units.map(() => findSpawn(mathRng, loc, cell, rules));
+    // Never inside a player casino claim (multiplayer); findSpawn also keeps to the world border.
+    const mp = this.ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE);
+    const allowed = (p: Vector3): boolean => {
+      try {
+        return !mp?.isInsideClaim(dim, p);
+      } catch {
+        return true;
+      }
+    };
+    const spots = units.map(() => findSpawn(mathRng, loc, cell, rules, allowed));
     if (spots.some((s) => !s)) return false;
 
     const id = `${worldTick().toString(36)}${(++this.seq).toString(36)}`;
-    const squad: Squad = { id, debtorId: player.id, dim: dim.id, members: [], m: newSquad(worldTick()), attacked: false, debtorDead: false, lastAudit: 0, negotiating: false };
+    const used = [...this.squads.values()].filter((x) => x.m.state !== 'done').map((x) => x.slot);
+    const slot = freeSlot(used, DEBTOR_SLOTS);
+    const squad: Squad = { id, debtorId: player.id, dim: dim.id, members: [], m: newSquad(worldTick()), attacked: false, debtorDead: false, lastAudit: 0, negotiating: false, slot };
     const mult = this.healthMultiplier();
     units.forEach((unit, i) => {
       try {
@@ -205,6 +233,7 @@ export class Collectors {
         e.addTag(SQUAD_TAG);
         e.addTag(SQUAD_ID_TAG + id);
         e.addTag(NO_REWARD_TAG);
+        e.triggerEvent(`burmaldaholic:target_${slot}`);
         (e.getComponent(EntityComponentTypes.Health) as EntityHealthComponent | undefined)?.setCurrentValue(scaledHealth(unit, mult));
         squad.members.push({ id: e.id, unit });
       } catch (err) {
@@ -213,7 +242,7 @@ export class Collectors {
     });
     if (!squad.members.length) return false;
     this.squads.set(id, squad);
-    player.addTag(DEBTOR_TAG);
+    tagDebtor(player, slot, true);
     this.ctx.hud.title(player, color('§c', t('msg.burmaldaholic.loan.wave_title')), t('msg.burmaldaholic.loan.wave_subtitle'), 5, 50, 10);
     player.sendMessage(color('§c', t('msg.burmaldaholic.loan.wave_incoming', chips(owed))));
     this.ctx.hud.actionbar(player, 'loan.collectors', color('§c', t('msg.burmaldaholic.loan.wave_subtitle')), HudPriority.critical, 100);
@@ -238,7 +267,7 @@ export class Collectors {
         /* dimension not available */
       }
     }
-    for (const p of world.getAllPlayers()) if (!this.squadOf(p.id)) p.removeTag(DEBTOR_TAG);
+    for (const p of world.getAllPlayers()) if (!this.squadOf(p.id)) tagDebtor(p, 0, false);
   }
 
   private alive(s: Squad): { member: Member; e: Entity }[] {
@@ -313,7 +342,7 @@ export class Collectors {
           break;
         case 'hostile': {
           for (const a of alive) a.e.triggerEvent('burmaldaholic:hostile');
-          debtor?.addTag(DEBTOR_TAG);
+          tagDebtor(debtor, s.slot, true);
           if (debtor && s.negotiating) uiManager.closeAllForms(debtor);
           tell(say('dialog.burmaldaholic.collector.hostile'));
           const big = alive.find((a) => a.member.unit === 'enforcer');
@@ -323,7 +352,7 @@ export class Collectors {
         }
         case 'leave':
           for (const a of alive) a.e.triggerEvent('burmaldaholic:leave');
-          debtor?.removeTag(DEBTOR_TAG);
+          tagDebtor(debtor, s.slot, false);
           if (debtor) this.ctx.hud.clear(debtor, 'loan.collectors');
           if (fx.reason === 'paid') {
             tell(say('dialog.burmaldaholic.collector.paid'));
@@ -351,9 +380,12 @@ export class Collectors {
     }
     s.m = { state: 'done', since: worldTick(), reason };
     if (debtor) {
-      debtor.removeTag(DEBTOR_TAG);
+      tagDebtor(debtor, s.slot, false);
       this.ctx.hud.clear(debtor, 'loan.collectors');
-      if (reason === 'defeated') debtor.sendMessage(color('§e', t('msg.burmaldaholic.loan.squad_defeated')));
+      if (reason === 'defeated') {
+        debtor.sendMessage(color('§e', t('msg.burmaldaholic.loan.squad_defeated')));
+        this.ctx.achievements.unlock(debtor, 'hostile_takeover');
+      }
       if (reason === 'offline') this.svc.save(debtor, waveQueued(this.svc.record(debtor)));
     } else if (reason === 'offline') {
       this.queuedOffline.add(s.debtorId);

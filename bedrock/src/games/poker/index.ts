@@ -14,7 +14,6 @@ import { type Player, system, world } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import {
   type CasinoModule,
-  type HouseRef,
   HudPriority,
   type LeaveReason,
   type ModuleContext,
@@ -36,18 +35,20 @@ import {
   worldJson,
 } from '../../core';
 import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../../multiplayer/api';
+import { type TablePreset, WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
 import { POKER_SERVICE, type PokerApi } from './api';
 import { type BotTier, type BotView, botView, decideBot, opponentRanges, samplesFor } from './logic/bots';
 import { type Action, type HandState, applyAction, coerce, legal, potTotal } from './logic/engine';
 import { equityJob } from './logic/equity';
+import { handName } from './logic/evaluator';
 import { STAKE_LEVELS, STAKE_MIN_TIER, type StakeLevel, TableModel, buyInRange, isStakeLevel, smallBlind } from './logic/table';
 import { eventRaw, resultLines, showdownBody, tableBody, toCallRaw } from './text';
 
 const STACKS_PROP = 'burmaldaholic:poker.stacks';
 const GAME = 'poker';
 
-/** Optional multiplayer hook (not in MultiplayerApi yet): which house owns a table. */
-type OwnedTables = MultiplayerApi & { houseOf?(tableKey: string): HouseRef | undefined };
+/** Bot tier mix of worldgen "Regular-heavy" tables (fish, regular, shark). */
+const REGULAR_HEAVY_MIX = [20, 70, 10];
 
 interface LiveTable {
   key: string;
@@ -107,9 +108,27 @@ class PokerGame implements PokerApi {
     });
   }
 
+  /** Worldgen house table (Piglin Parlor): fixed stakes / bots / mix. */
+  private preset(ref: TableRef): TablePreset['poker'] | undefined {
+    try {
+      return this.ctx.services.get<WorldgenApi>(WORLDGEN_SERVICE)?.tablePreset(ref.dimension.id, ref.location)?.poker;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Stakes fixed by the table (running table, worldgen preset or block variant). */
+  private fixedStake(ref: TableRef): StakeLevel | undefined {
+    const pre = this.preset(ref)?.stakes;
+    return this.tables.get(ref.key)?.stake ?? (isStakeLevel(pre) ? pre : undefined) ?? (isStakeLevel(ref.variant) ? ref.variant : undefined);
+  }
+
   private canJoin(p: Player, table: TableRef): Raw | undefined {
     if (!this.ctx.config.bool('enabled')) return t('gui.burmaldaholic.error.disabled');
-    const fixed = this.tables.get(table.key)?.stake ?? (isStakeLevel(table.variant) ? table.variant : undefined);
+    // Owner can't play at their own table, closed / broke casino, Asset Freeze (core vetoes).
+    const veto = this.ctx.wagers.check(p, GAME, table.key);
+    if (veto && !this.tables.get(table.key)?.model.seatOf(p.id)) return veto;
+    const fixed = this.fixedStake(table);
     if (fixed && this.ctx.limits.tier(p) < STAKE_MIN_TIER[fixed]) return t('gui.burmaldaholic.error.vip_required', this.ctx.limits.tierName(STAKE_MIN_TIER[fixed]));
     return undefined;
   }
@@ -217,7 +236,7 @@ class PokerGame implements PokerApi {
       return s.leave();
     }
     let live = this.tables.get(s.table.key);
-    let stake: StakeLevel | undefined = live?.stake ?? (isStakeLevel(s.table.variant) ? s.table.variant : undefined);
+    let stake: StakeLevel | undefined = live?.stake ?? this.fixedStake(s.table);
     if (!stake) {
       stake = await this.chooseStakes(p);
       if (!stake || !s.isActive()) return s.leave();
@@ -398,8 +417,11 @@ class PokerGame implements PokerApi {
     }
     this.removeFinished(live);
     if (!m.humans().length) return this.destroy(live);
+    const preset = this.preset(live.ref);
+    const mp = this.ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE);
+    const botsOn = cfg.bool('botsEnabled') && (mp?.botsAllowed(live.key) ?? true);
     const { joined, left } = m.fillBots(
-      { enabled: cfg.bool('botsEnabled'), mix: this.botMix(live.stake), buyIn: cfg.int('botBuyInBb') * m.bb },
+      { enabled: botsOn, mix: preset?.botMix === 'regular_heavy' ? REGULAR_HEAVY_MIX : this.botMix(live.stake), buyIn: cfg.int('botBuyInBb') * m.bb, maxBots: preset?.bots },
       mathRng,
       () => `bot:${++this.botIds}`,
     );
@@ -553,10 +575,16 @@ class PokerGame implements PokerApi {
     const r = h.result;
     // Chat: winners. Humans: showdown form (if it went to showdown) and PvP stats.
     for (const line of resultLines(m, h)) this.broadcast(live, line);
+    const sharkBusted = h.players.some((p, k) => !p.human && p.startStack + (r.net[k] ?? 0) <= 0 && m.seatOf(p.id)?.tier === 'shark');
     h.players.forEach((p, k) => {
       if (!p.human) return;
       const player = this.player(live, p.id);
-      if (player) this.ctx.wagers.recordPvp(player, GAME, p.total, r.net[k]!);
+      if (!player) return;
+      this.ctx.wagers.recordPvp(player, GAME, p.total, r.net[k]!);
+      if ((r.won[k] ?? 0) > 0) {
+        if (r.values[k] && handName(r.values[k]!) === 'royal_flush') this.ctx.achievements.unlock(player, 'royal_flush');
+        if (sharkBusted) this.ctx.achievements.unlock(player, 'shark_hunter');
+      }
     });
     if (r.rake > 0) this.payRake(live, r.rake);
     m.settleHand();
@@ -573,12 +601,14 @@ class PokerGame implements PokerApi {
 
   /** Rake: to the owner's bankroll at owned tables, otherwise removed from the game. */
   private payRake(live: LiveTable, rake: number): void {
-    const house = this.ctx.services.get<OwnedTables>(MULTIPLAYER_SERVICE)?.houseOf?.(live.key);
+    const mp = this.ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE);
+    const house = mp?.houseFor(live.key);
     if (house?.kind === 'bankroll') {
-      this.ctx.economy.transact([
+      const ok = this.ctx.economy.transact([
         { account: { bankroll: house.id }, delta: rake },
         { account: 'bank', delta: -rake },
       ], 'poker.rake');
+      if (ok) mp?.recordRake(live.key, rake);
     }
   }
 

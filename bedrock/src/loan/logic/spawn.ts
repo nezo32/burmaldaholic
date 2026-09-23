@@ -24,9 +24,15 @@ export interface SpawnRules {
   /** dimension height range [min, max) */
   minY: number;
   maxY: number;
+  /**
+   * |x|, |z| limit. Script API 2.8 cannot read the /worldborder, so this is the vanilla hard
+   * border (spawns beyond it would fail or strand the squad).
+   */
+  maxCoord: number;
 }
 
-export const DEFAULT_SPAWN_RULES: SpawnRules = { minRadius: 24, maxRadius: 40, verticalRange: 12, attempts: 16, minY: -64, maxY: 320 };
+export const WORLD_HARD_BORDER = 29_999_984;
+export const DEFAULT_SPAWN_RULES: SpawnRules = { minRadius: 24, maxRadius: 40, verticalRange: 12, attempts: 16, minY: -64, maxY: 320, maxCoord: WORLD_HARD_BORDER };
 
 /** Uniform-area random point on the ring [min, max] around center (integer block coords). */
 export function ringPoint(rng: Rng, center: { x: number; z: number }, min: number, max: number): { x: number; z: number } {
@@ -51,14 +57,32 @@ export function standY(cell: (x: number, y: number, z: number) => Cell | undefin
   return undefined;
 }
 
-/** Up to `attempts` random ring columns; the first standable one wins (feet position, centered). */
-export function findSpawn(rng: Rng, center: Vec3, cell: (x: number, y: number, z: number) => Cell | undefined, rules: SpawnRules = DEFAULT_SPAWN_RULES): Vec3 | undefined {
+/**
+ * Up to `attempts` random ring columns; the first standable one wins (feet position, centered).
+ * `allowed` rejects spots (e.g. inside a player casino claim).
+ */
+export function findSpawn(
+  rng: Rng,
+  center: Vec3,
+  cell: (x: number, y: number, z: number) => Cell | undefined,
+  rules: SpawnRules = DEFAULT_SPAWN_RULES,
+  allowed: (p: Vec3) => boolean = () => true,
+): Vec3 | undefined {
   for (let i = 0; i < rules.attempts; i++) {
     const p = ringPoint(rng, center, rules.minRadius, rules.maxRadius);
+    if (Math.abs(p.x) > rules.maxCoord || Math.abs(p.z) > rules.maxCoord) continue;
     const y = standY(cell, p.x, p.z, center.y, rules);
-    if (y !== undefined) return { x: p.x + 0.5, y: y + 1, z: p.z + 0.5 };
+    if (y === undefined) continue;
+    const spot = { x: p.x + 0.5, y: y + 1, z: p.z + 0.5 };
+    if (allowed(spot)) return spot;
   }
   return undefined;
+}
+
+/** Lowest free debtor slot (per-debtor target tag) among the slots in use; wraps when all are taken. */
+export function freeSlot(used: readonly number[], slots: number): number {
+  for (let i = 0; i < slots; i++) if (!used.includes(i)) return i;
+  return used.length % slots;
 }
 
 /** Block ids that have no solid top face even though they are not air/liquid. */

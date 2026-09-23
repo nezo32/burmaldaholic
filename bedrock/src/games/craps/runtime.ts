@@ -3,10 +3,9 @@
  * money through ctx.wagers (one wager ticket per bet, odds added with raise), timers (betting
  * window, auto roll) and leave handling (GAME_DESIGN §4.1: bets stay working -> played out).
  */
-import { type Player, system, world } from '@minecraft/server';
+import { type Player, system } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import {
-  BANK,
   HudPriority,
   type ModuleContext,
   type Raw,
@@ -15,6 +14,8 @@ import {
   type WagerTicket,
   chips,
   color,
+  dieGlyph,
+  glyphRaw,
   duration,
   join,
   lines,
@@ -42,6 +43,8 @@ import {
 } from './logic';
 
 const K = 'gui.burmaldaholic.craps';
+/** Die face glyph (core font sheet glyph_E1.png, U+E160–U+E165). */
+const dieRaw = (n: number): Raw => glyphRaw(dieGlyph(n));
 const M = 'msg.burmaldaholic.craps';
 
 interface Entry {
@@ -75,8 +78,6 @@ type Deferred = { ticket: WagerTicket; totalReturn: number } | { ticket: WagerTi
 
 export class CrapsRuntime {
   private readonly tables = new Map<string, Runtime>();
-  /** settlements for players who disconnected (Player invalid): applied on their next spawn */
-  private readonly deferred = new Map<string, Deferred[]>();
   private readonly pointListeners: PointMadeListener[] = [];
 
   constructor(private readonly ctx: ModuleContext) {}
@@ -89,16 +90,9 @@ export class CrapsRuntime {
     this.ctx.tables.register({
       id: 'craps',
       seats: () => this.ctx.config.int('craps.seats'),
-      canJoin: () => (this.ctx.config.bool('craps.enabled') ? undefined : t('gui.burmaldaholic.error.disabled')),
+      canJoin: (p, table) => (this.ctx.config.bool('craps.enabled') ? this.ctx.wagers.check(p, 'craps', table.key) : t('gui.burmaldaholic.error.disabled')),
       onOpen: (s) => this.open(s),
       onLeave: (s, reason) => this.leave(s, reason),
-    });
-    world.afterEvents.playerSpawn.subscribe((e) => {
-      if (!e.initialSpawn) return;
-      const list = this.deferred.get(e.player.id);
-      if (!list) return;
-      this.deferred.delete(e.player.id);
-      this.applyDeferred(e.player, list);
     });
   }
 
@@ -253,13 +247,13 @@ export class CrapsRuntime {
     }
 
     const [d1, d2] = r.dice;
-    const headline = t(`${M}.rolled`, shooterName, d1, d2, r.total);
+    const headline = t(`${M}.rolled`, shooterName, dieRaw(d1), dieRaw(d2), r.total);
     const event = this.eventLine(r.event);
     for (const s of this.sessions(rt)) {
       s.player.sendMessage(headline);
       if (event) s.player.sendMessage(event);
       for (const m of personal.get(s.playerId) ?? []) s.player.sendMessage(m);
-      this.ctx.hud.actionbar(s.player, 'craps.roll', join(t(`${K}.last_roll`, d1, d2, r.total), ' · ', this.pointLine(rt)), HudPriority.game, 100);
+      this.ctx.hud.actionbar(s.player, 'craps.roll', join(t(`${K}.last_roll`, dieRaw(d1), dieRaw(d2), r.total), ' · ', this.pointLine(rt)), HudPriority.game, 100);
     }
 
     if (r.event.kind === 'point_made' && r.shooter) {
@@ -371,7 +365,7 @@ export class CrapsRuntime {
     const body: (Raw | undefined)[] = [this.pointLine(rt)];
     if (table.shooter === me) body.push(color('§e', t(`${K}.you_shoot`)));
     else if (table.shooter) body.push(t(`${K}.shooter`, this.nameOf(rt, table.shooter)));
-    if (table.lastRoll) body.push(t(`${K}.last_roll`, table.lastRoll[0], table.lastRoll[1], table.lastRoll[0] + table.lastRoll[1]));
+    if (table.lastRoll) body.push(t(`${K}.last_roll`, dieRaw(table.lastRoll[0]), dieRaw(table.lastRoll[1]), table.lastRoll[0] + table.lastRoll[1]));
     if (!table.canRoll()) {
       if (table.comeOut) body.push(color('§7', t(`${K}.need_line_bet`)));
     } else if (now < this.windowEnd(rt)) {
@@ -470,7 +464,7 @@ export class CrapsRuntime {
       game: 'craps',
       stake: { kind: 'chips', amount },
       limits: { min },
-      house: BANK,
+      tableKey: s.table.key,
       worstCase: flatWorstCase(kind, amount, rt.table.rules),
     });
     if (!r.ok) return true;
@@ -519,7 +513,8 @@ export class CrapsRuntime {
       return true;
     }
     const now = rt.table.oddsInfo(bet)!;
-    if (!this.ctx.wagers.raise(entry.ticket, p, amount, oddsWorstCase(now.side, now.point, amount))) return true;
+    // Odds pay true odds: 0 % house edge (VIP cashback base).
+    if (!this.ctx.wagers.raise(entry.ticket, p, amount, oddsWorstCase(now.side, now.point, amount), 0)) return true;
     rt.table.addOdds(bet.id, amount);
     return true;
   }
@@ -540,16 +535,12 @@ export class CrapsRuntime {
       if (reason === 'broken' || reason === 'casino_off') {
         // Not the player's doing: give everything back.
         const list: Deferred[] = entries.filter((x) => x.entry).map((x) => ({ ticket: x.entry!.ticket, refund: true as const }));
-        if (player.isValid) {
-          for (const d of list) this.ctx.wagers.refund(d.ticket, player);
-          player.sendMessage(t(`${M}.bets_refunded`));
-        } else this.defer(s.playerId, list);
+        this.applyDeferred(s.playerId, player, list);
       } else {
         // GAME_DESIGN §4.1: craps bets stay working until resolved -> play them out.
         const results = autoComplete(point, bets, mathRng, rt.table.rules);
         const list: Deferred[] = entries.filter((x) => x.entry).map((x) => ({ ticket: x.entry!.ticket, totalReturn: results.get(x.bet.id) ?? x.bet.flat + x.bet.odds }));
-        if (player.isValid) this.applyDeferred(player, list);
-        else this.defer(s.playerId, list);
+        this.applyDeferred(s.playerId, player, list);
       }
     }
 
@@ -561,12 +552,8 @@ export class CrapsRuntime {
     if (this.arm(rt)) this.refreshViews(rt);
   }
 
-  private defer(playerId: string, list: Deferred[]): void {
-    if (!list.length) return;
-    this.deferred.set(playerId, [...(this.deferred.get(playerId) ?? []), ...list]);
-  }
-
-  private applyDeferred(player: Player, list: Deferred[]): void {
+  /** Settle / refund a leaver's bets. Offline-safe: core parks results for a disconnected player. */
+  private applyDeferred(playerId: string, player: Player, list: Deferred[]): void {
     let net = 0;
     let played = false;
     let refunded = false;
@@ -583,10 +570,10 @@ export class CrapsRuntime {
         }
       }
     }
-    if (refunded) player.sendMessage(t(`${M}.bets_refunded`));
+    if (refunded) this.ctx.wagers.tell(playerId, t(`${M}.bets_refunded`));
     if (played) {
       const res = net > 0 ? color('§a', t('gui.burmaldaholic.common.result.win', chips(net))) : net < 0 ? color('§c', t('gui.burmaldaholic.common.result.loss', chips(-net))) : color('§7', t('gui.burmaldaholic.common.result.push'));
-      player.sendMessage(t(`${M}.bets_played_out`, res));
+      this.ctx.wagers.tell(playerId, t(`${M}.bets_played_out`, res));
     }
   }
 }

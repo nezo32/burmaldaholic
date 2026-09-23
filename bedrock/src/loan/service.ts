@@ -167,6 +167,7 @@ export class LoanService {
     const next = takeLoan(rec, product, this.rateFor(player), now);
     this.save(player, next);
     this.ctx.economy.credit(player, product.principal, 'loan.take');
+    this.ctx.achievements.unlock(player, 'loan_taken');
     player.sendMessage(color('§6', t('msg.burmaldaholic.loan.taken', chips(product.principal), chips(next.due), Math.floor(next.deadlineTick / MCD))));
     this.ctx.log.info(`${player.name} took loan ${product.principal} (due ${next.due})`);
     return undefined;
@@ -193,6 +194,7 @@ export class LoanService {
     this.save(player, r.rec);
     if (r.closed) {
       player.sendMessage(color('§a', t(r.onTime ? 'msg.burmaldaholic.loan.repaid_on_time' : 'msg.burmaldaholic.loan.repaid')));
+      if (r.onTime) this.ctx.achievements.unlock(player, 'clean_slate');
       this.ctx.hud.clear(player, 'loan.status');
     } else if (announce) {
       player.sendMessage(t('msg.burmaldaholic.loan.paid_partial', chips(r.paid), chips(r.rec.owed)));
@@ -222,6 +224,7 @@ export class LoanService {
     if (events.defaulted) {
       this.ctx.hud.title(player, color('§c', t('msg.burmaldaholic.loan.defaulted_title')), undefined, 5, 60, 10);
       player.sendMessage(color('§c', t('msg.burmaldaholic.loan.defaulted', chips(next.owed))));
+      this.ctx.achievements.unlock(player, 'knock_knock');
       player.playSound('mob.evocation_illager.prepare_attack');
       if (this.collectorsMode()) next = scheduleFirstWave(next, now, this.ctx.config.int('loan.firstWaveDelayTicks'));
     }

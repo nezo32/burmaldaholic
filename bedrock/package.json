@@ -13,7 +13,8 @@
     "gen:config": "node tools/gen-config.mjs",
     "gen:textures": "node tools/gen-textures.mjs",
     "check:spec": "node tools/gen-lang.mjs --check && node tools/gen-config.mjs --check",
-    "deploy": "node scripts/deploy.mjs"
+    "deploy": "node scripts/deploy.mjs",
+    "gen:glyphs": "node tools/gen-glyphs.mjs"
   },
   "license": "MIT",
   "devDependencies": {

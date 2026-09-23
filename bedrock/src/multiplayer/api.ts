@@ -2,19 +2,20 @@
  * Public API of the multiplayer module (player-owned casinos, GAME_DESIGN §18.2).
  * Provided in onWorldLoad as `ctx.services.provide(MULTIPLAYER_SERVICE, impl)`.
  *
- * How a game table joins the owned-casino economy (use `TableRef.key` from your session):
+ * Games need NOTHING to join the owned-casino economy: the module registers core hooks
+ * (`wagers.setHouseResolver / setLimitsResolver / addVeto`), so every `ctx.wagers.place` at an
+ * owned table (the player's table session, or `tableKey` passed explicitly) is banked by the
+ * owner's bankroll with core's reservation rule, narrowed by the owner's min/max and refused
+ * for the owner / closed tables / a broke house. Useful extras:
  *
  *   const mp = ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE);
- *   canJoin: (p, table) => mp?.checkTable(p, table.key),                 // owner / closed / broke / inactive
- *   const house = mp?.houseFor(s.table.key) ?? BANK;                     // bankroll inside a claim
- *   const limits = mp?.limitsFor(s.table.key, { min: 1, tableMax }) ?? { min: 1, tableMax };
- *   ctx.wagers.place(p, { game, stake, limits, house, worstCase });      // core reserves worstCase
- *   // poker rake at an owned table: economy.transact([... {account: {bankroll: house.id}, delta: rake} ...])
- *   //   then mp.recordRake(s.table.key, rake)
+ *   canJoin: (p, table) => ctx.wagers.check(p, game, table.key),   // same vetoes, before seating
+ *   const limits = ctx.wagers.limitsFor(p, game, base, s.table.key); // prompts show owner limits
+ *   // poker rake at an owned table: house = ctx.wagers.resolveHouse(p, 'poker', key) (== houseFor)
+ *   //   economy.transact([... {account: {bankroll: house.id}, delta: rake} ...]); mp.recordRake(key, rake)
  *
- * Games that ignore this API still route house P&L to the owner: the module listens to
- * `wagers.onSettled` and moves the house result of bank-banked rounds played at an owned
- * table into the owner's bankroll (without the up-front reservation; see ownership.ts).
+ * A round a game explicitly banks with `house: BANK` at an owned table is still routed to the
+ * owner on `wagers.onSettled` (without the up-front reservation; see ownership.ts).
  */
 import type { Player } from '@minecraft/server';
 import type { HouseRef, Raw, TableLimits } from '../core';

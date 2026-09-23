@@ -4,6 +4,7 @@
  * See docs/architecture/bedrock.md "Core API for feature devs".
  */
 import type { CustomCommandRegistry, StartupEvent } from '@minecraft/server';
+import type { Achievements } from './achievements';
 import type { Admin } from './admin';
 import type { Cashier } from './cashier';
 import type { CommandSpec } from './commands';
@@ -60,6 +61,8 @@ export interface ModuleContext {
   readonly cashier: Cashier;
   /** Admin page actions (ops). */
   readonly admin: Admin;
+  /** Per-player achievements (GAME_DESIGN §19): `unlock(player | playerId, id)`. */
+  readonly achievements: Achievements;
   /** Cross-module public APIs. Provide yours from onWorldLoad; consume lazily. */
   readonly services: Services;
   readonly log: Logger;

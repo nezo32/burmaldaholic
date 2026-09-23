@@ -2,18 +2,16 @@
  * Rawtext rendering for the poker forms, action bar and chat (UI.md §5). All words come from
  * lang keys; literals here are only § codes, suit symbols, separators and player/bot names.
  */
-import { type Card, type Raw, chips, color, join, joinWith, lines, lit, rankLabel, t } from '../../core';
+import { type Card, type Raw, cardGlyph, chips, glyphRaw, color, join, joinWith, lines, lit, t } from '../../core';
 import { type PCard, toCard } from './logic/cards';
 import { type HandEvent, type HandState, currentPots, legal } from './logic/engine';
 import { evaluate, handName } from './logic/evaluator';
 import { type Seat, type TableModel } from './logic/table';
 
 const SEP = lit(' · ');
-const SUIT_GLYPH: Record<Card['suit'], string> = { S: '§f♠', H: '§c♥', D: '§c♦', C: '§f♣' };
-
-/** "[A♠]" style card text (rank letters are translated: RU Т/К/Д/В). */
+/** Card glyph (core font sheet glyph_E1.png, U+E110–U+E143). */
 export function toCardRaw(c: Card): Raw {
-  return join(lit('§7[§r'), rankLabel(c.rank), lit(SUIT_GLYPH[c.suit]), lit('§7]§r'));
+  return glyphRaw(cardGlyph(c));
 }
 
 export function cardsRaw(cards: readonly PCard[]): Raw {

@@ -15,7 +15,6 @@ import {
 } from '@minecraft/server';
 import {
   CASINO_CARD_ID,
-  HudPriority,
   type ModuleContext,
   type SettledEvent,
   VIP_COLORS,
@@ -24,6 +23,7 @@ import {
   lit,
   readJson,
   t,
+  vipBadgeGlyph,
   worldTick,
   writeJson,
 } from '../core';
@@ -115,9 +115,17 @@ export class VipService {
     return Math.max(this.storedTier(p), tierFor(this.wagered(p), this.thresholds()));
   }
 
+  /** vip_* achievements (core achievements service; the old vip-owned list is migrated on join). */
   milestones(p: Player): string[] {
-    const v = readJson<unknown>(p, MILESTONES_PROP, []);
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    return this.ctx.achievements.list(p).filter((id) => id.startsWith('vip_'));
+  }
+
+  /** One-time migration of the milestones vip stored itself before the shared service. */
+  private migrateMilestones(p: Player): void {
+    const v = readJson<unknown>(p, MILESTONES_PROP, undefined);
+    if (!Array.isArray(v)) return;
+    for (const id of v) if (typeof id === 'string') this.ctx.achievements.unlock(p, id, { silent: true });
+    writeJson(p, MILESTONES_PROP, undefined);
   }
 
   ledger(p: Player): DayLedger {
@@ -138,6 +146,7 @@ export class VipService {
         system.runTimeout(
           ctx.guard(() => {
             if (!p.isValid) return;
+            this.migrateMilestones(p);
             this.checkPromotion(p);
             this.checkCashback(p);
             this.swapCards(p);
@@ -209,7 +218,7 @@ export class VipService {
 
     // Cashback: house-banked chip rounds paid by the bank (never PvP / owned casinos).
     const eligible = e.houseBanked && e.house.kind === 'bank' && e.stakeKind === 'chips';
-    const r = recordRound(readJson<DayLedger | undefined>(p, LEDGER_PROP, undefined), mcDay(worldTick()), staked, Math.max(0, e.totalReturn), eligible);
+    const r = recordRound(readJson<DayLedger | undefined>(p, LEDGER_PROP, undefined), mcDay(worldTick()), staked, Math.max(0, e.totalReturn), eligible, e.theoreticalLoss);
     writeJson(p, LEDGER_PROP, r.ledger);
     if (r.closed) this.payCashback(p, r.closed);
 
@@ -252,17 +261,9 @@ export class VipService {
     if (tier === NETHERITE && ctx.config.bool('vip.announceNetherite')) {
       for (const other of world.getAllPlayers()) if (other.id !== p.id) other.sendMessage(t('msg.burmaldaholic.vip.netherite_broadcast', lit(p.name)));
     }
+    // Shared achievements service: persistence, toast and the Achievements page.
     const ach = vipAchievement(tier);
-    if (ach) {
-      const list = this.milestones(p);
-      if (!list.includes(ach)) {
-        list.push(ach);
-        writeJson(p, MILESTONES_PROP, list);
-        const msg = t('gui.burmaldaholic.achievements.unlocked', color('§e', t(`advancement.burmaldaholic.${ach}.title`)));
-        p.sendMessage(msg);
-        ctx.hud.actionbar(p, 'vip.milestone', msg, HudPriority.alert, 80);
-      }
-    }
+    if (ach) ctx.achievements.unlock(p, ach);
     for (const l of this.promoted) {
       try {
         l({ player: p, from: tier - 1, to: tier });
@@ -284,7 +285,8 @@ export class VipService {
 
   private payCashback(p: Player, day: DayLedger): void {
     const rate = cashbackRate(this.tier(p), this.cashbackRates());
-    const amount = cashbackAmount(day.cbStaked, day.cbReturned, rate);
+    // §12 (2026-09): rate × theoretical loss (Σ stake × house edge), never more than expected loss.
+    const amount = cashbackAmount(day.cbTheo ?? 0, rate);
     if (amount <= 0) return;
     const got = this.ctx.economy.credit(p, amount, 'vip.cashback');
     if (got > 0) p.sendMessage(color('§a', t('msg.burmaldaholic.vip.cashback', chips(got))));
@@ -299,7 +301,8 @@ export class VipService {
       const tier = this.tier(p);
       const c = VIP_COLORS[tier] ?? '§f';
       const atTable = tier >= SILVER && this.ctx.tables.sessionOf(p) !== undefined;
-      desired = `${atTable ? c : ''}${p.name}${atTable ? '§r' : ''}${tier >= PLATINUM ? ` ${c}◆` : ''}`;
+      // Platinum+: VIP badge glyph (core font sheet glyph_E1.png, U+E180–U+E185)
+      desired = `${atTable ? c : ''}${p.name}${atTable ? '§r' : ''}${tier >= PLATINUM ? ` §f${vipBadgeGlyph(tier)}` : ''}`;
     }
     const managed = this.nameTags.get(p.id);
     if (managed === undefined && desired === p.name) return;

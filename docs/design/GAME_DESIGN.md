@@ -910,10 +910,23 @@ Tier by **lifetime chips wagered** W (never decreases; tiers are never lost).
 | 4 | Diamond | 500 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
 | 5 | Netherite | 2 500 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
 
-**Cashback:** at each MCD boundary, `cashback = floor(max(0, netLossToday) × rate)` where
-netLossToday = (wagered − returned) on house-banked games that day. Paid by the bank, never on
-PvP poker or owned casinos. Because it is a percentage of *net losses*, effective HE becomes
-`HE × (1 − rate)` — the house edge never flips.
+**Cashback** (⚠ **CHANGED 2026-09 — balance fix; Java must follow**): at each MCD boundary,
+`cashback = floor(rate × theoreticalLossToday)` where
+`theoreticalLossToday = Σ (stake × houseEdge(game, bet))` over the day's house-banked chip rounds
+(bank-banked only: never PvP poker, never owned casinos, never pawn stakes). It is paid whatever
+the day's actual result was.
+
+- `houseEdge` = the §17 edge of the bet. Where a game has several bets/variants, use the bet's
+  own edge when the game knows it (slots per tier, plinko per risk, scratch per card, craps
+  Odds = 0 %), otherwise the **lowest** edge of that game (blackjack 0.41 % incl. doubles,
+  splits and insurance; craps flat bets 1.36 %; roulette 2.70 %; coin flip 2 %; wheel 4.63 %;
+  dice duel 2.78 %).
+- Expected cashback = `rate × HE × wagered` < `HE × wagered` (rate ≤ 0.5), so the effective edge
+  is `HE × (1 − rate) > 0` for every game and tier.
+- Why: the old formula `floor(max(0, netLossToday) × rate)` was **+EV** for Gold+ players on
+  low-edge games — `E[max(0, dayLoss)]` of a high-variance day is far larger than the edge
+  (e.g. 5 × 1 000-chip blackjack hands a day at Netherite: ≈ 0.9 % back vs a 0.41 % edge).
+- Ledgers stored before the change (no theoretical loss) pay no cashback for that day.
 
 Promotion: title + sound + chat; cosmetics are client-side particle/name-color only.
 

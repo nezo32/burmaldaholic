@@ -20,6 +20,10 @@ export {
   type PlaceResult,
   type SettledEvent,
   type SettledListener,
+  type RecordOptions,
+  type HouseResolver,
+  type LimitsResolver,
+  type WagerVeto,
   type GameId,
   GAME_IDS,
   RNG_GAMES,
@@ -30,8 +34,11 @@ export { type Tables, type TableHandler, type TableSession, type TableRef, type 
 export { type MenuRegistry, type MenuEntry, isOperator } from './menu';
 export type { Cashier } from './cashier';
 export type { Admin, AdminAction } from './admin';
+export type { Achievements, AchievementListener } from './achievements';
+export { ACHIEVEMENTS, type AchievementDef, isAchievement, HOUSE_PROFIT_ACHIEVEMENT } from './logic/achievements';
 export { showForm, isFormOpen, promptAmount, ModalLayout, type AmountPrompt } from './forms';
-export { giveItems, giveStack, giveChips, chipValueInInventory, takeAllChips, countItems, removeItems, heldItem } from './items';
+export { giveItems, giveStack, giveChips, chipValueInInventory, takeAllChips, countItems, removeItems, heldItem, itemAt } from './items';
+export { onlinePlayer, livePlayer } from './offline';
 export { NO_REWARD_TAG } from './earning';
 export { CASINO_CARD_ID } from './module-core';
 export type { Logger } from './log';
@@ -48,4 +55,5 @@ export { GAME_RTP, type RoundOutcome } from './logic/streak';
 export { VIP_TIERS, VIP_COLORS, vipTierKey, sliderStep, parseAmount, validateBet } from './logic/bet';
 export { CHIP_VALUES, chipItemId, chipValueOf } from './logic/economy-math';
 export { coreModule } from './module-core';
+export { CHIP_GLYPH, CARD_BACK_GLYPH, STREAK_FLAME_GLYPH, STREAK_CLOUD_GLYPH, cardGlyph, suitGlyph, dieGlyph, vipBadgeGlyph, glyphRaw } from './logic/glyphs';
 export { type Card, type Rank, type Suit, SUITS, RANKS, cardId, parseCard, newShoe, rankLabel, suitLabel, cardName, hiddenCard } from './logic/cards';

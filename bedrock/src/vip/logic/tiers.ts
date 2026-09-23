@@ -175,15 +175,23 @@ export interface DayLedger {
   /** cashback-eligible rounds today */
   cbStaked: number;
   cbReturned: number;
+  /** Σ stake × house edge of the eligible rounds (the cashback base since 2026-09) */
+  cbTheo: number;
 }
 
-export const emptyLedger = (day: number): DayLedger => ({ day, staked: 0, returned: 0, cbStaked: 0, cbReturned: 0 });
+export const emptyLedger = (day: number): DayLedger => ({ day, staked: 0, returned: 0, cbStaked: 0, cbReturned: 0, cbTheo: 0 });
 
-/** Cashback = floor(max(0, netLoss) × rate) (§12). */
-export function cashbackAmount(staked: number, returned: number, rate: number): number {
-  const loss = staked - returned;
-  if (!(loss > 0) || !(rate > 0)) return 0;
-  return Math.floor(loss * rate + 1e-9);
+/**
+ * Cashback = floor(rate × theoretical loss) (§12, CHANGED 2026-09). The theoretical loss is
+ * Σ stake × house edge of the day's eligible rounds, i.e. the EXPECTED loss, whatever the
+ * player actually won or lost. Since rate ≤ 0.5 < 1, cashback < expected loss for every game
+ * and tier: the effective edge is HE × (1 − rate) > 0. (The old rate × max(0, net loss)
+ * formula was +EV on low-edge games: a max(0, ·) of a high-variance day result is worth far
+ * more than the edge.)
+ */
+export function cashbackAmount(theoreticalLoss: number, rate: number): number {
+  if (!(theoreticalLoss > 0) || !(rate > 0)) return 0;
+  return Math.floor(theoreticalLoss * Math.min(rate, 1) + 1e-9);
 }
 
 export interface RollResult {
@@ -195,12 +203,14 @@ export interface RollResult {
 /** Roll the ledger to `today`; returns the closed day (to pay cashback on) if it changed. */
 export function rollLedger(ledger: DayLedger | undefined, today: number): RollResult {
   if (!ledger || typeof ledger.day !== 'number') return { ledger: emptyLedger(today) };
-  if (ledger.day >= today) return { ledger };
-  return { ledger: emptyLedger(today), closed: ledger };
+  // Ledgers stored before the 2026-09 change have no cbTheo: they pay no cashback.
+  const l = typeof ledger.cbTheo === 'number' ? ledger : { ...ledger, cbTheo: 0 };
+  if (l.day >= today) return { ledger: l };
+  return { ledger: emptyLedger(today), closed: l };
 }
 
 /** Add a settled round to today's ledger (rolls first; the closed day is returned). */
-export function recordRound(ledger: DayLedger | undefined, today: number, staked: number, returned: number, cashbackEligible: boolean): RollResult {
+export function recordRound(ledger: DayLedger | undefined, today: number, staked: number, returned: number, cashbackEligible: boolean, theoreticalLoss = 0): RollResult {
   const r = rollLedger(ledger, today);
   const l = { ...r.ledger };
   l.staked += staked;
@@ -208,6 +218,7 @@ export function recordRound(ledger: DayLedger | undefined, today: number, staked
   if (cashbackEligible) {
     l.cbStaked += staked;
     l.cbReturned += returned;
+    l.cbTheo += Math.max(0, theoreticalLoss);
   }
   return { ledger: l, closed: r.closed };
 }

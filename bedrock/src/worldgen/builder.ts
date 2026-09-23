@@ -2,10 +2,11 @@
  * Builds one casino at a world position: places the `.mcstructure` shell, fills the foundation,
  * then furnishes it by script (game tables of other modules, NPCs, loot).
  */
-import { BlockPermutation, type Dimension, EnchantmentTypes, EntityTypes, ItemStack, ItemTypes, type Vector3, world } from '@minecraft/server';
+import { BlockPermutation, type Dimension, type Entity, EnchantmentTypes, EntityTypes, ItemStack, ItemTypes, type Vector3, world } from '@minecraft/server';
 import { type Logger, NO_REWARD_TAG, mathRng, pick, randInt } from '../core';
 import { type CasinoRecord, newCasinoId } from './logic/casinos';
-import { type Facing, type Layout, NPC_ENTITY, facingYaw, layout, structureId } from './logic/layouts';
+import type { LoanApi } from '../loan/api';
+import { type Facing, type Layout, NPC_ENTITY, type NpcRole, facingYaw, layout, structureId } from './logic/layouts';
 import { BOOK_ENCHANTMENTS, LOOT, rollLoot, scatterSlots } from './logic/loot';
 import { classifySurface } from './logic/sites';
 
@@ -60,18 +61,34 @@ function placeTables(dim: Dimension, l: Layout, o: Vector3, log: Logger): void {
   }
 }
 
+/** The loan module's API (Loan Shark / Piglin Moneylender belong to it); set by the worldgen module. */
+let loanApi: () => LoanApi | undefined = () => undefined;
+export function setLoanApi(get: () => LoanApi | undefined): void {
+  loanApi = get;
+}
+
+/** NPC roles owned by the loan module (spawned through LoanApi.spawnShark, respawned by loan). */
+export const isLoanRole = (role: NpcRole): boolean => role === 'loan_shark' || role === 'piglin_moneylender';
+
 /** Spawn NPC slot `index` of a casino. Returns false if no entity type for it is registered. */
 export function spawnNpc(dim: Dimension, rec: CasinoRecord, index: number, log: Logger): boolean {
   const l = layout(rec.layout);
   const slot = l?.npcs[index];
   if (!slot) return false;
-  const ids = NPC_ENTITY[slot.role];
-  const id = ids.find((i) => EntityTypes.get(i));
-  if (!id) {
-    reportMissing(log, `entity ${ids[0]}`);
-    return false;
+  const at = { x: rec.origin.x + slot.pos.x + 0.5, y: rec.origin.y + slot.pos.y, z: rec.origin.z + slot.pos.z + 0.5 };
+  // Loan Shark (village casino) / Piglin Moneylender (Piglin Parlor): the loan module spawns
+  // them, so they get its home/respawn bookkeeping and interaction.
+  const loan = isLoanRole(slot.role) ? loanApi() : undefined;
+  let e: Entity | undefined = loan?.spawnShark(dim, at, slot.role === 'piglin_moneylender' ? 'piglin' : 'shark');
+  if (!e) {
+    const ids = NPC_ENTITY[slot.role];
+    const id = ids.find((i) => EntityTypes.get(i));
+    if (!id) {
+      reportMissing(log, `entity ${ids[0]}`);
+      return false;
+    }
+    e = dim.spawnEntity(id, at);
   }
-  const e = dim.spawnEntity(id, { x: rec.origin.x + slot.pos.x + 0.5, y: rec.origin.y + slot.pos.y, z: rec.origin.z + slot.pos.z + 0.5 });
   e.setRotation({ x: 0, y: facingYaw(slot.facing) });
   e.addTag(NPC_TAG);
   e.addTag(NO_REWARD_TAG);

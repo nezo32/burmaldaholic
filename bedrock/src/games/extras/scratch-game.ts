@@ -108,20 +108,12 @@ function outcomeText(card: ScratchCard): Raw {
 }
 
 /**
- * Record the finished card as a wager round (streak, VIP lifetime, contracts...) and pay it.
- * Returns the round's net.
+ * Record the finished card as a prepaid wager round (the card was bought in the shop): core
+ * credits the prize and updates streak, VIP lifetime, contracts... Returns the round's net.
  */
 function settleCard(p: Player, card: ScratchCard): number {
-  const c = ctx();
-  const credited = c.economy.credit(p, card.price, 'scratch.card');
-  if (credited === card.price) {
-    const r = c.wagers.place(p, { game: 'scratch', stake: { kind: 'chips', amount: card.price }, skipLimits: true, notify: false });
-    if (r.ok) return c.wagers.settle(r.ticket, p, card.prize)?.net ?? card.prize - card.price;
-  }
-  // Could not stake the voucher (balance cap): pay the prize directly.
-  if (credited > 0) c.economy.debit(p, credited, 'scratch.card');
-  if (card.prize > 0) c.economy.credit(p, card.prize, 'scratch.payout');
-  return card.prize - card.price;
+  const edge = Math.max(0, 1 - scratchRtp(scratchTable(card.kind), card.price));
+  return ctx().wagers.record(p, { game: 'scratch', staked: card.price, totalReturn: card.prize, houseEdge: edge }).net;
 }
 
 function finishCard(p: Player, card: ScratchCard): Raw {
@@ -130,8 +122,11 @@ function finishCard(p: Player, card: ScratchCard): Raw {
   giveItems(p, SCRATCH_USED, 1);
   const text = outcomeText(card);
   p.sendMessage(text);
-  if (card.top) ctx().hud.title(p, color('§6', t('gui.burmaldaholic.extras.scratch.top_prize', chips(card.prize))));
-  if (card.creeper) triggerChaos(p, 'mob_wave');
+  if (card.top) {
+    ctx().hud.title(p, color('§6', t('gui.burmaldaholic.extras.scratch.top_prize', chips(card.prize))));
+    ctx().achievements.unlock(p, 'scratch_top');
+  }
+  if (card.creeper) triggerChaos(p, 'mob_wave', 'scratch');
   return lines(text, resultLine(net));
 }
 

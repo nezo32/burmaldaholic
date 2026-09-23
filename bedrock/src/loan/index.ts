@@ -86,6 +86,8 @@ function onWorldLoad(ctx: ModuleContext): void {
       ctx.log.error('garnish', err);
     }
   });
+  // Asset Freeze (§5.6): no wagers at all while frozen (every game, through core).
+  ctx.wagers.addVeto((p) => (svc.frozen(p) ? t('gui.burmaldaholic.error.in_default') : undefined));
   ctx.hud.addSegment({ id: 'loan.debt', order: 40, render: (p) => svc.hudSegment(p) });
   ctx.menu.add({ id: 'loan', order: 30, label: t('gui.burmaldaholic.menu.loan'), icon: 'textures/items/emerald', visible: () => svc.active(), open: (p) => shark.statusScreen(p) });
   ctx.admin.addAction({ id: 'loan.debt', label: t('gui.burmaldaholic.menu.admin.clear_debt'), run: (op) => adminForm(rt, op) });

@@ -22,7 +22,7 @@ import {
   t,
 } from '../../core';
 import { resultForm } from './coin-flip';
-import { type PlinkoRisk, PLINKO_RISKS, dropBall, maxPlinkoMultiplier, plinkoReturn, plinkoRtp, plinkoTable } from './logic';
+import { type PlinkoRisk, PLINKO_RISKS, PLINKO_ROWS, dropBall, maxPlinkoMultiplier, plinkoReturn, plinkoRtp, plinkoTable } from './logic';
 import { animate, betInfo, ctx, gameEnabled, resultLine } from './shared';
 
 export const PLINKO_GAME = 'plinko';
@@ -94,13 +94,14 @@ export async function plinkoFlow(s: TableSession, rejoined: boolean): Promise<vo
       let again = true;
       while (again) {
         const table = plinkoTableFor(risk);
-        const r = c.wagers.place(p, { game: 'plinko', stake: { kind: 'chips', amount }, limits, worstCase: plinkoReturn(amount, { multiplier: maxPlinkoMultiplier(table) }), notify: false });
+        const r = c.wagers.place(p, { game: 'plinko', stake: { kind: 'chips', amount }, limits, worstCase: plinkoReturn(amount, { multiplier: maxPlinkoMultiplier(table) }), houseEdge: Math.max(0, 1 - plinkoRtp(table)), notify: false });
         if (!r.ok) {
           error = r.error;
           break;
         }
         const { result } = c.odds.draw(p.id, plinkoRtp(table), mathRng, () => dropBall(mathRng, table), (x) => plinkoReturn(amount, x) < amount);
         const ev = c.wagers.settle(r.ticket, p, plinkoReturn(amount, result));
+        if (risk === 'high' && (result.bin === 0 || result.bin === PLINKO_ROWS)) c.achievements.unlock(p, 'plinko_edge');
         const text = t('gui.burmaldaholic.extras.plinko.result', result.multiplier, ev ? resultLine(ev.net) : lit(''));
         data.pending = text;
 

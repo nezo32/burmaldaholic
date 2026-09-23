@@ -3,11 +3,13 @@
  *   Dealer: [A♠] [?]  Total: 11
  *   Seat 2 — Alex ◀
  *     ▶ [8♦] [8♠]  Total: 16  Bet: 100 chips
- * Cards are text "glyphs" (rank letter + suit symbol, red suits in §c) until the shared card
- * font sheet (U+E110–U+E14F) exists in core.
+ * Cards are the shared card glyphs (core font sheet glyph_E1.png, U+E110–U+E144).
  */
 import {
+  CARD_BACK_GLYPH,
   type Card,
+  cardGlyph,
+  glyphRaw,
   type Raw,
   chips,
   color,
@@ -16,20 +18,17 @@ import {
   joinWith,
   lines,
   lit,
-  rankLabel,
   t,
 } from '../../core';
 import { type BlackjackRound, type Hand, type SeatState, displayTotals } from './logic';
 
-const SUIT_SYMBOL: Record<Card['suit'], string> = { S: '♠', H: '♥', D: '♦', C: '♣' };
-const RED = new Set<Card['suit']>(['H', 'D']);
 const GAP = lit('  ');
 
 export function cardRaw(c: Card): Raw {
-  return join(lit(RED.has(c.suit) ? '§c[' : '['), rankLabel(c.rank), lit(SUIT_SYMBOL[c.suit] + ']§r'));
+  return glyphRaw(cardGlyph(c));
 }
 
-export const hiddenCardRaw = (): Raw => lit('§7[?]§r');
+export const hiddenCardRaw = (): Raw => glyphRaw(CARD_BACK_GLYPH);
 
 export function cardsRaw(cards: readonly Card[], hidden = 0): Raw {
   const parts: Raw[] = cards.map(cardRaw);

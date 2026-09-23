@@ -3,6 +3,8 @@
  * isolation, so one broken feature cannot take down the others.
  */
 import { system, world } from '@minecraft/server';
+import { Achievements } from './achievements';
+import { wireAchievements } from './achievement-hooks';
 import { Admin } from './admin';
 import { isCasinoEnabled } from './casino';
 import { Cashier } from './cashier';
@@ -52,6 +54,7 @@ export const runtime = {
   admin: new Admin(config, economy),
   earning: new Earning(economy, config, isCasinoEnabled),
   services: new Services(),
+  achievements: new Achievements(hud, () => isCasinoEnabled()),
 };
 
 export function bootstrap(modules: readonly CasinoModule[]): void {
@@ -95,8 +98,16 @@ export function bootstrap(modules: readonly CasinoModule[]): void {
     };
     start('economy', () => runtime.economy.init());
     start('hud', () => runtime.hud.start(() => isCasinoEnabled() && runtime.config.bool('core.hud.enabled')));
-    start('wagers', () => runtime.wagers.start());
+    start('wagers', () => {
+      runtime.wagers.setTableKeyProvider((p) => runtime.tables.sessionOf(p)?.table.key);
+      runtime.wagers.start();
+    });
     start('tables', () => runtime.tables.start());
+    start('achievements', () => {
+      runtime.achievements.setOfflineQueue((pid, id) => runtime.wagers.queueAchievement(pid, id));
+      runtime.wagers.setAchievementSink((pid, id) => void runtime.achievements.unlock(pid, id));
+      wireAchievements(runtime);
+    });
     start('earning', () => runtime.earning.start());
     for (const m of modules) {
       const log = createLogger(m.id);
@@ -114,6 +125,7 @@ export function bootstrap(modules: readonly CasinoModule[]): void {
         menu: runtime.menu,
         cashier: runtime.cashier,
         admin: runtime.admin,
+        achievements: runtime.achievements,
         services: runtime.services,
         log,
         isCasinoEnabled,

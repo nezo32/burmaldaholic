@@ -9,8 +9,8 @@
  *   result   -> result forms, 60 ticks -> betting
  *
  * Leaving: before the deal the bet is refunded; mid-round the seat auto-stands and is settled
- * with the others (GAME_DESIGN §4.1). A disconnected player's payout is applied when they
- * rejoin (core cannot credit offline players) — see `pending`.
+ * with the others (GAME_DESIGN §4.1). A disconnected player is settled/refunded through core
+ * like everyone else (core parks the result and applies it on their next join).
  */
 import { type Player, system } from '@minecraft/server';
 import { ActionFormData, uiManager } from '@minecraft/server-ui';
@@ -34,6 +34,7 @@ import {
   showForm,
   t,
 } from '../../core';
+import { WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
 import { type Action, BlackjackRound, type BlackjackRules, Shoe, maxInsurance, normalizeRules } from './logic';
 import { netRaw, summaryRaw, tableRaw } from './render';
 
@@ -61,10 +62,6 @@ interface Participant {
   away: boolean;
 }
 
-export type Pending = { kind: 'settle' | 'refund'; ticket: WagerTicket; ret: number; summary?: Raw; net: number };
-
-/** Payouts/refunds of players who disconnected, applied on their next spawn (same server run). */
-export const pending = new Map<string, Pending[]>();
 
 export function readRules(ctx: ModuleContext): BlackjackRules {
   const c = ctx.config;
@@ -81,15 +78,36 @@ export function readRules(ctx: ModuleContext): BlackjackRules {
   });
 }
 
-export function limitsFor(ctx: ModuleContext, ref: TableRef): TableLimits {
-  if (ref.variant === HIGH_ROLLER) {
+/** High-Roller table: the block/NPC variant, or a worldgen High Roller Lounge preset. */
+export function isHighRoller(ctx: ModuleContext, ref: TableRef): boolean {
+  return ref.variant === HIGH_ROLLER || presetOf(ctx, ref)?.id === 'high_roller_blackjack';
+}
+
+function presetOf(ctx: ModuleContext, ref: TableRef) {
+  try {
+    return ctx.services.get<WorldgenApi>(WORLDGEN_SERVICE)?.tablePreset(ref.dimension.id, ref.location);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Game limits of a table (variant / worldgen preset) — before owner narrowing (core applies it). */
+function baseLimits(ctx: ModuleContext, ref: TableRef): TableLimits {
+  const pre = presetOf(ctx, ref);
+  if (isHighRoller(ctx, ref)) {
     return {
-      min: ctx.config.int('blackjack.highRollerMinBet'),
-      tierMultiplier: ctx.config.num('blackjack.highRollerMaxMultiplier'),
-      minTier: HIGH_ROLLER_TIER,
+      min: pre?.minBet ?? ctx.config.int('blackjack.highRollerMinBet'),
+      tierMultiplier: pre?.tierMultiplier ?? ctx.config.num('blackjack.highRollerMaxMultiplier'),
+      minTier: pre?.minTier ?? HIGH_ROLLER_TIER,
     };
   }
-  return { min: ctx.config.int('blackjack.minBet') };
+  return { min: pre?.minBet ?? ctx.config.int('blackjack.minBet'), tierMultiplier: pre?.tierMultiplier, minTier: pre?.minTier };
+}
+
+/** Effective limits for `player` at a table: game/preset limits narrowed by an owner (multiplayer). */
+export function limitsFor(ctx: ModuleContext, ref: TableRef, player?: Player): TableLimits {
+  const base = baseLimits(ctx, ref);
+  return player ? ctx.wagers.limitsFor(player, 'blackjack', base, ref.key) : base;
 }
 
 export const highRollerTier = HIGH_ROLLER_TIER;
@@ -125,7 +143,7 @@ export class BjTable {
   }
 
   private title(): Raw {
-    return t(this.ref.variant === HIGH_ROLLER ? 'gui.burmaldaholic.blackjack.title_high_roller' : 'gui.burmaldaholic.blackjack.title');
+    return t(isHighRoller(this.ctx, this.ref) ? 'gui.burmaldaholic.blackjack.title_high_roller' : 'gui.burmaldaholic.blackjack.title');
   }
 
   private partOf(playerId: string): Participant | undefined {
@@ -206,8 +224,7 @@ export class BjTable {
       const b = this.bets.get(s.playerId);
       if (b) {
         this.bets.delete(s.playerId);
-        if (b.player.isValid) this.ctx.wagers.refund(b.ticket, b.player);
-        else addPending(s.playerId, { kind: 'refund', ticket: b.ticket, ret: b.ticket.value, net: 0 });
+        this.ctx.wagers.refund(b.ticket, b.player);
       }
       if (!this.bets.size) this.clearBetTimer();
       else this.startIfAllReady();
@@ -250,7 +267,7 @@ export class BjTable {
 
   private async promptBet(s: TableSession): Promise<void> {
     const p = s.player;
-    const limits = limitsFor(this.ctx, this.ref);
+    const limits = limitsFor(this.ctx, this.ref, p);
     const range = this.ctx.limits.range(p, limits);
     if (range.max < range.min) {
       p.sendMessage(this.ctx.limits.check(p, range.min, limits) ?? t('gui.burmaldaholic.error.table_max', chips(range.max)));
@@ -283,7 +300,7 @@ export class BjTable {
   /** "Play again" with the same bet. */
   private quickBet(s: TableSession, amount: number | undefined): void {
     const p = s.player;
-    const limits = limitsFor(this.ctx, this.ref);
+    const limits = limitsFor(this.ctx, this.ref, p);
     const err = amount === undefined ? undefined : this.ctx.limits.check(p, amount, limits, this.ctx.economy.balance(p));
     if (amount === undefined || err) {
       if (err) p.sendMessage(err);
@@ -299,6 +316,7 @@ export class BjTable {
       game: 'blackjack',
       stake: { kind: 'chips', amount },
       limits: limitsFor(this.ctx, this.ref),
+      tableKey: this.ref.key,
       // GAME_DESIGN §18.2: 4 hands doubled + insurance
       worstCase: amount * 8 + maxInsurance(amount) * 3,
     });
@@ -353,8 +371,7 @@ export class BjTable {
     const bets: Bet[] = [];
     for (const b of all) {
       if (b.player.isValid && seated.has(b.player.id)) bets.push(b);
-      else if (b.player.isValid) this.ctx.wagers.refund(b.ticket, b.player);
-      else addPending(b.ticket.playerId, { kind: 'refund', ticket: b.ticket, ret: b.ticket.value, net: 0 });
+      else this.ctx.wagers.refund(b.ticket, b.player);
     }
     if (!bets.length) return;
     const rules = readRules(this.ctx);
@@ -434,14 +451,12 @@ export class BjTable {
       if (!s.settled || !part || part.paid) continue;
       part.paid = true;
       const ret = r.returnOf(s.seat);
-      const net = ret - r.stakedOf(s.seat);
       const summary = summaryRaw(r, s);
-      if (part.player.isValid) {
-        this.ctx.wagers.settle(part.ticket, part.player, ret);
-        part.player.sendMessage(part.away ? t('msg.burmaldaholic.core.auto_completed', summary) : summary);
-      } else {
-        addPending(part.playerId, { kind: 'settle', ticket: part.ticket, ret, summary, net });
-      }
+      // Offline-safe: core parks the payout of a disconnected player until they rejoin.
+      this.ctx.wagers.settle(part.ticket, part.player, ret);
+      this.ctx.wagers.tell(part.playerId, part.away || !part.player.isValid ? t('msg.burmaldaholic.core.auto_completed', summary) : summary);
+      if (s.hands.some((h) => h.outcome === 'blackjack' || h.outcome === 'even_money')) this.ctx.achievements.unlock(part.player.isValid ? part.player : part.playerId, 'natural');
+      if (s.hands.length >= 4) this.ctx.achievements.unlock(part.player.isValid ? part.player : part.playerId, 'split_personality');
     }
   }
 
@@ -586,10 +601,4 @@ export class BjTable {
     const res = await showForm(s.player, form);
     if (res && !res.canceled && res.selection === 1 && s.isActive()) s.leave();
   }
-}
-
-function addPending(playerId: string, p: Pending): void {
-  const list = pending.get(playerId) ?? [];
-  list.push(p);
-  pending.set(playerId, list);
 }

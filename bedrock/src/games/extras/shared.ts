@@ -22,7 +22,7 @@ import {
   showForm,
   t,
 } from '../../core';
-import { CHAOS_SERVICE, type ChaosApi } from '../../chaos/api';
+import { CHAOS_SERVICE, type ChaosApi, type ChaosEventId, type ChaosSource } from '../../chaos/api';
 
 let current: ModuleContext | undefined;
 
@@ -88,10 +88,10 @@ export function betInfo(player: Player, range: { min: number; max: number }): Ra
 }
 
 /** Trigger a chaos event if the chaos module exposes a trigger (see report: needed API). */
-export function triggerChaos(player: Player, event: string): void {
-  const chaos = ctx().services.get<ChaosApi & { trigger?: (p: Player, id: string) => unknown }>(CHAOS_SERVICE);
+export function triggerChaos(player: Player, event: ChaosEventId, source: ChaosSource): void {
+  const chaos = ctx().services.get<ChaosApi>(CHAOS_SERVICE);
   try {
-    chaos?.trigger?.(player, event);
+    chaos?.trigger(player, event, { source });
   } catch (e) {
     ctx().log.warn(`chaos trigger ${event} failed: ${String(e)}`);
   }

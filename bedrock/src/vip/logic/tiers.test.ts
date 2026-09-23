@@ -112,51 +112,74 @@ describe('perks', () => {
   });
 });
 
-describe('cashback (§12)', () => {
-  it('floor(max(0, netLoss) × rate)', () => {
-    expect(cashbackAmount(1000, 400, 0.02)).toBe(12);
-    expect(cashbackAmount(1000, 951, 0.02)).toBe(0);
-    expect(cashbackAmount(1000, 1500, 0.05)).toBe(0);
-    expect(cashbackAmount(1000, 0, 0)).toBe(0);
-    expect(cashbackAmount(100, 0, 0.03)).toBe(3);
+describe('cashback (§12, rate × theoretical loss since 2026-09)', () => {
+  it('floor(rate × theoretical loss)', () => {
+    expect(cashbackAmount(600, 0.02)).toBe(12);
+    expect(cashbackAmount(49, 0.02)).toBe(0);
+    expect(cashbackAmount(1000, 0)).toBe(0);
+    expect(cashbackAmount(0, 0.05)).toBe(0);
+    expect(cashbackAmount(-5, 0.05)).toBe(0);
+    expect(cashbackAmount(100, 0.03)).toBe(3);
   });
   it('ledger rolls at the MCD boundary and only eligible rounds count', () => {
-    let r = recordRound(undefined, 5, 100, 0, true);
+    let r = recordRound(undefined, 5, 100, 0, true, 2);
     expect(r.closed).toBeUndefined();
-    r = recordRound(r.ledger, 5, 50, 100, false);
-    expect(r.ledger).toEqual({ day: 5, staked: 150, returned: 100, cbStaked: 100, cbReturned: 0 });
-    const next = recordRound(r.ledger, 6, 10, 0, true);
+    r = recordRound(r.ledger, 5, 50, 100, false, 1);
+    expect(r.ledger).toEqual({ day: 5, staked: 150, returned: 100, cbStaked: 100, cbReturned: 0, cbTheo: 2 });
+    const next = recordRound(r.ledger, 6, 10, 0, true, 0.5);
     expect(next.closed).toEqual(r.ledger);
-    expect(next.ledger).toEqual({ day: 6, staked: 10, returned: 0, cbStaked: 10, cbReturned: 0 });
+    expect(next.ledger).toEqual({ day: 6, staked: 10, returned: 0, cbStaked: 10, cbReturned: 0, cbTheo: 0.5 });
     expect(rollLedger(next.ledger, 6).closed).toBeUndefined();
     expect(rollLedger(next.ledger, 9).closed).toEqual(next.ledger);
     expect(rollLedger({ bogus: 1 } as unknown as DayLedger, 3).ledger.day).toBe(3);
+    // pre-change ledgers (no cbTheo) pay nothing
+    const legacy = { day: 1, staked: 100, returned: 0, cbStaked: 100, cbReturned: 0 } as unknown as DayLedger;
+    expect(rollLedger(legacy, 2).closed?.cbTheo).toBe(0);
   });
 
-  it('Monte-Carlo: cashback shrinks the house edge to about HE × (1 − rate) and never flips it', () => {
-    // Even-money game with HE 5 % (p(win) = 0.475), 400 bets of 10 per day, 3000 days.
-    const rng = seededRng(12345);
+  // Low-edge, high-variance play: blackjack-like even-money game with HE 0.41 %, a Netherite
+  // player (5 %), few big bets per day. The OLD formula (rate × max(0, net loss)) paid more
+  // than the edge here; the new one keeps the edge at HE × (1 − rate) > 0.
+  const simulate = (formula: 'old' | 'new') => {
+    const rng = seededRng(4242);
     const rate = 0.05;
-    const he = 0.05;
+    const he = 0.0041;
+    const pWin = (1 - he) / 2;
     let staked = 0;
     let returned = 0;
     let paid = 0;
-    for (let d = 0; d < 3000; d++) {
+    for (let d = 0; d < 40000; d++) {
       let ds = 0;
       let dr = 0;
-      for (let i = 0; i < 400; i++) {
-        ds += 10;
-        if (rng.next() < 0.475) dr += 20;
+      for (let i = 0; i < 5; i++) {
+        ds += 1000;
+        if (rng.next() < pWin) dr += 2000;
       }
       staked += ds;
       returned += dr;
-      paid += cashbackAmount(ds, dr, rate);
+      paid += formula === 'old' ? Math.floor(Math.max(0, ds - dr) * rate) : cashbackAmount(ds * he, rate);
     }
-    const heEff = 1 - (returned + paid) / staked;
-    expect(1 - returned / staked).toBeCloseTo(he, 2);
-    expect(heEff).toBeGreaterThan(0);
-    // winning days pay no cashback, so the effective edge is at most HE × (1 − rate)
-    expect(heEff).toBeLessThanOrEqual(he * (1 - rate) + 0.003);
-    expect(heEff).toBeGreaterThan(he * (1 - rate) - 0.005);
+    return { edge: 1 - returned / staked, effective: 1 - (returned + paid) / staked, paidRate: paid / staked, rate, he };
+  };
+
+  it('Monte-Carlo: the old net-loss formula flips a low-edge game (+EV), the new one never does', () => {
+    const old = simulate('old');
+    // old cashback alone is worth more than the whole house edge -> +EV for the player
+    expect(old.paidRate).toBeGreaterThan(old.he * 1.5);
+    expect(old.effective).toBeLessThan(0);
+    const cur = simulate('new');
+    expect(cur.paidRate).toBeLessThan(cur.he);
+    expect(cur.effective).toBeGreaterThan(0);
+    // cashback is exactly rate × theoretical loss: effective ≈ realised edge − rate × HE
+    expect(cur.effective).toBeCloseTo(cur.edge - cur.rate * cur.he, 3);
+  });
+
+  it('expected cashback never exceeds the expected loss (any edge, any rate ≤ 0.5)', () => {
+    for (const he of [0.0041, 0.0136, 0.027, 0.15]) {
+      for (const rate of [0.02, 0.05, 0.5]) {
+        const stake = 1_000_000;
+        expect(cashbackAmount(stake * he, rate)).toBeLessThan(stake * he);
+      }
+    }
   });
 });

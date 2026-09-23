@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { seededRng } from '../../core/logic/rng';
 import { MCD, emptyRecord, takeLoan, advance, parseProducts } from './loan';
 import { appraisalKey, bestAppraised, planRepossession, VARIANTS } from './repo';
-import { classify, findSpawn, horizontalDistance, ringPoint, standY, DEFAULT_SPAWN_RULES, type Cell } from './spawn';
+import { classify, findSpawn, freeSlot, horizontalDistance, ringPoint, standY, DEFAULT_SPAWN_RULES, type Cell } from './spawn';
 import {
   DEFAULT_TIMERS,
   type SquadObservation,
@@ -182,6 +182,22 @@ describe('spawning', () => {
     expect(s?.y).toBe(64);
     expect(Math.abs(s!.x % 1)).toBe(0.5);
     expect(findSpawn(seededRng(1), { x: 0, y: 64, z: 0 }, flat(64, true))).toBeUndefined();
+  });
+  it('findSpawn skips forbidden spots (claims) and the world border', () => {
+    // only spots east of the debtor are allowed
+    const s = findSpawn(seededRng(3), { x: 0, y: 64, z: 0 }, flat(64), DEFAULT_SPAWN_RULES, (p) => p.x > 0);
+    expect(s && s.x > 0).toBe(true);
+    expect(findSpawn(seededRng(3), { x: 0, y: 64, z: 0 }, flat(64), DEFAULT_SPAWN_RULES, () => false)).toBeUndefined();
+    const edge = { ...DEFAULT_SPAWN_RULES, maxCoord: 100 };
+    for (let i = 0; i < 20; i++) {
+      const p = findSpawn(seededRng(i), { x: 95, y: 64, z: 95 }, flat(64), edge);
+      if (p) expect(Math.max(Math.abs(p.x), Math.abs(p.z))).toBeLessThanOrEqual(100.5);
+    }
+  });
+  it('debtor slots: lowest free slot, wraps when full', () => {
+    expect(freeSlot([], 8)).toBe(0);
+    expect(freeSlot([0, 1, 3], 8)).toBe(2);
+    expect(freeSlot([0, 1, 2, 3, 4, 5, 6, 7], 8)).toBe(0);
   });
   it('classifies blocks', () => {
     expect(classify('minecraft:stone', false, false)).toBe('solid');

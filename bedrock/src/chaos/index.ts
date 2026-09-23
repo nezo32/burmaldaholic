@@ -6,7 +6,7 @@
  */
 import { type Player, system, world } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
-import { type CasinoModule, type ModuleContext, color, showForm, t } from '../core';
+import { type CasinoModule, type ModuleContext, STREAK_CLOUD_GLYPH, STREAK_FLAME_GLYPH, color, glyphRaw, join, lit, showForm, t } from '../core';
 import { CHAOS_SERVICE, type ChaosTriggerResult } from './api';
 import { ChaosEngine } from './engine';
 import { CHAOS_EVENTS, isChaosEvent } from './logic/events';
@@ -43,7 +43,10 @@ export const chaosModule: CasinoModule = {
       order: 10,
       render: (p) => {
         const seg = streakSegment(ctx.streak.of(p), Math.floor(system.currentTick / 40));
-        return seg ? color(seg.color, t(seg.key, seg.n)) : undefined;
+        if (!seg) return undefined;
+        // streak flame / rain-cloud glyph (core font sheet glyph_E1.png, U+E170 / U+E171)
+        const icon = seg.key === 'hud.burmaldaholic.streak.lucky' ? STREAK_FLAME_GLYPH : STREAK_CLOUD_GLYPH;
+        return join(glyphRaw(icon), lit(' '), color(seg.color, t(seg.key, seg.n)));
       },
     });
 
