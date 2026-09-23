@@ -376,13 +376,29 @@ export function seizeAmount(balance: number, percent: number, owed: number): num
 }
 
 /**
- * Credit reasons that are NOT income and so are never garnished: refunds, the player's own
- * chip items deposited at the cashier, admin grants and the loan module's own payouts.
+ * Credit reasons that are NOT garnished on the balance change: refunds, the player's own
+ * chip items deposited at the cashier, admin grants and the loan module's own payouts, and
+ * house-banked round returns (`<game>.payout` / `.pawn` / `.soul`, and `core.offline` which
+ * carries rounds settled while offline). A round return includes the player's own stake, so
+ * those are garnished on the settled round instead, on the net winnings only
+ * ({@link garnishableWinnings}).
  */
 export function isGarnishable(reason: string): boolean {
   if (reason.startsWith('loan.')) return false;
   if (reason.endsWith('.refund')) return false;
-  return reason !== 'core.cashier.deposit' && reason !== 'core.admin.give';
+  if (reason.endsWith('.payout') || reason.endsWith('.pawn') || reason.endsWith('.soul')) return false;
+  return reason !== 'core.cashier.deposit' && reason !== 'core.admin.give' && reason !== 'core.offline';
+}
+
+/**
+ * The garnishable part of a settled house-banked round: the net winnings (payout − stake) when
+ * positive, else 0. A push (stake returned) or a partial return is never garnished. PvP rounds
+ * are not counted here (their pot credits go through the balance change).
+ */
+export function garnishableWinnings(ev: { houseBanked: boolean; staked: number; totalReturn: number }): number {
+  if (!ev.houseBanked) return 0;
+  const net = Math.floor(ev.totalReturn) - Math.floor(ev.staked);
+  return net > 0 ? net : 0;
 }
 
 /**

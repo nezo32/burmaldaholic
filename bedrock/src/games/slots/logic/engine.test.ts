@@ -155,9 +155,9 @@ describe('exact RTP (§8.2–8.4, Appendix A)', () => {
     expect(Math.abs(totalRtp(neth, 0.015) - GAME_RTP.slots_netherite)).toBeLessThan(1e-4);
   });
 
-  it('owned machines: 3 stars at 1000× give 93.51 % / 95.34 %', () => {
+  it('owned machines: 3 stars at 1000× give 93.51 % / 95.33 %', () => {
     expect(totalRtp(defaultTable('gold', true, 1000), 0.01)).toBeCloseTo(0.9351, 4);
-    expect(Math.abs(totalRtp(defaultTable('netherite', true, 1000), 0.015) - 0.9534)).toBeLessThan(1e-4);
+    expect(Math.abs(totalRtp(defaultTable('netherite', true, 1000), 0.015) - 0.9533)).toBeLessThan(1e-4);
   });
 
   it('copper hit frequency 25.4 %', () => expect(lineStats(copper).hitRate).toBeCloseTo(0.254, 3));

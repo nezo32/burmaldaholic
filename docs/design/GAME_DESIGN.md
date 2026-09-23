@@ -523,7 +523,7 @@ death); Last Chance never triggers against damage from a squad member in Hardcor
 
 **House edge (6 decks, S17, DAS, resplit to 4, no RSA, no surrender, peek): ≈ 0.41 %**
 with perfect basic strategy (typical players ~1.5–2 %). With H17: +0.22 %. Insurance bet itself:
-HE 7.47 % (6 decks). Payout rounding: 3:2 on odd bets is floored (e.g. bet 5 → +7).
+HE 7.40 % (6 decks). Payout rounding: 3:2 on odd bets is floored (e.g. bet 5 → +7).
 
 ### 6.2 Hand values
 
@@ -747,7 +747,7 @@ Contribution breakdown (per line, for tests): see appendix A.
   still award once. Server-wide announcement + chaos `diamond_rain` for the winner +
   `chip_shower` for every player within 16 blocks.
 - Owned-casino machines (§18) have **no** progressive: 3 stars pay a fixed 1000× line bet
-  (RTP then 93.51 % / 95.34 %).
+  (RTP then 93.51 % / 95.33 %).
 
 ---
 
@@ -798,7 +798,7 @@ Two six-sided dice. One **shooter** at a time; any seated player (up to 6) may b
 | Don't Come | Mirror of Don't Pass for come bets (bar 12). | 1:1 | 1.36 % |
 | Field | One roll: 3,4,9,10,11 pay 1:1; **2 pays 2:1; 12 pays 3:1**; 5,6,7,8 lose. | see rule | 2.78 % |
 | Odds (take) | Behind Pass/Come once a point exists. Max **3-4-5×**: 3× on 4/10, 4× on 5/9, 5× on 6/8. | true odds 2:1 (4/10), 3:2 (5/9), 6:5 (6/8) | 0 % |
-| Odds (lay) | Behind Don't Pass/Don't Come. Max = amount that wins 6× the flat bet. | 1:2 (4/10), 2:3 (5/9), 5:6 (6/8) | 0 % |
+| Odds (lay) | Behind Don't Pass/Don't Come. Max = the lay that wins 3-4-5× the flat bet (3× on 4/10, 4× on 5/9, 5× on 6/8), i.e. a lay of up to 6× the flat bet. | 1:2 (4/10), 2:3 (5/9), 5:6 (6/8) | 0 % |
 
 Odds-bet amounts are restricted so payouts are whole: take 5/9 → even amounts; take 6/8 →
 multiples of 5; lay 4/10 → multiples of 2; lay 5/9 → multiples of 3; lay 6/8 → multiples of 6.
@@ -1151,7 +1151,7 @@ Blocks require no power; the machine *is* the dealer.
 | Game | RTP | House edge | Streak-adjustable |
 |------|-----|-----------|-------------------|
 | Blackjack (basic strategy) | 99.59 % | 0.41 % | no |
-| Blackjack insurance | 92.53 % | 7.47 % | no |
+| Blackjack insurance | 92.60 % | 7.40 % | no |
 | Poker vs players | rake ≤ 5 % of raked pots | — | no |
 | Slots — Copper Bandit | 89.76 % | 10.24 % | yes |
 | Slots — Golden Reels | 93.71 % | 6.29 % | yes |

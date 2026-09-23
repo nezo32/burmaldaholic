@@ -6,7 +6,9 @@
  * Spin: stake placed → outcome drawn (final) → pool updated → actionbar reel animation →
  * settle → result/effects → machine form again. Auto ×10 settles each spin at once and shows a
  * summary. Leaving mid-animation (walk away, casino off, broken block) settles immediately;
- * a disconnect settles in playerLeave (before the player object becomes invalid).
+ * a disconnect ends the core table session (after the leave event, outside restricted
+ * execution) and the spin is settled through core's offline path: the return is parked and
+ * the streak / VIP / garnishment effects fire on the player's next join.
  */
 import { type Player, system, world } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
@@ -85,6 +87,8 @@ interface MachineState {
 
 interface Pending {
   player: Player;
+  /** captured at spin start: the Player object is invalid after a disconnect */
+  name: string;
   session: TableSession;
   ticket: WagerTicket;
   outcome: SpinOutcome;
@@ -268,18 +272,13 @@ class SlotsGame implements SlotsApi {
     void this.showMachine(s);
   }
 
+  /** Also the disconnect path: the player object is then invalid and core settles offline. */
   onLeave(s: TableSession): void {
     const st = s.data.slots as MachineState | undefined;
     if (st) st.stopAuto = true;
     const p = this.pending.get(s.playerId);
     if (p) this.finish(p, !s.player.isValid);
-    this.ctx.hud.clear(s.player, HUD_CHANNEL);
-  }
-
-  /** Disconnect: settle while the player object is still valid (restricted execution). */
-  onPlayerLeave(player: Player): void {
-    const p = this.pending.get(player.id);
-    if (p) this.finish(p, true);
+    if (s.player.isValid) this.ctx.hud.clear(s.player, HUD_CHANNEL);
   }
 
   // ---- forms ------------------------------------------------------------------------------------
@@ -417,7 +416,7 @@ class SlotsGame implements SlotsApi {
       this.savePools();
       if (outcome.toppedUp > 0) this.ctx.log.info(`bank topped up the ${st.tier} jackpot by ${outcome.toppedUp}`);
     }
-    return { player: p, session: s, ticket: r.ticket, outcome, tier: st.tier, owned };
+    return { player: p, name: p.name, session: s, ticket: r.ticket, outcome, tier: st.tier, owned };
   }
 
   private spin(s: TableSession): void {
@@ -443,17 +442,19 @@ class SlotsGame implements SlotsApi {
         if (stops.some((x) => elapsed >= x && elapsed - FRAME_TICKS < x)) s.player.playSound('random.click');
       }
       if (elapsed >= total) {
-        this.finish(pd, false);
+        const online = s.player.isValid;
+        this.finish(pd, !online);
         st.busy = false;
-        void this.showMachine(s);
+        if (online) void this.showMachine(s);
       }
     }, FRAME_TICKS);
   }
 
   /** Settle a pending spin; `quiet` = the player is leaving (no forms / chaos events). */
   private finish(pd: Pending, quiet: boolean): void {
-    if (this.pending.get(pd.player.id) !== pd) return;
-    this.pending.delete(pd.player.id);
+    const pid = pd.session.playerId;
+    if (this.pending.get(pid) !== pd) return;
+    this.pending.delete(pid);
     if (pd.anim !== undefined) system.clearRun(pd.anim);
     const st = pd.session.data.slots as MachineState | undefined;
     if (st) {
@@ -465,7 +466,7 @@ class SlotsGame implements SlotsApi {
     } catch (e) {
       this.ctx.log.error('slots settle failed', e);
     }
-    this.afterSettle(pd.player, pd.session.table, pd.tier, pd.owned, pd.outcome, quiet);
+    this.afterSettle(pd.player, pd.session.table, pd.tier, pd.owned, pd.outcome, quiet, pd.name);
   }
 
   private async autoSpin(s: TableSession): Promise<void> {
@@ -515,13 +516,13 @@ class SlotsGame implements SlotsApi {
 
   // ---- after a spin: feedback, events ---------------------------------------------------------
 
-  private afterSettle(player: Player, table: TableRef, tier: Tier, owned: boolean, o: SpinOutcome, quiet: boolean): void {
+  private afterSettle(player: Player, table: TableRef, tier: Tier, owned: boolean, o: SpinOutcome, quiet: boolean, name?: string): void {
     const valid = player.isValid;
     const threeSevens = o.wins.some((w) => w.symbol === 'seven' && w.kind === 'three');
     // server-wide jackpot announcement (also when the winner is leaving)
     if (o.jackpotAward > 0) {
       try {
-        world.sendMessage(color('§6', t('msg.burmaldaholic.slots.jackpot_broadcast', lit(player.name), chipsAcc(o.jackpotAward), machineName(tier))));
+        world.sendMessage(color('§6', t('msg.burmaldaholic.slots.jackpot_broadcast', lit(name ?? player.name), chipsAcc(o.jackpotAward), machineName(tier))));
       } catch (e) {
         this.ctx.log.error('jackpot broadcast failed', e);
       }
@@ -632,13 +633,6 @@ export const slotsModule: CasinoModule = {
       canJoin: (p, table) => game.canJoin(p, table),
       onOpen: (s) => game.onOpen(s),
       onLeave: (s) => game.onLeave(s),
-    });
-    world.beforeEvents.playerLeave.subscribe((e) => {
-      try {
-        game.onPlayerLeave(e.player);
-      } catch (err) {
-        ctx.log.error('slots disconnect settle failed', err);
-      }
     });
     ctx.config.onChange((key) => {
       if (!key.startsWith('slots.')) return;

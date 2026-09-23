@@ -16,6 +16,7 @@ import {
   t,
   unit,
   worldJson,
+  worldSharded,
   worldTick,
   writeJson,
 } from '../core';
@@ -32,6 +33,7 @@ import {
   emptyRecord,
   freezeSteps,
   garnishAmount,
+  garnishableWinnings,
   isGarnishable,
   loanRate,
   nextBoundary,
@@ -49,6 +51,8 @@ import {
 const RECORD_PROP = 'burmaldaholic:loan.record';
 const INDEX_PROP = 'burmaldaholic:loan.debtors';
 const LAST_TICK_PROP = 'burmaldaholic:loan.last_tick';
+/** offline debtors' dormancy shifts { [playerId]: ticks } (sharded: grows with the player count) */
+const PENDING_PROP = `${LAST_TICK_PROP}.pending`;
 
 export type DebtListener = (player: Player, rec: LoanRecord, prevOwed: number) => void;
 
@@ -80,11 +84,11 @@ export class LoanService {
     const prev = this.record(player);
     this.cache.set(player.id, rec);
     writeJson(player, RECORD_PROP, rec);
-    const idx = new Set(worldJson.read<string[]>(INDEX_PROP, []));
+    const idx = new Set(worldSharded.read<string[]>(INDEX_PROP, []));
     const had = idx.has(player.id);
     if (rec.status !== 'none' && !had) idx.add(player.id);
     else if (rec.status === 'none' && had && rec.cooldownUntil <= worldTick()) idx.delete(player.id);
-    if (idx.has(player.id) !== had) worldJson.write(INDEX_PROP, [...idx]);
+    if (idx.has(player.id) !== had) worldSharded.write(INDEX_PROP, [...idx]);
     if (prev.owed !== rec.owed || prev.status !== rec.status) for (const l of this.debtListeners) l(player, rec, prev.owed);
   }
 
@@ -269,25 +273,25 @@ export class LoanService {
     worldJson.write(LAST_TICK_PROP, now);
     const gap = now - last;
     if (gap <= 200) return; // normal cadence (and lag spikes) are not dormancy
-    const ids = new Set(worldJson.read<string[]>(INDEX_PROP, []));
+    const ids = new Set(worldSharded.read<string[]>(INDEX_PROP, []));
     for (const p of world.getAllPlayers()) {
       if (!ids.has(p.id)) continue;
       this.save(p, shiftTimers(this.record(p), gap));
       ids.delete(p.id);
     }
     // Offline debtors: shifted on their next join.
-    const pending = worldJson.read<Record<string, number>>(`${LAST_TICK_PROP}.pending`, {});
+    const pending = worldSharded.read<Record<string, number>>(PENDING_PROP, {});
     for (const id of ids) pending[id] = (pending[id] ?? 0) + gap;
-    worldJson.write(`${LAST_TICK_PROP}.pending`, pending);
+    worldSharded.write(PENDING_PROP, Object.keys(pending).length ? pending : undefined);
   }
 
   /** Apply a dormancy shift recorded while this player was offline. */
   onJoin(player: Player): void {
-    const pending = worldJson.read<Record<string, number>>(`${LAST_TICK_PROP}.pending`, {});
+    const pending = worldSharded.read<Record<string, number>>(PENDING_PROP, {});
     const gap = pending[player.id];
     if (!gap) return;
     delete pending[player.id];
-    worldJson.write(`${LAST_TICK_PROP}.pending`, pending);
+    worldSharded.write(PENDING_PROP, Object.keys(pending).length ? pending : undefined);
     this.save(player, shiftTimers(this.record(player), gap));
   }
 
@@ -300,9 +304,24 @@ export class LoanService {
 
   /** economy.onChange: in default, a share of every income credit goes to the debt first. */
   onBalanceChange(player: Player, delta: number, reason: string): void {
-    if (this.garnishing || delta <= 0 || !isGarnishable(reason) || !this.inDefault(player)) return;
+    if (delta <= 0 || !isGarnishable(reason)) return;
+    this.garnish(player, delta);
+  }
+
+  /**
+   * wagers.onSettled: a house-banked round is garnished on its net winnings only (a returned
+   * stake / push is not income). Deferred (offline) rounds fire on the next join, after the
+   * parked chips were credited.
+   */
+  onRoundSettled(player: Player, ev: { houseBanked: boolean; staked: number; totalReturn: number }): void {
+    if (!player.isValid) return;
+    this.garnish(player, garnishableWinnings(ev));
+  }
+
+  private garnish(player: Player, income: number): void {
+    if (this.garnishing || income <= 0 || !this.inDefault(player)) return;
     const pct = this.frozen(player) ? 100 : this.ctx.config.int('loan.garnishPercent');
-    const take = garnishAmount(delta, pct, this.record(player).owed);
+    const take = garnishAmount(income, pct, this.record(player).owed);
     if (take <= 0) return;
     this.garnishing = true;
     try {

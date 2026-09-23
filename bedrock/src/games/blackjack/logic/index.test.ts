@@ -326,11 +326,11 @@ describe('Monte-Carlo RTP (GAME_DESIGN §6.1, §17)', () => {
     expect(edge).toBeLessThan(0.0041 + 0.0045);
   }, 120_000);
 
-  it('insurance house edge ≈ 7.47 %', () => {
+  it('insurance house edge ≈ 7.40 % (1 − 3 × 96/311)', () => {
     const { insuranceEdge } = simulate(400_000, DEFAULT_RULES, 7, true);
     // insurance bets ≈ n/13 ≈ 30 000, σ ≈ 2.8 / √30 000 ≈ 1.6 %
-    expect(insuranceEdge).toBeGreaterThan(0.0747 - 0.06);
-    expect(insuranceEdge).toBeLessThan(0.0747 + 0.06);
+    expect(insuranceEdge).toBeGreaterThan(0.074 - 0.06);
+    expect(insuranceEdge).toBeLessThan(0.074 + 0.06);
   }, 120_000);
 
   it('3:2 vs 6:5 costs the player ≈ 1.4 %', () => {

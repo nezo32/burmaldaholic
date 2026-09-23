@@ -44,7 +44,7 @@ export { CASINO_CARD_ID } from './module-core';
 export type { Logger } from './log';
 export type { Services } from './services';
 export { isCasinoEnabled } from './casino';
-export { worldTick, readJson, writeJson, worldJson } from './store';
+export { worldTick, readJson, writeJson, worldJson, worldSharded } from './store';
 export { NS, nsId, langKey, type ModuleId } from './logic/ids';
 export { t, plural, join, joinWith, lines, NEWLINE, lit, color, chips, chipsAcc, unit, duration, variant, type Unit, type Raw, type Arg } from './logic/rawtext';
 export { formatNumber, formatSigned, formatMultiplier, formatClock, formatDhm } from './logic/format';

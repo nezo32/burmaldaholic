@@ -4,6 +4,7 @@
  * lists use `ChunkedList`, which spreads entries over `<id>.0`, `<id>.1`, ...
  */
 import { type Entity, world } from '@minecraft/server';
+import { readSharded, writeSharded } from './logic/sharded';
 
 type Holder = Pick<Entity, 'getDynamicProperty' | 'setDynamicProperty'>;
 
@@ -25,6 +26,16 @@ export function writeJson(holder: Holder, id: string, value: unknown): void {
 export const worldJson = {
   read: <T>(id: string, fallback: T): T => readJson(world, id, fallback),
   write: (id: string, value: unknown): void => writeJson(world, id, value),
+};
+
+/**
+ * World-level JSON that grows with the player count (maps keyed by player id, id lists):
+ * sharded over `<id>:0..n` (logic/sharded.ts). A value stored under the plain `<id>` key by an
+ * older version is read and migrated on the next write.
+ */
+export const worldSharded = {
+  read: <T>(id: string, fallback: T): T => readSharded(world, id, fallback),
+  write: (id: string, value: unknown): void => writeSharded(world, id, value),
 };
 
 const CHUNK_CHARS = 30_000;

@@ -17,6 +17,7 @@ import {
   freezeSteps,
   shiftTimers,
   garnishAmount,
+  garnishableWinnings,
   isGarnishable,
   lateFeeAmount,
   loanRate,
@@ -274,11 +275,30 @@ describe('garnishment, seizure, admin', () => {
   });
   it('garnishable reasons', () => {
     expect(isGarnishable('core.earn.ore')).toBe(true);
-    expect(isGarnishable('slots.payout')).toBe(true);
+    expect(isGarnishable('slots.payout')).toBe(false);
+    expect(isGarnishable('dice_duel.pawn')).toBe(false);
+    expect(isGarnishable('core.offline')).toBe(false);
+    expect(isGarnishable('dice_duel.pvp')).toBe(true);
+    expect(isGarnishable('vip.contract')).toBe(true);
     expect(isGarnishable('slots.refund')).toBe(false);
     expect(isGarnishable('core.cashier.deposit')).toBe(false);
     expect(isGarnishable('core.admin.give')).toBe(false);
     expect(isGarnishable('loan.take')).toBe(false);
+  });
+  it('garnishes only net winnings of house-banked rounds', () => {
+    // push: the stake comes back, nothing is garnished
+    expect(garnishableWinnings({ houseBanked: true, staked: 100, totalReturn: 100 })).toBe(0);
+    expect(garnishAmount(garnishableWinnings({ houseBanked: true, staked: 100, totalReturn: 100 }), 50, 1000)).toBe(0);
+    // loss / partial return
+    expect(garnishableWinnings({ houseBanked: true, staked: 100, totalReturn: 0 })).toBe(0);
+    expect(garnishableWinnings({ houseBanked: true, staked: 100, totalReturn: 50 })).toBe(0);
+    // 1:1 win: 200 back, 100 is winnings -> 50 % = 50 (not 100)
+    expect(garnishableWinnings({ houseBanked: true, staked: 100, totalReturn: 200 })).toBe(100);
+    expect(garnishAmount(garnishableWinnings({ houseBanked: true, staked: 100, totalReturn: 200 }), 50, 1000)).toBe(50);
+    // blackjack 3:2
+    expect(garnishableWinnings({ houseBanked: true, staked: 10, totalReturn: 25 })).toBe(15);
+    // PvP is handled on the balance change
+    expect(garnishableWinnings({ houseBanked: false, staked: 100, totalReturn: 200 })).toBe(0);
   });
   it('admin set/clear/force default', () => {
     const cleared = adminSetDebt({ ...takeLoan(emptyRecord(), products[0]!, 0.2, 0), goodStanding: 3 }, 0, 10);

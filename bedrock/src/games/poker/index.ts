@@ -32,7 +32,7 @@ import {
   randInt,
   showForm,
   t,
-  worldJson,
+  worldSharded,
 } from '../../core';
 import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../../multiplayer/api';
 import { type TablePreset, WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
@@ -136,13 +136,13 @@ class PokerGame implements PokerApi {
   // ---- persistence of table stacks ------------------------------------------------------
 
   private stacks(): Record<string, number> {
-    return worldJson.read<Record<string, number>>(STACKS_PROP, {});
+    return worldSharded.read<Record<string, number>>(STACKS_PROP, {});
   }
   private saveStack(id: string, amount: number | undefined): void {
     const all = this.stacks();
     if (amount === undefined || amount <= 0) delete all[id];
     else all[id] = Math.floor(amount);
-    worldJson.write(STACKS_PROP, Object.keys(all).length ? all : undefined);
+    worldSharded.write(STACKS_PROP, Object.keys(all).length ? all : undefined);
   }
 
   /** Stack left on a table by a disconnect or server stop: return it to the balance. */

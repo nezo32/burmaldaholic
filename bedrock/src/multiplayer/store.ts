@@ -5,9 +5,11 @@
  *   burmaldaholic:multiplayer.inactive         { [tableKey]: OwnedTable }   (charter removed)
  *   burmaldaholic:multiplayer.stats.<casino>   CasinoStats
  *   burmaldaholic:multiplayer.payouts          { [playerId]: chips }        (owner offline at closing)
+ * Registry, table maps and payouts grow with the player count, so they are sharded over
+ * `<key>:0..n` (core `worldSharded`; values under the plain key are migrated on the next write).
  * The bankroll itself is a core account (`economy.bankroll(casino.id)`).
  */
-import { worldJson } from '../core';
+import { worldJson, worldSharded } from '../core';
 import { type Casino, type CasinoStats, type OwnedTable, nextCasinoId } from './logic';
 
 const P = 'burmaldaholic:multiplayer.';
@@ -30,13 +32,13 @@ export class CasinoStore {
   readonly tables = new Map<string, OwnedTable>();
 
   load(): void {
-    const r = worldJson.read<Partial<Registry>>(`${P}casinos`, {});
+    const r = worldSharded.read<Partial<Registry>>(`${P}casinos`, {});
     this.reg = { counter: r.counter ?? 0, casinos: r.casinos ?? [], closing: r.closing ?? [] };
     this.tables.clear();
     for (const c of this.reg.casinos) {
-      for (const [k, v] of Object.entries(worldJson.read<Record<string, OwnedTable>>(`${P}tables.${c.id}`, {}))) this.tables.set(k, { ...v, casinoId: c.id });
+      for (const [k, v] of Object.entries(worldSharded.read<Record<string, OwnedTable>>(`${P}tables.${c.id}`, {}))) this.tables.set(k, { ...v, casinoId: c.id });
     }
-    for (const [k, v] of Object.entries(worldJson.read<Record<string, OwnedTable>>(`${P}inactive`, {}))) {
+    for (const [k, v] of Object.entries(worldSharded.read<Record<string, OwnedTable>>(`${P}inactive`, {}))) {
       if (!this.tables.has(k)) this.tables.set(k, { ...v, casinoId: undefined });
     }
   }
@@ -64,7 +66,7 @@ export class CasinoStore {
   }
 
   saveRegistry(): void {
-    worldJson.write(`${P}casinos`, this.reg);
+    worldSharded.write(`${P}casinos`, this.reg);
   }
 
   addCasino(c: Casino): void {
@@ -76,7 +78,7 @@ export class CasinoStore {
   removeCasino(c: Casino): void {
     this.reg.casinos = this.reg.casinos.filter((x) => x.id !== c.id);
     this.reg.closing.push({ id: c.id, ownerId: c.ownerId, ownerName: c.ownerName });
-    worldJson.write(`${P}tables.${c.id}`, undefined);
+    worldSharded.write(`${P}tables.${c.id}`, undefined);
     worldJson.write(`${P}stats.${c.id}`, undefined);
     this.saveRegistry();
   }
@@ -96,7 +98,8 @@ export class CasinoStore {
       const out: Record<string, OwnedTable> = {};
       for (const [k, t] of this.tables) if (t.casinoId === id) out[k] = t;
       const empty = Object.keys(out).length === 0;
-      worldJson.write(id === undefined ? `${P}inactive` : `${P}tables.${id}`, empty ? undefined : out);
+      if (id === undefined) worldSharded.write(`${P}inactive`, empty ? undefined : out);
+      else worldSharded.write(`${P}tables.${id}`, empty ? undefined : out);
     }
   }
 
@@ -109,17 +112,17 @@ export class CasinoStore {
   }
 
   addPayout(playerId: string, amount: number): void {
-    const all = worldJson.read<Record<string, number>>(`${P}payouts`, {});
+    const all = worldSharded.read<Record<string, number>>(`${P}payouts`, {});
     all[playerId] = (all[playerId] ?? 0) + amount;
-    worldJson.write(`${P}payouts`, all);
+    worldSharded.write(`${P}payouts`, all);
   }
 
   takePayout(playerId: string): number {
-    const all = worldJson.read<Record<string, number>>(`${P}payouts`, {});
+    const all = worldSharded.read<Record<string, number>>(`${P}payouts`, {});
     const v = all[playerId] ?? 0;
     if (v) {
       delete all[playerId];
-      worldJson.write(`${P}payouts`, Object.keys(all).length ? all : undefined);
+      worldSharded.write(`${P}payouts`, Object.keys(all).length ? all : undefined);
     }
     return v;
   }

@@ -42,6 +42,6 @@ export async function maybeShowSetup(player: Player, config: ConfigService): Pro
   setCasinoEnabled(on);
   config.set('lastChance.hardcoreMode', opts[Number(layout.value(res, iLc) ?? 0)] ?? 'DISABLED');
   config.set('chaos.enabled', layout.value(res, iChaos) !== false);
-  worldJson.write(SETUP_PROP, { ...state, done: true });
+  worldJson.write(SETUP_PROP, { done: true }); // the per-op dismissal counts are no longer needed
   world.sendMessage(t(on ? 'msg.burmaldaholic.core.mode_enabled' : 'msg.burmaldaholic.core.mode_disabled'));
 }
