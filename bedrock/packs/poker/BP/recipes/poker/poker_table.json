@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "burmaldaholic:poker_table"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "WWW",
+      "PPP",
+      "FCF"
+    ],
+    "key": {
+      "W": {
+        "item": "minecraft:green_wool"
+      },
+      "P": {
+        "item": "minecraft:dark_oak_planks"
+      },
+      "F": {
+        "item": "minecraft:oak_fence"
+      },
+      "C": {
+        "item": "burmaldaholic:chip_100"
+      }
+    },
+    "unlock": [
+      {
+        "item": "burmaldaholic:chip_100"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:poker_table"
+    }
+  }
+}
