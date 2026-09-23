@@ -22,7 +22,7 @@
 	"gui.burmaldaholic.vip.perk.netherite_slots": "Автомат «Незеритовый хайроллер»",
 	"gui.burmaldaholic.vip.perk.high_roller": "Столы хайроллеров",
 	"gui.burmaldaholic.vip.perk.emerald_rate": "Выгодный курс изумрудов в кассе",
-	"gui.burmaldaholic.vip.perk.cashback": "Ежедневный кешбэк %1$s %% от проигрыша",
+	"gui.burmaldaholic.vip.perk.cashback": "Ежедневный кешбэк %1$s %% от ожидаемого проигрыша",
 	"gui.burmaldaholic.vip.perk.loan_discount": "−2 %% по займам",
 	"gui.burmaldaholic.vip.perk.cosmetic_name": "Цветное имя за столами",
 	"gui.burmaldaholic.vip.perk.cosmetic_particles": "Эффекты при выигрыше",
@@ -61,5 +61,15 @@
 	"config.burmaldaholic.vip.cashback.netherite": "Кешбэк: Незерит",
 	"config.burmaldaholic.vip.contractBonus.silver": "Бонус к заказам: Серебро",
 	"config.burmaldaholic.vip.contractBonus.gold": "Бонус к заказам: Золото и выше",
-	"config.burmaldaholic.vip.announceNetherite": "Объявлять незеритовых ВИП"
+	"config.burmaldaholic.vip.announceNetherite": "Объявлять незеритовых ВИП",
+	"item.burmaldaholic.vip_diamond_casino_card": "Алмазная клубная карта",
+	"key.category.burmaldaholic.vip": "Burmaldaholic",
+	"hud.burmaldaholic.vip.next": "Далее: %1$s — %2$s %%",
+	"hud.burmaldaholic.vip.contracts": "Заказы: %1$s/%2$s",
+	"gui.burmaldaholic.vip.tier_line": "%1$s — порог %2$s · макс. ставка %3$s",
+	"gui.burmaldaholic.vip.contracts_off": "Заказы в этом мире отключены",
+	"gui.burmaldaholic.vip.contract_unavailable": "Этот заказ уже нельзя заменить",
+	"gui.burmaldaholic.vip.loading": "Загрузка…",
+	"gui.burmaldaholic.vip.perk_bullet": "• %1$s",
+	"gui.burmaldaholic.vip.contract_status": "%1$s · %2$s"
 }

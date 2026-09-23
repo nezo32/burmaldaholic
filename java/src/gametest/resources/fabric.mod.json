@@ -12,7 +12,8 @@
 			"dev.nezo.burmaldaholic.gametest.chaos.ChaosGameTests",
 			"dev.nezo.burmaldaholic.gametest.craps.CrapsGameTests",
 			"dev.nezo.burmaldaholic.gametest.blackjack.BlackjackGameTests",
-			"dev.nezo.burmaldaholic.gametest.slots.SlotsGameTests"
+			"dev.nezo.burmaldaholic.gametest.slots.SlotsGameTests",
+			"dev.nezo.burmaldaholic.gametest.vip.VipGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests"
