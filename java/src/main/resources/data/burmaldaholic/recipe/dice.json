@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "minecraft:bone_block",
+    "minecraft:black_dye"
+  ],
+  "result": {
+    "id": "burmaldaholic:dice",
+    "count": 2
+  }
+}

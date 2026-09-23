@@ -110,5 +110,11 @@
 	"config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks": "Время на ответ (тики)",
 	"config.burmaldaholic.extras.diceDuel.maxDistance": "Макс. дистанция дуэли",
 	"subtitles.burmaldaholic.coin_flip": "Подброшена монетка",
-	"subtitles.burmaldaholic.plinko_peg": "Шарик стучит по штырькам"
+	"subtitles.burmaldaholic.plinko_peg": "Шарик стучит по штырькам",
+	"gui.burmaldaholic.extras.add": "+%1$s",
+	"gui.burmaldaholic.extras.stake_kind": "Ставим: %1$s",
+	"gui.burmaldaholic.extras.stake_item_value": "предмет в руке (%1$s)",
+	"gui.burmaldaholic.extras.labeled": "%1$s: %2$s",
+	"gui.burmaldaholic.extras.dice.challenge_amount": "Вызвать на %1$s",
+	"gui.burmaldaholic.extras.dice.invite": "%1$s вызывает вас на дуэль на костях, ставка %2$s"
 }

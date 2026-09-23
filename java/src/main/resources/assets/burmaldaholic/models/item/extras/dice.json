@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "burmaldaholic:item/extras/dice"
+  }
+}

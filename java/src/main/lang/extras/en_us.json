@@ -110,5 +110,11 @@
 	"config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks": "Challenge timeout (ticks)",
 	"config.burmaldaholic.extras.diceDuel.maxDistance": "Max duel distance",
 	"subtitles.burmaldaholic.coin_flip": "Coin flips",
-	"subtitles.burmaldaholic.plinko_peg": "Ball plinks"
+	"subtitles.burmaldaholic.plinko_peg": "Ball plinks",
+	"gui.burmaldaholic.extras.add": "+%1$s",
+	"gui.burmaldaholic.extras.stake_kind": "Stake: %1$s",
+	"gui.burmaldaholic.extras.stake_item_value": "held item (%1$s)",
+	"gui.burmaldaholic.extras.labeled": "%1$s: %2$s",
+	"gui.burmaldaholic.extras.dice.challenge_amount": "Challenge for %1$s",
+	"gui.burmaldaholic.extras.dice.invite": "%1$s challenges you to a Dice Duel for %2$s"
 }

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "burmaldaholic:block/extras/wheel_of_fortune_front",
+    "side": "burmaldaholic:block/extras/wheel_of_fortune_side",
+    "top": "burmaldaholic:block/extras/wheel_of_fortune_top"
+  }
+}
