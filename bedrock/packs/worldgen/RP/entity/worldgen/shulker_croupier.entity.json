@@ -1,0 +1,13 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "burmaldaholic:shulker_croupier",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/worldgen/shulker_croupier" },
+      "geometry": { "default": "geometry.burmaldaholic.shulker_croupier" },
+      "render_controllers": ["controller.render.burmaldaholic_worldgen_npc"],
+      "spawn_egg": { "base_color": "#8e5a9e", "overlay_color": "#e6e0a6" }
+    }
+  }
+}
