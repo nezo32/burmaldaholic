@@ -96,5 +96,14 @@
 	"config.burmaldaholic.streak.minHouseEdge": "Minimum house edge",
 	"config.burmaldaholic.streak.minHouseEdge.tooltip": "Streak bonuses are capped so every game keeps at least this edge",
 	"config.burmaldaholic.streak.decayTicks": "Streak decay interval (ticks)",
-	"subtitles.burmaldaholic.golden_hour": "Golden bell tolls"
+	"subtitles.burmaldaholic.golden_hour": "Golden bell tolls",
+	"msg.burmaldaholic.chaos.admin.result.started": "Chaos event started",
+	"msg.burmaldaholic.chaos.admin.result.deferred": "Chaos event deferred until the menu closes",
+	"msg.burmaldaholic.chaos.admin.result.skipped": "Chaos event skipped: not safe here right now",
+	"msg.burmaldaholic.chaos.admin.result.cooldown": "Chaos event is on cooldown",
+	"msg.burmaldaholic.chaos.admin.result.disabled": "Chaos events are disabled",
+	"msg.burmaldaholic.chaos.admin.result_for": "%1$s: %2$s",
+	"msg.burmaldaholic.chaos.admin.unknown_event": "Unknown chaos event: %1$s",
+	"msg.burmaldaholic.chaos.admin.golden_hour_stopped": "Golden Hour stopped",
+	"msg.burmaldaholic.chaos.admin.golden_hour_inactive": "Golden Hour is not active"
 }

@@ -4,11 +4,10 @@ import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
 
 /**
- * Chaos events, golden hour and the win/loss streak odds hook.
- *
- * <p>Owner: the "chaos" feature developer. You own ONLY: this package (main + client source sets),
- * {@code src/main/lang/chaos/}, {@code src/main/sounds/chaos/}, and assets/data files named
- * {@code chaos_*} or inside {@code chaos/} folders. See docs/architecture/java.md.
+ * Chaos layer (GAME_DESIGN.md §13): ambient / special / big-win / jackpot / sunset triggers, the
+ * nine events with the §13.4 safety rules, Golden Hour (bonus payouts, boss-bar timer, core's
+ * {@code GoldenHourProvider}) and {@code /casino chaos}. Other modules use {@link ChaosApi}
+ * (through Fabric's ObjectShare). Streak math, its messages and the HUD streak line are core's.
  */
 public final class ChaosModule implements CasinoModule {
 	public static final String ID = "chaos";
@@ -20,7 +19,10 @@ public final class ChaosModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
-		// TODO(chaos): register content here, e.g.
-		// TABLE = ctx.tables().register("chaos_table", ChaosTableBlockEntity::new);
+		ChaosEffects.register(ctx);
+		GoldenHour.register(ctx);
+		ChaosEngine.register();
+		ChaosCommands.register();
+		ChaosApi.publish();
 	}
 }

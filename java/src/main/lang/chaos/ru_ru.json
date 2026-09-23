@@ -96,5 +96,14 @@
 	"config.burmaldaholic.streak.minHouseEdge": "Мин. преимущество заведения",
 	"config.burmaldaholic.streak.minHouseEdge.tooltip": "Бонусы серий ограничены так, чтобы у заведения всегда оставалось хотя бы это преимущество",
 	"config.burmaldaholic.streak.decayTicks": "Интервал затухания серии (тики)",
-	"subtitles.burmaldaholic.golden_hour": "Звенит золотой колокол"
+	"subtitles.burmaldaholic.golden_hour": "Звенит золотой колокол",
+	"msg.burmaldaholic.chaos.admin.result.started": "Хаос-событие запущено",
+	"msg.burmaldaholic.chaos.admin.result.deferred": "Хаос-событие отложено до закрытия меню",
+	"msg.burmaldaholic.chaos.admin.result.skipped": "Хаос-событие пропущено: здесь сейчас небезопасно",
+	"msg.burmaldaholic.chaos.admin.result.cooldown": "Хаос-событие перезаряжается",
+	"msg.burmaldaholic.chaos.admin.result.disabled": "Хаос-события отключены",
+	"msg.burmaldaholic.chaos.admin.result_for": "%1$s: %2$s",
+	"msg.burmaldaholic.chaos.admin.unknown_event": "Нет такого хаос-события: %1$s",
+	"msg.burmaldaholic.chaos.admin.golden_hour_stopped": "«Золотой час» остановлен",
+	"msg.burmaldaholic.chaos.admin.golden_hour_inactive": "«Золотой час» сейчас не идёт"
 }

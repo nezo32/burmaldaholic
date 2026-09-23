@@ -1,0 +1,9 @@
+{
+	"golden_hour": {
+		"subtitle": "subtitles.burmaldaholic.golden_hour",
+		"sounds": [
+			{"name": "minecraft:block/bell/bell_use01", "pitch": 0.8},
+			{"name": "minecraft:block/bell/bell_use02", "pitch": 0.8}
+		]
+	}
+}

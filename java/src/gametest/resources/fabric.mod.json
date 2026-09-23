@@ -8,7 +8,8 @@
 		"fabric-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
-			"dev.nezo.burmaldaholic.gametest.lastchance.LastChanceGameTests"
+			"dev.nezo.burmaldaholic.gametest.lastchance.LastChanceGameTests",
+			"dev.nezo.burmaldaholic.gametest.chaos.ChaosGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests"
