@@ -2,16 +2,19 @@ package dev.nezo.burmaldaholic.games.craps;
 
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
+import dev.nezo.burmaldaholic.core.table.TableType;
 
 /**
- * Craps table.
+ * Craps table (GAME_DESIGN §10): Pass / Don't Pass, Come / Don't Come, Field, take and lay odds,
+ * point state machine, clockwise shooter rotation, betting window and auto roll.
  *
- * <p>Owner: the "craps" feature developer. You own ONLY: this package (main + client source sets),
- * {@code src/main/lang/craps/}, {@code src/main/sounds/craps/}, and assets/data files named
- * {@code craps_*} or inside {@code craps/} folders. See docs/architecture/java.md.
+ * <p>Rules: {@code games.craps.logic} (pure, unit-tested). Server: {@link CrapsTableBlockEntity}.
+ * Client: {@code games.craps.client.CrapsScreen}. Recipe {@code data/burmaldaholic/recipe/craps_table.json}
+ * needs the {@code burmaldaholic:dice} item (extras); it only loads when that item exists.
  */
 public final class CrapsModule implements CasinoModule {
 	public static final String ID = "craps";
+	public static TableType<CrapsTableBlockEntity> TABLE;
 
 	@Override
 	public String id() {
@@ -20,7 +23,6 @@ public final class CrapsModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
-		// TODO(craps): register content here, e.g.
-		// TABLE = ctx.tables().register("craps_table", CrapsTableBlockEntity::new);
+		TABLE = ctx.tables().register("craps_table", CrapsTableBlockEntity::new);
 	}
 }
