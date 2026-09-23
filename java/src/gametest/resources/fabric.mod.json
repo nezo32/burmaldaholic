@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "burmaldaholic-gametest",
+	"version": "1.0.0",
+	"name": "Burmaldaholic GameTests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+			"dev.nezo.burmaldaholic.gametest.CoreGameTests"
+		],
+		"fabric-client-gametest": [
+			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests"
+		]
+	},
+	"depends": {
+		"burmaldaholic": "*"
+	}
+}

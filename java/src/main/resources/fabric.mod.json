@@ -1,0 +1,48 @@
+{
+	"schemaVersion": 1,
+	"id": "burmaldaholic",
+	"version": "${version}",
+	"name": "Burmaldaholic",
+	"description": "Casino game mode: blackjack, poker, slots, roulette, craps, loans, chaos and more.",
+	"authors": [
+		"nezo"
+	],
+	"contact": {},
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.nezo.burmaldaholic.Burmaldaholic"
+		],
+		"client": [
+			"dev.nezo.burmaldaholic.client.BurmaldaholicClient"
+		],
+		"modmenu": [
+			"dev.nezo.burmaldaholic.client.config.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"burmaldaholic.core.mixins.json",
+		"burmaldaholic.blackjack.mixins.json",
+		"burmaldaholic.poker.mixins.json",
+		"burmaldaholic.slots.mixins.json",
+		"burmaldaholic.roulette.mixins.json",
+		"burmaldaholic.craps.mixins.json",
+		"burmaldaholic.extras.mixins.json",
+		"burmaldaholic.loan.mixins.json",
+		"burmaldaholic.chaos.mixins.json",
+		"burmaldaholic.lastchance.mixins.json",
+		"burmaldaholic.worldgen.mixins.json",
+		"burmaldaholic.vip.mixins.json",
+		"burmaldaholic.multiplayer.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "${mc_range}",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}

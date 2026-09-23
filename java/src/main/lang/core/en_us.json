@@ -1,0 +1,17 @@
+{
+	"gamerule.burmaldaholic.casino_mode": "Casino Mode",
+	"gamerule.burmaldaholic.casino_mode.description": "Turns this world into a casino: tables, chips, loans and chaos.",
+	"gamerule.category.burmaldaholic.casino": "Burmaldaholic",
+	"itemGroup.burmaldaholic.core": "Burmaldaholic",
+	"burmaldaholic.core.casino_disabled": "Casino Mode is off in this world (game rule \"Casino Mode\").",
+	"config.burmaldaholic.core.title": "Burmaldaholic Settings",
+	"config.burmaldaholic.core.reload": "Reload config file",
+	"config.burmaldaholic.core.startingBalance": "Starting balance",
+	"config.burmaldaholic.core.maxTableDistance": "Max table distance",
+	"modmenu.nameTranslation.burmaldaholic": "Burmaldaholic",
+	"modmenu.descriptionTranslation.burmaldaholic": "Casino game mode: blackjack, poker, slots, roulette, craps, loans, chaos and more.",
+	"burmaldaholic.core.chips.p1": "%s chip",
+	"burmaldaholic.core.chips.p21": "%s chips",
+	"burmaldaholic.core.chips.p2": "%s chips",
+	"burmaldaholic.core.chips.p5": "%s chips"
+}

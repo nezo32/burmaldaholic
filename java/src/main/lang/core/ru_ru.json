@@ -1,0 +1,17 @@
+{
+	"gamerule.burmaldaholic.casino_mode": "Режим казино",
+	"gamerule.burmaldaholic.casino_mode.description": "Превращает этот мир в казино: столы, фишки, займы и хаос.",
+	"gamerule.category.burmaldaholic.casino": "Burmaldaholic",
+	"itemGroup.burmaldaholic.core": "Burmaldaholic",
+	"burmaldaholic.core.casino_disabled": "Режим казино в этом мире выключен (игровое правило «Режим казино»).",
+	"config.burmaldaholic.core.title": "Настройки Burmaldaholic",
+	"config.burmaldaholic.core.reload": "Перечитать файл настроек",
+	"config.burmaldaholic.core.startingBalance": "Стартовый баланс",
+	"config.burmaldaholic.core.maxTableDistance": "Макс. расстояние до стола",
+	"modmenu.nameTranslation.burmaldaholic": "Burmaldaholic",
+	"modmenu.descriptionTranslation.burmaldaholic": "Режим казино: блэкджек, покер, слоты, рулетка, крэпс, займы, хаос и многое другое.",
+	"burmaldaholic.core.chips.p1": "%s фишка",
+	"burmaldaholic.core.chips.p21": "%s фишка",
+	"burmaldaholic.core.chips.p2": "%s фишки",
+	"burmaldaholic.core.chips.p5": "%s фишек"
+}

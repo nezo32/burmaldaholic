@@ -1,0 +1,3 @@
+# Files allowed to call Component.literal(...). Paths relative to java/.
+# Keep this list tiny: numbers and language-neutral symbols only. Owned by core.
+src/main/java/dev/nezo/burmaldaholic/core/text/Texts.java

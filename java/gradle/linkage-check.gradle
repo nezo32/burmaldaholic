@@ -1,0 +1,252 @@
+// =============================================================================================
+// checkLinkage — proves the ONE release jar (compiled against the lowest supported Minecraft, see
+// gradle.properties `mc`) also LINKS against every other supported version.
+//
+// Minecraft 26.x is unobfuscated and Fabric no longer remaps, so a jar compiled against 26.2 runs
+// on 26.3 exactly as long as every Minecraft / Fabric API class, method and field it references
+// still exists with the same descriptor, and no newly-abstract method is left unimplemented.
+// `./gradlew build -Pmc=26.3` only proves SOURCE compatibility; this task proves BINARY
+// compatibility of the bytes we actually ship.
+//
+// For each other version V in `supported_mc_versions`:
+//   * downloads the official (unobfuscated) client jar of V from Mojang (cached in ~/.gradle),
+//   * resolves Fabric API `fabric_api_<V>` from the Fabric maven,
+//   * scans build/classes (main + client) with ASM and resolves every reference to
+//     net/minecraft/**, com/mojang/blaze3d/** and net/fabricmc/fabric/** against V.
+// Skip with -PskipLinkage (e.g. offline).
+// =============================================================================================
+
+buildscript {
+	repositories { mavenCentral() }
+	dependencies { classpath 'org.ow2.asm:asm:9.10.1' } // same as Loom uses; must read Java 25 classes
+}
+
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassVisitor
+import org.objectweb.asm.FieldVisitor
+import org.objectweb.asm.Handle
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
+
+def CHECKED = ['net/minecraft/', 'com/mojang/blaze3d/', 'net/fabricmc/fabric/']
+def compiledMc = project.property('mc').toString()
+def supported = project.property('supported_mc_versions').toString().split(',')*.trim()
+def targets = supported.findAll { it != compiledMc }
+
+/** Downloads (once) the official client jar of `version`. */
+def mojangClientJar = { String version ->
+	def dir = new File(gradle.gradleUserHomeDir, "caches/burmaldaholic-linkage/${version}")
+	def jar = new File(dir, 'client.jar')
+	if (jar.isFile()) return jar
+	dir.mkdirs()
+	def slurper = new JsonSlurper()
+	def manifest = slurper.parse(new URL('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'))
+	def entry = manifest.versions.find { it.id == version }
+	if (entry == null) throw new GradleException("Minecraft ${version} not in Mojang version manifest")
+	def meta = slurper.parse(new URL(entry.url))
+	def dl = meta.downloads.client
+	def tmp = new File(dir, 'client.jar.part')
+	new URL(dl.url).withInputStream { i -> tmp.withOutputStream { o -> o << i } }
+	def sha1 = MessageDigest.getInstance('SHA-1').digest(tmp.bytes).encodeHex().toString()
+	if (sha1 != dl.sha1) throw new GradleException("SHA-1 mismatch for Minecraft ${version} client jar")
+	tmp.renameTo(jar)
+	return jar
+}
+
+/** Minimal class model: super, interfaces, members, access. */
+class LClass {
+	String name; String superName; List<String> interfaces = []; int access
+	Map<String, Integer> methods = [:]   // name+desc -> access
+	Set<String> fields = [] as Set       // name+desc
+}
+
+class LIndex {
+	Map<String, File> jarOf = [:]
+	Map<String, ZipFile> zips = [:]
+	Map<String, LClass> cache = [:]
+	/** Interface injection (class tweaker `inject-interface` lines / legacy fabric.mod.json), applied at runtime by mixins. */
+	Map<String, List<String>> injected = [:].withDefault { [] }
+	LIndex(List<File> jars) {
+		jars.each { f ->
+			if (!f.isFile() || !f.name.endsWith('.jar')) return
+			def z = new ZipFile(f)
+			zips[f.path] = z
+			def fmj = z.getEntry('fabric.mod.json')
+			if (fmj != null) {
+				try {
+					def json = new groovy.json.JsonSlurper().parse(z.getInputStream(fmj), 'UTF-8')
+					json?.custom?.get('loom:injected_interfaces')?.each { target, itfs -> injected[target].addAll(itfs) }
+				} catch (Exception ignored) {}
+			}
+			z.entries().findAll { it.name.endsWith('.classtweaker') || it.name.endsWith('.accesswidener') }.each { e ->
+				z.getInputStream(e).getText('UTF-8').eachLine { line ->
+					def parts = line.trim().split(/\s+/)
+					if (parts.length >= 3 && parts[0].endsWith('inject-interface')) injected[parts[1]] << parts[2]
+				}
+			}
+			z.entries().each { e ->
+				if (e.name.endsWith('.class') && !e.name.startsWith('META-INF/')) {
+					jarOf.putIfAbsent(e.name - '.class', f)
+				}
+			}
+		}
+	}
+	LClass get(String name) {
+		if (cache.containsKey(name)) return cache[name]
+		byte[] bytes = null
+		def f = jarOf[name]
+		if (f != null) {
+			def z = zips[f.path]
+			bytes = z.getInputStream(z.getEntry(name + '.class')).bytes
+		} else {
+			def s = ClassLoader.getSystemResourceAsStream(name + '.class') // JDK classes
+			if (s != null) bytes = s.bytes
+		}
+		def c = bytes == null ? null : parse(bytes)
+		if (c != null && injected.containsKey(name)) c.interfaces = c.interfaces + injected[name]
+		cache[name] = c
+		return c
+	}
+	static LClass parse(byte[] bytes) {
+		def c = new LClass()
+		new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
+			void visit(int v, int acc, String n, String sig, String sup, String[] itf) {
+				c.name = n; c.superName = sup; c.access = acc; c.interfaces = (itf ?: []) as List
+			}
+			MethodVisitor visitMethod(int acc, String n, String d, String sig, String[] ex) { c.methods[n + d] = acc; null }
+			FieldVisitor visitField(int acc, String n, String d, String sig, Object v) { c.fields << (n + d); null }
+		}, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES)
+		return c
+	}
+	/** All classes in the hierarchy (self, supers, interfaces), breadth-first. */
+	List<LClass> hierarchy(String name) {
+		def out = []; def seen = [] as Set; def queue = [name]
+		while (queue) {
+			def n = queue.remove(0)
+			if (n == null || !seen.add(n)) continue
+			def c = get(n)
+			if (c == null) continue
+			out << c
+			queue << c.superName
+			queue.addAll(c.interfaces)
+		}
+		return out
+	}
+	boolean hasMethod(String owner, String nd) {
+		// Signature-polymorphic (MethodHandle.invoke*) and array clone are always fine.
+		if (owner.startsWith('[')) return true
+		hierarchy(owner).any { it.methods.containsKey(nd) }
+	}
+	boolean hasField(String owner, String nd) { hierarchy(owner).any { it.fields.contains(nd) } }
+	void close() { zips.values()*.close() }
+}
+
+def checkLinkage = tasks.register('checkLinkage') {
+	group = 'verification'
+	description = "Verifies the jar compiled against ${compiledMc} links against ${targets.join(', ') ?: '(no other version)'}."
+	onlyIf { !project.hasProperty('skipLinkage') && !targets.isEmpty() }
+	def classDirs = files(sourceSets.main.output.classesDirs, sourceSets.client.output.classesDirs)
+	inputs.files(classDirs)
+	def marker = layout.buildDirectory.file('checks/checkLinkage.ok')
+	outputs.file(marker)
+	dependsOn tasks.named('classes'), tasks.named('clientClasses')
+
+	// Libraries (DFU, brigadier, netty, gson, loader...) come from the current compile classpath.
+	def libs = configurations.named('clientCompileClasspath')
+	doLast {
+		def libraryJars = libs.get().resolvedConfiguration.resolvedArtifacts
+			.findAll { !(it.moduleVersion.id.group in ['net.minecraft', 'net.fabricmc.fabric-api']) }
+			.collect { it.file }
+		def problems = []
+		targets.each { target ->
+			def key = "fabric_api_${target.replace('.', '_')}"
+			if (!project.hasProperty(key)) throw new GradleException("checkLinkage: no '${key}' in gradle.properties")
+			def fapi = configurations.detachedConfiguration(
+				dependencies.create("net.fabricmc.fabric-api:fabric-api:${project.property(key)}")).resolve() as List
+			def index = new LIndex([mojangClientJar(target)] + fapi + libraryJars)
+			def ours = [:] // internal name -> bytes
+			classDirs.each { dir ->
+				if (!dir.exists()) return
+				dir.eachFileRecurse(groovy.io.FileType.FILES) { f -> if (f.name.endsWith('.class')) ours[dir.toPath().relativize(f.toPath()).toString().replace('\\', '/') - '.class'] = f.bytes }
+			}
+			// Our own classes are resolvable too (hierarchy walks through them).
+			ours.each { n, b -> index.cache[n] = LIndex.parse(b) }
+			def checked = { String owner -> owner != null && CHECKED.any { owner.startsWith(it) } }
+			def report = { String where, String msg -> problems << "[${target}] ${where}: ${msg}" }
+			def needClass = { String where, String n ->
+				if (n == null) return
+				def t = n.startsWith('[') ? Type.getType(n).elementType : Type.getObjectType(n)
+				if (t.sort == Type.OBJECT && checked(t.internalName) && index.get(t.internalName) == null)
+					report(where, "missing class ${t.internalName}")
+			}
+			def needDesc = { String where, String desc ->
+				def types = desc.startsWith('(') ? (Type.getArgumentTypes(desc) as List) + [Type.getReturnType(desc)] : [Type.getType(desc)]
+				types.each { t -> if (t.sort == Type.ARRAY) t = t.elementType; if (t.sort == Type.OBJECT) needClass(where, t.internalName) }
+			}
+			def needMethod = { String where, String owner, String name, String desc ->
+				needClass(where, owner)
+				// Owner may be OUR class (javac uses the qualifying type, e.g. this.getBlockState()) -> resolve via supers.
+				if ((checked(owner) || ours.containsKey(owner)) && index.get(owner) != null && !index.hasMethod(owner, name + desc))
+					report(where, "missing method ${owner}.${name}${desc}")
+			}
+			def needField = { String where, String owner, String name, String desc ->
+				needClass(where, owner)
+				if ((checked(owner) || ours.containsKey(owner)) && index.get(owner) != null && !index.hasField(owner, name + desc))
+					report(where, "missing field ${owner}.${name}:${desc}")
+			}
+			ours.each { className, bytes ->
+				def self = index.get(className)
+				new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
+					void visit(int v, int acc, String n, String sig, String sup, String[] itf) {
+						needClass(className, sup); (itf ?: []).each { needClass(className, it) }
+					}
+					FieldVisitor visitField(int acc, String n, String d, String sig, Object val) { needDesc("${className}.${n}", d); null }
+					MethodVisitor visitMethod(int acc, String mName, String mDesc, String sig, String[] ex) {
+						def where = "${className}.${mName}${mDesc}"
+						needDesc(where, mDesc)
+						return new MethodVisitor(Opcodes.ASM9) {
+							void visitMethodInsn(int op, String o, String n, String d, boolean itf) { needMethod(where, o, n, d) }
+							void visitFieldInsn(int op, String o, String n, String d) { needField(where, o, n, d) }
+							void visitTypeInsn(int op, String t) { needClass(where, t) }
+							void visitLdcInsn(Object c) { if (c instanceof Type && c.sort in [Type.OBJECT, Type.ARRAY]) needDesc(where, c.descriptor) }
+							void visitMultiANewArrayInsn(String d, int dims) { needDesc(where, d) }
+							void visitInvokeDynamicInsn(String n, String d, Handle bsm, Object... args) {
+								(args.toList() + [bsm]).each { a ->
+									if (a instanceof Handle) {
+										if (a.tag in [Opcodes.H_GETFIELD, Opcodes.H_GETSTATIC, Opcodes.H_PUTFIELD, Opcodes.H_PUTSTATIC]) needField(where, a.owner, a.name, a.desc)
+										else needMethod(where, a.owner, a.name, a.desc)
+									}
+								}
+							}
+						}
+					}
+				}, ClassReader.SKIP_FRAMES)
+				// Concrete classes must implement every abstract method of their (new) supertypes.
+				if (self != null && (self.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) == 0) {
+					def chain = index.hierarchy(className)
+					def concrete = [] as Set
+					chain.each { c -> c.methods.each { nd, acc -> if ((acc & Opcodes.ACC_ABSTRACT) == 0) concrete << nd } }
+					chain.findAll { checked(it.name) }.each { c ->
+						c.methods.each { nd, acc ->
+							if ((acc & Opcodes.ACC_ABSTRACT) != 0 && !(nd in concrete))
+								report(className, "does not implement abstract ${c.name}.${nd}")
+						}
+					}
+				}
+			}
+			index.close()
+			logger.lifecycle("checkLinkage: ${ours.size()} classes checked against Minecraft ${target} + Fabric API ${project.property(key)}")
+		}
+		if (problems) {
+			throw new GradleException("The jar compiled against ${compiledMc} would CRASH on another supported version.\n" +
+				"Use API that exists in all of ${supported} (see docs/architecture/java.md#multi-version):\n  " + problems.unique().join('\n  '))
+		}
+		def m = marker.get().asFile; m.parentFile.mkdirs(); m.text = 'ok'
+	}
+}
+
+tasks.named('check') { dependsOn checkLinkage }
