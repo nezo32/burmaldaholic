@@ -43,6 +43,7 @@ public final class VipModule implements CasinoModule {
 		CoreServices.setVip((server, player) -> VipService.tier(server, player));
 		CasinoEvents.PLAY_RESOLVED.register(VipService::onPlayResolved);
 		Contracts.register();
+		VipApi.publish();
 
 		VipSyncPayload.TYPE = ctx.payloads().clientbound("vip_sync", VipSyncPayload.CODEC);
 		VipErrorPayload.TYPE = ctx.payloads().clientbound("vip_error", VipErrorPayload.CODEC);

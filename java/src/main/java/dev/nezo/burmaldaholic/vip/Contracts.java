@@ -55,11 +55,14 @@ import net.minecraft.world.level.block.state.BlockState;
  * (vanilla stats {@code fish_caught} / {@code traded_with_villager} via {@code ServerPlayerMixin}),
  * smelting (furnace output slot via {@code FurnaceResultSlotMixin}), Nether travel (sampled every
  * second), wagers / blackjack wins / slot spins / poker hands ({@code PLAY_RESOLVED}).
- * {@code roulette_red} is never drawn: {@code PlayResult} does not say which bet won.
+ * {@code roulette_red} needs bet details {@code PlayResult} does not carry: it joins the pool once a
+ * game reports it through {@link VipApi} ({@code "burmaldaholic:vip/contract"}).
  */
 public final class Contracts {
 	/** Contracts no Java event can observe yet (need bet details from the game). */
 	static final List<String> UNOBSERVABLE = List.of("roulette_red");
+	/** Unobservable contracts a game has reported through {@link VipApi} (join the pool from then on). */
+	private static final java.util.Set<String> SOURCES = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private static final Map<UUID, double[]> LAST_POS = new HashMap<>();
 	private static final Map<UUID, Double> TRAVEL = new HashMap<>();
 
@@ -68,6 +71,12 @@ public final class Contracts {
 	static void register() {
 		PlayerBlockBreakEvents.AFTER.register(Contracts::onBlockBroken);
 		ServerLivingEntityEvents.AFTER_DEATH.register(Contracts::onDeath);
+	}
+
+	static void registerSource(String id) {
+		if (UNOBSERVABLE.contains(id)) {
+			SOURCES.add(id);
+		}
 	}
 
 	static void forget(UUID id) {
@@ -92,7 +101,7 @@ public final class Contracts {
 		VipConfig v = CasinoConfig.vip();
 		int tier = VipService.tier(server, id);
 		Map<String, Integer> weights = new HashMap<>(c.weight);
-		UNOBSERVABLE.forEach(k -> weights.put(k, 0));
+		UNOBSERVABLE.stream().filter(k -> !SOURCES.contains(k)).forEach(k -> weights.put(k, 0));
 		return new ContractRules.Params(tier, c.tierScaling, VipRules.contractBonus(tier, v.contractBonus.silver, v.contractBonus.gold),
 			c.rewardMultiplier, weights);
 	}
