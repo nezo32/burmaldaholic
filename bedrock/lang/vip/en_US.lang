@@ -55,3 +55,5 @@ config.burmaldaholic.vip.contractBonus.silver=Contract bonus: Silver
 config.burmaldaholic.vip.contractBonus.gold=Contract bonus: Gold and above
 config.burmaldaholic.vip.announceNetherite=Announce Netherite VIPs
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+hud.burmaldaholic.vip.progress=%1 %2%%
+gui.burmaldaholic.vip.tier_line=%1 — at %2 wagered · max bet %3

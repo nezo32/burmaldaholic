@@ -55,3 +55,5 @@ config.burmaldaholic.vip.contractBonus.silver=Бонус к заказам: Се
 config.burmaldaholic.vip.contractBonus.gold=Бонус к заказам: Золото и выше
 config.burmaldaholic.vip.announceNetherite=Объявлять незеритовых ВИП
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+hud.burmaldaholic.vip.progress=%1 %2 %%
+gui.burmaldaholic.vip.tier_line=%1 — порог %2 · макс. ставка %3
