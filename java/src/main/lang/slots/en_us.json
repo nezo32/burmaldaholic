@@ -64,5 +64,8 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Three stars pay at player casinos",
 	"config.burmaldaholic.slots.spinTicks": "Spin animation (ticks)",
 	"config.burmaldaholic.slots.validateRtp": "Warn about RTP above 99%%",
-	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare"
+	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare",
+	"gui.burmaldaholic.slots.playing": "Now playing: %1$s",
+	"msg.burmaldaholic.slots.jackpot_pool": "%1$s: jackpot %2$s",
+	"msg.burmaldaholic.slots.rtp_ok": "All slot machines pay back less than 99%%"
 }

@@ -11,7 +11,7 @@
 	"gui.burmaldaholic.slots.line_bet": "Ставка на линию: %1$s",
 	"gui.burmaldaholic.slots.lines": "Линий: %1$s",
 	"gui.burmaldaholic.slots.jackpot": "ДЖЕКПОТ %1$s",
-	"gui.burmaldaholic.slots.last_win": "Последний выигрыш: %1$s",
+	"gui.burmaldaholic.slots.last_win": "Прошлый выигрыш: %1$s",
 	"gui.burmaldaholic.slots.no_win": "В этот раз мимо",
 	"gui.burmaldaholic.slots.line_win": "Линия %1$s: ×%2$s → %3$s",
 	"gui.burmaldaholic.slots.spin_total": "Итог вращения: %1$s",
@@ -64,5 +64,8 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Выплата за три звезды в казино игроков",
 	"config.burmaldaholic.slots.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.slots.validateRtp": "Предупреждать об RTP выше 99 %%",
-	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота"
+	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота",
+	"gui.burmaldaholic.slots.playing": "Сейчас играет: %1$s",
+	"msg.burmaldaholic.slots.jackpot_pool": "%1$s: джекпот %2$s",
+	"msg.burmaldaholic.slots.rtp_ok": "Все автоматы возвращают меньше 99 %%"
 }

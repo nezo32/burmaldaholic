@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/slots/slot_machine_netherite"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/slots/slot_machine_netherite",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/slots/slot_machine_netherite",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/slots/slot_machine_netherite",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/slots/slot_machine_gold"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/slots/slot_machine_gold",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/slots/slot_machine_gold",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/slots/slot_machine_gold",
+      "y": 270
+    }
+  }
+}
