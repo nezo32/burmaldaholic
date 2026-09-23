@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "burmaldaholic:craps_table"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "WWW",
+      "PPP",
+      "FDF"
+    ],
+    "key": {
+      "W": {
+        "item": "minecraft:green_wool"
+      },
+      "P": {
+        "tag": "minecraft:planks"
+      },
+      "F": {
+        "item": "minecraft:oak_fence"
+      },
+      "D": {
+        "item": "burmaldaholic:dice"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:green_wool"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:craps_table"
+    }
+  }
+}

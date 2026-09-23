@@ -1,13 +1,19 @@
 /**
- * Craps module (owner: craps feature dev). Stub - implement here.
- * Rules: gameplay math goes in ./logic (pure, unit-tested); player text via t()/plural()
- * with keys from lang/craps/*.lang; assets under packs/craps/.
+ * Craps module (GAME_DESIGN §10, UI.md §8): the `burmaldaholic:craps_table` block seats up to
+ * `craps.seats` players; Pass / Don't Pass / Come / Don't Come / Field / Odds, come-out and
+ * point state machine, shooter rotation, betting window and auto roll.
+ * Rules and payouts are pure in ./logic; ./runtime drives forms, money and timers.
  */
 import type { CasinoModule } from '../../core';
+import { CRAPS_SERVICE, type CrapsApi } from './api';
+import { CrapsRuntime } from './runtime';
 
 export const crapsModule: CasinoModule = {
   id: 'craps',
-  config: [{ type: 'bool', name: 'enabled', default: true }],
-  // onStartup(ctx) { ctx.registerCommand({ name: 'craps', description: '...', run: (p) => {} }); },
-  // onWorldLoad(ctx) { world.afterEvents.playerInteractWithEntity.subscribe(ctx.guard((e) => {})); },
+  onWorldLoad(ctx) {
+    const rt = new CrapsRuntime(ctx);
+    rt.start();
+    const api: CrapsApi = { onPointMade: (l) => rt.onPointMade(l) };
+    ctx.services.provide(CRAPS_SERVICE, api);
+  },
 };

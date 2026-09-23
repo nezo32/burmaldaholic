@@ -46,3 +46,17 @@ config.burmaldaholic.craps.betWindowTicks=Окно ставок (тики)
 config.burmaldaholic.craps.rollTimerTicks=Время на бросок (тики)
 config.burmaldaholic.craps.seats=Мест за столом
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.craps.dont_come_point=Ставка не-кам на %1
+gui.burmaldaholic.craps.your_bets=Ваши ставки:
+gui.burmaldaholic.craps.no_bets=Ставок пока нет
+gui.burmaldaholic.craps.bet_flat=%1 — %2
+gui.burmaldaholic.craps.bet_with_odds=%1 — %2 + коэффициент %3
+gui.burmaldaholic.craps.odds_off=(коэффициент не работает на первом броске)
+gui.burmaldaholic.craps.bet_window=Приём ставок закроется через %1
+gui.burmaldaholic.craps.auto_roll_in=Кости бросятся сами через %1
+gui.burmaldaholic.craps.waiting_shooter=Ждём броска: %1
+gui.burmaldaholic.craps.choose_odds=К какой ставке добавить коэффициент?
+msg.burmaldaholic.craps.rolled=%1 бросает: %2 + %3 = %4
+msg.burmaldaholic.craps.bet_result=%1: %2
+msg.burmaldaholic.craps.bets_played_out=Вы ушли из-за стола для крэпса — ваши ставки доиграны. Итог: %1
+msg.burmaldaholic.craps.bets_refunded=Стол для крэпса закрыт — ваши ставки возвращены

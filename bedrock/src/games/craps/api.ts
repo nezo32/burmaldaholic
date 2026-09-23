@@ -1,8 +1,14 @@
 /**
  * Public API of the craps module for other modules (types only + service name).
- * Provide it in onWorldLoad: ctx.services.provide(CRAPS_SERVICE, impl).
+ * Provided in onWorldLoad: ctx.services.provide(CRAPS_SERVICE, impl).
  */
+import type { Player } from '@minecraft/server';
+
 export const CRAPS_SERVICE = 'craps';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface CrapsApi {}
+/** Fired when a shooter makes their point (advancements: `hot_shooter` = 3 in a row). */
+export type PointMadeListener = (shooter: Player, pointsInRow: number) => void;
+
+export interface CrapsApi {
+  onPointMade(listener: PointMadeListener): void;
+}

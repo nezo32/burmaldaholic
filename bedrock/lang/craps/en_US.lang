@@ -46,3 +46,17 @@ config.burmaldaholic.craps.betWindowTicks=Betting window (ticks)
 config.burmaldaholic.craps.rollTimerTicks=Roll timer (ticks)
 config.burmaldaholic.craps.seats=Seats
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.craps.dont_come_point=Don't Come bet on %1
+gui.burmaldaholic.craps.your_bets=Your bets:
+gui.burmaldaholic.craps.no_bets=No bets yet
+gui.burmaldaholic.craps.bet_flat=%1 — %2
+gui.burmaldaholic.craps.bet_with_odds=%1 — %2 + odds %3
+gui.burmaldaholic.craps.odds_off=(odds off on the come-out roll)
+gui.burmaldaholic.craps.bet_window=Bets close in %1
+gui.burmaldaholic.craps.auto_roll_in=The dice roll themselves in %1
+gui.burmaldaholic.craps.waiting_shooter=Waiting for %1 to roll
+gui.burmaldaholic.craps.choose_odds=Which bet gets the odds?
+msg.burmaldaholic.craps.rolled=%1 rolls: %2 + %3 = %4
+msg.burmaldaholic.craps.bet_result=%1: %2
+msg.burmaldaholic.craps.bets_played_out=You left the craps table — your bets were played out. Net: %1
+msg.burmaldaholic.craps.bets_refunded=The craps table closed — your bets were returned
