@@ -1,0 +1,102 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "burmaldaholic:loan_shark",
+      "is_spawnable": true,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "loan_shark",
+          "npc",
+          "mob"
+        ]
+      },
+      "minecraft:health": {
+        "value": 40,
+        "max": 40
+      },
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 1.9
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:persistent": {},
+      "minecraft:movement": {
+        "value": 0.5
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:navigation.walk": {
+        "avoid_water": true
+      },
+      "minecraft:breathable": {
+        "total_supply": 15,
+        "suffocate_time": 0
+      },
+      "minecraft:nameable": {
+        "allow_name_tag_renaming": false
+      },
+      "minecraft:behavior.float": {
+        "priority": 0
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 2,
+        "look_distance": 8,
+        "probability": 0.8
+      },
+      "minecraft:behavior.random_look_around": {
+        "priority": 3
+      },
+      "minecraft:loot": {
+        "table": "loot_tables/loan/loan_shark.json"
+      },
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "on_interact": {
+              "filters": {
+                "all_of": [
+                  {
+                    "test": "is_family",
+                    "subject": "other",
+                    "value": "player"
+                  }
+                ]
+              },
+              "event": "burmaldaholic:loan_talk",
+              "target": "self"
+            },
+            "interact_text": "action.interact.burmaldaholic.loan.talk",
+            "swing": true
+          }
+        ]
+      },
+      "minecraft:conditional_bandwidth_optimization": {},
+      "minecraft:is_hidden_when_invisible": {},
+      "minecraft:hurt_on_condition": {
+        "damage_conditions": [
+          {
+            "filters": {
+              "test": "in_lava",
+              "subject": "self",
+              "operator": "==",
+              "value": true
+            },
+            "cause": "lava",
+            "damage_per_tick": 4
+          }
+        ]
+      }
+    },
+    "events": {
+      "burmaldaholic:loan_talk": {}
+    }
+  }
+}

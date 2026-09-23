@@ -141,3 +141,8 @@ config.burmaldaholic.loan.collectorHealthMultiplier.easy=Здоровье кол
 config.burmaldaholic.loan.collectorHealthMultiplier.hard=Здоровье коллекторов: сложная
 config.burmaldaholic.loan.peacefulSeizePercent=Арест счёта: списание в день (%%)
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+action.interact.burmaldaholic.loan.talk=Поговорить
+gui.burmaldaholic.loan.admin.action=Действие
+gui.burmaldaholic.loan.admin.set=Задать сумму долга
+gui.burmaldaholic.loan.admin.default=Просрочить займ сейчас
+entity.burmaldaholic:loan_bolt.name=Болт выбивалы

@@ -141,3 +141,8 @@ config.burmaldaholic.loan.collectorHealthMultiplier.easy=Collector health: Easy
 config.burmaldaholic.loan.collectorHealthMultiplier.hard=Collector health: Hard
 config.burmaldaholic.loan.peacefulSeizePercent=Asset freeze seizure per day (%%)
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+action.interact.burmaldaholic.loan.talk=Talk
+gui.burmaldaholic.loan.admin.action=Action
+gui.burmaldaholic.loan.admin.set=Set debt to the amount
+gui.burmaldaholic.loan.admin.default=Make the loan overdue now
+entity.burmaldaholic:loan_bolt.name=Repo Bolt

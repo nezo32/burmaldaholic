@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "burmaldaholic:ledger_page",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "burmaldaholic_ledger_page"
+        }
+      },
+      "minecraft:display_name": {
+        "value": "item.burmaldaholic.ledger_page"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}
