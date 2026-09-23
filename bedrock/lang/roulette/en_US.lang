@@ -64,3 +64,10 @@ config.burmaldaholic.roulette.spinTicks=Spin animation (ticks)
 config.burmaldaholic.roulette.maxBettors=Max players
 config.burmaldaholic.roulette.historyLength=History length
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+gui.burmaldaholic.roulette.error.inside_max=Inside bets are limited to %1 per position
+gui.burmaldaholic.roulette.error.total_max=Your bets per spin are limited to %1
+gui.burmaldaholic.roulette.error.min_total=At this table, bet at least %1 per spin
+gui.burmaldaholic.roulette.players=At the table: %1
+gui.burmaldaholic.roulette.ready_count=Ready: %1 of %2
+gui.burmaldaholic.roulette.history_line=History: %1
+msg.burmaldaholic.roulette.bets_refunded=Your roulette bets were returned: %1

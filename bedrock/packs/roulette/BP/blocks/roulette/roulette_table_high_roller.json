@@ -1,0 +1,35 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:block": {
+    "description": {
+      "identifier": "burmaldaholic:roulette_table_high_roller",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:display_name": "block.burmaldaholic.roulette_table_high_roller",
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "burmaldaholic_table_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "burmaldaholic_roulette_table_high_roller_top",
+          "render_method": "opaque"
+        }
+      },
+      "burmaldaholic:table": {
+        "game": "roulette",
+        "variant": "high_roller"
+      }
+    }
+  }
+}

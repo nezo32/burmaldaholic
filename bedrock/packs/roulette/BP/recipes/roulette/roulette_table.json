@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "burmaldaholic:roulette_table"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "WWW",
+      "PPP",
+      "FCF"
+    ],
+    "key": {
+      "W": {
+        "item": "minecraft:green_wool"
+      },
+      "P": {
+        "tag": "minecraft:planks"
+      },
+      "F": {
+        "item": "minecraft:oak_fence"
+      },
+      "C": {
+        "item": "minecraft:compass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:compass"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:roulette_table"
+    }
+  }
+}
