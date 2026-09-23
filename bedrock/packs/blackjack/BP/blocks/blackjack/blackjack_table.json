@@ -1,0 +1,35 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:block": {
+    "description": {
+      "identifier": "burmaldaholic:blackjack_table",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:display_name": "block.burmaldaholic.blackjack_table",
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:map_color": "#1E6B34",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "burmaldaholic_table_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "burmaldaholic_blackjack_felt",
+          "render_method": "opaque"
+        }
+      },
+      "burmaldaholic:table": {
+        "game": "blackjack"
+      }
+    }
+  }
+}

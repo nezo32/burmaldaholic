@@ -67,3 +67,12 @@ config.burmaldaholic.blackjack.betTimerTicks=Время на ставки (ти�
 config.burmaldaholic.blackjack.insuranceTimerTicks=Время на страховку (тики)
 config.burmaldaholic.blackjack.turnTimerTicks=Время на ход (тики)
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+entity.burmaldaholic:blackjack_dealer.name=Дилер блэкджека
+item.spawn_egg.entity.burmaldaholic:blackjack_dealer.name=Яйцо призыва дилера блэкджека
+action.interact.burmaldaholic.blackjack.play=Сыграть в блэкджек
+gui.burmaldaholic.blackjack.dealer_line=Дилер: %1  %2
+gui.burmaldaholic.blackjack.seat_player=Место %1 — %2
+gui.burmaldaholic.blackjack.insurance_line=Страховка: %1
+gui.burmaldaholic.blackjack.no_bet=Ещё без ставки
+gui.burmaldaholic.blackjack.turn_of=Ходит %1…
+msg.burmaldaholic.blackjack.result_line=Блэкджек: %1
