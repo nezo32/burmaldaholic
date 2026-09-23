@@ -11,3 +11,4 @@ casino_card
 cashier
 nether_cashier
 soul_wager
+casino_charter

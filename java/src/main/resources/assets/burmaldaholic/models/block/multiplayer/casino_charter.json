@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "burmaldaholic:block/multiplayer/casino_charter_top",
+    "bottom": "burmaldaholic:block/multiplayer/casino_charter_side",
+    "side": "burmaldaholic:block/multiplayer/casino_charter_side"
+  }
+}

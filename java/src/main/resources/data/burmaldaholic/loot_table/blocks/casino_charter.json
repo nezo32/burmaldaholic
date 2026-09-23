@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1.0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "burmaldaholic:casino_charter"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "burmaldaholic:blocks/casino_charter"
+}
