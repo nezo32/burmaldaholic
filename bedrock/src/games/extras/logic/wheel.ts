@@ -81,10 +81,11 @@ export function segmentCounts(w: WheelSetup = DEFAULT_WHEEL): Map<WheelCode, num
 }
 
 /** Legend rows ordered by multiplier (bust first), for the form body. */
-export function wheelLegend(w: WheelSetup = DEFAULT_WHEEL): { code: WheelCode; multiplier: number; count: number }[] {
+export function wheelLegend(w: WheelSetup = DEFAULT_WHEEL): { code: WheelCode; multiplier: number; count: number; total: number }[] {
   const counts = segmentCounts(w);
+  const total = w.segments.length; // configurable (extras.wheel.segments), not always 54 (m7)
   return WHEEL_CODES.filter((c) => counts.has(c))
-    .map((c) => ({ code: c, multiplier: w.multipliers[c], count: counts.get(c) ?? 0 }))
+    .map((c) => ({ code: c, multiplier: w.multipliers[c], count: counts.get(c) ?? 0, total }))
     .sort((a, b) => a.multiplier - b.multiplier || (a.code === 'C' ? 1 : 0) - (b.code === 'C' ? 1 : 0));
 }
 

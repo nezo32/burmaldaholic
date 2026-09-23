@@ -9,7 +9,7 @@
  * their progress on the player. Pure rules and RTP tests live in ./logic.
  */
 import { type Player, system, world } from '@minecraft/server';
-import { type CasinoModule, isCasinoEnabled, t } from '../../core';
+import { type CasinoModule, detach, isCasinoEnabled, t } from '../../core';
 import { EXTRAS_SERVICE, type ExtrasApi } from './api';
 import { COIN_GAME, coinFlow } from './coin-flip';
 import { DICE_GAME, challengeForm, challengesPage, diceFlow, hasIncoming, openDice, startChallenges } from './dice-game';
@@ -53,7 +53,7 @@ function useDice(p: Player, target?: Player): void {
   if (aimed && aimed.typeId === 'minecraft:player') {
     if (!gameEnabled('extras.diceDuel.enabled')) return p.sendMessage(t('gui.burmaldaholic.error.disabled'));
     if (ctx().tables.sessionOf(p)) return p.sendMessage(t('gui.burmaldaholic.error.busy'));
-    void challengeForm(p, aimed);
+    detach(challengeForm(p, aimed), (e) => ctx().log.error('dice duel challenge form', e));
     return;
   }
   openDice(p, 'house');
@@ -119,7 +119,7 @@ export const extrasModule: CasinoModule = {
     const api: ExtrasApi = {
       openDiceDuel: (p) => openDice(p, 'house'),
       openDiceMenu: (p) => openDice(p, 'menu'),
-      openScratchShop: (p) => void openShop(p),
+      openScratchShop: (p) => detach(openShop(p), (e) => mctx.log.error('scratch shop form', e)),
       openCoinFlip: (p) => openCoin(p),
       items: {
         luckyCoin: LUCKY_COIN_ID,

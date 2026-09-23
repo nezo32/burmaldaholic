@@ -276,7 +276,7 @@ export class BjTable {
     const rules = readRules(this.ctx);
     const info: Raw[] = [
       t('gui.burmaldaholic.common.balance', chips(this.ctx.economy.balance(p))),
-      t('gui.burmaldaholic.common.limits', range.min, range.max),
+      t('gui.burmaldaholic.common.limits', chips(range.min), chips(range.max)),
     ];
     if (rules.decks === 6 && !rules.dealerHitsSoft17 && rules.blackjackPayout === 1.5) info.push(color('§7', t('gui.burmaldaholic.blackjack.rules.1')));
     if (rules.dealerHitsSoft17) info.push(color('§7', t('gui.burmaldaholic.blackjack.rules.h17')));

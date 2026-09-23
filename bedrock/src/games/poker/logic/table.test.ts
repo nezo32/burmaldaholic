@@ -102,6 +102,24 @@ describe('seating and bots', () => {
     expect(m.hand).toBeUndefined();
     expect(m.humans().map((s) => s.stack)).toEqual([100, 100]);
   });
+
+  it('a top-up by a folded player survives abortHand and does not count as hand winnings (m1)', () => {
+    const m = table(6);
+    m.addHuman('a', 'A', 100);
+    m.addHuman('b', 'B', 100);
+    m.addHuman('c', 'C', 100);
+    const h = m.startHand(seededRng(1))!;
+    const k = h.toAct;
+    const id = h.players[k]!.id;
+    applyAction(h, { type: 'fold' });
+    expect(m.topUp(id, 50)).toBe(true);
+    expect(h.players[k]!.stack).toBe(150);
+    expect(h.players[k]!.stack - h.players[k]!.startStack).toBe(0);
+    m.abortHand();
+    expect(m.seatOf(id)!.stack).toBe(150);
+    expect(m.topUp('nobody', 5)).toBe(false);
+    expect(m.topUp(id, 0)).toBe(false);
+  });
 });
 
 describe('timeouts and sitting out', () => {

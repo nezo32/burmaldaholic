@@ -33,6 +33,7 @@ import {
   t,
   unit,
   worldTick,
+  detach,
 } from '../core';
 import { tableKeyOf } from '../core/logic/sessions';
 import type { MultiplayerApi, OwnedTableInfo } from './api';
@@ -92,7 +93,7 @@ export class Ownership implements MultiplayerApi {
         const player = e.player;
         const block = e.block;
         if (!player || !this.ctx) return;
-        system.run(() => this.ctx.guard(() => void this.onCharterUse(player, block))());
+        system.run(() => this.ctx.guard(() => detach(this.onCharterUse(player, block), (e) => this.ctx.log.error('charter form', e)))());
       },
     });
   }

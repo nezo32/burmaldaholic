@@ -22,6 +22,7 @@ import {
   variant,
   worldJson,
   worldTick,
+  detach,
 } from '../core';
 import { LOAN_SHARK_ID, PIGLIN_MONEYLENDER_ID } from './api';
 import { type Product, MCD, VARIANTS, availableProducts, dueAmount, ratePercent } from './logic';
@@ -57,7 +58,7 @@ export class LoanShark {
     const ctx = this.svc.ctx;
     world.afterEvents.playerInteractWithEntity.subscribe(
       ctx.guard((e) => {
-        if (SHARK_TYPES.has(e.target.typeId)) void this.talk(e.player, e.target);
+        if (SHARK_TYPES.has(e.target.typeId)) detach(this.talk(e.player, e.target), (err) => this.svc.ctx.log.error('loan shark form', err));
       }),
     );
     // Invulnerable to players while a loan screen is open.

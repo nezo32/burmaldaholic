@@ -19,6 +19,16 @@ export function resolveCasinoEnabled(worldOverride: unknown, packSettings: Recor
 }
 
 /**
+ * Casino-mode watcher step: 'on' / 'off' when the mode just flipped, else undefined. Core runs
+ * the first-join grant (starting balance, Casino Card) for everyone online on 'on' (review m6),
+ * whatever switched it (setup form, admin form, scriptevent).
+ */
+export function modeFlip(previous: boolean, now: boolean): 'on' | 'off' | undefined {
+  if (previous === now) return undefined;
+  return now ? 'on' : 'off';
+}
+
+/**
  * First-op Setup form (GAME_DESIGN §2.1, Bedrock). Stored in world dynamic property
  * `burmaldaholic:core.setup` as JSON. Until answered the mode is ON with defaults; a dismissed
  * form re-appears on that op's next join, max 3 times, then defaults are kept silently.

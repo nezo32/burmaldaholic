@@ -146,3 +146,4 @@ gui.burmaldaholic.loan.admin.action=Действие
 gui.burmaldaholic.loan.admin.set=Задать сумму долга
 gui.burmaldaholic.loan.admin.default=Просрочить займ сейчас
 entity.burmaldaholic:loan_bolt.name=Болт выбивалы
+msg.burmaldaholic.loan.over_cap=С этим займом баланс превысит максимум (%1). Сначала потратьте часть фишек.

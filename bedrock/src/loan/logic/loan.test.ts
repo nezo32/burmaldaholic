@@ -284,6 +284,9 @@ describe('garnishment, seizure, admin', () => {
     expect(isGarnishable('core.cashier.deposit')).toBe(false);
     expect(isGarnishable('core.admin.give')).toBe(false);
     expect(isGarnishable('loan.take')).toBe(false);
+    // poker cash-out: the returned buy-in is not income, the winnings above it are
+    expect(isGarnishable('poker.stake_return')).toBe(false);
+    expect(isGarnishable('poker.cashout')).toBe(true);
   });
   it('garnishes only net winnings of house-banked rounds', () => {
     // push: the stake comes back, nothing is garnished

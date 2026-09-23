@@ -9,7 +9,7 @@
 import { type Player, system, world } from '@minecraft/server';
 import type { ConfigService } from './config';
 import type { Hud } from './hud';
-import { applyCredit, withdrawable } from './logic/economy-math';
+import { applyCredit, isChipAmount, withdrawable } from './logic/economy-math';
 import { type BankrollState, type TxLeg, applyDelta, bankrollAvailable, planTransaction, releaseBankroll, settleBankroll, toScore, tryReserve } from './logic/ledger';
 import { withChips, withMessage } from './logic/offline';
 import { type Raw, chips, t } from './logic/rawtext';
@@ -130,12 +130,17 @@ export class Economy {
     offlineStore.update(playerId, (e) => (message ? withMessage(withChips(e, amount), message) : withChips(e, amount)));
   }
 
-  /** Debit exactly `amount`; false (nothing changes) if the balance is too low. */
+  /**
+   * Debit exactly `amount`; false (nothing changes) if the balance is too low. 0 is a no-op;
+   * a negative or non-integer amount is refused (review m9: `debit(-x)` used to credit x past
+   * economy.maxBalance).
+   */
   debit(player: Player, amount: number, reason: string): boolean {
     if (amount === 0) return true;
-    const r = applyDelta(this.balance(player), -Math.floor(amount));
+    if (!isChipAmount(amount)) return false;
+    const r = applyDelta(this.balance(player), -amount);
     if (!r.ok) return false;
-    this.write(player, r.balance, -Math.floor(amount), reason);
+    this.write(player, r.balance, -amount, reason);
     return true;
   }
 

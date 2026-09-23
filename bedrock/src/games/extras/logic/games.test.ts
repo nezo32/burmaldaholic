@@ -124,6 +124,14 @@ describe('wheel of fortune', () => {
     expect(l[1]?.code).toBe('C');
     expect(l.at(-1)?.code).toBe('X');
     expect(l.reduce((s, r) => s + r.count, 0)).toBe(54);
+    expect(l.every((r) => r.total === 54)).toBe(true);
+  });
+  it('legend total follows a configured wheel, not a hardcoded 54 (m7)', () => {
+    const l = wheelLegend(wheelFromConfig(['B', 'X', 'B'], {}));
+    expect(l.map((r) => [r.code, r.count, r.total])).toEqual([
+      ['B', 2, 3],
+      ['X', 1, 3],
+    ]);
   });
   it('spin animation ends on the target and slows down', () => {
     for (const target of [0, 1, 26, 53]) {

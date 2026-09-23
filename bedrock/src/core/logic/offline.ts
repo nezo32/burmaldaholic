@@ -34,7 +34,7 @@ export interface OfflineEntry {
   /** XP points to give back */
   xp: number;
   /** heart penalties to add ({hearts, until: absolute world tick}) */
-  hearts: { hearts: number; until: number }[];
+  hearts: { hearts: number; until: number; d?: number }[];
   /** lost Soul Wager: the player dies on join */
   soulDeath?: boolean;
   /** Soul Wager cooldown (absolute world tick) */

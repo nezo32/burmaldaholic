@@ -38,8 +38,39 @@ export function checkXpStake(current: number, levels: number, maxLevels: number)
 export interface HeartPenalty {
   /** hearts lost (1 heart = 2 HP) */
   hearts: number;
-  /** absolute world tick when it expires */
+  /** absolute world tick when it expires (already shifted by the dormancy up to `d`) */
   until: number;
+  /**
+   * The world's dormancy counter (ticks casino mode was off, see advanceDormancy) when `until`
+   * was last computed; missing = 0 (entries written before dormancy tracking).
+   */
+  d?: number;
+}
+
+/**
+ * Casino mode off pauses heart penalties (GAME_DESIGN §2.1 "dormant", review M2): each
+ * penalty's expiry moves forward by the dormant time that passed since it was last rebased.
+ * Returns the rebased list and whether anything changed (persist then).
+ */
+export function rebasePenalties(list: readonly HeartPenalty[], dormant: number): { list: HeartPenalty[]; changed: boolean } {
+  let changed = false;
+  const out = list.map((p) => {
+    const d = p.d ?? 0;
+    if (d === dormant) return p;
+    changed = true;
+    return { ...p, until: p.until + (dormant - d), d: dormant };
+  });
+  return { list: out, changed };
+}
+
+/**
+ * Dormancy bookkeeping, called while casino mode is ON: `last` = last tick seen active,
+ * `total` = accumulated dormant ticks. A gap above `threshold` (normal cadence and lag spikes
+ * stay below it) means the mode was off for that long and is added to the total.
+ */
+export function advanceDormancy(state: { last?: number; total: number }, now: number, threshold = 200): { last: number; total: number } {
+  const gap = state.last === undefined ? 0 : now - state.last;
+  return { last: now, total: state.total + (gap > threshold ? gap : 0) };
 }
 
 export const activeHearts = (penalties: readonly HeartPenalty[], now: number): number =>

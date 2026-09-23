@@ -377,7 +377,8 @@ export function seizeAmount(balance: number, percent: number, owed: number): num
 
 /**
  * Credit reasons that are NOT garnished on the balance change: refunds, the player's own
- * chip items deposited at the cashier, admin grants and the loan module's own payouts, and
+ * chip items deposited at the cashier, admin grants, the loan module's own payouts, returned
+ * poker buy-ins (`poker.stake_return`; the winnings above the buy-in are `poker.cashout`), and
  * house-banked round returns (`<game>.payout` / `.pawn` / `.soul`, and `core.offline` which
  * carries rounds settled while offline). A round return includes the player's own stake, so
  * those are garnished on the settled round instead, on the net winnings only
@@ -386,6 +387,9 @@ export function seizeAmount(balance: number, percent: number, owed: number): num
 export function isGarnishable(reason: string): boolean {
   if (reason.startsWith('loan.')) return false;
   if (reason.endsWith('.refund')) return false;
+  // The player's own chips coming back (poker buy-in returned at cash-out): only the net
+  // winnings above it (`poker.cashout`) are income.
+  if (reason.endsWith('.stake_return')) return false;
   if (reason.endsWith('.payout') || reason.endsWith('.pawn') || reason.endsWith('.soul')) return false;
   return reason !== 'core.cashier.deposit' && reason !== 'core.admin.give' && reason !== 'core.offline';
 }

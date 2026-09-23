@@ -11,13 +11,16 @@ import { isCasinoEnabled } from './casino';
 import type { ConfigService } from './config';
 import type { Economy } from './economy';
 import { ModalLayout, showForm } from './forms';
+import { createLogger } from './log';
+import { detach } from './logic/async';
 import { chipValueInInventory, countItems, giveChips, giveItems, removeItems, takeAllChips, takeHeldChips } from './items';
 import type { Limits } from './limits';
 import { parseAmount } from './logic/bet';
-import { CHIP_VALUES, type ChipValue, buyChips, sellChips } from './logic/economy-math';
+import { CHIP_VALUES, type ChipValue, buyChips, sellChips, sellCount } from './logic/economy-math';
 import { type Raw, chips, color, lines as joinLines, t, unit } from './logic/rawtext';
 import type { MenuEntry } from './menu';
 
+const log = createLogger('core.cashier');
 export const CASHIER_COMPONENT = 'burmaldaholic:cashier';
 
 type Currency = { item: string; unit: 'emerald' | 'gold_ingot'; buyKey: string; sellKey: string; buyRate: number; sellRate: number };
@@ -44,7 +47,7 @@ export class Cashier {
         const player = e.player;
         if (!player) return;
         const nether = (p.params as { nether?: boolean } | undefined)?.nether === true;
-        system.run(() => void this.open(player, nether));
+        system.run(() => detach(this.open(player, nether), (err) => log.error('cashier form', err)));
       },
     });
   }
@@ -158,7 +161,14 @@ export class Cashier {
     form.submitButton(t('gui.burmaldaholic.common.confirm'));
     const res = await showForm(player, form);
     if (!res || res.canceled) return;
-    const n = Math.max(1, Math.min(max, Number(layout.value(res, iCount) ?? 1)));
+    let n = Math.max(1, Math.min(max, Math.floor(Number(layout.value(res, iCount) ?? 1))));
+    if (dir === 'sell') {
+      // Re-check at submit (review m3): the loan may have defaulted, or the balance changed,
+      // while the slider was open. Selling chips for emeralds is a withdrawal.
+      if (e.inDefault(player)) return this.open(player, nether, t('gui.burmaldaholic.cashier.withdraw_blocked'));
+      n = sellCount(n, max, e.withdrawable(player), c.sellRate);
+      if (n < 1) return this.open(player, nether, t('gui.burmaldaholic.error.insufficient_funds', chips(e.withdrawable(player))));
+    }
     if (dir === 'buy') {
       const removed = removeItems(player, c.item, n);
       const got = e.credit(player, buyChips(removed, c.buyRate), 'core.cashier.buy');

@@ -10,6 +10,7 @@ import {
   HudPriority,
   chips,
   color,
+  fitsUnderCap,
   formatDhm,
   lit,
   readJson,
@@ -168,9 +169,13 @@ export class LoanService {
     if (err === 'one_at_a_time') return t('msg.burmaldaholic.loan.one_at_a_time');
     if (err === 'cooldown') return t('msg.burmaldaholic.loan.cooldown', dayCount(rec.cooldownUntil - now));
     if (err === 'vip') return t('gui.burmaldaholic.error.vip_required', this.ctx.limits.tierName(product.minTier));
+    // The principal must fit under the balance cap in full: a capped credit would record a debt
+    // for chips the player never got (review m5).
+    const eco = this.ctx.economy;
+    if (!fitsUnderCap(eco.balance(player), product.principal, eco.maxBalance())) return t('msg.burmaldaholic.loan.over_cap', chips(eco.maxBalance()));
     const next = takeLoan(rec, product, this.rateFor(player), now);
     this.save(player, next);
-    this.ctx.economy.credit(player, product.principal, 'loan.take');
+    eco.credit(player, product.principal, 'loan.take');
     this.ctx.achievements.unlock(player, 'loan_taken');
     player.sendMessage(color('§6', t('msg.burmaldaholic.loan.taken', chips(product.principal), chips(next.due), Math.floor(next.deadlineTick / MCD))));
     this.ctx.log.info(`${player.name} took loan ${product.principal} (due ${next.due})`);

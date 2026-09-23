@@ -4,7 +4,11 @@ import {
   breakdown,
   buyChips,
   chipValueOf,
+  detectTrade,
   difficultyMultiplier,
+  fitsUnderCap,
+  isChipAmount,
+  sellCount,
   mobReward,
   mobRewardKey,
   oreInfo,
@@ -114,5 +118,44 @@ describe('trades', () => {
     expect(tradeReward(3, cfg, 0)).toBe(4);
     expect(tradeReward(64, cfg, 0)).toBe(10);
     expect(tradeReward(5, cfg, 198)).toBe(2);
+  });
+});
+
+describe('trade detection (review m2)', () => {
+  const open = { tradeOpen: true, tainted: false };
+  it('a real trade: emeralds for items, or items for emeralds', () => {
+    expect(detectTrade({ em: 20, blocks: 0, other: 5 }, { em: 10, blocks: 0, other: 6 }, open)).toBe(10);
+    expect(detectTrade({ em: 0, blocks: 0, other: 30 }, { em: 1, blocks: 0, other: 8 }, open)).toBe(1);
+  });
+  it('crafting / uncrafting an emerald block is not a trade, even with the trade screen open', () => {
+    expect(detectTrade({ em: 9, blocks: 0, other: 5 }, { em: 0, blocks: 1, other: 5 }, open)).toBe(0);
+    expect(detectTrade({ em: 0, blocks: 1, other: 5 }, { em: 9, blocks: 0, other: 5 }, open)).toBe(0);
+  });
+  it('needs an open trade session and no drop / pickup around the player', () => {
+    const a = { em: 20, blocks: 0, other: 5 };
+    const b = { em: 10, blocks: 0, other: 6 };
+    expect(detectTrade(a, b, { tradeOpen: false, tainted: false })).toBe(0);
+    expect(detectTrade(a, b, { tradeOpen: true, tainted: true })).toBe(0);
+  });
+  it('same-direction or one-sided changes are not trades', () => {
+    expect(detectTrade({ em: 5, blocks: 0, other: 5 }, { em: 6, blocks: 0, other: 6 }, open)).toBe(0);
+    expect(detectTrade({ em: 5, blocks: 0, other: 5 }, { em: 3, blocks: 0, other: 5 }, open)).toBe(0);
+  });
+});
+
+describe('amount hardening, cashier re-check and loan cap (review m3, m5, m9)', () => {
+  it('isChipAmount: safe integers > 0 only', () => {
+    expect(isChipAmount(5)).toBe(true);
+    for (const x of [0, -5, 1.5, Number.NaN, Infinity, 2 ** 60]) expect(isChipAmount(x)).toBe(false);
+  });
+  it('sell count is re-clamped by what is withdrawable at submit', () => {
+    expect(sellCount(10, 10, 1000, 10)).toBe(10);
+    expect(sellCount(10, 10, 55, 10)).toBe(5);
+    expect(sellCount(10, 10, 0, 10)).toBe(0); // defaulted while the form was open
+    expect(sellCount(10, 10, 1000, 0)).toBe(0);
+  });
+  it('a loan must fit under the balance cap in full', () => {
+    expect(fitsUnderCap(900, 100, 1000)).toBe(true);
+    expect(fitsUnderCap(901, 100, 1000)).toBe(false);
   });
 });

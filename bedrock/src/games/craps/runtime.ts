@@ -9,7 +9,7 @@ import {
   HudPriority,
   type ModuleContext,
   type Raw,
-  type LeaveReason,
+  type LeavePolicy,
   type TableSession,
   type WagerTicket,
   chips,
@@ -23,6 +23,7 @@ import {
   promptAmount,
   showForm,
   t,
+  detach,
 } from '../../core';
 import type { PointMadeListener } from './api';
 import {
@@ -92,7 +93,7 @@ export class CrapsRuntime {
       seats: () => this.ctx.config.int('craps.seats'),
       canJoin: (p, table) => (this.ctx.config.bool('craps.enabled') ? this.ctx.wagers.check(p, 'craps', table.key) : t('gui.burmaldaholic.error.disabled')),
       onOpen: (s) => this.open(s),
-      onLeave: (s, reason) => this.leave(s, reason),
+      onLeave: (s, _reason, policy) => this.leave(s, policy),
     });
   }
 
@@ -336,7 +337,7 @@ export class CrapsRuntime {
   private open(s: TableSession): void {
     const rt = this.runtime(s.table.key);
     if (this.arm(rt)) this.refreshViews(rt);
-    void this.loop(s);
+    detach(this.loop(s), (e) => this.ctx.log.error('craps form loop', e));
   }
 
   private async loop(s: TableSession): Promise<void> {
@@ -521,7 +522,7 @@ export class CrapsRuntime {
 
   // ---- leaving --------------------------------------------------------------------------
 
-  private leave(s: TableSession, reason: LeaveReason): void {
+  private leave(s: TableSession, policy: LeavePolicy): void {
     this.view(s).onTable = false;
     const rt = this.tables.get(s.table.key);
     if (!rt) return;
@@ -532,8 +533,8 @@ export class CrapsRuntime {
 
     if (entries.length) {
       const player = s.player;
-      if (reason === 'broken' || reason === 'casino_off') {
-        // Not the player's doing: give everything back.
+      if (policy === 'refund') {
+        // Casino mode off (dormant): give everything back. A broken table plays out (B1).
         const list: Deferred[] = entries.filter((x) => x.entry).map((x) => ({ ticket: x.entry!.ticket, refund: true as const }));
         this.applyDeferred(s.playerId, player, list);
       } else {

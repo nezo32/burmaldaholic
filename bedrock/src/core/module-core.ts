@@ -8,7 +8,10 @@ import { ModalFormData } from '@minecraft/server-ui';
 import { isCasinoEnabled, setCasinoEnabled } from './casino';
 import { ModalLayout, showForm } from './forms';
 import { giveItems } from './items';
+import { createLogger } from './log';
+import { detach } from './logic/async';
 import { formatClock } from './logic/format';
+import { modeFlip } from './logic/mode';
 import { chips, chipsAcc, color, lit, t } from './logic/rawtext';
 import type { CasinoModule } from './module';
 import { isOperator } from './menu';
@@ -18,6 +21,7 @@ import { maybeShowSetup } from './setup';
 export const CASINO_CARD_ID = 'burmaldaholic:casino_card';
 export const CASINO_CARD_COMPONENT = 'burmaldaholic:casino_card';
 const CARD_GIVEN_PROP = 'burmaldaholic:core.card_given';
+const log = createLogger('core');
 
 export const coreModule: CasinoModule = {
   id: 'core',
@@ -28,7 +32,7 @@ export const coreModule: CasinoModule = {
       onUse: (e) => {
         const p = e.source;
         system.run(() => {
-          if (isCasinoEnabled()) void runtime.menu.open(p);
+          if (isCasinoEnabled()) detach(runtime.menu.open(p), (err) => log.error('menu form', err));
           else p.sendMessage(t('gui.burmaldaholic.error.casino_off'));
         });
       },
@@ -39,14 +43,14 @@ export const coreModule: CasinoModule = {
       permission: 'admin',
       bypassCasinoGuard: true,
       run: (player) => {
-        if (player) void runtime.admin.open(player);
+        if (player) detach(runtime.admin.open(player), (err) => log.error('admin form', err));
       },
     });
     ctx.registerCommand({
       name: 'menu',
       description: 'Open the Casino Menu',
       run: (player) => {
-        if (player) void runtime.menu.open(player);
+        if (player) detach(runtime.menu.open(player), (err) => log.error('menu form', err));
       },
     });
     ctx.registerCommand({
@@ -86,6 +90,23 @@ export const coreModule: CasinoModule = {
         if (ctx.isCasinoEnabled()) firstJoin(p);
       }, 40);
     });
+
+    // Casino mode switched on while players are online (setup/admin form, scriptevent): they
+    // get the first-join grant now (review m6); it is idempotent per player.
+    let wasOn = isCasinoEnabled();
+    system.runInterval(() => {
+      const on = isCasinoEnabled();
+      const flip = modeFlip(wasOn, on);
+      wasOn = on;
+      if (flip !== 'on') return;
+      for (const p of world.getAllPlayers()) {
+        try {
+          if (p.isValid) firstJoin(p);
+        } catch (err) {
+          ctx.log.error('first join grant failed', err);
+        }
+      }
+    }, 20);
 
     // HUD status line: balance · streak · VIP · Golden Hour (+ module segments).
     hud.addSegment({

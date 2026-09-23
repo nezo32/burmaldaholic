@@ -40,6 +40,7 @@ import {
   duration,
   lines,
   mathRng,
+  decimal,
   pluralKey,
   readJson,
   showForm,
@@ -130,7 +131,7 @@ const writeRecord = (p: Player, rec: LcRecord): void => writeJson(p, STATE_PROP,
 
 /** "-N HP" as hearts: whole hearts use the plural unit, half hearts the "few" form (1.5 hearts / 1,5 сердца). */
 function heartsText(hp: number): Raw {
-  return hp % 2 === 0 ? unit('heart', hp / 2) : t(pluralKey('unit.burmaldaholic.heart', 2), (hp / 2).toFixed(1));
+  return hp % 2 === 0 ? unit('heart', hp / 2) : t(pluralKey('unit.burmaldaholic.heart', 2), decimal(hp / 2));
 }
 
 interface Pending {

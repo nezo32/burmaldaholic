@@ -34,6 +34,9 @@ export function breakdown(amount: number, only?: ChipValue): { value: ChipValue;
   return out;
 }
 
+/** A chip amount a debit / raise accepts: a safe integer > 0 (review m9). */
+export const isChipAmount = (n: number): boolean => Number.isSafeInteger(n) && n > 0;
+
 /** Credit with the balance cap (§3.1): excess is lost. */
 export function applyCredit(balance: number, amount: number, maxBalance: number): { balance: number; credited: number; capped: boolean } {
   const room = Math.max(0, maxBalance - balance);
@@ -52,6 +55,46 @@ export const buyChips = (emeralds: number, rate: number): number => Math.max(0, 
 export function sellChips(chipsOffered: number, rate: number): { emeralds: number; cost: number } {
   const emeralds = Math.floor(Math.max(0, chipsOffered) / rate);
   return { emeralds, cost: emeralds * rate };
+}
+
+/**
+ * Cashier "sell chips" at submit (review m3): the slider value re-clamped by what is
+ * withdrawable NOW (a loan may have defaulted while the form was open -> 0).
+ */
+export function sellCount(requested: number, sliderMax: number, withdrawableNow: number, rate: number): number {
+  if (!(rate > 0)) return 0;
+  return Math.max(0, Math.min(Math.floor(requested), sliderMax, Math.floor(Math.max(0, withdrawableNow) / rate)));
+}
+
+/** A credit of `amount` fits under the balance cap without anything being cut (loans, review m5). */
+export const fitsUnderCap = (balance: number, amount: number, maxBalance: number): boolean => balance + Math.max(0, amount) <= maxBalance;
+
+// ---------------------------------------------------------------------------------------
+// Villager trades (§3.4.3)
+
+/** Inventory snapshot for trade detection: emeralds, emerald blocks, everything else. */
+export interface TradeCounts {
+  em: number;
+  blocks: number;
+  other: number;
+}
+
+/**
+ * Emeralds moved by a villager trade between two inventory snapshots, else 0 (review m2).
+ * Bedrock has no trade event, so a trade needs all of:
+ *  - `tradeOpen`: the player opened a villager / wandering trader (interaction) a short while
+ *    ago and is still next to that trader, and has not used a block (crafting table, chest...)
+ *    since;
+ *  - not `tainted`: no item dropped or picked up around the player in the window;
+ *  - emeralds and other items moving in opposite directions, where emerald blocks count as
+ *    9 emeralds and never as "other" (crafting 9 emeralds into a block is not a trade).
+ */
+export function detectTrade(prev: TradeCounts, cur: TradeCounts, o: { tradeOpen: boolean; tainted: boolean }): number {
+  if (!o.tradeOpen || o.tainted) return 0;
+  const dEm = cur.em + 9 * cur.blocks - (prev.em + 9 * prev.blocks);
+  const dOther = cur.other - prev.other;
+  if (dEm === 0 || dOther === 0 || Math.sign(dEm) === Math.sign(dOther)) return 0;
+  return Math.abs(dEm);
 }
 
 // ---------------------------------------------------------------------------------------

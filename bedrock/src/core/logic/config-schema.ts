@@ -50,6 +50,14 @@ export type ModuleConfigDef =
   | { type: 'double'; name: string; default: number; min: number; max: number }
   | { type: 'enum'; name: string; default: string; options: readonly string[] };
 
+/**
+ * Lang key of enum option `i`: its `optionLabels` entry, else the conventional
+ * `config.burmaldaholic.<key>.<option lowercased>` - never the raw option name (review m7).
+ */
+export function enumOptionLabel(d: Pick<ConfigDef, 'key' | 'options' | 'optionLabels'>, i: number): string {
+  return d.optionLabels?.[i] ?? `config.burmaldaholic.${d.key}.${String(d.options?.[i] ?? '').toLowerCase()}`;
+}
+
 /** Config-key prefix of a module (CONFIG.md spelling). */
 export const MODULE_CONFIG_PREFIX: Readonly<Record<string, string>> = { lastchance: 'lastChance' };
 export const configPrefix = (module: string): string => MODULE_CONFIG_PREFIX[module] ?? module;

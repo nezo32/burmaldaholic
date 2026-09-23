@@ -146,3 +146,4 @@ gui.burmaldaholic.loan.admin.action=Action
 gui.burmaldaholic.loan.admin.set=Set debt to the amount
 gui.burmaldaholic.loan.admin.default=Make the loan overdue now
 entity.burmaldaholic:loan_bolt.name=Repo Bolt
+msg.burmaldaholic.loan.over_cap=This loan would push your balance past the maximum (%1). Spend some chips first.

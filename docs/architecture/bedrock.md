@@ -518,13 +518,17 @@ ctx.tables.register({
     s.setTimer('bet', ctx.config.int('blackjack.betTimerTicks'), () => { s.closeForms(); /* default action */ });
     const bet = await promptAmount(s.player, { title: t('gui.burmaldaholic.blackjack.bet_title'), ...ctx.limits.range(s.player) });
   },
-  onLeave(s, reason) { /* 'leave'|'distance'|'disconnect'|'broken'|'casino_off': auto-complete open rounds */ },
+  onLeave(s, reason, policy) { /* policy = leavePolicy(reason): 'play_out' (every reason, a broken table included) or 'refund' (casino_off only) */ },
 });
 ctx.tables.open(player, tableRef)   // same flow from an item or NPC (key e.g. `npc:${entity.id}`)
 ctx.tables.sessionOf(p); ctx.tables.sessionsAt(key); ctx.tables.closeTable(key)
 ```
 Core enforces one table per player (`error.busy`), seat count (`error.table_full`), walking away
 (`multiplayer.tableLeaveDistance` → `error.too_far`), disconnects, broken blocks and casino mode.
+Rounds in play follow one rule for every game (`leavePolicy`, core/logic/sessions.ts, GAME_DESIGN
+§4.1): leave, walk-away, disconnect and a **broken table** play the round out with the default
+action (no refund: breaking a table mid-round must not be a free roll); only casino mode off
+refunds (the mod goes dormant). Fire-and-forget form flows use `detach(promise, onError)`.
 
 ### 14.7 UI helpers, HUD, menus
 
@@ -553,8 +557,10 @@ Text: `t`, `plural`, `chips`, `chipsAcc`, `unit`, `duration`, `variant(rng, base
   `padding: 8`, `num_mip_levels: 4`), `RP/blocks.json` (`format_version: "1.21.40"`).
 - Time for anything persisted uses world time: `worldTick()` (= `world.getAbsoluteTime()`).
 - Edition notes implemented in core: heart wagers clamp current health to the reduced maximum
-  (script cannot change `max_health`); trades are detected from inventory changes near a
-  villager; spawner mobs are detected by a (trial) spawner within 5 blocks.
+  (script cannot change `max_health`), paused while casino mode is off (their expiry moves by
+  the dormant time) and a Soul Wager lost offline kills only once the mode is on; trades are
+  detected from inventory changes during a trade session (the player opened a villager / trader
+  and has not used a block since; emerald blocks count as 9 emeralds); spawner mobs are detected by a (trial) spawner within 5 blocks.
 - `SOUL_WAGER_TAG` is on a player killed by a lost Soul Wager: Last Chance must not save them.
 
 

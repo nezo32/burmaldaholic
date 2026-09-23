@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { cardId, newShoe, parseCard } from './cards';
 import { HudQueue } from './hud-queue';
 import { applyDelta, toScore } from './ledger';
-import { resolveCasinoEnabled } from './mode';
+import { modeFlip, resolveCasinoEnabled } from './mode';
 import { OddsService } from './odds';
-import { join, t } from './rawtext';
+import { decimal, join, lit, t } from './rawtext';
 import { randInt, seededRng, shuffle, weightedPick } from './rng';
+import { advanceDormancy, rebasePenalties } from './wager-math';
 
 describe('rawtext', () => {
   it('t without args', () => expect(t('a.b')).toEqual({ translate: 'a.b' }));
@@ -15,6 +16,12 @@ describe('rawtext', () => {
 });
 
 describe('mode', () => {
+  it('flip detection (m6: players online when the mode turns on get the first-join grant)', () => {
+    expect(modeFlip(false, true)).toBe('on');
+    expect(modeFlip(true, false)).toBe('off');
+    expect(modeFlip(true, true)).toBeUndefined();
+    expect(modeFlip(false, false)).toBeUndefined();
+  });
   it('defaults to enabled', () => expect(resolveCasinoEnabled(undefined, {})).toBe(true));
   it('pack setting applies', () => expect(resolveCasinoEnabled(undefined, { 'burmaldaholic:casino_mode': false })).toBe(false));
   it('world override wins', () => expect(resolveCasinoEnabled(true, { 'burmaldaholic:casino_mode': false })).toBe(true));
@@ -83,4 +90,32 @@ describe('cards', () => {
     expect(new Set(shoe.map(cardId)).size).toBe(52);
   });
   it('round-trips ids', () => expect(cardId(parseCard('10H'))).toBe('10H'));
+});
+
+describe('decimal (review m7: RU "1,5", EN "1.5")', () => {
+  it('translates the separator client-side', () => {
+    expect(decimal(1.5)).toEqual(join(lit('1'), t('unit.burmaldaholic.decimal_separator'), lit('5')));
+    expect(decimal(0.5)).toEqual(join(lit('0'), t('unit.burmaldaholic.decimal_separator'), lit('5')));
+  });
+  it('whole numbers stay plain', () => {
+    expect(decimal(2)).toEqual(lit('2'));
+    expect(decimal(2.04)).toEqual(lit('2'));
+  });
+});
+
+describe('heart penalties pause while casino mode is off (review M2)', () => {
+  it('dormancy counts only gaps above the threshold', () => {
+    expect(advanceDormancy({ total: 0 }, 1000)).toEqual({ last: 1000, total: 0 });
+    expect(advanceDormancy({ last: 1000, total: 0 }, 1010)).toEqual({ last: 1010, total: 0 });
+    expect(advanceDormancy({ last: 1000, total: 50 }, 6000)).toEqual({ last: 6000, total: 5050 });
+  });
+  it('expiry moves by the dormant time since the last rebase', () => {
+    const r = rebasePenalties([{ hearts: 2, until: 5000 }, { hearts: 1, until: 9000, d: 300 }], 1000);
+    expect(r.changed).toBe(true);
+    expect(r.list).toEqual([
+      { hearts: 2, until: 6000, d: 1000 },
+      { hearts: 1, until: 9700, d: 1000 },
+    ]);
+    expect(rebasePenalties(r.list, 1000).changed).toBe(false);
+  });
 });

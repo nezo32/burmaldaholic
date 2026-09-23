@@ -9,7 +9,7 @@
  */
 import { type Player, system, world } from '@minecraft/server';
 import { ModalFormData } from '@minecraft/server-ui';
-import { type CasinoModule, type ModuleContext, type Raw, ModalLayout, chips, isOperator, join, lit, parseAmount, showForm, t, worldTick } from '../core';
+import { type CasinoModule, type ModuleContext, type Raw, ModalLayout, chips, detach, isOperator, join, lit, parseAmount, showForm, t, worldTick } from '../core';
 import { type LoanApi, LOAN_SERVICE } from './api';
 import { Collectors } from './collectors';
 import { type LoanRecord, adminForceDefault, adminSetDebt } from './logic';
@@ -161,7 +161,7 @@ export const loanModule: CasinoModule = {
       name: 'loan',
       description: 'Show your loan status and pay it off',
       run: (p) => {
-        if (p && runtime) void runtime.shark.statusScreen(p);
+        if (p && runtime) detach(runtime.shark.statusScreen(p), (err) => runtime?.svc.ctx.log.error('loan status form', err));
       },
     });
   },

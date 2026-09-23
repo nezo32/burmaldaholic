@@ -6,7 +6,8 @@
  * Disconnects (GAME_DESIGN §4.1): the spin proceeds. Bettors who are offline at settlement are
  * settled through core anyway (core parks the payout and applies it on their next join, with
  * the result text); only the VIP `roulette_red` contract progress waits here for the join.
- * Table broken / casino mode off: open bets are refunded.
+ * Table broken: same as leaving (the spin proceeds, no refund, review B1). Casino mode off:
+ * open bets are refunded.
  */
 import { type Player, system, world } from '@minecraft/server';
 import { ActionFormData, type ActionFormResponse, ModalFormData, type ModalFormResponse } from '@minecraft/server-ui';
@@ -32,6 +33,7 @@ import {
   sliderStep,
   t,
   unit,
+  detach,
 } from '../../core';
 import { VIP_SERVICE, type VipApi } from '../../vip/api';
 import { WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
@@ -114,8 +116,10 @@ export class RouletteGame implements RouletteApi {
       seats: () => ctx.config.int('roulette.maxBettors'),
       canJoin: (p, table) => (ctx.config.bool('roulette.enabled') ? ctx.wagers.check(p, 'roulette', table.key) : t('gui.burmaldaholic.error.disabled')),
       onOpen: (s) => this.onOpen(s),
-      onLeave: (s, reason) => {
-        if (reason === 'broken' || reason === 'casino_off') this.refundPlayer(this.tables.get(s.table.key), s.playerId, s.player);
+      onLeave: (s, _reason, policy) => {
+        // GAME_DESIGN §4.1 / leavePolicy: leave, disconnect AND a broken table keep the slip on
+        // the wheel (an abandoned slip spins right away); only casino mode off refunds.
+        if (policy === 'refund') this.refundPlayer(this.tables.get(s.table.key), s.playerId, s.player);
         this.epochs.delete(s.playerId);
       },
     });
@@ -371,7 +375,7 @@ export class RouletteGame implements RouletteApi {
       const o = outcome.get(s.playerId);
       this.ctx.hud.actionbar(s.player, HUD_CHANNEL, resultRaw(result, o?.staked ?? 0, o?.totalReturn ?? 0), HudPriority.game, 60);
       this.closeFor(s);
-      void this.showResult(s, rt, result, o);
+      detach(this.showResult(s, rt, result, o), (e) => this.ctx.log.error('roulette result form', e));
     }
     const ev: RouletteSpinEvent = { table: rt.key, result, entries };
     for (const l of this.listeners) {
@@ -397,7 +401,7 @@ export class RouletteGame implements RouletteApi {
 
   private reshowMain(s: TableSession): void {
     this.closeFor(s);
-    void this.showMain(s);
+    detach(this.showMain(s), (e) => this.ctx.log.error('roulette main form', e));
   }
 
   /** Show a form; undefined if closed by the player, by the server, or the session ended. */
@@ -617,7 +621,7 @@ export class RouletteGame implements RouletteApi {
     const res = await this.show<ActionFormResponse>(s, form);
     if (!res) return;
     if (res.selection === 1) s.leave();
-    else void this.showMain(s);
+    else detach(this.showMain(s), (e) => this.ctx.log.error('roulette main form', e));
   }
 }
 

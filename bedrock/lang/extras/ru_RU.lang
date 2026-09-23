@@ -112,3 +112,4 @@ gui.burmaldaholic.extras.dice.pending_entry=%1 — %2
 gui.burmaldaholic.extras.dice.opponent_line=Соперник: %1
 msg.burmaldaholic.extras.dice.target_unavailable=%1 сейчас не может принять дуэль
 msg.burmaldaholic.extras.dice.cancelled=Дуэль с игроком %1 отменена
+gui.burmaldaholic.extras.wheel.legend_of=%1 — ×%2 (%3 из %4)

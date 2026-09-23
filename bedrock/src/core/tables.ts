@@ -8,19 +8,22 @@
  *  - Session side: one session per player; seats per table; per-session tick timers; leaves
  *    on "Leave", walking away (> maxDistance), disconnect, the block being broken or casino
  *    mode turning off. The game's `onLeave` runs in every case (auto-complete the round there).
+ *  - Rounds in play: every game follows `leavePolicy(reason)` (core/logic/sessions.ts): only
+ *    casino mode turning off refunds; everything else, a broken table included, plays the
+ *    round out (GAME_DESIGN §4.1, review B1).
  */
 import { type Block, type Dimension, type Player, type StartupEvent, type Vector3, system, world } from '@minecraft/server';
 import { uiManager } from '@minecraft/server-ui';
 import { isCasinoEnabled } from './casino';
 import type { ConfigService } from './config';
 import { type Raw, t } from './logic/rawtext';
-import { SeatRegistry, tableKeyOf, within } from './logic/sessions';
+import { type LeavePolicy, type LeaveReason, SeatRegistry, leavePolicy, tableKeyOf, within } from './logic/sessions';
 import { createLogger } from './log';
 
 const log = createLogger('core.tables');
 export const TABLE_COMPONENT = 'burmaldaholic:table';
 
-export type LeaveReason = 'leave' | 'distance' | 'disconnect' | 'broken' | 'casino_off' | 'replaced';
+export { type LeavePolicy, type LeaveReason, leavePolicy };
 
 export interface TableRef {
   /** stable key `<dimension>|x,y,z` (use it as the game-state key) */
@@ -61,8 +64,11 @@ export interface TableHandler {
   maxDistance?: number;
   /** Player used the table (first time or again while seated): show the game's forms. */
   onOpen(session: TableSession, rejoined: boolean): void | Promise<void>;
-  /** Session ended for any reason. Auto-complete / refund open rounds here. */
-  onLeave?(session: TableSession, reason: LeaveReason): void;
+  /**
+   * Session ended for any reason. `policy` = leavePolicy(reason): 'play_out' auto-completes the
+   * open round (no refund, also for a broken table), 'refund' (casino mode off) cancels it.
+   */
+  onLeave?(session: TableSession, reason: LeaveReason, policy: LeavePolicy): void;
   /** Optional extra check before seating (VIP tier, owner-can't-play...). Return an error to refuse. */
   canJoin?(player: Player, table: TableRef): Raw | undefined;
 }
@@ -182,7 +188,7 @@ export class Tables {
     s.timers.clear();
     this.sessions.delete(s.playerId);
     this.seats.leave(s.playerId);
-    this.safe(() => s.handler.onLeave?.(s, reason), `${s.handler.id}.onLeave`);
+    this.safe(() => s.handler.onLeave?.(s, reason, leavePolicy(reason)), `${s.handler.id}.onLeave`);
   }
 
   /** The player's current session, if seated. */

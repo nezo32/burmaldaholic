@@ -23,7 +23,7 @@ import {
   world,
 } from '@minecraft/server';
 import { ActionFormData, uiManager } from '@minecraft/server-ui';
-import { type Raw, HudPriority, NO_REWARD_TAG, chips, color, duration, lines, mathRng, showForm, t, variant, worldTick } from '../core';
+import { type Raw, HudPriority, NO_REWARD_TAG, chips, color, detach, duration, lines, mathRng, showForm, t, variant, worldTick } from '../core';
 import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../multiplayer/api';
 import { DEBTOR_SLOTS, DEBTOR_SLOT_TAG, DEBTOR_TAG, SQUAD_ENTITY_IDS, SQUAD_TAG } from './api';
 import {
@@ -338,7 +338,7 @@ export class Collectors {
       switch (fx.type) {
         case 'negotiate':
           for (const a of alive) a.e.triggerEvent('burmaldaholic:negotiate');
-          if (debtor) void this.negotiate(s, debtor);
+          if (debtor) detach(this.negotiate(s, debtor), (err) => this.svc.ctx.log.error('collector negotiation form', err));
           break;
         case 'hostile': {
           for (const a of alive) a.e.triggerEvent('burmaldaholic:hostile');

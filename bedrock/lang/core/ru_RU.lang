@@ -637,3 +637,4 @@ subtitles.burmaldaholic.collector_knock=Кто-то стучит
 subtitles.burmaldaholic.loan_shark_idle=Ростовщик напевает
 subtitles.burmaldaholic.last_chance=Монетка звенит во тьме
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+unit.burmaldaholic.decimal_separator=,

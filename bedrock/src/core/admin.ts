@@ -11,7 +11,7 @@ import { type ConfigService, configDefs } from './config';
 import type { Economy } from './economy';
 import { ModalLayout, showForm } from './forms';
 import { parseAmount } from './logic/bet';
-import { type ConfigDef, type ConfigValue, formatValue, parseInput } from './logic/config-schema';
+import { type ConfigDef, type ConfigValue, enumOptionLabel, formatValue, parseInput } from './logic/config-schema';
 import { type Raw, chipsAcc, color, join, lines, lit, t } from './logic/rawtext';
 import { isOperator } from './menu';
 
@@ -103,7 +103,7 @@ export class Admin {
       if (d.type === 'bool') form.toggle(label, { defaultValue: cur === true, tooltip });
       else if (d.type === 'enum') {
         const opts = d.options ?? [];
-        form.dropdown(label, opts.map((o, i) => (d.optionLabels?.[i] ? t(d.optionLabels[i]!) : lit(o))), { defaultValueIndex: Math.max(0, opts.indexOf(String(cur))), tooltip });
+        form.dropdown(label, opts.map((_, i) => t(enumOptionLabel(d, i))), { defaultValueIndex: Math.max(0, opts.indexOf(String(cur))), tooltip });
       } else if ((d.type === 'int' || d.type === 'long') && d.min !== undefined && d.max !== undefined && d.max - d.min <= 100) {
         form.slider(label, d.min, d.max, { defaultValue: Number(cur), valueStep: 1, tooltip });
       } else form.textField(label, lit(formatValue(d.default)), { defaultValue: formatValue(cur), tooltip });

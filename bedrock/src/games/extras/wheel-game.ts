@@ -21,7 +21,7 @@ export function wheelSetup(): WheelSetup {
 const segName = (code: WheelCode): Raw => color(SEGMENT_COLORS[code], t(segmentKey(code)));
 
 function legend(w: WheelSetup): Raw {
-  return lines(...wheelLegend(w).map((r) => t('gui.burmaldaholic.extras.wheel.legend', segName(r.code), r.multiplier, r.count)));
+  return lines(...wheelLegend(w).map((r) => t('gui.burmaldaholic.extras.wheel.legend_of', segName(r.code), r.multiplier, r.count, r.total)));
 }
 
 interface WheelData {

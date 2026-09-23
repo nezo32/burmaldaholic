@@ -19,7 +19,10 @@
  */
 import {
   EntityComponentTypes,
+  type EntityEquippableComponent,
   type EntityHealthComponent,
+  type EntityInventoryComponent,
+  EquipmentSlot,
   ItemComponentTypes,
   type ItemDurabilityComponent,
   type ItemEnchantableComponent,
@@ -28,10 +31,12 @@ import {
   system,
   world,
 } from '@minecraft/server';
+import { isCasinoEnabled } from './casino';
 import type { ConfigService } from './config';
 import { type Economy, type HouseRef, BANK } from './economy';
 import { clearSlot, giveItems, heldItem, itemAt } from './items';
 import type { Limits, TableLimits } from './limits';
+import { isChipAmount } from './logic/economy-math';
 import { houseEdgeOf, theoreticalLoss } from './logic/house-edge';
 import {
   type DeferredSettle,
@@ -48,11 +53,13 @@ import { type Raw, chips, chipsAcc, t, unit } from './logic/rawtext';
 import {
   type HeartPenalty,
   activeHearts,
+  advanceDormancy,
   cappedMaxHealth,
   checkHeartStake,
   checkItemStake,
   checkXpStake,
   pawnSettlement,
+  rebasePenalties,
   soulValue,
   xpAtLevel,
   xpStakeValue,
@@ -67,6 +74,12 @@ const TICKETS_PROP = 'burmaldaholic:core.wagers';
 const HEARTS_PROP = 'burmaldaholic:core.hearts';
 const SOUL_CD_PROP = 'burmaldaholic:core.soul_cooldown';
 const BOOT_PROP = 'burmaldaholic:core.boot';
+/** Accumulated ticks casino mode was off (heart penalties pause, review M2). */
+const DORMANT_PROP = 'burmaldaholic:core.dormant_ticks';
+const ACTIVE_TICK_PROP = 'burmaldaholic:core.active_tick';
+/** Player flag: a Soul Wager lost while offline, applied once casino mode is on (review M2). */
+const SOUL_PENDING_PROP = 'burmaldaholic:core.soul_pending';
+const TOTEM_ID = 'minecraft:totem_of_undying';
 /** Tag set on a player killed by a lost Soul Wager (Last Chance must not save them). */
 export const SOUL_WAGER_TAG = 'burmaldaholic_core_soul_wager';
 
@@ -290,11 +303,34 @@ export class WagerService {
     for (const p of world.getAllPlayers()) this.join(p);
     world.afterEvents.playerSpawn.subscribe((e) => {
       if (e.initialSpawn) this.join(e.player);
-      this.enforceHearts(e.player);
+      if (this.activeNow()) this.enforceHearts(e.player);
     });
+    // GAME_DESIGN §2.1: while casino mode is off the mod is dormant, so lost hearts are not
+    // enforced (their expiry moves forward by the dormant time) and a Soul Wager lost while
+    // offline waits (review M2).
     system.runInterval(() => {
-      for (const p of world.getAllPlayers()) this.enforceHearts(p);
+      if (!this.activeNow()) return;
+      for (const p of world.getAllPlayers()) {
+        this.enforceHearts(p);
+        this.applyPendingSoul(p);
+      }
     }, 10);
+  }
+
+  /** Casino mode on? Also advances the dormancy counter when it just came back on. */
+  private activeNow(): boolean {
+    if (!isCasinoEnabled()) return false;
+    const now = worldTick();
+    const next = advanceDormancy({ last: worldJson.read<number | undefined>(ACTIVE_TICK_PROP, undefined), total: this.dormant() }, now);
+    worldJson.write(ACTIVE_TICK_PROP, next.last);
+    if (next.total !== this.dormant()) worldJson.write(DORMANT_PROP, next.total);
+    return true;
+  }
+
+  /** Ticks casino mode has been off in total (heart penalty clock). */
+  private dormant(): number {
+    const v = worldJson.read<number>(DORMANT_PROP, 0);
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
   }
 
   /** Open rounds of a player (this session only). */
@@ -421,6 +457,8 @@ export class WagerService {
    * by the max bet (§6.4) but by the balance and the bankroll exposure.
    */
   raise(ticket: WagerTicket, player: Player, amount: number, extraWorstCase = amount * 2, houseEdge?: number): boolean {
+    // Only a positive whole number of chips (review m9: a negative raise would credit the player).
+    if (!isChipAmount(amount) || !(extraWorstCase >= 0)) return false;
     if (ticket.kind !== 'chips' || !this.open.has(ticket.id)) return false;
     if (ticket.house.kind === 'bankroll' && !this.economy.reserve(ticket.house.id, extraWorstCase)) {
       player.sendMessage(t('gui.burmaldaholic.error.exposure'));
@@ -575,7 +613,7 @@ export class WagerService {
     if (ticket.xpLevels) player.sendMessage(t('msg.burmaldaholic.wager.xp_lost', unit('level', ticket.xpLevels)));
     if (ticket.hearts) {
       const list = this.penalties(player).filter((p) => p.until > worldTick());
-      list.push({ hearts: ticket.hearts, until: worldTick() + this.config.int('wager.hearts.durationTicks') });
+      list.push({ hearts: ticket.hearts, until: worldTick() + this.config.int('wager.hearts.durationTicks'), d: this.dormant() });
       writeJson(player, HEARTS_PROP, list);
       player.sendMessage(t('msg.burmaldaholic.wager.hearts_lost', unit('heart', ticket.hearts)));
       this.enforceHearts(player);
@@ -605,7 +643,7 @@ export class WagerService {
       return n;
     }
     if (returnPawn) return this.refundOffline(n, ticket, false);
-    if (ticket.hearts) n = { ...n, hearts: [...n.hearts, { hearts: ticket.hearts, until: worldTick() + this.config.int('wager.hearts.durationTicks') }] };
+    if (ticket.hearts) n = { ...n, hearts: [...n.hearts, { hearts: ticket.hearts, until: worldTick() + this.config.int('wager.hearts.durationTicks'), d: this.dormant() }] };
     return n;
   }
 
@@ -625,15 +663,30 @@ export class WagerService {
     if (e.xp > 0) player.addExperience(e.xp);
     if (e.hearts.length) {
       const list = this.penalties(player).filter((p) => p.until > worldTick());
-      writeJson(player, HEARTS_PROP, [...list, ...e.hearts]);
-      this.enforceHearts(player);
+      writeJson(player, HEARTS_PROP, rebasePenalties([...list, ...e.hearts], this.dormant()).list);
+      if (isCasinoEnabled()) this.enforceHearts(player);
     }
     if (e.soulCooldown) player.setDynamicProperty(SOUL_CD_PROP, e.soulCooldown);
     for (const m of e.messages) player.sendMessage(m as Raw);
     for (const d of e.settled) this.finish(player, d, true, true);
     for (const id of e.achievements) this.achievementSink?.(player.id, id);
-    if (e.soulDeath) system.runTimeout(() => player.isValid && this.killBySoulWager(player), 40);
+    if (e.soulDeath) {
+      // Kept on the player until casino mode is on (a dormant mod kills nobody, review M2).
+      player.setDynamicProperty(SOUL_PENDING_PROP, true);
+      this.applyPendingSoul(player);
+    }
     return e.resolved;
+  }
+
+  /** A Soul Wager lost while offline: the death happens once the player is on and the casino open. */
+  private applyPendingSoul(player: Player): void {
+    if (player.getDynamicProperty(SOUL_PENDING_PROP) !== true || !isCasinoEnabled()) return;
+    player.setDynamicProperty(SOUL_PENDING_PROP, undefined);
+    system.runTimeout(() => {
+      if (!player.isValid) return;
+      if (isCasinoEnabled()) this.killBySoulWager(player);
+      else player.setDynamicProperty(SOUL_PENDING_PROP, true);
+    }, 40);
   }
 
   /** First spawn: offline results, then refund rounds of an earlier server run (§4.1). */
@@ -647,9 +700,22 @@ export class WagerService {
     this.recover(player, resolved);
   }
 
+  /**
+   * GAME_DESIGN §4.4: the death bypasses totems. Bedrock script has no custom damage type and a
+   * Totem of Undying may pop on kill(), so totems are first moved out of both hands into the
+   * inventory (dropped at the player's feet if it is full): they then drop / are kept exactly
+   * like the rest of the inventory (review m4). The death message is ours; it respects the
+   * vanilla showDeathMessages rule. Edition note: the engine's generic death line cannot be
+   * suppressed without changing a vanilla game rule (§2.2 forbids that).
+   */
   private killBySoulWager(player: Player): void {
     player.addTag(SOUL_WAGER_TAG);
-    world.sendMessage(t('death.attack.burmaldaholic.soul_wager', player.name));
+    try {
+      stashTotems(player);
+    } catch (e) {
+      log.warn('soul wager: could not move totems', e);
+    }
+    if (showDeathMessages()) world.sendMessage(t('death.attack.burmaldaholic.soul_wager', player.name));
     player.kill();
     system.runTimeout(() => player.isValid && player.removeTag(SOUL_WAGER_TAG), 40);
   }
@@ -697,8 +763,11 @@ export class WagerService {
 
   // ---- heart penalties -------------------------------------------------------------------
 
+  /** Heart penalties with their expiry moved forward by any dormant time (review M2). */
   private penalties(player: Player): HeartPenalty[] {
-    return readJson<HeartPenalty[]>(player, HEARTS_PROP, []);
+    const r = rebasePenalties(readJson<HeartPenalty[]>(player, HEARTS_PROP, []), this.dormant());
+    if (r.changed) writeJson(player, HEARTS_PROP, r.list.length ? r.list : undefined);
+    return r.list;
   }
 
   /** Active hearts lost by a player (for UI). */
@@ -724,6 +793,44 @@ export class WagerService {
     if (!h) return;
     const cap = cappedMaxHealth(h.effectiveMax, activeHearts(live, now));
     if (h.currentValue > cap) h.setCurrentValue(cap);
+  }
+}
+
+function showDeathMessages(): boolean {
+  try {
+    return world.gameRules.showDeathMessages !== false;
+  } catch {
+    return true;
+  }
+}
+
+/** Move Totems of Undying out of the main hand and offhand (into free inventory slots, else drop them). */
+function stashTotems(player: Player): void {
+  const inv = (player.getComponent(EntityComponentTypes.Inventory) as EntityInventoryComponent | undefined)?.container;
+  const eq = player.getComponent(EntityComponentTypes.Equippable) as EntityEquippableComponent | undefined;
+  const taken: ItemStack[] = [];
+  const off = eq?.getEquipment(EquipmentSlot.Offhand);
+  if (off?.typeId === TOTEM_ID) {
+    eq!.setEquipment(EquipmentSlot.Offhand, undefined);
+    taken.push(off);
+  }
+  const sel = player.selectedSlotIndex;
+  const main = inv?.getItem(sel);
+  if (inv && main?.typeId === TOTEM_ID) {
+    inv.setItem(sel, undefined);
+    taken.push(main);
+  }
+  for (const stack of taken) {
+    let placed = false;
+    if (inv) {
+      // Hotbar slots other than the selected one are fine too: only the hands pop a totem.
+      for (let i = 0; i < inv.size && !placed; i++) {
+        if (i === sel || inv.getItem(i)) continue;
+        inv.setItem(i, stack);
+        placed = true;
+      }
+    }
+    if (!placed) player.dimension.spawnItem(stack, player.location);
   }
 }
 

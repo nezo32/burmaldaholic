@@ -6,15 +6,23 @@
  * Money: the buy-in moves from the balance to the table stack (economy.transact to the bank);
  * standing up moves the stack back. Hands are PvP pots (reported with wagers.recordPvp), so
  * nothing is house-banked; bots are funded by the house and their chips come from / go to the
- * bank. Table stacks are persisted in the world property `burmaldaholic:poker.stacks`, so a
- * crash or disconnect never loses chips: anything left there is paid on the player's next join
- * (a hand interrupted by a server stop is therefore refunded to its start stacks).
+ * bank. Table stacks are persisted in the world property `burmaldaholic:poker.stacks`
+ * (./logic/stacks: keyed by player + table, parked cash-outs also by hand, never overwritten),
+ * so a crash or disconnect never loses chips: anything left there is paid on the player's next
+ * join, or right away when a seat of an online player is removed (a hand interrupted by a
+ * server stop is therefore refunded to its start stacks).
+ *
+ * Leaving (GAME_DESIGN §4.1, core leavePolicy): stand up, walk away, disconnect and a broken
+ * table all auto-fold the seat and play the hand out; only casino mode off aborts the hand.
+ * Cash-out while a loan is in default: only the net winnings over the buy-in are garnishable
+ * (the returned buy-in is credited as `poker.stake_return`).
  */
 import { type Player, system, world } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import {
   type CasinoModule,
   HudPriority,
+  type LeavePolicy,
   type LeaveReason,
   type ModuleContext,
   type Raw,
@@ -27,12 +35,14 @@ import {
   join,
   joinWith,
   lit,
+  livePlayer,
   mathRng,
   promptAmount,
   randInt,
   showForm,
   t,
   worldSharded,
+  detach,
 } from '../../core';
 import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../../multiplayer/api';
 import { type TablePreset, WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
@@ -41,6 +51,7 @@ import { type BotTier, type BotView, botView, decideBot, opponentRanges, samples
 import { type Action, type HandState, applyAction, coerce, legal, potTotal } from './logic/engine';
 import { equityJob } from './logic/equity';
 import { handName } from './logic/evaluator';
+import { type StackStore, addBuyIn, clearLive, liveEntry, normalizeStacks, park, setLive, splitCashOut, takePayable } from './logic/stacks';
 import { STAKE_LEVELS, STAKE_MIN_TIER, type StakeLevel, TableModel, buyInRange, isStakeLevel, smallBlind } from './logic/table';
 import { eventRaw, resultLines, showdownBody, tableBody, toCallRaw } from './text';
 
@@ -100,7 +111,7 @@ class PokerGame implements PokerApi {
       },
       canJoin: (p, table) => this.canJoin(p, table),
       onOpen: (s, rejoined) => this.onOpen(s, rejoined),
-      onLeave: (s, reason) => this.onLeave(s, reason),
+      onLeave: (s, reason, policy) => this.onLeave(s, reason, policy),
     });
     for (const p of world.getAllPlayers()) this.payPending(p);
     world.afterEvents.playerSpawn.subscribe((e) => {
@@ -135,32 +146,42 @@ class PokerGame implements PokerApi {
 
   // ---- persistence of table stacks ------------------------------------------------------
 
-  private stacks(): Record<string, number> {
-    return worldSharded.read<Record<string, number>>(STACKS_PROP, {});
+  private stacks(): StackStore {
+    return normalizeStacks(worldSharded.read<unknown>(STACKS_PROP, {}));
   }
-  private saveStack(id: string, amount: number | undefined): void {
-    const all = this.stacks();
-    if (amount === undefined || amount <= 0) delete all[id];
-    else all[id] = Math.floor(amount);
+  private writeStacks(all: StackStore): void {
     worldSharded.write(STACKS_PROP, Object.keys(all).length ? all : undefined);
   }
+  /** Rewrite the live (crash-safety) stack of a seat. */
+  private saveLive(live: LiveTable, id: string, amount: number): void {
+    this.writeStacks(setLive(this.stacks(), id, live.key, amount));
+  }
 
-  /** Stack left on a table by a disconnect or server stop: return it to the balance. */
+  /**
+   * Stacks left on tables by a disconnect or server stop: return them to the balance. Paid even
+   * while the player sits at a table (only that seat's live stack stays), so a rejoin mid-hand
+   * or a new buy-in never strands or overwrites parked chips (review M1).
+   */
   private payPending(p: Player): void {
-    if (!p.isValid || this.isSeated(p.id)) return;
-    const amount = this.stacks()[p.id] ?? 0;
+    if (!p.isValid) return;
+    const { amount, buyIn, rest } = takePayable(this.stacks(), p.id, (key) => !!this.tables.get(key)?.model.seatOf(p.id));
     if (amount <= 0) return;
-    this.saveStack(p.id, undefined);
-    this.credit(p, amount);
+    this.writeStacks(rest);
+    this.payOut(p, amount, buyIn);
     p.sendMessage(t('msg.burmaldaholic.poker.removed', chips(amount)));
   }
 
-  private credit(p: Player, amount: number): void {
-    if (amount <= 0) return;
-    this.ctx.economy.transact([
-      { account: p, delta: amount },
-      { account: 'bank', delta: -amount },
-    ], 'poker.cashout');
+  /** Stack back to the balance: the buy-in part is the player's own chips, the rest is winnings. */
+  private payOut(p: Player, amount: number, buyIn: number): void {
+    const { stake, winnings } = splitCashOut(amount, buyIn);
+    const pay = (x: number, reason: string) =>
+      x > 0 &&
+      this.ctx.economy.transact([
+        { account: p, delta: x },
+        { account: 'bank', delta: -x },
+      ], reason);
+    pay(stake, 'poker.stake_return');
+    pay(winnings, 'poker.cashout');
   }
 
   // ---- table lookup ---------------------------------------------------------------------
@@ -219,8 +240,13 @@ class PokerGame implements PokerApi {
 
   private async onOpen(s: TableSession, _rejoined: boolean): Promise<void> {
     const live = this.tables.get(s.table.key);
-    if (live?.model.seatOf(s.playerId)) {
+    const seat = live?.model.seatOf(s.playerId);
+    if (live && seat) {
+      // Rejoined (relog / walked back): the seat is theirs again, so it is no longer treated as
+      // gone (no auto-fold, cashed out to the balance, review M1).
       live.players.set(s.playerId, s.player);
+      seat.disconnected = false;
+      seat.leaving = false;
       const h = live.model.hand;
       if (h && !h.complete && h.players[h.toAct]?.id === s.playerId) return this.showAction(live, s.player);
       return this.showStatus(live, s.player);
@@ -256,6 +282,8 @@ class PokerGame implements PokerApi {
       p.sendMessage(t('gui.burmaldaholic.error.insufficient_funds', chips(balance)));
       return s.leave();
     }
+    // Chips parked from an earlier seat are paid before a new buy-in (review M1).
+    this.payPending(p);
     const amount = await promptAmount(p, {
       title: t('gui.burmaldaholic.poker.title'),
       info: [
@@ -295,7 +323,7 @@ class PokerGame implements PokerApi {
       if (!live.model.humans().length) this.destroy(live);
       return s.leave();
     }
-    this.saveStack(p.id, amount);
+    this.writeStacks(addBuyIn(this.stacks(), p.id, live.key, amount));
     live.players.set(p.id, p);
     this.ctx.hud.actionbar(p, 'poker.table', t('gui.burmaldaholic.poker.waiting_hand'), HudPriority.game, 80);
     if (!live.model.inHand()) this.scheduleHand(live, 40);
@@ -327,13 +355,14 @@ class PokerGame implements PokerApi {
     return lvl;
   }
 
-  private onLeave(s: TableSession, reason: LeaveReason): void {
+  private onLeave(s: TableSession, reason: LeaveReason, policy: LeavePolicy): void {
     const live = this.tables.get(s.table.key);
     const seat = live?.model.seatOf(s.playerId);
     if (!live || !seat) return;
     const player = s.player.isValid ? s.player : undefined;
-    if (reason === 'broken' || reason === 'casino_off') {
-      // The table is going away: cancel the running hand (everyone keeps their start stack).
+    if (policy === 'refund') {
+      // Casino mode off (dormant): cancel the running hand (everyone keeps their start stack).
+      // A broken table is NOT handled here: the hand is played out like a leave (review B1).
       if (live.model.inHand()) {
         live.model.abortHand();
         live.botSeq++;
@@ -357,21 +386,27 @@ class PokerGame implements PokerApi {
     this.afterHumanLeft(live);
   }
 
-  /** Remove a human seat and return the stack (or keep it pending if they are offline). */
+  /**
+   * Remove a human seat and return the stack to the balance when the player is online (whatever
+   * the seat's disconnected flag says: they may have relogged), else park it for the next join.
+   */
   private cashOut(live: LiveTable, id: string, player: Player | undefined): void {
     const amount = this.liveStack(live, id);
     const seat = live.model.removeSeat(id);
     live.players.delete(id);
     if (!seat) return;
-    if (player && player.isValid && !seat.disconnected) {
-      this.saveStack(id, undefined);
-      this.credit(player, amount);
-      player.sendMessage(t('msg.burmaldaholic.poker.removed', chips(amount)));
-      this.ctx.hud.clear(player, 'poker.table');
-      const sess = this.ctx.tables.sessionOf(player);
+    const online = livePlayer(player, id);
+    if (online) {
+      const all = this.stacks();
+      const { buyIn } = liveEntry(all, id, live.key);
+      this.writeStacks(clearLive(all, id, live.key));
+      this.payOut(online, amount, buyIn);
+      online.sendMessage(t('msg.burmaldaholic.poker.removed', chips(amount)));
+      this.ctx.hud.clear(online, 'poker.table');
+      const sess = this.ctx.tables.sessionOf(online);
       if (sess && sess.table.key === live.key) sess.leave();
     } else {
-      this.saveStack(id, amount);
+      this.writeStacks(park(this.stacks(), id, live.key, live.model.handNo, amount));
     }
   }
 
@@ -434,7 +469,7 @@ class PokerGame implements PokerApi {
     const h = m.startHand(mathRng);
     if (!h) return;
     live.eventIdx = 0;
-    for (const s of m.humans()) this.saveStack(s.id, s.stack);
+    for (const s of m.humans()) this.saveLive(live, s.id, s.stack);
     this.broadcast(live, t('msg.burmaldaholic.poker.new_hand', m.handNo, m.sb, m.bb));
     this.streamEvents(live);
     this.drive(live);
@@ -493,7 +528,7 @@ class PokerGame implements PokerApi {
     this.ctx.hud.actionbar(player, 'poker.turn', color('§a', t('gui.burmaldaholic.poker.your_turn')), HudPriority.game, 60);
     const sess = this.ctx.tables.sessionOf(player);
     if (sess) sess.closeForms();
-    system.run(() => void this.showAction(live, player));
+    system.run(() => detach(this.showAction(live, player), (e) => this.ctx.log.error('poker action form', e)));
   }
 
   private isCurrent(live: LiveTable, h: HandState, seq: number): boolean {
@@ -588,7 +623,7 @@ class PokerGame implements PokerApi {
     });
     if (r.rake > 0) this.payRake(live, r.rake);
     m.settleHand();
-    for (const s of m.humans()) this.saveStack(s.id, s.stack);
+    for (const s of m.humans()) this.saveLive(live, s.id, s.stack);
     for (const s of m.humans()) {
       if (s.leaving || s.disconnected) continue;
       const p = this.player(live, s.id);
@@ -732,11 +767,9 @@ class PokerGame implements PokerApi {
       { account: 'bank', delta: amount },
     ], 'poker.buyin');
     if (!ok) return player.sendMessage(t('gui.burmaldaholic.error.insufficient_funds', chips(this.ctx.economy.balance(player))));
-    // A folded player in the running hand gets the chips on their hand stack too.
-    const k = m.handIndexOf(player.id);
-    if (m.inHand() && k >= 0) m.hand!.players[k]!.stack += amount;
-    seat.stack += amount;
-    this.saveStack(player.id, this.liveStack(live, player.id));
+    // A folded player in the running hand gets the chips on their hand (and start) stack too.
+    m.topUp(player.id, amount);
+    this.writeStacks(setLive(addBuyIn(this.stacks(), player.id, live.key, amount), player.id, live.key, this.liveStack(live, player.id)));
     player.sendMessage(t('gui.burmaldaholic.poker.stack', this.liveStack(live, player.id)));
     if (!m.inHand()) this.scheduleHand(live, 20);
   }

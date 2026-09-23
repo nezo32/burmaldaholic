@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG_CATALOG } from './config-catalog';
-import { type ConfigDef, ConfigOverrides, crossValidate, fromModuleDef, parseInput, sanitizeValue, validateDefs } from './config-schema';
+import fs from 'node:fs';
+import path from 'node:path';
+import { type ConfigDef, ConfigOverrides, crossValidate, enumOptionLabel, fromModuleDef, parseInput, sanitizeValue, validateDefs } from './config-schema';
 
 const int: ConfigDef = { key: 'blackjack.decks', type: 'int', default: 6, min: 1, max: 8, section: 'blackjack', owner: 'blackjack', label: 'x' };
 const dbl: ConfigDef = { key: 'blackjack.penetration', type: 'double', default: 0.75, min: 0.25, max: 0.9, section: 'blackjack', owner: 'blackjack', label: 'x' };
@@ -97,5 +99,22 @@ describe('module declarations', () => {
     expect(fromModuleDef('slots', { type: 'bool', name: 'enabled', default: true }).key).toBe('slots.enabled');
     expect(fromModuleDef('lastchance', { type: 'bool', name: 'enabled', default: true }).key).toBe('lastChance.enabled');
     expect(fromModuleDef('vip', { type: 'int', name: 'x.y', default: 1, min: 0, max: 2 }).key).toBe('x.y');
+  });
+});
+
+describe('enum option labels in the admin form (review m7)', () => {
+  it('uses optionLabels, else the conventional key - never the raw option name', () => {
+    expect(enumOptionLabel(en, 1)).toBe('config.burmaldaholic.lastChance.hardcoreMode.high_stakes');
+    expect(enumOptionLabel({ ...en, optionLabels: ['a', 'b'] }, 1)).toBe('b');
+  });
+  it('every catalog enum option label exists in the lang files', () => {
+    const dir = path.resolve(__dirname, '../../../lang');
+    const keys = new Set<string>();
+    for (const m of fs.readdirSync(dir)) {
+      const f = path.join(dir, m, 'en_US.lang');
+      if (fs.existsSync(f)) for (const line of fs.readFileSync(f, 'utf8').split('\n')) keys.add(line.split('=')[0]!);
+    }
+    const missing = CONFIG_CATALOG.filter((d) => d.type === 'enum').flatMap((d) => (d.options ?? []).map((_, i) => enumOptionLabel(d, i)).filter((k) => !keys.has(k)));
+    expect(missing).toEqual([]);
   });
 });

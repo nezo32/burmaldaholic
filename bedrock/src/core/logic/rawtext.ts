@@ -95,6 +95,20 @@ export function lit(s: string | number): Raw {
   return { text: formatArg(s) };
 }
 
+/**
+ * A number with a fractional part, with the decimal separator of the reader's language
+ * (`unit.burmaldaholic.decimal_separator`: "1.5" / «1,5», review m7). The server cannot know
+ * the client language, so the separator is translated client-side. Whole numbers stay literal.
+ */
+export function decimal(n: number, digits = 1): Raw {
+  const s = Math.abs(n).toFixed(digits);
+  const [int, frac] = s.split('.');
+  const sign = n < 0 && Number(s) !== 0 ? '−' : '';
+  const trimmed = (frac ?? '').replace(/0+$/, '');
+  if (!trimmed) return lit(sign + formatNumber(Number(int)));
+  return join(lit(sign + formatNumber(Number(int))), t('unit.burmaldaholic.decimal_separator'), lit(trimmed));
+}
+
 /** Line break inside a message (bodies, tooltips). */
 export const NEWLINE: Raw = { text: '\n' }; // i18n-ignore (not a word)
 

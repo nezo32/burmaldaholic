@@ -242,6 +242,24 @@ export class TableModel {
     });
   }
 
+  /**
+   * Add chips to a seat (top-up). A folded player in the running hand gets them on the hand
+   * stack too, and on its start stack, so the hand's net stays right and abortHand() keeps
+   * them (review m1). Returns false when there is no such seat.
+   */
+  topUp(id: string, amount: number): boolean {
+    const s = this.seatOf(id);
+    if (!s || !(amount > 0)) return false;
+    s.stack += amount;
+    const k = this.inHand() ? this.handIndexOf(id) : -1;
+    if (k >= 0) {
+      const hp = this.hand!.players[k]! as { stack: number; startStack: number };
+      hp.stack += amount;
+      hp.startStack += amount;
+    }
+    return true;
+  }
+
   /** Undo a hand in progress (table broken / casino off): everyone gets their start stack. */
   abortHand(): void {
     const h = this.hand;

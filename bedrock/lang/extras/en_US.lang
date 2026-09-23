@@ -112,3 +112,4 @@ gui.burmaldaholic.extras.dice.pending_entry=%1 — %2
 gui.burmaldaholic.extras.dice.opponent_line=Opponent: %1
 msg.burmaldaholic.extras.dice.target_unavailable=%1 can't take a duel right now
 msg.burmaldaholic.extras.dice.cancelled=The duel with %1 is off
+gui.burmaldaholic.extras.wheel.legend_of=%1 — ×%2 (%3 of %4)

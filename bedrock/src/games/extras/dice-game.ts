@@ -23,6 +23,7 @@ import {
   showForm,
   sliderStep,
   t,
+  detach,
 } from '../../core';
 import { resultForm } from './coin-flip';
 import { type Challenge, ChallengeBook, type HouseDuel, type Roll, duelHouse, duelPvp, houseReturn, pvpPayout, rollTotal, tieTotals } from './logic';
@@ -221,7 +222,7 @@ function sendChallenge(from: Player, to: Player, stake: number): void {
   if (!r.ok) return from.sendMessage(t(r.error === 'self' ? 'msg.burmaldaholic.extras.dice.self' : 'msg.burmaldaholic.extras.dice.already_pending'));
   from.sendMessage(t('msg.burmaldaholic.extras.dice.challenge_sent', to.name, chipsAcc(stake)));
   to.sendMessage(color('§e', t('msg.burmaldaholic.extras.dice.challenge_received', from.name, chipsAcc(stake))));
-  void answerForm(to, r.challenge);
+  detach(answerForm(to, r.challenge), (e) => c.log.error('dice duel answer form', e));
 }
 
 /** The target's Accept / Decline form. */

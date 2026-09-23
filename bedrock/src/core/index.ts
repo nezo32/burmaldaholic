@@ -30,7 +30,7 @@ export {
   SOUL_WAGER_TAG,
   gameLabel,
 } from './wagers';
-export { type Tables, type TableHandler, type TableSession, type TableRef, type LeaveReason, TABLE_COMPONENT } from './tables';
+export { type Tables, type TableHandler, type TableSession, type TableRef, type LeaveReason, type LeavePolicy, leavePolicy, TABLE_COMPONENT } from './tables';
 export { type MenuRegistry, type MenuEntry, isOperator } from './menu';
 export type { Cashier } from './cashier';
 export type { Admin, AdminAction } from './admin';
@@ -42,18 +42,19 @@ export { onlinePlayer, livePlayer } from './offline';
 export { NO_REWARD_TAG } from './earning';
 export { CASINO_CARD_ID } from './module-core';
 export type { Logger } from './log';
+export { detach } from './logic/async';
 export type { Services } from './services';
 export { isCasinoEnabled } from './casino';
 export { worldTick, readJson, writeJson, worldJson, worldSharded } from './store';
 export { NS, nsId, langKey, type ModuleId } from './logic/ids';
-export { t, plural, join, joinWith, lines, NEWLINE, lit, color, chips, chipsAcc, unit, duration, variant, type Unit, type Raw, type Arg } from './logic/rawtext';
+export { t, plural, join, joinWith, lines, NEWLINE, lit, decimal, color, chips, chipsAcc, unit, duration, variant, type Unit, type Raw, type Arg } from './logic/rawtext';
 export { formatNumber, formatSigned, formatMultiplier, formatClock, formatDhm } from './logic/format';
 export { pluralKey, pluralSuffix } from './logic/plural';
 export { type Rng, mathRng, seededRng, randInt, chance, pick, weightedPick, shuffle } from './logic/rng';
 export { type OddsService, type OddsModifier, type OddsQuery } from './logic/odds';
 export { GAME_RTP, type RoundOutcome } from './logic/streak';
 export { VIP_TIERS, VIP_COLORS, vipTierKey, sliderStep, parseAmount, validateBet } from './logic/bet';
-export { CHIP_VALUES, chipItemId, chipValueOf } from './logic/economy-math';
+export { CHIP_VALUES, chipItemId, chipValueOf, fitsUnderCap } from './logic/economy-math';
 export { coreModule } from './module-core';
 export { CHIP_GLYPH, CARD_BACK_GLYPH, STREAK_FLAME_GLYPH, STREAK_CLOUD_GLYPH, cardGlyph, suitGlyph, dieGlyph, vipBadgeGlyph, glyphRaw } from './logic/glyphs';
 export { type Card, type Rank, type Suit, SUITS, RANKS, cardId, parseCard, newShoe, rankLabel, suitLabel, cardName, hiddenCard } from './logic/cards';

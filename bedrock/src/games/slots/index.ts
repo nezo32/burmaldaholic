@@ -36,6 +36,7 @@ import {
   unit,
   worldJson,
   writeJson,
+  detach,
 } from '../../core';
 import { CHAOS_SERVICE, type ChaosApi } from '../../chaos/api';
 import { JACKPOT_SHOWER_RADIUS, SLOTS_SERVICE, type SlotsApi, type SlotsHouse, type SlotsHouseResolver, type SlotsSpinEvent, type SlotsTriggerEvent } from './api';
@@ -269,7 +270,7 @@ class SlotsGame implements SlotsApi {
   onOpen(s: TableSession): void {
     const st = this.state(s);
     if (st.busy) return;
-    void this.showMachine(s);
+    detach(this.showMachine(s), (e) => this.ctx.log.error('slots form', e));
   }
 
   /** Also the disconnect path: the player object is then invalid and core settles offline. */
@@ -422,7 +423,7 @@ class SlotsGame implements SlotsApi {
   private spin(s: TableSession): void {
     const st = this.state(s);
     const started = this.start(s);
-    if (!('ticket' in started)) return void this.showMachine(s, [color('§c', started)]);
+    if (!('ticket' in started)) return detach(this.showMachine(s, [color('§c', started)]), (e) => this.ctx.log.error('slots form', e));
     const pd = started;
     this.pending.set(s.playerId, pd);
     st.busy = true;
@@ -445,7 +446,7 @@ class SlotsGame implements SlotsApi {
         const online = s.player.isValid;
         this.finish(pd, !online);
         st.busy = false;
-        if (online) void this.showMachine(s);
+        if (online) detach(this.showMachine(s), (e) => this.ctx.log.error('slots form', e));
       }
     }, FRAME_TICKS);
   }
