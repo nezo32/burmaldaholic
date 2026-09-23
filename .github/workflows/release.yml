@@ -1,0 +1,62 @@
+# Tag vX.Y.Z (or vX.Y.Z-beta.N / -alpha.N) -> build both editions -> GitHub Release -> CurseForge.
+# All logic lives in the reusable workflow; this file only supplies project-specific inputs.
+# See docs/ci.md#releasing.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re-)release, e.g. v1.2.3. For a dry run any SemVer tag name works.
+        required: true
+        type: string
+      dry-run:
+        description: Build and print everything, but create no release and upload nothing.
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    permissions:
+      contents: write # create the GitHub Release (only the reusable workflow's release job uses it)
+    uses: ./.github/workflows/reusable-release.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+      dry-run: ${{ inputs.dry-run || false }}
+      release-name: "Burmaldaholic {version}"
+
+      java-dir: java
+      java-version: ${{ vars.JAVA_VERSION || '25' }}
+      java-build-command: ./gradlew build --no-daemon --stacktrace -Pmod_version="$MOD_VERSION"
+      java-artifact-glob: build/libs/*.jar
+
+      bedrock-dir: bedrock
+      node-version: ${{ vars.NODE_VERSION || '22' }}
+      bedrock-build-command: npm ci && npm run build && npm test
+      bedrock-artifact-glob: dist/*.mcaddon
+
+      changelog-mode: auto
+      append-github-notes: false
+
+      curseforge-java-project-id: ${{ vars.CURSEFORGE_JAVA_PROJECT_ID }}
+      curseforge-bedrock-project-id: ${{ vars.CURSEFORGE_BEDROCK_PROJECT_ID }}
+      game-versions: ${{ vars.CURSEFORGE_GAME_VERSIONS || '26.2,26.3' }}
+      curseforge-bedrock-game-versions: ${{ vars.CURSEFORGE_BEDROCK_GAME_VERSIONS }}
+      loaders: fabric
+      curseforge-java-versions: ${{ vars.CURSEFORGE_JAVA_VERSIONS || '' }}
+      curseforge-environments: client,server
+      curseforge-java-relations: ${{ vars.CURSEFORGE_JAVA_RELATIONS || 'fabric-api:requiredDependency' }}
+      curseforge-display-name: "Burmaldaholic {version} ({edition})"
+    secrets:
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

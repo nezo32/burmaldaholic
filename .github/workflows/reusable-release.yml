@@ -1,0 +1,823 @@
+# Reusable "tag -> build -> GitHub Release -> CurseForge" pipeline for Minecraft projects
+# that ship a Java-edition mod (Gradle) and/or a Bedrock add-on (npm).
+#
+# Call it from another workflow:
+#   jobs:
+#     release:
+#       permissions:
+#         contents: write
+#       uses: nezo32/burmaldaholic/.github/workflows/reusable-release.yml@main
+#       # (or, after moving it: nezo32/workflows/.github/workflows/minecraft-release.yml@v1)
+#       with: { java-dir: java, bedrock-dir: bedrock, ... }
+#       secrets:
+#         CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+#
+# Every edition is optional: leave `java-dir` or `bedrock-dir` empty to skip it.
+# Documentation: https://github.com/nezo32/burmaldaholic/blob/main/docs/ci.md
+# Canonical copy: nezo32/burmaldaholic .github/workflows/reusable-release.yml (mirrored verbatim
+# in reusable-workflows/minecraft-release.yml, ready to move to a dedicated workflows repo).
+#
+# Build contract: build commands run inside the edition directory with the env var
+# MOD_VERSION set to the SemVer version derived from the tag (tag "v1.2.3" -> "1.2.3").
+name: Reusable release
+
+on:
+  workflow_call:
+    inputs:
+      # ---------------------------------------------------------------- general
+      tag:
+        description: Tag to release. Defaults to github.ref_name (the pushed tag).
+        type: string
+        default: ""
+      tag-prefix:
+        description: Prefix stripped from the tag to obtain the version, also used to find the previous tag.
+        type: string
+        default: v
+      version:
+        description: Explicit version override (SemVer). Defaults to the tag without tag-prefix.
+        type: string
+        default: ""
+      release-name:
+        description: GitHub Release title. Placeholders {version}, {tag}, {repo} are substituted.
+        type: string
+        default: "{repo} {version}"
+      release-type:
+        description: "auto | release | beta | alpha. auto: -alpha/-dev/-snapshot -> alpha, -beta/-rc/-pre (or any other suffix) -> beta, none -> release."
+        type: string
+        default: auto
+      create-github-release:
+        description: Create (or update) the GitHub Release with the built files attached.
+        type: boolean
+        default: true
+      draft:
+        description: Create the GitHub Release as a draft.
+        type: boolean
+        default: false
+      ensure-version-in-filename:
+        description: Rename release files to <name>-<version>.<ext> when the file name does not already contain the version.
+        type: boolean
+        default: true
+      dry-run:
+        description: Build everything and print what would be released/uploaded, but create no release and upload nothing.
+        type: boolean
+        default: false
+      runs-on:
+        description: Runner label for all jobs.
+        type: string
+        default: ubuntu-latest
+      artifact-retention-days:
+        description: Retention of the intermediate workflow artifacts.
+        type: number
+        default: 14
+
+      # -------------------------------------------------------------- changelog
+      changelog-mode:
+        description: "auto (CHANGELOG section if present, else commits) | file | commits | github (GitHub-generated notes) | none"
+        type: string
+        default: auto
+      changelog-file:
+        description: Keep-a-changelog style file whose '## [x.y.z]' / '## x.y.z' / '## vx.y.z' section is used.
+        type: string
+        default: CHANGELOG.md
+      append-github-notes:
+        description: Append GitHub's auto-generated release notes (PR list, contributors) to the changelog.
+        type: boolean
+        default: false
+
+      # ------------------------------------------------------------ Java (Gradle)
+      java-dir:
+        description: Directory of the Gradle project. Empty = skip the Java edition.
+        type: string
+        default: ""
+      java-version:
+        description: JDK version for actions/setup-java.
+        type: string
+        default: "25"
+      java-distribution:
+        description: JDK distribution for actions/setup-java.
+        type: string
+        default: temurin
+      java-build-command:
+        description: Command run in java-dir (MOD_VERSION is exported).
+        type: string
+        default: ./gradlew build --no-daemon --stacktrace -Pmod_version="$MOD_VERSION"
+      java-artifact-glob:
+        description: Glob (relative to java-dir) matching the jar to release. Must match exactly one file after exclusions.
+        type: string
+        default: build/libs/*.jar
+      java-artifact-exclude:
+        description: Space-separated basename patterns excluded from java-artifact-glob.
+        type: string
+        default: "*-sources.jar *-dev.jar *-javadoc.jar *-dev-shadow.jar"
+
+      # ------------------------------------------------------------ Bedrock (npm)
+      bedrock-dir:
+        description: Directory of the Bedrock add-on project. Empty = skip the Bedrock edition.
+        type: string
+        default: ""
+      node-version:
+        description: Node.js version for actions/setup-node.
+        type: string
+        default: "22"
+      node-cache:
+        description: Package manager cache for actions/setup-node (npm | yarn | pnpm | empty to disable).
+        type: string
+        default: npm
+      bedrock-build-command:
+        description: Command run in bedrock-dir (MOD_VERSION is exported).
+        type: string
+        default: npm ci && npm run build && npm test
+      bedrock-artifact-glob:
+        description: Glob (relative to bedrock-dir) matching the add-on to release. Must match exactly one file after exclusions.
+        type: string
+        default: dist/*.mcaddon
+      bedrock-artifact-exclude:
+        description: Space-separated basename patterns excluded from bedrock-artifact-glob.
+        type: string
+        default: ""
+
+      # --------------------------------------------------------------- CurseForge
+      curseforge-java-project-id:
+        description: CurseForge project id of the Java mod. Empty = do not publish the Java file.
+        type: string
+        default: ""
+      curseforge-bedrock-project-id:
+        description: CurseForge project id of the Bedrock add-on. Empty = do not publish the Bedrock file.
+        type: string
+        default: ""
+      game-versions:
+        description: Comma-separated Minecraft versions, e.g. "26.2,26.3". A trailing * matches by prefix ("26.2*").
+        type: string
+        default: ""
+      curseforge-bedrock-game-versions:
+        description: Bedrock game versions (comma-separated). Empty = same as game-versions.
+        type: string
+        default: ""
+      loaders:
+        description: Comma-separated mod loaders for the Java file (matched by name or slug), e.g. "fabric".
+        type: string
+        default: fabric
+      curseforge-java-versions:
+        description: Comma-separated Java version tags for the Java file, e.g. "Java 25". Empty = none.
+        type: string
+        default: ""
+      curseforge-environments:
+        description: Comma-separated environment tags for the Java file ("client,server"). Empty = none.
+        type: string
+        default: ""
+      curseforge-java-relations:
+        description: 'Comma-separated "slug:type" relations for the Java file, type in requiredDependency|optionalDependency|embeddedLibrary|incompatible|tool. e.g. "fabric-api:requiredDependency".'
+        type: string
+        default: ""
+      curseforge-bedrock-relations:
+        description: Same as curseforge-java-relations, for the Bedrock file.
+        type: string
+        default: ""
+      curseforge-display-name:
+        description: CurseForge display name. Placeholders {version}, {tag}, {repo}, {edition} (Java/Bedrock). Empty = file name.
+        type: string
+        default: ""
+      curseforge-strict-versions:
+        description: Fail when a requested game version / loader / tag cannot be resolved on CurseForge (otherwise warn and skip it).
+        type: boolean
+        default: true
+      curseforge-java-api-url:
+        description: CurseForge upload API base for the Java project.
+        type: string
+        default: https://minecraft.curseforge.com
+      curseforge-bedrock-api-url:
+        description: CurseForge upload API base for the Bedrock project.
+        type: string
+        default: https://minecraft-bedrock.curseforge.com
+      curseforge-bedrock-version-type-prefix:
+        description: Only resolve Bedrock game versions within version types whose slug starts with this prefix. Empty = any type.
+        type: string
+        default: ""
+    secrets:
+      CURSEFORGE_TOKEN:
+        description: CurseForge upload API token (https://legacy.curseforge.com/account/api-tokens). Missing = skip publishing with a warning.
+        required: false
+    outputs:
+      version:
+        description: Released version.
+        value: ${{ jobs.meta.outputs.version }}
+      release-type:
+        description: release | beta | alpha
+        value: ${{ jobs.meta.outputs.release-type }}
+      release-url:
+        description: URL of the GitHub Release (empty on dry-run).
+        value: ${{ jobs.release.outputs.url }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  meta:
+    name: Version & changelog
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      release-type: ${{ steps.version.outputs.release-type }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      previous-tag: ${{ steps.version.outputs.previous-tag }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+          INPUT_RELEASE_TYPE: ${{ inputs.release-type }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          tag="${tag#refs/tags/}"
+          version="${INPUT_VERSION:-${tag#"$TAG_PREFIX"}}"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if [[ ! "$version" =~ $semver ]]; then
+            echo "::error::'$version' (from tag '$tag') is not a SemVer version like 1.2.3 or 1.2.3-beta.1"
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            ref="refs/tags/$tag"
+          elif [[ "$DRY_RUN" == "true" ]]; then
+            echo "::warning::Tag '$tag' does not exist; dry-run uses HEAD instead."
+            ref="HEAD"
+          else
+            echo "::error::Tag '$tag' does not exist in the repository."
+            exit 1
+          fi
+
+          if [[ "$INPUT_RELEASE_TYPE" == "auto" ]]; then
+            lower="${version,,}"
+            lower="${lower%%+*}"
+            case "$lower" in
+              *-alpha*|*-dev*|*-snapshot*) release_type=alpha ;;
+              *-*) release_type=beta ;;  # -beta, -rc, -pre and anything else
+              *) release_type=release ;;
+            esac
+          else
+            case "$INPUT_RELEASE_TYPE" in
+              release|beta|alpha) release_type="$INPUT_RELEASE_TYPE" ;;
+              *) echo "::error::release-type must be auto, release, beta or alpha"; exit 1 ;;
+            esac
+          fi
+
+          # Previous tag reachable from this one. Stable releases compare against the previous
+          # stable release; pre-releases against the previous tag of any kind.
+          previous=""
+          while IFS= read -r candidate; do
+            [[ -z "$candidate" || "$candidate" == "$tag" ]] && continue
+            cand_version="${candidate#"$TAG_PREFIX"}"
+            [[ "$cand_version" =~ $semver ]] || continue
+            if [[ "$release_type" == "release" && "$cand_version" == *-* ]]; then continue; fi
+            previous="$candidate"
+            break
+          done < <(git -c versionsort.suffix=- tag --merged "$ref" --list "${TAG_PREFIX}[0-9]*" --sort=-v:refname)
+
+          {
+            echo "tag=$tag"
+            echo "ref=$ref"
+            echo "sha=$(git rev-parse "$ref^{commit}")"
+            echo "version=$version"
+            echo "release-type=$release_type"
+            echo "prerelease=$([[ "$release_type" == "release" ]] && echo false || echo true)"
+            echo "previous-tag=$previous"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Build changelog
+        env:
+          MODE: ${{ inputs.changelog-mode }}
+          CHANGELOG_FILE: ${{ inputs.changelog-file }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REF: ${{ steps.version.outputs.ref }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous-tag }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/release-notes/notes.md"
+          mkdir -p "$(dirname "$out")"
+          : > "$out"
+
+          from_file() {
+            [[ -f "$CHANGELOG_FILE" ]] || return 1
+            local plain="${VERSION%%+*}"
+            # Section header: "## [1.2.3]", "## 1.2.3", "## v1.2.3" (optionally followed by " - date").
+            awk -v v="$plain" -v t="$TAG" '
+              function is_header(line,   h) {
+                if (line !~ /^## /) return 0
+                h = substr(line, 4); gsub(/[\[\]]/, "", h); sub(/[ \t].*$/, "", h)
+                return (h == v || h == t || h == "v" v)
+              }
+              /^## / { if (found) exit; if (is_header($0)) { found = 1; next } }
+              found { print }
+            ' "$CHANGELOG_FILE" > "$out.tmp"
+            # Trim leading/trailing blank lines.
+            sed -e '/./,$!d' "$out.tmp" | tac | sed -e '/./,$!d' | tac > "$out"
+            rm -f "$out.tmp"
+            [[ -s "$out" ]]
+          }
+
+          from_commits() {
+            local range="$REF"
+            [[ -n "$PREVIOUS_TAG" ]] && range="refs/tags/$PREVIOUS_TAG..$REF"
+            declare -A groups=()
+            local breaking="" order=(feat fix perf refactor docs build test other)
+            declare -A titles=(
+              [feat]="Features" [fix]="Bug Fixes" [perf]="Performance" [refactor]="Refactoring"
+              [docs]="Documentation" [build]="Build & CI" [test]="Tests" [other]="Other Changes"
+            )
+            local re='^([a-zA-Z]+)(\(([^)]*)\))?(!)?:[[:space:]]*(.+)$'
+            local sha subject body type scope bang desc key line count=0
+            while IFS= read -r sha; do
+              subject="$(git log -1 --format=%s "$sha")"
+              body="$(git log -1 --format=%b "$sha")"
+              short="${sha:0:7}"
+              link="([$short]($SERVER_URL/$REPOSITORY/commit/$sha))"
+              if [[ "$subject" =~ $re ]]; then
+                type="${BASH_REMATCH[1],,}"; scope="${BASH_REMATCH[3]}"; bang="${BASH_REMATCH[4]}"; desc="${BASH_REMATCH[5]}"
+              else
+                type="other"; scope=""; bang=""; desc="$subject"
+              fi
+              case "$type" in
+                feat|fix|perf|refactor|docs|test) key="$type" ;;
+                build|ci) key="build" ;;
+                *) key="other" ;;
+              esac
+              line="- ${scope:+**$scope:** }$desc $link"
+              groups[$key]+="$line"$'\n'
+              if [[ -n "$bang" ]] || grep -qE '^BREAKING[ -]CHANGE:' <<<"$body"; then
+                breaking+="$line"$'\n'
+              fi
+              count=$((count + 1))
+            done < <(git log --no-merges --format=%H "$range")
+
+            if (( count == 0 )); then
+              echo "_No changes since ${PREVIOUS_TAG:-the beginning}._" >> "$out"
+            fi
+            if [[ -n "$breaking" ]]; then
+              printf '### Breaking Changes\n\n%s\n' "$breaking" >> "$out"
+            fi
+            for key in "${order[@]}"; do
+              if [[ -n "${groups[$key]:-}" ]]; then
+                printf '### %s\n\n%s\n' "${titles[$key]}" "${groups[$key]}" >> "$out"
+              fi
+            done
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              echo "**Full Changelog**: $SERVER_URL/$REPOSITORY/compare/$PREVIOUS_TAG...$TAG" >> "$out"
+            fi
+          }
+
+          case "$MODE" in
+            auto) from_file || { : > "$out"; from_commits; } ;;
+            file) from_file || { echo "::error::No '## $VERSION' section found in $CHANGELOG_FILE"; exit 1; } ;;
+            commits) from_commits ;;
+            github|none) ;;  # github: filled in by the release job (needs contents: write)
+            *) echo "::error::Unknown changelog-mode '$MODE'"; exit 1 ;;
+          esac
+
+          {
+            echo "## Changelog ($MODE)"
+            echo
+            cat "$out"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes-base
+          path: ${{ runner.temp }}/release-notes/notes.md
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: error
+
+  build-java:
+    name: Build Java edition
+    needs: meta
+    if: inputs.java-dir != ''
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.sha }} # the tagged commit, also for workflow_dispatch re-releases
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Build
+        working-directory: ${{ inputs.java-dir }}
+        env:
+          MOD_VERSION: ${{ needs.meta.outputs.version }}
+          BUILD_COMMAND: ${{ inputs.java-build-command }}
+        run: |
+          set -euo pipefail
+          [[ -f gradlew ]] && chmod +x gradlew
+          echo "Running: $BUILD_COMMAND (MOD_VERSION=$MOD_VERSION)"
+          eval "$BUILD_COMMAND"
+
+      - name: Collect artifact
+        id: collect
+        working-directory: ${{ inputs.java-dir }}
+        env:
+          GLOB: ${{ inputs.java-artifact-glob }}
+          EXCLUDE: ${{ inputs.java-artifact-exclude }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          ENSURE_VERSION: ${{ inputs.ensure-version-in-filename }}
+          DEST: ${{ runner.temp }}/staged
+        run: &collect |
+          set -euo pipefail
+          shopt -s nullglob
+          matches=()
+          # shellcheck disable=SC2086 # GLOB and EXCLUDE are intentionally word-split and globbed
+          for f in $GLOB; do
+            base="$(basename "$f")"
+            skip=false
+            set -f
+            for pattern in $EXCLUDE; do
+              # shellcheck disable=SC2053 # pattern match is intended
+              if [[ "$base" == $pattern ]]; then skip=true; fi
+            done
+            set +f
+            [[ "$skip" == true ]] || matches+=("$f")
+          done
+          if (( ${#matches[@]} != 1 )); then
+            echo "::error::Expected exactly one file matching '$GLOB' (excluding '$EXCLUDE') in $PWD, found ${#matches[@]}: ${matches[*]:-none}"
+            exit 1
+          fi
+          src="${matches[0]}"
+          name="$(basename "$src")"
+          if [[ "$ENSURE_VERSION" == "true" && "$name" != *"$VERSION"* ]]; then
+            ext="${name##*.}"; stem="${name%.*}"
+            name="$stem-$VERSION.$ext"
+          fi
+          mkdir -p "$DEST"
+          cp "$src" "$DEST/$name"
+          echo "file=$name" >> "$GITHUB_OUTPUT"
+          echo "Staged $src -> $name ($(stat -c %s "$DEST/$name") bytes)"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: java-artifact
+          path: ${{ runner.temp }}/staged/${{ steps.collect.outputs.file }}
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: error
+
+  build-bedrock:
+    name: Build Bedrock edition
+    needs: meta
+    if: inputs.bedrock-dir != ''
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.sha }} # the tagged commit, also for workflow_dispatch re-releases
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.node-cache }}
+          cache-dependency-path: ${{ inputs.bedrock-dir }}/package-lock.json
+
+      - name: Build
+        working-directory: ${{ inputs.bedrock-dir }}
+        env:
+          MOD_VERSION: ${{ needs.meta.outputs.version }}
+          BUILD_COMMAND: ${{ inputs.bedrock-build-command }}
+        run: |
+          set -euo pipefail
+          echo "Running: $BUILD_COMMAND (MOD_VERSION=$MOD_VERSION)"
+          eval "$BUILD_COMMAND"
+
+      - name: Collect artifact
+        id: collect
+        working-directory: ${{ inputs.bedrock-dir }}
+        env:
+          GLOB: ${{ inputs.bedrock-artifact-glob }}
+          EXCLUDE: ${{ inputs.bedrock-artifact-exclude }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          ENSURE_VERSION: ${{ inputs.ensure-version-in-filename }}
+          DEST: ${{ runner.temp }}/staged
+        run: *collect
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bedrock-artifact
+          path: ${{ runner.temp }}/staged/${{ steps.collect.outputs.file }}
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: [meta, build-java, build-bedrock]
+    if: >-
+      always() && needs.meta.result == 'success'
+      && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      url: ${{ steps.publish.outputs.url }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/in
+
+      - name: Finalize release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.changelog-mode }}
+          APPEND_GITHUB_NOTES: ${{ inputs.append-github-notes }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.meta.outputs.previous-tag }}
+          IN: ${{ runner.temp }}/in
+        run: |
+          set -euo pipefail
+          notes="$IN/release-notes/notes.md"
+          mkdir -p "$(dirname "$notes")"
+          cp "$IN/release-notes-base/notes.md" "$notes"
+          if [[ "$MODE" == "github" || "$APPEND_GITHUB_NOTES" == "true" ]]; then
+            args=(-X POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f "tag_name=$TAG")
+            [[ -n "$PREVIOUS_TAG" ]] && args+=(-f "previous_tag_name=$PREVIOUS_TAG")
+            if generated="$(gh api "${args[@]}" --jq .body)"; then
+              [[ -s "$notes" ]] && printf '\n' >> "$notes"
+              printf '%s\n' "$generated" >> "$notes"
+            else
+              echo "::warning::Could not generate GitHub release notes (does tag '$TAG' exist on GitHub?)."
+            fi
+          fi
+          [[ -s "$notes" ]] || echo "Release $TAG" > "$notes"
+          echo "----- release notes -----"
+          cat "$notes"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/in/release-notes/notes.md
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+          NAME_TEMPLATE: ${{ inputs.release-name }}
+          DRAFT: ${{ inputs.draft }}
+          CREATE: ${{ inputs.create-github-release }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          IN: ${{ runner.temp }}/in
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=("$IN"/java-artifact/* "$IN"/bedrock-artifact/*)
+          title="$NAME_TEMPLATE"
+          title="${title//\{version\}/$VERSION}"
+          title="${title//\{tag\}/$TAG}"
+          title="${title//\{repo\}/${GITHUB_REPOSITORY#*/}}"
+          echo "Title: $title | prerelease: $PRERELEASE | draft: $DRAFT"
+          printf 'File: %s\n' "${files[@]}"
+
+          if [[ "$CREATE" != "true" ]]; then
+            echo "create-github-release is false; skipping."
+            exit 0
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "::notice::Dry run: GitHub Release '$title' for $TAG was NOT created."
+            exit 0
+          fi
+
+          flags=()
+          [[ "$PRERELEASE" == "true" ]] && flags+=(--prerelease)
+          [[ "$DRAFT" == "true" ]] && flags+=(--draft)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; updating notes and assets."
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$title" \
+              --notes-file "$IN/release-notes/notes.md"
+            if (( ${#files[@]} )); then
+              gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
+            fi
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "$title" --notes-file "$IN/release-notes/notes.md" "${flags[@]}" "${files[@]}"
+          fi
+          url="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Released: $url" >> "$GITHUB_STEP_SUMMARY"
+
+  curseforge:
+    name: Publish to CurseForge
+    needs: [meta, release, build-java, build-bedrock]
+    if: >-
+      always() && needs.release.result == 'success'
+      && (inputs.curseforge-java-project-id != '' || inputs.curseforge-bedrock-project-id != '')
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/in
+
+      - name: Upload files
+        env:
+          CF_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          STRICT: ${{ inputs.curseforge-strict-versions }}
+          IN: ${{ runner.temp }}/in
+          TAG: ${{ needs.meta.outputs.tag }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          RELEASE_TYPE: ${{ needs.meta.outputs.release-type }}
+          DISPLAY_NAME_TEMPLATE: ${{ inputs.curseforge-display-name }}
+          GAME_VERSIONS: ${{ inputs.game-versions }}
+          BEDROCK_GAME_VERSIONS: ${{ inputs.curseforge-bedrock-game-versions }}
+          LOADERS: ${{ inputs.loaders }}
+          JAVA_VERSIONS: ${{ inputs.curseforge-java-versions }}
+          ENVIRONMENTS: ${{ inputs.curseforge-environments }}
+          JAVA_PROJECT_ID: ${{ inputs.curseforge-java-project-id }}
+          JAVA_API: ${{ inputs.curseforge-java-api-url }}
+          JAVA_RELATIONS: ${{ inputs.curseforge-java-relations }}
+          BEDROCK_PROJECT_ID: ${{ inputs.curseforge-bedrock-project-id }}
+          BEDROCK_API: ${{ inputs.curseforge-bedrock-api-url }}
+          BEDROCK_RELATIONS: ${{ inputs.curseforge-bedrock-relations }}
+          BEDROCK_TYPE_PREFIX: ${{ inputs.curseforge-bedrock-version-type-prefix }}
+        run: |
+          # CurseForge upload API (per game host):
+          #   GET  {api}/api/game/version-types        -> [{id,name,slug}]
+          #   GET  {api}/api/game/versions             -> [{id,gameVersionTypeID,name,slug}]
+          #   POST {api}/api/projects/{id}/upload-file  multipart: metadata=<json>, file=@file
+          # Auth: X-Api-Token header.
+          set -euo pipefail
+          shopt -s nullglob
+          work="$RUNNER_TEMP/cf"
+          mkdir -p "$work"
+          notes="$IN/release-notes/notes.md"
+          failures=0
+
+          if [[ -z "$CF_TOKEN" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "::warning::CURSEFORGE_TOKEN is not set; dry run prints requests with unresolved version names."
+            else
+              echo "::warning::CURSEFORGE_TOKEN secret is not set; skipping CurseForge publishing."
+              exit 0
+            fi
+          fi
+
+          cf_get() { # api path out
+            curl -sS --fail-with-body --retry 3 --retry-delay 5 -H "X-Api-Token: $CF_TOKEN" "$1$2" -o "$3"
+          }
+
+          # resolve <api-tag> <type-slug-prefix> <comma list>  -> prints JSON array of ids
+          resolve() {
+            local tag="$1" prefix="$2" list="$3" name ids out="[]" items=()
+            IFS=',' read -ra items <<<"$list"
+            for name in "${items[@]}"; do
+              name="${name#"${name%%[![:space:]]*}"}"   # trim
+              name="${name%"${name##*[![:space:]]}"}"
+              [[ -z "$name" ]] && continue
+              ids="$(jq -c --arg n "$name" --arg p "$prefix" --slurpfile types "$work/$tag-types.json" '
+                ($n | ascii_downcase) as $n
+                | ([$types[0][] | select(.slug | ascii_downcase | startswith($p)) | .id]) as $tids
+                | [ .[]
+                    | select(.gameVersionTypeID as $t | $tids | index($t))
+                    | select(
+                        if ($n | endswith("*")) then
+                          ((.name | ascii_downcase) | startswith($n | rtrimstr("*")))
+                        else
+                          (.name | ascii_downcase) == $n or (.slug | ascii_downcase) == $n
+                        end)
+                    | .id ] | unique' "$work/$tag-versions.json")" || return 1
+              if [[ "$ids" == "[]" ]]; then
+                if [[ "$STRICT" == "true" ]]; then
+                  echo "::error::CurseForge ($tag): no version named '$name' in types '${prefix:-*}'" >&2
+                  return 1
+                fi
+                echo "::warning::CurseForge ($tag): no version named '$name' in types '${prefix:-*}', skipped" >&2
+              else
+                echo "CurseForge ($tag): '$name' -> $ids" >&2
+              fi
+              out="$(jq -c --argjson a "$out" --argjson b "$ids" -n '$a + $b | unique')" || return 1
+            done
+            echo "$out"
+          }
+
+          relations_json() { # "slug:type,slug:type" -> {"projects":[...]}
+            jq -c -n --arg s "$1" '
+              {projects: [ $s | split(",")[] | gsub("^\\s+|\\s+$"; "") | select(length > 0)
+                | split(":") | {slug: .[0], type: (.[1] // "requiredDependency")} ]}'
+          }
+
+          # NOTE: publish runs in an `|| failures++` context where `set -e` is ignored,
+          # so every fallible command inside it ends with `|| return 1`.
+          publish() { # edition api project_id file relations  version-spec...
+            local edition="$1" api="$2" project="$3" file="$4" relations="$5"
+            shift 5
+            local tag="${edition,,}"
+            if [[ -z "$project" ]]; then
+              echo "CurseForge: no $edition project id configured; skipping."
+              return 0
+            fi
+            if [[ -z "$file" ]]; then
+              echo "::error::CurseForge: $edition project configured but no $edition artifact was built."
+              return 1
+            fi
+
+            local display="$DISPLAY_NAME_TEMPLATE"
+            display="${display//\{version\}/$VERSION}"
+            display="${display//\{tag\}/$TAG}"
+            display="${display//\{repo\}/${GITHUB_REPOSITORY#*/}}"
+            display="${display//\{edition\}/$edition}"
+
+            local ids="[]" names="[]" spec prefix list part
+            if [[ -n "$CF_TOKEN" ]]; then
+              cf_get "$api" /api/game/version-types "$work/$tag-types.json" || return 1
+              cf_get "$api" /api/game/versions "$work/$tag-versions.json" || return 1
+            fi
+            for spec in "$@"; do   # each spec: "<type-prefix>|<comma list>"
+              prefix="${spec%%|*}"; list="${spec#*|}"
+              [[ -z "$list" ]] && continue
+              names="$(jq -c -n --argjson a "$names" --arg l "$list" '$a + ($l | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))')" || return 1
+              if [[ -n "$CF_TOKEN" ]]; then
+                part="$(resolve "$tag" "$prefix" "$list")" || return 1
+                ids="$(jq -c -n --argjson a "$ids" --argjson b "$part" '$a + $b | unique')" || return 1
+              fi
+            done
+            if [[ -n "$CF_TOKEN" && "$ids" == "[]" ]]; then
+              echo "::error::CurseForge ($edition): no game versions resolved; CurseForge requires at least one."
+              return 1
+            fi
+
+            jq -n \
+              --rawfile changelog "$notes" \
+              --arg displayName "$display" \
+              --arg releaseType "$RELEASE_TYPE" \
+              --argjson gameVersions "$ids" \
+              --argjson relations "$(relations_json "$relations")" '
+              {changelog: $changelog, changelogType: "markdown", releaseType: $releaseType, gameVersions: $gameVersions}
+              + (if $displayName != "" then {displayName: $displayName} else {} end)
+              + (if ($relations.projects | length) > 0 then {relations: $relations} else {} end)' \
+              > "$work/$tag-metadata.json" || return 1
+
+            local url="$api/api/projects/$project/upload-file"
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "::group::[dry-run] POST $url ($edition)"
+              echo "file: $file ($(stat -c %s "$file") bytes)"
+              echo "requested versions/tags: $names"
+              jq '.changelog |= (.[0:300] + (if length > 300 then "..." else "" end))' "$work/$tag-metadata.json"
+              echo "::endgroup::"
+              echo "- [dry-run] $edition: would upload \`$(basename "$file")\` to project $project" >> "$GITHUB_STEP_SUMMARY"
+              return 0
+            fi
+
+            echo "Uploading $(basename "$file") to $url"
+            local response
+            if ! response="$(curl -sS --fail-with-body -H "X-Api-Token: $CF_TOKEN" \
+                -F "metadata=<$work/$tag-metadata.json;type=application/json" \
+                -F "file=@$file" "$url")"; then
+              echo "::error::CurseForge ($edition) upload failed: $response"
+              return 1
+            fi
+            local file_id
+            file_id="$(jq -r '.id // empty' <<<"$response")"
+            echo "CurseForge ($edition): uploaded file id $file_id"
+            echo "- $edition: uploaded \`$(basename "$file")\` to CurseForge project $project (file id $file_id)" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          java_files=("$IN"/java-artifact/*)
+          bedrock_files=("$IN"/bedrock-artifact/*)
+
+          publish Java "$JAVA_API" "$JAVA_PROJECT_ID" "${java_files[0]:-}" "$JAVA_RELATIONS" \
+            "minecraft|$GAME_VERSIONS" "modloader|$LOADERS" "java|$JAVA_VERSIONS" "environment|$ENVIRONMENTS" \
+            || failures=$((failures + 1))
+
+          publish Bedrock "$BEDROCK_API" "$BEDROCK_PROJECT_ID" "${bedrock_files[0]:-}" "$BEDROCK_RELATIONS" \
+            "$BEDROCK_TYPE_PREFIX|${BEDROCK_GAME_VERSIONS:-$GAME_VERSIONS}" \
+            || failures=$((failures + 1))
+
+          if (( failures > 0 )); then
+            echo "::error::$failures CurseForge upload(s) failed."
+            exit 1
+          fi
