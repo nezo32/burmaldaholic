@@ -35,7 +35,7 @@ export const EXCLUDED_CAUSES: ReadonlySet<string> = new Set(['void', 'override',
 
 /** Debt-collector squad members (GAME_DESIGN §5.5); no Last Chance against them in Hardcore (§5.7). */
 export const SQUAD_TYPES: ReadonlySet<string> = new Set([
-  'burmaldaholic:collector',
+  'burmaldaholic:debt_collector',
   'burmaldaholic:repo_man',
   'burmaldaholic:accountant',
   'burmaldaholic:enforcer',
