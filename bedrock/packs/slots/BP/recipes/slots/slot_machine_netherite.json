@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "burmaldaholic:slot_machine_netherite"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "BNB",
+      "BRB",
+      "BPB"
+    ],
+    "key": {
+      "B": {
+        "item": "minecraft:gold_block"
+      },
+      "N": {
+        "item": "minecraft:netherite_ingot"
+      },
+      "R": {
+        "item": "minecraft:redstone_block"
+      },
+      "P": {
+        "item": "burmaldaholic:chip_100"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:netherite_ingot"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:slot_machine_netherite"
+    }
+  }
+}
