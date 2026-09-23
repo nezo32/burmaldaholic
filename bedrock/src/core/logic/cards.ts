@@ -2,6 +2,7 @@
  * Shared playing-card primitives (blackjack, poker, extras). PURE.
  * Card ids are compact strings like 'AS', '10H', 'QD' - handy for dynamic properties.
  */
+import { type Raw, lit, t } from './rawtext';
 import { type Rng, shuffle } from './rng';
 
 export const SUITS = ['S', 'H', 'D', 'C'] as const;
@@ -29,6 +30,17 @@ export function newShoe(rng: Rng, decks = 1): Card[] {
   return shuffle(rng, cards);
 }
 
-/** Lang keys for card names (defined in lang/core): msg.burmaldaholic.core.rank.<R>, msg.burmaldaholic.core.suit.<S>. */
-export const rankKey = (r: Rank): string => `msg.burmaldaholic.core.rank.${r}`;
-export const suitKey = (s: Suit): string => `msg.burmaldaholic.core.suit.${s}`;
+const SUIT_NAMES: Record<Suit, string> = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
+const FACE = new Set<Rank>(['A', 'K', 'Q', 'J', '10']);
+
+/** Short rank for text rendering: keyed for A/K/Q/J/10 (RU: Т/К/Д/В), digits 2–9 literal. */
+export const rankLabel = (r: Rank): Raw => (FACE.has(r) ? t(`gui.burmaldaholic.card.rank.${r.toLowerCase()}`) : lit(r));
+/** Suit name ("Spades" / «Пики»). */
+export const suitLabel = (s: Suit): Raw => t(`gui.burmaldaholic.card.suit.${SUIT_NAMES[s]}`);
+/** Narration "Ace of Spades" / «Туз, пики» (digits and 10 stay numeric). */
+export function cardName(c: Card): Raw {
+  const name = c.rank === 'A' || c.rank === 'K' || c.rank === 'Q' || c.rank === 'J' ? t(`gui.burmaldaholic.card.name.${c.rank.toLowerCase()}`) : lit(c.rank);
+  return t('gui.burmaldaholic.card.narration', name, suitLabel(c.suit));
+}
+/** Hidden (face-down) card text. */
+export const hiddenCard = (): Raw => t('gui.burmaldaholic.card.hidden');

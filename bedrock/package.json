@@ -9,6 +9,10 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit && eslint . && node scripts/check-arch.mjs && node scripts/check-strings.mjs",
     "check:lang": "node scripts/lang.mjs",
+    "gen:lang": "node tools/gen-lang.mjs",
+    "gen:config": "node tools/gen-config.mjs",
+    "gen:textures": "node tools/gen-textures.mjs",
+    "check:spec": "node tools/gen-lang.mjs --check && node tools/gen-config.mjs --check",
     "deploy": "node scripts/deploy.mjs"
   },
   "license": "MIT",

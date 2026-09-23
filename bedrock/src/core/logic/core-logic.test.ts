@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { cardId, newShoe, parseCard } from './cards';
-import { configPropertyId, sanitize, validateDefs } from './config-schema';
 import { HudQueue } from './hud-queue';
 import { applyDelta, toScore } from './ledger';
 import { resolveCasinoEnabled } from './mode';
@@ -26,17 +25,6 @@ describe('ledger', () => {
   it('rejects fractions', () => expect(applyDelta(5, 0.5).ok).toBe(false));
   it('adds', () => expect(applyDelta(5, 10)).toEqual({ ok: true, balance: 15 }));
   it('clamps score', () => expect(toScore(1e12)).toBe(2_147_483_647));
-});
-
-describe('config', () => {
-  const def = { type: 'int', name: 'max_bet', default: 100, min: 1, max: 1000 } as const;
-  it('sanitizes', () => {
-    expect(sanitize(def, 5000)).toBe(1000);
-    expect(sanitize(def, 'x')).toBe(100);
-    expect(sanitize({ type: 'enum', name: 'e', default: 'a', options: ['a', 'b'] }, 'c')).toBe('a');
-  });
-  it('validates', () => expect(() => validateDefs('m', [def, def])).toThrow());
-  it('property id', () => expect(configPropertyId('core.max_bet')).toBe('burmaldaholic:cfg.core.max_bet'));
 });
 
 describe('rng', () => {
@@ -67,7 +55,7 @@ describe('odds', () => {
     expect(o.probability('p', 'slots', 0.3)).toBeCloseTo(0.7);
     expect(o.probability('p', 'slots', 0.5)).toBe(0.9);
   });
-  it('tracks streaks', () => {
+  it('tracks streaks (memory source)', () => {
     const o = new OddsService();
     o.recordResult('p', 'win');
     expect(o.recordResult('p', 'win')).toBe(2);

@@ -17,3 +17,34 @@ export function resolveCasinoEnabled(worldOverride: unknown, packSettings: Recor
   if (typeof ps === 'boolean') return ps;
   return true;
 }
+
+/**
+ * First-op Setup form (GAME_DESIGN §2.1, Bedrock). Stored in world dynamic property
+ * `burmaldaholic:core.setup` as JSON. Until answered the mode is ON with defaults; a dismissed
+ * form re-appears on that op's next join, max 3 times, then defaults are kept silently.
+ */
+export const SETUP_PROP = 'burmaldaholic:core.setup';
+export const SETUP_MAX_DISMISSALS = 3;
+
+export interface SetupState {
+  done: boolean;
+  /** dismissals per player id */
+  dismissed: Record<string, number>;
+}
+
+export function parseSetup(raw: unknown): SetupState {
+  try {
+    const o = typeof raw === 'string' ? (JSON.parse(raw) as Partial<SetupState>) : {};
+    return { done: o.done === true, dismissed: typeof o.dismissed === 'object' && o.dismissed ? o.dismissed : {} };
+  } catch {
+    return { done: false, dismissed: {} };
+  }
+}
+
+export function shouldShowSetup(s: SetupState, playerId: string, isOperator: boolean): boolean {
+  return isOperator && !s.done && (s.dismissed[playerId] ?? 0) < SETUP_MAX_DISMISSALS;
+}
+
+export function dismissSetup(s: SetupState, playerId: string): SetupState {
+  return { done: s.done, dismissed: { ...s.dismissed, [playerId]: (s.dismissed[playerId] ?? 0) + 1 } };
+}

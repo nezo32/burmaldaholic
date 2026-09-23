@@ -1,3 +1,63 @@
-## slots module strings. Keys: msg.burmaldaholic.slots.*
-msg.burmaldaholic.slots.name=Слоты
-msg.burmaldaholic.slots.config.enabled=Включить: Слоты
+## slots strings (ru_RU). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
+## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [slots]
+gui.burmaldaholic.slots.spin=Крутить (%1)
+gui.burmaldaholic.slots.auto=Авто ×10
+gui.burmaldaholic.slots.stop_auto=Стоп
+gui.burmaldaholic.slots.line_bet=Ставка на линию: %1
+gui.burmaldaholic.slots.lines=Линий: %1
+gui.burmaldaholic.slots.jackpot=ДЖЕКПОТ %1
+gui.burmaldaholic.slots.last_win=Последний выигрыш: %1
+gui.burmaldaholic.slots.no_win=В этот раз мимо
+gui.burmaldaholic.slots.line_win=Линия %1: ×%2 → %3
+gui.burmaldaholic.slots.spin_total=Итог вращения: %1
+gui.burmaldaholic.slots.auto_summary=%1: поставлено %2, выиграно %3
+gui.burmaldaholic.slots.auto_stopped_big_win=Автоигра остановлена: крупный выигрыш!
+gui.burmaldaholic.slots.auto_stopped_funds=Автоигра остановлена: не хватает фишек
+gui.burmaldaholic.slots.paytable.three=Три «%1»: ×%2
+gui.burmaldaholic.slots.paytable.berry_1=Ягода на первом барабане: ×%1
+gui.burmaldaholic.slots.paytable.berry_2=Ягоды на первых двух барабанах: ×%1
+gui.burmaldaholic.slots.paytable.wild=Тотем — вайлд: заменяет любой фрукт, камень или семёрку
+gui.burmaldaholic.slots.paytable.star=Три звезды Незера: накопительный джекпот
+gui.burmaldaholic.slots.paytable.star_owned=Три звезды Незера: ×%1
+gui.burmaldaholic.slots.paytable.chaos=%1: что-то случится…
+gui.burmaldaholic.slots.paytable.max_bet_jackpot=Весь джекпот — только при максимальной ставке; меньшая ставка даёт долю
+gui.burmaldaholic.slots.symbol.berry=Сладкие ягоды
+gui.burmaldaholic.slots.symbol.apple=Яблоко
+gui.burmaldaholic.slots.symbol.carrot=Золотая морковь
+gui.burmaldaholic.slots.symbol.emerald=Изумруд
+gui.burmaldaholic.slots.symbol.diamond=Алмаз
+gui.burmaldaholic.slots.symbol.seven=Редстоуновая семёрка
+gui.burmaldaholic.slots.symbol.wild=Тотем (вайлд)
+gui.burmaldaholic.slots.symbol.creeper=Крипер
+gui.burmaldaholic.slots.symbol.tnt=Динамит
+gui.burmaldaholic.slots.symbol.pearl=Жемчуг Края
+gui.burmaldaholic.slots.symbol.clock=Часы
+gui.burmaldaholic.slots.symbol.star=Звезда Незера
+msg.burmaldaholic.slots.three_creepers=Три крипера. Это шипит не автомат.
+msg.burmaldaholic.slots.three_tnt=Три динамита! Автомат зовёт друзей.
+msg.burmaldaholic.slots.three_pearls=Три жемчужины — пакуйте чемоданы!
+msg.burmaldaholic.slots.three_clocks=Трое часов! Пробил «Золотой час»!
+msg.burmaldaholic.slots.three_clocks_cooldown=Трое часов! «Золотой час» перезаряжается, но выигрыш ваш.
+msg.burmaldaholic.slots.jackpot_self=ДЖЕКПОТ! Вы сорвали %1!
+msg.burmaldaholic.slots.jackpot_broadcast=ДЖЕКПОТ! %1 срывает %2 на автомате «%3»!
+msg.burmaldaholic.slots.seven_title=Три семёрки!
+## [config / Family templates]
+config.burmaldaholic.slots.weights=%1 — веса символов
+config.burmaldaholic.slots.pays=%1 — выплаты
+config.burmaldaholic.slots.berryPartial=%1 — выплаты за ягоды
+## [config / vip, games]
+config.burmaldaholic.slots.enabled=Игровые автоматы
+config.burmaldaholic.slots.copper.maxLineBet=Медный бандит: макс. ставка на линию
+config.burmaldaholic.slots.gold.maxLineBet=Золотые барабаны: макс. ставка на линию
+config.burmaldaholic.slots.netherite.minLineBet=Незеритовый: мин. ставка на линию
+config.burmaldaholic.slots.netherite.maxLineBet=Незеритовый: макс. ставка на линию
+config.burmaldaholic.slots.netherite.minVipTier=Незеритовый: нужный ВИП-статус
+config.burmaldaholic.slots.jackpot.contribution.gold=Отчисления в джекпот: Золотые барабаны
+config.burmaldaholic.slots.jackpot.contribution.netherite=Отчисления в джекпот: Незеритовый
+config.burmaldaholic.slots.jackpot.seed.gold=Стартовый джекпот: Золотые барабаны
+config.burmaldaholic.slots.jackpot.seed.netherite=Стартовый джекпот: Незеритовый
+config.burmaldaholic.slots.ownedStarPays=Выплата за три звезды в казино игроков
+config.burmaldaholic.slots.spinTicks=Анимация вращения (тики)
+config.burmaldaholic.slots.validateRtp=Предупреждать об RTP выше 99 %%
+## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----

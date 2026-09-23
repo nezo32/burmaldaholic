@@ -1,3 +1,51 @@
-## multiplayer module strings. Keys: msg.burmaldaholic.multiplayer.*  Placeholders: %1$s, %2$s ...
-msg.burmaldaholic.multiplayer.name=Multiplayer
-msg.burmaldaholic.multiplayer.config.enabled=Enable Multiplayer
+## multiplayer strings (en_US). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
+## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [multiplayer]
+gui.burmaldaholic.charter.title=Casino Charter
+gui.burmaldaholic.charter.overview=Overview
+gui.burmaldaholic.charter.tables=Tables
+gui.burmaldaholic.charter.bankroll=Bankroll
+gui.burmaldaholic.charter.stats=Stats
+gui.burmaldaholic.charter.bankroll_value=Bankroll: %1
+gui.burmaldaholic.charter.reserved=Reserved for open bets: %1
+gui.burmaldaholic.charter.available=Available: %1
+gui.burmaldaholic.charter.deposit=Deposit to bankroll
+gui.burmaldaholic.charter.withdraw=Withdraw from bankroll
+gui.burmaldaholic.charter.status_open=Status: open
+gui.burmaldaholic.charter.status_broke=Status: closed — bankroll too low
+gui.burmaldaholic.charter.today=Today: handle %1 · paid out %2 · profit %3
+gui.burmaldaholic.charter.total=All time: handle %1 · paid out %2 · profit %3
+gui.burmaldaholic.charter.rake=Poker rake collected: %1
+gui.burmaldaholic.charter.table_row=%1 at %2
+gui.burmaldaholic.charter.table_open=Open
+gui.burmaldaholic.charter.table_min=Minimum bet
+gui.burmaldaholic.charter.table_max=Maximum bet
+gui.burmaldaholic.charter.table_bots=Poker bots
+gui.burmaldaholic.charter.link_tables=Link unlinked tables in range
+gui.burmaldaholic.charter.no_tables=No tables yet. Place some inside your claim.
+msg.burmaldaholic.multiplayer.charter_placed=Casino licensed! License fee: %1. Your claim: %2 around the charter.
+msg.burmaldaholic.multiplayer.charter_fee_missing=The license fee is %1. Come back with money.
+msg.burmaldaholic.multiplayer.charter_overlap=Too close to another casino or spawn
+msg.burmaldaholic.multiplayer.charter_limit=You already own the maximum number of casinos
+msg.burmaldaholic.multiplayer.charter_removed=Charter removed. %1 returned from the bankroll; your tables are now inactive.
+msg.burmaldaholic.multiplayer.table_linked=%1 is now part of your casino
+msg.burmaldaholic.multiplayer.table_protected=This table belongs to %1's casino
+msg.burmaldaholic.multiplayer.table_inactive=This table has no license. Its owner must link it to a charter.
+msg.burmaldaholic.multiplayer.casino_broke=Your casino is closed: the bankroll can't cover the minimum bets. Top it up to reopen.
+msg.burmaldaholic.multiplayer.casino_reopened=Your casino is open again
+msg.burmaldaholic.multiplayer.bankroll_deposit=Bankroll +%1 (now %2)
+msg.burmaldaholic.multiplayer.bankroll_withdraw=Bankroll −%1 (now %2)
+msg.burmaldaholic.multiplayer.bankroll_reserved=You can only withdraw %1 — the rest covers open bets
+msg.burmaldaholic.multiplayer.entered_casino=You enter %1's casino
+msg.burmaldaholic.multiplayer.seat_taken=That seat is taken
+msg.burmaldaholic.multiplayer.table_left_distance=You walked away from the table
+## [config / loan, chaos, streak, lastchance, worldgen, ownership, debug]
+config.burmaldaholic.ownership.enabled=Player casinos
+config.burmaldaholic.ownership.licenseFee=License fee
+config.burmaldaholic.ownership.claimRadius=Claim radius
+config.burmaldaholic.ownership.maxPerPlayer=Casinos per player
+config.burmaldaholic.ownership.protectTables=Protect owned tables
+config.burmaldaholic.ownership.explosionProof=Explosion-proof tables
+config.burmaldaholic.multiplayer.tableLeaveDistance=Leave-table distance
+config.burmaldaholic.multiplayer.spectatorRadius=Spectator radius
+## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----

@@ -50,7 +50,7 @@ export function registerCommand(reg: CustomCommandRegistry, spec: CommandSpec, l
         const player = src?.typeId === 'minecraft:player' ? (src as Player) : undefined;
         try {
           if (!spec.bypassCasinoGuard && !isCasinoEnabled()) {
-            player?.sendMessage(t('msg.burmaldaholic.core.casino_disabled'));
+            player?.sendMessage(t('gui.burmaldaholic.error.casino_off'));
             return;
           }
           spec.run(player, args, origin);

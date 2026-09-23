@@ -21,17 +21,24 @@ describe('pluralSuffix (EN+RU partition)', () => {
     [1001, 'p21'],
     [-1, 'p1'],
     [-21, 'p21'],
+    // LOCALIZATION.md §3.2 shared vectors
+    [25, 'p5'],
+    [121, 'p21'],
+    [1011, 'p5'],
   ];
   it.each(cases)('%i -> %s', (n, s) => expect(pluralSuffix(n)).toBe(s));
 
-  it('builds keys', () => expect(pluralKey('msg.burmaldaholic.core.chips', 21)).toBe('msg.burmaldaholic.core.chips.p21'));
+  it('builds keys', () => expect(pluralKey('unit.burmaldaholic.chip', 21)).toBe('unit.burmaldaholic.chip.p21'));
 });
 
 describe('plural rawtext', () => {
-  it('passes n as %1$s and extras after it', () => {
-    expect(plural('msg.burmaldaholic.core.chips', 5, 'Bob')).toEqual({
-      translate: 'msg.burmaldaholic.core.chips.p5',
+  it('passes n as %1 and extras after it', () => {
+    expect(plural('unit.burmaldaholic.chip', 5, 'Bob')).toEqual({
+      translate: 'unit.burmaldaholic.chip.p5',
       with: { rawtext: [{ text: '5' }, { text: 'Bob' }] },
     });
+  });
+  it('groups large numbers', () => {
+    expect(plural('unit.burmaldaholic.chip', 12500)).toEqual({ translate: 'unit.burmaldaholic.chip.p5', with: { rawtext: [{ text: '12 500' }] } });
   });
 });

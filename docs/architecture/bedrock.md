@@ -73,8 +73,8 @@ applies from 1.26.50 formats, so do not use them yet.
 
 | File | Folder | Suggested `format_version` |
 |---|---|---|
-| Items | `BP/items/<module>/` | `1.26.30`. Use `minecraft:display_name` with a lang key such as `item.burmaldaholic:chip_100`, plus `minecraft:icon` and `minecraft:custom_components`. |
-| Blocks | `BP/blocks/<module>/` | `1.26.30`. Custom components v2 (`minecraft:custom_components` with params) are registered in script via `event.blockComponentRegistry` during `onStartup`. |
+| Items | `BP/items/<module>/` | `1.26.30`. Use `minecraft:display_name` with the canonical STRINGS.md key (`{"value": "item.burmaldaholic.chip_100"}`), plus `minecraft:icon`. Custom components (v2) are keys in `components`, e.g. `"burmaldaholic:casino_card": {}`. |
+| Blocks | `BP/blocks/<module>/` | `1.26.30`. Custom components v2 are listed as keys in `components` with their params (`"burmaldaholic:table": {"game": "blackjack"}`) and registered in script via `event.blockComponentRegistry` during `onStartup`. `minecraft:display_name` = `block.burmaldaholic.<id>`. |
 | Entities (server) | `BP/entities/<module>/` | `1.26.30` |
 | Client entities | `RP/entity/<module>/` | `1.10.0`. Render controllers and animations `1.10.0`, geometry `1.16.0`. |
 | Feature / feature rules | `BP/features`, `BP/feature_rules` | `1.21.x`–`1.26.30` |
@@ -113,12 +113,12 @@ resolved by `resolveCasinoEnabled` in `core/logic/mode.ts` (first defined value 
 
 1. **World override.** Operators run `/burmaldaholic:casino` to open an admin `ActionFormData`, which can
    toggle casino mode. The choice is saved in the world dynamic property `burmaldaholic:casino_mode`.
-   The same form edits each module's declared config.
+   The same admin page edits every config key (World settings).
    - It can also be set with `/scriptevent burmaldaholic:admin casino_mode true|false` (already
      implemented in `core/module-core.ts`).
-   - GAME_DESIGN §2 also asks for a **first-op Setup form** on first world load. It writes this
-     same property and is B-core's job (wave 2). It layers on top of this resolution without
-     changing it.
+   - The **first-op Setup form** (GAME_DESIGN §2.1, `core/setup.ts`) writes this same property
+     plus `lastChance.hardcoreMode` and `chaos.enabled`. It layers on top of this resolution
+     without changing it.
 2. **Pack setting.** The manifest v3 `settings` holds a toggle `burmaldaholic:casino_mode` (default
    on), with labels given as lang keys.
    - Players see it through the gear or settings button on the pack when they apply it at world
@@ -154,6 +154,8 @@ bedrock/
   lang/<id>/en_US.lang, ru_RU.lang     per-module lang fragments
   packs/<id>/BP/**, packs/<id>/RP/**   per-module pack content (overlaid into build/BP, build/RP)
   scripts/             build.mjs, lang.mjs, check-arch.mjs, check-strings.mjs, deploy.mjs
+  tools/               gen-lang.mjs (STRINGS.md -> lang/*), gen-config.mjs (CONFIG.md -> core/logic/config-catalog.ts),
+                       gen-textures.mjs (core 16x16 PNGs), lib/*.mjs (+ *.test.mjs, run by npm test)
 ```
 
 ## 6. Module contract (read this before writing code)
@@ -167,15 +169,9 @@ export interface CasinoModule {
 }
 ```
 
-`ModuleContext` gives you:
-- `config`: typed access to your own `<id>.<name>` values, stored as `burmaldaholic:cfg.<id>.<name>`.
-- `economy`: `balance`, `change`, `charge`, `pay`, `onChange`.
-- `odds`: see "Odds and streaks" below.
-- `hud`: `actionbar(player, channel, raw, priority, ttl)` and `title`.
-- `services`: the cross-module service locator.
-- `log`
-- `isCasinoEnabled()`
-- `guard(fn)`
+`ModuleContext` gives you `config`, `economy`, `wagers`, `limits`, `odds`, `streak`, `tables`,
+`hud`, `goldenHour`, `menu`, `cashier`, `admin`, `services`, `log`, `isCasinoEnabled()` and
+`guard(fn)`. Signatures and examples: §14 "Core API for feature devs".
 
 The bootstrapper isolates modules: an exception in one module is logged to the Content Log and
 does not break the others.
@@ -219,29 +215,33 @@ does not break the others.
 6. **No hardcoded player-facing text.** See §7.
 7. **Respect casino mode.** Wrap handlers with `ctx.guard` and register commands through
    `ctx.registerCommand`.
-8. **Odds and streaks.** Games ask `ctx.odds.probability(playerId, '<id>', base)` for binary
-   outcomes and call `ctx.odds.recordResult(playerId, 'win'|'loss'|'push')` after every round.
-   Chaos, VIP and lastchance adjust odds with `ctx.odds.addModifier(id, fn, order)` and must not
-   edit game code. Outcomes with several branches (roulette, slots) scale their weights using
-   the returned probability or their own modifier hook documented in their `api.ts`.
-9. **Money** goes only through `ctx.economy`:
-   - `charge` takes a bet and returns false after telling the player they cannot afford it.
-   - `pay` credits winnings.
-   - Chip items (`burmaldaholic:chip_*`) and the cashier are core's job (wave 2).
-
-   The balance is stored in the player dynamic property `burmaldaholic:balance` and mirrored to the
-   scoreboard `burmaldaholic_balance` (int32, clamped).
+8. **Odds and streaks.** RNG games (slots, wheel, plinko, scratch, coin flip) draw through
+   `ctx.odds.draw(...)`, which applies the GAME_DESIGN §14 streak re-draw. Table games are
+   honest and never call it. The streak is updated by `ctx.wagers.settle` automatically, so do
+   **not** also call `ctx.odds.recordResult`. Chaos, VIP and lastchance adjust binary odds with
+   `ctx.odds.addModifier(id, fn, order)` and must not edit game code.
+9. **Money** goes only through core: bets through `ctx.wagers` (house-banked rounds) or
+   `ctx.economy.transact` (PvP pots), earnings through `ctx.economy.earn`. The balance is the
+   player dynamic property `burmaldaholic:balance`, mirrored to the scoreboard
+   `burmaldaholic_balance` (int32, clamped).
 
 ## 7. Localization
 
-- **Keys** follow the docs/design scheme `<category>.burmaldaholic.<id>.<...>`, mostly
-  `msg.burmaldaholic.<id>.*`, and are owned by the module whose folder they live in. A key that
-  names another module's id fails the build. Engine keys that
-  contain a `burmaldaholic:` identifier are also allowed, for example `item.burmaldaholic:chip_100`,
-  `entity.burmaldaholic:dealer.name` or `tile.burmaldaholic:slots_machine.name`. `pack.name` and
-  `pack.description` are core-only.
-- **Placeholders must be positional:** `%1$s`, `%2$s`... so the RU text can reorder them. Bare
-  `%s` or `%d` fails the build.
+- **Source of truth:** `docs/design/STRINGS.md`. `npm run gen:lang` (tools/gen-lang.mjs) writes
+  every `lang/<module>/{en_US,ru_RU}.lang` from it, converting `%1$s` to Bedrock's `%1` and adding
+  the Bedrock-only aliases (`entity.burmaldaholic:<id>.name`, spawn eggs, `pack.name` /
+  `pack.description` from the modmenu keys). Re-running keeps everything below the
+  `## ---- manual ...` marker line of each fragment, so hand-added keys survive.
+  `npm run check:spec` reports fragments that drifted from the spec (it is not part of the build).
+- **Keys** follow LOCALIZATION.md §1.1 (`gui.burmaldaholic.blackjack.hit`, `msg.burmaldaholic.loan.taken`,
+  `item.burmaldaholic.chip_1`, `unit.burmaldaholic.chip.p5`...). A key whose segment after
+  `burmaldaholic.` names a module (or a CONFIG.md alias: `lastChance` = lastchance,
+  `ownership` = multiplayer) must live in that module's fragment. Shared areas (`common`,
+  `error`, `menu`, `card`, `unit`, item/block/entity names...) are routed to the module of their
+  STRINGS.md section (mostly core) and may be used by anyone. `pack.name` / `pack.description`
+  are core-only.
+- **Placeholders are Bedrock-positional:** `%1`, `%2`... (generated from the spec's `%1$s`), so
+  RU can reorder them; `%%` is a literal percent. `%1$s`, bare `%s` and `%d` fail the build.
 - **What the build checks** (it fails, and `npm run check:lang` shows the same errors):
   - key sets differ between `en_US` and `ru_RU`
   - placeholder index sets differ
@@ -253,7 +253,9 @@ does not break the others.
 - **Code:**
   - `t(key, ...args)` translates. Args can be strings or numbers (shown literally) or nested
     `Raw` values.
-  - `plural(base, n, ...extra)` handles counts; `n` becomes `%1$s`.
+  - `plural(base, n, ...extra)` handles counts; `n` becomes `%1`. Shortcuts: `chips(n)`,
+    `chipsAcc(n)` (RU accusative after verbs), `unit('heart', n)`, `duration(ticks)`.
+  - Numbers passed as args are formatted per LOCALIZATION.md §4 (`12 500`).
   - `join(...)` concatenates.
   - `lit()` is only for numbers, player names and `§` codes.
 - **`npm run lint` → `check-strings.mjs` fails on:**
@@ -312,7 +314,7 @@ the numbers that EN and RU both need:
     `minecraft:damage_sensor` that ignores all damage, `minecraft:behavior.look_at_player`.
   - Interaction: `world.afterEvents.playerInteractWithEntity` with a check on
     `target.typeId === 'burmaldaholic:dealer'`, which then opens a form.
-  - Name: shown through the translated `entity.burmaldaholic:dealer.name` key. Do not use `nameTag`,
+  - Name: shown through the translated `entity.burmaldaholic:<id>.name` key (generated from STRINGS.md `entity.burmaldaholic.<id>`). Do not use `nameTag`,
     which cannot be translated.
   - Avoid `minecraft:npc`, whose dialog editing is only for operators.
 - **Debt collectors:**
@@ -387,7 +389,10 @@ MOD_VERSION=1.2.3 npm run build   # release version override (CI)
     1, 2, 5 and 21.
   - `/burmaldaholic:casino` as op: turning casino mode off makes `/burmaldaholic:balance` reply "casino mode is
     off".
-  - The sidebar balance is visible.
+  - The actionbar status line (balance · streak · VIP) shows when nothing else is posted.
+  - A new player gets the starting balance, a Casino Card and the welcome text; the first op
+    gets the Setup form.
+  - The Cashier deposits / withdraws chips and buys / sells them for emeralds.
 
 ## 13. Open risks / verify in game
 
@@ -399,6 +404,159 @@ MOD_VERSION=1.2.3 npm run build   # release version override (CI)
 3. **Custom command descriptions** are not localizable. Admin and player commands are secondary
    to forms and NPCs anyway.
 4. **Actionbar** is a single shared line. Use the HUD service, never raw `setActionBar`.
+
+## 14. Core API for feature devs
+
+Everything below is reached through the `ctx` your module receives (`onStartup(ctx)` /
+`onWorldLoad(ctx)`) and imported from `core/index.ts` (`import { t, chips, ... } from '../../core'`).
+Pure helpers can also be imported from `core/logic/*` inside your own `logic/` folder.
+
+### 14.1 Config — `ctx.config` (every CONFIG.md key, typed)
+
+All CONFIG.md keys already exist (generated catalog `core/logic/config-catalog.ts`, 355 keys,
+families expanded: `chaos.weight.<event>`, `slots.<tier>.weights`, `wager.appraisal.<item>`...).
+You do **not** declare them. Values are defaults overridden by the world property
+`burmaldaholic:config` (flat JSON of overrides). Admin → World settings edits them with typed
+controls (toggle / slider / dropdown / text), clamps out-of-range values and tells the editor.
+
+```ts
+ctx.config.int('blackjack.decks')        // full CONFIG.md key
+ctx.config.bool('enabled')               // relative: '<module prefix>.enabled' (lastchance -> 'lastChance.')
+ctx.config.num('blackjack.penetration')  // int | long | double
+ctx.config.str('lastChance.hardcoreMode')
+ctx.config.json<number[]>('poker.botMix.micro')          // list / map keys
+ctx.config.onChange((key, value) => { ... })
+```
+Also: `/scriptevent burmaldaholic:config set|reset|get <key> [value]`. A key that is not in
+CONFIG.md may be declared in `CasinoModule.config` (`{type:'int', name:'foo', default, min, max}`);
+add it to CONFIG.md + STRINGS.md (`config.burmaldaholic.<key>`) and run `npm run gen:config`.
+
+### 14.2 Money — `ctx.economy`
+
+```ts
+economy.balance(p): number
+economy.credit(p, amount, reason): number      // capped at economy.maxBalance, returns credited
+economy.debit(p, amount, reason): boolean      // false = not enough, nothing changed
+economy.charge(p, amount, reason) / pay(p, amount, reason)   // debit+tell player / credit
+economy.earn(p, amount, sourceRaw, reason)     // credit + merged "+20 chips (Diamond Ore)" toast
+economy.transfer(from, to, amount, reason): boolean
+economy.transact([{account: p1, delta: -50}, {account: {bankroll: id}, delta: 5}, {account: 'bank', delta: 45}], reason): boolean  // atomic
+economy.withdrawable(p) / owed(p) / inDefault(p)
+economy.setDebtProvider({ owed(p), inDefault(p) })   // loan module
+economy.bankroll(id) / bankrollDeposit / bankrollWithdraw / bankrollAvailable / closeBankroll   // multiplayer (owned casinos)
+economy.onChange((p, balance, delta, reason) => ...)
+```
+Chip items `burmaldaholic:chip_{1,5,25,100,500}`, the Casino Card and the Cashier blocks
+(`burmaldaholic:cashier`, `burmaldaholic:nether_cashier`) are in `packs/core`. Item helpers:
+`giveItems(p, typeId, n)` (overflow dropped), `giveChips(p, amount)`, `chipValueInInventory(p)`,
+`takeAllChips(p)`, `countItems`, `removeItems`, `heldItem`. Earning from ores, mobs (diminishing
+returns) and trades runs in core; tag mobs you spawn with `NO_REWARD_TAG` (ids starting with
+`burmaldaholic:` never pay).
+
+### 14.3 Rounds — `ctx.wagers` (GAME_DESIGN §4)
+
+```ts
+const r = ctx.wagers.place(player, {
+  game: 'coin_flip',                        // GameId: blackjack poker slots roulette craps coin_flip wheel scratch plinko dice_duel
+  stake: { kind: 'chips', amount: 50 },     // | {kind:'item'} (held stack) | {kind:'xp', levels} | {kind:'hearts', hearts} | {kind:'soul'}
+  limits: { min: 1, tableMax: 1000, tierMultiplier: 1, minTier: 0 },   // checked against the VIP max
+  house: BANK,                              // or { kind: 'bankroll', id } in owned casinos
+  worstCase: 100,                           // max TOTAL return (bankroll reservation), default 2 × stake
+  pawnAllowed: true, soulAllowed: false,    // pawn stakes only where GAME_DESIGN §4.3 allows
+});
+if (!r.ok) return;                          // r.error already sent to chat (notify:false to show it in your form)
+// ... decide the outcome ...
+ctx.wagers.raise(r.ticket, player, extra)   // double / split / insurance / odds (not max-limited)
+ctx.wagers.settle(r.ticket, player, totalReturn)   // stake INCLUDED: 0 lose, stake push, 2×stake 1:1 win
+ctx.wagers.refund(r.ticket, player)          // cancel (no streak/VIP effect)
+ctx.wagers.recordPvp(player, 'poker', staked, net)   // PvP rounds settled with economy.transact
+ctx.wagers.onSettled(e => ...)               // {player, game, staked, totalReturn, net, stakeKind, house, houseBanked}
+```
+`settle` credits the payout (bankroll-aware), returns/forfeits pawns (items back, XP restored,
+heart penalty for one MCD, Soul Wager death), updates the streak, announces big wins and fires
+`onSettled` (VIP lifetime wagered, contracts, chaos big-win buff, Golden Hour bonus are listeners
+— core never pays them). Open rounds are persisted; after a server restart they are refunded on
+the player's next join (`msg.burmaldaholic.core.round_refunded`). On disconnect your table's
+`onLeave(session, 'disconnect')` must auto-complete the round (GAME_DESIGN §4.1).
+
+### 14.4 Limits / VIP — `ctx.limits`
+
+```ts
+ctx.limits.setVipProvider({ tier: (p) => 0..5, maxBet: (p) => n })   // vip module; default = Bronze, vip.maxBet.bronze
+ctx.limits.tier(p); ctx.limits.tierName(tier) /* colored Raw */; ctx.limits.tierMax(p, multiplier)
+ctx.limits.range(p, {min, tableMax, tierMultiplier}) -> {min, max}
+ctx.limits.check(p, amount, limits, balance?) -> Raw | undefined     // the error text per UI.md §12
+```
+
+### 14.5 Odds and streak — `ctx.odds`, `ctx.streak`
+
+```ts
+// RNG games only (§14): losing draws are re-drawn with probability min(r_raw, r_cap)
+const { result } = ctx.odds.draw(p.id, GAME_RTP.coin_flip, mathRng, () => flip(rng), (x) => !x.win);
+ctx.odds.probability(p.id, 'coin_flip', 0.5)        // binary odds after modifiers
+ctx.odds.addModifier('chaos.lucky', (q, p) => p + 0.02, 50)   // chaos / vip / lastchance
+ctx.streak.of(p); ctx.streak.onChange((p, prev, next) => ...)   // persisted, decays, ±5/±10 messages
+```
+
+### 14.6 Tables — `ctx.tables` (block → session → your forms)
+
+Block JSON (in `packs/<id>/BP/blocks/<id>/`), using the shared textures `burmaldaholic_table_felt`
+/ `burmaldaholic_table_side` or your own:
+```json
+"components": {
+  "minecraft:display_name": "block.burmaldaholic.blackjack_table",
+  "minecraft:material_instances": { "*": { "texture": "burmaldaholic_table_side" }, "up": { "texture": "burmaldaholic_table_felt" } },
+  "burmaldaholic:table": { "game": "blackjack", "variant": "standard" }
+}
+```
+Script (onStartup or onWorldLoad):
+```ts
+ctx.tables.register({
+  id: 'blackjack', seats: 5,                     // or (table) => n
+  canJoin: (p, table) => undefined,              // Raw error to refuse (VIP, owner-can't-play...)
+  async onOpen(s, rejoined) {                    // s.player, s.table {key, game, variant, location}, s.seat, s.data
+    s.setTimer('bet', ctx.config.int('blackjack.betTimerTicks'), () => { s.closeForms(); /* default action */ });
+    const bet = await promptAmount(s.player, { title: t('gui.burmaldaholic.blackjack.bet_title'), ...ctx.limits.range(s.player) });
+  },
+  onLeave(s, reason) { /* 'leave'|'distance'|'disconnect'|'broken'|'casino_off': auto-complete open rounds */ },
+});
+ctx.tables.open(player, tableRef)   // same flow from an item or NPC (key e.g. `npc:${entity.id}`)
+ctx.tables.sessionOf(p); ctx.tables.sessionsAt(key); ctx.tables.closeTable(key)
+```
+Core enforces one table per player (`error.busy`), seat count (`error.table_full`), walking away
+(`multiplayer.tableLeaveDistance` → `error.too_far`), disconnects, broken blocks and casino mode.
+
+### 14.7 UI helpers, HUD, menus
+
+```ts
+await showForm(p, form)            // retries UserBusy for 5 s; isFormOpen(p) for chaos deferral
+await promptAmount(p, {title, min, max, info?, validate?})   // slider (≤100 steps) + exact amount, re-shows errors
+new ModalLayout()                  // read ModalForm values by control index even with labels
+ctx.hud.actionbar(p, 'slots.spin', raw, HudPriority.game, ttl)
+ctx.hud.addSegment({ id: 'loan.debt', order: 40, render: (p) => raw | undefined })   // status line part
+ctx.hud.title(p, t(...), t(...))
+ctx.goldenHour.start(ticks) / stop() / isActive() / remainingTicks()   // chaos drives, HUD shows it
+ctx.menu.add({ id: 'loan', order: 30, label: t('gui.burmaldaholic.menu.loan'), open: (p) => ... })   // Casino Menu hub
+ctx.cashier.add({ id: 'shop', order: 20, label: t('gui.burmaldaholic.cashier.shop'), open: (p) => ... })
+ctx.admin.addAction({ id: 'loan.clear', label: t('gui.burmaldaholic.menu.admin.clear_debt'), run: (op) => ... })
+```
+Text: `t`, `plural`, `chips`, `chipsAcc`, `unit`, `duration`, `variant(rng, base, n)`, `join`,
+`joinWith`, `lines`, `color('§a', raw)`, `lit` (numbers/names only), `formatNumber`,
+`formatClock`, `formatDhm`. Cards: `rankLabel`, `suitLabel`, `cardName`, `hiddenCard`.
+
+### 14.8 Things to know
+
+- Keys in your fragment were generated from STRINGS.md; add missing ones below the manual
+  marker (EN + RU, `%1` placeholders) or, better, add them to STRINGS.md and run `npm run gen:lang`.
+- Shared pack registries you merge into: `RP/textures/item_texture.json` (`resource_pack_name:
+  "burmaldaholic"`, `texture_name: "atlas.items"`), `terrain_texture.json` (`"atlas.terrain"`,
+  `padding: 8`, `num_mip_levels: 4`), `RP/blocks.json` (`format_version: "1.21.40"`).
+- Time for anything persisted uses world time: `worldTick()` (= `world.getAbsoluteTime()`).
+- Edition notes implemented in core: heart wagers clamp current health to the reduced maximum
+  (script cannot change `max_health`); trades are detected from inventory changes near a
+  villager; spawner mobs are detected by a (trial) spawner within 5 blocks.
+- `SOUL_WAGER_TAG` is on a player killed by a lost Soul Wager: Last Chance must not save them.
+
 
 ## Sources
 

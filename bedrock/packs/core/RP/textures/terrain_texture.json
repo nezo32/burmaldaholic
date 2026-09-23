@@ -1,0 +1,32 @@
+{
+  "resource_pack_name": "burmaldaholic",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "burmaldaholic_cashier_front": {
+      "textures": "textures/blocks/core/cashier_front"
+    },
+    "burmaldaholic_cashier_side": {
+      "textures": "textures/blocks/core/cashier_side"
+    },
+    "burmaldaholic_cashier_top": {
+      "textures": "textures/blocks/core/cashier_top"
+    },
+    "burmaldaholic_nether_cashier_front": {
+      "textures": "textures/blocks/core/nether_cashier_front"
+    },
+    "burmaldaholic_nether_cashier_side": {
+      "textures": "textures/blocks/core/nether_cashier_side"
+    },
+    "burmaldaholic_nether_cashier_top": {
+      "textures": "textures/blocks/core/nether_cashier_top"
+    },
+    "burmaldaholic_table_felt": {
+      "textures": "textures/blocks/core/table_felt"
+    },
+    "burmaldaholic_table_side": {
+      "textures": "textures/blocks/core/table_side"
+    }
+  }
+}

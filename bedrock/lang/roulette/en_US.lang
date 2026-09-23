@@ -1,3 +1,66 @@
-## roulette module strings. Keys: msg.burmaldaholic.roulette.*  Placeholders: %1$s, %2$s ...
-msg.burmaldaholic.roulette.name=Roulette
-msg.burmaldaholic.roulette.config.enabled=Enable Roulette
+## roulette strings (en_US). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
+## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [roulette]
+gui.burmaldaholic.roulette.title=European Roulette
+gui.burmaldaholic.roulette.title_high_roller=Roulette — High Rollers
+gui.burmaldaholic.roulette.place_bets=Place your bets
+gui.burmaldaholic.roulette.no_more_bets=No more bets
+gui.burmaldaholic.roulette.add_bet=Add bet
+gui.burmaldaholic.roulette.clear_bets=Clear bets
+gui.burmaldaholic.roulette.your_bets=Your bets
+gui.burmaldaholic.roulette.no_bets=No bets yet
+gui.burmaldaholic.roulette.inside=Inside bets
+gui.burmaldaholic.roulette.outside=Outside bets
+gui.burmaldaholic.roulette.position=Position
+gui.burmaldaholic.roulette.bet.straight=Straight (35:1)
+gui.burmaldaholic.roulette.bet.split=Split (17:1)
+gui.burmaldaholic.roulette.bet.street=Street (11:1)
+gui.burmaldaholic.roulette.bet.trio=Trio (11:1)
+gui.burmaldaholic.roulette.bet.corner=Corner (8:1)
+gui.burmaldaholic.roulette.bet.first_four=First Four (8:1)
+gui.burmaldaholic.roulette.bet.six_line=Six Line (5:1)
+gui.burmaldaholic.roulette.bet.dozen=Dozen (2:1)
+gui.burmaldaholic.roulette.bet.column=Column (2:1)
+gui.burmaldaholic.roulette.bet.red=Red (1:1)
+gui.burmaldaholic.roulette.bet.black=Black (1:1)
+gui.burmaldaholic.roulette.bet.odd=Odd (1:1)
+gui.burmaldaholic.roulette.bet.even=Even (1:1)
+gui.burmaldaholic.roulette.bet.low=1–18 (1:1)
+gui.burmaldaholic.roulette.bet.high=19–36 (1:1)
+gui.burmaldaholic.roulette.desc.straight=Straight %1
+gui.burmaldaholic.roulette.desc.split=Split %1
+gui.burmaldaholic.roulette.desc.street=Street %1
+gui.burmaldaholic.roulette.desc.trio=Trio %1
+gui.burmaldaholic.roulette.desc.corner=Corner %1
+gui.burmaldaholic.roulette.desc.six_line=Six Line %1
+gui.burmaldaholic.roulette.desc.dozen.1=1st dozen (1–12)
+gui.burmaldaholic.roulette.desc.dozen.2=2nd dozen (13–24)
+gui.burmaldaholic.roulette.desc.dozen.3=3rd dozen (25–36)
+gui.burmaldaholic.roulette.desc.column.1=1st column
+gui.burmaldaholic.roulette.desc.column.2=2nd column
+gui.burmaldaholic.roulette.desc.column.3=3rd column
+gui.burmaldaholic.roulette.desc.with_amount=%1 — %2
+gui.burmaldaholic.roulette.color.red=Red
+gui.burmaldaholic.roulette.color.black=Black
+gui.burmaldaholic.roulette.color.green=Zero
+gui.burmaldaholic.roulette.result=%1 %2
+gui.burmaldaholic.roulette.result_win=%1 %2 — you win %3
+gui.burmaldaholic.roulette.result_lose=%1 %2 — not this time
+gui.burmaldaholic.roulette.la_partage=Zero! Even-money bets lose only half (la partage)
+gui.burmaldaholic.roulette.rules.1=Single zero · all bets have a 2.7%% house edge
+gui.burmaldaholic.roulette.rules.2=On zero, all outside bets lose
+msg.burmaldaholic.roulette.zero_hero=Zero! The croupier nods respectfully.
+msg.burmaldaholic.roulette.spinning=The ball is spinning…
+## [config / vip, games]
+config.burmaldaholic.roulette.enabled=Roulette
+config.burmaldaholic.roulette.laPartage=La partage
+config.burmaldaholic.roulette.laPartage.tooltip=Even-money bets lose only half when zero comes up
+config.burmaldaholic.roulette.minBet=Minimum bet
+config.burmaldaholic.roulette.insideMaxFraction=Inside bet max (share of tier max)
+config.burmaldaholic.roulette.highRollerMinTotal=High Roller minimum per spin
+config.burmaldaholic.roulette.highRollerMaxMultiplier=High Roller max multiplier
+config.burmaldaholic.roulette.betTimerTicks=Betting time (ticks)
+config.burmaldaholic.roulette.spinTicks=Spin animation (ticks)
+config.burmaldaholic.roulette.maxBettors=Max players
+config.burmaldaholic.roulette.historyLength=History length
+## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----

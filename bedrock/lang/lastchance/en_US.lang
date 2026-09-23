@@ -1,3 +1,36 @@
-## lastchance module strings. Keys: msg.burmaldaholic.lastchance.*  Placeholders: %1$s, %2$s ...
-msg.burmaldaholic.lastchance.name=Last Chance
-msg.burmaldaholic.lastchance.config.enabled=Enable Last Chance
+## lastchance strings (en_US). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
+## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [lastchance]
+msg.burmaldaholic.lastchance.flip_title=Last Chance…
+msg.burmaldaholic.lastchance.heads_title=HEADS!
+msg.burmaldaholic.lastchance.heads_subtitle=Death blinked first
+msg.burmaldaholic.lastchance.tails_title=TAILS…
+msg.burmaldaholic.lastchance.tails_subtitle=Not this time
+msg.burmaldaholic.lastchance.success=You flipped a coin with Death and won. Revived at half health. Fee: %1
+msg.burmaldaholic.lastchance.failure=You flipped a coin with Death and lost.
+msg.burmaldaholic.lastchance.broadcast_success=%1 flipped a coin with Death — and won!
+msg.burmaldaholic.lastchance.broadcast_failure=%1 flipped a coin with Death. Death called tails.
+msg.burmaldaholic.lastchance.ready=Last Chance has recharged
+msg.burmaldaholic.lastchance.cooldown_started=Last Chance recharges in %1
+msg.burmaldaholic.lastchance.hardcore.title=HIGH STAKES
+msg.burmaldaholic.lastchance.hardcore.success=You live. The price: every chip you had and one heart, forever.
+msg.burmaldaholic.lastchance.hardcore.scar=Your maximum health is permanently reduced by %1
+msg.burmaldaholic.lastchance.hardcore.not_eligible=Too poor or too scarred for another deal with Death
+msg.burmaldaholic.lastchance.hardcore.broadcast=%1 bought their life back with everything they had
+## [config / loan, chaos, streak, lastchance, worldgen, ownership, debug]
+config.burmaldaholic.lastChance.enabled=Last Chance
+config.burmaldaholic.lastChance.chance.easy=Success chance: Easy/Peaceful
+config.burmaldaholic.lastChance.chance.normal=Success chance: Normal
+config.burmaldaholic.lastChance.chance.hard=Success chance: Hard
+config.burmaldaholic.lastChance.cooldownTicks=Cooldown (ticks)
+config.burmaldaholic.lastChance.costPercent=Fee on success (%% of balance)
+config.burmaldaholic.lastChance.hardcoreMode=Hardcore mode
+config.burmaldaholic.lastChance.hardcoreMode.disabled=Disabled
+config.burmaldaholic.lastChance.hardcoreMode.high_stakes=High stakes
+config.burmaldaholic.lastChance.hardcoreMode.tooltip=High stakes: survive for all your chips and one heart, forever
+config.burmaldaholic.lastChance.hardcore.chance=Hardcore success chance
+config.burmaldaholic.lastChance.hardcore.cooldownTicks=Hardcore cooldown (ticks)
+config.burmaldaholic.lastChance.hardcore.minStake=Hardcore minimum chips
+config.burmaldaholic.lastChance.hardcore.heartCost=Permanent health cost
+config.burmaldaholic.lastChance.hardcore.minMaxHealth=Minimum max health to be eligible
+## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----

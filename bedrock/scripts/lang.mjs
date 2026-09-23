@@ -1,6 +1,7 @@
 // Merge lang fragments lang/<module>/<LANG>.lang and validate them.
-// Fails on: key-set mismatch between languages, placeholder mismatch, non-positional
-// placeholders, duplicate keys, keys outside the module's namespace, incomplete plural sets.
+// Fails on: key-set mismatch between languages, placeholder mismatch, non-positional or
+// Java-style (%1$s) placeholders, duplicate keys, keys owned by another module, incomplete
+// plural sets. Fragments are generated from docs/design/STRINGS.md by tools/gen-lang.mjs.
 // Usage: node scripts/lang.mjs            (check only)
 //        import { buildLang } from './lang.mjs'  (used by build.mjs)
 import fs from 'node:fs';
@@ -28,17 +29,39 @@ export function parseLang(file) {
   return { entries, errors };
 }
 
-/** Returns sorted positional indices, or an error string. */
+/**
+ * Returns sorted positional indices, or an error string. Bedrock form (LOCALIZATION.md §2):
+ * `%1`, `%2`... (generated from the spec's `%1$s`); `%%` is a literal percent. `%N$s`, bare `%s`
+ * and `%d` are rejected so every language can reorder arguments and no `$` reaches the client.
+ */
 export function placeholders(value) {
   const idx = [];
-  const re = /%(%|(\d+)\$[sd]|[sd])/g;
+  const re = /%(%|\d+\$[sd]|\d+|[sd])/g;
   let m;
   while ((m = re.exec(value))) {
     if (m[1] === '%') continue;
-    if (!m[2]) return { error: `non-positional placeholder '${m[0]}' (use %1$s)` };
-    idx.push(Number(m[2]));
+    if (/\$/.test(m[1])) return { error: `'${m[0]}' must use the Bedrock form %${m[1].replace(/\$.*/, '')} (run tools/gen-lang.mjs)` };
+    if (!/^\d+$/.test(m[1])) return { error: `non-positional placeholder '${m[0]}' (use %1, %2 ...)` };
+    idx.push(Number(m[1]));
   }
   return { idx: [...new Set(idx)].sort((a, b) => a - b) };
+}
+
+/**
+ * Ownership (docs/design/LOCALIZATION.md §1.1 key grammar): a key whose segment after
+ * `burmaldaholic.` names a module (or a CONFIG.md alias of one) must live in that module's
+ * fragment. Other keys containing `burmaldaholic` (shared areas such as `common`, `error`,
+ * `menu`, `unit`, item/block/entity names, engine keys with `burmaldaholic:`) may live in any
+ * module; tools/gen-lang.mjs routes them by STRINGS.md section.
+ */
+const SEGMENT_ALIASES = { lastChance: 'lastchance', ownership: 'multiplayer' };
+export function keyOwnerError(key, moduleId) {
+  if (GLOBAL_KEYS.has(key)) return moduleId === 'core' ? undefined : `key '${key}' is core-only`;
+  if (!/(^|\.)burmaldaholic([.:]|$)/.test(key)) return `key '${key}' must contain the 'burmaldaholic' namespace (e.g. msg.burmaldaholic.${moduleId}.*)`;
+  const seg = /(?:^|\.)burmaldaholic\.([A-Za-z_]+)\./.exec(key)?.[1];
+  const owner = seg ? (SEGMENT_ALIASES[seg] ?? seg) : undefined;
+  if (owner && KNOWN.has(owner) && owner !== moduleId) return `key '${key}' belongs to module '${owner}'`;
+  return undefined;
 }
 
 export function buildLang() {
@@ -64,14 +87,8 @@ export function buildLang() {
 
     for (const [key, { line }] of parsed[base]) {
       const where = `lang/${mod.id}/${base}.lang:${line}`;
-      // Scheme (docs/design): <category>.burmaldaholic.<module>.<rest> e.g. msg.burmaldaholic.slots.win,
-      // or engine keys containing the identifier, e.g. item.burmaldaholic:chip_100, entity.burmaldaholic:dealer.name.
-      // A key naming ANOTHER module (x.burmaldaholic.<other>.*) is rejected.
-      const owned = /^[a-z_]+\.burmaldaholic\.([a-z_]+)\./.exec(key);
-      const ok = GLOBAL_KEYS.has(key)
-        ? mod.id === 'core'
-        : key.includes('burmaldaholic:') || (owned !== null && (owned[1] === mod.id || !KNOWN.has(owned[1])));
-      if (!ok) errors.push(`${where}: key '${key}' must look like 'msg.burmaldaholic.${mod.id}.*' (or an engine key containing 'burmaldaholic:')`);
+      const ownErr = keyOwnerError(key, mod.id);
+      if (ownErr) errors.push(`${where}: ${ownErr}`);
       if (owner.has(key)) errors.push(`${where}: key '${key}' already defined by module '${owner.get(key)}'`);
       owner.set(key, mod.id);
       // Plural completeness.

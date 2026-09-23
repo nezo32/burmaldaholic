@@ -1,3 +1,51 @@
-## multiplayer module strings. Keys: msg.burmaldaholic.multiplayer.*
-msg.burmaldaholic.multiplayer.name=Мультиплеер
-msg.burmaldaholic.multiplayer.config.enabled=Включить: Мультиплеер
+## multiplayer strings (ru_RU). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
+## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [multiplayer]
+gui.burmaldaholic.charter.title=Лицензия казино
+gui.burmaldaholic.charter.overview=Обзор
+gui.burmaldaholic.charter.tables=Столы
+gui.burmaldaholic.charter.bankroll=Касса заведения
+gui.burmaldaholic.charter.stats=Статистика
+gui.burmaldaholic.charter.bankroll_value=Касса заведения: %1
+gui.burmaldaholic.charter.reserved=Зарезервировано под ставки: %1
+gui.burmaldaholic.charter.available=Доступно: %1
+gui.burmaldaholic.charter.deposit=Пополнить кассу
+gui.burmaldaholic.charter.withdraw=Забрать из кассы
+gui.burmaldaholic.charter.status_open=Статус: открыто
+gui.burmaldaholic.charter.status_broke=Статус: закрыто — в кассе пусто
+gui.burmaldaholic.charter.today=Сегодня: оборот %1 · выплачено %2 · прибыль %3
+gui.burmaldaholic.charter.total=Всего: оборот %1 · выплачено %2 · прибыль %3
+gui.burmaldaholic.charter.rake=Собрано рейка: %1
+gui.burmaldaholic.charter.table_row=%1 — %2
+gui.burmaldaholic.charter.table_open=Открыт
+gui.burmaldaholic.charter.table_min=Минимальная ставка
+gui.burmaldaholic.charter.table_max=Максимальная ставка
+gui.burmaldaholic.charter.table_bots=Покерные боты
+gui.burmaldaholic.charter.link_tables=Привязать столы в зоне
+gui.burmaldaholic.charter.no_tables=Столов пока нет. Поставьте их в своей зоне.
+msg.burmaldaholic.multiplayer.charter_placed=Казино получило лицензию! Сбор: %1. Ваша зона — %2 вокруг лицензии.
+msg.burmaldaholic.multiplayer.charter_fee_missing=Лицензионный сбор — %1. Возвращайтесь с деньгами.
+msg.burmaldaholic.multiplayer.charter_overlap=Слишком близко к другому казино или к точке спавна
+msg.burmaldaholic.multiplayer.charter_limit=У вас уже максимум казино
+msg.burmaldaholic.multiplayer.charter_removed=Лицензия снята. Из кассы возвращено %1; ваши столы неактивны.
+msg.burmaldaholic.multiplayer.table_linked=%1 теперь часть вашего казино
+msg.burmaldaholic.multiplayer.table_protected=Этот стол принадлежит казино игрока %1
+msg.burmaldaholic.multiplayer.table_inactive=У этого стола нет лицензии. Владелец должен привязать его к лицензии казино.
+msg.burmaldaholic.multiplayer.casino_broke=Ваше казино закрыто: в кассе не хватает даже на минимальные ставки. Пополните, чтобы открыться.
+msg.burmaldaholic.multiplayer.casino_reopened=Ваше казино снова открыто
+msg.burmaldaholic.multiplayer.bankroll_deposit=Касса +%1 (теперь %2)
+msg.burmaldaholic.multiplayer.bankroll_withdraw=Касса −%1 (теперь %2)
+msg.burmaldaholic.multiplayer.bankroll_reserved=Можно забрать только %1 — остальное покрывает открытые ставки
+msg.burmaldaholic.multiplayer.entered_casino=Вы входите в казино игрока %1
+msg.burmaldaholic.multiplayer.seat_taken=Это место занято
+msg.burmaldaholic.multiplayer.table_left_distance=Вы отошли от стола
+## [config / loan, chaos, streak, lastchance, worldgen, ownership, debug]
+config.burmaldaholic.ownership.enabled=Казино игроков
+config.burmaldaholic.ownership.licenseFee=Лицензионный сбор
+config.burmaldaholic.ownership.claimRadius=Радиус зоны
+config.burmaldaholic.ownership.maxPerPlayer=Казино на игрока
+config.burmaldaholic.ownership.protectTables=Защищать столы владельца
+config.burmaldaholic.ownership.explosionProof=Столы не взрываются
+config.burmaldaholic.multiplayer.tableLeaveDistance=Дистанция выхода из-за стола
+config.burmaldaholic.multiplayer.spectatorRadius=Радиус зрителей
+## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
