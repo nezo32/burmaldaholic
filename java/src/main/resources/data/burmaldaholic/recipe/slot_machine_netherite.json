@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": "minecraft:gold_block",
+    "N": "minecraft:netherite_ingot",
+    "R": "minecraft:redstone_block",
+    "1": "burmaldaholic:chip_100"
+  },
+  "pattern": [
+    "BNB",
+    "BRB",
+    "B1B"
+  ],
+  "result": {
+    "id": "burmaldaholic:slot_machine_netherite"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "burmaldaholic:block/slots/slot_machine_gold_front",
+    "side": "burmaldaholic:block/slots/slot_machine_gold_side",
+    "top": "burmaldaholic:block/slots/slot_machine_gold_top"
+  }
+}
