@@ -103,5 +103,6 @@
 	"config.burmaldaholic.poker.botMix.low": "Bot mix: Low",
 	"config.burmaldaholic.poker.botMix.mid": "Bot mix: Mid",
 	"config.burmaldaholic.poker.botMix.high": "Bot mix: High",
-	"config.burmaldaholic.poker.maxDistance": "Max distance from table"
+	"config.burmaldaholic.poker.maxDistance": "Max distance from table",
+	"msg.burmaldaholic.poker.leaving_after_hand": "You'll stand up when this hand ends"
 }
