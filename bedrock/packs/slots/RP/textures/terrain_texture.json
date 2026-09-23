@@ -1,0 +1,35 @@
+{
+  "resource_pack_name": "burmaldaholic",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "burmaldaholic_slots_copper_front": {
+      "textures": "textures/blocks/slots/copper_front"
+    },
+    "burmaldaholic_slots_copper_side": {
+      "textures": "textures/blocks/slots/copper_side"
+    },
+    "burmaldaholic_slots_copper_top": {
+      "textures": "textures/blocks/slots/copper_top"
+    },
+    "burmaldaholic_slots_gold_front": {
+      "textures": "textures/blocks/slots/gold_front"
+    },
+    "burmaldaholic_slots_gold_side": {
+      "textures": "textures/blocks/slots/gold_side"
+    },
+    "burmaldaholic_slots_gold_top": {
+      "textures": "textures/blocks/slots/gold_top"
+    },
+    "burmaldaholic_slots_netherite_front": {
+      "textures": "textures/blocks/slots/netherite_front"
+    },
+    "burmaldaholic_slots_netherite_side": {
+      "textures": "textures/blocks/slots/netherite_side"
+    },
+    "burmaldaholic_slots_netherite_top": {
+      "textures": "textures/blocks/slots/netherite_top"
+    }
+  }
+}
