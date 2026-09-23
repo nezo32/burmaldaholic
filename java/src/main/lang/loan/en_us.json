@@ -111,5 +111,8 @@
 	"config.burmaldaholic.loan.collectorHealthMultiplier.easy": "Collector health: Easy",
 	"config.burmaldaholic.loan.collectorHealthMultiplier.hard": "Collector health: Hard",
 	"config.burmaldaholic.loan.peacefulSeizePercent": "Asset freeze seizure per day (%%)",
-	"subtitles.burmaldaholic.loan_shark_idle": "Loan Shark hums"
+	"subtitles.burmaldaholic.loan_shark_idle": "Loan Shark hums",
+	"gui.burmaldaholic.loan.admin.info": "Loan (%1$s): %2$s · on-time loans: %3$s",
+	"gui.burmaldaholic.loan.admin.wave_sent": "Debt collectors sent to %1$s",
+	"gui.burmaldaholic.loan.admin.wave_failed": "No wave: the player is not overdue, already has a squad, collectors are off, or there is no safe spot nearby"
 }
