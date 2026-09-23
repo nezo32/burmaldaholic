@@ -22,7 +22,7 @@
 	"gui.burmaldaholic.vip.perk.netherite_slots": "Netherite High Roller slots",
 	"gui.burmaldaholic.vip.perk.high_roller": "High Roller tables",
 	"gui.burmaldaholic.vip.perk.emerald_rate": "Better emerald rate at the Cashier",
-	"gui.burmaldaholic.vip.perk.cashback": "%1$s%% daily cashback on net losses",
+	"gui.burmaldaholic.vip.perk.cashback": "%1$s%% daily cashback on expected losses",
 	"gui.burmaldaholic.vip.perk.loan_discount": "−2%% loan interest",
 	"gui.burmaldaholic.vip.perk.cosmetic_name": "Colored name at tables",
 	"gui.burmaldaholic.vip.perk.cosmetic_particles": "Win particles",
@@ -61,5 +61,15 @@
 	"config.burmaldaholic.vip.cashback.netherite": "Cashback: Netherite",
 	"config.burmaldaholic.vip.contractBonus.silver": "Contract bonus: Silver",
 	"config.burmaldaholic.vip.contractBonus.gold": "Contract bonus: Gold and above",
-	"config.burmaldaholic.vip.announceNetherite": "Announce Netherite VIPs"
+	"config.burmaldaholic.vip.announceNetherite": "Announce Netherite VIPs",
+	"item.burmaldaholic.vip_diamond_casino_card": "Diamond Casino Card",
+	"key.category.burmaldaholic.vip": "Burmaldaholic",
+	"hud.burmaldaholic.vip.next": "Next: %1$s %2$s%%",
+	"hud.burmaldaholic.vip.contracts": "Contracts: %1$s/%2$s",
+	"gui.burmaldaholic.vip.tier_line": "%1$s — at %2$s wagered · max bet %3$s",
+	"gui.burmaldaholic.vip.contracts_off": "Contracts are disabled in this world",
+	"gui.burmaldaholic.vip.contract_unavailable": "This contract can't be swapped anymore",
+	"gui.burmaldaholic.vip.loading": "Loading…",
+	"gui.burmaldaholic.vip.perk_bullet": "• %1$s",
+	"gui.burmaldaholic.vip.contract_status": "%1$s · %2$s"
 }
