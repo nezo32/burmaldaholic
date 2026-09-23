@@ -18,7 +18,7 @@ main  ──●────────●──────────●─�
           feature/slots   fix/roulette-odds
 ```
 
-1. Branch from `main`: `feature/<topic>` (also accepted: `fix/ hotfix/ chore/ docs/ ci/ refactor/ test/ release/ dependabot/`;
+1. Branch from `main`: `feature/<topic>` (also accepted: `fix/ hotfix/ chore/ docs/ ci/ refactor/ test/ release/ dependabot/ claude/` — the last for Claude Code agent branches;
    override the list with the repo variable `ALLOWED_BRANCH_PREFIXES`, space-separated).
 2. Open a PR to `main`. CI runs; `ci-ok` must be green; get a review; squash-merge.
 3. Use [Conventional Commits](https://www.conventionalcommits.org/) for PR titles / squash

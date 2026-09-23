@@ -73,7 +73,7 @@ jobs:
       - name: Check head branch follows the feature flow
         env:
           HEAD_REF: ${{ github.head_ref }}
-          PREFIXES: ${{ vars.ALLOWED_BRANCH_PREFIXES || 'feature/ fix/ hotfix/ chore/ docs/ ci/ refactor/ test/ release/ dependabot/' }}
+          PREFIXES: ${{ vars.ALLOWED_BRANCH_PREFIXES || 'feature/ fix/ hotfix/ chore/ docs/ ci/ refactor/ test/ release/ dependabot/ claude/' }}
         run: |
           for p in $PREFIXES; do
             if [[ "$HEAD_REF" == "$p"* ]]; then
