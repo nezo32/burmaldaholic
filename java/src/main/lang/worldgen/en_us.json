@@ -10,5 +10,8 @@
 	"config.burmaldaholic.worldgen.villageCasino.chance": "Village casino chance",
 	"config.burmaldaholic.worldgen.piglinParlor.chance": "Piglin Parlor chance",
 	"config.burmaldaholic.worldgen.highRoller.chance": "High Roller Lounge chance",
-	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Loan Shark respawn (ticks)"
+	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Loan Shark respawn (ticks)",
+	"pack.burmaldaholic.casinos": "Burmaldaholic Casinos",
+	"msg.burmaldaholic.worldgen.built": "Built: %1$s",
+	"msg.burmaldaholic.worldgen.build_failed": "Could not build a casino here. Is the \"Burmaldaholic Casinos\" data pack enabled?"
 }

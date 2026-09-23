@@ -10,5 +10,8 @@
 	"config.burmaldaholic.worldgen.villageCasino.chance": "Шанс казино в деревне",
 	"config.burmaldaholic.worldgen.piglinParlor.chance": "Шанс пиглинского салона",
 	"config.burmaldaholic.worldgen.highRoller.chance": "Шанс лаунжа хайроллеров",
-	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Возрождение ростовщика (тики)"
+	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Возрождение ростовщика (тики)",
+	"pack.burmaldaholic.casinos": "Казино Burmaldaholic",
+	"msg.burmaldaholic.worldgen.built": "Построено: %1$s",
+	"msg.burmaldaholic.worldgen.build_failed": "Здесь не получилось построить казино. Включён ли набор данных «Казино Burmaldaholic»?"
 }
