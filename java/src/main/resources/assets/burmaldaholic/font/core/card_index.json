@@ -1,0 +1,14 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "burmaldaholic:font/core/card_index.png",
+      "height": 8,
+      "ascent": 7,
+      "chars": [
+        "0123456789AJQKX\u0000",
+        "ТВДК\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    }
+  ]
+}
