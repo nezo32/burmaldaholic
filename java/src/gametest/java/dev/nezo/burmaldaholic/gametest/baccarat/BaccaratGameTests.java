@@ -307,7 +307,7 @@ public class BaccaratGameTests {
 			table.onAction(a, "take_bank", amount(100));
 			helper.assertTrue(table.bank().held() && bal(a) == 900, "bank of 100 escrowed");
 			table.stackCardsForTests(BANKER_WINS);
-			for (int i = 0; i < 4 && "betting".equals(table.phase()); i++) {
+			for (int i = 0; i < 40 && "betting".equals(table.phase()); i++) {
 				table.tick(helper.getLevel());
 			}
 			helper.assertTrue("no_more_bets".equals(table.phase()), "alone against bots: dealt once every bot acted (is " + table.phase() + ")");

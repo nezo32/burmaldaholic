@@ -71,7 +71,10 @@ public final class BotNames {
 		return out;
 	}
 
+	/** The Java font sheet has no U+E190 yet (pvp-bots.md §8 open item): until it does, names show without it. */
+	public static final boolean GLYPH_IN_FONT = false;
+
 	private static MutableComponent glyph() {
-		return Texts.raw(GLYPH + " ");
+		return GLYPH_IN_FONT ? Texts.raw(GLYPH + " ") : Component.empty();
 	}
 }
