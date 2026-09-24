@@ -183,6 +183,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		if (last != null) {
 			tag.put("result", last);
 		}
+		dev.nezo.burmaldaholic.games.extras.pvp.wheel.WheelPartyEntries.writeSummary(tag, viewer, this); // PvP Wheel Party button (J-M2)
 		return tag;
 	}
 }
