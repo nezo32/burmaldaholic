@@ -245,7 +245,11 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		for (int i = 0; i < 4 && round.phase() != RouletteRound.Phase.RESULT && round.phase() != RouletteRound.Phase.BETTING; i++) {
-			Transition<UUID> t = round.update(Long.MAX_VALUE / 4, List.of(), () -> OddsService.get().fair().nextInt(Wheel.POCKETS), 0);
+			// Fast-forward to the end of the current phase. (A fixed "far future" tick stalled in SPIN when the
+			// table was broken during NO_MORE_BETS: the spin's end was scheduled after it, so the drawn round
+			// was refunded instead of settled.)
+			long now = Math.max(gameTime(), round.endsAt());
+			Transition<UUID> t = round.update(now, List.of(), () -> OddsService.get().fair().nextInt(Wheel.POCKETS), 0);
 			if (t instanceof Transition.Result<UUID> r) {
 				settleAll(level, r.result(), r.slips());
 			}

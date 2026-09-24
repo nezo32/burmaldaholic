@@ -101,6 +101,11 @@ public final class Ledger {
 	public AccountId check(Map<AccountId, Long> net) {
 		for (Map.Entry<AccountId, Long> e : net.entrySet()) {
 			long delta = e.getValue();
+			// A leg on a bankroll that no longer exists (charter broken mid-round) must fail the whole
+			// batch up front: commit() would otherwise throw after earlier legs were already applied.
+			if (e.getKey() instanceof AccountId.Bankroll b && delta != 0 && !bankrolls.containsKey(b.id())) {
+				return b;
+			}
 			if (delta >= 0) {
 				continue;
 			}

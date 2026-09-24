@@ -15,11 +15,13 @@
 			"dev.nezo.burmaldaholic.gametest.slots.SlotsGameTests",
 			"dev.nezo.burmaldaholic.gametest.vip.VipGameTests",
 			"dev.nezo.burmaldaholic.gametest.loan.LoanGameTests",
-			"dev.nezo.burmaldaholic.gametest.poker.PokerGameTests"
+			"dev.nezo.burmaldaholic.gametest.poker.PokerGameTests",
+			"dev.nezo.burmaldaholic.gametest.independent.IndependentGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.poker.PokerClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.poker.PokerClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.independent.RuLayoutClientGameTests"
 		]
 	},
 	"depends": {
