@@ -138,6 +138,7 @@ export class FxService {
     const stems = req.stems ?? CORE_TIER_STEMS;
     const budget = new ParticleBudget();
     let mode = 0;
+    let started = false;
     let fades: readonly number[] = [0, 0, 0];
     let shownWord: WinTier = req.tier;
     let shownAmount = -1;
@@ -159,7 +160,9 @@ export class FxService {
       }
     };
     const updateAmount = (amount: number, final = false): void => {
-      if (mode !== MODE_TITLE || amount === shownAmount) return;
+      // the final frame may add the MAX WIN plate to an amount the roll-up already showed
+      const plate = final && !!req.maxWin && !!req.words?.maxWin;
+      if (mode !== MODE_TITLE || (amount === shownAmount && !plate)) return;
       shownAmount = amount;
       try {
         p.onScreenDisplay.updateSubtitle(this.subtitle(req, amount, final));
@@ -174,6 +177,7 @@ export class FxService {
       const a = b.args;
       switch (b.kind) {
         case CEL_BEAT.START:
+          started = true;
           mode = a[2]!;
           fades = [a[3]!, a[4]!, a[5]!];
           if (mode === MODE_TITLE) setTitle(WIN_TIERS[a[1]!]!, 0, a[3]!, a[4]!);
@@ -216,9 +220,16 @@ export class FxService {
         frame: (tMs) => updateAmount(celebrationFrame(req, tl, tMs).amount),
         end: () => {
           if (this.active.get(p.id) === session) this.active.delete(p.id);
+          // skipped (sneak, overrun) before the START beat played: the terminal frame still needs its title / line
+          const start = started ? undefined : tl.beats.find((b) => b.kind === CEL_BEAT.START);
+          if (start && p.isValid) {
+            mode = start.args[2]!;
+            fades = [start.args[3]!, start.args[4]!, start.args[5]!];
+            if (mode !== MODE_TITLE) this.hud.actionbar(p, FX_CHANNEL, this.actionbarLine(req), PRIORITY_GAME, 40);
+          }
           // terminal frame: the exact server amount under the server tier word (also after a skip)
           if (mode === MODE_TITLE && p.isValid) {
-            if (shownWord !== req.tier) setTitle(req.tier, req.ret, 0, 20, true);
+            if (start || shownWord !== req.tier) setTitle(req.tier, req.ret, 0, 20, true);
             else updateAmount(req.ret, true);
           }
           resolve();

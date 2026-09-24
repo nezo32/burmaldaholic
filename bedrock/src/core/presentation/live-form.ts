@@ -70,9 +70,11 @@ class DduiLiveForm implements LiveForm {
   private readonly flags = new Map<string, { disabled?: ObservableBoolean; visible: ObservableBoolean }>();
   private readonly values = new Map<string, LiveText>();
   private readonly pending = new Map<string, LiveText>();
+  private readonly written = new Map<string, LiveText>();
   private readonly lastWrite = new Map<string, number>();
   private flushId: number | undefined;
   private showing = false;
+  private failed = false;
   writes = 0;
 
   constructor(
@@ -84,6 +86,7 @@ class DduiLiveForm implements LiveForm {
   }
   private observable(id: string, v: LiveText): ObservableUIRawMessage {
     this.values.set(id, v);
+    this.written.set(id, v);
     const o = new ObservableUIRawMessage(toRaw(v));
     this.obs.set(id, o);
     return o;
@@ -108,55 +111,93 @@ class DduiLiveForm implements LiveForm {
     this.form.button(this.observable(id, initial), onClick, { disabled, visible });
     return this;
   }
+  /** A DDUI call threw: DDUI is broken for the world session; the open form closes and `show()` says `fallback`. */
+  private fail(): void {
+    dduiBroken = true;
+    this.failed = true;
+    this.pending.clear();
+    this.close();
+  }
   private write(id: string, value: LiveText): void {
     const o = this.obs.get(id);
-    if (!o) return;
+    if (!o || this.failed) return;
     try {
       o.setData(toRaw(value));
       this.writes++;
+      this.written.set(id, value);
       this.lastWrite.set(id, system.currentTick);
     } catch {
-      dduiBroken = true;
+      this.fail();
     }
   }
-  set(id: string, value: LiveText): void {
-    if (same(this.pending.get(id) ?? this.values.get(id), value)) return;
-    this.values.set(id, value);
+  /** Ticks until `id` may be written again (≤ 0: now). */
+  private dueIn(id: string): number {
     const last = this.lastWrite.get(id);
-    if (last === undefined || system.currentTick - last >= this.minWriteTicks) {
+    return last === undefined ? 0 : this.minWriteTicks - (system.currentTick - last);
+  }
+  /** One timeout for the earliest pending component; each component is flushed only when ITS window allows. */
+  private schedule(): void {
+    if (this.flushId !== undefined || this.pending.size === 0) return;
+    let wait = Number.POSITIVE_INFINITY;
+    for (const k of this.pending.keys()) wait = Math.min(wait, this.dueIn(k));
+    this.flushId = system.runTimeout(
+      () => {
+        this.flushId = undefined;
+        for (const [k, v] of [...this.pending]) {
+          if (this.dueIn(k) > 0) continue;
+          this.pending.delete(k);
+          this.write(k, v);
+        }
+        this.schedule();
+      },
+      Math.max(1, wait),
+    );
+  }
+  set(id: string, value: LiveText): void {
+    if (!this.obs.has(id) || same(this.values.get(id), value)) return;
+    this.values.set(id, value);
+    if (same(this.written.get(id), value)) {
+      this.pending.delete(id); // back to what the client already shows
+      return;
+    }
+    if (this.dueIn(id) <= 0) {
       this.pending.delete(id);
       this.write(id, value);
       return;
     }
     this.pending.set(id, value);
-    if (this.flushId === undefined) {
-      this.flushId = system.runTimeout(() => {
-        this.flushId = undefined;
-        for (const [k, v] of this.pending) this.write(k, v);
-        this.pending.clear();
-      }, Math.max(1, this.minWriteTicks - (system.currentTick - last)));
-    }
+    this.schedule();
   }
   setDisabled(id: string, disabled: boolean): void {
     const f = this.flags.get(id)?.disabled;
-    if (f && f.getData() !== disabled) f.setData(disabled);
+    try {
+      if (f && f.getData() !== disabled) f.setData(disabled);
+    } catch {
+      this.fail();
+    }
   }
   setVisible(id: string, visible: boolean): void {
     const f = this.flags.get(id)?.visible;
-    if (f && f.getData() !== visible) f.setData(visible);
+    try {
+      if (f && f.getData() !== visible) f.setData(visible);
+    } catch {
+      this.fail();
+    }
   }
   async show(): Promise<LiveCloseReason> {
     this.showing = true;
     try {
+      if (this.failed) return 'fallback';
       const r = await this.form.show();
+      if (this.failed) return 'fallback';
       return r === DataDrivenScreenClosedReason.UserBusy ? 'busy' : r === DataDrivenScreenClosedReason.ServerClosed ? 'server' : 'closed';
     } catch {
       dduiBroken = true;
       return 'fallback';
     } finally {
+      // a pending flush (≤ minWriteTicks away) is left to run: the Observables must hold the latest values if the
+      // same form is shown again
       this.showing = false;
-      if (this.flushId !== undefined) system.clearRun(this.flushId);
-      this.flushId = undefined;
     }
   }
   close(): void {
