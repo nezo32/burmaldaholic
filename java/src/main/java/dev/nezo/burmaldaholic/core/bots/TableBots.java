@@ -193,6 +193,18 @@ public final class TableBots {
 		return limits;
 	}
 
+	/**
+	 * The owner / keeper limits to show and to edit from (§6.2): the stored ones once set, else — at an owned
+	 * table — {@link OwnerControls#ownedDefaults} (Atmosphere only, private forbidden). Unlike
+	 * {@link #effectiveLimits} the charter's "bots off" switch is not folded in. Edits (settings screen,
+	 * charter switch sync) must start from this, never from the raw {@link #limits()}: those are the unowned
+	 * defaults (Allowed, private on) until the owner saves, so an edit based on them would silently turn on
+	 * bankroll-funded money bots.
+	 */
+	public OwnerControls ownerLimits(ServerLevel level) {
+		return limitsSet || ownership(level).isEmpty() ? limits : OwnerControls.ownedDefaults(table.botSeatCount());
+	}
+
 	/** Limits that apply now (§6.2): unowned → Bots always Allowed; owned → the owner's, or owned defaults until set. */
 	public OwnerControls effectiveLimits(ServerLevel level) {
 		return BotPurses.effectiveControls(ownership(level), limits, limitsSet, table.botSeatCount());
@@ -465,6 +477,21 @@ public final class TableBots {
 		List<UUID> humans = table.seatedHumans();
 		claimants.removeIf(humans::contains);
 		pruneClaimants(level);
+		if (table.botRole() == BotRole.ATMOSPHERE) {
+			// an atmosphere bot the table dropped (VirtualSeats.resolve: a human was seated on its seat with no
+			// other seat left) is forgotten here, or it would count as seated forever (world budget, plan)
+			Set<String> seatedKeys = new HashSet<>();
+			for (SeatOccupant o : table.occupants()) {
+				if (o != null && o.isBot()) {
+					seatedKeys.add(o.key());
+				}
+			}
+			for (SeatedBot b : List.copyOf(bots)) {
+				if (!seatedKeys.contains(b.key())) {
+					leave(level.getServer(), b); // the game forgets it too (unseatBot); atmosphere bots hold nothing
+				}
+			}
+		}
 		boolean applied = false;
 		if (humans.isEmpty() && claimants.isEmpty()) {
 			boolean had = session != null;
@@ -528,6 +555,18 @@ public final class TableBots {
 		}
 		long buyIn = Math.max(0, table.botBuyIn());
 		int affordable = role == BotRole.ATMOSPHERE ? Integer.MAX_VALUE : purse == null ? 0 : BotPurses.affordable(srv, purse, buyIn, key());
+		if (purse != null && purse.kind() == Purse.Kind.BANKROLL && buyIn > 0) {
+			// bots that leave at this safe point (relevel, busted, yield) return their chips before the newcomers
+			// are funded: count them, or a relevel at a fully-invested bankroll ends with no bots. fund() still
+			// checks the real balance for every newcomer.
+			long back = 0;
+			for (SeatedBot b : bots) {
+				if (b.purse.equals(purse)) {
+					back += b.held();
+				}
+			}
+			affordable = BotEconomyMath.affordable(BotPurses.available(srv, purse) + back, buyIn);
+		}
 		SeatPlan.Input in = new SeatPlan.Input(settings(), Bots.enabled(), table.botSeatCount(), humans.size(), claimants, planBots(true),
 			table.yieldRule(), eff, role, atmosphereCap(), Bots.activeBudgetLeft(), !bots.isEmpty() || Bots.tableSlotAvailable(), affordable,
 			hardOnly, sulk, applied && !hardOnly && table.botDifficultyMatters() ? settings().difficulty() : null);

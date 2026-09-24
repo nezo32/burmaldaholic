@@ -745,7 +745,9 @@ public class BaccaratScreen extends CasinoTableScreen {
 	}
 
 	private static Component botName(String nameKey) {
-		return Texts.raw(BotNames.GLYPH + " ").append(Component.translatable("gui.burmaldaholic.bots.display", Component.translatable(nameKey)));
+		Component name = Component.translatable("gui.burmaldaholic.bots.display", Component.translatable(nameKey));
+		// no U+E190 in the Java font sheet yet: without the gate the name would start with a missing-glyph box
+		return BotNames.GLYPH_IN_FONT ? Texts.raw(BotNames.GLYPH + " ").append(name) : name;
 	}
 
 	/** "Humans + 3 bots · Steady · Open to all" (+ "New settings from the next round"), when bots are on. */

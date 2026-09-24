@@ -552,6 +552,93 @@ public class BotsGameTests {
 	}
 
 	/**
+	 * Reviewer B: a new difficulty at a table that holds the whole world budget ({@code bots.maxActive}) replaces
+	 * its bots instead of stranding the table with none ("none available"): the leaving bots free their own slots.
+	 */
+	@GameTest
+	public void relevelAtAWorldFullTableKeepsItsBots(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+		FakeTable t = new FakeTable("poker", BotRole.MONEY, 6, 100, pos);
+		TableBots bots = new TableBots(t, mixed(4, true, BotDifficulty.EASY), OwnerControls.unowned(6));
+		ServerPlayer a = player(helper, pos);
+		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.bots();
+		int maxActive = cfg.maxActive;
+		int buyIns = cfg.tableBuyInsPerDay;
+		try {
+			cfg.tableBuyInsPerDay = 0; // unlimited: this test is about the world budget
+			bots.admit(a);
+			t.sit(a);
+			bots.safePoint(level);
+			helper.assertTrue(t.bots() == 4, "4 EASY bots, got " + t.bots());
+			cfg.maxActive = Bots.active(); // this table's bots use up the whole budget
+			Result<BotSettings> r = bots.requestChange(a, mixed(4, true, BotDifficulty.HARD), false);
+			helper.assertTrue(r.isOk(), "the host changes the level");
+			TableBots.SafePointResult sp = bots.safePoint(level);
+			helper.assertTrue(sp.left().size() == 4, "every EASY bot leaves, got " + sp.left().size());
+			helper.assertTrue(t.bots() == 4 && bots.bots().stream().allMatch(b -> b.profile.level() == BotDifficulty.HARD),
+				"4 HARD bots take their slots, got " + t.bots());
+			helper.assertTrue(Bots.active() <= cfg.maxActive, "world budget respected");
+		} finally {
+			cfg.maxActive = maxActive;
+			cfg.tableBuyInsPerDay = buyIns;
+			cleanup(helper, bots, a);
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * Reviewer B: an atmosphere bot the game dropped on its own (VirtualSeats.resolve: a human was seated on its
+	 * seat and no seat was left) is forgotten at the next safe point, not counted as seated forever.
+	 */
+	@GameTest
+	public void droppedAtmosphereBotIsForgotten(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+		FakeTable t = new FakeTable("roulette", BotRole.ATMOSPHERE, 6, 0, pos);
+		TableBots bots = new TableBots(t, mixed(3, true, BotDifficulty.NORMAL), OwnerControls.unowned(6));
+		ServerPlayer h = player(helper, pos);
+		try {
+			bots.admit(h);
+			t.sit(h);
+			bots.safePoint(level);
+			int n = t.bots();
+			helper.assertTrue(n >= 1 && bots.bots().size() == n, "atmosphere bots seated: " + n);
+			String dropped = bots.bots().getFirst().key();
+			t.seats[t.seatOf(dropped)] = null; // the game dropped it
+			bots.safePoint(level);
+			helper.assertTrue(bots.bot(dropped) == null, "the dropped bot is forgotten");
+			helper.assertTrue(bots.bots().size() == t.bots(), "core and the table agree: " + bots.bots().size() + " vs " + t.bots());
+		} finally {
+			cleanup(helper, bots, h);
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * Reviewer B: the limits an owner edits (and the charter switch sync starts from) at an owned table are the
+	 * owned defaults (Atmosphere only, private forbidden) until the owner saved some, never the raw unowned ones
+	 * (Allowed, private on) — or the first edit would silently allow bankroll-funded money bots.
+	 */
+	@GameTest
+	public void ownedTableLimitsStartFromOwnedDefaults(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+		FakeTable t = new FakeTable("poker", BotRole.MONEY, 6, 100, pos);
+		TableBots bots = new TableBots(t, mixed(4, true, BotDifficulty.NORMAL), OwnerControls.unowned(6));
+		helper.assertTrue(bots.ownerLimits(level).equals(OwnerControls.unowned(6)), "unowned: the stored limits");
+		owned(helper, pos, 1000, bankroll -> {
+			OwnerControls l = bots.ownerLimits(level);
+			helper.assertTrue(l.equals(OwnerControls.ownedDefaults(6)), "owned, never saved: owned defaults, got " + l);
+			helper.assertTrue(bots.effectiveLimits(level).botsMode() == BotsMode.ATMOSPHERE, "effective: Atmosphere only");
+			OwnerControls saved = new OwnerControls(BotsMode.ALLOWED, false, 3, false);
+			bots.setLimits(saved);
+			helper.assertTrue(bots.ownerLimits(level).equals(saved), "saved: the owner's");
+		});
+		helper.succeed();
+	}
+
+	/**
 	 * Review wave 2, M1 + m5: the charter breaks while owner-funded bots sit at the table. Their chips come back
 	 * after the close and follow the tombstone to the (offline) owner; once the table is no longer owned, the
 	 * next safe point sends the bankroll bots home (their purse is no longer this table's), and the table's bank

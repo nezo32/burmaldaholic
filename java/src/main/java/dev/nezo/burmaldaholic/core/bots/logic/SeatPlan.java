@@ -39,7 +39,8 @@ public final class SeatPlan {
 	 * @param humans         humans seated now
 	 * @param claimants      valid claimants in claim order
 	 * @param atmosphereCap  {@code bots.atmosphere.maxPerTable.<game>} (ignored for MONEY)
-	 * @param worldBudget    bots that may still join world-wide ({@code bots.maxActive} − active)
+	 * @param worldBudget    bots that may still join world-wide ({@code bots.maxActive} − active, this table's
+	 *                       seated bots counted as active; the plan adds back the ones it makes leave)
 	 * @param tableSlot      this table may host bots ({@code bots.maxActiveTables}; true if it already has some)
 	 * @param affordableNew  new money bots the purse can fund ({@link BotEconomyMath#affordable}; daily buy-ins)
 	 * @param hardOnly       "Word got around" at this table (poker, house purse): only HARD bots
@@ -130,8 +131,11 @@ public final class SeatPlan {
 			join = 0;
 			limit = Limit.WORLD;
 		}
-		if (join > Math.max(0, in.worldBudget())) {
-			join = Math.max(0, in.worldBudget());
+		// the budget was taken with this table's bots still seated: the ones leaving now free their slots
+		// (a relevel / busted replacement at a world-full table must not end with no bots)
+		int budget = Math.max(0, in.worldBudget()) + leave.size();
+		if (join > budget) {
+			join = budget;
 			limit = Limit.WORLD;
 		}
 		if (in.role() == BotRole.MONEY && join > Math.max(0, in.affordableNew())) {

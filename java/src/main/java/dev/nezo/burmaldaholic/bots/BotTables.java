@@ -92,7 +92,7 @@ public final class BotTables {
 		public SettingsRules.Table facts() {
 			var cfg = CasinoConfig.bots();
 			String game = table.botGameId();
-			return new SettingsRules.Table(owned(), bots.limits(), table.botRole(), table.botSeatCount(), table.seatedHumans().size(),
+			return new SettingsRules.Table(owned(), bots.effectiveLimits(level), table.botRole(), table.botSeatCount(), table.seatedHumans().size(),
 				roleCap(game, table.botRole()), table.botDifficultyMatters(), "chemmy".equals(game), cfg.enabled, cfg.privateTables.enabled);
 		}
 
