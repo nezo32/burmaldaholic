@@ -6,3 +6,6 @@ export * from './win-tier';
 export * from './rollup';
 export * from './sound-ids';
 export * from './glyph-map';
+export * from './celebration';
+export * from './sound-plan';
+export * from './particle-atlas';

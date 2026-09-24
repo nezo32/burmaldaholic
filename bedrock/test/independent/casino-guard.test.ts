@@ -25,7 +25,7 @@ const GUARDS = /\bguard\(|isCasinoEnabled\(|\.active\(\)|\benabled\(\)|isEnabled
 /** Reviewed: runs while dormant on purpose (file:signal -> reason). */
 const ALLOWED: Record<string, string> = {
   'core/presentation/scheduler.ts:runInterval': 'presentation session: started only from guarded game flows, stops itself at the timeline end',
-  'core/presentation/rollup-hud.ts:runInterval': 'title roll-up: started only from guarded result flows, clears itself after ≤ 60 t',
+  'core/presentation/fx.ts:playerLeave': 'cleanup of the per-player celebration / sound-rate state',
   'core/registry.ts:startup': 'lifecycle: registers commands/components (commands are guarded by registerCommand)',
   'core/module-core.ts:scriptEventReceive': 'admin scriptevents must work while casino mode is OFF (§2.1)',
   'core/wagers.ts:playerSpawn': 'returns chips owed to the player (offline settlements, refunds §4.1)',
