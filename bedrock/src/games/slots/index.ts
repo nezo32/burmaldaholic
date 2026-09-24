@@ -82,6 +82,7 @@ import { startSlotsV2 } from './service';
  * finishCabinet })` with the B-L9 form (its `SlotHost` = `SlotsV2Host`) and the B-L10 cabinet (`./cabinet`).
  */
 export const SLOTS_V2_ENABLED = false;
+import { registerCabinetComponent, startCabinets } from './cabinet';
 
 const POOL_PROP = 'burmaldaholic:slots.jackpot';
 const BET_PROP = 'burmaldaholic:slots.line_bet';
@@ -640,7 +641,11 @@ const machineIcon = (): Raw => lit('§6» §r');
 
 export const slotsModule: CasinoModule = {
   id: 'slots',
+  onStartup(ctx) {
+    registerCabinetComponent(ctx.event); // in-world reels prop (lane B-L10, animation/slots.md §6.6)
+  },
   onWorldLoad(ctx) {
+    startCabinets(ctx); // lane B-L10
     registerSlotsPvp(ctx); // Slot Showdown (docs/architecture/pvp-bots.md)
     if (SLOTS_V2_ENABLED) {
       ctx.services.provide<SlotsApi>(SLOTS_SERVICE, startSlotsV2(ctx));

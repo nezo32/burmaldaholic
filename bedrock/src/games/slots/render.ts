@@ -1,11 +1,12 @@
 /**
- * Slot rendering helpers: symbol glyphs (RP font sheet `font/glyph_E2.png`, U+E200 + index in
+ * Slot rendering helpers: symbol glyphs (RP font sheet `font/glyph_E2.png`, v1 cells at U+E2F0 + index in
  * SYMBOLS order), symbol names, grid rows, paytable lines.
  */
 import { type Raw, color, join, lines, lit, t } from '../../core';
 import { type Grid, type SlotTable, type Sym, type Tier, REGULAR, SYMBOLS } from './logic';
 
-const GLYPH_BASE = 0xe200;
+/** v1 legacy cells in the slots reserve U+E2F0… (v2 owns U+E200…E244; lane B-L10 generator, legacy-v1.mjs). */
+const GLYPH_BASE = 0xe2f0;
 
 /** Private-use glyph of a symbol (drawn by packs/slots/RP/font/glyph_E2.png). */
 export const glyph = (s: Sym): string => String.fromCodePoint(GLYPH_BASE + SYMBOLS.indexOf(s));

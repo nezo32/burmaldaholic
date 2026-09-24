@@ -1,0 +1,202 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "burmaldaholic:slot_reels",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "properties": {
+        "burmaldaholic:machine": {
+          "type": "int",
+          "range": [
+            0,
+            2
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:r0": {
+          "type": "int",
+          "range": [
+            0,
+            44
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:r1": {
+          "type": "int",
+          "range": [
+            0,
+            44
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:r2": {
+          "type": "int",
+          "range": [
+            0,
+            44
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:r3": {
+          "type": "int",
+          "range": [
+            0,
+            44
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:r4": {
+          "type": "int",
+          "range": [
+            0,
+            44
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:state": {
+          "type": "enum",
+          "values": [
+            "idle",
+            "spin",
+            "land",
+            "win",
+            "big",
+            "feature",
+            "jackpot"
+          ],
+          "default": "idle",
+          "client_sync": true
+        },
+        "burmaldaholic:seq": {
+          "type": "int",
+          "range": [
+            0,
+            255
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:win": {
+          "type": "int",
+          "range": [
+            0,
+            32767
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:sticky": {
+          "type": "int",
+          "range": [
+            0,
+            7
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:hold": {
+          "type": "int",
+          "range": [
+            0,
+            32767
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:mult": {
+          "type": "int",
+          "range": [
+            0,
+            10
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:wheel": {
+          "type": "int",
+          "range": [
+            0,
+            399
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:g0": {
+          "type": "int",
+          "range": [
+            0,
+            1048575
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:g1": {
+          "type": "int",
+          "range": [
+            0,
+            1048575
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "burmaldaholic:g2": {
+          "type": "int",
+          "range": [
+            0,
+            1048575
+          ],
+          "default": 0,
+          "client_sync": true
+        }
+      }
+    },
+    "component_groups": {},
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "burmaldaholic_slot_reels",
+          "inanimate"
+        ]
+      },
+      "minecraft:collision_box": {
+        "width": 0.01,
+        "height": 0.01
+      },
+      "minecraft:physics": {
+        "has_gravity": false,
+        "has_collision": false
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "all",
+            "deals_damage": "no"
+          }
+        ]
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:health": {
+        "value": 1,
+        "max": 1
+      },
+      "minecraft:conditional_bandwidth_optimization": {
+        "default_values": {
+          "max_optimized_distance": 48,
+          "max_dropped_ticks": 5,
+          "use_motion_prediction_hints": false
+        }
+      }
+    },
+    "events": {}
+  }
+}

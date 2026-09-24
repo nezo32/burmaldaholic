@@ -1,0 +1,140 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.burmaldaholic.slot_reels.spin": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            {
+              "changed": "q.property('burmaldaholic:seq') != v.seq"
+            }
+          ]
+        },
+        "changed": {
+          "on_entry": [
+            "v.seq = q.property('burmaldaholic:seq'); v.spin0 = 1; v.spin1 = 1; v.spin2 = 1; v.spin3 = 1; v.spin4 = 1;"
+          ],
+          "transitions": [
+            {
+              "default": "1"
+            }
+          ]
+        }
+      }
+    },
+    "controller.animation.burmaldaholic.slot_reels.win": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            {
+              "changed": "q.property('burmaldaholic:win') != v.win_seen"
+            }
+          ]
+        },
+        "changed": {
+          "on_entry": [
+            "v.win_seen = q.property('burmaldaholic:win'); v.win_t = q.life_time;"
+          ],
+          "transitions": [
+            {
+              "default": "1"
+            }
+          ]
+        }
+      }
+    },
+    "controller.animation.burmaldaholic.slot_reels.mult": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            {
+              "changed": "q.property('burmaldaholic:mult') != v.mult_seen"
+            }
+          ]
+        },
+        "changed": {
+          "on_entry": [
+            "v.mult_seen = q.property('burmaldaholic:mult'); v.pop_t = q.life_time;"
+          ],
+          "transitions": [
+            {
+              "default": "1"
+            }
+          ]
+        }
+      }
+    },
+    "controller.animation.burmaldaholic.slot_reels.sticky": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            {
+              "changed": "q.property('burmaldaholic:sticky') != v.sticky_seen"
+            }
+          ]
+        },
+        "changed": {
+          "on_entry": [
+            "v.sticky_t1 = ((math.mod(math.floor(q.property('burmaldaholic:sticky') / 1), 2) == 1) && !(math.mod(math.floor(v.sticky_seen / 1), 2) == 1)) ? q.life_time : v.sticky_t1; v.sticky_t2 = ((math.mod(math.floor(q.property('burmaldaholic:sticky') / 2), 2) == 1) && !(math.mod(math.floor(v.sticky_seen / 2), 2) == 1)) ? q.life_time : v.sticky_t2; v.sticky_t3 = ((math.mod(math.floor(q.property('burmaldaholic:sticky') / 4), 2) == 1) && !(math.mod(math.floor(v.sticky_seen / 4), 2) == 1)) ? q.life_time : v.sticky_t3; v.sticky_seen = q.property('burmaldaholic:sticky');"
+          ],
+          "transitions": [
+            {
+              "default": "1"
+            }
+          ]
+        }
+      }
+    },
+    "controller.animation.burmaldaholic.slot_reels.hold": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            {
+              "changed": "q.property('burmaldaholic:hold') != v.hold_seen"
+            }
+          ]
+        },
+        "changed": {
+          "on_entry": [
+            "v.hold_seen = q.property('burmaldaholic:hold'); v.hold_t = q.life_time;"
+          ],
+          "transitions": [
+            {
+              "default": "1"
+            }
+          ]
+        }
+      }
+    },
+    "controller.animation.burmaldaholic.slot_reels.wheel": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            {
+              "changed": "q.property('burmaldaholic:wheel') != v.wheel_seen"
+            }
+          ]
+        },
+        "changed": {
+          "on_entry": [
+            "v.wheel_seen = q.property('burmaldaholic:wheel');",
+            "v.wheel_from0 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 0) ? math.mod(v.wheel_to0, 360) : v.wheel_from0; v.wheel_to0 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 0) ? -((math.mod(q.property('burmaldaholic:wheel') - 1, 100) + 0.5) * 18) - 1080 : v.wheel_to0; v.wheel_t0 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 0) ? q.life_time : v.wheel_t0;",
+            "v.wheel_from1 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 1) ? math.mod(v.wheel_to1, 360) : v.wheel_from1; v.wheel_to1 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 1) ? -((math.mod(q.property('burmaldaholic:wheel') - 1, 100) + 0.5) * 22.5) - 1080 : v.wheel_to1; v.wheel_t1 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 1) ? q.life_time : v.wheel_t1;",
+            "v.wheel_from2 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 2) ? math.mod(v.wheel_to2, 360) : v.wheel_from2; v.wheel_to2 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 2) ? -((math.mod(q.property('burmaldaholic:wheel') - 1, 100) + 0.5) * 30) - 1080 : v.wheel_to2; v.wheel_t2 = (q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 2) ? q.life_time : v.wheel_t2;"
+          ],
+          "transitions": [
+            {
+              "default": "1"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
