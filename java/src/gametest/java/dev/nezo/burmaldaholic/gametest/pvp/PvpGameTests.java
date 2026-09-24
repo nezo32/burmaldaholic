@@ -181,7 +181,8 @@ public class PvpGameTests {
 		return PvpMath.rake(pot, CasinoConfig.pvp().rakeBasisPoints);
 	}
 
-	@GameTest(maxTicks = 600)
+	/** Own environment (a separate batch): its restart / casino-off steps touch every live match on the server. */
+	@GameTest(maxTicks = 600, environment = "burmaldaholic:pvp_restart_engine")
 	public void engineMoneyAndPlayOut(GameTestHelper helper) {
 		ensureMode();
 		MinecraftServer server = helper.getLevel().getServer();

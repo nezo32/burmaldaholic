@@ -550,4 +550,56 @@ public class BotsGameTests {
 		});
 		helper.succeed();
 	}
+
+	/**
+	 * Review wave 2, M1 + m5: the charter breaks while owner-funded bots sit at the table. Their chips come back
+	 * after the close and follow the tombstone to the (offline) owner; once the table is no longer owned, the
+	 * next safe point sends the bankroll bots home (their purse is no longer this table's), and the table's bank
+	 * bots never serve an owned casino.
+	 */
+	@GameTest
+	public void charterBreakSendsBotChipsToTheOwner(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		MinecraftServer server = level.getServer();
+		Economy eco = Economies.get();
+		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
+		UUID owner = UUID.randomUUID(); // offline
+		String bankroll = "jint2_break_" + UUID.randomUUID();
+		eco.bankrolls(server).open(bankroll, owner);
+		eco.transfer(server, AccountId.HOUSE, AccountId.bankroll(bankroll), 10_000, TEST);
+		TableOwnershipProvider prev = CoreServices.tableOwnership();
+		OwnedTable table = new OwnedTable(owner, bankroll, 0, 0, true);
+		CoreServices.setTableOwnership((l, p) -> p.equals(pos) ? Optional.of(table) : prev.owner(l, p));
+		FakeTable t = new FakeTable("poker", BotRole.MONEY, 6, 200, pos);
+		TableBots bots = new TableBots(t, mixed(2, true, BotDifficulty.NORMAL), OwnerControls.unowned(6));
+		bots.setLimits(new OwnerControls(BotsMode.ALLOWED, true, 5, false));
+		ServerPlayer h = player(helper, pos);
+		try {
+			bots.admit(h);
+			t.sit(h);
+			TableBots.SafePointResult r = bots.safePoint(level);
+			helper.assertTrue(r.joined().size() == 2 && r.joined().stream().allMatch(b -> b.purse.equals(Purse.bankroll(bankroll))), "2 owner-funded bots");
+			TableBots.SeatedBot winner = r.joined().get(0);
+			bots.setStack(winner.key(), 350); // it won 150 from the human (pot escrowed in the bank)
+			t.stacks.put(winner.key(), 350L);
+			// the charter breaks mid-hand: the rest is paid out, the bankroll is closed (tombstoned to the owner)
+			long rest = eco.bankrolls(server).get(bankroll).orElseThrow().balance();
+			helper.assertTrue(rest == 9600, "10 000 − 2 × 200 buy-ins");
+			eco.transfer(server, AccountId.bankroll(bankroll), AccountId.player(owner), rest, TEST);
+			eco.bankrolls(server).close(bankroll);
+			CoreServices.setTableOwnership(prev); // the table is no longer owned
+			// m5: at the next safe point the bankroll bots leave with what they hold (their purse is not this table's)
+			TableBots.SafePointResult after = bots.safePoint(level);
+			helper.assertTrue(after.left().size() == 2, "both bankroll bots left: " + after.left().size());
+			helper.assertTrue(after.joined().stream().allMatch(b -> b.purse.equals(Purse.BANK)), "house bots may sit at the unowned table");
+			helper.assertTrue(eco.bankrolls(server).get(bankroll).isEmpty(), "the closed bankroll is never re-created");
+			helper.assertTrue(Economies.get().balance(server, owner) == 9600 + 350 + 200,
+				"M1: the owner got the payout and both stacks (offline): " + Economies.get().balance(server, owner));
+			helper.assertTrue(eco.bankrolls(server).closedOwner(bankroll).orElseThrow().equals(owner), "tombstone kept while fresh");
+		} finally {
+			CoreServices.setTableOwnership(prev);
+			cleanup(helper, bots, h);
+		}
+		helper.succeed();
+	}
 }
