@@ -75,5 +75,10 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Three stars pay at player casinos",
 	"config.burmaldaholic.slots.spinTicks": "Spin animation (ticks)",
 	"config.burmaldaholic.slots.validateRtp": "Warn about RTP above 99%%",
-	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare"
+	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare",
+	"gui.burmaldaholic.slots.tumble.mult": "Tumble ×%1$s",
+	"gui.burmaldaholic.slots.jackpot.tier.mini": "MINI",
+	"gui.burmaldaholic.slots.jackpot.tier.minor": "MINOR",
+	"gui.burmaldaholic.slots.jackpot.tier.major": "MAJOR",
+	"gui.burmaldaholic.slots.jackpot.tier.grand": "GRAND"
 }

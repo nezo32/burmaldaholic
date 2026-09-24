@@ -17,6 +17,7 @@
 			"dev.nezo.burmaldaholic.gametest.craps.CrapsGameTests",
 			"dev.nezo.burmaldaholic.gametest.blackjack.BlackjackGameTests",
 			"dev.nezo.burmaldaholic.gametest.slots.SlotsGameTests",
+			"dev.nezo.burmaldaholic.gametest.slots.SlotCabinetGameTests",
 			"dev.nezo.burmaldaholic.gametest.vip.VipGameTests",
 			"dev.nezo.burmaldaholic.gametest.loan.LoanGameTests",
 			"dev.nezo.burmaldaholic.gametest.poker.PokerGameTests",
