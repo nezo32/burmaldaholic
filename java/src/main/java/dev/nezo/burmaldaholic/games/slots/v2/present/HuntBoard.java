@@ -166,12 +166,23 @@ public final class HuntBoard {
 		return 0;
 	}
 
-	/** Intro drop: y offset above the slot (px) of chest i at {@code ms} since the intro start. */
+	/** Intro drop: y offset above the slot (px) of chest i at {@code ms} since the intro start (unbounded intro). */
 	public static double dropOffset(int chest, double ms) {
-		double t = ms - DROP_STAGGER_MS * chest;
+		return dropOffset(chest, ms, Double.POSITIVE_INFINITY);
+	}
+
+	/**
+	 * Intro drop inside an intro of {@code introMs}: the 40 ms stagger and 300 ms drop are compressed so the LAST chest
+	 * has landed when the intro ends (the timeline holds at the intro's end while it waits for the picks, so a chest
+	 * still in the air there would hang misaligned over the grid for the whole hunt).
+	 */
+	public static double dropOffset(int chest, double ms, double introMs) {
+		double drop = Math.min(DROP_MS, Math.max(1, introMs * 0.5));
+		double stagger = Math.min(DROP_STAGGER_MS, Math.max(0, (introMs - drop) / (CHESTS - 1)));
+		double t = ms - stagger * chest;
 		if (t <= 0) return 30;
-		if (t >= DROP_MS) return 0;
-		return 30 * (1 - Ease.OUT_BOUNCE.apply(t / DROP_MS));
+		if (t >= drop || ms >= introMs) return 0;
+		return 30 * (1 - Ease.OUT_BOUNCE.apply(t / drop));
 	}
 
 	/** Hover wobble angle (degrees) at 2 Hz, ±3°. */

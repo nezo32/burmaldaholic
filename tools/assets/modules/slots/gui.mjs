@@ -254,6 +254,177 @@ function lever() {
   return img;
 }
 
+// ---- screen polish (lane J-L9b): title plate, casino buttons, icons, value plate, side panel ------------------------
+/** Per-machine rim colours for plates: the trim (copper / gold), purpur on the End (its trim is near-black). */
+function rim(m) {
+  const t = THEME[m];
+  return m === 'end' ? { rim: '#A77BA7', light: '#D8B4D8', dark: '#5A3A5A' } : { rim: t.trim, light: t.trimLight, dark: t.trimDark };
+}
+
+/** Title plate over the marquee (nine-slice 32 × 16, border 5): engraved dark face, rim, corner rivets. */
+function titlePlate(m) {
+  const t = THEME[m];
+  const r = rim(m);
+  const img = image(32, 16);
+  rect(img, 1, 0, 30, 16, INK);
+  rect(img, 0, 1, 32, 14, INK);
+  rect(img, 1, 1, 30, 14, r.rim);
+  frameRect(img, 1, 1, 30, 14, r.light, r.dark);
+  vgrad(img, 3, 3, 26, 10, c(t.panel), c(INK), 4);
+  frameRect(img, 3, 3, 26, 10, r.dark, r.light);
+  for (const [x, y] of [[2, 2], [29, 2], [2, 13], [29, 13]]) put(img, x, y, c(t.rivetLight));
+  return img;
+}
+
+/** Casino button face (nine-slice 32 × 20, border 6): pill-ish corners, bevel, gold rim. */
+function casinoButton(state) {
+  const pal = {
+    idle: ['#5A2A7A', '#2A0E44', '#FFD640', '#B07010'],
+    hover: ['#7A3AA0', '#3A1458', '#FFF4A0', '#FFD640'],
+    pressed: ['#2A0E44', '#4A1A6A', '#B07010', '#7A4000'],
+    disabled: ['#4A4A52', '#2A2A30', '#7A7A82', '#4A4A52'],
+    on: ['#FFD640', '#C07010', '#FFF4B0', '#7A4000'],
+    gold: ['#FFC400', '#B07010', '#FFF0A0', '#6A3A00'],
+  }[state];
+  const [top, bottom, rimLight, rimDark] = pal;
+  const img = image(32, 20);
+  rect(img, 2, 0, 28, 20, INK);
+  rect(img, 1, 1, 30, 18, INK);
+  rect(img, 0, 2, 32, 16, INK);
+  rect(img, 2, 1, 28, 18, rimDark);
+  rect(img, 1, 2, 30, 16, rimDark);
+  rect(img, 2, 1, 28, 1, rimLight);
+  rect(img, 1, 2, 1, 15, rimLight);
+  vgrad(img, 2, 2, 28, 16, c(top), c(bottom), 6);
+  if (state !== 'pressed') rect(img, 3, 3, 26, 1, brighter(top));
+  else rect(img, 2, 2, 28, 1, INK);
+  return img;
+}
+const brighter = (hex) => {
+  const [r, g, b] = c(hex);
+  const h = (v) => Math.min(255, Math.round(v + (255 - v) * 0.35)).toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
+};
+
+/** Inset value plate (nine-slice 32 × 18, border 5): dark LCD face with a gold rim (bet value, win meter). */
+function valuePlate() {
+  const img = image(32, 18);
+  rect(img, 1, 0, 30, 18, INK);
+  rect(img, 0, 1, 32, 16, INK);
+  rect(img, 1, 1, 30, 16, '#B07010');
+  frameRect(img, 1, 1, 30, 16, '#FFE680', '#6A3A00');
+  rect(img, 3, 3, 26, 12, '#0C0616');
+  frameRect(img, 3, 3, 26, 12, '#05020A', '#3A2A4A');
+  return img;
+}
+
+/** Nice tier plate (nine-slice 16 × 16, border 3): thin gold rim around a deep purple face, so a 2× word fits 20 px. */
+function tierPlate() {
+  const img = image(16, 16);
+  rect(img, 1, 0, 14, 16, INK);
+  rect(img, 0, 1, 16, 14, INK);
+  rect(img, 1, 1, 14, 14, '#FFD640');
+  frameRect(img, 1, 1, 14, 14, '#FFF4B0', '#B07010');
+  vgrad(img, 3, 3, 10, 10, c('#5A1A7A'), c('#1E0830'), 4);
+  put(img, 1, 1, c('#FFFFFF'));
+  return img;
+}
+
+/** Side panel (nine-slice 32 × 32, border 8): translucent dark face inside a machine-coloured rim. */
+function sidePanel(m) {
+  const t = THEME[m];
+  const r = rim(m);
+  const img = image(32, 32);
+  rect(img, 1, 0, 30, 32, INK);
+  rect(img, 0, 1, 32, 30, INK);
+  rect(img, 1, 1, 30, 30, r.rim);
+  frameRect(img, 1, 1, 30, 30, r.light, r.dark);
+  rect(img, 3, 3, 26, 26, INK);
+  for (let y = 4; y < 28; y++) for (let x = 4; x < 28; x++) put(img, x, y, [...c(t.panel).slice(0, 3), 214]);
+  frameRect(img, 3, 3, 26, 26, r.dark, r.light);
+  for (const [x, y] of [[2, 2], [29, 2], [2, 29], [29, 29]]) put(img, x, y, c(t.rivetLight));
+  return img;
+}
+
+/** 12 × 12 control icons: white glyph with an ink outline (drawn on the casino buttons). */
+const GLYPHS = {
+  auto: [
+    '............',
+    '....####....',
+    '..##....#.#.',
+    '.#.......##.',
+    '.#......###.',
+    '#...........',
+    '...........#',
+    '.###......#.',
+    '.##.......#.',
+    '.#.#....##..',
+    '....####....',
+    '............',
+  ],
+  paytable: [
+    '............',
+    '.##########.',
+    '.#........#.',
+    '.#.##.###.#.',
+    '.#........#.',
+    '.#.##.###.#.',
+    '.#........#.',
+    '.#.##.###.#.',
+    '.#........#.',
+    '.##########.',
+    '............',
+    '............',
+  ],
+  minus: [
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '..########..',
+    '..########..',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+  ],
+  plus: [
+    '............',
+    '............',
+    '.....##.....',
+    '.....##.....',
+    '.....##.....',
+    '..########..',
+    '..########..',
+    '.....##.....',
+    '.....##.....',
+    '.....##.....',
+    '............',
+    '............',
+  ],
+  bonus: [
+    '............',
+    '...##..##...',
+    '..#..##..#..',
+    '.##########.',
+    '.#....#...#.',
+    '.##########.',
+    '..#...#..#..',
+    '..#...#..#..',
+    '..#...#..#..',
+    '..########..',
+    '............',
+    '............',
+  ],
+};
+function icon(name) {
+  const img = image(12, 12);
+  GLYPHS[name].forEach((row, y) => [...row].forEach((ch, x) => ch === '#' && put(img, x, y, c('#FFFFFF'))));
+  return outline(img, c(INK), { k: 1 });
+}
+
 // ---- feature sprites -------------------------------------------------------------------------------------------------
 const cell40 = (def, opts = {}) => {
   const img = affine(art(def, { lit: opts.lit }), 40, 40, { scale: 2, sx: opts.sx ?? 1, sy: opts.sy ?? 1, rot: opts.rot ?? 0, px: 8, py: 8, ox: 20, oy: 20 + (opts.dy ?? 0) });
@@ -578,6 +749,8 @@ export function guiOutputs() {
     sprite(`${m}/banner`, banner(m, 48, 12), { nineSlice: { width: 48, height: 48, border: 12 } });
     sprite(`${m}/banner_small`, banner(m, 32, 8), { nineSlice: { width: 32, height: 32, border: 8 } });
     sprite(`${m}/anticipation`, anticipation(m), { frametime: 1, frame: [48, 140] });
+    sprite(`${m}/title_plate`, titlePlate(m), { nineSlice: { width: 32, height: 16, border: 5 } });
+    sprite(`${m}/side_panel`, sidePanel(m), { nineSlice: { width: 32, height: 32, border: 8 } });
     out.push(png(`${J}/textures/gui/slots/${m}_backdrop.png`, backdrop(m, false)));
     out.push(png(`${J}/textures/gui/slots/${m}_backdrop_fs.png`, backdrop(m, true)));
     out.push(png(`${J}/textures/gui/slots/${m}_parallax.png`, parallax(m)));
@@ -593,6 +766,13 @@ export function guiOutputs() {
   sprite('turbo_on', turbo(true));
   sprite('turbo_off', turbo(false));
   sprite('lever', lever());
+  // screen polish (J-L9b): casino buttons, icons, value plate
+  for (const st of ['idle', 'hover', 'pressed', 'disabled', 'on', 'gold']) {
+    sprite(st === 'idle' ? 'button' : `button_${st}`, casinoButton(st), { nineSlice: { width: 32, height: 20, border: 6 } });
+  }
+  for (const n of Object.keys(GLYPHS)) sprite(`icon_${n}`, icon(n));
+  sprite('tier_plate', tierPlate(), { nineSlice: { width: 16, height: 16, border: 3 } });
+  sprite('value_plate', valuePlate(), { nineSlice: { width: 32, height: 18, border: 5 } });
   // Overworld features
   sprite('overworld/chest', chestFrames());
   sprite('overworld/chest_dim', fade(desaturate(cell40(ICON.chest_open), 0.6), 0.6));

@@ -363,4 +363,114 @@ class SlotPresentTest {
 		List<SpinTape.FreeSpin> spins = s.tape().freeSpins().spins();
 		assertEquals(spins.get(spins.size() - 1).stickyMaskAfter(), script.stickyMaskAt(script.phases().get(script.phases().size() - 1).lastStopMs + 900));
 	}
+	// ---- lane J-L9b: screen polish ---------------------------------------------------------------------------------
+
+	/** GUI sizes the screen meets at GUI scale 2, 3 and 4 (normal and compact layouts). */
+	private static final int[][] SCREENS = {{400, 240}, {427, 240}, {426, 266}, {480, 270}, {640, 360}, {366, 240}, {320, 240}, {320, 220}, {399, 300}};
+
+	@Test
+	void screenRegionsNeverOverlapAndStayOnThePanel() {
+		for (int[] sz : SCREENS) {
+			SlotGeometry g = SlotGeometry.of(sz[0], sz[1]);
+			String tag = sz[0] + "x" + sz[1] + (g.compact ? " compact" : "");
+			var regions = new java.util.ArrayList<>(g.regions().entrySet());
+			for (var r : regions) assertTrue(r.getValue().inside(g.bounds()), tag + ": " + r.getKey() + " off the panel " + r.getValue());
+			for (int i = 0; i < regions.size(); i++) {
+				for (int j = i + 1; j < regions.size(); j++) {
+					var a = regions.get(i);
+					var b = regions.get(j);
+					assertFalse(a.getValue().overlaps(b.getValue()), tag + ": " + a.getKey() + " " + a.getValue() + " overlaps " + b.getKey() + " " + b.getValue());
+				}
+			}
+			// the cabinet art never runs under the side panels, the controls or the meters
+			SlotGeometry.Rect cab = g.cabinet();
+			for (String k : new String[] {"leftPanel", "rightPanel", "bet", "flow", "spin", "caption", "balance"}) {
+				assertFalse(cab.overlaps(g.regions().get(k)), tag + ": cabinet overlaps " + k);
+			}
+			for (int i = 0; i < g.meterTiers.length; i++) assertFalse(cab.overlaps(g.regions().get("meter" + i)), tag + ": cabinet overlaps a meter");
+			// the title plate and the Nice tier plate live in the header: never over a reel cell, never under a meter
+			SlotGeometry.Rect window = g.regions().get("window");
+			for (int textW : new int[] {40, 125, 400}) {
+				SlotGeometry.Rect title = g.titlePlate(textW);
+				assertFalse(title.overlaps(window), tag + ": title plate over the reels");
+				assertTrue(title.inside(g.regions().get("header")), tag + ": title plate outside the header " + title);
+				for (int sc = 1; sc <= 2; sc++) {
+					SlotGeometry.Rect nice = g.nicePlate(textW, sc);
+					assertFalse(nice.overlaps(window), tag + ": Nice plate hides the reels " + nice);
+					for (int i = 0; i < g.meterTiers.length; i++) assertFalse(nice.overlaps(g.regions().get("meter" + i)), tag + ": Nice plate over a meter");
+				}
+			}
+			assertEquals(g.niceY, SlotGeometry.niceY(g.wy, g.compact));
+		}
+	}
+
+	@Test
+	void controlButtonsFlowInsideTheirAreaInEnglishAndRussian() {
+		// label widths (font px) + icon + padding as SlotButton#preferredWidth: EN, RU (≈ 1.45 ×), and the compact icons
+		int[][] sets = {
+			{12 + 3 + 10 + 88, 12 + 3 + 10 + 22, 12 + 3 + 10 + 29, 12 + 3 + 10 + 43}, // Buy bonus (920 chips), Auto…, Turbo, Paytable
+			{12 + 3 + 10 + 128, 12 + 3 + 10 + 26, 12 + 3 + 10 + 30, 12 + 3 + 10 + 41, 12 + 3 + 10 + 110}, // RU + the Showdown entry
+			{12 + 3 + 10 + 128, 22, 22, 22}, // compact: icons only
+		};
+		for (int[] sz : SCREENS) {
+			SlotGeometry g = SlotGeometry.of(sz[0], sz[1]);
+			for (int s = g.compact ? 2 : 0; s < (g.compact ? 3 : 2); s++) {
+				int[] widths = sets[s].clone();
+				if (!g.flowFits(widths)) for (int i = 1; i <= 3; i++) widths[i] = 22; // Auto / Turbo / Paytable as icons (SlotBody)
+				SlotGeometry.Rect[] rects = g.flow(widths);
+				for (int i = 0; i < rects.length; i++) {
+					assertTrue(rects[i].inside(g.flowArea()), sz[0] + "x" + sz[1] + " set " + s + ": button " + i + " " + rects[i] + " outside " + g.flowArea());
+					assertEquals(widths[i], rects[i].w(), "no button is squeezed below its label");
+					for (int j = 0; j < i; j++) assertFalse(rects[i].overlaps(rects[j]));
+				}
+			}
+		}
+	}
+
+	@Test
+	void huntChestsHaveLandedWhenTheIntroHolds() {
+		for (double intro : new double[] {600, 480, 300, 150}) {
+			for (int c = 0; c < HuntBoard.CHESTS; c++) {
+				assertEquals(0, HuntBoard.dropOffset(c, intro, intro), 1e-9, "chest " + c + " still in the air at the hold (intro " + intro + ")");
+				assertEquals(0, HuntBoard.dropOffset(c, intro + 5000, intro), 1e-9);
+				assertEquals(30, HuntBoard.dropOffset(c, 0, intro), 1e-9, "all start above the grid");
+			}
+			for (double t = 0; t <= intro; t += 5) {
+				for (int c = 1; c < HuntBoard.CHESTS; c++) {
+					assertTrue(HuntBoard.dropOffset(c, t, intro) >= HuntBoard.dropOffset(c - 1, t, intro) - 1e-9 || HuntBoard.dropOffset(c - 1, t, intro) < 30,
+						"reading-order stagger");
+				}
+			}
+		}
+		// the opened counter only counts revealed chests (a pressed chest is "opening", not opened)
+		HuntBoard b = new HuntBoard();
+		assertTrue(b.press(7, 0));
+		assertEquals(0, b.opened());
+		assertEquals(7, b.pending());
+		b.reveal(5, 100);
+		assertEquals(1, b.opened());
+		assertEquals(-1, b.pending());
+	}
+
+	@Test
+	void winHistoryRecordsEachSettledWinOnceNewestFirst() {
+		WinHistory h = new WinHistory();
+		Object a = new Object();
+		h.settle(a, 0, 50);
+		assertEquals(0, h.size(), "a loss is not a win");
+		Object b = new Object();
+		h.settle(b, 120, 50);
+		h.settle(b, 120, 50);
+		assertEquals(1, h.size(), "a spin is recorded once");
+		h.settle(new Object(), 20, 50);
+		assertTrue(h.get(0).returned(), "below the bet = Returned");
+		h.settle(new Object(), 900, 50);
+		h.settle(new Object(), 60, 50);
+		assertEquals(WinHistory.SIZE, h.size());
+		assertEquals(60, h.get(0).amount());
+		assertEquals(900, h.get(1).amount());
+		assertEquals(20, h.get(2).amount());
+		h.settle(null, 5, 5);
+		assertEquals(60, h.get(0).amount());
+	}
 }

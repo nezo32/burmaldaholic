@@ -249,8 +249,9 @@ public final class Overlays {
 
 	private void chip(GuiGraphicsExtractor g, Font font, Component text, int x, int y, int w, boolean on, int mx, int my, int id) {
 		boolean hover = mx >= x && mx < x + w && my >= y && my < y + 16;
-		SlotDraw.plate(g, x, y, w, 16, on ? 0xFF8A3AAA : 0xFF2A1A3A, on ? 0xFF4A1A6A : 0xFF180A28, on ? 0xFFFFD640 : hover ? 0xFFD696FF : 0xFF5A3A70);
-		SlotDraw.centeredFit(g, font, text, x + w / 2, y + 4, w - 4, 0xFFFFFFFF);
+		if (CabinetArt.ART) SlotSprites.blit(g, on ? SlotSprites.BUTTON_ON : hover ? SlotSprites.BUTTON_HOVER : SlotSprites.BUTTON, x, y, w, 16);
+		else SlotDraw.plate(g, x, y, w, 16, on ? 0xFF8A3AAA : 0xFF2A1A3A, on ? 0xFF4A1A6A : 0xFF180A28, on ? 0xFFFFD640 : hover ? 0xFFD696FF : 0xFF5A3A70);
+		SlotDraw.centeredFit(g, font, text, x + w / 2, y + 4, w - 4, on && CabinetArt.ART ? 0xFF2A1400 : 0xFFFFFFFF);
 		hits.add(new int[] {x, y, w, 16, id});
 	}
 
@@ -258,8 +259,13 @@ public final class Overlays {
 		boolean hover = mx >= x && mx < x + w && my >= y && my < y + h;
 		int top = primary ? 0xFFFFC400 : 0xFF3A2A4A;
 		int bottom = primary ? 0xFFB07010 : 0xFF1E1428;
-		SlotDraw.plate(g, x, y - (hover ? 1 : 0), w, h, top, bottom, hover ? 0xFFFFFFFF : primary ? 0xFFFFF0A0 : 0xFF8C7AA0);
-		SlotDraw.centeredFit(g, font, text, x + w / 2, y + (h - 8) / 2 - (hover ? 1 : 0), w - 6, primary ? 0xFF180A28 : 0xFFFFFFFF);
+		if (CabinetArt.ART) {
+			SlotSprites.blit(g, primary ? SlotSprites.BUTTON_GOLD : hover ? SlotSprites.BUTTON_HOVER : SlotSprites.BUTTON, x, y - (hover ? 1 : 0), w, h);
+			if (hover && primary) SlotDraw.frame(g, x + 1, y, w - 2, h - 2, 1, 0x60FFFFFF);
+		} else {
+			SlotDraw.plate(g, x, y - (hover ? 1 : 0), w, h, top, bottom, hover ? 0xFFFFFFFF : primary ? 0xFFFFF0A0 : 0xFF8C7AA0);
+		}
+		SlotDraw.centeredFit(g, font, text, x + w / 2, y + (h - 8) / 2 - (hover ? 1 : 0), w - 6, primary ? 0xFF2A1400 : 0xFFFFFFFF);
 		hits.add(new int[] {x, y, w, h, action.ordinal()});
 	}
 

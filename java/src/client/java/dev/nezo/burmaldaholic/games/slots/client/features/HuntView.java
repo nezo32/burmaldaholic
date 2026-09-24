@@ -232,7 +232,7 @@ public final class HuntView {
 		double introMs = t - intro.at();
 		for (int c = 0; c < HuntBoard.CHESTS; c++) {
 			int x = chestX(s, c);
-			int y = chestY(s, c) - (int) Math.round(s.reduceMotion() ? 0 : HuntBoard.dropOffset(c, introMs));
+			int y = chestY(s, c) - (int) Math.round(s.reduceMotion() ? 0 : HuntBoard.dropOffset(c, introMs, intro.dur()));
 			HuntBoard.State st = board.state(c);
 			boolean hover = st == HuntBoard.State.CLOSED && awaitingPick(s) && mouseX >= x && mouseX < x + cell && mouseY >= y && mouseY < y + cell;
 			float cx = x + cell / 2f;
@@ -249,7 +249,7 @@ public final class HuntView {
 					}
 					if (CabinetArt.ART) {
 						int size = cell < 40 ? 29 : 40;
-						int frame = st == HuntBoard.State.PENDING ? 1 : hover && (now / 250) % 2 == 0 ? 1 : 0;
+						int frame = st == HuntBoard.State.PENDING ? 1 : 0; // hover wobbles only: frame 1 reads as "opening"
 						SlotSprites.frame(g, SlotSprites.CHEST, 40, 40, 6, frame, -size / 2, -size + 2, size, size, 0xFFFFFFFF);
 					} else {
 						float sc = (cell - 12) / 16f;
@@ -274,13 +274,18 @@ public final class HuntView {
 		float cx = x + cell / 2f;
 		float cy = y + cell / 2f;
 		if (since < 0) {
-			// dimmed reveal not reached yet (80 ms stagger): still closed
-			g.pose().pushMatrix();
-			g.pose().translate(cx, y + cell - 4);
-			float sc = (cell - 12) / 16f;
-			g.pose().scale(sc, sc);
-			g.item(CHEST, -8, -16);
-			g.pose().popMatrix();
+			// dimmed reveal not reached yet (80 ms stagger): still the closed chest, in the same grid slot
+			int size = cell < 40 ? 29 : 40;
+			if (CabinetArt.ART) {
+				SlotSprites.frame(g, SlotSprites.CHEST, 40, 40, 6, 0, (int) cx - size / 2, y + cell - 4 - size + 2, size, size, 0xFFFFFFFF);
+			} else {
+				g.pose().pushMatrix();
+				g.pose().translate(cx, y + cell - 4);
+				float sc = (cell - 12) / 16f;
+				g.pose().scale(sc, sc);
+				g.item(CHEST, -8, -16);
+				g.pose().popMatrix();
+			}
 			return;
 		}
 		// open chest: the lid flipbook, light spills out

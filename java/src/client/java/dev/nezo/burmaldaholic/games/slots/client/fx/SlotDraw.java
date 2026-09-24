@@ -178,16 +178,38 @@ public final class SlotDraw {
 
 	/** Left-aligned text clipped with an ellipsis-free cut so it never exceeds {@code maxWidth}. */
 	public static void textFit(GuiGraphicsExtractor g, Font font, Component text, int x, int y, int maxWidth, int color) {
+		textFit(g, font, text, x, y, maxWidth, color, true);
+	}
+
+	/** {@link #textFit} with or without the drop shadow (dark text on gold faces has none). */
+	public static void textFit(GuiGraphicsExtractor g, Font font, Component text, int x, int y, int maxWidth, int color, boolean shadow) {
 		if (font.width(text) <= maxWidth) {
-			g.text(font, text, x, y, color, true);
+			g.text(font, text, x, y, color, shadow);
 			return;
 		}
-		float s = Math.max(0.5f, maxWidth / (float) font.width(text));
+		float s = Math.max(0.5f, maxWidth / (float) Math.max(1, font.width(text)));
 		g.pose().pushMatrix();
 		g.pose().translate(x, y + (1 - s) * 4);
 		g.pose().scale(s, s);
-		g.text(font, text, 0, 0, color, true);
+		g.text(font, text, 0, 0, color, shadow);
 		g.pose().popMatrix();
+	}
+
+	/** Right-aligned {@link #textFit}. */
+	public static void textRight(GuiGraphicsExtractor g, Font font, Component text, int right, int y, int maxWidth, int color) {
+		int w = Math.min(maxWidth, font.width(text));
+		textFit(g, font, text, right - w, y, maxWidth, color, true);
+	}
+
+	/** A small casino chip glyph (value plates): gold rim, red face, white notches. */
+	public static void chip(GuiGraphicsExtractor g, int cx, int cy) {
+		disc(g, cx, cy, 4, 0xFF180A28);
+		disc(g, cx, cy, 3, 0xFFFFD640);
+		disc(g, cx, cy, 2, 0xFFD83440);
+		g.fill(cx, cy - 3, cx + 1, cy - 2, 0xFFFFFFFF);
+		g.fill(cx, cy + 2, cx + 1, cy + 3, 0xFFFFFFFF);
+		g.fill(cx - 3, cy, cx - 2, cy + 1, 0xFFFFFFFF);
+		g.fill(cx + 2, cy, cx + 3, cy + 1, 0xFFFFFFFF);
 	}
 
 	/** Word-wrapped text (textWithWordWrap changed its return type between 26.2 and 26.3); returns the next y. */

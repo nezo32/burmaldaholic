@@ -15,6 +15,7 @@ import dev.nezo.burmaldaholic.games.slots.client.panels.CabinetArt;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTiers;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import dev.nezo.burmaldaholic.games.slots.v2.present.CelebrationPlan;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SoundPlan;
 import dev.nezo.burmaldaholic.games.slots.v2.present.WinShowPlan;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -134,7 +135,8 @@ public final class BigWinFx {
 			case RETURN -> SlotSounds.play("slots.returned", 1f, 1f);
 			case NICE -> {
 				SlotSounds.winNice();
-				s.particles().burst(ScreenParticles.COIN, s.wx() + s.windowW() / 2f, s.wy() + s.windowH() - 10, 20, 0.14f, 0.0005f, 1100, s.now());
+				float[] c = niceCenter(s);
+				s.particles().burst(ScreenParticles.COIN, c[0], c[1], 20, 0.14f, 0.0005f, 1100, s.now());
 			}
 			default -> {
 				if (t.isOverlay() && !DELEGATE_TO_SHARED_OVERLAY) {
@@ -196,23 +198,38 @@ public final class BigWinFx {
 		if (ended && dismissAt > 0 && s.now() >= dismissAt && s.finished()) dismissed = true;
 	}
 
-	/** Nice: the in-panel banner pops over the reels' lower edge. */
+	/**
+	 * Nice: the tier plate pops in the cabinet header, over the machine's title plate and ending above the reel window,
+	 * so every winning cell (and its way paths) stays visible; the amount rolls up on the win panel (lane J-L9b,
+	 * replacing "over the reels' lower edge", which hid the bottom row).
+	 */
 	private void drawNice(SlotStage s, GuiGraphicsExtractor g) {
 		double ms = s.t() - rollup.at();
 		if (ms > WinShowPlan.LOOP_LIMIT_MS) return;
 		double pop = s.reduceMotion() ? 1 : WinShowPlan.bannerPop(ms);
+		boolean compact = s.cell() < 40;
 		Component word = Component.translatable(SlotTiers.WORDS.key(WinTier.NICE));
-		int sc = SlotDraw.fitScale(s.font(), word, 2, s.windowW() - 20);
-		int w = s.font().width(word) * sc + 20;
+		int sc = compact ? 1 : SlotDraw.fitScale(s.font(), word, 2, s.windowW() - 12);
+		int h = compact ? 16 : 20;
+		// at least as wide as the title plate it covers (no title letters peek out at its sides)
+		int titleW = Math.min(s.windowW() - 4, Math.max(60, s.font().width(Component.translatable("gui.burmaldaholic.slots.machine." + s.machine().id)) + 20));
+		int w = Math.min(s.windowW() + 12, Math.max(titleW + 4, s.font().width(word) * sc + 24));
 		float cx = s.wx() + s.windowW() / 2f;
-		float cy = s.wy() + s.windowH() - 4;
+		float cy = SlotGeometry.niceY(s.wy(), compact) + h / 2f;
 		g.pose().pushMatrix();
 		g.pose().translate(cx, cy);
 		g.pose().scale((float) pop, (float) pop);
-		if (CabinetArt.ART) SlotSprites.blit(g, SlotSprites.machine(s.machine(), "banner_small"), -w / 2, -8 - 4 * sc, w, 16 + 8 * sc - 8);
-		else SlotDraw.plate(g, -w / 2, -8 - 4 * sc, w, 16 + 8 * sc - 8, 0xFF8A3AAA, 0xFF3A1450, 0xFFFFD640);
-		SlotDraw.outlined(g, s.font(), word, 0, -4 * sc + 4, sc, 0xFFFFD640, 0xFF180A28);
+		SlotDraw.glow(g, -w / 2, -h / 2, w, h, 0xFFFFD640, 3, 0.8);
+		if (CabinetArt.ART) SlotSprites.blit(g, SlotSprites.TIER_PLATE, -w / 2, -h / 2, w, h);
+		else SlotDraw.plate(g, -w / 2, -h / 2, w, h, 0xFF8A3AAA, 0xFF3A1450, 0xFFFFD640);
+		SlotDraw.outlined(g, s.font(), word, 0, 1, sc, 0xFFFFD640, 0xFF180A28);
 		g.pose().popMatrix();
+	}
+
+	/** Centre of the Nice plate (its coin burst starts there). */
+	private static float[] niceCenter(SlotStage s) {
+		boolean compact = s.cell() < 40;
+		return new float[] {s.wx() + s.windowW() / 2f, SlotGeometry.niceY(s.wy(), compact) + (compact ? 8 : 10)};
 	}
 
 	public void draw(SlotStage s, GuiGraphicsExtractor g, int sw, int sh) {
