@@ -523,7 +523,12 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 			table.clear(); // stakes were returned by core after a reload (§4.1): the bets are gone too
 		}
 		if (server.getTickCount() % 20 == 0 && !openStakes().isEmpty() && !CasinoMode.isEnabled(level)) {
-			refundAll(server, true);
+			// §4.1 CHANGED (review M1): casino mode off settles like a stopped table — every player's bets are
+			// played out with honest dice (as on leave); only what is still open afterwards is returned.
+			playOutNow("casino mode off");
+			if (!openStakes().isEmpty()) {
+				refundAll(server, true);
+			}
 			rearm();
 			syncViewers();
 		}

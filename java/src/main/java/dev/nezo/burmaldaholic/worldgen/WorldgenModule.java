@@ -5,9 +5,12 @@ import dev.nezo.burmaldaholic.core.command.CasinoCommands;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
+import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
+import dev.nezo.burmaldaholic.worldgen.npc.NpcContent;
+import dev.nezo.burmaldaholic.worldgen.npc.NpcInteractions;
 import java.util.Optional;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -32,6 +35,9 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
  *       towers ({@link CasinoStructures}).</li>
  *   <li>NPCs, loot chests and casino registration run from data markers ({@link CasinoMarkers});
  *       upkeep (welcome title, advancements, NPC respawn) in {@link CasinoTracker}.</li>
+ *   <li>Casino staff: Croupier, Piglin Dealer, Shulker Croupier ({@code npc/}); their shop / table opening
+ *       in {@code NpcInteractions}.</li>
+ *   <li>Table presets (Parlor poker, High Roller tables) through core's hook ({@link WorldgenPresets}).</li>
  *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller>}.</li>
  * </ul>
  * New casinos generate only while casino mode and {@code worldgen.enabled} are on; the tables inside
@@ -50,6 +56,10 @@ public final class WorldgenModule implements CasinoModule {
 		FabricLoader.getInstance().getModContainer(Burmaldaholic.MOD_ID).ifPresent(mod ->
 			ResourceLoader.registerBuiltinPack(ctx.id("casinos"), mod, Component.translatable("pack.burmaldaholic.casinos"),
 				PackActivationType.DEFAULT_ENABLED));
+
+		NpcContent.register(ctx);
+		NpcInteractions.register();
+		CoreServices.setTablePresets(new WorldgenPresets());
 
 		ServerLifecycleEvents.SERVER_STARTING.register(WorldgenRuntime::setServer);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {

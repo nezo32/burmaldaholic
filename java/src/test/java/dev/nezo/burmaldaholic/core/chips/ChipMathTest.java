@@ -2,6 +2,8 @@ package dev.nezo.burmaldaholic.core.chips;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -33,5 +35,23 @@ class ChipMathTest {
 		assertEquals(0, ChipMath.withdrawable(100, 600, false));
 		assertEquals(0, ChipMath.withdrawable(12_500, 600, true));
 		assertEquals(3, ChipMath.emeraldsForChips(35, 10));
+	}
+	/** Review M3: a withdrawal is capped to a bounded number of item stacks; denominations are validated. */
+	@Test
+	void withdrawalCappedToStacks() {
+		assertTrue(ChipMath.isDenomination(500) && ChipMath.isDenomination(1));
+		assertFalse(ChipMath.isDenomination(0) || ChipMath.isDenomination(7) || ChipMath.isDenomination(-5));
+		assertEquals(1328, ChipMath.capToStacks(1328, 0, 36, 64), "small amounts are untouched");
+		long capped = ChipMath.capToStacks(1_000_000_000L, 0, 36, 64);
+		assertTrue(capped > 0 && ChipMath.stacks(ChipMath.split(capped), 64) <= 36, "fits in 36 stacks: " + capped);
+		assertTrue(ChipMath.stacks(ChipMath.split(capped + 500), 64) > 36, "and is (close to) the largest that does");
+		long ones = ChipMath.capToStacks(1_000_000L, 1, 36, 64);
+		assertEquals(36 * 64, ones, "all-ones withdrawal: 36 full stacks");
+		for (long n : new long[] {0, 1, 63, 64, 65, 36 * 64 * 500L, 36 * 64 * 500L + 499, 123_456_789L}) {
+			for (int d : new int[] {0, 500, 100, 25, 5, 1}) {
+				long c = ChipMath.capToStacks(n, d, 36, 64);
+				assertTrue(c <= n && ChipMath.stacks(d > 0 ? ChipMath.split(c, d) : ChipMath.split(c), 64) <= 36, n + "/" + d);
+			}
+		}
 	}
 }

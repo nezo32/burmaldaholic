@@ -16,6 +16,8 @@ dialog.burmaldaholic.piglin_dealer.greeting.2=На тебе нет золота.
 dialog.burmaldaholic.piglin_dealer.greeting.3=Правила заведения: столы не копать. Остальное — можно.
 dialog.burmaldaholic.shulker_croupier.greeting.1=(Шалкер приоткрывает панцирь ровно настолько, чтобы принять ставку.)
 dialog.burmaldaholic.shulker_croupier.greeting.2=Только хайроллеры. Проиграете — улетите. Шутка. В основном.
+gui.burmaldaholic.worldgen.shop.offer=%1 — %2
+msg.burmaldaholic.worldgen.bought=Куплено: %1 за %2
 ## [config / loan, chaos, streak, lastchance, worldgen, ownership, debug]
 config.burmaldaholic.worldgen.enabled=Генерировать казино
 config.burmaldaholic.worldgen.villageCasino.chance=Шанс казино в деревне
@@ -24,11 +26,9 @@ config.burmaldaholic.worldgen.highRoller.chance=Шанс лаунжа хайро
 config.burmaldaholic.worldgen.loanSharkRespawnTicks=Возрождение ростовщика (тики)
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
 action.interact.burmaldaholic.talk=Поговорить
-gui.burmaldaholic.worldgen.shop.offer=%1 — %2
 gui.burmaldaholic.worldgen.dealer.play=Играть: %1
 gui.burmaldaholic.worldgen.admin.build=Построить казино здесь
 gui.burmaldaholic.worldgen.admin.title=Постройка казино
 gui.burmaldaholic.worldgen.admin.body=Здание появится прямо перед вами (к северу), входом в вашу сторону.
-msg.burmaldaholic.worldgen.bought=Куплено: %1 за %2
 msg.burmaldaholic.worldgen.built=%1 открывает двери
 msg.burmaldaholic.worldgen.build_failed=Здесь казино не построить

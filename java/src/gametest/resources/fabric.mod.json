@@ -5,9 +5,13 @@
 	"name": "Burmaldaholic GameTests",
 	"environment": "*",
 	"entrypoints": {
+		"main": [
+			"dev.nezo.burmaldaholic.gametest.GameTestCasinoMode"
+		],
 		"fabric-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.JavaReviewGameTests",
 			"dev.nezo.burmaldaholic.gametest.lastchance.LastChanceGameTests",
 			"dev.nezo.burmaldaholic.gametest.chaos.ChaosGameTests",
 			"dev.nezo.burmaldaholic.gametest.craps.CrapsGameTests",
@@ -17,7 +21,8 @@
 			"dev.nezo.burmaldaholic.gametest.loan.LoanGameTests",
 			"dev.nezo.burmaldaholic.gametest.poker.PokerGameTests",
 			"dev.nezo.burmaldaholic.gametest.independent.IndependentGameTests",
-			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests"
+			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests",

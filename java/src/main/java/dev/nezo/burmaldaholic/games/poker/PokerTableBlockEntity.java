@@ -65,8 +65,9 @@ import net.minecraft.world.phys.Vec3;
  * escrowed in the world bank ({@link AccountId#HOUSE}) and the stack is paid back on stand-up / removal
  * (the invested part as a transfer, the profit as a garnishable payout). Bots are funded by the bank; the
  * rake of raked pots goes to the owner's bankroll at owned tables (§18.2), otherwise it stays in the bank
- * (sink). Every human seat's crash-safe stack (the start stack of the running hand) is saved with the
- * block entity and paid back if the table is loaded again with seats still open (server stop, §4.1).
+ * (sink). A table that stops running (broken, chunk unloaded, server stopping, casino mode off) plays the hand
+ * out and cashes everybody out (review M1). Only after a crash is a seat's start-of-hand stack still saved with
+ * the block entity and paid back on the next load (§4.1).
  */
 public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 	private static final String STAKE_KEY = "burmaldaholic_poker_stake";
@@ -228,6 +229,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		if (table != null && table.seatOf(id(player)) != null) {
 			return;
 		}
+		if (table != null && table.dealtInto(id(player))) {
+			// Review B1: still dealt into the running hand (folded, then stood up): no new seat until it ends.
+			sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
+			return;
+		}
 		// A generated table may fix the stake level (Piglin Parlor: Low, §16.2).
 		String fixed = preset().map(TablePresetProvider.TablePreset::pokerStakes).orElse("");
 		StakeLevel level = humansSeated() ? stake : StakeLevel.byId(fixed.isEmpty() ? levelId : fixed);
@@ -327,7 +333,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			if (h.toAct() >= 0 && h.player(h.toAct()).id.equals(id)) {
 				apply(Hand.Action.fold());
 			}
-			if (table.seatOf(id) != null) {
+			if (table != null && table.seatOf(id) != null) { // the fold may have ended the hand and closed the table
 				player.sendSystemMessage(PokerText.msg("leaving_after_hand"));
 			}
 			return;
@@ -428,7 +434,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		boolean bots = cfg().botsEnabled && ownership().map(OwnedTable::bots).orElse(true); // owner "bots on/off" (§18.2)
 		int maxBots = preset().map(TablePresetProvider.TablePreset::pokerBots).orElse(-1);
-		PokerTable.FillResult fill = table.fillBots(new PokerTable.BotFill(bots, botMix(stake), cfg().botBuyInBb * table.bb(), maxBots),
+		int[] mix = preset().map(TablePresetProvider.TablePreset::pokerBotMix).filter(m -> m.size() == 3)
+			.map(m -> m.stream().mapToInt(Integer::intValue).toArray()).orElseGet(() -> botMix(stake)); // Parlor: Regular-heavy
+		PokerTable.FillResult fill = table.fillBots(new PokerTable.BotFill(bots, mix, cfg().botBuyInBb * table.bb(), maxBots),
 			rng(), () -> "bot:" + (++botIds));
 		for (PokerTable.Seat b : fill.left()) {
 			if (b.stack <= 0) {
@@ -758,6 +766,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		if (!CasinoMode.isEnabled(serverLevel)) {
+			// §4.1 CHANGED (review M1): the hand in play is played out (like a stopped table), never aborted.
+			playOutNow("casino mode off");
 			shutdown();
 			syncViewers();
 			return;
@@ -802,7 +812,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 	 * Table broken (review B1): the running hand is played out now — every human acts by the timeout rule
 	 * (check, else fold; all-in players are already committed), bots decide as usual, the board runs out and
 	 * the pots are paid — then everybody is cashed out. No abort: breaking a table never returns chips
-	 * already in a pot. Only casino mode off / game disabled aborts the hand (§2.1).
+	 * already in a pot. The same runs when the table's chunk unloads, the server stops or casino mode turns off
+	 * (review M1, core {@code playOutNow}); only a disabled game / internal error aborts the hand.
 	 */
 	@Override
 	protected void playOutForRemoval(ServerLevel level) {
@@ -843,6 +854,12 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			}
 			afterHumanLeft();
 		}
+	}
+
+	/** A table with seats (humans) is in play even without core stakes: {@code playOutNow} must run (review M1). */
+	@Override
+	protected boolean hasRoundInPlay() {
+		return table != null;
 	}
 
 	@Override

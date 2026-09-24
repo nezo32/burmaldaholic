@@ -223,4 +223,36 @@ class PokerTableTest {
 		Map<String, Double> vpip = t.vpipMap();
 		assertTrue(vpip.get("a") >= 0 && vpip.get("a") <= 1);
 	}
+	/** Review B1: a folded player who stood up and bought in again is a new seat, never the old hand entry. */
+	@Test
+	void reseatedPlayerIsNotMatchedToTheOldHandEntry() {
+		for (boolean abort : new boolean[] {false, true}) {
+			PokerTable t = new PokerTable(6, 10, RAKE);
+			t.addHuman("a", "A", 1000);
+			t.addHuman("b", "B", 1000);
+			t.addHuman("c", "C", 1000);
+			Hand h = t.startHand(rng);
+			String x = h.player(h.toAct()).id;
+			h.apply(Action.fold());
+			assertTrue(t.dealtInto(x), "folded player still has a hand entry");
+			assertEquals(1000, t.liveStack(x));
+			t.removeSeat(x); // stood up (cashed out 1000)
+			assertEquals(0, t.liveStack(x), "not seated: nothing to pay");
+			assertTrue(t.dealtInto(x), "the hand entry outlives the seat: buy-in must wait for the next hand");
+			t.addHuman(x, "X", 400); // a re-buy (only possible if the table let it through)
+			assertEquals(-1, t.handIndexOf(x), "the new seat was not dealt in");
+			assertEquals(400, t.liveStack(x), "cash-out pays the new stack, not the old hand stack");
+			assertEquals(400, t.refundableStack(x));
+			assertTrue(t.canTopUp(x));
+			if (abort) {
+				t.abortHand();
+			} else {
+				while (!h.complete()) {
+					h.apply(h.legal().canCheck() ? Action.check() : Action.call());
+				}
+				t.settleHand();
+			}
+			assertEquals(400, t.seatOf(x).stack, "hand end never writes the old entry's stack onto the new seat");
+		}
+	}
 }

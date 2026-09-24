@@ -79,6 +79,7 @@ msg.burmaldaholic.poker.removed=Вы встали из-за стола. На б�
 msg.burmaldaholic.poker.bot_joins=За стол садится %1 (%2)
 msg.burmaldaholic.poker.bot_busts=У игрока %1 кончились фишки — место освобождается
 msg.burmaldaholic.poker.new_hand=Раздача №%1 — блайнды %2/%3
+msg.burmaldaholic.poker.leaving_after_hand=Вы встанете из-за стола после этой раздачи
 ## [config / vip, games]
 config.burmaldaholic.poker.enabled=Покер
 config.burmaldaholic.poker.maxSeats=Мест за столом

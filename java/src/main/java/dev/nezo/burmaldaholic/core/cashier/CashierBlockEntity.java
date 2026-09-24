@@ -36,6 +36,11 @@ import net.minecraft.world.level.block.state.BlockState;
 public class CashierBlockEntity extends CasinoTableBlockEntity {
 	public static final String GAME_ID = "core";
 	private static final int MAX_BATCH = 64;
+	/**
+	 * Review M3: one withdrawal hands out at most this many item stacks (one inventory's worth), inventory first;
+	 * only the rest drops at the player's feet. Larger amounts take several clicks.
+	 */
+	public static final int MAX_WITHDRAW_STACKS = 36;
 
 	public CashierBlockEntity(TableType<CashierBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -134,7 +139,28 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		return Math.max(1, Math.min(MAX_BATCH, args.getIntOr("count", 1)));
 	}
 
-	/** Deposits every chip item in the inventory. Returns chips deposited. */
+	/** Room left under {@code economy.maxBalance} (review m2: never take items whose value would be capped away). */
+	private static long room(ServerPlayer player) {
+		return Math.max(0, CasinoConfig.economy().maxBalance - Economies.get().balance(player));
+	}
+
+	/**
+	 * Takes up to {@code room} chips' worth from one stack (whole chips only) and returns their value; the
+	 * rest stays in the slot.
+	 */
+	private static long take(ItemStack stack, long room) {
+		if (!(stack.getItem() instanceof ChipItem chip) || chip.value() <= 0 || stack.isEmpty()) {
+			return 0;
+		}
+		int n = (int) Math.min(stack.getCount(), room / chip.value());
+		if (n <= 0) {
+			return 0;
+		}
+		stack.shrink(n);
+		return (long) n * chip.value();
+	}
+
+	/** Deposits every chip item in the inventory (as far as the balance cap allows). Returns chips deposited. */
 	public long depositAll(ServerPlayer player) {
 		Inventory inv = player.getInventory();
 		long total = 0;
@@ -145,12 +171,20 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("msg.burmaldaholic.core.no_chips_to_deposit"));
 			return 0;
 		}
-		for (int i = 0; i < inv.getContainerSize(); i++) {
-			if (inv.getItem(i).getItem() instanceof ChipItem) {
-				inv.setItem(i, ItemStack.EMPTY);
-			}
+		long room = room(player);
+		long taken = 0;
+		for (int i = 0; i < inv.getContainerSize() && room - taken > 0; i++) {
+			taken += take(inv.getItem(i), room - taken);
 		}
-		return credit(player, total);
+		inv.setChanged();
+		if (taken <= 0) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.balance_full"));
+			return 0;
+		}
+		if (taken < total) {
+			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.balance_full"));
+		}
+		return credit(player, taken);
 	}
 
 	public long depositHeld(ServerPlayer player) {
@@ -160,8 +194,15 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("msg.burmaldaholic.core.no_chips_to_deposit"));
 			return 0;
 		}
-		player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-		return credit(player, value);
+		long taken = take(held, room(player));
+		if (taken <= 0) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.balance_full"));
+			return 0;
+		}
+		if (taken < value) {
+			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.balance_full"));
+		}
+		return credit(player, taken);
 	}
 
 	private long credit(ServerPlayer player, long value) {
@@ -170,14 +211,18 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		return value;
 	}
 
-	/** Withdraws {@code amount} as chip items ({@code denom} 0 = greedy auto). Returns true on success. */
+	/**
+	 * Withdraws {@code amount} as chip items ({@code denom} 0 = greedy auto, else one of
+	 * {@link ChipMath#DENOMINATIONS}). At most {@link #MAX_WITHDRAW_STACKS} stacks per call (review M3): a larger
+	 * amount is reduced and the player is told the limit. Returns true on success.
+	 */
 	public boolean withdraw(ServerPlayer player, long amount, int denom) {
 		MinecraftServer server = server(player);
 		if (CoreServices.debt().inDefault(server, player.getUUID())) {
 			sendError(player, Component.translatable("gui.burmaldaholic.cashier.withdraw_blocked"));
 			return false;
 		}
-		if (amount <= 0) {
+		if (amount <= 0 || (denom != 0 && !ChipMath.isDenomination(denom))) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.invalid_amount"));
 			return false;
 		}
@@ -186,7 +231,13 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(max)));
 			return false;
 		}
-		if (!Economies.get().tryWithdraw(player, amount, tx("withdraw"))) {
+		int stackSize = new ItemStack(Chips.item(ChipMath.DENOMINATIONS[0])).getMaxStackSize();
+		long capped = ChipMath.capToStacks(amount, denom, MAX_WITHDRAW_STACKS, stackSize);
+		if (capped < amount) {
+			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.withdraw_capped", Texts.number(capped)));
+			amount = capped;
+		}
+		if (amount <= 0 || !Economies.get().tryWithdraw(player, amount, tx("withdraw"))) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(Economies.get().balance(player))));
 			return false;
 		}
@@ -207,6 +258,16 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		if (inv.countItem(currency) < count) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.plural(unitKey, inv.countItem(currency))));
 			return;
+		}
+		// Review m2: only take the emeralds / gold whose chips fit under economy.maxBalance.
+		long fits = rate <= 0 ? count : room(player) / rate;
+		if (fits <= 0) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.balance_full"));
+			return;
+		}
+		if (fits < count) {
+			count = (int) fits;
+			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.balance_full"));
 		}
 		remove(inv, currency, count);
 		long chips = (long) count * rate;

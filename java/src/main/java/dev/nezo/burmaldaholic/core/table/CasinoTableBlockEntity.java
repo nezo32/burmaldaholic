@@ -65,9 +65,10 @@ import org.jspecify.annotations.Nullable;
  *       rules, debits, reserves bankroll exposure) and {@link #settle} (pays out, releases the
  *       reservation, reports the round via {@code PlayResults.fire}, offline-safe). Per-bet stakes for games
  *       whose bets resolve one by one: {@code placeBet(player, betId, ...)} / {@link #settleBet} /
- *       {@link #refundBet}. Open stakes are saved with the block entity and <b>refunded</b> if the table is
- *       loaded again with an unfinished round (server restart, §4.1). A <b>broken</b> table plays its
- *       rounds out ({@link #playOutForRemoval}); only undrawn bets are returned.</li>
+ *       {@link #refundBet}. A table that stops running — <b>broken</b>, chunk <b>unloaded</b> or server
+ *       <b>stopped</b> — plays its rounds out ({@link #playOutNow}, review M1); only undrawn bets are
+ *       returned. Open stakes are still saved with the block entity and refunded if the table is loaded
+ *       again with an unfinished round, which only happens after a crash (§4.1).</li>
  *   <li><b>Phases &amp; timers</b>: {@link #setPhase}, {@link #startTimer} → {@link #onTimer} (world time).</li>
  *   <li><b>Sync</b>: {@link #syncViewers()} after every change; {@link #baseState} for common fields;
  *       {@link #sendError} shows an error line on the client screen.</li>
@@ -121,6 +122,11 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	private String phase = "idle";
 	private boolean refundPending;
 	private boolean removing;
+	/** Net result per player of rounds played out by {@link #playOutNow} at a server stop (for the notice). */
+	private @Nullable Map<UUID, Long> playedOut;
+
+	/** {@link #playOutNow} reason used when the server stops: players get {@code msg.burmaldaholic.core.round_played_out}. */
+	public static final String SERVER_STOPPING = "server stopping";
 
 	protected CasinoTableBlockEntity(TableType<?> tableType, BlockPos pos, BlockState state) {
 		super(tableType.blockEntityType(), pos, state);
@@ -339,7 +345,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 		MinecraftServer server = player.level().getServer();
 		Economy eco = Economies.get();
-		String bankroll = owned.map(OwnedTable::bankrollId).orElse("");
+		// Review M2: a player's open round stays with the bank it started with. If the table was linked /
+		// unlinked since (ownership change), raises and further bets of that round still go to — and are
+		// reserved on — the stake's recorded bankroll, so pay/refund/release always hit the right account.
+		String bankroll = roundBankroll(player.getUUID()).orElseGet(() -> owned.map(OwnedTable::bankrollId).orElse(""));
 		long reserve = 0;
 		if (!bankroll.isEmpty()) {
 			reserve = Math.max(0, worstCasePayout);
@@ -359,7 +368,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		StakeKey key = new StakeKey(player.getUUID(), bet);
 		OpenStake prev = openStakes.get(key);
 		OpenStake next = prev == null ? new OpenStake(player.getUUID(), bet, amount, reserve, bankroll)
-			: new OpenStake(player.getUUID(), bet, prev.amount() + amount, prev.reserved() + reserve, prev.bankroll());
+			: new OpenStake(player.getUUID(), bet, prev.amount() + amount, prev.reserved() + reserve, bankroll);
 		openStakes.put(key, next);
 		setChanged();
 		if (preset().filter(p -> p.id().startsWith("high_roller")).isPresent()) {
@@ -369,6 +378,16 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			level.playSound(null, worldPosition, CoreSounds.CHIP_PLACE, net.minecraft.sounds.SoundSource.BLOCKS, 0.6f, 1.2f);
 		}
 		return Result.ok(next.amount());
+	}
+
+	/** Bankroll of the player's open round here ("" = world bank), if they have an open stake (review M2). */
+	private Optional<String> roundBankroll(UUID player) {
+		for (OpenStake s : openStakes.values()) {
+			if (s.player().equals(player)) {
+				return Optional.of(s.bankroll());
+			}
+		}
+		return Optional.empty();
 	}
 
 	/** Total open stake of a player at this table over all their bets (0 if none). */
@@ -434,7 +453,12 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		long reserved = 0;
 		for (OpenStake s : mine) {
 			amount += s.amount();
-			reserved += s.reserved();
+			if (s.bankroll().equals(first.bankroll())) {
+				reserved += s.reserved();
+			} else if (!s.house() && level instanceof ServerLevel sl) {
+				// never release a reservation against the wrong bankroll (review M2; stakes saved before the fix)
+				Economies.get().bankrolls(sl.getServer()).release(s.bankroll(), s.reserved());
+			}
 		}
 		pay(new OpenStake(player, "", amount, reserved, first.bankroll()), payout, detail);
 	}
@@ -459,14 +483,16 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 		if (payout > 0) {
 			AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());
-			Economy.TxResult tx = eco.transfer(server, bank, AccountId.player(player), payout, Transaction.payout(gameId()));
-			if (!tx.ok()) {
-				// Should not happen (exposure was reserved); never leave the player unpaid.
-				Burmaldaholic.LOGGER.error("Bankroll {} could not pay {} to {} at {}", s.bankroll(), payout, player, worldPosition);
-				eco.transfer(server, AccountId.HOUSE, AccountId.player(player), payout, Transaction.payout(gameId()));
-			}
+			// Review m8: the returned stake is the player's own money (never garnished); only the winnings are a
+			// garnishable PAYOUT.
+			long stakeBack = Math.min(payout, s.amount());
+			credit(server, bank, player, stakeBack, new Transaction(gameId(), "stake_return", Transaction.Kind.TRANSFER), s);
+			credit(server, bank, player, payout - stakeBack, Transaction.payout(gameId()), s);
 		}
 		setChanged();
+		if (playedOut != null) {
+			playedOut.merge(player, payout - s.amount(), Long::sum);
+		}
 		PlayResult result = PlayResult.of(gameId(), s.amount(), payout).withEdge(houseEdge()).withTable(serverLevel, worldPosition, s.bankroll());
 		if (detail != null) {
 			result = detail.apply(result);
@@ -474,6 +500,18 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		PlayResults.fire(server, player, result);
 		if (CasinoConfig.debug().logRounds) {
 			Burmaldaholic.LOGGER.info("[round] {} at {}: player {} staked {} payout {}", gameId(), worldPosition, player, s.amount(), payout);
+		}
+	}
+
+	private void credit(MinecraftServer server, AccountId bank, UUID player, long amount, Transaction why, OpenStake s) {
+		if (amount <= 0) {
+			return;
+		}
+		Economy eco = Economies.get();
+		if (!eco.transfer(server, bank, AccountId.player(player), amount, why).ok()) {
+			// Should not happen (exposure was reserved); never leave the player unpaid.
+			Burmaldaholic.LOGGER.error("Bankroll {} could not pay {} to {} at {}", s.bankroll(), amount, player, worldPosition);
+			eco.transfer(server, AccountId.HOUSE, AccountId.player(player), amount, why);
 		}
 	}
 
@@ -638,26 +676,79 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	@Override
 	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
 		super.preRemoveSideEffects(pos, state);
-		if (level instanceof ServerLevel serverLevel && !removing) {
-			removing = true;
-			try {
-				if (seats != null) {
-					seats.occupied().forEach(s -> leave(s.player(), LeaveReason.REMOVED));
-				}
-				try {
-					playOutForRemoval(serverLevel);
-				} catch (RuntimeException e) {
-					Burmaldaholic.LOGGER.error("Table {} at {}: play-out on removal failed", gameId(), worldPosition, e);
-				}
-				new ArrayList<>(openStakes.values()).forEach(s -> {
-					Burmaldaholic.LOGGER.info("Table {} removed at {}: returning undrawn stake {} to {}", gameId(), worldPosition, s.amount(), s.player());
-					refundStake(serverLevel.getServer(), s, false);
-				});
-				openStakes.clear();
-			} finally {
-				removing = false;
-			}
+		playOutNow("removed");
+	}
+
+	/**
+	 * The table stops running: broken, its chunk unloads, or the server stops (review M1). Everybody leaves
+	 * ({@link LeaveReason#REMOVED}), rounds in play are played out ({@link #playOutForRemoval}) and only
+	 * stakes of a round that has not drawn yet are refunded — a drawn outcome is never undone, so "Save and
+	 * Quit" is not a free roll. Idempotent: afterwards no stake is open, so the saved block entity carries
+	 * nothing to refund on the next load. Called by core ({@link TableLifecycle}); games need not call it.
+	 *
+	 * @return true if anything was open (the chunk must be saved again)
+	 */
+	public boolean playOutNow(String why) {
+		if (!(level instanceof ServerLevel serverLevel) || removing) {
+			return false;
 		}
+		boolean busy = !openStakes.isEmpty() || (seats != null && !seats.isEmpty()) || hasRoundInPlay();
+		if (!busy) {
+			return false;
+		}
+		removing = true;
+		if (SERVER_STOPPING.equals(why)) {
+			playedOut = new LinkedHashMap<>();
+		}
+		try {
+			if (seats != null) {
+				seats.occupied().forEach(s -> leave(s.player(), LeaveReason.REMOVED));
+			}
+			try {
+				playOutForRemoval(serverLevel);
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("Table {} at {}: play-out ({}) failed", gameId(), worldPosition, why, e);
+			}
+			if (playedOut != null) {
+				playedOut.forEach((player, net) -> notifyPlayedOut(serverLevel.getServer(), player, net));
+			}
+			new ArrayList<>(openStakes.values()).forEach(s -> {
+				Burmaldaholic.LOGGER.info("Table {} {} at {}: returning undrawn stake {} to {}", gameId(), why, worldPosition, s.amount(), s.player());
+				refundStake(serverLevel.getServer(), s, false);
+			});
+			openStakes.clear();
+			setChanged();
+		} finally {
+			removing = false;
+			playedOut = null;
+		}
+		return true;
+	}
+
+	/** GAME_DESIGN §4.1 (CHANGED, review M1): "Your blackjack round was already decided, so it was played out: Win! +40". */
+	private void notifyPlayedOut(MinecraftServer server, UUID player, long net) {
+		ServerPlayer online = server.getPlayerList().getPlayer(player);
+		if (online == null) {
+			return;
+		}
+		Component result = net > 0 ? Component.translatable("gui.burmaldaholic.common.result.win", Texts.chips(net))
+			: net < 0 ? Component.translatable("gui.burmaldaholic.common.result.loss", Texts.chips(-net))
+			: Component.translatable("gui.burmaldaholic.common.result.push");
+		online.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.round_played_out", gameLabel(), result));
+	}
+
+	/** The game's name ({@code gui.burmaldaholic.common.game.*}), e.g. for chat lines about a round. */
+	protected Component gameLabel() {
+		String id = gameId().equals("wheel_of_fortune") ? "wheel" : gameId();
+		return Component.translatable("gui.burmaldaholic.common.game." + id);
+	}
+
+	/**
+	 * Whether the game has a round in play that is not visible as an open stake or a core seat (poker's own
+	 * seat model). Default false; {@link #playOutNow} then only runs when stakes or seats are open.
+	 */
+	protected boolean hasRoundInPlay() {
+		return false;
 	}
 
 	// ---- sync ---------------------------------------------------------------------------------

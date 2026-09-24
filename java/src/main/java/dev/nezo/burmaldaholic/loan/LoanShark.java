@@ -112,7 +112,7 @@ public final class LoanShark {
 		if (rec.goodStanding > 0) {
 			int steps = Math.min(rec.goodStanding, CasinoConfig.loan().goodStandingMaxSteps);
 			putComponent(server, t, "good_standing", Component.translatable("gui.burmaldaholic.loan.good_standing", Texts.number(rec.goodStanding),
-				Texts.raw(LoanRules.percent(steps * CasinoConfig.loan().goodStandingDiscount))));
+				Texts.decimal(LoanRules.percent(steps * CasinoConfig.loan().goodStandingDiscount))));
 		}
 		List<Product> products = LoanService.products();
 		ListTag list = new ListTag();

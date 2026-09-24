@@ -34,6 +34,24 @@ msg.burmaldaholic.craps.come_moved=Your Come bet moves to %1
 msg.burmaldaholic.craps.field_win=Field pays %1
 msg.burmaldaholic.craps.odds_returned=Come odds were off on the come-out roll and are returned
 msg.burmaldaholic.craps.auto_roll=The shooter took too long — the dice roll themselves
+gui.burmaldaholic.craps.dont_come_point=Don't Come bet on %1
+gui.burmaldaholic.craps.bet_flat=%1 — %2
+gui.burmaldaholic.craps.bet_with_odds=%1 — %2 + odds %3
+gui.burmaldaholic.craps.odds_off=(odds off on the come-out roll)
+gui.burmaldaholic.craps.bet_window=Bets close in %1
+gui.burmaldaholic.craps.auto_roll_in=The dice roll themselves in %1
+gui.burmaldaholic.craps.waiting_shooter=Waiting for %1 to roll
+gui.burmaldaholic.craps.amount_with_odds=%1 + %2
+gui.burmaldaholic.craps.field_label=Field: 2 (%1:1) 3 4 9 10 11 12 (%2:1)
+gui.burmaldaholic.craps.others_short=(+%1)
+gui.burmaldaholic.craps.others=Other players: %1
+gui.burmaldaholic.craps.click_to_bet=Click to bet %1
+gui.burmaldaholic.craps.click_odds=Click to add odds: %1
+msg.burmaldaholic.craps.rolled=%1 rolls: %2 + %3 = %4
+msg.burmaldaholic.craps.bet_result=%1: %2
+msg.burmaldaholic.craps.bets_played_out=You left the craps table — your bets were played out. Net: %1
+msg.burmaldaholic.craps.bets_refunded=The craps table closed — your bets were returned
+msg.burmaldaholic.craps.dont_come_moved=Your Don't Come bet moves to %1
 ## [config / vip, games]
 config.burmaldaholic.craps.enabled=Craps
 config.burmaldaholic.craps.minBet=Minimum bet
@@ -46,17 +64,6 @@ config.burmaldaholic.craps.betWindowTicks=Betting window (ticks)
 config.burmaldaholic.craps.rollTimerTicks=Roll timer (ticks)
 config.burmaldaholic.craps.seats=Seats
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
-gui.burmaldaholic.craps.dont_come_point=Don't Come bet on %1
 gui.burmaldaholic.craps.your_bets=Your bets:
 gui.burmaldaholic.craps.no_bets=No bets yet
-gui.burmaldaholic.craps.bet_flat=%1 — %2
-gui.burmaldaholic.craps.bet_with_odds=%1 — %2 + odds %3
-gui.burmaldaholic.craps.odds_off=(odds off on the come-out roll)
-gui.burmaldaholic.craps.bet_window=Bets close in %1
-gui.burmaldaholic.craps.auto_roll_in=The dice roll themselves in %1
-gui.burmaldaholic.craps.waiting_shooter=Waiting for %1 to roll
 gui.burmaldaholic.craps.choose_odds=Which bet gets the odds?
-msg.burmaldaholic.craps.rolled=%1 rolls: %2 + %3 = %4
-msg.burmaldaholic.craps.bet_result=%1: %2
-msg.burmaldaholic.craps.bets_played_out=You left the craps table — your bets were played out. Net: %1
-msg.burmaldaholic.craps.bets_refunded=The craps table closed — your bets were returned

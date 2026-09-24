@@ -22,6 +22,7 @@ import dev.nezo.burmaldaholic.core.network.PlayerStatusPayload;
 import dev.nezo.burmaldaholic.core.registry.CasinoCreativeTab;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.rng.StreakTracker;
+import dev.nezo.burmaldaholic.core.table.TableLifecycle;
 import dev.nezo.burmaldaholic.core.table.TableNetworking;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Inventories;
@@ -94,6 +95,7 @@ public final class CoreModule implements CasinoModule {
 		Earnings.register();
 		HeartPenalties.register();
 		TableNetworking.register(ctx);
+		TableLifecycle.register(); // review M1: tables play out on chunk unload / server stop
 		CasinoCommands.register();
 		OddsService.get().setStreakSource(StreakTracker::get, StreakTracker::settings);
 

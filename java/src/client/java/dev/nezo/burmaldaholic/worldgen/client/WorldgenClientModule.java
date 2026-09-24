@@ -12,6 +12,6 @@ public final class WorldgenClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
-		// TODO(worldgen): e.g. ctx.tableScreen(WorldgenModule.TABLE, WorldgenScreen::new);
+		NpcRenderers.register();
 	}
 }

@@ -17,6 +17,7 @@ import dev.nezo.burmaldaholic.games.extras.net.ExtrasErrorPayload;
 import dev.nezo.burmaldaholic.games.extras.net.ExtrasScreenPayload;
 import dev.nezo.burmaldaholic.games.extras.server.CoinFlipGame;
 import dev.nezo.burmaldaholic.games.extras.server.DiceGame;
+import dev.nezo.burmaldaholic.games.extras.server.ExtrasGames;
 import dev.nezo.burmaldaholic.games.extras.server.ScratchGame;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -89,8 +90,17 @@ public final class ExtrasModule implements CasinoModule {
 				return;
 			}
 			switch (payload.game()) {
-				case CoinFlipGame.SCREEN -> CoinFlipGame.action(player, payload.action(), payload.args());
-				case DiceGame.SCREEN -> DiceGame.action(player, payload.action(), payload.args());
+				// review m7: owning the item (or a server-opened screen) is checked here, not only by the client
+				case CoinFlipGame.SCREEN -> {
+					if (ExtrasGames.mayAct(player, CoinFlipGame.SCREEN, LUCKY_COIN)) {
+						CoinFlipGame.action(player, payload.action(), payload.args());
+					}
+				}
+				case DiceGame.SCREEN -> {
+					if (ExtrasGames.mayAct(player, DiceGame.SCREEN, DICE)) {
+						DiceGame.action(player, payload.action(), payload.args());
+					}
+				}
 				case ScratchGame.SCREEN -> ScratchGame.action(player, payload.action(), payload.args());
 				default -> {
 				}
@@ -103,7 +113,11 @@ public final class ExtrasModule implements CasinoModule {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			DiceGame.forget(handler.player.getUUID());
 			CoinFlipGame.forget(handler.player.getUUID());
+			ExtrasGames.forgetScreen(handler.player.getUUID());
 		});
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> DiceGame.clear());
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			DiceGame.clear();
+			ExtrasGames.clearScreens();
+		});
 	}
 }

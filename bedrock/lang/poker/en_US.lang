@@ -79,6 +79,7 @@ msg.burmaldaholic.poker.removed=You left the table. %1 returned to your balance
 msg.burmaldaholic.poker.bot_joins=%1 (%2) joins the table
 msg.burmaldaholic.poker.bot_busts=%1 is out of chips and leaves
 msg.burmaldaholic.poker.new_hand=Hand #%1 — blinds %2/%3
+msg.burmaldaholic.poker.leaving_after_hand=You'll stand up when this hand ends
 ## [config / vip, games]
 config.burmaldaholic.poker.enabled=Poker
 config.burmaldaholic.poker.maxSeats=Seats

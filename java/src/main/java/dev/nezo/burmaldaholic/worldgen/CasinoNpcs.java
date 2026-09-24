@@ -12,9 +12,9 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.ServerLevelAccessor;
 
 /**
- * Spawns casino NPCs. The entity types are owned by other modules (croupier / dealers by core, Loan
- * Shark by loan) and are looked up by registry id at spawn time; a role whose types are not
- * registered is skipped (and retried by the respawn check later, e.g. after the module is added).
+ * Spawns casino NPCs. The staff types (croupier, piglin dealer, shulker croupier) are worldgen's own
+ * ({@code npc/NpcContent}), the Loan Shark belongs to loan; all are looked up by registry id at spawn time,
+ * and a role whose types are not registered is skipped (and retried by the respawn check later).
  */
 public final class CasinoNpcs {
 	/** Entity tag of every NPC spawned by worldgen. */

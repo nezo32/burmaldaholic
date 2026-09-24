@@ -43,6 +43,57 @@ public final class ChipMath {
 		return counts;
 	}
 
+	/** Whether {@code denom} is one of the chip {@link #DENOMINATIONS} (client input is untrusted). */
+	public static boolean isDenomination(int denom) {
+		for (int d : DENOMINATIONS) {
+			if (d == denom) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Item stacks needed for a split (counts per {@link #DENOMINATIONS}) at {@code stackSize} chips per stack. */
+	public static long stacks(long[] counts, int stackSize) {
+		long n = 0;
+		for (long c : counts) {
+			n += (c + stackSize - 1) / stackSize;
+		}
+		return n;
+	}
+
+	/**
+	 * {@code amount} reduced (if needed) so that its split ({@code denom} 0 = greedy) fits in {@code maxStacks}
+	 * item stacks of {@code stackSize}: full stacks of the largest chips first (review M3: one withdrawal never
+	 * spawns an unbounded number of items).
+	 */
+	public static long capToStacks(long amount, int denom, int maxStacks, int stackSize) {
+		if (amount <= 0 || maxStacks <= 0 || stackSize <= 0) {
+			return 0;
+		}
+		long[] counts = splitFor(amount, denom);
+		if (stacks(counts, stackSize) <= maxStacks) {
+			return amount;
+		}
+		// Keep the split's largest chips while stacks remain; truncate the first denomination that no longer
+		// fits and drop the smaller ones. The greedy split of the result is exactly this truncated split.
+		long budget = maxStacks;
+		long total = 0;
+		for (int i = 0; i < counts.length; i++) {
+			long n = Math.min(counts[i], budget * stackSize);
+			total += n * DENOMINATIONS[i];
+			budget -= (n + stackSize - 1) / stackSize;
+			if (n < counts[i]) {
+				break;
+			}
+		}
+		return total;
+	}
+
+	private static long[] splitFor(long amount, int denom) {
+		return denom > 0 ? split(amount, denom) : split(amount);
+	}
+
 	/** Chips returned for selling {@code chips} at {@code rate} chips per emerald: whole emeralds only. */
 	public static long emeraldsForChips(long chips, int rate) {
 		return rate <= 0 ? 0 : chips / rate;

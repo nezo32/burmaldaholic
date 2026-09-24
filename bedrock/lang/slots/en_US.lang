@@ -42,6 +42,9 @@ msg.burmaldaholic.slots.three_clocks_cooldown=Three clocks! Golden Hour is recha
 msg.burmaldaholic.slots.jackpot_self=JACKPOT! You won %1!
 msg.burmaldaholic.slots.jackpot_broadcast=JACKPOT! %1 hit %2 on %3!
 msg.burmaldaholic.slots.seven_title=Triple seven!
+gui.burmaldaholic.slots.playing=Now playing: %1
+msg.burmaldaholic.slots.jackpot_pool=%1: jackpot %2
+msg.burmaldaholic.slots.rtp_ok=All slot machines pay back less than 99%%
 ## [config / Family templates]
 config.burmaldaholic.slots.weights=%1 — symbol weights
 config.burmaldaholic.slots.pays=%1 — payouts

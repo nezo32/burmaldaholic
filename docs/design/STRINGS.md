@@ -37,7 +37,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gamerule.burmaldaholic.casino_mode` | Casino mode | Режим казино |
 | `gamerule.burmaldaholic.casino_mode.description` | Chips, tables, loans, chaos events and Last Chance. Turning it off keeps all saved data. | Фишки, столы, займы, хаос-события и «Последний шанс». При отключении все данные сохраняются. |
 | `gui.burmaldaholic.core.create_world.casino_mode` | Casino Mode: %1$s | Режим казино: %1$s |
-| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino economy to this world. Does not change difficulty. | Добавляет в мир экономику казино Бурмалдоголик. Сложность не меняется. |
+| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. Off by default; change it later with /gamerule burmaldaholic:casino_mode. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию выключен; позже можно изменить командой /gamerule burmaldaholic:casino_mode. Сложность не меняется. |
 | `gui.burmaldaholic.core.setup.title` | Casino setup | Настройка казино |
 | `gui.burmaldaholic.core.setup.intro` | The add-on is active. Choose how this world plays. You can change it later in Casino Card → Admin. | Аддон подключён. Выберите правила для этого мира — потом их можно поменять в «Клубная карта → Админ». |
 | `gui.burmaldaholic.core.setup.casino_mode` | Casino mode | Режим казино |
@@ -338,6 +338,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `msg.burmaldaholic.core.sold_chips` | Sold %1$s for %2$s | Продано: %1$s за %2$s |
 | `msg.burmaldaholic.core.big_win` | Big win: %1$s takes %2$s at %3$s! | Крупный выигрыш: %1$s забирает %2$s — %3$s! |
 | `msg.burmaldaholic.core.round_refunded` | The server restarted mid-round. Your bet of %1$s was refunded. | Сервер перезапустился посреди раунда. Ставка %1$s возвращена. |
+| `msg.burmaldaholic.core.round_played_out` | The server restarted mid-round. Your %1$s round was already decided, so it was played out: %2$s | Сервер перезапустился посреди раунда. Исход раунда «%1$s» уже был определён, поэтому он доигран: %2$s |
 | `msg.burmaldaholic.core.auto_completed` | You left mid-round. The dealer finished it for you: %1$s | Вы ушли посреди раунда. Дилер доиграл за вас: %1$s |
 | `msg.burmaldaholic.core.card_given` | You received a Casino Card | Вы получили клубную карту |
 
@@ -903,6 +904,9 @@ fallback, narration).
 | `gui.burmaldaholic.extras.wheel.segment.emerald` | Emerald ×5 | Изумруд ×5 |
 | `gui.burmaldaholic.extras.wheel.segment.diamond` | Diamond ×10 | Алмаз ×10 |
 | `gui.burmaldaholic.extras.wheel.legend` | %1$s — ×%2$s (%3$s of 54) | %1$s — ×%2$s (%3$s из 54) |
+| `gui.burmaldaholic.extras.wheel.legend_of` | %1$s — ×%2$s (%3$s of %4$s) | %1$s — ×%2$s (%3$s из %4$s) |
+| `gui.burmaldaholic.extras.wheel.segment_name.emerald` | Emerald | Изумруд |
+| `gui.burmaldaholic.extras.wheel.segment_name.diamond` | Diamond | Алмаз |
 | `gui.burmaldaholic.extras.wheel.result` | The wheel stops on %1$s: %2$s | Колесо остановилось: %1$s — %2$s |
 | `gui.burmaldaholic.extras.wheel.spinning` | Round and round it goes… | Крутится-вертится… |
 | `msg.burmaldaholic.extras.wheel.creeper` | The wheel stops on the Creeper. Something is hissing behind you… | Колесо остановилось на крипере. Кто-то шипит у вас за спиной… |
@@ -1204,6 +1208,8 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `dialog.burmaldaholic.piglin_dealer.greeting.3` | House rules: no mining the tables. Everything else — allowed. | Правила заведения: столы не копать. Остальное — можно. |
 | `dialog.burmaldaholic.shulker_croupier.greeting.1` | (The shulker opens its shell just enough to take your bet.) | (Шалкер приоткрывает панцирь ровно настолько, чтобы принять ставку.) |
 | `dialog.burmaldaholic.shulker_croupier.greeting.2` | High rollers only. You'll float out if you lose. Joke. Mostly. | Только хайроллеры. Проиграете — улетите. Шутка. В основном. |
+| `gui.burmaldaholic.worldgen.shop.offer` | %1$s — %2$s | %1$s — %2$s |
+| `msg.burmaldaholic.worldgen.bought` | Bought %1$s for %2$s | Куплено: %1$s за %2$s |
 
 ---
 
@@ -1421,6 +1427,10 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.core.giveCasinoCardOnJoin` | Give Casino Card on first join | Выдавать клубную карту новичкам |
 | `config.burmaldaholic.core.hud.enabled` | HUD panel | Панель на экране |
 | `config.burmaldaholic.core.hud.position` | Default HUD corner | Угол панели по умолчанию |
+| `config.burmaldaholic.core.hud.position.top_left` | Top left | Слева сверху |
+| `config.burmaldaholic.core.hud.position.top_right` | Top right | Справа сверху |
+| `config.burmaldaholic.core.hud.position.bottom_left` | Bottom left | Слева снизу |
+| `config.burmaldaholic.core.hud.position.bottom_right` | Bottom right | Справа снизу |
 | `config.burmaldaholic.core.announceBigWins` | Announce big wins | Объявлять крупные выигрыши |
 | `config.burmaldaholic.core.bigWinThreshold` | Big win threshold | Порог крупного выигрыша |
 | `config.burmaldaholic.core.roundTimeoutRefund` | Refund rounds after restart | Возвращать ставки после перезапуска |

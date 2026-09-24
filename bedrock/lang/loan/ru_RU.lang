@@ -27,6 +27,9 @@ gui.burmaldaholic.loan.negotiate.pay_all=Погасить полностью (%1
 gui.burmaldaholic.loan.negotiate.pay_half=Отдать половину (%1)
 gui.burmaldaholic.loan.negotiate.refuse=Отказаться
 gui.burmaldaholic.loan.negotiate.timer=Ждать они не будут: %1
+gui.burmaldaholic.loan.admin.info=Займ (%1): %2 · погашено вовремя: %3
+gui.burmaldaholic.loan.admin.wave_sent=Коллекторы отправлены: %1
+gui.burmaldaholic.loan.admin.wave_failed=Волны не будет: у игрока нет просрочки, бригада уже в пути, коллекторы выключены или рядом нет безопасного места
 ## [loan / Loan messages]
 msg.burmaldaholic.loan.taken=Займ получен: +%1. Вернуть %2 до конца дня %3
 msg.burmaldaholic.loan.paid_partial=Выплачено %1. Осталось: %2
@@ -50,6 +53,7 @@ msg.burmaldaholic.loan.partial_collectors=Выплачено %1. Бригада 
 msg.burmaldaholic.loan.repossessed=Изъято: %1 с баланса и %2
 msg.burmaldaholic.loan.repossessed_chips_only=Изъято с баланса: %1
 msg.burmaldaholic.loan.squad_defeated=Бригада повержена. Долг — нет.
+msg.burmaldaholic.loan.balance_cap=Баланс не вместит этот займ: места только на %1. Сначала потратьте фишки.
 ## [loan / Loan Shark dialogue]
 dialog.burmaldaholic.loan.greeting.1=Проходите в кабинет. Акулы не кусаются. Почти.
 dialog.burmaldaholic.loan.greeting.2=Фишек не хватает? Бывает с лучшими. Чаще — с остальными.

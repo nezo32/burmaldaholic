@@ -120,8 +120,8 @@ final class WheelScreen extends ExtrasTableScreen {
 		legendCodes.clear();
 		for (Map.Entry<String, Integer> e : entries) {
 			legendCodes.add(e.getKey());
-			rows.add(Component.translatable("gui.burmaldaholic.extras.wheel.legend", Component.translatable(Wheel.segmentKey(e.getKey())),
-				Texts.raw(Payouts.formatMultiplier(mult.getDoubleOr(e.getKey(), 0))), Texts.number(e.getValue())));
+			rows.add(Component.translatable("gui.burmaldaholic.extras.wheel.legend_of", Component.translatable(Wheel.segmentNameKey(e.getKey())),
+				Texts.decimal(Payouts.formatMultiplier(mult.getDoubleOr(e.getKey(), 0))), Texts.number(e.getValue()), Texts.number(segs.size())));
 		}
 		return rows;
 	}

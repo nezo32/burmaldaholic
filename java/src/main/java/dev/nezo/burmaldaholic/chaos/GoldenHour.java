@@ -129,7 +129,7 @@ public final class GoldenHour {
 	private static Component multiplier() {
 		double m = cfg().multiplier;
 		String text = m == Math.rint(m) ? Long.toString((long) m) : Double.toString(Math.round(m * 100) / 100.0);
-		return Texts.raw(text);
+		return Texts.decimal(text); // review m6: localized decimal separator
 	}
 
 	private static void toll(ServerPlayer p) {

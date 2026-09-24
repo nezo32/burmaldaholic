@@ -51,6 +51,12 @@ gui.burmaldaholic.roulette.rules.1=Одно зеро · преимущество
 gui.burmaldaholic.roulette.rules.2=При выпадении зеро внешние ставки проигрывают
 msg.burmaldaholic.roulette.zero_hero=Зеро! Крупье уважительно кивает.
 msg.burmaldaholic.roulette.spinning=Шарик катится…
+gui.burmaldaholic.roulette.error.inside_max=Внутренняя ставка — не больше %1 на позицию
+gui.burmaldaholic.roulette.error.total_max=Все ставки на один спин — не больше %1
+gui.burmaldaholic.roulette.error.min_total=За этим столом ставка на спин — от %1
+gui.burmaldaholic.roulette.ready_count=Готовы: %1 из %2
+gui.burmaldaholic.roulette.short.odd=Нечёт
+gui.burmaldaholic.roulette.short.even=Чёт
 ## [config / vip, games]
 config.burmaldaholic.roulette.enabled=Рулетка
 config.burmaldaholic.roulette.laPartage=Ла партаж
@@ -64,10 +70,6 @@ config.burmaldaholic.roulette.spinTicks=Анимация вращения (ти�
 config.burmaldaholic.roulette.maxBettors=Макс. игроков
 config.burmaldaholic.roulette.historyLength=Длина истории
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
-gui.burmaldaholic.roulette.error.inside_max=Внутренняя ставка — не больше %1 на позицию
-gui.burmaldaholic.roulette.error.total_max=Все ставки на один спин — не больше %1
-gui.burmaldaholic.roulette.error.min_total=За этим столом ставка на спин — от %1
 gui.burmaldaholic.roulette.players=За столом: %1
-gui.burmaldaholic.roulette.ready_count=Готовы: %1 из %2
 gui.burmaldaholic.roulette.history_line=История: %1
 msg.burmaldaholic.roulette.bets_refunded=Ваши ставки в рулетке возвращены: %1

@@ -64,6 +64,8 @@ public final class PokerTable {
 	private Hand hand;
 	private Hand lastHand;
 	private int[] handSeats = new int[0];
+	/** The Seat objects dealt into the current / last hand (review B1: hand entries match by seat identity, not id). */
+	private Seat[] handSeatRefs = new Seat[0];
 
 	public PokerTable(int maxSeats, long bb, Pots.RakeConfig rake) {
 		this.seats = new Seat[Math.max(2, maxSeats)];
@@ -148,9 +150,33 @@ public final class PokerTable {
 		return hand != null && !hand.complete();
 	}
 
-	/** Hand player index of a seat id in the current hand, or -1. */
+	/**
+	 * Hand player index of the seat currently held by {@code id} in the current hand, or -1. Matches the dealt
+	 * {@link Seat} object (review B1): a player who left and bought in again is a new seat, not the old entry.
+	 */
 	public int handIndexOf(String id) {
-		return hand == null ? -1 : hand.indexOf(id);
+		Seat s = seatOf(id);
+		return s == null ? -1 : handIndexOf(s);
+	}
+
+	private int handIndexOf(Seat s) {
+		if (hand == null) {
+			return -1;
+		}
+		for (int k = 0; k < handSeatRefs.length; k++) {
+			if (handSeatRefs[k] == s) {
+				return k;
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * True while {@code id} has an entry in the running hand, seated or not (a folded player who already
+	 * stood up still has one). Such a player may not buy in again until the hand is over (review B1).
+	 */
+	public boolean dealtInto(String id) {
+		return inHand() && hand.indexOf(id) >= 0;
 	}
 
 	/** True while the player is dealt into the running hand and has not folded. */
@@ -332,6 +358,10 @@ public final class PokerTable {
 		}
 		button = btnSeat;
 		handSeats = dealt.stream().mapToInt(Integer::intValue).toArray();
+		handSeatRefs = new Seat[handSeats.length];
+		for (int k = 0; k < handSeats.length; k++) {
+			handSeatRefs[k] = seats[handSeats[k]];
+		}
 		handNo++;
 		List<Hand.Seed> seeds = new ArrayList<>();
 		for (int i : dealt) {
@@ -361,8 +391,8 @@ public final class PokerTable {
 		for (int k = 0; k < hand.players().size(); k++) {
 			Hand.Player p = hand.player(k);
 			Seat s = seats[handSeats[k]];
-			if (s == null || !s.id.equals(p.id)) {
-				continue;
+			if (s == null || s != handSeatRefs[k]) {
+				continue; // the dealt seat left (and was paid out); never write its hand stack onto a new seat
 			}
 			s.stack = p.stack();
 			if (s.human) {
@@ -386,7 +416,7 @@ public final class PokerTable {
 		for (int k = 0; k < hand.players().size(); k++) {
 			Hand.Player p = hand.player(k);
 			Seat s = seats[handSeats[k]];
-			if (s != null && s.id.equals(p.id)) {
+			if (s != null && s == handSeatRefs[k]) {
 				s.stack = p.startStack;
 			}
 		}

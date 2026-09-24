@@ -249,3 +249,35 @@ garnished too. Poker already splits `stake_return`. **Fix:** in `CasinoTableBloc
 - A reservation whose table never reloads, or is removed without `preRemoveSideEffects` (for
   example by an external editor), blocks charter closing forever. Consider an admin release command.
 - Roulette `result` is sent during SPIN, when no more bets are accepted. It matters only through M1.
+
+---
+
+## Resolution (2026-09-24)
+
+Every finding is fixed. Each fix has a regression test: JUnit tests are under `java/src/test`, and GameTests
+are in `gametest/core/JavaReviewGameTests` unless another class is named.
+
+| # | Fix | Test |
+|---|---|---|
+| B1 | `buy_in` is refused with `round_in_progress` while the player still has an entry in the running hand (`PokerTable.dealtInto`, which matches by id and so also covers a folded player who stood up). `handIndexOf`/`liveStack`/`refundableStack`/`settleHand`/`abortHand` now match the dealt `Seat` object (`handSeatRefs`, identity), not the id. | `PokerTableTest.reseatedPlayerIsNotMatchedToTheOldHandEntry`; GameTest `PokerGameTests.foldStandRebuyCyclesConserveChips` (fold → stand → re-buy ×3, never above the starting total) |
+| M1 | New `CasinoTableBlockEntity#playOutNow(why)` (the former removal path: everybody leaves `REMOVED`, `playOutForRemoval`, only undrawn stakes refunded; idempotent). `core.table.TableLifecycle` runs it on **chunk unload** (`FULL_CHUNK_STATUS_CHANGE` → `INACCESSIBLE`, which vanilla fires *before* the chunk is saved; the chunk is then marked unsaved) and on **`SERVER_STOPPING`** (before players are removed and the world is saved; online players get `msg.burmaldaholic.core.round_played_out`). Poker reports its seats via `hasRoundInPlay()`, so the hand is played out and paid and no start-of-hand refund is saved. Casino mode off: craps and poker play out instead of refunding (roulette is handled by its own owner). Only a crash can still leave stakes to refund on load. GAME_DESIGN §4.1 (already ⚠ CHANGED by the Bedrock fix) now notes Java's settle-at-stop variant and the casino-off rule. | `m1DrawnRoundIsSettledWhenTheTableStops` (20 vs 17 pays, no stake in the saved NBT, second call is a no-op); `PokerGameTests.stoppedTableSettlesTheHandInsteadOfSavingARefund` |
+| M2 | `placeBet` routes every bet of a player's open round (a raise or a new bet key) to the bankroll that round started with (`roundBankroll`), for both the transfer and the reservation. `settle` never releases a reservation against another bankroll (legacy data). Linking/unlinking therefore needs no deferral. | `m2RaiseAfterOwnershipChangeStaysWithTheRoundsBank` (house → linked, and owned → unlinked; balances and `reserved == 0`) |
+| M3 | `withdraw` rejects a `denom` that is not in `DENOMINATIONS`, and caps each call at `MAX_WITHDRAW_STACKS` = 36 item stacks (`ChipMath.capToStacks`). The player sees `msg.burmaldaholic.core.withdraw_capped`. Items go to the inventory first, and at most the rest of 36 stacks can drop. | `ChipMathTest.withdrawalCappedToStacks`; `m3WithdrawIsCappedAndDenominationValidated` |
+| m1 | The scratch card item holds only `id`/`kind`/`mask`. The face (cells, prize, creeper, top, price) lives in world data `ScratchData` (`scratch_cards.dat`) and is removed when the card is finished. Old cards migrate on first use. | `m1ScratchFaceNeverOnTheItem` |
+| m2 | Cashier deposit (all/held) and buy/buy_gold only take the chips or currency that fit under `maxBalance`, and leave the rest in the inventory (`gui.burmaldaholic.error.balance_full`). | `m2DepositAndBuyStopAtTheBalanceCap` |
+| m3 | `Stakes.xp` removes whole levels only. The progress stays with the player (`xpProgress` is 0). GAME_DESIGN §4.3.2 ⚠ CHANGED. | `m3XpStakeKeepsPartialProgress` |
+| m4 | Wager gate: pawn stakes are refused at owned tables (`gui.burmaldaholic.error.pawn_owned_table`). GAME_DESIGN §4.3 ⚠ CHANGED (both editions). | `m4PawnRefusedAtOwnedTables` |
+| m5 | `LastChance.refreshScar` removes the modifier while casino mode is off. The stored scar is kept and is re-applied when the mode is on. | `m5ScarDormantWhileCasinoModeOff` |
+| m6 | `Texts.decimal` uses the translated separator `unit.burmaldaholic.decimal_separator` (`.`/`,`, the same key as Bedrock m7). It is applied to Plinko chat and screen, the Wheel legend, the Golden Hour multiplier and the loan discount. | `m6DecimalSeparatorIsTranslated` |
+| m7 | Coin Flip and Dice `extras_action` payloads are accepted only if the player holds the item in either hand, or if the server opened that screen for them (item use or the Casino Menu "vs house"). This is checked by `ExtrasGames.mayAct`. | `m7CoinFlipNeedsTheItemServerSide` |
+| m8 | Table `pay` and `Stakes.settle` return the stake as a non-garnishable `TRANSFER` (`stake_return`), and pay only the winnings as `PAYOUT`. | `m8OnlyWinningsAreGarnishable` |
+
+Found while testing: `PokerTableBlockEntity.standUp` threw an NPE when the last seated human stood up on their own
+turn and that fold ended the hand, which closed the table. This is fixed with a null check and covered by
+`foldStandRebuyCyclesConserveChips`.
+
+New keys that are only in the Java lang files (`java/tools/lang_java_only.json`) are
+`unit.burmaldaholic.decimal_separator`, `gui.burmaldaholic.error.pawn_owned_table`,
+`gui.burmaldaholic.error.balance_full` and `msg.burmaldaholic.core.withdraw_capped`. Bedrock needs
+`pawn_owned_table` as a manual lang line when it follows the §4.3 change. `msg.burmaldaholic.core.round_played_out`
+comes from STRINGS.md.

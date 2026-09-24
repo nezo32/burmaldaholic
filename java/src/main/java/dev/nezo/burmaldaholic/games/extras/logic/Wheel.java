@@ -144,6 +144,18 @@ public final class Wheel {
 		return "gui.burmaldaholic.extras.wheel.segment." + name;
 	}
 
+	/**
+	 * Segment name without its multiplier, for lines that print the multiplier next to it (the legend):
+	 * {@code segment.emerald} is "Emerald ×5", the legend shows "Emerald — ×5".
+	 */
+	public static String segmentNameKey(String code) {
+		return switch (code) {
+			case "E" -> "gui.burmaldaholic.extras.wheel.segment_name.emerald";
+			case "X" -> "gui.burmaldaholic.extras.wheel.segment_name.diamond";
+			default -> segmentKey(code);
+		};
+	}
+
 	/** ARGB color per segment code (loss red, push gray, win green, big wins gold/aqua). */
 	public static int color(String code) {
 		return switch (code) {

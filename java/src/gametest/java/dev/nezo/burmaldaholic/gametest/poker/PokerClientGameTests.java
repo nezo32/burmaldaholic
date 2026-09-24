@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.poker;
 
+import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import dev.nezo.burmaldaholic.games.poker.PokerModule;
 import dev.nezo.burmaldaholic.games.poker.PokerTableBlockEntity;
 import dev.nezo.burmaldaholic.games.poker.client.PokerScreen;
@@ -21,7 +22,7 @@ public class PokerClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		try (TestSingleplayerContext world = context.worldBuilder().create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			world.getServer().runCommand("casino balance set @p 12500");
 			world.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().getFirst();

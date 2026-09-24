@@ -42,6 +42,9 @@ msg.burmaldaholic.slots.three_clocks_cooldown=Трое часов! «Золот�
 msg.burmaldaholic.slots.jackpot_self=ДЖЕКПОТ! Вы сорвали %1!
 msg.burmaldaholic.slots.jackpot_broadcast=ДЖЕКПОТ! %1 срывает %2 на автомате «%3»!
 msg.burmaldaholic.slots.seven_title=Три семёрки!
+gui.burmaldaholic.slots.playing=Сейчас играет: %1
+msg.burmaldaholic.slots.jackpot_pool=%1: джекпот %2
+msg.burmaldaholic.slots.rtp_ok=Все автоматы возвращают меньше 99 %%
 ## [config / Family templates]
 config.burmaldaholic.slots.weights=%1 — веса символов
 config.burmaldaholic.slots.pays=%1 — выплаты

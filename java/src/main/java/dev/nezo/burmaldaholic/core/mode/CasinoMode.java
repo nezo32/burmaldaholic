@@ -11,11 +11,11 @@ import net.minecraft.world.level.gamerules.GameRule;
 import net.minecraft.world.level.gamerules.GameRuleCategory;
 
 /**
- * Casino mode is a per-world boolean game rule {@code burmaldaholic:casino_mode} (default ON,
- * docs/design/GAME_DESIGN.md §2.1). It is shown in Create World -> More -> Game Rules under the
- * "Burmaldaholic" category, as a "Casino Mode" toggle on the Create World "Game" tab (client mixin
- * {@code CreateWorldGameTabMixin}), and can be changed later with
- * {@code /gamerule burmaldaholic:casino_mode false}. It is the single source of truth (config never
+ * Casino mode is a per-world boolean game rule {@code burmaldaholic:casino_mode} (default OFF,
+ * docs/design/GAME_DESIGN.md §2.1): the player opts in with the "Casino Mode" button directly below
+ * "Difficulty" on the Create World "Game" tab (client mixin {@code CreateWorldGameTabMixin}). It is also
+ * shown in Create World -> More -> Game Rules under the "Burmaldaholic" category, and existing worlds
+ * switch with {@code /gamerule burmaldaholic:casino_mode true|false}. It is the single source of truth (config never
  * overrides it). Vanilla difficulty and hardcore are untouched.
  *
  * <p><b>Every feature must check {@link #isEnabled} before doing anything gameplay-related</b>
@@ -23,7 +23,7 @@ import net.minecraft.world.level.gamerules.GameRuleCategory;
  */
 public final class CasinoMode {
 	public static final GameRuleCategory CATEGORY = GameRuleCategory.register(Burmaldaholic.id("casino"));
-	public static final boolean DEFAULT = true;
+	public static final boolean DEFAULT = false;
 	// Lang: gamerule.burmaldaholic.casino_mode (+ ".description"), gamerule.category.burmaldaholic.casino
 	private static GameRule<Boolean> rule;
 

@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.independent;
 
+import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import dev.nezo.burmaldaholic.core.CoreContent;
 import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
@@ -45,7 +46,7 @@ public class RuLayoutClientGameTests implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		language(context, "ru_ru");
-		try (TestSingleplayerContext world = context.worldBuilder().create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			world.getServer().runCommand("casino balance set @p 12500");
 			Map<String, TableType<?>> tables = new LinkedHashMap<>();
 			tables.put("blackjack", BlackjackModule.TABLE);

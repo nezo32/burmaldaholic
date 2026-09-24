@@ -78,10 +78,15 @@ everything in this document is active.
 **Java (Fabric):**
 - Registered as a boolean game rule `burmaldaholic:casino_mode` (category "Burmaldaholic"), shown
   on the world-creation screen **Game** tab → "More → Game Rules" and editable by ops later with
-  `/gamerule burmaldaholic:casino_mode <true|false>`.
-- The mod additionally adds a toggle button **"Casino Mode: ON/OFF"** to the *Game* tab of the
-  Create World screen (default **ON**) that writes the same game rule, so the choice is visible
-  without digging into game rules.
+  `/gamerule burmaldaholic:casino_mode <true|false>`. The rule defaults to **OFF** (like
+  Enchantaholic): installing the mod changes nothing until a world opts in.
+- The mod adds a toggle button **"Casino Mode: ON/OFF"** (default **OFF**, full width, with a
+  tooltip) to the *Game* tab of the Create World screen, directly **below "Difficulty"** and above
+  "Allow Commands". It writes the same game rule (saved in level.dat, kept in sync with More → Game
+  Rules), so the choice is visible without digging into game rules.
+- Existing worlds opt in with `/gamerule burmaldaholic:casino_mode true`. Every online player (and
+  later, every player on first join while the mode is on) then gets the first-join welcome: starting
+  balance and Casino Card (§3.3).
 - Worldgen structures ship in a built-in data pack `burmaldaholic:casinos` that is enabled by
   default in the Data Packs list of world creation. If the pack is disabled, casinos do not
   generate but gameplay still works (players craft their own tables).
@@ -288,8 +293,28 @@ IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SET
 - If the player disconnects between STAKED and SETTLED: the round is auto-completed by the
   server with the game's default action (blackjack: stand; craps: bets stay working until
   resolved; roulette: spin proceeds) and the payout is credited to the balance. No refunds.
-- If the server stops mid-round, on load every STAKED round is **refunded** (bets returned) and
-  logged. Games persist no mid-round state except craps line bets (which are also refunded).
+- If the server stops mid-round (⚠ **CHANGED 2026-09 — review M1 free-roll fix; both editions**):
+  **drawn rounds are played out, undrawn bets refunded.** Once any random outcome of the round
+  is drawn, the result is persisted with the stake *before* it is shown or animated, and after
+  the restart the round is **settled** at that result (offline-safe, logged, the player is told
+  on join); quitting while a losing result animates gains nothing. Only rounds with no draw yet
+  are refunded. "Drawn" per game:
+  - roulette: the winning number (drawn at the spin); slots: the grid (drawn at the spin);
+  - blackjack: the deal — the stored result is "every open hand stands now, the dealer plays
+    the next cards of the shoe", re-drawn after every decision;
+  - craps: contract bets with an established point (Pass/Don't Pass during a point, a moved
+    Come/Don't Come) are played out with honest dice like a leave; bets waiting for their first
+    roll (come-out line bets, a new Come, Field) are refunded;
+  - poker: the hand is played out as if every human left now (humans check/fold, bots play on,
+    on the deck already dealt); the resulting stacks are paid instead of the start stacks;
+  - coin flip, dice duel, wheel, plinko: drawn and settled in the same tick (the animation only
+    replays the credited result); scratch cards keep the drawn card and are never refunded.
+  Java may instead play the round out *at* the stop, before the world is saved (same result rules,
+  same `msg.burmaldaholic.core.round_played_out` notice); it does the same when a table's chunk
+  unloads mid-round. Only a crash (no clean stop) can still leave bets to refund on load.
+  Casino mode turning off mid-round (⚠ **CHANGED 2026-09 — both editions**): the same rule — drawn
+  rounds are played out and settled, only undrawn bets are refunded (§2.1 dormancy never cancels a
+  decided round).
 - Every settled wager updates: lifetime wagered (VIP), streak (§14), contracts, statistics.
   Wagered amount = total chips put at risk in that round (including doubles, splits, odds).
 
@@ -308,6 +333,10 @@ be mixed with chips in the same bet. The stake is converted to a **stake value V
   chips had been bet (e.g. coin flip pays `floor(V × 0.96)`).
 - **Loss**: the stake is forfeited (item destroyed, levels removed, hearts lost for a duration).
 - V must be ≤ tier max bet; otherwise the stake is refused.
+- ⚠ **CHANGED 2026-09 — review m4; both editions**: pawn stakes are **house-only**. At a table or
+  machine linked to a player-owned casino (§18.2) only chips are accepted
+  (`gui.burmaldaholic.error.pawn_owned_table`), because owned-table stakes and payouts go through the
+  owner's bankroll, which cannot hold items, levels or hearts.
 
 #### 4.3.1 Items
 
@@ -330,7 +359,9 @@ Only items in the **appraisal table** are accepted, undamaged, unenchanted, unna
 
 Stake L levels, 1 ≤ L ≤ current level, L ≤ 30. V = `floor(points(L) / 4)` where `points(L)` is
 the vanilla XP-point total between level (current − L) and current. On loss, remove exactly those
-points (player ends at level current − L with the same progress fraction set to 0).
+levels (⚠ **CHANGED 2026-09 — review m3; both editions**: the player ends at level current − L and
+**keeps** the partial progress towards the next level; the progress is not part of V and is never
+staked).
 
 #### 4.3.3 Temporary max hearts
 
@@ -732,7 +763,7 @@ Line bet 2–min(tier max/5, 500) → spin bet 10–2 500. Jackpot contribution 
 | Nether Star | 2 | **Progressive jackpot** |
 | **Total** | 100 | |
 
-**Base RTP 94.54 % + jackpot 1.50 % = 96.04 %, HE 3.96 %.** Per-line hit 22.5 %.
+**Base RTP 94.535 % + jackpot 1.50 % = 96.035 %, HE 3.965 %.** Per-line hit 22.5 %.
 
 Contribution breakdown (per line, for tests): see appendix A.
 
@@ -1155,7 +1186,7 @@ Blocks require no power; the machine *is* the dealer.
 | Poker vs players | rake ≤ 5 % of raked pots | — | no |
 | Slots — Copper Bandit | 89.76 % | 10.24 % | yes |
 | Slots — Golden Reels | 93.71 % | 6.29 % | yes |
-| Slots — Netherite High Roller | 96.04 % | 3.96 % | yes |
+| Slots — Netherite High Roller | 96.035 % | 3.965 % | yes |
 | Roulette (any bet) | 97.30 % | 2.70 % | no |
 | Craps Pass / Come | 98.59 % | 1.41 % | no |
 | Craps Don't Pass / Don't Come | 98.64 % | 1.36 % | no |

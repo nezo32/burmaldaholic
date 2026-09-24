@@ -1,6 +1,6 @@
 package dev.nezo.burmaldaholic.worldgen;
 
-import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
@@ -9,8 +9,6 @@ import dev.nezo.burmaldaholic.worldgen.logic.RespawnRule;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.advancements.AdvancementHolder;
-import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
@@ -27,7 +25,7 @@ import net.minecraft.world.level.ChunkPos;
  * <ul>
  *   <li>"Welcome to …" title once per visit (STRINGS.md {@code msg.burmaldaholic.worldgen.entered});</li>
  *   <li>advancements {@code burmaldaholic:piglin_parlor} (enter a Parlor) and {@code burmaldaholic:high_roller}
- *       (settle a bet inside the Lounge) — awarded when core ships those advancement files (§19);</li>
+ *       (settle a bet inside the Lounge) via core's {@code CasinoAdvancements} (§19);</li>
  *   <li>NPC respawn after {@code worldgen.loanSharkRespawnTicks} (§5.1).</li>
  * </ul>
  * Everything is dormant while casino mode is off.
@@ -103,15 +101,10 @@ public final class CasinoTracker {
 		}
 	}
 
-	/** Grants every remaining criterion of {@code burmaldaholic:<path>} if that advancement exists. */
-	static void award(ServerPlayer player, String path) {
-		AdvancementHolder holder = player.level().getServer().getAdvancements().get(Burmaldaholic.id(path));
-		if (holder == null) {
-			return;
-		}
-		AdvancementProgress progress = player.getAdvancements().getOrStartProgress(holder);
-		for (String criterion : progress.getRemainingCriteria()) {
-			player.getAdvancements().award(holder, criterion);
+	/** §19 advancement through core's granter ({@code burmaldaholic:core/<id>}; no-op if already granted). */
+	static void award(ServerPlayer player, String id) {
+		if (!CasinoAdvancements.has(player, id)) {
+			CasinoAdvancements.grant(player, id);
 		}
 	}
 

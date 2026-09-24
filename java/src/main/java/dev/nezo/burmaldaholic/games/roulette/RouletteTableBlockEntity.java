@@ -51,7 +51,8 @@ import net.minecraft.world.level.storage.ValueOutput;
  * <p>Client actions: {@code bet} {type, nums[], amount}, {@code rebet}, {@code clear}, {@code spin}
  * (= ready), plus core's {@code sit}/{@code leave}. Leaving or disconnecting never cancels confirmed bets:
  * the spin proceeds and offline players are settled to their balance (§4.1). A server restart refunds
- * open bets (core). Casino mode switched off mid-round refunds everything.
+ * open bets (core). Casino mode switched off mid-round refunds bets that were not drawn yet; a spin whose
+ * result was already drawn is settled.
  */
 public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	private static final String HISTORY_KEY = "roulette_history";
@@ -261,6 +262,13 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	@Override
 	protected void serverTick(ServerLevel level) {
 		if (!CasinoMode.isEnabled(level)) {
+			if (round.phase() == RouletteRound.Phase.SPIN) {
+				// The result was already drawn: finish the spin and settle it (like a broken table) instead of refunding.
+				Transition<UUID> t = round.update(Math.max(gameTime(), round.endsAt()), List.of(), () -> round.result(), 0);
+				if (t instanceof Transition.Result<UUID> r) {
+					settleAll(level, r.result(), r.slips());
+				}
+			}
 			if (round.hasBets() || round.phase() != RouletteRound.Phase.BETTING) {
 				round.abort().keySet().forEach(this::refund);
 				outcomes.clear();

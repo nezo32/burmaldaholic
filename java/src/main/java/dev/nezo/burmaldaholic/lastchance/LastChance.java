@@ -359,13 +359,17 @@ public final class LastChance {
 		return Component.translatable(Plural.key("unit.burmaldaholic.heart", 2), Texts.raw(LastChanceRules.heartsNumber(hp)));
 	}
 
-	/** Makes the {@code last_chance_scar} modifier match the stored scar and clamps health. */
+	/**
+	 * Makes the {@code last_chance_scar} modifier match the stored scar and clamps health. While casino mode is
+	 * off the scar is dormant (review m5, §2.1, like heart-wager penalties): the modifier is removed, the stored
+	 * scar is kept and comes back when the mode is switched on again.
+	 */
 	public static void refreshScar(ServerPlayer player) {
 		AttributeInstance attr = player.getAttribute(Attributes.MAX_HEALTH);
 		if (attr == null) {
 			return;
 		}
-		int scar = state(player).scarHp();
+		int scar = CasinoMode.isEnabled(player) ? state(player).scarHp() : 0;
 		AttributeModifier current = attr.getModifier(scarId);
 		if (scar <= 0) {
 			if (current != null) {

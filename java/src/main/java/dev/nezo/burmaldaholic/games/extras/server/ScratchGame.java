@@ -32,9 +32,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Scratch Cards (GAME_DESIGN.md §11.3, UI.md §9). Unscratched cards are plain fungible items. The outcome is
- * drawn on the FIRST scratch ({@code OddsService.play}, §14 streak re-draw with the card's RTP), one card is
- * split off the stack and the whole face is stored in that card's {@code custom_data}, so progress survives
- * closing the screen, logging out and restarts. Only revealed cells are ever sent to the client. When the
+ * drawn on the FIRST scratch ({@code OddsService.play}, §14 streak re-draw with the card's RTP) and one card is
+ * split off the stack. The card's {@code custom_data} holds only its {@code id}, {@code kind} and the revealed
+ * {@code mask}; the hidden face (cells, prize, creeper) lives server-side in {@link ScratchData} keyed by the id
+ * (review m1: item components are synced to clients). Progress survives closing the screen, logging out and
+ * restarts. Only revealed cells are ever sent to the client. When the
  * ninth cell is revealed the prize is paid, {@code PLAY_RESOLVED} fires (bet = card price) and the card
  * becomes {@code scratch_card_used}.
  */
@@ -56,7 +58,10 @@ public final class ScratchGame {
 		return Scratch.table(kind == Scratch.Kind.GOLD ? cfg().gold.prizes : cfg().basic.prizes);
 	}
 
-	/** Card state stored on a scratched stack, or null for a fresh card. */
+	/** Item keys that belong to the hidden face (kept server-side only, review m1). */
+	private static final List<String> FACE_KEYS = List.of("cells", "prize", "creeper", "top", "price");
+
+	/** Client-visible card state stored on a scratched stack ({@code id}, {@code kind}, {@code mask}), or null for a fresh card. */
 	public static @Nullable CompoundTag data(ItemStack stack) {
 		CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
 		if (custom == null) {
@@ -66,12 +71,43 @@ public final class ScratchGame {
 		return tag.getCompound(DATA_KEY).orElse(null);
 	}
 
+	/**
+	 * The full card (item state + hidden face from {@link ScratchData}), or null for a fresh card. A card written
+	 * before review m1 (face on the item) is migrated: its face moves to the world data and is stripped from
+	 * the stack.
+	 */
+	static @Nullable CompoundTag card(ServerPlayer player, ItemStack stack) {
+		CompoundTag item = data(stack);
+		if (item == null) {
+			return null;
+		}
+		String id = item.getStringOr("id", "");
+		ScratchData store = ScratchData.get(player.level().getServer());
+		if (item.contains("cells")) {
+			CompoundTag face = new CompoundTag();
+			for (String k : FACE_KEYS) {
+				if (item.contains(k)) {
+					face.put(k, item.get(k).copy());
+				}
+			}
+			store.put(id, face);
+			writeData(stack, item);
+		}
+		CompoundTag face = store.face(id);
+		if (face == null) {
+			return null; // unknown card (face lost): treat as a fresh card of its kind
+		}
+		CompoundTag full = item.copy();
+		full.merge(face);
+		return full;
+	}
+
 	/** Using a card: resume its own game if it was started, else offer to scratch a fresh card of that kind. */
 	public static void use(ServerPlayer player, ItemStack stack, Scratch.Kind kind) {
 		if (!ExtrasGames.guard(player, cfg().enabled)) {
 			return;
 		}
-		CompoundTag data = data(stack);
+		CompoundTag data = card(player, stack);
 		ExtrasGames.send(player, SCREEN, true, state(player, kind, data));
 	}
 
@@ -162,6 +198,9 @@ public final class ScratchGame {
 	}
 
 	private static int findSlot(Inventory inv, String id) {
+		if (id.isEmpty()) {
+			return -1;
+		}
 		for (int i = 0; i < inv.getContainerSize(); i++) {
 			CompoundTag d = data(inv.getItem(i));
 			if (d != null && d.getStringOr("id", "").equals(id)) {
@@ -200,7 +239,8 @@ public final class ScratchGame {
 		Scratch.Outcome outcome = odds.play(ctx, Scratch.rtp(table, price), () -> Scratch.draw(rng, table, creeperChance), o -> o.prize() < price);
 		long[] face = Scratch.buildFace(rng, table, outcome);
 		CompoundTag card = new CompoundTag();
-		card.putString("id", UUID.randomUUID().toString());
+		String id = UUID.randomUUID().toString();
+		card.putString("id", id);
 		card.putString("kind", kind.id());
 		card.putLong("price", price);
 		card.putLongArray("cells", face);
@@ -208,6 +248,7 @@ public final class ScratchGame {
 		card.putLong("prize", outcome.prize());
 		card.putBoolean("creeper", outcome.creeper());
 		card.putBoolean("top", outcome.prize() > 0 && outcome.prize() == Scratch.topPrize(table));
+		ScratchData.get(player.level().getServer()).put(id, faceOf(card));
 		ItemStack source = inv.getItem(slot);
 		ItemStack single = source.split(1);
 		writeData(single, card);
@@ -219,8 +260,21 @@ public final class ScratchGame {
 		return slot;
 	}
 
+	private static CompoundTag faceOf(CompoundTag card) {
+		CompoundTag face = new CompoundTag();
+		for (String k : FACE_KEYS) {
+			if (card.contains(k)) {
+				face.put(k, card.get(k).copy());
+			}
+		}
+		return face;
+	}
+
+	/** Writes the client-visible part of a card onto the stack (never the face, review m1). */
 	private static void writeData(ItemStack stack, CompoundTag card) {
-		CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.put(DATA_KEY, card));
+		CompoundTag visible = card.copy();
+		FACE_KEYS.forEach(visible::remove);
+		CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.put(DATA_KEY, visible));
 	}
 
 	private static void scratch(ServerPlayer player, Scratch.Kind kind, String id, int cell) {
@@ -233,8 +287,10 @@ public final class ScratchGame {
 			return;
 		}
 		ItemStack stack = inv.getItem(slot);
-		CompoundTag card = data(stack);
+		CompoundTag card = card(player, stack);
 		if (card == null) {
+			ExtrasGames.sendError(player, ExtrasGames.error("invalid_bet_position"));
+			ExtrasGames.send(player, SCREEN, false, state(player, kind, null));
 			return;
 		}
 		int mask = card.getIntOr("mask", 0);
@@ -258,6 +314,7 @@ public final class ScratchGame {
 		boolean creeper = card.getBooleanOr("creeper", false);
 		boolean top = card.getBooleanOr("top", false);
 		player.getInventory().setItem(slot, new ItemStack(ExtrasModule.SCRATCH_CARD_USED));
+		ScratchData.get(player.level().getServer()).remove(card.getStringOr("id", ""));
 		if (prize > 0) {
 			Economies.get().deposit(player, prize, Transaction.payout(ExtrasGames.SCRATCH));
 			Component line = top

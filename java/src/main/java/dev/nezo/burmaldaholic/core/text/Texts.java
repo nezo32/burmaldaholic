@@ -19,6 +19,21 @@ public final class Texts {
 		return Component.literal(Numbers.format(n));
 	}
 
+	/** Translated decimal separator ("." in English, "," in Russian; shared with Bedrock review m7). */
+	public static final String DECIMAL_SEPARATOR = "unit.burmaldaholic.decimal_separator";
+
+	/**
+	 * A decimal number written with {@code .} ({@code "0.5"}, e.g. {@code Payouts.formatMultiplier}) shown with
+	 * the reader's decimal separator: "0.5" / «0,5» (review m6). Whole numbers stay plain. Safe on the server.
+	 */
+	public static MutableComponent decimal(String plain) {
+		int dot = plain.indexOf('.');
+		if (dot < 0) {
+			return raw(plain);
+		}
+		return Component.literal(plain.substring(0, dot)).append(Component.translatable(DECIMAL_SEPARATOR)).append(Component.literal(plain.substring(dot + 1)));
+	}
+
 	/** Language-neutral raw text (ids, symbols, player-typed values). Never for words. */
 	public static MutableComponent raw(String text) {
 		return Component.literal(text);

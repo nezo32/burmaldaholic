@@ -9,6 +9,7 @@
 	],
 	"contact": {},
 	"license": "MIT",
+	"icon": "assets/burmaldaholic/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [

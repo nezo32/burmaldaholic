@@ -157,10 +157,10 @@ public final class Stakes {
 		if (value <= 0) {
 			return Result.fail(error("invalid_amount"));
 		}
-		int progress = Math.round(player.experienceProgress * player.getXpNeededForNextLevel());
-		player.setExperiencePoints(0);
+		// Review m3: only the whole levels are staked (they are what V counts); the partial progress towards
+		// the next level stays with the player whatever the outcome.
 		player.setExperienceLevels(current - levels);
-		return Result.ok(new Stake(player.getUUID(), gameId, Stake.Kind.XP, value, ItemStack.EMPTY, levels, progress, 0));
+		return Result.ok(new Stake(player.getUUID(), gameId, Stake.Kind.XP, value, ItemStack.EMPTY, levels, 0, 0));
 	}
 
 	/** Puts {@code hearts} max-health hearts at risk (§4.3.3); nothing is taken until a loss. */
@@ -230,13 +230,12 @@ public final class Stakes {
 		Transaction payout = Transaction.payout(stake.gameId());
 		switch (stake.kind()) {
 			case CHIPS -> {
-				long back = switch (outcome) {
-					case WIN -> stake.value() + win;
-					case PUSH -> stake.value();
-					case LOSS -> 0;
-				};
-				if (back > 0) {
-					Economies.get().deposit(player, back, payout);
+				// Review m8: the stake comes back as the player's own money (not garnishable); only winnings are a PAYOUT.
+				if (outcome != Outcome.LOSS) {
+					Economies.get().deposit(player, stake.value(), new Transaction(stake.gameId(), "stake_return", Transaction.Kind.TRANSFER));
+				}
+				if (outcome == Outcome.WIN && win > 0) {
+					Economies.get().deposit(player, win, payout);
 				}
 			}
 			case ITEM -> {

@@ -120,7 +120,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		lastDrop.put(player.getUUID(), t);
 		busyUntil.put(player.getUUID(), now + DROP_TICKS);
 		pending.add(new Pending(player.getUUID(), now + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
-			Texts.raw(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net))));
+			Texts.decimal(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net))));
 		syncViewers();
 	}
 

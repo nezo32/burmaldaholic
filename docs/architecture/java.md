@@ -305,8 +305,9 @@ Access wideners/class tweakers are a shared file — request from core.
 ## 7. Manual testing
 
 - `./gradlew runClient` → Singleplayer → Create New World: the **Game** tab has a
-  **"Casino Mode: ON/OFF"** button (default ON); the same rule is under More → Game Rules →
-  Burmaldaholic. In game: `/gamerule burmaldaholic:casino_mode false|true`.
+  **"Casino Mode: ON/OFF"** button directly below "Difficulty" (default OFF); the same rule is
+  under More → Game Rules → Burmaldaholic. In game: `/gamerule burmaldaholic:casino_mode true|false`.
+  The client GameTest checks the placement and writes `jmode_create_world_{en_us,ru_ru}.png`.
 - `./gradlew runClient -PwithModMenu` adds Mod Menu → Mods → Burmaldaholic → config screen.
 - `./gradlew runServer` then `runClient` and connect to `localhost` for multiplayer checks
   (dev server has `online-mode` handled by Loom's dev launch; accept the EULA in `run/<mc>/server/eula.txt`).
@@ -447,7 +448,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 - Free: `"sit"` / `"leave"` actions, seats (`seats()`, `sit`, `leave`, `isSeated`), distance/disconnect removal
   (`multiplayer.tableLeaveDistance`), `placeBet` (validation incl. owned-table rules: owner can't play, closed,
   owner min/max, bankroll reservation → `house_broke`/`exposure`), `settle(uuid, payout)` / `refund(uuid)` (offline-safe),
-  open stakes saved with the block entity and **refunded on reload** (`core.roundTimeoutRefund`); a broken table
+  open stakes saved with the block entity and **refunded on reload** only after a crash (`core.roundTimeoutRefund`); a broken table
   plays its rounds out first (§9.11), `setPhase`/`startTimer`/`ticksLeft`/`onTimer`, `sendError(player, component)` (red line on the screen),
   `baseState(viewer)` (phase, timers, seats, seat, stake, balance, min, max). Default `onPlayerLeft` refunds.
 - Blocks face the placer (`CasinoTableBlock.FACING`): blockstate needs `facing=north|east|south|west` variants.
@@ -511,7 +512,16 @@ Asset Freeze).
 - Broken table (`preRemoveSideEffects`): everybody leaves with `REMOVED` (treat it like a disconnect: default action),
   then `playOutForRemoval(level)` plays rounds in play out (default: fast-forwards the game's timers; roulette spins
   now, poker plays the hand out with check/fold + bots, craps rolls the bets out); only bets of a round that has not
-  drawn yet are refunded (review B1). A server restart still refunds (§4.1).
+  drawn yet are refunded (review B1).
+- The same play-out runs whenever a table stops running (review M1, `CasinoTableBlockEntity#playOutNow`, driven by
+  `core.table.TableLifecycle`): its chunk unloading (`FULL_CHUNK_STATUS_CHANGE` → `INACCESSIBLE`, which vanilla fires
+  before the chunk is saved) and `SERVER_STOPPING` (before players are removed and the world is saved; players get
+  `msg.burmaldaholic.core.round_played_out`). Games with rounds that are not core stakes override `hasRoundInPlay()`
+  (poker). Casino mode off: craps and poker call `playOutNow` too. Only a crash still leaves stakes to refund on load.
+- Open stakes keep the bankroll their round started with (review M2): raises and further bets of a player's open round
+  go to, and are reserved on, that bankroll even if the table was linked/unlinked since.
+- `pay` returns the stake as a non-garnishable `TRANSFER` (`stake_return`) and only the winnings as `PAYOUT`
+  (review m8; `Stakes.settle` likewise).
 - `collectRake(rake)` — PvP rake: moves it from the bank to the owner's bankroll at owned tables and fires
   `RAKE_COLLECTED`. `OwnedTable.bots()` — owner's poker-bots switch. `firePlayerLeft(uuid, reason)` for own seat models.
 

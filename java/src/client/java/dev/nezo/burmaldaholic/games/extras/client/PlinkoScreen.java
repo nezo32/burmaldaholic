@@ -153,7 +153,7 @@ final class PlinkoScreen extends ExtrasTableScreen {
 			double m = table[b];
 			int color = m >= 10 ? 0xFFB8860B : m >= 2 ? 0xFF2E7D32 : m >= 1 ? 0xFF3D5A80 : 0xFF8E2A2A;
 			g.fill(x + 1, BINS_Y, x + BIN_W - 1, BINS_Y + 12, b == landed ? 0xFFFFFFFF : color);
-			g.centeredText(font, Texts.raw(Payouts.formatMultiplier(m)), x + BIN_W / 2, BINS_Y + 2, b == landed ? 0xFF000000 : 0xFFFFFFFF);
+			g.centeredText(font, Texts.decimal(Payouts.formatMultiplier(m)), x + BIN_W / 2, BINS_Y + 2, b == landed ? 0xFF000000 : 0xFFFFFFFF);
 		}
 		// ball
 		if (r.getIntOr("seq", -1) >= 0 && (anim || landed >= 0)) {
@@ -179,7 +179,7 @@ final class PlinkoScreen extends ExtrasTableScreen {
 		if (anim) {
 			status = Component.translatable("gui.burmaldaholic.extras.plinko.dropping");
 		} else if (r.getIntOr("seq", -1) >= 0) {
-			status = Component.translatable("gui.burmaldaholic.extras.plinko.result", Texts.raw(Payouts.formatMultiplier(r.getDoubleOr("mult", 0))),
+			status = Component.translatable("gui.burmaldaholic.extras.plinko.result", Texts.decimal(Payouts.formatMultiplier(r.getDoubleOr("mult", 0))),
 				WheelScreen.resultLine(r.getLongOr("net", 0)));
 		}
 		if (status != null) {

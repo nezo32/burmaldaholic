@@ -27,6 +27,9 @@ gui.burmaldaholic.loan.negotiate.pay_all=Pay in full (%1)
 gui.burmaldaholic.loan.negotiate.pay_half=Pay half (%1)
 gui.burmaldaholic.loan.negotiate.refuse=Refuse
 gui.burmaldaholic.loan.negotiate.timer=They won't wait long: %1
+gui.burmaldaholic.loan.admin.info=Loan (%1): %2 · on-time loans: %3
+gui.burmaldaholic.loan.admin.wave_sent=Debt collectors sent to %1
+gui.burmaldaholic.loan.admin.wave_failed=No wave: the player is not overdue, already has a squad, collectors are off, or there is no safe spot nearby
 ## [loan / Loan messages]
 msg.burmaldaholic.loan.taken=Loan taken: +%1. You owe %2 by the end of day %3
 msg.burmaldaholic.loan.paid_partial=Paid %1. Still owed: %2
@@ -50,6 +53,7 @@ msg.burmaldaholic.loan.partial_collectors=Paid %1. The squad leaves — for toda
 msg.burmaldaholic.loan.repossessed=Repossessed: %1 from your balance and your %2
 msg.burmaldaholic.loan.repossessed_chips_only=Repossessed: %1 from your balance
 msg.burmaldaholic.loan.squad_defeated=The squad is down. The debt isn't.
+msg.burmaldaholic.loan.balance_cap=Your balance can't hold this loan: room for only %1. Spend some chips first.
 ## [loan / Loan Shark dialogue]
 dialog.burmaldaholic.loan.greeting.1=Step into my office. Mind the sharks.
 dialog.burmaldaholic.loan.greeting.2=Short on chips? Happens to the best of us. Mostly to the rest of us.

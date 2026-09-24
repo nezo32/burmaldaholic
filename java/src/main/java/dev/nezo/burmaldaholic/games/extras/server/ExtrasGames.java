@@ -133,9 +133,36 @@ public final class ExtrasGames {
 	}
 
 	public static void send(ServerPlayer player, String screen, boolean open, CompoundTag state) {
+		if (open) {
+			OPENED.put(player.getUUID(), screen); // review m7: the server opened this screen (item use / Casino Menu)
+		}
 		if (ServerPlayNetworking.canSend(player, ExtrasScreenPayload.TYPE)) {
 			ServerPlayNetworking.send(player, new ExtrasScreenPayload(screen, open, state));
 		}
+	}
+
+	/** Player → the extras screen the server last opened for them (review m7). Server thread only. */
+	private static final java.util.Map<java.util.UUID, String> OPENED = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/**
+	 * Review m7: an {@code extras_action} for Coin Flip / Dice is only accepted from a player who holds the
+	 * item in either hand, or for whom the server itself opened that screen (Lucky Coin / Dice use, the Casino
+	 * Menu's "vs house" button). A crafted payload from anyone else is ignored.
+	 */
+	public static boolean mayAct(ServerPlayer player, String screen, net.minecraft.world.item.@org.jspecify.annotations.Nullable Item item) {
+		if (item != null && (player.getMainHandItem().is(item) || player.getOffhandItem().is(item))) {
+			return true;
+		}
+		return screen.equals(OPENED.get(player.getUUID()));
+	}
+
+	/** Disconnect / server stop. */
+	public static void forgetScreen(java.util.UUID player) {
+		OPENED.remove(player);
+	}
+
+	public static void clearScreens() {
+		OPENED.clear();
 	}
 
 	/** Error line on the open extras screen and in the action bar. */

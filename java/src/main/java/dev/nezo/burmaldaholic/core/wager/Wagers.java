@@ -15,8 +15,9 @@ import org.jspecify.annotations.Nullable;
  * Central wager gate: every NEW stake of any game passes {@link #check} (called by
  * {@link BetLimits#validate}, the table {@code placeBet}, {@link Stakes} pawn stakes and PvP entries).
  *
- * <p>Built-in rules: casino mode on; at an owned table (§18.2) the owner cannot play and a closed /
- * insolvent casino refuses bets. Modules add their own with {@link #addVeto} (loan: Asset Freeze §5.6).
+ * <p>Built-in rules: casino mode on; at an owned table (§18.2) the owner cannot play, a closed /
+ * insolvent casino refuses bets and pawn stakes are refused (chips only, review m4). Modules add their own
+ * with {@link #addVeto} (loan: Asset Freeze §5.6).
  */
 public final class Wagers {
 	private static final List<WagerVeto> VETOES = new CopyOnWriteArrayList<>();
@@ -41,6 +42,11 @@ public final class Wagers {
 				}
 				if (!owned.get().open()) {
 					return Component.translatable("gui.burmaldaholic.error.table_closed");
+				}
+				if (ctx.kind() != Stake.Kind.CHIPS && !ctx.pvp()) {
+					// Review m4 (§18.2 CHANGED): owned tables settle through the owner's bankroll, which cannot hold
+					// items, levels or hearts — pawn stakes are house-only.
+					return Component.translatable("gui.burmaldaholic.error.pawn_owned_table");
 				}
 			}
 		}

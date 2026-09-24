@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.ChatFormatting;
@@ -201,7 +202,7 @@ final class ConfigSectionScreen extends Screen {
 
 	private Row leaf(Class<?> raw, Field annotations, String key, List<MemberName> members) {
 		Component label = label(key, members);
-		List<FormattedCharSequence> tooltip = tooltip(key, annotations, members);
+		List<FormattedCharSequence> tooltip = tooltip(key, raw, annotations, members);
 		JsonElement current = ConfigManager.at(working, key);
 		if (raw == boolean.class || raw == Boolean.class) {
 			return new BoolRow(key, label, tooltip, current != null && current.isJsonPrimitive() && current.getAsBoolean());
@@ -214,7 +215,7 @@ final class ConfigSectionScreen extends Screen {
 		return new TextRow(key, label, tooltip, current, numeric, integral);
 	}
 
-	private List<FormattedCharSequence> tooltip(String key, Field f, List<MemberName> members) {
+	private List<FormattedCharSequence> tooltip(String key, Class<?> raw, Field f, List<MemberName> members) {
 		List<Component> lines = new ArrayList<>();
 		lines.add(Texts.raw(key).withStyle(ChatFormatting.YELLOW));
 		String tip = "config.burmaldaholic." + key + ".tooltip";
@@ -227,7 +228,15 @@ final class ConfigSectionScreen extends Screen {
 		}
 		JsonElement def = ConfigManager.at(defaults, key);
 		if (def != null) {
-			lines.add(Component.translatable("editGamerule.default", Texts.raw(def.toString())).withStyle(ChatFormatting.GRAY));
+			Component shown = Texts.raw(def.toString());
+			if (raw.isEnum() && def.isJsonPrimitive()) {
+				for (Object v : raw.getEnumConstants()) {
+					if (((Enum<?>) v).name().equalsIgnoreCase(def.getAsString())) {
+						shown = enumName(key, v);
+					}
+				}
+			}
+			lines.add(Component.translatable("editGamerule.default", shown).withStyle(ChatFormatting.GRAY));
 		}
 		List<FormattedCharSequence> out = new ArrayList<>();
 		for (Component c : lines) {
@@ -331,7 +340,7 @@ final class ConfigSectionScreen extends Screen {
 			super(key, label, tooltip);
 			this.type = type;
 			Object initial = constant(current);
-			button = CycleButton.<Object>builder(ConfigSectionScreen::enumName, initial)
+			button = CycleButton.<Object>builder(v -> enumName(key, v), initial)
 				.withValues(List.of(type.getEnumConstants()))
 				.displayOnlyValue()
 				.create(0, 0, 110, 20, label, (b, v) -> put(key, new JsonPrimitive(((Enum<?>) v).name())));
@@ -362,11 +371,17 @@ final class ConfigSectionScreen extends Screen {
 		}
 	}
 
-	private static Component enumName(Object value) {
+	/** {@code config.burmaldaholic.<key>.<value>} (lower case), else the enum's own key, else its name. */
+	static Component enumName(String key, Object value) {
+		String name = ((Enum<?>) value).name();
+		String own = "config.burmaldaholic." + key + "." + name.toLowerCase(Locale.ROOT);
+		if (Language.getInstance().has(own)) {
+			return Component.translatable(own);
+		}
 		if (value instanceof TranslatableEnum t) {
 			return Component.translatable(t.translationKey());
 		}
-		return Texts.raw(((Enum<?>) value).name());
+		return Texts.raw(name);
 	}
 
 	final class TextRow extends Row {
