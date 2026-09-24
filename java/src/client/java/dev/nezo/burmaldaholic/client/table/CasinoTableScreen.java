@@ -46,7 +46,35 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 	@Override
 	protected void init() {
 		super.init();
+		if (entrance == null) {
+			entrance = dev.nezo.burmaldaholic.client.ui.ScreenEntrance.install(this,
+				() -> new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(leftPos, topPos, imageWidth, imageHeight));
+		}
 		acceptState(ClientTableCache.get(menu.pos()));
+	}
+
+	/** Shared entrance (global.md §4.14; lane J-L2 kit). */
+	private dev.nezo.burmaldaholic.client.ui.@Nullable ScreenEntrance entrance;
+
+	/**
+	 * Casino location theme of this table (J-L2 kit hook): the {@code theme} string of the state when the block entity
+	 * sends one ({@code village | bastion | end}), else the dimension the player is in.
+	 */
+	protected dev.nezo.burmaldaholic.client.ui.CasinoTheme theme() {
+		String t = state.getStringOr("theme", "");
+		return t.isEmpty() ? dev.nezo.burmaldaholic.client.ui.CasinoTheme.current() : dev.nezo.burmaldaholic.client.ui.CasinoTheme.byId(t);
+	}
+
+	/** Milliseconds since the screen opened ("on open" animations; J-L2 kit hook). */
+	protected long openAge() {
+		return entrance == null ? Long.MAX_VALUE / 4 : entrance.age();
+	}
+
+	/** A kit {@code CasinoButton} sized to its label (min {@code minWidth}) at GUI-relative {@code x, y} (J-L2 kit hook). */
+	protected dev.nezo.burmaldaholic.client.ui.CasinoButton casinoButton(Component label, int x, int y, int minWidth,
+			dev.nezo.burmaldaholic.client.ui.CasinoButton.Style style, java.util.function.Consumer<dev.nezo.burmaldaholic.client.ui.CasinoButton> onPress) {
+		int w = dev.nezo.burmaldaholic.client.ui.CasinoButton.width(font, label, minWidth, false);
+		return addRenderableWidget(new dev.nezo.burmaldaholic.client.ui.CasinoButton(leftPos + x, topPos + y, w, 20, label, style, onPress));
 	}
 
 	/** Latest server state (never null). */
