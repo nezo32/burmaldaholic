@@ -33,3 +33,13 @@ Pipeline per feature: research → design → architecture → development (self
 | Per-world casino mode (Java) | Enchantaholic reference | ✅ | ✅ | ✅ | in final test/review |
 
 Release: all tracks green in CI → squash-merge PR #1 → tag v0.1.0.
+
+## Wave: entertainment & animation (user request)
+| Track | Research | Design | Architecture | Development | Test / review |
+|---|---|---|---|---|---|
+| Slots redesign: 5×3 243-ways, 3 themed machines, wilds, free spins, bonus games, cascades, jackpot tiers | docs/research/animation.md (in progress) | docs/design/SLOTS.md (in progress) | animation/render framework per edition (→ research + designs) | Java + Bedrock, per machine/feature | per edition |
+| Animation pass — cards (blackjack, poker, UTH, baccarat) | ↑ | docs/design/animation/cards.md | ↑ | per edition | per edition |
+| Animation pass — roulette, craps, dice duel | ↑ | animation/tables.md | ↑ | per edition | per edition |
+| Animation pass — slots + Slot Showdown | ↑ | animation/slots.md | ↑ | per edition | per edition |
+| Animation pass — coin flip, wheel, plinko, scratch + PvP reveals | ↑ | animation/extras-pvp.md | ↑ | per edition | per edition |
+| Animation pass — HUD, menus, chaos, jackpots, VIP, Last Chance, style guide | ↑ | animation/global.md | ↑ | per edition | per edition |
