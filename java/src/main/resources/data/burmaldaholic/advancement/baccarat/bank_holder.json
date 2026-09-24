@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:baccarat/banco",
+  "display": {
+    "icon": {
+      "id": "minecraft:gold_block"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.bank_holder.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.bank_holder.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "W": "minecraft:green_wool",
+    "P": "#minecraft:planks",
+    "F": "#minecraft:wooden_fences",
+    "G": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "WWW",
+    "PPP",
+    "FGF"
+  ],
+  "result": {
+    "id": "burmaldaholic:baccarat_table"
+  }
+}

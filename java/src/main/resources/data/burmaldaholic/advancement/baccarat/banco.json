@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:baccarat/baccarat_natural",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:baccarat_table_player_banked"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.banco.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.banco.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

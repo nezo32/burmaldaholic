@@ -187,7 +187,7 @@ public class IndependentGameTests {
 			}
 			prev = "vip_" + tier;
 		}
-		long loaded = server.getAdvancements().getAllAdvancements().stream().filter(a -> a.id().getNamespace().equals(NS)).count();
+		long loaded = server.getAdvancements().getAllAdvancements().stream().filter(a -> a.id().getNamespace().equals(NS) && a.id().getPath().startsWith("core/")).count(); // modules added later keep their own folders (baccarat/)
 		helper.assertTrue(loaded == parent.size() + 5, "exactly the §19 set is loaded: " + loaded);
 		helper.assertTrue(errors.isEmpty(), String.join("; ", errors));
 		helper.succeed();
