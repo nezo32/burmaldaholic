@@ -507,7 +507,8 @@ public class SlotMachineScreen extends CasinoTableScreen {
 			}
 			long award = r.getLongOr("award", 0);
 			if (award > 0) {
-				out.add(Component.translatable("msg.burmaldaholic.slots.jackpot_self", Texts.chipsAcc(award)));
+				// v2 signature (tier word first); the v1 progressive pool becomes the Grand (SLOTS.md §5.3)
+				out.add(Component.translatable("msg.burmaldaholic.slots.jackpot_self", Component.translatable("gui.burmaldaholic.slots.jackpot.tier.grand"), Texts.chipsAcc(award)));
 				colors.add(GOLD);
 			} else if (r.getBooleanOr("sevens", false)) {
 				out.add(Component.translatable("msg.burmaldaholic.slots.seven_title"));
@@ -528,7 +529,7 @@ public class SlotMachineScreen extends CasinoTableScreen {
 					: "gui.burmaldaholic.slots.auto_stopped_funds"));
 				colors.add(0xFFFFFF55);
 			}
-			out.add(Component.translatable("gui.burmaldaholic.slots.auto_summary", Texts.plural("unit.burmaldaholic.spin", summary.getIntOr("spins", 0)),
+			out.add(Component.translatable("gui.burmaldaholic.slots.auto_summary", Texts.number(summary.getIntOr("spins", 0)),
 				Texts.chipsAcc(summary.getLongOr("bet", 0)), Texts.chipsAcc(summary.getLongOr("won", 0))));
 			colors.add(TEXT);
 		}
@@ -576,7 +577,6 @@ public class SlotMachineScreen extends CasinoTableScreen {
 		List<Component> out = new ArrayList<>();
 		ListTag pays = s.getListOrEmpty("paytable");
 		boolean progressive = s.getBooleanOr("progressive", false);
-		boolean hasWild = false;
 		for (int i = 0; i < pays.size(); i++) {
 			CompoundTag p = pays.getCompoundOrEmpty(i);
 			Symbol sym = Symbol.byOrdinal(p.getIntOr("symbol", 0));
@@ -593,9 +593,6 @@ public class SlotMachineScreen extends CasinoTableScreen {
 			if (pay > 0) {
 				out.add(Component.translatable("gui.burmaldaholic.slots.paytable.three", name, mult(pay)));
 			}
-			if (sym == Symbol.WILD) {
-				hasWild = true;
-			}
 			if (sym.isSpecial()) {
 				out.add(Component.translatable("gui.burmaldaholic.slots.paytable.chaos", name));
 			}
@@ -606,9 +603,8 @@ public class SlotMachineScreen extends CasinoTableScreen {
 		if (s.getDoubleOr("berry2", 0) > 0) {
 			out.add(Component.translatable("gui.burmaldaholic.slots.paytable.berry_2", mult(s.getDoubleOr("berry2", 0))));
 		}
-		if (hasWild) {
-			out.add(Component.translatable("gui.burmaldaholic.slots.paytable.wild"));
-		}
+		// `slots.paytable.wild` now carries the v2 text (reels 2–4, three arguments): the v1 paytable has no wild row
+		// until the v2 screen (J-L9) replaces it
 		out.add(Component.translatable("gui.burmaldaholic.slots.lines", Texts.number(lines())));
 		return out;
 	}

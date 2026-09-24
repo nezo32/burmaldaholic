@@ -393,11 +393,14 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		MinecraftServer server = level.getServer();
 		Component machineName = Component.translatable("block.burmaldaholic." + tier.blockName());
 		if (award > 0) {
+			// the jackpot strings carry the v2 signature (tier word first, SLOTS.md §13.6); the single v1 progressive
+			// pool is the one that migrates into the Grand (§5.3), so it is named Grand until the cut-over (S-J5)
+			Component tierWord = Component.translatable("gui.burmaldaholic.slots.jackpot.tier.grand");
 			Component msg = Component.translatable("msg.burmaldaholic.slots.jackpot_broadcast", Texts.raw(p.playerName),
-				Texts.chipsAcc(award), machineName).withStyle(ChatFormatting.GOLD);
+				tierWord, Texts.chipsAcc(award), machineName).withStyle(ChatFormatting.GOLD);
 			server.getPlayerList().broadcastSystemMessage(msg, false);
 			if (player != null) {
-				player.sendSystemMessage(Component.translatable("msg.burmaldaholic.slots.jackpot_self", Texts.chipsAcc(award))
+				player.sendSystemMessage(Component.translatable("msg.burmaldaholic.slots.jackpot_self", tierWord, Texts.chipsAcc(award))
 					.withStyle(ChatFormatting.GOLD));
 			}
 		}
