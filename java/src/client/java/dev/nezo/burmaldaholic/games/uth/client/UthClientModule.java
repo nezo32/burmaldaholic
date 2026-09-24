@@ -23,6 +23,7 @@ public final class UthClientModule implements CasinoClientModule {
 		ctx.tableScreen(UthModule.HIGH_ROLLER_TABLE, UthScreen::new);
 		ctx.tableScreen(UthModule.PLAYER_BANKED_TABLE, UthScreen::new);
 		EntityRenderers.register(UthModule.DEALER, UthDealerRenderer::new);
+		UthTableRenderer.register(); // J-C10: the round on the table top for spectators
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
 			if (UthModule.TABLE == null) {
 				return;

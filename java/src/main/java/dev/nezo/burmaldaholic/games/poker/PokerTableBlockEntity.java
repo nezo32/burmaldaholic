@@ -40,7 +40,12 @@ import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.wager.Stake;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.wager.Wagers;
+import dev.nezo.burmaldaholic.core.anim.SeedMix;
+import dev.nezo.burmaldaholic.core.anim.Timeline;
+import dev.nezo.burmaldaholic.games.poker.logic.BestFive;
 import dev.nezo.burmaldaholic.games.poker.logic.Hand;
+import dev.nezo.burmaldaholic.games.poker.logic.PokerBeats;
+import dev.nezo.burmaldaholic.games.poker.present.PokerPub;
 import dev.nezo.burmaldaholic.games.poker.logic.HandEvaluator;
 import dev.nezo.burmaldaholic.games.poker.logic.PokerBotPolicy;
 import dev.nezo.burmaldaholic.games.poker.logic.PokerMoney;
@@ -50,6 +55,7 @@ import dev.nezo.burmaldaholic.games.poker.logic.Pots;
 import dev.nezo.burmaldaholic.games.poker.logic.StakeLevel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -143,6 +149,27 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	private @Nullable BotTurn botTurn;
 	/** BOTS_ONLY sessions: NORMAL/HARD bots busted per human ({@code clean_sweep}). */
 	private final Map<String, Integer> sweeps = new HashMap<>();
+
+	// ---- presentation pacing (animation/cards.md §2.2, task J-C2) -------------------------------------------
+	/** Segment counter (a change restarts the clients' players). */
+	private int stageSeq;
+	/** "deal", "street", "finish" or "" (none yet). */
+	private String stageKind = "";
+	private long stageStart;
+	private int[] stageArgs = new int[0];
+	private @Nullable Timeline stageTl;
+	/** The running segment has reached its end (its continuation ran). */
+	private boolean stageDone = true;
+	/** Board cards visible before the running segment started. */
+	private int boardBase;
+	/** Board cards covered by the segments started so far (all visible once they end). */
+	private int boardPresented;
+	/** The finished hand's moment ("big" / "monster" / ""), computed when its finish segment starts. */
+	private String moment = "";
+	/** Last published public tag (BER), to send block updates only when it changes. */
+	private @Nullable CompoundTag lastPub;
+	/** Client side: the public tag from the last block update. */
+	private CompoundTag clientPub = new CompoundTag();
 
 	/** A pending bot decision: taken when the "bot" timer fires and the hand is still at {@code seq}. */
 	private static final class BotTurn {
@@ -615,6 +642,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		Hand h = table.hand();
 		String id = id(player);
+		if (stageRunning()) {
+			return; // cards are still moving: the turn opens when the segment ends
+		}
 		if (h.toAct() < 0 || !h.player(h.toAct()).id.equals(id)) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.not_your_turn"));
 			return;
@@ -658,6 +688,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				case "action" -> onActionTimeout();
 				case "bot" -> onBotTimer();
 				case "auto" -> autoAct();
+				case "beat" -> onBeat();
 				default -> {
 				}
 			}
@@ -700,6 +731,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			afterHumanLeft();
 			return;
 		}
+		if (stageRunning()) {
+			// the previous hand's showdown is still on the felt
+			startTimer("next_hand", Math.max(1, stageTicksLeft()));
+			return;
+		}
 		if (!table.canStart()) {
 			boolean allSittingOut = table.humans().stream().allMatch(s -> s.sittingOut || s.stack <= 0);
 			if (allSittingOut) {
@@ -725,8 +761,12 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		addLog(PokerText.msg("new_hand", Texts.number(table.handNo()), Texts.number(table.sb()), Texts.number(table.bb()))
 			.withStyle(ChatFormatting.GRAY));
 		setChanged();
+		boardBase = 0;
+		boardPresented = 0;
+		moment = "";
 		streamEvents();
-		drive();
+		startStage("deal", new int[] {h.players().size(), h.sbIndex()},
+			PokerBeats.deal(h.players().size(), h.sbIndex(), PokerBeats.Pacing.DEFAULT, stageSeed()));
 	}
 
 	/**
@@ -820,11 +860,26 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		List<Hand.Event> events = h.events();
 		Component last = null;
-		for (int i = eventIdx; i < events.size(); i++) {
+		int board = 0;
+		for (int i = 0; i < eventIdx && i < events.size(); i++) {
+			if (events.get(i) instanceof Hand.Dealt d) {
+				board += d.cards().length;
+			}
+		}
+		int visible = visibleBoard(h);
+		int i = eventIdx;
+		for (; i < events.size(); i++) {
+			if (events.get(i) instanceof Hand.Dealt d) {
+				// a street's log line waits until its cards are dealt on the felt (the slow run-out)
+				if (board + d.cards().length > visible) {
+					break;
+				}
+				board += d.cards().length;
+			}
 			last = PokerText.event(table, h, events.get(i));
 			addLog(last);
 		}
-		eventIdx = events.size();
+		eventIdx = i;
 		if (last != null) {
 			for (ServerPlayer p : seatedOnline()) {
 				p.sendOverlayMessage(last);
@@ -842,11 +897,23 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		if (h == null) {
 			return;
 		}
+		if (stageRunning()) {
+			return; // the running segment calls drive() again when it ends
+		}
 		if (h.complete()) {
 			endHand();
 			return;
 		}
 		saveDrawn(h);
+		if (h.board().size() > boardPresented) {
+			// a street was dealt: present it (gather, burn, slide, flip) before the next turn opens
+			int target = boardPresented < 3 ? 3 : boardPresented + 1;
+			int street = target == 3 ? 1 : target - 2;
+			boardBase = boardPresented;
+			boardPresented = target;
+			startStage("street", new int[] {street}, PokerBeats.street(street, PokerBeats.Pacing.DEFAULT, stageSeed()));
+			return;
+		}
 		Hand.Player p = h.player(h.toAct());
 		PokerTable.Seat seat = table.seatOf(p.id);
 		actionSeq = h.seq();
@@ -1024,6 +1091,153 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		setChanged();
 	}
 
+	// ---- presentation segments (J-C2) ------------------------------------------------------------------
+
+	/** Cosmetic seed of the next segment (public values only, docs/architecture/animation.md §3.5). */
+	private int stageSeed() {
+		return SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table == null ? 0 : table.handNo(), stageSeq + 1);
+	}
+
+	/** Starts a presentation segment now; publication beats sync viewers, the end runs the continuation. */
+	private void startStage(String kind, int[] args, Timeline tl) {
+		stageSeq++;
+		stageKind = kind;
+		stageArgs = args.clone();
+		stageTl = tl;
+		stageStart = gameTime();
+		stageDone = false;
+		scheduleBeat();
+	}
+
+	/** Milliseconds since the running segment started. */
+	private double stageMs() {
+		return (gameTime() - stageStart) * 50.0;
+	}
+
+	/** A segment is still playing (its continuation has not run yet). */
+	private boolean stageRunning() {
+		return !stageDone && stageTl != null;
+	}
+
+	private int stageTicksLeft() {
+		return stageTl == null ? 0 : (int) Math.max(0, Timeline.ceilTicks(stageTl.sharedEndMs()) - (gameTime() - stageStart));
+	}
+
+	private void scheduleBeat() {
+		Timeline tl = stageTl;
+		if (tl == null || stageDone) {
+			return;
+		}
+		double t = stageMs();
+		int next = PokerBeats.nextPublication(tl, t);
+		if (next < 0) {
+			endStage();
+			return;
+		}
+		startTimer("beat", Math.max(1, Timeline.ceilTicks((int) Math.ceil(next - t))));
+	}
+
+	private void onBeat() {
+		if (table != null && table.hand() != null) {
+			streamEvents();
+		}
+		scheduleBeat();
+	}
+
+	private void endStage() {
+		if (stageDone) {
+			return;
+		}
+		stageDone = true;
+		cancelTimer("beat");
+		boardBase = boardPresented;
+		if (table == null) {
+			return;
+		}
+		if ("finish".equals(stageKind)) {
+			reveal();
+		} else if (table.inHand()) {
+			streamEvents();
+			drive();
+		}
+	}
+
+	/**
+	 * The hand just completed (money already settled): the finish segment shows the rest of the board (slow all-in
+	 * run-out), the showdown in order and the pot awards; the result lines and the next hand wait for its gate.
+	 */
+	private void startFinish(Hand h) {
+		Hand.Result r = h.result();
+		int dealt = h.board().size();
+		int runoutFrom = 0;
+		if (!r.uncontested() && dealt > boardPresented) {
+			runoutFrom = boardPresented < 3 ? 1 : boardPresented - 1;
+		}
+		boolean gather = false;
+		for (Hand.Event e : h.events()) {
+			if (e instanceof Hand.Dealt) {
+				gather = false;
+			} else if (e instanceof Hand.Blind || e instanceof Hand.Acted a && a.amount() > 0) {
+				gather = true;
+			}
+		}
+		int shows = r.uncontested() ? 0 : r.shown().size();
+		boolean expose = runoutFrom > 0 && shows >= 2;
+		int pots = Math.max(1, r.pots().size());
+		long total = 0;
+		for (Hand.PotResult pot : r.pots()) {
+			total += pot.amount();
+		}
+		long bb = Math.max(1, h.bb());
+		moment = total >= 100 * bb ? "monster" : total >= 50 * bb ? "big" : "";
+		boardBase = boardPresented;
+		boardPresented = dealt;
+		PokerBeats.Finish f = new PokerBeats.Finish(gather, runoutFrom, expose, shows, pots);
+		startStage("finish", new int[] {gather ? 1 : 0, runoutFrom, expose ? 1 : 0, shows, pots},
+			PokerBeats.finish(f, PokerBeats.Pacing.DEFAULT, stageSeed()));
+	}
+
+	/** The reveal gate of a finished hand: result lines in chat, the rest of the log, then the next hand. */
+	private void reveal() {
+		Hand h = table.lastHand();
+		if (h != null && h.result() != null) {
+			streamRemaining(h);
+			for (Component line : lastResult) {
+				broadcast(line);
+			}
+		}
+		if (!table.inHand()) {
+			boolean uncontested = h == null || h.result() == null || h.result().uncontested();
+			scheduleHand(uncontested ? 40 : 60);
+		}
+	}
+
+	/** Log lines of a finished hand that were held back by the presentation. */
+	private void streamRemaining(Hand h) {
+		List<Hand.Event> events = h.events();
+		for (int i = eventIdx; i < events.size(); i++) {
+			addLog(PokerText.event(table, h, events.get(i)));
+		}
+		eventIdx = events.size();
+	}
+
+	/** Board cards shown on the felt now (the segments publish them one slide beat at a time). */
+	private int visibleBoard(Hand h) {
+		int dealt = h.board().size();
+		if (stageRunning() && stageTl != null && ("street".equals(stageKind) || "finish".equals(stageKind))) {
+			return Math.min(dealt, Math.max(boardBase, PokerBeats.boardPublished(stageTl, stageMs())));
+		}
+		return Math.min(dealt, boardPresented);
+	}
+
+	/** Beats of {@code kind} started in the running finish segment ({@link Integer#MAX_VALUE} once it ended). */
+	private int finishStarted(String kind) {
+		if (!"finish".equals(stageKind) || stageTl == null) {
+			return 0;
+		}
+		return stageDone ? Integer.MAX_VALUE : PokerBeats.started(stageTl, kind, stageMs());
+	}
+
 	// ---- settlement ----------------------------------------------------------------------------------
 
 	private void endHand() {
@@ -1033,10 +1247,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		Hand.Result r = h.result();
 		lastResult.clear();
-		lastResult.addAll(PokerText.resultLines(table, h));
-		for (Component line : lastResult) {
-			broadcast(line);
-		}
+		lastResult.addAll(PokerText.resultLines(table, h)); // posted at the reveal gate (finish segment end)
 		MinecraftServer server = server();
 		String bankroll = ownership().map(OwnedTable::bankrollId).orElse("");
 		int n = h.players().size();
@@ -1136,12 +1347,12 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		setPhase("result");
 		setChanged();
+		startFinish(h);
 		removeFinished();
 		if (!humansSeated() && waiting.isEmpty()) {
 			afterHumanLeft();
 			return;
 		}
-		scheduleHand(r.uncontested() ? 60 : 120);
 	}
 
 	private static @Nullable BotDifficulty levelOf(PokerTable.@Nullable Seat s) {
@@ -1282,6 +1493,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		cancelTimer("action");
 		cancelTimer("bot");
 		cancelTimer("auto");
+		cancelTimer("beat");
+		stageDone = true;
 		botSeq++;
 		botTurn = null;
 		drawn.clear();
@@ -1439,6 +1652,18 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			streamEvents();
 			endHand();
 		}
+		if (table != null && !stageDone) {
+			// nobody is left to watch: post the result now
+			stageDone = true;
+			cancelTimer("beat");
+			Hand last = table.lastHand();
+			if (last != null && last.result() != null) {
+				streamRemaining(last);
+				for (Component line : lastResult) {
+					broadcast(line);
+				}
+			}
+		}
 		if (table != null) {
 			for (PokerTable.Seat s : table.humans()) {
 				cashOut(s.id);
@@ -1469,6 +1694,103 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	public void setRemoved() {
 		super.setRemoved();
 		SEATED.values().removeIf(t -> t == this);
+	}
+
+	// ---- public tag (in-world renderer, J-C10) ------------------------------------------------------------
+
+	private static final String PUB_KEY = "burmaldaholic_poker_pub";
+
+	/** The table's public state (no hole card that is not face up, no board card before its slide beat). */
+	public PokerPub buildPub() {
+		if (table == null) {
+			return PokerPub.EMPTY;
+		}
+		int n = table.size();
+		int[] flags = new int[n];
+		long[] bets = new long[n];
+		int[] cards = new int[n * 2];
+		Arrays.fill(cards, -1);
+		Hand h = table.hand() != null ? table.hand() : table.lastHand();
+		boolean live = table.inHand();
+		Hand.Result result = h != null && !live ? h.result() : null;
+		int[] handSeats = table.handSeats();
+		int[] board = new int[0];
+		long pot = 0;
+		if (h != null) {
+			int vb = visibleBoard(h);
+			board = new int[vb];
+			for (int i = 0; i < vb; i++) {
+				board[i] = h.board().get(i);
+			}
+			pot = live ? h.potTotal() : result != null && stageRunning() ? potOf(result) : 0;
+		}
+		for (int i = 0; i < n; i++) {
+			PokerTable.Seat s = table.seat(i);
+			if (s == null) {
+				continue;
+			}
+			flags[i] = PokerPub.SEATED | (s.human ? 0 : PokerPub.BOT);
+			int k = h != null ? h.indexOf(s.id) : -1;
+			if (k < 0 || !(live || (result != null && handSeatsContain(handSeats, i, k)))) {
+				continue;
+			}
+			Hand.Player p = h.player(k);
+			flags[i] |= PokerPub.DEALT | (p.folded() ? PokerPub.FOLDED : 0) | (p.allIn() ? PokerPub.ALL_IN : 0);
+			if (live && !stageRunning() && h.toAct() == k) {
+				flags[i] |= PokerPub.ACTING;
+			}
+			bets[i] = live ? p.bet() : 0;
+			if (result != null && shownNow(result, k)) {
+				cards[i * 2] = p.hole()[0];
+				cards[i * 2 + 1] = p.hole()[1];
+			}
+			if (result != null && finishStarted(PokerBeats.AWARD) > 0 && result.won()[k] > 0) {
+				flags[i] |= PokerPub.WINNER;
+			}
+		}
+		int button = h != null && h.button() < handSeats.length ? handSeats[h.button()] : -1;
+		int seed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table.handNo(), stageSeq);
+		return new PokerPub(stageSeq, PokerPub.kindCode(stageKind), stageStart, stageArgs, seed, button, board, pot, flags, bets, cards);
+	}
+
+	/** Client: the last public state received with a block update. */
+	public PokerPub clientPub() {
+		return PokerPub.decode(clientPub.getIntArray("d").orElse(new int[0]));
+	}
+
+	@Override
+	public void syncViewers() {
+		super.syncViewers();
+		publishPub();
+	}
+
+	/** Sends a block update when the public state changed (≤ 1 per beat, never per tick). */
+	private void publishPub() {
+		if (!(level instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		CompoundTag pub = new CompoundTag();
+		pub.putIntArray("d", buildPub().encode());
+		if (pub.equals(lastPub)) {
+			return;
+		}
+		lastPub = pub;
+		BlockState st = getBlockState();
+		serverLevel.sendBlockUpdated(worldPosition, st, st, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		CompoundTag pub = new CompoundTag();
+		pub.putIntArray("d", buildPub().encode());
+		t.put(PUB_KEY, pub);
+		return t;
+	}
+
+	@Override
+	public net.minecraft.network.protocol.@Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+		return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
 	}
 
 	// ---- persistence ------------------------------------------------------------------------------
@@ -1516,6 +1838,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		stake = StakeLevel.byId(input.getStringOr(STAKE_KEY, ""));
 		refundsLoaded = false;
 		savedBots = input.read(BOTS_KEY, CompoundTag.CODEC).orElse(null);
+		input.read(PUB_KEY, CompoundTag.CODEC).ifPresent(t -> clientPub = t);
 		if (bots != null && savedBots != null) {
 			bots.load(savedBots);
 			savedBots = null;
@@ -1580,13 +1903,31 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		boolean live = table.inHand();
 		int[] handSeats = table.handSeats();
 		Hand.Result result = h != null && !live ? h.result() : null;
+		// the finish segment still shows the showdown: results, stacks and chat lines wait for its gate
+		boolean presenting = result != null && stageRunning() && "finish".equals(stageKind);
+		boolean gated = result != null && !presenting;
 		tag.putBoolean("live", live);
+		tag.putBoolean("presenting", presenting);
+		tag.putIntArray("hand_seats", handSeats);
+		writeStage(tag);
+		int[] visibleBoard = new int[0];
 		if (h != null) {
-			tag.putString("street", live ? h.street().id() : (result != null && !result.uncontested() ? "showdown" : ""));
-			tag.putIntArray("board", h.board().stream().mapToInt(Integer::intValue).toArray());
-			tag.putInt("to_act", live && h.toAct() >= 0 ? handSeats[h.toAct()] : -1);
+			int vb = visibleBoard(h);
+			visibleBoard = new int[vb];
+			for (int i = 0; i < vb; i++) {
+				visibleBoard[i] = h.board().get(i);
+			}
+			tag.putString("street", live ? streetId(vb) : (result != null && !result.uncontested() ? "showdown" : ""));
+			tag.putIntArray("board", visibleBoard);
+			boolean turnOpen = live && !stageRunning();
+			tag.putInt("to_act", turnOpen && h.toAct() >= 0 ? handSeats[h.toAct()] : -1);
 			tag.putLongArray("pots", live ? h.displayPots().stream().mapToLong(Long::longValue).toArray() : new long[0]);
-			tag.putLong("pot_total", live ? h.potTotal() : 0);
+			tag.putLong("pot_total", live ? h.potTotal() : presenting ? potOf(result) : 0);
+			tag.putInt("button_index", h.button());
+			writeLastAction(tag, h, handSeats);
+			if (presenting || gated) {
+				writeAwards(tag, h, result, handSeats, visibleBoard);
+			}
 		}
 		Map<Integer, Component> lastAct = new HashMap<>();
 		if (live) {
@@ -1613,27 +1954,46 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			}
 			st.putBoolean("you", s.id.equals(me));
 			st.putBoolean("out", s.sittingOut);
+			if (s.human) {
+				st.putString("uuid", s.id);
+			}
 			int k = h != null ? h.indexOf(s.id) : -1;
 			boolean dealt = k >= 0 && (live || (result != null && handSeatsContain(handSeats, i, k)));
 			if (dealt) {
 				Hand.Player p = h.player(k);
-				st.putLong("stack", live ? p.stack() : s.stack);
+				// before the gate the plate shows the stack without this hand's winnings (the pot is still sliding)
+				long stack = live ? p.stack() : presenting ? Math.max(0, p.stack() - result.won()[k] - uncalledTo(result, k)) : s.stack;
+				st.putLong("stack", stack);
 				st.putLong("bet", live ? p.bet() : 0);
 				st.putBoolean("folded", p.folded());
-				st.putBoolean("all_in", live && p.allIn());
+				st.putBoolean("all_in", p.allIn() && (live || presenting));
+				st.putInt("hand_index", k);
 				if (lastAct.containsKey(k)) {
 					st.put("act", encode(ops, lastAct.get(k)));
 				}
-				boolean show = s.id.equals(me) || (result != null && result.shown().contains(k));
+				boolean show = s.id.equals(me) || (result != null && shownNow(result, k));
 				if (show) {
 					st.putIntArray("cards", p.hole());
-					if (h.board().size() >= 3 && !p.folded()) {
-						st.put("hand", encode(ops, PokerText.handName(h.valueOf(k))));
+					if (visibleBoard.length >= 3 && !p.folded()) {
+						// the hand name from the cards on the felt only (a slow run-out never names the river early)
+						int[] cards = new int[2 + visibleBoard.length];
+						cards[0] = p.hole()[0];
+						cards[1] = p.hole()[1];
+						System.arraycopy(visibleBoard, 0, cards, 2, visibleBoard.length);
+						int value = HandEvaluator.evaluate(cards, cards.length);
+						st.put("hand", encode(ops, PokerText.handName(value)));
+						st.putString("hand_id", HandEvaluator.handName(value));
+						if (result != null && finishStarted(PokerBeats.BEST) > 0 && visibleBoard.length == 5 && !result.uncontested()) {
+							st.putInt("best", BestFive.mask(p.hole(), visibleBoard));
+						}
 					}
 				} else if (!p.folded()) {
 					st.putInt("hidden", 2);
 				}
-				if (result != null) {
+				if (result != null && result.shown().contains(k) == false && !result.uncontested() && !p.folded() && finishStarted(PokerBeats.BEST) > 0) {
+					st.putBoolean("mucked", true);
+				}
+				if (gated) {
 					st.putLong("won", result.won()[k]);
 					st.putLong("net", result.net()[k]);
 				}
@@ -1643,7 +2003,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			seats.add(st);
 		}
 		tag.put("table", seats);
-		if (live && h.toAct() >= 0 && h.player(h.toAct()).id.equals(me)) {
+		if (live && !stageRunning() && h.toAct() >= 0 && h.player(h.toAct()).id.equals(me)) {
 			Hand.Legal l = h.legal();
 			Hand.Player p = h.player(h.toAct());
 			CompoundTag lt = new CompoundTag();
@@ -1665,13 +2025,126 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		tag.put("log", logTag);
 		ListTag resultTag = new ListTag();
-		if (!live) {
+		if (!live && !presenting) {
 			for (Component c : lastResult) {
 				resultTag.add(encode(ops, c));
 			}
 		}
 		tag.put("result", resultTag);
 		return tag;
+	}
+
+	private static String streetId(int visibleBoard) {
+		return switch (visibleBoard) {
+			case 0 -> Hand.Street.PREFLOP.id();
+			case 3 -> Hand.Street.FLOP.id();
+			case 4 -> Hand.Street.TURN.id();
+			default -> Hand.Street.RIVER.id();
+		};
+	}
+
+	private static long potOf(Hand.Result r) {
+		long t = 0;
+		for (Hand.PotResult p : r.pots()) {
+			t += p.amount();
+		}
+		return t;
+	}
+
+	private static long uncalledTo(Hand.Result r, int k) {
+		return r.uncalled() != null && r.uncalled().player() == k ? r.uncalled().amount() : 0;
+	}
+
+	/** A hand is face up now: its show beat started, or the all-in exposure did (everybody in {@code shown} shows). */
+	private boolean shownNow(Hand.Result r, int k) {
+		int pos = r.shown().indexOf(k);
+		if (pos < 0) {
+			return false;
+		}
+		return pos < finishStarted(PokerBeats.SHOW) || finishStarted(PokerBeats.EXPOSE) > 0;
+	}
+
+	/** The running (or last) presentation segment: clients rebuild the same {@link PokerBeats} timeline from it. */
+	private void writeStage(CompoundTag tag) {
+		if (stageKind.isEmpty()) {
+			return;
+		}
+		CompoundTag fx = new CompoundTag();
+		fx.putInt("seq", stageSeq);
+		fx.putString("kind", stageKind);
+		fx.putLong("start", stageStart);
+		fx.putIntArray("args", stageArgs);
+		fx.putInt("seed", SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table == null ? 0 : table.handNo(), stageSeq));
+		fx.putBoolean("done", stageDone);
+		fx.putString("moment", finishStarted(PokerBeats.AWARD) > 0 ? moment : "");
+		tag.put("fx", fx);
+	}
+
+	/** The latest action of the hand (K12 tags): seat, type id, amount and its event number. */
+	private static void writeLastAction(CompoundTag tag, Hand h, int[] handSeats) {
+		List<Hand.Event> events = h.events();
+		for (int i = events.size() - 1; i >= 0; i--) {
+			Hand.Event e = events.get(i);
+			int player;
+			String type;
+			long amount;
+			boolean allIn;
+			if (e instanceof Hand.Acted a) {
+				player = a.player();
+				type = a.type().id();
+				amount = a.amount();
+				allIn = a.allIn();
+			} else if (e instanceof Hand.Blind b) {
+				player = b.player();
+				type = b.big() ? "big_blind" : "small_blind";
+				amount = b.amount();
+				allIn = b.allIn();
+			} else {
+				continue;
+			}
+			CompoundTag la = new CompoundTag();
+			la.putInt("seat", player < handSeats.length ? handSeats[player] : -1);
+			la.putString("type", type);
+			la.putLong("amount", amount);
+			la.putBoolean("all_in", allIn);
+			la.putInt("n", i);
+			tag.put("last_action", la);
+			return;
+		}
+	}
+
+	/**
+	 * Pot awards of a finished hand once the first award beat started: side pots first (the order they slide), each
+	 * with its winners' seats and shares.
+	 */
+	private void writeAwards(CompoundTag tag, Hand h, Hand.Result r, int[] handSeats, int[] visibleBoard) {
+		if (finishStarted(PokerBeats.AWARD) <= 0) {
+			return;
+		}
+		ListTag awards = new ListTag();
+		List<Hand.PotResult> pots = r.pots();
+		for (int i = pots.size() - 1; i >= 0; i--) {
+			Hand.PotResult pot = pots.get(i);
+			CompoundTag a = new CompoundTag();
+			a.putInt("pot", i);
+			long net = 0;
+			int[] seats = new int[pot.winners().size()];
+			long[] shares = new long[pot.winners().size()];
+			for (int w = 0; w < seats.length; w++) {
+				int k = pot.winners().get(w);
+				seats[w] = k < handSeats.length ? handSeats[k] : -1;
+				shares[w] = w < pot.shares().length ? pot.shares()[w] : 0;
+				net += shares[w];
+			}
+			a.putLong("amount", net);
+			a.putIntArray("seats", seats);
+			a.putLongArray("shares", shares);
+			if (pot.value() != 0 && visibleBoard.length == 5) {
+				a.putString("hand_id", HandEvaluator.handName(pot.value()));
+			}
+			awards.add(a);
+		}
+		tag.put("awards", awards);
 	}
 
 	private static boolean handSeatsContain(int[] handSeats, int seat, int k) {
