@@ -692,7 +692,5 @@
 	"unit.burmaldaholic.decimal_separator": ".",
 	"gui.burmaldaholic.error.pawn_owned_table": "Owned tables take chips only",
 	"gui.burmaldaholic.error.balance_full": "Your balance is at the maximum",
-	"msg.burmaldaholic.core.withdraw_capped": "Withdrawal limit per click: %1$s",
-	"advancement.burmaldaholic.three_sevens.title": "Lucky Sevens",
-	"advancement.burmaldaholic.three_sevens.description": "Hit three Redstone Sevens on a payline"
+	"msg.burmaldaholic.core.withdraw_capped": "Withdrawal limit per click: %1$s"
 }

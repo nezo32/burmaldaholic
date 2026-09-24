@@ -103,6 +103,8 @@ public final class MultiplayerData extends SavedData {
 			t.putLong("min", r.min);
 			t.putLong("max", r.max);
 			t.putBoolean("bots", r.bots);
+			t.putBoolean("slots_buy", r.slotsBuy);
+			t.putBoolean("slots_autoplay", r.slotsAutoplay);
 			t.putLong("game_min", r.gameMin);
 			tables.put(key, t);
 		});
@@ -156,6 +158,8 @@ public final class MultiplayerData extends SavedData {
 			r.min = Math.max(0, t.getLongOr("min", 0));
 			r.max = Math.max(0, t.getLongOr("max", 0));
 			r.bots = t.getBooleanOr("bots", true);
+			r.slotsBuy = t.getBooleanOr("slots_buy", true);
+			r.slotsAutoplay = t.getBooleanOr("slots_autoplay", true);
 			r.gameMin = Math.max(1, t.getLongOr("game_min", 1));
 			book.restore(key, r);
 		}

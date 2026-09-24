@@ -1,5 +1,5 @@
 {
-  "parent": "burmaldaholic:core/three_sevens",
+  "parent": "burmaldaholic:core/top_five",
   "display": {
     "icon": {
       "id": "burmaldaholic:slot_machine_netherite"

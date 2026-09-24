@@ -10,7 +10,6 @@ import dev.nezo.burmaldaholic.core.pvp.logic.Outcome;
 import dev.nezo.burmaldaholic.core.pvp.logic.PvpMode;
 import dev.nezo.burmaldaholic.core.pvp.logic.PvpRng;
 import dev.nezo.burmaldaholic.core.pvp.logic.Step;
-import dev.nezo.burmaldaholic.games.slots.SlotsMath;
 import dev.nezo.burmaldaholic.games.slots.logic.SlotTable;
 import dev.nezo.burmaldaholic.games.slots.logic.Symbol;
 import dev.nezo.burmaldaholic.games.slots.logic.Tier;
@@ -100,9 +99,9 @@ public final class SlotShowdownMode implements PvpMode<SlotShowdownMode.Params, 
 	private final Function<Tier, SlotTable> tables;
 	private final Supplier<Settings> settings;
 
-	/** Production: live config ({@code pvp.*}, {@code slots.<tier>.*}). */
+	/** Production: live config ({@code pvp.*}) and the frozen v1 tables of {@link ShowdownTables}. */
 	public SlotShowdownMode() {
-		this(tier -> SlotsMath.machine(tier, false).table(), () -> {
+		this(ShowdownTables::table, () -> {
 			PvpConfig c = CasinoConfig.pvp();
 			return new Settings(c.enabled && c.slots.enabled, c.slots.maxPlayers, c.slots.spinChoices.clone(), c.minStake, Rules.of(c.slots));
 		});

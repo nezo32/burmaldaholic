@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.slots.api;
 
-import dev.nezo.burmaldaholic.games.slots.JackpotData;
+import dev.nezo.burmaldaholic.games.slots.JackpotPoolsV2;
+import dev.nezo.burmaldaholic.games.slots.SlotMachinesV2;
 import java.util.List;
 import java.util.UUID;
 import net.fabricmc.fabric.api.event.Event;
@@ -110,6 +111,46 @@ public final class SlotsApi {
 	public record Spin(@Nullable ServerPlayer player, UUID playerId, String tier, long lineBet, long spinBet, long totalReturn,
 			List<LineWin> wins, long jackpotAward, boolean threeSevens, boolean owned) {}
 
+	/**
+	 * Every settled slots v2 round (SLOTS.md §8: contracts {@code spin_slots} / {@code slots_feature}, statistics,
+	 * advancements, Jackpot Race). Fired after {@link #SPIN} (which v2 also fires, with {@code tier} = the machine id,
+	 * {@code lineBet} = the bet, {@code spinBet} = the stake, no line wins).
+	 *
+	 * @param player       the online player, or null when the round settled after a disconnect / restart
+	 * @param machine      {@code overworld}, {@code nether}, {@code end}
+	 * @param bet          the (underlying) bet
+	 * @param stake        chips staked: the bet, or the buy price
+	 * @param bought       a bought feature (does not count for {@code slots_feature} or {@code free_spins})
+	 * @param payout       everything paid, progressive awards included
+	 * @param progressive  of which from the progressive pools
+	 * @param tier         slot win tier ({@code WinTier} name, SLOTS.md §10.1; jackpots excluded)
+	 * @param freeSpins    free spins were played
+	 * @param bonus        {@code hunt}, {@code hoard}, {@code wheel} or empty
+	 * @param jackpots     jackpot tiers won (1 Mini … 4 Grand), tape order
+	 * @param maxWin       the max-win cap was reached
+	 * @param maxTumbles   most tumbles in one reel spin (Nether)
+	 */
+	public record Round(@Nullable ServerPlayer player, UUID playerId, String machine, long bet, long stake, boolean bought, boolean owned,
+			long payout, long progressive, String tier, boolean freeSpins, String bonus, int[] jackpots, boolean maxWin, int maxTumbles,
+			ServerLevel level, BlockPos pos) {
+		/** A feature was triggered by the spin itself (SLOTS.md §8.7 {@code slots_feature}). */
+		public boolean featureTriggered() {
+			return !bought && (freeSpins || !bonus.isEmpty());
+		}
+	}
+
+	@FunctionalInterface
+	public interface RoundListener {
+		void onRound(Round round);
+	}
+
+	/** Every settled v2 round (see {@link Round}). */
+	public static final Event<RoundListener> ROUND = EventFactory.createArrayBacked(RoundListener.class, listeners -> r -> {
+		for (RoundListener l : listeners) {
+			l.onRound(r);
+		}
+	});
+
 	@FunctionalInterface
 	public interface TriggerListener {
 		void onTrigger(Trigger trigger);
@@ -134,13 +175,22 @@ public final class SlotsApi {
 		}
 	});
 
-	/** Current progressive pool (chips) of a tier ({@code gold}/{@code netherite}); 0 for copper or unknown tiers. */
+	/**
+	 * Current Grand jackpot meter (chips) of the machine on a cabinet tier ({@code copper} Overworld Riches, {@code gold}
+	 * Nether Inferno, {@code netherite} End Void); 0 for unknown tiers.
+	 */
 	public static long jackpotPool(MinecraftServer server, String tier) {
-		return JackpotData.pool(server, tier);
+		dev.nezo.burmaldaholic.games.slots.logic.Tier t = dev.nezo.burmaldaholic.games.slots.logic.Tier.byId(tier);
+		if (t == null) return 0;
+		dev.nezo.burmaldaholic.games.slots.v2.logic.Machine m = SlotMachinesV2.machine(t);
+		return JackpotPoolsV2.get(server).meter(m, SlotMachinesV2.def(m), 4);
 	}
 
-	/** Reset one tier's (or, with null, every) progressive pool to its seed (admin). */
+	/** Reset one cabinet tier's machine (or, with null, every machine) to its jackpot seeds (admin). */
 	public static void resetJackpots(MinecraftServer server, @Nullable String tier) {
-		JackpotData.reset(server, tier);
+		dev.nezo.burmaldaholic.games.slots.logic.Tier t = tier == null ? null : dev.nezo.burmaldaholic.games.slots.logic.Tier.byId(tier);
+		for (dev.nezo.burmaldaholic.games.slots.v2.logic.Machine m : dev.nezo.burmaldaholic.games.slots.v2.logic.Machine.values()) {
+			if (tier == null || t != null && SlotMachinesV2.machine(t) == m) JackpotPoolsV2.get(server).reset(m);
+		}
 	}
 }

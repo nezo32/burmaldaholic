@@ -116,7 +116,7 @@ public final class VipService {
 		if (result.won() && !result.deferred()) {
 			winParticles(player);
 		}
-		Map<String, Long> progress = new java.util.LinkedHashMap<>(ContractRules.playContracts(result.gameId(), bet, result.payout()));
+		Map<String, Long> progress = new java.util.LinkedHashMap<>(ContractRules.playContracts(result.gameId(), bet, result.payout(), result.tags()));
 		if (progress.containsKey("wager")) {
 			if (credit > 0) {
 				progress.put("wager", credit); // the `wager` contract gets the same (bot-weighted) credit as VIP (BOTS.md §5.3)

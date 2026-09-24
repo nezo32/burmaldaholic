@@ -118,6 +118,9 @@ public final class CasinoBook {
 		public long min;
 		public long max;
 		public boolean bots = true;
+		/** Slots owner settings (SLOTS.md §8.6): bonus buy and autoplay on/off. */
+		public boolean slotsBuy = true;
+		public boolean slotsAutoplay = true;
 		/** Last known game minimum bet (insolvency rule); 1 until observed. */
 		public long gameMin = 1;
 

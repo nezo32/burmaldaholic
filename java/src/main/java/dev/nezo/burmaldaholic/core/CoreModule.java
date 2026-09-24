@@ -90,6 +90,7 @@ public final class CoreModule implements CasinoModule {
 		CasinoMode.register();
 		CoreContent.register(ctx);
 		CoreSounds.register(ctx);
+		dev.nezo.burmaldaholic.core.fx.CoreFx.register(ctx); // fx payload, ServerFx, big-win broadcast, particles (J-L1)
 		CasinoCreativeTab.register();
 		Earnings.register();
 		HeartPenalties.register();

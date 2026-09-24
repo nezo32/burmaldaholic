@@ -56,6 +56,8 @@ public final class CasinoConfigScreen extends Screen {
 		for (Page page : PAGES) {
 			rows.addChild(Button.builder(page.label(), b -> minecraft.gui.setScreen(new ConfigSectionScreen(this, page, working))).width(150).build());
 		}
+		rows.addChild(Button.builder(Component.translatable("config.burmaldaholic.section.client_fx"),
+			b -> minecraft.gui.setScreen(new dev.nezo.burmaldaholic.client.fx.FxSettingsScreen(this))).width(150).build());
 		layout.addToContents(grid);
 		LinearLayout footer = layout.addToFooter(LinearLayout.horizontal().spacing(8));
 		footer.addChild(Button.builder(CommonComponents.GUI_DONE, b -> save()).build());

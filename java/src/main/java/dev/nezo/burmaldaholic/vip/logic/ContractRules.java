@@ -33,6 +33,7 @@ public final class ContractRules {
 		def("wager", 500, 30, 8);
 		def("win_blackjack", 3, 40, 5);
 		def("spin_slots", 30, 25, 5);
+		def("slots_feature", 2, 45, 4);
 		def("roulette_red", 2, 35, 4);
 		def("play_poker", 10, 40, 3);
 		def("explore_nether", 500, 60, 3);
@@ -288,6 +289,14 @@ public final class ContractRules {
 	 * {@code PlayResult} does not carry, so it is never advanced here.
 	 */
 	public static Map<String, Long> playContracts(String gameId, long bet, long payout) {
+		return playContracts(gameId, bet, payout, java.util.List.of());
+	}
+
+	/**
+	 * Same with the result tags: a slots round tagged {@code feature} (free spins or a bonus game) and not {@code buy}
+	 * advances {@code slots_feature} (SLOTS.md §8.7).
+	 */
+	public static Map<String, Long> playContracts(String gameId, long bet, long payout, java.util.List<String> tags) {
 		Map<String, Long> out = new LinkedHashMap<>();
 		if (bet > 0) {
 			out.put("wager", bet);
@@ -298,7 +307,12 @@ public final class ContractRules {
 					out.put("win_blackjack", 1L);
 				}
 			}
-			case "slots" -> out.put("spin_slots", 1L);
+			case "slots" -> {
+				out.put("spin_slots", 1L);
+				if (tags.contains("feature") && !tags.contains("buy")) {
+					out.put("slots_feature", 1L);
+				}
+			}
 			case "poker" -> out.put("play_poker", 1L);
 			default -> {
 			}

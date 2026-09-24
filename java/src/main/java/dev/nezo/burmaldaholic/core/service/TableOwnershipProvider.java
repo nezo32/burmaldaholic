@@ -22,10 +22,17 @@ public interface TableOwnershipProvider {
 	 * @param maxBet     owner's max bet (0 = table default; tier max still applies)
 	 * @param open       owner's open/closed switch
 	 * @param bots       owner's "bots on/off" switch (poker, §18.2)
+	 * @param slotsBuy   owner's "bonus buy on/off" switch (slots, SLOTS.md §8.6)
+	 * @param slotsAutoplay owner's "autoplay on/off" switch (slots, SLOTS.md §8.6)
 	 */
-	record OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open, boolean bots) {
+	record OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open, boolean bots, boolean slotsBuy,
+			boolean slotsAutoplay) {
 		public OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open) {
-			this(owner, bankrollId, minBet, maxBet, open, true);
+			this(owner, bankrollId, minBet, maxBet, open, true, true, true);
+		}
+
+		public OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open, boolean bots) {
+			this(owner, bankrollId, minBet, maxBet, open, bots, true, true);
 		}
 	}
 }

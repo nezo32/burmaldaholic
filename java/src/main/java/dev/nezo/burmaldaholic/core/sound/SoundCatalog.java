@@ -67,7 +67,19 @@ public record SoundCatalog(String id, String owner, String source, String subtit
 
 	private static void core(List<SoundCatalog> l, String spec, String existing, boolean ex, String... ids) {
 		l.add(new SoundCatalog(existing, "core", "player", existing, ex, spec));
-		for (String id : ids) l.add(new SoundCatalog(id, "core", "player", id, false, spec));
+		for (String id : ids) l.add(new SoundCatalog(id, "core", "player", subtitleOf(id), false, spec));
+	}
+
+	/** Subtitle names that differ from the id (global.md §2.7 subtitle column). */
+	private static String subtitleOf(String id) {
+		return switch (id) {
+			case "win_small" -> "win";
+			case "win_nice" -> "nice_win";
+			case "win_big" -> "big_win";
+			case "win_mega" -> "mega_win";
+			case "attract_chime" -> "attract";
+			default -> id;
+		};
 	}
 
 	private static void existing(List<SoundCatalog> l, String owner, String spec, String... ids) {

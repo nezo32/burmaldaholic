@@ -113,9 +113,9 @@ public final class SlotShowdownEntry {
 		return new BotSettings(policy, bots, BotDifficulty.NORMAL, false, true, BotSpeed.NORMAL);
 	}
 
-	/** The machine's VIP requirement ({@code slots.netherite.minVipTier}); false after telling the player. */
+	/** The machine's VIP requirement ({@code slots.<m>.minVipTier}); false after telling the player. */
 	static boolean vipOk(SlotMachineBlockEntity machine, ServerPlayer player) {
-		int min = dev.nezo.burmaldaholic.games.slots.SlotsMath.minVipTier(machine.tier());
+		int min = dev.nezo.burmaldaholic.games.slots.SlotMachinesV2.cfg(machine.machineV2()).minVipTier;
 		if (min <= 0 || CoreServices.vip().tier(player.level().getServer(), player.getUUID()) >= min) {
 			return true;
 		}

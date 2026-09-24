@@ -53,6 +53,8 @@ public class CharterScreen extends Screen {
 	private static final class Draft {
 		boolean open;
 		boolean bots;
+		boolean slotsBuy;
+		boolean slotsAutoplay;
 		String min;
 		String max;
 	}
@@ -238,6 +240,8 @@ public class CharterScreen extends Screen {
 			Draft d = new Draft();
 			d.open = row.getBooleanOr("open", true);
 			d.bots = row.getBooleanOr("bots", true);
+			d.slotsBuy = row.getBooleanOr("slots_buy", true);
+			d.slotsAutoplay = row.getBooleanOr("slots_autoplay", true);
 			long min = row.getLongOr("min", 0);
 			long max = row.getLongOr("max", 0);
 			d.min = min > 0 ? Long.toString(min) : "";
@@ -265,6 +269,16 @@ public class CharterScreen extends Screen {
 			if (row.getBooleanOr("poker", false)) {
 				flow(toggleLabel("gui.burmaldaholic.charter.table_bots", d.bots), 40, b -> {
 					d.bots = !d.bots;
+					rebuild();
+				});
+			}
+			if (row.getBooleanOr("slots", false)) {
+				flow(toggleLabel("gui.burmaldaholic.charter.table_slots_buy", d.slotsBuy), 40, b -> {
+					d.slotsBuy = !d.slotsBuy;
+					rebuild();
+				});
+				flow(toggleLabel("gui.burmaldaholic.charter.table_slots_autoplay", d.slotsAutoplay), 40, b -> {
+					d.slotsAutoplay = !d.slotsAutoplay;
 					rebuild();
 				});
 			}
@@ -310,6 +324,8 @@ public class CharterScreen extends Screen {
 		args.putString("key", key);
 		args.putBoolean("open", d.open);
 		args.putBoolean("bots", d.bots);
+		args.putBoolean("slots_buy", d.slotsBuy);
+		args.putBoolean("slots_autoplay", d.slotsAutoplay);
 		args.putLong("min", min);
 		args.putLong("max", max);
 		savingKey = key;

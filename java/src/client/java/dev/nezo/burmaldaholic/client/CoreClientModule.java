@@ -64,6 +64,7 @@ public final class CoreClientModule implements CasinoClientModule {
 		ClientTableCache.register();
 		ClientCasinoMenu.register();
 		CasinoHud.init();
+		dev.nezo.burmaldaholic.client.fx.ClientFx.init(); // FX settings, celebration overlay, fx payload, particles (J-L1)
 		ctx.tableScreen(CoreContent.CASHIER, CashierScreen::new);
 		ctx.tableScreen(CoreContent.NETHER_CASHIER, CashierScreen::new);
 	}

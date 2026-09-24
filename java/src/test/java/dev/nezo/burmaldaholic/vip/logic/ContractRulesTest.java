@@ -27,8 +27,11 @@ class ContractRulesTest {
 	}
 
 	@Test
-	void specTableHasSeventeenContracts() {
-		assertEquals(17, ContractRules.DEFS.size());
+	void specTableHasEighteenContracts() {
+		assertEquals(18, ContractRules.DEFS.size());
+		assertEquals(2, ContractRules.DEFS.get("slots_feature").target());
+		assertEquals(45, ContractRules.DEFS.get("slots_feature").reward());
+		assertEquals(4, ContractRules.DEFS.get("slots_feature").weight());
 		assertEquals(24, ContractRules.DEFS.get("mine_iron").target());
 		assertEquals(50, ContractRules.DEFS.get("mine_iron").reward());
 		assertEquals(3, ContractRules.DEFS.get("smelt").weight());

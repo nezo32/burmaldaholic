@@ -18,6 +18,8 @@
 			"dev.nezo.burmaldaholic.gametest.craps.CrapsGameTests",
 			"dev.nezo.burmaldaholic.gametest.blackjack.BlackjackGameTests",
 			"dev.nezo.burmaldaholic.gametest.slots.SlotsGameTests",
+			"dev.nezo.burmaldaholic.gametest.slots.SlotCabinetGameTests",
+			"dev.nezo.burmaldaholic.gametest.slots.SlotsE2EGameTests",
 			"dev.nezo.burmaldaholic.gametest.vip.VipGameTests",
 			"dev.nezo.burmaldaholic.gametest.loan.LoanGameTests",
 			"dev.nezo.burmaldaholic.gametest.poker.PokerGameTests",
@@ -36,7 +38,9 @@
 			"dev.nezo.burmaldaholic.gametest.poker.PokerClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.independent.RuLayoutClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.pvp.PvpClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.slots.SlotsV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.FxClientGameTests"
 		]
 	},
 	"depends": {

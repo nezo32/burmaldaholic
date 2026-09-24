@@ -22,6 +22,18 @@ public final class JackpotData extends SavedData {
 
 	private final Map<Tier, JackpotPool> pools = new EnumMap<>(Tier.class);
 
+	/**
+	 * The v1 pool seeds (the retired {@code slots.jackpot.seed.gold / .netherite} defaults): what the §5.3 migration
+	 * treats as bank money when it moves a v1 pool's increment to the v2 Grand.
+	 */
+	public static long v1Seed(Tier tier) {
+		return switch (tier) {
+			case GOLD -> 5_000;
+			case NETHERITE -> 50_000;
+			default -> 0;
+		};
+	}
+
 	public static JackpotData get(MinecraftServer server) {
 		return server.getDataStorage().computeIfAbsent(TYPE);
 	}
@@ -30,7 +42,7 @@ public final class JackpotData extends SavedData {
 	public JackpotPool pool(Tier tier) {
 		return pools.computeIfAbsent(tier, t -> {
 			setDirty();
-			return JackpotPool.seeded(SlotsMath.seed(t));
+			return JackpotPool.seeded(v1Seed(t));
 		});
 	}
 
@@ -50,7 +62,7 @@ public final class JackpotData extends SavedData {
 		JackpotData data = get(server);
 		for (Tier t : Tier.values()) {
 			if (t.progressive() && (tierId == null || t.id().equals(tierId))) {
-				data.set(t, JackpotPool.seeded(SlotsMath.seed(t)));
+				data.set(t, JackpotPool.seeded(v1Seed(t)));
 			}
 		}
 	}

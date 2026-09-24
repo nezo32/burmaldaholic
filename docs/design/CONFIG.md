@@ -198,46 +198,44 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 Slots v2 (`SLOTS.md` §12; the v1 3×3 keys are gone, see "Removed" below). `<m>` ∈ `overworld`, `nether`, `end`.
 
-Registration state (the Java edition is cut over separately, task S-J5):
-- Rows with a plain back-quoted key are registered in both editions.
-- Rows marked **ᴮ** after the key are live on Bedrock and **pending Java registration** (S-J5). The marker keeps
-  them out of Java's `ConfigSpecCoverageTest` (its row pattern needs the key cell to hold only the key); remove the
-  marker in the change that registers the key in `SlotsConfig.java`.
-- The per-machine families and the table-valued keys in the second table are documentation until S-J5 (no
-  generator rows yet): both editions use the `SLOTS.md` defaults (Bedrock `v2/logic/machines.ts DEFAULT_CONFIG`).
+Registration state: every row with a back-quoted key is registered in Java (`SlotsConfig` / `SlotsV2Config`,
+checked by `ConfigSpecCoverageTest`). The one row still marked **ᴮ** (`slots.bedrock.ddui`) is Bedrock-only and has no Java
+key. The per-machine families and the table-valued keys of the second table are registered too (`slots.<m>.*`,
+defaults per `SLOTS.md`); JSON cannot hold `slots.<m>.freeSpins` as both a list and an object, so the Java config keeps
+the spin awards in `slots.<m>.freeSpins.awards`.
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `slots.enabled` | bool | true | — | All slot machines. |
 | `slots.validateRtp` | bool | true | — | On load, compute each machine's RTP (`SLOTS.md` §7.5) from the config; a machine above 0.99, or a buy feature above its machine, logs a loud warning and shows it on the admin page (never auto-fix). |
-| `slots.jackpot.announceMinTier` ᴮ | enum(MINI, MINOR, MAJOR, GRAND) | MAJOR | — | Server-wide chat from this tier up. |
-| `slots.buyFeature.enabled` ᴮ | bool | true | — | |
-| `slots.buyFeature.tierMaxMultiple` ᴮ | int | 25 | 1–1000 | Price ≤ tier max × this. |
-| `slots.autoplay.enabled` ᴮ | bool | true | — | |
-| `slots.autoplay.counts` ᴮ | list<int> | [10,25,50,100] | each 1–1000 | |
-| `slots.autoplay.lossLimits` ᴮ | list<int> | [10,25,50,100] | each 1–10000 | × bet; one is mandatory. |
-| `slots.turboAllowed` ᴮ | bool | true | — | |
-| `slots.anticipation` ᴮ | bool | true | — | Off: reels always stop on the base schedule. |
-| `slots.bigWinTiers` ᴮ | list<int> | [5,15,40,100] | each 1–10000 | Nice/Big/Mega/Epic thresholds (× bet); 4 increasing entries. |
-| `slots.inWorld.enabled` ᴮ | bool | true | — | Java BER / Bedrock `slot_reels` entity. |
-| `slots.inWorld.radius` ᴮ | int | 24 | 0–64 | Spectator range. |
+| `slots.jackpot.announceMinTier` | enum(MINI, MINOR, MAJOR, GRAND) | MAJOR | — | Server-wide chat from this tier up. |
+| `slots.buyFeature.enabled` | bool | true | — | |
+| `slots.buyFeature.tierMaxMultiple` | int | 25 | 1–1000 | Price ≤ tier max × this. |
+| `slots.autoplay.enabled` | bool | true | — | |
+| `slots.autoplay.counts` | list<int> | [10,25,50,100] | each 1–1000 | |
+| `slots.autoplay.lossLimits` | list<int> | [10,25,50,100] | each 1–10000 | × bet; one is mandatory. |
+| `slots.turboAllowed` | bool | true | — | |
+| `slots.anticipation` | bool | true | — | Off: reels always stop on the base schedule. |
+| `slots.bigWinTiers` | list<int> | [5,15,40,100] | each 1–10000 | Nice/Big/Mega/Epic thresholds (× bet); 4 increasing entries. |
+| `slots.inWorld.enabled` | bool | true | — | Java BER / Bedrock `slot_reels` entity. |
+| `slots.inWorld.radius` | int | 24 | 0–64 | Spectator range. |
 | `slots.bedrock.ddui` ᴮ | bool | true | — | Bedrock only: use the DDUI form (`SLOTS.md` §10.6); false = classic fallback. |
-| `slots.overworld.minVipTier` ᴮ | int | 0 | 0–5 | |
-| `slots.nether.minVipTier` ᴮ | int | 0 | 0–5 | |
-| `slots.end.minVipTier` ᴮ | int | 2 | 0–5 | 2 = Gold. |
-| `slots.overworld.freeSpins.multiplier` ᴮ | int | 2 | 1–10 | |
-| `slots.nether.tumble.ladder` ᴮ | list<int> | [1,2,3,5] | each 1–100 | Base game; 4 entries. |
-| `slots.nether.tumble.ladderFree` ᴮ | list<int> | [2,4,6,10] | each 1–100 | Free spins; 4 entries. |
-| `slots.overworld.pick.board` ᴮ | int | 15 | 3–30 | Chests on the board. |
-| `slots.overworld.pick.weights` ᴮ | map<string,int> | x1 30000, x2 22000, x3 14000, x5 9000, x10 3500, x25 800, mini 600, minor 150, major 20, grand 3, creeper 22000 | each 0–10000000 | Treasure Hunt chest contents (`SLOTS.md` §3.1). |
-| `slots.nether.hold.trigger` ᴮ | int | 6 | 3–15 | |
-| `slots.nether.hold.respins` ᴮ | int | 3 | 1–10 | |
-| `slots.nether.hold.coinChance` ᴮ | double | 0.04 | 0.0–0.5 | Per empty cell per respin. |
-| `slots.nether.hold.coinWeights` ᴮ | map<string,int> | x1 4000, x2 2500, x3 1500, x5 1000, x10 500, x25 120, mini 80, minor 20, major 3 | each 0–10000000 | ×10 of `SLOTS.md` §3.2. |
-| `slots.nether.buy.price` ᴮ | double | 18.4 | 1–10000 | × bet, multiples of 0.2. |
-| `slots.end.buy.price` ᴮ | double | 109 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.overworld.minVipTier` | int | 0 | 0–5 | |
+| `slots.nether.minVipTier` | int | 0 | 0–5 | |
+| `slots.end.minVipTier` | int | 2 | 0–5 | 2 = Gold. |
+| `slots.overworld.freeSpins.multiplier` | int | 2 | 1–10 | |
+| `slots.nether.tumble.ladder` | list<int> | [1,2,3,5] | each 1–100 | Base game; 4 entries. |
+| `slots.nether.tumble.ladderFree` | list<int> | [2,4,6,10] | each 1–100 | Free spins; 4 entries. |
+| `slots.overworld.pick.board` | int | 15 | 3–30 | Chests on the board. |
+| `slots.overworld.pick.weights` | map<string,int> | x1 30000, x2 22000, x3 14000, x5 9000, x10 3500, x25 800, mini 600, minor 150, major 20, grand 3, creeper 22000 | each 0–10000000 | Treasure Hunt chest contents (`SLOTS.md` §3.1). |
+| `slots.nether.hold.trigger` | int | 6 | 3–15 | |
+| `slots.nether.hold.respins` | int | 3 | 1–10 | |
+| `slots.nether.hold.coinChance` | double | 0.04 | 0.0–0.5 | Per empty cell per respin. |
+| `slots.nether.hold.coinWeights` | map<string,int> | x1 4000, x2 2500, x3 1500, x5 1000, x10 500, x25 120, mini 80, minor 20, major 3 | each 0–10000000 | ×10 of `SLOTS.md` §3.2. |
+| `slots.nether.buy.price` | double | 18.4 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.end.buy.price` | double | 109 | 1–10000 | × bet, multiples of 0.2. |
 
-Per-machine families and table-valued keys (documentation until S-J5; defaults per `SLOTS.md`):
+Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
