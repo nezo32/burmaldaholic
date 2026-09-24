@@ -1427,6 +1427,24 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.admin.state.settled` | settled | рассчитан |
 | `gui.burmaldaholic.pvp.admin.rake_warning` | Warning: the PvP house cut (%1$s) is below the cheapest house game — VIP can be farmed cheaply | Внимание: комиссия PvP (%1$s) ниже преимущества самой дешёвой игры заведения — ВИП можно накрутить задёшево |
 | `gui.burmaldaholic.pvp.charter.rake` | PvP house cut collected: %1$s | Комиссия с PvP-матчей: %1$s |
+| `gui.burmaldaholic.pvp.toggle` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.pvp.hub.current` | Your match: %1$s | Ваш матч: %1$s |
+| `gui.burmaldaholic.pvp.hub.show` | Show match | Показать матч |
+| `gui.burmaldaholic.pvp.hub.withdraw` | Withdraw challenge | Отозвать вызов |
+| `gui.burmaldaholic.pvp.new.pick_game` | Pick a game | Выберите игру |
+| `gui.burmaldaholic.pvp.new.no_games` | No duel games are available right now | Сейчас нет доступных дуэлей |
+| `gui.burmaldaholic.pvp.new.stake_hint` | Type the stake in the box next to your opponent (%1$s – %2$s) | Впишите ставку в поле рядом с соперником (%1$s – %2$s) |
+| `gui.burmaldaholic.pvp.admin.none` | No PvP matches right now | Сейчас PvP-матчей нет |
+| `gui.burmaldaholic.pvp.admin.state.invited` | challenge | вызов |
+| `gui.burmaldaholic.pvp.match.step` | Step %1$s | Этап %1$s |
+| `gui.burmaldaholic.pvp.match.live` | %1$s · pot %2$s | %1$s · банк %2$s |
+| `gui.burmaldaholic.pvp.result.standings` | Final standings | Итоговая таблица |
+| `msg.burmaldaholic.pvp.command.no_invite` | You have no challenge to answer | Отвечать не на что — вызовов нет |
+| `msg.burmaldaholic.pvp.command.no_match` | You're not in a PvP match | Вы не участвуете в PvP-матче |
+| `msg.burmaldaholic.pvp.command.unknown_game` | Unknown PvP game: %1$s | Неизвестная PvP-игра: %1$s |
+| `msg.burmaldaholic.pvp.command.unknown_match` | No PvP match with id %1$s | PvP-матча с номером %1$s нет |
+| `msg.burmaldaholic.pvp.command.unknown_taunt` | Unknown line. Pick one of: %1$s | Такой фразы нет. Выберите: %1$s |
+| `msg.burmaldaholic.pvp.command.cancelled` | Match %1$s: cancelled or settled | Матч %1$s отменён или рассчитан |
 | `tooltip.burmaldaholic.lucky_coin.pvp` | Use on a player: challenge them to a Coin Flip Duel | На игрока — вызов на дуэль на монетке |
 
 ### Rivalry, win streaks, grudge matches

@@ -46,7 +46,7 @@ final class BotCommands {
 	private BotCommands() {}
 
 	static void register() {
-		CasinoCommands.extendPlayer(root -> root.then(table()));
+		CasinoCommands.extendForPlayers(root -> root.then(table()));
 		CasinoCommands.extend(root -> root.then(admin()));
 	}
 
