@@ -24,6 +24,8 @@ class ConfigSpecCoverageTest {
 	private static ConfigManager manager() {
 		ConfigManager m = new ConfigManager(null);
 		CasinoConfig.registerAll(m);
+		// sections of modules added after core's list register themselves (ctx.config); same defaults here
+		m.register("baccarat", dev.nezo.burmaldaholic.games.baccarat.BaccaratConfig.class, dev.nezo.burmaldaholic.games.baccarat.BaccaratConfig::new);
 		return m;
 	}
 

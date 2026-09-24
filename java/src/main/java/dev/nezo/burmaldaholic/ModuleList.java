@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.bots.BotsModule;
 import dev.nezo.burmaldaholic.chaos.ChaosModule;
 import dev.nezo.burmaldaholic.core.CoreModule;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
+import dev.nezo.burmaldaholic.games.baccarat.BaccaratModule;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackModule;
 import dev.nezo.burmaldaholic.games.craps.CrapsModule;
 import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
@@ -40,6 +41,7 @@ public final class ModuleList {
 			new WorldgenModule(),
 			new VipModule(),
 			new MultiplayerModule(),
+			new BaccaratModule(),
 			new PvpModule(),
 			new BotsModule()
 		);

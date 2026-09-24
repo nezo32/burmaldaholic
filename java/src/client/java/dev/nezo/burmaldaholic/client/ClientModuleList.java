@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.client;
 import dev.nezo.burmaldaholic.bots.client.BotsClientModule;
 import dev.nezo.burmaldaholic.chaos.client.ChaosClientModule;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
+import dev.nezo.burmaldaholic.games.baccarat.client.BaccaratClientModule;
 import dev.nezo.burmaldaholic.games.blackjack.client.BlackjackClientModule;
 import dev.nezo.burmaldaholic.games.craps.client.CrapsClientModule;
 import dev.nezo.burmaldaholic.games.extras.client.ExtrasClientModule;
@@ -36,6 +37,7 @@ public final class ClientModuleList {
 			new WorldgenClientModule(),
 			new VipClientModule(),
 			new MultiplayerClientModule(),
+			new BaccaratClientModule(),
 			new PvpClientModule(),
 			new BotsClientModule()
 		);
