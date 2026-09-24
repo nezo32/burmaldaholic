@@ -9,6 +9,12 @@ under "Server data" as a dependency. Every visible outcome comes from the server
 
 Status: implementation-ready, 2026-09-24.
 
+**Visuals and layout:** `docs/design/visual/cards.md` (2026-09-24) defines what every piece looks like and
+where it sits (table art, card faces and sizes, props, chips, screen anchors, themes, plates, bots, tiers). This
+file keeps the motion, timing and faithfulness rules; its sizes and asset list were updated to match (visual
+§12). **The project is Java only since 2026-09-24:** the Bedrock rows and sections below (§0.9, the "Bedrock"
+columns and storyboards, §4.6, §4.8, §6.3) are kept for reference and are not implemented.
+
 **Inputs and alignment**
 - `docs/research/animation.md`, which covers the capabilities of each edition. Where this spec depends
   on it, the section number is given in brackets, for example (R§2.6).
@@ -125,13 +131,13 @@ Easing names are from global §2.5 and tables §0.2. 1 t = 50 ms. Sizes are in G
 
 | Size | Px | Use |
 |---|---|---|
-| L | 24×34 | the viewer's hands, the board, both baccarat hands, the dealer's hand |
-| M | 16×22 | other seats' hands in blackjack and UTH, seat plates in poker |
-| S | 11×15 | compact mode (UI.md §0.2) and the side-pot / muck icons |
+| L | 37×49 | the viewer's hands, the board, both baccarat hands, the dealer's hand |
+| M | 21×29 | other seats' hands in all four games; the viewer's inactive split hands when there are 3–4; the compact layout's main size |
+| S | 13×17 | compact mode (UI.md §0.2) others' hands, and the side-pot / muck icons |
 
-The rank index is drawn **at runtime** with the font from `gui.burmaldaholic.card.rank.*` (RU Т/К/Д/В)
-in the top-left corner and rotated 180° in the bottom-right; L size only. Faces carry pips and court art
-only (§6), so nothing is baked in as text.
+The rank index is drawn **at runtime** from `gui.burmaldaholic.card.rank.*` (RU Т/К/Д/В) with the small
+font `burmaldaholic:core/card_index` (visual/cards.md §3.4) in the suit colour: top-left on every size, and
+rotated 180° in the bottom-right on L. Faces carry pips and court art only, so nothing is baked in as text.
 
 | Id | Primitive | Duration | Curve and geometry | Sound |
 |---|---|---|---|---|
@@ -151,16 +157,18 @@ only (§6), so nothing is baked in as text.
 | K12 | **Action tag** (poker, UTH, bots) | 180 ms in, 1 500 ms hold, 300 ms out | A small nine-slice bubble (`tables/tag`) above the seat plate slides up 6 px with `outCubic`, then fades. Text: `gui.burmaldaholic.poker.tag.*` / `uth.tag.*`. A new tag replaces the old one at once. | — |
 | K13 | **Knock** (check) | 180 ms | The plate jumps 2 px down and back twice (knuckle raps). | `table_knock` |
 
-**Where cards come from.** The shoe is drawn as a sprite and is the start point S for K1:
-- Blackjack: top-right of the dealer area.
-- Baccarat: top-centre, between the two hand panels.
-- Poker and UTH: a deck sprite at the dealer spot (top-centre).
+**Where cards come from.** The shoe is drawn as a sprite and is the start point S for K1 (anchors in
+visual/cards.md §6, table-local):
+- Blackjack: the shoe at the top-right (356, 12); S = its mouth (358, 30).
+- Baccarat: the shoe at the top-right (348, 12); in chemin de fer it sits at the banker's plate edge.
+- Poker: the deck at (130, 18), left of the pot; UTH: the deck at the top-right (352, 12).
 
 ### 0.4 Chips, pots and stacks
 
 Chips follow tables §0.4, so this section lists only what that section does not cover:
 - **Chip flight:** 180 ms Bézier with an apex scale of 1.25, a landing squash, and `chip_place`.
-- **Stacks:** up to 5 discs, then a value label.
+- **Stacks:** up to 5 discs, then a value label. Card tables draw the 13 × 8 table disc
+  (`core/cards/chip/disc_<d>`) with a **2 px** step (visual/cards.md §5.2).
 - **Other players' chips** use the seat tint.
 - **Sweep:** 260 ms `inCubic` toward the house side.
 - **Payout:** discs pop in from the house side at 40 ms each, up to 8 at most, then the stack flies to
@@ -393,9 +401,9 @@ Assumptions (verify during implementation):
 
 ### 1.2 Java screen storyboard
 
-The layout keeps UI.md §4 and adds:
-- the shoe (`tables/shoe`, 28×22) at the top-right;
-- the discard tray (`tables/discard`, 20×14) at the top-left;
+The layout is visual/cards.md §6.3 (it replaces the UI.md §4 flow rows) and has:
+- the shoe (`core/cards/prop/shoe_<theme>`, 40×28) at the top-right;
+- the discard tray (`core/cards/prop/tray_<theme>`, 30×22) at the top-left;
 - the dealer rack under the dealer's hand;
 - one bet circle per hand in front of it;
 - the viewer's seat at the bottom centre, with other seats as M-size rows (existing).
@@ -406,15 +414,15 @@ Beat config: `blackjack.fx.dealBeatTicks` 6, `blackjack.fx.dealerDrawTicks` 14,
 | Phase | t (ms, shared) | Beat |
 |---|---|---|
 | BETTING | local | Chip click: a chip flies to the viewer's circle (tables §0.4). Others' bets: a tinted chip flies from their plate edge (180 ms). **Deal** pressed: the circle rim flashes gold once (alpha ≤ 30 %, 200 ms). Timer: the existing ring; under 5 s it turns `chip.red`, and `wheel_tick` (p 1.6, v 0.3) plays once per second **for the viewer only while they have no bet yet**. |
-| DEAL | 0, 300, 600 … (one card per beat) | Order as in GAME_DESIGN §6.3: seats 1→5, dealer up, seats 1→5, dealer hole. Each card is K1 from the shoe. Face-up cards K1+K2. The **hole card** lands face down, tucked 5 px under the up-card and 2 px lower. The Java dealer NPC plays `deal` on every beat. Totals (K10) appear after each hand's 2nd card is readable. |
+| DEAL | 0, 300, 600 … (one card per beat) | Order as in GAME_DESIGN §6.3: seats 1→5, dealer up, seats 1→5, dealer hole. Each card is K1 from the shoe. Face-up cards K1+K2. The **hole card** lands face down, tucked under the up-card, 22 px right and 2 px lower. The Java dealer NPC plays `deal` on every beat. Totals (K10) appear after each hand's 2nd card is readable. |
 | PEEK (up A or 10) | +300 after the last deal | The hole card lifts: scaleY 1 → 0.86, y −3 px (200 ms `outQuad`), hold 200 ms, back 200 ms. The NPC plays `peek`. The existing notice `…dealer_peeks` slides in. Honest: the lifted card shows only its back. **No dealer BJ:** nothing more. **Dealer BJ:** the hole card K2 flips at once, K7 "Blackjack" stamp **on the dealer's hand in `chip.red`**, then SETTLE. |
 | INSURANCE | during the peek | Insurance / even money prompts open **after** the peek lift (not over it). An insurance bet slides a half stack onto the insurance line (a thin arc `tables/insurance_line` under the dealer). Settled at the peek: paid → 2:1 discs from the rack; lost → sweep. |
 | Player BJ (natural) | the peek beat + 300 | K8 shimmer on both cards + K7 "BLACKJACK!" + `card_sting`. The 3:2 payout stack flies in from the rack (local time) and stays in front of the hand until SETTLE (paid immediately per the rules; shown next to the bet). |
 | TURNS | per action | The **active hand** gets a K9 glow ring. The seat plate shows the existing timer bar. |
 | Hit | the server beat at once | K1+K2 new card. On 21: the "21" moment. On a bust, see below. The Hit button is disabled for 520 ms while the card is in flight (prevents double taps; the server rule is unchanged). |
 | Stand | at once | The hand's glow stops; a 1 px `bone.shade` underline fades in (the hand is "closed"). The NPC plays a small `wave_off` (open palm, 300 ms). |
-| Double | at once | A second bet stack slides next to the first (200 ms). The double card is dealt **rotated 90°** (the classic sideways card) and lands 3 px right of the hand (K1 end rotation 90°), then K2. |
-| Split | at once | The two cards slide apart (K4, 200 ms) to two hand positions. A copy of the bet flies in from the viewer's side (180 ms). Each hand then gets its second card on the next beats. Split aces: both one-card hands receive their card and close at once (1 px underline on both). |
+| Double | at once | A second bet stack slides next to the first (200 ms). The double card is dealt **rotated 90°** (the classic sideways card) and lands across the hand at (+24, +20) from its first card (K1 end rotation 90°), then K2. |
+| Split | at once | The two cards slide apart (K4, 200 ms) to two hand positions (x 136 and 214). With a 3rd or 4th hand, the inactive hands shrink to M size (K4 slide + a 1-frame size swap) and the active hand stays L in the centre (visual §6.3). A copy of the bet flies in from the viewer's side (180 ms). Each hand then gets its second card on the next beats. Split aces: both one-card hands receive their card and close at once (1 px underline on both). |
 | Bust | the card beat + 520 | K7 "BUST" (`chip.red`) over the hand + K11 on the cards + the bet stack swept to the rack at once (260 ms `inCubic`) + `chip_sweep`. The total badge shakes ±2 px 3 times (200 ms). There is no `lose` sound here (the loss is shown, not punished). |
 | DEALER | 0 | K2 flip of the hole card (the NPC plays `flip`) + `…fx.dealer_reveals` line. When every player hand is already settled, the flip happens and the dealer stops. |
 | DEALER draws | +700, +1 400 … | Each draw is K1+K2 from the shoe. Line `…fx.dealer_draws`. After the last card: `…fx.dealer_stands` ("Dealer stands on 19") or the "Dealer busts with 24!" moment + K11 on the dealer's cards. |
@@ -571,7 +579,7 @@ Beats: `poker.fx.dealBeatTicks` 3, `poker.fx.gatherTicks` 8, `poker.fx.streetTic
 |---|---|---|
 | New hand | 0 | The previous cards are already gathered (K5 to the muck at the dealer spot). The **dealer button** travels along the table ellipse to its new seat (400 ms `inOutCubic`, parametric angle, never a straight line across the felt) + a soft `chip_place` (p 0.8). |
 | Blinds | 400 | SB and BB chips fly from their plates to their bet spots (180 ms) + `chip_place`. Tags K12 "Small blind 5" / "Big blind 10" (existing `msg…action.small_blind` short form, see §11). |
-| Hole cards | 600 + 150·k | Two rounds, clockwise from SB, one card per 3 t beat, K1 at 200 ms from the deck at the top centre. The viewer's cards land and flip (K2). Others stay face down, fanned 3° apart on the plate. A 6-seat deal takes 1.8 s. `card_deal` at vol 0.5, pitch seeded. |
+| Hole cards | 600 + 150·k | Two rounds, clockwise from SB, one card per 3 t beat, K1 at 200 ms from the deck (130, 18). The viewer's two cards land L-size over the bottom rail ("in your hands", visual §6.4). The viewer's cards land and flip (K2). Others stay face down, fanned 3° apart on the plate. A 6-seat deal takes 1.8 s. `card_deal` at vol 0.5, pitch seeded. |
 | Acting seat | loop | K9 glow on the plate + the existing timer bar. Last 5 s: the bar pulses `chip.red` (flashes off: static red) + `wheel_tick` per second for the **acting viewer** only. Bots: the thinking dots (§5), no timer bar pulse. |
 | Check | at once | K13 knock + tag "Check". |
 | Call / Bet / Raise | at once | The stack slides from the plate to the bet spot (200 ms `outCubic`, stack builds); tag K12 "Call 20" / "Bet 40" / "Raise to 120"; `chip_place` (bigger bets add `chip_stack`). The plate stack number rolls down (numbers are monotonic within the tween). |
@@ -709,7 +717,7 @@ Beats: `uth.fx.dealBeatTicks` 3, `uth.fx.boardSlideTicks` 8, existing `REVEAL_TI
 
 | Phase | t (ms) | Beat |
 |---|---|---|
-| BETTING | local | Chips fly to **Ante**. The **Blind** circle mirrors it: a copy of the stack slides from Ante to Blind 120 ms later, which shows "Blind = Ante" in motion. Trips mode: chips go to Trips. The Play circle shows a dashed ring (empty). |
+| BETTING | local | Chips fly to **Ante**. The **Blind** circle mirrors it: a copy of the stack slides 34 px from Ante to the adjacent Blind circle (the circles form a row: Trips, Ante, Blind, Play; visual §6.5) 120 ms later, which shows "Blind = Ante" in motion. Trips mode: chips go to Trips. The Play circle shows a dashed ring (empty). |
 | DEAL | 0 + 150·k | Seats 1→6 card 1, dealer card 1, seats card 2, dealer card 2 (K1 from the deck at the top centre, 200 ms). The viewer's cards K2 flip on landing. Others' cards and the dealer's two cards stay face down. |
 | Board | +300 after the last hole card | The 5 board backs slide out in one sweep: each 300 ms `outCubic`, 60 ms stagger, to their slots, with a single `card_slide`. |
 | PREFLOP decide | shared timer | Every seat decides at the same time. Plates show "Deciding…" (humans) or the thinking dots (bots, §5). When a seat bets ×3/×4, its Play stack flies from the plate to the Play circle (220 ms) + K12 tag "Play ×4" (gold). A check is K13 knock + tag "Checked". |
@@ -806,7 +814,7 @@ A pure `revealTimeline(coup, cfg)`:
 | 52 | FLIP B1 |
 | 58 → 78 | SQUEEZE B2 → the Banker total at 78 |
 | 78 → 88 | ANNOUNCE: "Natural 9" / "Player draws a third card" / "Player stands on 6" (existing keys) |
-| 88 → 114 | Player third: DEAL (6 t) + SQUEEZE (20 t) |
+| 88 → 114 | Player third: DEAL (6 t, **sideways**: K1 end rotation 90°) + SQUEEZE (20 t, peeled along the card's long axis) |
 | 114 → 120 | ANNOUNCE the Banker decision ("Banker draws" / "stands on 5") |
 | 120 → 146 | Banker third: DEAL + SQUEEZE (starts at 88 if the Player stood) |
 | last + 6 | `gateTick` → RESULT |
@@ -976,9 +984,9 @@ presentation.
 
 **Java (on the bots branch; MUST):**
 - **Seat plate** (all four screens, nine-slice `tables/seat_plate`):
-  - Bot glyph U+E190 + name + the **level badge** (`bots/badge_easy|normal|hard`: a 7×7 coloured
-    rounded square, green / yellow / red, with the level letter drawn at runtime from
-    `…bots.level.<l>.short`, 1 character: E/N/H, RU Л/Н/С).
+  - Bot avatar + name + the **level badge** (`core/cards/bot/badge_easy|normal|hard`, 11×11): shape and pip
+    count carry the level with no letter — green disc · 1 pip, amber rounded square · 2 pips, red diamond ·
+    3 pips (visual/cards.md §8.3). The level word is in the tooltip and the narration.
   - The stack (money bots) or the hatched-chip icon (atmosphere).
   - Tooltip: the level word, the personality line, and "Leaves after this round".
 - **Thinking indicator:** while the table waits for a bot decision, its plate shows the dots glyph
@@ -1013,6 +1021,13 @@ presentation.
 ---
 
 ## 6. Assets
+
+> **Superseded by `docs/design/visual/cards.md` §9** (2026-09-24): the art is generated by
+> `bedrock/tools/assets/modules/cards.mjs` (Java only), every file is core-owned under `textures/gui/core/cards/`,
+> `textures/gui/sprites/core/cards/`, `textures/entity/core/cards/`, `textures/particle/core/` and
+> `textures/font/core/`, and the sizes changed (L 37×49, M 21×29, S 13×17; shoe 40×28, tray 30×22, rack 80×14,
+> deck 21×32, dealer button 13×13, spots 28×28, UTH circles 24×24, plates 40×22, badges 11×11). The table below is
+> the original request, kept for traceability.
 
 All PNGs are generated by the shared generator (global task S1, `scripts/gen-fx-assets.py`) through a
 card module `scripts/fx/cards.py`:
