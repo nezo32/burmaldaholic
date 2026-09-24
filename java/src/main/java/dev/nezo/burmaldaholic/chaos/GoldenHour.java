@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.chaos.logic.ChaosEvent;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosRules;
 import dev.nezo.burmaldaholic.chaos.logic.GoldenHourState;
 import dev.nezo.burmaldaholic.chaos.logic.TriggerResult;
+import dev.nezo.burmaldaholic.core.bots.BotRounds;
 import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
@@ -213,7 +214,8 @@ public final class GoldenHour {
 	 */
 	static void onPlayResolved(ServerPlayer player, CasinoEvents.PlayResult result) {
 		MinecraftServer server = player.level().getServer();
-		if (result.net() <= 0 || !CasinoMode.isEnabled(server) || !ChaosRules.goldenHourEligible(result.houseBanked())) {
+		if (result.net() <= 0 || !CasinoMode.isEnabled(server) || !ChaosRules.goldenHourEligible(result.houseBanked())
+				|| BotRounds.vsBots(result)) { // no Golden Hour on rounds against money bots (BOTS.md §5.3)
 			return;
 		}
 		long now = ChaosEngine.now(server);

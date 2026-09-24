@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.pvp.logic.AnchorKind;
+import dev.nezo.burmaldaholic.core.pvp.logic.DecisionView;
 import dev.nezo.burmaldaholic.core.pvp.logic.HeadToHead;
 import dev.nezo.burmaldaholic.core.util.Result;
 import java.util.List;
@@ -78,7 +79,12 @@ public interface PvpService {
 	/** The mode's advance button (Spin! / Drop! / Scratch!); only speeds up the timeline. */
 	void press(ServerPlayer player);
 
-	/** A decision between links (Double or nothing side / let it ride). {@code option} per {@code DecisionView}. */
+	/**
+	 * A decision between Coin Flip Duel links (PVP.md §4.2): {@code coin.don_offer} (chain loser) with
+	 * option 0 = walk away, 1 = Double or nothing on Heads, 2 = on Tails; {@code coin.let_it_ride} (chain
+	 * winner) with 1 = let it ride, 0 = take the money. {@code coin.side} (0 heads / 1 tails) before
+	 * {@code coin.don_offer} 1 sets the called side (Bedrock form flow). The open decision is {@link #decisionFor}.
+	 */
 	void decide(ServerPlayer player, String decision, long option);
 
 	/** One of the 8 fixed taunt lines (§3.9). */
@@ -103,6 +109,14 @@ public interface PvpService {
 	List<Rival> rivals(UUID player, int max);
 
 	Stats stats(UUID player);
+
+	/** The decision {@code player} has to answer right now (Double or nothing / let it ride), if any. */
+	Optional<DecisionView> decisionFor(UUID player);
+
+	/** Per-player "Accept PvP challenges" setting (PVP.md §3.11.2, default on). */
+	boolean acceptsInvites(UUID player);
+
+	void setAcceptInvites(UUID player, boolean accept);
 
 	// ---- admin (§3.13) ---------------------------------------------------------------------------
 

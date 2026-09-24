@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.chaos.logic.ChaosEvent;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosRules;
 import dev.nezo.burmaldaholic.chaos.logic.Safety;
 import dev.nezo.burmaldaholic.chaos.logic.TriggerResult;
+import dev.nezo.burmaldaholic.core.bots.BotRounds;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
@@ -205,7 +206,8 @@ public final class ChaosEngine {
 	/** §13.1.3: net ≥ multiple × stake and ≥ minChips → chance of lucky_buff (next tick, so specials go first). */
 	private static void onBigWin(ServerPlayer player, CasinoEvents.PlayResult result) {
 		MinecraftServer server = player.level().getServer();
-		if (!enabled(server) || result.deferred()) {
+		// No big-win lucky buff for PvP-engine matches or rounds against money bots (PVP.md §3.4, BOTS.md §5.3).
+		if (!enabled(server) || result.deferred() || "pvp".equals(result.gameId()) || BotRounds.vsBots(result)) {
 			return;
 		}
 		if (result.hasTag("royal_blind")) {
