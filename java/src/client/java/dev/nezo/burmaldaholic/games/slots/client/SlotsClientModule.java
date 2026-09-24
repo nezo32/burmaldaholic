@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.slots.client;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import dev.nezo.burmaldaholic.client.fx.CelebrationStyles;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.client.module.ClientModuleContext;
 import dev.nezo.burmaldaholic.core.table.TableType;
@@ -9,6 +10,7 @@ import dev.nezo.burmaldaholic.games.slots.SlotsModule;
 import dev.nezo.burmaldaholic.games.slots.client.reels.SymbolSheet;
 import dev.nezo.burmaldaholic.games.slots.logic.Tier;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTiers;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTapes;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -19,12 +21,16 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Client half of the "slots" module: the machine screen, item tooltips and the v2 preview gallery
- * ({@code /casino_slots_preview [machine] [tape]}: plays the fixed preview tapes on the v2 screen; no money, no server).
- * The v2 machine screen ({@link SlotMachineV2Screen}) replaces {@link SlotMachineScreen} in the slots cut-over (S-J5).
+ * Client half of the "slots" module: the v2 machine screen ({@link SlotMachineV2Screen}), the in-world cabinet (renderer,
+ * particles, world FX), the slot celebration style (words, 5 / 15 / 40 / 100 × thresholds, stems) for the shared overlay,
+ * item tooltips and the preview gallery ({@code /casino_slots_preview [machine] [tape]}: plays the fixed preview tapes on
+ * the v2 screen; no money, no server).
  */
 public final class SlotsClientModule implements CasinoClientModule {
 	private static Screen pending;
+	/** Jackpot names by sub-tier 1 Mini … 4 Grand for the shared overlay. */
+	private static final String[] JACKPOT_NAMES = {"gui.burmaldaholic.slots.jackpot.tier.mini", "gui.burmaldaholic.slots.jackpot.tier.minor",
+		"gui.burmaldaholic.slots.jackpot.tier.major", "gui.burmaldaholic.slots.jackpot.tier.grand"};
 
 	@Override
 	public String id() {
@@ -34,10 +40,12 @@ public final class SlotsClientModule implements CasinoClientModule {
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
 		for (TableType<SlotMachineBlockEntity> type : SlotsModule.MACHINES.values()) {
-			ctx.tableScreen(type, SlotMachineScreen::new);
+			ctx.tableScreen(type, SlotMachineV2Screen::new);
 		}
 		SlotCabinetRenderer.register(); // lane J-L10: in-world cabinet reels (draws only once a v2 sync exists)
 		SlotsParticles.register();
+		SlotsWorldFx.register(); // cabinet world FX, played per viewer with their FX settings
+		CelebrationStyles.register(SlotsModule.ID, SlotTiers.TABLE, SlotTiers.WORDS, BigWinFx.SlotStems.STEMS, JACKPOT_NAMES);
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
 			for (Tier tier : Tier.values()) {
 				TableType<SlotMachineBlockEntity> type = SlotsModule.MACHINES.get(tier);

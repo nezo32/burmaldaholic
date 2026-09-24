@@ -39,12 +39,16 @@ import net.minecraft.world.item.ItemStack;
 public final class CasinoAdvancements {
 	/** Spec order (§19). */
 	public static final List<String> IDS = List.of("root", "first_bet", "beginners_luck", "natural", "split_personality", "royal_flush",
-		"shark_hunter", "three_sevens", "jackpot", "zero_hero", "hot_shooter", "plinko_edge", "scratch_top", "on_fire", "black_cat",
+		"shark_hunter", "top_five", "jackpot", "zero_hero", "hot_shooter", "plinko_edge", "scratch_top", "on_fire", "black_cat",
 		"loan_taken", "knock_knock", "hostile_takeover", "clean_slate", "not_today", "scarred", "heart_on_the_line", "devils_deal",
 		"golden_hour", "beam_me_up", "vip_silver", "vip_gold", "vip_platinum", "vip_diamond", "vip_netherite", "the_house",
 		"house_always_wins", "bankrupt", "piglin_parlor", "high_roller",
 		// 2026-09 games: granted by the baccarat / uth modules
-		"baccarat_natural", "tie_streak", "uth_four_x", "banco", "bank_holder", "uth_house_seat", "uth_royal");
+		"baccarat_natural", "tie_streak", "uth_four_x", "banco", "bank_holder", "uth_house_seat", "uth_royal",
+		// slots v2 (SLOTS.md §14): granted by the slots module
+		"mini_jackpot", "free_spins", "treasure_hunter", "tumble_six", "hoard_full", "void_walker", "dragon_core", "epic_win", "max_win");
+	/** Retired id kept without a display so a holder's progress still loads (SLOTS.md §11: converted to top_five on join). */
+	public static final String RETIRED_THREE_SEVENS = "three_sevens";
 	private static final Set<String> KNOWN = Set.copyOf(IDS);
 	/** Streak thresholds of on_fire / black_cat. */
 	public static final int STREAK = 10;
@@ -60,6 +64,9 @@ public final class CasinoAdvancements {
 			ServerPlayer player = handler.getPlayer();
 			deliver(player);
 			checkRoot(player);
+			if (has(player, RETIRED_THREE_SEVENS)) {
+				grant(player, "top_five"); // SLOTS.md §11: the retired three_sevens becomes top_five
+			}
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			if (server.getTickCount() % 100 == 0 && CasinoMode.isEnabled(server)) {

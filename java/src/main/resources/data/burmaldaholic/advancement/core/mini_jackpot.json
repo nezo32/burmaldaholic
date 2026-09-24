@@ -1,16 +1,16 @@
 {
-  "parent": "burmaldaholic:core/top_five",
+  "parent": "burmaldaholic:core/beginners_luck",
   "display": {
     "icon": {
-      "id": "burmaldaholic:slot_machine_netherite"
+      "id": "minecraft:gold_nugget"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.jackpot.title"
+      "translate": "advancement.burmaldaholic.mini_jackpot.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.jackpot.description"
+      "translate": "advancement.burmaldaholic.mini_jackpot.description"
     },
-    "frame": "challenge",
+    "frame": "task",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

@@ -23,4 +23,12 @@ public interface StageHost {
 	default boolean interactive() {
 		return true;
 	}
+
+	/**
+	 * The shared clock is the server's (the real machine screen): the server never waits for the wheel button, so the
+	 * stage does not hold there; the Treasure Hunt pause is the server's too (it waits for the picks).
+	 */
+	default boolean serverPaced() {
+		return false;
+	}
 }

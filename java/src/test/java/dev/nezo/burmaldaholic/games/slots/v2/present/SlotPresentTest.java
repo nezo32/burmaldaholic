@@ -1,5 +1,8 @@
 package dev.nezo.burmaldaholic.games.slots.v2.present;
 
+import dev.nezo.burmaldaholic.games.slots.v2.logic.Anticipation;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.Window;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,7 +24,7 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewEngine;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewMachines;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTapes;
-import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTimeline;
+
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +40,7 @@ class SlotPresentTest {
 	private static final TimingProfile REDUCED = new TimingProfile(100, true, false);
 
 	private static Timeline timeline(PreviewTapes.Scenario s, TimingProfile shared, TimingProfile local) {
-		return PreviewTimeline.buildOrPreview(s.tape(), s.def(), s.restStops(), shared, local, 1234, true);
+		return SlotTimeline.build(s.tape(), s.def(), shared, local, 1234, true, null);
 	}
 
 	private static SlotFrames.Outcome outcome(PreviewTapes.Scenario s) {
@@ -171,12 +174,12 @@ class SlotPresentTest {
 		// anticipation happens iff the visible condition holds (the reason is recomputed from visible cells)
 		int[] landed = PreviewEngine.window(s.def(), s.tape().stops());
 		boolean condition = false;
-		for (int k = 0; k < 4 && !condition; k++) condition = PreviewTimeline.anticipationReason(s.def(), landed, k, 0) != 0;
+		for (int k = 0; k < 4 && !condition; k++) condition = Anticipation.reason(s.def(), new Window(landed), k, false, 0) != 0;
 		assertTrue(condition);
 		PreviewTapes.Scenario plain = PreviewTapes.get("ow_win");
 		int[] w = PreviewEngine.window(plain.def(), plain.tape().stops());
 		boolean c2 = false;
-		for (int k = 0; k < 4; k++) c2 |= PreviewTimeline.anticipationReason(plain.def(), w, k, 0) != 0;
+		for (int k = 0; k < 4; k++) c2 |= Anticipation.reason(plain.def(), new Window(w), k, false, 0) != 0;
 		assertEquals(c2, count(timeline(plain, NORMAL, NORMAL), SlotTimeline.ANTICIPATE) > 0);
 	}
 
@@ -208,7 +211,8 @@ class SlotPresentTest {
 		for (PreviewTapes.Scenario s : PreviewTapes.all()) {
 			Timeline tl = timeline(s, NORMAL, NORMAL);
 			for (Beat b : tl.beats()) {
-				boolean local = b.kind().equals(SlotTimeline.ROLLUP) || b.kind().equals(SlotTimeline.JACKPOT) || b.kind().equals(SlotTimeline.END);
+				boolean local = b.kind().equals(SlotTimeline.ROLLUP) || b.kind().equals(SlotTimeline.JACKPOT) || b.kind().equals(SlotTimeline.END)
+					|| b.kind().equals(SlotTimeline.WAY_CYCLE); // the way cycle runs next to the roll-up after the gate
 				assertEquals(local ? Clock.LOCAL : Clock.SHARED, b.clock(), s.name() + " " + b);
 			}
 		}

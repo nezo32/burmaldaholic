@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.slots.api;
 
-import dev.nezo.burmaldaholic.games.slots.JackpotData;
+import dev.nezo.burmaldaholic.games.slots.JackpotPoolsV2;
+import dev.nezo.burmaldaholic.games.slots.SlotMachinesV2;
 import java.util.List;
 import java.util.UUID;
 import net.fabricmc.fabric.api.event.Event;
@@ -174,13 +175,22 @@ public final class SlotsApi {
 		}
 	});
 
-	/** Current progressive pool (chips) of a tier ({@code gold}/{@code netherite}); 0 for copper or unknown tiers. */
+	/**
+	 * Current Grand jackpot meter (chips) of the machine on a cabinet tier ({@code copper} Overworld Riches, {@code gold}
+	 * Nether Inferno, {@code netherite} End Void); 0 for unknown tiers.
+	 */
 	public static long jackpotPool(MinecraftServer server, String tier) {
-		return JackpotData.pool(server, tier);
+		dev.nezo.burmaldaholic.games.slots.logic.Tier t = dev.nezo.burmaldaholic.games.slots.logic.Tier.byId(tier);
+		if (t == null) return 0;
+		dev.nezo.burmaldaholic.games.slots.v2.logic.Machine m = SlotMachinesV2.machine(t);
+		return JackpotPoolsV2.get(server).meter(m, SlotMachinesV2.def(m), 4);
 	}
 
-	/** Reset one tier's (or, with null, every) progressive pool to its seed (admin). */
+	/** Reset one cabinet tier's machine (or, with null, every machine) to its jackpot seeds (admin). */
 	public static void resetJackpots(MinecraftServer server, @Nullable String tier) {
-		JackpotData.reset(server, tier);
+		dev.nezo.burmaldaholic.games.slots.logic.Tier t = tier == null ? null : dev.nezo.burmaldaholic.games.slots.logic.Tier.byId(tier);
+		for (dev.nezo.burmaldaholic.games.slots.v2.logic.Machine m : dev.nezo.burmaldaholic.games.slots.v2.logic.Machine.values()) {
+			if (tier == null || t != null && SlotMachinesV2.machine(t) == m) JackpotPoolsV2.get(server).reset(m);
+		}
 	}
 }

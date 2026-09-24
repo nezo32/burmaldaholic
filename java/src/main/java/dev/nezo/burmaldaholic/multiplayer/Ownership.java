@@ -161,7 +161,7 @@ public final class Ownership {
 			return Optional.of(new OwnedTable(t.owner, "", 0, 0, false));
 		}
 		Casino c = casino.get();
-		return Optional.of(new OwnedTable(c.owner, c.bankrollId(), t.min, t.max, t.open && !c.broke, t.bots));
+		return Optional.of(new OwnedTable(c.owner, c.bankrollId(), t.min, t.max, t.open && !c.broke, t.bots, t.slotsBuy, t.slotsAutoplay));
 	}
 
 	// ---- public claim lookups (see MultiplayerApi) ---------------------------------------------
@@ -710,6 +710,9 @@ public final class Ownership {
 			row.putLong("max", t.max);
 			row.putBoolean("bots", t.bots);
 			row.putBoolean("poker", "poker".equals(t.game));
+			row.putBoolean("slots_buy", t.slotsBuy);
+			row.putBoolean("slots_autoplay", t.slotsAutoplay);
+			row.putBoolean("slots", "slots".equals(t.game));
 			list.add(row);
 		}
 		tag.put("tables", list);
@@ -801,6 +804,8 @@ public final class Ownership {
 				t.min = limits.min();
 				t.max = limits.max();
 				t.bots = args.getBooleanOr("bots", t.bots);
+				t.slotsBuy = args.getBooleanOr("slots_buy", t.slotsBuy);
+				t.slotsAutoplay = args.getBooleanOr("slots_autoplay", t.slotsAutoplay);
 				data(server).setDirty();
 				msg = Component.translatable("msg.burmaldaholic.multiplayer.table_saved", tableLabel(t));
 				refreshSolvency(server, c, false);

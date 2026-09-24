@@ -52,7 +52,7 @@ public final class PreviewTapes {
 			case "end_mega" -> biased(name, Machine.END, 16, 3, t -> t.total >= 200 && t.total < 500 && !t.triggers());
 			case "end_epic" -> biased(name, Machine.END, 17, 3, t -> t.total >= 500 && !t.triggers());
 			case "ow_anticipation" -> biased(name, Machine.OVERWORLD, 18, 1, t -> t.res.scatters() == 2 && scattersOn(t, 0, 1) && !t.triggers());
-			case "ne_tumble" -> base(name, Machine.NETHER, 19, t -> t.chain != null && t.chain.steps().size() >= 3 && !t.triggers());
+			case "ne_tumble" -> base(name, Machine.NETHER, 19, t -> t.chain != null && t.chain.tumbles() >= 3 && !t.triggers());
 			case "ow_fs" -> feature(name, Machine.OVERWORLD, 20, 1, t -> t.res.scatters() >= 3 && t.res.bonusCount() < 3);
 			case "ne_fs" -> feature(name, Machine.NETHER, 21, 1, t -> t.res.scatters() >= 3 && t.res.coins() < 6);
 			case "end_fs" -> feature(name, Machine.END, 22, 1, t -> t.res.scatters() >= 3 && t.res.bonusCount() < 3);

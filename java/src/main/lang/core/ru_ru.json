@@ -691,7 +691,5 @@
 	"unit.burmaldaholic.decimal_separator": ",",
 	"gui.burmaldaholic.error.pawn_owned_table": "Столы владельцев принимают только фишки",
 	"gui.burmaldaholic.error.balance_full": "Баланс достиг максимума",
-	"msg.burmaldaholic.core.withdraw_capped": "Лимит одного снятия: %1$s",
-	"advancement.burmaldaholic.three_sevens.title": "Три топора",
-	"advancement.burmaldaholic.three_sevens.description": "Соберите три семёрки на линии"
+	"msg.burmaldaholic.core.withdraw_capped": "Лимит одного снятия: %1$s"
 }

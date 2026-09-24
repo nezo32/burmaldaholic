@@ -1,16 +1,16 @@
 {
-  "parent": "burmaldaholic:core/top_five",
+  "parent": "burmaldaholic:core/free_spins",
   "display": {
     "icon": {
-      "id": "burmaldaholic:slot_machine_netherite"
+      "id": "minecraft:blaze_powder"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.jackpot.title"
+      "translate": "advancement.burmaldaholic.tumble_six.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.jackpot.description"
+      "translate": "advancement.burmaldaholic.tumble_six.description"
     },
-    "frame": "challenge",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

@@ -113,7 +113,7 @@ public final class VipService {
 		if (result.won() && !result.deferred()) {
 			winParticles(player);
 		}
-		ContractRules.playContracts(result.gameId(), bet, result.payout()).forEach((id, n) -> Contracts.progress(player, id, n));
+		ContractRules.playContracts(result.gameId(), bet, result.payout(), result.tags()).forEach((id, n) -> Contracts.progress(player, id, n));
 		markSync(player);
 	}
 

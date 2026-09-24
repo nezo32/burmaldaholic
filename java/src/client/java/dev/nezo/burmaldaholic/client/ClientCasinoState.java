@@ -12,8 +12,32 @@ public final class ClientCasinoState {
 	private static volatile long lastDelta;
 	private static volatile long lastDeltaTick = Long.MIN_VALUE / 2;
 	private static volatile long clientTicks;
+	/** {@link #holdBalanceDelta}: wall-clock end of the hold and the balance shown meanwhile. */
+	private static volatile long holdUntilMs;
+	private static volatile long heldBalance;
+	private static volatile boolean releasePending;
 
 	private ClientCasinoState() {}
+
+	/**
+	 * F6 / global.md J6: keep showing the current balance (and no "+N" floater) for {@code ms} while a presentation
+	 * reveals the result; the delta appears when the hold ends. Holds extend, never shorten. ({@code ClientFx.balanceHold})
+	 */
+	public static void holdBalanceDelta(int ms) {
+		long now = net.minecraft.util.Util.getMillis();
+		if (!holding(now)) heldBalance = status.balance();
+		holdUntilMs = Math.max(holdUntilMs, now + Math.max(0, ms));
+		releasePending = true;
+	}
+
+	private static boolean holding(long now) {
+		return now < holdUntilMs;
+	}
+
+	/** The balance the HUD shows: the held value during {@link #holdBalanceDelta}, else the synced one. */
+	public static long shownBalance() {
+		return holding(net.minecraft.util.Util.getMillis()) ? heldBalance : status.balance();
+	}
 
 	public static PlayerStatusPayload status() {
 		return status;
@@ -55,10 +79,18 @@ public final class ClientCasinoState {
 
 	static void tick() {
 		clientTicks++;
+		if (releasePending && !holding(net.minecraft.util.Util.getMillis())) {
+			releasePending = false;
+			long d = status.balance() - heldBalance;
+			if (d != 0) {
+				lastDelta = d;
+				lastDeltaTick = clientTicks;
+			}
+		}
 	}
 
 	static void accept(PlayerStatusPayload next) {
-		if (received && next.balance() != status.balance()) {
+		if (received && next.balance() != status.balance() && !holding(net.minecraft.util.Util.getMillis())) {
 			lastDelta = next.balance() - status.balance();
 			lastDeltaTick = clientTicks;
 		}
@@ -70,5 +102,7 @@ public final class ClientCasinoState {
 		status = new PlayerStatusPayload(0, 0, 0, 0, 0, false, 0);
 		received = false;
 		lastDelta = 0;
+		holdUntilMs = 0;
+		releasePending = false;
 	}
 }

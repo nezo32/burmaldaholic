@@ -1,47 +1,48 @@
 package dev.nezo.burmaldaholic.games.slots.client;
 
+import dev.nezo.burmaldaholic.client.fx.ClientFx;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.TimelineSeed;
 import dev.nezo.burmaldaholic.core.anim.TimingProfile;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
+import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.slots.client.panels.SlotModel;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.MachineDef;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDefaults;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
-import dev.nezo.burmaldaholic.games.slots.v2.logic.SymbolRole;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.TapeCodec;
-import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewMachines;
-import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTimeline;
+import java.util.Arrays;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
  * Slots v2 machine screen (SLOTS.md §10.5, slots.md §4; JS2) on the table-screen protocol. Everything visual is the
- * shared {@link SlotBody}; this class only maps the server state to it and sends the actions. Registered by the
- * slots cut-over (S-J5) in place of the v1 {@code SlotMachineScreen}.
+ * shared {@link SlotBody}; this class only maps the server state to it and sends the actions.
  *
- * <p><b>State contract proposed to lane J-L8 (JS13)</b> — keys of the machine state tag:
+ * <p>State (the {@code v2} tag of {@code SlotMachineBlockEntity#writeClientState}; the balance is the base state's):
  * <pre>
- * v:2 · machine:"overworld|nether|end" · balance · bets:long[] · bet_index · pools:long[4] (0 = no meter)
- * enabled · vip_ok · turbo_allowed · buy_allowed · autoplay_allowed · auto_counts:int[] · loss_limits:int[]
- * rtp_bp · buy_rtp_bp · auto:{left, mine}
- * def:{strips:[int[]×5], pays:int[33], scatter:int[3], bonus_mask, fs:int[3], retrigger, fs_cap, fs_mult,
- *      ladder:int[], ladder_free:int[], cap, buy}          (omitted → the SLOTS.md defaults)
- * spin:{seq, start_tick, seed, speed_pct, tape:TapeCodec string (the section the client may see, F7),
- *       rest_stops:int[5], rest_cells:int[15], anticipation, mine, player}
- * hunt:{seq, opened, value (entry of the latest pick), rest:int[] (at the end only)}
+ * machine · enabled · vip_ok · owned · bets:long[] · bet · buy_enabled · buy_price · buy_rtp · rtp · max_win
+ * turbo_allowed · turbo · autoplay · auto_counts · auto_loss_limits · big_win_tiers · jackpots:long[4]
+ * def: pays:int[] · scatter_pays · free_spins · retrigger · fs_cap · fs_mult · ladder · ladder_free · bonus_mask · buy
+ *      strip0..4 · wheel0..2 · hunt_board                         (anything omitted → the SLOTS.md defaults)
+ * rest:int[5] · rest_cells:int[15]                                (the window before the running / next spin)
+ * spin:{seq, start_tick, speed, seed, anticipation, hold_ms, tape (the section the client may see, F7), mine, player}
+ * auto:{left, mine} · auto_summary:{spins, bet, won, notice} · result:{…}
  * </pre>
- * Actions: {@code spin{bet}}, {@code skip}, {@code pick{chest}}, {@code buy{bet}},
- * {@code auto{count, loss_limit, stop_feature, bet}}, {@code stop_auto}, {@code turbo{on}}. Rejections arrive as the
- * base {@code sendError}: the reels decelerate back to the previous window (F1).
+ * A running Treasure Hunt is followed through the tape: every pick the server publishes the next entry (the i-th pick
+ * shows entry i, D6); when the hunt ends the full tape arrives and the timeline's local part (roll-up, jackpots) is
+ * swapped in without moving the clock. Actions: {@code spin{bet}}, {@code skip}, {@code pick{chest}}, {@code buy{bet}},
+ * {@code auto{count, loss_limit, stop_feature, bet}}, {@code stop_auto}, {@code turbo{on}}. Rejections arrive as the base
+ * {@code sendError}: the reels decelerate back to the previous window (F1).
  */
 public class SlotMachineV2Screen extends CasinoTableScreen {
 	private final SlotModel model = new SlotModel();
@@ -49,7 +50,12 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 	private Machine machine;
 	private int playedSeq = -1;
 	private int huntOpened;
-	private boolean restSent;
+	private boolean huntComplete = true;
+	private long latestBalance;
+	private int[] bigWinTiers;
+	private int speedPct = 100;
+	private int seed;
+	private boolean anticipation = true;
 
 	public SlotMachineV2Screen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, title, 400, 240);
@@ -57,17 +63,20 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		this.titleLabelY = -10_000;
 	}
 
-	@Override
-	protected void init() {
-		super.init();
+	/** The body (GameTests: the pure present model behind the screen). */
+	public SlotBody body() {
+		return body;
 	}
 
 	private void ensureBody(CompoundTag s) {
 		Machine m = Machine.byId(s.getStringOr("machine", "overworld"));
-		if (body != null && m == machine) return;
+		MachineDef def = readDef(m, s);
+		if (body != null && m == machine && def.equals(model.def)) return;
 		machine = m;
-		model.def = readDef(m, s.getCompoundOrEmpty("def"));
+		model.def = def;
 		body = new SlotBody(model, new ServerControls(), Component.translatable("gui.burmaldaholic.slots.machine." + m.id));
+		body.serverPaced(true);
+		playedSeq = -1;
 		if (minecraft != null) {
 			clearWidgets();
 			body.init(width, height, font, this::addRenderableWidget);
@@ -81,86 +90,150 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 	}
 
 	@Override
-	protected void onStateChanged(CompoundTag s) {
+	protected void onStateChanged(CompoundTag state) {
+		CompoundTag s = state.getCompoundOrEmpty("v2");
 		ensureBody(s);
-		model.balance = s.getLongOr("balance", model.balance);
-		model.bets = s.getLongArray("bets").orElse(model.bets);
-		if (s.contains("bet_index") && !body.stage().spinning()) model.betIndex = s.getIntOr("bet_index", model.betIndex);
-		long[] pools = s.getLongArray("pools").orElse(null);
+		latestBalance = state.getLongOr("balance", latestBalance);
+		// F6: the balance panel follows the reels, never ahead of them
+		if (!body.stage().spinning()) model.balance = latestBalance;
+		long[] bets = s.getLongArray("bets").orElse(new long[0]);
+		if (bets.length > 0) model.bets = bets;
+		if (!body.stage().spinning()) {
+			long bet = s.getLongOr("bet", model.bet());
+			for (int i = 0; i < model.bets.length; i++) if (model.bets[i] == bet) model.betIndex = i;
+		}
+		long[] pools = s.getLongArray("jackpots").orElse(null);
 		if (pools != null && pools.length == 4) model.pools = pools;
-		model.playable = s.getBooleanOr("enabled", true) && s.getBooleanOr("vip_ok", true);
+		model.playable = s.getBooleanOr("enabled", true) && s.getBooleanOr("vip_ok", true) && bets.length > 0;
 		model.turboAllowed = s.getBooleanOr("turbo_allowed", true);
-		model.buyAllowed = s.getBooleanOr("buy_allowed", false);
-		model.autoplayAllowed = s.getBooleanOr("autoplay_allowed", true);
+		model.turbo = model.turboAllowed && s.getBooleanOr("turbo", model.turbo);
+		model.buyAllowed = s.getBooleanOr("buy_enabled", false);
+		model.autoplayAllowed = s.getBooleanOr("autoplay", true);
 		model.autoCounts = s.getIntArray("auto_counts").orElse(model.autoCounts);
-		model.lossLimits = s.getIntArray("loss_limits").orElse(model.lossLimits);
-		model.rtpBasisPoints = s.getIntOr("rtp_bp", model.rtpBasisPoints);
-		model.buyRtpBasisPoints = s.getIntOr("buy_rtp_bp", model.buyRtpBasisPoints);
+		model.lossLimits = s.getIntArray("auto_loss_limits").orElse(model.lossLimits);
+		model.rtpBasisPoints = (int) Math.round(s.getDoubleOr("rtp", model.rtpBasisPoints / 10000.0) * 10000);
+		model.buyRtpBasisPoints = (int) Math.round(s.getDoubleOr("buy_rtp", model.buyRtpBasisPoints / 10000.0) * 10000);
+		model.autoSummary = s.contains("auto_summary") ? autoSummary(s.getCompoundOrEmpty("auto_summary")) : null;
 		CompoundTag auto = s.getCompoundOrEmpty("auto");
 		model.autoLeft = s.contains("auto") && auto.getBooleanOr("mine", false) ? auto.getIntOr("left", 0) : -1;
-		if (s.contains("spin")) playSpin(s.getCompoundOrEmpty("spin"));
-		if (s.contains("hunt")) hunt(s.getCompoundOrEmpty("hunt"));
+		bigWinTiers = s.getIntArray("big_win_tiers").filter(a -> a.length == 4).orElse(null);
+		int[] rest = s.getIntArray("rest").filter(a -> a.length == 5).orElse(new int[5]);
+		int[] restCells = s.getIntArray("rest_cells").filter(a -> a.length == 15).orElse(null);
+		if (s.contains("spin")) {
+			playSpin(s.getCompoundOrEmpty("spin"), rest, restCells);
+		} else if (!body.stage().active()) {
+			body.stage().rest(rest, restCells);
+		}
 	}
 
-	private void playSpin(CompoundTag spin) {
+	/** "Autoplay stopped: …" and "Spins N: bet X, won Y" (SLOTS.md §6.4). */
+	static Component autoSummary(CompoundTag summary) {
+		Component line = Component.translatable("gui.burmaldaholic.slots.auto_summary", Texts.number(summary.getIntOr("spins", 0)),
+			Texts.chipsAcc(summary.getLongOr("bet", 0)), Texts.chipsAcc(summary.getLongOr("won", 0)));
+		String notice = summary.getStringOr("notice", "");
+		if (notice.isEmpty()) return line;
+		String key = switch (notice) {
+			case "big_win" -> "gui.burmaldaholic.slots.auto_stopped_big_win";
+			case "funds" -> "gui.burmaldaholic.slots.auto_stopped_funds";
+			case "feature" -> "gui.burmaldaholic.slots.auto_stopped_feature";
+			case "loss" -> "gui.burmaldaholic.slots.auto_stopped_loss";
+			case "jackpot" -> "gui.burmaldaholic.slots.auto_stopped_jackpot";
+			default -> null;
+		};
+		return key == null ? line : Component.translatable(key).append(Texts.raw(" · ")).append(line); // literal-ok: separator
+	}
+
+	private Timeline timeline(SpinTape tape) {
+		return SlotTimeline.build(tape, model.def, TimingProfile.SHARED.withSpeed(speedPct), FxSettings.localProfile(), seed, anticipation,
+			bigWinTiers);
+	}
+
+	private void playSpin(CompoundTag spin, int[] restStops, int[] restCells) {
 		int seq = spin.getIntOr("seq", -1);
-		if (seq == playedSeq) return;
 		SpinTape tape;
 		try {
 			tape = TapeCodec.decode(spin.getStringOr("tape", ""));
-		} catch (RuntimeException notYet) {
-			// the v2 protocol / codec is not live yet (lane J-L8): keep the reels at rest
+		} catch (RuntimeException malformed) {
+			return;
+		}
+		if (seq == playedSeq) {
+			progress(tape);
 			return;
 		}
 		playedSeq = seq;
-		huntOpened = 0;
-		restSent = false;
-		int[] restStops = spin.getIntArray("rest_stops").orElse(new int[5]);
-		int[] restCells = spin.getIntArray("rest_cells").orElse(null);
-		int seed = spin.getIntOr("seed", 0);
-		int speed = Math.max(25, spin.getIntOr("speed_pct", 100));
-		TimelineSeed ts = new TimelineSeed("slots." + machine.id, seq, spin.getLongOr("start_tick", 0), seed, speed);
-		Timeline tl = PreviewTimeline.buildOrPreview(tape, model.def, restStops, TimingProfile.SHARED.withSpeed(speed), FxSettings.localProfile(), seed,
-			spin.getBooleanOr("anticipation", true));
-		body.interactive(spin.getBooleanOr("mine", true));
-		body.stage().rest(restStops, restCells != null && restCells.length == 15 ? restCells : null);
-		body.stage().play(tape, tl, SpinClock.server(tl, ts, () -> Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false)), seed);
+		seed = spin.getIntOr("seed", 0);
+		speedPct = Math.max(25, Math.min(400, spin.getIntOr("speed", 100)));
+		anticipation = spin.getBooleanOr("anticipation", true);
+		long startTick = spin.getLongOr("start_tick", 0);
+		int holdMs = spin.getIntOr("hold_ms", -1);
+		Minecraft mc = Minecraft.getInstance();
+		if (holdMs >= 0 && mc.level != null) {
+			// the server's shared clock stands at the Treasure Hunt pause: start the local clock there
+			startTick = mc.level.getGameTime() - holdMs / 50;
+		}
+		SpinTape.Hunt h = tape.hunt();
+		huntOpened = h == null ? 0 : h.opened();
+		huntComplete = tape.totalFifths() >= 0;
+		TimelineSeed ts = new TimelineSeed("slots." + machine.id, seq, startTick, seed, speedPct);
+		Timeline tl = timeline(tape);
+		boolean mine = spin.getBooleanOr("mine", false);
+		body.interactive(mine);
+		body.stage().rest(restStops, restCells);
+		body.stage().play(tape, tl, SpinClock.server(tl, ts, () -> mc.getDeltaTracker().getGameTimeDeltaPartialTick(false)), seed);
+		if (mine) {
+			// F6: the HUD balance delta waits for the reels and the roll-up
+			double elapsed = mc.level == null ? 0 : ts.elapsedMs(mc.level.getGameTime(), 0);
+			ClientFx.balanceHold.accept((int) Math.max(0, Math.min(120_000, tl.endMs() - elapsed)));
+		}
 	}
 
-	private void hunt(CompoundTag h) {
-		int opened = h.getIntOr("opened", 0);
-		if (opened > huntOpened) {
-			huntOpened = opened;
-			body.stage().huntReveal(h.getIntOr("value", 0));
+	/** More of the running spin's tape: the next Treasure Hunt entries, then (hunt over) the full tape. */
+	private void progress(SpinTape tape) {
+		SpinTape.Hunt h = tape.hunt();
+		if (h == null) return;
+		int[] e = h.entries();
+		for (int i = huntOpened; i < Math.min(h.opened(), e.length); i++) body.stage().huntReveal(e[i]);
+		huntOpened = Math.max(huntOpened, h.opened());
+		if (!huntComplete && tape.totalFifths() >= 0) {
+			huntComplete = true;
+			body.stage().huntRest(Arrays.copyOfRange(e, Math.min(h.opened(), e.length), e.length));
+			body.stage().retape(tape, timeline(tape));
 		}
-		int[] rest = h.getIntArray("rest").orElse(null);
-		if (rest != null && !restSent) {
-			restSent = true;
-			body.stage().huntRest(rest);
-		}
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (body != null && !body.stage().spinning()) model.balance = latestBalance;
 	}
 
 	/** Machine definition from the state, or the SLOTS.md defaults for anything omitted. */
 	static MachineDef readDef(Machine m, CompoundTag d) {
-		MachineDef base = PreviewMachines.def(m);
+		MachineDef base = SlotDefaults.def(m);
 		if (d.isEmpty()) return base;
-		int[][] strips = base.strips();
-		ListTag st = d.getListOrEmpty("strips");
-		if (st.size() == 5) {
-			strips = new int[5][];
-			for (int r = 0; r < 5; r++) strips[r] = st.getIntArray(r).orElse(base.strips()[r]);
-		}
+		int[][] strips = new int[5][];
+		for (int r = 0; r < 5; r++) strips[r] = d.getIntArray("strip" + r).filter(a -> a.length >= 3).orElse(base.strips()[r]);
 		int[][] pays = base.paysFifths();
 		int[] flat = d.getIntArray("pays").orElse(null);
 		if (flat != null && flat.length == pays.length * 3) {
 			pays = new int[pays.length][3];
 			for (int i = 0; i < pays.length; i++) System.arraycopy(flat, i * 3, pays[i], 0, 3);
 		}
-		SymbolRole[] roles = base.roles();
-		return new MachineDef(m, base.codes(), roles, strips, pays, d.getIntArray("scatter").orElse(base.scatterFifths()),
-			d.getIntOr("bonus_mask", base.bonusReelsMask()), d.getIntArray("fs").orElse(base.freeSpins()), d.getIntOr("retrigger", base.retrigger()),
+		MachineDef.Features f = base.features();
+		int[][] rings = f.wheelRings();
+		if (rings.length > 0) {
+			int[][] wr = new int[rings.length][];
+			for (int i = 0; i < rings.length; i++) wr[i] = d.getIntArray("wheel" + i).filter(a -> a.length > 0).orElse(rings[i]);
+			rings = wr;
+		}
+		MachineDef.Features features = new MachineDef.Features(d.getIntOr("hunt_board", f.pickBoard()), f.pickValues(), f.pickWeights(),
+			d.getIntOr("hold_trigger", f.holdTrigger()), d.getIntOr("hold_respins", f.holdRespins()), f.holdCoinPpm(), f.holdValues(),
+			f.holdWeights(), rings, d.getLongOr("jackpot_ref", f.jackpotRef()), f.jackpotSeedMult(), f.contributionPpm(), f.ownedMult());
+		return new MachineDef(m, base.codes(), base.roles(), strips, pays, d.getIntArray("scatter_pays").orElse(base.scatterFifths()),
+			d.getIntOr("bonus_mask", base.bonusReelsMask()), d.getIntArray("free_spins").orElse(base.freeSpins()), d.getIntOr("retrigger", base.retrigger()),
 			d.getIntOr("fs_cap", base.fsCap()), d.getIntOr("fs_mult", base.fsMultiplier()), d.getIntArray("ladder").orElse(base.ladder()),
-			d.getIntArray("ladder_free").orElse(base.ladderFree()), d.getIntOr("cap", base.capMultiple()), d.getIntOr("buy", base.buyPriceFifths()));
+			d.getIntArray("ladder_free").orElse(base.ladderFree()), d.getIntOr("max_win", base.capMultiple()), d.getIntOr("buy", base.buyPriceFifths()),
+			features);
 	}
 
 	@Override

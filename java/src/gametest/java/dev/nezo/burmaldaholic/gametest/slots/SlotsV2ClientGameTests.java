@@ -3,12 +3,25 @@ package dev.nezo.burmaldaholic.gametest.slots;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.TimingProfile;
+import dev.nezo.burmaldaholic.games.slots.SlotMachineBlockEntity;
+import dev.nezo.burmaldaholic.games.slots.SlotMachinesV2;
+import dev.nezo.burmaldaholic.games.slots.SlotsModule;
+import dev.nezo.burmaldaholic.games.slots.client.SlotMachineV2Screen;
 import dev.nezo.burmaldaholic.games.slots.client.SlotPreviewScreen;
+import dev.nezo.burmaldaholic.games.slots.logic.Tier;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDraw;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotRng;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Blocks;
 import dev.nezo.burmaldaholic.games.slots.client.SlotStage;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SlotFrames;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTapes;
-import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTimeline;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -43,6 +55,9 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 	public void runTest(ClientGameTestContext context) {
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			context.waitTicks(20);
+			world.getServer().runCommand("casino balance set @p 1000000");
+			for (Tier tier : Tier.values()) real(context, world, tier, false);
+			real(context, world, Tier.COPPER, true);
 			for (String name : PreviewTapes.NAMES) play(context, name, REAL_TIME.contains(name) ? Mode.REAL_TIME : Mode.SKIP);
 			play(context, "end_big", Mode.INTERRUPT);
 			play(context, "ne_tumble", Mode.REDUCED);
@@ -69,6 +84,100 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 		REDUCED
 	}
 
+	// ---- the real machine screen on a real cabinet (server round, SLOTS.md §10.5) -------------------------------
+
+	/**
+	 * Places a cabinet next to the player, opens the machine screen and spins on the server with a seeded draw (a base win,
+	 * or a Treasure Hunt picked through the protocol). Screenshots {@code jtest_slots_real_<machine>_{spinning,end}} (hunt:
+	 * {@code _hunt}); the screen must end on the server's rest window and show the settled spin total.
+	 */
+	private void real(ClientGameTestContext context, TestSingleplayerContext world, Tier tier, boolean hunt) {
+		String name = "real_" + tier.id() + (hunt ? "_hunt" : "");
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(2);
+		long[] expected = new long[1];
+		world.getServer().runOnServer(server -> {
+			ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
+			player.closeContainer();
+			BlockPos pos = player.blockPosition().offset(2, 0, tier.ordinal());
+			server.overworld().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+			server.overworld().setBlockAndUpdate(pos, SlotsModule.MACHINES.get(tier).block().defaultBlockState());
+			if (!(server.overworld().getBlockEntity(pos) instanceof SlotMachineBlockEntity be)) return;
+			SlotMachinesV2.cfg(be.machineV2()).minVipTier = 0;
+			be.drawForTesting(req -> {
+				for (int k = 1; k < 5_000_000; k++) {
+					SpinTape t = SlotDraw.draw(req, SlotRng.seeded(k));
+					boolean ok = hunt ? t.hunt() != null && t.freeSpins() == null
+						: t.totalFifths() >= 25 && !t.featureTriggered() && t.jackpots().isEmpty();
+					if (ok) return t;
+				}
+				throw new IllegalStateException("no tape");
+			});
+			player.openMenu(be);
+			CompoundTag args = new CompoundTag();
+			args.putLong("bet", be.writeClientState(player).getCompoundOrEmpty("v2").getLongArray("bets").orElse(new long[] {5})[0]);
+			be.onAction(player, "spin", args);
+			be.drawForTesting(null);
+			expected[0] = be.roundTape() == null ? -1 : be.roundTape().totalChips();
+			be.sendStateTo(player);
+		});
+		try {
+			context.waitFor(mc -> mc.gui.screen() instanceof SlotMachineV2Screen s && s.body() != null && s.body().stage().active(), 200);
+		} catch (RuntimeException | AssertionError e) {
+			failures.add(name + ": machine screen did not open / spin");
+			return;
+		}
+		context.waitTicks(12);
+		context.takeScreenshot("jtest_slots_" + name + "_spinning");
+		if (hunt) {
+			try {
+				context.waitFor(mc -> realStage(mc) != null && realStage(mc).clock().holding(), 400);
+			} catch (RuntimeException | AssertionError e) {
+				failures.add(name + ": the hunt did not wait for picks");
+			}
+			context.waitTicks(10);
+			context.takeScreenshot("jtest_slots_" + name + "_board");
+			for (int i = 0; i < 15; i++) {
+				int chest = i;
+				context.runOnClient(mc -> {
+					SlotStage st = realStage(mc);
+					if (st != null && st.hunt().awaitingPick(st)) st.click(st.cellX(chest % 5) + 2, st.cellY(chest / 5) + 2);
+				});
+				context.waitTicks(15);
+			}
+			context.takeScreenshot("jtest_slots_" + name + "_hunt");
+		}
+		try {
+			context.waitFor(mc -> realStage(mc) != null && realStage(mc).finished(), 2400);
+		} catch (RuntimeException | AssertionError e) {
+			failures.add(name + ": did not finish in time");
+		}
+		context.waitTicks(10);
+		context.takeScreenshot("jtest_slots_" + name + "_end");
+		int[] rest = world.getServer().computeOnServer(server -> {
+			ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
+			BlockPos pos = player.blockPosition().offset(2, 0, tier.ordinal());
+			return server.overworld().getBlockEntity(pos) instanceof SlotMachineBlockEntity be ? be.restCells() : null;
+		});
+		String problem = context.computeOnClient(mc -> {
+			SlotStage st = realStage(mc);
+			if (st == null) return "no stage";
+			if (rest != null && !Arrays.equals(st.frames().snapshot().cells(), rest)) return "screen ends off the server's rest window";
+			long shown = st.bigWin().panelAmount(st);
+			return shown == expected[0] ? null : "screen shows " + shown + ", server settled " + expected[0];
+		});
+		if (problem != null) failures.add(name + ": " + problem);
+		world.getServer().runOnServer(server -> {
+			server.getPlayerList().getPlayers().getFirst().closeContainer();
+			SlotMachinesV2.cfg(SlotMachinesV2.machine(tier)).minVipTier = tier == Tier.NETHERITE ? 2 : 0;
+		});
+		context.waitTicks(5);
+	}
+
+	private static SlotStage realStage(Minecraft mc) {
+		return mc.gui.screen() instanceof SlotMachineV2Screen s && s.body() != null ? s.body().stage() : null;
+	}
+
 	private static Machine machineOf(String name) {
 		return name.startsWith("ow_") ? Machine.OVERWORLD : name.startsWith("ne_") ? Machine.NETHER : Machine.END;
 	}
@@ -87,7 +196,7 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 		boolean lengthOk = context.computeOnClient(mc -> {
 			SlotStage st = stage(mc);
 			if (st == null || st.script() == null) return false;
-			Timeline expected = PreviewTimeline.buildOrPreview(s.tape(), s.def(), s.restStops(), TimingProfile.SHARED, FxSettings.localProfile(), 1, true);
+			Timeline expected = SlotTimeline.build(s.tape(), s.def(), TimingProfile.SHARED, FxSettings.localProfile(), 1, true, null);
 			return st.script().timeline().sharedEndMs() == expected.sharedEndMs() && st.script().timeline().beats().size() == expected.beats().size();
 		});
 		if (!lengthOk) failures.add(tag + ": timeline length differs from the builder");
@@ -129,7 +238,7 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 		}
 		String problem = context.computeOnClient(mc -> {
 			SlotStage st = stage(mc);
-			if (st == null || st.frames() == null) return "no stage";
+			if (st == null || st.frames() == null) return "no stage (screen " + (mc.gui.screen() == null ? "none" : mc.gui.screen().getClass().getSimpleName()) + ")";
 			SlotFrames.Frame shown = st.frames().snapshot();
 			SlotFrames.Frame terminal = SlotFrames.INSTANCE.terminal(new SlotFrames.Outcome(s.def(), s.tape(), s.restStops(), null, s.terminalCells()));
 			if (!Arrays.equals(shown.cells(), terminal.cells())) return "terminal window " + Arrays.toString(shown.cells()) + " != " + Arrays.toString(terminal.cells());

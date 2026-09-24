@@ -20,8 +20,18 @@ ADVANCEMENTS = [
     ("split_personality", "natural", "goal", "minecraft:shears"),
     ("royal_flush", "beginners_luck", "challenge", "burmaldaholic:poker_table"),
     ("shark_hunter", "beginners_luck", "goal", "minecraft:cod"),
-    ("three_sevens", "beginners_luck", "goal", "minecraft:redstone"),
-    ("jackpot", "three_sevens", "challenge", "burmaldaholic:slot_machine_netherite"),
+    # slots v2 (SLOTS.md §14; three_sevens is retired, see RETIRED)
+    ("top_five", "beginners_luck", "goal", "minecraft:diamond"),
+    ("jackpot", "top_five", "challenge", "burmaldaholic:slot_machine_netherite"),
+    ("mini_jackpot", "beginners_luck", "task", "minecraft:gold_nugget"),
+    ("free_spins", "first_bet", "task", "minecraft:amethyst_shard"),
+    ("treasure_hunter", "free_spins", "goal", "minecraft:chest"),
+    ("tumble_six", "free_spins", "goal", "minecraft:blaze_powder"),
+    ("hoard_full", "tumble_six", "challenge", "minecraft:gold_block"),
+    ("void_walker", "free_spins", "goal", "minecraft:dragon_egg"),
+    ("dragon_core", "free_spins", "goal", "minecraft:end_crystal"),
+    ("epic_win", "beginners_luck", "goal", "minecraft:firework_rocket"),
+    ("max_win", "epic_win", "challenge", "minecraft:nether_star"),
     ("zero_hero", "beginners_luck", "goal", "burmaldaholic:roulette_table"),
     ("hot_shooter", "beginners_luck", "goal", "burmaldaholic:dice"),
     ("plinko_edge", "beginners_luck", "challenge", "burmaldaholic:plinko_machine"),
@@ -59,8 +69,16 @@ ADVANCEMENTS = [
 ]
 
 
+# Retired ids: kept WITHOUT a display (invisible, not in the tab) so a holder's saved progress still loads and can be
+# converted on join (SLOTS.md §11: holders of three_sevens get top_five).
+RETIRED = ["three_sevens"]
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    for adv_id in RETIRED:
+        data = {"criteria": {"granted": {"trigger": "minecraft:impossible"}}}
+        (OUT / f"{adv_id}.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     for adv_id, parent, frame, icon in ADVANCEMENTS:
         display = {
             "icon": {"id": icon},

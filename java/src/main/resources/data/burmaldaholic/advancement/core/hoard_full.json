@@ -1,14 +1,14 @@
 {
-  "parent": "burmaldaholic:core/top_five",
+  "parent": "burmaldaholic:core/tumble_six",
   "display": {
     "icon": {
-      "id": "burmaldaholic:slot_machine_netherite"
+      "id": "minecraft:gold_block"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.jackpot.title"
+      "translate": "advancement.burmaldaholic.hoard_full.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.jackpot.description"
+      "translate": "advancement.burmaldaholic.hoard_full.description"
     },
     "frame": "challenge",
     "show_toast": true,

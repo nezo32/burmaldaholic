@@ -33,8 +33,11 @@ import net.minecraft.network.chat.Component;
  * itself; {@link #DELEGATE_TO_SHARED_OVERLAY} switches to the shared one without touching the maths.
  */
 public final class BigWinFx {
-	/** Flip when the shared CelebrationOverlay draws (J-M1): the slot screen then only feeds it the request. */
-	public static final boolean DELEGATE_TO_SHARED_OVERLAY = false;
+	/**
+	 * The shared CelebrationOverlay draws the Big / Mega / Epic sequence (J-M1): the slot screen only feeds it the request
+	 * and keeps the in-panel parts (Returned, Win, Nice, Max Win plate, panel amount).
+	 */
+	public static final boolean DELEGATE_TO_SHARED_OVERLAY = true;
 
 	private static final int[] WORD_COLORS = {0xFFFFD640, 0xFFFFD640, 0xFFFF8A1A, 0xFFFF40C0};
 
@@ -134,7 +137,7 @@ public final class BigWinFx {
 				s.particles().burst(ScreenParticles.COIN, s.wx() + s.windowW() / 2f, s.wy() + s.windowH() - 10, 20, 0.14f, 0.0005f, 1100, s.now());
 			}
 			default -> {
-				if (t.isOverlay()) {
+				if (t.isOverlay() && !DELEGATE_TO_SHARED_OVERLAY) {
 					shownWord = WinTier.NICE;
 					upgradedAt = s.t();
 					SlotSounds.winNice();
@@ -147,9 +150,10 @@ public final class BigWinFx {
 		if (rollup == null || !started || s.t() < rollup.at()) return;
 		WinTier t = tier();
 		double u = u(s);
+		boolean shared = DELEGATE_TO_SHARED_OVERLAY && t.isOverlay(); // the shared overlay plays its own ticks and stems
 		// ticks: ≤ 15/s, pitch +1 % per tick (cap 1.4); Returned is silent after its one muted tick
-		if (t.isWin() && u < 1 && !jump && ticks.tryFire(s.now())) SlotSounds.play("slots.rollup_tick", RollUp.tickPitch(tickCount++), 0.5f);
-		if (t.isOverlay()) {
+		if (t.isWin() && !shared && u < 1 && !jump && ticks.tryFire(s.now())) SlotSounds.play("slots.rollup_tick", RollUp.tickPitch(tickCount++), 0.5f);
+		if (t.isOverlay() && !shared) {
 			WinTier w = CelebrationPlan.wordAt(u, chips(), bet(s), WinTierTable.SLOTS, t);
 			if (w.ordinal() > shownWord.ordinal()) {
 				shownWord = w;
@@ -186,7 +190,7 @@ public final class BigWinFx {
 			ended = true;
 			shownWord = t;
 			if (t == WinTier.WIN) SlotSounds.winSmall(1f, 1f);
-			if (t.isWin()) SlotSounds.play("slots.rollup_end", 1f, 1f);
+			if (t.isWin() && !shared) SlotSounds.play("slots.rollup_end", 1f, 1f);
 			dismissAt = s.now() + 1500 + (long) s.localProfile().scale(CelebrationPlan.HOLD_MS);
 		}
 		if (ended && dismissAt > 0 && s.now() >= dismissAt && s.finished()) dismissed = true;
@@ -274,8 +278,8 @@ public final class BigWinFx {
 	}
 
 	/** Slot fanfare stems for the shared request (catalog ids). */
-	static final class SlotStems {
-		static final CelebrationRequest.TierStems STEMS = new CelebrationRequest.TierStems("slots.win_small", "slots.win_nice", "slots.big_win",
+	public static final class SlotStems {
+		public static final CelebrationRequest.TierStems STEMS = new CelebrationRequest.TierStems("slots.win_small", "slots.win_nice", "slots.big_win",
 			"slots.mega_win", "slots.epic_win", "jackpot", "slots.returned", "slots.rollup_tick");
 
 		private SlotStems() {}

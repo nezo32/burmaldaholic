@@ -152,7 +152,10 @@ public class IndependentGameTests {
 		Map<String, String> parent = Map.ofEntries(
 			Map.entry("root", ""), Map.entry("first_bet", "root"), Map.entry("beginners_luck", "first_bet"),
 			Map.entry("natural", "beginners_luck"), Map.entry("split_personality", "natural"), Map.entry("royal_flush", "beginners_luck"),
-			Map.entry("shark_hunter", "beginners_luck"), Map.entry("three_sevens", "beginners_luck"), Map.entry("jackpot", "three_sevens"),
+			Map.entry("shark_hunter", "beginners_luck"), Map.entry("top_five", "beginners_luck"), Map.entry("jackpot", "top_five"),
+			Map.entry("mini_jackpot", "beginners_luck"), Map.entry("free_spins", "first_bet"), Map.entry("treasure_hunter", "free_spins"),
+			Map.entry("tumble_six", "free_spins"), Map.entry("hoard_full", "tumble_six"), Map.entry("void_walker", "free_spins"),
+			Map.entry("dragon_core", "free_spins"), Map.entry("epic_win", "beginners_luck"), Map.entry("max_win", "epic_win"),
 			Map.entry("zero_hero", "beginners_luck"), Map.entry("hot_shooter", "beginners_luck"), Map.entry("plinko_edge", "beginners_luck"),
 			Map.entry("scratch_top", "first_bet"), Map.entry("on_fire", "beginners_luck"), Map.entry("black_cat", "first_bet"),
 			Map.entry("loan_taken", "root"), Map.entry("knock_knock", "loan_taken"), Map.entry("hostile_takeover", "knock_knock"),
@@ -191,7 +194,8 @@ public class IndependentGameTests {
 			prev = "vip_" + tier;
 		}
 		long loaded = server.getAdvancements().getAllAdvancements().stream().filter(a -> a.id().getNamespace().equals(NS) && a.id().getPath().startsWith("core/")).count();
-		helper.assertTrue(loaded == parent.size() + 5, "exactly the §19 set is loaded: " + loaded);
+		// + the five vip_* + the retired three_sevens (no display; kept so holders can be converted to top_five on join)
+		helper.assertTrue(loaded == parent.size() + 5 + 1, "exactly the §19 set is loaded: " + loaded);
 		helper.assertTrue(errors.isEmpty(), String.join("; ", errors));
 		helper.succeed();
 	}
@@ -304,8 +308,6 @@ public class IndependentGameTests {
 		helper.succeed();
 	}
 
-	private static final Set<Long> COPPER_RETURNS_AT_5 = Set.of(0L, 10L, 15L, 50L, 100L, 150L, 300L, 750L);
-
 	@GameTest
 	public void slotsLeaverAndBrokenMachineSettleThePendingSpin(GameTestHelper helper) {
 		ServerPlayer p = player(helper, 1000);
@@ -314,19 +316,21 @@ public class IndependentGameTests {
 			helper.setBlock(pos, SlotsModule.MACHINES.get(Tier.COPPER).block());
 			SlotMachineBlockEntity m = helper.getBlockEntity(pos, SlotMachineBlockEntity.class);
 			CompoundTag bet = new CompoundTag();
-			bet.putLong("line_bet", 5);
+			bet.putLong("bet", 5);
 			m.onAction(p, "spin", bet);
 			helper.assertTrue(m.spinning() && Economies.get().balance(p) == 995, "spinning");
+			long drawn = m.roundTape().payoutChips();
 			m.leave(p.getUUID(), LeaveReason.LEFT);
 			long got = Economies.get().balance(p) - 995;
 			helper.assertTrue(!m.spinning() && m.openStakes().isEmpty(), "settled on leave");
-			helper.assertTrue(COPPER_RETURNS_AT_5.contains(got), "real copper outcome, got " + got);
+			helper.assertTrue(got == drawn, "the drawn tape is paid, got " + got);
 			long before = Economies.get().balance(p);
 			m.onAction(p, "spin", bet);
 			helper.assertTrue(m.spinning(), "spinning again");
+			drawn = m.roundTape().payoutChips();
 			helper.destroyBlock(pos);
 			got = Economies.get().balance(p) - (before - 5);
-			helper.assertTrue(COPPER_RETURNS_AT_5.contains(got), "broken machine settles the drawn spin (a refund would be 5), got " + got);
+			helper.assertTrue(got == drawn, "broken machine settles the drawn spin (a refund would be 5), got " + got);
 		} finally {
 			remove(helper, p);
 		}

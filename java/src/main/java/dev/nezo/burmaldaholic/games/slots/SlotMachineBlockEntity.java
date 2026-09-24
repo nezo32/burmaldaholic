@@ -1,16 +1,32 @@
 package dev.nezo.burmaldaholic.games.slots;
 
-import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.Burmaldaholic;
-import dev.nezo.burmaldaholic.core.config.CasinoConfig;
-import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.TimingProfile;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.SlotsV2Config;
 import dev.nezo.burmaldaholic.core.economy.AccountId;
+import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy;
+import dev.nezo.burmaldaholic.core.mode.CasinoMode;
+import dev.nezo.burmaldaholic.core.rng.CasinoRng;
+import dev.nezo.burmaldaholic.core.rng.OddsContext;
+import dev.nezo.burmaldaholic.core.rng.OddsService;
+import dev.nezo.burmaldaholic.core.service.CoreServices;
+import dev.nezo.burmaldaholic.core.service.TableOwnershipProvider.OwnedTable;
+import dev.nezo.burmaldaholic.core.service.VipTiers;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
+import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
+import dev.nezo.burmaldaholic.core.table.TableType;
+import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.util.Result;
+import dev.nezo.burmaldaholic.games.slots.api.SlotsApi;
+import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetPublish;
+import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetSync;
+import dev.nezo.burmaldaholic.games.slots.logic.Tier;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDefaults;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.MachineDef;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDraw;
@@ -20,642 +36,61 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTiers;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.TapeCodec;
-import java.util.Arrays;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import dev.nezo.burmaldaholic.core.mode.CasinoMode;
-import dev.nezo.burmaldaholic.core.rng.CasinoRng;
-import dev.nezo.burmaldaholic.core.rng.OddsContext;
-import dev.nezo.burmaldaholic.core.rng.OddsService;
-import dev.nezo.burmaldaholic.core.service.CoreServices;
-import dev.nezo.burmaldaholic.core.service.VipTiers;
-import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
-import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
-import dev.nezo.burmaldaholic.core.table.TableType;
-import dev.nezo.burmaldaholic.core.text.Texts;
-import dev.nezo.burmaldaholic.core.util.Result;
-import dev.nezo.burmaldaholic.games.slots.api.SlotsApi;
-import dev.nezo.burmaldaholic.games.slots.logic.JackpotPool;
-import dev.nezo.burmaldaholic.games.slots.logic.LineBets;
-import dev.nezo.burmaldaholic.games.slots.logic.SlotEngine;
-import dev.nezo.burmaldaholic.games.slots.logic.SlotEngine.LineWin;
-import dev.nezo.burmaldaholic.games.slots.logic.SlotEngine.SpinEval;
-import dev.nezo.burmaldaholic.games.slots.logic.SlotTable;
-import dev.nezo.burmaldaholic.games.slots.logic.Symbol;
-import dev.nezo.burmaldaholic.games.slots.logic.Tier;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotScript;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.state.BlockState;
-import dev.nezo.burmaldaholic.core.table.CasinoTableBlock;
-import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetSync;
-import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One slot machine (GAME_DESIGN.md §8, UI.md §6). Server-authoritative flow:
+ * One slot machine cabinet running a slots v2 machine (SLOTS.md; docs/architecture/animation.md §7.2): the block tier
+ * selects the machine ({@code copper} = Overworld Riches, {@code gold} = Nether Inferno, {@code netherite} = End Void).
+ * Server-authoritative round: CONFIRM (validation, stake through {@link #placeBet} with the {@code cap × bet} owned
+ * reservation) → DRAW the whole spin as one tape ({@code OddsService.play}, §8.2 streak re-draw; bought features are
+ * never re-drawn) → PERSIST (saved with the open stake) → PRESENT (the {@link SlotTimeline} seed + the visible tape
+ * section to the screen, the {@link CabinetSync} to every nearby cabinet renderer) → SETTLE at the reveal gate of the
+ * shared timeline, or at once on skip past the gate / close / leave / removal / restart (F8: leaving = reveal).
  *
- * <ol>
- *   <li>{@code spin} / {@code auto} action (line bet) → validation (casino mode, {@code slots.enabled}, VIP tier,
- *       line-bet range) → stake debited via {@link #placeBet} → outcome drawn through {@code OddsService.play}
- *       (§14 streak re-draw) — final before the animation starts;</li>
- *   <li>the grid is synced, the client animates for {@code slots.spinTicks};</li>
- *   <li>timer {@code spin} → jackpot pool updated (contribution, award, seed top-up) → {@link #settle} (pays,
- *       fires {@code PLAY_RESOLVED}) → {@link SlotsApi#SPIN} → messages → at most one {@link SlotsApi#TRIGGER};</li>
- *   <li>auto-spin chains up to 10 spins while the player keeps the screen open; stops on a win ≥ 20× the spin
- *       bet, when the balance is below the bet, or on "Stop".</li>
- * </ol>
- *
- * Leaving mid-spin (disconnect, walking away, machine broken) settles immediately without chaos events.
- * A server stop mid-spin refunds the stake (core), and because the pool is only touched at settlement
- * the jackpot stays consistent.
+ * <p>A Treasure Hunt pauses the shared clock at the end of its intro until every chest is picked (the i-th pick reveals
+ * entry i, D6/F7; autoplay picks one every 600 ms). Java v1 never persisted a 3×3 round (settle-only
+ * {@link LegacySlots} covers the v1 record format).
  */
 public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
-	static final String TIMER_SPIN = "spin";
-	static final String TIMER_AUTO = "auto_next";
-	private static final int AUTO_GAP_TICKS = 10;
-
-	private final Tier tier;
-	private @Nullable Pending pending;
-	private @Nullable CompoundTag lastResult;
-	private int seq;
-	private final Map<UUID, Long> lineBets = new HashMap<>();
-	private @Nullable Auto auto;
-	private final Map<UUID, CompoundTag> autoSummaries = new HashMap<>();
-
-	private record Pending(UUID player, String playerName, long lineBet, long spinBet, boolean owned, SlotTable table, SpinEval eval,
-			int seq) {}
-
-	private static final class Auto {
-		final UUID player;
-		int left;
-		int spins;
-		long bet;
-		long won;
-		String notice = "";
-
-		Auto(UUID player, int left) {
-			this.player = player;
-			this.left = left;
-		}
-	}
-
-	public SlotMachineBlockEntity(TableType<SlotMachineBlockEntity> type, BlockPos pos, BlockState state, Tier tier) {
-		super(type, pos, state);
-		this.tier = tier;
-	}
-
-	public Tier tier() {
-		return tier;
-	}
-
-	@Override
-	public String gameId() {
-		return SlotsModule.ID;
-	}
-
-	@Override
-	protected int seatCount() {
-		return 1;
-	}
-
-	/** §17 RTP per tier (cashback uses the machine's own edge). */
-	@Override
-	protected double houseEdge() {
-		if (v2Active()) {
-			return SlotMachinesV2.houseEdge(machineV2(), false, ownership().isPresent());
-		}
-		return switch (tier) {
-			case COPPER -> HouseEdges.SLOTS_COPPER;
-			case GOLD -> HouseEdges.SLOTS_GOLD;
-			case NETHERITE -> HouseEdges.SLOTS_NETHERITE;
-		};
-	}
-
-	@Override
-	protected long minBet() {
-		if (v2Active()) {
-			return SlotMachinesV2.cfg(machineV2()).bets[0];
-		}
-		return SlotsMath.lineBets(tier).minLineBet() * tier.lines();
-	}
-
-	@Override
-	protected long tableMaxBet() {
-		if (v2Active()) {
-			int[] b = SlotMachinesV2.cfg(machineV2()).bets;
-			return b[b.length - 1];
-		}
-		return SlotsMath.lineBets(tier).maxLineBet() * tier.lines();
-	}
-
-	/** A spinning player may walk away: the spin is settled at once (§4.1). */
-	@Override
-	protected boolean canLeaveNow(UUID player) {
-		return true;
-	}
-
-	/** Test/automation hook: true while a spin is waiting for its animation to end. */
-	public boolean spinning() {
-		return pending != null || round != null;
-	}
-
-	// ---- actions ------------------------------------------------------------------------------
-
-	@Override
-	public void onAction(ServerPlayer player, String action, CompoundTag args) {
-		if (v2Active()) {
-			onActionV2(player, action, args);
-			syncViewers();
-			return;
-		}
-		switch (action) {
-			case "spin" -> {
-				stopAuto(player.getUUID(), "");
-				startSpin(player, args.getLongOr("line_bet", -1));
-			}
-			case "auto" -> {
-				if (pending != null || auto != null) {
-					sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
-					break;
-				}
-				auto = new Auto(player.getUUID(), LineBets.AUTO_SPINS);
-				autoSummaries.remove(player.getUUID());
-				if (!startSpin(player, args.getLongOr("line_bet", -1))) {
-					auto = null;
-				}
-			}
-			case "stop_auto" -> {
-				if (auto != null && auto.player.equals(player.getUUID())) {
-					auto.left = 0;
-					if (pending == null) {
-						endAuto("");
-					}
-				}
-			}
-			default -> {
-				return;
-			}
-		}
-		syncViewers();
-	}
-
-	/**
-	 * Validates, takes the stake and draws the outcome.
-	 *
-	 * @param requestedLineBet the client's line bet (clamped into the player's range; &lt; 1 = remembered/min)
-	 * @return true if a spin started
-	 */
-	boolean startSpin(ServerPlayer player, long requestedLineBet) {
-		if (!(level instanceof ServerLevel serverLevel)) {
-			return false;
-		}
-		MinecraftServer server = serverLevel.getServer();
-		if (pending != null) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
-			return false;
-		}
-		if (!CasinoMode.isEnabled(player)) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.casino_off"));
-			return false;
-		}
-		if (!CasinoConfig.slots().enabled) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
-			return false;
-		}
-		int minVip = SlotsMath.minVipTier(tier);
-		if (CoreServices.vip().tier(server, player.getUUID()) < minVip) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(minVip)));
-			return false;
-		}
-		boolean owned = ownership().isPresent();
-		SlotsMath.Machine machine = SlotsMath.machine(tier, owned);
-		SlotTable table = machine.table();
-		if (table.empty()) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
-			return false;
-		}
-		LineBets bets = SlotsMath.lineBets(tier);
-		long tierMax = CoreServices.vip().maxBet(server, player.getUUID());
-		LineBets.Range range = bets.range(tierMax, table.lines());
-		if (!range.playable()) {
-			int vip = CoreServices.vip().tier(server, player.getUUID());
-			sendError(player, Component.translatable("gui.burmaldaholic.error.bet_too_high", Texts.number(tierMax), VipTiers.name(vip)));
-			return false;
-		}
-		if (!claimSeat(player)) {
-			return false;
-		}
-		long lineBet = range.clamp(requestedLineBet > 0 ? requestedLineBet : lineBets.getOrDefault(player.getUUID(), range.min()));
-		lineBets.put(player.getUUID(), lineBet);
-		long spinBet = lineBet * table.lines();
-		Result<Long> stake = placeBet(player, spinBet, bets.minLineBet() * table.lines(), bets.maxLineBet() * table.lines(),
-			SlotEngine.worstCaseReturn(table, lineBet), true);
-		if (!stake.isOk()) {
-			return false;
-		}
-		OddsContext ctx = new OddsContext(player.getUUID(), SlotsModule.ID, spinBet);
-		CasinoRng rng = OddsService.get().rng(ctx);
-		SpinEval eval = OddsService.get().play(ctx, machine.rtp(), () -> SlotEngine.spin(table, lineBet, rng::nextInt),
-			e -> SlotEngine.losing(e, spinBet));
-		autoSummaries.remove(player.getUUID());
-		pending = new Pending(player.getUUID(), player.getName().getString(), lineBet, spinBet, owned, table, eval, ++seq);
-		setPhase("spinning");
-		startTimer(TIMER_SPIN, spinTicks());
-		syncViewers();
-		return true;
-	}
-
-	static int spinTicks() {
-		return Math.max(10, CasinoConfig.slots().spinTicks);
-	}
-
-	/** Seats the player; a seat hogged by someone who closed the screen (and is not spinning) is freed. */
-	private boolean claimSeat(ServerPlayer player) {
-		if (isSeated(player)) {
-			return true;
-		}
-		if (level instanceof ServerLevel serverLevel && seats().isFull()) {
-			for (var seat : seats().occupied()) {
-				ServerPlayer other = serverLevel.getServer().getPlayerList().getPlayer(seat.player());
-				boolean busy = pending != null && pending.player.equals(seat.player());
-				if (!busy && (other == null || !viewing(other))) {
-					leave(seat.player(), LeaveReason.LEFT);
-				}
-			}
-		}
-		return sit(player);
-	}
-
-	private boolean viewing(ServerPlayer p) {
-		return p.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition) && !p.isRemoved();
-	}
-
-	// ---- settlement ---------------------------------------------------------------------------
-
-	@Override
-	protected void onTimer(String id) {
-		if (TIMER_SPIN.equals(id)) {
-			finish(false);
-		} else if (TIMER_AUTO.equals(id)) {
-			continueAuto();
-		} else if (TIMER_V2.equals(id)) {
-			onRoundTimer();
-		} else if (TIMER_V2_AUTO.equals(id)) {
-			continueAutoV2();
-		}
-	}
-
-	@Override
-	protected void onPlayerLeft(UUID player, LeaveReason reason) {
-		if (pending != null && pending.player.equals(player)) {
-			cancelTimer(TIMER_SPIN);
-			finish(true);
-		}
-		if (auto != null && auto.player.equals(player)) {
-			cancelTimer(TIMER_AUTO);
-			auto = null;
-		}
-		if (round != null && round.player.equals(player)) {
-			finishV2(true); // F8: leaving = reveal; settled from the persisted tape
-		}
-		if (autoV2 != null && autoV2.player.equals(player)) {
-			cancelTimer(TIMER_V2_AUTO);
-			autoV2 = null;
-		}
-		super.onPlayerLeft(player, reason); // refunds anything still open (nothing, normally)
-	}
-
-	/**
-	 * Settles the pending spin now (normally called by the {@code spin} timer; public for GameTests).
-	 * {@code quiet}: the player is leaving (no chaos events, no auto-continue).
-	 */
-	public void finish(boolean quiet) {
-		Pending p = pending;
-		if (p == null || !(level instanceof ServerLevel serverLevel)) {
-			return;
-		}
-		pending = null;
-		setPhase("idle");
-		MinecraftServer server = serverLevel.getServer();
-		long award = 0;
-		if (p.table.progressive()) {
-			award = updateJackpot(server, p);
-		}
-		long total = p.eval.basePayout() + award;
-		String jackpotTag = award > 0 ? "jackpot" : "";
-		settle(p.player, total, r -> r.withTags(tier.id(), jackpotTag));
-		lastResult = resultTag(p, award, total);
-		ServerPlayer online = server.getPlayerList().getPlayer(p.player);
-		if (online != null && online.isRemoved()) {
-			online = null;
-		}
-		afterSettle(serverLevel, online, p, award, total, quiet);
-		if (auto != null && auto.player.equals(p.player)) {
-			auto.spins++;
-			auto.bet += p.spinBet;
-			auto.won += total;
-			auto.left--;
-			if (quiet || online == null) {
-				auto = null;
-			} else if (LineBets.autoStopsOnWin(total, p.spinBet)) {
-				endAuto("big_win");
-			} else if (auto.left <= 0 || !viewing(online)) {
-				endAuto("");
-			} else if (Economies.get().balance(online) < p.lineBet * p.table.lines()) {
-				endAuto("funds");
-			} else {
-				startTimer(TIMER_AUTO, AUTO_GAP_TICKS);
-			}
-		}
-		syncViewers();
-	}
-
-	private long updateJackpot(MinecraftServer server, Pending p) {
-		JackpotData data = JackpotData.get(server);
-		JackpotPool state = data.pool(tier).contribute(p.spinBet, SlotsMath.contribution(tier)).state();
-		long award = 0;
-		if (p.eval.jackpotHit()) {
-			long max = SlotsMath.lineBets(tier).machineMaxSpinBet(tier.lines());
-			JackpotPool.Payout pay = state.pay(p.spinBet, max, SlotsMath.seed(tier));
-			state = pay.state();
-			award = pay.award();
-			if (pay.toppedUp() > 0) {
-				Burmaldaholic.LOGGER.info("Bank topped up the {} jackpot by {}", tier.id(), pay.toppedUp());
-			}
-		}
-		data.set(tier, state);
-		return award;
-	}
-
-	private void continueAuto() {
-		Auto a = auto;
-		if (a == null || !(level instanceof ServerLevel serverLevel)) {
-			return;
-		}
-		ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(a.player);
-		if (player == null || !viewing(player)) {
-			auto = null;
-			return;
-		}
-		if (!startSpin(player, lineBets.getOrDefault(a.player, -1L))) {
-			endAuto("");
-		}
-		syncViewers();
-	}
-
-	private void stopAuto(UUID player, String notice) {
-		if (auto != null && auto.player.equals(player)) {
-			cancelTimer(TIMER_AUTO);
-			endAuto(notice);
-		}
-	}
-
-	private void endAuto(String notice) {
-		Auto a = auto;
-		auto = null;
-		cancelTimer(TIMER_AUTO);
-		if (a == null || a.spins == 0) {
-			return;
-		}
-		CompoundTag t = new CompoundTag();
-		t.putInt("spins", a.spins);
-		t.putLong("bet", a.bet);
-		t.putLong("won", a.won);
-		t.putString("notice", notice);
-		autoSummaries.put(a.player, t);
-	}
-
-	private void afterSettle(ServerLevel level, @Nullable ServerPlayer player, Pending p, long award, long total, boolean quiet) {
-		MinecraftServer server = level.getServer();
-		Component machineName = Component.translatable("block.burmaldaholic." + tier.blockName());
-		if (award > 0) {
-			// the jackpot strings carry the v2 signature (tier word first, SLOTS.md §13.6); the single v1 progressive
-			// pool is the one that migrates into the Grand (§5.3), so it is named Grand until the cut-over (S-J5)
-			Component tierWord = Component.translatable("gui.burmaldaholic.slots.jackpot.tier.grand");
-			Component msg = Component.translatable("msg.burmaldaholic.slots.jackpot_broadcast", Texts.raw(p.playerName),
-				tierWord, Texts.chipsAcc(award), machineName).withStyle(ChatFormatting.GOLD);
-			server.getPlayerList().broadcastSystemMessage(msg, false);
-			if (player != null) {
-				player.sendSystemMessage(Component.translatable("msg.burmaldaholic.slots.jackpot_self", tierWord, Texts.chipsAcc(award))
-					.withStyle(ChatFormatting.GOLD));
-			}
-		}
-		List<SlotsApi.LineWin> wins = new ArrayList<>();
-		for (LineWin w : p.eval.wins()) {
-			wins.add(new SlotsApi.LineWin(w.line(), w.kind().name().toLowerCase(Locale.ROOT), w.symbol().id(), w.multiplier(), w.payout()));
-		}
-		try {
-			SlotsApi.SPIN.invoker().onSpin(new SlotsApi.Spin(player, p.player, tier.id(), p.lineBet, p.spinBet, total, List.copyOf(wins), award,
-				p.eval.threeSevens(), p.owned));
-		} catch (RuntimeException e) {
-			Burmaldaholic.LOGGER.error("slots SPIN listener failed", e);
-		}
-		if (!quiet && player != null && p.eval.special() != null && CasinoMode.isEnabled(server)) {
-			trigger(level, player, p.eval.special(), award);
-		}
-	}
-
-	/**
-	 * §8.1: at most one chaos event per spin, after crediting; nothing when chaos is off. Publishes
-	 * {@link SlotsApi#TRIGGER} (informational stream) and then asks chaos to run the event through
-	 * {@link ChaosBridge} (Fabric ObjectShare); chaos applies its own toggles, safety rules and cooldowns.
-	 */
-	private void trigger(ServerLevel level, ServerPlayer player, Symbol special, long award) {
-		if (!CasinoConfig.chaos().enabled) {
-			return;
-		}
-		SlotsApi.ChaosEvent event = SlotsApi.ChaosEvent.forSymbol(special.id());
-		if (event == null) {
-			return;
-		}
-		MinecraftServer server = level.getServer();
-		List<ServerPlayer> nearby = List.of();
-		if (event == SlotsApi.ChaosEvent.JACKPOT) {
-			double r = SlotsApi.JACKPOT_SHOWER_RADIUS;
-			nearby = level.players().stream()
-				.filter(q -> q != player && !q.isRemoved() && q.distanceToSqr(player) <= r * r)
-				.toList();
-		}
-		long ghBefore = CoreServices.goldenHour().remainingTicks(server);
-		try {
-			SlotsApi.TRIGGER.invoker().onTrigger(new SlotsApi.Trigger(player, event, special.id(), tier.id(), level, worldPosition,
-				event == SlotsApi.ChaosEvent.JACKPOT ? award : 0, nearby));
-		} catch (RuntimeException e) {
-			Burmaldaholic.LOGGER.error("slots TRIGGER listener failed", e);
-		}
-		switch (event) {
-			case JACKPOT -> ChaosBridge.jackpot(player);
-			case GOLDEN_HOUR -> {
-				String result = ChaosBridge.trigger(player, event.id());
-				boolean started = "started".equals(result) || CoreServices.goldenHour().remainingTicks(server) > ghBefore;
-				player.sendSystemMessage(Component.translatable(started ? "msg.burmaldaholic.slots.three_clocks"
-					: "msg.burmaldaholic.slots.three_clocks_cooldown").withStyle(ChatFormatting.GOLD));
-			}
-			default -> {
-				String result = ChaosBridge.trigger(player, event.id());
-				String key = switch (special) {
-					case CREEPER -> "three_creepers";
-					case TNT -> "three_tnt";
-					case PEARL -> "three_pearls";
-					default -> null;
-				};
-				if (key != null && ChaosBridge.happened(result)) {
-					player.sendSystemMessage(Component.translatable("msg.burmaldaholic.slots." + key).withStyle(ChatFormatting.YELLOW));
-				}
-			}
-		}
-	}
-
-	// ---- client state -------------------------------------------------------------------------
-
-	private CompoundTag resultTag(Pending p, long award, long total) {
-		CompoundTag t = new CompoundTag();
-		t.putInt("seq", p.seq);
-		t.putIntArray("grid", gridArray(p.eval.grid()));
-		ListTag wins = new ListTag();
-		for (LineWin w : p.eval.wins()) {
-			CompoundTag wt = new CompoundTag();
-			wt.putInt("line", w.line());
-			wt.putString("kind", w.kind().name().toLowerCase(Locale.ROOT));
-			wt.putInt("symbol", w.symbol().ordinal());
-			wt.putDouble("mult", w.multiplier());
-			wt.putLong("payout", w.payout());
-			wins.add(wt);
-		}
-		t.put("wins", wins);
-		t.putLong("base", p.eval.basePayout());
-		t.putLong("award", award);
-		t.putLong("total", total);
-		t.putLong("spin_bet", p.spinBet);
-		t.putString("player", p.playerName);
-		t.putString("player_id", p.player.toString());
-		t.putBoolean("sevens", p.eval.threeSevens());
-		t.putInt("special", p.eval.special() == null ? -1 : p.eval.special().ordinal());
-		return t;
-	}
-
-	static int[] gridArray(Symbol[][] grid) {
-		int[] a = new int[9];
-		for (int r = 0; r < 3; r++) {
-			for (int c = 0; c < 3; c++) {
-				a[r * 3 + c] = grid[r][c].ordinal();
-			}
-		}
-		return a;
-	}
-
-	@Override
-	public CompoundTag writeClientState(ServerPlayer viewer) {
-		CompoundTag t = baseState(viewer);
-		if (v2Active() || round != null) {
-			t.put("v2", clientStateV2(viewer));
-			if (v2Active()) {
-				t.putString("tier", tier.id());
-				return t;
-			}
-		}
-		MinecraftServer server = viewer.level().getServer();
-		boolean owned = ownership().isPresent();
-		SlotsMath.Machine machine = SlotsMath.machine(tier, owned);
-		SlotTable table = machine.table();
-		LineBets bets = SlotsMath.lineBets(tier);
-		LineBets.Range range = bets.range(CoreServices.vip().maxBet(server, viewer.getUUID()), table.lines());
-		t.putString("tier", tier.id());
-		t.putInt("lines", table.lines());
-		t.putLong("line_min", range.min());
-		t.putLong("line_max", range.max());
-		t.putLong("line_bet", range.clamp(lineBets.getOrDefault(viewer.getUUID(), range.min())));
-		t.putBoolean("enabled", CasinoConfig.slots().enabled && !table.empty());
-		int minVip = SlotsMath.minVipTier(tier);
-		t.putInt("min_vip", minVip);
-		t.putBoolean("vip_ok", CoreServices.vip().tier(server, viewer.getUUID()) >= minVip);
-		t.putBoolean("owned", owned);
-		t.putBoolean("progressive", table.progressive());
-		if (table.progressive()) {
-			t.putLong("jackpot", JackpotData.get(server).pool(tier).pool());
-		}
-		t.putInt("spin_ticks", spinTicks());
-		// paytable: symbols with weight, their 3-of-a-kind pay (star: 0 on progressive machines)
-		ListTag pays = new ListTag();
-		for (Symbol s : table.present()) {
-			CompoundTag pt = new CompoundTag();
-			pt.putInt("symbol", s.ordinal());
-			pt.putDouble("pay", s == Symbol.STAR && table.progressive() ? 0 : table.pay(s));
-			pays.add(pt);
-		}
-		t.put("paytable", pays);
-		t.putDouble("berry1", table.berryPartial(1));
-		t.putDouble("berry2", table.berryPartial(2));
-		Pending p = pending;
-		if (p != null) {
-			CompoundTag st = new CompoundTag();
-			st.putInt("seq", p.seq);
-			st.putIntArray("grid", gridArray(p.eval.grid()));
-			st.putLong("ticks_left", ticksLeft(TIMER_SPIN));
-			st.putString("player", p.playerName);
-			st.putBoolean("mine", p.player.equals(viewer.getUUID()));
-			t.put("spin", st);
-		}
-		if (lastResult != null) {
-			CompoundTag r = lastResult.copy();
-			r.putBoolean("mine", r.getStringOr("player_id", "").equals(viewer.getUUID().toString()));
-			r.remove("player_id");
-			t.put("result", r);
-		}
-		if (auto != null) {
-			CompoundTag a = new CompoundTag();
-			a.putInt("left", auto.left);
-			a.putBoolean("mine", auto.player.equals(viewer.getUUID()));
-			t.put("auto", a);
-		}
-		CompoundTag summary = autoSummaries.get(viewer.getUUID());
-		if (summary != null) {
-			t.put("auto_summary", summary.copy());
-		}
-		return t;
-	}
-
-	// =============================================================================================
-	// Slots v2 (SLOTS.md; docs/architecture/animation.md §7.2): CONFIRM → DRAW TAPE → PERSIST → PRESENT → SETTLE at the
-	// reveal gate of the shared SlotTimeline, or at once on skip past the gate / close / leave / removal / restart.
-	// =============================================================================================
-
 	static final String TIMER_V2 = "v2";
 	static final String TIMER_V2_AUTO = "v2_auto";
 	static final String ROUND_KEY = "burmaldaholic_slots_v2";
-	static final String SYNC_KEY = "slots_sync";
+	private static final String CABINET_KEY = "cabinet";
 
+	private final Tier tier;
+	private int seq;
+	private final Map<UUID, CompoundTag> autoSummaries = new HashMap<>();
 	private @Nullable RoundV2 round;
 	private final Map<UUID, Long> betsV2 = new HashMap<>();
 	private final Map<UUID, Boolean> turboV2 = new HashMap<>();
 	private @Nullable AutoV2 autoV2;
 	private @Nullable CompoundTag lastV2;
 	private int[] restStops = new int[5];
-	/** Client side: the last {@code SpinSync} received through the block update (read by the cabinet renderer). */
-	private @Nullable CompoundTag clientSync;
+	/** Cells shown at rest (after tumbles / sticky reels): what the next spin spins up from; null = the strip window. */
+	private int @Nullable [] restCells;
+	private @Nullable CabinetSync cabinet;
 
 	/** The drawn, persisted round (SLOTS.md §8.1 record). */
 	static final class RoundV2 {
@@ -675,6 +110,10 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		boolean auto;
 		/** Timeline ms at which the shared clock is frozen waiting for a manual Treasure Hunt pick, or -1. */
 		int holdMs = -1;
+		/** Stops the reels rested on before the spin. */
+		int[] prevStops = new int[5];
+		/** Treasure Hunt chests opened so far, in pick order (presentation only). */
+		final List<Integer> huntCells = new ArrayList<>();
 		private @Nullable Timeline timeline;
 
 		Timeline timeline(MachineDef def) {
@@ -704,6 +143,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			t.putBoolean("anticipation", anticipation);
 			t.putBoolean("auto", auto);
 			t.putInt("hold", holdMs);
+			t.putIntArray("prev", prevStops);
+			t.putIntArray("hunt_cells", huntCells.stream().mapToInt(Integer::intValue).toArray());
 			return t;
 		}
 
@@ -725,6 +166,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 				r.anticipation = t.getBooleanOr("anticipation", true);
 				r.auto = t.getBooleanOr("auto", false);
 				r.holdMs = t.getIntOr("hold", -1);
+				r.prevStops = t.getIntArray("prev").filter(a -> a.length == 5).orElse(new int[5]);
+				for (int c : t.getIntArray("hunt_cells").orElse(new int[0])) r.huntCells.add(c);
 				return r.bet > 0 && r.tape.bet() == r.bet ? r : null;
 			} catch (RuntimeException e) {
 				Burmaldaholic.LOGGER.error("Corrupt slots v2 round record {}", t, e);
@@ -750,12 +193,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		}
 	}
 
-	private boolean forceV2;
-
 	/**
-	 * The machine holding each player's live v2 round (server thread). One player never holds two rounds at once
-	 * (review J-L8, Bedrock parity: the service keys live rounds by player); stale entries (machine removed / unloaded,
-	 * round settled) are ignored and dropped.
+	 * The machine holding each player's live round (server thread). One player never holds two rounds at once (review
+	 * J-L8); stale entries (machine removed / unloaded, round settled) are ignored and dropped.
 	 */
 	private static final Map<UUID, SlotMachineBlockEntity> LIVE_ROUNDS = new HashMap<>();
 
@@ -768,31 +208,90 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		return be;
 	}
 
-	/** The v2 engine runs this machine ({@code slots.v2}, the cut-over flag; or forced for GameTests). */
-	public boolean v2Active() {
-		return forceV2 || CasinoConfig.slots().v2;
+	public SlotMachineBlockEntity(TableType<SlotMachineBlockEntity> type, BlockPos pos, BlockState state, Tier tier) {
+		super(type, pos, state);
+		this.tier = tier;
 	}
 
-	/** GameTest hook: run this machine on the v2 engine whatever {@code slots.v2} says (never persisted). */
-	public void forceV2ForTesting(boolean on) {
-		this.forceV2 = on;
+	public Tier tier() {
+		return tier;
+	}
+
+	@Override
+	public String gameId() {
+		return SlotsModule.ID;
+	}
+
+	@Override
+	protected int seatCount() {
+		return 1;
+	}
+
+	/** The machine's own edge (cashback, statistics). */
+	@Override
+	protected double houseEdge() {
+		return SlotMachinesV2.houseEdge(machineV2(), false, ownership().isPresent());
+	}
+
+	@Override
+	protected long minBet() {
+		return SlotMachinesV2.cfg(machineV2()).bets[0];
+	}
+
+	@Override
+	protected long tableMaxBet() {
+		int[] b = SlotMachinesV2.cfg(machineV2()).bets;
+		return b[b.length - 1];
+	}
+
+	/** A spinning player may walk away: the spin is settled at once (§4.1). */
+	@Override
+	protected boolean canLeaveNow(UUID player) {
+		return true;
+	}
+
+	/** Test/automation hook: true while a round is in play. */
+	public boolean spinning() {
+		return round != null;
 	}
 
 	public Machine machineV2() {
 		return SlotMachinesV2.machine(tier);
 	}
 
-	/** Client side: the last spin sync of this cabinet ({@code SpinSync}, SLOTS.md §10.5), or null. */
-	public @Nullable CompoundTag clientSync() {
-		return clientSync == null ? null : clientSync.copy();
-	}
-
-	/** Test/automation hook: the persisted v2 round's tape, or null. */
+	/** Test/automation hook: the persisted round's tape, or null. */
 	public @Nullable SpinTape roundTape() {
 		return round == null ? null : round.tape;
 	}
 
-	private void onActionV2(ServerPlayer player, String action, CompoundTag args) {
+	/** GameTest hook: replaces the RNG draw of the next rounds (null = the real draw). Never set in play. */
+	private java.util.function.@Nullable Function<SlotDraw.Request, SpinTape> drawOverride;
+
+	/** GameTest hook: draw the next rounds with {@code draw} (the stake, pools and settlement stay real); null resets. */
+	public void drawForTesting(java.util.function.@Nullable Function<SlotDraw.Request, SpinTape> draw) {
+		this.drawOverride = draw;
+	}
+
+	/** GameTest hook: the round timer fires now (the Treasure Hunt pause, an autoplay pick, or the reveal gate). */
+	public void fireRoundTimerForTesting() {
+		cancelTimer(TIMER_V2);
+		onRoundTimer();
+	}
+
+	/** Test/automation hook: the stops the reels rest on (the next spin starts here). */
+	public int[] restStops() {
+		return restStops.clone();
+	}
+
+	/** Test/automation hook: the cells shown at rest, or null before the first spin (the strip window). */
+	public int @Nullable [] restCells() {
+		return restCells == null ? null : restCells.clone();
+	}
+
+	// ---- actions ------------------------------------------------------------------------------
+
+	@Override
+	public void onAction(ServerPlayer player, String action, CompoundTag args) {
 		switch (action) {
 			case "spin" -> {
 				stopAutoV2(player.getUUID());
@@ -812,8 +311,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			}
 			case "turbo" -> turboV2.put(player.getUUID(), args.getBooleanOr("on", false) && CasinoConfig.slots().turboAllowed);
 			case "skip" -> skipV2(player);
-			case "pick" -> pickV2(player, false);
-			case "pick_all" -> pickV2(player, true);
+			case "pick" -> pickV2(player, args.getIntOr("chest", -1), false);
+			case "pick_all" -> pickV2(player, -1, true);
 			case "auto" -> startAutoV2(player, args);
 			case "stop_auto" -> {
 				if (autoV2 != null && autoV2.player.equals(player.getUUID())) {
@@ -826,6 +325,49 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			default -> {
 			}
 		}
+		syncViewers();
+	}
+
+	/** Seats the player; a seat hogged by someone who closed the screen (and is not spinning) is freed. */
+	private boolean claimSeat(ServerPlayer player) {
+		if (isSeated(player)) {
+			return true;
+		}
+		if (level instanceof ServerLevel serverLevel && seats().isFull()) {
+			for (var seat : seats().occupied()) {
+				ServerPlayer other = serverLevel.getServer().getPlayerList().getPlayer(seat.player());
+				boolean busy = round != null && round.player.equals(seat.player());
+				if (!busy && (other == null || !viewing(other))) {
+					leave(seat.player(), LeaveReason.LEFT);
+				}
+			}
+		}
+		return sit(player);
+	}
+
+	private boolean viewing(ServerPlayer p) {
+		return p.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition) && !p.isRemoved();
+	}
+
+	@Override
+	protected void onTimer(String id) {
+		if (TIMER_V2.equals(id)) {
+			onRoundTimer();
+		} else if (TIMER_V2_AUTO.equals(id)) {
+			continueAutoV2();
+		}
+	}
+
+	@Override
+	protected void onPlayerLeft(UUID player, LeaveReason reason) {
+		if (round != null && round.player.equals(player)) {
+			finishV2(true); // F8: leaving = reveal; settled from the persisted tape
+		}
+		if (autoV2 != null && autoV2.player.equals(player)) {
+			cancelTimer(TIMER_V2_AUTO);
+			autoV2 = null;
+		}
+		super.onPlayerLeft(player, reason); // refunds anything still open (nothing, normally)
 	}
 
 	/** Bets of the machine's ladder this player may use: ≤ min(VIP tier max, owner max), ≥ owner min (SLOTS.md §6.1). */
@@ -838,6 +380,16 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			}
 		}
 		return out;
+	}
+
+	/** Owner switch (SLOTS.md §8.6): bonus buy allowed at this table (house tables: always). */
+	private boolean ownerAllowsBuy() {
+		return ownership().map(OwnedTable::slotsBuy).orElse(true);
+	}
+
+	/** Owner switch (SLOTS.md §8.6): autoplay allowed at this table (house tables: always). */
+	private boolean ownerAllowsAutoplay() {
+		return ownership().map(OwnedTable::slotsAutoplay).orElse(true);
 	}
 
 	/**
@@ -853,7 +405,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		Machine m = machineV2();
 		SlotsV2Config.Machine cfg = SlotMachinesV2.cfg(m);
 		SlotMachineBlockEntity elsewhere = liveRoundOf(player.getUUID());
-		if (round != null || pending != null || (elsewhere != null && elsewhere != this)) {
+		if (round != null || (elsewhere != null && elsewhere != this)) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
 			return false;
 		}
@@ -883,7 +435,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		}
 		long stake = bet;
 		if (buy) {
-			if (!CasinoConfig.slots().buyFeature.enabled || def.buyPriceFifths() <= 0) {
+			if (!CasinoConfig.slots().buyFeature.enabled || def.buyPriceFifths() <= 0 || !ownerAllowsBuy()) {
 				sendError(player, Component.translatable("gui.burmaldaholic.slots.error.buy_disabled"));
 				return false;
 			}
@@ -914,7 +466,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		SlotDraw.Request request = new SlotDraw.Request(def, bet, buy, owned, view);
 		final long betF = bet;
 		// §8.2: the whole spin is one outcome for the streak re-draw; bought features are never re-drawn
-		SpinTape tape = buy ? SlotDraw.draw(request, slotRng)
+		SpinTape tape = drawOverride != null ? drawOverride.apply(request)
+			: buy ? SlotDraw.draw(request, slotRng)
 			: OddsService.get().play(ctx, SlotMachinesV2.houseRtp(m), () -> SlotDraw.draw(request, slotRng), t -> t.payoutChips() < betF);
 		if (pools != null) {
 			pools.applyDraw(m, def, tape); // award at draw time: two players can never win the same money (§5.2)
@@ -934,6 +487,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		r.seed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), r.seq);
 		r.anticipation = CasinoConfig.slots().anticipation;
 		r.auto = autoSpin;
+		r.prevStops = restStops.clone();
 		round = r;
 		LIVE_ROUNDS.put(r.player, this);
 		autoSummaries.remove(player.getUUID());
@@ -941,7 +495,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		setPhase("spinning");
 		scheduleV2();
 		syncViewers();
-		sendSync();
+		publishRound(r);
 		return true;
 	}
 
@@ -984,9 +538,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 				setPhase("pick");
 				scheduleV2();
 				syncViewers();
-				sendSync();
+				publishRound(r);
 			} else if (r.auto) {
-				revealPick(r);
+				revealPick(r, -1);
 			}
 			return;
 		}
@@ -994,20 +548,28 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	/** The i-th opened chest reveals entry i whichever chest was clicked (SLOTS.md §1.2); persisted per pick. */
-	private void revealPick(RoundV2 r) {
+	private void revealPick(RoundV2 r, int chest) {
 		r.tape = r.tape.withHuntOpened(r.tape.hunt().opened() + 1);
+		int c = chest >= 0 && chest < 15 && !r.huntCells.contains(chest) ? chest : -1;
+		for (int k = 0; c < 0 && k < 15; k++) {
+			if (!r.huntCells.contains(k)) {
+				c = k;
+			}
+		}
+		r.huntCells.add(Math.max(0, c));
 		if (huntLeft(r) == 0) {
 			// resume the shared clock where it paused (end of the hunt intro)
 			r.startTick = gameTime() - r.holdMs / 50;
 			r.holdMs = -1;
 			setPhase("spinning");
 		}
+		setChanged();
 		scheduleV2();
 		syncViewers();
-		sendSync();
+		publishRound(r);
 	}
 
-	private void pickV2(ServerPlayer player, boolean all) {
+	private void pickV2(ServerPlayer player, int chest, boolean all) {
 		RoundV2 r = round;
 		if (r == null || !r.player.equals(player.getUUID()) || r.tape.hunt() == null) {
 			return;
@@ -1016,7 +578,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			r.auto = true;
 		}
 		if (r.holdMs >= 0 && huntLeft(r) > 0) {
-			revealPick(r);
+			revealPick(r, chest);
 		}
 	}
 
@@ -1044,7 +606,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		r.startTick -= shift;
 		scheduleV2();
 		syncViewers();
-		sendSync();
+		publishRound(r);
 	}
 
 	/**
@@ -1074,11 +636,10 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			}
 			setChanged();
 			syncViewers();
-			sendSync();
 			return;
 		}
-		SpinTape tape = r.tape.hunt() == null ? r.tape : r.tape.withHuntOpened(SlotDraw.huntOpens(SlotMachinesV2.def(r.machine), r.tape));
 		MachineDef def = SlotMachinesV2.def(r.machine);
+		SpinTape tape = r.tape.hunt() == null ? r.tape : r.tape.withHuntOpened(SlotDraw.huntOpens(def, r.tape));
 		double edge = SlotMachinesV2.houseEdge(r.machine, r.bought, r.owned);
 		List<String> tags = new ArrayList<>(List.of(r.machine.id));
 		if (r.bought) {
@@ -1104,7 +665,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			pools.revealed(r.machine, tape);
 		}
 		pools.record(r.player, r.machine, r.stake, tape.payoutChips(), tape.featureTriggered() && !r.bought, tape.totalFifths(), tape);
-		restStops = lastStops(tape);
+		restAfter(r, def, tape);
 		lastV2 = resultTagV2(r, tape);
 		setChanged();
 		ServerPlayer online = server.getPlayerList().getPlayer(r.player);
@@ -1140,14 +701,20 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			}
 		}
 		syncViewers();
-		sendSync();
 	}
 
-	private static int[] lastStops(SpinTape t) {
-		if (t.freeSpins() != null && !t.freeSpins().spins().isEmpty()) {
-			return t.freeSpins().spins().getLast().stops();
+	/** The window the reels rest on after the round: the last reel phase's stops and final cells (what every view ends on). */
+	private void restAfter(RoundV2 r, MachineDef def, SpinTape tape) {
+		SlotScript script = new SlotScript(r.timeline(def), def, r.prevStops, Arrays.equals(restStops, r.prevStops) ? restCells : null);
+		if (!script.phases().isEmpty()) {
+			SlotScript.Phase last = script.phases().getLast();
+			int[] stops = new int[5];
+			for (int k = 0; k < 5; k++) stops[k] = last.reels[k] != null ? last.reels[k].stop() : last.restStops[k];
+			restStops = stops;
+			restCells = script.finalCells(last);
+		} else {
+			restStops = SlotTimeline.terminalStops(tape, r.prevStops);
 		}
-		return t.bought() ? new int[5] : t.stops();
 	}
 
 	private void afterSettleV2(ServerLevel level, @Nullable ServerPlayer player, RoundV2 r, MachineDef def, SpinTape tape, boolean quiet) {
@@ -1155,13 +722,14 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		Component machineName = Component.translatable("gui.burmaldaholic.slots.machine." + r.machine.id);
 		int announceFrom = CasinoConfig.slots().jackpot.announceMinTier.ordinal() + 1;
 		for (SpinTape.JackpotAward j : tape.jackpots()) {
+			Component tierName = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + SlotDefaults.TIER_KEYS[Math.max(1, Math.min(4, j.tier())) - 1]);
 			if (player != null) {
-				player.sendSystemMessage(Component.translatable("msg.burmaldaholic.slots.jackpot_self", Texts.chipsAcc(j.chips()))
+				player.sendSystemMessage(Component.translatable("msg.burmaldaholic.slots.jackpot_self", tierName, Texts.chipsAcc(j.chips()))
 					.withStyle(ChatFormatting.GOLD));
 			}
 			if (j.tier() >= announceFrom) {
 				server.getPlayerList().broadcastSystemMessage(Component.translatable("msg.burmaldaholic.slots.jackpot_broadcast",
-					Texts.raw(r.playerName), Texts.chipsAcc(j.chips()), machineName).withStyle(ChatFormatting.GOLD), false);
+					Texts.raw(r.playerName), tierName, Texts.chipsAcc(j.chips()), machineName).withStyle(ChatFormatting.GOLD), false);
 			}
 		}
 		SlotOutcomes.Facts facts = SlotOutcomes.facts(def, tape);
@@ -1230,6 +798,10 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
 			return;
 		}
+		if (!ownerAllowsAutoplay()) {
+			sendError(player, Component.translatable("gui.burmaldaholic.slots.error.autoplay_disabled"));
+			return;
+		}
 		if (round != null || autoV2 != null) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
 			return;
@@ -1271,7 +843,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		ServerPlayer player = serverLevel.getServer().getPlayerList().getPlayer(a.player);
-		if (player == null || !viewing(player)) {
+		if (player == null || !viewing(player) || !ownerAllowsAutoplay()) {
 			autoV2 = null;
 			return;
 		}
@@ -1317,7 +889,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			List.of(), -1, false);
 	}
 
-	/** Timeline seed + visible tape section, shared by the screen state and the cabinet sync ({@code SpinSync}). */
+	/** Timeline seed + visible tape section of the running round (screen state). */
 	private CompoundTag roundTag(RoundV2 r) {
 		CompoundTag st = new CompoundTag();
 		MachineDef def = SlotMachinesV2.def(r.machine);
@@ -1333,6 +905,14 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		st.putInt("gate_ticks", r.holdMs >= 0 ? -1 : r.timeline(def).sharedEndTicks());
 		st.putString("player", r.playerName);
 		return st;
+	}
+
+	@Override
+	public CompoundTag writeClientState(ServerPlayer viewer) {
+		CompoundTag t = baseState(viewer);
+		t.put("v2", clientStateV2(viewer));
+		t.putString("tier", tier.id());
+		return t;
 	}
 
 	private CompoundTag clientStateV2(ServerPlayer viewer) {
@@ -1354,7 +934,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			bet = offered.getFirst();
 		}
 		t.putLong("bet", bet);
-		boolean buyOk = CasinoConfig.slots().buyFeature.enabled && def.buyPriceFifths() > 0;
+		boolean buyOk = CasinoConfig.slots().buyFeature.enabled && def.buyPriceFifths() > 0 && ownerAllowsBuy();
 		t.putBoolean("buy_enabled", buyOk);
 		if (buyOk) {
 			t.putLong("buy_price", def.buyPrice(bet));
@@ -1364,11 +944,11 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putInt("max_win", def.capMultiple());
 		t.putBoolean("turbo_allowed", CasinoConfig.slots().turboAllowed);
 		t.putBoolean("turbo", turboV2.getOrDefault(viewer.getUUID(), false));
-		t.putBoolean("autoplay", CasinoConfig.slots().autoplay.enabled);
+		t.putBoolean("autoplay", CasinoConfig.slots().autoplay.enabled && ownerAllowsAutoplay());
 		t.putIntArray("auto_counts", CasinoConfig.slots().autoplay.counts);
 		t.putIntArray("auto_loss_limits", CasinoConfig.slots().autoplay.lossLimits);
 		t.putIntArray("big_win_tiers", CasinoConfig.slots().bigWinTiers);
-		// paytable + strips: the client builds frames and timelines from the same definition
+		// the machine definition: the client builds frames and timelines from the same data as the server
 		int[] pays = new int[def.paysFifths().length * 3];
 		for (int s = 0; s < def.paysFifths().length; s++) {
 			System.arraycopy(def.paysFifths()[s], 0, pays, s * 3, 3);
@@ -1377,12 +957,22 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putIntArray("scatter_pays", def.scatterFifths());
 		t.putIntArray("free_spins", def.freeSpins());
 		t.putInt("retrigger", def.retrigger());
+		t.putInt("fs_cap", def.fsCap());
 		t.putInt("fs_mult", def.fsMultiplier());
 		t.putIntArray("ladder", def.ladder());
 		t.putIntArray("ladder_free", def.ladderFree());
+		t.putInt("bonus_mask", def.bonusReelsMask());
+		t.putInt("buy", def.buyPriceFifths());
 		for (int r = 0; r < 5; r++) {
 			t.putIntArray("strip" + r, def.strips()[r]);
 		}
+		int[][] rings = def.features().wheelRings();
+		for (int i = 0; i < rings.length; i++) {
+			t.putIntArray("wheel" + i, rings[i]);
+		}
+		t.putInt("hunt_board", def.features().pickBoard());
+		t.putInt("hold_trigger", def.features().holdTrigger());
+		t.putInt("hold_respins", def.features().holdRespins());
 		t.putLong("jackpot_ref", def.features().jackpotRef());
 		long[] meters = new long[4];
 		JackpotPoolsV2 pools = JackpotPoolsV2.get(server);
@@ -1391,8 +981,13 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		}
 		t.putLongArray("jackpots", meters);
 		t.putLongArray("stats", pools.stats(viewer.getUUID(), m));
-		t.putIntArray("rest", restStops);
 		RoundV2 r = round;
+		// the window before the running spin (or the next one): stops and, after tumbles / sticky reels, its cells
+		int[] rest = r != null ? r.prevStops : restStops;
+		t.putIntArray("rest", rest);
+		if (restCells != null && Arrays.equals(rest, restStops)) {
+			t.putIntArray("rest_cells", restCells);
+		}
 		if (r != null) {
 			CompoundTag st = roundTag(r);
 			st.putBoolean("mine", r.player.equals(viewer.getUUID()));
@@ -1430,50 +1025,30 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		return t;
 	}
 
-	/** SpinSync for spectators and the cabinet renderer (SLOTS.md §10.5): one block update per round event. */
-	private CompoundTag syncTag() {
-		CompoundTag t = new CompoundTag();
-		t.putString("machine", machineV2().id);
-		t.putIntArray("rest", restStops);
-		RoundV2 r = round;
-		if (r != null) {
-			t.put("spin", roundTag(r));
-		}
-		if (lastV2 != null) {
-			CompoundTag res = lastV2.copy();
-			res.remove("player_id");
-			t.put("result", res);
-		}
-		return t;
+	// ---- in-world cabinet (J-L10, docs/architecture/animation.md §2.5) ------------------------------------------
+
+	/** The round's cabinet sync (visible tape section, times from the round's timeline) to every nearby renderer. */
+	private void publishRound(RoundV2 r) {
+		MachineDef def = SlotMachinesV2.def(r.machine);
+		SpinTape visible = visibleTape(def, r.tape);
+		publishCabinet(CabinetPublish.of(def, visible, r.timeline(def), r.seq, r.startTick, r.seed, r.speedPct, r.prevStops,
+			r.huntCells.stream().mapToInt(Integer::intValue).toArray(), CasinoConfig.slots().bigWinTiers));
 	}
 
-	private void sendSync() {
-		setChanged();
-		if (level instanceof ServerLevel) {
-			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-		}
-	}
-
-	// ---- in-world cabinet sync (lane J-L10 hook, docs/architecture/animation.md §2.5) -----------------
-	// Additive: nothing publishes yet (v1 keeps its look); the v2 cut-over (S-J5) calls publishCabinet once per
-	// spin (+1 per free spin / bonus step, coalesced ≥ 10 t) and the BER SlotCabinetRenderer draws from it.
-
-	private static final String CABINET_KEY = "cabinet";
-	private @Nullable CabinetSync cabinet;
-
-	/** Publishes a spin to every nearby client's cabinet renderer and schedules its world FX ({@link SlotsFx}). */
+	/**
+	 * Publishes a spin to every nearby client's cabinet renderer (block update); each client plays its world FX with its
+	 * own FX settings ({@link SlotsFx#clientSync}).
+	 */
 	public void publishCabinet(CabinetSync sync) {
 		cabinet = sync;
 		setChanged();
 		if (level instanceof ServerLevel serverLevel) {
 			BlockState st = getBlockState();
 			serverLevel.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
-			Direction facing = st.hasProperty(CasinoTableBlock.FACING) ? st.getValue(CasinoTableBlock.FACING) : Direction.NORTH;
-			SlotsFx.play(serverLevel, worldPosition, facing, sync);
 		}
 	}
 
-	/** The last published cabinet sync (client: from the update tag), or {@code null} before the first v2 spin. */
+	/** The last published cabinet sync (client: from the update tag), or {@code null} before the first spin. */
 	public @Nullable CabinetSync cabinetSync() {
 		return cabinet;
 	}
@@ -1489,9 +1064,6 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
-		if (v2Active() || round != null) {
-			t.put(SYNC_KEY, syncTag());
-		}
 		if (cabinet != null) {
 			t.putIntArray(CABINET_KEY, cabinet.encode());
 		}
@@ -1510,6 +1082,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			output.store(ROUND_KEY, CompoundTag.CODEC, round.save());
 		}
 		output.putIntArray("slots_rest", restStops);
+		if (restCells != null) {
+			output.putIntArray("slots_rest_cells", restCells);
+		}
 		if (cabinet != null) {
 			output.putIntArray(CABINET_KEY, cabinet.encode());
 		}
@@ -1520,8 +1095,12 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		super.loadAdditional(input);
 		input.read(ROUND_KEY, CompoundTag.CODEC).ifPresent(t -> round = RoundV2.load(t));
 		input.getIntArray("slots_rest").filter(a -> a.length == 5).ifPresent(a -> restStops = a);
-		input.read(SYNC_KEY, CompoundTag.CODEC).ifPresent(t -> clientSync = t);
+		restCells = input.getIntArray("slots_rest_cells").filter(a -> a.length == 15).orElse(null);
+		CabinetSync before = cabinet;
 		cabinet = input.getIntArray(CABINET_KEY).map(SlotMachineBlockEntity::decodeCabinet).orElse(null);
+		if (level != null && level.isClientSide() && cabinet != null && !cabinet.equals(before)) {
+			SlotsFx.clientSync.accept(this); // world FX of the new spin, played with this viewer's FX settings
+		}
 	}
 
 	/** Restart after a crash: the drawn round is settled from its persisted tape (SLOTS.md §8.1, §15 test 13). */

@@ -9,7 +9,7 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewMachines;
 import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTapes;
-import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewTimeline;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -108,7 +108,7 @@ public final class SlotPreviewScreen extends Screen {
 		TimingProfile shared = TimingProfile.SHARED.withSpeed(model.turbo ? 200 : 100);
 		int seed = SeedMix.mix(SeedMix.hash(s.name()), (int) (now / 1000));
 		body.stage().rest(s.restStops(), null);
-		Timeline tl = PreviewTimeline.buildOrPreview(s.tape(), s.def(), s.restStops(), shared, FxSettings.localProfile(), seed, true);
+		Timeline tl = SlotTimeline.build(s.tape(), s.def(), shared, FxSettings.localProfile(), seed, true, null);
 		body.stage().play(s.tape(), tl, SpinClock.wall(tl, now), seed);
 		model.balance -= s.tape().bought() ? (long) s.def().buyPriceFifths() * s.tape().bet() / 5 : s.tape().bet();
 	}

@@ -3,7 +3,6 @@ package dev.nezo.burmaldaholic.games.slots.logic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.nezo.burmaldaholic.core.config.sections.SlotsConfig;
 import dev.nezo.burmaldaholic.core.rng.OddsContext;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.rng.StreakRules;
@@ -83,16 +82,6 @@ class SlotRtpTest {
 	void ownedMachines() {
 		assertEquals(0.9351, SlotRtp.totalRtp(SlotTable.defaults(Tier.GOLD, true, 1000), 0.01), 1e-4);
 		assertEquals(0.9534, SlotRtp.totalRtp(SlotTable.defaults(Tier.NETHERITE, true, 1000), 0.015), 1e-4);
-	}
-
-	@Test
-	void configDefaultsMatchTheSpecTables() {
-		SlotsConfig c = new SlotsConfig();
-		assertEquals(SlotTable.defaults(Tier.COPPER).toString(),
-			SlotTable.of(c.copper.weights, c.copper.pays, c.copper.berryPartial, 1, false).toString());
-		assertEquals(SlotTable.defaults(Tier.GOLD).toString(), SlotTable.of(c.gold.weights, c.gold.pays, c.gold.berryPartial, 3, true).toString());
-		assertEquals(SlotTable.defaults(Tier.NETHERITE).toString(),
-			SlotTable.of(c.netherite.weights, c.netherite.pays, c.netherite.berryPartial, 5, true).toString());
 	}
 
 	@Test

@@ -19,7 +19,9 @@ public final class Solvency {
 	 * <ul>
 	 *   <li>blackjack: 4 split hands, all doubled, all win 1:1 (16×) + insurance ½ bet at 2:1 (1.5×) = 17.5×</li>
 	 *   <li>roulette: straight-up 35:1 → 36×; craps: Pass + 5× odds on 6/8 at 6:5 → 13×</li>
-	 *   <li>slots: Copper best line 150×; Gold / Netherite owned machines 1000× (3 stars, §8.5)</li>
+	 *   <li>slots v2: the max-win cap bounds the whole spin incl. free spins, bonus prizes and the owned fixed jackpots
+	 *       (SLOTS.md §8.6): Overworld Riches 500×, Nether Inferno 2 000×, End Void 5 000× ({@code slots.<m>.maxWinMultiple}
+	 *       defaults; the table's own reservation uses the configured cap)</li>
 	 *   <li>plinko: High bin 170×; wheel: X segment 10×; coin flip / dice duel 2×</li>
 	 *   <li>poker: PvP — the owner only takes rake, no exposure (0)</li>
 	 * </ul>
@@ -28,10 +30,10 @@ public final class Solvency {
 		Map.entry("blackjack", 17.5),
 		Map.entry("roulette", 36.0),
 		Map.entry("craps", 13.0),
-		Map.entry("slots", 1000.0),
-		Map.entry("slot_machine_copper", 150.0),
-		Map.entry("slot_machine_gold", 1000.0),
-		Map.entry("slot_machine_netherite", 1000.0),
+		Map.entry("slots", 5000.0),
+		Map.entry("slot_machine_copper", 500.0),
+		Map.entry("slot_machine_gold", 2000.0),
+		Map.entry("slot_machine_netherite", 5000.0),
 		Map.entry("plinko", 170.0),
 		Map.entry("plinko_machine", 170.0),
 		Map.entry("wheel_of_fortune", 10.0),

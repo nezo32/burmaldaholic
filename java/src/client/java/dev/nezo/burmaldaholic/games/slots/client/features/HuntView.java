@@ -26,7 +26,9 @@ import net.minecraft.world.item.Items;
  * squashes it and it RATTLES until the server confirms the reveal (D6: the i-th pick shows entry i, sent only on the
  * i-th pick, F7); then the lid opens with light rays and the prize pops (coin pile by size + "Chest: 50"), a gem flies
  * to its jackpot meter, or a Creeper swells, flickers and puffs (no explosion). At the end the remaining chests open
- * dimmed with the remaining real entries. Spectators / autoplay follow the HUNT_OPEN beats instead of picks.
+ * dimmed with the remaining real entries. The timeline pauses at the end of the hunt intro while the server waits for
+ * the picks: every viewer holds there and reveals the entries the server publishes (the spinning player also picks);
+ * a complete tape without a live server (preview spectator, replay) reveals its entries on the timeline.
  */
 public final class HuntView {
 	private static final ItemStack CHEST = new ItemStack(Items.CHEST);
@@ -37,7 +39,11 @@ public final class HuntView {
 
 	private HuntBoard board = new HuntBoard();
 	private Beat intro;
+	private Beat end;
 	private boolean interactive;
+	/** The server is still waiting for picks (the tape's entries arrive one by one). */
+	private boolean live;
+	private boolean held;
 	private boolean restShown;
 	private double endedAt = -1;
 	private final double[] pt = new double[2];
@@ -47,17 +53,34 @@ public final class HuntView {
 	public void reset(SlotStage s) {
 		board = new HuntBoard();
 		intro = null;
+		end = null;
 		interactive = false;
+		held = false;
 		restShown = false;
 		endedAt = -1;
 		java.util.Arrays.fill(puffed, false);
 		for (Beat b : s.beats(SlotTimeline.BONUS_INTRO)) if (b.arg(0) == SlotBeats.FEATURE_HUNT) intro = b;
+		for (Beat b : s.beats(SlotTimeline.HUNT_END)) end = b;
+		SpinTape.Hunt h = s.tape() == null ? null : s.tape().hunt();
+		live = h != null && s.tape().totalFifths() < 0;
+		if (live) {
+			// late join / reopened screen: the entries opened so far
+			int[] e = h.entries();
+			for (int i = 0; i < Math.min(h.opened(), e.length); i++) {
+				int chest = board.reveal(e[i], s.now());
+				if (chest >= 0) revealT[chest] = s.now();
+			}
+		}
 	}
 
-	public void registerHold(SlotStage s) {
+	/** Hold the clock at the end of the intro: for the picking player, and for everyone while the server waits. */
+	public void registerHold(SlotStage s, boolean interactive) {
 		if (intro == null || s.tape() == null || s.tape().hunt() == null) return;
-		interactive = true;
-		s.clock().holdAt(intro.end());
+		this.interactive = interactive;
+		if (interactive || live) {
+			held = true;
+			s.clock().holdAt(intro.end());
+		}
 	}
 
 	public HuntBoard board() {
@@ -70,6 +93,7 @@ public final class HuntView {
 
 	private double coverEnd(SlotStage s) {
 		if (intro == null) return Double.NEGATIVE_INFINITY;
+		if (end != null) return end.end();
 		double last = intro.end();
 		for (Beat b : s.beats(SlotTimeline.HUNT_OPEN)) last = Math.max(last, b.end());
 		SpinTape.Hunt h = s.tape() == null ? null : s.tape().hunt();
@@ -106,16 +130,33 @@ public final class HuntView {
 
 	public void update(SlotStage s) {
 		if (intro == null) return;
+		SpinTape.Hunt tapeHunt = s.tape() == null ? null : s.tape().hunt();
+		if (!held && tapeHunt != null && s.t() >= intro.end() && !board.ended()) {
+			// complete tape, nobody waits: reveal the opened entries on the timeline, then the rest
+			double span = end == null ? 1500 : Math.max(300, end.dur() - 700);
+			int n = Math.max(1, tapeHunt.opened());
+			int due = (int) Math.min(n, Math.floor((s.t() - intro.end()) / Math.min(300.0, span / n)) + 1);
+			int[] e = tapeHunt.entries();
+			while (board.opened() < due && board.opened() < e.length && !board.ended()) {
+				int v = e[board.opened()];
+				revealSound(s, v);
+				int chest = board.reveal(v, s.now());
+				if (chest >= 0) revealT[chest] = s.now();
+			}
+			if (board.opened() >= n && !board.ended()) {
+				board.revealRest(java.util.Arrays.copyOfRange(e, Math.min(board.opened(), e.length), e.length), s.now());
+			}
+		}
 		// end of the hunt: dim the rest once the last prize has been shown, then let the timeline continue
 		if (board.ended() && endedAt < 0) endedAt = s.now();
 		if (board.ended() && !restShown && s.now() - endedAt > 700) {
 			restShown = true;
 			SpinTape.Hunt h = s.tape() == null ? null : s.tape().hunt();
-			if (h != null && !interactive) {
+			if (h != null && !held && !interactive) {
 				int[] rest = java.util.Arrays.copyOfRange(h.entries(), Math.min(board.opened(), h.entries().length), h.entries().length);
 				board.revealRest(rest, s.now());
 			}
-			if (interactive) {
+			if (held) {
 				double last = intro.end();
 				for (Beat b : s.beats(SlotTimeline.HUNT_OPEN)) last = Math.max(last, b.end());
 				s.clock().release(last);

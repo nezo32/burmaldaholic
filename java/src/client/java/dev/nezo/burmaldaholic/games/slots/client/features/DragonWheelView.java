@@ -15,7 +15,6 @@ import dev.nezo.burmaldaholic.games.slots.v2.present.SlotBeats;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SoundPlan;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SymbolStyle;
 import dev.nezo.burmaldaholic.games.slots.v2.present.WheelMotion;
-import dev.nezo.burmaldaholic.games.slots.v2.present.preview.PreviewMachines;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
@@ -49,6 +48,7 @@ public final class DragonWheelView {
 		java.util.Arrays.fill(spins, null);
 		java.util.Arrays.fill(pegs, 0);
 		java.util.Arrays.fill(landedRing, false);
+		rings = s.def().features().wheelRings();
 		for (Beat b : s.beats(SlotTimeline.BONUS_INTRO)) if (b.arg(0) == SlotBeats.FEATURE_WHEEL) intro = b;
 		if (intro == null) return;
 		for (Beat b : s.beats(SlotTimeline.WHEEL_SPIN)) {
@@ -59,8 +59,11 @@ public final class DragonWheelView {
 		}
 	}
 
-	private static int[] wedges(int ring) {
-		return PreviewMachines.wheelRing(ring);
+	private int[][] rings = new int[0][];
+
+	/** Wedges of a ring from the machine definition the server sent (config {@code slots.end.wheel.*}). */
+	private int[] wedges(int ring) {
+		return rings.length == 0 ? new int[1] : rings[Math.max(0, Math.min(rings.length - 1, ring))];
 	}
 
 	public void registerHold(SlotStage s) {

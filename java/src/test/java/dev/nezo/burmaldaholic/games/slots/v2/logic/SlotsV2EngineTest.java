@@ -248,7 +248,7 @@ class SlotsV2EngineTest {
 				Timeline turbo = SlotTimeline.build(tape, d, TimingProfile.SHARED.withSpeed(200), TimingProfile.SHARED, i);
 				List<Beat> lands = tl.beats().stream().filter(b -> b.kind().equals(SlotTimeline.REEL_LAND) && b.group() == 0).toList();
 				assertEquals(5, lands.size());
-				for (Beat b : lands) assertEquals(tape.stops()[b.lane()], b.arg(0), "reel lands on the drawn stop");
+				for (Beat b : lands) assertEquals(tape.stops()[b.lane()], b.arg(1), "reel lands on the drawn stop");
 				int gate = tl.sharedEndMs();
 				for (Beat b : tl.beats()) {
 					if (b.clock() == Clock.LOCAL) assertTrue(b.at() >= gate, "local beat before the gate");

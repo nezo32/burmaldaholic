@@ -1,8 +1,8 @@
 package dev.nezo.burmaldaholic.games.slots.v2.present;
 
 /**
- * The beat CONTRACT between the {@code SlotTimeline} builder (lane J-L8 / S-J3, Bedrock S-B3) and every consumer
- * of slot frames (the Java screen, the BER, the Bedrock form and entity). Kinds are the
+ * The beat CONTRACT between the {@code SlotTimeline} builder and every consumer of slot frames (the screen, the cabinet
+ * sync, the server settle gate). Kinds are the
  * {@code SlotTimeline.*} constants; this class fixes their {@code lane} and {@code args} layout. All amounts are
  * CHIPS (already × bet); all times integer ms. Nothing here is ever revealed before its beat's {@code at}
  * (slots.md §2.1 F7), so a beat's args may carry the data its frames need.
@@ -26,13 +26,17 @@ package dev.nezo.burmaldaholic.games.slots.v2.present;
  * FS_RETRIGGER    -1              1200                      [added, spinsTotal]
  * FS_OUTRO        -1              roll-up + 1500            [featureChips]
  * BONUS_INTRO     -1              600 / 800 / 700           [feature, triggerMask, …]   2 hunt, 3 hoard [coinMask, v…], 4 wheel
- * HUNT_OPEN       pick index      400 + 300                 [entry]                     (interactive, sent per pick)
+ * HUNT_OPEN       pick index      400 + 300                 [entry]                     (not in a server timeline: picks are sent per pick)
+ * HUNT_END        -1              80 × board + 900          []                          rest reveal after the picks; the timeline PAUSES
+ *                                                                                        at the end of the hunt BONUS_INTRO until then
  * HOARD_RESPIN    respin index    900                       [newMask, respinsLeft, v…]  v = value code per new cell, cell-index order
  * HOARD_COLLECT   -1              120 × coins + 300         [totalChips, full]
  * WHEEL_SPIN      ring 0..2       4500 / 4000 / 5000        [segment]
  * WHEEL_UP        ring left       800                       []
- * JACKPOT         award index     by sub-tier (§4.11)       [tier, chips]               LOCAL clock
- * ROLLUP          -1              roll-up + 800 hold        [chips, tierOrdinal, bet]   LOCAL clock
+ * BONUS_END       -1              600 glow + 400 exit       [feature]                   (wheel)
+ * ROLLUP          -1              roll-up + 800 hold        [chips, tierOrdinal, bet]   LOCAL clock, first after the gate
+ * WAY_CYCLE entries run next to the ROLLUP (LOCAL, base game without a feature)
+ * JACKPOT         award index     by sub-tier (§4.11)       [tier, chips]               LOCAL clock, after the roll-up
  * MAX_WIN         -1              500                       []
  * END             -1              0                         []
  * </pre>

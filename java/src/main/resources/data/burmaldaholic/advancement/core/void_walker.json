@@ -1,16 +1,16 @@
 {
-  "parent": "burmaldaholic:core/top_five",
+  "parent": "burmaldaholic:core/free_spins",
   "display": {
     "icon": {
-      "id": "burmaldaholic:slot_machine_netherite"
+      "id": "minecraft:dragon_egg"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.jackpot.title"
+      "translate": "advancement.burmaldaholic.void_walker.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.jackpot.description"
+      "translate": "advancement.burmaldaholic.void_walker.description"
     },
-    "frame": "challenge",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

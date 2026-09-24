@@ -130,10 +130,10 @@ public final class JackpotPoolsV2 extends SavedData {
 		long netherite = 0;
 		for (Tier t : new Tier[] {Tier.GOLD, Tier.NETHERITE}) {
 			JackpotPool p = v1.pool(t);
-			long extra = Math.max(0, p.pool() - SlotsMath.seed(t));
+			long extra = Math.max(0, p.pool() - JackpotData.v1Seed(t));
 			if (t == Tier.GOLD) gold = extra;
 			else netherite = extra;
-			v1.set(t, JackpotPool.seeded(SlotsMath.seed(t)));
+			v1.set(t, JackpotPool.seeded(JackpotData.v1Seed(t)));
 		}
 		inc(Machine.NETHER)[Jackpots.GRAND] += gold;
 		inc(Machine.END)[Jackpots.GRAND] += netherite;

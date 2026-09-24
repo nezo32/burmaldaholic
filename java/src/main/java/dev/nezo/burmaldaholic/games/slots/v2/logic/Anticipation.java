@@ -55,17 +55,25 @@ public final class Anticipation {
 
 	/** The anticipation condition after reel {@code k} (0-based) has stopped. */
 	public static boolean condition(MachineDef def, Window w, int k, boolean free, int stickyBefore) {
-		if (k >= 4) return false;
+		return reason(def, w, k, free, stickyBefore) != 0;
+	}
+
+	/**
+	 * Why reel {@code k + 1} anticipates: 1 scatters, 2 bonus symbols, 3 coins ({@code SlotTimeline.REASON_*}), 0 = it
+	 * does not (the condition after reel {@code k} has stopped).
+	 */
+	public static int reason(MachineDef def, Window w, int k, boolean free, int stickyBefore) {
+		if (k >= 4) return 0;
 		int sc = def.scatter();
 		int scat = 0;
 		for (int r = 0; r <= k; r++) for (int y = 0; y < 3; y++) if (w.at(r, y) == sc) scat++;
 		if (scat >= 2) {
 			for (int r = k + 1; r < 5; r++) {
 				boolean sticky = free && r >= 1 && r <= 3 && (stickyBefore >> (r - 1) & 1) != 0;
-				if (!sticky && stripHas(def, r, sc)) return true;
+				if (!sticky && stripHas(def, r, sc)) return 1;
 			}
 		}
-		if (free) return false;
+		if (free) return 0;
 		int bonusMask = def.bonusReelsMask();
 		int bo = def.bonus();
 		if (bonusMask != 0 && bo >= 0) {
@@ -80,7 +88,7 @@ public final class Anticipation {
 					for (int y = 0; y < 3; y++) has |= w.at(r, y) == bo;
 					ok &= has;
 				}
-				if (ok && stoppedBonusReels == Integer.bitCount(bonusMask) - 1) return true;
+				if (ok && stoppedBonusReels == Integer.bitCount(bonusMask) - 1) return 2;
 			}
 		}
 		int co = def.coin();
@@ -91,10 +99,10 @@ public final class Anticipation {
 			if (coins >= 4) {
 				int more = 0;
 				for (int r = k + 1; r < 5; r++) more += maxInWindow(def, r, co);
-				if (coins + more >= trigger && more > 0) return true;
+				if (coins + more >= trigger && more > 0) return 3;
 			}
 		}
-		return false;
+		return 0;
 	}
 
 	private static boolean stripHas(MachineDef def, int reel, int symbol) {

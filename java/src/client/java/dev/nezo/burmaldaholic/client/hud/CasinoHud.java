@@ -53,6 +53,8 @@ public final class CasinoHud {
 		register(Burmaldaholic.id("streak_vip"), 100, CasinoHud::streakAndVip);
 		register(Burmaldaholic.id("loan"), 200, CasinoHud::loan);
 		register(Burmaldaholic.id("golden_hour"), 300, CasinoHud::goldenHour);
+		// J6 holdBalanceDelta: presentations (fx payload holdMs, the slot screen) keep the balance delta until the reveal
+		dev.nezo.burmaldaholic.client.fx.ClientFx.balanceHold = ClientCasinoState::holdBalanceDelta;
 	}
 
 	// ---- core segments ------------------------------------------------------------------------
@@ -60,7 +62,7 @@ public final class CasinoHud {
 	private static void balance(HudContext ctx, java.util.function.Consumer<HudLine> out) {
 		PlayerStatusPayload s = ctx.status();
 		boolean golden = s.goldenHourTicks() > 0;
-		Component text = Component.translatable("hud.burmaldaholic.balance", Texts.number(s.balance()));
+		Component text = Component.translatable("hud.burmaldaholic.balance", Texts.number(ClientCasinoState.shownBalance()));
 		Component delta = null;
 		if (ClientCasinoState.lastDelta() != 0 && ClientCasinoState.ticksSinceDelta() < 30) {
 			long d = ClientCasinoState.lastDelta();

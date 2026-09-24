@@ -18,7 +18,7 @@ import java.util.function.DoubleSupplier;
  * </ul>
  */
 public final class SpinClock {
-	private final Timeline timeline;
+	private Timeline timeline;
 	private final DoubleSupplier shared;
 	private final int sharedEnd;
 	private double offset;
@@ -58,6 +58,11 @@ public final class SpinClock {
 
 	public Timeline timeline() {
 		return timeline;
+	}
+
+	/** Same spin, more of its tape revealed (the shared part is unchanged): the local part may have grown. */
+	public void retarget(Timeline next) {
+		this.timeline = next;
 	}
 
 	/** Timeline time for this frame. */

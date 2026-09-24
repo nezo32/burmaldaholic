@@ -1,14 +1,14 @@
 {
-  "parent": "burmaldaholic:core/top_five",
+  "parent": "burmaldaholic:core/epic_win",
   "display": {
     "icon": {
-      "id": "burmaldaholic:slot_machine_netherite"
+      "id": "minecraft:nether_star"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.jackpot.title"
+      "translate": "advancement.burmaldaholic.max_win.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.jackpot.description"
+      "translate": "advancement.burmaldaholic.max_win.description"
     },
     "frame": "challenge",
     "show_toast": true,

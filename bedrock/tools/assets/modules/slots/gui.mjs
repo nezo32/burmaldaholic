@@ -657,11 +657,11 @@ export function guiOutputs() {
   for (const m of MACHINE_ORDER) {
     sprite(`${m}/cabinet`, cabinetFrame(m, false), { nineSlice: { width: 64, height: 64, border: 12 } });
     sprite(`${m}/cabinet_fs`, cabinetFrame(m, true), { nineSlice: { width: 64, height: 64, border: 12 } });
-    sprite(`${m}/marquee`, marquee(m, false), { frametime: 3 });
-    sprite(`${m}/marquee_fs`, marquee(m, true), { frametime: 3 });
+    sprite(`${m}/marquee`, marquee(m, false), { frametime: 3, frame: [128, 12] });
+    sprite(`${m}/marquee_fs`, marquee(m, true), { frametime: 3, frame: [128, 12] });
     sprite(`${m}/banner`, banner(m, 48, 12), { nineSlice: { width: 48, height: 48, border: 12 } });
     sprite(`${m}/banner_small`, banner(m, 32, 8), { nineSlice: { width: 32, height: 32, border: 8 } });
-    sprite(`${m}/anticipation`, anticipation(m), { frametime: 1 });
+    sprite(`${m}/anticipation`, anticipation(m), { frametime: 1, frame: [48, 140] });
     out.push(png('java', `${J}/textures/gui/slots/${m}_backdrop.png`, backdrop(m, false)));
     out.push(png('java', `${J}/textures/gui/slots/${m}_backdrop_fs.png`, backdrop(m, true)));
     out.push(png('java', `${J}/textures/gui/slots/${m}_parallax.png`, parallax(m)));
@@ -682,16 +682,16 @@ export function guiOutputs() {
   sprite('overworld/chest_dim', fade(desaturate(cell40(ICON.chest_open), 0.6), 0.6));
   for (const n of ['s', 'm', 'l']) sprite(`overworld/coin_pile_${n}`, coinPile(n));
   sprite('overworld/creeper', creeperFrames());
-  sprite('overworld/stack_bracket', stackBracket(), { frametime: 3 });
+  sprite('overworld/stack_bracket', stackBracket(), { frametime: 3, frame: [44, 92] });
   // Nether features
   sprite('nether/burn', burnFrames('nether'));
   sprite('nether/ladder_plate', ladderPlate(false));
-  sprite('nether/ladder_plate_lit', vstrip([ladderPlate(true), brighten(ladderPlate(true), 1.2)]), { frametime: 4 });
+  sprite('nether/ladder_plate_lit', vstrip([ladderPlate(true), brighten(ladderPlate(true), 1.2)]), { frametime: 4, frame: [72, 16] });
   sprite('nether/coin_lock', coinLock());
   sprite('nether/empty_cell', affine(art(ICON.empty_cell), 44, 44, { scale: 2.75, px: 8, py: 8, ox: 22, oy: 22 }));
   sprite('nether/ember_blur', affine(art(ICON.ember_blur), 44, 44, { scale: 2.75, px: 8, py: 8, ox: 22, oy: 22 }));
   // End features
-  sprite('end/sticky_frame', stickyFrame(), { frametime: 3 });
+  sprite('end/sticky_frame', stickyFrame(), { frametime: 3, frame: [44, 136] });
   sprite('end/wedge_outer', wedge(20, 64, '#E8E4A8', '#B07010'));
   sprite('end/wedge_middle', wedge(16, 48, '#A77BA7', '#B07010'));
   sprite('end/wedge_core', wedge(12, 32, '#5A2A6A', '#FFD640'));
@@ -707,7 +707,7 @@ export function guiOutputs() {
   pvp('hazard_swap', art(ICON.hazard_swap));
   pvp('hazard_warp', art(ICON.hazard_warp));
   pvp('crack', crackFrames());
-  pvp('flame_underline', flameUnderline(), { frametime: 3 });
+  pvp('flame_underline', flameUnderline(), { frametime: 3, frame: [80, 6] });
   pvp('chip_x2', chipX2());
   pvp('check', art(ICON.ready_check));
   // Bedrock form icons (DDUI / classic buttons)

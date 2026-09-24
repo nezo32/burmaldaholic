@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.core.anim.WinTier;
 import dev.nezo.burmaldaholic.games.slots.SlotMachineBlockEntity;
 import dev.nezo.burmaldaholic.games.slots.SlotsFx;
 import dev.nezo.burmaldaholic.games.slots.SlotsModule;
+import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetFxPlan;
 import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetSync;
 import dev.nezo.burmaldaholic.games.slots.logic.Tier;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
@@ -35,14 +36,14 @@ public class SlotCabinetGameTests {
 		helper.setBlock(rel, SlotsModule.MACHINES.get(Tier.COPPER).block());
 		SlotMachineBlockEntity be = helper.getBlockEntity(rel, SlotMachineBlockEntity.class);
 		var registries = helper.getLevel().registryAccess();
-		helper.assertTrue(be.cabinetSync() == null, "no cabinet before the first v2 spin (v1 look unchanged)");
+		helper.assertTrue(be.cabinetSync() == null, "no cabinet before the first spin");
 		helper.assertFalse(be.getUpdateTag(registries).contains("cabinet"), "empty update tag before a spin");
 		long now = helper.getLevel().getGameTime();
 		CabinetSync sync = CabinetSync.builder(Machine.OVERWORLD, 1, now, 42, 100, strips(), new int[] {0, 1, 2, 3, 4})
 			.spin(new int[] {5, 6, 7, 8, 9}).wins(0b111).done()
 			.result(WinTier.BIG, 500, 0, false).build();
 		be.publishCabinet(sync);
-		helper.assertTrue(SlotsFx.queued() > 0, "world FX scheduled");
+		helper.assertTrue(!CabinetFxPlan.events(sync).isEmpty(), "world FX planned (played by each client with its FX settings)");
 		helper.assertTrue(SlotsFx.emberBurst() != null && BuiltInRegistries.PARTICLE_TYPE.getKey(SlotsFx.emberBurst()) != null,
 			"ember_burst registered");
 		CompoundTag tag = be.getUpdateTag(registries);
@@ -55,10 +56,6 @@ public class SlotCabinetGameTests {
 		helper.assertTrue(sync.equals(copy.cabinetSync()), "client block entity decodes the sync");
 		CompoundTag saved = be.saveWithoutMetadata(registries);
 		helper.assertTrue(saved.getIntArray("cabinet").isPresent(), "the last window survives a save");
-		int gateTicks = (sync.gateMs() + 49) / 50;
-		helper.runAfterDelay(gateTicks + 3, () -> {
-			helper.assertTrue(SlotsFx.queued() == 0, "every scheduled FX event played");
-			helper.succeed();
-		});
+		helper.succeed();
 	}
 }

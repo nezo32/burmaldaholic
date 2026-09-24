@@ -195,6 +195,7 @@ public final class SidePanels {
 		}
 		if (s.active()) line = s.winShow().label(s);
 		if (line == null && model.autoLeft >= 0) line = Component.translatable("gui.burmaldaholic.slots.auto_left", Texts.number(model.autoLeft));
+		if (line == null && model.autoSummary != null && !s.spinning()) line = model.autoSummary;
 		if (line != null) SlotDraw.centeredFit(g, font, line, l.wx + l.windowW() / 2, l.labelY, l.width - 20, color);
 	}
 

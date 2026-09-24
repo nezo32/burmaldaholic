@@ -27,6 +27,8 @@ public final class SlotModel {
 	/** Return to player in hundredths of a percent (e.g. 9507), 0 = unknown. */
 	public int rtpBasisPoints;
 	public int buyRtpBasisPoints;
+	/** Autoplay result line (the last autoplay's summary / stop reason), or null. */
+	public net.minecraft.network.chat.Component autoSummary;
 	/** Error line key (null = none). */
 	public String errorKey;
 	public long errorAt;

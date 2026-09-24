@@ -124,11 +124,30 @@ public final class SlotStage {
 		wheel.reset(this);
 		jackpots.reset();
 		bigWin.reset(this);
-		// interactive points: the hunt waits for picks, the wheel for its button (spinning player only)
-		if (host.interactive()) {
-			hunt.registerHold(this);
-			wheel.registerHold(this);
-		}
+		// interactive points: the hunt waits for picks (the spinning player; everyone while the server waits for them),
+		// the wheel for its button (spinning player, locally paced only: the server never waits for it)
+		hunt.registerHold(this, host.interactive());
+		if (host.interactive() && !host.serverPaced()) wheel.registerHold(this);
+		this.playRestStops = restStops.clone();
+		this.playRestCells = restCells.clone();
+	}
+
+	private int[] playRestStops = new int[5];
+	private int[] playRestCells = new int[15];
+
+	/**
+	 * The server revealed more of the running spin's tape (the Treasure Hunt ended: the full tape with its total and
+	 * jackpots): swap in the new timeline without touching the clock position (its shared part is identical).
+	 */
+	public void retape(SpinTape tape, Timeline timeline) {
+		if (script == null || finished) return;
+		this.tape = tape;
+		this.script = new SlotScript(timeline, def, playRestStops, playRestCells);
+		this.frames = new SlotFrames.Sampler(script);
+		this.clock.retarget(timeline);
+		frames.sample(t);
+		jackpots.reset();
+		bigWin.reset(this);
 	}
 
 	/** Outcome-free spin-up on click (F1, research §2.11): reels start moving before the tape arrives. */

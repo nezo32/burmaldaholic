@@ -113,8 +113,8 @@ public final class Overlays {
 		int wild = index(def, SymbolRole.WILD);
 		int scatter = index(def, SymbolRole.SCATTER);
 		int bonus = def.machine() == Machine.NETHER ? index(def, SymbolRole.COIN) : index(def, SymbolRole.BONUS);
-		// the wild line (gui.burmaldaholic.slots.paytable.wild, 3 args in SLOTS.md §13.5) is added at the cut-over: the key
-		// still carries its v1 value (0 args) while the v1 screen uses it
+		cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.paytable.wild", name(m, wild), name(m, scatter), name(m, bonus)), tx,
+			cy, tw, 0xFFF4ECF8) + 4;
 		int[] sp = def.scatterFifths();
 		if (sp[0] > 0) {
 			cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.paytable.scatter", name(m, scatter), chips(sp[0], model), chips(sp[1], model),

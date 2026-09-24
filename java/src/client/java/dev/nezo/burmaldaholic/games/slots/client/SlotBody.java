@@ -108,6 +108,18 @@ public final class SlotBody implements StageHost {
 		this.interactive = on;
 	}
 
+	private boolean serverPaced;
+
+	/** The real machine screen: the shared clock is the server's (see {@link StageHost#serverPaced()}). */
+	public void serverPaced(boolean on) {
+		this.serverPaced = on;
+	}
+
+	@Override
+	public boolean serverPaced() {
+		return serverPaced;
+	}
+
 	@Override
 	public boolean interactive() {
 		return interactive;

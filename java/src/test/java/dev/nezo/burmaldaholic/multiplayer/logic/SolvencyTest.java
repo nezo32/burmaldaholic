@@ -18,9 +18,10 @@ class SolvencyTest {
 		assertEquals(36, Solvency.worstCasePerChip("roulette", "roulette_table"));
 		assertEquals(17.5, Solvency.worstCasePerChip("blackjack", "blackjack_table"));
 		assertEquals(13, Solvency.worstCasePerChip("craps", null));
-		assertEquals(150, Solvency.worstCasePerChip("slots", "slot_machine_copper"));
-		assertEquals(1000, Solvency.worstCasePerChip("slots", "slot_machine_netherite"));
-		assertEquals(1000, Solvency.worstCasePerChip("slots", "unknown_machine"));
+		assertEquals(500, Solvency.worstCasePerChip("slots", "slot_machine_copper"));
+		assertEquals(2000, Solvency.worstCasePerChip("slots", "slot_machine_gold"));
+		assertEquals(5000, Solvency.worstCasePerChip("slots", "slot_machine_netherite"));
+		assertEquals(5000, Solvency.worstCasePerChip("slots", "unknown_machine"));
 		assertEquals(170, Solvency.worstCasePerChip("extras", "plinko_machine"));
 		assertEquals(0, Solvency.worstCasePerChip("poker", "poker_table"));
 		assertEquals(Solvency.UNKNOWN_WORST_CASE_PER_CHIP, Solvency.worstCasePerChip("mystery", "mystery_table"));
