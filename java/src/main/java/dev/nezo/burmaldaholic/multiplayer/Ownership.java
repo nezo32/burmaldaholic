@@ -109,7 +109,7 @@ public final class Ownership {
 				return;
 			}
 			var tb = bt.tableBots();
-			var cur = tb.limits();
+			var cur = tb.ownerLimits(level); // owned defaults until the owner saved limits (not the raw unowned ones)
 			var mode = allowed ? (cur.botsMode() == dev.nezo.burmaldaholic.core.bots.logic.BotsMode.OFF
 				? dev.nezo.burmaldaholic.core.bots.logic.BotsMode.ALLOWED : cur.botsMode()) : dev.nezo.burmaldaholic.core.bots.logic.BotsMode.OFF;
 			if (mode != cur.botsMode()) {

@@ -10,6 +10,7 @@ import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
 import dev.nezo.burmaldaholic.core.bots.logic.BotsMode;
+import dev.nezo.burmaldaholic.core.bots.logic.HeatNotices;
 import dev.nezo.burmaldaholic.core.bots.logic.HeatStage;
 import dev.nezo.burmaldaholic.core.bots.logic.OwnerControls;
 import dev.nezo.burmaldaholic.core.bots.logic.Personality;
@@ -119,6 +120,8 @@ public final class TableBots {
 	private boolean orphansChecked;
 	private boolean bankrollShort;
 	private final Set<String> said = new HashSet<>();
+	/** Heat lines told, world-wide (per table key, player, day); cleared on server stop / heat reset. */
+	static final HeatNotices HEAT_NOTICES = new HeatNotices();
 	private @Nullable MinecraftServer server;
 
 	public TableBots(BotTable table, BotSettings defaults, OwnerControls limits) {
@@ -191,6 +194,18 @@ public final class TableBots {
 	/** The stored owner / keeper limits (see {@link #effectiveLimits} for what applies). */
 	public OwnerControls limits() {
 		return limits;
+	}
+
+	/**
+	 * The owner / keeper limits to show and to edit from (§6.2): the stored ones once set, else — at an owned
+	 * table — {@link OwnerControls#ownedDefaults} (Atmosphere only, private forbidden). Unlike
+	 * {@link #effectiveLimits} the charter's "bots off" switch is not folded in. Edits (settings screen,
+	 * charter switch sync) must start from this, never from the raw {@link #limits()}: those are the unowned
+	 * defaults (Allowed, private on) until the owner saves, so an edit based on them would silently turn on
+	 * bankroll-funded money bots.
+	 */
+	public OwnerControls ownerLimits(ServerLevel level) {
+		return limitsSet || ownership(level).isEmpty() ? limits : OwnerControls.ownedDefaults(table.botSeatCount());
 	}
 
 	/** Limits that apply now (§6.2): unowned → Bots always Allowed; owned → the owner's, or owned defaults until set. */
@@ -465,6 +480,21 @@ public final class TableBots {
 		List<UUID> humans = table.seatedHumans();
 		claimants.removeIf(humans::contains);
 		pruneClaimants(level);
+		if (table.botRole() == BotRole.ATMOSPHERE) {
+			// an atmosphere bot the table dropped (VirtualSeats.resolve: a human was seated on its seat with no
+			// other seat left) is forgotten here, or it would count as seated forever (world budget, plan)
+			Set<String> seatedKeys = new HashSet<>();
+			for (SeatOccupant o : table.occupants()) {
+				if (o != null && o.isBot()) {
+					seatedKeys.add(o.key());
+				}
+			}
+			for (SeatedBot b : List.copyOf(bots)) {
+				if (!seatedKeys.contains(b.key())) {
+					leave(level.getServer(), b); // the game forgets it too (unseatBot); atmosphere bots hold nothing
+				}
+			}
+		}
 		boolean applied = false;
 		if (humans.isEmpty() && claimants.isEmpty()) {
 			boolean had = session != null;
@@ -514,20 +544,39 @@ public final class TableBots {
 		boolean sulk = false;
 		boolean hardOnly = false;
 		if (houseMoney) {
+			java.util.Map<UUID, HeatStage> stages = new java.util.LinkedHashMap<>();
 			for (UUID h : humans) {
 				HeatStage st = BotLedger.stage(srv, h);
+				stages.put(h, st);
 				if (st == HeatStage.SULKING) {
 					sulk = true;
-					announceOnce(level, humans, "sulk:" + h, Component.translatable("msg.burmaldaholic.bots.sulking", nameOf(level, h)), "sulk", h);
 				} else if (st == HeatStage.HARD_ONLY && "poker".equals(table.botGameId())) {
 					hardOnly = true;
-					announceOnce(level, humans, "heat:" + h, Component.translatable("msg.burmaldaholic.bots.word_got_around", nameOf(level, h)),
-						"word_got_around", h);
+				}
+			}
+			// the heat lines have ONE source (this one): once per table, player and stage per day; the quip goes
+			// through the table's chatter queue, so it respects the table's Chatter toggle (review wave 3)
+			for (HeatNotices.Notice n : HEAT_NOTICES.due(key(), table.botGameId(), true, stages, BotLedger.today(srv))) {
+				tell(level, humans, Component.translatable(n.message(), nameOf(level, n.player())));
+				if (!bots.isEmpty()) {
+					say(level, bots.getFirst().profile, n.quip(), nameOf(level, n.player()).getString());
 				}
 			}
 		}
 		long buyIn = Math.max(0, table.botBuyIn());
 		int affordable = role == BotRole.ATMOSPHERE ? Integer.MAX_VALUE : purse == null ? 0 : BotPurses.affordable(srv, purse, buyIn, key());
+		if (purse != null && purse.kind() == Purse.Kind.BANKROLL && buyIn > 0) {
+			// bots that leave at this safe point (relevel, busted, yield) return their chips before the newcomers
+			// are funded: count them, or a relevel at a fully-invested bankroll ends with no bots. fund() still
+			// checks the real balance for every newcomer.
+			long back = 0;
+			for (SeatedBot b : bots) {
+				if (b.purse.equals(purse)) {
+					back += b.held();
+				}
+			}
+			affordable = BotEconomyMath.affordable(BotPurses.available(srv, purse) + back, buyIn);
+		}
 		SeatPlan.Input in = new SeatPlan.Input(settings(), Bots.enabled(), table.botSeatCount(), humans.size(), claimants, planBots(true),
 			table.yieldRule(), eff, role, atmosphereCap(), Bots.activeBudgetLeft(), !bots.isEmpty() || Bots.tableSlotAvailable(), affordable,
 			hardOnly, sulk, applied && !hardOnly && table.botDifficultyMatters() ? settings().difficulty() : null);

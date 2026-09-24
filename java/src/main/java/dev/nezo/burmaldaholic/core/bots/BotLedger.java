@@ -80,9 +80,15 @@ public final class BotLedger {
 		return BotEconomyMath.ticksToNextDay(server.overworld().getGameTime());
 	}
 
-	/** {@code /casino bots heat <player> reset}. */
+	/** {@code /casino bots heat <player> reset}: today's net, the adaptive-heat stats and the told heat lines. */
 	public static void reset(MinecraftServer server, UUID player) {
-		BotLedgerData.get(server).reset(player);
+		BotLedgerData.get(server).reset(player); // today's net AND the adaptive-heat stats
+		TableBots.HEAT_NOTICES.reset(player); // the heat lines may be told again
+	}
+
+	/** Today's Minecraft day (the heat window). */
+	public static long today(MinecraftServer server) {
+		return day(server);
 	}
 
 	// ---- per-table house buy-ins (§5.1) ------------------------------------------------------------

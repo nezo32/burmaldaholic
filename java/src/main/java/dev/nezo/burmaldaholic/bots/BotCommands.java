@@ -7,10 +7,8 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.nezo.burmaldaholic.bots.logic.CommandArgs;
 import dev.nezo.burmaldaholic.core.bots.BotLedger;
-import dev.nezo.burmaldaholic.core.bots.BotLedgerData;
 import dev.nezo.burmaldaholic.core.bots.TableBots;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
-import dev.nezo.burmaldaholic.core.bots.logic.BotEconomyMath;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
 import dev.nezo.burmaldaholic.core.command.CasinoCommands;
@@ -270,11 +268,8 @@ final class BotCommands {
 	private static int heatReset(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		ServerPlayer who = EntityArgument.getPlayer(ctx, "player");
 		MinecraftServer server = ctx.getSource().getServer();
-		long net = BotLedger.netToday(server, who.getUUID());
-		if (net != 0) {
-			BotLedgerData.get(server).add(who.getUUID(), BotEconomyMath.mcDay(server.overworld().getGameTime()), -net);
-		}
-		BotHeat.WATCH.reset(who.getUUID());
+		// today's net, the adaptive-heat stats (BB/100 over the last hands) and the heat lines already told
+		BotLedger.reset(server, who.getUUID());
 		ctx.getSource().sendSuccess(() -> Component.translatable("msg.burmaldaholic.bots.heat_reset", Texts.raw(who.getName().getString()))
 			.withStyle(ChatFormatting.GREEN), true);
 		return 1;

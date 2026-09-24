@@ -46,6 +46,7 @@ public final class Bots {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			LIVE.clear();
 			external = 0;
+			TableBots.HEAT_NOTICES.clear();
 		});
 	}
 

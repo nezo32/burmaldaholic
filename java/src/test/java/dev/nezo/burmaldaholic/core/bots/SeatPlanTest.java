@@ -178,6 +178,30 @@ class SeatPlanTest {
 	}
 
 	@Test
+	void relevelAtAWorldFullTableReplacesItsOwnBots() {
+		// bots.maxActive = 4, this table holds all 4 (budget left 0): EASY → HARD must not strand the table
+		In in = new In();
+		for (int i = 0; i < 4; i++) {
+			in.bots.add(bot("e" + i, i + 1, 200, i + 1, i, BotDifficulty.EASY));
+		}
+		in.budget = 0;
+		in.relevel = BotDifficulty.HARD;
+		SeatPlan.Plan p = in.plan();
+		assertEquals(4, p.leave().size());
+		assertEquals(4, p.join(), "the leaving bots' own slots are reused");
+		// a busted bot at a world-full table is replaced too
+		in = new In().bots(4);
+		in.bots.set(1, new SeatPlan.Bot("b1", 2, 0, 2, false, 1, BotDifficulty.NORMAL, true, true));
+		in.budget = 0;
+		p = in.plan();
+		assertEquals(List.of("b1"), p.leave());
+		assertEquals(1, p.join());
+		// ...but never more than the slots it freed
+		in.bots.remove(3);
+		assertEquals(1, in.plan().join(), "3 bots, 1 busted: 4 wanted but only the freed slot is free world-wide");
+	}
+
+	@Test
 	void sulkingEmptiesHouseBots() {
 		In in = new In().bots(4);
 		in.sulk = true;

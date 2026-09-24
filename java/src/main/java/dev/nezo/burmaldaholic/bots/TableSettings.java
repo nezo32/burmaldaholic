@@ -141,16 +141,7 @@ public final class TableSettings {
 			return r.error();
 		}
 		f.blockEntity().setChanged();
-		if (!asDefaults) {
-			Component summary = summary(f, r.value() != null ? r.value() : c.settings());
-			Component line = Component.translatable("msg.burmaldaholic.bots.settings_pending", Texts.raw(player.getGameProfile().name()), summary);
-			for (UUID id : f.table().seatedHumans()) {
-				ServerPlayer p = player.level().getServer().getPlayerList().getPlayer(id);
-				if (p != null) {
-					p.sendSystemMessage(line);
-				}
-			}
-		}
+		// the seated humans hear settings_pending from TableBots.requestChange (once, and only for a real change)
 		return null;
 	}
 
@@ -234,7 +225,7 @@ public final class TableSettings {
 		if (!v.mayEditLimits()) {
 			return Component.translatable(SettingsRules.HOST_LOCKED);
 		}
-		OwnerControls cur = f.bots().limits();
+		OwnerControls cur = f.bots().ownerLimits(f.level());
 		BotsMode mode = cur.botsMode();
 		String m = a.getStringOr("mode", mode.name());
 		for (BotsMode b : BotsMode.values()) {
@@ -341,7 +332,7 @@ public final class TableSettings {
 		}
 		t.put("nearby", people(server, nearby));
 		// limits
-		OwnerControls l = tb.limits();
+		OwnerControls l = tb.ownerLimits(f.level());
 		t.putString("mode", l.botsMode().name());
 		t.putBoolean("hostMayChange", l.hostMayChange());
 		t.putInt("maxBots", l.maxBots());
