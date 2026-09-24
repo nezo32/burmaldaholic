@@ -18,6 +18,7 @@ import { lastchanceModule } from './lastchance';
 import { worldgenModule } from './worldgen';
 import { vipModule } from './vip';
 import { multiplayerModule } from './multiplayer';
+import { uthModule } from './games/uth';
 import { pvpModule } from './pvp';
 import { botsModule } from './bots';
 
@@ -36,6 +37,7 @@ export const MODULES: readonly CasinoModule[] = [
   worldgenModule,
   vipModule,
   multiplayerModule,
+  uthModule,
   pvpModule,
   botsModule,
 ];

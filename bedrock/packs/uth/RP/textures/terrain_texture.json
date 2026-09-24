@@ -1,0 +1,17 @@
+{
+  "resource_pack_name": "burmaldaholic",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "burmaldaholic_uth_felt": {
+      "textures": "textures/blocks/uth/felt"
+    },
+    "burmaldaholic_uth_felt_high_roller": {
+      "textures": "textures/blocks/uth/felt_high_roller"
+    },
+    "burmaldaholic_uth_felt_player_banked": {
+      "textures": "textures/blocks/uth/felt_player_banked"
+    }
+  }
+}

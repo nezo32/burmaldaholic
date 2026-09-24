@@ -19,6 +19,7 @@ export const MODULE_IDS = [
   'worldgen',
   'vip',
   'multiplayer',
+  'uth',
   'pvp',
   'bots',
 ] as const;

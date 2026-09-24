@@ -22,8 +22,6 @@ export const SECTION_OWNERS = {
   multiplayer: 'multiplayer',
   pvp: 'pvp',
   bots: 'bots',
-  // modules developed in parallel branches: their keys are skipped (warning) until the module is registered
-  baccarat: 'baccarat',
   uth: 'uth',
   advancements: 'core',
   config: 'core',

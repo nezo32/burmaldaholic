@@ -15,6 +15,7 @@
     { "id": "worldgen", "src": "src/worldgen" },
     { "id": "vip", "src": "src/vip" },
     { "id": "multiplayer", "src": "src/multiplayer" },
+    { "id": "uth", "src": "src/games/uth" },
     { "id": "pvp", "src": "src/pvp" },
     { "id": "bots", "src": "src/bots" }
   ]
