@@ -209,7 +209,7 @@ gui.burmaldaholic.pvp.slots.tiebreak=При равенстве: больше в�
 gui.burmaldaholic.pvp.slots.time_warp_title=ПЕТЛЯ ВРЕМЕНИ!
 msg.burmaldaholic.pvp.slots.jackpot=%1: джекпот %2, очки: +%3
 gui.burmaldaholic.pvp.slots.feature=%1: +%2
-gui.burmaldaholic.pvp.slots.fx.next_x2=Далее ×2
+gui.burmaldaholic.pvp.slots.fx.next_x2=Следующее ×2
 gui.burmaldaholic.pvp.slots.fx.boost_x2=Фора ×2
 ## [pvp / Wheel Party]
 gui.burmaldaholic.pvp.wheel.title=Колесо на всех

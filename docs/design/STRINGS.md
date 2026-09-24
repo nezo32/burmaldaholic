@@ -927,7 +927,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.fs.name.nether` | Inferno Spins | Адские вращения |
 | `gui.burmaldaholic.slots.fs.name.end` | Void Walker | Странник пустоты |
 | `gui.burmaldaholic.slots.fs.awarded` | Free spins: %1$s! | Бесплатных вращений: %1$s! |
-| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращения: +%1$s! |
+| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращений: +%1$s! |
 | `gui.burmaldaholic.slots.fs.left` | Spin %1$s of %2$s | Вращение %1$s из %2$s |
 | `gui.burmaldaholic.slots.fs.multiplier` | Multiplier ×%1$s | Множитель ×%1$s |
 | `gui.burmaldaholic.slots.fs.total` | Bonus win: %1$s | Выигрыш в бонусе: %1$s |
@@ -1359,7 +1359,7 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.fx.you_squeeze` | You squeeze… | Вы вскрываете… |
 | `gui.burmaldaholic.baccarat.fx.player_card` | Player's card… | Карта игрока… |
 | `gui.burmaldaholic.baccarat.fx.banker_card` | Banker's card… | Карта банкира… |
-| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья платит! |
+| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья сыграла! |
 | `gui.burmaldaholic.baccarat.fx.banco` | Banco! | Банко! |
 | `gui.burmaldaholic.baccarat.fx.shoe_passes` | The shoe passes to %1$s | Шуз переходит к игроку %1$s |
 
@@ -1868,7 +1868,7 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.slots.time_warp_title` | TIME WARP! | ПЕТЛЯ ВРЕМЕНИ! |
 | `msg.burmaldaholic.pvp.slots.jackpot` | %1$s: %2$s jackpot, +%3$s points | %1$s: джекпот %2$s, очки: +%3$s |
 | `gui.burmaldaholic.pvp.slots.feature` | %1$s: +%2$s | %1$s: +%2$s |
-| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Далее ×2 |
+| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Следующее ×2 |
 | `gui.burmaldaholic.pvp.slots.fx.boost_x2` | Boost ×2 | Фора ×2 |
 
 ### Wheel Party
@@ -2838,7 +2838,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.slots.pays` | %1$s: payouts | %1$s: выплаты |
 | `config.burmaldaholic.chaos.weight` | Chance weight: %1$s | Вес события: %1$s |
 | `config.burmaldaholic.chaos.event.enabled` | Enabled: %1$s | Включено: %1$s |
-| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: включён |
+| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: вкл. |
 | `config.burmaldaholic.slots.bets` | %1$s: bet levels | %1$s: уровни ставок |
 | `config.burmaldaholic.slots.defaultBet` | %1$s: default bet | %1$s: ставка по умолчанию |
 | `config.burmaldaholic.slots.minVipTier` | %1$s: required VIP tier | %1$s: нужный ВИП-статус |
@@ -3055,10 +3055,10 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.slots.overworld.freeSpins.multiplier` | Overworld Riches: free-spin multiplier | Богатства Верхнего мира: множитель фриспинов |
 | `config.burmaldaholic.slots.nether.tumble.ladder` | Nether Inferno: tumble multipliers | Пекло Незера: множители обвалов |
 | `config.burmaldaholic.slots.nether.tumble.ladderFree` | Nether Inferno: tumble multipliers in free spins | Пекло Незера: множители обвалов во фриспинах |
-| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: сундуков |
+| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: число сундуков |
 | `config.burmaldaholic.slots.overworld.pick.weights` | Treasure Hunt: chest contents | Охота за сокровищами: содержимое сундуков |
 | `config.burmaldaholic.slots.nether.hold.trigger` | Piglin's Hoard: coins to start | Клад пиглинов: монет для запуска |
-| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: повторов |
+| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: число повторов |
 | `config.burmaldaholic.slots.nether.hold.coinChance` | Piglin's Hoard: coin chance per cell | Клад пиглинов: шанс монеты в ячейке |
 | `config.burmaldaholic.slots.nether.hold.coinWeights` | Piglin's Hoard: coin values | Клад пиглинов: номиналы монет |
 | `config.burmaldaholic.slots.end.wheel.outer` | Dragon Wheel: outer ring | Колесо дракона: внешнее кольцо |

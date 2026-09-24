@@ -1122,7 +1122,7 @@ Args: `fs.awarded` %1$s num · `fs.retrigger` %1$s num · `fs.left` %1$s num, %2
 | `gui.burmaldaholic.slots.fs.name.nether` | Inferno Spins | Адские вращения |
 | `gui.burmaldaholic.slots.fs.name.end` | Void Walker | Странник пустоты |
 | `gui.burmaldaholic.slots.fs.awarded` | Free spins: %1$s! | Бесплатных вращений: %1$s! |
-| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращения: +%1$s! |
+| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращений: +%1$s! |
 | `gui.burmaldaholic.slots.fs.left` | Spin %1$s of %2$s | Вращение %1$s из %2$s |
 | `gui.burmaldaholic.slots.fs.multiplier` | Multiplier ×%1$s | Множитель ×%1$s |
 | `gui.burmaldaholic.slots.fs.total` | Bonus win: %1$s | Выигрыш в бонусе: %1$s |
@@ -1238,7 +1238,7 @@ Family templates (`%1$s` = machine name):
 
 | Key | EN | RU |
 |-----|----|----|
-| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: включён |
+| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: вкл. |
 | `config.burmaldaholic.slots.bets` | %1$s: bet levels | %1$s: уровни ставок |
 | `config.burmaldaholic.slots.defaultBet` | %1$s: default bet | %1$s: ставка по умолчанию |
 | `config.burmaldaholic.slots.minVipTier` | %1$s: required VIP tier | %1$s: нужный ВИП-статус |
@@ -1263,10 +1263,10 @@ Single keys:
 | `config.burmaldaholic.slots.overworld.freeSpins.multiplier` | Overworld Riches: free-spin multiplier | Богатства Верхнего мира: множитель фриспинов |
 | `config.burmaldaholic.slots.nether.tumble.ladder` | Nether Inferno: tumble multipliers | Пекло Незера: множители обвалов |
 | `config.burmaldaholic.slots.nether.tumble.ladderFree` | Nether Inferno: tumble multipliers in free spins | Пекло Незера: множители обвалов во фриспинах |
-| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: сундуков |
+| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: число сундуков |
 | `config.burmaldaholic.slots.overworld.pick.weights` | Treasure Hunt: chest contents | Охота за сокровищами: содержимое сундуков |
 | `config.burmaldaholic.slots.nether.hold.trigger` | Piglin's Hoard: coins to start | Клад пиглинов: монет для запуска |
-| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: повторов |
+| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: число повторов |
 | `config.burmaldaholic.slots.nether.hold.coinChance` | Piglin's Hoard: coin chance per cell | Клад пиглинов: шанс монеты в ячейке |
 | `config.burmaldaholic.slots.nether.hold.coinWeights` | Piglin's Hoard: coin values | Клад пиглинов: номиналы монет |
 | `config.burmaldaholic.slots.end.wheel.outer` | Dragon Wheel: outer ring | Колесо дракона: внешнее кольцо |

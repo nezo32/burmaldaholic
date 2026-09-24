@@ -1126,7 +1126,7 @@ fits the 1.45 × budget in every fixed box listed (meter plate 94 px, chips 40 p
 
 | Key | EN | RU |
 |-----|----|----|
-| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Далее ×2 |
+| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Следующее ×2 |
 | `gui.burmaldaholic.pvp.slots.fx.boost_x2` | Boost ×2 | Буст ×2 |
 
 ---
