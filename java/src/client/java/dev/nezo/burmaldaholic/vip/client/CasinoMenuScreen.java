@@ -260,8 +260,12 @@ public class CasinoMenuScreen extends CasinoScreen {
 				btn -> select(t.id(), Integer.signum(index - from)));
 			b.select(sel, lay.labelShown());
 			addRenderableWidget(b);
+			if (sel) selectedTab = b;
 		}
 	}
+
+	/** The selected bookmark of the last rebuild: keeps keyboard focus across a tab switch (the rebuild drops it). */
+	private @Nullable BookmarkTab selectedTab;
 
 	private void select(String t, int dir) {
 		tab = t;
@@ -270,6 +274,7 @@ public class CasinoMenuScreen extends CasinoScreen {
 		scroll = 0;
 		if (!isNative(t)) ClientCasinoMenu.request(t);
 		rebuild();
+		if (selectedTab != null) setFocused(selectedTab); // Tab / Enter / arrows keep working from the new tab
 	}
 
 	private void place() {
@@ -324,15 +329,16 @@ public class CasinoMenuScreen extends CasinoScreen {
 		long net = d.todayReturned() - d.todayStaked();
 		ledger(Component.translatable("gui.burmaldaholic.menu.wallet.row.today"), signed(net), net > 0 ? CasinoPalette.BONUS : net < 0 ? CasinoPalette.CHIP_RED_LIGHT : BONE,
 			leftW, 1);
+		ledger(Component.translatable("gui.burmaldaholic.menu.wallet.biggest"), biggestWin(d), d.biggestWin() > 0 ? GOLD : DIM, leftW, 0);
 		int streak = ClientCasinoState.streak();
 		Component streakValue = streak == 0 ? Component.translatable("gui.burmaldaholic.menu.wallet.streak_none")
 			: Component.translatable(streak > 0 ? "hud.burmaldaholic.streak.lucky" : "hud.burmaldaholic.streak.unlucky", Texts.number(Math.abs(streak)));
 		ledger(Component.translatable("gui.burmaldaholic.menu.wallet.row.streak"), streakValue,
-			streak > 0 ? CasinoPalette.BONUS : streak < 0 ? CasinoPalette.COOL : DIM, leftW, 0);
+			streak > 0 ? CasinoPalette.BONUS : streak < 0 ? CasinoPalette.COOL : DIM, leftW, 1);
 		if (d.botCap() > 0) {
 			ledger(Component.translatable("gui.burmaldaholic.menu.wallet.row.bots"),
 				Component.translatable("gui.burmaldaholic.menu.wallet.row.bots_value", Texts.number(d.botNet()), Texts.number(d.botCap())),
-				d.botNet() >= d.botCap() ? CasinoPalette.CHIP_RED_LIGHT : GOLD, leftW, 1);
+				d.botNet() >= d.botCap() ? CasinoPalette.CHIP_RED_LIGHT : GOLD, leftW, 0);
 		}
 		contentH += 6;
 		walletVipTop = contentH;
@@ -348,6 +354,14 @@ public class CasinoMenuScreen extends CasinoScreen {
 	}
 
 	private int walletVipTop;
+
+	/** "5,000 (Slots)" — the game name only when it has one ({@code gui.burmaldaholic.common.game.*}); "None yet" at 0. */
+	private static Component biggestWin(VipSyncPayload d) {
+		if (d.biggestWin() <= 0) return Component.translatable("gui.burmaldaholic.menu.wallet.biggest_none");
+		String key = "gui.burmaldaholic.common.game." + d.biggestGame();
+		if (d.biggestGame().isEmpty() || !net.minecraft.locale.Language.getInstance().has(key)) return Texts.number(d.biggestWin());
+		return Component.translatable("gui.burmaldaholic.menu.wallet.biggest_value", Texts.number(d.biggestWin()), Component.translatable(key));
+	}
 
 	private void drawWallet(GuiGraphicsExtractor g, int x, int y, int w, long age) {
 		VipSyncPayload d = data();
@@ -588,11 +602,12 @@ public class CasinoMenuScreen extends CasinoScreen {
 		g.text(font, CasinoUi.fit(font, line, bw - 12), x + 86, y + 7, CasinoPalette.CHIP_RED_DARK, false);
 		FxText.outlined(g, font, Component.translatable("gui.burmaldaholic.loan.title").withStyle(ChatFormatting.BOLD), x + 80, y + 26,
 			CasinoPalette.CHIP_RED_LIGHT, CasinoPalette.INK);
-		// the debt meter: owed against the balance at stake (principal unknown on this page: full while owed)
+		// the debt meter (extras.md §8.4): owed / (principal × 1.5) from the synced status — interest, late fees and
+		// repayments move it; it fills on open like the other bars
 		int my = y + loanMeterY;
 		int mw = w - 132 - 12;
 		CasinoUi.sprite(g, UiSprites.DEBT_METER, x, my, mw, 12, 0xFF140810, CasinoPalette.CHIP_RED_DARK);
-		double fill = LoanLook.debtFill(s.debt(), 0);
+		double fill = UiLayout.barFill(LoanLook.debtFill(s.debt(), s.debtPrincipal()), Util.getMillis() - tabAt, FxSettings.reduceMotion());
 		int fw = UiLayout.fillPixels(mw - 16, fill);
 		if (fw > 0) CasinoUi.sprite(g, UiSprites.Fill.RED.id, x + 2, my + 3, fw, 6);
 		CasinoUi.sprite(g, UiSprites.DEBT_SKULL, x + mw - 12, my, 12, 12);

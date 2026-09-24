@@ -109,6 +109,7 @@ public final class LoanShark {
 		t.putLong("principal", rec.principal);
 		t.putLong("due_total", rec.due);
 		t.putLong("ticks_left", rec.deadlineTick - now);
+		if (rec.status != Status.NONE) t.putLong("deadline_day", rec.deadlineTick / LoanRules.MCD + 1); // the "day N" of msg.loan.taken
 		if (rec.product >= 0 && rec.product < LoanService.products().size()) t.putString("product", LoanService.products().get(rec.product).id());
 		putComponent(server, t, "status_line", statusLine(rec, now));
 		boolean canTake = rec.status == Status.NONE && now >= rec.cooldownUntil;
@@ -147,7 +148,7 @@ public final class LoanShark {
 
 	static MutableComponent statusLine(LoanRecord rec, long now) {
 		return switch (rec.status) {
-			case ACTIVE -> Component.translatable("gui.burmaldaholic.loan.status.active", Texts.chips(rec.owed), LoanService.dhm(rec.deadlineTick - now))
+			case ACTIVE -> Component.translatable("gui.burmaldaholic.loan.status.active", Texts.chips(rec.owed), LoanTexts.dueIn(rec.deadlineTick - now))
 				.withStyle(ChatFormatting.YELLOW);
 			case DEFAULT -> Component.translatable("gui.burmaldaholic.loan.status.default", Texts.chips(rec.owed)).withStyle(ChatFormatting.RED);
 			case NONE -> now < rec.cooldownUntil

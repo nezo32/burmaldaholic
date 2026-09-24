@@ -161,6 +161,10 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `unit.burmaldaholic.day.p21` | %1$s days | %1$s день |
 | `unit.burmaldaholic.day.p2` | %1$s days | %1$s дня |
 | `unit.burmaldaholic.day.p5` | %1$s days | %1$s дней |
+| `unit.burmaldaholic.hour.p1` | %1$s hour | %1$s час |
+| `unit.burmaldaholic.hour.p21` | %1$s hours | %1$s час |
+| `unit.burmaldaholic.hour.p2` | %1$s hours | %1$s часа |
+| `unit.burmaldaholic.hour.p5` | %1$s hours | %1$s часов |
 | `unit.burmaldaholic.minute.p1` | %1$s minute | %1$s минута |
 | `unit.burmaldaholic.minute.p21` | %1$s minutes | %1$s минута |
 | `unit.burmaldaholic.minute.p2` | %1$s minutes | %1$s минуты |
@@ -563,6 +567,11 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.menu.wallet.perks` | Max bet %1$s · Cashback %2$s%% | Макс. ставка %1$s · Кэшбэк %2$s %% |
 | `gui.burmaldaholic.menu.cashier` | Cashier | Касса |
 | `gui.burmaldaholic.cashier.tray` | Chip tray | Лоток с фишками |
+| `gui.burmaldaholic.cashier.credited` | Credited %1$s | Зачислено: %1$s |
+| `gui.burmaldaholic.cashier.paid` | Paid %1$s | Оплачено: %1$s |
+| `gui.burmaldaholic.menu.wallet.biggest` | Biggest win | Крупнейший выигрыш |
+| `gui.burmaldaholic.menu.wallet.biggest_value` | %1$s (%2$s) | %1$s (%2$s) |
+| `gui.burmaldaholic.menu.wallet.biggest_none` | None yet | Пока нет |
 
 ---
 
@@ -2140,6 +2149,13 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.loan.no_new_overdue` | No new loans while you are overdue | Пока есть просрочка, новых займов нет |
 | `gui.burmaldaholic.loan.stamp.overdue` | OVERDUE | ПРОСРОЧЕНО |
 | `gui.burmaldaholic.loan.contract.terms` | %1$s: %2$s → %3$s | %1$s: %2$s → %3$s |
+| `gui.burmaldaholic.loan.contract.amount` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.loan.contract.loan` | Loan | Займ |
+| `gui.burmaldaholic.loan.contract.due` | Due: %1$s | Срок: %1$s |
+| `gui.burmaldaholic.loan.contract.day` | day %1$s | день %1$s |
+| `gui.burmaldaholic.loan.contract.owed_now` | Owed now: %1$s | Сейчас к оплате: %1$s |
+| `gui.burmaldaholic.loan.time.days_hours` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.loan.time.under_hour` | less than an hour | меньше часа |
 | `gui.burmaldaholic.loan.you_owe` | You owe %1$s | Ваш долг: %1$s |
 | `gui.burmaldaholic.loan.pay_more` | Pay… | Заплатить… |
 | `gui.burmaldaholic.loan.shark.none` | Need a little something? | Нужна мелочь на жизнь? |

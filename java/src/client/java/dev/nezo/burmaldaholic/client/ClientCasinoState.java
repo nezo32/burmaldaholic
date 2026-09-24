@@ -7,7 +7,7 @@ import dev.nezo.burmaldaholic.core.network.PlayerStatusPayload;
  * ({@link PlayerStatusPayload}). Read it from HUD segments and screens; never write it.
  */
 public final class ClientCasinoState {
-	private static volatile PlayerStatusPayload status = new PlayerStatusPayload(0, 0, 0, 0, 0, false, 0);
+	private static volatile PlayerStatusPayload status = PlayerStatusPayload.EMPTY;
 	private static volatile boolean received;
 	private static volatile long lastDelta;
 	private static volatile long lastDeltaTick = Long.MIN_VALUE / 2;
@@ -112,7 +112,7 @@ public final class ClientCasinoState {
 	}
 
 	static void reset() {
-		status = new PlayerStatusPayload(0, 0, 0, 0, 0, false, 0);
+		status = PlayerStatusPayload.EMPTY;
 		received = false;
 		lastDelta = 0;
 		holdUntilMs = 0;

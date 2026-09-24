@@ -11,28 +11,31 @@ import dev.nezo.burmaldaholic.client.ui.StyledToast;
 import dev.nezo.burmaldaholic.client.ui.UiSprites;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.CoreConfig;
-import dev.nezo.burmaldaholic.core.fx.BigWinBroadcast;
+import dev.nezo.burmaldaholic.core.mixin.client.BossHealthOverlayAccessor;
 import dev.nezo.burmaldaholic.core.network.PlayerStatusPayload;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.text.Numbers;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.BalanceTicker;
 import dev.nezo.burmaldaholic.core.ui.DeltaFloaters;
+import dev.nezo.burmaldaholic.core.ui.HudPlacement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.LerpingBossEvent;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
+import net.minecraft.world.effect.MobEffectInstance;
 
 /**
  * The casino HUD (UI.md §1, global.md §4.1.1, docs/design/visual/extras.md §9; lane J-L2 task J6): the <b>chip
@@ -44,17 +47,26 @@ import net.minecraft.util.Util;
  *
  * <p>Outcome fidelity (F6): the counter follows {@link ClientCasinoState#shownBalance()}, which a presentation holds
  * until its reveal ({@link ClientCasinoState#holdBalanceDelta}); the ticker always ends on the shown balance.
+ *
+ * <p>Placement ({@link HudPlacement}): never over a vanilla element at any GUI scale — below the boss bars when the
+ * block would cross them, below the status effects in the top-right corner, above the hotbar and status bars at the
+ * bottom. Cost: segments are evaluated once per client tick (their lines, the block size and the placement are
+ * cached); a frame only draws, with no allocation of its own.
  */
 public final class CasinoHud {
 	private record Registered(Identifier id, int order, HudSegment segment) {}
 
 	private static final List<Registered> SEGMENTS = new CopyOnWriteArrayList<>();
-	private static final int MARGIN = 4;
 	private static final int LINE = 10;
 	/** Pseudo-sprites: glyph icons drawn from the E1 font (U+E176 bell, U+E175 sun). */
 	static final Identifier GLYPH_BELL = Burmaldaholic.id("hud_glyph/bell");
 	static final Identifier GLYPH_SUN = Burmaldaholic.id("hud_glyph/sun");
 	private static final Identifier BALANCE_ID = Burmaldaholic.id("balance");
+	/**
+	 * The E1 glyph sheet (animation.md §6: U+E175 sun, U+E176 bell; 16² cells, solid silhouettes), blitted and tinted
+	 * directly — drawn as text the sun came out as the font's missing-glyph box.
+	 */
+	private static final Identifier GLYPH_SHEET = Burmaldaholic.id("textures/font/core/glyph_e1.png");
 
 	private static final BalanceTicker TICKER = new BalanceTicker();
 	private static final DeltaFloaters FLOATERS = new DeltaFloaters();
@@ -64,6 +76,18 @@ public final class CasinoHud {
 	private static int ticksLeft;
 	private static boolean wasDefault;
 	private static boolean sawStatus;
+	// per-tick cache (segments, sizes, placement inputs) and per-value caches of the drawn strings
+	private static final List<HudLine> LINES = new ArrayList<>();
+	private static final Consumer<HudLine> SINK = LINES::add;
+	private static long linesTick = Long.MIN_VALUE;
+	private static int linesW;
+	private static int bossBars;
+	private static int bossNameW;
+	private static int effectRows;
+	private static long shownCached = Long.MIN_VALUE;
+	private static String shownText = "";
+	private static final long[] DELTA_AMOUNT = new long[DeltaFloaters.MAX];
+	private static final String[] DELTA_TEXT = new String[DeltaFloaters.MAX];
 
 	private CasinoHud() {}
 
@@ -166,6 +190,43 @@ public final class CasinoHud {
 		wasDefault = false;
 		FLOATERS.clear();
 		ticksLeft = 0;
+		LINES.clear();
+		linesTick = Long.MIN_VALUE;
+	}
+
+	/** Once per client tick: the segments' lines, their width, and what the placement has to avoid. */
+	private static void refresh(Minecraft mc, PlayerStatusPayload status, float partialTick) {
+		long tick = ClientCasinoState.clientTicks();
+		if (tick == linesTick) return;
+		linesTick = tick;
+		LINES.clear();
+		HudContext ctx = new HudContext(mc, status, tick, partialTick);
+		for (Registered r : SEGMENTS) {
+			try {
+				r.segment.addLines(ctx, SINK);
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("HUD segment {} failed", r.id, e);
+				SEGMENTS.remove(r);
+			}
+		}
+		linesW = 0;
+		for (HudLine l : LINES) linesW = Math.max(linesW, lineWidth(mc.font, l));
+		bossBars = 0;
+		bossNameW = 0;
+		for (LerpingBossEvent e : ((BossHealthOverlayAccessor) mc.gui.hud.getBossOverlay()).burmaldaholic$events().values()) {
+			bossBars++;
+			bossNameW = Math.max(bossNameW, mc.font.width(e.getName()));
+		}
+		boolean good = false;
+		boolean bad = false;
+		if (mc.gui.screen() == null || !mc.gui.screen().showsActiveEffects()) {
+			for (MobEffectInstance e : mc.player.getActiveEffects()) {
+				if (!e.showIcon()) continue;
+				if (e.getEffect().value().isBeneficial()) good = true;
+				else bad = true;
+			}
+		}
+		effectRows = bad ? 2 : good ? 1 : 0;
 	}
 
 	// ---- rendering ----------------------------------------------------------------------------
@@ -186,16 +247,8 @@ public final class CasinoHud {
 		if (!hud.enabled) {
 			return;
 		}
-		HudContext ctx = new HudContext(mc, status, ClientCasinoState.clientTicks(), delta.getGameTimeDeltaPartialTick(false));
-		List<HudLine> lines = new ArrayList<>();
-		for (Registered r : SEGMENTS) {
-			try {
-				r.segment.addLines(ctx, lines::add);
-			} catch (RuntimeException e) {
-				Burmaldaholic.LOGGER.error("HUD segment {} failed", r.id, e);
-				SEGMENTS.remove(r);
-			}
-		}
+		refresh(mc, status, delta.getGameTimeDeltaPartialTick(false));
+		List<HudLine> lines = LINES;
 		Font font = mc.font;
 		boolean dim = mc.gui.screen() instanceof ChatScreen;
 		int alpha = dim ? 0x80 : 0xFF;
@@ -204,20 +257,24 @@ public final class CasinoHud {
 
 		// chip counter geometry
 		long shown = TICKER.value(now);
-		String number = Numbers.format(shown);
+		if (shown != shownCached) {
+			shownCached = shown;
+			shownText = Numbers.format(shown);
+		}
+		String number = shownText;
 		int counterW = font.width(number) + 26;
 		int counterH = 16;
-		int linesW = 0;
-		for (HudLine l : lines) linesW = Math.max(linesW, lineWidth(font, l));
 		int blockW = Math.max(counterW, linesW);
 		int blockH = counterH + 2 + lines.size() * LINE;
 		CoreConfig.HudPosition pos = hud.position;
 		boolean right = pos.right();
-		int x = right ? graphics.guiWidth() - blockW - MARGIN : MARGIN;
-		int y = pos.bottom() ? graphics.guiHeight() - blockH - MARGIN - 40 : MARGIN;
-		if (pos == CoreConfig.HudPosition.TOP_RIGHT && !mc.player.getActiveEffects().isEmpty()) {
-			y += 26 * (int) mc.player.getActiveEffects().stream().map(e -> e.getEffect().value().isBeneficial()).distinct().count();
-		}
+		int gw = graphics.guiWidth();
+		int gh = graphics.guiHeight();
+		int x = right ? gw - blockW - HudPlacement.MARGIN : HudPlacement.MARGIN;
+		// delta pills sit beside the counter: keep them in the placement's width
+		int reach = blockW + 60;
+		int y = pos.bottom() ? HudPlacement.bottom(right ? x - 60 : x, reach, blockH, gw, gh)
+			: HudPlacement.top(right ? x - 60 : x, reach, gw, gh, bossBars, bossNameW, right, effectRows);
 		int cx = right ? x + blockW - counterW : x;
 		int tint = alpha << 24 | 0xFFFFFF;
 		if (!CasinoUi.sprite(graphics, golden ? UiSprites.CHIP_COUNTER_GOLDEN : UiSprites.CHIP_COUNTER, cx, y, counterW, counterH, tint)) {
@@ -231,10 +288,14 @@ public final class CasinoHud {
 		graphics.text(font, number, cx + 18, y + 4, withAlpha(numColor, alpha), true);
 
 		// floating delta pills beside the counter (they rise and fade; newest at the counter row)
-		int n = FLOATERS.size(now);
+		int n = Math.min(DeltaFloaters.MAX, FLOATERS.size(now));
 		for (int i = 0; i < n; i++) {
 			long d = FLOATERS.amount(i);
-			String label = (d > 0 ? "+" : "−") + Numbers.format(Math.abs(d)); // literal-ok: signed number
+			if (DELTA_TEXT[i] == null || DELTA_AMOUNT[i] != d) {
+				DELTA_AMOUNT[i] = d;
+				DELTA_TEXT[i] = (d > 0 ? "+" : "−") + Numbers.format(Math.abs(d)); // literal-ok: signed number
+			}
+			String label = DELTA_TEXT[i];
 			int pw = font.width(label) + 6;
 			int px = right ? cx - 2 - pw : cx + counterW + 2;
 			int py = y + 3 + FLOATERS.yOffset(i, now, reduced);
@@ -248,7 +309,8 @@ public final class CasinoHud {
 
 		// rows
 		int ty = y + counterH + 3;
-		for (HudLine line : lines) {
+		for (int li = 0; li < lines.size(); li++) {
+			HudLine line = lines.get(li);
 			int w = lineWidth(font, line);
 			int lx = right ? x + blockW - w : x + 1;
 			int tx = lx;
@@ -280,7 +342,6 @@ public final class CasinoHud {
 		}
 		if (sprite.equals(GLYPH_BELL) || sprite.equals(GLYPH_SUN)) {
 			boolean bell = sprite.equals(GLYPH_BELL);
-			MutableComponent glyph = Texts.raw(bell ? "" : "").withStyle(st -> st.withFont(BigWinBroadcast.GLYPHS)); // literal-ok: glyph
 			float angle = 0;
 			long t = Util.getMillis();
 			if (!reduced && FxSettings.flashes()) {
@@ -290,11 +351,57 @@ public final class CasinoHud {
 			g.pose().pushMatrix();
 			g.pose().translate(x + 4, y + 4);
 			g.pose().rotate(angle);
-			g.text(font, glyph, -4, -4, withAlpha(bell && line.pulse() ? CasinoPalette.CHIP_RED_LIGHT : 0xFFFFFFFF, alpha), false);
+			int glyphColor = bell ? (line.pulse() ? CasinoPalette.CHIP_RED_LIGHT : CasinoPalette.BONE) : CasinoPalette.GOLD;
+			int cell = bell ? 0x76 : 0x75;
+			int u = (cell % 16) * 16;
+			int v = (cell / 16) * 16;
+			if (!GlyphBlit.blit(g, GLYPH_SHEET, -4, -4, u, v, withAlpha(glyphColor, alpha))) {
+				g.blit(GLYPH_SHEET, -4, -4, 4, 4, u / 256f, (u + 16) / 256f, v / 256f, (v + 16) / 256f); // untinted fallback
+			}
 			g.pose().popMatrix();
 			return;
 		}
 		CasinoUi.sprite(g, sprite, x, y, 8, 8, alpha << 24 | 0xFFFFFF);
+	}
+
+	/**
+	 * {@code blit(RenderPipelines.GUI_TEXTURED, sheet, x, y, u, v, 8, 8, 16, 16, 256, 256, argb)} bound at runtime: the
+	 * pipeline type moved package between 26.2 and 26.3, so a direct call does not link on 26.3 (same as
+	 * {@code FxSprites.Compat}; docs/architecture/java.md "Multi-version strategy").
+	 */
+	private static final class GlyphBlit {
+		private static final java.lang.invoke.MethodHandle BLIT;
+		private static final Object PIPELINE;
+
+		static {
+			java.lang.invoke.MethodHandle mh = null;
+			Object pipeline = null;
+			try {
+				pipeline = Class.forName("net.minecraft.client.renderer.RenderPipelines").getField("GUI_TEXTURED").get(null);
+				for (java.lang.reflect.Method m : GuiGraphicsExtractor.class.getMethods()) {
+					Class<?>[] p = m.getParameterTypes();
+					if (m.getName().equals("blit") && p.length == 13 && p[0].isInstance(pipeline) && p[1] == Identifier.class && p[4] == float.class
+						&& p[12] == int.class) {
+						mh = java.lang.invoke.MethodHandles.publicLookup().unreflect(m);
+						break;
+					}
+				}
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				mh = null;
+			}
+			BLIT = mh;
+			PIPELINE = pipeline;
+		}
+
+		static boolean blit(GuiGraphicsExtractor g, Identifier sheet, int x, int y, int u, int v, int argb) {
+			if (BLIT == null) return false;
+			try {
+				BLIT.invoke(g, PIPELINE, sheet, x, y, (float) u, (float) v, 8, 8, 16, 16, 256, 256, argb);
+				return true;
+			} catch (Throwable t) {
+				return false;
+			}
+		}
 	}
 
 	private static int withAlpha(int argb, int alpha) {

@@ -28,4 +28,9 @@ public interface DebtProvider {
 	default long ticksToDeadline(MinecraftServer server, UUID player) {
 		return 0;
 	}
+
+	/** Principal of the current loan (the debt meter's scale, extras.md §8.4); 0 = none / unknown. */
+	default long principal(MinecraftServer server, UUID player) {
+		return 0;
+	}
 }

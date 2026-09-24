@@ -9,11 +9,11 @@ import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
 import dev.nezo.burmaldaholic.client.ui.CasinoUi;
 import dev.nezo.burmaldaholic.client.ui.UiSprites;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
-import dev.nezo.burmaldaholic.core.text.Numbers;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.LedgerLayout;
 import dev.nezo.burmaldaholic.core.ui.LoanLook;
 import dev.nezo.burmaldaholic.core.ui.UiLayout;
+import dev.nezo.burmaldaholic.loan.LoanTexts;
 import dev.nezo.burmaldaholic.loan.net.LoanActionPayload;
 import dev.nezo.burmaldaholic.loan.net.LoanUiPayload;
 import java.util.List;
@@ -243,8 +243,9 @@ final class LoanScreen extends CasinoScreen {
 			CasinoUi.text(g, font, Component.translatable("gui.burmaldaholic.loan.you_owe", Texts.number(owed)), x + 78, y + 40, lw - 78, BONE);
 			Component when = "default".equals(status())
 				? Component.translatable("gui.burmaldaholic.loan.overdue_by", Texts.plural("unit.burmaldaholic.day", LoanLook.overdueDays(-ticksLeft)))
-				: Component.translatable("gui.burmaldaholic.loan.due_in", dhm(ticksLeft));
-			CasinoUi.text(g, font, when, x + 78, y + 50, lw - 78, "default".equals(status()) ? RED : CasinoPalette.GOLD);
+				: Component.translatable("gui.burmaldaholic.loan.due_in", LoanTexts.dueIn(ticksLeft));
+			List<FormattedCharSequence> wl = font.split(when, lw - 78);
+			for (int i = 0; i < Math.min(2, wl.size()); i++) g.text(font, wl.get(i), x + 78, y + 50 + i * 10, "default".equals(status()) ? RED : CasinoPalette.GOLD, true);
 		} else {
 			List<FormattedCharSequence> st = font.split(component("status_line") == null ? Component.empty() : component("status_line"), lw - 78);
 			for (int i = 0; i < Math.min(3, st.size()); i++) g.text(font, st.get(i), x + 78, y + 40 + i * 10, BONE, true);
@@ -270,20 +271,31 @@ final class LoanScreen extends CasinoScreen {
 				Texts.chipsAcc(p.getLongOr("due", 0)), Texts.plural("unit.burmaldaholic.day", p.getIntOr("days", 0))), lw - 16);
 			for (int i = 0; i < Math.min(2, lines.size()); i++) g.text(font, lines.get(i), x + 8, cy + 17 + i * 9, ink, false);
 		} else if (owed > 0) {
+			// the terms: "Rent: 2,500 → 3,000" (principal → due at issue); an admin-set debt has no product and no interest
 			String product = state.getStringOr("product", "");
-			Component pname = Component.translatable("gui.burmaldaholic.loan.product." + (product.isEmpty() ? "pocket" : product));
-			g.text(font, CasinoUi.fit(font, Component.translatable("gui.burmaldaholic.loan.contract.terms", pname, Texts.number(state.getLongOr("principal", 0)),
-				Texts.number(state.getLongOr("due_total", owed))), lw - 16), x + 8, cy + 7, ink, false);
-			g.text(font, CasinoUi.fit(font, Component.translatable("gui.burmaldaholic.loan.due_in", dhm(Math.max(0, ticksLeft))),
-				"default".equals(status()) ? lw - 110 : lw - 16), x + 8, cy + 18,
-				ink, false);
+			long principal = state.getLongOr("principal", 0);
+			long dueTotal = state.getLongOr("due_total", owed);
+			Component pname = Component.translatable(product.isEmpty() ? "gui.burmaldaholic.loan.contract.loan" : "gui.burmaldaholic.loan.product." + product);
+			Component terms = principal > 0 && dueTotal != principal
+				? Component.translatable("gui.burmaldaholic.loan.contract.terms", pname, Texts.number(principal), Texts.number(dueTotal))
+				: Component.translatable("gui.burmaldaholic.loan.contract.amount", pname, Texts.number(Math.max(principal, dueTotal)));
+			int ly = para(g, terms, x + 8, cy + 6, lw - 16, ink) - 2;
+			// the deadline: "Due: day 12" (the day of the chat message), then the time left while active
+			long day = state.getLongOr("deadline_day", 0);
+			if (day > 0) ly = para(g, Component.translatable("gui.burmaldaholic.loan.contract.due", Component.translatable("gui.burmaldaholic.loan.contract.day",
+				Texts.number(day))), x + 8, ly, lw - 16, ink) - 2;
+			if (!"default".equals(status())) {
+				ly = para(g, Component.translatable("gui.burmaldaholic.loan.due_in", LoanTexts.dueIn(ticksLeft)), x + 8, ly, lw - 16, ink) - 2;
+			}
+			if (owed != dueTotal) para(g, Component.translatable("gui.burmaldaholic.loan.contract.owed_now", Texts.number(owed)), x + 8, ly, lw - 16,
+				CasinoPalette.CHIP_RED_DARK);
 			String sig = "× ________________"; // literal-ok: signature rule
 			g.text(font, sig, x + 8, cy + ch - 14, 0xFF6A5030, false);
 			if ("default".equals(status())) {
 				Component word = Component.translatable("gui.burmaldaholic.loan.stamp.overdue").withStyle(ChatFormatting.BOLD);
 				int stampW = Math.max(72, font.width(word) + 16); // the RU word is longer: the stamp stretches
-				int sx = x + lw - stampW - 12;
-				int sy = cy + 10;
+				int sx = x + lw - stampW - 8;
+				int sy = cy + ch - 34; // bottom right, beside the signature: the terms above keep the full width
 				CasinoUi.sprite(g, UiSprites.STAMP_OVERDUE, sx, sy, stampW, 28);
 				FormattedCharSequence ws = CasinoUi.fit(font, word, stampW - 8);
 				g.pose().pushMatrix();
@@ -318,11 +330,6 @@ final class LoanScreen extends CasinoScreen {
 			y += 9;
 		}
 		return y + 2;
-	}
-
-	private static Component dhm(long ticks) {
-		long t = Math.max(0, ticks);
-		return Component.translatable("hud.burmaldaholic.time.dhm", Texts.number(t / 24000), Texts.raw(Numbers.hoursMinutes(t % 24000)));
 	}
 
 	@Override

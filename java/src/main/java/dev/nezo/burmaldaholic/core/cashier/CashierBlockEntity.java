@@ -13,6 +13,9 @@ import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableType;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Inventories;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -41,6 +44,28 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 	 * only the rest drops at the player's feet. Larger amounts take several clicks.
 	 */
 	public static final int MAX_WITHDRAW_STACKS = 36;
+
+	/** Counting tray (lane J-L2, extras.md §8.3): what the last move of a viewer was, for the client's chip columns. */
+	public enum MoveKind {
+		/** Chip items taken from the inventory into the balance. */
+		DEPOSIT,
+		/** Chip items handed out from the balance. */
+		WITHDRAW,
+		/** Chips credited for emeralds / gold (no chip items moved; the columns show the greedy breakdown). */
+		CREDIT,
+		/** Chips paid for emeralds / gold or a shop item (greedy breakdown). */
+		PAID
+	}
+
+	/**
+	 * One move for the tray: {@code counts} per {@link ChipMath#DENOMINATIONS} (largest first) — for deposits and
+	 * withdrawals the chip items actually moved; {@code seq} increases per move so the client replays each once.
+	 */
+	public record Move(int seq, MoveKind kind, long amount, long[] counts) {}
+
+	/** Last move per player (transient: a reloaded cashier shows an empty tray). */
+	private final Map<UUID, Move> lastMoves = new HashMap<>();
+	private int moveSeq;
 
 	public CashierBlockEntity(TableType<CashierBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -127,6 +152,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(Economies.get().balance(player))));
 			return false;
 		}
+		recordMove(player, MoveKind.PAID, price, null);
 		Component name = item.getHoverName();
 		if (Inventories.giveOrDrop(player, item)) {
 			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.inventory_full"));
@@ -148,7 +174,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 	 * Takes up to {@code room} chips' worth from one stack (whole chips only) and returns their value; the
 	 * rest stays in the slot.
 	 */
-	private static long take(ItemStack stack, long room) {
+	private static long take(ItemStack stack, long room, long[] counts) {
 		if (!(stack.getItem() instanceof ChipItem chip) || chip.value() <= 0 || stack.isEmpty()) {
 			return 0;
 		}
@@ -157,7 +183,33 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			return 0;
 		}
 		stack.shrink(n);
+		int index = denomIndex(chip.value());
+		if (index >= 0) {
+			counts[index] += n;
+		}
 		return (long) n * chip.value();
+	}
+
+	private static int denomIndex(long value) {
+		for (int i = 0; i < ChipMath.DENOMINATIONS.length; i++) {
+			if (ChipMath.DENOMINATIONS[i] == value) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/** Records a move for the counting tray; {@code counts == null} = the greedy breakdown of {@code amount}. */
+	private void recordMove(ServerPlayer player, MoveKind kind, long amount, long[] counts) {
+		if (amount <= 0) {
+			return;
+		}
+		lastMoves.put(player.getUUID(), new Move(++moveSeq, kind, amount, counts != null ? counts : ChipMath.split(amount)));
+	}
+
+	/** The last recorded move of {@code player} at this cashier (null = none since it was loaded). */
+	public Move lastMove(ServerPlayer player) {
+		return lastMoves.get(player.getUUID());
 	}
 
 	/** Deposits every chip item in the inventory (as far as the balance cap allows). Returns chips deposited. */
@@ -173,8 +225,9 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		}
 		long room = room(player);
 		long taken = 0;
+		long[] counts = new long[ChipMath.DENOMINATIONS.length];
 		for (int i = 0; i < inv.getContainerSize() && room - taken > 0; i++) {
-			taken += take(inv.getItem(i), room - taken);
+			taken += take(inv.getItem(i), room - taken, counts);
 		}
 		inv.setChanged();
 		if (taken <= 0) {
@@ -184,6 +237,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		if (taken < total) {
 			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.balance_full"));
 		}
+		recordMove(player, MoveKind.DEPOSIT, taken, counts);
 		return credit(player, taken);
 	}
 
@@ -194,7 +248,8 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("msg.burmaldaholic.core.no_chips_to_deposit"));
 			return 0;
 		}
-		long taken = take(held, room(player));
+		long[] counts = new long[ChipMath.DENOMINATIONS.length];
+		long taken = take(held, room(player), counts);
 		if (taken <= 0) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.balance_full"));
 			return 0;
@@ -202,6 +257,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		if (taken < value) {
 			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.balance_full"));
 		}
+		recordMove(player, MoveKind.DEPOSIT, taken, counts);
 		return credit(player, taken);
 	}
 
@@ -242,6 +298,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			return false;
 		}
 		long[] counts = denom > 0 ? ChipMath.split(amount, denom) : ChipMath.split(amount);
+		recordMove(player, MoveKind.WITHDRAW, amount, counts.clone());
 		boolean dropped = false;
 		for (int i = 0; i < counts.length; i++) {
 			dropped |= give(player, Chips.item(ChipMath.DENOMINATIONS[i]), counts[i]);
@@ -272,6 +329,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		remove(inv, currency, count);
 		long chips = (long) count * rate;
 		Economies.get().deposit(player, chips, tx(detail));
+		recordMove(player, MoveKind.CREDIT, chips, null);
 		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.bought_chips", Texts.chipsAcc(chips), Texts.plural(unitKey, count)));
 	}
 
@@ -286,6 +344,7 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(withdrawable(player))));
 			return;
 		}
+		recordMove(player, MoveKind.PAID, chips, null);
 		if (give(player, currency, count)) {
 			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.inventory_full"));
 		}
@@ -349,6 +408,17 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			shop.add(t);
 		}
 		tag.put("shop", shop);
+		Move move = lastMove(viewer);
+		if (move != null) {
+			CompoundTag tray = new CompoundTag();
+			tray.putInt("seq", move.seq());
+			tray.putString("kind", move.kind().name().toLowerCase(java.util.Locale.ROOT));
+			tray.putLong("amount", move.amount());
+			for (int i = 0; i < move.counts().length && i < ChipMath.DENOMINATIONS.length; i++) {
+				tray.putLong(Integer.toString(ChipMath.DENOMINATIONS[i]), move.counts()[i]);
+			}
+			tag.put("tray", tray);
+		}
 		return tag;
 	}
 

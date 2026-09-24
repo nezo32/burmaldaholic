@@ -105,6 +105,11 @@ public final class VipService {
 		long bet = Math.max(0, result.bet());
 		long credit = wagerCredit(result, bet);
 		rec.wagered = rec.wagered > Long.MAX_VALUE - credit ? Long.MAX_VALUE : rec.wagered + credit;
+		long best = VipRules.biggestWin(rec.biggestWin, bet, result.payout());
+		if (best != rec.biggestWin) {
+			rec.biggestWin = best;
+			rec.biggestWinGame = result.gameId();
+		}
 		boolean eligible = CashbackRules.eligible(result.houseBanked(), result.ownedCasino(), result.pawn()) && !BotRounds.vsBots(result);
 		CashbackRules.Roll roll = CashbackRules.record(rec.ledger, Contracts.today(server), bet, result.payout(), result.houseEdge(), eligible);
 		rec.ledger = roll.ledger();
@@ -285,7 +290,8 @@ public final class VipService {
 		return new VipSyncPayload(open, rec.wagered, tier(server, player.getUUID()), l == null ? 0 : l.staked(), l == null ? 0 : l.returned(),
 			on, Contracts.ticksToReset(server), Math.max(0, CasinoConfig.contracts().rerollCost), List.copyOf(list),
 			Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.netToday(server, player.getUUID())),
-			CasinoConfig.bots().enabled ? Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.threshold(server, player.getUUID())) : 0);
+			CasinoConfig.bots().enabled ? Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.threshold(server, player.getUUID())) : 0,
+			rec.biggestWin, rec.biggestWinGame == null ? "" : rec.biggestWinGame);
 	}
 
 	/** Sends the state if it changed (or {@code force}); {@code open} also opens the menu. */

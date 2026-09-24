@@ -366,6 +366,15 @@ public final class LoanService {
 			LoanRecord r = LoanData.get(server).peek(player);
 			return r == null || r.status != Status.ACTIVE ? 0 : Math.max(0, r.deadlineTick - now(server));
 		}
+
+		@Override
+		public long principal(MinecraftServer server, UUID player) {
+			if (!active(server)) {
+				return 0;
+			}
+			LoanRecord r = LoanData.get(server).peek(player);
+			return r == null || r.status == Status.NONE ? 0 : Math.max(0, r.principal);
+		}
 	};
 
 	// ---- admin ----------------------------------------------------------------------------------

@@ -50,7 +50,8 @@ public final class PlayerSync {
 			CoreServices.goldenHour().remainingTicks(server),
 			CoreServices.debt().owed(server, id),
 			CoreServices.debt().inDefault(server, id),
-			CoreServices.debt().ticksToDeadline(server, id));
+			CoreServices.debt().ticksToDeadline(server, id),
+			CoreServices.debt().principal(server, id));
 	}
 
 	private static void tick(MinecraftServer server) {

@@ -21,12 +21,23 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param rerollCost    chips per reroll
  * @param botNet        net winnings from money bots today (BOTS.md §5.4 heat, Wallet line)
  * @param botCap        today's heat cap ({@code 0} = bots off / no line)
+ * @param biggestWin    biggest single net win of a settled round ({@code 0} = none yet), {@code biggestGame} its game id
  */
 public record VipSyncPayload(boolean open, long wagered, int tier, long todayStaked, long todayReturned, boolean contractsOn,
-		long resetTicks, long rerollCost, List<ContractView> contracts, long botNet, long botCap) implements CustomPacketPayload {
+		long resetTicks, long rerollCost, List<ContractView> contracts, long botNet, long botCap, long biggestWin, String biggestGame)
+		implements CustomPacketPayload {
+	public VipSyncPayload {
+		biggestGame = biggestGame == null ? "" : biggestGame;
+	}
+
 	public VipSyncPayload(boolean open, long wagered, int tier, long todayStaked, long todayReturned, boolean contractsOn, long resetTicks,
 			long rerollCost, List<ContractView> contracts) {
-		this(open, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, 0, 0);
+		this(open, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, 0, 0, 0, "");
+	}
+
+	public VipSyncPayload(boolean open, long wagered, int tier, long todayStaked, long todayReturned, boolean contractsOn, long resetTicks,
+			long rerollCost, List<ContractView> contracts, long botNet, long botCap) {
+		this(open, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, botNet, botCap, 0, "");
 	}
 
 	public static CustomPacketPayload.Type<VipSyncPayload> TYPE;
@@ -55,7 +66,9 @@ public record VipSyncPayload(boolean open, long wagered, int tier, long todaySta
 			}
 			long botNet = ByteBufCodecs.VAR_LONG.decode(buf);
 			long botCap = ByteBufCodecs.VAR_LONG.decode(buf);
-			return new VipSyncPayload(open, wagered, tier, staked, returned, on, reset, cost, List.copyOf(list), botNet, botCap);
+			long biggest = ByteBufCodecs.VAR_LONG.decode(buf);
+			String game = ByteBufCodecs.stringUtf8(64).decode(buf);
+			return new VipSyncPayload(open, wagered, tier, staked, returned, on, reset, cost, List.copyOf(list), botNet, botCap, biggest, game);
 		}
 
 		@Override
@@ -81,20 +94,23 @@ public record VipSyncPayload(boolean open, long wagered, int tier, long todaySta
 			}
 			ByteBufCodecs.VAR_LONG.encode(buf, p.botNet);
 			ByteBufCodecs.VAR_LONG.encode(buf, p.botCap);
+			ByteBufCodecs.VAR_LONG.encode(buf, p.biggestWin);
+			ByteBufCodecs.stringUtf8(64).encode(buf, p.biggestGame.length() > 64 ? p.biggestGame.substring(0, 64) : p.biggestGame);
 		}
 	};
 	public static final StreamCodec<RegistryFriendlyByteBuf, VipSyncPayload> CODEC = RAW.cast();
 
 	/** Same data without the open request (what the client caches). */
 	public VipSyncPayload withoutOpen() {
-		return open ? new VipSyncPayload(false, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, botNet, botCap)
-			: this;
+		return open ? new VipSyncPayload(false, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, botNet, botCap,
+			biggestWin, biggestGame) : this;
 	}
 
 	/** Change detection that ignores the ticking reset timer. */
 	public boolean sameContent(VipSyncPayload o) {
 		return o != null && wagered == o.wagered && tier == o.tier && todayStaked == o.todayStaked && todayReturned == o.todayReturned
-			&& contractsOn == o.contractsOn && rerollCost == o.rerollCost && contracts.equals(o.contracts) && botNet == o.botNet && botCap == o.botCap;
+			&& contractsOn == o.contractsOn && rerollCost == o.rerollCost && contracts.equals(o.contracts) && botNet == o.botNet && botCap == o.botCap
+			&& biggestWin == o.biggestWin && biggestGame.equals(o.biggestGame);
 	}
 
 	@Override

@@ -12,6 +12,7 @@ import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import dev.nezo.burmaldaholic.loan.LoanContent;
+import dev.nezo.burmaldaholic.loan.LoanService;
 import dev.nezo.burmaldaholic.loan.LoanShark;
 import dev.nezo.burmaldaholic.loan.entity.LoanSharkEntity;
 import java.nio.charset.StandardCharsets;
@@ -56,6 +57,9 @@ public class CasinoUiClientGameTests implements FabricClientGameTest {
 			for (String give : List.of("chip_1 7", "chip_5 12", "chip_25 18", "chip_100 25", "chip_500 9")) {
 				world.getServer().runCommand("give @p burmaldaholic:" + give);
 			}
+			// a settled round for the wallet's "Biggest win" row (net 5,000 on slots)
+			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.events.PlayResults.fire(player(server),
+				dev.nezo.burmaldaholic.core.events.CasinoEvents.PlayResult.of("slots", 100, 5_100)));
 			context.waitTicks(10);
 			for (String lang : List.of("en_us", "ru_ru")) {
 				language(context, lang);
@@ -65,28 +69,23 @@ public class CasinoUiClientGameTests implements FabricClientGameTest {
 				for (String page : List.of("wallet", "vip", "contracts", "achievements", "challenges", "rules")) {
 					open(context, world, lang + "_menu_" + page, server -> CasinoMenu.open(player(server), page));
 				}
-				world.getServer().runCommand("casino loan set @p 2500");
+				// a real loan (Rent: principal → due with interest), part repaid: the contract, the due time, the meter
+				world.getServer().runOnServer(server -> {
+					ServerPlayer p = player(server);
+					Component err = LoanService.take(p, 1);
+					if (err != null) failures.add(lang + ": loan not taken: " + err.getString());
+					LoanService.pay(p, 150, false);
+				});
+				context.waitTicks(10);
+				open(context, world, lang + "_menu_loan_active", server -> CasinoMenu.open(player(server), "loan"));
+				open(context, world, lang + "_loan_shark_active", CasinoUiClientGameTests::openShark);
 				world.getServer().runCommand("casino loan default @p");
 				context.waitTicks(10);
 				open(context, world, lang + "_menu_loan", server -> CasinoMenu.open(player(server), "loan"));
-				open(context, world, lang + "_loan_shark", server -> {
-					ServerPlayer p = player(server);
-					LoanSharkEntity shark = LoanContent.LOAN_SHARK.create(p.level(), EntitySpawnReason.COMMAND);
-					if (shark == null) return;
-					shark.snapTo(p.getX() + 2, p.getY(), p.getZ());
-					p.level().addFreshEntity(shark);
-					LoanShark.open(p, shark);
-				});
+				open(context, world, lang + "_loan_shark", CasinoUiClientGameTests::openShark);
 				world.getServer().runCommand("casino loan clear @p");
 				context.waitTicks(5);
-				open(context, world, lang + "_loan_shark_offers", server -> {
-					ServerPlayer p = player(server);
-					LoanSharkEntity shark = LoanContent.LOAN_SHARK.create(p.level(), EntitySpawnReason.COMMAND);
-					if (shark == null) return;
-					shark.snapTo(p.getX() + 2, p.getY(), p.getZ());
-					p.level().addFreshEntity(shark);
-					LoanShark.open(p, shark);
-				});
+				open(context, world, lang + "_loan_shark_offers", CasinoUiClientGameTests::openShark);
 				open(context, world, lang + "_cashier", server -> {
 					ServerPlayer p = player(server);
 					BlockPos pos = p.blockPosition().offset(2, 0, 0);
@@ -96,14 +95,30 @@ public class CasinoUiClientGameTests implements FabricClientGameTest {
 						table.sendStateTo(p);
 					}
 				});
-				// the counting tray: withdraw on the open cashier
-				world.getServer().runCommand("casino balance add @p 1910");
-				world.getServer().runOnServer(server -> {
-					ServerPlayer p = player(server);
-					if (server.overworld().getBlockEntity(p.blockPosition().offset(2, 0, 0)) instanceof CasinoTableBlockEntity table) table.sendStateTo(p);
-				});
-				context.waitTicks(8);
+				// the counting tray: a real withdrawal of 1,910 on the open cashier (3 × 500, 4 × 100, 2 × 5), mid-count and counted
+				world.getServer().runOnServer(server -> cashier(server, "withdraw", 1910));
+				context.waitTicks(6);
+				context.takeScreenshot("jtest_ui_" + lang + "_cashier_tray_counting");
+				context.waitTicks(30);
 				context.takeScreenshot("jtest_ui_" + lang + "_cashier_tray");
+				// and a deposit of every chip carried: the stacks of the chip items actually taken
+				world.getServer().runOnServer(server -> cashier(server, "deposit_all", 0));
+				context.waitTicks(40);
+				context.takeScreenshot("jtest_ui_" + lang + "_cashier_tray_deposit");
+				// the Nether cashier: two more exchange rows (gold), no tray, everything on the page
+				open(context, world, lang + "_cashier_nether", server -> {
+					ServerPlayer p = player(server);
+					BlockPos pos = p.blockPosition().offset(-2, 0, 0);
+					server.overworld().setBlockAndUpdate(pos, CoreContent.NETHER_CASHIER.block().defaultBlockState());
+					if (server.overworld().getBlockEntity(pos) instanceof CasinoTableBlockEntity table) {
+						p.openMenu(table);
+						table.sendStateTo(p);
+					}
+				});
+				// give the pocket chips back for the next language's wallet
+				for (String give : List.of("chip_1 7", "chip_5 12", "chip_25 18", "chip_100 25", "chip_500 9")) {
+					world.getServer().runCommand("give @p burmaldaholic:" + give);
+				}
 				for (CasinoTheme theme : new CasinoTheme[] {CasinoTheme.VILLAGE, CasinoTheme.BASTION, CasinoTheme.END}) {
 					gallery(context, lang + "_kit_" + theme.id, theme, false);
 				}
@@ -122,6 +137,26 @@ public class CasinoUiClientGameTests implements FabricClientGameTest {
 		return server.getPlayerList().getPlayers().getFirst();
 	}
 
+	private static void openShark(MinecraftServer server) {
+		ServerPlayer p = player(server);
+		LoanSharkEntity shark = LoanContent.LOAN_SHARK.create(p.level(), EntitySpawnReason.COMMAND);
+		if (shark == null) return;
+		shark.snapTo(p.getX() + 2, p.getY(), p.getZ());
+		p.level().addFreshEntity(shark);
+		LoanShark.open(p, shark);
+	}
+
+	/** Runs a cashier action on the cashier next to the player (placed by the cashier screenshot), as its screen would. */
+	private static void cashier(MinecraftServer server, String action, long amount) {
+		ServerPlayer p = player(server);
+		if (server.overworld().getBlockEntity(p.blockPosition().offset(2, 0, 0)) instanceof CasinoTableBlockEntity table) {
+			net.minecraft.nbt.CompoundTag args = new net.minecraft.nbt.CompoundTag();
+			args.putLong("amount", amount);
+			args.putInt("denom", 0);
+			table.onAction(p, action, args);
+		}
+	}
+
 	private void hud(ClientGameTestContext context, TestSingleplayerContext world, String lang) {
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		world.getServer().runCommand("casino balance set @p 12500");
@@ -129,9 +164,34 @@ public class CasinoUiClientGameTests implements FabricClientGameTest {
 		world.getServer().runCommand("casino balance add @p 388");
 		context.waitTicks(6);
 		context.takeScreenshot("jtest_ui_" + lang + "_hud_delta");
+		// Golden Hour (the previous language's stop left a cooldown: clear it) — the golden pill and the sun timer
+		world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.chaos.ChaosData.get(server).goldenHour().nextAllowed = 0);
 		world.getServer().runCommand("casino chaos golden_hour start");
 		context.waitTicks(40);
 		context.takeScreenshot("jtest_ui_" + lang + "_hud_golden");
+		long golden = context.computeOnClient(mc -> dev.nezo.burmaldaholic.client.ClientCasinoState.goldenHourTicks());
+		if (golden <= 0) failures.add(lang + ": the HUD got no Golden Hour");
+		// vanilla HUD neighbours at GUI scale 4 (320 × 200): a boss bar, a good and a bad effect, chat lines
+		world.getServer().runCommand("bossbar add burmaldaholic:jtest \"Wither Storm\"");
+		world.getServer().runCommand("bossbar set burmaldaholic:jtest players @a");
+		world.getServer().runCommand("effect give @p minecraft:speed 60 0 true");
+		world.getServer().runCommand("effect give @p minecraft:mining_fatigue 60 0 true");
+		// a 1280 × 800 window: GUI 1280 × 800 at scale 1 … 320 × 200 at scale 4 (the 854 × 480 default caps at 2)
+		context.getInput().resizeWindow(1280, 800);
+		context.runOnClient(mc -> mc.gui.hud.getChat().addClientSystemMessage(Component.literal("jtest: chat line under the HUD?")));
+		for (int scale = 1; scale <= 4; scale++) {
+			guiScale(context, scale);
+			context.waitTicks(3);
+			context.takeScreenshot("jtest_ui_" + lang + "_hud_scale" + scale);
+		}
+		context.runOnClient(mc -> FxSettings.get().reduceMotion = true);
+		context.waitTicks(3);
+		context.takeScreenshot("jtest_ui_" + lang + "_hud_scale4_reduced");
+		context.runOnClient(mc -> FxSettings.get().reduceMotion = false);
+		context.getInput().resizeWindow(854, 480);
+		world.getServer().runCommand("bossbar remove burmaldaholic:jtest");
+		world.getServer().runCommand("effect clear @p");
+		guiScale(context, 2);
 		world.getServer().runCommand("casino chaos golden_hour stop");
 		context.waitTicks(10);
 	}

@@ -16,6 +16,7 @@ import dev.nezo.burmaldaholic.core.text.Numbers;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.BalanceTicker;
 import dev.nezo.burmaldaholic.core.ui.ChipColumns;
+import dev.nezo.burmaldaholic.core.ui.CountingTray;
 import dev.nezo.burmaldaholic.core.ui.LedgerLayout;
 import dev.nezo.burmaldaholic.core.ui.UiLayout;
 import java.util.function.Consumer;
@@ -24,10 +25,12 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Cashier screen (UI.md §3) in the Casino Menu's ledger shell with the lobby backdrop (docs/design/visual/extras.md §8.3,
@@ -35,11 +38,12 @@ import net.minecraft.world.item.Items;
  * chip "+" buttons, Max, the primary Withdraw) and the exchange (emerald / gold ingot rows). Buttons flow into rows so
  * longer Russian labels wrap instead of overflowing.
  *
- * <p>Counting tray: when the balance changes while the cashier is open, the change is replayed as chip stack columns
- * (largest denomination first, 70 ms stagger, 280 ms flights from the bottom edge for a deposit / into it for a
- * withdrawal), then the "Deposited N" / "Withdrawn N" line. The columns show the greedy breakdown of the change (the
- * exact amount; the server does not send its per-denomination breakdown yet). Click the tray to skip; reduce motion
- * shows the final columns. The shown amount always equals the server's balance change.
+ * <p>Counting tray ({@link CountingTray}): every move the server reports ({@code tray} in the state: the chip items
+ * actually deposited or withdrawn per denomination; the greedy breakdown for emerald / gold exchanges and shop buys)
+ * is replayed as chips flying into one well per denomination — from the bottom edge (your inventory) for a deposit,
+ * from the balance plaque for a withdrawal — largest first, 280 ms flights with a ≤ 70 ms stagger; then the stacks
+ * stay with their counts ("×N") under the "Deposited N" / "Withdrawn N" line until the next move. Click the tray to
+ * skip; reduce motion shows the final stacks at once. The amount is the server's, never recomputed.
  */
 public class CashierScreen extends CasinoTableScreen {
 	private static final int W = 400;
@@ -48,8 +52,19 @@ public class CashierScreen extends CasinoTableScreen {
 	private static final int CX = 24;
 	private static final int TRAY_Y = 36;
 	private static final int TRAY_H = 44;
-	private static final int FLIGHT_MS = 280;
-	private static final int STAGGER_MS = 70;
+	/** Tray columns (small denominations on the left, like the wallet's pocket), 40 px each, right-aligned. */
+	private static final int TRAY_COL_W = 40;
+	private static final Identifier[] CHIP = new Identifier[ChipColumns.DENOMS.length];
+	private static final Identifier[] CHIP_SIDE = new Identifier[ChipColumns.DENOMS.length];
+	private static final String[] DENOM_LABEL = new String[ChipColumns.DENOMS.length];
+
+	static {
+		for (int i = 0; i < ChipColumns.DENOMS.length; i++) {
+			CHIP[i] = UiSprites.sprite("fx/chip_" + ChipColumns.DENOMS[i]);
+			CHIP_SIDE[i] = UiSprites.sprite("fx/chip_side_" + ChipColumns.DENOMS[i]);
+			DENOM_LABEL[i] = Integer.toString(ChipColumns.DENOMS[i]); // literal-ok: denomination
+		}
+	}
 	private EditBox amount;
 	private String amountText = "";
 	private int flowX;
@@ -60,10 +75,20 @@ public class CashierScreen extends CasinoTableScreen {
 	private boolean shopTab;
 	private final BalanceTicker ticker = new BalanceTicker();
 	private long lastBalance = Long.MIN_VALUE;
-	private long trayAmount;
+	/** The move being shown (null = idle), when it started, and its pre-built labels (no per-frame allocation). */
+	private @Nullable CountingTray tray;
 	private long trayAt = -1;
-	private long[] trayCounts = new long[ChipColumns.DENOMS.length];
+	/** Chips fly in from the bottom edge (deposit / credit) or from the balance plaque (withdraw / paid). */
+	private boolean trayFromBottom;
+	private Component trayHead = Component.empty();
+	private Component trayChips = Component.empty();
+	private final String[] trayCountLabel = new String[ChipColumns.DENOMS.length];
+	private int trayHeadColor;
+	/** Last move sequence seen ({@link Integer#MIN_VALUE} = no state yet: the move that was there on open is not replayed). */
+	private int traySeq = Integer.MIN_VALUE;
 	private int soundsPlayed;
+	private static final Component TRAY_IDLE = Component.translatable("gui.burmaldaholic.cashier.tray");
+	private static final Component COUNTING = Component.translatable("gui.burmaldaholic.cashier.counting");
 
 	public CashierScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable("gui.burmaldaholic.cashier.title"), W, H);
@@ -86,36 +111,48 @@ public class CashierScreen extends CasinoTableScreen {
 		long bal = newState.getLongOr("balance", 0);
 		long now = Util.getMillis();
 		if (!newState.contains("balance")) return; // the empty placeholder before the first server state
-		if (lastBalance != Long.MIN_VALUE && bal != lastBalance) startTray(bal - lastBalance, now);
+		CompoundTag move = newState.getCompoundOrEmpty("tray");
+		int seq = move.getIntOr("seq", 0);
+		if (traySeq != Integer.MIN_VALUE && seq != traySeq && seq != 0) startTray(move, now);
+		traySeq = seq;
 		ticker.retarget(bal, now, FxSettings.reduceMotion() || lastBalance == Long.MIN_VALUE);
 		lastBalance = bal;
 		if (minecraft != null) rebuild();
 	}
 
-	private void startTray(long delta, long now) {
-		trayAmount = delta;
+	/** Starts replaying a server move ({@code tray}: kind, amount, chip counts per denomination). */
+	private void startTray(CompoundTag move, long now) {
+		long[] counts = new long[ChipColumns.DENOMS.length];
+		for (int i = 0; i < counts.length; i++) counts[i] = Math.max(0, move.getLongOr(Integer.toString(ChipColumns.DENOMS[i]), 0));
+		String kind = move.getStringOr("kind", "deposit");
+		long amount = Math.max(0, move.getLongOr("amount", 0));
+		tray = new CountingTray(counts);
 		trayAt = now;
-		trayCounts = ChipColumns.greedy(Math.abs(delta));
 		soundsPlayed = 0;
-	}
-
-	private int trayChips() {
-		int n = 0;
-		for (long c : trayCounts) n += (int) Math.min(10, c);
-		return n;
-	}
-
-	private long trayEnd() {
-		return (long) Math.max(0, trayChips() - 1) * STAGGER_MS + FLIGHT_MS + 1200;
+		trayFromBottom = kind.equals("deposit") || kind.equals("credit");
+		String key = switch (kind) {
+			case "withdraw" -> "gui.burmaldaholic.cashier.withdrawn";
+			case "credit" -> "gui.burmaldaholic.cashier.credited";
+			case "paid" -> "gui.burmaldaholic.cashier.paid";
+			default -> "gui.burmaldaholic.cashier.deposited";
+		};
+		trayHead = Component.translatable(key, Texts.number(amount));
+		trayHeadColor = trayFromBottom ? CasinoPalette.BONUS : CasinoPalette.GOLD;
+		trayChips = Texts.plural("unit.burmaldaholic.chip", tray.chips());
+		for (int i = 0; i < counts.length; i++) trayCountLabel[i] = counts[i] > 0 ? "×" + Numbers.format(counts[i]) : ""; // literal-ok: count
 	}
 
 	@Override
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		double mx = event.x();
 		double my = event.y();
-		if (trayAt >= 0 && mx >= leftPos + CX && mx < leftPos + W - CX && my >= topPos + TRAY_Y && my < topPos + TRAY_Y + TRAY_H) {
-			trayAt = Util.getMillis() - trayEnd() + 1000; // skip to the final columns
-			return true;
+		if (tray != null && mx >= leftPos + CX && mx < leftPos + W - CX && my >= topPos + TRAY_Y && my < topPos + TRAY_Y + trayH()) {
+			long done = tray.flightsDoneMs();
+			if (Util.getMillis() - trayAt < done) {
+				trayAt = Util.getMillis() - done; // skip to the final stacks
+				soundsPlayed = tray.flights();
+				return true;
+			}
 		}
 		return super.mouseClicked(event, doubleClick);
 	}
@@ -128,7 +165,7 @@ public class CashierScreen extends CasinoTableScreen {
 		rowBands.clear();
 		CompoundTag s = state();
 		flowX = CX + 4;
-		flowY = TRAY_Y + TRAY_H + 6;
+		flowY = trayH() > 0 ? TRAY_Y + trayH() + 6 : TRAY_Y;
 		ListTag shop = s.getListOrEmpty("shop");
 		if (!shop.isEmpty()) {
 			flow(Component.translatable("gui.burmaldaholic.cashier.title"), b -> selectTab(false), true, 41, shopTab ? null : CasinoButton.Style.PRIMARY)
@@ -287,7 +324,15 @@ public class CashierScreen extends CasinoTableScreen {
 			color);
 		CasinoUi.sprite(g, UiSprites.PAGE, leftPos + 16, topPos + PAGE_Y, W - 32, H - PAGE_Y - 16, 0xFF1E0E2C, CasinoPalette.FRAME);
 		for (int[] band : rowBands) CasinoUi.row(g, band[1], leftPos + CX, topPos + band[0], W - 2 * CX, 24);
-		if (!shopTab) drawTray(g, now);
+		if (!shopTab && trayH() > 0) drawTray(g, now);
+	}
+
+	/**
+	 * The tray's height: none at the Nether cashier, whose two gold rows need the room (with the tray its last row
+	 * would fall off the page); the moves are still told in chat there.
+	 */
+	private int trayH() {
+		return state().getBooleanOr("nether", false) ? 0 : TRAY_H;
 	}
 
 	private void drawTray(GuiGraphicsExtractor g, long now) {
@@ -295,55 +340,63 @@ public class CashierScreen extends CasinoTableScreen {
 		int y = topPos + TRAY_Y;
 		int w = W - 2 * CX;
 		CasinoUi.inset(g, x, y, w, TRAY_H);
-		if (trayAt < 0) {
-			g.text(font, Component.translatable("gui.burmaldaholic.cashier.tray"), x + 6, y + 4, CasinoPalette.BONE_SHADE, true);
-			return;
-		}
-		long t = now - trayAt;
+		int n = ChipColumns.DENOMS.length;
+		int colsX = x + w - 6 - n * TRAY_COL_W;
+		int headW = colsX - x - 12;
+		CountingTray t = tray;
+		long age = t == null ? 0 : now - trayAt;
 		boolean reduced = FxSettings.reduceMotion();
-		if (reduced) t = Math.max(t, trayEnd() - 1200);
-		boolean deposit = trayAmount > 0;
-		int chipsTotal = trayChips();
-		long flightsDone = (long) Math.max(0, chipsTotal - 1) * STAGGER_MS + FLIGHT_MS;
-		Component head = t < flightsDone ? Component.translatable("gui.burmaldaholic.cashier.counting")
-			: Component.translatable(deposit ? "gui.burmaldaholic.cashier.deposited" : "gui.burmaldaholic.cashier.withdrawn", Texts.number(Math.abs(trayAmount)));
-		g.text(font, head, x + 6, y + 4, t < flightsDone ? CasinoPalette.BONE : deposit ? CasinoPalette.BONUS : CasinoPalette.GOLD, true);
-		int base = y + TRAY_H - 6;
-		int colX = x + 100;
-		int colW = (w - 110) / ChipColumns.DENOMS.length;
-		int k = 0;
-		int landed = 0;
-		for (int di = 0; di < ChipColumns.DENOMS.length; di++) {
-			long count = trayCounts[di];
-			if (count <= 0) continue;
-			int denom = ChipColumns.DENOMS[di];
-			int cx = colX + di * colW + colW / 2;
-			int shown = (int) Math.min(10, count);
-			int stacked = 0;
-			for (int j = 0; j < shown; j++, k++) {
-				long ct = t - (long) k * STAGGER_MS;
-				int slotY = base - 3 - j * ChipColumns.PITCH;
-				if (ct >= FLIGHT_MS) {
-					stacked++;
+		if (t != null && reduced) age = Math.max(age, t.flightsDoneMs());
+		boolean counting = t != null && age < t.flightsDoneMs();
+		// head: "Chip tray" (idle) / "Counting…" / "Withdrawn 1,910" + "7 chips"
+		if (t == null) {
+			CasinoUi.text(g, font, TRAY_IDLE, x + 6, y + 6, headW, CasinoPalette.BONE_SHADE);
+		} else {
+			CasinoUi.text(g, font, counting ? COUNTING : trayHead, x + 6, y + 6, headW, counting ? CasinoPalette.BONE : trayHeadColor);
+			if (!counting) CasinoUi.text(g, font, trayChips, x + 6, y + 18, headW, CasinoPalette.BONE_SHADE);
+		}
+		int base = y + 32; // bottom of the lowest disc
+		// wells: small denominations on the left (the wallet's order); columns index ChipColumns.DENOMS (largest first)
+		for (int k = 0; k < n; k++) {
+			int di = n - 1 - k;
+			int cx = colsX + k * TRAY_COL_W + TRAY_COL_W / 2;
+			g.fill(cx - 10, y + 12, cx + 10, base + 1, 0x40000000);
+			g.fill(cx - 10, base + 1, cx + 10, base + 2, 0x30FFFFFF);
+			String dl = DENOM_LABEL[di];
+			g.text(font, dl, cx - font.width(dl) / 2, y + 3, CasinoPalette.BONE_SHADE, false);
+			if (t == null || t.count(di) <= 0) continue;
+			int landed = 0;
+			for (int j = 0; j < t.discs(di); j++) {
+				double p = t.flight(di, j, age);
+				int slotY = CountingTray.discY(base, j);
+				if (p >= 1) {
+					CasinoUi.sprite(g, CHIP_SIDE[di], cx - 6, slotY, 12, 3);
 					landed++;
 					continue;
 				}
-				if (ct < 0) continue;
-				// quadratic flight from the bottom edge (deposit) or to it (withdraw), apex 24 px above
-				double p = Ease.OUT_CUBIC.apply(ct / (double) FLIGHT_MS);
-				double from = deposit ? topPos + H - 16 : slotY;
-				double to = deposit ? slotY : topPos + H - 16;
-				double py = from + (to - from) * p - 24 * 4 * p * (1 - p);
-				CasinoUi.sprite(g, UiSprites.sprite("fx/chip_" + denom), cx - 4, (int) Math.round(py), 8, 8);
+				if (p < 0) continue;
+				// arc from the bottom edge (inventory) or the balance plaque (the house) into the slot
+				double e = Ease.OUT_CUBIC.apply(p);
+				double fromX = trayFromBottom ? cx : leftPos + W - 16 - LedgerLayout.PLAQUE_W / 2.0;
+				double fromY = trayFromBottom ? topPos + H - 16 : topPos + LedgerLayout.HEADER_Y + 6;
+				double px = fromX + (cx - fromX) * e;
+				double py = fromY + (slotY - 5 - fromY) * e - 20 * 4 * e * (1 - e);
+				CasinoUi.sprite(g, CHIP[di], (int) Math.round(px) - 4, (int) Math.round(py), 8, 8);
 			}
-			int drawn = deposit ? stacked : shown - stacked;
-			for (int j = 0; j < drawn; j++) CasinoUi.sprite(g, UiSprites.sprite("fx/chip_side_" + denom), cx - 6, base - 3 - j * ChipColumns.PITCH, 12, 3);
-			String label = count > 10 ? "×" + Numbers.format(count) : Numbers.format(denom); // literal-ok: count
-			g.text(font, label, cx - font.width(label) / 2, y + 4, CasinoPalette.BONE_SHADE, false);
+			if (landed > 0 && landed == t.discs(di)) {
+				CasinoUi.sprite(g, CHIP[di], cx - 4, CountingTray.discY(base, landed - 1) - 5, 8, 8); // the top chip, face up
+			}
+			if (!counting) {
+				String cl = trayCountLabel[di];
+				g.text(font, cl, cx - font.width(cl) / 2, base + 3, t.count(di) > t.discs(di) ? CasinoPalette.GOLD : CasinoPalette.BONE, false);
+			}
 		}
-		if (!reduced && landed > soundsPlayed && t < flightsDone + 100) {
-			soundsPlayed = landed;
-			FxSounds.play("chip_stack", 0.6f, 1f + 0.05f * Math.min(8, landed));
+		if (t != null && !reduced && counting) {
+			int landedAll = t.landed(age);
+			if (landedAll > soundsPlayed) {
+				soundsPlayed = landedAll;
+				FxSounds.play("chip_stack", 0.6f, 1f + 0.05f * Math.min(8, landedAll));
+			}
 		}
 	}
 
