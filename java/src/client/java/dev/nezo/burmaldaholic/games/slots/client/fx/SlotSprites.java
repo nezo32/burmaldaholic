@@ -69,6 +69,18 @@ public final class SlotSprites {
 	public static final Tex ICON_MINUS = sprite("icon_minus", 12, 12);
 	public static final Tex ICON_PLUS = sprite("icon_plus", 12, 12);
 	public static final Tex ICON_BONUS = sprite("icon_bonus", 12, 12);
+	/** Atlas ids of the control icons (for the J-L2 {@code CasinoButton} kit, which draws atlas sprites). */
+	public static Identifier atlas(String path) {
+		return Identifier.fromNamespaceAndPath("burmaldaholic", "burmaldaholic/slots/" + path);
+	}
+
+	public static final Identifier ICON_AUTO_ID = atlas("icon_auto");
+	public static final Identifier ICON_PAYTABLE_ID = atlas("icon_paytable");
+	public static final Identifier ICON_MINUS_ID = atlas("icon_minus");
+	public static final Identifier ICON_PLUS_ID = atlas("icon_plus");
+	public static final Identifier ICON_BONUS_ID = atlas("icon_bonus");
+	public static final Identifier TURBO_ON_ID = atlas("turbo_on");
+	public static final Identifier TURBO_OFF_ID = atlas("turbo_off");
 	private static final String[] PLATES = {"mini", "minor", "major", "grand"};
 
 	public static Tex jackpotPlate(int tier) {

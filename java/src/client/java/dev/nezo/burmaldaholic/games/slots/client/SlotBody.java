@@ -9,7 +9,10 @@ import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry.Rect;
 import dev.nezo.burmaldaholic.games.slots.client.panels.CabinetArt;
 import dev.nezo.burmaldaholic.games.slots.client.panels.Overlays;
 import dev.nezo.burmaldaholic.games.slots.client.panels.SidePanels;
+import dev.nezo.burmaldaholic.client.ui.CasinoButton;
 import dev.nezo.burmaldaholic.games.slots.client.panels.SlotButton;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.resources.Identifier;
 import dev.nezo.burmaldaholic.games.slots.client.panels.SlotLayout;
 import dev.nezo.burmaldaholic.games.slots.client.panels.SlotModel;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
@@ -62,17 +65,19 @@ public final class SlotBody implements StageHost {
 	private final Component name;
 	private final MeterModel meters = new MeterModel();
 	private final Overlays overlays = new Overlays();
-	private final List<SlotButton> buttons = new ArrayList<>();
+	private final List<AbstractButton> buttons = new ArrayList<>();
+	/** Icon-only controls (compact / crowded rows): their words are the tooltip. */
+	private final java.util.Set<AbstractButton> iconic = new java.util.HashSet<>();
 	/** Host-supplied buttons that join the control flow (the Slot Showdown entry); see {@link #extraButtons}. */
 	private final List<SlotButton> extraButtons = new ArrayList<>();
 	private SlotLayout layout;
 	private SlotButton spin;
-	private SlotButton betDown;
-	private SlotButton betUp;
-	private SlotButton buy;
-	private SlotButton auto;
-	private SlotButton turbo;
-	private SlotButton paytable;
+	private CasinoButton betDown;
+	private CasinoButton betUp;
+	private CasinoButton buy;
+	private CasinoButton auto;
+	private CasinoButton turbo;
+	private CasinoButton paytable;
 	private boolean interactive = true;
 	private long betChangedAt = -1;
 	private int betDir;
@@ -105,7 +110,7 @@ public final class SlotBody implements StageHost {
 		return overlays;
 	}
 
-	public List<SlotButton> buttons() {
+	public List<AbstractButton> buttons() {
 		return buttons;
 	}
 
@@ -143,59 +148,83 @@ public final class SlotBody implements StageHost {
 		layout = SlotLayout.of(w, h);
 		stage.layout(layout.wx, layout.wy, layout.cell);
 		buttons.clear();
+		iconic.clear();
 		SlotLayout l = layout;
 		int bh = l.rowH;
 		// bet group: "BET" over a value plate between − and + (the value never shrinks: EN and RU fit, slots.md §4.14)
-		betDown = new SlotButton(l.betMinusX, l.betRowY, l.betButton, l.betButton, Component.translatable("gui.burmaldaholic.slots.bet_down"),
-			SlotButton.Style.SECONDARY, b -> changeBet(-1)).icon(SlotSprites.ICON_MINUS, null).iconOnly(true);
-		betDown.setTooltip(Tooltip.create(Component.translatable("gui.burmaldaholic.slots.bet_down")));
-		betUp = new SlotButton(l.betPlusX, l.betRowY, l.betButton, l.betButton, Component.translatable("gui.burmaldaholic.slots.bet_up"),
-			SlotButton.Style.SECONDARY, b -> changeBet(1)).icon(SlotSprites.ICON_PLUS, null).iconOnly(true);
-		betUp.setTooltip(Tooltip.create(Component.translatable("gui.burmaldaholic.slots.bet_up")));
-		// the other buttons flow into ≤ 2 rows between the bet group and the SPIN button (compact: icons only)
-		List<SlotButton> flow = new ArrayList<>();
+		betDown = iconButton(Component.translatable("gui.burmaldaholic.slots.bet_down"), SlotSprites.ICON_MINUS_ID, b -> changeBet(-1));
+		betDown.setRectangle(l.betButton, l.betButton, l.betMinusX, l.betRowY);
+		betUp = iconButton(Component.translatable("gui.burmaldaholic.slots.bet_up"), SlotSprites.ICON_PLUS_ID, b -> changeBet(1));
+		betUp.setRectangle(l.betButton, l.betButton, l.betPlusX, l.betRowY);
+		// the other buttons (J-L2 CasinoButton kit) flow into ≤ 2 rows between the bet group and the SPIN button
+		List<AbstractButton> flow = new ArrayList<>();
 		if (model.canBuy()) {
-			buy = new SlotButton(0, 0, 0, bh, buyLabel(), SlotButton.Style.GOLD, b -> openBuy()).icon(SlotSprites.ICON_BONUS, null);
+			buy = CasinoButton.builder(buyLabel(), b -> openBuy()).style(CasinoButton.Style.PRIMARY).icon(icon(SlotSprites.ICON_BONUS_ID)).build();
 			flow.add(buy);
 		} else {
 			buy = null;
 		}
-		auto = new SlotButton(0, 0, 0, bh, autoLabel(), SlotButton.Style.SECONDARY, b -> autoPressed(b)).icon(SlotSprites.ICON_AUTO, null)
-			.iconOnly(l.compact);
+		auto = CasinoButton.builder(autoLabel(), b -> autoPressed()).icon(icon(SlotSprites.ICON_AUTO_ID)).build();
 		if (model.autoplayAllowed) flow.add(auto);
-		turbo = new SlotButton(0, 0, 0, bh, Component.translatable("gui.burmaldaholic.slots.turbo"), SlotButton.Style.SECONDARY, b -> toggleTurbo())
-			.icon(SlotSprites.TURBO_OFF, SlotSprites.TURBO_ON).iconOnly(l.compact);
+		turbo = CasinoButton.builder(Component.translatable("gui.burmaldaholic.slots.turbo"), b -> toggleTurbo()).icon(icon(SlotSprites.TURBO_OFF_ID)).build();
 		if (model.turboAllowed) flow.add(turbo);
-		paytable = new SlotButton(0, 0, 0, bh, Component.translatable("gui.burmaldaholic.common.paytable"), SlotButton.Style.SECONDARY,
-			b -> overlays.open(Overlays.Mode.PAYTABLE, Util.getMillis())).icon(SlotSprites.ICON_PAYTABLE, null).iconOnly(l.compact);
+		paytable = CasinoButton.builder(Component.translatable("gui.burmaldaholic.common.paytable"), b -> overlays.open(Overlays.Mode.PAYTABLE, Util.getMillis()))
+			.icon(icon(SlotSprites.ICON_PAYTABLE_ID)).build();
 		flow.add(paytable);
 		flow.addAll(extraButtons);
-		for (SlotButton b : flow) if (b.iconOnly()) b.setTooltip(Tooltip.create(b.getMessage()));
-		int[] widths = new int[flow.size()];
-		for (int i = 0; i < widths.length; i++) widths[i] = flow.get(i).preferredWidth(font);
+		// compact, or too many / too long labels (Russian + the Showdown entry): the secondary controls become icons
+		if (l.compact) iconOnly(auto, turbo, paytable);
+		int[] widths = widths(flow, font);
 		if (!l.flowFits(widths)) {
-			// too many / too long labels (Russian + the Showdown entry): the secondary controls become icons
-			for (SlotButton b : new SlotButton[] {auto, turbo, paytable}) {
-				b.iconOnly(true);
-				b.setTooltip(Tooltip.create(b.getMessage()));
-			}
-			for (int i = 0; i < widths.length; i++) widths[i] = flow.get(i).preferredWidth(font);
+			iconOnly(auto, turbo, paytable);
+			widths = widths(flow, font);
 		}
 		SlotLayout.Rect[] rects = l.flow(widths);
-		for (int i = 0; i < flow.size(); i++) {
-			SlotButton b = flow.get(i);
-			b.setX(rects[i].x());
-			b.setY(rects[i].y());
-			b.setWidth(rects[i].w());
-			b.setHeight(rects[i].h());
-		}
+		for (int i = 0; i < flow.size(); i++) flow.get(i).setRectangle(rects[i].w(), rects[i].h(), rects[i].x(), rects[i].y());
 		spin = new SlotButton(l.spinX, l.spinY, l.spinW, l.spinH, spinLabel(), SlotButton.Style.SPIN, b -> spinPressed());
 		buttons.add(betDown);
 		buttons.add(betUp);
 		buttons.addAll(flow);
 		buttons.add(spin);
-		for (SlotButton b : buttons) add.accept(b);
+		for (AbstractButton b : buttons) add.accept(b);
 		refreshButtons();
+	}
+
+	private static CasinoButton.Icon icon(Identifier sprite) {
+		int size = sprite == SlotSprites.TURBO_ON_ID || sprite == SlotSprites.TURBO_OFF_ID ? 16 : SlotButton.ICON; // the turbo disc is 16 px art
+		return CasinoButton.Icon.sprite(sprite, size, size);
+	}
+
+	/** An icon-only kit button: no drawn label, the words are its tooltip. */
+	private CasinoButton iconButton(Component words, Identifier sprite, java.util.function.Consumer<CasinoButton> press) {
+		CasinoButton b = CasinoButton.builder(Component.empty(), press).icon(icon(sprite)).tooltip(words).build();
+		iconic.add(b);
+		return b;
+	}
+
+	private void iconOnly(CasinoButton... bs) {
+		for (CasinoButton b : bs) {
+			if (iconic.add(b)) {
+				b.tooltip(b.getMessage());
+				b.setMessage(Component.empty());
+			}
+		}
+	}
+
+	/** Whether a control shows only its icon (its words are the tooltip). */
+	public boolean iconOnly(AbstractButton b) {
+		return iconic.contains(b);
+	}
+
+	private int[] widths(List<AbstractButton> flow, Font font) {
+		int[] widths = new int[flow.size()];
+		for (int i = 0; i < widths.length; i++) {
+			AbstractButton b = flow.get(i);
+			if (b instanceof SlotButton sb) widths[i] = sb.preferredWidth(font);
+			else if (iconic.contains(b)) widths[i] = 16 + 8;
+			else widths[i] = CasinoButton.width(font, b.getMessage(), 22, true);
+		}
+		return widths;
 	}
 
 	private Component spinLabel() {
@@ -224,9 +253,17 @@ public final class SlotBody implements StageHost {
 			buy.active = !busy && model.playable && model.autoLeft < 0;
 			buy.setMessage(buyLabel());
 		}
-		auto.setMessage(autoLabel());
+		if (iconic.contains(auto)) {
+			if (!autoLabel().equals(autoTip)) auto.tooltip(autoTip = autoLabel());
+		} else {
+			auto.setMessage(autoLabel());
+		}
+		auto.selected(model.autoLeft >= 0);
 		auto.active = model.autoLeft >= 0 || !busy && model.playable;
-		turbo.toggled(model.turbo);
+		if (turbo.selected() != model.turbo) {
+			turbo.selected(model.turbo);
+			turbo.icon(icon(model.turbo ? SlotSprites.TURBO_ON_ID : SlotSprites.TURBO_OFF_ID));
+		}
 	}
 
 	// ---- actions ----------------------------------------------------------------------------------------------
@@ -285,7 +322,9 @@ public final class SlotBody implements StageHost {
 		overlays.open(Overlays.Mode.BUY, Util.getMillis());
 	}
 
-	private void autoPressed(SlotButton b) {
+	private Component autoTip;
+
+	private void autoPressed() {
 		if (model.autoLeft >= 0) {
 			controls.stopAuto();
 			return;
@@ -457,7 +496,7 @@ public final class SlotBody implements StageHost {
 			return true;
 		}
 		if (key == GLFW_KEY_A && model.autoplayAllowed) {
-			autoPressed(auto);
+			autoPressed();
 			return true;
 		}
 		if (key == GLFW_KEY_T && model.turboAllowed) {
