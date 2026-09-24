@@ -212,6 +212,13 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		return removing;
 	}
 
+	/**
+	 * The table was loaded with open stakes (only after a crash, §4.1). A game that persisted a DRAWN outcome together
+	 * with the stake (slots v2 tapes, SLOTS.md §8.1) settles it here from the persisted outcome; stakes still open
+	 * afterwards are refunded as before. Default: nothing (every open stake is refunded). Additive hook (lane J-L8).
+	 */
+	protected void resumeUnfinishedRound(ServerLevel level) {}
+
 	/** Called every server tick after core's bookkeeping. */
 	protected void serverTick(ServerLevel level) {}
 
@@ -636,6 +643,11 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		MinecraftServer server = level.getServer();
 		if (refundPending) {
 			refundPending = false;
+			try {
+				resumeUnfinishedRound(level);
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("Table {} at {}: resuming an unfinished round failed", gameId(), worldPosition, e);
+			}
 			if (CasinoConfig.core().roundTimeoutRefund) {
 				new ArrayList<>(openStakes.values()).forEach(s -> {
 					Burmaldaholic.LOGGER.info("Refunding unfinished round at {}: {} chips to {}", worldPosition, s.amount(), s.player());

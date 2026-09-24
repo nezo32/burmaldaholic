@@ -64,6 +64,8 @@ public final class SlotsConfig {
 		}
 		public Seed seed = new Seed();
 
+		/** v2: server-wide chat from this jackpot tier up (SLOTS.md §12). */
+		public SlotsV2Config.AnnounceTier announceMinTier = SlotsV2Config.AnnounceTier.MAJOR;
 	}
 	public Jackpot jackpot = new Jackpot();
 
@@ -73,4 +75,26 @@ public final class SlotsConfig {
 	@Range(min = 10, max = 200) public int spinTicks = 50;
 	/** On load, compute RTP from weights/pays; if a tier > 0.99 (incl. contribution) log a loud warning and show it on the admin page (never auto-fix). */
 	public boolean validateRtp = true;
+
+	// ---- Slots v2 (SLOTS.md §12). The v1 keys above are ignored once v2 is active and go away with the cut-over clean-up.
+
+	/**
+	 * Cut-over flag (lane S-J5): true runs the three 243-ways machines of SLOTS.md; false keeps the v1 3×3 machines. Default
+	 * false until the v2 screen (lane J-L9) ships; persisted v2 rounds are settled from their tape either way.
+	 */
+	public boolean v2 = false;
+	@Member("gui.burmaldaholic.slots.machine.overworld")
+	public SlotsV2Config.Overworld overworld = new SlotsV2Config.Overworld();
+	@Member("gui.burmaldaholic.slots.machine.nether")
+	public SlotsV2Config.Nether nether = new SlotsV2Config.Nether();
+	@Member("gui.burmaldaholic.slots.machine.end")
+	public SlotsV2Config.End end = new SlotsV2Config.End();
+	public SlotsV2Config.BuyFeature buyFeature = new SlotsV2Config.BuyFeature();
+	public SlotsV2Config.Autoplay autoplay = new SlotsV2Config.Autoplay();
+	public boolean turboAllowed = true;
+	/** Off: reels always stop on the base schedule. */
+	public boolean anticipation = true;
+	/** Nice / Big / Mega / Epic thresholds (× bet). */
+	@Range(min = 1, max = 10000) @Size(min = 4, max = 4) public int[] bigWinTiers = {5, 15, 40, 100};
+	public SlotsV2Config.InWorld inWorld = new SlotsV2Config.InWorld();
 }
