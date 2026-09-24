@@ -56,11 +56,15 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 1000000");
+			// no chaos events from the real rounds (a Creeper-first hunt calls a mob wave that would kill the player
+			// during the preview part); restored below
+			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
 			for (Tier tier : Tier.values()) real(context, world, tier, false);
 			real(context, world, Tier.COPPER, true);
 			for (String name : PreviewTapes.NAMES) play(context, name, REAL_TIME.contains(name) ? Mode.REAL_TIME : Mode.SKIP);
 			play(context, "end_big", Mode.INTERRUPT);
 			play(context, "ne_tumble", Mode.REDUCED);
+			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = true);
 			for (String lang : List.of("en_us", "ru_ru")) {
 				language(context, lang);
 				for (int scale : new int[] {2, 4}) {
