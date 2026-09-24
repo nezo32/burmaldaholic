@@ -358,6 +358,28 @@ const isTrigger = (round: SlotRound, sym: number): boolean => {
   return role === 'SCATTER' || role === 'BONUS';
 };
 
+/** F9: a spin that returns less than the bet (but more than 0) is "Returned": no win glow, dim or pulse. */
+export const isReturned = (round: SlotRound): boolean => round.totalChips > 0 && round.totalChips < round.bet;
+
+/**
+ * Roles whose landed cells blink while later reels anticipate: only the ones that caused the anticipation
+ * (SLOTS.md §10.3 on the reels already stopped), so a Nether coin anticipation never blinks unrelated scatters.
+ * Presentation only — the stop times still come from the timeline (F3).
+ */
+function anticipationRoles(round: SlotRound, w: Window, stopped: number): Set<SymbolRole> {
+  const out = new Set<SymbolRole>();
+  const cnt = (role: SymbolRole): number => {
+    let n = 0;
+    for (let i = 0; i < stopped * ROWS; i++) if (round.roles[w[i]!] === role) n++;
+    return n;
+  };
+  const has = (r: number): boolean => r < stopped && [0, 1, 2].some((y) => round.roles[w[cellIndex(r, y)]!] === 'BONUS');
+  if (cnt('SCATTER') >= 2) out.add('SCATTER');
+  if ((round.machine === 'overworld' && has(0) && has(2)) || (round.machine === 'end' && has(1) && has(2))) out.add('BONUS');
+  if (round.machine === 'nether' && cnt('COIN') >= 4) out.add('COIN');
+  return out;
+}
+
 /** Final evaluation of the last spin: the paid result the round ends on. */
 export function finalEval(round: SlotRound): EvalView | undefined {
   const spin = round.free[round.free.length - 1] ?? round.base;
@@ -368,7 +390,8 @@ export function finalEval(round: SlotRound): EvalView | undefined {
 export function terminalFrame(round: SlotRound): ReelFrame {
   const e = finalEval(round);
   if (!e) return { cells: round.rest.map((s) => cell(round.glyphs[s]!)), arrows: 0 };
-  return { cells: e.window.map((s, i) => cell(round.glyphs[s]!, e.winMask & bit(i) ? PLANE_WIN : PLANE_BASE)), arrows: 0 };
+  const mask = isReturned(round) ? 0 : e.winMask;
+  return { cells: e.window.map((s, i) => cell(round.glyphs[s]!, mask & bit(i) ? PLANE_WIN : PLANE_BASE)), arrows: 0 };
 }
 
 /** Gravity fall of one tumble (1 row per step, `step` 0…3): kept cells drop, new cells enter from the top. */
@@ -409,6 +432,7 @@ export function reelFrame(round: SlotRound, tl: Timeline, t: number, o: FrameOpt
   if (t < lastStop) {
     // ---- reels phase: scrolling, landing, anticipation
     const anticipating = seg.antic.some((a, r) => a !== undefined && t >= a.at && t < seg.stop[r]!);
+    const blinkRoles = anticipating ? anticipationRoles(round, spin.landed, seg.stop.filter((s) => t >= s).length) : undefined;
     const frameIdx = Math.floor(t / FRAME_MS);
     for (let r = 0; r < REELS; r++) {
       const stop = seg.stop[r]!;
@@ -445,7 +469,7 @@ export function reelFrame(round: SlotRound, tl: Timeline, t: number, o: FrameOpt
           const trig = isTrigger(round, sym);
           const flashMs = trig ? SPECIAL_FLASH_MS : LAND_FLASH_MS;
           let plane = !o.reduceMotion && t - stop < flashMs ? PLANE_WIN : PLANE_BASE;
-          if (trig && anticipating) plane = !pulse || Math.floor(t / TRIGGER_BLINK_MS) % 2 === 0 ? PLANE_WIN : PLANE_BASE;
+          if (blinkRoles?.has(round.roles[sym]!)) plane = !pulse || Math.floor(t / TRIGGER_BLINK_MS) % 2 === 0 ? PLANE_WIN : PLANE_BASE;
           cells[i] = cell(round.glyphs[sym]!, plane);
         }
       }
@@ -499,7 +523,7 @@ export function reelFrame(round: SlotRound, tl: Timeline, t: number, o: FrameOpt
   const ws = seg.winShow;
   let j = -1;
   for (let x = 0; x < ws.length; x++) if (ws[x]!.at <= t) j = x;
-  if ((explodeBeat && t < beatEnd(fallBeat ?? explodeBeat)) || j < evalIdx) {
+  if ((explodeBeat && t < beatEnd(fallBeat ?? explodeBeat)) || j < evalIdx || isReturned(round)) {
     mask = 0;
   } else if (j >= 0 && j < nEval) {
     const show = ws[j]!;
@@ -671,7 +695,8 @@ export function stubSlotTimeline(round: SlotRound, shared: TimingProfile, local:
         b.add(cur, 0, SLOT_BEAT.MULT_UP, -1, ev.multiplier);
         cur += S(TUMBLE_PAUSE_MS, k);
       }
-      if (ev.wins.length === 0) return;
+      // F9: a Returned spin gets no win show (no dim, no pulse, no frames; slots.md §4.12)
+      if (ev.wins.length === 0 || isReturned(round)) return;
       const at0 = j === 0 && !expanding ? cur + S(WIN_DIM_MS, k) : cur;
       b.add(at0, S(WIN_ALL_MS, k), SLOT_BEAT.WIN_SHOW, -1, j);
       cur = at0 + S(WIN_ALL_MS, k);

@@ -25,7 +25,7 @@ const clock = vi.hoisted(() => {
   return c;
 });
 
-const forms = vi.hoisted(() => ({ list: [] as Array<{ labels: Map<string, unknown>; buttons: Map<string, () => void>; writes: string[]; showing: boolean; close: () => void }> }));
+const forms = vi.hoisted(() => ({ list: [] as Array<{ labels: Map<string, unknown>; buttons: Map<string, () => void>; writes: string[]; showing: boolean; close: () => void }>, obsWrites: [] as Array<{ o: unknown; tick: number; v: unknown }> }));
 
 vi.mock('@minecraft/server', () => ({
   world: {
@@ -69,6 +69,7 @@ vi.mock('@minecraft/server-ui', () => {
   class Obs {
     constructor(public v: unknown) {}
     setData(v: unknown): void {
+      forms.obsWrites.push({ o: this, tick: clock.tick, v });
       this.v = v;
     }
   }
@@ -181,6 +182,7 @@ beforeEach(() => {
   clock.tick = 0;
   clock.runs.clear();
   forms.list.length = 0;
+  forms.obsWrites.length = 0;
 });
 
 describe('SlotPresenter', () => {
@@ -281,5 +283,126 @@ describe('DduiSlotForm', () => {
     expect(f.presenter.running()).toBe(true);
     clock.advance(400);
     expect(presented.length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Adversarial (review of lane B-L9): late join into a pending hunt, leaving mid-spin / mid-cinematic,
+// write budgets, and nothing past the hunt gate before the picks.
+// ---------------------------------------------------------------------------------------------------------
+
+describe('SlotPresenter (adversarial)', () => {
+  const def = fakeDef('overworld');
+  const textOfAny = (x: unknown): string => JSON.stringify(x);
+
+  it('hunt: nothing after the board intro (roll-up, tier, title, sounds) plays before the picks (F6/F7)', () => {
+    // hunt prize 25× the bet: the roll-up after the hunt is a BIG win
+    const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { hunt: [25, 0], totalFifths: 5 * 25 }), 'BIG');
+    const tl = timelineOf(round);
+    const p = new FakePlayer();
+    const titles: unknown[] = [];
+    p.onScreenDisplay.setTitle = (...a: unknown[]) => void titles.push(a);
+    const { h, presented } = host(round);
+    const { v, shown } = view();
+    const pr = new SlotPresenter(p as never, h as never, v as never);
+    pr.play({ round, timeline: tl });
+    const intro = tl.beats.find((b) => b.kind === SLOT_BEAT.BONUS_INTRO)!;
+    // advance in odd steps so a frame lands strictly after the intro end
+    clock.advance(Math.ceil((intro.at + intro.dur) / 50) + 3);
+    expect(pr.inHunt()).toBe(true);
+    const all = shown.map(textOfAny).join('\n');
+    expect(all).not.toContain('gui.burmaldaholic.slots.tier.');
+    expect(all).not.toContain('gui.burmaldaholic.slots.win"');
+    expect(titles.length).toBe(0);
+    expect(p.sounds.some((s) => /rollup|big_win|win_nice/.test(s))).toBe(false);
+    expect(presented.length).toBe(0);
+  });
+
+  it('late join / resume past the intro of a pending hunt still stops for the picks', () => {
+    const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { hunt: [5, 2, 0] }));
+    const tl = timelineOf(round);
+    const intro = tl.beats.find((b) => b.kind === SLOT_BEAT.BONUS_INTRO)!;
+    const p = new FakePlayer();
+    const { h, presented, picks } = host(round);
+    const { v } = view();
+    const pr = new SlotPresenter(p as never, h as never, v as never);
+    let ready = 0;
+    pr.onPickReady = () => ready++;
+    pr.play({ round, timeline: tl, startMs: intro.at + intro.dur + 400 });
+    clock.advance(4);
+    expect(pr.inHunt()).toBe(true);
+    expect(ready).toBe(1);
+    expect(presented.length).toBe(0);
+    pr.pick(true);
+    clock.advance(400);
+    expect(picks).toEqual([0, 1, 2]);
+    clock.advance(Math.ceil(tl.endMs() / 50));
+    expect(presented).toEqual([{ interrupted: false }]);
+  });
+
+  it('a player who leaves mid-spin settles exactly once (interrupted) and leaves no timers behind', () => {
+    for (const leaveAt of [1, 5, 12, 20, 30]) {
+      clock.runs.clear();
+      const round = fakeRound(def, fakeTape(def, [2, 4, 6, 8, 10]));
+      const p = new FakePlayer();
+      const { h, presented } = host(round);
+      const { v } = view();
+      const pr = new SlotPresenter(p as never, h as never, v as never);
+      pr.play({ round, timeline: timelineOf(round) });
+      clock.advance(leaveAt);
+      p.isValid = false;
+      clock.advance(400);
+      expect(presented.length).toBe(1);
+      expect(pr.running()).toBe(false);
+      expect(clock.runs.size).toBe(0);
+    }
+  });
+
+  it('a player who leaves during a Grand cinematic settles exactly once', () => {
+    const round = fakeRound(def, fakeTape(def, [1, 5, 9, 13, 17], { jackpots: [{ tier: 4, chips: 50000, owned: true }] }));
+    const tl = timelineOf(round);
+    const jp = tl.beats.find((b) => b.kind === SLOT_BEAT.JACKPOT)!;
+    const p = new FakePlayer();
+    const { h, presented } = host(round);
+    const { v, ctl } = view();
+    const pr = new SlotPresenter(p as never, h as never, v as never);
+    pr.play({ round, timeline: tl });
+    clock.advance(Math.ceil(jp.at / 50) + 3);
+    expect(ctl.suspended).toHaveBeenCalledWith(true);
+    p.isValid = false;
+    clock.advance(2000);
+    expect(presented.length).toBe(1);
+    expect(pr.running()).toBe(false);
+  });
+
+  it('DDUI: every label is written at most once per 2 ticks, even with Stop spam; the jackpot label ≤ 1/s', () => {
+    for (const m of ['overworld', 'nether', 'end'] as const) {
+      forms.obsWrites.length = 0;
+      forms.list.length = 0;
+      clock.runs.clear();
+      const d = fakeDef(m);
+      const round = fakeRound(d, fakeTape(d, [3, 7, 11, 15, 19]));
+      const p = new FakePlayer();
+      let jp = 0;
+      const { h, presented } = host(round, { jackpotLine: () => ({ text: `jp ${jp++}` }) });
+      const f = new DduiSlotForm(p as never, h as never);
+      expect(f.open()).toBe(true);
+      const spin = forms.list[0]!.buttons.get('0')!;
+      spin();
+      for (let i = 0; i < 400 && presented.length === 0; i++) {
+        clock.advance(1);
+        if (i % 3 === 1) spin(); // Stop spam
+      }
+      expect(presented.length).toBe(1);
+      const byObs = new Map<unknown, number[]>();
+      for (const w of forms.obsWrites) byObs.set(w.o, [...(byObs.get(w.o) ?? []), w.tick]);
+      for (const ticks of byObs.values()) {
+        // the settle tick (terminal screen + between-spins labels) is one final update: ignore its duplicate
+        const live = [...new Set(ticks)].length === ticks.length ? ticks : ticks.slice(0, -1);
+        for (let i = 1; i < live.length; i++) expect(live[i]! - live[i - 1]!).toBeGreaterThanOrEqual(2);
+      }
+      const jpWrites = forms.obsWrites.filter((w) => JSON.stringify(w.v ?? '').includes('jp ')).map((w) => w.tick);
+      for (let i = 1; i < jpWrites.length - 1; i++) expect(jpWrites[i]! - jpWrites[i - 1]!).toBeGreaterThanOrEqual(20);
+    }
   });
 });

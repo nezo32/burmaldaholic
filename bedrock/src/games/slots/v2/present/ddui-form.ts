@@ -250,10 +250,16 @@ export class SlotPresenter {
     this.run(ms);
   }
 
-  private frame(ms: number): void {
+  private frame(raw: number): void {
     const start = this.start;
     if (!start || this.hunt || this.suspendedNow) return;
     const { round, timeline: tl } = start;
+    // Treasure Hunt gate: the timeline pauses at the end of the board intro until the picks are done. Frames,
+    // cues and beats never run past it before the hunt (F6/F7: the roll-up / tier / title after it include the
+    // hunt prizes); a late join or resumed pending hunt that starts past the intro stops here too.
+    const intro = round.tape.hunt && !this.huntDone ? tl.beats.find((b) => b.kind === SLOT_BEAT.BONUS_INTRO && b.args[0] === 1) : undefined;
+    const gate = intro ? anim.beatEnd(intro) : Number.POSITIVE_INFINITY;
+    const ms = Math.min(raw, gate - 1);
     const fo = frameOptions(this.settings);
     const now = system.currentTick;
     this.view.show(screenAt(round, tl, ms, fo), reelsMoving(tl, ms));
@@ -262,21 +268,20 @@ export class SlotPresenter {
       if (b.at > ms) break;
       if (b.at > this.lastT) this.beatStarted(b, ms);
     }
-    const prev = this.lastT;
     this.lastT = ms;
     if (this.loopTick >= 0 && now - this.loopTick >= LOOP_TICKS) this.sfx('slots.spin_loop', 1, 0.25, now);
     if (now - this.jpTick >= JACKPOT_LABEL_TICKS) {
       this.jpTick = now;
       this.view.jackpots(this.host.jackpotLine());
     }
+    if (raw >= gate) {
+      this.enterHunt(gate);
+      return;
+    }
     if (now - this.sneakTick >= SNEAK_SKIP_TICKS && wantsSneakSkip(this.player, this.host.anchor?.location)) {
       this.sneakTick = now;
       this.skip();
-      return;
     }
-    // Treasure Hunt: the timeline pauses after the board intro until the picks are done
-    const intro = tl.beats.find((b) => b.kind === SLOT_BEAT.BONUS_INTRO && b.args[0] === 1);
-    if (intro && round.tape.hunt && !this.huntDone && prev < anim.beatEnd(intro) && ms >= anim.beatEnd(intro)) this.enterHunt(anim.beatEnd(intro));
   }
 
   private beatStarted(b: Beat, _ms: number): void {

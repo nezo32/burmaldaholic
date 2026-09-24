@@ -29,6 +29,7 @@ import {
   SYMBOL_CODES,
   CELL_GAP,
   cellIndex,
+  isReturned,
   onPlane,
   popcount,
   reelFrame,
@@ -495,7 +496,7 @@ function countBefore(tl: Timeline, kind: string, now: number): number {
 
 function baseStatus(round: SlotRound, tl: Timeline, now: number): Raw | undefined {
   const spin = round.base;
-  if (!spin) return undefined;
+  if (!spin || isReturned(round)) return undefined; // F9: the Returned line waits for the roll-up beat
   const cyc = find(tl, SLOT_BEAT.WAY_CYCLE, now);
   const shows = all(tl, SLOT_BEAT.WIN_SHOW).filter((b) => b.at <= now);
   const j = shows.length - 1;
@@ -558,6 +559,7 @@ export function cuesBetween(round: SlotRound, tl: Timeline, t0: number, t1: numb
   const within = (x: number): boolean => x > t0 && x <= t1;
   let scatterN = 0;
   let anticN = 0;
+  const returned = isReturned(round);
   for (const b of tl.beats) {
     const start = within(b.at);
     const end = beatEnd(b);
@@ -588,10 +590,10 @@ export function cuesBetween(round: SlotRound, tl: Timeline, t0: number, t1: numb
         anticN++;
         break;
       case SLOT_BEAT.WIN_SHOW:
-        if (within(end)) out.push(snd('slots.win_small', 1, 0.6));
+        if (within(end) && !returned) out.push(snd('slots.win_small', 1, 0.6));
         break;
       case SLOT_BEAT.WAY_CYCLE:
-        if (start) out.push(snd('slots.win_small', 1, 0.4));
+        if (start && !returned) out.push(snd('slots.win_small', 1, 0.4));
         break;
       case SLOT_BEAT.TUMBLE_EXPLODE:
         if (start) out.push(snd('slots.tumble'), { kind: 'particle', id: SLOT_PARTICLE.ember, count: o.reduceMotion ? 4 : 12 });
