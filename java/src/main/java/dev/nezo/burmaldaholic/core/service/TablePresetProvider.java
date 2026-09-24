@@ -1,9 +1,12 @@
 package dev.nezo.burmaldaholic.core.service;
 
+import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fixed settings of a generated casino table (GAME_DESIGN.md §16; worldgen implements it, default: none).
@@ -15,6 +18,24 @@ public interface TablePresetProvider {
 	TablePresetProvider NONE = (level, pos) -> Optional.empty();
 
 	Optional<TablePreset> preset(ServerLevel level, BlockPos pos);
+
+	/**
+	 * Seats &amp; Bots defaults of a generated casino table (J-G6, BOTS.md §2.3 / §7.1): the
+	 * {@code bots.table.<game>.worldgen*} columns + the table's preset (e.g. the Piglin Parlor poker mix),
+	 * never BOTS_ONLY. Empty for tables outside generated casinos (use {@code TableBots.defaultsFor(game)}).
+	 * Games pass {@link BotPreset#defaults()} to {@code new TableBots(...)} and return
+	 * {@link BotPreset#nameTheme()} / {@link BotPreset#levelMix()} from their {@code BotTable} hooks.
+	 */
+	default Optional<BotPreset> botDefaults(ServerLevel level, BlockPos pos, String gameId) {
+		return Optional.empty();
+	}
+
+	/**
+	 * @param defaults  table defaults (policy, count, difficulty, ...)
+	 * @param nameTheme bot name pool of the casino (village any, Parlor piglin, End lounge ender)
+	 * @param levelMix  fixed MIXED weights [easy, normal, hard]; null = the game's own mix
+	 */
+	record BotPreset(BotSettings defaults, BotRoster.Theme nameTheme, int @Nullable [] levelMix) {}
 
 	/**
 	 * @param id                preset id ("parlor_poker", "high_roller_blackjack", ...)
