@@ -238,9 +238,9 @@ public final class ShowdownPanel {
 		if (mine.isEmpty() && POLICIES[policy] != SeatPolicy.HUMANS_ONLY) {
 			lines.add(Component.translatable("gui.burmaldaholic.bots.luck_only"));
 		}
-		for (int i = 1; i <= 6; i++) {
-			lines.add(i == 5 ? Component.translatable("gui.burmaldaholic.pvp.slots.rules.5", Texts.number(pvp().getIntOr("star", 500)))
-				: Component.translatable("gui.burmaldaholic.pvp.slots.rules." + i));
+		// rules.4 / .5 describe the Slot Showdown v2 surprises and jackpot points (SLOTS.md §9); this v1 panel shows the rest
+		for (int i : new int[] {1, 2, 3, 6}) {
+			lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules." + i));
 		}
 		lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.tiebreak"));
 		for (Component c : lines) {
