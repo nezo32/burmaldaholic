@@ -381,7 +381,7 @@ keyframes), `geo.mjs` (bone/quad builders for entity geometry), `atlas.mjs` (par
 | `core.mjs` | X-L0 | panels, buttons, HUD sprites, fx sprites (rays, coins, confetti, sparkle, chips), vignettes, toasts, glyph sheet E1 (all ranges of §6), core particle sprites + Bedrock atlas, form icons, chip stack items |
 | `meta.mjs` | B-L3 | VIP badges, Last Chance coin, chaos cards (NICE), loan seal, attract block strips + flipbooks |
 | `cards.mjs` | B-L4 | card faces/backs, glow, stamps, tags, shoe, pot/chip stacks, `card_hand` entity (NICE) |
-| `tables.mjs` | B-L6 | roulette wheel, dice, puck, layouts, dolly, ball path Molang, die/puck/wheel entities |
+| `tables.mjs` | B-L6 | **Java only** (docs/design/visual/tables.md): themed backdrops, felts, rails, plates, buttons, chips; roulette wheel frame sets (74 head frames + blur, bowls, mini wheels), layouts, racetrack, dolly; craps layout, dice (small / 40 px, 3D tumble), puck, badges; Dice Duel arena, cup, vs, stamp; BER textures (`entity/roulette/wheel_<theme>`, `entity/craps/dice`); particles |
 | `extras.mjs` | B-L7 | coin, wheel faces, Plinko, scratch tickets, `coin_fx`/`wheel_fx`/`plinko_fx` entities + Molang |
 | `slots.mjs` | B-L10 | symbol sheets 40/32/16 px (D1, D2), glyph planes E2/E3/E4, cabinets, marquees, backdrops, feature sprites, strip textures **read from the v2 strips** (bundled from `games/slots/v2/logic` with esbuild), `slot_reels` geo/animations/controllers, particles |
 
@@ -418,6 +418,8 @@ Authority: `bedrock/src/core/logic/anim/glyph-map.ts` (overlap test in `vectors.
 | E245–E2FF | slots | — | reserve |
 | E300–E3FF, E400–E4FF | slots | SLOTS.md | win-glow plane, blur plane |
 | E500–EFFF | — | — | free (the research's E5xx/E6xx proposal is superseded) |
+
+Tables (visual/tables.md §9): no plane claimed. With Bedrock dropped the tables need no glyphs; E7xx and E8xx stay free.
 
 New ranges need a one-line PR to `glyph-map.ts` (the test fails on overlap) and UI.md §0.1.
 
