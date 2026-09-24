@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.roulette;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import com.mojang.serialization.Codec;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.RouletteConfig;
@@ -80,7 +81,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	public boolean isHighRoller() {
-		return highRoller;
+		return highRoller || preset().map(p -> p.id().startsWith("high_roller")).orElse(false); // worldgen lounge preset
 	}
 
 	@Override
@@ -94,7 +95,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	private long minTotal() {
-		return highRoller ? cfg().highRollerMinTotal : 0;
+		return isHighRoller() ? cfg().highRollerMinTotal : 0;
 	}
 
 	/** Limits for one player: VIP tier max (× High-Roller multiplier), owner min/max, config fractions. */
@@ -102,7 +103,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 		RouletteConfig c = cfg();
 		MinecraftServer server = player.level().getServer();
 		long tierMax = CoreServices.vip().maxBet(server, player.getUUID());
-		long totalMax = highRoller ? (long) Math.floor(tierMax * c.highRollerMaxMultiplier) : tierMax;
+		long totalMax = isHighRoller() ? (long) Math.floor(tierMax * c.highRollerMaxMultiplier) : tierMax;
 		long min = c.minBet;
 		Optional<OwnedTable> owned = ownership();
 		if (owned.isPresent()) {
@@ -149,7 +150,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 					return;
 				}
 				if (!round.clear(player.getUUID()).isEmpty()) {
-					refund(player.getUUID());
+					refund(player.getUUID(), true); // the player cleared their own slip: no "round refunded" line
 				}
 				syncViewers();
 			}
@@ -226,10 +227,29 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 
 	@Override
 	protected void onPlayerLeft(UUID player, LeaveReason reason) {
-		if (reason == LeaveReason.REMOVED) {
-			round.clear(player); // core refunds the open stake when the table is broken
+		if (reason == LeaveReason.REMOVED && round.canBet()) {
+			round.clear(player); // nothing drawn yet: core returns the stake of a broken table
 		}
-		// Otherwise the confirmed bets stay in the round (§4.1 "roulette: spin proceeds").
+		// Otherwise the confirmed bets stay in the round (§4.1 "roulette: spin proceeds"; review B1: also
+		// when the table is broken mid-spin — see playOutForRemoval).
+	}
+
+	/**
+	 * Table broken (review B1): a round past "no more bets" is spun and settled right now with the same
+	 * fair draw; bets of the betting phase were never drawn and are returned by core.
+	 */
+	@Override
+	protected void playOutForRemoval(ServerLevel level) {
+		if (round.canBet()) {
+			round.abort();
+			return;
+		}
+		for (int i = 0; i < 4 && round.phase() != RouletteRound.Phase.RESULT && round.phase() != RouletteRound.Phase.BETTING; i++) {
+			Transition<UUID> t = round.update(Long.MAX_VALUE / 4, List.of(), () -> OddsService.get().fair().nextInt(Wheel.POCKETS), 0);
+			if (t instanceof Transition.Result<UUID> r) {
+				settleAll(level, r.result(), r.slips());
+			}
+		}
 	}
 
 	// ---- the shared spin ----------------------------------------------------------------------
@@ -281,7 +301,13 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 			List<Bet> bets = e.getValue();
 			long staked = Bets.totalStaked(bets);
 			long ret = Bets.totalReturn(bets, result, laPartage);
-			settle(id, ret);
+			String[] tags = bets.stream().map(b -> b.type().name().toLowerCase(java.util.Locale.ROOT)).distinct().toArray(String[]::new);
+			settle(id, ret, r -> r.withTags(tags));
+			long redWins = Wheel.color(result) == Wheel.Color.RED ? bets.stream().filter(b -> b.type() == BetType.RED).count() : 0;
+			boolean zeroStraight = result == 0 && bets.stream().anyMatch(b -> b.type() == BetType.STRAIGHT && b.spot().covers(0));
+			if (zeroStraight) {
+				CasinoAdvancements.grant(level.getServer(), id, "zero_hero");
+			}
 			lastSlips.put(id, bets);
 			outcomes.put(id, new long[] {staked, ret});
 			ServerPlayer p = level.getServer().getPlayerList().getPlayer(id);
@@ -289,6 +315,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 				continue;
 			}
 			p.sendOverlayMessage(resultLine(result, staked, ret));
+			reportRedWins(p, redWins);
 			if (result == 0) {
 				boolean zeroWon = bets.stream().anyMatch(b -> b.spot().covers(0));
 				boolean evenMoney = bets.stream().anyMatch(b -> b.type().evenMoney());
@@ -298,6 +325,21 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 					p.sendSystemMessage(Component.translatable("gui.burmaldaholic.roulette.la_partage"));
 				}
 			}
+		}
+	}
+
+	/**
+	 * VIP contract {@code roulette_red} ("win 2 bets on red"): reported per winning red bet through the vip
+	 * module's public hook (ObjectShare {@code burmaldaholic:vip/contract}; no import of the vip package).
+	 */
+	@SuppressWarnings("unchecked")
+	private static void reportRedWins(ServerPlayer player, long wins) {
+		if (wins <= 0) {
+			return;
+		}
+		Object hook = net.fabricmc.loader.api.FabricLoader.getInstance().getObjectShare().get("burmaldaholic:vip/contract");
+		if (hook instanceof java.util.function.BiConsumer<?, ?> contract) {
+			((java.util.function.BiConsumer<ServerPlayer, String>) contract).accept(player, "roulette_red@" + wins);
 		}
 	}
 
@@ -336,7 +378,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 		t.putLong("max", l.totalMax());
 		t.putLong("inside_max", l.insideMax());
 		t.putLong("min_total", l.minTotal());
-		t.putBoolean("high_roller", highRoller);
+		t.putBoolean("high_roller", isHighRoller());
 		t.putBoolean("enabled", cfg().enabled);
 		t.putLong("ticks_left", round.remaining(gameTime()));
 		t.putInt("spin_ticks", round.timings().spinTicks());

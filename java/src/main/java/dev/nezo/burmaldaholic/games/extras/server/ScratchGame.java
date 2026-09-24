@@ -1,5 +1,8 @@
 package dev.nezo.burmaldaholic.games.extras.server;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.events.PlayResults;
+import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ExtrasConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -221,6 +224,7 @@ public final class ScratchGame {
 	}
 
 	private static void scratch(ServerPlayer player, Scratch.Kind kind, String id, int cell) {
+		ExtrasGames.playSound(player, dev.nezo.burmaldaholic.core.CoreSounds.SCRATCH, 1.0f);
 		Inventory inv = player.getInventory();
 		int slot = id.isEmpty() ? start(player, kind) : findSlot(inv, id);
 		if (slot < 0) {
@@ -264,7 +268,12 @@ public final class ScratchGame {
 			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.extras.scratch.creeper").withStyle(ChatFormatting.DARK_GREEN));
 			ExtrasGames.requestMobWave(player, "scratch");
 		}
-		CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new CasinoEvents.PlayResult(ExtrasGames.SCRATCH, price, prize));
+		// A prepaid round: the card price was the stake (bought earlier), the prize the return. Edge per card (§17).
+		PlayResults.fire(player, CasinoEvents.PlayResult.of(ExtrasGames.SCRATCH, price, prize)
+			.withEdge(kind == Scratch.Kind.GOLD ? HouseEdges.SCRATCH_GOLD : HouseEdges.SCRATCH_BASIC).withTags(kind == Scratch.Kind.GOLD ? "gold" : "basic"));
+		if (top && prize > 0) {
+			CasinoAdvancements.grant(player, "scratch_top");
+		}
 		ExtrasGames.send(player, SCREEN, false, state(player, kind, card));
 	}
 }

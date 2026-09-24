@@ -258,7 +258,7 @@ public class SlotMachineScreen extends CasinoTableScreen {
 
 	private void playSound(float pitch) {
 		if (minecraft != null) {
-			minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, pitch));
+			minecraft.getSoundManager().play(SimpleSoundInstance.forUI(dev.nezo.burmaldaholic.core.CoreSounds.SLOT_SPIN, pitch));
 		}
 	}
 

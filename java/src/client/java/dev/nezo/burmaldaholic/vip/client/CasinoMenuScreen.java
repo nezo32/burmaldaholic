@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.vip.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
+import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.text.Numbers;
@@ -12,6 +13,7 @@ import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -19,14 +21,19 @@ import net.minecraft.util.FormattedCharSequence;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Casino Menu (UI.md §2), vip part: Wallet, VIP status and Contracts tabs. Renders the synced
- * {@link VipClientState}; the only action (contract reroll) goes to the server. Every text wraps to
- * the panel width and every button is as wide as its (possibly Russian) label.
+ * Casino Menu (UI.md §2; key {@code B}, Casino Card). The vip module draws its own tabs (Wallet, VIP,
+ * Contracts) from the synced {@link VipClientState}; every other tab (Loan, Achievements, Challenges,
+ * My Casino, Rules ...) is a server page of core's {@code CasinoMenu} ({@link ClientCasinoMenu}): lines
+ * plus buttons (optionally with an amount field), actions validated by the server. Every text wraps
+ * to the panel width and every button is as wide as its (possibly Russian) label.
  */
 public class CasinoMenuScreen extends Screen {
-	public enum Tab {
-		WALLET, VIP, CONTRACTS
-	}
+	/** Built-in tab ids (server tabs use their page id). */
+	public static final String WALLET = "wallet", VIP = "vip", CONTRACTS = "contracts";
+	private static final List<ClientCasinoMenu.Tab> NATIVE = List.of(
+		new ClientCasinoMenu.Tab(WALLET, 10, Component.translatable("gui.burmaldaholic.menu.wallet")),
+		new ClientCasinoMenu.Tab(VIP, 15, Component.translatable("gui.burmaldaholic.vip.title")),
+		new ClientCasinoMenu.Tab(CONTRACTS, 20, Component.translatable("gui.burmaldaholic.menu.contracts")));
 
 	private static final int PANEL_BG = 0xF01B1F2A;
 	private static final int PANEL_BORDER = 0xFFB8963E;
@@ -38,7 +45,10 @@ public class CasinoMenuScreen extends Screen {
 	/** A rendered line of the scrollable body; {@code bar} ≥ 0 draws a progress bar instead of text. */
 	private record Line(@Nullable FormattedCharSequence text, int color, int indent, double bar) {}
 
-	private Tab tab;
+	private String tab;
+	/** Server page: height of the button rows above the text lines. */
+	private int serverRowsHeight;
+	private final List<EditBox> amountBoxes = new ArrayList<>();
 	private int left;
 	private int top;
 	private int panelW;
@@ -55,9 +65,24 @@ public class CasinoMenuScreen extends Screen {
 	private @Nullable Component error;
 	private int errorTicks;
 
-	public CasinoMenuScreen(Tab tab) {
+	public CasinoMenuScreen(String tab) {
 		super(Component.translatable("gui.burmaldaholic.menu.title"));
-		this.tab = tab;
+		this.tab = tab == null || tab.isEmpty() ? WALLET : tab;
+	}
+
+	private boolean isNative(String id) {
+		return NATIVE.stream().anyMatch(t -> t.id().equals(id));
+	}
+
+	private List<ClientCasinoMenu.Tab> allTabs() {
+		List<ClientCasinoMenu.Tab> all = new ArrayList<>(NATIVE);
+		for (ClientCasinoMenu.Tab t : ClientCasinoMenu.tabs()) {
+			if (!isNative(t.id())) {
+				all.add(t);
+			}
+		}
+		all.sort(java.util.Comparator.comparingInt(ClientCasinoMenu.Tab::order));
+		return all;
 	}
 
 	@Override
@@ -67,6 +92,22 @@ public class CasinoMenuScreen extends Screen {
 		left = (width - panelW) / 2;
 		top = (height - panelH) / 2;
 		VipClientModule.requestSync();
+		ClientCasinoMenu.setListener(this::onServerPage);
+		ClientCasinoMenu.request(isNative(tab) ? "" : tab);
+		rebuild();
+	}
+
+	@Override
+	public void removed() {
+		ClientCasinoMenu.setListener(null);
+		super.removed();
+	}
+
+	private void onServerPage() {
+		Component e = ClientCasinoMenu.takeError();
+		if (e != null) {
+			showError(e);
+		}
 		rebuild();
 	}
 
@@ -86,7 +127,7 @@ public class CasinoMenuScreen extends Screen {
 		if (errorTicks > 0 && --errorTicks == 0) {
 			error = null;
 		}
-		if (tab == Tab.CONTRACTS && ClientCasinoState.clientTicks() % 20 == 0) {
+		if (CONTRACTS.equals(tab) && ClientCasinoState.clientTicks() % 20 == 0) {
 			rebuild(); // reset countdown
 		}
 	}
@@ -99,26 +140,35 @@ public class CasinoMenuScreen extends Screen {
 	// ---- layout -------------------------------------------------------------------------------
 
 	private void rebuild() {
+		java.util.Map<String, String> typed = new java.util.HashMap<>();
+		for (int i = 0; i < amountBoxes.size(); i++) {
+			if (amountBoxes.get(i) != null) {
+				typed.put(String.valueOf(i), amountBoxes.get(i).getValue());
+			}
+		}
+		boolean samePage = !isNative(tab) && tab.equals(lastServerPage);
 		clearWidgets();
 		lines.clear();
 		rowLayout.clear();
 		rowLines.clear();
 		rowButtons.clear();
+		amountBoxes.clear();
+		serverRowsHeight = 0;
 		int x = left + PAD;
 		int y = top + 20;
-		for (Tab t : Tab.values()) {
-			Component label = switch (t) {
-				case WALLET -> Component.translatable("gui.burmaldaholic.menu.wallet");
-				case VIP -> Component.translatable("gui.burmaldaholic.vip.title");
-				case CONTRACTS -> Component.translatable("gui.burmaldaholic.menu.contracts");
-			};
-			int w = Math.max(50, font.width(label) + 10);
+		List<ClientCasinoMenu.Tab> tabs = allTabs();
+		if (tabs.stream().noneMatch(t -> t.id().equals(tab))) {
+			tab = WALLET;
+		}
+		for (ClientCasinoMenu.Tab t : tabs) {
+			Component label = t.label();
+			int w = Math.max(40, font.width(label) + 10);
 			if (x + w > left + panelW - PAD && x > left + PAD) {
 				x = left + PAD;
 				y += 22;
 			}
-			Button b = addRenderableWidget(Button.builder(label, btn -> select(t)).bounds(x, y, w, 20).build());
-			b.active = t != tab;
+			Button b = addRenderableWidget(Button.builder(label, btn -> select(t.id())).bounds(x, y, w, 20).build());
+			b.active = !t.id().equals(tab);
 			x += w + 4;
 		}
 		bodyTop = y + 26;
@@ -128,9 +178,11 @@ public class CasinoMenuScreen extends Screen {
 			case WALLET -> wallet(bodyW);
 			case VIP -> vip(bodyW);
 			case CONTRACTS -> contracts(bodyW);
+			default -> serverPage(bodyW, samePage ? typed : java.util.Map.of());
 		}
-		if (tab != Tab.CONTRACTS) {
-			contentHeight = 0;
+		lastServerPage = isNative(tab) ? "" : tab;
+		if (!CONTRACTS.equals(tab)) {
+			contentHeight = serverRowsHeight;
 			for (Line l : lines) {
 				contentHeight += l.bar() >= 0 ? 8 : font.lineHeight + 1;
 			}
@@ -139,10 +191,72 @@ public class CasinoMenuScreen extends Screen {
 		placeRowButtons();
 	}
 
-	private void select(Tab t) {
+	private String lastServerPage = "";
+
+	private void select(String t) {
 		tab = t;
 		scroll = 0;
+		if (!isNative(t)) {
+			ClientCasinoMenu.request(t);
+		}
 		rebuild();
+	}
+
+	/** A server page: button rows (with optional amount fields) on top, then the text lines. */
+	private void serverPage(int w, java.util.Map<String, String> typed) {
+		boolean loaded = tab.equals(ClientCasinoMenu.page());
+		if (!loaded) {
+			add(Component.translatable("gui.burmaldaholic.vip.loading"), DIM, 0, w);
+			return;
+		}
+		int rowY = 0;
+		List<ClientCasinoMenu.Button> buttons = ClientCasinoMenu.buttons();
+		for (int i = 0; i < buttons.size(); i++) {
+			ClientCasinoMenu.Button spec = buttons.get(i);
+			int bw = Math.min(w, Math.max(60, font.width(spec.label()) + 10));
+			EditBox box = null;
+			if (spec.amount()) {
+				box = new EditBox(font, 0, 0, Math.max(50, Math.min(90, w - bw - 6)), 20, spec.label());
+				box.setMaxLength(12);
+				String prev = typed.get(String.valueOf(i));
+				box.setValue(prev != null ? prev : spec.suggested() > 0 ? Long.toString(spec.suggested()) : "");
+			}
+			final EditBox field = box;
+			Button b = Button.builder(spec.label(), btn -> pressServer(spec, field)).bounds(0, 0, bw, 20).build();
+			b.active = spec.active();
+			addRenderableWidget(b);
+			rowButtons.add(b);
+			if (field != null) {
+				addRenderableWidget(field);
+			}
+			amountBoxes.add(field);
+			rowLayout.add(new int[] {rowY, 24, 0});
+			rowLines.add(List.of());
+			rowY += 24;
+		}
+		serverRowsHeight = rowY + (buttons.isEmpty() ? 0 : 4);
+		for (ClientCasinoMenu.Line l : ClientCasinoMenu.lines()) {
+			add(l.text(), 0xFF000000 | l.color(), 0, w);
+		}
+	}
+
+	private void pressServer(ClientCasinoMenu.Button spec, @Nullable EditBox field) {
+		if (spec.action().equals("client:advancements")) {
+			if (minecraft != null && minecraft.getConnection() != null) {
+				minecraft.gui.setScreen(new net.minecraft.client.gui.screens.advancements.AdvancementsScreen(minecraft.getConnection().getAdvancements(), this));
+			}
+			return;
+		}
+		long amount = 0;
+		if (field != null) {
+			try {
+				String digits = field.getValue().replaceAll("[^0-9]", "");
+				amount = digits.isEmpty() ? 0 : Long.parseLong(digits);
+			} catch (NumberFormatException e) {
+				amount = 0;
+			}
+		}
+		ClientCasinoMenu.press(tab, spec.action(), amount);
 	}
 
 	private void add(Component text, int color, int indent, int width) {
@@ -273,10 +387,22 @@ public class CasinoMenuScreen extends Screen {
 	}
 
 	private void placeRowButtons() {
+		boolean server = !isNative(tab);
 		for (int i = 0; i < rowButtons.size(); i++) {
 			Button b = rowButtons.get(i);
 			int y = bodyTop + rowLayout.get(i)[0] - scroll + 1;
-			b.setX(left + panelW - PAD - b.getWidth());
+			EditBox box = server && i < amountBoxes.size() ? amountBoxes.get(i) : null;
+			if (server) {
+				int bx = left + PAD + (box == null ? 0 : box.getWidth() + 6);
+				b.setX(bx);
+				if (box != null) {
+					box.setX(left + PAD);
+					box.setY(y);
+					box.visible = y >= bodyTop && y + 20 <= bodyBottom;
+				}
+			} else {
+				b.setX(left + panelW - PAD - b.getWidth());
+			}
 			b.setY(y);
 			b.visible = y >= bodyTop && y + 20 <= bodyBottom;
 		}
@@ -311,7 +437,7 @@ public class CasinoMenuScreen extends Screen {
 		g.text(font, balance, left + panelW - PAD - font.width(balance), top + 7, TEXT, true);
 		g.enableScissor(left + 2, bodyTop, left + panelW - 2, bodyBottom);
 		int x = left + PAD;
-		if (tab == Tab.CONTRACTS) {
+		if (CONTRACTS.equals(tab)) {
 			int y = bodyTop - scroll;
 			for (Line l : lines) {
 				y = drawLine(g, l, x, y, panelW - 2 * PAD);
@@ -326,7 +452,7 @@ public class CasinoMenuScreen extends Screen {
 				}
 			}
 		} else {
-			int y = bodyTop - scroll;
+			int y = bodyTop - scroll + serverRowsHeight;
 			for (Line l : lines) {
 				y = drawLine(g, l, x, y, panelW - 2 * PAD);
 			}

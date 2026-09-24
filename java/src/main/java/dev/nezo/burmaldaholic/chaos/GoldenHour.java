@@ -206,15 +206,19 @@ public final class GoldenHour {
 		}
 	}
 
-	/** §13.3 bonus on every settled house-banked win while active. */
+	/**
+	 * §13.3 bonus on every settled house-banked win while active (PvP rounds carry {@code houseBanked = false}).
+	 * A round settled while the player was offline pays the bonus on join if it settled during a Golden Hour
+	 * ({@code PlayResult#goldenHour}, stamped by core), against the current per-player cap.
+	 */
 	static void onPlayResolved(ServerPlayer player, CasinoEvents.PlayResult result) {
 		MinecraftServer server = player.level().getServer();
-		if (result.net() <= 0 || !CasinoMode.isEnabled(server) || !ChaosRules.goldenHourEligible(result.gameId())) {
+		if (result.net() <= 0 || !CasinoMode.isEnabled(server) || !ChaosRules.goldenHourEligible(result.houseBanked())) {
 			return;
 		}
 		long now = ChaosEngine.now(server);
 		GoldenHourState st = state(server);
-		if (!st.isActive(now)) {
+		if (result.deferred() ? !result.goldenHour() : !st.isActive(now)) {
 			return;
 		}
 		long cap = cfg().bonusCap;

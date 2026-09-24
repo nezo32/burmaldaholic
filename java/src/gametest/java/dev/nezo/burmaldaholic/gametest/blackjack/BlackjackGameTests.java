@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.games.blackjack.BlackjackDealer;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackModule;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound;
+import dev.nezo.burmaldaholic.games.blackjack.logic.Card;
 import java.util.List;
 import java.util.function.BiConsumer;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -70,6 +71,13 @@ public class BlackjackGameTests {
 		BlackjackTableBlockEntity table = place(helper);
 		withPlayers(helper, (a, b) -> {
 			helper.assertTrue(table.sit(a), "seated");
+			// Deterministic deal (was flaky: a random win could also trigger contract rewards / Golden Hour
+			// bonuses from other modules): all tens → player 20 stands, dealer 10 up (no insurance) and 20: push.
+			List<Card> tens = new java.util.ArrayList<>();
+			for (int i = 0; i < 12; i++) {
+				tens.add(Card.of(10));
+			}
+			table.stackCardsForTests(tens);
 			table.onAction(a, "bet", amount(10));
 			BlackjackRound r = table.round();
 			helper.assertTrue(r != null, "single player: the deal starts at once");
@@ -79,6 +87,7 @@ public class BlackjackGameTests {
 			helper.assertTrue("result".equals(table.phase()), "result phase");
 			helper.assertTrue(table.openStakes().isEmpty(), "every stake settled");
 			long expected = 1000 - r.stakedOf(r.seats().getFirst().seat) + r.returnOf(r.seats().getFirst().seat);
+			helper.assertTrue(r.returnOf(r.seats().getFirst().seat) == 10, "20 vs 20 is a push");
 			helper.assertTrue(Economies.get().balance(a) == expected, "balance = start − staked + return");
 			table.onAction(a, "bet", amount(10));
 			helper.assertTrue(table.stakeOf(a.getUUID()) == 0, "no betting during the result phase");
@@ -105,6 +114,11 @@ public class BlackjackGameTests {
 		withPlayers(helper, (a, b) -> {
 			table.sit(a);
 			table.sit(b);
+			List<Card> tens = new java.util.ArrayList<>();
+			for (int i = 0; i < 16; i++) {
+				tens.add(Card.of(10));
+			}
+			table.stackCardsForTests(tens); // deterministic: everybody 20 → pushes
 			table.onAction(a, "bet", amount(20));
 			helper.assertTrue(table.round() == null, "waits for the other seated player");
 			helper.assertTrue(table.ticksLeft("bet") > 0, "bet timer started by the first bet");

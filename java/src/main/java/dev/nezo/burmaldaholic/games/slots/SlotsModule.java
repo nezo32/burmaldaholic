@@ -1,5 +1,8 @@
 package dev.nezo.burmaldaholic.games.slots;
 
+import dev.nezo.burmaldaholic.core.CoreModule;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.games.slots.api.SlotsApi;
 import dev.nezo.burmaldaholic.core.command.CasinoCommands;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.ConfigManager;
@@ -41,6 +44,19 @@ public final class SlotsModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
+		// §19 three_sevens / jackpot (offline-safe: a spin settled after a disconnect grants on join)
+		SlotsApi.SPIN.register(spin -> {
+			MinecraftServer server = spin.player() != null ? spin.player().level().getServer() : CoreModule.server();
+			if (server == null) {
+				return;
+			}
+			if (spin.threeSevens()) {
+				CasinoAdvancements.grant(server, spin.playerId(), "three_sevens");
+			}
+			if (spin.jackpotAward() > 0) {
+				CasinoAdvancements.grant(server, spin.playerId(), "jackpot");
+			}
+		});
 		for (Tier tier : Tier.values()) {
 			BlockBehaviour.Properties props = TableRegistrar.defaultProperties();
 			switch (tier) {

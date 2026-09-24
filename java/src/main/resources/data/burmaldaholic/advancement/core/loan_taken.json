@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/root",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:loan_ledger_page"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.loan_taken.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.loan_taken.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.vip;
 
+import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
@@ -24,7 +25,8 @@ public class DiamondCasinoCardItem extends Item {
 	public InteractionResult use(Level level, Player player, InteractionHand hand) {
 		if (player instanceof ServerPlayer sp) {
 			if (CasinoMode.isEnabled(sp)) {
-				VipService.send(sp, true, true);
+				VipService.send(sp, false, true);
+				CasinoMenu.open(sp, "");
 			} else {
 				sp.sendOverlayMessage(Component.translatable("gui.burmaldaholic.error.casino_off"));
 			}

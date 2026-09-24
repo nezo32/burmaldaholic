@@ -50,6 +50,10 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		super(type, pos, state);
 	}
 
+	private dev.nezo.burmaldaholic.core.events.CasinoEvents.PlayResult detail(dev.nezo.burmaldaholic.core.events.CasinoEvents.PlayResult r) {
+		return level == null ? r : r.withTable(level, worldPosition, "");
+	}
+
 	@Override
 	public String gameId() {
 		return ExtrasGames.WHEEL;
@@ -95,7 +99,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 			}
 			value = amount;
 		} else {
-			Result<Stake> r = ExtrasGames.takePawn(player, gameId(), kind, amount, max);
+			Result<Stake> r = ExtrasGames.takePawn(player, gameId(), kind, amount, max, worldPosition);
 			if (!r.isOk()) {
 				sendError(player, r.error());
 				return;
@@ -107,16 +111,19 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		OddsService odds = OddsService.get();
 		CasinoRng rng = odds.rng(ctx);
 		Wheel.Spin spin = odds.play(ctx, wheel.rtp(), () -> wheel.spin(rng), s -> Wheel.totalReturn(value, s) < value);
+		if (level != null) {
+			level.playSound(null, worldPosition, dev.nezo.burmaldaholic.core.CoreSounds.WHEEL_TICK, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
+		}
 		long ret = Wheel.totalReturn(value, spin);
 		if (pawn == null) {
 			settle(player.getUUID(), ret);
 		} else if (ret > value) {
-			Stakes.settle(player, pawn, Stakes.Outcome.WIN, ret - value);
+			Stakes.settle(player, pawn, Stakes.Outcome.WIN, ret - value, this::detail);
 		} else if (ret == value) {
-			Stakes.settle(player, pawn, Stakes.Outcome.PUSH, 0);
+			Stakes.settle(player, pawn, Stakes.Outcome.PUSH, 0, this::detail);
 		} else {
 			// Pawn forfeited; a partial return (Half back) is paid in chips so the pawn keeps the chip RTP.
-			Stakes.settle(player, pawn, Stakes.Outcome.LOSS, 0);
+			Stakes.settle(player, pawn, Stakes.Outcome.LOSS, 0, this::detail);
 			if (ret > 0) {
 				Economies.get().deposit(player, ret, Transaction.payout(gameId()));
 			}

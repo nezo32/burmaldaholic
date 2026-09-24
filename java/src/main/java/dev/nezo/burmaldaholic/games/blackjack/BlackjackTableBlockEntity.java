@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.games.blackjack;
 
+import dev.nezo.burmaldaholic.core.CoreSounds;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BlackjackConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -16,12 +18,14 @@ import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Action;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Hand;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Offer;
+import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Outcome;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Phase;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Seat;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.SeatBet;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Turn;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRules;
 import dev.nezo.burmaldaholic.games.blackjack.logic.Card;
+import dev.nezo.burmaldaholic.games.blackjack.logic.CardSource;
 import dev.nezo.burmaldaholic.games.blackjack.logic.Shoe;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -86,7 +90,15 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	public boolean isHighRoller() {
-		return highRoller;
+		return highRoller || preset().map(p -> p.id().startsWith("high_roller")).orElse(false); // worldgen lounge preset
+	}
+
+	private final List<Card> stackedForTests = new ArrayList<>();
+
+	/** GameTests: the next round deals these cards first (then the shoe), making it deterministic. */
+	public void stackCardsForTests(List<Card> cards) {
+		stackedForTests.clear();
+		stackedForTests.addAll(cards);
 	}
 
 	/** Current round (null between rounds). Exposed for GameTests. */
@@ -109,14 +121,14 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 
 	@Override
 	protected long minBet() {
-		return highRoller ? CasinoConfig.blackjack().highRollerMinBet : CasinoConfig.blackjack().minBet;
+		return isHighRoller() ? CasinoConfig.blackjack().highRollerMinBet : CasinoConfig.blackjack().minBet;
 	}
 
 	/** High-Roller table: max = highRollerMaxMultiplier × tier max (GAME_DESIGN §6.4), owner max still applies. */
 	@Override
 	public long[] limitsFor(ServerPlayer player) {
 		long[] base = super.limitsFor(player);
-		if (!highRoller) {
+		if (!isHighRoller()) {
 			return base;
 		}
 		MinecraftServer server = player.level().getServer();
@@ -130,7 +142,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	private boolean vipAllowed(ServerPlayer player) {
-		if (!highRoller) {
+		if (!isHighRoller()) {
 			return true;
 		}
 		int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
@@ -256,7 +268,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		long worstCase = BlackjackRules.worstCasePayout(amount);
 		Result<Long> r;
-		if (highRoller) {
+		if (isHighRoller()) {
 			long[] lim = limitsFor(player);
 			long balance = Economies.get().balance(player);
 			int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
@@ -376,7 +388,16 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 				names.put(b.player(), p.getName().getString());
 			}
 		}
-		round = new BlackjackRound(rules, shoe, bets);
+		CardSource source = shoe;
+		if (!stackedForTests.isEmpty()) {
+			source = CardSource.stacked(List.copyOf(stackedForTests), shoe);
+			stackedForTests.clear();
+		}
+		round = new BlackjackRound(rules, source, bets);
+		if (level != null && CoreSounds.CARD_DEAL != null) {
+			level.playSound(null, worldPosition, noticeKey.equals("gui.burmaldaholic.blackjack.shuffling") && noticeUntil > gameTime()
+				? CoreSounds.CARD_SHUFFLE : CoreSounds.CARD_DEAL, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
+		}
 		if (round.peeked() && round.phase() == Phase.TURNS && !noticeKey.equals("gui.burmaldaholic.blackjack.shuffling")) {
 			notice("gui.burmaldaholic.blackjack.dealer_peeks", PEEK_NOTICE_TICKS);
 		}
@@ -448,7 +469,17 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 			paid.add(s.player);
 			long ret = round.returnOf(s.seat);
 			long net = ret - round.stakedOf(s.seat);
-			settle(s.player, ret);
+			boolean natural = s.hands.stream().anyMatch(h -> h.outcome == Outcome.BLACKJACK || h.outcome == Outcome.EVEN_MONEY);
+			boolean splits = s.hands.size() > 1;
+			settle(s.player, ret, r -> r.withTags(natural ? "natural" : "", splits ? "split" : "", s.insurance > 0 ? "insurance" : ""));
+			if (level instanceof ServerLevel sl) {
+				if (natural) {
+					CasinoAdvancements.grant(sl.getServer(), s.player, "natural");
+				}
+				if (s.hands.size() >= 4) {
+					CasinoAdvancements.grant(sl.getServer(), s.player, "split_personality");
+				}
+			}
 			ServerPlayer p = online(s.player);
 			if (p != null && away.contains(s.player)) {
 				p.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.auto_completed", netText(net)));
@@ -523,7 +554,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
 		UUID me = viewer.getUUID();
-		tag.putBoolean("high_roller", highRoller);
+		tag.putBoolean("high_roller", isHighRoller());
 		tag.putLong("last_bet", lastBet.getOrDefault(me, 0L));
 		tag.putBoolean("bet_placed", mainBets.containsKey(me));
 		if (!noticeKey.isEmpty() && gameTime() < noticeUntil) {

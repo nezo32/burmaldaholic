@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/root",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:chip_1"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.first_bet.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.first_bet.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

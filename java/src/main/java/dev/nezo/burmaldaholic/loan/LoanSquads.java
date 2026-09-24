@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.loan;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.LoanConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.text.Texts;
@@ -39,7 +40,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -241,7 +241,7 @@ public final class LoanSquads {
 		LoanService.title(player, Component.translatable("msg.burmaldaholic.loan.wave_title").withStyle(ChatFormatting.RED),
 			Component.translatable("msg.burmaldaholic.loan.wave_subtitle"));
 		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.loan.wave_incoming", Texts.chips(owed)).withStyle(ChatFormatting.RED));
-		LoanService.sound(player, SoundEvents.WOODEN_DOOR_CLOSE, 0.6F);
+		LoanService.sound(player, dev.nezo.burmaldaholic.core.CoreSounds.COLLECTOR_KNOCK, 0.6F);
 		LoanModule.LOG.info("Debt collector wave {} ({} members) for {}, owed {}", wave, squad.members.size(), player.getName().getString(), owed);
 		return true;
 	}
@@ -270,6 +270,10 @@ public final class LoanSquads {
 	/** Inside the world border and not inside another player's owned casino (§5.8.4). */
 	private static boolean allowed(ServerLevel level, BlockPos feet, UUID debtor) {
 		if (!level.getWorldBorder().isWithinBounds(feet)) {
+			return false;
+		}
+		// Casino claims (core claim provider, multiplayer): never spawn in someone else's casino.
+		if (CoreServices.claims().ownerAt(level, feet).filter(o -> !o.equals(debtor)).isPresent()) {
 			return false;
 		}
 		int cx = feet.getX() >> 4;
@@ -403,8 +407,11 @@ public final class LoanSquads {
 			m.discard();
 		}
 		closeNegotiation(debtor);
-		if (reason == EndReason.DEFEATED && debtor != null) {
-			debtor.sendSystemMessage(Component.translatable("msg.burmaldaholic.loan.squad_defeated").withStyle(ChatFormatting.YELLOW));
+		if (reason == EndReason.DEFEATED) {
+			CasinoAdvancements.grant(server, s.debtor, "hostile_takeover");
+			if (debtor != null) {
+				debtor.sendSystemMessage(Component.translatable("msg.burmaldaholic.loan.squad_defeated").withStyle(ChatFormatting.YELLOW));
+			}
 		}
 		if (reason == EndReason.OFFLINE) {
 			LoanRecord rec = LoanService.record(server, s.debtor);

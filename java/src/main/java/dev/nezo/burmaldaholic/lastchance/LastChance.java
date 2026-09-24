@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.lastchance;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.chips.ChipItem;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
@@ -263,6 +264,10 @@ public final class LastChance {
 		level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1.0, player.getZ(), TOTEM_PARTICLES, 0.4, 0.8, 0.4, 0.5);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), sound, SoundSource.PLAYERS, 1.0f, 1.0f);
 
+		CasinoAdvancements.grant(player, "not_today");
+		if (d.mode() == Mode.HIGH_STAKES && hardcore(server)) {
+			CasinoAdvancements.grant(player, "scarred");
+		}
 		if (d.mode() == Mode.HIGH_STAKES) {
 			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.lastchance.hardcore.success"));
 			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.lastchance.hardcore.scar", hearts(plan.addScarHp())));

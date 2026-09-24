@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/the_house",
+  "display": {
+    "icon": {
+      "id": "minecraft:gold_block"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.house_always_wins.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.house_always_wins.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

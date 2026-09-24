@@ -79,6 +79,7 @@
 	"msg.burmaldaholic.poker.bot_joins": "За стол садится %1$s (%2$s)",
 	"msg.burmaldaholic.poker.bot_busts": "У игрока %1$s кончились фишки — место освобождается",
 	"msg.burmaldaholic.poker.new_hand": "Раздача №%1$s — блайнды %2$s/%3$s",
+	"msg.burmaldaholic.poker.leaving_after_hand": "Вы встанете из-за стола после этой раздачи",
 	"config.burmaldaholic.poker.enabled": "Покер",
 	"config.burmaldaholic.poker.maxSeats": "Мест за столом",
 	"config.burmaldaholic.poker.stakes.micro.bb": "Большой блайнд: микро",
@@ -103,6 +104,5 @@
 	"config.burmaldaholic.poker.botMix.low": "Состав ботов: низкие",
 	"config.burmaldaholic.poker.botMix.mid": "Состав ботов: средние",
 	"config.burmaldaholic.poker.botMix.high": "Состав ботов: высокие",
-	"config.burmaldaholic.poker.maxDistance": "Макс. расстояние от стола",
-	"msg.burmaldaholic.poker.leaving_after_hand": "Вы встанете из-за стола после этой раздачи"
+	"config.burmaldaholic.poker.maxDistance": "Макс. расстояние от стола"
 }

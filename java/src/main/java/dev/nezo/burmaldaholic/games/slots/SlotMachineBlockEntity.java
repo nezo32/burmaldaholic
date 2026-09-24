@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.slots;
 
+import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -105,6 +106,16 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 	@Override
 	protected int seatCount() {
 		return 1;
+	}
+
+	/** §17 RTP per tier (cashback uses the machine's own edge). */
+	@Override
+	protected double houseEdge() {
+		return switch (tier) {
+			case COPPER -> HouseEdges.SLOTS_COPPER;
+			case GOLD -> HouseEdges.SLOTS_GOLD;
+			case NETHERITE -> HouseEdges.SLOTS_NETHERITE;
+		};
 	}
 
 	@Override
@@ -295,7 +306,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			award = updateJackpot(server, p);
 		}
 		long total = p.eval.basePayout() + award;
-		settle(p.player, total);
+		String jackpotTag = award > 0 ? "jackpot" : "";
+		settle(p.player, total, r -> r.withTags(tier.id(), jackpotTag));
 		lastResult = resultTag(p, award, total);
 		ServerPlayer online = server.getPlayerList().getPlayer(p.player);
 		if (online != null && online.isRemoved()) {

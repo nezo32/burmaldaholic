@@ -108,7 +108,7 @@ public class CrapsGameTests {
 	}
 
 	@GameTest
-	public void breakingTheTableRefunds(GameTestHelper helper) {
+	public void breakingTheTablePlaysTheBetsOut(GameTestHelper helper) {
 		CrapsTableBlockEntity table = table(helper);
 		withPlayer(helper, 100, player -> {
 			table.onAction(player, "bet", bet(BetKind.PASS, 10));
@@ -116,7 +116,9 @@ public class CrapsGameTests {
 			table.onAction(player, "odds", odds(table.table().betsOf(player.getUUID()).get(0).id(), 30));
 			helper.assertTrue(Economies.get().balance(player) == 60, "flat + odds debited");
 			helper.destroyBlock(new BlockPos(1, 1, 1));
-			helper.assertTrue(Economies.get().balance(player) == 100, "everything refunded");
+			long balance = Economies.get().balance(player);
+			// review B1: a Pass bet on 10 is never refunded by breaking the table; it is rolled out (win: 20 + 90)
+			helper.assertTrue(balance == 60 || balance == 170, "pass + odds resolved as a loss or a win, got " + balance);
 		});
 		helper.succeed();
 	}

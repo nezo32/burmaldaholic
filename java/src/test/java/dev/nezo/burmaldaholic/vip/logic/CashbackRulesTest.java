@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.vip.logic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,22 +26,27 @@ class CashbackRulesTest {
 		assertEquals(0.0041, CashbackRules.houseEdge("blackjack"));
 		assertEquals(0.027, CashbackRules.houseEdge("roulette"));
 		assertEquals(0.0396, CashbackRules.houseEdge("slots"));
-		assertEquals(0, CashbackRules.houseEdge("craps"), "Odds bets have 0 % edge and are indistinguishable");
+		assertEquals(0.0136, CashbackRules.houseEdge("craps"), "lowest flat edge; Odds report 0 % per bet");
 		assertEquals(0, CashbackRules.houseEdge("poker"));
 		assertEquals(0, CashbackRules.houseEdge("something_new"));
-		assertEquals(0.02, CashbackRules.houseEdge("extras"));
+		assertEquals(0.02, CashbackRules.houseEdge("coin_flip"));
+		assertEquals(0, CashbackRules.houseEdge("dice_duel_pvp"));
+		assertTrue(CashbackRules.eligible(true, false, false));
+		assertFalse(CashbackRules.eligible(false, false, false), "PvP");
+		assertFalse(CashbackRules.eligible(true, true, false), "owned casino");
+		assertFalse(CashbackRules.eligible(true, false, true), "pawn stake");
 	}
 
 	@Test
 	void ledgerRollsAtTheDayBoundary() {
-		CashbackRules.Roll r = CashbackRules.record(null, 5, "roulette", 100, 0);
+		CashbackRules.Roll r = CashbackRules.record(null, 5, 100, 0, 0.027, true);
 		assertNull(r.closed());
-		r = CashbackRules.record(r.ledger(), 5, "poker", 50, 100);
+		r = CashbackRules.record(r.ledger(), 5, 50, 100, 0, false);
 		assertEquals(150, r.ledger().staked());
 		assertEquals(100, r.ledger().returned());
 		assertEquals(2.7, r.ledger().theo(), 1e-9, "poker never counts");
 		CashbackRules.DayLedger day5 = r.ledger();
-		CashbackRules.Roll next = CashbackRules.record(day5, 6, "blackjack", 1000, 2000);
+		CashbackRules.Roll next = CashbackRules.record(day5, 6, 1000, 2000, 0.0041, true);
 		assertNotNull(next.closed());
 		assertEquals(day5, next.closed());
 		assertEquals(6, next.ledger().day());
@@ -68,7 +74,7 @@ class CashbackRulesTest {
 			CashbackRules.DayLedger l = CashbackRules.DayLedger.empty(d);
 			for (int i = 0; i < 5; i++) {
 				long payout = rng.nextDouble() < pWin ? 2000 : 0;
-				l = CashbackRules.record(l, d, "blackjack", 1000, payout).ledger();
+				l = CashbackRules.record(l, d, 1000, payout, he, true).ledger();
 			}
 			staked += l.staked();
 			returned += l.returned();
@@ -86,7 +92,7 @@ class CashbackRulesTest {
 
 	@Test
 	void expectedCashbackBelowExpectedLossForEveryGameAndRate() {
-		for (String game : CashbackRules.LOWEST_EDGE.keySet()) {
+		for (String game : java.util.List.of("blackjack", "roulette", "slots", "craps", "poker", "coin_flip", "wheel_of_fortune", "scratch_card", "plinko", "dice_duel")) {
 			double he = CashbackRules.houseEdge(game);
 			for (double rate : new double[] {0.02, 0.05, 0.5}) {
 				long stake = 1_000_000;

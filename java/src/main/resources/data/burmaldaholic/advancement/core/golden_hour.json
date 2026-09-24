@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/root",
+  "display": {
+    "icon": {
+      "id": "minecraft:clock"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.golden_hour.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.golden_hour.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

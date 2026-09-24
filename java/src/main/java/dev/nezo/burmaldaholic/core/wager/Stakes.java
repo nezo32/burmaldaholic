@@ -7,13 +7,16 @@ import dev.nezo.burmaldaholic.core.data.CasinoWorldData;
 import dev.nezo.burmaldaholic.core.data.PlayerRecord;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
-import dev.nezo.burmaldaholic.core.events.CasinoEvents;
+import dev.nezo.burmaldaholic.core.events.CasinoEvents.PlayResult;
+import dev.nezo.burmaldaholic.core.events.PlayResults;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Inventories;
 import dev.nezo.burmaldaholic.core.util.Result;
 import java.util.Map;
+import java.util.function.UnaryOperator;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -24,6 +27,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reusable stake API for all games (GAME_DESIGN.md §4): chips, held item, XP levels, temporary
@@ -38,7 +42,8 @@ import net.minecraft.world.item.ItemStack;
  * </pre>
  *
  * Pawn stakes (everything except chips) are only allowed on the one-bet games of §4.3 — the game
- * decides where to offer them. {@link #settle} fires {@code CasinoEvents.PLAY_RESOLVED}.
+ * decides where to offer them. {@link #settle} reports the round ({@code PlayResults.fire}). Every new stake
+ * passes the wager gate ({@link Wagers#check}: casino mode, owned-table rules, loan Asset Freeze ...).
  */
 public final class Stakes {
 	public static final ResourceKey<DamageType> SOUL_WAGER = ResourceKey.create(Registries.DAMAGE_TYPE, Burmaldaholic.id("soul_wager"));
@@ -61,12 +66,17 @@ public final class Stakes {
 		return CoreServices.vip().maxBet(server(player), player.getUUID());
 	}
 
+	/** The wager gate ({@link Wagers#check}) for a pawn stake; null = allowed. */
+	private static @Nullable Component gate(ServerPlayer player, String gameId, Stake.Kind kind, @Nullable BlockPos table) {
+		return Wagers.check(player, new WagerVeto.Context(gameId, kind, table, false));
+	}
+
 	/** Debits a chip stake after {@link BetLimits} validation (house-banked). */
 	public static Result<Stake> chips(ServerPlayer player, String gameId, long amount, long min, long tableMax) {
 		if (!CasinoMode.isEnabled(player)) {
 			return Result.fail(error("casino_off"));
 		}
-		Component err = BetLimits.validate(player, amount, min, tableMax);
+		Component err = BetLimits.validate(player, amount, min, tableMax, WagerVeto.Context.chips(gameId));
 		if (err != null) {
 			return Result.fail(err);
 		}
@@ -93,9 +103,18 @@ public final class Stakes {
 
 	/** Takes the main-hand stack into escrow (§4.3.1). */
 	public static Result<Stake> heldItem(ServerPlayer player, String gameId) {
+		return heldItem(player, gameId, null);
+	}
+
+	/** Same, at a table / machine ({@code table} = its position, for the wager gate). */
+	public static Result<Stake> heldItem(ServerPlayer player, String gameId, @Nullable BlockPos table) {
 		WagerConfig cfg = CasinoConfig.wager();
 		if (!CasinoMode.isEnabled(player) || !cfg.pawnEnabled || !cfg.items.enabled) {
 			return Result.fail(error(CasinoMode.isEnabled(player) ? "disabled" : "casino_off"));
+		}
+		Component veto = gate(player, gameId, Stake.Kind.ITEM, table);
+		if (veto != null) {
+			return Result.fail(veto);
 		}
 		ItemStack held = player.getItemInHand(InteractionHand.MAIN_HAND);
 		long value = appraise(held);
@@ -115,9 +134,17 @@ public final class Stakes {
 
 	/** Takes {@code levels} XP levels into escrow (§4.3.2). */
 	public static Result<Stake> xp(ServerPlayer player, String gameId, int levels) {
+		return xp(player, gameId, levels, null);
+	}
+
+	public static Result<Stake> xp(ServerPlayer player, String gameId, int levels, @Nullable BlockPos table) {
 		WagerConfig cfg = CasinoConfig.wager();
 		if (!CasinoMode.isEnabled(player) || !cfg.pawnEnabled || !cfg.xp.enabled) {
 			return Result.fail(error(CasinoMode.isEnabled(player) ? "disabled" : "casino_off"));
+		}
+		Component veto = gate(player, gameId, Stake.Kind.XP, table);
+		if (veto != null) {
+			return Result.fail(veto);
 		}
 		int current = player.experienceLevel;
 		if (!PawnRules.xpStakeAllowed(current, levels, cfg.xp.maxLevels)) {
@@ -138,9 +165,17 @@ public final class Stakes {
 
 	/** Puts {@code hearts} max-health hearts at risk (§4.3.3); nothing is taken until a loss. */
 	public static Result<Stake> hearts(ServerPlayer player, String gameId, int hearts) {
+		return hearts(player, gameId, hearts, null);
+	}
+
+	public static Result<Stake> hearts(ServerPlayer player, String gameId, int hearts, @Nullable BlockPos table) {
 		WagerConfig cfg = CasinoConfig.wager();
 		if (!CasinoMode.isEnabled(player) || !cfg.pawnEnabled || !cfg.hearts.enabled) {
 			return Result.fail(error(CasinoMode.isEnabled(player) ? "disabled" : "casino_off"));
+		}
+		Component veto = gate(player, gameId, Stake.Kind.HEARTS, table);
+		if (veto != null) {
+			return Result.fail(veto);
 		}
 		if (!PawnRules.heartStakeAllowed(hearts, HeartPenalties.activeHearts(player), cfg.hearts.maxPerBet, cfg.hearts.maxTotal, player.getMaxHealth())) {
 			return Result.fail(error("hearts_cap"));
@@ -162,6 +197,10 @@ public final class Stakes {
 		if (!soulWagerAvailable(player)) {
 			return Result.fail(error("disabled"));
 		}
+		Component veto = gate(player, gameId, Stake.Kind.SOUL, null);
+		if (veto != null) {
+			return Result.fail(veto);
+		}
 		MinecraftServer server = server(player);
 		PlayerRecord rec = CasinoWorldData.get(server).player(player.getUUID());
 		long now = server.overworld().getGameTime();
@@ -179,6 +218,14 @@ public final class Stakes {
 	 * Pawn stakes: WIN returns the pawn + credits winnings, PUSH returns the pawn, LOSS forfeits it.
 	 */
 	public static void settle(ServerPlayer player, Stake stake, Outcome outcome, long winnings) {
+		settle(player, stake, outcome, winnings, null);
+	}
+
+	/**
+	 * Same; {@code detail} enriches the reported {@link PlayResult} (bet's own house edge, tags, table),
+	 * e.g. {@code r -> r.withEdge(HouseEdges.WHEEL).withTable(level, pos, "")}.
+	 */
+	public static void settle(ServerPlayer player, Stake stake, Outcome outcome, long winnings, @Nullable UnaryOperator<PlayResult> detail) {
 		long win = outcome == Outcome.WIN ? Math.max(0, winnings) : 0;
 		Transaction payout = Transaction.payout(stake.gameId());
 		switch (stake.kind()) {
@@ -238,7 +285,11 @@ public final class Stakes {
 			case PUSH -> stake.value();
 			case LOSS -> 0;
 		};
-		CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new CasinoEvents.PlayResult(stake.gameId(), stake.value(), payoutTotal));
+		PlayResult result = PlayResult.of(stake.gameId(), stake.value(), payoutTotal).withKind(stake.kind());
+		if (detail != null) {
+			result = detail.apply(result);
+		}
+		PlayResults.fire(player, result);
 	}
 
 	/** Returns a stake without a result (cancelled round / server problem). No PLAY_RESOLVED. */

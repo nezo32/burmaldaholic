@@ -1,6 +1,8 @@
 package dev.nezo.burmaldaholic.gametest.slots;
 
 import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.core.events.PlayResults;
+import dev.nezo.burmaldaholic.vip.VipService;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.games.slots.JackpotData;
 import dev.nezo.burmaldaholic.games.slots.SlotMachineBlockEntity;
@@ -73,6 +75,37 @@ public class SlotsGameTests {
 			SlotsApi.Spin spin = SPINS.get(player.getUUID());
 			helper.assertTrue(spin != null && spin.spinBet() == 5 && spin.totalReturn() == total && "copper".equals(spin.tier()), "SPIN event");
 		});
+		helper.succeed();
+	}
+
+	/**
+	 * Offline settlement (§4.1): a spin settled after the player disconnected pays at once (exactly once),
+	 * and its side effects (streak, VIP wagered, contracts, advancements ...) are queued and applied when
+	 * the player joins again — never paid a second time.
+	 */
+	@GameTest
+	@SuppressWarnings("removal")
+	public void offlineSettlementIsQueuedUntilJoin(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = place(helper, Tier.COPPER);
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		UUID id = player.getUUID();
+		Economies.get().setBalance(server, id, 100, TEST);
+		machine.onAction(player, "spin", lineBet(5));
+		helper.assertTrue(machine.spinning(), "spin started");
+		long wageredBefore = VipService.wagered(server, id);
+		server.getPlayerList().remove(player); // disconnect mid-spin
+		machine.finish(true);
+		long total = machine.openStakes().isEmpty() ? Economies.get().balance(server, id) - 95 : -1;
+		helper.assertTrue(total >= 0, "the spin settled for the offline player");
+		helper.assertTrue(PlayResults.pending(server, id) == 1, "round queued for the next join");
+		helper.assertTrue(VipService.wagered(server, id) == wageredBefore, "no side effects while offline");
+		PlayResults.deliver(player); // what the JOIN handler does
+		helper.assertTrue(PlayResults.pending(server, id) == 0, "queue drained");
+		helper.assertTrue(VipService.wagered(server, id) == wageredBefore + 5, "VIP wagered applied on join");
+		helper.assertTrue(Economies.get().balance(server, id) == 95 + total, "paid exactly once");
+		PlayResults.deliver(player);
+		helper.assertTrue(VipService.wagered(server, id) == wageredBefore + 5, "delivered once");
 		helper.succeed();
 	}
 

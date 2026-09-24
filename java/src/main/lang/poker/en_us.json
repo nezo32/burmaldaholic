@@ -79,6 +79,7 @@
 	"msg.burmaldaholic.poker.bot_joins": "%1$s (%2$s) joins the table",
 	"msg.burmaldaholic.poker.bot_busts": "%1$s is out of chips and leaves",
 	"msg.burmaldaholic.poker.new_hand": "Hand #%1$s — blinds %2$s/%3$s",
+	"msg.burmaldaholic.poker.leaving_after_hand": "You'll stand up when this hand ends",
 	"config.burmaldaholic.poker.enabled": "Poker",
 	"config.burmaldaholic.poker.maxSeats": "Seats",
 	"config.burmaldaholic.poker.stakes.micro.bb": "Big blind: Micro",
@@ -103,6 +104,5 @@
 	"config.burmaldaholic.poker.botMix.low": "Bot mix: Low",
 	"config.burmaldaholic.poker.botMix.mid": "Bot mix: Mid",
 	"config.burmaldaholic.poker.botMix.high": "Bot mix: High",
-	"config.burmaldaholic.poker.maxDistance": "Max distance from table",
-	"msg.burmaldaholic.poker.leaving_after_hand": "You'll stand up when this hand ends"
+	"config.burmaldaholic.poker.maxDistance": "Max distance from table"
 }

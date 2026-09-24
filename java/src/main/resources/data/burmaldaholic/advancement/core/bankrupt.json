@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/the_house",
+  "display": {
+    "icon": {
+      "id": "minecraft:barrier"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.bankrupt.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.bankrupt.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

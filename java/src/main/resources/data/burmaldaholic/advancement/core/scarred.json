@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/not_today",
+  "display": {
+    "icon": {
+      "id": "minecraft:totem_of_undying"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.scarred.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.scarred.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,6 +1,10 @@
 package dev.nezo.burmaldaholic.core.data;
 
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 
 /** Per-player core state stored with the world ({@link CasinoWorldData}). Mutable; mark dirty after changes. */
 public final class PlayerRecord {
@@ -15,6 +19,10 @@ public final class PlayerRecord {
 	public long tradeChips;
 	/** World time from which the next Soul Wager is allowed (§4.4). */
 	public long soulReadyAt;
+	/** Offline mailbox: settled rounds ({@code PlayResult#save}) fired on the next join. */
+	public final List<CompoundTag> pendingResults = new ArrayList<>();
+	/** Offline mailbox: advancement ids granted while offline. */
+	public final List<String> pendingAdvancements = new ArrayList<>();
 
 	CompoundTag save() {
 		CompoundTag tag = new CompoundTag();
@@ -24,6 +32,16 @@ public final class PlayerRecord {
 		tag.putLong("trade_day", tradeDay);
 		tag.putLong("trade_chips", tradeChips);
 		tag.putLong("soul_ready_at", soulReadyAt);
+		if (!pendingResults.isEmpty()) {
+			ListTag list = new ListTag();
+			pendingResults.forEach(t -> list.add(t.copy()));
+			tag.put("pending_results", list);
+		}
+		if (!pendingAdvancements.isEmpty()) {
+			ListTag list = new ListTag();
+			pendingAdvancements.forEach(s -> list.add(StringTag.valueOf(s)));
+			tag.put("pending_advancements", list);
+		}
 		return tag;
 	}
 
@@ -35,6 +53,8 @@ public final class PlayerRecord {
 		r.tradeDay = tag.getLongOr("trade_day", -1);
 		r.tradeChips = tag.getLongOr("trade_chips", 0);
 		r.soulReadyAt = tag.getLongOr("soul_ready_at", 0);
+		tag.getListOrEmpty("pending_results").forEach(t -> t.asCompound().ifPresent(r.pendingResults::add));
+		tag.getListOrEmpty("pending_advancements").forEach(t -> t.asString().ifPresent(r.pendingAdvancements::add));
 		return r;
 	}
 }

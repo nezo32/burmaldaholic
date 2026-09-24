@@ -93,11 +93,41 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 					sell(player, Items.GOLD_INGOT, clampCount(args), CasinoConfig.economy().goldSellRate, "sell_gold", "unit.burmaldaholic.gold_ingot");
 				}
 			}
+			case "shop_buy" -> shopBuy(player, args.getStringOr("id", ""));
 			default -> {
 				return;
 			}
 		}
 		syncViewers();
+	}
+
+	/** Shop tab: buys one item of offer {@code id} (VIP tier + funds checked). */
+	public boolean shopBuy(ServerPlayer player, String id) {
+		CashierShop.Offer offer = CashierShop.byId(id);
+		if (offer == null) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
+			return false;
+		}
+		int tier = CoreServices.vip().tier(server(player), player.getUUID());
+		if (tier < offer.minTier()) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(offer.minTier())));
+			return false;
+		}
+		long price = Math.max(0, offer.price().getAsLong());
+		ItemStack item = offer.item().get();
+		if (item.isEmpty()) {
+			return false;
+		}
+		if (!Economies.get().tryWithdraw(player, price, new Transaction(GAME_ID, "shop_" + id, Transaction.Kind.OTHER))) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(Economies.get().balance(player))));
+			return false;
+		}
+		Component name = item.getHoverName();
+		if (Inventories.giveOrDrop(player, item)) {
+			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.inventory_full"));
+		}
+		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.bought_chips", name, Texts.chipsAcc(price)));
+		return true;
 	}
 
 	private static int clampCount(CompoundTag args) {
@@ -246,6 +276,18 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		}
 		tag.putLong("carried_chips", carried);
 		tag.putLong("held_chips", ChipItem.valueOf(viewer.getItemInHand(InteractionHand.MAIN_HAND)));
+		int tier = CoreServices.vip().tier(server, viewer.getUUID());
+		tag.putInt("vip", tier);
+		net.minecraft.nbt.ListTag shop = new net.minecraft.nbt.ListTag();
+		for (CashierShop.Offer o : CashierShop.offers()) {
+			CompoundTag t = new CompoundTag();
+			t.putString("id", o.id());
+			t.putString("name", o.item().get().getItem().getDescriptionId());
+			t.putLong("price", o.price().getAsLong());
+			t.putInt("min_tier", o.minTier());
+			shop.add(t);
+		}
+		tag.put("shop", shop);
 		return tag;
 	}
 

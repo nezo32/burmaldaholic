@@ -8,12 +8,19 @@ import dev.nezo.burmaldaholic.core.economy.AccountId;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
+import dev.nezo.burmaldaholic.core.events.PlayResults;
+import dev.nezo.burmaldaholic.core.wager.Stake;
+import dev.nezo.burmaldaholic.core.wager.WagerVeto;
+import dev.nezo.burmaldaholic.core.wager.Wagers;
+import dev.nezo.burmaldaholic.games.poker.logic.HandEvaluator;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.rng.CasinoRng;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.core.service.TableOwnershipProvider.OwnedTable;
+import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableType;
@@ -31,7 +38,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.ChatFormatting;
@@ -79,6 +85,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 	private final List<Component> lastResult = new ArrayList<>();
 	private final Map<String, Long> pendingRefunds = new LinkedHashMap<>();
 	private boolean refundsLoaded;
+	/** Seats marked leaving only because the player disconnected (re-attached if they come back). */
+	private final java.util.Set<String> droppedSeats = new java.util.HashSet<>();
 
 	public PokerTableBlockEntity(TableType<PokerTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -206,16 +214,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
 			return;
 		}
-		Optional<OwnedTable> owned = ownership();
-		if (owned.isPresent()) {
-			if (owned.get().owner().equals(player.getUUID())) {
-				sendError(player, Component.translatable("gui.burmaldaholic.error.owner_cannot_play"));
-				return;
-			}
-			if (!owned.get().open()) {
-				sendError(player, Component.translatable("gui.burmaldaholic.error.table_closed"));
-				return;
-			}
+		// Wager gate for the PvP entry: owner can't play at their own table, closed casino, loan Asset Freeze.
+		Component veto = Wagers.check(player, new WagerVeto.Context(gameId(), Stake.Kind.CHIPS, worldPosition, true));
+		if (veto != null) {
+			sendError(player, veto);
+			return;
 		}
 		PokerTableBlockEntity other = SEATED.get(player.getUUID());
 		if (other != null && other != this && !other.isRemoved() && other.table != null && other.table.seatOf(id(player)) != null) {
@@ -225,7 +228,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		if (table != null && table.seatOf(id(player)) != null) {
 			return;
 		}
-		StakeLevel level = humansSeated() ? stake : StakeLevel.byId(levelId);
+		// A generated table may fix the stake level (Piglin Parlor: Low, §16.2).
+		String fixed = preset().map(TablePresetProvider.TablePreset::pokerStakes).orElse("");
+		StakeLevel level = humansSeated() ? stake : StakeLevel.byId(fixed.isEmpty() ? levelId : fixed);
 		if (level == null) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.invalid_amount"));
 			return;
@@ -421,7 +426,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			afterHumanLeft();
 			return;
 		}
-		PokerTable.FillResult fill = table.fillBots(new PokerTable.BotFill(cfg().botsEnabled, botMix(stake), cfg().botBuyInBb * table.bb()),
+		boolean bots = cfg().botsEnabled && ownership().map(OwnedTable::bots).orElse(true); // owner "bots on/off" (§18.2)
+		int maxBots = preset().map(TablePresetProvider.TablePreset::pokerBots).orElse(-1);
+		PokerTable.FillResult fill = table.fillBots(new PokerTable.BotFill(bots, botMix(stake), cfg().botBuyInBb * table.bb(), maxBots),
 			rng(), () -> "bot:" + (++botIds));
 		for (PokerTable.Seat b : fill.left()) {
 			if (b.stack <= 0) {
@@ -596,20 +603,38 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			broadcast(line);
 		}
 		MinecraftServer server = server();
+		String bankroll = ownership().map(OwnedTable::bankrollId).orElse("");
+		boolean sharkBusted = false;
 		for (int k = 0; k < h.players().size(); k++) {
 			Hand.Player p = h.player(k);
-			if (!p.human || p.total() <= 0) {
+			PokerTable.Seat seat = table.seatOf(p.id);
+			if (!p.human && p.stack() <= 0 && seat != null && seat.tier == Bots.Tier.SHARK) {
+				sharkBusted = true;
+			}
+		}
+		for (int k = 0; k < h.players().size(); k++) {
+			Hand.Player p = h.player(k);
+			if (!p.human || p.total() <= 0 || server == null || !(level instanceof ServerLevel sl)) {
 				continue;
 			}
-			ServerPlayer player = online(p.id);
-			if (player != null) {
-				CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new CasinoEvents.PlayResult(gameId(), p.total(), r.won()[k]));
+			UUID uuid = UUID.fromString(p.id);
+			// PvP pot: no house edge, no Golden Hour, no cashback; reported offline-safe (a disconnected seat
+			// is folded and gets its streak / VIP credit on the next join).
+			PlayResults.fire(server, uuid, CasinoEvents.PlayResult.of(gameId(), p.total(), r.won()[k]).pvp().withTable(sl, worldPosition, bankroll));
+			if (r.won()[k] > 0) {
+				final int kk = k;
+				boolean royal = r.pots().stream().anyMatch(pot -> pot.winners().contains(kk) && pot.value() != 0
+					&& "royal_flush".equals(HandEvaluator.handName(pot.value())));
+				if (royal) {
+					CasinoAdvancements.grant(server, uuid, "royal_flush");
+				}
+				if (sharkBusted) {
+					CasinoAdvancements.grant(server, uuid, "shark_hunter");
+				}
 			}
 		}
-		if (r.rake() > 0 && server != null) {
-			ownership().ifPresent(o -> Economies.get().transfer(server, AccountId.HOUSE, AccountId.bankroll(o.bankrollId()), r.rake(),
-				Transaction.of(PokerModule.ID, "rake")));
-		}
+		collectRake(r.rake()); // core: to the owner's bankroll at owned tables, else stays in the bank
+
 		if (CasinoConfig.debug().logRounds) {
 			Burmaldaholic.LOGGER.info("[round] poker at {}: hand #{} pots {} rake {}", worldPosition, table.handNo(),
 				r.pots().stream().map(Hand.PotResult::amount).toList(), r.rake());
@@ -647,7 +672,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		UUID uuid = UUID.fromString(id);
 		SEATED.remove(uuid, this);
+		droppedSeats.remove(id);
 		payOut(uuid, amount, seat.invested);
+		firePlayerLeft(uuid, removing() ? LeaveReason.REMOVED : seat.disconnected ? LeaveReason.DISCONNECT : LeaveReason.LEFT);
 		ServerPlayer p = online(id);
 		if (p != null) {
 			p.sendSystemMessage(PokerText.msg("removed", Texts.chips(amount)));
@@ -741,8 +768,19 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 				break;
 			}
 			ServerPlayer p = online(s.id);
+			if (p != null && !p.isRemoved() && s.disconnected && droppedSeats.remove(s.id)) {
+				// Review M1: a player who rejoins mid-hand gets the seat back (no forced fold / cash-out);
+				// the stack is only ever paid by cashOut (offline-safe), never lost or overwritten.
+				s.disconnected = false;
+				s.leaving = false;
+				changed = true;
+				continue;
+			}
 			if ((p == null || p.isRemoved()) && !s.disconnected) {
 				s.disconnected = true;
+				if (!s.leaving) {
+					droppedSeats.add(s.id);
+				}
 				s.leaving = true;
 				changed = true;
 				Hand h = table.hand();
@@ -760,10 +798,51 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		}
 	}
 
+	/**
+	 * Table broken (review B1): the running hand is played out now — every human acts by the timeout rule
+	 * (check, else fold; all-in players are already committed), bots decide as usual, the board runs out and
+	 * the pots are paid — then everybody is cashed out. No abort: breaking a table never returns chips
+	 * already in a pot. Only casino mode off / game disabled aborts the hand (§2.1).
+	 */
 	@Override
-	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
-		shutdown();
-		super.preRemoveSideEffects(pos, state);
+	protected void playOutForRemoval(ServerLevel level) {
+		if (table == null) {
+			return;
+		}
+		cancelTimer("next_hand");
+		cancelTimer("action");
+		cancelTimer("bot");
+		cancelTimer("auto");
+		Hand h = table.hand();
+		for (int guard = 0; guard < 400 && h != null && !h.complete(); guard++) {
+			PokerTable.Seat seat = table.seatOf(h.player(h.toAct()).id);
+			Hand.Action a;
+			if (seat != null && !seat.human) {
+				Bots.Tier tier = seat.tier != null ? seat.tier : Bots.Tier.REGULAR;
+				try {
+					a = Bots.decide(h, tier, table.vpipMap(), cfg().bot.regularSamples, cfg().bot.sharkSamples, rng());
+				} catch (RuntimeException e) {
+					a = Hand.Action.fold();
+				}
+			} else {
+				a = h.legal().canCheck() ? Hand.Action.check() : Hand.Action.fold();
+			}
+			try {
+				h.apply(h.coerce(a));
+			} catch (IllegalStateException e) {
+				h.apply(h.legal().canCheck() ? Hand.Action.check() : Hand.Action.fold());
+			}
+		}
+		if (h != null && h.complete()) {
+			streamEvents();
+			endHand();
+		}
+		if (table != null) {
+			for (PokerTable.Seat s : table.humans()) {
+				cashOut(s.id);
+			}
+			afterHumanLeft();
+		}
 	}
 
 	@Override

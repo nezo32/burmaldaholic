@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.vip;
 
 import dev.nezo.burmaldaholic.core.CoreContent;
 import dev.nezo.burmaldaholic.core.PlayerSync;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.VipConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -47,6 +48,9 @@ import net.minecraft.world.item.ItemStack;
 public final class VipService {
 	private static final Set<UUID> DIRTY = new HashSet<>();
 	private static final Map<UUID, VipSyncPayload> LAST = new HashMap<>();
+
+	/** §19 advancement per tier (index = tier; Bronze has none). */
+	static final String[] VIP_ADVANCEMENTS = {"", "vip_silver", "vip_gold", "vip_platinum", "vip_diamond", "vip_netherite"};
 
 	private VipService() {}
 
@@ -98,14 +102,15 @@ public final class VipService {
 		VipData.Record rec = data.player(player.getUUID());
 		long bet = Math.max(0, result.bet());
 		rec.wagered = rec.wagered > Long.MAX_VALUE - bet ? Long.MAX_VALUE : rec.wagered + bet;
-		CashbackRules.Roll roll = CashbackRules.record(rec.ledger, Contracts.today(server), result.gameId(), bet, result.payout());
+		boolean eligible = CashbackRules.eligible(result.houseBanked(), result.ownedCasino(), result.pawn());
+		CashbackRules.Roll roll = CashbackRules.record(rec.ledger, Contracts.today(server), bet, result.payout(), result.houseEdge(), eligible);
 		rec.ledger = roll.ledger();
 		data.setDirty();
 		if (roll.closed() != null) {
 			payCashback(player, roll.closed());
 		}
 		checkPromotion(player);
-		if (result.won()) {
+		if (result.won() && !result.deferred()) {
 			winParticles(player);
 		}
 		ContractRules.playContracts(result.gameId(), bet, result.payout()).forEach((id, n) -> Contracts.progress(player, id, n));
@@ -151,6 +156,9 @@ public final class VipService {
 		VipData data = VipData.get(server);
 		VipData.Record rec = data.player(player.getUUID());
 		int now = tier(server, player.getUUID());
+		for (int t = VipRules.SILVER; t <= Math.min(now, VipRules.NETHERITE); t++) {
+			CasinoAdvancements.grant(player, VIP_ADVANCEMENTS[t]); // no-op once granted
+		}
 		if (now <= rec.tier) {
 			return;
 		}

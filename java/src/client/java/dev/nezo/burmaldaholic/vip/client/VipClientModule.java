@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.hud.HudLine;
+import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.client.module.ClientModuleContext;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
@@ -23,8 +24,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
 /**
- * Client half of the "vip" module: Casino Menu (Wallet / VIP / Contracts) on key {@code B}
- * ({@code key.burmaldaholic.open_menu}; core has no menu yet) and on Diamond Casino Card use,
+ * Client half of the "vip" module: the Casino Menu screen (vip tabs Wallet / VIP / Contracts plus every
+ * server page of core's {@code CasinoMenu}) on key {@code B} ({@code key.burmaldaholic.open_menu}) and on
+ * Casino Card / Diamond Casino Card use,
  * plus the HUD segment (progress to the next tier, contracts done today).
  */
 public final class VipClientModule implements CasinoClientModule {
@@ -46,7 +48,17 @@ public final class VipClientModule implements CasinoClientModule {
 			if (mc.gui.screen() instanceof CasinoMenuScreen screen) {
 				screen.refresh();
 			} else if (payload.open() && mc.gui.screen() == null) {
-				mc.gui.setScreen(new CasinoMenuScreen(CasinoMenuScreen.Tab.WALLET));
+				mc.gui.setScreen(new CasinoMenuScreen(CasinoMenuScreen.WALLET));
+			}
+		});
+		// The Casino Menu is the general menu (core pages from every module + the vip tabs).
+		ClientCasinoMenu.setOpener(page -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.gui.screen() instanceof CasinoMenuScreen) {
+				return;
+			}
+			if (mc.gui.screen() == null) {
+				mc.gui.setScreen(new CasinoMenuScreen(page));
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(VipErrorPayload.TYPE, (payload, context) -> {
@@ -97,7 +109,7 @@ public final class VipClientModule implements CasinoClientModule {
 	private static void tick(Minecraft mc) {
 		while (openMenu != null && openMenu.consumeClick()) {
 			if (mc.player != null && mc.gui.screen() == null && ClientCasinoState.hasStatus() && CasinoMode.isEnabled(mc.player)) {
-				mc.gui.setScreen(new CasinoMenuScreen(CasinoMenuScreen.Tab.WALLET));
+				mc.gui.setScreen(new CasinoMenuScreen(CasinoMenuScreen.WALLET));
 			}
 		}
 	}

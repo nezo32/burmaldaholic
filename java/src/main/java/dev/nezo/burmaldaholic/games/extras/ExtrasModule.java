@@ -58,6 +58,16 @@ public final class ExtrasModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
+		// Cashier "Shop" tab (UI.md §3): scratch cards (Gold is VIP-gated, §11.3).
+		for (dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind kind : dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.values()) {
+			boolean gold = kind == dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.GOLD;
+			dev.nezo.burmaldaholic.core.cashier.CashierShop.add(new dev.nezo.burmaldaholic.core.cashier.CashierShop.Offer(
+				gold ? "scratch_card_gold" : "scratch_card",
+				() -> new net.minecraft.world.item.ItemStack(gold ? SCRATCH_CARD_GOLD : SCRATCH_CARD),
+				() -> dev.nezo.burmaldaholic.games.extras.server.ScratchGame.price(kind), kind.minTier(),
+				() -> dev.nezo.burmaldaholic.core.config.CasinoConfig.extras().scratch.enabled));
+		}
+		dev.nezo.burmaldaholic.core.menu.CasinoMenu.register(new dev.nezo.burmaldaholic.games.extras.server.ChallengesPage());
 		LUCKY_COIN = ctx.registry().item("lucky_coin", LuckyCoinItem::new, new Item.Properties().stacksTo(1));
 		SCRATCH_CARD = ctx.registry().item("scratch_card", p -> new ScratchCardItem(p, Scratch.Kind.BASIC), new Item.Properties().stacksTo(16));
 		SCRATCH_CARD_GOLD = ctx.registry().item("scratch_card_gold", p -> new ScratchCardItem(p, Scratch.Kind.GOLD), new Item.Properties().stacksTo(16));

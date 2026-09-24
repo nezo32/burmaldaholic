@@ -72,6 +72,7 @@ public final class Safety {
 				: s.fallDistance() > 3 ? Verdict.skip(SkipReason.FALLING)
 				: s.nearBoss() ? Verdict.skip(SkipReason.BOSS)
 				: s.inRound() ? Verdict.skip(SkipReason.IN_ROUND)
+				: s.inClaim() ? Verdict.skip(SkipReason.CLAIM)
 				: Verdict.RUN;
 			case WEATHER_CHANGE -> s.overworld() ? Verdict.RUN : Verdict.skip(SkipReason.DIMENSION);
 			default -> Verdict.RUN;

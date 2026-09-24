@@ -4,7 +4,14 @@ import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
+import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
+import dev.nezo.burmaldaholic.core.service.ClaimProvider;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import dev.nezo.burmaldaholic.multiplayer.block.CharterBlock;
 import dev.nezo.burmaldaholic.multiplayer.net.CharterActionPayload;
 import dev.nezo.burmaldaholic.multiplayer.net.CharterStatePayload;
@@ -60,6 +67,19 @@ public final class MultiplayerModule implements CasinoModule {
 		CharterStatePayload.TYPE = ctx.payloads().clientbound("multiplayer_charter_state", CharterStatePayload.CODEC);
 
 		CoreServices.setTableOwnership(Ownership::owner);
+		CoreServices.setClaims(new ClaimProvider() {
+			@Override
+			public boolean isClaimed(ServerLevel level, BlockPos pos) {
+				return CasinoConfig.ownership().enabled && Ownership.casinoAt(level, pos).isPresent();
+			}
+
+			@Override
+			public Optional<UUID> ownerAt(ServerLevel level, BlockPos pos) {
+				return CasinoConfig.ownership().enabled ? Ownership.casinoAt(level, pos).map(c -> c.owner) : Optional.empty();
+			}
+		});
+		CasinoEvents.RAKE_COLLECTED.register(Ownership::onRake);
+		CasinoMenu.register(new MyCasinoPage());
 		PlayerBlockBreakEvents.BEFORE.register(Ownership::beforeBreak);
 		PlayerBlockBreakEvents.AFTER.register(Ownership::afterBreak);
 		UseBlockCallback.EVENT.register(Ownership::onUseBlock);

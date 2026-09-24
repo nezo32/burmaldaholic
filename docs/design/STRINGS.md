@@ -511,6 +511,16 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `msg.burmaldaholic.vip.netherite_broadcast` | %1$s has reached Netherite VIP. Someone roll out the red carpet. | Незеритовый ВИП-статус у игрока %1$s. Несите красную дорожку. |
 | `msg.burmaldaholic.vip.cashback` | VIP cashback for yesterday: +%1$s | ВИП-кешбэк за вчера: +%1$s |
 | `msg.burmaldaholic.vip.chat_title` | [%1$s] | [%1$s] |
+| `item.burmaldaholic.vip_diamond_casino_card` | Diamond Casino Card | Алмазная клубная карта |
+| `key.category.burmaldaholic.vip` | Burmaldaholic | Burmaldaholic |
+| `hud.burmaldaholic.vip.next` | Next: %1$s %2$s%% | Далее: %1$s — %2$s %% |
+| `hud.burmaldaholic.vip.contracts` | Contracts: %1$s/%2$s | Заказы: %1$s/%2$s |
+| `gui.burmaldaholic.vip.tier_line` | %1$s — at %2$s wagered · max bet %3$s | %1$s — порог %2$s · макс. ставка %3$s |
+| `gui.burmaldaholic.vip.contracts_off` | Contracts are disabled in this world | Заказы в этом мире отключены |
+| `gui.burmaldaholic.vip.contract_unavailable` | This contract can't be swapped anymore | Этот заказ уже нельзя заменить |
+| `gui.burmaldaholic.vip.loading` | Loading… | Загрузка… |
+| `gui.burmaldaholic.vip.perk_bullet` | • %1$s | • %1$s |
+| `gui.burmaldaholic.vip.contract_status` | %1$s · %2$s | %1$s · %2$s |
 
 ---
 
@@ -585,6 +595,12 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gui.burmaldaholic.card.name.k` | King | Король |
 | `gui.burmaldaholic.card.name.q` | Queen | Дама |
 | `gui.burmaldaholic.card.name.j` | Jack | Валет |
+| `entity.burmaldaholic.blackjack_dealer` | Blackjack Dealer | Дилер блэкджека |
+| `item.burmaldaholic.blackjack_dealer_spawn_egg` | Blackjack Dealer Spawn Egg | Яйцо призыва дилера блэкджека |
+| `gui.burmaldaholic.blackjack.sit` | Take a seat | Сесть за стол |
+| `gui.burmaldaholic.blackjack.no_bet` | No bet yet | Ещё без ставки |
+| `gui.burmaldaholic.blackjack.turn_of` | %1$s is playing… | Ходит %1$s… |
+| `msg.burmaldaholic.blackjack.no_table` | The dealer needs a blackjack table right next to them | Дилеру нужен стол для блэкджека совсем рядом |
 
 Ranks 2–9 use the digit directly (no key). Card glyphs carry the rank letter of the **English**
 deck on the texture; the `rank.*` letters are used only for text-only rendering (Bedrock body text
@@ -674,6 +690,7 @@ fallback, narration).
 | `msg.burmaldaholic.poker.bot_joins` | %1$s (%2$s) joins the table | За стол садится %1$s (%2$s) |
 | `msg.burmaldaholic.poker.bot_busts` | %1$s is out of chips and leaves | У игрока %1$s кончились фишки — место освобождается |
 | `msg.burmaldaholic.poker.new_hand` | Hand #%1$s — blinds %2$s/%3$s | Раздача №%1$s — блайнды %2$s/%3$s |
+| `msg.burmaldaholic.poker.leaving_after_hand` | You'll stand up when this hand ends | Вы встанете из-за стола после этой раздачи |
 
 ---
 
@@ -722,6 +739,9 @@ fallback, narration).
 | `msg.burmaldaholic.slots.jackpot_self` | JACKPOT! You won %1$s! | ДЖЕКПОТ! Вы сорвали %1$s! |
 | `msg.burmaldaholic.slots.jackpot_broadcast` | JACKPOT! %1$s hit %2$s on %3$s! | ДЖЕКПОТ! %1$s срывает %2$s на автомате «%3$s»! |
 | `msg.burmaldaholic.slots.seven_title` | Triple seven! | Три семёрки! |
+| `gui.burmaldaholic.slots.playing` | Now playing: %1$s | Сейчас играет: %1$s |
+| `msg.burmaldaholic.slots.jackpot_pool` | %1$s: jackpot %2$s | %1$s: джекпот %2$s |
+| `msg.burmaldaholic.slots.rtp_ok` | All slot machines pay back less than 99%% | Все автоматы возвращают меньше 99 %% |
 
 ---
 
@@ -779,6 +799,12 @@ fallback, narration).
 | `gui.burmaldaholic.roulette.rules.2` | On zero, all outside bets lose | При выпадении зеро внешние ставки проигрывают |
 | `msg.burmaldaholic.roulette.zero_hero` | Zero! The croupier nods respectfully. | Зеро! Крупье уважительно кивает. |
 | `msg.burmaldaholic.roulette.spinning` | The ball is spinning… | Шарик катится… |
+| `gui.burmaldaholic.roulette.error.inside_max` | Inside bets are limited to %1$s per position | Внутренняя ставка — не больше %1$s на позицию |
+| `gui.burmaldaholic.roulette.error.total_max` | Your bets per spin are limited to %1$s | Все ставки на один спин — не больше %1$s |
+| `gui.burmaldaholic.roulette.error.min_total` | At this table, bet at least %1$s per spin | За этим столом ставка на спин — от %1$s |
+| `gui.burmaldaholic.roulette.ready_count` | Ready: %1$s of %2$s | Готовы: %1$s из %2$s |
+| `gui.burmaldaholic.roulette.short.odd` | Odd | Нечёт |
+| `gui.burmaldaholic.roulette.short.even` | Even | Чёт |
 
 ---
 
@@ -819,6 +845,24 @@ fallback, narration).
 | `msg.burmaldaholic.craps.field_win` | Field pays %1$s | Филд приносит %1$s |
 | `msg.burmaldaholic.craps.odds_returned` | Come odds were off on the come-out roll and are returned | Коэффициент на кам не играл на первом броске — ставка возвращена |
 | `msg.burmaldaholic.craps.auto_roll` | The shooter took too long — the dice roll themselves | Бросающий задумался — кости бросились сами |
+| `gui.burmaldaholic.craps.dont_come_point` | Don't Come bet on %1$s | Ставка не-кам на %1$s |
+| `gui.burmaldaholic.craps.bet_flat` | %1$s — %2$s | %1$s — %2$s |
+| `gui.burmaldaholic.craps.bet_with_odds` | %1$s — %2$s + odds %3$s | %1$s — %2$s + коэффициент %3$s |
+| `gui.burmaldaholic.craps.odds_off` | (odds off on the come-out roll) | (коэффициент не работает на первом броске) |
+| `gui.burmaldaholic.craps.bet_window` | Bets close in %1$s | Приём ставок закроется через %1$s |
+| `gui.burmaldaholic.craps.auto_roll_in` | The dice roll themselves in %1$s | Кости бросятся сами через %1$s |
+| `gui.burmaldaholic.craps.waiting_shooter` | Waiting for %1$s to roll | Ждём броска: %1$s |
+| `gui.burmaldaholic.craps.amount_with_odds` | %1$s + %2$s | %1$s + %2$s |
+| `gui.burmaldaholic.craps.field_label` | Field: 2 (%1$s:1) 3 4 9 10 11 12 (%2$s:1) | Филд: 2 (%1$s:1) 3 4 9 10 11 12 (%2$s:1) |
+| `gui.burmaldaholic.craps.others_short` | (+%1$s) | (+%1$s) |
+| `gui.burmaldaholic.craps.others` | Other players: %1$s | Другие игроки: %1$s |
+| `gui.burmaldaholic.craps.click_to_bet` | Click to bet %1$s | Нажмите, чтобы поставить %1$s |
+| `gui.burmaldaholic.craps.click_odds` | Click to add odds: %1$s | Нажмите, чтобы добавить коэффициент: %1$s |
+| `msg.burmaldaholic.craps.rolled` | %1$s rolls: %2$s + %3$s = %4$s | %1$s бросает: %2$s + %3$s = %4$s |
+| `msg.burmaldaholic.craps.bet_result` | %1$s: %2$s | %1$s: %2$s |
+| `msg.burmaldaholic.craps.bets_played_out` | You left the craps table — your bets were played out. Net: %1$s | Вы ушли из-за стола для крэпса — ваши ставки доиграны. Итог: %1$s |
+| `msg.burmaldaholic.craps.bets_refunded` | The craps table closed — your bets were returned | Стол для крэпса закрыт — ваши ставки возвращены |
+| `msg.burmaldaholic.craps.dont_come_moved` | Your Don't Come bet moves to %1$s | Ваша ставка не-кам переходит на %1$s |
 
 ---
 
@@ -921,6 +965,15 @@ fallback, narration).
 | `msg.burmaldaholic.extras.dice.pvp_refund` | Three ties in a row — the dice refuse to decide. Stakes returned. | Три ничьи подряд — кости отказываются решать. Ставки возвращены. |
 | `msg.burmaldaholic.extras.dice.already_pending` | You already have a challenge pending | У вас уже есть неотвеченный вызов |
 | `msg.burmaldaholic.extras.dice.self` | Dueling yourself? Bold, but no. | Дуэль с собственным отражением? Смело, но нет. |
+| `gui.burmaldaholic.extras.add` | +%1$s | +%1$s |
+| `gui.burmaldaholic.extras.stake_kind` | Stake: %1$s | Ставим: %1$s |
+| `gui.burmaldaholic.extras.stake_item_value` | held item (%1$s) | предмет в руке (%1$s) |
+| `gui.burmaldaholic.extras.labeled` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.extras.dice.challenge_amount` | Challenge for %1$s | Вызвать на %1$s |
+| `gui.burmaldaholic.extras.dice.invite` | %1$s challenges you to a Dice Duel for %2$s | %1$s вызывает вас на дуэль на костях, ставка %2$s |
+| `gui.burmaldaholic.extras.dice.accept_from` | Accept: %1$s, %2$s | Принять: %1$s, %2$s |
+| `gui.burmaldaholic.extras.dice.decline_from` | Decline: %1$s | Отказать: %1$s |
+| `gui.burmaldaholic.extras.dice.challenge_target` | Challenge %1$s | Вызвать: %1$s |
 
 ---
 
@@ -956,6 +1009,9 @@ fallback, narration).
 | `gui.burmaldaholic.loan.negotiate.pay_half` | Pay half (%1$s) | Отдать половину (%1$s) |
 | `gui.burmaldaholic.loan.negotiate.refuse` | Refuse | Отказаться |
 | `gui.burmaldaholic.loan.negotiate.timer` | They won't wait long: %1$s | Ждать они не будут: %1$s |
+| `gui.burmaldaholic.loan.admin.info` | Loan (%1$s): %2$s · on-time loans: %3$s | Займ (%1$s): %2$s · погашено вовремя: %3$s |
+| `gui.burmaldaholic.loan.admin.wave_sent` | Debt collectors sent to %1$s | Коллекторы отправлены: %1$s |
+| `gui.burmaldaholic.loan.admin.wave_failed` | No wave: the player is not overdue, already has a squad, collectors are off, or there is no safe spot nearby | Волны не будет: у игрока нет просрочки, бригада уже в пути, коллекторы выключены или рядом нет безопасного места |
 
 ### Loan messages
 
@@ -983,6 +1039,7 @@ fallback, narration).
 | `msg.burmaldaholic.loan.repossessed` | Repossessed: %1$s from your balance and your %2$s | Изъято: %1$s с баланса и %2$s |
 | `msg.burmaldaholic.loan.repossessed_chips_only` | Repossessed: %1$s from your balance | Изъято с баланса: %1$s |
 | `msg.burmaldaholic.loan.squad_defeated` | The squad is down. The debt isn't. | Бригада повержена. Долг — нет. |
+| `msg.burmaldaholic.loan.balance_cap` | Your balance can't hold this loan: room for only %1$s. Spend some chips first. | Баланс не вместит этот займ: места только на %1$s. Сначала потратьте фишки. |
 
 ### Loan Shark dialogue
 
@@ -1093,6 +1150,15 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.chaos.golden_hour.bonus` | Golden Hour bonus: +%1$s | Бонус «Золотого часа»: +%1$s |
 | `msg.burmaldaholic.chaos.golden_hour.cap` | You've hit this Golden Hour's bonus limit (%1$s) | Лимит бонусов этого «Золотого часа» исчерпан (%1$s) |
 | `msg.burmaldaholic.chaos.big_win_buff` | Luck rubs off: %1$s | Удача заразительна: %1$s |
+| `msg.burmaldaholic.chaos.admin.result.started` | Chaos event started | Хаос-событие запущено |
+| `msg.burmaldaholic.chaos.admin.result.deferred` | Chaos event deferred until the menu closes | Хаос-событие отложено до закрытия меню |
+| `msg.burmaldaholic.chaos.admin.result.skipped` | Chaos event skipped: not safe here right now | Хаос-событие пропущено: здесь сейчас небезопасно |
+| `msg.burmaldaholic.chaos.admin.result.cooldown` | Chaos event is on cooldown | Хаос-событие перезаряжается |
+| `msg.burmaldaholic.chaos.admin.result.disabled` | Chaos events are disabled | Хаос-события отключены |
+| `msg.burmaldaholic.chaos.admin.result_for` | %1$s: %2$s | %1$s: %2$s |
+| `msg.burmaldaholic.chaos.admin.unknown_event` | Unknown chaos event: %1$s | Нет такого хаос-события: %1$s |
+| `msg.burmaldaholic.chaos.admin.golden_hour_stopped` | Golden Hour stopped | «Золотой час» остановлен |
+| `msg.burmaldaholic.chaos.admin.golden_hour_inactive` | Golden Hour is not active | «Золотой час» сейчас не идёт |
 
 ---
 
@@ -1183,6 +1249,23 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.multiplayer.entered_casino` | You enter %1$s's casino | Вы входите в казино игрока %1$s |
 | `msg.burmaldaholic.multiplayer.seat_taken` | That seat is taken | Это место занято |
 | `msg.burmaldaholic.multiplayer.table_left_distance` | You walked away from the table | Вы отошли от стола |
+| `msg.burmaldaholic.multiplayer.charter_foreign` | This charter belongs to %1$s's casino | Это лицензия казино игрока %1$s |
+| `msg.burmaldaholic.multiplayer.casinos_disabled` | Player casinos are disabled on this server | Казино игроков на этом сервере отключены |
+| `msg.burmaldaholic.multiplayer.table_saved` | %1$s: settings saved | %1$s: настройки сохранены |
+| `msg.burmaldaholic.multiplayer.linked_none` | No unlinked tables in your claim | В вашей зоне нет непривязанных столов |
+| `msg.burmaldaholic.multiplayer.linked_count` | Tables linked: %1$s | Привязано столов: %1$s |
+| `gui.burmaldaholic.multiplayer.owner` | Owner: %1$s | Владелец: %1$s |
+| `gui.burmaldaholic.multiplayer.claim` | Claim: %1$s around %2$s | Зона: %1$s вокруг %2$s |
+| `gui.burmaldaholic.multiplayer.tables_count` | Tables: %1$s | Столы: %1$s |
+| `gui.burmaldaholic.multiplayer.limit_hint` | Leave Min / Max empty to use the game's own limits. Max is capped at %1$s. | Оставьте мин. и макс. пустыми — будут лимиты самой игры. Максимум — не выше %1$s. |
+| `gui.burmaldaholic.multiplayer.error_min_max` | The minimum bet can't be above the maximum | Минимальная ставка не может быть больше максимальной |
+| `gui.burmaldaholic.multiplayer.error_over_global` | Bet limits can't be above %1$s | Лимиты ставок не могут быть выше %1$s |
+| `gui.burmaldaholic.multiplayer.rounds` | Rounds played: %1$s today, %2$s all time | Сыграно раундов: сегодня %1$s, всего %2$s |
+| `gui.burmaldaholic.multiplayer.toggle` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.multiplayer.save` | Save | Сохранить |
+| `gui.burmaldaholic.multiplayer.page` | Page %1$s of %2$s | Страница %1$s из %2$s |
+| `gui.burmaldaholic.multiplayer.negative` | −%1$s | −%1$s |
+| `gui.burmaldaholic.multiplayer.spectate` | %1$s: players %2$s/%3$s · in play %4$s | %1$s: игроков %2$s/%3$s · в игре %4$s |
 
 ---
 

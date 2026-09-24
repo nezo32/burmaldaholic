@@ -52,6 +52,12 @@
 	"gui.burmaldaholic.roulette.rules.2": "При выпадении зеро внешние ставки проигрывают",
 	"msg.burmaldaholic.roulette.zero_hero": "Зеро! Крупье уважительно кивает.",
 	"msg.burmaldaholic.roulette.spinning": "Шарик катится…",
+	"gui.burmaldaholic.roulette.error.inside_max": "Внутренняя ставка — не больше %1$s на позицию",
+	"gui.burmaldaholic.roulette.error.total_max": "Все ставки на один спин — не больше %1$s",
+	"gui.burmaldaholic.roulette.error.min_total": "За этим столом ставка на спин — от %1$s",
+	"gui.burmaldaholic.roulette.ready_count": "Готовы: %1$s из %2$s",
+	"gui.burmaldaholic.roulette.short.odd": "Нечёт",
+	"gui.burmaldaholic.roulette.short.even": "Чёт",
 	"config.burmaldaholic.roulette.enabled": "Рулетка",
 	"config.burmaldaholic.roulette.laPartage": "Ла партаж",
 	"config.burmaldaholic.roulette.laPartage.tooltip": "При выпадении зеро ставки 1:1 теряют только половину",
@@ -63,11 +69,5 @@
 	"config.burmaldaholic.roulette.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.roulette.maxBettors": "Макс. игроков",
 	"config.burmaldaholic.roulette.historyLength": "Длина истории",
-	"subtitles.burmaldaholic.roulette_spin": "Крутится рулетка",
-	"gui.burmaldaholic.roulette.error.inside_max": "Внутренняя ставка — не больше %1$s на позицию",
-	"gui.burmaldaholic.roulette.error.total_max": "Все ставки на один спин — не больше %1$s",
-	"gui.burmaldaholic.roulette.error.min_total": "За этим столом ставка на спин — от %1$s",
-	"gui.burmaldaholic.roulette.ready_count": "Готовы: %1$s из %2$s",
-	"gui.burmaldaholic.roulette.short.odd": "Нечёт",
-	"gui.burmaldaholic.roulette.short.even": "Чёт"
+	"subtitles.burmaldaholic.roulette_spin": "Крутится рулетка"
 }

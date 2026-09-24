@@ -28,7 +28,7 @@
 	"config.burmaldaholic.lastChance.hardcore.chance": "Шанс успеха в хардкоре",
 	"config.burmaldaholic.lastChance.hardcore.cooldownTicks": "Перезарядка в хардкоре (тики)",
 	"config.burmaldaholic.lastChance.hardcore.minStake": "Мин. фишек для хардкора",
-	"config.burmaldaholic.lastChance.hardcore.heartCost": "Навсегда отнимается здоровья",
+	"config.burmaldaholic.lastChance.hardcore.heartCost": "Потеря здоровья навсегда",
 	"config.burmaldaholic.lastChance.hardcore.minMaxHealth": "Мин. максимум здоровья для сделки",
 	"subtitles.burmaldaholic.last_chance": "Монетка звенит во тьме"
 }

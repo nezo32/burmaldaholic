@@ -46,7 +46,12 @@ public final class PokerTable {
 		}
 	}
 
-	public record BotFill(boolean enabled, int[] mix, long buyIn) {}
+	/** @param maxBots cap on the number of bots (-1 = no cap; generated tables, e.g. the Parlor's 3) */
+	public record BotFill(boolean enabled, int[] mix, long buyIn, int maxBots) {
+		public BotFill(boolean enabled, int[] mix, long buyIn) {
+			this(enabled, mix, buyIn, -1);
+		}
+	}
 
 	/** Bots that joined / left while filling (for announcements). */
 	public record FillResult(List<Seat> joined, List<Seat> left) {}
@@ -244,6 +249,9 @@ public final class PokerTable {
 			}
 		}
 		int target = botTarget(o.enabled());
+		if (o.maxBots() >= 0) {
+			target = Math.min(target, o.maxBots());
+		}
 		List<Seat> bots = new ArrayList<>(bots());
 		while (bots.size() > target) {
 			Seat b = bots.remove(bots.size() - 1);

@@ -1,6 +1,6 @@
 package dev.nezo.burmaldaholic.vip.logic;
 
-import java.util.Map;
+import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 
 /**
  * Daily VIP cashback (GAME_DESIGN.md §12, CHANGED 2026-09). Pure.
@@ -10,40 +10,21 @@ import java.util.Map;
  * chip) rounds, paid at the MCD boundary whatever the actual result was. Because {@code rate ≤ 0.5 < 1}
  * the expected cashback is always below the expected loss: the effective edge is {@code HE × (1 − rate) > 0}.
  *
- * <p>Java's {@code PlayResult} carries only the game id (no bet type / variant), so the edge is the
- * LOWEST edge that game can have (conservative: cashback can never exceed the real edge of any bet).
+ * <p>Each round carries its own edge ({@code PlayResult#houseEdge}: slots per tier, plinko per risk,
+ * scratch per card, craps per bet with Odds = 0 %, otherwise the game's lowest edge from core's
+ * {@code HouseEdges}). Only world-bank chip rounds count: never PvP, never owned casinos, never pawn stakes.
  */
 public final class CashbackRules {
-	/**
-	 * Lowest §17 edge per game id. Craps is 0 because its Odds bet has 0 % edge and a craps result
-	 * cannot tell Odds from flat bets. Poker is PvP (never eligible). Unknown ids: 0.
-	 */
-	public static final Map<String, Double> LOWEST_EDGE = Map.ofEntries(
-		Map.entry("blackjack", 0.0041),
-		Map.entry("roulette", 0.027),
-		Map.entry("slots", 0.0396),
-		Map.entry("slot_machine", 0.0396),
-		Map.entry("craps", 0.0),
-		Map.entry("poker", 0.0),
-		// extras: coin flip 2 %, wheel 4.63 %, scratch 15 %, plinko ≈ 3.3 %, dice duel 2.78 % -> lowest 2 %
-		Map.entry("extras", 0.02),
-		Map.entry("coin_flip", 0.02),
-		Map.entry("lucky_coin", 0.02),
-		Map.entry("wheel_of_fortune", 1 - 51.5 / 54),
-		Map.entry("scratch_card", 0.15),
-		Map.entry("plinko", 0.033),
-		Map.entry("dice_duel", 0.0278));
-
 	private CashbackRules() {}
 
+	/** The game's lowest §17 edge (core {@code HouseEdges}); 0 for PvP / unknown ids. */
 	public static double houseEdge(String gameId) {
-		Double e = gameId == null ? null : LOWEST_EDGE.get(gameId);
-		return e == null || !(e > 0) ? 0 : e;
+		return HouseEdges.of(gameId);
 	}
 
-	/** PvP poker never earns cashback (§12). */
-	public static boolean eligible(String gameId) {
-		return gameId != null && !gameId.equals("poker");
+	/** §12: bank-banked chip rounds only (never PvP poker/dice, never owned casinos, never pawn stakes). */
+	public static boolean eligible(boolean houseBanked, boolean ownedCasino, boolean pawn) {
+		return houseBanked && !ownedCasino && !pawn;
 	}
 
 	/** Theoretical loss of one round ({@code stake × edge}, never negative). */
@@ -89,12 +70,17 @@ public final class CashbackRules {
 		return new Roll(DayLedger.empty(today), ledger);
 	}
 
-	/** Adds a settled round (rolls first; a closed day is returned for payment). */
-	public static Roll record(DayLedger ledger, long today, String gameId, long bet, long payout) {
+	/**
+	 * Adds a settled round (rolls first; a closed day is returned for payment).
+	 *
+	 * @param edge     house edge of the round's bet(s)
+	 * @param eligible counts for cashback ({@link #eligible(boolean, boolean, boolean)})
+	 */
+	public static Roll record(DayLedger ledger, long today, long bet, long payout, double edge, boolean eligible) {
 		Roll r = roll(ledger, today);
 		DayLedger l = r.ledger();
 		long stake = Math.max(0, bet);
-		double theo = eligible(gameId) ? theoreticalLoss(stake, houseEdge(gameId)) : 0;
+		double theo = eligible ? theoreticalLoss(stake, edge) : 0;
 		DayLedger next = new DayLedger(l.day(), l.staked() + stake, l.returned() + Math.max(0, payout), l.theo() + theo);
 		return new Roll(next, r.closed());
 	}

@@ -50,7 +50,7 @@ public class LastChanceGameTests {
 		player.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
 		player.setGameMode(GameType.SURVIVAL);
 		player.getAbilities().invulnerable = false;
-		player.invulnerableTime = 0;
+		clearInvulnerableTime(player);
 		return player;
 	}
 
@@ -95,7 +95,7 @@ public class LastChanceGameTests {
 	}
 
 	private static void lethal(ServerPlayer player, DamageSource source) {
-		player.invulnerableTime = 0;
+		clearInvulnerableTime(player);
 		player.hurtServer(player.level(), source, 1000f);
 	}
 
@@ -261,5 +261,26 @@ public class LastChanceGameTests {
 			helper.assertFalse(LastChance.state(player).used(), "no flip recorded");
 		});
 		helper.succeed();
+	}
+
+	/**
+	 * Clears the post-hit damage cooldown: {@code Entity.invulnerableTime} (public on 26.2, private on 26.3) and
+	 * 26.3's {@code LivingEntity.damageCooldownTime}. Reflective so the same test compiles on both versions.
+	 */
+	private static void clearInvulnerableTime(net.minecraft.world.entity.Entity entity) {
+		for (String name : new String[] {"invulnerableTime", "damageCooldownTime"}) {
+			for (Class<?> c = entity.getClass(); c != null; c = c.getSuperclass()) {
+				try {
+					java.lang.reflect.Field f = c.getDeclaredField(name);
+					f.setAccessible(true);
+					f.setInt(entity, 0);
+					break;
+				} catch (NoSuchFieldException e) {
+					// try the superclass / the other version's name
+				} catch (IllegalAccessException e) {
+					throw new IllegalStateException(e);
+				}
+			}
+		}
 	}
 }

@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:casino_card"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.root.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false,
+    "background": "minecraft:block/green_wool"
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

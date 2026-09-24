@@ -120,13 +120,15 @@ java/
 | `core.config` | | core | `CasinoConfig` (typed access to every CONFIG.md key), `ConfigManager`, `ConfigBinder`, `@Range/@Size/@Family/@Member`, `sections/*Config` |
 | `core.economy` | | core | `Economy` API (+ `Batch`, `Bankrolls`, `CreditHook`), `AccountId`, `Economies` locator, `Ledger` (pure), `LedgerEconomy` |
 | `core.data` | | core | `CasinoWorldData` (world saved data: balances, bankrolls, player records), `PlayerRecord` |
-| `core.chips` / `core.cashier` | | core | chip items, `ChipMath`, Casino Card, `CashierBlockEntity` |
+| `core.chips` / `core.cashier` | | core | chip items, `ChipMath`, Casino Card (opens the Casino Menu), `CashierBlockEntity`, `CashierShop` (Shop tab offers) |
 | `core.earnings` | | core | ores / mobs / trades (`Earnings`, pure `RewardRules`), merged action-bar toasts |
-| `core.wager` | | core | `Stakes` (chips, item, XP, hearts, soul), `BetLimits`, `HeartPenalties`, `PawnRules` (pure) |
-| `core.service` | | core | `CoreServices` providers (`VipTierProvider`, `DebtProvider`, `GoldenHourProvider`, `TableOwnershipProvider`), `VipTiers` |
+| `core.wager` | | core | `Stakes` (chips, item, XP, hearts, soul), `BetLimits`, `Wagers` + `WagerVeto` (wager gate), `HouseEdges` (§17), `HeartPenalties`, `PawnRules` (pure) |
+| `core.service` | | core | `CoreServices` providers (`VipTierProvider`, `DebtProvider`, `GoldenHourProvider`, `TableOwnershipProvider`, `ClaimProvider`), `VipTiers` |
 | `core.command` | | core | `/casino` (alias `/burmaldaholic`) + `CasinoCommands.extend` |
 | `core.util` | | core | `Result<T>`, `Inventories` |
-| `core.events` | | core | `CasinoEvents` (`PLAY_RESOLVED`, `BALANCE_CHANGED`) — cross-module bus |
+| `core.events` | | core | `CasinoEvents` (`PLAY_RESOLVED`, `BALANCE_CHANGED`, `TABLE_LEFT`, `RAKE_COLLECTED`), `PlayResults` (fire + offline queue) — cross-module bus |
+| `core.advancement` | | core | `CasinoAdvancements` (§19 grants, offline queue; JSON from `java/tools/gen_advancements.py`) |
+| `core.menu` | | core | `CasinoMenu` (server pages of the Casino Menu), `CoreMenu` (payloads, Achievements page) |
 | `core.network` | | core | `Payloads` helper, generic `TableActionPayload`/`TableSyncPayload`, `CasinoModeSyncPayload` |
 | `core.rng` | | core | `OddsService` (fair RNG + streak re-draw `play`), `CasinoRng`, `OddsModifier`, `OddsContext`, `StreakRules` (pure), `StreakTracker` (persistent) |
 | `core.text` | | core | `Plural` (p1/p21/p2/p5), `Texts` (numbers, plural components) |
@@ -179,8 +181,9 @@ Rules:
   `nextInt/shuffle` are fair and never modified; `chance(p)` / `weighted(..., favourable)` pass the
   player-favourable probability through modifiers (order: 200 vip, 300 chaos, 400 lastchance). RNG games
   (slots, wheel, plinko, scratch, coin flip) draw through `OddsService.play(...)`, which applies the §14 streak re-draw.
-- After settling a bet fire `CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new PlayResult(ID, bet, payout))`
-  (feeds streaks, VIP progress, Last Chance, statistics).
+- After settling a bet report it with `PlayResults.fire(player, PlayResult.of(ID, bet, payout)...)` — never the
+  `PLAY_RESOLVED` invoker directly (feeds streaks, VIP progress/cashback, contracts, Golden Hour, statistics,
+  advancements; queued for offline players). Table `settle`/`settleBet` and `Stakes.settle` do it for you.
 
 ### `ModuleContext` API
 | Call | Does |
@@ -325,9 +328,15 @@ player status sync, persistent streak + §14 re-draw, stake service (chips / ite
 logic (incl. a CONFIG.md coverage test), server GameTests for economy/cashier/stakes/trades, and the client GameTest
 (screenshots of the config screen, HUD and cashier in `build/run/clientGameTest/screenshots`).
 
-Still open in core: Casino Menu screen + `B` keybind (the card only shows the balance), contracts (§3.4.4; config and
-lang exist), chip font glyphs (U+E100…, UI.md §0.1 — the HUD uses the chip item icon), per-player HUD settings,
-advancements (§19), core sound events (`chip_place`, `win`, … need .ogg files).
+Integration pass (after all feature modules merged): enriched `PlayResult` + offline queue (`PlayResults`), wager
+gate (`Wagers`, replaces loan's `BetLimits` mixin), claim provider, owned-table bots flag, rake hook, table-left event,
+per-bet stakes (craps migrated) and silent refunds, broken tables play their rounds out (review B1), heart penalties
+pause while casino mode is off (review M2), §19 advancements (data-driven, `CasinoAdvancements`), the general Casino
+Menu (vip screen + server pages: Loan, Achievements, Challenges, My Casino, Rules), Cashier Shop tab, core sound
+events mapped to vanilla sounds (`src/main/sounds/core/sounds.json`).
+
+Still open in core: chip font glyphs (U+E100…, UI.md §0.1 — the HUD uses the chip item icon; Java screens render
+cards/dice natively), per-player HUD settings / Settings & Admin menu pages, custom .ogg sounds (optional).
 
 ---
 
@@ -438,8 +447,8 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 - Free: `"sit"` / `"leave"` actions, seats (`seats()`, `sit`, `leave`, `isSeated`), distance/disconnect removal
   (`multiplayer.tableLeaveDistance`), `placeBet` (validation incl. owned-table rules: owner can't play, closed,
   owner min/max, bankroll reservation → `house_broke`/`exposure`), `settle(uuid, payout)` / `refund(uuid)` (offline-safe),
-  open stakes saved with the block entity and **refunded on reload** (`core.roundTimeoutRefund`) or when the block
-  breaks, `setPhase`/`startTimer`/`ticksLeft`/`onTimer`, `sendError(player, component)` (red line on the screen),
+  open stakes saved with the block entity and **refunded on reload** (`core.roundTimeoutRefund`); a broken table
+  plays its rounds out first (§9.11), `setPhase`/`startTimer`/`ticksLeft`/`onTimer`, `sendError(player, component)` (red line on the screen),
   `baseState(viewer)` (phase, timers, seats, seat, stake, balance, min, max). Default `onPlayerLeft` refunds.
 - Blocks face the placer (`CasinoTableBlock.FACING`): blockstate needs `facing=north|east|south|west` variants.
 - *client* `CasinoTableScreen`: `state()`, `sendAction`, `balance()/minBet()/maxBet()/myStake()/mySeat()/phase()`,
@@ -456,8 +465,13 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 `VipTiers.name(tier)` (colored translated name), `VipTiers.maxBet(tier)` (config).
 
 ### 9.8 Events, earnings, commands, HUD
-- `CasinoEvents.PLAY_RESOLVED` — fire after every settled wager if you don't use `settle`/`Stakes.settle`
-  (they fire it). Not fired for offline players. `CasinoEvents.BALANCE_CHANGED` — online balance changes.
+- `PlayResults.fire(server, uuid, result)` / `fire(player, result)` — report every settled wager if you don't use
+  `settle`/`settleBet`/`Stakes.settle` (they do). Offline player → stored in the world data and fired on the next join
+  with `result.deferred() == true` (chips were already credited at settlement; listeners must not pay again — e.g.
+  Golden Hour pays a deferred round only if `result.goldenHour()` was stamped at settlement; VIP skips particles).
+  Listen with `CasinoEvents.PLAY_RESOLVED`. `CasinoEvents.BALANCE_CHANGED` — online balance changes.
+- `CasinoEvents.TABLE_LEFT` (level, pos, player, `LeaveReason`) — a seated player left a table (core seats; poker fires
+  it on cash-out). `CasinoEvents.RAKE_COLLECTED` (level, pos, rake, bankroll) — PvP rake collected (owned casinos).
 - `Earnings.markNoReward(entity)` — chaos-wave mobs and debt collectors never pay kill rewards (spawner mobs are
   marked automatically).
 - `CasinoCommands.extend(root -> root.then(Commands.literal("debt")...))` — sub-commands under `/casino`.
@@ -465,3 +479,61 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
   `ClientCasinoState` / your own synced data. Core segments: 0 balance, 100 streak + VIP, 200 loan, 300 Golden Hour.
 - `CoreContent.CASHIER`, `Chips.item(100)`, `ChipItem.valueOf(stack)`, `Inventories.giveOrDrop(player, stack)`
   (use it instead of `Player#drop`, which changed in 26.3).
+
+### 9.9 Settled rounds — `CasinoEvents.PlayResult`
+```java
+PlayResult r = PlayResult.of("roulette", staked, totalReturn)   // house-banked chips, edge = HouseEdges.of(game)
+    .withEdge(HouseEdges.CRAPS_PASS)       // the bet's own §17 edge (slots per tier, plinko per risk, craps Odds 0 %)
+    .withTags("red", "straight")           // bet details (roulette bet types, craps kind, slots tier, "natural"...)
+    .withKind(Stake.Kind.HEARTS)           // pawn stakes (Stakes.settle sets it)
+    .withTable(level, pos, bankrollId)     // table position + owned-casino bankroll ("" = world bank)
+    .pvp();                                // PvP pot / duel: houseBanked=false, edge 0
+PlayResults.fire(player, r);
+```
+Fields: `gameId, bet, payout, houseBanked, stakeKind, houseEdge, tags, table, bankroll, deferred, goldenHour`; helpers
+`won() lost() net() pawn() ownedCasino() theoreticalLoss()`. Consumers: VIP cashback = `rate × Σ bet × houseEdge` over
+world-bank chip rounds only (`houseBanked && !ownedCasino && !pawn`, GAME_DESIGN §12 CHANGED); Golden Hour uses
+`houseBanked` (not game ids); multiplayer statistics use `table`/`bankroll`; advancements use `stakeKind`/`goldenHour`.
+
+### 9.10 Wager gate — `Wagers` / `WagerVeto`
+Every NEW stake passes `Wagers.check(player, new WagerVeto.Context(gameId, kind, tablePos, pvp))`: casino mode, owned-table
+rules (owner can't play, closed/insolvent casino) and module vetoes. Called by `BetLimits.validate(..., ctx)`, the table
+`placeBet` (not when raising an already open bet: doubles, odds), `Stakes.heldItem/xp/hearts/soul(..., tablePos)` and PvP
+entries (poker buy-in, dice duels). Modules add vetoes: `Wagers.addVeto((player, ctx) -> frozen ? error : null)` (loan
+Asset Freeze).
+
+### 9.11 Tables: per-bet stakes, refunds, removal, rake
+- `placeBet(player, betId, amount, min, tableMax, worstCase, checkLimits)` / `settleBet(uuid, betId, payout, detail)` /
+  `refundBet(uuid, betId, silent)` / `stakeOf(uuid, betId)` — bets that resolve one by one (craps: one per bet id). The
+  aggregate API (`placeBet(player, amount, ...)`, `settle(uuid, payout[, detail])`, `refund(uuid[, silent])`) keeps working;
+  `settle` closes ALL of the player's bets as one round. `silent = true`: no "round refunded" line (roulette Clear).
+- `houseEdge()` — override for the table's own edge (slots per tier).
+- Broken table (`preRemoveSideEffects`): everybody leaves with `REMOVED` (treat it like a disconnect: default action),
+  then `playOutForRemoval(level)` plays rounds in play out (default: fast-forwards the game's timers; roulette spins
+  now, poker plays the hand out with check/fold + bots, craps rolls the bets out); only bets of a round that has not
+  drawn yet are refunded (review B1). A server restart still refunds (§4.1).
+- `collectRake(rake)` — PvP rake: moves it from the bank to the owner's bankroll at owned tables and fires
+  `RAKE_COLLECTED`. `OwnedTable.bots()` — owner's poker-bots switch. `firePlayerLeft(uuid, reason)` for own seat models.
+
+### 9.12 Claims, advancements, Casino Menu, Cashier Shop, sounds
+- `CoreServices.claims()` (`ClaimProvider`: `isClaimed(level, pos)`, `ownerAt(level, pos)`; multiplayer implements it).
+  Chaos skips mob waves / teleports in claims and never teleports or spawns into one; loan collectors never spawn in
+  another player's casino.
+- `CoreServices.tablePresets()` (`TablePresetProvider`, worldgen implements it): fixed settings of generated tables —
+  `TablePreset.parlorPoker()` (Low stakes, max 3 bots), `highRollerBlackjack()` / `highRollerRoulette()` (the tables act
+  as High-Roller tables; a bet there grants `high_roller`). Read with `CasinoTableBlockEntity#preset()`.
+- `CasinoAdvancements.grant(player, "hot_shooter")` / `grant(server, uuid, id)` (offline-safe). Ids = GAME_DESIGN §19,
+  advancement files `data/burmaldaholic/advancement/core/<id>.json` (`python3 java/tools/gen_advancements.py`), each with
+  one `minecraft:impossible` criterion. Core grants root / first_bet / beginners_luck / heart_on_the_line / devils_deal /
+  golden_hour / on_fire / black_cat itself. Worldgen should call `grant(player, "piglin_parlor")` / `"high_roller"`.
+- `CasinoMenu.register(new CasinoMenu.Page() {...})` — a server-rendered Casino Menu tab (lines + buttons, optional
+  amount field, actions validated server-side; `client:advancements` opens the vanilla advancement screen).
+  `CasinoMenu.open(player, pageId)` opens the menu (Casino Card, Diamond Card; key B on the client). The screen lives
+  in the vip client module (it also draws Wallet / VIP / Contracts); order: wallet 10, contracts 20, loan 30,
+  achievements 40, challenges 50, my_casino 60, rules 70.
+- `CashierShop.add(new CashierShop.Offer(id, itemSupplier, priceSupplier, minTier, enabledSupplier))` — Cashier Shop tab
+  (extras registers the scratch cards; Gold is VIP-gated).
+- `CoreSounds.CHIP_PLACE / CARD_DEAL / CARD_SHUFFLE / SLOT_SPIN / WIN / LOSE / WHEEL_TICK / SCRATCH / COLLECTOR_KNOCK` —
+  mapped to vanilla sound events in `src/main/sounds/core/sounds.json` (a resource pack may replace them).
+- `HeartPenalties` pause while casino mode is off (modifiers removed, expiry shifted by the dormant time, review M2).
+

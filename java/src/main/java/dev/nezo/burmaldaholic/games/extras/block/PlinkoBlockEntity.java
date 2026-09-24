@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.games.extras.block;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ExtrasConfig;
 import dev.nezo.burmaldaholic.core.rng.CasinoRng;
@@ -98,7 +100,15 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		CasinoRng rng = odds.rng(ctx);
 		Plinko.Drop drop = odds.play(ctx, Plinko.rtp(table), () -> Plinko.drop(rng, table), d -> Plinko.totalReturn(bet, d) < bet);
 		long ret = Plinko.totalReturn(bet, drop);
-		settle(player.getUUID(), ret);
+		double edge = switch (risk) {
+			case LOW -> HouseEdges.PLINKO_LOW;
+			case MEDIUM -> HouseEdges.PLINKO_MEDIUM;
+			case HIGH -> HouseEdges.PLINKO_HIGH;
+		};
+		settle(player.getUUID(), ret, r -> r.withEdge(edge).withTags(risk.id()));
+		if (risk == Plinko.Risk.HIGH && (drop.bin() == 0 || drop.bin() == table.length - 1)) {
+			CasinoAdvancements.grant(player, "plinko_edge"); // §19: bin 0 or 12 on Plinko High
+		}
 		long net = ret - bet;
 		CompoundTag t = new CompoundTag();
 		t.putInt("seq", ++seq);

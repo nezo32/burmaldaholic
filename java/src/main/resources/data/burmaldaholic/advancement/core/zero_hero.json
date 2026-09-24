@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/beginners_luck",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:roulette_table"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.zero_hero.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.zero_hero.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

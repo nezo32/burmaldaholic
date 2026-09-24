@@ -227,15 +227,11 @@ public final class ChaosRules {
 	}
 
 	/**
-	 * Games whose wins get NO Golden Hour bonus (§13.3: all house-banked games except PvP poker and
-	 * PvP dice). {@code PLAY_RESOLVED} carries only the game id, so this goes by id.
+	 * §13.3: all house-banked games get the Golden Hour bonus, PvP poker and PvP dice do not. Decided by
+	 * {@code PlayResult#houseBanked} (games report PvP rounds as not house-banked).
 	 */
-	public static boolean goldenHourEligible(String gameId) {
-		if (gameId == null) {
-			return false;
-		}
-		String g = gameId.toLowerCase(Locale.ROOT);
-		return !(g.equals("poker") || g.startsWith("poker") || g.contains("dice_duel") || g.contains("pvp"));
+	public static boolean goldenHourEligible(boolean houseBanked) {
+		return houseBanked;
 	}
 
 	// ---- durations -----------------------------------------------------------------------------

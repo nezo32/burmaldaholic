@@ -53,6 +53,18 @@ public final class BetLimits {
 
 	/** @return null if the bet is allowed, else the translated reason ({@code gui.burmaldaholic.error.*}). */
 	public static @Nullable Component validate(ServerPlayer player, long amount, long min, long tableMax) {
+		return validate(player, amount, min, tableMax, WagerVeto.Context.chips(""));
+	}
+
+	/**
+	 * Same, with the wager gate ({@link Wagers#check}: casino mode, owned-table rules, module vetoes such
+	 * as the loan Asset Freeze) evaluated for {@code ctx} first.
+	 */
+	public static @Nullable Component validate(ServerPlayer player, long amount, long min, long tableMax, WagerVeto.Context ctx) {
+		Component veto = Wagers.check(player, ctx);
+		if (veto != null) {
+			return veto;
+		}
 		MinecraftServer server = player.level().getServer();
 		int tier = CoreServices.vip().tier(server, player.getUUID());
 		long tierMax = CoreServices.vip().maxBet(server, player.getUUID());

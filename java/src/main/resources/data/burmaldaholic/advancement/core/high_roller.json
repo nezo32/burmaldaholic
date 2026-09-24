@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/piglin_parlor",
+  "display": {
+    "icon": {
+      "id": "minecraft:end_rod"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.high_roller.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.high_roller.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

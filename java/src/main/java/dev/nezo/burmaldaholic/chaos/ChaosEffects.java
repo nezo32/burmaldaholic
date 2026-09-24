@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.chaos;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.service.CoreServices;
 import com.mojang.serialization.Codec;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosEvent;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosRules;
@@ -278,6 +280,9 @@ final class ChaosEffects {
 			for (int a = 0; a < 16 && spot == null; a++) {
 				int[] o = ChaosRules.randomOffset(rng, mw.minDistance, mw.maxDistance);
 				spot = ChaosWorld.findSpawnSpot(level, p.getBlockX() + o[0], p.getBlockZ() + o[1], p.getBlockY());
+				if (spot != null && CoreServices.claims().isClaimed(level, spot)) {
+					spot = null; // never inside a player casino (§13.4)
+				}
 			}
 			if (spot == null) {
 				return false; // fewer than N valid spots: skip the whole wave (§13.4)
@@ -357,8 +362,8 @@ final class ChaosEffects {
 			if (!loaded) {
 				mayLoad = false;
 			}
-			if (y == Integer.MIN_VALUE) {
-				continue;
+			if (y == Integer.MIN_VALUE || CoreServices.claims().isClaimed(level, new BlockPos(x, y, z))) {
+				continue; // never into a player casino (§13.4)
 			}
 			double tx = x + 0.5;
 			double ty = y + 1;
@@ -374,6 +379,7 @@ final class ChaosEffects {
 			announce(p, "msg.burmaldaholic.chaos.random_teleport.title",
 				Component.translatable("msg.burmaldaholic.chaos.random_teleport.subtitle", Texts.plural("unit.burmaldaholic.block", dist)));
 			p.sendSystemMessage(Component.translatable("msg.burmaldaholic.chaos.random_teleport.chat", Texts.raw(x + ", " + (y + 1) + ", " + z)));
+			CasinoAdvancements.grant(p, "beam_me_up");
 			return true;
 		}
 		return false; // no safe spot: skip silently (§13.4)

@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.loan;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.LoanConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -156,9 +157,15 @@ public final class LoanService {
 				case VIP -> Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(product.minTier()));
 			};
 		}
+		// Review m5: the principal must land in full — never record a debt for chips lost to the balance cap.
+		long room = CasinoConfig.economy().maxBalance - Economies.get().balance(player);
+		if (product.principal() > room) {
+			return Component.translatable("msg.burmaldaholic.loan.balance_cap", Texts.chips(Math.max(0, room)));
+		}
 		LoanRules.take(rec, product, rateFor(server, player.getUUID()), now);
 		data.setDirty();
 		Economies.get().deposit(player, product.principal(), TAKE);
+		CasinoAdvancements.grant(player, "loan_taken");
 		// Day number on the world's game-time calendar (day 1 = first day of the world).
 		long deadlineDay = rec.deadlineTick / LoanRules.MCD + 1;
 		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.loan.taken", Texts.chips(product.principal()),
@@ -194,6 +201,9 @@ public final class LoanService {
 		}
 		data.setDirty();
 		ServerPlayer online = server.getPlayerList().getPlayer(id);
+		if (r.closed() && r.onTime()) {
+			CasinoAdvancements.grant(server, id, "clean_slate");
+		}
 		if (online != null) {
 			if (r.closed()) {
 				online.sendSystemMessage(Component.translatable(r.onTime() ? "msg.burmaldaholic.loan.repaid_on_time" : "msg.burmaldaholic.loan.repaid")
@@ -229,6 +239,7 @@ public final class LoanService {
 		}
 		boolean collectors = collectorsMode(server);
 		if (ev.defaulted()) {
+			CasinoAdvancements.grant(player, "knock_knock");
 			title(player, Component.translatable("msg.burmaldaholic.loan.defaulted_title").withStyle(ChatFormatting.RED), null);
 			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.loan.defaulted", Texts.chips(rec.owed)).withStyle(ChatFormatting.RED));
 			sound(player, net.minecraft.sounds.SoundEvents.EVOKER_PREPARE_ATTACK, 0.8F);

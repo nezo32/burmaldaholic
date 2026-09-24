@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/root",
+  "display": {
+    "icon": {
+      "id": "minecraft:gilded_blackstone"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.piglin_parlor.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.piglin_parlor.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

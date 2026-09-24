@@ -9,7 +9,10 @@ import dev.nezo.burmaldaholic.core.data.PlayerRecord;
 import dev.nezo.burmaldaholic.core.earnings.Earnings;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
+import dev.nezo.burmaldaholic.core.events.PlayResults;
+import dev.nezo.burmaldaholic.core.menu.CoreMenu;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
@@ -86,6 +89,7 @@ public final class CoreModule implements CasinoModule {
 		// ---- mode, content, economy, earnings, wagers ----
 		CasinoMode.register();
 		CoreContent.register(ctx);
+		CoreSounds.register(ctx);
 		CasinoCreativeTab.register();
 		Earnings.register();
 		HeartPenalties.register();
@@ -113,8 +117,11 @@ public final class CoreModule implements CasinoModule {
 			}
 		});
 
-		// ---- streak (§14): every settled wager with stake ≥ 1 ----
+		// ---- streak (§14): every settled wager with stake ≥ 1 (PvP too), then advancements (§19) ----
 		CasinoEvents.PLAY_RESOLVED.register((player, result) -> StreakTracker.record(player, result.bet(), result.net()));
+		PlayResults.register();
+		CasinoAdvancements.register();
+		CoreMenu.register(ctx);
 	}
 
 	private static void sendConfig(ServerPlayer player) {

@@ -241,13 +241,10 @@ class ChaosRulesTest {
 
 	@Test
 	void goldenHourEligibility() {
-		assertTrue(ChaosRules.goldenHourEligible("slots"));
-		assertTrue(ChaosRules.goldenHourEligible("blackjack"));
-		assertTrue(ChaosRules.goldenHourEligible("extras"));
-		assertFalse(ChaosRules.goldenHourEligible("poker"));
-		assertFalse(ChaosRules.goldenHourEligible("extras.dice_duel"));
-		assertFalse(ChaosRules.goldenHourEligible("dice_duel"));
-		assertFalse(ChaosRules.goldenHourEligible(null));
+		// by the round's houseBanked flag, not by game id: dice duel vs the house is eligible, PvP dice/poker not
+		assertTrue(ChaosRules.goldenHourEligible(dev.nezo.burmaldaholic.core.events.CasinoEvents.PlayResult.of("dice_duel", 10, 20).houseBanked()));
+		assertFalse(ChaosRules.goldenHourEligible(dev.nezo.burmaldaholic.core.events.CasinoEvents.PlayResult.of("dice_duel_pvp", 10, 20).pvp().houseBanked()));
+		assertFalse(ChaosRules.goldenHourEligible(false));
 	}
 
 	@Test

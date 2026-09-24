@@ -3,7 +3,10 @@ package dev.nezo.burmaldaholic.loan;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
+import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
+import dev.nezo.burmaldaholic.core.wager.Wagers;
+import net.minecraft.network.chat.Component;
 import dev.nezo.burmaldaholic.loan.net.LoanActionPayload;
 import dev.nezo.burmaldaholic.loan.net.LoanUiPayload;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -46,6 +49,10 @@ public final class LoanModule implements CasinoModule {
 			}
 		});
 		CoreServices.setDebt(LoanService.PROVIDER);
+		// Asset Freeze (§5.6): in default without collectors → no new stakes of any kind (chips, pawns, PvP).
+		Wagers.addVeto((player, context) -> LoanService.frozen(player.level().getServer(), player.getUUID())
+			? Component.translatable("gui.burmaldaholic.error.in_default") : null);
+		CasinoMenu.register(new LoanMenuPage());
 		Economies.get().addCreditHook(LoanService::beforeCredit);
 		LoanCommands.register();
 

@@ -46,6 +46,9 @@
 	"msg.burmaldaholic.slots.jackpot_self": "JACKPOT! You won %1$s!",
 	"msg.burmaldaholic.slots.jackpot_broadcast": "JACKPOT! %1$s hit %2$s on %3$s!",
 	"msg.burmaldaholic.slots.seven_title": "Triple seven!",
+	"gui.burmaldaholic.slots.playing": "Now playing: %1$s",
+	"msg.burmaldaholic.slots.jackpot_pool": "%1$s: jackpot %2$s",
+	"msg.burmaldaholic.slots.rtp_ok": "All slot machines pay back less than 99%%",
 	"advancement.burmaldaholic.jackpot.title": "JACKPOT!",
 	"advancement.burmaldaholic.jackpot.description": "Win a progressive jackpot",
 	"config.burmaldaholic.slots.weights": "%1$s — symbol weights",
@@ -64,8 +67,5 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Three stars pay at player casinos",
 	"config.burmaldaholic.slots.spinTicks": "Spin animation (ticks)",
 	"config.burmaldaholic.slots.validateRtp": "Warn about RTP above 99%%",
-	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare",
-	"gui.burmaldaholic.slots.playing": "Now playing: %1$s",
-	"msg.burmaldaholic.slots.jackpot_pool": "%1$s: jackpot %2$s",
-	"msg.burmaldaholic.slots.rtp_ok": "All slot machines pay back less than 99%%"
+	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare"
 }

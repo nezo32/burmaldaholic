@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/vip_diamond",
+  "display": {
+    "icon": {
+      "id": "minecraft:netherite_ingot"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.vip_netherite.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.vip_netherite.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

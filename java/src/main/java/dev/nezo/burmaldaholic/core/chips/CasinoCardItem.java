@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.core.chips;
 
 import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.function.Consumer;
@@ -17,8 +18,8 @@ import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 
 /**
- * Casino Card (§3.3). Given on first join. Using it will open the Casino Menu (UI.md §2, TODO core);
- * for now it shows the balance in the action bar.
+ * Casino Card (§3.3). Given on first join. Using it opens the Casino Menu (UI.md §2) and shows the
+ * balance in the action bar.
  */
 public class CasinoCardItem extends Item {
 	public CasinoCardItem(Properties properties) {
@@ -28,9 +29,12 @@ public class CasinoCardItem extends Item {
 	@Override
 	public InteractionResult use(Level level, Player player, InteractionHand hand) {
 		if (player instanceof ServerPlayer sp) {
-			sp.sendOverlayMessage(CasinoMode.isEnabled(sp)
-				? Component.translatable("gui.burmaldaholic.common.balance", Texts.number(Economies.get().balance(sp)))
-				: Component.translatable("gui.burmaldaholic.error.casino_off"));
+			if (CasinoMode.isEnabled(sp)) {
+				sp.sendOverlayMessage(Component.translatable("gui.burmaldaholic.common.balance", Texts.number(Economies.get().balance(sp))));
+				CasinoMenu.open(sp, "");
+			} else {
+				sp.sendOverlayMessage(Component.translatable("gui.burmaldaholic.error.casino_off"));
+			}
 		}
 		return InteractionResult.SUCCESS;
 	}

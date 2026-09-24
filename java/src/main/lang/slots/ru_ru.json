@@ -46,6 +46,9 @@
 	"msg.burmaldaholic.slots.jackpot_self": "ДЖЕКПОТ! Вы сорвали %1$s!",
 	"msg.burmaldaholic.slots.jackpot_broadcast": "ДЖЕКПОТ! %1$s срывает %2$s на автомате «%3$s»!",
 	"msg.burmaldaholic.slots.seven_title": "Три семёрки!",
+	"gui.burmaldaholic.slots.playing": "Сейчас играет: %1$s",
+	"msg.burmaldaholic.slots.jackpot_pool": "%1$s: джекпот %2$s",
+	"msg.burmaldaholic.slots.rtp_ok": "Все автоматы возвращают меньше 99 %%",
 	"advancement.burmaldaholic.jackpot.title": "ДЖЕКПОТ!",
 	"advancement.burmaldaholic.jackpot.description": "Сорвите накопительный джекпот",
 	"config.burmaldaholic.slots.weights": "%1$s — веса символов",
@@ -64,8 +67,5 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Выплата за три звезды в казино игроков",
 	"config.burmaldaholic.slots.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.slots.validateRtp": "Предупреждать об RTP выше 99 %%",
-	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота",
-	"gui.burmaldaholic.slots.playing": "Сейчас играет: %1$s",
-	"msg.burmaldaholic.slots.jackpot_pool": "%1$s: джекпот %2$s",
-	"msg.burmaldaholic.slots.rtp_ok": "Все автоматы возвращают меньше 99 %%"
+	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота"
 }

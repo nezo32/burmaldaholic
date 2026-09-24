@@ -113,7 +113,7 @@ public class ChaosGameTests {
 				Economies.get().setBalance(server, player.getUUID(), 0, TEST);
 				CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new CasinoEvents.PlayResult("slots", 10, 110));
 				helper.assertTrue(Economies.get().balance(player) == 100, "bonus = net win × (2 − 1)");
-				CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new CasinoEvents.PlayResult("poker", 10, 110));
+				CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, CasinoEvents.PlayResult.of("poker", 10, 110).pvp());
 				helper.assertTrue(Economies.get().balance(player) == 100, "PvP poker gets no bonus");
 				CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(player, new CasinoEvents.PlayResult("slots", 10, 5));
 				helper.assertTrue(Economies.get().balance(player) == 100, "losses get no bonus");

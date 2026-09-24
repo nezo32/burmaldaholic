@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.games.extras.server;
 
+import dev.nezo.burmaldaholic.core.events.PlayResults;
+import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ExtrasConfig;
 import dev.nezo.burmaldaholic.core.economy.AccountId;
@@ -39,6 +41,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class DiceGame {
 	public static final String SCREEN = "dice";
+	/** Wager gate context of a PvP duel (Asset Freeze etc. apply to both players). */
+	private static final WagerVeto.Context PVP = new WagerVeto.Context(ExtrasGames.DICE_PVP, Stake.Kind.CHIPS, null, true);
 	public static final String INVITE_SCREEN = "duel_invite";
 
 	private static final ChallengeBook BOOK = new ChallengeBook();
@@ -113,7 +117,16 @@ public final class DiceGame {
 		return tag;
 	}
 
-	private static String nameOf(MinecraftServer server, UUID id) {
+	/** Pending challenges to {@code player} (Casino Menu "Challenges" page). */
+	public static List<ChallengeBook.Challenge> incoming(ServerPlayer player) {
+		return BOOK.incoming(player.getUUID(), now(player.level().getServer()));
+	}
+
+	public static java.util.Optional<ChallengeBook.Challenge> outgoing(ServerPlayer player) {
+		return BOOK.outgoing(player.getUUID(), now(player.level().getServer()));
+	}
+
+	static String nameOf(MinecraftServer server, UUID id) {
 		ServerPlayer p = server.getPlayerList().getPlayer(id);
 		return p == null ? "?" : p.getName().getString();
 	}
@@ -205,7 +218,7 @@ public final class DiceGame {
 			return;
 		}
 		long stake = args.getLongOr("amount", 0);
-		Component err = BetLimits.validate(player, stake, 1, 0);
+		Component err = BetLimits.validate(player, stake, 1, 0, PVP);
 		if (err != null) {
 			ExtrasGames.sendError(player, err);
 			return;
@@ -248,8 +261,8 @@ public final class DiceGame {
 		}
 		Component problem = pvpProblem(player, challenger);
 		if (problem == null) {
-			Component e1 = BetLimits.validate(challenger, c.stake(), 1, 0);
-			Component e2 = BetLimits.validate(player, c.stake(), 1, 0);
+			Component e1 = BetLimits.validate(challenger, c.stake(), 1, 0, PVP);
+			Component e2 = BetLimits.validate(player, c.stake(), 1, 0, PVP);
 			problem = e2 != null ? e2 : e1;
 		}
 		if (problem != null) {
@@ -304,8 +317,9 @@ public final class DiceGame {
 			.withStyle(ChatFormatting.GOLD);
 		a.sendSystemMessage(msg);
 		b.sendSystemMessage(msg);
-		CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(winner, new CasinoEvents.PlayResult(ExtrasGames.DICE_PVP, stake, pay.winnerGets()));
-		CasinoEvents.PLAY_RESOLVED.invoker().onPlayResolved(loser, new CasinoEvents.PlayResult(ExtrasGames.DICE_PVP, stake, 0));
+		// PvP: no house edge, no Golden Hour, no cashback (§12/§13.3).
+		PlayResults.fire(winner, CasinoEvents.PlayResult.of(ExtrasGames.DICE_PVP, stake, pay.winnerGets()).pvp());
+		PlayResults.fire(loser, CasinoEvents.PlayResult.of(ExtrasGames.DICE_PVP, stake, 0).pvp());
 		sendPvpResult(a, last.a(), last.b(), winner == a ? pay.winnerGets() - stake : -stake, b);
 		sendPvpResult(b, last.b(), last.a(), winner == b ? pay.winnerGets() - stake : -stake, a);
 	}

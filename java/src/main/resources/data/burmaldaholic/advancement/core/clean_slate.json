@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/loan_taken",
+  "display": {
+    "icon": {
+      "id": "minecraft:paper"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.clean_slate.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.clean_slate.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

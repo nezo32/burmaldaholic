@@ -1,0 +1,83 @@
+{
+  "chip_place": {
+    "subtitle": "subtitles.burmaldaholic.chip_place",
+    "sounds": [
+      {
+        "name": "minecraft:block.chain.place",
+        "type": "event"
+      }
+    ]
+  },
+  "card_deal": {
+    "subtitle": "subtitles.burmaldaholic.card_deal",
+    "sounds": [
+      {
+        "name": "minecraft:item.book.page_turn",
+        "type": "event"
+      }
+    ]
+  },
+  "card_shuffle": {
+    "subtitle": "subtitles.burmaldaholic.card_shuffle",
+    "sounds": [
+      {
+        "name": "minecraft:item.book.put",
+        "type": "event"
+      }
+    ]
+  },
+  "slot_spin": {
+    "subtitle": "subtitles.burmaldaholic.slot_spin",
+    "sounds": [
+      {
+        "name": "minecraft:ui.button.click",
+        "type": "event"
+      }
+    ]
+  },
+  "win": {
+    "subtitle": "subtitles.burmaldaholic.win",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.levelup",
+        "type": "event"
+      }
+    ]
+  },
+  "lose": {
+    "subtitle": "subtitles.burmaldaholic.lose",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.bass",
+        "type": "event"
+      }
+    ]
+  },
+  "wheel_tick": {
+    "subtitle": "subtitles.burmaldaholic.wheel_tick",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.hat",
+        "type": "event"
+      }
+    ]
+  },
+  "scratch": {
+    "subtitle": "subtitles.burmaldaholic.scratch",
+    "sounds": [
+      {
+        "name": "minecraft:item.brush.brushing.generic",
+        "type": "event"
+      }
+    ]
+  },
+  "collector_knock": {
+    "subtitle": "subtitles.burmaldaholic.collector_knock",
+    "sounds": [
+      {
+        "name": "minecraft:block.wooden_door.close",
+        "type": "event"
+      }
+    ]
+  }
+}

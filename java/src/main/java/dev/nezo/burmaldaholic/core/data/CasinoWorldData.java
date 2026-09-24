@@ -31,6 +31,8 @@ public final class CasinoWorldData extends SavedData {
 	private final Map<String, Deque<Long>> placedDebris = new HashMap<>();
 	private final Map<String, Set<Long>> placedDebrisIndex = new HashMap<>();
 	private boolean dragonKilled;
+	/** Server ticks casino mode has been off in total (heart-penalty clock pauses, §2.1). */
+	private long dormantTicks;
 
 	public static CasinoWorldData get(MinecraftServer server) {
 		return server.getDataStorage().computeIfAbsent(TYPE);
@@ -42,6 +44,20 @@ public final class CasinoWorldData extends SavedData {
 
 	public PlayerRecord player(UUID id) {
 		return players.computeIfAbsent(id, k -> new PlayerRecord());
+	}
+
+	public long dormantTicks() {
+		return dormantTicks;
+	}
+
+	public void addDormantTicks(long ticks) {
+		dormantTicks += Math.max(0, ticks);
+		setDirty();
+	}
+
+	/** Players with queued offline results / advancements (tests, admin). */
+	public java.util.Collection<UUID> playerIds() {
+		return java.util.List.copyOf(players.keySet());
 	}
 
 	public boolean dragonKilled() {
@@ -104,6 +120,7 @@ public final class CasinoWorldData extends SavedData {
 		placedDebris.forEach((dim, q) -> debris.put(dim, new LongArrayTag(q.stream().mapToLong(Long::longValue).toArray())));
 		root.put("placed_debris", debris);
 		root.putBoolean("dragon_killed", dragonKilled);
+		root.putLong("dormant_ticks", dormantTicks);
 		return root;
 	}
 
@@ -131,6 +148,7 @@ public final class CasinoWorldData extends SavedData {
 			}
 		}
 		data.dragonKilled = root.getBooleanOr("dragon_killed", false);
+		data.dormantTicks = root.getLongOr("dormant_ticks", 0);
 		return data;
 	}
 

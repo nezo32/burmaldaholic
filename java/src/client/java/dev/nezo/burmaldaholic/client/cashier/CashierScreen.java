@@ -7,7 +7,9 @@ import dev.nezo.burmaldaholic.core.text.Texts;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import dev.nezo.burmaldaholic.core.service.VipTiers;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -19,6 +21,8 @@ public class CashierScreen extends CasinoTableScreen {
 	private int flowX;
 	private int flowY;
 	private int withdrawLineY;
+	/** UI.md §3 tabs: Cashier / Shop. */
+	private boolean shopTab;
 
 	public CashierScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable("gui.burmaldaholic.cashier.title"), 300, 196);
@@ -45,6 +49,18 @@ public class CashierScreen extends CasinoTableScreen {
 		CompoundTag s = state();
 		flowX = PAD;
 		flowY = 22;
+		ListTag shop = s.getListOrEmpty("shop");
+		if (!shop.isEmpty()) {
+			flow(Component.translatable("gui.burmaldaholic.cashier.title"), b -> selectTab(false), shopTab);
+			flow(Component.translatable("gui.burmaldaholic.cashier.shop"), b -> selectTab(true), !shopTab);
+			newRow();
+		} else {
+			shopTab = false;
+		}
+		if (shopTab) {
+			shop(s, shop);
+			return;
+		}
 		// Deposit
 		flow(Component.translatable("gui.burmaldaholic.cashier.deposit_all"), b -> sendAction("deposit_all"), s.getLongOr("carried_chips", 0) > 0);
 		flow(Component.translatable("gui.burmaldaholic.cashier.deposit_held"), b -> sendAction("deposit_held"), s.getLongOr("held_chips", 0) > 0);
@@ -87,11 +103,40 @@ public class CashierScreen extends CasinoTableScreen {
 		}
 	}
 
-	private void flow(Component label, Button.OnPress onPress, boolean active) {
-		flow(label, onPress, active, 40);
+	private void selectTab(boolean shop) {
+		shopTab = shop;
+		rebuild();
 	}
 
-	private void flow(Component label, Button.OnPress onPress, boolean active, int minWidth) {
+	/** Shop tab: one "Buy X — price" button per offer; VIP-gated offers are disabled with a tooltip. */
+	private void shop(CompoundTag s, ListTag shop) {
+		int tier = s.getIntOr("vip", 0);
+		withdrawLineY = -100;
+		for (int i = 0; i < shop.size(); i++) {
+			CompoundTag o = shop.getCompoundOrEmpty(i);
+			String id = o.getStringOr("id", "");
+			int minTier = o.getIntOr("min_tier", 0);
+			Component label = Component.translatable("gui.burmaldaholic.cashier.shop.buy_item", Component.translatable(o.getStringOr("name", "")),
+				Texts.chips(o.getLongOr("price", 0)));
+			boolean allowed = tier >= minTier;
+			Button button = flow(label, b -> {
+				CompoundTag args = new CompoundTag();
+				args.putString("id", id);
+				sendAction("shop_buy", args);
+			}, allowed && balance() >= o.getLongOr("price", 0));
+			if (!allowed) {
+				button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+					Component.translatable("gui.burmaldaholic.common.requires_vip", VipTiers.name(minTier))));
+			}
+			newRow();
+		}
+	}
+
+	private Button flow(Component label, Button.OnPress onPress, boolean active) {
+		return flow(label, onPress, active, 40);
+	}
+
+	private Button flow(Component label, Button.OnPress onPress, boolean active, int minWidth) {
 		int w = Math.max(minWidth, font.width(label) + 8);
 		if (flowX + w > imageWidth - PAD && flowX > PAD) {
 			newRow();
@@ -99,6 +144,7 @@ public class CashierScreen extends CasinoTableScreen {
 		Button b = button(label, flowX, flowY, w, onPress);
 		b.active = active;
 		flowX += w + 4;
+		return b;
 	}
 
 	private void newRow() {
@@ -144,6 +190,9 @@ public class CashierScreen extends CasinoTableScreen {
 		Component balance = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
 		graphics.text(font, balance, imageWidth - PAD - font.width(balance), titleLabelY, 0xFFFFD700, true);
 		CompoundTag s = state();
+		if (shopTab) {
+			return;
+		}
 		long withdrawable = s.getLongOr("withdrawable", 0);
 		long debt = s.getLongOr("debt", 0);
 		Component line;

@@ -71,11 +71,17 @@ public final class ExtrasGames {
 	 * Refuses (and returns the escrow) if V exceeds {@code maxValue}.
 	 */
 	public static Result<Stake> takePawn(ServerPlayer player, String game, String kind, long amount, long maxValue) {
+		return takePawn(player, game, kind, amount, maxValue, null);
+	}
+
+	/** Same, at a machine ({@code table} = its position, for the wager gate: owned-table rules). */
+	public static Result<Stake> takePawn(ServerPlayer player, String game, String kind, long amount, long maxValue,
+			net.minecraft.core.@org.jspecify.annotations.Nullable BlockPos table) {
 		int n = (int) Math.max(0, Math.min(Integer.MAX_VALUE, amount));
 		Result<Stake> r = switch (kind) {
-			case "item" -> Stakes.heldItem(player, game);
-			case "xp" -> Stakes.xp(player, game, n);
-			case "hearts" -> Stakes.hearts(player, game, n);
+			case "item" -> Stakes.heldItem(player, game, table);
+			case "xp" -> Stakes.xp(player, game, n, table);
+			case "hearts" -> Stakes.hearts(player, game, n, table);
 			default -> Result.fail(error("invalid_amount"));
 		};
 		if (r.isOk() && maxValue > 0 && r.value().value() > maxValue) {

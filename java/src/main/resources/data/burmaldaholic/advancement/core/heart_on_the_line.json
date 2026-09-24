@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/first_bet",
+  "display": {
+    "icon": {
+      "id": "minecraft:apple"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.heart_on_the_line.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.heart_on_the_line.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

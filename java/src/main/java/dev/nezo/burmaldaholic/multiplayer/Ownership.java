@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.AccountId;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.service.TableOwnershipProvider.OwnedTable;
@@ -160,7 +161,7 @@ public final class Ownership {
 			return Optional.of(new OwnedTable(t.owner, "", 0, 0, false));
 		}
 		Casino c = casino.get();
-		return Optional.of(new OwnedTable(c.owner, c.bankrollId(), t.min, t.max, t.open && !c.broke));
+		return Optional.of(new OwnedTable(c.owner, c.bankrollId(), t.min, t.max, t.open && !c.broke, t.bots));
 	}
 
 	// ---- public claim lookups (see MultiplayerApi) ---------------------------------------------
@@ -230,6 +231,7 @@ public final class Ownership {
 		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.multiplayer.charter_placed", Texts.chips(fee),
 			Texts.plural("unit.burmaldaholic.block", radius)));
 		Burmaldaholic.LOGGER.info("[multiplayer] casino {} claimed by {} at {} {}", c.id, c.ownerName, c.dimension, pos.toShortString());
+		CasinoAdvancements.grant(player, "the_house");
 		refreshSolvency(server, c, true);
 	}
 
@@ -463,6 +465,9 @@ public final class Ownership {
 		}
 		c.broke = broke;
 		data(server).setDirty();
+		if (broke) {
+			CasinoAdvancements.grant(server, c.owner, "bankrupt");
+		}
 		ServerPlayer owner = server.getPlayerList().getPlayer(c.owner);
 		if (!quiet && owner != null) {
 			owner.sendSystemMessage(Component.translatable(broke ? "msg.burmaldaholic.multiplayer.casino_broke" : "msg.burmaldaholic.multiplayer.casino_reopened"));
@@ -483,13 +488,19 @@ public final class Ownership {
 		return Optional.empty();
 	}
 
-	/** PLAY_RESOLVED: statistics of the casino whose table the round was played at. */
+	/** PLAY_RESOLVED: statistics of the casino whose table the round was played at (the result names the table). */
 	static void onPlayResolved(ServerPlayer player, CasinoEvents.PlayResult result) {
 		MinecraftServer server = player.level().getServer();
 		if (!enabled(server)) {
 			return;
 		}
-		Optional<String> key = tableOf(player);
+		if (!result.ownedCasino() && result.table() != null) {
+			return; // world-bank round at a known table: not an owned casino
+		}
+		Optional<String> key = result.table() != null
+			? Optional.of(new TablePos(result.table().dimension().identifier().toString(), result.table().pos().getX(),
+				result.table().pos().getY(), result.table().pos().getZ()).key())
+			: tableOf(player);
 		if (key.isEmpty()) {
 			return;
 		}
@@ -501,7 +512,22 @@ public final class Ownership {
 		}
 		c.get().stats.recordRound(day(server), result.bet(), result.payout());
 		data(server).setDirty();
+		checkProfit(server, c.get());
 		refreshSolvency(server, c.get(), false);
+	}
+
+	/** §19 house_always_wins: the owned casino's total net profit reached 10 000. */
+	static void checkProfit(MinecraftServer server, Casino c) {
+		if (c.stats.total().profit() >= CasinoAdvancements.HOUSE_PROFIT) {
+			CasinoAdvancements.grant(server, c.owner, "house_always_wins");
+		}
+	}
+
+	/** Core RAKE_COLLECTED: poker rake paid into an owned casino's bankroll (statistics). */
+	static void onRake(ServerLevel level, BlockPos pos, long rake, String bankroll) {
+		if (!bankroll.isEmpty() && rake > 0) {
+			recordRake(level, pos, rake);
+		}
 	}
 
 	/** Poker rake paid into a bankroll (for games that report it; see MultiplayerApi#recordRake). */
@@ -510,6 +536,7 @@ public final class Ownership {
 		book(server).activeCasinoOf(key(level, pos)).ifPresent(c -> {
 			c.stats.recordRake(day(server), rake);
 			data(server).setDirty();
+			checkProfit(server, c);
 		});
 	}
 

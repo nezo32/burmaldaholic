@@ -8,6 +8,7 @@ import dev.nezo.burmaldaholic.chaos.logic.TriggerResult;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
+import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.rng.CasinoRng;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
@@ -159,7 +160,7 @@ public final class ChaosEngine {
 		long sinceRespawn = respawn == null ? -1 : Math.max(0, now(server) - respawn);
 		return new Safety.PlayerSnapshot(p.isCreative() || p.isSpectator(), p.isDeadOrDying() || !p.isAlive(), sinceRespawn,
 			p.isSleeping(), p.isFallFlying(), p.isPassenger(), p.fallDistance, ChaosWorld.casinoScreenOpen(p), ChaosWorld.inTableRound(p),
-			ChaosWorld.nearBoss(p, cfg().bossSafeRadius), false /* claims: no core API yet */,
+			ChaosWorld.nearBoss(p, cfg().bossSafeRadius), CoreServices.claims().isClaimed(p.level(), p.blockPosition()),
 			p.level().getDifficulty() == Difficulty.PEACEFUL, ChaosWorld.dimension(p.level()).equals("overworld"));
 	}
 
@@ -204,7 +205,7 @@ public final class ChaosEngine {
 	/** §13.1.3: net ≥ multiple × stake and ≥ minChips → chance of lucky_buff (next tick, so specials go first). */
 	private static void onBigWin(ServerPlayer player, CasinoEvents.PlayResult result) {
 		MinecraftServer server = player.level().getServer();
-		if (!enabled(server)) {
+		if (!enabled(server) || result.deferred()) {
 			return;
 		}
 		ChaosConfig.BigWin bw = cfg().bigWin;

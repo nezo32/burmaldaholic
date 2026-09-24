@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.nezo.burmaldaholic.client.cashier.CashierScreen;
 import dev.nezo.burmaldaholic.client.hud.CasinoHud;
+import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.client.module.ClientModuleContext;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
@@ -61,6 +62,7 @@ public final class CoreClientModule implements CasinoClientModule {
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ClientCasinoState.tick());
 		ClientTableCache.register();
+		ClientCasinoMenu.register();
 		CasinoHud.init();
 		ctx.tableScreen(CoreContent.CASHIER, CashierScreen::new);
 		ctx.tableScreen(CoreContent.NETHER_CASHIER, CashierScreen::new);

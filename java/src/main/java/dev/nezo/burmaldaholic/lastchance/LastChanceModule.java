@@ -19,5 +19,6 @@ public final class LastChanceModule implements CasinoModule {
 	@Override
 	public void register(ModuleContext ctx) {
 		LastChance.register(ctx);
+		dev.nezo.burmaldaholic.core.menu.CasinoMenu.register(new RulesPage());
 	}
 }
