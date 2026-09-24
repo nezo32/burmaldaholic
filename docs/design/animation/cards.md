@@ -1345,7 +1345,7 @@ Shared keys that global owns (`…menu.settings.reduce_motion`, `…flashes`, `�
 | `gui.burmaldaholic.baccarat.fx.you_squeeze` | You squeeze… | Вы вскрываете… |
 | `gui.burmaldaholic.baccarat.fx.player_card` | Player's card… | Карта игрока… |
 | `gui.burmaldaholic.baccarat.fx.banker_card` | Banker's card… | Карта банкира… |
-| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья платит! |
+| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья сыграла! |
 | `gui.burmaldaholic.baccarat.fx.banco` | Banco! | Банко! |
 | `gui.burmaldaholic.baccarat.fx.shoe_passes` | The shoe passes to %1$s | Шуз переходит к игроку %1$s |
 

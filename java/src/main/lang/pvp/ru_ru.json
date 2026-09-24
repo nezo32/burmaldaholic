@@ -201,7 +201,7 @@
 	"gui.burmaldaholic.pvp.slots.time_warp_title": "ПЕТЛЯ ВРЕМЕНИ!",
 	"msg.burmaldaholic.pvp.slots.jackpot": "%1$s: джекпот %2$s, очки: +%3$s",
 	"gui.burmaldaholic.pvp.slots.feature": "%1$s: +%2$s",
-	"gui.burmaldaholic.pvp.slots.fx.next_x2": "Далее ×2",
+	"gui.burmaldaholic.pvp.slots.fx.next_x2": "Следующее ×2",
 	"gui.burmaldaholic.pvp.slots.fx.boost_x2": "Фора ×2",
 	"gui.burmaldaholic.pvp.wheel.title": "Колесо на всех",
 	"gui.burmaldaholic.pvp.wheel.host": "Начать «Колесо на всех»",

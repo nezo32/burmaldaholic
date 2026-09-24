@@ -893,7 +893,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.playing` | Now playing: %1$s | Сейчас играет: %1$s |
 | `gui.burmaldaholic.slots.turbo` | Turbo | Турбо |
 | `gui.burmaldaholic.slots.out_of_order` | Out of order | Не работает |
-| `gui.burmaldaholic.slots.auto` | Auto… | Авто… |
+| `gui.burmaldaholic.slots.auto` | Auto ×10 | Авто ×10 |
 | `gui.burmaldaholic.slots.stop_auto` | Stop | Стоп |
 | `gui.burmaldaholic.slots.auto.title` | Autoplay | Автоигра |
 | `gui.burmaldaholic.slots.auto.count` | Spins | Вращений |
@@ -903,7 +903,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.auto.off` | Off | Выкл. |
 | `gui.burmaldaholic.slots.auto.start` | Start autoplay | Запустить |
 | `gui.burmaldaholic.slots.auto_left` | Auto: %1$s left | Авто: осталось %1$s |
-| `gui.burmaldaholic.slots.auto_summary` | Spins %1$s: bet %2$s, won %3$s | Вращений %1$s: поставлено %2$s, выиграно %3$s |
+| `gui.burmaldaholic.slots.auto_summary` | %1$s: bet %2$s, won %3$s | %1$s: поставлено %2$s, выиграно %3$s |
 | `gui.burmaldaholic.slots.auto_stopped_big_win` | Autoplay stopped: big win! | Автоигра остановлена: крупный выигрыш! |
 | `gui.burmaldaholic.slots.auto_stopped_funds` | Autoplay stopped: not enough chips | Автоигра остановлена: не хватает фишек |
 | `gui.burmaldaholic.slots.auto_stopped_feature` | Autoplay stopped: bonus! | Автоигра остановлена: бонус! |
@@ -923,7 +923,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.fs.name.nether` | Inferno Spins | Адские вращения |
 | `gui.burmaldaholic.slots.fs.name.end` | Void Walker | Странник пустоты |
 | `gui.burmaldaholic.slots.fs.awarded` | Free spins: %1$s! | Бесплатных вращений: %1$s! |
-| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращения: +%1$s! |
+| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращений: +%1$s! |
 | `gui.burmaldaholic.slots.fs.left` | Spin %1$s of %2$s | Вращение %1$s из %2$s |
 | `gui.burmaldaholic.slots.fs.multiplier` | Multiplier ×%1$s | Множитель ×%1$s |
 | `gui.burmaldaholic.slots.fs.total` | Bonus win: %1$s | Выигрыш в бонусе: %1$s |
@@ -1092,13 +1092,15 @@ Still rendered by the playable v1 machines until the cut-over; the cut-over task
 | `msg.burmaldaholic.slots.three_clocks_cooldown` | Three clocks! Golden Hour is recharging, but the payout is yours. | Трое часов! «Золотой час» перезаряжается, но выигрыш ваш. |
 | `msg.burmaldaholic.slots.seven_title` | Triple seven! | Три семёрки! |
 
-### Slots v2 values applied at the cut-over (placeholder signature changes)
+### Slots v2 values applied at the cut-over (placeholder signature or v1-behaviour changes)
 
 These keys keep their v1 value above (v1 code passes the v1 arguments) until the cut-over, which replaces
 the value with the v2 text below in the same change as the code. Not generator rows (key not back-quoted).
 
 | Key (v2, pending) | EN | RU |
 |-----|----|----|
+| gui.burmaldaholic.slots.auto | Auto… | Авто… |
+| gui.burmaldaholic.slots.auto_summary | Spins %1$s: bet %2$s, won %3$s | Вращений %1$s: поставлено %2$s, выиграно %3$s |
 | gui.burmaldaholic.slots.paytable.wild | %1$s appears on reels 2–4 and replaces every symbol except %2$s and %3$s | %1$s появляется на барабанах 2–4 и заменяет все символы, кроме «%2$s» и «%3$s» |
 | msg.burmaldaholic.slots.jackpot_self | %1$s JACKPOT! You won %2$s! | ДЖЕКПОТ %1$s! Ваш выигрыш: %2$s! |
 | msg.burmaldaholic.slots.jackpot_broadcast | JACKPOT! %1$s hits the %2$s: %3$s on %4$s! | ДЖЕКПОТ! %1$s — %2$s: %3$s на автомате «%4$s»! |
@@ -1399,7 +1401,7 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.fx.you_squeeze` | You squeeze… | Вы вскрываете… |
 | `gui.burmaldaholic.baccarat.fx.player_card` | Player's card… | Карта игрока… |
 | `gui.burmaldaholic.baccarat.fx.banker_card` | Banker's card… | Карта банкира… |
-| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья платит! |
+| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья сыграла! |
 | `gui.burmaldaholic.baccarat.fx.banco` | Banco! | Банко! |
 | `gui.burmaldaholic.baccarat.fx.shoe_passes` | The shoe passes to %1$s | Шуз переходит к игроку %1$s |
 
@@ -1908,7 +1910,7 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.slots.time_warp_title` | TIME WARP! | ПЕТЛЯ ВРЕМЕНИ! |
 | `msg.burmaldaholic.pvp.slots.jackpot` | %1$s: %2$s jackpot, +%3$s points | %1$s: джекпот %2$s, очки: +%3$s |
 | `gui.burmaldaholic.pvp.slots.feature` | %1$s: +%2$s | %1$s: +%2$s |
-| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Далее ×2 |
+| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Следующее ×2 |
 | `gui.burmaldaholic.pvp.slots.fx.boost_x2` | Boost ×2 | Фора ×2 |
 
 ### Wheel Party
@@ -2860,7 +2862,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.slots.pays` | %1$s: payouts | %1$s: выплаты |
 | `config.burmaldaholic.chaos.weight` | Chance weight: %1$s | Вес события: %1$s |
 | `config.burmaldaholic.chaos.event.enabled` | Enabled: %1$s | Включено: %1$s |
-| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: включён |
+| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: вкл. |
 | `config.burmaldaholic.slots.bets` | %1$s: bet levels | %1$s: уровни ставок |
 | `config.burmaldaholic.slots.defaultBet` | %1$s: default bet | %1$s: ставка по умолчанию |
 | `config.burmaldaholic.slots.minVipTier` | %1$s: required VIP tier | %1$s: нужный ВИП-статус |
@@ -3077,10 +3079,10 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.slots.overworld.freeSpins.multiplier` | Overworld Riches: free-spin multiplier | Богатства Верхнего мира: множитель фриспинов |
 | `config.burmaldaholic.slots.nether.tumble.ladder` | Nether Inferno: tumble multipliers | Пекло Незера: множители обвалов |
 | `config.burmaldaholic.slots.nether.tumble.ladderFree` | Nether Inferno: tumble multipliers in free spins | Пекло Незера: множители обвалов во фриспинах |
-| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: сундуков |
+| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: число сундуков |
 | `config.burmaldaholic.slots.overworld.pick.weights` | Treasure Hunt: chest contents | Охота за сокровищами: содержимое сундуков |
 | `config.burmaldaholic.slots.nether.hold.trigger` | Piglin's Hoard: coins to start | Клад пиглинов: монет для запуска |
-| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: повторов |
+| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: число повторов |
 | `config.burmaldaholic.slots.nether.hold.coinChance` | Piglin's Hoard: coin chance per cell | Клад пиглинов: шанс монеты в ячейке |
 | `config.burmaldaholic.slots.nether.hold.coinWeights` | Piglin's Hoard: coin values | Клад пиглинов: номиналы монет |
 | `config.burmaldaholic.slots.end.wheel.outer` | Dragon Wheel: outer ring | Колесо дракона: внешнее кольцо |
