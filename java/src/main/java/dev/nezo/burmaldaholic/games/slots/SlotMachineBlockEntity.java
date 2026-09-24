@@ -168,6 +168,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 				}
 			}
 			default -> {
+				dev.nezo.burmaldaholic.games.slots.pvp.SlotShowdownEntry.onAction(this, player, action, args); // Slot Showdown (pvp_*)
 				return;
 			}
 		}
@@ -566,6 +567,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (summary != null) {
 			t.put("auto_summary", summary.copy());
 		}
+		t.put(dev.nezo.burmaldaholic.games.slots.pvp.SlotShowdownEntry.STATE_KEY,
+			dev.nezo.burmaldaholic.games.slots.pvp.SlotShowdownEntry.clientState(this, viewer)); // Slot Showdown panel
 		return t;
 	}
 }
