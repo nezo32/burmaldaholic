@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
  * ({@code press}, {@code taunt}); it never decides anything. The countdown, the clash and the Final Reveal are the
  * shared overlay of the pvp client module.
  */
-public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScreen {
+public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen implements PvpScreens.ModeScreen {
 	protected static final int W = Scene.W;
 	protected static final int H = Scene.H;
 	protected static final int TEXT = Kit.BONE;
@@ -57,7 +57,7 @@ public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScr
 	protected final long openedAt = Util.getMillis();
 
 	protected PvpModeScreen(Component title, String pressKey, List<String> rulesKeys, JsonObject first) {
-		super(title);
+		super(title, Scene.W, Scene.H);
 		this.pressKey = pressKey;
 		this.rulesKeys = rulesKeys;
 		view.update(first, 0);
@@ -130,7 +130,18 @@ public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScr
 	}
 
 	@Override
+	protected boolean showBanner() {
+		return false;
+	}
+
+	@Override
+	protected boolean showBalance() {
+		return false;
+	}
+
+	@Override
 	protected void init() {
+		super.init();
 		left = Scene.left(width);
 		top = Scene.top(height);
 		boolean side = sideControls();
@@ -183,6 +194,7 @@ public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScr
 
 	@Override
 	public void tick() {
+		super.tick();
 		ticks++;
 		PvpModeView.StepView s = view.last();
 		// the press button follows the timeline (new wait step / wait over)
@@ -194,18 +206,12 @@ public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScr
 
 	protected void onTick() {}
 
-	@Override
-	public boolean isPauseScreen() {
-		return false;
-	}
-
 	protected Scene scene() {
 		return view.grudge() ? Scene.PVP_GRUDGE : Scene.PVP;
 	}
 
 	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		super.extractBackground(g, mouseX, mouseY, a);
+	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		scene().backdrop(g, left, top);
 		extractPlayArea(g, mouseX, mouseY);
 		scene().frame(g, font, left, top, null);
@@ -215,7 +221,7 @@ public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScr
 	protected void extractPlayArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		partial = a;
 		List<Component> bar = topBar();
 		Component right = bar.size() > 1 ? bar.get(1) : null;
@@ -226,7 +232,10 @@ public abstract class PvpModeScreen extends Screen implements PvpScreens.ModeScr
 			PvpDraw.grudgeBanner(g, font, left + W / 2, top + 22, left, left + W, 1e6, true);
 		}
 		extractContent(g, mouseX, mouseY);
-		super.extractRenderState(g, mouseX, mouseY, a);
+	}
+
+	@Override
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		extractOverlay(g, mouseX, mouseY);
 		if (showRules) {
 			int x = left + 30;

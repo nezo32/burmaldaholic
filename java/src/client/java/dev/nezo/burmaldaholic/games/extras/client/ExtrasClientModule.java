@@ -28,6 +28,8 @@ public final class ExtrasClientModule implements CasinoClientModule {
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasErrorPayload.TYPE, (payload, context) -> {
 			if (context.client().gui.screen() instanceof ExtrasScreen screen) {
 				screen.showError(payload.message());
+			} else if (context.client().gui.screen() instanceof SceneScreen screen) {
+				screen.showError(payload.message());
 			}
 		});
 	}
@@ -47,10 +49,14 @@ public final class ExtrasClientModule implements CasinoClientModule {
 			open.acceptState(state);
 			return;
 		}
+		if (current instanceof SceneScreen open && open.game().equals(screen)) {
+			open.acceptState(state);
+			return;
+		}
 		if (!payload.open()) {
 			return;
 		}
-		ExtrasScreen next = switch (screen) {
+		Screen next = switch (screen) {
 			case "coin" -> new CoinFlipScreen(state);
 			case "dice" -> new DiceScreen(state);
 			case "scratch" -> new ScratchScreen(state);

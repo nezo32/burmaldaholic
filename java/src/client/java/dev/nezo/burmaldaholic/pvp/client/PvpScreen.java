@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Util;
@@ -25,7 +24,7 @@ import org.jspecify.annotations.Nullable;
  * top right (or a title banner), casino buttons and the error line. Server-driven: renders the last
  * {@code PvpSyncPayload} state; buttons send {@code PvpActionPayload}s.
  */
-abstract class PvpScreen extends Screen {
+abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 	static final int TEXT = Kit.BONE;
 	static final int MUTED = Kit.BONE_SHADE;
 	static final int GOLD = Kit.GOLD;
@@ -38,8 +37,6 @@ abstract class PvpScreen extends Screen {
 	static final int WIDTH = Scene.W;
 
 	private JsonObject state;
-	private @Nullable Component error;
-	private long errorUntil;
 	protected int panelWidth = Scene.W;
 	protected int panelHeight = Scene.H;
 	protected int left;
@@ -51,7 +48,7 @@ abstract class PvpScreen extends Screen {
 	protected final long openedAt = Util.getMillis();
 
 	protected PvpScreen(Component title, JsonObject state) {
-		super(title);
+		super(title, Scene.W, Scene.H);
 		this.state = state;
 	}
 
@@ -75,11 +72,6 @@ abstract class PvpScreen extends Screen {
 
 	protected void onState(JsonObject oldState, JsonObject newState) {}
 
-	void showError(Component message) {
-		error = message;
-		errorUntil = Util.getMillis() + 4000;
-	}
-
 	protected void send(String action, String arg, long value) {
 		PvpScreens.action(action, matchId(), arg, value);
 	}
@@ -90,9 +82,25 @@ abstract class PvpScreen extends Screen {
 
 	@Override
 	protected void init() {
+		super.init();
 		left = Scene.left(width);
 		top = Scene.top(height);
 		layout();
+	}
+
+	@Override
+	protected boolean showBanner() {
+		return false;
+	}
+
+	@Override
+	protected boolean showBalance() {
+		return false;
+	}
+
+	@Override
+	protected int errorY() {
+		return top + 188;
 	}
 
 	/** Adds widgets (panel-local positions through {@link #button}). */
@@ -100,9 +108,6 @@ abstract class PvpScreen extends Screen {
 
 	/** Content (absolute coordinates) over the scene, under the widgets. */
 	protected abstract void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float a);
-
-	/** Over the widgets (bubbles, banners). */
-	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {}
 
 	protected KitButton button(int x, int y, int w, Component label, KitButton.Style style, Consumer<KitButton> onPress) {
 		KitButton b = KitButton.of(left + x, top + y, w, label, style, onPress);
@@ -117,12 +122,8 @@ abstract class PvpScreen extends Screen {
 
 	@Override
 	public void tick() {
+		super.tick();
 		ticks++;
-	}
-
-	@Override
-	public boolean isPauseScreen() {
-		return false;
 	}
 
 	/** The title drawn on the scene's banner ({@code null}: the top-left title line instead). */
@@ -131,15 +132,14 @@ abstract class PvpScreen extends Screen {
 	}
 
 	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		super.extractBackground(g, mouseX, mouseY, a);
+	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		Scene sc = scene();
 		sc.backdrop(g, left, top);
 		sc.frame(g, font, left, top, bannerTitle());
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		if (bannerTitle() == null) {
 			Component right = titleRight();
 			int rw = right == null ? 0 : font.width(right);
@@ -147,16 +147,6 @@ abstract class PvpScreen extends Screen {
 			if (right != null) g.text(font, right, left + Scene.W - 16 - rw, top + 15, GOLD, true);
 		}
 		extractContent(g, mouseX, mouseY, a);
-		super.extractRenderState(g, mouseX, mouseY, a);
-		extractOverlay(g, mouseX, mouseY, a);
-		if (error != null && Util.getMillis() < errorUntil) {
-			int w = Math.min(360, font.width(error) + 16);
-			int x = left + Scene.W / 2 - w / 2;
-			int y = top + 188;
-			g.fill(x, y, x + w, y + 14, 0xE0300818);
-			Kit.frameRect(g, x, y, w, 14, Kit.RED);
-			Kit.centeredFit(g, font, error, left + Scene.W / 2, y + 3, w - 8, Kit.RED_LIGHT, true);
-		}
 	}
 
 	/** Right side of the title line (timer / step), or null. */

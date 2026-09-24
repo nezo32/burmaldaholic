@@ -7,7 +7,6 @@ import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Util;
@@ -19,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  * when wrapped Russian lines need it, the title at the top left, casino buttons in a wrapping flow and the error line.
  * Server-driven: subclasses render state they were sent and send actions; they never decide.
  */
-public abstract class PvpPanel extends Screen {
+public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 	public static final int TEXT = Kit.BONE;
 	public static final int MUTED = Kit.BONE_SHADE;
 	public static final int GOLD = Kit.GOLD;
@@ -35,11 +34,9 @@ public abstract class PvpPanel extends Screen {
 	protected int ticks;
 	protected float partial;
 	protected final long openedAt = Util.getMillis();
-	private @Nullable Component error;
-	private long errorUntil;
 
 	protected PvpPanel(Component title, int width, int height) {
-		super(title);
+		super(title, Scene.W, Scene.H);
 		this.panelWidth = Scene.W;
 		this.panelHeight = Scene.H;
 	}
@@ -50,7 +47,23 @@ public abstract class PvpPanel extends Screen {
 	}
 
 	@Override
+	protected boolean showBanner() {
+		return false;
+	}
+
+	@Override
+	protected boolean showBalance() {
+		return false;
+	}
+
+	@Override
+	protected int errorY() {
+		return top + Math.min(panelHeight, Scene.H) - 52;
+	}
+
+	@Override
 	protected void init() {
+		super.init();
 		panelWidth = Scene.W;
 		panelHeight = Scene.H;
 		left = Scene.left(width);
@@ -74,11 +87,6 @@ public abstract class PvpPanel extends Screen {
 	/** Over the widgets (bubbles, banners). */
 	protected void overlay(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
-	public void showError(Component message) {
-		error = message;
-		errorUntil = Util.getMillis() + 4000;
-	}
-
 	protected void rebuild() {
 		if (minecraft != null) {
 			rebuildWidgets();
@@ -87,17 +95,12 @@ public abstract class PvpPanel extends Screen {
 
 	@Override
 	public void tick() {
+		super.tick();
 		ticks++;
 	}
 
 	@Override
-	public boolean isPauseScreen() {
-		return false;
-	}
-
-	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		super.extractBackground(g, mouseX, mouseY, a);
+	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		Scene sc = grudge() ? Scene.PVP_GRUDGE : Scene.PVP;
 		if (panelHeight > Scene.H) Scene.card(g, left + 6, top + Scene.H - 20, Scene.W - 12, panelHeight - Scene.H + 20);
 		sc.backdrop(g, left, top);
@@ -109,20 +112,15 @@ public abstract class PvpPanel extends Screen {
 	protected void playArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		partial = a;
 		Kit.fit(g, font, title, left + PAD, top + 15, panelWidth - 2 * PAD - 120, GOLD, true);
 		content(g, mouseX, mouseY);
-		super.extractRenderState(g, mouseX, mouseY, a);
+	}
+
+	@Override
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		overlay(g, mouseX, mouseY);
-		if (error != null && Util.getMillis() < errorUntil) {
-			int w = Math.min(360, font.width(error) + 16);
-			int x = left + panelWidth / 2 - w / 2;
-			int y = top + Math.min(panelHeight, Scene.H) - 52;
-			g.fill(x, y, x + w, y + 14, 0xE0300818);
-			Kit.frameRect(g, x, y, w, 14, Kit.RED);
-			Kit.centeredFit(g, font, error, left + panelWidth / 2, y + 3, w - 8, Kit.RED_LIGHT, true);
-		}
 	}
 
 	/** Word-wrapped text with shadow; returns the y below it. */
