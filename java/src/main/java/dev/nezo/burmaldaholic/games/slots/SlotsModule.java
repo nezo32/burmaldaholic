@@ -73,6 +73,7 @@ public final class SlotsModule implements CasinoModule {
 				(t, pos, state) -> new SlotMachineBlockEntity(t, pos, state, tier), props);
 			MACHINES.put(tier, type);
 		}
+		SlotsFx.register(ctx); // lane J-L10: cabinet particle types + world FX scheduler
 		ConfigManager.get().addListener(SlotsMath::invalidate);
 		ConfigManager.get().addListener(() -> {
 			SlotMachinesV2.invalidate();

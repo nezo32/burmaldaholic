@@ -12,3 +12,19 @@ cashier
 nether_cashier
 soul_wager
 casino_charter
+# core particle types (core.fx.CoreParticles): particles/<id>.json
+chip_pop
+chip_glint
+sparkle
+gold_burst
+golden_mote
+diamond_glint
+curse_wisp
+summon_rune
+teleport_ring
+collector_smoke
+coin_burst
+confetti
+jackpot_burst
+# core glyph font (docs/architecture/animation.md §2.2): font/default.json
+default

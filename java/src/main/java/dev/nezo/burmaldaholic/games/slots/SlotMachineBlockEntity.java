@@ -62,6 +62,16 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlock;
+import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetSync;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -628,7 +638,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		return t;
 	}
 
-	// =============================================================================================
+	// ======================================================================================	}
+
 	// Slots v2 (SLOTS.md; docs/architecture/animation.md §7.2): CONFIRM → DRAW TAPE → PERSIST → PRESENT → SETTLE at the
 	// reveal gate of the shared SlotTimeline, or at once on skip past the gate / close / leave / removal / restart.
 	// =============================================================================================
@@ -1442,6 +1453,37 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (level instanceof ServerLevel) {
 			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
 		}
+=======
+	// ---- in-world cabinet sync (lane J-L10 hook, docs/architecture/animation.md §2.5) -----------------
+	// Additive: nothing publishes yet (v1 keeps its look); the v2 cut-over (S-J5) calls publishCabinet once per
+	// spin (+1 per free spin / bonus step, coalesced ≥ 10 t) and the BER SlotCabinetRenderer draws from it.
+
+	private static final String CABINET_KEY = "cabinet";
+	private @Nullable CabinetSync cabinet;
+
+	/** Publishes a spin to every nearby client's cabinet renderer and schedules its world FX ({@link SlotsFx}). */
+	public void publishCabinet(CabinetSync sync) {
+		cabinet = sync;
+		setChanged();
+		if (level instanceof ServerLevel serverLevel) {
+			BlockState st = getBlockState();
+			serverLevel.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
+			Direction facing = st.hasProperty(CasinoTableBlock.FACING) ? st.getValue(CasinoTableBlock.FACING) : Direction.NORTH;
+			SlotsFx.play(serverLevel, worldPosition, facing, sync);
+		}
+	}
+
+	/** The last published cabinet sync (client: from the update tag), or {@code null} before the first v2 spin. */
+	public @Nullable CabinetSync cabinetSync() {
+		return cabinet;
+	}
+
+	private static @Nullable CabinetSync decodeCabinet(int[] data) {
+		try {
+			return CabinetSync.decode(data);
+		} catch (IllegalArgumentException e) {
+			return null; // older/newer format: the cabinet simply shows nothing until the next spin
+		}
 	}
 
 	@Override
@@ -1449,6 +1491,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		CompoundTag t = new CompoundTag();
 		if (v2Active() || round != null) {
 			t.put(SYNC_KEY, syncTag());
+		}
+		if (cabinet != null) {
+			t.putIntArray(CABINET_KEY, cabinet.encode());
 		}
 		return t;
 	}
@@ -1465,6 +1510,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			output.store(ROUND_KEY, CompoundTag.CODEC, round.save());
 		}
 		output.putIntArray("slots_rest", restStops);
+		if (cabinet != null) {
+			output.putIntArray(CABINET_KEY, cabinet.encode());
+		}
 	}
 
 	@Override
@@ -1473,6 +1521,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		input.read(ROUND_KEY, CompoundTag.CODEC).ifPresent(t -> round = RoundV2.load(t));
 		input.getIntArray("slots_rest").filter(a -> a.length == 5).ifPresent(a -> restStops = a);
 		input.read(SYNC_KEY, CompoundTag.CODEC).ifPresent(t -> clientSync = t);
+		cabinet = input.getIntArray(CABINET_KEY).map(SlotMachineBlockEntity::decodeCabinet).orElse(null);
 	}
 
 	/** Restart after a crash: the drawn round is settled from its persisted tape (SLOTS.md §8.1, §15 test 13). */
