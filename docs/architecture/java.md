@@ -55,7 +55,7 @@ All from `java/`, with `JAVA_HOME` pointing at a JDK 25.
 ```bash
 ./gradlew build                     # compile vs 26.2, all checks, unit tests, server GameTests, checkLinkage vs 26.3
 ./gradlew build -Pmc=26.3           # compile + test against 26.3 (CI matrix)
-./gradlew build -Pmod_version=1.2.3 # release version (CI contract, docs/ci.md); $MOD_VERSION also honoured
+./gradlew build -Pmod_version=1.2.3 # release version (CI contract, docs/ci/RELEASING.md); $MOD_VERSION also honoured
 ./gradlew test                      # JUnit only (fast)
 ./gradlew runGameTest               # headless server GameTests (also part of `check`)
 xvfb-run -a ./gradlew runClientGameTest   # real client tests (needs a display; NOT part of `check`)

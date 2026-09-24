@@ -1,5 +1,6 @@
-# PR / main checks. The only check to mark as "required" in branch protection is `ci-ok`:
-# it always reports, even when path filters skip the edition jobs. See docs/ci.md.
+# Feature flow: <type>/<name> branch -> PR -> main (squash). Runs on every PR to main and on main.
+# Required status check on main: ci-ok ONLY. It aggregates every job below and always reports, even when the path
+# filters skip the edition builds (a skipped required check would otherwise block the PR). See docs/ci/RELEASING.md.
 name: CI
 
 on:
@@ -17,187 +18,108 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    shell: bash
-
-env:
-  JAVA_VERSION: ${{ vars.JAVA_VERSION || '25' }}
-  NODE_VERSION: ${{ vars.NODE_VERSION || '22' }}
-
 jobs:
   changes:
-    name: Detect changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read # paths-filter lists PR files via the API
     outputs:
-      java: ${{ steps.force.outputs.all == 'true' || steps.filter.outputs.java == 'true' }}
-      bedrock: ${{ steps.force.outputs.all == 'true' || steps.filter.outputs.bedrock == 'true' }}
-      workflows: ${{ steps.force.outputs.all == 'true' || steps.filter.outputs.workflows == 'true' }}
+      java: ${{ github.event_name != 'pull_request' || steps.filter.outputs.java == 'true' }}
+      bedrock: ${{ github.event_name != 'pull_request' || steps.filter.outputs.bedrock == 'true' }}
     steps:
       - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
-
-      - name: Run everything on main / manual runs
-        id: force
-        env:
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [[ "$EVENT" == "pull_request" ]]; then echo "all=false"; else echo "all=true"; fi >> "$GITHUB_OUTPUT"
-
+      # Everything runs on main pushes, merge queue and manual runs; PRs only build the editions they touch.
       - uses: dorny/paths-filter@v4
         id: filter
-        if: steps.force.outputs.all != 'true'
+        if: github.event_name == 'pull_request'
         with:
           filters: |
             java:
               - 'java/**'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/reusable-build-gradle.yml'
             bedrock:
               - 'bedrock/**'
               - '.github/workflows/ci.yml'
-            workflows:
-              - '.github/**'
-              - 'reusable-workflows/**'
+              - '.github/workflows/reusable-build-node.yml'
 
   branch-name:
-    name: Branch naming
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Check head branch follows the feature flow
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          PREFIXES: ${{ vars.ALLOWED_BRANCH_PREFIXES || 'feature/ fix/ hotfix/ chore/ docs/ ci/ refactor/ test/ release/ dependabot/ claude/' }}
+      - env:
+          BRANCH: ${{ github.head_ref }}
         run: |
-          for p in $PREFIXES; do
-            if [[ "$HEAD_REF" == "$p"* ]]; then
-              echo "Branch '$HEAD_REF' matches '$p'."
-              exit 0
-            fi
-          done
-          echo "::error::Branch '$HEAD_REF' must start with one of: $PREFIXES (e.g. feature/slots)."
-          exit 1
+          if [[ ! "$BRANCH" =~ ^(feature|feat|fix|hotfix|chore|docs|refactor|ci|build|test|perf|release)/[a-z0-9._-]+$|^(dependabot|renovate|claude)/ ]]; then
+            echo "::error::Branch '$BRANCH' should be <type>/<short-name>, type in feature|feat|fix|hotfix|chore|docs|refactor|ci|build|test|perf|release"
+            exit 1
+          fi
 
-  java:
-    name: Java (MC ${{ matrix.mc }})
-    needs: changes
-    if: needs.changes.outputs.java == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        # Minecraft versions the single jar supports; see java/gradle.properties (supported_mc_range).
-        mc: ${{ fromJSON(vars.JAVA_MC_VERSIONS || '["26.2","26.3"]') }}
-    defaults:
-      run:
-        working-directory: java
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - uses: gradle/actions/setup-gradle@v6
-
-      - name: Build & test
-        env:
-          MC: ${{ matrix.mc }}
-        run: |
-          chmod +x gradlew
-          ./gradlew build --no-daemon --stacktrace -Pmc="$MC"
-
-      - name: Upload test reports
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: java-test-reports-${{ matrix.mc }}
-          path: java/build/reports/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload jar
-        uses: actions/upload-artifact@v7
-        with:
-          name: burmaldaholic-java-mc${{ matrix.mc }}
-          path: |
-            java/build/libs/*.jar
-            !java/build/libs/*-sources.jar
-            !java/build/libs/*-dev.jar
-          retention-days: 7
-          if-no-files-found: error
-
-  bedrock:
-    name: Bedrock
-    needs: changes
-    if: needs.changes.outputs.bedrock == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: bedrock
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: bedrock/package-lock.json
-
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      - run: npm run lint
-
-      - name: Upload add-on
-        uses: actions/upload-artifact@v7
-        with:
-          name: burmaldaholic-bedrock
-          path: bedrock/dist/*.mcaddon
-          retention-days: 7
-          if-no-files-found: error
-
-  workflows:
-    name: Lint workflows
-    needs: changes
-    if: needs.changes.outputs.workflows == 'true'
+  actionlint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-
-      - name: actionlint (+ shellcheck)
+      - name: actionlint
         run: |
-          set -euo pipefail
-          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) latest "$RUNNER_TEMP"
-          "$RUNNER_TEMP/actionlint" -color .github/workflows/*.yml reusable-workflows/*.yml
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+          # .github/templates/ is not a workflow directory, so it has to be linted explicitly
+          ./actionlint -color .github/templates/release-caller.yml
 
-      - name: Reusable workflow copy is in sync
-        run: |
-          if ! diff -u .github/workflows/reusable-release.yml reusable-workflows/minecraft-release.yml; then
-            echo "::error::reusable-workflows/minecraft-release.yml must be an exact copy of .github/workflows/reusable-release.yml"
-            exit 1
-          fi
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck scripts/*.sh scripts/test/*.sh
+      - name: curseforge-upload.sh dry-run tests
+        run: bash scripts/test/curseforge-upload.test.sh
+      - name: Inlined script copy is up to date
+        run: bash scripts/check-inlined-script.sh
+
+  # One jar supports every version of supported_mc_range (java/gradle.properties): build + test + gametests
+  # against each of them. Override the list with the repo var JAVA_MC_VERSIONS (JSON array).
+  mod:
+    needs: changes
+    if: needs.changes.outputs.java == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        mc: ${{ fromJSON(vars.JAVA_MC_VERSIONS || '["26.2","26.3"]') }}
+    uses: ./.github/workflows/reusable-build-gradle.yml
+    with:
+      working-directory: java
+      gradle-tasks: build -Pmc=${{ matrix.mc }}
+      artifact-name: java-mod-ci-${{ matrix.mc }}
+      artifact-files: build/libs/burmaldaholic-!(*-sources).jar
+
+  addon:
+    needs: changes
+    if: needs.changes.outputs.bedrock == 'true'
+    uses: ./.github/workflows/reusable-build-node.yml
+    with:
+      working-directory: bedrock
+      node-version: "22"
+      check-command: npm run lint && npm test
+      build-command: npm run build
+      artifact-name: bedrock-addon-ci
+      artifact-files: dist/Burmaldaholic-*.mcaddon
 
   ci-ok:
-    name: ci-ok
     if: always()
-    needs: [changes, branch-name, java, bedrock, workflows]
+    needs: [changes, branch-name, actionlint, scripts, mod, addon]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -211,4 +133,4 @@ jobs:
             echo "::error::Failed jobs: $bad"
             exit 1
           fi
-          echo "All required jobs passed or were skipped."
+          echo "All jobs passed or were skipped."

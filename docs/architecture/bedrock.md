@@ -54,16 +54,17 @@ the manifest format.
   | RP header | `cd52e210-ac4c-488d-abc3-805d6ed0ffaf` |
   | RP resources | `04c469b4-eed3-494e-90e4-98d8bc930054` |
 
-- **Pack version:** taken from `MOD_VERSION` (release CI), otherwise from `package.json`
-  `version`. Only `X.Y.Z` is used; any pre-release suffix is dropped.
-  - Note for `docs/ci.md`: with manifest v3 the version is written as a semver *string*, not an
+- **Pack version:** taken from `MOD_VERSION` or `VERSION` (the release CI sets `VERSION`, see
+  `docs/ci/RELEASING.md`), otherwise from `package.json` `version`. Only `X.Y.Z` goes into the
+  manifests; any pre-release suffix is dropped there.
+  - Note: with manifest v3 the version is written as a semver *string*, not an
     array. The manifestFormat 2 fallback writes arrays.
 - **Texts:** both `BP/texts/` and `RP/texts/` get `languages.json` (`["en_US","ru_RU"]`),
   `language_names.json`, and the merged `en_US.lang` / `ru_RU.lang`.
   - rawtext is translated on the client from RP texts.
   - The BP copy is needed for the manifest `pack.name` / `pack.description` and the pack-settings
     labels.
-- **Output:** `dist/Burmaldaholic.mcaddon`, a zip holding `Burmaldaholic_BP/` and
+- **Output:** `dist/Burmaldaholic-<version>.mcaddon` (full version, pre-release suffix included), a zip holding `Burmaldaholic_BP/` and
   `Burmaldaholic_RP/`. The unzipped packs stay in `build/BP` and `build/RP`.
 
 ### Data-driven JSON versions (guidance)
@@ -345,13 +346,13 @@ the numbers that EN and RU both need:
 ```bash
 cd bedrock
 npm ci                 # install (package-lock.json is committed)
-npm run build          # lang check -> esbuild bundle -> build/BP, build/RP -> dist/Burmaldaholic.mcaddon
+npm run build          # lang check -> esbuild bundle -> build/BP, build/RP -> dist/Burmaldaholic-<version>.mcaddon
 npm run build:dev      # sourcemaps, no minify, no zip (for deploy)
 npm test               # vitest on src/**/*.test.ts (pure logic only)
 npm run lint           # tsc --noEmit (stable 2.8.0 typings) + eslint + check-arch + check-strings
 npm run check:lang     # lang validation only
 npm run deploy         # copy build/{BP,RP} into com.mojang development_*_packs (set MC_COM_MOJANG)
-MOD_VERSION=1.2.3 npm run build   # release version override (CI)
+VERSION=1.2.3 npm run build       # release version override (CI; MOD_VERSION also works)
 ```
 
 - Toolchain: Node ≥ 22.12, TypeScript 6.0, esbuild, vitest 5, ESLint 10 with typescript-eslint.
@@ -361,7 +362,7 @@ MOD_VERSION=1.2.3 npm run build   # release version override (CI)
 
 ## 12. Manual testing (sideload)
 
-- **Quickest, any platform:** open `dist/Burmaldaholic.mcaddon`. Double-click it on Windows, or
+- **Quickest, any platform:** open `dist/Burmaldaholic-<version>.mcaddon`. Double-click it on Windows, or
   use share/open-with on mobile, and Minecraft imports both packs. Then:
   1. Create a world.
   2. Under Behavior Packs, activate Burmaldaholic. The RP comes along through the dependency.

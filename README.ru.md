@@ -393,7 +393,7 @@ UUID пакетов указаны в [`bedrock/pack.json`](bedrock/pack.json).
 | Издание | Что нужно | Команда | Результат |
 |---|---|---|---|
 | Java | **JDK 25**. Обёртка Gradle 9.7.1 уже в репозитории. | `cd java && ./gradlew build` | `java/build/libs/burmaldaholic-<версия>.jar` |
-| Bedrock | **Node.js 22** (≥ 22.12) | `cd bedrock && npm ci && npm run build` | `bedrock/dist/Burmaldaholic.mcaddon` (распакованные пакеты в `bedrock/build/BP` и `bedrock/build/RP`) |
+| Bedrock | **Node.js 22** (≥ 22.12) | `cd bedrock && npm ci && npm run build` | `bedrock/dist/Burmaldaholic-<версия>.mcaddon` (распакованные пакеты в `bedrock/build/BP` и `bedrock/build/RP`) |
 
 Полезное:
 
@@ -406,7 +406,7 @@ UUID пакетов указаны в [`bedrock/pack.json`](bedrock/pack.json).
 
 # Bedrock
 npm run build:dev && npm run deploy  # сборка без минификации, копируется в development-паки com.mojang (задайте MC_COM_MOJANG)
-MOD_VERSION=1.2.3 npm run build      # задать версию пакетов
+VERSION=1.2.3 npm run build          # задать версию пакетов (MOD_VERSION тоже работает)
 ```
 
 Архитектура описана в [`docs/architecture/java.md`](docs/architecture/java.md) и
@@ -429,7 +429,7 @@ CI на каждом pull request собирает Java-версию под 26.2
 
 ## Релизы
 
-Пуш тега SemVer собирает и публикует оба издания. Подробности в [`docs/ci.md`](docs/ci.md).
+Пуш тега SemVer собирает и публикует оба издания. Инструкция: [`docs/ci/RELEASING.md`](docs/ci/RELEASING.md).
 
 ```bash
 git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
@@ -438,16 +438,16 @@ git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
 Воркфлоу **Release**:
 
 1. собирает jar и `.mcaddon` вместе с тестами
-2. создаёт **GitHub Release** с обоими файлами и списком изменений из `CHANGELOG.md` или из
-   Conventional Commits
+2. создаёт **GitHub Release** с обоими файлами и списком изменений, собранным из влитых PR
+   (по их меткам)
 3. загружает оба файла на **CurseForge**, если настроены `CURSEFORGE_TOKEN` и ID проектов
 
-Теги `-beta.N` / `-rc.N` публикуются как beta, `-alpha.N` — как alpha. Пробный запуск (dry run)
-можно сделать на вкладке Actions.
+Теги `-beta.N` / `-rc.N` публикуются как beta, `-alpha.N` — как alpha. Пробный запуск загрузки на
+CurseForge (dry run) можно сделать на вкладке Actions.
 
-Конвейер оформлен как **переиспользуемый воркфлоу** (`workflow_call`), и его могут вызывать другие
-проекты для Minecraft. См. [`reusable-workflows/`](reusable-workflows/) и раздел «Reusing the
-release workflow» в `docs/ci.md`.
+Конвейер собран из **переиспользуемых воркфлоу** (`workflow_call`), общих (файл в файл) с
+[Enchantaholic](https://github.com/nezo32/enchantaholic); их могут вызывать и другие проекты для
+Minecraft. См. [`docs/ci/REUSABLE_RELEASE_PIPELINE.md`](docs/ci/REUSABLE_RELEASE_PIPELINE.md).
 
 ## Структура проекта
 
@@ -466,20 +466,23 @@ bedrock/                аддон Bedrock (TypeScript, esbuild, vitest)
   pack.json             данные пакета: UUID, мин. версия движка, версии скриптовых модулей
 docs/design/            геймдизайн, справочник настроек, UI, локализация, строки (EN+RU)
 docs/architecture/      архитектура и руководства разработчика для каждого издания
-docs/ci.md              CI/CD, работа с ветками, выпуск релизов
-.github/workflows/      ci.yml, release.yml, reusable-release.yml
-reusable-workflows/     отдельная копия переиспользуемого воркфлоу релиза
+docs/ci/                инструкция по релизам (RELEASING.md), руководство по общему конвейеру
+.github/workflows/      ci.yml, release.yml, labeler.yml, reusable-*.yml (общие с Enchantaholic)
+scripts/                скрипт загрузки на CurseForge и его тесты
+CONTRIBUTING.md         работа с ветками, правила PR, локальные проверки
 ```
 
 ## Как участвовать
 
-1. Создайте ветку от `main` с разрешённым префиксом: `feature/<тема>` (или `fix/`, `hotfix/`,
-   `chore/`, `docs/`, `ci/`, `refactor/`, `test/`, `release/`).
+Полные правила — в [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+1. Создайте ветку от `main` вида `<тип>/<имя-через-дефис>`: `feature/<тема>` (или `feat/`, `fix/`,
+   `hotfix/`, `chore/`, `docs/`, `ci/`, `build/`, `refactor/`, `perf/`, `test/`, `release/`).
 2. Откройте pull request в `main`. CI запускает проверки только для изданий, в которых вы что-то
-   изменили, и проверяет имя ветки. Итоговая проверка **`ci-ok`** должна быть зелёной, и нужно
-   одобрение ревьюера. PR сливаются через squash.
-3. Называйте PR по [Conventional Commits](https://www.conventionalcommits.org/) (`feat(slots): …`,
-   `fix: …`), потому что из них собирается список изменений релиза.
+   изменили, и проверяет имя ветки. Итоговая проверка **`ci-ok`** должна быть зелёной. PR сливаются
+   через squash.
+3. Называйте PR повелительным предложением для игроков («Add roulette table»): заголовок становится
+   строкой списка изменений релиза, а префикс ветки задаёт метку и раздел.
 4. Правила и цифры в обоих изданиях должны совпадать с [`GAME_DESIGN.md`](docs/design/GAME_DESIGN.md).
    Любой новый текст для игрока добавляется в [`STRINGS.md`](docs/design/STRINGS.md) **сразу на
    EN и RU**. Строки, вписанные прямо в код, ломают сборку.

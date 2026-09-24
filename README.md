@@ -391,7 +391,7 @@ own language.
 | Edition | Requirements | Command | Output |
 |---|---|---|---|
 | Java | **JDK 25**. The Gradle 9.7.1 wrapper is included. | `cd java && ./gradlew build` | `java/build/libs/burmaldaholic-<version>.jar` |
-| Bedrock | **Node.js 22** (≥ 22.12) | `cd bedrock && npm ci && npm run build` | `bedrock/dist/Burmaldaholic.mcaddon` (unpacked in `bedrock/build/BP`, `bedrock/build/RP`) |
+| Bedrock | **Node.js 22** (≥ 22.12) | `cd bedrock && npm ci && npm run build` | `bedrock/dist/Burmaldaholic-<version>.mcaddon` (unpacked in `bedrock/build/BP`, `bedrock/build/RP`) |
 
 Useful extras:
 
@@ -404,7 +404,7 @@ Useful extras:
 
 # Bedrock
 npm run build:dev && npm run deploy  # unminified build copied into com.mojang development packs (set MC_COM_MOJANG)
-MOD_VERSION=1.2.3 npm run build      # set the pack version
+VERSION=1.2.3 npm run build          # set the pack version (MOD_VERSION also works)
 ```
 
 The architecture notes are in [`docs/architecture/java.md`](docs/architecture/java.md) and
@@ -427,7 +427,7 @@ request.
 
 ## Releases
 
-Pushing a SemVer tag builds and publishes both editions. The details are in [`docs/ci.md`](docs/ci.md).
+Pushing a SemVer tag builds and publishes both editions. The runbook is [`docs/ci/RELEASING.md`](docs/ci/RELEASING.md).
 
 ```bash
 git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
@@ -436,16 +436,16 @@ git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
 The **Release** workflow:
 
 1. builds the jar and the `.mcaddon`, with their tests
-2. creates a **GitHub Release** with both files and a changelog, taken from `CHANGELOG.md` or
-   generated from Conventional Commits
+2. creates a **GitHub Release** with both files and release notes generated from the merged PRs
+   (grouped by their labels)
 3. uploads both files to **CurseForge**, if `CURSEFORGE_TOKEN` and the project IDs are configured
 
-Tags like `-beta.N` / `-rc.N` publish as beta, and `-alpha.N` as alpha. A dry run is available
-from the Actions tab.
+Tags like `-beta.N` / `-rc.N` publish as beta, and `-alpha.N` as alpha. A CurseForge dry run is
+available from the Actions tab.
 
-The pipeline is a **reusable workflow** (`workflow_call`) that other Minecraft projects can call.
-See [`reusable-workflows/`](reusable-workflows/) and the "Reusing the release workflow" section of
-`docs/ci.md`.
+The pipeline is built from **reusable workflows** (`workflow_call`) shared, file for file, with
+[Enchantaholic](https://github.com/nezo32/enchantaholic); other Minecraft projects can call them too.
+See [`docs/ci/REUSABLE_RELEASE_PIPELINE.md`](docs/ci/REUSABLE_RELEASE_PIPELINE.md).
 
 ## Project layout
 
@@ -464,20 +464,23 @@ bedrock/                Bedrock add-on (TypeScript, esbuild, vitest)
   pack.json             pack identity: UUIDs, min engine, script module versions
 docs/design/            game design, config reference, UI, localization, strings (EN+RU)
 docs/architecture/      per-edition architecture and developer guides
-docs/ci.md              CI/CD, branch flow, release process
-.github/workflows/      ci.yml, release.yml, reusable-release.yml
-reusable-workflows/     standalone copy of the reusable release workflow
+docs/ci/                release runbook (RELEASING.md), reusable pipeline guide
+.github/workflows/      ci.yml, release.yml, labeler.yml, reusable-*.yml (shared with Enchantaholic)
+scripts/                CurseForge upload script and its tests
+CONTRIBUTING.md         branch flow, PR rules, local checks
 ```
 
 ## Contributing
 
-1. Branch from `main` using an allowed prefix: `feature/<topic>` (or `fix/`, `hotfix/`, `chore/`,
-   `docs/`, `ci/`, `refactor/`, `test/`, `release/`).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full rules.
+
+1. Branch from `main` as `<type>/<kebab-name>`: `feature/<topic>` (or `feat/`, `fix/`, `hotfix/`,
+   `chore/`, `docs/`, `ci/`, `build/`, `refactor/`, `perf/`, `test/`, `release/`).
 2. Open a pull request to `main`. CI runs the checks for each edition, filtered by the paths you
-   changed, plus a branch-name check. The aggregate **`ci-ok`** check must be green, and the PR
-   needs a review. PRs are squash-merged.
-3. Use [Conventional Commits](https://www.conventionalcommits.org/) for PR titles (`feat(slots): …`,
-   `fix: …`), because the release changelog is built from them.
+   changed, plus a branch-name check. The aggregate **`ci-ok`** check must be green. PRs are
+   squash-merged.
+3. Write the PR title as an imperative sentence for players ("Add roulette table"): it becomes a
+   line of the release notes. The branch prefix sets the label that picks its section.
 4. Game rules and numbers must match [`GAME_DESIGN.md`](docs/design/GAME_DESIGN.md) on both
    editions. Any new player-facing text goes into [`STRINGS.md`](docs/design/STRINGS.md) in
    **both EN and RU**. Hard-coded strings fail the build.

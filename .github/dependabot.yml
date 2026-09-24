@@ -2,21 +2,15 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
+    schedule: { interval: weekly }
     groups:
-      actions:
-        patterns: ["*"]
-    commit-message:
-      prefix: ci
-
+      actions: { patterns: ["*"] }
+  - package-ecosystem: gradle
+    directory: /java
+    schedule: { interval: weekly }
   - package-ecosystem: npm
     directory: /bedrock
-    schedule:
-      interval: weekly
+    schedule: { interval: weekly }
     groups:
-      dev-dependencies:
-        dependency-type: development
+      dev-dependencies: { dependency-type: development }
     open-pull-requests-limit: 5
-    commit-message:
-      prefix: build

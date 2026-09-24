@@ -15,7 +15,7 @@ def depVersion = { String name ->
 	}
 	return project.property(key).toString()
 }
-// Version: -Pmod_version=X (CI/release contract, see docs/ci.md) > $MOD_VERSION > gradle.properties.
+// Version: -Pmod_version=X (CI/release contract, see docs/ci/RELEASING.md) > $MOD_VERSION > gradle.properties.
 version = gradle.startParameter.projectProperties.mod_version
 	?: System.getenv('MOD_VERSION')
 	?: project.mod_version

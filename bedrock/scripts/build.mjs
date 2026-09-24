@@ -13,9 +13,10 @@ const BUILD = path.join(ROOT, 'build');
 const DIST = path.join(ROOT, 'dist');
 const BP = path.join(BUILD, 'BP');
 
-// Version: MOD_VERSION (set by the release workflow from the tag) > package.json "version".
-// Manifest v3 takes a semver string; the pre-release/build suffix is dropped for safety.
-const RAW_VERSION = process.env.MOD_VERSION || readJson('package.json').version;
+// Version: MOD_VERSION > VERSION (set by the release workflow from the tag, see docs/ci/RELEASING.md)
+// > package.json "version". Manifest v3 takes a semver string; the pre-release/build suffix is dropped
+// there for safety, but the full version names the .mcaddon (dist/<name>-<version>.mcaddon).
+const RAW_VERSION = process.env.MOD_VERSION || process.env.VERSION || readJson('package.json').version;
 const VERSION = /^v?(\d+)\.(\d+)\.(\d+)/.exec(RAW_VERSION)?.slice(1, 4).join('.');
 if (!VERSION) {
   console.error(`invalid version '${RAW_VERSION}' (expected X.Y.Z)`);
@@ -199,7 +200,7 @@ async function main() {
     const files = {};
     zipDir(BP, `${PACK.name}_BP`, files);
     zipDir(RP, `${PACK.name}_RP`, files);
-    const out = path.join(DIST, `${PACK.name}.mcaddon`);
+    const out = path.join(DIST, `${PACK.name}-${RAW_VERSION.replace(/^v/, '')}.mcaddon`);
     fs.writeFileSync(out, zipSync(files, { level: 9, mtime: new Date('2026-01-01T00:00:00Z') }));
     console.log(`built ${rel(out)} (${Object.keys(files).length} files, v${VERSION}, engine ${PACK.minEngineVersion})`);
   } else {
