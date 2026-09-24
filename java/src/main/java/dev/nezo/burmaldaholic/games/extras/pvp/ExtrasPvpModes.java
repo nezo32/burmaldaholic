@@ -20,5 +20,6 @@ public final class ExtrasPvpModes {
 		PvpModes.register(new WheelPartyMode());
 		PvpModes.register(new PlinkoBattleMode());
 		PvpModes.register(new ScratchShowdownMode());
+		dev.nezo.burmaldaholic.games.extras.pvp.scratch.ScratchShowdownAdvancements.register(); // pvp_lucky_feet (J-M5)
 	}
 }

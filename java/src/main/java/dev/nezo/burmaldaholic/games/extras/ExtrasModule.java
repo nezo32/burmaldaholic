@@ -103,6 +103,9 @@ public final class ExtrasModule implements CasinoModule {
 					}
 				}
 				case ScratchGame.SCREEN -> ScratchGame.action(player, payload.action(), payload.args());
+				// Plinko Battle / Scratch Showdown screens: Drop! / Scratch!, taunts (docs/architecture/pvp-bots.md §3.5)
+				case dev.nezo.burmaldaholic.games.extras.pvp.ExtrasPvpActions.GAME ->
+					dev.nezo.burmaldaholic.games.extras.pvp.ExtrasPvpActions.action(player, payload.action(), payload.args());
 				default -> {
 				}
 			}

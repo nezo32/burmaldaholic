@@ -108,7 +108,9 @@ final class PlinkoScreen extends ExtrasTableScreen {
 		betLineY = flow.y() - topPos;
 		flow.gap(12);
 		bet.build(flow, s);
-		return flow.bottom();
+		// Plinko Battle entries (PVP.md §7.4): Start a Plinko Battle / Join the battle / Start now / Leave lobby
+		return dev.nezo.burmaldaholic.games.extras.client.pvp.plinko.PlinkoBattleEntries.layout(font, this::addRenderableWidget, leftPos + PAD,
+			flow.bottom() + 4, imageWidth - 2 * PAD, s, risk.id(), () -> Math.max(1, bet.amount()), this::sendAction, this::rebuild, dropping());
 	}
 
 	@Override

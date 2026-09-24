@@ -21,6 +21,7 @@ public final class ExtrasClientModule implements CasinoClientModule {
 	public void registerClient(ClientModuleContext ctx) {
 		ctx.tableScreen(ExtrasModule.WHEEL, WheelScreen::new);
 		ctx.tableScreen(ExtrasModule.PLINKO, PlinkoScreen::new);
+		dev.nezo.burmaldaholic.games.extras.client.pvp.ExtrasPvpScreens.register(); // Plinko Battle + Scratch Showdown screens
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasScreenPayload.TYPE, (payload, context) -> accept(context.client(), payload));
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasErrorPayload.TYPE, (payload, context) -> {
 			if (context.client().gui.screen() instanceof ExtrasScreen screen) {
