@@ -8,6 +8,7 @@ import dev.nezo.burmaldaholic.games.extras.client.ExtrasClientModule;
 import dev.nezo.burmaldaholic.games.poker.client.PokerClientModule;
 import dev.nezo.burmaldaholic.games.roulette.client.RouletteClientModule;
 import dev.nezo.burmaldaholic.games.slots.client.SlotsClientModule;
+import dev.nezo.burmaldaholic.games.uth.client.UthClientModule;
 import dev.nezo.burmaldaholic.lastchance.client.LastChanceClientModule;
 import dev.nezo.burmaldaholic.loan.client.LoanClientModule;
 import dev.nezo.burmaldaholic.multiplayer.client.MultiplayerClientModule;
@@ -33,7 +34,8 @@ public final class ClientModuleList {
 			new LastChanceClientModule(),
 			new WorldgenClientModule(),
 			new VipClientModule(),
-			new MultiplayerClientModule()
+			new MultiplayerClientModule(),
+			new UthClientModule()
 		);
 	}
 }

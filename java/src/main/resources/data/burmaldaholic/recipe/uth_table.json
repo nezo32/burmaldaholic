@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "W": "minecraft:green_wool",
+    "P": "minecraft:dark_oak_planks",
+    "C": "burmaldaholic:chip_25",
+    "F": "#minecraft:wooden_fences"
+  },
+  "pattern": [
+    "WWW",
+    "PPP",
+    "CFC"
+  ],
+  "result": {
+    "id": "burmaldaholic:uth_table"
+  }
+}
