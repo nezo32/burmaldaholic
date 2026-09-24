@@ -27,26 +27,26 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Cross-edition parity of the PvP modes: the vectors in {@code bedrock-vectors.json} were produced by the
- * Bedrock edition's pure mode logic (review wave 2, with {@code seededRng} = mulberry32). Java draws every tape
- * from the SAME fair stream (the adapter below reproduces Bedrock's float rng: {@code nextInt(b) = ⌊next()·b⌋},
+ * Golden-vector parity of the PvP modes: the vectors in {@code golden-vectors.json} are frozen reference outputs
+ * of the pure mode logic (review wave 2, drawn with mulberry32). Java draws every tape from the SAME fair stream
+ * (the adapter below reproduces that float rng: {@code nextInt(b) = ⌊next()·b⌋},
  * {@code nextBoolean = next() < ½}) and must produce the same tape and the same outcome: points, winners, ranking
  * (creeper ties → the earliest revealed, Plinko best ball with the Underdog doubling, split order), seat order
  * and the events. This pins the draw order (seat order first, then the mode's cells / paths / spins).
- * Vectors are data copied from Bedrock, not code.
+ * Vectors are frozen data, not code: never regenerate them from the code under test.
  */
-class CrossEditionParityTest {
+class GoldenVectorParityTest {
 	private static final JsonObject V = load();
 
 	private static JsonObject load() {
-		try (InputStream in = CrossEditionParityTest.class.getResourceAsStream("/dev/nezo/burmaldaholic/pvp/bedrock-vectors.json")) {
+		try (InputStream in = GoldenVectorParityTest.class.getResourceAsStream("/dev/nezo/burmaldaholic/pvp/golden-vectors.json")) {
 			return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
 		} catch (Exception e) {
 			throw new IllegalStateException(e);
 		}
 	}
 
-	/** Bedrock's {@code seededRng} (mulberry32) with its float semantics. */
+	/** The reference {@code seededRng} (mulberry32) with its float semantics. */
 	static PvpRng mulberry(long seed) {
 		return new PvpRng() {
 			private int s = (int) seed;
@@ -224,7 +224,7 @@ class CrossEditionParityTest {
 			WheelPartyMode.Tape tape = new WheelPartyMode().draw(mulberry(v.get("seed").getAsLong()), st.length, new WheelPartyMode.Params(1000));
 			JsonObject t = v.getAsJsonObject("tape");
 			assertArrayEquals(ints(t.get("seatOrder")), tape.seatOrder(), what + " seat order");
-			// Bedrock r ∈ [0,1) is a 32-bit fraction; Java draws the same point on a 2⁵³ grid
+			// the reference r ∈ [0,1) is a 32-bit fraction; Java draws the same point on a 2⁵³ grid
 			assertEquals((long) (t.get("r").getAsDouble() * (1L << 53)), tape.r(), what + " spin point");
 			sameOutcome(what, v.getAsJsonObject("outcome"), WheelPartyMode.score(tape, st, 1000), true);
 		}

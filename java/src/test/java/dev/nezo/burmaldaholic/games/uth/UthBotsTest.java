@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
  * UTH bots (BOTS.md §4.5, §4.6, §12.3): EASY rules, NORMAL / HARD = strategy R with the river enumeration as a
  * BotWork job and its deadline fallback, legalize, virtual bets, player-banked rules, virtual seats, quips,
  * RNG independence (the same deck with and without bots) and the published cost per level. Test vectors are
- * the Bedrock twin's ({@code bedrock/src/games/uth/logic/bots.test.ts}).
+ * frozen reference values.
  */
 class UthBotsTest {
 	private static final Paytables P = Paytables.DEFAULT;

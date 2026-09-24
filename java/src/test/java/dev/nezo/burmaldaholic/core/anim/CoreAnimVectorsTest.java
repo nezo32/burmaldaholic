@@ -18,14 +18,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Cross-edition fidelity vectors of the presentation core (docs/architecture/animation.md §3.4).
+ * Golden vectors of the presentation core (docs/architecture/animation.md §3.4).
  *
  * <p>The file {@code src/test/resources/fx/vectors/core_anim.json} holds INPUTS and expected OUTPUTS. This test
- * recomputes every output from the inputs with the Java implementation; the Bedrock twin
- * ({@code bedrock/src/core/logic/anim/vectors.test.ts}) does the same with the TypeScript implementation on
- * its mirrored copy ({@code bedrock/test/fx/vectors/core_anim.json}). Regenerate after an intended change:
- * {@code FX_DUMP_VECTORS=1 ./gradlew test --tests '*CoreAnimVectorsTest'}, then copy the file to Bedrock
- * ({@code npm run sync:vectors} checks they are identical).
+ * recomputes every output from the inputs with the Java implementation. Regenerate only after an intended
+ * change: {@code FX_DUMP_VECTORS=1 ./gradlew test --tests '*CoreAnimVectorsTest'}.
  */
 class CoreAnimVectorsTest {
 	private static final double[] EASE_T = {0, 0.05, 0.1, 0.25, 0.3333, 0.5, 0.6, 0.75, 0.9, 0.99, 1};
