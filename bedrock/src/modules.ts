@@ -10,6 +10,7 @@ import { pokerModule } from './games/poker';
 import { slotsModule } from './games/slots';
 import { rouletteModule } from './games/roulette';
 import { crapsModule } from './games/craps';
+import { baccaratModule } from './games/baccarat';
 import { extrasModule } from './games/extras';
 import { loanModule } from './loan';
 import { chaosModule } from './chaos';
@@ -27,6 +28,7 @@ export const MODULES: readonly CasinoModule[] = [
   slotsModule,
   rouletteModule,
   crapsModule,
+  baccaratModule,
   extrasModule,
   loanModule,
   chaosModule,

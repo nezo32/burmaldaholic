@@ -7,6 +7,7 @@
     { "id": "slots", "src": "src/games/slots" },
     { "id": "roulette", "src": "src/games/roulette" },
     { "id": "craps", "src": "src/games/craps" },
+    { "id": "baccarat", "src": "src/games/baccarat" },
     { "id": "extras", "src": "src/games/extras" },
     { "id": "loan", "src": "src/loan" },
     { "id": "chaos", "src": "src/chaos" },

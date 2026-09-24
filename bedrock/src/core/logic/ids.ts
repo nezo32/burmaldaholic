@@ -11,6 +11,7 @@ export const MODULE_IDS = [
   'slots',
   'roulette',
   'craps',
+  'baccarat',
   'extras',
   'loan',
   'chaos',
