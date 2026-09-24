@@ -222,6 +222,7 @@
 	"msg.burmaldaholic.core.source.cashback": "VIP cashback",
 	"msg.burmaldaholic.core.source.golden_hour": "Golden Hour bonus",
 	"msg.burmaldaholic.core.balance_capped": "Your balance is at the maximum. The rest went to charity.",
+	"msg.burmaldaholic.core.bankroll_late_return": "%1$s came back to your closed casino and was paid to you.",
 	"msg.burmaldaholic.core.deposited": "Deposited %1$s. Balance: %2$s",
 	"msg.burmaldaholic.core.withdrawn": "Withdrew %1$s. Balance: %2$s",
 	"msg.burmaldaholic.core.no_chips_to_deposit": "You have no chips to deposit",

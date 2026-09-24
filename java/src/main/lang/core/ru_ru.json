@@ -222,6 +222,7 @@
 	"msg.burmaldaholic.core.source.cashback": "ВИП-кешбэк",
 	"msg.burmaldaholic.core.source.golden_hour": "Бонус «Золотого часа»",
 	"msg.burmaldaholic.core.balance_capped": "Баланс на максимуме. Остальное ушло на благотворительность.",
+	"msg.burmaldaholic.core.bankroll_late_return": "В кассу закрытого казино вернулось %1$s — они выплачены вам.",
 	"msg.burmaldaholic.core.deposited": "Внесено: %1$s. Баланс: %2$s",
 	"msg.burmaldaholic.core.withdrawn": "Снято: %1$s. Баланс: %2$s",
 	"msg.burmaldaholic.core.no_chips_to_deposit": "Вам нечего внести — фишек нет",

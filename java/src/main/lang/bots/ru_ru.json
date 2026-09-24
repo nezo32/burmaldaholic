@@ -117,7 +117,7 @@
 	"gui.burmaldaholic.bots.charter.bankroll_short": "Ботам не на что сесть: в кассе мало денег",
 	"gui.burmaldaholic.bots.admin.title": "Боты",
 	"gui.burmaldaholic.bots.admin.line": "%1$s — %2$s · %3$s · %4$s",
-	"gui.burmaldaholic.bots.admin.clear_all": "Отправить всех ботов по домам",
+	"gui.burmaldaholic.bots.admin.clear_all": "Отправить ботов домой",
 	"gui.burmaldaholic.bots.admin.reset_heat": "Сбросить лимиты игрока…",
 	"gui.burmaldaholic.bots.nameplate": "%1$s · %2$s",
 	"gui.burmaldaholic.bots.menu.tab": "Боты",
