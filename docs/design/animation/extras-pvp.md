@@ -1,0 +1,1279 @@
+# Animation spec — Extras (Coin Flip, Wheel of Fortune, Plinko, Scratch Cards) and the shared PvP presentation
+
+Owner: animation & visual design. Status: implementation-ready spec (v1, 2026-09-24).
+Scope: the four extras games in solo and PvP form (Coin Flip + Coin Flip Duel with the Double-or-nothing
+chain, Wheel of Fortune + Wheel Party, Plinko + Plinko Battle, Scratch Cards + Scratch Showdown), and the
+PvP presentation every mode shares: lobby, invites, countdowns, the Final Reveal, rivalry and grudge
+banners, win-streak call-outs and taunts.
+
+Sources read: `GAME_DESIGN.md` §11 and Appendix B, `PVP.md` §3–§8, §12 and §15, `UI.md` §0, §1, §9, §12 and §13,
+`STRINGS.md` (extras and pvp), and the code on these branches:
+
+| Area | Where the code is (read at) |
+|------|-----------------------------|
+| Java solo extras screens | current branch, `java/src/client/java/dev/nezo/burmaldaholic/games/extras/client/*` (`CoinFlipScreen`, `WheelScreen`, `PlinkoScreen`, `ScratchScreen`, `Art`) |
+| Java Coin Flip Duel and Wheel Party | `worktree-agent-a6ba6aabeec8e0891`: `…/extras/client/pvp/coin/*`, `…/extras/client/pvp/wheel/*` |
+| Java Plinko Battle and Scratch Showdown | `worktree-agent-a19fec0b1773f637c`: `…/extras/client/pvp/{PvpModeScreen,plinko/*,scratch/*}` |
+| Java shared PvP UI | `worktree-agent-a0d8581496b6b1a6d`: `pvp/client/{PvpLobbyScreen,PvpMatchScreen,PvpResultScreen,ClientPvp}`, `pvp/PvpScreensPresenter`, `pvp/PvpModule`, `pvp/PvpUi` |
+| Bedrock (all of the above) | `worktree-agent-aaf0f54e81d19ae4a`: `bedrock/src/games/extras/*.ts`, `…/extras/pvp/**`, `bedrock/src/pvp/presenter.ts`, packs `bedrock/packs/extras/**` |
+
+**Inputs this spec builds on.**
+- `docs/research/animation.md` (2026-09-24): the API names (26.x `GuiGraphicsExtractor`, GUI sprites with
+  `.mcmeta` animation, the BER render-state API, display-entity interpolation through an accessor mixin, Bedrock entity
+  properties and `playAnimation`, `setPropertyOverrideForEntity`, custom particles with `MolangVariableMap`,
+  `camerashake`, and DDUI Observables). Items the research marks "(verify)" are labelled **[V]** here, and each has a
+  fallback (§0.7).
+- `docs/design/animation/global.md` (the shared kit): palette tokens (§2.1), `CasinoButton` hover/press/invalid
+  (§2.2), glyphs (§2.3), **`WinTier`** (§2.4), motion vocabulary `client/fx/Ease` + `Tween` (§2.5), the celebration
+  kit (`CelebrationOverlay` on Java, `fx.celebrate` on Bedrock, §2.6), the sound palette (§2.7), the FX settings
+  `anim.*` (§2.8), budgets (§2.9), the asset generator **S1 `scripts/gen-fx-assets.py`**, and `CasinoToast`
+  (§4.10). **This file does not redefine any of those.** It only adds what the extras and PvP games need on top.
+
+---
+
+## 0. Extras-specific rules on top of `global.md`
+
+### 0.1 Design goals (in priority order)
+
+1. **Never lie about the result.** The server has decided (and, for solo, settled) the outcome before any frame
+   plays. The animation *reveals* it and never *implies* a different one (§0.3).
+2. **Every action gets a physical answer.** Coins spin and land. Wheels click against a flapper. Balls bounce off
+   pegs, one peg per row. Foil flakes off under the cursor. Each contact has its own sound.
+3. **Anticipation, action, payoff.** Each reveal has a short wind-up (100–250 ms), a readable main motion, and a
+   landing with a small squash or settle. Only then does the `global.md` §2.6 celebration play for the tier.
+4. **Spectators see it too.** Every solo and PvP reveal also plays **in the world** (Java BERs and display
+   entities, Bedrock fx entities, particles), so a casino floor looks alive to people walking past.
+5. **Short and skippable.** No solo reveal is longer than 4 s. A click, Space or Enter (Java) or sneaking (Bedrock,
+   `gui.burmaldaholic.fx.skip_bedrock`) fast-forwards to the end state in 150 ms (`DUR_SKIP`). PvP reveals are paced by
+   the server; *Drop!*, *Scratch!* and *Spin!* only speed them up, as PVP.md already says.
+
+### 0.2 Timing tokens and extra curves
+
+Use `global.md` §2.5 (`outCubic`, `inCubic`, `inOutQuad`, `outBack`, `outElastic`, `shake`, `linear`). This file
+adds four curves to the same `client/fx/Ease` (Java) and `core/fx.ts` `ease` (Bedrock). Molang copies are generated
+into the entity animation files (§10.2):
+
+| Curve | Formula (t ∈ [0,1]) | Use |
+|-------|---------------------|-----|
+| `outQuad` | 1 − (1 − t)² | coin spin deceleration |
+| `outQuint` | 1 − (1 − t)⁵ | long wheel deceleration |
+| `inOutSine` | −(cos(πt) − 1)/2 | sideways ball drift between pegs |
+| `outBounce` | the standard 4-segment Penner bounce | coin and ball landings (vertical only) |
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `DUR_SKIP` | 150 ms (3 t) | fast-forward to the final state |
+| `DUR_COUNT_STEP` | 1 000 ms (20 t) | one countdown digit |
+| `DUR_BANNER_IN` / `DUR_BANNER_OUT` | 300 / 250 ms | mode banners (§11) |
+
+Palette: `global.md` §2.1 tokens, plus these game-specific texture colours: `foil` `#B4B4B4` / sheen `#D8D8D8` /
+shadow `#8C8C8C`; `char` `#1A1412` with ember `#FF6020`; `grudge` `#8B0000` → `#FF2A2A`; and the wheel segment colours
+(§3.2) and dye colours (`WheelArt.COLORS`), which are already in the code.
+
+### 0.3 Outcome fidelity rules (MUST, both editions; they extend `global.md` §6)
+
+1. **Result first, then motion.** A solo reveal starts only when the settled result arrives (Java: the `result.seq`
+   change in the screen state; Bedrock: after `wagers.settle`). The client never picks or predicts a result. As research
+   §2.11 allows, it may start an outcome-free "spin-up" on click, then ease onto the result when it arrives.
+2. **The terminal state comes from server data only:** the coin face from `landed`/`heads`, the wheel angle from
+   `index` (solo) or `angle1000` (party), the Plinko path from `path`, and scratch cells from `cells` + `mask`. Every
+   intermediate frame is a pure function of (terminal state, elapsed time, cosmetic seed = `seq`).
+3. **No invented near-misses.** Deceleration curves, spin counts and speeds are the **same for every outcome**. There is
+   no extra slowdown next to the jackpot, no "almost" wobble into a neighbouring segment or bin, no highlighting of
+   pairs on scratch cards, and no lighting of neighbour bins in Plinko. The one exception is Wheel Party's *By a hair!*
+   crawl. The server flags it from the real `u` (PVP.md §6.2), so it is truthful: it plays only when the result really
+   was by a hair, and the message names the real neighbour.
+4. **No early spoilers.** Balance floats, the result chat line, the result form and the celebration all wait for the
+   landing. Java: `ClientCasinoState.holdBalanceDelta(untilMs)` (a new hook in the `global.md` J6 HUD) keeps the HUD
+   delta back until the landing or the screen closing, at most 5 s. Bedrock: send the chat line at the landing (reuse the
+   `data.pending` pattern of `plinko-game.ts` in all four games), and have `fx.celebrate` run before the form.
+5. **A landing never crosses a boundary.** Overshoot, settle and bounce stay inside the landed segment, bin or cell.
+   Wheel settle: at most 40 % of the distance from the rest point to the nearer boundary. Coin and ball bounces are
+   vertical only, and the coin never flips past its face (`global.md` §6 item 3).
+6. **Interrupt = reveal.** Closing the screen, a skip, a disconnect, a busy form or reduce motion all jump to the
+   terminal state and show the true result text.
+7. **PvP confidentiality** (PVP.md §3.6): Java clients receive each step when it is revealed. When an animation needs
+   future data (Plinko path, coin face), it is sent **at the start of that step**, never earlier. The final ball's last
+   bit and the final scratch cell arrive with their Final Reveal cue. Bedrock entity properties follow the same rule:
+   `face` is set at landing, not at spawn.
+8. **Seeded cosmetics only.** Particle jitter, the rest offset inside a wheel segment and the flake order use
+   `Random(seq)` (or the match id + step), so every viewer sees the same thing and no hidden information leaks.
+
+### 0.4 Win tiers in these games
+
+Tiers come from `global.md` §2.4 (`WinTier`, computed by the server and sent with the result). The typical tiers
+here are:
+
+| Game | Possible tiers |
+|------|----------------|
+| Coin Flip (1.96×) | LOSS, WIN |
+| Wheel of Fortune | LOSS (Bust, Creeper), RETURN (Half back), PUSH (Money back), WIN (Double, Triple, Emerald), BIG (Diamond 10×, if the net is ≥ 100) |
+| Plinko | RETURN below 1×, PUSH at 1×, WIN, BIG (Low 10×), MEGA (Medium 33×), **JACKPOT** (edge bin on High, per `global.md` §2.4) |
+| Scratch Cards | LOSS, PUSH (a prize equal to the price), WIN, BIG (100 basic / 1 000 gold), EPIC (500 basic when net ≥ 500), **JACKPOT** (top prize) |
+| PvP (all modes) | the winner gets the tier of payout ÷ own stake (usually WIN); losers LOSS |
+
+Most extras outcomes are therefore WIN or lower, so each game adds a **landing flourish** that is part of the game's
+own motion and plays before `CelebrationOverlay`/`fx.celebrate`. It is not an extra tier: the coin glint, the wheel's
+pop-out icon, the Plinko bin press and label pop, the scratch trio line. None of these flourishes plays for LOSS,
+RETURN or PUSH (the research's "no loss disguised as a win" policy, §5.11).
+
+### 0.5 Interaction feedback
+
+Buttons use `global.md` §2.2 `CasinoButton` (hover lift, press, invalid shake + `ui_deny`, disabled tooltip). This file
+adds feedback for **game hit areas** (Java), where the cursor acts on the game object itself:
+
+| Hit area | Hover | Press / act | Invalid |
+|----------|-------|-------------|---------|
+| Coin (Heads/Tails are buttons; the coin itself is not clickable) | glint passes once | — | — |
+| Wheel (click = Spin when a bet is set; click during a spin = skip) | 1 px `glint` ring around the rim; the flapper twitches 3° | the wheel pull-back starts at once (outcome-free spin-up) | the flapper shakes (`shake`, 240 ms) + `ui_deny` |
+| Plinko chute (click = Drop) | the ball in the chute wobbles ±1 px | the chute gate opens (visual spin-up) | the gate rattles + `ui_deny` |
+| Scratch cell | faster shimmer + 1 px `gold` outline | drag erases; click auto-swipes (§7.3) | a scratched cell ignores clicks silently |
+| PvP advance buttons (*Drop!*, *Scratch!*, *Spin the wheel!*) | as `CasinoButton` | as `CasinoButton`, and a ✓ appears on your nameplate or card | — |
+
+Bedrock: forms keep vanilla styling (`global.md` §2.2). Invalid input re-shows the form with a §c first line +
+`burmaldaholic.ui_deny`. NICE: while a player looks at a machine within 5 blocks (checked every 10 t with
+`getBlockFromViewDirection`), `setPropertyOverrideForEntity` turns on the fx entity's `glow` for that player only (§10.2).
+
+### 0.6 Accessibility (settings from `global.md` §2.8: `anim.reduceMotion`, `anim.flashes`, `anim.speed`, `anim.celebrations`)
+
+`anim.speed` scales every **client-paced solo** duration (coin toss, wheel spin, Plinko row, scratch wipe). It never
+changes PvP timelines, which the server paces and which must stay identical for everyone. The world config
+`anim.inWorld` (research §9, default true) turns off the in-world spectator visuals of this file (BERs animate as a
+static face, and no display or fx entities are spawned).
+
+| Behaviour | `reduceMotion` ON | `flashes` OFF |
+|-----------|-------------------|---------------|
+| Coin | The coin shows the face frames heads → edge → result face at 100 ms each; no arc, no bounce (as Last Chance, `global.md` §4.8) | unchanged |
+| Wheel spin | The wheel turns straight to the target over 600 ms `outCubic`, with no extra turns and no flapper bounce. Ticks play only for segments actually passed, at most 12. | unchanged |
+| Plinko ball | The path is drawn as a dotted line row by row (80 ms per row). The ball appears in the bin. No hop, squash or trail. | no peg flash |
+| Scratch | A click reveals the cell with a 150 ms cross-fade; no flakes; drag-scratching still works | unchanged |
+| Wheel Party slice growth, lobby row slides | instant | unchanged |
+| Screen shake (grudge clash, creeper burn, ALL-IN tag) | none | unchanged |
+| Creeper fuse flash, Plinko edge glow, heat vignette breathing | none | static tint instead |
+| Bedrock title flipbooks (coin, scratch) | two titles only (the first frame and the result) | unchanged |
+| Bedrock `camerashake` / `camera.fade` | never | no `camera.fade` |
+
+Flash rule (`global.md` §2.8): ≤ 3 flashes/s and ≤ 30 % alpha even when flashes are on. In this file only cell-sized
+areas (< 2 % of the screen) ever blink.
+
+### 0.7 Engine features used, and fallbacks for the research's "(verify)" items [V]
+
+| # | Feature (research §) | Used for | Fallback if it fails |
+|---|----------------------|----------|----------------------|
+| V1 | `.png.mcmeta` `"texture": {"blur": true}` on a non-atlas texture | smooth rotated wheel faces (§3) | Draw the face 1:1 without blur. A rotated nearest-neighbour texture shimmers slightly but is acceptable. |
+| V2 | Display-entity transformation setters through an accessor mixin (§2.7) | in-world coin toss (§1, §2) and taunt bubbles (§9) | Particles only (crit + end_rod arc); chat for taunts |
+| V3 | `TextDisplay` with a translatable component, localised per viewer | taunt bubbles, the Wheel Party winner pop | chat line only (already exists) |
+| V4 | Bedrock entity property limits (≈ 32 per type, int ranges) | `wheel_fx`, `plinko_fx`, `coin_fx` (§10.2) | `playAnimation` per state, with per-target animations generated by the art script (54 wheel "land" animations) |
+| V5 | Molang `math.mod`, `math.floor`, `math.pow` in bone expressions | Plinko path decode in `plinko_fx` | 12 `row_k` bool properties (still ≤ 32) |
+| V6 | Titles render U+E1xx glyphs at title scale (`global.md` §4.8 relies on this too) | coin and scratch title flipbooks on Bedrock | action-bar flipbook (smaller, same frames) |
+| V7 | DDUI `CustomForm` + Observables update rate (research §3.8, open question 1) | NICE live forms for scratch and duel on Bedrock | classic forms + titles (the MUST path here) |
+| V8 | `q.distance_from_camera` in controllers | LOD: fx entities stop animating beyond 24 blocks | always animate (1 entity per machine anyway) |
+| V9 | Java particle id `minecraft:scrape` in 26.x | scratch flakes in the world | the custom `burmaldaholic:foil_flake` (§10.4) |
+
+### 0.8 Performance budget (on top of `global.md` §2.9)
+
+| Item | Java | Bedrock |
+|------|------|---------|
+| Screen draw cost | ≤ 1.5 ms per frame at GUI scale 3, ≤ 600 blits, no per-frame allocation (reuse arrays; the scratch mask is a `long[]` per cell) | n/a (forms) |
+| GUI particles | the shared pool (≤ 96 live); foil flakes use it too | n/a |
+| Wheel / Plinko BERs | ≤ 0.05 ms per machine; animate only while `now < sync.end + 40 t`; static face beyond 16 blocks; `getViewDistance()` 48 | — |
+| Display entities | coin toss: 1 per flip, keyframes ≥ 3 t apart, ≤ 120° each, removed at 45 t; taunt bubble: 1 per player, 3 keyframes | — |
+| Fx entities | — | 1 `wheel_fx` per wheel block, 1 `plinko_fx` per Plinko block, 1 `coin_fx` per flip (removed at 60 t); ≤ 3 `setProperty` per reveal (same tick) |
+| Title / action-bar frames | n/a | ≥ 2 t apart per player, only while that player's reveal runs; flipbooks ≤ 18 frames |
+| Sounds | ≤ 20/s per player; the wheel flapper plays every 2nd–3rd peg at speed | same |
+| World particles | ≤ 3 `sendParticles` calls per event, ≤ 60 particles per burst | ≤ 24 `spawnParticle` calls per event, ≤ 60 particles |
+
+### 0.9 Asset pipeline
+
+- Every texture of this file comes from an **extras/PvP module of S1**: `scripts/fx_assets/extras_pvp.py`, imported by
+  `scripts/gen-fx-assets.py` (the same palette, the same string-grid pixel style, deterministic, no text). It writes
+  both editions: Java `…/textures/gui/sprites/burmaldaholic/{extras,pvp}/…`, `…/textures/gui/extras/…` (code-indexed
+  sheets), `…/textures/entity/extras/…`, `…/textures/particle/burmaldaholic/…`; Bedrock
+  `bedrock/packs/extras/RP/textures/{entity,particle}/extras/…` and the shared glyph sheet cells (§10.5). It also writes the
+  **generated Molang** for §10.2 (the wheel curve, the flapper and the unrolled Plinko path sums) into the Bedrock
+  animation JSON, so that Java's `WheelAnim`/`PlinkoAnim` and Bedrock use the same constants.
+- Code-indexed sheets are horizontal strips (`blit` with UV). Atlas sprites that loop on their own are vertical strips with
+  `.mcmeta` `animation` (research §2.2).
+- Sounds are vanilla composites in the MUST phase (`global.md` §2.7); the new ids are listed in §10.3.
+- Text never appears in a texture. Plaques are empty, and labels are translation keys drawn on top.
+
+## 1. Coin Flip (solo, Lucky Coin)
+
+### 1.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `CoinFlipScreen` | A 30-tick "flip": a filled ellipse (`Art.disc`) whose width follows \|cos(0.7t)\| and bobs 10 px on a sine; afterwards two gold discs, heads `GOLD` and tails `#E0C060`, and a result line. The Soul Wager has a plain red hold bar. | Heads and tails differ **only by a barely different gold**: this relies on colour alone (UI.md §13) and is unreadable. The coin has no face art, no edge, no shadow and no landing. The spin frequency is constant, so it just stops. There is no toss or landing sound in the screen, no celebration and no in-world visual. The spin does not end on the result face, because no faces are drawn at all. |
+| Bedrock `coin-flip.ts` | Action bar "The coin is in the air…" for 20 t, then chat plus the result ActionForm. | Nothing moves. There is no sound (`burmaldaholic.coin_flip` has **no Bedrock `sound_definitions` entry**, since only `lastchance` has one). The result form appears immediately, with no landing beat. |
+
+### 1.2 Target storyboard — Java screen (`FLIP_TICKS` 30 = 1 500 ms at speed 1)
+
+The coin **reuses the Last Chance sheet** from `global.md` §4.8 (`textures/gui/lastchance/coin_spin.png`, 32 × 384,
+12 frames: 0 = heads, 1–5 tilting, 6 = edge, 7–11 tilting back, 11 = tails). The Lucky Coin and the Last Chance coin are
+then the same object, and the art is made once. It is drawn at 2× (64 px) in the panel centre. A soft shadow ellipse
+(`extras/coin_shadow`) sits on a "table line" 36 px under the coin's rest position.
+
+Frame function (pure, shared with the duel and unit-tested): for a position h in **half-turns**, let k = h mod 2; then
+frame(h) = round(11·k) if k ≤ 1, else round(11·(2 − k)). Heads is an even h and tails an odd h, so a toss that must
+land on the face F runs to H = 10 (heads) or 11 (tails) half-turns.
+
+| t (ms) | Beat | Motion | Sound |
+|--------|------|--------|-------|
+| 0–120 | Anticipation (starts when `result.seq` changes) | The coin dips 3 px and squashes to scaleY 0.9 (`outCubic`). The Heads/Tails buttons press in. | — |
+| 120 | Flick | — | `burmaldaholic:coin_flip` (pitch 1.0 ± 0.05, seeded) |
+| 120–980 | Flight | y = −H·4p(1−p) with H = 46 px and p ∈ [0,1] over 860 ms. Scale 1 + 0.2·sin(πp) (the coin comes towards the viewer). The shadow shrinks to 50 % and fades to 40 % at the apex. **Spin:** h(p) = H · `outQuad`(p), with H = 10 for heads and 11 for tails, drawn with `frame(h)`. The spin is fast at launch and slows towards the landing, and the last frames approach the true face without passing it (`global.md` §6 item 3). | `burmaldaholic:coin_whoosh` at p = 0.1 (quiet, 0.3) |
+| 980–1 240 | Landing | `outBounce` on y with 2 bounces (8 px, then 2 px), vertical only. On first contact: squash (scaleX 1.12, scaleY 0.88) for 60 ms. The frame is fixed on the result face from here on. | `burmaldaholic:coin_land` on each contact, volume 1.0 then 0.4 |
+| 1 240–1 500 | Reveal | A 4-frame glint sweeps across the face (`coin_glint`, win only). The translated face name (`extras.coin.heads`/`tails`) pops under the coin (`outBack`, 250 ms). | — |
+| 1 500+ | Celebration | `CelebrationOverlay` for the server tier (§0.4: WIN or LOSS). On a win, 8 `fx/chip_*` sprites also fly from the coin to the balance bar (arcs staggered 40 ms, 400 ms each), and the HUD delta is released then (§0.3 rule 4). | per `global.md` §2.6 |
+
+Faces are shapes, not colours (the S1 sheet must keep them distinct): **heads** is an embossed head in profile,
+**tails** a crossed pickaxe over a chip.
+
+**Idle:** the coin rests at a slight tilt (frame 1), and the glint passes every 4 s, driven by the screen clock.
+
+**Soul Wager** (Hardcore): the same sheet is drawn with a dark red tint (`blit` ARGB `0xFFB05050`) plus the
+`coin_heat` red rim overlay. While the 5 s hold bar fills, `burmaldaholic:heartbeat` (`global.md` §2.7) plays once
+per second, rising to twice per second in the last 2 s (pitch 1.0 → 1.25), and the bar gets a pulsing ember fill. The flip is the same as above. A win adds `item.totem.use`;
+a loss is handled by the existing Soul Wager consequence (not in this file).
+
+### 1.3 Java in-world (spectators) — MUST
+
+A toss is visible to everyone within 32 blocks through a transient **`ItemDisplay`** (research §2.7). The item is
+`burmaldaholic:lucky_coin` with an item-model `select` on `custom_model_data` string `spin | heads | tails`.
+
+- Spawn at: eye + look × 0.6 − 0.25 up, billboard `FIXED`, scale 0.4. At the same moment the server calls
+  `player.swing(MAIN_HAND)` (the flick).
+- Keyframes are sent every 3 t with `interpolation_duration = 3` and rotation ≤ 120° per keyframe (slerp takes the
+  shortest path). Translation follows the arc up 1.1 blocks and back down in 6 keyframes (18 t). The rotation
+  (X-axis roll) goes 0 → 720° in 120° steps.
+- Keyframe 7 (t = 21): the model is switched to `heads`/`tails` (the result is already settled), scale pops to 0.5 for
+  3 t, and there is 1 `minecraft:crit` burst (8).
+- At t = 40 it shrinks to scale 0 over 4 t and is removed at t = 45. At most one display per player at a time; a new
+  flip replaces the old one.
+- Sounds for spectators: `level.playSound(null, pos, coin_flip, BLOCKS, 0.6, 1)` at the toss and `coin_land` at t = 21.
+
+### 1.4 Target storyboard — Bedrock (MUST)
+
+The result is already settled by the time the toss starts (`coin-flip.ts` `play()`).
+
+| t (ticks) | Player (screen) | World (everyone nearby) |
+|-----------|-----------------|-------------------------|
+| 0 | `player.playSound('burmaldaholic.coin_flip')`. Start the **title flipbook**: `setTitle` with the `global.md` §2.3 coin glyphs `U+E186 → E187 → E188 → E189 → E188 → E187 → E186 …` (the same fixed loop as Last Chance) every 2 t (fadeIn 0, stay 3, fadeOut 0, via `hud.holdTitle` so the HUD sentinel does not cut it). The cadence slows: frame gaps 2,2,2,2,2,2,3,3,3,4,4,5 t, ending on the true face glyph (U+E18A heads / U+E18B tails) at t = 34. | `coin_fx` spawned at eye + view × 0.7, property `face` = result, `playAnimation('animation.burmaldaholic.coin_fx.toss')` (1.7 s: up 1.2 blocks, X roll 5×360° + 180° for tails, `outQuad` roll, arc as on Java) |
+| 34 | Title = face glyph, subtitle = `pvp.coin.landed` with the nested side name ("Heads!") via `updateSubtitle`. `burmaldaholic.coin_land`. | animation `land_<face>`: bounce 2×, then rest facing the player; 6 `minecraft:critical_hit_emitter` |
+| 40 | `fx.celebrate(p, tier, net, 'coin_flip')` (`global.md` §2.6: WIN = action bar `§a+N` + `chip_pop`; LOSS = soft `lose`). The chat result line is sent now, not at t 0. | — |
+| 60 | The result form opens (`fx.celebrate` holds it 20 t after WIN). It used to open at 20 t, before the landing. Sneaking skips to it. | `coin_fx` animation `vanish` (0.25 s), removed by the script at t = 60 |
+
+`reduceMotion`: two titles only (U+E186 at t 0, the face at t 6), and the entity lands without the arc.
+Soul Wager: `coin_fx` property `variant = soul`, which selects the render-controller texture `coin_fx_soul`, plus
+`minecraft:basic_smoke_particle` puffs every 4 t during the toss.
+
+### 1.5 Priorities
+
+- **MUST:** Java sprite coin (the shared Last Chance sheet) with the half-turn frame function ending on the real face,
+  landing bounce, glint, celebration kit, balance hold. Bedrock title flipbook, sound definitions, a landing beat before the form, chat at landing.
+- **MUST (world):** Java `ItemDisplay` toss; Bedrock `coin_fx` entity.
+- **NICE:** Bedrock attachable that spins the coin in hand (research §3.3); a Java 3D coin through `PictureInPicture`
+  (not worth it).
+
+---
+
+## 2. Coin Flip Duel and the Double-or-nothing chain
+
+### 2.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `CoinDuelScreen` (branch `a6ba6aa…`) | Names left and right, `[HEADS]`/`[TAILS]` text, pot, a filled disc whose width follows `cos(t·0.6/(1+t/20))` during `spin`, and countdown digits drawn on the coin | **The face is the letter "H" or "T" drawn with `Texts.raw`: an English letter baked in code, wrong in RU (О/Р) and contrary to the no-baked-text rule.** Heads and tails have no shape. There is no toss, no landing and no motion towards the winner. The chain has only a status line and no visible history. Double or nothing has no escalating tension. There is no VS intro, so the grudge banner is only a server title. |
+| Bedrock `coin/ui.ts`, `coin/logic/mode.ts` | Titles "3","2","1" with hats; action bar `◐ ◓ ◑ ◒` over 20 t with `coin_flip` at launch; title HEADS!/TAILS!; `crit` at the winner; forms for the chain | The generic half-circle glyphs look like loading spinners, not a coin. There is no in-world coin between the duellists. Every link of the chain looks identical, and the chain is text only. `burmaldaholic.coin_flip` has no sound definition on Bedrock. |
+
+### 2.2 Target storyboard — Java `CoinDuelScreen` (256 × 180)
+
+Server steps drive it: `countdown` (60 t, +20 per ALL-IN), `spin`, `land`, then decisions. Times below are
+from the moment each step arrives.
+
+**A. VS intro** (when the screen opens on accept, 700 ms, overlapping the first second of the countdown):
+- The two nameplates (nine-slice `pvp/nameplate`, 110 × 30) slide in from the left and right edges (`outCubic`, 350 ms).
+  Each shows the head (`PlayerFaceRenderer`, 16 px), the name, the side icon (a heads or tails mini coin, 12 px) and
+  the stake.
+- At 350 ms the `pvp/vs_badge` sprite pops in the centre (`outBack`, 250 ms) with `minecraft:block.anvil.land` at
+  0.3, pitch 1.5. On a grudge match, the grudge clash (§9.5) replaces this badge.
+- Each duellist's stake appears as a chip stack (drawn from `global.md` `fx/chip_side_<denom>` columns, up to 5 high) under the plate, and both stacks slide
+  into the centre pot (400 ms, `inOutSine`). The pot counter rolls to 2S.
+
+**B. Countdown** (`countdown` step; duration = `step.ticks`):
+- Large digits "3 · 2 · 1": font text at pose scale 4 with a 1 px dark outline, centred over the coin. Each digit
+  pops in from scale 1.8 to 1.0 (`outBack`, 250 ms) and fades over the last 200 ms of its second. `block.note_block.hat`
+  plays at pitch 1.0, 1.2 and 1.4 (the server sends it; the client only draws).
+- The coin (64 px) hovers with a ±4° wobble in time with the beats. A thin ring around it fills clockwise over the
+  whole countdown (drawn procedurally as a 2 px arc of `fill` segments).
+- ALL-IN: the red `ALL-IN` tag on that plate shakes ±1 px at 8 Hz (none with reduceMotion), and an extra
+  `note_block.basedrum` hit plays per ALL-IN player at t = 0.
+
+**C. Toss** (`spin` step): the same flight as §1.2, but open-ended, because the face is unknown until `land` arrives
+(§0.3 rule 7). The coin rises in 400 ms and then **loops** at a steady 2 half-turns per second at the apex, bobbing ±3 px.
+
+**D. Land** (`land` step with `heads` and `winner`), 1 200 ms:
+- 0–500 ms: decelerate from the current position h₀ to the true face: take the smallest H ≥ h₀ + 1.5 whose parity
+  matches the face (even = heads), and ease h from h₀ to H with `outCubic`. The coin descends at the same time (`inQuad`).
+- 500–700 ms: `outBounce` landing, squash, `coin_land`.
+- 700–1 000 ms: the coin **slides towards the winner's plate** (40 px, `outCubic`). The winner's plate border turns
+  gold with a 1 Hz glow; the loser's plate desaturates to 50 % and drops 2 px.
+- 1 000–1 200 ms: the pot chips fly to the winner's plate (8 sprites along staggered arcs), and the winner's stake
+  counter rolls up to +W. The result banner reads `pvp.coin.landed` + `pvp.coin.takes`.
+
+**E. Chain presentation (Double or nothing).**
+- **Chain tracker**: a strip of 5 pips (`pvp/chain_pip`, 12 × 12) sits under the pot. Past links show the landed face
+  with a green border (you won that link) or a red border (you lost it). The current link pulses; future links are
+  hollow. Under the strip, the existing `pvp.coin.chain` line ("Chain: Alex down 400") rolls its number when it changes.
+- **Heat per link** (link number k = 1…5). This is presentation only and is the same for everyone, because it
+  depends only on k:
+
+| k | Coin rim | Background | Countdown audio | Particles (GUI) |
+|---|----------|------------|-----------------|-----------------|
+| 1 | normal gold | felt | hats | — |
+| 2 | warm orange glint (glint every 1 s) | 10 % dark vignette (`global.md` `gui/fx/vignette_red.png` tinted black) | hats pitch +0.1 | — |
+| 3 | red-hot rim (`coin_heat` overlay, alpha 0.5) | 15 % vignette | hats + one `heartbeat` per second | 6 ember sparks per second around the coin |
+| 4 | red-hot rim, alpha 0.8 | 20 % vignette | hats + `heartbeat` ×2/s | `coin_flame` sprite (8 frames) licking the rim |
+| 5 | soul-fire blue flames (`coin_flame_soul`) | 25 % vignette, breathing ±5 % at 0.5 Hz | drumroll (8 accelerating basedrums over the countdown) | 12 soul sparks per second |
+
+- **Decision offers**: the loser's *Double or nothing — Heads/Tails* buttons breathe (brightness 90↔110 %, 1 Hz).
+  The winner's *Let it ride* glows gold, and *Take the money* is plain green. The 15 s timer is a ring on the button
+  row, red for the last 5 s with a tick each second.
+- **Called**: when a Double or nothing starts, the "on the line" number slams in (scale 1.4 → 1, 150 ms, with
+  `block.anvil.place` at 0.3) and the stacks slide in again (bigger stack heights).
+- **ALL SQUARE** (`msg.burmaldaholic.pvp.coin.all_square`): both plates slide to the centre and meet. Two mini coins
+  fly from the plates and **clink** in the middle (a burst of 16 `fx/sparkle`, `block.amethyst_block.hit` pitch 1.4
+  plus `entity.player.levelup`). The banner `gui.burmaldaholic.pvp.coin.all_square_title` pops, and every chain
+  pip flips to gold (a 180 ms flip each, 60 ms stagger).
+- **Walk away / Take the money**: the plate of the player who left slides out to its side over 300 ms and the chain
+  tracker greys out. For the cash-out, a small chip stack flies to the winner.
+
+**F. Result.** Rematch, Taunt… and Close appear with a 250 ms slide-up. The rematch button breathes while the other
+player has already pressed it, and "waiting for Alex" shows its dots animation.
+
+### 2.3 Java in-world (spectators)
+
+- An `ItemDisplay` coin hovers at the midpoint between the duellists, 1.9 blocks up (only when they are ≤ 12 blocks
+  apart; otherwise one coin in front of each duellist). During the countdown it spins slowly (120° per 6 t). On `spin`
+  it tosses up 1.2 blocks with fast 120°/3 t keyframes. On `land` it switches to the true face model, then its
+  translation interpolates towards the winner's chest over 10 t, and it pops (scale → 0) with `minecraft:crit` (12)
+  and `totem_of_undying` (20) at the winner.
+- Heat 3–5: `minecraft:flame` (link 3–4) or `minecraft:soul_fire_flame` (link 5), 4 particles every 5 t around the display.
+- Budget: 1 display entity per duel and at most 12 keyframes per flip. Remove it at RESULT.
+
+### 2.4 Target storyboard — Bedrock
+
+| Moment | Duellists | World / spectators |
+|--------|-----------|--------------------|
+| Accept (0–30 t) | `holdTitle` title `pvp.coin.vs` (names), subtitle `pvp.coin.sides`, fadeIn 5, stay 20. `random.anvil_land` at 0.3. On a grudge match, the grudge sequence (§9.5) plays first. | `coin_fx` spawned at the midpoint (or per duellist, as on Java) with property `state = idle` → animation `hover` (slow Y spin, ±0.1 block bob). Action bar `pvp.coin.spectate` to spectators (exists). |
+| Countdown | Titles "3","2","1" colour-stepped §a → §e → §c, subtitle = sides line, hats at pitch 1.0/1.2/1.4 (exists). From link 2, a heat glyph (flame U+E170) appears before the digit. ALL-IN: extra `note.bd` hit. | `coin_fx` property `heat` = k − 1. The render controller `overlay_color` tints the rim from none to orange to red to blue. Links 3–5 add `basic_flame_particle` or `soul` particles (1 call per 10 t). |
+| Toss (`spin`) | Title flipbook with coin glyphs (§1.4 frames) looping at 2 t per frame. This replaces `◐ ◓ ◑ ◒` (keep that action bar only for spectators). `burmaldaholic.coin_flip`. | `coin_fx.playAnimation('…toss_loop')` |
+| Land | Glyph frames decelerate onto the true face (gaps 3, 3, 4, 5 t). Then title `pvp.coin.landed` with the face glyph, subtitle `pvp.coin.takes`, `burmaldaholic.coin_land`. Winner: `random.levelup` + `totem_particle` (12). Loser: `note.bass` + `villager_angry` (4). | Property `face` set now (not at spawn: confidentiality), `playAnimation('…land_<face>')`. Then the script moves `coin_fx` towards the winner with 4 teleports 2 t apart and `critical_hit_emitter` along the line, then `vanish`. |
+| Chain decision | Before the loser's form, the action bar shows the chain tracker for 40 t: code-prepended pip glyphs (U+E18A/E18B past faces coloured §a won / §c lost, U+E1AA current, U+E1A9 future) followed by the existing `pvp.coin.chain` line. The forms are unchanged. | — |
+| ALL SQUARE | Title `pvp.coin.all_square_title`, subtitle the existing message. `random.levelup` + `chime.amethyst_block`. `villager_happy` at both. | `burmaldaholic:chip_fountain` (20) at both |
+
+### 2.5 Priorities
+
+- **MUST:** Java sprite coin (removes the baked "H"/"T"), the open-ended toss that decelerates onto the true face,
+  the coin sliding to the winner, pot chips flying, the chain tracker, heat levels 1–5, the ALL SQUARE clink, and
+  the VS intro. Bedrock title flipbook, chain bar, in-world `coin_fx` with heat, sound definitions.
+- **NICE:** Java world display coin with heat particles (MUST if V2 passes, since it is cheap); Bedrock DDUI live duel
+  form (V7).
+
+---
+
+## 3. Wheel of Fortune (solo)
+
+### 3.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `WheelScreen` | 54 rotated `fill` rectangles (a rectangle per segment, not wedges), colour per segment kind, a brown rim disc, a gold hub and a white triangle pointer. Cubic ease-out over `spin_ticks` (80) with 3 turns + delta. The legend is at the right. | Segments are identified **by colour only** (no icons), so Double, Triple and Emerald are hard to tell apart. There are no pegs and no flapper, so the wheel glides silently, with no tick sound. The stop has no highlight, no creeper drama and no celebration. The in-world block is a static 16 px texture, so spectators see nothing. |
+| Bedrock `wheel-game.ts` | Action-bar frames `prev ‹ NAME › next` from `spinFrames` (24 frames, ease-out quadratic, 1 turn), then the result form | Text only. No tick sounds, no in-world wheel, no stop beat, no celebration. |
+
+### 3.2 Visual design — the wheel face (both editions)
+
+- A **segment wedge** in its kind colour, with a 1 px darker separator line. A **segment icon** sits at 72 % of the
+  radius, upright relative to the wedge. The icons are shapes, so colour is never the only cue:
+
+| Code | Name | Wedge colour | Icon (8 × 8 at 1×, 16 × 16 source) |
+|------|------|--------------|-------------------------------------|
+| B | Bust | `#3A3A3A` | cracked grey chip |
+| C | Creeper | `#3FA535` | creeper face |
+| H | Half back | `#6C8EBF` | half chip |
+| M | Money back | `#3D5A80` | one chip |
+| D | Double | `#2E7D32` | two stacked chips |
+| T | Triple | `#9C27B0` | three stacked chips |
+| E | Emerald | `#00C853` | emerald |
+| X | Diamond | `#4FC3F7` | diamond |
+
+- The **rim** is a wood ring with **one gold peg per segment boundary** (54 pegs) and 24 light bulbs, which chase
+  during the spin and blink gold twice on the stop.
+- The **hub** is a gold 24 × 24 cap with a gem that catches a glint every 3 s (animated sprite).
+- The **pointer / flapper** is a red leather flap (12 × 18) pivoting at the top. It is not part of the rotating layer.
+
+The face texture is **baked at runtime** from the server's `segments` list, because config may change the list
+(`extras.wheel.segments`). Java: `WheelFaceTexture.bake(segments, colours)` → a `DynamicTexture` of 256 × 256
+(2× supersampled wedges, icons stamped from `gui/extras/wheel_icons.png`), cached by a hash of the list, and
+registered with blur (V1). Bedrock: the Appendix B order is pre-baked into `wheel_fx.png`. If a server's segment list
+differs from Appendix B, the in-world `wheel_fx` is hidden and the action-bar/title path carries the show.
+
+### 3.3 Target storyboard — Java screen (spin_ticks 80 → 4 000 ms at speed 1)
+
+Angle function: θ(t) = θ₀ + A(t), where Δ = 3·360° + ((target − from) mod 360°). The pointer is at the top.
+
+| t (ms) | Beat | Wheel angle | Flapper, bulbs, sound |
+|--------|------|-------------|-----------------------|
+| 0–220 | Pull-back (anticipation) | A = −7°·sin(½π·t/220) (`outCubic` feel) | Flapper creaks: `block.wooden_door.close` at 0.2, pitch 1.6 |
+| 220–3 750 | Spin and deceleration | A = −7° + (Δ + 7°)·`outQuint`((t − 220)/3 530) | Bulbs chase: bulb i is lit when (i + ⌊θ/15°⌋) mod 3 == 0 |
+| 3 750–4 000 | Settle | A = Δ + r·sin(π·q)·(1 − q), with q = (t − 3 750)/250 and **r = −min(2°, 0.4 · distance from the rest angle to the trailing boundary)**. It rocks back gently and returns, never crossing a boundary (§0.3 rule 5). | — |
+
+**Flapper physics** (pure function of θ, so a replay looks identical): let φ = (θ mod s)/s with s = 360°/n. The
+pointer deflection is δ = −14° · (1 − φ)³ **only while the peg is under the flap** (φ < 0.35), and otherwise springs
+back with `outElastic` over 120 ms. When a peg passes (⌊θ/s⌋ changes), play `burmaldaholic:wheel_tick` with
+pitch = 0.9 + 0.5·(1 − speed/maxSpeed), so the ticks rise as the wheel slows. Throttle to ≤ 20 ticks/s: at high
+speed, play every 2nd or 3rd peg.
+
+Rest angle inside the segment: the centre + a cosmetic jitter of ±30 % of the half-width from `Random(seq)`. This
+is the same for all viewers and never within 15 % of a boundary.
+
+**Stop beat** (4 000–4 600 ms):
+1. The landed wedge brightens (white overlay alpha 0.35, two pulses at 2 Hz; for LOSS/RETURN/PUSH a single grey
+   outline instead, per §0.4), and every other wedge dims to 65 %.
+2. The landed icon **pops out** of the wheel: a copy at 2× scale drawn under the pointer (`outBack`, 300 ms), with
+   the translated segment name under it (`extras.wheel.segment.*`).
+3. Bulbs blink gold twice. The sound depends on the kind: Bust = `burmaldaholic:lose` (0.5). Half and Money back =
+   `burmaldaholic:push` (RETURN / PUSH, muted). Double and above = `burmaldaholic:wheel_stop` + `CelebrationOverlay` for
+   the server tier (§0.4).
+4. **Creeper**: the wedge flashes green twice (cell-sized area, flash-safe), the creeper icon swells from 1.0 to
+   1.4 over 600 ms (the creeper-swell look), and `entity.creeper.primed` plays. At 1 000 ms the screen closes and the
+   existing chaos `mob_wave` starts. With reduceMotion there is no swell; with flashes off, a steady green outline
+   replaces the flash.
+
+**Skip:** click on the wheel or press Space → the wheel eases to the target over 150 ms, with ≤ 3 ticks.
+
+### 3.4 Java in-world (MUST)
+
+`WheelOfFortuneRenderer` (BER, research §2.6):
+- It draws the baked face on a disc (a 32-sided fan through `submitCustomGeometry`) **2.5 blocks** across, centred
+  1 block above the block and 0.02 block in front of the front face, plus a slim post from the block top. The
+  flapper is a quad pivoting at the disc top, and the bulbs are 24 emissive quads (full-bright light). The render
+  bounding box is enlarged to 3 × 3 × 1.
+- **Sync:** the block entity stores `SpinSync{seq, startGameTime, from, target, spinTicks, jitterSeed}`. It is sent
+  once per spin (`sendBlockUpdated`). Clients compute θ with the same pure `WheelAnim.angle(sync, gameTime + pt)` as
+  the screen (a shared class in `games/extras/logic`, unit-tested), so the screen and the world agree exactly.
+- World sounds: the client BER plays `wheel_tick` positionally at the block (volume 0.35, ≤ 12/s, only within
+  16 blocks). The server plays the stop sound (`wheel_stop` or `lose`) with `level.playSound`.
+- Particles at the stop (server): WIN → a `happy_villager` ring (8 points on a 1.2-block circle around the disc
+  centre); BIG and above → the `global.md` §4.7 nearby FX (`chip_fountain`); creeper → `minecraft:smoke` (10).
+- Idle: bulbs breathe slowly (a 3 s cycle). Beyond 16 blocks, draw a static face with no bulbs; beyond 48, draw nothing.
+
+### 3.5 Target storyboard — Bedrock
+
+**World (MUST):** `burmaldaholic:wheel_fx` entity (§10.2) in front of each wheel block. It is spawned lazily on first
+use and re-linked on chunk load by `getEntities({type, location, maxDistance: 1})`, and removed when the block
+breaks. Spin: the script sets the properties `from_deci`, `to_deci` (rest angles in tenths of a degree, 0–3599, which already include the cosmetic jitter) and `seq` in one tick. The animation controller enters
+`spin` on a `seq` change. The `spin` animation (4.0 s) computes `rotation.z` with the same piecewise formula (§3.3)
+in Molang, and the flapper bone uses the same δ(φ) expression. `rest` holds `-to_deci/10`.
+
+**Player (MUST):**
+
+| t (ticks) | Action bar (existing channel `extras.wheel`) | Title | Sound |
+|-----------|---------------------------------------------|-------|-------|
+| 0–4 | `wheel.spinning` | — | `burmaldaholic.wheel_tick` at pitch 0.7 (pull-back creak) |
+| 4–76 | Segment strip from `spinFrames` (same curve as §3.3; the frame count grows from 24 to 40 so it reads as continuous), rendered as glyphs: `§8[prev icon] §7▶ [icon] NAME ◀ §8[next icon]`, with icon glyphs U+E1B1–E1B8 | — | `wheel_tick` per frame, pitch rising from 0.9 to 1.4 |
+| 80 | frozen on the target | `setTitle`: landed icon glyph (big), subtitle = segment name + `resultLine` | `burmaldaholic.wheel_stop` / `lose` / creeper hiss |
+| 86 | — | `fx.celebrate(p, tier, net, 'wheel')` (BIG and up: tier title + `updateSubtitle` roll-up) | per `global.md` §2.6, particles at the wheel entity |
+| 100 | the result form opens | | |
+
+Creeper: title creeper glyph §2, `random.fuse`, `basic_smoke_particle` at the wheel, then the chaos wave (existing).
+
+### 3.6 Priorities
+
+- **MUST:** icons on the wedges, the baked face, pegs and flapper physics with tick sounds, the pull-back and settle,
+  the stop pop-out, the creeper swell, skip; the Java BER with synced spin; the Bedrock `wheel_fx` entity, glyph strip
+  and stop title.
+- **NICE:** attract mode (an idle wheel "breathes" a quarter-turn every 30 s when nobody is within 8 blocks: a
+  cosmetic back-and-forth, never landing on a prize with any fanfare); a Java `PictureInPicture` 3D wheel.
+
+---
+
+## 4. Wheel Party (PvP)
+
+### 4.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `WheelPartyScreen` + `WheelArt` | Slices drawn as 2° rotated rectangles in dye colours by join order, a legend with share, and "Spins in" text. The spin is 3 turns + `angle1000` with a cubic ease over the `spin` step. "By a hair" and UNDERDOG appear as text lines. | **The PVP.md §6.5 head icons at the arc centre are missing**, and so is **§6.2's "Java slows the last 20 t" for By a hair**. There is no flapper or ticks, nobody's name is under the pointer during the spin, and there is no winner moment beyond text. Joins and top-ups snap the slices instantly. There is no "No more bets" beat. |
+| Bedrock `wheel/ui.ts` | Action bar `§l▶ NAME ◀` in the owner's colour per frame, `note.bell` stop, `villager_happy` + totem, and the lobby bar every 20 t | Works, but it is plain. The in-world wheel does not move. The colour is conveyed by the § code on the name only, with no swatch. |
+
+### 4.2 Target storyboard — Java `WheelPartyScreen` (256 × 220)
+
+**Lobby / countdown phase**
+- **Join:** the new slice **grows in**. Arcs interpolate from the old stake shares to the new ones over 450 ms
+  (`outCubic`). During the transition, slices are drawn procedurally with 1° wedge strips (≤ 360 fills). At rest, the
+  party face is baked like the solo face (§3.2) and re-baked only when stakes change. The new player's legend row
+  slides in from the right, and `burmaldaholic:chip_place` plays.
+- **Top-up:** "+N" floats from the legend row to the slice (600 ms arc), and the slice edge flashes white once.
+- **Head icons:** the player's face (`PlayerFaceRenderer`) at the arc centre, 8 px for arcs ≥ 6°, 12 px for shares
+  ≥ 20 %, and none for smaller arcs (PVP.md §6.5). Bots use their skin face; `BOTS.md` names give the tag.
+- **Idle rotation:** the wheel turns slowly at 6°/s during the countdown, which is the mood. Each "wheel.bar" update
+  also refreshes the countdown ring around the rim (gold, red for the last 5 s). A tick sounds every second for the
+  last 10 s.
+- **No more bets** (60 t): the banner `msg.burmaldaholic.pvp.wheel.no_more_bets` **slams** down from the top (`outBounce`,
+  400 ms), `block.anvil.land` at 0.4. The legend rows get a padlock sprite and *Add to my slice* disables with a
+  shake. The idle rotation eases to 0 over 1 s.
+
+**Spin** (`spin` step, 100 t = 5 000 ms): the same curve family as §3.3 (pull-back 250 ms, `outQuint`, settle), with
+the target angle from `angle1000`. A **name label** under the pointer shows the owner of the slice currently under
+the pointer, in their colour, with a 12 px head. It swaps at each slice boundary, and the ticks come from the
+flapper. The flapper pegs here are at slice boundaries **plus** a decorative peg every 10° (so small slices do not
+make the wheel silent).
+
+**By a hair** (only when the server's `spin.data.hair ≥ 0`): the curve is re-timed so that the last 1 000 ms (20 t)
+covers only the final `h = min(8°, ½·distance to the boundary passed last)`: the wheel crawls over the boundary at
+walking speed. The name label flickers between the two owners at the crossing, and the ticks slow to single clicks.
+This is truthful (§0.3 rule 3). The same total length and the same final angle apply; only the time split changes.
+
+**Stop and winner** (after `spin` ends; the `result` step brings the payout):
+1. The winning slice **extrudes**: it is drawn at radius +4 px with a white outline pulsing at 1 Hz. The other slices
+   drop to 40 % saturation.
+2. The winner's head flies from the slice to the hub and scales from 12 to 32 px (`outBack`, 400 ms). A crown sprite
+   (`pvp/crown`, 16 × 12) drops onto it (`outBounce`, 300 ms).
+3. The pot chips spiral from the rim to the winner's head (12 sprites, 600 ms). The winner's legend row rolls to +W.
+4. **UNDERDOG** (share ≤ 10 %): purple sparkles (24) around the hub, the `underdog_tag` plaque pops, and
+   `entity.firework_rocket.twinkle` plays. **By a hair**: a grey line under the result names the neighbour (exists).
+5. The Final Reveal titles run from the server as usual (§9.4).
+
+### 4.3 Java in-world
+
+The same BER as §3.4, in **party mode**: the block entity syncs `PartySync{seq, slices: [(colour, startBp, endBp)] ≤ 8,
+spin{startGameTime, angle1000, ticks, hair}}` on every stake change and once at the spin. The BER bakes the party face
+(the same code as the screen). Spectators see the slices grow, the spin and the stop. At the stop, the server spawns
+a `TextDisplay` above the wheel showing the translatable `gui.burmaldaholic.pvp.result.winner_title` with the winner's name as its argument (V3),
+which rises 0.5 block and fades over 60 t.
+
+### 4.4 Bedrock
+
+- **World:** `wheel_fx` has a second texture state, `party_face`: a neutral face with 54 alternating gold and black
+  segments. The render controller picks it by property `mode = party`. It spins with the same curve and the
+  same `from_deci`/`to_deci` properties (the party angle comes from `angle1000`). It cannot show proportional slices in
+  colour (Bedrock has no dynamic textures), so ownership is carried by the text channels below.
+- **Player / spectators:**
+  - Countdown bar (every 20 t, exists) gains a colour swatch glyph for "your slice" (U+E1C0–E1CF, the 16 dye colours
+    as square glyphs, V6), e.g. `■ Pot 1 000 · your slice 5 % · spins in 18 s`.
+  - The **No more bets** title §c, `random.anvil_land` at 0.4.
+  - Spin: action-bar frames `§l▶ [swatch] NAME ◀` (exists) with the flapper-style tick per frame and rising pitch.
+    By a hair: the last 20 t use frames 5 t apart that alternate between the two owners, ending on the true one.
+  - Stop: title "NAME WINS!" (exists), plus a `villager_happy` ring around the wheel block (12 points on a circle of
+    1.5 blocks: one `spawnParticle` per point, all in 1 tick) and `chip_fountain` (20) at the winner. UNDERDOG adds
+    `firework.twinkle` and a purple `burmaldaholic:sparkle` (tint via `MolangVariableMap`).
+
+### 4.5 Priorities
+
+- **MUST:** the grow-in of slices, head icons, the name-under-pointer label, the true "By a hair" crawl on Java
+  (required by PVP.md), No more bets slam, winner extrusion + crown + chips, the Java BER party mode, Bedrock swatch
+  glyphs + ticks + ring particles.
+- **NICE:** the Bedrock `party_face` spin; the Java `TextDisplay` winner pop.
+
+---
+
+## 5. Plinko (solo)
+
+### 5.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `PlinkoScreen` | 2 × 2 px white pegs, a red disc ball (r = 3) that follows the true path with a sine hop per row, 13 coloured bins with multiplier text, the landed bin turning white, and a `plinko_peg` sound per row with pitch rising by row | The ball floats rather than falls (linear x and y). Pegs do not react. The pitch rises with the row, which says nothing about where the ball is. There is no trail and no squash. The bin landing only swaps a colour (white on white text). There is no celebration and no in-world board. |
+| Bedrock `plinko-game.ts` | Action bar "Plink…" then a growing arrow list `◀ ▶ ▶ ◀ …` (4 t per row), then chat + form | The arrows are an abstract log, not a ball. There are no per-row sounds and no in-world board. |
+
+### 5.2 Visual design
+
+- **Board**: a 286 × 112 px pegboard sprite (dark blue felt, wood frame, a subtle vignette), generated. The pegs are
+  **drawn separately** (so they can flash): a 5 × 5 sprite with 3 states (idle silver, hit white-gold, afterglow).
+- **Chute**: at the top centre, a 24 × 12 sprite with a 2-frame gate.
+- **Ball**: 7 × 7, 4 frames of rolling shading (a highlight moves round), rotated by direction of travel.
+- **Bins**: 20 × 14 caps in 5 colour tiers by multiplier: < 1 red, 1 blue, 1.4–3 green, 4–33 gold, ≥ 100 purple. Each
+  has an unlit and a lit state. The multiplier is **text** drawn on the cap (`Texts.decimal`), never baked.
+
+### 5.3 Target storyboard — Java (step_ticks 4 → 200 ms per row; 12 rows)
+
+Positions: row r (0…11) has pegs at x = centre + (j − r/2)·22 px (the existing layout), y = 24 + r·8 (vertical pitch
+raised to 8 px). `rights(r)` = the number of right-bounces in the path bits 0…r−1 (server `path`).
+
+| Phase | t (ms) | Motion | Effects and sound |
+|-------|--------|--------|-------------------|
+| Release | 0–250 | The ball sits in the chute. The gate opens (2 frames), and the ball drops 6 px (`inQuad`) to the first peg. | `minecraft:block.wooden_button.click_on` at 0.4 |
+| Row r | 250 + 200r … +200 | Contact with peg (r, rights(r)) at the row start. Then x = lerp(x_r, x_{r+1}, `inOutSine`(q)), and y = y_r + 8·q² − hop·4q(1−q), with hop = 3.5·0.93ʳ px (bounces shrink as the ball speeds up). At q < 0.08 the ball squashes (scaleY 0.8, scaleX 1.15). The roll frame advances in the direction of travel. | The hit peg goes to its hit frame for 100 ms, then afterglow for 300 ms. `burmaldaholic:plinko_peg`, **pitch = 0.75 + 0.9·(column / max(1, r))**: left bounces sound low and right bounces high, so the ear follows the ball. Volume 0.5. |
+| Fall into bin | 2 650–2 950 | The ball falls 14 px (`inQuad`) into the landed bin. | — |
+| Landing | 2 950–3 250 | The bin cap presses down 2 px (80 ms) and springs back, and its lit state switches on. The multiplier label pops (scale 1 → 1.35 → 1, `outBack`, 300 ms). The ball settles with one 2 px bounce. | `burmaldaholic:plinko_bin` with pitch by multiplier (0.6 for < 1 up to 1.6 for ≥ 100), then `CelebrationOverlay` (§0.4) |
+
+- **Trail:** 3 ghost copies of the ball at the positions 2, 4 and 6 frames ago, with alpha 0.45, 0.25 and 0.1. There is
+  no trail with reduceMotion.
+- **No neighbour emphasis.** Adjacent bins do not light up or "wobble", so no near-miss is implied (§0.3 rule 3).
+- **Skip:** click → the ball traces the rest of the path in 150 ms (a dotted line flash) and lands.
+- **Several balls (NICE):** allow *Drop* again while a ball is falling (a queue of up to 5, each its own server round).
+  Balls then fall together. Each ball carries its own true path, and the tier banner is for the latest landing only.
+
+### 5.4 Java in-world (MUST)
+
+`PlinkoMachineRenderer` (BER): the front face texture gains a 13-lamp strip along the bottom edge (emissive quads). A
+2 × 2 texel ball quad travels over the front face along the true path, scaled to the face's 12 × 12 texel peg area.
+The same `PlinkoAnim.position(path, t)` as the screen drives it, with the sync record `DropSync{seq, startGameTime,
+path, bin, stepTicks}` sent once per drop. On landing, the landed lamp lights and blinks twice (2 Hz), then stays lit
+for 3 s. Every lamp chases once left-to-right on idle every 20 s (attract, cosmetic). Server particles at landing:
+MEGA and above `minecraft:end_rod` (10) rising from the machine; EDGE `totem_of_undying` (20) + `firework_rocket.twinkle`.
+Peg sounds in the world: the BER client plays `plinko_peg` at 0.25 volume within 12 blocks, at most 1 per row.
+
+### 5.5 Bedrock
+
+**World (MUST):** `burmaldaholic:plinko_fx`, a thin board model 1 × 1 block on the machine's front face (§10.2), with a
+`ball` bone and 13 `lamp_k` bones. Properties: `path` int 0–4095, `bin` int 0–12, `seq`, and `state` enum
+`idle | drop | landed`. The `drop` animation (2.95 s) computes the ball position per row in Molang: rights(r) is
+unrolled by the art generator as
+`math.mod(math.floor(v.p/1),2) + math.mod(math.floor(v.p/2),2) + …` (V5). In `landed`, `part_visibility` turns on
+`lamp_<bin>`, which blinks with `math.mod(q.life_time*4, 2) < 1` for 1 s (flash-safe: one tiny lamp).
+
+**Player (MUST):** replace the arrow log with a **mini board line** on the action bar. It is 13 cells wide and
+redrawn each row with the ball glyph at its current column: `§8·····§e●§8·······` built from U+E1AC (peg dot) and
+U+E1AB (ball). There is one line per row (4 t). The `plinko_peg` sound plays per row with the same column-based pitch
+as Java (`player.playSound(id, {pitch})`). On landing, the title shows the bin lamp glyph U+E1AE (or the gold one,
+U+E1AF, for edge bins) plus `×m` as text, with `extras.plinko.result` as the subtitle, then the tier. The result form
+opens 0.6 s after the landing (not immediately).
+
+### 5.6 Priorities
+
+- **MUST:** gravity-and-hop motion, peg flash, column pitch, trail, bin press + lit cap + label pop, tier; the Java
+  BER ball + lamp strip; Bedrock `plinko_fx` + mini-board action bar + landing title.
+- **NICE:** multi-ball queue; a Bedrock DDUI live board (V7).
+
+---
+
+## 6. Plinko Battle (PvP)
+
+### 6.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `PlinkoBattleScreen` (branch `a19fec0…`) | Your board with the ball (a 5 × 5 red cross) following the revealed path, a ranking column, the other players' last bin as small strips, EDGE and UNDERDOG banners, and the final ball with 11 rows plus a half-speed last row | The ball and board have the same issues as solo. Other players' balls are invisible until they land (only strips). The ranking re-orders by snapping. The underdog ball looks like any other ball. The final ball's hidden bins have no visual "hidden" state, and the final reveal does not drop the balls into their bins in reveal order. |
+| Bedrock `plinko/ui.ts` | Title "Ball 2/3", the path arrows `◀ ▶ …` on the action bar (4 t per row), the standings bar, and chat per ball | Same as solo; the other players are text only. |
+
+### 6.2 Target storyboard — Java `PlinkoBattleScreen` (400 × 240)
+
+**Layout:** your board in the centre (the solo board at 0.7 scale: 13 bins × 15 px), the ranking on the left, and
+the other players' **mini boards** on the right (up to 5, in 2 columns: 13 columns × 12 rows at a 4 px pitch = 52 × 48
+px each, with their name, a 1 px peg dot grid and a 3 × 3 ball).
+
+| Phase (server step) | Your board | Mini boards | Ranking column | Sound |
+|---------------------|------------|-------------|----------------|-------|
+| BALL_WAIT (≤ 80 t) | The ball wobbles in the chute. *Drop!* breathes at 1 Hz. The auto-drop ring depletes. | The chutes show a ball once that player has pressed *Drop!* (from the server's press state). | — | tick for each of the last 3 s |
+| DROP (48 t) | The solo motion (§5.3) at 4 t per row | The same path function, simultaneously (the paths come with the DROP step, §0.3 rule 7). Pegs do not flash (performance). | — | only **your** pegs sound, and other players' landings play a soft `plinko_bin` at 0.3 |
+| BALL_SCORE (40 t) | "+81" floats from the bin to your ranking row (500 ms arc) | The landed bin lights | Rows **re-sort by sliding** (250 ms `outCubic`) and the score counters roll up | `burmaldaholic:chip_count` roll-up |
+| UNDERDOG (20 t) | If you are the underdog: your next ball turns **gold** (`plinko_ball_gold`) with a ×2 badge and a flame trail (GUI particles). Banner `msg…plinko.underdog`. | The underdog's mini ball turns gold | The underdog row shows a ×2 tag | `item.firecharge.use` at 0.5 |
+| EDGE (any ball, bin 0 or 12) | The bin cap **erupts**: 30 `fx/coin_spin` GUI particles plus a gold screen-edge glow (flash-safe). Banner `msg…plinko.edge`. | That mini board's edge lamp flashes gold | — | `firework_rocket.twinkle` + bell (spectators too) |
+
+**Final ball** (ball B, "FINAL BALL" plaque `gui.burmaldaholic.pvp.plinko.final_ball` slams in at BALL_WAIT):
+- Every board's bins are **capped with foil** (`plinko_bin_hidden`, the scratch-foil look with a slow shimmer), and the
+  numbers are hidden.
+- All boards drop together through row 11, and row 12 runs at half speed (8 t, PVP.md §7.4). Every ball then **hangs**
+  at the last peg, bobbing ±1 px, because its final bit is withheld until its reveal (§0.3 rule 7).
+- **Final Reveal (§9.4) coupling:** at each place cue (last → 2nd), the server's cue includes that player's final
+  bin. That player's mini board (or your board, if it is you) is outlined, its ball drops into the bin (300 ms), the
+  foil cap bursts off (8 foil flakes), and the bin lights and shows its points. Then the ranking row locks in with
+  its place medal. At the winner cue, the same happens with the full celebration (§9.4).
+
+### 6.3 Java in-world
+
+Each participant's machine BER shows **that participant's** ball per round: a participant is linked to the machine
+they joined through; if several share one machine, it shows the host's or the first joiner's. Final ball: lamps
+stay dark until the reveal cue, then light in reveal order. EDGE: `end_rod` fountain (16) at that machine.
+
+### 6.4 Bedrock
+
+- Title "Ball 2/3" (exists), then the mini-board action bar (§5.5) for **your** ball, with the column-pitched peg sound.
+- After BALL_SCORE: the action bar shows the standings with movement arrows `▲`/`▼` (plain Unicode in the default
+  font; no new glyphs), e.g.
+  `1 Alex 150 ▲ · 2 You 120 ▼ · 3 Bob 90`. It must stay ≤ 44 EN characters (truncate to the top 3 + "you").
+- UNDERDOG: title `…plinko.underdog` §6 + `mob.ghast.fireball`. That player's `plinko_fx` gets `state = boost`, which
+  makes the ball bone gold through the render controller texture swap.
+- EDGE: `firework.twinkle`, `endrod` particles at the machine (exists), and `gold_burst` at the player.
+- Final ball: the action bar shows your 11 rows, then `?` in the bin row. The `plinko_fx` ball hangs (state
+  `hang`). At that player's reveal cue the script sets `bin` + `state = landed`.
+
+### 6.5 Priorities
+
+- **MUST:** the mini boards with live balls, ranking slide, underdog gold ball, EDGE eruption, foil-capped final bins
+  revealed in Final-Reveal order (Java); the action-bar mini board, standings arrows and final hang/land in
+  `plinko_fx` (Bedrock).
+- **NICE:** the peg flash on mini boards; spectator floating scoreboard (PVP.md §9.3).
+
+---
+
+## 7. Scratch Cards (solo)
+
+### 7.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `ScratchScreen` | A 3 × 3 grid of 56 × 28 grey rectangles with faint stripes. A click reveals the cell instantly, showing the **prize number as text** (e.g. "50"). Matching cells get a gold frame at the end. The creeper face is procedural. | No scratching at all: a click is a swap. The "symbols" are raw numbers, so the card has no identity (GAME_DESIGN: "cells with prize symbols"). The top prize looks like any win. The creeper card has no drama. The card has no art (it is not a ticket). |
+| Bedrock `scratch-game.ts` | An ActionForm body with 3 rows of `▒▒▒` or numbers, and Scratch next / Scratch all / Close, re-shown after each scratch | Each scratch closes and reopens a form with no in-between beat, so nothing is scratched. There are no sounds on scratch. Symbols are numbers. |
+
+### 7.2 Visual design
+
+- **Ticket:** a 196 × 124 px card sprite (nine-slice for the border): silver guilloche frame for Basic, gold for
+  Golden, with a perforated edge and an emerald ribbon. The hint text sits on the ribbon (key, not baked).
+- **Symbols per prize tier** (the prize table's rank, lowest = 1). The chip amount is drawn as text under each icon.
+
+| Rank | Basic prize | Golden prize | Icon (sprite 16 × 16; Bedrock glyph) |
+|------|-------------|--------------|--------------------------------------|
+| 1 | 10 | 100 | coal (U+E1A2) |
+| 2 | 20 | 200 | iron ingot (U+E1A3) |
+| 3 | 50 | 500 | gold ingot (U+E19A) |
+| 4 | 100 | 1 000 | emerald (U+E199) |
+| 5 | 500 | 5 000 | diamond (U+E1A4) |
+| 6 | 2 500 | 25 000 | nether star (U+E1A5) |
+| — | creeper | creeper | creeper face (U+E1A6) |
+
+  These are the same icons Scratch Showdown uses, so one sheet serves both. The rank comes from the configured prize
+  list, so config changes still map onto the 6 icons (a longer list wraps to the top icon).
+- **Foil:** a 56 × 28 foil tile with a diagonal sheen and a coin-slot logo emboss (no text), and an animated
+  shimmer sprite (`.mcmeta`, 8 frames, 3 s loop) that sweeps across unscratched cells.
+
+### 7.3 Target interaction — Java (MUST)
+
+**Drag to scratch** (research §6):
+- Each cell's foil has a **coverage mask** of 14 × 7 sub-tiles (4 × 4 px each). While the left mouse button is held,
+  the cursor erases sub-tiles within a 6 px radius along its path (line-rasterised between mouse samples). The mask
+  lives client-side as a `long[]`. Drawing blits the foil only where the mask is set, so no `DynamicTexture` is needed.
+- The **first** erased sub-tile of a covered cell sends `scratch {cell}` to the server (the server decides on the
+  first scratch of the card, as today). Under the foil the cell shows a dark "unknown" base until the value arrives
+  (≈ 50–100 ms), then the symbol, visible only through the holes.
+- When ≥ 55 % of a cell's sub-tiles are erased, or on mouse release over a cell that is already started, the rest
+  **dissolves**: the remaining sub-tiles flake off over 200 ms in random order from `Random(seq·9+cell)`. Each flake
+  is a GUI particle (4 × 4 foil piece with gravity, spin and a 400 ms fade).
+- **Scratch sound:** `burmaldaholic:scratch` while dragging, throttled to 8 per second, pitch 0.9–1.1 seeded by the
+  sample index. Flakes are silent.
+- **Cursor:** while over the card, a small Lucky Coin edge sprite (16 × 16) is drawn at the cursor, tilted 30°, as
+  the scraper.
+- **Click without drag** (and keyboard/narrator users): an auto-swipe wipes the foil in 3 zig-zag strokes over 250 ms,
+  with the same flakes and sound. *Scratch all* wipes the remaining cells in reading order, 120 ms apart.
+- **Hover** on a covered cell: its shimmer speeds up (a second sweep overlay) and gets a 1 px `gold` outline (§0.5).
+
+**Reveal emphasis — honest.** Pairs are **not** highlighted while scratching. Pair-teasing would manufacture near-miss
+tension out of the fixed "at most twice" filler rule (§0.3 rule 3). Emphasis happens only at the end:
+- **Win** (3 matching): the three cells get gold frames one by one (100 ms apart, `outBack`), each with an
+  `block.amethyst_block.chime` at pitch 1.0 / 1.26 / 1.5. A gold line then connects their centres (a 300 ms draw-on)
+  and the prize amount floats from the line to the result plaque. Then `CelebrationOverlay` for the server tier (§0.4).
+- **Top prize:** the Epic tier, plus a **holographic sweep** over the whole ticket (a rainbow gradient band moving
+  diagonally over 800 ms: `fillGradient` strips, or the optional `gui_shimmer` pipeline, research §2.3).
+- **Creeper card** (3 creepers): the creeper faces' eyes blink (2 frames), `entity.creeper.primed` rises in pitch
+  over 1 s, the ticket shakes ±2 px (not with reduceMotion) and its edges char inward (a black vignette sprite
+  growing over 600 ms). The screen then closes and the existing chaos `mob_wave` starts.
+- **Loss:** the cells desaturate to 60 %, a "torn corner" sprite folds the top-right corner down (200 ms), and the
+  result line shows in red. When *Play again* is pressed, the old card slides down and out (300 ms `inQuad`) and the
+  new one slides in from the top (`outCubic`).
+
+### 7.4 Java in-world
+
+While a player scratches, the server spawns `minecraft:scrape` particles (silver flakes, **V**: verify the id in 26.x;
+fallback `minecraft:white_ash`) at the player's hand: 4 per scratched cell, 1 call per cell. On a win, the tier
+particles. On a creeper card, `minecraft:smoke` (12) before the mob wave.
+
+### 7.5 Bedrock
+
+**MUST (classic forms):**
+- The form body shows the ticket as 3 glyph rows. Covered cells use U+E1A7 (foil) and scratched cells the symbol
+  glyph with the amount: `[coal]10 │ [foil] │ [star]2 500`.
+- After *Scratch next*, a 6 t beat plays **between** forms: title flipbook `U+E1A7 → U+E1A8 (half-scratched) → symbol`
+  at 2 t per frame (subtitle = the amount), `burmaldaholic.scratch` twice, then the form re-opens with the revealed cell.
+  *Scratch all*: the same beat for each remaining cell at 3 t per cell (all in one title sequence), then the result form.
+- End of card: a win shows the three matching symbols coloured §6 in the body. The title shows the symbol glyph ×3 and
+  `fx.celebrate` (BIG and up), with the existing `scratch.win`/`top_prize` text as the subtitle, followed by the tier sounds and
+  particles. Creeper: title creeper glyph ×3 §2, `random.fuse` rising (3 calls at pitch 0.8/1.0/1.2, 5 t apart),
+  `basic_smoke_particle`, then the chaos wave (existing).
+- Scratch particles at the player: the custom `burmaldaholic:foil_flakes` (§10.4), white-silver flakes, 1 call per cell.
+
+**NICE (V7, after the DDUI spike):** a live `CustomForm` where the 3 × 3 glyph grid is an `ObservableUIRawMessage` label
+updated every 2 t, so the half-scratched frames play **inside** the form without reopening.
+
+### 7.6 Priorities
+
+- **MUST:** ticket art, symbol icons + amounts, drag scratching with the mask, flakes and sound, the auto-swipe, the
+  honest end emphasis, top-prize holo, creeper char; the Bedrock glyph ticket + between-form flipbook + flakes.
+- **NICE:** DDUI live scratching; a Bedrock attachable showing the held card with a foil shimmer.
+
+---
+
+## 8. Scratch Showdown (PvP)
+
+### 8.1 Audit
+
+| Edition | What is there | Problems |
+|---------|---------------|----------|
+| Java `ScratchShowdownScreen` (branch `a19fec0…`) | Up to 6 mini-cards (20 px cells) or 2 big cards (40 px), vanilla item icons (coal … rabbit's foot, creeper head), a pulse on the current cell, a charred cell drawn with diagonal pixel lines, a gold border for feet, banners for creeper and foot, and sounds (`scratch`, creeper primed, amethyst chime) | Cells swap instantly (no scratch). **The silver-dust particle sprite of PVP.md §8.5 is missing.** A burn shows no cause and effect: the creeper and its target are not connected. Feet do not "stamp" and the ×2/×4 badge just appears. Trios are not marked. Scores snap. The hidden cell 9 has no special look. |
+| Bedrock `scratch/ui.ts` | Action-bar card line `■ ■ ■ \| ◆ ✕ ■ \| ▒ ▒ ▒  Score: 16 ×2`, chat events, and a read-only ActionForm | The symbols are generic shapes (■ ◆ ✕), not the scratch icons. There are no titles for your own big events. |
+
+Keep the Java vanilla item icons (they are pretty, and research §2.2 accepts `g.item()` outside reels). Add the
+custom sprites only for foil, charred, trio frames and the flakes.
+
+### 8.2 Target storyboard — Java (per step: STEP_WAIT → REVEAL_CELL 20 t → events 20 t)
+
+| Beat | t (ms) | Every card (all players see all cards) | Sound |
+|------|--------|----------------------------------------|-------|
+| STEP_WAIT | ≤ 2 000 | The current cell's foil shimmers faster on every card. *Scratch!* breathes; pressed players get a ✓ tick on their card name. | — |
+| REVEAL_CELL | 0–600 | The auto-swipe (§7.3) runs on each card, **staggered 60 ms in seat order**, so the scratch ripples across the table. Silver flakes: 6 per card. | `scratch` once per card (≤ 6), pitch 0.9 → 1.1 across the ripple |
+| | 600–1 000 | Symbols settle (scale 1.2 → 1, `outBack`). Running scores roll up (`chip_count` for your own card only). | — |
+| **Trio** (3rd surviving copy) | +200 | The three cells get gold frames with a connecting line (as §7.3). A "×2" chip pops over the trio. | amethyst chime ×3 (your card only; others at 0.4 volume) |
+| **Creeper — burn** (events step, 1 000 ms) | 0–400 | The creeper cell **swells** (1.0 → 1.25) and flashes white twice (cell-only; with flashes off a steady outline is used instead). | `entity.creeper.primed` |
+| | 400–650 | A **spark** (4 × 4 ember sprite with a 3-ghost trail) travels along an arc (quadratic Bézier, apex 12 px above) from the creeper cell to the target cell named by the server event. | `entity.tnt.primed`-style fizz (`block.fire.ambient`) |
+| | 650–1 000 | Impact: a 4-frame explosion puff (16 × 16) on the target, then the cell turns **charred** (`charred` sprite with an ember flicker at 2 Hz for 1 s). The card shakes ±2 px for 150 ms (not with reduceMotion). The card's score counts **down** in red. | `entity.generic.explode` at 0.3 |
+| **Creeper — fizzle** | 0–600 | The creeper swells, then deflates with a grey puff. | `block.fire.extinguish` at 0.4 |
+| **Rabbit's Foot** | 0–700 | The foot cell glints. A golden light runs once around the card border (500 ms), and a **stamp** "×2" (or ×4) badge slams onto the top-right corner (scale 2 → 1, `outBack`, 200 ms). From ×2 to ×4 the badge flips over (a 200 ms X-scale flip). The score doubles with a roll-up. | amethyst chime + `entity.rabbit.jump` |
+| Standings | after events | Card order does not move (cards stay in seat order to avoid confusion). Instead, each card's rank medal (1st–6th, a small ribbon sprite with the place as text) updates with a flip. | — |
+
+**Final cell (cell 9):** it stays foil on every card with a gold "?" shimmer (`foil_final` animated sprite, 6 frames).
+At each Final Reveal place cue (§9.4), that player's card is outlined and its cell 9 auto-swipes. Any creeper, foot or
+trio event plays compressed (at most 500 ms), and the final score lands. The card then dims to 70 % with its final place
+medal. At the winner cue, the winner's card scales to 1.1 with a gold border, and the celebration runs.
+
+### 8.3 In-world
+
+Java server: per step, `minecraft:scrape` (V) flakes at each participant (4 each, 1 `sendParticles` per participant);
+a burn → `minecraft:smoke` (8) at that player; a foot → `minecraft:wax_on` (10); the winner → totem (PVP.md §12, exists).
+Bedrock: the same moments with `burmaldaholic:foil_flakes`, `basic_smoke_particle` and `villager_happy` (exists for the
+last two).
+
+### 8.4 Bedrock (MUST)
+
+- The action-bar card line uses the **real symbol glyphs** (§10.5 scratch set, U+E1A0 foot, U+E1A1 charred, U+E1A7 foil)
+  instead of ■ ◆ ✕: `[c][c][c] │ [d][x][i] │ [f][f][f]  16 ×2`. It stays ≤ 44 visible characters (each glyph counts as
+  one).
+- Your own events get a title beat (30 t, `holdTitle`): creeper burn → title = charred glyph, subtitle = the existing
+  `msg…scratch.creeper` for your name; foot → title foot glyph §6 "×2"/"×4" (from `pvp.scratch.multiplier`); trio →
+  title = the symbol glyph ×3 §6.
+- Other players' events stay in chat (exists).
+- Sounds as today, plus `burmaldaholic.scratch` per step for everyone in the match.
+- Final cell: the action bar shows `[?]` (glyph U+E1A8 with §6) in position 9 until your reveal cue.
+
+### 8.5 Priorities
+
+- **MUST:** the auto-swipe ripple and flakes, the creeper swell → spark → burn chain, the foot stamp and border run,
+  trio frames, score roll-up/down, the final foil and per-place reveal (Java); the real glyphs and own-event titles (Bedrock).
+- **NICE:** rank medals; a Bedrock DDUI live table of cards.
+
+---
+
+## 9. Shared PvP presentation (all modes; Slot Showdown uses it too)
+
+### 9.1 Audit
+
+| Part | Java (branch `a0d8581…`) | Bedrock (branch `aaf0f54…`) | Problems |
+|------|--------------------------|-----------------------------|----------|
+| Invites | chat line with [Accept]/[Decline], goat horn | chat + action bar + horn; the form waits for the Casino Menu | Java has no toast, so invites are easy to miss in combat and chat spam. No countdown is visible. |
+| Lobby | `PvpLobbyScreen` rows; the timer as text | host ActionForm re-shown on join/leave; action bar `waiting_bar` every 20 t | Rows pop in and out. There is no join fanfare, the empty seats are just text and the timer is plain text. |
+| Countdown | a digit on the coin (duel only) | titles 3/2/1 + hats | There is no shared countdown component on Java; each mode improvises. |
+| Final Reveal | titles via `PvpScreensPresenter` + bells + angry villagers + totem; `PvpResultScreen` reveals rows every 10 t | presenter: drum, bells with rising pitch, subtitles, winner title, particles | **Java plays no drumroll** (no `basedrum` anywhere on the Java branches), although PVP.md §3.11.4 requires it. The Java result rows are not synced with the server's cue ticks (`STEP = 10` t vs the 20 t cues). There is no visual build-up. |
+| Grudge / revenge | `PvpModule`: title + ravager roar | `holdTitle` §4 + ravager roar | Title only. |
+| Win streaks | chat messages | chat messages | No visual at all. |
+| Taunts | chat + villager yes/no | same | Taunts are not tied to the speaker in the world. |
+
+### 9.2 Invites
+
+**Java (MUST):** a `ChallengeToast` (a subclass of `global.md` §4.10 `CasinoToast`, 160 × 32 `toast/casino`) slides in at the top
+right (300 ms `outCubic`). It shows the challenger's face (16 px), the mode icon (16 × 16: coin / wheel / plinko / card /
+slot, `pvp/mode_*`), the translated `invite.received` line (wrapped to 2 lines; RU fits at 150 px text width) and a
+**depleting bar** along the bottom over `inviteTimeoutTicks` (gold, red for the last 5 s). The hint line is
+`gui.burmaldaholic.anim.invite.hint` ("%1$s — answer", where %1$s is the Casino Menu key name). The toast stays until the
+invite resolves; on accept it flashes green and leaves, on decline or expiry it greys and slides out. A grudge invite has a
+red border and the ravager-claw icon. The horn plays as today.
+
+**Bedrock (MUST):** the action bar `msg…invite.received` is prefixed with the mode glyph (U+E18A coin, U+E1B0
+wheel, U+E1AB ball, U+E1A7 foil; Slot Showdown uses its own slot glyph) and repeated every 40 t while pending (at most 4 times, `HudPriority.game`). The
+horn plays at the first time only. The last repeat is §c with "expires in %1$s" (exists: `invite.expires`).
+
+### 9.3 Lobby
+
+**Java `PvpLobbyScreen` (MUST):**
+- A new seat row slides in from the right (250 ms `outCubic`) with `chip_place`, and its head pops (`outBack`). A
+  leaving row fades (150 ms), and the rows below close the gap (200 ms).
+- Empty seats show a dashed outline (`pvp/seat_empty`, nine-slice) whose alpha breathes 0.4 ↔ 0.8 at 0.5 Hz. For
+  `MIXED` lobbies, a small bot icon waits in each seat to be filled.
+- The host has a crown sprite. The **ALL-IN** tag is a red plaque with a flame glyph that glows at 1 Hz.
+- The timer is a ring (UI.md §0.2 `Timer`), gold until the last 5 s and then red with a tick each second.
+- *Start now* breathes (1 Hz) once there are ≥ 2 players. When the lobby is full, a "Full!" chime plays
+  (`block.note_block.chime` at 1.5) and the ring jumps to the countdown.
+
+**Bedrock:** on each join, `note.pling` plays at pitch 1.0 + 0.1·n (n = player count) for everyone in the lobby, and the
+action bar flashes the joiner's name in §a once (existing `lobby.joined` chat stays).
+
+### 9.4 Countdown and the Final Reveal
+
+**Shared countdown component** (Java `client/pvp/anim/CountdownOverlay`, used by every mode screen and by the HUD
+ticker when the screen is closed): the big digits of §2.2-B, a ring and the hats. ALL-IN adds a drum hit at t 0 per
+ALL-IN player. The digits are font text at scale 4, and the colour steps gold → orange → red.
+
+**Final Reveal — Java (MUST)**, synced to the server's cue ticks (PVP.md §3.11.4). `PvpResultScreen` (and each mode
+screen's own reveal hooks, §6.2 and §8.2) must use the server's cue timestamps, not a local `STEP`.
+
+| t (ticks, from the server) | Screen | Sound (server, all participants) |
+|----------------------------|--------|----------------------------------|
+| 0 | The standings become **face-down plaques** (one per player; the card-back pattern of `pvp/plaque_back`). "Final results…" banner. The plaques tremble ±1 px in time with the drum (none with reduceMotion). | **Drumroll:** `block.note_block.basedrum`, 8 hits at t = 0, 10, 18, 25, 31, 35, 38, 40 (accelerating). **Missing today on Java: add it to `PvpScreensPresenter`.** |
+| 40, 60, … (each place from last to 2nd) | That plaque **flips** (X-scale 1 → 0 → 1 over 180 ms; face at the midpoint) and shows the place medal, head, name and points. It then settles into its final row slot (200 ms slide). Loser rows tint grey. | `note_block.bell`, pitch 0.8 → 1.6 rising (exists) |
+| +30 pause | The remaining plaque(s) glow gold at the edges and swell very slightly (1.00 → 1.03) | silence |
+| end | The winner plaque flips in gold and **bursts** into the winner banner: `result.winner_title` on a nine-slice gold plaque with the `global.md` `fx/rays` sprite rotating behind it, a crown drop onto the winner's head, a 60-coin shower and the payout roll-up. Dead heat: two plaques flip together and the banner reads `result.dead_heat_title` with a split coin icon. | `burmaldaholic:win` + `entity.player.levelup` for the winner, `burmaldaholic:lose` for the losers (exists) |
+
+The HUD ticker (screen closed) mirrors it: the ticker line shows "Final results…" with a 3-dot drum pulse, then the
+winner line pops (`outBack`).
+
+**Final Reveal — Bedrock:** the existing presenter sequence stays (titles, subtitles, bells, particles). Additions:
+the drum hits also go to spectators within the radius at volume 0.4 (the build-up is audible on the casino floor);
+the winner gets a `gold_burst` and `camera.fade` in gold at 20 % for 3 t (only with flashes on and reduceMotion
+off); dead heat gets a `gold_burst` at each winner.
+
+### 9.5 Rivalry, grudge and revenge banners
+
+**GRUDGE MATCH — Java (MUST):** before the countdown, 1 600 ms total:
+- 0–300 ms: two halves of a torn red banner (`pvp/grudge_left`, `pvp/grudge_right`, 128 × 40 each, nine-slice stretched
+  to the text width) slide in from the screen edges (`outCubic`).
+- 300 ms: they **clash** in the centre. `block.anvil.land` at 0.4, a 4 px screen shake decaying over 200 ms (research
+  §2.10 formula; not with reduceMotion), and a spark burst (12 GUI particles). `GRUDGE MATCH` (existing key) appears
+  on the banner.
+- 300–1 300 ms: hold. Under the banner the subtitle (`grudge.subtitle`) types on at 40 characters per second. The
+  underdog's head has 3 claw-scratch marks sprite (`pvp/claw`).
+- 1 300–1 600 ms: fade out. `entity.ravager.roar` (exists) is timed to the clash.
+- In the world (server): `minecraft:angry_villager` (4) above both players.
+
+**Grudge — Bedrock:** the existing `holdTitle` + roar, plus `camerashake add @s 0.25 0.4 positional` at the clash for both
+participants (not with reduceMotion) and `villager_angry` above both.
+
+**Sweet revenge** (the grudge underdog wins): Java — a broken-chain sprite snaps apart over the winner banner (2
+frames), with `block.chain.break` + the existing chat line. Bedrock — subtitle = `msg…grudge.revenge`, plus
+`random.anvil_break` at 0.3.
+
+**Head-to-head chips:** on plates and lobby rows, the record `3–5` is a small nine-slice chip, green if you lead, red if
+you trail. The Nemesis gets a skull chip (`pvp/nemesis`).
+
+### 9.6 Win-streak call-outs
+
+| Tier | Java | Bedrock |
+|------|------|---------|
+| heating (3) | `CasinoToast` with 1 flame (U+E170 glyph, drawn 2×), the translated message, and `block.fire.ambient` | action bar with the flame glyph ×1 |
+| rampage (5) | Toast with 2 flames, a red border, and an animated flame sprite (8 frames); `entity.blaze.shoot` at 0.5 | title §c `…streak.rampage` for the player; action bar for the radius |
+| legendary (10) | Toast with a gold border + an 8-frame gold flame + `item.totem.use` in the radius (exists); the server-wide chat line (exists) | title §6 for the player and the radius; `random.totem` (exists); `coin_burst` |
+| streak broken | Toast with a snuffed-flame sprite (3 frames: flame → smoke), `block.fire.extinguish` | action bar + `random.fizz` |
+
+### 9.7 Taunts
+
+**Java (MUST if V2/V3 pass, else chat only):** a **speech bubble** above the sender, as a `TextDisplay` (billboard
+`CENTER`, background `0xC0101010`, line width 120, text = the translatable taunt key, so each viewer reads their own
+language). It is mounted as a passenger of the sender with translation y + 0.45. It pops in (scale 0 → 1 over 3 t
+interpolation), stays 50 t, and shrinks out over 3 t. Only 1 bubble per player; a new taunt replaces the old one.
+Friendly taunts get 3 `happy_villager` particles; cheeky taunts get 3 `angry_villager`. The chat line and sounds stay.
+
+**Bedrock (MUST):** the chat line + sounds (exist), plus the action bar `msg…taunt.say` to the participants for 40 t, and
+the particle emote above the sender (`villager_happy` or `villager_angry`).
+**Bedrock NICE:** pictogram bubbles, a dummy entity `burmaldaholic:taunt_bubble` with 8 language-free pictograms (GG =
+handshake, luck = four-leaf clover, wow = exclamation, rigged = dice with wrench, again = circular arrow, steel =
+anvil, bye = waving hand with chips, respect = raised hat) that rises 0.3 blocks and fades over 2.5 s. Nametags cannot
+carry rawtext, so this avoids untranslated text.
+
+### 9.8 Spectators
+
+- Java: players within `pvp.announceRadius` get the HUD ticker line. Its enter and exit animate (slide down from under
+  the boss bar, 200 ms), and the leader's name pulses when the lead changes.
+- The in-world visuals of §1–§8 (BERs, displays, fx entities, particles) are the main spectator show.
+- NICE: the floating scoreboard (PVP.md §9.3) animates its lines with a 3 t scale interpolation on change.
+
+---
+
+## 10. Asset catalogue
+
+Every PNG below is produced by the **extras/PvP module of S1** (`scripts/fx_assets/extras_pvp.py`, run by
+`scripts/gen-fx-assets.py`; deterministic, no text). The exceptions are the JSON files marked "hand-authored". The module
+also writes the Molang that must be generated (the wheel curve, the flapper, the Plinko path sums). "H" = a horizontal
+strip indexed by code with `blit` UV. "V + mcmeta" = a vertical strip animated by the GUI atlas (research §2.2). Assets
+that `global.md` §5 already provides are **reused, not duplicated**: the Last Chance `coin_spin` sheet, `fx/rays`,
+`fx/sparkle`, `fx/confetti`, `fx/chip_<denom>`, `fx/chip_side_<denom>`, `fx/coin_spin`, `toast/casino`, the panels and
+buttons, and the particles `chip_pop`, `chip_fountain`, `sparkle` and `gold_burst`.
+
+### 10.1 Java textures
+
+**Code-indexed GUI sheets** in `assets/burmaldaholic/textures/gui/extras/` (not in the atlas;
+`blit(GUI_TEXTURED, id, x, y, u, v, w, h, texW, texH)`):
+
+| # | File | Size | Frames | Content |
+|---|------|------|--------|---------|
+| 1 | `coin_glint.png` | 128 × 32 | 4 H | diagonal white glint band crossing the face (alpha 0.6) |
+| 2 | `coin_heat.png` | 64 × 32 | 2 H | 0 red-hot rim overlay, 1 soul-blue rim overlay (also used tinted for the Soul Wager) |
+| 3 | `chain_pip.png` | 48 × 12 | 4 H | hollow, heads mini, tails mini, current (ring) |
+| 4 | `wheel_icons.png` | 128 × 16 | 8 H | icons for B C H M D T E X (§3.2); read as a `NativeImage` for baking |
+| 5 | `wheel_parts.png` | 64 × 16 | 4 H | rim segment tile, gold peg, bulb off, bulb on |
+| 6 | `plinko_ball.png` | 28 × 14 | 4 H × 2 rows | roll frames; row 2 = the gold underdog ball |
+| 7 | `plinko_peg.png` | 15 × 5 | 3 H | idle, hit, afterglow |
+| 8 | `plinko_bins.png` | 100 × 28 | 5 H × 2 rows | 5 multiplier tiers × unlit / lit |
+| 9 | `plinko_chute.png` | 48 × 12 | 2 H | gate closed / open |
+| 10 | `scratch_symbols.png` | 112 × 16 | 7 H | coal, iron, gold, emerald, diamond, nether star, creeper (§7.2) |
+| 11 | `torn_corner.png` | 72 × 24 | 3 H | corner fold frames |
+| 12 | `explosion_puff.png` | 64 × 16 | 4 H | burn impact |
+| 13 | `flakes.png` | 32 × 8 | 4 H (foil flake 4 × 4 ×4) + 2 ember + 2 spark (4 × 4) | GUI particles for scratching and burns (the rest of the GUI particles come from `global.md` `fx/*`) |
+
+**Atlas sprites** in `assets/burmaldaholic/textures/gui/sprites/burmaldaholic/…` (`blitSprite`):
+
+| # | Sprite | Size | Scaling / animation |
+|---|--------|------|---------------------|
+| 14 | `extras/coin_shadow` | 32 × 8 | stretch |
+| 15 | `extras/coin_flame`, 16 `extras/coin_flame_soul` | 16 × 24, 8 frames each | V + mcmeta, frametime 2 |
+| 17 | `extras/wheel_hub` | 24 × 24, 6 frames | V + mcmeta (gem glint every 3 s: frames `[0×54, 1,2,3,4,5]`, frametime 1) |
+| 18 | `extras/wheel_flapper` | 12 × 18 | stretch |
+| 19 | `extras/plinko_board` | 286 × 112 | stretch |
+| 20 | `extras/plinko_bin_hidden` | 20 × 14, 6 frames | V + mcmeta, frametime 3 (foil shimmer) |
+| 21, 22 | `extras/scratch_ticket_basic`, `extras/scratch_ticket_gold` | 196 × 124 | nine-slice, border 10 |
+| 23 | `extras/scratch_foil` | 56 × 28 | tile |
+| 24 | `extras/scratch_foil_shimmer` | 56 × 28, 8 frames | V + mcmeta, frametime 7 |
+| 25 | `extras/foil_final` | 16 × 16, 6 frames | V + mcmeta, gold shimmer (the "?" is drawn as text on top) |
+| 26 | `extras/charred` | 16 × 16, 2 frames | V + mcmeta, ember flicker, frametime 10 |
+| 27 | `extras/trio_frame` | 16 × 16 | nine-slice, border 3 |
+| 28 | `extras/scraper` | 16 × 16 | stretch |
+| 29 | `extras/edge_glow` | 32 × 32 | nine-slice, border 12 (soft gold; flash-safe) |
+| 30, 31 | `pvp/nameplate`, `pvp/nameplate_winner` | 32 × 16 | nine-slice, border 4 |
+| 32 | `pvp/vs_badge` | 40 × 24 | stretch |
+| 33 | `pvp/crown` | 16 × 12 | stretch |
+| 34 | `pvp/padlock` | 8 × 10 | stretch |
+| 35–39 | `pvp/mode_coin`, `mode_wheel`, `mode_plinko`, `mode_scratch`, `mode_slots` | 16 × 16 each | stretch (toast and hub icons) |
+| 40–42 | `pvp/plaque_back`, `pvp/plaque_face`, `pvp/plaque_gold` | 64 × 20 | nine-slice, border 4 |
+| 43, 44 | `pvp/grudge_left`, `pvp/grudge_right` | 128 × 40 | nine-slice, border 12 (torn edge on the inner side) |
+| 45 | `pvp/claw` | 16 × 16 | stretch |
+| 46 | `pvp/nemesis` | 8 × 8 | stretch |
+| 47 | `pvp/seat_empty` | 16 × 16 | nine-slice, border 3 (dashed) |
+| 48, 49 | `pvp/flame_red`, `pvp/flame_gold` | 16 × 16, 8 frames | V + mcmeta |
+| 50–52 | `pvp/flame_snuff_0..2` | 16 × 16 | code-stepped |
+| 53, 54 | `pvp/broken_chain_0..1` | 32 × 16 | code-stepped |
+| 55–60 | `pvp/rank_medal_1` … `_6` | 12 × 16 | stretch (the place is drawn as text) |
+| 61 | `pvp/record_chip` | 16 × 10 | nine-slice, border 3 |
+| 62 | `pvp/mode_banner` | 64 × 24 | nine-slice, border 8 (No more bets, FINAL BALL, ALL SQUARE; the label is text) |
+
+**World (Java):**
+
+| # | File | Size | Use |
+|---|------|------|-----|
+| 63, 64 | `textures/item/extras/lucky_coin_heads.png`, `…_tails.png` | 16 × 16 | item-model variants for the `ItemDisplay` toss |
+| — | `items/lucky_coin.json` (hand-authored item-model definition) | — | `minecraft:select` on `custom_model_data` strings `heads`/`tails`, fallback = the current model |
+| 65 | `textures/entity/extras/wheel_stand.png` | 32 × 32 | BER post and rim back |
+| 66 | `textures/entity/extras/wheel_bulbs.png` | 8 × 4 | bulb off / on |
+| 67 | `textures/entity/extras/plinko_lamp.png` | 12 × 2 | lamp off / on / gold |
+| 68 | `textures/entity/extras/plinko_ball.png` | 4 × 2 | ball quad, red + gold |
+| 69–72 | `textures/particle/burmaldaholic/foil_flake_0..3.png` + `particles/foil_flake.json` | 4 × 4 | custom particle `burmaldaholic:foil_flake` (V9 fallback, and the scratch flakes in the world) |
+
+The wheel face and the Wheel Party face are **baked at runtime** (`DynamicTexture`, §3.2), so they are not asset files.
+
+### 10.2 Bedrock entities (BP + RP, hand-authored JSON + generated textures and Molang)
+
+All three are AI-free dummies (research §3.2): `minecraft:physics` without gravity or collision, a collision box of
+0.01, damage immune, not pushable, `is_spawnable: false`, `is_summonable: true`. There is no `minecraft:persistent` for
+`coin_fx` (transient). `wheel_fx` and `plinko_fx` are persistent and re-linked on chunk load.
+
+| Entity | Properties (`client_sync: true`) | Geometry (bones) | Animations (length) | Controller states | Textures |
+|--------|----------------------------------|------------------|---------------------|-------------------|----------|
+| `burmaldaholic:coin_fx` | `face` enum [spin, heads, tails]; `heat` int 0–4; `variant` enum [normal, soul] | `root` → `coin` (a 6 × 6 × 1 px cube, UV heads front / tails back / reeded edge) | `hover` (loop, 2 s), `toss` (1.7 s: arc up 1.2 blocks, X roll `(1800 + (face==tails)·180)·outQuad`), `toss_loop` (loop: apex bob + roll 720°/s), `land_heads` / `land_tails` (0.5 s decel + 2 bounces), `vanish` (0.25 s scale → 0) | `idle → toss → land → gone`, driven by `playAnimation(…, {controller, nextState})` from the script | `coin_fx.png` 32 × 16, `coin_fx_soul.png` 32 × 16; heat by render-controller `overlay_color` (orange / red / blue by `heat`) |
+| `burmaldaholic:wheel_fx` | `from_deci`, `to_deci` int 0–3599; `seq` int 0–1023; `mode` enum [solo, party]; `glow` bool (NICE per-player override) | `stand`, `disc` (a 44 × 44 × 1 px plane, pivot centre), `flapper` (pivot top), `bulbs` (24 small cubes; UV chosen by render controller) | `spin` (4.0 s; `disc.rotation.z` = the §3.3 piecewise curve in Molang, generated), `party_spin` (5.0 s; the same with a 250 ms pull-back), `rest` (hold `-to_deci/10`), `flapper` (deflection from `math.mod(angle, 360/54)`, generated) | `rest ⇄ spin` on `seq` change (the controller stores `v.last_seq`) | `wheel_fx.png` 128 × 128 (Appendix B face), `wheel_fx_party.png` 128 × 128, `wheel_fx_parts.png` 32 × 32 |
+| `burmaldaholic:plinko_fx` | `path` int 0–4095; `bin` int 0–12; `seq` int 0–1023; `state` enum [idle, drop, hang, landed, boost] | `board` (a 16 × 16 × 0.5 px plane on the front face), `ball` (2 × 2 × 1), `lamp_0` … `lamp_12` | `drop` (2.95 s; position from the unrolled path-bit sums per row, generated), `hang` (bob at the last peg), `land` (0.3 s), `lamps` (blink 1 s) | `idle → drop → (hang) → landed → idle` after 3 s | `plinko_fx.png` 32 × 32 (transparent board overlay, ball red and gold, lamps off / on / gold) |
+| NICE `burmaldaholic:taunt_bubble` | `icon` int 0–7 | `bubble` (billboard plane) | `pop` (2.5 s: scale in, rise 0.3, fade) | — | `taunt_icons.png` 128 × 16 (8 pictograms) |
+
+Files per entity: BP `entities/extras/<id>.json`; RP `entity/extras/<id>.entity.json`,
+`models/entity/extras/<id>.geo.json`, `animations/extras/<id>.animation.json`,
+`animation_controllers/extras/<id>.ac.json`, `render_controllers/extras/<id>.rc.json`,
+`textures/entity/extras/<id>*.png`. LOD: every controller skips bone animation when `q.distance_from_camera > 24` (V8).
+
+### 10.3 Sound events (ids shared by both editions; vanilla composites in the MUST phase, as in `global.md` §2.7)
+
+Reused from `global.md` §2.7 without change: `chip_place`, `chip_count` (roll-up tick), `win_small`/`win`, `win_big`,
+`win_mega`, `jackpot`, `lose`, `push`, `ui_deny`, `heartbeat`, `coin_land`, `toast`, `streak_up`, `streak_break`.
+
+| Id (Java `burmaldaholic:x` / Bedrock `burmaldaholic.x`) | Status | Java composition / Bedrock file (pitch, volume) | Description for the sound designer | Subtitle key |
+|---------------------------------------------------------|--------|--------------------------------------------------|------------------------------------|--------------|
+| `coin_flip` | Java exists; **Bedrock definition missing** | `entity.experience_orb.pickup` / `random/orb` p1.4 | Thumb flick: a bright metallic "ting" with a short ring | exists |
+| `coin_whoosh` | new | `item.trident.throw` p1.8 v0.3 / `random/bow` p1.8 v0.3 | Soft airy flutter of a spinning coin, 400 ms, fading | `coin_whoosh` |
+| `wheel_tick` | Java exists (re-point); **Bedrock missing** | `block.wooden_button.click_on` p1.2 v0.5 / `random/click` p1.2 | Leather flapper clacking on a brass peg | exists |
+| `wheel_stop` | new | `block.note_block.bell` p1.0 + `block.wooden_button.click_off` / `note/bell` | The wheel settles: a bell ding on the pointer | `wheel_stop` |
+| `plinko_peg` | Java exists (re-point); **Bedrock missing** | `block.note_block.xylophone` v0.5 / `note/xylobone` (V: verify the path) | Wooden "plink"; melodic, so the column pitch mapping works | exists |
+| `plinko_bin` | new | `block.note_block.pling` + `block.wood.place` v0.4 / `note/pling` | Ball dropping into a cup; the pitch is set by the multiplier | `plinko_bin` |
+| `scratch` | Java exists; **Bedrock missing** | `item.brush.brushing.generic` / `step/sand1` p1.6 v0.4 (V) | Fingernail on foil, 150 ms, 3 variants | exists |
+| `burn` | new | `entity.creeper.primed` → `entity.generic.explode` v0.3 (played by code in sequence) / `random/fuse` + `random/explode1` v0.3 | Scratch Showdown creeper burn | `burn` |
+
+Java: add the new ids to `java/src/main/sounds/extras/sounds.json` with subtitles (§13). Bedrock: create
+`bedrock/packs/extras/RP/sounds/sound_definitions.json` (format `1.20.20`, category `player`, as `lastchance` does)
+with **all eight rows** above, so the existing Bedrock calls stop failing silently. Pitch variation is set in code.
+Playback respects *Casino sounds* and *Effects volume* (`global.md` §2.8).
+
+### 10.4 Particles
+
+Reused from `global.md` (J11/B3): `burmaldaholic:chip_pop`, `chip_fountain` (Bedrock emitter, `variable.count`),
+`sparkle` (tintable), and `gold_burst`. New:
+
+| Id | Edition | Definition | Use |
+|----|---------|------------|-----|
+| `burmaldaholic:foil_flake` | Java | 4-frame tumbling silver flake, gravity 0.3, 0.8 s life | scratching in the world (fallback for `minecraft:scrape`, V9) |
+| `burmaldaholic:foil_flakes` | Bedrock | emitter: `emitter_rate_instant` `num_particles: 6`, sphere radius 0.2, gravity −3, flipbook 4 frames from the `global.md` particle atlas (new row) | scratching (solo and Showdown) |
+| vanilla | both | `happy_villager`/`villager_happy`, `angry_villager`/`villager_angry`, `totem_of_undying`/`totem_particle`, `crit`/`critical_hit_emitter`, `end_rod`/`endrod`, `smoke`/`basic_smoke_particle`, `flame`/`basic_flame_particle`, `soul_fire_flame`, `wax_on`, `scrape` (V9) | as listed per game |
+
+### 10.5 Glyphs (Bedrock `packs/core/RP/font/glyph_E1.png`, Java `textures/font/glyph_e1.png` via `global.md` J3; one sheet from S1)
+
+Reused from `global.md` §2.3: coin frames **U+E186–E189** (face, ¾, edge, ¾ back), **U+E18A / E18B** (heads / tails),
+**U+E199** (emerald), **U+E19A** (gold ingot), **U+E19B** (sparkle), U+E170 (flame). Reused from PVP.md: U+E1A0
+(rabbit's foot), U+E1A1 (charred). **New in this file: U+E1A2–U+E1B8 and U+E1C0–U+E1CF.** Record them in UI.md §0.1
+when merging.
+
+| Code | Glyph | Code | Glyph |
+|------|-------|------|-------|
+| E1A2 | coal | E1AB | Plinko ball |
+| E1A3 | iron ingot | E1AC | peg dot (Plinko track) |
+| E1A4 | diamond | E1AD | bin lamp off |
+| E1A5 | nether star | E1AE | bin lamp on |
+| E1A6 | creeper face | E1AF | bin lamp gold (edge) |
+| E1A7 | foil (unscratched) | E1B0 | wheel (mode icon) |
+| E1A8 | foil, half-scratched | E1B1–E1B8 | wheel segment icons B, C, H, M, D, T, E, X |
+| E1A9 | chain pip empty | E1C0–E1CF | 16 dye-colour squares (Wheel Party swatches, in `WheelArt.COLORS` order) |
+| E1AA | chain pip current | | |
+
+Scratch symbol set in rank order: coal E1A2, iron E1A3, gold E19A, emerald E199, diamond E1A4, nether star E1A5,
+creeper E1A6 (Showdown adds foot E1A0 and charred E1A1). Glyphs are 16 × 16 cells with a 1 px transparent margin, so
+they do not bleed at title scale. Glyphs never appear inside lang strings; code prepends them as separate components.
+
+---
+
+## 11. Mode banners and big text
+
+- Typography follows `global.md` §2.2: the **vanilla font only**, at 1×, 2× or 3×, with `FxText.outlined`. Tier words
+  (WIN, BIG WIN, …) belong to `CelebrationOverlay` and are not redrawn here.
+- Mode banners (No more bets, FINAL BALL, GRUDGE MATCH, ALL SQUARE, UNDERDOG, EDGE) use the `pvp/mode_banner` plaque
+  (or the grudge halves). The label is a translation key at 2×, and the plaque width is
+  `max(minWidth, textWidth·2 + 2·border + 16)`. The widest label, RU «ФИНАЛЬНЫЙ ШАРИК» (15 characters ≈ 90 px at 1×,
+  180 px at 2×), fits 256-wide panels. If a label is wider than the panel − 32, it drops to 1× and wraps (max 2 lines,
+  `global.md` §2.2).
+- Bedrock titles use the default font (the title scale already reads as a banner). Colours: mode banners §6, grudge §4,
+  underdog §d.
+- Banner motion: in = slide down 20 px + fade (`outBack`, 300 ms); hold 1 500 ms; out = fade + 0.95 scale (250 ms).
+  With reduceMotion: fade only.
+
+---
+
+## 12. MUST vs NICE
+
+| Game | MUST (ship now) | NICE |
+|------|-----------------|------|
+| Coin Flip | Java sprite coin on the shared sheet, half-turn frame function, bounce, glint, balance hold, `ItemDisplay` toss; Bedrock title flipbook, `coin_fx`, sound definitions, landing beat before the form | Bedrock hand attachable |
+| Coin Flip Duel | VS intro, countdown overlay, open-ended toss → true face, coin slides to the winner, pot chips, chain tracker, heat 1–5, ALL SQUARE clink; Bedrock flipbook, chain bar, `coin_fx` with heat + flight to the winner | Java midpoint display coin (MUST if V2 passes), DDUI duel form |
+| Wheel of Fortune | wedge icons, baked face, pegs + flapper + ticks, pull-back and settle, stop pop-out, creeper swell, skip, Java BER with synced spin; Bedrock `wheel_fx`, glyph strip, stop title | attract breathing, 3D PiP wheel |
+| Wheel Party | slice grow-in, heads on arcs, owner label, true "By a hair" crawl, No-more-bets slam, extrusion + crown + chips, BER party mode; Bedrock swatches, ticks, ring particles | Bedrock `party_face` spin, Java winner `TextDisplay` |
+| Plinko | gravity + hop, peg flash, column pitch, trail, bin press + label pop, BER ball + lamps; Bedrock `plinko_fx`, mini-board action bar, landing title | multi-ball queue, DDUI board |
+| Plinko Battle | mini boards with live balls, ranking slide, gold underdog ball, EDGE eruption, foil-capped final bins revealed per place; Bedrock standings arrows, boost state, hang → land at cue | peg flash on mini boards, floating scoreboard |
+| Scratch Cards | ticket art, symbols, drag scratching with the mask, flakes, auto-swipe, honest end emphasis, top-prize holo, creeper char; Bedrock glyph ticket + between-form flipbook | DDUI live scratching, held-card attachable |
+| Scratch Showdown | swipe ripple, flakes, creeper swell → spark → burn, foot stamp, trio frames, score roll up/down, final foil per place; Bedrock real glyphs + own-event titles | rank medals, DDUI table |
+| Shared PvP | challenge toast, lobby row motion, countdown overlay, **Java drumroll**, plaque-flip Final Reveal on server cues, grudge clash, streak toasts, taunt bubbles (if V2/V3 pass); Bedrock invite glyph repeats, lobby pling, spectator drum, camerashake, emote particles | Bedrock pictogram taunt bubbles, animated floating scoreboard |
+
+---
+
+## 13. Developer task breakdown
+
+The ids use an **X** prefix so they do not collide with `global.md` §7 (S1–S4, J1–J20, B1–B15). The tasks in each
+table can run in parallel once their dependencies are done. The global foundations (S1 generator, S3 `WinTier`, J1 fx
+core, J2 sounds, J5 `FxPayload`, J6 HUD, J7 `CelebrationOverlay`, J16 `CasinoToast`, B1 `FxService`, B2 sounds, B3
+particles) come first.
+
+### 13.1 Shared
+
+| Id | Task | Files | Depends |
+|----|------|-------|---------|
+| SX1 | Art module: every PNG of §10.1 and §10.2, the §10.5 glyph cells, `.mcmeta`, the `lucky_coin` item-model definition, the particle JSON, and the generated Molang for the wheel curve, flapper and Plinko path | `scripts/fx_assets/extras_pvp.py` (called by `scripts/gen-fx-assets.py`) | S1 |
+| SX2 | Pure animation logic with **identical test vectors** in both editions (§14) | Java `games/extras/logic/anim/{CoinAnim,WheelAnim,PlinkoAnim,ScratchWipe}.java` + tests; Bedrock `src/games/extras/logic/anim.ts` + `anim.test.ts` | — |
+| SX3 | Strings (§15) into STRINGS.md and both editions' lang files | `docs/design/STRINGS.md`, `java/src/main/lang/{extras,pvp}/*`, `bedrock/lang/{extras,pvp}/*` | — |
+| SX4 | Sound ids (§10.3): Java `sounds.json` entries + Bedrock `sound_definitions.json` for the extras pack | `java/src/main/sounds/extras/sounds.json`, `bedrock/packs/extras/RP/sounds/sound_definitions.json` | J2, B2 |
+
+### 13.2 Java
+
+| Id | Task | Files | Depends |
+|----|------|-------|---------|
+| JX1 | Ease additions (`outQuad`, `outQuint`, `inOutSine`, `outBounce`) + the `holdBalanceDelta` hook | `client/fx/Ease.java`, `client/ClientCasinoState.java`, `client/hud/CasinoHud.java` | J1, J6 |
+| JX2 | Coin Flip solo screen (sheet, toss, glint, Soul Wager tint + heartbeat) + server `ItemDisplay` toss with accessor mixin | `games/extras/client/CoinFlipScreen.java`, `games/extras/server/CoinTossDisplay.java`, `core/mixin/DisplayAccessor.java` (+ mixins json) | SX1, SX2, JX1, J7 |
+| JX3 | Wheel solo: `WheelFaceTexture` bake, `WheelScreen` rewrite (flapper, pop-out, creeper, skip), `WheelOfFortuneRenderer` BER, `SpinSync` in `WheelBlockEntity` + update packet | `games/extras/client/{WheelScreen,WheelFaceTexture,WheelOfFortuneRenderer}.java`, `games/extras/block/WheelBlockEntity.java`, `ExtrasClientModule` (register BER) | SX1, SX2, JX1 |
+| JX4 | Plinko solo: `PlinkoScreen` rewrite, `PlinkoMachineRenderer` BER, `DropSync` | `games/extras/client/{PlinkoScreen,PlinkoMachineRenderer}.java`, `games/extras/block/PlinkoBlockEntity.java` | SX1, SX2, JX1 |
+| JX5 | Scratch solo: ticket, mask scratching, flakes, auto-swipe, end emphasis, holo, creeper char; server scrape/flake particles | `games/extras/client/ScratchScreen.java`, `games/extras/client/ScratchMask.java`, `games/extras/server/…scratch handler` | SX1, SX2, JX1 |
+| JX6 | PvP shared: `CountdownOverlay`, `PvpResultScreen` plaque flip on server cue ticks, **drumroll in `PvpScreensPresenter`**, lobby row motion, `ChallengeToast`, grudge clash + revenge, streak toasts, ticker slide, taunt bubble `TextDisplay` (server `PvpUi`) | branch `a0d8581…`: `pvp/client/*`, `client/pvp/anim/CountdownOverlay.java`, `pvp/PvpScreensPresenter.java`, `pvp/PvpUi.java`, `pvp/PvpModule.java` | J1, J16, SX1 |
+| JX7 | Coin Flip Duel: VS intro, toss loop → land, slide to the winner, pot chips, chain tracker, heat, ALL SQUARE; midpoint display coin | branch `a6ba6aa…`: `extras/client/pvp/coin/{CoinDuelScreen,PvpPanel}.java`, server `extras/pvp/coin/CoinDuelNet.java` (display coin) | JX2, JX6 |
+| JX8 | Wheel Party: grow-in, heads, owner label, By-a-hair crawl, No-more-bets slam, winner extrusion/crown; BER party mode (`PartySync`) | branch `a6ba6aa…`: `extras/client/pvp/wheel/{WheelPartyScreen,WheelArt}.java`, `WheelPartyNet.java`; `WheelBlockEntity` | JX3, JX6 |
+| JX9 | Plinko Battle: mini boards, ranking slide, underdog/EDGE, foil caps; **server**: send each DROP path at step start, withhold the final 12th bit and add the final bin to the place cue | branch `a19fec0…`: `extras/client/pvp/plinko/PlinkoBattleScreen.java`, `extras/pvp/plinko/PlinkoBattleMode.java`, the reveal cue data in `core/pvp/PvpEngine.java` | JX4, JX6 |
+| JX10 | Scratch Showdown: ripple, flakes, burn chain, foot stamp, trios, final cell per place; **server**: withhold cell 9 until the cue | branch `a19fec0…`: `extras/client/pvp/scratch/ScratchShowdownScreen.java`, `extras/pvp/scratch/ScratchShowdownMode.java` | JX5, JX6 |
+
+### 13.3 Bedrock
+
+| Id | Task | Files | Depends |
+|----|------|-------|---------|
+| BX1 | fx helpers: ease additions, `titleFlipbook(player, frames, opts)` (through `hud.holdTitle`, ≥ 2 t, reduceMotion collapse), fx-entity lifecycle (spawn, tag, re-link on load, remove on block break), the chat-at-landing helper | `src/core/fx.ts`, `src/games/extras/fx/entities.ts` | B1 |
+| BX2 | Packs: `coin_fx`, `wheel_fx`, `plinko_fx` (BP entity + RP entity, geo, animations, controllers, render controllers), the `foil_flakes` particle, glyph cells | `bedrock/packs/extras/{BP,RP}/…` (§10.2) | SX1 |
+| BX3 | Coin Flip solo: flipbook, `coin_fx` toss, landing beat, `fx.celebrate`, form delay | `src/games/extras/coin-flip.ts` | BX1, BX2, SX4 |
+| BX4 | Coin Flip Duel: countdown colours, flipbook loop → face, chain bar, heat property, midpoint coin + flight to the winner, ALL SQUARE | branch `aaf0f54…`: `src/games/extras/pvp/coin/{present,ui}.ts` | BX3, BX10 |
+| BX5 | Wheel solo: `wheel_fx` per spin, glyph strip, stop title, creeper | `src/games/extras/wheel-game.ts`, `src/games/extras/fx/wheel-fx.ts` | BX1, BX2, SX2 |
+| BX6 | Wheel Party: swatch glyphs, By-a-hair frames, ring particles, (NICE `party_face`) | `src/games/extras/pvp/wheel/ui.ts` | BX5, BX10 |
+| BX7 | Plinko solo: `plinko_fx`, mini-board action bar, column-pitched pegs, landing title | `src/games/extras/plinko-game.ts`, `src/games/extras/fx/plinko-fx.ts` | BX1, BX2, SX2 |
+| BX8 | Plinko Battle: standings arrows, boost state, final hang → land at the cue | `src/games/extras/pvp/plinko/{ui,ui-common}.ts` | BX7, BX10 |
+| BX9 | Scratch solo + Showdown: glyph ticket, between-form flipbook, own-event titles, flakes | `src/games/extras/scratch-game.ts`, `src/games/extras/pvp/scratch/ui.ts` | BX1, BX2 |
+| BX10 | PvP shared: spectator drum, `gold_burst` + gold fade for the winner, grudge `camerashake`, invite glyph repeats, lobby pling, taunt emotes, streak titles | `src/pvp/{presenter,invites,lobby,shared}.ts` | B1 |
+| BX11 (NICE) | DDUI spike (V7), then live scratch and duel forms; pictogram taunt bubbles | `src/games/extras/…`, `packs/extras/…/taunt_bubble*` | BX9 |
+
+Parallel start: SX1–SX4, JX1, BX1 and BX10 on day one; then JX2–JX6 and BX2–BX9; then JX7–JX10.
+
+---
+
+## 14. Fidelity tests (both editions, identical vectors; they gate the review of every task)
+
+1. `CoinAnim.frame(h)` at the end of a toss equals the heads frame (0) for heads and the tails frame (11) for tails,
+   and it never shows the opposite full face in the last 3 frames.
+2. `WheelAnim.angle(sync, t_end)` equals the rest angle of `target` (within 0.01°) for every target 0–53 and 100 random
+   `from` values. During the settle, the angle stays inside the target segment. The same holds for Wheel Party with
+   `angle1000`, including the By-a-hair timing.
+3. `PlinkoAnim.position(path, rows = 12)` lies at the centre of bin `popcount(path)` for all 4 096 paths, and the column
+   after row r equals the number of rights so far.
+4. Scratch: the symbol shown in each cell equals the server's `cells[i]`. The end emphasis appears only when the server
+   says win/top/creeper. No pair emphasis exists.
+5. Skip, reduceMotion and closing the screen all produce the same final frame and text as the full animation.
+6. PvP: no client packet contains an unrevealed step (the Plinko 12th bit, scratch cell 9, the coin face before `land`),
+   checked by a gametest that inspects the sync payloads.
+7. Bedrock: the Molang generated by SX1 and `anim.ts` give the same angle and ball position at 10 sample times
+   (a snapshot test of the generated expressions evaluated with a tiny Molang evaluator in the test).
+
+---
+
+## 15. New strings (`STRINGS.md` format)
+
+Most text reuses existing keys (`extras.*`, `pvp.*`, and `global.md` §9 for settings, tiers and skip hints). New keys:
+
+### extras / pvp — animation
+
+Args: `anim.invite.hint` %1$s = the key name of the Casino Menu keybind · `anim.pvp.waiting_for` %1$s name.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.coin.all_square_title` | ALL SQUARE! | КВИТЫ! |
+| `gui.burmaldaholic.anim.invite.hint` | Press %1$s to answer | Нажмите %1$s, чтобы ответить |
+| `gui.burmaldaholic.anim.scratch.drag_hint` | Hold and drag to scratch, or click a cell | Зажмите и ведите, чтобы стереть, или щёлкните по клетке |
+| `gui.burmaldaholic.anim.lobby.full` | Table full — starting! | Мест нет — начинаем! |
+| `gui.burmaldaholic.anim.pvp.waiting_for` | Waiting for %1$s… | Ждём: %1$s… |
+| `gui.burmaldaholic.anim.plinko.edge_banner` | EDGE! | КРАЙ! |
+| `config.burmaldaholic.anim.inWorld` | Game animations in the world | Анимация игр в мире |
+
+### subtitles (new sound events)
+
+| Key | EN | RU |
+|-----|----|----|
+| `subtitles.burmaldaholic.coin_whoosh` | Coin whirs | Монетка вращается |
+| `subtitles.burmaldaholic.wheel_stop` | Wheel stops | Колесо останавливается |
+| `subtitles.burmaldaholic.plinko_bin` | Ball drops into a bin | Шарик падает в лунку |
+| `subtitles.burmaldaholic.burn` | Cell burns | Клетка сгорает |
+
+Length check (1.45× rule): the longest new label, RU «Зажмите и ведите, чтобы стереть, или щёлкните по клетке»
+(55 characters), is a hint line wrapped by `Art.wrap` inside the 196 px ticket ribbon (2 lines). The toast hint wraps at
+150 px (2 lines). Every banner word is ≤ 15 RU characters at 2×, which fits 256 px panels (§11). Bedrock action-bar lines
+added here (glyph strips, standings) stay ≤ 44 visible EN characters, so RU stays ≤ 64.
+
+CONFIG.md (`## anim`, world config): `anim.inWorld` | bool | true | — | Show in-world game animations (BERs, display
+and fx entities). Default true.
