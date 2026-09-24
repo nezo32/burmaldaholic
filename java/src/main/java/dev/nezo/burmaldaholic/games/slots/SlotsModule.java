@@ -44,6 +44,7 @@ public final class SlotsModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
+		dev.nezo.burmaldaholic.games.slots.pvp.SlotsPvp.register(); // Slot Showdown (docs/architecture/pvp-bots.md)
 		// §19 three_sevens / jackpot (offline-safe: a spin settled after a disconnect grants on join)
 		SlotsApi.SPIN.register(spin -> {
 			MinecraftServer server = spin.player() != null ? spin.player().level().getServer() : CoreModule.server();

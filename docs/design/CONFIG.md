@@ -331,6 +331,100 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `extras.diceDuel.challengeTimeoutTicks` | int | 600 | 100–6000 | |
 | `extras.diceDuel.maxDistance` | int | 16 | 2–128 | |
 
+## pvp
+
+⚠ Added 2026-09 (PVP.md §13, pre-merged by the architect). Percent-like values are integer basis points.
+PVP.md's `pvp.bots.*` keys are superseded by the `bots` section (`bots.enabled`, `bots.pvp.*`; BOTS.md §2.3 defaults).
+
+### Core
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `pvp.enabled` | bool | true | — | Master switch for every `pvp` mode (Dice Duel PvP keeps `extras.diceDuel.pvpEnabled`). |
+| `pvp.rakeBasisPoints` | int | 300 | 0–1000 | House cut of every pot, round half up (§3.4). 300 = 3 %. |
+| `pvp.minStake` | int | 10 | 1–1 000 000 | Minimum stake/entry per player. |
+| `pvp.joinRadius` | int | 16 | 2–128 | Max distance to the anchor/challenger to invite or join. |
+| `pvp.announceRadius` | int | 32 | 0–256 | Spectator feed, taunts and result chat radius. 0 = participants only. |
+| `pvp.announceServerWidePot` | long | 5000 | 0–10¹² | Pots ≥ this are announced server-wide. 0 = never. |
+| `pvp.inviteTimeoutTicks` | int | 600 | 200–6000 | Time to answer a challenge. |
+| `pvp.lobbyTimeoutTicks` | int | 1800 | 400–12 000 | Lobby auto-start (≥ 2 players) or cancel. |
+| `pvp.decisionTimeoutTicks` | int | 300 | 300–2400 | Double-or-nothing offers/answers, rematch window. Min 15 s (UI.md §13). |
+| `pvp.countdownTicks` | int | 60 | 0–200 | Pre-reveal countdown ("3… 2… 1…"). |
+| `pvp.maxPendingInvites` | int | 1 | 1–5 | Outgoing invites per player. |
+| `pvp.declineCooldownTicks` | int | 600 | 0–12 000 | After a decline, the same challenger can't re-invite the same target. |
+| `pvp.historyTicks` | int | 6000 | 600–72 000 | How long settled matches are kept (rematch, admin list). |
+| `pvp.affectsStreak` | bool | false | — | PvP results update the §14 Lucky/Unlucky streak. Keep off (§3.12). |
+| `pvp.countsTowardVip` | bool | true | — | Stakes count as lifetime wagered (and the `wager` contract). |
+| `pvp.streakAnnounce` | list<int> | [3, 5, 10] | 3 ascending values, 2–100 | PvP win-streak call-out thresholds (heating / rampage / legendary). |
+| `pvp.grudgeLosses` | int | 3 | 2–20 | Losing run that makes the next 2-player meeting a grudge match. |
+| `pvp.taunts.enabled` | bool | true | — | |
+| `pvp.taunts.cooldownTicks` | int | 100 | 20–1200 | |
+| `pvp.taunts.maxPerMatch` | int | 5 | 1–50 | |
+| `pvp.allowOwnedMachines` | bool | true | — | PvP at machines linked to player casinos (rake → bankroll). |
+
+### Modes
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `pvp.coin.enabled` | bool | true | — | Coin Flip Duel. |
+| `pvp.coin.maxDoubles` | int | 4 | 0–10 | Double-or-nothing links after the first flip (0 = off). |
+| `pvp.slots.enabled` | bool | true | — | Slot Showdown. |
+| `pvp.slots.maxPlayers` | int | 6 | 2–6 | |
+| `pvp.slots.spinChoices` | list<int> | [3, 5, 10] | 1–20 each, 1–4 entries | Spins-per-player options offered to the host; the middle one is the default. |
+| `pvp.slots.linkRadius` | int | 8 | 0–32 | Same-tier machines within this radius of the anchor can join. 0 = anchor only. |
+| `pvp.slots.spinIntervalTicks` | int | 100 | 40–400 | Max wait per round before auto-spin. |
+| `pvp.slots.hotSymbol` | bool | true | — | |
+| `pvp.slots.underdogBoost` | bool | true | — | |
+| `pvp.slots.kaboom` | bool | true | — | Off: three Creepers/TNT score 0 without halving. |
+| `pvp.slots.pearlSwap` | bool | true | — | Off: three Pearls score 10 only. |
+| `pvp.slots.starPoints` | int | 500 | 0–100 000 | Points for three Nether Stars. |
+| `pvp.wheel.enabled` | bool | true | — | Wheel Party. |
+| `pvp.wheel.maxPlayers` | int | 8 | 2–16 | |
+| `pvp.wheel.countdownTicks` | int | 600 | 300–2400 | Starts when the 2nd player joins. |
+| `pvp.wheel.noMoreBetsTicks` | int | 60 | 20–200 | |
+| `pvp.wheel.underdogShareBasisPoints` | int | 1000 | 1–5000 | Winner share ≤ this = UNDERDOG (10 %). |
+| `pvp.plinko.enabled` | bool | true | — | Plinko Battle. |
+| `pvp.plinko.maxPlayers` | int | 6 | 2–6 | |
+| `pvp.plinko.ballChoices` | list<int> | [1, 3, 5] | 1–10 each, 1–4 entries | Middle = default. |
+| `pvp.plinko.linkRadius` | int | 8 | 0–32 | |
+| `pvp.plinko.roundIntervalTicks` | int | 80 | 40–400 | |
+| `pvp.plinko.underdogBoost` | bool | true | — | |
+| `pvp.scratch.enabled` | bool | true | — | Scratch Showdown. |
+| `pvp.scratch.maxPlayers` | int | 6 | 2–6 | |
+| `pvp.scratch.revealIntervalTicks` | int | 40 | 20–200 | Max wait per cell. |
+| `pvp.scratch.weights` | map<symbol,int> | coal 30, iron 25, gold 18, emerald 12, diamond 6, star 1, creeper 5, foot 3 | 0–1000 each, sum ≥ 1 | Cell weights (§8.1). |
+| `pvp.scratch.values` | map<symbol,int> | coal 1, iron 2, gold 3, emerald 5, diamond 10, star 25 | 0–1000 | |
+
+### NICE
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `pvp.side.enabled` | bool | false | — | Spectator side bets (§9.1). |
+| `pvp.side.rakeBasisPoints` | int | 500 | 0–2000 | |
+| `pvp.side.windowTicks` | int | 200 | 60–1200 | Extra betting window before a duel's draw. |
+| `pvp.tournament.enabled` | bool | false | — | |
+| `pvp.tournament.minPlayers` | int | 4 | 2–64 | |
+| `pvp.tournament.maxPlayers` | int | 32 | 4–64 | |
+| `pvp.tournament.registrationTicks` | int | 2400 | 600–72 000 | |
+| `pvp.tournament.roundGapTicks` | int | 200 | 60–2400 | |
+| `pvp.tournament.windowTicks` | int | 12000 | 1200–240 000 | Leaderboard duration. |
+| `pvp.tournament.maxRunsPerPlayer` | int | 3 | 1–20 | |
+| `pvp.tournament.prizeSplit` | list<int> | [60, 30, 10] | 1–8 entries, sum 100 | Percent of the pool per place. |
+| `pvp.tournament.autoEveryDays` | int | 0 | 0–30 | 0 = no scheduled tournaments. |
+| `pvp.tournament.autoTimeOfDay` | int | 13000 | 0–23 999 | |
+| `pvp.tournament.autoMode` | enum(coin, slots, plinko, scratch) | slots | — | |
+| `pvp.tournament.autoFormat` | enum(knockout, leaderboard) | leaderboard | — | |
+| `pvp.tournament.autoEntry` | int | 100 | 1–10⁶ | |
+| `pvp.race.maxSpins` | int | 30 | 5–200 | |
+| `pvp.race.intervalTicks` | int | 60 | 20–400 | |
+| `pvp.heist.rounds` | int | 3 | 1–10 | |
+| `pvp.plinko.bumpers` | bool | false | — | |
+| `pvp.scratchPoker.enabled` | bool | false | — | |
+| `pvp.series.enabled` | bool | false | — | Coin Series best of 3/5. |
+
+Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on load; if
+`pvp.countsTowardVip` and `pvp.rakeBasisPoints` < 200 → warning (§3.12).
+
 ## loan
 
 | Key | Type | Default | Range | Description |
@@ -459,6 +553,93 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `ownership.explosionProof` | bool | true | — | |
 | `multiplayer.tableLeaveDistance` | int | 8 | 3–32 | |
 | `multiplayer.spectatorRadius` | int | 8 | 0–32 | |
+
+## bots
+
+⚠ Added 2026-09 (BOTS.md §9, pre-merged by the architect). `X (Java) / Y (Bedrock)` = edition default.
+BOTS.md §9.3 also changes existing poker keys (`poker.bot.regularSamples` 300, `poker.bot.sharkSamples` 700, `poker.botMix.*` [45,45,10] / [35,50,15] / [10,55,35] / [0,45,55]; `poker.botsEnabled` becomes a legacy alias); those rows above are updated by the poker bot migration task (docs/architecture/pvp-bots.md §7).
+
+### Core
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `bots.enabled` | bool | true | — | Master switch. Off → every table behaves as `HUMANS_ONLY`; seated bots leave at the next safe point. |
+| `bots.maxActiveTables` | int | 24 (Java) / 12 (Bedrock) | 0–256 | Tables with bots at the same time, whole world (edition default, §7.5). |
+| `bots.maxActive` | int | 64 (Java) / 32 (Bedrock) | 0–512 | Bots at the same time, whole world. |
+| `bots.maxConcurrentJobs` | int | 2 | 1–16 | Heavy bot jobs (Monte-Carlo, UTH river) running at once (Bedrock `runJob`; Java splits jobs over ticks above it). |
+| `bots.difficultyMix` | list<int> | [30, 50, 20] | each 0–100 | Easy/Normal/Hard % for MIXED outside poker. Normalized. |
+| `bots.think.minTicks` | int | 20 | 0–200 | Base think delay (§7.3). |
+| `bots.think.maxTicks` | int | 60 | 0–400 | Must be ≥ min (else clamped). |
+| `bots.think.tankTicks` | int | 40 | 0–200 | Extra "tank" for HARD poker bots on big decisions (+0–this). |
+| `bots.think.fastFactor` | double | 0.5 | 0.0–1.0 | Delay multiplier for speed FAST. |
+| `bots.personalities` | bool | true | — | Off → every bot is TAG-like at its level (no personality modifiers, plain styles). |
+| `bots.keepFreeSeatDefault` | bool | true | — | Default of the per-table *Keep a seat free* toggle. |
+| `bots.showcase.enabled` | bool | false | — | NICE: worldgen tables play virtual bot rounds while watched (§4.9). |
+
+### Seating defaults per game (family)
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `bots.table.<game>.policy` | enum(HUMANS_ONLY, MIXED, BOTS_ONLY) | matrix below | — | Default policy of a newly placed (craftable) table. |
+| `bots.table.<game>.count` | int | matrix below | 0–8 | Default bot count (clamped to seats − 1 and the atmosphere cap). |
+| `bots.table.<game>.difficulty` | enum(EASY, NORMAL, HARD, MIXED) | matrix below | — | Default difficulty / style. |
+| `bots.table.<game>.worldgenPolicy` | enum(HUMANS_ONLY, MIXED, BOTS_ONLY) | matrix below | — | Default for tables generated in structures (BOTS_ONLY not allowed → clamped to MIXED). |
+| `bots.table.<game>.worldgenCount` | int | matrix below | 0–8 | |
+
+| game | policy | count | difficulty | worldgenPolicy | worldgenCount |
+|----------|--------|-------|------------|----------------|---------------|
+| poker | MIXED | 5 | MIXED | MIXED | 3 (Parlor preset) |
+| chemmy | MIXED | 2 | MIXED | MIXED | 2 |
+| blackjack | HUMANS_ONLY | 0 | NORMAL | MIXED | 2 |
+| roulette | HUMANS_ONLY | 0 | MIXED | MIXED | 3 |
+| craps | HUMANS_ONLY | 0 | MIXED | MIXED | 2 |
+| baccarat | HUMANS_ONLY | 0 | MIXED | MIXED | 2 |
+| uth | HUMANS_ONLY | 0 | NORMAL | MIXED | 2 |
+
+### Games
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `bots.atmosphere.maxPerTable.blackjack` | int | 2 | 0–4 | Atmosphere bot cap (§4.7). |
+| `bots.atmosphere.maxPerTable.uth` | int | 2 | 0–5 | |
+| `bots.atmosphere.maxPerTable.roulette` | int | 3 | 0–7 | |
+| `bots.atmosphere.maxPerTable.craps` | int | 3 | 0–5 | |
+| `bots.atmosphere.maxPerTable.baccarat` | int | 3 | 0–6 | |
+| `bots.poker.easyMaxStake` | enum(MICRO, LOW, MID, HIGH) | LOW | — | Highest stake level where EASY bots may sit (§4.2). |
+| `bots.chemmy.bankCapMultiple` | int | 50 | 5–1000 | A bot bank is at most this × table min (and ≤ the table max coverage). |
+| `bots.craps.canShoot` | bool | false | — | Bots join the shooter rotation (roll after 20–40 t). |
+| `bots.pvp.fillDelayTicks` | int | 400 | 0–1800 | MIXED lobbies: bots fill after this long without a human joiner. |
+| `bots.pvp.maxPerMatch` | int | 3 | 1–7 | Max bots in one PvP match. |
+| `bots.tournament.maxFill` | int | 8 | 0–31 | Max bot fillers per tournament. |
+| `bots.tournament.fillToBracket` | bool | true | — | Knockout: fill to the next power of two instead of byes. |
+
+### Economy and abuse
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `bots.owned.funding` | enum(OWNER_BANKROLL, DISABLED) | OWNER_BANKROLL | — | Money bots at owned casinos: paid by the bankroll, or not allowed (§5.1). |
+| `bots.tableBuyInsPerDay` | int | 10 | 0–1000 | House-funded bot buy-ins/banks per table per MCD. 0 = unlimited. |
+| `bots.vipWagerWeight` | double | 0.5 | 0.0–1.0 | VIP / `wager` contract credit for chips matched by bots (§5.3). |
+| `bots.dailyWinCapMin` | int | 500 | 0–10⁹ | Minimum daily heat threshold (§5.4). |
+| `bots.dailyWinCapTierMultiple` | int | 5 | 0–1000 | Threshold = max(min, this × tier max). 0 disables heat. |
+| `bots.sulkMultiplier` | double | 2.0 | 1.0–100.0 | Bots refuse the player at this × threshold. |
+| `bots.adaptiveHeat` | bool | true | — | Winning players (> +20 BB/100 over ≥ 200 hands vs house bots) get stronger bots. |
+| `bots.debtorsMayPlay` | bool | true | — | Debtors may play when every counterparty is a house-funded bot (§5.5). |
+
+### Presentation, private tables
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `bots.avatars.mode` | enum(NONE, NAMEPLATE, ENTITY) | NAMEPLATE (Java) / NONE (Bedrock) | — | §7.2. Bedrock treats NAMEPLATE as NONE. |
+| `bots.avatars.maxEntities` | int | 16 | 0–128 | Avatar entities per world. |
+| `bots.chatter.enabled` | bool | true | — | Server-wide switch for quips (tables and players can mute too). |
+| `bots.chatter.chance` | double | 0.35 | 0.0–1.0 | Chance an event produces a line (HARD bots: half). |
+| `bots.chatter.botCooldownTicks` | int | 600 | 0–24 000 | |
+| `bots.chatter.tableCooldownTicks` | int | 200 | 0–24 000 | |
+| `bots.chatter.maxPerMinute` | int | 3 | 0–60 | Per table. |
+| `bots.private.enabled` | bool | true | — | Private tables and invite-only lobbies. |
+| `bots.private.maxInvites` | int | 16 | 1–64 | |
+| `bots.private.inviteRadius` | int | 64 | 0–1024 | Invite dropdown radius; 0 = any online player. |
 
 ## admin / debug
 

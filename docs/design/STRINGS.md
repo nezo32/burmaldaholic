@@ -208,6 +208,26 @@ casino mode in world saved data and has no game rule.
 | `unit.burmaldaholic.hand.p21` | %1$s hands | %1$s раздача |
 | `unit.burmaldaholic.hand.p2` | %1$s hands | %1$s раздачи |
 | `unit.burmaldaholic.hand.p5` | %1$s hands | %1$s раздач |
+| `unit.burmaldaholic.point.p1` | %1$s point | %1$s очко |
+| `unit.burmaldaholic.point.p21` | %1$s points | %1$s очко |
+| `unit.burmaldaholic.point.p2` | %1$s points | %1$s очка |
+| `unit.burmaldaholic.point.p5` | %1$s points | %1$s очков |
+| `unit.burmaldaholic.win.p1` | %1$s win | %1$s победа |
+| `unit.burmaldaholic.win.p21` | %1$s wins | %1$s победа |
+| `unit.burmaldaholic.win.p2` | %1$s wins | %1$s победы |
+| `unit.burmaldaholic.win.p5` | %1$s wins | %1$s побед |
+| `unit.burmaldaholic.match.p1` | %1$s match | %1$s матч |
+| `unit.burmaldaholic.match.p21` | %1$s matches | %1$s матч |
+| `unit.burmaldaholic.match.p2` | %1$s matches | %1$s матча |
+| `unit.burmaldaholic.match.p5` | %1$s matches | %1$s матчей |
+| `unit.burmaldaholic.ball.p1` | %1$s ball | %1$s шарик |
+| `unit.burmaldaholic.ball.p21` | %1$s balls | %1$s шарик |
+| `unit.burmaldaholic.ball.p2` | %1$s balls | %1$s шарика |
+| `unit.burmaldaholic.ball.p5` | %1$s balls | %1$s шариков |
+| `unit.burmaldaholic.bot.p1` | %1$s bot | %1$s бот |
+| `unit.burmaldaholic.bot.p21` | %1$s bots | %1$s бот |
+| `unit.burmaldaholic.bot.p2` | %1$s bots | %1$s бота |
+| `unit.burmaldaholic.bot.p5` | %1$s bots | %1$s ботов |
 
 ### Common UI (shared by all modules)
 
@@ -1272,6 +1292,413 @@ in these values; running text in other modules that embeds the game name adds «
 
 ---
 
+## pvp
+
+⚠ Added 2026-09 (PVP.md §15, pre-merged by the architect; PVP.md stays normative for arguments and notes).
+
+### Hub, new match, invites, lobby, match, results, rematch, errors
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.hub.title` | PvP Arena | Арена PvP |
+| `gui.burmaldaholic.pvp.hub.record` | Your record: %1$s–%2$s · net %3$s | Ваш счёт: %1$s–%2$s · итог %3$s |
+| `gui.burmaldaholic.pvp.hub.nemesis` | Nemesis: %1$s (%2$s–%3$s) | Заклятый соперник: %1$s (%2$s–%3$s) |
+| `gui.burmaldaholic.pvp.hub.no_record` | No PvP matches yet | PvP-матчей пока не было |
+| `gui.burmaldaholic.pvp.hub.pending` | Pending | Ждут ответа |
+| `gui.burmaldaholic.pvp.hub.accept` | Accept: %1$s · %2$s | Принять: %1$s · %2$s |
+| `gui.burmaldaholic.pvp.hub.decline` | Decline: %1$s | Отказать: %1$s |
+| `gui.burmaldaholic.pvp.hub.nearby` | Open lobbies nearby (%1$s) | Лобби поблизости (%1$s) |
+| `gui.burmaldaholic.pvp.hub.no_lobbies` | No open lobbies nearby | Поблизости нет открытых лобби |
+| `gui.burmaldaholic.pvp.hub.lobby_row` | %1$s · %2$s · %3$s/%4$s | %1$s · %2$s · %3$s/%4$s |
+| `gui.burmaldaholic.pvp.hub.join` | Join | Войти |
+| `gui.burmaldaholic.pvp.hub.new_match` | New match… | Новый матч… |
+| `gui.burmaldaholic.pvp.hub.rivals` | Head-to-head | Личные встречи |
+| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party start at their machines | Битва автоматов, битва Плинко и «Колесо на всех» начинаются у самих автоматов |
+| `gui.burmaldaholic.pvp.new.title` | New match | Новый матч |
+| `gui.burmaldaholic.pvp.new.opponent` | Opponent | Соперник |
+| `gui.burmaldaholic.pvp.new.open_lobby` | Open lobby (anyone nearby) | Открытое лобби (все, кто рядом) |
+| `gui.burmaldaholic.pvp.new.stake` | Stake per player | Ставка с каждого |
+| `gui.burmaldaholic.pvp.new.side` | Your side | Ваша сторона |
+| `gui.burmaldaholic.pvp.new.submit` | Throw down the gauntlet | Бросить вызов |
+| `gui.burmaldaholic.pvp.new.no_players` | Nobody is close enough — open a lobby instead | Рядом никого — лучше откройте лобби |
+| `gui.burmaldaholic.pvp.game.coin` | Coin Flip Duel | Дуэль на монетке |
+| `gui.burmaldaholic.pvp.game.slots` | Slot Showdown | Битва автоматов |
+| `gui.burmaldaholic.pvp.game.wheel` | Wheel Party | Колесо на всех |
+| `gui.burmaldaholic.pvp.game.plinko` | Plinko Battle | Битва Плинко |
+| `gui.burmaldaholic.pvp.game.scratch` | Scratch Showdown | Лотерейная битва |
+| `msg.burmaldaholic.pvp.invite.sent` | Challenge sent to %1$s: %2$s for %3$s | Вызов отправлен игроку %1$s: %2$s на %3$s |
+| `msg.burmaldaholic.pvp.invite.received` | %1$s challenges you: %2$s for %3$s! | %1$s бросает вам вызов: %2$s на %3$s! |
+| `msg.burmaldaholic.pvp.invite.how_bedrock` | Open the Casino Menu to answer | Чтобы ответить, откройте меню казино |
+| `gui.burmaldaholic.pvp.invite.accept_button` | [Accept] | [Принять] |
+| `gui.burmaldaholic.pvp.invite.decline_button` | [Decline] | [Отказать] |
+| `gui.burmaldaholic.pvp.invite.title` | Challenge! | Вызов! |
+| `gui.burmaldaholic.pvp.invite.body` | %1$s challenges you: %2$s. Stake: %3$s each. | %1$s бросает вам вызов: %2$s. Ставка: %3$s с каждого. |
+| `gui.burmaldaholic.pvp.invite.side` | You'd play %1$s | Ваша сторона: %1$s |
+| `gui.burmaldaholic.pvp.invite.record` | Head-to-head vs %1$s: %2$s–%3$s | Личные встречи (%1$s): %2$s–%3$s |
+| `gui.burmaldaholic.pvp.invite.record_none` | You've never played %1$s | С игроком %1$s вы ещё не играли |
+| `gui.burmaldaholic.pvp.invite.expires` | Expires in %1$s | Истекает через %1$s |
+| `gui.burmaldaholic.pvp.invite.accept` | Accept | Принять |
+| `gui.burmaldaholic.pvp.invite.decline` | Decline | Отказаться |
+| `msg.burmaldaholic.pvp.invite.accepted` | %1$s accepts! Stakes are in. | %1$s принимает вызов! Ставки сделаны. |
+| `msg.burmaldaholic.pvp.invite.declined` | %1$s declines. Maybe next time. | %1$s отказывается. Может, в другой раз. |
+| `msg.burmaldaholic.pvp.invite.expired` | No answer from %1$s — the challenge expired | %1$s не отвечает — вызов сгорел |
+| `msg.burmaldaholic.pvp.invite.withdrawn` | The challenge from %1$s was withdrawn | Вызов от игрока %1$s отозван |
+| `msg.burmaldaholic.pvp.invite.failed` | The stakes couldn't be collected — challenge cancelled | Собрать ставки не удалось — вызов отменён |
+| `gui.burmaldaholic.pvp.lobby.title` | %1$s — lobby | %1$s — лобби |
+| `gui.burmaldaholic.pvp.lobby.entry` | Entry: %1$s | Взнос: %1$s |
+| `gui.burmaldaholic.pvp.lobby.pot` | Pot: %1$s | Банк: %1$s |
+| `gui.burmaldaholic.pvp.lobby.rake` | House cut: %1$s | Комиссия заведения: %1$s |
+| `gui.burmaldaholic.pvp.percent` | %1$s%% | %1$s %% |
+| `gui.burmaldaholic.pvp.lobby.players` | Players: %1$s/%2$s | Игроки: %1$s/%2$s |
+| `gui.burmaldaholic.pvp.lobby.host` | %1$s (host) | %1$s (организатор) |
+| `gui.burmaldaholic.pvp.lobby.record` | Head-to-head %1$s–%2$s | Личные встречи %1$s–%2$s |
+| `gui.burmaldaholic.pvp.lobby.starts_in` | Starts in %1$s | Старт через %1$s |
+| `gui.burmaldaholic.pvp.lobby.need_more` | Waiting for at least one more player | Ждём ещё хотя бы одного игрока |
+| `gui.burmaldaholic.pvp.lobby.start` | Start now | Начать |
+| `gui.burmaldaholic.pvp.lobby.join` | Join (%1$s) | Войти (%1$s) |
+| `gui.burmaldaholic.pvp.lobby.join_confirm` | Entry %1$s · %2$s · Pot %3$s | Взнос %1$s · %2$s · банк %3$s |
+| `gui.burmaldaholic.pvp.lobby.leave` | Leave lobby | Выйти из лобби |
+| `gui.burmaldaholic.pvp.lobby.open` | Open lobby | Открыть лобби |
+| `gui.burmaldaholic.pvp.lobby.waiting_bar` | %1$s · %2$s/%3$s · starts in %4$s | %1$s · %2$s/%3$s · старт через %4$s |
+| `msg.burmaldaholic.pvp.lobby.opened` | %1$s opens %2$s at a %3$s — entry %4$s. Use a machine nearby to join! | %1$s открывает «%2$s» (%3$s), взнос %4$s. Подходите к автомату рядом! |
+| `msg.burmaldaholic.pvp.lobby.opened_here` | %1$s opens %2$s nearby — entry %3$s. Join from the Casino Menu! | %1$s открывает «%2$s» неподалёку, взнос %3$s. Вход — через меню казино! |
+| `msg.burmaldaholic.pvp.lobby.joined` | %1$s joins (%2$s/%3$s) | %1$s в игре (%2$s/%3$s) |
+| `msg.burmaldaholic.pvp.lobby.left` | %1$s leaves the lobby | %1$s выходит из лобби |
+| `msg.burmaldaholic.pvp.lobby.new_host` | %1$s is the host now | Теперь организатор — %1$s |
+| `msg.burmaldaholic.pvp.lobby.cancelled` | Not enough players — lobby closed | Не набралось игроков — лобби закрыто |
+| `msg.burmaldaholic.pvp.lobby.refunded` | Your entry of %1$s was returned | Ваш взнос возвращён: %1$s |
+| `msg.burmaldaholic.pvp.match.start` | %1$s begins! Pot: %2$s | «%1$s» начинается! Банк: %2$s |
+| `msg.burmaldaholic.pvp.match.all_in` | %1$s goes ALL-IN! | %1$s идёт ва-банк! |
+| `gui.burmaldaholic.pvp.all_in_tag` | ALL-IN | ВА-БАНК |
+| `gui.burmaldaholic.pvp.match.go` | Go! | Поехали! |
+| `gui.burmaldaholic.pvp.match.bar` | %1$s/%2$s · You %3$s (#%4$s) · %5$s %6$s | %1$s/%2$s · Вы %3$s (№%4$s) · %5$s %6$s |
+| `gui.burmaldaholic.pvp.match.bar_leader` | %1$s/%2$s · You %3$s (#1) · lead %4$s | %1$s/%2$s · Вы %3$s (№1) · отрыв %4$s |
+| `gui.burmaldaholic.pvp.match.standings` | Standings | Таблица |
+| `gui.burmaldaholic.pvp.match.row` | #%1$s %2$s — %3$s | №%1$s %2$s — %3$s |
+| `gui.burmaldaholic.pvp.match.hidden` | ??? | ??? |
+| `gui.burmaldaholic.pvp.match.final` | Final results… | Итоги… |
+| `gui.burmaldaholic.pvp.match.place` | #%1$s: %2$s — %3$s | №%1$s: %2$s — %3$s |
+| `gui.burmaldaholic.pvp.result.title` | Result | Итог |
+| `gui.burmaldaholic.pvp.result.winner_title` | %1$s WINS! | ПОБЕДА: %1$s! |
+| `gui.burmaldaholic.pvp.result.dead_heat_title` | DEAD HEAT! | НОЗДРЯ В НОЗДРЮ! |
+| `gui.burmaldaholic.pvp.result.you_win` | You take the pot: +%1$s | Банк ваш: +%1$s |
+| `gui.burmaldaholic.pvp.result.you_lose` | Not this time: −%1$s | Не в этот раз: −%1$s |
+| `gui.burmaldaholic.pvp.result.split` | The pot is split: +%1$s for you | Банк поделён: вам +%1$s |
+| `gui.burmaldaholic.pvp.result.pot_line` | Pot %1$s · house cut %2$s · paid out %3$s | Банк %1$s · комиссия %2$s · выплачено %3$s |
+| `msg.burmaldaholic.pvp.result.broadcast` | %1$s: %2$s takes %3$s! Opponents: %4$s | %1$s: %2$s забирает %3$s! Соперников: %4$s |
+| `msg.burmaldaholic.pvp.result.broadcast_split` | %1$s: dead heat — %2$s split %3$s | %1$s: ноздря в ноздрю — %2$s делят %3$s |
+| `msg.burmaldaholic.pvp.result.offline` | While you were away, your %1$s match was played out: %2$s | Пока вас не было, матч «%1$s» доигран: %2$s |
+| `msg.burmaldaholic.pvp.result.away` | You left, but the match plays on — the result is already decided | Вы ушли, но матч продолжается — исход уже решён |
+| `msg.burmaldaholic.pvp.result.casino_off` | Casino mode was switched off — your %1$s match was settled at once: %2$s | Режим казино выключен — матч «%1$s» рассчитан сразу: %2$s |
+| `gui.burmaldaholic.pvp.rematch` | Rematch | Реванш |
+| `gui.burmaldaholic.pvp.rematch.waiting` | Rematch? Ready: %1$s/%2$s | Реванш? Готовы: %1$s/%2$s |
+| `msg.burmaldaholic.pvp.rematch.requested` | %1$s wants a rematch! | %1$s требует реванша! |
+| `msg.burmaldaholic.pvp.rematch.start` | Rematch! Same stakes, fresh luck. | Реванш! Ставки те же, удача новая. |
+| `msg.burmaldaholic.pvp.rematch.expired` | No rematch this time | Реванша не будет |
+| `msg.burmaldaholic.pvp.rematch.dropped` | %1$s can't cover the rematch and sits this one out | %1$s не тянет реванш и пропускает эту партию |
+| `gui.burmaldaholic.pvp.error.debt` | No PvP while you owe the Loan Shark | Пока вы должны Ростовщику, PvP недоступно |
+| `gui.burmaldaholic.pvp.error.target_unavailable` | %1$s can't play PvP right now | %1$s сейчас не может играть в PvP |
+| `gui.burmaldaholic.pvp.error.spectator` | Not in Spectator mode | В режиме наблюдателя нельзя |
+| `gui.burmaldaholic.pvp.error.self` | You can't challenge yourself | Вызвать самого себя нельзя |
+| `gui.burmaldaholic.pvp.error.busy_target` | %1$s is in another game right now | %1$s сейчас в другой игре |
+| `gui.burmaldaholic.pvp.error.pending` | You already have a challenge waiting for an answer | У вас уже есть вызов без ответа |
+| `gui.burmaldaholic.pvp.error.too_far` | %1$s is too far away (max %2$s) | %1$s слишком далеко (макс. %2$s) |
+| `gui.burmaldaholic.pvp.error.too_far_anchor` | You're too far from the host's machine (max %1$s) | Вы слишком далеко от автомата организатора (макс. %1$s) |
+| `gui.burmaldaholic.pvp.error.other_dimension` | %1$s is in another dimension | %1$s в другом измерении |
+| `gui.burmaldaholic.pvp.error.no_invites` | %1$s isn't taking challenges right now | %1$s сейчас не принимает вызовы |
+| `gui.burmaldaholic.pvp.error.cooldown_target` | %1$s just said no. Give them a moment. | Игрок %1$s только что отказал. Дайте ему минутку. |
+| `gui.burmaldaholic.pvp.error.cant_afford_target` | %1$s can't cover that stake | Игроку %1$s не хватает на такую ставку |
+| `gui.burmaldaholic.pvp.error.over_target_max` | That's over %1$s's VIP limit (%2$s) | Это выше ВИП-лимита игрока %1$s (%2$s) |
+| `gui.burmaldaholic.pvp.error.stake_min` | The minimum PvP stake is %1$s | Минимальная ставка в PvP — %1$s |
+| `gui.burmaldaholic.pvp.error.lobby_full` | The lobby is full | В лобби нет мест |
+| `gui.burmaldaholic.pvp.error.lobby_started` | The match has already started | Матч уже начался |
+| `gui.burmaldaholic.pvp.error.lobby_gone` | That lobby is closed | Это лобби уже закрыто |
+| `gui.burmaldaholic.pvp.error.wrong_machine` | Join from a %1$s near the host's machine (radius: %2$s) | Войти можно только с автомата «%1$s» рядом с организатором (радиус: %2$s) |
+| `gui.burmaldaholic.pvp.error.owner` | Owners can't play PvP at their own machines | Владелец не может играть в PvP на своих автоматах |
+| `gui.burmaldaholic.pvp.error.needs_opponent` | A duel needs an opponent — pick a player | Для дуэли нужен соперник — выберите игрока |
+| `gui.burmaldaholic.pvp.error.over_cap` | The cap here is %1$s per player | Здесь не больше %1$s с игрока |
+| `gui.burmaldaholic.pvp.error.no_more_bets` | No more bets — the wheel is about to spin | Ставок больше нет — колесо вот-вот закрутится |
+| `gui.burmaldaholic.pvp.settings.invites` | Accept PvP challenges | Принимать вызовы игроков |
+| `gui.burmaldaholic.pvp.admin.matches` | PvP matches | PvP-матчи |
+| `gui.burmaldaholic.pvp.admin.match_row` | %1$s · %2$s · %3$s · pot %4$s | %1$s · %2$s · %3$s · банк %4$s |
+| `gui.burmaldaholic.pvp.admin.cancel` | Cancel / settle now | Отменить / рассчитать |
+| `gui.burmaldaholic.pvp.admin.state.lobby` | lobby | лобби |
+| `gui.burmaldaholic.pvp.admin.state.drawn` | in play | идёт игра |
+| `gui.burmaldaholic.pvp.admin.state.settled` | settled | рассчитан |
+| `gui.burmaldaholic.pvp.admin.rake_warning` | Warning: the PvP house cut (%1$s) is below the cheapest house game — VIP can be farmed cheaply | Внимание: комиссия PvP (%1$s) ниже преимущества самой дешёвой игры заведения — ВИП можно накрутить задёшево |
+| `gui.burmaldaholic.pvp.charter.rake` | PvP house cut collected: %1$s | Комиссия с PvP-матчей: %1$s |
+| `tooltip.burmaldaholic.lucky_coin.pvp` | Use on a player: challenge them to a Coin Flip Duel | На игрока — вызов на дуэль на монетке |
+
+### Rivalry, win streaks, grudge matches
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.rivals.title` | Head-to-head | Личные встречи |
+| `gui.burmaldaholic.pvp.rivals.row` | %1$s: %2$s–%3$s · net %4$s | %1$s: %2$s–%3$s · итог %4$s |
+| `gui.burmaldaholic.pvp.rivals.none` | No rivals yet. Time to make some. | Соперников пока нет. Самое время завести. |
+| `msg.burmaldaholic.pvp.streak.heating` | %1$s is heating up: %2$s in a row! | %1$s разогревается: %2$s подряд! |
+| `msg.burmaldaholic.pvp.streak.rampage` | RAMPAGE! %1$s — %2$s in a row. Somebody stop them! | РАЗНОС! %1$s — %2$s подряд. Остановите это кто-нибудь! |
+| `msg.burmaldaholic.pvp.streak.legendary` | LEGENDARY! %1$s — %2$s in a row! | ЛЕГЕНДА! %1$s — %2$s подряд! |
+| `msg.burmaldaholic.pvp.streak.broken` | %1$s ends %2$s's run of %3$s! | %1$s прерывает серию игрока %2$s: %3$s подряд! |
+| `gui.burmaldaholic.pvp.grudge.title` | GRUDGE MATCH | ДЕЛО ПРИНЦИПА |
+| `gui.burmaldaholic.pvp.grudge.subtitle` | %1$s won the last %2$s | Последние %2$s — за игроком %1$s |
+| `msg.burmaldaholic.pvp.grudge.revenge` | Sweet revenge! %1$s finally beats %2$s | Сладкая месть! %1$s наконец обыгрывает соперника — %2$s |
+
+### Taunts
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.taunt.button` | Taunt… | Подколоть… |
+| `gui.burmaldaholic.pvp.taunt.title` | Say something | Сказать пару слов |
+| `msg.burmaldaholic.pvp.taunt.say` | %1$s: “%2$s” | %1$s: «%2$s» |
+| `gui.burmaldaholic.pvp.taunt.limit` | That's enough talking for one match | Для одного матча слов достаточно |
+| `gui.burmaldaholic.pvp.taunt.gg` | GG, well played | GG, красиво сыграно |
+| `gui.burmaldaholic.pvp.taunt.luck` | Good luck. You'll need it | Удачи. Пригодится |
+| `gui.burmaldaholic.pvp.taunt.wow` | No way! | Да ладно?! |
+| `gui.burmaldaholic.pvp.taunt.rigged` | It's rigged! | Да тут подкрутка! |
+| `gui.burmaldaholic.pvp.taunt.again` | Again. Right now. | Ещё раз. Сейчас же. |
+| `gui.burmaldaholic.pvp.taunt.steel` | Nerves of steel | Нервы — стальные |
+| `gui.burmaldaholic.pvp.taunt.bye` | Say bye to your chips | Прощайся с фишками |
+| `gui.burmaldaholic.pvp.taunt.respect` | Respect | Моё почтение |
+
+### Coin Flip Duel
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.coin.title` | Coin Flip Duel | Дуэль на монетке |
+| `gui.burmaldaholic.pvp.coin.setup_title` | Coin Flip Duel vs %1$s | Дуэль на монетке: %1$s |
+| `gui.burmaldaholic.pvp.coin.vs` | %1$s vs %2$s | %1$s против %2$s |
+| `gui.burmaldaholic.pvp.coin.sides` | %1$s: %2$s · %3$s: %4$s | %1$s: %2$s · %3$s: %4$s |
+| `gui.burmaldaholic.pvp.coin.landed` | %1$s! | %1$s! |
+| `gui.burmaldaholic.pvp.coin.takes` | %1$s takes %2$s | %1$s забирает %2$s |
+| `gui.burmaldaholic.pvp.coin.chain` | Chain: %1$s down %2$s | Цепочка: %1$s в минусе на %2$s |
+| `gui.burmaldaholic.pvp.coin.don_heads` | Double or nothing — Heads | Всё или ничего — Орёл |
+| `gui.burmaldaholic.pvp.coin.don_tails` | Double or nothing — Tails | Всё или ничего — Решка |
+| `gui.burmaldaholic.pvp.coin.walk_away` | Walk away | Уйти |
+| `gui.burmaldaholic.pvp.coin.don_explain` | Stake %1$s each. Win it and you're all square; lose it and you're down %2$s. | Ставка с каждого: %1$s. Выиграете — будете квиты, проиграете — минус %2$s. |
+| `gui.burmaldaholic.pvp.coin.don_request_title` | Double or nothing? | Всё или ничего? |
+| `gui.burmaldaholic.pvp.coin.don_request` | %1$s wants double or nothing: %2$s each, calling %3$s. You're up %4$s. | %1$s предлагает «всё или ничего»: с каждого %2$s, выбор — %3$s. Вы в плюсе на %4$s. |
+| `gui.burmaldaholic.pvp.coin.let_it_ride` | Let it ride | Рискнуть |
+| `gui.burmaldaholic.pvp.coin.take_money` | Take the money | Забрать выигрыш |
+| `gui.burmaldaholic.pvp.coin.don_limit` | The chain is at its limit — no more doubling | Цепочка на пределе — удваивать больше нельзя |
+| `gui.burmaldaholic.pvp.coin.don_unaffordable` | Double or nothing needs %1$s from each of you | Для «всё или ничего» нужно %1$s с каждого |
+| `msg.burmaldaholic.pvp.coin.don_called` | Double or nothing #%1$s: %2$s on the line! | «Всё или ничего» №%1$s: на кону %2$s! |
+| `msg.burmaldaholic.pvp.coin.all_square` | ALL SQUARE! %1$s and %2$s are even again (minus the house's cut) | КВИТЫ! %1$s и %2$s снова при своих (за вычетом комиссии) |
+| `msg.burmaldaholic.pvp.coin.cashed_out` | %1$s takes the money and walks | %1$s забирает выигрыш и уходит |
+| `msg.burmaldaholic.pvp.coin.walked_away` | %1$s walks away. Wise, or just broke? | %1$s уходит. Мудро — или просто на мели? |
+| `gui.burmaldaholic.pvp.coin.spectate` | %1$s vs %2$s — %3$s on the line | %1$s против %2$s — на кону %3$s |
+
+### Slot Showdown
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.slots.title` | Slot Showdown | Битва автоматов |
+| `gui.burmaldaholic.pvp.slots.host` | Start a Slot Showdown | Начать битву автоматов |
+| `gui.burmaldaholic.pvp.slots.join` | Join Showdown: %1$s · %2$s/%3$s | В битву: %1$s · %2$s/%3$s |
+| `gui.burmaldaholic.pvp.slots.spins` | Spins per player | Вращений у каждого |
+| `gui.burmaldaholic.pvp.slots.spins_value` | Spins each: %1$s | Вращений у каждого: %1$s |
+| `gui.burmaldaholic.pvp.slots.round` | Spin %1$s/%2$s | Вращение %1$s/%2$s |
+| `gui.burmaldaholic.pvp.slots.final_spin` | FINAL SPIN | ФИНАЛЬНОЕ ВРАЩЕНИЕ |
+| `gui.burmaldaholic.pvp.slots.spin_now` | Spin! | Крутить! |
+| `gui.burmaldaholic.pvp.slots.auto_in` | Auto-spin in %1$s | Автовращение через %1$s |
+| `gui.burmaldaholic.pvp.slots.hot` | HOT: %1$s ×2 | ГОРЯЧО: %1$s ×2 |
+| `msg.burmaldaholic.pvp.slots.hot` | Hot symbol this spin: %1$s scores double! | Горячий символ вращения: %1$s — очки ×2! |
+| `gui.burmaldaholic.pvp.slots.spin_points` | +%1$s this spin | +%1$s за вращение |
+| `gui.burmaldaholic.pvp.slots.kaboom_title` | KABOOM! | БАБАХ! |
+| `msg.burmaldaholic.pvp.slots.kaboom` | KABOOM! %1$s's score is blown in half: %2$s → %3$s | БАБАХ! Очки игрока %1$s — пополам: %2$s → %3$s |
+| `gui.burmaldaholic.pvp.slots.swap_title` | SWAP! | РОКИРОВКА! |
+| `msg.burmaldaholic.pvp.slots.swap` | Ender Pearls! %1$s swaps scores with the leader %2$s: %3$s ⇄ %4$s | Жемчуг Края! %1$s меняется очками с лидером (%2$s): %3$s ⇄ %4$s |
+| `msg.burmaldaholic.pvp.slots.time_warp` | Three clocks! %1$s's next spin counts double | Трое часов! Следующее вращение игрока %1$s — с двойными очками |
+| `msg.burmaldaholic.pvp.slots.star` | THREE STARS! %1$s scores %2$s | ТРИ ЗВЕЗДЫ! %1$s получает %2$s |
+| `gui.burmaldaholic.pvp.slots.underdog` | UNDERDOG BOOST | ФОРА АУТСАЙДЕРУ |
+| `msg.burmaldaholic.pvp.slots.underdog` | Underdog boost: %1$s scores double on the final spin! | Фора аутсайдеру: %1$s получает двойные очки в финальном вращении! |
+| `msg.burmaldaholic.pvp.slots.underdog_you` | You're in last place — your final spin counts double! | Вы на последнем месте — финальное вращение даст двойные очки! |
+| `gui.burmaldaholic.pvp.slots.rules.1` | Everyone spins the same machine type. Line wins become points; the most points takes the pot. | Все крутят автоматы одного типа. Выигрыши на линиях превращаются в очки; у кого больше очков, тот забирает банк. |
+| `gui.burmaldaholic.pvp.slots.rules.2` | Each spin one fruit or gem is HOT and scores double. | В каждом вращении один символ — горячий: он даёт двойные очки. |
+| `gui.burmaldaholic.pvp.slots.rules.3` | Three Creepers or TNT on a line: KABOOM — your score is halved. | Три крипера или динамита на линии: БАБАХ — ваши очки делятся пополам. |
+| `gui.burmaldaholic.pvp.slots.rules.4` | Three Ender Pearls: you swap scores with the leader. | Три жемчужины Края: вы меняетесь очками с лидером. |
+| `gui.burmaldaholic.pvp.slots.rules.5` | Three Clocks: your next spin counts double. Three Nether Stars: %1$s. | Трое часов: следующее вращение — с двойными очками. Три звезды Незера: %1$s. |
+| `gui.burmaldaholic.pvp.slots.rules.6` | Last place before the final spin scores double on it. | Последнее место перед финальным вращением получает в нём двойные очки. |
+| `gui.burmaldaholic.pvp.slots.tiebreak` | Tie-break: more winning lines, then the best single spin | При равенстве: больше выигрышных линий, затем лучшее вращение |
+
+### Wheel Party
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.wheel.title` | Wheel Party | Колесо на всех |
+| `gui.burmaldaholic.pvp.wheel.host` | Start a Wheel Party | Начать «Колесо на всех» |
+| `gui.burmaldaholic.pvp.wheel.join` | Join the party: %1$s/%2$s | Присоединиться: %1$s/%2$s |
+| `gui.burmaldaholic.pvp.wheel.add` | Add to my slice | Увеличить свой кусок |
+| `gui.burmaldaholic.pvp.wheel.cap` | Max stake per player | Макс. ставка с игрока |
+| `gui.burmaldaholic.pvp.wheel.your_stake` | Your stake | Ваша ставка |
+| `gui.burmaldaholic.pvp.wheel.rules` | Buy a slice of the wheel: the bigger your stake, the bigger your slice. One spin — the winner takes the pot. | Купите кусок колеса: чем больше ставка, тем больше кусок. Одно вращение — победитель забирает банк. |
+| `gui.burmaldaholic.pvp.wheel.slice` | %1$s — %2$s (%3$s) | %1$s — %2$s (%3$s) |
+| `gui.burmaldaholic.pvp.wheel.chance` | Win chance: %1$s | Шанс на победу: %1$s |
+| `gui.burmaldaholic.pvp.wheel.spin_now` | Spin the wheel! | Крутить колесо! |
+| `gui.burmaldaholic.pvp.wheel.spins_in` | Spins in %1$s | Вращение через %1$s |
+| `gui.burmaldaholic.pvp.wheel.bar` | Pot %1$s · your slice %2$s · spins in %3$s | Банк %1$s · ваш кусок %2$s · вращение через %3$s |
+| `gui.burmaldaholic.pvp.wheel.underdog_tag` | UNDERDOG | ТЁМНАЯ ЛОШАДКА |
+| `msg.burmaldaholic.pvp.wheel.top_up` | %1$s adds %2$s — now %3$s of the wheel | %1$s добавляет %2$s — теперь это %3$s колеса |
+| `msg.burmaldaholic.pvp.wheel.no_more_bets` | No more bets! | Ставок больше нет! |
+| `msg.burmaldaholic.pvp.wheel.lands` | The wheel stops on %1$s's slice! | Колесо останавливается на куске игрока %1$s! |
+| `msg.burmaldaholic.pvp.wheel.by_a_hair` | By a hair! Just past %1$s's slice… | На волоске! Чуть-чуть мимо куска игрока %1$s… |
+| `msg.burmaldaholic.pvp.wheel.underdog` | UNDERDOG! %1$s wins with just %2$s of the wheel! | ТЁМНАЯ ЛОШАДКА! %1$s побеждает всего с %2$s колеса! |
+
+### Plinko Battle
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.plinko.title` | Plinko Battle | Битва Плинко |
+| `gui.burmaldaholic.pvp.plinko.host` | Start a Plinko Battle | Начать битву Плинко |
+| `gui.burmaldaholic.pvp.plinko.join` | Join the battle: %1$s · %2$s/%3$s | В битву: %1$s · %2$s/%3$s |
+| `gui.burmaldaholic.pvp.plinko.balls` | Balls per player | Шариков у каждого |
+| `gui.burmaldaholic.pvp.plinko.balls_value` | Balls each: %1$s | Шариков у каждого: %1$s |
+| `gui.burmaldaholic.pvp.plinko.round` | Ball %1$s/%2$s | Шарик %1$s/%2$s |
+| `gui.burmaldaholic.pvp.plinko.final_ball` | FINAL BALL | ФИНАЛЬНЫЙ ШАРИК |
+| `gui.burmaldaholic.pvp.plinko.drop_now` | Drop! | Бросить! |
+| `gui.burmaldaholic.pvp.plinko.auto_in` | Auto-drop in %1$s | Автоброс через %1$s |
+| `gui.burmaldaholic.pvp.plinko.ball_result` | Bin ×%1$s — %2$s | Лунка ×%1$s — %2$s |
+| `gui.burmaldaholic.pvp.plinko.rules.1` | Everyone drops at the same time, at the same risk. Bin ×1 = 10 points. The most points takes the pot. | Все бросают одновременно и с одним риском. Лунка ×1 = 10 очков. У кого больше очков, тот забирает банк. |
+| `gui.burmaldaholic.pvp.plinko.rules.2` | Last place before the final ball scores double on it. | Последнее место перед финальным шариком получает за него двойные очки. |
+| `gui.burmaldaholic.pvp.plinko.tiebreak` | Tie-break: the best single ball | При равенстве решает лучший шарик |
+| `msg.burmaldaholic.pvp.plinko.edge` | EDGE! %1$s hits the ×%2$s bin! | КРАЙ! %1$s попадает в лунку ×%2$s! |
+| `msg.burmaldaholic.pvp.plinko.underdog` | Underdog boost: %1$s's final ball counts double! | Фора аутсайдеру: финальный шарик игрока %1$s — с двойными очками! |
+
+### Scratch Showdown
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.scratch.title` | Scratch Showdown | Лотерейная битва |
+| `gui.burmaldaholic.pvp.scratch.cell` | Cell %1$s/9 | Клетка %1$s/9 |
+| `gui.burmaldaholic.pvp.scratch.scratch_now` | Scratch! | Стереть! |
+| `gui.burmaldaholic.pvp.scratch.auto_in` | Auto-scratch in %1$s | Автостирание через %1$s |
+| `gui.burmaldaholic.pvp.scratch.multiplier` | ×%1$s | ×%1$s |
+| `gui.burmaldaholic.pvp.scratch.score` | Score: %1$s | Счёт: %1$s |
+| `gui.burmaldaholic.pvp.scratch.rules.1` | Everyone gets a card. Nine cells are scratched for all at once, one at a time. The highest score takes the pot. | Каждому — по билету. Девять клеток стираются у всех одновременно, по одной. У кого больше очков, тот забирает банк. |
+| `gui.burmaldaholic.pvp.scratch.rules.2` | Coal 1 · Iron 2 · Gold 3 · Emerald 5 · Diamond 10 · Nether Star 25 | Уголь 1 · Железо 2 · Золото 3 · Изумруд 5 · Алмаз 10 · Звезда Незера 25 |
+| `gui.burmaldaholic.pvp.scratch.rules.3` | Three or more of a kind score double. Rabbit's Foot: the whole card ×2 (max ×4). | Три одинаковых и больше — очки ×2. Кроличья лапка: весь билет ×2 (максимум ×4). |
+| `gui.burmaldaholic.pvp.scratch.rules.4` | Creeper: blows up your best cell so far. | Крипер: взрывает вашу лучшую открытую клетку. |
+| `gui.burmaldaholic.pvp.scratch.tiebreak` | Tie-break: the best single cell | При равенстве решает лучшая клетка |
+| `gui.burmaldaholic.pvp.scratch.symbol.coal` | Coal | Уголь |
+| `gui.burmaldaholic.pvp.scratch.symbol.iron` | Iron | Железо |
+| `gui.burmaldaholic.pvp.scratch.symbol.gold` | Gold | Золото |
+| `gui.burmaldaholic.pvp.scratch.symbol.emerald` | Emerald | Изумруд |
+| `gui.burmaldaholic.pvp.scratch.symbol.diamond` | Diamond | Алмаз |
+| `gui.burmaldaholic.pvp.scratch.symbol.star` | Nether Star | Звезда Незера |
+| `gui.burmaldaholic.pvp.scratch.symbol.creeper` | Creeper | Крипер |
+| `gui.burmaldaholic.pvp.scratch.symbol.foot` | Rabbit's Foot | Кроличья лапка |
+| `gui.burmaldaholic.pvp.scratch.symbol.burned` | Charred | Сгорело |
+| `msg.burmaldaholic.pvp.scratch.creeper` | Creeper! %1$s loses a cell: %2$s | Крипер! У игрока %1$s сгорает клетка: %2$s |
+| `msg.burmaldaholic.pvp.scratch.fizzle` | Creeper! …but %1$s has nothing to blow up | Крипер! …но у игрока %1$s взрывать нечего |
+| `msg.burmaldaholic.pvp.scratch.foot` | Rabbit's Foot! %1$s's card is now worth ×%2$s | Кроличья лапка! Билет игрока %1$s теперь ×%2$s |
+
+### NICE — spectator side bets
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.side.title` | Side bets | Ставки зрителей |
+| `gui.burmaldaholic.pvp.side.open` | Bet on this match | Поставить на матч |
+| `gui.burmaldaholic.pvp.side.pick` | Back a player | На кого ставим |
+| `gui.burmaldaholic.pvp.side.odds` | %1$s — pays about ×%2$s | %1$s — выплата около ×%2$s |
+| `gui.burmaldaholic.pvp.side.pool` | Side pool: %1$s | Банк зрителей: %1$s |
+| `gui.burmaldaholic.pvp.side.closed` | Side bets are closed | Ставки зрителей закрыты |
+| `gui.burmaldaholic.pvp.side.none` | No matches to bet on nearby | Поблизости нет матчей для ставок |
+| `gui.burmaldaholic.pvp.side.error_player` | Players can't bet on their own match | Участники не ставят на свой матч |
+| `gui.burmaldaholic.pvp.side.error_mode` | Side bets aren't available for this game | Для этой игры ставки зрителей недоступны |
+| `msg.burmaldaholic.pvp.side.placed` | You back %1$s with %2$s | Вы ставите на игрока %1$s: %2$s |
+| `msg.burmaldaholic.pvp.side.won` | Your pick won! +%1$s | Ваш игрок победил! +%1$s |
+| `msg.burmaldaholic.pvp.side.lost` | Your pick lost: −%1$s | Ваш игрок проиграл: −%1$s |
+| `msg.burmaldaholic.pvp.side.refunded` | Nobody backed the winner — side bets returned | На победителя никто не ставил — ставки зрителей возвращены |
+| `msg.burmaldaholic.pvp.side.announce` | Side bets open: %1$s. Casino Menu → Challenges | Открыты ставки зрителей: %1$s. «Меню казино → Вызовы» |
+
+### NICE — tournaments
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.tournament.title` | Tournaments | Турниры |
+| `gui.burmaldaholic.pvp.tournament.none` | No tournaments right now | Сейчас турниров нет |
+| `gui.burmaldaholic.pvp.tournament.row` | %1$s · %2$s · entry %3$s · %4$s/%5$s | %1$s · %2$s · взнос %3$s · %4$s/%5$s |
+| `gui.burmaldaholic.pvp.tournament.format.knockout` | Knockout | На вылет |
+| `gui.burmaldaholic.pvp.tournament.format.leaderboard` | Leaderboard | Таблица лидеров |
+| `gui.burmaldaholic.pvp.tournament.register` | Register (%1$s) | Записаться (%1$s) |
+| `gui.burmaldaholic.pvp.tournament.unregister` | Withdraw | Отказаться от участия |
+| `gui.burmaldaholic.pvp.tournament.prize_pool` | Prize pool: %1$s | Призовой фонд: %1$s |
+| `gui.burmaldaholic.pvp.tournament.prizes` | Prizes: %1$s | Призы: %1$s |
+| `gui.burmaldaholic.pvp.tournament.starts_in` | Starts in %1$s | Старт через %1$s |
+| `gui.burmaldaholic.pvp.tournament.ends_in` | Ends in %1$s | Финиш через %1$s |
+| `gui.burmaldaholic.pvp.tournament.bracket` | Bracket | Сетка |
+| `gui.burmaldaholic.pvp.tournament.round` | Round %1$s | Раунд %1$s |
+| `gui.burmaldaholic.pvp.tournament.semifinal` | Semi-final | Полуфинал |
+| `gui.burmaldaholic.pvp.tournament.final` | Final | Финал |
+| `gui.burmaldaholic.pvp.tournament.match_row` | %1$s vs %2$s | %1$s против %2$s |
+| `gui.burmaldaholic.pvp.tournament.bye` | %1$s goes through without a match | %1$s проходит дальше без игры |
+| `gui.burmaldaholic.pvp.tournament.your_best` | Your best: %1$s (#%2$s) | Ваш лучший результат: %1$s (№%2$s) |
+| `gui.burmaldaholic.pvp.tournament.enter_run` | Play a run (%1$s) | Сыграть попытку (%1$s) |
+| `gui.burmaldaholic.pvp.tournament.runs_left` | Runs left: %1$s | Осталось попыток: %1$s |
+| `gui.burmaldaholic.pvp.tournament.create` | Create tournament | Создать турнир |
+| `gui.burmaldaholic.pvp.tournament.name` | Name | Название |
+| `gui.burmaldaholic.pvp.tournament.added_prize` | Added prize (paid by the bank) | Добавка к призу (за счёт банка) |
+| `gui.burmaldaholic.pvp.tournament.max_players` | Max players | Макс. участников |
+| `gui.burmaldaholic.pvp.tournament.duration` | Duration | Длительность |
+| `msg.burmaldaholic.pvp.tournament.announce` | Tournament! %1$s — %2$s. Entry %3$s. Register in Casino Menu → Challenges! | Турнир! %1$s — %2$s. Взнос %3$s. Запись — «Меню казино → Вызовы»! |
+| `msg.burmaldaholic.pvp.tournament.starting` | The %1$s tournament begins! Players: %2$s | Турнир «%1$s» начинается! Участников: %2$s |
+| `msg.burmaldaholic.pvp.tournament.cancelled` | Tournament cancelled — not enough players. Entries returned. | Турнир отменён — мало участников. Взносы возвращены. |
+| `msg.burmaldaholic.pvp.tournament.next_match` | Your next match: vs %1$s, in %2$s | Ваш следующий матч — против игрока %1$s, через %2$s |
+| `msg.burmaldaholic.pvp.tournament.eliminated` | Knocked out by %1$s. Thanks for playing! | Вы выбываете — сильнее оказался %1$s. Спасибо за игру! |
+| `msg.burmaldaholic.pvp.tournament.champion` | CHAMPION! %1$s wins the %2$s tournament and %3$s! | ЧЕМПИОН! %1$s выигрывает турнир «%2$s» и %3$s! |
+| `msg.burmaldaholic.pvp.tournament.prize` | Prize for #%1$s: %2$s | Приз за №%1$s: %2$s |
+| `msg.burmaldaholic.pvp.tournament.leader` | New leader: %1$s with %2$s | Новый лидер: %1$s — %2$s |
+| `item.burmaldaholic.pvp_trophy` | Champion's Trophy | Кубок чемпиона |
+| `tooltip.burmaldaholic.pvp_trophy` | %1$s · %2$s · day %3$s | %1$s · %2$s · день %3$s |
+
+### NICE — more modes, owner settings
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.game.series` | Coin Series | Серия на монетке |
+| `gui.burmaldaholic.pvp.game.race` | Jackpot Race | Гонка за джекпотом |
+| `gui.burmaldaholic.pvp.game.heist` | Wheel Heist | Налёт на колесо |
+| `gui.burmaldaholic.pvp.game.scratch_poker` | Scratch Poker | Лотерейный покер |
+| `gui.burmaldaholic.pvp.series.format` | Series: first to %1$s wins | Серия: нужно побед — %1$s |
+| `gui.burmaldaholic.pvp.series.score` | Series %1$s–%2$s | Счёт серии %1$s–%2$s |
+| `msg.burmaldaholic.pvp.series.match_point` | Match point for %1$s! | Матчбол у игрока %1$s! |
+| `gui.burmaldaholic.pvp.race.rules` | Everyone spins together. The first to hit %1$s on a line takes the pot. | Все крутят одновременно. Кто первым соберёт на линии %1$s, тот забирает банк. |
+| `gui.burmaldaholic.pvp.race.target` | three Diamonds or better | три алмаза или лучше |
+| `gui.burmaldaholic.pvp.race.fee` | Per spin: %1$s from each | За вращение: %1$s с каждого |
+| `msg.burmaldaholic.pvp.race.hit` | %1$s hits it! | %1$s срывает куш! |
+| `msg.burmaldaholic.pvp.race.timeout` | Nobody hit it in %1$s — the most points wins | За %1$s никто не собрал — побеждает больше очков |
+| `gui.burmaldaholic.pvp.heist.rules` | Three rounds, everyone spins. Grab loot, steal it or lose it all. The most loot takes the pot. | Три круга, крутят все. Хватайте добычу, крадите её или теряйте всё. У кого больше добычи, тот забирает банк. |
+| `gui.burmaldaholic.pvp.heist.loot` | Loot +%1$s | Добыча +%1$s |
+| `gui.burmaldaholic.pvp.heist.steal` | Steal | Кража |
+| `gui.burmaldaholic.pvp.heist.bankrupt` | Bankrupt | Банкрот |
+| `gui.burmaldaholic.pvp.heist.double` | Double | Удвоение |
+| `gui.burmaldaholic.pvp.heist.shield` | Shield | Щит |
+| `gui.burmaldaholic.pvp.heist.pick_victim` | Steal from whom? | У кого крадём? |
+| `gui.burmaldaholic.pvp.heist.loot_line` | %1$s — loot %2$s | %1$s — добыча %2$s |
+| `msg.burmaldaholic.pvp.heist.stole` | %1$s steals %2$s loot from %3$s! | %1$s крадёт у игрока %3$s добычу: %2$s! |
+| `msg.burmaldaholic.pvp.heist.bankrupt` | BANKRUPT! %1$s loses all the loot | БАНКРОТ! %1$s теряет всю добычу |
+| `msg.burmaldaholic.pvp.heist.shielded` | %1$s's shield blocks it! | Щит игрока %1$s отражает удар! |
+| `gui.burmaldaholic.pvp.plinko.bumper` | Place bumper on… | Поставить отбойник… |
+| `msg.burmaldaholic.pvp.plinko.bumper_placed` | %1$s puts a bumper on %2$s's next ball! | %1$s ставит отбойник на следующий шарик игрока %2$s! |
+| `gui.burmaldaholic.pvp.scratch_poker.rules` | Hidden cards. Four cells, then bet; four more, then bet; the last cell at the showdown. | Билеты скрыты. Четыре клетки — торговля, ещё четыре — торговля, последняя — на вскрытии. |
+| `msg.burmaldaholic.pvp.scratch_poker.folds` | %1$s folds | %1$s пасует |
+| `gui.burmaldaholic.pvp.charter.allow` | Allow PvP matches | Разрешить PvP-матчи |
+
+### Bots in PvP (policy and difficulty names come from BOTS.md)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.bots.opponent` | Bot — %1$s | Бот — %1$s |
+| `gui.burmaldaholic.pvp.bots.seats` | Seats | Кто играет |
+| `gui.burmaldaholic.pvp.bots.difficulty` | Bot difficulty | Сложность ботов |
+| `gui.burmaldaholic.pvp.bots.table_size` | Table size | Мест за столом |
+| `gui.burmaldaholic.pvp.bots.table_size_value` | Seats: %1$s | Мест: %1$s |
+| `gui.burmaldaholic.pvp.bots.will_fill` | Empty seats at the start: bots fill %1$s | Свободные места при старте займут боты: %1$s |
+| `gui.burmaldaholic.pvp.bots.start_with_bots` | Start with bots | Начать с ботами |
+| `gui.burmaldaholic.pvp.bots.tagged` | %1$s [%2$s] | %1$s [%2$s] |
+| `msg.burmaldaholic.pvp.bots.joined` | %1$s joins the game | В игру вступает %1$s |
+| `msg.burmaldaholic.pvp.bots.no_bots_here` | Bots can't play at this machine — humans only | На этом автомате боты не играют — только люди |
+
 ## loan
 
 ### Loan screen
@@ -1566,6 +1993,286 @@ All variants of one base receive the same arguments; a variant may ignore them.
 
 ---
 
+## bots
+
+⚠ Added 2026-09 (BOTS.md §11, pre-merged by the architect; BOTS.md stays normative for arguments and notes).
+
+### UI
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.bots.display` | [BOT] %1$s | [БОТ] %1$s |
+| `gui.burmaldaholic.bots.display_level` | [BOT] %1$s · %2$s | [БОТ] %1$s · %2$s |
+| `gui.burmaldaholic.bots.level_poker` | %1$s (%2$s) | %1$s (%2$s) |
+| `gui.burmaldaholic.bots.level.easy` | Easy | Лёгкий |
+| `gui.burmaldaholic.bots.level.normal` | Normal | Нормальный |
+| `gui.burmaldaholic.bots.level.hard` | Hard | Сложный |
+| `gui.burmaldaholic.bots.level.mixed` | Mixed | Вперемешку |
+| `gui.burmaldaholic.bots.level.easy.short` | E | Л |
+| `gui.burmaldaholic.bots.level.normal.short` | N | Н |
+| `gui.burmaldaholic.bots.level.hard.short` | H | С |
+| `gui.burmaldaholic.bots.style.easy` | Wild | Азартный |
+| `gui.burmaldaholic.bots.style.normal` | Steady | Ровный |
+| `gui.burmaldaholic.bots.style.hard` | Cool-headed | Хладнокровный |
+| `gui.burmaldaholic.bots.style.mixed` | Mixed | Вперемешку |
+| `gui.burmaldaholic.bots.personality.rock` | Rock | Скала |
+| `gui.burmaldaholic.bots.personality.rock.desc` | rarely bluffs | блефует редко |
+| `gui.burmaldaholic.bots.personality.station` | Calling Station | Колл-станция |
+| `gui.burmaldaholic.bots.personality.station.desc` | calls everything | коллирует всё подряд |
+| `gui.burmaldaholic.bots.personality.maniac` | Maniac | Маньяк |
+| `gui.burmaldaholic.bots.personality.maniac.desc` | raises everything | рейзит всё подряд |
+| `gui.burmaldaholic.bots.personality.tag` | Tight-Aggressive | Тайт-агрессор |
+| `gui.burmaldaholic.bots.personality.tag.desc` | plays by the book | играет по учебнику |
+| `gui.burmaldaholic.bots.personality.lag` | Loose-Aggressive | Луз-агрессор |
+| `gui.burmaldaholic.bots.personality.lag.desc` | keeps up the pressure | давит без передышки |
+| `gui.burmaldaholic.bots.personality_line` | %1$s — %2$s | %1$s — %2$s |
+| `gui.burmaldaholic.bots.betstyle.roulette.rock` | Red Lover | Любитель красного |
+| `gui.burmaldaholic.bots.betstyle.roulette.station` | Dozen Grinder | Дюжинщик |
+| `gui.burmaldaholic.bots.betstyle.roulette.maniac` | Sprinkler | Разбрасыватель |
+| `gui.burmaldaholic.bots.betstyle.roulette.tag` | Lucky Number | Счастливое число |
+| `gui.burmaldaholic.bots.betstyle.roulette.lag` | Martingale Fan | Фанат мартингейла |
+| `gui.burmaldaholic.bots.betstyle.craps.rock` | Dark Side | Тёмная сторона |
+| `gui.burmaldaholic.bots.betstyle.craps.station` | Field Fan | Любитель филда |
+| `gui.burmaldaholic.bots.betstyle.craps.maniac` | Come Ladder | Лестница кам-ставок |
+| `gui.burmaldaholic.bots.betstyle.craps.tag` | Right-Way Grinder | Честный пасс-лайн |
+| `gui.burmaldaholic.bots.betstyle.craps.lag` | Pass and Field | Пасс и филд |
+| `gui.burmaldaholic.bots.betstyle.baccarat.rock` | Banker Only | Только Банкир |
+| `gui.burmaldaholic.bots.betstyle.baccarat.station` | Trend Follower | Идёт за серией |
+| `gui.burmaldaholic.bots.betstyle.baccarat.maniac` | Tie Hunter | Охотник за ничьей |
+| `gui.burmaldaholic.bots.betstyle.baccarat.tag` | Banker, No Frills | Банкир без изысков |
+| `gui.burmaldaholic.bots.betstyle.baccarat.lag` | Chop Chaser | Против серии |
+| `gui.burmaldaholic.bots.settings.open` | Table settings… | Настройки стола… |
+| `gui.burmaldaholic.bots.settings.info` | Table info | Об этом столе |
+| `gui.burmaldaholic.bots.settings.title` | Table settings — %1$s | Настройки стола — %1$s |
+| `gui.burmaldaholic.bots.settings.defaults_title` | Table defaults — %1$s | Настройки по умолчанию — %1$s |
+| `gui.burmaldaholic.bots.settings.host` | Host: %1$s | Хозяин стола: %1$s |
+| `gui.burmaldaholic.bots.settings.players` | Players | Кто играет |
+| `gui.burmaldaholic.bots.policy.humans_only` | Humans only | Только люди |
+| `gui.burmaldaholic.bots.policy.mixed` | Humans + bots | Люди и боты |
+| `gui.burmaldaholic.bots.policy.bots_only` | Just me and bots | Только я и боты |
+| `gui.burmaldaholic.bots.settings.count` | Bots | Боты |
+| `gui.burmaldaholic.bots.settings.count_max` | max %1$s | макс. %1$s |
+| `gui.burmaldaholic.bots.settings.difficulty` | Bot difficulty | Уровень ботов |
+| `gui.burmaldaholic.bots.settings.style` | Bot style | Стиль ботов |
+| `gui.burmaldaholic.bots.settings.keep_free` | Keep a seat free for walk-ins | Держать место для новых игроков |
+| `gui.burmaldaholic.bots.settings.chatter` | Bot chatter | Болтовня ботов |
+| `gui.burmaldaholic.bots.settings.speed` | Bot speed | Темп ботов |
+| `gui.burmaldaholic.bots.speed.normal` | Normal | Обычный |
+| `gui.burmaldaholic.bots.speed.fast` | Fast | Быстрый |
+| `gui.burmaldaholic.bots.speed.instant` | Instant | Мгновенный |
+| `gui.burmaldaholic.bots.settings.speed_hint` | Fast and Instant work only in Just me and bots | Быстрый и мгновенный темп — только в режиме «Только я и боты» |
+| `gui.burmaldaholic.bots.settings.save_defaults` | Save as table defaults | Сохранить как настройки стола |
+| `gui.burmaldaholic.bots.settings.save` | Save — applies from the next round | Сохранить — со следующего раунда |
+| `gui.burmaldaholic.bots.settings.save_short` | Save | Сохранить |
+| `gui.burmaldaholic.bots.summary.humans_only` | Humans only · %1$s | Только люди · %1$s |
+| `gui.burmaldaholic.bots.summary.mixed` | Humans + %1$s · %2$s · %3$s | Люди + %1$s · %2$s · %3$s |
+| `gui.burmaldaholic.bots.summary.bots_only` | %1$s + %2$s · %3$s · private | %1$s + %2$s · %3$s · закрытый |
+| `gui.burmaldaholic.bots.summary.private` | Private | Закрытый |
+| `gui.burmaldaholic.bots.summary.open` | Open to all | Открытый |
+| `gui.burmaldaholic.bots.pending` | New settings from the next round | Новые настройки — со следующего раунда |
+| `gui.burmaldaholic.bots.seat_line` | Seat %1$s: %2$s · %3$s · %4$s | Место %1$s: %2$s · %3$s · %4$s |
+| `gui.burmaldaholic.bots.seat_reserved` | Reserved for %1$s | Занято для игрока %1$s |
+| `gui.burmaldaholic.bots.seat_leaving` | Leaves after this round | Уйдёт после раунда |
+| `gui.burmaldaholic.bots.thinking` | Thinking… | Думает… |
+| `gui.burmaldaholic.bots.watching` | Watching | Наблюдает |
+| `gui.burmaldaholic.bots.virtual_bets` | Bots bet (for fun): %1$s | Ставки ботов (понарошку): %1$s |
+| `gui.burmaldaholic.bots.virtual_tooltip` | Bot chips here are not real: they never win or lose anyone's money | Фишки ботов здесь ненастоящие: они не выигрывают и не проигрывают ничьих денег |
+| `gui.burmaldaholic.bots.luck_only` | Luck only — bots play exactly like you | Только удача — боты играют так же, как вы |
+| `gui.burmaldaholic.bots.uth_edge` | Costs this bot about %1$s of the Ante | Обходится этому боту примерно в %1$s от анте |
+| `gui.burmaldaholic.bots.heat_hard_only` | Only Hard bots will play you today | Сегодня с вами играют только сложные боты |
+| `gui.burmaldaholic.bots.wallet_line` | Winnings from bots today: %1$s / %2$s | Выигрыш у ботов сегодня: %1$s / %2$s |
+| `gui.burmaldaholic.bots.stats_line` | Vs bots: %1$s rounds · net %2$s | С ботами: раундов %1$s · итог %2$s |
+| `gui.burmaldaholic.bots.rules.fair` | Bots see only what you see and never touch the shuffle, the dice or the wheel. | Боты видят только то, что видите вы, и никак не влияют на тасовку, кости и колесо. |
+| `gui.burmaldaholic.bots.rules.tell` | Tip: Easy bots think longer when they hold a strong hand. | Подсказка: лёгкие боты думают дольше, когда у них сильная рука. |
+| `gui.burmaldaholic.bots.rules.money` | Bot rounds: half VIP credit, no cashback, no Golden Hour bonus, no streak. | Игра с ботами: оборот для ВИП засчитывается наполовину, без кешбэка, без бонуса «Золотого часа» и без серий. |
+| `gui.burmaldaholic.bots.private.open` | Private table… | Закрытый стол… |
+| `gui.burmaldaholic.bots.private.toggle` | Private table | Закрытый стол |
+| `gui.burmaldaholic.bots.private.status` | Private: %1$s · Invited: %2$s | Закрытый: %1$s · Приглашены: %2$s |
+| `gui.burmaldaholic.bots.private.yes` | yes | да |
+| `gui.burmaldaholic.bots.private.no` | no | нет |
+| `gui.burmaldaholic.bots.private.make_private` | Make private | Сделать закрытым |
+| `gui.burmaldaholic.bots.private.make_public` | Make public | Сделать открытым |
+| `gui.burmaldaholic.bots.private.invite` | Invite a player… | Пригласить игрока… |
+| `gui.burmaldaholic.bots.private.invite_submit` | Invite | Пригласить |
+| `gui.burmaldaholic.bots.private.uninvite` | Remove an invite… | Отозвать приглашение… |
+| `gui.burmaldaholic.bots.private.uninvite_submit` | Remove | Отозвать |
+| `gui.burmaldaholic.bots.private.manage` | Invited… | Приглашённые… |
+| `gui.burmaldaholic.bots.private.none_invited` | Nobody invited yet | Пока никто не приглашён |
+| `gui.burmaldaholic.bots.private.none_nearby` | No players nearby to invite | Рядом нет игроков для приглашения |
+| `gui.burmaldaholic.bots.private.confirm` | Invite %1$s to your %2$s table? | Пригласить игрока %1$s за ваш стол (%2$s)? |
+| `gui.burmaldaholic.bots.let_in` | Let %1$s in (Humans + bots) | Пустить: %1$s («Люди и боты») |
+| `gui.burmaldaholic.bots.pvp.opponents` | Opponents | Соперники |
+| `gui.burmaldaholic.bots.pvp.a_player` | A player | Игрок |
+| `gui.burmaldaholic.bots.pvp.a_bot` | A bot | Бот |
+| `gui.burmaldaholic.bots.pvp.play_vs_bots` | Play vs bots… | Игра с ботами… |
+| `gui.burmaldaholic.bots.pvp.fill_now` | Fill with bots | Добавить ботов |
+| `gui.burmaldaholic.bots.charter.bots` | Bots | Боты |
+| `gui.burmaldaholic.bots.charter.mode.off` | Off | Выкл. |
+| `gui.burmaldaholic.bots.charter.mode.atmosphere` | Atmosphere only | Только для атмосферы |
+| `gui.burmaldaholic.bots.charter.mode.allowed` | Allowed (paid from the bankroll) | Разрешены (за счёт кассы) |
+| `gui.burmaldaholic.bots.charter.host_may_change` | Players may change seating | Игроки могут менять состав |
+| `gui.burmaldaholic.bots.charter.max_bots` | Max bots | Макс. ботов |
+| `gui.burmaldaholic.bots.charter.allow_private` | Allow private tables | Разрешить закрытые столы |
+| `gui.burmaldaholic.bots.charter.defaults` | Table defaults… | Настройки по умолчанию… |
+| `gui.burmaldaholic.bots.charter.stacks_out` | Bot stacks out: %1$s | Фишки у ботов: %1$s |
+| `gui.burmaldaholic.bots.charter.results_today` | Bot results today: %1$s | Итог ботов за сегодня: %1$s |
+| `gui.burmaldaholic.bots.charter.bankroll_short` | Bots can't afford a seat: the bankroll is too low | Ботам не на что сесть: в кассе мало денег |
+| `gui.burmaldaholic.menu.settings.bot_chatter` | Bot chatter | Болтовня ботов |
+| `gui.burmaldaholic.bots.admin.title` | Bots | Боты |
+| `gui.burmaldaholic.bots.admin.line` | %1$s at %2$s · %3$s · %4$s | %1$s — %2$s · %3$s · %4$s |
+| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить всех ботов по домам |
+| `gui.burmaldaholic.bots.admin.reset_heat` | Reset a player's bot limits… | Сбросить лимиты игрока… |
+
+### Bot names (`gui.burmaldaholic.bots.name.<id>`; theme in the comment column is data for the code)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.bots.name.lucky_steve` | Lucky Steve | Везунчик Стив |
+| `gui.burmaldaholic.bots.name.grandpa_pavel` | Grandpa Pavel | Дед Павел |
+| `gui.burmaldaholic.bots.name.creeper42` | Creeper42 | Крипер42 |
+| `gui.burmaldaholic.bots.name.mr_blocksworth` | Mr. Blocksworth | Мистер Блоксворт |
+| `gui.burmaldaholic.bots.name.diamond_dora` | Diamond Dora | Алмазная Дора |
+| `gui.burmaldaholic.bots.name.aunt_zoya` | Aunt Zoya | Тётя Зоя |
+| `gui.burmaldaholic.bots.name.redstone_rick` | Redstone Rick | Редстоун Рик |
+| `gui.burmaldaholic.bots.name.emerald_emma` | Emerald Emma | Изумрудная Эмма |
+| `gui.burmaldaholic.bots.name.sir_oinksalot` | Sir Oinksalot | Сэр Хрюкенс |
+| `gui.burmaldaholic.bots.name.baba_valya` | Baba Valya | Баба Валя |
+| `gui.burmaldaholic.bots.name.uncle_grisha` | Uncle Grisha | Дядя Гриша |
+| `gui.burmaldaholic.bots.name.kuzmich` | Old Kuzmich | Кузьмич |
+| `gui.burmaldaholic.bots.name.cobble_carl` | Cobblestone Carl | Булыжник Карл |
+| `gui.burmaldaholic.bots.name.slime_sam` | Slimy Sam | Слизняк Сэм |
+| `gui.burmaldaholic.bots.name.brewing_bella` | Brewing Bella | Зельеварка Белла |
+| `gui.burmaldaholic.bots.name.captain_boat` | Captain Boat | Капитан Лодка |
+| `gui.burmaldaholic.bots.name.bee_bea` | Bea the Beekeeper | Пчеловод Беа |
+| `gui.burmaldaholic.bots.name.torch_tanya` | Torch Tanya | Таня-Факел |
+| `gui.burmaldaholic.bots.name.axolotl_al` | Axolotl Al | Аксолотль Ал |
+| `gui.burmaldaholic.bots.name.lady_luckless` | Lady Luckless | Леди Невезуха |
+| `gui.burmaldaholic.bots.name.iron_ivan` | Iron Ivan | Железный Иван |
+| `gui.burmaldaholic.bots.name.nether_nick` | Nether Nick | Незер Ник |
+| `gui.burmaldaholic.bots.name.goldie_nuggets` | Goldie Nuggets | Голди Самородок |
+| `gui.burmaldaholic.bots.name.piglin_pete` | Piglin Pete | Пиглин Петя |
+| `gui.burmaldaholic.bots.name.bartering_boris` | Bartering Boris | Борис-Бартер |
+| `gui.burmaldaholic.bots.name.madame_crimson` | Madame Crimson | Мадам Багрянка |
+| `gui.burmaldaholic.bots.name.tusk_tony` | Tony Tusks | Тони Клык |
+| `gui.burmaldaholic.bots.name.enderman_ed` | Enderman Ed | Эндермен Эд |
+| `gui.burmaldaholic.bots.name.madame_ender` | Madame Ender | Мадам Эндер |
+| `gui.burmaldaholic.bots.name.shulker_shura` | Shulker Shura | Шалкер Шура |
+| `gui.burmaldaholic.bots.name.pearl_polly` | Pearly Polly | Жемчужная Полли |
+| `gui.burmaldaholic.bots.name.void_viktor` | Viktor the Void | Виктор Пустота |
+
+### Quips (`dialog.burmaldaholic.bots.<event>.N`, variants; `%1$s` = human name where used)
+
+| Key | EN | RU |
+|-----|----|----|
+| `dialog.burmaldaholic.bots.join.1` | Deal me in. I brought my lucky redstone. | Сдавайте. Я со своим счастливым редстоуном. |
+| `dialog.burmaldaholic.bots.join.2` | Evening, everyone. Chips are warm, cards are cold. | Всем добрый вечер. Фишки тёплые, карты холодные. |
+| `dialog.burmaldaholic.bots.join.3` | Beep boop. Just kidding. Or am I? | Бип-буп. Шучу. Или нет? |
+| `dialog.burmaldaholic.bots.join.4` | Mind if I sit? The villagers won't let me into their game. | Не возражаете? Жители не пускают меня в свою игру. |
+| `dialog.burmaldaholic.bots.yield.1` | Take my seat, %1$s. Humans first, house rules. | Садитесь, %1$s. Люди вперёд — правила заведения. |
+| `dialog.burmaldaholic.bots.yield.2` | My shift is over. Good luck, %1$s! | Моя смена окончена. Удачи, %1$s! |
+| `dialog.burmaldaholic.bots.yield.3` | The seat is warm for you, %1$s. Don't lose it all at once. | Место нагрето, %1$s. Не проиграйте всё сразу. |
+| `dialog.burmaldaholic.bots.leave.1` | I'm off to mine some more chips. | Пойду накопаю ещё фишек. |
+| `dialog.burmaldaholic.bots.leave.2` | That's enough excitement for one circuit board. | Для одной платы волнений достаточно. |
+| `dialog.burmaldaholic.bots.leave.3` | See you at the next table. I'll be the one in copper. | Увидимся за другим столом. Ищите того, кто в меди. |
+| `dialog.burmaldaholic.bots.win_big.1` | Ka-ching! Somebody call the Loan Shark. For you, not me. | Дзынь! Позовите Ростовщика. Вам, не мне. |
+| `dialog.burmaldaholic.bots.win_big.2` | The house thanks you. Well, I do. | Заведение благодарит. Ну, то есть я. |
+| `dialog.burmaldaholic.bots.win_big.3` | Running hot! Somebody pour water on my circuits. | Пошла карта! Полейте мне схемы водой. |
+| `dialog.burmaldaholic.bots.win_big.4` | Stack it up, stack it up! | Складываем, складываем! |
+| `dialog.burmaldaholic.bots.bust.1` | Out of chips. Out of pride. Out of here. | Нет фишек. Нет гордости. Нет меня. |
+| `dialog.burmaldaholic.bots.bust.2` | I'll be back. With a loan. | Я вернусь. С займом. |
+| `dialog.burmaldaholic.bots.bust.3` | Error 404: stack not found. | Ошибка 404: фишки не найдены. |
+| `dialog.burmaldaholic.bots.bust.4` | Tell my motherboard I love her. | Передайте материнской плате: люблю. |
+| `dialog.burmaldaholic.bots.bad_beat.1` | The river hates me. Personally. | Ривер меня ненавидит. Лично. |
+| `dialog.burmaldaholic.bots.bad_beat.2` | Statistically, that never happens. Emotionally, it happens every day. | По статистике такого не бывает. По ощущениям — каждый день. |
+| `dialog.burmaldaholic.bots.bad_beat.3` | Recalculating… nope, still lost. | Пересчитываю… нет, всё равно проигрыш. |
+| `dialog.burmaldaholic.bots.fold_to_shove.1` | Too rich for my redstone. | Слишком дорого для моего редстоуна. |
+| `dialog.burmaldaholic.bots.fold_to_shove.2` | I fold. Strategically. Definitely not scared. | Пас. Стратегически. Точно не от страха. |
+| `dialog.burmaldaholic.bots.fold_to_shove.3` | Take it, %1$s. My chips are waiting for a better story. | Забирайте, %1$s. Мои фишки ждут истории получше. |
+| `dialog.burmaldaholic.bots.hero_call.1` | I could smell that bluff from the Nether, %1$s. | Этот блеф чувствуется даже из Незера, %1$s. |
+| `dialog.burmaldaholic.bots.hero_call.2` | Nice try, %1$s. My sensors are calibrated. | Хорошая попытка, %1$s. Мои датчики откалиброваны. |
+| `dialog.burmaldaholic.bots.hero_call.3` | A call on a hunch. The hunch delivers. | Колл по наитию. Наитие не подводит. |
+| `dialog.burmaldaholic.bots.human_wins.1` | Well played, %1$s. | Хорошо сыграно, %1$s. |
+| `dialog.burmaldaholic.bots.human_wins.2` | %1$s, are you counting cards? Kidding. Mostly. | %1$s, вы считаете карты? Шучу. Почти. |
+| `dialog.burmaldaholic.bots.human_wins.3` | Enjoy it, %1$s. The house wants it back. | Наслаждайтесь, %1$s. Заведение хочет это обратно. |
+| `dialog.burmaldaholic.bots.human_wins.4` | Someone is on fire tonight, and it isn't the torch. | Кто-то сегодня в ударе, и это не факел. |
+| `dialog.burmaldaholic.bots.all_in.1` | All in! Fortune favours the rusty. | Олл-ин! Фортуна любит ржавых. |
+| `dialog.burmaldaholic.bots.all_in.2` | Everything on the table. Even my warranty. | Всё на стол. Даже гарантийный талон. |
+| `dialog.burmaldaholic.bots.all_in.3` | Go big or go back to mining. | По-крупному — или назад в шахту. |
+| `dialog.burmaldaholic.bots.blackjack.1` | Blackjack! I'd high-five you, but no hands. | Блэкджек! Пять бы дать, да рук нет. |
+| `dialog.burmaldaholic.bots.blackjack.2` | Twenty-one! Math is beautiful. | Двадцать одно! Математика прекрасна. |
+| `dialog.burmaldaholic.bots.blackjack.3` | Ace and a face, my favourite couple. | Туз и картинка — моя любимая пара. |
+| `dialog.burmaldaholic.bots.seven_out.1` | Seven out! Who brought the black cat? | Семёрка! Кто принёс чёрную кошку? |
+| `dialog.burmaldaholic.bots.seven_out.2` | Pass the dice. And the tissues. | Передайте кости. И платочки. |
+| `dialog.burmaldaholic.bots.seven_out.3` | The dice have spoken. Rudely. | Кости сказали своё слово. Грубо. |
+| `dialog.burmaldaholic.bots.natural.1` | Natural nine! Like a diamond on the first swing. | Натуральная девятка! Как алмаз с первого удара. |
+| `dialog.burmaldaholic.bots.natural.2` | Eight, no third card. Elegant. | Восьмёрка — без третьей карты. Изящно. |
+| `dialog.burmaldaholic.bots.natural.3` | Banker, Player, whatever: nine is nine. | Банкир, Игрок — неважно: девять есть девять. |
+| `dialog.burmaldaholic.bots.bank_take.1` | I'll hold the bank. Try to take it from me. | Банк держу я. Попробуйте отнять. |
+| `dialog.burmaldaholic.bots.bank_take.2` | The banker's seat: my natural habitat. | Место банкира — моя естественная среда. |
+| `dialog.burmaldaholic.bots.bank_take.3` | Bets, please. The bank is open. | Ставки, пожалуйста. Банк открыт. |
+| `dialog.burmaldaholic.bots.banco.1` | Banco! All of it, please. | Банко! На всё, пожалуйста. |
+| `dialog.burmaldaholic.bots.banco.2` | Banco. Go big or go home. | Банко. Гулять так гулять. |
+| `dialog.burmaldaholic.bots.banco.3` | I'll take the whole bank, thanks. | Беру весь банк, спасибо. |
+| `dialog.burmaldaholic.bots.pvp_win.1` | Luck is a skill. Mine, today. | Удача — это навык. Сегодня мой. |
+| `dialog.burmaldaholic.bots.pvp_win.2` | Good game, %1$s. The coin likes copper. | Хорошая игра, %1$s. Монетка любит медь. |
+| `dialog.burmaldaholic.bots.pvp_win.3` | Victory tastes like… machine oil. Lovely. | Победа на вкус как… машинное масло. Прекрасно. |
+| `dialog.burmaldaholic.bots.pvp_loss.1` | Rematch? My circuits demand it. | Реванш? Мои схемы требуют. |
+| `dialog.burmaldaholic.bots.pvp_loss.2` | Well played, %1$s. Next time it's mine. | Хорошо сыграно, %1$s. В следующий раз отыграюсь. |
+| `dialog.burmaldaholic.bots.pvp_loss.3` | Rigged! …Just kidding, it's perfectly fair. | Подкручено! …Шучу, всё честно. |
+| `dialog.burmaldaholic.bots.duel_accept.1` | Challenge accepted. May the best dice win. | Вызов принят. Пусть победит лучший рандом. |
+| `dialog.burmaldaholic.bots.duel_accept.2` | You're on, %1$s. | Идёт, %1$s. |
+| `dialog.burmaldaholic.bots.duel_accept.3` | A duel? They built me for this. Well, for sorting chests, but still. | Дуэль? Меня для этого и собирали. Ну, для сортировки сундуков, но всё же. |
+| `dialog.burmaldaholic.bots.duel_decline.1` | Not today, %1$s. My purse says no. | Не сегодня, %1$s. Кошелёк против. |
+| `dialog.burmaldaholic.bots.duel_decline.2` | Enough of you for today, %1$s. Come back tomorrow. | На сегодня с вас хватит, %1$s. Приходите завтра. |
+| `dialog.burmaldaholic.bots.word_got_around.1` | Word got around about you, %1$s. The Sharks are coming. | Слухи о вас разошлись, %1$s. Идут акулы. |
+| `dialog.burmaldaholic.bots.word_got_around.2` | Easy money is closed for today. Meet the professionals. | Лёгкие деньги на сегодня закончились. Знакомьтесь с профессионалами. |
+| `dialog.burmaldaholic.bots.word_got_around.3` | We've read your file, %1$s. | Мы изучили ваше досье, %1$s. |
+| `dialog.burmaldaholic.bots.sulk.1` | We're not playing with you anymore, %1$s. Not today. | С вами мы больше не играем, %1$s. Сегодня — точно. |
+| `dialog.burmaldaholic.bots.sulk.2` | The bots have gone on strike. Come back tomorrow. | Боты объявили забастовку. Приходите завтра. |
+| `dialog.burmaldaholic.bots.sulk.3` | You've taken enough of our chips for one day. | На сегодня вы забрали достаточно наших фишек. |
+| `dialog.burmaldaholic.bots.idle.1` | Anyone else hear a creeper? | Кто-нибудь ещё слышит крипера? |
+| `dialog.burmaldaholic.bots.idle.2` | Fun fact: the house always wins. Almost. | Интересный факт: заведение всегда в плюсе. Почти. |
+| `dialog.burmaldaholic.bots.idle.3` | Shuffle up and deal, none of us is getting any younger. | Тасуйте и сдавайте, никто из нас не молодеет. |
+| `dialog.burmaldaholic.bots.idle.4` | Stare at the chips long enough and they stare back. | Если долго смотреть на фишки, фишки начинают смотреть на вас. |
+
+### Messages and errors
+
+| Key | EN | RU |
+|-----|----|----|
+| `msg.burmaldaholic.bots.say` | %1$s: %2$s | %1$s: %2$s |
+| `msg.burmaldaholic.bots.joined` | %1$s sits down | За стол садится %1$s |
+| `msg.burmaldaholic.bots.joined_many` | Bots sit down: %1$s | За стол садятся боты: %1$s |
+| `msg.burmaldaholic.bots.left` | %1$s leaves the table | %1$s уходит из-за стола |
+| `msg.burmaldaholic.bots.seat_after_round` | A bot will give you its seat after this round | Бот уступит вам место после этого раунда |
+| `msg.burmaldaholic.bots.seat_ready` | Your seat is ready | Ваше место готово |
+| `msg.burmaldaholic.bots.host_now` | You are now the host of this table: you choose who plays | Теперь вы хозяин стола: вы решаете, кто играет |
+| `msg.burmaldaholic.bots.settings_pending` | New table settings from %1$s, from the next round: %2$s | Новые настройки от игрока %1$s — со следующего раунда: %2$s |
+| `msg.burmaldaholic.bots.settings_applied` | Table settings now: %1$s | Настройки стола теперь: %1$s |
+| `msg.burmaldaholic.bots.invited` | %1$s invites you to a private %2$s table at %3$s | %1$s приглашает вас за закрытый стол (%2$s): %3$s |
+| `msg.burmaldaholic.bots.invite_sent` | Invite sent: %1$s | Приглашение отправлено: %1$s |
+| `msg.burmaldaholic.bots.uninvited` | Invite withdrawn: %1$s | Приглашение отозвано: %1$s |
+| `msg.burmaldaholic.bots.let_in_request` | %1$s wants to join your table. Open the table to let them in. | Игрок %1$s хочет сесть за ваш стол. Откройте стол, чтобы пустить. |
+| `msg.burmaldaholic.bots.let_in_click` | [Let them in] | [Пустить] |
+| `msg.burmaldaholic.bots.regulars_gone` | The regulars went home. No more bots at this table today. | Завсегдатаи разошлись по домам. Сегодня ботов за этим столом больше не будет. |
+| `msg.burmaldaholic.bots.word_got_around` | Word got around about %1$s: only Hard bots at this table today | Слухи об игроке %1$s разошлись: сегодня за этим столом только сложные боты |
+| `msg.burmaldaholic.bots.sulking` | The bots are sulking: no more games with %1$s today | Боты обиделись: сегодня с игроком %1$s они больше не играют |
+| `msg.burmaldaholic.bots.none_available` | No bots are free right now: the casino floor is packed | Свободных ботов сейчас нет: в казино аншлаг |
+| `msg.burmaldaholic.bots.session_ended` | The bots pack up their chips. See you next time! | Боты собирают фишки. До встречи! |
+| `msg.burmaldaholic.bots.heat_reset` | Bot limits reset for %1$s | Лимиты ботов для игрока %1$s сброшены |
+| `gui.burmaldaholic.bots.error.bots_only_table` | %1$s is playing against bots here. Ask them to let you in. | Здесь %1$s играет с ботами. Попросите пустить вас. |
+| `gui.burmaldaholic.bots.error.others_seated` | Other players are seated, so Just me and bots is not available | За столом другие игроки — режим «Только я и боты» недоступен |
+| `gui.burmaldaholic.bots.error.owner_off` | The casino owner has turned bots off at this table | Владелец казино отключил ботов за этим столом |
+| `gui.burmaldaholic.bots.error.owner_locked` | The casino owner does not let players change the seating here | Владелец казино не разрешает менять состав за этим столом |
+| `gui.burmaldaholic.bots.error.host_locked` | Only the host can change these settings | Менять эти настройки может только хозяин стола |
+| `gui.burmaldaholic.bots.error.private_forbidden` | Private tables are not allowed in this casino | В этом казино закрытые столы запрещены |
+| `gui.burmaldaholic.bots.error.private_table` | This table is private. Ask %1$s for an invite. | Это закрытый стол. Попросите приглашение у игрока %1$s. |
+| `gui.burmaldaholic.bots.error.capped` | The bots won't play you until tomorrow (in %1$s) | Боты не сядут с вами до завтра (через %1$s) |
+| `gui.burmaldaholic.bots.error.easy_stake` | Easy bots don't play at %1$s stakes | Лёгкие боты не играют на ставках «%1$s» |
+| `gui.burmaldaholic.bots.error.invites_full` | The invite list is full (%1$s) | Список приглашённых полон (%1$s) |
+| `gui.burmaldaholic.bots.error.not_host` | Sit at the table as its host first | Сначала сядьте за стол как его хозяин |
+| `gui.burmaldaholic.bots.error.disabled` | Bots are turned off on this server | Боты на этом сервере отключены |
+| `gui.burmaldaholic.bots.error.debt` | While you owe the Loan Shark you can only play against the house's own bots | Пока вы должны Ростовщику, можно играть только с ботами заведения |
+
 ## advancements
 
 Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 chars RU where possible).
@@ -1658,6 +2365,40 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.uth_royal.description` | Get paid for a royal flush in Ultimate Texas Hold'em | Получите выплату за роял-флеш в «Ультимейт Техас Холдем» |
 | `gui.burmaldaholic.achievements.unlocked` | Achievement unlocked: %1$s | Достижение получено: %1$s |
 | `gui.burmaldaholic.achievements.progress` | %1$s of %2$s unlocked | Получено %1$s из %2$s |
+| `advancement.burmaldaholic.pvp_first_win.title` | Mano a Mano | Один на один |
+| `advancement.burmaldaholic.pvp_first_win.description` | Win a match against another player | Выиграйте матч против другого игрока |
+| `advancement.burmaldaholic.pvp_all_in.title` | Fortune Favours the Bold | Смелость города берёт |
+| `advancement.burmaldaholic.pvp_all_in.description` | Go all-in in a PvP match and win | Сыграйте ва-банк в PvP-матче и победите |
+| `advancement.burmaldaholic.pvp_all_square.title` | Even Steven | Квиты |
+| `advancement.burmaldaholic.pvp_all_square.description` | Lose a coin duel, call double or nothing and get back to all square | Проиграйте дуэль на монетке, крикните «всё или ничего» и отыграйтесь |
+| `advancement.burmaldaholic.pvp_underdog.title` | Dark Horse | Тёмная лошадка |
+| `advancement.burmaldaholic.pvp_underdog.description` | Win a Wheel Party holding a tenth of the wheel or less | Выиграйте «Колесо на всех», владея десятой частью колеса или меньше |
+| `advancement.burmaldaholic.pvp_phoenix.title` | Rise From the Ashes | Восстать из пепла |
+| `advancement.burmaldaholic.pvp_phoenix.description` | Win a Slot Showdown after a KABOOM halved your score | Выиграйте битву автоматов после того, как «БАБАХ» ополовинил ваши очки |
+| `advancement.burmaldaholic.pvp_lucky_feet.title` | Lucky Feet | Две лапки на удачу |
+| `advancement.burmaldaholic.pvp_lucky_feet.description` | Win a Scratch Showdown with two Rabbit's Feet on your card | Выиграйте лотерейную битву с двумя кроличьими лапками на билете |
+| `advancement.burmaldaholic.pvp_full_house.title` | Last One Standing | Один против всех |
+| `advancement.burmaldaholic.pvp_full_house.description` | Beat five opponents in a single match | Обыграйте пятерых соперников в одном матче |
+| `advancement.burmaldaholic.pvp_revenge.title` | Sweet Revenge | Сладкая месть |
+| `advancement.burmaldaholic.pvp_revenge.description` | Win a grudge match against the player who kept beating you | Выиграйте «дело принципа» у того, кто раз за разом вас обыгрывал |
+| `advancement.burmaldaholic.pvp_rampage.title` | Rampage | Разнос |
+| `advancement.burmaldaholic.pvp_rampage.description` | Win five PvP matches in a row against at least two different players | Выиграйте пять PvP-матчей подряд минимум у двух разных соперников |
+| `advancement.burmaldaholic.pvp_champion.title` | Champion | Чемпион |
+| `advancement.burmaldaholic.pvp_champion.description` | Win a tournament | Выиграйте турнир |
+| `advancement.burmaldaholic.pvp_bookie.title` | Called It | Чуйка |
+| `advancement.burmaldaholic.pvp_bookie.description` | Win a side bet that paid ×5 or more | Выиграйте ставку зрителя с выплатой от ×5 |
+| `advancement.burmaldaholic.man_vs_machine.title` | Man vs Machine | Человек против машины |
+| `advancement.burmaldaholic.man_vs_machine.description` | Win a poker pot at showdown against a Hard bot | Выиграйте банк на вскрытии против сложного бота |
+| `advancement.burmaldaholic.clean_sweep.title` | Clean Sweep | Чистая работа |
+| `advancement.burmaldaholic.clean_sweep.description` | At a Just me and bots poker table, take every chip from 3 Normal or Hard bots in one sitting | За покерным столом «Только я и боты» оставьте без фишек трёх нормальных или сложных ботов за одну игру |
+| `advancement.burmaldaholic.word_got_around.title` | Word Got Around | Слухи расходятся |
+| `advancement.burmaldaholic.word_got_around.description` | Win so much from bots in one day that only the Sharks will play you | Выиграйте у ботов за день столько, что с вами сядут играть только акулы |
+| `advancement.burmaldaholic.short_circuit.title` | Short Circuit | Короткое замыкание |
+| `advancement.burmaldaholic.short_circuit.description` | Call Banco against a bot banker and win the coup | Объявите банко против бота-банкира и выиграйте раздачу |
+| `advancement.burmaldaholic.members_only.title` | Members Only | Только для своих |
+| `advancement.burmaldaholic.members_only.description` | Play a round at a private table with a player you invited | Сыграйте раунд за закрытым столом с приглашённым вами игроком |
+| `advancement.burmaldaholic.no_robots.title` | No Robots Allowed | Роботам вход воспрещён |
+| `advancement.burmaldaholic.no_robots.description` | Play a round at a Humans only table with at least 4 players | Сыграйте раунд за столом «Только люди», где сидят не меньше 4 игроков |
 
 ---
 
@@ -2099,6 +2840,141 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 
 ---
 
+### pvp
+
+| Key | EN | RU |
+|-----|----|----|
+| `config.burmaldaholic.section.pvp` | PvP | PvP |
+| `config.burmaldaholic.pvp.enabled` | PvP modes | PvP-режимы |
+| `config.burmaldaholic.pvp.rakeBasisPoints` | House cut (basis points, 100 = 1%%) | Комиссия заведения (базисные пункты, 100 = 1 %%) |
+| `config.burmaldaholic.pvp.minStake` | Minimum stake | Минимальная ставка |
+| `config.burmaldaholic.pvp.joinRadius` | Invite and join distance | Дистанция вызова и входа |
+| `config.burmaldaholic.pvp.announceRadius` | Spectator radius | Радиус зрителей |
+| `config.burmaldaholic.pvp.announceServerWidePot` | Pot announced to everyone | Банк для объявления всем |
+| `config.burmaldaholic.pvp.inviteTimeoutTicks` | Time to answer a challenge (ticks) | Время на ответ на вызов (тики) |
+| `config.burmaldaholic.pvp.lobbyTimeoutTicks` | Lobby time (ticks) | Время лобби (тики) |
+| `config.burmaldaholic.pvp.decisionTimeoutTicks` | Decision time (ticks) | Время на решение (тики) |
+| `config.burmaldaholic.pvp.countdownTicks` | Countdown (ticks) | Обратный отсчёт (тики) |
+| `config.burmaldaholic.pvp.maxPendingInvites` | Open challenges per player | Открытых вызовов на игрока |
+| `config.burmaldaholic.pvp.declineCooldownTicks` | Re-challenge cooldown after a decline (ticks) | Пауза после отказа (тики) |
+| `config.burmaldaholic.pvp.historyTicks` | Keep finished matches (ticks) | Хранить сыгранные матчи (тики) |
+| `config.burmaldaholic.pvp.affectsStreak` | PvP changes the luck streak | PvP влияет на серию удачи |
+| `config.burmaldaholic.pvp.countsTowardVip` | PvP stakes count for VIP | PvP-ставки идут в зачёт ВИП |
+| `config.burmaldaholic.pvp.streakAnnounce` | Win streak announcements | Объявления о сериях побед |
+| `config.burmaldaholic.pvp.grudgeLosses` | Losses in a row for a grudge match | Поражений подряд для «дела принципа» |
+| `config.burmaldaholic.pvp.taunts.enabled` | Taunts | Подколки |
+| `config.burmaldaholic.pvp.taunts.cooldownTicks` | Taunt cooldown (ticks) | Пауза между подколками (тики) |
+| `config.burmaldaholic.pvp.taunts.maxPerMatch` | Taunts per match | Подколок за матч |
+| `config.burmaldaholic.pvp.allowOwnedMachines` | PvP at player casinos | PvP в казино игроков |
+| `config.burmaldaholic.pvp.coin.enabled` | Coin Flip Duel | Дуэль на монетке |
+| `config.burmaldaholic.pvp.coin.maxDoubles` | Double or nothing: max doublings | «Всё или ничего»: макс. удвоений |
+| `config.burmaldaholic.pvp.slots.enabled` | Slot Showdown | Битва автоматов |
+| `config.burmaldaholic.pvp.slots.maxPlayers` | Slot Showdown: max players | Битва автоматов: макс. игроков |
+| `config.burmaldaholic.pvp.slots.spinChoices` | Slot Showdown: spin options | Битва автоматов: варианты числа вращений |
+| `config.burmaldaholic.pvp.slots.linkRadius` | Slot Showdown: machine link radius | Битва автоматов: радиус связи автоматов |
+| `config.burmaldaholic.pvp.slots.spinIntervalTicks` | Slot Showdown: auto-spin after (ticks) | Битва автоматов: автовращение через (тики) |
+| `config.burmaldaholic.pvp.slots.hotSymbol` | Slot Showdown: hot symbol | Битва автоматов: горячий символ |
+| `config.burmaldaholic.pvp.slots.underdogBoost` | Slot Showdown: underdog boost | Битва автоматов: фора аутсайдеру |
+| `config.burmaldaholic.pvp.slots.kaboom` | Slot Showdown: KABOOM | Битва автоматов: «БАБАХ» |
+| `config.burmaldaholic.pvp.slots.pearlSwap` | Slot Showdown: Ender Pearl swap | Битва автоматов: рокировка |
+| `config.burmaldaholic.pvp.slots.starPoints` | Slot Showdown: points for three stars | Битва автоматов: очки за три звезды |
+| `config.burmaldaholic.pvp.wheel.enabled` | Wheel Party | Колесо на всех |
+| `config.burmaldaholic.pvp.wheel.maxPlayers` | Wheel Party: max players | Колесо на всех: макс. игроков |
+| `config.burmaldaholic.pvp.wheel.countdownTicks` | Wheel Party: countdown (ticks) | Колесо на всех: отсчёт (тики) |
+| `config.burmaldaholic.pvp.wheel.noMoreBetsTicks` | Wheel Party: no more bets (ticks) | Колесо на всех: «ставок больше нет» (тики) |
+| `config.burmaldaholic.pvp.wheel.underdogShareBasisPoints` | Wheel Party: underdog share (basis points) | Колесо на всех: доля тёмной лошадки (б. п.) |
+| `config.burmaldaholic.pvp.plinko.enabled` | Plinko Battle | Битва Плинко |
+| `config.burmaldaholic.pvp.plinko.maxPlayers` | Plinko Battle: max players | Битва Плинко: макс. игроков |
+| `config.burmaldaholic.pvp.plinko.ballChoices` | Plinko Battle: ball options | Битва Плинко: варианты числа шариков |
+| `config.burmaldaholic.pvp.plinko.linkRadius` | Plinko Battle: machine link radius | Битва Плинко: радиус связи автоматов |
+| `config.burmaldaholic.pvp.plinko.roundIntervalTicks` | Plinko Battle: auto-drop after (ticks) | Битва Плинко: автоброс через (тики) |
+| `config.burmaldaholic.pvp.plinko.underdogBoost` | Plinko Battle: underdog boost | Битва Плинко: фора аутсайдеру |
+| `config.burmaldaholic.pvp.scratch.enabled` | Scratch Showdown | Лотерейная битва |
+| `config.burmaldaholic.pvp.scratch.maxPlayers` | Scratch Showdown: max players | Лотерейная битва: макс. игроков |
+| `config.burmaldaholic.pvp.scratch.revealIntervalTicks` | Scratch Showdown: auto-scratch after (ticks) | Лотерейная битва: автостирание через (тики) |
+| `config.burmaldaholic.pvp.scratch.weights` | Scratch Showdown: cell weights | Лотерейная битва: веса клеток |
+| `config.burmaldaholic.pvp.scratch.values` | Scratch Showdown: cell values | Лотерейная битва: очки клеток |
+| `config.burmaldaholic.pvp.side.enabled` | Spectator side bets | Ставки зрителей |
+| `config.burmaldaholic.pvp.side.rakeBasisPoints` | Side bets: house cut (basis points) | Ставки зрителей: комиссия (б. п.) |
+| `config.burmaldaholic.pvp.side.windowTicks` | Side bets: extra window (ticks) | Ставки зрителей: доп. время (тики) |
+| `config.burmaldaholic.pvp.tournament.enabled` | Tournaments | Турниры |
+| `config.burmaldaholic.pvp.tournament.minPlayers` | Tournaments: min players | Турниры: мин. участников |
+| `config.burmaldaholic.pvp.tournament.maxPlayers` | Tournaments: max players | Турниры: макс. участников |
+| `config.burmaldaholic.pvp.tournament.registrationTicks` | Tournaments: registration (ticks) | Турниры: запись (тики) |
+| `config.burmaldaholic.pvp.tournament.roundGapTicks` | Tournaments: pause between rounds (ticks) | Турниры: пауза между раундами (тики) |
+| `config.burmaldaholic.pvp.tournament.windowTicks` | Tournaments: leaderboard duration (ticks) | Турниры: длительность таблицы лидеров (тики) |
+| `config.burmaldaholic.pvp.tournament.maxRunsPerPlayer` | Tournaments: runs per player | Турниры: попыток на игрока |
+| `config.burmaldaholic.pvp.tournament.prizeSplit` | Tournaments: prize split (%%) | Турниры: деление призов (%%) |
+| `config.burmaldaholic.pvp.tournament.autoEveryDays` | Scheduled tournament every N days | Турнир по расписанию раз в N дней |
+| `config.burmaldaholic.pvp.tournament.autoTimeOfDay` | Scheduled tournament: time of day | Турнир по расписанию: время суток |
+| `config.burmaldaholic.pvp.tournament.autoMode` | Scheduled tournament: game | Турнир по расписанию: игра |
+| `config.burmaldaholic.pvp.tournament.autoFormat` | Scheduled tournament: format | Турнир по расписанию: формат |
+| `config.burmaldaholic.pvp.tournament.autoEntry` | Scheduled tournament: entry | Турнир по расписанию: взнос |
+| `config.burmaldaholic.pvp.race.maxSpins` | Jackpot Race: max spins | Гонка за джекпотом: макс. вращений |
+| `config.burmaldaholic.pvp.race.intervalTicks` | Jackpot Race: spin interval (ticks) | Гонка за джекпотом: интервал (тики) |
+| `config.burmaldaholic.pvp.heist.rounds` | Wheel Heist: rounds | Налёт на колесо: круги |
+| `config.burmaldaholic.pvp.plinko.bumpers` | Plinko Battle: bumpers | Битва Плинко: отбойники |
+| `config.burmaldaholic.pvp.scratchPoker.enabled` | Scratch Poker | Лотерейный покер |
+| `config.burmaldaholic.pvp.series.enabled` | Coin Series (best of 3/5) | Серия на монетке (до 2/3 побед) |
+
+### bots
+
+| Key | EN | RU |
+|-----|----|----|
+| `config.burmaldaholic.section.bots` | Seats and bots | Места и боты |
+| `config.burmaldaholic.bots.enabled` | Bots | Боты |
+| `config.burmaldaholic.bots.maxActiveTables` | Max tables with bots | Макс. столов с ботами |
+| `config.burmaldaholic.bots.maxActive` | Max bots in the world | Макс. ботов в мире |
+| `config.burmaldaholic.bots.maxConcurrentJobs` | Heavy bot jobs at once | Тяжёлых задач ботов одновременно |
+| `config.burmaldaholic.bots.difficultyMix` | Bot level mix (Easy/Normal/Hard %%) | Состав ботов (лёгкие/нормальные/сложные, %%) |
+| `config.burmaldaholic.bots.think.minTicks` | Bot think time min (ticks) | Мин. раздумье бота (тики) |
+| `config.burmaldaholic.bots.think.maxTicks` | Bot think time max (ticks) | Макс. раздумье бота (тики) |
+| `config.burmaldaholic.bots.think.tankTicks` | Hard bot extra think time (ticks) | Доп. раздумье сложного бота (тики) |
+| `config.burmaldaholic.bots.think.fastFactor` | Fast speed multiplier | Множитель быстрого темпа |
+| `config.burmaldaholic.bots.personalities` | Bot personalities | Характеры ботов |
+| `config.burmaldaholic.bots.keepFreeSeatDefault` | Keep a seat free by default | Держать место свободным по умолчанию |
+| `config.burmaldaholic.bots.showcase.enabled` | Showcase tables (bots play while watched) | Показательные столы (боты играют при зрителях) |
+| `config.burmaldaholic.bots.table.policy` | %1$s: default players | %1$s: кто играет по умолчанию |
+| `config.burmaldaholic.bots.table.count` | %1$s: default bots | %1$s: ботов по умолчанию |
+| `config.burmaldaholic.bots.table.difficulty` | %1$s: default bot level | %1$s: уровень ботов по умолчанию |
+| `config.burmaldaholic.bots.table.worldgenPolicy` | %1$s: players at generated tables | %1$s: кто играет за сгенерированными столами |
+| `config.burmaldaholic.bots.table.worldgenCount` | %1$s: bots at generated tables | %1$s: ботов за сгенерированными столами |
+| `config.burmaldaholic.bots.atmosphere.maxPerTable` | %1$s: max bots per table | %1$s: макс. ботов за столом |
+| `config.burmaldaholic.bots.poker.easyMaxStake` | Highest stakes for Easy poker bots | Макс. ставки для лёгких покерных ботов |
+| `config.burmaldaholic.bots.poker.easyMaxStake.micro` | Micro | Микро |
+| `config.burmaldaholic.bots.poker.easyMaxStake.low` | Low | Низкие |
+| `config.burmaldaholic.bots.poker.easyMaxStake.mid` | Mid | Средние |
+| `config.burmaldaholic.bots.poker.easyMaxStake.high` | High | Высокие |
+| `config.burmaldaholic.bots.chemmy.bankCapMultiple` | Bot bank cap (× table min) | Лимит банка бота (× мин. ставка) |
+| `config.burmaldaholic.bots.craps.canShoot` | Bots may shoot at craps | Боты могут бросать кости в крэпсе |
+| `config.burmaldaholic.bots.pvp.fillDelayTicks` | PvP lobbies: bots fill after (ticks) | PvP-лобби: боты заходят через (тики) |
+| `config.burmaldaholic.bots.pvp.maxPerMatch` | PvP: max bots per match | PvP: макс. ботов в матче |
+| `config.burmaldaholic.bots.tournament.maxFill` | Tournaments: max bot fillers | Турниры: макс. ботов-заполнителей |
+| `config.burmaldaholic.bots.tournament.fillToBracket` | Tournaments: fill the bracket with bots | Турниры: заполнять сетку ботами |
+| `config.burmaldaholic.bots.owned.funding` | Bots at player casinos | Боты в казино игроков |
+| `config.burmaldaholic.bots.owned.funding.owner_bankroll` | Paid from the bankroll | За счёт кассы заведения |
+| `config.burmaldaholic.bots.owned.funding.disabled` | Not allowed | Запрещены |
+| `config.burmaldaholic.bots.tableBuyInsPerDay` | Bot buy-ins per table per day | Бай-инов ботов на стол в день |
+| `config.burmaldaholic.bots.vipWagerWeight` | VIP credit for chips vs bots | Зачёт ставок против ботов в ВИП |
+| `config.burmaldaholic.bots.dailyWinCapMin` | Daily bot winnings limit, minimum | Дневной лимит выигрыша у ботов, минимум |
+| `config.burmaldaholic.bots.dailyWinCapTierMultiple` | Daily bot winnings limit (× max bet) | Дневной лимит выигрыша у ботов (× макс. ставка) |
+| `config.burmaldaholic.bots.sulkMultiplier` | Bots refuse at (× limit) | Боты отказываются играть при (× лимит) |
+| `config.burmaldaholic.bots.adaptiveHeat` | Stronger bots for winning players | Сильные боты для выигрывающих игроков |
+| `config.burmaldaholic.bots.debtorsMayPlay` | Debtors may play house bots | Должники могут играть с ботами заведения |
+| `config.burmaldaholic.bots.avatars.mode` | Bot avatars | Аватары ботов |
+| `config.burmaldaholic.bots.avatars.mode.none` | None | Нет |
+| `config.burmaldaholic.bots.avatars.mode.nameplate` | Name tags | Таблички с именами |
+| `config.burmaldaholic.bots.avatars.mode.entity` | Figures | Фигуры |
+| `config.burmaldaholic.bots.avatars.maxEntities` | Max avatar figures | Макс. фигур ботов |
+| `config.burmaldaholic.bots.chatter.enabled` | Bot chatter | Болтовня ботов |
+| `config.burmaldaholic.bots.chatter.chance` | Bot chatter chance | Вероятность реплики бота |
+| `config.burmaldaholic.bots.chatter.botCooldownTicks` | Bot chatter cooldown per bot (ticks) | Пауза между репликами бота (тики) |
+| `config.burmaldaholic.bots.chatter.tableCooldownTicks` | Bot chatter cooldown per table (ticks) | Пауза между репликами за столом (тики) |
+| `config.burmaldaholic.bots.chatter.maxPerMinute` | Bot lines per table per minute | Реплик ботов за столом в минуту |
+| `config.burmaldaholic.bots.private.enabled` | Private tables | Закрытые столы |
+| `config.burmaldaholic.bots.private.maxInvites` | Max invites per table | Макс. приглашений на стол |
+| `config.burmaldaholic.bots.private.inviteRadius` | Invite radius (0 = anyone online) | Радиус приглашений (0 = любой онлайн) |
+
 ## sounds (subtitles, core-owned)
 
 | Key | EN | RU |
@@ -2120,3 +2996,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `subtitles.burmaldaholic.collector_knock` | Someone knocks | Кто-то стучит |
 | `subtitles.burmaldaholic.loan_shark_idle` | Loan Shark hums | Ростовщик напевает |
 | `subtitles.burmaldaholic.last_chance` | Coin spins in the dark | Монетка звенит во тьме |
+| `subtitles.burmaldaholic.pvp_challenge` | Challenge horn | Рог вызова |
+| `subtitles.burmaldaholic.pvp_drumroll` | Drumroll | Барабанная дробь |
+| `subtitles.burmaldaholic.pvp_victory` | Victory fanfare | Победные фанфары |

@@ -70,6 +70,7 @@ import {
   worstCaseReturn,
 } from './logic';
 import { gridRaw, machineName, paytableLines } from './render';
+import { registerSlotsPvp } from './pvp';
 
 const POOL_PROP = 'burmaldaholic:slots.jackpot';
 const BET_PROP = 'burmaldaholic:slots.line_bet';
@@ -629,6 +630,7 @@ const machineIcon = (): Raw => lit('§6» §r');
 export const slotsModule: CasinoModule = {
   id: 'slots',
   onWorldLoad(ctx) {
+    registerSlotsPvp(ctx); // Slot Showdown (docs/architecture/pvp-bots.md)
     const game = new SlotsGame(ctx);
     ctx.services.provide<SlotsApi>(SLOTS_SERVICE, game);
     ctx.tables.register({

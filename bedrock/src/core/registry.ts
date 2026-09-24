@@ -7,6 +7,7 @@ import { Achievements } from './achievements';
 import { wireAchievements } from './achievement-hooks';
 import { Admin } from './admin';
 import { isCasinoEnabled } from './casino';
+import { Bots } from './bots/service';
 import { Cashier } from './cashier';
 import { registerCommand } from './commands';
 import { ConfigService, ConfigStore, registerModuleConfig } from './config';
@@ -19,6 +20,7 @@ import { OddsService } from './logic/odds';
 import { chips, lines, t } from './logic/rawtext';
 import { createLogger } from './log';
 import { MenuRegistry } from './menu';
+import { PvpEngine } from './pvp/service';
 import type { CasinoModule, ModuleContext } from './module';
 import { Services } from './services';
 import { StreakService } from './streak';
@@ -54,6 +56,8 @@ export const runtime = {
   admin: new Admin(config, economy),
   earning: new Earning(economy, config, isCasinoEnabled),
   services: new Services(),
+  pvp: new PvpEngine(),
+  bots: new Bots(config),
   achievements: new Achievements(hud, () => isCasinoEnabled()),
 };
 
@@ -109,6 +113,7 @@ export function bootstrap(modules: readonly CasinoModule[]): void {
       wireAchievements(runtime);
     });
     start('earning', () => runtime.earning.start());
+    start('pvp', () => runtime.pvp.boot());
     for (const m of modules) {
       const log = createLogger(m.id);
       const ctx: ModuleContext = {
@@ -127,6 +132,8 @@ export function bootstrap(modules: readonly CasinoModule[]): void {
         admin: runtime.admin,
         achievements: runtime.achievements,
         services: runtime.services,
+        pvp: runtime.pvp,
+        bots: runtime.bots,
         log,
         isCasinoEnabled,
         guard:

@@ -98,6 +98,7 @@
 	"gui.burmaldaholic.extras.dice.accept_from": "Принять: %1$s, %2$s",
 	"gui.burmaldaholic.extras.dice.decline_from": "Отказать: %1$s",
 	"gui.burmaldaholic.extras.dice.challenge_target": "Вызвать: %1$s",
+	"tooltip.burmaldaholic.lucky_coin.pvp": "На игрока — вызов на дуэль на монетке",
 	"advancement.burmaldaholic.plinko_edge.title": "Крайний случай",
 	"advancement.burmaldaholic.plinko_edge.description": "Попадите шариком в крайнюю лунку на высоком риске",
 	"config.burmaldaholic.extras.coinFlip.enabled": "Монетка",

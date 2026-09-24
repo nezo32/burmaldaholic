@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic;
 
+import dev.nezo.burmaldaholic.bots.BotsModule;
 import dev.nezo.burmaldaholic.chaos.ChaosModule;
 import dev.nezo.burmaldaholic.core.CoreModule;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
@@ -12,6 +13,7 @@ import dev.nezo.burmaldaholic.games.slots.SlotsModule;
 import dev.nezo.burmaldaholic.lastchance.LastChanceModule;
 import dev.nezo.burmaldaholic.loan.LoanModule;
 import dev.nezo.burmaldaholic.multiplayer.MultiplayerModule;
+import dev.nezo.burmaldaholic.pvp.PvpModule;
 import dev.nezo.burmaldaholic.vip.VipModule;
 import dev.nezo.burmaldaholic.worldgen.WorldgenModule;
 import java.util.List;
@@ -37,7 +39,9 @@ public final class ModuleList {
 			new LastChanceModule(),
 			new WorldgenModule(),
 			new VipModule(),
-			new MultiplayerModule()
+			new MultiplayerModule(),
+			new PvpModule(),
+			new BotsModule()
 		);
 	}
 }

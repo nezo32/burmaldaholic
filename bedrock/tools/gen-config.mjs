@@ -16,7 +16,8 @@ const DOCS = path.resolve(ROOT, '../docs/design');
 const OUT = path.join(ROOT, 'src/core/logic/config-catalog.ts');
 
 const labels = new Set(parseStrings(fs.readFileSync(path.join(DOCS, 'STRINGS.md'), 'utf8')).entries.map((e) => e.key));
-const { defs, errors, warnings } = parseConfigMd(fs.readFileSync(path.join(DOCS, 'CONFIG.md'), 'utf8'), labels);
+const MODULES = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules.json'), 'utf8')).modules.map((m) => m.id);
+const { defs, errors, warnings } = parseConfigMd(fs.readFileSync(path.join(DOCS, 'CONFIG.md'), 'utf8'), labels, MODULES);
 if (errors.length) {
   for (const e of errors) console.error('  - ' + e);
   process.exit(1);

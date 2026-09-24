@@ -13,6 +13,8 @@
     { "id": "lastchance", "src": "src/lastchance" },
     { "id": "worldgen", "src": "src/worldgen" },
     { "id": "vip", "src": "src/vip" },
-    { "id": "multiplayer", "src": "src/multiplayer" }
+    { "id": "multiplayer", "src": "src/multiplayer" },
+    { "id": "pvp", "src": "src/pvp" },
+    { "id": "bots", "src": "src/bots" }
   ]
 }

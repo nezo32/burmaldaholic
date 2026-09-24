@@ -17,6 +17,7 @@ import { PLINKO_GAME, plinkoFlow, plinkoLeave } from './plinko-game';
 import { SCRATCH_GAME, SCRATCH_ITEMS, SCRATCH_USED, openShop, scratchFlow, useScratchCard } from './scratch-game';
 import { ctx, gameEnabled, openVirtual, setContext } from './shared';
 import { WHEEL_GAME, wheelFlow, wheelLeave } from './wheel-game';
+import { registerExtrasPvp } from './pvp';
 
 export const LUCKY_COIN_ID = 'burmaldaholic:lucky_coin';
 export const DICE_ID = 'burmaldaholic:dice';
@@ -83,6 +84,7 @@ export const extrasModule: CasinoModule = {
   },
 
   onWorldLoad(mctx) {
+    registerExtrasPvp(mctx); // PvP modes (docs/architecture/pvp-bots.md)
     setContext(mctx);
     startChallenges();
 

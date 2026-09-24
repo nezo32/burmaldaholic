@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.client;
 
+import dev.nezo.burmaldaholic.bots.client.BotsClientModule;
 import dev.nezo.burmaldaholic.chaos.client.ChaosClientModule;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.games.blackjack.client.BlackjackClientModule;
@@ -11,6 +12,7 @@ import dev.nezo.burmaldaholic.games.slots.client.SlotsClientModule;
 import dev.nezo.burmaldaholic.lastchance.client.LastChanceClientModule;
 import dev.nezo.burmaldaholic.loan.client.LoanClientModule;
 import dev.nezo.burmaldaholic.multiplayer.client.MultiplayerClientModule;
+import dev.nezo.burmaldaholic.pvp.client.PvpClientModule;
 import dev.nezo.burmaldaholic.vip.client.VipClientModule;
 import dev.nezo.burmaldaholic.worldgen.client.WorldgenClientModule;
 import java.util.List;
@@ -33,7 +35,9 @@ public final class ClientModuleList {
 			new LastChanceClientModule(),
 			new WorldgenClientModule(),
 			new VipClientModule(),
-			new MultiplayerClientModule()
+			new MultiplayerClientModule(),
+			new PvpClientModule(),
+			new BotsClientModule()
 		);
 	}
 }

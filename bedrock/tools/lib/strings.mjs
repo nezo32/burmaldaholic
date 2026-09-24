@@ -19,6 +19,11 @@ export const SECTION_OWNERS = {
   lastchance: 'lastchance',
   worldgen: 'worldgen',
   multiplayer: 'multiplayer',
+  pvp: 'pvp',
+  bots: 'bots',
+  // modules developed in parallel branches: their keys are skipped (warning) until the module is registered
+  baccarat: 'baccarat',
+  uth: 'uth',
   advancements: 'core',
   config: 'core',
   sounds: 'core',
@@ -111,10 +116,15 @@ export function aliasesFor(entry) {
 }
 
 /** Group entries (plus aliases) by owning module: Map<module, entry[]>. */
-export function routeEntries(entries, modules) {
+export function routeEntries(entries, modules, skipped = []) {
   const byModule = new Map(modules.map((m) => [m, []]));
   for (const e of entries) {
     const owner = ownerOf(e, modules);
+    // A section whose module is not in modules.json yet (merged later from another branch): skip it.
+    if (!byModule.has(owner)) {
+      skipped.push(e);
+      continue;
+    }
     byModule.get(owner).push(e, ...aliasesFor(e));
   }
   return byModule;

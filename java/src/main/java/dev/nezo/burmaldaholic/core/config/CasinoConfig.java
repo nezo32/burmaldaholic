@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.core.config;
 
 import dev.nezo.burmaldaholic.core.config.sections.BlackjackConfig;
+import dev.nezo.burmaldaholic.core.config.sections.BotsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ContractsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.CoreConfig;
@@ -13,6 +14,7 @@ import dev.nezo.burmaldaholic.core.config.sections.LoanConfig;
 import dev.nezo.burmaldaholic.core.config.sections.MultiplayerConfig;
 import dev.nezo.burmaldaholic.core.config.sections.OwnershipConfig;
 import dev.nezo.burmaldaholic.core.config.sections.PokerConfig;
+import dev.nezo.burmaldaholic.core.config.sections.PvpConfig;
 import dev.nezo.burmaldaholic.core.config.sections.RouletteConfig;
 import dev.nezo.burmaldaholic.core.config.sections.SlotsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.StreakConfig;
@@ -46,6 +48,7 @@ public final class CasinoConfig {
 	private static ConfigHandle<RouletteConfig> roulette;
 	private static ConfigHandle<CrapsConfig> craps;
 	private static ConfigHandle<ExtrasConfig> extras;
+	private static ConfigHandle<PvpConfig> pvp;
 	private static ConfigHandle<LoanConfig> loan;
 	private static ConfigHandle<ChaosConfig> chaos;
 	private static ConfigHandle<StreakConfig> streak;
@@ -53,6 +56,7 @@ public final class CasinoConfig {
 	private static ConfigHandle<WorldgenConfig> worldgen;
 	private static ConfigHandle<OwnershipConfig> ownership;
 	private static ConfigHandle<MultiplayerConfig> multiplayer;
+	private static ConfigHandle<BotsConfig> bots;
 	private static ConfigHandle<DebugConfig> debug;
 
 	private CasinoConfig() {}
@@ -70,6 +74,7 @@ public final class CasinoConfig {
 		roulette = m.register("roulette", RouletteConfig.class, RouletteConfig::new);
 		craps = m.register("craps", CrapsConfig.class, CrapsConfig::new);
 		extras = m.register("extras", ExtrasConfig.class, ExtrasConfig::new);
+		pvp = m.register("pvp", PvpConfig.class, PvpConfig::new);
 		loan = m.register("loan", LoanConfig.class, LoanConfig::new);
 		chaos = m.register("chaos", ChaosConfig.class, ChaosConfig::new);
 		streak = m.register("streak", StreakConfig.class, StreakConfig::new);
@@ -77,6 +82,7 @@ public final class CasinoConfig {
 		worldgen = m.register("worldgen", WorldgenConfig.class, WorldgenConfig::new);
 		ownership = m.register("ownership", OwnershipConfig.class, OwnershipConfig::new);
 		multiplayer = m.register("multiplayer", MultiplayerConfig.class, MultiplayerConfig::new);
+		bots = m.register("bots", BotsConfig.class, BotsConfig::new);
 		debug = m.register("debug", DebugConfig.class, DebugConfig::new);
 	}
 
@@ -126,6 +132,16 @@ public final class CasinoConfig {
 
 	public static ExtrasConfig extras() {
 		return get(extras, ExtrasConfig::new);
+	}
+
+	/** PvP modes (PVP.md §13). */
+	public static PvpConfig pvp() {
+		return get(pvp, PvpConfig::new);
+	}
+
+	/** Seats &amp; bots (BOTS.md §9). */
+	public static BotsConfig bots() {
+		return get(bots, BotsConfig::new);
 	}
 
 	public static LoanConfig loan() {

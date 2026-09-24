@@ -7,6 +7,7 @@ export const SECTION_OF = {
   blackjack: 'blackjack', poker: 'poker', slots: 'slots', roulette: 'roulette', craps: 'craps',
   extras: 'extras', loan: 'loan', chaos: 'chaos', streak: 'streak', lastChance: 'lastchance',
   worldgen: 'worldgen', ownership: 'ownership', multiplayer: 'ownership', debug: 'debug',
+  pvp: 'pvp', bots: 'bots',
 };
 
 /** First key segment -> Bedrock module that owns (reads) the key. */
@@ -42,8 +43,20 @@ const PLINKO = {
   medium: [33, 11, 4, 2, 1, 0.6, 0.3, 0.6, 1, 2, 4, 11, 33],
   high: [170, 24, 8.1, 2, 0.6, 0.2, 0.2, 0.2, 0.6, 2, 8.1, 24, 170],
 };
+/** `bots.table.<game>.*` matrix (CONFIG.md ## bots, BOTS.md §9.2). */
+const BOT_TABLES = {
+  poker: { policy: 'MIXED', count: 5, difficulty: 'MIXED', worldgenPolicy: 'MIXED', worldgenCount: 3 },
+  chemmy: { policy: 'MIXED', count: 2, difficulty: 'MIXED', worldgenPolicy: 'MIXED', worldgenCount: 2 },
+  blackjack: { policy: 'HUMANS_ONLY', count: 0, difficulty: 'NORMAL', worldgenPolicy: 'MIXED', worldgenCount: 2 },
+  roulette: { policy: 'HUMANS_ONLY', count: 0, difficulty: 'MIXED', worldgenPolicy: 'MIXED', worldgenCount: 3 },
+  craps: { policy: 'HUMANS_ONLY', count: 0, difficulty: 'MIXED', worldgenPolicy: 'MIXED', worldgenCount: 2 },
+  baccarat: { policy: 'HUMANS_ONLY', count: 0, difficulty: 'MIXED', worldgenPolicy: 'MIXED', worldgenCount: 2 },
+  uth: { policy: 'HUMANS_ONLY', count: 0, difficulty: 'NORMAL', worldgenPolicy: 'MIXED', worldgenCount: 2 },
+};
 /** Defaults CONFIG.md gives as a section reference instead of a literal. */
 export const TABLE_DEFAULTS = {
+  'pvp.scratch.weights': { coal: 30, iron: 25, gold: 18, emerald: 12, diamond: 6, star: 1, creeper: 5, foot: 3 },
+  'pvp.scratch.values': { coal: 1, iron: 2, gold: 3, emerald: 5, diamond: 10, star: 25 },
   'extras.wheel.segments': WHEEL_SEGMENTS,
   'extras.wheel.multipliers': { B: 0, C: 0, H: 0.5, M: 1, D: 2, T: 3, E: 5, X: 10 },
   'extras.scratch.basic.prizes': [[10, 0.22], [20, 0.1], [50, 0.03], [100, 0.01], [500, 0.002], [2500, 0.0001]],
@@ -64,6 +77,14 @@ export function familyMembers(key) {
     case 'slots.<tier>.weights': return fam(SLOTS, (v) => v.weights, (m) => ({ key: `block.burmaldaholic.slot_machine_${m}` }));
     case 'slots.<tier>.pays': return fam(SLOTS, (v) => v.pays, (m) => ({ key: `block.burmaldaholic.slot_machine_${m}` }));
     case 'slots.<tier>.berryPartial': return fam(SLOTS, () => [2, 3], (m) => ({ key: `block.burmaldaholic.slot_machine_${m}` }));
+    case 'bots.table.<game>.policy':
+    case 'bots.table.<game>.count':
+    case 'bots.table.<game>.difficulty':
+    case 'bots.table.<game>.worldgenPolicy':
+    case 'bots.table.<game>.worldgenCount': {
+      const field = key.split('.').pop();
+      return fam(BOT_TABLES, (v) => v[field], (m) => ({ key: `gui.burmaldaholic.common.game.${m}` }));
+    }
     default: throw new Error(`unknown config family ${key}`);
   }
 }
@@ -78,6 +99,17 @@ export function parseNum(s) {
   }
   if (!/^-?\d+(\.\d+)?$/.test(t)) return NaN;
   return Number(t);
+}
+
+/** Label key of an enum option (shared vocabularies where STRINGS.md defines no `<key>.<option>` row). */
+export function optionLabel(key, exact, option) {
+  const o = option.toLowerCase();
+  if (key === 'core.hud.position') return `gui.burmaldaholic.menu.settings.corner.${o}`;
+  if (/^bots\.table\.<game>\.(policy|worldgenPolicy)$/.test(key)) return `gui.burmaldaholic.bots.policy.${o}`;
+  if (key === 'bots.table.<game>.difficulty') return `gui.burmaldaholic.bots.level.${o}`;
+  if (key === 'pvp.tournament.autoMode') return `gui.burmaldaholic.pvp.game.${o}`;
+  if (key === 'pvp.tournament.autoFormat') return `gui.burmaldaholic.pvp.tournament.format.${o}`;
+  return `${exact}.${o}`;
 }
 
 /** Range cell -> {min,max,each} | {} | undefined (blank = inherit). */
@@ -100,7 +132,9 @@ export function parseType(cell) {
 }
 
 export function parseDefault(cell, type, key) {
-  const c = cell.trim().replace(/\s*\(.*\)\s*$/, '');
+  // Edition-specific default: `24 (Java) / 12 (Bedrock)` -> the Bedrock value.
+  const edition = /^.+?\(Java\)\s*\/\s*(.+?)\s*\(Bedrock\)\s*$/.exec(cell.trim());
+  const c = (edition ? edition[1] : cell.trim()).replace(/\s*\(.*\)\s*$/, '');
   if (type.type === 'bool') return c === 'true';
   if (type.type === 'enum') return c;
   if (type.type === 'json') {
@@ -116,16 +150,23 @@ export function parseDefault(cell, type, key) {
  * Parse CONFIG.md. `labels` = Set of lang keys from STRINGS.md (to resolve label/tooltip/options).
  * Returns { defs, errors, warnings }.
  */
-export function parseConfigMd(md, labels) {
+export function parseConfigMd(md, labels, modules) {
   const defs = [];
   const errors = [];
   const warnings = [];
+  const skipped = new Set();
   let prevRange;
   for (const [i, raw] of md.split(/\r?\n/).entries()) {
     if (!raw.startsWith('| `')) continue;
     const cells = raw.split('|').slice(1, -1).map((c) => c.trim());
     const key = /^`([^`]+)`$/.exec(cells[0])?.[1];
     if (!key || cells.length < 5) continue;
+    const first = key.split('.')[0];
+    if (!SECTION_OF[first] && modules && !modules.includes(OWNER_OF[first] ?? first)) {
+      // section of a module developed in another branch (not in modules.json yet): skip until merged
+      skipped.add(OWNER_OF[first] ?? first);
+      continue;
+    }
     try {
       const type = parseType(cells[1]);
       // A blank range repeats the previous row's range for siblings of the same type
@@ -149,6 +190,10 @@ export function parseConfigMd(md, labels) {
         const template = `config.burmaldaholic.${key.replace(/\.?<[^>]+>/, '')}`;
         if (labels.has(exact)) def.label = exact;
         else if (m.member !== undefined && labels.has(template)) Object.assign(def, { label: template, labelArg: m.arg });
+        else if (labels.has(exact.replace(/\.[a-z]+$/, '')) && labels.has(`gui.burmaldaholic.common.game.${full.split('.').pop()}`)) {
+          // per-game key under a template label (bots.atmosphere.maxPerTable.<game>)
+          Object.assign(def, { label: exact.replace(/\.[a-z]+$/, ''), labelArg: { key: `gui.burmaldaholic.common.game.${full.split('.').pop()}` } });
+        }
         else {
           def.label = exact;
           warnings.push(`no label for ${full} in STRINGS.md`);
@@ -156,7 +201,7 @@ export function parseConfigMd(md, labels) {
         if (labels.has(`${exact}.tooltip`)) def.tooltip = `${exact}.tooltip`;
         if (type.options) {
           def.optionLabels = type.options.map((o) => {
-            const k = key === 'core.hud.position' ? `gui.burmaldaholic.menu.settings.corner.${o.toLowerCase()}` : `${exact}.${o.toLowerCase()}`;
+            const k = optionLabel(key, exact, o);
             if (!labels.has(k)) warnings.push(`no option label ${k}`);
             return k;
           });
@@ -167,5 +212,6 @@ export function parseConfigMd(md, labels) {
       errors.push(`CONFIG.md:${i + 1}: ${e.message}`);
     }
   }
+  if (skipped.size) warnings.push(`skipped the keys of modules not registered yet: ${[...skipped].join(', ')}`);
   return { defs, errors, warnings };
 }

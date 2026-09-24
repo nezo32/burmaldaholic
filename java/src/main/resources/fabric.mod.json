@@ -34,7 +34,9 @@
 		"burmaldaholic.lastchance.mixins.json",
 		"burmaldaholic.worldgen.mixins.json",
 		"burmaldaholic.vip.mixins.json",
-		"burmaldaholic.multiplayer.mixins.json"
+		"burmaldaholic.multiplayer.mixins.json",
+		"burmaldaholic.pvp.mixins.json",
+		"burmaldaholic.bots.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=${loader_version}",

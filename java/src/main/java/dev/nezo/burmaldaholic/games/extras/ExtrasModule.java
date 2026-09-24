@@ -59,6 +59,7 @@ public final class ExtrasModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
+		dev.nezo.burmaldaholic.games.extras.pvp.ExtrasPvpModes.register(); // PvP modes (docs/architecture/pvp-bots.md)
 		// Cashier "Shop" tab (UI.md §3): scratch cards (Gold is VIP-gated, §11.3).
 		for (dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind kind : dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.values()) {
 			boolean gold = kind == dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.GOLD;

@@ -135,6 +135,8 @@ java/
 | `core.text` | | core | `Plural` (p1/p21/p2/p5), `Texts` (numbers, plural components) |
 | `core.table` | | core | `CasinoTableBlock` (facing, ticker), `CasinoTableBlockEntity` (seats, bets, timers, refunds), `TableSeats`, `CasinoTableMenu`, `TableType`, `TableRegistrar` |
 | `core.mixin[.client]` | | core | e.g. `LevelStorageAccessMixin` + `MinecraftServerStorageAccessor` (pending mode), client `CreateWorldGameTabMixin` (button), `WorldCreationUiStateMixin` (choice), `CreateWorldScreenMixin` (hand-off) |
+| `core.pvp`, `core.pvp.logic` | | core | PvP engine (`Pvp.service()`), mode contract `PvpMode`, `PvpModes`, persistence — see `pvp-bots.md` |
+| `core.bots`, `core.bots.logic` | | core | Seats & Bots: `SeatOccupant`, `BotPolicy`, `TableBots`, purses, jobs, heat ledger — see `pvp-bots.md` |
 | `client` (client set) | | core | `BurmaldaholicClient`, `ClientModuleList`, `CoreClientModule`, `ClientCasinoState`, `client.hud` (`CasinoHud`, `HudSegment`), `client.table.CasinoTableScreen`, `ClientTableCache`, `client.cashier`, `client.config` (generated Mod Menu screen) |
 | `games.blackjack` | `blackjack` | dev | |
 | `games.poker` | `poker` | dev | |
@@ -148,6 +150,8 @@ java/
 | `worldgen` | `worldgen` | dev | structures (+ data pack) |
 | `vip` | `vip` | dev | |
 | `multiplayer` | `multiplayer` | dev | ownership, house cut, shared tables |
+| `pvp` | `pvp` | dev | PvP hub, lobby/result screens, presenter, `/casino pvp` (modes live in extras / slots) |
+| `bots` | `bots` | dev | table settings, private tables, `/casino table …`, `/casino bots …`, chatter, avatars |
 
 Each feature package `X` contains `XModule` (common) and, in the client source set,
 `X.client.XClientModule`. Both already exist as stubs and are already listed in `ModuleList` /

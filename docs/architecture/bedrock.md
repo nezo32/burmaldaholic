@@ -150,7 +150,7 @@ bedrock/
       index.ts         the only core entry for modules (plus core/logic/**)
       logic/           PURE: ids, plural, rawtext, rng, odds, cards, ledger, config-schema, mode, hud-queue
     games/{blackjack,poker,slots,roulette,craps,extras}/
-    loan/ chaos/ lastchance/ worldgen/ vip/ multiplayer/
+    loan/ chaos/ lastchance/ worldgen/ vip/ multiplayer/ pvp/ bots/   (PvP + Seats & Bots: docs/architecture/pvp-bots.md)
       each: index.ts (exports <id>Module), api.ts (public API for other modules), logic/ (pure + *.test.ts)
   lang/<id>/en_US.lang, ru_RU.lang     per-module lang fragments
   packs/<id>/BP/**, packs/<id>/RP/**   per-module pack content (overlaid into build/BP, build/RP)

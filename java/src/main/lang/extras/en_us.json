@@ -98,6 +98,7 @@
 	"gui.burmaldaholic.extras.dice.accept_from": "Accept: %1$s, %2$s",
 	"gui.burmaldaholic.extras.dice.decline_from": "Decline: %1$s",
 	"gui.burmaldaholic.extras.dice.challenge_target": "Challenge %1$s",
+	"tooltip.burmaldaholic.lucky_coin.pvp": "Use on a player: challenge them to a Coin Flip Duel",
 	"advancement.burmaldaholic.plinko_edge.title": "Edge Case",
 	"advancement.burmaldaholic.plinko_edge.description": "Land the ball in an outermost bin on High risk",
 	"config.burmaldaholic.extras.coinFlip.enabled": "Coin Flip",

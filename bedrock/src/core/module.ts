@@ -5,6 +5,7 @@
  */
 import type { CustomCommandRegistry, StartupEvent } from '@minecraft/server';
 import type { Achievements } from './achievements';
+import type { BotsService } from './bots/service';
 import type { Admin } from './admin';
 import type { Cashier } from './cashier';
 import type { CommandSpec } from './commands';
@@ -17,6 +18,7 @@ import type { Logger } from './log';
 import type { ModuleConfigDef } from './logic/config-schema';
 import type { ModuleId } from './logic/ids';
 import type { OddsService } from './logic/odds';
+import type { PvpService } from './pvp/service';
 import type { MenuRegistry } from './menu';
 import type { Services } from './services';
 import type { StreakService } from './streak';
@@ -65,6 +67,10 @@ export interface ModuleContext {
   readonly achievements: Achievements;
   /** Cross-module public APIs. Provide yours from onWorldLoad; consume lazily. */
   readonly services: Services;
+  /** PvP engine (PVP.md): register your modes, open lobbies / duels from your machines. */
+  readonly pvp: PvpService;
+  /** Seats & bots (BOTS.md): per-table bot state, bot rng, think times, heavy jobs, heat ledger. */
+  readonly bots: BotsService;
   readonly log: Logger;
   /** Current casino-mode state. Every gameplay entry point must bail out when false. */
   isCasinoEnabled(): boolean;

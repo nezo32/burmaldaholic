@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
  */
 class ConfigSpecCoverageTest {
 	private static final Pattern ROW = Pattern.compile("^\\|\\s*`([^`]+)`\\s*\\|([^|]*)\\|([^|]*)\\|");
+	/** Edition-specific default, e.g. {@code 24 (Java) / 12 (Bedrock)} (spaces already removed). */
+	private static final Pattern EDITION_DEFAULT = Pattern.compile("^(.+?)\\(Java\\)/(.+?)\\(Bedrock\\)$");
 
 	private static ConfigManager manager() {
 		ConfigManager m = new ConfigManager(null);
@@ -40,6 +42,10 @@ class ConfigSpecCoverageTest {
 			String key = r.group(1);
 			String type = r.group(2).trim();
 			String def = r.group(3).trim().replace(" ", "");
+			Matcher edition = EDITION_DEFAULT.matcher(def);
+			if (edition.matches()) {
+				def = edition.group(1);
+			}
 			if (key.equals("core.casinoMode")) {
 				continue; // per-world saved data (data/burmaldaholic/mode.dat), not in the file
 			}

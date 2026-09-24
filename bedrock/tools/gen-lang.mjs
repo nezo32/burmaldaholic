@@ -32,7 +32,12 @@ for (const m of only) if (!MODULES.includes(m)) fail([`unknown module '${m}'`]);
 
 const { entries, errors } = parseStrings(fs.readFileSync(SPEC, 'utf8'));
 if (errors.length) fail(errors);
-const routed = routeEntries(entries, MODULES);
+const skipped = [];
+const routed = routeEntries(entries, MODULES, skipped);
+if (skipped.length) {
+  const secs = [...new Set(skipped.map((e) => e.section))].join(', ');
+  console.warn(`  warning: ${skipped.length} keys of sections without a registered module skipped (${secs})`);
+}
 
 let changed = 0;
 for (const mod of only.length ? only : MODULES) {

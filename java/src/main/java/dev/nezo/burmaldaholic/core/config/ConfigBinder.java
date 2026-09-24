@@ -54,6 +54,15 @@ public final class ConfigBinder {
 		return result;
 	}
 
+	/**
+	 * Config key segment of a field: its name, or Gson's {@code @SerializedName} for keys that are Java
+	 * keywords ({@code bots.private.*} → field {@code privateTables}).
+	 */
+	public static String keyOf(Field f) {
+		com.google.gson.annotations.SerializedName n = f.getAnnotation(com.google.gson.annotations.SerializedName.class);
+		return n != null ? n.value() : f.getName();
+	}
+
 	/** True for classes treated as nested config objects (recursed into field by field). */
 	public static boolean isNested(Class<?> raw) {
 		return !raw.isPrimitive() && !raw.isArray() && !raw.isEnum() && !raw.isInterface()
@@ -64,14 +73,14 @@ public final class ConfigBinder {
 	private void bindObject(Object target, JsonObject json, String path, List<ConfigIssue> issues) {
 		Set<String> known = new HashSet<>();
 		for (Field f : fields(target.getClass())) {
-			known.add(f.getName());
-			JsonElement je = json.get(f.getName());
+			known.add(keyOf(f));
+			JsonElement je = json.get(keyOf(f));
 			if (je == null || je.isJsonNull()) {
 				continue;
 			}
 			try {
 				Object def = f.get(target);
-				f.set(target, bindValue(f.getGenericType(), f, def, je, path + "." + f.getName(), issues));
+				f.set(target, bindValue(f.getGenericType(), f, def, je, path + "." + keyOf(f), issues));
 			} catch (IllegalAccessException e) {
 				throw new IllegalStateException(e);
 			}

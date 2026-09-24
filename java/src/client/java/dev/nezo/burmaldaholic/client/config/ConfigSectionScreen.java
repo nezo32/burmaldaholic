@@ -128,8 +128,8 @@ final class ConfigSectionScreen extends Screen {
 
 	private void collect(Class<?> type, String path, JsonObject json, List<MemberName> members, List<Row> rows) {
 		for (Field f : ConfigBinder.fields(type)) {
-			String key = path + "." + f.getName();
-			JsonElement value = json.get(f.getName());
+			String key = path + "." + ConfigBinder.keyOf(f);
+			JsonElement value = json.get(ConfigBinder.keyOf(f));
 			Class<?> raw = f.getType();
 			Family family = f.getAnnotation(Family.class);
 			Member member = f.getAnnotation(Member.class);
@@ -145,7 +145,7 @@ final class ConfigSectionScreen extends Screen {
 					}
 				}
 			} else if (ConfigBinder.isNested(raw) && value != null && value.isJsonObject()) {
-				List<MemberName> m = member == null ? members : with(members, new MemberName(f.getName(), Component.translatable(member.value())));
+				List<MemberName> m = member == null ? members : with(members, new MemberName(ConfigBinder.keyOf(f), Component.translatable(member.value())));
 				collect(raw, key, value.getAsJsonObject(), m, rows);
 			} else {
 				rows.add(leaf(raw, f, key, members));
