@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/beginners_luck",
+  "display": {
+    "icon": {
+      "id": "minecraft:rabbit_foot"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.pvp_lucky_feet.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.pvp_lucky_feet.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
