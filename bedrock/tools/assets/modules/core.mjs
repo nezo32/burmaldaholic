@@ -13,8 +13,8 @@
 // Bedrock (packs/core/RP/):
 //   font/glyph_E1.png, textures/burmaldaholic/ui/*, textures/burmaldaholic/icons/*,
 //   textures/particle/burmaldaholic_fx.png (one flipbook row per set, rows = B-L1's particle-atlas.ts ATLAS_ROWS)
-import { bedrockNineSlice, mcmeta, png, JAVA_ASSETS } from '../lib/emit.mjs';
-import { strip } from '../lib/grid.mjs';
+import { bedrockNineSlice, json, mcmeta, png, JAVA_ASSETS } from '../lib/emit.mjs';
+import { hstrip, strip } from '../lib/grid.mjs';
 import { packRows } from '../lib/atlas.mjs';
 import { buildGlyphSheet } from './core/glyphs.mjs';
 import { bell, button, hudBadgeShine, hudCloud, hudFlame, panelCasino, panelFelt, panelHud, panelInset, panelTab, stamp, toast, trophy } from './core/ui.mjs';
@@ -22,6 +22,7 @@ import { chipSide, chipTop, coinSpinFrames, confettiSheet, rays, sparkle, vignet
 import { BEDROCK_ATLAS_ROWS, PARTICLE_SETS } from './core/particles.mjs';
 import { CHIP_DENOMS, STACK_KINDS, chipStack } from './core/items.mjs';
 import { ICON_NAMES, icon } from './core/icons.mjs';
+import * as menu from './core/menu.mjs';
 
 const T = `${JAVA_ASSETS}/textures`;
 const SPR = `${T}/gui/sprites/core`;
@@ -101,6 +102,56 @@ export default function generate() {
   out.push(png('bedrock', `${UI}/trophy.png`, trophy()));
   for (const name of ICON_NAMES) out.push(png('bedrock', `${RP}/textures/burmaldaholic/icons/${name}.png`, icon(name)));
 
+  out.push(...menuShell(sprite, nine));
+  return out;
+}
+
+/**
+ * Casino Menu shell (docs/design/visual/extras.md §8–§9), Java only: the "casino ledger" frame, pages, bookmark tabs,
+ * plaques, rows, progress bars, the Loan Shark's dark kit, achievement plates + medals, the HUD chip counter and toast
+ * variants (atlas sprites under gui/sprites/core/…) and the code-blitted backdrops / sheets under gui/core/menu/.
+ */
+function menuShell(sprite, nine) {
+  const out = [];
+  const MENU = `${T}/gui/core/menu`;
+  const sheet = (name, img) => out.push(png('java', `${MENU}/${name}.png`, img));
+  sheet('lobby_backdrop', menu.lobbyBackdrop());
+  sheet('loan_backdrop', menu.loanBackdrop());
+  sheet('tab_icons', menu.tabIcons16());
+  sheet('tab_icons_20', menu.tabIcons20());
+  sheet('tab_icons_40', menu.tabIcons40());
+  sheet('ach_medals', hstrip(menu.achMedals()));
+  sheet('shark', menu.sharkPortrait());
+  sprite('menu/shell', menu.shellFrame(false), nine(64, 64, 16));
+  sprite('menu/shell_loan', menu.shellFrame(true), nine(64, 64, 16));
+  sprite('menu/page', menu.page(false), nine(32, 32, 6));
+  sprite('menu/page_loan', menu.page(true), nine(32, 32, 6));
+  for (const st of ['normal', 'hover', 'selected']) {
+    const suffix = st === 'normal' ? '' : `_${st}`;
+    sprite(`menu/tab${suffix}`, menu.tab(st), nine(32, 24, 6));
+    if (st !== 'hover') sprite(`menu/tab_loan${suffix}`, menu.tab(st, true), nine(32, 24, 6));
+  }
+  sprite('menu/header', menu.headerPlate(), nine(64, 20, 8));
+  sprite('menu/balance', menu.balancePlaque(), nine(32, 20, 8));
+  for (const k of ['normal', 'alt', 'highlight', 'loan']) sprite(`menu/row${k === 'normal' ? '' : `_${k}`}`, menu.ledgerRow(k), nine(32, 14, 4));
+  sprite('menu/progress', menu.progressFrame(), nine(32, 10, 4));
+  for (const k of ['gold', 'green', 'red', 'lilac']) {
+    out.push(png('java', `${SPR}/menu/progress_fill_${k}.png`, menu.progressFill(k)));
+    out.push(json('java', `${SPR}/menu/progress_fill_${k}.png.mcmeta`, { gui: { scaling: { type: 'tile', width: 8, height: 6 } } }));
+  }
+  for (const k of ['locked', 'unlocked', 'gold']) sprite(`menu/ach_plate_${k}`, menu.achPlate(k), nine(48, 24, 8));
+  sprite('menu/debt_meter', menu.debtMeter(), nine(32, 12, 5));
+  sprite('menu/debt_skull', menu.debtSkull());
+  sprite('menu/stamp_overdue', menu.overdueStamp());
+  sprite('menu/contract', menu.contractPaper(), nine(32, 32, 8));
+  sprite('menu/offer', menu.offerCard(false), nine(32, 24, 8));
+  sprite('menu/offer_locked', menu.offerCard(true), nine(32, 24, 8));
+  sprite('hud/chip_counter', menu.chipCounter(false), nine(32, 16, 6));
+  sprite('hud/chip_counter_golden', menu.chipCounter(true), nine(32, 16, 6));
+  sprite('hud/chip_icon', menu.chipIcon(), { frametime: 4 });
+  sprite('hud/delta_up', menu.deltaPill(true), nine(16, 10, 4));
+  sprite('hud/delta_down', menu.deltaPill(false), nine(16, 10, 4));
+  for (const k of ['achievement', 'pvp', 'loan']) sprite(`toast/${k}`, menu.toastVariant(k));
   return out;
 }
 
