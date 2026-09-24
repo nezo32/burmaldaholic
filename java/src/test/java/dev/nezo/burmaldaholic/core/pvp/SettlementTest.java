@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.core.pvp;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.core.pvp.logic.PvpMath;
@@ -144,5 +145,48 @@ class SettlementTest {
 			p[j] = t;
 		}
 		return p;
+	}
+
+	/** Outcomes the engine refuses to settle (they would burn or mint chips in the split); valid ones conserve W. */
+	@Test
+	void invalidOutcomesAreRejected() {
+		int[] order = {2, 0, 1};
+		assertTrue(Settlement.validOutcome(3, new int[] {1}, order));
+		assertTrue(Settlement.validOutcome(3, new int[] {0, 1, 2}, order));
+		assertFalse(Settlement.validOutcome(3, new int[] {}, order), "no winner: W would stay in the bank");
+		assertFalse(Settlement.validOutcome(3, new int[] {1, 1}, order), "a repeated winner burns a share");
+		assertFalse(Settlement.validOutcome(3, new int[] {3}, order), "unknown winner");
+		assertFalse(Settlement.validOutcome(3, new int[] {-1}, order), "negative winner");
+		assertFalse(Settlement.validOutcome(3, new int[] {0}, new int[] {0, 1}), "short seat order");
+		assertFalse(Settlement.validOutcome(3, new int[] {0}, new int[] {0, 0, 1}), "seat order not a permutation");
+		assertFalse(Settlement.validOutcome(3, null, order));
+		// what the check prevents: a repeated winner pays less than W
+		long[] burnt = PvpMath.split(97, new int[] {1, 1}, order, 3);
+		assertTrue(burnt[0] + burnt[1] + burnt[2] < 97);
+	}
+
+	/** Rake is round-half-up and never exceeds the pot; with the bots' share, the bankroll gets rake − floor(rake·bots/pot). */
+	@Test
+	void rakeRoundingEdges() {
+		assertEquals(0, PvpMath.rake(16, 300)); // 0.48 → 0
+		assertEquals(1, PvpMath.rake(17, 300)); // 0.51 → 1
+		assertEquals(1, PvpMath.rake(50, 100)); // exactly 0.5 → up
+		assertEquals(0, PvpMath.rake(49, 100));
+		assertEquals(100, PvpMath.rake(1000, 1000));
+		for (long pot = 1; pot < 5000; pot++) {
+			for (int bp : new int[] {1, 99, 150, 300, 999, 1000}) {
+				long r = PvpMath.rake(pot, bp);
+				assertTrue(r >= 0 && r <= pot);
+				assertEquals(Math.floorDiv(pot * bp * 2 + 10000, 20000), r); // half up, independent formula
+			}
+		}
+		// 1 human (100) + 2 bankroll bots (100 each), 300 bp: rake 9, bots' share floor(9·200/300) = 6 → bankroll 3
+		Settlement.Result r = Settlement.settle(List.of(Seat.human(100), Seat.bankrollBot(100), Seat.bankrollBot(100)), new int[] {0},
+			new int[] {0, 1, 2}, 300, true);
+		assertEquals(9, r.rake());
+		assertEquals(3, r.rakeToBankroll());
+		assertEquals(291, r.payouts()[0]);
+		assertEquals(3, r.bankrollDelta(), "bots lost: the bankroll only gets its rake share");
+		assertEquals(-294, r.houseDelta());
 	}
 }

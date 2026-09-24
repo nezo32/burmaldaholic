@@ -80,6 +80,32 @@ public final class Settlement {
 	}
 
 	/**
+	 * Can a mode's outcome be settled without minting or burning chips? At least one winner, winners distinct
+	 * and in {@code [0, n)}, and {@code seatOrder} a permutation of {@code [0, n)} (odd chips). A repeated winner
+	 * would be counted twice in {@code k} but paid once (chips burnt); no winner leaves W in the bank.
+	 */
+	public static boolean validOutcome(int n, int[] winners, int[] seatOrder) {
+		if (winners == null || seatOrder == null || winners.length == 0 || winners.length > n || seatOrder.length != n) {
+			return false;
+		}
+		boolean[] seen = new boolean[n];
+		for (int w : winners) {
+			if (w < 0 || w >= n || seen[w]) {
+				return false;
+			}
+			seen[w] = true;
+		}
+		boolean[] seat = new boolean[n];
+		for (int i : seatOrder) {
+			if (i < 0 || i >= n || seat[i]) {
+				return false;
+			}
+			seat[i] = true;
+		}
+		return true;
+	}
+
+	/**
 	 * Settles a match.
 	 *
 	 * @param winners        {@link Outcome#winners()}

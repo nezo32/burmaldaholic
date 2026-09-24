@@ -464,6 +464,17 @@ final class PvpEngine implements PvpService {
 	}
 
 	private void tickInvite(MinecraftServer s, PvpMatch m, long now) {
+		if (m.invitee != null && now % 20 == 0) {
+			ServerPlayer challenger = online(s, m.host);
+			if (challenger != null && !nearAnchor(challenger, m)) {
+				// PVP.md §3.3.1: WITHDRAWN when the challenger leaves the radius before the answer
+				notifyInviteEnd(s, m, "msg.burmaldaholic.pvp.invite.withdrawn");
+				challenger.sendSystemMessage(Component.translatable("msg.burmaldaholic.pvp.invite.expired",
+					PvpText.name(m.participants.get(1), mode(m))).withStyle(ChatFormatting.GRAY));
+				close(s, m, MatchState.CANCELLED);
+				return;
+			}
+		}
 		Participant bot = m.participants.size() > 1 && m.participants.get(1).isBot() ? m.participants.get(1) : null;
 		if (bot != null && bot.botActAt >= 0 && now >= bot.botActAt) {
 			bot.botActAt = -1;
@@ -526,7 +537,11 @@ final class PvpEngine implements PvpService {
 			return fail("gui.burmaldaholic.pvp.error.lobby_gone");
 		}
 		long stake = m.participants.get(0).stake();
-		Component e = eligibility(target, md, m, null, stake, Role.MONEY, null, false, false);
+		Component e = withinReach(target, challenger) ? null : Component.translatable("gui.burmaldaholic.pvp.error.too_far",
+			challenger.getDisplayName(), Texts.plural("unit.burmaldaholic.block", CasinoConfig.pvp().joinRadius));
+		if (e == null) {
+			e = eligibility(target, md, m, null, stake, Role.MONEY, null, false, false);
+		}
 		Component other = eligibility(challenger, md, m, null, stake, Role.MONEY_OTHER, null, false, false);
 		if (e != null || other != null) {
 			close(s, m, MatchState.CANCELLED);
@@ -571,6 +586,18 @@ final class PvpEngine implements PvpService {
 		}
 		notifyInviteEnd(s, m, "msg.burmaldaholic.pvp.invite.withdrawn");
 		close(s, m, MatchState.CANCELLED);
+	}
+
+	/** Rule 5 at accept (PVP.md §3.2: re-checked when money moves): the target within {@code pvp.joinRadius} of the challenger. */
+	private static boolean withinReach(ServerPlayer target, ServerPlayer challenger) {
+		return target.level().dimension().equals(challenger.level().dimension())
+			&& target.position().distanceTo(challenger.position()) <= CasinoConfig.pvp().joinRadius;
+	}
+
+	/** The player is still within {@code pvp.joinRadius} of the match anchor (a duel: where the challenge was made). */
+	private static boolean nearAnchor(ServerPlayer p, PvpMatch m) {
+		return p.level().dimension().equals(m.anchor.dimension())
+			&& p.position().distanceTo(Vec3.atCenterOf(m.anchor.pos())) <= CasinoConfig.pvp().joinRadius;
 	}
 
 	private void notifyInviteEnd(MinecraftServer s, PvpMatch m, String key) {
@@ -857,6 +884,12 @@ final class PvpEngine implements PvpService {
 		if (g == null) {
 			return Result.fail(Component.translatable("gui.burmaldaholic.pvp.error.target_unavailable", Texts.raw("?")));
 		}
+		if (m.guests.contains(guest)) {
+			return Result.ok(false); // already invited: no second chat line (a host can't spam a guest with invites)
+		}
+		if (!rec(s, guest).acceptInvites) {
+			return Result.fail(Component.translatable("gui.burmaldaholic.pvp.error.no_invites", g.getDisplayName()));
+		}
 		m.guests.add(guest);
 		BlockPos at = m.anchor.pos();
 		MutableComponent line = Component.translatable("msg.burmaldaholic.bots.invited", host.getDisplayName(), PvpText.modeName(m.mode),
@@ -872,9 +905,7 @@ final class PvpEngine implements PvpService {
 
 	/** Returns one entry from the bank escrow; false if the transaction failed (humans, bankroll bots). */
 	private boolean refundOne(MinecraftServer s, Participant p) {
-		UUID h = p.humanId();
-		AccountId to = h != null ? AccountId.player(h)
-			: p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL ? AccountId.bankroll(b.purse().bankrollId()) : null;
+		AccountId to = refundTo(s, p);
 		if (to == null || p.stake() <= 0) {
 			return true;
 		}
@@ -1257,6 +1288,9 @@ final class PvpEngine implements PvpService {
 		try {
 			tape = ModeCalls.draw(md, fairRng(), n, m.params);
 			outcome = ModeCalls.score(md, tape, stakes, m.params);
+			if (!Settlement.validOutcome(n, outcome.winners(), outcome.seatOrder())) {
+				throw new IllegalStateException("invalid outcome");
+			}
 		} catch (RuntimeException e) {
 			Burmaldaholic.LOGGER.error("PvP: mode {} failed to draw/score; match {} refunded", m.mode, m.id, e);
 			m.state = MatchState.LOBBY;
@@ -1417,12 +1451,26 @@ final class PvpEngine implements PvpService {
 			close(s, m, MatchState.CANCELLED);
 			return;
 		}
+		if (!Settlement.validOutcome(m.participants.size(), outcome.winners(), outcome.seatOrder())) {
+			// a mode bug (no / repeated / unknown winner, bad seat order) would mint or burn chips in the split
+			Burmaldaholic.LOGGER.error("PvP: mode {} returned an invalid outcome for {} — stakes refunded", m.mode, m.id);
+			refundAll(s, m, reason != Reason.NORMAL, reason == Reason.CASINO_OFF);
+			close(s, m, MatchState.CANCELLED);
+			return;
+		}
 		m.outcome = outcome;
 		List<Settlement.Seat> seats = seats(m);
 		Settlement.Result r = Settlement.settle(seats, outcome.winners(), outcome.seatOrder(), CasinoConfig.pvp().rakeBasisPoints,
 			!m.bankroll.isEmpty());
+		long toBankroll = r.bankrollDelta();
+		if (toBankroll > 0 && !creditable(s, m.bankroll)) {
+			// neither open nor tombstoned (e.g. closed before tombstones existed): the bankroll's share stays in the
+			// bank instead of failing the whole settlement forever (the humans would never be paid)
+			Burmaldaholic.LOGGER.error("PvP: bankroll {} of match {} is gone — its {} chips stay in the bank", m.bankroll, m.id, toBankroll);
+			toBankroll = 0;
+		}
 		Economy.Batch batch = Economies.get().batch(s);
-		batch.debit(AccountId.HOUSE, -r.houseDelta());
+		batch.debit(AccountId.HOUSE, -r.houseDelta() - (r.bankrollDelta() - toBankroll));
 		for (int i = 0; i < m.participants.size(); i++) {
 			Participant p = m.participants.get(i);
 			UUID h = p.humanId();
@@ -1430,8 +1478,8 @@ final class PvpEngine implements PvpService {
 				batch.credit(AccountId.player(h), r.payouts()[i]);
 			}
 		}
-		if (r.bankrollDelta() > 0) {
-			batch.credit(AccountId.bankroll(m.bankroll), r.bankrollDelta());
+		if (toBankroll > 0) {
+			batch.credit(AccountId.bankroll(m.bankroll), toBankroll);
 		}
 		Economy.TxResult tx = batch.commit(Transaction.payout(GAME));
 		if (!tx.ok()) {
@@ -1449,7 +1497,7 @@ final class PvpEngine implements PvpService {
 		m.forcedSettle = reason != Reason.NORMAL;
 		m.revealedPlaces = m.participants.size();
 		persist(s, m);
-		if (r.rakeToBankroll() > 0) {
+		if (r.rakeToBankroll() > 0 && toBankroll > 0) {
 			ServerLevel level = s.getLevel(m.anchor.dimension());
 			if (level != null) {
 				long rake = r.rakeToBankroll();
@@ -2307,12 +2355,13 @@ final class PvpEngine implements PvpService {
 	/** Returns one entry from the bank escrow (humans, bankroll bots; bank bots: nothing moves). */
 	private void refund(MinecraftServer s, PvpMatch m, Participant p, boolean note, boolean casinoOff) {
 		UUID h = p.humanId();
-		AccountId to = h != null ? AccountId.player(h)
-			: p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL ? AccountId.bankroll(b.purse().bankrollId()) : null;
+		AccountId to = refundTo(s, p);
 		if (to == null || p.stake() <= 0) {
 			return;
 		}
-		Economies.get().batch(s).debit(AccountId.HOUSE, p.stake()).credit(to, p.stake()).commit(Transaction.refund(GAME));
+		if (!Economies.get().batch(s).debit(AccountId.HOUSE, p.stake()).credit(to, p.stake()).commit(Transaction.refund(GAME)).ok()) {
+			Burmaldaholic.LOGGER.error("PvP: refund of {} chips to {} failed (match {})", p.stake(), to, m.id);
+		}
 		if (h != null) {
 			ServerPlayer sp = online(s, h);
 			if (sp != null && !note) {
@@ -2328,17 +2377,20 @@ final class PvpEngine implements PvpService {
 		Economy.Batch batch = Economies.get().batch(s);
 		long total = 0;
 		for (Participant p : m.participants) {
-			UUID h = p.humanId();
-			if (h != null) {
-				batch.credit(AccountId.player(h), p.stake());
-				total += p.stake();
-			} else if (p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL) {
-				batch.credit(AccountId.bankroll(b.purse().bankrollId()), p.stake());
+			AccountId to = refundTo(s, p);
+			if (to != null && p.stake() > 0) {
+				batch.credit(to, p.stake());
 				total += p.stake();
 			}
 		}
-		if (total > 0) {
-			batch.debit(AccountId.HOUSE, total).commit(Transaction.refund(GAME));
+		if (total > 0 && !batch.debit(AccountId.HOUSE, total).commit(Transaction.refund(GAME)).ok()) {
+			// never leave everyone's escrow in the bank because one leg failed: one entry at a time
+			Burmaldaholic.LOGGER.error("PvP: refund batch of match {} failed — refunding entry by entry", m.id);
+			for (Participant p : m.participants) {
+				if (!refundOne(s, p)) {
+					Burmaldaholic.LOGGER.error("PvP: refund of {} chips to {} failed (match {})", p.stake(), p.occupant.key(), m.id);
+				}
+			}
 		}
 		for (Participant p : m.participants) {
 			UUID h = p.humanId();
@@ -2355,6 +2407,30 @@ final class PvpEngine implements PvpService {
 		for (Participant p : m.participants) {
 			p.addStake(-p.stake());
 		}
+	}
+
+	/**
+	 * Where an entry goes back to: the player, a bankroll bot's bankroll (open or tombstoned to its owner), or
+	 * null (bank bots: nothing moved; a bankroll that is gone without a tombstone: the chips stay in the bank).
+	 */
+	private static @Nullable AccountId refundTo(MinecraftServer s, Participant p) {
+		UUID h = p.humanId();
+		if (h != null) {
+			return AccountId.player(h);
+		}
+		if (p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL) {
+			if (creditable(s, b.purse().bankrollId())) {
+				return AccountId.bankroll(b.purse().bankrollId());
+			}
+			Burmaldaholic.LOGGER.error("PvP: bankroll {} is gone — a bot entry of {} chips stays in the bank", b.purse().bankrollId(), p.stake());
+		}
+		return null;
+	}
+
+	/** Chips can still be credited to bankroll {@code id}: it is open, or closed and tombstoned to its owner. */
+	private static boolean creditable(MinecraftServer s, String id) {
+		Economy.Bankrolls b = Economies.get().bankrolls(s);
+		return b.get(id).isPresent() || b.closedOwner(id).isPresent();
 	}
 
 	// =====================================================================================================
