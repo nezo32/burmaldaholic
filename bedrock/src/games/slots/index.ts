@@ -71,6 +71,7 @@ import {
 } from './logic';
 import { gridRaw, machineName, paytableLines } from './render';
 import { registerSlotsPvp } from './pvp';
+import { registerCabinetComponent, startCabinets } from './cabinet';
 
 const POOL_PROP = 'burmaldaholic:slots.jackpot';
 const BET_PROP = 'burmaldaholic:slots.line_bet';
@@ -629,7 +630,11 @@ const machineIcon = (): Raw => lit('§6» §r');
 
 export const slotsModule: CasinoModule = {
   id: 'slots',
+  onStartup(ctx) {
+    registerCabinetComponent(ctx.event); // in-world reels prop (lane B-L10, animation/slots.md §6.6)
+  },
   onWorldLoad(ctx) {
+    startCabinets(ctx); // lane B-L10
     registerSlotsPvp(ctx); // Slot Showdown (docs/architecture/pvp-bots.md)
     const game = new SlotsGame(ctx);
     ctx.services.provide<SlotsApi>(SLOTS_SERVICE, game);

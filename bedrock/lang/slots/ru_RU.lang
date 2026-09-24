@@ -73,3 +73,5 @@ config.burmaldaholic.slots.ownedStarPays=Выплата за три звезды
 config.burmaldaholic.slots.spinTicks=Анимация вращения (тики)
 config.burmaldaholic.slots.validateRtp=Предупреждать об RTP выше 99 %%
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+## TEMP-ANIM (lane B-L10): until X-L0 imports the key into STRINGS.md
+entity.burmaldaholic:slot_reels.name=Барабаны игрового автомата

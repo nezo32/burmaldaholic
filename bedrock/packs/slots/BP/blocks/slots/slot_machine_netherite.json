@@ -45,6 +45,16 @@
       "burmaldaholic:table": {
         "game": "slots",
         "variant": "netherite"
+      },
+      "minecraft:tick": {
+        "interval_range": [
+          60,
+          100
+        ],
+        "looping": true
+      },
+      "burmaldaholic:slot_cabinet": {
+        "machine": "end"
       }
     },
     "permutations": [

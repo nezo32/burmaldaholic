@@ -73,3 +73,5 @@ config.burmaldaholic.slots.ownedStarPays=Three stars pay at player casinos
 config.burmaldaholic.slots.spinTicks=Spin animation (ticks)
 config.burmaldaholic.slots.validateRtp=Warn about RTP above 99%%
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
+## TEMP-ANIM (lane B-L10): until X-L0 imports the key into STRINGS.md
+entity.burmaldaholic:slot_reels.name=Slot Machine Reels
