@@ -20,3 +20,16 @@ Loan Shark + Debt Collectors, Chaos events + Golden Hour + streak, Last Chance, 
 
 ## Wave 4 — testing (→ wave 3): independent testers per edition (unit tests for game math, gametests, pack validation, lang parity).
 ## Wave 5 — review (→ wave 4): reviewers per edition + localization review (RU) + CI review; fixes; README; merge.
+
+## v0.1.0 additions (user requests, in progress)
+Pipeline per feature: research → design → architecture → development (self-checked) → independent testing → review → merge.
+
+| Track | Research | Design | Architecture | Development | Test / review |
+|---|---|---|---|---|---|
+| Baccarat (+ Chemin de fer) | — | GAME_DESIGN §20 ✅ | existing table framework | Java + Bedrock (in progress) | per edition |
+| Ultimate Texas Hold'em (+ player-banked) | — | GAME_DESIGN §21 ✅ | existing table framework | Java + Bedrock (in progress) | per edition |
+| PvP versions of solo games (slots, coin flip, wheel, plinko, scratch) + entertainment layer | — | PVP.md (in progress) | shared match/escrow framework (→ design) | per game × edition | per edition |
+| Seats & Bots (humans only / bots only / mixed; difficulty) | docs/research/bots.md (in progress) | BOTS.md (in progress, → research) | core seats/bots framework both editions (→ BOTS.md, PVP.md) | core framework × 2, then per-game integration (poker, baccarat, UTH, blackjack, house tables, PvP modes) | per edition |
+| Per-world casino mode (Java) | Enchantaholic reference | ✅ | ✅ | ✅ | in final test/review |
+
+Release: all tracks green in CI → squash-merge PR #1 → tag v0.1.0.
