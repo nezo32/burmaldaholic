@@ -38,7 +38,7 @@ import {
 } from '@minecraft/server';
 import { isCasinoEnabled } from './casino';
 import type { ConfigService } from './config';
-import { type Economy, type HouseRef, BANK } from './economy';
+import { type Economy, type HouseRef, BANK, isPlayerBanked } from './economy';
 import { clearSlot, giveItems, heldItem, itemAt } from './items';
 import type { Limits, TableLimits } from './limits';
 import { isChipAmount } from './logic/economy-math';
@@ -98,7 +98,7 @@ const PAWN_OWNED_TABLE = 'gui.burmaldaholic.error.pawn_owned_table';
 export const SOUL_WAGER_TAG = 'burmaldaholic_core_soul_wager';
 
 /** Game ids used for labels (`gui.burmaldaholic.common.game.<id>`) and RNG classification. */
-export const GAME_IDS = ['blackjack', 'poker', 'slots', 'roulette', 'craps', 'coin_flip', 'wheel', 'scratch', 'plinko', 'dice_duel'] as const;
+export const GAME_IDS = ['blackjack', 'poker', 'slots', 'roulette', 'craps', 'coin_flip', 'wheel', 'scratch', 'plinko', 'dice_duel', 'baccarat', 'uth'] as const;
 export type GameId = (typeof GAME_IDS)[number];
 /** Games whose odds the streak may tilt (§14); the rest are "always honest". */
 export const RNG_GAMES: readonly GameId[] = ['slots', 'wheel', 'plinko', 'scratch', 'coin_flip'];
@@ -547,7 +547,7 @@ export class WagerService {
     if (!live) {
       offlineStore.update(ticket.playerId, (e) => withSettled(withResolved(this.settleOffline(e, ticket, ret), ticket.id), base));
       log.info(`settled ${ticket.game} round ${ticket.id} of offline player ${ticket.playerId} (return ${ret})`);
-      return { ...base, game: ticket.game, stakeKind: ticket.kind, player: player as Player, playerId: ticket.playerId, net, houseBanked: true, deferred: true };
+      return { ...base, game: ticket.game, stakeKind: ticket.kind, player: player as Player, playerId: ticket.playerId, net, houseBanked: !isPlayerBanked(ticket.house), deferred: true };
     }
     try {
       if (ticket.kind === 'chips') {
@@ -612,7 +612,7 @@ export class WagerService {
     if (!live) {
       if (pid) offlineStore.update(pid, (e) => withSettled({ ...e, chips: e.chips + ret }, base));
       else log.warn(`${o.game}: prepaid round of an unknown offline player lost (${ret})`);
-      return { ...base, game: o.game, stakeKind: 'chips', player, playerId: pid ?? '', net: ret - staked, houseBanked: true, deferred: true };
+      return { ...base, game: o.game, stakeKind: 'chips', player, playerId: pid ?? '', net: ret - staked, houseBanked: !isPlayerBanked(base.house), deferred: true };
     }
     if (ret > 0) this.economy.credit(live, ret, `${o.game}.payout`);
     const ev = this.finish(live, base, true);
@@ -653,7 +653,7 @@ export class WagerService {
       net,
       stakeKind: d.stakeKind as Stake['kind'],
       house: d.house,
-      houseBanked,
+      houseBanked: houseBanked && !isPlayerBanked(d.house),
       tableKey: d.tableKey,
       theoreticalLoss: d.theoreticalLoss,
       deferred: deferred || undefined,

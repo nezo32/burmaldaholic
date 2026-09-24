@@ -99,7 +99,7 @@ describe('achievements (§19)', () => {
       if (a.parent) expect(seen.has(a.parent), `${a.id} -> ${a.parent}`).toBe(true);
       seen.add(a.id);
     }
-    expect(ACHIEVEMENTS).toHaveLength(35);
+    expect(ACHIEVEMENTS).toHaveLength(42);
   });
 
   it('unlocks once, ignores unknown ids', () => {

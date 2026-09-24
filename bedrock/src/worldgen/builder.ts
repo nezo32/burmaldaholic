@@ -92,6 +92,7 @@ export function spawnNpc(dim: Dimension, rec: CasinoRecord, index: number, log: 
   e.setRotation({ x: 0, y: facingYaw(slot.facing) });
   e.addTag(NPC_TAG);
   e.addTag(NO_REWARD_TAG);
+  for (const tag of slot.tags ?? []) e.addTag(tag);
   e.setDynamicProperty(HOME_PROP, npcHome(rec, index));
   return true;
 }

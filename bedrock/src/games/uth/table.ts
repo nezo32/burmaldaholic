@@ -80,8 +80,8 @@ import {
 } from './logic';
 import { betsRaw, cardsRaw, paytableRaw, rulesRaw, seatTagRaw, settlementLines, streetRaw, valueRaw } from './render';
 
-/** Core GameId list predates UTH (core change requested): the id is a plain string at runtime. */
-export const UTH_GAME = 'uth' as unknown as GameId;
+/** Wager game id (core GAME_IDS). */
+export const UTH_GAME: GameId = 'uth';
 const HUD = 'uth.table';
 const RESULT_TICKS = 80;
 const REVEAL_TICKS = 20;
@@ -594,7 +594,7 @@ export class UthTable {
     const p = s.player;
     const err = this.checkBets(p, ante, trips);
     if (err) return err;
-    const house: HouseRef | undefined = this.roundBanker ? { kind: 'bankroll', id: this.roundBanker.escrow.bankrollId } : undefined;
+    const house: HouseRef | undefined = this.roundBanker ? { kind: 'bankroll', id: this.roundBanker.escrow.bankrollId, playerBanked: true } : undefined;
     const edge = this.edgeFor(ante, trips, house);
     const r = this.ctx.wagers.place(p, {
       game: UTH_GAME,

@@ -82,6 +82,10 @@ export const PRESETS: Readonly<Record<TablePresetId, TablePreset>> = {
   parlor_poker: { id: 'parlor_poker', house: true, poker: { stakes: 'low', bots: 3, botMix: 'regular_heavy' } },
   high_roller_blackjack: { id: 'high_roller_blackjack', house: true, minBet: 100, tierMultiplier: 2, minTier: 2 },
   high_roller_roulette: { id: 'high_roller_roulette', house: true, minBet: 100 },
+  // §16.3: min 100 per coup, max 2× tier, Gold VIP (baccarat.highRoller* defaults)
+  high_roller_baccarat: { id: 'high_roller_baccarat', house: true, minBet: 100, tierMultiplier: 2, minTier: 2 },
+  // §16.3: min Ante 50, W ≤ 2× tier max, Gold VIP (uth.highRoller* defaults)
+  high_roller_uth: { id: 'high_roller_uth', house: true, minBet: 50, tierMultiplier: 2, minTier: 2 },
 };
 
 // ---- persistence -------------------------------------------------------------------------------

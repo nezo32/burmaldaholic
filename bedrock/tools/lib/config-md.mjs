@@ -7,7 +7,7 @@ export const SECTION_OF = {
   blackjack: 'blackjack', poker: 'poker', slots: 'slots', roulette: 'roulette', craps: 'craps',
   extras: 'extras', loan: 'loan', chaos: 'chaos', streak: 'streak', lastChance: 'lastchance',
   worldgen: 'worldgen', ownership: 'ownership', multiplayer: 'ownership', debug: 'debug',
-  pvp: 'pvp', bots: 'bots',
+  pvp: 'pvp', bots: 'bots', baccarat: 'baccarat', uth: 'uth',
 };
 
 /** First key segment -> Bedrock module that owns (reads) the key. */
@@ -139,6 +139,14 @@ export function parseDefault(cell, type, key) {
   if (type.type === 'enum') return c;
   if (type.type === 'json') {
     if (key in TABLE_DEFAULTS) return TABLE_DEFAULTS[key];
+    // `map<k,v>` written as `royal 500, straightFlush 50, ...` (CONFIG.md §uth paytables)
+    const pairs = type.shape === 'map' ? /^[A-Za-z_]\w*\s+-?[\d.]+(\s*,\s*[A-Za-z_]\w*\s+-?[\d.]+)*$/.exec(c) : null;
+    if (pairs) {
+      return Object.fromEntries(c.split(',').map((p) => {
+        const [k, v] = p.trim().split(/\s+/);
+        return [k, parseNum(v)];
+      }));
+    }
     return JSON.parse(c);
   }
   const n = parseNum(c);

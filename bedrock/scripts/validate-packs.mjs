@@ -483,7 +483,7 @@ const STRUCTURE_SIZES = {
   // GAME_DESIGN §16 bounding boxes (X × Y × Z)
   village_casino: [17, 10, 17],
   piglin_parlor: [21, 12, 21],
-  high_roller_lounge: [13, 9, 13],
+  high_roller_lounge: [15, 9, 15], // §16.3 re-export for baccarat/UTH (2026-09)
 };
 for (const f of filesIn(path.join(BP, 'structures'), '.mcstructure')) {
   let root;

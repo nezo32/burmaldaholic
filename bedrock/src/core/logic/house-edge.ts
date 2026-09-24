@@ -21,6 +21,10 @@ export const HOUSE_EDGE: Readonly<Record<string, number>> = {
   scratch: 0.15,
   plinko: 0.033,
   dice_duel: 0.0278,
+  /** Banker bet, 5 % commission (the lowest baccarat edge). */
+  baccarat: 0.0106,
+  /** Element of risk: 2.19 % of the Ante over ~4.1 Antes wagered per round. */
+  uth: 0.0053,
 };
 
 export const houseEdgeOf = (game: string): number => {

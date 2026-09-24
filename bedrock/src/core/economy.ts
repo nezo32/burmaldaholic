@@ -29,7 +29,14 @@ export interface DebtProvider {
 }
 
 /** Who banks a round: the world bank (mints/burns) or an owned casino's bankroll. */
-export type HouseRef = { kind: 'bank' } | { kind: 'bankroll'; id: string };
+/**
+ * Who banks a round. `playerBanked`: the bankroll is a player's bank (UTH dealer seat, §21.9),
+ * so the round counts as PvP for the settled event (houseBanked=false: no Golden Hour bonus,
+ * no loan garnishing); persisted with the ticket, so restart settlements keep it.
+ */
+export type HouseRef = { kind: 'bank' } | { kind: 'bankroll'; id: string; playerBanked?: boolean };
+/** True when a player (not the house or a casino owner) banks the round. */
+export const isPlayerBanked = (h: HouseRef): boolean => h.kind === 'bankroll' && h.playerBanked === true;
 export const BANK: HouseRef = { kind: 'bank' };
 
 /** One leg of `transact`: a player's balance, a bankroll, or the bank. */
@@ -267,6 +274,26 @@ export class Economy {
   /** Stake in, payout out, reservation released. */
   settleBankroll(id: string, o: { reserved: number; stake: number; payout: number }): void {
     this.saveBankroll(id, settleBankroll(this.bankroll(id), o));
+  }
+
+  /**
+   * Close bankroll `id` and pay its unreserved chips to `playerId`: credited now when online,
+   * otherwise queued with the message for their next join (offline-safe; player banks such as
+   * UTH §21.9 dealer seats). `message(amount)` is sent only when amount > 0. False when the
+   * online transfer failed (the bankroll stays open).
+   */
+  payOutBankroll(id: string, playerId: string, reason: string, message?: (amount: number) => Raw): boolean {
+    const amount = this.bankrollAvailable(id);
+    const p = onlinePlayer(playerId);
+    if (p) {
+      if (amount > 0 && !this.transact([{ account: { bankroll: id }, delta: -amount }, { account: p, delta: amount }], reason)) return false;
+      this.closeBankroll(id);
+      if (amount > 0 && message) p.sendMessage(message(amount));
+      return true;
+    }
+    this.closeBankroll(id);
+    if (amount > 0) offlineStore.update(playerId, (e) => (message ? withMessage(withChips(e, amount), message(amount)) : withChips(e, amount)));
+    return true;
   }
 
   /** Remove a bankroll (charter broken); returns what was left for the owner. */

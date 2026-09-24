@@ -763,8 +763,8 @@ export class BaccaratGame implements BaccaratApi {
   }
 
   /**
-   * Unlock a §19 advancement. Core's list may not know the baccarat ids yet (needed core
-   * change): then the unlock is kept here and replayed once core registers the id.
+   * Unlock a §19 advancement. Core's list has the baccarat ids; an unlock held by an older build
+   * (before core registered them) is replayed on load (flushPendingAchievements).
    */
   unlock(playerId: string, id: string): void {
     if (isAchievement(id)) this.ctx.achievements.unlock(playerId, id);

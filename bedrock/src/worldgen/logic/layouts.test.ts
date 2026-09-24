@@ -51,7 +51,7 @@ describe('casino layouts (GAME_DESIGN §16)', () => {
   it('uses the spec bounding boxes', () => {
     for (const l of layouts.filter((l) => l.kind === 'village_casino')) expect(l.size).toEqual({ x: 17, y: 10, z: 17 });
     expect(byId('piglin_parlor').size).toEqual({ x: 21, y: 12, z: 21 });
-    expect(byId('high_roller_lounge').size).toEqual({ x: 13, y: 9, z: 13 });
+    expect(byId('high_roller_lounge').size).toEqual({ x: 15, y: 9, z: 15 });
   });
 
   it('village casino contents: cashier, blackjack, roulette, 3 copper, 1 gold, wheel, loan shark, croupier, 1 chest', () => {
@@ -63,12 +63,13 @@ describe('casino layouts (GAME_DESIGN §16)', () => {
       expect(count(blocks, (b) => b === BLOCK.slotsCopper)).toBe(3);
       expect(count(blocks, (b) => b === BLOCK.slotsGold)).toBe(1);
       expect(count(blocks, (b) => b === BLOCK.wheel)).toBe(1);
+      expect(count(blocks, (b) => b === BLOCK.uth)).toBe(1);
       expect(l.npcs.map((n) => n.role).sort()).toEqual(['croupier', 'loan_shark']);
       expect(l.chests).toEqual([expect.objectContaining({ loot: 'village_casino' })]);
     }
   });
 
-  it('Piglin Parlor contents: craps, low-stakes poker, 2 gold slots, plinko, nether cashier, 2 dealers, moneylender', () => {
+  it('Piglin Parlor contents: craps, low-stakes poker, baccarat, 2 gold slots, plinko, nether cashier, 2 dealers, moneylender', () => {
     const l = byId('piglin_parlor');
     const blocks = l.tables.map((t) => t.block);
     expect(count(blocks, (b) => b === BLOCK.craps)).toBe(1);
@@ -76,18 +77,22 @@ describe('casino layouts (GAME_DESIGN §16)', () => {
     expect(count(blocks, (b) => b === BLOCK.slotsGold)).toBe(2);
     expect(count(blocks, (b) => b === BLOCK.plinko)).toBe(1);
     expect(count(blocks, (b) => b === BLOCK.netherCashier)).toBe(1);
+    expect(count(blocks, (b) => b === BLOCK.baccarat)).toBe(1);
     expect(l.npcs.map((n) => n.role).sort()).toEqual(['piglin_dealer', 'piglin_dealer', 'piglin_moneylender']);
     expect(l.chests.map((c) => c.loot)).toEqual(['piglin_parlor']);
   });
 
-  it('High Roller Lounge contents: 2 netherite slots, HR blackjack + roulette, cashier, shulker croupier', () => {
+  it('High Roller Lounge contents: 2 netherite slots, HR blackjack + roulette + baccarat + UTH, cashier, shulker croupier, baccarat dealer', () => {
     const l = byId('high_roller_lounge');
     const blocks = l.tables.map((t) => t.block);
     expect(count(blocks, (b) => b === BLOCK.slotsNetherite)).toBe(2);
     expect(l.tables.filter((t) => t.block === BLOCK.blackjackHighRoller).map((t) => t.preset)).toEqual(['high_roller_blackjack']);
     expect(l.tables.filter((t) => t.block === BLOCK.rouletteHighRoller).map((t) => t.preset)).toEqual(['high_roller_roulette']);
     expect(count(blocks, (b) => b === BLOCK.cashier)).toBe(1);
-    expect(l.npcs.map((n) => n.role)).toEqual(['shulker_croupier']);
+    expect(l.tables.filter((t) => t.block === BLOCK.baccaratHighRoller).map((t) => t.preset)).toEqual(['high_roller_baccarat']);
+    expect(l.tables.filter((t) => t.block === BLOCK.uthHighRoller).map((t) => t.preset)).toEqual(['high_roller_uth']);
+    expect(l.size).toEqual({ x: 15, y: 9, z: 15 });
+    expect(l.npcs.map((n) => n.role)).toEqual(['shulker_croupier', 'baccarat_dealer']);
     expect(l.chests.map((c) => c.loot)).toEqual(['high_roller']);
   });
 

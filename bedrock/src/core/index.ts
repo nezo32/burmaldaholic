@@ -7,7 +7,7 @@ export type { CasinoModule, ModuleContext, StartupContext } from './module';
 export type { CommandSpec } from './commands';
 export type { ConfigStore, ConfigListener } from './config';
 export type { ConfigDef, ConfigValue, JsonValue, ModuleConfigDef } from './logic/config-schema';
-export { type Economy, type DebtProvider, type HouseRef, type TxOp, type TxAccount, BANK, BALANCE_PROP, BALANCE_OBJECTIVE } from './economy';
+export { type Economy, type DebtProvider, type HouseRef, type TxOp, type TxAccount, BANK, isPlayerBanked, BALANCE_PROP, BALANCE_OBJECTIVE } from './economy';
 export { HudPriority, type Hud, type HudSegment } from './hud';
 export type { GoldenHour } from './golden-hour';
 export type { Limits, VipProvider, TableLimits } from './limits';

@@ -22,9 +22,9 @@ export type Facing = 'north' | 'south' | 'east' | 'west';
 export type CasinoKind = 'village_casino' | 'piglin_parlor' | 'high_roller';
 export type VillageStyle = 'plains' | 'desert' | 'savanna' | 'taiga' | 'snowy';
 export type LootTableId = 'village_casino' | 'piglin_parlor' | 'high_roller';
-export type NpcRole = 'croupier' | 'loan_shark' | 'piglin_dealer' | 'piglin_moneylender' | 'shulker_croupier';
+export type NpcRole = 'croupier' | 'loan_shark' | 'piglin_dealer' | 'piglin_moneylender' | 'shulker_croupier' | 'baccarat_dealer';
 /** Fixed table configs for worldgen tables (GAME_DESIGN §7.1 / §16), exposed through the API. */
-export type TablePresetId = 'standard' | 'parlor_poker' | 'high_roller_blackjack' | 'high_roller_roulette';
+export type TablePresetId = 'standard' | 'parlor_poker' | 'high_roller_blackjack' | 'high_roller_roulette' | 'high_roller_baccarat' | 'high_roller_uth';
 
 export interface BlockSpec {
   readonly name: string;
@@ -44,6 +44,8 @@ export interface NpcSlot {
   readonly role: NpcRole;
   readonly pos: Vec3;
   readonly facing: Facing;
+  /** entity tags set on spawn (e.g. the owning module's High-Roller tag for a dealer NPC) */
+  readonly tags?: readonly string[];
 }
 
 export interface ChestSlot {
@@ -82,7 +84,14 @@ export const BLOCK = {
   slotsNetherite: 'burmaldaholic:slot_machine_netherite',
   wheel: 'burmaldaholic:wheel_of_fortune',
   plinko: 'burmaldaholic:plinko_machine',
+  baccarat: 'burmaldaholic:baccarat_table',
+  baccaratHighRoller: 'burmaldaholic:baccarat_table_high_roller',
+  uth: 'burmaldaholic:uth_table',
+  uthHighRoller: 'burmaldaholic:uth_table_high_roller',
 } as const;
+
+/** Baccarat module's High-Roller tag for its dealer NPC (games/baccarat/api.ts; kept as a string: layouts stay pure). */
+export const BACCARAT_HIGH_ROLLER_TAG = 'burmaldaholic_baccarat_high_roller';
 
 export const NPC_ENTITY: Readonly<Record<NpcRole, readonly string[]>> = {
   croupier: ['burmaldaholic:croupier'],
@@ -91,6 +100,8 @@ export const NPC_ENTITY: Readonly<Record<NpcRole, readonly string[]>> = {
   piglin_moneylender: ['burmaldaholic:piglin_moneylender', 'burmaldaholic:loan_shark'],
   piglin_dealer: ['burmaldaholic:piglin_dealer'],
   shulker_croupier: ['burmaldaholic:shulker_croupier'],
+  // owned by the baccarat module (the entity hosts a table itself, §20.6)
+  baccarat_dealer: ['burmaldaholic:baccarat_dealer'],
 };
 
 /** Minecraft yaw for an entity looking towards `f` (0 = south/+z). */
@@ -339,6 +350,8 @@ function villageCasino(style: VillageStyle): Layout {
       { block: BLOCK.blackjack, pos: f(4, 10), facing: 'south', preset: 'standard' },
       { block: BLOCK.roulette, pos: f(12, 10), facing: 'south', preset: 'standard' },
       { block: BLOCK.cashier, pos: f(15, 13), facing: 'west', preset: 'standard' },
+      // §16.1 (2026-09): Ultimate Texas Hold'em along the back wall
+      { block: BLOCK.uth, pos: f(6, 6), facing: 'south', preset: 'standard' },
     ],
     npcs: [
       { role: 'croupier', pos: f(2, 13), facing: 'east' },
@@ -401,9 +414,11 @@ function piglinParlor(): Layout {
       { block: BLOCK.slotsGold, pos: f(1, 13), facing: 'east', preset: 'standard' },
       { block: BLOCK.plinko, pos: f(19, 11), facing: 'west', preset: 'standard' },
       { block: BLOCK.netherCashier, pos: f(19, 15), facing: 'west', preset: 'standard' },
+      // §16.2 (2026-09): baccarat, one Piglin Dealer behind it (cosmetic)
+      { block: BLOCK.baccarat, pos: f(6, 12), facing: 'south', preset: 'standard' },
     ],
     npcs: [
-      { role: 'piglin_dealer', pos: f(6, 4), facing: 'south' },
+      { role: 'piglin_dealer', pos: f(6, 11), facing: 'south' },
       { role: 'piglin_dealer', pos: f(14, 4), facing: 'south' },
       { role: 'piglin_moneylender', pos: f(10, 2), facing: 'south' },
     ],
@@ -413,56 +428,66 @@ function piglinParlor(): Layout {
   };
 }
 
-// ---- End City High Roller Lounge 13 × 9 × 13 (§16.3) ------------------------------------------
+// ---- End City High Roller Lounge 15 × 9 × 15 (§16.3; 13 × 13 before the 2026-09 games) -------
 
 function highRollerLounge(): Layout {
-  const g = new Grid(13, 9, 13);
+  const n = 15;
+  const m = n - 1;
+  const c = Math.floor(n / 2);
+  const g = new Grid(n, 9, n);
   const purpur = B('purpur_block', { pillar_axis: 'y' });
-  g.box(0, 0, 0, 12, 8, 12, AIR);
-  g.box(0, 0, 0, 12, 0, 12, purpur);
-  g.box(1, 0, 1, 11, 0, 11, B('obsidian'));
-  g.box(5, 0, 5, 7, 0, 7, B('crying_obsidian'));
-  g.walls(0, 1, 0, 12, 1, 12, purpur);
-  g.walls(0, 2, 0, 12, 4, 12, B('magenta_stained_glass'));
-  g.walls(0, 5, 0, 12, 5, 12, purpur);
+  g.box(0, 0, 0, m, 8, m, AIR);
+  g.box(0, 0, 0, m, 0, m, purpur);
+  g.box(1, 0, 1, m - 1, 0, m - 1, B('obsidian'));
+  g.box(c - 1, 0, c - 1, c + 1, 0, c + 1, B('crying_obsidian'));
+  g.walls(0, 1, 0, m, 1, m, purpur);
+  g.walls(0, 2, 0, m, 4, m, B('magenta_stained_glass'));
+  g.walls(0, 5, 0, m, 5, m, purpur);
   for (const [x, z] of [
     [0, 0],
-    [12, 0],
-    [0, 12],
-    [12, 12],
+    [m, 0],
+    [0, m],
+    [m, m],
   ] as const) {
     g.box(x, 1, z, x, 5, z, purpur);
     g.set(x, 7, z, B('end_rod', { facing_direction: 1 }));
   }
-  g.box(0, 6, 0, 12, 6, 12, purpur);
+  g.box(0, 6, 0, m, 6, m, purpur);
   for (const [x, z] of [
     [3, 3],
-    [9, 3],
-    [3, 9],
-    [9, 9],
+    [m - 3, 3],
+    [3, m - 3],
+    [m - 3, m - 3],
   ] as const)
     g.set(x, 5, z, B('end_rod', { facing_direction: 0 }));
-  g.box(1, 1, 1, 11, 1, 11, B('purple_carpet'));
-  g.box(5, 1, 12, 7, 3, 12, AIR);
-  g.set(6, 1, 1, chest('south'));
+  g.box(1, 1, 1, m - 1, 1, m - 1, B('purple_carpet'));
+  g.box(c - 1, 1, m, c + 1, 3, m, AIR);
+  g.set(c, 1, 1, chest('south'));
 
   const f = (x: number, z: number): Vec3 => ({ x, y: 1, z });
   return {
     id: 'high_roller_lounge',
     kind: 'high_roller',
-    size: { x: 13, y: 9, z: 13 },
+    size: { x: n, y: 9, z: n },
     grid: g,
     tables: [
       { block: BLOCK.slotsNetherite, pos: f(2, 1), facing: 'south', preset: 'standard' },
       { block: BLOCK.slotsNetherite, pos: f(4, 1), facing: 'south', preset: 'standard' },
-      { block: BLOCK.blackjackHighRoller, pos: f(4, 6), facing: 'south', preset: 'high_roller_blackjack' },
-      { block: BLOCK.rouletteHighRoller, pos: f(8, 6), facing: 'south', preset: 'high_roller_roulette' },
-      { block: BLOCK.cashier, pos: f(10, 1), facing: 'south', preset: 'standard' },
+      { block: BLOCK.blackjackHighRoller, pos: f(4, 5), facing: 'south', preset: 'high_roller_blackjack' },
+      { block: BLOCK.rouletteHighRoller, pos: f(10, 5), facing: 'south', preset: 'high_roller_roulette' },
+      { block: BLOCK.cashier, pos: f(12, 1), facing: 'south', preset: 'standard' },
+      // §16.3 (2026-09): High-Roller Baccarat (dealer NPC behind it) and High-Roller UTH
+      { block: BLOCK.baccaratHighRoller, pos: f(4, 10), facing: 'south', preset: 'high_roller_baccarat' },
+      { block: BLOCK.uthHighRoller, pos: f(10, 10), facing: 'south', preset: 'high_roller_uth' },
     ],
-    npcs: [{ role: 'shulker_croupier', pos: f(10, 9), facing: 'west' }],
-    chests: [{ pos: f(6, 1), loot: 'high_roller' }],
+    npcs: [
+      { role: 'shulker_croupier', pos: f(12, 8), facing: 'west' },
+      // hosts a High-Roller table of its own (tagged like the module's High-Roller dealers)
+      { role: 'baccarat_dealer', pos: f(4, 9), facing: 'south', tags: [BACCARAT_HIGH_ROLLER_TAG] },
+    ],
+    chests: [{ pos: f(c, 1), loot: 'high_roller' }],
     foundation: { block: 'minecraft:purpur_block', depth: 0 },
-    door: { x0: 5, x1: 7, height: 3 },
+    door: { x0: c - 1, x1: c + 1, height: 3 },
   };
 }
 

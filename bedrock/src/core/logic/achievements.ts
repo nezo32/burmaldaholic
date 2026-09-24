@@ -49,6 +49,13 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'bankrupt', parent: 'the_house', frame: 'task' },
   { id: 'piglin_parlor', parent: 'root', frame: 'task' },
   { id: 'high_roller', parent: 'piglin_parlor', frame: 'goal' },
+  { id: 'baccarat_natural', parent: 'beginners_luck', frame: 'task' },
+  { id: 'tie_streak', parent: 'baccarat_natural', frame: 'goal' },
+  { id: 'uth_four_x', parent: 'beginners_luck', frame: 'task' },
+  { id: 'banco', parent: 'baccarat_natural', frame: 'goal' },
+  { id: 'bank_holder', parent: 'banco', frame: 'challenge' },
+  { id: 'uth_house_seat', parent: 'uth_four_x', frame: 'goal' },
+  { id: 'uth_royal', parent: 'uth_four_x', frame: 'challenge' },
 ];
 
 export type AchievementId = string;

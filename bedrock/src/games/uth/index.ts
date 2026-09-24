@@ -11,7 +11,7 @@ import { type CasinoModule, type ModuleContext, type TableRef, t } from '../../c
 import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../../multiplayer/api';
 import { UTH_DEALER_ENTITY, UTH_HIGH_ROLLER_TAG, UTH_SERVICE, type UthApi } from './api';
 import { BankEscrow } from './bank';
-import { UTH_CONFIG, blindPays, tripsPays } from './config';
+import { blindPays, tripsPays } from './config';
 import { reservationPerAnte, tripsEdge } from './logic';
 import { UTH_GAME, UthTable } from './table';
 
@@ -30,7 +30,6 @@ function tableFor(ctx: ModuleContext, bank: BankEscrow, ref: TableRef): UthTable
 
 export const uthModule: CasinoModule = {
   id: 'uth',
-  config: UTH_CONFIG,
 
   onWorldLoad(ctx) {
     const bank = new BankEscrow(ctx);
@@ -72,17 +71,12 @@ export const uthModule: CasinoModule = {
       }),
     );
 
-    // Player banks: orphans of the previous run go back to their bankers; waiting ones on join.
+    // Player banks: orphans of the previous run go back to their bankers (offline ones on join, via core).
     try {
       bank.returnOrphans();
     } catch (e) {
       ctx.log.error('uth: returning orphaned banks failed', e);
     }
-    world.afterEvents.playerSpawn.subscribe(
-      ctx.guard((e) => {
-        if (e.initialSpawn) bank.onJoin(e.player);
-      }),
-    );
 
     // Owned casinos: the insolvency test uses the reservation at Ante 1 (505, §21.6).
     try {

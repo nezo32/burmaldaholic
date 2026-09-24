@@ -1175,7 +1175,7 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
 ### 16.3 End City High Roller Lounge
 
 - `worldgen.highRoller.chance` 0.20 of End Cities, placed as a top-floor room on a tower.
-- Size 13 × 9 × 13, purpur/obsidian/end-rod palette.
+- Size 15 × 9 × 15 (13 × 9 × 13 before the 2026-09 games, see below), purpur/obsidian/end-rod palette.
 - Contents: Netherite High Roller slots ×2; High-Roller Blackjack table ×1 (min 100, max 2× tier,
   Gold VIP); High-Roller Roulette ×1 (min 100); Cashier ×1; **Shulker Croupier** (cosmetic
   shulker-skinned NPC, sells gold scratch cards).
