@@ -17,7 +17,11 @@ import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -113,6 +117,26 @@ public class RouletteScreen extends CasinoTableScreen {
 			Spot.parseKey(key).ifPresent(s -> out.put(s, others.getLongOr(key, 0)));
 		}
 		return out;
+	}
+
+	/** Bots' VIRTUAL chips (spot → amount), drawn hatched so nobody takes them for real chips. */
+	private Map<Spot, Long> botBets() {
+		Map<Spot, Long> out = new LinkedHashMap<>();
+		CompoundTag bots = state().getCompoundOrEmpty("bot_chips");
+		for (String key : bots.keySet()) {
+			Spot.parseKey(key).ifPresent(s -> out.put(s, bots.getLongOr(key, 0)));
+		}
+		return out;
+	}
+
+	/** A component sent by the server (bots header, bot line). */
+	private static Component decode(@Nullable Tag tag) {
+		if (tag == null) {
+			return Component.empty();
+		}
+		var level = Minecraft.getInstance().level;
+		var ops = level != null ? level.registryAccess().createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
+		return ComponentSerialization.CODEC.parse(ops, tag).result().orElse(Component.empty());
 	}
 
 	private int[] history() {
@@ -362,7 +386,16 @@ public class RouletteScreen extends CasinoTableScreen {
 				graphics.fill(LX + r.x(), LY + r.y(), LX + r.x() + r.w(), LY + r.y() + r.h(), 0x60FFFFFF);
 			}
 		}
-		// Chips: other players (small grey) first, then mine.
+		// Chips: bots' virtual chips (hatched), other players (small grey), then mine.
+		for (Map.Entry<Spot, Long> e : botBets().entrySet()) {
+			int[] c = Layout.center(e.getKey());
+			int x = LX + c[0] - 9;
+			int y = LY + c[1] - 7;
+			graphics.outline(x, y, 5, 5, 0xFF9E9E9E);
+			graphics.fill(x + 1, y + 3, x + 2, y + 4, 0xFF9E9E9E);
+			graphics.fill(x + 2, y + 2, x + 3, y + 3, 0xFF9E9E9E);
+			graphics.fill(x + 3, y + 1, x + 4, y + 2, 0xFF9E9E9E);
+		}
 		for (Map.Entry<Spot, Long> e : otherBets().entrySet()) {
 			int[] c = Layout.center(e.getKey());
 			int x = LX + c[0] + 3;
@@ -476,6 +509,16 @@ public class RouletteScreen extends CasinoTableScreen {
 			graphics.text(font, limits, right, y, DIM, true);
 		} else {
 			graphics.text(font, limits, PAD, y + 10, DIM, true);
+		}
+		// Seats & Bots: "Bots bet (for fun): …" (or the last spin's bot results) and the table header.
+		Tag line = state().get("bot_line");
+		if (line != null && right > x) {
+			fitted(graphics, decode(line), imageWidth / 2, y + 10, imageWidth - 2 * PAD, DIM);
+		}
+		Tag header = state().get("bots_header");
+		if (header != null) {
+			// Between the title (left) and the balance (right) on the title row, scaled to fit.
+			fitted(graphics, decode(header), imageWidth / 2, titleLabelY, 150, DIM);
 		}
 	}
 

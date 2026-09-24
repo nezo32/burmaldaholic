@@ -13,9 +13,14 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.Minecraft;
+import net.minecraft.locale.Language;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.Nullable;
@@ -368,6 +373,16 @@ public class BlackjackScreen extends CasinoTableScreen {
 
 	private int drawStatus(GuiGraphicsExtractor g, int y) {
 		Component line = statusLine();
+		// Seats & Bots: header ("Humans + 2 bots · Normal · Open to all") and the virtual-chips note.
+		Tag header = state().get("bots_header");
+		if (header != null) {
+			g.text(font, clip(decode(header), imageWidth - 2 * PAD), PAD, y, GRAY, true);
+			y += 10;
+		}
+		if (state().getBooleanOr("virtual", false)) {
+			g.text(font, clip(Component.translatable("gui.burmaldaholic.bots.virtual_tooltip"), imageWidth - 2 * PAD), PAD, y, GRAY, false);
+			y += 10;
+		}
 		if (line == null) {
 			return y;
 		}
@@ -377,6 +392,30 @@ public class BlackjackScreen extends CasinoTableScreen {
 			y += 10;
 		}
 		return y + 2;
+	}
+
+	/** A component sent by the server (bot names, the bots header). */
+	private static Component decode(@Nullable Tag tag) {
+		if (tag == null) {
+			return Component.empty();
+		}
+		var level = Minecraft.getInstance().level;
+		var ops = level != null ? level.registryAccess().createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
+		return ComponentSerialization.CODEC.parse(ops, tag).result().orElse(Component.empty());
+	}
+
+	/** One line cut to {@code width} pixels. */
+	private FormattedCharSequence clip(Component c, int width) {
+		if (font.width(c) <= width) {
+			return c.getVisualOrderText();
+		}
+		return Language.getInstance().getVisualOrder(font.substrByWidth(c, width));
+	}
+
+	/** Seat name of a round participant: the player's name, or a bot's "[BOT] name · level". */
+	private Component playerName(CompoundTag p) {
+		Tag c = p.get("name_c");
+		return c != null ? decode(c) : Texts.raw(p.getStringOr("name", ""));
 	}
 
 	private @Nullable Component statusLine() {
@@ -403,8 +442,7 @@ public class BlackjackScreen extends CasinoTableScreen {
 						: Component.translatable("gui.burmaldaholic.common.auto_action", Component.translatable("gui.burmaldaholic.blackjack.stand"),
 						Texts.plural("unit.burmaldaholic.second_acc", sec));
 				}
-				String name = currentName();
-				return Component.translatable("gui.burmaldaholic.blackjack.turn_of", Texts.raw(name));
+				return Component.translatable("gui.burmaldaholic.blackjack.turn_of", currentName());
 			}
 			case "result" -> {
 				CompoundTag me = myPlayer();
@@ -421,16 +459,16 @@ public class BlackjackScreen extends CasinoTableScreen {
 		}
 	}
 
-	private String currentName() {
+	private Component currentName() {
 		int cur = state().getIntOr("current_seat", -1);
 		ListTag players = state().getListOrEmpty("players");
 		for (int i = 0; i < players.size(); i++) {
 			CompoundTag p = players.getCompoundOrEmpty(i);
 			if (p.getIntOr("seat", -2) == cur) {
-				return p.getStringOr("name", "");
+				return playerName(p);
 			}
 		}
-		return "";
+		return Component.empty();
 	}
 
 	private static Component netText(long net) {
@@ -443,17 +481,35 @@ public class BlackjackScreen extends CasinoTableScreen {
 		return Component.translatable("gui.burmaldaholic.common.result.push");
 	}
 
-	/** Betting phase: seated players and their bets, plus the pending bet of the viewer. */
+	/** Betting phase: seated players (and bots, virtual bets) and their bets, plus the pending bet of the viewer. */
 	private int drawBetting(GuiGraphicsExtractor g, int y) {
 		List<String> names = seatNames();
 		ListTag bets = state().getListOrEmpty("bets");
+		ListTag botSeats = state().getListOrEmpty("bot_seats");
 		int nameW = 90;
-		for (int i = 0; i < names.size(); i++) {
-			if (names.get(i).isEmpty() || y + 10 > buttonsTop - 12) {
+		int seatCount = Math.max(names.size(), state().getIntOr("seat_count", 0));
+		for (int i = 0; i < seatCount; i++) {
+			CompoundTag bot = null;
+			for (int b = 0; b < botSeats.size(); b++) {
+				if (botSeats.getCompoundOrEmpty(b).getIntOr("seat", -1) == i) {
+					bot = botSeats.getCompoundOrEmpty(b);
+				}
+			}
+			String human = i < names.size() ? names.get(i) : "";
+			if ((human.isEmpty() && bot == null) || y + 10 > buttonsTop - 12) {
 				continue;
 			}
 			boolean me = i == mySeat();
-			g.text(font, name(names.get(i), me, nameW), PAD, y, me ? YELLOW : TEXT, true);
+			if (bot != null && human.isEmpty()) {
+				g.text(font, clip(decode(bot.get("name_c")), nameW), PAD, y, GRAY, true);
+				long v = bot.getLongOr("amount", 0);
+				Component vb = v > 0 ? Component.translatable("gui.burmaldaholic.common.bet_amount", Texts.number(v))
+					: Component.translatable("gui.burmaldaholic.blackjack.no_bet");
+				g.text(font, vb, PAD + nameW + 6, y, GRAY, true);
+				y += ROW;
+				continue;
+			}
+			g.text(font, name(human, me, nameW), PAD, y, me ? YELLOW : TEXT, true);
 			long amount = 0;
 			for (int b = 0; b < bets.size(); b++) {
 				CompoundTag bt = bets.getCompoundOrEmpty(b);
@@ -519,8 +575,13 @@ public class BlackjackScreen extends CasinoTableScreen {
 				}
 				int seat = p.getIntOr("seat", -1);
 				boolean active = seat == cur;
-				int color = p.getBooleanOr("away", false) ? GRAY : me ? YELLOW : TEXT;
-				g.text(font, name(p.getStringOr("name", ""), me, nameW), PAD, y + (me ? 8 : 0), color, true);
+				boolean bot = p.getBooleanOr("bot", false);
+				int color = p.getBooleanOr("away", false) || bot ? GRAY : me ? YELLOW : TEXT;
+				if (bot) {
+					g.text(font, clip(playerName(p), nameW), PAD, y, color, true);
+				} else {
+					g.text(font, name(p.getStringOr("name", ""), me, nameW), PAD, y + (me ? 8 : 0), color, true);
+				}
 				if (active) {
 					g.text(font, Texts.raw("▶"), PAD - 7, y + (me ? 8 : 0), YELLOW, true);
 				}

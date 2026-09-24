@@ -2983,7 +2983,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.bots.poker.easyMaxStake.mid` | Mid | Средние |
 | `config.burmaldaholic.bots.poker.easyMaxStake.high` | High | Высокие |
 | `config.burmaldaholic.bots.chemmy.bankCapMultiple` | Bot bank cap (× table min) | Лимит банка бота (× мин. ставка) |
-| `config.burmaldaholic.bots.craps.canShoot` | Bots may shoot at craps | Боты могут бросать кости в крэпсе |
 | `config.burmaldaholic.bots.pvp.fillDelayTicks` | PvP lobbies: bots fill after (ticks) | PvP-лобби: боты заходят через (тики) |
 | `config.burmaldaholic.bots.pvp.maxPerMatch` | PvP: max bots per match | PvP: макс. ботов в матче |
 | `config.burmaldaholic.bots.tournament.maxFill` | Tournaments: max bot fillers | Турниры: макс. ботов-заполнителей |

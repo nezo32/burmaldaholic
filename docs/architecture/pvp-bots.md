@@ -255,7 +255,7 @@ difficulty hidden (`…bots.luck_only`) where bots have no decisions.
 | UTH | ATMOSPHERE | `UthBotPolicy` (EASY hunch, NORMAL/HARD = strategy R) | start of BETTING | river enumeration as `BotWork` |
 | UTH player-banked | — | stand-in dealer plate only | rotation point | bots *Watching* under a human banker; no bot banker when `houseRoundsWhenNoBanker` = false |
 | Blackjack | ATMOSPHERE | `BlackjackBotPolicy` (mimic dealer / basic ±5 % / perfect basic) | start of BETTING | bots take real cards, never use the human timer |
-| Roulette, craps | ATMOSPHERE | `RouletteBettor`, `CrapsBettor` (styles) | start of BETTING | craps bots never shoot unless `bots.craps.canShoot` |
+| Roulette, craps | ATMOSPHERE | `RouletteBettor`, `CrapsBettor` (styles) | start of BETTING | craps bots never shoot (no config switch) |
 | PvP | MONEY | `PvpMode.botDecide` (coin, wheel) | before START | seats filled by the engine; think 10–30 t for presses |
 
 The Baccarat/UTH developers were told to keep seats abstract and route decisions through a decision

@@ -79,6 +79,11 @@ public final class CrapsTable {
 		return point == 0;
 	}
 
+	/** Shadow tables only ({@link CrapsBotTable}): follow another table's puck. */
+	void syncPoint(int point) {
+		this.point = point;
+	}
+
 	public @Nullable UUID shooter() {
 		return shooter;
 	}

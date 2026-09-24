@@ -296,7 +296,6 @@
 	"config.burmaldaholic.bots.poker.easyMaxStake.mid": "Mid",
 	"config.burmaldaholic.bots.poker.easyMaxStake.high": "High",
 	"config.burmaldaholic.bots.chemmy.bankCapMultiple": "Bot bank cap (× table min)",
-	"config.burmaldaholic.bots.craps.canShoot": "Bots may shoot at craps",
 	"config.burmaldaholic.bots.pvp.fillDelayTicks": "PvP lobbies: bots fill after (ticks)",
 	"config.burmaldaholic.bots.pvp.maxPerMatch": "PvP: max bots per match",
 	"config.burmaldaholic.bots.tournament.maxFill": "Tournaments: max bot fillers",

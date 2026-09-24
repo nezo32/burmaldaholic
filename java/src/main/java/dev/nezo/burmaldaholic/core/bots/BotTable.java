@@ -102,10 +102,109 @@ public interface BotTable {
 
 	/**
 	 * The table's {@link TableBots} (the object the block entity owns). Used by the bots module (table
-	 * settings screen, {@code /casino table}, avatars, chatter). Games implementing this interface should
-	 * return their instance; null = the table offers no bot / private-table settings.
+	 * settings screen, {@code /casino table}, avatars, chatter). Games implementing this interface return
+	 * their instance; null = the table offers no bot / private-table settings.
 	 */
-	default @org.jspecify.annotations.Nullable TableBots tableBots() {
+	default @Nullable TableBots tableBots() {
 		return null;
+	}
+
+	/**
+	 * A {@link BotTable} whose hooks are all answered by a helper ({@link AtmosphereBots} for blackjack,
+	 * roulette, craps): the block entity implements this and only {@link #botDelegate()}, so
+	 * {@code be instanceof BotTable t && t.tableBots() != null} finds it like any other table.
+	 */
+	interface Delegating extends BotTable {
+		BotTable botDelegate();
+
+		@Override
+		default String botGameId() {
+			return botDelegate().botGameId();
+		}
+
+		@Override
+		default BotRole botRole() {
+			return botDelegate().botRole();
+		}
+
+		@Override
+		default int botSeatCount() {
+			return botDelegate().botSeatCount();
+		}
+
+		@Override
+		default List<UUID> seatedHumans() {
+			return botDelegate().seatedHumans();
+		}
+
+		@Override
+		default List<SeatOccupant> occupants() {
+			return botDelegate().occupants();
+		}
+
+		@Override
+		default boolean seatBot(SeatOccupant.Bot bot, long stack) {
+			return botDelegate().seatBot(bot, stack);
+		}
+
+		@Override
+		default long unseatBot(String botKey) {
+			return botDelegate().unseatBot(botKey);
+		}
+
+		@Override
+		default SeatingMath.YieldRule yieldRule() {
+			return botDelegate().yieldRule();
+		}
+
+		@Override
+		default long botBuyIn() {
+			return botDelegate().botBuyIn();
+		}
+
+		@Override
+		default boolean botDifficultyMatters() {
+			return botDelegate().botDifficultyMatters();
+		}
+
+		@Override
+		default String botTableKey() {
+			return botDelegate().botTableKey();
+		}
+
+		@Override
+		default @Nullable BlockPos botTablePos() {
+			return botDelegate().botTablePos();
+		}
+
+		@Override
+		default boolean botTableActive() {
+			return botDelegate().botTableActive();
+		}
+
+		@Override
+		default int[] botDifficultyMix() {
+			return botDelegate().botDifficultyMix();
+		}
+
+		@Override
+		default BotRoster.Theme botNameTheme() {
+			return botDelegate().botNameTheme();
+		}
+
+		@Override
+		default boolean isBotBanker(String botKey) {
+			return botDelegate().isBotBanker(botKey);
+		}
+
+		@Override
+		default int handsSinceBigBlind(String botKey) {
+			return botDelegate().handsSinceBigBlind(botKey);
+		}
+
+		@Override
+		default @Nullable TableBots tableBots() {
+			return botDelegate().tableBots();
+		}
 	}
 }
