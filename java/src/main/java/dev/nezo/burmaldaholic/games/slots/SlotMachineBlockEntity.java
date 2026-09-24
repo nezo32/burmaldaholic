@@ -638,8 +638,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		return t;
 	}
 
-	// ======================================================================================	}
-
+	// =============================================================================================
 	// Slots v2 (SLOTS.md; docs/architecture/animation.md §7.2): CONFIRM → DRAW TAPE → PERSIST → PRESENT → SETTLE at the
 	// reveal gate of the shared SlotTimeline, or at once on skip past the gate / close / leave / removal / restart.
 	// =============================================================================================
@@ -1453,7 +1452,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (level instanceof ServerLevel) {
 			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
 		}
-=======
+	}
+
 	// ---- in-world cabinet sync (lane J-L10 hook, docs/architecture/animation.md §2.5) -----------------
 	// Additive: nothing publishes yet (v1 keeps its look); the v2 cut-over (S-J5) calls publishCabinet once per
 	// spin (+1 per free spin / bonus step, coalesced ≥ 10 t) and the BER SlotCabinetRenderer draws from it.
