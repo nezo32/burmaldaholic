@@ -1,7 +1,9 @@
 package dev.nezo.burmaldaholic.games.poker;
 
 import dev.nezo.burmaldaholic.core.text.Texts;
-import dev.nezo.burmaldaholic.games.poker.logic.Bots;
+import dev.nezo.burmaldaholic.core.bots.BotNames;
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.games.poker.logic.PokerBotPolicy;
 import dev.nezo.burmaldaholic.games.poker.logic.Cards;
 import dev.nezo.burmaldaholic.games.poker.logic.Hand;
 import dev.nezo.burmaldaholic.games.poker.logic.HandEvaluator;
@@ -92,25 +94,26 @@ public final class PokerText {
 		return gui("hand." + HandEvaluator.handName(value));
 	}
 
-	public static ChatFormatting tierColor(Bots.Tier tier) {
-		return switch (tier) {
-			case FISH -> ChatFormatting.AQUA;
-			case REGULAR -> ChatFormatting.YELLOW;
-			case SHARK -> ChatFormatting.RED;
+	/** Level color (BOTS.md §4.2: E green, N yellow, H red; never color alone — the word is shown too). */
+	public static ChatFormatting levelColor(BotDifficulty level) {
+		return switch (level) {
+			case EASY -> ChatFormatting.GREEN;
+			case HARD -> ChatFormatting.RED;
+			default -> ChatFormatting.YELLOW;
 		};
 	}
 
-	public static MutableComponent tier(Bots.Tier tier) {
-		return gui("bot." + tier.id()).withStyle(tierColor(tier));
+	/** The poker name of a bot level: Fish / Regular / Shark ({@code gui.burmaldaholic.poker.bot.<tier>}). */
+	public static MutableComponent tier(BotDifficulty level) {
+		return gui("bot." + PokerBotPolicy.tierOf(level)).withStyle(levelColor(level));
 	}
 
-	/** "Name" for humans, "Name [Fish]" for bots. */
+	/** "Name" for humans, "[glyph] [BOT] Lucky Steve [Shark]" for bots (name translated from its id). */
 	public static MutableComponent seatName(PokerTable.Seat s) {
-		MutableComponent name = Texts.raw(s.name);
-		if (!s.human && s.tier != null) {
-			name.append(Texts.raw(" [")).append(tier(s.tier)).append(Texts.raw("]"));
+		if (s.human || s.bot == null) {
+			return Texts.raw(s.name);
 		}
-		return name;
+		return BotNames.display(s.bot).append(Texts.raw(" [")).append(tier(s.bot.level())).append(Texts.raw("]"));
 	}
 
 	public static MutableComponent street(Hand.Street street) {

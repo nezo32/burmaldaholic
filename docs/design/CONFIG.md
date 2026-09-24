@@ -182,16 +182,16 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `poker.rakePercent` | double | 0.05 | 0.0–0.10 | |
 | `poker.rakeCapBb` | int | 3 | 0–100 | |
 | `poker.rakeNoFlopNoDrop` | bool | true | — | |
-| `poker.botsEnabled` | bool | true | — | |
+| `poker.botsEnabled` | bool | true | — | **Legacy alias** of `bots.enabled` for poker: false forces poker tables to `HUMANS_ONLY` (BOTS.md §9.3). |
 | `poker.botBuyInBb` | int | 100 | 20–1000 | |
 | `poker.botThinkMinTicks` | int | 20 | 0–200 | |
 | `poker.botThinkMaxTicks` | int | 60 | 0–400 | |
-| `poker.bot.regularSamples` | int | 200 | 50–5000 | Monte-Carlo iterations. |
-| `poker.bot.sharkSamples` | int | 500 | 50–5000 | |
-| `poker.botMix.micro` | list<int> | [50,40,10] | each 0–100 | Fish/Regular/Shark %. Normalized. |
-| `poker.botMix.low` | list<int> | [50,40,10] | | |
-| `poker.botMix.mid` | list<int> | [30,50,20] | | |
-| `poker.botMix.high` | list<int> | [10,50,40] | | |
+| `poker.bot.regularSamples` | int | 300 | 50–5000 | Monte-Carlo samples of a NORMAL (Regular) bot decision (range-aware equity, BOTS.md §4.3). |
+| `poker.bot.sharkSamples` | int | 700 | 50–5000 | Monte-Carlo samples of a HARD (Shark) bot decision. |
+| `poker.botMix.micro` | list<int> | [45,45,10] | each 0–100 | Easy/Normal/Hard (Fish/Regular/Shark) % for MIXED difficulty. Normalized; Easy is forced to 0 above `bots.poker.easyMaxStake`. |
+| `poker.botMix.low` | list<int> | [35,50,15] | each 0–100 | |
+| `poker.botMix.mid` | list<int> | [10,55,35] | each 0–100 | |
+| `poker.botMix.high` | list<int> | [0,45,55] | each 0–100 | |
 | `poker.maxDistance` | int | 8 | 3–32 | Blocks from table before sitting out. |
 
 ## slots

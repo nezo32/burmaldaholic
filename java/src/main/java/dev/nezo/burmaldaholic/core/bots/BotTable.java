@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.core.bots;
 
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRole;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant;
@@ -85,6 +86,14 @@ public interface BotTable {
 		return CasinoConfig.bots().difficultyMix;
 	}
 
+	/**
+	 * May a fixed difficulty be chosen here (poker: no EASY above {@code bots.poker.easyMaxStake})? A gated
+	 * level is applied as NORMAL; MIXED is gated by {@link #botDifficultyMix}. Default: every level.
+	 */
+	default boolean botLevelAllowed(BotDifficulty level) {
+		return true;
+	}
+
 	/** Name pool (Piglin Parlor / End lounge tables: themed). */
 	default BotRoster.Theme botNameTheme() {
 		return BotRoster.Theme.ANY;
@@ -98,5 +107,14 @@ public interface BotTable {
 	/** Poker: hands since this bot posted the big blind (0 = just posted it: yields first, §3.3). */
 	default int handsSinceBigBlind(String botKey) {
 		return Integer.MAX_VALUE;
+	}
+
+	/**
+	 * The table's {@link TableBots} (the object the block entity owns). Used by the bots module (table
+	 * settings screen, {@code /casino table}, avatars, chatter). Games implementing this interface should
+	 * return their instance; null = the table offers no bot / private-table settings.
+	 */
+	default @Nullable TableBots tableBots() {
+		return null;
 	}
 }
