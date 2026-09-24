@@ -12,6 +12,49 @@ public final class BotEconomyMath {
 		return Math.floorDiv(worldTime, 24000L);
 	}
 
+	/** Ticks until the next Minecraft day starts (heat reset, {@code …bots.error.capped} countdown). */
+	public static long ticksToNextDay(long worldTime) {
+		return 24000L - Math.floorMod(worldTime, 24000L);
+	}
+
+	/** The sulk line: {@code ceil(cap × sulkMultiplier)} (multiplier below 1 is treated as 1). */
+	public static long sulkLine(long cap, double sulkMultiplier) {
+		return (long) Math.ceil(cap * Math.max(1.0, sulkMultiplier));
+	}
+
+	/**
+	 * Heat stage for a day's net against house bots (§5.4). {@code cap ≤ 0} disables heat.
+	 * {@code net ≥ sulkLine} → SULKING; {@code net ≥ cap} → HARD_ONLY; else NONE.
+	 */
+	public static HeatStage heatStage(long netToday, long cap, double sulkMultiplier) {
+		if (cap <= 0) {
+			return HeatStage.NONE;
+		}
+		if (netToday >= sulkLine(cap, sulkMultiplier)) {
+			return HeatStage.SULKING;
+		}
+		return netToday >= cap ? HeatStage.HARD_ONLY : HeatStage.NONE;
+	}
+
+	/**
+	 * Money bots a purse can still fund with {@code buyIn} each: {@code buyIn ≤ 0} → unlimited; else
+	 * {@code floor(available / buyIn)} (BANKROLL: {@code balance − reserved}; BANK: daily buy-ins left).
+	 */
+	public static int affordable(long available, long buyIn) {
+		if (buyIn <= 0) {
+			return Integer.MAX_VALUE;
+		}
+		return (int) Math.min(Integer.MAX_VALUE, Math.max(0, available) / buyIn);
+	}
+
+	/** House-funded buy-ins a table still has today ({@code perDay} 0 = unlimited). */
+	public static int buyInsLeft(int perDay, long usedToday) {
+		if (perDay <= 0) {
+			return Integer.MAX_VALUE;
+		}
+		return (int) Math.max(0, perDay - usedToday);
+	}
+
 	/** Daily cap on net winnings from house-funded bots: {@code max(min, multiple × tierMax)}. */
 	public static long dailyCap(long tierMax, long capMin, long tierMultiple) {
 		return Math.max(capMin, Math.multiplyExact(tierMultiple, Math.max(0, tierMax)));
