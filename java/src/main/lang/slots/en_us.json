@@ -75,5 +75,20 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Three stars pay at player casinos",
 	"config.burmaldaholic.slots.spinTicks": "Spin animation (ticks)",
 	"config.burmaldaholic.slots.validateRtp": "Warn about RTP above 99%%",
-	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare"
+	"subtitles.burmaldaholic.jackpot": "Jackpot fanfare",
+	"gui.burmaldaholic.slots.machine.overworld": "Overworld Riches",
+	"gui.burmaldaholic.slots.machine.nether": "Nether Inferno",
+	"gui.burmaldaholic.slots.machine.end": "End Void",
+	"gui.burmaldaholic.slots.out_of_order": "Out of order",
+	"gui.burmaldaholic.slots.error.loss_limit_required": "Choose a loss limit first",
+	"gui.burmaldaholic.slots.error.bet_unavailable": "That bet is not available on this machine",
+	"gui.burmaldaholic.slots.error.buy_disabled": "Buying bonuses is off here",
+	"gui.burmaldaholic.slots.error.buy_limit": "This purchase is above your VIP limit",
+	"msg.burmaldaholic.slots.golden_scatters": "Five scatters! Golden Hour strikes!",
+	"msg.burmaldaholic.slots.golden_scatters_cooldown": "Five scatters! Golden Hour is recharging, but the spins are yours.",
+	"msg.burmaldaholic.slots.creeper_friends": "That creeper brought friends!",
+	"msg.burmaldaholic.slots.wither_skulls": "Five Wither Skulls. The Nether wants them back.",
+	"msg.burmaldaholic.slots.tumble_chain": "%1$s tumbles in a row! The fire likes you.",
+	"msg.burmaldaholic.slots.dragon_fling": "Five Dragon Heads! The dragon flings you away… gently.",
+	"msg.burmaldaholic.slots.void_walker": "All three reels are Dragon Eggs!"
 }

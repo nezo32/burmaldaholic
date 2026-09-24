@@ -1,9 +1,84 @@
 {
 	"_comment": "Java-only translation keys that have no Bedrock counterpart and therefore are not in docs/design/STRINGS.md. Format: module -> key -> [en_us, ru_ru]. Keep this tiny; everything player-facing belongs in STRINGS.md. Review fixes (2026-09): the decimal separator (shared with Bedrock, which keeps it as a manual lang line), the owned-table pawn refusal and the cashier caps.",
 	"core": {
-		"unit.burmaldaholic.decimal_separator": [".", ","],
-		"gui.burmaldaholic.error.pawn_owned_table": ["Owned tables take chips only", "Столы владельцев принимают только фишки"],
-		"gui.burmaldaholic.error.balance_full": ["Your balance is at the maximum", "Баланс достиг максимума"],
-		"msg.burmaldaholic.core.withdraw_capped": ["Withdrawal limit per click: %1$s", "Лимит одного снятия: %1$s"]
+		"unit.burmaldaholic.decimal_separator": [
+			".",
+			","
+		],
+		"gui.burmaldaholic.error.pawn_owned_table": [
+			"Owned tables take chips only",
+			"Столы владельцев принимают только фишки"
+		],
+		"gui.burmaldaholic.error.balance_full": [
+			"Your balance is at the maximum",
+			"Баланс достиг максимума"
+		],
+		"msg.burmaldaholic.core.withdraw_capped": [
+			"Withdrawal limit per click: %1$s",
+			"Лимит одного снятия: %1$s"
+		]
+	},
+	"_temp_anim_slots": "TEMP-ANIM (lane J-L8, slots v2): SLOTS.md §13 rows used by the v2 server code before lane X-L0 imports them into STRINGS.md. Remove this 'slots' block when STRINGS.md has them.",
+	"slots": {
+		"gui.burmaldaholic.slots.machine.overworld": [
+			"Overworld Riches",
+			"Богатства Верхнего мира"
+		],
+		"gui.burmaldaholic.slots.machine.nether": [
+			"Nether Inferno",
+			"Пекло Незера"
+		],
+		"gui.burmaldaholic.slots.machine.end": [
+			"End Void",
+			"Пустота Края"
+		],
+		"gui.burmaldaholic.slots.out_of_order": [
+			"Out of order",
+			"Не работает"
+		],
+		"gui.burmaldaholic.slots.error.loss_limit_required": [
+			"Choose a loss limit first",
+			"Сначала выберите лимит проигрыша"
+		],
+		"gui.burmaldaholic.slots.error.bet_unavailable": [
+			"That bet is not available on this machine",
+			"Такой ставки на этом автомате нет"
+		],
+		"gui.burmaldaholic.slots.error.buy_disabled": [
+			"Buying bonuses is off here",
+			"Покупка бонусов здесь отключена"
+		],
+		"gui.burmaldaholic.slots.error.buy_limit": [
+			"This purchase is above your VIP limit",
+			"Покупка превышает ваш ВИП-лимит"
+		],
+		"msg.burmaldaholic.slots.golden_scatters": [
+			"Five scatters! Golden Hour strikes!",
+			"Пять скаттеров! Бьёт «Золотой час»!"
+		],
+		"msg.burmaldaholic.slots.golden_scatters_cooldown": [
+			"Five scatters! Golden Hour is recharging, but the spins are yours.",
+			"Пять скаттеров! «Золотой час» перезаряжается, но вращения ваши."
+		],
+		"msg.burmaldaholic.slots.creeper_friends": [
+			"That creeper brought friends!",
+			"Этот крипер привёл друзей!"
+		],
+		"msg.burmaldaholic.slots.wither_skulls": [
+			"Five Wither Skulls. The Nether wants them back.",
+			"Пять черепов иссушителя. Незер хочет их обратно."
+		],
+		"msg.burmaldaholic.slots.tumble_chain": [
+			"%1$s tumbles in a row! The fire likes you.",
+			"Обвалов подряд: %1$s! Огонь к вам благосклонен."
+		],
+		"msg.burmaldaholic.slots.dragon_fling": [
+			"Five Dragon Heads! The dragon flings you away… gently.",
+			"Пять голов дракона! Дракон отшвыривает вас… бережно."
+		],
+		"msg.burmaldaholic.slots.void_walker": [
+			"All three reels are Dragon Eggs!",
+			"Все три барабана — яйца дракона!"
+		]
 	}
 }

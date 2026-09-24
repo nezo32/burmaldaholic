@@ -10,6 +10,9 @@ import dev.nezo.burmaldaholic.games.slots.SlotsModule;
 import dev.nezo.burmaldaholic.games.slots.api.SlotsApi;
 import dev.nezo.burmaldaholic.games.slots.logic.JackpotPool;
 import dev.nezo.burmaldaholic.games.slots.logic.Tier;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -165,6 +168,87 @@ public class SlotsGameTests {
 			long after = SlotsApi.jackpotPool(server, "gold");
 			long award = machine.writeClientState(player).getCompoundOrEmpty("result").getLongOr("award", 0);
 			helper.assertTrue(award > 0 || after == before, "99 x 1 % = 0.99 -> nothing yet, remainder kept");
+		});
+		helper.succeed();
+	}
+
+	// ---- slots v2 (SLOTS.md; lane J-L8) ------------------------------------------------------------
+
+	private static SlotMachineBlockEntity placeV2(GameTestHelper helper, Tier tier, BlockPos pos) {
+		helper.setBlock(pos, SlotsModule.MACHINES.get(tier).block());
+		SlotMachineBlockEntity be = helper.getBlockEntity(pos, SlotMachineBlockEntity.class);
+		be.forceV2ForTesting(true);
+		return be;
+	}
+
+	private static CompoundTag bet(long v) {
+		CompoundTag t = new CompoundTag();
+		t.putLong("bet", v);
+		return t;
+	}
+
+	/** CONFIRM → DRAW → PERSIST → SETTLE: stake, persisted tape, payout = tape, SPIN/ROUND events, stats. */
+	@GameTest
+	public void v2SpinStakesPersistsAndSettles(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = placeV2(helper, Tier.COPPER, new BlockPos(1, 1, 1));
+		withPlayer(helper, 1_000, player -> {
+			machine.onAction(player, "spin", bet(10));
+			helper.assertTrue(machine.spinning(), "spin started");
+			helper.assertTrue(Economies.get().balance(player) == 990, "stake of 10 taken");
+			SpinTape tape = machine.roundTape();
+			helper.assertTrue(tape != null && tape.bet() == 10 && tape.stops().length == 5, "tape drawn and kept");
+			CompoundTag state = machine.writeClientState(player).getCompoundOrEmpty("v2");
+			helper.assertTrue(state.getCompoundOrEmpty("spin").getLongOr("start_tick", -1) >= 0, "timeline seed sent");
+			helper.assertTrue(state.getCompoundOrEmpty("spin").getIntOr("gate_ticks", 0) > 0 || tape.hunt() != null, "reveal gate known");
+			machine.onAction(player, "spin", bet(10));
+			helper.assertTrue(Economies.get().balance(player) == 990, "no second spin while one is in play");
+			machine.finishV2(false);
+			helper.assertFalse(machine.spinning(), "settled");
+			helper.assertTrue(machine.stakeOf(player.getUUID()) == 0, "stake closed");
+			helper.assertTrue(Economies.get().balance(player) == 990 + tape.payoutChips(), "paid exactly the tape");
+			CompoundTag result = machine.writeClientState(player).getCompoundOrEmpty("v2").getCompoundOrEmpty("result");
+			helper.assertTrue(result.getLongOr("total", -1) == tape.payoutChips(), "result synced");
+		});
+		helper.succeed();
+	}
+
+	/** SLOTS.md §15 test 13: a restart after the draw settles the round from its persisted tape (not a refund). */
+	@GameTest
+	public void v2RoundSettlesFromTheTapeAfterRestart(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = placeV2(helper, Tier.GOLD, new BlockPos(1, 1, 1));
+		withPlayer(helper, 1_000, player -> {
+			machine.onAction(player, "spin", bet(20));
+			SpinTape tape = machine.roundTape();
+			helper.assertTrue(tape != null, "drawn");
+			var registries = helper.getLevel().registryAccess();
+			CompoundTag saved = machine.saveCustomOnly(registries);
+			// what a restart does: the block entity is loaded from the saved chunk with the open stake + tape
+			machine.loadCustomOnly(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved));
+			helper.assertTrue(machine.roundTape() != null && machine.stakeOf(player.getUUID()) == 20, "round and stake restored");
+			machine.tick(helper.getLevel()); // core: resume (settle from the tape) before refunding leftovers
+			helper.assertFalse(machine.spinning(), "settled on load");
+			helper.assertTrue(Economies.get().balance(player) == 980 + tape.payoutChips(), "settled at the persisted total, not refunded");
+		});
+		helper.succeed();
+	}
+
+	/** Buy feature (§6.3): the price is one wager; End needs Gold VIP (§8.5). */
+	@GameTest
+	public void v2BuyFeatureAndVipGate(GameTestHelper helper) {
+		SlotMachineBlockEntity nether = placeV2(helper, Tier.GOLD, new BlockPos(1, 1, 1));
+		SlotMachineBlockEntity end = placeV2(helper, Tier.NETHERITE, new BlockPos(3, 1, 1));
+		withPlayer(helper, 10_000, player -> {
+			nether.onAction(player, "buy", bet(20));
+			helper.assertTrue(nether.spinning(), "bought");
+			helper.assertTrue(Economies.get().balance(player) == 10_000 - 368, "18.4 x 20 = 368 taken");
+			SpinTape tape = nether.roundTape();
+			helper.assertTrue(tape.bought() && tape.freeSpins() != null, "free spins without a base spin");
+			nether.leave(player.getUUID(), SlotMachineBlockEntity.LeaveReason.DISCONNECT);
+			helper.assertFalse(nether.spinning(), "leaving = reveal: settled at once");
+			long balance = Economies.get().balance(player);
+			end.onAction(player, "spin", bet(50));
+			helper.assertFalse(end.spinning(), "Bronze cannot play End Void");
+			helper.assertTrue(Economies.get().balance(player) == balance, "nothing taken");
 		});
 		helper.succeed();
 	}

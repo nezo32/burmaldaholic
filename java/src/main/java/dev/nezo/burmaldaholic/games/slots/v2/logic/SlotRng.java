@@ -1,8 +1,10 @@
 package dev.nezo.burmaldaholic.games.slots.v2.logic;
 
+import dev.nezo.burmaldaholic.core.anim.SeedMix;
+
 /**
- * Randomness for the draw. The module adapts {@code OddsService.play(...)} (fair draws + the §14 streak
- * re-draw of the WHOLE spin, SLOTS.md §8.2); tests use a seeded implementation. Never used by presentation.
+ * Randomness for the draw. The module adapts {@code OddsService} (fair draws + the §14 streak re-draw of the
+ * WHOLE spin, SLOTS.md §8.2); tests and the cross-edition vectors use {@link #seeded}. Never used by presentation.
  */
 public interface SlotRng {
 	/** Uniform in [0, bound). */
@@ -18,5 +20,14 @@ public interface SlotRng {
 			if (r < 0) return i;
 		}
 		return weights.length - 1;
+	}
+
+	/**
+	 * Reference RNG of the shared vectors ({@code slots_engine.json}): mulberry32 ({@link SeedMix.FxRng}), identical
+	 * in TypeScript. Bounds ≤ 2^20 (the largest used is 1 000 000).
+	 */
+	static SlotRng seeded(int seed) {
+		SeedMix.FxRng r = new SeedMix.FxRng(seed);
+		return r::nextInt;
 	}
 }

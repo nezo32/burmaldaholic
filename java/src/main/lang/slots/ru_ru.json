@@ -75,5 +75,20 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Выплата за три звезды в казино игроков",
 	"config.burmaldaholic.slots.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.slots.validateRtp": "Предупреждать об RTP выше 99 %%",
-	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота"
+	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота",
+	"gui.burmaldaholic.slots.machine.overworld": "Богатства Верхнего мира",
+	"gui.burmaldaholic.slots.machine.nether": "Пекло Незера",
+	"gui.burmaldaholic.slots.machine.end": "Пустота Края",
+	"gui.burmaldaholic.slots.out_of_order": "Не работает",
+	"gui.burmaldaholic.slots.error.loss_limit_required": "Сначала выберите лимит проигрыша",
+	"gui.burmaldaholic.slots.error.bet_unavailable": "Такой ставки на этом автомате нет",
+	"gui.burmaldaholic.slots.error.buy_disabled": "Покупка бонусов здесь отключена",
+	"gui.burmaldaholic.slots.error.buy_limit": "Покупка превышает ваш ВИП-лимит",
+	"msg.burmaldaholic.slots.golden_scatters": "Пять скаттеров! Бьёт «Золотой час»!",
+	"msg.burmaldaholic.slots.golden_scatters_cooldown": "Пять скаттеров! «Золотой час» перезаряжается, но вращения ваши.",
+	"msg.burmaldaholic.slots.creeper_friends": "Этот крипер привёл друзей!",
+	"msg.burmaldaholic.slots.wither_skulls": "Пять черепов иссушителя. Незер хочет их обратно.",
+	"msg.burmaldaholic.slots.tumble_chain": "Обвалов подряд: %1$s! Огонь к вам благосклонен.",
+	"msg.burmaldaholic.slots.dragon_fling": "Пять голов дракона! Дракон отшвыривает вас… бережно.",
+	"msg.burmaldaholic.slots.void_walker": "Все три барабана — яйца дракона!"
 }
