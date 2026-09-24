@@ -52,6 +52,10 @@
 	"msg.burmaldaholic.craps.bets_played_out": "Вы ушли из-за стола для крэпса — ваши ставки доиграны. Итог: %1$s",
 	"msg.burmaldaholic.craps.bets_refunded": "Стол для крэпса закрыт — ваши ставки возвращены",
 	"msg.burmaldaholic.craps.dont_come_moved": "Ваша ставка не-кам переходит на %1$s",
+	"gui.burmaldaholic.craps.fx.hot_shooter": "Горячая рука! Поинтов подряд: %1$s",
+	"gui.burmaldaholic.craps.fx.new_shooter": "Новый бросающий: %1$s",
+	"gui.burmaldaholic.craps.fx.bar_push": "Бар на 12 — возврат",
+	"gui.burmaldaholic.craps.fx.throwing": "Бросает %1$s…",
 	"config.burmaldaholic.craps.enabled": "Крэпс",
 	"config.burmaldaholic.craps.minBet": "Минимальная ставка",
 	"config.burmaldaholic.craps.fieldPays2": "Филд платит на 2 (X:1)",
@@ -61,5 +65,6 @@
 	"config.burmaldaholic.craps.maxOdds6_8": "Макс. коэффициент на 6 и 8",
 	"config.burmaldaholic.craps.betWindowTicks": "Окно ставок (тики)",
 	"config.burmaldaholic.craps.rollTimerTicks": "Время на бросок (тики)",
-	"config.burmaldaholic.craps.seats": "Мест за столом"
+	"config.burmaldaholic.craps.seats": "Мест за столом",
+	"subtitles.burmaldaholic.craps_puck": "Ставится шайба"
 }

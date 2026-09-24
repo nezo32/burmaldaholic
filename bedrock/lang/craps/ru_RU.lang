@@ -52,6 +52,11 @@ msg.burmaldaholic.craps.bet_result=%1: %2
 msg.burmaldaholic.craps.bets_played_out=Вы ушли из-за стола для крэпса — ваши ставки доиграны. Итог: %1
 msg.burmaldaholic.craps.bets_refunded=Стол для крэпса закрыт — ваши ставки возвращены
 msg.burmaldaholic.craps.dont_come_moved=Ваша ставка не-кам переходит на %1
+## [craps / Presentation (animation wave, `animation/tables.md` §6)]
+gui.burmaldaholic.craps.fx.hot_shooter=Горячая рука! Поинтов подряд: %1
+gui.burmaldaholic.craps.fx.new_shooter=Новый бросающий: %1
+gui.burmaldaholic.craps.fx.bar_push=Бар на 12 — возврат
+gui.burmaldaholic.craps.fx.throwing=Бросает %1…
 ## [config / vip, games]
 config.burmaldaholic.craps.enabled=Крэпс
 config.burmaldaholic.craps.minBet=Минимальная ставка

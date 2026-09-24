@@ -176,6 +176,8 @@ msg.burmaldaholic.pvp.coin.all_square=КВИТЫ! %1 и %2 снова при с�
 msg.burmaldaholic.pvp.coin.cashed_out=%1 забирает выигрыш и уходит
 msg.burmaldaholic.pvp.coin.walked_away=%1 уходит. Мудро — или просто на мели?
 gui.burmaldaholic.pvp.coin.spectate=%1 против %2 — на кону %3
+gui.burmaldaholic.pvp.coin.all_square_title=КВИТЫ!
+gui.burmaldaholic.anim.pvp.waiting_for=Ждём: %1…
 ## [pvp / Slot Showdown]
 gui.burmaldaholic.pvp.slots.title=Битва автоматов
 gui.burmaldaholic.pvp.slots.host=Начать битву автоматов
@@ -192,19 +194,23 @@ gui.burmaldaholic.pvp.slots.spin_points=+%1 за вращение
 gui.burmaldaholic.pvp.slots.kaboom_title=БАБАХ!
 msg.burmaldaholic.pvp.slots.kaboom=БАБАХ! Очки игрока %1 — пополам: %2 → %3
 gui.burmaldaholic.pvp.slots.swap_title=РОКИРОВКА!
-msg.burmaldaholic.pvp.slots.swap=Жемчуг Края! %1 меняется очками с лидером (%2): %3 ⇄ %4
-msg.burmaldaholic.pvp.slots.time_warp=Трое часов! Следующее вращение игрока %1 — с двойными очками
-msg.burmaldaholic.pvp.slots.star=ТРИ ЗВЕЗДЫ! %1 получает %2
+msg.burmaldaholic.pvp.slots.swap=Выпал жемчуг Края! %1 меняется очками с лидером (%2): %3 ⇄ %4
+msg.burmaldaholic.pvp.slots.time_warp=Петля времени! Следующее вращение игрока %1 — с двойными очками
 gui.burmaldaholic.pvp.slots.underdog=ФОРА АУТСАЙДЕРУ
 msg.burmaldaholic.pvp.slots.underdog=Фора аутсайдеру: %1 получает двойные очки в финальном вращении!
 msg.burmaldaholic.pvp.slots.underdog_you=Вы на последнем месте — финальное вращение даст двойные очки!
-gui.burmaldaholic.pvp.slots.rules.1=Все крутят автоматы одного типа. Выигрыши на линиях превращаются в очки; у кого больше очков, тот забирает банк.
-gui.burmaldaholic.pvp.slots.rules.2=В каждом вращении один символ — горячий: он даёт двойные очки.
-gui.burmaldaholic.pvp.slots.rules.3=Три крипера или динамита на линии: БАБАХ — ваши очки делятся пополам.
+gui.burmaldaholic.pvp.slots.rules.1=Все крутят один и тот же автомат. Выигрыш вращения превращается в очки (10 за 1× ставки); у кого больше очков, тот забирает банк.
+gui.burmaldaholic.pvp.slots.rules.2=В каждом раунде один символ — горячий: его выигрыши дают двойные очки.
+gui.burmaldaholic.pvp.slots.rules.3=Бесплатные вращения и бонусы разыгрываются быстро и засчитываются полностью.
 gui.burmaldaholic.pvp.slots.rules.4=Три жемчужины Края: вы меняетесь очками с лидером.
 gui.burmaldaholic.pvp.slots.rules.5=Трое часов: следующее вращение — с двойными очками. Три звезды Незера: %1.
 gui.burmaldaholic.pvp.slots.rules.6=Последнее место перед финальным вращением получает в нём двойные очки.
 gui.burmaldaholic.pvp.slots.tiebreak=При равенстве: больше выигрышных линий, затем лучшее вращение
+gui.burmaldaholic.pvp.slots.time_warp_title=ПЕТЛЯ ВРЕМЕНИ!
+msg.burmaldaholic.pvp.slots.jackpot=%1: джекпот %2, очки: +%3
+gui.burmaldaholic.pvp.slots.feature=%1: +%2
+gui.burmaldaholic.pvp.slots.fx.next_x2=Далее ×2
+gui.burmaldaholic.pvp.slots.fx.boost_x2=Фора ×2
 ## [pvp / Wheel Party]
 gui.burmaldaholic.pvp.wheel.title=Колесо на всех
 gui.burmaldaholic.pvp.wheel.host=Начать «Колесо на всех»
@@ -355,6 +361,8 @@ gui.burmaldaholic.pvp.bots.start_with_bots=Начать с ботами
 gui.burmaldaholic.pvp.bots.tagged=%1 [%2]
 msg.burmaldaholic.pvp.bots.joined=В игру вступает %1
 msg.burmaldaholic.pvp.bots.no_bots_here=На этом автомате боты не играют — только люди
+## [pvp / Slot Showdown v1 legacy (removed with Slot Showdown v2, `SLOTS.md` §13.7 / §13.10)]
+msg.burmaldaholic.pvp.slots.star=ТРИ ЗВЕЗДЫ! %1 получает %2
 ## [config / pvp]
 config.burmaldaholic.pvp.enabled=PvP-режимы
 config.burmaldaholic.pvp.rakeBasisPoints=Комиссия заведения (базисные пункты, 100 = 1 %%)
@@ -388,7 +396,6 @@ config.burmaldaholic.pvp.slots.hotSymbol=Битва автоматов: горя
 config.burmaldaholic.pvp.slots.underdogBoost=Битва автоматов: фора аутсайдеру
 config.burmaldaholic.pvp.slots.kaboom=Битва автоматов: «БАБАХ»
 config.burmaldaholic.pvp.slots.pearlSwap=Битва автоматов: рокировка
-config.burmaldaholic.pvp.slots.starPoints=Битва автоматов: очки за три звезды
 config.burmaldaholic.pvp.wheel.enabled=Колесо на всех
 config.burmaldaholic.pvp.wheel.maxPlayers=Колесо на всех: макс. игроков
 config.burmaldaholic.pvp.wheel.countdownTicks=Колесо на всех: отсчёт (тики)
@@ -427,4 +434,8 @@ config.burmaldaholic.pvp.heist.rounds=Налёт на колесо: круги
 config.burmaldaholic.pvp.plinko.bumpers=Битва Плинко: отбойники
 config.burmaldaholic.pvp.scratchPoker.enabled=Лотерейный покер
 config.burmaldaholic.pvp.series.enabled=Серия на монетке (до 2/3 побед)
+config.burmaldaholic.pvp.slots.hazardWeights=Битва автоматов: веса сюрпризов
+config.burmaldaholic.pvp.race.target=Гонка за джекпотом: цель
+## [config / Slots v1 legacy config labels (removed at the slots cut-over, `SLOTS.md` §13.10)]
+config.burmaldaholic.pvp.slots.starPoints=Битва автоматов: очки за три звезды
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----

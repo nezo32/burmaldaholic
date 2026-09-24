@@ -1,5 +1,8 @@
 ## vip strings (en_US). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
 ## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [core / Toasts (animation wave, `animation/global.md` §4.10)]
+toast.burmaldaholic.vip.title=New VIP tier
+toast.burmaldaholic.vip.body=%1 · max bet %2
 ## [vip]
 gui.burmaldaholic.vip.tier.bronze=Bronze
 gui.burmaldaholic.vip.tier.silver=Silver
@@ -20,7 +23,7 @@ gui.burmaldaholic.vip.perk.scratch_gold=Golden scratch cards
 gui.burmaldaholic.vip.perk.loan=Loans up to %1
 gui.burmaldaholic.vip.perk.contract_bonus=+%1%% contract rewards
 gui.burmaldaholic.vip.perk.contract_slots=%1 contract slots
-gui.burmaldaholic.vip.perk.netherite_slots=Netherite High Roller slots
+gui.burmaldaholic.vip.perk.netherite_slots=End Void slot machine
 gui.burmaldaholic.vip.perk.high_roller=High Roller tables
 gui.burmaldaholic.vip.perk.emerald_rate=Better emerald rate at the Cashier
 gui.burmaldaholic.vip.perk.cashback=%1%% daily cashback on expected losses
@@ -45,6 +48,7 @@ gui.burmaldaholic.vip.contract_unavailable=This contract can't be swapped anymor
 gui.burmaldaholic.vip.loading=Loading…
 gui.burmaldaholic.vip.perk_bullet=• %1
 gui.burmaldaholic.vip.contract_status=%1 · %2
+gui.burmaldaholic.vip.tier_up=VIP tier up!
 ## [config / vip, games]
 config.burmaldaholic.vip.threshold.silver=Silver threshold (wagered)
 config.burmaldaholic.vip.threshold.gold=Gold threshold (wagered)

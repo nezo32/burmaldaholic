@@ -58,6 +58,9 @@
 	"gui.burmaldaholic.roulette.ready_count": "Готовы: %1$s из %2$s",
 	"gui.burmaldaholic.roulette.short.odd": "Нечёт",
 	"gui.burmaldaholic.roulette.short.even": "Чёт",
+	"gui.burmaldaholic.roulette.fx.straight_up": "Прямое попадание!",
+	"gui.burmaldaholic.roulette.fx.last_bets": "Последние ставки!",
+	"gui.burmaldaholic.roulette.fx.bet_placed": "%1$s на «%2$s»",
 	"config.burmaldaholic.roulette.enabled": "Рулетка",
 	"config.burmaldaholic.roulette.laPartage": "Ла партаж",
 	"config.burmaldaholic.roulette.laPartage.tooltip": "При выпадении зеро ставки 1:1 теряют только половину",
@@ -69,5 +72,11 @@
 	"config.burmaldaholic.roulette.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.roulette.maxBettors": "Макс. игроков",
 	"config.burmaldaholic.roulette.historyLength": "Длина истории",
-	"subtitles.burmaldaholic.roulette_spin": "Крутится рулетка"
+	"subtitles.burmaldaholic.roulette_spin": "Крутится рулетка",
+	"subtitles.burmaldaholic.roulette_ball_roll": "Катится шарик рулетки",
+	"subtitles.burmaldaholic.roulette_ball_drop": "Шарик ударяется о ромб",
+	"subtitles.burmaldaholic.roulette_ball_bounce": "Шарик стучит по лункам",
+	"subtitles.burmaldaholic.roulette_ball_settle": "Шарик останавливается",
+	"subtitles.burmaldaholic.roulette_bell": "Звонок крупье",
+	"subtitles.burmaldaholic.roulette_dolly": "Ставится маркер"
 }

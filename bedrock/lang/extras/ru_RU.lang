@@ -90,6 +90,16 @@ gui.burmaldaholic.extras.dice.invite=%1 вызывает вас на дуэль 
 gui.burmaldaholic.extras.dice.accept_from=Принять: %1, %2
 gui.burmaldaholic.extras.dice.decline_from=Отказать: %1
 gui.burmaldaholic.extras.dice.challenge_target=Вызвать: %1
+gui.burmaldaholic.extras.dice.fx.tie_reroll=Ничья! Переброс %1 из %2
+gui.burmaldaholic.extras.dice.fx.round=Раунд %1
+gui.burmaldaholic.extras.dice.fx.victory=Победа!
+gui.burmaldaholic.extras.dice.fx.defeat=Поражение
+gui.burmaldaholic.extras.dice.fx.shake=Трясём стакан…
+## [extras / Presentation (animation wave, `animation/extras-pvp.md` §15; `anim.*` keys are shared by extras and PvP)]
+gui.burmaldaholic.anim.invite.hint=Нажмите %1, чтобы ответить
+gui.burmaldaholic.anim.scratch.drag_hint=Зажмите и ведите, чтобы стереть, или щёлкните по клетке
+gui.burmaldaholic.anim.lobby.full=Мест нет — начинаем!
+gui.burmaldaholic.anim.plinko.edge_banner=КРАЙ!
 ## [config / vip, games]
 config.burmaldaholic.extras.coinFlip.enabled=Монетка
 config.burmaldaholic.extras.coinFlip.payout=Выплата в монетке (X:1)

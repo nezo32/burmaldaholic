@@ -52,6 +52,11 @@ msg.burmaldaholic.craps.bet_result=%1: %2
 msg.burmaldaholic.craps.bets_played_out=You left the craps table — your bets were played out. Net: %1
 msg.burmaldaholic.craps.bets_refunded=The craps table closed — your bets were returned
 msg.burmaldaholic.craps.dont_come_moved=Your Don't Come bet moves to %1
+## [craps / Presentation (animation wave, `animation/tables.md` §6)]
+gui.burmaldaholic.craps.fx.hot_shooter=Hot shooter! %1 points in a row
+gui.burmaldaholic.craps.fx.new_shooter=New shooter: %1
+gui.burmaldaholic.craps.fx.bar_push=Bar 12 — push
+gui.burmaldaholic.craps.fx.throwing=%1 throws…
 ## [config / vip, games]
 config.burmaldaholic.craps.enabled=Craps
 config.burmaldaholic.craps.minBet=Minimum bet

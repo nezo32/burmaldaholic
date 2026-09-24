@@ -45,6 +45,9 @@ jobs:
               - '.github/workflows/reusable-build-gradle.yml'
             bedrock:
               - 'bedrock/**'
+              # npm run lint also checks the Java side of the shared generator and the mirrored fx vectors
+              - 'java/src/test/resources/fx/vectors/**'
+              - 'java/src/main/resources/assets/burmaldaholic/textures/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/reusable-build-node.yml'
 

@@ -2,6 +2,8 @@
 	"hud.burmaldaholic.streak.lucky": "Lucky ×%1$s",
 	"hud.burmaldaholic.streak.unlucky": "Unlucky ×%1$s",
 	"hud.burmaldaholic.golden_hour": "Golden Hour %1$s",
+	"hud.burmaldaholic.golden_hour.over": "Golden Hour is over",
+	"toast.burmaldaholic.golden_hour.ending": "Golden Hour ends in %1$s",
 	"msg.burmaldaholic.streak.lucky_5": "You're on a roll! Streak ×5",
 	"msg.burmaldaholic.streak.lucky_10": "ON FIRE! Streak ×10 — luck is on your side (a little)",
 	"msg.burmaldaholic.streak.unlucky_5": "Rough patch. Losing streak ×5 — the house feels a bit sorry for you",
@@ -105,5 +107,11 @@
 	"config.burmaldaholic.streak.minHouseEdge": "Minimum house edge",
 	"config.burmaldaholic.streak.minHouseEdge.tooltip": "Streak bonuses are capped so every game keeps at least this edge",
 	"config.burmaldaholic.streak.decayTicks": "Streak decay interval (ticks)",
-	"subtitles.burmaldaholic.golden_hour": "Golden bell tolls"
+	"subtitles.burmaldaholic.golden_hour": "Golden bell tolls",
+	"subtitles.burmaldaholic.streak_up": "Streak grows",
+	"subtitles.burmaldaholic.streak_break": "Streak broken",
+	"subtitles.burmaldaholic.golden_hour_end": "Golden Hour fades",
+	"subtitles.burmaldaholic.chaos_good": "Lucky chime",
+	"subtitles.burmaldaholic.chaos_bad": "Ominous chord",
+	"subtitles.burmaldaholic.chaos_teleport": "Teleport whoosh"
 }

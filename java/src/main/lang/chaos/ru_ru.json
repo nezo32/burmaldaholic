@@ -2,6 +2,8 @@
 	"hud.burmaldaholic.streak.lucky": "Везёт ×%1$s",
 	"hud.burmaldaholic.streak.unlucky": "Не везёт ×%1$s",
 	"hud.burmaldaholic.golden_hour": "«Золотой час» %1$s",
+	"hud.burmaldaholic.golden_hour.over": "«Золотой час» окончен",
+	"toast.burmaldaholic.golden_hour.ending": "«Золотой час» закончится через %1$s",
 	"msg.burmaldaholic.streak.lucky_5": "Попёрло! Серия ×5",
 	"msg.burmaldaholic.streak.lucky_10": "В УДАРЕ! Серия ×10 — удача на вашей стороне (немножко)",
 	"msg.burmaldaholic.streak.unlucky_5": "Чёрная полоса. Серия неудач ×5 — заведению вас даже жалко",
@@ -105,5 +107,11 @@
 	"config.burmaldaholic.streak.minHouseEdge": "Мин. преимущество заведения",
 	"config.burmaldaholic.streak.minHouseEdge.tooltip": "Бонусы серий ограничены так, чтобы у заведения всегда оставалось хотя бы это преимущество",
 	"config.burmaldaholic.streak.decayTicks": "Интервал затухания серии (тики)",
-	"subtitles.burmaldaholic.golden_hour": "Звенит золотой колокол"
+	"subtitles.burmaldaholic.golden_hour": "Звенит золотой колокол",
+	"subtitles.burmaldaholic.streak_up": "Серия растёт",
+	"subtitles.burmaldaholic.streak_break": "Серия прервана",
+	"subtitles.burmaldaholic.golden_hour_end": "«Золотой час» угасает",
+	"subtitles.burmaldaholic.chaos_good": "Звон удачи",
+	"subtitles.burmaldaholic.chaos_bad": "Зловещий аккорд",
+	"subtitles.burmaldaholic.chaos_teleport": "Свист телепорта"
 }

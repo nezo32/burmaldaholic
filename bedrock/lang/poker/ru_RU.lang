@@ -80,6 +80,24 @@ msg.burmaldaholic.poker.bot_joins=За стол садится %1 (%2)
 msg.burmaldaholic.poker.bot_busts=У игрока %1 кончились фишки — место освобождается
 msg.burmaldaholic.poker.new_hand=Раздача №%1 — блайнды %2/%3
 msg.burmaldaholic.poker.leaving_after_hand=Вы встанете из-за стола после этой раздачи
+## [poker / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.poker.tag.check=Чек
+gui.burmaldaholic.poker.tag.call=Колл %1
+gui.burmaldaholic.poker.tag.bet=Бет %1
+gui.burmaldaholic.poker.tag.raise=Рейз до %1
+gui.burmaldaholic.poker.tag.fold=Пас
+gui.burmaldaholic.poker.tag.small_blind=МБ %1
+gui.burmaldaholic.poker.tag.big_blind=ББ %1
+gui.burmaldaholic.poker.tag.shows=Открывает
+gui.burmaldaholic.poker.tag.mucks=Сбрасывает
+gui.burmaldaholic.poker.fx.all_in_runout=Олл-ин — открываем стол
+gui.burmaldaholic.poker.fx.big_pot=Крупный банк!
+gui.burmaldaholic.poker.fx.monster_pot=Огромный банк!
+gui.burmaldaholic.poker.fx.best_hand=Лучшая рука: %1
+gui.burmaldaholic.poker.fx.wins=%1 забирает %2
+gui.burmaldaholic.poker.fx.split=Банк делится: по %1
+gui.burmaldaholic.poker.fx.returned=Возврат: %1
+gui.burmaldaholic.poker.actionbar=Стол %1 · Банк %2
 ## [config / vip, games]
 config.burmaldaholic.poker.enabled=Покер
 config.burmaldaholic.poker.maxSeats=Мест за столом

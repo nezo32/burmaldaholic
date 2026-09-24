@@ -137,6 +137,14 @@ msg.burmaldaholic.baccarat.chemmy.banco_called=Банко! %1 играет пр�
 msg.burmaldaholic.baccarat.chemmy.bank_wins=Банк выигрывает %1 (комиссия заведения %2)
 msg.burmaldaholic.baccarat.chemmy.bank_pays=Банк выплачивает %1
 msg.burmaldaholic.baccarat.bank_returned=Ваш банк (%1) вернулся на баланс
+## [baccarat / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.baccarat.fx.squeezing=%1 вскрывает…
+gui.burmaldaholic.baccarat.fx.you_squeeze=Вы вскрываете…
+gui.burmaldaholic.baccarat.fx.player_card=Карта игрока…
+gui.burmaldaholic.baccarat.fx.banker_card=Карта банкира…
+gui.burmaldaholic.baccarat.fx.tie_pays=Ничья платит!
+gui.burmaldaholic.baccarat.fx.banco=Банко!
+gui.burmaldaholic.baccarat.fx.shoe_passes=Шуз переходит к игроку %1
 ## [config / baccarat, uth]
 config.burmaldaholic.baccarat.enabled=Баккара
 config.burmaldaholic.baccarat.decks=Колод в шузе

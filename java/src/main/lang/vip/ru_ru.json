@@ -1,5 +1,8 @@
 {
 	"hud.burmaldaholic.vip": "%1$s",
+	"toast.burmaldaholic.vip.title": "Новый уровень ВИП",
+	"toast.burmaldaholic.vip.body": "%1$s · ставка до %2$s",
+	"toast.burmaldaholic.vip_netherite.title": "Незеритовый ВИП",
 	"gui.burmaldaholic.vip.tier.bronze": "Бронза",
 	"gui.burmaldaholic.vip.tier.silver": "Серебро",
 	"gui.burmaldaholic.vip.tier.gold": "Золото",
@@ -19,7 +22,7 @@
 	"gui.burmaldaholic.vip.perk.loan": "Займы до %1$s",
 	"gui.burmaldaholic.vip.perk.contract_bonus": "+%1$s %% к наградам за заказы",
 	"gui.burmaldaholic.vip.perk.contract_slots": "Слотов для заказов: %1$s",
-	"gui.burmaldaholic.vip.perk.netherite_slots": "Автомат «Незеритовый хайроллер»",
+	"gui.burmaldaholic.vip.perk.netherite_slots": "Автомат «Пустота Края»",
 	"gui.burmaldaholic.vip.perk.high_roller": "Столы хайроллеров",
 	"gui.burmaldaholic.vip.perk.emerald_rate": "Выгодный курс изумрудов в кассе",
 	"gui.burmaldaholic.vip.perk.cashback": "Ежедневный кешбэк %1$s %% от ожидаемого проигрыша",
@@ -44,6 +47,7 @@
 	"gui.burmaldaholic.vip.loading": "Загрузка…",
 	"gui.burmaldaholic.vip.perk_bullet": "• %1$s",
 	"gui.burmaldaholic.vip.contract_status": "%1$s · %2$s",
+	"gui.burmaldaholic.vip.tier_up": "Новый уровень ВИП!",
 	"advancement.burmaldaholic.vip_silver.title": "Серебряная ложка",
 	"advancement.burmaldaholic.vip_silver.description": "Получите ВИП-статус «Серебро»",
 	"advancement.burmaldaholic.vip_gold.title": "Золотой клиент",
@@ -71,5 +75,6 @@
 	"config.burmaldaholic.vip.cashback.netherite": "Кешбэк: Незерит",
 	"config.burmaldaholic.vip.contractBonus.silver": "Бонус к заказам: Серебро",
 	"config.burmaldaholic.vip.contractBonus.gold": "Бонус к заказам: Золото и выше",
-	"config.burmaldaholic.vip.announceNetherite": "Объявлять незеритовых ВИП"
+	"config.burmaldaholic.vip.announceNetherite": "Объявлять незеритовых ВИП",
+	"subtitles.burmaldaholic.vip_tier_up": "Фанфары ВИП"
 }

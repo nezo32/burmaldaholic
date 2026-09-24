@@ -57,6 +57,10 @@ gui.burmaldaholic.roulette.error.min_total=За этим столом ставк
 gui.burmaldaholic.roulette.ready_count=Готовы: %1 из %2
 gui.burmaldaholic.roulette.short.odd=Нечёт
 gui.burmaldaholic.roulette.short.even=Чёт
+## [roulette / Presentation (animation wave, `animation/tables.md` §6)]
+gui.burmaldaholic.roulette.fx.straight_up=Прямое попадание!
+gui.burmaldaholic.roulette.fx.last_bets=Последние ставки!
+gui.burmaldaholic.roulette.fx.bet_placed=%1 на «%2»
 ## [config / vip, games]
 config.burmaldaholic.roulette.enabled=Рулетка
 config.burmaldaholic.roulette.laPartage=Ла партаж

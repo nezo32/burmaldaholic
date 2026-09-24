@@ -121,6 +121,11 @@ msg.burmaldaholic.uth.pvp.left_seat=%1 leaves the dealer seat — the house deal
 msg.burmaldaholic.uth.pvp.seat_offered=The dealer seat is free. Take it?
 msg.burmaldaholic.uth.pvp.bank_too_low=Your bank can't cover a minimum bet any more — you leave the dealer seat after this round
 msg.burmaldaholic.uth.bank_returned=Your bank of %1 was returned to your balance
+## [uth / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.uth.tag.play=Play ×%1
+gui.burmaldaholic.uth.fx.blind_bonus=Blind bonus!
+gui.burmaldaholic.uth.fx.trips_bonus=Trips bonus!
+gui.burmaldaholic.uth.fx.royal=ROYAL FLUSH!
 ## [config / baccarat, uth]
 config.burmaldaholic.uth.enabled=Ultimate Texas Hold'em
 config.burmaldaholic.uth.seats=Seats

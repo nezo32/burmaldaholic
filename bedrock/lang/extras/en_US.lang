@@ -90,6 +90,16 @@ gui.burmaldaholic.extras.dice.invite=%1 challenges you to a Dice Duel for %2
 gui.burmaldaholic.extras.dice.accept_from=Accept: %1, %2
 gui.burmaldaholic.extras.dice.decline_from=Decline: %1
 gui.burmaldaholic.extras.dice.challenge_target=Challenge %1
+gui.burmaldaholic.extras.dice.fx.tie_reroll=Tie! Re-roll %1 of %2
+gui.burmaldaholic.extras.dice.fx.round=Round %1
+gui.burmaldaholic.extras.dice.fx.victory=Victory!
+gui.burmaldaholic.extras.dice.fx.defeat=Defeat
+gui.burmaldaholic.extras.dice.fx.shake=Shake the cup…
+## [extras / Presentation (animation wave, `animation/extras-pvp.md` §15; `anim.*` keys are shared by extras and PvP)]
+gui.burmaldaholic.anim.invite.hint=Press %1 to answer
+gui.burmaldaholic.anim.scratch.drag_hint=Hold and drag to scratch, or click a cell
+gui.burmaldaholic.anim.lobby.full=Table full — starting!
+gui.burmaldaholic.anim.plinko.edge_banner=EDGE!
 ## [config / vip, games]
 config.burmaldaholic.extras.coinFlip.enabled=Coin Flip
 config.burmaldaholic.extras.coinFlip.payout=Coin Flip payout (X:1)

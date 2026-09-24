@@ -1,5 +1,8 @@
 {
 	"hud.burmaldaholic.vip": "%1$s",
+	"toast.burmaldaholic.vip.title": "New VIP tier",
+	"toast.burmaldaholic.vip.body": "%1$s · max bet %2$s",
+	"toast.burmaldaholic.vip_netherite.title": "Netherite VIP",
 	"gui.burmaldaholic.vip.tier.bronze": "Bronze",
 	"gui.burmaldaholic.vip.tier.silver": "Silver",
 	"gui.burmaldaholic.vip.tier.gold": "Gold",
@@ -19,7 +22,7 @@
 	"gui.burmaldaholic.vip.perk.loan": "Loans up to %1$s",
 	"gui.burmaldaholic.vip.perk.contract_bonus": "+%1$s%% contract rewards",
 	"gui.burmaldaholic.vip.perk.contract_slots": "%1$s contract slots",
-	"gui.burmaldaholic.vip.perk.netherite_slots": "Netherite High Roller slots",
+	"gui.burmaldaholic.vip.perk.netherite_slots": "End Void slot machine",
 	"gui.burmaldaholic.vip.perk.high_roller": "High Roller tables",
 	"gui.burmaldaholic.vip.perk.emerald_rate": "Better emerald rate at the Cashier",
 	"gui.burmaldaholic.vip.perk.cashback": "%1$s%% daily cashback on expected losses",
@@ -44,6 +47,7 @@
 	"gui.burmaldaholic.vip.loading": "Loading…",
 	"gui.burmaldaholic.vip.perk_bullet": "• %1$s",
 	"gui.burmaldaholic.vip.contract_status": "%1$s · %2$s",
+	"gui.burmaldaholic.vip.tier_up": "VIP tier up!",
 	"advancement.burmaldaholic.vip_silver.title": "Silver Spoon",
 	"advancement.burmaldaholic.vip_silver.description": "Reach Silver VIP",
 	"advancement.burmaldaholic.vip_gold.title": "Gold Member",
@@ -71,5 +75,6 @@
 	"config.burmaldaholic.vip.cashback.netherite": "Cashback: Netherite",
 	"config.burmaldaholic.vip.contractBonus.silver": "Contract bonus: Silver",
 	"config.burmaldaholic.vip.contractBonus.gold": "Contract bonus: Gold and above",
-	"config.burmaldaholic.vip.announceNetherite": "Announce Netherite VIPs"
+	"config.burmaldaholic.vip.announceNetherite": "Announce Netherite VIPs",
+	"subtitles.burmaldaholic.vip_tier_up": "VIP fanfare"
 }

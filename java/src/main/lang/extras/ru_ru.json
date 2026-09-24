@@ -98,6 +98,11 @@
 	"gui.burmaldaholic.extras.dice.accept_from": "Принять: %1$s, %2$s",
 	"gui.burmaldaholic.extras.dice.decline_from": "Отказать: %1$s",
 	"gui.burmaldaholic.extras.dice.challenge_target": "Вызвать: %1$s",
+	"gui.burmaldaholic.extras.dice.fx.tie_reroll": "Ничья! Переброс %1$s из %2$s",
+	"gui.burmaldaholic.extras.dice.fx.round": "Раунд %1$s",
+	"gui.burmaldaholic.extras.dice.fx.victory": "Победа!",
+	"gui.burmaldaholic.extras.dice.fx.defeat": "Поражение",
+	"gui.burmaldaholic.extras.dice.fx.shake": "Трясём стакан…",
 	"tooltip.burmaldaholic.lucky_coin.pvp": "На игрока — вызов на дуэль на монетке",
 	"advancement.burmaldaholic.plinko_edge.title": "Крайний случай",
 	"advancement.burmaldaholic.plinko_edge.description": "Попадите шариком в крайнюю лунку на высоком риске",
@@ -126,5 +131,10 @@
 	"config.burmaldaholic.extras.diceDuel.maxDistance": "Макс. дистанция дуэли",
 	"subtitles.burmaldaholic.dice_roll": "Катятся кости",
 	"subtitles.burmaldaholic.coin_flip": "Подбрасывается монетка",
-	"subtitles.burmaldaholic.plinko_peg": "Шарик стучит по штырькам"
+	"subtitles.burmaldaholic.plinko_peg": "Шарик стучит по штырькам",
+	"subtitles.burmaldaholic.dice_throw": "Летят кости",
+	"subtitles.burmaldaholic.dice_bounce": "Подпрыгивают кости",
+	"subtitles.burmaldaholic.dice_wall": "Кости бьются о борт",
+	"subtitles.burmaldaholic.dice_cup": "Гремят кости в стакане",
+	"subtitles.burmaldaholic.plinko_bin": "Шарик падает в лунку"
 }
