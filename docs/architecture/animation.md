@@ -21,6 +21,7 @@ Contents
 8. Fit with the PvP + Seats & Bots code (not yet merged)
 9. Work breakdown: lanes, file ownership, dependencies
 10. Skeleton inventory and verification
+11. Spike B-S0 report (Bedrock live forms and the [V] items) — decision: live form (DDUI) with automatic classic fallback
 
 ---
 
@@ -201,9 +202,10 @@ frames, ≤ 24 `spawnParticle` calls per event, ≤ N `setProperty` per event as
 (`label`, `button`, `set(id, text)`, `show`, `close`, `isShowing`). **DDUI**: `CustomForm` with `ObservableString` /
 `ObservableUIRawMessage` per label/button, `set` writes only changes. **Classic**: an `ActionFormData` between steps,
 live text routed to the game's HUD action-bar channel while the form is closed. Construction failure → classic.
-**Spike B-S0 first** (lane B-L1, 1 day): update-rate limits, glyph size in a label, `§` tinting of glyphs, title
-glyph scale, per-render-controller `uv_anim`, `q.distance_from_camera`, entity property count; the findings go into
-the [V] items of `animation/slots.md` and `extras-pvp.md` §0.7 and may flip defaults (`slots.bedrock.ddui`).
+**Spike B-S0 done** (lane B-L1): report and decision in **§11** (DDUI is the default path; writes are coalesced to
+≤ 1 per component per 2 t inside `LiveForm`; any DDUI failure switches the world session to classic; the client-only
+checks run from `/scriptevent burmaldaholic:fx spike`). `LiveForm` also has `header`, `setDisabled` / `setVisible`
+(bound `ButtonOptions` / `TextOptions` Observables) and `show()` → `LiveCloseReason` (`fallback` = reopen as classic).
 
 ### 2.9 Bedrock entity-based in-world props
 
@@ -229,8 +231,18 @@ Props = AI-free entities with `client_sync` properties: `slot_reels` (slots), `w
   reduce motion). Every camera beat has a title-only baseline.
 - Particles and sounds: definitions in `packs/<owner>/RP/particles|sounds`; one particle atlas per owner
   (`burmaldaholic_fx.png` core, `burmaldaholic_slots.png` slots), generated.
-- `FxService` (global §3.2) = `core/presentation/fx.ts` (lane B-L1): `celebrate(player, CelebrationRequest)`,
-  `chaos`, `toast`, `hudPulse`, rate limits, settings; games call it instead of `hud.title` + `playSound`.
+- `FxService` (global §3.2) = `core/presentation/fx.ts` (lane B-L1), **`ctx.fx`** in every module:
+  `celebrate(player, CelebrationRequest)` → `{timeline, done, skip}` (plan = pure `core/logic/anim/celebration.ts`,
+  played by the scheduler; sneak = skip; open the result form after `done`), `sound` / `soundAt` (× `anim.volume`,
+  Bedrock layers `burmaldaholic.<id>.l<n>` of `SOUND_LAYERS`, ≤ 20/s), `burst` (≤ 60 per burst, ≤ 24 calls per event,
+  viewers' `anim.celebrations`), `toast`, `chaos`, `hudPulse` (handler installed by B-L2), `titleFlipbook`,
+  `actionbarRollUp`, `chatAtLanding`; table helpers `soundTimeline` / `revealAfter` (`presentation/table-fx.ts`).
+  Games call it instead of `hud.title` + `playSound`. Operators preview tiers with
+  `/scriptevent burmaldaholic:fx demo <TIER> <ret> <stake> [slots]`.
+- Core particle atlas contract: `core/logic/anim/particle-atlas.ts` (rows of `burmaldaholic_fx.png`, drawn by X-L0's
+  `core.mjs`); core particle JSON: `packs/core/RP/particles/*.json` (15 ids); core sounds:
+  `packs/core/RP/sounds/sound_definitions.json` (every core-owned catalog id + layers, vanilla files only; a test keeps
+  both in sync with `sound-ids.ts`).
 
 ### 2.11 FX settings (both editions)
 
@@ -582,3 +594,47 @@ Added in this wave (compiling; nothing is wired into a module, so behaviour is u
 
 Verified: Java `./gradlew build` (compile 26.2, unit tests, GameTests, `checkLinkage` vs 26.3); Bedrock
 `npm run build && npm test && npm run lint`.
+
+---
+
+## 11. Spike B-S0 report (lane B-L1, 2026-09-24)
+
+Scope: research open question 1 and every **[V]** item that blocks a Bedrock presentation lane (`animation/slots.md`
+§6.1, §6.2, §6.6.2–§6.6.3 (incl. LOD), §12.3 Q2–Q3; `extras-pvp.md` §0.7 V4–V8). Method: (a) **static** — the pinned
+typings (`@minecraft/server` 2.8.0, `@minecraft/server-ui` 2.1.0, no `@beta`), the pack schemas and vanilla data of
+`bedrock/tools/pack-schemas/` (1.26.30) that `npm run lint` validates against; (b) **runtime contract** — the
+failure modes are handled in code and unit-tested against a fake engine clock (`core/presentation/presentation.test.ts`);
+(c) **in-game** — what only a client can show is exercised by one operator command,
+`/scriptevent burmaldaholic:fx spike` (`core/presentation/ddui-spike.ts`), which logs the script-side numbers
+(`B-S0 spike: {kind, frames, writes, maxFrameMs, closeReason}`) and shows the checklist items below on screen. No
+Bedrock client or dedicated server is available to the lane's machine, so column (c) is a checklist for the first
+sideload test (bedrock.md §12), each item with its pre-agreed fallback — **no lane waits on it**.
+
+### 11.1 Findings
+
+| # | Item | Static / contract finding | In-game check (harness) | Fallback if the check fails |
+|---|---|---|---|---|
+| S1 | DDUI API surface | `CustomForm(player, title)` with `header`, `label`, `button(label, onClick, {disabled, visible, tooltip})`, `divider`, `closeButton`, `toggle/slider/dropdown/textField`; every text accepts `ObservableString \| ObservableUIRawMessage`, `disabled`/`visible` accept `ObservableBoolean`. `show()` → `DataDrivenScreenClosedReason` (`ClientClosed`, `ServerClosed`, `UserBusy`); `close()` throws `FormVisibilityError` when not open; `isShowing()`; `uiManager.closeAllForms`. **Spin ↔ Stop, disabled bet buttons, the Treasure Hunt / Hoard grid swap = Observable writes, no reopen.** Observables notify only on a changed value. | — | — |
+| S2 | Update rate / coalescing at 2 t (V7, slots §12.3 Q2) | Not specified by the API. **Made irrelevant to correctness**: `LiveForm` writes ≤ 1 `setData` per component per 2 t (latest value wins; a pending value flushes on the next allowed tick), so the worst case is ≤ 10 writes/s per label whatever the caller does (test: 10 `set` in one tick → 1 write, the latest after 2 t). | 3 glyph rows scroll 1 strip row per 2 t for 10 s in a header and a label: smooth, stepped (coalesced) or flicker? | `slots.bedrock.ddui = false` (config, no code change): classic form + action-bar reels + cabinet (slots §6.3). |
+| S3 | DDUI failure at runtime | Constructor throw, `show()` rejection or a `setData` throw mark DDUI broken for the world session (`dduiHealthy()`); later `createLiveForm` calls return classic; `show()` returns `fallback` so the game reopens the same screen as classic without losing state. `UserBusy` → `busy` (retry later, as forms do today). | — | built in |
+| S4 | Glyph size in a label (slots §12.3 Q2) | Glyphs render at the text line height of their component (sheet resolution only sharpens: E2–E4 are 32 px cells for that reason); a `header` is the larger text style. | Header row vs label row side by side: readable at GUI scale 2 on a phone-size window? | Reels go into the `header` components (3 headers = 3 rows); if both are too small: form keeps status + buttons, reels on the cabinet + action bar (slots §12.3 Q2). |
+| S5 | `§` tinting of glyphs (slots §6.1, §6.2 anticipation / dim) | Unspecified; community packs report a multiply by the text colour. Code keeps the information on the **win / blur planes** (E3/E4); `§8` dimming and `§e` anticipation tint are decoration only. | Tint row `§f g §8 g §e g §c g`: do the four copies differ? | No dimming; anticipation shows the U+E23D arrow (already specified). |
+| S6 | Title glyph scale (extras V6, global §4.8) | `setTitle` / `updateSubtitle` take the same raw text; glyphs scale with the title font. | 6-frame title flipbook after the form closes: glyphs large and centred? | `fx.titleFlipbook(…, {actionbar: true})` (same frames on the action bar). |
+| S7 | Per-render-controller `uv_anim` (slots §6.6.3, `slot_reels`) | Schema-valid: every render controller has its own `uv_anim {offset[2], scale[2]}` (Molang allowed); `npm run lint` accepts per-reel controllers with `part_visibility`. Runtime behaviour on one entity with 5 controllers needs the `slot_reels` entity (lane B-L10). | B-L10 adds the entity; the check is its first sideload item. | Generated window cuts (slots §9.2 "Window cuts (fallback [V])", 585 PNGs). |
+| S8 | `q.distance_from_camera` LOD (slots §6.6.3, extras V8) | Documented client Molang query, usable in animation controllers. Failure mode is "always animate", which is within budget (1 entity per machine). | With B-L10/B-L7 entities. | Always animate. |
+| S9 | Entity property limits (V4, slots §6.6.2: 13–16 properties) | Microsoft Learn "entity properties": ≤ 32 properties per entity type, int/float need a `range`, enum values are short strings (keep ≤ 16 values of ≤ 32 chars) — `slot_reels` (≤ 16), `wheel_fx`, `plinko_fx`, `coin_fx` fit. | BP load of the entities (content log is empty). | per-state `playAnimation` (extras V4). |
+| S10 | DDUI styling by RP JSON UI | Ore UI based: assume **not** stylable; no feature depends on it. | — | — |
+
+### 11.2 Script-side cost (budgets of §2.7)
+
+One session = one `runInterval` (2 t) from the shared scheduler; a spike frame writes 3 Observables and flips one
+`ObservableBoolean` — `maxFrameMs` is logged per run and must stay < 0.3 ms (the scheduler warns above it).
+
+### 11.3 Decision
+
+**Live form (DDUI) is the default** for the slot machine form (BS2), the NICE scratch/duel live forms (BX11) and any
+later live screen, through `createLiveForm(..., {preferDdui: config})` (`slots.bedrock.ddui` default **true**, as
+SLOTS.md §12 already says). The classic path stays complete and is chosen automatically on any DDUI failure (S3).
+The only items that can flip the default are S2 (visible flicker) and S4 (unreadable reels); both flips are the
+config key, not code. S5–S9 have fallbacks inside their owning lanes and do not affect the choice.
+

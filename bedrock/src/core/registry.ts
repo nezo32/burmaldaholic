@@ -21,6 +21,7 @@ import { chips, lines, t } from './logic/rawtext';
 import { createLogger } from './log';
 import { MenuRegistry } from './menu';
 import { PvpEngine } from './pvp/service';
+import { FxService } from './presentation/fx';
 import type { CasinoModule, ModuleContext } from './module';
 import { Services } from './services';
 import { StreakService } from './streak';
@@ -59,6 +60,8 @@ export const runtime = {
   pvp: new PvpEngine(),
   bots: new Bots(config),
   achievements: new Achievements(hud, () => isCasinoEnabled()),
+  /** Presentation kit (docs/architecture/animation.md §2.10, lane B-L1). */
+  fx: new FxService(hud),
 };
 
 export function bootstrap(modules: readonly CasinoModule[]): void {
@@ -114,6 +117,7 @@ export function bootstrap(modules: readonly CasinoModule[]): void {
     });
     start('earning', () => runtime.earning.start());
     start('pvp', () => runtime.pvp.boot());
+    start('fx', () => runtime.fx.start(() => isCasinoEnabled(), (m) => coreLog.info(m)));
     for (const m of modules) {
       const log = createLogger(m.id);
       const ctx: ModuleContext = {
@@ -134,6 +138,7 @@ export function bootstrap(modules: readonly CasinoModule[]): void {
         services: runtime.services,
         pvp: runtime.pvp,
         bots: runtime.bots,
+        fx: runtime.fx,
         log,
         isCasinoEnabled,
         guard:

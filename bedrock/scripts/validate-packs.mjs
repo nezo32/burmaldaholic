@@ -159,7 +159,7 @@ const docsIn = (dir) => [...docs.entries()].filter(([f]) => f.startsWith(dir + p
 
 // ---------------------------------------------------------------------------------------------
 // registries collected from the packs
-const custom = { items: new Set(), blocks: new Set(), entities: new Set(), clientEntities: new Set(), geometry: new Set(), renderControllers: new Set(), animations: new Set(), sounds: new Set(), structures: new Set() };
+const custom = { items: new Set(), blocks: new Set(), entities: new Set(), clientEntities: new Set(), geometry: new Set(), renderControllers: new Set(), animations: new Set(), sounds: new Set(), structures: new Set(), particles: new Set() };
 const entityDocs = new Map(); // id -> BP entity doc
 for (const [f, d] of docsIn(path.join(BP, 'items'))) addId(custom.items, d?.['minecraft:item']?.description?.identifier, f);
 for (const [f, d] of docsIn(path.join(BP, 'blocks'))) addId(custom.blocks, d?.['minecraft:block']?.description?.identifier, f);
@@ -176,6 +176,8 @@ for (const [, d] of docsIn(path.join(RP, 'models'))) {
 for (const [, d] of docsIn(path.join(RP, 'render_controllers'))) for (const k of Object.keys(d?.render_controllers ?? {})) custom.renderControllers.add(k);
 for (const [, d] of docsIn(path.join(RP, 'animations'))) for (const k of Object.keys(d?.animations ?? {})) custom.animations.add(k);
 for (const [, d] of docsIn(path.join(RP, 'animation_controllers'))) for (const k of Object.keys(d?.animation_controllers ?? {})) custom.animations.add(k);
+// custom particles (RP/particles/*.json, docs/architecture/animation.md §2.3)
+for (const [f, d] of docsIn(path.join(RP, 'particles'))) addId(custom.particles, d?.particle_effect?.description?.identifier, f);
 const soundDefs = docs.get(path.join(RP, 'sounds/sound_definitions.json'));
 for (const k of Object.keys(soundDefs?.sound_definitions ?? {})) custom.sounds.add(k);
 for (const f of filesIn(path.join(BP, 'structures'), '.mcstructure')) {
@@ -622,13 +624,13 @@ function readNbt(buf) {
       // dynamic properties (burmaldaholic:<module>.<key>, or constants named *_PROP / *PROPERTY)
       if (name.includes('.') || name.endsWith('/') || /PROP|DynamicProperty/.test(lineText)) continue;
       const known =
-        custom.items.has(id) || custom.blocks.has(id) || custom.entities.has(id) || custom.structures.has(id) || events.has(id) || blockComponents.has(id) || itemComponents.has(id) || settings.has(id) || custom.sounds.has(id) || isCommandOrScriptEvent(txt, id);
+        custom.items.has(id) || custom.blocks.has(id) || custom.entities.has(id) || custom.particles.has(id) || custom.structures.has(id) || events.has(id) || blockComponents.has(id) || itemComponents.has(id) || settings.has(id) || custom.sounds.has(id) || isCommandOrScriptEvent(txt, id);
       if (!known) err(`${rel(f)}:${line}`, `'${id}' is not an item, block, entity, structure, entity event, custom component or command defined by the packs`);
     }
     for (const m of txt.matchAll(/\.playSound\(\s*'([^']+)'/g)) if (!vanilla.sounds.has(m[1]) && !custom.sounds.has(m[1])) err(`${rel(f)}:${txt.slice(0, m.index).split('\n').length}`, `sound '${m[1]}' is not defined`);
     for (const m of txt.matchAll(/\.addEffect\(\s*'([^']+)'/g)) if (!V.effects.includes(m[1].includes(':') ? m[1] : `minecraft:${m[1]}`)) err(`${rel(f)}:${txt.slice(0, m.index).split('\n').length}`, `effect '${m[1]}' does not exist`);
     for (const m of txt.matchAll(/(?:SOUND[A-Z_]*|sound)\s*[:=]\s*'([a-z0-9_.]+)'/g)) if (!vanilla.sounds.has(m[1]) && !custom.sounds.has(m[1])) err(`${rel(f)}:${txt.slice(0, m.index).split('\n').length}`, `sound '${m[1]}' is not defined`);
-    for (const m of txt.matchAll(/(?:PARTICLE[A-Z_]*|particle)\s*[:=]\s*'([a-z0-9_:.]+)'/g)) if (!vanilla.particles.has(m[1])) err(`${rel(f)}:${txt.slice(0, m.index).split('\n').length}`, `particle '${m[1]}' is not a vanilla particle`);
+    for (const m of txt.matchAll(/(?:PARTICLE[A-Z_]*|particle)\s*[:=]\s*'([a-z0-9_:.]+)'/g)) if (!vanilla.particles.has(m[1]) && !custom.particles.has(m[1])) err(`${rel(f)}:${txt.slice(0, m.index).split('\n').length}`, `particle '${m[1]}' is not a vanilla or pack particle`);
   }
   function isCommandOrScriptEvent(txt, id) {
     const short = id.split(':')[1];

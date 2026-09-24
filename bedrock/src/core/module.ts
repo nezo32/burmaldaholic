@@ -19,6 +19,7 @@ import type { ModuleConfigDef } from './logic/config-schema';
 import type { ModuleId } from './logic/ids';
 import type { OddsService } from './logic/odds';
 import type { PvpService } from './pvp/service';
+import type { FxService } from './presentation/fx';
 import type { MenuRegistry } from './menu';
 import type { Services } from './services';
 import type { StreakService } from './streak';
@@ -71,6 +72,8 @@ export interface ModuleContext {
   readonly pvp: PvpService;
   /** Seats & bots (BOTS.md): per-table bot state, bot rng, think times, heavy jobs, heat ledger. */
   readonly bots: BotsService;
+  /** Presentation kit: `celebrate` (per-game tiers), sounds, particles, toasts (docs/architecture/animation.md §2.10). */
+  readonly fx: FxService;
   readonly log: Logger;
   /** Current casino-mode state. Every gameplay entry point must bail out when false. */
   isCasinoEnabled(): boolean;
