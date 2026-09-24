@@ -33,6 +33,27 @@ public final class BotLedgerData extends SavedData {
 	private final Map<UUID, DayCount> net = new HashMap<>();
 	private final Map<String, DayCount> buyIns = new HashMap<>();
 	private final Map<String, Escrow> escrow = new LinkedHashMap<>();
+	/** Adaptive heat (BOTS.md §5.4): per player {hands, net in big blinds} of poker hands vs house bots (rolling). */
+	private final Map<UUID, double[]> adaptive = new HashMap<>();
+
+	/** One poker hand vs house bots, net in big blinds; above the window both totals are halved. */
+	public void recordPokerHand(UUID player, double bbNet) {
+		double[] a = adaptive.computeIfAbsent(player, k -> new double[2]);
+		a[0] += 1;
+		a[1] += bbNet;
+		if (a[0] > dev.nezo.burmaldaholic.core.bots.logic.BotEconomyMath.ADAPTIVE_WINDOW) {
+			a[0] = Math.floor(a[0] / 2);
+			a[1] = a[1] / 2;
+		}
+		a[1] = Math.round(a[1] * 100) / 100.0;
+		setDirty();
+	}
+
+	/** Adaptive heat is on for the player (&gt; +20 BB/100 over ≥ 200 hands). */
+	public boolean adaptive(UUID player) {
+		double[] a = adaptive.get(player);
+		return a != null && dev.nezo.burmaldaholic.core.bots.logic.BotEconomyMath.adaptiveHot((long) a[0], a[1]);
+	}
 
 	public static BotLedgerData get(MinecraftServer server) {
 		return server.getDataStorage().computeIfAbsent(TYPE);
@@ -49,7 +70,9 @@ public final class BotLedgerData extends SavedData {
 	}
 
 	public void reset(UUID player) {
-		if (net.remove(player) != null) {
+		boolean changed = net.remove(player) != null;
+		changed |= adaptive.remove(player) != null;
+		if (changed) {
 			setDirty();
 		}
 	}
@@ -108,6 +131,15 @@ public final class BotLedgerData extends SavedData {
 			CompoundTag e = b.getCompoundOrEmpty(k);
 			d.buyIns.put(k, new DayCount(e.getLongOr("day", 0), e.getLongOr("value", 0)));
 		}
+		CompoundTag ad = tag.getCompoundOrEmpty("adaptive");
+		for (String k : ad.keySet()) {
+			try {
+				CompoundTag e = ad.getCompoundOrEmpty(k);
+				d.adaptive.put(UUID.fromString(k), new double[] {e.getDoubleOr("hands", 0), e.getDoubleOr("net", 0)});
+			} catch (IllegalArgumentException ignored) {
+				// corrupt key
+			}
+		}
 		CompoundTag es = tag.getCompoundOrEmpty("escrow");
 		for (String k : es.keySet()) {
 			CompoundTag e = es.getCompoundOrEmpty(k);
@@ -134,6 +166,14 @@ public final class BotLedgerData extends SavedData {
 			e.putLong("amount", v.amount());
 			es.put(k, e);
 		});
+		CompoundTag ad = new CompoundTag();
+		adaptive.forEach((k, v) -> {
+			CompoundTag e = new CompoundTag();
+			e.putDouble("hands", v[0]);
+			e.putDouble("net", v[1]);
+			ad.put(k.toString(), e);
+		});
+		tag.put("adaptive", ad);
 		tag.put("net", n);
 		tag.put("buyIns", b);
 		tag.put("escrow", es);

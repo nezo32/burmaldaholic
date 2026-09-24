@@ -1078,6 +1078,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 					Burmaldaholic.LOGGER.error("Poker: heat ledger failed", e);
 				}
 			}
+			if (anyHouseBot && h.bb() > 0) {
+				BotLedger.recordPokerHand(server, uuid, attr.houseNet()[k] / (double) h.bb()); // adaptive heat (BOTS.md §5.4)
+			}
 			if (p.total() <= 0) {
 				continue;
 			}

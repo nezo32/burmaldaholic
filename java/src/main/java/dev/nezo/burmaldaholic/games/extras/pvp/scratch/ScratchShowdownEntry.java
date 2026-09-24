@@ -18,14 +18,20 @@ import net.minecraft.server.level.ServerPlayer;
 public final class ScratchShowdownEntry {
 	private ScratchShowdownEntry() {}
 
+	/** Params with the config snapshot (weights, values) of now. */
+	static com.google.gson.JsonElement params() {
+		ScratchShowdownMode mode = new ScratchShowdownMode();
+		return mode.encodeParams(mode.defaults());
+	}
+
 	/** Duel: invite one player ({@code PlayerTarget}) or play a house bot ({@code BotTarget}). */
 	public static Result<PvpMatch> challenge(ServerPlayer challenger, long stake, PvpService.Opponent opponent) {
-		return Pvp.service().challenge(challenger, ScratchShowdownMode.ID, new com.google.gson.JsonObject(), stake, opponent);
+		return Pvp.service().challenge(challenger, ScratchShowdownMode.ID, params(), stake, opponent);
 	}
 
 	/** Open lobby at the host's position ("anyone nearby" joins from the hub within {@code pvp.joinRadius}). */
 	public static Result<PvpMatch> openLobby(ServerPlayer host, long stake, BotSettings seating) {
-		return Pvp.service().openLobby(host, ScratchShowdownMode.ID, new com.google.gson.JsonObject(), stake,
+		return Pvp.service().openLobby(host, ScratchShowdownMode.ID, params(), stake,
 			new PvpService.Anchor(AnchorKind.NONE, (ServerLevel) host.level(), host.blockPosition()), seating, false);
 	}
 }

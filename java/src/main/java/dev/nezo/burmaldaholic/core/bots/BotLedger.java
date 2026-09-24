@@ -38,6 +38,18 @@ public final class BotLedger {
 		return stage(server, player);
 	}
 
+	/** Adaptive heat input: one poker hand vs house bots, the player's net in big blinds ({@code bots.adaptiveHeat}). */
+	public static void recordPokerHand(MinecraftServer server, UUID player, double bbNet) {
+		if (CasinoConfig.bots().adaptiveHeat) {
+			BotLedgerData.get(server).recordPokerHand(player, bbNet);
+		}
+	}
+
+	/** Winning player (&gt; +20 BB/100 over ≥ 200 hands vs house bots): new house bots at their poker tables are one level up. */
+	public static boolean adaptive(MinecraftServer server, UUID player) {
+		return CasinoConfig.bots().adaptiveHeat && BotLedgerData.get(server).adaptive(player);
+	}
+
 	/** Threshold of the player (0 = heat disabled). */
 	public static long threshold(MinecraftServer server, UUID player) {
 		var b = CasinoConfig.bots();

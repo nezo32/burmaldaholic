@@ -15,6 +15,7 @@ import dev.nezo.burmaldaholic.games.extras.logic.Plinko;
 import dev.nezo.burmaldaholic.games.extras.pvp.ModeRanking;
 import java.util.ArrayList;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -49,7 +50,22 @@ public final class PlinkoBattleMode implements PvpMode<PlinkoBattleMode.Params, 
 	 * @param risk  {@code low | medium | high} (one risk for everyone)
 	 * @param balls balls per player, one of {@code pvp.plinko.ballChoices}
 	 */
-	public record Params(String risk, int balls) {}
+	public record Params(String risk, int balls, long @Nullable [] points, @Nullable Boolean underdogBoost) {
+		public Params(String risk, int balls) {
+			this(risk, balls, null, null);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			return o instanceof Params p && risk.equals(p.risk) && balls == p.balls && Arrays.equals(points, p.points)
+				&& java.util.Objects.equals(underdogBoost, p.underdogBoost);
+		}
+
+		@Override
+		public int hashCode() {
+			return risk.hashCode() * 31 + balls;
+		}
+	}
 
 	/**
 	 * Everything random, drawn at START.
@@ -170,7 +186,10 @@ public final class PlinkoBattleMode implements PvpMode<PlinkoBattleMode.Params, 
 				paths[i][b] = PlinkoBattle.drawPath(rng);
 			}
 		}
-		return new Tape(seatOrder, paths, pointsRow(risk), pvp.get().plinko.underdogBoost);
+		// the points row / boost snapshot taken when the match was created (params), else the live config
+		long[] row = params.points() != null && params.points().length == PlinkoBattle.ROWS + 1 ? params.points().clone() : pointsRow(risk);
+		boolean boost = params.underdogBoost() != null ? params.underdogBoost() : pvp.get().plinko.underdogBoost;
+		return new Tape(seatOrder, paths, row, boost);
 	}
 
 	public PlinkoBattle.Scored scored(Tape tape) {
@@ -274,18 +293,34 @@ public final class PlinkoBattleMode implements PvpMode<PlinkoBattleMode.Params, 
 
 	// ---- persistence ----
 
+	/** {@code {"risk","balls","row":[13 points],"u":bool}}; the row / boost are snapshot from the config at creation. */
 	@Override
 	public JsonElement encodeParams(Params params) {
 		JsonObject o = new JsonObject();
 		o.addProperty("risk", params.risk());
 		o.addProperty("balls", params.balls());
+		Plinko.Risk risk = Plinko.Risk.parse(params.risk());
+		long[] row = params.points() != null ? params.points() : risk == null ? null : pointsRow(risk);
+		if (row != null) {
+			o.add("row", longs(row));
+		}
+		o.addProperty("u", params.underdogBoost() != null ? params.underdogBoost() : pvp.get().plinko.underdogBoost);
 		return o;
 	}
 
 	@Override
 	public Params decodeParams(JsonElement json) {
 		JsonObject o = json.getAsJsonObject();
-		return new Params(o.get("risk").getAsString(), o.get("balls").getAsInt());
+		long[] row = null;
+		if (o.has("row") && o.get("row").isJsonArray()) {
+			JsonArray r = o.getAsJsonArray("row");
+			row = new long[r.size()];
+			for (int i = 0; i < row.length; i++) {
+				row[i] = r.get(i).getAsLong();
+			}
+		}
+		Boolean boost = o.has("u") ? o.get("u").getAsBoolean() : null; // older records: the live config
+		return new Params(o.get("risk").getAsString(), o.get("balls").getAsInt(), row, boost);
 	}
 
 	/** {@code {"s":[seat order],"p":[[masks per ball] per participant],"r":[13 points],"u":true}}. */

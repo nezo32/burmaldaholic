@@ -14,6 +14,7 @@ import dev.nezo.burmaldaholic.core.pvp.logic.Step;
 import dev.nezo.burmaldaholic.games.extras.pvp.ModeRanking;
 import java.util.ArrayList;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -37,8 +38,25 @@ public final class ScratchShowdownMode implements PvpMode<ScratchShowdownMode.Pa
 	public static final int REVEAL_TICKS = 20;
 	public static final int EVENT_TICKS = 20;
 
-	/** No set-up besides the stake. */
-	public record Params() {}
+	/**
+	 * No set-up besides the stake; the symbol weights and values are snapshot from {@code pvp.scratch.*} when the
+	 * match is created ({@link #encodeParams}), so a config edit mid-match changes nothing. Null = the live config.
+	 */
+	public record Params(int @Nullable [] weights, int @Nullable [] values) {
+		public Params() {
+			this(null, null);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			return o instanceof Params p && Arrays.equals(weights, p.weights) && Arrays.equals(values, p.values);
+		}
+
+		@Override
+		public int hashCode() {
+			return Arrays.hashCode(weights) * 31 + Arrays.hashCode(values);
+		}
+	}
 
 	/**
 	 * Everything random, drawn at START.
@@ -119,13 +137,16 @@ public final class ScratchShowdownMode implements PvpMode<ScratchShowdownMode.Pa
 	@Override
 	public Tape draw(PvpRng rng, int players, Params params) {
 		PvpConfig.Scratch cfg = pvp.get().scratch;
-		int[] weights = ShowdownCard.weights(cfg.weights);
+		int symbols = ShowdownCard.Sym.values().length;
+		int[] weights = params.weights() != null && params.weights().length == symbols ? params.weights().clone() : ShowdownCard.weights(cfg.weights);
 		int[] seatOrder = rng.permutation(players);
 		int[][] cells = new int[players][];
 		for (int i = 0; i < players; i++) {
 			cells[i] = ShowdownCard.drawCard(rng, weights);
 		}
-		return new Tape(seatOrder, cells, ShowdownCard.values(cfg.values));
+		int[] values = params.values() != null && params.values().length == ShowdownCard.values(cfg.values).length ? params.values().clone()
+			: ShowdownCard.values(cfg.values);
+		return new Tape(seatOrder, cells, values);
 	}
 
 	public ShowdownCard.Evaluation[] evaluate(Tape tape, int revealed) {
@@ -257,14 +278,35 @@ public final class ScratchShowdownMode implements PvpMode<ScratchShowdownMode.Pa
 
 	// ---- persistence ----
 
+	/** {@code {"w":[weights],"v":[values]}}: snapshot of {@code pvp.scratch.weights / values} at creation. */
 	@Override
 	public JsonElement encodeParams(Params params) {
-		return new JsonObject();
+		PvpConfig.Scratch cfg = pvp.get().scratch;
+		JsonObject o = new JsonObject();
+		o.add("w", ints(params.weights() != null ? params.weights() : ShowdownCard.weights(cfg.weights)));
+		o.add("v", ints(params.values() != null ? params.values() : ShowdownCard.values(cfg.values)));
+		return o;
 	}
 
 	@Override
 	public Params decodeParams(JsonElement json) {
-		return new Params();
+		if (json == null || !json.isJsonObject()) {
+			return new Params();
+		}
+		JsonObject o = json.getAsJsonObject();
+		return new Params(intArray(o, "w"), intArray(o, "v")); // older records: null = the live config
+	}
+
+	private static int @Nullable [] intArray(JsonObject o, String key) {
+		if (!o.has(key) || !o.get(key).isJsonArray()) {
+			return null;
+		}
+		JsonArray a = o.getAsJsonArray(key);
+		int[] out = new int[a.size()];
+		for (int i = 0; i < out.length; i++) {
+			out[i] = a.get(i).getAsInt();
+		}
+		return out;
 	}
 
 	/** {@code {"s":[seat order],"c":["012345678" per participant],"v":[6 values]}}. */

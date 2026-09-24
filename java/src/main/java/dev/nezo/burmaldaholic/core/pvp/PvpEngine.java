@@ -404,6 +404,7 @@ final class PvpEngine implements PvpService {
 		if (bad != null) {
 			return fail(bad);
 		}
+		params = snapshot(md, params);
 		GlobalPos anchor = GlobalPos.of(challenger.level().dimension(), challenger.blockPosition());
 		long now = now(s);
 		BotRng rng = Bots.newRng();
@@ -590,6 +591,7 @@ final class PvpEngine implements PvpService {
 		if (bad != null) {
 			return fail(bad);
 		}
+		params = snapshot(md, params);
 		boolean machine = anchor != null && anchor.kind() != AnchorKind.NONE;
 		GlobalPos gp = machine ? GlobalPos.of(anchor.level().dimension(), anchor.pos().immutable())
 			: GlobalPos.of(host.level().dimension(), host.blockPosition());
@@ -2550,6 +2552,16 @@ final class PvpEngine implements PvpService {
 			id = b.toString();
 		} while (matches.containsKey(id));
 		return id;
+	}
+
+	/** Params with the mode's config snapshot (see {@link ModeCalls#normalize}); the input when the mode can't. */
+	private static JsonElement snapshot(PvpMode<?, ?> md, JsonElement params) {
+		try {
+			return ModeCalls.normalize(md, params);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("PvP: mode {} could not normalize its params; kept as sent", md.id(), e);
+			return params;
+		}
 	}
 
 	private static <T> Result<T> fail(String key) {

@@ -97,4 +97,21 @@ public final class BotEconomyMath {
 		}
 		return 0;
 	}
+
+	/** Adaptive heat (BOTS.md §5.4): at least this many poker hands vs house bots … */
+	public static final int ADAPTIVE_MIN_HANDS = 200;
+	/** … and more than this many big blinds per 100 hands. */
+	public static final int ADAPTIVE_BB_PER_100 = 20;
+	/** Rolling window: above this many hands both totals are halved. */
+	public static final int ADAPTIVE_WINDOW = 1000;
+
+	/** A winning player for adaptive heat: &gt; +20 BB/100 over ≥ 200 hands. */
+	public static boolean adaptiveHot(long hands, double bbNet) {
+		return hands >= ADAPTIVE_MIN_HANDS && bbNet * 100 / hands > ADAPTIVE_BB_PER_100;
+	}
+
+	/** One level up (EASY → NORMAL → HARD). */
+	public static BotDifficulty levelUp(BotDifficulty level) {
+		return level == BotDifficulty.EASY ? BotDifficulty.NORMAL : level == BotDifficulty.NORMAL ? BotDifficulty.HARD : level;
+	}
 }

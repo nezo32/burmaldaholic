@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.core.bots;
 
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotEconomyMath;
 import dev.nezo.burmaldaholic.core.bots.logic.BotProfile;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRng;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRole;
@@ -555,7 +556,8 @@ public final class TableBots {
 				p.sendSystemMessage(Component.translatable("msg.burmaldaholic.bots.seat_ready"));
 			}
 		}
-		List<SeatedBot> joined = join(level, plan, purse, buyIn);
+		boolean adaptive = houseMoney && "poker".equals(table.botGameId()) && !hardOnly && humans.stream().anyMatch(h -> BotLedger.adaptive(srv, h));
+		List<SeatedBot> joined = join(level, plan, purse, buyIn, adaptive);
 		bankrollShort = purse != null && purse.kind() == Purse.Kind.BANKROLL && (plan.limit() == SeatPlan.Limit.PURSE || joined.size() < plan.join());
 		if (plan.limit() == SeatPlan.Limit.WORLD && bots.isEmpty()) {
 			announceOnce(level, humans, "none_available", Component.translatable("msg.burmaldaholic.bots.none_available"), null, null);
@@ -787,7 +789,7 @@ public final class TableBots {
 		};
 	}
 
-	private List<SeatedBot> join(ServerLevel level, SeatPlan.Plan plan, @Nullable Purse purse, long buyIn) {
+	private List<SeatedBot> join(ServerLevel level, SeatPlan.Plan plan, @Nullable Purse purse, long buyIn, boolean adaptive) {
 		List<SeatedBot> joined = new ArrayList<>();
 		if (plan.join() <= 0 || purse == null) {
 			return joined;
@@ -802,6 +804,10 @@ public final class TableBots {
 				used.add(b.profile.nameId());
 			}
 			BotProfile profile = BotRoster.create(rng(), setting, table.botDifficultyMix(), table.botNameTheme(), used, CasinoConfig.bots().personalities);
+			if (adaptive && purse.kind() == Purse.Kind.BANK) {
+				// adaptive heat (BOTS.md §5.4): a winning player's house bots are drawn one level up
+				profile = new BotProfile(profile.id(), profile.nameId(), BotEconomyMath.levelUp(profile.level()), profile.personality());
+			}
 			if (stack > 0) {
 				if (purse.kind() == Purse.Kind.BANK) {
 					if (BotLedger.buyInsLeft(srv, key()) <= 0) {

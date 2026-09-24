@@ -60,16 +60,13 @@ final class MatchJson {
 		o.addProperty("createdTick", m.createdTick);
 		o.addProperty("chainOf", m.chainOf);
 		o.addProperty("link", m.link);
+		// participants packed as positional tuples under "p" (same form as Bedrock's packRecord): a 6-player,
+		// 10-spin Slot Showdown record stays < 2 000 chars (pvp-bots.md §5.1); the full form still loads
 		JsonArray ps = new JsonArray();
 		for (Participant p : m.participants) {
-			JsonObject po = new JsonObject();
-			po.addProperty("index", p.index);
-			po.add("occupant", occupant(p.occupant));
-			po.addProperty("stake", p.stake());
-			po.addProperty("allIn", p.allIn());
-			ps.add(po);
+			ps.add(pack(p));
 		}
-		o.add("participants", ps);
+		o.add("p", ps);
 		o.add("tape", m.tape == null ? JsonNull.INSTANCE : m.tape);
 		o.addProperty("drawnTick", m.drawnTick);
 		JsonArray pay = new JsonArray();
@@ -83,6 +80,61 @@ final class MatchJson {
 		o.addProperty("lobbyEnd", m.lobbyEnd);
 		o.addProperty("settledTick", m.settledTick);
 		return o.toString();
+	}
+
+	/** Flags of a packed participant: 1 = all-in (Bedrock also uses 2/4 pressed, 8 rematch; not persisted in Java). */
+	private static final int ALL_IN = 1;
+
+	/**
+	 * {@code ["h", id, name, stake, flags]} for a human, {@code ["b", profileId, nameId, level, personality, role,
+	 * purseKind, purseId, stake, flags]} for a bot.
+	 */
+	static JsonArray pack(Participant p) {
+		JsonArray t = new JsonArray();
+		switch (p.occupant) {
+			case SeatOccupant.Human h -> {
+				t.add("h");
+				t.add(h.id().toString());
+				t.add(h.name());
+			}
+			case SeatOccupant.Bot b -> {
+				t.add("b");
+				t.add(b.profile().id());
+				t.add(b.profile().nameId());
+				t.add(b.profile().level().name());
+				t.add(b.profile().personality().name());
+				t.add(b.role().name());
+				t.add(b.purse().kind().name());
+				t.add(b.purse().kind() == Purse.Kind.BANKROLL ? b.purse().bankrollId() : "");
+			}
+		}
+		t.add(p.stake());
+		t.add(p.allIn() ? ALL_IN : 0);
+		return t;
+	}
+
+	static Participant unpack(JsonArray t, int index) {
+		String kind = t.get(0).getAsString();
+		SeatOccupant occ;
+		int at;
+		if ("h".equals(kind)) {
+			occ = new SeatOccupant.Human(UUID.fromString(t.get(1).getAsString()), t.get(2).getAsString());
+			at = 3;
+		} else if ("b".equals(kind)) {
+			BotDifficulty level = BotDifficulty.byId(t.get(3).getAsString(), BotDifficulty.NORMAL);
+			if (level == BotDifficulty.MIXED) {
+				level = BotDifficulty.NORMAL;
+			}
+			BotProfile profile = new BotProfile(t.get(1).getAsString(), t.get(2).getAsString(), level, Personality.byId(t.get(4).getAsString()));
+			Purse purse = "BANKROLL".equals(t.get(6).getAsString()) ? Purse.bankroll(t.get(7).getAsString()) : Purse.BANK;
+			occ = new SeatOccupant.Bot(profile, BotRole.MONEY, purse);
+			at = 8;
+		} else {
+			throw new IllegalArgumentException("participant kind " + kind);
+		}
+		Participant p = new Participant(index, occ, t.get(at).getAsLong());
+		p.setAllIn(t.size() > at + 1 && (t.get(at + 1).getAsInt() & ALL_IN) != 0);
+		return p;
 	}
 
 	static JsonObject occupant(SeatOccupant occ) {
@@ -153,11 +205,18 @@ final class MatchJson {
 			o.has("link") ? o.get("link").getAsInt() : 0, state);
 		String host = str(o, "host", "");
 		m.host = host.isEmpty() ? null : UUID.fromString(host);
-		for (JsonElement e : o.getAsJsonArray("participants")) {
-			JsonObject po = e.getAsJsonObject();
-			Participant p = new Participant(po.get("index").getAsInt(), occupant(po.getAsJsonObject("occupant")), po.get("stake").getAsLong());
-			p.setAllIn(po.has("allIn") && po.get("allIn").getAsBoolean());
-			m.participants.add(p);
+		if (o.has("p") && o.get("p").isJsonArray()) {
+			JsonArray packed = o.getAsJsonArray("p");
+			for (int i = 0; i < packed.size(); i++) {
+				m.participants.add(unpack(packed.get(i).getAsJsonArray(), i));
+			}
+		} else {
+			for (JsonElement e : o.getAsJsonArray("participants")) {
+				JsonObject po = e.getAsJsonObject();
+				Participant p = new Participant(po.get("index").getAsInt(), occupant(po.getAsJsonObject("occupant")), po.get("stake").getAsLong());
+				p.setAllIn(po.has("allIn") && po.get("allIn").getAsBoolean());
+				m.participants.add(p);
+			}
 		}
 		JsonElement tape = o.get("tape");
 		m.tape = tape == null || tape.isJsonNull() ? null : tape;

@@ -29,6 +29,20 @@ public final class ModeCalls {
 	}
 
 	/** Draws the whole tape with the FAIR rng and returns its JSON form. */
+	/**
+	 * The params as the mode stores them: {@code encodeParams(decodeParams(params))}. Modes snapshot the live
+	 * config they depend on in {@code encodeParams} (Plinko points row + underdog boost, Scratch weights +
+	 * values, Slot Showdown paytable), so a config edit after the match was created changes nothing
+	 * (review wave 2 follow-up). The engine calls it once, at creation.
+	 */
+	public static JsonElement normalize(PvpMode<?, ?> mode, JsonElement params) {
+		return normalizeT(mode, params);
+	}
+
+	private static <P, T> JsonElement normalizeT(PvpMode<P, T> mode, JsonElement params) {
+		return mode.encodeParams(mode.decodeParams(params));
+	}
+
 	public static JsonElement draw(PvpMode<?, ?> mode, PvpRng rng, int players, JsonElement params) {
 		return drawT(mode, rng, players, params);
 	}
