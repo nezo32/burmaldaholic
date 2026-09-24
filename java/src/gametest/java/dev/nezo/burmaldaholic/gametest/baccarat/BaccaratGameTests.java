@@ -55,6 +55,9 @@ public class BaccaratGameTests {
 		try {
 			for (ServerPlayer p : List.of(a, b, c)) {
 				Economies.get().setBalance(server, p.getUUID(), 1000, TEST);
+				// next to the table: the leave-distance check must not unseat them wherever the test is placed
+				net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 1, 1.5));
+				p.setPos(at.x, at.y, at.z);
 			}
 			body.run(a, b, c);
 		} finally {
