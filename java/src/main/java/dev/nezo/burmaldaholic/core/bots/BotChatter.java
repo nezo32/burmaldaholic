@@ -35,7 +35,7 @@ public final class BotChatter {
 	/** Delivers a due line. */
 	@FunctionalInterface
 	public interface Sink {
-		void deliver(ServerLevel level, @Nullable BlockPos pos, Collection<UUID> seated, BotProfile bot, Component line);
+		void deliver(ServerLevel level, @Nullable BlockPos pos, Collection<UUID> seated, BotProfile bot, String event, Component line);
 	}
 
 	private static final class Table {
@@ -54,7 +54,10 @@ public final class BotChatter {
 
 	static void register() {
 		ServerTickEvents.END_SERVER_TICK.register(BotChatter::tick);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> TABLES.clear());
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			TABLES.clear();
+			eventRng = null;
+		});
 	}
 
 	/** Bots module: per-player mute (Casino Menu → Settings → Bot chatter). */
@@ -100,7 +103,7 @@ public final class BotChatter {
 		t.pos = pos;
 		t.seated = seated;
 		ChatterQueue.Config cfg = new ChatterQueue.Config(c.enabled && tableChatter, c.chance, c.botCooldownTicks, c.tableCooldownTicks, c.maxPerMinute);
-		ChatterQueue.Line line = t.queue.offer(bot.key(), bot.level(), event, human, level.getGameTime(), cfg, rng);
+		ChatterQueue.Line line = t.queue.offer(bot.key(), bot.level(), event, human == null ? "" : human, level.getGameTime(), cfg, rng);
 		if (line != null) {
 			t.speakers.put(bot.key(), bot);
 		}
@@ -118,13 +121,36 @@ public final class BotChatter {
 				BotProfile bot = t.speakers.get(l.botKey());
 				if (bot != null) {
 					Component line = Component.translatable("msg.burmaldaholic.bots.say", BotNames.display(bot), Component.translatable(l.key(), l.human()));
-					sink.deliver(t.level, t.pos, t.seated.get(), bot, line);
+					try {
+						sink.deliver(t.level, t.pos, t.seated.get(), bot, l.event(), line);
+					} catch (RuntimeException e) {
+						dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.warn("Bot chatter failed for {}", l.event(), e);
+					}
 				}
 			}
 		}
 	}
 
-	private static void defaultDeliver(ServerLevel level, @Nullable BlockPos pos, Collection<UUID> seated, BotProfile bot, Component line) {
+	/**
+	 * A chatter event not tied to a {@link TableBots} (PvP bot participants, heat notices): queued per
+	 * position with the server switch only (the bots module's sink applies the table toggle when a table
+	 * stands there). Never throws.
+	 */
+	public static void event(ServerLevel level, BlockPos pos, BotProfile bot, String event, @Nullable String human) {
+		try {
+			String key = "at:" + level.dimension().identifier() + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+			if (eventRng == null) {
+				eventRng = Bots.newRng();
+			}
+			say(level, pos, key, List::of, bot, event, human, true, eventRng);
+		} catch (RuntimeException e) {
+			dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.warn("Bot chatter failed for {}", event, e);
+		}
+	}
+
+	private static @Nullable BotRng eventRng;
+
+	private static void defaultDeliver(ServerLevel level, @Nullable BlockPos pos, Collection<UUID> seated, BotProfile bot, String event, Component line) {
 		for (ServerPlayer p : audience(level, pos, seated)) {
 			p.sendSystemMessage(line);
 		}

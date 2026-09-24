@@ -99,4 +99,13 @@ public interface BotTable {
 	default int handsSinceBigBlind(String botKey) {
 		return Integer.MAX_VALUE;
 	}
+
+	/**
+	 * The table's {@link TableBots} (the object the block entity owns). Used by the bots module (table
+	 * settings screen, {@code /casino table}, avatars, chatter). Games implementing this interface should
+	 * return their instance; null = the table offers no bot / private-table settings.
+	 */
+	default @org.jspecify.annotations.Nullable TableBots tableBots() {
+		return null;
+	}
 }
