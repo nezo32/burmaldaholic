@@ -417,7 +417,9 @@ MUST/NICE.
 
 #### 4.1.1 Java HUD
 
-Layout (panel `panel/hud.png`, padding 4, line 10 px, width = widest line + 8; RU ≤ 200 px):
+Layout (panel `panel/hud.png`, padding 4, line 10 px, width = widest line + 8; RU ≤ 200 px). ⚠ CHANGED: the balance
+row is the chip counter pill `core/hud/chip_counter` (`_golden` in Golden Hour) with the animated `core/hud/chip_icon`,
+and the floating delta sits in `core/hud/delta_up` / `delta_down` (docs/design/visual/extras.md §9):
 
 ```
 ┌───────────────────────────────┐
@@ -516,7 +518,10 @@ Settings: the `anim.hudPanel` toggle (default on) lets a player fall back to the
 
 ### 4.2 Casino Menu (Java screen / Bedrock hub)
 
-**Java (MUST).** Re-skin to `panel/casino.png`, tabs `panel/tab*.png`, `CasinoButton`s.
+**Java (MUST).** ⚠ CHANGED: the menu is the "casino ledger" shell of `docs/design/visual/extras.md` §8: lobby
+backdrop, `core/menu/shell` (leather + gold) nine-slice, bookmark tabs `core/menu/tab*` (32 × 24; icon-only, the
+selected one shows its name), ruled `core/menu/page`, ledger rows, `CasinoButton`s; the Loan tab switches to the dark
+`*_loan` set with the Loan Shark portrait. (`panel/casino.png` and `panel/tab*.png` stay for the other overlays.)
 - Open: panel scales 0.96 → 1.0 and fades in, 160 ms `outCubic`; close: 100 ms fade.
 - Tab switch: content cross-fades (old out 80 ms, new in 120 ms, 6 px slide in the tab's
   direction); underline slides between tabs 150 ms `inOutQuad`.
@@ -728,7 +733,8 @@ Spectators: see the smoke columns and hear the knock (positional, 16 blocks).
 frame, 24×24 icon well) for: contract complete, cashback paid, VIP tier-up (small), big win nearby,
 jackpot on the server, Golden Hour "ending in". Icon: an item or a 16×16 GUI sprite. Motion:
 vanilla toast slide (the `ToastManager` animates). Sound `toast` (once, not the vanilla toast sound).
-Max visible: vanilla's 5 slots; casino toasts queue.
+Max visible: vanilla's 5 slots; casino toasts queue. ⚠ NEW backgrounds (docs/design/visual/extras.md §9):
+`toast/achievement`, `toast/pvp` (the `ChallengeToast`), `toast/loan`.
 
 **Bedrock (MUST).** Achievement unlock: JSON UI toast via a 2nd sentinel `§b§m§t` on the **subtitle**
 (A2): 160×32 panel `textures/burmaldaholic/ui/toast.png` slides in from the top-right (`offset`
