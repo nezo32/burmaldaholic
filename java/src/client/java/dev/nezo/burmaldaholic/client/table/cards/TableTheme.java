@@ -2,15 +2,15 @@ package dev.nezo.burmaldaholic.client.table.cards;
 
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
-import net.minecraft.client.Minecraft;
+import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Casino location themes of the card tables (docs/design/visual/cards.md §7): the room, felt, rail, props, buttons,
  * console, card backs and celebration accent follow the table's dimension (overworld → village parlour, the Nether →
- * Piglin bastion parlour, the End → High Roller lounge). {@link #force} overrides it (tests; a future
+ * Piglin bastion parlour, the End → High Roller lounge). Resolution is the shared kit's ({@link CasinoTheme#resolve}:
+ * forced / config, then the table state's {@code theme}, then the dimension); {@link #force} overrides it (tests, the
  * {@code cards.theme} config).
  */
 public enum TableTheme {
@@ -48,20 +48,34 @@ public enum TableTheme {
 		this.botB = botB;
 	}
 
-	/** Forces a theme for every card table (null = by location). */
+	/** Forces a theme for every card table (null = by location); also forces the shared {@link CasinoTheme}. */
 	public static void force(@Nullable TableTheme theme) {
 		forced = theme;
+		CasinoTheme.force(theme == null ? null : theme.casino());
 	}
 
-	/** The theme of the current level (or the forced one). */
+	/** The theme of the current level (or the forced one): the shared kit's resolution ({@link CasinoTheme#current}). */
 	public static TableTheme current() {
 		if (forced != null) return forced;
-		Minecraft mc = Minecraft.getInstance();
-		if (mc == null || mc.level == null) return VILLAGE;
-		var dim = mc.level.dimension();
-		if (dim == Level.NETHER) return BASTION;
-		if (dim == Level.END) return END;
-		return VILLAGE;
+		return of(CasinoTheme.current());
+	}
+
+	/** The card-table theme of a shared kit theme (lobby / loan scenes → village). */
+	public static TableTheme of(CasinoTheme theme) {
+		return switch (theme) {
+			case BASTION -> BASTION;
+			case END -> END;
+			default -> VILLAGE;
+		};
+	}
+
+	/** The shared kit theme of this card-table theme. */
+	public CasinoTheme casino() {
+		return switch (this) {
+			case VILLAGE -> CasinoTheme.VILLAGE;
+			case BASTION -> CasinoTheme.BASTION;
+			case END -> CasinoTheme.END;
+		};
 	}
 
 	/** Print colour at the felt's 55 % alpha. */

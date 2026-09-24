@@ -116,7 +116,7 @@ public final class CardButton extends AbstractButton {
 		Component label = getMessage();
 		int iw = icon != null ? 14 : 0;
 		int avail = w - 8 - iw;
-		int tw = Math.min(font.width(label), avail);
+		int tw = CardGfx.fittedWidth(font, label, avail);
 		int tx = x + (w - tw - iw) / 2;
 		if (icon != null) {
 			CardGfx.sprite(g, icon, tx, y + 4, 12, 12, active ? 0xFFFFFFFF : 0xFF7A6A8A);

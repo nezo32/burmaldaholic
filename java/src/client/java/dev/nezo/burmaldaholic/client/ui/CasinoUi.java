@@ -187,6 +187,12 @@ public final class CasinoUi {
 		g.text(font, text, right - font.width(text), y, color, true);
 	}
 
+	/** Queues {@code message} on the vanilla narrator when it is active (no-op otherwise). */
+	public static void say(Component message) {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc != null && mc.getNarrator().isActive()) mc.getNarrator().saySystemQueued(message);
+	}
+
 	/** Linear ARGB mix ({@code t} 0 → a, 1 → b). */
 	public static int mix(int a, int b, float t) {
 		float k = Math.max(0, Math.min(1, t));

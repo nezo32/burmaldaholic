@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.client.table.cards;
 
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
+import dev.nezo.burmaldaholic.client.ui.CasinoUi;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
@@ -103,19 +104,34 @@ public final class CardGfx {
 		text(g, font, text, cx - font.width(text) / 2, y, argb, shadow);
 	}
 
-	/** Text fitted into {@code maxW}: scaled down (never below ½) when too wide, left-aligned at (x, y). */
+	/**
+	 * Text fitted into {@code maxW}: scaled down (never below ½) when too wide, and cut with an ellipsis when even ½ does
+	 * not fit (it never draws past {@code maxW}), left-aligned at (x, y).
+	 */
 	public static void fitted(GuiGraphicsExtractor g, Font font, Component text, int x, int y, int maxW, int argb, boolean shadow) {
 		int w = font.width(text);
-		if (w <= maxW || maxW <= 0) {
+		if (w <= maxW) {
 			text(g, font, text, x, y, argb, shadow);
 			return;
 		}
+		if (maxW <= 0) return;
 		float s = Math.max(0.5f, maxW / (float) w);
+		FormattedCharSequence seq = s * w <= maxW + 0.01f ? text.getVisualOrderText() : CasinoUi.fit(font, text, (int) Math.floor(maxW / s));
 		g.pose().pushMatrix();
 		g.pose().translate(x, y + (font.lineHeight * (1 - s)) / 2f);
 		g.pose().scale(s, s);
-		text(g, font, text, 0, 0, argb, shadow);
+		text(g, font, seq, 0, 0, argb, shadow);
 		g.pose().popMatrix();
+	}
+
+	/** Width {@link #fitted} draws {@code text} at within {@code maxW} (GUI px, rounded up). */
+	public static int fittedWidth(Font font, Component text, int maxW) {
+		int w = font.width(text);
+		if (w <= maxW) return w;
+		if (maxW <= 0) return 0;
+		float s = Math.max(0.5f, maxW / (float) w);
+		if (s * w <= maxW + 0.01f) return (int) Math.ceil(s * w);
+		return (int) Math.ceil(font.width(CasinoUi.fit(font, text, (int) Math.floor(maxW / s))) * s);
 	}
 
 	/** Pushes a transform that draws a {@code w × h} box at (x, y) rotated by {@code deg} about its centre and scaled. */

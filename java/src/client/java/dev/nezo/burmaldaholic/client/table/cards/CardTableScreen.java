@@ -71,7 +71,12 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		return compact;
 	}
 
-	public TableTheme theme() {
+	/**
+	 * The card-table theme, resolved in {@link #init} from the kit's {@link #theme()} (forced / {@code cards.theme}, the
+	 * table state's {@code theme}, then the dimension). Named {@code tableTheme} because {@code theme()} is the shared
+	 * {@code CasinoTableScreen} hook (it returns the kit's {@code CasinoTheme}).
+	 */
+	public TableTheme tableTheme() {
 		return theme;
 	}
 
@@ -87,7 +92,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	@Override
 	protected void init() {
 		super.init();
-		theme = TableTheme.current();
+		theme = TableTheme.of(theme());
 		int kk = CardLayout.scale(width, height);
 		compact = kk == 0;
 		k = Math.max(1, kk);
@@ -97,6 +102,12 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		leftPos = 0;
 		topPos = 0;
 		rebuildConsole();
+	}
+
+	/** The entrance scales / veils the drawn canvas (GUI coordinates), not the unscaled 427 × 240 image at (0, 0). */
+	@Override
+	protected dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
+		return new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(ox, oy, Math.round(canvasW() * fk), Math.round(canvasH() * fk));
 	}
 
 	/** Re-creates the console buttons ({@link #buildConsole}). */

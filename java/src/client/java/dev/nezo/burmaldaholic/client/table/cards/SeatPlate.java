@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.client.table.cards;
 
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
+import dev.nezo.burmaldaholic.client.ui.CasinoUi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -36,10 +37,14 @@ public final class SeatPlate {
 	public record Info(Component name, @Nullable String playerName, @Nullable String bot, int level, Component sub, int subColor, State state,
 			boolean thinking) {}
 
+	/** Widest name / sub-line on a plate (longer ones are cut with an ellipsis; the full name is in the tooltip). */
+	public static final int MAX_TEXT_W = 84;
+
 	private SeatPlate() {}
 
 	public static int width(Font font, Info info) {
-		return Math.max(font.width(info.name()) + (info.level() > 0 ? 13 : 0), Math.max(font.width(info.sub()), 14)) + 30;
+		int name = Math.min(MAX_TEXT_W - (info.level() > 0 ? 13 : 0), font.width(info.name())) + (info.level() > 0 ? 13 : 0);
+		return Math.max(name, Math.max(Math.min(MAX_TEXT_W, font.width(info.sub())), 14)) + 30;
 	}
 
 	/** Draws the plate at (x, y); returns its width. */
@@ -64,11 +69,11 @@ public final class SeatPlate {
 			tx += 13;
 		}
 		int nameColor = dim ? 0xFF8A7A9A : CasinoPalette.BONE;
-		CardGfx.text(g, font, info.name(), tx, y + 4, CardGfx.alpha(nameColor, alpha), true);
+		CardGfx.text(g, font, CasinoUi.fit(font, info.name(), MAX_TEXT_W - (info.level() > 0 ? 13 : 0)), tx, y + 4, CardGfx.alpha(nameColor, alpha), true);
 		if (info.thinking()) {
 			CardGfx.sprite(g, FxSprites.sprite("cards/bot/thinking"), x + 24, y + 14, 13, 5, a); // animated strip (.mcmeta)
 		} else {
-			CardGfx.text(g, font, info.sub(), x + 24, y + 13, CardGfx.alpha(dim ? 0xFF8A7A9A : info.subColor(), alpha), true);
+			CardGfx.text(g, font, CasinoUi.fit(font, info.sub(), MAX_TEXT_W), x + 24, y + 13, CardGfx.alpha(dim ? 0xFF8A7A9A : info.subColor(), alpha), true);
 		}
 		return w;
 	}
