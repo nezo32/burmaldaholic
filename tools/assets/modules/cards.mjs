@@ -97,7 +97,7 @@ export default function generate() {
   sprite('seat/avatar_frame_gold', avatarFrame(true));
   for (const b of BOT_AVATARS) sprite(`bot/${b}`, botAvatar(b));
   for (const l of BADGE_LEVELS) sprite(`bot/badge_${l}`, botBadge(l));
-  sprite('bot/thinking', vstrip([0, 1, 2].map(thinking)), { frametime: 10 });
+  sprite('bot/thinking', vstrip([0, 1, 2].map(thinking)), { frametime: 10, frame: [13, 5] });
   for (const k of ['happy', 'grumpy']) sprite(`bot/emote_${k}`, emote(k));
 
   // ---- panels, stamps, tags, badges ----
@@ -115,8 +115,8 @@ export default function generate() {
   sprite('badge/total_gold', totalBadge(true), nine(14, 11, 3));
 
   // ---- card fx ----
-  sprite('fx/glow_l', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'l'))), { frametime: 3 });
-  sprite('fx/glow_m', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'm'))), { frametime: 3 });
+  sprite('fx/glow_l', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'l'))), { frametime: 3, frame: [43, 55] });
+  sprite('fx/glow_m', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'm'))), { frametime: 3, frame: [27, 35] });
   sprite('fx/shimmer', shimmer());
   sprite('fx/curl_l', curl(37, 6));
   sprite('fx/curl_m', curl(21, 4));

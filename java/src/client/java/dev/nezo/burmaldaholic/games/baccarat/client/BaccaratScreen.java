@@ -172,11 +172,6 @@ public class BaccaratScreen extends CardTableScreen {
 		List<CardButton> row = new ArrayList<>();
 		int minX = chipRackShown() ? 8 + CHIPS.length * 25 + 6 : compact ? 4 : 250;
 		String phase = phase();
-		row.add(button(Component.translatable(showRules ? "gui.burmaldaholic.common.back" : "gui.burmaldaholic.common.rules"), "paytable",
-			CardButton.Family.TABLE, true, () -> {
-				showRules = !showRules;
-				rebuildConsole();
-			}));
 		if (!seated()) {
 			row.add(button(Component.translatable("gui.burmaldaholic.baccarat.sit"), "play", CardButton.Family.PRIMARY, true, () -> sendAction("sit")));
 		} else if (chemmy() && !houseCoup()) {
@@ -230,8 +225,12 @@ public class BaccaratScreen extends CardTableScreen {
 		} else {
 			row.add(button(Component.translatable("gui.burmaldaholic.common.leave"), "leave", CardButton.Family.TABLE, !revealing(), () -> sendAction("leave")));
 		}
-		if (compact) row.removeFirst(); // no room for the rules toggle
 		layoutButtons(row, minX);
+		if (seated()) cornerButton("leave", Component.translatable("gui.burmaldaholic.common.leave"), !revealing(), () -> sendAction("leave"));
+		cornerButton("paytable", Component.translatable(showRules ? "gui.burmaldaholic.common.back" : "gui.burmaldaholic.common.rules"), true, () -> {
+			showRules = !showRules;
+			rebuildConsole();
+		});
 	}
 
 	private void takeBank(long amount) {
@@ -570,7 +569,6 @@ public class BaccaratScreen extends CardTableScreen {
 			int h = ty(Baccarat.PANEL_Y + Baccarat.PANEL_H) - y0;
 			boolean win = winner == side || winner == 2;
 			int color = winner == 2 ? GREEN : side == 0 ? BLUE : RED;
-			if (win) CardGfx.sprite(g, FxSprites.sprite("cards/fx/spot_glow"), x0 - 4, y0 - 4, w + 8, h + 8, CardGfx.white(0.55));
 			CardGfx.sprite(g, FxSprites.sprite("cards/print/box"), x0, y0, w, h, CardGfx.alpha(color, win ? 0.95 : 0.55));
 			if (!compact) {
 				CardGfx.sprite(g, FxSprites.sprite(side == 0 ? "cards/print/emblem_player" : "cards/print/emblem_banker"), x0 + 5, y0 + 4, 11, 11,
@@ -844,7 +842,7 @@ public class BaccaratScreen extends CardTableScreen {
 			} else if (bot && (st.getBooleanOr("watching", false) || stake <= 0)) {
 				sub = Component.translatable("gui.burmaldaholic.bots.watching");
 			} else {
-				sub = stake > 0 ? Texts.number(stake) : Component.translatable("gui.burmaldaholic.baccarat.no_bets");
+				sub = stake > 0 ? Texts.number(stake) : Component.empty();
 			}
 			boolean won = resultShown() && me && hasMyResult() && myNet() > 0;
 			SeatPlate.State state = won ? SeatPlate.State.WINNER : me ? SeatPlate.State.ME
@@ -853,7 +851,7 @@ public class BaccaratScreen extends CardTableScreen {
 			int[] p = Baccarat.PLATES[i];
 			SeatPlate.Info info = new SeatPlate.Info(name, st.getStringOr("name", ""), avatar, bot ? Math.max(1, st.getIntOr("bot_level", 2)) : 0, sub,
 				CasinoPalette.GOLD, state, false);
-			int x = tx(p[0]);
+			int x = Math.max(2, Math.min(tx(p[0]), canvasW() - SeatPlate.width(font, info) - 2));
 			int y = ty(p[1]);
 			SeatPlate.draw(g, font, info, x, y, 1, 0);
 			if (st.getBooleanOr("ready", false) && betting() && !bot) {

@@ -27,7 +27,12 @@ public class CardButton extends CasinoButton {
 	private @Nullable Component hint;
 
 	public CardButton(int x, int y, int w, Component label, @Nullable String icon, Family family, TableTheme theme, Consumer<CardButton> onPress) {
-		super(x, y, w, 20, label, style(family), b -> onPress.accept((CardButton) b));
+		this(x, y, w, 20, label, icon, family, theme, onPress);
+	}
+
+	public CardButton(int x, int y, int w, int h, Component label, @Nullable String icon, Family family, TableTheme theme,
+			Consumer<CardButton> onPress) {
+		super(x, y, w, h, label, style(family), b -> onPress.accept((CardButton) b));
 		this.cardFamily = family;
 		this.theme = theme;
 		if (icon != null) icon(Icon.sprite(FxSprites.sprite("cards/icon/" + icon), 12, 12));

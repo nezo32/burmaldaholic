@@ -61,8 +61,10 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 			language(context, "en_us");
 			blackjack(context, world, "en_us_end", TableTheme.END);
 			baccarat(context, world, "en_us_bastion", TableTheme.BASTION);
+			context.runOnClient(mc -> dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = true);
 			guiScale(context, 3);
 			blackjack(context, world, "en_us_compact", null);
+			context.runOnClient(mc -> dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = false);
 			context.runOnClient(mc -> FxSettings.get().reduceMotion = true);
 			guiScale(context, 2);
 			baccarat(context, world, "en_us_reduced", null);
@@ -70,6 +72,7 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 			context.runOnClient(mc -> {
 				FxSettings.get().reduceMotion = false;
 				TableTheme.force(null);
+				dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = false;
 			});
 			guiScale(context, 0);
 			language(context, "en_us");
@@ -96,12 +99,25 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 			ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
 			BlackjackTableBlockEntity t = table[0];
 			if (t == null) return;
-			// seat 0 = the viewer (centre), seats 1..4 bots; deal: s0 s1 s2 s3 s4 up, s0 s1 s2 s3 s4 hole, then draws
-			t.stackCardsForTests(List.of(Card.of(8, Card.SPADES), Card.of(10, Card.CLUBS), Card.of(1, Card.HEARTS), Card.of(5, Card.SPADES),
-				Card.of(12, Card.CLUBS), Card.of(13, Card.SPADES), Card.of(8, Card.HEARTS), Card.of(8, Card.DIAMONDS), Card.of(13, Card.DIAMONDS),
-				Card.of(6, Card.HEARTS), Card.of(4, Card.SPADES), Card.of(9, Card.SPADES), Card.of(12, Card.HEARTS), Card.of(3, Card.CLUBS),
-				Card.of(9, Card.HEARTS), Card.of(10, Card.CLUBS), Card.of(9, Card.DIAMONDS), Card.of(2, Card.CLUBS), Card.of(2, Card.HEARTS),
-				Card.of(3, Card.DIAMONDS), Card.of(4, Card.HEARTS)));
+			// the deal goes seat by seat (the viewer and the seated bots), dealer up, second cards, hole: build the deck for
+			// the seats actually taken. Viewer 8 8 (split: Q → 18, 3 → 11, doubled with a 9 → 20), bots: a blackjack, then
+			// 16s that hit into a bust; dealer K up, 6 hole, draws 2 → 18.
+			int me = t.seats().seatOf(player.getUUID()).orElse(0);
+			List<Integer> seats = new ArrayList<>();
+			seats.add(me);
+			for (var b : t.bots().bots()) seats.add(b.seat());
+			seats.sort(Integer::compare);
+			Card[][] hands = {{Card.of(1, Card.HEARTS), Card.of(13, Card.DIAMONDS)}, {Card.of(10, Card.CLUBS), Card.of(6, Card.SPADES)},
+				{Card.of(9, Card.CLUBS), Card.of(7, Card.DIAMONDS)}, {Card.of(5, Card.SPADES), Card.of(6, Card.HEARTS)}};
+			List<Card> deck = new ArrayList<>();
+			for (int pass = 0; pass < 2; pass++) {
+				int botN = 0;
+				for (int seat : seats) deck.add(seat == me ? Card.of(8, pass == 0 ? Card.SPADES : Card.DIAMONDS) : hands[botN++ % 4][pass]);
+				deck.add(pass == 0 ? Card.of(13, Card.SPADES) : Card.of(6, Card.HEARTS));
+			}
+			deck.addAll(List.of(Card.of(12, Card.HEARTS), Card.of(3, Card.CLUBS), Card.of(9, Card.HEARTS), Card.of(10, Card.HEARTS),
+				Card.of(9, Card.DIAMONDS), Card.of(10, Card.SPADES), Card.of(2, Card.CLUBS), Card.of(2, Card.HEARTS), Card.of(3, Card.DIAMONDS)));
+			t.stackCardsForTests(deck);
 			CompoundTag bet = new CompoundTag();
 			bet.putLong("amount", 50);
 			t.onAction(player, "bet", bet);
@@ -170,15 +186,15 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 			ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
 			BaccaratTableBlockEntity t = table[0];
 			if (t == null) return;
-			// P1 B1 P2 B2 P3: Player 4 + 2 draws a 3 → 9, Banker K + 7 stands on 7
+			// P1 B1 P2 B2 P3: Player 4 + A = 5 draws a sideways 4 → 9, Banker K + 7 stands on 7
 			t.stackCardsForTests(List.of(dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(4, 3), dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(13, 2),
-				dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(2, 2), dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(7, 0),
-				dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(3, 1)));
+				dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(1, 2), dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(7, 0),
+				dev.nezo.burmaldaholic.games.baccarat.logic.Card.of(4, 1)));
 			t.onAction(player, "ready", new CompoundTag());
 			for (int i = 0; i < 4 && !"reveal".equals(t.phase()); i++) t.fastForwardForTests();
 			t.sendStateTo(player);
 		});
-		context.waitTicks(100); // the reveal plays: flips and squeezes up to the Player's third card
+		context.waitTicks(106); // the reveal plays: flips and squeezes up to the Player's sideways third card
 		shot(context, "jtest_cards_bac_" + name + "_squeeze");
 		world.getServer().runOnServer(server -> {
 			BaccaratTableBlockEntity t = table[0];
@@ -237,6 +253,8 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 	}
 
 	private void shot(ClientGameTestContext context, String name) {
+		context.runOnClient(mc -> mc.gui.toastManager().clear());
+		context.waitTicks(1);
 		context.takeScreenshot(name);
 		for (String p : context.computeOnClient(mc -> inspect(mc, mc.gui.screen()))) report.add(name + ": " + p);
 	}
@@ -279,6 +297,6 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 			return mc.reloadResourcePacks();
 		});
 		context.waitFor(mc -> reload.isDone(), 1200);
-		context.waitTicks(20);
+		context.waitTicks(80); // the reload overlay fades out
 	}
 }

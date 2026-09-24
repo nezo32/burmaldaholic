@@ -284,9 +284,6 @@ public class BlackjackScreen extends CardTableScreen {
 			}));
 			row.add(button(Component.translatable("gui.burmaldaholic.common.deal"), "deal", CardButton.Family.PRIMARY,
 				pendingBet >= minBet() && pendingBet <= max, this::deal));
-			if (!compact) {
-				row.addFirst(button(Component.translatable("gui.burmaldaholic.common.leave"), "leave", CardButton.Family.TABLE, true, () -> sendAction("leave")));
-			}
 		} else if ("insurance".equals(m.offer)) {
 			long amount = m.insuranceMax;
 			row.add(button(Component.translatable("gui.burmaldaholic.blackjack.insure", Texts.number(amount)), "insurance", CardButton.Family.PRIMARY, true,
@@ -309,11 +306,12 @@ public class BlackjackScreen extends CardTableScreen {
 				row.add(button(Component.translatable("gui.burmaldaholic.blackjack.surrender"), "surrender", CardButton.Family.DANGER, true,
 					() -> sendAction("surrender")));
 			}
-		} else if (!m.inRound || "result".equals(m.phase)) {
-			row.add(button(Component.translatable("gui.burmaldaholic.common.leave"), "leave", CardButton.Family.TABLE, !m.inRound || !m.busy,
-				() -> sendAction("leave")));
 		}
 		layoutButtons(row, minX);
+		if (seated) {
+			cornerButton("leave", Component.translatable("gui.burmaldaholic.common.leave"), !m.inRound || "result".equals(m.phase) && !m.busy,
+				() -> sendAction("leave"));
+		}
 	}
 
 	private boolean myHandsOpen() {
@@ -800,10 +798,11 @@ public class BlackjackScreen extends CardTableScreen {
 			Component name = s.bot() ? (s.botName().isEmpty() ? Texts.raw("?") : Component.translatable(s.botName())) : Texts.raw(s.name()); // literal-ok
 			String avatar = s.bot() ? theme.botAvatar(s.botName()) : null;
 			SeatPlate.Info info = new SeatPlate.Info(name, s.name(), avatar, s.bot() ? Math.max(1, s.botLevel()) : 0, sub, CasinoPalette.GOLD, st, thinking);
-			SeatPlate.draw(g, font, info, tx(p[0]), ty(p[1]), 1, 0);
+			int w = SeatPlate.width(font, info);
+			int px = Math.max(2, Math.min(tx(p[0]), canvasW() - w - 2));
+			SeatPlate.draw(g, font, info, px, ty(p[1]), 1, 0);
 			if (s.bot() && results && s.settled()) {
-				int w = SeatPlate.width(font, info);
-				SeatPlate.emote(g, s.net() >= 0, tx(p[0]) + w - 6, ty(p[1]), local - resultAt - 300);
+				SeatPlate.emote(g, s.net() >= 0, px + w - 6, ty(p[1]), local - resultAt - 300);
 			}
 		}
 	}
