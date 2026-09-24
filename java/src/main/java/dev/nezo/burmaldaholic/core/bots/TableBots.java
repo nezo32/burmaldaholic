@@ -10,6 +10,7 @@ import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
 import dev.nezo.burmaldaholic.core.bots.logic.BotsMode;
+import dev.nezo.burmaldaholic.core.bots.logic.HeatNotices;
 import dev.nezo.burmaldaholic.core.bots.logic.HeatStage;
 import dev.nezo.burmaldaholic.core.bots.logic.OwnerControls;
 import dev.nezo.burmaldaholic.core.bots.logic.Personality;
@@ -119,6 +120,8 @@ public final class TableBots {
 	private boolean orphansChecked;
 	private boolean bankrollShort;
 	private final Set<String> said = new HashSet<>();
+	/** Heat lines told, world-wide (per table key, player, day); cleared on server stop / heat reset. */
+	static final HeatNotices HEAT_NOTICES = new HeatNotices();
 	private @Nullable MinecraftServer server;
 
 	public TableBots(BotTable table, BotSettings defaults, OwnerControls limits) {
@@ -541,15 +544,22 @@ public final class TableBots {
 		boolean sulk = false;
 		boolean hardOnly = false;
 		if (houseMoney) {
+			java.util.Map<UUID, HeatStage> stages = new java.util.LinkedHashMap<>();
 			for (UUID h : humans) {
 				HeatStage st = BotLedger.stage(srv, h);
+				stages.put(h, st);
 				if (st == HeatStage.SULKING) {
 					sulk = true;
-					announceOnce(level, humans, "sulk:" + h, Component.translatable("msg.burmaldaholic.bots.sulking", nameOf(level, h)), "sulk", h);
 				} else if (st == HeatStage.HARD_ONLY && "poker".equals(table.botGameId())) {
 					hardOnly = true;
-					announceOnce(level, humans, "heat:" + h, Component.translatable("msg.burmaldaholic.bots.word_got_around", nameOf(level, h)),
-						"word_got_around", h);
+				}
+			}
+			// the heat lines have ONE source (this one): once per table, player and stage per day; the quip goes
+			// through the table's chatter queue, so it respects the table's Chatter toggle (review wave 3)
+			for (HeatNotices.Notice n : HEAT_NOTICES.due(key(), table.botGameId(), true, stages, BotLedger.today(srv))) {
+				tell(level, humans, Component.translatable(n.message(), nameOf(level, n.player())));
+				if (!bots.isEmpty()) {
+					say(level, bots.getFirst().profile, n.quip(), nameOf(level, n.player()).getString());
 				}
 			}
 		}

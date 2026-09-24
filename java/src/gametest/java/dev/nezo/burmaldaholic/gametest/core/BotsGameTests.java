@@ -551,6 +551,42 @@ public class BotsGameTests {
 		helper.succeed();
 	}
 
+	/** Review wave 3: {@code /casino bots heat <player> reset} clears today's net AND the adaptive-heat stats. */
+	@GameTest
+	public void heatResetCommandAlsoResetsAdaptiveHeat(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer h = player(helper, null);
+		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.bots();
+		boolean adaptive = cfg.adaptiveHeat;
+		try {
+			cfg.adaptiveHeat = true;
+			long cap = BotLedger.threshold(server, h.getUUID());
+			BotLedger.record(server, h.getUUID(), cap + 1);
+			for (int i = 0; i < 400; i++) {
+				BotLedger.recordPokerHand(server, h.getUUID(), 1.0); // +100 BB/100 over 400 hands
+			}
+			helper.assertTrue(BotLedger.adaptive(server, h.getUUID()) && BotLedger.hardOnly(server, h.getUUID()), "hot player");
+			int ok;
+			try {
+				// mock players all share one name and a UUID counts as an entity selector: target by a unique tag
+				String tag = "heat_reset_" + Long.toHexString(h.getUUID().getLeastSignificantBits() & 0xffffffL);
+				h.addTag(tag);
+				ok = server.getCommands().getDispatcher().execute("casino bots heat @a[tag=" + tag + ",limit=1] reset", server.createCommandSourceStack());
+			} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+				helper.fail("command failed: " + e.getMessage());
+				ok = 0;
+			}
+			helper.assertTrue(ok == 1, "command ran");
+			helper.assertTrue(BotLedger.netToday(server, h.getUUID()) == 0, "net reset");
+			helper.assertTrue(!BotLedger.adaptive(server, h.getUUID()), "adaptive-heat stats reset too");
+		} finally {
+			cfg.adaptiveHeat = adaptive;
+			BotLedger.reset(server, h.getUUID());
+			server.getPlayerList().remove(h);
+		}
+		helper.succeed();
+	}
+
 	/**
 	 * Reviewer B: a new difficulty at a table that holds the whole world budget ({@code bots.maxActive}) replaces
 	 * its bots instead of stranding the table with none ("none available"): the leaving bots free their own slots.
