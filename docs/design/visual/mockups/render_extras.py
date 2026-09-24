@@ -2,7 +2,7 @@
 """Full-screen mockups of the extras / PvP / Casino Menu redesign (docs/design/visual/extras.md §11).
 
 Every sprite comes from the REAL generated textures in java/src/main/resources/assets/burmaldaholic/textures (run
-`node bedrock/tools/gen-assets.mjs` first). Screens are composed in GUI pixels at 427 × 240 (854 × 480 at GUI scale 2),
+`cd tools && npm run gen:assets` first). Screens are composed in GUI pixels at 427 × 240 (854 × 480 at GUI scale 2),
 then scaled ×2 with nearest sampling over a blurred, dimmed world, as Minecraft draws a screen. Text uses mcfont.py
 (a vanilla-like 8 px font) and stands for translated strings; player faces are stand-ins for PlayerFaceRenderer.
 

@@ -4,7 +4,7 @@
 Writes java/src/main/resources/data/burmaldaholic/advancement/core/<id>.json for every id. Every
 advancement has a single `minecraft:impossible` criterion "granted": core's CasinoAdvancements.grant
 (dev.nezo.burmaldaholic.core.advancement) awards it from module hooks. Keep ADVANCEMENTS in sync with
-CasinoAdvancements.IDS and Bedrock's core/logic/achievements.ts (same ids, same lang keys).
+CasinoAdvancements.IDS (same ids, same lang keys).
 """
 import json
 import pathlib

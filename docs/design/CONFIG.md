@@ -1,18 +1,18 @@
 # Burmaldaholic — Configuration Reference
 
-Every tunable value of the game. **Both editions use exactly these key names.** The defaults are
+Every tunable value of the game (Java / Fabric). The defaults are
 the numbers used throughout `GAME_DESIGN.md` (section references in the last column).
 
 ## Storage and editing
 
-| | Java (Fabric) | Bedrock (Script API) |
-|---|---|---|
-| Storage | `config/burmaldaholic.json` (server side). Keys are dotted paths; the file is **nested JSON objects** following the dots (`economy.ore.diamond` → `{"economy":{"ore":{"diamond":20}}}`). Unknown keys are ignored with a log warning; missing keys use defaults. Per-world override: `<world>/data/burmaldaholic_config.json` (same format), which wins over the global file. | World dynamic property `burmaldaholic:config` holding a **flat JSON object of overrides only** (`{"economy.ore.diamond":25}`), to stay under the 32 767-char property limit. Missing keys = defaults. |
-| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default OFF; `/casino mode on\|off\|status`) | Dynamic property `burmaldaholic:casino_mode` |
-| Editing | Config screen (Mod Menu integration, client) for single-player; `/casino config get/set/reset <key> [value]` (permission level 2) on servers; reload with `/casino config reload`. | Casino Card → Admin → World settings (ops only): one ActionForm per module listing keys → ModalForm per group (toggle for bool, slider for small int ranges, text field otherwise, dropdown for enums). `/scriptevent burmaldaholic:config set <key> <value>`. |
-| Validation | Out-of-range values are **clamped** to the range and a warning is logged / shown to the editor. Wrong type → default. | Same. |
-| Sync | Server sends the effective config subset needed for UI (limits, payouts tables) to clients on join and on change. | Not needed (UI is server-built forms). |
-| Labels | `config.burmaldaholic.<key>`; `.tooltip` only where STRINGS.md §config lists one; keys with `<…>` use the family template key (STRINGS.md §config "Family templates"). | Same keys. |
+| | |
+|---|---|
+| Storage | `config/burmaldaholic.json` (server side). Keys are dotted paths; the file is **nested JSON objects** following the dots (`economy.ore.diamond` → `{"economy":{"ore":{"diamond":20}}}`). Unknown keys are ignored with a log warning; missing keys use defaults. Per-world override: `<world>/data/burmaldaholic_config.json` (same format), which wins over the global file. |
+| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default OFF; `/casino mode on\|off\|status`) |
+| Editing | Config screen (Mod Menu integration, client) for single-player; `/casino config get/set/reset <key> [value]` (permission level 2) on servers; reload with `/casino config reload`. |
+| Validation | Out-of-range values are **clamped** to the range and a warning is logged / shown to the editor. Wrong type → default. |
+| Sync | Server sends the effective config subset needed for UI (limits, payouts tables) to clients on join and on change. |
+| Labels | `config.burmaldaholic.<key>`; `.tooltip` only where STRINGS.md §config lists one; keys with `<…>` use the family template key (STRINGS.md §config "Family templates"). |
 
 Types: `bool`, `int` (32-bit, except where `long`), `double`, `enum(...)`, `list<…>`.
 Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in `Percent`.
@@ -23,7 +23,7 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `core.casinoMode` | bool | true (on world creation) | — | Master switch (§2.1). Stored in world saved data `mode.dat` (Java, default OFF) / dynamic property (Bedrock), not in the config file. |
+| `core.casinoMode` | bool | false (on world creation) | — | Master switch (§2.1). Stored in world saved data `mode.dat`, not in the config file. |
 | `core.giveCasinoCardOnJoin` | bool | true | — | Give a Casino Card on a player's first join. |
 | `core.hud.enabled` | bool | true | — | Show the HUD panel (players can hide it individually too). |
 | `core.hud.position` | enum(TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT) | TOP_LEFT | — | Default HUD corner (per-player override in Casino Menu). |
@@ -199,8 +199,7 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 Slots v2 (`SLOTS.md` §12; the v1 3×3 keys are gone, see "Removed" below). `<m>` ∈ `overworld`, `nether`, `end`.
 
 Registration state: every row with a back-quoted key is registered in Java (`SlotsConfig` / `SlotsV2Config`,
-checked by `ConfigSpecCoverageTest`). The one row still marked **ᴮ** (`slots.bedrock.ddui`) is Bedrock-only and has no Java
-key. The per-machine families and the table-valued keys of the second table are registered too (`slots.<m>.*`,
+checked by `ConfigSpecCoverageTest`). The per-machine families and the table-valued keys of the second table are registered too (`slots.<m>.*`,
 defaults per `SLOTS.md`); JSON cannot hold `slots.<m>.freeSpins` as both a list and an object, so the Java config keeps
 the spin awards in `slots.<m>.freeSpins.awards`.
 
@@ -217,9 +216,8 @@ the spin awards in `slots.<m>.freeSpins.awards`.
 | `slots.turboAllowed` | bool | true | — | |
 | `slots.anticipation` | bool | true | — | Off: reels always stop on the base schedule. |
 | `slots.bigWinTiers` | list<int> | [5,15,40,100] | each 1–10000 | Nice/Big/Mega/Epic thresholds (× bet); 4 increasing entries. |
-| `slots.inWorld.enabled` | bool | true | — | Java BER / Bedrock `slot_reels` entity. |
+| `slots.inWorld.enabled` | bool | true | — | In-world reels (block entity renderer). |
 | `slots.inWorld.radius` | int | 24 | 0–64 | Spectator range. |
-| `slots.bedrock.ddui` ᴮ | bool | true | — | Bedrock only: use the DDUI form (`SLOTS.md` §10.6); false = classic fallback. |
 | `slots.overworld.minVipTier` | int | 0 | 0–5 | |
 | `slots.nether.minVipTier` | int | 0 | 0–5 | |
 | `slots.end.minVipTier` | int | 2 | 0–5 | 2 = Gold. |
@@ -603,7 +601,7 @@ Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on 
 
 ## bots
 
-⚠ Added 2026-09 (BOTS.md §9, pre-merged by the architect). `X (Java) / Y (Bedrock)` = edition default.
+⚠ Added 2026-09 (BOTS.md §9, pre-merged by the architect).
 BOTS.md §9.3 also changes existing poker keys (`poker.bot.regularSamples` 300, `poker.bot.sharkSamples` 700, `poker.botMix.*` [45,45,10] / [35,50,15] / [10,55,35] / [0,45,55]; `poker.botsEnabled` becomes a legacy alias); those rows above are updated by the poker bot migration task (docs/architecture/pvp-bots.md §7).
 
 ### Core
@@ -611,9 +609,9 @@ BOTS.md §9.3 also changes existing poker keys (`poker.bot.regularSamples` 300, 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `bots.enabled` | bool | true | — | Master switch. Off → every table behaves as `HUMANS_ONLY`; seated bots leave at the next safe point. |
-| `bots.maxActiveTables` | int | 24 (Java) / 12 (Bedrock) | 0–256 | Tables with bots at the same time, whole world (edition default, §7.5). |
-| `bots.maxActive` | int | 64 (Java) / 32 (Bedrock) | 0–512 | Bots at the same time, whole world. |
-| `bots.maxConcurrentJobs` | int | 2 | 1–16 | Heavy bot jobs (Monte-Carlo, UTH river) running at once (Bedrock `runJob`; Java splits jobs over ticks above it). |
+| `bots.maxActiveTables` | int | 24 | 0–256 | Tables with bots at the same time, whole world (§7.5). |
+| `bots.maxActive` | int | 64 | 0–512 | Bots at the same time, whole world. |
+| `bots.maxConcurrentJobs` | int | 2 | 1–16 | Heavy bot jobs (Monte-Carlo, UTH river) running at once (jobs are split over ticks above it). |
 | `bots.difficultyMix` | list<int> | [30, 50, 20] | each 0–100 | Easy/Normal/Hard % for MIXED outside poker. Normalized. |
 | `bots.think.minTicks` | int | 20 | 0–200 | Base think delay (§7.3). |
 | `bots.think.maxTicks` | int | 60 | 0–400 | Must be ≥ min (else clamped). |
@@ -676,7 +674,7 @@ BOTS.md §9.3 also changes existing poker keys (`poker.bot.regularSamples` 300, 
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `bots.avatars.mode` | enum(NONE, NAMEPLATE, ENTITY) | NAMEPLATE (Java) / NONE (Bedrock) | — | §7.2. Bedrock treats NAMEPLATE as NONE. |
+| `bots.avatars.mode` | enum(NONE, NAMEPLATE, ENTITY) | NAMEPLATE | — | §7.2. |
 | `bots.avatars.maxEntities` | int | 16 | 0–128 | Avatar entities per world. |
 | `bots.chatter.enabled` | bool | true | — | Server-wide switch for quips (tables and players can mute too). |
 | `bots.chatter.chance` | double | 0.35 | 0.0–1.0 | Chance an event produces a line (HARD bots: half). |

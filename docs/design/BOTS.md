@@ -1,7 +1,10 @@
 # Burmaldaholic — Seats & Bots [bots]
 
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
 Status: **v1.0 draft, implementation-ready**. Owner: game design (Seats & Bots).
-Audience: Java (Fabric) team, Bedrock (Script API) team, testers, localization.
+Audience: Java (Fabric) team, testers, localization.
 
 This file is **normative for the `bots` module** and for the seating rules of every multi-seat table
 and PvP match. It was written while other designers edit `GAME_DESIGN.md`, `CONFIG.md`, `UI.md`,
@@ -135,7 +138,7 @@ have a personality.
 - **Nobody plays with bots alone:** in any policy, when the last human leaves, bots leave at the next
   safe point (bot-vs-bot rounds are never simulated unobserved, except tournament fillers §3.7).
 - A human who asks to sit at someone else's BOTS_ONLY table: the host gets a chat line with a
-  clickable `[Let them in]` (Java) / an entry in the table form (Bedrock) that switches the session to
+  clickable `[Let them in]` that switches the session to
   MIXED (§8.3). Nothing happens without the host.
 
 ### 2.2 Bot settings
@@ -185,7 +188,7 @@ old §7.4 rule. Worldgen High-Roller tables use the worldgen column.
 
 | Role | May change | Scope |
 |------|-----------|-------|
-| **Operator** (Java permission 2; Bedrock op) | everything, any table, any time (applies at the safe point) | table defaults + session |
+| **Operator** (permission 2) | everything, any table, any time (applies at the safe point) | table defaults + session |
 | **Owner** (owned table) | everything within the owner's **Bots** setting (§6.2) | table defaults + session; owners never sit, so they edit from the Charter or by using the table |
 | **Keeper** (unowned craftable table) | everything | table defaults + session; a seated keeper is always the host |
 | **Host** | policy, count, difficulty, keep-free, chatter, speed, private + invites | **session only**, within the table's limits (`Players may change seating` and `Max bots`, §6.2) |
@@ -218,9 +221,6 @@ affects who may sit later).
   - Java: `/casino table invite <player>`; clicking a nearby player's name in the settings screen's
     *Invite* list; or using the **Casino Card on a player** while seated at the table (prompt
     "Invite Alex to your table?").
-  - Bedrock: table form → *Private table…* → *Invite a player…* (dropdown of online players within
-    `bots.private.inviteRadius`, 64; 0 = any online player); or using the Casino Card on a player
-    (`playerInteractWithEntity`, a MessageForm prompt).
 - The invited player gets `msg.burmaldaholic.bots.invited` (game, host, coordinates) — chat, never a
   pushed form. The invite lets them sit at **that** table while it is private.
 - A non-invited human who uses a private table gets `…bots.error.private_table` naming the host and
@@ -264,8 +264,7 @@ human uses the table
  └─ every seat taken, ≥ 1 bot seat, policy MIXED → CLAIMANT:
         reserve the bot seat chosen by §3.3; message …bots.seat_after_round
         the bot leaves at the next safe point → the claimant is seated there automatically
-        (Java: the table screen opens if the claimant is within reach; Bedrock: the table form is
-        shown — the player asked for it — with UserBusy retries per UI.md §0.3)
+        (Java: the table screen opens if the claimant is within reach)
 ```
 - A claimant stays a claimant while online and within `multiplayer.tableLeaveDistance`; otherwise the
   claim lapses silently (the bot stays).
@@ -337,7 +336,7 @@ The PvP set-up (PVP.md §3.3) gains one control **Opponents**:
 
 ## 4. Difficulty and personalities
 
-### 4.1 Randomness contract (both editions)
+### 4.1 Randomness contract
 
 - Each table (and each PvP match) creates a **bot RNG** at session start, independent of the game RNG:
   Java `RandomGenerator.of("L64X128MixRandom")` seeded from `SecureRandom` (or from
@@ -475,7 +474,7 @@ Bets are virtual; levels change only what the table sees them do.
 | River | ×1 with any pair or better; otherwise fold 70 % / ×1 30 % | R (exact enumeration of the 990 dealer hands) | R |
 | Trips | 50 % of rounds, 1 × Ante | never | never |
 
-Tooltip line (Java) / body line (Bedrock) for the level: `…bots.uth_edge` "Costs this bot about %1$s
+Tooltip line for the level: `…bots.uth_edge` "Costs this bot about %1$s
 of the Ante" — EASY "≈ 19.4 %" (measured, §12.3: 2 × 10⁵ boards, 19.45 % ± 0.23 %; mostly the 15 %
 "scared money" ×3 preflop bets, plus Blind, Play and the 50 % Trips habit — atmosphere bots bet virtual
 chips, so the behaviour is kept and only the published figure changed), NORMAL 2.27 %, HARD 2.19 %.
@@ -624,7 +623,7 @@ cap = max(bots.dailyWinCapMin, bots.dailyWinCapTierMultiple × tierMax)       //
 (For scale: at Micro a Bronze cap is 250 BB, at Low a Silver cap 125 BB, at Mid a Gold cap 100 BB —
 about 1–5 hours of beating a soft table, research §3.2.)
 
-**Attribution** (integer arithmetic, floor, identical in both editions):
+**Attribution** (integer arithmetic, floor, identical):
 - **Poker**, per pot p (main and side pots, after rake), for human h:
   `fromBots_h = Σ_p floor(won_h,p × botContrib_p / potSize_p)` (h's winnings from p × the bots' share
   of p) and `toBots_h = Σ_p floor(contrib_h,p × botWon_p / potSize_p)` (h's contribution to p × the
@@ -726,7 +725,7 @@ atmosphere games; at poker/chemmy it behaves as *Off*.
 - A table/match never shows two bots with the same name; the id is drawn from the bot RNG without
   replacement among the ids unused at that table.
 - **Display form everywhere:** code prepends the **bot glyph U+E190** (a small copper automaton face;
-  font sheet `glyph_E1.png` row 9, cell 0; same code point both editions) and uses
+  font sheet `glyph_e1.png` row 9, cell 0) and uses
   `gui.burmaldaholic.bots.display` = "[BOT] %1$s" / «[БОТ] %1$s». With level:
   `…bots.display_level` = "[BOT] %1$s · %2$s" — seat plates, forms, chat, action bar, lobby lists,
   results. The glyph is never inside a string (UI.md §0.1).
@@ -736,13 +735,13 @@ atmosphere games; at poker/chemmy it behaves as *Off*.
 
 ### 7.2 Avatars
 
-Seats are virtual in both editions (no chairs); bots need no entity. Config `bots.avatars.mode`:
+Seats are virtual (no chairs); bots need no entity. Config `bots.avatars.mode`:
 
-| Mode | Java | Bedrock |
-|------|------|---------|
-| `NONE` | seat plates on the screen only | forms and action bar only (**Bedrock default**) |
-| `NAMEPLATE` (**Java default**) | a vanilla **text display** entity per bot, non-persistent (never saved; re-created by the table), billboard, 1.6 blocks above a seat point on the table edge: glyph + translated name + level letter + stack; shown only while a player is within `multiplayer.spectatorRadius` | treated as `NONE` (entity name tags cannot be translated) |
-| `ENTITY` (NICE) | custom entity `burmaldaholic:bot_avatar` (villager-sized "patron": no AI, invulnerable, no collision, no drops, not saved; reuses the dealer-NPC plumbing) + the nameplate | same entity: no AI, all damage ignored, not persistent (despawned by the table), name tag = glyph U+E190 + seat number only |
+| Mode | Java |
+|------|------|
+| `NONE` | seat plates on the screen only |
+| `NAMEPLATE` (**Java default**) | a vanilla **text display** entity per bot, non-persistent (never saved; re-created by the table), billboard, 1.6 blocks above a seat point on the table edge: glyph + translated name + level letter + stack; shown only while a player is within `multiplayer.spectatorRadius` |
+| `ENTITY` (NICE) | custom entity `burmaldaholic:bot_avatar` (villager-sized "patron": no AI, invulnerable, no collision, no drops, not saved; reuses the dealer-NPC plumbing) + the nameplate |
 
 - Avatar skins follow the casino theme: a copper automaton by default, a piglin gambler in the Piglin
   Parlor, a pale end-patron in the End lounge (Bedrock: one entity type with 3 variants).
@@ -796,13 +795,12 @@ by a per-table sequence token (existing `botSeq` pattern).
 
 | Limit | Default | Behaviour when hit |
 |-------|---------|--------------------|
-| `bots.maxActiveTables` (tables with bots, whole world) | 24 (Java) / 12 (Bedrock) — edition default | new sessions get no bots; the table shows `…bots.none_available` |
-| `bots.maxActive` (bots, whole world) | 64 (Java) / 32 (Bedrock) | same |
+| `bots.maxActiveTables` (tables with bots, whole world) | 24 | new sessions get no bots; the table shows `…bots.none_available` |
+| `bots.maxActive` (bots, whole world) | 64 | same |
 | Bots per table | seats − 1; atmosphere caps §4.7; PvP `bots.pvp.maxPerMatch` | — |
-| Heavy jobs (poker Monte-Carlo, UTH river enumeration) | Java inline ≤ 1 000 evaluations per job, else split across ticks; Bedrock ≤ `bots.maxConcurrentJobs` (2) `system.runJob` generators per world, yielding every 25 samples | jobs wait in a FIFO; §4.3 fallback at the deadline |
+| Heavy jobs (poker Monte-Carlo, UTH river enumeration) | Java inline ≤ 1 000 evaluations per job, else split across ticks | jobs wait in a FIFO; §4.3 fallback at the deadline |
 | Avatar entities | 16 | §7.2 |
 | Chat lines | §7.4 | queued / dropped |
-| Bedrock action-bar updates | ≥ 2 t apart per player (PVP.md §14) | coalesced |
 
 Bots are created only inside sessions (or showcase §4.9) and have no tick of their own: the table's
 state machine drives them. A session with no human within 64 blocks for 1 200 t ends (humans offline or
@@ -811,19 +809,17 @@ away count as left). An exception inside bot code → log + the game's safe defa
 
 ---
 
-## 8. UI (both editions)
+## 8. UI
 
 ### 8.1 Table header and seat markers (all multi-seat games)
 
-- Header line (Java under the title; Bedrock first body line):
+- Header line (under the title):
   `…bots.summary.<policy>` → "Humans + 3 bots · Mixed · Private" / «Люди + 3 бота · Вперемешку ·
   Закрытый».
   Pending changes add `…bots.pending`.
 - **Java seat plate:** bot glyph + name + level badge `[E]`/`[N]`/`[H]` (letter on green/yellow/red) +
   stack (money bots) or "virtual" chip icon outline (atmosphere). Tooltip: level word, personality
   line, "Leaves after this round" when yielding. Reserved seats show "Reserved for Alex".
-- **Bedrock:** seat lines in bodies `…bots.seat_line` = "Seat %1$s: %2$s · %3$s · %4$s"
-  (seat, nested "[BOT] name", level, stack); action-bar actions keep the [BOT] tag ("[BOT] Creeper42 raises to 60").
 - Atmosphere bets on Java layouts are drawn with a hatched chip (so nobody thinks those chips are
   real); Bedrock lists them under "Bots bet (for fun):" in the round summary.
 
@@ -853,40 +849,16 @@ others get the read-only view) or `/casino table settings`.
 - Radio groups are rows of toggle buttons (auto-width, RU at 1.45 ×, UI.md §0.1); if a row overflows it
   wraps.
 
-### 8.3 Bedrock: forms
-
-- Every table hub ActionForm gains **Table settings…** (icon: gear) for host/keeper/owner/op, and
-  **Private table…** for the same roles. Non-hosts see **Table info** (MessageForm with the summary
-  lines). RU labels ≤ 24 characters: «Настройки стола…» (16), «Закрытый стол…» (14).
-- **Table settings** — ModalForm:
-  1. dropdown *Players*: Humans only · Humans + bots · Just me and bots
-  2. slider *Bots* 0 … max (step 1)
-  3. dropdown *Bot difficulty*: Easy · Normal · Hard · Mixed (*Bot style*: Wild · Steady · Cool-headed ·
-     Mixed at chemin de fer; omitted where bots have no decisions)
-  4. toggle *Keep a seat free for walk-ins*
-  5. toggle *Bot chatter*
-  6. dropdown *Bot speed*: Normal · Fast · Instant (effective only with "Just me and bots"; the label
-     says so)
-  7. toggle *Save as table defaults* (keeper/owner/op only)
-  submit *Save*. Invalid combinations are fixed by the server and the table form re-shows with a
-  first body line explaining (e.g. `…bots.error.others_seated`).
-- **Private table** — ActionForm: body "Private: on · Invited: Bob, Steve"; buttons *Make private* /
-  *Make public* · *Invite a player…* (ModalForm dropdown of players within the invite radius; submit
-  *Invite*) · *Remove an invite…* (dropdown of invited) · *Back*.
-- **Let them in** (BOTS_ONLY, someone asked to sit): the host's next table form shows a first button
-  *Let Bob in (switch to Humans + bots)*. Chat also tells the host.
-- Invitees get chat only (no pushed form, PVP.md §3.11.1 rule).
-
 ### 8.4 Casino Card on a player
 
-Java `UseEntityCallback` / Bedrock `playerInteractWithEntity` with the Casino Card while seated as host
+`UseEntityCallback` with the Casino Card while seated as host
 at a table that allows private: MessageForm / Java confirm screen "Invite Bob to your Blackjack table?"
 [Invite] [Cancel]. If not host: nothing (the card's normal use continues). Lucky Coin keeps its PvP
 duel meaning (PVP.md §3.3.1).
 
 ### 8.5 Charter (owner)
 
-Tables tab, per table (Java row / Bedrock ModalForm): dropdown *Bots* (Off / Atmosphere only /
+Tables tab, per table (row): dropdown *Bots* (Off / Atmosphere only /
 Allowed), toggle *Players may change seating*, slider *Max bots*, toggle *Allow private tables*,
 button *Table defaults…* (the §8.2/§8.3 form in defaults mode). Overview adds *Bot stacks out* and
 *Bot results today* lines.
@@ -921,8 +893,8 @@ Percent-like values are fractions unless the key ends in `Percent` (CONFIG.md ru
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `bots.enabled` | bool | true | — | Master switch. Off → every table behaves as `HUMANS_ONLY`; seated bots leave at the next safe point. |
-| `bots.maxActiveTables` | int | 24 (Java) / 12 (Bedrock) | 0–256 | Tables with bots at the same time, whole world (edition default, §7.5). |
-| `bots.maxActive` | int | 64 (Java) / 32 (Bedrock) | 0–512 | Bots at the same time, whole world. |
+| `bots.maxActiveTables` | int | 24 | 0–256 | Tables with bots at the same time, whole world (§7.5). |
+| `bots.maxActive` | int | 64 | 0–512 | Bots at the same time, whole world. |
 | `bots.maxConcurrentJobs` | int | 2 | 1–16 | Heavy bot jobs (Monte-Carlo, UTH river) running at once (Bedrock `runJob`; Java splits jobs over ticks above it). |
 | `bots.difficultyMix` | list<int> | [30, 50, 20] | each 0–100 | Easy/Normal/Hard % for MIXED outside poker. Normalized. |
 | `bots.think.minTicks` | int | 20 | 0–200 | Base think delay (§7.3). |
@@ -991,7 +963,7 @@ Percent-like values are fractions unless the key ends in `Percent` (CONFIG.md ru
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `bots.avatars.mode` | enum(NONE, NAMEPLATE, ENTITY) | NAMEPLATE (Java) / NONE (Bedrock) | — | §7.2. Bedrock treats NAMEPLATE as NONE. |
+| `bots.avatars.mode` | enum(NONE, NAMEPLATE, ENTITY) | NAMEPLATE | — | §7.2. |
 | `bots.avatars.maxEntities` | int | 16 | 0–128 | Avatar entities per world. |
 | `bots.chatter.enabled` | bool | true | — | Server-wide switch for quips (tables and players can mute too). |
 | `bots.chatter.chance` | double | 0.35 | 0.0–1.0 | Chance an event produces a line (HARD bots: half). |
@@ -1425,7 +1397,7 @@ of policy/difficulty reuse `gui.burmaldaholic.bots.policy.*` / `…level.*`.
 
 ---
 
-## 12. Test plan (both editions; pure logic tests share vectors)
+## 12. Test plan (pure logic tests share vectors)
 
 ### 12.1 Fairness and RNG independence
 

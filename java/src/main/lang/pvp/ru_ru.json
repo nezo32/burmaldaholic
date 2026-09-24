@@ -27,7 +27,6 @@
 	"gui.burmaldaholic.pvp.game.scratch": "Лотерейная битва",
 	"msg.burmaldaholic.pvp.invite.sent": "Вызов отправлен игроку %1$s: %2$s на %3$s",
 	"msg.burmaldaholic.pvp.invite.received": "%1$s бросает вам вызов: %2$s на %3$s!",
-	"msg.burmaldaholic.pvp.invite.how_bedrock": "Чтобы ответить, откройте меню казино",
 	"gui.burmaldaholic.pvp.invite.accept_button": "[Принять]",
 	"gui.burmaldaholic.pvp.invite.decline_button": "[Отказать]",
 	"gui.burmaldaholic.pvp.invite.title": "Вызов!",

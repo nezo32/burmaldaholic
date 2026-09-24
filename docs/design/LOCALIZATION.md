@@ -1,16 +1,18 @@
 # Burmaldaholic — Localization Specification
 
-Languages at launch: **English (`en_us` / Bedrock `en_US`)** and **Russian (`ru_ru` / `ru_RU`)**.
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
+Languages at launch: **English (`en_us`)** and **Russian (`ru_ru` / `ru_RU`)**.
 The master text lives in `STRINGS.md`; language files are generated from / checked against it.
 
-## 1. One key set for both editions
+## 1. One key set
 
-- Every player-facing string has exactly one key, used **identically** in the Java `lang/*.json`
-  files and the Bedrock `texts/*.lang` files.
+- Every player-facing string has exactly one key, used in the `lang/*.json` files.
 - Namespace: `burmaldaholic` (identifiers use `burmaldaholic:<id>`; translation keys use the
   dotted form `…burmaldaholic.…`).
-- Parity test (Wave 4): the set of keys in `en_us.json` = `ru_ru.json` = `en_US.lang` =
-  `ru_RU.lang` (minus the Bedrock-only aliases of §1.3) = the keys in `STRINGS.md`.
+- Parity test (Wave 4): the set of keys in `en_us.json` = `ru_ru.json` = the keys in `STRINGS.md`
+  (plus `java/tools/lang_java_only.json`).
 
 ### 1.1 Key grammar
 
@@ -38,7 +40,6 @@ The master text lives in `STRINGS.md`; language files are generated from / check
 | `config` | config labels/tooltips | `config.burmaldaholic.chaos.ambientChance` |
 | `unit` | counted nouns (plural bases) | `unit.burmaldaholic.chip` |
 | `key` / `key.category` | Java keybinds | `key.burmaldaholic.open_menu` |
-| `gamerule` | Bedrock pack-setting labels (historical prefix; Java has no game rule) | `gamerule.burmaldaholic.casino_mode` |
 | `itemGroup` | creative tab | `itemGroup.burmaldaholic.main` |
 | `sound` / `subtitles` | subtitles | `subtitles.burmaldaholic.chip_place` |
 | `modmenu` | Mod Menu name/summary (Java) | `modmenu.nameTranslation.burmaldaholic` |
@@ -52,24 +53,6 @@ NPC lines with variants use numbered suffixes `.1` … `.N` with **no gaps**. Th
 count per base key as a constant (`VARIANTS = {"dialog.burmaldaholic.loan.greeting": 5, …}`,
 taken from STRINGS.md) and picks uniformly. Every language must define all N variants.
 
-### 1.3 Edition-specific aliases (generated, not hand-written)
-
-Bedrock requires some keys in fixed formats. The Bedrock build script generates these **aliases**
-from the canonical keys; they are not listed in STRINGS.md:
-
-| Bedrock needs | Generated from |
-|---------------|----------------|
-| `entity.burmaldaholic:<id>.name` | `entity.burmaldaholic.<id>` |
-| `item.spawn_egg.entity.burmaldaholic:<id>.name` | `item.burmaldaholic.<id>_spawn_egg` (listed in STRINGS.md §core) |
-| `action.hint.exit.burmaldaholic:<seat>` (if seats are rideable) | `gui.burmaldaholic.common.leave_seat` |
-| `pack.name` / `pack.description` (per pack) | `modmenu.nameTranslation.burmaldaholic` / `modmenu.summaryTranslation.burmaldaholic` |
-
-Custom items and blocks on Bedrock use `minecraft:display_name` with the **canonical key**
-(`"value": "item.burmaldaholic.chip_1"`), so no alias is needed.
-Advancements do not exist on Bedrock; the Achievements page uses the same `advancement.*` keys.
-Death messages on Bedrock are sent via `world.sendMessage` rawtext with the same
-`death.attack.burmaldaholic.*` keys.
-
 ## 2. Placeholders
 
 - **Master notation (STRINGS.md, Java files): positional `%1$s`, `%2$s`, …** Always positional
@@ -78,25 +61,16 @@ Death messages on Bedrock are sent via `world.sendMessage` rawtext with the same
 - All arguments are passed as **strings** (numbers pre-formatted, §4) or as nested translatable
   components. Never use `%d`/`%f`.
 - Literal percent: `%%`.
-- **Bedrock conversion** (done by the build script, exact rule): replace `%N$s` → `%N`
-  (Bedrock's `.lang` positional form), keep `%s`, keep `%%` as `%%`. Test: no `$` may remain in a
-  Bedrock `.lang` line.
-- Bedrock `.lang` format constraints the generator enforces: one `key=value` per line, no
-  trailing spaces (a trailing tab + `#` comment is allowed), UTF-8 without BOM, no line breaks
-  inside a value. Line-break escapes behave differently across the two editions, so the rule is:
-  **no string in STRINGS.md contains a newline.** Multi-line texts are separate keys
-  (`….line1`, `….line2`) joined by the code.
-- Nested components: Java `Text.translatable(key, Text.translatable(pluralKey, n))`; Bedrock
-  rawtext `{"translate": key, "with": {"rawtext": [{"translate": pluralKey, "with": [n]}]}}`.
+- Nested components: `Text.translatable(key, Text.translatable(pluralKey, n))`.
 - Formatting codes `§` are allowed in values only for: `§l`, `§o`, `§r` and colors, and only when
   STRINGS.md shows them. Prefer applying color in code.
 
-## 3. Plurals — number-class suffixes (lead decision, both editions)
+## 3. Plurals — number-class suffixes (lead decision)
 
 ### 3.1 Why not locale-aware `.one/.few/.many/.other`
 
-Java translatable text is resolved on the client, and a Bedrock server cannot know the client's
-language at all (rawtext is resolved client-side). The server therefore cannot pick a
+Translatable text is resolved on the client, so the server does not know the client's language.
+The server therefore cannot pick a
 language-specific plural category. Instead the server picks a **number class** that depends only
 on `n`, and **every language file defines all four classes**. The four classes are exactly the
 union of the English and Russian distinctions, so each language can map them to its own forms.
@@ -115,10 +89,8 @@ plural(baseKey: String, n: long) -> String       // returns a translation key
   else                                        -> baseKey + ".p5"    // 0, 5–20, 25–30, 111–114 …
 ```
 - Java: `static String plural(String baseKey, long n)` in `burmaldaholic.common.i18n.Plural`.
-- Bedrock: `export function plural(baseKey: string, n: number): string` in `scripts/i18n/plural.ts`;
-  `n` must be an integer (`Math.trunc`), negatives use `Math.abs`.
 - The number itself is always passed as `%1$s` to the resulting key (formatted per §4).
-- Shared unit tests (identical vectors in both editions):
+- Shared unit tests (identical vectors):
   `0→p5, 1→p1, 2→p2, 4→p2, 5→p5, 11→p5, 12→p5, 14→p5, 21→p21, 22→p2, 25→p5, 101→p21, 111→p5,
   112→p5, 121→p21, 1001→p21, 1011→p5, −1→p1, −21→p21`.
 
@@ -158,7 +130,7 @@ logic on the server.
 ## 4. Numbers, time, names
 
 - Numbers: integer, grouped with a regular space from 10 000 (`12 500`, `1 000 000`); below
-  10 000 no grouping (`2500`). Implemented once per edition: `formatChips(long) -> String`.
+  10 000 no grouping (`2500`). Implemented once: `formatChips(long) -> String`.
 - Multipliers: `×` (U+00D7) **before** the number, `×10`, in both languages.
 - Percent: `5%` EN, `5 %` RU (narrow spacing is fine as a regular space) → percent strings are
   keys with `%1$s%%` (EN) and `%1$s %%` (RU).
@@ -169,7 +141,7 @@ logic on the server.
 ## 5. Mod display name in Russian — decision
 
 **Decision: «Бурмалдоголик»** in all Russian player-facing text (advancement tab, creative tab,
-Mod Menu name translation, Bedrock pack name, splash/toasts). **"Burmaldaholic"** stays the
+Mod Menu name translation, splash/toasts). **"Burmaldaholic"** stays the
 technical/brand id everywhere else (mod id, CurseForge listing, logs, file names, keys).
 
 Justification:

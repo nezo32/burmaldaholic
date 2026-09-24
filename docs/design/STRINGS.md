@@ -1,9 +1,9 @@
 # Burmaldaholic — Master String List (EN / RU)
 
-Source of truth for every player-facing string. Language files for both editions
-(`assets/burmaldaholic/lang/en_us.json`, `ru_ru.json`; Bedrock `texts/en_US.lang`, `ru_RU.lang`)
-must contain exactly these keys with exactly these values (Bedrock: `%N$s` → `%N`, see
-LOCALIZATION.md §2). Each module's team owns its section.
+Source of truth for every player-facing string. The language files
+(`assets/burmaldaholic/lang/en_us.json`, `ru_ru.json`, merged from `java/src/main/lang/<module>/` fragments that
+`java/tools/gen_lang.py` generates from this file) must contain exactly these keys with exactly these values
+(LOCALIZATION.md §2). Each module's team owns its section.
 
 Format rules for this file (a generator script parses it):
 - Every string row is `| \`key\` | English | Russian |`. Only rows whose first cell is a
@@ -27,8 +27,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 
 ### Mod, creative tab, keybinds, casino mode switch
 
-`gamerule.burmaldaholic.casino_mode*` label the Bedrock pack setting (historical prefix); Java stores
-casino mode in world saved data and has no game rule.
+Casino mode lives in world saved data (no game rule); the create-world toggle uses `gui.burmaldaholic.core.create_world.casino_mode`.
 
 | Key | EN | RU |
 |-----|----|----|
@@ -37,8 +36,6 @@ casino mode in world saved data and has no game rule.
 | `itemGroup.burmaldaholic.main` | Burmaldaholic | Бурмалдоголик |
 | `key.category.burmaldaholic` | Burmaldaholic | Бурмалдоголик |
 | `key.burmaldaholic.open_menu` | Open Casino Menu | Открыть меню казино |
-| `gamerule.burmaldaholic.casino_mode` | Casino mode | Режим казино |
-| `gamerule.burmaldaholic.casino_mode.description` | Chips, tables, loans, chaos events and Last Chance. Turning it off keeps all saved data. | Фишки, столы, займы, хаос-события и «Последний шанс». При отключении все данные сохраняются. |
 | `gui.burmaldaholic.core.create_world.casino_mode` | Casino Mode: %1$s | Режим казино: %1$s |
 | `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. Off by default and saved with the world; operators can switch it later with /casino mode on or /casino mode off. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию выключен и сохраняется вместе с миром; позже оператор может переключить его командой /casino mode on или /casino mode off. Сложность не меняется. |
 | `gui.burmaldaholic.core.setup.title` | Casino setup | Настройка казино |
@@ -358,7 +355,6 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.fx.amount` | +%1$s | +%1$s |
 | `gui.burmaldaholic.fx.multiplier` | ×%1$s your bet | ×%1$s от ставки |
 | `gui.burmaldaholic.fx.skip` | Click to skip | Нажмите, чтобы пропустить |
-| `gui.burmaldaholic.fx.skip_bedrock` | Sneak to skip | Присядьте, чтобы пропустить |
 | `gui.burmaldaholic.fx.nearby_float` | %1$s +%2$s | %1$s +%2$s |
 
 ### Messages
@@ -698,8 +694,7 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.cards.hidden_card` | face-down card | закрытая карта |
 
 Ranks 2–9 use the digit directly (no key). Card glyphs carry the rank letter of the **English**
-deck on the texture; the `rank.*` letters are used only for text-only rendering (Bedrock body text
-fallback, narration).
+deck on the texture; the `rank.*` letters are used only for text-only rendering (narration).
 
 ### Presentation (animation wave, `animation/cards.md` §11)
 
@@ -1674,7 +1669,6 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.game.scratch` | Scratch Showdown | Лотерейная битва |
 | `msg.burmaldaholic.pvp.invite.sent` | Challenge sent to %1$s: %2$s for %3$s | Вызов отправлен игроку %1$s: %2$s на %3$s |
 | `msg.burmaldaholic.pvp.invite.received` | %1$s challenges you: %2$s for %3$s! | %1$s бросает вам вызов: %2$s на %3$s! |
-| `msg.burmaldaholic.pvp.invite.how_bedrock` | Open the Casino Menu to answer | Чтобы ответить, откройте меню казино |
 | `gui.burmaldaholic.pvp.invite.accept_button` | [Accept] | [Принять] |
 | `gui.burmaldaholic.pvp.invite.decline_button` | [Decline] | [Отказать] |
 | `gui.burmaldaholic.pvp.invite.title` | Challenge! | Вызов! |
@@ -2671,7 +2665,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 
 ## advancements
 
-Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 chars RU where possible).
+Shown in the advancement tab. Titles are short (≤ 24 chars RU where possible).
 
 | Key | EN | RU |
 |-----|----|----|
@@ -2818,7 +2812,7 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 
 ## config
 
-Labels shown on the Java config screen and the Bedrock Admin → World settings forms.
+Labels shown on the config screen.
 Key = `config.burmaldaholic.` + the exact config key. **Family templates** (keys with `<…>` in
 CONFIG.md) use one template key; the code passes the member's display name as `%1$s`.
 `.tooltip` keys exist only where listed.
@@ -3115,7 +3109,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.slots.bigWinTiers` | Win tiers (× bet) | Пороги выигрышей (× ставки) |
 | `config.burmaldaholic.slots.inWorld.enabled` | Show reels on cabinets | Показывать барабаны на автоматах |
 | `config.burmaldaholic.slots.inWorld.radius` | Cabinet reels view distance | Дальность показа барабанов |
-| `config.burmaldaholic.slots.bedrock.ddui` | Live slot form (Bedrock) | Живая форма автомата (Bedrock) |
 
 ### baccarat, uth
 
@@ -3419,8 +3412,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 
 ### Slot Showdown v1 config label (removed with Slot Showdown v2, `SLOTS.md` §9 / §13.10)
 
-The other v1 slot config labels were removed at the Bedrock slots cut-over (S-B5); the Java edition keeps them
-in its lang files until its cut-over (S-J5).
+The other v1 slot config labels were removed with the slots v2 cut-over (S-J5).
 
 | Key | EN | RU |
 |-----|----|----|

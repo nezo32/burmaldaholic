@@ -27,7 +27,6 @@
 	"gui.burmaldaholic.pvp.game.scratch": "Scratch Showdown",
 	"msg.burmaldaholic.pvp.invite.sent": "Challenge sent to %1$s: %2$s for %3$s",
 	"msg.burmaldaholic.pvp.invite.received": "%1$s challenges you: %2$s for %3$s!",
-	"msg.burmaldaholic.pvp.invite.how_bedrock": "Open the Casino Menu to answer",
 	"gui.burmaldaholic.pvp.invite.accept_button": "[Accept]",
 	"gui.burmaldaholic.pvp.invite.decline_button": "[Decline]",
 	"gui.burmaldaholic.pvp.invite.title": "Challenge!",

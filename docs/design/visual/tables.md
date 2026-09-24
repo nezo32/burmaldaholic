@@ -15,10 +15,10 @@ The quality bar is the slots v2 redesign (`modules/slots.mjs`, animation/slots.m
 Today's screens are plain green panels with vanilla grey buttons and flat coloured boxes (client gametest
 screenshots `0012_jtest_ru_roulette`, `0013_jtest_ru_craps`, `0029_jtest_ru_dice`).
 
-- Art generator: `bedrock/tools/assets/modules/tables.mjs` + `modules/tables/*.mjs`. It emits Java outputs
-  only; a later step moves the generator to `tools/assets`.
-- Regenerate with `cd bedrock && node tools/gen-assets.mjs --module tables`, and check with
-  `node tools/gen-assets.mjs --check`.
+- Art generator: `tools/assets/modules/tables.mjs` + `modules/tables/*.mjs`. It emits Java outputs
+  only.
+- Regenerate with `cd tools && node assets/gen-assets.mjs --module tables`, and check with
+  `npm run check:assets` (in `tools/`).
 - Mockups: `docs/design/visual/mockups/tables_*.png`, composed from the real PNGs by
   `docs/design/visual/render_tables.py` (Pillow). §8 lists them.
 
@@ -369,7 +369,6 @@ are checked against the rects by the J-L2 fit test.
 5. **Dice Duel:**
    - The panel becomes the full-screen arena (§5, §6), not 260 × 216.
    - The house stamp and the vs badge are the sprites of §5.
-6. **Bedrock:** every Bedrock storyboard and file of that spec is **dropped** (Java only).
 7. §4 asset inventory is superseded by §8 here. The paths are `gui/tables/…` and `gui/sprites/tables/…`,
    not `gui/sprites/burmaldaholic/<game>/…`.
 

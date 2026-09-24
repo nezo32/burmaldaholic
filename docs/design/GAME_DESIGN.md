@@ -1,11 +1,13 @@
 # Burmaldaholic — Game Design Specification
 
-Status: **v1.0, implementation-ready**. Owner: lead game design (D1).
-Audience: Java (Fabric) team, Bedrock (Script API) team, testers, localization.
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
 
-This document is **normative**. Both editions implement the same rules, numbers and state machines.
-Where the two engines force a different technique, the *observable result* must be the same; the
-section says which parts may differ ("Edition note").
+Status: **v1.0, implementation-ready**. Owner: lead game design (D1).
+Audience: Java (Fabric) team, testers, localization.
+
+This document is **normative**: the mod implements exactly these rules, numbers and state machines.
+(Java-only since 2026-09-24; the former Bedrock "edition notes" were removed.)
 
 Companion files:
 
@@ -104,19 +106,6 @@ everything in this document is active.
   default in the Data Packs list of world creation. If the pack is disabled, casinos do not
   generate but gameplay still works (players craft their own tables).
 - The saved `mode.dat` value is the source of truth; `config/burmaldaholic.json` never overrides it.
-
-**Bedrock (add-on):**
-- The mode exists only if the behavior pack + resource pack are applied to the world.
-- On first world load, the first player with operator permission receives a **Setup form**
-  (ModalForm: toggle "Casino mode" default ON, dropdown "Last Chance in Hardcore", toggle
-  "Chaos events", submit "Open the casino"). The result is saved to world dynamic property
-  `burmaldaholic:casino_mode` and the config overrides (§ CONFIG.md "Storage").
-- Until the form is answered, the mode is ON with defaults (a dismissed form re-appears on that
-  op's next join, max 3 times, then defaults are kept silently).
-- Ops change it later from **Casino Card → Admin → World settings** or with
-  `/scriptevent burmaldaholic:admin casino_mode true|false`.
-- Worldgen structures are part of the behavior pack and are toggled by `worldgen.enabled`
-  (only affects chunks generated afterwards).
 
 ### 2.2 Vanilla difficulty is never altered
 
@@ -250,9 +239,7 @@ Spawner detection — Java: `SpawnReason.SPAWNER`/`TRIAL_SPAWNER` stored on the 
 
 Each completed villager or wandering-trader trade: `chips = 1 + (emeralds given or received in
 that trade)`, capped at 10 per trade and `economy.trade.dailyCap` = 200 chips per player per MCD.
-(Java: `TradeOfferUsed` callback / Bedrock: detect via inventory diff when the trade screen closes
-— edition note: Bedrock may approximate by crediting on emerald count change while the trade UI
-is open; the cap makes both equivalent in practice.)
+(`TradeOfferUsed` callback.)
 
 #### 3.4.4 Contracts (daily tasks)
 
@@ -309,7 +296,7 @@ IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SET
   resolved; roulette: spin proceeds; baccarat: the coup proceeds; Ultimate Texas Hold'em: check,
   and on the river fold unless §21.4 auto-plays) and the payout is credited to the balance. No
   refunds.
-- If the server stops mid-round (⚠ **CHANGED 2026-09 — review M1 free-roll fix; both editions**):
+- If the server stops mid-round (⚠ **CHANGED 2026-09 — review M1 free-roll fix**):
   **drawn rounds are played out, undrawn bets refunded.** Once any random outcome of the round
   is drawn, the result is persisted with the stake *before* it is shown or animated, and after
   the restart the round is **settled** at that result (offline-safe, logged, the player is told
@@ -331,7 +318,7 @@ IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SET
   Java may instead play the round out *at* the stop, before the world is saved (same result rules,
   same `msg.burmaldaholic.core.round_played_out` notice); it does the same when a table's chunk
   unloads mid-round. Only a crash (no clean stop) can still leave bets to refund on load.
-  Casino mode turning off mid-round (⚠ **CHANGED 2026-09 — both editions**): the same rule — drawn
+  Casino mode turning off mid-round (⚠ **CHANGED 2026-09**): the same rule — drawn
   rounds are played out and settled, only undrawn bets are refunded (§2.1 dormancy never cancels a
   decided round).
 - Every settled wager updates: lifetime wagered (VIP), streak (§14), contracts, statistics.
@@ -352,7 +339,7 @@ be mixed with chips in the same bet. The stake is converted to a **stake value V
   chips had been bet (e.g. coin flip pays `floor(V × 0.96)`).
 - **Loss**: the stake is forfeited (item destroyed, levels removed, hearts lost for a duration).
 - V must be ≤ tier max bet; otherwise the stake is refused.
-- ⚠ **CHANGED 2026-09 — review m4; both editions**: pawn stakes are **house-only**. At a table or
+- ⚠ **CHANGED 2026-09 — review m4**: pawn stakes are **house-only**. At a table or
   machine linked to a player-owned casino (§18.2) only chips are accepted
   (`gui.burmaldaholic.error.pawn_owned_table`), because owned-table stakes and payouts go through the
   owner's bankroll, which cannot hold items, levels or hearts.
@@ -378,7 +365,7 @@ Only items in the **appraisal table** are accepted, undamaged, unenchanted, unna
 
 Stake L levels, 1 ≤ L ≤ current level, L ≤ 30. V = `floor(points(L) / 4)` where `points(L)` is
 the vanilla XP-point total between level (current − L) and current. On loss, remove exactly those
-levels (⚠ **CHANGED 2026-09 — review m3; both editions**: the player ends at level current − L and
+levels (⚠ **CHANGED 2026-09 — review m3**: the player ends at level current − L and
 **keeps** the partial progress towards the next level; the progress is not part of V and is never
 staked).
 
@@ -547,7 +534,7 @@ death); Last Chance never triggers against damage from a squad member in Hardcor
 4. Collectors never grief (above), don't spawn in other players' claimed casinos' *interior*
    (they spawn outside the claim and walk in), don't count toward mob-kill rewards, and cap one
    wave per MCD, so they cannot be farmed.
-5. Operators: `/casino debt <player> clear|set <n>` (Java command; Bedrock scriptevent/admin form).
+5. Operators: `/casino debt <player> clear|set <n>` (command).
 
 ---
 
@@ -634,7 +621,7 @@ house > Flush > Straight > Three of a kind > Two pair > One pair > High card. Ac
 only in A-2-3-4-5 ("wheel", 5-high straight). Best 5 of 7 cards. Ties broken by kickers in rank
 order; suits never break ties. Identical best-5 → split pot.
 
-Evaluator contract (both editions, unit-tested with the same vectors):
+Evaluator contract (unit-tested with the same vectors):
 `evaluate(cards[7]) -> int` where higher is better; `category << 20 | ranks packed 4 bits × 5`.
 
 ### 7.3 Hand flow
@@ -901,7 +888,7 @@ Single bet 1…tier max/2; spin; the segment's multiplier × stake is paid (floo
 | Diamond | 1 | 10× |
 
 **RTP = 51.5/54 = 95.37 %, HE 4.63 %.** Segment order around the wheel (index 0–53) is fixed in
-appendix B so both editions animate identically.
+appendix B so the wheel animates identically for every viewer.
 
 ### 11.3 Scratch Cards (items)
 
@@ -916,7 +903,7 @@ scratch** (server), stored in the item's data, so unscratched cards are fungible
 Card face: 3×3 cells with prize symbols. Winning card: exactly 3 cells show the prize symbol;
 the other 6 show other symbols, each at most twice. Losing card: no symbol appears 3+ times.
 1 % of losing cards are **Creeper cards** (3 creeper cells, no prize) → chaos `mob_wave`.
-Player scratches cell by cell (Java: click cells; Bedrock: "Scratch next"/"Scratch all").
+Player scratches cell by cell (Java: click cells).
 Unscratched card stack 16; scratched card becomes `scratch_card_used` (junk, stack 64).
 
 ### 11.4 Plinko (`plinko_machine` block)
@@ -1104,13 +1091,6 @@ from balance; title "HEADS — Last Chance!"; totem-like particles + coin sound.
 **Failure:** normal death proceeds; title "TAILS…" shown on the death screen chat.
 The cooldown starts on **either** outcome. Cooldown remaining is shown in the Casino Menu.
 
-Edition note (Bedrock): the Script API cannot cancel death reliably. Required observable result:
-the player does not lose items/XP and continues at the death position with half health. Allowed
-implementation: before-damage interception if available in the target API version; otherwise
-snapshot inventory/XP/position when an `entityHurt` leaves health ≤ 8, and on `entityDie` with a
-successful flip: clear the dropped item entities of that death (within 3 blocks, same tick),
-force-respawn, teleport back, restore snapshot. Architecture doc (R2) decides.
-
 ### 15.2 Multiplayer
 
 Last Chance announcement goes to all players ("%1$s flipped a coin with Death and won").
@@ -1134,12 +1114,12 @@ the world's Casino Menu "Rules" page so players know.
 All structures only generate in newly generated chunks while `worldgen.enabled` (and the Java data
 pack) is on. Tables in structures are ordinary blocks (breakable; drop themselves) flagged as
 **house tables** (bank-funded). Structure NBT/`.mcstructure` files are authored once and exported
-for both editions; sizes below are bounding boxes (X × Y × Z).
+for sizes below are bounding boxes (X × Y × Z).
 
 ### 16.1 Village Casino ("Lucky Villager")
 
 - Size 17 × 10 × 17, one palette variant per village type (plains, desert, savanna, taiga, snowy)
-  via block replacement processors (Java) / separate files (Bedrock).
+  via block replacement processors.
 - Frequency target: **≈ 1 per 3 villages** (`worldgen.villageCasino.chance` 0.35).
   Java: added as a jigsaw element to each village's `houses` pool with a weight calibrated to that
   frequency, max 1 per village. Bedrock: custom jigsaw structure with the village structure-set
@@ -1149,7 +1129,7 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
   Golden Reels ×1; Wheel of Fortune ×1; Loan Shark ×1; Croupier (villager-like NPC, sells scratch
   cards 10/100 chips and Lucky Coins 25 chips) ×1; neon-ish glowstone/redstone-lamp sign "CASINO";
   back room with 1 loot chest `burmaldaholic:chests/village_casino`.
-- ⚠ **CHANGED 2026-09 — new games §20/§21; both editions re-export the structure files**: plus an
+- ⚠ **CHANGED 2026-09 — new games §20/§21 re-export the structure files**: plus an
   **Ultimate Texas Hold'em table ×1** (standard, `uth_table`) along the back wall (bounding box
   unchanged). Chunks generated before the update keep the old layout.
 - Loot (4–7 rolls): chip_1 ×5–20 (w 30), chip_5 ×2–8 (w 25), chip_25 ×1–3 (w 12), scratch_card
@@ -1159,8 +1139,7 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
 ### 16.2 Nether casino — "Piglin Parlor"
 
 - Inside bastion remnants: `worldgen.piglinParlor.chance` 0.30 of bastions, placed as an extra room
-  appended to the bastion (Java: added to bastion jigsaw pools; Bedrock: standalone structure in
-  basalt-deltas-excluded Nether biomes adjacent to bastion spacing — accepted difference).
+  appended to the bastion (Java: added to bastion jigsaw pools).
 - Size 21 × 12 × 21, blackstone/gold/crimson palette.
 - Contents: Craps table ×1; Poker table ×1 (Low stakes, 3 bots, mix Regular-heavy); Golden Reels ×2;
   Plinko ×1; Nether Cashier ×1 (gold ingot exchange); **Piglin Dealers ×2** (piglin model with vest,
@@ -1260,7 +1239,7 @@ Blackjack (5 seats), Poker (6 seats), Roulette (8 bettors), Craps (6 seats), Bac
 §21; player-banked variant §21.9). Seat by using the table;
 leave with the "Leave" button or by walking > 8 blocks away (between rounds; mid-round the
 disconnect rules of each game apply). Spectators within 8 blocks see public table state (Java:
-render over the table; Bedrock: no live view — action bar summary).
+render over the table).
 
 ### 18.2 Player-owned casinos
 
@@ -1345,12 +1324,11 @@ progress stored in player dynamic property. Keys: `advancement.burmaldaholic.<id
 | `uth_house_seat` | uth_four_x | In the Ultimate Texas Hold'em dealer seat, finish a round with a net profit against at least 2 seated players | goal |
 | `uth_royal` | uth_four_x | Make a royal flush at Ultimate Texas Hold'em that pays the Blind or the Trips (separate from poker's `royal_flush`, which needs a PvP pot) | challenge |
 
-
 ---
 
 ## 20. Baccarat — Punto Banco [baccarat]
 
-⚠ **ADDED 2026-09 — new game; both editions.** Pure "no decisions" card game: players bet, the
+⚠ **ADDED 2026-09 — new game.** Pure "no decisions" card game: players bet, the
 table deals by fixed rules. Blocks `baccarat_table` (standard) and `baccarat_table_high_roller`.
 
 ### 20.1 Rules (defaults)
@@ -1461,7 +1439,7 @@ RESULT       : 60 t. Settle every bettor, credit, update bead plate/streak/VIP/c
 ```
 No dealer NPC is needed: the table deals itself.
 
-**Shared table** (both editions): up to `baccarat.seats` (7) seated players bet on the **same coup**
+**Shared table**: up to `baccarat.seats` (7) seated players bet on the **same coup**
 from the same shoe — one Player hand and one Banker hand per round for everyone; each seat settles
 its own bets. Readiness works like roulette (§9): the window closes on the timer or when all seats
 with bets are Ready. A player who sits down after BETTING has closed is **seated but waits** for the
@@ -1495,9 +1473,7 @@ table; Bedrock gets the action-bar summary `gui.burmaldaholic.baccarat.actionbar
   worst-case at the minimum bet (insolvency test): 1 (Player 1).
 - **Baccarat Dealer** NPC `baccarat_dealer` (optional, cosmetic, like the blackjack dealer):
   stationary, invulnerable, persistent, looks at players. Java: using it opens the nearest baccarat
-  table (normal or High Roller) within 3 blocks, else `msg.burmaldaholic.baccarat.no_table`.
-  Bedrock: the entity itself can host a table (table key `npc:<entity id>`; High Roller when it has
-  the tag `burmaldaholic_baccarat_high_roller`); removing it is a table break. Spawn egg
+  table (normal or High Roller) within 3 blocks, else `msg.burmaldaholic.baccarat.no_table`. Spawn egg
   `baccarat_dealer_spawn_egg`.
 
 ### 20.7 Chaos and advancement hooks
@@ -1513,7 +1489,7 @@ table; Bedrock gets the action-bar summary `gui.burmaldaholic.baccarat.actionbar
 - The §13.1 big-win rule can never fire here (max pay 11:1). Golden Hour doubles the coup's net
   win as for every house game. `random_teleport` is blocked while a coup runs (§13.4).
 
-### 20.8 Test method (both editions)
+### 20.8 Test method
 
 Exact enumeration by **value classes** (10 classes: value 0 with `16 × decks` cards, A…9 with
 `4 × decks` each): loop P1, B1, P2, B2 (weight = product of remaining class counts, decrementing),
@@ -1593,7 +1569,7 @@ NO_MORE_BETS → SHUFFLE (if due) → DEAL (coup drawn and persisted with stakes
 
 ## 21. Ultimate Texas Hold'em [uth]
 
-⚠ **ADDED 2026-09 — new game; both editions.** House-banked hold'em: each seat plays only
+⚠ **ADDED 2026-09 — new game.** House-banked hold'em: each seat plays only
 against the dealer. Blocks `uth_table` (standard) and `uth_table_high_roller`. Reuses the poker
 hand evaluator (§7.2) and hand names.
 
@@ -1667,7 +1643,7 @@ Test vectors (A = 10 unless stated; cards: player hole · dealer hole · board):
 | Bet | Figure | Method |
 |-----|--------|--------|
 | Ante + Blind + Play, **optimal** strategy | **2.185 % of the Ante** (≈ 2.19 %); average total wagered 4.15 Antes → **element of risk 0.527 %** (≈ 0.53 %) | Full combinatorial analysis with the §7.2 evaluator: every hole-card pair (1 326, 169 classes) × flop × turn/river × the dealer's 990 remaining hole pairs, choosing the max-EV action backwards (river → flop → preflop). Offline tool, not part of CI. Optimal play never uses ×3. |
-| Same, **reference strategy R** (below) | **2.27 % ± 0.06 %** of the Ante, element of risk 0.55 %, average total wagered 4.15 Antes; fold 19.1 %, ×4 37.7 %, ×2 21.4 %, ×1 21.7 % | Monte-Carlo, 6 × 10⁷ rounds (design-time measurement, SE 0.064 %). Re-derived 2026-09 with the Bedrock board sampler (`uth/logic/sim.ts`, exact over the 1 081 × 990 hole/dealer pairs of each board): 5.4 × 10⁵ boards → 2.25 % ± 0.08 %, same bet frequencies — the figure stands; both editions implement R identically. |
+| Same, **reference strategy R** (below) | **2.27 % ± 0.06 %** of the Ante, element of risk 0.55 %, average total wagered 4.15 Antes; fold 19.1 %, ×4 37.7 %, ×2 21.4 %, ×1 21.7 % | Monte-Carlo, 6 × 10⁷ rounds (design-time measurement, SE 0.064 %). Re-derived 2026-09 with the Bedrock board sampler (`uth/logic/sim.ts`, exact over the 1 081 × 990 hole/dealer pairs of each board): 5.4 × 10⁵ boards → 2.25 % ± 0.08 %, same bet frequencies — the figure stands implement R identically. |
 | Trips 50-40-30-8-6-5-3 | EV = −2 547 324 / 133 784 560 = **−1.9040 %** | Exact over all C(52,7) = 133 784 560 hands: royal 4 324, straight flush 37 260, quads 224 848, full house 3 473 184, flush 4 047 644, straight 6 180 020, trips 6 461 620 (hit rate 15.27 %). |
 | Trips 50-40-30-9-7-4-3 (variant) | −1 206 516 / 133 784 560 = −0.9018 % | Same counts. |
 
@@ -1732,7 +1708,7 @@ SHOWDOWN : reveal the dealer's cards (20 t), announce "Dealer qualifies" or not,
   settlement. Example: Ante 10 + Trips 10 → 5 550 reserved. The insolvency test uses 505 (Ante 1).
   UTH is the most bankroll-hungry table; the charter screen shows its reservation per seat.
 - **Hold'em Dealer** NPC `uth_dealer` (optional, cosmetic): same behaviour as the Baccarat Dealer
-  (§20.6); Bedrock High-Roller tag `burmaldaholic_uth_high_roller`; Java radius 3 blocks
+  (§20.6); radius 3 blocks
   (`msg.burmaldaholic.uth.no_table`). Spawn egg `uth_dealer_spawn_egg`.
 
 ### 21.7 Chaos and advancement hooks
@@ -1747,7 +1723,7 @@ SHOWDOWN : reveal the dealer's cards (20 t), announce "Dealer qualifies" or not,
 - Golden Hour doubles the seat's net win as for every house game; `random_teleport` is blocked
   while the seat is in a round (§13.4).
 
-### 21.8 Test method (both editions)
+### 21.8 Test method
 
 - **Settlement**: the 6 vectors of §21.1, plus every row of the settlement table.
 - **Trips**: exact — either enumerate all 133 784 560 seven-card hands with `evaluate`, or assert

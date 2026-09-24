@@ -7,8 +7,7 @@ and its shell (cashier, wallet, contracts, Loan Shark, achievements, challenges,
 counter** and the **toasts**.
 
 **Java only.** Bedrock support was dropped on 2026-09-24. This spec has no Bedrock mapping, no glyph planes, no forms
-and no Bedrock textures. The generator module still lives in `bedrock/tools/assets/modules/` until the generator moves
-to `tools/assets/`, and it writes Java outputs only.
+and no Bedrock textures. The generator module lives in `tools/assets/modules/` and writes Java outputs only.
 
 Builds on: `docs/design/animation/extras-pvp.md` (choreography, timings, fidelity rules), `docs/design/animation/global.md`
 (palette §2.1, panels and `CasinoButton` §2.2, celebration kit §2.6, HUD §4.1, menu §4.2, toasts §4.10) and the slots
@@ -19,12 +18,12 @@ Deliverables:
 
 | What | Where |
 |---|---|
-| Generator (extras + PvP) | `bedrock/tools/assets/modules/extras.mjs` + helpers in `modules/extras/` (`kit`, `icons`, `coin`, `wheel`, `plinko`, `scratch`, `pvp`, `scenes`, tests in `extras-art.test.mjs`) |
-| Generator (menu shell, additive to core) | `bedrock/tools/assets/modules/core/menu.mjs`, wired from `core.mjs` (`menuShell()`) |
+| Generator (extras + PvP) | `tools/assets/modules/extras.mjs` + helpers in `modules/extras/` (`kit`, `icons`, `coin`, `wheel`, `plinko`, `scratch`, `pvp`, `scenes`, tests in `extras-art.test.mjs`) |
+| Generator (menu shell, additive to core) | `tools/assets/modules/core/menu.mjs`, wired from `core.mjs` (`menuShell()`) |
 | Art (Java) | `textures/gui/extras/*`, `textures/gui/pvp/*`, `textures/gui/core/menu/*`, sprites under `textures/gui/sprites/burmaldaholic/{extras,pvp}/*` and `textures/gui/sprites/core/{menu,hud,toast}/*`, `textures/item/extras/lucky_coin_{heads,tails}.png`, `textures/entity/extras/*`, `textures/particle/extras/foil_flake_*.png` |
 | Mockups | `docs/design/visual/mockups/extras_*.png` (854 × 480), made by `render_extras.py` (+ `mcfont.py`) from the real PNGs |
 
-Regenerate: `cd bedrock && node tools/gen-assets.mjs` (checked by `npm run lint` through `gen-assets --check`), then
+Regenerate: `cd tools && node assets/gen-assets.mjs` (checked by `npm run check:assets` in `tools/`, CI job `assets`), then
 `python3 docs/design/visual/mockups/render_extras.py`.
 
 ---
@@ -611,9 +610,3 @@ the card grows by 10 px), «Пока есть просрочка, новых з�
 mockup), and the scale hint (wraps under the game object).
 
 ---
-
-## 15. Bedrock
-
-Dropped (2026-09-24): no DDUI/ActionForm mapping, no glyph plane (the planned **U+E9xx** plane is not claimed), no
-Bedrock textures, entity props or forms. If Bedrock returns, start from this spec's art: every sheet is plain PNG and the
-16-px grids are shared.

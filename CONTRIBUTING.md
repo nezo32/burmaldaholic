@@ -1,7 +1,7 @@
 # Contributing to Burmaldaholic
 
-Burmaldaholic has two parts: the Java-edition Fabric mod in `java/` and the Bedrock add-on in `bedrock/`. Both are
-built, tested and released by GitHub Actions from this repository.
+Burmaldaholic is a Minecraft Java Edition Fabric mod in `java/`; its generated textures come from the Node asset
+generator in `tools/`. The mod is built, tested and released by GitHub Actions from this repository.
 
 ## Branch flow
 
@@ -16,8 +16,9 @@ main ──●──────────●───────────
 ### `main` is protected
 
 - Changes land only through a pull request.
-- The `ci-ok` check must pass. It aggregates every CI job (branch name, actionlint, scripts, the Java builds for
-  Minecraft 26.2 and 26.3, the Bedrock build); edition builds a PR does not touch are skipped and count as passed.
+- The `ci-ok` check must pass. It aggregates every CI job (branch name, actionlint, scripts, the builds for
+  Minecraft 26.2 and 26.3, the asset generator check); path-filtered jobs a PR does not touch are skipped and count
+  as passed.
 - PRs are **squash-merged**, so history stays linear: one commit per PR.
 - No force-pushes to `main`.
 
@@ -35,7 +36,7 @@ check rejects other names (`dependabot/`, `renovate/` and `claude/` branches are
 | `release/` | release preparation | (none) → Other changes |
 
 The prefix sets the PR label automatically, and the label decides where the PR appears in the release notes. PRs that
-touch `java/` or `bedrock/` also get a `java` / `bedrock` label.
+touch `java/` or `tools/` also get a `java` / `tools` label.
 
 ### PR titles
 
@@ -50,10 +51,9 @@ sentence that makes sense to players: "Add roulette table", not "roulette wip".
 - Only maintainers create releases.
 - A release is an annotated tag on a commit of `main`: `vMAJOR.MINOR.PATCH`, optionally with `-alpha.N`, `-beta.N` or
   `-rc.N` (no `+build` suffix). A tag on any other branch is rejected.
-- Everything after the tag is automated: the jar and the `.mcaddon` are built and attached to a GitHub release, then
-  uploaded to CurseForge.
-- The version lives **only in the tag**. Do not bump `mod_version` in `java/gradle.properties` or `version` in
-  `bedrock/package.json` to release; the manifests are generated at build time.
+- Everything after the tag is automated: the jar is built and attached to a GitHub release, then uploaded to
+  CurseForge.
+- The version lives **only in the tag**. Do not bump `mod_version` in `java/gradle.properties` to release.
 
 Details: [docs/ci/RELEASING.md](docs/ci/RELEASING.md).
 
@@ -63,8 +63,15 @@ Run the same checks as CI:
 
 ```bash
 (cd java && ./gradlew build -Pmc=26.2 && ./gradlew build -Pmc=26.3)      # JDK 25; compiles, tests, gametests, builds the jar
-(cd bedrock && npm ci && npm run lint && npm test && npm run build)       # Node 22; builds dist/Burmaldaholic-<version>.mcaddon
 ```
+
+If you changed art, the asset generator or the Java textures (Node 22):
+
+```bash
+(cd tools && npm ci && npm run gen:assets && npm run check:assets && npm test)
+```
+
+For client-side changes also run the real-client tests: `(cd java && xvfb-run -a ./gradlew runClientGameTest)`.
 
 If you changed `.github/` or `scripts/`:
 

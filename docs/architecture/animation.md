@@ -1,18 +1,21 @@
-# Burmaldaholic — Presentation architecture: animation, FX and the slots v2 engine (both editions)
+# Burmaldaholic — Presentation architecture: animation, FX and the slots v2 engine
 
 Owner: animation-wave architect. Status: **skeleton in the tree, compiling, behaviour unchanged**
-(2026-09-24). Audience: every developer of the animation and slots-redesign wave, both editions.
+(2026-09-24). Audience: every developer of the animation and slots-redesign wave.
+
+> **Java-only since 2026-09-24.** Bedrock support was dropped; the Bedrock runtimes, lanes and the B-S0 spike were
+> removed from this document. The asset generator lives in `tools/assets/` and emits Java outputs only.
 
 Inputs: `docs/research/animation.md` (capabilities), `docs/design/animation/{global,cards,tables,slots,extras-pvp}.md`
-(storyboards, per-game task lists), `docs/design/SLOTS.md` (+ `slots-math/`), `docs/architecture/{java,bedrock,pvp-bots}.md`
+(storyboards, per-game task lists), `docs/design/SLOTS.md` (+ `slots-math/`), `docs/architecture/{java,pvp-bots}.md`
 (module contracts, ownership, PvP/Bots layering). The design files say **what** moves and when; this file says
-**where the code lives, which shared APIs everybody uses, how both editions stay identical, and who owns which files**.
+**where the code lives, which shared APIs everybody uses, how clients stay identical to the server, and who owns which files**.
 
 Contents
 0. The shape in one page
 1. Decisions (lead decisions + architect decisions, with the spec edits applied)
-2. Per-edition runtimes (Java client runtime, assets, particles, sounds, BER framework, server FX and sync; Bedrock
-   scheduler, live forms, entity props, HUD/titles/camera; FX settings; screen base classes)
+2. Runtimes (Java client runtime, assets, particles, sounds, BER framework, server FX and sync; FX settings; screen
+   base classes)
 3. The shared presentation timeline ("PTL"): format, clocks, sync protocol, vectors, seeds, per-game builders
 4. Win tiers and the celebration API
 5. Asset pipeline (one generator)
@@ -21,7 +24,6 @@ Contents
 8. Fit with the PvP + Seats & Bots code (not yet merged)
 9. Work breakdown: lanes, file ownership, dependencies
 10. Skeleton inventory and verification
-11. Spike B-S0 report (Bedrock live forms and the [V] items) — decision: live form (DDUI) with automatic classic fallback
 
 ---
 
@@ -30,28 +32,28 @@ Contents
 ```
              server (authoritative)                               clients / viewers
  ┌───────────────────────────────────────────┐       ┌────────────────────────────────────────────────────┐
- │ game logic (pure)  → outcome (tape, pocket, │       │ Java screen      Java BER        Bedrock form/entity│
- │ dice, card beats) — drawn & persisted first │       │     │               │                 │           │
- │        │                                    │ seed  │     ▼               ▼                 ▼           │
+ │ game logic (pure)  → outcome (tape, pocket, │       │ Java screen      Java BER                          │
+ │ dice, card beats) — drawn & persisted first │       │     │               │                             │
+ │        │                                    │ seed  │     ▼               ▼                             │
  │        ▼                                    │+outcome│  SAME pure builder: Timeline = build(outcome, seed,│
  │ Timeline = build(outcome, seed, SHARED)  ───┼──────►│  profile) → sampled at (serverTime − start)        │
  │ reveal gate = startTick + sharedEndTicks    │       │  FrameModel.frame(o, tl, t) → draw                 │
  │ (text/chat/forms/celebration after the gate)│       │  final frame == terminal(outcome)  (tested)        │
  └───────────────────────────────────────────┘       └────────────────────────────────────────────────────┘
-       Java: core.anim (pure, common set)  ≡  Bedrock: core/logic/anim (pure)   ← shared vectors, byte-identical JSON
+       core.anim (pure, common set)   ← golden vectors (JSON) pin every builder
 ```
 
-- **One timeline format for both editions** (§3). Every game has a pure builder `outcome → Timeline` with an
-  identical Java and TypeScript port; shared JSON vectors prove both build byte-identical timelines.
+- **One timeline format** (§3). Every game has a pure builder `outcome → Timeline`; golden JSON vectors pin the
+  timelines it builds.
 - **Server decides, clients animate to it** (global.md §1, SLOTS.md §1.4). Clients never draw or predict outcomes;
   cosmetic variation comes only from `SeedMix` of public values.
 - **Shared clock vs local clock** (§3.2). Server-paced beats are the same tick for every viewer (screens, BERs,
-  Bedrock entities, spectators); decoration after the reveal gate is per viewer (speed, skip).
-- **One shared kit per edition**: Java `core.anim` (pure) + `client.anim` / `client.fx` / `client.render` +
-  `core.fx` / `core.sound`; Bedrock `core/logic/anim` (pure) + `core/presentation`. Games never build their own
+  spectators); decoration after the reveal gate is per viewer (speed, skip).
+- **One shared kit**: `core.anim` (pure) + `client.anim` / `client.fx` / `client.render` +
+  `core.fx` / `core.sound`. Games never build their own
   tween library, celebration, settings, sound helper or BER time base.
-- **One asset generator** for both editions (§5), **one glyph map** (§6), **one sound catalog** (§2.4).
-- **Slots v2** is a new pure engine package in each edition, built next to v1 and switched in one cut-over (§7).
+- **One asset generator** (§5), **one glyph map** (§6), **one sound catalog** (§2.4).
+- **Slots v2** is a new pure engine package, built next to v1 and switched in one cut-over (§7).
 
 ---
 
@@ -69,19 +71,18 @@ Contents
 
 | # | Decision | Why |
 |---|---|---|
-| A1 | Pure presentation maths lives in the **common** source set: Java `dev.nezo.burmaldaholic.core.anim` (not `client.fx` as global.md §2.5 said; global.md patched). Bedrock twin `src/core/logic/anim/`. | JUnit only sees `main`; the server needs timeline lengths for reveal gates and settle timers; Bedrock `check-arch` requires pure code under `logic/`. |
-| A2 | Every spec's per-game path/beat module (`CardMotion`, `*Beats`, `RouletteBallPath`, `DiceThrowPath`, `CoinAnim/WheelAnim/PlinkoAnim`, `SlotTimeline`) **outputs the shared `Timeline`** (§3) or is a pure path function sampled by a `FrameModel` (§3.6). Their spec paths are kept; shared paths go to `core/anim/<topic>` (Java) and `core/logic/anim/<topic>` (Bedrock) instead of `core/logic/fx`, `core/anim/cards` mixed spellings. | One vocabulary, one vector format. |
-| A3 | **Fidelity vectors** live in `java/src/test/resources/fx/vectors/<topic>.json` (generated by the Java test with `FX_DUMP_VECTORS=1`) and are mirrored to `bedrock/test/fx/vectors/<topic>.json`; `npm run sync:vectors` checks/copies. Replaces `docs/design/animation/slots-timeline-vectors.json` and the `vectors_tables.json` / `vectors_cards.json` single files (now `tables.json`, `cards.json`, `extras.json`, `slots_timeline.json`, `slots_engine.json`, `core_anim.json`). | CI path filters build each edition only from its own folder. |
-| A4 | **One asset generator in Node**: `bedrock/tools/gen-assets.mjs` + `bedrock/tools/assets/{lib,modules}/**`, writing both editions (replaces the planned Python `scripts/gen-fx-assets.py`, `scripts/fx_assets/*.py`, `scripts/fx/cards.py`, `tools/gen-table-anim.mjs`, `tools/gen-card-entity.mjs`; absorbs `gen-glyphs.mjs` / `gen-textures.mjs` over time). The worldgen generator (`src/worldgen/tools/gen-assets.mjs`, structures + NPC skins) stays module-owned. | Node is already the Bedrock toolchain; `--check` runs in CI; can bundle pure TS (e.g. the slot strips) with esbuild like the worldgen generator does. |
+| A1 | Pure presentation maths lives in the **common** source set: Java `dev.nezo.burmaldaholic.core.anim` (not `client.fx` as global.md §2.5 said; global.md patched). | JUnit only sees `main`; the server needs timeline lengths for reveal gates and settle timers. |
+| A2 | Every spec's per-game path/beat module (`CardMotion`, `*Beats`, `RouletteBallPath`, `DiceThrowPath`, `CoinAnim/WheelAnim/PlinkoAnim`, `SlotTimeline`) **outputs the shared `Timeline`** (§3) or is a pure path function sampled by a `FrameModel` (§3.6). Their spec paths are kept; shared paths go to `core/anim/<topic>` instead of `core/logic/fx`, `core/anim/cards` mixed spellings. | One vocabulary, one vector format. |
+| A3 | **Fidelity vectors** (golden vectors) live in `java/src/test/resources/fx/vectors/<topic>.json` (generated by the Java test with `FX_DUMP_VECTORS=1`). Replaces `docs/design/animation/slots-timeline-vectors.json` and the `vectors_tables.json` / `vectors_cards.json` single files (now `tables.json`, `cards.json`, `extras.json`, `slots_timeline.json`, `slots_engine.json`, `core_anim.json`). | Java tests read them from the classpath. |
+| A4 | **One asset generator in Node**: `tools/assets/gen-assets.mjs` + `tools/assets/{lib,modules}/**`, writing the Java textures under `java/` (replaces the planned Python `scripts/gen-fx-assets.py`, `scripts/fx_assets/*.py`, `scripts/fx/cards.py`). The worldgen generator (structures + NPC skins) stays module-owned. | `--check` runs in CI (`tools/`, job `assets`); pixel art from string grids stays deterministic. |
 | A5 | **Glyph clash resolved**: `extras-pvp.md` dye swatches move from U+E1C0–E1CF (also claimed by `tables.md`) to **U+E1E0–E1EF**. The full map is §6 and `core/logic/anim/glyph-map.ts` (overlap test). The research's "cards U+E5xx, dice U+E6xx" idea is superseded. | Two specs claimed the same 16 cells. |
 | A6 | **Sound ownership**: ids used by more than one module are owned (registered) by **core**: `dice_throw`, `dice_bounce`, `dice_cup`, `dice_wall` (craps + extras), `coin_land`, `coin_whoosh`, `wheel_stop`, `burn`, `collector_arrive`, `heartbeat`, `attract_chime` (names that no module namespace owns). Catalog: §2.4. | Java `namespaces.properties` (e.g. `dice_*` belongs to extras, which craps may not register). |
-| A7 | Slots v2 is built **next to v1** (Java `games.slots.v2.logic`, Bedrock `games/slots/v2/logic`); a single cut-over task switches the module, v1 becomes settle-only `LegacySlots`, deleted one release later (SLOTS.md §8.1). | Parallel lanes can land engine, screen and entity work without breaking the playable v1. |
+| A7 | Slots v2 is built **next to v1** (`games.slots.v2.logic`); a single cut-over task switches the module, v1 becomes settle-only `LegacySlots`, deleted one release later (SLOTS.md §8.1). | Parallel lanes can land engine, screen and entity work without breaking the playable v1. |
 | A8 | Win tier enum includes **NICE** for every game (`LOSS, RETURN, PUSH, WIN, NICE, BIG, MEGA, EPIC, JACKPOT`; MAX WIN is a flag). The default table has no NICE threshold; table-game floors (tables.md §0.3) reach it; it presents as the in-panel banner pop with the new core key `gui.burmaldaholic.fx.tier.nice` and sound `win_nice`. | tables.md floors used NICE, global.md had no NICE. |
-| A9 | Bedrock live UI goes through **one `LiveForm` abstraction** (DDUI `CustomForm` + Observables, classic fallback always kept), after the **DDUI spike B-S0** (lane B-L1, day 1). Slots, scratch and duel live forms all use it. | Research open question 1; three specs planned separate DDUI code. |
 
 ---
 
-## 2. Per-edition runtimes
+## 2. Runtimes
 
 ### 2.1 Java client animation runtime
 
@@ -118,8 +119,7 @@ set) and by `FxSettings.flashes()` at draw time.
   32 px / 16 px per D1–D2, card faces, wheel faces). Horizontal frame strips; the generator writes a JSON index
   next to each sheet only when a sheet is irregular.
 - **Fonts**: `assets/burmaldaholic/font/default.json` (lane J-L1, task J3) with bitmap providers: E1 sheet
-  `textures/font/glyph_e1.png` (256², 16 px cells, height 8, ascent 7 — the same PNG as Bedrock's `glyph_E1.png`) and
-  the slot planes E2/E3/E4 (512², 32 px cells) for Java fallback text; `burmaldaholic:banner` bitmap font
+  `textures/font/glyph_e1.png` (256², 16 px cells, height 8, ascent 7); `burmaldaholic:banner` bitmap font
   (Latin + Cyrillic, 2× pixel style) for tier words and banners (SLOTS.md §10.5). Glyphs are never inside lang
   strings; code prepends them as separate components (UI.md rule).
 - **Block/item textures**: animated block strips (`textures/block/<module>/*_front.png` + `.mcmeta`), chip stack
@@ -137,20 +137,16 @@ set) and by `FxSettings.flashes()` at draw time.
   extras). Module-owned: `slots` → `ember_burst`, `void_motes`; `extras` → `foil_flake`; `craps` → `dice_dust`.
 - Budgets (global §2.9): ≤ 60 per burst, ≤ 150 for JACKPOT, ≤ 400 casino particles alive (checked in the shared
   provider base `client.fx.CasinoParticle`, lane J-L1); server sends ≤ 3 `sendParticles` per event.
-- The same ids exist on Bedrock (`burmaldaholic:<id>` particle JSON); Bedrock emitters multiply one
-  `spawnParticle` call client-side (`variable.count`).
 
-### 2.4 Sound event registry (both editions)
+### 2.4 Sound event registry
 
-`core.sound.SoundCatalog` (Java) and `core/logic/anim/sound-ids.ts` (Bedrock) list **every** sound id of the wave
+`core.sound.SoundCatalog` lists **every** sound id of the wave
 (global §2.7, cards §7, tables §0.8, extras §10.3, slots §8) with owner module, source (`player` / `block` /
 `ambient`), subtitle and whether it already exists; the list (id@owner, in order) is part of `core_anim.json`, so the
-catalogs cannot drift. Registration: `CasinoSounds.registerOwned(ctx, "<module>")` in the owning module's
+catalog cannot drift silently. Registration: `CasinoSounds.registerOwned(ctx, "<module>")` in the owning module's
 `register` + the module's `src/main/sounds/<module>/sounds.json` entries (vanilla composites in the MUST phase; NICE
-`.ogg` files later under the same ids). Bedrock: `packs/<owner>/RP/sounds/sound_definitions.json` (deep-merged by the
-build), played through `core/presentation` helpers with `volume × anim.volume`.
-Rules: never `MASTER`; personal = `PLAYERS`, tables/cabinets = `BLOCKS` played positionally by the BER (Java) or
-`dimension.playSound` (Bedrock); "+"-composites are two events in the same tick; ≤ 20 sounds/s per player.
+`.ogg` files later under the same ids).
+Rules: never `MASTER`; personal = `PLAYERS`, tables/cabinets = `BLOCKS` played positionally by the BER; "+"-composites are two events in the same tick; ≤ 20 sounds/s per player.
 
 ### 2.5 Java BlockEntityRenderer framework (spectator views)
 
@@ -185,73 +181,13 @@ spin (+1 per free spin / bonus step, coalesced ≥ 10 t) — never per tick.
 - Early outcome publication is fine only after bets close (tables §0.6.7); PvP steps are revealed step by step
   (PVP.md §3.6, extras §0.3.7).
 
-### 2.7 Bedrock presentation runtime — scheduler with budgets
-
-`core/presentation/scheduler.ts` `playTimeline(timeline, sink, opts)`: **one `system.runInterval` per session**
-(a solo player's machine, a table round), period 2 t by default; each frame computes `t = (tick − t0) × 50 + skipOffset`,
-fires `sink.beat(b)` for beats that started (beats passed by a skip or a late start are not replayed), calls
-`sink.frame(t)` for continuous beats, and ends with `sink.end(t, interrupted)` (fidelity F8: interrupt = reveal).
-`alive()` stops it when the form closes / player leaves. Frames over `budgetMs` (0.3 ms) are logged.
-One-shot beats that need exact ticks without a session use `system.runTimeout` chains (tables `soundTimeline`).
-Budgets (global §2.9, slots §2.6, cards §0.8): ≤ 1 Observable write per 2 t per label, ≥ 2 t between action-bar
-frames, ≤ 24 `spawnParticle` calls per event, ≤ N `setProperty` per event as each spec lists.
-
-### 2.8 Bedrock live forms (DDUI with classic fallback)
-
-`core/presentation/live-form.ts` `createLiveForm(player, title, {preferDdui, actionbar})` returns a `LiveForm`
-(`label`, `button`, `set(id, text)`, `show`, `close`, `isShowing`). **DDUI**: `CustomForm` with `ObservableString` /
-`ObservableUIRawMessage` per label/button, `set` writes only changes. **Classic**: an `ActionFormData` between steps,
-live text routed to the game's HUD action-bar channel while the form is closed. Construction failure → classic.
-**Spike B-S0 done** (lane B-L1): report and decision in **§11** (DDUI is the default path; writes are coalesced to
-≤ 1 per component per 2 t inside `LiveForm`; any DDUI failure switches the world session to classic; the client-only
-checks run from `/scriptevent burmaldaholic:fx spike`). `LiveForm` also has `header`, `setDisabled` / `setVisible`
-(bound `ButtonOptions` / `TextOptions` Observables) and `show()` → `LiveCloseReason` (`fallback` = reopen as classic).
-
-### 2.9 Bedrock entity-based in-world props
-
-Props = AI-free entities with `client_sync` properties: `slot_reels` (slots), `wheel_fx`, `plinko_fx`, `coin_fx`
-(extras), roulette wheel, `table_die` + puck (craps / Dice Duel), NICE `card_hand`. Pattern (research §3.2):
-- the script writes **properties at beat ticks** (`writeProps` writes only changes and returns the write count for
-  budget accounting) and calls `playPropAnimation(anim, controller, nextState)` for one-shot motion;
-- per-frame motion is **Molang** in generated animation files (curves from `core/logic/anim` baked as constants or
-  expressions by the generator, so Java and Bedrock land on the same angle / reel offset — extras §14.7 tests a tiny
-  Molang evaluator against the TS path);
-- geometry (`*.geo.json`), animations, controllers and render controllers are **generated JSON** (no Blockbench):
-  asset modules emit them from code (bone lists, per-reel quads, UV strips from the real reel strips).
-- Lifecycle: spawn on block place / chunk load (re-link by tag), remove with the block; one entity per machine,
-  never per spectator; LOD via `q.distance_from_camera` [V].
-
-### 2.10 Bedrock HUD, titles, camera, particles, sounds
-
-- Titles and roll-ups: `rollup-hud.ts` `titleRollUp` (`setTitle` once, `updateSubtitle` every 2 t, exact last value;
-  reduce motion = 2 steps) — requires `hud.holdTitle` from the PvP branch (§8) so the status line does not clobber it.
-- Action-bar tickers: game HUD channels via `ctx.hud.actionbar(p, '<game>.<channel>', raw, priority)` (existing
-  queue), ≥ 2 t apart per player.
-- Camera: `camera.ts` `fade` (stable API; skipped with reduce motion or flashes off) and `shake` (command; skipped with
-  reduce motion). Every camera beat has a title-only baseline.
-- Particles and sounds: definitions in `packs/<owner>/RP/particles|sounds`; one particle atlas per owner
-  (`burmaldaholic_fx.png` core, `burmaldaholic_slots.png` slots), generated.
-- `FxService` (global §3.2) = `core/presentation/fx.ts` (lane B-L1), **`ctx.fx`** in every module:
-  `celebrate(player, CelebrationRequest)` → `{timeline, done, skip}` (plan = pure `core/logic/anim/celebration.ts`,
-  played by the scheduler; sneak = skip; open the result form after `done`), `sound` / `soundAt` (× `anim.volume`,
-  Bedrock layers `burmaldaholic.<id>.l<n>` of `SOUND_LAYERS`, ≤ 20/s), `burst` (≤ 60 per burst, ≤ 24 calls per event,
-  viewers' `anim.celebrations`), `toast`, `chaos`, `hudPulse` (handler installed by B-L2), `titleFlipbook`,
-  `actionbarRollUp`, `chatAtLanding`; table helpers `soundTimeline` / `revealAfter` (`presentation/table-fx.ts`).
-  Games call it instead of `hud.title` + `playSound`. Operators preview tiers with
-  `/scriptevent burmaldaholic:fx demo <TIER> <ret> <stake> [slots]`.
-- Core particle atlas contract: `core/logic/anim/particle-atlas.ts` (rows of `burmaldaholic_fx.png`, drawn by X-L0's
-  `core.mjs`); core particle JSON: `packs/core/RP/particles/*.json` (15 ids); core sounds:
-  `packs/core/RP/sounds/sound_definitions.json` (every core-owned catalog id + layers, vanilla files only; a test keeps
-  both in sync with `sound-ids.ts`).
-
-### 2.11 FX settings (both editions)
+### 2.11 FX settings
 
 Ids of global §2.8: `anim.reduceMotion`, `anim.flashes`, `anim.speed` (50 / 100 / 150), `anim.celebrations`
-(all / mine / off), `anim.volume` (0–100), Bedrock-only `anim.hudPanel`.
+(all / mine / off), `anim.volume` (0–100).
 Java: `client.fx.FxSettings` ↔ `config/burmaldaholic-client.json` (client-local; Casino Menu → Settings rows and the Mod
 Menu "Client effects" section; vanilla "Hide lightning flashes" or "Screen effect scale = 0" force flashes off).
-Bedrock: player dynamic properties `burmaldaholic:anim.*` read by `core/presentation/settings.ts`, written by the Casino
-Menu → Settings ModalForm. Both expose `localProfile()` → `TimingProfile` for LOCAL beats; shared beats always use
+`FxSettings` exposes `localProfile()` → `TimingProfile` for LOCAL beats; shared beats always use
 `TimingProfile.SHARED` (only the acting player's machine turbo, SLOTS.md §6.4, changes shared speed and is published
 in `TimelineSeed.speedPct`). Reduce motion forces flashes off.
 
@@ -281,7 +217,7 @@ in `TimelineSeed.speedPct`). Reduce motion forces flashes off.
 
 | Field | Meaning |
 |---|---|
-| `at`, `dur` | integer ms from beat 0 (never ticks; Bedrock rounds up with `ceilTicks` when scheduling) |
+| `at`, `dur` | integer ms from beat 0 (never ticks) |
 | `kind` | `<game>.<beat>` (constants per game: `SlotTimeline.*`, `SLOT_BEAT`, `BlackjackBeats.*` …) |
 | `lane` | reel / seat / card slot / ring, −1 none |
 | `group` | skip group (skip = jump to the group end) |
@@ -289,7 +225,7 @@ in `TimelineSeed.speedPct`). Reduce motion forces flashes off.
 | `args` | small ints (symbol ids, amounts, masks) — never information that is not yet public at `at` |
 
 Beats are sorted by `at`, then insertion order. Canonical JSON (fixed key order, no spaces) is the vector format.
-Durations derived from transcendental maths (roll-ups) are `floor(x + 1e-9)` in both editions. Local durations are
+Durations derived from transcendental maths (roll-ups) are `floor(x + 1e-9)`. Local durations are
 scaled by `TimingProfile.scale(ms) = floor(ms × 100 / speedPct)`.
 
 ### 3.2 Clocks
@@ -302,9 +238,9 @@ them is `timeline.sharedEndMs()`.
 ### 3.3 Sync protocol
 
 1. Server resolves and **persists** the outcome (tape / round), then publishes `TimelineSeed{game, seq, startTick,
-   seed, speedPct}` + outcome (state payload for the actor, BE update tag for spectators; Bedrock: the script itself).
+   seed, speedPct}` + outcome (state payload for the actor, BE update tag for spectators).
 2. Every consumer builds `Timeline = Builder.build(outcome, seed, sharedProfile, localProfile)` with the **same pure
-   builder**, samples `t = (gameTime − startTick + partialTick) × 50` (Java) or `(currentTick − t0) × 50` (Bedrock).
+   builder**, samples `t = (gameTime − startTick + partialTick) × 50`.
 3. Late joiners: `t ≥ 0.85 × sharedEnd` → draw the terminal state (no tweens). Overrun: a new `seq` finishes the old
    player first (≤ 120–250 ms per spec).
 4. Server posts text/forms/celebration at the gate; settle timers (slots "settled after the timeline ends",
@@ -312,11 +248,10 @@ them is `timeline.sharedEndMs()`.
 5. Optional client **outcome-free spin-up** (research §2.11): a screen may start its spin-up on click; it lands only
    on the received outcome; a rejected action decelerates onto the previous state (slots F1).
 
-### 3.4 Shared test tapes (fidelity)
+### 3.4 Golden test tapes (fidelity)
 
-- Files: `java/src/test/resources/fx/vectors/<topic>.json` (generated by the Java test on `FX_DUMP_VECTORS=1`), mirrored
-  to `bedrock/test/fx/vectors/` (`npm run sync:vectors` checks, `--write` copies). Each file holds **inputs and
-  outputs**; each edition recomputes outputs from the inputs (so Bedrock tests never depend on Java at runtime).
+- Files: `java/src/test/resources/fx/vectors/<topic>.json` (generated by the Java test on `FX_DUMP_VECTORS=1`, then
+  frozen). Each file holds **inputs and outputs**; the tests recompute the outputs from the inputs.
 - Topics: `core_anim` (**exists**: easing samples, seeds, RNG, tiers, roll-ups, speed scaling, a sample timeline,
   the sound catalog), `cards` (beat schedules per game + `CardMotion`), `tables` (ball path 37 pockets × 64 seeds,
   dice path 36 pairs × 64 seeds × 8 paths), `extras` (coin / wheel / plinko / scratch), `slots_engine` (windows, way
@@ -329,22 +264,22 @@ them is `timeline.sharedEndMs()`.
 ### 3.5 Cosmetic seeds
 
 `SeedMix.mix(parts…)` / `seedMix(...)` (FNV fold through murmur3 `fmix`), `SeedMix.hash(string)`, `FxRng` (mulberry32)
-— bit-identical in both editions (vectors). Seeds use **public** values only: `mix(hash(tableKey), roundSeq, slot)`,
+— bit-identical (vectors). Seeds use **public** values only: `mix(hash(tableKey), roundSeq, slot)`,
 `mix(posHash, spinSeq)`. Never the game RNG, the bot RNG, `Math.random`, `ThreadLocalRandom`.
 
 ### 3.6 Per-game builders and frame models (who writes what)
 
-| Game | Java (main, pure) | Bedrock (pure) | Lane |
-|---|---|---|---|
-| core celebration / roll-up | `core.anim.RollUp`, `WinTierTable.upgradePoints` | `core/logic/anim/{rollup,win-tier}.ts` | done |
-| cards kit | `core.anim.cards.CardMotion` | `core/logic/anim/cards/card-motion.ts`, `card-ticker.ts` | J-L4 / B-L4 |
-| blackjack, baccarat | `games.<g>.logic.<G>Beats` | `games/<g>/logic/beats.ts` | J-L4 / B-L4 |
-| poker, UTH | `games.<g>.logic.<G>Beats` (incl. slow run-out, L3) | `games/<g>/logic/beats.ts` | J-L5 / B-L5 |
-| roulette | `games.roulette.logic.RouletteBallPath` | `games/roulette/logic/ball-path.ts` | J-L6 / B-L6 |
-| craps, Dice Duel | `core.anim.dice.DiceThrowPath` | `core/logic/anim/dice/dice-path.ts` | J-L6 / B-L6 |
-| extras | `games.extras.logic.anim.{CoinAnim,WheelAnim,PlinkoAnim,ScratchWipe}` | `games/extras/logic/anim.ts` | J-L7 / B-L7 |
-| slots | `games.slots.v2.logic.SlotTimeline` (+ `SlotFrames`) | `games/slots/v2/logic/timeline.ts` (+ `frames.ts`) | J-L8 / B-L8 (builder), J-L9 / B-L9 (frames) |
-| PvP shared (countdown, Final Reveal) | server-paced by the PvP engine cues; presenter maps cues to beats | same | J-L7 / B-L7 |
+| Game | Java (main, pure) | Lane |
+|---|---|---|
+| core celebration / roll-up | `core.anim.RollUp`, `WinTierTable.upgradePoints` | done |
+| cards kit | `core.anim.cards.CardMotion` | J-L4 / B-L4 |
+| blackjack, baccarat | `games.<g>.logic.<G>Beats` | J-L4 / B-L4 |
+| poker, UTH | `games.<g>.logic.<G>Beats` (incl. slow run-out, L3) | J-L5 / B-L5 |
+| roulette | `games.roulette.logic.RouletteBallPath` | J-L6 / B-L6 |
+| craps, Dice Duel | `core.anim.dice.DiceThrowPath` | J-L6 / B-L6 |
+| extras | `games.extras.logic.anim.{CoinAnim,WheelAnim,PlinkoAnim,ScratchWipe}` | J-L7 / B-L7 |
+| slots | `games.slots.v2.logic.SlotTimeline` (+ `SlotFrames`) | J-L8 / B-L8 (builder), J-L9 / B-L9 (frames) |
+| PvP shared (countdown, Final Reveal) | server-paced by the PvP engine cues; presenter maps cues to beats | J-L7 / B-L7 |
 
 ---
 
@@ -357,7 +292,7 @@ them is `timeline.sharedEndMs()`.
 - Broadcasts (global §4.7) and the chaos big-win rule (GAME_DESIGN §13.1.3) always use the **default** table on the
   spin's net, whatever the game's on-screen table.
 - Client: `CelebrationOverlay.play(CelebrationRequest{tier, ret, stake, table, words, stems, subTier, maxWin, seed})`
-  (Java) / `fx.celebrate(player, request)` (Bedrock). `words` = `TierWords.CORE` or the game's own
+  . `words` = `TierWords.CORE` or the game's own
   (`SlotTiers.WORDS` / `SLOT_TIER_WORDS`); `stems` = `TierStems.CORE` or `slots.*`. Upgrade beats come from
   `table.upgradePoints(stake, start, final)`; the word always ends on the server tier; roll-up
   `RollUp.durationMs/valueAt` (monotonic, exact last frame). Skippable; `anim.celebrations` = off → WIN banner only.
@@ -367,34 +302,31 @@ them is `timeline.sharedEndMs()`.
 
 ## 5. Asset pipeline (one generator)
 
-`bedrock/tools/gen-assets.mjs` (skeleton, runs) loads every `tools/assets/modules/<module>.mjs`; each default-exports
-`generate(ctx)` returning `{edition: 'java'|'bedrock', path, bytes}` outputs; the driver writes them (`npm run
-gen:assets`) or verifies them (`npm run check:assets`, add to `lint` when the first module produces files).
+`tools/assets/gen-assets.mjs` (skeleton, runs) loads every `tools/assets/modules/<module>.mjs`; each default-exports
+`generate(ctx)` returning `{path, bytes}` outputs (paths relative to `java/`); the driver writes them (`cd tools && npm run
+gen:assets`) or verifies them (`npm run check:assets`, CI job `assets`).
 Library (`tools/assets/lib/`): `png.mjs` (deterministic encoder), `palette.mjs` (global §2.1 tokens), `grid.mjs`
 (string-grid pixel art, frame strips, blits), `emit.mjs` (`png`, `json`, Java `mcmeta` for animation / nine-slice).
-To add (lane X-L0): `font.mjs` (glyph sheet writer + Java font JSON), `molang.mjs` (curve → Molang expression / baked
-keyframes), `geo.mjs` (bone/quad builders for entity geometry), `atlas.mjs` (particle atlas + Bedrock particle JSON),
-`transforms.mjs` (blur, shine band, palette swap, squash frames of slots.md §3.2).
+Also: `font.mjs` (glyph sheet writer + Java font JSON), `transforms.mjs` (blur, shine band, palette swap, squash frames
+of slots.md §3.2).
 
-| Module file | Owner lane | Produces (both editions unless noted) |
+| Module file | Owner lane | Produces |
 |---|---|---|
-| `core.mjs` | X-L0 | panels, buttons, HUD sprites, fx sprites (rays, coins, confetti, sparkle, chips), vignettes, toasts, glyph sheet E1 (all ranges of §6), core particle sprites + Bedrock atlas, form icons, chip stack items |
-| `meta.mjs` | B-L3 | VIP badges, Last Chance coin, chaos cards (NICE), loan seal, attract block strips + flipbooks |
-| `cards.mjs` | B-L4 | card faces/backs, glow, stamps, tags, shoe, pot/chip stacks, `card_hand` entity (NICE) |
-| `tables.mjs` | B-L6 | **Java only** (docs/design/visual/tables.md): themed backdrops, felts, rails, plates, buttons, chips; roulette wheel frame sets (74 head frames + blur, bowls, mini wheels), layouts, racetrack, dolly; craps layout, dice (small / 40 px, 3D tumble), puck, badges; Dice Duel arena, cup, vs, stamp; BER textures (`entity/roulette/wheel_<theme>`, `entity/craps/dice`); particles |
-| `extras.mjs` | B-L7 | coin, wheel faces, Plinko, scratch tickets, `coin_fx`/`wheel_fx`/`plinko_fx` entities + Molang |
-| `slots.mjs` | B-L10 | symbol sheets 40/32/16 px (D1, D2), glyph planes E2/E3/E4, cabinets, marquees, backdrops, feature sprites, strip textures **read from the v2 strips** (bundled from `games/slots/v2/logic` with esbuild), `slot_reels` geo/animations/controllers, particles |
+| `core.mjs` | X-L0 | panels, buttons, HUD sprites, fx sprites (rays, coins, confetti, sparkle, chips), vignettes, toasts, glyph sheet E1 (all ranges of §6), core particle sprites, chip stack items, Casino Menu shell |
+| `cards.mjs` | X-L0 | card faces/backs (docs/design/visual/cards.md), card tables, props, chips, badges, icons |
+| `tables.mjs` | X-L0 | docs/design/visual/tables.md: themed backdrops, felts, rails, plates, buttons, chips; roulette wheel frame sets (74 head frames + blur, bowls, mini wheels), layouts, racetrack, dolly; craps layout, dice (small / 40 px, 3D tumble), puck, badges; Dice Duel arena, cup, vs, stamp; BER textures (`entity/roulette/wheel_<theme>`, `entity/craps/dice`); particles |
+| `extras.mjs` | X-L0 | coin, wheel faces, Plinko, scratch tickets, PvP art (docs/design/visual/extras.md) |
+| `slots.mjs` | X-L0 | symbol sheets 40/32/16 px (D1, D2), cabinets, marquees, backdrops, feature sprites, strip textures **read from the strips** (SLOTS.md Appendix A), block textures, particles, Showdown sprites |
 
-No text in textures (digits only where specs allow). Outputs must respect ownership (Java `checkAssetOwnership`,
-Bedrock `packs/<module>/`). Generated files are committed; `--check` keeps them honest.
+No text in textures (digits only where specs allow). Outputs must respect ownership (Java `checkAssetOwnership`). Generated files are committed; `--check` keeps them honest.
 
 ---
 
 ## 6. Glyph map (conflict-free across all specs)
 
-Authority: `bedrock/src/core/logic/anim/glyph-map.ts` (overlap test in `vectors.test.ts`). Sheets: **E1** = core
-`glyph_E1.png` (256², 16 px cells; Java `glyph_e1.png`, same file); **E2/E3/E4** = slots base / win / blur planes
-(512², 32 px cells, same offsets).
+Authority: `tools/assets/modules/core/glyph-map.mjs` (E1; `core.test.mjs` checks the sheet against it). Sheet: **E1** =
+core `textures/font/core/glyph_e1.png` (256², 16 px cells). The former slots planes E2/E3/E4 were Bedrock-only and are
+gone; the slots ranges below only name the shared icon order of the slot sheets.
 
 | Range | Owner | Spec | Content |
 |---|---|---|---|
@@ -427,35 +359,35 @@ New ranges need a one-line PR to `glyph-map.ts` (the test fails on overlap) and 
 
 ## 7. Slots v2 engine architecture
 
-### 7.1 Packages (mirrored, pure)
+### 7.1 Packages (pure)
 
-| Concern | Java `games.slots.v2.logic` | Bedrock `games/slots/v2/logic` | Status |
-|---|---|---|---|
-| machines, symbols, config def | `Machine`, `SymbolRole`, `MachineDef` (fifths), `Window` | `types.ts` (`MachineId`, `MachineDef`, `windowFromStops`) | types done |
-| 243-ways evaluator | `Ways.evaluate(def, window, stickyMask)` → `WayWin`, `Result` | `engine.ts evaluateWays` | stub |
-| tumbles (Nether) | `Tumble.run(def, stops, ladder)` → `Step`, `Chain` | `engine.ts runTumbles` | stub |
-| tape (all random values of a spin) | `SpinTape` (+ `FreeSpins`, `FreeSpin`, `Hunt`, `Hoard`, `Wheel`, `JackpotAward`) | `types.ts SpinTape` | types done |
-| draw (CONFIRM → TAPE) incl. free spins, retriggers, sticky masks, Hunt i.i.d. entries, Hoard respins, Wheel rings, cap | `SlotDraw.draw(Request, SlotRng)` | `engine.ts drawSpin` | stub |
-| persistence codec (`{v:2,…}`, < 1 200 chars) | `TapeCodec` | `tape-codec.ts` | stub |
-| progressive jackpots | `Jackpots.award / incrementAfter` (+ pool store in the module) | `jackpots.ts` | maths done |
-| max-win cap, owned reservation | inside the draw; `SlotDraw.reservation = cap × bet` | `engine.ts reservation` | done |
-| honest anticipation | `Anticipation.stopTimes` | `anticipation.ts` | stub (+ base schedule done) |
-| tiers / words | `SlotTiers` (`WinTierTable.SLOTS`, `WORDS`) | `tiers.ts` | done |
-| timeline | `SlotTimeline.build` + beat constants | `timeline.ts` | stub + constants |
-| Slot Showdown v2 | `Showdown` (`Spin`, `Hazard`, `points`) | `showdown.ts` | stub + points |
-| RTP validation (`slots.validateRtp`) | `SlotRtpV2` (enumeration < 30 s) | `rtp.ts` (factorised form + Nether defaults) | lane S-x4 |
+| Concern | Java `games.slots.v2.logic` | Status |
+|---|---|---|
+| machines, symbols, config def | `Machine`, `SymbolRole`, `MachineDef` (fifths), `Window` | types done |
+| 243-ways evaluator | `Ways.evaluate(def, window, stickyMask)` → `WayWin`, `Result` | stub |
+| tumbles (Nether) | `Tumble.run(def, stops, ladder)` → `Step`, `Chain` | stub |
+| tape (all random values of a spin) | `SpinTape` (+ `FreeSpins`, `FreeSpin`, `Hunt`, `Hoard`, `Wheel`, `JackpotAward`) | types done |
+| draw (CONFIRM → TAPE) incl. free spins, retriggers, sticky masks, Hunt i.i.d. entries, Hoard respins, Wheel rings, cap | `SlotDraw.draw(Request, SlotRng)` | stub |
+| persistence codec (`{v:2,…}`, < 1 200 chars) | `TapeCodec` | stub |
+| progressive jackpots | `Jackpots.award / incrementAfter` (+ pool store in the module) | maths done |
+| max-win cap, owned reservation | inside the draw; `SlotDraw.reservation = cap × bet` | done |
+| honest anticipation | `Anticipation.stopTimes` | stub (+ base schedule done) |
+| tiers / words | `SlotTiers` (`WinTierTable.SLOTS`, `WORDS`) | done |
+| timeline | `SlotTimeline.build` + beat constants | stub + constants |
+| Slot Showdown v2 | `Showdown` (`Spin`, `Hazard`, `points`) | stub + points |
+| RTP validation (`slots.validateRtp`) | `SlotRtpV2` (enumeration < 30 s) | lane S-x4 |
 
 Units: all pays in **fifths of the bet** (integers; SLOTS.md §7.5), chips = fifths × bet / 5 (exact because bets are
-multiples of 5). `SlotRng` adapts `OddsService.play` (Java) / `ctx.odds.draw` (Bedrock) so the §14 streak re-draw
+multiples of 5). `SlotRng` adapts `OddsService.play` so the §14 streak re-draw
 applies to the whole spin, never to bought features (SLOTS.md §8.2).
 
-### 7.2 Module layer (non-pure, per edition)
+### 7.2 Module layer (non-pure)
 
 - **Round lifecycle** (SLOTS.md §1.2, §8.1): CONFIRM (bet/price debit through wagers, owned reservation
   `reserved += cap × bet`) → `SlotDraw.draw` → streak re-draw → jackpot award at draw time (pools debited; others'
   meters show `pool + pending` until the reveal) → **PERSIST** `{v:2, machine, bet, price?, tape, total,
-  jackpotAwards[], startTick, opened?}` (Java: `SlotMachineBlockEntity` + `SavedData burmaldaholic_slots` for pools;
-  Bedrock: sharded world JSON per machine key + `burmaldaholic:slots:jp`) → PRESENT (timeline) → SETTLE at the gate
+  jackpotAwards[], startTick, opened?}` (`SlotMachineBlockEntity` + `SavedData burmaldaholic_slots` for pools)
+  → PRESENT (timeline) → SETTLE at the gate
   or at once on skip / close / disconnect / restart. Treasure Hunt progress (`opened`) is persisted per pick; the
   i-th pick reveals entry i (D6: the client learns entry i only on pick i).
 - **Protocol (Java)**: `spin` state = `TimelineSeed` + the tape section the client may see now (base stops, then per
@@ -470,16 +402,14 @@ applies to the whole spin, never to bought features (SLOTS.md §8.2).
 
 `slots_engine.json`: per machine, fixed stops → window, way wins (symbol, k, ways, pay), tumble chains, scatter/bonus
 counts; seeded draws (a test `SlotRng` = `FxRng`-backed sequence) → tape strings; codec round trips. Exact totals of
-SLOTS.md §7.5 are checked by a **slow tagged** Java test (full enumeration, CI nightly) and by the Bedrock factorised
-form for non-tumbling machines. Monte-Carlo tolerance tests (§7.5) nightly in both editions.
+SLOTS.md §7.5 are checked by a **slow tagged** Java test (full enumeration, CI nightly). Monte-Carlo tolerance tests (§7.5) nightly.
 
 ---
 
-## 8. Fit with the PvP + Seats & Bots code (not yet merged)
+## 8. Fit with the PvP + Seats & Bots code
 
-Read via `git show worktree-agent-aaf0f54e81d19ae4a:<path>` (Bedrock final) and the Java integration branch
-(pvp-bots.md §2.1 file map).
-- **PvP presenters** (`core/pvp/presenter.ts` `PvpPresenter`, Java `Pvp.setPresenter`) stay the entry point; the
+See the pvp-bots.md §2.1 file map.
+- **PvP presenters** (`Pvp.setPresenter`) stay the entry point; the
   animation lanes implement presenter callbacks (`countdown`, `revealStep`, `finalReveal`, `sound`, `particles`) by
   building **local** timelines from the step data (the engine already paces shared time with cue ticks). No change
   to the engine contract.
@@ -502,15 +432,15 @@ the current skeleton; **◆ after <x>** = waits for a milestone; **⏸** = after
 files exclusively; shared core files have one owner lane each (below). Other lanes that need a core change open a
 small PR to the owner lane. Everyone may add rows to STRINGS.md only through lane X-L0 (single editor).
 
-### 9.0 Shared lane (one developer, Node, both editions)
+### 9.0 Shared lane (one developer)
 
-**X-L0 Assets, strings, vectors** — owns `bedrock/tools/gen-assets.mjs`, `bedrock/tools/assets/lib/**`,
-`bedrock/tools/assets/modules/core.mjs`, `bedrock/tools/sync-fx-vectors.mjs`, `docs/design/STRINGS.md` animation sections,
-generated lang (`java/src/main/lang/*`, `bedrock/lang/*` via the generators), `packs/core/RP/font/**`,
+**X-L0 Assets, strings, vectors** — owns `tools/assets/gen-assets.mjs`, `tools/assets/lib/**`,
+`tools/assets/modules/core.mjs`, `docs/design/STRINGS.md` animation sections,
+generated lang (`java/src/main/lang/*` via `java/tools/gen_lang.py`),
 Java `assets/burmaldaholic/textures/font/**`, core sprites/particle sprites (output paths of `core.mjs`).
 Tasks: S1 (framework + core art + glyph sheet E1 incl. every range of §6, folding in `gen-glyphs.mjs`), S2 / C3 / SX3 /
 SX4(slots) / tables §6 strings (all five specs' string tables into STRINGS.md in one pass), lib additions of §5,
-vector sync in CI (`sync:vectors` + `check:assets` into `npm run lint`). ▶ now. Milestone **X-M1** (day 3): framework +
+`check:assets` in CI. ▶ now. Milestone **X-M1** (day 3): framework +
 lib + glyph sheet; **X-M2** (week 1): all core art.
 
 ### 9.1 Java lanes (10)
@@ -527,21 +457,6 @@ lib + glyph sheet; **X-M2** (week 1): all core art.
 | **J-L8 Slots engine & server** | `games/slots/v2/logic/**`, `games/slots/*.java` (server: module, BE, jackpot data, chaos bridge, api), `games/slots/pvp/**` (server), `core/config/sections/SlotsConfig*` (with core), slots tests | S-J1 ways + tumbles, S-J2 draw + tape + codec + pools + persistence, S-J3 anticipation + `SlotTimeline` (SX2), S-J4 config v2 + `validateRtp`, S-J5 protocol (JS13) + settle at gate + skip + `SpinSync` data + cut-over, S-J6 migration + `LegacySlots`, S-J7 integrations (§7.2), ⏸ S-J8 Showdown v2 mode | ▶ now. **S-M1** (week 1): evaluator + tumbles match §7.5 + vectors; **S-M2**: draw/tape/codec; **S-M3**: timeline vectors |
 | **J-L9 Slots screen** | `games/slots/client/**` except the renderer / particles / Showdown screen; `src/main/sounds/slots/sounds.json` | JS1–JS12, JS17, SX3 (Java sounds) | ▶ now against `SlotTimeline` stubs + fake tapes; ◆ S-M3 for real timelines |
 | **J-L10 Slots in-world & Showdown screen** | `games/slots/client/{SlotCabinetRenderer,SlotsParticles}.java`, `games/slots/SlotsFx.java`, slots particles JSON, cabinet models | JS14, JS15; ⏸ JS16 | ◆ S-M1 (window data) — renderer shell ▶ now |
-
-### 9.2 Bedrock lanes (10)
-
-| Lane | Owns (paths under `bedrock/` unless noted) | Tasks | Start |
-|---|---|---|---|
-| **B-L1 Presentation core** | `src/core/presentation/**`, `src/core/logic/anim/**` (extensions), `src/core/fx*.ts`, `packs/core/RP/{particles,sounds}/**` | B-S0/BS0 DDUI spike (**day 1**), B1 (`FxService.celebrate` with L2 API), B2, B3, BX1, B-A0 (table helpers `soundTimeline`, `revealAfter`), core sound ids of cards/tables | ▶ now. **B-M1** (week 1): celebrate + scheduler adopted + spike report |
-| **B-L2 HUD & meta** | `src/core/hud.ts`, `packs/core/RP/ui/**`, `src/core/{cashier,casino,achievements,wagers}.ts` (presentation parts), core form icons wiring | B4, B5, B6, B11, B14 (settings form), ⏸ B12 bot presence | ▶ now |
-| **B-L3 World & meta FX** | `src/{chaos,lastchance,vip,loan}/**`, `src/worldgen/**` attract loop, `packs/{chaos,lastchance,vip,loan,worldgen}/RP/**`, `tools/assets/modules/meta.mjs` | B7, B8, B9, B10, B13, B15 | ▶ now (◆ B-M1 for celebrate) |
-| **B-L4 Cards A** | `src/games/{blackjack,baccarat}/**`, `src/core/logic/anim/cards/**`, `src/core/cards-fx.ts`, `packs/{blackjack,baccarat}/**`, `tools/assets/modules/cards.mjs` | C0 (TS), C1 (bj/bac), B-C1, B-C4, B-C5 (ticker), B-C7, C2 art | ▶ now |
-| **B-L5 Cards B** | `src/games/{poker,uth}/**`, `packs/{poker,uth}/**`, dealer animation files `packs/core/RP/{animations,animation_controllers}/dealer*` | C1 (poker/UTH incl. run-out titles), B-C2, B-C3, B-C6, B-C8; ⏸ B-C9; NICE B-C10 | ▶ now (◆ B-L4 ticker API day 2) |
-| **B-L6 Tables** | `src/games/{roulette,craps}/**`, `src/core/logic/anim/dice/**`, `src/games/extras/{dice-game,duel-stage}.ts`, `packs/{roulette,craps}/**`, `tools/assets/modules/tables.mjs` | B-A1, B-R1…R3, B-C1, B-C2 (⏸ bot delay part), B-D1, B-N | ▶ now |
-| **B-L7 Extras & PvP** | `src/games/extras/**` except the Dice Duel files, `src/pvp/**` ⏸, `packs/extras/**`, `tools/assets/modules/extras.mjs` | BX2, BX3, BX5, BX7, BX9, SX2 (TS), SX4; ⏸ BX4, BX6, BX8, BX10; NICE BX11 (uses `LiveForm`) | ▶ now (solo); ⏸ PvP |
-| **B-L8 Slots engine & service** | `src/games/slots/v2/logic/**`, `src/games/slots/{index,api}.ts` + new `service.ts`, `src/games/slots/logic/**` (v1 → legacy), `src/games/slots/pvp/**` ⏸ | S-B1 ways + tumbles, S-B2 draw/tape/codec/pools/persistence, S-B3 anticipation + timeline, S-B4 config + `validateRtp`, S-B5 service (round lifecycle, gate, skip, reservation) + cut-over, S-B6 migration, S-B7 integrations, ⏸ S-B8 Showdown v2 mode | ▶ now (mirror of J-L8; vectors from Java or both from SLOTS.md) |
-| **B-L9 Slots form presentation** | `src/games/slots/v2/present/{frames,ddui-form,classic,features,celebrate,settings}.ts` | BS1, BS2 (on `LiveForm`), BS3, BS4, BS5, BS10 | ▶ now (frames on stub timelines); ◆ B-S0 for DDUI |
-| **B-L10 Slots cabinet & Showdown** | `src/games/slots/v2/present/cabinet-driver.ts`, `src/games/slots/cabinet.ts`, `packs/slots/**`, `tools/assets/modules/slots.mjs` (**both editions' slot art**) | SX1 (slot art incl. Java sheets), BS6, BS7, BS8, SX3 (Bedrock sounds); ⏸ BS9 | ▶ now (art + entity files); ◆ S-M1 for real strips |
 
 ### 9.3 Dependency graph and schedule
 
@@ -562,7 +477,7 @@ the two slot cut-overs (S-J5, S-B5) last, together with strings/config/advanceme
 ### 9.4 Review gates (every task)
 
 global.md §6 checklist; the spec's fidelity section (cards §0.7, tables §0.6, extras §0.3/§14, slots §2.1); vectors
-green in both editions; reduce motion / flashes off / RU at GUI scale 2 and 4 / compact mode checked; budgets of
+green in reduce motion / flashes off / RU at GUI scale 2 and 4 / compact mode checked; budgets of
 §2.7 and the specs; no literal strings (`checkNoLiterals`, `check-strings`); ownership checks green.
 
 ---
@@ -580,63 +495,11 @@ Added in this wave (compiling; nothing is wired into a module, so behaviour is u
   SpectatorRenderState}.java`.
 - Java tests: `core/anim/CoreAnimVectorsTest` (+ generated `src/test/resources/fx/vectors/core_anim.json`),
   `games/slots/v2/logic/SlotsV2SkeletonTest`.
-- Bedrock: `src/core/logic/anim/{ease,seed,timeline,win-tier,rollup,sound-ids,glyph-map,index}.ts` + `vectors.test.ts`,
-  `src/core/presentation/{settings,scheduler,live-form,camera,rollup-hud,props,index}.ts` (exported from
-  `core/index.ts` as `anim` and `presentation`), `src/games/slots/v2/logic/{types,engine,jackpots,tape-codec,
-  anticipation,tiers,timeline,showdown,index}.ts` + `skeleton.test.ts`, `tools/gen-assets.mjs`,
-  `tools/assets/{lib/{png,palette,grid,emit}.mjs,lib/grid.test.mjs,modules/core.mjs}`, `tools/sync-fx-vectors.mjs`,
-  `test/fx/vectors/core_anim.json`; npm scripts `gen:assets`, `check:assets`, `sync:vectors`; two reviewed entries in
-  `test/independent/casino-guard.test.ts` for the presentation intervals.
 - Strings: `STRINGS.md` gained `### Win tiers and celebrations` (core, the 9 `gui.burmaldaholic.fx.tier.*` /
   `fx.returned` keys of global §9) and `### Slots v2 tier words` (early import of the 8 SLOTS.md §13 keys that
-  `SlotTiers.WORDS` references); lang fragments regenerated in both editions (additions only). The rest of the
+  `SlotTiers.WORDS` references); lang fragments regenerated (additions only). The rest of the
   animation strings is lane X-L0.
-- The Java and TypeScript implementations produce **byte-identical** canonical timelines, seeds and RNG sequences and
-  equal easing/tier/roll-up values (`core_anim.json`).
+- `core_anim.json` pins canonical timelines, seeds and RNG sequences and the easing/tier/roll-up values.
 
-Verified: Java `./gradlew build` (compile 26.2, unit tests, GameTests, `checkLinkage` vs 26.3); Bedrock
-`npm run build && npm test && npm run lint`.
-
----
-
-## 11. Spike B-S0 report (lane B-L1, 2026-09-24)
-
-Scope: research open question 1 and every **[V]** item that blocks a Bedrock presentation lane (`animation/slots.md`
-§6.1, §6.2, §6.6.2–§6.6.3 (incl. LOD), §12.3 Q2–Q3; `extras-pvp.md` §0.7 V4–V8). Method: (a) **static** — the pinned
-typings (`@minecraft/server` 2.8.0, `@minecraft/server-ui` 2.1.0, no `@beta`), the pack schemas and vanilla data of
-`bedrock/tools/pack-schemas/` (1.26.30) that `npm run lint` validates against; (b) **runtime contract** — the
-failure modes are handled in code and unit-tested against a fake engine clock (`core/presentation/presentation.test.ts`);
-(c) **in-game** — what only a client can show is exercised by one operator command,
-`/scriptevent burmaldaholic:fx spike` (`core/presentation/ddui-spike.ts`), which logs the script-side numbers
-(`B-S0 spike: {kind, frames, writes, maxFrameMs, closeReason}`) and shows the checklist items below on screen. No
-Bedrock client or dedicated server is available to the lane's machine, so column (c) is a checklist for the first
-sideload test (bedrock.md §12), each item with its pre-agreed fallback — **no lane waits on it**.
-
-### 11.1 Findings
-
-| # | Item | Static / contract finding | In-game check (harness) | Fallback if the check fails |
-|---|---|---|---|---|
-| S1 | DDUI API surface | `CustomForm(player, title)` with `header`, `label`, `button(label, onClick, {disabled, visible, tooltip})`, `divider`, `closeButton`, `toggle/slider/dropdown/textField`; every text accepts `ObservableString \| ObservableUIRawMessage`, `disabled`/`visible` accept `ObservableBoolean`. `show()` → `DataDrivenScreenClosedReason` (`ClientClosed`, `ServerClosed`, `UserBusy`); `close()` throws `FormVisibilityError` when not open; `isShowing()`; `uiManager.closeAllForms`. **Spin ↔ Stop, disabled bet buttons, the Treasure Hunt / Hoard grid swap = Observable writes, no reopen.** Observables notify only on a changed value. | — | — |
-| S2 | Update rate / coalescing at 2 t (V7, slots §12.3 Q2) | Not specified by the API. **Made irrelevant to correctness**: `LiveForm` writes ≤ 1 `setData` per component per 2 t (latest value wins; a pending value flushes on the next allowed tick), so the worst case is ≤ 10 writes/s per label whatever the caller does (test: 10 `set` in one tick → 1 write, the latest after 2 t). | 3 glyph rows scroll 1 strip row per 2 t for 10 s in a header and a label: smooth, stepped (coalesced) or flicker? | `slots.bedrock.ddui = false` (config, no code change): classic form + action-bar reels + cabinet (slots §6.3). |
-| S3 | DDUI failure at runtime | Constructor throw, `show()` rejection or a `setData` throw mark DDUI broken for the world session (`dduiHealthy()`); later `createLiveForm` calls return classic; `show()` returns `fallback` so the game reopens the same screen as classic without losing state. `UserBusy` → `busy` (retry later, as forms do today). | — | built in |
-| S4 | Glyph size in a label (slots §12.3 Q2) | Glyphs render at the text line height of their component (sheet resolution only sharpens: E2–E4 are 32 px cells for that reason); a `header` is the larger text style. | Header row vs label row side by side: readable at GUI scale 2 on a phone-size window? | Reels go into the `header` components (3 headers = 3 rows); if both are too small: form keeps status + buttons, reels on the cabinet + action bar (slots §12.3 Q2). |
-| S5 | `§` tinting of glyphs (slots §6.1, §6.2 anticipation / dim) | Unspecified; community packs report a multiply by the text colour. Code keeps the information on the **win / blur planes** (E3/E4); `§8` dimming and `§e` anticipation tint are decoration only. | Tint row `§f g §8 g §e g §c g`: do the four copies differ? | No dimming; anticipation shows the U+E23D arrow (already specified). |
-| S6 | Title glyph scale (extras V6, global §4.8) | `setTitle` / `updateSubtitle` take the same raw text; glyphs scale with the title font. | 6-frame title flipbook after the form closes: glyphs large and centred? | `fx.titleFlipbook(…, {actionbar: true})` (same frames on the action bar). |
-| S7 | Per-render-controller `uv_anim` (slots §6.6.3, `slot_reels`) | Schema-valid: every render controller has its own `uv_anim {offset[2], scale[2]}` (Molang allowed); `npm run lint` accepts per-reel controllers with `part_visibility`. Runtime behaviour on one entity with 5 controllers needs the `slot_reels` entity (lane B-L10). | B-L10 adds the entity; the check is its first sideload item. | Generated window cuts (slots §9.2 "Window cuts (fallback [V])", 585 PNGs). |
-| S8 | `q.distance_from_camera` LOD (slots §6.6.3, extras V8) | Documented client Molang query, usable in animation controllers. Failure mode is "always animate", which is within budget (1 entity per machine). | With B-L10/B-L7 entities. | Always animate. |
-| S9 | Entity property limits (V4, slots §6.6.2: 13–16 properties) | Microsoft Learn "entity properties": ≤ 32 properties per entity type, int/float need a `range`, enum values are short strings (keep ≤ 16 values of ≤ 32 chars) — `slot_reels` (≤ 16), `wheel_fx`, `plinko_fx`, `coin_fx` fit. | BP load of the entities (content log is empty). | per-state `playAnimation` (extras V4). |
-| S10 | DDUI styling by RP JSON UI | Ore UI based: assume **not** stylable; no feature depends on it. | — | — |
-
-### 11.2 Script-side cost (budgets of §2.7)
-
-One session = one `runInterval` (2 t) from the shared scheduler; a spike frame writes 3 Observables and flips one
-`ObservableBoolean` — `maxFrameMs` is logged per run and must stay < 0.3 ms (the scheduler warns above it).
-
-### 11.3 Decision
-
-**Live form (DDUI) is the default** for the slot machine form (BS2), the NICE scratch/duel live forms (BX11) and any
-later live screen, through `createLiveForm(..., {preferDdui: config})` (`slots.bedrock.ddui` default **true**, as
-SLOTS.md §12 already says). The classic path stays complete and is chosen automatically on any DDUI failure (S3).
-The only items that can flip the default are S2 (visible flicker) and S4 (unreadable reels); both flips are the
-config key, not code. S5–S9 have fallbacks inside their owning lanes and do not affect the choice.
+Verified: `./gradlew build` (compile 26.2, unit tests, GameTests, `checkLinkage` vs 26.3).
 

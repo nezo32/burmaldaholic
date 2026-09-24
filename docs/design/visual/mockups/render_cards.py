@@ -5,7 +5,7 @@
     python3 docs/design/visual/mockups/render_cards.py --no-gen   # uses the committed PNGs as they are
 
 Every sprite, atlas, table and backdrop comes from java/src/main/resources/assets/burmaldaholic/textures (written by
-bedrock/tools/assets/modules/cards.mjs). The screen is composed at GUI scale 1 on the 427 x 240 layout canvas
+tools/assets/modules/cards.mjs). The screen is composed at GUI scale 1 on the 427 x 240 layout canvas
 (854 x 480 at GUI scale 2) and upscaled x2 with nearest sampling, exactly like the game draws it. Runtime text uses
 the vanilla font read from a local Minecraft client jar (Fabric Loom cache) when one exists; otherwise a small
 built-in fallback font is used (the layout stays the same). Card rank indices use the generated
@@ -757,7 +757,7 @@ def blackjack_compact(theme='village', name='cards_blackjack_compact.png'):
 def main(argv):
     global FONT, IDX
     if '--no-gen' not in argv:
-        subprocess.run(['node', 'tools/gen-assets.mjs', '--module', 'cards', '--edition', 'java'], cwd=ROOT / 'bedrock', check=True)
+        subprocess.run(['node', 'assets/gen-assets.mjs', '--module', 'cards'], cwd=ROOT / 'tools', check=True)
     FONT = Font()
     IDX = IndexFont()
     blackjack()

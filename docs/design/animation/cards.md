@@ -1,8 +1,10 @@
 # Card-game animation spec: Blackjack, Texas Hold'em, Ultimate Texas Hold'em, Baccarat (+ Chemin de fer)
 
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
 Scope: presentation only, for Blackjack (GAME_DESIGN §6, UI.md §4), Texas Hold'em (§7, UI.md §5),
-Ultimate Texas Hold'em (§21, UI.md §15) and Baccarat / Chemin de fer (§20, UI.md §14), in both
-editions. It covers card dealing arcs, flips, the baccarat squeeze, the poker showdown, chip stacks,
+Ultimate Texas Hold'em (§21, UI.md §15) and Baccarat / Chemin de fer (§20, UI.md §14). It covers card dealing arcs, flips, the baccarat squeeze, the poker showdown, chip stacks,
 pushes and pot slides, dealer gestures, and how bot seats look. Rules, odds and payouts do not change.
 Where an animation needs data or pacing that the server does not provide yet, the change is listed
 under "Server data" as a dependency. Every visible outcome comes from the server.
@@ -16,7 +18,7 @@ file keeps the motion, timing and faithfulness rules; its sizes and asset list w
 columns and storyboards, §4.6, §4.8, §6.3) are kept for reference and are not implemented.
 
 **Inputs and alignment**
-- `docs/research/animation.md`, which covers the capabilities of each edition. Where this spec depends
+- `docs/research/animation.md`, which covers the capabilities of the engine. Where this spec depends
   on it, the section number is given in brackets, for example (R§2.6).
 - The sibling spec `docs/design/animation/global.md` **owns** these shared pieces, and this file calls
   them rather than redefining them:
@@ -33,8 +35,6 @@ columns and storyboards, §4.6, §4.8, §6.3) are kept for reference and are not
 - Code read on the current branch (`claude/burmaldaholic-casino-mode-w6dejw`):
   - Java: `BlackjackScreen`, `PokerScreen`, `UthScreen`, `BaccaratScreen`, `CasinoTableScreen`, the
     three `*DealerRenderer`, and the four `*TableBlockEntity` for timers and sounds.
-  - Bedrock: `games/{blackjack,poker,uth,baccarat}/**`, `core/hud.ts`, `core/logic/glyphs.ts`, and the
-    dealer entity packs.
   - The newest bots code, from branch `worktree-agent-aaf0f54e81d19ae4a`: `core/logic/bots/display.ts`,
     `core/bots/table-bots.ts` and `games/*/bots.ts`.
   - Java bots, from branch `worktree-agent-afbccfe640358d8fc`.
@@ -60,18 +60,18 @@ columns and storyboards, §4.6, §4.8, §6.3) are kept for reference and are not
 
 ### 0.1 Audit summary (all four games)
 
-| | Java today | Bedrock today |
-|---|---|---|
-| Cards | Flat `fill` rectangles. The rank is drawn with the font, the suit symbol in the corner, and the back is a dot pattern. There are **three different card sizes and three back colours** across the screens (BJ 18×24 blue, baccarat 18×24 burgundy, poker 13×17 / 20×28 red, UTH red). | Card glyphs U+E110–E144 in form bodies and on the action bar. |
-| Dealing | None. Cards **appear** the moment a state packet arrives. The blackjack server deals the whole round and plays the dealer **in one tick**: every card is published at once, and the result follows 0 ticks later. | Same. The form body shows the finished hands. |
-| Flip / reveal | None. Baccarat is the only exception: it reveals card by card from `reveal_left` (P1, B1, P2, B2 at `revealTicks/8` steps). This is the one good, server-driven pattern, and it is the model for everything below. UTH has 20 t steps per street. | Baccarat: an action-bar ticker (`revealFrames`), 10 t per card. Other games: none. |
-| Chips | Text amounts only ("Bet: 100"). No chip visuals, no pushes, no pot. | Text only. |
-| Showdown | Poker: the board, pots and hand names are text. No order, no best-5 highlight, no pot slide. | A showdown form body. |
-| Dealer NPCs | `BlackjackDealerRenderer`, `BaccaratDealerRenderer`, `UthDealerRenderer`: a static humanoid that looks at players. No gestures. Poker has no dealer. | `geometry.humanoid.custom` + `look_at_target` only. |
-| Sounds | `card_deal` (vanilla page turn), `card_shuffle`, `chip_place` (baccarat and UTH only). Blackjack and poker play **no** card sounds. | Baccarat: `random.click` on a bet. **No other card-game sound.** |
-| Spectators | Nothing in the world. GAME_DESIGN §18.1 promises "Java: render over the table", but it is not built. There are no BERs. | Baccarat and UTH: an action-bar summary. |
-| Bots | Poker plates show a bot tier tag. Blackjack, baccarat and UTH atmosphere bots are on the bots branch (Bedrock) with no special visuals. | `[BOT]` glyph and name in forms and on the action bar. |
-| Results | A text banner line in colour. Wins, losses and pushes differ only by colour and word. No celebration, and the HUD `+N` floater can arrive **before** the dealer's cards are visible (a spoiler). | A chat line and the result form. |
+| | Java today |
+|---|---|
+| Cards | Flat `fill` rectangles. The rank is drawn with the font, the suit symbol in the corner, and the back is a dot pattern. There are **three different card sizes and three back colours** across the screens (BJ 18×24 blue, baccarat 18×24 burgundy, poker 13×17 / 20×28 red, UTH red). |
+| Dealing | None. Cards **appear** the moment a state packet arrives. The blackjack server deals the whole round and plays the dealer **in one tick**: every card is published at once, and the result follows 0 ticks later. |
+| Flip / reveal | None. Baccarat is the only exception: it reveals card by card from `reveal_left` (P1, B1, P2, B2 at `revealTicks/8` steps). This is the one good, server-driven pattern, and it is the model for everything below. UTH has 20 t steps per street. |
+| Chips | Text amounts only ("Bet: 100"). No chip visuals, no pushes, no pot. |
+| Showdown | Poker: the board, pots and hand names are text. No order, no best-5 highlight, no pot slide. |
+| Dealer NPCs | `BlackjackDealerRenderer`, `BaccaratDealerRenderer`, `UthDealerRenderer`: a static humanoid that looks at players. No gestures. Poker has no dealer. |
+| Sounds | `card_deal` (vanilla page turn), `card_shuffle`, `chip_place` (baccarat and UTH only). Blackjack and poker play **no** card sounds. |
+| Spectators | Nothing in the world. GAME_DESIGN §18.1 promises "Java: render over the table", but it is not built. There are no BERs. |
+| Bots | Poker plates show a bot tier tag. Blackjack, baccarat and UTH atmosphere bots are on the bots branch (Bedrock) with no special visuals. |
+| Results | A text banner line in colour. Wins, losses and pushes differ only by colour and word. No celebration, and the HUD `+N` floater can arrive **before** the dealer's cards are visible (a spoiler). |
 
 **Verdict:** the card games are informative, but they have no motion at all. The biggest gains, in
 order:
@@ -102,11 +102,11 @@ order:
 
   The Bedrock ticker (§0.9) derives the same frames from the same beats.
 - **Beat schedules** are **pure functions** with identical ports and shared test vectors:
-  - Java `games/<g>/logic/<G>Beats.java`, Bedrock `games/<g>/logic/beats.ts`.
+  - Java `games/<g>/logic/<G>Beats.java`.
   - Input: the drawn round (card counts, who has a natural, who is all-in and so on) plus config.
   - Output: `[{at: tick, kind, slot}]`.
-  - Test vectors live in `java/src/test/resources/fx/vectors_cards.json`. They are generated by the Java
-    test and copied to `bedrock/test/fx/`, as in tables §0.1.
+  - Golden test vectors live in `java/src/test/resources/fx/vectors/cards.json`, generated once by the Java
+    test and then frozen, as in tables §0.1.
 - **Shared time vs local time** (tables §0.1):
   - Shared time: deal, flip, squeeze, showdown order and pot award order. Every viewer sees these at
     the same moment. They ignore `anim.speed` and skip. Reduce motion changes only *how* they look,
@@ -259,9 +259,6 @@ adds **no new personal toggle** in MUST.
 | Chip flights, sweeps, pot slides | Bézier / slides | 120 ms fade at the destination; the pot label still rolls up | unchanged |
 | Dealer gestures (Java NPC, Bedrock entity) | full | arm moves shortened to 50 % amplitude | unchanged |
 | BER in-world arcs and flips | full | cards appear at their slot and flip in place | unchanged |
-| Bedrock ticker frames | flight → narrow → edge → face | back → face (no intermediate glyphs) | unchanged |
-| Bedrock squeeze title (§4.6) | peel glyph frames | back glyph held, then face | unchanged |
-| Bedrock particles | full | ×0.3 (global) | no `sparkle` twinkle |
 
 Hard limits in every mode:
 - No element flashes more than 3 times per second.
@@ -287,7 +284,6 @@ again until the gather. Totals are shown the moment the card is readable.
    - Java: the server state for a viewer contains only the cards that viewer may see (as today:
      `dealer.subList(0,1)` until the reveal). The BER's public tag contains only public cards; hole
      cards appear as back placeholders with no identity.
-   - Bedrock: bodies and tickers show `CARD_BACK_GLYPH` until the reveal beat.
    - Test: build the state at every beat of 1 000 random rounds and assert that the hidden cards are
      absent from it.
 2. **Frames interpolate only between published states.** A deal arc shows only a back. A flip swaps
@@ -309,7 +305,6 @@ again until the gather. Totals are shown the moment the card is readable.
    - Java: while `ClientTableCache` holds a table with `gateTick > now` that the player sits at, the
      HUD balance ticker and floater (global §4.1.1) **hold** the old value and apply the delta at
      `gateTick`. This happens whether or not the screen is open.
-   - Bedrock: `ctx.hud` suppresses the status line and the `+N` suffix for that player until the gate.
 6. **Payout visuals use the server's per-bet returns** (`bets[i].ret` in the result). The client never
    derives a payout.
 7. **Squeeze honesty.** The squeeze reveals the **real** face, progressively, from one edge. The pips
@@ -329,31 +324,6 @@ again until the gather. Totals are shown the moment the card is readable.
 | Java BER per card table | ≤ 200 quads: ≤ 24 cards × 2 quads + ≤ 60 chip discs × 2 quads + 8 text runs. `getViewDistance()` 32. Tweened within 20 blocks, drawn settled from 20 to 32 blocks, not drawn beyond 32. Text (totals) only within 8 blocks. |
 | Java server | One BE state update per beat. That is ≤ 4 updates per second per table and ≤ 40 per round (a 6-seat poker hand), sent only to players that track the chunk. The public tag is ≤ 1 KB. |
 | Java dealer NPC | 1 synced-data change per gesture (≤ 1 per beat) |
-| Bedrock script | One `system.runInterval` per game (existing), with no per-player loops. Ticker action-bar updates ≥ 2 t apart per player (PVP.md §14) and ≤ 3 frames per beat. Squeeze titles: 5 `setTitle`/`updateSubtitle` calls per squeezed card per seated player. |
-| Bedrock sounds | ≤ 8 `playSound` per second per table, as one `dimension.playSound` at the table (not per player) for table sounds; per-player sounds only for private cards |
-| Bedrock particles | ≤ 16 per settlement per seat, ≤ 60 per BIG+ event (global) |
-| Bedrock entities (NICE §1.8) | ≤ 1 `card_hand` entity per visible hand (blackjack 6, poker 7, UTH 8, baccarat 2), AI-free, despawned 200 t after the table goes idle |
-
-### 0.9 Bedrock ticker frames (shared by all four games)
-
-Forms cannot animate (R§3.8). During shared-time beats **no form is open for the players involved**:
-forms close at the start of the beats and re-open at the gate. The table is told through an action-bar
-**ticker line** (HUD channel `<game>.table`, priority `game`). The ticker is built from glyphs, and each
-card slot runs these frames:
-
-| Transition | Frames (2 t each unless noted) |
-|---|---|
-| deal face down | `▭` slot U+E1D4 → flight U+E1D5 → back U+E144 |
-| deal face up | slot → flight → back → narrow back U+E1D0 → edge U+E1D1 → face |
-| flip | back → narrow back → edge → face |
-| squeeze (baccarat) | back → peel ¼ U+E1D2 (6 t) → peel ½ U+E1D3 (6 t) → hold (4 t) → edge → face = 20 t |
-| muck / gather | the card is replaced by U+E1DB (muck) for 4 t, then removed |
-
-- Totals follow a card only after its face frame.
-- The ticker is also sent to **spectators** within `multiplayer.spectatorRadius` at priority
-  `ambient`.
-- Sounds are played once per beat with `dimension.playSound` at the table (§7).
-- Reduced motion skips the intermediate frames (§0.6).
 
 ### 0.10 Capabilities used and assumptions
 
@@ -362,13 +332,8 @@ Confirmed by the research:
   translate for flips, and `enableScissor` for the squeeze and shimmer (R§2.1).
 - Java BER API (R§2.6): `extractRenderState` / `submit`, and `submitCustomGeometry` for card quads.
   The public state comes from `getUpdateTag`.
-- Bedrock: `entity.playAnimation` for dealer gestures (R§3.1), and `onScreenDisplay.setTitle` /
-  `updateSubtitle` for the squeeze title and the run-out subtitle (R§3.6). Custom particles with
-  `MolangVariableMap` (R§3.4), and `dimension.playSound` (R§3.5).
 
 Assumptions (verify during implementation):
-- Bedrock `geometry.humanoid.custom` bone names are `rightArm`, `leftArm`, `head` and `body`, and
-  `playAnimation` on a mob with `look_at_target` blends correctly with `blendOutTime` 0.1.
 - The Bedrock title renders glyphs at about 2.5× (large enough for the squeeze card). If it does not,
   the squeeze uses the subtitle line and the title shows the side name.
 - Glyph code points **U+E1D0–U+E1DF are free** and are reserved here. Already claimed: E100–E19B
@@ -396,8 +361,6 @@ Assumptions (verify during implementation):
 - **Java server:** `onTick` resolves DEAL → TURNS / INSURANCE and DEALER → SETTLE in the same tick.
   RESULT lasts 60 t, which is too short for payouts.
 - **Java dealer NPC:** a vanilla humanoid pose; the arms never move.
-- **Bedrock:** the forms show the table with glyphs. The deal is not visible at all (the turn form
-  opens with the cards already there), there are no sounds, and the dealer entity is idle.
 
 ### 1.2 Java screen storyboard
 
@@ -501,20 +464,6 @@ is relative to the block's facing:
 The dealer's head turns toward the acting seat: `lookAt` the acting player (existing look-at, with the
 target set by the table).
 
-### 1.5 Bedrock storyboard
-
-| Phase | Presentation |
-|---|---|
-| Bet form submit | `burmaldaholic.chip_place` at the table + `burmaldaholic:chip_pop` particle at the table top. |
-| DEAL | All forms are closed. Ticker line (§0.9) for seated players and spectators: `Dealer [A♠][▭] · You [8♦][8♠] 16 · Alex [10♥][7♣] 17` (key `…blackjack.actionbar` with `…actionbar_seat` items; RU ≤ 64 chars at 5 seats uses short names with `…`). One beat per card, same ticks as Java; `burmaldaholic.card_deal` once per beat via `dimension.playSound`. Dealer entity: `playAnimation('animation.burmaldaholic.dealer.deal')` per beat when the table is NPC-hosted or a dealer is within 4 blocks. |
-| PEEK | Dealer `peek` animation + ticker suffix `…dealer_peeks`. |
-| Player BJ | Title `§6BLACKJACK!` (fade 3 / stay 30 / out 8 t, via `hud.holdTitle`) + `burmaldaholic.card_sting`, player-only. |
-| TURN form | Opens at the gate of the deal (the last card + 6 t), body as today. |
-| Hit / Double | Form closes on submit. The ticker shows the card (K-frames, 8 t), then the form re-shows **8 t later** (not instantly). On a bust: ticker `§cBUST` (key) + `burmaldaholic.chip_sweep`, and the next hand's form or the wait starts. |
-| DEALER | Forms stay closed for everyone. Ticker: hole flip frames, then one draw per 14 t, then "Dealer stands on 19" / "Dealer busts with 24!". The dealer entity plays `flip` and `deal`. |
-| gate → SETTLE | `fx.celebrate(player, tier, net, 'blackjack')` (global §2.6; the WIN tier is an action bar `§a+N`), `burmaldaholic.chip_stack` for winners, `chip_sweep` for losers. Particles: `chip_pop` per winning seat above the table (≤ 16). Then the Result form (global timing: 20–60 t after the celebration starts). |
-| Gather | The dealer `sweep` animation + `burmaldaholic.card_gather`. |
-
 ### 1.6 Tiers and moments (blackjack)
 
 The tier is server `WinTier`:
@@ -526,14 +475,14 @@ The tier is server `WinTier`:
 
 Moments: §0.5.
 
-### 1.7 Server data (blackjack, both editions)
+### 1.7 Server data (blackjack)
 
 - Beat publication: `visibleCards` per hand and for the dealer. Timers (insurance, turn) start at the
   deal gate.
 - The public tag for the BER (`pub`): phase, the dealer's visible cards, each seat's first-hand cards
   and total, the bet amount and outcome, plus `beatTick`.
 - Result: per-hand `ret`, the viewer's `net`, `stake`, `tier` and `gateTick`.
-- Dealer gesture events (Java synced data; Bedrock `playAnimation` call sites).
+- Dealer gesture events (synced data).
 
 ### 1.8 MUST / NICE (blackjack)
 
@@ -567,8 +516,6 @@ Moments: §0.5.
     - No sounds at all.
 - **Java server:** bot think delays exist (20–60 t), but streets and the showdown resolve at once.
   All-in run-outs deal the rest of the board instantly, which wastes the most dramatic poker moment.
-- **Bedrock:** forms plus an action-bar stream of opponent actions (good). No board reveal pacing, no
-  sounds, no showdown sequence.
 
 ### 2.2 Java screen storyboard
 
@@ -641,17 +588,6 @@ On the table top:
 - Per-seat bet stacks gather into the pot at the street end.
 - No text beyond the pot amount and the hand names at the showdown (8-block range).
 
-### 2.5 Bedrock storyboard
-
-| Phase | Presentation |
-|---|---|
-| Hole cards | Ticker for the viewer: `Your cards [▭][▭]` → the frames (§0.9) → `[A♠][K♠]`; `burmaldaholic.card_deal` player-only × 2. Other seats: `…actionbar` `Board — · Pot 15` (spectators). |
-| Opponent actions | The existing action-bar stream, with `[BOT]` glyph names, the thinking-dots line while a bot thinks (global §4.12), and a chip glyph before amounts. Sounds: `burmaldaholic.table_knock` for a check, `chip_place` for bets, `chip_push` for all-ins (table positional). |
-| Your action form | Opens when your timer starts (unchanged). The form body adds a board line built from glyphs, a pot line with the chip glyph, and the side pots. |
-| Streets | Forms of **non-acting** players are not open. Ticker `Flop [Q♠][J♠][T♠]` with the flip frames (2 t apart per card), `burmaldaholic.card_flip` × 3 at the table. |
-| All-in run-out | **Title sequence** for every seated player (via `hud.holdTitle`): title `…fx.all_in_runout` (gold, fade 5 t), subtitle = the board glyphs `[Q♠][J♠][T♠] [▭] [▭]`. After a 24 t pause, `updateSubtitle` swaps the next card through the flip frames (the edge glyph for 2 t, then the face) + `card_flip`. The exposed hands are listed in the action bar: `Alex [A♠][A♦] · You [K♣][K♥]`. |
-| Showdown | The ticker lists the shown hands one per 10 t: `Alex: [A♠][K♠] — Flush`. Then the winner line `…fx.wins` ("Alex wins 340"), `burmaldaholic.pot_win`; the viewer's `fx.celebrate` when they won; the big pot moment as a title (`§6Big pot!`, 3/30/8). Then the existing Showdown form, with the new body line `…fx.best_hand` listing the five cards. |
-
 ### 2.6 Tiers and moments (poker)
 
 - The tier comes from the server `WinTier` on the viewer's net vs their chips put in this hand. A
@@ -662,7 +598,7 @@ On the table top:
 - There is no celebration for a fold. A lost all-in plays no `lose` sound: the pot sliding away is
   enough.
 
-### 2.7 Server data (poker, both editions)
+### 2.7 Server data (poker)
 
 - Beat publication:
   - hole cards one by one;
@@ -707,8 +643,6 @@ On the table top:
     - No chips on the four bet circles.
     - No qualify beat.
     - The royal flush has no special presentation beyond the chat broadcast.
-- **Bedrock `uth/table.ts`:** the same street pacing (REVEAL_TICKS 20, RESULT 80). Otherwise forms and
-  the action bar, with no sounds.
 
 ### 3.2 Java screen storyboard
 
@@ -750,17 +684,6 @@ RESULT_TICKS is 80 (existing). The settle stagger for 6 seats (≈ 1.4 s) fits.
 - At the showdown, the dealer's cards and then all seats' cards flip.
 - A royal flush: the 5 cards get a gold `sparkle` burst (12 client particles) + K8 shimmer quads.
 
-### 3.5 Bedrock storyboard
-
-| Phase | Presentation |
-|---|---|
-| Bets form submit | `chip_place` + `chip_pop`. |
-| DEAL | Ticker: `Dealer [▭][▭] · Board [▭][▭][▭][▭][▭] · You [A♠][K♠]` built per beat. `card_deal` (table) per beat; the dealer entity `deal`. |
-| Decision form | Opens when the street's reveal beats have finished. The body is unchanged, plus the hand-name line. |
-| Street reveals | Ticker flip frames per board card. The other seats' decisions stream as `…uth.actionbar` with tags. |
-| SHOWDOWN | Forms closed. Ticker: the dealer's cards flip frames; after 16 t the qualify line (title-free, action bar); then the viewer's per-bet lines are revealed in 4 steps, 4 t apart (Play, Ante, Blind, Trips), with `chip_stack` / `chip_sweep`. Then `fx.celebrate` and the Result form. |
-| Royal | Title `§6ROYAL FLUSH!` + `card_sting` + the global celebration (EPIC / JACKPOT) + the existing broadcast. |
-
 ### 3.6 Server data (UTH)
 
 - Deal beats (the existing street steps stay).
@@ -796,10 +719,8 @@ RESULT_TICKS is 80 (existing). The settle stagger for 6 seats (≈ 1.4 s) fits.
     - The bead just appears.
     - Chemin de fer's bank offer and Banco have no drama.
     - The shoe does not exist visually, although passing the shoe is the heart of chemmy.
-- **Bedrock:** `revealFrames` (P1, B1, P2, B2 every `revealTicks/8`, then the third-card notes) drive
-  an action-bar line. This is a good base; it becomes the squeeze ticker.
 
-### 4.2 New reveal timeline (both editions, replaces `revealFrames` / `visible()`)
+### 4.2 New reveal timeline (replaces `revealFrames` / `visible()`)
 
 A pure `revealTimeline(coup, cfg)`:
 - `cfg`: `dealBeatTicks` 6, `flipTicks` 6, `squeezeTicks` 20, `announceTicks` 10 and `squeeze`
@@ -902,18 +823,6 @@ Rules:
 - **Bank result:** the banker's plate shows the bank rolling ± and a coloured floater. A busted bank
   (the banker lost it all): the shoe passes at once.
 
-### 4.6 Bedrock storyboard
-
-| Phase | Presentation |
-|---|---|
-| Bet submit | `chip_place` at the table + `chip_pop`; snapped: the existing line. |
-| NO_MORE_BETS | The existing action bar (`…no_more_bets`) + `burmaldaholic.chip_stack` (table). |
-| REVEAL ticker | The existing `…actionbar` line (`Player [8♠][▭] 8 · Banker [▭][▭]`), now driven by `revealTimeline` with the §0.9 frames; `card_deal` / `card_flip` / `card_squeeze` at the table. |
-| **Squeeze title** (MUST) | For every **seated player with a bet** (not spectators): during each SQUEEZE window, the **title** shows the single card glyph large, stepping through the peel frames (back → ¼ → ½ → hold → edge → face; 5 `setTitle`/`updateSubtitle` calls, `fadeIn 0`, stay covering the window, `fadeOut 4`). The subtitle is `…fx.squeezing` / `…fx.you_squeeze` / `…fx.player_card`. The title colour is blue for Player cards and red for Banker cards, as a § code on the frame glyph line (the glyph itself is white; the colour is on the surrounding brackets). `hud.holdTitle` covers the window. Reduced motion: the back is held, then the face. |
-| Announce | Action bar `…natural` / `…player_draws` …; a natural adds `card_sting` (for bettors on that side only). |
-| RESULT | `fx.celebrate` per bettor (global) → the Result form (existing). Its body gets the bead line with the new bead first, in bold (§l). Dealer entity (NPC tables): `pay` then `sweep`. |
-| Chemmy | Bank offer form unchanged; when the bank passes, the action bar `…fx.shoe_passes` + `card_slide`. Banco: title `§6Banco!` 2 t / 24 t / 6 t for the table's seated players + `chip_push`. |
-
 ### 4.7 Java in-world (BER `BaccaratTableRenderer`)
 
 - The two hands sit side by side at the centre (Player left, Banker right, relative to the facing),
@@ -927,39 +836,9 @@ Rules:
   runtime letter at the table front for 3 s.
 - Bet boxes: one combined stack per box (the sum of all bettors) with a label within 8 blocks.
 
-### 4.8 Bedrock in-world card entity (NICE; shared by all four games)
-
-`burmaldaholic:card_hand`: one entity per visible hand. It is generated by
-`bedrock/tools/gen-card-entity.mjs`.
-
-- **BP** `entities/core/card_hand.json`:
-  - Components: no AI, `physics` has_gravity false, `collision_box` 0.01, `damage_sensor` none,
-    `pushable` false, not persistent (the table re-spawns it), `tick_world` absent.
-  - Properties (`client_sync`):
-    - `c0`..`c5`: int [0, 53] (0 empty, 1–52 cards, 53 back)
-    - `flip`: int [0, 63], a bit per slot: "animate flip on change"
-    - `sq`: int [0, 63], a bit per slot: squeeze
-    - `seq`: int [0, 1023]
-- **RP geometry** `models/entity/card_hand.geo.json`:
-  - Bone `root` → `slot0..slot5` (offset 0.11 blocks, overlap) → 54 child bones each (one plane
-    cube per face variant, 2 × 3 px model units, UV into `textures/entity/cards/faces.png`, 256×256:
-    13 × 4 faces of 16×22 + backs).
-  - That is 324 planes; only 6 are visible at a time.
-- **Render controller:** `part_visibility` entries `slotN_cM: q.property('burmaldaholic:cN') == M`,
-  generated.
-- **Animations** `animations/card_hand.animation.json`:
-  - `deal_N`: slot N moves from the shoe offset (−0.6, 0.1, −0.3) to 0 in 0.24 s, `easeOutCubic` via
-    keyframes, yaw −20 → 0.
-  - `flip_N`: rotation z 0 → 180 in 0.28 s with a lift of 0.05.
-  - `squeeze_N`: rotation x 0 → 35° following the §4.3 keyframes over `squeezeTicks`, then a flip.
-- **Controller** `animation_controllers/card_hand.ac.json`: one controller per slot. It watches
-  `q.property('burmaldaholic:cN')` against `v.last_cN` to trigger deal or flip.
-- **Script:** the table sets 1–2 properties per beat, within the §0.8 budget. Entities are despawned
-  200 t after idle, or when the table breaks.
-
 ### 4.9 Server data (baccarat)
 
-- `revealTimeline` in both editions, which replaces `revealFrames` and the Java `visible()` / `step()`.
+- `revealTimeline` in which replaces `revealFrames` and the Java `visible()` / `step()`.
 - The state carries `reveal_total`, `reveal_left` (existing) and `sq` flags per slot.
 - `squeezer {player: name|null, banker: name|null}`.
 - Per-box `ret` for the viewer (the lines exist).
@@ -1012,18 +891,12 @@ presentation.
   BER layout, so a spectator sees the seat's cards and chips under the floating name. The BER uses the
   same seat anchor points as the nameplate (task J-C10 exports `seatAnchor(table, seat)`).
 
-**Bedrock (MUST):** forms and the action bar only (bots are virtual; BOTS.md §7.2 default NONE).
-- In ticker lines, bots appear with the glyph U+E190 and a short name.
-- The acting bot's segment shows the dots glyph cycling every 10 t (global §4.12).
-- Emote particles (`burmaldaholic:emote_*`, global NICE, else vanilla `villager_happy` /
-  `villager_angry`) above the table centre, after the public result only.
-
 ---
 
 ## 6. Assets
 
 > **Superseded by `docs/design/visual/cards.md` §9** (2026-09-24): the art is generated by
-> `bedrock/tools/assets/modules/cards.mjs` (Java only), every file is core-owned under `textures/gui/core/cards/`,
+> `tools/assets/modules/cards.mjs` (Java only), every file is core-owned under `textures/gui/core/cards/`,
 > `textures/gui/sprites/core/cards/`, `textures/entity/core/cards/`, `textures/particle/core/` and
 > `textures/font/core/`, and the sizes changed (L 37×49, M 21×29, S 13×17; shoe 40×28, tray 30×22, rack 80×14,
 > deck 21×32, dealer button 13×13, spots 28×28, UTH circles 24×24, plates 40×22, badges 11×11). The table below is
@@ -1097,44 +970,29 @@ Reused from global and tables (not counted): `fx/chip_<d>`, `fx/chip_side_<d>`, 
 | `client/dealer/DealerModel.java`, `DealerGesture.java` | shared dealer gestures |
 | `particles`: reuse global `chip_pop`, `sparkle`; new `card_suit` (4 sprites 8×8, tumbling suits for BIG+ card wins) | 4 PNG + `particles/card_suit.json` |
 
-### 6.3 Bedrock assets
-
-| Asset | Path | Count |
-|---|---|---|
-| Glyphs U+E1D0–E1DB | `packs/core/RP/font/glyph_E1.png` via S1 | 12 cells: E1D0 narrow back, E1D1 card edge, E1D2 peel ¼, E1D3 peel ½, E1D4 empty slot, E1D5 card in flight (tilted back + motion lines), E1D6 dealer button, E1D7 pot, E1D8 small chip stack, E1D9 hatched chip, E1DA best-hand marker ▲, E1DB muck. E1DC–E1DF reserved. |
-| Dealer gestures | `packs/core/RP/animations/burmaldaholic/dealer_gestures.animation.json` (deal 0.30 s, flip 0.35, peek 0.6, pay 0.45, sweep 0.5, shuffle 1.6, wave_off 0.3, squeeze_offer 0.5; bones `rightArm`, `leftArm`, `head`) + `animation_controllers/burmaldaholic/dealer.ac.json` (idle sway) | 2 files |
-| Dealer entity updates | `packs/{blackjack,baccarat,uth}/RP/entity/*/dealer.entity.json`: add the animation map + controller | 3 edits |
-| Particles | `packs/core/RP/particles/cards/card_suit_burst.json` (emitter, `v.count`, 4-frame suit flipbook from the global particle atlas row) | 1 file + an atlas row |
-| Sounds | `packs/core/RP/sounds/sound_definitions.json` entries (§7) | 8 new ids |
-| Form icons (32×32) | `packs/core/RP/textures/burmaldaholic/icons/cards/{hit, stand, double, split, insurance, fold, check, call, raise, all_in, player, banker, tie, pair, deal, rebet, clear_bets, play_bet, take_bank, banco}.png` | 20 PNGs |
-| NICE `card_hand` entity | BP entity, RP entity/geo/render controller/animation/controller, `textures/entity/cards/faces.png` (copy of Java #29) | 6 files + 1 PNG, generated |
-
 ### 6.4 Asset count
 
 - **Java:** 3 face atlases + 1 back atlas + 1 world atlas + 34 sprite PNGs (#5–#28) + 4 particle PNGs
   ≈ **43 PNGs**; 10 nine-slice / animation `.mcmeta`; 1 particle JSON; 8 new sound events.
-- **Bedrock:** 12 glyph cells + 20 icons + 1 particle atlas row ≈ **21 PNG assets**; 2 animation
-  files, 3 entity edits, 1 particle JSON, 8 sound definitions. NICE: 6 entity files + 1 PNG.
 
 ---
 
 ## 7. Sounds
 
-The same ids in both editions. MUST uses vanilla compositions (global §2.7 rule).
+The same ids. MUST uses vanilla compositions (global §2.7 rule).
 - Java: `java/src/main/sounds/core/sounds.json`, played by code with the given pitch and volume.
-- Bedrock: `burmaldaholic.<id>` in `packs/core/RP/sounds/sound_definitions.json`.
 
-| Id | Feel | Java composition | Bedrock composition | Subtitle |
-|---|---|---|---|---|
-| `card_deal` (exists, re-pointed) | crisp card landing on felt | `item.book.page_turn` p1.3 v0.6 + `block.wool.hit` p1.6 v0.3 | `item.book.page_turn` p1.3 | exists |
-| `card_slide` | quiet felt whoosh as a card leaves the shoe | `block.wool.step` p1.8 v0.3 | `step.cloth` p1.8 v0.3 | `card_slide` |
-| `card_flip` | snappy flip | `item.book.page_turn` p1.7 v0.55 | `item.book.page_turn` p1.7 | `card_flip` |
-| `card_squeeze` | slow paper bend, tense | `item.book.put` p0.6 v0.45 + `block.scaffolding.step` p1.4 v0.2 | `item.book.put` p0.6 | `card_squeeze` |
-| `card_gather` | cards swept into a pile | `item.bundle.insert` p1.2 v0.5 | `bundle.insert` p1.2 | `card_gather` |
-| `card_sting` | short bright flourish (BJ, natural, bonus) | code arpeggio: `block.note_block.chime` p1.0 / 1.26 / 1.5 at 0 / 80 / 160 ms + `block.amethyst_block.chime` v0.4 | `note.chime` ×3 scheduled 0 / 2 / 3 t | `card_sting` |
-| `chip_push` | heavy chip pile pushed in (all-in, Banco) | `block.chain.break` p1.3 v0.6 + `item.bundle.drop_contents` v0.5 | `bundle.drop_contents` + `random.click` p0.8 | `chip_push` |
-| `pot_win` | pot collected | `item.bundle.drop_contents` p1.1 v0.7 + `entity.experience_orb.pickup` p0.8 v0.4 | `bundle.drop_contents` + `random.orb` p0.8 | `pot_win` |
-| `table_knock` | two knuckle raps (check) | `block.wood.hit` p0.8 v0.7, played twice 90 ms apart by code | `hit.wood` p0.8 ×2 (2 t) | `table_knock` |
+| Id | Feel | Java composition | Subtitle |
+|---|---|---|---|
+| `card_deal` (exists, re-pointed) | crisp card landing on felt | `item.book.page_turn` p1.3 v0.6 + `block.wool.hit` p1.6 v0.3 | exists |
+| `card_slide` | quiet felt whoosh as a card leaves the shoe | `block.wool.step` p1.8 v0.3 | `card_slide` |
+| `card_flip` | snappy flip | `item.book.page_turn` p1.7 v0.55 | `card_flip` |
+| `card_squeeze` | slow paper bend, tense | `item.book.put` p0.6 v0.45 + `block.scaffolding.step` p1.4 v0.2 | `card_squeeze` |
+| `card_gather` | cards swept into a pile | `item.bundle.insert` p1.2 v0.5 | `card_gather` |
+| `card_sting` | short bright flourish (BJ, natural, bonus) | code arpeggio: `block.note_block.chime` p1.0 / 1.26 / 1.5 at 0 / 80 / 160 ms + `block.amethyst_block.chime` v0.4 | `card_sting` |
+| `chip_push` | heavy chip pile pushed in (all-in, Banco) | `block.chain.break` p1.3 v0.6 + `item.bundle.drop_contents` v0.5 | `chip_push` |
+| `pot_win` | pot collected | `item.bundle.drop_contents` p1.1 v0.7 + `entity.experience_orb.pickup` p0.8 v0.4 | `pot_win` |
+| `table_knock` | two knuckle raps (check) | `block.wood.hit` p0.8 v0.7, played twice 90 ms apart by code | `table_knock` |
 
 - Reused: `card_shuffle`, `chip_place`, `chip_stack`, `chip_count`, `chip_sweep` (tables), `push`,
   `ui_deny`, `win_*`, `jackpot`, `wheel_tick`.
@@ -1178,18 +1036,18 @@ The **per-game** server data is listed in §1.7, §2.7, §3.6 and §4.9. The **c
 ## 9. Developer task breakdown (parallel lanes)
 
 Dependencies are listed per task. The shared tasks come first. After that, each game's server task and
-screen task can proceed in parallel per edition.
+screen task can proceed in parallel.
 
-### 9.1 Shared (both editions)
+### 9.1 Shared
 
 | # | Task | Files | Depends on |
 |---|---|---|---|
-| C0 | `CardMotion` pure math (Bézier, flip, squeeze `f(u)`, jitter seed) + vectors `vectors_cards.json` | Java `core/anim/cards/CardMotion.java` (+ test); Bedrock `core/logic/anim/card-motion.ts` (+ vitest) | global S3/Ease |
-| C1 | Beat schedules per game: `BlackjackBeats`, `PokerBeats`, `UthBeats`, `BaccaratRevealTimeline` + honesty tests (§0.7.3) | Java `games/<g>/logic/*Beats.java`; Bedrock `games/<g>/logic/beats.ts`; baccarat replaces `logic/round.ts#revealFrames` | — |
+| C0 | `CardMotion` pure math (Bézier, flip, squeeze `f(u)`, jitter seed) + vectors `vectors_cards.json` | Java `core/anim/cards/CardMotion.java` (+ test) | global S3/Ease |
+| C1 | Beat schedules per game: `BlackjackBeats`, `PokerBeats`, `UthBeats`, `BaccaratRevealTimeline` + honesty tests (§0.7.3) | `games/<g>/logic/*Beats.java`; baccarat replaces `logic/round.ts#revealFrames` | — |
 | C2 | Card assets in the generator (§6.1, §6.3 glyphs and icons) | `scripts/fx/cards.py` (called by S1) | global S1 |
-| C3 | Strings §11 into STRINGS.md + lang files | STRINGS.md, `java/src/main/lang/*`, `bedrock/lang/*` | — |
-| C4 | Sound definitions §7 (both editions) + subtitles | `java/src/main/sounds/core/sounds.json`, `CoreSounds.java`; `bedrock/packs/core/RP/sounds/sound_definitions.json` | — |
-| C5 | Config keys §8 into CONFIG.md, `*Config` sections, Bedrock `config.ts` / gen-config | CONFIG.md, `core/config/sections/*`, `bedrock/tools/gen-config.mjs` | — |
+| C3 | Strings §11 into STRINGS.md + lang files | STRINGS.md, `java/src/main/lang/*` | — |
+| C4 | Sound definitions §7 + subtitles | `java/src/main/sounds/core/sounds.json`, `CoreSounds.java` | — |
+| C5 | Config keys §8 into CONFIG.md, `*Config` sections | CONFIG.md, `core/config/sections/*` | — |
 
 ### 9.2 Java lanes
 
@@ -1212,23 +1070,6 @@ screen task can proceed in parallel per edition.
 Parallelism: C0–C5 go in parallel. Then J-C1..J-C4 (4 developers) and J-C5 in parallel. Then
 J-C6..J-C9 (4 developers), J-C10, J-C11 and J-C12.
 
-### 9.3 Bedrock lanes
-
-| # | Task | Files | Depends on |
-|---|---|---|---|
-| B-C1 | Blackjack pacing: beats via `system.runTimeout` chains per table, forms opened at gates, dealer pacing, `fx.celebrate` at the gate, HUD gate | `games/blackjack/table.ts`, `render.ts` | C1, global B fx |
-| B-C2 | Poker pacing: deal/street/show/award beats, the run-out title sequence, the best-hand line, `hud.holdTitle` | `games/poker/index.ts`, `text.ts` | C1 |
-| B-C3 | UTH pacing: deal beats, qualify beat, per-bet stepped reveal | `games/uth/table.ts`, `render.ts` | C1 |
-| B-C4 | Baccarat: `revealTimeline` in the house loop and chemmy, the squeeze title, shoe-pass lines | `games/baccarat/game.ts`, `chemmy.ts`, `text.ts` | C1 |
-| B-C5 | Ticker builder (pure frames from beats + glyph ids) + the renderer on HUD channels (players + spectators) | `core/logic/anim/card-ticker.ts` (+ tests), `core/cards-fx.ts` | C0, C2 glyphs |
-| B-C6 | Dealer gesture animations + controller + entity edits + `playAnimation` call helper | `packs/core/RP/animations/…`, `packs/{blackjack,baccarat,uth}/RP/entity/*`, `core/cards-fx.ts#gesture` | — |
-| B-C7 | Particles (`card_suit_burst`) + sound playback helpers (table vs private) | `packs/core/RP/particles/cards/*`, `core/cards-fx.ts` | C4 |
-| B-C8 | Form icons + body additions (board / pot lines, best hand, bead first) | the four games' form builders | C2 |
-| B-C9 | Bot presentation in tickers (glyph, dots, emotes after results) | branch `worktree-agent-aaf0f54e81d19ae4a`: `core/bots/table-bots.ts`, `games/*/bots.ts` | B-C5, global B12 |
-| B-C10 (NICE) | `card_hand` entity generator + table wiring | `bedrock/tools/gen-card-entity.mjs`, `packs/core/{BP,RP}/…`, the games' table code | C2, B-C1..4 |
-
-Parallelism: B-C1..B-C4 (4 developers) after C1. B-C5, B-C6 and B-C7 in parallel from the start.
-
 ### 9.4 Acceptance tests (per lane)
 
 - Pure tests:
@@ -1247,7 +1088,7 @@ Parallelism: B-C1..B-C4 (4 developers) after C1. B-C5, B-C6 and B-C7 in parallel
 ## 10. MUST / NICE summary
 
 **MUST (ship now):**
-- Server beat pacing and reveal gates in all four games, in both editions.
+- Server beat pacing and reveal gates in all four games,.
 - Java:
   - card sprites and the K1–K13 primitives;
   - chips, pots and stacks;
@@ -1260,14 +1101,6 @@ Parallelism: B-C1..B-C4 (4 developers) after C1. B-C5, B-C6 and B-C7 in parallel
   - dealer gestures;
   - bot plates, thinking dots and emotes;
   - the HUD gate.
-- Bedrock:
-  - the glyph ticker for all four games;
-  - the baccarat squeeze title;
-  - the poker run-out title;
-  - dealer gesture animations;
-  - card sounds and particles;
-  - form icons and the new body lines;
-  - bot ticker presentation.
 
 **NICE:**
 - The interactive baccarat peel.
@@ -1286,7 +1119,6 @@ Parallelism: B-C1..B-C4 (4 developers) after C1. B-C5, B-C6 and B-C7 in parallel
 RU is checked against the 1.45 × EN budget:
 - Tags ≤ 90 px, fitting on the plate.
 - Stamps are nine-slice and sized to the text.
-- Bedrock action-bar segments ≤ 64 RU characters per line.
 - Titles ≤ 18 RU characters.
 
 RU rule: no name is the subject of a past-tense verb.

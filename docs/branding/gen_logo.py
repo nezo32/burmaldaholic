@@ -3,7 +3,6 @@
 
 Outputs (paths relative to the repo root):
   docs/branding/curseforge_logo.png                 400x400, CurseForge project avatar
-  bedrock/assets/pack_icon.png                      256x256, Bedrock pack icon
   java/src/main/resources/assets/burmaldaholic/icon.png  128x128, Fabric/Mod Menu icon
 
 Usage: python3 docs/branding/gen_logo.py   (needs Pillow)
@@ -147,7 +146,6 @@ for y in range(N):
 
 outputs = {
     "docs/branding/curseforge_logo.png": 400,
-    "bedrock/assets/pack_icon.png": 256,
     "java/src/main/resources/assets/burmaldaholic/icon.png": 128,
 }
 for rel, size in outputs.items():

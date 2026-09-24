@@ -1,7 +1,10 @@
 # Burmaldaholic — Slots v2: 243-Ways Video Slots [slots]
 
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
 Status: **v2.0 draft, implementation-ready after review**. Owner: slots game design.
-Audience: Java (Fabric) team, Bedrock (Script API) team, testers, localization.
+Audience: Java (Fabric) team, testers, localization.
 
 > **Supersedes `GAME_DESIGN.md` §8 (Slots), Appendix A (slot test vectors), the slot rows of §17,
 > the slot parts of §13.1 rule 2, §18.2 (slot worst case), §19 (`three_sevens`), `UI.md` §6,
@@ -11,7 +14,7 @@ Audience: Java (Fabric) team, Bedrock (Script API) team, testers, localization.
 > file disagree about slots, this file wins. When the doc owner merges, §8 of `GAME_DESIGN.md`
 > becomes a one-line pointer to this file.
 
-Inputs: `docs/research/animation.md` (what each edition can animate; modern slot mechanics). The
+Inputs: `docs/research/animation.md` (what the engine can animate; modern slot mechanics). The
 presentation plan (§10) stays inside what that research lists as **stable** (Java: GUI sprites,
 scissor, BER, particles, custom sounds; Bedrock: DDUI `CustomForm` + Observables with a classic
 form fallback, one `slot_reels` entity per cabinet, particles, titles, camera fade/shake).
@@ -453,8 +456,7 @@ hides the button everywhere.
   - Treasure Hunt during autoplay opens chests automatically (one every 600 ms); because contents
     are i.i.d. in reveal order this changes nothing.
 - **Turbo** (per-player preference, `slots.turboAllowed`): all reel/feature timings × 0.5.
-- **Skip / slam stop**: pressing Spin (Java: Space/click; Bedrock: "Stop" button or sneak at the
-  cabinet) during a spin brings every reel to its stop within 200 ms (bounce kept); during a
+- **Skip / slam stop**: pressing Spin (Java: Space/click) during a spin brings every reel to its stop within 200 ms (bounce kept); during a
   roll-up it jumps to the final amount; during features it fast-forwards the current step. It
   never skips the result or a required choice.
 
@@ -576,7 +578,7 @@ with counts (no retrigger | retrigger) 149 752 557|275 643, 10 702 935|13 365, 1
 - Enumeration totals: **exact integer equality** (Java `long`, TypeScript `number` is exact below
   2⁵³; accumulate in fifths).
 - Closed forms (§7.3): relative error < 10⁻⁹ (double precision).
-- Monte-Carlo of the whole game (CI nightly, both editions, reference RNG): 10⁸ spins per machine;
+- Monte-Carlo of the whole game (CI nightly, reference RNG): 10⁸ spins per machine;
   assert `|RTP_mc − (total − contributions)| < 4 × σ/√n`, i.e. < 0.13 % (Overworld),
   0.15 % (Nether), 0.59 % (End). Feature-only runs (10⁷ Void Walker features) must hit
   102.467 ± 0.31.
@@ -735,7 +737,7 @@ so the line shows your **middle row** plus your points; the full grid is in the 
 or bonus game win. Other values: `jackpot` (any jackpot result), `five_top` (5 of the top symbol).
 
 ---
-## 10. Presentation (both editions)
+## 10. Presentation
 
 > ⚠ CHANGED 2026-09-24 (lead decision, `docs/architecture/animation.md` §1): six presentation-only changes
 > from `docs/design/animation/slots.md` §0.3 are accepted and applied below — D1 symbol sprites 40 × 40 at 1:1
@@ -750,20 +752,20 @@ makes roll-ups instant. Bedrock rounds every time **up to whole ticks** (50 ms).
 
 ### 10.1 Win tiers (by total spin win ÷ bet; `slots.bigWinTiers` = [5, 15, 40, 100])
 
-| Tier | Range | Banner key | Java | Bedrock | Sound |
-|---|---|---|---|---|---|
-| Returned | 0 < win < 1× | `slots.returned` ("Returned 40") | amount only, no pulse | action bar line | `slots.returned` (muted tick) |
-| Win | 1× – < 5× | `slots.win` | winning cells pulse, roll-up | action bar / DDUI label | `slots.win_small` |
-| **Nice Win** | 5× – < 15× | `slots.tier.nice` | small banner pop 250 ms, coin particles (20) | subtitle + `sparkle` | `slots.win_nice` |
-| **Big Win** | 15× – < 40× | `slots.tier.big` | banner on a new stratum, blur behind, coins (40) | `setTitle` + `updateSubtitle` roll-up, `coin_burst` (40) | `slots.big_win` |
-| **Mega Win** | 40× – < 100× | `slots.tier.mega` | + flash (≤ 30 % alpha, once), confetti (60) | + `camera.fade` gold 30 % 4 t, confetti, heard by neighbours | `slots.mega_win` |
-| **Epic Win** | ≥ 100× | `slots.tier.epic` | + GUI shake 400 ms, fireworks at the cabinet (BER) | + `camerashake` 0.25 / 0.6 s, fireworks, chat to players ≤ 32 blocks | `slots.epic_win` |
-| **Max Win** | = cap | `slots.max_win` | Epic presentation + "MAX WIN" plate | same | `slots.max_win` |
-| **Jackpot** | any tier | `slots.jackpot.won` | own 3 s celebration after the spin's roll-up | title, `jackpot_burst`, camera push-in (opt-out) | `jackpot` |
+| Tier | Range | Banner key | Java | Sound |
+|---|---|---|---|---|
+| Returned | 0 < win < 1× | `slots.returned` ("Returned 40") | amount only, no pulse | `slots.returned` (muted tick) |
+| Win | 1× – < 5× | `slots.win` | winning cells pulse, roll-up | `slots.win_small` |
+| **Nice Win** | 5× – < 15× | `slots.tier.nice` | small banner pop 250 ms, coin particles (20) | `slots.win_nice` |
+| **Big Win** | 15× – < 40× | `slots.tier.big` | banner on a new stratum, blur behind, coins (40) | `slots.big_win` |
+| **Mega Win** | 40× – < 100× | `slots.tier.mega` | + flash (≤ 30 % alpha, once), confetti (60) | `slots.mega_win` |
+| **Epic Win** | ≥ 100× | `slots.tier.epic` | + GUI shake 400 ms, fireworks at the cabinet (BER) | `slots.epic_win` |
+| **Max Win** | = cap | `slots.max_win` | Epic presentation + "MAX WIN" plate | `slots.max_win` |
+| **Jackpot** | any tier | `slots.jackpot.won` | own 3 s celebration after the spin's roll-up | `jackpot` |
 
 ⚠ CHANGED (D4, `animation/slots.md` §0.3): slot screens show the **slot keys** of this table (`slots.tier.*`,
 `slots.returned`, `slots.max_win`), not the generic `gui.burmaldaholic.fx.tier.*` words. The shared
-`CelebrationOverlay` (Java) / `fx.celebrate` (Bedrock) takes the caller's tier words and the caller's threshold
+`CelebrationOverlay` takes the caller's tier words and the caller's threshold
 table (`WinTierTable.SLOTS` = these 5 / 15 / 40 / 100) — `docs/architecture/animation.md` §4.
 
 The roll-up **upgrades the banner as it passes each threshold** (Nice → Big → Mega → Epic) — the
@@ -777,7 +779,7 @@ total roll-up. Skip jumps to the end.
 | Step | Time (ms) | Easing / detail |
 |---|---|---|
 | Spin-up | 0–120 | −0.15 cell back-kick, then accelerate (research §2.4 `reelPos`) |
-| Full speed | until stop | Java 25 cells/s with `_blur` sprites; Bedrock DDUI 1 row per 2 ticks (10 rows/s) through the **real strip** |
+| Full speed | until stop | Java 25 cells/s with `_blur` sprites |
 | Reel r stops | 600 + 150 × (r − 1) → 600 / 750 / 900 / 1 050 / 1 200 | last 350 ms `outBack(1.2)`; stop sound at u ≈ 0.8 |
 | Anticipation | see §10.3 | +1 000 ms between later stops, glow frame, `slots.anticipation` loop rising in pitch |
 | Win display starts | last stop + 150 | non-winning cells dim to 40 % in 150 ms |
@@ -801,7 +803,7 @@ After reel k has stopped, if the cells **already visible** on reels 1…k contai
 - (Nether) ≥ 4 coins and the remaining reels could still reach 6,
 
 then every later reel stops 1 000 ms after the previous one (instead of 150 ms). Nothing else ever
-changes stop times. Unit test (both editions): for 10⁶ random tapes, (a) the shown grid equals the
+changes stop times. Unit test: for 10⁶ random tapes, (a) the shown grid equals the
 paid grid, (b) anticipation happens **iff** the condition above holds on already-stopped reels,
 (c) the scrolling filler of reel r is the strip sequence ending at `t_r`.
 
@@ -812,7 +814,7 @@ paid grid, (b) anticipation happens **iff** the condition above holds on already
 | Treasure Hunt | board intro 600 ms (15 chests drop, 40 ms stagger); each open: the clicked chest **rattles until the server confirms the reveal** (one round trip; the *i*-th entry is sent only on the *i*-th pick, §1.2), then opens in 400 ms (6-frame lid flipbook) — ⚠ CHANGED (D6, `animation/slots.md` §0.3; was a fixed 400 ms flipbook started on click) + prize pop 300 ms `outBack` + `slots.chest_open`; Creeper: 600 ms swell + hiss, white flash (not with reduce motion), puff particles, no damage; end: remaining chests open dimmed (50 %), 80 ms stagger; total roll-up. Jackpot gem: gem glyph flies to its meter 500 ms. |
 | Piglin's Hoard | intro 800 ms (non-coins fade out, coins lock with gold frame); respin 900 ms (empty cells mini-spin 500 ms, 30 ms stagger, through a **neutral ember blur** that never scrolls a coin past the window — ⚠ CHANGED (D5, `animation/slots.md` §0.3): a coin sliding past an empty cell would be a fake near-miss); new coin: `slots.coin_land` + counter dots flash back to 3 (200 ms); end: collect sweep 120 ms per coin into the total; all 15 filled: GRAND 3 000 ms. |
 | Dragon Wheel | intro 700 ms (wheel rises); outer spin 4 500 ms `outCubic`, peg ticks with pointer deflect 12° `outElastic`; **UP** → zoom 800 ms `inOutSine` into the next ring; middle 4 000 ms; core 5 000 ms; result glow 600 ms. The wheel's final angle is the tape's segment (drawn), plus a uniform offset inside the wedge for looks. |
-| Jackpot | 3 000 ms: meter explodes into coins, title, fireworks, broadcast; Bedrock camera push-in 20 t (opt-out). |
+| Jackpot | 3 000 ms: meter explodes into coins, title, fireworks, broadcast |
 
 ### 10.5 Java — `SlotMachineScreen` v2 (client screen, server-driven)
 
@@ -856,48 +858,7 @@ tick as the player's screen. Idle "attract mode": marquee `.mcmeta` lights; neve
 Jackpot meters: a `TextDisplay`-free BER text line above progressive cabinets, updated ≤ 1/s.
 Block state `win=none|small|big|jackpot` swaps the marquee texture for 3 s.
 
-### 10.6 Bedrock
-
-**Primary: DDUI `CustomForm` with Observables** (server-ui 2.1.0, stable; spike first per research
-§10 Q1):
-- Title (machine name), label **jackpot line** (`⟨badge⟩ 1 040 · …`, Observable, ≤ 1 update/s),
-  label **reels** (3 rows × 5 glyphs, Observable, updated every 2 ticks while spinning, scrolling
-  the real strip), label **status** (Observable: "Free spins 7/12 · ×4 · 1 240"), buttons bound to
-  Observables: **Spin (50)** ↔ **Stop**, **Bet −**, **Bet +**, **Buy (920)**, **Auto…**,
-  **Paytable**, **Leave**. Win glow = swap to `U+E3xx` glyphs for winning cells; blur `U+E4xx` at
-  full speed.
-- Treasure Hunt: status label shows the 5 × 3 chest board as glyphs; one button **Open a chest**
-  (the next reveal; honest because reveal order is the draw order) and **Open all**.
-- Hoard: reels label becomes 3 rows of 5 cells, each cell a coin glyph + short value ("5×", "M"),
-  empty `U+E237`; status shows respins ●●○.
-- Wheel: status label shows a horizontal 7-wedge strip scrolling under a pointer glyph (as the
-  roulette strip), slowing with `outCubic`.
-- Roll-ups: the status Observable every 2 ticks; Big+ tiers also `setTitle` + `updateSubtitle`.
-
-**Fallback (DDUI unavailable or disabled by `slots.bedrock.ddui` = false)**: the v1 flow — machine
-`ActionFormData` between spins (body: last grid as 3 glyph rows, win, jackpot line; buttons Spin ·
-Bet · Buy · Auto · Paytable · Leave), and during the spin the action bar shows the 3 glyph rows
-scrolling the real strip every 2 ticks (continuous, not noise); features use titles/subtitles for
-counters and a `ActionFormData` "Open a chest" for the hunt. Form labels ≤ 24 RU characters.
-
-**In-world: `burmaldaholic:slot_reels` entity** (one per cabinet, AI-free, research §3.2, §7):
-properties (all `client_sync`): `r0…r4` int 0–44 (stop index; the render controller UV-scrolls a
-per-machine **strip texture that is Appendix A drawn as 16 px cells**, so spectators see the real
-strip), `state` enum idle/spin/land/win/big/feature/jackpot, `sticky` int 0–7 (End overlay bones),
-`hold` int 0–32 767 (Hoard locked-cell mask), `mult` int 0–10 (multiplier plate), `wheel` int
-(ring × 100 + segment). 11 properties. Staggered stops through `playAnimation(land_r)` at the
-§10.2 times. **Tumbles are not animated in-world** (research: per-cell falls are hard on entities):
-the cabinet shows the first drop, an `ember_burst` per tumble and the multiplier plate. ⚠ CHANGED (D3,
-`animation/slots.md` §0.3 and §6.6): **MUST** — the cabinet keeps the **first landed window** for the whole
-tumble chain (a strip-window entity cannot show a post-tumble grid; showing another strip window would be a
-wrong grid); tumbles are told by the win-frame pulse, `ember_burst` and the plate only. **NICE** — three packed
-row properties `g0…g2` (4 bits × 5 cells) drive overlay bones that show the final window after the chain. Particles: `burmaldaholic:coin_burst`, `sparkle`, `confetti`,
-`jackpot_burst`, `ember_burst`, `void_motes` (≤ 60 per burst, ≤ 150 jackpot). Sounds via
-`dimension.playSound` for Big+ (neighbours hear), `player.playSound` otherwise. Visible to players
-≤ `slots.inWorld.radius` (24) blocks; `setPropertyOverrideForEntity` is not needed because the
-cabinet lands at the same time as the player's form.
-
-### 10.7 Sound cues (same event ids in both editions; custom .ogg, vanilla aliases until delivered)
+### 10.7 Sound cues (same event ids in custom .ogg, vanilla aliases until delivered)
 
 | Event id | When | Notes |
 |---|---|---|
@@ -926,7 +887,7 @@ Loss is silent. All in one sound category (research §8).
   behaviour change (table §0). Village Casino: Overworld Riches ×3 + Nether Inferno ×1; Piglin
   Parlor: Nether Inferno ×2; End City lounge: End Void ×2 — each now matches its dimension.
 - Models: cabinet 1 × 2 blocks visual (hitbox 1 block, as before), 5-reel face; End cabinet has a
-  crystal wheel on top. Marquee `.mcmeta` (Java) / flipbook (Bedrock).
+  crystal wheel on top. Marquee `.mcmeta`.
 - Persisted v1 rounds: §8.1. Jackpot pools: §5.3. Config: v1 `slots.*` keys are ignored with one
   warning listing them.
 - Advancement `three_sevens` is retired; players who had it are granted `top_five` on join.
@@ -977,9 +938,8 @@ the templates in §13.
 | `slots.turboAllowed` | bool | true | — | |
 | `slots.anticipation` | bool | true | — | Off: reels always stop on the base schedule. |
 | `slots.bigWinTiers` | list<int> | [5,15,40,100] | 4 increasing entries, 1–10 000 | Nice/Big/Mega/Epic thresholds (× bet). |
-| `slots.inWorld.enabled` | bool | true | — | Java BER / Bedrock `slot_reels` entity. |
+| `slots.inWorld.enabled` | bool | true | — | Java BER entity. |
 | `slots.inWorld.radius` | int | 24 | 0–64 | Spectator range. |
-| `slots.bedrock.ddui` | bool | true | — | Bedrock only: use the DDUI form (§10.6); false = classic fallback. |
 | `slots.validateRtp` | bool | true | — | §7.5. |
 | `pvp.slots.hazardWeights` | list<int> | [94,2,2,2] | 4 entries, each 0–1 000 | none / KABOOM / SWAP / TIME WARP. |
 | `pvp.race.target` | enum(feature, jackpot, five_top) | feature | — | Jackpot Race (NICE). |
@@ -1286,7 +1246,6 @@ Single keys:
 | `config.burmaldaholic.slots.bigWinTiers` | Win tiers (× bet) | Пороги выигрышей (× ставки) |
 | `config.burmaldaholic.slots.inWorld.enabled` | Show reels on cabinets | Показывать барабаны на автоматах |
 | `config.burmaldaholic.slots.inWorld.radius` | Cabinet reels view distance | Дальность показа барабанов |
-| `config.burmaldaholic.slots.bedrock.ddui` | Live slot form (Bedrock) | Живая форма автомата (Bedrock) |
 | `config.burmaldaholic.slots.validateRtp` | Warn about RTP above 99%% | Предупреждать об RTP выше 99 %% |
 | `config.burmaldaholic.pvp.slots.hazardWeights` | Slot Showdown: surprise weights | Битва автоматов: веса сюрпризов |
 | `config.burmaldaholic.pvp.race.target` | Jackpot Race: target | Гонка за джекпотом: цель |
@@ -1392,13 +1351,13 @@ slot advancements.
 
 ## 15. Test plan
 
-**Pure logic (both editions, CI, must pass before any UI work)**
+**Pure logic (CI, must pass before any UI work)**
 1. Strip data = Appendix A exactly (per-reel counts of §3 asserted; scatter spacing ≥ 3 cyclic;
    Wild only on reels 2–4; bonus only on its reels).
 2. Ways evaluator unit cases: hand-built windows incl. multi-wild ways (e.g. reel counts 2,3,1 →
    6 ways), a symbol stopping at reel 3, several symbols paying at once, wilds not counting on
    reels 1/5, no wild-only ways.
-3. Tumble algorithm: golden tapes (5 stops → list of grids) for 10 fixed stop vectors per edition
+3. Tumble algorithm: golden tapes (5 stops → list of grids) for 10 fixed stop vectors
    produced by the reference (shared JSON fixture `slots_tumble_fixtures.json`), incl. a 7- and an
    8-tumble chain.
 4. **Full enumeration** (§7.5): exact integer equality of Σpay, hit counts, scatter histograms,
@@ -1427,8 +1386,6 @@ slot advancements.
 **Presentation (manual + screenshot tests)**
 18. Java 400 × 240 and compact 320 × 220 at GUI scale 2/3/4 on 1080p, in EN and RU (1.45×), all
     banners, meters with 8-digit amounts, buttons wrap not truncate.
-19. Bedrock DDUI spike: update rate at 2 ticks, form stays responsive; fallback path with
-    `slots.bedrock.ddui=false`; labels ≤ 24 RU chars.
 20. Spectator view: BER/entity lands on the same tick as the player's reveal; tumbles (Java) and
     first-drop + bursts (Bedrock); 20 cabinets in view within the research §7 budgets.
 21. Reduce motion, flashes cap, turbo, skip at every stage; no loss shown as a win.

@@ -1,8 +1,7 @@
 # Card tables — visual redesign (Blackjack, Texas Hold'em, Ultimate Texas Hold'em, Baccarat / Chemin de fer)
 
 Status: design-ready, 2026-09-24. **Java only** (the project dropped Bedrock on 2026-09-24; see §11).
-Owner of the art: `bedrock/tools/assets/modules/cards.mjs` + `modules/cards/*` (the generator moves to
-`tools/assets/` later; the module moves with it unchanged).
+Owner of the art: `tools/assets/modules/cards.mjs` + `modules/cards/*` (the asset generator in `tools/`).
 
 This spec gives the four card games the look the new slots set as the quality bar: a themed room behind a
 framed play area, crisp pixel art at a fixed pixel grid, casino buttons with icons, and celebrations per tier.
@@ -462,7 +461,7 @@ four modules, so core owns it. Sprite ids are `burmaldaholic:core/cards/<path>`.
 | Particles | `textures/particle/core/card_suit_{0..7}.png` | 8 × 8 | — |
 
 191 files (157 PNGs); every sprite ≤ 16 KB, every picture ≤ 64 KB (tested). Regenerate with
-`cd bedrock && node tools/gen-assets.mjs --module cards`; `npm run check:assets` fails on stale files.
+`cd tools && node assets/gen-assets.mjs --module cards`; `npm run check:assets` (in `tools/`) fails on stale files.
 
 ## 10. Mockups
 

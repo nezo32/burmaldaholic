@@ -241,6 +241,5 @@
 	"config.burmaldaholic.slots.bigWinTiers": "Пороги выигрышей (× ставки)",
 	"config.burmaldaholic.slots.inWorld.enabled": "Показывать барабаны на автоматах",
 	"config.burmaldaholic.slots.inWorld.radius": "Дальность показа барабанов",
-	"config.burmaldaholic.slots.bedrock.ddui": "Живая форма автомата (Bedrock)",
 	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота"
 }

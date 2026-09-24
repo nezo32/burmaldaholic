@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Full-screen table mockups (854 x 480 = GUI 427 x 240 at GUI scale 2) composed from the REAL generated art.
 
-    cd bedrock && node tools/gen-assets.mjs --module tables     # (re)draw the art first
+    cd tools && node assets/gen-assets.mjs --module tables      # (re)draw the art first
     python3 docs/design/visual/render_tables.py                # needs Pillow
 
 Every sprite comes from java/src/main/resources/assets/burmaldaholic/textures/gui/{tables,sprites/tables}; nothing

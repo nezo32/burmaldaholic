@@ -1,7 +1,10 @@
 # Burmaldaholic — Player-vs-Player Modes [pvp]
 
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
 Status: **v1.0 draft, implementation-ready for MUST items**. Owner: game design (PvP).
-Audience: Java (Fabric) team, Bedrock (Script API) team, testers, localization.
+Audience: Java (Fabric) team, testers, localization.
 
 This file is **normative for the `pvp` module**, like `GAME_DESIGN.md` is for the other modules. It was
 written while another designer edits `GAME_DESIGN.md`, `CONFIG.md`, `UI.md`, `STRINGS.md` and
@@ -85,8 +88,8 @@ player's expected value is exactly "minus their share of the rake"** (§3.5).
    decision is *between* matches (Double or nothing, Rematch). Decision-heavy modes are NICE.
 5. **Rivalry gives meaning.** Head-to-head records, win-streak call-outs, grudge matches and taunts
    turn 50/50 coin flips into feuds.
-6. **Both editions look alike.** Java gets custom screens; Bedrock gets the same drama through
-   titles, action bar, sounds and particles, with forms only for set-up and results (§3.11).
+6. **Drama on screen.** Custom screens carry the reveals, with titles, action bar, sounds and particles
+   around them (§3.11).
 
 ---
 
@@ -107,19 +110,19 @@ Side bets, tournaments, floating scoreboard, custom PvP sound events, owner per-
 settings, and the NICE modes of §10. They are specified far enough that their keys and strings are
 reserved and nothing in MUST has to change to add them.
 
-### 2.3 Four developers per edition
+### 2.3 Four developers
 
 The core contract (§3.14) is written first — it is small (interfaces + pure functions) — so all four
 can start at once against stubs.
 
-| Dev | Owns | Depends on | Estimate per edition |
+| Dev | Owns | Depends on | Estimate |
 |-----|------|------------|----------------------|
-| **A — core** | §3: match registry, invite + lobby flows, escrow/settle/rake (one atomic transaction each), tape persistence and load-time settle, eligibility check, rivalry + win streak + grudge, rematch, taunts, Final Reveal kit, PvP hub, Java lobby screen / Bedrock lobby forms, seating policy + bot seat filling and bot pacing/taunts (§3.15, using the BOTS.md bot registry) | economy `batch`/`transact`, `ctx.tables`, HUD, BOTS.md registry | 5–6 h |
+| **A — core** | §3: match registry, invite + lobby flows, escrow/settle/rake (one atomic transaction each), tape persistence and load-time settle, eligibility check, rivalry + win streak + grudge, rematch, taunts, Final Reveal kit, PvP hub, Java lobby screen | economy `batch`/`transact`, `ctx.tables`, HUD, BOTS.md registry | 5–6 h |
 | **B — coin + wheel** | §4 Coin Flip Duel (Lucky Coin on player, Double or nothing chain), §6 Wheel Party (wheel block buttons, arcs, spin), their `botDecide` (§3.15.4) | A's contract | 3–4 h |
 | **C — slots** | §5 Slot Showdown (reuses the solo `slots` line evaluator; adds scoring rules and the multi-player reel view) | A's contract, slots evaluator | 3–4 h |
 | **D — plinko + scratch** | §7 Plinko Battle (reuses the solo path generator), §8 Scratch Showdown (new card logic) | A's contract | 3–4 h |
 
-Advancements: each dev adds the triggers of their mode (Java criteria / Bedrock achievement hook);
+Advancements: each dev adds the triggers of their mode (criteria);
 dev A adds `pvp_first_win`, `pvp_rampage`, `pvp_revenge`, `pvp_full_house`, `pvp_all_in`.
 
 ---
@@ -208,7 +211,7 @@ Distance is **not** checked after START: walking away never forfeits a match (§
 used as the escrow holder (it is unbounded, so parking the pot there is equivalent to a separate
 account); the match record stores what is owed back. Nothing else may touch it.
 
-**Rake** (integer only, no floating point, same in both editions):
+**Rake** (integer only, no floating point, same):
 ```
 rake = floor((pot × pvp.rakeBasisPoints + 5000) / 10000)       // round half up; 300 bp = 3 %
 W    = pot − rake                                              // what the players get back
@@ -371,21 +374,13 @@ pre-filled (they may change it).
 
 #### 3.11.1 Edition split
 
-| Need | Java (custom screens, server-driven like UI.md §0.2) | Bedrock (forms + HUD channels) |
-|------|------------------------------------------------------|--------------------------------|
-| Set-up, join, invite answer | Screens (below) | ModalForm / ActionForm / MessageForm |
-| Live match | Mode screen; when closed, a one-line **match ticker** HUD overlay (top-centre, under the boss bar) | **No forms during REVEAL.** Action bar ticker (every 2–4 t while animating, else on change); titles/subtitles for big moments; chat for the round log |
-| Final reveal | Screen banner sequence + titles | Titles/subtitles sequence |
-| Result | Result panel on the screen: ranking, pot, rake, payout, [Rematch] [Taunt] [Close] | ActionForm "Result": body ranking; buttons Rematch · Taunt… · Close |
-| Spectators | Players within `pvp.announceRadius` get the ticker overlay line and titles for the Final Reveal winner only | Same, via action bar + final title |
-
-**Bedrock title channel vs HUD.** The HUD uses sentinel titles (UI.md §1). While a PvP title is on
-screen for a player (`fadeIn + stay + fadeOut`), core must **pause HUD title refreshes** for that
-player (queue them). Dev A adds `ctx.hud.holdTitle(p, ticks)`.
-
-**Bedrock form rule for invites.** Never push a form unasked: invites arrive by chat/action
-bar/sound; the form appears when the player opens the Casino Menu (§3.3.1). Result forms are shown
-at the end of a match the player took part in (they expect it); `UserBusy` retry as UI.md §0.3.
+| Need | Java (custom screens, server-driven like UI.md §0.2) |
+|------|------------------------------------------------------|
+| Set-up, join, invite answer | Screens (below) |
+| Live match | Mode screen; when closed, a one-line **match ticker** HUD overlay (top-centre, under the boss bar) |
+| Final reveal | Screen banner sequence + titles |
+| Result | Result panel on the screen: ranking, pot, rake, payout, [Rematch] [Taunt] [Close] |
+| Spectators | Players within `pvp.announceRadius` get the ticker overlay line and titles for the Final Reveal winner only |
 
 **Russian length.** All Java widths use `max(minWidth, textWidth + 8)` and wrap (UI.md §0.1). Bedrock
 buttons were checked to be ≤ 24 RU characters (§15 notes the longest). Action-bar lines are ≤ 44 EN
@@ -425,10 +420,6 @@ Java `PvpLobbyScreen` 256 × 200 (compact: same, rows 10 px):
  ─────────────────────────────────────────────────────────────────────
  [Start] (host only, ≥2)   [Leave lobby]   [Taunt…]           ⛁ 12 500
 ```
-Bedrock: the host gets an ActionForm (body = the same lines; buttons *Start now* (≥ 2) · *Leave
-lobby* · *Taunt…*), re-shown by the server when someone joins/leaves (`closeAllForms` + show).
-Joiners get no form: the action bar shows `gui.burmaldaholic.pvp.lobby.waiting_bar` every 20 t;
-using the anchor again opens the same ActionForm without *Start now*.
 
 #### 3.11.4 The Final Reveal (shared choreography, all multi-player modes)
 
@@ -478,7 +469,7 @@ Java (`/casino pvp …`, permission 0 unless noted): `challenge <player> <mode> 
 
 ### 3.14 Mode contract (write this first; all devs code against it)
 
-Pure, engine-free, shared test vectors in both editions:
+Pure, engine-free, shared test vectors:
 ```
 interface PvpMode<P, T> {
   id: 'coin' | 'slots' | 'wheel' | 'plinko' | 'scratch';
@@ -619,7 +610,7 @@ the chain *before rake* (after the first flip D = S). **The next flip's stake is
 - The chain ends at "all square", when anyone walks away / takes the money, or after
   `pvp.coin.maxDoubles` (4) doubles (so at most 5 flips; the largest stake is 8S).
 - A Double or nothing offer is only shown when D ≤ both players' tier max and both balances ≥ D;
-  otherwise the button is replaced by a disabled line (Java tooltip / Bedrock body line) with the
+  otherwise the button is replaced by a disabled line (tooltip) with the
   reason (`gui.burmaldaholic.pvp.coin.don_limit` / `…don_unaffordable`).
 - Each flip is its own match record (id, tape, rake). The chain is only a link (`chainOf`, `link#`).
   A server stop between flips ends the chain; a stop during a flip settles that flip.
@@ -665,19 +656,6 @@ Totals: A = −100 −100 −200 +376 = **−24**; B = 94 + 94 + 188 − 400 = *
 Set-up: the coin used on a player opens a 200 × 140 panel: `BetSelector` (UI.md §0.2), side toggle
 Heads | Tails, head-to-head line, [Throw down the gauntlet]. Chain status line under the pot:
 "Chain: Alex down 400".
-
-**Bedrock**
-1. Set-up ModalForm "Coin Flip Duel": label (opponent, head-to-head, limits), slider + text field
-   stake, dropdown Heads/Tails, submit *Throw down the gauntlet*.
-2. Invite MessageForm (from the Casino Menu): body invite text + side + record + expiry;
-   buttons *Accept* / *Decline*.
-3. Countdown: titles "3", "2", "1" (subtitle "Alex: Heads · You: Tails"), `note.hat` pitch 1.0/1.2/1.4;
-   then the action bar animates "◐ ◓ ◑ ◒" for 20 t; title **HEADS!** / **TAILS!**, subtitle
-   "Alex takes 388".
-4. Loser ActionForm: body result + chain status + explanation; buttons *Double or nothing — Heads* ·
-   *Double or nothing — Tails* · *Walk away* · *Taunt…*.
-5. Winner MessageForm on offer: body `…coin.don_request`; *Let it ride* / *Take the money*.
-6. End ActionForm: result lines of the whole chain; *Rematch* · *Taunt…* · *Close*.
 
 Spectators within `pvp.announceRadius`: action bar "Alex vs Bob — 200 on the line" at start and the
 landing title's text as an action-bar line.
@@ -781,26 +759,12 @@ right. KABOOM: panel shakes 10 t, red flash, score counts down. SWAP: two panels
 (20 t). HOT symbol cells glow. Final round: totals show "???" until the Final Reveal.
 Host set-up: panel on the machine screen: entry `BetSelector`, spins toggle 3 | 5 | 10, [Open lobby].
 
-**Bedrock**
-- Machine ActionForm gains *Start a Slot Showdown* and, when a lobby is open within range,
-  *Join Showdown: 100 · 2/6*.
-- Host set-up ModalForm: label (tier, limits), dropdown spins (3/5/10), slider + text entry,
-  submit *Open lobby*. Join: MessageForm "Entry 100 · 5 spins · Pot 300" *Join* / *Cancel*.
-- Round: title (fade 0/30/10) "Spin 3/5" + subtitle "HOT: Diamond ×2"; then 40 t action-bar reel
-  animation of **your** grid (as the solo flow, UI.md §6), then action bar
-  `gui.burmaldaholic.pvp.match.bar` ("3/5 · You 42 (#2) · Alex 57") for 60 t and a one-line chat
-  standings log. Using the machine during ROUND_WAIT = *Spin!*. Using it at other times opens a
-  read-only ActionForm "Standings" (body: ranking + your last grid; buttons *Taunt…*, *Close*).
-- Events: KABOOM → title "KABOOM!" to the victim, chat line to all, explosion sound (no damage);
-  SWAP → title "SWAP!" to both, enderman teleport sound; Underdog → subtitle to the boosted player.
-- Final: §3.11.4 titles, then the Result ActionForm.
-
 ### 5.6 Advancements, sounds, particles
 
 `pvp_phoenix` (win after a KABOOM hit you). Sounds: `slot_spin` per round, HOT = firecharge,
 KABOOM = explosion at 0.5 volume, SWAP = enderman teleport, TIME WARP = bell. Particles: `flame` on
 HOT cells' machine, `explosion` puff at the victim's machine, `portal` between swapped players'
-machines (Java) / at both (Bedrock).
+machines.
 
 ---
 
@@ -871,16 +835,6 @@ however big or small their slice.
 Slices are drawn as arcs of the player's colour with their head icon at the arc centre (arcs < 6°
 get no icon). Legend width fits a 16-char name + RU "ТЁМНАЯ ЛОШАДКА" tag in a second line.
 
-**Bedrock**
-- Wheel ActionForm gains *Start a Wheel Party* / *Join the party: 3/8* / *Add to my slice*.
-- Host ModalForm: slider "Max stake per player" (cap), slider + text "Your stake", submit *Open lobby*.
-- Join / top-up ModalForm: label with the legend lines (name — stake (share)), slider + text stake.
-- During countdown: action bar `…wheel.bar` ("Pot 1 000 · your slice 5% · spins in 18 s") every 20 t
-  to participants; chat on each join/top-up (`…wheel.top_up`).
-- Spin: action bar shows the slice owner's **name in their colour** under the pointer, stepping
-  through slices (fast → slow, `wheel_tick` per step, 100 t); title "NAME WINS!" + subtitle payout
-  and share; then Result ActionForm.
-
 ### 6.6 Advancements, sounds, particles
 
 `pvp_underdog`. Sounds: `wheel_tick` per slice passed, bell on stop, firework twinkle on underdog.
@@ -940,12 +894,6 @@ last ball as a small bin strip (13 cells, the landed bin lit). Top bar "PLINKO B
 2/3 · Pot 600". Final ball: all boards drop together, the last row runs at half speed (slow-mo 8 t).
 Buttons [Drop!] [Taunt…] [Rules]. Set-up on the machine screen: entry `BetSelector`, risk
 Low | Medium | High, balls 1 | 3 | 5.
-
-**Bedrock**: machine ActionForm gains *Start a Plinko Battle* / *Join the battle: 100 · 2/6*. Host
-ModalForm: dropdown risk, dropdown balls, slider + text entry. During the match: title "Ball 2/3",
-your path on the action bar ("◀ ▶ ▶ ◀ …", 4 t per row, `plinko_peg` per row), then "Bin ×8.1 — 81
-points" and the standings bar; chat standings line per ball. Using the machine during BALL_WAIT =
-*Drop!*. Final Reveal titles, Result ActionForm.
 
 ### 7.5 Advancements, sounds, particles
 
@@ -1017,21 +965,14 @@ Two players: two big cards (40 px cells). The current cell pulses on every card;
 per-card silver-dust particle sprite (GUI only). Creeper: the burned cell cracks to black; foot: card
 border turns gold. [Scratch!] [Taunt…] [Rules]. Top bar "SCRATCH SHOWDOWN · Cell 5/9 · Pot 400".
 
-**Bedrock**: hub → New match… → *Scratch Showdown* → ModalForm: dropdown opponent ("Open lobby
-(anyone nearby)" first, then nearby players), slider + text entry, submit. During the match: after
-each cell the action bar shows **your** card compactly ("⛏ C C C | D ✖ I | ? ? ?  = 16") for 40 t, then
-the standings bar; chat line per step for events ("Creeper! Bob loses a Diamond"). The Casino Card
-used during STEP_WAIT = *Scratch!*; using it at other times opens a read-only ActionForm with every
-card as 3 glyph rows (≤ 6 cards × 4 lines = 24 body lines). Final Reveal titles, Result ActionForm.
-
 Glyphs: reuse the scratch-card glyph sheet for Coal/Iron/Gold/Emerald/Diamond/Star/Creeper; add one
-glyph for Rabbit's Foot (U+E1A0, both editions) and one "charred" glyph (U+E1A1); unscratched = ▒.
+glyph for Rabbit's Foot (U+E1A0) and one "charred" glyph (U+E1A1); unscratched = ▒.
 
 ### 8.6 Advancements, sounds, particles
 
 `pvp_lucky_feet` (win with two Rabbit's Feet on your card). Sounds: `scratch` per step, creeper cell
 = `random.fuse` / `entity.creeper.primed` then a soft explosion, foot = amethyst chime. Particles:
-`wax_on` (Java) / `villager_happy` (Bedrock) on a foot, `smoke` on a burn at the player.
+`wax_on` on a foot, `smoke` on a burn at the player.
 
 ---
 
@@ -1062,7 +1003,7 @@ glyph for Rabbit's Foot (U+E1A0, both editions) and one "charred" glyph (U+E1A1)
 ### 9.2 Tournaments
 
 **Creation.** Operators: Java `/casino tournament create <mode> <knockout|leaderboard> <entry>
-[maxPlayers] [name]` or Admin → PvP → Create tournament (both editions); optional **added prize**
+[maxPlayers] [name]` or Admin → PvP → Create tournament; optional **added prize**
 (minted by the bank, operators only). Scheduled: `pvp.tournament.autoEveryDays` (0 = off) at
 time-of-day `pvp.tournament.autoTimeOfDay`, with `autoMode` / `autoFormat` / `autoEntry`.
 Announcement server-wide; registration lasts `pvp.tournament.registrationTicks` (2400 = 2 min).
@@ -1188,42 +1129,42 @@ MUST uses **vanilla sound events** (no new audio; subtitles are vanilla's). Play
 (and to spectators where noted) at the player's position; all respect the per-player "Casino
 sounds" setting.
 
-| Moment | Java sound event | Bedrock sound id | Volume / pitch |
-|--------|------------------|------------------|----------------|
-| Invite received / lobby opened | `item.goat_horn.sound.0` ("Ponder") | `horn.call.0` | 0.6 / 1.0 |
-| Countdown tick (3-2-1) | `block.note_block.hat` | `note.hat` | 1.0 / 1.0, 1.2, 1.4 |
-| Coin launch | `burmaldaholic:coin_flip` | `burmaldaholic.coin_flip` (existing) | 1.0 |
-| Reels / balls / wheel / scratch | existing `slot_spin`, `plinko_peg`, `wheel_tick`, `scratch` | same | as solo |
-| Drumroll (Final Reveal) | `block.note_block.basedrum` × 8 accelerating | `note.bd` | 0.8 |
-| Place reveal | `block.note_block.bell` | `note.bell` | 0.7 / 0.8 → 1.6 |
-| Winner | `burmaldaholic:win` + `entity.player.levelup` | `burmaldaholic.win` + `random.levelup` | 1.0 |
-| Loser | `burmaldaholic:lose` | `burmaldaholic.lose` | 0.8 |
-| HOT symbol | `item.firecharge.use` | `mob.ghast.fireball` | 0.5 |
-| KABOOM | `entity.generic.explode` | `random.explode` | 0.5 (sound only, no explosion) |
-| SWAP | `entity.enderman.teleport` | `mob.endermen.portal` | 0.8 |
-| TIME WARP | `block.bell.use` | `block.bell.hit` | 0.7 |
-| Creeper cell | `entity.creeper.primed` | `random.fuse` | 0.6 |
-| Rabbit's Foot | `block.amethyst_block.chime` | `chime.amethyst_block` | 1.0 |
-| EDGE! / UNDERDOG! | `entity.firework_rocket.twinkle` | `firework.twinkle` | 1.0 (spectators too) |
-| GRUDGE MATCH banner | `entity.ravager.roar` | `mob.ravager.roar` | 0.5 |
-| Win-streak legendary | `item.totem.use` | `random.totem` | 0.6 (radius) |
-| Taunt friendly / cheeky | `entity.villager.yes` / `entity.villager.no` | `mob.villager.yes` / `mob.villager.no` | 0.8 |
+| Moment | Java sound event | Volume / pitch |
+|--------|------------------|----------------|
+| Invite received / lobby opened | `item.goat_horn.sound.0` ("Ponder") | 0.6 / 1.0 |
+| Countdown tick (3-2-1) | `block.note_block.hat` | 1.0 / 1.0, 1.2, 1.4 |
+| Coin launch | `burmaldaholic:coin_flip` | 1.0 |
+| Reels / balls / wheel / scratch | existing `slot_spin`, `plinko_peg`, `wheel_tick`, `scratch` | as solo |
+| Drumroll (Final Reveal) | `block.note_block.basedrum` × 8 accelerating | 0.8 |
+| Place reveal | `block.note_block.bell` | 0.7 / 0.8 → 1.6 |
+| Winner | `burmaldaholic:win` + `entity.player.levelup` | 1.0 |
+| Loser | `burmaldaholic:lose` | 0.8 |
+| HOT symbol | `item.firecharge.use` | 0.5 |
+| KABOOM | `entity.generic.explode` | 0.5 (sound only, no explosion) |
+| SWAP | `entity.enderman.teleport` | 0.8 |
+| TIME WARP | `block.bell.use` | 0.7 |
+| Creeper cell | `entity.creeper.primed` | 0.6 |
+| Rabbit's Foot | `block.amethyst_block.chime` | 1.0 |
+| EDGE! / UNDERDOG! | `entity.firework_rocket.twinkle` | 1.0 (spectators too) |
+| GRUDGE MATCH banner | `entity.ravager.roar` | 0.5 |
+| Win-streak legendary | `item.totem.use` | 0.6 (radius) |
+| Taunt friendly / cheeky | `entity.villager.yes` / `entity.villager.no` | 0.8 |
 
-Particles (spawned server-side at world positions; ids to be verified in game on both editions, as
+Particles (spawned server-side at world positions; ids to be verified in game on as
 in architecture "open risks"):
 
-| Moment | Java | Bedrock |
-|--------|------|---------|
-| Winner burst | `minecraft:totem_of_undying` (30) | `minecraft:totem_particle` |
-| Winner ring | `minecraft:happy_villager` | `minecraft:villager_happy` |
-| Losers on place reveal | `minecraft:angry_villager` | `minecraft:villager_angry` |
-| Coin landing | `minecraft:crit` | `minecraft:critical_hit_emitter` |
-| HOT | `minecraft:flame` | `minecraft:basic_flame_particle` |
-| KABOOM | `minecraft:explosion` (1) | `minecraft:large_explosion` |
-| SWAP | `minecraft:portal` | `minecraft:portal_directional` |
-| EDGE bin | `minecraft:end_rod` | `minecraft:endrod` |
-| Rabbit's Foot | `minecraft:wax_on` | `minecraft:villager_happy` |
-| Creeper burn | `minecraft:smoke` | `minecraft:basic_smoke_particle` |
+| Moment | Java |
+|--------|------|
+| Winner burst | `minecraft:totem_of_undying` (30) |
+| Winner ring | `minecraft:happy_villager` |
+| Losers on place reveal | `minecraft:angry_villager` |
+| Coin landing | `minecraft:crit` |
+| HOT | `minecraft:flame` |
+| KABOOM | `minecraft:explosion` (1) |
+| SWAP | `minecraft:portal` |
+| EDGE bin | `minecraft:end_rod` |
+| Rabbit's Foot | `minecraft:wax_on` |
+| Creeper burn | `minecraft:smoke` |
 
 NICE: custom events `burmaldaholic:pvp_challenge`, `pvp_drumroll`, `pvp_victory` (aliases of vanilla
 files at first, own audio later) with subtitles §15.16.
@@ -1232,8 +1173,7 @@ files at first, own audio later) with subtitles §15.16.
 
 ## 13. Config keys (`CONFIG.md` format; section `## pvp`)
 
-Percent-like values are integers in **basis points** (1 bp = 0.01 %) to keep the rake integer-exact
-in both editions.
+Percent-like values are integers in **basis points** (1 bp = 0.01 %) to keep the rake integer-exact.
 
 ### 13.1 Core
 
@@ -1330,20 +1270,13 @@ Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on 
 
 ---
 
-## 14. Edition notes and open risks
+## 14. Engine notes and open risks
 
-- **Bedrock entity interaction with an item**: `playerInteractWithEntity` fires for players in the
-  2.x API; if a target version does not deliver it for player targets, use the view-direction
-  fallback (§3.3.1). Verify in game.
-- **Bedrock title/HUD channel**: `ctx.hud.holdTitle` (§3.11.1) is required, or HUD refreshes will
-  cut drama titles short.
-- **Bedrock action-bar rate**: keep animation updates ≥ 2 t apart per player; with 6 players in a
-  showdown that is ≤ 3 action-bar packets per tick.
 - **Java offline credit** for settle-on-load uses the same offline deposit path as §4.1 play-outs.
 - **Java text display** (NICE hologram) is vanilla since 1.19.4; the Bedrock hologram needs a new
   dummy entity (NICE, not in MUST).
 - **Chunk unloads** never matter after START (the tape does not need the anchor).
-- **Particle ids** in §12 need an in-game check on both editions (ids drift between versions).
+- **Particle ids** in §12 need an in-game check (ids drift between versions).
 
 ---
 
@@ -1465,7 +1398,6 @@ joined names, %3$s chips_acc · `result.offline`/`casino_off` %1$s game, %2$s ne
 | `gui.burmaldaholic.pvp.game.scratch` | Scratch Showdown | Лотерейная битва |
 | `msg.burmaldaholic.pvp.invite.sent` | Challenge sent to %1$s: %2$s for %3$s | Вызов отправлен игроку %1$s: %2$s на %3$s |
 | `msg.burmaldaholic.pvp.invite.received` | %1$s challenges you: %2$s for %3$s! | %1$s бросает вам вызов: %2$s на %3$s! |
-| `msg.burmaldaholic.pvp.invite.how_bedrock` | Open the Casino Menu to answer | Чтобы ответить, откройте меню казино |
 | `gui.burmaldaholic.pvp.invite.accept_button` | [Accept] | [Принять] |
 | `gui.burmaldaholic.pvp.invite.decline_button` | [Decline] | [Отказать] |
 | `gui.burmaldaholic.pvp.invite.title` | Challenge! | Вызов! |
@@ -2004,7 +1936,7 @@ Args: `bots.opponent` %1$s nested BOTS.md difficulty name · `bots.will_fill` %1
 
 ---
 
-## 16. Tests (both editions, identical vectors)
+## 16. Tests (identical vectors)
 
 All `draw`/`score` functions are pure (§3.14), so the vectors below run as plain unit tests (Java
 JUnit, Bedrock `npm test`) with `debug.fixedSeed`-style seeded RNGs. Monte-Carlo tolerances are
@@ -2107,21 +2039,9 @@ absolute unless stated.
 
 | # | Test | Expected |
 |---|------|----------|
-| B1 | Difficulty never touches RNG: same seed, same seats, bots Easy vs Hard (every mode) | identical tapes and identical `score()` results; only decision logs differ |
-| B2 | Human vs 1/3/5 bots, each difficulty, Slot Showdown / Plinko / Scratch, 10⁶ matches | human win share 1/N ± 0.003 for every difficulty |
-| B3 | Wheel Party human stake 100 vs Easy / Normal / Hard bots, 10⁶ parties | human win frequency = mean(100/P) ± 0.002; human EV per chip = −R/P (exact per party) |
-| B4 | Coin Flip Duel vs Easy and Hard bots with DoN, 10⁶ chains | human mean net per chip staked = −rake share ± 0.1 % for both |
-| B5 | `MIXED` lobby, table size 6, 2 humans at *Start* | 4 bots seated, all stakes escrowed (bots from the house per BOTS.md), pot = 6 × entry |
-| B6 | `BOTS_ONLY` Wheel Party | starts with a 100 t countdown, bots' stakes placed at once |
-| B7 | Owned machine where BOTS.md forbids bots | falls back to `HUMANS_ONLY`, `bots.no_bots_here` shown |
-| B8 | Records, rake and advancements vs bots | no rivalry rows for bots; rake of a bot match at an owned machine goes to the bank; `pvp_rampage`/`pvp_revenge`/`pvp_full_house` never granted by bot opponents; `pvp_first_win` granted |
-| B9 | Bot pacing | bots press within their think-time window; a round never waits on a bot past `spinIntervalTicks` |
 
 ### 16.9 UI and localization
 
 - Every key in §15 exists in all four language files (parity test of LOCALIZATION.md §1).
 - Plural vectors of LOCALIZATION.md §3.2 for the new units `point`, `win`, `match`, `ball`.
-- Bedrock: every button label in §15 renders on one line (or two where noted) in RU on a 1280 × 720
-  phone-size UI; Java screens at GUI scale 2 and 3 in RU with 16-char names: no truncation except
-  names.
 - Action-bar lines with 16-char names ≤ 64 RU chars.

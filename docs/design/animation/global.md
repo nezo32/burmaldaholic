@@ -1,5 +1,8 @@
 # Burmaldaholic — Animation Spec: Global & Meta Presentation
 
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
 Scope: everything that is not one table game. HUD (balance ticker, streak meter, VIP badge, Golden
 Hour, loan), Casino Menu and Cashier (chip counting / exchange), chip items and stacks, chaos events,
 big-win / jackpot announcements, VIP tier-up, Last Chance coin flip, Loan Shark and Debt Collector
@@ -64,30 +67,14 @@ newest bots/PvP code).
 | World casinos | Static blocks; dealers on vanilla models; **no block-entity renderers at all**. | Casinos look dead when no one plays. |
 | Sounds | 16 events, all single vanilla samples (`levelup` = win, `note_block.bass` = lose). | Thin, repetitive, no tiering. |
 
-### 0.2 Bedrock
-
-| Area | What is there | Problems |
-|---|---|---|
-| HUD | Action-bar status line only (`core/hud.ts`), refreshed every 40 t when no message was posted in 60 t; balance yellow / gold in Golden Hour; streak with flame/cloud glyph; VIP name; loan; Golden Hour clock. JSON UI panel from UI.md §1 **not implemented** (no `ui/` folder in any RP). | No count-up, no delta, line hides whenever any game posts to the action bar; nothing to animate. |
-| Glyphs | `packs/core/RP/font/glyph_E1.png` generated (chip, cards, suits, dice, flame, cloud, VIP badges). | Good base; no animation frames. |
-| Casino Menu / Cashier | Forms. | Forms cannot animate; no post-action feedback besides re-shown form. |
-| Chaos | Title + action bar + vanilla particles (`totem_particle`, `villager_happy`, `large_explosion`) + vanilla sounds. `packs/chaos/RP` is empty. | Same as Java plus no custom particles. |
-| Golden Hour | Chat + `block.bell.hit` to everyone, HUD clock. | **No title** on Bedrock start (Java has one); no end cue besides chat. |
-| VIP | Title + `random.levelup` + promo particles + chat. | — |
-| Last Chance | Totem particle + `burmaldaholic.last_chance` sound + action bar "Last Chance…" + title "HEADS!". Tails → chat only. | **No coin flip at all**; the result title appears at the same instant as "Last Chance…". |
-| Loan collectors | Chat, `random.door_close` pitch 0.6, smoke/crit particles. | Weak arrival. |
-| Achievements | Chat + action bar + `random.toast`. | Fine but plain. |
-| Sounds | One custom definition (`burmaldaholic.last_chance`). Everything else vanilla ids. | Java ids like `burmaldaholic:win` have **no Bedrock counterpart**. |
-
 ### 0.3 Summary of the gap
 
 1. No shared motion or celebration system: every module prints a title.
 2. HUD values snap; pulses blink whole lines off.
 3. Brand palette (docs/branding) is used nowhere in the UI.
 4. Chaos events are indistinguishable at a glance (good / bad / neutral).
-5. Bedrock Last Chance has no coin flip; Java's is thin and not sound-synced.
 6. World casinos have no idle life.
-7. Sound palette is one vanilla sample per event, different between editions.
+7. Sound palette is one vanilla sample per event.
 
 ---
 
@@ -99,11 +86,11 @@ newest bots/PvP code).
    land on something else, no count-up that overshoots and comes back, no jackpot lights on a
    machine that did not pay). Timers shown are derived from server ticks.
 2. **Skippable, never blocking.** Any celebration longer than 1 s can be skipped (Java: click /
-   any key / Esc in the overlay; Bedrock: the title is replaced by the next form). Balance and
+   any key / Esc in the overlay). Balance and
    results are final the moment the server sends them; the animation is decoration.
 3. **Readable first.** Text is never blinked off; emphasis uses colour, scale and motion only.
 4. **One vocabulary.** Same win tiers, easing names, sound ids, colours and FX settings in every
-   game and both editions.
+   game.
 5. **Cheap.** Budgets in §2.9; everything degrades to the current behaviour when an asset or
    feature is missing.
 
@@ -170,11 +157,7 @@ Button states and motion (all Java screens):
 - **Disabled**: no hover lift; tooltip gives the reason (UI.md).
 - Keyboard focus: 1 px `glint` outline (always, not motion-dependent).
 
-**Bedrock buttons.** Forms keep vanilla styling (JSON UI form re-skins are out of scope: they break
-with every vanilla UI update). Button **icons** carry the brand: new 32×32 icon textures in the
-palette (§5.2 list). Errors: the re-shown form's first body line in `§c` plus `burmaldaholic.ui_deny`.
-
-**Typography.** Vanilla font only, both editions. Allowed scales: 1× (body), 2× (titles, banners),
+**Typography.** Vanilla font only. Allowed scales: 1× (body), 2× (titles, banners),
 3× (tier words in the celebration overlay only, when it fits). No fractional scales (blurry). All
 numbers right-aligned in columns; the vanilla font's digits are all 6 px advance, so tickers do not
 jitter. Big text gets a 1 px `ink` outline drawn as 4 offset copies (not the default drop shadow)
@@ -182,12 +165,12 @@ via one helper `FxText.outlined(g, text, x, y, scale, color)`.
 Russian: every banner/word is measured at runtime; if `width × scale > screenWidth − 32`, the scale
 steps down (3→2→1) and at 1× the text wraps (max 2 lines). Budget 1.45 × EN width for any fixed box.
 
-### 2.3 Glyphs (both editions)
+### 2.3 Glyphs
 
 Existing (UI.md §0.1): chip U+E100, cards, suits, dice, flame U+E170, cloud U+E171, VIP badges
 U+E180–E185. **Java must add the same sheet** (`assets/burmaldaholic/font/default.json`, bitmap
 provider over `textures/font/glyph_e1.png`, height 8, ascent 7), generated by the same
-generator (task S1) so both editions stay pixel-identical. New code points for this spec:
+generator (task S1). New code points for this spec:
 
 | Code point | Glyph | Frames |
 |---|---|---|
@@ -209,7 +192,7 @@ Glyphs are never in lang strings (UI.md rule): code prepends them as separate co
 
 ### 2.4 Win tiers (shared, server-computed)
 
-A pure function in core logic of both editions, `WinTier.of(net, stake, table, flags)`; the server sends
+A pure function in core logic of `WinTier.of(net, stake, table, flags)`; the server sends
 the tier with the result so clients never guess.
 
 > ⚠ CHANGED (lead decision 2026-09-24, `docs/architecture/animation.md` §1 and §4): **one shared API, per-game
@@ -217,7 +200,7 @@ the tier with the result so clients never guess.
 > WIN / BIG / MEGA / EPIC at **10 / 25 / 50 ×** with the net floors below (`core.winTiers` = [10, 25, 50]).
 > `WinTierTable.SLOTS` is NICE / BIG / MEGA / EPIC at **5 / 15 / 40 / 100 ×** with no net floors
 > (`slots.bigWinTiers`, SLOTS.md §10.1). A game may define its own table the same way. The tier ladder is one
-> enum in both editions: `LOSS, RETURN, PUSH, WIN, NICE, BIG, MEGA, EPIC, JACKPOT` (MAX WIN is a flag on top of
+> enum: `LOSS, RETURN, PUSH, WIN, NICE, BIG, MEGA, EPIC, JACKPOT` (MAX WIN is a flag on top of
 > EPIC). NICE has no threshold in the default table; table games reach it only through their floors
 > (tables.md §0.3) and present it as the in-panel banner pop (no overlay).
 
@@ -246,8 +229,6 @@ Java: `dev.nezo.burmaldaholic.core.anim.Ease` (⚠ CHANGED: common source set so
 client share it; `docs/architecture/animation.md` §2) (static functions, `t ∈ [0,1]`), `client.anim.Tween`
 (start value, end value, start ms, duration, easing; `value(nowMs)`), all timed on
 `Util.getMillis()` + partial tick so animation is frame-rate independent.
-Bedrock: script tweens are tick-quantised (50 ms); JSON UI anims use their own easing names —
-map as listed.
 
 | Name | Curve | JSON UI `easing` | Use |
 |---|---|---|---|
@@ -297,13 +278,6 @@ amount passes 25× / 50× of the stake; the final word always equals the server 
 Esc skips to the final frame (hold 300 ms, then exit). `anim.speed` 1.5 (turbo) scales all
 durations by 0.67.
 
-**Bedrock `fx.celebrate(player, tier, net, game)`**: classic forms cannot animate, so the
-celebration is told with title + **`updateSubtitle` roll-up** + particles + sound **after** the
-result is settled and **before** the result form is shown (the form opens 20 t after WIN, 40 t
-after BIG, 50 t after MEGA, 60 t after EPIC/JACKPOT, or at once if the player sneaks = skip).
-Games that use a DDUI `CustomForm` (research §3.8) may show the roll-up in an Observable label
-instead; the timings are the same.
-
 | Tier | Title (fade in / stay / out, ticks) | Subtitle roll-up | Particles (`dimension.spawnParticle`, one call each) | Camera (skipped under reduce motion) |
 |---|---|---|---|---|
 | WIN | action bar only `§a+N` | — | `burmaldaholic:chip_pop` | — |
@@ -314,43 +288,39 @@ instead; the timings are the same.
 
 Titles use tier words from STRINGS (§9), never baked text. All counts ≤ 60 particles per burst.
 
-### 2.7 Sound palette (same ids in both editions)
+### 2.7 Sound palette (same ids)
 
 Java: `burmaldaholic:<id>` in `assets/burmaldaholic/sounds.json` (per-module files as today).
-Bedrock: `burmaldaholic.<id>` in `packs/<module>/RP/sounds/sound_definitions.json`
-(`category` "player" unless noted). **MUST phase = vanilla samples only** (layered variants,
-pitch/volume); NICE phase = script-synthesised OGGs (task S4). Existing ids are kept; the Java
-definitions of `win`/`lose` are re-pointed as listed.
 
-| Id | Owner | Java composition (sounds.json variants) | Bedrock composition (`sounds/…` paths) | Subtitle key |
-|---|---|---|---|---|
-| `chip_place` (exists) | core | `block.chain.place` p1.4 v0.6 + `block.amethyst_block.hit` p1.8 v0.3 (2 variants) | `random/click` p1.6, `block/amethyst/hit1` p1.8 | exists |
-| `chip_stack` | core | 3 variants of `block.chain.step` p1.2–1.5 v0.5 | `step/chain1-3` p1.3 | `chip_stack` |
-| `chip_count` | core | `block.note_block.hat` v0.35 (pitch set by code 0.9–1.4) | `note/hat` | `chip_count` |
-| `win_small` | core | `entity.experience_orb.pickup` p1.2 + `block.note_block.chime` p1.6 v0.5 | `random/orb` p1.2 + `note/chime` | `win` |
-| `win` (re-pointed) | core | = `win_small` (kept for compatibility) | same | exists |
-| `win_nice` ⚠ new | core | `block.note_block.chime` C-E-G (p1.0/1.26/1.5, 80 ms apart, by code) + `entity.experience_orb.pickup` | `note/chime` ×3 + `random/orb` | `nice_win` |
-| `win_big` | core | `entity.player.levelup` p1.0 v0.8 + `block.amethyst_block.resonate` p1.2 | `random/levelup` + `block/amethyst/resonate1` | `big_win` |
-| `win_mega` | core | `ui.toast.challenge_complete` v0.7 + `block.bell.use` p1.5 v0.4 | `random/toast` p0.9 + `block/bell/bell_use01` p1.5 | `mega_win` |
-| `jackpot` (subtitle exists) | core | `ui.toast.challenge_complete` + `entity.firework_rocket.twinkle` ×2 + `block.bell.use` p1.0 | `random/levelup` p0.8 + `fireworks/twinkle1` + bell | exists |
-| `lose` (re-pointed) | core | `block.note_block.bass` p0.7 v0.6 + `block.wool.fall` v0.4 (soft thud, not punishing) | `note/bass` p0.7 | exists |
-| `push` | core | `block.note_block.hat` p0.8 v0.4 | `note/hat` p0.8 | `push` |
-| `ui_deny` | core | `block.note_block.didgeridoo` p0.6 v0.4 (80 ms) | `note/didgeridoo` p0.6 | `ui_deny` |
-| `toast` | core | `block.note_block.chime` p1.2 v0.5 + `block.amethyst_block.chime` | `note/chime` + `block/amethyst/chime1` | `toast` |
-| `streak_up` | core | `block.note_block.pling` pitch = 0.8 + 0.08·S | `note/pling` | `streak_up` |
-| `streak_break` | core | `block.fire.extinguish` v0.3 p1.6 (lucky) / `weather.rain` short v0.2 (unlucky) | `random/fizz` p1.6 | `streak_break` |
-| `vip_tier_up` | vip | `ui.toast.challenge_complete` + `block.note_block.bell` arpeggio (code) | `random/toast` + `note/bell` | `vip_tier_up` |
-| `golden_hour` (exists) | chaos | keep bell p0.8 + add `block.beacon.activate` p1.4 v0.5 variant layer played by code | `block/bell/bell_use01` p0.8 + `beacon/activate` p1.4 | exists |
-| `golden_hour_end` | chaos | `block.bell.use` p0.6 v0.6 + `block.beacon.deactivate` p1.2 | `beacon/deactivate` p1.2 | `golden_hour_end` |
-| `chaos_good` | chaos | `block.amethyst_block.chime` ×2 p1.4/1.8 + `entity.experience_orb.pickup` p1.6 | amethyst + orb | `chaos_good` |
-| `chaos_bad` | chaos | `entity.evoker.prepare_wololo` p0.8 v0.6 + `ambient.cave` v0.3 (random variant) | `mob/evocation_illager/prepare_wololo` p0.8 | `chaos_bad` |
-| `chaos_teleport` | chaos | `entity.enderman.teleport` p1.2 + `block.portal.trigger` v0.15 p2.0 | `mob/endermen/portal` + `portal/trigger` | `chaos_teleport` |
-| `collector_knock` (exists) | loan | 3 knocks played by code at 0/280/520 ms: `block.wooden_door.close` p0.55/0.6/0.5 v0.9 | `random/door_close` p0.55 | exists |
-| `collector_arrive` | loan | `entity.pillager.celebrate` p0.8 + `entity.ravager.roar` v0.25 p1.6 | `mob/pillager/celebrate` + `mob/ravager/roar` | `collector_arrive` |
-| `heartbeat` | lastchance | `entity.warden.heartbeat` v0.8 (pitch 1.0→1.25 by code) | `mob/warden/heartbeat` | `heartbeat` |
-| `coin_land` | lastchance/extras | `block.chain.place` p1.8 + `entity.experience_orb.pickup` p0.9 | `random/orb` p0.9 + click | `coin_land` |
-| `last_chance` (exists) | lastchance | keep totem p1.2 v0.7 — **now played by the server on heads only, 1 300 ms after the flip starts** (§4.8) | keep | exists |
-| `attract_chime` | worldgen | `block.note_block.chime` p1.8 v0.2 + `block.amethyst_block.chime` v0.15 | `note/chime` p1.8 | `attract` |
+| Id | Owner | Java composition (sounds.json variants) | Subtitle key |
+|---|---|---|---|
+| `chip_place` (exists) | core | `block.chain.place` p1.4 v0.6 + `block.amethyst_block.hit` p1.8 v0.3 (2 variants) | exists |
+| `chip_stack` | core | 3 variants of `block.chain.step` p1.2–1.5 v0.5 | `chip_stack` |
+| `chip_count` | core | `block.note_block.hat` v0.35 (pitch set by code 0.9–1.4) | `chip_count` |
+| `win_small` | core | `entity.experience_orb.pickup` p1.2 + `block.note_block.chime` p1.6 v0.5 | `win` |
+| `win` (re-pointed) | core | = `win_small` (kept for compatibility) | exists |
+| `win_nice` ⚠ new | core | `block.note_block.chime` C-E-G (p1.0/1.26/1.5, 80 ms apart, by code) + `entity.experience_orb.pickup` | `nice_win` |
+| `win_big` | core | `entity.player.levelup` p1.0 v0.8 + `block.amethyst_block.resonate` p1.2 | `big_win` |
+| `win_mega` | core | `ui.toast.challenge_complete` v0.7 + `block.bell.use` p1.5 v0.4 | `mega_win` |
+| `jackpot` (subtitle exists) | core | `ui.toast.challenge_complete` + `entity.firework_rocket.twinkle` ×2 + `block.bell.use` p1.0 | exists |
+| `lose` (re-pointed) | core | `block.note_block.bass` p0.7 v0.6 + `block.wool.fall` v0.4 (soft thud, not punishing) | exists |
+| `push` | core | `block.note_block.hat` p0.8 v0.4 | `push` |
+| `ui_deny` | core | `block.note_block.didgeridoo` p0.6 v0.4 (80 ms) | `ui_deny` |
+| `toast` | core | `block.note_block.chime` p1.2 v0.5 + `block.amethyst_block.chime` | `toast` |
+| `streak_up` | core | `block.note_block.pling` pitch = 0.8 + 0.08·S | `streak_up` |
+| `streak_break` | core | `block.fire.extinguish` v0.3 p1.6 (lucky) / `weather.rain` short v0.2 (unlucky) | `streak_break` |
+| `vip_tier_up` | vip | `ui.toast.challenge_complete` + `block.note_block.bell` arpeggio (code) | `vip_tier_up` |
+| `golden_hour` (exists) | chaos | keep bell p0.8 + add `block.beacon.activate` p1.4 v0.5 variant layer played by code | exists |
+| `golden_hour_end` | chaos | `block.bell.use` p0.6 v0.6 + `block.beacon.deactivate` p1.2 | `golden_hour_end` |
+| `chaos_good` | chaos | `block.amethyst_block.chime` ×2 p1.4/1.8 + `entity.experience_orb.pickup` p1.6 | `chaos_good` |
+| `chaos_bad` | chaos | `entity.evoker.prepare_wololo` p0.8 v0.6 + `ambient.cave` v0.3 (random variant) | `chaos_bad` |
+| `chaos_teleport` | chaos | `entity.enderman.teleport` p1.2 + `block.portal.trigger` v0.15 p2.0 | `chaos_teleport` |
+| `collector_knock` (exists) | loan | 3 knocks played by code at 0/280/520 ms: `block.wooden_door.close` p0.55/0.6/0.5 v0.9 | exists |
+| `collector_arrive` | loan | `entity.pillager.celebrate` p0.8 + `entity.ravager.roar` v0.25 p1.6 | `collector_arrive` |
+| `heartbeat` | lastchance | `entity.warden.heartbeat` v0.8 (pitch 1.0→1.25 by code) | `heartbeat` |
+| `coin_land` | lastchance/extras | `block.chain.place` p1.8 + `entity.experience_orb.pickup` p0.9 | `coin_land` |
+| `last_chance` (exists) | lastchance | keep totem p1.2 v0.7 — **now played by the server on heads only, 1 300 ms after the flip starts** (§4.8) | exists |
+| `attract_chime` | worldgen | `block.note_block.chime` p1.8 v0.2 + `block.amethyst_block.chime` v0.15 | `attract` |
 
 Rules: `SoundSource.PLAYERS` for personal, `BLOCKS` for world casinos, never `MASTER` (the current
 Golden Hour bell uses `MASTER` — change to `AMBIENT`, respects the player's slider). All
@@ -368,25 +338,24 @@ Menu → Settings and a "Client effects" Mod Menu section; Bedrock: player dynam
 | Screen flashes (`anim.flashes`) | on | Off: no full-screen or vignette alpha pulses; pulses become static tints; "last seconds" timers change colour once; firework sparks removed. **Even when on**: ≤ 3 flashes per second and ≤ 30 % alpha for any change faster than 250 ms (WCAG 2.3.1); no red strobe. Java: vanilla "Hide lightning flashes" or "Screen effect scale" = 0 also turns this off. |
 | Animation speed (`anim.speed`) | 1 | 0.5 slow / 1 / 1.5 turbo: multiplies all durations in this file by 1/speed (never the server timers). |
 | Win celebrations (`anim.celebrations`) | Everyone's | `Only mine`: other players' nearby FX/toasts suppressed (chat stays). `Off`: every tier uses the WIN banner. |
-| Effects volume (`anim.volume`) | 100 % | Multiplies every sound in §2.7 (Java client side; Bedrock `playSound` volume). |
-| Styled HUD panel (`anim.hudPanel`, Bedrock only) | on | Off: action-bar HUD (§4.1.2 fallback). |
+| Effects volume (`anim.volume`) | 100 % | Multiplies every sound in §2.7 (client side). |
 
 Never behind a toggle: the information itself (result words, amounts, timers, chat lines).
 
 ### 2.9 Performance budget
 
-| Item | Java | Bedrock |
-|---|---|---|
-| HUD per frame | ≤ 0.05 ms, no allocations in steady state (cache `Component`s, re-build only when the value changes) | HUD refresh ≤ 1 title-sentinel update / 2 t per player during a count-up, else ≤ 1 / 20 t |
-| GUI particles (chips, coins, confetti) | ≤ 96 live, pooled; drop newest beyond | n/a |
-| World particles per event | ≤ 60 client particles per burst, ≤ 150 for JACKPOT, ≤ 400 casino particles live in total (checked in the particle provider) | ≤ 24 `spawnParticle` calls per event per tick, ≤ 60 per event total (custom emitters do the multiplying client-side) |
-| Server FX packets | ≤ 1 `fx` payload per settlement per player, ≤ 4 per second per player | script: `fx.*` ≤ 0.3 ms per tick; timeouts via `system.runTimeout`, never per-tick loops per player for decoration |
-| Attract mode | client `animateTick` only, 1 roll per 40 t per block within 16 blocks | script loop every 40 t over tables with a player within 16 blocks, ≤ 8 tables per dimension per pass |
-| Textures | all FX sprites in one GUI atlas page (sprites folder), total < 64 KB PNG | one particle atlas `textures/particle/burmaldaholic_fx.png` 128×128 |
+| Item | Java |
+|---|---|
+| HUD per frame | ≤ 0.05 ms, no allocations in steady state (cache `Component`s, re-build only when the value changes) |
+| GUI particles (chips, coins, confetti) | ≤ 96 live, pooled; drop newest beyond |
+| World particles per event | ≤ 60 client particles per burst, ≤ 150 for JACKPOT, ≤ 400 casino particles live in total (checked in the particle provider) |
+| Server FX packets | ≤ 1 `fx` payload per settlement per player, ≤ 4 per second per player |
+| Attract mode | client `animateTick` only, 1 roll per 40 t per block within 16 blocks |
+| Textures | all FX sprites in one GUI atlas page (sprites folder), total < 64 KB PNG |
 
 ---
 
-## 3. Shared plumbing (both editions)
+## 3. Shared plumbing
 
 ### 3.1 Java `fx` channel
 
@@ -398,15 +367,6 @@ without it the current vanilla title/particles path runs unchanged (fallback). T
 spawning **item/entity effects** (diamonds, mobs); the client only adds decoration.
 
 `PlayerStatusPayload` unchanged; the HUD derives deltas client-side (already does).
-
-### 3.2 Bedrock `core/fx.ts`
-
-`FxService` in core services: `celebrate(p, tier, net, game)`, `chaos(p, event, data)`,
-`toast(p, titleRaw, bodyRaw, icon)`, `hudPulse(p, segmentId)`, `settings(p)`. Implements rate limits
-(§2.9), the settings (§2.8), and the JSON UI sentinel protocol (§4.1.2). Modules call it instead of
-`hud.title` + `playSound` directly.
-
----
 
 ## 4. Feature specs
 
@@ -484,39 +444,7 @@ U+E177 + `hud.burmaldaholic.collectors` ("Collectors: 23 m", distance to nearest
 every 10 t from a new field in the loan sync payload). Text `chip.red`; the glyph shakes ±1 px at
 2 Hz when < 12 m (reduced motion: no shake).
 
-#### 4.1.2 Bedrock HUD
-
-**MUST — JSON UI panel (UI.md §1 primary implementation).** Files:
-`packs/core/RP/ui/_ui_defs.json`, `packs/core/RP/ui/hud_screen.json` (modifications: add
-`burmaldaholic_hud@burmaldaholic_hud.root` to `root_panel`, hide real titles starting with the
-sentinel), `packs/core/RP/ui/burmaldaholic_hud.json` (panel, labels, anims).
-Protocol: script sends `setTitle('§b§m§h' + payload, {fadeIn:0, stay: 2^31-1, fadeOut:0})`;
-payload = up to 5 lines separated by `\n`, each prefixed with a one-character line code:
-`b` balance, `d` delta, `s` streak, `v` VIP, `l` loan, `g` Golden Hour, `c` collectors.
-JSON UI binds `#hud_title_text_string`, splits by sentinel/line codes with string-slicing bindings
-(`$line_b` etc.) and shows the matching label controls.
-
-Animations inside JSON UI (no script cost):
-- **Delta**: the `d` label has `anims: [delta_rise, delta_fade]` (`offset` from `[0,0]` to
-  `[0,-10]` 1.4 s `out_cubic`; `alpha` 1→0 from 0.9 s). Restarted by re-binding (the script sends a
-  new delta token `d<id>+120`; a changed id retriggers the anim via `play_event`).
-- **Golden border**: `image` with `color` anim gold ↔ `gold.shade`, 2 s loop (flashes off: the
-  script sends line code `G` instead of `g`, which selects the static variant).
-- **Streak flame**: `flip_book` anim on a 3-frame `textures/burmaldaholic/ui/flame.png` (8×24) at
-  8 fps; shown only when the `s` line carries `!` (|S| ≥ 7).
-- **Bell swing** for loan default: 2-frame flipbook 1 Hz.
-
-Script side (`core/hud.ts` + `core/fx.ts`): **count-up** of the balance: on a change, send
-`K = clamp(round(d/100 ms), 3, 10)` frames, one per 2 ticks, values `old + ⌊Δ·outCubic(k/K)⌋`, last
-frame exact. Streak pips are rendered as glyph text (U+E172–E174) in the `s` line.
-
-**MUST — action bar fallback** (resource pack HUD hack disabled / older client): current status line
-kept, plus: `§a+120` / `§c−50` appended for 3 s after a change; Golden Hour sun glyph U+E175 before
-the clock; streak pips as glyphs. No count-up (would fight other action-bar users).
-
-Settings: the `anim.hudPanel` toggle (default on) lets a player fall back to the action bar.
-
-### 4.2 Casino Menu (Java screen / Bedrock hub)
+### 4.2 Casino Menu (screen)
 
 **Java (MUST).** ⚠ CHANGED: the menu is the "casino ledger" shell of `docs/design/visual/extras.md` §8: lobby
 backdrop, `core/menu/shell` (leather + gold) nine-slice, bookmark tabs `core/menu/tab*` (32 × 24; icon-only, the
@@ -534,15 +462,9 @@ selected one shows its name), ruled `core/menu/page`, ledger rows, `CasinoButton
 - Errors: shake + `ui_deny` (§2.2).
 - Reduced motion: no scale/slide; progress bars drawn at final value.
 
-**Bedrock (MUST).** Forms: keep; new 32×32 hub icons (Wallet chip stack, Contracts scroll, Loan
-bell, Achievements trophy, Challenges dice, My Casino key, Rules book, Settings cog, Admin crown) in
-palette (§5.2). Body first line = balance with chip glyph and VIP badge glyph. After an action that
-changes the balance (pay loan, reroll), close form → run the HUD count-up (§4.1.2) → re-show
-the form 10 t later.
-
 ### 4.3 Cashier (chip counting and exchange)
 
-Server additions (both editions): the cashier action result includes a **breakdown**:
+Server additions: the cashier action result includes a **breakdown**:
 `deposit {counts per denomination, total}`, `withdraw {counts per denomination, dropped}`,
 `exchange {emeralds|gold ±, chips ±}`. The animation only replays this breakdown.
 
@@ -567,19 +489,6 @@ Invalid (amount > withdrawable, inventory issues): amount field shakes + `ui_den
 `chip.red` cross stamp 400 ms.
 Reduced motion: tray shows the final columns instantly for 800 ms, no flights.
 
-**Bedrock (MUST).** Forms cannot animate; sequence instead:
-1. Form closes on submit.
-2. `burmaldaholic.chip_stack` played once per denomination group, 3 t apart (largest first), with
-   the action bar showing the growing breakdown with mini-chip glyphs:
-   `⛁500 ×3 · ⛁100 ×4 · ⛁5 ×2` (glyphs U+E194–E198), one group added per step.
-3. HUD balance count-up (§4.1.2).
-4. Cashier form re-shown 20 t after the last step with body first line
-   `gui.burmaldaholic.cashier.deposited` / `…withdrawn` in `§a`.
-Particles: `burmaldaholic:chip_pop` at the cashier block top (spectators see it), 1 per group.
-**NICE (after the DDUI spike, research §3.8):** a DDUI `CustomForm` cashier whose Observable label
-shows the growing breakdown and balance in place (updates every 2 t), removing the close/re-open
-flicker.
-
 ### 4.4 Chip items and stacks
 
 **Java (MUST).** Item model definitions `items/chip_*.json` become `minecraft:range_dispatch` on
@@ -591,12 +500,9 @@ GAME_DESIGN §3.1), 1 px `ink` outline, top ellipse + side stripes (edge inserts
 item entity within 12 blocks (≤ 8 per player view). No enchantment glint on any chip (it would read
 as "enchanted").
 
-**Bedrock (NICE).** No count-based item textures on Bedrock; keep single textures, align the 5
-PNGs to the Java redraw (same generator).
-
 ### 4.5 Golden Hour start / end
 
-Trigger: server start/end (both editions); timer and multiplier from server config.
+Trigger: server start/end; timer and multiplier from server config.
 
 **Java start storyboard (MUST)** (all online players; `FxPayload GOLDEN_HOUR_START`):
 | t (ms) | Beat |
@@ -613,18 +519,11 @@ Boss bar stays (visible to vanilla-HUD users, same info). Players within 32 bloc
 over 1 000 ms, HUD row shrinks 200 ms, action bar `hud.burmaldaholic.golden_hour.over`; chat lines
 unchanged. "Ending in" warning (existing chat) also pulses the HUD row once (scale 1.1, 300 ms).
 
-**Bedrock start (MUST):** add the missing title (`msg.burmaldaholic.chaos.golden_hour.title` gold,
-subtitle existing, 10/60/20 t — same as Java); bell (existing) + `burmaldaholic.golden_hour`;
-camera fade gold `#FFD640` (fadeIn 0.3 s, hold 0.2 s, fadeOut 0.8 s) at 40 % — skipped when reduced
-motion is set or flashes are off (A1); particle `burmaldaholic:golden_mote` emitter at each player (one call, the
-emitter spawns 24 over 2 s). HUD panel variant `G/g` (§4.1.2). End: `burmaldaholic.golden_hour_end`,
-action bar `…golden_hour.over`, HUD row removed.
-
 Faithfulness: the start FX fires from the server event only; no client-side prediction of the end.
 
 ### 4.6 Chaos events
 
-Common structure (both editions): the server performs the effect **first** (items spawned, effect
+Common structure: the server performs the effect **first** (items spawned, effect
 applied, mobs spawned, teleport done), then sends the FX with exact data (item spawn points, mob
 spawn points, teleport origin/target). Every event gets a **kind colour and sound** so the player
 knows good/bad/neutral before reading:
@@ -632,7 +531,7 @@ knows good/bad/neutral before reading:
 | Kind | Colour | Sound | Title style |
 |---|---|---|---|
 | good | `bonus` / `gold` | `chaos_good` | title in `bonus`, 5/50/15 |
-| bad | `chip.red` / `curse` | `chaos_bad` | title in `chip.red`; Java GUI/world shake 3 px 300 ms; Bedrock `camerashake add @s 0.2 0.3 positional` (reduce motion: none) |
+| bad | `chip.red` / `curse` | `chaos_bad` | title in `chip.red`; Java GUI/world shake 3 px 300 ms |
 | neutral | `lilac` | `chaos_teleport` or weather thunder | title in `lilac` |
 
 Java draws a **chaos card** under the vanilla title (NICE): 64×64 icon sprite per event (§5.1)
@@ -648,8 +547,8 @@ ids + sounds + titles):
 | `curse` | `curse_wisp` (purple-green, 3-frame) spiral descending onto the player 1.2 s; `chaos_bad`; Java: 300 ms shake + 400 ms green-purple vignette at 30 % (flashes off: static 10 %; reduce motion: no shake) | spiral |
 | `diamond_rain` | For each diamond drop point: a `diamond_glint` column (cyan sparkle, **not** a diamond sprite, so it never looks like extra loot) falls from +6 blocks to the drop point in 400 ms, the real item spawns on arrival; 8 extra ambient glints in radius 3 over 2 s; `chaos_good` + `block.amethyst_block.chime` per diamond (pitch rising). | columns + items |
 | `xp_fountain` | Existing orbs (real) + `sparkle` tinted green at the fountain base per burst; `chaos_good`. | yes |
-| `mob_wave` | Server first picks the spawn spots; **900 ms before** each mob appears, a `summon_rune` ground decal particle (8×8 ×4 frames, dark red circle, lies flat: Java custom particle with fixed orientation; Bedrock `minecraft:particle_appearance_billboard` with `facing_camera_mode: "direction_y"`) grows at the spot, then `POOF` + mob. Title + `chaos_bad` at 0 ms; `evoker.prepare_summon` (existing) at the rune start. Mobs spawn exactly where the runes were. | runes + mobs |
-| `random_teleport` | Origin: `portal` swirl (existing) + `teleport_ring` (lilac ring expanding 0.5 → 2 blocks, 300 ms); Java: 250 ms white-lilac full-screen fade out/in around the teleport tick (flashes off / reduce motion: none; Bedrock camera fade lilac 0.1/0.1/0.3 s, A1); target: ring collapsing 2 → 0.5; title with distance (existing). | ring at both ends |
+| `mob_wave` | Server first picks the spawn spots; **900 ms before** each mob appears, a `summon_rune` ground decal particle (8×8 ×4 frames, dark red circle, lies flat: Java custom particle with fixed orientation | runes + mobs |
+| `random_teleport` | Origin: `portal` swirl (existing) + `teleport_ring` (lilac ring expanding 0.5 → 2 blocks, 300 ms); Java: 250 ms white-lilac full-screen fade out/in around the teleport tick (flashes off / reduce motion: none | ring at both ends |
 | `weather_change` | Title (existing) + `lilac` kind; no extra FX (the weather is the effect). | — |
 | `golden_hour` | §4.5 | §4.5 |
 
@@ -657,7 +556,7 @@ Deferred events (casino screen/form open, GAME_DESIGN §13.4): FX play when the 
 
 ### 4.7 Big-win and jackpot announcements
 
-Server: `WinTier` (§2.4) computed at settlement (both editions). Java must **implement the big-win
+Server: `WinTier` (§2.4) computed at settlement. Java must **implement the big-win
 broadcast** that its config already exposes (`core.announceBigWins`, `core.bigWinThreshold`) with
 the existing key `msg.burmaldaholic.core.big_win` (Bedrock already does).
 
@@ -665,14 +564,14 @@ the existing key `msg.burmaldaholic.core.big_win` (Bedrock already does).
 |---|---|---|---|
 | BIG / MEGA | §2.6 overlay | `chip_fountain` at the winner's table/machine, `win_big` at 0.5 volume (positional) | — |
 | EPIC | §2.6 | `chip_fountain` + `gold_burst`; Java NICE: a temporary text display "EPIC WIN +N" (translatable, so each client shows its language) floats 2.2 blocks above the winner, rises 0.5 blocks over 3 s, then removed | chat big-win line (existing) with chip glyph prepended; Java: casino **toast** (§4.10) for players with `Win celebrations = Everyone's` |
-| JACKPOT | §2.6 | `gold_burst` + 3 firework-star particles (vanilla `firework` particle, no rockets, no damage) + `jackpot` positional | chat jackpot broadcast (existing slots key) + toast (Java) / action bar `toast.burmaldaholic.jackpot.*` 80 t (Bedrock) |
+| JACKPOT | §2.6 | `gold_burst` + 3 firework-star particles (vanilla `firework` particle, no rockets, no damage) + `jackpot` positional | chat jackpot broadcast (existing slots key) + toast |
 
 Rate limit: server-wide toasts ≤ 1 per 10 s (queued ≤ 3, then chat only). PvP results use the PvP
 broadcast (PVP.md §3.11.5) with the same presentation classes.
 
 ### 4.8 Last Chance coin flip
 
-The server decides heads/tails before any animation (both editions; Java already sends
+The server decides heads/tails before any animation (Java already sends
 `CoinFlipPayload(heads, highStakes)`). On heads the player is already revived and protected
 (Resistance V 60 t), so the overlay must be short and must not hide the world.
 
@@ -691,18 +590,6 @@ Tails: the death screen opens underneath; the overlay stays on top until done (a
 Reduced motion: no launch/vignette; coin shows face frames 0/6/11 swapping at 100 ms for 600 ms then
 the result. Flashes off: vignette max 25 %, no colour change on landing.
 
-**Bedrock (MUST — currently missing).** Sequence from the moment of the flip (server already knows):
-| t (ticks) | Beat |
-|---|---|
-| 0 | camera fade black `#140822` fadeIn 0.1 s hold 0.2 s fadeOut 0.5 s (A1; else skip); `burmaldaholic.heartbeat`; title `§f` + coin glyph U+E186 (title = glyph only, subtitle = `msg.burmaldaholic.lastchance.flip_title`, 0/40/0) |
-| 2, 4, 6 … 22 | title re-sent with the next coin frame glyph U+E186→E187→E188→E189→… (12 updates, 2 t apart; the sequence is fixed, not random, and its **last frame is the payload face**; intervals widen to 3 t for the last 4 frames = deceleration) |
-| 26 | `burmaldaholic.coin_land`; title → U+E18A (heads) or U+E18B (tails) at 2× by title size + result title/subtitle (existing keys) 0/50/15; heads: `burmaldaholic.last_chance` + `minecraft:totem_particle` (moved from t=0) + `burmaldaholic:sparkle` gold ring |
-| 26 | action bar `msg.burmaldaholic.lastchance.flip_title` removed |
-The revive itself (health, effects) stays at t=0 exactly as today (gameplay unchanged); only the
-presentation is spread over 1.3 s. Reduced motion: frames 0, 24 only. Tails on Bedrock: the player
-is dead at t=0; titles are shown on the death screen (Bedrock renders titles over it; if not (A2),
-chat line only, which already exists).
-
 Spectators within 16 blocks: heads → gold `sparkle` burst + totem particles at +1 300 ms; broadcast
 chat (existing).
 
@@ -714,9 +601,8 @@ slides in from the left 250 ms `outCubic`; greeting line types in at 40 chars/s 
 Take loan: confirm dialog; on accept the loan amount runs through the HUD ticker; a `ledger` stamp
 (sprite 32×16, red "seal" shape, no text) thumps onto the loan row (scale 1.5 → 1 `outBack` 200 ms,
 `block.anvil.land` v0.2 p1.8).
-**Bedrock:** forms; on accept: `burmaldaholic.chip_stack` + count-up.
 
-**Collector arrival (MUST both editions)** — storyboard from the server's "wave incoming" moment:
+**Collector arrival (MUST)** — storyboard from the server's "wave incoming" moment:
 | t (ms) | Beat |
 |---|---|
 | 0 | `collector_knock` ×3 (0/280/520 ms) positional at the player; title "Knock knock" (existing, red) |
@@ -736,11 +622,6 @@ vanilla toast slide (the `ToastManager` animates). Sound `toast` (once, not the 
 Max visible: vanilla's 5 slots; casino toasts queue. ⚠ NEW backgrounds (docs/design/visual/extras.md §9):
 `toast/achievement`, `toast/pvp` (the `ChallengeToast`), `toast/loan`.
 
-**Bedrock (MUST).** Achievement unlock: JSON UI toast via a 2nd sentinel `§b§m§t` on the **subtitle**
-(A2): 160×32 panel `textures/burmaldaholic/ui/toast.png` slides in from the top-right (`offset`
-anim 250 ms `out_cubic`), holds 3 s, slides out 250 ms; icon = trophy 16×16; text = achievement
-title. Fallback (current): action bar + chat + `random.toast` (keep, plus `burmaldaholic.toast`).
-
 ### 4.11 VIP tier-up
 
 **Java (MUST).** `FxPayload VIP_UP(tier)` → overlay (replaces the vanilla title when the payload
@@ -758,10 +639,6 @@ toast to everyone (`toast.burmaldaholic.vip_netherite`).
 World (spectators 16 blocks): existing promo particles upgraded to `sparkle` tinted in tier colour,
 ring of 24 rising 1.5 s.
 
-**Bedrock (MUST).** Title `§l` + badge glyph U+E180+tier + tier name (existing key
-`msg.burmaldaholic.vip.promoted_title`), subtitle max bet (as Java), 10/60/20; `burmaldaholic.vip_tier_up`;
-particle `burmaldaholic:vip_ring` with `variable.tier_r/g/b` set from the tier colour.
-
 ### 4.12 Bot presence indicators
 
 **Java (MUST, on the bots branch).** Nameplate text display (existing): add
@@ -774,11 +651,6 @@ particle `burmaldaholic:vip_ring` with `variable.tier_r/g/b` set from the tier c
 - **Join/leave**: scale 0 → 1 over 6 t (interpolated display transformation) with `note` / `smoke`
   emote particles (existing BOTS.md rule).
 - Plate background: `bg.darkest` 25 % (`0x40140822`) instead of plain black; text shadow on.
-**Bedrock (MUST).** No nameplates (BOTS.md). Action bar/forms: bot names prefixed with U+E190;
-"Thinking…" (`gui.burmaldaholic.bots.thinking`, exists) followed by the dots glyph cycling in the
-spectator action bar line, updated each 10 t while the table's action-bar channel is live.
-Emote particles above the table centre (existing rule), using `burmaldaholic:emote_*` NICE sprites
-(happy chip, angry cloud) instead of villager particles.
 
 ### 4.13 Table idle / attract modes (world casinos and crafted tables)
 
@@ -801,16 +673,6 @@ Goal: a casino looks alive when you walk in, without fake results.
 - **Dealer idle** (NICE): dealer NPCs play a "shuffle" arm swing every 8–14 s (vanilla villager model
   arm pose via the existing renderer's `setupAnim` override) and look at the nearest player within
   6 blocks.
-**Bedrock (MUST).**
-- Block flipbook textures: `packs/<module>/RP/textures/flipbook_textures.json` entries for the same
-  fronts (`ticks_per_frame` 4/3/2, `blend_frames: true` on netherite), same PNG strips as Java (one
-  generator).
-- Ambient particles: script loop every 40 t over tables in loaded chunks with a player within 16
-  blocks (≤ 8 tables per dimension per pass): 1 in 3 chance → `burmaldaholic:chip_glint` /
-  `sparkle` above the block. `attract_chime` rule as Java via `dimension.playSound` at the machine.
-- Dealer idle (NICE): `animation.burmaldaholic.dealer.shuffle` in the dealer entity RP
-  (`animations/dealer.animation.json`, 1.2 s arm swing) triggered by an animation controller on a
-  `q.life_time`-based random timer.
 
 ### 4.14 Casino screens entrance (shared, Java)
 
@@ -822,11 +684,10 @@ nine-slice; result banners use the celebration kit (§2.6). Close unchanged (ins
 ## 5. Assets to create
 
 All PNGs are generated by **one generator** (Pillow-free, deterministic; writes Java paths under
-`java/src/main/resources/assets/burmaldaholic/textures/` and Bedrock paths under
-`bedrock/packs/<module>/RP/textures/`), hand-tuned pixel data as string grids like
+`java/src/main/resources/assets/burmaldaholic/textures/`), hand-tuned pixel data as string grids like
 `docs/branding/gen_logo.py`. No text is baked into any texture.
 ⚠ CHANGED (`docs/architecture/animation.md` §5): the generator is the Node script
-**`bedrock/tools/gen-assets.mjs`** with per-module art sources `bedrock/tools/assets/modules/<module>.mjs`
+**`tools/assets/gen-assets.mjs`** with per-module art sources `tools/assets/modules/<module>.mjs`
 (replaces the planned `scripts/gen-fx-assets.py` and `scripts/fx_assets/*.py`, and absorbs
 `gen-glyphs.mjs` / `gen-textures.mjs`), because Node is already the Bedrock toolchain and CI can check it.
 
@@ -858,20 +719,6 @@ All PNGs are generated by **one generator** (Pillow-free, deterministic; writes 
 | 35 | Item stacks `textures/item/core/chip_<d>_few/_stack/_tower.png` | 16×16 | 15 files | §4.4 |
 | 36 | Block anim strips: `block/slots/slot_machine_<t>_front.png` (16×64), `block/core/cashier_front.png` (16×32), `block/extras/wheel_of_fortune_front.png` (16×32), `plinko_machine_front.png` (16×48) | — | 4/2/2/3 | + `.mcmeta` |
 | 37 | Particles `textures/particle/burmaldaholic/<name>_<n>.png` | 8×8 | chip_pop 4, chip_glint 4, sparkle 4, gold_burst 4, golden_mote 2, diamond_glint 4, curse_wisp 3, summon_rune 4, teleport_ring 4, collector_smoke 4 | 37 files + `particles/<name>.json` (10) |
-
-### 5.2 Bedrock textures / files
-
-| Asset | Path | Notes |
-|---|---|---|
-| Glyph sheet (extended) | `packs/core/RP/font/glyph_E1.png` | via S1 (was `gen-glyphs.mjs`; either port it or have both generators read one JSON pixel table) |
-| JSON UI | `packs/core/RP/ui/_ui_defs.json`, `ui/hud_screen.json`, `ui/burmaldaholic_hud.json`, `ui/burmaldaholic_toast.json` | §4.1.2, §4.10 |
-| UI textures | `packs/core/RP/textures/burmaldaholic/ui/{hud_panel, hud_panel_golden, flame(8×24), bell(8×16), toast, trophy}.png` + `.json` nine-slice (`nineslice_size`) | |
-| Form icons | `packs/core/RP/textures/burmaldaholic/icons/{wallet, contracts, loan, achievements, challenges, my_casino, rules, settings, admin, deposit, withdraw, buy, sell, shop}.png` | 32×32, 14 files |
-| Particle atlas | `packs/core/RP/textures/particle/burmaldaholic_fx.png` 128×128 | all 10 particle sprite sets as flipbook rows |
-| Particle definitions | `packs/core/RP/particles/{chip_pop, chip_fountain, chip_glint, sparkle, gold_burst, golden_mote, diamond_glint, curse_wisp, summon_rune, teleport_ring, collector_smoke, vip_ring}.json` | 12 files; `chip_fountain`, `gold_burst`, `vip_ring`, `golden_mote` are emitters spawning many particles from one call |
-| Sound definitions | `packs/core/RP/sounds/sound_definitions.json` (+ chaos, loan, vip, lastchance, worldgen files) | §2.7 ids, vanilla sound paths |
-| Block flipbooks | `packs/{slots,core,extras}/RP/textures/flipbook_textures.json` + strips from S1 | §4.13 |
-| Dealer idle (NICE) | `packs/{blackjack,baccarat,uth}/RP/animations/dealer.animation.json`, `animation_controllers/dealer.ac.json` | shared animation id |
 
 ### 5.3 Asset count
 
@@ -908,9 +755,9 @@ column letter can run in parallel after their dependencies.
 
 | Id | Task | Files | Depends |
 |---|---|---|---|
-| S1 | Asset generator: palette, all PNGs of §5.1/§5.2 (incl. extended glyph sheet, chip stacks, block strips, particle sprites/atlas, icons), writes both editions | `bedrock/tools/gen-assets.mjs` + `bedrock/tools/assets/**` (⚠ CHANGED, see §5) | — |
-| S2 | Strings: add §9 keys to `docs/design/STRINGS.md` sections and lang files (both editions) | STRINGS.md, `java/src/main/lang/*`, `bedrock/lang/*` | — |
-| S3 | `WinTier` pure logic + tests (both editions) | Java `core/logic/WinTier.java`; Bedrock `core/logic/win-tier.ts` | — |
+| S1 | Asset generator: palette, all PNGs of §5.1/§5.2 (incl. extended glyph sheet, chip stacks, block strips, particle sprites/atlas, icons), writes the Java textures | `tools/assets/gen-assets.mjs` + `tools/assets/**` (⚠ CHANGED, see §5) | — |
+| S2 | Strings: add §9 keys to `docs/design/STRINGS.md` sections and lang files | STRINGS.md, `java/src/main/lang/*` | — |
+| S3 | `WinTier` pure logic + tests | `core/logic/WinTier.java` | — |
 | S4 (NICE) | Synthesised OGG sounds (numpy + `oggenc`) replacing vanilla composites for `win_*`, `jackpot`, `vip_tier_up`, `coin_land`, `attract_chime` | `scripts/gen-sounds.py` | S-sound ids from J2/B2 |
 
 ### 7.2 Java
@@ -938,37 +785,13 @@ column letter can run in parallel after their dependencies.
 | J19 | Attract mode: animated block textures + `animateTick` particles + attract chime | block classes (`animateTick`), `.mcmeta` | S1, J2, J11 |
 | J20 (NICE) | Digit odometer, chaos cards, dealer idle, Netherite ember badge | — | J6, J11 |
 
-### 7.3 Bedrock
-
-| Id | Task | Files | Depends |
-|---|---|---|---|
-| B1 | `FxService` (settings props, rate limits, celebrate, toast, count-up helper) | `src/core/fx.ts`, `core/services.ts` | S3 |
-| B2 | Sound definitions for §2.7 ids | `packs/*/RP/sounds/sound_definitions.json` | — |
-| B3 | Particle definitions + atlas | `packs/core/RP/particles/*.json` | S1 |
-| B4 | JSON UI HUD panel + sentinel protocol + fallback line upgrades | `packs/core/RP/ui/*`, `src/core/hud.ts` | S1, B1 |
-| B5 | Celebrations: wire game result flows to `fx.celebrate` (per-game specs call it) + big-win broadcast presentation | `src/core/wagers.ts`, games' result forms | B1, B2, B3 |
-| B6 | Cashier/Menu feedback sequences + breakdown data + form icons | `src/core/cashier.ts`, `src/core/casino.ts` | B1, S1 |
-| B7 | Chaos FX per event (§4.6) + Golden Hour title/camera/particles/end | `src/chaos/engine.ts` | B1–B3 |
-| B8 | Last Chance coin sequence (§4.8) | `src/lastchance/index.ts` | B1, B2, S1 (glyphs) |
-| B9 | VIP tier-up title/particles/sound | `src/vip/vip.ts` | B1–B3 |
-| B10 | Collector arrival FX + HUD collectors line | `src/loan/collectors.ts` | B1–B4 |
-| B11 | Achievement toast (JSON UI subtitle sentinel) + fallback | `src/core/achievements.ts`, `ui/burmaldaholic_toast.json` | B4 |
-| B12 | Bot presence in action bar (glyph, thinking dots) | `src/core/bots/*` (branch `worktree-agent-aaf0f54e81d19ae4a`) | S1 |
-| B13 | Attract mode: flipbooks + ambient particle loop + chime | `packs/*/RP/textures/flipbook_textures.json`, `src/worldgen/*` or `core/tables.ts` | S1, B2, B3 |
-| B14 | FX settings in Casino Menu → Settings | `src/core/casino.ts` | B1, S2 |
-| B15 (NICE) | Dealer idle animation, emote sprites | dealer RP files | S1 |
-
-Parallelism: S1, S2, S3, J1, J2, B1, B2 start day one. Then J3–J6, B3–B4. Everything else fans out.
-
----
-
 ## 8. MUST vs NICE summary
 
 MUST: style kit and palette (§2), win tiers + celebration kit (§2.4, §2.6), sound palette with
 vanilla composites (§2.7), FX settings (§2.8), HUD ticker/delta/streak meter/badge/Golden Hour/loan
 without blinking (§4.1, Bedrock JSON UI panel + fallback), Casino Menu and Cashier feedback (§4.2,
 §4.3), chip stack models Java (§4.4), Golden Hour start/end (§4.5), chaos kind colours + custom
-particles (§4.6), Java big-win broadcast (§4.7), Last Chance rework both editions (§4.8), collector
+particles (§4.6), Java big-win broadcast (§4.7), Last Chance rework (§4.8), collector
 arrival (§4.9), toasts (§4.10), VIP tier-up (§4.11), bot thinking indicator (§4.12), attract
 textures/particles (§4.13).
 NICE: digit odometer, HUD show/hide slide, chaos cards, EPIC text-display float, dropped-chip
@@ -1011,7 +834,6 @@ wider than the screen − 32 (§2.2), toast body 1 line ≤ 124 px else wrapped 
 | `gui.burmaldaholic.fx.amount` | +%1$s | +%1$s |
 | `gui.burmaldaholic.fx.multiplier` | ×%1$s your bet | ×%1$s от ставки |
 | `gui.burmaldaholic.fx.skip` | Click to skip | Нажмите, чтобы пропустить |
-| `gui.burmaldaholic.fx.skip_bedrock` | Sneak to skip | Присядьте, чтобы пропустить |
 | `gui.burmaldaholic.fx.nearby_float` | %1$s +%2$s | %1$s +%2$s |
 
 ### core — HUD

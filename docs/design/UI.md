@@ -1,5 +1,8 @@
 # Burmaldaholic — UI / UX Specification
 
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
+
 Covers: HUD, Casino Menu, Cashier, every table/machine screen, Loan and Charter screens, and the
 Bedrock form flows. All labels are translation keys from `STRINGS.md` (shown here as the English
 text in quotes, with the key where it matters).
@@ -14,28 +17,26 @@ text in quotes, with the key where it matters).
 - Java: widths are computed at runtime: `buttonWidth = max(minWidth, textRenderer.getWidth(label) + 8)`,
   laid out in flow rows; if a row overflows the panel, the row wraps (never truncate mid-word).
   Tooltips wrap at 200 px. Numbers are right-aligned.
-- Bedrock form buttons: keep labels ≤ **24 characters RU** on one line; the form wraps longer
-  labels to 2 lines (allowed, max 2). Use the button *icon* for meaning and the text for the verb.
 - Never concatenate translated fragments in code; always use a whole key with placeholders.
 - Numbers: digits grouped by a regular space every 3 digits from 10 000 up (`12 500`), same in
   EN and RU (formatted in code, passed as `%s` string argument). Never use `,` or `.` as group
   separator (it is a decimal sign in RU).
 - Chip icon: custom glyph **U+E100** (Java: added to `minecraft:default` font via a bitmap
-  provider in `assets/burmaldaholic/font/default.json`; Bedrock: `font/glyph_E1.png`, cell 0x00).
+  provider in `assets/burmaldaholic/font/default.json`).
   Card glyphs: U+E110–U+E14F (52 cards + back), suits U+E150–U+E153, dice faces U+E160–U+E165,
-  streak flame U+E170, rain-cloud U+E171, VIP badges U+E180–U+E185. Same code points in both
-  editions (Bedrock sheet `glyph_E1.png`, 16×16 grid). Animation wave additions (all drawn in the same
-  sheet by `bedrock/tools/gen-assets.mjs`, module core; Java `textures/font/core/glyph_e1.png`): HUD pips,
+  streak flame U+E170, rain-cloud U+E171, VIP badges U+E180–U+E185. One 16×16-cell sheet
+  (`glyph_e1.png`). Animation wave additions (all drawn in the same
+  sheet by `tools/assets/gen-assets.mjs`, module core; Java `textures/font/core/glyph_e1.png`): HUD pips,
   sun, bell, collectors U+E172–E177; coin frames U+E186–E18B; bot, thinking dots, mini chips, emerald,
   gold ingot, sparkle U+E190–E19B; PvP U+E1A0–E1A1; extras U+E1A2–E1B8; tables U+E1C0–E1CB; cards
   U+E1D0–E1DB; dye swatches U+E1E0–E1EF. Full map and reserves: `docs/architecture/animation.md` §6. Strings never contain these glyphs; code
   prepends them as separate text components.
-- Colors (both editions support § codes): win = §a (green), loss = §c (red), push = §7 (gray),
+- Colors (§ codes): win = §a (green), loss = §c (red), push = §7 (gray),
   jackpot/golden = §6 (gold). VIP tier colors: Bronze §c, Silver §7, Gold §6, Platinum §f,
   Diamond §b, Netherite §5.
 - Sounds: chip clink on bet (`burmaldaholic:chip_place`), win jingle, loss thud, jackpot fanfare,
-  coin flip whoosh. Same sound event ids on both editions.
-- Every screen closes with Esc (Java) / the form X (Bedrock). Closing mid-round never cancels a
+  coin flip whoosh. Same sound event ids.
+- Every screen closes with Esc. Closing mid-round never cancels a
   confirmed bet; it applies the timeout rules of the game.
 
 ### 0.2 Java screen framework
@@ -51,30 +52,6 @@ text in quotes, with the key where it matters).
   "Rebet"; shows current bet and limits line "Min 1 · Max 1 000"), `BalanceBar` (bottom-left:
   chip icon + balance; bottom-right: streak + VIP badge), `ResultBanner` (center, 40 ticks),
   `Timer` (top-right ring, red under 5 s).
-
-### 0.3 Bedrock form framework (`@minecraft/server-ui`)
-
-Available form types and their constraints (design must stay inside them):
-
-| Form | Can show | Constraints |
-|------|----------|-------------|
-| `ActionFormData` | title, body text (rawtext, § colors, glyphs), list of buttons (text + optional icon texture), optional labels/dividers/headers (newer API) | One choice per show. No live update: to refresh state, close and re-show. Practical max ~12 buttons before scrolling hurts. |
-| `ModalFormData` | title, controls: toggle, slider (min/max/step/default), dropdown, text field, (labels), custom submit label | Values only; no per-control validation in UI → server validates and re-shows with an error line. Slider max range should be ≤ ~100 steps, so use step = bet increments. |
-| `MessageFormData` | title, body, 2 buttons | Confirmations only. |
-
-Rules:
-- A form can be closed by the player (`canceled`, reason `UserClosed`) or not shown at all
-  (`UserBusy`, e.g. chat open) → retry every 10 ticks up to 5 s, then treat as "no action".
-- Timers: forms cannot display a live countdown. Put the deadline in the body ("Auto-stand in
-  20 s"), and when the server timer expires, apply the default action and call
-  `uiManager.closeAllForms(player)` then show the next state.
-- All text is sent as rawtext `{translate, with}` so the client resolves it in its own language.
-  Button text also uses rawtext.
-- Card/dice/slot rendering in body text uses glyphs (§0.1), e.g. `Dealer: [A♠][?]  (11)`.
-- Between forms, the action bar shows a one-line summary (so spectators and the player see
-  progress while the form is closed).
-
----
 
 ## 1. HUD
 
@@ -97,13 +74,6 @@ Small panel, default top-left, 4 px margin, hidden when F1 / hud hidden, when ch
 - Java: rendered with `HudRenderCallback` (or the 26.x HUD layer API), not overlapping the
   boss bar or status effects: when effects are shown at top-right and the HUD is TOP_RIGHT, move
   down by the effect-icon height.
-- **Bedrock**: primary implementation is a resource-pack **JSON UI** panel in `hud_screen`
-  bound to the title text: the script sends `player.onScreenDisplay.setTitle("§b§m§h" + payload)`
-  with a sentinel prefix and zero fade/stay timings; the JSON UI hides real titles starting with
-  the sentinel and renders the payload lines in the panel. Refresh when values change (max
-  every 10 ticks). Fallback when the JSON UI hack is disabled (`core.hud.enabled` still true but
-  resource pack missing): action bar `⛁ 12 500 · Lucky ×4 · Gold` every 40 ticks when no other
-  action-bar message was sent in the last 60 ticks.
 
 Toasts: earnings (`msg.burmaldaholic.core.earned`) → action bar; big events → title/subtitle;
 everything important also goes to chat.
@@ -126,8 +96,6 @@ Java: tabbed screen 256 × 200; Bedrock: ActionForm hub.
 | Settings | HUD on/off, HUD corner, sounds on/off, auto-muck (poker). |
 | Admin (ops) | World settings (config), give/take chips, clear debt, reset jackpot. |
 
-Bedrock hub body: 3 lines (balance, VIP, streak). Buttons with icons in the order above.
-
 ---
 
 ## 3. Cashier
@@ -141,10 +109,6 @@ Java layout (256 × 180):
  Exchange: [Buy 8 chips for 1 emerald]  [×10]   [Sell 10 chips for 1 emerald] [×10]
  Tabs: [Cashier] [Contracts] [Shop]  (Shop: scratch cards, lucky coin)
 ```
-Bedrock: ActionForm "Cashier" → buttons: Deposit all chips · Withdraw… (ModalForm: text field
-amount + dropdown "Denomination: auto / 500 / 100 / 25 / 5 / 1") · Buy chips… (slider emeralds
-1–64 showing resulting chips in label) · Sell chips… (slider) · Contracts · Shop · Close.
-Errors re-show the form with a red first body line (`gui.burmaldaholic.error.*`).
 
 ---
 
@@ -164,17 +128,6 @@ Java (320 × 220 when space allows, else 256 × 200 compact):
 - Split hands shown side by side, active hand underlined. Totals shown as `7/17` for soft hands.
 - Result banners per hand: "Blackjack! +150", "Win +100", "Push", "Bust", "Dealer busts".
 
-Bedrock flow:
-1. **Bet** — ModalForm: title "Blackjack — Bet", label "Balance 12 500 · Min 1 · Max 1 000",
-   slider "Bet" (step chosen so ≤ 100 steps: step = max(1, ceil((max−min)/100) rounded to 1/5/25/…)),
-   text field "or exact amount", submit "Deal".
-2. **Insurance** (if needed) — MessageForm "Dealer shows an Ace. Insurance?" [Insure (half bet)] [No].
-3. **Turn** — ActionForm: body shows dealer and your hand(s) with glyphs, totals, bet, timer
-   text; buttons: Hit · Stand · Double · Split (only legal ones, with icons). Re-shown after
-   each action.
-4. **Result** — ActionForm: body with all hands and outcomes, net result; buttons: Play again
-   (same bet) · Change bet · Leave.
-
 ---
 
 ## 5. Texas Hold'em
@@ -186,16 +139,6 @@ Action bar bottom: `[Fold] [Check/Call 20] [Raise to …]` + raise slider (min r
 with quick buttons `[½ pot] [¾ pot] [Pot] [All-in]`, timer ring on the active seat.
 Seat plate width fits a 16-char name + RU "Олл-ин" tag; long names truncated with "…" (names only).
 
-Bedrock flow:
-- **Join** — ActionForm: stake level buttons (locked ones show lock icon + "Requires Gold VIP").
-  → ModalForm buy-in slider (40–100 BB).
-- **Waiting** — action bar only ("Waiting for the hand… 3 players").
-- **Your action** — ActionForm: body = board, your cards, pot(s), stacks list (≤ 6 lines),
-  to-call amount, timer text. Buttons: Fold · Check/Call X · Raise… · All-in X.
-  Raise… → ModalForm slider from min raise to stack (step = BB), submit "Raise".
-- **Showdown** — ActionForm body with each shown hand + hand name; buttons: Next hand · Stand up.
-- Opponent actions stream to the action bar ("Creeper42 raises to 60").
-
 ---
 
 ## 6. Slots
@@ -204,15 +147,6 @@ Java (256 × 200): 3×3 reel window (48 px cells) with the active paylines drawn
 (1/3/5), jackpot meter on top for Gold/Netherite ("JACKPOT ⛁ 61 240"), paytable button (opens a
 scrollable overlay), bet: line bet `[−] 5 [+]`, total bet, `[SPIN]` big button, `[Auto ×10]`
 (stops on any win ≥ 20× or balance < bet). Winning lines flash; payout counter rolls up.
-
-Bedrock flow:
-- **Machine** — ActionForm: body = last result grid (3 rows of glyphs), paylines won, jackpot,
-  line bet and total; buttons: Spin (X) · Change bet · Paytable · Leave.
-- Spin → the server plays a 40-tick animation via the action bar (random glyph rows scrolling),
-  then shows the machine form again with the result. "Spin ×10" option runs 10 sequential spins
-  showing only a summary.
-- Change bet → ModalForm slider (line bet).
-- Paytable → ActionForm body listing symbols (glyph + name + pay), one button "Back".
 
 ---
 
@@ -225,18 +159,6 @@ line; hover highlights covered numbers and shows "Split 17:1". Chip value select
 bottom, `[Clear] [Rebet] [Spin]`, history strip (last 12, colored). Wheel animation panel
 replaces the grid during SPIN.
 
-Bedrock flow:
-- **Table** — ActionForm: body = your current bets (list), total, history; buttons: Add bet ·
-  Clear bets · Rebet · Spin (or "Ready" in multiplayer) · Leave.
-- **Add bet** — ActionForm bet type list: Straight · Split · Street · Corner · Six line · Trio ·
-  First four · Dozen · Column · Red · Black · Odd · Even · 1–18 · 19–36 (15 buttons, grouped with
-  headers "Inside" / "Outside").
-- **Bet details** — ModalForm: dropdown for the position (e.g. Split: "17–18", "17–20" …, only
-  valid combinations pre-generated; Straight: 0–36; Corner: "1-2-4-5" …), amount text field +
-  slider, submit "Place bet".
-- Spin → action bar animation of numbers (wheel order) slowing down, then result form:
-  "17 Black — you win 180".
-
 ---
 
 ## 8. Craps
@@ -244,12 +166,6 @@ Bedrock flow:
 Java (400 × 240): table layout with Pass line, Don't Pass bar, Come, Don't Come, Field, point
 boxes 4/5/6/8/9/10 with the puck (ON/OFF), odds placed by clicking behind a line bet. Dice tray
 with 2 dice glyphs, `[ROLL]` for the shooter only, shooter name, betting window timer.
-
-Bedrock flow:
-- **Table** — ActionForm: body = puck state and point, your bets, last roll; buttons (legal only):
-  Pass · Don't Pass · Come · Don't Come · Field · Odds… · Roll (shooter) · Leave.
-- Bet buttons open a ModalForm amount (slider + text). Odds… → dropdown of eligible bets and the
-  amount snapped to valid multiples (label explains "Must be a multiple of 5").
 
 ---
 
@@ -262,11 +178,7 @@ Bedrock flow:
   MessageForm "Type-to-confirm" substitute: ModalForm text field requiring the word from
   `gui.burmaldaholic.extras.soul_confirm_word` ("DEAL" / «СДЕЛКА»); Java: hold the button 5 s.
 - **Wheel of Fortune**: Java: rendered wheel (54 segments) + pointer, bet selector, Spin.
-  Bedrock: ActionForm body with segment legend; Spin → action-bar animation of segment names →
-  result.
 - **Scratch Card**: Java: use item → 3×3 grid of silver cells; click to scratch; "Scratch all".
-  Bedrock: ActionForm body with the 3×3 grid (revealed glyphs / ▒), buttons: Scratch next ·
-  Scratch all · Close (card keeps progress).
 - **Plinko**: Java: board 13 bins, ball animation along the server path (12 steps × 4 ticks),
   risk toggle `Low | Medium | High`, bin multipliers under the board. Bedrock: ModalForm (risk
   dropdown + amount) → action-bar path animation "◀ ▶ ▶ ◀ …" → result form.
@@ -281,12 +193,8 @@ Java (256 × 200): portrait of the shark, greeting line (random variant), table 
 (amount, interest, due amount, deadline, lock icon if VIP too low), `[Take loan]` → confirm
 dialog with the exact due amount and deadline in days; if a loan exists: status + `[Pay]`
 (amount field, `[Pay all]`).
-Bedrock: ActionForm body greeting + status; buttons: one per available product
-("Borrow 500 → repay 600 in 3 days"), locked ones hidden (a line in the body says how many are
-locked) · Pay… · Leave. Confirmation MessageForm before any loan.
 
 **Collector negotiation** (§5.5): Java: small dialog screen with the leader's line and 3 buttons;
-Bedrock: ActionForm with 3 buttons; 10 s timeout text; auto-closes on timeout.
 
 ---
 
@@ -295,8 +203,6 @@ Bedrock: ActionForm with 3 buttons; 10 s timeout text; auto-closes on timeout.
 Java (320 × 220) tabs: Overview (bankroll, reserved, available, today/total profit, status Open /
 Closed-broke), Tables (list: type, position, min/max, open toggle, bots toggle), Bankroll
 (Deposit / Withdraw with amount), Stats.
-Bedrock: ActionForm hub → sub-forms (ModalForm for table settings: toggle Open, text fields
-Min/Max, toggle Bots).
 
 ---
 
@@ -354,23 +260,6 @@ with tooltips):
   `[Take the bank] [Pass]`, or `[Keep the bank (2 280)] [Pass the bank]` for a winning banker, with
   the timer ring. The banker's own screen shows punters' bets and has no betting buttons.
 
-Bedrock flow:
-- **Table** — ActionForm: body = your bets (list), total, last coup (`Player [8♠][K♥] 8 · Banker
-  [9♦][7♣] 6`), last 12 bead letters with § colors, limits line, "Bets close in 12 s"; buttons: Player
-  (1:1) · Banker (1:1 −5 %) · Tie (8:1) · Player Pair (11:1) · Banker Pair (11:1) · Clear bets ·
-  Rebet · Deal / Ready · Rules · Leave. RU labels ≤ 24 characters («Пара банкира (11:1)» = 19).
-- **Bet amount** — ModalForm: label with the box and its limits (Banker: "Multiples of 20"), slider
-  (step per §4 rules; Banker step 20) + text field, submit "Place bet". The server snaps the Banker
-  amount and re-shows the table with `…baccarat.snapped`.
-- **Coup** — action bar animation: `Player [8♠][?] · Banker [9♦][?]` → both cards → third cards,
-  10 ticks per card, then the **Result** ActionForm: both hands with totals, result line, per-bet
-  lines, net; buttons: Same bets again · Change bets · Leave.
-- **Chemin de fer**: BANK_OFFER → ActionForm "You are offered the bank" with buttons `Take the bank
-  (1 000)` · `Other amount…` (ModalForm text field) · `Pass`; a winning banker gets `Keep the bank
-  (2 280)` · `Pass the bank`. Punters' table form: buttons `Bet on Player…` · `Banco (1 000)` ·
-  Clear bets · Ready · Leave; body shows the bank, coverage and open coverage.
-- Spectators and players between forms: action-bar summary `…baccarat.actionbar`.
-
 ---
 
 ## 15. Ultimate Texas Hold'em (⚠ added 2026-09, GAME_DESIGN §21)
@@ -402,17 +291,3 @@ Java (400 × 240; compact 320 × 220 shows other seats as one line each):
   banker, `[Leave the dealer seat]` (label changes to "Leaving after this round"). The banker's
   screen has no decision buttons; it shows every seat and the running bank result.
 
-Bedrock flow:
-1. **Bets** — ModalForm: title "Ultimate Hold'em — your bets", label "Balance 12 500 · Ante 1 – 16
-   (6× Ante + Trips ≤ 100)", slider "Ante" + text field, slider "Trips (optional, 0 = no bet)",
-   submit "Deal". The server re-shows it with an error line when W or the balance rule fails.
-2. **Decision** — ActionForm per street: body = board, your cards, your current hand name, your
-   bets, "Still deciding: 2 players", timer text ("Auto-check in 20 s" / "Auto-fold in 20 s");
-   buttons: only the legal options with amounts. Re-shown on each street.
-3. **Waiting** — action bar only (`…uth.actionbar`) while other seats decide or after your Play bet.
-4. **Result** — ActionForm: dealer hand + qualify line, your hand, per-bet lines, net; buttons:
-   Play again (same bets) · Change bets · Paytable · Leave.
-- **Player-banked**: the table hub adds `Take the dealer seat…` (ModalForm: bank slider/text, submit
-  "Take the seat") or, for the banker, a Banker form (body: seats and their bets, bank, reserved;
-  buttons: Leave the dealer seat · Close). Errors (`…uth.error.bank_cover`) name the largest Ante
-  the bank covers.

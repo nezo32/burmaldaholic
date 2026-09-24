@@ -254,7 +254,7 @@ keys outside the module's namespaces, non-string values, incomplete plural sets.
 Key shape: `<category>.burmaldaholic.<owned-name>...`, e.g. `block.burmaldaholic.blackjack_table`,
 `gui.burmaldaholic.blackjack.hit`, `config.burmaldaholic.streak.max`.
 
-**Plurals** (shared with Bedrock): define `<base>.p1`, `.p21`, `.p2`, `.p5` in both languages and use
+**Plurals**: define `<base>.p1`, `.p21`, `.p2`, `.p5` in both languages and use
 `Texts.chips(n)` / `Texts.plural("unit.burmaldaholic.heart", n)` (or `Plural.key(base, n)`). p1: n==1; p21: n%10==1 &&
 n%100!=11 (21, 101…); p2: n%10∈2..4 && n%100∉12..14; p5: everything else.
 

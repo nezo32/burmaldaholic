@@ -8,14 +8,8 @@ Texas Hold'em, slots, roulette, craps and a handful of quick games. If you run s
 will lend you some, and his Debt Collectors will come for you if you don't pay him back. On top of
 that, chaos events rain diamonds or mobs on you, and Last Chance lets you flip a coin with Death.
 
-It ships for both editions of Minecraft 26.2–26.3, and the two follow the same rules and numbers:
-
-| Edition | Package | Folder |
-|---|---|---|
-| Java | Fabric mod (`burmaldaholic-<version>.jar`) | [`java/`](java/) |
-| Bedrock | Add-on (`Burmaldaholic-<version>.mcaddon`, behavior pack + resource pack) | [`bedrock/`](bedrock/) |
-
-Both editions are fully localized in English and Russian.
+It is a Fabric mod for Minecraft Java Edition 26.2–26.3 (`burmaldaholic-<version>.jar`, sources in
+[`java/`](java/)), fully localized in English and Russian.
 
 > **No real money.** Chips exist only inside your Minecraft world. You can't buy them, sell them
 > or cash them out, and the mod has no purchases, ads or external services. It is a game mechanic
@@ -163,12 +157,8 @@ When you would die, and you have no Totem of Undying, the game flips a coin with
 - **Hardcore**: turned off by default. You can opt in to **High Stakes** mode (see
   [Difficulty and Hardcore](#difficulty-and-hardcore)).
 
-The two editions do this differently, but the result is the same:
-
-| | Java | Bedrock |
-|---|---|---|
-| How it saves you | Cancels the death (Fabric `ALLOW_DEATH`). A held totem still takes priority. | Cancels the lethal hit before it lands (stable `beforeEvents.entityHurt`), so you never actually die. |
-| High Stakes scar (−2 max HP) | A permanent `max_health` attribute modifier | The script API can't change max health, so healing and health are capped instead |
+Last Chance cancels the death itself (Fabric `ALLOW_DEATH`); a held totem still takes priority. The High Stakes
+scar (−2 max HP) is a permanent `max_health` attribute modifier.
 
 ### Casinos in the world
 
@@ -180,13 +170,9 @@ Casino buildings are generated only in newly generated chunks.
 | **Piglin Parlor** | 30 % of bastions | Craps, poker (with bots), 2 Golden Reels, Plinko, Nether cashier, Piglin Dealers, Piglin Moneylender, loot |
 | **High Roller Lounge** | 20 % of End Cities, on a tower's top floor | 2 Netherite slots, high-roller blackjack and roulette, cashier, Shulker Croupier, loot |
 
-Where casinos appear differs between editions:
-
-| | Java | Bedrock |
-|---|---|---|
-| Village casinos | Built **inside** villages, as one of the village's houses | Built **next to** villages. Add-ons can't extend vanilla village layouts, so a script finds the village and builds on a free lot nearby. |
-| Piglin Parlor / High Roller Lounge | Part of the bastion or End City | Placed next to the bastion or on the End City in the same way |
-| Turning it off | Disable the built-in `burmaldaholic:casinos` data pack when creating the world, or set `worldgen.enabled` | Set `worldgen.enabled` |
+Village casinos are built **inside** villages, as one of the village's houses; the Piglin Parlor and the High Roller
+Lounge are part of the bastion or End City. To turn them off, disable the built-in `burmaldaholic:casinos` data pack
+when creating the world, or set `worldgen.enabled`.
 
 Every table and machine can also be **crafted**, so you can build your own casino anywhere.
 
@@ -226,19 +212,13 @@ re-roll a contract once a day for 10 chips.
 
 ### Achievements
 
-The same 35 achievements exist on both editions: first bet, natural blackjack, royal flush,
-jackpot, both extremes of the streak, surviving through Last Chance, paying off a loan, owning a
-casino, and more.
-
-- **Java**: real advancements, in their own "Burmaldaholic" tab.
-- **Bedrock**: add-ons can't add advancements, so there is an **Achievements** page in the Casino
-  Menu, with a toast when you unlock one.
+35 achievements — first bet, natural blackjack, royal flush, jackpot, both extremes of the streak, surviving
+through Last Chance, paying off a loan, owning a casino, and more — are real advancements, in their own
+"Burmaldaholic" tab.
 
 ---
 
 ## Compatibility
-
-### Java Edition
 
 | Component | Version |
 |---|---|
@@ -250,17 +230,6 @@ casino, and more.
 
 The mod must be installed on **both the server and every client**, because it adds blocks,
 screens and items.
-
-### Bedrock Edition
-
-| Component | Version |
-|---|---|
-| Minecraft Bedrock | **1.26.30 or newer** (Bedrock 26.30, the same drop as Java 26.2). Also runs on 1.26.40 and 1.26.50 (the same drop as Java 26.3). |
-| Script API | Stable `@minecraft/server` 2.8.0 and `@minecraft/server-ui` 2.1.0 only |
-| Experiments | **None needed.** No beta APIs, no experimental toggles. |
-
-All the game logic runs as world-side script. The add-on works in single player, in
-multiplayer worlds, and on Bedrock Dedicated Server.
 
 ---
 
@@ -280,49 +249,22 @@ multiplayer worlds, and on Bedrock Dedicated Server.
    the world. For an existing world or a server, an operator runs `/casino mode on`
    (`/casino mode status` shows the current state).
 
-### Bedrock (add-on)
-
-1. Open `Burmaldaholic-<version>.mcaddon`: double-click it on Windows, or use "Open with
-   Minecraft" on mobile. Minecraft imports both packs.
-2. **Create New World** → **Behavior Packs** → activate **Burmaldaholic**. The resource pack is
-   activated with it, because the two packs depend on each other. Make sure both are listed as
-   active.
-3. Press the pack's **gear (settings) button** and check the **Casino mode** toggle. It is on by
-   default.
-4. Create the world. The first operator who joins gets a short **Setup** form: casino mode,
-   Last Chance in Hardcore, and chaos events.
-
-**Bedrock Dedicated Server (1.26.30+):**
-
-1. Copy the two packs into `behavior_packs/` and `resource_packs/`.
-2. List them in `worlds/<world>/world_behavior_packs.json` and `world_resource_packs.json`.
-3. Set `texturepack-required=true` in `server.properties`.
-
-The pack UUIDs are in [`bedrock/pack.json`](bedrock/pack.json).
-
-If the pack settings button doesn't show up on your version, nothing is lost: casino mode
-defaults to **on**, and operators can still change it with `/burmaldaholic:casino`.
-
 ---
 
 ## Turning casino mode on
 
 Casino mode is a per-world switch. On **Java** it is **off by default**: turn it on with the
 **Casino Mode** button right below **Difficulty** when you create the world, or in an existing world
-with `/casino mode on` (everyone then gets the starting chips and Casino Card). On **Bedrock** it
-is on by default. When it's off, the mod goes
+with `/casino mode on` (everyone then gets the starting chips and Casino Card). When it's off, the mod goes
 **dormant**: no HUD, earning, chaos, debt or Last Chance, and tables say "Casino mode is off". All
 saved data (balances, loans, casinos) is kept untouched until you turn it back on.
 
-| | Java | Bedrock |
-|---|---|---|
-| At world creation | **Create World → Game** tab → **"Casino Mode: ON/OFF"** button below Difficulty (**off** by default). Saved with the world in `data/burmaldaholic/mode.dat`; it is not a game rule. | The **Casino mode** pack setting (the gear button on the behavior pack), then the first-op **Setup** form |
-| Existing world / later (operators) | `/casino mode on\|off\|status` (permission level 2, like /gamerule; in single-player needs cheats) | `/burmaldaholic:casino` → admin form → World settings, or `/scriptevent burmaldaholic:admin casino_mode true\|false` |
+| When | How |
+|---|---|
+| At world creation | **Create World → Game** tab → **"Casino Mode: ON/OFF"** button below Difficulty (**off** by default). Saved with the world in `data/burmaldaholic/mode.dat`; it is not a game rule. |
+| Existing world / later (operators) | `/casino mode on\|off\|status` (permission level 2, like /gamerule; in single-player needs cheats) |
 
-Useful player commands on Bedrock: `/burmaldaholic:menu`, `/burmaldaholic:balance`,
-`/burmaldaholic:loan`, `/burmaldaholic:vip`, `/burmaldaholic:contracts`.
-
-Java operators have `/casino …` (alias `/burmaldaholic`, permission level 2) for casino mode, config, balances,
+Operators have `/casino …` (alias `/burmaldaholic`, permission level 2) for casino mode, config, balances,
 debt, chaos and jackpots.
 
 ---
@@ -350,7 +292,6 @@ other vanilla game rule. It only *reads* the difficulty to scale its own mechani
     for good.
   - Tails is a normal Hardcore death.
   - The cooldown is 5 days, and you need at least 100 chips and 8 max HP to qualify.
-- On Bedrock you pick this in the first-op Setup form. On Java it's a config key.
 - Last Chance never saves you from Debt Collectors in Hardcore.
 - **Soul Wager** is a coin flip where you stake your life. It is Hardcore-only, off by default
   (`wager.hardcoreSoulWager`), and asks for a double confirmation.
@@ -362,17 +303,16 @@ other vanilla game rule. It only *reads* the difficulty to scale its own mechani
 
 About 355 settings cover payouts, odds, timers, loan terms, chaos weights, worldgen chances and
 more. Every key, with its type, default and allowed range, is listed in
-[`docs/design/CONFIG.md`](docs/design/CONFIG.md). Both editions use the same key names, and
-out-of-range values are clamped.
+[`docs/design/CONFIG.md`](docs/design/CONFIG.md). Out-of-range values are clamped.
 
-| | Java | Bedrock |
-|---|---|---|
-| Where it lives | `config/burmaldaholic.json` (nested JSON), with an optional per-world override in `<world>/data/burmaldaholic_config.json` | A world dynamic property holding only the values you changed |
-| Single player | **Mod Menu** → Burmaldaholic → config screen | **Casino Card → Admin → World settings**, or `/burmaldaholic:casino`, with typed controls for each module |
-| Server / commands | `/casino config get\|set\|reset <key> [value]`, `/casino config reload` | `/scriptevent burmaldaholic:config set\|reset\|get <key> [value]` |
-| Casino-mode flag | Game rule (the config file never overrides it) | Pack setting / admin form |
+| | |
+|---|---|
+| Where it lives | `config/burmaldaholic.json` (nested JSON), with an optional per-world override in `<world>/data/burmaldaholic_config.json` |
+| Single player | **Mod Menu** → Burmaldaholic → config screen |
+| Server / commands | `/casino config get\|set\|reset <key> [value]`, `/casino config reload` |
+| Casino-mode flag | Saved with the world (the config file never overrides it) |
 
-Example (Java):
+Example:
 
 ```json
 { "economy": { "ore": { "diamond": 25 } }, "chaos": { "enabled": false } }
@@ -388,53 +328,54 @@ own language.
 
 - Every player-facing string, including counted nouns with correct Russian plurals (1 фишка /
   2 фишки / 5 фишек), comes from one master file, [`docs/design/STRINGS.md`](docs/design/STRINGS.md).
-- Both editions use the same translation keys. The rules for keys and translation are in
+- The rules for keys and translation are in
   [`docs/design/LOCALIZATION.md`](docs/design/LOCALIZATION.md).
 
 ---
 
 ## Building from source
 
-| Edition | Requirements | Command | Output |
-|---|---|---|---|
-| Java | **JDK 25**. The Gradle 9.7.1 wrapper is included. | `cd java && ./gradlew build` | `java/build/libs/burmaldaholic-<version>.jar` |
-| Bedrock | **Node.js 22** (≥ 22.12) | `cd bedrock && npm ci && npm run build` | `bedrock/dist/Burmaldaholic-<version>.mcaddon` (unpacked in `bedrock/build/BP`, `bedrock/build/RP`) |
+| Requirements | Command | Output |
+|---|---|---|
+| **JDK 25**. The Gradle 9.7.1 wrapper is included. | `cd java && ./gradlew build` | `java/build/libs/burmaldaholic-<version>.jar` |
 
 Useful extras:
 
 ```bash
-# Java
 ./gradlew build -Pmc=26.3            # compile + test against 26.3 instead of 26.2
 ./gradlew runClient [-PwithModMenu]  # dev client (run/<mc>/client)
 ./gradlew runServer                  # dev server
 ./gradlew build -Pmod_version=1.2.3  # set the version (also read from $MOD_VERSION)
-
-# Bedrock
-npm run build:dev && npm run deploy  # unminified build copied into com.mojang development packs (set MC_COM_MOJANG)
-VERSION=1.2.3 npm run build          # set the pack version (MOD_VERSION also works)
 ```
 
-The architecture notes are in [`docs/architecture/java.md`](docs/architecture/java.md) and
-[`docs/architecture/bedrock.md`](docs/architecture/bedrock.md).
+Generated textures (pixel art from code) are committed. After changing art, regenerate them with the asset generator
+in [`tools/`](tools/) (**Node.js 22**, ≥ 22.12):
+
+```bash
+cd tools && npm ci
+npm run gen:assets     # rewrite the generated textures under java/
+npm run check:assets   # fail if a committed texture is stale
+npm test               # generator tests
+```
+
+The architecture notes are in [`docs/architecture/java.md`](docs/architecture/java.md).
 
 ## Testing
 
-| Edition | Command | What it runs |
-|---|---|---|
-| Java | `./gradlew build` | Compile, unit tests, server GameTests, lang/asset checks, and a linkage check against 26.3 |
-| Java | `./gradlew test` | Fast JUnit unit tests: game math, RTP, hand evaluators |
-| Java | `./gradlew runGameTest` | Headless server GameTests |
-| Java | `xvfb-run -a ./gradlew runClientGameTest` | Real-client tests. These need a display and are not part of `build`. |
-| Bedrock | `npm test` | Vitest unit tests for all the pure game logic |
-| Bedrock | `npm run lint` | `tsc` against the stable 2.8.0 typings (catches beta APIs), ESLint, architecture and hard-coded-string checks, pack-schema validation |
-| Bedrock | `npm run check:lang` | EN/RU key and placeholder parity |
+| Command | What it runs |
+|---|---|
+| `./gradlew build` | Compile, unit tests (including the golden-vector tests), server GameTests, lang/asset checks, and a linkage check against 26.3 |
+| `./gradlew test` | Fast JUnit unit tests: game math, RTP, hand evaluators |
+| `./gradlew runGameTest` | Headless server GameTests |
+| `xvfb-run -a ./gradlew runClientGameTest` | Real-client tests. These need a display and are not part of `build`. |
+| `cd tools && npm run check:assets && npm test` | Generated textures are up to date; asset generator tests |
 
-CI runs the Java build for both 26.2 and 26.3, and the Bedrock build, test and lint, on every pull
-request.
+CI runs the build for both 26.2 and 26.3 on every pull request, and the asset check when the generator or the
+textures change.
 
 ## Releases
 
-Pushing a SemVer tag builds and publishes both editions. The runbook is [`docs/ci/RELEASING.md`](docs/ci/RELEASING.md).
+Pushing a SemVer tag builds and publishes the mod. The runbook is [`docs/ci/RELEASING.md`](docs/ci/RELEASING.md).
 
 ```bash
 git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
@@ -442,10 +383,10 @@ git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
 
 The **Release** workflow:
 
-1. builds the jar and the `.mcaddon`, with their tests
-2. creates a **GitHub Release** with both files and release notes generated from the merged PRs
+1. builds the jar, with its tests
+2. creates a **GitHub Release** with the jar and release notes generated from the merged PRs
    (grouped by their labels)
-3. uploads both files to **CurseForge**, if `CURSEFORGE_TOKEN` and the project IDs are configured
+3. uploads the jar to **CurseForge**, if `CURSEFORGE_TOKEN` and the project ID are configured
 
 Tags like `-beta.N` / `-rc.N` publish as beta, and `-alpha.N` as alpha. A CurseForge dry run is
 available from the Actions tab.
@@ -461,16 +402,11 @@ java/                   Fabric mod (Gradle, Loom 1.18, Mojang names)
   src/main|client/      server/common and client code, one package per module
   src/test|gametest/    JUnit unit tests, Fabric GameTests
   src/main/lang/        per-module EN/RU lang fragments (generated from STRINGS.md)
-  tools/                lang / asset / advancement generators
-bedrock/                Bedrock add-on (TypeScript, esbuild, vitest)
-  src/core/             economy, config, HUD, forms, tables, admin
-  src/games/            blackjack, poker, slots, roulette, craps, extras
-  src/{loan,chaos,lastchance,worldgen,vip,multiplayer}/
-  packs/<module>/       per-module BP/RP content, merged by the build
-  lang/<module>/        per-module en_US / ru_RU fragments
-  pack.json             pack identity: UUIDs, min engine, script module versions
+  tools/                lang / advancement generators
+  src/test/resources/   test fixtures, incl. golden vectors (fx/vectors, pvp)
+tools/                  Node asset generator (tools/assets): the mod's generated textures, vitest
 docs/design/            game design, config reference, UI, localization, strings (EN+RU)
-docs/architecture/      per-edition architecture and developer guides
+docs/architecture/      architecture and developer guides
 docs/ci/                release runbook (RELEASING.md), reusable pipeline guide
 .github/workflows/      ci.yml, release.yml, labeler.yml, reusable-*.yml (shared with Enchantaholic)
 scripts/                CurseForge upload script and its tests
@@ -483,16 +419,15 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full rules.
 
 1. Branch from `main` as `<type>/<kebab-name>`: `feature/<topic>` (or `feat/`, `fix/`, `hotfix/`,
    `chore/`, `docs/`, `ci/`, `build/`, `refactor/`, `perf/`, `test/`, `release/`).
-2. Open a pull request to `main`. CI runs the checks for each edition, filtered by the paths you
-   changed, plus a branch-name check. The aggregate **`ci-ok`** check must be green. PRs are
+2. Open a pull request to `main`. CI runs the checks, filtered by the paths you changed, plus a
+   branch-name check. The aggregate **`ci-ok`** check must be green. PRs are
    squash-merged.
 3. Write the PR title as an imperative sentence for players ("Add roulette table"): it becomes a
    line of the release notes. The branch prefix sets the label that picks its section.
-4. Game rules and numbers must match [`GAME_DESIGN.md`](docs/design/GAME_DESIGN.md) on both
-   editions. Any new player-facing text goes into [`STRINGS.md`](docs/design/STRINGS.md) in
+4. Game rules and numbers must match [`GAME_DESIGN.md`](docs/design/GAME_DESIGN.md). Any new player-facing text goes into [`STRINGS.md`](docs/design/STRINGS.md) in
    **both EN and RU**. Hard-coded strings fail the build.
-5. Each feature module owns its own folders. Read the ownership rules in the architecture doc for
-   your edition before you start.
+5. Each feature module owns its own folders. Read the ownership rules in
+   [`docs/architecture/java.md`](docs/architecture/java.md) before you start.
 
 ## License
 

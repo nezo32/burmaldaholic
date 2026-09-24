@@ -1,8 +1,11 @@
-# Burmaldaholic — PvP modes and Seats & Bots: shared architecture (both editions)
+# Burmaldaholic — PvP modes and Seats & Bots: shared architecture
+
+> **Java-only (2026-09-24).** Bedrock support was dropped: Bedrock sections, lanes and tasks were removed. An inline
+> note that still names Bedrock (the former TypeScript twin) is historical context and does not apply.
 
 Owner: architect (this wave). Normative game rules: `docs/design/PVP.md` (PvP modes) and
 `docs/design/BOTS.md` (seats, bots, economy). Where they differ BOTS.md wins; `docs/research/bots.md`
-is background only. Edition basics: `java.md`, `bedrock.md`. This file says **how** the two features
+is background only. Basics: `java.md`. This file says **how** the two features
 are built, which files exist already (skeleton, compiling, behaviour unchanged) and who builds what.
 
 ---
@@ -11,13 +14,13 @@ are built, which files exist already (skeleton, compiling, behaviour unchanged) 
 
 | Topic | Decision |
 |-------|----------|
-| Where the engines live | **Core** in both editions: `core.pvp` / `core.bots` (Java), `src/core/pvp`, `src/core/bots` + pure `src/core/logic/{pvp,bots}` (Bedrock). Every game module can use them without importing another module. |
-| New modules | `pvp` and `bots` (both editions, registered, empty stubs). They own the lang fragments (`gui.burmaldaholic.pvp.*`, `…bots.*`), the config sections' UI labels and all **UI / commands** of the two features (hub, lobby/result screens, table-settings screen, invites, admin pages). |
+| Where the engines live | **Core**: `core.pvp` / `core.bots`. Every game module can use them without importing another module. |
+| New modules | `pvp` and `bots` (registered, empty stubs). They own the lang fragments (`gui.burmaldaholic.pvp.*`, `…bots.*`), the config sections' UI labels and all **UI / commands** of the two features (hub, lobby/result screens, table-settings screen, invites, admin pages). |
 | Where PvP modes live | In the module that owns the solo game (reuses its pure logic, blocks and machine UI): `extras` → Coin Flip Duel, Wheel Party, Plinko Battle, Scratch Showdown; `slots` → Slot Showdown. Each mode is its own sub-package / folder, registered through one pre-wired helper, so the mode developers never edit the module entry file. |
-| Mode contract | PVP.md §3.14 `PvpMode<P,T>` — pure `validate/draw/score/timeline/botDecide` + JSON codecs. Identical in both editions. |
+| Mode contract | PVP.md §3.14 `PvpMode<P,T>` — pure `validate/draw/score/timeline/botDecide` + JSON codecs. Identical. |
 | Seat model | Games keep seats abstract over **`SeatOccupant` = Human \| Bot** and route every bot decision through the game's pure **`BotPolicy<V,A>`** (`decide` + mandatory `legalize`). Per-table bot state is a composable **`TableBots`** object owned by the game's table (core table classes stay unchanged). |
-| Randomness | Two streams, never mixed: the **game RNG** (Java `OddsService.fair()`, Bedrock `mathRng`) draws shuffles / dice / tapes; the **bot RNG** (Java L64X128MixRandom, Bedrock sfc32 — never seeded from `Math.random`) drives every bot choice. |
-| Money | PvP escrow and settlement = **one atomic transaction each** (Java `Economy.batch`, Bedrock `economy.transact`), the bank is the escrow holder. Money bots are funded by a **purse** (bank, or the owner's bankroll at owned tables). Rake: bank or the anchor's bankroll, **bot share of the rake always to the bank**. |
+| Randomness | Two streams, never mixed: the **game RNG** (`OddsService.fair()`) draws shuffles / dice / tapes; the **bot RNG** (L64X128MixRandom — never seeded from `Math.random`) drives every bot choice. |
+| Money | PvP escrow and settlement = **one atomic transaction each** (`Economy.batch`), the bank is the escrow holder. Money bots are funded by a **purse** (bank, or the owner's bankroll at owned tables). Rake: bank or the anchor's bankroll, **bot share of the rake always to the bank**. |
 | Conflicts resolved | PVP.md `pvp.bots.*` config (4 keys) and its §3.15 defaults are **superseded** by BOTS.md (`bots.enabled`, `bots.pvp.fillDelayTicks`, `bots.pvp.maxPerMatch`, lobbies default `HUMANS_ONLY`/`NORMAL`, bot rake share to the bank only, Style labels, level tables §4.8). Those 4 rows/labels were not merged. |
 
 ---
@@ -27,24 +30,24 @@ are built, which files exist already (skeleton, compiling, behaviour unchanged) 
 ```
  pure logic (unit-tested, no engine types) ─────────────────────────────────────────────────────────
    core/…/pvp/logic   PvpMode, Outcome, Step, PvpRng, DecisionView, PvpMath, HeadToHead, WinStreaks,
-                      Eligibility, MatchState (+ Bedrock MatchRecord / PvpPlayerRecord JSON types)
+                      Eligibility, MatchState
    core/…/bots/logic  SeatPolicy, BotDifficulty, BotSpeed, BotRole, BotsMode, Personality, Purse,
                       BotProfile, SeatOccupant, BotSettings, OwnerControls, TableAccess(Java),
                       SeatingMath, BotRoster, BotPolicy, BotWork, ThinkTime, BotEconomyMath, ChatterLimiter
    <game>/logic       the game's BotPolicy (poker, baccarat/chemmy, uth, blackjack, roulette, craps)
    extras|slots/pvp/<mode>/…   the PvpMode implementations
  core services (engine state, money, persistence, timers) ────────────────────────────────────────
-   PvP engine  Java Pvp.service() (PvpEngine) / Bedrock ctx.pvp (PvpEngine)
-   Bots        Java Bots + TableBots + BotJobs + BotLedger + BotPurses / Bedrock ctx.bots (Bots, TableBots, BotJobs)
+   PvP engine  Pvp.service() (PvpEngine)
+   Bots        Bots + TableBots + BotJobs + BotLedger + BotPurses
  feature modules (UI, commands, advancements) ────────────────────────────────────────────────────
    pvp   hub, invites, lobby / result screens, presenter, /casino pvp, PvP advancements
    bots  table settings, private tables, invites, chatter delivery, avatars, /casino table|bots, admin
-   extras, slots   machine-form entries + per-mode screens (Java) / forms & action-bar lines (Bedrock)
+   extras, slots   machine-screen entries + per-mode screens
    poker, baccarat, uth, blackjack, roulette, craps   own their TableBots wiring + BotPolicy
 ```
 
 Dependency rules (unchanged edition rules apply): modules talk to core only; pure logic imports only
-pure logic (Bedrock `check-arch` enforces it: a mode's `logic/` imports `core/logic/pvp/*` only).
+pure logic.
 
 ---
 
@@ -69,23 +72,6 @@ pure logic (Bedrock `check-arch` enforces it: a mode's `logic/` imports `core/lo
 | `src/main/lang/{pvp,bots}/`, `burmaldaholic.{pvp,bots}.mixins.json`, `config/namespaces.properties` (`pvp=`, `bots=`), `ModuleList`, `ClientModuleList`, `fabric.mod.json` | registration | done |
 | `CoreModule.register` → `Pvp.register(); Bots.register();` | lifecycle hooks (no-op / job ticker only) | done |
 
-### 2.2 Bedrock (`bedrock/src/…`)
-
-| Path | Contents | Owner task |
-|------|----------|------------|
-| `core/logic/pvp/mode.ts, math.ts (+test), rivalry.ts, eligibility.ts, match.ts` | contract, math, record JSON types | B-P1 extends |
-| `core/pvp/service.ts` (`PvpService`, `PvpEngine` skeleton), `presenter.ts` (`PvpPresenter`, `PvpModeUi`), `store.ts` (`pvpStore`) | engine | B-P1 |
-| `core/logic/bots/types.ts, rng.ts (sfc32), personality.ts, roster.ts, seating.ts (+test), policy.ts, think.ts, economy.ts, chatter.ts` | seat model + pure rules | B-B1 extends |
-| `core/bots/service.ts` (`BotsService`, `Bots`), `table-bots.ts` (`TableBots`, `BotTableHooks`, `TableBotsState`), `purses.ts`, `jobs.ts` (`runJob` limiter) | services | B-B1 |
-| `core/module.ts` `ctx.pvp`, `ctx.bots`; `core/registry.ts` wiring; `core/index.ts` exports | done | — |
-| `pvp/index.ts, api.ts`, `bots/index.ts, api.ts`, `lang/{pvp,bots}`, `modules.json`, `modules.ts`, `core/logic/ids.ts` | module stubs + registration | B-P2, B-B2 |
-| `games/extras/pvp/index.ts` (`registerExtrasPvp`, called from extras `onWorldLoad`) | registers 4 modes | pre-wired |
-| `games/extras/pvp/{coin,wheel,plinko,scratch}/logic/mode.ts` | stub modes (`enabled()` false) | B-M1, B-M2, B-M4, B-M5 |
-| `games/slots/pvp/index.ts`, `games/slots/pvp/logic/mode.ts` | stub mode | B-M3 |
-| `tools/lib/strings.mjs`, `tools/lib/config-md.mjs`, `tools/gen-*.mjs` | new sections; edition defaults; `bots.table.<game>` family; sections of not-yet-registered modules (baccarat, uth) are skipped with one warning instead of failing | done |
-
----
-
 ## 3. PvP core
 
 ### 3.1 Match lifecycle (PVP.md §3.3, §3.6)
@@ -97,7 +83,7 @@ openLobby ──▶ LOBBY (host escrowed; joins escrow at once; leave = refund; 
               ▼                              │
            STARTING: re-check rules 1,3,7 for non-escrowed; seat bots; draw tape with the FAIR rng
               ▼
-           DRAWN  ── persist {tape} BEFORE the first reveal packet/title (Bedrock: same tick, sync)
+           DRAWN  ── persist {tape} BEFORE the first reveal packet/title
               │ timeline (mode steps + engine Final Reveal); Spin!/Drop!/Scratch! only speed it up
               ▼  (also on: casino off, server stop (Java), world load after crash)
            SETTLED ── one transaction; rivalry / streak / stats / advancements / announcements
@@ -109,7 +95,7 @@ openLobby ──▶ LOBBY (host escrowed; joins escrow at once; leave = refund; 
 - **Casino mode off:** invites withdrawn, lobbies refunded, DRAWN settled at once (`…result.casino_off`).
 - **Coin Flip Duel chains:** every flip is its own match (`chainOf`, `link`); Double-or-nothing /
   let-it-ride are `decide()` calls between matches; a stop between links ends the chain.
-- Timers run on the engine tick (Java `END_SERVER_TICK`, Bedrock `system.runInterval(…, 1)`), in world
+- Timers run on the engine tick (`END_SERVER_TICK`), in world
   ticks stored in the record, so a reload never extends a wait.
 
 ### 3.2 Escrow, settlement, rake routing (PVP.md §3.4, BOTS.md §5.1)
@@ -121,18 +107,16 @@ eco.batch(server).debit(AccountId.player(p), s)            // each human stake
    .credit(AccountId.HOUSE, Σ human + Σ bankroll-bot)      // BANK-purse bots: nothing moves (the bank mints)
    .commit(Transaction.bet("pvp"));
 ```
-Bedrock: the same legs in one `economy.transact([...], 'pvp.escrow')`; bot legs from
-`fundLegs(purse, amount)` (core/bots/purses.ts). Settlement:
 ```
 pot = Σ stakes (bots included) ; rake = PvpMath.rake(pot, pvp.rakeBasisPoints) ; W = pot − rake
 payouts = PvpMath.split(W, outcome.winners, outcome.seatOrder, n)
 rakeToBankroll = anchorBankroll ? rake − floor(rake × botStakes / pot) : 0      // BotEconomyMath.pvpRakeToBank
 legs: HOUSE −(Σ human payouts + Σ bankroll-bot payouts + rakeToBankroll)
-      human i +payout_i (offline: Java deposit(server, uuid, …) / Bedrock economy.creditById)
+      human i +payout_i (offline: deposit(server, uuid, …))
       BANKROLL-purse bot +payout ; bankroll +rakeToBankroll       (BANK-purse bot payouts stay in the bank)
 ```
 - The engine fires `PlayResults.fire(player, PlayResult.of("pvp", stake, payout).pvp().withTable(…).withTags(mode))`
-  (+ `BotRounds.tag` when bots took part) for every human — Bedrock `wagers.recordPvp` (see task C-1).
+  (+ `BotRounds.tag` when bots took part) for every human.
 - Owned anchor: the rake destination is the bankroll recorded **at creation** (`PvpMatch.bankroll`); the
   owner can never participate (eligibility rule 9). `RAKE_COLLECTED` fires for the charter stats.
 - House mechanics that never apply to PvP: streak re-draw, Golden Hour, cashback, jackpots, chaos
@@ -150,7 +134,7 @@ before it is shown.
 ### 3.4 Rivalry, win streaks, grudge, taunts, announcements
 
 - `HeadToHead` per ordered human pair, `WinStreaks.announceTier/brokenCallout`, grudge via
-  `HeadToHead.grudge(pvp.grudgeLosses)` — pure (both editions); stored per player (§5.2).
+  `HeadToHead.grudge(pvp.grudgeLosses)` — pure; stored per player (§5.2).
 - Bots are never rivals: no records, no streak change for bot-only matches (a match with ≥ 1 human
   opponent counts), no grudge, excluded from `pvp_full_house` / `pvp_rampage` / `pvp_revenge`.
 - Taunts: 8 fixed lines, `pvp.taunts.*`; bots taunt through `ChatterLimiter` + their personality.
@@ -175,14 +159,14 @@ Spin! / top-up), its per-mode presentation (Java screen registered with `client.
 Bedrock `PvpModeUi.describe(step)` action-bar lines), its advancements (via `PvpEvents.MATCH_SETTLED`
 + `Outcome.events`), and `botDecide` for its decisions (coin, wheel). Everything else is the engine.
 
-### 3.6 Per-edition UI hooks
+### 3.6 UI hooks
 
-| Hook | Java | Bedrock |
-|------|------|---------|
-| Presenter | `Pvp.setPresenter(...)` by the pvp module: `PvpMatchSyncPayload` → `client.pvp.PvpScreens` mode screen, fallback titles/ticker HUD segment | `ctx.pvp.setPresenter(...)`: titles (needs `hud.holdTitle`, task C-2), action bar `ctx.hud.actionbar(p, 'pvp.<id>', …, HudPriority.game)` every ≥ 2 t, chat log, result ActionForm |
-| Hub | `CasinoMenu.register(PvpHubPage)` (page id `challenges`, takes over extras' `ChallengesPage`; Dice Duel becomes a hub button) | `ctx.menu.add({id:'challenges'…})` (same takeover) |
-| Invites | clickable chat `[Accept]/[Decline]` → `/casino pvp accept <id>` | chat + action bar; the invite form appears when the player opens the Casino Menu |
-| Machine entries | mode owners' screens/buttons | mode owners' forms (`pvp/<mode>/ui.ts`) |
+| Hook | Java |
+|------|------|
+| Presenter | `Pvp.setPresenter(...)` by the pvp module: `PvpMatchSyncPayload` → `client.pvp.PvpScreens` mode screen, fallback titles/ticker HUD segment |
+| Hub | `CasinoMenu.register(PvpHubPage)` (page id `challenges`, takes over extras' `ChallengesPage`; Dice Duel becomes a hub button) |
+| Invites | clickable chat `[Accept]/[Decline]` → `/casino pvp accept <id>` |
+| Machine entries | mode owners' screens/buttons |
 
 ---
 
@@ -229,9 +213,9 @@ difficulty hidden (`…bots.luck_only`) where bots have no decisions.
 | Rule | Where implemented |
 |------|-------------------|
 | Purse: BANK (unowned) / BANKROLL (owned, `bots.owned.funding`=OWNER_BANKROLL and table Bots=Allowed) | `BotPurses` / `purses.ts`; `TableBots.safePoint` checks `bankroll − reserved` |
-| Per-table daily house buy-ins `bots.tableBuyInsPerDay` | `BotLedgerData.countBuyIn` (Java) / ledger (Bedrock) |
+| Per-table daily house buy-ins `bots.tableBuyInsPerDay` | `BotLedgerData.countBuyIn` |
 | Heat: `botNetToday` ≥ cap → HARD-only at poker; ≥ `sulkMultiplier` × cap → sulk | `BotLedger` / `ctx.bots.recordNet/sulking`; attribution `BotEconomyMath.pokerPot/pvp` |
-| Weighted VIP / `wager` contract credit, no streak / cashback / Golden Hour / broadcast | games tag results with `BotRounds.VS_BOTS` / `ONLY_BOTS` (Java; Bedrock task C-1 adds the same to `SettledEvent`); listeners in vip / core streak / chaos read the tags (task C-3) |
+| Weighted VIP / `wager` contract credit, no streak / cashback / Golden Hour / broadcast | games tag results with `BotRounds.VS_BOTS` / `ONLY_BOTS` (Java |
 | Poker rake excludes bot chips, only with ≥ 2 human contributors | `pokerRake` (Bedrock economy.ts) / poker migration |
 | Stake gates (no EASY above `bots.poker.easyMaxStake`) | poker migration |
 | Debtors vs house bots only (`bots.debtorsMayPlay`) | `Eligibility.Facts.onlyHouseBots` (PvP), chemmy/uth eligibility |
@@ -275,7 +259,7 @@ their seat type is mapped to `SeatOccupant`.
 6. Poker results vs bots: tag `BotRounds.VS_BOTS`, no streak, weighted VIP (today: full + streak).
 7. Replace "Diamond Dave"; update `poker.bot.*Samples` / `poker.botMix.*` defaults in CONFIG.md +
    `PokerConfig` + Bedrock catalog (the rows were intentionally not touched by the pre-merge).
-8. Add the seeded exploit-regression suite (BOTS.md §12.2) in both editions.
+8. Add the seeded exploit-regression suite (BOTS.md §12.2).
 
 Java (J-G1, done): `PokerBotPolicy` (+ `Ranges`, range-aware `Equity.Work`, `PokerMoney`) mirror Bedrock's
 `bots.ts` / `ranges.ts` / `equity.ts` / `money.ts`; `PokerTableBlockEntity` implements `BotTable` (stake gate
@@ -310,7 +294,6 @@ Bedrock index `burmaldaholic:pvp_index` = JSON id list. Largest record (6 × Slo
 
 ### 5.4 Bot ledger
 Java `data/burmaldaholic/bots.dat`: `net.<uuid> = {day, value}`, `buyIns.<tableKey> = {day, value}`.
-Bedrock: sharded world JSON `burmaldaholic:bots_ledger` = `{ "<playerId>": [day, net], "t:<tableKey>": [day, buyIns] }`.
 
 ---
 
@@ -327,19 +310,9 @@ Bedrock: sharded world JSON `burmaldaholic:bots_ledger` = `{ "<playerId>": [day,
 - Config: `CasinoConfig.pvp()` (`PvpConfig`), `CasinoConfig.bots()` (`BotsConfig`, `table.get("poker")`, `privateTables` = `bots.private.*`).
 - Client: `client.pvp.PvpScreens.register(modeId, factory)`.
 
-### 6.2 Bedrock
-- `ctx.pvp: PvpService` (`core/pvp/service.ts`): `registerMode(mode, ui?)`, `mode/modes`, `setPresenter`, and the same
-  verbs as Java returning `PvpResult<T>` (`{ok, value} | {ok:false, error: Raw}`).
-- `ctx.bots: BotsService` (`core/bots/service.ts`): `enabled`, `activeBudgetLeft`, `newRng(tableKey)`, `think(...)`,
-  `submitWork(...)`, `table(key, hooks, defaults, limits?) → TableBots`, `netToday/recordNet/sulking`.
-- Pure imports for game/mode logic: `core/logic/pvp/{mode,math,rivalry,eligibility,match}`,
-  `core/logic/bots/{types,rng,personality,roster,seating,policy,think,economy,chatter}`.
-- Module services: `PVP_UI_SERVICE` (`pvp/api.ts`: `openHub`), `BOTS_UI_SERVICE` (`bots/api.ts`: `openSettings`, `openPrivate`).
-
 ### 6.3 Config (CONFIG.md `## pvp`, `## bots`, pre-merged)
 All PVP.md §13 keys except `pvp.bots.*`; all BOTS.md §9 keys except the existing `poker.*` rows.
-Edition defaults are written `X (Java) / Y (Bedrock)` (both generators/tests understand it).
-`bots.table.<game>.*` is a family (Java `@Family Map<String, TableDefaults>`, Bedrock `familyMembers`).
+`bots.table.<game>.*` is a family (`@Family Map<String, TableDefaults>`).
 
 ### 6.4 Strings (STRINGS.md, pre-merged)
 `## pvp` (after extras) and `## bots` (after multiplayer) sections; units into core Units; advancements
@@ -352,30 +325,28 @@ the architect: the 4 option labels of `bots.poker.easyMaxStake` (the admin-form 
 
 ## 7. Work breakdown
 
-IDs: J = Java, B = Bedrock, C = core glue (either edition, small), G = game integration, M = PvP mode.
+IDs: J = Java, C = core glue (small), G = game integration, M = PvP mode.
 "core first" items unblock the others; everything else can start **now** against the skeleton (the
 contracts are fixed; stubs compile; pure logic is testable without the engines).
 
-### 7.1 Core (start now; each edition one developer, or one per engine)
+### 7.1 Core (start now; one developer)
 
 | Task | Scope | Files (owned) | Depends |
 |------|-------|---------------|---------|
-| J-P1 / B-P1 **PvP engine** | lifecycle, eligibility, escrow/settle/rake, tape persistence + load/stop/casino-off play-out, timers, rematch, taunts, rivalry/streak/grudge, announcements, bot seat filling + pacing + `botDecide` driving, `PvpEvents` | `core/pvp/**` (Java), `core/pvp/**`, `core/logic/pvp/**` (Bedrock) | skeleton only |
-| J-B1 / B-B1 **Bots core** | `TableBots` (admit, pending, safe point, claimants, host, private access, persistence, orphan return), purses, per-table buy-ins, heat ledger, world limits, job scheduler hardening, chatter queue | `core/bots/**` (Java), `core/bots/**`, `core/logic/bots/**` (Bedrock) | skeleton only |
-| C-1 | Bedrock: `GameId` + label for `pvp`, `SettledEvent.botShare/vsBots`, `recordPvp` accepting bot tags | `core/wagers.ts`, `core/logic/house-edge.ts` | — |
-| C-2 | Bedrock `ctx.hud.holdTitle(p, ticks)` (PVP.md §14) | `core/hud.ts` | — |
-| C-3 | Listeners honour bot/PvP tags: streak skip (`pvp.affectsStreak`, bot rounds), VIP weighted credit, no cashback / Golden Hour / broadcast for only-bot rounds | Java `core/rng/StreakTracker`, `vip/…`, `chaos/…`; Bedrock `core/streak.ts`, `vip`, `chaos` | J-B1/B-B1 API (tags already defined) |
+| J-P1 **PvP engine** | lifecycle, eligibility, escrow/settle/rake, tape persistence + load/stop/casino-off play-out, timers, rematch, taunts, rivalry/streak/grudge, announcements, bot seat filling + pacing + `botDecide` driving, `PvpEvents` | `core/pvp/**` (Java), `core/pvp/**`, `core/logic/pvp/**` (Bedrock) | skeleton only |
+| J-B1 **Bots core** | `TableBots` (admit, pending, safe point, claimants, host, private access, persistence, orphan return), purses, per-table buy-ins, heat ledger, world limits, job scheduler hardening, chatter queue | `core/bots/**` (Java), `core/bots/**`, `core/logic/bots/**` (Bedrock) | skeleton only |
+| C-3 | Listeners honour bot/PvP tags: streak skip (`pvp.affectsStreak`, bot rounds), VIP weighted credit, no cashback / Golden Hour / broadcast for only-bot rounds | Java `core/rng/StreakTracker`, `vip/…`, `chaos/…` | J-B1/B-B1 API (tags already defined) |
 
 ### 7.2 UI modules (start now against the service interfaces; wire to the real engines when P1/B1 land)
 
 | Task | Scope | Files | Depends |
 |------|-------|-------|---------|
-| J-P2 / B-P2 **PvP UI** | hub page (takes over extras' Challenges page, Dice Duel button kept), invites, lobby view, result window, presenter, match ticker, `/casino pvp` / `scriptevent`, admin PvP list, PvP advancements (first_win, all_in, full_house, revenge, rampage) | Java `pvp/**`, `client pvp/**`, `client/pvp/PvpScreens`; Bedrock `src/pvp/**` | P1 for live testing; extras' `ChallengesPage` hand-over (coordinate with extras owner) |
-| J-B2 / B-B2 **Bots UI** | table settings screen/forms, private table + invites (Casino Card on a player), `/casino table …`, `/casino bots …`, charter controls (with multiplayer owner), Wallet heat line, avatars (Java nameplates; Bedrock entity NICE), chatter delivery + per-player mute, bot advancements (members_only, no_robots, word_got_around) | Java `bots/**`, `client bots/**`; Bedrock `src/bots/**`, `packs/bots/**` | B1 for live testing |
+| J-P2 **PvP UI** | hub page (takes over extras' Challenges page, Dice Duel button kept), invites, lobby view, result window, presenter, match ticker, `/casino pvp` / `scriptevent`, admin PvP list, PvP advancements (first_win, all_in, full_house, revenge, rampage) | Java `pvp/**`, `client pvp/**`, `client/pvp/PvpScreens` | P1 for live testing; extras' `ChallengesPage` hand-over (coordinate with extras owner) |
+| J-B2 **Bots UI** | table settings screen/forms, private table + invites (Casino Card on a player), `/casino table …`, `/casino bots …`, charter controls (with multiplayer owner), Wallet heat line, avatars (nameplates), chatter delivery + per-player mute, bot advancements (members_only, no_robots, word_got_around) | Java `bots/**`, `client bots/**` | B1 for live testing |
 
 ### 7.3 PvP modes (start now; pure part first, machine UI after P1)
 
-| Task | Mode | Files (each edition) |
+| Task | Mode | Files |
 |------|------|---------------------|
 | J-M1 / B-M1 (dev B) | Coin Flip Duel + Lucky Coin on a player + DoN chain decisions + `botDecide` | `games/extras/pvp/coin/**` (+ Java client screen under `games/extras/client/pvp/coin/`) |
 | J-M2 / B-M2 (dev B) | Wheel Party + wheel machine entries + top-ups + `botDecide` | `games/extras/pvp/wheel/**` |
@@ -399,14 +370,14 @@ then flip `enabled()` to the config switch. Machine entries touch the owner modu
 | J-G5 / B-G5 **Roulette + craps atmosphere** | bettors by personality, craps never shoots | `games/roulette/**`, `games/craps/**` | B1 |
 | J-G6 / B-G6 **Worldgen presets** | table defaults `worldgen*`, Parlor mix [20,70,10], themed name pools | `worldgen/**` | B1 |
 
-Parallelism: with 4 developers per edition — dev A: P1 then P2; dev B: M1, M2; dev C: M3 then G1;
+Parallelism: with 4 developers — dev A: P1 then P2; dev B: M1, M2; dev C: M3 then G1;
 dev D: M4, M5; a fifth / the core owner: B1 then B2; G2–G6 go to the Baccarat/UTH/game owners once B1 lands.
 
 ---
 
 ## 8. Merge notes and open items
 
-- **Generated files** (`java/src/main/lang/**`, `bedrock/lang/**`, `bedrock/src/core/logic/config-catalog.ts`)
+- **Generated files** (`java/src/main/lang/**`)
   will conflict with the Baccarat/UTH branches: take either side and re-run `python3 java/tools/gen_lang.py`,
   `npm run gen:lang`, `npm run gen:config`. Java core's fragment currently carries the baccarat/uth keys
   (no module owns them yet); they move to their modules automatically once `baccarat=` / `uth=` are in
@@ -421,7 +392,7 @@ dev D: M4, M5; a fifth / the core owner: B1 then B2; G2–G6 go to the Baccarat/
   Java config labels (Bedrock uses the template label); U+E190 bot glyph and U+E1A0/E1A1 PvP glyphs in
   both font sheets; Bedrock `playerInteractWithEntity` for Casino Card / Lucky Coin on a player (verify in game).
 
-## 9. Java integration (wave 2) — what is wired and how it matches Bedrock
+## 9. Java integration (wave 2) — what is wired
 
 - **Closed bankrolls (review M1):** `Ledger.closeBankroll` tombstones the id to the bankroll's owner
   (`bankrolls_closed` in `core.dat`). A later net credit to the id goes to that player (offline-safe,
@@ -442,7 +413,7 @@ dev D: M4, M5; a fifth / the core owner: B1 then B2; G2–G6 go to the Baccarat/
 - **Params snapshot:** the engine stores `encodeParams(decodeParams(p))` at creation; Plinko Battle keeps
   the points row + Underdog Boost, Scratch Showdown the weights + values, Slot Showdown the tier's
   paytable. Java records store the participants packed (`"p"` tuples, same as Bedrock).
-- **Cross-edition parity:** `CrossEditionParityTest` replays Bedrock-generated vectors (same mulberry32
+- **Golden-vector parity:** `GoldenVectorParityTest` replays frozen reference vectors (`pvp/golden-vectors.json`) (same mulberry32
   fair stream) for all five modes: tapes (seat order first), points, winners (by participant index),
   ranking and events must match; plus explicit Creeper-target and Plinko best-ball vectors.
 - **TableBots:** money bots whose purse is no longer the table's leave at the safe point (m5);
