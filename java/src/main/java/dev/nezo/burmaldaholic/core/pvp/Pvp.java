@@ -48,5 +48,6 @@ public final class Pvp {
 	/** Core only: lifecycle hooks (world load → play out saved matches, server stop, casino mode off, tick). */
 	public static void register() {
 		ENGINE.registerLifecycle();
+		ENGINE.registerViewContributor();
 	}
 }

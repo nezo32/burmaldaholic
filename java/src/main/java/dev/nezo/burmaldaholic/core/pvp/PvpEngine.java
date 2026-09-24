@@ -74,7 +74,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
@@ -121,6 +120,41 @@ final class PvpEngine implements PvpService {
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> onJoin(handler.getPlayer()));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, s) -> onDisconnect(handler.getPlayer()));
+	}
+
+	/** Engine fields of the match view (pvp module screens): the viewer's pending decision, chain, timers. */
+	void registerViewContributor() {
+		PvpViewContributors.register((match, viewer, view) -> {
+			long now = server == null ? 0 : now(server);
+			view.addProperty("phase", match.phase());
+			view.addProperty("ticksLeft", Math.max(0, match.phaseEnd - now));
+			if (match.noMoreBetsAt > 0) {
+				view.addProperty("noMoreBetsIn", Math.max(0, match.noMoreBetsAt - now));
+			}
+			if (match.chain != null) {
+				JsonObject ch = new JsonObject();
+				ch.addProperty("link", match.chain.link());
+				ch.addProperty("loser", match.chain.loser());
+				ch.addProperty("deficit", match.chain.deficit());
+				ch.addProperty("over", match.chain.over());
+				if (match.offerBlock != null) {
+					ch.addProperty("offerBlock", match.offerBlock);
+				}
+				view.add("chain", ch);
+			}
+			if (viewer != null) {
+				decisionFor(viewer.getUUID()).filter(d -> matches.get(match.id) == match && participantOf(match, viewer.getUUID()) != null
+					&& d.link() == match.link).ifPresent(d -> {
+					JsonObject o = new JsonObject();
+					o.addProperty("id", d.decision());
+					o.addProperty("ticksLeft", d.ticksLeft());
+					o.addProperty("deficit", d.deficit());
+					o.addProperty("link", d.link());
+					o.addProperty("side", match.donSide);
+					view.add("decision", o);
+				});
+			}
+		});
 	}
 
 	void addBusyCheck(BiPredicate<MinecraftServer, UUID> check) {
@@ -366,16 +400,7 @@ final class PvpEngine implements PvpService {
 				m.invitee = target.getUUID();
 				m.participants.add(new Participant(1, human(target), stake));
 				matches.put(m.id, m);
-				MutableComponent modeName = PvpText.modeName(mode);
-				challenger.sendSystemMessage(Component.translatable("msg.burmaldaholic.pvp.invite.sent", target.getDisplayName(), modeName,
-					Texts.chips(stake)));
-				MutableComponent line = Component.translatable("msg.burmaldaholic.pvp.invite.received", challenger.getDisplayName(), modeName,
-					Texts.chips(stake)).withStyle(ChatFormatting.GOLD);
-				line.append(Texts.raw(" ")).append(Component.translatable("gui.burmaldaholic.pvp.invite.accept_button")
-					.withStyle(st -> st.withColor(ChatFormatting.GREEN).withClickEvent(new ClickEvent.RunCommand("/casino pvp accept " + m.id))));
-				line.append(Texts.raw(" ")).append(Component.translatable("gui.burmaldaholic.pvp.invite.decline_button")
-					.withStyle(st -> st.withColor(ChatFormatting.RED).withClickEvent(new ClickEvent.RunCommand("/casino pvp decline " + m.id))));
-				target.sendSystemMessage(line);
+				// Invite chat lines (clickable [Accept] / [Decline]) are sent by the pvp module's presenter (lobbyChanged).
 				presenter().sound(m, "minecraft:item.goat_horn.sound.0", 1);
 			}
 			case Opponent.BotTarget bt -> {
@@ -390,8 +415,6 @@ final class PvpEngine implements PvpService {
 				bot.botActAt = now + PvpBotRules.acceptTicks(rng, BotSpeed.NORMAL);
 				m.participants.add(bot);
 				matches.put(m.id, m);
-				challenger.sendSystemMessage(Component.translatable("msg.burmaldaholic.pvp.invite.sent", PvpText.name(bot, md), PvpText.modeName(mode),
-					Texts.chips(stake)));
 			}
 		}
 		presenter().lobbyChanged(m);
