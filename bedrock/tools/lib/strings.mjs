@@ -19,6 +19,7 @@ export const SECTION_OWNERS = {
   lastchance: 'lastchance',
   worldgen: 'worldgen',
   multiplayer: 'multiplayer',
+  uth: 'uth',
   advancements: 'core',
   config: 'core',
   sounds: 'core',

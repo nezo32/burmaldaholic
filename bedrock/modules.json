@@ -13,6 +13,7 @@
     { "id": "lastchance", "src": "src/lastchance" },
     { "id": "worldgen", "src": "src/worldgen" },
     { "id": "vip", "src": "src/vip" },
-    { "id": "multiplayer", "src": "src/multiplayer" }
+    { "id": "multiplayer", "src": "src/multiplayer" },
+    { "id": "uth", "src": "src/games/uth" }
   ]
 }

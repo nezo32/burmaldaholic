@@ -18,6 +18,7 @@ export const MODULE_IDS = [
   'worldgen',
   'vip',
   'multiplayer',
+  'uth',
 ] as const;
 
 export type ModuleId = (typeof MODULE_IDS)[number];
