@@ -14,12 +14,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.narration.NarrationThunk;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Tester pass over the J-L2 UI kit and the J-L4 card kit on a real client: {@link KitGalleryScreen} in every scene
@@ -77,7 +75,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 				Component c = Component.translatable(key);
 				for (int w : new int[] {0, 1, 8, 20, 44, 62, 100, 300}) {
 					int fit = font.width(CasinoUi.fit(font, c, w));
-					if (fit > Math.max(w, font.width("…"))) throw new AssertionError(lang + " CasinoUi.fit(" + key + ", " + w + ") = " + fit);
+					if (fit > w) throw new AssertionError(lang + " CasinoUi.fit(" + key + ", " + w + ") = " + fit);
 					int fitted = CardGfx.fittedWidth(font, c, w);
 					if (fitted > w) throw new AssertionError(lang + " CardGfx.fittedWidth(" + key + ", " + w + ") = " + fitted);
 				}
@@ -102,7 +100,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 		// Tab walks the kit widgets and never lands on a disabled one
 		List<String> focused = new ArrayList<>();
 		for (int i = 0; i < 24; i++) {
-			context.getInput().pressKey(GLFW.GLFW_KEY_TAB);
+			context.getInput().pressKey(258 /* GLFW_KEY_TAB */);
 			context.waitTick();
 			String f = context.computeOnClient(mc -> {
 				var el = mc.gui.screen().getFocused();
@@ -127,7 +125,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			s.setFocused(s.kit.getFirst());
 			s.presses = 0;
 		});
-		context.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
+		context.getInput().pressKey(257 /* GLFW_KEY_ENTER */);
 		context.waitTick();
 		int presses = context.computeOnClient(mc -> ((KitGalleryScreen) mc.gui.screen()).presses);
 		if (presses != 1) throw new AssertionError("Enter on a focused CasinoButton presses it once, got " + presses);
@@ -153,18 +151,37 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 		if (!bad.isEmpty()) throw new AssertionError("narration: " + bad);
 	}
 
+	/**
+	 * A narration sink as a dynamic proxy: 26.3 added an abstract {@code narrationTrigger()} to the interface, so an
+	 * anonymous class cannot compile against both versions.
+	 */
 	private static NarrationElementOutput collector(StringBuilder sb) {
-		return new NarrationElementOutput() {
-			@Override
-			public void add(NarratedElementType type, NarrationThunk<?> thunk) {
-				thunk.getText(t -> sb.append('[').append(type).append("] ").append(t).append(' '));
-			}
-
-			@Override
-			public NarrationElementOutput nest() {
-				return this;
-			}
-		};
+		Object[] self = new Object[1];
+		self[0] = java.lang.reflect.Proxy.newProxyInstance(NarrationElementOutput.class.getClassLoader(), new Class<?>[] {NarrationElementOutput.class},
+			(proxy, method, args) -> {
+				switch (method.getName()) {
+					case "nest" -> {
+						return proxy;
+					}
+					case "add" -> {
+						for (int i = 1; i < args.length; i++) {
+							Object a = args[i];
+							if (a instanceof NarrationThunk<?> t) t.getText(x -> sb.append(x).append(' '));
+							else if (a instanceof Component c) sb.append(c.getString()).append(' ');
+							else if (a instanceof Component[] cs) for (Component c : cs) sb.append(c.getString()).append(' ');
+							else if (a != null) sb.append(a).append(' ');
+						}
+						return null;
+					}
+					default -> {
+						Class<?> r = method.getReturnType();
+						if (r.isEnum()) return r.getEnumConstants()[0];
+						if (r == boolean.class) return false;
+						return null;
+					}
+				}
+			});
+		return (NarrationElementOutput) self[0];
 	}
 
 	/** Nine-slices at GUI scales 1–4 and an odd window: screenshots, the panel stays at integer coordinates. */
@@ -246,6 +263,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			return mc.reloadResourcePacks();
 		});
 		context.waitFor(mc -> reload.isDone(), 1200);
-		context.waitTicks(20);
+		context.waitFor(mc -> mc.gui.overlay() == null, 1200); // the reload overlay fades out after the reload
+		context.waitTicks(5);
 	}
 }

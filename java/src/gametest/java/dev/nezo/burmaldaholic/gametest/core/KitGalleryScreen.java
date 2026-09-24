@@ -102,7 +102,7 @@ public class KitGalleryScreen extends CasinoScreen {
 		off.active = false;
 		cx += 68;
 		widget(new CardButton(cx, cy, 60, t("gui.burmaldaholic.blackjack.split.tooltip"), "split", CardButton.Family.TABLE, table, c -> presses++));
-		showError(t("gui.burmaldaholic.baccarat.chemmy.rules.3"));
+		showError(Component.translatable("gui.burmaldaholic.baccarat.chemmy.rules.3", "5"));
 	}
 
 	@Override

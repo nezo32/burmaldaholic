@@ -130,8 +130,8 @@ public final class CardGfx {
 		if (w <= maxW) return w;
 		if (maxW <= 0) return 0;
 		float s = Math.max(0.5f, maxW / (float) w);
-		if (s * w <= maxW + 0.01f) return (int) Math.ceil(s * w);
-		return (int) Math.ceil(font.width(CasinoUi.fit(font, text, (int) Math.floor(maxW / s))) * s);
+		if (s * w <= maxW + 0.01f) return Math.min(maxW, (int) Math.ceil(s * w));
+		return Math.min(maxW, (int) Math.ceil(font.width(CasinoUi.fit(font, text, (int) Math.floor(maxW / s))) * s));
 	}
 
 	/** Pushes a transform that draws a {@code w × h} box at (x, y) rotated by {@code deg} about its centre and scaled. */
