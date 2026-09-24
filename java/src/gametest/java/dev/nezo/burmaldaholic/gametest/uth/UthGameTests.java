@@ -1,5 +1,10 @@
 package dev.nezo.burmaldaholic.gametest.uth;
 
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
+import dev.nezo.burmaldaholic.core.config.sections.BotsConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity.LeaveReason;
@@ -325,6 +330,76 @@ public class UthGameTests {
 				} finally {
 					server.getPlayerList().remove(c);
 				}
+			} finally {
+				cfg.pvp.minBankerVip = vip;
+			}
+		});
+		helper.succeed();
+	}
+
+	/** Atmosphere bots (BOTS.md §4.5): dealt after the board, virtual chips — the human round is exactly the one without bots. */
+	@GameTest
+	public void atmosphereBotsNeverChangeTheHumanRound(GameTestHelper helper) {
+		BotsConfig.TableDefaults d = CasinoConfig.bots().table.get("uth");
+		SeatPolicy policy = d.policy;
+		int count = d.count;
+		d.policy = SeatPolicy.MIXED;
+		d.count = 2;
+		UthTableBlockEntity table = place(helper, UthModule.TABLE.block());
+		withPlayers(helper, (a, b) -> {
+			try {
+				helper.assertTrue(table.sit(a), "seated");
+				helper.assertTrue(table.botSlotsForTests().size() == 2, "two bots joined at the safe point: " + table.botSlotsForTests());
+				helper.assertTrue(!table.botSlotsForTests().containsValue(table.seats().seatOf(a.getUUID()).orElse(-1)), "bots sit in free seats");
+				// §21.1 vector 2 again: 9h9c vs KdKc, board 9d 5s 2h Jc 3d; Ante 10, Trips 10, Bet ×4 → +80
+				table.stackDeckForTests(deck(List.of("9h 9c"), "Kd Kc", "9d 5s 2h Jc 3d"));
+				table.onAction(a, "bet", bet(10, 10));
+				UthRound r = table.round();
+				helper.assertTrue(r != null && r.seats().size() == 3, "the bots are dealt in (never delaying the round)");
+				helper.assertTrue(java.util.Arrays.equals(r.seat(a.getUUID()).hole, UthCards.parseAll("9h 9c")), "human cards unchanged");
+				helper.assertTrue(java.util.Arrays.equals(r.dealerCards(), UthCards.parseAll("Kd Kc")), "dealer unchanged");
+				helper.assertTrue(java.util.Arrays.equals(r.board(), UthCards.parseAll("9d 5s 2h Jc 3d")), "board unchanged");
+				helper.assertTrue(bal(a) == START - 30, "only the human's bets are debited");
+				table.onAction(a, "bet_4x", new CompoundTag());
+				finish(table);
+				for (UthRound.Seat s : r.seats()) {
+					helper.assertTrue(s.result != null, "every seat played out, bots included");
+				}
+				helper.assertTrue(bal(a) == START + 80, "vector 2 pays +80 with bots at the table, got " + (bal(a) - START));
+				helper.assertTrue(table.openStakes().isEmpty() && table.escrowTotal() == 0, "bots hold nothing");
+			} finally {
+				d.policy = policy;
+				d.count = count;
+			}
+		});
+		helper.succeed();
+	}
+
+	/** Player-banked (BOTS.md §4.6): under a human banker bots only watch; they are never dealt against a player's bank. */
+	@GameTest
+	public void botsWatchUnderAHumanBanker(GameTestHelper helper) {
+		UthTableBlockEntity table = place(helper, UthModule.PLAYER_BANKED_TABLE.block());
+		UthConfig cfg = CasinoConfig.uth();
+		int vip = cfg.pvp.minBankerVip;
+		cfg.pvp.minBankerVip = 0;
+		withPlayers(helper, (a, b) -> {
+			MinecraftServer server = a.level().getServer();
+			Economies.get().setBalance(server, b.getUUID(), 5_000, TEST);
+			try {
+				table.sit(a);
+				var change = table.tableBots().requestChange(a, new BotSettings(SeatPolicy.MIXED, 2, BotDifficulty.NORMAL, true, true, BotSpeed.NORMAL), false);
+				helper.assertTrue(change.isOk(), "host may seat bots");
+				table.sit(b); // a safe point: the pending settings apply
+				helper.assertTrue(!table.botSlotsForTests().isEmpty(), "bots joined");
+				CompoundTag take = new CompoundTag();
+				take.putLong("amount", 2_000);
+				table.onAction(b, "take_bank", take);
+				helper.assertTrue(b.getUUID().equals(table.bankerId()), "b banks");
+				table.onAction(a, "bet", bet(2, 0));
+				UthRound r = table.round();
+				helper.assertTrue(r != null && r.seats().size() == 1, "bots are not dealt in under a human banker");
+				finish(table);
+				helper.assertTrue(table.escrowTotal() == table.bank(), "only the bank is held");
 			} finally {
 				cfg.pvp.minBankerVip = vip;
 			}

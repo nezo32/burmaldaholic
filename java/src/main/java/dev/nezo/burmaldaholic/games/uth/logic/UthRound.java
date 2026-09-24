@@ -29,8 +29,9 @@ public final class UthRound {
 
 	/**
 	 * A seat's occupant and bets at the deal (seat index 0-based, table order). The occupant is abstract:
-	 * {@code player} is a participant id — a real player's UUID, or (later, BOTS.md) a virtual bot participant
-	 * with {@code bot = true} whose decisions come from its own {@link SeatDecider}.
+	 * {@code player} is a participant id — a real player's UUID, or an atmosphere bot (BOTS.md §4.5) with
+	 * {@code bot = true} whose decisions come from {@link UthBotPolicy} and whose bets are virtual. Bot seats
+	 * are dealt AFTER the board (see {@link #deal}).
 	 */
 	public record Entry(int seat, UUID player, String name, long ante, long trips, boolean bot) {
 		public Entry(int seat, UUID player, String name, long ante, long trips) {
@@ -92,8 +93,10 @@ public final class UthRound {
 	}
 
 	/**
-	 * Deals from the top of {@code deck} (index 0): one card to each seat (table order), one to the dealer,
-	 * again, then the five board cards (dealt face down now, revealed street by street).
+	 * Deals from the top of {@code deck} (index 0): one card to each human seat (table order), one to the
+	 * dealer, again, then the five board cards (dealt face down now, revealed street by street). Bot seats
+	 * then get two cards each from the rest of the deck, in seat order — so the humans' hole cards, the
+	 * dealer's hand and the board are exactly those of the same deck without bots (BOTS.md §12.3).
 	 */
 	public static UthRound deal(List<Entry> entries, int[] deck) {
 		if (entries.isEmpty() || entries.size() > 7) {
@@ -111,12 +114,20 @@ public final class UthRound {
 		int k = 0;
 		for (int pass = 0; pass < 2; pass++) {
 			for (Seat s : r.seats) {
-				s.hole[pass] = r.deck[k++];
+				if (!s.bot) {
+					s.hole[pass] = r.deck[k++];
+				}
 			}
 			r.dealer[pass] = r.deck[k++];
 		}
 		for (int i = 0; i < 5; i++) {
 			r.board[i] = r.deck[k++];
+		}
+		for (Seat s : r.seats) {
+			if (s.bot) {
+				s.hole[0] = r.deck[k++];
+				s.hole[1] = r.deck[k++];
+			}
 		}
 		return r;
 	}
