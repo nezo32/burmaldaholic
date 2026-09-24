@@ -131,6 +131,17 @@ public final class BotTables {
 		};
 	}
 
+	/** A game created / attached its bot state (core {@code BotTableUi.attach}): the admin list and avatars know the table. */
+	static void remember(BotTable table) {
+		BlockEntity be = table instanceof BlockEntity b ? b : null;
+		if (be == null && table.botTablePos() != null) {
+			return; // helpers (AtmosphereBots, BaccaratBots): found through their block entity on the next lookup
+		}
+		if (be != null && be.getLevel() instanceof ServerLevel level) {
+			of(level, be);
+		}
+	}
+
 	/** The table at {@code pos}, if its block entity is a bot table with {@link TableBots}. Loaded chunks only. */
 	public static Optional<Found> at(ServerLevel level, BlockPos pos) {
 		if (!level.isLoaded(pos)) {

@@ -13,7 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
  * {@link CasinoAdvancements} (casino mode on, root first, offline players on their next join).
  */
 public final class BaccaratAdvancements {
-	public static final List<String> IDS = List.of("baccarat_natural", "tie_streak", "banco", "bank_holder");
+	public static final List<String> IDS = List.of("baccarat_natural", "tie_streak", "banco", "bank_holder", "short_circuit");
 
 	private BaccaratAdvancements() {}
 

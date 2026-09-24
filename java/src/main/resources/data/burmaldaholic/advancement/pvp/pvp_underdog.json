@@ -1,5 +1,5 @@
 {
-  "parent": "burmaldaholic:core/beginners_luck",
+  "parent": "burmaldaholic:pvp/pvp_first_win",
   "display": {
     "icon": {
       "id": "burmaldaholic:wheel_of_fortune"

@@ -56,6 +56,10 @@ public final class SlotShowdownEntry {
 			return true;
 		}
 		PvpService pvp = Pvp.service();
+		// a Showdown at a machine needs the machine's VIP tier (Netherite High Roller), like a solo spin
+		if (("pvp_open".equals(action) || "pvp_join".equals(action)) && !vipOk(machine, player)) {
+			return true;
+		}
 		switch (action) {
 			case "pvp_open" -> {
 				if (!mode.enabled()) {
@@ -107,6 +111,16 @@ public final class SlotShowdownEntry {
 		}
 		int bots = Math.min(table - 1, CasinoConfig.bots().pvp.maxPerMatch);
 		return new BotSettings(policy, bots, BotDifficulty.NORMAL, false, true, BotSpeed.NORMAL);
+	}
+
+	/** The machine's VIP requirement ({@code slots.netherite.minVipTier}); false after telling the player. */
+	static boolean vipOk(SlotMachineBlockEntity machine, ServerPlayer player) {
+		int min = dev.nezo.burmaldaholic.games.slots.SlotsMath.minVipTier(machine.tier());
+		if (min <= 0 || CoreServices.vip().tier(player.level().getServer(), player.getUUID()) >= min) {
+			return true;
+		}
+		machine.sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", dev.nezo.burmaldaholic.core.service.VipTiers.name(min)));
+		return false;
 	}
 
 	private static void report(SlotMachineBlockEntity machine, ServerPlayer player, Result<?> result) {

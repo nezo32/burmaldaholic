@@ -1,16 +1,16 @@
 {
-  "parent": "burmaldaholic:pvp/pvp_first_win",
+  "parent": "burmaldaholic:core/shark_hunter",
   "display": {
     "icon": {
-      "id": "burmaldaholic:lucky_coin"
+      "id": "minecraft:brush"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.pvp_all_square.title"
+      "translate": "advancement.burmaldaholic.clean_sweep.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.pvp_all_square.description"
+      "translate": "advancement.burmaldaholic.clean_sweep.description"
     },
-    "frame": "task",
+    "frame": "challenge",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

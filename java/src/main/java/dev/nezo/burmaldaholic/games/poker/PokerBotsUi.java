@@ -16,14 +16,24 @@ import java.util.UUID;
 public interface PokerBotsUi {
 	PokerBotsUi NONE = new PokerBotsUi() {};
 
-	/** A poker table created its Seats &amp; Bots state (first use after load / placement). */
-	default void attach(BotTable table, TableBots bots) {}
+	/** A poker table created its Seats &amp; Bots state (first use after load / placement). Default: core's {@code BotTableUi}. */
+	default void attach(BotTable table, TableBots bots) {
+		dev.nezo.burmaldaholic.core.bots.BotTableUi.get().attach(table, bots);
+	}
 
-	/** A hand was settled at the table; {@code humans} = humans dealt into it (e.g. {@code members_only}). */
+	/**
+	 * A hand was settled at the table; {@code humans} = humans dealt into it. The bots module grants its
+	 * advancements ({@code members_only}, {@code no_robots}) from the hand's play results.
+	 */
 	default void handPlayed(BotTable table, TableBots bots, List<UUID> humans) {}
 
 	/** The table's session ended (last human left, table stopped): nameplates / avatars can go. */
-	default void sessionEnded(BotTable table) {}
+	default void sessionEnded(BotTable table) {
+		TableBots bots = table.tableBots();
+		if (bots != null) {
+			dev.nezo.burmaldaholic.core.bots.BotTableUi.get().detach(table, bots);
+		}
+	}
 
 	final class Holder {
 		private static PokerBotsUi ui = NONE;

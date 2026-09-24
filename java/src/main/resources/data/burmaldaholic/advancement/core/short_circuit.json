@@ -1,16 +1,16 @@
 {
-  "parent": "burmaldaholic:pvp/pvp_first_win",
+  "parent": "burmaldaholic:core/banco",
   "display": {
     "icon": {
-      "id": "burmaldaholic:lucky_coin"
+      "id": "minecraft:lightning_rod"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.pvp_all_square.title"
+      "translate": "advancement.burmaldaholic.short_circuit.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.pvp_all_square.description"
+      "translate": "advancement.burmaldaholic.short_circuit.description"
     },
-    "frame": "task",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

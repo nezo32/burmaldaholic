@@ -432,7 +432,11 @@ public final class TableSettingsScreen extends Screen {
 			f.line(Component.translatable("gui.burmaldaholic.bots.luck_only"), MUTED);
 		} else {
 			f.line(Component.translatable(style ? "gui.burmaldaholic.bots.settings.style" : "gui.burmaldaholic.bots.settings.difficulty"), TEXT);
+			java.util.List<String> hiddenLevels = java.util.List.of(state.getStringOr("hiddenLevels", "").split(","));
 			for (BotDifficulty d : BotDifficulty.values()) {
+				if (hiddenLevels.contains(d.id())) {
+					continue; // stake gate (poker Easy)
+				}
 				radio(f, BotTexts.level(d, style), difficulty == d, mayEdit && withBots, lock, () -> difficulty = d);
 			}
 			f.newRow();

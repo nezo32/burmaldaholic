@@ -1,14 +1,14 @@
 {
-  "parent": "burmaldaholic:pvp/pvp_first_win",
+  "parent": "burmaldaholic:core/beginners_luck",
   "display": {
     "icon": {
-      "id": "burmaldaholic:lucky_coin"
+      "id": "minecraft:observer"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.pvp_all_square.title"
+      "translate": "advancement.burmaldaholic.man_vs_machine.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.pvp_all_square.description"
+      "translate": "advancement.burmaldaholic.man_vs_machine.description"
     },
     "frame": "task",
     "show_toast": true,

@@ -24,10 +24,9 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Scratch Showdown advancement (PVP.md §8.6, §11): {@code pvp_lucky_feet} — win (or split-win) a Scratch
- * Showdown with two Rabbit's Feet on your card; may be earned against bots (§3.15.2). Like the other
- * module advancements (uth, baccarat) it lives in its module's folder,
- * {@code data/burmaldaholic/advancement/extras/pvp_lucky_feet.json} (PVP.md parent {@code pvp_first_win}; until the pvp module ships it the parent is {@code core/beginners_luck},
- * then re-parent), and is awarded here: casino mode on, {@code root} first, offline winners get
+ * Showdown with two Rabbit's Feet on your card; may be earned against bots (§3.15.2). It lives with the other
+ * PvP advancements, {@code data/burmaldaholic/advancement/pvp/pvp_lucky_feet.json} (parent {@code pvp/pvp_first_win},
+ * PVP.md §11), and is awarded here: casino mode on, {@code root} first, offline winners get
  * it on their next join (kept in memory until the server stops).
  */
 public final class ScratchShowdownAdvancements {
@@ -46,7 +45,7 @@ public final class ScratchShowdownAdvancements {
 	}
 
 	public static Identifier key() {
-		return Burmaldaholic.id("extras/" + LUCKY_FEET);
+		return Burmaldaholic.id("pvp/" + LUCKY_FEET);
 	}
 
 	static void onSettled(MinecraftServer server, PvpMatch match, long[] payouts) {

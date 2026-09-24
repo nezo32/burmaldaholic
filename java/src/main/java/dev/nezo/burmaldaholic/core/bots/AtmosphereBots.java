@@ -132,16 +132,17 @@ public final class AtmosphereBots implements BotTable {
 		return difficultyMatters;
 	}
 
-	/** INTEGRATION HOOK (J-G6): the worldgen preset's level mix when present (see {@link #table()}). */
+	/** The worldgen preset's level mix when present (J-G6), else the configured mix. */
 	@Override
 	public int[] botDifficultyMix() {
-		return BotTable.super.botDifficultyMix();
+		int[] mix = BotPresets.mix(be, gameId);
+		return mix != null ? mix : BotTable.super.botDifficultyMix();
 	}
 
-	/** INTEGRATION HOOK (J-G6): the worldgen preset's name theme when present (see {@link #table()}). */
+	/** The worldgen preset's name theme when present (J-G6). */
 	@Override
 	public dev.nezo.burmaldaholic.core.bots.logic.BotRoster.Theme botNameTheme() {
-		return BotTable.super.botNameTheme();
+		return BotPresets.theme(be, gameId, BotTable.super.botNameTheme());
 	}
 
 	@Override
@@ -182,11 +183,9 @@ public final class AtmosphereBots implements BotTable {
 	/** The core TableBots (created on first use, with the craftable or worldgen defaults of the game). */
 	public TableBots table() {
 		if (tb == null) {
-			// INTEGRATION HOOK (J-G6): when core has CoreServices.tablePresets().botDefaults(level, pos, gameId)
-			// → Optional<BotPreset(defaults, nameTheme, levelMix)>, use preset.defaults() here and keep the preset
-			// so botNameTheme() / botDifficultyMix() below return preset.nameTheme() / preset.levelMix().
+			// generated tables: the worldgen preset's defaults (J-G6); name theme / level mix in the hooks above
 			boolean generated = be.getLevel() != null && be.preset().isPresent();
-			tb = new TableBots(this, TableBots.defaultsFor(gameId, generated), OwnerControls.unowned(Math.max(1, seats.seats())));
+			tb = new TableBots(this, BotPresets.defaults(be, gameId, generated), OwnerControls.unowned(Math.max(1, seats.seats())));
 			if (loaded != null) {
 				tb.load(loaded);
 				loaded = null;
@@ -316,9 +315,7 @@ public final class AtmosphereBots implements BotTable {
 
 	/**
 	 * Bot quip (BOTS.md §7.4): through the bots UI when it takes it, else core's chatter
-	 * ({@link TableBots#say} → {@link BotChatter}: rate limits, table toggle, delivery).
-	 * INTEGRATION HOOK: if core {@code BotChatter} becomes the bots module's event sink
-	 * ({@code BotChatter.event(level, pos, bot, event, human)}), route the fallback there.
+	 * ({@link TableBots#say} → {@link BotChatter}: rate limits, table toggle; the bots module's sink delivers).
 	 */
 	public void quip(ServerLevel level, BotProfile bot, String event, @Nullable String human) {
 		if (tb == null) {

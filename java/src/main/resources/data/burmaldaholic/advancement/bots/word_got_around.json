@@ -1,5 +1,5 @@
 {
-  "parent": "burmaldaholic:core/shark_hunter",
+  "parent": "burmaldaholic:core/man_vs_machine",
   "display": {
     "icon": {
       "id": "minecraft:bell"

@@ -59,8 +59,10 @@ import org.jspecify.annotations.Nullable;
 public final class BaccaratBots implements BotTable {
 	/** Optional hooks of the bots UI module (settings screen, quips with emotes); every member has a no-op default. */
 	public interface Ui {
-		/** A table with bots was created (the UI may keep a handle for its settings screen). */
-		default void attach(BotTable table, TableBots bots) {}
+		/** A table with bots was created (the UI may keep a handle for its settings screen). Default: core's {@code BotTableUi}. */
+		default void attach(BotTable table, TableBots bots) {
+			dev.nezo.burmaldaholic.core.bots.BotTableUi.get().attach(table, bots);
+		}
 
 		/** Delivers a quip itself; false = use the core chatter queue ({@link TableBots#say}). */
 		default boolean quip(ServerLevel level, TableBots bots, BotProfile bot, String event, @Nullable String human) {
@@ -123,10 +125,9 @@ public final class BaccaratBots implements BotTable {
 	TableBots tb() {
 		if (tb == null) {
 			boolean worldgen = be.getLevel() != null && be.preset().isPresent();
-			// INTEGRATION HOOK (J-G6): when CoreServices.tablePresets().botDefaults(level, pos, botGameId()) exists,
-			// use its BotPreset.defaults() here for generated tables, and return its nameTheme() / levelMix()
-			// from botNameTheme() / botDifficultyMix() below (override them in this class).
-			tb = new TableBots(this, TableBots.defaultsFor(botGameId(), worldgen), OwnerControls.unowned(botSeatCount()));
+			// generated tables: the worldgen preset's defaults (J-G6); name theme / level mix in the hooks below
+			tb = new TableBots(this, dev.nezo.burmaldaholic.core.bots.BotPresets.defaults(be, botGameId(), worldgen),
+				OwnerControls.unowned(botSeatCount()));
 			if (pendingLoad != null) {
 				tb.load(pendingLoad);
 				pendingLoad = null;
@@ -192,13 +193,23 @@ public final class BaccaratBots implements BotTable {
 
 	// ---- BotTable ---------------------------------------------------------------------------------
 
-	/**
-	 * This table's {@link TableBots} (the bots UI's settings screen finds tables through it).
-	 * INTEGRATION HOOK (J-B2): the bots UI branch adds {@code BotTable.tableBots()} (default null) — add
-	 * {@code @Override} here when it is merged.
-	 */
+	/** This table's {@link TableBots} (the bots UI's settings screen finds tables through it; the BE delegates here). */
+	@Override
 	public @Nullable TableBots tableBots() {
 		return be.getLevel() == null ? tb : tb();
+	}
+
+	/** The worldgen preset's level mix when present (J-G6). */
+	@Override
+	public int[] botDifficultyMix() {
+		int[] mix = dev.nezo.burmaldaholic.core.bots.BotPresets.mix(be, botGameId());
+		return mix != null ? mix : BotTable.super.botDifficultyMix();
+	}
+
+	/** The worldgen preset's name theme when present (J-G6). */
+	@Override
+	public dev.nezo.burmaldaholic.core.bots.logic.BotRoster.Theme botNameTheme() {
+		return dev.nezo.burmaldaholic.core.bots.BotPresets.theme(be, botGameId(), BotTable.super.botNameTheme());
 	}
 
 	@Override

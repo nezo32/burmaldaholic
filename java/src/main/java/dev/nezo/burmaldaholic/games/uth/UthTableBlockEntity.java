@@ -1428,12 +1428,8 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		return SeatingMath.YieldRule.HIGHEST_SEAT;
 	}
 
-	/**
-	 * The table's bot state (created on first use). INTEGRATION HOOK: this is {@code BotTable#tableBots()} of the
-	 * bots UI (J-B2, whose default returns null); it carries no {@code @Override} only because that default is not
-	 * on this branch's base yet — add the annotation when merging. Bot chatter goes through {@link TableBots#say}
-	 * (core {@code BotChatter}).
-	 */
+	/** The table's bot state (created on first use; the bots UI finds the table through it). Chatter: {@link TableBots#say}. */
+	@Override
 	public TableBots tableBots() {
 		TableBots tb = tableBots;
 		if (tb == null) {
@@ -1448,18 +1444,29 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 
 	/**
 	 * Craftable / worldgen defaults; player-banked tables: stand-in dealer plate, atmosphere seats opt-in (BOTS.md §2.3).
-	 *
-	 * <p>INTEGRATION HOOK (J-G6 worldgen presets, not on this branch's base yet): when
-	 * {@code CoreServices.tablePresets().botDefaults(level, pos, gameId)} exists, use its
-	 * {@code BotPreset.defaults()} here for generated tables (instead of {@code TableBots.defaultsFor(uth, true)},
-	 * and without the player-banked override), and return {@code nameTheme()} / {@code levelMix()} (when non-null)
-	 * from overrides of {@link #botNameTheme()} / {@link #botDifficultyMix()}; the stand-in's name theme
-	 * ({@link #standInBot}) should then follow {@code nameTheme()} too.
+	 * Generated tables use the worldgen preset (J-G6) as it is.
 	 */
 	private BotSettings botDefaults() {
+		var preset = dev.nezo.burmaldaholic.core.bots.BotPresets.of(this, UthModule.ID);
+		if (preset.isPresent()) {
+			return preset.get().defaults();
+		}
 		boolean worldgen = preset().isPresent();
 		BotSettings d = TableBots.defaultsFor(UthModule.ID, worldgen);
 		return variant == Variant.PLAYER_BANKED && !worldgen ? d.withPolicy(SeatPolicy.MIXED).withCount(0) : d;
+	}
+
+	/** The worldgen preset's level mix when present (J-G6). */
+	@Override
+	public int[] botDifficultyMix() {
+		int[] mix = dev.nezo.burmaldaholic.core.bots.BotPresets.mix(this, UthModule.ID);
+		return mix != null ? mix : BotTable.super.botDifficultyMix();
+	}
+
+	/** The worldgen preset's name theme when present (J-G6; End lounge: ender). */
+	@Override
+	public BotRoster.Theme botNameTheme() {
+		return dev.nezo.burmaldaholic.core.bots.BotPresets.theme(this, UthModule.ID, BotTable.super.botNameTheme());
 	}
 
 	/**
@@ -1779,7 +1786,8 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			for (BotProfile b : botSeats.values()) {
 				used.add(b.nameId());
 			}
-			standIn = BotRoster.create(tableBots().rng(), BotDifficulty.NORMAL, new int[] {0, 1, 0}, BotRoster.Theme.ENDER, used, false);
+			standIn = BotRoster.create(tableBots().rng(), BotDifficulty.NORMAL, new int[] {0, 1, 0},
+				dev.nezo.burmaldaholic.core.bots.BotPresets.theme(this, UthModule.ID, BotRoster.Theme.ENDER), used, false);
 		}
 		return standIn;
 	}

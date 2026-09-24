@@ -47,6 +47,11 @@ public final class PvpScreensPresenter implements PvpPresenter {
 	@Override
 	public void revealStep(PvpMatch match, Step step, List<ServerPlayer> viewers) {
 		PvpUi.addStep(match.id, step);
+		try {
+			hints(match, step.data(), viewers);
+		} catch (RuntimeException e) {
+			dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.warn("PvP: bad presentation hints in {} step {}", match.mode, step.kind(), e);
+		}
 		for (ServerPlayer p : viewers) {
 			if (PvpMatchView.indexOf(match, p.getUUID()) < 0) {
 				PvpUi.push(p, match, false); // spectator: HUD ticker line only
@@ -155,6 +160,89 @@ public final class PvpScreensPresenter implements PvpPresenter {
 		if (level != null) {
 			PvpUi.particles(level, id, anchor.pos().getX() + 0.5, anchor.pos().getY() + 1.2, anchor.pos().getZ() + 0.5, 12);
 		}
+	}
+
+	// ---- mode presentation hints (generic; e.g. games.slots.pvp.ShowdownTimeline) ----------------------
+
+	/**
+	 * Renders the mode's hints of a revealed step: {@code msgs[]} = chat lines {@code {key, args[]}} to the viewers,
+	 * {@code titles[]} = {@code {seat, key, sub?}} (seat -1 = every participant; otherwise that participant, with
+	 * the {@code sub} subtitle), {@code sounds[]} = {@code {id, seat, volume, pitch}} (seat -1 = everyone). An arg is
+	 * {@code {"seat":i}} (display name), {@code {"n":x}} (number) or {@code {"key":k}} (translated).
+	 */
+	static void hints(PvpMatch match, @Nullable JsonObject data, List<ServerPlayer> viewers) {
+		if (data == null) {
+			return;
+		}
+		if (data.has("msgs") && data.get("msgs").isJsonArray()) {
+			for (var e : data.getAsJsonArray("msgs")) {
+				if (!e.isJsonObject() || !e.getAsJsonObject().has("key")) {
+					continue;
+				}
+				JsonObject m = e.getAsJsonObject();
+				List<Object> args = new java.util.ArrayList<>();
+				if (m.has("args") && m.get("args").isJsonArray()) {
+					for (var a : m.getAsJsonArray("args")) {
+						args.add(arg(match, a.isJsonObject() ? a.getAsJsonObject() : new JsonObject()));
+					}
+				}
+				Component line = Component.translatable(m.get("key").getAsString(), args.toArray());
+				for (ServerPlayer p : viewers) {
+					p.sendSystemMessage(line);
+				}
+			}
+		}
+		if (data.has("titles") && data.get("titles").isJsonArray()) {
+			for (var e : data.getAsJsonArray("titles")) {
+				if (!e.isJsonObject() || !e.getAsJsonObject().has("key")) {
+					continue;
+				}
+				JsonObject t = e.getAsJsonObject();
+				int seat = t.has("seat") ? t.get("seat").getAsInt() : -1;
+				Participant who = seat >= 0 ? PvpMatchView.participant(match, seat) : null;
+				Component title = Component.translatable(t.get("key").getAsString(), who == null ? Component.empty() : PvpMatchView.name(match, who));
+				Component sub = t.has("sub") ? Component.translatable(t.get("sub").getAsString()) : null;
+				for (ServerPlayer p : viewers) {
+					int idx = PvpMatchView.indexOf(match, p.getUUID());
+					if (idx >= 0 && (seat < 0 || idx == seat)) {
+						PvpUi.title(p, title, idx == seat ? sub : null, 40);
+					}
+				}
+			}
+		}
+		if (data.has("sounds") && data.get("sounds").isJsonArray()) {
+			for (var e : data.getAsJsonArray("sounds")) {
+				if (!e.isJsonObject() || !e.getAsJsonObject().has("id")) {
+					continue;
+				}
+				JsonObject s = e.getAsJsonObject();
+				String id = s.get("id").getAsString();
+				String full = id.contains(":") ? id : "minecraft:" + id;
+				int seat = s.has("seat") ? s.get("seat").getAsInt() : -1;
+				float volume = s.has("volume") ? s.get("volume").getAsFloat() : 1.0f;
+				float pitch = s.has("pitch") ? s.get("pitch").getAsFloat() : 1.0f;
+				for (ServerPlayer p : viewers) {
+					int idx = PvpMatchView.indexOf(match, p.getUUID());
+					if (seat < 0 || idx == seat) {
+						PvpUi.sound(p, full, volume, pitch);
+					}
+				}
+			}
+		}
+	}
+
+	private static Component arg(PvpMatch match, JsonObject a) {
+		if (a.has("seat")) {
+			Participant p = PvpMatchView.participant(match, a.get("seat").getAsInt());
+			return p == null ? Texts.raw("?") : PvpMatchView.name(match, p);
+		}
+		if (a.has("n")) {
+			return Texts.number(a.get("n").getAsLong());
+		}
+		if (a.has("key")) {
+			return Component.translatable(a.get("key").getAsString());
+		}
+		return Component.empty();
 	}
 
 	// ---- helpers -----------------------------------------------------------------------------

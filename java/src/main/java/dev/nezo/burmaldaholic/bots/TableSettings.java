@@ -311,6 +311,14 @@ public final class TableSettings {
 		t.putBoolean("botsOnly", v.botsOnlyAllowed());
 		t.putInt("maxCount", v.maxCount());
 		t.putString("diffMode", v.difficultyMode().name());
+		// levels the game's stake gate forbids here (poker: no Easy above bots.poker.easyMaxStake) are not offered
+		StringBuilder hidden = new StringBuilder();
+		for (BotDifficulty d : BotDifficulty.values()) {
+			if (!tb.levelAllowed(d)) {
+				hidden.append(hidden.isEmpty() ? "" : ",").append(d.id());
+			}
+		}
+		t.putString("hiddenLevels", hidden.toString());
 		t.putBoolean("heatHardOnly", "poker".equals(f.table().botGameId()) && heat(player) != HeatStage.NONE);
 		t.putInt("botsSeated", f.botsSeated());
 		// access

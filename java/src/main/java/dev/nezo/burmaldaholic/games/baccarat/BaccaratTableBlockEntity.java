@@ -92,7 +92,7 @@ import org.jspecify.annotations.Nullable;
  * {@code banco}, {@code clear}, {@code ready}; core's {@code sit}/{@code leave}. Every seat decision can
  * also come from a {@link SeatDecider} (future bots) through the same code paths.
  */
-public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
+public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements dev.nezo.burmaldaholic.core.bots.BotTable.Delegating {
 	public enum Variant { STANDARD, HIGH_ROLLER, CHEMMY }
 
 	public static final String P_IDLE = "idle";
@@ -203,6 +203,12 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	/** Seats &amp; Bots of this table (core {@code TableBots} + the game's bot seats). */
+	/** Seats &amp; Bots hooks of this table answered by {@link BaccaratBots} (the bots UI finds the table through it). */
+	@Override
+	public dev.nezo.burmaldaholic.core.bots.BotTable botDelegate() {
+		return bots;
+	}
+
 	public BaccaratBots bots() {
 		return bots;
 	}
@@ -1502,9 +1508,9 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 				notify(id, Component.translatable("msg.burmaldaholic.baccarat.natural_nine").withStyle(ChatFormatting.GOLD));
 				BaccaratAdvancements.grant(server, id, "baccarat_natural");
 			}
-			// banco needs a human on the other side (BOTS.md §5.3)
-			if (id.equals(bancoCaller) && winner == Side.PLAYER && !bankerBot) {
-				BaccaratAdvancements.grant(server, id, "banco");
+			// banco needs a human on the other side (BOTS.md §5.3); against a bot banker it is short_circuit (§10)
+			if (id.equals(bancoCaller) && winner == Side.PLAYER) {
+				BaccaratAdvancements.grant(server, id, bankerBot ? "short_circuit" : "banco");
 			}
 			ServerPlayer p = server.getPlayerList().getPlayer(id);
 			if (p != null) {

@@ -77,6 +77,12 @@ public final class CoinDuelScreen extends PvpPanel implements PvpScreens.ModeScr
 		CompoundTag a = new CompoundTag();
 		a.putString("decision", decision);
 		a.putLong("option", option);
+		// the question this screen shows (stale answers are dropped by the engine, review wave 2 m2)
+		JsonObject d = view.decision();
+		if (d != null) {
+			a.putString("match", MatchView.str(d, "match", view.id()));
+			a.putLong("seq", MatchView.lng(d, "seq", -1));
+		}
 		send("decide", a);
 		sentDecision = decision;
 		rebuild();

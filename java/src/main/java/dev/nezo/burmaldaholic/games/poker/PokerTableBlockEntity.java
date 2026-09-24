@@ -275,10 +275,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	public TableBots tableBots() {
 		if (bots == null) {
 			boolean worldgen = preset().isPresent();
-			BotSettings d = TableBots.defaultsFor(GAME, worldgen);
-			// Generated tables use bots.table.poker.worldgen* (not the preset's fixed pokerBots).
-			// HOOK (J-G6 integration): when CoreServices.tablePresets().botDefaults(level, pos, "poker") exists,
-			// use its BotPreset.defaults here, and its nameTheme / levelMix in botNameTheme() / botDifficultyMix().
+			// Generated tables: the worldgen preset's defaults (J-G6; bots.table.poker.worldgen*, not the old fixed pokerBots).
+			BotSettings d = dev.nezo.burmaldaholic.core.bots.BotPresets.defaults(this, GAME, worldgen);
 			bots = new TableBots(this, d, OwnerControls.unowned(botSeatCount()));
 			if (savedBots != null) {
 				bots.load(savedBots);
@@ -370,10 +368,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 
 	@Override
 	public int[] botDifficultyMix() {
-		// HOOK (J-G6): prefer CoreServices.tablePresets().botDefaults(...).levelMix when merged (still stake-gated below).
+		// the worldgen preset's mix first (J-G6; Piglin Parlor: Regular-heavy), still stake-gated below
 		StakeLevel s = currentStake();
-		int[] mix = preset().map(TablePresetProvider.TablePreset::pokerBotMix).filter(m -> m.size() == 3)
-			.map(m -> m.stream().mapToInt(Integer::intValue).toArray()) // Piglin Parlor: Regular-heavy
+		int[] fixed = dev.nezo.burmaldaholic.core.bots.BotPresets.mix(this, GAME);
+		int[] mix = fixed != null && fixed.length == 3 ? fixed : preset().map(TablePresetProvider.TablePreset::pokerBotMix).filter(m -> m.size() == 3)
+			.map(m -> m.stream().mapToInt(Integer::intValue).toArray())
 			.orElseGet(() -> botMix(s == null ? StakeLevel.MICRO : s));
 		return PokerBotPolicy.gatedMix(mix, s, easyMaxStake());
 	}
@@ -386,8 +385,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 
 	@Override
 	public BotRoster.Theme botNameTheme() {
-		// HOOK (J-G6): prefer CoreServices.tablePresets().botDefaults(...).nameTheme when merged.
-		return preset().map(p -> p.id().contains("parlor") ? BotRoster.Theme.PIGLIN : BotRoster.Theme.ANY).orElse(BotRoster.Theme.ANY);
+		return dev.nezo.burmaldaholic.core.bots.BotPresets.theme(this, GAME,
+			preset().map(p -> p.id().contains("parlor") ? BotRoster.Theme.PIGLIN : BotRoster.Theme.ANY).orElse(BotRoster.Theme.ANY));
 	}
 
 	@Override

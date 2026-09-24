@@ -103,7 +103,8 @@ public final class CoinDuelEntries {
 				long option = a.getLongOr("option", 0);
 				if ((decision.equals(CoinChain.DON_OFFER) && option >= 0 && option <= 2)
 					|| (decision.equals(CoinChain.LET_IT_RIDE) && (option == 0 || option == 1))) {
-					pvp.decide(player, decision, option);
+					String match = a.getStringOr("match", "");
+					pvp.decide(player, decision, option, match.isEmpty() ? null : match, a.getLongOr("seq", -1));
 				}
 			}
 			case "rematch" -> pvp.rematch(player, a.getStringOr("id", ""));

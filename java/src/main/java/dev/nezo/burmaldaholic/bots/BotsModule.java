@@ -34,6 +34,14 @@ public final class BotsModule implements CasinoModule {
 		BotCommands.register();
 		BotInteractions.register();
 		BotChatter.setSink(new BotChatterDelivery());
+		BotChatter.setMuteFilter(p -> BotsData.get(p.level().getServer()).muted(p.getUUID()));
+		// games report their bot tables through core's BotTableUi (poker / baccarat default to it)
+		dev.nezo.burmaldaholic.core.bots.BotTableUi.set(new dev.nezo.burmaldaholic.core.bots.BotTableUi() {
+			@Override
+			public void attach(dev.nezo.burmaldaholic.core.bots.BotTable table, dev.nezo.burmaldaholic.core.bots.TableBots bots) {
+				BotTables.remember(table);
+			}
+		});
 		CasinoMenu.register(new BotsMenuPage());
 		CasinoEvents.PLAY_RESOLVED.register((player, result) -> {
 			BotHeat.onResult(player, result);

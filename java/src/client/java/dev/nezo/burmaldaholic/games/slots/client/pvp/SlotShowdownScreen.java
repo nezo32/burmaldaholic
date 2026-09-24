@@ -56,6 +56,10 @@ public final class SlotShowdownScreen extends Screen implements PvpScreens.ModeS
 
 	public static void register() {
 		PvpScreens.register("slots", SlotShowdownScreen::new);
+		// Spin! from the match screen goes through the pvp client module's action packet (engine press, PVP.md §5.5)
+		if (pressAction == null) {
+			setPressAction(matchId -> PvpScreens.action("press", matchId, "", 0));
+		}
 	}
 
 	private JsonObject state;
