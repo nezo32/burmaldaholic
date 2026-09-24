@@ -18,9 +18,9 @@ The master text lives in `STRINGS.md`; language files are generated from / check
 <category>.burmaldaholic.<module>.<name>[.<sub>…][.<plural-suffix>|.<variant-number>]
 ```
 - lowercase ASCII, digits and `_` only in segments; segments separated by `.`.
-- `module` is the owning module (`core, blackjack, poker, slots, roulette, craps, extras, loan,
-  chaos, lastchance, worldgen, vip, multiplayer, streak, contracts, wager`) or a shared UI area
-  (`common`, `error`, `card`, `menu`, `cashier`, `charter`, `croupier`, `achievements`). STRINGS.md
+- `module` is the owning module (`core, blackjack, poker, slots, roulette, craps, baccarat, uth,
+  extras, loan, chaos, lastchance, worldgen, vip, multiplayer, streak, contracts, wager`) or a
+  shared UI area (`common`, `error`, `card`, `menu`, `cashier`, `charter`, `croupier`, `achievements`). STRINGS.md
   lists which team owns each area.
 
 | Category | Used for | Example |
@@ -38,7 +38,7 @@ The master text lives in `STRINGS.md`; language files are generated from / check
 | `config` | config labels/tooltips | `config.burmaldaholic.chaos.ambientChance` |
 | `unit` | counted nouns (plural bases) | `unit.burmaldaholic.chip` |
 | `key` / `key.category` | Java keybinds | `key.burmaldaholic.open_menu` |
-| `gamerule` | Java game rule | `gamerule.burmaldaholic.casino_mode` |
+| `gamerule` | Bedrock pack-setting labels (historical prefix; Java has no game rule) | `gamerule.burmaldaholic.casino_mode` |
 | `itemGroup` | creative tab | `itemGroup.burmaldaholic.main` |
 | `sound` / `subtitles` | subtitles | `subtitles.burmaldaholic.chip_place` |
 | `modmenu` | Mod Menu name/summary (Java) | `modmenu.nameTranslation.burmaldaholic` |
@@ -346,6 +346,45 @@ Button choice: «Пас» for Fold (what Russian home-game players say) with too
 | Mob wave | Нашествие мобов |
 | Random teleport | Случайная телепортация |
 | Curse / Buff | проклятие / благословение |
+
+### 6.7 Baccarat (⚠ added 2026-09)
+
+| EN | RU | Notes |
+|----|----|-------|
+| Baccarat | баккара | indeclinable, feminine in speech («сыграть в баккара») |
+| Punto Banco | пунто банко | subtitle only |
+| Player (hand / bet box) | Игрок | **capitalized** when it means the hand or the box: «ставка на Игрока», «Игрок берёт третью карту». People at the table are never called «игрок» in baccarat strings — use names, «за столом», «понтёры» |
+| Banker (hand / bet box) | Банкир | capitalized likewise; in chemin de fer the person holding the bank is «банкир» (lowercase) / «банк держит …» |
+| Tie | ничья | «Ничья: по 7», «ставка на ничью» |
+| Pair / Player Pair / Banker Pair | пара / пара игрока / пара банкира | box labels: «Пара игрока», «Пара банкира» |
+| Commission | комиссия | «Банкир (1:1 −5 %)» |
+| Natural | натуральная (девятка / восьмёрка) | «Натуральная девятка!» |
+| Third card | третья карта | «берёт третью карту» / «останавливается на 6» |
+| Coup | раздача | «Раздача №12» |
+| Shoe | шуз | as blackjack |
+| Burn (cards) | сжечь (карты) | «Сожжено 7 карт» |
+| Bead plate | табло результатов | letters И / Б / Н |
+| Chemin de fer | шмен-де-фер | table name «Стол для шмен-де-фер» |
+| Bank / hold the bank / pass the bank | банк / держать банк / передать банк | not «банкролл» |
+| Punter | понтёр | classic Russian card-room word |
+| Banco! | Банко! | the call; quoted in running text: «Банко» |
+
+### 6.8 Ultimate Texas Hold'em (⚠ added 2026-09)
+
+| EN | RU | Notes |
+|----|----|-------|
+| Ultimate Texas Hold'em | «Ультимейт Техас Холдем» | full name; in running text in «» and not declined («в «Ультимейт Техас Холдем»»); short form for titles and tight labels: «Ультимейт холдем» |
+| Ante | анте | indeclinable, neuter: «анте возвращается» |
+| Blind | блайнд | as poker |
+| Trips (side bet) | трипс | «ставка трипс», «выплаты по трипсу» |
+| Play bet | плей / плей-ставка | box label «Плей»; «плей-ставка в 4 анте» |
+| Bet ×4 / ×3 / ×2 / ×1 | Ставка ×4 / ×3 / ×2 / ×1 | multiplier before the number (§4) |
+| Check / Fold | Чек / Пас | as poker |
+| Dealer qualifies / does not qualify | дилер квалифицируется / не квалифицируется | colloquial «у дилера нет игры» allowed only in flavor text |
+| Push (Ante returned) | анте возвращается | not «пуш» |
+| Dealer seat | место дилера | player-banked table |
+| Paytable | таблица выплат / «Выплаты по блайнду» | |
+| Straight or better | стрит и выше | |
 
 ## 7. Tone guide (Russian)
 

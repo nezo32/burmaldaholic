@@ -54,6 +54,8 @@ Modules (each maps to one Wave-3 feature team):
 | slots | §8 |
 | roulette | §9 |
 | craps | §10 |
+| baccarat (Punto Banco) | §20 |
+| uth (Ultimate Texas Hold'em) | §21 |
 | extras (coin flip, wheel, scratch cards, plinko, dice duel) | §11 |
 | loan (Loan Shark + Debt Collectors) | §5 |
 | chaos (events, Golden Hour) | §13 |
@@ -63,6 +65,13 @@ Modules (each maps to one Wave-3 feature team):
 | vip | §12 |
 | multiplayer (hosted tables, owned casinos) | §18 |
 | advancements | §19 |
+
+**Multiplayer per game** (⚠ ADDED 2026-09): blackjack — up to 5 seats vs the dealer; poker — PvP
+(6-max, bots fill); roulette — shared spins (8 bettors); craps — shooter rotation (6 seats);
+baccarat — shared coup for up to 7 seats vs the house, plus the player-banked **Chemin de fer**
+variant (PvP, §20.9); Ultimate Texas Hold'em — up to 6 seats sharing board and dealer hand vs the
+house, plus the **player-banked** variant (a player takes the dealer seat, §21.9); dice duel — PvP
+or vs the house; slots, wheel, plinko, scratch cards, coin flip — solo.
 
 ---
 
@@ -76,21 +85,25 @@ nothing; all saved data (balances, loans, ownership) is preserved untouched. Whe
 everything in this document is active.
 
 **Java (Fabric):**
-- Registered as a boolean game rule `burmaldaholic:casino_mode` (category "Burmaldaholic"), shown
-  on the world-creation screen **Game** tab → "More → Game Rules" and editable by ops later with
-  `/gamerule burmaldaholic:casino_mode <true|false>`. The rule defaults to **OFF** (like
-  Enchantaholic): installing the mod changes nothing until a world opts in.
+- **Not a game rule.** The value is saved with the world in its own file
+  `<world>/data/burmaldaholic/mode.dat` (world saved data, like Enchantaholic's per-world mode).
+  It defaults to **OFF**: installing the mod changes nothing until a world opts in. A world without
+  the file (dedicated server, other launcher) starts OFF; an unreadable file logs a warning and
+  resets to OFF.
 - The mod adds a toggle button **"Casino Mode: ON/OFF"** (default **OFF**, full width, with a
   tooltip) to the *Game* tab of the Create World screen, directly **below "Difficulty"** and above
-  "Allow Commands". It writes the same game rule (saved in level.dat, kept in sync with More → Game
-  Rules), so the choice is visible without digging into game rules.
-- Existing worlds opt in with `/gamerule burmaldaholic:casino_mode true`. Every online player (and
+  "Allow Commands". The choice is kept with the screen's creation settings (Cancel and Re-Create
+  start OFF again) and written to `mode.dat` as soon as the world is created (saved immediately,
+  not at the first autosave).
+- Operators (permission level 2) switch it later with `/casino mode on|off` and check it with
+  `/casino mode status` (bare `/casino mode` = status; alias `/burmaldaholic mode …`). In
+  single-player this needs cheats (Allow Commands or Open to LAN). Every online player (and
   later, every player on first join while the mode is on) then gets the first-join welcome: starting
   balance and Casino Card (§3.3).
 - Worldgen structures ship in a built-in data pack `burmaldaholic:casinos` that is enabled by
   default in the Data Packs list of world creation. If the pack is disabled, casinos do not
   generate but gameplay still works (players craft their own tables).
-- The game-rule value is the source of truth; `config/burmaldaholic.json` never overrides it.
+- The saved `mode.dat` value is the source of truth; `config/burmaldaholic.json` never overrides it.
 
 **Bedrock (add-on):**
 - The mode exists only if the behavior pack + resource pack are applied to the world.
@@ -292,7 +305,9 @@ IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SET
   bet is rejected with `gui.burmaldaholic.error.insufficient_funds`.
 - If the player disconnects between STAKED and SETTLED: the round is auto-completed by the
   server with the game's default action (blackjack: stand; craps: bets stay working until
-  resolved; roulette: spin proceeds) and the payout is credited to the balance. No refunds.
+  resolved; roulette: spin proceeds; baccarat: the coup proceeds; Ultimate Texas Hold'em: check,
+  and on the river fold unless §21.4 auto-plays) and the payout is credited to the balance. No
+  refunds.
 - If the server stops mid-round (⚠ **CHANGED 2026-09 — review M1 free-roll fix; both editions**):
   **drawn rounds are played out, undrawn bets refunded.** Once any random outcome of the round
   is drawn, the result is persisted with the stake *before* it is shown or animated, and after
@@ -308,7 +323,10 @@ IDLE → STAKED (balance debited, bet locked) → RESOLVING (server RNG) → SET
   - poker: the hand is played out as if every human left now (humans check/fold, bots play on,
     on the deck already dealt); the resulting stacks are paid instead of the start stacks;
   - coin flip, dice duel, wheel, plinko: drawn and settled in the same tick (the animation only
-    replays the credited result); scratch cards keep the drawn card and are never refunded.
+    replays the credited result); scratch cards keep the drawn card and are never refunded;
+  - baccarat: the whole coup (4–6 cards), drawn at DEAL before the reveal animation (§20.5);
+  - Ultimate Texas Hold'em: the deck (all hole, dealer and board cards), drawn at DEAL; the stored
+    result is "every pending decision takes its default action now" (§21.4, §21.5).
   Java may instead play the round out *at* the stop, before the world is saved (same result rules,
   same `msg.burmaldaholic.core.round_played_out` notice); it does the same when a table's chunk
   unloads mid-round. Only a crash (no clean stop) can still leave bets to refund on load.
@@ -951,7 +969,9 @@ the day's actual result was.
   own edge when the game knows it (slots per tier, plinko per risk, scratch per card, craps
   Odds = 0 %), otherwise the **lowest** edge of that game (blackjack 0.41 % incl. doubles,
   splits and insurance; craps flat bets 1.36 %; roulette 2.70 %; coin flip 2 %; wheel 4.63 %;
-  dice duel 2.78 %).
+  dice duel 2.78 %). Baccarat (§20) knows each bet's edge (Banker 1.06 %, Player 1.24 %, Tie
+  14.36 %, pairs 10.36 %). Ultimate Texas Hold'em (§21): Ante + Blind + Play chips use the element
+  of risk **0.53 %**, Trips its paytable's computed edge (1.90 % at defaults).
 - Expected cashback = `rate × HE × wagered` < `HE × wagered` (rate ≤ 0.5), so the effective edge
   is `HE × (1 − rate) > 0` for every game and tier.
 - Why: the old formula `floor(max(0, netLossToday) × rate)` was **+EV** for Gold+ players on
@@ -1001,8 +1021,8 @@ skeletons/magma cubes (size 2), End endermites/skeletons. No creepers (no block 
 
 ### 13.3 Golden Hour
 
-- Server-wide. While active, **net winnings** of house-banked games (all except PvP poker and PvP
-  dice) are multiplied by `chaos.goldenHour.multiplier` (2.0): bonus = floor(netWin × (m − 1)),
+- Server-wide. While active, **net winnings** of house-banked games (all except PvP poker, PvP
+  dice, chemin de fer coups §20.9 and player-banked hold'em rounds §21.9) are multiplied by `chaos.goldenHour.multiplier` (2.0): bonus = floor(netWin × (m − 1)),
   paid by the bank (also at owned casinos — owners never pay it).
 - Bonus cap per player per Golden Hour: `chaos.goldenHour.bonusCap` (5 000).
 - Duration 3600 t (3 min). Cooldown between Golden Hours: `chaos.goldenHour.cooldownTicks`
@@ -1041,7 +1061,8 @@ Per player integer **S ∈ [−10, +10]**, persisted.
   toward 0.
 
 **Effect** — only on **RNG games** (slots, wheel, plinko, scratch cards, coin flip). Table games
-(blackjack, poker, roulette, craps, dice duel) are always honest; the streak there is cosmetic.
+(blackjack, poker, roulette, craps, dice duel, baccarat §20, Ultimate Texas Hold'em §21) are always
+honest; the streak there is cosmetic.
 After the outcome is drawn, if it is a **losing outcome** (total return < stake), with probability
 `r` the whole outcome is re-drawn once and the second draw is final:
 ```
@@ -1127,6 +1148,9 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
   Golden Reels ×1; Wheel of Fortune ×1; Loan Shark ×1; Croupier (villager-like NPC, sells scratch
   cards 10/100 chips and Lucky Coins 25 chips) ×1; neon-ish glowstone/redstone-lamp sign "CASINO";
   back room with 1 loot chest `burmaldaholic:chests/village_casino`.
+- ⚠ **CHANGED 2026-09 — new games §20/§21; both editions re-export the structure files**: plus an
+  **Ultimate Texas Hold'em table ×1** (standard, `uth_table`) along the back wall (bounding box
+  unchanged). Chunks generated before the update keep the old layout.
 - Loot (4–7 rolls): chip_1 ×5–20 (w 30), chip_5 ×2–8 (w 25), chip_25 ×1–3 (w 12), scratch_card
   ×1–3 (w 15), emerald ×2–6 (w 12), golden carrot ×2–5 (w 8), lucky_coin ×1 (w 5), casino_card
   (w 3).
@@ -1140,6 +1164,9 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
 - Contents: Craps table ×1; Poker table ×1 (Low stakes, 3 bots, mix Regular-heavy); Golden Reels ×2;
   Plinko ×1; Nether Cashier ×1 (gold ingot exchange); **Piglin Dealers ×2** (piglin model with vest,
   neutral, never zombify, admire gold but never take items); Piglin Moneylender (Loan Shark variant) ×1.
+- ⚠ **CHANGED 2026-09 — new games §20/§21**: plus a **Baccarat table ×1** (standard,
+  `baccarat_table`) — gold for gold, the piglins' favourite. One of the two Piglin Dealers stands
+  behind it (cosmetic; the table works without a dealer). Bounding box unchanged.
 - Piglin Dealers are **not** bastion piglins: normal bastion piglins still behave vanilla; entering
   the Parlor does not anger them unless blocks/chests are broken (vanilla rules).
 - Loot `chests/piglin_parlor` (5–8 rolls): gold ingot ×4–12, gold block ×1 (w 8), chip_25 ×2–6,
@@ -1152,6 +1179,11 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
 - Contents: Netherite High Roller slots ×2; High-Roller Blackjack table ×1 (min 100, max 2× tier,
   Gold VIP); High-Roller Roulette ×1 (min 100); Cashier ×1; **Shulker Croupier** (cosmetic
   shulker-skinned NPC, sells gold scratch cards).
+- ⚠ **CHANGED 2026-09 — new games §20/§21; structure re-exported, size now 15 × 9 × 15**: plus a
+  **High-Roller Baccarat table ×1** (`baccarat_table_high_roller`, min 100 per coup, Gold VIP) with a
+  Baccarat Dealer NPC, and a **High-Roller Ultimate Texas Hold'em table ×1**
+  (`uth_table_high_roller`, min Ante 50, Gold VIP). These worldgen tables (and creative / `/give`)
+  are the only source of the High-Roller variants, like the other High-Roller tables.
 - Loot `chests/high_roller` (3–5 rolls): chip_100 ×2–5, chip_500 ×1–2 (w 10), diamond ×2–6,
   enchanted book (random, w 10), scratch_card_gold ×1–2, `golden_chip` trophy (w 4, decorative,
   "Worth nothing. Priceless.").
@@ -1164,6 +1196,10 @@ for both editions; sizes below are bounding boxes (X × Y × Z).
 | `poker_table` | green wool ×3 / dark oak planks ×3 / fence, chip_100, fence |
 | `roulette_table` | green wool ×3 / planks ×3 / fence, compass, fence |
 | `craps_table` | green wool ×3 / planks ×3 / fence, dice, fence |
+| `baccarat_table` | green wool ×3 / planks ×3 / fence, gold ingot, fence |
+| `uth_table` | green wool ×3 / dark oak planks ×3 / chip_25, fence, chip_25 |
+| `baccarat_table_player_banked` | shapeless: `baccarat_table` + chip_100 (Chemin de fer, §20.9) |
+| `uth_table_player_banked` | shapeless: `uth_table` + chip_100 (§21.9) |
 | `slot_machine_copper` | copper ingot ×7, redstone, chip_5 |
 | `slot_machine_gold` | gold ingot ×7, redstone block, chip_25 |
 | `slot_machine_netherite` | netherite ingot, gold block ×6, redstone block, chip_100 |
@@ -1197,9 +1233,19 @@ Blocks require no power; the machine *is* the dealer.
 | Scratch Basic / Gold | 79.5 % / 85.0 % | 20.5 % / 15.0 % | yes |
 | Plinko L / M / H | 96.56 / 96.57 / 96.70 % | ≈ 3.4 % | yes |
 | Dice Duel vs house | 97.22 % | 2.78 % | no |
+| Baccarat Banker (5 % commission) | 98.94 % | 1.06 % | no |
+| Baccarat Player | 98.76 % | 1.24 % | no |
+| Baccarat Tie (8:1) | 85.64 % | 14.36 % | no |
+| Baccarat Player Pair / Banker Pair (11:1) | 89.64 % | 10.36 % | no |
+| Ultimate Texas Hold'em (optimal play) | 99.47 % of all chips wagered | 2.19 % of the Ante (element of risk 0.53 %) | no |
+| Ultimate Texas Hold'em Trips (50-40-30-8-6-5-3) | 98.10 % | 1.90 % | no |
+| Chemin de fer (PvP) | banker 98.94 % / punters 98.76 % | rake 5 % of banker wins ≈ 2.29 % of covered chips | no |
+| Player-banked Ultimate Texas Hold'em (PvP) | seats as above | rake 1 % of the banker's positive net per round | no |
 
 Testers: every RNG game gets a 10⁷-round Monte-Carlo test asserting |RTP − expected| < 0.3 %
-(Plinko High and Netherite slots: 10⁸ or exact enumeration, due to variance).
+(Plinko High and Netherite slots: 10⁸ or exact enumeration, due to variance). Baccarat and UTH
+Trips are tested by **exact enumeration** (§20.8, §21.8); the UTH base game by a Monte-Carlo of the
+reference strategy R (§21.8).
 
 ---
 
@@ -1208,7 +1254,9 @@ Testers: every RNG game gets a 10⁷-round Monte-Carlo test asserting |RTP − e
 ### 18.1 Player-hosted tables
 
 Any placed table/machine outside a claim is a **house table** (bank-funded). Multiplayer tables:
-Blackjack (5 seats), Poker (6 seats), Roulette (8 bettors), Craps (6 seats). Seat by using the table;
+Blackjack (5 seats), Poker (6 seats), Roulette (8 bettors), Craps (6 seats), Baccarat (7 seats,
+§20; player-banked Chemin de fer variant §20.9), Ultimate Texas Hold'em (6 seats + dealer seat,
+§21; player-banked variant §21.9). Seat by using the table;
 leave with the "Leave" button or by walking > 8 blocks away (between rounds; mid-round the
 disconnect rules of each game apply). Spectators within 8 blocks see public table state (Java:
 render over the table; Bedrock: no live view — action bar summary).
@@ -1230,7 +1278,9 @@ render over the table; Bedrock: no live view — action bar summary).
 - **Solvency (reservation rule):** before accepting any stake, compute the round's worst-case
   payout (max total the house could pay for all bets currently placed in that round, e.g.
   roulette: max over the 37 outcomes; blackjack: 8 × bet (4 hands doubled) + insurance; slots:
-  highest line pay × lines × line bet; plinko: max mult × bet; craps: sum of max wins incl. odds).
+  highest line pay × lines × line bet; plinko: max mult × bet; craps: sum of max wins incl. odds;
+  baccarat: max over its 12 outcome classes, §20.6; Ultimate Texas Hold'em: `505 × Ante + 50 ×
+  Trips` per seat, §21.6).
   `reserved += worstCase`. Accept only if `reserved ≤ bankroll`. On settlement, bankroll changes by
   the real result and the reservation is released. Owner withdrawals are limited to
   `bankroll − reserved`.
@@ -1286,7 +1336,477 @@ progress stored in player dynamic property. Keys: `advancement.burmaldaholic.<id
 | `bankrupt` | the_house | Your casino closes for insolvency | task |
 | `piglin_parlor` | root | Enter a Piglin Parlor | task |
 | `high_roller` | piglin_parlor | Place a bet in the End City High Roller Lounge | goal |
+| `baccarat_natural` | beginners_luck | Win a Player or Banker bet whose hand is a **natural 9** (two cards totalling 9) | task |
+| `tie_streak` | baccarat_natural | Win Tie bets on **two consecutive coups** at the same baccarat table | goal |
+| `uth_four_x` | beginners_luck | Bet 4× preflop at Ultimate Texas Hold'em and win that Play bet | task |
+| `banco` | baccarat_natural | Call **Banco** at a chemin de fer table and win that coup | goal |
+| `bank_holder` | banco | Keep one chemin de fer bank through **5 winning coups in a row** | challenge |
+| `uth_house_seat` | uth_four_x | In the Ultimate Texas Hold'em dealer seat, finish a round with a net profit against at least 2 seated players | goal |
+| `uth_royal` | uth_four_x | Make a royal flush at Ultimate Texas Hold'em that pays the Blind or the Trips (separate from poker's `royal_flush`, which needs a PvP pot) | challenge |
 
+
+---
+
+## 20. Baccarat — Punto Banco [baccarat]
+
+⚠ **ADDED 2026-09 — new game; both editions.** Pure "no decisions" card game: players bet, the
+table deals by fixed rules. Blocks `baccarat_table` (standard) and `baccarat_table_high_roller`.
+
+### 20.1 Rules (defaults)
+
+| Rule | Value | Config key |
+|------|-------|-----------|
+| Decks | 8 × 52 = 416 cards, one shoe per table, shared by every bettor | `baccarat.decks` (1–8) |
+| Shuffle | Reshuffle **before** a coup when ≥ 80 % of the shoe has been dealt | `baccarat.penetration` |
+| Burn | After each shuffle the first card is shown and burned, then as many more cards face down as its value (A = 1, 2–9 face, 10/J/Q/K = 10) → 2–11 cards burned | `baccarat.burnCards` |
+| Card values | A = 1, 2–9 = face value, 10/J/Q/K = 0. Hand total = sum **mod 10** (7 + 8 = 5) | — |
+| Deal order | Player card 1, Banker card 1, Player card 2, Banker card 2 (all face up) | — |
+| Natural | Either two-card hand totals 8 or 9 → nobody draws | — |
+| Third cards | Drawing table §20.3 (fixed; no player decisions) | — |
+| Player bet | Wins 1:1 if Player's total is higher; **push on Tie** | — |
+| Banker bet | Wins **0.95:1** (1:1 minus 5 % commission) if Banker's total is higher; **push on Tie** | `baccarat.bankerCommission` = 0.05 |
+| Tie bet | 8:1 when the totals are equal; loses otherwise | `baccarat.tiePays` = 8 |
+| Player Pair / Banker Pair | 11:1 when that hand's **first two cards have the same rank** (K♠K♥ yes, K+Q no — as the blackjack split rule); independent of who wins | `baccarat.pairBets` = true, `baccarat.pairPays` = 11 |
+
+A bettor may combine any bets in one coup (Player and Banker together are allowed; the
+commission makes that a small sure loss, never a gain).
+
+**Commission and chip rounding (the "Banker step" rule).** Every payout is `floor()`ed (§ conventions),
+so a Banker win pays `floor(B × (1 − c))` profit, c = `baccarat.bankerCommission`. Flooring an
+arbitrary amount would silently raise the edge (B = 5 → +4, edge 7.9 %), so **Banker bets must be a
+multiple of the Banker step** `k` = the smallest integer 1…100 with `k × c` a whole number (c = 0.05 →
+k = **20**, so B = 20 n wins exactly 19 n; c = 0.04 → k = 25; c = 0 → k = 1). If no such k ≤ 100
+exists, k = 100 and the floor applies (config load logs a warning with the resulting edge). The
+UI snaps a Banker amount **down** to the nearest multiple (message `…baccarat.snapped`), exactly like
+craps odds (§10.1); the server rejects any other amount. The minimum Banker bet is
+`max(k, table min)`.
+
+### 20.2 Exact odds and house edge (8 decks, off the top)
+
+Weights are ordered card sequences of a full coup extended to 6 cards, so every count is an
+integer over `416 × 415 × 414 × 413 × 412 × 411 = 4 998 398 275 503 360`:
+
+| Result | Count | Probability |
+|--------|-------|-------------|
+| Banker wins | 2 292 252 566 437 888 | 0.458 597 |
+| Player wins | 2 230 518 282 592 256 | 0.446 247 |
+| Tie | 475 627 426 473 216 | 0.095 156 |
+| Player Pair (either hand, each) | 31 / 415 | 0.074 699 |
+
+| Bet | EV per chip | House edge | Note |
+|-----|-------------|-----------|------|
+| Banker 0.95:1 | 0.95 × 0.458597 − 0.446247 = −0.010579 | **1.06 %** | 1.17 % of resolved (non-tie) bets |
+| Player 1:1 | 0.446247 − 0.458597 = −0.012351 | **1.24 %** | |
+| Tie 8:1 | 9 × 0.095156 − 1 = −0.143596 | **14.36 %** | `tiePays` 9 → 4.84 % |
+| Player Pair / Banker Pair 11:1 | 12 × 31/415 − 1 = −43/415 | **10.36 %** | `pairPays` ≥ 13 would be player-favourable → range capped at 12 |
+
+Penetration does not change these figures in a way players can exploit (card counting in
+baccarat is worthless), so the shoe is dealt deep. Other deck counts change the edges slightly;
+tests recompute them with the same method (§20.8).
+
+### 20.3 Third-card (drawing) rules
+
+1. If either hand is a **natural** (two-card 8 or 9): both stand; compare.
+2. **Player**: total 0–5 → draws one card; 6–7 → stands.
+3. **Banker**, if Player **stood** (Player had 6–7): 0–5 draws, 6–7 stands.
+4. **Banker**, if Player **drew**: by Banker's two-card total and the **value** (0–9) of Player's
+   third card (D = draw, S = stand):
+
+| Banker total \ Player's 3rd card | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|------|---|---|---|---|---|---|---|---|---|---|
+| 0, 1, 2 | D | D | D | D | D | D | D | D | D | D |
+| 3 | D | D | D | D | D | D | D | D | **S** | D |
+| 4 | S | S | D | D | D | D | D | D | S | S |
+| 5 | S | S | S | S | D | D | D | D | S | S |
+| 6 | S | S | S | S | S | S | D | D | S | S |
+| 7 | S | S | S | S | S | S | S | S | S | S |
+
+Each hand has at most 3 cards. Higher final total wins; equal totals are a Tie.
+
+Test vectors (cards in deal order P1, B1, P2, B2, then P3, B3):
+1. 8♠ 9♦ K♥ 7♣ → Player 8 natural, Banker 6; no draws; **Player wins 8–6**.
+2. 2♣ K♦ 3♥ 3♠, P3 = 8♦ → Player 5 draws → 3; Banker 3 vs P3 = 8 **stands** → **Tie 3–3**.
+3. A♠ 5♥ 4♦ K♣, P3 = 4♥, B3 = 3♣ → Player 5 → 9; Banker 5 vs P3 = 4 draws → 8; **Player wins 9–8**.
+4. 7♦ 2♠ Q♥ 3♥, B3 = 4♠ → Player 7 stands; Banker 5 draws (Player stood) → 9; **Banker wins 9–7**;
+   a Banker bet of 40 wins +38.
+5. Q♠ 6♦ Q♦ A♣ → Player Pair (Q, Q), Player 0 draws; Banker 7 — Pair pays whatever follows.
+
+### 20.4 Limits
+
+- Standard table: every bet ≥ `baccarat.minBet` (1); Banker ≥ `max(k, minBet)` and a multiple of k;
+  Tie and **each** Pair ≤ `floor(max × baccarat.sideMaxFraction)` (0.25); **total per coup ≤ max**,
+  max = min(table max, tier max) (§4.2).
+- High-Roller table: requires **Gold VIP**; total per coup ≥ `baccarat.highRollerMinTotal` (100),
+  ≤ 2 × tier max (`baccarat.highRollerMaxMultiplier`); the same Banker step and side-bet fraction.
+- Chips only (no pawn stakes, §4.3). Wagered (VIP, contracts) = the sum of the coup's bets.
+- Streak: updated once per coup from the bettor's **net** over all bets; never alters the cards.
+
+### 20.5 Table state machine (one shoe, up to 7 seats)
+
+```
+BETTING      : players take a seat by using the table (or its dealer NPC). Each bet is debited when it is
+               placed (STAKED, §4.1); "Clear" refunds all own bets, "Rebet" repeats the last coup's
+               bets (snapped to the current limits). Ends baccarat.betTimerTicks (400 = 20 s) after
+               the FIRST bet at the table, or earlier when every bettor with a bet pressed "Ready".
+               Single bettor: "Deal" starts the coup at once.
+NO_MORE_BETS : 20 t. Bets locked.
+SHUFFLE      : only if the penetration is reached (or the shoe is new): shuffle, burn (§20.1),
+               40 t animation, bead plate cleared.
+DEAL         : the server draws the complete coup (4–6 cards, rules are mechanical) and persists the
+               cards and all stakes BEFORE any animation → the coup is "drawn" (§4.1).
+REVEAL       : baccarat.revealTicks (80 t): P1, B1, P2, B2 10 t apart, then Player's third card,
+               then Banker's third card (each announced: "Player draws a third card").
+RESULT       : 60 t. Settle every bettor, credit, update bead plate/streak/VIP/contracts → BETTING.
+```
+No dealer NPC is needed: the table deals itself.
+
+**Shared table** (both editions): up to `baccarat.seats` (7) seated players bet on the **same coup**
+from the same shoe — one Player hand and one Banker hand per round for everyone; each seat settles
+its own bets. Readiness works like roulette (§9): the window closes on the timer or when all seats
+with bets are Ready. A player who sits down after BETTING has closed is **seated but waits** for the
+next round (`gui.burmaldaholic.baccarat.waiting_next`). Everyone within `multiplayer.spectatorRadius`
+(seated or not) sees the public state (§18.1: Java renders the cards and bead plate over the
+table; Bedrock gets the action-bar summary `gui.burmaldaholic.baccarat.actionbar`).
+
+**Leave, disconnect, table break, restart** (per §4.1, "drawn rounds are played out"):
+- *Leave button or walking away* (> `multiplayer.tableLeaveDistance`) during BETTING: own bets are
+  cleared and refunded (= Clear; `msg.burmaldaholic.baccarat.left_refunded`).
+- *Disconnect* during BETTING: the bets stay and play in the coming coup (no refunds, like
+  roulette); the result is credited offline and reported on join
+  (`msg.burmaldaholic.core.auto_completed`).
+- From NO_MORE_BETS on, leaving or disconnecting changes nothing: the coup is dealt and credited.
+- *Table break* (block broken, dealer NPC removed on Bedrock, casino mode off, chunk unload,
+  server stop, crash): BETTING / NO_MORE_BETS → every bet is refunded
+  (`msg.burmaldaholic.baccarat.bets_refunded`); DEAL / REVEAL / RESULT → settled at the stored coup
+  (`msg.burmaldaholic.core.round_played_out`). Java may settle at the stop instead (§4.1).
+- The shoe (remaining order, cards dealt, bead plate, tie run) is saved with the table and survives
+  restarts; breaking the table discards it.
+
+### 20.6 House tables, owned casinos, dealer NPC
+
+- House tables are bank-funded. At an owned table the owner sets min (per coup) and max (per coup).
+- **Reservation** (§18.2): for each bettor and each of the **12 outcome classes** {Player, Banker,
+  Tie} × {Player Pair yes/no} × {Banker Pair yes/no}, the house's net loss is
+  `main + pairs`, where main = `P − B − T` (Player wins), `floor(B × (1 − c)) − P − T` (Banker wins),
+  `tiePays × T` (Tie; P and B push), and each pair adds `pairPays × stake` if it hits, else
+  `−stake`. The table reserves `max(0, max over the 12 classes of Σ over bettors)` and re-checks it
+  on every bet placement (`gui.burmaldaholic.error.exposure` when it does not fit). Smallest
+  worst-case at the minimum bet (insolvency test): 1 (Player 1).
+- **Baccarat Dealer** NPC `baccarat_dealer` (optional, cosmetic, like the blackjack dealer):
+  stationary, invulnerable, persistent, looks at players. Java: using it opens the nearest baccarat
+  table (normal or High Roller) within 3 blocks, else `msg.burmaldaholic.baccarat.no_table`.
+  Bedrock: the entity itself can host a table (table key `npc:<entity id>`; High Roller when it has
+  the tag `burmaldaholic_baccarat_high_roller`); removing it is a table break. Spawn egg
+  `baccarat_dealer_spawn_egg`.
+
+### 20.7 Chaos and advancement hooks
+
+- **Tie run**: when a table deals `baccarat.tieStreakChaos` (3; 0 = off) Ties in a row, every bettor
+  who **won a Tie bet** on the coup that completes the run gets `chip_shower` (as §13.1 trigger 2:
+  bypasses the ambient chance, respects §13.4 safety and the per-player cooldown; deferred while
+  the screen is open). Every player within `multiplayer.spectatorRadius` sees
+  `msg.burmaldaholic.baccarat.tie_run` (plural). The run counter continues (4th tie → again).
+- **Natural 9** on the winning side: chat flourish `msg.burmaldaholic.baccarat.natural_nine` and
+  advancement `baccarat_natural` for bettors whose Player/Banker bet won with it.
+- `tie_streak` advancement: the same player wins a Tie bet on two consecutive coups of one table.
+- The §13.1 big-win rule can never fire here (max pay 11:1). Golden Hour doubles the coup's net
+  win as for every house game. `random_teleport` is blocked while a coup runs (§13.4).
+
+### 20.8 Test method (both editions)
+
+Exact enumeration by **value classes** (10 classes: value 0 with `16 × decks` cards, A…9 with
+`4 × decks` each): loop P1, B1, P2, B2 (weight = product of remaining class counts, decrementing),
+apply §20.3 for the third cards, and extend each k-card sequence weight by
+`(N − k)(N − k − 1)…(N − 5)` so all leaves share the denominator `N!/(N − 6)!`. About 10⁶ leaves,
+milliseconds. Assert for 8 decks the three counts of §20.2 exactly and their sum; assert the pair
+probability `(4 × decks − 1)/(N − 1)` = 31/415 (pairs are by **rank**, 13 ranks × 32 cards). Also:
+the 5 vectors of §20.3, the Banker step for c ∈ {0.05, 0.04, 0.0, 0.03}, and a 10⁶-coup shoe
+simulation (with burn and penetration) within 0.3 % of the exact probabilities.
+
+### 20.9 Chemin de fer — player-banked variant (PvP)
+
+⚠ **ADDED 2026-09.** Block `baccarat_table_player_banked` (shapeless: `baccarat_table` + `chip_100`);
+works only while `baccarat.chemmy.enabled`. Up to 7 seats. Players bank for each other; the house
+only takes a commission (rake).
+
+- **Roles**: the **Banker** (one seated player holding the bank) owns the Banker hand; every other
+  seated player is a **punter** and bets on the Player hand **against the bank**. There are no Tie,
+  pair or Banker-side bets at a chemin de fer coup.
+- **Fixed tableau**: both hands draw by §20.3 exactly as in Punto Banco (deliberate simplification of
+  classic chemin de fer, where the punter chooses on 5 and the banker in a few spots): no extra
+  timers, and the exact odds of §20.2 apply. Same 8-deck shoe, burn and penetration.
+- **Bank**: taking the bank escrows `B` chips from the banker's balance
+  (`baccarat.chemmy.minBank` 20 ≤ B ≤ balance), held on the table like a poker stack.
+  **Coverage** `C = min(B, banker's max)` (max = min(table max, the banker's tier max), §4.2) is what
+  punters may bet this coup; the rest of the bank is not at risk.
+- **Punter bets**: each ≥ table min and ≤ the punter's own max; accepted in placement order while
+  `Σ ≤ C` (the bet that crosses C is snapped down to the open coverage). **Banco**: a punter whose
+  balance and max both reach C presses "Banco" and matches the whole coverage alone — every other
+  punter bet is refunded and betting closes at once. First press wins; one Banco per coup.
+- **Settlement**: Banker hand wins → the banker wins `W = Σ punter stakes`,
+  `rake = floor(W × baccarat.chemmy.rakePercent)` (0.05) goes to the owner's bankroll at an owned
+  casino (else it leaves the economy, §3.5), `B += W − rake`. Player hand wins → each punter is paid
+  1:1 from the bank, `B −= Σ stakes`. Tie → every stake pushes.
+- **Edges** (per chip covered / bet): banker −1.06 % (0.95 × 0.458597 − 0.446247), punters −1.24 %,
+  house rake +2.29 % (0.05 × 0.458597). Nobody but the rake gains on average; the house never pays
+  at a chemin de fer coup, so no reservation is made.
+- **Rotation**: a banker who **wins** is offered to keep the whole bank or pass it. A banker who
+  **loses**, passes, drops below `minBank` or leaves gets the remaining bank back to the balance, and
+  the bank is offered to the **next seat clockwise**; each candidate may take it (amount of their
+  choice) or pass. If every seat passes, the round is a normal **house coup** (§20.5 bets against
+  the house on the same shoe) when `baccarat.chemmy.houseCoupWhenNoBanker` (true), else the table
+  waits.
+- **Who may play**: nobody who owes the Loan Shark (active loan or default) may bank or punt at a
+  chemin de fer coup — it is a player-to-player transfer (§5.8; `…baccarat.error.pvp_owing`); they
+  may still play house coups. The owner of an owned table never plays at it (§18.2).
+
+```
+BANK_OFFER   : candidate = the winning banker, else the next seat clockwise (first round: seat 1).
+               Buttons: Take the bank (amount) · Pass — or Keep the bank · Pass the bank.
+               baccarat.chemmy.bankOfferTicks (200 = 10 s); timeout = Pass (nothing escrowed / the
+               bank goes back to the balance). All seats pass → HOUSE coup (§20.5) or wait.
+BETTING      : punters bet up to C or call Banco; Ready / betTimerTicks from the first bet, as §20.5.
+               No punter bet within baccarat.chemmy.idleTicks (600 = 30 s) → the bank is passed.
+NO_MORE_BETS → SHUFFLE (if due) → DEAL (coup drawn and persisted with stakes and bank, §4.1)
+             → REVEAL → RESULT (settle, rake) → BANK_OFFER.
+```
+
+**Leave, disconnect, table break, restart**:
+- Banker leaves / walks away / disconnects in BANK_OFFER or BETTING: all punter bets are refunded,
+  the bank is returned, the next seat is offered the bank.
+- Banker leaves after DEAL: the coup **plays out** against the escrowed bank and settles; the bank
+  then returns to the banker's balance (offline credit, notice `msg.burmaldaholic.baccarat.bank_returned`
+  on join) and rotation continues.
+- Punters: as §20.5 (bets placed stay in play on disconnect; Leave in BETTING refunds).
+- Table break / restart: undrawn → punter stakes refunded and bank returned; drawn → settled, then
+  the bank returned. The escrow is saved with the table; an orphaned bank found on load is always
+  returned to its owner.
+- Streak / VIP / contracts: PvP wagers count (§14); the banker's wagered = the stakes matched that
+  coup. No cashback and no Golden Hour bonus on chemin de fer coups (PvP, §12, §13.3); house coups
+  at this table get both as usual. The natural-9 flourish applies; the tie-run hook needs Tie bets,
+  so only house coups can trigger it.
+- Advancements: `banco` (call Banco and win that coup), `bank_holder` (keep one bank through 5
+  winning coups in a row).
+
+---
+
+## 21. Ultimate Texas Hold'em [uth]
+
+⚠ **ADDED 2026-09 — new game; both editions.** House-banked hold'em: each seat plays only
+against the dealer. Blocks `uth_table` (standard) and `uth_table_high_roller`. Reuses the poker
+hand evaluator (§7.2) and hand names.
+
+### 21.1 Rules (defaults)
+
+| Rule | Value | Config key |
+|------|-------|-----------|
+| Deck | 1 × 52, shuffled every round (Fisher–Yates), no burn cards | — |
+| Seats | up to 6; every seat plays against the dealer's hand, never against other seats | `uth.seats` (1–6) |
+| Mandatory bets | **Ante** and **Blind**, always equal (the Blind is placed automatically) | — |
+| Optional bet | **Trips** (0 = none); needs an Ante | `uth.tripsEnabled` |
+| Preflop decision | **Check**, **Bet ×4** or **Bet ×3** the Ante (the Play bet) | `uth.allow3x` = true |
+| Flop decision (3 board cards shown) | If no Play bet yet: **Check** or **Bet ×2** | — |
+| River decision (turn and river shown together) | If no Play bet yet: **Bet ×1** or **Fold** | — |
+| One Play bet | A seat makes at most one Play bet per round; after it the seat only watches | — |
+| Hands | Best 5 of 7 (2 hole + 5 board), §7.2 ranking, `evaluate(cards[7])` | — |
+| Dealer qualifies | Dealer's best hand is **one pair or better** (board pairs count) | — |
+| Blind paytable (only when the seat **wins**) | Royal flush 500:1 · Straight flush 50:1 · Four of a kind 10:1 · Full house 3:1 · Flush 3:2 · Straight 1:1 · anything lower: push | `uth.blindPays` |
+| Trips paytable (on the seat's own hand, win or lose, **even after a fold**) | Royal flush 50:1 · Straight flush 40:1 · Four of a kind 30:1 · Full house 8:1 · Flush 6:1 · Straight 5:1 · Three of a kind 3:1 · lower: loses | `uth.tripsPays` |
+
+**Settlement** (A = Ante = Blind, P = Play bet, T = Trips; "wins" compares the full `evaluate`
+values, equal values = tie):
+
+| Seat result | Play | Ante | Blind |
+|-------------|------|------|-------|
+| Wins, dealer qualifies | +P (1:1) | +A (1:1) | Blind paytable, else push |
+| Wins, dealer does **not** qualify | +P | **push** | Blind paytable, else push |
+| Loses, dealer qualifies | −P | −A | −A |
+| Loses, dealer does **not** qualify | −P | **push** | −A |
+| Tie | push | push | push |
+| Folded (river) | — | −A | −A |
+
+Trips: `+T × tripsPays[category]` for three of a kind or better, else `−T`, always. Royal flush =
+straight flush whose top card is an Ace. **Rounding**: the only fractional pay is the Blind's 3:2
+flush → `floor(1.5 × A)` (odd Antes lose half a chip, as blackjack's 3:2, §6.1).
+
+⚠ **Design decision (Trips paytable)**: the default is the standard casino table
+50-40-30-**8-6-5**-3, whose exact edge is **1.90 %** (§21.3). The variant 50-40-30-**9-7-4**-3 has an
+edge of only **0.90 %** (not 1.90 %); it remains available through `uth.tripsPays`.
+
+Test vectors (A = 10 unless stated; cards: player hole · dealer hole · board):
+1. A♠K♠ · 7♦2♣ · Q♠J♠T♠3♥4♦, Bet ×4 preflop, T = 5 → royal flush; dealer Q-high does not qualify:
+   Play +40, Ante push, Blind +5 000, Trips +250 → **net +5 290**.
+2. 9♥9♣ · K♦K♣ · 9♦5♠2♥J♣3♦, Bet ×4, T = 10 → trips beat kings (dealer qualifies): Play +40,
+   Ante +10, Blind push, Trips +30 → **+80**.
+3. Q♣7♦ · any · 2♠5♥9♦J♠3♣, check, check, fold, T = 10 → Ante −10, Blind −10, Trips −10 → **−30**.
+4. 2♣3♦ · 4♠5♦ · A♠A♥K♦K♣Q♥, Bet ×1 at the river, T = 5 → both play the board: Play/Ante/Blind push,
+   Trips (two pair) −5 → **−5**.
+5. 7♣2♦ · A♣8♦ · K♠Q♥9♣5♦3♠, Bet ×1 → dealer wins with A-high, does not qualify: Play −10, Ante push,
+   Blind −10 → **−20**.
+6. A = 5, the seat wins with a flush → Blind +7 (floor 7.5).
+
+### 21.2 Limits and balance
+
+- **Worst-case total** `W = 6 × Ante + Trips` (Ante + Blind + a ×4 Play bet + Trips). The VIP /
+  table maximum applies to W, not to the Ante: `W ≤ max`, max = min(table max, tier max) (§4.2).
+  Bronze (100): Ante ≤ 16 without Trips. UI shows the resulting Ante range.
+- Ante ≥ `uth.minAnte` (1); Trips 0 or ≥ `uth.minAnte`.
+- At confirmation the balance must cover `2 × Ante + Trips` (debited now) **and** leave ≥ 1 × Ante
+  (`gui.burmaldaholic.uth.error.keep_for_river`), so the ×1 river bet is affordable when the round
+  starts. Play buttons whose amount exceeds the current balance are disabled with a tooltip; if no
+  Play bet is affordable at the river, only Fold is offered.
+- High-Roller table: requires **Gold VIP**, Ante ≥ `uth.highRollerMinAnte` (50),
+  W ≤ 2 × tier max (`uth.highRollerMaxMultiplier`).
+- Chips only (no pawn stakes). Wagered (VIP, contracts, streak) = Ante + Blind + Play + Trips
+  actually placed; one settlement (net of all four bets) per seat per round.
+- Streak: cosmetic only; the shuffle and the dealer are never altered.
+
+### 21.3 House edge and method
+
+| Bet | Figure | Method |
+|-----|--------|--------|
+| Ante + Blind + Play, **optimal** strategy | **2.185 % of the Ante** (≈ 2.19 %); average total wagered 4.15 Antes → **element of risk 0.527 %** (≈ 0.53 %) | Full combinatorial analysis with the §7.2 evaluator: every hole-card pair (1 326, 169 classes) × flop × turn/river × the dealer's 990 remaining hole pairs, choosing the max-EV action backwards (river → flop → preflop). Offline tool, not part of CI. Optimal play never uses ×3. |
+| Same, **reference strategy R** (below) | **2.27 % ± 0.06 %** of the Ante, element of risk 0.55 %, average total wagered 4.15 Antes; fold 19.1 %, ×4 37.7 %, ×2 21.4 %, ×1 21.7 % | Monte-Carlo, 6 × 10⁷ rounds (design-time measurement, SE 0.064 %). |
+| Trips 50-40-30-8-6-5-3 | EV = −2 547 324 / 133 784 560 = **−1.9040 %** | Exact over all C(52,7) = 133 784 560 hands: royal 4 324, straight flush 37 260, quads 224 848, full house 3 473 184, flush 4 047 644, straight 6 180 020, trips 6 461 620 (hit rate 15.27 %). |
+| Trips 50-40-30-9-7-4-3 (variant) | −1 206 516 / 133 784 560 = −0.9018 % | Same counts. |
+
+**Reference strategy R** (tests only; never shown as advice):
+- Preflop Bet ×4 with: any pair 3-3 or better; any Ace; K-x suited, K-5+ offsuit; Q-6+ suited,
+  Q-8+ offsuit; J-8+ suited, J-T+ offsuit. Otherwise check.
+- Flop Bet ×2 with: a pair that uses at least one hole card (except pocket 2s); any made hand of
+  two pair or better on the 5 known cards (incl. straights, flushes, board trips); four to a flush
+  including a hole card of that suit of rank 10 or higher. Otherwise check.
+- River: enumerate the dealer's 990 possible hole pairs from the 45 unseen cards; Bet ×1 iff the
+  mean result of betting (win: `1 + (dealer qualifies ? 1 : 0) + blindPay`; loss:
+  `−(2 + (dealer qualifies ? 1 : 0))`; tie: 0, in Antes) is greater than −2 (the fold). Otherwise fold.
+
+### 21.4 Round state machine (one table, up to 6 seats)
+
+```
+BETTING  : seated players set the Ante (the Blind follows) and optional Trips and press "Deal"
+           (the bets are debited = STAKED). "Clear" takes them back until DEAL. Ends when every
+           seated player with a bet pressed Deal, or uth.betTimerTicks (300 = 15 s) after the FIRST
+           confirmed bet. Seats without a bet sit this round out. Single player: DEAL at once.
+DEAL     : shuffle; one card to each active seat (seat order 1→6), one to the dealer, again; then
+           the 5 board cards face down. The deck and stakes are persisted → the round is "drawn".
+PREFLOP  : every active seat decides at the same time (private buttons, public result tags):
+           Check · Bet ×3 · Bet ×4.
+FLOP     : reveal 3 board cards (20 t). Seats without a Play bet: Check · Bet ×2.
+RIVER    : reveal turn and river (2 × 10 t). Seats without a Play bet: Bet ×1 · Fold.
+SHOWDOWN : reveal the dealer's cards (20 t), announce "Dealer qualifies" or not, settle every seat
+           (Play, Ante, Blind, Trips), credit. Show 80 t → BETTING.
+```
+- **Shared table**: all seats share the same board and the same dealer hand; each seat has its own
+  hole cards and plays only against the dealer. A player who sits down after DEAL is **seated but
+  waits** for the next round (`gui.burmaldaholic.uth.waiting_next`); spectators within
+  `multiplayer.spectatorRadius` see the public state (board, seat tags and bets; hole cards only at
+  SHOWDOWN) as in §18.1.
+- Each decision street has one shared timer `uth.decisionTimerTicks` (400 = 20 s). A street ends as
+  soon as every seat that still has a decision has decided; a street with no pending decision is
+  only revealed (no wait). Pressing a Play button is final.
+- **Timeout / safe default action**: PREFLOP and FLOP → **Check** (no chips put at risk). RIVER →
+  **Fold**, except when `uth.autoPlayMadeHands` (true) and the seat's best hand is a **straight or
+  better** and the balance covers 1 × Ante: then **Bet ×1** (a timeout must never throw away a Blind
+  bonus). Messages `msg.burmaldaholic.uth.auto_check` / `auto_fold` / `auto_play`.
+
+### 21.5 Leave, disconnect, table break, restart
+
+- *Leave / walk away / disconnect* after DEAL: the seat's pending decisions are applied **at once**
+  with the default rule above; the round plays out and is credited
+  (`msg.burmaldaholic.core.auto_completed`; offline credits are reported on join). During BETTING:
+  Leave / walking away takes the confirmed bets back (undrawn); a disconnect leaves them in play and
+  the round is played with default actions (no refunds, §4.1).
+- *Table break / server stop / casino mode off / chunk unload* (per §4.1): BETTING → every confirmed
+  bet refunded (`msg.burmaldaholic.uth.bets_refunded`). DEAL onward → the round is **played out** on
+  the persisted deck with every pending decision set to its default action, then settled
+  (`msg.burmaldaholic.core.round_played_out`). Decisions already taken stay.
+
+### 21.6 House tables, owned casinos, dealer NPC
+
+- House tables are bank-funded. At an owned table the owner's min bet is the minimum **Ante** and
+  the max bet is the maximum **W** (§21.2).
+- **Reservation per seat** (§18.2), taken at confirmation assuming the largest Play bet:
+  `maxLoss = Ante × (4 + 1 + blindPays.royal) + Trips × tripsPays.royal` = **505 × Ante + 50 × Trips**
+  at defaults (Play ×4 + Ante 1:1 + Blind 500:1 + Trips 50:1 on a royal flush). Released at
+  settlement. Example: Ante 10 + Trips 10 → 5 550 reserved. The insolvency test uses 505 (Ante 1).
+  UTH is the most bankroll-hungry table; the charter screen shows its reservation per seat.
+- **Hold'em Dealer** NPC `uth_dealer` (optional, cosmetic): same behaviour as the Baccarat Dealer
+  (§20.6); Bedrock High-Roller tag `burmaldaholic_uth_high_roller`; Java radius 3 blocks
+  (`msg.burmaldaholic.uth.no_table`). Spawn egg `uth_dealer_spawn_egg`.
+
+### 21.7 Chaos and advancement hooks
+
+- **Royal flush paying the Blind** → `diamond_rain` for that player (as the jackpot trigger,
+  §13.1.4: bypasses the ambient chance, respects safety) and the server-wide
+  `msg.burmaldaholic.uth.royal_broadcast`; this replaces the big-win `lucky_buff` roll for that
+  settlement. The §13.1 big-win rule applies normally otherwise (e.g. a large Trips hit).
+- Advancements (§19): `uth_four_x` (the seat bet ×4 preflop and its Play bet won), `uth_royal`
+  (the seat's hand is a royal flush and the Blind **or** the Trips paid on it). Poker's
+  `royal_flush` stays PvP-only.
+- Golden Hour doubles the seat's net win as for every house game; `random_teleport` is blocked
+  while the seat is in a round (§13.4).
+
+### 21.8 Test method (both editions)
+
+- **Settlement**: the 6 vectors of §21.1, plus every row of the settlement table.
+- **Trips**: exact — either enumerate all 133 784 560 seven-card hands with `evaluate`, or assert
+  the category counts of §21.3 (the poker evaluator tests already cover them) and compute the EV
+  with integer arithmetic; assert −2 547 324 exactly for the default paytable.
+- **Base game**: 2.5 × 10⁷ rounds of strategy R, Ante 2 (so the 3:2 flush is exact); assert
+  1.95 % ≤ HE ≤ 2.60 % of the Ante (sd per round ≈ 4.95 Antes, SE ≈ 0.099 % → ± 3.3 σ band) and
+  the ×4 frequency 37.7 % ± 0.3 %.
+- **Timeouts**: preflop/flop timeout checks, river timeout folds, a straight at the river with
+  `autoPlayMadeHands` bets ×1; restart after DEAL settles with those defaults.
+
+### 21.9 Player-banked Ultimate Texas Hold'em (PvP)
+
+⚠ **ADDED 2026-09.** Block `uth_table_player_banked` (shapeless: `uth_table` + `chip_100`); works only
+while `uth.pvp.enabled`. 6 player seats plus the **dealer seat**, which a player may take.
+
+- **Taking the dealer seat**: a seated player with VIP ≥ `uth.pvp.minBankerVip` (2 = Gold), who
+  does not owe the Loan Shark (§5.8, `…uth.error.pvp_owing`) and is not the table owner, presses
+  "Take the dealer seat" while the seat is free, **before the first bet of a round is confirmed**
+  (later requests wait for the next round). They escrow a bank `B` (`uth.pvp.minBank` 1 000 ≤ B ≤
+  balance) and give up their player seat. The banker makes **no decisions**: the dealer hand plays
+  and qualifies exactly as in §21.1; the bank replaces the house as the payer and the payee.
+- **Coverage check** (the owned-casino rule, §18.2, against the bank): each seat's confirmation
+  reserves its worst case `505 × Ante + 50 × Trips` (§21.6 formula); it is accepted only if
+  `reserved + seatWorstCase ≤ B`, else `gui.burmaldaholic.uth.error.bank_cover` names the largest
+  Ante the bank still covers. The banker's own tier max does not apply (the bank is the limit); the
+  seats' limits (§21.2) do.
+- **Settlement**: seats settle as §21.1 (Trips included) against the bank. `bankerNet = −Σ seatNet`.
+  If `bankerNet > 0`: `rake = floor(bankerNet × uth.pvp.rakePercent)` (0.01) → owner's bankroll at an
+  owned casino, else removed; `B += bankerNet − rake`. Otherwise `B += bankerNet` (the bank pays).
+- **Figures** (heads-up, opponent playing strategy R): the dealer seat gains +2.27 % of each Ante
+  before rake; the rake costs `rakePercent × 1.81` Antes per round (1.81 = mean seat loss per round,
+  simulated) → at 1 % the banker keeps ≈ +0.46 % of the Ante, at 2 % ≈ −1.35 %. Several seats net
+  against each other, lowering the rake. The seats keep their −2.2 % to −2.3 %. No Golden Hour bonus
+  and no cashback on player-banked rounds; house rounds at this table get both.
+- **Rotation**: after `uth.pvp.bankerRounds` (10; 0 = unlimited) rounds, the dealer seat is offered to
+  the next seat clockwise (the current banker keeps it if nobody accepts). The banker may press
+  "Leave the dealer seat" any time — it takes effect **after the current round**. A bank below
+  `minBank`, or unable to cover one seat at the minimum Ante, ends the banking after the round.
+  The rest of the bank always returns to the banker's balance.
+- **No banker** → the house deals (a normal §21 round, bank-funded or owner-funded) when
+  `uth.pvp.houseRoundsWhenNoBanker` (true); else the table waits.
+
+State machine: §21.4 unchanged, plus: at the start of BETTING the table fixes who banks this round
+(banker or house). If the banker leaves before DEAL, the confirmed seat bets stay and the round
+becomes a house round (the bank's reservations are released, the house re-checks its own).
+
+**Leave, disconnect, table break, restart**:
+- Banker disconnects / walks away after DEAL: the round **plays out** against the escrowed bank
+  (seats keep deciding; the dealer has no decisions) and settles; then the bank returns to the
+  banker's balance (offline credit, `msg.burmaldaholic.uth.bank_returned` on join); the next round
+  is dealt by the house or a new banker.
+- Seats: §21.5.
+- Table break / restart: undrawn → seat bets refunded and bank returned; drawn → played out against
+  the bank with default actions, settled, then the bank returned. The escrow is saved with the
+  table; an orphaned bank found on load is always returned.
+- Streak / VIP: seats as usual; the banker's settlement counts as one PvP wager whose wagered amount
+  is the seats' total stakes that round.
+- Advancement: `uth_house_seat` (in the dealer seat, finish a round with a net profit against at
+  least 2 seated players).
 
 ---
 

@@ -8,7 +8,7 @@ the numbers used throughout `GAME_DESIGN.md` (section references in the last col
 | | Java (Fabric) | Bedrock (Script API) |
 |---|---|---|
 | Storage | `config/burmaldaholic.json` (server side). Keys are dotted paths; the file is **nested JSON objects** following the dots (`economy.ore.diamond` → `{"economy":{"ore":{"diamond":20}}}`). Unknown keys are ignored with a log warning; missing keys use defaults. Per-world override: `<world>/data/burmaldaholic_config.json` (same format), which wins over the global file. | World dynamic property `burmaldaholic:config` holding a **flat JSON object of overrides only** (`{"economy.ore.diamond":25}`), to stay under the 32 767-char property limit. Missing keys = defaults. |
-| Casino mode flag | Game rule `burmaldaholic:casino_mode` (source of truth for `core.casinoMode`) | Dynamic property `burmaldaholic:casino_mode` |
+| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default OFF; `/casino mode on\|off\|status`) | Dynamic property `burmaldaholic:casino_mode` |
 | Editing | Config screen (Mod Menu integration, client) for single-player; `/casino config get/set/reset <key> [value]` (permission level 2) on servers; reload with `/casino config reload`. | Casino Card → Admin → World settings (ops only): one ActionForm per module listing keys → ModalForm per group (toggle for bool, slider for small int ranges, text field otherwise, dropdown for enums). `/scriptevent burmaldaholic:config set <key> <value>`. |
 | Validation | Out-of-range values are **clamped** to the range and a warning is logged / shown to the editor. Wrong type → default. | Same. |
 | Sync | Server sends the effective config subset needed for UI (limits, payouts tables) to clients on join and on change. | Not needed (UI is server-built forms). |
@@ -23,7 +23,7 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `core.casinoMode` | bool | true (on world creation) | — | Master switch (§2.1). Stored in game rule / dynamic property, not in the config file. |
+| `core.casinoMode` | bool | true (on world creation) | — | Master switch (§2.1). Stored in world saved data `mode.dat` (Java, default OFF) / dynamic property (Bedrock), not in the config file. |
 | `core.giveCasinoCardOnJoin` | bool | true | — | Give a Casino Card on a player's first join. |
 | `core.hud.enabled` | bool | true | — | Show the HUD panel (players can hide it individually too). |
 | `core.hud.position` | enum(TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT) | TOP_LEFT | — | Default HUD corner (per-player override in Casino Menu). |
@@ -244,6 +244,64 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `craps.betWindowTicks` | int | 160 | 40–1200 | |
 | `craps.rollTimerTicks` | int | 400 | 100–2400 | |
 | `craps.seats` | int | 6 | 1–8 | |
+
+## baccarat
+
+⚠ Added 2026-09 (GAME_DESIGN §20).
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `baccarat.enabled` | bool | true | — | All baccarat tables (house and chemin de fer). |
+| `baccarat.decks` | int | 8 | 1–8 | Decks in the shoe. Edges in §20.2 are for 8. |
+| `baccarat.penetration` | double | 0.80 | 0.25–0.90 | Reshuffle before a coup once this share of the shoe is dealt. |
+| `baccarat.burnCards` | bool | true | — | Burn procedure after each shuffle (§20.1). |
+| `baccarat.bankerCommission` | double | 0.05 | 0.0–0.10 | Banker wins pay (1 − this):1, floored. Also sets the Banker step (§20.1; 0.05 → 20). |
+| `baccarat.tiePays` | int | 8 | 8–9 | Tie pays X:1 (8 → HE 14.36 %, 9 → 4.84 %). |
+| `baccarat.pairBets` | bool | true | — | Offer Player Pair / Banker Pair. |
+| `baccarat.pairPays` | int | 11 | 1–12 | Pair pays X:1 (11 → HE 10.36 %; 13+ would favour the player, hence the cap). |
+| `baccarat.minBet` | int | 1 | 1–10⁶ | Per individual bet (Banker also ≥ the Banker step). |
+| `baccarat.sideMaxFraction` | double | 0.25 | 0.01–1.0 | Tie and each Pair ≤ max × this. |
+| `baccarat.highRollerMinTotal` | int | 100 | 1–10⁶ | High-Roller table: minimum total per coup. |
+| `baccarat.highRollerMaxMultiplier` | double | 2.0 | 1.0–10.0 | High-Roller max = tier max × this. |
+| `baccarat.highRollerMinVipTier` | int | 2 | 0–5 | 2 = Gold. |
+| `baccarat.seats` | int | 7 | 1–7 | Seats per table (house and chemin de fer). |
+| `baccarat.betTimerTicks` | int | 400 | 100–2400 | Betting window after the first bet. |
+| `baccarat.revealTicks` | int | 80 | 20–300 | Card reveal animation. |
+| `baccarat.historyLength` | int | 60 | 0–120 | Bead plate size (coups of the current shoe). |
+| `baccarat.tieStreakChaos` | int | 3 | 0–10 | Ties in a row that trigger `chip_shower` for Tie winners; 0 = off. |
+| `baccarat.chemmy.enabled` | bool | true | — | Chemin de fer (player-banked) tables work (§20.9). |
+| `baccarat.chemmy.minBank` | int | 20 | 1–10⁹ | Smallest bank a player can post. |
+| `baccarat.chemmy.rakePercent` | double | 0.05 | 0.0–0.10 | House commission on the banker's winning coups. |
+| `baccarat.chemmy.bankOfferTicks` | int | 200 | 100–1200 | Time to take / keep / pass the bank. |
+| `baccarat.chemmy.idleTicks` | int | 600 | 100–6000 | No punter bet for this long → the bank passes. |
+| `baccarat.chemmy.houseCoupWhenNoBanker` | bool | true | — | Nobody banks → play a house coup instead of waiting. |
+
+## uth
+
+⚠ Added 2026-09 (GAME_DESIGN §21).
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `uth.enabled` | bool | true | — | All Ultimate Texas Hold'em tables. |
+| `uth.seats` | int | 6 | 1–6 | Player seats (the dealer seat is extra). |
+| `uth.allow3x` | bool | true | — | Offer the ×3 preflop bet (optimal play never uses it). |
+| `uth.minAnte` | int | 1 | 1–10⁶ | Standard table minimum Ante (and minimum Trips). |
+| `uth.highRollerMinAnte` | int | 50 | 1–10⁶ | |
+| `uth.highRollerMaxMultiplier` | double | 2.0 | 1.0–10.0 | High-Roller: W = 6 × Ante + Trips ≤ tier max × this. |
+| `uth.highRollerMinVipTier` | int | 2 | 0–5 | 2 = Gold. |
+| `uth.tripsEnabled` | bool | true | — | Offer the Trips side bet. |
+| `uth.blindPays` | map<hand,double> | royal 500, straightFlush 50, quads 10, fullHouse 3, flush 1.5, straight 1 | each 0–1000 | Blind pays X:1 on a win (floored); hands not listed push. |
+| `uth.tripsPays` | map<hand,int> | royal 50, straightFlush 40, quads 30, fullHouse 8, flush 6, straight 5, trips 3 | each 0–1000 | Trips pays X:1. Variant 9/7/4 for FH/flush/straight → HE 0.90 %. |
+| `uth.validateEdge` | bool | true | — | On load compute the Trips edge exactly (§21.3); if ≤ 1 % log a loud warning and show it on the admin page (never auto-fix). |
+| `uth.betTimerTicks` | int | 300 | 100–2400 | Betting window after the first confirmed bet. |
+| `uth.decisionTimerTicks` | int | 400 | 200–2400 | Per street (preflop, flop, river). |
+| `uth.autoPlayMadeHands` | bool | true | — | River timeout with a straight or better bets ×1 instead of folding. |
+| `uth.pvp.enabled` | bool | true | — | Player-banked tables allow a player dealer (§21.9). |
+| `uth.pvp.minBank` | int | 1000 | 505–10⁹ | Smallest bank for the dealer seat. |
+| `uth.pvp.minBankerVip` | int | 2 | 0–5 | VIP tier needed to take the dealer seat (2 = Gold). |
+| `uth.pvp.rakePercent` | double | 0.01 | 0.0–0.10 | House rake on the banker's positive net per round. |
+| `uth.pvp.bankerRounds` | int | 10 | 0–1000 | Rounds before the dealer seat is offered on; 0 = unlimited. |
+| `uth.pvp.houseRoundsWhenNoBanker` | bool | true | — | Nobody banks → the house deals instead of waiting. |
 
 ## extras
 

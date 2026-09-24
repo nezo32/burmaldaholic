@@ -311,3 +311,104 @@ Min/Max, toggle Bots).
 - Card glyphs include rank letters; suits have distinct shapes.
 - All timers are at least 15 s by default for human decisions.
 - Narrator (Java): screens provide narration messages for state changes (dealer card, result).
+
+---
+
+## 14. Baccarat (⚠ added 2026-09, GAME_DESIGN §20)
+
+Java (400 × 240; compact 320 × 220 hides the bead plate and the side-bet row labels become icons
+with tooltips):
+```
+ Baccarat                        Shoe: 287 cards left              ⏱ 14   [Rules] [Paytable]
+ ┌───────── PLAYER ─────────┐            ┌───────── BANKER ─────────┐
+ │ [8♠][K♥]   [ ]      8    │   NATURAL  │ [9♦][7♣]   [ ]      6    │
+ └──────────────────────────┘            └──────────────────────────┘
+ [ P.Pair 11:1 ] [ PLAYER 1:1 ] [  TIE 8:1  ] [ BANKER 1:1 −5% ] [ B.Pair 11:1 ]
+      your 0         your 50        your 5          your 0             your 0
+ Bead plate (6 × 10):  (P)(B)(B)(T)(P)…      Player 12 · Banker 15 · Tie 3
+ Seats: Alex ✓ 120 · Steve 40 · YOU ◀ 55 · …                          Ready 2/3
+ Bet: [1][5][25][100][500] [Clear] [Rebet] [Ready/Deal]        Min 1 · Max 1 000 · Banker ×20
+ ⛁ 12 500                                                     🔥×4  ◆Gold
+```
+- Clicking a betting box adds the selected chip value; right-click removes one chip. The Banker box
+  snaps down to the Banker step and flashes `…baccarat.snapped` when it did. Side boxes are hidden
+  when `baccarat.pairBets` is off.
+- Box labels are separate components (name + ratio) so RU fits at 1.45 × width: «Пара игрока 11:1»,
+  «Банкир 1:1 −5 %». Minimum box width = max(EN, RU) label + 8 px; if the row overflows, the two pair
+  boxes move to a second row.
+- Bead plate: circles with a **letter** (P/B/T; RU И/Б/Н) and color (blue Player, red Banker, green
+  Tie), a dot at the lower-left for a Player pair and upper-right for a Banker pair; never color
+  alone (§13).
+- Reveal: cards flip in deal order; third cards slide in with the line «Игрок берёт третью карту» /
+  «Банкир берёт третью карту» under the hand; totals update live. Result banner "Banker wins 7 to 5"
+  then per-bet lines ("Player −50", "Tie +40", "Commission 1").
+- Rules overlay (button): `…baccarat.rules.*` lines and the §20.3 drawing table rendered as a grid.
+- **Chemin de fer** (player-banked table): the layout keeps the two hands; the betting row is
+  replaced by
+  `[ Bet on Player ] [ BANCO 1 000 ]   Bank: 1 200 · covers 1 000 · open 350   Banker: Alex`.
+  At BANK_OFFER the candidate sees a modal panel: amount field (default = last bank, min shown) and
+  `[Take the bank] [Pass]`, or `[Keep the bank (2 280)] [Pass the bank]` for a winning banker, with
+  the timer ring. The banker's own screen shows punters' bets and has no betting buttons.
+
+Bedrock flow:
+- **Table** — ActionForm: body = your bets (list), total, last coup (`Player [8♠][K♥] 8 · Banker
+  [9♦][7♣] 6`), last 12 bead letters with § colors, limits line, "Bets close in 12 s"; buttons: Player
+  (1:1) · Banker (1:1 −5 %) · Tie (8:1) · Player Pair (11:1) · Banker Pair (11:1) · Clear bets ·
+  Rebet · Deal / Ready · Rules · Leave. RU labels ≤ 24 characters («Пара банкира (11:1)» = 19).
+- **Bet amount** — ModalForm: label with the box and its limits (Banker: "Multiples of 20"), slider
+  (step per §4 rules; Banker step 20) + text field, submit "Place bet". The server snaps the Banker
+  amount and re-shows the table with `…baccarat.snapped`.
+- **Coup** — action bar animation: `Player [8♠][?] · Banker [9♦][?]` → both cards → third cards,
+  10 ticks per card, then the **Result** ActionForm: both hands with totals, result line, per-bet
+  lines, net; buttons: Same bets again · Change bets · Leave.
+- **Chemin de fer**: BANK_OFFER → ActionForm "You are offered the bank" with buttons `Take the bank
+  (1 000)` · `Other amount…` (ModalForm text field) · `Pass`; a winning banker gets `Keep the bank
+  (2 280)` · `Pass the bank`. Punters' table form: buttons `Bet on Player…` · `Banco (1 000)` ·
+  Clear bets · Ready · Leave; body shows the bank, coverage and open coverage.
+- Spectators and players between forms: action-bar summary `…baccarat.actionbar`.
+
+---
+
+## 15. Ultimate Texas Hold'em (⚠ added 2026-09, GAME_DESIGN §21)
+
+Java (400 × 240; compact 320 × 220 shows other seats as one line each):
+```
+ Ultimate Texas Hold'em          Dealer: [▒][▒]     Flop                ⏱ 17   [Paytable]
+            Board:  [Q♠][J♠][T♠] [▒] [▒]
+ ┌ Seat 1 Alex  ✓ Play ×4 ┐ ┌ Seat 2 YOU ◀ ┐ ┌ Seat 3 Steve  Checked ┐ …
+ Your cards [A♠][K♠]   Your hand: Straight (draw)        Still deciding: 2 players
+ ( Trips 5 )  ( Ante 10 )  ( Blind 10 )  ( Play — )          At risk: up to 65
+ [Check]  [Bet ×2 (20)]                                   Min 1 · Max 1 000 (6× Ante + Trips)
+ ⛁ 12 500                                                          🔥×4  ◆Gold
+```
+- BETTING: chip buttons set the Ante (the Blind circle mirrors it), a Trips toggle + chip buttons,
+  the limits line shows the resulting Ante range, `[Deal]`, `[Clear]`, `[Rebet]`.
+- Decision buttons per street: preflop `[Check] [Bet ×3 (30)] [Bet ×4 (40)]`, flop
+  `[Check] [Bet ×2 (20)]`, river `[Fold] [Bet ×1 (10)]`; disabled with a tooltip when unaffordable.
+  After a Play bet the row shows "Play ×4 — waiting for the showdown".
+- Seat plates: name, status tag (Deciding… / Checked / Play ×N / Folded) and bets; hole cards of
+  other seats face down until SHOWDOWN. RU tags at 1.45×: «Думает…», «Чек», «Плей ×4», «Пас».
+- SHOWDOWN: dealer cards flip, banner "Dealer qualifies" / "Dealer does not qualify — Ante pushes"
+  (2 lines in RU if needed), then per-bet lines (Play +40 · Ante push · Blind 500:1 +5 000 ·
+  Trips 50:1 +250) and the net.
+- Paytable overlay: the Blind and Trips tables from the effective config.
+- **Player-banked table**: an extra plate at the top "Dealer seat: Alex · Bank 12 000 · Reserved
+  5 550" or "Dealer seat: the house" with `[Take the dealer seat]` (enabled only while free and
+  before the first bet of the round; opens an amount field with the minimum bank) and, for the
+  banker, `[Leave the dealer seat]` (label changes to "Leaving after this round"). The banker's
+  screen has no decision buttons; it shows every seat and the running bank result.
+
+Bedrock flow:
+1. **Bets** — ModalForm: title "Ultimate Hold'em — your bets", label "Balance 12 500 · Ante 1 – 16
+   (6× Ante + Trips ≤ 100)", slider "Ante" + text field, slider "Trips (optional, 0 = no bet)",
+   submit "Deal". The server re-shows it with an error line when W or the balance rule fails.
+2. **Decision** — ActionForm per street: body = board, your cards, your current hand name, your
+   bets, "Still deciding: 2 players", timer text ("Auto-check in 20 s" / "Auto-fold in 20 s");
+   buttons: only the legal options with amounts. Re-shown on each street.
+3. **Waiting** — action bar only (`…uth.actionbar`) while other seats decide or after your Play bet.
+4. **Result** — ActionForm: dealer hand + qualify line, your hand, per-bet lines, net; buttons:
+   Play again (same bets) · Change bets · Paytable · Leave.
+- **Player-banked**: the table hub adds `Take the dealer seat…` (ModalForm: bank slider/text, submit
+  "Take the seat") or, for the banker, a Banker form (body: seats and their bets, bank, reserved;
+  buttons: Leave the dealer seat · Close). Errors (`…uth.error.bank_cover`) name the largest Ante
+  the bank covers.

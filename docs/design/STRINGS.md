@@ -25,7 +25,10 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 
 ## core
 
-### Mod, creative tab, keybinds, game rule
+### Mod, creative tab, keybinds, casino mode switch
+
+`gamerule.burmaldaholic.casino_mode*` label the Bedrock pack setting (historical prefix); Java stores
+casino mode in world saved data and has no game rule.
 
 | Key | EN | RU |
 |-----|----|----|
@@ -37,7 +40,7 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `gamerule.burmaldaholic.casino_mode` | Casino mode | Режим казино |
 | `gamerule.burmaldaholic.casino_mode.description` | Chips, tables, loans, chaos events and Last Chance. Turning it off keeps all saved data. | Фишки, столы, займы, хаос-события и «Последний шанс». При отключении все данные сохраняются. |
 | `gui.burmaldaholic.core.create_world.casino_mode` | Casino Mode: %1$s | Режим казино: %1$s |
-| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. Off by default; change it later with /gamerule burmaldaholic:casino_mode. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию выключен; позже можно изменить командой /gamerule burmaldaholic:casino_mode. Сложность не меняется. |
+| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. Off by default and saved with the world; operators can switch it later with /casino mode on or /casino mode off. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию выключен и сохраняется вместе с миром; позже оператор может переключить его командой /casino mode on или /casino mode off. Сложность не меняется. |
 | `gui.burmaldaholic.core.setup.title` | Casino setup | Настройка казино |
 | `gui.burmaldaholic.core.setup.intro` | The add-on is active. Choose how this world plays. You can change it later in Casino Card → Admin. | Аддон подключён. Выберите правила для этого мира — потом их можно поменять в «Клубная карта → Админ». |
 | `gui.burmaldaholic.core.setup.casino_mode` | Casino mode | Режим казино |
@@ -325,6 +328,10 @@ not «%1$s выиграл». Exception: `death.attack.*`, which follows the vani
 | `msg.burmaldaholic.core.welcome_hint` | Mine, fight and trade to earn chips. Spend them at the tables. Try not to spend all of them. | Копайте, сражайтесь и торгуйте — за это дают фишки. Тратьте их за столами. Желательно не все. |
 | `msg.burmaldaholic.core.mode_enabled` | Casino mode is ON. The doors are open. | Режим казино ВКЛЮЧЁН. Двери открыты. |
 | `msg.burmaldaholic.core.mode_disabled` | Casino mode is OFF. Your chips are safe until it reopens. | Режим казино ВЫКЛЮЧЕН. Фишки сохранятся до открытия. |
+| `msg.burmaldaholic.core.command.mode_set_on` | Casino mode is now ON for this world | Режим казино в этом мире теперь ВКЛЮЧЁН |
+| `msg.burmaldaholic.core.command.mode_set_off` | Casino mode is now OFF for this world | Режим казино в этом мире теперь ВЫКЛЮЧЕН |
+| `msg.burmaldaholic.core.command.mode_status_on` | Casino mode is ON in this world | В этом мире режим казино ВКЛЮЧЁН |
+| `msg.burmaldaholic.core.command.mode_status_off` | Casino mode is OFF in this world | В этом мире режим казино ВЫКЛЮЧЕН |
 | `msg.burmaldaholic.core.earned` | +%1$s (%2$s) | +%1$s (%2$s) |
 | `msg.burmaldaholic.core.source.trade` | Trade | Торговля |
 | `msg.burmaldaholic.core.source.contract` | Contract | Заказ |
@@ -867,6 +874,290 @@ fallback, narration).
 
 ---
 
+## baccarat
+
+⚠ Added 2026-09 (GAME_DESIGN §20, UI.md §14). Hand/box names «Игрок» and «Банкир» are capitalized
+when they mean the hand or the bet box; people at the table are never called «игрок» in these
+strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, config labels in
+§config (usual places). Arguments: `%1$s=chips` etc. as in the header.
+
+| Key | EN | RU |
+|-----|----|----|
+| `block.burmaldaholic.baccarat_table` | Baccarat Table | Стол для баккара |
+| `block.burmaldaholic.baccarat_table_high_roller` | High Roller Baccarat Table | Стол хайроллеров: баккара |
+| `block.burmaldaholic.baccarat_table_player_banked` | Chemin de Fer Table | Стол для шмен-де-фер |
+| `tooltip.burmaldaholic.baccarat_table` | Punto Banco: bet on Player, Banker or Tie | Пунто банко: ставьте на Игрока, Банкира или ничью |
+| `tooltip.burmaldaholic.baccarat_table_player_banked` | Baccarat where players hold the bank. The house takes %1$s%% of banker wins | Баккара, где банк держат сами игроки. Заведение берёт %1$s %% с выигрышей банка |
+| `entity.burmaldaholic.baccarat_dealer` | Baccarat Dealer | Дилер баккара |
+| `item.burmaldaholic.baccarat_dealer_spawn_egg` | Baccarat Dealer Spawn Egg | Яйцо призыва дилера баккара |
+| `gui.burmaldaholic.common.game.baccarat` | Baccarat | Баккара |
+| `gui.burmaldaholic.common.game.chemmy` | Chemin de Fer | Шмен-де-фер |
+| `gui.burmaldaholic.baccarat.title` | Baccarat | Баккара |
+| `gui.burmaldaholic.baccarat.title_high_roller` | Baccarat — High Rollers | Баккара — хайроллеры |
+| `gui.burmaldaholic.baccarat.title_chemmy` | Chemin de Fer | Шмен-де-фер |
+| `gui.burmaldaholic.baccarat.player` | Player | Игрок |
+| `gui.burmaldaholic.baccarat.banker` | Banker | Банкир |
+| `gui.burmaldaholic.baccarat.tie` | Tie | Ничья |
+| `gui.burmaldaholic.baccarat.player_pair` | Player Pair | Пара игрока |
+| `gui.burmaldaholic.baccarat.banker_pair` | Banker Pair | Пара банкира |
+| `gui.burmaldaholic.baccarat.bet.player` | Player (1:1) | Игрок (1:1) |
+| `gui.burmaldaholic.baccarat.bet.banker` | Banker (1:1 −%1$s%%) | Банкир (1:1 −%1$s %%) |
+| `gui.burmaldaholic.baccarat.bet.tie` | Tie (%1$s:1) | Ничья (%1$s:1) |
+| `gui.burmaldaholic.baccarat.bet.player_pair` | Player Pair (%1$s:1) | Пара игрока (%1$s:1) |
+| `gui.burmaldaholic.baccarat.bet.banker_pair` | Banker Pair (%1$s:1) | Пара банкира (%1$s:1) |
+| `gui.burmaldaholic.baccarat.bet.banker.tooltip` | Wins a bit more often, so the house keeps %1$s%% of the win | Выигрывает чуть чаще, поэтому заведение берёт %1$s %% комиссии с выигрыша |
+| `gui.burmaldaholic.baccarat.bet.tie.tooltip` | Both hands end on the same total. Player and Banker bets are returned | Обе руки набирают одинаково. Ставки на Игрока и Банкира возвращаются |
+| `gui.burmaldaholic.baccarat.bet.pair.tooltip` | The first two cards of that hand are the same rank | Первые две карты этой руки одного достоинства |
+| `gui.burmaldaholic.baccarat.bet_form_title` | Baccarat — %1$s | Баккара — %1$s |
+| `gui.burmaldaholic.baccarat.side_bets` | Side bets | Доп. ставки |
+| `gui.burmaldaholic.baccarat.your_bets` | Your bets | Ваши ставки |
+| `gui.burmaldaholic.baccarat.no_bets` | No bets yet | Ставок пока нет |
+| `gui.burmaldaholic.baccarat.clear_bets` | Clear bets | Убрать ставки |
+| `gui.burmaldaholic.baccarat.same_bets` | Same bets again | Те же ставки |
+| `gui.burmaldaholic.baccarat.change_bets` | Change bets | Изменить ставки |
+| `gui.burmaldaholic.baccarat.bet_line` | %1$s — %2$s | %1$s — %2$s |
+| `gui.burmaldaholic.baccarat.place_bets` | Place your bets | Делайте ваши ставки |
+| `gui.burmaldaholic.baccarat.no_more_bets` | No more bets | Ставок больше нет |
+| `gui.burmaldaholic.baccarat.bets_close_in` | Bets close in %1$s | Приём ставок закроется через %1$s |
+| `gui.burmaldaholic.baccarat.ready_count` | Ready: %1$s of %2$s | Готовы: %1$s из %2$s |
+| `gui.burmaldaholic.baccarat.seated` | At the table: %1$s | За столом: %1$s |
+| `gui.burmaldaholic.baccarat.waiting_next` | You're seated — you'll play from the next coup | Место за вами — играете со следующей раздачи |
+| `gui.burmaldaholic.baccarat.limits_banker` | Banker bets in steps of %1$s | Ставка на Банкира — кратно %1$s |
+| `gui.burmaldaholic.baccarat.hand` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.baccarat.natural` | Natural %1$s! | Натуральная %1$s! |
+| `gui.burmaldaholic.baccarat.player_draws` | Player draws a third card | Игрок берёт третью карту |
+| `gui.burmaldaholic.baccarat.banker_draws` | Banker draws a third card | Банкир берёт третью карту |
+| `gui.burmaldaholic.baccarat.player_stands` | Player stands on %1$s | Игрок останавливается на %1$s |
+| `gui.burmaldaholic.baccarat.banker_stands` | Banker stands on %1$s | Банкир останавливается на %1$s |
+| `gui.burmaldaholic.baccarat.result.player` | Player wins %1$s to %2$s | Выигрывает Игрок: %1$s против %2$s |
+| `gui.burmaldaholic.baccarat.result.banker` | Banker wins %1$s to %2$s | Выигрывает Банкир: %1$s против %2$s |
+| `gui.burmaldaholic.baccarat.result.tie` | Tie at %1$s | Ничья: по %1$s |
+| `gui.burmaldaholic.baccarat.result.pair_player` | Player Pair! | Пара игрока! |
+| `gui.burmaldaholic.baccarat.result.pair_banker` | Banker Pair! | Пара банкира! |
+| `gui.burmaldaholic.baccarat.line.win` | %1$s: +%2$s | %1$s: +%2$s |
+| `gui.burmaldaholic.baccarat.line.lose` | %1$s: −%2$s | %1$s: −%2$s |
+| `gui.burmaldaholic.baccarat.line.push` | %1$s: returned | %1$s: возврат |
+| `gui.burmaldaholic.baccarat.line.commission` | Commission: %1$s | Комиссия: %1$s |
+| `gui.burmaldaholic.baccarat.shuffling` | Shuffling the shoe… | Перемешиваем шуз… |
+| `gui.burmaldaholic.baccarat.burned.p1` | %1$s card burned | Сожжена %1$s карта |
+| `gui.burmaldaholic.baccarat.burned.p21` | %1$s cards burned | Сожжена %1$s карта |
+| `gui.burmaldaholic.baccarat.burned.p2` | %1$s cards burned | Сожжены %1$s карты |
+| `gui.burmaldaholic.baccarat.burned.p5` | %1$s cards burned | Сожжено %1$s карт |
+| `gui.burmaldaholic.baccarat.shoe_left.p1` | Shoe: %1$s card left | В шузе осталась %1$s карта |
+| `gui.burmaldaholic.baccarat.shoe_left.p21` | Shoe: %1$s cards left | В шузе осталась %1$s карта |
+| `gui.burmaldaholic.baccarat.shoe_left.p2` | Shoe: %1$s cards left | В шузе осталось %1$s карты |
+| `gui.burmaldaholic.baccarat.shoe_left.p5` | Shoe: %1$s cards left | В шузе осталось %1$s карт |
+| `gui.burmaldaholic.baccarat.history` | This shoe | Этот шуз |
+| `gui.burmaldaholic.baccarat.bead.player` | P | И |
+| `gui.burmaldaholic.baccarat.bead.banker` | B | Б |
+| `gui.burmaldaholic.baccarat.bead.tie` | T | Н |
+| `gui.burmaldaholic.baccarat.stats` | Player %1$s · Banker %2$s · Tie %3$s | Игрок %1$s · Банкир %2$s · Ничья %3$s |
+| `gui.burmaldaholic.baccarat.actionbar` | Player %1$s · Banker %2$s | Игрок %1$s · Банкир %2$s |
+| `gui.burmaldaholic.baccarat.snapped` | Banker bet rounded down to %1$s | Ставка на Банкира округлена вниз до %1$s |
+| `gui.burmaldaholic.baccarat.rules.1` | Decks: %1$s · Player 1:1 · Banker 1:1 minus %2$s%% · Tie %3$s:1 | Колод: %1$s · Игрок 1:1 · Банкир 1:1 минус %2$s %% · Ничья %3$s:1 |
+| `gui.burmaldaholic.baccarat.rules.2` | The hand closest to 9 wins. Tens and faces count 0, aces 1; only the last digit of the total counts. | Побеждает рука, которая ближе к 9. Десятки и картинки — 0, туз — 1; от суммы берётся последняя цифра. |
+| `gui.burmaldaholic.baccarat.rules.3` | Third cards are drawn automatically by fixed rules. You only choose where to bet. | Третьи карты сдаются автоматически по строгим правилам. От вас — только ставка. |
+| `gui.burmaldaholic.baccarat.rules.4` | On a tie, Player and Banker bets are returned. | При ничьей ставки на Игрока и Банкира возвращаются. |
+| `gui.burmaldaholic.baccarat.rules.5` | Pairs pay %1$s:1 when the first two cards of that hand are the same rank. | Пара платит %1$s:1, если первые две карты руки одного достоинства. |
+| `gui.burmaldaholic.baccarat.rules.natural` | 8 or 9 on the first two cards is a natural: nobody draws. | 8 или 9 с первых двух карт — натуральная: никто не добирает. |
+| `gui.burmaldaholic.baccarat.rules.player` | Player draws on 0–5 and stands on 6–7. | Игрок берёт при 0–5 и останавливается при 6–7. |
+| `gui.burmaldaholic.baccarat.rules.banker_no_draw` | If Player stood, Banker draws on 0–5 and stands on 6–7. | Если Игрок не брал, Банкир берёт при 0–5 и останавливается при 6–7. |
+| `gui.burmaldaholic.baccarat.rules.banker_title` | If Player drew, Banker's move by its total and Player's third card: | Если Игрок брал, Банкир решает по своей сумме и третьей карте Игрока: |
+| `gui.burmaldaholic.baccarat.rules.banker_0_2` | 0–2: always draws | 0–2: берёт всегда |
+| `gui.burmaldaholic.baccarat.rules.banker_3` | 3: draws unless the card is an 8 | 3: берёт, если это не 8 |
+| `gui.burmaldaholic.baccarat.rules.banker_4` | 4: draws on 2–7 | 4: берёт при 2–7 |
+| `gui.burmaldaholic.baccarat.rules.banker_5` | 5: draws on 4–7 | 5: берёт при 4–7 |
+| `gui.burmaldaholic.baccarat.rules.banker_6` | 6: draws on 6–7 | 6: берёт при 6–7 |
+| `gui.burmaldaholic.baccarat.rules.banker_7` | 7: stands | 7: не берёт |
+| `gui.burmaldaholic.baccarat.rules.banker_step` | Banker bets go in steps of %1$s so the commission comes out exact. | Ставка на Банкира кратна %1$s — так комиссия считается без остатка. |
+| `gui.burmaldaholic.baccarat.error.banker_step` | Banker bets must be a multiple of %1$s | Ставка на Банкира должна быть кратна %1$s |
+| `gui.burmaldaholic.baccarat.error.side_max` | Tie and pair bets are limited to %1$s each | Ставки на ничью и пары — не больше %1$s каждая |
+| `gui.burmaldaholic.baccarat.error.total_max` | Your bets per coup are limited to %1$s | Все ставки на одну раздачу — не больше %1$s |
+| `gui.burmaldaholic.baccarat.error.min_total` | At this table, bet at least %1$s per coup | За этим столом ставка на раздачу — от %1$s |
+| `gui.burmaldaholic.baccarat.error.pairs_off` | Pair bets are turned off on this server | Ставки на пары на этом сервере отключены |
+| `gui.burmaldaholic.baccarat.error.pvp_owing` | You can't play against other players while you owe the Loan Shark | Пока вы должны ростовщику, играть против других игроков нельзя |
+| `msg.burmaldaholic.baccarat.coup` | Coup #%1$s: %2$s | Раздача №%1$s: %2$s |
+| `msg.burmaldaholic.baccarat.natural_nine` | A natural nine! The dealer allows a small smile. | Натуральная девятка! Дилер позволяет себе улыбнуться. |
+| `msg.burmaldaholic.baccarat.tie_run.p1` | %1$s tie in a row! The shoe showers the brave with chips. | %1$s ничья подряд! Шуз осыпает смельчаков фишками. |
+| `msg.burmaldaholic.baccarat.tie_run.p21` | %1$s ties in a row! The shoe showers the brave with chips. | %1$s ничья подряд! Шуз осыпает смельчаков фишками. |
+| `msg.burmaldaholic.baccarat.tie_run.p2` | %1$s ties in a row! The shoe showers the brave with chips. | %1$s ничьи подряд! Шуз осыпает смельчаков фишками. |
+| `msg.burmaldaholic.baccarat.tie_run.p5` | %1$s ties in a row! The shoe showers the brave with chips. | %1$s ничьих подряд! Шуз осыпает смельчаков фишками. |
+| `msg.burmaldaholic.baccarat.new_shoe` | New shoe — shuffled and burned. Good luck! | Новый шуз — перемешан, карты сожжены. Удачи! |
+| `msg.burmaldaholic.baccarat.player_joined` | %1$s joins the baccarat table | К столу для баккара подсаживается %1$s |
+| `msg.burmaldaholic.baccarat.player_left` | %1$s leaves the baccarat table | Из-за стола для баккара встаёт %1$s |
+| `msg.burmaldaholic.baccarat.left_refunded` | You left the table — your bets were returned | Вы ушли из-за стола — ставки возвращены |
+| `msg.burmaldaholic.baccarat.bets_refunded` | The baccarat table closed before the deal — your bets were returned | Стол для баккара закрылся до раздачи — ставки возвращены |
+| `msg.burmaldaholic.baccarat.no_table` | The dealer needs a baccarat table right next to them | Дилеру нужен стол для баккара совсем рядом |
+
+### Chemin de fer (player-banked)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.baccarat.chemmy.bank` | Bank: %1$s | Банк: %1$s |
+| `gui.burmaldaholic.baccarat.chemmy.banker_is` | Banker: %1$s | Банк держит: %1$s |
+| `gui.burmaldaholic.baccarat.chemmy.coverage` | Covers %1$s · open %2$s | Покрывает %1$s · свободно %2$s |
+| `gui.burmaldaholic.baccarat.chemmy.offer` | You are offered the bank | Вам предлагают держать банк |
+| `gui.burmaldaholic.baccarat.chemmy.take` | Take the bank (%1$s) | Взять банк (%1$s) |
+| `gui.burmaldaholic.baccarat.chemmy.take_other` | Other amount… | Другая сумма… |
+| `gui.burmaldaholic.baccarat.chemmy.bank_amount` | Bank amount (min %1$s) | Сумма банка (от %1$s) |
+| `gui.burmaldaholic.baccarat.chemmy.pass` | Pass | Пас |
+| `gui.burmaldaholic.baccarat.chemmy.keep` | Keep the bank (%1$s) | Оставить банк (%1$s) |
+| `gui.burmaldaholic.baccarat.chemmy.pass_bank` | Pass the bank | Передать банк |
+| `gui.burmaldaholic.baccarat.chemmy.bet_player` | Bet on Player… | Ставка на Игрока… |
+| `gui.burmaldaholic.baccarat.chemmy.banco` | Banco (%1$s) | Банко (%1$s) |
+| `gui.burmaldaholic.baccarat.chemmy.banco.tooltip` | Match the whole bank alone. Other bets are returned | Сыграть против всего банка в одиночку. Остальные ставки вернутся |
+| `gui.burmaldaholic.baccarat.chemmy.waiting_offer` | Waiting for %1$s to decide on the bank | Ждём решения по банку: %1$s |
+| `gui.burmaldaholic.baccarat.chemmy.you_bank` | You hold the bank. The punters are betting… | Банк у вас. Понтёры делают ставки… |
+| `gui.burmaldaholic.baccarat.chemmy.house_coup` | Nobody took the bank — the house deals this coup | Банк никто не взял — эту раздачу ведёт заведение |
+| `gui.burmaldaholic.baccarat.chemmy.rules.1` | One player holds the bank and plays the Banker hand; the others bet on Player against the bank. | Один игрок держит банк и играет за Банкира; остальные ставят на Игрока против банка. |
+| `gui.burmaldaholic.baccarat.chemmy.rules.2` | Bets are accepted until the bank is covered. Banco matches the whole bank alone. | Ставки принимаются, пока банк не покрыт. «Банко» — игра против всего банка в одиночку. |
+| `gui.burmaldaholic.baccarat.chemmy.rules.3` | A winning banker may keep the bank. A losing banker passes it on. The house takes %1$s%% of the banker's wins. | Выигравший банкир может оставить банк, проигравший передаёт его дальше. Заведение берёт %1$s %% с выигрышей банка. |
+| `gui.burmaldaholic.baccarat.chemmy.error.coverage` | The bank only covers %1$s more | Банк покрывает ещё только %1$s |
+| `gui.burmaldaholic.baccarat.chemmy.error.banco_funds` | Banco needs %1$s | Для «Банко» нужно %1$s |
+| `gui.burmaldaholic.baccarat.chemmy.error.min_bank` | The smallest bank is %1$s | Минимальный банк — %1$s |
+| `msg.burmaldaholic.baccarat.chemmy.took_bank` | %1$s takes the bank: %2$s | Банк берёт %1$s: %2$s |
+| `msg.burmaldaholic.baccarat.chemmy.passed_bank` | %1$s passes the bank | %1$s передаёт банк |
+| `msg.burmaldaholic.baccarat.chemmy.banco_called` | Banco! %1$s plays the whole bank | Банко! %1$s играет против всего банка |
+| `msg.burmaldaholic.baccarat.chemmy.bank_wins` | The bank wins %1$s (house commission %2$s) | Банк выигрывает %1$s (комиссия заведения %2$s) |
+| `msg.burmaldaholic.baccarat.chemmy.bank_pays` | The bank pays %1$s | Банк выплачивает %1$s |
+| `msg.burmaldaholic.baccarat.bank_returned` | Your bank of %1$s was returned to your balance | Ваш банк (%1$s) вернулся на баланс |
+
+---
+
+## uth
+
+⚠ Added 2026-09 (GAME_DESIGN §21, UI.md §15). Hand names reuse `gui.burmaldaholic.poker.hand.*` and
+street names `gui.burmaldaholic.poker.preflop` / `.flop` (nested as `%1$s=hand`). Advancement strings
+are in §advancements, config labels in §config. «Ультимейт Техас Холдем» is written without quotes
+in these values; running text in other modules that embeds the game name adds «» itself.
+
+| Key | EN | RU |
+|-----|----|----|
+| `block.burmaldaholic.uth_table` | Ultimate Texas Hold'em Table | Стол «Ультимейт Техас Холдем» |
+| `block.burmaldaholic.uth_table_high_roller` | High Roller Ultimate Texas Hold'em Table | Стол хайроллеров: Ультимейт Техас Холдем |
+| `block.burmaldaholic.uth_table_player_banked` | Player-Banked Ultimate Hold'em Table | Стол «Ультимейт холдем» с банком игроков |
+| `tooltip.burmaldaholic.uth_table` | Up to 6 players vs the dealer · Ante, Blind, Trips | До 6 игроков против дилера · анте, блайнд, трипс |
+| `tooltip.burmaldaholic.uth_table_player_banked` | A player may take the dealer seat and bank the table. The house takes %1$s%% of the bank's winnings | Место дилера может занять игрок и держать банк стола. Заведение берёт %1$s %% с выигрыша банка |
+| `entity.burmaldaholic.uth_dealer` | Hold'em Dealer | Дилер холдема |
+| `item.burmaldaholic.uth_dealer_spawn_egg` | Hold'em Dealer Spawn Egg | Яйцо призыва дилера холдема |
+| `gui.burmaldaholic.common.game.uth` | Ultimate Texas Hold'em | Ультимейт Техас Холдем |
+| `gui.burmaldaholic.uth.title` | Ultimate Texas Hold'em | Ультимейт Техас Холдем |
+| `gui.burmaldaholic.uth.title_high_roller` | Ultimate Hold'em — High Rollers | Ультимейт холдем — хайроллеры |
+| `gui.burmaldaholic.uth.title_player_banked` | Ultimate Hold'em — player bank | Ультимейт холдем — банк игроков |
+| `gui.burmaldaholic.uth.bet_title` | Ultimate Hold'em — your bets | Ультимейт холдем — ваши ставки |
+| `gui.burmaldaholic.uth.ante` | Ante | Анте |
+| `gui.burmaldaholic.uth.blind` | Blind | Блайнд |
+| `gui.burmaldaholic.uth.trips` | Trips | Трипс |
+| `gui.burmaldaholic.uth.play` | Play | Плей |
+| `gui.burmaldaholic.uth.ante_amount` | Ante: %1$s | Анте: %1$s |
+| `gui.burmaldaholic.uth.blind_amount` | Blind: %1$s | Блайнд: %1$s |
+| `gui.burmaldaholic.uth.trips_amount` | Trips: %1$s | Трипс: %1$s |
+| `gui.burmaldaholic.uth.play_amount` | Play: %1$s | Плей: %1$s |
+| `gui.burmaldaholic.uth.play_multiple` | Play ×%1$s | Плей ×%1$s |
+| `gui.burmaldaholic.uth.blind_equals_ante` | The Blind always equals the Ante | Блайнд всегда равен анте |
+| `gui.burmaldaholic.uth.trips_optional` | Trips (optional, 0 = no bet) | Трипс (по желанию, 0 — без ставки) |
+| `gui.burmaldaholic.uth.ante_limits` | Ante %1$s – %2$s (6 × Ante + Trips ≤ %3$s) | Анте %1$s – %2$s (6 × анте + трипс ≤ %3$s) |
+| `gui.burmaldaholic.uth.at_risk` | At risk: up to %1$s | На кону: до %1$s |
+| `gui.burmaldaholic.uth.check` | Check | Чек |
+| `gui.burmaldaholic.uth.fold` | Fold | Пас |
+| `gui.burmaldaholic.uth.bet_4x` | Bet ×4 (%1$s) | Ставка ×4 (%1$s) |
+| `gui.burmaldaholic.uth.bet_3x` | Bet ×3 (%1$s) | Ставка ×3 (%1$s) |
+| `gui.burmaldaholic.uth.bet_2x` | Bet ×2 (%1$s) | Ставка ×2 (%1$s) |
+| `gui.burmaldaholic.uth.bet_1x` | Bet ×1 (%1$s) | Ставка ×1 (%1$s) |
+| `gui.burmaldaholic.uth.check.tooltip` | Bet nothing now — you can still bet later | Пока не ставить — поставить можно будет позже |
+| `gui.burmaldaholic.uth.bet_4x.tooltip` | Play bet of 4 Antes. No more decisions this round | Плей-ставка в 4 анте. Больше решений в этом раунде не будет |
+| `gui.burmaldaholic.uth.bet_3x.tooltip` | Play bet of 3 Antes. No more decisions this round | Плей-ставка в 3 анте. Больше решений в этом раунде не будет |
+| `gui.burmaldaholic.uth.bet_2x.tooltip` | Play bet of 2 Antes after the flop | Плей-ставка в 2 анте после флопа |
+| `gui.burmaldaholic.uth.bet_1x.tooltip` | Last chance to play: a bet of 1 Ante | Последняя возможность сыграть: ставка в 1 анте |
+| `gui.burmaldaholic.uth.fold.tooltip` | Give up: Ante and Blind are lost, Trips still plays | Сдаться: анте и блайнд проиграны, трипс ещё играет |
+| `gui.burmaldaholic.uth.unaffordable` | Not enough chips for this bet | Не хватает фишек на эту ставку |
+| `gui.burmaldaholic.uth.dealer` | Dealer | Дилер |
+| `gui.burmaldaholic.uth.board` | Board | Общие карты |
+| `gui.burmaldaholic.uth.your_cards` | Your cards | Ваши карты |
+| `gui.burmaldaholic.uth.your_hand` | Your hand: %1$s | Ваша комбинация: %1$s |
+| `gui.burmaldaholic.uth.dealer_hand` | Dealer: %1$s | Дилер: %1$s |
+| `gui.burmaldaholic.uth.turn_river` | Turn and river | Тёрн и ривер |
+| `gui.burmaldaholic.uth.showdown` | Showdown | Вскрытие |
+| `gui.burmaldaholic.uth.your_decision` | Your decision | Ваше решение |
+| `gui.burmaldaholic.uth.tag.deciding` | Deciding… | Думает… |
+| `gui.burmaldaholic.uth.tag.checked` | Checked | Чек |
+| `gui.burmaldaholic.uth.tag.folded` | Folded | Пас |
+| `gui.burmaldaholic.uth.waiting_showdown` | %1$s — waiting for the showdown | %1$s — ждём вскрытия |
+| `gui.burmaldaholic.uth.still_deciding` | Still deciding: %1$s | Ещё решают: %1$s |
+| `gui.burmaldaholic.uth.waiting_next` | You're seated — you'll play from the next round | Место за вами — играете со следующего раунда |
+| `gui.burmaldaholic.uth.seats_free.p1` | %1$s seat free | Свободно %1$s место |
+| `gui.burmaldaholic.uth.seats_free.p21` | %1$s seats free | Свободно %1$s место |
+| `gui.burmaldaholic.uth.seats_free.p2` | %1$s seats free | Свободно %1$s места |
+| `gui.burmaldaholic.uth.seats_free.p5` | %1$s seats free | Свободно %1$s мест |
+| `gui.burmaldaholic.uth.qualifies` | Dealer qualifies | Дилер квалифицируется |
+| `gui.burmaldaholic.uth.not_qualifies` | Dealer does not qualify — Ante pushes | Дилер не квалифицируется — анте возвращается |
+| `gui.burmaldaholic.uth.result.win` | You win with %1$s | Победа: %1$s |
+| `gui.burmaldaholic.uth.result.lose` | Dealer wins with %1$s | Дилер выигрывает: %1$s |
+| `gui.burmaldaholic.uth.result.tie` | Tie — Ante, Blind and Play are returned | Ничья — анте, блайнд и плей возвращаются |
+| `gui.burmaldaholic.uth.result.folded` | Folded — Ante and Blind lost | Пас — анте и блайнд проиграны |
+| `gui.burmaldaholic.uth.line.win` | %1$s: +%2$s | %1$s: +%2$s |
+| `gui.burmaldaholic.uth.line.lose` | %1$s: −%2$s | %1$s: −%2$s |
+| `gui.burmaldaholic.uth.line.push` | %1$s: returned | %1$s: возврат |
+| `gui.burmaldaholic.uth.line.blind_bonus` | Blind, %1$s (%2$s): +%3$s | Блайнд, %1$s (%2$s): +%3$s |
+| `gui.burmaldaholic.uth.line.trips_bonus` | Trips, %1$s (%2$s): +%3$s | Трипс, %1$s (%2$s): +%3$s |
+| `gui.burmaldaholic.uth.paytable.blind` | Blind pays (only when you win) | Выплаты по блайнду (только при победе) |
+| `gui.burmaldaholic.uth.paytable.trips` | Trips pays (on your hand, win or lose) | Выплаты по трипсу (за вашу комбинацию, при любом исходе) |
+| `gui.burmaldaholic.uth.paytable.row` | %1$s — %2$s | %1$s — %2$s |
+| `gui.burmaldaholic.uth.paytable.blind_lower` | Anything lower: Blind is returned | Всё, что ниже: блайнд возвращается |
+| `gui.burmaldaholic.uth.rules.1` | Ante and Blind are required and equal. Trips is optional. | Анте и блайнд обязательны и равны. Трипс — по желанию. |
+| `gui.burmaldaholic.uth.rules.2` | Before the flop: check or bet ×3 or ×4 the Ante. After the flop: check or bet ×2. After the river: bet ×1 or fold. | До флопа: чек или ставка ×3 или ×4 от анте. После флопа: чек или ×2. После ривера: ×1 или пас. |
+| `gui.burmaldaholic.uth.rules.2_no3x` | Before the flop: check or bet ×4 the Ante. After the flop: check or bet ×2. After the river: bet ×1 or fold. | До флопа: чек или ставка ×4 от анте. После флопа: чек или ×2. После ривера: ×1 или пас. |
+| `gui.burmaldaholic.uth.rules.3` | You make one Play bet per round at most. Your best five of your two cards and the five on the board count. | Плей-ставку можно сделать только один раз за раунд. Играют лучшие пять из ваших двух и пяти общих карт. |
+| `gui.burmaldaholic.uth.rules.4` | The dealer qualifies with a pair or better. If not, the Ante is returned. | Дилер квалифицируется с парой и выше. Если нет — анте возвращается. |
+| `gui.burmaldaholic.uth.rules.5` | Play and Ante pay 1:1. The Blind pays extra on a win with a straight or better. Trips pays on your hand even if you fold. | Плей и анте платят 1:1. Блайнд доплачивает при победе со стритом и выше. Трипс платит за вашу комбинацию даже после паса. |
+| `gui.burmaldaholic.uth.error.worst_case_max` | 6 × Ante plus Trips must not exceed %1$s | 6 × анте плюс трипс — не больше %1$s |
+| `gui.burmaldaholic.uth.error.ante_min` | The minimum Ante here is %1$s | Минимальное анте здесь — %1$s |
+| `gui.burmaldaholic.uth.error.keep_for_river` | Keep at least %1$s on your balance for a river bet | Оставьте на балансе хотя бы %1$s на ставку после ривера |
+| `gui.burmaldaholic.uth.error.trips_needs_ante` | Trips needs an Ante | Трипс — только вместе с анте |
+| `gui.burmaldaholic.uth.error.trips_off` | Trips is turned off on this server | Трипс на этом сервере отключён |
+| `gui.burmaldaholic.uth.actionbar` | %1$s · Board %2$s · %3$s | %1$s · Стол %2$s · %3$s |
+| `msg.burmaldaholic.uth.auto_check` | Time's up — you check | Время вышло — чек |
+| `msg.burmaldaholic.uth.auto_fold` | Time's up — you fold | Время вышло — пас |
+| `msg.burmaldaholic.uth.auto_play` | Time's up — with %1$s on the table, you bet ×1 automatically | Время вышло — с такой комбинацией («%1$s») ставка ×1 сделана автоматически |
+| `msg.burmaldaholic.uth.round_starts_in` | Dealing in %1$s | Раздача через %1$s |
+| `msg.burmaldaholic.uth.player_joined` | %1$s sits down at the hold'em table | За стол холдема садится %1$s |
+| `msg.burmaldaholic.uth.player_left` | %1$s leaves the hold'em table | Из-за стола холдема встаёт %1$s |
+| `msg.burmaldaholic.uth.dealer_reveals` | The dealer shows %1$s | Дилер открывает: %1$s |
+| `msg.burmaldaholic.uth.royal_broadcast` | ROYAL FLUSH! %1$s takes %2$s at Ultimate Texas Hold'em! | РОЯЛ-ФЛЕШ! %1$s забирает %2$s в «Ультимейт Техас Холдем»! |
+| `msg.burmaldaholic.uth.bets_refunded` | The table closed before the deal — your bets were returned | Стол закрылся до раздачи — ставки возвращены |
+| `msg.burmaldaholic.uth.left_refunded` | You left before the deal — your bets were returned | Вы ушли до раздачи — ставки возвращены |
+| `msg.burmaldaholic.uth.no_table` | The dealer needs a hold'em table right next to them | Дилеру нужен стол для холдема совсем рядом |
+
+### Player-banked table
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.uth.pvp.dealer_seat` | Dealer seat: %1$s | Место дилера: %1$s |
+| `gui.burmaldaholic.uth.pvp.the_house` | the house | заведение |
+| `gui.burmaldaholic.uth.pvp.bank` | Bank %1$s · reserved %2$s | Банк %1$s · в резерве %2$s |
+| `gui.burmaldaholic.uth.pvp.take_seat` | Take the dealer seat… | Занять место дилера… |
+| `gui.burmaldaholic.uth.pvp.take_seat_submit` | Take the seat | Занять место |
+| `gui.burmaldaholic.uth.pvp.bank_amount` | Bank (min %1$s) | Банк (от %1$s) |
+| `gui.burmaldaholic.uth.pvp.leave_seat` | Leave the dealer seat | Уйти с места дилера |
+| `gui.burmaldaholic.uth.pvp.leaving_after_round` | Leaving after this round | Уходите после этого раунда |
+| `gui.burmaldaholic.uth.pvp.you_bank` | You are the dealer. Your bank covers every seat | Вы — дилер. Ваш банк отвечает за все места |
+| `gui.burmaldaholic.uth.pvp.round_result` | Bank this round: %1$s (house rake %2$s) | Банк за раунд: %1$s (рейк заведения %2$s) |
+| `gui.burmaldaholic.uth.pvp.covers_up_to` | The bank covers an Ante up to %1$s | Банк покрывает анте до %1$s |
+| `gui.burmaldaholic.uth.pvp.rules.1` | A player in the dealer seat covers every bet from their bank; the dealer hand plays by the usual rules. | Игрок на месте дилера отвечает за все ставки своим банком; рука дилера играет по обычным правилам. |
+| `gui.burmaldaholic.uth.pvp.rules.2` | Each seat reserves its worst case (%1$s × Ante + %2$s × Trips) from the bank. The house takes %3$s%% of the bank's net win per round. | Каждое место резервирует в банке худший случай (%1$s × анте + %2$s × трипс). Заведение берёт %3$s %% с чистого выигрыша банка за раунд. |
+| `gui.burmaldaholic.uth.error.bank_cover` | The bank can't cover that. Largest Ante it covers now: %1$s | Банк это не покроет. Сейчас он покрывает анте до %1$s |
+| `gui.burmaldaholic.uth.error.min_bank` | The smallest bank is %1$s | Минимальный банк — %1$s |
+| `gui.burmaldaholic.uth.error.seat_taken` | The dealer seat is taken | Место дилера занято |
+| `gui.burmaldaholic.uth.error.seat_next_round` | Bets are already in — you can take the dealer seat from the next round | Ставки уже сделаны — место дилера можно занять со следующего раунда |
+| `gui.burmaldaholic.uth.error.pvp_owing` | You can't bank for other players while you owe the Loan Shark | Пока вы должны ростовщику, держать банк для других игроков нельзя |
+| `msg.burmaldaholic.uth.pvp.took_seat` | %1$s takes the dealer seat with a bank of %2$s | Место дилера занимает %1$s с банком %2$s |
+| `msg.burmaldaholic.uth.pvp.left_seat` | %1$s leaves the dealer seat — the house deals | %1$s уходит с места дилера — дальше сдаёт заведение |
+| `msg.burmaldaholic.uth.pvp.seat_offered` | The dealer seat is free. Take it? | Место дилера свободно. Займёте? |
+| `msg.burmaldaholic.uth.pvp.bank_too_low` | Your bank can't cover a minimum bet any more — you leave the dealer seat after this round | Ваш банк больше не покрывает даже минимальную ставку — после этого раунда вы уходите с места дилера |
+| `msg.burmaldaholic.uth.bank_returned` | Your bank of %1$s was returned to your balance | Ваш банк (%1$s) вернулся на баланс |
+
+---
+
 ## extras
 
 ### Coin Flip
@@ -1351,6 +1642,20 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.piglin_parlor.description` | Enter a Piglin Parlor | Зайдите в пиглинский салон |
 | `advancement.burmaldaholic.high_roller.title` | Out of This World | Не от мира сего |
 | `advancement.burmaldaholic.high_roller.description` | Place a bet in the End City High Roller Lounge | Сделайте ставку в лаунже хайроллеров в городе Края |
+| `advancement.burmaldaholic.baccarat_natural.title` | La Grande | Натуральная девятка |
+| `advancement.burmaldaholic.baccarat_natural.description` | Win a Player or Banker bet with a natural 9 | Выиграйте ставку на Игрока или Банкира с натуральной девяткой |
+| `advancement.burmaldaholic.tie_streak.title` | Tied Up | Ничья за ничьей |
+| `advancement.burmaldaholic.tie_streak.description` | Win Tie bets on two coups in a row | Выиграйте ставку на ничью две раздачи подряд |
+| `advancement.burmaldaholic.banco.title` | Banco! | Банко! |
+| `advancement.burmaldaholic.banco.description` | Call Banco at chemin de fer and win the coup | Объявите «Банко» в шмен-де-фер и выиграйте раздачу |
+| `advancement.burmaldaholic.bank_holder.title` | Too Big to Fail | Банк не лопнет |
+| `advancement.burmaldaholic.bank_holder.description` | Keep one chemin de fer bank through five winning coups in a row | Удержите банк в шмен-де-фер пять выигранных раздач подряд |
+| `advancement.burmaldaholic.uth_four_x.title` | Four Times the Nerve | Вчетверо смелее |
+| `advancement.burmaldaholic.uth_four_x.description` | Bet ×4 before the flop in Ultimate Texas Hold'em and win | Поставьте ×4 до флопа в «Ультимейт Техас Холдем» и выиграйте |
+| `advancement.burmaldaholic.uth_house_seat.title` | Deal Me Out | Сам себе дилер |
+| `advancement.burmaldaholic.uth_house_seat.description` | Finish a round in the dealer seat with a profit against at least two players | Закончите раунд на месте дилера в плюсе, играя минимум против двоих |
+| `advancement.burmaldaholic.uth_royal.title` | Blind Luck | Слепая удача |
+| `advancement.burmaldaholic.uth_royal.description` | Get paid for a royal flush in Ultimate Texas Hold'em | Получите выплату за роял-флеш в «Ультимейт Техас Холдем» |
 | `gui.burmaldaholic.achievements.unlocked` | Achievement unlocked: %1$s | Достижение получено: %1$s |
 | `gui.burmaldaholic.achievements.progress` | %1$s of %2$s unlocked | Получено %1$s из %2$s |
 
@@ -1628,6 +1933,59 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.extras.diceDuel.pvpRakePercent` | PvP duel rake (%%) | Комиссия за дуэль игроков (%%) |
 | `config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks` | Challenge timeout (ticks) | Время на ответ (тики) |
 | `config.burmaldaholic.extras.diceDuel.maxDistance` | Max duel distance | Макс. дистанция дуэли |
+
+### baccarat, uth
+
+| Key | EN | RU |
+|-----|----|----|
+| `config.burmaldaholic.section.baccarat` | Baccarat | Баккара |
+| `config.burmaldaholic.section.uth` | Ultimate Texas Hold'em | Ультимейт Техас Холдем |
+| `config.burmaldaholic.baccarat.enabled` | Baccarat | Баккара |
+| `config.burmaldaholic.baccarat.decks` | Decks in the shoe | Колод в шузе |
+| `config.burmaldaholic.baccarat.penetration` | Reshuffle point | Когда перемешивать |
+| `config.burmaldaholic.baccarat.burnCards` | Burn cards after a shuffle | Сжигать карты после перемешивания |
+| `config.burmaldaholic.baccarat.bankerCommission` | Banker commission | Комиссия с Банкира |
+| `config.burmaldaholic.baccarat.bankerCommission.tooltip` | Also sets the Banker bet step so the commission is exact (5%% → multiples of 20) | Заодно задаёт шаг ставки на Банкира, чтобы комиссия была без остатка (5 %% → кратно 20) |
+| `config.burmaldaholic.baccarat.tiePays` | Tie pays (X:1) | Ничья платит (X:1) |
+| `config.burmaldaholic.baccarat.pairBets` | Pair side bets | Ставки на пары |
+| `config.burmaldaholic.baccarat.pairPays` | Pairs pay (X:1) | Пары платят (X:1) |
+| `config.burmaldaholic.baccarat.minBet` | Minimum bet | Минимальная ставка |
+| `config.burmaldaholic.baccarat.sideMaxFraction` | Tie/pair max (share of the limit) | Макс. на ничью и пары (доля от лимита) |
+| `config.burmaldaholic.baccarat.highRollerMinTotal` | High Roller minimum per coup | Мин. сумма на раздачу у хайроллеров |
+| `config.burmaldaholic.baccarat.highRollerMaxMultiplier` | High Roller max multiplier | Множитель лимита хайроллеров |
+| `config.burmaldaholic.baccarat.highRollerMinVipTier` | High Roller: required VIP tier | Хайроллеры: нужный ВИП-статус |
+| `config.burmaldaholic.baccarat.seats` | Seats | Мест за столом |
+| `config.burmaldaholic.baccarat.betTimerTicks` | Betting time (ticks) | Время на ставки (тики) |
+| `config.burmaldaholic.baccarat.revealTicks` | Card reveal animation (ticks) | Анимация открытия карт (тики) |
+| `config.burmaldaholic.baccarat.historyLength` | Bead plate size | Размер табло результатов |
+| `config.burmaldaholic.baccarat.tieStreakChaos` | Ties in a row for a chip shower | Ничьих подряд для фишкопада |
+| `config.burmaldaholic.baccarat.chemmy.enabled` | Chemin de fer (player bank) | Шмен-де-фер (банк игроков) |
+| `config.burmaldaholic.baccarat.chemmy.minBank` | Chemin de fer: minimum bank | Шмен-де-фер: минимальный банк |
+| `config.burmaldaholic.baccarat.chemmy.rakePercent` | Chemin de fer: house commission | Шмен-де-фер: комиссия заведения |
+| `config.burmaldaholic.baccarat.chemmy.bankOfferTicks` | Chemin de fer: bank decision time (ticks) | Шмен-де-фер: время решения по банку (тики) |
+| `config.burmaldaholic.baccarat.chemmy.idleTicks` | Chemin de fer: idle time before the bank passes (ticks) | Шмен-де-фер: простой до передачи банка (тики) |
+| `config.burmaldaholic.baccarat.chemmy.houseCoupWhenNoBanker` | House deals when nobody banks | Без банкира сдаёт заведение |
+| `config.burmaldaholic.uth.enabled` | Ultimate Texas Hold'em | Ультимейт Техас Холдем |
+| `config.burmaldaholic.uth.seats` | Seats | Мест за столом |
+| `config.burmaldaholic.uth.allow3x` | Allow the ×3 preflop bet | Разрешить ставку ×3 до флопа |
+| `config.burmaldaholic.uth.minAnte` | Minimum Ante | Минимальное анте |
+| `config.burmaldaholic.uth.highRollerMinAnte` | High Roller minimum Ante | Мин. анте у хайроллеров |
+| `config.burmaldaholic.uth.highRollerMaxMultiplier` | High Roller max multiplier | Множитель лимита хайроллеров |
+| `config.burmaldaholic.uth.highRollerMinVipTier` | High Roller: required VIP tier | Хайроллеры: нужный ВИП-статус |
+| `config.burmaldaholic.uth.tripsEnabled` | Trips side bet | Ставка трипс |
+| `config.burmaldaholic.uth.blindPays` | Blind paytable | Выплаты по блайнду |
+| `config.burmaldaholic.uth.tripsPays` | Trips paytable | Выплаты по трипсу |
+| `config.burmaldaholic.uth.validateEdge` | Warn about a Trips edge of 1%% or less | Предупреждать о преимуществе трипса 1 %% и ниже |
+| `config.burmaldaholic.uth.betTimerTicks` | Betting time (ticks) | Время на ставки (тики) |
+| `config.burmaldaholic.uth.decisionTimerTicks` | Decision time per street (ticks) | Время на решение (тики) |
+| `config.burmaldaholic.uth.autoPlayMadeHands` | On timeout, play a straight or better | При тайм-ауте играть стрит и выше |
+| `config.burmaldaholic.uth.autoPlayMadeHands.tooltip` | When time runs out after the river, bet ×1 instead of folding if the hand is a straight or better | Если время после ривера вышло, при стрите и выше делается ставка ×1 вместо паса |
+| `config.burmaldaholic.uth.pvp.enabled` | Players may take the dealer seat | Игроки могут занять место дилера |
+| `config.burmaldaholic.uth.pvp.minBank` | Dealer seat: minimum bank | Место дилера: минимальный банк |
+| `config.burmaldaholic.uth.pvp.minBankerVip` | Dealer seat: required VIP tier | Место дилера: нужный ВИП-статус |
+| `config.burmaldaholic.uth.pvp.rakePercent` | Dealer seat: house rake | Место дилера: рейк заведения |
+| `config.burmaldaholic.uth.pvp.bankerRounds` | Dealer seat: rounds before rotation | Место дилера: раундов до передачи |
+| `config.burmaldaholic.uth.pvp.houseRoundsWhenNoBanker` | House deals when nobody banks | Без банкира сдаёт заведение |
 
 ### loan, chaos, streak, lastchance, worldgen, ownership, debug
 
