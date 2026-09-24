@@ -121,6 +121,11 @@ msg.burmaldaholic.uth.pvp.left_seat=%1 уходит с места дилера �
 msg.burmaldaholic.uth.pvp.seat_offered=Место дилера свободно. Займёте?
 msg.burmaldaholic.uth.pvp.bank_too_low=Ваш банк больше не покрывает даже минимальную ставку — после этого раунда вы уходите с места дилера
 msg.burmaldaholic.uth.bank_returned=Ваш банк (%1) вернулся на баланс
+## [uth / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.uth.tag.play=Плей ×%1
+gui.burmaldaholic.uth.fx.blind_bonus=Бонус блайнда!
+gui.burmaldaholic.uth.fx.trips_bonus=Бонус трипс!
+gui.burmaldaholic.uth.fx.royal=РОЯЛ-ФЛЕШ!
 ## [config / baccarat, uth]
 config.burmaldaholic.uth.enabled=Ультимейт Техас Холдем
 config.burmaldaholic.uth.seats=Мест за столом

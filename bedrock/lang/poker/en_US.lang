@@ -80,6 +80,24 @@ msg.burmaldaholic.poker.bot_joins=%1 (%2) joins the table
 msg.burmaldaholic.poker.bot_busts=%1 is out of chips and leaves
 msg.burmaldaholic.poker.new_hand=Hand #%1 — blinds %2/%3
 msg.burmaldaholic.poker.leaving_after_hand=You'll stand up when this hand ends
+## [poker / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.poker.tag.check=Check
+gui.burmaldaholic.poker.tag.call=Call %1
+gui.burmaldaholic.poker.tag.bet=Bet %1
+gui.burmaldaholic.poker.tag.raise=Raise to %1
+gui.burmaldaholic.poker.tag.fold=Fold
+gui.burmaldaholic.poker.tag.small_blind=SB %1
+gui.burmaldaholic.poker.tag.big_blind=BB %1
+gui.burmaldaholic.poker.tag.shows=Shows
+gui.burmaldaholic.poker.tag.mucks=Mucks
+gui.burmaldaholic.poker.fx.all_in_runout=All in — running the board
+gui.burmaldaholic.poker.fx.big_pot=Big pot!
+gui.burmaldaholic.poker.fx.monster_pot=Monster pot!
+gui.burmaldaholic.poker.fx.best_hand=Best hand: %1
+gui.burmaldaholic.poker.fx.wins=%1 wins %2
+gui.burmaldaholic.poker.fx.split=Split pot: %1 each
+gui.burmaldaholic.poker.fx.returned=Returned %1
+gui.burmaldaholic.poker.actionbar=Board %1 · Pot %2
 ## [config / vip, games]
 config.burmaldaholic.poker.enabled=Poker
 config.burmaldaholic.poker.maxSeats=Seats

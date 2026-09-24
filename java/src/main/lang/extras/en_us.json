@@ -98,6 +98,11 @@
 	"gui.burmaldaholic.extras.dice.accept_from": "Accept: %1$s, %2$s",
 	"gui.burmaldaholic.extras.dice.decline_from": "Decline: %1$s",
 	"gui.burmaldaholic.extras.dice.challenge_target": "Challenge %1$s",
+	"gui.burmaldaholic.extras.dice.fx.tie_reroll": "Tie! Re-roll %1$s of %2$s",
+	"gui.burmaldaholic.extras.dice.fx.round": "Round %1$s",
+	"gui.burmaldaholic.extras.dice.fx.victory": "Victory!",
+	"gui.burmaldaholic.extras.dice.fx.defeat": "Defeat",
+	"gui.burmaldaholic.extras.dice.fx.shake": "Shake the cup…",
 	"tooltip.burmaldaholic.lucky_coin.pvp": "Use on a player: challenge them to a Coin Flip Duel",
 	"advancement.burmaldaholic.plinko_edge.title": "Edge Case",
 	"advancement.burmaldaholic.plinko_edge.description": "Land the ball in an outermost bin on High risk",
@@ -126,5 +131,10 @@
 	"config.burmaldaholic.extras.diceDuel.maxDistance": "Max duel distance",
 	"subtitles.burmaldaholic.dice_roll": "Dice roll",
 	"subtitles.burmaldaholic.coin_flip": "Coin flips",
-	"subtitles.burmaldaholic.plinko_peg": "Ball plinks"
+	"subtitles.burmaldaholic.plinko_peg": "Ball plinks",
+	"subtitles.burmaldaholic.dice_throw": "Dice thrown",
+	"subtitles.burmaldaholic.dice_bounce": "Dice bounce",
+	"subtitles.burmaldaholic.dice_wall": "Dice hit the wall",
+	"subtitles.burmaldaholic.dice_cup": "Dice rattle",
+	"subtitles.burmaldaholic.plinko_bin": "Ball drops into a bin"
 }

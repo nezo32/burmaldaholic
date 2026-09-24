@@ -1,5 +1,8 @@
 ## vip strings (ru_RU). GENERATED from docs/design/STRINGS.md by tools/gen-lang.mjs.
 ## Do not edit above the manual marker: re-run `npm run gen:lang` instead. Placeholders: %1, %2 ... (Bedrock form).
+## [core / Toasts (animation wave, `animation/global.md` §4.10)]
+toast.burmaldaholic.vip.title=Новый уровень ВИП
+toast.burmaldaholic.vip.body=%1 · ставка до %2
 ## [vip]
 gui.burmaldaholic.vip.tier.bronze=Бронза
 gui.burmaldaholic.vip.tier.silver=Серебро
@@ -20,7 +23,7 @@ gui.burmaldaholic.vip.perk.scratch_gold=Золотая лотерея
 gui.burmaldaholic.vip.perk.loan=Займы до %1
 gui.burmaldaholic.vip.perk.contract_bonus=+%1 %% к наградам за заказы
 gui.burmaldaholic.vip.perk.contract_slots=Слотов для заказов: %1
-gui.burmaldaholic.vip.perk.netherite_slots=Автомат «Незеритовый хайроллер»
+gui.burmaldaholic.vip.perk.netherite_slots=Автомат «Пустота Края»
 gui.burmaldaholic.vip.perk.high_roller=Столы хайроллеров
 gui.burmaldaholic.vip.perk.emerald_rate=Выгодный курс изумрудов в кассе
 gui.burmaldaholic.vip.perk.cashback=Ежедневный кешбэк %1 %% от ожидаемого проигрыша
@@ -45,6 +48,7 @@ gui.burmaldaholic.vip.contract_unavailable=Этот заказ уже нельз
 gui.burmaldaholic.vip.loading=Загрузка…
 gui.burmaldaholic.vip.perk_bullet=• %1
 gui.burmaldaholic.vip.contract_status=%1 · %2
+gui.burmaldaholic.vip.tier_up=Новый уровень ВИП!
 ## [config / vip, games]
 config.burmaldaholic.vip.threshold.silver=Порог «Серебра» (поставлено)
 config.burmaldaholic.vip.threshold.gold=Порог «Золота» (поставлено)

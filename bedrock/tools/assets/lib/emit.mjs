@@ -14,4 +14,11 @@ export function mcmeta(path, { frametime, interpolate, nineSlice } = {}) {
   return json('java', `${path}.mcmeta`, v);
 }
 
+/** Bedrock JSON UI nine-slice sidecar (`<texture>.json` next to the PNG): `nineslice_size` + `base_size`. */
+export const bedrockNineSlice = (path, { width, height, border }) =>
+  json('bedrock', `${path}.json`, { nineslice_size: border, base_size: [width, height] });
+
+/** The same image for both editions (the glyph sheet, particle frames that Java needs as files…). */
+export const both = (javaPath, bedrockPath, img) => [png('java', javaPath, img), png('bedrock', bedrockPath, img)];
+
 export const JAVA_ASSETS = 'src/main/resources/assets/burmaldaholic';

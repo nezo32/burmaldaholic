@@ -137,6 +137,14 @@ msg.burmaldaholic.baccarat.chemmy.banco_called=Banco! %1 plays the whole bank
 msg.burmaldaholic.baccarat.chemmy.bank_wins=The bank wins %1 (house commission %2)
 msg.burmaldaholic.baccarat.chemmy.bank_pays=The bank pays %1
 msg.burmaldaholic.baccarat.bank_returned=Your bank of %1 was returned to your balance
+## [baccarat / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.baccarat.fx.squeezing=%1 squeezes…
+gui.burmaldaholic.baccarat.fx.you_squeeze=You squeeze…
+gui.burmaldaholic.baccarat.fx.player_card=Player's card…
+gui.burmaldaholic.baccarat.fx.banker_card=Banker's card…
+gui.burmaldaholic.baccarat.fx.tie_pays=Tie pays!
+gui.burmaldaholic.baccarat.fx.banco=Banco!
+gui.burmaldaholic.baccarat.fx.shoe_passes=The shoe passes to %1
 ## [config / baccarat, uth]
 config.burmaldaholic.baccarat.enabled=Baccarat
 config.burmaldaholic.baccarat.decks=Decks in the shoe

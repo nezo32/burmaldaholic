@@ -53,6 +53,18 @@ gui.burmaldaholic.blackjack.sit=Take a seat
 gui.burmaldaholic.blackjack.no_bet=No bet yet
 gui.burmaldaholic.blackjack.turn_of=%1 is playing…
 msg.burmaldaholic.blackjack.no_table=The dealer needs a blackjack table right next to them
+## [blackjack / Presentation (animation wave, `animation/cards.md` §11)]
+gui.burmaldaholic.blackjack.fx.blackjack=BLACKJACK!
+gui.burmaldaholic.blackjack.fx.bust=BUST
+gui.burmaldaholic.blackjack.fx.twenty_one=21!
+gui.burmaldaholic.blackjack.fx.dealer_reveals=Dealer reveals the hole card
+gui.burmaldaholic.blackjack.fx.dealer_draws=Dealer draws
+gui.burmaldaholic.blackjack.fx.dealer_stands=Dealer stands on %1
+gui.burmaldaholic.blackjack.fx.dealer_busts=Dealer busts with %1!
+gui.burmaldaholic.blackjack.fx.dealer_blackjack=Dealer blackjack
+gui.burmaldaholic.blackjack.fx.doubled=Doubled
+gui.burmaldaholic.blackjack.actionbar=Dealer %1 · %2
+gui.burmaldaholic.blackjack.actionbar_seat=%1 %2
 ## [config / vip, games]
 config.burmaldaholic.blackjack.enabled=Blackjack
 config.burmaldaholic.blackjack.decks=Decks in the shoe

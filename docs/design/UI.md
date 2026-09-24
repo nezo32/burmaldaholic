@@ -24,7 +24,11 @@ text in quotes, with the key where it matters).
   provider in `assets/burmaldaholic/font/default.json`; Bedrock: `font/glyph_E1.png`, cell 0x00).
   Card glyphs: U+E110–U+E14F (52 cards + back), suits U+E150–U+E153, dice faces U+E160–U+E165,
   streak flame U+E170, rain-cloud U+E171, VIP badges U+E180–U+E185. Same code points in both
-  editions (Bedrock sheet `glyph_E1.png`, 16×16 grid). Strings never contain these glyphs; code
+  editions (Bedrock sheet `glyph_E1.png`, 16×16 grid). Animation wave additions (all drawn in the same
+  sheet by `bedrock/tools/gen-assets.mjs`, module core; Java `textures/font/core/glyph_e1.png`): HUD pips,
+  sun, bell, collectors U+E172–E177; coin frames U+E186–E18B; bot, thinking dots, mini chips, emerald,
+  gold ingot, sparkle U+E190–E19B; PvP U+E1A0–E1A1; extras U+E1A2–E1B8; tables U+E1C0–E1CB; cards
+  U+E1D0–E1DB; dye swatches U+E1E0–E1EF. Full map and reserves: `docs/architecture/animation.md` §6. Strings never contain these glyphs; code
   prepends them as separate text components.
 - Colors (both editions support § codes): win = §a (green), loss = §c (red), push = §7 (gray),
   jackpot/golden = §6 (gold). VIP tier colors: Bronze §c, Silver §7, Gold §6, Platinum §f,

@@ -88,9 +88,9 @@ casino mode in world saved data and has no game rule.
 | `block.burmaldaholic.roulette_table` | Roulette Table | Стол для рулетки |
 | `block.burmaldaholic.roulette_table_high_roller` | High Roller Roulette Table | Стол хайроллеров: рулетка |
 | `block.burmaldaholic.craps_table` | Craps Table | Стол для крэпса |
-| `block.burmaldaholic.slot_machine_copper` | Copper Bandit | Медный бандит |
-| `block.burmaldaholic.slot_machine_gold` | Golden Reels | Золотые барабаны |
-| `block.burmaldaholic.slot_machine_netherite` | Netherite High Roller | Незеритовый хайроллер |
+| `block.burmaldaholic.slot_machine_copper` | Overworld Riches | Богатства Верхнего мира |
+| `block.burmaldaholic.slot_machine_gold` | Nether Inferno | Пекло Незера |
+| `block.burmaldaholic.slot_machine_netherite` | End Void | Пустота Края |
 | `block.burmaldaholic.wheel_of_fortune` | Wheel of Fortune | Колесо фортуны |
 | `block.burmaldaholic.plinko_machine` | Plinko Machine | Автомат «Плинко» |
 | `block.burmaldaholic.casino_charter` | Casino Charter | Лицензия казино |
@@ -132,9 +132,9 @@ casino mode in world saved data and has no game rule.
 | `tooltip.burmaldaholic.poker_table` | Texas Hold'em, up to 6 seats | Техасский холдем, до 6 мест |
 | `tooltip.burmaldaholic.roulette_table` | European roulette, single zero | Европейская рулетка с одним зеро |
 | `tooltip.burmaldaholic.craps_table` | Pass, Come, Field and odds | Пасс-лайн, кам, филд и коэффициенты |
-| `tooltip.burmaldaholic.slot_machine_copper` | 1 payline · no jackpot | 1 линия · без джекпота |
-| `tooltip.burmaldaholic.slot_machine_gold` | 3 paylines · progressive jackpot | 3 линии · накопительный джекпот |
-| `tooltip.burmaldaholic.slot_machine_netherite` | 5 paylines · progressive jackpot · Gold VIP | 5 линий · накопительный джекпот · ВИП «Золото» |
+| `tooltip.burmaldaholic.slot_machine_copper` | 243 ways · free spins · Treasure Hunt | 243 способа · фриспины · охота за сокровищами |
+| `tooltip.burmaldaholic.slot_machine_gold` | 243 ways · tumbling reels · Piglin's Hoard | 243 способа · обвалы · клад пиглинов |
+| `tooltip.burmaldaholic.slot_machine_netherite` | 243 ways · sticky wilds · Dragon Wheel · Gold VIP | 243 способа · липкие вайлды · колесо дракона · ВИП «Золото» |
 | `tooltip.burmaldaholic.wheel_of_fortune` | Up to ×10 your bet | До ×10 от ставки |
 | `tooltip.burmaldaholic.plinko_machine` | Drop the ball. Up to ×170 | Бросьте шарик. До ×170 |
 | `tooltip.burmaldaholic.casino_charter` | Claims a casino. License fee: %1$s | Открывает своё казино. Лицензионный сбор: %1$s |
@@ -339,6 +339,8 @@ casino mode in world saved data and has no game rule.
 | `hud.burmaldaholic.golden_hour` | Golden Hour %1$s | «Золотой час» %1$s |
 | `hud.burmaldaholic.time.dhm` | %1$sd %2$s | %1$sд %2$s |
 | `hud.burmaldaholic.actionbar` | %1$s · %2$s · %3$s | %1$s · %2$s · %3$s |
+| `hud.burmaldaholic.golden_hour.over` | Golden Hour is over | «Золотой час» окончен |
+| `hud.burmaldaholic.collectors` | Collectors: %1$s m | Коллекторы: %1$s м |
 
 ### Win tiers and celebrations (animation wave; `docs/design/animation/global.md` §9, `docs/architecture/animation.md` §4)
 
@@ -353,6 +355,11 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.fx.tier.push` | PUSH | НИЧЬЯ |
 | `gui.burmaldaholic.fx.tier.loss` | NO WIN | БЕЗ ВЫИГРЫША |
 | `gui.burmaldaholic.fx.returned` | Returned %1$s | Возвращено: %1$s |
+| `gui.burmaldaholic.fx.amount` | +%1$s | +%1$s |
+| `gui.burmaldaholic.fx.multiplier` | ×%1$s your bet | ×%1$s от ставки |
+| `gui.burmaldaholic.fx.skip` | Click to skip | Нажмите, чтобы пропустить |
+| `gui.burmaldaholic.fx.skip_bedrock` | Sneak to skip | Присядьте, чтобы пропустить |
+| `gui.burmaldaholic.fx.nearby_float` | %1$s +%2$s | %1$s +%2$s |
 
 ### Messages
 
@@ -425,6 +432,21 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.menu.admin.player` | Player | Игрок |
 | `gui.burmaldaholic.menu.admin.done` | Done: %1$s | Готово: %1$s |
 | `gui.burmaldaholic.menu.admin.rtp_warning` | Warning: %1$s has RTP %2$s — above 99%% | Внимание: у «%1$s» RTP %2$s — выше 99 %% |
+| `gui.burmaldaholic.menu.settings.reduce_motion` | Reduce motion | Меньше анимации |
+| `gui.burmaldaholic.menu.settings.flashes` | Screen flashes | Вспышки экрана |
+| `gui.burmaldaholic.menu.settings.anim_speed` | Animation speed | Скорость анимации |
+| `gui.burmaldaholic.menu.settings.anim_speed.slow` | Slow | Медленно |
+| `gui.burmaldaholic.menu.settings.anim_speed.normal` | Normal | Обычно |
+| `gui.burmaldaholic.menu.settings.anim_speed.turbo` | Turbo | Турбо |
+| `gui.burmaldaholic.menu.settings.celebrations` | Win celebrations | Празднование выигрышей |
+| `gui.burmaldaholic.menu.settings.celebrations.all` | Everyone's | Все |
+| `gui.burmaldaholic.menu.settings.celebrations.mine` | Only mine | Только мои |
+| `gui.burmaldaholic.menu.settings.celebrations.off` | Off | Выкл. |
+| `gui.burmaldaholic.menu.settings.fx_volume` | Effects volume: %1$s%% | Громкость эффектов: %1$s %% |
+| `gui.burmaldaholic.menu.settings.hud_panel` | Styled HUD panel | Фирменная панель |
+| `gui.burmaldaholic.menu.settings.squeeze_peel` | Baccarat: peel cards myself | Баккара: вскрывать карты самому |
+| `gui.burmaldaholic.menu.settings.spin_camera` | Spin camera | Обзор колеса |
+| `gui.burmaldaholic.menu.settings.spin_camera.tooltip` | Roulette: the camera looks at the wheel during your spin. Any movement cancels it. | Рулетка: во время вашего вращения камера смотрит на колесо. Любое движение её отключает. |
 
 ### Cashier
 
@@ -447,6 +469,11 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.cashier.shop` | Shop | Лавка |
 | `gui.burmaldaholic.cashier.shop.buy_item` | Buy %1$s — %2$s | Купить «%1$s» — %2$s |
 | `gui.burmaldaholic.cashier.withdraw_blocked` | Withdrawals are frozen while your loan is overdue | Пока займ просрочен, снятие заморожено |
+| `gui.burmaldaholic.cashier.counting` | Counting… | Считаем… |
+| `gui.burmaldaholic.cashier.deposited` | Deposited %1$s | Внесено: %1$s |
+| `gui.burmaldaholic.cashier.withdrawn` | Withdrawn %1$s | Выдано: %1$s |
+| `gui.burmaldaholic.cashier.dropped` | (%1$s dropped at your feet) | (%1$s — у ваших ног) |
+| `gui.burmaldaholic.cashier.exchanged` | Exchanged: %1$s | Обмен: %1$s |
 
 ### Contracts
 
@@ -480,6 +507,7 @@ casino mode in world saved data and has no game rule.
 | `msg.burmaldaholic.contracts.completed` | Contract done: %1$s — +%2$s | Заказ выполнен: %1$s — +%2$s |
 | `msg.burmaldaholic.contracts.rerolled` | Contract swapped for %1$s | Заказ заменён за %1$s |
 | `msg.burmaldaholic.contracts.all_done` | All contracts done. Go treat yourself (responsibly). | Все заказы выполнены. Можно себя побаловать (в меру). |
+| `gui.burmaldaholic.contracts.task.slots_feature` | Trigger slot features: %1$s | Запустить бонусы на автоматах: %1$s |
 
 ### Pawn wagers (non-chip stakes)
 
@@ -498,6 +526,24 @@ casino mode in world saved data and has no game rule.
 | `msg.burmaldaholic.wager.hearts_lost` | You lost %1$s until tomorrow | Минус %1$s до завтра |
 | `msg.burmaldaholic.wager.hearts_restored` | Your borrowed hearts have been returned | Одолженные сердца вернулись на место |
 | `msg.burmaldaholic.wager.soul_cooldown` | Your soul is still being processed. Try again in %1$s | Ваша душа ещё на рассмотрении. Попробуйте через %1$s |
+
+### Toasts (animation wave, `animation/global.md` §4.10)
+
+| Key | EN | RU |
+|-----|----|----|
+| `toast.burmaldaholic.jackpot.title` | Jackpot on the server! | Джекпот на сервере! |
+| `toast.burmaldaholic.jackpot.body` | %1$s · %2$s | %1$s · %2$s |
+| `toast.burmaldaholic.big_win.title` | Big win | Крупный выигрыш |
+| `toast.burmaldaholic.big_win.body` | %1$s · %2$s | %1$s · %2$s |
+| `toast.burmaldaholic.contract.title` | Contract complete | Заказ выполнен |
+| `toast.burmaldaholic.contract.body` | Reward: %1$s | Награда: %1$s |
+| `toast.burmaldaholic.cashback.title` | Cashback | Кешбэк |
+| `toast.burmaldaholic.cashback.body` | %1$s returned | Возвращено: %1$s |
+| `toast.burmaldaholic.vip.title` | New VIP tier | Новый уровень ВИП |
+| `toast.burmaldaholic.vip.body` | %1$s · max bet %2$s | %1$s · ставка до %2$s |
+| `toast.burmaldaholic.vip_netherite.title` | Netherite VIP | Незеритовый ВИП |
+| `toast.burmaldaholic.golden_hour.ending` | Golden Hour ends in %1$s | «Золотой час» закончится через %1$s |
+| `toast.burmaldaholic.achievement.title` | Achievement unlocked | Достижение получено |
 
 ---
 
@@ -538,7 +584,7 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.vip.perk.loan` | Loans up to %1$s | Займы до %1$s |
 | `gui.burmaldaholic.vip.perk.contract_bonus` | +%1$s%% contract rewards | +%1$s %% к наградам за заказы |
 | `gui.burmaldaholic.vip.perk.contract_slots` | %1$s contract slots | Слотов для заказов: %1$s |
-| `gui.burmaldaholic.vip.perk.netherite_slots` | Netherite High Roller slots | Автомат «Незеритовый хайроллер» |
+| `gui.burmaldaholic.vip.perk.netherite_slots` | End Void slot machine | Автомат «Пустота Края» |
 | `gui.burmaldaholic.vip.perk.high_roller` | High Roller tables | Столы хайроллеров |
 | `gui.burmaldaholic.vip.perk.emerald_rate` | Better emerald rate at the Cashier | Выгодный курс изумрудов в кассе |
 | `gui.burmaldaholic.vip.perk.cashback` | %1$s%% daily cashback on expected losses | Ежедневный кешбэк %1$s %% от ожидаемого проигрыша |
@@ -563,6 +609,7 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.vip.loading` | Loading… | Загрузка… |
 | `gui.burmaldaholic.vip.perk_bullet` | • %1$s | • %1$s |
 | `gui.burmaldaholic.vip.contract_status` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.vip.tier_up` | VIP tier up! | Новый уровень ВИП! |
 
 ---
 
@@ -643,10 +690,31 @@ casino mode in world saved data and has no game rule.
 | `gui.burmaldaholic.blackjack.no_bet` | No bet yet | Ещё без ставки |
 | `gui.burmaldaholic.blackjack.turn_of` | %1$s is playing… | Ходит %1$s… |
 | `msg.burmaldaholic.blackjack.no_table` | The dealer needs a blackjack table right next to them | Дилеру нужен стол для блэкджека совсем рядом |
+| `gui.burmaldaholic.cards.narrate.dealt` | %1$s receives %2$s | %1$s: карта %2$s |
+| `gui.burmaldaholic.cards.narrate.shows` | %1$s shows %2$s | %1$s открывает: %2$s |
+| `gui.burmaldaholic.cards.narrate.dealt_all` | Cards dealt | Карты розданы |
+| `gui.burmaldaholic.cards.narrate.card` | %1$s of %2$s | %1$s, %2$s |
+| `gui.burmaldaholic.cards.hidden_card` | face-down card | закрытая карта |
 
 Ranks 2–9 use the digit directly (no key). Card glyphs carry the rank letter of the **English**
 deck on the texture; the `rank.*` letters are used only for text-only rendering (Bedrock body text
 fallback, narration).
+
+### Presentation (animation wave, `animation/cards.md` §11)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.blackjack.fx.blackjack` | BLACKJACK! | БЛЭКДЖЕК! |
+| `gui.burmaldaholic.blackjack.fx.bust` | BUST | ПЕРЕБОР |
+| `gui.burmaldaholic.blackjack.fx.twenty_one` | 21! | 21! |
+| `gui.burmaldaholic.blackjack.fx.dealer_reveals` | Dealer reveals the hole card | Дилер открывает закрытую карту |
+| `gui.burmaldaholic.blackjack.fx.dealer_draws` | Dealer draws | Дилер берёт карту |
+| `gui.burmaldaholic.blackjack.fx.dealer_stands` | Dealer stands on %1$s | Дилер останавливается на %1$s |
+| `gui.burmaldaholic.blackjack.fx.dealer_busts` | Dealer busts with %1$s! | У дилера перебор: %1$s! |
+| `gui.burmaldaholic.blackjack.fx.dealer_blackjack` | Dealer blackjack | Блэкджек у дилера |
+| `gui.burmaldaholic.blackjack.fx.doubled` | Doubled | Удвоено |
+| `gui.burmaldaholic.blackjack.actionbar` | Dealer %1$s · %2$s | Дилер %1$s · %2$s |
+| `gui.burmaldaholic.blackjack.actionbar_seat` | %1$s %2$s | %1$s %2$s |
 
 ---
 
@@ -734,56 +802,249 @@ fallback, narration).
 | `msg.burmaldaholic.poker.new_hand` | Hand #%1$s — blinds %2$s/%3$s | Раздача №%1$s — блайнды %2$s/%3$s |
 | `msg.burmaldaholic.poker.leaving_after_hand` | You'll stand up when this hand ends | Вы встанете из-за стола после этой раздачи |
 
+### Presentation (animation wave, `animation/cards.md` §11)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.poker.tag.check` | Check | Чек |
+| `gui.burmaldaholic.poker.tag.call` | Call %1$s | Колл %1$s |
+| `gui.burmaldaholic.poker.tag.bet` | Bet %1$s | Бет %1$s |
+| `gui.burmaldaholic.poker.tag.raise` | Raise to %1$s | Рейз до %1$s |
+| `gui.burmaldaholic.poker.tag.fold` | Fold | Пас |
+| `gui.burmaldaholic.poker.tag.small_blind` | SB %1$s | МБ %1$s |
+| `gui.burmaldaholic.poker.tag.big_blind` | BB %1$s | ББ %1$s |
+| `gui.burmaldaholic.poker.tag.shows` | Shows | Открывает |
+| `gui.burmaldaholic.poker.tag.mucks` | Mucks | Сбрасывает |
+| `gui.burmaldaholic.poker.fx.all_in_runout` | All in — running the board | Олл-ин — открываем стол |
+| `gui.burmaldaholic.poker.fx.big_pot` | Big pot! | Крупный банк! |
+| `gui.burmaldaholic.poker.fx.monster_pot` | Monster pot! | Огромный банк! |
+| `gui.burmaldaholic.poker.fx.best_hand` | Best hand: %1$s | Лучшая рука: %1$s |
+| `gui.burmaldaholic.poker.fx.wins` | %1$s wins %2$s | %1$s забирает %2$s |
+| `gui.burmaldaholic.poker.fx.split` | Split pot: %1$s each | Банк делится: по %1$s |
+| `gui.burmaldaholic.poker.fx.returned` | Returned %1$s | Возврат: %1$s |
+| `gui.burmaldaholic.poker.actionbar` | Board %1$s · Pot %2$s | Стол %1$s · Банк %2$s |
+
 ---
 
 ## slots
 
+Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.burmaldaholic.slots.machine.*`,
+`symbol` = nested `gui.burmaldaholic.slots.symbol.*`, `tier` = nested `gui.burmaldaholic.slots.jackpot.tier.*`,
+`mult` = a formatted multiplier without "×".
+
+### Machines and symbols (`SLOTS.md` §13.2)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.machine.overworld` | Overworld Riches | Богатства Верхнего мира |
+| `gui.burmaldaholic.slots.machine.nether` | Nether Inferno | Пекло Незера |
+| `gui.burmaldaholic.slots.machine.end` | End Void | Пустота Края |
+| `gui.burmaldaholic.slots.symbol.totem` | Totem (Wild) | Тотем (вайлд) |
+| `gui.burmaldaholic.slots.symbol.compass` | Compass | Компас |
+| `gui.burmaldaholic.slots.symbol.chest` | Treasure Chest | Сундук с сокровищами |
+| `gui.burmaldaholic.slots.symbol.diamond` | Diamond | Алмаз |
+| `gui.burmaldaholic.slots.symbol.emerald` | Emerald | Изумруд |
+| `gui.burmaldaholic.slots.symbol.gold_ingot` | Gold Ingot | Золотой слиток |
+| `gui.burmaldaholic.slots.symbol.iron_ingot` | Iron Ingot | Железный слиток |
+| `gui.burmaldaholic.slots.symbol.apple` | Apple | Яблоко |
+| `gui.burmaldaholic.slots.symbol.carrot` | Carrot | Морковь |
+| `gui.burmaldaholic.slots.symbol.wheat` | Wheat | Пшеница |
+| `gui.burmaldaholic.slots.symbol.sweet_berries` | Sweet Berries | Сладкие ягоды |
+| `gui.burmaldaholic.slots.symbol.lava_bucket` | Lava Bucket (Wild) | Ведро лавы (вайлд) |
+| `gui.burmaldaholic.slots.symbol.ghast_tear` | Ghast Tear | Слеза гаста |
+| `gui.burmaldaholic.slots.symbol.piglin_coin` | Piglin Coin | Монета пиглинов |
+| `gui.burmaldaholic.slots.symbol.wither_skull` | Wither Skeleton Skull | Череп скелета-иссушителя |
+| `gui.burmaldaholic.slots.symbol.blaze_rod` | Blaze Rod | Огненный стержень |
+| `gui.burmaldaholic.slots.symbol.magma_cream` | Magma Cream | Сгусток магмы |
+| `gui.burmaldaholic.slots.symbol.quartz` | Nether Quartz | Кварц Незера |
+| `gui.burmaldaholic.slots.symbol.nether_wart` | Nether Wart | Незерский нарост |
+| `gui.burmaldaholic.slots.symbol.crimson_fungus` | Crimson Fungus | Багровый гриб |
+| `gui.burmaldaholic.slots.symbol.warped_fungus` | Warped Fungus | Искажённый гриб |
+| `gui.burmaldaholic.slots.symbol.glowstone` | Glowstone Dust | Светокаменная пыль |
+| `gui.burmaldaholic.slots.symbol.dragon_egg` | Dragon Egg (Wild) | Яйцо дракона (вайлд) |
+| `gui.burmaldaholic.slots.symbol.ender_eye` | Eye of Ender | Око Края |
+| `gui.burmaldaholic.slots.symbol.end_crystal` | End Crystal | Кристалл Края |
+| `gui.burmaldaholic.slots.symbol.dragon_head` | Dragon Head | Голова дракона |
+| `gui.burmaldaholic.slots.symbol.elytra` | Elytra | Элитры |
+| `gui.burmaldaholic.slots.symbol.shulker_shell` | Shulker Shell | Панцирь шалкера |
+| `gui.burmaldaholic.slots.symbol.chorus_fruit` | Chorus Fruit | Плод коруса |
+| `gui.burmaldaholic.slots.symbol.ender_pearl` | Ender Pearl | Жемчуг Края |
+| `gui.burmaldaholic.slots.symbol.purpur` | Purpur Block | Пурпурный блок |
+| `gui.burmaldaholic.slots.symbol.end_rod` | End Rod | Стержень Края |
+| `gui.burmaldaholic.slots.symbol.end_stone` | End Stone | Эндерняк |
+| `gui.burmaldaholic.slots.symbol.creeper` | Creeper | Крипер |
+
+### Machine screen / form (`SLOTS.md` §13.3; argument notes there)
+
 | Key | EN | RU |
 |-----|----|----|
 | `gui.burmaldaholic.slots.spin` | Spin (%1$s) | Крутить (%1$s) |
-| `gui.burmaldaholic.slots.auto` | Auto ×10 | Авто ×10 |
-| `gui.burmaldaholic.slots.stop_auto` | Stop | Стоп |
-| `gui.burmaldaholic.slots.line_bet` | Line bet: %1$s | Ставка на линию: %1$s |
-| `gui.burmaldaholic.slots.lines` | Paylines: %1$s | Линий: %1$s |
-| `gui.burmaldaholic.slots.jackpot` | JACKPOT %1$s | ДЖЕКПОТ %1$s |
+| `gui.burmaldaholic.slots.stop` | Stop | Стоп |
+| `gui.burmaldaholic.slots.skip` | Skip | Пропустить |
+| `gui.burmaldaholic.slots.bet` | Bet: %1$s | Ставка: %1$s |
+| `gui.burmaldaholic.slots.bet_down` | Lower bet | Меньше |
+| `gui.burmaldaholic.slots.bet_up` | Raise bet | Больше |
+| `gui.burmaldaholic.slots.ways` | 243 ways | 243 способа |
 | `gui.burmaldaholic.slots.last_win` | Last win: %1$s | Прошлый выигрыш: %1$s |
 | `gui.burmaldaholic.slots.no_win` | No win this time | В этот раз мимо |
-| `gui.burmaldaholic.slots.line_win` | Line %1$s: ×%2$s → %3$s | Линия %1$s: ×%2$s → %3$s |
 | `gui.burmaldaholic.slots.spin_total` | Spin result: %1$s | Итог вращения: %1$s |
-| `gui.burmaldaholic.slots.auto_summary` | %1$s: bet %2$s, won %3$s | %1$s: поставлено %2$s, выиграно %3$s |
-| `gui.burmaldaholic.slots.auto_stopped_big_win` | Auto-spin stopped: big win! | Автоигра остановлена: крупный выигрыш! |
-| `gui.burmaldaholic.slots.auto_stopped_funds` | Auto-spin stopped: not enough chips | Автоигра остановлена: не хватает фишек |
-| `gui.burmaldaholic.slots.paytable.three` | Three %1$s: ×%2$s | Три «%1$s»: ×%2$s |
-| `gui.burmaldaholic.slots.paytable.berry_1` | Sweet Berries on reel 1: ×%1$s | Ягода на первом барабане: ×%1$s |
-| `gui.burmaldaholic.slots.paytable.berry_2` | Sweet Berries on reels 1–2: ×%1$s | Ягоды на первых двух барабанах: ×%1$s |
+| `gui.burmaldaholic.slots.symbol_win` | %1$s ×%2$s · %3$s ways · %4$s | %1$s ×%2$s · способов: %3$s · %4$s |
+| `gui.burmaldaholic.slots.scatter_win` | Scatters: %1$s · %2$s | Скаттеры: %1$s · %2$s |
+| `gui.burmaldaholic.slots.playing` | Now playing: %1$s | Сейчас играет: %1$s |
+| `gui.burmaldaholic.slots.turbo` | Turbo | Турбо |
+| `gui.burmaldaholic.slots.out_of_order` | Out of order | Не работает |
+| `gui.burmaldaholic.slots.auto` | Auto… | Авто… |
+| `gui.burmaldaholic.slots.stop_auto` | Stop | Стоп |
+| `gui.burmaldaholic.slots.auto.title` | Autoplay | Автоигра |
+| `gui.burmaldaholic.slots.auto.count` | Spins | Вращений |
+| `gui.burmaldaholic.slots.auto.loss_limit` | Stop if I lose (× bet) | Стоп при проигрыше (× ставки) |
+| `gui.burmaldaholic.slots.auto.stop_feature` | Stop on a feature | Стоп на бонусе |
+| `gui.burmaldaholic.slots.auto.stop_win` | Stop on a win of at least | Стоп при выигрыше от |
+| `gui.burmaldaholic.slots.auto.off` | Off | Выкл. |
+| `gui.burmaldaholic.slots.auto.start` | Start autoplay | Запустить |
+| `gui.burmaldaholic.slots.auto_left` | Auto: %1$s left | Авто: осталось %1$s |
+| `gui.burmaldaholic.slots.auto_summary` | Spins %1$s: bet %2$s, won %3$s | Вращений %1$s: поставлено %2$s, выиграно %3$s |
+| `gui.burmaldaholic.slots.auto_stopped_big_win` | Autoplay stopped: big win! | Автоигра остановлена: крупный выигрыш! |
+| `gui.burmaldaholic.slots.auto_stopped_funds` | Autoplay stopped: not enough chips | Автоигра остановлена: не хватает фишек |
+| `gui.burmaldaholic.slots.auto_stopped_feature` | Autoplay stopped: bonus! | Автоигра остановлена: бонус! |
+| `gui.burmaldaholic.slots.auto_stopped_loss` | Autoplay stopped: loss limit reached | Автоигра остановлена: достигнут лимит проигрыша |
+| `gui.burmaldaholic.slots.auto_stopped_jackpot` | Autoplay stopped: jackpot! | Автоигра остановлена: джекпот! |
+| `gui.burmaldaholic.slots.error.loss_limit_required` | Choose a loss limit first | Сначала выберите лимит проигрыша |
+| `gui.burmaldaholic.slots.error.bet_unavailable` | That bet is not available on this machine | Такой ставки на этом автомате нет |
+| `gui.burmaldaholic.slots.error.buy_disabled` | Buying bonuses is off here | Покупка бонусов здесь отключена |
+| `gui.burmaldaholic.slots.error.buy_limit` | This purchase is above your VIP limit | Покупка превышает ваш ВИП-лимит |
+
+### Features, jackpots, buy feature (`SLOTS.md` §13.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.fs.title` | FREE SPINS | БЕСПЛАТНЫЕ ВРАЩЕНИЯ |
+| `gui.burmaldaholic.slots.fs.name.overworld` | Night Watch | Ночной дозор |
+| `gui.burmaldaholic.slots.fs.name.nether` | Inferno Spins | Адские вращения |
+| `gui.burmaldaholic.slots.fs.name.end` | Void Walker | Странник пустоты |
+| `gui.burmaldaholic.slots.fs.awarded` | Free spins: %1$s! | Бесплатных вращений: %1$s! |
+| `gui.burmaldaholic.slots.fs.retrigger` | More spins: +%1$s! | Ещё вращения: +%1$s! |
+| `gui.burmaldaholic.slots.fs.left` | Spin %1$s of %2$s | Вращение %1$s из %2$s |
+| `gui.burmaldaholic.slots.fs.multiplier` | Multiplier ×%1$s | Множитель ×%1$s |
+| `gui.burmaldaholic.slots.fs.total` | Bonus win: %1$s | Выигрыш в бонусе: %1$s |
+| `gui.burmaldaholic.slots.fs.end` | FREE SPINS WIN %1$s | ИТОГ ВРАЩЕНИЙ: %1$s |
+| `gui.burmaldaholic.slots.tumble.mult` | Tumble ×%1$s | Обвал ×%1$s |
+| `gui.burmaldaholic.slots.tumble.count` | Tumbles: %1$s | Обвалов: %1$s |
+| `gui.burmaldaholic.slots.sticky` | Sticky reels: %1$s/3 | Липкие барабаны: %1$s/3 |
+| `gui.burmaldaholic.slots.bonus.pick` | Treasure Hunt | Охота за сокровищами |
+| `gui.burmaldaholic.slots.bonus.hold` | Piglin's Hoard | Клад пиглинов |
+| `gui.burmaldaholic.slots.bonus.wheel` | Dragon Wheel | Колесо дракона |
+| `gui.burmaldaholic.slots.bonus.total` | Bonus total: %1$s | Итог бонуса: %1$s |
+| `gui.burmaldaholic.slots.pick.hint` | Open chests until a Creeper jumps out | Открывайте сундуки, пока не выскочит крипер |
+| `gui.burmaldaholic.slots.pick.open` | Open a chest | Открыть сундук |
+| `gui.burmaldaholic.slots.pick.open_all` | Open all | Открыть все |
+| `gui.burmaldaholic.slots.pick.prize` | Chest: %1$s | В сундуке: %1$s |
+| `gui.burmaldaholic.slots.pick.creeper` | A Creeper! The hunt is over. | Крипер! Охота окончена. |
+| `gui.burmaldaholic.slots.pick.opened` | Chests opened: %1$s | Открыто сундуков: %1$s |
+| `gui.burmaldaholic.slots.hold.respins` | Respins: %1$s | Повторов: %1$s |
+| `gui.burmaldaholic.slots.hold.coins` | Coins: %1$s/15 | Монеты: %1$s/15 |
+| `gui.burmaldaholic.slots.hold.reset` | New coin! Back to 3 respins | Новая монета! Снова 3 повтора |
+| `gui.burmaldaholic.slots.hold.full` | ALL 15 FILLED! | ВСЕ 15 ЗАПОЛНЕНЫ! |
+| `gui.burmaldaholic.slots.wheel.spin` | Spin the wheel | Крутить колесо |
+| `gui.burmaldaholic.slots.wheel.up` | UP! On to the next ring | ВВЕРХ! На следующее кольцо |
+| `gui.burmaldaholic.slots.wheel.ring.outer` | End Stone ring | Кольцо эндерняка |
+| `gui.burmaldaholic.slots.wheel.ring.middle` | Purpur ring | Пурпурное кольцо |
+| `gui.burmaldaholic.slots.wheel.ring.core` | Dragon Core | Сердце дракона |
+| `gui.burmaldaholic.slots.jackpot.tier.mini` | MINI | МИНИ |
+| `gui.burmaldaholic.slots.jackpot.tier.minor` | MINOR | МИНОР |
+| `gui.burmaldaholic.slots.jackpot.tier.major` | MAJOR | МАЖОР |
+| `gui.burmaldaholic.slots.jackpot.tier.grand` | GRAND | ГРАНД |
+| `gui.burmaldaholic.slots.jackpot.meter` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.slots.buy.button` | Buy bonus (%1$s) | Купить бонус (%1$s) |
+| `gui.burmaldaholic.slots.buy.confirm_title` | Buy %1$s? | Купить «%1$s»? |
+| `gui.burmaldaholic.slots.buy.confirm_body` | Pay %1$s to start %2$s with %3$s free spins. Return to player: %4$s%%. | Заплатить %1$s и начать «%2$s»: бесплатных вращений — %3$s. Возврат игроку: %4$s %%. |
+| `gui.burmaldaholic.slots.buy.confirm` | Buy | Купить |
+
+### Paytable and help (`SLOTS.md` §13.5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.paytable.title` | Paytable | Таблица выплат |
+| `gui.burmaldaholic.slots.paytable.per_way` | Wins pay for every way: matching symbols on adjacent reels from the left, in any row | Выплата за каждый способ: одинаковые символы на соседних барабанах слева направо, в любом ряду |
+| `gui.burmaldaholic.slots.paytable.row` | %1$s: 3 → %2$s · 4 → %3$s · 5 → %4$s | %1$s: 3 → %2$s · 4 → %3$s · 5 → %4$s |
 | `gui.burmaldaholic.slots.paytable.wild` | Totem is wild: it replaces any fruit, gem or seven | Тотем — вайлд: заменяет любой фрукт, камень или семёрку |
-| `gui.burmaldaholic.slots.paytable.star` | Three Nether Stars: progressive jackpot | Три звезды Незера: накопительный джекпот |
-| `gui.burmaldaholic.slots.paytable.star_owned` | Three Nether Stars: ×%1$s | Три звезды Незера: ×%1$s |
-| `gui.burmaldaholic.slots.paytable.chaos` | %1$s: something happens… | %1$s: что-то случится… |
-| `gui.burmaldaholic.slots.paytable.max_bet_jackpot` | Full jackpot needs the maximum bet; smaller bets win a share | Весь джекпот — только при максимальной ставке; меньшая ставка даёт долю |
-| `gui.burmaldaholic.slots.symbol.berry` | Sweet Berries | Сладкие ягоды |
-| `gui.burmaldaholic.slots.symbol.apple` | Apple | Яблоко |
-| `gui.burmaldaholic.slots.symbol.carrot` | Golden Carrot | Золотая морковь |
-| `gui.burmaldaholic.slots.symbol.emerald` | Emerald | Изумруд |
-| `gui.burmaldaholic.slots.symbol.diamond` | Diamond | Алмаз |
-| `gui.burmaldaholic.slots.symbol.seven` | Redstone Seven | Редстоуновая семёрка |
-| `gui.burmaldaholic.slots.symbol.wild` | Totem (Wild) | Тотем (вайлд) |
-| `gui.burmaldaholic.slots.symbol.creeper` | Creeper | Крипер |
-| `gui.burmaldaholic.slots.symbol.tnt` | TNT | Динамит |
-| `gui.burmaldaholic.slots.symbol.pearl` | Ender Pearl | Жемчуг Края |
-| `gui.burmaldaholic.slots.symbol.clock` | Clock | Часы |
-| `gui.burmaldaholic.slots.symbol.star` | Nether Star | Звезда Незера |
-| `msg.burmaldaholic.slots.three_creepers` | Three creepers. That hissing isn't the machine. | Три крипера. Это шипит не автомат. |
-| `msg.burmaldaholic.slots.three_tnt` | Three TNT! The machine calls in some friends. | Три динамита! Автомат зовёт друзей. |
-| `msg.burmaldaholic.slots.three_pearls` | Three pearls — pack your bags! | Три жемчужины — пакуйте чемоданы! |
-| `msg.burmaldaholic.slots.three_clocks` | Three clocks! It's Golden Hour o'clock! | Трое часов! Пробил «Золотой час»! |
-| `msg.burmaldaholic.slots.three_clocks_cooldown` | Three clocks! Golden Hour is recharging, but the payout is yours. | Трое часов! «Золотой час» перезаряжается, но выигрыш ваш. |
+| `gui.burmaldaholic.slots.paytable.scatter` | %1$s anywhere: 3 → %2$s · 4 → %3$s · 5 → %4$s | %1$s в любом месте: 3 → %2$s · 4 → %3$s · 5 → %4$s |
+| `gui.burmaldaholic.slots.paytable.rtp` | Return to player: %1$s%% | Возврат игроку: %1$s %% |
+| `gui.burmaldaholic.slots.paytable.max_win` | Max win per spin: ×%1$s the bet | Максимальный выигрыш за вращение: ×%1$s от ставки |
+| `gui.burmaldaholic.slots.paytable.jackpot_share` | Full jackpot at a bet of %1$s or more; smaller bets win a share | Весь джекпот — при ставке от %1$s; меньшая ставка даёт долю |
+| `gui.burmaldaholic.slots.paytable.my_stats` | My stats | Моя статистика |
+| `gui.burmaldaholic.slots.stats.line` | Spins %1$s · wagered %2$s · returned %3$s · best ×%4$s | Вращений %1$s · поставлено %2$s · возвращено %3$s · лучший ×%4$s |
+| `gui.burmaldaholic.slots.help.fs` | 3, 4 or 5 %1$s anywhere: %2$s, %3$s or %4$s free spins. 3 more during free spins: +%5$s. | 3, 4 или 5 символов «%1$s» в любом месте: %2$s, %3$s или %4$s бесплатных вращений. Ещё 3 во время вращений: +%5$s. |
+| `gui.burmaldaholic.slots.help.fs_mult` | During free spins all wins are multiplied by %1$s | Во время бесплатных вращений все выигрыши умножаются на %1$s |
+| `gui.burmaldaholic.slots.help.tumble` | Winning symbols burn away and new ones fall in. Each tumble raises the multiplier: %1$s. In free spins: %2$s. | Выигрышные символы сгорают, сверху падают новые. Каждый обвал повышает множитель: %1$s. В бесплатных вращениях: %2$s. |
+| `gui.burmaldaholic.slots.help.sticky` | In Void Walker every %1$s fills its reel and stays until the feature ends | В «Страннике пустоты» каждый символ «%1$s» заполняет свой барабан и остаётся до конца бонуса |
+| `gui.burmaldaholic.slots.help.pick` | 3 %1$s on reels 1, 3 and 5 start the Treasure Hunt: open chests for coins and jackpot gems until a Creeper appears | 3 символа «%1$s» на барабанах 1, 3 и 5 запускают охоту за сокровищами: открывайте сундуки с монетами и джекпотами, пока не появится крипер |
+| `gui.burmaldaholic.slots.help.pick_fair` | Prizes are drawn when the hunt starts. Which chest you open does not change your chances. | Призы разыгрываются в начале охоты. Выбор сундука не влияет на шансы. |
+| `gui.burmaldaholic.slots.help.hold` | 6 or more %1$s start Piglin's Hoard: coins lock, you get 3 respins and every new coin resets them. Fill all 15 cells for the Grand jackpot. | 6 и больше символов «%1$s» запускают клад пиглинов: монеты фиксируются, даются 3 повтора, каждая новая монета их обновляет. Заполните все 15 ячеек — джекпот «Гранд». |
+| `gui.burmaldaholic.slots.help.wheel` | %1$s on reels 2, 3 and 4 spin the Dragon Wheel. UP takes you to a richer ring; the Grand waits in the Dragon Core. | Символы «%1$s» на барабанах 2, 3 и 4 запускают колесо дракона. «Вверх» ведёт на кольцо побогаче; «Гранд» ждёт в сердце дракона. |
+| `gui.burmaldaholic.slots.help.anticipation` | Reels slow down only when the symbols you already see could complete a feature | Барабаны замедляются, только если уже видимые символы могут запустить бонус |
+
+### Messages (`SLOTS.md` §13.6)
+
+| Key | EN | RU |
+|-----|----|----|
 | `msg.burmaldaholic.slots.jackpot_self` | JACKPOT! You won %1$s! | ДЖЕКПОТ! Вы сорвали %1$s! |
 | `msg.burmaldaholic.slots.jackpot_broadcast` | JACKPOT! %1$s hit %2$s on %3$s! | ДЖЕКПОТ! %1$s срывает %2$s на автомате «%3$s»! |
-| `msg.burmaldaholic.slots.seven_title` | Triple seven! | Три семёрки! |
-| `gui.burmaldaholic.slots.playing` | Now playing: %1$s | Сейчас играет: %1$s |
-| `msg.burmaldaholic.slots.jackpot_pool` | %1$s: jackpot %2$s | %1$s: джекпот %2$s |
+| `msg.burmaldaholic.slots.jackpot_pool` | %1$s: Grand jackpot %2$s | %1$s: джекпот «Гранд» %2$s |
+| `msg.burmaldaholic.slots.big_win_broadcast` | Epic win: %1$s, ×%2$s on %3$s! | Эпический выигрыш: %1$s, ×%2$s на автомате «%3$s»! |
+| `msg.burmaldaholic.slots.golden_scatters` | Five scatters! Golden Hour strikes! | Пять скаттеров! Бьёт «Золотой час»! |
+| `msg.burmaldaholic.slots.golden_scatters_cooldown` | Five scatters! Golden Hour is recharging, but the spins are yours. | Пять скаттеров! «Золотой час» перезаряжается, но вращения ваши. |
+| `msg.burmaldaholic.slots.creeper_friends` | That creeper brought friends! | Этот крипер привёл друзей! |
+| `msg.burmaldaholic.slots.wither_skulls` | Five Wither Skulls. The Nether wants them back. | Пять черепов иссушителя. Незер хочет их обратно. |
+| `msg.burmaldaholic.slots.tumble_chain` | %1$s tumbles in a row! The fire likes you. | Обвалов подряд: %1$s! Огонь к вам благосклонен. |
+| `msg.burmaldaholic.slots.dragon_fling` | Five Dragon Heads! The dragon flings you away… gently. | Пять голов дракона! Дракон отшвыривает вас… бережно. |
+| `msg.burmaldaholic.slots.void_walker` | All three reels are Dragon Eggs! | Все три барабана — яйца дракона! |
 | `msg.burmaldaholic.slots.rtp_ok` | All slot machines pay back less than 99%% | Все автоматы возвращают меньше 99 %% |
+| `msg.burmaldaholic.slots.jackpots_migrated` | Slot jackpots moved to the new machines: %1$s | Джекпоты перенесены на новые автоматы: %1$s |
+
+### Presentation (animation wave, `animation/slots.md` §10)
+
+| Key | EN | RU |
+|-----|----|----|
+| `entity.burmaldaholic.slot_reels` | Slot machine reels | Барабаны автомата |
+| `gui.burmaldaholic.slots.fx.meter_won` | WON! | ВЫИГРАН! |
+| `gui.burmaldaholic.slots.fx.times` | ×%1$s | ×%1$s |
+| `gui.burmaldaholic.slots.fx.wheel_up_wedge` | UP | ВВЕРХ |
+| `gui.burmaldaholic.slots.fx.step_win` | +%1$s ×%2$s | +%1$s ×%2$s |
+| `gui.burmaldaholic.slots.fx.cabinet_view` | Watch the machine while spinning | Смотреть на автомат при вращении |
+| `gui.burmaldaholic.slots.fx.cabinet_view.tooltip` | Closes the window during a spin and turns the camera to the machine | Во время вращения закрывает окно и поворачивает камеру к автомату |
+
+### Sound subtitles (`SLOTS.md` §13.9; `fs_music.<machine>` events share `slots.fs_music`)
+
+| Key | EN | RU |
+|-----|----|----|
+| `subtitles.burmaldaholic.slots.spin_loop` | Reels whirr | Жужжат барабаны |
+| `subtitles.burmaldaholic.slots.reel_stop` | Reel stops | Останавливается барабан |
+| `subtitles.burmaldaholic.slots.scatter_land` | Scatter lands | Выпадает скаттер |
+| `subtitles.burmaldaholic.slots.bonus_land` | Bonus symbol lands | Выпадает бонусный символ |
+| `subtitles.burmaldaholic.slots.anticipation` | Tension rises | Напряжение растёт |
+| `subtitles.burmaldaholic.slots.returned` | Coins trickle back | Возвращаются монеты |
+| `subtitles.burmaldaholic.slots.win_small` | Small win chimes | Звенит выигрыш |
+| `subtitles.burmaldaholic.slots.win_nice` | Nice win chimes | Звенит хороший выигрыш |
+| `subtitles.burmaldaholic.slots.big_win` | Big win fanfare | Фанфары крупного выигрыша |
+| `subtitles.burmaldaholic.slots.mega_win` | Mega win fanfare | Фанфары мегавыигрыша |
+| `subtitles.burmaldaholic.slots.epic_win` | Epic win fanfare | Фанфары эпического выигрыша |
+| `subtitles.burmaldaholic.slots.max_win` | Max win fanfare | Фанфары максимального выигрыша |
+| `subtitles.burmaldaholic.slots.rollup_tick` | Counter ticks | Щёлкает счётчик |
+| `subtitles.burmaldaholic.slots.rollup_end` | Counter stops | Счётчик останавливается |
+| `subtitles.burmaldaholic.slots.fs_intro` | Free spins begin | Начинаются бесплатные вращения |
+| `subtitles.burmaldaholic.slots.fs_outro` | Free spins end | Бесплатные вращения окончены |
+| `subtitles.burmaldaholic.slots.fs_music` | Bonus music plays | Играет бонусная музыка |
+| `subtitles.burmaldaholic.slots.wild_expand` | Wild expands | Вайлд растёт |
+| `subtitles.burmaldaholic.slots.wild_stick` | Wild locks in place | Вайлд закрепляется |
+| `subtitles.burmaldaholic.slots.tumble` | Symbols burn away | Сгорают символы |
+| `subtitles.burmaldaholic.slots.mult_up` | Multiplier rises | Растёт множитель |
+| `subtitles.burmaldaholic.slots.chest_open` | Chest opens | Открывается сундук |
+| `subtitles.burmaldaholic.slots.creeper_hiss` | Creeper hisses | Шипит крипер |
+| `subtitles.burmaldaholic.slots.coin_land` | Coin clinks | Звякает монета |
+| `subtitles.burmaldaholic.slots.respin_reset` | Respins reset | Повторы обновились |
+| `subtitles.burmaldaholic.slots.wheel_tick` | Wheel clicks | Щёлкает колесо |
+| `subtitles.burmaldaholic.slots.wheel_up` | Wheel rises | Колесо поднимается |
 
 ---
 
@@ -799,6 +1060,50 @@ fallback, narration).
 | `gui.burmaldaholic.slots.tier.epic` | EPIC WIN! | ЭПИЧЕСКИЙ ВЫИГРЫШ! |
 | `gui.burmaldaholic.slots.max_win` | MAX WIN! | МАКСИМАЛЬНЫЙ ВЫИГРЫШ! |
 | `gui.burmaldaholic.slots.jackpot.won` | %1$s JACKPOT! | ДЖЕКПОТ %1$s! |
+
+### Slots v1 legacy (removed at the slots cut-over S-J5 / S-B5, `SLOTS.md` §13.10)
+
+Still rendered by the playable v1 machines until the cut-over; the cut-over task deletes this table.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.line_bet` | Line bet: %1$s | Ставка на линию: %1$s |
+| `gui.burmaldaholic.slots.lines` | Paylines: %1$s | Линий: %1$s |
+| `gui.burmaldaholic.slots.jackpot` | JACKPOT %1$s | ДЖЕКПОТ %1$s |
+| `gui.burmaldaholic.slots.line_win` | Line %1$s: ×%2$s → %3$s | Линия %1$s: ×%2$s → %3$s |
+| `gui.burmaldaholic.slots.paytable.three` | Three %1$s: ×%2$s | Три «%1$s»: ×%2$s |
+| `gui.burmaldaholic.slots.paytable.berry_1` | Sweet Berries on reel 1: ×%1$s | Ягода на первом барабане: ×%1$s |
+| `gui.burmaldaholic.slots.paytable.berry_2` | Sweet Berries on reels 1–2: ×%1$s | Ягоды на первых двух барабанах: ×%1$s |
+| `gui.burmaldaholic.slots.paytable.star` | Three Nether Stars: progressive jackpot | Три звезды Незера: накопительный джекпот |
+| `gui.burmaldaholic.slots.paytable.star_owned` | Three Nether Stars: ×%1$s | Три звезды Незера: ×%1$s |
+| `gui.burmaldaholic.slots.paytable.chaos` | %1$s: something happens… | %1$s: что-то случится… |
+| `gui.burmaldaholic.slots.paytable.max_bet_jackpot` | Full jackpot needs the maximum bet; smaller bets win a share | Весь джекпот — только при максимальной ставке; меньшая ставка даёт долю |
+| `gui.burmaldaholic.slots.symbol.berry` | Sweet Berries | Сладкие ягоды |
+| `gui.burmaldaholic.slots.symbol.seven` | Redstone Seven | Редстоуновая семёрка |
+| `gui.burmaldaholic.slots.symbol.wild` | Totem (Wild) | Тотем (вайлд) |
+| `gui.burmaldaholic.slots.symbol.tnt` | TNT | Динамит |
+| `gui.burmaldaholic.slots.symbol.pearl` | Ender Pearl | Жемчуг Края |
+| `gui.burmaldaholic.slots.symbol.clock` | Clock | Часы |
+| `gui.burmaldaholic.slots.symbol.star` | Nether Star | Звезда Незера |
+| `msg.burmaldaholic.slots.three_creepers` | Three creepers. That hissing isn't the machine. | Три крипера. Это шипит не автомат. |
+| `msg.burmaldaholic.slots.three_tnt` | Three TNT! The machine calls in some friends. | Три динамита! Автомат зовёт друзей. |
+| `msg.burmaldaholic.slots.three_pearls` | Three pearls — pack your bags! | Три жемчужины — пакуйте чемоданы! |
+| `msg.burmaldaholic.slots.three_clocks` | Three clocks! It's Golden Hour o'clock! | Трое часов! Пробил «Золотой час»! |
+| `msg.burmaldaholic.slots.three_clocks_cooldown` | Three clocks! Golden Hour is recharging, but the payout is yours. | Трое часов! «Золотой час» перезаряжается, но выигрыш ваш. |
+| `msg.burmaldaholic.slots.seven_title` | Triple seven! | Три семёрки! |
+
+### Slots v2 values applied at the cut-over (placeholder signature changes)
+
+These keys keep their v1 value above (v1 code passes the v1 arguments) until the cut-over, which replaces
+the value with the v2 text below in the same change as the code. Not generator rows (key not back-quoted).
+
+| Key (v2, pending) | EN | RU |
+|-----|----|----|
+| gui.burmaldaholic.slots.paytable.wild | %1$s appears on reels 2–4 and replaces every symbol except %2$s and %3$s | %1$s появляется на барабанах 2–4 и заменяет все символы, кроме «%2$s» и «%3$s» |
+| msg.burmaldaholic.slots.jackpot_self | %1$s JACKPOT! You won %2$s! | ДЖЕКПОТ %1$s! Ваш выигрыш: %2$s! |
+| msg.burmaldaholic.slots.jackpot_broadcast | JACKPOT! %1$s hits the %2$s: %3$s on %4$s! | ДЖЕКПОТ! %1$s — %2$s: %3$s на автомате «%4$s»! |
+| gui.burmaldaholic.pvp.slots.rules.4 | Surprises (%1$s%% each): KABOOM halves your score, SWAP trades it with the leader, TIME WARP doubles your next spin. | Сюрпризы (по %1$s %%): БАБАХ делит ваши очки пополам, РОКИРОВКА меняет их с лидером, ПЕТЛЯ ВРЕМЕНИ удваивает следующее вращение. |
+| gui.burmaldaholic.pvp.slots.rules.5 | Jackpots give fixed points: Mini %1$s · Minor %2$s · Major %3$s · Grand %4$s. | Джекпоты дают фиксированные очки: мини %1$s · минор %2$s · мажор %3$s · гранд %4$s. |
 
 ## roulette
 
@@ -861,6 +1166,14 @@ fallback, narration).
 | `gui.burmaldaholic.roulette.short.odd` | Odd | Нечёт |
 | `gui.burmaldaholic.roulette.short.even` | Even | Чёт |
 
+### Presentation (animation wave, `animation/tables.md` §6)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.roulette.fx.straight_up` | Straight up! | Прямое попадание! |
+| `gui.burmaldaholic.roulette.fx.last_bets` | Last bets! | Последние ставки! |
+| `gui.burmaldaholic.roulette.fx.bet_placed` | %1$s on %2$s | %1$s на «%2$s» |
+
 ---
 
 ## craps
@@ -918,6 +1231,15 @@ fallback, narration).
 | `msg.burmaldaholic.craps.bets_played_out` | You left the craps table — your bets were played out. Net: %1$s | Вы ушли из-за стола для крэпса — ваши ставки доиграны. Итог: %1$s |
 | `msg.burmaldaholic.craps.bets_refunded` | The craps table closed — your bets were returned | Стол для крэпса закрыт — ваши ставки возвращены |
 | `msg.burmaldaholic.craps.dont_come_moved` | Your Don't Come bet moves to %1$s | Ваша ставка не-кам переходит на %1$s |
+
+### Presentation (animation wave, `animation/tables.md` §6)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.craps.fx.hot_shooter` | Hot shooter! %1$s points in a row | Горячая рука! Поинтов подряд: %1$s |
+| `gui.burmaldaholic.craps.fx.new_shooter` | New shooter: %1$s | Новый бросающий: %1$s |
+| `gui.burmaldaholic.craps.fx.bar_push` | Bar 12 — push | Бар на 12 — возврат |
+| `gui.burmaldaholic.craps.fx.throwing` | %1$s throws… | Бросает %1$s… |
 
 ---
 
@@ -1069,6 +1391,18 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `msg.burmaldaholic.baccarat.chemmy.bank_pays` | The bank pays %1$s | Банк выплачивает %1$s |
 | `msg.burmaldaholic.baccarat.bank_returned` | Your bank of %1$s was returned to your balance | Ваш банк (%1$s) вернулся на баланс |
 
+### Presentation (animation wave, `animation/cards.md` §11)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.baccarat.fx.squeezing` | %1$s squeezes… | %1$s вскрывает… |
+| `gui.burmaldaholic.baccarat.fx.you_squeeze` | You squeeze… | Вы вскрываете… |
+| `gui.burmaldaholic.baccarat.fx.player_card` | Player's card… | Карта игрока… |
+| `gui.burmaldaholic.baccarat.fx.banker_card` | Banker's card… | Карта банкира… |
+| `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья платит! |
+| `gui.burmaldaholic.baccarat.fx.banco` | Banco! | Банко! |
+| `gui.burmaldaholic.baccarat.fx.shoe_passes` | The shoe passes to %1$s | Шуз переходит к игроку %1$s |
+
 ---
 
 ## uth
@@ -1203,6 +1537,15 @@ in these values; running text in other modules that embeds the game name adds «
 | `msg.burmaldaholic.uth.pvp.bank_too_low` | Your bank can't cover a minimum bet any more — you leave the dealer seat after this round | Ваш банк больше не покрывает даже минимальную ставку — после этого раунда вы уходите с места дилера |
 | `msg.burmaldaholic.uth.bank_returned` | Your bank of %1$s was returned to your balance | Ваш банк (%1$s) вернулся на баланс |
 
+### Presentation (animation wave, `animation/cards.md` §11)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.uth.tag.play` | Play ×%1$s | Плей ×%1$s |
+| `gui.burmaldaholic.uth.fx.blind_bonus` | Blind bonus! | Бонус блайнда! |
+| `gui.burmaldaholic.uth.fx.trips_bonus` | Trips bonus! | Бонус трипс! |
+| `gui.burmaldaholic.uth.fx.royal` | ROYAL FLUSH! | РОЯЛ-ФЛЕШ! |
+
 ---
 
 ## extras
@@ -1316,6 +1659,20 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.extras.dice.accept_from` | Accept: %1$s, %2$s | Принять: %1$s, %2$s |
 | `gui.burmaldaholic.extras.dice.decline_from` | Decline: %1$s | Отказать: %1$s |
 | `gui.burmaldaholic.extras.dice.challenge_target` | Challenge %1$s | Вызвать: %1$s |
+| `gui.burmaldaholic.extras.dice.fx.tie_reroll` | Tie! Re-roll %1$s of %2$s | Ничья! Переброс %1$s из %2$s |
+| `gui.burmaldaholic.extras.dice.fx.round` | Round %1$s | Раунд %1$s |
+| `gui.burmaldaholic.extras.dice.fx.victory` | Victory! | Победа! |
+| `gui.burmaldaholic.extras.dice.fx.defeat` | Defeat | Поражение |
+| `gui.burmaldaholic.extras.dice.fx.shake` | Shake the cup… | Трясём стакан… |
+
+### Presentation (animation wave, `animation/extras-pvp.md` §15; `anim.*` keys are shared by extras and PvP)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.anim.invite.hint` | Press %1$s to answer | Нажмите %1$s, чтобы ответить |
+| `gui.burmaldaholic.anim.scratch.drag_hint` | Hold and drag to scratch, or click a cell | Зажмите и ведите, чтобы стереть, или щёлкните по клетке |
+| `gui.burmaldaholic.anim.lobby.full` | Table full — starting! | Мест нет — начинаем! |
+| `gui.burmaldaholic.anim.plinko.edge_banner` | EDGE! | КРАЙ! |
 
 ---
 
@@ -1514,6 +1871,8 @@ in these values; running text in other modules that embeds the game name adds «
 | `msg.burmaldaholic.pvp.coin.cashed_out` | %1$s takes the money and walks | %1$s забирает выигрыш и уходит |
 | `msg.burmaldaholic.pvp.coin.walked_away` | %1$s walks away. Wise, or just broke? | %1$s уходит. Мудро — или просто на мели? |
 | `gui.burmaldaholic.pvp.coin.spectate` | %1$s vs %2$s — %3$s on the line | %1$s против %2$s — на кону %3$s |
+| `gui.burmaldaholic.pvp.coin.all_square_title` | ALL SQUARE! | КВИТЫ! |
+| `gui.burmaldaholic.anim.pvp.waiting_for` | Waiting for %1$s… | Ждём: %1$s… |
 
 ### Slot Showdown
 
@@ -1534,19 +1893,23 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.slots.kaboom_title` | KABOOM! | БАБАХ! |
 | `msg.burmaldaholic.pvp.slots.kaboom` | KABOOM! %1$s's score is blown in half: %2$s → %3$s | БАБАХ! Очки игрока %1$s — пополам: %2$s → %3$s |
 | `gui.burmaldaholic.pvp.slots.swap_title` | SWAP! | РОКИРОВКА! |
-| `msg.burmaldaholic.pvp.slots.swap` | Ender Pearls! %1$s swaps scores with the leader %2$s: %3$s ⇄ %4$s | Жемчуг Края! %1$s меняется очками с лидером (%2$s): %3$s ⇄ %4$s |
-| `msg.burmaldaholic.pvp.slots.time_warp` | Three clocks! %1$s's next spin counts double | Трое часов! Следующее вращение игрока %1$s — с двойными очками |
-| `msg.burmaldaholic.pvp.slots.star` | THREE STARS! %1$s scores %2$s | ТРИ ЗВЕЗДЫ! %1$s получает %2$s |
+| `msg.burmaldaholic.pvp.slots.swap` | An Ender Pearl drops! %1$s swaps scores with the leader %2$s: %3$s ⇄ %4$s | Выпал жемчуг Края! %1$s меняется очками с лидером (%2$s): %3$s ⇄ %4$s |
+| `msg.burmaldaholic.pvp.slots.time_warp` | Time warp! %1$s's next spin counts double | Петля времени! Следующее вращение игрока %1$s — с двойными очками |
 | `gui.burmaldaholic.pvp.slots.underdog` | UNDERDOG BOOST | ФОРА АУТСАЙДЕРУ |
 | `msg.burmaldaholic.pvp.slots.underdog` | Underdog boost: %1$s scores double on the final spin! | Фора аутсайдеру: %1$s получает двойные очки в финальном вращении! |
 | `msg.burmaldaholic.pvp.slots.underdog_you` | You're in last place — your final spin counts double! | Вы на последнем месте — финальное вращение даст двойные очки! |
-| `gui.burmaldaholic.pvp.slots.rules.1` | Everyone spins the same machine type. Line wins become points; the most points takes the pot. | Все крутят автоматы одного типа. Выигрыши на линиях превращаются в очки; у кого больше очков, тот забирает банк. |
-| `gui.burmaldaholic.pvp.slots.rules.2` | Each spin one fruit or gem is HOT and scores double. | В каждом вращении один символ — горячий: он даёт двойные очки. |
-| `gui.burmaldaholic.pvp.slots.rules.3` | Three Creepers or TNT on a line: KABOOM — your score is halved. | Три крипера или динамита на линии: БАБАХ — ваши очки делятся пополам. |
+| `gui.burmaldaholic.pvp.slots.rules.1` | Everyone spins the same machine. Each spin's win becomes points (10 per 1× bet); the most points takes the pot. | Все крутят один и тот же автомат. Выигрыш вращения превращается в очки (10 за 1× ставки); у кого больше очков, тот забирает банк. |
+| `gui.burmaldaholic.pvp.slots.rules.2` | Each round one symbol is HOT: its wins score double. | В каждом раунде один символ — горячий: его выигрыши дают двойные очки. |
+| `gui.burmaldaholic.pvp.slots.rules.3` | Free spins and bonus games play out fast and count in full. | Бесплатные вращения и бонусы разыгрываются быстро и засчитываются полностью. |
 | `gui.burmaldaholic.pvp.slots.rules.4` | Three Ender Pearls: you swap scores with the leader. | Три жемчужины Края: вы меняетесь очками с лидером. |
 | `gui.burmaldaholic.pvp.slots.rules.5` | Three Clocks: your next spin counts double. Three Nether Stars: %1$s. | Трое часов: следующее вращение — с двойными очками. Три звезды Незера: %1$s. |
 | `gui.burmaldaholic.pvp.slots.rules.6` | Last place before the final spin scores double on it. | Последнее место перед финальным вращением получает в нём двойные очки. |
 | `gui.burmaldaholic.pvp.slots.tiebreak` | Tie-break: more winning lines, then the best single spin | При равенстве: больше выигрышных линий, затем лучшее вращение |
+| `gui.burmaldaholic.pvp.slots.time_warp_title` | TIME WARP! | ПЕТЛЯ ВРЕМЕНИ! |
+| `msg.burmaldaholic.pvp.slots.jackpot` | %1$s: %2$s jackpot, +%3$s points | %1$s: джекпот %2$s, очки: +%3$s |
+| `gui.burmaldaholic.pvp.slots.feature` | %1$s: +%2$s | %1$s: +%2$s |
+| `gui.burmaldaholic.pvp.slots.fx.next_x2` | Next ×2 | Далее ×2 |
+| `gui.burmaldaholic.pvp.slots.fx.boost_x2` | Boost ×2 | Фора ×2 |
 
 ### Wheel Party
 
@@ -1725,6 +2088,12 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.bots.tagged` | %1$s [%2$s] | %1$s [%2$s] |
 | `msg.burmaldaholic.pvp.bots.joined` | %1$s joins the game | В игру вступает %1$s |
 | `msg.burmaldaholic.pvp.bots.no_bots_here` | Bots can't play at this machine — humans only | На этом автомате боты не играют — только люди |
+
+### Slot Showdown v1 legacy (removed with Slot Showdown v2, `SLOTS.md` §13.7 / §13.10)
+
+| Key | EN | RU |
+|-----|----|----|
+| `msg.burmaldaholic.pvp.slots.star` | THREE STARS! %1$s scores %2$s | ТРИ ЗВЕЗДЫ! %1$s получает %2$s |
 
 ## loan
 
@@ -2479,6 +2848,8 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `gui.burmaldaholic.chaos.event.random_teleport` | Random teleport | Случайная телепортация |
 | `gui.burmaldaholic.chaos.event.weather_change` | Weather change | Смена погоды |
 | `gui.burmaldaholic.chaos.event.golden_hour` | Golden Hour | «Золотой час» |
+| `config.burmaldaholic.section.client_fx` | Client effects | Клиентские эффекты |
+| `config.burmaldaholic.anim.inWorld` | Game animations in the world | Анимация игр в мире |
 
 ### Family templates
 
@@ -2486,11 +2857,24 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 |-----|----|----|
 | `config.burmaldaholic.contracts.weight` | Contract weight: %1$s | Вес заказа: %1$s |
 | `config.burmaldaholic.wager.appraisal` | Appraisal: %1$s | Оценка: %1$s |
-| `config.burmaldaholic.slots.weights` | %1$s — symbol weights | %1$s — веса символов |
-| `config.burmaldaholic.slots.pays` | %1$s — payouts | %1$s — выплаты |
-| `config.burmaldaholic.slots.berryPartial` | %1$s — berry pays | %1$s — выплаты за ягоды |
+| `config.burmaldaholic.slots.pays` | %1$s: payouts | %1$s: выплаты |
 | `config.burmaldaholic.chaos.weight` | Chance weight: %1$s | Вес события: %1$s |
 | `config.burmaldaholic.chaos.event.enabled` | Enabled: %1$s | Включено: %1$s |
+| `config.burmaldaholic.slots.machine.enabled` | %1$s: enabled | %1$s: включён |
+| `config.burmaldaholic.slots.bets` | %1$s: bet levels | %1$s: уровни ставок |
+| `config.burmaldaholic.slots.defaultBet` | %1$s: default bet | %1$s: ставка по умолчанию |
+| `config.burmaldaholic.slots.minVipTier` | %1$s: required VIP tier | %1$s: нужный ВИП-статус |
+| `config.burmaldaholic.slots.maxWinMultiple` | %1$s: max win (× bet) | %1$s: макс. выигрыш (× ставки) |
+| `config.burmaldaholic.slots.strips` | %1$s: reel strips | %1$s: ленты барабанов |
+| `config.burmaldaholic.slots.scatterPays` | %1$s: scatter payouts | %1$s: выплаты за скаттеры |
+| `config.burmaldaholic.slots.freeSpins` | %1$s: free spins for 3/4/5 | %1$s: фриспины за 3/4/5 |
+| `config.burmaldaholic.slots.freeSpins.retrigger` | %1$s: extra free spins | %1$s: доп. фриспины |
+| `config.burmaldaholic.slots.freeSpins.cap` | %1$s: max free spins | %1$s: макс. фриспинов |
+| `config.burmaldaholic.slots.jackpot.refBet` | %1$s: full-jackpot bet | %1$s: ставка для полного джекпота |
+| `config.burmaldaholic.slots.jackpot.seed` | %1$s: jackpot seeds (× bet) | %1$s: стартовые джекпоты (× ставки) |
+| `config.burmaldaholic.slots.jackpot.contribution` | %1$s: jackpot contributions | %1$s: отчисления в джекпоты |
+| `config.burmaldaholic.slots.jackpot.owned` | %1$s: fixed jackpots at player casinos | %1$s: фиксированные джекпоты в казино игроков |
+| `config.burmaldaholic.slots.buy.price` | %1$s: bonus price (× bet) | %1$s: цена бонуса (× ставки) |
 
 ### core, economy, contracts, wager
 
@@ -2645,17 +3029,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.poker.botMix.high` | Bot mix: High | Состав ботов: высокие |
 | `config.burmaldaholic.poker.maxDistance` | Max distance from table | Макс. расстояние от стола |
 | `config.burmaldaholic.slots.enabled` | Slot machines | Игровые автоматы |
-| `config.burmaldaholic.slots.copper.maxLineBet` | Copper Bandit: max line bet | Медный бандит: макс. ставка на линию |
-| `config.burmaldaholic.slots.gold.maxLineBet` | Golden Reels: max line bet | Золотые барабаны: макс. ставка на линию |
-| `config.burmaldaholic.slots.netherite.minLineBet` | Netherite: min line bet | Незеритовый: мин. ставка на линию |
-| `config.burmaldaholic.slots.netherite.maxLineBet` | Netherite: max line bet | Незеритовый: макс. ставка на линию |
-| `config.burmaldaholic.slots.netherite.minVipTier` | Netherite: required VIP tier | Незеритовый: нужный ВИП-статус |
-| `config.burmaldaholic.slots.jackpot.contribution.gold` | Jackpot contribution: Golden Reels | Отчисления в джекпот: Золотые барабаны |
-| `config.burmaldaholic.slots.jackpot.contribution.netherite` | Jackpot contribution: Netherite | Отчисления в джекпот: Незеритовый |
-| `config.burmaldaholic.slots.jackpot.seed.gold` | Jackpot seed: Golden Reels | Стартовый джекпот: Золотые барабаны |
-| `config.burmaldaholic.slots.jackpot.seed.netherite` | Jackpot seed: Netherite | Стартовый джекпот: Незеритовый |
-| `config.burmaldaholic.slots.ownedStarPays` | Three stars pay at player casinos | Выплата за три звезды в казино игроков |
-| `config.burmaldaholic.slots.spinTicks` | Spin animation (ticks) | Анимация вращения (тики) |
 | `config.burmaldaholic.slots.validateRtp` | Warn about RTP above 99%% | Предупреждать об RTP выше 99 %% |
 | `config.burmaldaholic.roulette.enabled` | Roulette | Рулетка |
 | `config.burmaldaholic.roulette.laPartage` | La partage | Ла партаж |
@@ -2701,6 +3074,30 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.extras.diceDuel.pvpRakePercent` | PvP duel rake (%%) | Комиссия за дуэль игроков (%%) |
 | `config.burmaldaholic.extras.diceDuel.challengeTimeoutTicks` | Challenge timeout (ticks) | Время на ответ (тики) |
 | `config.burmaldaholic.extras.diceDuel.maxDistance` | Max duel distance | Макс. дистанция дуэли |
+| `config.burmaldaholic.slots.overworld.freeSpins.multiplier` | Overworld Riches: free-spin multiplier | Богатства Верхнего мира: множитель фриспинов |
+| `config.burmaldaholic.slots.nether.tumble.ladder` | Nether Inferno: tumble multipliers | Пекло Незера: множители обвалов |
+| `config.burmaldaholic.slots.nether.tumble.ladderFree` | Nether Inferno: tumble multipliers in free spins | Пекло Незера: множители обвалов во фриспинах |
+| `config.burmaldaholic.slots.overworld.pick.board` | Treasure Hunt: chests | Охота за сокровищами: сундуков |
+| `config.burmaldaholic.slots.overworld.pick.weights` | Treasure Hunt: chest contents | Охота за сокровищами: содержимое сундуков |
+| `config.burmaldaholic.slots.nether.hold.trigger` | Piglin's Hoard: coins to start | Клад пиглинов: монет для запуска |
+| `config.burmaldaholic.slots.nether.hold.respins` | Piglin's Hoard: respins | Клад пиглинов: повторов |
+| `config.burmaldaholic.slots.nether.hold.coinChance` | Piglin's Hoard: coin chance per cell | Клад пиглинов: шанс монеты в ячейке |
+| `config.burmaldaholic.slots.nether.hold.coinWeights` | Piglin's Hoard: coin values | Клад пиглинов: номиналы монет |
+| `config.burmaldaholic.slots.end.wheel.outer` | Dragon Wheel: outer ring | Колесо дракона: внешнее кольцо |
+| `config.burmaldaholic.slots.end.wheel.middle` | Dragon Wheel: middle ring | Колесо дракона: среднее кольцо |
+| `config.burmaldaholic.slots.end.wheel.core` | Dragon Wheel: core | Колесо дракона: сердце |
+| `config.burmaldaholic.slots.jackpot.announceMinTier` | Announce jackpots from | Объявлять джекпоты от |
+| `config.burmaldaholic.slots.buyFeature.enabled` | Allow buying bonuses | Разрешить покупку бонусов |
+| `config.burmaldaholic.slots.buyFeature.tierMaxMultiple` | Bonus price limit (× VIP max bet) | Лимит цены бонуса (× макс. ставки ВИП) |
+| `config.burmaldaholic.slots.autoplay.enabled` | Allow autoplay | Разрешить автоигру |
+| `config.burmaldaholic.slots.autoplay.counts` | Autoplay spin options | Варианты числа автовращений |
+| `config.burmaldaholic.slots.autoplay.lossLimits` | Autoplay loss limits (× bet) | Лимиты проигрыша автоигры (× ставки) |
+| `config.burmaldaholic.slots.turboAllowed` | Allow turbo spins | Разрешить турбо |
+| `config.burmaldaholic.slots.anticipation` | Slow reels when a feature is close | Замедлять барабаны, когда близок бонус |
+| `config.burmaldaholic.slots.bigWinTiers` | Win tiers (× bet) | Пороги выигрышей (× ставки) |
+| `config.burmaldaholic.slots.inWorld.enabled` | Show reels on cabinets | Показывать барабаны на автоматах |
+| `config.burmaldaholic.slots.inWorld.radius` | Cabinet reels view distance | Дальность показа барабанов |
+| `config.burmaldaholic.slots.bedrock.ddui` | Live slot form (Bedrock) | Живая форма автомата (Bedrock) |
 
 ### baccarat, uth
 
@@ -2904,7 +3301,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.pvp.slots.underdogBoost` | Slot Showdown: underdog boost | Битва автоматов: фора аутсайдеру |
 | `config.burmaldaholic.pvp.slots.kaboom` | Slot Showdown: KABOOM | Битва автоматов: «БАБАХ» |
 | `config.burmaldaholic.pvp.slots.pearlSwap` | Slot Showdown: Ender Pearl swap | Битва автоматов: рокировка |
-| `config.burmaldaholic.pvp.slots.starPoints` | Slot Showdown: points for three stars | Битва автоматов: очки за три звезды |
 | `config.burmaldaholic.pvp.wheel.enabled` | Wheel Party | Колесо на всех |
 | `config.burmaldaholic.pvp.wheel.maxPlayers` | Wheel Party: max players | Колесо на всех: макс. игроков |
 | `config.burmaldaholic.pvp.wheel.countdownTicks` | Wheel Party: countdown (ticks) | Колесо на всех: отсчёт (тики) |
@@ -2943,6 +3339,8 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.pvp.plinko.bumpers` | Plinko Battle: bumpers | Битва Плинко: отбойники |
 | `config.burmaldaholic.pvp.scratchPoker.enabled` | Scratch Poker | Лотерейный покер |
 | `config.burmaldaholic.pvp.series.enabled` | Coin Series (best of 3/5) | Серия на монетке (до 2/3 побед) |
+| `config.burmaldaholic.pvp.slots.hazardWeights` | Slot Showdown: surprise weights | Битва автоматов: веса сюрпризов |
+| `config.burmaldaholic.pvp.race.target` | Jackpot Race: target | Гонка за джекпотом: цель |
 
 ### bots
 
@@ -3002,6 +3400,25 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.bots.private.maxInvites` | Max invites per table | Макс. приглашений на стол |
 | `config.burmaldaholic.bots.private.inviteRadius` | Invite radius (0 = anyone online) | Радиус приглашений (0 = любой онлайн) |
 
+### Slots v1 legacy config labels (removed at the slots cut-over, `SLOTS.md` §13.10)
+
+| Key | EN | RU |
+|-----|----|----|
+| `config.burmaldaholic.slots.copper.maxLineBet` | Copper Bandit: max line bet | Медный бандит: макс. ставка на линию |
+| `config.burmaldaholic.slots.gold.maxLineBet` | Golden Reels: max line bet | Золотые барабаны: макс. ставка на линию |
+| `config.burmaldaholic.slots.netherite.minLineBet` | Netherite: min line bet | Незеритовый: мин. ставка на линию |
+| `config.burmaldaholic.slots.netherite.maxLineBet` | Netherite: max line bet | Незеритовый: макс. ставка на линию |
+| `config.burmaldaholic.slots.netherite.minVipTier` | Netherite: required VIP tier | Незеритовый: нужный ВИП-статус |
+| `config.burmaldaholic.slots.jackpot.contribution.gold` | Jackpot contribution: Golden Reels | Отчисления в джекпот: Золотые барабаны |
+| `config.burmaldaholic.slots.jackpot.contribution.netherite` | Jackpot contribution: Netherite | Отчисления в джекпот: Незеритовый |
+| `config.burmaldaholic.slots.jackpot.seed.gold` | Jackpot seed: Golden Reels | Стартовый джекпот: Золотые барабаны |
+| `config.burmaldaholic.slots.jackpot.seed.netherite` | Jackpot seed: Netherite | Стартовый джекпот: Незеритовый |
+| `config.burmaldaholic.slots.ownedStarPays` | Three stars pay at player casinos | Выплата за три звезды в казино игроков |
+| `config.burmaldaholic.slots.spinTicks` | Spin animation (ticks) | Анимация вращения (тики) |
+| `config.burmaldaholic.slots.weights` | %1$s — symbol weights | %1$s — веса символов |
+| `config.burmaldaholic.slots.berryPartial` | %1$s — berry pays | %1$s — выплаты за ягоды |
+| `config.burmaldaholic.pvp.slots.starPoints` | Slot Showdown: points for three stars | Битва автоматов: очки за три звезды |
+
 ## sounds (subtitles, core-owned)
 
 | Key | EN | RU |
@@ -3026,3 +3443,46 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `subtitles.burmaldaholic.pvp_challenge` | Challenge horn | Рог вызова |
 | `subtitles.burmaldaholic.pvp_drumroll` | Drumroll | Барабанная дробь |
 | `subtitles.burmaldaholic.pvp_victory` | Victory fanfare | Победные фанфары |
+| `subtitles.burmaldaholic.chip_stack` | Chips stack | Складываются фишки |
+| `subtitles.burmaldaholic.chip_count` | Chips counted | Пересчитываются фишки |
+| `subtitles.burmaldaholic.big_win` | Big win fanfare | Фанфары крупного выигрыша |
+| `subtitles.burmaldaholic.nice_win` | Nice win chime | Сигнал хорошего выигрыша |
+| `subtitles.burmaldaholic.mega_win` | Mega win fanfare | Фанфары мегавыигрыша |
+| `subtitles.burmaldaholic.push` | Tie chime | Сигнал ничьей |
+| `subtitles.burmaldaholic.ui_deny` | Action denied | Действие недоступно |
+| `subtitles.burmaldaholic.toast` | Casino notice | Уведомление казино |
+| `subtitles.burmaldaholic.streak_up` | Streak grows | Серия растёт |
+| `subtitles.burmaldaholic.streak_break` | Streak broken | Серия прервана |
+| `subtitles.burmaldaholic.vip_tier_up` | VIP fanfare | Фанфары ВИП |
+| `subtitles.burmaldaholic.golden_hour_end` | Golden Hour fades | «Золотой час» угасает |
+| `subtitles.burmaldaholic.chaos_good` | Lucky chime | Звон удачи |
+| `subtitles.burmaldaholic.chaos_bad` | Ominous chord | Зловещий аккорд |
+| `subtitles.burmaldaholic.chaos_teleport` | Teleport whoosh | Свист телепорта |
+| `subtitles.burmaldaholic.collector_arrive` | Collectors arrive | Прибывают коллекторы |
+| `subtitles.burmaldaholic.heartbeat` | Heartbeat | Стук сердца |
+| `subtitles.burmaldaholic.coin_land` | Coin lands | Падает монетка |
+| `subtitles.burmaldaholic.attract` | Machine chimes | Звенит автомат |
+| `subtitles.burmaldaholic.card_slide` | Card slides | Скользит карта |
+| `subtitles.burmaldaholic.card_flip` | Card flips | Переворачивается карта |
+| `subtitles.burmaldaholic.card_squeeze` | Card slowly bent | Карту медленно отгибают |
+| `subtitles.burmaldaholic.card_gather` | Cards gathered | Собирают карты |
+| `subtitles.burmaldaholic.card_sting` | Card flourish | Карточный туш |
+| `subtitles.burmaldaholic.chip_push` | Chips pushed in | Фишки уходят в банк |
+| `subtitles.burmaldaholic.pot_win` | Pot collected | Забирают банк |
+| `subtitles.burmaldaholic.table_knock` | Knock on the table | Стук по столу |
+| `subtitles.burmaldaholic.roulette_ball_roll` | Roulette ball rolls | Катится шарик рулетки |
+| `subtitles.burmaldaholic.roulette_ball_drop` | Ball hits a deflector | Шарик ударяется о ромб |
+| `subtitles.burmaldaholic.roulette_ball_bounce` | Ball clatters | Шарик стучит по лункам |
+| `subtitles.burmaldaholic.roulette_ball_settle` | Ball settles | Шарик останавливается |
+| `subtitles.burmaldaholic.roulette_bell` | Croupier's bell | Звонок крупье |
+| `subtitles.burmaldaholic.roulette_dolly` | Marker placed | Ставится маркер |
+| `subtitles.burmaldaholic.chip_sweep` | Chips raked in | Сгребают фишки |
+| `subtitles.burmaldaholic.dice_throw` | Dice thrown | Летят кости |
+| `subtitles.burmaldaholic.dice_bounce` | Dice bounce | Подпрыгивают кости |
+| `subtitles.burmaldaholic.dice_wall` | Dice hit the wall | Кости бьются о борт |
+| `subtitles.burmaldaholic.dice_cup` | Dice rattle | Гремят кости в стакане |
+| `subtitles.burmaldaholic.craps_puck` | Puck placed | Ставится шайба |
+| `subtitles.burmaldaholic.coin_whoosh` | Coin whirs | Вращается монетка |
+| `subtitles.burmaldaholic.wheel_stop` | Wheel stops | Останавливается колесо |
+| `subtitles.burmaldaholic.plinko_bin` | Ball drops into a bin | Шарик падает в лунку |
+| `subtitles.burmaldaholic.burn` | Cell burns | Сгорает клетка |
