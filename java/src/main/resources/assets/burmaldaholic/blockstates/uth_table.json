@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/uth/table"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/uth/table",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/uth/table",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/uth/table",
+      "y": 270
+    }
+  }
+}

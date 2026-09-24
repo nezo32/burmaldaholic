@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:uth/uth_four_x",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:uth_table_player_banked"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.uth_house_seat.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.uth_house_seat.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

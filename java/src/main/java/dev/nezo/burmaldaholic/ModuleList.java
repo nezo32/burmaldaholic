@@ -11,6 +11,7 @@ import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
 import dev.nezo.burmaldaholic.games.poker.PokerModule;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.slots.SlotsModule;
+import dev.nezo.burmaldaholic.games.uth.UthModule;
 import dev.nezo.burmaldaholic.lastchance.LastChanceModule;
 import dev.nezo.burmaldaholic.loan.LoanModule;
 import dev.nezo.burmaldaholic.multiplayer.MultiplayerModule;
@@ -42,6 +43,7 @@ public final class ModuleList {
 			new VipModule(),
 			new MultiplayerModule(),
 			new BaccaratModule(),
+			new UthModule(),
 			new PvpModule(),
 			new BotsModule()
 		);
