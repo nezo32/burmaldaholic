@@ -49,6 +49,7 @@ final class WheelScreen extends ExtrasTableScreen {
 	private final BetControl bet;
 	private final List<String> legendCodes = new ArrayList<>();
 	private int shownSeq = -1;
+	private boolean seenState;
 	private double angle;
 	private double from;
 	private double rest;
@@ -87,13 +88,17 @@ final class WheelScreen extends ExtrasTableScreen {
 		CompoundTag r = newState.getCompoundOrEmpty("result");
 		int seq = r.getIntOr("seq", -1);
 		int n = Math.max(2, newState.getListOrEmpty("segments").size());
-		if (shownSeq < 0 && seq >= 0) {
+		if (!seenState) {
+			if (newState.isEmpty()) return; // the cache before the first server state
+			seenState = true;
+			if (seq < 0) return;
 			// screen (re)opened: the last result at rest
 			shownSeq = seq;
 			int index = r.getIntOr("index", 0);
 			angle = WheelAnim.restAngle(index, n, SeedMix.mix(SeedMix.hash("wheel"), seq));
 			return;
 		}
+		if (seq < 0) shownSeq = -1; // no result yet (a new machine at this position)
 		if (seq >= 0 && seq != shownSeq) {
 			if (spinning()) finish(false);
 			shownSeq = seq;
@@ -228,10 +233,10 @@ final class WheelScreen extends ExtrasTableScreen {
 		}
 		Component party = dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyClient.buttonLabel(s.getCompoundOrEmpty("party"));
 		if (party != null) { // PvP Wheel Party entry (J-M2)
-			button(94, 210, 112, 20, party, KitButton.Style.SECONDARY, b -> {
+			button(184, 210, 20, 20, net.minecraft.network.chat.Component.empty(), KitButton.Style.SECONDARY, b -> {
 				dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyClient.open(menu.pos());
 				onClose(); // the party panel replaces the machine screen
-			});
+			}).tooltip(party).icon(new KitButton.Icon(dev.nezo.burmaldaholic.client.pvp.kit.PvpDraw.MODE_ICONS, 80, 16, 16, 0, 16, 16));
 		}
 	}
 

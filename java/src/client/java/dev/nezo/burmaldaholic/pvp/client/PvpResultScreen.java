@@ -39,6 +39,11 @@ final class PvpResultScreen extends PvpScreen {
 		super(Component.translatable("gui.burmaldaholic.pvp.result.title"), state);
 	}
 
+	@Override
+	protected boolean titleLine() {
+		return false;
+	}
+
 	private JsonObject result() {
 		JsonObject r = state().getAsJsonObject("result");
 		return r == null ? new JsonObject() : r;
@@ -71,7 +76,7 @@ final class PvpResultScreen extends PvpScreen {
 		int[] w = winners();
 		if (w.length > 1) return Component.translatable("gui.burmaldaholic.pvp.result.dead_heat_title");
 		JsonObject p = w.length == 0 ? null : participant(state(), w[0]);
-		return Component.translatable("gui.burmaldaholic.pvp.result.winner_title", p == null ? Component.empty() : PvpSeat.of(p).plateName());
+		return Component.translatable("gui.burmaldaholic.pvp.result.winner_title", p == null ? Component.empty() : PvpSeat.of(p).displayName());
 	}
 
 	private long myPayout() {

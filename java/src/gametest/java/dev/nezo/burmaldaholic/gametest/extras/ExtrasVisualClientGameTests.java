@@ -60,6 +60,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 				scratch(context, world, lang, false);
 				pvp(context, lang);
 			}
+			language(context, "en_us");
 			scratch(context, world, "en_us_gold", true);
 		} finally {
 			write(context);
@@ -76,7 +77,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 			CompoundTag args = new CompoundTag();
 			args.putString("side", "heads");
 			args.putString("stake", "chips");
-			args.putLong("amount", 250);
+			args.putLong("amount", 100);
 			CoinFlipGame.action(player(server), "flip", args);
 		});
 		context.waitTicks(9);
@@ -89,7 +90,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 	private void wheel(ClientGameTestContext context, TestSingleplayerContext world, String lang) {
 		BlockPos pos = table(context, world, ExtrasModule.WHEEL);
 		shot(context, lang + "_wheel_idle");
-		world.getServer().runOnServer(server -> action(server, pos, "spin", chips(100)));
+		world.getServer().runOnServer(server -> action(server, pos, "spin", chips(50)));
 		context.waitTicks(30);
 		shot(context, lang + "_wheel_spin");
 		context.waitTicks(55);
@@ -99,7 +100,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 
 	private void plinko(ClientGameTestContext context, TestSingleplayerContext world, String lang) {
 		BlockPos pos = table(context, world, ExtrasModule.PLINKO);
-		CompoundTag args = chips(50);
+		CompoundTag args = chips(20);
 		args.putString("risk", "medium");
 		world.getServer().runOnServer(server -> action(server, pos, "drop", args));
 		context.waitTicks(30);
@@ -414,11 +415,14 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 		}
 	}
 
+	private int nextTable;
+
 	private BlockPos table(ClientGameTestContext context, TestSingleplayerContext world, TableType<?> type) {
+		int dz = nextTable++ % 3 - 1;
 		BlockPos[] at = new BlockPos[1];
 		open(context, world, server -> {
 			ServerPlayer p = player(server);
-			BlockPos pos = p.blockPosition().offset(2, 0, 0);
+			BlockPos pos = p.blockPosition().offset(2, 0, dz);
 			at[0] = pos;
 			server.overworld().setBlockAndUpdate(pos, type.block().defaultBlockState());
 			if (server.overworld().getBlockEntity(pos) instanceof CasinoTableBlockEntity t) {

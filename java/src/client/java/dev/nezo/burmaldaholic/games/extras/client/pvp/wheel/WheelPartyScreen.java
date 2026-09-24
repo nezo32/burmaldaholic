@@ -342,7 +342,7 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 			Component stake = Texts.number(s.stake());
 			int sw = font.width(share);
 			int kw = font.width(stake);
-			Component nm = s.you() ? Component.translatable("gui.burmaldaholic.common.you") : name(s.name(), s.bot(), s.level());
+			Component nm = s.plateName();
 			Kit.fit(g, font, nm, x + 28, y + 4, 176 - 28 - sw - kw - 14, i == winner() && stopped() ? Kit.GOLD : s.you() ? Kit.GOLD : Kit.BONE, false);
 			g.text(font, stake, x + 176 - 8 - sw - 6 - kw, y + 4, Kit.BONE_SHADE, false);
 			g.text(font, share, x + 176 - 6 - sw, y + 4, Kit.BONE, false);

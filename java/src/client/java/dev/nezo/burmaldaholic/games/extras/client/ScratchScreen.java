@@ -368,6 +368,11 @@ final class ScratchScreen extends SceneScreen {
 	// ---- layout ------------------------------------------------------------------------------------------------
 
 	@Override
+	protected int[] chipCounterAt() {
+		return new int[] {16, 6};
+	}
+
+	@Override
 	protected Component sceneTitle() {
 		return title(state());
 	}

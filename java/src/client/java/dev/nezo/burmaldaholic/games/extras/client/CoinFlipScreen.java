@@ -193,15 +193,15 @@ final class CoinFlipScreen extends SceneScreen {
 					});
 				}
 				boolean steps = !bet.kind().equals(BetControl.ITEM);
-				button(22, 142, 30, 20, Component.translatable("gui.burmaldaholic.extras.minus"), KitButton.Style.SECONDARY, b -> {
+				button(22, 142, 26, 20, Component.translatable("gui.burmaldaholic.extras.minus"), KitButton.Style.SECONDARY, b -> {
 					bet.step(state(), -1);
 					rebuildWidgets();
 				}).active(steps && !busy);
-				button(55, 142, 30, 20, Component.translatable("gui.burmaldaholic.extras.plus"), KitButton.Style.SECONDARY, b -> {
+				button(51, 142, 26, 20, Component.translatable("gui.burmaldaholic.extras.plus"), KitButton.Style.SECONDARY, b -> {
 					bet.step(state(), 1);
 					rebuildWidgets();
 				}).active(steps && !busy);
-				button(88, 142, 30, 20, Component.translatable("gui.burmaldaholic.common.max"), KitButton.Style.SECONDARY, b -> {
+				button(80, 142, 38, 20, Component.translatable("gui.burmaldaholic.common.max"), KitButton.Style.SECONDARY, b -> {
 					bet.max(state(), true);
 					rebuildWidgets();
 				}).active(steps && !busy);

@@ -47,6 +47,7 @@ final class PlinkoScreen extends ExtrasTableScreen {
 
 	private final BetControl bet;
 	private int shownSeq = -1;
+	private boolean seenState;
 	private long dropStart = -1;
 	private boolean landed = true;
 	private long landedAt = -1;
@@ -88,10 +89,14 @@ final class PlinkoScreen extends ExtrasTableScreen {
 	protected void stateArrived(CompoundTag newState) {
 		CompoundTag r = newState.getCompoundOrEmpty("result");
 		int seq = r.getIntOr("seq", -1);
-		if (shownSeq < 0) {
+		if (!seenState) {
+			if (newState.isEmpty()) return; // the cache before the first server state
+			// the screen (re)opened: the last result at rest, no replay
+			seenState = true;
 			shownSeq = seq;
 			return;
 		}
+		if (seq < 0) shownSeq = -1; // no result yet (a new machine at this position)
 		if (seq >= 0 && seq != shownSeq) {
 			if (dropping()) land(false);
 			shownSeq = seq;

@@ -140,13 +140,18 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		if (bannerTitle() == null) {
+		if (bannerTitle() == null && titleLine()) {
 			Component right = titleRight();
 			int rw = right == null ? 0 : font.width(right);
 			Kit.fit(g, font, getTitle(), left + 16, top + 15, Scene.W - 32 - (rw > 0 ? rw + 12 : 0), GOLD, true);
 			if (right != null) g.text(font, right, left + Scene.W - 16 - rw, top + 15, GOLD, true);
 		}
 		extractContent(g, mouseX, mouseY, a);
+	}
+
+	/** Draw the title line at the top left (the result window's banner replaces it). */
+	protected boolean titleLine() {
+		return true;
 	}
 
 	/** Right side of the title line (timer / step), or null. */

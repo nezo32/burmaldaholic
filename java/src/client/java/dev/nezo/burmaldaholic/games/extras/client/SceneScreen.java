@@ -128,7 +128,13 @@ abstract class SceneScreen extends CasinoScreen {
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		extractContent(g, mouseX, mouseY, a);
-		Scene.chipCounter(g, font, Texts.number(shownBalance()), px + 16, py + 210, false);
+		int[] at = chipCounterAt();
+		Scene.chipCounter(g, font, Texts.number(shownBalance()), px + at[0], py + at[1], false);
+	}
+
+	/** Panel-local position of the chip counter (bottom left by default). */
+	protected int[] chipCounterAt() {
+		return new int[] {16, 210};
 	}
 
 	/** Text and wells under the widgets. */

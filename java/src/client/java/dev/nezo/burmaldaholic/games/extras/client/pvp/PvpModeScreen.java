@@ -147,7 +147,7 @@ public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.Cas
 		boolean side = sideControls();
 		int cx = W / 2;
 		int[][] pos = side ? sideControlPositions()
-			: new int[][] {{cx - 110, 207, 90}, {cx - 16, 207, 60}, {cx + 48, 207, 60}, {cx + 112, 207, 20}};
+			: new int[][] {{cx - 124, 207, 96}, {cx - 24, 207, 72}, {cx + 52, 207, 64}, {cx + 120, 207, 20}};
 		KitButton press = KitButton.of(left + pos[0][0], top + pos[0][1], pos[0][2], Component.translatable(pressKey), KitButton.Style.PRIMARY, b -> {
 			pressedStep = view.steps().size() - 1;
 			send("press", new CompoundTag());

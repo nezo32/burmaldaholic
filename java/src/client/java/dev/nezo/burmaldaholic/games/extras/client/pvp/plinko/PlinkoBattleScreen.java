@@ -57,7 +57,7 @@ public final class PlinkoBattleScreen extends PvpModeScreen {
 
 	@Override
 	protected int[][] sideControlPositions() {
-		return new int[][] {{300, 150, 88}, {300, 174, 43}, {345, 174, 43}, {300, 198, 20}};
+		return new int[][] {{300, 150, 88}, {300, 174, 88}, {300, 198, 64}, {368, 198, 20}};
 	}
 
 	private Plinko.@Nullable Risk risk() {
