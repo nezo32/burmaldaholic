@@ -655,9 +655,11 @@ export const popcount = (m: number): number => {
 /**
  * Reference timeline with the beat shape `reelFrame` / `features.ts` consume (animation/slots.md §2.2–§2.3):
  * shared reel beats, local roll-ups and jackpots. NOT the normative builder (S-B3 `buildSlotTimeline`);
- * its vectors decide. Turbo = shared.speedPct 200.
+ * its vectors decide. Turbo = shared.speedPct 200. Local order per slots.md §2.5: the spin roll-up, then the
+ * jackpots as the climax (`jackpotsFirst` = the old order, kept only to test that the presenter handles both).
+ * NOTE for the integrator (S-B3): the real `buildSlotTimeline` must emit ROLLUP before JACKPOT beats too.
  */
-export function stubSlotTimeline(round: SlotRound, shared: TimingProfile, local: TimingProfile, seed = 0): Timeline {
+export function stubSlotTimeline(round: SlotRound, shared: TimingProfile, local: TimingProfile, seed = 0, jackpotsFirst = false): Timeline {
   const b = Timeline.builder(`slots.${round.machine}`, seed);
   const S = (ms: number, k = 1): number => scaleMs(shared, Math.floor(ms * k));
   const L = (ms: number): number => scaleMs(local, ms);
@@ -773,20 +775,23 @@ export function stubSlotTimeline(round: SlotRound, shared: TimingProfile, local:
     b.add(t, S(500), SLOT_BEAT.MAX_WIN, -1);
     t += S(500);
   }
-  // local: jackpots in tape order (each after the first shortened to 70 %), then the spin roll-up
+  // local: the spin roll-up, then the jackpots in tape order (each after the first shortened to 70 %)
   b.clock(LOCAL);
-  tape.jackpots.forEach((jp, i) => {
-    b.group(group++);
-    const d = L(Math.floor((JACKPOT_MS[jp.tier] ?? 2000) * (i === 0 ? 1 : 0.7)));
-    b.add(t, d, SLOT_BEAT.JACKPOT, -1, jp.tier, i);
-    t += d;
-  });
+  const jackpots = (): void =>
+    tape.jackpots.forEach((jp, i) => {
+      b.group(group++);
+      const d = L(Math.floor((JACKPOT_MS[jp.tier] ?? 2000) * (i === 0 ? 1 : 0.7)));
+      b.add(t, d, SLOT_BEAT.JACKPOT, -1, jp.tier, i);
+      t += d;
+    });
+  if (jackpotsFirst) jackpots();
   b.group(group++);
   if (round.totalChips > 0) {
     const d = local.reduceMotion ? Math.min(300, L(600)) : round.totalChips < round.bet ? L(RETURNED_MS) : L(rollUpDurationMs(round.totalChips, round.bet, 600, 8000));
     b.add(t, d, SLOT_BEAT.ROLLUP, -1, tierOrdinal(round.tier));
     t += d;
   }
+  if (!jackpotsFirst) jackpots();
   b.setCursor(t);
   b.cue(SLOT_BEAT.END, -1);
   return b.build();

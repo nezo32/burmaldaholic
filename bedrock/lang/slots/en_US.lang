@@ -110,7 +110,12 @@ gui.burmaldaholic.slots.jackpot.tier.mini=MINI
 gui.burmaldaholic.slots.jackpot.tier.minor=MINOR
 gui.burmaldaholic.slots.jackpot.tier.major=MAJOR
 gui.burmaldaholic.slots.jackpot.tier.grand=GRAND
-gui.burmaldaholic.slots.symbol_win=%1 ×%2 · %3 ways · %4
+gui.burmaldaholic.slots.symbol_win=%1 ×%2 · %3 · %4
+## TEMP-ANIM (B-L9 review): %3 of symbol_win is now the plural `slots.ways.*` ("1 way" / «1 способ»)
+gui.burmaldaholic.slots.ways.p1=%1 way
+gui.burmaldaholic.slots.ways.p21=%1 ways
+gui.burmaldaholic.slots.ways.p2=%1 ways
+gui.burmaldaholic.slots.ways.p5=%1 ways
 gui.burmaldaholic.slots.fx.wheel_up_wedge=UP
 gui.burmaldaholic.slots.fx.cabinet_view=Watch the machine while spinning
 gui.burmaldaholic.slots.fx.cabinet_view.tooltip=Closes the window during a spin and turns the camera to the machine

@@ -18,7 +18,7 @@ import { uiManager } from '@minecraft/server-ui';
 import { type Raw, anim, detach, join, lit, presentation, t } from '../../../../core';
 import { SLOT_BEAT } from '../logic/timeline';
 import { type CelebrateOptions, type CelebrateRuntime, type SlotFx, celebrateSpin, jackpotCinematic, jackpotInForm, slotCelebration } from './celebrate';
-import { type Cue, type SlotScreen, cuesBetween, huntEndMs, huntOpenMs, huntOver, huntScreen, reelsMoving, screenAt, terminalScreen } from './features';
+import { type Cue, type SlotScreen, cuesBetween, huntEndMs, huntOpenMs, huntOver, huntScreen, reelsMoving, rollupFrom, screenAt, terminalScreen } from './features';
 import type { SlotRound } from './frames';
 import { type SlotConfigFlags, type SlotSettings, frameOptions, particleCount, slotLocalProfile, slotSettings, soundVolume, wantsSneakSkip } from './settings';
 
@@ -154,6 +154,7 @@ export function celebrateRuntime(player: Player, s: SlotSettings, anchor?: SlotA
       }
     },
     isValid: (p) => p.isValid,
+    wantsSkip: (p) => wantsSneakSkip(p, anchor?.location),
   };
 }
 
@@ -184,6 +185,8 @@ export class SlotPresenter {
   private suspendedNow = false;
   private musicOn = false;
   private cancelCelebration?: () => void;
+  /** skip handle of a running Major / Grand cinematic (sneak-to-skip lives in `jackpotCinematic`) */
+  private cinematic?: () => void;
   private hunt?: { opened: number; resumeAt: number; busy: boolean; all: boolean };
   private huntDone = false;
   settings: SlotSettings;
@@ -290,8 +293,12 @@ export class SlotPresenter {
     const o = this.celebrateOptions();
     if (b.kind === SLOT_BEAT.ROLLUP) {
       const c = slotCelebration(round.totalChips, round.bet, round.tier, round.tape.capHit);
-      this.cancelCelebration = celebrateSpin(this.player, c, celebrateRuntime(this.player, this.settings, this.host.anchor), o);
+      // the title follows the beat as played (turbo / speed) and continues from the Win line (F5)
+      this.cancelCelebration = celebrateSpin(this.player, c, celebrateRuntime(this.player, this.settings, this.host.anchor), { ...o, rollupMs: b.dur, from: rollupFrom(round, start.timeline, b) });
     } else if (b.kind === SLOT_BEAT.JACKPOT) {
+      // slots.md §2.5: jackpots are the climax after the spin roll-up; its title settles on the exact total first
+      this.cancelCelebration?.();
+      this.cancelCelebration = undefined;
       const idx = start.timeline.beats.filter((x) => x.kind === SLOT_BEAT.JACKPOT).indexOf(b);
       const award = round.tape.jackpots[idx];
       if (!award) return;
@@ -304,7 +311,8 @@ export class SlotPresenter {
         this.restarting = true;
         this.session?.stop();
         this.session = undefined;
-        jackpotCinematic(this.player, jp, rt, o, () => {
+        this.cinematic = jackpotCinematic(this.player, jp, rt, o, () => {
+          this.cinematic = undefined;
           if (!this.start) return;
           this.suspendedNow = false;
           this.view.suspended(false);
@@ -426,6 +434,10 @@ export class SlotPresenter {
     this.music('', false);
     if (interrupted) this.cancelCelebration?.();
     this.cancelCelebration = undefined;
+    // a cinematic still running (left / replaced): clear its camera and print the exact amount
+    const cin = this.cinematic;
+    this.cinematic = undefined;
+    cin?.();
     if (this.player.isValid) {
       this.view.huntMode(false);
       this.view.show(terminalScreen(start.round, frameOptions(this.settings)), false);

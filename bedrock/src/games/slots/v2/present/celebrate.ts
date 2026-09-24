@@ -97,6 +97,29 @@ export function tierWordAt(c: SlotCelebration, shown: number): WinTier {
   return w;
 }
 
+/**
+ * PURE: one point of the spin roll-up with continuity (coordinator decision on F5): the Win line keeps
+ * counting from `from` (the amount the win show already put on screen), never back from 0.
+ *  - `shown`: the amount on screen, `from + (total − from) × outCubic(p)` (monotonic, exact at p = 1);
+ *  - `esc`: the amount that drives the tier word. It is `shown`, except when the win show already reached the
+ *    total (`from ≥ total`): then nothing is recounted and the word alone escalates, Nice → … → server tier.
+ */
+export function rollupPoint(c: SlotCelebration, from: number, p: number): { shown: number; esc: number } {
+  const f = Math.max(0, Math.min(c.total, from));
+  if (p >= 1) return { shown: c.total, esc: c.total };
+  if (f >= c.total) return { shown: c.total, esc: rollUpValue(c.total, p) };
+  const shown = f + rollUpValue(c.total - f, p);
+  return { shown, esc: shown };
+}
+
+/** PURE: roll-up progress (0…1) at which the tier word reaches `amount` (for the Mega flash / Epic shake). */
+export function escalationProgress(c: SlotCelebration, from: number, amount: number): number {
+  const f = Math.max(0, Math.min(c.total, from));
+  if (f >= c.total) return cubicInverse(amount / Math.max(1, c.total));
+  if (amount <= f) return 0;
+  return cubicInverse((amount - f) / Math.max(1, c.total - f));
+}
+
 /** Title timings (fade in / stay / out, ticks) per tier, global.md §2.6 Bedrock table. */
 export const TITLE_TIMES: Readonly<Partial<Record<WinTier, readonly [number, number, number]>>> = {
   BIG: [3, 36, 8],
@@ -190,6 +213,8 @@ export interface CelebrateRuntime {
   setCamera?(p: Player, location: Vec3, facingLocation: Vec3, easeSeconds: number): boolean;
   clearCamera?(p: Player): void;
   isValid(p: Player): boolean;
+  /** Sneak-to-skip request (sneaking near the cabinet); polled by the Major / Grand cinematic */
+  wantsSkip?(p: Player): boolean;
 }
 
 export interface CelebrateOptions {
@@ -199,6 +224,13 @@ export interface CelebrateOptions {
   readonly seed?: number;
   /** particle count after settings (reduce motion × 0.3) */
   readonly scale?: (n: number) => number;
+  /**
+   * Duration of the ROLLUP beat as played (local profile: turbo / speed setting). The title roll-up follows it
+   * instead of the unscaled `c.rollupMs`, so the title and the Win line end together.
+   */
+  readonly rollupMs?: number;
+  /** amount the Win line already shows when the roll-up starts (continuity, see `rollupPoint`) */
+  readonly from?: number;
 }
 
 const amountRaw = (n: number): Raw => join(lit('§a+'), chips(n), lit('§r'));
@@ -209,16 +241,19 @@ const amountRaw = (n: number): Raw => join(lit('§a+'), chips(n), lit('§r'));
  */
 export function titleWinRollUp(p: Player, c: SlotCelebration, rt: CelebrateRuntime, o: CelebrateOptions): () => void {
   const times = TITLE_TIMES[c.tier] ?? TITLE_TIMES.BIG!;
-  const ticks = o.reduceMotion ? 2 : Math.max(2, ceilTicks(c.rollupMs));
+  const ticks = o.reduceMotion ? 2 : Math.max(2, ceilTicks(o.rollupMs ?? c.rollupMs));
   const steps = o.reduceMotion ? 2 : Math.max(1, Math.floor(ticks / 2));
-  let word = c.startTier;
+  const from = o.from ?? 0;
+  const first = rollupPoint(c, from, 0);
+  let word = tierWordAt(c, first.esc);
   let done = false;
   const titleFor = (w: WinTier): Raw => join(lit(tierColor(w)), t(c.maxWin && w === c.tier ? SLOT_TIER_WORDS.maxWin! : SLOT_TIER_WORDS[w]), lit('§r'));
-  rt.setTitle(p, titleFor(word), amountRaw(0), [times[0], times[1] + ticks, times[2]]);
+  rt.setTitle(p, titleFor(word), amountRaw(first.shown), [times[0], times[1] + ticks, times[2]]);
   const step = (i: number): void => {
     if (done || !rt.isValid(p)) return;
-    const shown = i >= steps ? c.total : rollUpValue(c.total, i / steps);
-    const w = tierWordAt(c, shown);
+    const pt = rollupPoint(c, from, i >= steps ? 1 : i / steps);
+    const shown = pt.shown;
+    const w = tierWordAt(c, pt.esc);
     if (w !== word) {
       word = w;
       rt.setTitle(p, titleFor(w), amountRaw(shown), [0, times[1] + ticks - 2 * i, times[2]]);
@@ -248,15 +283,17 @@ export function celebrateSpin(p: Player, c: SlotCelebration, rt: CelebrateRuntim
     o.fx.celebrate(p, { tier: c.tier, net: c.total, stake: c.bet, table: SLOT_TIER_TABLE, words: SLOT_TIER_WORDS, maxWin: c.maxWin, game: 'slots', seed: o.seed ?? 0 });
     return () => {};
   }
+  const dur = o.rollupMs ?? c.rollupMs;
+  const from = o.from ?? 0;
   if (tierOrdinal(c.tier) >= tierOrdinal('MEGA')) {
     // gold 30 % flash at the Mega upgrade (flashes on); the camera helper skips it under reduce motion
     const at = c.upgrades.find(([tier]) => tier === 'MEGA');
-    const ms = at ? Math.floor(c.rollupMs * cubicInverse(at[1] / Math.max(1, c.total))) : 0;
+    const ms = at ? Math.floor(dur * escalationProgress(c, from, at[1])) : 0;
     rt.after(Math.max(1, ceilTicks(ms)), () => rt.fadeGold(p, 0.1, 0.1, 0.3));
   }
   if (c.tier === 'EPIC') {
     const at = c.upgrades.find(([tier]) => tier === 'EPIC');
-    const ms = at ? Math.floor(c.rollupMs * cubicInverse(at[1] / Math.max(1, c.total))) : 0;
+    const ms = at ? Math.floor(dur * escalationProgress(c, from, at[1])) : 0;
     rt.after(Math.max(1, ceilTicks(ms)), () => rt.shake(p, 0.25, 0.6));
   }
   return titleWinRollUp(p, c, rt, o);
@@ -273,9 +310,16 @@ export interface JackpotShow {
   readonly facing?: { x: number; z: number };
 }
 
+/** The cinematic can be skipped by sneaking after this many ticks (1.5 s); at once under reduce motion. */
+export const CINEMATIC_MIN_SKIP_TICKS = 30;
+/** Sneak poll period during the cinematic (the reel session is paused, so this is the only interval). */
+export const CINEMATIC_SKIP_POLL_TICKS = 2;
+
 /**
  * Major / Grand cinematic. Calls `reopen` when the form should come back (also after reduce-motion titles).
- * Returns a skip function (clears the camera and reopens at once). Mini / Minor: returns undefined (in form).
+ * Returns a skip function (clears the camera, prints the exact amount under the jackpot word and reopens at
+ * once); `rt.wantsSkip` (sneak) calls it after `CINEMATIC_MIN_SKIP_TICKS` (reduce motion: at once).
+ * Mini / Minor: returns undefined (in form).
  */
 export function jackpotCinematic(p: Player, jp: JackpotShow, rt: CelebrateRuntime, o: CelebrateOptions, reopen: () => void): (() => void) | undefined {
   const plan = cinematicPlan(jp.tier);
@@ -286,11 +330,24 @@ export function jackpotCinematic(p: Player, jp: JackpotShow, rt: CelebrateRuntim
     if (finished) return;
     finished = true;
     if (cameraSet) rt.clearCamera?.(p);
+    cameraSet = false;
     reopen();
   };
+  const title = join(lit('§e§l'), jackpotWord(jp.tier), lit('§r'));
+  /** skip: the final frame is the exact amount under the jackpot word (F8), then the form comes back */
+  const skip = (): void => {
+    if (finished) return;
+    if (rt.isValid(p)) rt.setTitle(p, title, amountRaw(jp.chips), [0, 40, 10]);
+    finish();
+  };
+  const poll = (): void => {
+    if (finished || !rt.isValid(p)) return;
+    if (rt.wantsSkip?.(p)) return skip();
+    rt.after(CINEMATIC_SKIP_POLL_TICKS, poll);
+  };
+  if (rt.wantsSkip) rt.after(o.reduceMotion ? 1 : CINEMATIC_MIN_SKIP_TICKS, poll);
   rt.closeForms(p);
   const scale = o.scale ?? ((n: number) => n);
-  const title = join(lit('§e§l'), jackpotWord(jp.tier), lit('§r'));
   const roll = (ticks: number): void => {
     const steps = o.reduceMotion ? 2 : Math.max(1, Math.floor(ticks / 2));
     rt.setTitle(p, title, amountRaw(0), [o.reduceMotion ? 0 : 5, ticks + 20, 10]);
@@ -304,7 +361,7 @@ export function jackpotCinematic(p: Player, jp: JackpotShow, rt: CelebrateRuntim
   if (o.reduceMotion) {
     roll(plan.rollTicks);
     rt.after(plan.reopen, finish);
-    return finish;
+    return skip;
   }
   rt.after(plan.fade, () => rt.fadeGold(p, 0.1, 0.1, 0.4));
   if (jp.face && jp.facing && rt.setCamera) {
@@ -327,7 +384,7 @@ export function jackpotCinematic(p: Player, jp: JackpotShow, rt: CelebrateRuntim
     cameraSet = false;
   });
   rt.after(plan.reopen, finish);
-  return finish;
+  return skip;
 }
 
 /** Mini / Minor in-form jackpot particles (world, ≤ 60). */

@@ -1,7 +1,7 @@
 import type { Player } from '@minecraft/server';
 import { describe, expect, it } from 'vitest';
 import type { Raw } from '../../../../core/logic/rawtext';
-import { type CelebrateRuntime, celebrateSpin, cinematicCamera, cinematicPlan, jackpotCinematic, slotCelebration, tierWordAt, titleWinRollUp } from './celebrate';
+import { CINEMATIC_MIN_SKIP_TICKS, CINEMATIC_SKIP_POLL_TICKS, type CelebrateRuntime, celebrateSpin, cinematicCamera, cinematicPlan, escalationProgress, jackpotCinematic, rollupPoint, slotCelebration, tierWordAt, titleWinRollUp } from './celebrate';
 
 const P = { id: 'p' } as unknown as Player;
 
@@ -143,5 +143,101 @@ describe('jackpot cinematic (Major / Grand)', () => {
     const c = cinematicCamera({ x: 10, y: 64, z: 5 }, { x: 0, z: -1 });
     expect(c.location).toEqual({ x: 10, y: 65.4, z: 5 - 2.2 });
     expect(c.facingLocation.x).toBe(10);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Coordinator decisions (2) title follows turbo / speed, (1) continuity, (4) sneak-skippable cinematic
+// ---------------------------------------------------------------------------------------------------------
+
+describe('review: title roll-up follows the played beat and the Win line', () => {
+  const lastValueTick = (log: Array<{ tick: number; what: string; arg?: unknown }>, total: number): number =>
+    log.filter((l) => (l.what === 'sub' ? digits(l.arg) : l.what === 'title' ? digits((l.arg as { subtitle: Raw }).subtitle) : -1) === total)[0]!.tick;
+
+  it('the title reaches the exact total when the ROLLUP beat ends (turbo 0.5×, speed 1.5×)', () => {
+    const c = slotCelebration(6500, 50, 'EPIC', false);
+    for (const k of [1, 0.5, 2 / 3]) {
+      const { rt, log, run } = fakeRuntime();
+      const ms = Math.round(c.rollupMs * k);
+      titleWinRollUp(P, c, rt, { reduceMotion: false, celebrations: 'all', rollupMs: ms });
+      run(400);
+      expect(Math.abs(lastValueTick(log, 6500) - Math.ceil(ms / 50))).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('the Mega flash / Epic shake move with the played duration', () => {
+    const c = slotCelebration(6500, 50, 'EPIC', false);
+    const at = (ms?: number) => {
+      const { rt, log, run } = fakeRuntime();
+      celebrateSpin(P, c, rt, { reduceMotion: false, celebrations: 'all', rollupMs: ms });
+      run(400);
+      return [log.find((l) => l.what === 'fade')!.tick, log.find((l) => l.what === 'shake')!.tick];
+    };
+    const full = at();
+    const half = at(Math.round(c.rollupMs / 2));
+    expect(half[0]!).toBeLessThan(full[0]!);
+    expect(half[1]!).toBeLessThan(full[1]!);
+  });
+
+  it('continuity: the title starts at the Win line; from ≥ total escalates the word without recounting', () => {
+    const c = slotCelebration(6500, 50, 'EPIC', false);
+    const a = fakeRuntime();
+    titleWinRollUp(P, c, a.rt, { reduceMotion: false, celebrations: 'all', from: 1000 });
+    a.run(400);
+    const first = a.log.find((l) => l.what === 'title')!;
+    expect(digits((first.arg as { subtitle: Raw }).subtitle)).toBe(1000);
+    expect(keyOf((first.arg as { title: Raw }).title)).toBe('gui.burmaldaholic.slots.tier.big');
+    const b = fakeRuntime();
+    titleWinRollUp(P, c, b.rt, { reduceMotion: false, celebrations: 'all', from: 6500 });
+    b.run(400);
+    const words = b.log.filter((l) => l.what === 'title').map((l) => keyOf((l.arg as { title: Raw }).title));
+    expect(words).toEqual(['nice', 'big', 'mega', 'epic'].map((w) => `gui.burmaldaholic.slots.tier.${w}`));
+    const values = b.log.filter((l) => l.what === 'sub' || l.what === 'title').map((l) => digits(l.what === 'sub' ? l.arg : (l.arg as { subtitle: Raw }).subtitle));
+    expect(values.every((v) => v === 6500)).toBe(true);
+    for (let p = 0; p <= 1; p += 0.05) {
+      const x = rollupPoint(c, 2000, p);
+      expect(x.shown).toBeGreaterThanOrEqual(2000);
+      expect(x.shown).toBeLessThanOrEqual(6500);
+    }
+    expect(rollupPoint(c, 2000, 1).shown).toBe(6500);
+    expect(escalationProgress(c, 2000, 750)).toBe(0);
+  });
+});
+
+describe('review: Major / Grand cinematic sneak-to-skip', () => {
+  const run = (reduceMotion: boolean, sneakFrom: number) => {
+    const f = fakeRuntime();
+    let now = 0;
+    const rt = { ...f.rt, wantsSkip: () => now >= sneakFrom };
+    let reopened = -1;
+    jackpotCinematic(P, { tier: 4, chips: 501220, face: { x: 0, y: 64, z: 0 }, facing: { x: 0, z: 1 } }, rt, { reduceMotion, celebrations: 'all' }, () => {
+      if (reopened < 0) reopened = now;
+    });
+    for (let i = 0; i < 120; i++) {
+      now++;
+      f.run(1);
+    }
+    return { ...f, reopened };
+  };
+
+  it('not before 1.5 s; then the camera clears, the title prints the exact amount and the form reopens once', () => {
+    const r = run(false, 0);
+    expect(r.reopened).toBeGreaterThanOrEqual(CINEMATIC_MIN_SKIP_TICKS);
+    expect(r.reopened).toBeLessThanOrEqual(CINEMATIC_MIN_SKIP_TICKS + CINEMATIC_SKIP_POLL_TICKS);
+    expect(r.reopened).toBeLessThan(cinematicPlan(4)!.reopen);
+    const clear = r.log.filter((l) => l.what === 'clear');
+    expect(clear.length).toBe(1);
+    expect(clear[0]!.tick).toBe(r.reopened);
+    const lastTitle = r.log.filter((l) => l.what === 'title').pop()!;
+    expect(lastTitle.tick).toBe(r.reopened);
+    expect(keyOf((lastTitle.arg as { title: Raw }).title)).toBe('gui.burmaldaholic.slots.jackpot.won');
+    expect(digits((lastTitle.arg as { subtitle: Raw }).subtitle)).toBe(501220);
+    // nothing of the cinematic runs after the skip
+    expect(r.log.filter((l) => l.tick > r.reopened).length).toBe(0);
+  });
+
+  it('reduce motion: skippable at once; no sneak: runs the full table', () => {
+    expect(run(true, 0).reopened).toBeLessThanOrEqual(2);
+    expect(run(false, 1000).reopened).toBe(cinematicPlan(4)!.reopen);
   });
 });

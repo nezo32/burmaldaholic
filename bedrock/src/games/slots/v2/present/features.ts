@@ -13,10 +13,10 @@ import { ease } from '../../../../core/logic/anim/ease';
 import { rollUpValue, tickPitch } from '../../../../core/logic/anim/rollup';
 import { type Beat, type Timeline, type TimingProfile, beatEnd, scaleMs } from '../../../../core/logic/anim/timeline';
 import { type WinTier, tierOrdinal } from '../../../../core/logic/anim/win-tier';
-import { type Raw, chips, join, lines, lit, t } from '../../../../core/logic/rawtext';
+import { type Raw, chips, join, lines, lit, plural, t } from '../../../../core/logic/rawtext';
 import { SLOT_BEAT } from '../logic/timeline';
 import { REELS, ROWS } from '../logic/types';
-import { JACKPOT_TIER_KEYS, SLOT_PARTICLE, TIER_WORD_KEYS, slotCelebration, tierColor, tierWordAt } from './celebrate';
+import { JACKPOT_TIER_KEYS, SLOT_PARTICLE, TIER_WORD_KEYS, rollupPoint, slotCelebration, tierColor, tierWordAt } from './celebrate';
 import {
   type FrameOptions,
   type ReelFrame,
@@ -427,9 +427,8 @@ export function screenAt(round: SlotRound, tl: Timeline, now: number, o: ScreenO
   // spin roll-up (local): tier word upgrades as the amount passes the thresholds
   const roll = lastStarted(tl, SLOT_BEAT.ROLLUP, now);
   if (roll) {
-    const p = o.reduceMotion ? (now >= roll.at + roll.dur / 2 ? 1 : 0) : progress(roll, now);
-    const shown = rollUpValue(round.totalChips, p);
-    return { board: 'reels', rows: reelsRows(terminalFrame(round), o), header: tierHeader(round, shown, now, o, false), status: spinStatus(round, shown, false) };
+    const pt = rollupAt(round, tl, roll, now, o);
+    return { board: 'reels', rows: reelsRows(terminalFrame(round), o), header: tierHeader(round, pt.esc, now, o, false), status: spinStatus(round, pt.shown, false) };
   }
 
   const maxWin = find(tl, SLOT_BEAT.MAX_WIN, now);
@@ -494,6 +493,44 @@ function countBefore(tl: Timeline, kind: string, now: number): number {
   return n;
 }
 
+/** End of the base game's beats: the first feature beat (free spins or a bonus game), else infinity. */
+function baseEndMs(tl: Timeline): number {
+  for (const b of tl.beats) if (b.kind === SLOT_BEAT.FS_INTRO || b.kind === SLOT_BEAT.FS_SPIN || b.kind === SLOT_BEAT.BONUS_INTRO) return b.at;
+  return Number.POSITIVE_INFINITY;
+}
+
+/** Amount of the base Win line at `now` (completed evaluations + the current one rolling over its WIN_SHOW). */
+function baseWinShown(round: SlotRound, tl: Timeline, now: number): number | undefined {
+  const spin = round.base;
+  if (!spin || isReturned(round)) return undefined;
+  const cut = Math.min(now, baseEndMs(tl) - 1);
+  const shows = all(tl, SLOT_BEAT.WIN_SHOW).filter((b) => b.at <= cut);
+  const j = shows.length - 1;
+  if (j < 0) return undefined;
+  let done = 0;
+  for (let x = 0; x < j && x < spin.evals.length; x++) done += chipsOf(round, spin.evals[x]!.payFifths);
+  const cur = chipsOf(round, spin.evals[Math.min(j, spin.evals.length - 1)]!.payFifths);
+  return done + rollUpValue(cur, progress(shows[j]!, cut));
+}
+
+/**
+ * The Win line the ROLLUP beat starts from (F5 continuity): what the base win show last put on screen, capped
+ * at the spin total. 0 for bought features and Returned spins.
+ */
+export function rollupFrom(round: SlotRound, tl: Timeline, roll: Beat): number {
+  return Math.max(0, Math.min(round.totalChips, baseWinShown(round, tl, roll.at - 1) ?? 0));
+}
+
+/** Win line (`shown`) and tier-word driver (`esc`) of the spin roll-up at `now`. */
+export function rollupAt(round: SlotRound, tl: Timeline, roll: Beat, now: number, o: ScreenOptions): { shown: number; esc: number } {
+  const c = slotCelebration(round.totalChips, round.bet, round.tier, round.tape.capHit);
+  const p = o.reduceMotion ? (now >= roll.at + roll.dur / 2 ? 1 : 0) : progress(roll, now);
+  return rollupPoint(c, rollupFrom(round, tl, roll), p);
+}
+
+/** "1 way" / «1 способ», "21 ways" / «21 способ», «3 способа», «5 способов». */
+export const waysRaw = (n: number): Raw => plural(`${K}ways`, n);
+
 function baseStatus(round: SlotRound, tl: Timeline, now: number): Raw | undefined {
   const spin = round.base;
   if (!spin || isReturned(round)) return undefined; // F9: the Returned line waits for the roll-up beat
@@ -508,15 +545,11 @@ function baseStatus(round: SlotRound, tl: Timeline, now: number): Raw | undefine
     const kk = Math.max(0, ...wins.map((w) => w.k));
     const ways = wins.reduce((s, w) => s + w.ways, 0);
     const pay = wins.reduce((s, w) => s + w.payFifths, 0);
-    return t(`${K}symbol_win`, t(`${K}symbol.${round.symbolIds[sym] ?? 'creeper'}`), kk, ways, chips(chipsOf(round, pay * ev.multiplier)));
+    return t(`${K}symbol_win`, t(`${K}symbol.${round.symbolIds[sym] ?? 'creeper'}`), kk, waysRaw(ways), chips(chipsOf(round, pay * ev.multiplier)));
   }
   if (j < 0) return undefined;
   // running base win: completed evaluations + the current one rolling in over its WIN_SHOW
-  let done = 0;
-  for (let x = 0; x < j && x < spin.evals.length; x++) done += chipsOf(round, spin.evals[x]!.payFifths);
-  const cur = chipsOf(round, spin.evals[Math.min(j, spin.evals.length - 1)]!.payFifths);
-  const show = shows[j]!;
-  const shown = done + rollUpValue(cur, progress(show, now));
+  const shown = baseWinShown(round, tl, now) ?? 0;
   const win = join(lit('§a'), t(`${K}win`, chips(shown)), lit('§r'));
   if (round.machine === 'nether' && k > 0) return join(win, lit(' · '), t(`${K}tumble.mult`, spin.evals[Math.min(k, spin.evals.length - 1)]!.multiplier));
   return win;
@@ -635,7 +668,7 @@ export function cuesBetween(round: SlotRound, tl: Timeline, t0: number, t1: numb
         if (start) out.push(snd('slots.max_win', 1, 1, true));
         break;
       case SLOT_BEAT.ROLLUP:
-        if (t1 > b.at && t0 < end) rollupCues(round, b, t0, t1, o, out);
+        if (t1 > b.at && t0 < end) rollupCues(round, tl, b, t0, t1, o, out);
         break;
       default:
         break;
@@ -664,24 +697,32 @@ function wheelCues(round: SlotRound, tl: Timeline, b: Beat, t0: number, t1: numb
 /** Upgrade stems of the slot tiers (slots.md §4.12). */
 export const TIER_STEM: Partial<Record<WinTier, string>> = { NICE: 'slots.win_nice', BIG: 'slots.big_win', MEGA: 'slots.mega_win', EPIC: 'slots.epic_win' };
 
-function rollupCues(round: SlotRound, b: Beat, t0: number, t1: number, o: ScreenOptions, out: Cue[]): void {
+function rollupCues(round: SlotRound, tl: Timeline, b: Beat, t0: number, t1: number, o: ScreenOptions, out: Cue[]): void {
   const total = round.totalChips;
   const c = slotCelebration(total, round.bet, round.tier, round.tape.capHit);
+  const from = rollupFrom(round, tl, b);
+  const at = (x: number): { shown: number; esc: number } => {
+    const p = x < b.at ? 0 : o.reduceMotion ? (x >= b.at + b.dur / 2 ? 1 : 0) : progress(b, x);
+    return rollupPoint(c, from, p);
+  };
+  const first = at(b.at);
   if (b.at > t0 && b.at <= t1) {
     if (total < round.bet) {
       out.push(snd('slots.returned', 0.8, 0.3));
       return;
     }
-    const stem = TIER_STEM[c.startTier];
-    if (stem) out.push(snd(stem, 1, 1, tierOrdinal(c.startTier) >= tierOrdinal('MEGA')));
+    const w = tierWordAt(c, first.esc);
+    const stem = TIER_STEM[w];
+    if (stem) out.push(snd(stem, 1, 1, tierOrdinal(w) >= tierOrdinal('MEGA')));
   }
   if (total < round.bet) return;
-  const p0 = o.reduceMotion ? 0 : progress(b, t0);
+  const a0 = b.at > t0 ? first : at(t0);
+  const a1 = at(t1);
   const p1 = o.reduceMotion ? (t1 >= b.at + b.dur / 2 ? 1 : 0) : progress(b, t1);
-  const v0 = rollUpValue(total, p0);
-  const v1 = rollUpValue(total, p1);
-  if (v1 > v0 && p1 < 1) out.push(snd('slots.rollup_tick', tickPitch(Math.floor((t1 - b.at) / ROLLUP_TICK_MS)), 0.35));
-  for (const [tier, amount] of c.upgrades) if (v0 < amount && v1 >= amount && TIER_STEM[tier]) out.push(snd(TIER_STEM[tier]!, 1, 1, tierOrdinal(tier) >= tierOrdinal('MEGA')));
+  const p0 = b.at > t0 ? 0 : o.reduceMotion ? (t0 >= b.at + b.dur / 2 ? 1 : 0) : progress(b, t0);
+  // ticks only while the amount really moves (no recount when the win show already reached the total)
+  if (a1.shown > a0.shown && p1 < 1) out.push(snd('slots.rollup_tick', tickPitch(Math.floor((t1 - b.at) / ROLLUP_TICK_MS)), 0.35));
+  for (const [tier, amount] of c.upgrades) if (a0.esc < amount && a1.esc >= amount && TIER_STEM[tier]) out.push(snd(TIER_STEM[tier]!, 1, 1, tierOrdinal(tier) >= tierOrdinal('MEGA')));
   if (p0 < 1 && p1 >= 1) out.push(snd(tierOrdinal(c.tier) >= tierOrdinal('BIG') ? 'slots.rollup_end' : 'slots.win_small'));
 }
 

@@ -109,6 +109,8 @@ const { SlotPresenter, DduiSlotForm } = await import('./ddui-form');
 const { fakeDef, fakeRound, fakeTape, timelineOf } = await import('./fixtures.test-util');
 const { SLOT_BEAT } = await import('../logic/timeline');
 const { terminalScreen } = await import('./features');
+const { stubSlotTimeline } = await import('./frames');
+const { SHARED_PROFILE } = await import('../../../../core/logic/anim/timeline');
 
 class FakePlayer {
   isValid = true;
@@ -404,5 +406,72 @@ describe('SlotPresenter (adversarial)', () => {
       const jpWrites = forms.obsWrites.filter((w) => JSON.stringify(w.v ?? '').includes('jp ')).map((w) => w.tick);
       for (let i = 1; i < jpWrites.length - 1; i++) expect(jpWrites[i]! - jpWrites[i - 1]!).toBeGreaterThanOrEqual(20);
     }
+  });
+});
+
+describe('SlotPresenter: coordinator decisions (4) sneak-skip cinematic, (5) jackpots after the roll-up', () => {
+  const def = fakeDef('end');
+
+  const setup = (jackpotsFirst: boolean) => {
+    // a BIG base win (tier from the server) + a Grand jackpot
+    const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { totalFifths: 5 * 20, jackpots: [{ tier: 4, chips: 501220, owned: true }] }), 'BIG');
+    const tl = stubSlotTimeline(round, SHARED_PROFILE, SHARED_PROFILE, 1, jackpotsFirst);
+    const p = new FakePlayer();
+    const titles: Array<{ tick: number; key: string; sub: string }> = [];
+    p.onScreenDisplay.setTitle = ((title: unknown, o: { subtitle?: unknown }) =>
+      void titles.push({ tick: clock.tick, key: JSON.stringify(title), sub: JSON.stringify(o?.subtitle ?? null) })) as never;
+    const { h, presented } = host(round);
+    const { v, shown, ctl } = view();
+    const pr = new SlotPresenter(p as never, h as never, v as never);
+    return { round, tl, p, titles, presented, shown, ctl, pr };
+  };
+
+  it('spec order: the Big title settles first, then the jackpot is the climax; both orders settle once on the terminal', () => {
+    for (const first of [false, true]) {
+      clock.runs.clear();
+      const s = setup(first);
+      s.pr.play({ round: s.round, timeline: s.tl });
+      clock.advance(Math.ceil(s.tl.endMs() / 50) + 200);
+      expect(s.presented).toEqual([{ interrupted: false }]);
+      expect(JSON.stringify(s.shown[s.shown.length - 1])).toBe(JSON.stringify(terminalScreen(s.round)));
+      const big = s.titles.findIndex((x) => x.key.includes('slots.tier.'));
+      const jp = s.titles.findIndex((x) => x.key.includes('slots.jackpot.won'));
+      expect(big).toBeGreaterThanOrEqual(0);
+      expect(jp).toBeGreaterThanOrEqual(0);
+      if (!first) {
+        expect(big).toBeLessThan(jp);
+        // the spin title printed its exact total before the jackpot took the screen
+        const beforeJp = s.titles.slice(0, jp).filter((x) => x.key.includes('slots.tier.'));
+        expect(beforeJp.length).toBeGreaterThan(0);
+      }
+      expect(clock.runs.size).toBe(0);
+    }
+  });
+
+  it('sneaking during the Grand cinematic skips it after 1.5 s and prints the exact jackpot', () => {
+    const base = setup(false);
+    base.pr.play({ round: base.round, timeline: base.tl });
+    clock.advance(Math.ceil(base.tl.endMs() / 50) + 200);
+    const fullTicks = clock.tick;
+
+    clock.tick = 0;
+    clock.runs.clear();
+    const s = setup(false);
+    s.pr.play({ round: s.round, timeline: s.tl });
+    const jpBeat = s.tl.beats.find((b) => b.kind === SLOT_BEAT.JACKPOT)!;
+    let settledAt = -1;
+    for (let i = 0; i < 2000 && s.presented.length === 0; i++) {
+      clock.advance(1);
+      if (clock.tick === Math.ceil(jpBeat.at / 50) + 3) {
+        expect(s.ctl.suspended).toHaveBeenCalledWith(true);
+        s.p.isSneaking = true;
+      }
+      if (s.presented.length) settledAt = clock.tick;
+    }
+    expect(s.presented).toEqual([{ interrupted: false }]);
+    expect(settledAt).toBeLessThan(fullTicks);
+    const last = s.titles.filter((x) => x.key.includes('slots.jackpot.won')).pop()!;
+    expect(last.sub.replace(/"translate":"[^"]*"/g, '').replace(/\D/g, '')).toBe('501220');
+    expect(JSON.stringify(s.shown[s.shown.length - 1])).toBe(JSON.stringify(terminalScreen(s.round)));
   });
 });

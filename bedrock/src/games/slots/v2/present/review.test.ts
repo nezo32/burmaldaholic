@@ -3,6 +3,8 @@
  * for anticipation, stop order and cadence, no early spoilers (F6), Returned presentation (F9), anticipation
  * blinks only the cells that caused it, and the server tier is never exceeded by the escalating word.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FxRng } from '../../../../core/logic/anim/seed';
 import { SHARED_PROFILE, type TimingProfile, beatEnd } from '../../../../core/logic/anim/timeline';
@@ -10,7 +12,7 @@ import { tierOrdinal } from '../../../../core/logic/anim/win-tier';
 import type { Raw } from '../../../../core/logic/rawtext';
 import { SLOT_BEAT } from '../logic/timeline';
 import { type MachineId, REELS, ROWS } from '../logic/types';
-import { cuesBetween, screenAt, terminalScreen } from './features';
+import { cuesBetween, rollupFrom, screenAt, terminalScreen, waysRaw } from './features';
 import { TURBO, fakeDef, fakeRound, fakeTape, randomStops, timelineOf } from './fixtures.test-util';
 import { PLANE_WIN, TINT_DIM, type SlotRound, cellIndex, reelFrame, terminalFrame } from './frames';
 
@@ -181,5 +183,148 @@ describe('review: Returned (F9) and tier words', () => {
       }
     }
     expect(keysOf(terminalScreen(round).header)).toContain('gui.burmaldaholic.slots.tier.big');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Coordinator decisions (1), (3), (5) — pure parts (2) and (4) are in celebrate/ddui tests
+// ---------------------------------------------------------------------------------------------------------
+
+/** Chip amount of a `slots.win` status line (plural unit arg), else undefined. */
+function winAmount(r: Raw | undefined): number | undefined {
+  let node: Raw | undefined;
+  const walk = (x: Raw): void => {
+    if (node) return;
+    if (x.translate === 'gui.burmaldaholic.slots.win') node = x;
+    for (const c of x.rawtext ?? []) walk(c);
+  };
+  if (r) walk(r);
+  if (!node) return undefined;
+  const s = JSON.stringify(node.with ?? null).replace(/"translate":"[^"]*"/g, '');
+  return Number(s.replace(/\D/g, ''));
+}
+
+/** A base-only win of at least `minX` × the bet (pays scaled up so big wins exist). */
+function bigBaseWin(m: MachineId, minX: number, scale = 12) {
+  const def = fakeDef(m);
+  def.paysFifths = def.paysFifths.map((p) => p.map((x) => x * scale));
+  const rng = new FxRng(2024);
+  for (let i = 0; i < 20000; i++) {
+    const round = fakeRound(def, fakeTape(def, randomStops(rng)));
+    if (round.free.length === 0 && round.totalChips >= minX * round.bet && round.totalChips < 1000 * round.bet) return { def, round };
+  }
+  throw new Error('no fixture');
+}
+
+describe('decision (1): the Win line never resets when the roll-up starts (F5 continuity)', () => {
+  it('Win line is monotonic from the first win show to the end, for every machine, normal and turbo', () => {
+    for (const m of MACHINES) {
+      const def = fakeDef(m);
+      const rng = new FxRng(55);
+      let n = 0;
+      for (let i = 0; i < 2000 && n < 25; i++) {
+        const round = fakeRound(def, fakeTape(def, randomStops(rng)));
+        if (round.totalChips < round.bet) continue;
+        n++;
+        for (const prof of [SHARED_PROFILE, TURBO]) {
+          const tl = timelineOf(round, prof, prof);
+          let last = -1;
+          for (let t = 0; t <= tl.endMs() + 50; t += 50) {
+            const v = winAmount(screenAt(round, tl, t).status);
+            if (v === undefined) continue;
+            expect(v).toBeGreaterThanOrEqual(last);
+            last = v;
+          }
+          expect(last).toBe(round.totalChips);
+        }
+      }
+      expect(n).toBeGreaterThan(0);
+    }
+  });
+
+  it('win show already at the total: the roll-up does not recount (no ticks) but the word still escalates', () => {
+    const { round } = bigBaseWin('overworld', 15);
+    const tl = timelineOf(round);
+    const roll = tl.beats.find((b) => b.kind === SLOT_BEAT.ROLLUP)!;
+    expect(rollupFrom(round, tl, roll)).toBe(round.totalChips);
+    const words: string[] = [];
+    for (let t = roll.at; t <= beatEnd(roll); t += 50) {
+      const s = screenAt(round, tl, t);
+      expect(winAmount(s.status)).toBe(round.totalChips);
+      const w = keysOf(s.header).find((k) => k.includes('.tier.'));
+      if (w && words[words.length - 1] !== w) words.push(w);
+    }
+    expect(words[0]).toBe('gui.burmaldaholic.slots.tier.nice');
+    expect(words[words.length - 1]).toBe(`gui.burmaldaholic.slots.tier.${round.tier.toLowerCase()}`);
+    expect(words.length).toBeGreaterThanOrEqual(2);
+    const ids = cuesBetween(round, tl, roll.at - 1, beatEnd(roll))
+      .filter((c) => c.kind === 'sound')
+      .map((c) => (c as { id: string }).id);
+    expect(ids).not.toContain('slots.rollup_tick');
+    expect(ids).toContain('slots.win_nice');
+    expect(ids).toContain('slots.big_win');
+  });
+
+  it('with features the roll-up continues from the base Win line, not from 0', () => {
+    const def = fakeDef('overworld');
+    const rng = new FxRng(8);
+    for (let i = 0; i < 5000; i++) {
+      const stops = randomStops(rng);
+      const base = fakeRound(def, fakeTape(def, stops));
+      if (base.totalChips < base.bet) continue;
+      const round = fakeRound(def, fakeTape(def, stops, { free: [{ stops: [1, 2, 3, 4, 5] }, { stops: [6, 7, 8, 9, 10] }], totalFifths: base.tape.totalFifths + 500 }));
+      const tl = timelineOf(round);
+      const roll = tl.beats.find((b) => b.kind === SLOT_BEAT.ROLLUP)!;
+      expect(winAmount(screenAt(round, tl, roll.at).status)).toBeGreaterThanOrEqual(base.totalChips);
+      return;
+    }
+    throw new Error('no fixture');
+  });
+});
+
+describe('decision (3): ways use the plural helper', () => {
+  const read = (f: string): Map<string, string> => {
+    const m = new Map<string, string>();
+    for (const l of fs.readFileSync(path.join(__dirname, '../../../../../lang/slots', f), 'utf8').split('\n')) {
+      const i = l.indexOf('=');
+      if (i > 0 && !l.startsWith('#')) m.set(l.slice(0, i), l.slice(i + 1));
+    }
+    return m;
+  };
+
+  it('"1 way" / «1 способ»; RU p21/p2/p5 forms read right', () => {
+    const en = read('en_US.lang');
+    const ru = read('ru_RU.lang');
+    const render = (lang: Map<string, string>, n: number): string => lang.get(keysOf(waysRaw(n))[0]!)!.replace('%1', String(n));
+    expect(render(en, 1)).toBe('1 way');
+    expect(render(en, 243)).toBe('243 ways');
+    expect(render(ru, 1)).toBe('1 способ');
+    expect(render(ru, 21)).toBe('21 способ');
+    expect(render(ru, 3)).toBe('3 способа');
+    expect(render(ru, 11)).toBe('11 способов');
+    expect(render(ru, 243)).toBe('243 способа');
+    for (const lang of [en, ru]) expect(lang.get('gui.burmaldaholic.slots.symbol_win')).toBe('%1 ×%2 · %3 · %4');
+  });
+
+  it('the way-cycle status passes the plural ways as %3', () => {
+    const { round } = bigBaseWin('overworld', 1, 1);
+    const tl = timelineOf(round);
+    const cyc = tl.beats.find((b) => b.kind === SLOT_BEAT.WAY_CYCLE)!;
+    const ks = keysOf(screenAt(round, tl, cyc.at + 10).status);
+    expect(ks[0]).toBe('gui.burmaldaholic.slots.symbol_win');
+    expect(ks.some((k) => /^gui\.burmaldaholic\.slots\.ways\.p(1|21|2|5)$/.test(k))).toBe(true);
+  });
+});
+
+describe('decision (5): jackpots after the spin roll-up (slots.md §2.5)', () => {
+  it('stub order is ROLLUP then JACKPOT; the jackpot screen shows during its beat; the end is terminal', () => {
+    const def = fakeDef('end');
+    const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { jackpots: [{ tier: 2, chips: 3000, owned: true }], totalFifths: 40 }));
+    const tl = timelineOf(round);
+    const kinds = tl.beats.filter((b) => b.kind === SLOT_BEAT.ROLLUP || b.kind === SLOT_BEAT.JACKPOT).map((b) => b.kind);
+    expect(kinds).toEqual([SLOT_BEAT.ROLLUP, SLOT_BEAT.JACKPOT]);
+    const jp = tl.beats.find((b) => b.kind === SLOT_BEAT.JACKPOT)!;
+    expect(keysOf(screenAt(round, tl, jp.at + 10).header)).toContain('gui.burmaldaholic.slots.jackpot.won');
+    expect(json(screenAt(round, tl, tl.endMs()))).toBe(json(terminalScreen(round)));
   });
 });
