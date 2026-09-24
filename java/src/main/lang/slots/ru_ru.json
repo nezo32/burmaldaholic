@@ -75,5 +75,10 @@
 	"config.burmaldaholic.slots.ownedStarPays": "Выплата за три звезды в казино игроков",
 	"config.burmaldaholic.slots.spinTicks": "Анимация вращения (тики)",
 	"config.burmaldaholic.slots.validateRtp": "Предупреждать об RTP выше 99 %%",
-	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота"
+	"subtitles.burmaldaholic.jackpot": "Фанфары джекпота",
+	"gui.burmaldaholic.slots.tumble.mult": "Обвал ×%1$s",
+	"gui.burmaldaholic.slots.jackpot.tier.mini": "МИНИ",
+	"gui.burmaldaholic.slots.jackpot.tier.minor": "МИНОР",
+	"gui.burmaldaholic.slots.jackpot.tier.major": "МАЖОР",
+	"gui.burmaldaholic.slots.jackpot.tier.grand": "ГРАНД"
 }

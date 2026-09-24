@@ -55,5 +55,13 @@
 		"toast.burmaldaholic.jackpot.body": ["%1$s · %2$s", "%1$s · %2$s"],
 		"toast.burmaldaholic.big_win.title": ["Big win", "Крупный выигрыш"],
 		"toast.burmaldaholic.big_win.body": ["%1$s · %2$s", "%1$s · %2$s"]
+	},
+	"_temp_anim_slots": "TEMP-ANIM (lane J-L10): SLOTS.md §13 keys the cabinet renderer uses before lane X-L0 imports them into STRINGS.md; delete the slots block then.",
+	"slots": {
+		"gui.burmaldaholic.slots.tumble.mult": ["Tumble ×%1$s", "Обвал ×%1$s"],
+		"gui.burmaldaholic.slots.jackpot.tier.mini": ["MINI", "МИНИ"],
+		"gui.burmaldaholic.slots.jackpot.tier.minor": ["MINOR", "МИНОР"],
+		"gui.burmaldaholic.slots.jackpot.tier.major": ["MAJOR", "МАЖОР"],
+		"gui.burmaldaholic.slots.jackpot.tier.grand": ["GRAND", "ГРАНД"]
 	}
 }

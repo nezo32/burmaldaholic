@@ -22,6 +22,8 @@ public final class SlotsClientModule implements CasinoClientModule {
 		for (TableType<SlotMachineBlockEntity> type : SlotsModule.MACHINES.values()) {
 			ctx.tableScreen(type, SlotMachineScreen::new);
 		}
+		SlotCabinetRenderer.register(); // lane J-L10: in-world cabinet reels (draws only once a v2 sync exists)
+		SlotsParticles.register();
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
 			for (Tier tier : Tier.values()) {
 				TableType<SlotMachineBlockEntity> type = SlotsModule.MACHINES.get(tier);

@@ -39,6 +39,16 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlock;
+import dev.nezo.burmaldaholic.games.slots.cabinet.CabinetSync;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -567,5 +577,65 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			t.put("auto_summary", summary.copy());
 		}
 		return t;
+	}
+
+	// ---- in-world cabinet sync (lane J-L10 hook, docs/architecture/animation.md §2.5) -----------------
+	// Additive: nothing publishes yet (v1 keeps its look); the v2 cut-over (S-J5) calls publishCabinet once per
+	// spin (+1 per free spin / bonus step, coalesced ≥ 10 t) and the BER SlotCabinetRenderer draws from it.
+
+	private static final String CABINET_KEY = "cabinet";
+	private @Nullable CabinetSync cabinet;
+
+	/** Publishes a spin to every nearby client's cabinet renderer and schedules its world FX ({@link SlotsFx}). */
+	public void publishCabinet(CabinetSync sync) {
+		cabinet = sync;
+		setChanged();
+		if (level instanceof ServerLevel serverLevel) {
+			BlockState st = getBlockState();
+			serverLevel.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
+			Direction facing = st.hasProperty(CasinoTableBlock.FACING) ? st.getValue(CasinoTableBlock.FACING) : Direction.NORTH;
+			SlotsFx.play(serverLevel, worldPosition, facing, sync);
+		}
+	}
+
+	/** The last published cabinet sync (client: from the update tag), or {@code null} before the first v2 spin. */
+	public @Nullable CabinetSync cabinetSync() {
+		return cabinet;
+	}
+
+	@Override
+	public Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		if (cabinet != null) {
+			t.putIntArray(CABINET_KEY, cabinet.encode());
+		}
+		return t;
+	}
+
+	@Override
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+		if (cabinet != null) {
+			output.putIntArray(CABINET_KEY, cabinet.encode());
+		}
+	}
+
+	@Override
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		cabinet = input.getIntArray(CABINET_KEY).map(SlotMachineBlockEntity::decodeCabinet).orElse(null);
+	}
+
+	private static @Nullable CabinetSync decodeCabinet(int[] data) {
+		try {
+			return CabinetSync.decode(data);
+		} catch (IllegalArgumentException e) {
+			return null; // older/newer format: the cabinet simply shows nothing until the next spin
+		}
 	}
 }
