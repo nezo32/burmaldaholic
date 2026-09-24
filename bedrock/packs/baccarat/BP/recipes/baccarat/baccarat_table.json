@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "burmaldaholic:baccarat_table"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "WWW",
+      "PPP",
+      "FGF"
+    ],
+    "key": {
+      "W": {
+        "item": "minecraft:green_wool"
+      },
+      "P": {
+        "tag": "minecraft:planks"
+      },
+      "F": {
+        "item": "minecraft:oak_fence"
+      },
+      "G": {
+        "item": "minecraft:gold_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:gold_ingot"
+      }
+    ],
+    "result": {
+      "item": "burmaldaholic:baccarat_table"
+    }
+  }
+}

@@ -13,6 +13,7 @@ export const SECTION_OWNERS = {
   slots: 'slots',
   roulette: 'roulette',
   craps: 'craps',
+  baccarat: 'baccarat',
   extras: 'extras',
   loan: 'loan',
   chaos: 'chaos',
