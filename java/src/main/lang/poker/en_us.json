@@ -97,6 +97,7 @@
 	"gui.burmaldaholic.poker.fx.split": "Split pot: %1$s each",
 	"gui.burmaldaholic.poker.fx.returned": "Returned %1$s",
 	"gui.burmaldaholic.poker.actionbar": "Board %1$s · Pot %2$s",
+	"gui.burmaldaholic.poker.next_hand_in": "Next hand in %1$s s",
 	"config.burmaldaholic.poker.enabled": "Poker",
 	"config.burmaldaholic.poker.maxSeats": "Seats",
 	"config.burmaldaholic.poker.stakes.micro.bb": "Big blind: Micro",

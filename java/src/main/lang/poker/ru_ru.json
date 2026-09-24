@@ -97,6 +97,7 @@
 	"gui.burmaldaholic.poker.fx.split": "Банк делится: по %1$s",
 	"gui.burmaldaholic.poker.fx.returned": "Возврат: %1$s",
 	"gui.burmaldaholic.poker.actionbar": "Стол %1$s · Банк %2$s",
+	"gui.burmaldaholic.poker.next_hand_in": "Следующая раздача через %1$s с",
 	"config.burmaldaholic.poker.enabled": "Покер",
 	"config.burmaldaholic.poker.maxSeats": "Мест за столом",
 	"config.burmaldaholic.poker.stakes.micro.bb": "Большой блайнд: микро",

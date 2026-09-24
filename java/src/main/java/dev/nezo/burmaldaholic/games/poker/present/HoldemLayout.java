@@ -5,14 +5,14 @@ import dev.nezo.burmaldaholic.games.poker.present.LabelPlacer.Rect;
 
 /**
  * Texas Hold'em screen anchors (docs/design/visual/cards.md §6.4, mockups {@code cards_holdem_showdown.png} /
- * {@code cards_holdem_nether.png}): the oval table at (10, 18) on the 428 × 240 design canvas, the board, pot, deck
+ * {@code cards_holdem_nether.png}): the oval table at (10, 18) on the 427 × 240 design canvas, the board, pot, deck
  * and up to nine seat slots (the viewer always at the bottom, the others clockwise). All coordinates are CANVAS
  * pixels (table-local anchors of the spec + the table origin); the screen scales the canvas by an integer factor.
  * Pure: the unit tests check that no two seats' cards overlap, that every anchor is on the canvas and that labels
  * placed with {@link LabelPlacer} never cover a card.
  */
 public final class HoldemLayout {
-	public static final int CANVAS_W = 428, CANVAS_H = 240;
+	public static final int CANVAS_W = 427, CANVAS_H = 240;
 	public static final int TABLE_X = 10, TABLE_Y = 18, TABLE_W = 408, TABLE_H = 184;
 	public static final int L_W = 37, L_H = 49, M_W = 21, M_H = 29;
 	/** The felt centre every bet spot leans toward (table-local (204, 92)). */
@@ -151,25 +151,33 @@ public final class HoldemLayout {
 		return new int[] {(int) Math.round(x), (int) Math.round(y)};
 	}
 
-	/** Parametric angle (radians) of a slot on the button ellipse. */
-	public static double buttonAngle(Slot s) {
-		int px = s.plateX() + 28;
-		int py = s.plateY() + PLATE_H / 2;
-		return Math.atan2((py - CENTER_Y) / (double) BUTTON_RY, (px - CENTER_X) / (double) BUTTON_RX);
+	/** Resting point of the dealer button beside a seat, on the felt side (the viewer's: left of the hole cards). */
+	public static int[] buttonRest(Slot s) {
+		if (s.id() == 0) return new int[] {s.cardsX() - 12, s.cardsY() + 42};
+		int[] spot = betSpot(s, 56);
+		return new int[] {spot[0] + (s.right() ? 14 : -14), spot[1] + 8};
 	}
 
 	/**
 	 * The dealer button's centre travelling from slot {@code from} to slot {@code to} ({@code u} 0..1, inOutCubic) ALONG
-	 * the ellipse (never straight across the felt), clockwise on screen (increasing angle with y down).
+	 * the felt's ellipse (angle and normalised radius interpolated, never straight across), clockwise on screen.
 	 */
 	public static int[] button(Slot from, Slot to, double u) {
-		double a0 = buttonAngle(from);
-		double a1 = buttonAngle(to);
+		int[] a = buttonRest(from);
+		int[] b = buttonRest(to);
+		double ax = (a[0] - CENTER_X) / (double) BUTTON_RX, ay = (a[1] - CENTER_Y) / (double) BUTTON_RY;
+		double bx = (b[0] - CENTER_X) / (double) BUTTON_RX, by = (b[1] - CENTER_Y) / (double) BUTTON_RY;
+		double a0 = Math.atan2(ay, ax);
+		double a1 = Math.atan2(by, bx);
+		double r0 = Math.hypot(ax, ay);
+		double r1 = Math.hypot(bx, by);
 		double d = a1 - a0;
 		while (d < 0) d += 2 * Math.PI;
 		while (d >= 2 * Math.PI) d -= 2 * Math.PI;
-		double a = a0 + d * Ease.IN_OUT_CUBIC.apply(u);
-		return new int[] {(int) Math.round(CENTER_X + BUTTON_RX * Math.cos(a)), (int) Math.round(CENTER_Y + BUTTON_RY * Math.sin(a))};
+		double k = Ease.IN_OUT_CUBIC.apply(u);
+		double ang = a0 + d * k;
+		double r = r0 + (r1 - r0) * k;
+		return new int[] {(int) Math.round(CENTER_X + BUTTON_RX * r * Math.cos(ang)), (int) Math.round(CENTER_Y + BUTTON_RY * r * Math.sin(ang))};
 	}
 
 	/** Every card rectangle on the felt (board, all seats' hole cards, the deck) for {@code size} seats. */

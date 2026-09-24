@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.uth;
 
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
 import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import com.mojang.serialization.Codec;
@@ -42,7 +43,6 @@ import dev.nezo.burmaldaholic.core.wager.Stake;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.wager.Wagers;
 import dev.nezo.burmaldaholic.client.dealer.DealerCueSource;
-import dev.nezo.burmaldaholic.client.dealer.DealerMotion;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.games.poker.logic.BestFive;
@@ -2018,6 +2018,8 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			if (showdown && res != null) {
 				p.putString("hand", UthCards.handName(res.playerValue()));
 				p.putInt("best", BestFive.mask(s.hole, r.board()));
+				// per-circle nets (Trips, Ante, Blind, Play): public with the cards, they drive the settle beats' chips
+				p.putLongArray("circles", new long[] {res.tripsNet(), res.anteNet(), res.blindNet(), res.playNet()});
 				if (settledNow) {
 					p.putLong("net", res.net());
 				}
@@ -2055,6 +2057,11 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 				rt.putLong("play", res.play());
 				rt.putLong("trips", res.trips());
 				rt.putLong("net", res.net());
+				rt.putLong("staked", res.staked());
+				rt.putLong("ret", res.totalReturn());
+				rt.putString("tier", dev.nezo.burmaldaholic.core.anim.WinTier.of(res.totalReturn(), res.staked(),
+					dev.nezo.burmaldaholic.core.anim.WinTierTable.DEFAULT, false,
+					res.hand() == PayHand.ROYAL && res.blindBonus() ? dev.nezo.burmaldaholic.core.anim.WinTier.EPIC : null).name());
 				rt.putString("pay_hand", res.hand().key());
 				rt.putDouble("blind_pay", pays.blindPay(res.hand()));
 				rt.putInt("trips_pay", pays.tripsPay(res.hand()));
@@ -2193,10 +2200,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		double t = (gameTime - p.startTick() + partialTick) * 50.0;
 		int n = Math.max(1, p.seats().length);
 		return DealerCueSource.latest(tl, t, b -> switch (b.kind()) {
-			case UthBeats.DEAL, UthBeats.DEALER_DEAL, UthBeats.BOARD -> DealerMotion.Gesture.DEAL;
-			case UthBeats.DEALER_FLIP -> DealerMotion.Gesture.FLIP;
-			case UthBeats.SETTLE -> b.arg(0) == UthBeats.SETTLE_ORDER[0] ? DealerMotion.Gesture.PAY : null;
-			case UthBeats.GATHER -> DealerMotion.Gesture.SWEEP;
+			case UthBeats.DEAL, UthBeats.DEALER_DEAL, UthBeats.BOARD -> DealerGesture.DEAL;
+			case UthBeats.DEALER_FLIP -> DealerGesture.FLIP;
+			case UthBeats.SETTLE -> b.arg(0) == UthBeats.SETTLE_ORDER[0] ? DealerGesture.PAY : null;
+			case UthBeats.GATHER -> DealerGesture.SWEEP;
 			default -> null;
 		}, b -> b.lane() < 0 || b.kind().equals(UthBeats.DEALER_DEAL) || b.kind().equals(UthBeats.BOARD) ? 0f
 			: n <= 1 ? 0f : (b.lane() / (float) (n - 1)) * 2f - 1f);

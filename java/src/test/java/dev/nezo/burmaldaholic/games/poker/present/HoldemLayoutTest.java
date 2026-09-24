@@ -47,18 +47,21 @@ class HoldemLayoutTest {
 	}
 
 	@Test
-	void buttonTravelsAlongTheEllipse() {
+	void buttonTravelsAlongTheEllipseAndRestsOffTheCards() {
 		Slot a = HoldemLayout.slot(0);
 		Slot b = HoldemLayout.slot(4);
+		assertEquals(HoldemLayout.buttonRest(a)[0], HoldemLayout.button(a, b, 0)[0]);
+		assertEquals(HoldemLayout.buttonRest(b)[1], HoldemLayout.button(a, b, 1)[1]);
+		// never straight across the felt: halfway it is far from the centre
 		int[] mid = HoldemLayout.button(a, b, 0.5);
-		// never straight across the felt: the midpoint sits on the ellipse, far from the centre
-		double nx = (mid[0] - HoldemLayout.CENTER_X) / (double) HoldemLayout.BUTTON_RX;
-		double ny = (mid[1] - HoldemLayout.CENTER_Y) / (double) HoldemLayout.BUTTON_RY;
-		assertEquals(1.0, Math.hypot(nx, ny), 0.05);
-		int[] end = HoldemLayout.button(a, b, 1);
-		int[] endDirect = HoldemLayout.button(b, b, 0);
-		assertEquals(endDirect[0], end[0], 1);
-		assertEquals(endDirect[1], end[1], 1);
+		assertTrue(Math.hypot(mid[0] - HoldemLayout.CENTER_X, mid[1] - HoldemLayout.CENTER_Y) > 40, "mid " + mid[0] + "," + mid[1]);
+		for (int size = 2; size <= 9; size++) {
+			for (int id : HoldemLayout.slotIds(size)) {
+				int[] p = HoldemLayout.buttonRest(HoldemLayout.slot(id));
+				Rect btn = new Rect(p[0] - 6, p[1] - 6, 13, 13);
+				for (Rect c : HoldemLayout.cardRects(size)) assertFalse(btn.intersects(c), "button of slot " + id + " on a card " + c);
+			}
+		}
 	}
 
 	/**

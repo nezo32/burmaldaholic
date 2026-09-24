@@ -820,6 +820,12 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.fx.returned` | Returned %1$s | Возврат: %1$s |
 | `gui.burmaldaholic.poker.actionbar` | Board %1$s · Pot %2$s | Стол %1$s · Банк %2$s |
 
+### Redesigned table screen (lane J-L5; `visual/cards.md` §6.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.poker.next_hand_in` | Next hand in %1$s s | Следующая раздача через %1$s с |
+
 ---
 
 ## slots
@@ -1502,6 +1508,22 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.fx.blind_bonus` | Blind bonus! | Бонус блайнда! |
 | `gui.burmaldaholic.uth.fx.trips_bonus` | Trips bonus! | Бонус трипс! |
 | `gui.burmaldaholic.uth.fx.royal` | ROYAL FLUSH! | РОЯЛ-ФЛЕШ! |
+
+### Redesigned table screen (lane J-L5; `visual/cards.md` §6.5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.uth.button.bet_4x` | Bet 4× | Ставка 4× |
+| `gui.burmaldaholic.uth.button.bet_3x` | Bet 3× | Ставка 3× |
+| `gui.burmaldaholic.uth.button.bet_2x` | Bet 2× | Ставка 2× |
+| `gui.burmaldaholic.uth.button.bet_1x` | Bet 1× | Ставка 1× |
+| `gui.burmaldaholic.uth.hint.preflop` | Pre-flop: bet 3× or 4× the ante, or check | До флопа: ставка 3× или 4× анте или чек |
+| `gui.burmaldaholic.uth.hint.preflop_no3x` | Pre-flop: bet 4× the ante, or check | До флопа: ставка 4× анте или чек |
+| `gui.burmaldaholic.uth.hint.flop` | Flop: bet 2× the ante, or check | Флоп: ставка 2× анте или чек |
+| `gui.burmaldaholic.uth.hint.river` | River: bet 1× the ante, or fold | Ривер: ставка 1× анте или пас |
+| `gui.burmaldaholic.uth.at_risk_now` | At risk: %1$s | На кону: %1$s |
+| `gui.burmaldaholic.uth.seconds_short` | %1$s s | %1$s с |
+| `gui.burmaldaholic.uth.paytable.blind_short` | Blind pays | Блайнд платит |
 
 ---
 

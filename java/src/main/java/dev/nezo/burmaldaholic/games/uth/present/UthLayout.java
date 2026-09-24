@@ -5,12 +5,12 @@ import dev.nezo.burmaldaholic.games.poker.present.LabelPlacer.Rect;
 
 /**
  * Ultimate Texas Hold'em screen anchors (docs/design/visual/cards.md §6.5, mockup {@code cards_uth_decision.png}):
- * the crescent table at (10, 18) on the 428 × 240 canvas, the dealer's hand, the board, the paytable panel, the
+ * the crescent table at (10, 18) on the 427 × 240 canvas, the dealer's hand, the board, the paytable panel, the
  * viewer's hole cards and the row of four circles (Trips, Ante, Blind, Play; pitch 34), and up to five other seats.
  * Canvas pixels; pure (unit-tested: no overlaps, everything on the canvas).
  */
 public final class UthLayout {
-	public static final int CANVAS_W = 428, CANVAS_H = 240;
+	public static final int CANVAS_W = 427, CANVAS_H = 240;
 	public static final int TABLE_X = 10, TABLE_Y = 18;
 	public static final int L_W = 37, L_H = 49, M_W = 21, M_H = 29;
 	public static final int CIRCLE = 24;
@@ -35,8 +35,8 @@ public final class UthLayout {
 
 	private static final Seat LOWER_LEFT = seat(0, 22, 108, 52, 70, 86, 104);
 	private static final Seat LOWER_RIGHT = seat(1, 332, 100, 352, 64, 340, 96);
-	private static final Seat UPPER_LEFT = seat(2, -2, 62, 18, 28, 58, 64);
-	private static final Seat UPPER_RIGHT = seat(3, 336, 62, 360, 28, 330, 64);
+	private static final Seat UPPER_LEFT = seat(2, -2, 8, 18, 34, 58, 70);
+	private static final Seat UPPER_RIGHT = seat(3, 336, 8, 360, 34, 346, 72);
 	private static final Seat RAIL_LEFT = seat(4, -2, 150, 62, 150, 58, 146);
 	/** Lower-right with 4–6 seats: the upper-right plate takes the space above, so the cards drop to the rail. */
 	private static final Seat LOWER_RIGHT_CROWDED = seat(5, 332, 104, 358, 132, 340, 98);

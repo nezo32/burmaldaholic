@@ -71,7 +71,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		return compact;
 	}
 
-	public TableTheme theme() {
+	public TableTheme tableTheme() {
 		return theme;
 	}
 

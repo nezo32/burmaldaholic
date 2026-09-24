@@ -1951,6 +1951,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			st.putBoolean("bot", !s.human);
 			if (s.bot != null) {
 				st.putString("level", s.bot.level().id());
+				st.putString("bot_name", s.bot.nameId());
 			}
 			st.putBoolean("you", s.id.equals(me));
 			st.putBoolean("out", s.sittingOut);
@@ -1996,6 +1997,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				if (gated) {
 					st.putLong("won", result.won()[k]);
 					st.putLong("net", result.net()[k]);
+					// the viewer's celebration tier (global §2.4): the pot won vs the chips put in this hand
+					st.putString("tier", dev.nezo.burmaldaholic.core.anim.WinTier.of(result.won()[k], p.total(),
+						dev.nezo.burmaldaholic.core.anim.WinTierTable.DEFAULT).name());
 				}
 			} else {
 				st.putLong("stack", s.stack);

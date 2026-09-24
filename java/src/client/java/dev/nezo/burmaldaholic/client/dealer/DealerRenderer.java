@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.client.dealer;
 
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import java.util.Map;
@@ -17,7 +18,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Base renderer of the dealer NPCs (blackjack, baccarat, Ultimate Texas Hold'em; task J-C11): the dealer skin on the
  * {@link DealerModel}, gesturing with the nearest table that is a {@link DealerCueSource} (≤ 3 blocks, the same rule as
- * "open the nearest table"). The lookup runs at most once per second per dealer; the pose is sampled every frame on
+ * "open the nearest table") — or with its own synced gesture data when the entity is a {@link GesturingDealer}. The lookup runs at most once per second per dealer; the pose is sampled every frame on
  * the shared clock, so the arm moves on the same tick as the cards. Reduce motion halves the arm amplitude.
  */
 public class DealerRenderer<T extends Mob> extends HumanoidMobRenderer<T, DealerRenderState, DealerModel> {
@@ -49,12 +50,20 @@ public class DealerRenderer<T extends Mob> extends HumanoidMobRenderer<T, Dealer
 	public void extractRenderState(T entity, DealerRenderState state, float partialTicks) {
 		super.extractRenderState(entity, state, partialTicks);
 		Level level = entity.level();
-		DealerCueSource source = source(entity, level);
-		DealerCueSource.Cue cue = source == null ? null : source.dealerCue(level.getGameTime(), partialTicks);
+		DealerCueSource.Cue cue = null;
+		if (entity instanceof GesturingDealer d && d.dealerGesture() != DealerGesture.NONE) {
+			// synced entity data set by the table on its beats (lane J-L4's blackjack / baccarat dealers)
+			double age = (level.getGameTime() - d.dealerGestureTick() + partialTicks) * 50.0;
+			if (age >= 0 && age < d.dealerGesture().ms) cue = new DealerCueSource.Cue(d.dealerGesture(), age, d.dealerGestureSeat());
+		}
+		if (cue == null) {
+			DealerCueSource source = source(entity, level);
+			cue = source == null ? null : source.dealerCue(level.getGameTime(), partialTicks);
+		}
 		double idle = AnimClock.levelMs(partialTicks) + entity.getId() * 731.0;
 		if (cue == null) {
 			state.gesturing = false;
-			state.pose = DealerMotion.pose(DealerMotion.Gesture.IDLE, 0, 0, false, idle);
+			state.pose = DealerMotion.pose(DealerGesture.NONE, 0, 0, false, idle);
 		} else {
 			state.gesturing = true;
 			state.pose = DealerMotion.pose(cue.gesture(), cue.ageMs(), cue.towardSeat(), FxSettings.reduceMotion(), idle);

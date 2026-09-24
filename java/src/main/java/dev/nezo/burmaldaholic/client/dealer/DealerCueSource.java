@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.client.dealer;
 
 import dev.nezo.burmaldaholic.core.anim.Beat;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -23,20 +24,20 @@ public interface DealerCueSource {
 	 * @param ageMs      milliseconds since it started
 	 * @param towardSeat −1 … 1: where the served seat sits (left … right of the dealer)
 	 */
-	record Cue(DealerMotion.Gesture gesture, double ageMs, float towardSeat) {}
+	record Cue(DealerGesture gesture, double ageMs, float towardSeat) {}
 
 	/**
 	 * The latest beat of {@code tl} (started at or before {@code tMs}) that maps to a gesture, or null. Pure helper for
 	 * the implementations.
 	 */
-	static @Nullable Cue latest(Timeline tl, double tMs, Function<Beat, DealerMotion.@Nullable Gesture> map, Function<Beat, Float> seat) {
+	static @Nullable Cue latest(Timeline tl, double tMs, Function<Beat, @Nullable DealerGesture> map, Function<Beat, Float> seat) {
 		Cue best = null;
 		for (Beat b : tl.beats()) {
 			if (b.at() > tMs) break;
-			DealerMotion.Gesture g = map.apply(b);
-			if (g == null || g == DealerMotion.Gesture.IDLE) continue;
+			DealerGesture g = map.apply(b);
+			if (g == null || g == DealerGesture.NONE) continue;
 			best = new Cue(g, tMs - b.at(), seat.apply(b));
 		}
-		return best != null && best.ageMs() < best.gesture().durationMs ? best : null;
+		return best != null && best.ageMs() < best.gesture().ms ? best : null;
 	}
 }

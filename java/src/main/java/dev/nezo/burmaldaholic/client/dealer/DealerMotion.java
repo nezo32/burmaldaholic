@@ -1,9 +1,10 @@
 package dev.nezo.burmaldaholic.client.dealer;
 
 import dev.nezo.burmaldaholic.core.anim.Ease;
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 
 /**
- * Dealer NPC gestures (animation/cards.md §1.4 table, task J-C11): pure pose curves shared by the three dealer
+ * Dealer NPC gestures (animation/cards.md §1.4 table, task J-C11): pure pose curves of the kit's {@link DealerGesture} ids shared by the three dealer
  * renderers (blackjack, baccarat, Ultimate Texas Hold'em). Lives in the MAIN source set (no Minecraft imports) so it
  * is unit-tested; the client {@code DealerModel} applies a {@link Pose} to the humanoid model.
  *
@@ -13,31 +14,6 @@ import dev.nezo.burmaldaholic.core.anim.Ease;
  */
 public final class DealerMotion {
 	public static final float REST_X = -0.35f;
-
-	/** Gestures; the id is the byte a table publishes. */
-	public enum Gesture {
-		IDLE(0, 0),
-		DEAL(1, 300),
-		FLIP(2, 350),
-		PEEK(3, 600),
-		PAY(4, 450),
-		SWEEP(5, 500),
-		SHUFFLE(6, 1600),
-		WAVE_OFF(7, 300);
-
-		public final int id;
-		public final int durationMs;
-
-		Gesture(int id, int durationMs) {
-			this.id = id;
-			this.durationMs = durationMs;
-		}
-
-		public static Gesture byId(int id) {
-			for (Gesture g : values()) if (g.id == id) return g;
-			return IDLE;
-		}
-	}
 
 	/** Arm and head rotations (radians). */
 	public record Pose(float rightX, float rightY, float rightZ, float leftX, float leftY, float leftZ, float headX) {
@@ -50,13 +26,13 @@ public final class DealerMotion {
 	 * The pose {@code ageMs} after {@code g} started. {@code towardSeat} (−1 … 1) turns the dealing / paying arm toward
 	 * the seat (left … right). {@code idleMs} drives the breathing sway (any monotonic clock).
 	 */
-	public static Pose pose(Gesture g, double ageMs, float towardSeat, boolean reduceMotion, double idleMs) {
+	public static Pose pose(DealerGesture g, double ageMs, float towardSeat, boolean reduceMotion, double idleMs) {
 		float amp = reduceMotion ? 0.5f : 1f;
 		float sway = (float) (0.03 * Math.sin(idleMs / 4000.0 * 2 * Math.PI));
-		if (g == Gesture.IDLE || ageMs < 0 || ageMs >= g.durationMs) {
+		if (g == DealerGesture.NONE || ageMs < 0 || ageMs >= g.ms) {
 			return new Pose(REST_X + sway, 0, 0, REST_X - sway, 0, 0, 0);
 		}
-		double u = ageMs / g.durationMs;
+		double u = ageMs / g.ms;
 		float seat = Math.max(-1f, Math.min(1f, towardSeat));
 		return switch (g) {
 			case DEAL -> {
