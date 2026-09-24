@@ -1,9 +1,0 @@
-{
-  "format_version": "1.21.40",
-  "burmaldaholic:cashier": {
-    "sound": "wood"
-  },
-  "burmaldaholic:nether_cashier": {
-    "sound": "stone"
-  }
-}

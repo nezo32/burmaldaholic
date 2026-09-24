@@ -1,9 +1,0 @@
-{
-  "format_version": "1.21.40",
-  "burmaldaholic:wheel_of_fortune": {
-    "sound": "wood"
-  },
-  "burmaldaholic:plinko_machine": {
-    "sound": "metal"
-  }
-}
