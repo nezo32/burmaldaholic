@@ -29,5 +29,6 @@ public final class RouletteModule implements CasinoModule {
 		TABLE = ctx.tables().register(TABLE_NAME, RouletteTableBlockEntity::new);
 		HIGH_ROLLER_TABLE = ctx.tables().register(HIGH_ROLLER_NAME, RouletteTableBlockEntity::new);
 		SPIN_SOUND = ctx.registry().sound("roulette_spin");
+		dev.nezo.burmaldaholic.core.sound.CasinoSounds.registerOwned(ctx, ID); // ball, bell, dolly (tables.md §0.8)
 	}
 }

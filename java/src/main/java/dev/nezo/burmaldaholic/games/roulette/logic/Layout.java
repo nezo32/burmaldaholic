@@ -70,129 +70,21 @@ public final class Layout {
 
 	/** Cell of a pocket (0 = the tall zero cell). */
 	public static Rect cell(int n) {
-		if (n == 0) {
-			return new Rect(0, 0, ZW, GRID_BOTTOM);
-		}
-		return new Rect(ZW + gridCol(n) * CW, visualRow(n) * CH, CW, CH);
+		return LayoutGrid.LEGACY.cell(n);
 	}
 
 	/** Box of an outside bet. */
 	public static Rect outsideBox(Spot spot) {
-		return switch (spot.type()) {
-			case DOZEN -> new Rect(ZW + (spot.outsideIndex() - 1) * 4 * CW, DOZEN_Y, 4 * CW, CH);
-			case COLUMN -> new Rect(GRID_RIGHT, (3 - spot.outsideIndex()) * CH, CW, CH);
-			default -> new Rect(ZW + EVEN_ROW.indexOf(spot.type()) * 2 * CW, EVEN_Y, 2 * CW, CH);
-		};
+		return LayoutGrid.LEGACY.outsideBox(spot);
 	}
 
 	/** Where a chip on this spot is drawn (and a point that {@link #hit} maps back to it). */
 	public static int[] center(Spot spot) {
-		List<Integer> n = spot.numbers();
-		int a = n.get(0);
-		return switch (spot.type()) {
-			case STRAIGHT -> a == 0 ? new int[] {(ZW - E) / 2, GRID_BOTTOM / 2} : new int[] {cell(a).cx(), cell(a).cy()};
-			case SPLIT -> {
-				int b = n.get(1);
-				if (a == 0) {
-					yield new int[] {ZW, cell(b).cy()};
-				}
-				if (b - a == 3) {
-					yield new int[] {ZW + (gridCol(a) + 1) * CW, cell(a).cy()};
-				}
-				yield new int[] {cell(a).cx(), visualRow(a) * CH};
-			}
-			case TRIO -> new int[] {ZW, n.contains(1) ? 2 * CH : CH};
-			case FIRST_FOUR -> new int[] {ZW, GRID_BOTTOM};
-			case CORNER -> new int[] {ZW + (gridCol(a) + 1) * CW, visualRow(a) * CH};
-			case STREET -> new int[] {cell(a).cx(), GRID_BOTTOM};
-			case SIX_LINE -> new int[] {ZW + (gridCol(a) + 1) * CW, GRID_BOTTOM};
-			default -> new int[] {outsideBox(spot).cx(), outsideBox(spot).cy()};
-		};
+		return LayoutGrid.LEGACY.center(spot);
 	}
 
-	/** The spot under layout-local point (x, y), if any. */
+	/** The spot under layout-local point (x, y), if any ({@link LayoutGrid} has the same rules for the art sizes). */
 	public static Optional<Spot> hit(double x, double y) {
-		if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) {
-			return Optional.empty();
-		}
-		// Outside boxes.
-		if (y >= DOZEN_Y && y < EVEN_Y) {
-			if (x < ZW || x >= GRID_RIGHT) {
-				return Optional.empty();
-			}
-			int i = (int) ((x - ZW) / (4 * CW)) + 1;
-			return Optional.of(Spot.of(BetType.DOZEN, Spot.outsideNumbers(BetType.DOZEN, i)));
-		}
-		if (y >= EVEN_Y) {
-			if (x < ZW || x >= GRID_RIGHT) {
-				return Optional.empty();
-			}
-			BetType t = EVEN_ROW.get((int) ((x - ZW) / (2 * CW)));
-			return Optional.of(Spot.of(t, Spot.outsideNumbers(t, 0)));
-		}
-		if (x >= GRID_RIGHT) {
-			if (y >= GRID_BOTTOM) {
-				return Optional.empty();
-			}
-			int col = 3 - (int) (y / CH);
-			return Optional.of(Spot.of(BetType.COLUMN, Spot.outsideNumbers(BetType.COLUMN, col)));
-		}
-		boolean streetStrip = y >= GRID_BOTTOM - E;
-		// Zero and its edge.
-		if (x < ZW - E) {
-			return y < GRID_BOTTOM ? Optional.of(Spot.of(BetType.STRAIGHT, 0)) : Optional.empty();
-		}
-		if (x < ZW + E) {
-			if (streetStrip) {
-				return Optional.of(Spot.of(BetType.FIRST_FOUR, 0, 1, 2, 3));
-			}
-			if (Math.abs(y - CH) < E) {
-				return Optional.of(Spot.of(BetType.TRIO, 0, 2, 3));
-			}
-			if (Math.abs(y - 2 * CH) < E) {
-				return Optional.of(Spot.of(BetType.TRIO, 0, 1, 2));
-			}
-			return Optional.of(Spot.of(BetType.SPLIT, 0, number(0, (int) (y / CH))));
-		}
-		double gx = x - ZW;
-		int c = Math.min(11, (int) (gx / CW));
-		double fx = gx - c * CW;
-		// Vertical boundary to the right of column `bc` (between bc and bc + 1), or -1.
-		int bc = -1;
-		if (fx < E && c > 0) {
-			bc = c - 1;
-		} else if (fx >= CW - E && c < 11) {
-			bc = c;
-		}
-		if (streetStrip) {
-			if (bc >= 0) {
-				int a = number(bc, 2);
-				return Optional.of(Spot.of(BetType.SIX_LINE, a, a + 1, a + 2, a + 3, a + 4, a + 5));
-			}
-			int a = number(c, 2);
-			return Optional.of(Spot.of(BetType.STREET, a, a + 1, a + 2));
-		}
-		int r = Math.min(2, (int) (y / CH));
-		double fy = y - r * CH;
-		// Horizontal boundary below visual row `br` (between br and br + 1), or -1.
-		int br = -1;
-		if (fy < E && r > 0) {
-			br = r - 1;
-		} else if (fy >= CH - E && r < 2) {
-			br = r;
-		}
-		if (bc >= 0 && br >= 0) {
-			int a = number(bc, br + 1);
-			return Optional.of(Spot.of(BetType.CORNER, a, a + 1, a + 3, a + 4));
-		}
-		if (bc >= 0) {
-			int a = number(bc, r);
-			return Optional.of(Spot.of(BetType.SPLIT, a, a + 3));
-		}
-		if (br >= 0) {
-			int a = number(c, br + 1);
-			return Optional.of(Spot.of(BetType.SPLIT, a, a + 1));
-		}
-		return Optional.of(Spot.of(BetType.STRAIGHT, number(c, r)));
+		return LayoutGrid.LEGACY.hit(x, y);
 	}
 }

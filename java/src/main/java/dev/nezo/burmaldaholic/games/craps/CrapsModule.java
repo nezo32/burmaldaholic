@@ -24,5 +24,6 @@ public final class CrapsModule implements CasinoModule {
 	@Override
 	public void register(ModuleContext ctx) {
 		TABLE = ctx.tables().register("craps_table", CrapsTableBlockEntity::new);
+		dev.nezo.burmaldaholic.core.sound.CasinoSounds.registerOwned(ctx, ID); // craps_puck (tables.md §0.8)
 	}
 }
