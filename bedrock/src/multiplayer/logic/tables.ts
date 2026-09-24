@@ -16,6 +16,9 @@ export interface OwnedTable {
   max?: number;
   /** poker: allow bots */
   bots: boolean;
+  /** slots (SLOTS.md §8.6): bonus buy / autoplay allowed at this machine (undefined = on) */
+  slotsBuy?: boolean;
+  slotsAutoplay?: boolean;
 }
 
 export const newOwnedTable = (casinoId: string, ownerId: string, game: string, variant?: string, blockTypeId?: string): OwnedTable => ({

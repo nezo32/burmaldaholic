@@ -57,7 +57,6 @@ const ALLOWED: Record<string, string> = {
   'worldgen/index.ts:scriptEventReceive': 'admin worldgen commands (ops)',
   'games/extras/dice-game.ts:runInterval': 'expires pending PvP challenges (messages only)',
   'games/extras/dice-game.ts:playerLeave': 'drops the leaver\'s challenges',
-  'games/slots/index.ts:runInterval': 'reel animation of an already-placed spin',
   'games/blackjack/index.ts:entityRemove': 'closes the NPC table when the dealer entity is removed',
   'games/roulette/table.ts:runInterval': 'round clock; tables are closed with casino_off',
   'games/roulette/table.ts:playerSpawn': 'pays results parked while offline',

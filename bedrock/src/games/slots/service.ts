@@ -436,6 +436,27 @@ export class SlotsV2Service implements SlotsApi {
     return st;
   }
 
+  /** Owner settings of an owned machine (SLOTS.md §8.6: bonus buy / autoplay on-off); undefined at house machines. */
+  private ownerSettings(s: TableSession): { buy: boolean; autoplay: boolean } | undefined {
+    try {
+      const info = this.ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE)?.tableInfo(s.table.key);
+      return info ? { buy: info.slotsBuy, autoplay: info.slotsAutoplay } : undefined;
+    } catch (e) {
+      this.ctx.log.error('slots owner settings failed', e);
+      return undefined;
+    }
+  }
+
+  /** Bonus buy allowed here: config and, at an owned machine, its owner. */
+  buyAllowed(s: TableSession): boolean {
+    return this.cfg.buyEnabled && this.ownerSettings(s)?.buy !== false;
+  }
+
+  /** Autoplay allowed here: config and, at an owned machine, its owner. */
+  autoplayAllowed(s: TableSession): boolean {
+    return this.cfg.autoplayEnabled && this.ownerSettings(s)?.autoplay !== false;
+  }
+
   /** Bets offered to this player here (VIP max, owner min/max; SLOTS.md §6.1). */
   offered(s: TableSession, m: MachineId): number[] {
     const ladder = this.bets.get(m)!.ladder;
@@ -476,11 +497,11 @@ export class SlotsV2Service implements SlotsApi {
       def,
       bet: st.bet,
       bets,
-      buyPrice: def.buyPriceFifths > 0 && this.cfg.buyEnabled ? (def.buyPriceFifths * st.bet) / 5 : undefined,
+      buyPrice: def.buyPriceFifths > 0 && this.buyAllowed(s) ? (def.buyPriceFifths * st.bet) / 5 : undefined,
       meters: owned ? undefined : this.meters(st.machine),
       last: st.last,
       notice: st.notice.splice(0),
-      autoplay: this.cfg.autoplayEnabled,
+      autoplay: this.autoplayAllowed(s),
     };
     const a = await this.presenter.machine(view);
     if (!s.isActive() || st.busy) return;
@@ -498,7 +519,7 @@ export class SlotsV2Service implements SlotsApi {
         await this.paytable(s, st.machine);
         return this.showMachine(s);
       case 'auto':
-        if (!this.cfg.autoplayEnabled) return this.showMachine(s);
+        if (!this.autoplayAllowed(s)) return this.showMachine(s);
         if (!this.cfg.autoplayLossLimits.includes(a.lossLimit)) {
           st.notice.push(color('§c', t('gui.burmaldaholic.slots.error.loss_limit_required')));
           return this.showMachine(s);
@@ -554,7 +575,7 @@ export class SlotsV2Service implements SlotsApi {
     const bets = this.offered(s, m);
     if (!bets.includes(st.bet)) return t('gui.burmaldaholic.slots.error.bet_unavailable');
     if (buy) {
-      const err = buyError(def, st.bet, this.cfg.buyEnabled, true, this.ctx.limits.tierMax(p), this.cfg.buyTierMaxMultiple, bets);
+      const err = buyError(def, st.bet, this.buyAllowed(s), true, this.ctx.limits.tierMax(p), this.cfg.buyTierMaxMultiple, bets);
       if (err) return t(`gui.burmaldaholic.slots.error.${err}`);
     }
     const rtp = this.rtp.get(m);
@@ -933,9 +954,9 @@ export class SlotsV2Service implements SlotsApi {
     return this.state(s);
   }
 
-  buyPrice(m: MachineId, bet: number): number | undefined {
+  buyPrice(m: MachineId, bet: number, s?: TableSession): number | undefined {
     const def = this.def(m);
-    return def.buyPriceFifths > 0 && this.cfg.buyEnabled ? (def.buyPriceFifths * bet) / 5 : undefined;
+    return def.buyPriceFifths > 0 && (s ? this.buyAllowed(s) : this.cfg.buyEnabled) ? (def.buyPriceFifths * bet) / 5 : undefined;
   }
 
   bigWinTiers(): [number, number, number, number] {
@@ -1014,7 +1035,7 @@ export class SlotsV2Host<R> {
   }
 
   buyLabel(): Raw | undefined {
-    const price = this.svc.buyPrice(this.st.machine, this.st.bet);
+    const price = this.svc.buyPrice(this.st.machine, this.st.bet, this.session);
     return price === undefined ? undefined : t('gui.burmaldaholic.slots.buy.button', chips(price));
   }
 
@@ -1061,6 +1082,11 @@ export class SlotsV2Host<R> {
 
   /** The autoplay dialog; `started` runs once autoplay is set (the form then starts the first spin). */
   auto(started?: () => void): void {
+    if (!this.svc.autoplayAllowed(this.session)) {
+      const p = this.session.player;
+      if (p.isValid) p.sendMessage(color('§c', t('gui.burmaldaholic.slots.error.autoplay_disabled')));
+      return;
+    }
     detach(
       (async () => {
         const a = await new ClassicPresenter().autoplayDialog(this.session.player);

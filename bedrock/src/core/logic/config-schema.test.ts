@@ -57,11 +57,11 @@ describe('catalog (generated from CONFIG.md)', () => {
     const n = (c: string) => seg.filter((s) => s === c).length;
     expect([seg.length, n('B'), n('C'), n('H'), n('M'), n('D'), n('T'), n('E'), n('X')]).toEqual([54, 25, 1, 5, 11, 7, 3, 1, 1]);
   });
-  it('slot weights sum to 100', () => {
-    for (const tier of ['copper', 'gold', 'netherite']) {
-      const w = map.get(`slots.${tier}.weights`)!.default as Record<string, number>;
-      expect(Object.values(w).reduce((a, b) => a + b, 0)).toBe(100);
-    }
+  it('slots v2: Treasure Hunt weights total 102 073 (SLOTS.md §7.3: 80 073 prizes + 22 000 creeper); v1 keys gone', () => {
+    const w = map.get('slots.overworld.pick.weights')!.default as Record<string, number>;
+    expect(Object.values(w).reduce((a, b) => a + b, 0)).toBe(102_073);
+    expect(w.creeper).toBe(22_000);
+    for (const tier of ['copper', 'gold', 'netherite']) expect(map.has(`slots.${tier}.weights`)).toBe(false);
   });
   it('every def has a label and section', () => {
     for (const d of CONFIG_CATALOG) {

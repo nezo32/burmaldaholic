@@ -83,6 +83,7 @@
 	"gui.burmaldaholic.slots.error.bet_unavailable": "That bet is not available on this machine",
 	"gui.burmaldaholic.slots.error.buy_disabled": "Buying bonuses is off here",
 	"gui.burmaldaholic.slots.error.buy_limit": "This purchase is above your VIP limit",
+	"gui.burmaldaholic.slots.error.autoplay_disabled": "Autoplay is off here",
 	"gui.burmaldaholic.slots.fs.title": "FREE SPINS",
 	"gui.burmaldaholic.slots.fs.name.overworld": "Night Watch",
 	"gui.burmaldaholic.slots.fs.name.nether": "Inferno Spins",

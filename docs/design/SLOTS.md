@@ -656,7 +656,10 @@ Mega/Epic wins.
 - Stakes and payouts go through the bankroll; jackpots are the fixed amounts of §5.2 (no pool,
   no contribution). Golden Hour and cashback remain bank-paid.
 - Owner settings: min/max bet (from the ladder), open/closed, **buy feature on/off** (default on),
-  autoplay on/off (default on).
+  autoplay on/off (default on). These are per-table owner settings stored with the owned table (not config
+  keys); labels `gui.burmaldaholic.charter.table_slots_buy` / `.table_slots_autoplay`, refusals
+  `gui.burmaldaholic.slots.error.buy_disabled` / `.error.autoplay_disabled` (Bedrock: `OwnedTableInfo.slotsBuy`
+  / `.slotsAutoplay`).
 
 ### 8.7 Contracts
 

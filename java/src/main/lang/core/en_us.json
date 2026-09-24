@@ -444,6 +444,8 @@
 	"gui.burmaldaholic.charter.table_min": "Minimum bet",
 	"gui.burmaldaholic.charter.table_max": "Maximum bet",
 	"gui.burmaldaholic.charter.table_bots": "Poker bots",
+	"gui.burmaldaholic.charter.table_slots_buy": "Slots: bonus buy",
+	"gui.burmaldaholic.charter.table_slots_autoplay": "Slots: autoplay",
 	"gui.burmaldaholic.charter.link_tables": "Link unlinked tables in range",
 	"gui.burmaldaholic.charter.no_tables": "No tables yet. Place some inside your claim.",
 	"gui.burmaldaholic.menu.settings.bot_chatter": "Bot chatter",

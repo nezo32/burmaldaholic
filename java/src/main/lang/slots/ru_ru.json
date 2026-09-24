@@ -83,6 +83,7 @@
 	"gui.burmaldaholic.slots.error.bet_unavailable": "Такой ставки на этом автомате нет",
 	"gui.burmaldaholic.slots.error.buy_disabled": "Покупка бонусов здесь отключена",
 	"gui.burmaldaholic.slots.error.buy_limit": "Покупка превышает ваш ВИП-лимит",
+	"gui.burmaldaholic.slots.error.autoplay_disabled": "Автоигра здесь отключена",
 	"gui.burmaldaholic.slots.fs.title": "БЕСПЛАТНЫЕ ВРАЩЕНИЯ",
 	"gui.burmaldaholic.slots.fs.name.overworld": "Ночной дозор",
 	"gui.burmaldaholic.slots.fs.name.nether": "Адские вращения",

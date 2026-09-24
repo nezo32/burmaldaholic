@@ -191,7 +191,7 @@ export class Ownership implements MultiplayerApi {
     const tbl = this.store.tables.get(tableKey);
     const c = this.store.casino(tbl?.casinoId);
     if (!tbl || !c) return undefined;
-    return { casinoId: c.id, ownerId: c.ownerId, ownerName: c.ownerName, open: tbl.open, min: tbl.min, max: tbl.max, bots: tbl.bots, broke: !!c.broke };
+    return { casinoId: c.id, ownerId: c.ownerId, ownerName: c.ownerName, open: tbl.open, min: tbl.min, max: tbl.max, bots: tbl.bots, slotsBuy: tbl.slotsBuy !== false, slotsAutoplay: tbl.slotsAutoplay !== false, broke: !!c.broke };
   }
 
   botsAllowed(tableKey: string): boolean {

@@ -32,6 +32,9 @@ export interface OwnedTableInfo {
   max?: number;
   /** poker: bots allowed */
   bots: boolean;
+  /** slots (SLOTS.md §8.6): the owner allows the bonus buy / autoplay at this machine */
+  slotsBuy: boolean;
+  slotsAutoplay: boolean;
   /** the casino cannot cover its cheapest table */
   broke: boolean;
 }

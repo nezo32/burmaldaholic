@@ -917,6 +917,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.error.bet_unavailable` | That bet is not available on this machine | Такой ставки на этом автомате нет |
 | `gui.burmaldaholic.slots.error.buy_disabled` | Buying bonuses is off here | Покупка бонусов здесь отключена |
 | `gui.burmaldaholic.slots.error.buy_limit` | This purchase is above your VIP limit | Покупка превышает ваш ВИП-лимит |
+| `gui.burmaldaholic.slots.error.autoplay_disabled` | Autoplay is off here | Автоигра здесь отключена |
 
 ### Features, jackpots, buy feature (`SLOTS.md` §13.4)
 
@@ -2311,6 +2312,8 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.charter.table_min` | Minimum bet | Мин. ставка |
 | `gui.burmaldaholic.charter.table_max` | Maximum bet | Макс. ставка |
 | `gui.burmaldaholic.charter.table_bots` | Poker bots | Покерные боты |
+| `gui.burmaldaholic.charter.table_slots_buy` | Slots: bonus buy | Автоматы: покупка бонуса |
+| `gui.burmaldaholic.charter.table_slots_autoplay` | Slots: autoplay | Автоматы: автоигра |
 | `gui.burmaldaholic.charter.link_tables` | Link unlinked tables in range | Привязать столы в зоне |
 | `gui.burmaldaholic.charter.no_tables` | No tables yet. Place some inside your claim. | Столов пока нет. Поставьте их в своей зоне. |
 | `msg.burmaldaholic.multiplayer.charter_placed` | Casino licensed! License fee: %1$s. Your claim: %2$s around the charter. | Казино получило лицензию! Сбор: %1$s. Ваша зона — %2$s вокруг лицензии. |

@@ -78,6 +78,7 @@ gui.burmaldaholic.slots.error.loss_limit_required=Choose a loss limit first
 gui.burmaldaholic.slots.error.bet_unavailable=That bet is not available on this machine
 gui.burmaldaholic.slots.error.buy_disabled=Buying bonuses is off here
 gui.burmaldaholic.slots.error.buy_limit=This purchase is above your VIP limit
+gui.burmaldaholic.slots.error.autoplay_disabled=Autoplay is off here
 ## [slots / Features, jackpots, buy feature (`SLOTS.md` §13.4)]
 gui.burmaldaholic.slots.fs.title=FREE SPINS
 gui.burmaldaholic.slots.fs.name.overworld=Night Watch

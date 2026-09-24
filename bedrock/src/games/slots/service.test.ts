@@ -172,6 +172,24 @@ beforeEach(() => {
   tick = 100;
 });
 
+describe('slots v2 service: owner settings at owned machines (SLOTS.md §8.6)', () => {
+  it('the owner can switch the bonus buy and autoplay off; house machines keep the config', () => {
+    const { svc, ctx } = service();
+    const p = new FakePlayer('-1', 'Alex');
+    const s = fakeSession(p, 'gold');
+    const host = new SlotsV2Host(svc, s as never, ((_d: unknown, t: unknown) => t) as never);
+    expect(host.buyLabel()).toBeDefined();
+    expect(svc.autoplayAllowed(s as never)).toBe(true);
+    (ctx.services as { get: (id: string) => unknown }).get = (id: string) => (id === 'multiplayer' ? { tableInfo: () => ({ slotsBuy: false, slotsAutoplay: false }) } : undefined);
+    expect(host.buyLabel()).toBeUndefined();
+    const r = svc.start(s as never, true) as { translate?: string };
+    expect(r.translate).toBe('gui.burmaldaholic.slots.error.buy_disabled');
+    expect(svc.autoplayAllowed(s as never)).toBe(false);
+    host.auto();
+    expect(JSON.stringify(p.messages)).toContain('gui.burmaldaholic.slots.error.autoplay_disabled');
+  });
+});
+
 describe('slots v2 service: round lifecycle', () => {
   it('block variants map to the machines (block ids unchanged)', () => {
     expect(machineOfTable({ variant: 'copper' })).toBe('overworld');
@@ -296,8 +314,9 @@ describe('B-L9 SlotHost adapter and B-L10 cabinet wiring', () => {
     expect(start.round.bet).toBe(20);
     const lands = start.timeline.beats.filter((b) => b.kind === 'slots.reel_land' && b.at < 2000).map((b) => b.at + b.dur);
     expect(cab[0]).toBe(`play:${lands.slice(0, 5).join(',')}`);
-    host.presented(start as never, false);
+    // an interrupt (Stop / close) settles at once and jumps the cabinet to the result; a second call is a no-op
     host.presented(start as never, true);
+    host.presented(start as never, false);
     expect(settled).toHaveLength(1);
     expect(cab).toContain('finish');
     expect(pr.calls).toEqual([]); // the host form presents, not the fallback presenter

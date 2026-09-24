@@ -99,7 +99,9 @@ describe('achievements (§19)', () => {
       if (a.parent) expect(seen.has(a.parent), `${a.id} -> ${a.parent}`).toBe(true);
       seen.add(a.id);
     }
-    expect(ACHIEVEMENTS).toHaveLength(42);
+    // 40 of GAME_DESIGN §19 + the 11 slots v2 ids of SLOTS.md §14 (incl. the re-parented `jackpot`) + the retired `three_sevens`
+    expect(ACHIEVEMENTS).toHaveLength(52);
+    expect(ACHIEVEMENTS.filter((a) => a.retired).map((a) => a.id)).toEqual(['three_sevens']);
   });
 
   it('unlocks once, ignores unknown ids', () => {

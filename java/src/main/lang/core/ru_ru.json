@@ -444,6 +444,8 @@
 	"gui.burmaldaholic.charter.table_min": "Мин. ставка",
 	"gui.burmaldaholic.charter.table_max": "Макс. ставка",
 	"gui.burmaldaholic.charter.table_bots": "Покерные боты",
+	"gui.burmaldaholic.charter.table_slots_buy": "Автоматы: покупка бонуса",
+	"gui.burmaldaholic.charter.table_slots_autoplay": "Автоматы: автоигра",
 	"gui.burmaldaholic.charter.link_tables": "Привязать столы в зоне",
 	"gui.burmaldaholic.charter.no_tables": "Столов пока нет. Поставьте их в своей зоне.",
 	"gui.burmaldaholic.menu.settings.bot_chatter": "Болтовня ботов",

@@ -114,6 +114,15 @@ export class CharterUi {
       form.toggle(t('gui.burmaldaholic.charter.table_bots'), { defaultValue: tbl.bots });
       iBots = layout.control();
     }
+    // slots (SLOTS.md §8.6): the owner may switch the bonus buy and autoplay off at a machine
+    let iBuy = -1;
+    let iAuto = -1;
+    if (tbl.game === 'slots') {
+      form.toggle(t('gui.burmaldaholic.charter.table_slots_buy'), { defaultValue: tbl.slotsBuy !== false });
+      iBuy = layout.control();
+      form.toggle(t('gui.burmaldaholic.charter.table_slots_autoplay'), { defaultValue: tbl.slotsAutoplay !== false });
+      iAuto = layout.control();
+    }
     form.submitButton(t('gui.burmaldaholic.common.confirm'));
     const res = await showForm(p, form);
     if (!res || res.canceled) return;
@@ -135,6 +144,8 @@ export class CharterUi {
       min: lim.min,
       max: lim.max,
       bots: iBots >= 0 ? layout.value(res, iBots) === true : cur.bots,
+      slotsBuy: iBuy >= 0 ? layout.value(res, iBuy) === true : cur.slotsBuy,
+      slotsAutoplay: iAuto >= 0 ? layout.value(res, iAuto) === true : cur.slotsAutoplay,
     });
     p.sendMessage(t('msg.burmaldaholic.multiplayer.table_saved', this.own.tableLabel(cur)));
   }
