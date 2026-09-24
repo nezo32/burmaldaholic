@@ -99,6 +99,14 @@ final class WheelScreen extends ExtrasTableScreen {
 			lastAmount = Math.max(1, bet.amount());
 			sendAction("spin", bet.args());
 		}).active = !spinning();
+		Component party = dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyClient.buttonLabel(s.getCompoundOrEmpty("party"));
+		if (party != null) { // PvP Wheel Party entry (J-M2)
+			flow.newRow();
+			flow.button(party, 60, b -> {
+				dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyClient.open(menu.pos());
+				onClose(); // the party panel replaces the machine screen
+			});
+		}
 		this.betLineY = betLineY;
 		int leftBottom = topPos + CY + R + 8 + 22;
 		return Math.max(flow.bottom(), leftBottom);
