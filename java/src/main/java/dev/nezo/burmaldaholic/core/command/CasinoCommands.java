@@ -110,19 +110,6 @@ public final class CasinoCommands {
 		dispatcher.register(Commands.literal("burmaldaholic").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).redirect(node));
 	}
 
-	/** Root open to everybody: the operator commands keep their level-2 requirement per branch; player extensions are added unguarded. */
-	private static LiteralArgumentBuilder<CommandSourceStack> withPlayerCommands(LiteralArgumentBuilder<CommandSourceStack> ops) {
-		java.util.function.Predicate<CommandSourceStack> op = ops.getRequirement();
-		LiteralArgumentBuilder<CommandSourceStack> open = Commands.literal("casino");
-		for (com.mojang.brigadier.tree.CommandNode<CommandSourceStack> child : ops.getArguments()) {
-			com.mojang.brigadier.builder.ArgumentBuilder<CommandSourceStack, ?> copy = child.createBuilder();
-			copy.requires(op.and(child.getRequirement()));
-			child.getChildren().forEach(copy::then);
-			open.then(copy);
-		}
-		PLAYER_EXTENSIONS.forEach(e -> e.accept(open));
-		return open;
-	}
 
 	private enum Op {
 		SET, ADD, TAKE

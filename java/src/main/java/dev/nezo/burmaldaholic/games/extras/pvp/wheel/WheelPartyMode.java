@@ -81,7 +81,7 @@ public final class WheelPartyMode implements PvpMode<WheelPartyMode.Params, Whee
 	 * Flip to true when the core engine (task J-P1) is merged: until then {@code PvpService} is a skeleton that
 	 * refuses every call, so the mode must not be offered.
 	 */
-	public static final boolean ENGINE_READY = false;
+	public static final boolean ENGINE_READY = true;
 
 	@Override
 	public boolean enabled() {
