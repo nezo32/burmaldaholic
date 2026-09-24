@@ -1,10 +1,13 @@
 package dev.nezo.burmaldaholic.games.uth.client;
 
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.uth.logic.Decision;
 import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
+import dev.nezo.burmaldaholic.games.uth.logic.UthBotPolicy;
 import dev.nezo.burmaldaholic.games.uth.logic.UthCards;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +27,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Ultimate Texas Hold'em screen (UI.md §15). Renders the server state and sends actions only:
  * {@code bet {ante, trips}}, {@code clear}, {@code check|bet_4x|bet_3x|bet_2x|bet_1x|fold},
- * {@code take_bank {amount}}, {@code leave_bank}, core's {@code sit|leave}.
+ * {@code take_bank {amount}}, {@code leave_bank}, {@code bot_settings} (the bots module's table settings),
+ * core's {@code sit|leave}. Atmosphere bots (BOTS.md §4.5) show as seat plates "[BOT] Name" with their
+ * virtual bets, "Thinking…" or "Watching" (under a human banker).
  *
  * <pre>
  *  Ultimate Texas Hold'em                                           Time left: 17 s
@@ -267,6 +272,9 @@ public class UthScreen extends CasinoTableScreen {
 				}
 			}
 		}
+		if (s().getBooleanOr("bots_ui", false)) {
+			specs.add(new Spec(Component.translatable("gui.burmaldaholic.bots.settings.open"), b -> sendAction("bot_settings"), true, null, 40));
+		}
 		specs.add(new Spec(Component.translatable("gui.burmaldaholic.common.paytable"), b -> {
 			showPaytable = !showPaytable;
 		}, true, null, 30));
@@ -410,7 +418,8 @@ public class UthScreen extends CasinoTableScreen {
 
 	private int drawBankPlate(GuiGraphicsExtractor g, int y) {
 		CompoundTag b = bank();
-		Component who = b.contains("name") ? Texts.raw(b.getStringOr("name", "")) : Component.translatable("gui.burmaldaholic.uth.pvp.the_house");
+		Component who = b.contains("name") ? Texts.raw(b.getStringOr("name", ""))
+			: b.contains("stand_in") ? botName(b.getStringOr("stand_in", "")) : Component.translatable("gui.burmaldaholic.uth.pvp.the_house");
 		MutableComponent line = Component.translatable("gui.burmaldaholic.uth.pvp.dealer_seat", who);
 		if (b.contains("bank")) {
 			line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.pvp.bank",
@@ -482,6 +491,9 @@ public class UthScreen extends CasinoTableScreen {
 		List<Component> out = new ArrayList<>();
 		CompoundTag st = s();
 		String phase = phase();
+		if (st.getBooleanOr("bots_pending", false) && betting()) {
+			out.add(Component.translatable("gui.burmaldaholic.bots.pending"));
+		}
 		if (st.getIntArray("dealer").isPresent()) {
 			out.add(Component.translatable(st.getBooleanOr("qualifies", false) ? "gui.burmaldaholic.uth.qualifies" : "gui.burmaldaholic.uth.not_qualifies"));
 		}
@@ -546,6 +558,13 @@ public class UthScreen extends CasinoTableScreen {
 				plates.add(players.getCompoundOrEmpty(i));
 			}
 		}
+		// atmosphere bots not dealt in: virtual bets / Thinking… while betting, Watching under a human banker
+		ListTag bots = s().getListOrEmpty("bots");
+		for (int i = 0; i < bots.size(); i++) {
+			CompoundTag b = bots.getCompoundOrEmpty(i).copy();
+			b.putBoolean("bot", true);
+			plates.add(b);
+		}
 		if (plates.isEmpty()) {
 			return y;
 		}
@@ -570,7 +589,9 @@ public class UthScreen extends CasinoTableScreen {
 		int cw = 9, ch = 12;
 		int cardsW = inRound && !you ? 2 * (cw + 1) : 0;
 		int textW = w - 4 - cardsW;
-		Component name = you ? Component.translatable("gui.burmaldaholic.common.you") : Texts.raw(trim(p.getStringOr("name", ""), textW / 2));
+		boolean bot = p.getBooleanOr("bot", false);
+		Component name = you ? Component.translatable("gui.burmaldaholic.common.you")
+			: bot ? botName(p.getStringOr("bot_name", "")) : Texts.raw(trim(p.getStringOr("name", ""), textW / 2));
 		Component tag = tagText(p);
 		MutableComponent line1 = Component.empty().append(name);
 		if (tag != null) {
@@ -593,6 +614,10 @@ public class UthScreen extends CasinoTableScreen {
 				bets.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.trips_amount", Texts.number(p.getLongOr("trips", 0))));
 			}
 			line2 = bets;
+		} else if (bot && "watching".equals(p.getStringOr("bot_state", ""))) {
+			line2 = Component.translatable("gui.burmaldaholic.bots.watching");
+		} else if (bot && "thinking".equals(p.getStringOr("bot_state", ""))) {
+			line2 = Component.translatable("gui.burmaldaholic.bots.thinking");
 		} else {
 			line2 = Component.empty();
 		}
@@ -682,6 +707,10 @@ public class UthScreen extends CasinoTableScreen {
 				lines.add(Component.translatable("gui.burmaldaholic.uth.rules." + k));
 				colors.add(GRAY);
 			}
+		}
+		if (st.getBooleanOr("bots_virtual", false) && (st.contains("bots") || anyBotPlayer())) {
+			lines.add(Component.translatable("gui.burmaldaholic.bots.virtual_tooltip"));
+			colors.add(GRAY);
 		}
 		for (int i = 0; i < lines.size(); i++) {
 			for (FormattedCharSequence l : font.split(lines.get(i), w)) {
@@ -781,6 +810,21 @@ public class UthScreen extends CasinoTableScreen {
 		return Component.empty().append(Texts.decimal(plain)).append(Texts.raw(":1"));
 	}
 
+	/** "[BOT] Lucky Steve" from a bot name id. */
+	private static Component botName(String nameId) {
+		return Component.translatable("gui.burmaldaholic.bots.display", Component.translatable(BotRoster.nameKey(nameId)));
+	}
+
+	private boolean anyBotPlayer() {
+		ListTag players = s().getListOrEmpty("players");
+		for (int i = 0; i < players.size(); i++) {
+			if (players.getCompoundOrEmpty(i).getBooleanOr("bot", false)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static Component handName(String name) {
 		return name.isEmpty() ? Component.empty() : Component.translatable("gui.burmaldaholic.poker.hand." + name);
 	}
@@ -807,7 +851,15 @@ public class UthScreen extends CasinoTableScreen {
 				y2 = drawWrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.row", handName(h.handName()), ratio(tp)), x2, y2, colW, TEXT, bottom);
 			}
 		}
-		drawWrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.blind_lower"), x1, y1, colW, GRAY, bottom);
+		y1 = drawWrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.blind_lower"), x1, y1, colW, GRAY, bottom);
+		// "Normal: Costs this bot about 2.27 % of the Ante" per level seated (BOTS.md §4.5)
+		ListTag levels = s().getListOrEmpty("bot_levels");
+		for (int i = 0; i < levels.size(); i++) {
+			BotDifficulty lvl = BotDifficulty.byId(levels.getStringOr(i, ""), BotDifficulty.NORMAL);
+			Component line = Component.empty().append(Component.translatable(lvl.translationKey())).append(Texts.raw(": "))
+				.append(Component.translatable("gui.burmaldaholic.bots.uth_edge", Texts.raw(UthBotPolicy.edgePercent(lvl))));
+			y1 = drawWrapped(g, line, x1, y1 + (i == 0 ? 2 : 0), colW, GRAY, bottom);
+		}
 		if (playerBanked()) {
 			CompoundTag b = bank();
 			String pct = UthClientModule.trimPercent(b.getDoubleOr("rake", 0) * 100);
