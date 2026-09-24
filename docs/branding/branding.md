@@ -35,16 +35,16 @@ The frame, sparkle, gold and green colors are shared with Enchantaholic so the t
 ## CurseForge — Java (Fabric) project
 
 **Summary (short description):**
-A casino game mode for survival: earn chips, gamble at blackjack, poker, slots, roulette and craps, borrow from a loan shark and survive the chaos.
+A casino game mode for survival: earn chips, play blackjack, poker, baccarat, slots, roulette and craps, borrow from a loan shark and survive the chaos.
 
 **Description:**
 
-> **Burmaldaholic** (Russian: «Бурмалдоголик») turns survival into a casino. Mining ores, killing mobs, trading and finishing daily contracts earn you **chips**, and every village might hide a small casino. Sit down at **blackjack, Texas Hold'em, slots, roulette or craps**, try your luck at **Coin Flip, Wheel of Fortune, Scratch Cards, Plinko or a Dice Duel**, and bet chips, items, XP levels, even your hearts. Run dry? The **Loan Shark** will help, and his **Debt Collectors** will find you if you miss the deadline.
+> **Burmaldaholic** (Russian: «Бурмалдоголик») turns survival into a casino. Mining ores, killing mobs, trading and finishing daily contracts earn you **chips**, and every village might hide a small casino. Sit down at **blackjack, Texas Hold'em, Ultimate Texas Hold'em, baccarat, slots, roulette or craps**, try your luck at **Coin Flip, Wheel of Fortune, Scratch Cards, Plinko or a Dice Duel**, and bet chips, items, XP levels, even your hearts. Run dry? The **Loan Shark** will help, and his **Debt Collectors** will find you if you miss the deadline.
 >
 > The mode is a **Casino Mode** button on the Create World screen, right below Difficulty. Easy, Normal, Hard and Hardcore work exactly as in vanilla.
 
 **Features**
-- 🎰 **Real casino games:** Blackjack (6 decks, 3:2, split, double, insurance), Texas Hold'em against bots and other players, three tiers of slot machines with progressive jackpots, European roulette with every standard bet, and full craps (pass/don't pass, come, field, odds).
+- 🎰 **Real casino games:** Blackjack (6 decks, 3:2, split, double, insurance), Texas Hold'em against bots and other players, Ultimate Texas Hold'em against the dealer, Punto Banco baccarat (Player, Banker, Tie and pair bets), three tiers of slot machines with progressive jackpots, European roulette with every standard bet, and full craps (pass/don't pass, come, field, odds).
 - 🎲 **Side games:** Coin Flip, Wheel of Fortune, Scratch Cards, Plinko and Dice Duels, including player-vs-player.
 - 🪙 **Chips economy:** chips are earned in survival and exist only in your world. No real money and nothing to buy, ever.
 - 🦈 **Loan Shark & Debt Collectors:** borrow with interest. Miss the deadline and an illager squad comes to collect.
@@ -55,7 +55,7 @@ A casino game mode for survival: earn chips, gamble at blackjack, poker, slots, 
 - 💎 **VIP tiers:** from Bronze to Netherite, with cosmetics, better tables, higher limits and cashback.
 - 👥 **Multiplayer:** player-hosted tables and player-owned casinos, where the owner earns the house edge.
 - 🏆 **35 advancements** in their own tab.
-- ⚖️ **Fair and configurable:** every game follows real rules with a small house edge (blackjack about 0.4 %, roulette 2.7 %). You can change odds, payouts, event frequency and debt rules in the config file or through Mod Menu.
+- ⚖️ **Fair and configurable:** every game follows real rules with a small house edge (blackjack about 0.4 %, baccarat Banker 1.06 %, roulette 2.7 %). You can change odds, payouts, event frequency and debt rules in the config file or through Mod Menu.
 - 🇬🇧🇷🇺 **English and Russian:** follows your game language automatically.
 
 **Requirements:** Minecraft Java **26.2–26.3**, Fabric Loader 0.19.5+, Fabric API, Java 25. Mod Menu is optional (for the config screen). Install it on both the server and the clients.
@@ -65,16 +65,16 @@ A casino game mode for survival: earn chips, gamble at blackjack, poker, slots, 
 ## CurseForge — Bedrock add-on project
 
 **Summary (short description):**
-A casino game mode add-on: earn chips in survival, play blackjack, poker, slots, roulette and craps, and dodge the debt collectors.
+A casino game mode add-on: earn chips in survival, play blackjack, poker, baccarat, slots, roulette and craps, and dodge the debt collectors.
 
 **Description:**
 
-> **Burmaldaholic** (Russian: «Бурмалдоголик») turns survival into a casino. Mining, fighting, trading and daily contracts earn you **chips**. Spend them at **blackjack, Texas Hold'em, slots, roulette or craps**, or on **Coin Flip, Wheel of Fortune, Scratch Cards, Plinko and Dice Duels**. Bet chips, items, XP levels or even your hearts. Broke? The **Loan Shark** lends at interest, and his **Debt Collectors** come for anyone who doesn't pay.
+> **Burmaldaholic** (Russian: «Бурмалдоголик») turns survival into a casino. Mining, fighting, trading and daily contracts earn you **chips**. Spend them at **blackjack, Texas Hold'em, Ultimate Texas Hold'em, baccarat, slots, roulette or craps**, or on **Coin Flip, Wheel of Fortune, Scratch Cards, Plinko and Dice Duels**. Bet chips, items, XP levels or even your hearts. Broke? The **Loan Shark** lends at interest, and his **Debt Collectors** come for anyone who doesn't pay.
 >
 > Add both packs when you create the world and turn on the **Casino Mode** pack setting. Operators can change it later with `/burmaldaholic:casino`. Difficulty and Hardcore stay vanilla.
 
 **Features**
-- 🎰 **Casino tables:** Blackjack (6 decks, 3:2, split, double, insurance), Texas Hold'em against bots and players, three tiers of slot machines with jackpots, European roulette with every standard bet, and full craps.
+- 🎰 **Casino tables:** Blackjack (6 decks, 3:2, split, double, insurance), Texas Hold'em against bots and players, Ultimate Texas Hold'em against the dealer, Punto Banco baccarat, three tiers of slot machines with jackpots, European roulette with every standard bet, and full craps.
 - 🎲 **Side games:** Coin Flip, Wheel of Fortune, Scratch Cards, Plinko and Dice Duels.
 - 🪙 **Chips only:** chips are earned in-game and exist only in your world. No real money, no purchases.
 - 🦈 **Loan Shark and Debt Collectors:** loans with interest, deadlines and a squad that comes to collect.
