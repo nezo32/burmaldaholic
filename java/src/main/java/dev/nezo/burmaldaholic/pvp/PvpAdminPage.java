@@ -1,13 +1,16 @@
 package dev.nezo.burmaldaholic.pvp;
 
+import com.google.gson.JsonParser;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
 import dev.nezo.burmaldaholic.core.pvp.Pvp;
 import dev.nezo.burmaldaholic.core.pvp.PvpMatch;
+import dev.nezo.burmaldaholic.core.pvp.PvpMatchData;
 import dev.nezo.burmaldaholic.core.pvp.logic.MatchState;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.pvp.logic.PvpText;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -89,10 +92,32 @@ public final class PvpAdminPage implements CasinoMenu.Page {
 			boolean cancellable = m.state() == MatchState.LOBBY || m.state() == MatchState.DRAWN || m.state() == MatchState.INVITED;
 			out.button("cancel:" + m.id, Component.translatable("gui.burmaldaholic.pvp.admin.cancel"), cancellable);
 		}
+		// unreadable records whose escrow could not be refunded automatically (the log line has the full record)
+		Map<String, String> quarantine = PvpMatchData.get(player.level().getServer()).quarantine();
+		if (!quarantine.isEmpty()) {
+			out.line(Component.translatable("gui.burmaldaholic.pvp.admin.quarantine"), 0xFF5555);
+			quarantine.forEach((id, json) -> {
+				String why = "?";
+				try {
+					why = JsonParser.parseString(json).getAsJsonObject().get("why").getAsString();
+				} catch (RuntimeException ignored) {
+					// shown as "?"
+				}
+				out.line(Component.translatable("gui.burmaldaholic.pvp.admin.quarantine_row", Texts.raw(id), Texts.raw(why)), 0xFFAA00);
+				out.button("resolve:" + id, Component.translatable("gui.burmaldaholic.pvp.admin.quarantine_resolve"), true);
+			});
+		}
 	}
 
 	@Override
 	public @Nullable Component action(ServerPlayer player, String action, long amount) {
+		if (isOperator(player) && action.startsWith("resolve:")) {
+			String id = action.substring("resolve:".length());
+			if (PvpMatchData.get(player.level().getServer()).removeQuarantine(id)) {
+				dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.warn("PvP: quarantined match {} marked resolved by {}", id, player.getName().getString());
+			}
+			return null;
+		}
 		if (!isOperator(player) || !action.startsWith("cancel:")) {
 			return null;
 		}

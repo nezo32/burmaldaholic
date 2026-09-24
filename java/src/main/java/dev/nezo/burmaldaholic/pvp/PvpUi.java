@@ -334,7 +334,8 @@ public final class PvpUi {
 				case "leave" -> pvp.leave(p);
 				case "press" -> pvp.press(p);
 				case "decide" -> {
-					// arg = "<decision>" or "<decision>#<seq>" (the question the screen was opened for, review wave 2 m2)
+					// arg = "<decision>#<seq>" (the question the screen was opened for, review wave 2 m2); without #seq
+					// the engine drops the answer (no unchecked form)
 					String arg = a.arg();
 					int hash = arg.indexOf('#');
 					long seq = -1;

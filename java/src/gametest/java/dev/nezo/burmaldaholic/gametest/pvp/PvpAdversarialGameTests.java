@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.gametest.pvp;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
@@ -15,9 +16,12 @@ import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.pvp.Participant;
 import dev.nezo.burmaldaholic.core.pvp.Pvp;
 import dev.nezo.burmaldaholic.core.pvp.PvpMatch;
+import dev.nezo.burmaldaholic.core.pvp.PvpMatchData;
 import dev.nezo.burmaldaholic.core.pvp.PvpModes;
 import dev.nezo.burmaldaholic.core.pvp.PvpService;
 import dev.nezo.burmaldaholic.core.pvp.logic.AnchorKind;
+import dev.nezo.burmaldaholic.core.pvp.logic.DecisionView;
+import dev.nezo.burmaldaholic.core.pvp.logic.EscrowRecord;
 import dev.nezo.burmaldaholic.core.pvp.logic.MatchState;
 import dev.nezo.burmaldaholic.core.pvp.logic.Outcome;
 import dev.nezo.burmaldaholic.core.pvp.logic.PvpMode;
@@ -291,4 +295,117 @@ public class PvpAdversarialGameTests {
 			done(helper, a, b);
 		});
 	}
+	/** challenge → withdraw → challenge can't spam a target: the withdraw starts the per-pair cooldown too. */
+	@GameTest(maxTicks = 100)
+	public void withdrawStartsTheChallengeCooldown(GameTestHelper helper) {
+		PvpService pvp = Pvp.service();
+		ServerPlayer a = player(helper, 1000);
+		ServerPlayer b = player(helper, 1000);
+		ServerPlayer c = player(helper, 1000);
+		JsonElement params = new CoinDuelMode().encodeParams(new CoinDuelMode.Params(100, true));
+		PvpMatch first = ok(helper, pvp.challenge(a, "coin", params, 100, new PvpService.Opponent.PlayerTarget(b.getUUID())), "challenge");
+		pvp.withdraw(a, first.id);
+		helper.assertTrue(pvp.get(first.id).isEmpty(), "withdrawn");
+		Result<PvpMatch> again = pvp.challenge(a, "coin", params, 100, new PvpService.Opponent.PlayerTarget(b.getUUID()));
+		helper.assertFalse(again.isOk(), "re-challenging the same target right after a withdraw is refused");
+		helper.assertTrue(again.error().getString().length() > 0, "with a reason");
+		PvpMatch other = ok(helper, pvp.challenge(a, "coin", params, 100, new PvpService.Opponent.PlayerTarget(c.getUUID())), "another target is fine");
+		pvp.leave(a); // leaving withdraws too
+		helper.assertFalse(pvp.challenge(a, "coin", params, 100, new PvpService.Opponent.PlayerTarget(c.getUUID())).isOk(),
+			"a withdraw through leave starts the cooldown as well");
+		helper.assertTrue(pvp.get(other.id).isEmpty(), "second invite withdrawn");
+		PvpMatch back = ok(helper, pvp.challenge(b, "coin", params, 100, new PvpService.Opponent.PlayerTarget(a.getUUID())),
+			"the other direction is not blocked");
+		pvp.decline(a, back.id);
+		helper.assertTrue(bal(a) == 1000 && bal(b) == 1000 && bal(c) == 1000, "nothing moved");
+		done(helper, a, b, c);
+		helper.succeed();
+	}
+
+	/** A Double-or-nothing answer that names no question (seq -1) goes through the stale guard: dropped. */
+	@GameTest(maxTicks = 1200)
+	public void answerWithoutSeqIsDropped(GameTestHelper helper) {
+		PvpService pvp = Pvp.service();
+		ServerPlayer a = player(helper, 5000);
+		ServerPlayer b = player(helper, 5000);
+		PvpMatch first = ok(helper, pvp.challenge(a, "coin", new CoinDuelMode().encodeParams(new CoinDuelMode.Params(100, true)), 100,
+			new PvpService.Opponent.PlayerTarget(b.getUUID())), "challenge");
+		ok(helper, pvp.accept(b, first.id), "accept");
+		boolean[] checked = {false};
+		helper.succeedWhen(() -> {
+			if (!checked[0]) {
+				for (ServerPlayer p : List.of(a, b)) {
+					Optional<DecisionView> d = pvp.decisionFor(p.getUUID());
+					if (d.isPresent() && "coin.don_offer".equals(d.get().decision())) {
+						long seq = first.decisionSeq();
+						pvp.decide(p, "coin.don_offer", 1, first.id, -1);
+						pvp.decide(p, "coin.don_offer", 1, null, -1);
+						helper.assertTrue(first.decisionSeq() == seq && pvp.decisionFor(p.getUUID()).map(DecisionView::decision).orElse("")
+							.equals("coin.don_offer"), "an answer without seq changes nothing");
+						pvp.decide(p, "coin.don_offer", 0, first.id, first.decisionSeq()); // walk away: the chain ends
+						checked[0] = true;
+					}
+				}
+			}
+			helper.assertTrue(checked[0], "the offer was asked");
+			helper.assertTrue(pvp.all().stream().noneMatch(m -> first.id.equals(m.chainOf)), "no second link was started");
+			helper.assertTrue(bal(a) + bal(b) == 10_000 - first.rake(), "one flip settled: " + (bal(a) + bal(b)));
+			done(helper, a, b);
+		});
+	}
+
+	/**
+	 * Unreadable saved match records never take their escrow with them (own environment: the simulated restart
+	 * touches every live match): refunded from the escrow record, else from what can be read of the record, else
+	 * quarantined for an operator; an escrow record without its match is refunded too.
+	 */
+	@GameTest(maxTicks = 100, environment = "burmaldaholic:pvp_restart_salvage")
+	public void unreadableRecordsKeepTheirEscrow(GameTestHelper helper) {
+		ensureMode();
+		MinecraftServer server = helper.getLevel().getServer();
+		PvpService pvp = Pvp.service();
+		PvpMatchData data = PvpMatchData.get(server);
+		ServerPlayer a = player(helper, 1000);
+		ServerPlayer b = player(helper, 1000);
+		ServerPlayer c = player(helper, 1000);
+		ServerPlayer d = player(helper, 1000);
+		ServerPlayer e = player(helper, 1000);
+		ServerPlayer f = player(helper, 1000);
+		// 0. a healthy lobby: refunded once (its escrow record is not paid a second time as an "orphan")
+		ok(helper, pvp.openLobby(f, BAD, new JsonObject(), 40, none(f), BotSettings.HUMANS_ONLY, false), "healthy lobby");
+		// 1. a DRAWN match whose record is garbage: the escrow record pays both back
+		PvpMatch drawn = ok(helper, pvp.openLobby(a, BAD, new JsonObject(), 100, none(a), BotSettings.HUMANS_ONLY, false), "lobby 1");
+		ok(helper, pvp.join(b, drawn.id, 0), "join 1");
+		ok(helper, pvp.start(a, drawn.id), "start 1");
+		helper.assertTrue(drawn.state() == MatchState.DRAWN && data.escrow().containsKey(drawn.id), "escrow stored next to the DRAWN record");
+		data.put(drawn.id, "{broken");
+		// 2. a LOBBY record that fails to decode and lost its escrow record: salvaged from the participants
+		PvpMatch lobby = ok(helper, pvp.openLobby(c, BAD, new JsonObject(), 70, none(c), BotSettings.HUMANS_ONLY, false), "lobby 2");
+		JsonObject rec = JsonParser.parseString(data.raw().get(lobby.id)).getAsJsonObject();
+		rec.remove("anchor");
+		data.put(lobby.id, rec.toString());
+		data.removeEscrow(lobby.id);
+		// 3. an unreadable record with no escrow record: quarantined, chips stay in the bank (none minted)
+		PvpMatch lost = ok(helper, pvp.openLobby(d, BAD, new JsonObject(), 50, none(d), BotSettings.HUMANS_ONLY, false), "lobby 3");
+		data.put(lost.id, "garbage");
+		data.removeEscrow(lost.id);
+		// 4. an escrow record whose match record is gone
+		data.putEscrow("jadvorph", EscrowRecord.encode(BAD, List.of(EscrowRecord.Entry.player(e.getUUID(), 30))));
+		Pvp.simulateRestart(server);
+		helper.assertTrue(bal(a) == 1000 && bal(b) == 1000, "DRAWN escrow refunded from the escrow record: " + bal(a) + "/" + bal(b));
+		helper.assertTrue(bal(c) == 1000, "salvaged lobby entry refunded: " + bal(c));
+		helper.assertTrue(bal(d) == 950, "an unreadable entry is not guessed");
+		helper.assertTrue(data.quarantine().containsKey(lost.id) && data.quarantine().get(lost.id).contains("garbage"),
+			"the record is quarantined with its raw text for an operator");
+		helper.assertTrue(bal(e) == 1030, "orphan escrow refunded");
+		helper.assertTrue(bal(f) == 1000, "a healthy lobby is refunded exactly once: " + bal(f));
+		for (String id : List.of(drawn.id, lobby.id, lost.id, "jadvorph")) {
+			helper.assertFalse(data.raw().containsKey(id) || data.escrow().containsKey(id), "no stale record left: " + id);
+		}
+		helper.assertFalse(data.quarantine().containsKey(drawn.id) || data.quarantine().containsKey(lobby.id), "refunded ones not quarantined");
+		helper.assertTrue(data.removeQuarantine(lost.id), "an operator can mark it resolved");
+		done(helper, a, b, c, d, e, f);
+		helper.succeed();
+	}
 }
+

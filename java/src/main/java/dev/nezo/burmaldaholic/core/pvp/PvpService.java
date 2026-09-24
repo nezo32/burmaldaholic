@@ -90,16 +90,10 @@ public interface PvpService {
 	 * option 0 = walk away, 1 = Double or nothing on Heads, 2 = on Tails; {@code coin.let_it_ride} (chain
 	 * winner) with 1 = let it ride, 0 = take the money. {@code coin.side} (0 heads / 1 tails) before
 	 * {@code coin.don_offer} 1 sets the called side (Bedrock form flow). The open decision is {@link #decisionFor}.
-	 */
-	default void decide(ServerPlayer player, String decision, long option) {
-		decide(player, decision, option, null, -1);
-	}
-
-	/**
-	 * {@link #decide(ServerPlayer, String, long)} for the question the UI was opened for: {@code matchId} and
-	 * {@code seq} ({@link PvpMatch#decisionSeq}, sent with the view's {@code decision}) must still be the open
-	 * question, else the answer is stale and dropped (review wave 2, m2). {@code matchId} null / {@code seq} &lt; 0 =
-	 * unchecked (commands).
+	 *
+	 * <p>{@code seq} ({@link PvpMatch#decisionSeq}, sent with the view's {@code decision}) and, when given,
+	 * {@code matchId} must still be the open question, else the answer is stale and dropped (review wave 2, m2).
+	 * There is no unchecked form: {@code seq} &lt; 0 (a client that names no question) is always dropped.
 	 */
 	void decide(ServerPlayer player, String decision, long option, @Nullable String matchId, long seq);
 

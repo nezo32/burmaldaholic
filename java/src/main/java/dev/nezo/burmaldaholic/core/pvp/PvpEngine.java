@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.core.pvp;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.nezo.burmaldaholic.Burmaldaholic;
@@ -33,6 +34,7 @@ import dev.nezo.burmaldaholic.core.pvp.logic.AnchorKind;
 import dev.nezo.burmaldaholic.core.pvp.logic.CoinChain;
 import dev.nezo.burmaldaholic.core.pvp.logic.DecisionView;
 import dev.nezo.burmaldaholic.core.pvp.logic.Eligibility;
+import dev.nezo.burmaldaholic.core.pvp.logic.EscrowRecord;
 import dev.nezo.burmaldaholic.core.pvp.logic.HeadToHead;
 import dev.nezo.burmaldaholic.core.pvp.logic.LobbyRules;
 import dev.nezo.burmaldaholic.core.pvp.logic.MatchState;
@@ -98,6 +100,12 @@ final class PvpEngine implements PvpService {
 	private final Map<String, PvpMatch> matches = new LinkedHashMap<>();
 	/** "target|challenger" → tick until which the target's decline blocks new challenges. */
 	private final Map<String, Long> declined = new HashMap<>();
+	/**
+	 * "target|challenger" → tick until which the challenger can't challenge that target again: started when the
+	 * challenger's invite ends on their side (withdrawn, walked off, disconnected), so challenge → withdraw →
+	 * challenge can't spam a target with invites. Same duration as the decline cooldown.
+	 */
+	private final Map<String, Long> rechallenge = new HashMap<>();
 	private final Map<String, ChatterLimiter> chatter = new HashMap<>();
 	private final List<BiPredicate<MinecraftServer, UUID>> busyChecks = new CopyOnWriteArrayList<>();
 	private @Nullable MinecraftServer server;
@@ -196,6 +204,7 @@ final class PvpEngine implements PvpService {
 	private void reset() {
 		matches.clear();
 		declined.clear();
+		rechallenge.clear();
 		chatter.clear();
 		server = null;
 	}
@@ -212,16 +221,22 @@ final class PvpEngine implements PvpService {
 	void playOutSaved(MinecraftServer s) {
 		server = s;
 		PvpMatchData data = PvpMatchData.get(s);
-		for (Map.Entry<String, String> e : data.raw().entrySet()) {
+		Map<String, String> escrows = data.escrow();
+		Map<String, String> records = data.raw();
+		for (Map.Entry<String, String> e : records.entrySet()) {
 			PvpMatch m;
 			try {
 				m = MatchJson.decode(e.getValue());
 			} catch (RuntimeException ex) {
-				Burmaldaholic.LOGGER.error("PvP: dropping unreadable match {}", e.getKey(), ex);
-				data.remove(e.getKey());
+				// never drop the escrow with the record: refund it from the escrow record / what can be read, else quarantine
+				Burmaldaholic.LOGGER.error("PvP: match record {} is unreadable — recovering its escrow", e.getKey(), ex);
+				recoverUnreadable(s, data, e.getKey(), e.getValue(), escrows.get(e.getKey()));
 				continue;
 			}
 			m.botRng = Bots.newRng();
+			if (!m.state.holdsEscrow()) {
+				data.removeEscrow(m.id);
+			}
 			switch (m.state) {
 				case LOBBY -> {
 					matches.put(m.id, m);
@@ -240,6 +255,84 @@ final class PvpEngine implements PvpService {
 				default -> data.remove(m.id);
 			}
 		}
+		for (Map.Entry<String, String> e : escrows.entrySet()) {
+			// only escrow whose match record did not exist at load (the loop above settled / refunded the others)
+			if (!records.containsKey(e.getKey()) && data.escrow().containsKey(e.getKey())) {
+				// the match record itself is gone: the escrow record alone still says whom to pay back
+				Burmaldaholic.LOGGER.error("PvP: escrow of match {} has no match record — refunding it", e.getKey());
+				recoverUnreadable(s, data, e.getKey(), null, e.getValue());
+			}
+		}
+	}
+
+	/**
+	 * A persisted match that can't be decoded (Java wave-2 re-review): its escrow is refunded from the separate
+	 * escrow record, else from whatever {@link EscrowRecord#salvage} can read of the record; anything that can't be
+	 * paid back (unreadable stakes, a vanished bankroll, a failed credit) goes to the quarantine an operator sees on
+	 * the PvP admin page. Nothing is dropped silently.
+	 */
+	void recoverUnreadable(MinecraftServer s, PvpMatchData data, String id, @Nullable String raw, @Nullable String escrowJson) {
+		EscrowRecord.Salvage sv = null;
+		if (escrowJson != null) {
+			try {
+				sv = EscrowRecord.decode(escrowJson);
+			} catch (RuntimeException ex) {
+				Burmaldaholic.LOGGER.error("PvP: escrow record of {} is unreadable too", id, ex);
+			}
+		}
+		if (sv == null) {
+			sv = raw != null ? EscrowRecord.salvage(raw) : new EscrowRecord.Salvage.Unknown("escrow record unreadable");
+		}
+		JsonArray unpaid = new JsonArray();
+		String why = null;
+		switch (sv) {
+			case EscrowRecord.Salvage.Nothing n -> Burmaldaholic.LOGGER.warn("PvP: unreadable match {} held no escrow (settled / cancelled) — removed", id);
+			case EscrowRecord.Salvage.Unknown u -> why = u.why();
+			case EscrowRecord.Salvage.Refund r -> {
+				for (EscrowRecord.Entry en : r.entries()) {
+					if (en.amount() <= 0) {
+						continue;
+					}
+					AccountId to = !en.bankroll() ? AccountId.player(UUID.fromString(en.id())) : creditable(s, en.id()) ? AccountId.bankroll(en.id()) : null;
+					boolean paid = to != null && Economies.get().batch(s).debit(AccountId.HOUSE, en.amount()).credit(to, en.amount())
+						.commit(Transaction.refund(GAME)).ok();
+					if (paid) {
+						Burmaldaholic.LOGGER.warn("PvP: refunded {} chips of unreadable match {} to {}", en.amount(), id, to);
+						if (!en.bankroll()) {
+							note(s, UUID.fromString(en.id()), new PvpPlayerRecord.Note("refunded", r.mode(), en.amount()));
+						}
+					} else {
+						JsonArray t = new JsonArray();
+						t.add(en.bankroll() ? "b" : "p");
+						t.add(en.id());
+						t.add(en.amount());
+						unpaid.add(t);
+					}
+				}
+				if (!unpaid.isEmpty()) {
+					why = "refund failed for some entries";
+				}
+			}
+		}
+		if (why != null) {
+			JsonObject q = new JsonObject();
+			q.addProperty("why", why);
+			q.addProperty("tick", now(s));
+			if (raw != null) {
+				q.addProperty("raw", raw);
+			}
+			if (escrowJson != null) {
+				q.addProperty("escrow", escrowJson);
+			}
+			if (!unpaid.isEmpty()) {
+				q.add("unpaid", unpaid); // chips still in the bank, owed to these accounts
+			}
+			data.putQuarantine(id, q.toString());
+			Burmaldaholic.LOGGER.error("PvP: *** QUARANTINED match {} ({}): its escrow is still in the bank and needs an operator — "
+				+ "see Casino Menu → PvP matches. Record: {}", id, why, q);
+		}
+		data.remove(id);
+		data.removeEscrow(id);
 	}
 
 	/** Test/admin hook: forget the in-memory state and play out the saved matches as a world load does. */
@@ -317,7 +410,9 @@ final class PvpEngine implements PvpService {
 		MinecraftServer s = server(player);
 		UUID id = player.getUUID();
 		for (PvpMatch m : new ArrayList<>(matches.values())) {
-			if (m.phase == Phase.INVITE && (id.equals(m.host) || id.equals(m.invitee))) {
+			if (m.phase == Phase.INVITE && id.equals(m.host)) {
+				withdrawn(s, m); // a relog is a withdraw too (no spam by reconnecting)
+			} else if (m.phase == Phase.INVITE && id.equals(m.invitee)) {
 				notifyInviteEnd(s, m, "msg.burmaldaholic.pvp.invite.withdrawn");
 				close(s, m, MatchState.CANCELLED);
 			} else if ((m.phase == Phase.LOBBY) && participantOf(m, id) != null) {
@@ -351,6 +446,7 @@ final class PvpEngine implements PvpService {
 		}
 		if (s.getTickCount() % 200 == 0) {
 			declined.values().removeIf(until -> until <= now);
+			rechallenge.values().removeIf(until -> until <= now);
 		}
 	}
 
@@ -428,6 +524,11 @@ final class PvpEngine implements PvpService {
 				if (target.getUUID().equals(challenger.getUUID())) {
 					return fail("gui.burmaldaholic.pvp.error.self");
 				}
+				long until = rechallenge.getOrDefault(pairKey(target.getUUID(), challenger.getUUID()), Long.MIN_VALUE);
+				if (until > now) {
+					return Result.fail(Component.translatable("gui.burmaldaholic.pvp.error.cooldown_rechallenge", target.getDisplayName(),
+						Texts.plural("unit.burmaldaholic.second", Math.max(1, (until - now + 19) / 20))));
+				}
 				Component e = eligibility(challenger, md, m, null, stake, Role.CHALLENGER, null, false, false);
 				if (e == null) {
 					e = eligibility(target, md, m, null, stake, Role.TARGET, challenger, false, false);
@@ -468,10 +569,9 @@ final class PvpEngine implements PvpService {
 			ServerPlayer challenger = online(s, m.host);
 			if (challenger != null && !nearAnchor(challenger, m)) {
 				// PVP.md §3.3.1: WITHDRAWN when the challenger leaves the radius before the answer
-				notifyInviteEnd(s, m, "msg.burmaldaholic.pvp.invite.withdrawn");
 				challenger.sendSystemMessage(Component.translatable("msg.burmaldaholic.pvp.invite.expired",
 					PvpText.name(m.participants.get(1), mode(m))).withStyle(ChatFormatting.GRAY));
-				close(s, m, MatchState.CANCELLED);
+				withdrawn(s, m);
 				return;
 			}
 		}
@@ -584,8 +684,7 @@ final class PvpEngine implements PvpService {
 		if (m == null || m.phase != Phase.INVITE || !challenger.getUUID().equals(m.host)) {
 			return;
 		}
-		notifyInviteEnd(s, m, "msg.burmaldaholic.pvp.invite.withdrawn");
-		close(s, m, MatchState.CANCELLED);
+		withdrawn(s, m);
 	}
 
 	/** Rule 5 at accept (PVP.md §3.2: re-checked when money moves): the target within {@code pvp.joinRadius} of the challenger. */
@@ -598,6 +697,22 @@ final class PvpEngine implements PvpService {
 	private static boolean nearAnchor(ServerPlayer p, PvpMatch m) {
 		return p.level().dimension().equals(m.anchor.dimension())
 			&& p.position().distanceTo(Vec3.atCenterOf(m.anchor.pos())) <= CasinoConfig.pvp().joinRadius;
+	}
+
+	private static String pairKey(UUID target, @Nullable UUID challenger) {
+		return target + "|" + challenger;
+	}
+
+	/**
+	 * The challenger ended (or replaced) their pending invite: the target is told, and the same challenger can't
+	 * challenge the same target again for {@code pvp.declineCooldownTicks} (anti-spam, PVP.md §3.12).
+	 */
+	private void withdrawn(MinecraftServer s, PvpMatch m) {
+		if (m.invitee != null && m.host != null) {
+			rechallenge.put(pairKey(m.invitee, m.host), now(s) + CasinoConfig.pvp().declineCooldownTicks);
+		}
+		notifyInviteEnd(s, m, "msg.burmaldaholic.pvp.invite.withdrawn");
+		close(s, m, MatchState.CANCELLED);
 	}
 
 	private void notifyInviteEnd(MinecraftServer s, PvpMatch m, String key) {
@@ -1793,8 +1908,8 @@ final class PvpEngine implements PvpService {
 			if (matchId != null && !matchId.isEmpty() && !matchId.equals(m.id)) {
 				continue;
 			}
-			if (seq >= 0 && seq != m.decisionSeq) {
-				continue; // a stale form / screen answering an earlier question (review wave 2, m2)
+			if (seq < 0 || seq != m.decisionSeq) {
+				continue; // a stale form / screen answering an earlier question, or one that names none (review wave 2, m2)
 			}
 			Participant p = participantOf(m, player.getUUID());
 			if (p != null && (m.phase == Phase.OFFER_LOSER || m.phase == Phase.OFFER_WINNER)) {
@@ -2452,15 +2567,36 @@ final class PvpEngine implements PvpService {
 		matches.remove(m.id);
 		chatter.remove(m.id);
 		PvpMatchData.get(s).remove(m.id);
+		PvpMatchData.get(s).removeEscrow(m.id);
 		presenter().lobbyChanged(m);
 	}
 
 	private void persist(MinecraftServer s, PvpMatch m) {
+		PvpMatchData data = PvpMatchData.get(s);
 		if (m.state.persisted()) {
-			PvpMatchData.get(s).put(m.id, MatchJson.encode(m));
+			data.put(m.id, MatchJson.encode(m));
 		} else {
-			PvpMatchData.get(s).remove(m.id);
+			data.remove(m.id);
 		}
+		if (m.state.holdsEscrow()) {
+			data.putEscrow(m.id, EscrowRecord.encode(m.mode, escrowEntries(m)));
+		} else {
+			data.removeEscrow(m.id);
+		}
+	}
+
+	/** What the bank holds for {@code m}: human stakes and bankroll-bot stakes (bank bots moved nothing). */
+	static List<EscrowRecord.Entry> escrowEntries(PvpMatch m) {
+		List<EscrowRecord.Entry> out = new ArrayList<>();
+		for (Participant p : m.participants) {
+			UUID h = p.humanId();
+			if (h != null) {
+				out.add(EscrowRecord.Entry.player(h, p.stake()));
+			} else if (p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL) {
+				out.add(EscrowRecord.Entry.bankroll(b.purse().bankrollId(), p.stake()));
+			}
+		}
+		return out;
 	}
 
 	private void renumber(PvpMatch m, Participant removed) {
