@@ -2,7 +2,14 @@
 	"required": true,
 	"package": "dev.nezo.burmaldaholic.worldgen.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"JigsawPlacerMixin",
+		"MinecraftServerAccessor",
+		"SinglePoolElementAccessor",
+		"SinglePoolElementMixin",
+		"StructureMixin",
+		"TemplateStructurePieceAccessor"
+	],
 	"client": [],
 	"server": [],
 	"injectors": {
