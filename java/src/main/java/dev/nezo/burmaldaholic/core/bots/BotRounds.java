@@ -24,6 +24,32 @@ public final class BotRounds {
 		return anyBots ? r.withTags(VS_BOTS) : r;
 	}
 
+	/** Tag prefix carrying the bots' share of the counterparty money in basis points ({@code bot_share:5000}). */
+	public static final String SHARE_PREFIX = "bot_share:";
+
+	/**
+	 * Adds the bots' share of the money on the other side of the human (BOTS.md §5.3: PvP = bot stakes /
+	 * other participants' stakes), read by {@link #botShare}. Use after {@link #tag}.
+	 */
+	public static PlayResult withShare(PlayResult r, double botShare) {
+		long bp = Math.round(Math.max(0, Math.min(1, botShare)) * 10000);
+		return r.withTags(SHARE_PREFIX + bp);
+	}
+
+	/** The bots' share of the round (0 … 1): the share tag, else 1 for any round tagged vs bots, else 0. */
+	public static double botShare(PlayResult r) {
+		for (String t : r.tags()) {
+			if (t.startsWith(SHARE_PREFIX)) {
+				try {
+					return Math.max(0, Math.min(1, Long.parseLong(t.substring(SHARE_PREFIX.length())) / 10000.0));
+				} catch (NumberFormatException ignored) {
+					break;
+				}
+			}
+		}
+		return vsBots(r) ? 1 : 0;
+	}
+
 	public static boolean vsBots(PlayResult r) {
 		return r.tags().contains(VS_BOTS);
 	}

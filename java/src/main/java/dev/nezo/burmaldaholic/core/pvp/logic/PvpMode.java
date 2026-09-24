@@ -67,6 +67,23 @@ public interface PvpMode<P, T> {
 		return false;
 	}
 
+	/**
+	 * Coin Flip Duel chain (PVP.md §4.2): the params of the next linked flip with stake {@code stake} each and
+	 * the challenger (participant 0) on heads when {@code challengerHeads}. Default null = the engine copies the
+	 * params JSON and sets its {@code stake} / {@code challengerHeads} fields.
+	 */
+	default P chainParams(P params, long stake, boolean challengerHeads) {
+		return null;
+	}
+
+	/**
+	 * Wheel Party cap C (max total stake per player) of these params; default {@link Long#MAX_VALUE} = no cap
+	 * of the mode (the engine then reads a {@code cap} field of the params JSON, if any).
+	 */
+	default long stakeCap(P params) {
+		return Long.MAX_VALUE;
+	}
+
 	// ---- persistence: tapes and params are saved as JSON (< 700 chars per PVP.md §3.6) ----
 
 	JsonElement encodeParams(P params);

@@ -1,9 +1,11 @@
 package dev.nezo.burmaldaholic.core.rng;
 
+import dev.nezo.burmaldaholic.core.bots.BotRounds;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.StreakConfig;
 import dev.nezo.burmaldaholic.core.data.CasinoWorldData;
 import dev.nezo.burmaldaholic.core.data.PlayerRecord;
+import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -44,6 +46,24 @@ public final class StreakTracker {
 			data.setDirty();
 		}
 		return r.streak;
+	}
+
+	/**
+	 * Does a settled round update S? Not a round against money bots (BOTS.md §5.3) and not a PvP-engine match
+	 * unless {@code pvp.affectsStreak} (PVP.md §3.4, §3.12).
+	 */
+	public static boolean counts(CasinoEvents.PlayResult result) {
+		if (BotRounds.vsBots(result)) {
+			return false;
+		}
+		return !"pvp".equals(result.gameId()) || CasinoConfig.pvp().affectsStreak;
+	}
+
+	/** {@code PLAY_RESOLVED} listener (core): {@link #record} for rounds that {@link #counts count}. */
+	public static void onPlayResolved(ServerPlayer player, CasinoEvents.PlayResult result) {
+		if (counts(result)) {
+			record(player, result.bet(), result.net());
+		}
 	}
 
 	/** Records a settled wager (stake ≥ 1). Returns the new streak and sends the §14 chat messages. */
