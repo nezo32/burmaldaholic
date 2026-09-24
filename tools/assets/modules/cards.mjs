@@ -115,8 +115,8 @@ export default function generate() {
   sprite('badge/total_gold', totalBadge(true), nine(14, 11, 3));
 
   // ---- card fx ----
-  sprite('fx/glow_l', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'l'))), { frametime: 3 });
-  sprite('fx/glow_m', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'm'))), { frametime: 3 });
+  sprite('fx/glow_l', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'l'))), { frametime: 3, frame: [43, 55] });
+  sprite('fx/glow_m', vstrip([0, 1, 2, 3].map((f) => cardGlow(f, 'm'))), { frametime: 3, frame: [27, 35] });
   sprite('fx/shimmer', shimmer());
   sprite('fx/curl_l', curl(37, 6));
   sprite('fx/curl_m', curl(21, 4));

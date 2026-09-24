@@ -164,6 +164,17 @@ public final class HoldemLayout {
 			for (Rect c : cards) free &= !b.intersects(c);
 			if (free) return new int[] {spot[0] + d[0], spot[1] + d[1]};
 		}
+		for (int r = 8; r <= 48; r += 4) {
+			for (int dy = -r; dy <= r; dy += 4) {
+				for (int dx = -r; dx <= r; dx += 4) {
+					if (Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
+					Rect b = new Rect(spot[0] + dx - 6, spot[1] + dy - 6, 13, 13);
+					boolean free = true;
+					for (Rect c : cards) free &= !b.intersects(c);
+					if (free) return new int[] {spot[0] + dx, spot[1] + dy};
+				}
+			}
+		}
 		return new int[] {spot[0] + tries[0][0], spot[1] + tries[0][1]};
 	}
 

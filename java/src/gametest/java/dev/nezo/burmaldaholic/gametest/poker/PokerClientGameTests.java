@@ -57,10 +57,11 @@ public class PokerClientGameTests implements FabricClientGameTest {
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			world.getServer().runCommand("casino balance set @p 12500");
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
-			pokerLive(context, world);
-			pokerMockups(context, world);
+			world.getServer().runOnServer(server -> TABLE[0] = server.getPlayerList().getPlayers().getFirst().blockPosition().offset(2, 0, 0));
 			uthLive(context, world);
 			uthMockups(context, world);
+			pokerLive(context, world);
+			pokerMockups(context, world);
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = true);
 		} finally {
 			context.runOnClient(mc -> {
@@ -325,9 +326,14 @@ public class PokerClientGameTests implements FabricClientGameTest {
 			if (server.overworld().getBlockEntity(pos) instanceof UthTableBlockEntity table) {
 				table.stackDeckForTests(uthDeck());
 				CompoundTag args = new CompoundTag();
-				args.putLong("ante", 25);
-				args.putLong("trips", 25);
+				args.putLong("ante", 10);
+				args.putLong("trips", 10);
+				boolean seated = table.seats().isSeated(player.getUUID());
+				long[] lim = table.limitsFor(player);
 				table.onAction(player, "bet", args); // a single player: dealt at once
+				report.add("uth bet: seated=" + seated + " limits=" + lim[0] + ".." + lim[1] + " balance="
+					+ dev.nezo.burmaldaholic.core.economy.Economies.get().balance(player) + " confirmed=" + table.confirmedBet(player.getUUID()).isPresent()
+					+ " round=" + (table.round() != null) + " phase=" + table.phase());
 			}
 		});
 		try {
