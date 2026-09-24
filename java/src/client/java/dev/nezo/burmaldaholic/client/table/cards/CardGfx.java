@@ -73,6 +73,11 @@ public final class CardGfx {
 		g.blit(id, x, y, x + w, y + h, u / (float) tw, (u + uw) / (float) tw, v / (float) th, (v + vh) / (float) th);
 	}
 
+	/** The PNG of GUI sprite {@code burmaldaholic:core/<path>} as a plain texture (for UV crops of a sprite). */
+	public static Identifier spriteFile(String path) {
+		return Identifier.fromNamespaceAndPath("burmaldaholic", "textures/gui/sprites/core/" + path + ".png");
+	}
+
 	/** A whole picture 1 : 1. */
 	public static void picture(GuiGraphicsExtractor g, Identifier id, int x, int y, int w, int h, int argb) {
 		tex(g, id, x, y, w, h, 0, 0, w, h, w, h, argb);

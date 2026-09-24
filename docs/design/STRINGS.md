@@ -712,6 +712,31 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.actionbar` | Dealer %1$s · %2$s | Дилер %1$s · %2$s |
 | `gui.burmaldaholic.blackjack.actionbar_seat` | %1$s %2$s | %1$s %2$s |
 
+### Card table redesign (lane J-L4, `docs/design/visual/cards.md` §13; `cards.*` keys shared by the four card tables)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.blackjack.print.pays` | BLACKJACK PAYS 3 TO 2 | БЛЭКДЖЕК ПЛАТИТ 3 К 2 |
+| `gui.burmaldaholic.blackjack.print.insurance` | INSURANCE PAYS 2 TO 1 | СТРАХОВКА ПЛАТИТ 2 К 1 |
+| `gui.burmaldaholic.blackjack.your_turn_hand` | Your turn · hand %1$s of %2$s | Ваш ход · рука %1$s из %2$s |
+| `gui.burmaldaholic.blackjack.bet_doubled` | Bet %1$s + %2$s (doubled) | Ставка %1$s + %2$s (удвоена) |
+| `gui.burmaldaholic.blackjack.bet_total` | Bet %1$s | Ставка %1$s |
+| `gui.burmaldaholic.blackjack.badge.bj` | BJ | БД |
+| `gui.burmaldaholic.blackjack.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.blackjack.sub.bust` | Bust | Перебор |
+| `gui.burmaldaholic.blackjack.sub.blackjack` | Blackjack | Блэкджек |
+| `gui.burmaldaholic.blackjack.next_round` | Next round in %1$s | Новая раздача через %1$s |
+| `gui.burmaldaholic.blackjack.place_bet` | Choose a chip, then Deal | Выберите фишку и нажмите «Раздать» |
+| `gui.burmaldaholic.cards.join` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.cards.plaque` | %1$s · %2$s–%3$s | %1$s · %2$s–%3$s |
+| `gui.burmaldaholic.cards.stamp.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.cards.theme.village` | Village parlour | Деревенский салон |
+| `gui.burmaldaholic.cards.theme.bastion` | Bastion parlour | Салон бастиона |
+| `gui.burmaldaholic.cards.theme.end` | High Roller Lounge | Лаунж хайроллеров |
+| `gui.burmaldaholic.cards.level.easy.tooltip` | Easy bot (1 pip) | Лёгкий бот (1 точка) |
+| `gui.burmaldaholic.cards.level.normal.tooltip` | Normal bot (2 pips) | Обычный бот (2 точки) |
+| `gui.burmaldaholic.cards.level.hard.tooltip` | Hard bot (3 pips) | Сильный бот (3 точки) |
+
 ---
 
 ## poker
@@ -1359,6 +1384,23 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.fx.tie_pays` | Tie pays! | Ничья сыграла! |
 | `gui.burmaldaholic.baccarat.fx.banco` | Banco! | Банко! |
 | `gui.burmaldaholic.baccarat.fx.shoe_passes` | The shoe passes to %1$s | Шуз переходит к игроку %1$s |
+
+### Card table redesign (lane J-L4, `docs/design/visual/cards.md` §6.6, §13)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.baccarat.box.player` | PLAYER | ИГРОК |
+| `gui.burmaldaholic.baccarat.box.banker` | BANKER | БАНКИР |
+| `gui.burmaldaholic.baccarat.box.tie` | TIE | НИЧЬЯ |
+| `gui.burmaldaholic.baccarat.box.player_pair` | P. PAIR | ПАРА И. |
+| `gui.burmaldaholic.baccarat.box.banker_pair` | B. PAIR | ПАРА Б. |
+| `gui.burmaldaholic.baccarat.box_label` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.baccarat.stamp.player` | PLAYER WINS %1$s : %2$s | ИГРОК %1$s : %2$s |
+| `gui.burmaldaholic.baccarat.stamp.banker` | BANKER WINS %1$s : %2$s | БАНКИР %1$s : %2$s |
+| `gui.burmaldaholic.baccarat.stamp.tie` | TIE %1$s : %2$s | НИЧЬЯ %1$s : %2$s |
+| `gui.burmaldaholic.baccarat.stamp.natural` | NATURAL %1$s | НАТУРАЛЬНАЯ %1$s |
+| `gui.burmaldaholic.baccarat.you_win` | You win %1$s | Ваш выигрыш: %1$s |
+| `gui.burmaldaholic.baccarat.next_coup` | Next coup in %1$s | Следующая раздача через %1$s |
 
 ---
 

@@ -24,8 +24,8 @@ import org.jspecify.annotations.Nullable;
  * balance HUD, the console buttons ({@link CardButton}) and overlays. Widgets live in canvas coordinates; mouse input
  * is mapped into the canvas.
  *
- * <p>Thin local adapter for the shared {@code CasinoScreen} kit (lane J-L2): switch the frame to it when it lands; the
- * games only use {@link #drawScene}, {@link #buildConsole}, {@link #addButton} and the canvas helpers.
+ * <p>Built on the shared kit (lane J-L2): {@link CasinoTableScreen}'s entrance and location theme ({@link #theme()}),
+ * {@code CasinoButton} (via {@link CardButton}); the card tables add the scaled canvas, the table art and the console.
  */
 public abstract class CardTableScreen extends CasinoTableScreen {
 	private final List<CardButton> buttons = new ArrayList<>();
@@ -71,7 +71,8 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		return compact;
 	}
 
-	public TableTheme theme() {
+	/** The card-table look of this table (from the kit's location theme, {@link #theme()}). */
+	public TableTheme tableTheme() {
 		return theme;
 	}
 
@@ -86,16 +87,19 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 
 	@Override
 	protected void init() {
-		super.init();
-		theme = TableTheme.current();
+		// the canvas first: super.init() replays the cached state, which rebuilds the console
+		theme = TableTheme.of(theme());
 		int kk = CardLayout.scale(width, height);
 		compact = kk == 0;
 		k = Math.max(1, kk);
 		fk = compact ? Math.min(1f, Math.min(width / (float) CardLayout.COMPACT_W, height / (float) CardLayout.COMPACT_H)) : k;
 		ox = (int) Math.floor((width - canvasW() * fk) / 2f);
 		oy = (int) Math.floor((height - canvasH() * fk) / 2f);
-		leftPos = 0;
-		topPos = 0;
+		buttons.clear();
+		super.init();
+		// the kit's entrance veils (leftPos, topPos, imageWidth × imageHeight): the canvas on screen
+		leftPos = ox;
+		topPos = oy;
 		rebuildConsole();
 	}
 
