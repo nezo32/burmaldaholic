@@ -14,6 +14,7 @@ import {
   isNatural,
   isPair,
   normalizeRules,
+  standAllReturns,
   surrenderReturn,
 } from './index';
 
@@ -339,4 +340,44 @@ describe('Monte-Carlo RTP (GAME_DESIGN §6.1, §17)', () => {
     expect(b - a).toBeGreaterThan(0.009);
     expect(b - a).toBeLessThan(0.019);
   }, 120_000);
+});
+
+describe('drawn outcome projection (review M1)', () => {
+  it('standAllReturns = the result of standing now, without touching the round or the shoe', () => {
+    // seat 1: 10 + 6 = 16; dealer 9 up, 7 hole = 16, next cards: 5 (dealer 21), then 2
+    const src = new StackedSource(cards('10S', '9H', '6D', '7C', '5S', '2S'));
+    const r = new BlackjackRound(DEFAULT_RULES, src, [{ seat: 1, id: 'p1', bet: 10 }]);
+    expect(r.phase).toBe('turns');
+    const fork = new StackedSource(cards('5S', '2S'));
+    const proj = standAllReturns(r, fork);
+    expect(proj.get(1)).toBe(0); // 16 vs dealer 21
+    // the real round is untouched: still the player's turn with 2 cards
+    expect(r.phase).toBe('turns');
+    expect(r.current()?.hand.cards).toHaveLength(2);
+    expect(r.dealer).toHaveLength(2);
+    // playing it for real (stand) gives the same result from the same next cards
+    r.standAll(1);
+    expect(r.returnOf(1)).toBe(0);
+  });
+
+  it('Shoe.fork deals the same next cards and leaves the shoe alone', () => {
+    const shoe = new Shoe(seededRng(7), 1);
+    shoe.draw();
+    const f = shoe.fork();
+    const a = [f.draw(), f.draw(), f.draw()];
+    expect(shoe.dealt).toBe(1);
+    expect([shoe.draw(), shoe.draw(), shoe.draw()]).toEqual(a);
+  });
+
+  it('projects insurance, doubles and every seat', () => {
+    // seat1 11 (6+5), seat2 20 (K+Q); dealer A up, 9 hole (no blackjack) -> insurance phase
+    const r = round(['6S', 'KH', 'AD', '5C', 'QS', '9D', '10C', '2H'], [10, 10], { insurance: true });
+    expect(r.phase).toBe('insurance');
+    const shoe = new StackedSource(cards('10C', '2H'));
+    const proj = standAllReturns(r, shoe);
+    // everyone declines insurance, stands: dealer A+9 = soft 20 stands; 11 loses, 20 pushes
+    expect(proj.get(1)).toBe(0);
+    expect(proj.get(2)).toBe(10);
+    expect(r.phase).toBe('insurance');
+  });
 });

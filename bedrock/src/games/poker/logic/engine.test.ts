@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRng } from '../../../core/logic/rng';
 import { FULL_DECK, type PCard, pcs } from './cards';
-import { type Action, type HandPlayerInit, type HandState, applyAction, coerce, legal, startHand } from './engine';
+import { type Action, type HandPlayerInit, type HandState, applyAction, coerce, legal, playOut, startHand } from './engine';
 
 const RAKE = { percent: 0.05, capBb: 3, noFlopNoDrop: true };
 const NO_RAKE = { percent: 0, capBb: 0, noFlopNoDrop: true };
@@ -285,5 +285,39 @@ describe('random play invariants', () => {
       expect(s.result!.pots.reduce((a, p) => a + p.shares.reduce((x, y) => x + y, 0) + p.rake, 0)).toBe(potSum);
       for (const p of s.result!.pots) expect(p.rake).toBeLessThanOrEqual(Math.floor(p.amount * 0.05));
     }
+  });
+});
+
+describe('playOut: drawn outcome of a hand in progress (review M1)', () => {
+  const leave = (s: HandState): Action => (legal(s).canCheck ? X : F);
+
+  it('plays a copy to the end on the dealt deck; the hand is not changed', () => {
+    const s = hand([1000, 1000], { holes: ['As Ah', '7c 2d'], board: '2c 7d 9h Js Kd' });
+    act(s, C, X); // limp, check: flop comes
+    const before = JSON.stringify(s);
+    const end = playOut(s, leave)!;
+    expect(JSON.stringify(s)).toBe(before);
+    expect(end.complete).toBe(true);
+    expect(end.board).toHaveLength(5); // checked down: the board already in the deck
+    // p0 (button/SB heads-up) has aces, but p1's 7-2 makes two pair on 2c 7d: p1 wins
+    const i1 = end.players.findIndex((p) => p.id === 'p1');
+    expect(end.players[i1]!.stack).toBe(1010);
+    expect(chipsIn(end)).toBe(2000);
+  });
+
+  it('a human facing a bet folds in the play-out: quitting then loses what is already in', () => {
+    const s = hand([1000, 1000], { holes: ['As Ah', '7c 2d'], humans: [false, true] });
+    act(s, R(300)); // bot raises, the human faces 290 more
+    const end = playOut(s, (h, i) => (h.players[i]!.human ? leave(h) : C))!;
+    const human = end.players.find((p) => p.human)!;
+    expect(human.stack).toBe(990); // only the big blind is lost, no refund of it
+  });
+
+  it('a bluff is not rewarded: the bots play on and call it down', () => {
+    const s = hand([1000, 1000], { holes: ['7c 2d', 'As Ah'], board: '3c 8d 9h Js Kd', humans: [true, false] });
+    act(s, R(500)); // the human bluffs, then quits
+    const end = playOut(s, (h, i) => (h.players[i]!.human ? leave(h) : C))!;
+    expect(end.players.find((p) => p.human)!.stack).toBe(500);
+    expect(chipsIn(end)).toBe(2000);
   });
 });

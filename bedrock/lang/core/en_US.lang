@@ -294,6 +294,7 @@ msg.burmaldaholic.core.bought_chips=Bought %1 for %2
 msg.burmaldaholic.core.sold_chips=Sold %1 for %2
 msg.burmaldaholic.core.big_win=Big win: %1 takes %2 at %3!
 msg.burmaldaholic.core.round_refunded=The server restarted mid-round. Your bet of %1 was refunded.
+msg.burmaldaholic.core.round_played_out=The server restarted mid-round. Your %1 round was already decided, so it was played out: %2
 msg.burmaldaholic.core.auto_completed=You left mid-round. The dealer finished it for you: %1
 msg.burmaldaholic.core.card_given=You received a Casino Card
 ## [core / Casino Menu]

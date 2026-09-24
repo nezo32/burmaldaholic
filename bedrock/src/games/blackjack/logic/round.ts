@@ -336,6 +336,17 @@ export class BlackjackRound {
     this.phase = 'done';
   }
 
+  /**
+   * A copy of this round (deep: seats, hands, dealer) that deals from `src` instead: for
+   * projections that must not touch the real round or shoe.
+   */
+  fork(src: CardSource): BlackjackRound {
+    const r: BlackjackRound = Object.create(BlackjackRound.prototype);
+    const state = JSON.parse(JSON.stringify({ seats: this.seats, dealer: this.dealer })) as Pick<BlackjackRound, 'seats' | 'dealer'>;
+    Object.assign(r, state, { rules: this.rules, src, phase: this.phase, holeRevealed: this.holeRevealed, dealerBlackjack: this.dealerBlackjack, peeked: this.peeked, cur: this.cur });
+    return r;
+  }
+
   /** Total return of a seat (hands + insurance). */
   returnOf(seatNo: number): number {
     const s = this.seat(seatNo);
@@ -351,4 +362,15 @@ export class BlackjackRound {
 
 function newHand(bet: number): Hand {
   return { cards: [], bet, split: false, splitAces: false, doubled: false, surrendered: false, done: false, ret: 0 };
+}
+
+/**
+ * The drawn outcome of a round in play (GAME_DESIGN §4.1, review M1): the total return of every
+ * seat if all open hands stood now (the disconnect / timeout default) and the dealer played out
+ * the cards that are next in `src` (a fork of the real shoe). Pure: the round is not changed.
+ */
+export function standAllReturns(round: BlackjackRound, src: CardSource): Map<number, number> {
+  const f = round.fork(src);
+  for (const s of f.seats) f.standAll(s.seat);
+  return new Map(f.seats.map((s) => [s.seat, f.returnOf(s.seat)]));
 }

@@ -262,9 +262,23 @@ export class CrapsRuntime {
       if (sh) for (const l of this.pointListeners) l(sh, r.pointsInRow);
     }
     if (r.sevenOut) this.lastAnnounced.delete(rt.key);
+    this.drawPointBets(rt);
     this.arm(rt);
     this.announceShooterIfNew(rt);
     this.refreshViews(rt);
+  }
+
+  /**
+   * Bets with an established point have a drawn outcome (GAME_DESIGN §4.1, review M1): persist
+   * a hidden play-out of them (honest dice, like a leave) so a restart settles them at that
+   * result instead of refunding a Pass that already faces a point of 4. Bets still waiting for
+   * their first roll (come-out line bets, a new Come, Field) stay undrawn and are refunded.
+   */
+  private drawPointBets(rt: Runtime): void {
+    for (const [id, ret] of rt.table.playOut(mathRng)) {
+      const entry = rt.tickets.get(id);
+      if (entry) this.ctx.wagers.draw(entry.ticket, ret);
+    }
   }
 
   private eventLine(e: RollEvent): Raw | undefined {
@@ -517,6 +531,7 @@ export class CrapsRuntime {
     // Odds pay true odds: 0 % house edge (VIP cashback base).
     if (!this.ctx.wagers.raise(entry.ticket, p, amount, oddsWorstCase(now.side, now.point, amount), 0)) return true;
     rt.table.addOdds(bet.id, amount);
+    this.drawPointBets(rt);
     return true;
   }
 

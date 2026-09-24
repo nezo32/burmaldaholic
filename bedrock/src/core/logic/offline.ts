@@ -8,7 +8,11 @@
  *
  *   join: apply entry (chips, pawns, heart penalties, messages, deferred onSettled events)
  *         -> drop every stored ticket whose id is in entry.resolved
- *         -> refund the remaining tickets of an earlier server run
+ *         -> settle the remaining tickets of an earlier server run whose outcome was drawn
+ *            (parked here first, then applied), refund the undrawn ones
+ *
+ * Drawn rounds of an earlier run are also parked here at world load (from the world-level
+ * drawn store), so an offline player's drawn round is settled even before they come back.
  *
  * `resolved` is what prevents double payment: the player's persisted ticket list still holds
  * the ticket (it could not be rewritten while offline), so without it a restart between the
@@ -106,21 +110,29 @@ export function withAchievement(e: OfflineEntry, id: string): OfflineEntry {
 export interface StoredTicketLike {
   id: string;
   boot: number;
+  /** total return of the round's already drawn outcome (see WagerService.draw) */
+  drawn?: number;
 }
+
+/** The round's outcome was drawn (GAME_DESIGN §4.1: such a round is played out, never refunded). */
+export const hasDrawn = (w: { drawn?: unknown }): w is { drawn: number } => typeof w.drawn === 'number' && Number.isFinite(w.drawn) && w.drawn >= 0;
 
 /**
  * What to do with a joining player's persisted tickets: drop the ones resolved while offline,
- * refund those left open by an earlier server run, keep the rest (still open in this run).
+ * SETTLE those of an earlier server run whose outcome was already drawn (at that drawn result),
+ * refund the other ones of an earlier run (no draw yet), keep the rest (still open in this run).
  */
-export function planRecovery<T extends StoredTicketLike>(stored: readonly T[], resolved: readonly string[], boot: number): { refund: T[]; keep: T[]; dropped: T[] } {
+export function planRecovery<T extends StoredTicketLike>(stored: readonly T[], resolved: readonly string[], boot: number): { refund: T[]; settle: T[]; keep: T[]; dropped: T[] } {
   const done = new Set(resolved);
   const refund: T[] = [];
+  const settle: T[] = [];
   const keep: T[] = [];
   const dropped: T[] = [];
   for (const w of stored) {
     if (done.has(w.id)) dropped.push(w);
-    else if (w.boot !== boot) refund.push(w);
-    else keep.push(w);
+    else if (w.boot === boot) keep.push(w);
+    else if (hasDrawn(w)) settle.push(w);
+    else refund.push(w);
   }
-  return { refund, keep, dropped };
+  return { refund, settle, keep, dropped };
 }

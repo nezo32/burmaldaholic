@@ -35,7 +35,7 @@ import {
   t,
 } from '../../core';
 import { WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
-import { type Action, BlackjackRound, type BlackjackRules, Shoe, maxInsurance, normalizeRules } from './logic';
+import { type Action, BlackjackRound, type BlackjackRules, Shoe, maxInsurance, normalizeRules, standAllReturns } from './logic';
 import { netRaw, summaryRaw, tableRaw } from './render';
 
 export const HIGH_ROLLER = 'high_roller';
@@ -397,6 +397,7 @@ export class BjTable {
     if (!r || this.phase !== 'playing') return;
     this.clearTimer();
     this.payNewlySettled();
+    this.drawOutcomes();
 
     if (r.phase === 'insurance') {
       for (const seat of r.pendingInsurance()) {
@@ -457,6 +458,28 @@ export class BjTable {
       this.ctx.wagers.tell(part.playerId, part.away || !part.player.isValid ? t('msg.burmaldaholic.core.auto_completed', summary) : summary);
       if (s.hands.some((h) => h.outcome === 'blackjack' || h.outcome === 'even_money')) this.ctx.achievements.unlock(part.player.isValid ? part.player : part.playerId, 'natural');
       if (s.hands.length >= 4) this.ctx.achievements.unlock(part.player.isValid ? part.player : part.playerId, 'split_personality');
+    }
+  }
+
+  /**
+   * The cards are dealt, so every open seat has a drawn outcome (GAME_DESIGN §4.1, review M1):
+   * persist what it returns if all open hands stood now (the dealer drawing the next cards of
+   * the shoe). A restart mid-round settles the seat at that result instead of refunding it.
+   * Re-drawn after every decision / raise.
+   */
+  private drawOutcomes(): void {
+    const r = this.round;
+    if (!r || !this.shoe || r.phase === 'done') return;
+    let proj: Map<number, number>;
+    try {
+      proj = standAllReturns(r, this.shoe.fork());
+    } catch (e) {
+      this.ctx.log.error('blackjack projection failed', e);
+      return;
+    }
+    for (const part of this.parts.values()) {
+      const ret = proj.get(part.seat);
+      if (!part.paid && ret !== undefined) this.ctx.wagers.draw(part.ticket, ret);
     }
   }
 
@@ -521,6 +544,7 @@ export class BjTable {
     if (r.phase !== 'insurance') this.step();
     else {
       this.payNewlySettled();
+      this.drawOutcomes();
       this.hud(part.player, t('gui.burmaldaholic.common.waiting_players'), 100);
     }
   }

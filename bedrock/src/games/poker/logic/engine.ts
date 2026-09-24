@@ -427,3 +427,21 @@ export function currentPots(s: HandState): Pot[] {
 export const activePlayers = (s: HandState): number[] => s.players.flatMap((p, i) => (canAct(p) ? [i] : []));
 /** Players still contesting the pot. */
 export const livePlayers = live;
+
+/**
+ * Play a COPY of a hand in progress to the end, `choose` deciding every action (coerced to a
+ * legal one; an action that still fails becomes check/fold). The hand itself is not changed.
+ * Used for the drawn outcome persisted for a server stop (review M1). Returns the finished copy,
+ * or undefined if it did not finish within `maxActions`.
+ */
+export function playOut(s: HandState, choose: (h: HandState, i: number) => Action, maxActions = 500): HandState | undefined {
+  const h = JSON.parse(JSON.stringify(s)) as HandState;
+  for (let n = 0; n < maxActions && !h.complete && h.toAct >= 0; n++) {
+    try {
+      applyAction(h, coerce(h, choose(h, h.toAct)));
+    } catch {
+      applyAction(h, legal(h).canCheck ? { type: 'check' } : { type: 'fold' });
+    }
+  }
+  return h.complete ? h : undefined;
+}

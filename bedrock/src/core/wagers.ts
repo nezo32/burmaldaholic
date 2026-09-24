@@ -4,8 +4,13 @@
  *   credited, streak/VIP/contract hooks fired]      (refund() cancels a STAKED round)
  * Stakes: chips, the held item, XP levels, temporary max hearts, Hardcore Soul Wager (§4.3-4.4).
  * Houses: the world bank or an owned casino bankroll (reservation rule §18.2).
- * Open rounds are persisted per player; after a server restart they are refunded on the
- * player's next join (config core.roundTimeoutRefund) with msg.burmaldaholic.core.round_refunded.
+ * Open rounds are persisted per player. After a server restart (GAME_DESIGN §4.1, review M1):
+ *  - a round whose outcome was already DRAWN (the game called draw(): roulette ball, slot grid,
+ *    dealt blackjack cards, craps point...) is SETTLED at that drawn result through the offline
+ *    path (parked at world load, applied on the next join, msg.burmaldaholic.core.round_played_out).
+ *    Quitting while a losing result animates therefore changes nothing.
+ *  - a round without a draw is refunded on the player's next join (config
+ *    core.roundTimeoutRefund) with msg.burmaldaholic.core.round_refunded.
  *
  * Integration hooks (installed by feature modules, applied to EVERY game automatically):
  *  - house resolver (multiplayer): which bankroll banks a round at a table (`tableKey`)
@@ -41,6 +46,7 @@ import { houseEdgeOf, theoreticalLoss } from './logic/house-edge';
 import {
   type DeferredSettle,
   type OfflineEntry,
+  hasDrawn,
   planRecovery,
   withAchievement,
   withItem,
@@ -74,6 +80,12 @@ const TICKETS_PROP = 'burmaldaholic:core.wagers';
 const HEARTS_PROP = 'burmaldaholic:core.hearts';
 const SOUL_CD_PROP = 'burmaldaholic:core.soul_cooldown';
 const BOOT_PROP = 'burmaldaholic:core.boot';
+/**
+ * World-level copy of every open ticket with a drawn outcome, per player
+ * (`<prefix><playerId>` = { [ticketId]: StoredTicket }). World properties can be written while
+ * the player is offline, so a round drawn after its player disconnected is covered too.
+ */
+const DRAWN_PREFIX = 'burmaldaholic:core.drawn.';
 /** Accumulated ticks casino mode was off (heart penalties pause, review M2). */
 const DORMANT_PROP = 'burmaldaholic:core.dormant_ticks';
 const ACTIVE_TICK_PROP = 'burmaldaholic:core.active_tick';
@@ -166,9 +178,17 @@ export interface WagerTicket {
   readonly tableKey?: string;
   /** Σ stake × house edge so far (VIP cashback) */
   theo: number;
+  /**
+   * Total return of the round's outcome once it is drawn (set by draw(); persisted). A restart
+   * settles the round at this result instead of refunding it.
+   */
+  drawn?: number;
   /** per-round data a game may keep with the ticket (not persisted) */
   data?: unknown;
 }
+
+/** A ticket as persisted (player property / drawn store). */
+type StoredTicket = Omit<WagerTicket, 'data'>;
 
 export type PlaceResult = { ok: true; ticket: WagerTicket } | { ok: false; error: Raw };
 
@@ -300,6 +320,7 @@ export class WagerService {
     this.boot = (worldJson.read<number>(BOOT_PROP, 0) || 0) + 1;
     worldJson.write(BOOT_PROP, this.boot);
     this.economy.resetReservations();
+    this.parkDrawnRounds();
     for (const p of world.getAllPlayers()) this.join(p);
     world.afterEvents.playerSpawn.subscribe((e) => {
       if (e.initialSpawn) this.join(e.player);
@@ -471,8 +492,28 @@ export class WagerService {
     ticket.value += Math.floor(amount);
     ticket.theo += theoreticalLoss(Math.floor(amount), typeof houseEdge === 'number' && houseEdge >= 0 ? houseEdge : houseEdgeOf(ticket.game));
     if (ticket.house.kind === 'bankroll') ticket.reserved += extraWorstCase;
+    // A raise keeps the drawn result (the game draws again with the new outcome); the stored
+    // copy must carry the new stake so a restart settles the chips actually at risk.
+    if (hasDrawn(ticket)) this.storeDrawn(ticket);
     this.persist(player);
     return true;
+  }
+
+  /**
+   * The round's outcome is now drawn (GAME_DESIGN §4.1, review M1): record its total return
+   * (same meaning as settle's `totalReturn`) on the ticket and persist it BEFORE the result is
+   * shown or animated. If the server stops before settle(), the round is settled at this result
+   * on restart (never refunded). Call again whenever the outcome changes (a new card, a raise).
+   * Offline-safe; a no-op for a closed ticket.
+   */
+  draw(ticket: WagerTicket, totalReturn: number): void {
+    if (!this.open.has(ticket.id)) return;
+    const ret = Math.max(0, Math.floor(totalReturn));
+    if (!Number.isFinite(ret)) return;
+    ticket.drawn = ret;
+    this.storeDrawn(ticket);
+    const live = livePlayer(undefined, ticket.playerId);
+    if (live) this.persist(live);
   }
 
   /**
@@ -484,6 +525,7 @@ export class WagerService {
    */
   settle(ticket: WagerTicket, player: Player | undefined, totalReturn: number): SettledEvent | undefined {
     if (!this.open.delete(ticket.id)) return undefined;
+    this.dropDrawn(ticket);
     const ret = Math.max(0, Math.floor(totalReturn));
     const staked = ticket.value;
     const net = ret - staked;
@@ -512,6 +554,7 @@ export class WagerService {
   /** Cancel an open round and give the stake back (no streak/VIP effect). Offline-safe. */
   refund(ticket: WagerTicket, player: Player | undefined): void {
     if (!this.open.delete(ticket.id)) return;
+    this.dropDrawn(ticket);
     const live = livePlayer(player, ticket.playerId);
     if (ticket.house.kind === 'bankroll' && ticket.boot === this.boot) this.economy.release(ticket.house.id, ticket.reserved);
     if (!live) {
@@ -633,7 +676,7 @@ export class WagerService {
   // ---- offline settlement ----------------------------------------------------------------
 
   /** Park the result of a round for an offline player (pure on the entry, except config reads). */
-  private settleOffline(e: OfflineEntry, ticket: WagerTicket, ret: number): OfflineEntry {
+  private settleOffline(e: OfflineEntry, ticket: StoredTicket, ret: number): OfflineEntry {
     if (ticket.kind === 'chips') return { ...e, chips: e.chips + ret };
     const { returnPawn, chips: paid } = pawnSettlement(ticket.value, ret);
     let n: OfflineEntry = { ...e, chips: e.chips + paid };
@@ -647,7 +690,7 @@ export class WagerService {
     return n;
   }
 
-  private refundOffline(e: OfflineEntry, ticket: WagerTicket, chipsToo = true): OfflineEntry {
+  private refundOffline(e: OfflineEntry, ticket: StoredTicket, chipsToo = true): OfflineEntry {
     if (ticket.kind === 'chips') return chipsToo ? { ...e, chips: e.chips + ticket.value } : e;
     let n = e;
     if (ticket.item) n = withItem(n, ticket.item.typeId, ticket.item.amount);
@@ -741,17 +784,84 @@ export class WagerService {
     }
   }
 
+  // ---- drawn rounds (review M1) -----------------------------------------------------------
+
+  private readDrawn(playerId: string): Record<string, StoredTicket> {
+    const v = worldJson.read<Record<string, StoredTicket> | undefined>(DRAWN_PREFIX + playerId, undefined);
+    return v && typeof v === 'object' ? v : {};
+  }
+
+  private storeDrawn(ticket: WagerTicket): void {
+    const { data: _d, ...rest } = ticket;
+    const all = this.readDrawn(ticket.playerId);
+    all[ticket.id] = rest;
+    worldJson.write(DRAWN_PREFIX + ticket.playerId, all);
+  }
+
+  private dropDrawn(ticket: WagerTicket): void {
+    if (!hasDrawn(ticket)) return;
+    const all = this.readDrawn(ticket.playerId);
+    if (!(ticket.id in all)) return;
+    delete all[ticket.id];
+    worldJson.write(DRAWN_PREFIX + ticket.playerId, Object.keys(all).length ? all : undefined);
+  }
+
+  /** World load: settle every drawn round of the previous run through the offline path. */
+  private parkDrawnRounds(): void {
+    for (const id of world.getDynamicPropertyIds()) {
+      if (!id.startsWith(DRAWN_PREFIX)) continue;
+      const all = worldJson.read<Record<string, StoredTicket> | undefined>(id, undefined);
+      for (const w of Object.values(all && typeof all === 'object' ? all : {})) {
+        try {
+          if (w && typeof w.id === 'string' && w.boot !== this.boot) this.parkDrawn(w);
+        } catch (err) {
+          log.error(`drawn round ${String(w?.id)} failed`, err);
+        }
+      }
+      worldJson.write(id, undefined);
+    }
+  }
+
+  /**
+   * Settle a drawn round of an earlier run at its drawn result, like an offline settle(): the
+   * result is parked for the player (applied on join, onSettled fires then). Idempotent: a
+   * ticket already resolved in the player's offline entry is skipped.
+   */
+  private parkDrawn(w: StoredTicket): void {
+    if (!hasDrawn(w)) return;
+    if (offlineStore.read(w.playerId).resolved.includes(w.id)) return;
+    const ret = Math.max(0, Math.floor(w.drawn));
+    // Reservations of an earlier run were already dropped (economy.resetReservations).
+    if (w.house.kind === 'bankroll' && w.kind === 'chips') this.economy.settleBankroll(w.house.id, { reserved: w.boot === this.boot ? w.reserved : 0, stake: w.value, payout: ret });
+    const base: DeferredSettle = { game: w.game, staked: w.value, totalReturn: ret, stakeKind: w.kind, house: w.house, tableKey: w.tableKey, theoreticalLoss: w.theo };
+    const note = t('msg.burmaldaholic.core.round_played_out', gameLabel(w.game), netResult(ret - w.value));
+    offlineStore.update(w.playerId, (e) => withMessage(withSettled(withResolved(this.settleOffline(e, w, ret), w.id), base), note));
+    log.info(`settled drawn ${w.game} round ${w.id} of ${w.playerId} after restart (return ${ret})`);
+  }
+
   private persist(player: Player): void {
     if (!player.isValid) return;
     const mine = this.openFor(player).map(({ data: _d, ...rest }) => rest);
     writeJson(player, TICKETS_PROP, mine.length ? mine : undefined);
   }
 
-  /** Refund rounds left open by a previous server run (§4.1); drop rounds settled offline. */
+  /**
+   * Rounds left open by a previous server run (§4.1): drawn ones are settled at their drawn
+   * result (normally already parked at world load; this is the fallback), the others refunded.
+   * Rounds settled offline are dropped.
+   */
   private recover(player: Player, resolved: readonly string[]): void {
-    const stored = readJson<WagerTicket[]>(player, TICKETS_PROP, []);
+    const stored = readJson<StoredTicket[]>(player, TICKETS_PROP, []);
     const plan = planRecovery(stored, resolved, this.boot);
-    if (!plan.refund.length && !plan.dropped.length) return;
+    if (!plan.refund.length && !plan.settle.length && !plan.dropped.length) return;
+    if (plan.settle.length) {
+      for (const w of plan.settle) this.parkDrawn(w);
+      try {
+        this.applyOffline(player);
+      } catch (err) {
+        log.error(`drawn rounds of ${player.name} failed`, err);
+      }
+    }
     for (const w of plan.refund) {
       if (this.config.bool('core.roundTimeoutRefund')) {
         this.refundTo(w, player);
@@ -866,5 +976,9 @@ function itemName(typeId: string): Raw {
     return { translate: `item.${typeId.replace(/^minecraft:/, '')}.name` };
   }
 }
+
+/** "Win! +40 chips" / "Lost 40 chips" / "Push". */
+const netResult = (net: number): Raw =>
+  net > 0 ? t('gui.burmaldaholic.common.result.win', chips(net)) : net < 0 ? t('gui.burmaldaholic.common.result.loss', chips(-net)) : t('gui.burmaldaholic.common.result.push');
 
 const unitTime = (ticks: number): Raw => (ticks >= 1200 ? unit('minute', Math.ceil(ticks / 1200)) : unit('second', Math.ceil(ticks / 20)));

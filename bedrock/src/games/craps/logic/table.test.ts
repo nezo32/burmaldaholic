@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { seededRng } from '../../../core/logic/rng';
 import { DEFAULT_RULES, type SeatInfo } from './rules';
 import { CrapsTable } from './table';
 
@@ -140,5 +141,41 @@ describe('CrapsTable shooter', () => {
     expect(t.canRoll()).toBe(true);
     t.ensureShooter([]);
     expect(t.shooter).toBeUndefined();
+  });
+});
+
+describe('drawn point bets (review M1)', () => {
+  it('only bets with an established point are drawn; the play-out does not change the table', () => {
+    const t = new CrapsTable(DEFAULT_RULES);
+    t.addBet('a', 'pass', 10);
+    t.addBet('b', 'field', 10);
+    expect(t.pointBets()).toEqual([]); // come-out: nothing decided yet -> refundable
+    expect(t.playOut(seededRng(1)).size).toBe(0);
+    t.roll([2, 2]); // point 4
+    const come = t.addBet('a', 'come', 5);
+    expect(t.pointBets().map((b) => b.kind)).toEqual(['pass']); // the new come bet is undrawn
+    t.roll([4, 5]); // come moves to 9
+    t.addOdds(come.id, 5);
+    const before = JSON.stringify(t.bets);
+    const res = t.playOut(seededRng(2));
+    expect([...res.keys()].sort()).toEqual(t.pointBets().map((b) => b.id).sort());
+    expect(JSON.stringify(t.bets)).toBe(before);
+    expect(t.point).toBe(4);
+    // Pass on 4 returns 0 or 2 × flat; come on 9 with 5 odds returns 0 or 10 + 5 + 7 (3:2)
+    const pass = t.pointBets().find((b) => b.kind === 'pass')!;
+    expect([0, 20]).toContain(res.get(pass.id));
+    expect([0, 22]).toContain(res.get(come.id));
+  });
+
+  it('the play-out follows the true odds (Pass on a point of 4 wins 1/3)', () => {
+    const t = new CrapsTable(DEFAULT_RULES);
+    const pass = t.addBet('a', 'pass', 10);
+    t.roll([1, 3]);
+    const rng = seededRng(9);
+    let wins = 0;
+    const n = 6000;
+    for (let i = 0; i < n; i++) if ((t.playOut(rng).get(pass.id) ?? 0) > 0) wins++;
+    expect(wins / n).toBeGreaterThan(0.3);
+    expect(wins / n).toBeLessThan(0.367);
   });
 });

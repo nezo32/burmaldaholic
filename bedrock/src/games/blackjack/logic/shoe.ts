@@ -40,6 +40,13 @@ export class Shoe implements CardSource {
     this.pos = 0;
   }
 
+  /** A copy dealing the same next cards, without touching this shoe (outcome projections). */
+  fork(): Shoe {
+    const f: Shoe = Object.create(Shoe.prototype);
+    Object.assign(f, { rng: this.rng, decks: this.decks, cards: this.cards.slice(), pos: this.pos });
+    return f;
+  }
+
   draw(): Card {
     // Cannot happen with ≤ 7 seats × 4 hands and penetration ≤ 0.9, but stay safe.
     if (this.pos >= this.cards.length) this.shuffle();

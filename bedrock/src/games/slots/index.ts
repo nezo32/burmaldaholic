@@ -412,6 +412,9 @@ class SlotsGame implements SlotsApi {
         ? { state: this.pool(st.tier), rate: this.contribution(st.tier), seed: this.seed(st.tier), maxSpinBet: machineMaxSpinBet(st.tier, cfg) }
         : undefined,
     });
+    // The grid is final from here on (review M1): a restart before the reels stop settles the
+    // spin at this result instead of refunding it.
+    this.ctx.wagers.draw(r.ticket, outcome.totalReturn);
     if (progressive && outcome.pool) {
       this.loadPools()[st.tier] = outcome.pool;
       this.savePools();

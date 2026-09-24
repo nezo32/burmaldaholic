@@ -9,8 +9,11 @@
  * bank. Table stacks are persisted in the world property `burmaldaholic:poker.stacks`
  * (./logic/stacks: keyed by player + table, parked cash-outs also by hand, never overwritten),
  * so a crash or disconnect never loses chips: anything left there is paid on the player's next
- * join, or right away when a seat of an online player is removed (a hand interrupted by a
- * server stop is therefore refunded to its start stacks).
+ * join, or right away when a seat of an online player is removed. During a hand the live entry
+ * holds the hand's DRAWN outcome (review M1): after every action the hand is played out on a
+ * copy as if every human left now (humans check/fold, bots play on, the dealt deck decides the
+ * board) and each human's final stack is saved, so a server stop mid-hand settles the hand at
+ * that result instead of refunding the start stacks.
  *
  * Leaving (GAME_DESIGN §4.1, core leavePolicy): stand up, walk away, disconnect and a broken
  * table all auto-fold the seat and play the hand out; only casino mode off aborts the hand.
@@ -48,14 +51,16 @@ import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../../multiplayer/api'
 import { type TablePreset, WORLDGEN_SERVICE, type WorldgenApi } from '../../worldgen/api';
 import { POKER_SERVICE, type PokerApi } from './api';
 import { type BotTier, type BotView, botView, decideBot, opponentRanges, samplesFor } from './logic/bots';
-import { type Action, type HandState, applyAction, coerce, legal, potTotal } from './logic/engine';
-import { equityJob } from './logic/equity';
+import { type Action, type HandState, applyAction, coerce, legal, playOut, potTotal } from './logic/engine';
+import { equity, equityJob } from './logic/equity';
 import { handName } from './logic/evaluator';
 import { type StackStore, addBuyIn, clearLive, liveEntry, normalizeStacks, park, setLive, splitCashOut, takePayable } from './logic/stacks';
 import { STAKE_LEVELS, STAKE_MIN_TIER, type StakeLevel, TableModel, buyInRange, isStakeLevel, smallBlind } from './logic/table';
 import { eventRaw, resultLines, showdownBody, tableBody, toCallRaw } from './text';
 
 const STACKS_PROP = 'burmaldaholic:poker.stacks';
+/** Monte-Carlo samples per bot decision in the drawn-outcome play-out (kept small: it runs per action). */
+const PLAYOUT_SAMPLES = 16;
 const GAME = 'poker';
 
 /** Bot tier mix of worldgen "Regular-heavy" tables (fish, regular, shark). */
@@ -510,6 +515,7 @@ class PokerGame implements PokerApi {
     if (live.actionTimer !== undefined) system.clearRun(live.actionTimer);
     live.actionTimer = undefined;
     if (h.complete) return this.endHand(live);
+    this.saveDrawn(live, h);
     const p = h.players[h.toAct]!;
     const seat = live.model.seatOf(p.id);
     const seq = h.seq;
@@ -529,6 +535,40 @@ class PokerGame implements PokerApi {
     const sess = this.ctx.tables.sessionOf(player);
     if (sess) sess.closeForms();
     system.run(() => detach(this.showAction(live, player), (e) => this.ctx.log.error('poker action form', e)));
+  }
+
+  /**
+   * Persist the hand's drawn outcome (GAME_DESIGN §4.1, review M1): the stacks the humans end
+   * with if every human left now (auto check/fold, like a disconnect) and the bots played on,
+   * on the deck already dealt. A server stop mid-hand then pays these instead of the start
+   * stacks, so quitting on a bad flop or when facing a bet gains nothing.
+   */
+  private saveDrawn(live: LiveTable, h: HandState): void {
+    let end: HandState | undefined;
+    try {
+      end = playOut(h, (s, i) => this.leaveAction(live, s, i));
+    } catch (e) {
+      this.ctx.log.error('poker: drawn play-out failed', e);
+      return;
+    }
+    if (!end) return;
+    let all = this.stacks();
+    for (const p of end.players) if (p.human && live.model.seatOf(p.id)) all = setLive(all, p.id, live.key, p.stack);
+    this.writeStacks(all);
+  }
+
+  /** Action in the drawn play-out: humans check/fold (they left), bots decide as usual. */
+  private leaveAction(live: LiveTable, s: HandState, i: number): Action {
+    const p = s.players[i]!;
+    const seat = live.model.seatOf(p.id);
+    if (p.human || !seat || seat.kind !== 'bot') return legal(s, i).canCheck ? { type: 'check' } : { type: 'fold' };
+    const tier = seat.tier ?? 'regular';
+    const view = botView(s, i, live.model.vpipMap());
+    const cfg = this.ctx.config;
+    const samples = Math.min(PLAYOUT_SAMPLES, samplesFor(tier, s.street, { regularSamples: cfg.int('bot.regularSamples'), sharkSamples: cfg.int('bot.sharkSamples') }));
+    if (samples <= 0) return decideBot(tier, view, undefined, mathRng);
+    const ranges = tier === 'shark' ? opponentRanges(s, i) : undefined;
+    return decideBot(tier, view, equity({ hole: view.hole, board: view.board, opponents: view.opponents, samples, ranges }, mathRng), mathRng);
   }
 
   private isCurrent(live: LiveTable, h: HandState, seq: number): boolean {

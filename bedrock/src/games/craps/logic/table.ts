@@ -18,11 +18,13 @@ import {
   type RollResult,
   type SeatInfo,
   applyRoll,
+  autoComplete,
   maxOdds,
   nextShooter,
   oddsSide,
   oddsUnit,
 } from './rules';
+import type { Rng } from '../../../core/logic/rng';
 
 export type PlaceError = 'line_only_come_out' | 'needs_point' | 'already_placed';
 
@@ -113,6 +115,23 @@ export class CrapsTable {
     if (bet.kind === 'pass' || bet.kind === 'dont_pass') return this.point;
     if (bet.kind === 'come' || bet.kind === 'dont_come') return bet.point;
     return undefined;
+  }
+
+  /**
+   * Contract bets whose point is established: a roll already decided part of their outcome
+   * (e.g. Pass on a point of 4), so they are played out, never refunded (review M1).
+   */
+  pointBets(): Bet[] {
+    return this.bets.filter((b) => this.pointOf(b) !== undefined);
+  }
+
+  /**
+   * A play-out of every point bet with fresh honest dice (like a player leaving, §4.1): the
+   * total return per bet id. Does not change the table.
+   */
+  playOut(rng: Rng): Map<string, number> {
+    const bets = this.pointBets().map((b) => ({ ...b }));
+    return bets.length ? autoComplete(this.point, bets, rng, this.rules) : new Map();
   }
 
   oddsInfo(bet: Bet): OddsInfo | undefined {

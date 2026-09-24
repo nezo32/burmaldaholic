@@ -294,6 +294,7 @@ msg.burmaldaholic.core.bought_chips=Куплено: %1 за %2
 msg.burmaldaholic.core.sold_chips=Продано: %1 за %2
 msg.burmaldaholic.core.big_win=Крупный выигрыш: %1 забирает %2 — %3!
 msg.burmaldaholic.core.round_refunded=Сервер перезапустился посреди раунда. Ставка %1 возвращена.
+msg.burmaldaholic.core.round_played_out=Сервер перезапустился посреди раунда. Исход раунда «%1» уже был определён, поэтому он доигран: %2
 msg.burmaldaholic.core.auto_completed=Вы ушли посреди раунда. Дилер доиграл за вас: %1
 msg.burmaldaholic.core.card_given=Вы получили клубную карту
 ## [core / Casino Menu]

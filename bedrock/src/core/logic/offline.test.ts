@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACHIEVEMENTS, isAchievement, streakAchievements, unlockInList, wagerAchievements } from './achievements';
 import { HOUSE_EDGE, houseEdgeOf, theoreticalLoss } from './house-edge';
-import { OFFLINE_CAPS, emptyOffline, isEmptyOffline, normalizeOffline, planRecovery, withChips, withMessage, withResolved, withSettled } from './offline';
+import { OFFLINE_CAPS, emptyOffline, hasDrawn, isEmptyOffline, normalizeOffline, planRecovery, withChips, withMessage, withResolved, withSettled } from './offline';
 
 const ticket = (id: string, boot: number) => ({ id, boot, value: 100 });
 
@@ -26,6 +26,26 @@ describe('offline settlement (§4.1)', () => {
     const plan = planRecovery([ticket('3.1', 3), ticket('2.9', 2)], [], 3);
     expect(plan.keep.map((w) => w.id)).toEqual(['3.1']);
     expect(plan.refund.map((w) => w.id)).toEqual(['2.9']);
+  });
+
+  it('a stale round with a drawn outcome is settled, never refunded (review M1)', () => {
+    const drawn = { ...ticket('2.1', 2), drawn: 0 };
+    const undrawn = ticket('2.2', 2);
+    const settledOffline = { ...ticket('2.3', 2), drawn: 350 };
+    const plan = planRecovery([drawn, undrawn, settledOffline, { ...ticket('3.1', 3), drawn: 5 }], ['2.3'], 3);
+    expect(plan.settle.map((w) => w.id)).toEqual(['2.1']);
+    expect(plan.refund.map((w) => w.id)).toEqual(['2.2']);
+    expect(plan.dropped.map((w) => w.id)).toEqual(['2.3']);
+    expect(plan.keep.map((w) => w.id)).toEqual(['3.1']);
+  });
+
+  it('hasDrawn accepts only a finite non-negative total return', () => {
+    expect(hasDrawn({ drawn: 0 })).toBe(true);
+    expect(hasDrawn({ drawn: 120 })).toBe(true);
+    expect(hasDrawn({})).toBe(false);
+    expect(hasDrawn({ drawn: -1 })).toBe(false);
+    expect(hasDrawn({ drawn: Number.NaN })).toBe(false);
+    expect(hasDrawn({ drawn: '5' })).toBe(false);
   });
 
   it('refund-then-settle races: resolved is idempotent', () => {

@@ -468,6 +468,7 @@ const r = ctx.wagers.place(player, {
 if (!r.ok) return;                          // r.error already sent to chat (notify:false to show it in your form)
 // ... decide the outcome ...
 ctx.wagers.raise(r.ticket, player, extra)   // double / split / insurance / odds (not max-limited)
+ctx.wagers.draw(r.ticket, totalReturn)      // outcome drawn: persist it BEFORE showing/animating it (review M1)
 ctx.wagers.settle(r.ticket, player, totalReturn)   // stake INCLUDED: 0 lose, stake push, 2×stake 1:1 win
 ctx.wagers.refund(r.ticket, player)          // cancel (no streak/VIP effect)
 ctx.wagers.recordPvp(player, 'poker', staked, net)   // PvP rounds settled with economy.transact
@@ -476,8 +477,12 @@ ctx.wagers.onSettled(e => ...)               // {player, game, staked, totalRetu
 `settle` credits the payout (bankroll-aware), returns/forfeits pawns (items back, XP restored,
 heart penalty for one MCD, Soul Wager death), updates the streak, announces big wins and fires
 `onSettled` (VIP lifetime wagered, contracts, chaos big-win buff, Golden Hour bonus are listeners
-— core never pays them). Open rounds are persisted; after a server restart they are refunded on
-the player's next join (`msg.burmaldaholic.core.round_refunded`). On disconnect your table's
+— core never pays them). Open rounds are persisted. After a server restart a round whose game
+called `draw` is SETTLED at the drawn result through the offline path (parked at world load,
+applied on join, `msg.burmaldaholic.core.round_played_out`); only undrawn rounds are refunded on
+the player's next join (`msg.burmaldaholic.core.round_refunded`). Call `draw` as soon as the
+outcome exists (again when it changes, e.g. after a raise), or quitting mid-animation is a free
+roll (GAME_DESIGN §4.1). On disconnect your table's
 `onLeave(session, 'disconnect')` must auto-complete the round (GAME_DESIGN §4.1).
 
 ### 14.4 Limits / VIP — `ctx.limits`

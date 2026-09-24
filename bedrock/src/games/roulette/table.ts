@@ -291,7 +291,10 @@ export class RouletteGame implements RouletteApi {
           }
           break;
         case 'spin':
-          rt.anim = { start: now, frames: spinFrames(tr.result, this.ctx.config.int('roulette.spinTicks'), rt.wheelPos), shown: -1 };
+          // The number is drawn now (review M1): persist every bettor's result before the ball
+          // animates, so a restart mid-spin settles the bets instead of refunding them.
+          this.drawAll(rt, tr.result);
+          rt.anim ={ start: now, frames: spinFrames(tr.result, this.ctx.config.int('roulette.spinTicks'), rt.wheelPos), shown: -1 };
           for (const s of sessions) s.player.sendMessage(t('msg.burmaldaholic.roulette.spinning'));
           break;
         case 'result':
@@ -338,7 +341,12 @@ export class RouletteGame implements RouletteApi {
     for (const s of sessions) this.ctx.hud.actionbar(s.player, HUD_CHANNEL, strip, HudPriority.game, 40);
   }
 
-  private settleAll(rt: TableRt, result: number, slips: ReadonlyMap<string, readonly Bet[]>, sessions: TableSession[]): void {
+  private drawAll(rt: TableRt, result: number): void {
+    const la = this.ctx.config.bool('roulette.laPartage');
+    for (const [id, ticket] of rt.tickets) this.ctx.wagers.draw(ticket, settleSlip(rt.round.bets(id), result, la).totalReturn);
+  }
+
+  private settleAll(rt: TableRt,result: number, slips: ReadonlyMap<string, readonly Bet[]>, sessions: TableSession[]): void {
     const la = this.ctx.config.bool('roulette.laPartage');
     const entries: RouletteSpinEntry[] = [];
     const outcome = new Map<string, { bets: readonly Bet[]; returns: number[]; staked: number; totalReturn: number }>();

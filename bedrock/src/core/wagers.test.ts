@@ -141,6 +141,137 @@ describe('WagerService offline settlement', () => {
     expect(back.getDynamicProperty(BAL)).toBe(500);
   });
 
+  describe('restart with a drawn outcome (review M1: no free roll)', () => {
+    /** A server stop: every player is gone; a new boot starts a new service. */
+    function restart() {
+      for (const p of [...online]) disconnect(p);
+      return setup();
+    }
+    const drawnKeys = () => [...worldProps.keys()].filter((k) => k.startsWith('burmaldaholic:core.drawn.'));
+
+    it('a drawn losing round is settled at its result exactly once, not refunded', () => {
+      const first = setup();
+      const fay = new FakePlayer('-10', 'Fay');
+      fay.setDynamicProperty(BAL, 1000);
+      online.push(fay);
+      const settled: unknown[] = [];
+      const r = first.wagers.place(fay as never, { game: 'slots', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      if (!r.ok) throw new Error('place failed');
+      first.wagers.draw(r.ticket, 0); // losing grid drawn, reels still spinning
+      expect(fay.getDynamicProperty(BAL)).toBe(900);
+      // the player sees the losing grid and quits: server stop before the spin settles
+      const second = restart();
+      second.wagers.onSettled((e) => settled.push(e));
+      expect(drawnKeys()).toEqual([]); // parked at world load
+      const back = rejoin(fay);
+      expect(back.getDynamicProperty(BAL)).toBe(900); // NOT refunded
+      expect(settled).toHaveLength(1);
+      expect(settled[0]).toMatchObject({ game: 'slots', staked: 100, totalReturn: 0, net: -100, deferred: true });
+      expect(back.messages).toContainEqual(expect.objectContaining({ translate: 'msg.burmaldaholic.core.round_played_out' }));
+      // later restarts and joins pay nothing more
+      const third = restart();
+      third.wagers.onSettled((e) => settled.push(e));
+      const again = rejoin(back);
+      expect(again.getDynamicProperty(BAL)).toBe(900);
+      expect(settled).toHaveLength(1);
+    });
+
+    it('a drawn winning round pays its drawn result; an undrawn round is refunded', () => {
+      const first = setup();
+      const gus = new FakePlayer('-11', 'Gus');
+      gus.setDynamicProperty(BAL, 1000);
+      online.push(gus);
+      const won = first.wagers.place(gus as never, { game: 'roulette', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      const open = first.wagers.place(gus as never, { game: 'craps', stake: { kind: 'chips', amount: 50 }, skipLimits: true });
+      if (!won.ok || !open.ok) throw new Error('place failed');
+      first.wagers.draw(won.ticket, 3600);
+      expect(gus.getDynamicProperty(BAL)).toBe(850);
+      restart();
+      const back = rejoin(gus);
+      expect(back.getDynamicProperty(BAL)).toBe(850 + 3600 + 50);
+      expect(back.messages).toContainEqual(expect.objectContaining({ translate: 'msg.burmaldaholic.core.round_refunded' }));
+    });
+
+    it('a round drawn while its player is offline is settled too', () => {
+      const first = setup();
+      const hal = new FakePlayer('-12', 'Hal');
+      hal.setDynamicProperty(BAL, 500);
+      online.push(hal);
+      const r = first.wagers.place(hal as never, { game: 'roulette', stake: { kind: 'chips', amount: 200 }, skipLimits: true });
+      if (!r.ok) throw new Error('place failed');
+      disconnect(hal); // the player property can no longer be written
+      first.wagers.draw(r.ticket, 0);
+      restart();
+      const back = rejoin(hal);
+      expect(back.getDynamicProperty(BAL)).toBe(300);
+    });
+
+    it('a raise after the draw is settled with the raised stake; re-drawing replaces the result', () => {
+      const first = setup();
+      const ivy = new FakePlayer('-13', 'Ivy');
+      ivy.setDynamicProperty(BAL, 1000);
+      online.push(ivy);
+      const r = first.wagers.place(ivy as never, { game: 'blackjack', stake: { kind: 'chips', amount: 100 }, limits: {} });
+      if (!r.ok) throw new Error('place failed');
+      first.wagers.draw(r.ticket, 200); // stand now: win
+      expect(first.wagers.raise(r.ticket, ivy as never, 100)).toBe(true); // double
+      first.wagers.draw(r.ticket, 0); // the double card busts
+      const settled: { staked: number; totalReturn: number }[] = [];
+      const second = restart();
+      second.wagers.onSettled((e) => settled.push(e));
+      const back = rejoin(ivy);
+      expect(back.getDynamicProperty(BAL)).toBe(800);
+      expect(settled).toEqual([expect.objectContaining({ staked: 200, totalReturn: 0 })]);
+    });
+
+    it('a drawn round settled normally leaves nothing for the restart', () => {
+      const first = setup();
+      const jo = new FakePlayer('-14', 'Jo');
+      jo.setDynamicProperty(BAL, 1000);
+      online.push(jo);
+      const r = first.wagers.place(jo as never, { game: 'slots', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      if (!r.ok) throw new Error('place failed');
+      first.wagers.draw(r.ticket, 500);
+      first.wagers.settle(r.ticket, jo as never, 500);
+      expect(first.wagers.settle(r.ticket, jo as never, 500)).toBeUndefined();
+      expect(drawnKeys()).toEqual([]);
+      expect(jo.getDynamicProperty(BAL)).toBe(1400);
+      restart();
+      const back = rejoin(jo);
+      expect(back.getDynamicProperty(BAL)).toBe(1400);
+    });
+
+    it('fallback: a drawn ticket only on the player (no world copy) is settled on join, once', () => {
+      const first = setup();
+      const kim = new FakePlayer('-15', 'Kim');
+      kim.setDynamicProperty(BAL, 1000);
+      online.push(kim);
+      const r = first.wagers.place(kim as never, { game: 'slots', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      if (!r.ok) throw new Error('place failed');
+      first.wagers.draw(r.ticket, 40);
+      for (const k of drawnKeys()) worldProps.delete(k);
+      restart();
+      const back = rejoin(kim);
+      expect(back.getDynamicProperty(BAL)).toBe(940);
+      restart();
+      expect(rejoin(back).getDynamicProperty(BAL)).toBe(940);
+    });
+
+    it('a restart between parking and the join does not settle twice', () => {
+      const first = setup();
+      const lou = new FakePlayer('-16', 'Lou');
+      lou.setDynamicProperty(BAL, 1000);
+      online.push(lou);
+      const r = first.wagers.place(lou as never, { game: 'roulette', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      if (!r.ok) throw new Error('place failed');
+      first.wagers.draw(r.ticket, 200);
+      restart(); // parks the result
+      restart(); // nobody joined in between
+      const back = rejoin(lou);
+      expect(back.getDynamicProperty(BAL)).toBe(1100);
+    });
+  });
+
   it('refund while offline, and a stale Player object of a player who is back online', () => {
     const { wagers } = setup();
     const dee = new FakePlayer('-4', 'Dee');
