@@ -65,7 +65,7 @@ public class LastChanceGameTests {
 		double hcChance = cfg.hardcore.chance;
 		boolean enabled = cfg.enabled;
 		LastChanceConfig.HardcoreMode hcMode = cfg.hardcoreMode;
-		boolean casino = level.getGameRules().get(CasinoMode.rule());
+		boolean casino = CasinoMode.isEnabled(level);
 		boolean keepInv = level.getGameRules().get(GameRules.KEEP_INVENTORY);
 		ServerPlayer player = survivalPlayer(helper);
 		try {
@@ -74,7 +74,7 @@ public class LastChanceGameTests {
 			cfg.chance.hard = chance;
 			cfg.hardcore.chance = chance;
 			cfg.enabled = true;
-			level.getGameRules().set(CasinoMode.rule(), true, server);
+			CasinoMode.set(server, true);
 			level.getGameRules().set(GameRules.KEEP_INVENTORY, false, server);
 			Economies.get().setBalance(server, player.getUUID(), 1000, TEST);
 			player.getInventory().clearContent();
@@ -88,7 +88,7 @@ public class LastChanceGameTests {
 			cfg.enabled = enabled;
 			cfg.hardcoreMode = hcMode;
 			LastChance.setHardcoreOverrideForTests(null);
-			level.getGameRules().set(CasinoMode.rule(), casino, server);
+			CasinoMode.set(server, casino);
 			level.getGameRules().set(GameRules.KEEP_INVENTORY, keepInv, server);
 			server.getPlayerList().remove(player);
 		}
@@ -157,7 +157,7 @@ public class LastChanceGameTests {
 	@GameTest
 	public void casinoModeOffIsPureVanilla(GameTestHelper helper) {
 		scenario(helper, 1.0, player -> {
-			helper.getLevel().getGameRules().set(CasinoMode.rule(), false, helper.getLevel().getServer());
+			CasinoMode.set(helper.getLevel().getServer(), false);
 			player.getInventory().add(new ItemStack(Items.DIRT, 5));
 			lethal(player);
 			helper.assertTrue(player.isDeadOrDying(), "no Last Chance with casino mode off");

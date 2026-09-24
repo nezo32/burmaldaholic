@@ -34,7 +34,7 @@ public final class WorldgenRuntime {
 		try {
 			return CasinoConfig.worldgen().enabled && CasinoMode.isEnabled(s);
 		} catch (RuntimeException e) {
-			return false; // config/game rules not ready (should not happen after SERVER_STARTING)
+			return false; // config/casino mode not ready (should not happen after SERVER_STARTING)
 		}
 	}
 

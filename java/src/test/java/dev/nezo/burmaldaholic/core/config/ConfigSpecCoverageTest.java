@@ -41,7 +41,7 @@ class ConfigSpecCoverageTest {
 			String type = r.group(2).trim();
 			String def = r.group(3).trim().replace(" ", "");
 			if (key.equals("core.casinoMode")) {
-				continue; // game rule, not in the file
+				continue; // per-world saved data (data/burmaldaholic/mode.dat), not in the file
 			}
 			if (key.contains("<")) {
 				String family = key.substring(0, key.indexOf(".<"));

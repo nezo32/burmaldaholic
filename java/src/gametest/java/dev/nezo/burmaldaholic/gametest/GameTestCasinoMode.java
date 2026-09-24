@@ -7,9 +7,9 @@ import net.minecraft.gametest.framework.GameTestServer;
 
 /**
  * Casino mode is OFF by default (GAME_DESIGN.md §2.1), but the server GameTests exercise the casino, so
- * the headless GameTest server turns the rule on once it has started (before the first test tick) — the
- * same thing a player does with the Create World button or {@code /gamerule}. Tests that need it off set
- * it themselves and restore it. Client GameTests are unaffected (they create worlds via
+ * the headless GameTest server turns it on once it has started (before the first test tick) — the same
+ * thing a player does with the Create World button or {@code /casino mode on}. Tests that need it off
+ * set it themselves and restore it. Client GameTests are unaffected (they create worlds via
  * {@link ClientTestWorlds}).
  */
 public class GameTestCasinoMode implements ModInitializer {
@@ -17,7 +17,7 @@ public class GameTestCasinoMode implements ModInitializer {
 	public void onInitialize() {
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			if (server instanceof GameTestServer) {
-				server.getGameRules().set(CasinoMode.rule(), true, server);
+				CasinoMode.set(server, true);
 			}
 		});
 	}

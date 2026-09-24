@@ -276,8 +276,9 @@ multiplayer worlds, and on Bedrock Dedicated Server.
 5. **On a server**, put the same jar and Fabric API in the server's `mods` folder. Every player
    needs the mod too.
 6. **Turn casino mode on** — it is off by default. When creating a world, press **"Casino Mode:
-   OFF"** on the **Game** tab (right below Difficulty) so it reads **ON**. For an existing world or a
-   server, run `/gamerule burmaldaholic:casino_mode true`.
+   OFF"** on the **Game** tab (right below Difficulty) so it reads **ON**; the choice is saved with
+   the world. For an existing world or a server, an operator runs `/casino mode on`
+   (`/casino mode status` shows the current state).
 
 ### Bedrock (add-on)
 
@@ -308,20 +309,20 @@ defaults to **on**, and operators can still change it with `/burmaldaholic:casin
 
 Casino mode is a per-world switch. On **Java** it is **off by default**: turn it on with the
 **Casino Mode** button right below **Difficulty** when you create the world, or in an existing world
-with `/gamerule burmaldaholic:casino_mode true` (everyone then gets the starting chips and Casino
-Card). On **Bedrock** it is on by default. When it's off, the mod goes
+with `/casino mode on` (everyone then gets the starting chips and Casino Card). On **Bedrock** it
+is on by default. When it's off, the mod goes
 **dormant**: no HUD, earning, chaos, debt or Last Chance, and tables say "Casino mode is off". All
 saved data (balances, loans, casinos) is kept untouched until you turn it back on.
 
 | | Java | Bedrock |
 |---|---|---|
-| At world creation | **Create World → Game** tab → **"Casino Mode: ON/OFF"** button below Difficulty (**off** by default). It is also under More → Game Rules → Burmaldaholic. | The **Casino mode** pack setting (the gear button on the behavior pack), then the first-op **Setup** form |
-| Existing world / later (operators) | `/gamerule burmaldaholic:casino_mode true\|false` | `/burmaldaholic:casino` → admin form → World settings, or `/scriptevent burmaldaholic:admin casino_mode true\|false` |
+| At world creation | **Create World → Game** tab → **"Casino Mode: ON/OFF"** button below Difficulty (**off** by default). Saved with the world in `data/burmaldaholic/mode.dat`; it is not a game rule. | The **Casino mode** pack setting (the gear button on the behavior pack), then the first-op **Setup** form |
+| Existing world / later (operators) | `/casino mode on\|off\|status` (permission level 2, like /gamerule; in single-player needs cheats) | `/burmaldaholic:casino` → admin form → World settings, or `/scriptevent burmaldaholic:admin casino_mode true\|false` |
 
 Useful player commands on Bedrock: `/burmaldaholic:menu`, `/burmaldaholic:balance`,
 `/burmaldaholic:loan`, `/burmaldaholic:vip`, `/burmaldaholic:contracts`.
 
-Java operators have `/casino …` (alias `/burmaldaholic`, permission level 2) for config, balances,
+Java operators have `/casino …` (alias `/burmaldaholic`, permission level 2) for casino mode, config, balances,
 debt, chaos and jackpots.
 
 ---

@@ -378,13 +378,13 @@ public class IndependentGameTests {
 	public void casinoModeOffIsDormant(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		MinecraftServer server = level.getServer();
-		boolean before = level.getGameRules().get(CasinoMode.rule());
+		boolean before = CasinoMode.isEnabled(level);
 		ServerPlayer p = player(helper, 1000);
 		try {
 			BlockPos pos = new BlockPos(1, 1, 1);
 			helper.setBlock(pos, BlackjackModule.TABLE.block());
 			BlackjackTableBlockEntity t = helper.getBlockEntity(pos, BlackjackTableBlockEntity.class);
-			level.getGameRules().set(CasinoMode.rule(), false, server);
+			CasinoMode.set(server, false);
 			CompoundTag bet = new CompoundTag();
 			bet.putLong("amount", 10);
 			t.onAction(p, "bet", bet);
@@ -395,11 +395,11 @@ public class IndependentGameTests {
 			helper.assertTrue(chaos == null || chaos.equals("disabled"), "no chaos: " + chaos);
 			Earnings.onTrade(p, new MerchantOffer(new ItemCost(Items.EMERALD, 5), new ItemStack(Items.BREAD), 12, 1, 0.05f));
 			helper.assertTrue(Economies.get().balance(p) == 1000, "no trade earnings, balance preserved");
-			level.getGameRules().set(CasinoMode.rule(), true, server);
+			CasinoMode.set(server, true);
 			Earnings.onTrade(p, new MerchantOffer(new ItemCost(Items.EMERALD, 5), new ItemStack(Items.BREAD), 12, 1, 0.05f));
 			helper.assertTrue(Economies.get().balance(p) > 1000, "control: the same trade pays with casino mode on");
 		} finally {
-			level.getGameRules().set(CasinoMode.rule(), before, server);
+			CasinoMode.set(server, before);
 			remove(helper, p);
 		}
 		helper.succeed();
@@ -413,12 +413,12 @@ public class IndependentGameTests {
 		Difficulty difficulty = server.getWorldData().getDifficulty();
 		boolean hardcore = server.getWorldData().isHardcore();
 		boolean keepInventory = level.getGameRules().get(GameRules.KEEP_INVENTORY);
-		boolean casino = level.getGameRules().get(CasinoMode.rule());
+		boolean casino = CasinoMode.isEnabled(level);
 		try {
-			level.getGameRules().set(CasinoMode.rule(), !casino, server);
-			level.getGameRules().set(CasinoMode.rule(), casino, server);
+			CasinoMode.set(server, !casino);
+			CasinoMode.set(server, casino);
 		} finally {
-			level.getGameRules().set(CasinoMode.rule(), casino, server);
+			CasinoMode.set(server, casino);
 		}
 		helper.assertTrue(server.getWorldData().getDifficulty() == difficulty, "difficulty unchanged");
 		helper.assertTrue(server.getWorldData().isHardcore() == hardcore, "hardcore flag unchanged");

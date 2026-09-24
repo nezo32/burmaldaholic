@@ -5,10 +5,14 @@
 	"mixins": [
 		"AbstractVillagerMixin",
 		"BlockItemMixin",
+		"LevelStorageAccessMixin",
+		"MinecraftServerStorageAccessor",
 		"MobMixin"
 	],
 	"client": [
-		"client.CreateWorldGameTabMixin"
+		"client.CreateWorldGameTabMixin",
+		"client.CreateWorldScreenMixin",
+		"client.WorldCreationUiStateMixin"
 	],
 	"server": [],
 	"injectors": {

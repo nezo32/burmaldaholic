@@ -1,17 +1,28 @@
 package dev.nezo.burmaldaholic.gametest;
 
+import dev.nezo.burmaldaholic.client.CasinoModeCreationState;
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.CoreClientModule;
 import dev.nezo.burmaldaholic.client.cashier.CashierScreen;
 import dev.nezo.burmaldaholic.client.config.CasinoConfigScreen;
 import dev.nezo.burmaldaholic.core.CoreContent;
 import dev.nezo.burmaldaholic.core.cashier.CashierBlockEntity;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.gui.screens.worldselection.WorldSelectionList;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -47,14 +58,14 @@ public class CoreClientGameTests implements FabricClientGameTest {
 			// A world created without touching the button: casino mode OFF (the default).
 			boolean serverSide = world.getServer().computeOnServer(CasinoMode::isEnabled);
 			if (serverSide || CasinoMode.DEFAULT) {
-				throw new AssertionError("casino_mode should default to OFF");
+				throw new AssertionError("casino mode should default to OFF");
 			}
 			context.waitTicks(20);
 			if (context.computeOnClient(mc -> CoreClientModule.casinoEnabled())) {
 				throw new AssertionError("client thinks casino mode is on in a default world");
 			}
 			// Turning it on later (existing world): client sync + first-join welcome (starting balance, card).
-			world.getServer().runCommand("gamerule burmaldaholic:casino_mode true");
+			world.getServer().runCommand("casino mode on");
 			context.waitFor(mc -> CoreClientModule.casinoEnabled());
 			context.waitFor(mc -> ClientCasinoState.hasStatus() && ClientCasinoState.balance() > 0);
 			world.getServer().runCommand("casino balance set @p 12500");
@@ -77,15 +88,16 @@ public class CoreClientGameTests implements FabricClientGameTest {
 			context.takeScreenshot("burmaldaholic_cashier");
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 
-			world.getServer().runCommand("gamerule burmaldaholic:casino_mode false");
+			world.getServer().runCommand("casino mode off");
 			context.waitFor(mc -> !CoreClientModule.casinoEnabled());
 		}
 	}
 
 	/**
 	 * Create World -> Game tab: "Casino Mode" sits directly below "Difficulty" (same column and width, one
-	 * grid row lower, above "Allow Commands"), defaults OFF, toggles the game rule, fits in English and
-	 * Russian, and a world created with it ON has the rule on and hands out the starting balance.
+	 * grid row lower, above "Allow Commands"), defaults OFF, toggles the creation state, fits in English and
+	 * Russian, and a world created with it ON has data/burmaldaholic/mode.dat = ON right away (saved, read
+	 * back on re-open) and hands out the starting balance. Cancel and Re-Create do not leak the choice.
 	 */
 	private static void createWorldButton(ClientGameTestContext context) {
 		context.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(null)));
@@ -118,14 +130,53 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		context.waitForScreen(CreateWorldScreen.class);
 
 		context.clickScreenButton("selectWorld.create");
-		context.waitFor(mc -> mc.getSingleplayerServer() != null && mc.player != null, 20 * 60);
+		Path world = waitInWorld(context);
 		boolean onServer = context.computeOnClient(mc -> CasinoMode.isEnabled(mc.getSingleplayerServer()));
 		if (!onServer) {
-			throw new AssertionError("world created with Casino Mode: ON does not have casino_mode=true");
+			throw new AssertionError("world created with Casino Mode: ON does not have casino mode on");
+		}
+		Path modeFile = world.resolve("data/burmaldaholic/mode.dat");
+		if (!Files.isRegularFile(modeFile)) {
+			throw new AssertionError("mode.dat not written right after creating " + world);
 		}
 		context.waitFor(mc -> CoreClientModule.casinoEnabled(), 20 * 30);
 		context.waitFor(mc -> ClientCasinoState.hasStatus() && ClientCasinoState.balance() > 0, 20 * 30);
-		// Leave the world, otherwise the framework fails ("finished while a server is still running").
+		leaveWorld(context);
+		if (!storedMode(modeFile)) {
+			throw new AssertionError("mode.dat does not say enabled=true after saving " + world);
+		}
+
+		// Cancel after toggling ON must not leak into the next Create World screen.
+		context.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
+		context.waitForScreen(CreateWorldScreen.class);
+		clickCasinoButton(context);
+		if (!uiRule(context)) {
+			throw new AssertionError("toggle before cancel did not turn ON");
+		}
+		context.clickScreenButton("gui.cancel");
+		context.waitForScreen(TitleScreen.class);
+		context.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
+		context.waitForScreen(CreateWorldScreen.class);
+		if (uiRule(context)) {
+			throw new AssertionError("a fresh Create World screen starts ON after a cancelled one");
+		}
+		context.setScreen(TitleScreen::new);
+
+		// Re-open: the stored value is read back (no pending value from a Create World screen).
+		joinWorld(context, world);
+		if (!context.computeOnClient(mc -> CasinoMode.isEnabled(mc.getSingleplayerServer()))) {
+			throw new AssertionError("re-opened world lost Casino Mode: ON");
+		}
+		leaveWorld(context);
+	}
+
+	private static Path waitInWorld(ClientGameTestContext context) {
+		context.waitFor(mc -> mc.getSingleplayerServer() != null && mc.player != null, 20 * 60);
+		return context.computeOnClient(mc -> mc.getSingleplayerServer().getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize());
+	}
+
+	/** Leaves the world; otherwise the framework fails ("finished while a server is still running"). */
+	private static void leaveWorld(ClientGameTestContext context) {
 		context.runOnClient(mc -> {
 			mc.level.disconnect(Component.translatable("menu.savingLevel"));
 			mc.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), false);
@@ -133,6 +184,39 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		context.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null, 20 * 60);
 		context.waitTicks(20);
 		context.setScreen(TitleScreen::new);
+	}
+
+	private static boolean storedMode(Path modeFile) {
+		try {
+			CompoundTag root = NbtIo.readCompressed(modeFile, NbtAccounter.unlimitedHeap());
+			return root.getCompoundOrEmpty("data").getBooleanOr("enabled", false);
+		} catch (IOException e) {
+			throw new AssertionError("cannot read " + modeFile, e);
+		}
+	}
+
+	private static void joinWorld(ClientGameTestContext context, Path world) {
+		String id = world.getFileName().toString();
+		context.setScreen(() -> new SelectWorldScreen(new TitleScreen()));
+		context.waitFor(mc -> worldList(mc).map(l -> l.children().stream()
+			.anyMatch(e -> e instanceof WorldSelectionList.WorldListEntry)).orElse(false), 20 * 30);
+		context.runOnClient(mc -> worldList(mc).orElseThrow().children().stream()
+			.filter(e -> e instanceof WorldSelectionList.WorldListEntry)
+			.map(e -> (WorldSelectionList.WorldListEntry) e)
+			.filter(e -> e.getLevelSummary().getLevelId().equals(id))
+			.findFirst().orElseThrow(() -> new AssertionError("world " + id + " not in the world list"))
+			.joinWorld());
+		Path joined = waitInWorld(context);
+		if (!joined.equals(world)) {
+			throw new AssertionError("joined " + joined + " instead of " + world);
+		}
+	}
+
+	private static Optional<WorldSelectionList> worldList(Minecraft mc) {
+		if (!(mc.gui.screen() instanceof SelectWorldScreen screen)) {
+			return Optional.empty();
+		}
+		return screen.children().stream().filter(c -> c instanceof WorldSelectionList).map(c -> (WorldSelectionList) c).findFirst();
 	}
 
 	private static void checkPlacement(ClientGameTestContext context, String lang) {
@@ -214,8 +298,9 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		throw new AssertionError("Casino Mode toggle not found on the Create World screen");
 	}
 
+	/** The button value as stored in the screen's creation state (not a game rule). */
 	private static boolean uiRule(ClientGameTestContext context) {
-		return context.computeOnClient(mc -> ((CreateWorldScreen) mc.gui.screen()).getUiState().getGameRules().get(CasinoMode.rule()));
+		return context.computeOnClient(mc -> ((CasinoModeCreationState) ((CreateWorldScreen) mc.gui.screen()).getUiState()).burmaldaholic$casinoMode());
 	}
 
 	private static void language(ClientGameTestContext context, String code) {

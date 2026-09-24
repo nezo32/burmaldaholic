@@ -1,15 +1,13 @@
 package dev.nezo.burmaldaholic.core.mixin.client;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import dev.nezo.burmaldaholic.core.mode.CasinoMode;
+import dev.nezo.burmaldaholic.client.CasinoModeCreationState;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.GridLayout;
 import net.minecraft.client.gui.layouts.LayoutSettings;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
-import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.gamerules.GameRules;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,8 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Adds "Casino Mode: ON/OFF" to the Create World "Game" tab directly below "Difficulty" (GAME_DESIGN.md
- * §2.1). It edits the same {@code burmaldaholic:casino_mode} game rule as More -> Game Rules, so both
- * stay in sync and the choice is saved in level.dat.
+ * §2.1). The value lives in the screen's {@code WorldCreationUiState} ({@link CasinoModeCreationState},
+ * default OFF) and is saved with the new world in {@code data/burmaldaholic/mode.dat}
+ * ({@code CreateWorldScreenMixin} -> {@code CasinoMode}). It is not a game rule.
  *
  * <p>{@code GameTab(CreateWorldScreen)} (identical bytecode in 26.2 and 26.3) adds, in order: the name
  * box, Game Mode, Difficulty (the three {@code RowHelper.addChild(element, settings)} calls, ordinals
@@ -53,22 +52,16 @@ abstract class CreateWorldGameTabMixin {
 			return;
 		}
 		burmaldaholic$added = true;
-		WorldCreationUiState state = screen.getUiState();
+		CasinoModeCreationState state = (CasinoModeCreationState) screen.getUiState();
 		CycleButton<Boolean> button = CycleButton.booleanBuilder(
 				Component.translatable(KEY, Component.translatable("gui.burmaldaholic.common.on")),
 				Component.translatable(KEY, Component.translatable("gui.burmaldaholic.common.off")),
-				state.getGameRules().get(CasinoMode.rule()))
+				state.burmaldaholic$casinoMode())
 			.displayOnlyValue()
 			.withTooltip(value -> Tooltip.create(Component.translatable(KEY + ".tooltip")))
 			// Same size as Game Mode / Difficulty / Allow Commands (210x20).
-			.create(0, 0, 210, 20, Component.translatable("gamerule.burmaldaholic.casino_mode"), (b, value) -> {
-				// Read the rules at click time: More -> Game Rules replaces the object.
-				GameRules rules = state.getGameRules();
-				rules.set(CasinoMode.rule(), value, null);
-				state.setGameRules(rules);
-			});
+			.create(0, 0, 210, 20, Component.translatable("gui.burmaldaholic.core.setup.casino_mode"),
+				(b, value) -> state.burmaldaholic$setCasinoMode(value));
 		helper.addChild(button, settings);
-		// Keep the button in sync when the rule is changed via More -> Game Rules.
-		state.addListener(s -> button.setValue(s.getGameRules().get(CasinoMode.rule())));
 	}
 }

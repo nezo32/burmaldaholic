@@ -33,8 +33,9 @@ Reference template: <https://github.com/FabricMC/fabric-example-mod> (branch for
   (identical in 26.2 and 26.3).
 - Block/item properties need `.setId(ResourceKey)` (done for you by `ModRegistrar`).
 - Block entity persistence uses `saveAdditional(ValueOutput)` / `loadAdditional(ValueInput)`.
-- Game rules are a registry now (`net.minecraft.world.level.gamerules`); use Fabric's
-  `GameRuleBuilder`. Lang keys: `gamerule.<ns>.<path>`, `.description`, category `gamerule.category.<ns>.<path>`.
+- Game rules are a registry now (`net.minecraft.world.level.gamerules`; Fabric's `GameRuleBuilder`).
+  The mod registers **none**: casino mode is world saved data (`core.mode`, see §7). Game rules live in
+  `data/minecraft/game_rules.dat`; vanilla skips unknown entries there with a log line.
 - Fabric data attachments add `getAttached/setAttached` to entities via **interface injection**
   (class tweaker) — they are not in the vanilla jar; the linkage check knows this.
 - `Player#drop(ItemStack, boolean)` does not exist in 26.3 → use `core.util.Inventories.giveOrDrop`.
@@ -116,7 +117,7 @@ java/
 | `core` | `core` | J-core | `CoreModule`, sub-packages below |
 | `core.module` | | core | `CasinoModule`, `ModuleContext`, `ModuleLoader`, `Namespaces` |
 | `core.registry` | | core | `ModRegistrar` (blocks/items/BE/menus/sounds), `CasinoCreativeTab` |
-| `core.mode` | | core | `CasinoMode` (game rule toggle + `isEnabled` guard) |
+| `core.mode` | | core | `CasinoMode` (`isEnabled` guard, `set`, `onChange` listeners, SERVER_STARTING bootstrap), `CasinoModeData` (`data/burmaldaholic/mode.dat`), `PendingCasinoMode` (Create World hand-off) |
 | `core.config` | | core | `CasinoConfig` (typed access to every CONFIG.md key), `ConfigManager`, `ConfigBinder`, `@Range/@Size/@Family/@Member`, `sections/*Config` |
 | `core.economy` | | core | `Economy` API (+ `Batch`, `Bankrolls`, `CreditHook`), `AccountId`, `Economies` locator, `Ledger` (pure), `LedgerEconomy` |
 | `core.data` | | core | `CasinoWorldData` (world saved data: balances, bankrolls, player records), `PlayerRecord` |
@@ -133,7 +134,7 @@ java/
 | `core.rng` | | core | `OddsService` (fair RNG + streak re-draw `play`), `CasinoRng`, `OddsModifier`, `OddsContext`, `StreakRules` (pure), `StreakTracker` (persistent) |
 | `core.text` | | core | `Plural` (p1/p21/p2/p5), `Texts` (numbers, plural components) |
 | `core.table` | | core | `CasinoTableBlock` (facing, ticker), `CasinoTableBlockEntity` (seats, bets, timers, refunds), `TableSeats`, `CasinoTableMenu`, `TableType`, `TableRegistrar` |
-| `core.mixin[.client]` | | core | e.g. `CreateWorldGameTabMixin` |
+| `core.mixin[.client]` | | core | e.g. `LevelStorageAccessMixin` + `MinecraftServerStorageAccessor` (pending mode), client `CreateWorldGameTabMixin` (button), `WorldCreationUiStateMixin` (choice), `CreateWorldScreenMixin` (hand-off) |
 | `client` (client set) | | core | `BurmaldaholicClient`, `ClientModuleList`, `CoreClientModule`, `ClientCasinoState`, `client.hud` (`CasinoHud`, `HudSegment`), `client.table.CasinoTableScreen`, `ClientTableCache`, `client.cashier`, `client.config` (generated Mod Menu screen) |
 | `games.blackjack` | `blackjack` | dev | |
 | `games.poker` | `poker` | dev | |
@@ -173,7 +174,10 @@ Rules:
   `register`; keep references in `static` fields of your own classes.
 - `register` must not touch worlds or config *values* (config is loaded on `SERVER_STARTING`).
 - Every gameplay path checks **`CasinoMode.isEnabled(server | level | player)`**. Generic table
-  interaction and `ctx.payloads().serverbound(...)` handlers are already gated by core.
+  interaction and `ctx.payloads().serverbound(...)` handlers are already gated by core. To react to
+  an on/off switch (command or test), register `CasinoMode.onChange((server, enabled) -> ...)`
+  (server thread, fired only when the value changes); core uses it for the client sync and the
+  first-join welcome.
 - Modules never import another feature's package. Talk through `core` APIs:
   `Economies.get()` for chips, `CasinoEvents` for notifications, `OddsService.get().addModifier(...)`
   for odds effects. Need something new in core? Ask J-core (it's a shared package).
@@ -305,9 +309,14 @@ Access wideners/class tweakers are a shared file — request from core.
 ## 7. Manual testing
 
 - `./gradlew runClient` → Singleplayer → Create New World: the **Game** tab has a
-  **"Casino Mode: ON/OFF"** button directly below "Difficulty" (default OFF); the same rule is
-  under More → Game Rules → Burmaldaholic. In game: `/gamerule burmaldaholic:casino_mode true|false`.
-  The client GameTest checks the placement and writes `jmode_create_world_{en_us,ru_ru}.png`.
+  **"Casino Mode: ON/OFF"** button directly below "Difficulty" (default OFF). It is **not** a game
+  rule: the choice is stored in `WorldCreationUiState` (duck `client.CasinoModeCreationState`), handed
+  to the new world's `LevelStorageAccess` when Create is pressed, and written to
+  `<world>/data/burmaldaholic/mode.dat` on SERVER_STARTING with an immediate save. In game (operators,
+  permission level 2): `/casino mode on|off|status`. Worlds without `mode.dat` start OFF; an
+  unreadable file logs a warning and resets to OFF. The client GameTest checks the placement, the saved
+  file, Cancel, re-open, and writes `jmode_create_world_{en_us,ru_ru}.png`. Server GameTests turn the
+  mode on in `GameTestCasinoMode`; client tests opt in with `ClientTestWorlds.casino`.
 - `./gradlew runClient -PwithModMenu` adds Mod Menu → Mods → Burmaldaholic → config screen.
 - `./gradlew runServer` then `runClient` and connect to `localhost` for multiplayer checks
   (dev server has `online-mode` handled by Loom's dev launch; accept the EULA in `run/<mc>/server/eula.txt`).

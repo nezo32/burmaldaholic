@@ -29,7 +29,6 @@ import dev.nezo.burmaldaholic.core.util.Inventories;
 import dev.nezo.burmaldaholic.core.wager.HeartPenalties;
 import java.util.random.RandomGeneratorFactory;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.gamerule.v1.GameRuleEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -109,7 +108,7 @@ public final class CoreModule implements CasinoModule {
 			sendConfig(player);
 			welcome(player);
 		});
-		GameRuleEvents.changeCallback(CasinoMode.rule()).register((value, s) -> {
+		CasinoMode.onChange((s, value) -> {
 			for (ServerPlayer player : PlayerLookup.all(s)) {
 				ServerPlayNetworking.send(player, new CasinoModeSyncPayload(value));
 				player.sendSystemMessage(Component.translatable(value ? "msg.burmaldaholic.core.mode_enabled" : "msg.burmaldaholic.core.mode_disabled"));

@@ -13,6 +13,7 @@ import dev.nezo.burmaldaholic.core.config.ConfigManager;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
+import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.List;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -27,6 +28,7 @@ import net.minecraft.server.level.ServerPlayer;
  * Admin commands (permission level 2), root {@code /casino} with alias {@code /burmaldaholic}:
  *
  * <pre>
+ * /casino mode [on|off|status]         (casino mode of this world, saved in data/burmaldaholic/mode.dat)
  * /casino balance get|set|add|take &lt;player&gt; [amount]
  * /casino config get|reset &lt;key&gt;     /casino config set &lt;key&gt; &lt;value&gt;     /casino config reload
  * </pre>
@@ -54,6 +56,11 @@ public final class CasinoCommands {
 	static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("casino")
 			.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+			.then(Commands.literal("mode")
+				.executes(ctx -> modeStatus(ctx.getSource()))
+				.then(Commands.literal("on").executes(ctx -> modeSet(ctx.getSource(), true)))
+				.then(Commands.literal("off").executes(ctx -> modeSet(ctx.getSource(), false)))
+				.then(Commands.literal("status").executes(ctx -> modeStatus(ctx.getSource()))))
 			.then(Commands.literal("balance")
 				.then(Commands.literal("get").then(Commands.argument("player", EntityArgument.player())
 					.executes(ctx -> balanceGet(ctx))))
@@ -78,6 +85,21 @@ public final class CasinoCommands {
 
 	private enum Op {
 		SET, ADD, TAKE
+	}
+
+	/** Returns 1 if casino mode is now on, 0 if off (like Enchantaholic's /enchantaholic on|off). */
+	private static int modeSet(CommandSourceStack source, boolean enabled) {
+		CasinoMode.set(source.getServer(), enabled);
+		source.sendSuccess(() -> Component.translatable(enabled
+			? "msg.burmaldaholic.core.command.mode_set_on" : "msg.burmaldaholic.core.command.mode_set_off"), true);
+		return enabled ? 1 : 0;
+	}
+
+	private static int modeStatus(CommandSourceStack source) {
+		boolean enabled = CasinoMode.isEnabled(source.getServer());
+		source.sendSuccess(() -> Component.translatable(enabled
+			? "msg.burmaldaholic.core.command.mode_status_on" : "msg.burmaldaholic.core.command.mode_status_off"), false);
+		return enabled ? 1 : 0;
 	}
 
 	private static int balanceGet(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

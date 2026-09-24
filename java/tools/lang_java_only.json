@@ -1,7 +1,6 @@
 {
 	"_comment": "Java-only translation keys that have no Bedrock counterpart and therefore are not in docs/design/STRINGS.md. Format: module -> key -> [en_us, ru_ru]. Keep this tiny; everything player-facing belongs in STRINGS.md. Review fixes (2026-09): the decimal separator (shared with Bedrock, which keeps it as a manual lang line), the owned-table pawn refusal and the cashier caps.",
 	"core": {
-		"gamerule.category.burmaldaholic.casino": ["Burmaldaholic", "Бурмалдоголик"],
 		"unit.burmaldaholic.decimal_separator": [".", ","],
 		"gui.burmaldaholic.error.pawn_owned_table": ["Owned tables take chips only", "Столы владельцев принимают только фишки"],
 		"gui.burmaldaholic.error.balance_full": ["Your balance is at the maximum", "Баланс достиг максимума"],

@@ -307,21 +307,21 @@ public class JavaReviewGameTests {
 	@GameTest
 	public void m5ScarDormantWhileCasinoModeOff(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
-		boolean before = level.getGameRules().get(CasinoMode.rule());
+		boolean before = CasinoMode.isEnabled(level);
 		ServerPlayer p = player(helper, 0);
 		try {
 			LastChance.setState(p, LastChance.state(p).withScar(2));
 			LastChance.refreshScar(p);
 			helper.assertTrue(p.getMaxHealth() == 18f, "scar applied: " + p.getMaxHealth());
-			level.getGameRules().set(CasinoMode.rule(), false, level.getServer());
+			CasinoMode.set(level.getServer(), false);
 			LastChance.refreshScar(p);
 			helper.assertTrue(p.getMaxHealth() == 20f, "dormant while off: " + p.getMaxHealth());
 			helper.assertTrue(LastChance.state(p).scarHp() == 2, "the scar itself is kept");
-			level.getGameRules().set(CasinoMode.rule(), true, level.getServer());
+			CasinoMode.set(level.getServer(), true);
 			LastChance.refreshScar(p);
 			helper.assertTrue(p.getMaxHealth() == 18f, "back when on");
 		} finally {
-			level.getGameRules().set(CasinoMode.rule(), before, level.getServer());
+			CasinoMode.set(level.getServer(), before);
 			remove(helper, p);
 		}
 		helper.succeed();
