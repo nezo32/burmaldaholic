@@ -118,7 +118,9 @@ public final class CoinFlipGame {
 		long winnings = CoinFlip.winnings(stake.value(), r.win(), payout);
 		ExtrasGames.playSound(player, ExtrasModule.COIN_FLIP_SOUND, 1.0f);
 		Stakes.settle(player, stake, r.win() ? Stakes.Outcome.WIN : Stakes.Outcome.LOSS, winnings);
-		ExtrasGames.send(player, SCREEN, false, state(player, result(player, r, r.win() ? winnings : -stake.value(), stake.isPawn(), false)));
+		CompoundTag res = result(player, r, r.win() ? winnings : -stake.value(), stake.isPawn(), false);
+		res.putLong("stake", stake.value()); // the celebration's tier base (extras-pvp.md §0.4)
+		ExtrasGames.send(player, SCREEN, false, state(player, res));
 	}
 
 	private static void soul(ServerPlayer player, CompoundTag args) {

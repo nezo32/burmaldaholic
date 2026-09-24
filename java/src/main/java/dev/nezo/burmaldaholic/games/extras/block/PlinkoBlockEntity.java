@@ -34,7 +34,8 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 	public static final int STEP_TICKS = 4;
-	public static final int DROP_TICKS = Plinko.ROWS * STEP_TICKS + 4;
+	/** Until the ball lands in the screen's timeline (release, 12 rows, the fall into the bin; PlinkoAnim). */
+	public static final int DROP_TICKS = (dev.nezo.burmaldaholic.games.extras.logic.anim.PlinkoAnim.landMs(STEP_TICKS * 50) + 49) / 50;
 
 	private record Pending(UUID player, long due, Component line) {}
 
@@ -126,6 +127,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		t.putString("risk", risk.id());
 		t.putDouble("mult", drop.multiplier());
 		t.putLong("net", net);
+		t.putLong("stake", bet); // the celebration's tier base (extras-pvp.md §0.4)
 		lastDrop.put(player.getUUID(), t);
 		busyUntil.put(player.getUUID(), now + DROP_TICKS);
 		pending.add(new Pending(player.getUUID(), now + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",

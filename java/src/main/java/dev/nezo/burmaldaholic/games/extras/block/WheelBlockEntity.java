@@ -134,6 +134,8 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		t.putInt("index", spin.index());
 		t.putString("code", spin.code());
 		t.putLong("net", net);
+		t.putLong("stake", value); // the celebration's tier base (extras-pvp.md §0.4)
+		t.putBoolean("pawn", pawn != null);
 		lastSpin.put(player.getUUID(), t);
 		busyUntil.put(player.getUUID(), now + SPIN_TICKS);
 		Component segment = Component.translatable(Wheel.segmentKey(spin.code()));

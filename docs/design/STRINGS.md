@@ -1631,6 +1631,43 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.anim.lobby.full` | Table full — starting! | Мест нет — начинаем! |
 | `gui.burmaldaholic.anim.plinko.edge_banner` | EDGE! | КРАЙ! |
 
+### Visual redesign (lane J-L7, `visual/extras.md` §14; screens of `games/extras/client`)
+
+Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal multiplier · `coin.win_preview` %1$s num ·
+`wheel.pop` %1$s segment name, %2$s decimal multiplier · `wheel.count` %1$s num, %2$s num · `plinko.top` %1$s decimal ·
+`scratch.odds` %1$s num · `scratch.new` %1$s num (price).
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.extras.coin.your_call` | Your call | Ваш выбор |
+| `gui.burmaldaholic.extras.coin.history` | Last flips | Последние броски |
+| `gui.burmaldaholic.extras.coin.tally` | Heads %1$s · Tails %2$s | Орёл %1$s · Решка %2$s |
+| `gui.burmaldaholic.extras.coin.flip` | Flip | Бросить |
+| `gui.burmaldaholic.extras.coin.again` | Flip again | Ещё бросок |
+| `gui.burmaldaholic.extras.coin.pays` | Pays %1$s× | Выплата %1$s× |
+| `gui.burmaldaholic.extras.coin.win_preview` | Win: %1$s | Выигрыш: %1$s |
+| `gui.burmaldaholic.extras.bet` | Bet | Ставка |
+| `gui.burmaldaholic.extras.minus` | − | − |
+| `gui.burmaldaholic.extras.plus` | + | + |
+| `gui.burmaldaholic.extras.bet_minus` | Bet − | Ставка − |
+| `gui.burmaldaholic.extras.bet_plus` | Bet + | Ставка + |
+| `gui.burmaldaholic.extras.leave` | Leave | Уйти |
+| `gui.burmaldaholic.extras.rules_short` | ? | ? |
+| `gui.burmaldaholic.extras.wheel.segments` | Segments | Сектора |
+| `gui.burmaldaholic.extras.wheel.pop` | %1$s ×%2$s | %1$s ×%2$s |
+| `gui.burmaldaholic.extras.wheel.count` | %1$s/%2$s | %1$s/%2$s |
+| `gui.burmaldaholic.extras.wheel.you_win` | You win | Выигрыш |
+| `gui.burmaldaholic.extras.plinko.top` | Top: ×%1$s | Максимум: ×%1$s |
+| `gui.burmaldaholic.extras.plinko.last` | Last balls | Последние шарики |
+| `gui.burmaldaholic.extras.scratch.ticket.basic` | LUCKY MINER | ВЕЗУЧИЙ ШАХТЁР |
+| `gui.burmaldaholic.extras.scratch.ticket.gold` | GOLD RUSH | ЗОЛОТАЯ ЛИХОРАДКА |
+| `gui.burmaldaholic.extras.scratch.match3` | Match 3 to win | Три одинаковых — выигрыш |
+| `gui.burmaldaholic.extras.scratch.odds` | 1 in %1$s | 1 из %1$s |
+| `gui.burmaldaholic.extras.scratch.creeper_rule` | Three creepers bite! | Три крипера кусаются! |
+| `gui.burmaldaholic.extras.scratch.kind.basic` | Basic | Обычный |
+| `gui.burmaldaholic.extras.scratch.kind.gold` | Golden | Золотой |
+| `gui.burmaldaholic.extras.scratch.new` | New (%1$s) | Новый (%1$s) |
+
 ---
 
 ## pvp
@@ -1786,6 +1823,26 @@ in these values; running text in other modules that embeds the game name adds «
 | `msg.burmaldaholic.pvp.command.unknown_taunt` | Unknown line. Pick one of: %1$s | Такой фразы нет. Выберите: %1$s |
 | `msg.burmaldaholic.pvp.command.cancelled` | Match %1$s: cancelled or settled | Матч %1$s отменён или рассчитан |
 | `tooltip.burmaldaholic.lucky_coin.pvp` | Use on a player: challenge them to a Coin Flip Duel | На игрока — вызов на дуэль на монетке |
+
+### Visual redesign (lane J-L7, `visual/extras.md` §14; plates, pot, Final Reveal, result)
+
+Args: `record_chip` %1$s num wins, %2$s num losses · `match.step_of` %1$s num, %2$s num · `result.pot_short` %1$s num pot,
+%2$s num house cut · `result.rematch_ready` %1$s num, %2$s num · `scratch.score_mult` %1$s num, %2$s num ·
+`plinko.title_risk` %1$s mode name, %2$s risk name · `plinko.your_total` %1$s num · `coin.plate_line` %1$s side, %2$s num.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.vs` | VS | VS |
+| `gui.burmaldaholic.pvp.record_chip` | %1$s–%2$s | %1$s–%2$s |
+| `gui.burmaldaholic.pvp.match.step_of` | Step %1$s/%2$s | Шаг %1$s/%2$s |
+| `gui.burmaldaholic.pvp.result.you_take` | You take the pot | Банк ваш |
+| `gui.burmaldaholic.pvp.result.split_short` | The pot is split | Банк поделён |
+| `gui.burmaldaholic.pvp.result.pot_short` | Pot %1$s · cut %2$s | Банк %1$s · доля дома %2$s |
+| `gui.burmaldaholic.pvp.result.rematch_ready` | Rematch? %1$s/%2$s | Реванш? %1$s/%2$s |
+| `gui.burmaldaholic.pvp.scratch.score_mult` | %1$s ×%2$s | %1$s ×%2$s |
+| `gui.burmaldaholic.pvp.plinko.title_risk` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.pvp.plinko.your_total` | You: %1$s | Вы: %1$s |
+| `gui.burmaldaholic.pvp.coin.plate_line` | %1$s · %2$s | %1$s · %2$s |
 
 ### Rivalry, win streaks, grudge matches
 

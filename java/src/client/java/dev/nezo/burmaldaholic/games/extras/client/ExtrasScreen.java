@@ -131,6 +131,16 @@ abstract class ExtrasScreen extends Screen {
 
 	protected abstract void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a);
 
+	/** The vanilla screen background only (world dim / blur), for subclasses that draw their own panel. */
+	protected final void extractBackgroundScreenOnly(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+		super.extractBackground(graphics, mouseX, mouseY, a);
+	}
+
+	/** The widgets only (vanilla {@code Screen#extractRenderState}), for subclasses that draw their own panel. */
+	protected final void renderWidgets(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+		super.extractRenderState(graphics, mouseX, mouseY, a);
+	}
+
 	/** Word-wrapped text; returns the y below it. */
 	protected int wrapped(GuiGraphicsExtractor graphics, Component text, int x, int y, int width, int color) {
 		Art.wrap(graphics, font, text, x, y, width, color);

@@ -34,6 +34,11 @@ public final class MatchView {
 		this.json = json == null ? new JsonObject() : json;
 	}
 
+	/** Seats as the plates draw them. */
+	public List<dev.nezo.burmaldaholic.client.pvp.kit.PvpSeat> seatsFull() {
+		return dev.nezo.burmaldaholic.client.pvp.kit.PvpSeat.all(json);
+	}
+
 	public String id() {
 		return str(json, "id", "");
 	}

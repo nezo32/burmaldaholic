@@ -38,8 +38,58 @@ public final class PvpModeView {
 	private int you = -1;
 	private long pot;
 	private String id = "";
+	private JsonObject raw = new JsonObject();
+
+	/** The last match view as received (plates, taunts, placings read it). */
+	public JsonObject raw() {
+		return raw;
+	}
+
+	public boolean grudge() {
+		return raw.has("grudge") && raw.get("grudge").isJsonPrimitive() && raw.get("grudge").getAsBoolean();
+	}
+
+	/** Seats as the plates draw them. */
+	public List<dev.nezo.burmaldaholic.client.pvp.kit.PvpSeat> plateSeats() {
+		return dev.nezo.burmaldaholic.client.pvp.kit.PvpSeat.all(raw);
+	}
+
+	/** Final Reveal placings shown so far: {place, seat, points, events[]}. */
+	public List<JsonObject> placings() {
+		List<JsonObject> out = new ArrayList<>();
+		if (raw.has("placings") && raw.get("placings").isJsonArray()) {
+			for (JsonElement e : raw.getAsJsonArray("placings")) {
+				if (e.isJsonObject()) out.add(e.getAsJsonObject());
+			}
+		}
+		return out;
+	}
+
+	/** The revealed placing of a seat, or null. */
+	public @Nullable JsonObject placing(int seat) {
+		for (JsonObject p : placings()) {
+			if (p.has("seat") && p.get("seat").getAsInt() == seat) return p;
+		}
+		return null;
+	}
+
+	/** An outcome event of one kind for a seat, from its revealed placing (Final Reveal cue) or the settled outcome. */
+	public @Nullable JsonObject finalEvent(String kind, int seat) {
+		JsonObject p = placing(seat);
+		if (p != null && p.has("events") && p.get("events").isJsonArray()) {
+			for (JsonElement e : p.getAsJsonArray("events")) {
+				JsonObject o = e.getAsJsonObject();
+				if (kind.equals(str(o, "kind", "")) && seat(o) == seat) return o;
+			}
+		}
+		for (JsonObject o : events(kind)) {
+			if (seat(o) == seat) return o;
+		}
+		return null;
+	}
 
 	public void update(JsonObject state, int now) {
+		raw = state;
 		id = str(state, "id", id);
 		you = state.has("you") ? state.get("you").getAsInt() : state.has("self") ? state.get("self").getAsInt() : you;
 		if (state.has("pot")) {

@@ -211,6 +211,19 @@ public final class PvpMatch {
 		return java.util.Optional.of(new Placing(place, idx, outcome.points()[idx]));
 	}
 
+	/**
+	 * Outcome events of the participant at {@code place} once the Final Reveal has shown that place (e.g. the final
+	 * Plinko bin or scratch cell for the place cue, extras-pvp.md §6.2 / §8.2); empty before.
+	 */
+	public List<dev.nezo.burmaldaholic.core.pvp.logic.PvpEvent> revealedEvents(int place) {
+		var shown = placing(place);
+		if (shown.isEmpty()) {
+			return List.of();
+		}
+		int who = shown.get().participant();
+		return outcome.events().stream().filter(e -> e.seat() == who).toList();
+	}
+
 	public List<Participant> participants() {
 		return List.copyOf(participants);
 	}

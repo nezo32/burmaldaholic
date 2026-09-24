@@ -201,6 +201,31 @@ public final class PvpMatchView {
 		}
 		o.add("steps", steps);
 		o.addProperty("final", PvpUi.finalPlace(m.id));
+		// places the Final Reveal has shown so far (never ahead of the cue): seat, points and that seat's outcome
+		// events (the final Plinko bin / scratch cell of the place cue, extras-pvp.md §6.2, §8.2)
+		JsonArray placings = new JsonArray();
+		for (int place = m.participants().size(); place >= 1; place--) {
+			var shown = m.placing(place);
+			if (shown.isEmpty()) {
+				continue;
+			}
+			JsonObject pl = new JsonObject();
+			pl.addProperty("place", place);
+			pl.addProperty("seat", shown.get().participant());
+			pl.addProperty("points", shown.get().points());
+			pl.add("events", events(m.revealedEvents(place)));
+			placings.add(pl);
+		}
+		o.add("placings", placings);
+		JsonArray taunts = new JsonArray();
+		for (long[] t : PvpUi.taunts(m.id, now(server))) {
+			JsonObject tj = new JsonObject();
+			tj.addProperty("seat", t[0]);
+			tj.addProperty("line", t[1]);
+			tj.addProperty("age", t[2]);
+			taunts.add(tj);
+		}
+		o.add("taunts", taunts);
 		Outcome out = m.outcome();
 		if (out != null) {
 			JsonObject r = new JsonObject();
@@ -217,23 +242,27 @@ public final class PvpMatchView {
 			oc.add("rankOrder", ints(out.rankOrder()));
 			oc.add("winners", ints(out.winners()));
 			oc.add("seatOrder", ints(out.seatOrder()));
-			JsonArray events = new JsonArray();
-			for (var e : out.events()) {
-				JsonObject ev = new JsonObject();
-				ev.addProperty("kind", e.kind());
-				ev.addProperty("seat", e.seat());
-				ev.addProperty("round", e.round());
-				JsonObject d = new JsonObject();
-				e.data().forEach(d::addProperty);
-				ev.add("data", d);
-				events.add(ev);
-			}
-			oc.add("events", events);
+			oc.add("events", events(out.events()));
 			o.add("outcome", oc);
 			o.add("points", longs(out.points()));
 		}
 		PvpViewContributors.apply(m, viewer, o);
 		return o;
+	}
+
+	static JsonArray events(List<dev.nezo.burmaldaholic.core.pvp.logic.PvpEvent> list) {
+		JsonArray events = new JsonArray();
+		for (var e : list) {
+			JsonObject ev = new JsonObject();
+			ev.addProperty("kind", e.kind());
+			ev.addProperty("seat", e.seat());
+			ev.addProperty("round", e.round());
+			JsonObject d = new JsonObject();
+			e.data().forEach(d::addProperty);
+			ev.add("data", d);
+			events.add(ev);
+		}
+		return events;
 	}
 
 	static JsonArray ints(int[] a) {

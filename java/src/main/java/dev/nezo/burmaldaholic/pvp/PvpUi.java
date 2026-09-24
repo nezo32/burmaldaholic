@@ -62,6 +62,10 @@ public final class PvpUi {
 	private static final Map<String, long[]> PAYOUTS = new ConcurrentHashMap<>();
 	private static final Map<String, Integer> FINAL = new ConcurrentHashMap<>();
 	private static final Set<String> NOTIFIED = ConcurrentHashMap.newKeySet();
+	/** Recent taunts per match: {seat, line, gameTime} (bubbles on the plates, extras-pvp.md §9.7). */
+	private static final Map<String, List<long[]>> TAUNTS = new ConcurrentHashMap<>();
+	/** Taunt bubbles stay this long on the plates. */
+	static final int TAUNT_TICKS = 60;
 
 	private PvpUi() {}
 
@@ -79,6 +83,23 @@ public final class PvpUi {
 		j.addProperty("waitForAll", step.waitForAll());
 		j.add("data", step.data() == null ? new JsonObject() : step.data().deepCopy());
 		STEPS.computeIfAbsent(matchId, k -> new ArrayList<>()).add(j);
+	}
+
+	/** Taunts said within {@link #TAUNT_TICKS} of {@code now}: {seat, line, age ticks}. */
+	static List<long[]> taunts(String matchId, long now) {
+		List<long[]> out = new ArrayList<>();
+		for (long[] t : TAUNTS.getOrDefault(matchId, List.of())) {
+			if (now - t[2] < TAUNT_TICKS && now >= t[2]) {
+				out.add(new long[] {t[0], t[1], now - t[2]});
+			}
+		}
+		return out;
+	}
+
+	static void addTaunt(String matchId, int seat, int line, long now) {
+		List<long[]> list = TAUNTS.computeIfAbsent(matchId, k -> new ArrayList<>());
+		list.removeIf(t -> t[0] == seat || now - t[2] >= TAUNT_TICKS);
+		list.add(new long[] {seat, line, now});
 	}
 
 	static int finalPlace(String matchId) {
@@ -101,6 +122,7 @@ public final class PvpUi {
 	static void resetMatch(String matchId) {
 		STEPS.remove(matchId);
 		FINAL.remove(matchId);
+		TAUNTS.remove(matchId);
 		PAYOUTS.remove(matchId);
 	}
 
@@ -110,6 +132,7 @@ public final class PvpUi {
 		PAYOUTS.clear();
 		FINAL.clear();
 		NOTIFIED.clear();
+		TAUNTS.clear();
 	}
 
 	// ---- sending -----------------------------------------------------------------------------
@@ -125,7 +148,8 @@ public final class PvpUi {
 
 	private static String signature(PvpMatch m) {
 		StringBuilder b = new StringBuilder(m.state().name()).append('|').append(m.host()).append('|').append(steps(m.id).size())
-			.append('|').append(finalPlace(m.id)).append('|').append(m.grudge());
+			.append('|').append(finalPlace(m.id)).append('|').append(m.grudge()).append('|')
+			.append(TAUNTS.getOrDefault(m.id, List.of()).stream().mapToLong(t -> t[2]).max().orElse(0));
 		for (Participant p : m.participants()) {
 			b.append('|').append(p.occupant.key()).append(':').append(p.stake()).append(p.allIn() ? 'A' : '-').append(p.pressed() ? 'P' : '-')
 				.append(p.wantsRematch() ? 'R' : '-');

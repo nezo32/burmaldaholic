@@ -129,6 +129,17 @@ public final class PvpScreensPresenter implements PvpPresenter {
 		}
 	}
 
+	/** A taunt: remembered for the plates' speech bubbles, then every participant's screen is refreshed. */
+	@Override
+	public void taunt(PvpMatch match, int who, int line) {
+		MinecraftServer server = server(match);
+		if (server == null) {
+			return;
+		}
+		PvpUi.addTaunt(match.id, who, line, PvpMatchView.now(server));
+		PvpUi.pushAll(server, match, false);
+	}
+
 	@Override
 	public void sound(PvpMatch match, String soundId, int who) {
 		MinecraftServer server = server(match);

@@ -84,6 +84,7 @@ public final class ExtrasModule implements CasinoModule {
 		COIN_FLIP_SOUND = ctx.registry().sound("coin_flip");
 		PLINKO_PEG_SOUND = ctx.registry().sound("plinko_peg");
 		DICE_ROLL_SOUND = ctx.registry().sound("dice_roll");
+		dev.nezo.burmaldaholic.core.sound.CasinoSounds.registerOwned(ctx, ID); // plinko_bin (extras-pvp.md §10.3)
 
 		ExtrasActionPayload.TYPE = ctx.payloads().serverbound("extras_action", ExtrasActionPayload.CODEC, (payload, context) -> {
 			ServerPlayer player = context.player();
