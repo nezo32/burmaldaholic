@@ -6,6 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const worldProps = new Map<string, unknown>();
+const jobs: Array<Generator<void, void, void>> = [];
 let tick = 100;
 vi.mock('@minecraft/server', () => ({
   world: {
@@ -21,7 +22,7 @@ vi.mock('@minecraft/server', () => ({
     runInterval: () => 1,
     runTimeout: () => 1,
     run: () => 1,
-    runJob: () => 1,
+    runJob: (j: Generator<void, void, void>) => (jobs.push(j), 1),
     clearRun: () => {},
     get currentTick() {
       return tick;
@@ -73,6 +74,7 @@ function fakeCtx(balance = 100_000) {
   const placed: Array<Record<string, unknown>> = [];
   const settled: Array<[string, number]> = [];
   const credits: Array<[string, number, string]> = [];
+  const closed = new Set<string>();
   let oddsCalls = 0;
   let seq = 0;
   const ctx = {
@@ -100,8 +102,16 @@ function fakeCtx(balance = 100_000) {
       },
       draw: (tk: Ticket, n: number) => (tk.drawn = n),
       settle: (tk: Ticket, p: FakePlayer | undefined, n: number) => {
+        if (closed.has(tk.id)) return undefined; // core: already settled / refunded
+        closed.add(tk.id);
         settled.push([tk.id, n]);
         if (p) bal.set(p.id, (bal.get(p.id) ?? balance) + n);
+        return { net: n - tk.value };
+      },
+      refund: (tk: Ticket, p: FakePlayer | undefined) => {
+        if (closed.has(tk.id)) return;
+        closed.add(tk.id);
+        if (p) bal.set(p.id, (bal.get(p.id) ?? balance) + tk.value);
       },
       resolveHouse: () => ({ kind: 'bank' }),
       limitsFor: (_p: unknown, _g: unknown, base: unknown) => base,
@@ -123,7 +133,7 @@ function fakeCtx(balance = 100_000) {
     isCasinoEnabled: () => true,
     guard: (fn: unknown) => fn,
   };
-  return { ctx, bal, log, placed, settled, credits, odds: () => oddsCalls };
+  return { ctx, bal, log, placed, settled, credits, closed, odds: () => oddsCalls };
 }
 
 function fakeSession(p: FakePlayer, variant: string) {
@@ -169,6 +179,7 @@ const rounds = (): Record<string, { tape: string; total: number; jackpotAwards: 
 
 beforeEach(() => {
   worldProps.clear();
+  jobs.length = 0;
   tick = 100;
 });
 
@@ -551,3 +562,131 @@ function evaluateBaseFifths(tape: { stops: number[] }): number {
   return evaluateSpinV2(defaultMachine('overworld'), tape.stops, false).payFifths;
 }
 const { evaluateSpin: evaluateSpinV2 } = await import('./v2/logic');
+
+describe('slots v2 service: review fixes (Java slots v2 review parity)', () => {
+  const grandSeq = (): number[] => [0, 21, 5, 24, 0, 1, 7, 4];
+  const endSession = (p: FakePlayer, key: string) => {
+    const s = fakeSession(p, 'netherite');
+    s.table.key = key;
+    (s.data as Record<string, unknown>).slotsV2 = { machine: 'end', bet: 5000, busy: false, notice: [] };
+    return s;
+  };
+
+  it('a round whose stake was already closed (refunded / settled) is dropped: no pool award is minted', () => {
+    const { svc, credits, closed, settled, log } = service(grandSeq());
+    const p = new FakePlayer('-6', 'Gus');
+    const s = endSession(p, 'overworld|end1');
+    const l = svc.start(s as never, false) as { ticket: Ticket; record: { jackpotAwards: Array<{ chips: number }> } };
+    expect(l.record.jackpotAwards.length).toBeGreaterThan(0); // the scripted spin wins the Grand
+    svc.begin(l as never);
+    closed.add(l.ticket.id); // closed elsewhere before the reveal
+    svc.skip(s as never);
+    expect(svc.liveCount()).toBe(0);
+    expect(settled).toEqual([]);
+    expect(credits).toEqual([]);
+    expect(worldProps.get(OWED_PROP)).toBeUndefined();
+    expect(rounds()).toEqual({});
+    expect(log.some((m) => m.includes('dropped without payout'))).toBe(true);
+  });
+
+  it('a broken / unloaded machine settles the drawn round from its tape (pool paid once), never refunds it', () => {
+    const { svc, credits, settled, bal } = service(grandSeq());
+    const p = new FakePlayer('-7', 'Hal');
+    const s = endSession(p, 'overworld|end2');
+    const l = svc.start(s as never, false) as { ticket: Ticket; record: { total: number; jackpotAwards: unknown[] } };
+    expect(l.record.jackpotAwards.length).toBeGreaterThan(0);
+    svc.begin(l as never);
+    const before = bal.get('-7')!;
+    p.isValid = false; // the player is gone too: pool money is owed, the wager settles offline
+    svc.onLeave(s as never);
+    expect(settled).toEqual([[l.ticket.id, l.record.total]]);
+    expect(credits).toEqual([]);
+    expect(JSON.parse(String(worldProps.get(OWED_PROP)))['-7']).toBeGreaterThan(0);
+    expect(bal.get('-7')).toBe(before); // no refund of the stake
+    svc.onLeave(s as never);
+    expect(settled).toHaveLength(1);
+  });
+
+  it('one live round per player across machines, also while a Treasure Hunt waits after pick-all', () => {
+    const { svc, placed } = service([13, 0, 6, 0, 9, 0, 0, 102_000]);
+    const p = new FakePlayer('-8', 'Ida');
+    const a = fakeSession(p, 'copper');
+    const b = fakeSession(p, 'gold');
+    svc.spin(a as never, false);
+    a.timers.get('slots.v2.gate')!.fn(); // the board is up
+    svc.pick(a as never, true); // pick all, then the form is closed (no leave)
+    expect(svc.liveCount()).toBe(1);
+    const r = svc.start(b as never, false);
+    expect('ticket' in (r as object)).toBe(false);
+    expect(placed).toHaveLength(1);
+  });
+
+  it('autoplay started without choosing a bet uses the round bet: a small loss does not stop it', async () => {
+    const f = fakeCtx();
+    const pr = presenter();
+    let n = 0;
+    (pr as { machine: unknown }).machine = async () => (n++ === 0 ? { kind: 'auto', count: 10, lossLimit: 25, stopOnFeature: false, stopOnWin: 0 } : undefined);
+    const svc = new SlotsV2Service(f.ctx as never, pr as never, fxSlotRng(3));
+    svc.loadConfig();
+    svc.loadPools();
+    const p = new FakePlayer('-9', 'Jo');
+    const s = fakeSession(p, 'copper');
+    await svc.showMachine(s as never);
+    const st = svc.stateOf(s as never);
+    expect(st.auto!.bet).toBe(st.bet);
+    expect(st.bet).toBeGreaterThan(0);
+    for (let i = 0; i < 3; i++) {
+      s.timers.get('slots.v2.gate')!.fn();
+      expect(st.auto).toBeDefined(); // loss limit 25 × bet, not 25 chips
+      s.timers.get('slots.v2.auto')!.fn();
+    }
+  });
+
+  it('a config reload re-runs validateRtp: a price-only change flags an underpriced buy', () => {
+    const f = fakeCtx();
+    let price: number | undefined;
+    (f.ctx.config as { get: (k: string) => unknown }).get = (k: string) => {
+      if (k === 'slots.enabled' || k === 'slots.validateRtp') return true;
+      if (k === 'slots.nether.buy.price' && price !== undefined) return price;
+      throw new Error('unknown');
+    };
+    const svc = new SlotsV2Service(f.ctx as never, presenter() as never, fxSlotRng(1));
+    let notified = 0;
+    svc.onRtpWarning = () => void notified++;
+    svc.loadConfig();
+    expect(svc.warnings.some((w) => w.includes('nether'))).toBe(false);
+    price = 12;
+    svc.loadConfig();
+    expect(svc.warnings.some((w) => w.includes('nether') && w.includes('buy RTP'))).toBe(true);
+    expect(notified).toBe(1);
+    price = undefined;
+    svc.loadConfig();
+    expect(svc.warnings.some((w) => w.includes('nether'))).toBe(false);
+  });
+
+  it('a Nether sample started on an older config never publishes its result', () => {
+    const f = fakeCtx();
+    let changed = true;
+    (f.ctx.config as { get: (k: string) => unknown }).get = (k: string) => {
+      if (k === 'slots.enabled' || k === 'slots.validateRtp') return true;
+      if (k === 'slots.nether.hold.respins' && changed) return 5;
+      throw new Error('unknown');
+    };
+    const svc = new SlotsV2Service(f.ctx as never, presenter() as never, fxSlotRng(1));
+    svc.loadConfig();
+    expect(jobs).toHaveLength(1); // changed tables: sampled over ticks
+    changed = false;
+    svc.loadConfig(); // back to the defaults before the sample finished
+    expect(svc.rtpOf('nether')!.method).toBe('defaults');
+    let steps = 0;
+    for (const _ of jobs[0]!) if (++steps > 5) break;
+    expect(steps).toBeLessThanOrEqual(1);
+    expect(svc.rtpOf('nether')!.method).toBe('defaults');
+  });
+
+  it('Overworld streak cap r_cap = 0.99 / RTP − 1 = 0.041 300 (SLOTS.md §7.1)', () => {
+    const { svc } = service();
+    expect(rerollCap(svc.rtpOf('overworld')!.total, 0.01)).toBeCloseTo(0.0413, 6);
+  });
+});
+const { rerollCap } = await import('../../core/logic/streak');

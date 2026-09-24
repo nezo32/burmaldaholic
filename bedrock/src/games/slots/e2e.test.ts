@@ -152,6 +152,7 @@ function fakeCtx() {
       settle: (_tk: unknown, p: FakePlayer | undefined, n: number) => {
         settled.push(n);
         if (p) bal.set(p.id, balance(p.id) + n);
+        return { totalReturn: n }; // core returns the event for an open ticket
       },
       resolveHouse: () => ({ kind: 'bank' }),
       limitsFor: (_p: unknown, _g: unknown, base: unknown) => base,

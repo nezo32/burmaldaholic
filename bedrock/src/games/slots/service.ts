@@ -262,7 +262,11 @@ export class SlotsV2Service implements SlotsApi {
   private readonly spinListeners = new Set<(e: SlotsSpinEvent) => void>();
   private resolver: SlotsHouseResolver | undefined;
   private seq = 0;
+  /** config generation: a validation started on an older config never publishes its result */
+  private rtpGen = 0;
   readonly warnings: string[] = [];
+  /** Called whenever validateRtp reported something (the module surfaces it in the admin menu). */
+  onRtpWarning: (() => void) | undefined;
 
   constructor(
     private readonly ctx: ModuleContext,
@@ -289,6 +293,7 @@ export class SlotsV2Service implements SlotsApi {
   loadConfig(): void {
     this.cfg = readGlobalConfig((k) => this.get(k));
     this.warnings.length = 0;
+    const gen = ++this.rtpGen;
     for (const m of MACHINE_IDS) {
       const { config, errors } = readMachineConfig(m, (k) => this.get(k));
       for (const e of errors) this.ctx.log.warn(`config rejected, default kept: ${e}`);
@@ -299,20 +304,22 @@ export class SlotsV2Service implements SlotsApi {
       // contribution is still validated exactly); other changes are re-checked by sampling
       const r = computeRtp(def, rtpTablesDefault(m, config));
       if (r) this.rtp.set(m, r);
-      else this.sampleNether(def);
+      else this.sampleNether(def, gen);
     }
     if (this.cfg.validateRtp) this.checkRtp();
   }
 
   /** Changed Nether tables: 10⁶-spin sample spread over ticks (SLOTS.md §7.5). */
-  private sampleNether(def: MachineDef): void {
+  private sampleNether(def: MachineDef, cfgGen: number): void {
     const gen = sampleRtp(def, 1_000_000, this.rng, 500);
     const job = function* (this: SlotsV2Service): Generator<void, void, void> {
       let r = gen.next();
       while (!r.done) {
         yield;
+        if (cfgGen !== this.rtpGen) return; // the config changed meanwhile: its own validation publishes
         r = gen.next();
       }
+      if (cfgGen !== this.rtpGen) return;
       const total = r.value;
       this.rtp.set(def.machine, { machine: def.machine, base: 0, scatter: 0, freeSpins: 0, bonus: 0, jackpotSeed: 0, contributions: 0, total, owned: total, method: 'sample' });
       if (this.cfg.validateRtp) this.checkRtp();
@@ -325,13 +332,16 @@ export class SlotsV2Service implements SlotsApi {
   }
 
   private checkRtp(): void {
+    let any = false;
     for (const r of this.rtp.values()) {
       for (const w of rtpWarnings(r)) {
         const msg = `slots ${w.machine}: ${w.kind === 'rtp' ? 'RTP' : 'buy RTP'} ${(w.value * 100).toFixed(3)} % ${w.kind === 'buy_parity' ? '<' : '>'} ${(w.limit * 100).toFixed(3)} %`;
         if (!this.warnings.includes(msg)) this.warnings.push(msg);
         this.ctx.log.warn(msg);
+        any = true;
       }
     }
+    if (any) this.onRtpWarning?.();
   }
 
   rtpOf(m: MachineId): RtpBreakdown | undefined {
@@ -719,12 +729,16 @@ export class SlotsV2Service implements SlotsApi {
     const quiet = reason === 'leave' || reason === 'disconnect';
     const valid = l.player.isValid;
     const split = settlement(l.def, l.tape);
+    // a stake that is no longer open (refunded or settled elsewhere) takes no pool money: paying its awards would
+    // mint chips (the round is dropped, its tape was already accounted for by whoever closed the ticket)
+    let open = true;
     try {
-      this.ctx.wagers.settle(l.ticket, valid ? l.player : undefined, split.wagerReturn);
+      open = this.ctx.wagers.settle(l.ticket, valid ? l.player : undefined, split.wagerReturn) !== undefined;
     } catch (e) {
       this.ctx.log.error('slots settle failed', e);
     }
-    this.payPool(l.record.playerId, valid ? l.player : undefined, split.poolChips);
+    if (open) this.payPool(l.record.playerId, valid ? l.player : undefined, split.poolChips);
+    else this.ctx.log.warn(`slots v2: round ${l.ticket.id} of ${l.record.playerId} was already closed, dropped without payout (pool ${split.poolChips})`);
     this.deleteRound(l.session.table.key);
     try {
       // at the gate the cabinet keeps playing its celebration to the timeline end; skip / leave jump to the result
@@ -737,8 +751,9 @@ export class SlotsV2Service implements SlotsApi {
       st.last = l.tape;
       st.busy = false;
     }
-    if (valid) this.afterSettle(l, quiet);
+    if (valid && open) this.afterSettle(l, quiet);
     let stop: AutoStop | undefined;
+    if (st && !open) st.auto = undefined;
     if (st?.auto && valid && !quiet) {
       const next = l.tape.bought ? (l.def.buyPriceFifths * st.bet) / 5 : st.bet;
       stop = autoplayStop(st.auto, l.tape, this.ctx.economy.balance(l.player), next);
@@ -1318,7 +1333,11 @@ export function startSlotsV2(ctx: ModuleContext, presenter?: SlotsV2Presenter, d
       op.sendMessage(t('gui.burmaldaholic.menu.admin.done', t('gui.burmaldaholic.menu.admin.reset_jackpots')));
     },
   });
-  if (svc.warnings.length) {
+  // validateRtp warnings (also those of a later config reload or a finished Nether sample) go to the admin menu
+  let warnAction = false;
+  const addWarnAction = (): void => {
+    if (warnAction || !svc.warnings.length) return;
+    warnAction = true;
     ctx.admin.addAction({
       id: 'slots.rtp_warning',
       label: color('§c', t('gui.burmaldaholic.menu.admin.rtp_warning', t('gui.burmaldaholic.common.game.slots'), lit(svc.warnings.length))),
@@ -1326,7 +1345,9 @@ export function startSlotsV2(ctx: ModuleContext, presenter?: SlotsV2Presenter, d
         for (const w of svc.warnings) op.sendMessage(color('§c', lit(w)));
       },
     });
-  }
+  };
+  svc.onRtpWarning = addWarnAction;
+  addWarnAction();
   return svc;
 }
 

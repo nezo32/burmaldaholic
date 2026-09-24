@@ -126,3 +126,17 @@ describe('Monte-Carlo: owner earns the house edge', () => {
     expect(accepted).toBeGreaterThan(0);
   });
 });
+
+describe('slots v2 insolvency threshold (SLOTS.md §8.6: max-win cap × the owner min bet)', () => {
+  it('uses 500 / 2 000 / 5 000 × min bet, not the v1 150 / 1 000 / 1 000', () => {
+    const bank = (balance: number) => ({ balance, reserved: 0 }) as never;
+    const at = (variant: string, minBet: number) => [{ game: 'slots', variant, minBet, open: true }];
+    expect(cheapestWorstCase(at('copper', 10))).toBe(5000);
+    expect(cheapestWorstCase(at('gold', 10))).toBe(20_000);
+    expect(cheapestWorstCase(at('netherite', 10))).toBe(50_000);
+    expect(isBroke(bank(4999), at('copper', 10))).toBe(true);
+    expect(isBroke(bank(5000), at('copper', 10))).toBe(false);
+    expect(isBroke(bank(19_999), at('gold', 10))).toBe(true);
+    expect(isBroke(bank(49_999), at('netherite', 10))).toBe(true);
+  });
+});

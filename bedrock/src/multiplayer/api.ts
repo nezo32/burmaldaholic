@@ -57,7 +57,7 @@ export interface MultiplayerApi {
   recordRake(tableKey: string, amount: number): void;
   /**
    * Override the worst-case TOTAL return per chip of base bet used by the insolvency rule for a
-   * table game (`game` or `game.variant`), e.g. `setWorstCase('slots.copper', 150)`.
+   * table game (`game` or `game.variant`), e.g. `setWorstCase('slots.copper', 500)` (the Overworld max-win cap, SLOTS.md §8.6).
    */
   setWorstCase(key: string, perChip: number): void;
   /** Worst-case total return of one round at `bet` (a sane default for `wagers.place({worstCase})`). */
