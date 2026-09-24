@@ -841,6 +841,15 @@ public final class TableBots {
 		return BotPurses.ownership(level, table.botTablePos());
 	}
 
+	/** Header line of the running session (defaults outside one): "Humans + 3 bots · Mixed · Open to all" (+ pending). */
+	public MutableComponent summary(ServerLevel level) {
+		MutableComponent out = summary(level, settings());
+		if (pending != null) {
+			out.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.bots.pending"));
+		}
+		return out;
+	}
+
 	private MutableComponent summary(ServerLevel level, BotSettings s) {
 		Component access = Component.translatable(this.access.isPrivate() ? "gui.burmaldaholic.bots.summary.private" : "gui.burmaldaholic.bots.summary.open");
 		Component bots = Texts.plural("unit.burmaldaholic.bot", s.count());

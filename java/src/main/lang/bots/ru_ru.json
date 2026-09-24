@@ -278,7 +278,6 @@
 	"config.burmaldaholic.bots.poker.easyMaxStake.mid": "Средние",
 	"config.burmaldaholic.bots.poker.easyMaxStake.high": "Высокие",
 	"config.burmaldaholic.bots.chemmy.bankCapMultiple": "Лимит банка бота (× мин. ставка)",
-	"config.burmaldaholic.bots.craps.canShoot": "Боты могут бросать кости в крэпсе",
 	"config.burmaldaholic.bots.pvp.fillDelayTicks": "PvP-лобби: боты заходят через (тики)",
 	"config.burmaldaholic.bots.pvp.maxPerMatch": "PvP: макс. ботов в матче",
 	"config.burmaldaholic.bots.tournament.maxFill": "Турниры: макс. ботов-заполнителей",

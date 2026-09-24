@@ -1,6 +1,12 @@
 package dev.nezo.burmaldaholic.games.roulette;
 
+import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.bots.AtmosphereBots;
+import dev.nezo.burmaldaholic.core.bots.BotNames;
+import dev.nezo.burmaldaholic.core.bots.BotTable;
+import dev.nezo.burmaldaholic.core.bots.logic.BotProfile;
+import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats.VirtualBot;
 import com.mojang.serialization.Codec;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.RouletteConfig;
@@ -16,6 +22,7 @@ import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
 import dev.nezo.burmaldaholic.games.roulette.logic.Bets;
 import dev.nezo.burmaldaholic.games.roulette.logic.Bets.Bet;
+import dev.nezo.burmaldaholic.games.roulette.logic.RouletteBettor;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteRound;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteRound.Transition;
 import dev.nezo.burmaldaholic.games.roulette.logic.SlipLimits;
@@ -23,6 +30,7 @@ import dev.nezo.burmaldaholic.games.roulette.logic.Spot;
 import dev.nezo.burmaldaholic.games.roulette.logic.Wheel;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +49,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One roulette table (normal or High-Roller). Server-authoritative shared spin (GAME_DESIGN.md §9):
@@ -53,8 +62,14 @@ import net.minecraft.world.level.storage.ValueOutput;
  * the spin proceeds and offline players are settled to their balance (§4.1). A server restart refunds
  * open bets (core). Casino mode switched off mid-round refunds bets that were not drawn yet; a spin whose
  * result was already drawn is settled.
+ *
+ * <p><b>Seats &amp; Bots</b> (BOTS.md §4.7): ATMOSPHERE bettors ({@link RouletteBettor}, style by personality,
+ * difficulty hidden) sit on free seats ({@link AtmosphereBots}) and keep VIRTUAL slips beside the shared
+ * round — never in {@code round}, never a stake. They bet at a random moment in the first 60–160 t of
+ * BETTING, are always ready (never delay the spin) and their slips are settled against the same number
+ * for display only. Safe point: start of / any time during BETTING.
  */
-public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
+public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
 	private static final String HISTORY_KEY = "roulette_history";
 	private static final int NO_MORE_BETS_TICKS = 20;
 	private static final int RESULT_TICKS = 60;
@@ -65,6 +80,30 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	private final Map<UUID, List<Bet>> lastSlips = new HashMap<>();
 	/** Staked / returned of the spin being shown in RESULT. */
 	private final Map<UUID, long[]> outcomes = new HashMap<>();
+	/** A bot's virtual slip for this spin and its betting memory (never in {@link #round}, never a stake). */
+	private static final class BotSlip {
+		final BotProfile bot;
+		RouletteBettor.Memory memory;
+		/** game time of this round's bet moment (-1 = none yet) */
+		long betAt = -1;
+		List<Bet> bets = List.of();
+
+		BotSlip(BotProfile bot, RouletteBettor.Memory memory) {
+			this.bot = bot;
+			this.memory = memory;
+		}
+	}
+
+	/** A bot's virtual table limits: min bet, {@value} × min per spin (bots have no VIP tier). */
+	static final int BOT_TOTAL_MULTIPLE = 50;
+	/** Seats &amp; Bots: core TableBots + virtual bot seats */
+	private final AtmosphereBots bots = new AtmosphereBots(this, RouletteModule.ID, false);
+	private final Map<String, BotSlip> botSlips = new LinkedHashMap<>();
+	/** A bot's virtual result of the last spin (display only). */
+	private record BotResult(BotProfile bot, long staked, long returned) {}
+
+	/** last spin's bot results for the RESULT display */
+	private final List<BotResult> botResults = new ArrayList<>();
 
 	public RouletteTableBlockEntity(TableType<RouletteTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -220,6 +259,37 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 
 	// ---- seats --------------------------------------------------------------------------------
 
+	@Override
+	public boolean sit(ServerPlayer player) {
+		if (isSeated(player)) {
+			return true;
+		}
+		// Seats & Bots: private table, someone's BOTS_ONLY table, claimant of a bot seat (BOTS.md §3.2)
+		Result<Boolean> admit = bots.admit(player);
+		if (!admit.isOk()) {
+			sendError(player, admit.error());
+			return false;
+		}
+		if (!Boolean.TRUE.equals(admit.value()) || !super.sit(player)) {
+			return false; // claimant: TableBots already said "a bot gives up its seat after this round"
+		}
+		bots.noteJoin(player.getUUID());
+		if (round.canBet()) {
+			botSafePoint(); // atmosphere safe point: any time during BETTING
+		}
+		return true;
+	}
+
+	@Override
+	public BotTable botDelegate() {
+		return bots;
+	}
+
+	/** Seats &amp; Bots of this table (tests, bots UI). */
+	public AtmosphereBots bots() {
+		return bots;
+	}
+
 	/** Bets ride when a player walks away: they may always leave, the spin proceeds without them. */
 	@Override
 	protected boolean canLeaveNow(UUID player) {
@@ -230,6 +300,9 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	protected void onPlayerLeft(UUID player, LeaveReason reason) {
 		if (reason == LeaveReason.REMOVED && round.canBet()) {
 			round.clear(player); // nothing drawn yet: core returns the stake of a broken table
+		}
+		if (round.canBet() || seats().isEmpty()) {
+			botSafePoint(); // atmosphere safe point; the last human leaving ends the bot session
 		}
 		// Otherwise the confirmed bets stay in the round (§4.1 "roulette: spin proceeds"; review B1: also
 		// when the table is broken mid-spin — see playOutForRemoval).
@@ -278,21 +351,171 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		round.configure(timings(), cfg().historyLength);
+		if (round.canBet() && placeBotBets(false)) {
+			syncViewers();
+		}
 		List<UUID> seated = seats().occupied().stream().map(TableSeats.Seat::player).toList();
 		Transition<UUID> t = round.update(gameTime(), seated, () -> OddsService.get().fair().nextInt(Wheel.POCKETS), minTotal());
 		if (t == null) {
 			return;
 		}
 		switch (t) {
-			case Transition.NoMoreBets<UUID> n -> refundDropped(level, n.dropped());
+			case Transition.NoMoreBets<UUID> n -> {
+				placeBotBets(true); // bots are always ready: whoever has not bet yet bets now
+				refundDropped(level, n.dropped());
+			}
 			case Transition.Abandoned<UUID> a -> refundDropped(level, a.dropped());
 			case Transition.Spin<UUID> s -> level.playSound(null, worldPosition, RouletteModule.SPIN_SOUND, SoundSource.BLOCKS, 1.0f, 1.0f);
-			case Transition.Result<UUID> r -> settleAll(level, r.result(), r.slips());
-			case Transition.Reset<UUID> x -> outcomes.clear();
+			case Transition.Result<UUID> r -> {
+				settleBots(level, r.result());
+				settleAll(level, r.result(), r.slips());
+			}
+			case Transition.Reset<UUID> x -> {
+				outcomes.clear();
+				// Safe point: start of BETTING. Virtual slips vanish; new bet moments.
+				for (BotSlip s : botSlips.values()) {
+					s.bets = List.of();
+					s.betAt = -1;
+				}
+				botResults.clear();
+				botSafePoint();
+			}
 		}
 		setPhase(round.phase().id());
 		setChanged();
 		syncViewers();
+	}
+
+	// ---- bots (atmosphere: virtual slips, always ready, never delay the spin) -------------------
+
+	private long botMin() {
+		return Math.max(cfg().minBet, ownership().map(o -> o.minBet()).orElse(0L));
+	}
+
+	/** Safe point (start of / during BETTING): bots join / leave / yield; new bet moments. */
+	private void botSafePoint() {
+		if (!(level instanceof ServerLevel sl) || removing()) {
+			return;
+		}
+		if (bots.safePoint(sl) == null) {
+			return;
+		}
+		java.util.Set<String> live = new java.util.HashSet<>();
+		for (VirtualBot b : bots.bots()) {
+			live.add(b.key);
+			botSlips.computeIfAbsent(b.key, k -> new BotSlip(b.profile(), RouletteBettor.newMemory(bots.rng(), b.profile().personality(), botMin())));
+		}
+		botSlips.keySet().retainAll(live);
+		if (round.canBet()) {
+			for (BotSlip s : botSlips.values()) {
+				if (s.bets.isEmpty() && s.betAt < 0) {
+					s.betAt = gameTime() + bots.betDelay();
+				}
+			}
+		}
+		syncViewers();
+	}
+
+	/** Places the virtual bets whose moment has come ({@code force}: betting closes now, everyone bets). */
+	private boolean placeBotBets(boolean force) {
+		if (botSlips.isEmpty()) {
+			return false;
+		}
+		long min = botMin();
+		long totalMax = min * BOT_TOTAL_MULTIPLE;
+		long insideMax = Math.max(min, (long) Math.floor(totalMax * cfg().insideMaxFraction));
+		long now = gameTime();
+		boolean any = false;
+		for (BotSlip s : botSlips.values()) {
+			if (!s.bets.isEmpty() || (!force && (s.betAt < 0 || now < s.betAt))) {
+				continue;
+			}
+			try {
+				s.bets = RouletteBettor.INSTANCE.act(s.bot, new RouletteBettor.View(min, insideMax, totalMax, s.memory), null, bots.rng());
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("roulette bot bet failed", e);
+				s.bets = List.of();
+			}
+			any = true;
+		}
+		return any;
+	}
+
+	/** The number is known: settle the virtual slips for display, update the betting styles. */
+	private void settleBots(ServerLevel level, int result) {
+		boolean la = cfg().laPartage;
+		botResults.clear();
+		for (BotSlip s : botSlips.values()) {
+			if (s.bets.isEmpty()) {
+				continue;
+			}
+			long staked = Bets.totalStaked(s.bets);
+			long ret = Bets.totalReturn(s.bets, result, la);
+			botResults.add(new BotResult(s.bot, staked, ret));
+			if (ret >= staked * 5 && ret > 0) {
+				bots.quip(level, s.bot, "win_big", null);
+			}
+			s.memory = RouletteBettor.afterSpin(s.bot.personality(), s.memory, s.bets, result, la);
+		}
+	}
+
+	/** "Bots bet (for fun): [BOT] Creeper42: Red 20, … · …" or the last spin's results; null without any. */
+	private @Nullable Component botLine(boolean results) {
+		List<Component> parts = new ArrayList<>();
+		if (results) {
+			for (BotResult r : botResults) {
+				long net = r.returned() - r.staked();
+				parts.add(Component.empty().append(BotNames.display(r.bot())).append(Texts.raw(": " + (net > 0 ? "+" : "")))
+					.append(Texts.number(net)));
+			}
+		} else {
+			for (BotSlip s : botSlips.values()) {
+				if (s.bets.isEmpty()) {
+					continue;
+				}
+				MutableComponent p = Component.empty().append(BotNames.display(s.bot)).append(Texts.raw(": "));
+				for (int i = 0; i < s.bets.size(); i++) {
+					Bet b = s.bets.get(i);
+					if (i > 0) {
+						p.append(Texts.raw(", "));
+					}
+					p.append(betLabel(b)).append(Texts.raw(" ")).append(Texts.number(b.amount()));
+				}
+				parts.add(p);
+			}
+		}
+		if (parts.isEmpty()) {
+			return null;
+		}
+		MutableComponent list = Component.empty();
+		for (int i = 0; i < parts.size(); i++) {
+			if (i > 0) {
+				list.append(Texts.raw(" · "));
+			}
+			list.append(parts.get(i));
+		}
+		return Component.translatable("gui.burmaldaholic.bots.virtual_bets", list);
+	}
+
+	/** "Straight 17", "2nd dozen", "Red" (the screen's bet descriptions). */
+	static Component betLabel(Bet b) {
+		Spot s = b.spot();
+		return switch (s.type()) {
+			case STRAIGHT, SPLIT, STREET, TRIO, CORNER, SIX_LINE ->
+				Component.translatable("gui.burmaldaholic.roulette.desc." + s.type().id(), Texts.raw(s.label()));
+			case DOZEN, COLUMN -> Component.translatable("gui.burmaldaholic.roulette.desc." + s.type().id() + "." + s.outsideIndex());
+			default -> Component.translatable("gui.burmaldaholic.roulette.bet." + s.type().id());
+		};
+	}
+
+	/** The table is broken: its spin was played out by core; now every bot leaves (BOTS.md §3.5). */
+	@Override
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		super.preRemoveSideEffects(pos, state);
+		if (level instanceof ServerLevel sl) {
+			bots.endSession(sl);
+		}
+		botSlips.clear();
 	}
 
 	private void refundDropped(ServerLevel level, List<UUID> dropped) {
@@ -414,12 +637,41 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 		CompoundTag othersTag = new CompoundTag();
 		others.forEach(othersTag::putLong);
 		t.put("others", othersTag);
+		writeBotState(t);
 		long[] outcome = outcomes.get(id);
 		if (outcome != null) {
 			t.putLong("out_staked", outcome[0]);
 			t.putLong("out_return", outcome[1]);
 		}
 		return t;
+	}
+
+	/**
+	 * Seats &amp; Bots sync: {@code bots_header}, {@code bot_chips} (spot key → virtual amount, drawn hatched)
+	 * and {@code bot_line} ("Bots bet (for fun): …" / the last spin's bot results).
+	 */
+	private void writeBotState(CompoundTag t) {
+		if (!(level instanceof ServerLevel sl)) {
+			return;
+		}
+		Component header = bots.header(sl);
+		if (header != null) {
+			t.put("bots_header", AtmosphereBots.encode(sl, header));
+		}
+		boolean result = round.phase() == RouletteRound.Phase.RESULT;
+		CompoundTag chips = new CompoundTag();
+		if (!result) {
+			Map<String, Long> agg = new TreeMap<>();
+			for (BotSlip s : botSlips.values()) {
+				s.bets.forEach(b -> agg.merge(b.spot().key(), b.amount(), Long::sum));
+			}
+			agg.forEach(chips::putLong);
+		}
+		t.put("bot_chips", chips);
+		Component line = botLine(result);
+		if (line != null) {
+			t.put("bot_line", AtmosphereBots.encode(sl, line));
+		}
 	}
 
 	private static ListTag writeBets(List<Bet> bets) {
@@ -438,6 +690,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	@Override
 	protected void saveAdditional(ValueOutput output) {
 		super.saveAdditional(output);
+		bots.save(output);
 		if (!round.history().isEmpty()) {
 			output.store(HISTORY_KEY, Codec.INT.listOf(), round.history());
 		}
@@ -446,6 +699,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity {
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
+		bots.load(input);
 		round.setHistory(input.read(HISTORY_KEY, Codec.INT.listOf()).orElse(List.of()));
 	}
 }

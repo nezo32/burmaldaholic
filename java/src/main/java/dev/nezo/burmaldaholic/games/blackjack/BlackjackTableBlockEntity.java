@@ -1,7 +1,13 @@
 package dev.nezo.burmaldaholic.games.blackjack;
 
+import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.CoreSounds;
 import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.bots.AtmosphereBots;
+import dev.nezo.burmaldaholic.core.bots.BotNames;
+import dev.nezo.burmaldaholic.core.bots.BotTable;
+import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats;
+import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats.VirtualBot;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BlackjackConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -14,6 +20,8 @@ import dev.nezo.burmaldaholic.core.table.TableType;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.wager.BetLimits;
+import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBotPolicy;
+import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBotPolicy.BetMemory;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Action;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound.Hand;
@@ -42,10 +50,13 @@ import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * Server-authoritative blackjack table (GAME_DESIGN §6). The rules live in {@link BlackjackRound}
@@ -62,8 +73,14 @@ import net.minecraft.world.level.block.state.BlockState;
  * All chips put at risk (main bet, doubles, splits, insurance) go through {@code placeBet} into one open
  * stake per player, settled once with the seat's total return when the seat is resolved. Unfinished
  * rounds are refunded by core on reload (the round itself is not persisted, GAME_DESIGN §4.1).
+ *
+ * <p><b>Seats &amp; Bots</b> (BOTS.md §4.7): ATMOSPHERE bots sit on free seats ({@link AtmosphereBots},
+ * highest seat first) with VIRTUAL bets (never placed, paid or reserved; only human seats are settled)
+ * and play REAL cards from the shared shoe with {@link BlackjackBotPolicy} and the bot rng only. They
+ * are always ready (a single human deals as fast as solo play), act in seat order after a short think
+ * (timer "bot") and never use the human turn timer. Safe point: start of / any time during BETTING.
  */
-public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
+public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
 	public static final String BETTING = "betting", INSURANCE = "insurance", TURNS = "turns", RESULT = "result";
 	static final int RESULT_TICKS = 60;
 	static final int SHUFFLE_NOTICE_TICKS = 40;
@@ -82,6 +99,17 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 	private String noticeKey = "";
 	private long noticeUntil;
 	private int lastTurnSeat = -1;
+	/** Seats &amp; Bots: core TableBots + virtual bot seats (atmosphere: bets are virtual) */
+	private final AtmosphereBots bots = new AtmosphereBots(this, BlackjackModule.ID, true);
+	/** per bot: virtual betting memory and the game time its bet shows in the lobby */
+	private final Map<String, BetMemory> botMem = new HashMap<>();
+	private final Map<String, Long> botBetAt = new HashMap<>();
+	/** bot seats of the current round (seat index → bot) */
+	private final Map<Integer, VirtualBot> roundBots = new HashMap<>();
+	/** the bots' round results were applied to their betting memory */
+	private boolean botsDone;
+	/** bots whose virtual bet is visible in the lobby (re-sync when it changes) */
+	private int botBetsShown;
 
 	public BlackjackTableBlockEntity(TableType<BlackjackTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -160,12 +188,35 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 		if (isSeated(player)) {
 			return true;
 		}
-		if (!vipAllowed(player) || !super.sit(player)) {
+		if (!vipAllowed(player)) {
 			return false;
 		}
+		// Seats & Bots: private table, someone's BOTS_ONLY table, claimant of a bot seat (BOTS.md §3.2)
+		Result<Boolean> admit = bots.admit(player);
+		if (!admit.isOk()) {
+			sendError(player, admit.error());
+			return false;
+		}
+		if (!Boolean.TRUE.equals(admit.value()) || !super.sit(player)) {
+			return false; // claimant: TableBots already said "a bot gives up its seat after this round"
+		}
+		bots.noteJoin(player.getUUID());
 		names.put(player.getUUID(), player.getName().getString());
 		tellSeated(Component.translatable("msg.burmaldaholic.blackjack.player_joined", player.getDisplayName()), player.getUUID());
+		if (BETTING.equals(phase())) {
+			botSafePoint(); // atmosphere safe point: any time during BETTING
+		}
 		return true;
+	}
+
+	@Override
+	public BotTable botDelegate() {
+		return bots;
+	}
+
+	/** Seats &amp; Bots of this table (tests, bots UI). */
+	public AtmosphereBots bots() {
+		return bots;
 	}
 
 	@Override
@@ -190,6 +241,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 		mainBets.remove(player);
 		super.onPlayerLeft(player, reason); // refunds a bet placed in the betting phase
 		if (BETTING.equals(phase())) {
+			botSafePoint(); // atmosphere safe point; the last human leaving ends the bot session
 			if (mainBets.isEmpty()) {
 				cancelTimer("bet");
 			} else if (allSeatedHaveBet()) {
@@ -393,7 +445,20 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 			source = CardSource.stacked(List.copyOf(stackedForTests), shoe);
 			stackedForTests.clear();
 		}
-		round = new BlackjackRound(rules, source, bets);
+		// Atmosphere bots: always ready, a VIRTUAL bet each (never placed through placeBet), real cards
+		// from the shared shoe. Only human seats are ever settled (payNewlySettled).
+		roundBots.clear();
+		botsDone = false;
+		List<SeatBet> all = new ArrayList<>(bets);
+		for (VirtualBot bot : bots.bots()) {
+			BetMemory mem = botMem.get(bot.key);
+			if (mem == null || bets.stream().anyMatch(b -> b.seat() == bot.seat())) {
+				continue;
+			}
+			roundBots.put(bot.seat(), bot);
+			all.add(new SeatBet(bot.seat(), VirtualSeats.botUuid(bot.key), mem.next()));
+		}
+		round = new BlackjackRound(rules, source, all);
 		if (level != null && CoreSounds.CARD_DEAL != null) {
 			level.playSound(null, worldPosition, noticeKey.equals("gui.burmaldaholic.blackjack.shuffling") && noticeUntil > gameTime()
 				? CoreSounds.CARD_SHUFFLE : CoreSounds.CARD_DEAL, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
@@ -419,6 +484,12 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 		switch (round.phase()) {
 			case INSURANCE -> {
 				for (Seat s : round.pendingInsurance()) {
+					VirtualBot bot = roundBots.get(s.seat);
+					if (bot != null) {
+						botInsurance(bot);
+					}
+				}
+				for (Seat s : round.pendingInsurance()) {
 					if (away.contains(s.player)) {
 						round.decline(s.seat);
 					}
@@ -443,6 +514,16 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 					finish();
 					return;
 				}
+				VirtualBot bot = roundBots.get(t.seat().seat);
+				if (bot != null) {
+					// Bots act in seat order after a short think; they never use the human turn timer.
+					cancelTimer("turn");
+					if (ticksLeft("bot") < 0) {
+						startTimer("bot", Math.max(1, BlackjackBotPolicy.thinkTicks(bots.rng(), bot.profile().level(), bots.speed(), AtmosphereBots.fastFactor())));
+					}
+					lastTurnSeat = t.seat().seat;
+					return;
+				}
 				if (away.contains(t.seat().player) || online(t.seat().player) == null) {
 					round.standAll(t.seat().seat);
 					step();
@@ -462,8 +543,9 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	private void payNewlySettled() {
-		for (Seat s : round.seats()) {
-			if (!s.settled || paid.contains(s.player)) {
+		// Only human participants are ever paid; bot seats carry virtual bets (BOTS.md §5.2).
+		for (Seat s : BlackjackBotPolicy.payableSeats(round, seat -> !roundBots.containsKey(seat))) {
+			if (paid.contains(s.player)) {
 				continue;
 			}
 			paid.add(s.player);
@@ -501,6 +583,8 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 		payNewlySettled();
 		cancelTimer("turn");
 		cancelTimer("insurance");
+		cancelTimer("bot");
+		botsAfterRound();
 		setPhase(RESULT);
 		startTimer("result", RESULT_TICKS);
 		setChanged();
@@ -511,7 +595,148 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 		away.clear();
 		paid.clear();
 		lastTurnSeat = -1;
+		roundBots.clear();
 		setPhase(BETTING);
+		// Safe point: start of BETTING. New bet moments for every bot.
+		botBetAt.clear();
+		botSafePoint();
+	}
+
+	// ---- bots (atmosphere: virtual bets, real cards, never the human timer) ------------------------
+
+	/** Safe point at the start of / during BETTING: bots join / leave / yield; bet moments drawn. */
+	private void botSafePoint() {
+		if (!(level instanceof ServerLevel sl) || removing()) {
+			return;
+		}
+		if (bots.safePoint(sl) == null) {
+			return;
+		}
+		List<VirtualBot> seated = bots.bots();
+		java.util.Set<String> live = new java.util.HashSet<>();
+		seated.forEach(b -> live.add(b.key));
+		botMem.keySet().retainAll(live);
+		botBetAt.keySet().retainAll(live);
+		for (VirtualBot b : seated) {
+			if (!botMem.containsKey(b.key)) {
+				botMem.put(b.key, BlackjackBotPolicy.newBetMemory(b.profile().level(), bots.rng(), minBet(), 0));
+			}
+			if (!botBetAt.containsKey(b.key)) {
+				botBetAt.put(b.key, gameTime() + bots.betDelay());
+			}
+		}
+		syncViewers();
+	}
+
+	/** A bot seat decides insurance / even money at once (virtual: nothing is raised). */
+	private void botInsurance(VirtualBot bot) {
+		Seat seat = round.seat(bot.seat());
+		Offer offer = round.offer(bot.seat());
+		if (seat == null || offer == null) {
+			return;
+		}
+		boolean take = false;
+		try {
+			var view = new BlackjackBotPolicy.View.Insurance(offer, List.copyOf(seat.hands.getFirst().cards), round.upCard());
+			take = BlackjackBotPolicy.INSTANCE.act(bot.profile(), view, null, bots.rng()) instanceof BlackjackBotPolicy.Act.Insure i && i.take();
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("blackjack bot insurance failed", e);
+		}
+		if (offer == Offer.EVEN_MONEY) {
+			round.evenMoney(bot.seat(), take);
+		} else {
+			round.insure(bot.seat(), take ? BlackjackRules.maxInsurance(seat.bet) : 0);
+		}
+	}
+
+	/** The bot's think delay has passed: play one action (safe default on error: stand). */
+	private void botPlay() {
+		Turn t = round == null ? null : round.current();
+		if (t == null) {
+			return;
+		}
+		VirtualBot bot = roundBots.get(t.seat().seat);
+		if (bot == null) {
+			step();
+			return;
+		}
+		int seatNo = t.seat().seat;
+		try {
+			var view = new BlackjackBotPolicy.View.Turn(List.copyOf(t.hand().cards), round.upCard(), round.legal(seatNo), round.rules(),
+				t.seat().hands.size());
+			BlackjackBotPolicy.Act a = BlackjackBotPolicy.INSTANCE.act(bot.profile(), view, null, bots.rng());
+			if (!(a instanceof BlackjackBotPolicy.Act.Play p) || !round.act(seatNo, p.action())) {
+				round.standAll(seatNo);
+			}
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("blackjack bot turn failed", e);
+			round.standAll(seatNo);
+		}
+		step();
+	}
+
+	/** Round over: EASY's loss progression, the blackjack quip. Virtual only. */
+	private void botsAfterRound() {
+		if (round == null || botsDone) {
+			return;
+		}
+		botsDone = true;
+		for (Map.Entry<Integer, VirtualBot> e : roundBots.entrySet()) {
+			Seat seat = round.seat(e.getKey());
+			VirtualBot b = e.getValue();
+			if (seat == null) {
+				continue;
+			}
+			long net = round.returnOf(seat.seat) - round.stakedOf(seat.seat);
+			BetMemory mem = botMem.get(b.key);
+			if (mem != null) {
+				botMem.put(b.key, BlackjackBotPolicy.afterRound(b.profile().level(), mem, net, bots.rng(), minBet(), 0));
+			}
+			if (seat.hands.stream().anyMatch(h -> h.outcome == Outcome.BLACKJACK) && level instanceof ServerLevel sl) {
+				bots.quip(sl, b.profile(), "blackjack", null);
+			}
+		}
+	}
+
+	/** Shows a bot's virtual bet in the lobby once its bet moment has come (they never delay the deal). */
+	@Override
+	protected void serverTick(ServerLevel level) {
+		if (botBetAt.isEmpty()) {
+			return;
+		}
+		long now = gameTime();
+		int shown = (int) botBetAt.values().stream().filter(t -> t <= now).count();
+		if (shown != botBetsShown) {
+			botBetsShown = shown;
+			if (BETTING.equals(phase())) {
+				syncViewers();
+			}
+		}
+	}
+
+	private static MutableComponent botName(VirtualBot b) {
+		return BotNames.display(b.profile(), BotNames.LevelLabel.LEVEL);
+	}
+
+	/** The table is broken: the round was played out by core; now every bot leaves (BOTS.md §3.5). */
+	@Override
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		super.preRemoveSideEffects(pos, state);
+		if (level instanceof ServerLevel sl) {
+			bots.endSession(sl);
+		}
+	}
+
+	@Override
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+		bots.save(output);
+	}
+
+	@Override
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		bots.load(input);
 	}
 
 	@Override
@@ -541,6 +766,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 					step();
 				}
 			}
+			case "bot" -> botPlay();
 			case "result" -> toBetting();
 			default -> {
 			}
@@ -570,6 +796,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 			});
 		}
 		tag.put("bets", betList);
+		writeBotState(tag);
 		if (round == null) {
 			return tag;
 		}
@@ -585,6 +812,11 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 			CompoundTag p = new CompoundTag();
 			p.putInt("seat", s.seat);
 			p.putString("name", names.getOrDefault(s.player, ""));
+			VirtualBot bot = roundBots.get(s.seat);
+			if (bot != null && level instanceof ServerLevel sl) {
+				p.putBoolean("bot", true);
+				p.put("name_c", AtmosphereBots.encode(sl, botName(bot)));
+			}
 			p.putBoolean("you", s.player.equals(me));
 			p.putBoolean("away", away.contains(s.player));
 			p.putLong("bet", s.bet);
@@ -625,6 +857,34 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity {
 			tag.put("legal", legal);
 		}
 		return tag;
+	}
+
+	/**
+	 * Seats &amp; Bots sync: {@code bots_header} (component), {@code bot_seats} [{seat, name_c, amount?}] —
+	 * a bot's virtual bet shows once its bet moment has come — and {@code virtual} when bots play this round.
+	 */
+	private void writeBotState(CompoundTag tag) {
+		if (!(level instanceof ServerLevel sl)) {
+			return;
+		}
+		Component header = bots.header(sl);
+		if (header != null) {
+			tag.put("bots_header", AtmosphereBots.encode(sl, header));
+		}
+		ListTag list = new ListTag();
+		long now = gameTime();
+		for (VirtualBot b : bots.bots()) {
+			CompoundTag bt = new CompoundTag();
+			bt.putInt("seat", b.seat());
+			bt.put("name_c", AtmosphereBots.encode(sl, botName(b)));
+			BetMemory mem = botMem.get(b.key);
+			if (mem != null && now >= botBetAt.getOrDefault(b.key, Long.MAX_VALUE)) {
+				bt.putLong("amount", mem.next());
+			}
+			list.add(bt);
+		}
+		tag.put("bot_seats", list);
+		tag.putBoolean("virtual", !roundBots.isEmpty() || !list.isEmpty());
 	}
 
 	private static IntArrayTag codes(List<Card> cards) {

@@ -93,11 +93,6 @@ public final class BotsConfig implements Validatable {
 	}
 	public Chemmy chemmy = new Chemmy();
 
-	public static final class Craps {
-		public boolean canShoot = false;
-	}
-	public Craps craps = new Craps();
-
 	public static final class Pvp {
 		@Range(min = 0, max = 1800) public int fillDelayTicks = 400;
 		@Range(min = 1, max = 7) public int maxPerMatch = 3;

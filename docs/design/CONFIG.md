@@ -607,7 +607,6 @@ BOTS.md §9.3 also changes existing poker keys (`poker.bot.regularSamples` 300, 
 | `bots.atmosphere.maxPerTable.baccarat` | int | 3 | 0–6 | |
 | `bots.poker.easyMaxStake` | enum(MICRO, LOW, MID, HIGH) | LOW | — | Highest stake level where EASY bots may sit (§4.2). |
 | `bots.chemmy.bankCapMultiple` | int | 50 | 5–1000 | A bot bank is at most this × table min (and ≤ the table max coverage). |
-| `bots.craps.canShoot` | bool | false | — | Bots join the shooter rotation (roll after 20–40 t). |
 | `bots.pvp.fillDelayTicks` | int | 400 | 0–1800 | MIXED lobbies: bots fill after this long without a human joiner. |
 | `bots.pvp.maxPerMatch` | int | 3 | 1–7 | Max bots in one PvP match. |
 | `bots.tournament.maxFill` | int | 8 | 0–31 | Max bot fillers per tournament. |

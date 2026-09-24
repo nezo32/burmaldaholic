@@ -524,8 +524,8 @@ a **betting style** from their personality (research §2.5):
 | `LAG` | *Martingale Maria*: doubles an even-money bet after a loss, resets at 8× | Pass + Field + odds | *Chop Chaser*: bets against the last winner |
 
 Virtual amounts `min + k × step`, k = 1–2 (ROCK, STATION), 2–5 (TAG), 5–10 (MANIAC, LAG), within the
-table min/max. Craps bots **never shoot** unless `bots.craps.canShoot` (false); when allowed they roll
-after 20–40 t. With bots unable to shoot, the rotation skips them, so a seven-out never depends on a bot.
+table min/max. Craps bots **never shoot** (their bets are virtual; there is no switch): the shooter
+rotation skips them, so a seven-out never depends on a bot.
 
 ### 4.8 PvP modes (money; chance only)
 
@@ -962,7 +962,6 @@ Percent-like values are fractions unless the key ends in `Percent` (CONFIG.md ru
 | `bots.atmosphere.maxPerTable.baccarat` | int | 3 | 0–6 | |
 | `bots.poker.easyMaxStake` | enum(MICRO, LOW, MID, HIGH) | LOW | — | Highest stake level where EASY bots may sit (§4.2). |
 | `bots.chemmy.bankCapMultiple` | int | 50 | 5–1000 | A bot bank is at most this × table min (and ≤ the table max coverage). |
-| `bots.craps.canShoot` | bool | false | — | Bots join the shooter rotation (roll after 20–40 t). |
 | `bots.pvp.fillDelayTicks` | int | 400 | 0–1800 | MIXED lobbies: bots fill after this long without a human joiner. |
 | `bots.pvp.maxPerMatch` | int | 3 | 1–7 | Max bots in one PvP match. |
 | `bots.tournament.maxFill` | int | 8 | 0–31 | Max bot fillers per tournament. |
@@ -1391,7 +1390,6 @@ banco 3, pvp_win 3, pvp_loss 3, duel_accept 3, duel_decline 2, word_got_around 3
 | `config.burmaldaholic.bots.atmosphere.maxPerTable` | %1$s: max bots per table | %1$s: макс. ботов за столом |
 | `config.burmaldaholic.bots.poker.easyMaxStake` | Highest stakes for Easy poker bots | Макс. ставки для лёгких покерных ботов |
 | `config.burmaldaholic.bots.chemmy.bankCapMultiple` | Bot bank cap (× table min) | Лимит банка бота (× мин. ставка) |
-| `config.burmaldaholic.bots.craps.canShoot` | Bots may shoot at craps | Боты могут бросать кости в крэпсе |
 | `config.burmaldaholic.bots.pvp.fillDelayTicks` | PvP lobbies: bots fill after (ticks) | PvP-лобби: боты заходят через (тики) |
 | `config.burmaldaholic.bots.pvp.maxPerMatch` | PvP: max bots per match | PvP: макс. ботов в матче |
 | `config.burmaldaholic.bots.tournament.maxFill` | Tournaments: max bot fillers | Турниры: макс. ботов-заполнителей |
