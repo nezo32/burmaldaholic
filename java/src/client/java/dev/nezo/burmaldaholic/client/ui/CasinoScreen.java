@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxText;
 import dev.nezo.burmaldaholic.core.ui.BalanceTicker;
+import dev.nezo.burmaldaholic.core.ui.NarrationThrottle;
 import dev.nezo.burmaldaholic.core.ui.UiLayout;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -39,6 +40,7 @@ public abstract class CasinoScreen extends Screen {
 	private int errorTicks;
 	/** The balance plaque ticker (same rules as the HUD). */
 	protected final BalanceTicker balanceTicker = new BalanceTicker();
+	private final NarrationThrottle<Component> narration = new NarrationThrottle<>();
 
 	protected CasinoScreen(Component title) {
 		this(title, UiLayout.FULL_W, UiLayout.FULL_H);
@@ -120,6 +122,17 @@ public abstract class CasinoScreen extends Screen {
 	public void tick() {
 		super.tick();
 		if (errorTicks > 0 && --errorTicks == 0) error = null;
+		Component pending = narration.poll(Util.getMillis());
+		if (pending != null) CasinoUi.say(pending);
+	}
+
+	/**
+	 * Narrates a public game event (a card lands, a result) through the vanilla narrator when it is on, at most one per
+	 * 600 ms: a message offered sooner waits and is replaced by any newer one (cards.md §0.6).
+	 */
+	public void narrate(Component message) {
+		Component now = narration.offer(message, Util.getMillis());
+		if (now != null) CasinoUi.say(now);
 	}
 
 	@Override
@@ -172,15 +185,15 @@ public abstract class CasinoScreen extends Screen {
 		CasinoTheme t = theme();
 		CasinoUi.backdrop(g, t, panel);
 		extractFrame(g, t);
-		if (showBanner()) CasinoUi.banner(g, font, t, title, panel.centerX(), panel.y() + 3, Math.min(220, panel.w() - 150));
+		if (showBanner()) CasinoUi.banner(g, font, t, title, panel.centerX(), panel.y() + 3, UiLayout.bannerMaxW(panel.w(), showBalance()));
 		if (showBalance()) {
 			long now = Util.getMillis();
 			balanceTicker.retarget(balance(), now, FxSettings.reduceMotion());
 			int dir = balanceTicker.direction(now);
 			int color = dir == 0 ? CasinoPalette.GOLD : CasinoUi.mix(CasinoPalette.GOLD, dir > 0 ? CasinoPalette.BONUS : CasinoPalette.CHIP_RED,
 				balanceTicker.tint(now));
-			int w = 90;
-			CasinoUi.balancePlaque(g, font, balanceTicker.value(now), panel.right() - 16 - w, panel.y() + 4, w, color);
+			int w = UiLayout.PLAQUE_W;
+			CasinoUi.balancePlaque(g, font, balanceTicker.value(now), panel.right() - UiLayout.PLAQUE_RIGHT - w, panel.y() + 4, w, color);
 		}
 	}
 

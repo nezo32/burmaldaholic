@@ -82,6 +82,8 @@ public class BookmarkTab extends AbstractButton {
 
 	@Override
 	protected void updateWidgetNarration(NarrationElementOutput output) {
+		// as vanilla's TabButton: "<name> tab" (the icon-only tabs have no visible label), then the usage hint
 		this.defaultButtonNarrationText(output);
+		output.add(net.minecraft.client.gui.narration.NarratedElementType.TITLE, Component.translatable("gui.narrate.tab", getMessage()));
 	}
 }

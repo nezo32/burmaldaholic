@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.Burmaldaholic;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The look of a casino screen by location (docs/design/visual/cards.md §7, tables.md §2.1, extras.md §2.3): the three
@@ -54,17 +55,57 @@ public enum CasinoTheme {
 	}
 
 	/** Location theme of a level's dimension. */
-	public static CasinoTheme of(Level level) {
+	public static CasinoTheme of(@Nullable Level level) {
 		if (level == null) return VILLAGE;
 		if (level.dimension() == Level.NETHER) return BASTION;
 		if (level.dimension() == Level.END) return END;
 		return VILLAGE;
 	}
 
-	/** Location theme where the local player is now. */
+	/** Location theme forced by config ({@code cards.theme}) or a test; null = by location. */
+	private static volatile @Nullable CasinoTheme override;
+
+	/**
+	 * Forces the location theme of every casino screen (the {@code cards.theme} config once it is synced, tests); null or
+	 * a non-location theme restores "by location".
+	 */
+	public static void force(@Nullable CasinoTheme theme) {
+		override = theme != null && theme.location() ? theme : null;
+	}
+
+	/** The forced location theme, or null. */
+	public static @Nullable CasinoTheme forced() {
+		return override;
+	}
+
+	/**
+	 * A config value {@code auto | village | bastion | end} (case-insensitive): the location theme it forces, or null
+	 * for {@code auto} / anything unknown.
+	 */
+	public static @Nullable CasinoTheme parseOverride(@Nullable String value) {
+		if (value == null) return null;
+		String v = value.trim().toLowerCase(java.util.Locale.ROOT);
+		for (CasinoTheme t : values()) if (t.location() && t.id.equals(v)) return t;
+		return null;
+	}
+
+	/** Location theme where the local player is now (or the forced one). */
 	public static CasinoTheme current() {
+		CasinoTheme f = override;
+		if (f != null) return f;
 		Minecraft mc = Minecraft.getInstance();
 		return of(mc == null ? null : mc.level);
+	}
+
+	/**
+	 * The theme of a table whose server state names {@code stateTheme} ({@code village | bastion | end}, empty = unknown):
+	 * the forced theme first, then the state's, then the player's location.
+	 */
+	public static CasinoTheme resolve(@Nullable String stateTheme) {
+		CasinoTheme f = override;
+		if (f != null) return f;
+		if (stateTheme != null && !stateTheme.isEmpty()) return byId(stateTheme);
+		return current();
 	}
 
 	public boolean location() {

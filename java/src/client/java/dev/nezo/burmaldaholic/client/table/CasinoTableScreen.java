@@ -47,10 +47,14 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 	protected void init() {
 		super.init();
 		if (entrance == null) {
-			entrance = dev.nezo.burmaldaholic.client.ui.ScreenEntrance.install(this,
-				() -> new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(leftPos, topPos, imageWidth, imageHeight));
+			entrance = dev.nezo.burmaldaholic.client.ui.ScreenEntrance.install(this, this::entranceRect);
 		}
 		acceptState(ClientTableCache.get(menu.pos()));
+	}
+
+	/** The panel the entrance scales and veils, in GUI coordinates (default: the container image; J-L2 kit hook). */
+	protected dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
+		return new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(leftPos, topPos, imageWidth, imageHeight);
 	}
 
 	/** Shared entrance (global.md §4.14; lane J-L2 kit). */
@@ -58,11 +62,19 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 
 	/**
 	 * Casino location theme of this table (J-L2 kit hook): the {@code theme} string of the state when the block entity
-	 * sends one ({@code village | bastion | end}), else the dimension the player is in.
+	 * sends one ({@code village | bastion | end}), else the dimension the player is in; a forced theme
+	 * ({@link dev.nezo.burmaldaholic.client.ui.CasinoTheme#force}, the {@code cards.theme} config) wins.
 	 */
 	protected dev.nezo.burmaldaholic.client.ui.CasinoTheme theme() {
-		String t = state.getStringOr("theme", "");
-		return t.isEmpty() ? dev.nezo.burmaldaholic.client.ui.CasinoTheme.current() : dev.nezo.burmaldaholic.client.ui.CasinoTheme.byId(t);
+		return dev.nezo.burmaldaholic.client.ui.CasinoTheme.resolve(state.getStringOr("theme", ""));
+	}
+
+	private final dev.nezo.burmaldaholic.core.ui.NarrationThrottle<Component> narration = new dev.nezo.burmaldaholic.core.ui.NarrationThrottle<>();
+
+	/** Throttled narration of a public table event (≤ 1 per 600 ms, newest wins; J-L2 kit hook, cards.md §0.6). */
+	public void narrate(Component message) {
+		Component now = narration.offer(message, net.minecraft.util.Util.getMillis());
+		if (now != null) dev.nezo.burmaldaholic.client.ui.CasinoUi.say(now);
 	}
 
 	/** Milliseconds since the screen opened ("on open" animations; J-L2 kit hook). */
@@ -103,6 +115,8 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 	@Override
 	protected void containerTick() {
 		super.containerTick();
+		Component pendingNarration = narration.poll(net.minecraft.util.Util.getMillis());
+		if (pendingNarration != null) dev.nezo.burmaldaholic.client.ui.CasinoUi.say(pendingNarration);
 		if (errorTicks > 0 && --errorTicks == 0) {
 			error = null;
 		}
