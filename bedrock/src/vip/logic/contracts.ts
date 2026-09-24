@@ -23,6 +23,7 @@ export const CONTRACT_IDS = [
   'play_poker',
   'explore_nether',
   'smelt',
+  'slots_feature',
 ] as const;
 export type ContractId = (typeof CONTRACT_IDS)[number];
 
@@ -52,6 +53,8 @@ export const CONTRACT_DEFS: Readonly<Record<ContractId, ContractDef>> = {
   play_poker: { id: 'play_poker', target: 10, reward: 40, weight: 3 },
   explore_nether: { id: 'explore_nether', target: 500, reward: 60, weight: 3 },
   smelt: { id: 'smelt', target: 32, reward: 25, weight: 3 },
+  // SLOTS.md §8.7: free spins or a bonus game triggered on a slot machine (a bought feature does not count)
+  slots_feature: { id: 'slots_feature', target: 2, reward: 45, weight: 4 },
 };
 
 export const isContractId = (s: string): s is ContractId => (CONTRACT_IDS as readonly string[]).includes(s);

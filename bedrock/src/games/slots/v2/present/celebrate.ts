@@ -197,7 +197,8 @@ export interface SlotCelebrationRequest {
   readonly seed: number;
 }
 export interface SlotFx {
-  celebrate(player: Player, request: SlotCelebrationRequest): void;
+  /** returns a skip handle when the celebration can be cut short (the jackpot climax, a skip) */
+  celebrate(player: Player, request: SlotCelebrationRequest): { skip(): void } | void;
 }
 
 export interface CelebrateRuntime {
@@ -280,8 +281,8 @@ export function celebrateSpin(p: Player, c: SlotCelebration, rt: CelebrateRuntim
   for (const [id, n] of TIER_PARTICLES[c.overlay ? c.tier : 'NICE'] ?? []) rt.particle(id, scale(n));
   if (!c.overlay || o.celebrations === 'off') return () => {};
   if (o.fx) {
-    o.fx.celebrate(p, { tier: c.tier, net: c.total, stake: c.bet, table: SLOT_TIER_TABLE, words: SLOT_TIER_WORDS, maxWin: c.maxWin, game: 'slots', seed: o.seed ?? 0 });
-    return () => {};
+    const h = o.fx.celebrate(p, { tier: c.tier, net: c.total, stake: c.bet, table: SLOT_TIER_TABLE, words: SLOT_TIER_WORDS, maxWin: c.maxWin, game: 'slots', seed: o.seed ?? 0 });
+    return () => h?.skip();
   }
   const dur = o.rollupMs ?? c.rollupMs;
   const from = o.from ?? 0;

@@ -14,9 +14,9 @@
  * Hour never multiplies pool money (SLOTS.md §8.3). Pool money owed to an offline player (restart, disconnect)
  * waits in `burmaldaholic:slots:owed` and is paid on their next spawn.
  *
- * CUT-OVER FLAG: `SLOTS_V2_ENABLED` (index.ts) is OFF until the strings (SLOTS.md §13), CONFIG.md `slots`
- * section (§12), advancements (§14), the B-L9 form presenter and the Java cut-over (S-J5) land together
- * (docs/architecture/animation.md §9.3 merge order).
+ * CUT-OVER (S-B5, done): `slots/index.ts` starts this service with the B-L9 machine form (`form.ts`: DDUI first,
+ * classic fallback; `SlotsV2Host` below is its `SlotHost`), the B-L10 in-world cabinet and the B-L1 FxService.
+ * v1 rounds still open are settled by core from their drawn tickets; v1 pools migrate once (SLOTS.md §5.3).
  */
 import { type Dimension, type Player, type Vector3, system, world } from '@minecraft/server';
 import { ActionFormData, ModalFormData } from '@minecraft/server-ui';
@@ -49,7 +49,9 @@ import {
   writeJson,
 } from '../../core';
 import { CHAOS_SERVICE, type ChaosApi } from '../../chaos/api';
+import { MULTIPLAYER_SERVICE, type MultiplayerApi } from '../../multiplayer/api';
 import { JACKPOT_SHOWER_RADIUS, type SlotTier, type SlotsApi, type SlotsHouse, type SlotsHouseResolver, type SlotsSpinEvent, type SlotsTriggerEvent } from './api';
+import { SLOT_FX_PROP, type SlotConfigFlags, setTurbo, slotLocalProfile, slotSettings } from './v2/present/settings';
 import {
   type AllPools,
   type AutoStop,
@@ -119,8 +121,8 @@ export const V1_POOLS_PROP = 'burmaldaholic:slots.jackpot';
 export const STATS_PROP = 'burmaldaholic:slots.stats';
 /** Per-player last bet per machine. */
 export const BET_PROP_V2 = 'burmaldaholic:slots.bet';
-/** Per-player turbo preference (SLOTS.md §6.4; shared speed is published with the seed). */
-export const TURBO_PROP = 'burmaldaholic:slots.turbo';
+/** Per-player turbo preference (SLOTS.md §6.4; shared speed is published with the seed) — the B-L9 setting. */
+export const TURBO_PROP = SLOT_FX_PROP.turbo;
 
 const GATE_TIMER = 'slots.v2.gate';
 
@@ -197,13 +199,16 @@ export interface SlotsV2Presenter {
 }
 
 /**
- * Presentation modules wired in by index.ts at the cut-over (they live in lanes B-L9 / B-L10 and are not on this
- * branch yet): `roundFromTape` (`v2/present/frames.ts`), `playCabinet` / `finishCabinet` (`cabinet.ts`).
+ * Presentation modules wired in by index.ts: `roundFromTape` (`v2/present/frames.ts`), `playCabinet` /
+ * `finishCabinet` (`cabinet.ts`), and the machine form (`form.ts`: `openMachine` replaces the classic
+ * `SlotsV2Presenter.machine` loop, `closeMachine` ends it on leave).
  */
 export interface SlotsV2Deps<R = unknown> {
   roundFromTape?(def: MachineDef, tape: SpinTape, opts: { tier: anim.WinTier; rest?: readonly number[] }): R;
   playCabinet?(dim: Dimension, pos: Vector3, spin: CabinetSpinData, startTick: number): void;
   finishCabinet?(dim: Dimension, pos: Vector3): void;
+  openMachine?(session: TableSession): void;
+  closeMachine?(session: TableSession): void;
 }
 
 /** B-L9 `SpinStart`: the round to present and the timeline the server settles by. */
@@ -441,6 +446,7 @@ export class SlotsV2Service implements SlotsApi {
   onOpen(s: TableSession): void {
     const st = this.state(s);
     if (st.busy) return;
+    if (this.deps.openMachine) return this.deps.openMachine(s);
     detach(this.showMachine(s), (e) => this.ctx.log.error('slots form', e));
   }
 
@@ -449,6 +455,11 @@ export class SlotsV2Service implements SlotsApi {
     if (st) st.auto = undefined;
     const l = this.live.get(s.playerId);
     if (l) this.settle(l, !s.player.isValid ? 'disconnect' : 'leave');
+    try {
+      this.deps.closeMachine?.(s);
+    } catch (e) {
+      this.ctx.log.error('slots form close failed', e);
+    }
     if (s.player.isValid) this.ctx.hud.clear(s.player, HUD);
   }
 
@@ -505,6 +516,13 @@ export class SlotsV2Service implements SlotsApi {
     const def = this.def(m);
     const r = this.rtp.get(m);
     const body: Raw[] = [t('gui.burmaldaholic.slots.paytable.per_way')];
+    const sym = (role: string): Raw | undefined => {
+      const i = def.roles.indexOf(role as never);
+      return i >= 0 ? t(`gui.burmaldaholic.slots.symbol.${SYMBOLS[m][i]!.id}`) : undefined;
+    };
+    const wild = sym('WILD');
+    const special = [sym('SCATTER'), sym('BONUS') ?? sym('COIN')];
+    if (wild && special[0] && special[1]) body.push(t('gui.burmaldaholic.slots.paytable.wild', wild, special[0], special[1]));
     for (let p = 0; p < def.roles.length; p++) {
       if (def.roles[p] !== 'PAY') continue;
       const pay = def.paysFifths[p]!.map((f) => chips((f * this.state(s).bet) / 5));
@@ -567,9 +585,10 @@ export class SlotsV2Service implements SlotsApi {
     this.ctx.wagers.draw(r.ticket, split.wagerReturn);
     const startTick = system.currentTick;
     const seed = anim.seedMix(anim.seedHash(s.table.key), ++this.seq);
-    const shared: anim.TimingProfile = { speedPct: this.cfg.turboAllowed && readJson<boolean>(p, TURBO_PROP, false) ? 200 : 100, reduceMotion: false, flashes: true };
-    const fx = presentation.fxSettings(p);
-    const timeline = buildSlotTimeline(tape, def, shared, presentation.localProfile(fx), seed, { anticipation: this.cfg.anticipation, bigWinTiers: this.cfg.bigWinTiers });
+    // shared speed = the spinning player's turbo (published to spectators); local = the viewer's B-L9 profile
+    const settings = slotSettings(p, this.flags());
+    const shared: anim.TimingProfile = { speedPct: this.cfg.turboAllowed && settings.turbo ? 200 : 100, reduceMotion: false, flashes: true };
+    const timeline = buildSlotTimeline(tape, def, shared, slotLocalProfile(settings), seed, { anticipation: this.cfg.anticipation, bigWinTiers: this.cfg.bigWinTiers });
     const record: RoundRecord = {
       v: 2,
       machine: m,
@@ -612,7 +631,7 @@ export class SlotsV2Service implements SlotsApi {
     if (st.auto && !l.viaHost) st.auto.left--;
     const tl = l.view.timeline;
     try {
-      this.deps.playCabinet?.(s.table.dimension, s.table.location, cabinetSpinOf(l.def, l.tape, tl, this.cfg.bigWinTiers), l.view.startTick);
+      if (this.cfg.inWorldEnabled) this.deps.playCabinet?.(s.table.dimension, s.table.location, cabinetSpinOf(l.def, l.tape, tl, this.cfg.bigWinTiers), l.view.startTick);
     } catch (e) {
       this.ctx.log.error('slots cabinet failed', e);
     }
@@ -687,7 +706,8 @@ export class SlotsV2Service implements SlotsApi {
     this.payPool(l.record.playerId, valid ? l.player : undefined, split.poolChips);
     this.deleteRound(l.session.table.key);
     try {
-      this.deps.finishCabinet?.(l.session.table.dimension, l.session.table.location);
+      // at the gate the cabinet keeps playing its celebration to the timeline end; skip / leave jump to the result
+      if (reason !== 'gate') this.deps.finishCabinet?.(l.session.table.dimension, l.session.table.location);
     } catch (e) {
       this.ctx.log.error('slots cabinet failed', e);
     }
@@ -922,6 +942,16 @@ export class SlotsV2Service implements SlotsApi {
     return this.cfg.bigWinTiers;
   }
 
+  /** B-L9 form flags from config (`slots.bedrock.ddui`; glyph tinting is always on, spike B-S0). */
+  flags(): SlotConfigFlags {
+    return { ddui: this.cfg.ddui, tinting: true };
+  }
+
+  /** Autoplay / error notices waiting for the machine form (drained). */
+  takeNotices(s: TableSession): Raw[] {
+    return this.state(s).notice.splice(0);
+  }
+
   balance(p: Player): number {
     return this.ctx.economy.balance(p);
   }
@@ -957,12 +987,12 @@ const dist2 = (a: { x: number; y: number; z: number }, b: { x: number; y: number
  */
 export class SlotsV2Host<R> {
   constructor(
-    private readonly svc: SlotsV2Service,
-    private readonly session: TableSession,
-    private readonly roundFromTape: NonNullable<SlotsV2Deps<R>['roundFromTape']>,
+    protected readonly svc: SlotsV2Service,
+    protected readonly session: TableSession,
+    protected readonly roundFromTape: NonNullable<SlotsV2Deps<R>['roundFromTape']>,
   ) {}
 
-  private get st(): MachineState {
+  protected get st(): MachineState {
     return this.svc.stateOf(this.session);
   }
 
@@ -1004,6 +1034,9 @@ export class SlotsV2Host<R> {
   presented(_start: SpinStartLike<R>, interrupted: boolean): void {
     const l = this.svc.liveOf(this.session.playerId);
     if (l) this.svc.settle(l, interrupted ? 'skip' : 'gate');
+    // autoplay stop reasons (SLOTS.md §13.3): the live form has no notice area, they go to chat
+    const p = this.session.player;
+    for (const n of this.svc.takeNotices(this.session)) if (p.isValid) p.sendMessage(n);
   }
 
   huntPick(_start: SpinStartLike<R>, i: number): number | undefined {
@@ -1026,11 +1059,14 @@ export class SlotsV2Host<R> {
     if (next !== undefined) this.st.bet = next;
   }
 
-  auto(): void {
+  /** The autoplay dialog; `started` runs once autoplay is set (the form then starts the first spin). */
+  auto(started?: () => void): void {
     detach(
       (async () => {
         const a = await new ClassicPresenter().autoplayDialog(this.session.player);
-        if (a && a.kind === 'auto') this.st.auto = { left: a.count, startBalance: this.svc.balance(this.session.player), lossLimit: a.lossLimit, stopOnFeature: a.stopOnFeature, stopOnWin: a.stopOnWin, bet: this.st.bet };
+        if (!a || a.kind !== 'auto' || !this.session.isActive()) return;
+        this.st.auto = { left: a.count, startBalance: this.svc.balance(this.session.player), lossLimit: a.lossLimit, stopOnFeature: a.stopOnFeature, stopOnWin: a.stopOnWin, bet: this.st.bet };
+        started?.();
       })(),
       () => undefined,
     );
@@ -1046,11 +1082,15 @@ export class SlotsV2Host<R> {
 
   toggleTurbo(): void {
     const p = this.session.player;
-    writeJson(p, TURBO_PROP, !readJson<boolean>(p, TURBO_PROP, false));
+    setTurbo(p, !slotSettings(p).turbo);
   }
 
   autoplaying(): boolean {
     return this.st.auto !== undefined && this.st.auto.left > 0;
+  }
+
+  active(): boolean {
+    return this.session.isActive();
   }
 }
 
@@ -1211,7 +1251,7 @@ export function resultLine(tape: SpinTape): Raw {
   return color(tape.capHit ? '§6' : '§a', t(tape.capHit ? 'gui.burmaldaholic.slots.max_win' : 'gui.burmaldaholic.slots.win', chips(c)));
 }
 
-/** Module wiring of the v2 service (called by index.ts when `SLOTS_V2_ENABLED`). */
+/** Module wiring of the v2 service (index.ts). */
 export function startSlotsV2(ctx: ModuleContext, presenter?: SlotsV2Presenter, deps: SlotsV2Deps = {}): SlotsV2Service {
   const svc = new SlotsV2Service(ctx, presenter, undefined, deps);
   setSlotsHud((p, raw) => ctx.hud.actionbar(p, HUD, raw, HudPriority.game, 60));
@@ -1233,8 +1273,16 @@ export function startSlotsV2(ctx: ModuleContext, presenter?: SlotsV2Presenter, d
       svc.grantTopFive(e.player);
     }),
   );
+  // owned casinos (SLOTS.md §8.6): worst case per chip of bet = the machine's max-win cap
+  const pushWorstCase = (): void => {
+    const mp = ctx.services.get<MultiplayerApi>(MULTIPLAYER_SERVICE);
+    for (const [variant, m] of Object.entries(V1_TIER)) mp?.setWorstCase(`slots.${variant}`, svc.def(m).capMultiple);
+  };
+  system.run(ctx.guard(pushWorstCase));
   ctx.config.onChange((key) => {
-    if (key.startsWith('slots.')) svc.loadConfig();
+    if (!key.startsWith('slots.')) return;
+    svc.loadConfig();
+    pushWorstCase();
   });
   ctx.admin.addAction({
     id: 'slots.reset_jackpots',

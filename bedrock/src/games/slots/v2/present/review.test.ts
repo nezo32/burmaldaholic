@@ -43,16 +43,28 @@ function oracle(round: SlotRound): Set<number> {
   };
   const has = (r: number, want: string) => [0, 1, 2].some((y) => role(r, y) === want);
   const stripHas = (r: number, want: string) => round.strips[r]!.some((s) => round.roles[s] === want);
+  // most coins a window of reel r can show (from its real strip)
+  const maxCoins = (r: number): number => {
+    const st = round.strips[r]!;
+    let best = 0;
+    for (let p = 0; p < st.length; p++) best = Math.max(best, [0, 1, 2].filter((y) => round.roles[st[(p + y) % st.length]!] === 'COIN').length);
+    return best;
+  };
+  // reel k (0-based) is anticipated iff the condition holds on the reels already stopped (0…k−1), SLOTS.md §10.3
+  // test (b); the End crystal rule only concerns reel 4 (the last bonus reel), Overworld's reels 4–5
+  const out = new Set<number>();
   for (let k = 1; k < REELS; k++) {
     const laterScatter = [...Array(REELS - k).keys()].some((i) => stripHas(k + i, 'SCATTER'));
+    let coinsLater = 0;
+    for (let r = k; r < REELS; r++) coinsLater += maxCoins(r);
     const cond =
       (count(k, 'SCATTER') >= 2 && laterScatter) ||
       (round.machine === 'overworld' && k >= 3 && k < 5 && has(0, 'BONUS') && has(2, 'BONUS')) ||
       (round.machine === 'end' && k === 3 && has(1, 'BONUS') && has(2, 'BONUS')) ||
-      (round.machine === 'nether' && count(k, 'COIN') >= 4 && count(k, 'COIN') + 3 * (REELS - k) >= 6);
-    if (cond) return new Set([...Array(REELS - k).keys()].map((i) => k + i));
+      (round.machine === 'nether' && count(k, 'COIN') >= 4 && count(k, 'COIN') + coinsLater >= 6);
+    if (cond) out.add(k);
   }
-  return new Set();
+  return out;
 }
 
 describe('review: anticipation is honest and the reels stop left to right', () => {
@@ -309,15 +321,18 @@ describe('decision (3): ways use the plural helper', () => {
   it('the way-cycle status passes the plural ways as %3', () => {
     const { round } = bigBaseWin('overworld', 1, 1);
     const tl = timelineOf(round);
-    const cyc = tl.beats.find((b) => b.kind === SLOT_BEAT.WAY_CYCLE)!;
-    const ks = keysOf(screenAt(round, tl, cyc.at + 10).status);
+    // the cycle runs next to the roll-up (local beats): its line takes the status once the amount has settled
+    const roll = tl.beats.find((b) => b.kind === SLOT_BEAT.ROLLUP)!;
+    const at = beatEnd(roll) + 10;
+    expect(tl.beats.some((b) => b.kind === SLOT_BEAT.WAY_CYCLE && b.at <= at && at < beatEnd(b))).toBe(true);
+    const ks = keysOf(screenAt(round, tl, at).status);
     expect(ks[0]).toBe('gui.burmaldaholic.slots.symbol_win');
     expect(ks.some((k) => /^gui\.burmaldaholic\.slots\.ways\.p(1|21|2|5)$/.test(k))).toBe(true);
   });
 });
 
 describe('decision (5): jackpots after the spin roll-up (slots.md §2.5)', () => {
-  it('stub order is ROLLUP then JACKPOT; the jackpot screen shows during its beat; the end is terminal', () => {
+  it('builder order is ROLLUP then JACKPOT; the jackpot screen shows during its beat; the end is terminal', () => {
     const def = fakeDef('end');
     const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { jackpots: [{ tier: 2, chips: 3000, owned: true }], totalFifths: 40 }));
     const tl = timelineOf(round);

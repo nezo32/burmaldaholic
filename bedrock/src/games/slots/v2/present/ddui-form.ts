@@ -43,6 +43,8 @@ export const LOOP_TICKS = 20;
 export const SNEAK_SKIP_TICKS = 10;
 /** Autoplay opens the next chest after this many ticks. */
 export const AUTO_PICK_TICKS = 10;
+/** Autoplay: the next spin starts this many ticks after the result (SLOTS.md §6.4). */
+export const AUTO_NEXT_TICKS = 20;
 
 export interface SlotAnchor {
   readonly dimension: Dimension;
@@ -79,11 +81,14 @@ export interface SlotHost {
   huntPick(start: SpinStart, i: number): number | undefined;
   betDown(): void;
   betUp(): void;
-  auto(): void;
+  /** Autoplay dialog; `started` is called once autoplay is on (the view then starts the first spin). */
+  auto(started?: () => void): void;
   paytable(): void;
   leave(): void;
   toggleTurbo?(): void;
   autoplaying?(): boolean;
+  /** false once the player left the machine (no form re-opens, no autoplay spin) */
+  active?(): boolean;
   readonly anchor?: SlotAnchor;
   readonly flags?: SlotConfigFlags;
   /** core FxService (lane B-L1) when installed */
@@ -586,7 +591,7 @@ export class DduiSlotForm implements SlotView {
       .button(FORM_ID.bet_up, t(`${K}bet_up`), () => !this.presenter.running() && this.host.betUp());
     const buy = this.host.buyLabel?.();
     if (buy) f.button(FORM_ID.buy, buy, () => this.onSpin(true));
-    f.button(FORM_ID.auto, t(`${K}auto`), () => (this.hunting ? this.presenter.pick(true) : this.host.auto()))
+    f.button(FORM_ID.auto, t(`${K}auto`), () => (this.hunting ? this.presenter.pick(true) : this.host.auto(() => this.spinNow())))
       .button(FORM_ID.turbo, this.turboLabel(), () => {
         this.host.toggleTurbo?.();
         this.presenter.settings = slotSettings(p, this.host.flags);
@@ -616,6 +621,11 @@ export class DduiSlotForm implements SlotView {
   private restScreen(): SlotScreen {
     const last = this.host.lastScreen?.();
     return { board: 'reels', rows: last?.rows ?? EMPTY, header: this.error ?? last?.header ?? this.host.betLabel(), status: last?.status };
+  }
+
+  /** Starts a spin now (autoplay), unless one is running or the form is gone. */
+  spinNow(buy = false): void {
+    if (this.form && !this.presenter.running() && this.host.active?.() !== false) this.onSpin(buy);
   }
 
   private onSpin(buy: boolean): void {
@@ -672,5 +682,7 @@ export class DduiSlotForm implements SlotView {
     f.set(FORM_ID.jp, this.host.jackpotLine());
     const s = terminalScreen(start.round, frameOptions(this.presenter.settings));
     if (!s.header) f.set(FORM_ID.hdr, this.host.betLabel());
+    // autoplay (SLOTS.md §6.4): the service decided whether to go on (stop rules ran at the settlement)
+    if (this.host.autoplaying?.()) this.presenter.after(AUTO_NEXT_TICKS, () => this.spinNow(false));
   }
 }

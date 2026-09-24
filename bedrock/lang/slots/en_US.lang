@@ -46,10 +46,14 @@ gui.burmaldaholic.slots.bet=Bet: %1
 gui.burmaldaholic.slots.bet_down=Lower bet
 gui.burmaldaholic.slots.bet_up=Raise bet
 gui.burmaldaholic.slots.ways=243 ways
+gui.burmaldaholic.slots.ways.p1=%1 way
+gui.burmaldaholic.slots.ways.p21=%1 ways
+gui.burmaldaholic.slots.ways.p2=%1 ways
+gui.burmaldaholic.slots.ways.p5=%1 ways
 gui.burmaldaholic.slots.last_win=Last win: %1
 gui.burmaldaholic.slots.no_win=No win this time
 gui.burmaldaholic.slots.spin_total=Spin result: %1
-gui.burmaldaholic.slots.symbol_win=%1 ×%2 · %3 ways · %4
+gui.burmaldaholic.slots.symbol_win=%1 ×%2 · %3 · %4
 gui.burmaldaholic.slots.scatter_win=Scatters: %1 · %2
 gui.burmaldaholic.slots.playing=Now playing: %1
 gui.burmaldaholic.slots.turbo=Turbo
@@ -120,7 +124,7 @@ gui.burmaldaholic.slots.buy.confirm=Buy
 gui.burmaldaholic.slots.paytable.title=Paytable
 gui.burmaldaholic.slots.paytable.per_way=Wins pay for every way: matching symbols on adjacent reels from the left, in any row
 gui.burmaldaholic.slots.paytable.row=%1: 3 → %2 · 4 → %3 · 5 → %4
-gui.burmaldaholic.slots.paytable.wild=Totem is wild: it replaces any fruit, gem or seven
+gui.burmaldaholic.slots.paytable.wild=%1 appears on reels 2–4 and replaces every symbol except %2 and %3
 gui.burmaldaholic.slots.paytable.scatter=%1 anywhere: 3 → %2 · 4 → %3 · 5 → %4
 gui.burmaldaholic.slots.paytable.rtp=Return to player: %1%%
 gui.burmaldaholic.slots.paytable.max_win=Max win per spin: ×%1 the bet
@@ -137,8 +141,8 @@ gui.burmaldaholic.slots.help.hold=6 or more %1 start Piglin's Hoard: coins lock,
 gui.burmaldaholic.slots.help.wheel=%1 on reels 2, 3 and 4 spin the Dragon Wheel. UP takes you to a richer ring; the Grand waits in the Dragon Core.
 gui.burmaldaholic.slots.help.anticipation=Reels slow down only when the symbols you already see could complete a feature
 ## [slots / Messages (`SLOTS.md` §13.6)]
-msg.burmaldaholic.slots.jackpot_self=JACKPOT! You won %1!
-msg.burmaldaholic.slots.jackpot_broadcast=JACKPOT! %1 hit %2 on %3!
+msg.burmaldaholic.slots.jackpot_self=%1 JACKPOT! You won %2!
+msg.burmaldaholic.slots.jackpot_broadcast=JACKPOT! %1 hits the %2: %3 on %4!
 msg.burmaldaholic.slots.jackpot_pool=%1: Grand jackpot %2
 msg.burmaldaholic.slots.big_win_broadcast=Epic win: %1, ×%2 on %3!
 msg.burmaldaholic.slots.golden_scatters=Five scatters! Golden Hour strikes!
@@ -196,31 +200,6 @@ gui.burmaldaholic.slots.tier.mega=MEGA WIN!
 gui.burmaldaholic.slots.tier.epic=EPIC WIN!
 gui.burmaldaholic.slots.max_win=MAX WIN!
 gui.burmaldaholic.slots.jackpot.won=%1 JACKPOT!
-## [slots / Slots v1 legacy (removed at the slots cut-over S-J5 / S-B5, `SLOTS.md` §13.10)]
-gui.burmaldaholic.slots.line_bet=Line bet: %1
-gui.burmaldaholic.slots.lines=Paylines: %1
-gui.burmaldaholic.slots.jackpot=JACKPOT %1
-gui.burmaldaholic.slots.line_win=Line %1: ×%2 → %3
-gui.burmaldaholic.slots.paytable.three=Three %1: ×%2
-gui.burmaldaholic.slots.paytable.berry_1=Sweet Berries on reel 1: ×%1
-gui.burmaldaholic.slots.paytable.berry_2=Sweet Berries on reels 1–2: ×%1
-gui.burmaldaholic.slots.paytable.star=Three Nether Stars: progressive jackpot
-gui.burmaldaholic.slots.paytable.star_owned=Three Nether Stars: ×%1
-gui.burmaldaholic.slots.paytable.chaos=%1: something happens…
-gui.burmaldaholic.slots.paytable.max_bet_jackpot=Full jackpot needs the maximum bet; smaller bets win a share
-gui.burmaldaholic.slots.symbol.berry=Sweet Berries
-gui.burmaldaholic.slots.symbol.seven=Redstone Seven
-gui.burmaldaholic.slots.symbol.wild=Totem (Wild)
-gui.burmaldaholic.slots.symbol.tnt=TNT
-gui.burmaldaholic.slots.symbol.pearl=Ender Pearl
-gui.burmaldaholic.slots.symbol.clock=Clock
-gui.burmaldaholic.slots.symbol.star=Nether Star
-msg.burmaldaholic.slots.three_creepers=Three creepers. That hissing isn't the machine.
-msg.burmaldaholic.slots.three_tnt=Three TNT! The machine calls in some friends.
-msg.burmaldaholic.slots.three_pearls=Three pearls — pack your bags!
-msg.burmaldaholic.slots.three_clocks=Three clocks! It's Golden Hour o'clock!
-msg.burmaldaholic.slots.three_clocks_cooldown=Three clocks! Golden Hour is recharging, but the payout is yours.
-msg.burmaldaholic.slots.seven_title=Triple seven!
 ## [config / Family templates]
 config.burmaldaholic.slots.pays=%1: payouts
 config.burmaldaholic.slots.machine.enabled=%1: enabled
@@ -265,27 +244,4 @@ config.burmaldaholic.slots.bigWinTiers=Win tiers (× bet)
 config.burmaldaholic.slots.inWorld.enabled=Show reels on cabinets
 config.burmaldaholic.slots.inWorld.radius=Cabinet reels view distance
 config.burmaldaholic.slots.bedrock.ddui=Live slot form (Bedrock)
-## [config / Slots v1 legacy config labels (removed at the slots cut-over, `SLOTS.md` §13.10)]
-config.burmaldaholic.slots.copper.maxLineBet=Copper Bandit: max line bet
-config.burmaldaholic.slots.gold.maxLineBet=Golden Reels: max line bet
-config.burmaldaholic.slots.netherite.minLineBet=Netherite: min line bet
-config.burmaldaholic.slots.netherite.maxLineBet=Netherite: max line bet
-config.burmaldaholic.slots.netherite.minVipTier=Netherite: required VIP tier
-config.burmaldaholic.slots.jackpot.contribution.gold=Jackpot contribution: Golden Reels
-config.burmaldaholic.slots.jackpot.contribution.netherite=Jackpot contribution: Netherite
-config.burmaldaholic.slots.jackpot.seed.gold=Jackpot seed: Golden Reels
-config.burmaldaholic.slots.jackpot.seed.netherite=Jackpot seed: Netherite
-config.burmaldaholic.slots.ownedStarPays=Three stars pay at player casinos
-config.burmaldaholic.slots.spinTicks=Spin animation (ticks)
-config.burmaldaholic.slots.weights=%1 — symbol weights
-config.burmaldaholic.slots.berryPartial=%1 — berry pays
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
-## TEMP-ANIM (lane B-L8): SLOTS.md §13 keys used by the slots v2 service until lane X-L0 imports them into STRINGS.md; delete then.
-## TEMP-ANIM (lane B-L9): slots v2 form keys from SLOTS.md §13 / animation/slots.md §10 until lane X-L0 imports them into STRINGS.md
-## TEMP-ANIM (B-L9 review): %3 of symbol_win is now the plural `slots.ways.*` ("1 way" / «1 способ»)
-gui.burmaldaholic.slots.ways.p1=%1 way
-gui.burmaldaholic.slots.ways.p21=%1 ways
-gui.burmaldaholic.slots.ways.p2=%1 ways
-gui.burmaldaholic.slots.ways.p5=%1 ways
-## END TEMP-ANIM
-## TEMP-ANIM (lane B-L10): until X-L0 imports the key into STRINGS.md

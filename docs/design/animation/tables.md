@@ -1197,7 +1197,7 @@ Bedrock, the titles are ≤ 18 RU characters, and the subtitles reuse existing k
 | `gui.burmaldaholic.menu.settings.spin_camera` | Spin camera | Камера на колесо |
 | `gui.burmaldaholic.menu.settings.spin_camera.tooltip` | Roulette: the camera looks at the wheel during your spin. Any movement cancels it. | Рулетка: во время вашего вращения камера смотрит на колесо. Любое движение отменяет. |
 
-Reused from global.md §9: `gui.burmaldaholic.menu.settings.reduce_motion` and `reduce_flash`,
+Reused from global.md §9: `gui.burmaldaholic.menu.settings.reduce_motion` and `flashes`,
 `gui.burmaldaholic.fx.tier.*`, and `gui.burmaldaholic.fx.nearby_float` (for "Alex +360" over another
 player's winning stack).
 

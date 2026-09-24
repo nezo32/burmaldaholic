@@ -285,6 +285,7 @@ is open; the cap makes both equivalent in practice.)
 | `play_poker` | Play 10 poker hands to showdown or fold | 40 | 3 |
 | `explore_nether` | Travel 500 blocks in the Nether | 60 | 3 |
 | `smelt` | Smelt 32 items | 25 | 3 |
+| `slots_feature` | Trigger 2 slot features (free spins or a bonus game; a bought feature does not count; SLOTS.md §8.7) | 45 | 4 |
 
 ### 3.5 Sinks (where chips leave the world)
 

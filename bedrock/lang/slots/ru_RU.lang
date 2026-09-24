@@ -46,10 +46,14 @@ gui.burmaldaholic.slots.bet=Ставка: %1
 gui.burmaldaholic.slots.bet_down=Меньше
 gui.burmaldaholic.slots.bet_up=Больше
 gui.burmaldaholic.slots.ways=243 способа
+gui.burmaldaholic.slots.ways.p1=%1 способ
+gui.burmaldaholic.slots.ways.p21=%1 способ
+gui.burmaldaholic.slots.ways.p2=%1 способа
+gui.burmaldaholic.slots.ways.p5=%1 способов
 gui.burmaldaholic.slots.last_win=Прошлый выигрыш: %1
 gui.burmaldaholic.slots.no_win=В этот раз мимо
 gui.burmaldaholic.slots.spin_total=Итог вращения: %1
-gui.burmaldaholic.slots.symbol_win=%1 ×%2 · способов: %3 · %4
+gui.burmaldaholic.slots.symbol_win=%1 ×%2 · %3 · %4
 gui.burmaldaholic.slots.scatter_win=Скаттеры: %1 · %2
 gui.burmaldaholic.slots.playing=Сейчас играет: %1
 gui.burmaldaholic.slots.turbo=Турбо
@@ -120,7 +124,7 @@ gui.burmaldaholic.slots.buy.confirm=Купить
 gui.burmaldaholic.slots.paytable.title=Таблица выплат
 gui.burmaldaholic.slots.paytable.per_way=Выплата за каждый способ: одинаковые символы на соседних барабанах слева направо, в любом ряду
 gui.burmaldaholic.slots.paytable.row=%1: 3 → %2 · 4 → %3 · 5 → %4
-gui.burmaldaholic.slots.paytable.wild=Тотем — вайлд: заменяет любой фрукт, камень или семёрку
+gui.burmaldaholic.slots.paytable.wild=%1 появляется на барабанах 2–4 и заменяет все символы, кроме «%2» и «%3»
 gui.burmaldaholic.slots.paytable.scatter=%1 в любом месте: 3 → %2 · 4 → %3 · 5 → %4
 gui.burmaldaholic.slots.paytable.rtp=Возврат игроку: %1 %%
 gui.burmaldaholic.slots.paytable.max_win=Максимальный выигрыш за вращение: ×%1 от ставки
@@ -137,8 +141,8 @@ gui.burmaldaholic.slots.help.hold=6 и больше символов «%1» за
 gui.burmaldaholic.slots.help.wheel=Символы «%1» на барабанах 2, 3 и 4 запускают колесо дракона. «Вверх» ведёт на кольцо побогаче; «Гранд» ждёт в сердце дракона.
 gui.burmaldaholic.slots.help.anticipation=Барабаны замедляются, только если уже видимые символы могут запустить бонус
 ## [slots / Messages (`SLOTS.md` §13.6)]
-msg.burmaldaholic.slots.jackpot_self=ДЖЕКПОТ! Вы сорвали %1!
-msg.burmaldaholic.slots.jackpot_broadcast=ДЖЕКПОТ! %1 срывает %2 на автомате «%3»!
+msg.burmaldaholic.slots.jackpot_self=ДЖЕКПОТ %1! Ваш выигрыш: %2!
+msg.burmaldaholic.slots.jackpot_broadcast=ДЖЕКПОТ! %1 — %2: %3 на автомате «%4»!
 msg.burmaldaholic.slots.jackpot_pool=%1: джекпот «Гранд» %2
 msg.burmaldaholic.slots.big_win_broadcast=Эпический выигрыш: %1, ×%2 на автомате «%3»!
 msg.burmaldaholic.slots.golden_scatters=Пять скаттеров! Бьёт «Золотой час»!
@@ -196,31 +200,6 @@ gui.burmaldaholic.slots.tier.mega=МЕГАВЫИГРЫШ!
 gui.burmaldaholic.slots.tier.epic=ЭПИЧЕСКИЙ ВЫИГРЫШ!
 gui.burmaldaholic.slots.max_win=МАКСИМАЛЬНЫЙ ВЫИГРЫШ!
 gui.burmaldaholic.slots.jackpot.won=ДЖЕКПОТ %1!
-## [slots / Slots v1 legacy (removed at the slots cut-over S-J5 / S-B5, `SLOTS.md` §13.10)]
-gui.burmaldaholic.slots.line_bet=Ставка на линию: %1
-gui.burmaldaholic.slots.lines=Линий: %1
-gui.burmaldaholic.slots.jackpot=ДЖЕКПОТ %1
-gui.burmaldaholic.slots.line_win=Линия %1: ×%2 → %3
-gui.burmaldaholic.slots.paytable.three=Три «%1»: ×%2
-gui.burmaldaholic.slots.paytable.berry_1=Ягода на первом барабане: ×%1
-gui.burmaldaholic.slots.paytable.berry_2=Ягоды на первых двух барабанах: ×%1
-gui.burmaldaholic.slots.paytable.star=Три звезды Незера: накопительный джекпот
-gui.burmaldaholic.slots.paytable.star_owned=Три звезды Незера: ×%1
-gui.burmaldaholic.slots.paytable.chaos=%1: что-то случится…
-gui.burmaldaholic.slots.paytable.max_bet_jackpot=Весь джекпот — только при максимальной ставке; меньшая ставка даёт долю
-gui.burmaldaholic.slots.symbol.berry=Сладкие ягоды
-gui.burmaldaholic.slots.symbol.seven=Редстоуновая семёрка
-gui.burmaldaholic.slots.symbol.wild=Тотем (вайлд)
-gui.burmaldaholic.slots.symbol.tnt=Динамит
-gui.burmaldaholic.slots.symbol.pearl=Жемчуг Края
-gui.burmaldaholic.slots.symbol.clock=Часы
-gui.burmaldaholic.slots.symbol.star=Звезда Незера
-msg.burmaldaholic.slots.three_creepers=Три крипера. Это шипит не автомат.
-msg.burmaldaholic.slots.three_tnt=Три динамита! Автомат зовёт друзей.
-msg.burmaldaholic.slots.three_pearls=Три жемчужины — пакуйте чемоданы!
-msg.burmaldaholic.slots.three_clocks=Трое часов! Пробил «Золотой час»!
-msg.burmaldaholic.slots.three_clocks_cooldown=Трое часов! «Золотой час» перезаряжается, но выигрыш ваш.
-msg.burmaldaholic.slots.seven_title=Три семёрки!
 ## [config / Family templates]
 config.burmaldaholic.slots.pays=%1: выплаты
 config.burmaldaholic.slots.machine.enabled=%1: включён
@@ -265,27 +244,4 @@ config.burmaldaholic.slots.bigWinTiers=Пороги выигрышей (× ст�
 config.burmaldaholic.slots.inWorld.enabled=Показывать барабаны на автоматах
 config.burmaldaholic.slots.inWorld.radius=Дальность показа барабанов
 config.burmaldaholic.slots.bedrock.ddui=Живая форма автомата (Bedrock)
-## [config / Slots v1 legacy config labels (removed at the slots cut-over, `SLOTS.md` §13.10)]
-config.burmaldaholic.slots.copper.maxLineBet=Медный бандит: макс. ставка на линию
-config.burmaldaholic.slots.gold.maxLineBet=Золотые барабаны: макс. ставка на линию
-config.burmaldaholic.slots.netherite.minLineBet=Незеритовый: мин. ставка на линию
-config.burmaldaholic.slots.netherite.maxLineBet=Незеритовый: макс. ставка на линию
-config.burmaldaholic.slots.netherite.minVipTier=Незеритовый: нужный ВИП-статус
-config.burmaldaholic.slots.jackpot.contribution.gold=Отчисления в джекпот: Золотые барабаны
-config.burmaldaholic.slots.jackpot.contribution.netherite=Отчисления в джекпот: Незеритовый
-config.burmaldaholic.slots.jackpot.seed.gold=Стартовый джекпот: Золотые барабаны
-config.burmaldaholic.slots.jackpot.seed.netherite=Стартовый джекпот: Незеритовый
-config.burmaldaholic.slots.ownedStarPays=Выплата за три звезды в казино игроков
-config.burmaldaholic.slots.spinTicks=Анимация вращения (тики)
-config.burmaldaholic.slots.weights=%1 — веса символов
-config.burmaldaholic.slots.berryPartial=%1 — выплаты за ягоды
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
-## TEMP-ANIM (lane B-L8): SLOTS.md §13 keys used by the slots v2 service until lane X-L0 imports them into STRINGS.md; delete then.
-## TEMP-ANIM (lane B-L9): slots v2 form keys from SLOTS.md §13 / animation/slots.md §10 until lane X-L0 imports them into STRINGS.md
-## TEMP-ANIM (B-L9 review): %3 of symbol_win is now the plural `slots.ways.*` ("1 way" / «1 способ»)
-gui.burmaldaholic.slots.ways.p1=%1 способ
-gui.burmaldaholic.slots.ways.p21=%1 способ
-gui.burmaldaholic.slots.ways.p2=%1 способа
-gui.burmaldaholic.slots.ways.p5=%1 способов
-## END TEMP-ANIM
-## TEMP-ANIM (lane B-L10): until X-L0 imports the key into STRINGS.md

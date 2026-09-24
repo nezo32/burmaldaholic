@@ -10,6 +10,8 @@ export interface AchievementDef {
   readonly id: string;
   readonly parent?: string;
   readonly frame: AchievementFrame;
+  /** retired: still readable (migrations), never listed or unlocked (SLOTS.md §11 `three_sevens`) */
+  readonly retired?: boolean;
 }
 
 /** Spec order (also the menu order). */
@@ -21,8 +23,19 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'split_personality', parent: 'natural', frame: 'goal' },
   { id: 'royal_flush', parent: 'beginners_luck', frame: 'challenge' },
   { id: 'shark_hunter', parent: 'beginners_luck', frame: 'goal' },
-  { id: 'three_sevens', parent: 'beginners_luck', frame: 'goal' },
-  { id: 'jackpot', parent: 'three_sevens', frame: 'challenge' },
+  // slots v2 (SLOTS.md §14); `three_sevens` is retired, its holders get `top_five` on join (§11)
+  { id: 'top_five', parent: 'beginners_luck', frame: 'goal' },
+  { id: 'jackpot', parent: 'top_five', frame: 'challenge' },
+  { id: 'mini_jackpot', parent: 'beginners_luck', frame: 'task' },
+  { id: 'free_spins', parent: 'first_bet', frame: 'task' },
+  { id: 'treasure_hunter', parent: 'free_spins', frame: 'goal' },
+  { id: 'tumble_six', parent: 'free_spins', frame: 'goal' },
+  { id: 'hoard_full', parent: 'tumble_six', frame: 'challenge' },
+  { id: 'void_walker', parent: 'free_spins', frame: 'goal' },
+  { id: 'dragon_core', parent: 'free_spins', frame: 'goal' },
+  { id: 'epic_win', parent: 'beginners_luck', frame: 'goal' },
+  { id: 'max_win', parent: 'epic_win', frame: 'challenge' },
+  { id: 'three_sevens', parent: 'beginners_luck', frame: 'goal', retired: true },
   { id: 'zero_hero', parent: 'beginners_luck', frame: 'goal' },
   { id: 'hot_shooter', parent: 'beginners_luck', frame: 'goal' },
   { id: 'plinko_edge', parent: 'beginners_luck', frame: 'challenge' },
@@ -61,7 +74,12 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
 export type AchievementId = string;
 
 const IDS = new Set(ACHIEVEMENTS.map((a) => a.id));
+const RETIRED = new Set(ACHIEVEMENTS.filter((a) => a.retired).map((a) => a.id));
+/** Known id (retired ones included: they can still be read from stored unlock lists). */
 export const isAchievement = (id: string): boolean => IDS.has(id);
+export const isRetiredAchievement = (id: string): boolean => RETIRED.has(id);
+/** The achievements a player can earn and sees on the menu (spec order). */
+export const LISTED_ACHIEVEMENTS: readonly AchievementDef[] = ACHIEVEMENTS.filter((a) => !a.retired);
 
 export const achievementTitleKey = (id: string): string => `advancement.burmaldaholic.${id}.title`;
 export const achievementDescKey = (id: string): string => `advancement.burmaldaholic.${id}.description`;
@@ -76,7 +94,7 @@ export const HOUSE_PROFIT_ACHIEVEMENT = 10_000;
  * Unknown ids are ignored; duplicates never re-toast.
  */
 export function unlockInList(list: readonly string[], id: string): { list: string[]; added: boolean } {
-  if (!isAchievement(id) || list.includes(id)) return { list: [...list], added: false };
+  if (!isAchievement(id) || isRetiredAchievement(id) || list.includes(id)) return { list: [...list], added: false };
   return { list: [...list, id], added: true };
 }
 

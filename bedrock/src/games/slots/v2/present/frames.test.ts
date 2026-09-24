@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FxRng } from '../../../../core/logic/anim/seed';
 import { SHARED_PROFILE, beatEnd } from '../../../../core/logic/anim/timeline';
+import { stopTimes } from '../logic/anticipation';
 import { SLOT_BEAT } from '../logic/timeline';
 import { type MachineId, REELS, ROWS, windowFromStops } from '../logic/types';
 import { REDUCED, TURBO, fakeDef, fakeRound, fakeTape, randomStops, refTumbles, timelineOf } from './fixtures.test-util';
@@ -17,7 +18,6 @@ import {
   cellIndex,
   onPlane,
   reelFrame,
-  referenceStopTimes,
   renderRows,
   sameFrame,
   terminalFrame,
@@ -141,7 +141,7 @@ describe('slot frames: honest anticipation (F3)', () => {
         const antic = new Set(tl.beats.filter((b) => b.kind === SLOT_BEAT.ANTICIPATE).map((b) => b.lane));
         if (antic.size) anticipated++;
         // anticipation only after a visible trigger on earlier reels
-        const times = referenceStopTimes(round, round.base!);
+        const times = stopTimes(def, round.base!.landed, true, true);
         times.forEach((tt, r) => {
           if (r > 0 && tt - times[r - 1]! > 150) expect(antic.has(r)).toBe(true);
         });

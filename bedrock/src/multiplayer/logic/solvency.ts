@@ -14,8 +14,9 @@ import { type BankrollState, bankrollAvailable } from '../../core/logic/ledger';
  *  - blackjack: 4 split hands, all doubled, all win 1:1 (16×) + insurance ½ bet at 2:1 (1.5×)
  *  - roulette: straight-up 35:1 → 36×
  *  - craps: Pass + 5× odds on 6/8 at 6:5 → 2 + 5 × 2.2 = 13×
- *  - slots: per chip of spin bet; owned machines pay 1000× line bet for 3 stars (§8.5), which is
- *    1000× the spin bet when all lines hit; Copper's best line is 150×
+ *  - slots (v2, SLOTS.md §8.6): the max-win cap bounds the whole spin incl. features and the fixed owned jackpots:
+ *    Overworld Riches (copper) 500×, Nether Inferno (gold) 2 000×, End Void (netherite) 5 000× the bet (the
+ *    slots module pushes the configured `slots.<m>.maxWinMultiple` through `setWorstCase`)
  *  - plinko: High bin 0/12 = 170×; wheel: X segment 10×; scratch: 2 500 / 10 = 250×
  *  - coin flip / dice duel: 2×; poker: PvP, the house (owner) only takes rake → 0
  */
@@ -23,10 +24,10 @@ export const WORST_CASE_PER_CHIP: Readonly<Record<string, number>> = {
   blackjack: 17.5,
   roulette: 36,
   craps: 13,
-  slots: 1000,
-  'slots.copper': 150,
-  'slots.gold': 1000,
-  'slots.netherite': 1000,
+  slots: 5000,
+  'slots.copper': 500,
+  'slots.gold': 2000,
+  'slots.netherite': 5000,
   plinko: 170,
   wheel: 10,
   scratch: 250,

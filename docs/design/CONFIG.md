@@ -196,24 +196,73 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 ## slots
 
+Slots v2 (`SLOTS.md` §12; the v1 3×3 keys are gone, see "Removed" below). `<m>` ∈ `overworld`, `nether`, `end`.
+
+Registration state (the Java edition is cut over separately, task S-J5):
+- Rows with a plain back-quoted key are registered in both editions.
+- Rows marked **ᴮ** after the key are live on Bedrock and **pending Java registration** (S-J5). The marker keeps
+  them out of Java's `ConfigSpecCoverageTest` (its row pattern needs the key cell to hold only the key); remove the
+  marker in the change that registers the key in `SlotsConfig.java`.
+- The per-machine families and the table-valued keys in the second table are documentation until S-J5 (no
+  generator rows yet): both editions use the `SLOTS.md` defaults (Bedrock `v2/logic/machines.ts DEFAULT_CONFIG`).
+
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `slots.enabled` | bool | true | — | |
-| `slots.copper.maxLineBet` | int | 50 | 1–10⁶ | Also capped by tier max. |
-| `slots.gold.maxLineBet` | int | 100 | 1–10⁶ | Also ≤ tier max / 3. |
-| `slots.netherite.minLineBet` | int | 2 | 1–10⁶ | |
-| `slots.netherite.maxLineBet` | int | 500 | 1–10⁶ | Also ≤ tier max / 5. |
-| `slots.netherite.minVipTier` | int | 2 | 0–5 | 2 = Gold. |
-| `slots.<tier>.weights` | map<symbol,int> | §8 tables | each 0–10 000 | Symbol weights per tier (`copper`, `gold`, `netherite`). |
-| `slots.<tier>.pays` | map<symbol,double> | §8 tables | each 0–100 000 | 3-of-a-kind multipliers. |
-| `slots.<tier>.berryPartial` | list<double> | [2, 3] | each 0–100 | Pays for 1 and 2 leading berries. |
-| `slots.jackpot.contribution.gold` | double | 0.01 | 0.0–0.10 | |
-| `slots.jackpot.contribution.netherite` | double | 0.015 | 0.0–0.10 | |
-| `slots.jackpot.seed.gold` | int | 5000 | 0–10⁹ | |
-| `slots.jackpot.seed.netherite` | int | 50000 | 0–10⁹ | |
-| `slots.ownedStarPays` | double | 1000 | 0–100 000 | Fixed 3-star pay at owned machines. |
-| `slots.spinTicks` | int | 50 | 10–200 | Animation length. |
-| `slots.validateRtp` | bool | true | — | On load, compute RTP from weights/pays; if a tier > 0.99 (incl. contribution) log a loud warning and show it on the admin page (never auto-fix). |
+| `slots.enabled` | bool | true | — | All slot machines. |
+| `slots.validateRtp` | bool | true | — | On load, compute each machine's RTP (`SLOTS.md` §7.5) from the config; a machine above 0.99, or a buy feature above its machine, logs a loud warning and shows it on the admin page (never auto-fix). |
+| `slots.jackpot.announceMinTier` ᴮ | enum(MINI, MINOR, MAJOR, GRAND) | MAJOR | — | Server-wide chat from this tier up. |
+| `slots.buyFeature.enabled` ᴮ | bool | true | — | |
+| `slots.buyFeature.tierMaxMultiple` ᴮ | int | 25 | 1–1000 | Price ≤ tier max × this. |
+| `slots.autoplay.enabled` ᴮ | bool | true | — | |
+| `slots.autoplay.counts` ᴮ | list<int> | [10,25,50,100] | each 1–1000 | |
+| `slots.autoplay.lossLimits` ᴮ | list<int> | [10,25,50,100] | each 1–10000 | × bet; one is mandatory. |
+| `slots.turboAllowed` ᴮ | bool | true | — | |
+| `slots.anticipation` ᴮ | bool | true | — | Off: reels always stop on the base schedule. |
+| `slots.bigWinTiers` ᴮ | list<int> | [5,15,40,100] | each 1–10000 | Nice/Big/Mega/Epic thresholds (× bet); 4 increasing entries. |
+| `slots.inWorld.enabled` ᴮ | bool | true | — | Java BER / Bedrock `slot_reels` entity. |
+| `slots.inWorld.radius` ᴮ | int | 24 | 0–64 | Spectator range. |
+| `slots.bedrock.ddui` ᴮ | bool | true | — | Bedrock only: use the DDUI form (`SLOTS.md` §10.6); false = classic fallback. |
+| `slots.overworld.minVipTier` ᴮ | int | 0 | 0–5 | |
+| `slots.nether.minVipTier` ᴮ | int | 0 | 0–5 | |
+| `slots.end.minVipTier` ᴮ | int | 2 | 0–5 | 2 = Gold. |
+| `slots.overworld.freeSpins.multiplier` ᴮ | int | 2 | 1–10 | |
+| `slots.nether.tumble.ladder` ᴮ | list<int> | [1,2,3,5] | each 1–100 | Base game; 4 entries. |
+| `slots.nether.tumble.ladderFree` ᴮ | list<int> | [2,4,6,10] | each 1–100 | Free spins; 4 entries. |
+| `slots.overworld.pick.board` ᴮ | int | 15 | 3–30 | Chests on the board. |
+| `slots.overworld.pick.weights` ᴮ | map<string,int> | x1 30000, x2 22000, x3 14000, x5 9000, x10 3500, x25 800, mini 600, minor 150, major 20, grand 3, creeper 22000 | each 0–10000000 | Treasure Hunt chest contents (`SLOTS.md` §3.1). |
+| `slots.nether.hold.trigger` ᴮ | int | 6 | 3–15 | |
+| `slots.nether.hold.respins` ᴮ | int | 3 | 1–10 | |
+| `slots.nether.hold.coinChance` ᴮ | double | 0.04 | 0.0–0.5 | Per empty cell per respin. |
+| `slots.nether.hold.coinWeights` ᴮ | map<string,int> | x1 4000, x2 2500, x3 1500, x5 1000, x10 500, x25 120, mini 80, minor 20, major 3 | each 0–10000000 | ×10 of `SLOTS.md` §3.2. |
+| `slots.nether.buy.price` ᴮ | double | 18.4 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.end.buy.price` ᴮ | double | 109 | 1–10000 | × bet, multiples of 0.2. |
+
+Per-machine families and table-valued keys (documentation until S-J5; defaults per `SLOTS.md`):
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| slots.<m>.enabled | bool | true | — | One machine type (disabled cabinets show "Out of order"). |
+| slots.<m>.bets | list<int> | §6.1 | 1–8 entries, each 5–10⁶, multiples of 5, sorted | Bet ladder. Not a multiple of 5 → the list is rejected (default kept). |
+| slots.<m>.defaultBet | int | 10 / 20 / 100 | on the ladder | Clamped to the nearest ladder value. |
+| slots.<m>.maxWinMultiple | int | 500 / 2000 / 5000 | 50–100 000 | Max-win cap and owned reservation (§1.3, §8.6). |
+| slots.<m>.strips | list<string> | Appendix A | exactly 5 strings of codes | Advanced. Validated: known codes, Wild only on reels 2–4, bonus only on its reels, scatter spacing ≥ 3. |
+| slots.<m>.pays | map<symbol,list<double>> | §3 tables | each 0–10 000, multiples of 0.2 | 3/4/5-of-a-kind × bet per way. |
+| slots.<m>.scatterPays | list<double> | [1,10,50] / [0,0,0] / [2,10,50] | each 0–10 000, integers | × bet for 3/4/5 scatters. |
+| slots.<m>.freeSpins | list<int> | [8,10,15] / [12,15,20] / [9,11,14] | each 0–100 | Spins for 3/4/5 scatters. |
+| slots.<m>.freeSpins.retrigger | int | 8 / 5 / 4 | 0–100 | |
+| slots.<m>.freeSpins.cap | int | 50 / 60 / 40 | 1–500 | Max spins awarded per feature. |
+| slots.end.wheel.outer / .middle / .core | list<string> | §3.3 wedge orders | 4–32 entries each | Tokens: an integer multiple, `MINI MINOR MAJOR GRAND`, `UP` (not in core). |
+| slots.<m>.jackpot.refBet | int | 100 / 500 / 5000 | 5–10⁶ | Full jackpot at this bet or above. |
+| slots.<m>.jackpot.seed | map<tier,int> | §5.1 | each 0–100 000 | Multiples of `refBet`. |
+| slots.<m>.jackpot.contribution | map<tier,double> | §5.1 | each 0.0–0.05 | Fraction of every stake. |
+| slots.<m>.jackpot.owned | map<tier,int> | §5.2 | each 0–100 000 | Fixed × bet at owned machines. |
+| pvp.slots.hazardWeights | list<int> | [94,2,2,2] | 4 entries, each 0–1 000 | Slot Showdown v2 (S-B8 / S-J8): none / KABOOM / SWAP / TIME WARP. |
+| pvp.race.target | enum(feature, jackpot, five_top) | feature | — | Jackpot Race (NICE). |
+
+**Removed** (ignored with one warning listing them, `SLOTS.md` §11): `slots.copper.maxLineBet`,
+`slots.gold.maxLineBet`, `slots.netherite.minLineBet`, `slots.netherite.maxLineBet`, `slots.netherite.minVipTier`,
+`slots.<tier>.weights`, `slots.<tier>.pays`, `slots.<tier>.berryPartial`, `slots.jackpot.contribution.*`,
+`slots.jackpot.seed.*`, `slots.ownedStarPays`, `slots.spinTicks` (`pvp.slots.starPoints` goes with Slot Showdown v2).
 
 ## roulette
 

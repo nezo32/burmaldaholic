@@ -524,7 +524,9 @@ linearity applies).
 spin win) and `T[s](s', retrig)`. Then
 `V(s, m, a) = E[s] + Σ T[s](s', rt) · V(s', m − 1 + rt·d, a + rt·d)`, `V(·, 0, ·) = 0`.
 Per-state mean spin win (× bet): E[0] 1.1102, E[1] 6.2018, E[2] 6.3516, E[3] 37.6412,
-E[4] 4.8395, E[5] 28.1880, E[6] 28.8070, E[7] 178.3606 (exact sums in §7.5).
+E[4] 4.8395, E[5] 28.1880, E[6] 28.8070, E[7] 178.3606 (exact sums in §7.5). These per-state means are
+rounded for reading; tests use the exact sums (e.g. E[3] from its exact sum is 37.6408, not the 37.6412
+printed here).
 Feature values: `V(0, 9, 9)` = 102.466 892, `V(0, 11, 11)` = 170.175 953, `V(0, 14, 14)` = 311.794 284.
 
 **Treasure Hunt.** `q` = P(not creeper) = 80 073 / 102 073. Expected chests opened

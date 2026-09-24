@@ -605,8 +605,9 @@ tier is revealed (F6), the plate flashes once (≤ 30 %), shows `slots.fx.meter_
 and then counts **down** to the reset value in 600 ms `inOutQuad` (the only allowed down-count;
 it shows real pool money leaving). The Grand plate has a slow rainbow rim cycle (NICE).
 
-**Celebrations** play after the step that awarded the jackpot (the hunt / hoard / wheel prize
-reveal) and before the spin total. They use `CelebrationOverlay` in JACKPOT mode with a sub-tier:
+**Celebrations** play after the spin total's roll-up (§2.5: the jackpot is the climax), in the local
+part after the reveal gate; the step that awarded the jackpot (the hunt / hoard / wheel prize reveal)
+only marks it (gem / coin / wedge). They use `CelebrationOverlay` in JACKPOT mode with a sub-tier:
 
 | | Mini | Minor | Major | Grand |
 |---|---|---|---|---|

@@ -20,7 +20,7 @@ export const OWNER_OF = {
 export const NOT_IN_STORE = new Set(['core.casinoMode']);
 
 // Family members and table defaults that CONFIG.md references by section (GAME_DESIGN.md).
-const CONTRACTS = { mine_iron: 10, mine_coal: 8, mine_diamond: 5, kill_zombie: 10, kill_skeleton: 8, kill_creeper: 6, kill_any: 8, trade: 8, fish: 6, harvest: 6, wager: 8, win_blackjack: 5, spin_slots: 5, roulette_red: 4, play_poker: 3, explore_nether: 3, smelt: 3 };
+const CONTRACTS = { mine_iron: 10, mine_coal: 8, mine_diamond: 5, kill_zombie: 10, kill_skeleton: 8, kill_creeper: 6, kill_any: 8, trade: 8, fish: 6, harvest: 6, wager: 8, win_blackjack: 5, spin_slots: 5, roulette_red: 4, play_poker: 3, explore_nether: 3, smelt: 3, slots_feature: 4 };
 const APPRAISAL = { iron_ingot: 2, gold_ingot: 4, emerald: 8, emerald_block: 72, lapis_block: 15, golden_apple: 30, totem_of_undying: 150, nether_star: 400, trident: 250, diamond: 20, diamond_block: 180, netherite_scrap: 40, netherite_ingot: 150, ancient_debris: 45, enchanted_golden_apple: 300, heart_of_the_sea: 200, elytra: 500, echo_shard: 25 };
 const CHAOS = { chip_shower: 18, lucky_buff: 20, diamond_rain: 4, xp_fountain: 12, curse: 16, mob_wave: 12, random_teleport: 8, weather_change: 8, golden_hour: 2 };
 const SLOTS = {
@@ -109,6 +109,7 @@ export function optionLabel(key, exact, option) {
   if (key === 'bots.table.<game>.difficulty') return `gui.burmaldaholic.bots.level.${o}`;
   if (key === 'pvp.tournament.autoMode') return `gui.burmaldaholic.pvp.game.${o}`;
   if (key === 'pvp.tournament.autoFormat') return `gui.burmaldaholic.pvp.tournament.format.${o}`;
+  if (key === 'slots.jackpot.announceMinTier') return `gui.burmaldaholic.slots.jackpot.tier.${o}`;
   return `${exact}.${o}`;
 }
 
@@ -167,7 +168,8 @@ export function parseConfigMd(md, labels, modules) {
   for (const [i, raw] of md.split(/\r?\n/).entries()) {
     if (!raw.startsWith('| `')) continue;
     const cells = raw.split('|').slice(1, -1).map((c) => c.trim());
-    const key = /^`([^`]+)`$/.exec(cells[0])?.[1];
+    // `key` ᴮ = live on Bedrock, pending Java registration (CONFIG.md §slots); Java's coverage test skips those rows
+    const key = /^`([^`]+)`(?:\s*ᴮ)?$/.exec(cells[0])?.[1];
     if (!key || cells.length < 5) continue;
     const first = key.split('.')[0];
     if (!SECTION_OF[first] && modules && !modules.includes(OWNER_OF[first] ?? first)) {
@@ -196,7 +198,12 @@ export function parseConfigMd(md, labels, modules) {
         // Labels (STRINGS.md §config): exact key, else the family template with the member as %1.
         const exact = `config.burmaldaholic.${full}`;
         const template = `config.burmaldaholic.${key.replace(/\.?<[^>]+>/, '')}`;
+        const perMachine = /^slots\.(overworld|nether|end)\.(.+)$/.exec(full);
         if (labels.has(exact)) def.label = exact;
+        else if (perMachine && labels.has(`config.burmaldaholic.slots.${perMachine[2]}`)) {
+          // one machine's key under the slots family template (`%1$s` = machine name, SLOTS.md §13.8)
+          Object.assign(def, { label: `config.burmaldaholic.slots.${perMachine[2]}`, labelArg: { key: `gui.burmaldaholic.slots.machine.${perMachine[1]}` } });
+        }
         else if (m.member !== undefined && labels.has(template)) Object.assign(def, { label: template, labelArg: m.arg });
         else if (labels.has(exact.replace(/\.[a-z]+$/, '')) && labels.has(`gui.burmaldaholic.common.game.${full.split('.').pop()}`)) {
           // per-game key under a template label (bots.atmosphere.maxPerTable.<game>)

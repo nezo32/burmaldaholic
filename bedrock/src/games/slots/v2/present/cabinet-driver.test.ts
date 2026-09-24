@@ -137,8 +137,8 @@ describe('cabinet driver: planCabinet', () => {
     expect(end[P.rows[0]!]).toBe(packRow(spins[3]!.finalWindow, 0));
   });
 
-  it('reads land times from REEL_LAND beats (lane = reel)', () => {
-    const beats = [0, 1, 2, 3, 4].map((r) => ({ at: LAND[r]!, kind: 'slots.reel_land', lane: r })).concat([{ at: 10, kind: 'slots.spin_up', lane: -1 }]);
+  it('reads land times from the END of the REEL_LAND beats (lane = reel)', () => {
+    const beats = [0, 1, 2, 3, 4].map((r) => ({ at: LAND[r]! - 350, dur: 350, kind: 'slots.reel_land', lane: r })).concat([{ at: 10, dur: 120, kind: 'slots.spin_up', lane: -1 }]);
     expect(landTimesFromBeats(beats, 0)).toEqual(LAND);
   });
 });

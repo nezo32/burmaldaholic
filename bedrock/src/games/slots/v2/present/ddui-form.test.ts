@@ -102,15 +102,21 @@ vi.mock('@minecraft/server-ui', () => {
       return this.showing;
     }
   }
-  return { CustomForm, ObservableString: Obs, ObservableUIRawMessage: Obs, ActionFormData: class {}, ModalFormData: class {}, MessageFormData: class {}, FormCancelationReason: {}, uiManager: { closeAllForms: () => {} } };
+  /** visibility / disabled flags of the B-L1 LiveForm (not label writes) */
+  class Flag {
+    constructor(public v: unknown) {}
+    setData(v: unknown): void {
+      this.v = v;
+    }
+  }
+  return { CustomForm, ObservableString: Obs, ObservableUIRawMessage: Obs, ObservableBoolean: Flag, ActionFormData: class {}, ModalFormData: class {}, MessageFormData: class {}, FormCancelationReason: {}, uiManager: { closeAllForms: () => {} } };
 });
 
 const { SlotPresenter, DduiSlotForm } = await import('./ddui-form');
-const { fakeDef, fakeRound, fakeTape, timelineOf } = await import('./fixtures.test-util');
+const { fakeDef, fakeRound, fakeTape, randomStops, timelineOf } = await import('./fixtures.test-util');
+const { FxRng } = await import('../../../../core/logic/anim/seed');
 const { SLOT_BEAT } = await import('../logic/timeline');
 const { terminalScreen } = await import('./features');
-const { stubSlotTimeline } = await import('./frames');
-const { SHARED_PROFILE } = await import('../../../../core/logic/anim/timeline');
 
 class FakePlayer {
   isValid = true;
@@ -298,8 +304,11 @@ describe('SlotPresenter (adversarial)', () => {
   const textOfAny = (x: unknown): string => JSON.stringify(x);
 
   it('hunt: nothing after the board intro (roll-up, tier, title, sounds) plays before the picks (F6/F7)', () => {
-    // hunt prize 25× the bet: the roll-up after the hunt is a BIG win
-    const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { hunt: [25, 0], totalFifths: 5 * 25 }), 'BIG');
+    // a base spin without any pay (no Win line of its own), hunt prize 25× the bet: the roll-up after the hunt is BIG
+    const rng = new FxRng(3);
+    let stops = randomStops(rng);
+    while (fakeTape(def, stops).totalFifths > 0) stops = randomStops(rng);
+    const round = fakeRound(def, fakeTape(def, stops, { hunt: [25, 0], totalFifths: 5 * 25 }), 'BIG');
     const tl = timelineOf(round);
     const p = new FakePlayer();
     const titles: unknown[] = [];
@@ -412,10 +421,10 @@ describe('SlotPresenter (adversarial)', () => {
 describe('SlotPresenter: coordinator decisions (4) sneak-skip cinematic, (5) jackpots after the roll-up', () => {
   const def = fakeDef('end');
 
-  const setup = (jackpotsFirst: boolean) => {
+  const setup = () => {
     // a BIG base win (tier from the server) + a Grand jackpot
     const round = fakeRound(def, fakeTape(def, [1, 2, 3, 4, 5], { totalFifths: 5 * 20, jackpots: [{ tier: 4, chips: 501220, owned: true }] }), 'BIG');
-    const tl = stubSlotTimeline(round, SHARED_PROFILE, SHARED_PROFILE, 1, jackpotsFirst);
+    const tl = timelineOf(round);
     const p = new FakePlayer();
     const titles: Array<{ tick: number; key: string; sub: string }> = [];
     p.onScreenDisplay.setTitle = ((title: unknown, o: { subtitle?: unknown }) =>
@@ -426,10 +435,11 @@ describe('SlotPresenter: coordinator decisions (4) sneak-skip cinematic, (5) jac
     return { round, tl, p, titles, presented, shown, ctl, pr };
   };
 
-  it('spec order: the Big title settles first, then the jackpot is the climax; both orders settle once on the terminal', () => {
-    for (const first of [false, true]) {
+  it('spec order (the real builder): the Big title settles first, then the jackpot is the climax; settles once on the terminal', () => {
+    {
       clock.runs.clear();
-      const s = setup(first);
+      const s = setup();
+      const first = false;
       s.pr.play({ round: s.round, timeline: s.tl });
       clock.advance(Math.ceil(s.tl.endMs() / 50) + 200);
       expect(s.presented).toEqual([{ interrupted: false }]);
@@ -449,14 +459,14 @@ describe('SlotPresenter: coordinator decisions (4) sneak-skip cinematic, (5) jac
   });
 
   it('sneaking during the Grand cinematic skips it after 1.5 s and prints the exact jackpot', () => {
-    const base = setup(false);
+    const base = setup();
     base.pr.play({ round: base.round, timeline: base.tl });
     clock.advance(Math.ceil(base.tl.endMs() / 50) + 200);
     const fullTicks = clock.tick;
 
     clock.tick = 0;
     clock.runs.clear();
-    const s = setup(false);
+    const s = setup();
     s.pr.play({ round: s.round, timeline: s.tl });
     const jpBeat = s.tl.beats.find((b) => b.kind === SLOT_BEAT.JACKPOT)!;
     let settledAt = -1;

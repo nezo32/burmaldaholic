@@ -89,7 +89,7 @@ describe('slot celebration model', () => {
     expect(a.log.filter((l) => l.what === 'shake').length).toBe(1);
     const calls: unknown[] = [];
     const b = fakeRuntime();
-    celebrateSpin(P, slotCelebration(1000, 50, 'BIG', false), b.rt, { reduceMotion: false, celebrations: 'all', fx: { celebrate: (_p, r) => calls.push(r) } });
+    celebrateSpin(P, slotCelebration(1000, 50, 'BIG', false), b.rt, { reduceMotion: false, celebrations: 'all', fx: { celebrate: (_p, r) => void calls.push(r) } });
     b.run(100);
     expect(calls.length).toBe(1);
     expect((calls[0] as { words: { BIG: string } }).words.BIG).toBe('gui.burmaldaholic.slots.tier.big');

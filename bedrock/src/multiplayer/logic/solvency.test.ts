@@ -9,9 +9,9 @@ describe('worst case table', () => {
     expect(worstCasePerChip('blackjack')).toBe(17.5);
     expect(worstCasePerChip('craps')).toBe(13);
     expect(worstCasePerChip('plinko')).toBe(170);
-    expect(worstCasePerChip('slots', 'copper')).toBe(150);
-    expect(worstCasePerChip('slots', 'netherite')).toBe(1000);
-    expect(worstCasePerChip('slots', 'unknown_variant')).toBe(1000);
+    expect(worstCasePerChip('slots', 'copper')).toBe(500);
+    expect(worstCasePerChip('slots', 'netherite')).toBe(5000);
+    expect(worstCasePerChip('slots', 'unknown_variant')).toBe(5000);
     expect(worstCasePerChip('poker')).toBe(0);
     expect(worstCasePerChip('mystery')).toBe(UNKNOWN_WORST_CASE_PER_CHIP);
   });

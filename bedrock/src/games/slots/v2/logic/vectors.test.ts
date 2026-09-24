@@ -141,8 +141,21 @@ function generateTimelines(engine: EngineVectors): TimelineVec[] {
     const seed = seedMix(d.seed, i);
     out.push({ tape: d.tape, sharedPct, localPct, reduceMotion, seed, timeline: timelineOf(d.tape, sharedPct, localPct, reduceMotion, seed) });
   }
+  // + one jackpot tape per machine (the first seeded draw at the reference bet that awards a jackpot): pins the
+  // local order ROLLUP → JACKPOT (animation/slots.md §2.5, the jackpot is the climax)
+  for (const m of MACHINE_IDS) {
+    const def = defaultMachine(m);
+    for (let seed = JACKPOT_SEED0; seed < JACKPOT_SEED0 + 2_000_000; seed++) {
+      const tape = drawVec(m, def.jackpot.ref, false, false, seed).tape;
+      if (!decodeTape(tape).jackpots.length) continue;
+      out.push({ tape, sharedPct: 100, localPct: 100, reduceMotion: false, seed, timeline: timelineOf(tape, 100, 100, false, seed) });
+      break;
+    }
+  }
   return out;
 }
+
+const JACKPOT_SEED0 = 100_000;
 
 function timelineOf(tape: string, sharedPct: number, localPct: number, rm: boolean, seed: number): string {
   const t = decodeTape(tape);
@@ -181,9 +194,22 @@ describe('slots_engine.json', () => {
 });
 
 describe('slots_timeline.json', () => {
-  it('20 tapes per machine → identical canonical timelines', () => {
-    for (const m of MACHINE_IDS) expect(timelines.filter((v) => decodeTape(v.tape).machine === m)).toHaveLength(20);
+  it('20 tapes per machine (+ one jackpot tape each) → identical canonical timelines', () => {
+    for (const m of MACHINE_IDS) expect(timelines.filter((v) => decodeTape(v.tape).machine === m)).toHaveLength(21);
     for (const v of timelines) expect(timelineOf(v.tape, v.sharedPct, v.localPct, v.reduceMotion, v.seed)).toBe(v.timeline);
+  });
+  it('the spin roll-up comes before the jackpot beats (the jackpot is the climax)', () => {
+    const withJackpot = timelines.filter((v) => decodeTape(v.tape).jackpots.length > 0);
+    expect(withJackpot.length).toBeGreaterThanOrEqual(MACHINE_IDS.length);
+    for (const v of withJackpot) {
+      const t = decodeTape(v.tape);
+      const beats = buildSlotTimeline(t, defaultMachine(t.machine), profile(v.sharedPct), profile(v.localPct, v.reduceMotion), v.seed).beats;
+      const roll = beats.findIndex((b) => b.kind === 'slots.rollup');
+      const jp = beats.findIndex((b) => b.kind === 'slots.jackpot');
+      if (t.totalFifths > 0) expect(roll).toBeGreaterThanOrEqual(0);
+      if (roll >= 0) expect(roll).toBeLessThan(jp);
+      if (roll >= 0) expect(beats[roll]!.at + beats[roll]!.dur).toBeLessThanOrEqual(beats[jp]!.at);
+    }
   });
   it('shared profile default', () => {
     expect(SHARED_PROFILE.speedPct).toBe(100);

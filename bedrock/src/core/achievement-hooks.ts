@@ -7,7 +7,6 @@
 import { system, world } from '@minecraft/server';
 import type { CrapsApi } from '../games/craps/api';
 import type { RouletteApi } from '../games/roulette/api';
-import type { SlotsApi } from '../games/slots/api';
 import type { LastchanceApi } from '../lastchance/api';
 import type { WorldgenApi } from '../worldgen/api';
 import type { Achievements } from './achievements';
@@ -72,12 +71,7 @@ export function wireAchievements(d: HookDeps): void {
       }),
     );
     d.services.get<CrapsApi>(SERVICES.craps)?.onPointMade(safe('craps', (shooter, inRow) => inRow >= 3 && a.unlock(shooter, 'hot_shooter')));
-    d.services.get<SlotsApi>(SERVICES.slots)?.onSpin(
-      safe('slots', (e) => {
-        if (e.threeSevens) a.unlock(e.player, 'three_sevens');
-        if (e.jackpotAward > 0) a.unlock(e.player, 'jackpot');
-      }),
-    );
+    // slots v2 unlocks its own advancements (SLOTS.md §14, `v2/logic/round.ts` achievementsFor)
     d.services.get<RouletteApi>(SERVICES.roulette)?.onSpin(
       safe('roulette', (e) => {
         if (e.result !== 0) return;

@@ -208,7 +208,7 @@ describe('slot cues', () => {
   });
 });
 
-describe('slot strings (RU fit, TEMP-ANIM keys present)', () => {
+describe('slot strings (RU fit, v2 form keys present)', () => {
   const lang = (l: string): Map<string, string> => {
     const m = new Map<string, string>();
     for (const dir of ['slots', 'core']) {

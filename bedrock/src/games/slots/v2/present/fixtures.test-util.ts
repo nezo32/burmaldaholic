@@ -1,14 +1,19 @@
 /**
- * Test fixtures for the slots v2 presentation (lane B-L9): small machine defs with real-shaped strips and a
- * reference 243-ways evaluator + tumble chain (SLOTS.md §1.1, §3.2) standing in for the engine while lane
- * B-L8's `evaluateWays` / `runTumbles` are stubs. PURE; used only by `*.test.ts`.
+ * Test fixtures for the slots v2 presentation (lane B-L9): small machine defs with real-shaped strips, tapes and
+ * rounds evaluated by the REAL engine (lane B-L8) and timelines from the REAL builder `buildSlotTimeline` (the
+ * frames' beat-ordinal contract is verified against it; the old reference stub is gone). `refEvaluate` /
+ * `refTumbles` stay as an independent reference 243-ways evaluator + tumble chain (SLOTS.md §1.1, §3.2) that the
+ * tests compare the engine against. PURE; used only by `*.test.ts`.
  */
 import { FxRng } from '../../../../core/logic/anim/seed';
 import { SHARED_PROFILE, type TimingProfile } from '../../../../core/logic/anim/timeline';
 import { type WinTier } from '../../../../core/logic/anim/win-tier';
+import { defaultMachine } from '../logic/config';
+import { evaluateSpin } from '../logic/engine';
 import { slotTier } from '../logic/tiers';
+import { buildSlotTimeline } from '../logic/timeline';
 import { type MachineDef, type MachineId, type SpinTape, type SymbolRole, type TumbleChain, type TumbleStep, type WayWin, type Window, type WaysResult, REELS, ROWS, windowFromStops } from '../logic/types';
-import { type SlotEngine, type SlotRound, SYMBOL_CODES, roundFromTape, stubSlotTimeline } from './frames';
+import { type SlotEngine, type SlotRound, SYMBOL_CODES, roundFromTape } from './frames';
 
 export const STRIP_LEN = 24;
 
@@ -24,7 +29,8 @@ export function fakeDef(machine: MachineId, seed = 7): MachineDef {
       let sym = 3 + rng.nextInt(8);
       if (i % 8 === 3) sym = 1; // scatters spaced ≥ 3
       else if (i % 11 === 6 && r >= 1 && r <= 3) sym = 0; // wilds on reels 2–4
-      else if (i % 7 === 5 && bonusReels.includes(r)) sym = 2;
+      // Nether coins in pairs (a window can show 2, so ≥ 4 coins can still reach the Hoard trigger of 6)
+      else if (machine === 'nether' ? i % 6 === 0 || i % 6 === 1 : i % 7 === 5 && bonusReels.includes(r)) sym = 2;
       s.push(sym);
     }
     strips.push(s);
@@ -41,10 +47,15 @@ export function fakeDef(machine: MachineId, seed = 7): MachineDef {
     retrigger: machine === 'nether' ? 5 : machine === 'end' ? 4 : 8,
     fsCap: 50,
     fsMultiplier: machine === 'overworld' ? 2 : 1,
-    ladder: [1, 2, 3, 5],
-    ladderFree: [2, 4, 6, 10],
+    // tumbles (a ladder) only on the Nether machine: the engine tumbles every machine that has a ladder
+    ladder: machine === 'nether' ? [1, 2, 3, 5] : [],
+    ladderFree: machine === 'nether' ? [2, 4, 6, 10] : [],
     capMultiple: 500,
     buyPriceFifths: 92,
+    hunt: defaultMachine(machine).hunt,
+    hoard: defaultMachine(machine).hoard,
+    wheel: defaultMachine(machine).wheel,
+    jackpot: defaultMachine(machine).jackpot,
   };
 }
 
@@ -131,23 +142,24 @@ export interface TapeExtras {
   totalFifths?: number;
 }
 
+/** A tape for fixed stops; every pay comes from the real engine (`evaluateSpin`), as the draw computes it. */
 export function fakeTape(def: MachineDef, stops: number[], x: TapeExtras = {}, bet = 50): SpinTape {
-  const baseFifths = x.bought
-    ? 0
-    : def.machine === 'nether'
-      ? refTumbles(def, stops, def.ladder).payFifths
-      : refEvaluate(def, windowFromStops(def, stops)).payFifths;
+  const baseFifths = x.bought ? 0 : evaluateSpin(def, stops, false).payFifths;
+  let sticky = 0;
   const spins = (x.free ?? []).map((f) => {
-    const w = windowFromStops(def, f.stops);
-    const p = def.machine === 'nether' ? refTumbles(def, f.stops, def.ladderFree).payFifths : refEvaluate(def, w, f.stickyMaskAfter ?? 0).payFifths * def.fsMultiplier;
-    return { stops: f.stops, stickyMaskAfter: f.stickyMaskAfter ?? 0, retrigger: f.retrigger ?? false, payFifths: p };
+    const e = evaluateSpin(def, f.stops, true, sticky);
+    // End: the sticky mask follows the eggs that land (as the draw does); an explicit mask may only add reels
+    const after = e.stickyAfter | (f.stickyMaskAfter ?? 0);
+    const p = after === e.stickyAfter ? e.payFifths : evaluateSpin(def, f.stops, true, after).payFifths;
+    sticky = after;
+    return { stops: f.stops, stickyMaskAfter: after, retrigger: f.retrigger ?? false, payFifths: p };
   });
   const fsFifths = spins.reduce((s, f) => s + f.payFifths, 0);
   return {
     machine: def.machine,
     bet,
     bought: x.bought ?? false,
-    stops,
+    stops: x.bought ? [] : stops,
     freeSpins: spins.length ? { awarded: spins.length, spins, payFifths: fsFifths } : undefined,
     hunt: x.hunt ? { entries: x.hunt, opened: 0 } : undefined,
     hoard: x.hoard,
@@ -158,14 +170,24 @@ export function fakeTape(def: MachineDef, stops: number[], x: TapeExtras = {}, b
   };
 }
 
+const DEFS = new WeakMap<SlotRound, MachineDef>();
+
+/** The presentation round of a tape, evaluated by the real engine (the default of `roundFromTape`). */
 export function fakeRound(def: MachineDef, tape: SpinTape, tier?: WinTier): SlotRound {
-  return roundFromTape(def, tape, { tier: tier ?? slotTier(tape.totalFifths), engine: REF_ENGINE });
+  const round = roundFromTape(def, tape, { tier: tier ?? slotTier(tape.totalFifths) });
+  DEFS.set(round, def);
+  return round;
 }
 
 export const TURBO: TimingProfile = { speedPct: 200, reduceMotion: false, flashes: true };
 export const REDUCED: TimingProfile = { speedPct: 100, reduceMotion: true, flashes: false };
 
-export const timelineOf = (round: SlotRound, shared: TimingProfile = SHARED_PROFILE, local: TimingProfile = SHARED_PROFILE) => stubSlotTimeline(round, shared, local, 1);
+/** The REAL spin timeline (lane B-L8 `buildSlotTimeline`) of a round made by `fakeRound`. */
+export const timelineOf = (round: SlotRound, shared: TimingProfile = SHARED_PROFILE, local: TimingProfile = SHARED_PROFILE) => {
+  const def = DEFS.get(round);
+  if (!def) throw new Error('timelineOf: make the round with fakeRound');
+  return buildSlotTimeline(round.tape, def, shared, local, 1);
+};
 
 /** Random stops for machine `m`, seeded. */
 export function randomStops(rng: FxRng): number[] {

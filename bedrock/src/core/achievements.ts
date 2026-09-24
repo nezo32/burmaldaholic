@@ -9,7 +9,7 @@ import type { Player } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import { showForm } from './forms';
 import { HudPriority, type Hud } from './hud';
-import { ACHIEVEMENTS, achievementDescKey, achievementTitleKey, isAchievement, unlockInList } from './logic/achievements';
+import { LISTED_ACHIEVEMENTS, achievementDescKey, achievementTitleKey, isAchievement, unlockInList } from './logic/achievements';
 import { type Raw, color, join, lines, lit, t } from './logic/rawtext';
 import { createLogger } from './log';
 import { onlinePlayer } from './offline';
@@ -92,8 +92,8 @@ export class Achievements {
   /** Casino Menu page: progress + every achievement (unlocked in frame color, locked gray). */
   async open(player: Player): Promise<void> {
     const have = new Set(this.list(player));
-    const rows: Raw[] = [t('gui.burmaldaholic.achievements.progress', have.size, ACHIEVEMENTS.length), lit('')];
-    for (const a of ACHIEVEMENTS) {
+    const rows: Raw[] = [t('gui.burmaldaholic.achievements.progress', LISTED_ACHIEVEMENTS.filter((a) => have.has(a.id)).length, LISTED_ACHIEVEMENTS.length), lit('')];
+    for (const a of LISTED_ACHIEVEMENTS) {
       const got = have.has(a.id);
       const head = got ? color(FRAME_COLOR[a.frame], join(lit('✔ '), t(achievementTitleKey(a.id)))) : color('§8', join(lit('✘ '), t(achievementTitleKey(a.id))));
       rows.push(head, color(got ? '§7' : '§8', join(lit('   '), t(achievementDescKey(a.id)))));

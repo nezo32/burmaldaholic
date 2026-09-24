@@ -323,9 +323,12 @@ export class CabinetPlayer {
   }
 }
 
-/** Beats → land times, when the service has a built `SlotTimeline` (REEL_LAND beats carry the reel in `lane`). */
-export function landTimesFromBeats(beats: ReadonlyArray<{ at: number; kind: string; lane: number }>, from: number, to = Number.POSITIVE_INFINITY): number[] {
+/**
+ * Beats → land times, when the service has a built `SlotTimeline`: a reel stops at the END of its REEL_LAND beat
+ * (the beat is the 350 ms landing before the stop; `lane` = the reel). Only beats STARTING in [from, to) count.
+ */
+export function landTimesFromBeats(beats: ReadonlyArray<{ at: number; dur: number; kind: string; lane: number }>, from: number, to = Number.POSITIVE_INFINITY): number[] {
   const out: number[] = [];
-  for (const b of beats) if (b.kind === 'slots.reel_land' && b.at >= from && b.at < to && b.lane >= 0 && b.lane < 5 && out[b.lane] === undefined) out[b.lane] = b.at;
+  for (const b of beats) if (b.kind === 'slots.reel_land' && b.at >= from && b.at < to && b.lane >= 0 && b.lane < 5 && out[b.lane] === undefined) out[b.lane] = b.at + b.dur;
   return out;
 }

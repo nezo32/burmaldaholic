@@ -885,10 +885,14 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.bet_down` | Lower bet | Меньше |
 | `gui.burmaldaholic.slots.bet_up` | Raise bet | Больше |
 | `gui.burmaldaholic.slots.ways` | 243 ways | 243 способа |
+| `gui.burmaldaholic.slots.ways.p1` | %1$s way | %1$s способ |
+| `gui.burmaldaholic.slots.ways.p21` | %1$s ways | %1$s способ |
+| `gui.burmaldaholic.slots.ways.p2` | %1$s ways | %1$s способа |
+| `gui.burmaldaholic.slots.ways.p5` | %1$s ways | %1$s способов |
 | `gui.burmaldaholic.slots.last_win` | Last win: %1$s | Прошлый выигрыш: %1$s |
 | `gui.burmaldaholic.slots.no_win` | No win this time | В этот раз мимо |
 | `gui.burmaldaholic.slots.spin_total` | Spin result: %1$s | Итог вращения: %1$s |
-| `gui.burmaldaholic.slots.symbol_win` | %1$s ×%2$s · %3$s ways · %4$s | %1$s ×%2$s · способов: %3$s · %4$s |
+| `gui.burmaldaholic.slots.symbol_win` | %1$s ×%2$s · %3$s · %4$s | %1$s ×%2$s · %3$s · %4$s |
 | `gui.burmaldaholic.slots.scatter_win` | Scatters: %1$s · %2$s | Скаттеры: %1$s · %2$s |
 | `gui.burmaldaholic.slots.playing` | Now playing: %1$s | Сейчас играет: %1$s |
 | `gui.burmaldaholic.slots.turbo` | Turbo | Турбо |
@@ -967,7 +971,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.paytable.title` | Paytable | Таблица выплат |
 | `gui.burmaldaholic.slots.paytable.per_way` | Wins pay for every way: matching symbols on adjacent reels from the left, in any row | Выплата за каждый способ: одинаковые символы на соседних барабанах слева направо, в любом ряду |
 | `gui.burmaldaholic.slots.paytable.row` | %1$s: 3 → %2$s · 4 → %3$s · 5 → %4$s | %1$s: 3 → %2$s · 4 → %3$s · 5 → %4$s |
-| `gui.burmaldaholic.slots.paytable.wild` | Totem is wild: it replaces any fruit, gem or seven | Тотем — вайлд: заменяет любой фрукт, камень или семёрку |
+| `gui.burmaldaholic.slots.paytable.wild` | %1$s appears on reels 2–4 and replaces every symbol except %2$s and %3$s | %1$s появляется на барабанах 2–4 и заменяет все символы, кроме «%2$s» и «%3$s» |
 | `gui.burmaldaholic.slots.paytable.scatter` | %1$s anywhere: 3 → %2$s · 4 → %3$s · 5 → %4$s | %1$s в любом месте: 3 → %2$s · 4 → %3$s · 5 → %4$s |
 | `gui.burmaldaholic.slots.paytable.rtp` | Return to player: %1$s%% | Возврат игроку: %1$s %% |
 | `gui.burmaldaholic.slots.paytable.max_win` | Max win per spin: ×%1$s the bet | Максимальный выигрыш за вращение: ×%1$s от ставки |
@@ -988,8 +992,8 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 
 | Key | EN | RU |
 |-----|----|----|
-| `msg.burmaldaholic.slots.jackpot_self` | JACKPOT! You won %1$s! | ДЖЕКПОТ! Вы сорвали %1$s! |
-| `msg.burmaldaholic.slots.jackpot_broadcast` | JACKPOT! %1$s hit %2$s on %3$s! | ДЖЕКПОТ! %1$s срывает %2$s на автомате «%3$s»! |
+| `msg.burmaldaholic.slots.jackpot_self` | %1$s JACKPOT! You won %2$s! | ДЖЕКПОТ %1$s! Ваш выигрыш: %2$s! |
+| `msg.burmaldaholic.slots.jackpot_broadcast` | JACKPOT! %1$s hits the %2$s: %3$s on %4$s! | ДЖЕКПОТ! %1$s — %2$s: %3$s на автомате «%4$s»! |
 | `msg.burmaldaholic.slots.jackpot_pool` | %1$s: Grand jackpot %2$s | %1$s: джекпот «Гранд» %2$s |
 | `msg.burmaldaholic.slots.big_win_broadcast` | Epic win: %1$s, ×%2$s on %3$s! | Эпический выигрыш: %1$s, ×%2$s на автомате «%3$s»! |
 | `msg.burmaldaholic.slots.golden_scatters` | Five scatters! Golden Hour strikes! | Пять скаттеров! Бьёт «Золотой час»! |
@@ -1060,50 +1064,6 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.tier.epic` | EPIC WIN! | ЭПИЧЕСКИЙ ВЫИГРЫШ! |
 | `gui.burmaldaholic.slots.max_win` | MAX WIN! | МАКСИМАЛЬНЫЙ ВЫИГРЫШ! |
 | `gui.burmaldaholic.slots.jackpot.won` | %1$s JACKPOT! | ДЖЕКПОТ %1$s! |
-
-### Slots v1 legacy (removed at the slots cut-over S-J5 / S-B5, `SLOTS.md` §13.10)
-
-Still rendered by the playable v1 machines until the cut-over; the cut-over task deletes this table.
-
-| Key | EN | RU |
-|-----|----|----|
-| `gui.burmaldaholic.slots.line_bet` | Line bet: %1$s | Ставка на линию: %1$s |
-| `gui.burmaldaholic.slots.lines` | Paylines: %1$s | Линий: %1$s |
-| `gui.burmaldaholic.slots.jackpot` | JACKPOT %1$s | ДЖЕКПОТ %1$s |
-| `gui.burmaldaholic.slots.line_win` | Line %1$s: ×%2$s → %3$s | Линия %1$s: ×%2$s → %3$s |
-| `gui.burmaldaholic.slots.paytable.three` | Three %1$s: ×%2$s | Три «%1$s»: ×%2$s |
-| `gui.burmaldaholic.slots.paytable.berry_1` | Sweet Berries on reel 1: ×%1$s | Ягода на первом барабане: ×%1$s |
-| `gui.burmaldaholic.slots.paytable.berry_2` | Sweet Berries on reels 1–2: ×%1$s | Ягоды на первых двух барабанах: ×%1$s |
-| `gui.burmaldaholic.slots.paytable.star` | Three Nether Stars: progressive jackpot | Три звезды Незера: накопительный джекпот |
-| `gui.burmaldaholic.slots.paytable.star_owned` | Three Nether Stars: ×%1$s | Три звезды Незера: ×%1$s |
-| `gui.burmaldaholic.slots.paytable.chaos` | %1$s: something happens… | %1$s: что-то случится… |
-| `gui.burmaldaholic.slots.paytable.max_bet_jackpot` | Full jackpot needs the maximum bet; smaller bets win a share | Весь джекпот — только при максимальной ставке; меньшая ставка даёт долю |
-| `gui.burmaldaholic.slots.symbol.berry` | Sweet Berries | Сладкие ягоды |
-| `gui.burmaldaholic.slots.symbol.seven` | Redstone Seven | Редстоуновая семёрка |
-| `gui.burmaldaholic.slots.symbol.wild` | Totem (Wild) | Тотем (вайлд) |
-| `gui.burmaldaholic.slots.symbol.tnt` | TNT | Динамит |
-| `gui.burmaldaholic.slots.symbol.pearl` | Ender Pearl | Жемчуг Края |
-| `gui.burmaldaholic.slots.symbol.clock` | Clock | Часы |
-| `gui.burmaldaholic.slots.symbol.star` | Nether Star | Звезда Незера |
-| `msg.burmaldaholic.slots.three_creepers` | Three creepers. That hissing isn't the machine. | Три крипера. Это шипит не автомат. |
-| `msg.burmaldaholic.slots.three_tnt` | Three TNT! The machine calls in some friends. | Три динамита! Автомат зовёт друзей. |
-| `msg.burmaldaholic.slots.three_pearls` | Three pearls — pack your bags! | Три жемчужины — пакуйте чемоданы! |
-| `msg.burmaldaholic.slots.three_clocks` | Three clocks! It's Golden Hour o'clock! | Трое часов! Пробил «Золотой час»! |
-| `msg.burmaldaholic.slots.three_clocks_cooldown` | Three clocks! Golden Hour is recharging, but the payout is yours. | Трое часов! «Золотой час» перезаряжается, но выигрыш ваш. |
-| `msg.burmaldaholic.slots.seven_title` | Triple seven! | Три семёрки! |
-
-### Slots v2 values applied at the cut-over (placeholder signature changes)
-
-These keys keep their v1 value above (v1 code passes the v1 arguments) until the cut-over, which replaces
-the value with the v2 text below in the same change as the code. Not generator rows (key not back-quoted).
-
-| Key (v2, pending) | EN | RU |
-|-----|----|----|
-| gui.burmaldaholic.slots.paytable.wild | %1$s appears on reels 2–4 and replaces every symbol except %2$s and %3$s | %1$s появляется на барабанах 2–4 и заменяет все символы, кроме «%2$s» и «%3$s» |
-| msg.burmaldaholic.slots.jackpot_self | %1$s JACKPOT! You won %2$s! | ДЖЕКПОТ %1$s! Ваш выигрыш: %2$s! |
-| msg.burmaldaholic.slots.jackpot_broadcast | JACKPOT! %1$s hits the %2$s: %3$s on %4$s! | ДЖЕКПОТ! %1$s — %2$s: %3$s на автомате «%4$s»! |
-| gui.burmaldaholic.pvp.slots.rules.4 | Surprises (%1$s%% each): KABOOM halves your score, SWAP trades it with the leader, TIME WARP doubles your next spin. | Сюрпризы (по %1$s %%): БАБАХ делит ваши очки пополам, РОКИРОВКА меняет их с лидером, ПЕТЛЯ ВРЕМЕНИ удваивает следующее вращение. |
-| gui.burmaldaholic.pvp.slots.rules.5 | Jackpots give fixed points: Mini %1$s · Minor %2$s · Major %3$s · Grand %4$s. | Джекпоты дают фиксированные очки: мини %1$s · минор %2$s · мажор %3$s · гранд %4$s. |
 
 ## roulette
 
@@ -1901,8 +1861,8 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.slots.rules.1` | Everyone spins the same machine. Each spin's win becomes points (10 per 1× bet); the most points takes the pot. | Все крутят один и тот же автомат. Выигрыш вращения превращается в очки (10 за 1× ставки); у кого больше очков, тот забирает банк. |
 | `gui.burmaldaholic.pvp.slots.rules.2` | Each round one symbol is HOT: its wins score double. | В каждом раунде один символ — горячий: его выигрыши дают двойные очки. |
 | `gui.burmaldaholic.pvp.slots.rules.3` | Free spins and bonus games play out fast and count in full. | Бесплатные вращения и бонусы разыгрываются быстро и засчитываются полностью. |
-| `gui.burmaldaholic.pvp.slots.rules.4` | Three Ender Pearls: you swap scores with the leader. | Три жемчужины Края: вы меняетесь очками с лидером. |
-| `gui.burmaldaholic.pvp.slots.rules.5` | Three Clocks: your next spin counts double. Three Nether Stars: %1$s. | Трое часов: следующее вращение — с двойными очками. Три звезды Незера: %1$s. |
+| `gui.burmaldaholic.pvp.slots.rules.4` | Surprises (%1$s%% each): KABOOM halves your score, SWAP trades it with the leader, TIME WARP doubles your next spin. | Сюрпризы (по %1$s %%): БАБАХ делит ваши очки пополам, РОКИРОВКА меняет их с лидером, ПЕТЛЯ ВРЕМЕНИ удваивает следующее вращение. |
+| `gui.burmaldaholic.pvp.slots.rules.5` | Jackpots give fixed points: Mini %1$s · Minor %2$s · Major %3$s · Grand %4$s. | Джекпоты дают фиксированные очки: мини %1$s · минор %2$s · мажор %3$s · гранд %4$s. |
 | `gui.burmaldaholic.pvp.slots.rules.6` | Last place before the final spin scores double on it. | Последнее место перед финальным вращением получает в нём двойные очки. |
 | `gui.burmaldaholic.pvp.slots.tiebreak` | Tie-break: more winning lines, then the best single spin | При равенстве: больше выигрышных линий, затем лучшее вращение |
 | `gui.burmaldaholic.pvp.slots.time_warp_title` | TIME WARP! | ПЕТЛЯ ВРЕМЕНИ! |
@@ -2689,10 +2649,28 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.royal_flush.description` | Win a poker pot with a royal flush | Выиграйте банк с роял-флешем |
 | `advancement.burmaldaholic.shark_hunter.title` | Bigger Fish | Рыбка покрупнее |
 | `advancement.burmaldaholic.shark_hunter.description` | Take every chip from a Shark bot | Оставьте бота-акулу без фишек |
-| `advancement.burmaldaholic.three_sevens.title` | Lucky Sevens | Три топора |
-| `advancement.burmaldaholic.three_sevens.description` | Hit three Redstone Sevens on a payline | Соберите три семёрки на линии |
-| `advancement.burmaldaholic.jackpot.title` | JACKPOT! | ДЖЕКПОТ! |
-| `advancement.burmaldaholic.jackpot.description` | Win a progressive jackpot | Сорвите накопительный джекпот |
+| `advancement.burmaldaholic.top_five.title` | Top of the Reels | Лучшие на барабанах |
+| `advancement.burmaldaholic.top_five.description` | Land five of a machine's top symbol | Соберите пять главных символов автомата |
+| `advancement.burmaldaholic.jackpot.title` | Jackpot! | Джекпот! |
+| `advancement.burmaldaholic.jackpot.description` | Win a Major or Grand slot jackpot | Выиграйте джекпот «Мажор» или «Гранд» |
+| `advancement.burmaldaholic.mini_jackpot.title` | Small Fortune | Маленькое состояние |
+| `advancement.burmaldaholic.mini_jackpot.description` | Win any slot jackpot | Выиграйте любой джекпот на автомате |
+| `advancement.burmaldaholic.free_spins.title` | On the House | За счёт заведения |
+| `advancement.burmaldaholic.free_spins.description` | Trigger free spins on a slot machine | Запустите бесплатные вращения |
+| `advancement.burmaldaholic.treasure_hunter.title` | Treasure Hunter | Кладоискатель |
+| `advancement.burmaldaholic.treasure_hunter.description` | Open 10 chests in one Treasure Hunt | Откройте 10 сундуков за одну охоту |
+| `advancement.burmaldaholic.tumble_six.title` | Chain Reaction | Цепная реакция |
+| `advancement.burmaldaholic.tumble_six.description` | Get 6 tumbles in one Nether Inferno spin | Соберите 6 обвалов за одно вращение в «Пекле Незера» |
+| `advancement.burmaldaholic.hoard_full.title` | Piglin Royalty | Король пиглинов |
+| `advancement.burmaldaholic.hoard_full.description` | Fill all 15 cells in Piglin's Hoard | Заполните все 15 ячеек клада пиглинов |
+| `advancement.burmaldaholic.void_walker.title` | Void Walker | Странник пустоты |
+| `advancement.burmaldaholic.void_walker.description` | Make all three reels sticky in Void Walker free spins | Сделайте все три барабана липкими в «Страннике пустоты» |
+| `advancement.burmaldaholic.dragon_core.title` | Heart of the Dragon | Сердце дракона |
+| `advancement.burmaldaholic.dragon_core.description` | Reach the Dragon Core of the Dragon Wheel | Доберитесь до сердца колеса дракона |
+| `advancement.burmaldaholic.epic_win.title` | Epic! | Эпично! |
+| `advancement.burmaldaholic.epic_win.description` | Win at least 100 times your bet on one spin | Выиграйте за одно вращение не меньше 100 ставок |
+| `advancement.burmaldaholic.max_win.title` | Broke the Machine | Автомат сломался |
+| `advancement.burmaldaholic.max_win.description` | Hit a slot machine's max win | Сорвите максимальный выигрыш автомата |
 | `advancement.burmaldaholic.zero_hero.title` | Zero Hero | Герой зеро |
 | `advancement.burmaldaholic.zero_hero.description` | Win a straight bet on zero | Выиграйте ставку на зеро |
 | `advancement.burmaldaholic.hot_shooter.title` | Hot Shooter | Горячая рука |
@@ -3400,23 +3378,13 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.bots.private.maxInvites` | Max invites per table | Макс. приглашений на стол |
 | `config.burmaldaholic.bots.private.inviteRadius` | Invite radius (0 = anyone online) | Радиус приглашений (0 = любой онлайн) |
 
-### Slots v1 legacy config labels (removed at the slots cut-over, `SLOTS.md` §13.10)
+### Slot Showdown v1 config label (removed with Slot Showdown v2, `SLOTS.md` §9 / §13.10)
+
+The other v1 slot config labels were removed at the Bedrock slots cut-over (S-B5); the Java edition keeps them
+in its lang files until its cut-over (S-J5).
 
 | Key | EN | RU |
 |-----|----|----|
-| `config.burmaldaholic.slots.copper.maxLineBet` | Copper Bandit: max line bet | Медный бандит: макс. ставка на линию |
-| `config.burmaldaholic.slots.gold.maxLineBet` | Golden Reels: max line bet | Золотые барабаны: макс. ставка на линию |
-| `config.burmaldaholic.slots.netherite.minLineBet` | Netherite: min line bet | Незеритовый: мин. ставка на линию |
-| `config.burmaldaholic.slots.netherite.maxLineBet` | Netherite: max line bet | Незеритовый: макс. ставка на линию |
-| `config.burmaldaholic.slots.netherite.minVipTier` | Netherite: required VIP tier | Незеритовый: нужный ВИП-статус |
-| `config.burmaldaholic.slots.jackpot.contribution.gold` | Jackpot contribution: Golden Reels | Отчисления в джекпот: Золотые барабаны |
-| `config.burmaldaholic.slots.jackpot.contribution.netherite` | Jackpot contribution: Netherite | Отчисления в джекпот: Незеритовый |
-| `config.burmaldaholic.slots.jackpot.seed.gold` | Jackpot seed: Golden Reels | Стартовый джекпот: Золотые барабаны |
-| `config.burmaldaholic.slots.jackpot.seed.netherite` | Jackpot seed: Netherite | Стартовый джекпот: Незеритовый |
-| `config.burmaldaholic.slots.ownedStarPays` | Three stars pay at player casinos | Выплата за три звезды в казино игроков |
-| `config.burmaldaholic.slots.spinTicks` | Spin animation (ticks) | Анимация вращения (тики) |
-| `config.burmaldaholic.slots.weights` | %1$s — symbol weights | %1$s — веса символов |
-| `config.burmaldaholic.slots.berryPartial` | %1$s — berry pays | %1$s — выплаты за ягоды |
 | `config.burmaldaholic.pvp.slots.starPoints` | Slot Showdown: points for three stars | Битва автоматов: очки за три звезды |
 
 ## sounds (subtitles, core-owned)

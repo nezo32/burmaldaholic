@@ -91,7 +91,7 @@ export class ClassicSlotView implements SlotView {
 
   /** The between-spins machine form. */
   openMachine(): void {
-    if (!this.player.isValid || this.closed) return;
+    if (!this.player.isValid || this.closed || this.host.active?.() === false) return;
     const body: Raw[] = [this.host.jackpotLine()];
     if (this.last) body.push(this.last.rows);
     if (this.last?.header) body.push(this.last.header);
@@ -106,7 +106,7 @@ export class ClassicSlotView implements SlotView {
     ];
     if (buy) actions.push([buy, () => this.spin(true)]);
     actions.push(
-      [t(`${K}auto`), () => this.host.auto()],
+      [t(`${K}auto`), () => this.host.auto(() => this.spin(false))],
       [join(t(`${K}turbo`), lit(this.presenter.settings.turbo ? ' §a●§r' : ' §8○§r')), () => this.after(() => this.host.toggleTurbo?.())],
       [t('gui.burmaldaholic.common.paytable'), () => this.host.paytable()],
       [t('gui.burmaldaholic.common.leave'), () => this.host.leave()],
@@ -218,6 +218,9 @@ export class ClassicSlotView implements SlotView {
     this.last = terminalScreen(start.round, frameOptions(this.presenter.settings));
     const delay = reopenDelay(start.round.tier, start.round.tape.jackpots.length > 0, interrupted);
     this.presenter.after(delay, () => {
+      if (this.closed || !this.player.isValid || this.host.active?.() === false) return;
+      // autoplay (SLOTS.md §6.4): the next spin instead of the machine form while the service lets it go on
+      if (this.host.autoplaying?.()) return this.spin(false);
       this.hud.clear(this.player, HUD_CHANNEL);
       this.openMachine();
     });

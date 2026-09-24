@@ -8,6 +8,8 @@
  *  - trade: counted from core's trade earnings (economy reason `core.earn.trade`).
  *  - roulette_red: reported by the roulette module through VipApi.reportContract; left out of
  *    the pool until a game registers it.
+ *  - slots_feature: counted from the slots spin event (`featureTriggered`, not bought; vip/index.ts); in the
+ *    pool once the slots service is there.
  */
 import {
   BlockVolume,
@@ -50,7 +52,7 @@ import type { VipService } from './vip';
 
 const STATE_PROP = 'burmaldaholic:vip.contracts';
 /** Contracts only a game module can observe (added to the pool once a game registers them). */
-const EXTERNAL: readonly ContractId[] = ['roulette_red'];
+const EXTERNAL: readonly ContractId[] = ['roulette_red', 'slots_feature'];
 const FURNACES = ['minecraft:furnace', 'minecraft:lit_furnace', 'minecraft:blast_furnace', 'minecraft:lit_blast_furnace', 'minecraft:smoker', 'minecraft:lit_smoker'];
 
 export type RerollOutcome = { ok: true; contract: Contract; cost: number } | { ok: false; reason: 'rerolled' | 'done' | 'funds' | 'other' };

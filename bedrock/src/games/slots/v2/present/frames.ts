@@ -12,18 +12,20 @@
  *  - F8 interrupt = reveal: `frame(round, tl, tl.endMs())` equals `terminal(round)` (tested for every vector,
  *    reduce motion and skip).
  *
- * Beat contract assumed from the builder (lane B-L8, S-B3; `stubSlotTimeline` below is the reference shape):
+ * Beat contract of the real builder (lane B-L8 `buildSlotTimeline`, `logic/timeline.ts`; verified by the tests,
+ * which build every timeline with it):
  *  - a spin segment starts at SPIN_UP (base) or FS_SPIN (free spin i, i = ordinal of FS_SPIN beats);
- *  - REEL_LAND lane r ends at reel r's stop time; ANTICIPATE lane r spans the anticipation of reel r;
+ *  - REEL_LAND lane r ENDS at reel r's stop time; a sticky reel has no REEL_LAND (it never spins: its stop is
+ *    the segment start); ANTICIPATE lane r spans the anticipation of reel r;
  *  - the k-th TUMBLE_EXPLODE / TUMBLE_FALL of a segment removes the wins of evaluation k−1 and drops in
- *    evaluation k; the j-th WIN_SHOW highlights evaluation j; WAY_CYCLE args[0] = symbol id (else ordinal);
- *  - WILD_EXPAND lane r expands the Dragon Egg of reel r (End free spins).
+ *    evaluation k; the j-th WIN_SHOW highlights evaluation j; WAY_CYCLE args[0] = symbol id (LOCAL, after the
+ *    gate, only when the base spin is the last segment);
+ *  - WILD_EXPAND lane r expands the Dragon Egg of reel r (End free spins);
+ *  - LOCAL: ROLLUP, then the JACKPOT beats (the i-th = `tape.jackpots[i]`), END.
  * Ordinals are used instead of args wherever possible so the frames do not depend on arg layouts.
  */
-import { rollUpDurationMs } from '../../../../core/logic/anim/rollup';
-import { type Beat, type FrameModel, LOCAL, SHARED, Timeline, type TimingProfile, beatEnd, scaleMs } from '../../../../core/logic/anim/timeline';
-import { type WinTier, tierOrdinal } from '../../../../core/logic/anim/win-tier';
-import { FIRST_STOP_MS, STAGGER_MS, ANTICIPATE_GAP_MS } from '../logic/anticipation';
+import { type Beat, type FrameModel, type Timeline, beatEnd } from '../../../../core/logic/anim/timeline';
+import type { WinTier } from '../../../../core/logic/anim/win-tier';
 import { evaluateWays, runTumbles } from '../logic/engine';
 import { SLOT_BEAT } from '../logic/timeline';
 import { type MachineDef, type MachineId, type SpinTape, type SymbolRole, type TumbleChain, type WayWin, type Window, type WaysResult, REELS, ROWS, windowFromStops } from '../logic/types';
@@ -188,6 +190,15 @@ function spinView(def: MachineDef, engine: SlotEngine, stops: readonly number[],
     const r = engine.evaluateWays(def, landed, stickyAfter);
     evals = [{ window: w, winMask: r.winMask, wins: r.wins, multiplier: 1, payFifths: r.payFifths }];
   }
+  if (pay === undefined) {
+    // base spin: the scatter pay belongs to the last evaluation (the builder's last WIN_SHOW carries it)
+    const scat = def.machine === 'nether' ? (engine.runTumbles(def, stops, ladder).steps.at(-1)?.result.scatters ?? 0) : engine.evaluateWays(def, landed, stickyAfter).scatters;
+    const sp = scat >= 3 ? (def.scatterFifths[Math.min(scat, 5) - 3] ?? 0) : 0;
+    if (sp > 0) {
+      const last = evals[evals.length - 1]!;
+      evals[evals.length - 1] = { ...last, payFifths: last.payFifths + sp };
+    }
+  }
   const payFifths = pay ?? evals.reduce((s, e) => s + e.payFifths, 0);
   return { stops: [...stops], landed, stickyBefore, stickyAfter, evals, payFifths, retrigger };
 }
@@ -341,7 +352,8 @@ function segmentsOf(round: SlotRound, tl: Timeline): Segment[] {
   for (let i = 0; i < list.length; i++) {
     const s = list[i]!;
     s.next = list[i + 1]?.start ?? Number.POSITIVE_INFINITY;
-    for (let r = 0; r < REELS; r++) if (s.stop[r] === undefined) s.stop[r] = s.start + FIRST_STOP_MS + STAGGER_MS * r;
+    // no REEL_LAND: a sticky reel (it does not spin, stopped from the segment start)
+    for (let r = 0; r < REELS; r++) if (s.stop[r] === undefined) s.stop[r] = s.start;
   }
   segCache.set(tl, { round, list });
   return list;
@@ -464,6 +476,13 @@ export function reelFrame(round: SlotRound, tl: Timeline, t: number, o: FrameOpt
             else tint = !pulse || frameIdx % 2 === 0 ? TINT_ANTIC : TINT_NONE;
           }
           cells[i] = cell(round.glyphs[sym]!, plane, tint);
+        } else if (seg.expand[r] && t >= seg.expand[r]!.at) {
+          // End: the egg of a landed reel expands while later reels still spin (WILD_EXPAND = stop + 270 ms)
+          const eb = seg.expand[r]!;
+          const col = column(spin.landed, r);
+          const done = t >= beatEnd(eb) || o.reduceMotion;
+          const egg = col.some((x, yy) => x === wild && Math.abs(yy - y) <= 1);
+          cells[i] = done ? cell(round.glyphs[wild]!, PLANE_WIN) : cell(round.glyphs[egg ? wild : col[y]!]!, egg ? PLANE_WIN : PLANE_BASE);
         } else {
           const sym = spin.landed[i]!;
           const trig = isTrigger(round, sym);
@@ -588,211 +607,8 @@ export function renderRows(f: ReelFrame, tinting = true): string[] {
   return rows;
 }
 
-// ---------------------------------------------------------------------------------------------------------
-// Reference ("stub") timeline — the beat shape the frames expect, per animation/slots.md §2.3.
-// Used by tests and by the service until the real builder (S-B3) lands; B-L8 owns the real one.
-// ---------------------------------------------------------------------------------------------------------
-
-export const LAND_MS = 350;
-export const WIN_DIM_MS = 150;
-export const WIN_ALL_MS = 900;
-export const WAY_CYCLE_MS = 700;
-export const TUMBLE_EXPLODE_MS = 250;
-export const TUMBLE_FALL_MS = 300;
-export const TUMBLE_PAUSE_MS = 200;
-export const WILD_EXPAND_MS = 300;
-export const WILD_STICK_MS = 200;
-export const FS_INTRO_MS = 2000;
-export const FS_RETRIGGER_MS = 1500;
-export const FS_OUTRO_HOLD_MS = 1500;
-export const HOARD_INTRO_MS = 800;
-export const HOARD_RESPIN_MS = 900;
-export const HOARD_COLLECT_MS = 120;
-export const WHEEL_INTRO_MS = 700;
-export const WHEEL_SPIN_MS = [4500, 4000, 5000] as const;
-export const WHEEL_UP_MS = 800;
-export const WHEEL_RESULT_MS = 600;
-export const HUNT_INTRO_MS = 600;
-export const JACKPOT_MS = [0, 2000, 2500, 3000, 4000] as const;
-export const RETURNED_MS = 1500;
-
-/** Honest stop times (SLOTS.md §10.3) — reference implementation for the stub; S-B3 owns `stopTimes`. */
-export function referenceStopTimes(round: SlotRound, spin: SpinView, enabled = true): number[] {
-  const out: number[] = [];
-  let prev = 0;
-  let antic = false;
-  const w = spin.landed;
-  const count = (reels: number, pred: (s: number) => boolean): number => {
-    let n = 0;
-    for (let r = 0; r < reels; r++) for (let y = 0; y < ROWS; y++) if (pred(w[cellIndex(r, y)]!)) n++;
-    return n;
-  };
-  const has = (r: number, role: SymbolRole): boolean => [0, 1, 2].some((y) => round.roles[w[cellIndex(r, y)]!] === role);
-  for (let r = 0; r < REELS; r++) {
-    const t = r === 0 ? FIRST_STOP_MS : prev + (antic ? ANTICIPATE_GAP_MS : STAGGER_MS);
-    out.push(t);
-    prev = t;
-    if (!enabled || antic || r === REELS - 1) continue;
-    const stopped = r + 1;
-    const scatters = count(stopped, (s) => round.roles[s] === 'SCATTER');
-    if (scatters >= 2) antic = true;
-    if (round.machine === 'overworld' && stopped >= 3 && stopped < 5 && has(0, 'BONUS') && has(2, 'BONUS')) antic = true;
-    if (round.machine === 'end' && stopped >= 3 && stopped < 4 && has(1, 'BONUS') && has(2, 'BONUS')) antic = true;
-    if (round.machine === 'nether') {
-      const coins = count(stopped, (s) => round.roles[s] === 'COIN');
-      if (coins >= 4 && coins + 3 * (REELS - stopped) >= 6) antic = true;
-    }
-  }
-  return out;
-}
-
 export const popcount = (m: number): number => {
   let n = 0;
   for (let x = m; x; x &= x - 1) n++;
   return n;
 };
-
-/**
- * Reference timeline with the beat shape `reelFrame` / `features.ts` consume (animation/slots.md §2.2–§2.3):
- * shared reel beats, local roll-ups and jackpots. NOT the normative builder (S-B3 `buildSlotTimeline`);
- * its vectors decide. Turbo = shared.speedPct 200. Local order per slots.md §2.5: the spin roll-up, then the
- * jackpots as the climax (`jackpotsFirst` = the old order, kept only to test that the presenter handles both).
- * NOTE for the integrator (S-B3): the real `buildSlotTimeline` must emit ROLLUP before JACKPOT beats too.
- */
-export function stubSlotTimeline(round: SlotRound, shared: TimingProfile, local: TimingProfile, seed = 0, jackpotsFirst = false): Timeline {
-  const b = Timeline.builder(`slots.${round.machine}`, seed);
-  const S = (ms: number, k = 1): number => scaleMs(shared, Math.floor(ms * k));
-  const L = (ms: number): number => scaleMs(local, ms);
-  let group = 0;
-  const spinBeats = (spin: SpinView, at: number, k: number): number => {
-    b.clock(SHARED).group(group++);
-    const stops = referenceStopTimes(round, spin);
-    b.add(at, S(120, k), SLOT_BEAT.SPIN_UP, -1);
-    let prevStop = 0;
-    stops.forEach((st, r) => {
-      const stop = at + S(st, k);
-      if (r > 0 && st - (stops[r - 1] ?? 0) > STAGGER_MS) b.add(prevStop, stop - prevStop, SLOT_BEAT.ANTICIPATE, r);
-      b.add(stop - S(LAND_MS, k), S(LAND_MS, k), SLOT_BEAT.REEL_LAND, r, spin.stops[r]!);
-      for (let y = 0; y < ROWS; y++) {
-        const sym = spin.landed[cellIndex(r, y)]!;
-        if (isTrigger(round, sym)) b.add(stop, 0, SLOT_BEAT.SYMBOL_LAND, r, y, sym);
-      }
-      prevStop = stop;
-    });
-    let cur = prevStop;
-    b.group(group++);
-    const expanding = spin.stickyAfter & ~spin.stickyBefore;
-    if (expanding) {
-      for (let i = 0; i < 3; i++) if (expanding & bit(i)) b.add(cur, S(WILD_EXPAND_MS, k), SLOT_BEAT.WILD_EXPAND, i + 1);
-      cur += S(WILD_EXPAND_MS, k);
-      for (let i = 0; i < 3; i++) if (expanding & bit(i)) b.add(cur, S(WILD_STICK_MS, k), SLOT_BEAT.WILD_STICK, i + 1);
-      cur += S(WILD_STICK_MS, k);
-    }
-    spin.evals.forEach((ev, j) => {
-      if (j > 0) {
-        b.add(cur, S(TUMBLE_EXPLODE_MS, k), SLOT_BEAT.TUMBLE_EXPLODE, -1, j);
-        cur += S(TUMBLE_EXPLODE_MS, k);
-        b.add(cur, S(TUMBLE_FALL_MS, k), SLOT_BEAT.TUMBLE_FALL, -1, j);
-        cur += S(TUMBLE_FALL_MS, k);
-        b.add(cur, 0, SLOT_BEAT.MULT_UP, -1, ev.multiplier);
-        cur += S(TUMBLE_PAUSE_MS, k);
-      }
-      // F9: a Returned spin gets no win show (no dim, no pulse, no frames; slots.md §4.12)
-      if (ev.wins.length === 0 || isReturned(round)) return;
-      const at0 = j === 0 && !expanding ? cur + S(WIN_DIM_MS, k) : cur;
-      b.add(at0, S(WIN_ALL_MS, k), SLOT_BEAT.WIN_SHOW, -1, j);
-      cur = at0 + S(WIN_ALL_MS, k);
-      const syms = [...new Set(ev.wins.map((w) => w.symbol))];
-      if (syms.length > 1 || round.machine !== 'nether')
-        for (const s of syms) {
-          b.add(cur, S(WAY_CYCLE_MS, k), SLOT_BEAT.WAY_CYCLE, -1, s);
-          cur += S(WAY_CYCLE_MS, k);
-        }
-    });
-    return cur;
-  };
-
-  let t = 0;
-  if (round.base) t = spinBeats(round.base, 0, 1);
-  const tape = round.tape;
-  // bonus games after the base window (Hoard before free spins, SLOTS.md §3.2)
-  if (tape.hunt) {
-    b.clock(SHARED).group(group++);
-    b.add(t, S(HUNT_INTRO_MS), SLOT_BEAT.BONUS_INTRO, -1, 1);
-    t += S(HUNT_INTRO_MS);
-  }
-  if (tape.hoard) {
-    b.clock(SHARED).group(group++);
-    b.add(t, S(HOARD_INTRO_MS), SLOT_BEAT.BONUS_INTRO, -1, 2);
-    t += S(HOARD_INTRO_MS);
-    tape.hoard.respinCells.forEach((_, i) => {
-      b.add(t, S(HOARD_RESPIN_MS), SLOT_BEAT.HOARD_RESPIN, -1, i);
-      t += S(HOARD_RESPIN_MS);
-    });
-    let coins = tape.hoard.initialCells.length;
-    for (const c of tape.hoard.respinCells) coins += c.length;
-    b.add(t, S(HOARD_COLLECT_MS) * coins, SLOT_BEAT.HOARD_COLLECT, -1, coins);
-    t += S(HOARD_COLLECT_MS) * coins;
-  }
-  if (tape.wheel) {
-    b.clock(SHARED).group(group++);
-    b.add(t, S(WHEEL_INTRO_MS), SLOT_BEAT.BONUS_INTRO, -1, 3);
-    t += S(WHEEL_INTRO_MS);
-    tape.wheel.segments.forEach((seg, ring) => {
-      if (ring > 0) {
-        b.add(t, S(WHEEL_UP_MS), SLOT_BEAT.WHEEL_UP, ring);
-        t += S(WHEEL_UP_MS);
-      }
-      const d = S(WHEEL_SPIN_MS[ring] ?? 4000);
-      b.add(t, d + S(WHEEL_RESULT_MS), SLOT_BEAT.WHEEL_SPIN, ring, seg);
-      t += d + S(WHEEL_RESULT_MS);
-    });
-  }
-  if (round.free.length > 0) {
-    b.clock(SHARED).group(group++);
-    b.add(t, S(FS_INTRO_MS), SLOT_BEAT.FS_INTRO, -1, round.fsAwarded);
-    t += S(FS_INTRO_MS);
-    let fsTotal = 0;
-    round.free.forEach((spin, i) => {
-      b.clock(SHARED).group(group++);
-      b.add(t, 0, SLOT_BEAT.FS_SPIN, -1, i);
-      t = spinBeats(spin, t, 0.8);
-      fsTotal += spin.payFifths;
-      if (spin.retrigger) {
-        b.clock(SHARED).group(group++);
-        b.add(t, S(FS_RETRIGGER_MS), SLOT_BEAT.FS_RETRIGGER, -1, round.fsRetrigger);
-        t += S(FS_RETRIGGER_MS);
-      }
-    });
-    b.clock(SHARED).group(group++);
-    const fsChips = (fsTotal * round.bet) / 5;
-    const outro = rollUpDurationMs(fsChips, round.bet, 600, 8000) + FS_OUTRO_HOLD_MS;
-    b.add(t, S(outro), SLOT_BEAT.FS_OUTRO, -1);
-    t += S(outro);
-  }
-  if (tape.capHit) {
-    b.clock(SHARED).group(group++);
-    b.add(t, S(500), SLOT_BEAT.MAX_WIN, -1);
-    t += S(500);
-  }
-  // local: the spin roll-up, then the jackpots in tape order (each after the first shortened to 70 %)
-  b.clock(LOCAL);
-  const jackpots = (): void =>
-    tape.jackpots.forEach((jp, i) => {
-      b.group(group++);
-      const d = L(Math.floor((JACKPOT_MS[jp.tier] ?? 2000) * (i === 0 ? 1 : 0.7)));
-      b.add(t, d, SLOT_BEAT.JACKPOT, -1, jp.tier, i);
-      t += d;
-    });
-  if (jackpotsFirst) jackpots();
-  b.group(group++);
-  if (round.totalChips > 0) {
-    const d = local.reduceMotion ? Math.min(300, L(600)) : round.totalChips < round.bet ? L(RETURNED_MS) : L(rollUpDurationMs(round.totalChips, round.bet, 600, 8000));
-    b.add(t, d, SLOT_BEAT.ROLLUP, -1, tierOrdinal(round.tier));
-    t += d;
-  }
-  if (!jackpotsFirst) jackpots();
-  b.setCursor(t);
-  b.cue(SLOT_BEAT.END, -1);
-  return b.build();
-}

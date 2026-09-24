@@ -11,7 +11,7 @@ export const VIP_SERVICE = 'vip';
 export type VipContractId =
   | 'mine_iron' | 'mine_coal' | 'mine_diamond' | 'kill_zombie' | 'kill_skeleton' | 'kill_creeper' | 'kill_any'
   | 'trade' | 'fish' | 'harvest' | 'wager' | 'win_blackjack' | 'spin_slots' | 'roulette_red' | 'play_poker'
-  | 'explore_nether' | 'smelt';
+  | 'explore_nether' | 'smelt' | 'slots_feature';
 
 export interface VipPromotion {
   player: Player;

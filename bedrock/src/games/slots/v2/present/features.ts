@@ -428,7 +428,9 @@ export function screenAt(round: SlotRound, tl: Timeline, now: number, o: ScreenO
   const roll = lastStarted(tl, SLOT_BEAT.ROLLUP, now);
   if (roll) {
     const pt = rollupAt(round, tl, roll, now, o);
-    return { board: 'reels', rows: reelsRows(terminalFrame(round), o), header: tierHeader(round, pt.esc, now, o, false), status: spinStatus(round, pt.shown, false) };
+    // the way cycle runs next to the roll-up (local beats); once the amount has settled it takes the status line
+    const cycle = now >= beatEnd(roll) && find(tl, SLOT_BEAT.WAY_CYCLE, now) ? baseStatus(round, tl, now) : undefined;
+    return { board: 'reels', rows: reelsRows(terminalFrame(round), o), header: tierHeader(round, pt.esc, now, o, false), status: cycle ?? spinStatus(round, pt.shown, false) };
   }
 
   const maxWin = find(tl, SLOT_BEAT.MAX_WIN, now);
@@ -503,8 +505,9 @@ function baseEndMs(tl: Timeline): number {
 function baseWinShown(round: SlotRound, tl: Timeline, now: number): number | undefined {
   const spin = round.base;
   if (!spin || isReturned(round)) return undefined;
-  const cut = Math.min(now, baseEndMs(tl) - 1);
-  const shows = all(tl, SLOT_BEAT.WIN_SHOW).filter((b) => b.at <= cut);
+  const baseEnd = baseEndMs(tl);
+  const cut = Math.min(now, baseEnd);
+  const shows = all(tl, SLOT_BEAT.WIN_SHOW).filter((b) => b.at <= cut && b.at < baseEnd);
   const j = shows.length - 1;
   if (j < 0) return undefined;
   let done = 0;
@@ -518,7 +521,8 @@ function baseWinShown(round: SlotRound, tl: Timeline, now: number): number | und
  * at the spin total. 0 for bought features and Returned spins.
  */
 export function rollupFrom(round: SlotRound, tl: Timeline, roll: Beat): number {
-  return Math.max(0, Math.min(round.totalChips, baseWinShown(round, tl, roll.at - 1) ?? 0));
+  // at the roll-up start the last base WIN_SHOW has just ended (the builder puts the gate at its end)
+  return Math.max(0, Math.min(round.totalChips, baseWinShown(round, tl, roll.at) ?? 0));
 }
 
 /** Win line (`shown`) and tier-word driver (`esc`) of the spin roll-up at `now`. */

@@ -19,11 +19,11 @@
  *     free spins: FS_INTRO 2 000; per spin FS_SPIN(args[0] = i) cue + the base layout × 0.8 (sticky reels do not
  *       spin; WILD_EXPAND stop + 270 / 300 ms, WILD_STICK + 570 / 200 ms); FS_RETRIGGER 1 200; FS_OUTRO roll-up of
  *       the feature total + 1 500 hold; MAX_WIN cue when the cap ended the spin.
- *   LOCAL (clock L, after the gate): MAX_WIN plate 200; JACKPOT celebrations in tape order (args [tier, i];
- *     Mini 2 000, Minor 2 500, Major 3 000, Grand 4 000; × 0.7 after the first; animation/slots.md §4.11: before
- *     the spin total); ROLLUP (args [tierOrdinal, totalFifths]; 0 for "Returned"; ≤ 300 with reduce motion);
- *     WAY_CYCLE 700 per winning symbol (args [symbol, pay]) next to the roll-up, only when the base spin is the
- *     last reel segment; END cue.
+ *   LOCAL (clock L, after the gate): MAX_WIN plate 200; ROLLUP (args [tierOrdinal, totalFifths]; 1 500 for
+ *     "Returned"; ≤ 300 with reduce motion); WAY_CYCLE 700 per winning symbol (args [symbol, pay]) next to the
+ *     roll-up, only when the base spin is the last reel segment; then the JACKPOT celebrations in tape order as the
+ *     climax (animation/slots.md §2.5; args [tier, i]; Mini 2 000, Minor 2 500, Major 3 000, Grand 4 000; × 0.7
+ *     after the first); END cue.
  * Ordinal contract with the frames (lane B-L9, `present/frames.ts`): a reel segment starts at SPIN_UP (base) or
  * FS_SPIN (free spin i); REEL_LAND lane r ENDS at reel r's stop; the k-th TUMBLE_EXPLODE / TUMBLE_FALL of a segment
  * removes the wins of evaluation k−1 and drops evaluation k; the j-th WIN_SHOW highlights evaluation j (only
@@ -97,6 +97,7 @@ export const SLOT_MS = {
   WHEEL_GLOW: 600,
   MAX_WIN: 200,
   REDUCED_ROLLUP: 300,
+  RETURNED: 1500,
   JACKPOT: [0, 2000, 2500, 3000, 4000] as readonly number[],
 } as const;
 
@@ -142,7 +143,7 @@ function specialSymbol(def: MachineDef, s: number): boolean {
  * One reel phase (base or free spin) from `t0`; returns the time the phase ends (after its win show / tumbles).
  * `k` = time scale for free spins.
  */
-function reelPhase(p: Plan, def: MachineDef, stops: readonly number[], free: boolean, stickyBefore: number, t0: number, k: (ms: number) => number, anticipation: boolean): { end: number; landed: Window } {
+function reelPhase(p: Plan, def: MachineDef, stops: readonly number[], free: boolean, stickyBefore: number, t0: number, k: (ms: number) => number, anticipation: boolean, returned = false): { end: number; landed: Window } {
   const e = evaluateSpin(def, stops, free, stickyBefore);
   const landed: Window = e.chain ? e.chain.steps[0]!.window : applySticky(def, windowFromStops(def, stops), stickyBefore);
   // anticipation sees the landed window with sticky reels as WWW (a sticky reel is stopped from the start)
@@ -172,15 +173,16 @@ function reelPhase(p: Plan, def: MachineDef, stops: readonly number[], free: boo
     const ladder = free ? def.ladderFree : def.ladder;
     for (const st of e.chain.steps) {
       if (st.result.payFifths === 0) break;
-      p.add(t, k(SLOT_MS.TUMBLE_SHOW), SLOT_BEAT.WIN_SHOW, -1, st.step, st.payFifths);
+      // a Returned spin (F9) still tumbles (the window changes) but shows no win
+      if (!returned) p.add(t, k(SLOT_MS.TUMBLE_SHOW), SLOT_BEAT.WIN_SHOW, -1, st.step, st.payFifths);
       const x = t + k(SLOT_MS.TUMBLE_SHOW);
       p.add(x, k(SLOT_MS.TUMBLE_EXPLODE), SLOT_BEAT.TUMBLE_EXPLODE, -1, st.step, st.result.winMask);
       p.add(x, k(SLOT_MS.MULT_UP), SLOT_BEAT.MULT_UP, -1, ladderAt(ladder, st.step + 1), st.step + 1);
       p.add(x + k(SLOT_MS.TUMBLE_EXPLODE), k(SLOT_MS.TUMBLE_FALL), SLOT_BEAT.TUMBLE_FALL, -1, st.step + 1);
       t = x + k(SLOT_MS.TUMBLE_EXPLODE + SLOT_MS.TUMBLE_FALL + SLOT_MS.TUMBLE_PAUSE);
     }
-    if (e.scatterFifths > 0) t = p.add(t, k(SLOT_MS.WIN_ALL), SLOT_BEAT.WIN_SHOW, -1, e.chain.steps.length - 1, e.scatterFifths);
-  } else if (e.payFifths > 0) {
+    if (e.scatterFifths > 0 && !returned) t = p.add(t, k(SLOT_MS.WIN_ALL), SLOT_BEAT.WIN_SHOW, -1, e.chain.steps.length - 1, e.scatterFifths);
+  } else if (e.payFifths > 0 && !returned) {
     t = p.add(t, k(SLOT_MS.WIN_ALL), SLOT_BEAT.WIN_SHOW, -1, 0, e.payFifths);
   }
   return { end: t, landed };
@@ -196,8 +198,10 @@ export function buildSlotTimeline(tape: SpinTape, def: MachineDef, shared: Timin
   const id = (ms: number): number => ms;
   let t = 0;
   let baseWins: Array<{ symbol: number; pay: number }> = [];
+  // "Returned" (the whole spin pays less than the bet, F9): no win show, no dim, no way cycle
+  const returnedSpin = slotTier(tape.totalFifths, opts.bigWinTiers) === 'RETURN';
   if (!tape.bought) {
-    const r = reelPhase(p, def, tape.stops, false, 0, 0, id, anticipation);
+    const r = reelPhase(p, def, tape.stops, false, 0, 0, id, anticipation, returnedSpin);
     t = r.end;
     const e = evaluateSpin(def, tape.stops, false);
     if (e.ways) baseWins = e.ways.wins.map((w) => ({ symbol: w.symbol, pay: w.payFifths })).sort((a, b) => b.pay - a.pay || a.symbol - b.symbol);
@@ -240,7 +244,7 @@ export function buildSlotTimeline(tape: SpinTape, def: MachineDef, shared: Timin
     fs.spins.forEach((s, i) => {
       p.next();
       p.add(t, 0, SLOT_BEAT.FS_SPIN, -1, i, total);
-      const r = reelPhase(p, def, s.stops, true, sticky, t, fsScale, anticipation);
+      const r = reelPhase(p, def, s.stops, true, sticky, t, fsScale, anticipation, returnedSpin);
       t = r.end;
       sticky = s.stickyMaskAfter;
       if (s.retrigger) {
@@ -277,18 +281,13 @@ export function buildSlotTimeline(tape: SpinTape, def: MachineDef, shared: Timin
     addLocal(local.reduceMotion ? 0 : SLOT_MS.MAX_WIN, SLOT_BEAT.MAX_WIN, -1, def.capMultiple);
     g++;
   }
-  tape.jackpots.forEach((j, i) => {
-    const full = SLOT_MS.JACKPOT[j.tier]!;
-    const d = local.reduceMotion ? SLOT_MS.REDUCED_ROLLUP : i === 0 ? full : Math.floor((full * 7) / 10);
-    addLocal(d, SLOT_BEAT.JACKPOT, -1, j.tier, i);
-    g++;
-  });
   const chips = tapeTotalChips(tape);
   const tier = slotTier(tape.totalFifths, opts.bigWinTiers);
   if (tape.totalFifths > 0) {
     const cycleStart = off;
     const returned = tier === 'RETURN';
-    let d = returned ? 0 : rollUpDurationMs(chips, tape.bet, 600, 8000);
+    // Returned (< 1× bet): no roll-up, the muted line holds 1 500 ms (animation/slots.md §4.12)
+    let d = returned ? SLOT_MS.RETURNED : rollUpDurationMs(chips, tape.bet, 600, 8000);
     if (local.reduceMotion) d = Math.min(d, SLOT_MS.REDUCED_ROLLUP);
     addLocal(d, SLOT_BEAT.ROLLUP, -1, tierOrdinal(tier), tape.totalFifths);
     const rollEnd = off;
@@ -298,6 +297,13 @@ export function buildSlotTimeline(tape: SpinTape, def: MachineDef, shared: Timin
     off = Math.max(off, rollEnd);
     g++;
   }
+  // the jackpots are the climax, after the spin roll-up (animation/slots.md §2.5)
+  tape.jackpots.forEach((j, i) => {
+    const full = SLOT_MS.JACKPOT[j.tier]!;
+    const d = local.reduceMotion ? SLOT_MS.REDUCED_ROLLUP : i === 0 ? full : Math.floor((full * 7) / 10);
+    addLocal(d, SLOT_BEAT.JACKPOT, -1, j.tier, i);
+    g++;
+  });
   addLocal(0, SLOT_BEAT.END, -1);
   return b.build();
 }
