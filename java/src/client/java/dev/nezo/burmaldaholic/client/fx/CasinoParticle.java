@@ -2,7 +2,7 @@ package dev.nezo.burmaldaholic.client.fx;
 
 import dev.nezo.burmaldaholic.core.fx.CoreParticles;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import dev.nezo.burmaldaholic.core.anim.ParticleBudget;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleProviderRegistry;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
@@ -24,7 +24,8 @@ public class CasinoParticle extends SimpleAnimatedParticle {
 	public static final int MAX_BURST = 60;
 	public static final int MAX_BURST_JACKPOT = 150;
 
-	private static final AtomicInteger ALIVE = new AtomicInteger();
+	/** Shared live budget; generation-based so level changes never leak slots ({@link ParticleBudget}). Client thread. */
+	private static final ParticleBudget BUDGET = new ParticleBudget(MAX_ALIVE, MAX_BURST, MAX_BURST_JACKPOT);
 
 	/**
 	 * Look and motion of one particle type.
@@ -54,12 +55,12 @@ public class CasinoParticle extends SimpleAnimatedParticle {
 		Map.entry("confetti", new Spec(new int[] {0xFFFFD640, 0xFF80FF40, 0xFFD83440, 0xFFBE5AFF, 0xFF5CE8E0}, 0.3f, 40, 60, 0.8f, 0.97f)),
 		Map.entry("jackpot_burst", new Spec(new int[] {0xFFFFD640, 0xFFF4ECF8}, 0.4f, 26, 34, 1.3f, 0.93f)));
 
-	private boolean counted = true;
+	private int token;
 
 	protected CasinoParticle(ClientLevel level, double x, double y, double z, double dx, double dy, double dz, SpriteSet sprites, Spec spec,
-			RandomSource random) {
+			RandomSource random, int token) {
 		super(level, x, y, z, sprites, spec.gravity());
-		ALIVE.incrementAndGet();
+		this.token = token;
 		this.xd = dx;
 		this.yd = dy;
 		this.zd = dz;
@@ -75,28 +76,37 @@ public class CasinoParticle extends SimpleAnimatedParticle {
 
 	@Override
 	public void remove() {
-		if (counted) {
-			counted = false;
-			ALIVE.decrementAndGet();
-		}
+		release(token);
+		token = -1;
 		super.remove();
 	}
 
 	/** Casino particles currently alive (approximate across level changes; see {@link #resetBudget}). */
 	public static int alive() {
-		return Math.max(0, ALIVE.get());
+		return BUDGET.alive();
 	}
 
-	/** Level change / disconnect: the engine drops particles without {@link #remove}, so the count restarts. */
+	/**
+	 * Takes a budget slot for a casino particle that does not extend this class (module particles such as
+	 * {@code slots/ember_burst}); returns the token for {@link #release}, or −1: do not create the particle.
+	 */
+	public static int acquire(ClientLevel level) {
+		return BUDGET.acquire(level);
+	}
+
+	/** Returns a slot taken with {@link #acquire} (call once, from the particle's {@code remove()}). */
+	public static void release(int token) {
+		BUDGET.release(token);
+	}
+
+	/** Disconnect: the engine drops particles without {@link #remove}, so the count restarts (a level change is detected by the budget itself). */
 	public static void resetBudget() {
-		ALIVE.set(0);
+		BUDGET.reset();
 	}
 
 	/** How many of {@code wanted} particles a burst may add now (per-burst cap, then the global budget). */
-	public static int burstAllowance(int wanted, boolean jackpot) {
-		int cap = Math.min(wanted, jackpot ? MAX_BURST_JACKPOT : MAX_BURST);
-		if (FxSettings.reduceMotion()) cap = (int) Math.ceil(cap * 0.3);
-		return Math.max(0, Math.min(cap, MAX_ALIVE - alive()));
+	public static int burstAllowance(ClientLevel level, int wanted, boolean jackpot) {
+		return BUDGET.allowance(level, wanted, jackpot, FxSettings.reduceMotion());
 	}
 
 	/**
@@ -107,7 +117,7 @@ public class CasinoParticle extends SimpleAnimatedParticle {
 	public static int burst(ClientLevel level, SimpleParticleType type, double x, double y, double z, int count, double speed, boolean jackpot,
 			int seed) {
 		if (level == null || type == null) return 0;
-		int n = burstAllowance(count, jackpot);
+		int n = burstAllowance(level, count, jackpot);
 		RandomSource r = RandomSource.create(seed);
 		for (int i = 0; i < n; i++) {
 			double a = r.nextDouble() * Math.PI * 2;
@@ -135,8 +145,9 @@ public class CasinoParticle extends SimpleAnimatedParticle {
 		@Override
 		public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z, double dx, double dy, double dz,
 				RandomSource random) {
-			if (ALIVE.get() >= MAX_ALIVE) return null;
-			return new CasinoParticle(level, x, y, z, dx, dy, dz, sprites, spec, random);
+			int token = acquire(level);
+			if (token < 0) return null;
+			return new CasinoParticle(level, x, y, z, dx, dy, dz, sprites, spec, random, token);
 		}
 	}
 }
