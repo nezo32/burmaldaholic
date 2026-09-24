@@ -16,7 +16,8 @@
  * that result instead of refunding the start stacks.
  *
  * Leaving (GAME_DESIGN §4.1, core leavePolicy): stand up, walk away, disconnect and a broken
- * table all auto-fold the seat and play the hand out; only casino mode off aborts the hand.
+ * table all auto-fold the seat and play the hand out; casino mode off plays the hand out at
+ * once the same way (§4.1 ⚠ CHANGED: a drawn hand is never cancelled).
  * Cash-out while a loan is in default: only the net winnings over the buy-in are garnishable
  * (the returned buy-in is credited as `poker.stake_return`).
  */
@@ -366,15 +367,13 @@ class PokerGame implements PokerApi {
     if (!live || !seat) return;
     const player = s.player.isValid ? s.player : undefined;
     if (policy === 'refund') {
-      // Casino mode off (dormant): cancel the running hand (everyone keeps their start stack).
-      // A broken table is NOT handled here: the hand is played out like a leave (review B1).
-      if (live.model.inHand()) {
-        live.model.abortHand();
-        live.botSeq++;
-        if (live.actionTimer !== undefined) system.clearRun(live.actionTimer);
-        live.actionTimer = undefined;
-      }
-      this.cashOut(live, s.playerId, player);
+      // Casino mode off (GAME_DESIGN §4.1 ⚠ CHANGED, both editions): the dealt hand is already
+      // drawn, so it is played out now exactly like its persisted drawn outcome (every human
+      // leaves: check/fold, bots play on, the dealt deck decides) and the resulting stacks are
+      // paid, never the start stacks. A broken table is NOT handled here (leave, review B1).
+      if (live.model.inHand()) this.playOutNow(live);
+      if (this.tables.get(live.key) !== live) return;
+      if (live.model.seatOf(s.playerId)) this.cashOut(live, s.playerId, player);
       if (!live.model.humans().length) this.destroy(live);
       return;
     }
@@ -413,6 +412,34 @@ class PokerGame implements PokerApi {
     } else {
       this.writeStacks(park(this.stacks(), id, live.key, live.model.handNo, amount));
     }
+  }
+
+  /**
+   * Finish the running hand at once as if every human left now (the same play-out saveDrawn
+   * persists) and settle it through endHand. Everyone is marked leaving, so no showdown form
+   * opens and the seats are cashed out. Falls back to aborting the hand (start stacks) only if
+   * the play-out cannot finish.
+   */
+  private playOutNow(live: LiveTable): void {
+    const h = live.model.hand;
+    if (!h || h.complete) return;
+    live.botSeq++;
+    if (live.actionTimer !== undefined) system.clearRun(live.actionTimer);
+    live.actionTimer = undefined;
+    let end: HandState | undefined;
+    try {
+      end = playOut(h, (st, i) => this.leaveAction(live, st, i));
+    } catch (e) {
+      this.ctx.log.error('poker: casino-off play-out failed', e);
+    }
+    if (!end) {
+      live.model.abortHand();
+      return;
+    }
+    for (const seat of live.model.humans()) seat.leaving = true;
+    live.model.hand = end;
+    this.streamEvents(live);
+    this.endHand(live);
   }
 
   private afterHumanLeft(live: LiveTable): void {

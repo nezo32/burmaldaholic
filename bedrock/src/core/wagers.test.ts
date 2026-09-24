@@ -13,7 +13,22 @@ class FakePlayer {
   isValid = true;
   props: Props = new Map();
   messages: unknown[] = [];
-  level = 0;
+  /** total XP points; `level` is derived like vanilla */
+  xp = 0;
+  get level(): number {
+    let l = 0;
+    while (xpAt(l + 1) <= this.xp) l++;
+    return l;
+  }
+  getTotalXp() {
+    return this.xp;
+  }
+  resetLevel() {
+    this.xp = 0;
+  }
+  addExperience(n: number) {
+    this.xp += n;
+  }
   constructor(
     readonly id: string,
     readonly name: string,
@@ -35,6 +50,13 @@ class FakePlayer {
   removeTag() {}
   playSound() {}
 }
+
+const xpNext = (l: number) => (l < 16 ? 2 * l + 7 : l < 31 ? 5 * l - 38 : 9 * l - 158);
+const xpAt = (l: number) => {
+  let sum = 0;
+  for (let i = 0; i < l; i++) sum += xpNext(i);
+  return sum;
+};
 
 vi.mock('@minecraft/server', () => ({
   world: {
@@ -307,5 +329,102 @@ describe('WagerService offline settlement', () => {
     expect(ev.net).toBe(75);
     expect(eve.getDynamicProperty(BAL)).toBe(1000 - 10 + 100);
     expect(ev.theoreticalLoss).toBeCloseTo(25 * 0.15, 6);
+  });
+
+  describe('pawn stakes are house-only (GAME_DESIGN §4.3 CHANGED, review m4)', () => {
+    const OWNED = 'gui.burmaldaholic.error.pawn_owned_table';
+    const bankroll = { kind: 'bankroll' as const, id: 'c1' };
+
+    it('refuses item/XP/hearts/soul stakes at an owned table, accepts chips there and pawns at house tables', () => {
+      const { economy, wagers } = setup();
+      economy.transact([{ account: { bankroll: 'c1' }, delta: 100_000 }, { account: 'bank', delta: -100_000 }], 'test.fund');
+      wagers.setHouseResolver((_p, _g, key) => (key === 'owned' ? bankroll : undefined));
+      const kim = new FakePlayer('-20', 'Kim');
+      kim.setDynamicProperty(BAL, 1000);
+      kim.xp = xpAt(10);
+      online.push(kim);
+      for (const stake of [{ kind: 'xp', levels: 5 }, { kind: 'item' }, { kind: 'hearts', hearts: 1 }, { kind: 'soul' }] as const) {
+        const r = wagers.place(kim as never, { game: 'coin_flip', stake, pawnAllowed: true, soulAllowed: true, tableKey: 'owned', notify: false });
+        expect(r).toEqual({ ok: false, error: { translate: OWNED } });
+        expect(wagers.check(kim as never, 'coin_flip', 'owned', stake)).toEqual({ translate: OWNED });
+      }
+      expect(kim.xp).toBe(xpAt(10)); // nothing taken
+      // an explicit bankroll house is refused the same way
+      expect(wagers.place(kim as never, { game: 'wheel', stake: { kind: 'xp', levels: 5 }, pawnAllowed: true, house: bankroll, tableKey: 'x', notify: false })).toEqual({ ok: false, error: { translate: OWNED } });
+      // chips at the owned table, and without a stake the check passes
+      expect(wagers.check(kim as never, 'coin_flip', 'owned')).toBeUndefined();
+      expect(wagers.place(kim as never, { game: 'coin_flip', stake: { kind: 'chips', amount: 10 }, limits: {}, tableKey: 'owned', notify: false }).ok).toBe(true);
+      // a house-banked table still takes pawns
+      const r = wagers.place(kim as never, { game: 'coin_flip', stake: { kind: 'xp', levels: 5 }, pawnAllowed: true, tableKey: 'house', notify: false });
+      expect(r.ok).toBe(true);
+      expect(kim.level).toBe(5);
+    });
+
+    it('module vetoes keep their own message (owner cannot play) before the pawn rule', () => {
+      const { wagers } = setup();
+      wagers.setHouseResolver(() => bankroll);
+      wagers.addVeto(() => ({ translate: 'gui.burmaldaholic.error.owner_cannot_play' }));
+      const lu = new FakePlayer('-21', 'Lu');
+      online.push(lu);
+      expect(wagers.check(lu as never, 'coin_flip', 'owned', { kind: 'xp', levels: 1 })).toEqual({ translate: 'gui.burmaldaholic.error.owner_cannot_play' });
+    });
+  });
+
+  it('an XP stake takes whole levels only and keeps the progress (GAME_DESIGN §4.3.2 CHANGED, review m3)', () => {
+    const { wagers } = setup();
+    const max = new FakePlayer('-22', 'Max');
+    online.push(max);
+    // level 10 and half-way to 11 (xpNext(10) = 27 -> 13 points in)
+    max.xp = xpAt(10) + 13;
+    const r = wagers.place(max as never, { game: 'coin_flip', stake: { kind: 'xp', levels: 4 }, pawnAllowed: true, notify: false });
+    if (!r.ok) throw new Error('place failed');
+    expect(r.ticket.value).toBe(Math.floor((xpAt(10) - xpAt(6)) / 4)); // V counts whole levels only
+    expect(max.level).toBe(6);
+    expect(max.xp - xpAt(6)).toBe(Math.floor((13 / 27) * xpNext(6))); // progress kept
+    wagers.settle(r.ticket, max as never, 0); // lost: the levels are gone, the progress stays
+    expect(max.level).toBe(6);
+    expect(max.xp).toBeGreaterThan(xpAt(6));
+    // a win/push gives back exactly what was taken
+    max.xp = xpAt(10) + 13;
+    const w = wagers.place(max as never, { game: 'coin_flip', stake: { kind: 'xp', levels: 4 }, pawnAllowed: true, notify: false });
+    if (!w.ok) throw new Error('place failed');
+    wagers.settle(w.ticket, max as never, w.ticket.value);
+    expect(max.xp).toBe(xpAt(10) + 13);
+  });
+
+  describe('casino mode off mid-round (GAME_DESIGN §4.1 CHANGED): closeOut', () => {
+    it('settles a drawn round at its persisted draw and refunds an undrawn one, once', () => {
+      const { wagers } = setup();
+      const settled: unknown[] = [];
+      wagers.onSettled((e) => settled.push(e));
+      const nia = new FakePlayer('-23', 'Nia');
+      nia.setDynamicProperty(BAL, 1000);
+      online.push(nia);
+      const drawn = wagers.place(nia as never, { game: 'roulette', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      const undrawn = wagers.place(nia as never, { game: 'craps', stake: { kind: 'chips', amount: 50 }, skipLimits: true });
+      if (!drawn.ok || !undrawn.ok) throw new Error('place failed');
+      wagers.draw(drawn.ticket, 0); // the ball already landed on a losing number
+      expect(nia.getDynamicProperty(BAL)).toBe(850);
+      expect(wagers.closeOut(drawn.ticket, nia as never)).toBe('settled');
+      expect(wagers.closeOut(undrawn.ticket, nia as never)).toBe('refunded');
+      expect(nia.getDynamicProperty(BAL)).toBe(900); // the drawn loss stands, the 50 came back
+      expect(settled).toEqual([expect.objectContaining({ game: 'roulette', staked: 100, totalReturn: 0 })]);
+      expect(wagers.closeOut(drawn.ticket, nia as never)).toBeUndefined();
+      expect(wagers.closeOut(undrawn.ticket, nia as never)).toBeUndefined();
+      expect(nia.getDynamicProperty(BAL)).toBe(900);
+    });
+
+    it('pays a drawn win to a disconnected player on their next join', () => {
+      const { wagers } = setup();
+      const oz = new FakePlayer('-24', 'Oz');
+      oz.setDynamicProperty(BAL, 500);
+      online.push(oz);
+      const r = wagers.place(oz as never, { game: 'slots', stake: { kind: 'chips', amount: 100 }, skipLimits: true });
+      if (!r.ok) throw new Error('place failed');
+      wagers.draw(r.ticket, 300);
+      disconnect(oz);
+      expect(wagers.closeOut(r.ticket, oz as never)).toBe('settled');
+      expect(rejoin(oz).getDynamicProperty(BAL)).toBe(700);
+    });
   });
 });

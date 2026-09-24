@@ -119,3 +119,15 @@ describe('heart penalties pause while casino mode is off (review M2)', () => {
     expect(rebasePenalties(r.list, 1000).changed).toBe(false);
   });
 });
+
+describe('xpAfterStake (GAME_DESIGN §4.3.2 CHANGED, review m3)', () => {
+  it('drops whole levels and keeps the progress fraction', async () => {
+    const { xpAfterStake, xpAtLevel, xpToNextLevel } = await import('./wager-math');
+    expect(xpAfterStake(xpAtLevel(10), 10, 3)).toBe(xpAtLevel(7));
+    const half = xpAtLevel(20) + Math.floor(xpToNextLevel(20) / 2);
+    const after = xpAfterStake(half, 20, 5);
+    expect(after - xpAtLevel(15)).toBe(Math.floor(((half - xpAtLevel(20)) / xpToNextLevel(20)) * xpToNextLevel(15)));
+    expect(after).toBeLessThan(xpAtLevel(16));
+    expect(xpAfterStake(xpAtLevel(5) + 3, 5, 5)).toBe(Math.floor((3 / xpToNextLevel(5)) * xpToNextLevel(0)));
+  });
+});

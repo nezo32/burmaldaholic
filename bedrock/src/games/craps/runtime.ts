@@ -75,6 +75,7 @@ interface View {
   looping?: boolean;
 }
 
+/** `refund`: casino mode off -> wagers.closeOut (drawn bets settled at their draw, the rest refunded). */
 type Deferred = { ticket: WagerTicket; totalReturn: number } | { ticket: WagerTicket; refund: true };
 
 export class CrapsRuntime {
@@ -549,7 +550,9 @@ export class CrapsRuntime {
     if (entries.length) {
       const player = s.player;
       if (policy === 'refund') {
-        // Casino mode off (dormant): give everything back. A broken table plays out (B1).
+        // Casino mode off (GAME_DESIGN §4.1 ⚠ CHANGED): contract bets with an established point
+        // were drawn (drawPointBets) and are settled at that persisted play-out; only bets
+        // still waiting for their first roll are refunded. A broken table plays out (B1).
         const list: Deferred[] = entries.filter((x) => x.entry).map((x) => ({ ticket: x.entry!.ticket, refund: true as const }));
         this.applyDeferred(s.playerId, player, list);
       } else {
@@ -575,8 +578,15 @@ export class CrapsRuntime {
     let refunded = false;
     for (const d of list) {
       if ('refund' in d) {
-        this.ctx.wagers.refund(d.ticket, player);
-        refunded = true;
+        // Drawn -> settled at the persisted result, undrawn -> refunded (core closeOut).
+        const staked = d.ticket.value;
+        const drawn = d.ticket.drawn;
+        const how = this.ctx.wagers.closeOut(d.ticket, player);
+        if (how === 'refunded') refunded = true;
+        else if (how === 'settled' && drawn !== undefined) {
+          net += drawn - staked;
+          played = true;
+        }
       } else {
         const staked = d.ticket.value;
         const ev = this.ctx.wagers.settle(d.ticket, player, d.totalReturn);

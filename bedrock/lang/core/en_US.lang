@@ -639,3 +639,4 @@ subtitles.burmaldaholic.loan_shark_idle=Loan Shark hums
 subtitles.burmaldaholic.last_chance=Coin spins in the dark
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
 unit.burmaldaholic.decimal_separator=.
+gui.burmaldaholic.error.pawn_owned_table=Owned tables take chips only

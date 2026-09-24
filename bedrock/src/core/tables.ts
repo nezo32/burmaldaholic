@@ -9,8 +9,9 @@
  *    on "Leave", walking away (> maxDistance), disconnect, the block being broken or casino
  *    mode turning off. The game's `onLeave` runs in every case (auto-complete the round there).
  *  - Rounds in play: every game follows `leavePolicy(reason)` (core/logic/sessions.ts): only
- *    casino mode turning off refunds; everything else, a broken table included, plays the
- *    round out (GAME_DESIGN §4.1, review B1).
+ *    casino mode turning off refunds, and then only undrawn bets (drawn rounds are settled at
+ *    their draw via `wagers.closeOut`, §4.1 ⚠ CHANGED); everything else, a broken table
+ *    included, plays the round out (GAME_DESIGN §4.1, review B1).
  */
 import { type Block, type Dimension, type Player, type StartupEvent, type Vector3, system, world } from '@minecraft/server';
 import { uiManager } from '@minecraft/server-ui';
@@ -66,7 +67,8 @@ export interface TableHandler {
   onOpen(session: TableSession, rejoined: boolean): void | Promise<void>;
   /**
    * Session ended for any reason. `policy` = leavePolicy(reason): 'play_out' auto-completes the
-   * open round (no refund, also for a broken table), 'refund' (casino mode off) cancels it.
+   * open round (no refund, also for a broken table), 'refund' (casino mode off) settles a drawn
+   * round at its draw (`wagers.closeOut`) and refunds only undrawn bets.
    */
   onLeave?(session: TableSession, reason: LeaveReason, policy: LeavePolicy): void;
   /** Optional extra check before seating (VIP tier, owner-can't-play...). Return an error to refuse. */

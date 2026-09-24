@@ -639,3 +639,4 @@ subtitles.burmaldaholic.loan_shark_idle=Ростовщик напевает
 subtitles.burmaldaholic.last_chance=Монетка звенит во тьме
 ## ---- manual: lines below this marker are kept by tools/gen-lang.mjs ----
 unit.burmaldaholic.decimal_separator=,
+gui.burmaldaholic.error.pawn_owned_table=Столы владельцев принимают только фишки

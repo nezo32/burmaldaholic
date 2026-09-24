@@ -26,6 +26,20 @@ export function xpPointsForLevels(current: number, levels: number): number {
 export const xpStakeValue = (current: number, levels: number, pointsPerChip: number): number =>
   Math.floor(xpPointsForLevels(current, levels) / Math.max(1, pointsPerChip));
 
+/**
+ * Total XP after staking `levels` whole levels (GAME_DESIGN §4.3.2, review m3, both editions):
+ * the player drops to level current − L and KEEPS the partial progress towards the next level
+ * (the same fraction of the lower level's bar, like Java keeping `experienceProgress`). Only the
+ * whole levels are part of V and at risk; the progress is never staked.
+ */
+export function xpAfterStake(total: number, current: number, levels: number): number {
+  const to = Math.max(0, current - levels);
+  const into = Math.max(0, total - xpAtLevel(current));
+  const frac = Math.min(1, into / xpToNextLevel(current));
+  const kept = Math.min(xpToNextLevel(to) - 1, Math.floor(frac * xpToNextLevel(to)));
+  return xpAtLevel(to) + Math.max(0, kept);
+}
+
 export type PawnCheck = { ok: true } | { ok: false; key: string };
 
 /** XP stake rules: 1 ≤ L ≤ current level, L ≤ maxLevels. */

@@ -67,7 +67,7 @@ import {
   pawnSettlement,
   rebasePenalties,
   soulValue,
-  xpAtLevel,
+  xpAfterStake,
   xpStakeValue,
 } from './logic/wager-math';
 import { createLogger } from './log';
@@ -92,6 +92,8 @@ const ACTIVE_TICK_PROP = 'burmaldaholic:core.active_tick';
 /** Player flag: a Soul Wager lost while offline, applied once casino mode is on (review M2). */
 const SOUL_PENDING_PROP = 'burmaldaholic:core.soul_pending';
 const TOTEM_ID = 'minecraft:totem_of_undying';
+/** Pawn stake at an owned table (Java-only key in STRINGS terms; a manual line in lang/core). */
+const PAWN_OWNED_TABLE = 'gui.burmaldaholic.error.pawn_owned_table';
 /** Tag set on a player killed by a lost Soul Wager (Last Chance must not save them). */
 export const SOUL_WAGER_TAG = 'burmaldaholic_core_soul_wager';
 
@@ -310,6 +312,12 @@ export class WagerService {
         log.error('wager veto failed', e);
       }
     }
+    // Built-in rule (GAME_DESIGN §4.3 ⚠ CHANGED, review m4, both editions): pawn stakes (item,
+    // XP, hearts, soul) are house-only. At a table or machine linked to a player-owned casino
+    // (the house resolver names a bankroll) only chips are accepted: the owner's bankroll cannot
+    // hold items, levels or hearts. Checked after the module vetoes so "owner can't play",
+    // "closed" and "broke" keep their own messages.
+    if (stake && stake.kind !== 'chips' && this.resolveHouse(player, game, key).kind !== 'bank') return t(PAWN_OWNED_TABLE);
     return undefined;
   }
 
@@ -381,7 +389,8 @@ export class WagerService {
     const s = o.stake;
     if (s.kind !== 'chips') {
       if (s.kind === 'soul' ? !o.soulAllowed : !o.pawnAllowed) return fail(t('gui.burmaldaholic.error.invalid_bet_position'));
-      if (house.kind !== 'bank') return fail(t('gui.burmaldaholic.error.pawn_not_accepted'));
+      // House-only (§4.3, review m4): an explicit bankroll house is refused like an owned table.
+      if (house.kind !== 'bank') return fail(t(PAWN_OWNED_TABLE));
       if (s.kind !== 'soul' && !this.config.bool('wager.pawnEnabled')) return fail(t('gui.burmaldaholic.error.disabled'));
     }
     const tierMax = this.limits.tierMax(player, limits?.tierMultiplier);
@@ -425,8 +434,9 @@ export class WagerService {
         if (value > tierMax) return fail(t('gui.burmaldaholic.error.pawn_too_valuable', chips(value)));
         if (value < 1) return fail(t('gui.burmaldaholic.error.invalid_amount'));
         take = () => {
+          // Whole levels only; the progress towards the next level stays (§4.3.2, review m3).
           const before = player.getTotalXp();
-          const target = xpAtLevel(player.level - s.levels);
+          const target = xpAfterStake(before, player.level, s.levels);
           player.resetLevel();
           player.addExperience(target);
           ticket.xpRemoved = before - target;
@@ -563,6 +573,23 @@ export class WagerService {
     }
     this.refundTo(ticket, live);
     this.persist(live);
+  }
+
+  /**
+   * Close a round because casino mode turned off (GAME_DESIGN §4.1 ⚠ CHANGED, both editions;
+   * §2.1 dormancy never cancels a decided round): a round whose outcome is already drawn
+   * (draw() was called) is SETTLED at that persisted result, exactly like a restart would; only
+   * a round without a draw is refunded. Offline-safe. Returns what happened, or undefined when
+   * the ticket was already closed.
+   */
+  closeOut(ticket: WagerTicket, player: Player | undefined): 'settled' | 'refunded' | undefined {
+    if (!this.open.has(ticket.id)) return undefined;
+    if (hasDrawn(ticket)) {
+      this.settle(ticket, player, ticket.drawn);
+      return 'settled';
+    }
+    this.refund(ticket, player);
+    return 'refunded';
   }
 
   /**

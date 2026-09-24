@@ -75,7 +75,11 @@ export type LeaveReason = 'leave' | 'distance' | 'disconnect' | 'broken' | 'casi
  *    broken table (block mined, dealer NPC removed, owner closed it): breaking a table must
  *    never cancel a round whose result is already drawn (review B1, the free-roll exploit).
  *  - 'refund': only when casino mode turns off (the mod goes dormant, §2.1, and nothing may
- *    keep running). A server stop is refunded separately on the next join (core wagers).
+ *    keep running). ⚠ CHANGED (§4.1, both editions): dormancy never cancels a decided round,
+ *    so a round whose outcome is already drawn is still settled at that draw
+ *    (`wagers.closeOut`: roulette after the spin, craps bets facing a point, a dealt poker hand
+ *    played out, blackjack/slots finish as on a leave); only undrawn bets are refunded.
+ *    A server stop is handled separately on the next join (core wagers).
  * Bets on a round that has not started yet (roulette betting phase, blackjack pre-deal) may
  * still be handled by the game as it does for a normal leave.
  */

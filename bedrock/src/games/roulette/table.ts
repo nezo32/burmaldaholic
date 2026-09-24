@@ -225,16 +225,25 @@ export class RouletteGame implements RouletteApi {
     rt.round.clear(p.id);
   }
 
-  /** Refund a player's open bets at a table (table broken, casino off, High-Roller minimum). */
+  /**
+   * Casino mode off: close a player's open bets at a table (GAME_DESIGN §4.1 ⚠ CHANGED). Once the
+   * number is drawn (spin phase, drawAll persisted it) the bets are settled at that number; bets
+   * of a round that has not spun yet are refunded. Offline-safe: core parks either result.
+   */
   private refundPlayer(rt: TableRt | undefined, playerId: string, player?: Player): void {
     if (!rt) return;
+    const result = rt.round.result;
     const bets = rt.round.clear(playerId);
     const ticket = rt.tickets.get(playerId);
     rt.tickets.delete(playerId);
     if (!ticket) return;
-    // Offline-safe: core parks the refund for a disconnected player.
-    this.ctx.wagers.refund(ticket, player ?? onlinePlayer(playerId));
-    this.ctx.wagers.tell(playerId, t('msg.burmaldaholic.roulette.bets_refunded', chips(totalStaked(bets) || ticket.value)));
+    const drawn = ticket.drawn;
+    const how = this.ctx.wagers.closeOut(ticket, player ?? onlinePlayer(playerId));
+    if (how === 'settled' && result !== undefined && drawn !== undefined) {
+      this.ctx.wagers.tell(playerId, t('msg.burmaldaholic.core.auto_completed', resultRaw(result, totalStaked(bets) || ticket.value, drawn)));
+    } else if (how === 'refunded') {
+      this.ctx.wagers.tell(playerId, t('msg.burmaldaholic.roulette.bets_refunded', chips(totalStaked(bets) || ticket.value)));
+    }
   }
 
   /** VIP contract progress of spins settled while the player was offline. */
@@ -266,7 +275,7 @@ export class RouletteGame implements RouletteApi {
     const casinoOn = this.ctx.isCasinoEnabled();
     for (const rt of this.tables.values()) {
       if (!casinoOn) {
-        // Casino closed: refund everything that is not settled yet and reset the table.
+        // Casino closed: settle every drawn slip at its number, refund the rest, reset the table.
         for (const id of rt.round.bettors()) this.refundPlayer(rt, id);
         rt.anim = undefined;
         if (rt.round.phase !== 'betting') this.tables.delete(rt.key);
