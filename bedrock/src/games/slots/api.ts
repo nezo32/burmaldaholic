@@ -80,6 +80,19 @@ export interface SlotsSpinEvent {
   threeSevens: boolean;
   /** played at an owned casino machine (§18, no progressive) */
   owned: boolean;
+  // ---- slots v2 (SLOTS.md; set only by the v2 service — `lineBet` is then the bet, `spinBet` the stake) ----
+  /** v2 machine id: 'overworld' | 'nether' | 'end' */
+  machine?: string;
+  /** persisted tape string (SLOTS.md §8.1) */
+  tape?: string;
+  /** free spins or a bonus game triggered by the spin (not bought): contracts `slots_feature` (SLOTS.md §8.7) */
+  featureTriggered?: boolean;
+  /** a bought feature (counts for `spin_slots`, never for `slots_feature`) */
+  bought?: boolean;
+  /** jackpot tiers won, 1 Mini … 4 Grand, in tape order */
+  jackpotTiers?: number[];
+  /** slot win tier of the whole spin (SLOTS.md §10.1): LOSS … EPIC */
+  winTier?: string;
 }
 
 /** Owned-casino hook (multiplayer): who banks a machine at this location. */

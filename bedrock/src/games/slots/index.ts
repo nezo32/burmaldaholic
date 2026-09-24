@@ -71,6 +71,17 @@ import {
 } from './logic';
 import { gridRaw, machineName, paytableLines } from './render';
 import { registerSlotsPvp } from './pvp';
+import { startSlotsV2 } from './service';
+
+/**
+ * Slots v2 cut-over flag (docs/architecture/animation.md §7.2, task S-B5). OFF: the v1 machines below stay
+ * live and v2 is only built and tested. ON switches every cabinet to the v2 service (`./service.ts`): v1 rounds
+ * still open are settled by core from their drawn tickets, v1 pools migrate once (SLOTS.md §5.3). Turn it on
+ * together with the SLOTS.md §12 config rows, the §13 strings, the §14 advancements, the B-L9 form presenter
+ * and the Java cut-over S-J5. Wiring then: `startSlotsV2(ctx, presenter, { roundFromTape, playCabinet,
+ * finishCabinet })` with the B-L9 form (its `SlotHost` = `SlotsV2Host`) and the B-L10 cabinet (`./cabinet`).
+ */
+export const SLOTS_V2_ENABLED = false;
 
 const POOL_PROP = 'burmaldaholic:slots.jackpot';
 const BET_PROP = 'burmaldaholic:slots.line_bet';
@@ -631,6 +642,11 @@ export const slotsModule: CasinoModule = {
   id: 'slots',
   onWorldLoad(ctx) {
     registerSlotsPvp(ctx); // Slot Showdown (docs/architecture/pvp-bots.md)
+    if (SLOTS_V2_ENABLED) {
+      ctx.services.provide<SlotsApi>(SLOTS_SERVICE, startSlotsV2(ctx));
+      return;
+    }
+    // ---- v1 (becomes settle-only legacy at the cut-over; deleted one release later, SLOTS.md §8.1) ----
     const game = new SlotsGame(ctx);
     ctx.services.provide<SlotsApi>(SLOTS_SERVICE, game);
     ctx.tables.register({
