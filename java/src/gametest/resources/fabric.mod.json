@@ -24,13 +24,15 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratGameTests",
-			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests"
+			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.poker.PokerClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.independent.RuLayoutClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpClientGameTests"
 		]
 	},
 	"depends": {

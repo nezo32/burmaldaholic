@@ -41,9 +41,20 @@ public final class CasinoCommands {
 
 	private CasinoCommands() {}
 
-	/** Adds sub-commands under {@code /casino} (call from your module's register). */
+	private static final List<java.util.function.Consumer<LiteralArgumentBuilder<CommandSourceStack>>> PLAYER_EXTENSIONS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	/** Adds sub-commands under {@code /casino} (call from your module's register). Operators only (level 2). */
 	public static void extend(java.util.function.Consumer<LiteralArgumentBuilder<CommandSourceStack>> extension) {
 		EXTENSIONS.add(extension);
+	}
+
+	/**
+	 * Adds sub-commands under {@code /casino} that every player may use (permission 0, e.g. {@code /casino pvp accept});
+	 * put {@code .requires(...)} on the operator-only branches yourself. Everything added with {@link #extend} and the
+	 * core commands stay operator-only.
+	 */
+	public static void extendForPlayers(java.util.function.Consumer<LiteralArgumentBuilder<CommandSourceStack>> extension) {
+		PLAYER_EXTENSIONS.add(extension);
 	}
 
 	public static void register() {
@@ -79,8 +90,22 @@ public final class CasinoCommands {
 					.executes(CasinoCommands::configReset)))
 				.then(Commands.literal("reload").executes(CasinoCommands::configReload)));
 		EXTENSIONS.forEach(e -> e.accept(root));
-		var node = dispatcher.register(root);
+		var node = dispatcher.register(PLAYER_EXTENSIONS.isEmpty() ? root : withPlayerCommands(root));
 		dispatcher.register(Commands.literal("burmaldaholic").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).redirect(node));
+	}
+
+	/** Root open to everybody: the operator commands keep their level-2 requirement per branch; player extensions are added unguarded. */
+	private static LiteralArgumentBuilder<CommandSourceStack> withPlayerCommands(LiteralArgumentBuilder<CommandSourceStack> ops) {
+		java.util.function.Predicate<CommandSourceStack> op = ops.getRequirement();
+		LiteralArgumentBuilder<CommandSourceStack> open = Commands.literal("casino");
+		for (com.mojang.brigadier.tree.CommandNode<CommandSourceStack> child : ops.getArguments()) {
+			com.mojang.brigadier.builder.ArgumentBuilder<CommandSourceStack, ?> copy = child.createBuilder();
+			copy.requires(op.and(child.getRequirement()));
+			child.getChildren().forEach(copy::then);
+			open.then(copy);
+		}
+		PLAYER_EXTENSIONS.forEach(e -> e.accept(open));
+		return open;
 	}
 
 	private enum Op {
