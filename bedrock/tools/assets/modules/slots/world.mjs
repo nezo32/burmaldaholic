@@ -27,7 +27,10 @@ function stripCell(machine, symIndex, seed) {
     for (let k = 0; k < 4; k++) put(img, (r() * 16) | 0, (r() * 16) | 0, col('#4A0E0E'));
   }
   fill(img, 0, 15, 16, 1, col(t.drumShade));
-  over(img, art(MACHINE_SYMBOLS[machine][symIndex]));
+  const sym = art(MACHINE_SYMBOLS[machine][symIndex]);
+  // End: the void drum is nearly as dark as the ink outlines, so dark symbols (Dragon Egg, Dragon Head) lost their
+  // silhouette at in-game scale; a soft lilac rim keeps every shape readable on the reel
+  over(img, machine === 'end' ? halo(sym, col('#6A4A9E'), 2, 0.9) : sym);
   return img;
 }
 

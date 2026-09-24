@@ -138,7 +138,9 @@ function bounceExpr(C, r) {
   return `(${u} < ${a} ? (-0.8 + ${(0.8 + o).toFixed(2)} * (1 - math.pow(1 - ${u} / ${a}, 3))) : (${u} < ${s} ? ${o} * (1 - (${u} - ${a}) / ${(s - a).toFixed(2)}) : 0))`;
 }
 
-const spinning = (C, r) => `(v.spin${r} > 0 && ${P(C.prop.state)} == 'spin')`;
+// spinning = the reel has not landed yet in this round; `v.seq != seq` also covers the frame in which the new round's
+// properties arrive before the seq watcher re-arms `v.spin<r>` (the new stops never flash before the blur)
+const spinning = (C, r) => `(${P(C.prop.state)} == 'spin' && (v.spin${r} > 0 || v.seq != ${P(C.prop.seq)}))`;
 
 export function renderControllers(C, strips) {
   const rc = {};
@@ -274,11 +276,7 @@ export function animationControllers(C, strips) {
   ]);
   watch('hold', `${P(C.prop.hold)} != v.hold_seen`, [`v.hold_seen = ${P(C.prop.hold)}; v.hold_t = q.life_time;`]);
   // wheel: ring = floor((w − 1) / 100), segment = mod(w − 1, 100); target angle puts the segment centre at 12 o'clock
-  const w = P(C.prop.wheel);
-  const ringOf = `math.floor((${w} - 1) / 100)`;
-  const segOf = `math.mod(${w} - 1, 100)`;
-  const n = C.wheelRings;
-  const target = (ring) => `-((${segOf} + 0.5) * ${360 / n[ring]}) - ${360 * C.wheelTurns}`;
+  const { w, ringOf, target } = wheelExprs(C);
   watch(
     'wheel',
     `${w} != v.wheel_seen`,
@@ -288,6 +286,15 @@ export function animationControllers(C, strips) {
     ],
   );
   return { format_version: FV_ANIM, animation_controllers: ac };
+}
+
+/** Wheel Molang: ring = floor((w − 1) / 100), segment = mod(w − 1, 100); target puts the segment centre at 12 o'clock. */
+function wheelExprs(C) {
+  const w = P(C.prop.wheel);
+  const ringOf = `math.floor((${w} - 1) / 100)`;
+  const segOf = `math.mod(${w} - 1, 100)`;
+  const target = (ring) => `-((${segOf} + 0.5) * ${360 / C.wheelRings[ring]}) - ${360 * C.wheelTurns}`;
+  return { w, ringOf, target };
 }
 
 export function clientEntity(C, strips) {
@@ -307,7 +314,13 @@ export function clientEntity(C, strips) {
     `v.win_seen = ${P(C.prop.win)}; v.win_t = -10; v.mult_seen = ${P(C.prop.mult)}; v.pop_t = -10;`,
     `v.sticky_seen = ${P(C.prop.sticky)}; v.sticky_t1 = -10; v.sticky_t2 = -10; v.sticky_t3 = -10; v.hold_seen = ${P(C.prop.hold)}; v.hold_t = -10;`,
     `v.wheel_seen = ${P(C.prop.wheel)};`,
-    ...[0, 1, 2].map((ring) => `v.wheel_from${ring} = 0; v.wheel_to${ring} = 0; v.wheel_t${ring} = -10;`),
+    // a client that loads the prop after a Dragon Wheel spin (chunk load, relog, walking into range) rests on the
+    // landed segment instead of segment 0 (terminal state == result for spectators too)
+    ...[0, 1, 2].map((ring) => {
+      const { w, ringOf, target } = wheelExprs(C);
+      const rest = `((${w} > 0 && ${ringOf} == ${ring}) ? ${target(ring)} : 0)`;
+      return `v.wheel_from${ring} = ${rest}; v.wheel_to${ring} = v.wheel_from${ring}; v.wheel_t${ring} = -10;`;
+    }),
   ];
   const acNames = ['spin', 'win', 'mult', 'sticky', 'hold', 'wheel'];
   const animationsMap = { fx: `animation.${NS}.${ID}.fx`, ...Object.fromEntries(acNames.map((n) => [`watch_${n}`, `controller.animation.${NS}.${ID}.${n}`])) };

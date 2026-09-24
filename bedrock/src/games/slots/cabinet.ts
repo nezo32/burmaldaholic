@@ -66,6 +66,7 @@ export function ensureCabinet(block: Block): Entity | undefined {
 
 export function removeCabinet(dim: Dimension, pos: Vector3): void {
   cancel(dim, pos);
+  memory.delete(`${dim.id}|${key(pos)}`);
   for (const e of propsAt(dim, pos)) e.remove();
 }
 
@@ -74,7 +75,12 @@ export function registerCabinetComponent(event: StartupEvent): void {
   event.blockComponentRegistry.registerCustomComponent(CABINET_COMPONENT, {
     onPlace: (e) => void system.run(() => ensureCabinet(e.block)),
     onTick: (e) => void ensureCabinet(e.block),
-    onBreak: (e) => removeCabinet(e.dimension, e.block.location),
+    // deferred like onPlace: entity removal is not allowed in a restricted (before-event) execution context
+    onBreak: (e) => {
+      const dim = e.dimension;
+      const pos = { ...e.block.location };
+      system.run(() => removeCabinet(dim, pos));
+    },
   });
 }
 

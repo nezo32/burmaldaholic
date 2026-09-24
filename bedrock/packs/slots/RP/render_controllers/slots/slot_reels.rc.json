@@ -63,7 +63,7 @@
         }
       ],
       "textures": [
-        "Array.tex[q.property('burmaldaholic:machine') + ((v.spin0 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 : 0)]"
+        "Array.tex[q.property('burmaldaholic:machine') + ((q.property('burmaldaholic:state') == 'spin' && (v.spin0 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 : 0)]"
       ],
       "part_visibility": [
         {
@@ -76,11 +76,11 @@
       "uv_anim": {
         "offset": [
           0,
-          "(v.spin0 > 0 && q.property('burmaldaholic:state') == 'spin') ? math.mod(q.life_time * 12 + 0, 4) / 7 : (q.property('burmaldaholic:r0') + 1 + ((q.life_time - v.land_t0) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t0) / 0.15, 3))) : ((q.life_time - v.land_t0) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t0) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin0 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? math.mod(q.life_time * 12 + 0, 4) / 7 : (q.property('burmaldaholic:r0') + 1 + ((q.life_time - v.land_t0) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t0) / 0.15, 3))) : ((q.life_time - v.land_t0) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t0) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ],
         "scale": [
           1,
-          "(v.spin0 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin0 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ]
       }
     },
@@ -111,7 +111,7 @@
         }
       ],
       "textures": [
-        "Array.tex[q.property('burmaldaholic:machine') + ((v.spin1 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 : 0)]"
+        "Array.tex[q.property('burmaldaholic:machine') + ((q.property('burmaldaholic:state') == 'spin' && (v.spin1 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 : 0)]"
       ],
       "part_visibility": [
         {
@@ -124,11 +124,11 @@
       "uv_anim": {
         "offset": [
           0,
-          "(v.spin1 > 0 && q.property('burmaldaholic:state') == 'spin') ? math.mod(q.life_time * 12 + 1.7, 4) / 7 : (q.property('burmaldaholic:r1') + 1 + ((q.life_time - v.land_t1) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t1) / 0.15, 3))) : ((q.life_time - v.land_t1) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t1) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin1 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? math.mod(q.life_time * 12 + 1.7, 4) / 7 : (q.property('burmaldaholic:r1') + 1 + ((q.life_time - v.land_t1) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t1) / 0.15, 3))) : ((q.life_time - v.land_t1) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t1) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ],
         "scale": [
           1,
-          "(v.spin1 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin1 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ]
       }
     },
@@ -159,7 +159,7 @@
         }
       ],
       "textures": [
-        "Array.tex[q.property('burmaldaholic:machine') + ((v.spin2 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 : 0)]"
+        "Array.tex[q.property('burmaldaholic:machine') + ((q.property('burmaldaholic:state') == 'spin' && (v.spin2 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 : 0)]"
       ],
       "part_visibility": [
         {
@@ -172,11 +172,11 @@
       "uv_anim": {
         "offset": [
           0,
-          "(v.spin2 > 0 && q.property('burmaldaholic:state') == 'spin') ? math.mod(q.life_time * 12 + 3.4, 4) / 7 : (q.property('burmaldaholic:r2') + 1 + ((q.life_time - v.land_t2) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t2) / 0.15, 3))) : ((q.life_time - v.land_t2) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t2) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin2 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? math.mod(q.life_time * 12 + 3.4, 4) / 7 : (q.property('burmaldaholic:r2') + 1 + ((q.life_time - v.land_t2) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t2) / 0.15, 3))) : ((q.life_time - v.land_t2) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t2) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ],
         "scale": [
           1,
-          "(v.spin2 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin2 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ]
       }
     },
@@ -207,7 +207,7 @@
         }
       ],
       "textures": [
-        "Array.tex[q.property('burmaldaholic:machine') + ((v.spin3 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 : 0)]"
+        "Array.tex[q.property('burmaldaholic:machine') + ((q.property('burmaldaholic:state') == 'spin' && (v.spin3 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 : 0)]"
       ],
       "part_visibility": [
         {
@@ -220,11 +220,11 @@
       "uv_anim": {
         "offset": [
           0,
-          "(v.spin3 > 0 && q.property('burmaldaholic:state') == 'spin') ? math.mod(q.life_time * 12 + 5.1, 4) / 7 : (q.property('burmaldaholic:r3') + 1 + ((q.life_time - v.land_t3) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t3) / 0.15, 3))) : ((q.life_time - v.land_t3) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t3) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin3 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? math.mod(q.life_time * 12 + 5.1, 4) / 7 : (q.property('burmaldaholic:r3') + 1 + ((q.life_time - v.land_t3) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t3) / 0.15, 3))) : ((q.life_time - v.land_t3) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t3) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ],
         "scale": [
           1,
-          "(v.spin3 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin3 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ]
       }
     },
@@ -255,7 +255,7 @@
         }
       ],
       "textures": [
-        "Array.tex[q.property('burmaldaholic:machine') + ((v.spin4 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 : 0)]"
+        "Array.tex[q.property('burmaldaholic:machine') + ((q.property('burmaldaholic:state') == 'spin' && (v.spin4 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 : 0)]"
       ],
       "part_visibility": [
         {
@@ -268,11 +268,11 @@
       "uv_anim": {
         "offset": [
           0,
-          "(v.spin4 > 0 && q.property('burmaldaholic:state') == 'spin') ? math.mod(q.life_time * 12 + 6.8, 4) / 7 : (q.property('burmaldaholic:r4') + 1 + ((q.life_time - v.land_t4) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t4) / 0.15, 3))) : ((q.life_time - v.land_t4) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t4) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin4 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? math.mod(q.life_time * 12 + 6.8, 4) / 7 : (q.property('burmaldaholic:r4') + 1 + ((q.life_time - v.land_t4) < 0.15 ? (-0.8 + 0.98 * (1 - math.pow(1 - (q.life_time - v.land_t4) / 0.15, 3))) : ((q.life_time - v.land_t4) < 0.35 ? 0.18 * (1 - ((q.life_time - v.land_t4) - 0.15) / 0.20) : 0))) / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ],
         "scale": [
           1,
-          "(v.spin4 > 0 && q.property('burmaldaholic:state') == 'spin') ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 43 : (q.property('burmaldaholic:machine') == 1 ? 35 : 48))"
+          "(q.property('burmaldaholic:state') == 'spin' && (v.spin4 > 0 || v.seq != q.property('burmaldaholic:seq'))) ? 3 / 7 : 3 / (q.property('burmaldaholic:machine') == 0 ? 44 : (q.property('burmaldaholic:machine') == 1 ? 36 : 49))"
         ]
       }
     },

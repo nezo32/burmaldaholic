@@ -45,9 +45,12 @@ export const CABINET = {
   states: ['idle', 'spin', 'land', 'win', 'big', 'feature', 'jackpot'] as const,
   maxStop: 44,
   seqModulo: 256,
-  /** strip textures: 1 wrap cell above index 0 and 2 below the last index, so every window is contiguous */
+  /**
+   * strip textures: 1 wrap cell above index 0 (the −0.8 cell land arrival) and 3 below the last index: 2 so every
+   * window is contiguous + 1 for the land overshoot (`landOvershootCells`) past the window of the last stop
+   */
   stripPadTop: 1,
-  stripPadBottom: 2,
+  stripPadBottom: 3,
   /** looping blur texture: `blurLoop` distinct cells + 3 wrap cells */
   blurLoop: 4,
   blurCellsPerSecond: 12,
@@ -190,10 +193,17 @@ export function planCabinet(spin: CabinetSpin, mem: CabinetMemory = { seq: 0 }):
     }
     if (s.stickyMask !== undefined) cues.push({ at: s.stickyMs ?? landed, props: { [P.sticky]: s.stickyMask & 7 }, particle: s.stickyMask ? CABINET.particles.sticky : undefined });
   }
-  if (spin.featureMs !== undefined) cues.push({ at: spin.featureMs, props: { [P.state]: 'feature' } });
+  // a `state` other than 'spin' shows the landed stops, so a feature / celebration state that falls inside a
+  // spin window (start … last REEL_LAND, e.g. featureMs == the first free spin's start) waits for that spin to land:
+  // otherwise the free spin's result would show before its reels stop (no early spoilers)
+  const afterSpins = (t: number): number => {
+    for (const s of spin.spins) if (t >= s.startMs && t < lastLand(s)) return lastLand(s);
+    return t;
+  };
+  if (spin.featureMs !== undefined) cues.push({ at: afterSpins(spin.featureMs), props: { [P.state]: 'feature' } });
   for (const h of spin.hoard ?? []) cues.push({ at: h.atMs, props: { [P.hold]: h.holdMask & 0x7fff } });
   for (const w of spin.wheel ?? []) cues.push({ at: w.atMs, props: { [P.wheel]: wheelValue(w.ring, w.segment) } });
-  if (spin.celebrate) cues.push({ at: spin.celebrate.atMs, props: { [P.state]: spin.celebrate.state } });
+  if (spin.celebrate) cues.push({ at: afterSpins(spin.celebrate.atMs), props: { [P.state]: spin.celebrate.state } });
   // terminal: rest on the final window; the win frames stay (static after the blink window) until the next spin
   const terminal: Record<string, number | string> = { [P.state]: 'idle' };
   if (spin.hoard?.length) terminal[P.hold] = 0;

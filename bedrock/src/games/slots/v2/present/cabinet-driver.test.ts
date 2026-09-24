@@ -95,6 +95,48 @@ describe('cabinet driver: planCabinet', () => {
     expect(mem.seq).toBe(0);
   });
 
+  it('never leaves `spin` while a spin is still rolling: feature / celebration states wait for the last land', () => {
+    const fsLand = LAND.map((t) => 4000 + t);
+    const spin: CabinetSpin = {
+      machine: 'end',
+      spins: [
+        { stops: [0, 1, 2, 3, 4], startMs: 0, landMs: LAND, winMask: 0 },
+        { stops: [9, 8, 7, 6, 5], startMs: 4000, landMs: fsLand, winMask: cellBit(0, 0), stickyMask: 1 },
+      ],
+      featureMs: 4000, // same tick as the first free spin's start
+      celebrate: { atMs: 4600, state: 'big' }, // inside the free spin window
+      endMs: 8000,
+    };
+    const cues = planCabinet(spin);
+    for (const [i, s] of spin.spins.entries()) {
+      const landed = Math.max(...s.landMs);
+      for (let t = s.startMs; t < landed; t += 50) expect(stateAt(cues, t)[P.state], `spin ${i} at ${t}`).toBe('spin');
+    }
+    expect(stateAt(cues, Math.max(...fsLand))[P.state]).toBe('big');
+    expect(stateAt(cues)).toMatchObject({ [P.state]: 'idle', [P.reels[0]!]: 9, [P.win]: cellBit(0, 0), [P.sticky]: 1 });
+  });
+
+  it('keeps the per-tick write budget over a whole Nether free-spin run with tumbles and a final window', () => {
+    const spins = [0, 1, 2, 3].map((i) => {
+      const t0 = i * 5000;
+      return {
+        stops: [i, i + 1, i + 2, i + 3, 31],
+        startMs: t0,
+        landMs: LAND.map((t) => t0 + t),
+        winMask: 0b111,
+        baseMult: i ? 2 : 0,
+        tumbles: [{ atMs: t0 + 1600, winMask: 0b111, mult: i ? 4 : 2 }, { atMs: t0 + 2400, winMask: 0b111000, mult: i ? 6 : 3 }],
+        finalWindow: Array.from({ length: 15 }, (_, k) => k % 11),
+      };
+    });
+    const cues = planCabinet({ machine: 'nether', spins, featureMs: 3500, celebrate: { atMs: 19_000, state: 'win' }, endMs: 20_000 });
+    for (const [, n] of writesPerTick(cues)) expect(n).toBeLessThanOrEqual(7);
+    const end = stateAt(cues);
+    expect(end[P.mult]).toBe(6);
+    expect(end[P.reels[4]!]).toBe(31);
+    expect(end[P.rows[0]!]).toBe(packRow(spins[3]!.finalWindow, 0));
+  });
+
   it('reads land times from REEL_LAND beats (lane = reel)', () => {
     const beats = [0, 1, 2, 3, 4].map((r) => ({ at: LAND[r]!, kind: 'slots.reel_land', lane: r })).concat([{ at: 10, kind: 'slots.spin_up', lane: -1 }]);
     expect(landTimesFromBeats(beats, 0)).toEqual(LAND);
@@ -156,6 +198,28 @@ describe('cabinet driver: CabinetPlayer', () => {
     p.finish();
     expect(f.props).toEqual(stateAt(cues));
     expect(f.log.filter((l) => l.startsWith('land'))).toEqual(['land0@600']);
+  });
+
+  it('skip during a free-spin run reveals the paid terminal state at once (F8), and a second finish is a no-op', () => {
+    const cues = planCabinet({
+      machine: 'end',
+      spins: [
+        { stops: [1, 1, 1, 1, 1], startMs: 0, landMs: LAND, winMask: 0 },
+        { stops: [7, 7, 7, 7, 7], startMs: 3000, landMs: LAND.map((t) => 3000 + t), winMask: 0, stickyMask: 4 },
+      ],
+      featureMs: 2000,
+      endMs: 6000,
+    });
+    const f = fake();
+    const p = new CabinetPlayer(cues, f.target, f.clock).play();
+    f.run(700);
+    expect(f.props[P.reels[0]!]).toBe(1);
+    p.finish();
+    expect(f.props).toEqual(stateAt(cues));
+    const writes = f.log.length;
+    p.finish();
+    f.run(10_000);
+    expect(f.log).toHaveLength(writes);
   });
 
   it('a late start folds past cues into one write (no bursts); cues ≤ 100 ms late still fire, then on time', () => {

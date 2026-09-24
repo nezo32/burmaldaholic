@@ -1,5 +1,5 @@
 /**
- * Slot rendering helpers: symbol glyphs (RP font sheet `font/glyph_E2.png`, U+E200 + index in
+ * Slot rendering helpers: symbol glyphs (RP font sheet `font/glyph_E2.png`, v1 cells at U+E2F0 + index in
  * SYMBOLS order), symbol names, grid rows, paytable lines.
  */
 import { type Raw, color, join, lines, lit, t } from '../../core';

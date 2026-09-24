@@ -73,9 +73,9 @@
           "v.win_seen = q.property('burmaldaholic:win'); v.win_t = -10; v.mult_seen = q.property('burmaldaholic:mult'); v.pop_t = -10;",
           "v.sticky_seen = q.property('burmaldaholic:sticky'); v.sticky_t1 = -10; v.sticky_t2 = -10; v.sticky_t3 = -10; v.hold_seen = q.property('burmaldaholic:hold'); v.hold_t = -10;",
           "v.wheel_seen = q.property('burmaldaholic:wheel');",
-          "v.wheel_from0 = 0; v.wheel_to0 = 0; v.wheel_t0 = -10;",
-          "v.wheel_from1 = 0; v.wheel_to1 = 0; v.wheel_t1 = -10;",
-          "v.wheel_from2 = 0; v.wheel_to2 = 0; v.wheel_t2 = -10;"
+          "v.wheel_from0 = ((q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 0) ? -((math.mod(q.property('burmaldaholic:wheel') - 1, 100) + 0.5) * 18) - 1080 : 0); v.wheel_to0 = v.wheel_from0; v.wheel_t0 = -10;",
+          "v.wheel_from1 = ((q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 1) ? -((math.mod(q.property('burmaldaholic:wheel') - 1, 100) + 0.5) * 22.5) - 1080 : 0); v.wheel_to1 = v.wheel_from1; v.wheel_t1 = -10;",
+          "v.wheel_from2 = ((q.property('burmaldaholic:wheel') > 0 && math.floor((q.property('burmaldaholic:wheel') - 1) / 100) == 2) ? -((math.mod(q.property('burmaldaholic:wheel') - 1, 100) + 0.5) * 30) - 1080 : 0); v.wheel_to2 = v.wheel_from2; v.wheel_t2 = -10;"
         ],
         "animate": [
           "fx",

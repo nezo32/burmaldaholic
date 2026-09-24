@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,8 @@ import { LEGACY_BASE, LEGACY_V1 } from './legacy-v1.mjs';
 import { alphaAt } from './raster.mjs';
 import { planeCells } from './sheets.mjs';
 import { parseAppendixA } from './strips.mjs';
+import { stripTexture } from './world.mjs';
+import { CABINET } from '../../../../src/games/slots/v2/present/cabinet-driver.ts';
 import { CODES, MACHINE_ORDER, MACHINE_SYMBOLS, validateArt } from './symbols.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -86,6 +89,43 @@ describe('slots art: generator outputs', () => {
     expect(size('textures/gui/slots/nether_symbols_32.png')).toEqual([512, 352]);
     expect(size('textures/gui/slots/end_symbols_16.png')).toEqual([32, 176]);
     expect(size('packs/slots/RP/font/glyph_E3.png')).toEqual([512, 512]);
+  }, 30_000);
+});
+
+describe('slots art: in-world reels', () => {
+  const strips = parseAppendixA(SLOTS_MD);
+  const cell = (img, c) => img.data.subarray(c * 16 * 16 * 4, (c + 1) * 16 * 16 * 4);
+
+  it('pads every strip so the land arrival (−0.8 cell) and overshoot of ANY stop stay inside the texture', () => {
+    for (const m of MACHINE_ORDER)
+      for (const strip of strips[m].strips) {
+        const L = strip.length;
+        const img = stripTexture(m, strip, CABINET.stripPadTop, CABINET.stripPadBottom);
+        const cells = img.h / 16;
+        expect(cells).toBe(CABINET.stripPadTop + L + CABINET.stripPadBottom);
+        expect(L - 1).toBeLessThanOrEqual(CABINET.maxStop);
+        // top of the arrival window of stop 0, bottom of the overshoot window of the last stop (cells)
+        expect(CABINET.stripPadTop - 0.8).toBeGreaterThanOrEqual(0);
+        expect(CABINET.stripPadTop + (L - 1) + 3 + CABINET.landOvershootCells).toBeLessThanOrEqual(cells);
+        // wrap cells repeat the strip exactly (the window never shows a seam)
+        for (let c = 0; c < cells; c++) {
+          const k = (((c - CABINET.stripPadTop) % L) + L) % L;
+          expect(Buffer.from(cell(img, c)).equals(Buffer.from(cell(img, CABINET.stripPadTop + k))), `${m} cell ${c}`).toBe(true);
+        }
+      }
+  });
+
+  it('client entity: a late viewer rests on the landed wheel segment and never sees new stops before the blur', async () => {
+    const out = await generate({ root: ROOT });
+    const get = (p) => JSON.parse(out.find((o) => o.path === p).bytes.toString());
+    const init = get('packs/slots/RP/entity/slots/slot_reels.entity.json')['minecraft:client_entity'].description.scripts.initialize.join(' ');
+    for (const ring of [0, 1, 2]) expect(init).toMatch(new RegExp(`v\\.wheel_from${ring} = \\(\\(q\\.property\\('burmaldaholic:wheel'\\) > 0`));
+    const rc = get('packs/slots/RP/render_controllers/slots/slot_reels.rc.json').render_controllers;
+    for (let r = 0; r < 5; r++) {
+      const reel = rc[`controller.render.burmaldaholic.slot_reels.reel${r}`];
+      expect(reel.uv_anim.offset[1]).toContain(`v.seq != q.property('burmaldaholic:seq')`);
+      expect(reel.textures[0]).toContain(`v.spin${r} > 0`);
+    }
   }, 30_000);
 });
 
