@@ -19,6 +19,7 @@ public final class SlotsClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
+		dev.nezo.burmaldaholic.games.slots.client.pvp.SlotShowdownScreen.register(); // Slot Showdown match screen (PvpScreens)
 		for (TableType<SlotMachineBlockEntity> type : SlotsModule.MACHINES.values()) {
 			ctx.tableScreen(type, SlotMachineScreen::new);
 		}

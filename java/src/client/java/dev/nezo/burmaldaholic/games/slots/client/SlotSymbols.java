@@ -7,12 +7,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /** Reel symbol icons: vanilla item renders (no text baked in, resource-pack friendly). */
-final class SlotSymbols {
+public final class SlotSymbols {
 	private static Map<Symbol, ItemStack> icons;
 
 	private SlotSymbols() {}
 
-	static ItemStack icon(Symbol s) {
+	public static ItemStack icon(Symbol s) {
 		if (icons == null) {
 			Map<Symbol, ItemStack> m = new EnumMap<>(Symbol.class);
 			m.put(Symbol.BERRIES, new ItemStack(Items.SWEET_BERRIES));

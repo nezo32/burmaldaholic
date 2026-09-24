@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:pvp/pvp_first_win",
+  "display": {
+    "icon": {
+      "id": "minecraft:fire_charge"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.pvp_phoenix.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.pvp_phoenix.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
