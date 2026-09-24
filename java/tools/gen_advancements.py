@@ -48,6 +48,14 @@ ADVANCEMENTS = [
     ("bankrupt", "the_house", "task", "minecraft:barrier"),
     ("piglin_parlor", "root", "task", "minecraft:gilded_blackstone"),
     ("high_roller", "piglin_parlor", "goal", "minecraft:end_rod"),
+    # 2026-09 games (§20 baccarat, §21 Ultimate Texas Hold'em)
+    ("baccarat_natural", "beginners_luck", "task", "burmaldaholic:baccarat_table"),
+    ("tie_streak", "baccarat_natural", "goal", "minecraft:lead"),
+    ("uth_four_x", "beginners_luck", "task", "burmaldaholic:uth_table"),
+    ("banco", "baccarat_natural", "goal", "burmaldaholic:baccarat_table_player_banked"),
+    ("bank_holder", "banco", "challenge", "minecraft:gold_block"),
+    ("uth_house_seat", "uth_four_x", "goal", "burmaldaholic:uth_table_player_banked"),
+    ("uth_royal", "uth_four_x", "challenge", "burmaldaholic:uth_table_high_roller"),
 ]
 
 

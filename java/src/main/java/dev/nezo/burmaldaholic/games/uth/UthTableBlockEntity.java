@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.games.uth;
 
+import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
+import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.nezo.burmaldaholic.Burmaldaholic;
@@ -153,11 +155,11 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	static UthConfig cfg() {
-		return UthConfig.get();
+		return CasinoConfig.uth();
 	}
 
 	static Paytables pays() {
-		return cfg().paytables();
+		return UthMath.paytables();
 	}
 
 	public Variant variant() {
@@ -809,6 +811,9 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 			}
 			if (res.hand() == PayHand.ROYAL) {
 				tags.add("royal");
+				if (res.blindBonus()) {
+					tags.add("royal_blind"); // §21.7: diamond rain replaces chaos' big-win roll for this settlement
+				}
 			}
 			double edge = UthMath.edgeOf(res.staked() - res.trips(), res.trips());
 			if (pvpRound) {
@@ -1047,7 +1052,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		banker = null;
 		if (b.bank > 0) {
 			transferOrLog(AccountId.HOUSE, AccountId.player(b.player), b.bank, new Transaction(UthModule.ID, "bank_return", Transaction.Kind.TRANSFER));
-			tell(b.player, Component.translatable("msg.burmaldaholic.uth.bank_returned", Texts.chipsAcc(b.bank)));
+			OfflineMail.chips(server(), b.player, "msg.burmaldaholic.uth.bank_returned", b.bank, true);
 		}
 		if (announce) {
 			tellTable(Component.translatable("msg.burmaldaholic.uth.pvp.left_seat", Texts.raw(b.name)), null);
@@ -1215,7 +1220,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 				Economies.get().transfer(server, AccountId.HOUSE, AccountId.player(e.player()), e.amount(), Transaction.refund(UthModule.ID));
 			}
 			if (e.kind().equals("bank")) {
-				tell(e.player(), Component.translatable("msg.burmaldaholic.uth.bank_returned", Texts.chipsAcc(e.amount())));
+				OfflineMail.chips(server, e.player(), "msg.burmaldaholic.uth.bank_returned", e.amount(), true);
 			}
 		}
 		orphaned.clear();

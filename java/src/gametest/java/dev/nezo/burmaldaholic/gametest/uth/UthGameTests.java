@@ -3,7 +3,8 @@ package dev.nezo.burmaldaholic.gametest.uth;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity.LeaveReason;
-import dev.nezo.burmaldaholic.games.uth.UthConfig;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
+import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
 import dev.nezo.burmaldaholic.games.uth.UthModule;
 import dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity;
 import dev.nezo.burmaldaholic.games.uth.logic.BankRules;
@@ -258,7 +259,7 @@ public class UthGameTests {
 	@GameTest
 	public void playerBankedRoundPaysTheBankAndRakes(GameTestHelper helper) {
 		UthTableBlockEntity table = place(helper, UthModule.PLAYER_BANKED_TABLE.block());
-		UthConfig cfg = UthConfig.get();
+		UthConfig cfg = CasinoConfig.uth();
 		int vip = cfg.pvp.minBankerVip;
 		cfg.pvp.minBankerVip = 0;
 		withPlayers(helper, (a, b) -> {
@@ -299,7 +300,7 @@ public class UthGameTests {
 	@GameTest
 	public void brokenPlayerBankedTableReturnsBetsAndBank(GameTestHelper helper) {
 		UthTableBlockEntity table = place(helper, UthModule.PLAYER_BANKED_TABLE.block());
-		UthConfig cfg = UthConfig.get();
+		UthConfig cfg = CasinoConfig.uth();
 		int vip = cfg.pvp.minBankerVip;
 		cfg.pvp.minBankerVip = 0;
 		withPlayers(helper, (a, b) -> {

@@ -35,6 +35,10 @@ public final class Layouts {
 	public static final String SLOTS_NETHERITE = "burmaldaholic:slot_machine_netherite";
 	public static final String WHEEL = "burmaldaholic:wheel_of_fortune";
 	public static final String PLINKO = "burmaldaholic:plinko_machine";
+	public static final String BACCARAT = "burmaldaholic:baccarat_table";
+	public static final String BACCARAT_HIGH_ROLLER = "burmaldaholic:baccarat_table_high_roller";
+	public static final String UTH = "burmaldaholic:uth_table";
+	public static final String UTH_HIGH_ROLLER = "burmaldaholic:uth_table_high_roller";
 
 	private static final BlockSpec AIR = BlockSpec.mc("air");
 
@@ -163,6 +167,8 @@ public final class Layouts {
 		g.set(4, 1, 10, table(BLACKJACK, Facing.SOUTH));
 		g.set(12, 1, 10, table(ROULETTE, Facing.SOUTH));
 		g.set(15, 1, 13, table(CASHIER, Facing.WEST));
+		// §16.1 (2026-09): Ultimate Texas Hold'em along the back wall
+		g.set(6, 1, 6, table(UTH, Facing.SOUTH));
 
 		String id = "village_casino_" + style.id();
 		List<Layout.PlacedMarker> markers = List.of(
@@ -218,49 +224,58 @@ public final class Layouts {
 		g.set(1, 1, 13, table(SLOTS_GOLD, Facing.EAST));
 		g.set(19, 1, 11, table(PLINKO, Facing.WEST));
 		g.set(19, 1, 15, table(NETHER_CASHIER, Facing.WEST));
+		// §16.2 (2026-09): baccarat, one Piglin Dealer behind it (cosmetic)
+		g.set(6, 1, 12, table(BACCARAT, Facing.SOUTH));
 
 		List<Layout.PlacedMarker> markers = List.of(
 			new Layout.PlacedMarker(new Vec(10, 4, 10), new Markers.Anchor("piglin_parlor")),
-			new Layout.PlacedMarker(new Vec(6, 2, 4), new Markers.Npc(NpcRole.PIGLIN_DEALER, Facing.SOUTH)),
+			new Layout.PlacedMarker(new Vec(6, 2, 11), new Markers.Npc(NpcRole.PIGLIN_DEALER, Facing.SOUTH)),
 			new Layout.PlacedMarker(new Vec(14, 2, 4), new Markers.Npc(NpcRole.PIGLIN_DEALER, Facing.SOUTH)),
 			new Layout.PlacedMarker(new Vec(10, 2, 3), new Markers.Npc(NpcRole.PIGLIN_MONEYLENDER, Facing.SOUTH)),
 			new Layout.PlacedMarker(new Vec(1, 1, 19), new Markers.Chest(CasinoLoot.Table.PIGLIN_PARLOR, Facing.EAST)));
 		return new Layout("piglin_parlor", CasinoKind.PIGLIN_PARLOR, g, markers, List.of());
 	}
 
-	// ---- End City High Roller Lounge 13 × 9 × 13 (§16.3) ----------------------------------------
+	// ---- End City High Roller Lounge 15 × 9 × 15 (§16.3; 13 × 13 before the 2026-09 games) --------
 
 	private static Layout highRollerLounge() {
-		Grid g = new Grid(13, 9, 13);
+		int n = 15;
+		int m = n - 1;
+		int c = n / 2;
+		Grid g = new Grid(n, 9, n);
 		BlockSpec purpur = BlockSpec.mc("purpur_block");
-		g.box(0, 0, 0, 12, 8, 12, AIR);
-		g.box(0, 0, 0, 12, 0, 12, purpur);
-		g.box(1, 0, 1, 11, 0, 11, BlockSpec.mc("obsidian"));
-		g.box(5, 0, 5, 7, 0, 7, BlockSpec.mc("crying_obsidian"));
-		g.walls(0, 1, 0, 12, 1, 12, purpur);
-		g.walls(0, 2, 0, 12, 4, 12, BlockSpec.mc("magenta_stained_glass"));
-		g.walls(0, 5, 0, 12, 5, 12, purpur);
-		for (int[] c : new int[][] {{0, 0}, {12, 0}, {0, 12}, {12, 12}}) {
-			g.box(c[0], 1, c[1], c[0], 5, c[1], purpur);
-			g.set(c[0], 7, c[1], BlockSpec.mc("end_rod", "facing", "up"));
+		g.box(0, 0, 0, m, 8, m, AIR);
+		g.box(0, 0, 0, m, 0, m, purpur);
+		g.box(1, 0, 1, m - 1, 0, m - 1, BlockSpec.mc("obsidian"));
+		g.box(c - 1, 0, c - 1, c + 1, 0, c + 1, BlockSpec.mc("crying_obsidian"));
+		g.walls(0, 1, 0, m, 1, m, purpur);
+		g.walls(0, 2, 0, m, 4, m, BlockSpec.mc("magenta_stained_glass"));
+		g.walls(0, 5, 0, m, 5, m, purpur);
+		for (int[] p : new int[][] {{0, 0}, {m, 0}, {0, m}, {m, m}}) {
+			g.box(p[0], 1, p[1], p[0], 5, p[1], purpur);
+			g.set(p[0], 7, p[1], BlockSpec.mc("end_rod", "facing", "up"));
 		}
-		g.box(0, 6, 0, 12, 6, 12, purpur);
-		for (int[] c : new int[][] {{3, 3}, {9, 3}, {3, 9}, {9, 9}}) {
-			g.set(c[0], 5, c[1], BlockSpec.mc("end_rod", "facing", "down"));
+		g.box(0, 6, 0, m, 6, m, purpur);
+		for (int[] p : new int[][] {{3, 3}, {m - 3, 3}, {3, m - 3}, {m - 3, m - 3}}) {
+			g.set(p[0], 5, p[1], BlockSpec.mc("end_rod", "facing", "down"));
 		}
-		g.box(1, 1, 1, 11, 1, 11, BlockSpec.mc("purple_carpet"));
-		g.box(5, 1, 12, 7, 3, 12, AIR);
-		// tables (§16.3: Netherite High Roller ×2, High-Roller Blackjack, High-Roller Roulette, Cashier)
+		g.box(1, 1, 1, m - 1, 1, m - 1, BlockSpec.mc("purple_carpet"));
+		g.box(c - 1, 1, m, c + 1, 3, m, AIR);
+		// tables (§16.3: Netherite High Roller ×2, High-Roller Blackjack, Roulette, Baccarat, UTH, Cashier)
 		g.set(2, 1, 1, table(SLOTS_NETHERITE, Facing.SOUTH));
 		g.set(4, 1, 1, table(SLOTS_NETHERITE, Facing.SOUTH));
-		g.set(4, 1, 6, table(BLACKJACK_HIGH_ROLLER, Facing.SOUTH));
-		g.set(8, 1, 6, table(ROULETTE_HIGH_ROLLER, Facing.SOUTH));
-		g.set(10, 1, 1, table(CASHIER, Facing.SOUTH));
+		g.set(4, 1, 5, table(BLACKJACK_HIGH_ROLLER, Facing.SOUTH));
+		g.set(10, 1, 5, table(ROULETTE_HIGH_ROLLER, Facing.SOUTH));
+		g.set(12, 1, 1, table(CASHIER, Facing.SOUTH));
+		g.set(4, 1, 10, table(BACCARAT_HIGH_ROLLER, Facing.SOUTH));
+		g.set(10, 1, 10, table(UTH_HIGH_ROLLER, Facing.SOUTH));
 
 		List<Layout.PlacedMarker> markers = List.of(
-			new Layout.PlacedMarker(new Vec(6, 3, 6), new Markers.Anchor("high_roller_lounge")),
-			new Layout.PlacedMarker(new Vec(10, 2, 9), new Markers.Npc(NpcRole.SHULKER_CROUPIER, Facing.WEST)),
-			new Layout.PlacedMarker(new Vec(6, 1, 1), new Markers.Chest(CasinoLoot.Table.HIGH_ROLLER, Facing.SOUTH)));
+			new Layout.PlacedMarker(new Vec(c, 3, c), new Markers.Anchor("high_roller_lounge")),
+			new Layout.PlacedMarker(new Vec(12, 2, 8), new Markers.Npc(NpcRole.SHULKER_CROUPIER, Facing.WEST)),
+			// behind the High-Roller baccarat table (the dealer opens the nearest baccarat table)
+			new Layout.PlacedMarker(new Vec(4, 2, 9), new Markers.Npc(NpcRole.BACCARAT_DEALER, Facing.SOUTH)),
+			new Layout.PlacedMarker(new Vec(c, 1, 1), new Markers.Chest(CasinoLoot.Table.HIGH_ROLLER, Facing.SOUTH)));
 		return new Layout("high_roller_lounge", CasinoKind.HIGH_ROLLER, g, markers, List.of());
 	}
 

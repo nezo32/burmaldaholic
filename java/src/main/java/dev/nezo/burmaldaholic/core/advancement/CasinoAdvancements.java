@@ -42,7 +42,9 @@ public final class CasinoAdvancements {
 		"shark_hunter", "three_sevens", "jackpot", "zero_hero", "hot_shooter", "plinko_edge", "scratch_top", "on_fire", "black_cat",
 		"loan_taken", "knock_knock", "hostile_takeover", "clean_slate", "not_today", "scarred", "heart_on_the_line", "devils_deal",
 		"golden_hour", "beam_me_up", "vip_silver", "vip_gold", "vip_platinum", "vip_diamond", "vip_netherite", "the_house",
-		"house_always_wins", "bankrupt", "piglin_parlor", "high_roller");
+		"house_always_wins", "bankrupt", "piglin_parlor", "high_roller",
+		// 2026-09 games: granted by the baccarat / uth modules
+		"baccarat_natural", "tie_streak", "uth_four_x", "banco", "bank_holder", "uth_house_seat", "uth_royal");
 	private static final Set<String> KNOWN = Set.copyOf(IDS);
 	/** Streak thresholds of on_fire / black_cat. */
 	public static final int STREAK = 10;

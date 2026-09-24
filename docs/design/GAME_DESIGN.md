@@ -1666,7 +1666,7 @@ Test vectors (A = 10 unless stated; cards: player hole · dealer hole · board):
 | Bet | Figure | Method |
 |-----|--------|--------|
 | Ante + Blind + Play, **optimal** strategy | **2.185 % of the Ante** (≈ 2.19 %); average total wagered 4.15 Antes → **element of risk 0.527 %** (≈ 0.53 %) | Full combinatorial analysis with the §7.2 evaluator: every hole-card pair (1 326, 169 classes) × flop × turn/river × the dealer's 990 remaining hole pairs, choosing the max-EV action backwards (river → flop → preflop). Offline tool, not part of CI. Optimal play never uses ×3. |
-| Same, **reference strategy R** (below) | **2.27 % ± 0.06 %** of the Ante, element of risk 0.55 %, average total wagered 4.15 Antes; fold 19.1 %, ×4 37.7 %, ×2 21.4 %, ×1 21.7 % | Monte-Carlo, 6 × 10⁷ rounds (design-time measurement, SE 0.064 %). |
+| Same, **reference strategy R** (below) | **2.27 % ± 0.06 %** of the Ante, element of risk 0.55 %, average total wagered 4.15 Antes; fold 19.1 %, ×4 37.7 %, ×2 21.4 %, ×1 21.7 % | Monte-Carlo, 6 × 10⁷ rounds (design-time measurement, SE 0.064 %). Re-derived 2026-09 with the Bedrock board sampler (`uth/logic/sim.ts`, exact over the 1 081 × 990 hole/dealer pairs of each board): 5.4 × 10⁵ boards → 2.25 % ± 0.08 %, same bet frequencies — the figure stands; both editions implement R identically. |
 | Trips 50-40-30-8-6-5-3 | EV = −2 547 324 / 133 784 560 = **−1.9040 %** | Exact over all C(52,7) = 133 784 560 hands: royal 4 324, straight flush 37 260, quads 224 848, full house 3 473 184, flush 4 047 644, straight 6 180 020, trips 6 461 620 (hit rate 15.27 %). |
 | Trips 50-40-30-9-7-4-3 (variant) | −1 206 516 / 133 784 560 = −0.9018 % | Same counts. |
 

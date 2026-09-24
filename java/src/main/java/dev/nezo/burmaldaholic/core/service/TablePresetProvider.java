@@ -45,5 +45,15 @@ public interface TablePresetProvider {
 		public static TablePreset highRollerRoulette() {
 			return new TablePreset("high_roller_roulette", "", -1, 100, 0, 0, List.of());
 		}
+
+		/** End City lounge baccarat (§16.3): min 100 per coup, 2 × tier max, Gold VIP. */
+		public static TablePreset highRollerBaccarat() {
+			return new TablePreset("high_roller_baccarat", "", -1, 100, 2, VipTiers.GOLD, List.of());
+		}
+
+		/** End City lounge Ultimate Texas Hold'em (§16.3): min Ante 50, W ≤ 2 × tier max, Gold VIP. */
+		public static TablePreset highRollerUth() {
+			return new TablePreset("high_roller_uth", "", -1, 50, 2, VipTiers.GOLD, List.of());
+		}
 	}
 }

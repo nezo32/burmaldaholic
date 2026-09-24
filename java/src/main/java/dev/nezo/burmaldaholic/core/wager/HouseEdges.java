@@ -29,6 +29,13 @@ public final class HouseEdges {
 	public static final double PLINKO_MEDIUM = 0.0343;
 	public static final double PLINKO_HIGH = 0.033;
 	public static final double DICE_DUEL = 0.0278;
+	/** Baccarat Banker bet, 5 % commission (the lowest baccarat edge; Player 1.24 %, Tie 14.36 %, Pairs 10.36 %). */
+	public static final double BACCARAT_BANKER = 0.0106;
+	public static final double BACCARAT_PLAYER = 0.0124;
+	/** Ultimate Texas Hold'em: element of risk (2.19 % of the Ante over ~4.1 Antes wagered). */
+	public static final double UTH = 0.0053;
+	/** UTH Trips, default 50-40-30-8-6-5-3. */
+	public static final double UTH_TRIPS = 0.0190;
 
 	/** Lowest edge per game id (ids as used in transactions / {@code PlayResult#gameId}). */
 	private static final Map<String, Double> LOWEST = Map.ofEntries(
@@ -42,6 +49,8 @@ public final class HouseEdges {
 		Map.entry("scratch_card", SCRATCH_GOLD),
 		Map.entry("plinko", PLINKO_HIGH),
 		Map.entry("dice_duel", DICE_DUEL),
+		Map.entry("baccarat", BACCARAT_BANKER),
+		Map.entry("uth", UTH),
 		Map.entry("dice_duel_pvp", 0.0));
 
 	private HouseEdges() {}

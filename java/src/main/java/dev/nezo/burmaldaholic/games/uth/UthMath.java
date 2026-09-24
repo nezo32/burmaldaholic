@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.games.uth;
 
+import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.games.uth.logic.Paytables;
 import dev.nezo.burmaldaholic.games.uth.logic.TripsMath;
@@ -22,8 +24,14 @@ public final class UthMath {
 		if (total <= 0) {
 			return ELEMENT_OF_RISK;
 		}
-		double tripsEdge = Math.max(0, TripsMath.houseEdge(UthConfig.get().paytables()));
+		double tripsEdge = Math.max(0, TripsMath.houseEdge(paytables()));
 		return (ELEMENT_OF_RISK * mainStake + tripsEdge * trips) / total;
+	}
+
+	/** Blind / Trips paytables of the current {@code uth} config (call again after reloads). */
+	public static Paytables paytables() {
+		UthConfig c = CasinoConfig.uth();
+		return new Paytables(c.blindPays, c.tripsPays);
 	}
 
 	/** {@code uth.validateEdge}: a Trips paytable with an edge of 1 % or less is logged loudly (never auto-fixed). */

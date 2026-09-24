@@ -122,6 +122,7 @@ public final class CoreModule implements CasinoModule {
 		CasinoEvents.PLAY_RESOLVED.register((player, result) -> StreakTracker.record(player, result.bet(), result.net()));
 		PlayResults.register();
 		CasinoAdvancements.register();
+		dev.nezo.burmaldaholic.core.data.OfflineMail.register();
 		dev.nezo.burmaldaholic.core.pvp.Pvp.register(); // PvP engine lifecycle (skeleton: no-op until J-P1)
 		dev.nezo.burmaldaholic.core.bots.Bots.register(); // bot job scheduler + ledger (skeleton)
 		CoreMenu.register(ctx);

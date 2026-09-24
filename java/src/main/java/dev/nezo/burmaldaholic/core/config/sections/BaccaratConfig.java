@@ -1,12 +1,8 @@
-package dev.nezo.burmaldaholic.games.baccarat;
+package dev.nezo.burmaldaholic.core.config.sections;
 
 import dev.nezo.burmaldaholic.core.config.Range;
 
-/**
- * Config section {@code baccarat} — keys, defaults and ranges from docs/design/CONFIG.md (§baccarat).
- * Registered by the baccarat module ({@code ctx.config("baccarat", ...)}) because the module was added
- * after core's section list; read it with {@link BaccaratModule#config()}.
- */
+/** Config section {@code baccarat} — keys, defaults and ranges from docs/design/CONFIG.md (§baccarat). */
 public final class BaccaratConfig {
 	public boolean enabled = true;
 	@Range(min = 1, max = 8) public int decks = 8;

@@ -23,6 +23,8 @@ public final class PlayerRecord {
 	public final List<CompoundTag> pendingResults = new ArrayList<>();
 	/** Offline mailbox: advancement ids granted while offline. */
 	public final List<String> pendingAdvancements = new ArrayList<>();
+	/** Offline mailbox: chat notices ({@link OfflineMail}) sent on the next join. */
+	public final List<CompoundTag> pendingMail = new ArrayList<>();
 
 	CompoundTag save() {
 		CompoundTag tag = new CompoundTag();
@@ -42,6 +44,11 @@ public final class PlayerRecord {
 			pendingAdvancements.forEach(s -> list.add(StringTag.valueOf(s)));
 			tag.put("pending_advancements", list);
 		}
+		if (!pendingMail.isEmpty()) {
+			ListTag list = new ListTag();
+			pendingMail.forEach(t -> list.add(t.copy()));
+			tag.put("pending_mail", list);
+		}
 		return tag;
 	}
 
@@ -55,6 +62,7 @@ public final class PlayerRecord {
 		r.soulReadyAt = tag.getLongOr("soul_ready_at", 0);
 		tag.getListOrEmpty("pending_results").forEach(t -> t.asCompound().ifPresent(r.pendingResults::add));
 		tag.getListOrEmpty("pending_advancements").forEach(t -> t.asString().ifPresent(r.pendingAdvancements::add));
+		tag.getListOrEmpty("pending_mail").forEach(t -> t.asCompound().ifPresent(r.pendingMail::add));
 		return r;
 	}
 }

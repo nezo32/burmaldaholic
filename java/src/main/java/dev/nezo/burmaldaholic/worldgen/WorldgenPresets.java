@@ -35,6 +35,8 @@ public final class WorldgenPresets implements TablePresetProvider {
 			case TablePresets.PARLOR_POKER -> TablePreset.parlorPoker();
 			case TablePresets.HIGH_ROLLER_BLACKJACK -> TablePreset.highRollerBlackjack();
 			case TablePresets.HIGH_ROLLER_ROULETTE -> TablePreset.highRollerRoulette();
+			case TablePresets.HIGH_ROLLER_BACCARAT -> TablePreset.highRollerBaccarat();
+			case TablePresets.HIGH_ROLLER_UTH -> TablePreset.highRollerUth();
 			default -> throw new IllegalArgumentException(id);
 		};
 	}

@@ -1,7 +1,8 @@
 package dev.nezo.burmaldaholic.games.baccarat;
 
 import dev.nezo.burmaldaholic.Burmaldaholic;
-import dev.nezo.burmaldaholic.core.config.ConfigHandle;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
+import dev.nezo.burmaldaholic.core.config.sections.BaccaratConfig;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
 import dev.nezo.burmaldaholic.core.table.TableRegistrar;
@@ -41,7 +42,6 @@ public final class BaccaratModule implements CasinoModule {
 	public static TableType<BaccaratTableBlockEntity> CHEMMY_TABLE;
 	public static EntityType<BaccaratDealer> DEALER;
 	public static Item DEALER_SPAWN_EGG;
-	private static ConfigHandle<BaccaratConfig> config;
 
 	@Override
 	public String id() {
@@ -50,7 +50,7 @@ public final class BaccaratModule implements CasinoModule {
 
 	/** The {@code baccarat} config section (CONFIG.md); call again after reloads. */
 	public static BaccaratConfig config() {
-		return config == null ? new BaccaratConfig() : config.get();
+		return CasinoConfig.baccarat();
 	}
 
 	/** Paytable of the current config. */
@@ -61,7 +61,6 @@ public final class BaccaratModule implements CasinoModule {
 
 	@Override
 	public void register(ModuleContext ctx) {
-		config = ctx.config(ID, BaccaratConfig.class, BaccaratConfig::new);
 		TABLE = ctx.tables().register("baccarat_table", BaccaratTableBlockEntity::new);
 		HIGH_ROLLER_TABLE = ctx.tables().register(HIGH_ROLLER_NAME, BaccaratTableBlockEntity::new,
 			TableRegistrar.defaultProperties().mapColor(MapColor.COLOR_PURPLE).strength(3.0f));
@@ -75,16 +74,7 @@ public final class BaccaratModule implements CasinoModule {
 		DEALER_SPAWN_EGG = ctx.registry().item("baccarat_dealer_spawn_egg", SpawnEggItem::new, new Item.Properties().spawnEgg(DEALER));
 
 		BaccaratPresets.install(); // after worldgen (module order): baccarat tables in generated casinos
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> checkConfig());
-	}
-
-	private static void onJoin(ServerPlayer player) {
-		BaccaratAdvancements.deliver(player);
-		long bank = BaccaratData.get(player.level().getServer()).takeBankReturned(player.getUUID());
-		if (bank > 0) {
-			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.baccarat.bank_returned", Texts.chips(bank)));
-		}
 	}
 
 	/** §20.1: a commission without an exact Banker step ≤ 100 floors the payout — log the resulting edge. */

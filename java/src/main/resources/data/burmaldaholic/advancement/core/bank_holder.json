@@ -1,16 +1,16 @@
 {
-  "parent": "burmaldaholic:baccarat/baccarat_natural",
+  "parent": "burmaldaholic:core/banco",
   "display": {
     "icon": {
-      "id": "minecraft:lead"
+      "id": "minecraft:gold_block"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.tie_streak.title"
+      "translate": "advancement.burmaldaholic.bank_holder.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.tie_streak.description"
+      "translate": "advancement.burmaldaholic.bank_holder.description"
     },
-    "frame": "goal",
+    "frame": "challenge",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

@@ -84,7 +84,7 @@ public class WorldgenGameTests {
 			&& box.maxZ() == expected.maxZ() && box.minY() == expected.minY(), "pure geometry matches Minecraft's box " + box);
 
 		// Chest from its data marker: rotated with the building and filled from chests/high_roller.
-		BlockPos chestPos = pos(Geometry.toWorld(vec(origin), new Vec(6, 1, 1), turns));
+		BlockPos chestPos = pos(Geometry.toWorld(vec(origin), new Vec(7, 1, 1), turns));
 		BlockState chest = level.getBlockState(chestPos);
 		helper.assertTrue(chest.is(Blocks.CHEST), "chest placed at " + chestPos + " but found " + chest);
 		helper.assertTrue(chest.getValue(ChestBlock.FACING) == Direction.byName(Facing.SOUTH.rotate(turns).id()), "chest rotated");
@@ -98,8 +98,8 @@ public class WorldgenGameTests {
 		helper.assertTrue(stacks >= 3 && stacks <= 5, "3-5 loot stacks, got " + stacks);
 
 		// Anchor + NPC marker cells are cleared, tables of present modules are in place.
-		helper.assertTrue(level.getBlockState(pos(Geometry.toWorld(vec(origin), new Vec(6, 3, 6), turns))).isAir(), "anchor cell cleared");
-		BlockState cashier = level.getBlockState(pos(Geometry.toWorld(vec(origin), new Vec(10, 1, 1), turns)));
+		helper.assertTrue(level.getBlockState(pos(Geometry.toWorld(vec(origin), new Vec(7, 3, 7), turns))).isAir(), "anchor cell cleared");
+		BlockState cashier = level.getBlockState(pos(Geometry.toWorld(vec(origin), new Vec(12, 1, 1), turns)));
 		helper.assertTrue(BuiltInRegistries.BLOCK.getKey(cashier.getBlock()).getPath().equals("cashier"), "cashier in the lounge, found " + cashier);
 
 		// Registered for the welcome title / High Roller check, with its NPC home.
@@ -108,8 +108,8 @@ public class WorldgenGameTests {
 			.filter(r -> r.id().equals(CasinoRecord.idFor(dim, origin.getX(), origin.getY(), origin.getZ())))
 			.findFirst().orElseThrow();
 		helper.assertTrue(record.kind() == CasinoKind.HIGH_ROLLER && record.box().equals(expected), "record bounds");
-		helper.assertTrue(record.npcs().size() == 1, "shulker croupier home recorded (spawned only if its entity exists)");
-		BlockPos inside = pos(Geometry.toWorld(vec(origin), new Vec(6, 2, 6), turns));
+		helper.assertTrue(record.npcs().size() == 2, "shulker croupier + baccarat dealer homes recorded (spawned only if their entity exists)");
+		BlockPos inside = pos(Geometry.toWorld(vec(origin), new Vec(7, 2, 7), turns));
 		helper.assertTrue(CasinoRecord.findAt(CasinoIndex.get(level.getServer()).casinos(), dim,
 			inside.getX() + 0.5, inside.getY(), inside.getZ() + 0.5) == record, "position inside the lounge resolves to it");
 		helper.succeed();

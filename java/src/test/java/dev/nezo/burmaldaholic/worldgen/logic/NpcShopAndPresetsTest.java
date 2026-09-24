@@ -15,13 +15,16 @@ class NpcShopAndPresetsTest {
 		assertEquals(Optional.of(TablePresets.HIGH_ROLLER_BLACKJACK), TablePresets.presetId(CasinoKind.HIGH_ROLLER, Layouts.BLACKJACK));
 		assertEquals(Optional.of(TablePresets.HIGH_ROLLER_ROULETTE), TablePresets.presetId(CasinoKind.HIGH_ROLLER, Layouts.ROULETTE_HIGH_ROLLER));
 		assertEquals(Optional.empty(), TablePresets.presetId(CasinoKind.HIGH_ROLLER, Layouts.POKER));
+		assertEquals(Optional.of(TablePresets.HIGH_ROLLER_BACCARAT), TablePresets.presetId(CasinoKind.HIGH_ROLLER, Layouts.BACCARAT_HIGH_ROLLER));
+		assertEquals(Optional.of(TablePresets.HIGH_ROLLER_UTH), TablePresets.presetId(CasinoKind.HIGH_ROLLER, Layouts.UTH_HIGH_ROLLER));
+		assertEquals(Optional.empty(), TablePresets.presetId(CasinoKind.PIGLIN_PARLOR, Layouts.BACCARAT));
 		assertEquals(Optional.empty(), TablePresets.presetId(CasinoKind.VILLAGE_CASINO, Layouts.BLACKJACK));
 		assertEquals(Optional.empty(), TablePresets.presetId(null, Layouts.POKER));
 	}
 
 	@Test
 	void presetTablesOfTheLayoutsAreCovered() {
-		// every poker table in the Parlor and every blackjack/roulette table in the Lounge gets its preset
+		// every poker table in the Parlor and every blackjack/roulette/baccarat/UTH table in the Lounge gets its preset
 		for (Layout l : Layouts.all().values()) {
 			for (int x = 0; x < l.size().x(); x++) {
 				for (int y = 0; y < l.size().y(); y++) {
@@ -32,7 +35,8 @@ class NpcShopAndPresetsTest {
 						}
 						String id = b.name();
 						boolean expected = (l.kind() == CasinoKind.PIGLIN_PARLOR && id.equals(Layouts.POKER))
-							|| (l.kind() == CasinoKind.HIGH_ROLLER && (id.startsWith(Layouts.BLACKJACK) || id.startsWith(Layouts.ROULETTE)));
+							|| (l.kind() == CasinoKind.HIGH_ROLLER && (id.startsWith(Layouts.BLACKJACK) || id.startsWith(Layouts.ROULETTE)
+								|| id.startsWith(Layouts.BACCARAT) || id.startsWith(Layouts.UTH)));
 						assertEquals(expected, TablePresets.presetId(l.kind(), id).isPresent(), l.id() + " " + id);
 					}
 				}

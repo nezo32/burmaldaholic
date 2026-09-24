@@ -37,7 +37,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
  *       21×21 room appended next to the bastion on its lowest level, main entrance facing out, back
  *       door facing the bastion.</li>
  *   <li><b>High Roller Lounge</b> (§16.3): {@code worldgen.highRoller.chance} of End Cities get the
- *       13×13 lounge as a top floor on their highest tower top.</li>
+ *       15×15 lounge as a top floor on their highest tower top.</li>
  * </ul>
  * The room is a regular pool-element piece of the host structure (saved with it, placed chunk by
  * chunk). Gates hash the world seed + structure chunk, so generation is reproducible per seed.

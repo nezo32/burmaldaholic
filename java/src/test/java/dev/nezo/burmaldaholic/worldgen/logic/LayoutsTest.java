@@ -42,7 +42,7 @@ class LayoutsTest {
 			assertEquals(CasinoKind.VILLAGE_CASINO, Layouts.village(s).kind());
 		}
 		assertEquals(new Vec(21, 12, 21), Layouts.piglinParlorLayout().size());
-		assertEquals(new Vec(13, 9, 13), Layouts.highRollerLayout().size());
+		assertEquals(new Vec(15, 9, 15), Layouts.highRollerLayout().size());
 	}
 
 	@Test
@@ -55,6 +55,7 @@ class LayoutsTest {
 			assertEquals(3, count(l, Layouts.SLOTS_COPPER));
 			assertEquals(1, count(l, Layouts.SLOTS_GOLD));
 			assertEquals(1, count(l, Layouts.WHEEL));
+			assertEquals(1, count(l, Layouts.UTH));
 			assertEquals(1, npcs(l, NpcRole.LOAN_SHARK));
 			assertEquals(1, npcs(l, NpcRole.CROUPIER));
 			assertEquals(1, l.markers().stream().filter(m -> m.marker() instanceof Markers.Chest c
@@ -81,6 +82,7 @@ class LayoutsTest {
 		assertEquals(2, count(l, Layouts.SLOTS_GOLD));
 		assertEquals(1, count(l, Layouts.PLINKO));
 		assertEquals(1, count(l, Layouts.NETHER_CASHIER));
+		assertEquals(1, count(l, Layouts.BACCARAT));
 		assertEquals(2, npcs(l, NpcRole.PIGLIN_DEALER));
 		assertEquals(1, npcs(l, NpcRole.PIGLIN_MONEYLENDER));
 		// rows 9..11 keep the Nether rock (structure void)
@@ -96,7 +98,10 @@ class LayoutsTest {
 		assertEquals(1, count(l, Layouts.BLACKJACK_HIGH_ROLLER));
 		assertEquals(1, count(l, Layouts.ROULETTE_HIGH_ROLLER));
 		assertEquals(1, count(l, Layouts.CASHIER));
+		assertEquals(1, count(l, Layouts.BACCARAT_HIGH_ROLLER));
+		assertEquals(1, count(l, Layouts.UTH_HIGH_ROLLER));
 		assertEquals(1, npcs(l, NpcRole.SHULKER_CROUPIER));
+		assertEquals(1, npcs(l, NpcRole.BACCARAT_DEALER));
 	}
 
 	@Test

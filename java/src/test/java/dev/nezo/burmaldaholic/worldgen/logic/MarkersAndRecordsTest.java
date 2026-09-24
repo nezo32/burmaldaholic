@@ -89,6 +89,6 @@ class MarkersAndRecordsTest {
 		assertEquals(root.get("DataVersion"), back.get("DataVersion"));
 		assertEquals(((Nbt.TagList) root.get("blocks")).items().size(), ((Nbt.TagList) back.get("blocks")).items().size());
 		assertEquals(Nbt.END, ((Nbt.TagList) back.get("entities")).elementType());
-		assertEquals(List.of(13, 9, 13), ((Nbt.TagList) back.get("size")).items());
+		assertEquals(List.of(15, 9, 15), ((Nbt.TagList) back.get("size")).items());
 	}
 }

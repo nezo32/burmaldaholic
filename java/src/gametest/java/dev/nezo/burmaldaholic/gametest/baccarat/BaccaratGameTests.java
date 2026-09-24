@@ -285,8 +285,8 @@ public class BaccaratGameTests {
 	@GameTest
 	public void advancementsLoadWithTheirParents(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
-		Map<String, String> parents = Map.of("baccarat_natural", "core/beginners_luck", "tie_streak", "baccarat/baccarat_natural",
-			"banco", "baccarat/baccarat_natural", "bank_holder", "baccarat/banco");
+		Map<String, String> parents = Map.of("baccarat_natural", "core/beginners_luck", "tie_streak", "core/baccarat_natural",
+			"banco", "core/baccarat_natural", "bank_holder", "core/banco");
 		parents.forEach((id, parent) -> {
 			AdvancementHolder h = server.getAdvancements().get(BaccaratAdvancements.key(id));
 			helper.assertTrue(h != null, id + " loaded");

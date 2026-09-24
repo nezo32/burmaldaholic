@@ -1,14 +1,14 @@
 {
-  "parent": "burmaldaholic:uth/uth_four_x",
+  "parent": "burmaldaholic:core/baccarat_natural",
   "display": {
     "icon": {
-      "id": "burmaldaholic:uth_table_player_banked"
+      "id": "burmaldaholic:baccarat_table_player_banked"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.uth_house_seat.title"
+      "translate": "advancement.burmaldaholic.banco.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.uth_house_seat.description"
+      "translate": "advancement.burmaldaholic.banco.description"
     },
     "frame": "goal",
     "show_toast": true,

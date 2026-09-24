@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.core.config;
 
+import dev.nezo.burmaldaholic.core.config.sections.BaccaratConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BlackjackConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BotsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
@@ -18,6 +19,7 @@ import dev.nezo.burmaldaholic.core.config.sections.PvpConfig;
 import dev.nezo.burmaldaholic.core.config.sections.RouletteConfig;
 import dev.nezo.burmaldaholic.core.config.sections.SlotsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.StreakConfig;
+import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
 import dev.nezo.burmaldaholic.core.config.sections.VipConfig;
 import dev.nezo.burmaldaholic.core.config.sections.WagerConfig;
 import dev.nezo.burmaldaholic.core.config.sections.WorldgenConfig;
@@ -47,6 +49,8 @@ public final class CasinoConfig {
 	private static ConfigHandle<SlotsConfig> slots;
 	private static ConfigHandle<RouletteConfig> roulette;
 	private static ConfigHandle<CrapsConfig> craps;
+	private static ConfigHandle<BaccaratConfig> baccarat;
+	private static ConfigHandle<UthConfig> uth;
 	private static ConfigHandle<ExtrasConfig> extras;
 	private static ConfigHandle<PvpConfig> pvp;
 	private static ConfigHandle<LoanConfig> loan;
@@ -73,6 +77,8 @@ public final class CasinoConfig {
 		slots = m.register("slots", SlotsConfig.class, SlotsConfig::new);
 		roulette = m.register("roulette", RouletteConfig.class, RouletteConfig::new);
 		craps = m.register("craps", CrapsConfig.class, CrapsConfig::new);
+		baccarat = m.register("baccarat", BaccaratConfig.class, BaccaratConfig::new);
+		uth = m.register("uth", UthConfig.class, UthConfig::new);
 		extras = m.register("extras", ExtrasConfig.class, ExtrasConfig::new);
 		pvp = m.register("pvp", PvpConfig.class, PvpConfig::new);
 		loan = m.register("loan", LoanConfig.class, LoanConfig::new);
@@ -128,6 +134,16 @@ public final class CasinoConfig {
 
 	public static CrapsConfig craps() {
 		return get(craps, CrapsConfig::new);
+	}
+
+	/** Baccarat and Chemin de fer (GAME_DESIGN §20). */
+	public static BaccaratConfig baccarat() {
+		return get(baccarat, BaccaratConfig::new);
+	}
+
+	/** Ultimate Texas Hold'em (GAME_DESIGN §21). */
+	public static UthConfig uth() {
+		return get(uth, UthConfig::new);
 	}
 
 	public static ExtrasConfig extras() {

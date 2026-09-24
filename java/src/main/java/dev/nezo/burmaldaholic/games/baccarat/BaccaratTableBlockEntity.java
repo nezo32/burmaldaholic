@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.games.baccarat;
 
+import dev.nezo.burmaldaholic.core.config.sections.BaccaratConfig;
+import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.CoreSounds;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
@@ -874,12 +876,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			giveBack(who, amount, invested, "chemmy_bank");
 			MinecraftServer server = server();
 			if (tell && server != null) {
-				ServerPlayer online = server.getPlayerList().getPlayer(who);
-				if (online != null) {
-					online.sendSystemMessage(Component.translatable("msg.burmaldaholic.baccarat.bank_returned", Texts.chips(amount)));
-				} else {
-					BaccaratData.get(server).queueBankReturned(who, amount);
-				}
+				OfflineMail.chips(server, who, "msg.burmaldaholic.baccarat.bank_returned", amount, false);
 			}
 		}
 		setChanged();
@@ -1359,12 +1356,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (orphanBanker != null && orphanBank > 0) {
 			Burmaldaholic.LOGGER.info("Baccarat table {}: returning a bank of {} chips to {}", worldPosition, orphanBank, orphanBanker);
 			giveBack(orphanBanker, orphanBank, orphanInvested, "chemmy_bank");
-			ServerPlayer online = server.getPlayerList().getPlayer(orphanBanker);
-			if (online != null) {
-				online.sendSystemMessage(Component.translatable("msg.burmaldaholic.baccarat.bank_returned", Texts.chips(orphanBank)));
-			} else {
-				BaccaratData.get(server).queueBankReturned(orphanBanker, orphanBank);
-			}
+			OfflineMail.chips(server, orphanBanker, "msg.burmaldaholic.baccarat.bank_returned", orphanBank, false);
 		}
 		orphanBanker = null;
 		orphanBank = 0;
@@ -1658,6 +1650,9 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			}
 		}
 		// Runtime round state never survives a reload: core refunds open house stakes after a crash.
+		// Accepted Java edition difference (GAME_DESIGN §4.1): a clean stop / unload / break plays the drawn
+		// coup out before saving (playOutNow), so only a crash mid-coup refunds; core's CasinoTableBlockEntity
+		// has no per-game draw persistence to settle from (unlike Bedrock's wagers.draw).
 		bets.clear();
 		ready.clear();
 		coupPending = false;

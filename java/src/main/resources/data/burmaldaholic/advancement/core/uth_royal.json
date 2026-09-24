@@ -1,14 +1,14 @@
 {
-  "parent": "burmaldaholic:baccarat/banco",
+  "parent": "burmaldaholic:core/uth_four_x",
   "display": {
     "icon": {
-      "id": "minecraft:gold_block"
+      "id": "burmaldaholic:uth_table_high_roller"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.bank_holder.title"
+      "translate": "advancement.burmaldaholic.uth_royal.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.bank_holder.description"
+      "translate": "advancement.burmaldaholic.uth_royal.description"
     },
     "frame": "challenge",
     "show_toast": true,

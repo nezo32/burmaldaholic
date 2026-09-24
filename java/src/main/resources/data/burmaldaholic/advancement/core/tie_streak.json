@@ -1,14 +1,14 @@
 {
-  "parent": "burmaldaholic:baccarat/baccarat_natural",
+  "parent": "burmaldaholic:core/baccarat_natural",
   "display": {
     "icon": {
-      "id": "burmaldaholic:baccarat_table_player_banked"
+      "id": "minecraft:lead"
     },
     "title": {
-      "translate": "advancement.burmaldaholic.banco.title"
+      "translate": "advancement.burmaldaholic.tie_streak.title"
     },
     "description": {
-      "translate": "advancement.burmaldaholic.banco.description"
+      "translate": "advancement.burmaldaholic.tie_streak.description"
     },
     "frame": "goal",
     "show_toast": true,

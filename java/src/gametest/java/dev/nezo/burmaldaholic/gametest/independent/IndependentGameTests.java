@@ -159,7 +159,10 @@ public class IndependentGameTests {
 			Map.entry("clean_slate", "loan_taken"), Map.entry("not_today", "root"), Map.entry("scarred", "not_today"),
 			Map.entry("heart_on_the_line", "first_bet"), Map.entry("devils_deal", "heart_on_the_line"), Map.entry("golden_hour", "root"),
 			Map.entry("beam_me_up", "root"), Map.entry("the_house", "root"), Map.entry("house_always_wins", "the_house"),
-			Map.entry("bankrupt", "the_house"), Map.entry("piglin_parlor", "root"), Map.entry("high_roller", "piglin_parlor"));
+			Map.entry("bankrupt", "the_house"), Map.entry("piglin_parlor", "root"), Map.entry("high_roller", "piglin_parlor"),
+			Map.entry("baccarat_natural", "beginners_luck"), Map.entry("tie_streak", "baccarat_natural"), Map.entry("banco", "baccarat_natural"),
+			Map.entry("bank_holder", "banco"), Map.entry("uth_four_x", "beginners_luck"), Map.entry("uth_house_seat", "uth_four_x"),
+			Map.entry("uth_royal", "uth_four_x"));
 		MinecraftServer server = helper.getLevel().getServer();
 		List<String> errors = new ArrayList<>();
 		for (Map.Entry<String, String> e : parent.entrySet()) {
@@ -187,7 +190,7 @@ public class IndependentGameTests {
 			}
 			prev = "vip_" + tier;
 		}
-		long loaded = server.getAdvancements().getAllAdvancements().stream().filter(a -> a.id().getNamespace().equals(NS) && a.id().getPath().startsWith("core/")).count(); // modules added later keep their own folders (baccarat/, uth/)
+		long loaded = server.getAdvancements().getAllAdvancements().stream().filter(a -> a.id().getNamespace().equals(NS) && a.id().getPath().startsWith("core/")).count();
 		helper.assertTrue(loaded == parent.size() + 5, "exactly the §19 set is loaded: " + loaded);
 		helper.assertTrue(errors.isEmpty(), String.join("; ", errors));
 		helper.succeed();

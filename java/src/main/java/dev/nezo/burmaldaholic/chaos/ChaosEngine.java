@@ -208,6 +208,9 @@ public final class ChaosEngine {
 		if (!enabled(server) || result.deferred()) {
 			return;
 		}
+		if (result.hasTag("royal_blind")) {
+			return; // UTH royal paying the Blind: its diamond rain replaces the big-win roll (GAME_DESIGN §21.7)
+		}
 		ChaosConfig.BigWin bw = cfg().bigWin;
 		if (ChaosRules.isBigWin(result.bet(), result.net(), bw.multiple, bw.minChips) && rng().nextDouble() < bw.buffChance) {
 			UUID id = player.getUUID();

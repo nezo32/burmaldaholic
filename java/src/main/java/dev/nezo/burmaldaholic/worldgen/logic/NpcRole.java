@@ -14,7 +14,9 @@ public enum NpcRole {
 	/** Loan Shark variant; falls back to the plain Loan Shark when the variant is not registered. */
 	PIGLIN_MONEYLENDER("burmaldaholic:piglin_moneylender", "burmaldaholic:loan_shark"),
 	PIGLIN_DEALER("burmaldaholic:piglin_dealer"),
-	SHULKER_CROUPIER("burmaldaholic:shulker_croupier");
+	SHULKER_CROUPIER("burmaldaholic:shulker_croupier"),
+	/** Owned by the baccarat module; cosmetic, opens the nearest baccarat table (§20.6). */
+	BACCARAT_DEALER("burmaldaholic:baccarat_dealer");
 
 	private final List<String> entityIds;
 
