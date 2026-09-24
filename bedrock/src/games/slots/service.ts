@@ -94,6 +94,7 @@ import {
   readMachineConfig,
   resetPools,
   rtpWarnings,
+  rtpTablesDefault,
   sampleRtp,
   settlement,
   slotTier,
@@ -289,8 +290,9 @@ export class SlotsV2Service implements SlotsApi {
       const def = buildMachineDef(m, config);
       this.defs.set(m, def);
       this.bets.set(m, { ladder: config.bets, defaultBet: config.defaultBet, minVipTier: config.minVipTier, enabled: config.enabled });
-      const isDefault = JSON.stringify(config) === JSON.stringify(readMachineConfig(m, () => undefined).config);
-      const r = computeRtp(def, isDefault);
+      // Nether: the shipped §7.1 numbers hold while the game tables are default (a changed buy price or
+      // contribution is still validated exactly); other changes are re-checked by sampling
+      const r = computeRtp(def, rtpTablesDefault(m, config));
       if (r) this.rtp.set(m, r);
       else this.sampleNether(def);
     }
@@ -343,9 +345,10 @@ export class SlotsV2Service implements SlotsApi {
     if (!raw.migrated) {
       // S-B6: v1 Golden Reels / Netherite increments → Nether / End Grand, once (SLOTS.md §5.3)
       const v1 = worldJson.read<{ gold?: { pool?: number }; netherite?: { pool?: number } } | undefined>(V1_POOLS_PROP, undefined);
+      // the v1 seed keys leave the catalog at the cut-over: fall back to the stored raw config, then the v1 default
       const seedOf = (k: string, d: number): number => {
-        const v = this.get(k);
-        return typeof v === 'number' ? v : d;
+        const v = this.get(k) ?? rawConfigValue(k);
+        return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : d;
       };
       const moved = migrateV1Pools(this.pools, v1, { gold: seedOf('slots.jackpot.seed.gold', 5000), netherite: seedOf('slots.jackpot.seed.netherite', 50_000) });
       if (v1) this.ctx.log.info(`slots v2: v1 jackpots migrated (Nether Grand +${moved.nether}, End Grand +${moved.end})`);
@@ -933,6 +936,16 @@ export class SlotsV2Service implements SlotsApi {
   }
 }
 
+/** A key of the stored config JSON (`burmaldaholic:config`), also for keys no longer in the catalog. */
+function rawConfigValue(key: string): unknown {
+  try {
+    const raw = world.getDynamicProperty('burmaldaholic:config');
+    return typeof raw === 'string' ? (JSON.parse(raw) as Record<string, unknown>)[key] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const dist2 = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
 
 // ---- B-L9 SlotHost adapter (structurally `present/ddui-form.ts` SlotHost) ------------------------------------
@@ -1149,7 +1162,7 @@ export class ClassicPresenter implements SlotsV2Presenter {
         if (!p.isValid) return;
         if (b.kind === SLOT_BEAT.REEL_LAND) p.playSound('random.click');
         if (b.kind === SLOT_BEAT.FS_INTRO) presentationHud(round, t('gui.burmaldaholic.slots.fs.awarded', lit(b.args[0]!)));
-        if (b.kind === SLOT_BEAT.JACKPOT && b.clock === 'S') p.playSound('random.levelup');
+        if (b.kind === SLOT_BEAT.JACKPOT) p.playSound('random.levelup'); // a LOCAL beat after the gate (never clock S)
       },
       frame: (tMs) => {
         if (tMs <= Math.max(...landEnd) + 100) frame(tMs);

@@ -353,7 +353,8 @@ export function computeRtp(def: MachineDef, isDefault = true): RtpBreakdown | un
       bonus: ref.bonus / 100,
       jackpotSeed: ref.jackpotSeed / 100,
       contributions,
-      total: ref.total / 100,
+      // the shipped total holds the default contributions; the configured ones are added live
+      total: (ref.total - ref.contributions) / 100 + contributions,
       owned,
       method: 'defaults',
     };

@@ -166,7 +166,8 @@ export interface SpinTape {
   freeSpins?: { awarded: number; spins: FreeSpin[]; payFifths: number };
   /**
    * Treasure Hunt: `board` i.i.d. entries in REVEAL order (codes: 1,2,3,5,10,25 = ×bet; −1…−4 = Mini…Grand;
-   * 0 = Creeper) and the number of chests the hunt opens (prizes + the Creeper, or fewer at the cap).
+   * 0 = Creeper) and `opened` = picks made so far (0 at draw; the round record persists it per pick, SLOTS.md
+   * §8.1). How many chests the hunt opens is `huntOpens(def, tape)`, a pure function of the tape.
    */
   hunt?: { entries: number[]; opened: number };
   /** Piglin's Hoard: initial coin cells/values, then per respin the new coins (cell, value). */

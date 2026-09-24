@@ -95,6 +95,14 @@ export function evaluateWays(def: MachineDef, w: Window, stickyMask = 0): WaysRe
 export const ladderAt = (ladder: readonly number[], step: number): number => (ladder.length === 0 ? 1 : ladder[Math.min(step, ladder.length - 1)]!);
 
 /**
+ * Safety bound on the evaluations of one tumble chain. The default strips end after at most 9 evaluations
+ * (8 tumbles, SLOTS.md §7.5, proven by the full enumeration); a configured strip set can tumble forever (e.g. a
+ * reel of one symbol), which would hang the server tick. The chain stops after this many evaluations; the last
+ * one still pays. Never reached by the defaults, so the §7.5 numbers and the shared vectors are unchanged.
+ */
+export const MAX_TUMBLE_STEPS = 100;
+
+/**
  * Nether tumble chain (SLOTS.md §3.2): evaluate, pay × ladder[step], remove every winning cell, drop the
  * survivors, refill each reel from the strip ABOVE the window (`top_r −= m`), repeat until no win.
  */
@@ -109,6 +117,10 @@ export function runTumbles(def: MachineDef, stops: readonly number[], ladder: re
     const payFifths = result.payFifths * multiplier;
     steps.push({ step, window, result, multiplier, payFifths, tops: tops.slice() });
     if (result.payFifths === 0) break;
+    if (step + 1 >= MAX_TUMBLE_STEPS) {
+      total += payFifths;
+      break;
+    }
     total += payFifths;
     const next: number[] = new Array<number>(CELLS);
     for (let r = 0; r < REELS; r++) {

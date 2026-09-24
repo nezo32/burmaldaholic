@@ -23,29 +23,34 @@ export const toFifths = (x: number): number | undefined => {
   return Math.abs(x * 5 - f) < EPS ? f : undefined;
 };
 
-type Check<T> = (v: unknown) => T | string;
+/** A rejected value (a class, not a string: string-valued keys such as wheel tokens and strips are values). */
+class Bad {
+  constructor(readonly why: string) {}
+}
+const bad = (why: string): Bad => new Bad(why);
+type Check<T> = (v: unknown) => T | Bad;
 
 const intIn =
   (min: number, max: number): Check<number> =>
   (v) =>
-    isInt(v) && v >= min && v <= max ? v : `expected an integer ${min}–${max}`;
+    isInt(v) && v >= min && v <= max ? v : bad(`expected an integer ${min}–${max}`);
 const numIn =
   (min: number, max: number): Check<number> =>
   (v) =>
-    isNum(v) && v >= min && v <= max ? v : `expected a number ${min}–${max}`;
-const bool: Check<boolean> = (v) => (typeof v === 'boolean' ? v : 'expected true/false');
+    isNum(v) && v >= min && v <= max ? v : bad(`expected a number ${min}–${max}`);
+const bool: Check<boolean> = (v) => (typeof v === 'boolean' ? v : bad('expected true/false'));
 const fifthsIn =
   (min: number, max: number): Check<number> =>
   (v) =>
-    isNum(v) && v >= min && v <= max && toFifths(v) !== undefined ? v : `expected a multiple of 0.2 in ${min}–${max}`;
+    isNum(v) && v >= min && v <= max && toFifths(v) !== undefined ? v : bad(`expected a multiple of 0.2 in ${min}–${max}`);
 const listOf =
   <T>(each: Check<T>, minLen: number, maxLen: number): Check<T[]> =>
   (v) => {
-    if (!Array.isArray(v) || v.length < minLen || v.length > maxLen) return `expected a list of ${minLen === maxLen ? minLen : `${minLen}–${maxLen}`} entries`;
+    if (!Array.isArray(v) || v.length < minLen || v.length > maxLen) return bad(`expected a list of ${minLen === maxLen ? minLen : `${minLen}–${maxLen}`} entries`);
     const out: T[] = [];
     for (const x of v) {
       const r = each(x);
-      if (typeof r === 'string') return r;
+      if (r instanceof Bad) return r;
       out.push(r);
     }
     return out;
@@ -53,35 +58,35 @@ const listOf =
 const mapOf =
   <T>(keys: readonly string[], each: Check<T>): Check<Record<string, T>> =>
   (v) => {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return 'expected a map';
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return bad('expected a map');
     const out: Record<string, T> = {};
     for (const k of keys) {
       const raw = (v as Record<string, unknown>)[k];
-      if (raw === undefined) return `missing key ${k}`;
+      if (raw === undefined) return bad(`missing key ${k}`);
       const r = each(raw);
-      if (typeof r === 'string') return `${k}: ${r}`;
+      if (r instanceof Bad) return bad(`${k}: ${r.why}`);
       out[k] = r;
     }
-    for (const k of Object.keys(v)) if (!keys.includes(k)) return `unknown key ${k}`;
+    for (const k of Object.keys(v)) if (!keys.includes(k)) return bad(`unknown key ${k}`);
     return out;
   };
 
 const betList: Check<number[]> = (v) => {
   const l = listOf(intIn(5, 1_000_000), 1, 8)(v);
-  if (typeof l === 'string') return l;
-  if (l.some((b) => b % 5 !== 0)) return 'every bet must be a multiple of 5';
-  for (let i = 1; i < l.length; i++) if (l[i]! <= l[i - 1]!) return 'bets must be sorted ascending';
+  if (l instanceof Bad) return l;
+  if (l.some((b) => b % 5 !== 0)) return bad('every bet must be a multiple of 5');
+  for (let i = 1; i < l.length; i++) if (l[i]! <= l[i - 1]!) return bad('bets must be sorted ascending');
   return l;
 };
 
 const wheelToken =
   (allowUp: boolean): Check<string> =>
   (v) => {
-    if (typeof v !== 'string') return 'expected a string token';
+    if (typeof v !== 'string') return bad('expected a string token');
     if (/^[1-9]\d{0,4}$/.test(v)) return v;
     if (['MINI', 'MINOR', 'MAJOR', 'GRAND'].includes(v)) return v;
     if (v === 'UP' && allowUp) return v;
-    return `bad wheel token ${v}`;
+    return bad(`bad wheel token ${v}`);
   };
 
 /** Strip validation (SLOTS.md §12 `slots.<m>.strips`). Returns an error or undefined. */
@@ -113,9 +118,10 @@ export function stripError(id: MachineId, strips: readonly string[]): string | u
 const stripsCheck =
   (id: MachineId): Check<string[]> =>
   (v) => {
-    const l = listOf<string>((x) => (typeof x === 'string' ? x : 'expected strings'), 5, 5)(v);
-    if (typeof l === 'string') return l;
-    return stripError(id, l) ?? l;
+    const l = listOf<string>((x) => (typeof x === 'string' ? x : bad('expected strings')), 5, 5)(v);
+    if (l instanceof Bad) return l;
+    const e = stripError(id, l);
+    return e === undefined ? l : bad(e);
   };
 
 /** Every configurable key of a machine with its check (relative to `slots.<m>.`). */
@@ -177,7 +183,7 @@ export function readMachineConfig(id: MachineId, get: ConfigGetter): { config: M
     const raw = get(`slots.${id}.${key}`);
     if (raw === undefined) continue;
     const v = check(raw);
-    if (typeof v === 'string') errors.push(`slots.${id}.${key}: ${v}`);
+    if (v instanceof Bad) errors.push(`slots.${id}.${key}: ${v.why}`);
     else apply(config, v as never);
   }
   // cross-key rules
@@ -250,6 +256,20 @@ export function buildMachineDef(id: MachineId, c: MachineConfig = DEFAULT_CONFIG
     };
   if (c.wheel) def.wheel = { rings: [c.wheel.outer.map(wheelCode), c.wheel.middle.map(wheelCode), c.wheel.core.map(wheelCode)] };
   return def;
+}
+
+/**
+ * True when the config's GAME tables equal the defaults, i.e. the shipped §7.1 numbers still describe it. Keys
+ * that do not change the per-stake game RTP are ignored: availability, bets, VIP gate, the buy price (its RTP is
+ * recomputed from the price), jackpot contributions (added live) and the reference bet (seeds scale with it).
+ * Used for Nether, whose tumbles are not factorisable: a changed buy price must still be validated exactly.
+ */
+export function rtpTablesDefault(id: MachineId, c: MachineConfig): boolean {
+  const strip = (x: MachineConfig): unknown => {
+    const { enabled: _e, bets: _b, defaultBet: _d, minVipTier: _v, buyPrice: _p, jackpot, ...rest } = x;
+    return { ...rest, seed: jackpot.seed, owned: jackpot.owned };
+  };
+  return JSON.stringify(strip(c)) === JSON.stringify(strip(DEFAULT_CONFIG[id]));
 }
 
 const cache = new Map<MachineId, MachineDef>();
