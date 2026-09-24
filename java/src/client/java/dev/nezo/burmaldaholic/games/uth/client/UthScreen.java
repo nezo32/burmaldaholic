@@ -790,7 +790,8 @@ public class UthScreen extends CardTableScreen {
 			}
 			SeatPlate.State st = "folded".equals(tag) ? SeatPlate.State.FOLDED
 				: resultShown && p.getLongOr("net", 0) > 0 ? SeatPlate.State.WINNER : "deciding".equals(tag) ? SeatPlate.State.ACTIVE : SeatPlate.State.NORMAL;
-			SeatPlate.Info info = new SeatPlate.Info(name, bot ? null : p.getStringOr("name", ""), bot ? tableTheme().botAvatar(botId) : null, level, sub,
+			Component shown = font.width(name) <= 62 ? name : Texts.raw(font.plainSubstrByWidth(name.getString(), 62 - font.width("…")) + "…");
+			SeatPlate.Info info = new SeatPlate.Info(shown, bot ? null : p.getStringOr("name", ""), bot ? tableTheme().botAvatar(botId) : null, level, sub,
 				subColor, st, thinking);
 			int w = SeatPlate.width(font, info);
 			int px = Math.min(sl.plateX(), UthLayout.CANVAS_W - 2 - w);

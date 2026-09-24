@@ -326,7 +326,7 @@ public class PokerClientGameTests implements FabricClientGameTest {
 				table.stackDeckForTests(uthDeck());
 				CompoundTag args = new CompoundTag();
 				args.putLong("ante", 25);
-				args.putLong("trips", 5);
+				args.putLong("trips", 25);
 				table.onAction(player, "bet", args); // a single player: dealt at once
 			}
 		});

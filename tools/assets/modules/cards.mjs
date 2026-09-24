@@ -97,7 +97,7 @@ export default function generate() {
   sprite('seat/avatar_frame_gold', avatarFrame(true));
   for (const b of BOT_AVATARS) sprite(`bot/${b}`, botAvatar(b));
   for (const l of BADGE_LEVELS) sprite(`bot/badge_${l}`, botBadge(l));
-  sprite('bot/thinking', vstrip([0, 1, 2].map(thinking)), { frametime: 10 });
+  sprite('bot/thinking', vstrip([0, 1, 2].map(thinking)), { frametime: 10, frame: [13, 5] });
   for (const k of ['happy', 'grumpy']) sprite(`bot/emote_${k}`, emote(k));
 
   // ---- panels, stamps, tags, badges ----

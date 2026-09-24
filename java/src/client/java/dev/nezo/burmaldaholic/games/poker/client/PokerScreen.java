@@ -588,10 +588,12 @@ public class PokerScreen extends CardTableScreen {
 			CardButton.naturalWidth(font, raiseLabel(Math.max(minTo, maxTo - 1), maxTo, isBet), true));
 		confirm.setWidth(Math.max(confirm.getWidth(), widest));
 		// the sizing controls live in a panel above the console (one console row keeps the viewer's seat visible)
-		row.add(button(Texts.raw(raiseOpen ? "▾" : "▴"), null, CardButton.Family.TABLE, true, () -> {
+		CardButton sizing = button(Component.empty(), "raise", CardButton.Family.TABLE, true, () -> {
 			raiseOpen = !raiseOpen;
 			rebuildConsole();
-		}).hint(PokerText.gui("raise")));
+		}).hint(PokerText.gui("raise"));
+		sizing.setWidth(26); // icon only: opens / closes the sizing panel
+		row.add(sizing);
 		row.add(confirm);
 		if (!raiseOpen) return;
 		AmountSlider slider = new AmountSlider(compact() ? 70 : 96, minTo, maxTo, bb, raiseTo, Texts::number, v -> {

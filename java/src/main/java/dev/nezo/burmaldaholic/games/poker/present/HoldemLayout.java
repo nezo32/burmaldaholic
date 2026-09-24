@@ -155,7 +155,16 @@ public final class HoldemLayout {
 	public static int[] buttonRest(Slot s) {
 		if (s.id() == 0) return new int[] {s.cardsX() - 12, s.cardsY() + 42};
 		int[] spot = betSpot(s, 56);
-		return new int[] {spot[0] + (s.right() ? 14 : -14), spot[1] + 8};
+		int side = s.right() ? 1 : -1;
+		int[][] tries = {{14 * side, 8}, {18 * side, -6}, {0, 16}, {0, -16}, {-18 * side, 8}, {26 * side, 18}};
+		java.util.List<Rect> cards = cardRects(9);
+		for (int[] d : tries) {
+			Rect b = new Rect(spot[0] + d[0] - 6, spot[1] + d[1] - 6, 13, 13);
+			boolean free = true;
+			for (Rect c : cards) free &= !b.intersects(c);
+			if (free) return new int[] {spot[0] + d[0], spot[1] + d[1]};
+		}
+		return new int[] {spot[0] + tries[0][0], spot[1] + tries[0][1]};
 	}
 
 	/**
