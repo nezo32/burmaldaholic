@@ -244,6 +244,7 @@ final class PvpEngine implements PvpService {
 
 	/** Test/admin hook: forget the in-memory state and play out the saved matches as a world load does. */
 	void simulateRestart(MinecraftServer s) {
+		matches.values().forEach(PvpEngine::releaseBots);
 		matches.clear();
 		declined.clear();
 		chatter.clear();
@@ -448,6 +449,10 @@ final class PvpEngine implements PvpService {
 				if (e != null) {
 					return Result.fail(e);
 				}
+				if (Bots.acquire(1) == 0) {
+					return fail("msg.burmaldaholic.bots.none_available");
+				}
+				m.botsAcquired = 1;
 				Participant bot = new Participant(1, newBot(m, bt.difficulty(), Purse.BANK), stake);
 				bot.botActAt = now + PvpBotRules.acceptTicks(rng, BotSpeed.NORMAL);
 				m.participants.add(bot);
@@ -719,6 +724,10 @@ final class PvpEngine implements PvpService {
 				return fail("gui.burmaldaholic.pvp.error.lobby_full");
 			}
 			quip(s, m, yielding, "yield", player.getDisplayName(), now(s));
+			if (m.botsAcquired > 0) {
+				Bots.release(1);
+				m.botsAcquired--;
+			}
 			tell(s, m, Component.translatable("msg.burmaldaholic.bots.left", PvpText.name(yielding, md)), false);
 			boolean allIn = p.allIn();
 			renumber(m, yielding);
@@ -1155,6 +1164,10 @@ final class PvpEngine implements PvpService {
 		}
 		List<Component> names = new ArrayList<>();
 		for (int i = 0; i < n && m.participants.size() < maxPlayers(md); i++) {
+			if (Bots.acquire(1) == 0) {
+				break; // PvP bots count against bots.maxActive
+			}
+			m.botsAcquired++;
 			SeatOccupant.Bot bot = newBot(m, m.seating.difficulty(), purse);
 			long stake;
 			if (equalStakes(m)) {
@@ -1167,6 +1180,8 @@ final class PvpEngine implements PvpService {
 			}
 			Participant p = new Participant(m.participants.size(), bot, stake);
 			if (!fundBot(s, purse, stake) || !escrow(s, m, List.of(p))) {
+				Bots.release(1);
+				m.botsAcquired--;
 				break;
 			}
 			m.participants.add(p);
@@ -1428,6 +1443,7 @@ final class PvpEngine implements PvpService {
 		m.payouts = r.payouts();
 		m.rake = r.rake();
 		m.state = MatchState.SETTLED;
+		releaseBots(m); // the bots' seats are free again (a rematch / next link acquires its own)
 		long now = now(s);
 		m.settledTick = now;
 		m.forcedSettle = reason != Reason.NORMAL;
@@ -1816,6 +1832,7 @@ final class PvpEngine implements PvpService {
 			return;
 		}
 		m.phase = Phase.HISTORY;
+		next.botsAcquired = Bots.acquire((int) next.participants.stream().filter(Participant::isBot).count());
 		matches.put(next.id, next);
 		tell(s, next, Component.translatable("msg.burmaldaholic.pvp.coin.don_called", Texts.number(next.link - 1), Texts.chips(2 * d))
 			.withStyle(ChatFormatting.GOLD), true);
@@ -1949,6 +1966,7 @@ final class PvpEngine implements PvpService {
 			tell(s, old, Component.translatable("msg.burmaldaholic.pvp.invite.failed").withStyle(ChatFormatting.RED), false);
 			return;
 		}
+		m.botsAcquired = Bots.acquire((int) m.participants.stream().filter(Participant::isBot).count());
 		matches.put(m.id, m);
 		tell(s, m, Component.translatable("msg.burmaldaholic.pvp.rematch.start").withStyle(ChatFormatting.GOLD), false);
 		if (equalStakes(m)) {
@@ -2343,7 +2361,16 @@ final class PvpEngine implements PvpService {
 	// helpers
 	// =====================================================================================================
 
+	/** Gives the match's bots back to the world budget. */
+	private static void releaseBots(PvpMatch m) {
+		if (m.botsAcquired > 0) {
+			Bots.release(m.botsAcquired);
+			m.botsAcquired = 0;
+		}
+	}
+
 	private void close(MinecraftServer s, PvpMatch m, MatchState state) {
+		releaseBots(m);
 		m.state = state;
 		m.phase = Phase.CLOSED;
 		matches.remove(m.id);

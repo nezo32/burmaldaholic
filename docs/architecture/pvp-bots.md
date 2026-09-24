@@ -420,3 +420,31 @@ dev D: M4, M5; a fifth / the core owner: B1 then B2; G2–G6 go to the Baccarat/
   merges and the amendments listed in PVP.md §0.2 and BOTS.md §0.3; `bots.atmosphere.maxPerTable.*`
   Java config labels (Bedrock uses the template label); U+E190 bot glyph and U+E1A0/E1A1 PvP glyphs in
   both font sheets; Bedrock `playerInteractWithEntity` for Casino Card / Lucky Coin on a player (verify in game).
+
+## 9. Java integration (wave 2) — what is wired and how it matches Bedrock
+
+- **Closed bankrolls (review M1):** `Ledger.closeBankroll` tombstones the id to the bankroll's owner
+  (`bankrolls_closed` in `core.dat`). A later net credit to the id goes to that player (offline-safe,
+  `msg.burmaldaholic.core.bankroll_late_return` when online), a net debit fails the batch, reservations
+  are refused and the id is never re-created. This covers bot stacks leaving after the hand, PvP bot
+  refunds / payouts, the rake share and the chemin de fer rake. Tombstones are **pruned** every minute
+  once nothing refers to them (`core.economy.BankrollReferences`: seated bankroll bots and their ledger
+  escrows, live PvP matches) and 6 000 t passed since the close / last late credit (rounds in flight
+  that no reference tracks). Bedrock prunes the same way (`economy.pruneClosedBankrolls`, run at every
+  close; references = `addBankrollReference` checks + a scan of its persisted world state; branch
+  `jint2-bedrock-tombstone-prune` on top of the Bedrock wave-2 branch).
+- **Engine fixes:** chain questions carry `{match, seq}` (`PvpService.decide(…, matchId, seq)`; the sync
+  view's `decision` has both); a failed settlement retries after 20 t, doubling to 1 200 t; a join into a
+  full lobby escrows the human first, then the last bot yields; sulking players are re-checked whenever
+  house bots are seated; no server-wide line for pots with < 2 humans; machine lobbies are cancelled when
+  their block is gone or their casino changed (charter broken / linked); PvP bots count against
+  `bots.maxActive`; invite-only lobbies (`inviteToLobby`, `/casino pvp invite|join`).
+- **Params snapshot:** the engine stores `encodeParams(decodeParams(p))` at creation; Plinko Battle keeps
+  the points row + Underdog Boost, Scratch Showdown the weights + values, Slot Showdown the tier's
+  paytable. Java records store the participants packed (`"p"` tuples, same as Bedrock).
+- **Cross-edition parity:** `CrossEditionParityTest` replays Bedrock-generated vectors (same mulberry32
+  fair stream) for all five modes: tapes (seat order first), points, winners (by participant index),
+  ranking and events must match; plus explicit Creeper-target and Plinko best-ball vectors.
+- **TableBots:** money bots whose purse is no longer the table's leave at the safe point (m5);
+  `/casino bots clear` defers to the safe point and works from the console; join / leave / bust chatter
+  fires from core; adaptive heat (`bots.adaptiveHeat`) levels up new house poker bots for winning players.

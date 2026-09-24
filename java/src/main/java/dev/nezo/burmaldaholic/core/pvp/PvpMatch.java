@@ -91,6 +91,8 @@ public final class PvpMatch {
 	/** Settlement failed: next retry tick and the current back-off (review wave 2, m6). */
 	long settleRetryAt;
 	int settleBackoff;
+	/** Bots of this match counted against the world budget ({@code bots.maxActive}, {@code Bots.acquire}). */
+	int botsAcquired;
 	/** Invite-only lobby: players the host invited (BOTS.md §2.5; the host and ops always may join). */
 	final java.util.Set<UUID> guests = new java.util.LinkedHashSet<>();
 
