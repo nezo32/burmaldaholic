@@ -11,6 +11,6 @@ dependencies:
 java:
   - changed-files:
       - any-glob-to-any-file: ['java/**']
-bedrock:
+tools:
   - changed-files:
-      - any-glob-to-any-file: ['bedrock/**']
+      - any-glob-to-any-file: ['tools/**']

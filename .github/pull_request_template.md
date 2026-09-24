@@ -11,11 +11,11 @@
 
 ## Testing
 
-<!-- How you checked it: tests added, `./gradlew build`, `npm test`, in-game steps (Java / Bedrock). -->
+<!-- How you checked it: tests added, `./gradlew build`, `runClientGameTest`, in-game steps. -->
 
 ## Checklist
 
 - [ ] Branch is named `<type>/<kebab-name>` and targets `main`
-- [ ] Local checks pass (`cd java && ./gradlew build`, `cd bedrock && npm ci && npm run lint && npm test && npm run build`)
-- [ ] No hand-edited release versions (`mod_version`, `package.json` `version`): the version comes from the release tag
+- [ ] Local checks pass (`cd java && ./gradlew build`; after art changes `cd tools && npm ci && npm run check:assets && npm test`)
+- [ ] No hand-edited release versions (`mod_version`): the version comes from the release tag
 - [ ] Docs updated if behaviour or workflows changed

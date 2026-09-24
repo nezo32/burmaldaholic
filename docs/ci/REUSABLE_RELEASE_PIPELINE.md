@@ -96,7 +96,7 @@ For a new Fabric mod repository. For other project types, change step 5 by follo
 Optional but recommended: copy `.github/release.yml` (release-notes categories), `.github/labeler.yml` and
 `.github/workflows/labeler.yml` (branch prefix → label) from this repository. The generated release notes, and with
 them the CurseForge changelog, are then grouped into features, fixes and so on. In the copied `.github/labeler.yml`,
-delete or adapt the path rules at the end (`java` / `bedrock` here, `fabric` / `bedrock` in Enchantaholic); they
+delete or adapt the path rules at the end (`java` / `tools` here, `fabric` / `bedrock` in Enchantaholic); they
 are specific to each repository's layout.
 
 Before the first tag, commit `release.yml` to the default branch: a tag push runs the workflow file of the tagged
@@ -288,8 +288,8 @@ empty prefixes the script does not fetch it. All Bedrock versions share one type
 
 **Several artifacts from one repository (monorepo).** Use one build job per project, each with its own
 `artifact-name`; attach all of them with `artifact-pattern: "{a,b}"` on the release job, and use one CurseForge job per
-CurseForge project. Burmaldaholic's own [`release.yml`](../../.github/workflows/release.yml) is a working example
-(a Fabric mod and a Bedrock add-on), and so is Enchantaholic's.
+CurseForge project. Enchantaholic's `release.yml` (a Fabric mod and a Bedrock add-on) is a working example;
+Burmaldaholic's own [`release.yml`](../../.github/workflows/release.yml) builds a single Fabric mod.
 
 **CI for pull requests.** The build workflows also work without a version, so a project's `ci.yml` can reuse them:
 ```yaml

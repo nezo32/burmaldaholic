@@ -9,7 +9,7 @@ updates:
     directory: /java
     schedule: { interval: weekly }
   - package-ecosystem: npm
-    directory: /bedrock
+    directory: /tools
     schedule: { interval: weekly }
     groups:
       dev-dependencies: { dependency-type: development }

@@ -1,6 +1,6 @@
 # Feature flow: <type>/<name> branch -> PR -> main (squash). Runs on every PR to main and on main.
 # Required status check on main: ci-ok ONLY. It aggregates every job below and always reports, even when the path
-# filters skip the edition builds (a skipped required check would otherwise block the PR). See docs/ci/RELEASING.md.
+# filters skip the mod build or the asset check (a skipped required check would otherwise block the PR). See docs/ci/RELEASING.md.
 name: CI
 
 on:
@@ -27,13 +27,13 @@ jobs:
       pull-requests: read # paths-filter lists PR files via the API
     outputs:
       java: ${{ github.event_name != 'pull_request' || steps.filter.outputs.java == 'true' }}
-      bedrock: ${{ github.event_name != 'pull_request' || steps.filter.outputs.bedrock == 'true' }}
+      assets: ${{ github.event_name != 'pull_request' || steps.filter.outputs.assets == 'true' }}
     steps:
       - uses: actions/checkout@v7
         if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
-      # Everything runs on main pushes, merge queue and manual runs; PRs only build the editions they touch.
+      # Everything runs on main pushes, merge queue and manual runs; PRs only run the jobs whose paths they touch.
       - uses: dorny/paths-filter@v4
         id: filter
         if: github.event_name == 'pull_request'
@@ -41,15 +41,15 @@ jobs:
           filters: |
             java:
               - 'java/**'
+              - 'docs/design/CONFIG.md' # ConfigSpecCoverageTest reads it
               - '.github/workflows/ci.yml'
               - '.github/workflows/reusable-build-gradle.yml'
-            bedrock:
-              - 'bedrock/**'
-              # npm run lint also checks the Java side of the shared generator and the mirrored fx vectors
-              - 'java/src/test/resources/fx/vectors/**'
+            # the asset generator (tools/assets) and the Java textures it writes; SLOTS.md Appendix A feeds the strips
+            assets:
+              - 'tools/**'
               - 'java/src/main/resources/assets/burmaldaholic/textures/**'
+              - 'docs/design/SLOTS.md'
               - '.github/workflows/ci.yml'
-              - '.github/workflows/reusable-build-node.yml'
 
   branch-name:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -108,21 +108,33 @@ jobs:
       artifact-name: java-mod-ci-${{ matrix.mc }}
       artifact-files: build/libs/burmaldaholic-!(*-sources).jar
 
-  addon:
+  # Generated textures are committed: the generator must reproduce them byte for byte, and its tests must pass.
+  assets:
     needs: changes
-    if: needs.changes.outputs.bedrock == 'true'
-    uses: ./.github/workflows/reusable-build-node.yml
-    with:
-      working-directory: bedrock
-      node-version: "22"
-      check-command: npm run lint && npm test
-      build-command: npm run build
-      artifact-name: bedrock-addon-ci
-      artifact-files: dist/Burmaldaholic-*.mcaddon
+    if: needs.changes.outputs.assets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+      - run: npm ci
+      - name: Generated assets are up to date
+        run: npm run check:assets
+      - name: Generator tests
+        run: npm test
 
   ci-ok:
     if: always()
-    needs: [changes, branch-name, actionlint, scripts, mod, addon]
+    needs: [changes, branch-name, actionlint, scripts, mod, assets]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

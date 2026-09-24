@@ -6,32 +6,28 @@ Branch and PR rules: [CONTRIBUTING.md](../../CONTRIBUTING.md).
 | File | Purpose |
 |---|---|
 | `.github/workflows/ci.yml` | PR / `main` checks, aggregated into the single required check `ci-ok` |
-| `.github/workflows/release.yml` | Tag `vX.Y.Z` → build both editions → GitHub release → CurseForge |
-| `.github/workflows/reusable-*.yml` | Generic reusable workflows, identical to the ones in `nezo32/enchantaholic` |
+| `.github/workflows/release.yml` | Tag `vX.Y.Z` → build the mod → GitHub release → CurseForge |
+| `.github/workflows/reusable-*.yml` | Generic reusable workflows, identical to the ones in `nezo32/enchantaholic` (`reusable-build-node.yml` is kept in sync but no job here calls it) |
 | `.github/workflows/labeler.yml`, `.github/labeler.yml` | PR labels from the branch prefix and changed paths |
 | `.github/release.yml` | Release-notes categories (by label) |
 | `.github/templates/release-caller.yml` | Caller template for other repositories (not run here, only linted) |
 | `scripts/curseforge-upload.sh`, `scripts/test/` | CurseForge upload script (inlined into `reusable-publish-curseforge.yml`) and its dry-run tests |
-| `.github/dependabot.yml` | Weekly updates: GitHub Actions, Gradle (`java/`), npm (`bedrock/`) |
+| `.github/dependabot.yml` | Weekly updates: GitHub Actions, Gradle (`java/`), npm (`tools/`, the asset generator) |
 
 A release is a tag. Pushing `vX.Y.Z` on a commit of `main` starts `.github/workflows/release.yml`, which in one run:
 
 1. `version`: parses the tag and checks that it is on `main`.
-2. `build-mod` and `build-addon`: `./gradlew build -Pmod_version=X.Y.Z` in `java/` (JDK 25; unit tests, gametests
-   and `checkLinkage` included), and `npm ci`, `npm run lint`, `npm test`, `npm run build` with `VERSION=X.Y.Z` in
-   `bedrock/` (Node 22).
-3. `github-release`: the release "Burmaldaholic X.Y.Z", with generated notes and two assets:
-   `burmaldaholic-X.Y.Z.jar` and `Burmaldaholic-X.Y.Z.mcaddon`.
-4. `curseforge-mod`: uploads the jar, using the release notes as the changelog. `curseforge-addon` does the same for
-   the add-on if a Bedrock project is configured.
+2. `build-mod`: `./gradlew build -Pmod_version=X.Y.Z` in `java/` (JDK 25; unit tests, gametests and `checkLinkage`
+   included).
+3. `github-release`: the release "Burmaldaholic X.Y.Z", with generated notes and the asset `burmaldaholic-X.Y.Z.jar`.
+4. `curseforge-mod`: uploads the jar, using the release notes as the changelog.
 
 The jar is compiled against the lowest supported Minecraft version (`mc` in `java/gradle.properties`) and supports
 the whole `supported_mc_range`; PR CI builds and tests it against every version of the range (`-Pmc=26.2`,
 `-Pmc=26.3`).
 
-Never edit `mod_version` in `java/gradle.properties` or `version` in `bedrock/package.json` to release. They are
-development defaults; the tag sets the real version (`-Pmod_version` for Gradle, env `VERSION` for the Bedrock build,
-which writes it into both `manifest.json` files and the `.mcaddon` file name).
+Never edit `mod_version` in `java/gradle.properties` to release. It is a development default; the tag sets the real
+version (`-Pmod_version`).
 
 ## Cutting a release
 
@@ -59,9 +55,7 @@ Use a SemVer pre-release suffix:
 | `v1.3.0-rc.1` | pre-release | beta |
 | `v1.3.0` | latest release | release |
 
-Pre-releases are never marked "latest" on GitHub. Bedrock manifests get `1.3.0` for all of them, since the
-pre-release part is dropped there. Bedrock identifies a pack by UUID and version, so testers who imported
-`1.3.0-rc.1` must remove that pack before importing `1.3.0` (or the import is reported as a duplicate).
+Pre-releases are never marked "latest" on GitHub.
 
 ## Hotfix
 
@@ -91,12 +85,12 @@ There are no long-lived release branches. A tag on anything other than a commit 
 
 | Job | Runs when | Does |
 |---|---|---|
-| `changes` | always | `dorny/paths-filter`: on PRs, decides which editions changed. Everything runs on `main`, merge queue and manual runs |
+| `changes` | always | `dorny/paths-filter`: on PRs, decides which of `mod` / `assets` must run. Everything runs on `main`, merge queue and manual runs |
 | `branch-name` | same-repo PRs | head branch must be `<type>/<name>` (or `dependabot/`, `renovate/`, `claude/`) |
 | `actionlint` | always | actionlint 1.7.12 (+ shellcheck of `run:` scripts) on the workflows and the caller template |
 | `scripts` | always | shellcheck, `scripts/test/curseforge-upload.test.sh`, `scripts/check-inlined-script.sh` |
-| `mod (26.2) / build`, `mod (26.3) / build` | `java/**` changed | `./gradlew build -Pmc=<mc>` via `reusable-build-gradle.yml`; uploads the jar (7 days) |
-| `addon / build` | `bedrock/**` changed | `npm ci`, `npm run lint`, `npm test`, `npm run build` via `reusable-build-node.yml`; uploads the `.mcaddon` |
+| `mod (26.2) / build`, `mod (26.3) / build` | `java/**` or `docs/design/CONFIG.md` changed | `./gradlew build -Pmc=<mc>` via `reusable-build-gradle.yml`; uploads the jar (7 days) |
+| `assets` | `tools/**`, Java textures or `docs/design/SLOTS.md` changed | `cd tools && npm ci && npm run check:assets && npm test`: the committed generated textures are byte-identical to the generator's output, and its tests pass |
 | **`ci-ok`** | always | fails if any job above failed or was cancelled; skipped jobs count as success |
 
 The Minecraft versions of the Java matrix come from the repo variable `JAVA_MC_VERSIONS` (JSON array, default
@@ -112,9 +106,9 @@ enable "Automatically delete head branches".
 ### Branch protection for `main`
 
 Settings → Rules → Rulesets (or Branches) for `main`: require a pull request, require the status check **`ci-ok`
-only**, require linear history, block force pushes and deletion. Do not add the edition jobs (`mod (…) / build`,
-`addon / build`): the path filters skip them on PRs that do not touch their edition, and a skipped required check
-blocks the merge. `ci-ok` always reports and fails when any of them fails.
+only**, require linear history, block force pushes and deletion. Do not add the path-filtered jobs (`mod (…) / build`,
+`assets`): the path filters skip them on PRs that do not touch their paths, and a skipped required check blocks the
+merge. `ci-ok` always reports and fails when any of them fails.
 
 The same with the `gh` CLI:
 
@@ -153,7 +147,7 @@ gh label create dependencies   --color 0366d6 --description "Dependency updates"
 gh label create breaking       --color b60205 --description "Breaking change"        --force
 gh label create skip-changelog --color cccccc --description "Leave out of release notes" --force
 gh label create java           --color dbab79 --description "Java / Fabric mod"      --force
-gh label create bedrock        --color 5319e7 --description "Bedrock add-on"         --force
+gh label create tools          --color 5319e7 --description "Asset generator (tools/)" --force
 ```
 
 ### Releasing from the Actions tab (no local git needed)
@@ -166,12 +160,9 @@ Settings → Secrets and variables → Actions. The CurseForge token and project
 
 | Kind | Name | Value |
 |---|---|---|
-| secret | `CURSEFORGE_TOKEN` | CurseForge Authors portal → API tokens (one token works for the Java and Bedrock hosts) |
+| secret | `CURSEFORGE_TOKEN` | CurseForge Authors portal → API tokens |
 | variable | `CURSEFORGE_PROJECT_ID` | numeric id of the Java project (sidebar of the project page). Empty = CurseForge skipped |
 | variable (optional) | `CURSEFORGE_GAME_VERSIONS` | default `26.2,26.3,Fabric,Java 25,Client,Server` |
-| variable (optional) | `CURSEFORGE_BEDROCK_PROJECT_ID` | Bedrock add-on project id. Empty = Bedrock upload skipped |
-| variable (optional) | `CURSEFORGE_BEDROCK_API_BASE` | default `https://minecraft-bedrock.curseforge.com` |
-| variable (optional) | `CURSEFORGE_BEDROCK_GAME_VERSIONS` | default `26.50` (Bedrock version names, e.g. `26.40,26.50`) |
 | variable (optional) | `JAVA_MC_VERSIONS` | PR CI matrix, JSON array, default `["26.2","26.3"]` |
 
 ```bash
@@ -185,10 +176,7 @@ example `26.2.1`), add it to `CURSEFORGE_GAME_VERSIONS`.
 ### Confirm the CurseForge names
 
 The defaults were verified against the live API for Enchantaholic (September 2026): on the Java host
-`https://minecraft.curseforge.com`, `26.2`, `26.3`, `Fabric`, `Java 25`, `Client` and `Server` all resolve; the Bedrock
-host `https://minecraft-bedrock.curseforge.com` lists names such as `26.40` and `26.50` and has no usable
-version-type list, so the Bedrock job passes `version-type-prefixes: ""`. The add-on's `minEngineVersion` is
-`1.26.30`, so list every Bedrock version you test on in `CURSEFORGE_BEDROCK_GAME_VERSIONS`.
+`https://minecraft.curseforge.com`, `26.2`, `26.3`, `Fabric`, `Java 25`, `Client` and `Server` all resolve.
 
 Check again whenever you change the variables:
 
@@ -203,11 +191,8 @@ CF_GAME_VERSIONS='26.2,26.3,Fabric,Java 25,Client,Server' CF_RELATIONS='fabric-a
   bash scripts/curseforge-upload.sh LICENSE
 ```
 
-For Bedrock, list the names with `curl -fsS -H "X-Api-Token: $T" https://minecraft-bedrock.curseforge.com/api/game/versions | jq -r '.[].name'`
-and dry-run with `CF_API_BASE=https://minecraft-bedrock.curseforge.com CF_TYPE_PREFIXES= CF_GAME_VERSIONS=26.50`.
-
 ### First release
 
-Push `v0.1.0-alpha.1` on `main` while `CURSEFORGE_PROJECT_ID` is still unset: you get a GitHub pre-release with both
-assets, and the CurseForge jobs are skipped. Then set the variable and run the workflow with
+Push `v0.1.0-alpha.1` on `main` while `CURSEFORGE_PROJECT_ID` is still unset: you get a GitHub pre-release with the
+jar, and the CurseForge jobs are skipped. Then set the variable and run the workflow with
 `curseforge-dry-run: true` for that tag before the first real release.

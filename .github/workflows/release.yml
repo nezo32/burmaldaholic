@@ -1,5 +1,5 @@
 # Burmaldaholic release: push tag vX.Y.Z[-pre] (on a commit of main) ->
-#   version -> build-mod || build-addon -> github-release -> curseforge-mod || curseforge-addon
+#   version -> build-mod -> github-release -> curseforge-mod
 # Or: Actions -> Release -> Run workflow on main with a new tag: the tag is created on main's tip.
 # Everything runs in ONE workflow run: releases created with GITHUB_TOKEN never trigger other workflows.
 # The reusable-*.yml workflows are shared with nezo32/enchantaholic (identical files; see
@@ -7,8 +7,7 @@
 #
 # Config (repository level or in the Environment named by var CURSEFORGE_ENVIRONMENT, default Burmaldaholic):
 # secret CURSEFORGE_TOKEN; var CURSEFORGE_PROJECT_ID (unset = CurseForge skipped with a warning);
-# optional vars CURSEFORGE_GAME_VERSIONS, CURSEFORGE_BEDROCK_PROJECT_ID, CURSEFORGE_BEDROCK_API_BASE,
-# CURSEFORGE_BEDROCK_GAME_VERSIONS.
+# optional var CURSEFORGE_GAME_VERSIONS.
 name: Release
 
 on:
@@ -83,22 +82,8 @@ jobs:
       artifact-name: java-mod
       artifact-files: build/libs/burmaldaholic-!(*-sources).jar
 
-  build-addon:
-    needs: version
-    if: ${{ !cancelled() && !failure() }}
-    uses: ./.github/workflows/reusable-build-node.yml
-    with:
-      ref: ${{ needs.version.outputs.tag }}
-      working-directory: bedrock
-      node-version: "22"
-      check-command: npm run lint && npm test
-      build-command: npm run build
-      version: ${{ needs.version.outputs.version }}
-      artifact-name: bedrock-addon
-      artifact-files: dist/Burmaldaholic-*.mcaddon
-
   github-release:
-    needs: [version, build-mod, build-addon]
+    needs: [version, build-mod]
     if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: write
@@ -107,7 +92,7 @@ jobs:
       tag: ${{ needs.version.outputs.tag }}
       name: Burmaldaholic ${{ needs.version.outputs.version }}
       prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
-      artifact-pattern: "{java-mod,bedrock-addon}"
+      artifact-pattern: java-mod
 
   curseforge-mod:
     needs: [version, github-release]
@@ -124,26 +109,6 @@ jobs:
       release-type: ${{ needs.version.outputs.release-type }}
       display-name: Burmaldaholic ${{ needs.version.outputs.version }} (Fabric)
       relations: fabric-api:requiredDependency
-      tag: ${{ needs.version.outputs.tag }}
-      dry-run: ${{ inputs.curseforge-dry-run == true }}
-    secrets:
-      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
-
-  curseforge-addon:
-    needs: [version, github-release]
-    if: ${{ !cancelled() && !failure() && !inputs.skip-curseforge }}
-    uses: ./.github/workflows/reusable-publish-curseforge.yml
-    with:
-      # Read inside the job so repository- and Environment-level variables both work.
-      project-id-var: CURSEFORGE_BEDROCK_PROJECT_ID
-      environment: ${{ vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
-      api-base: ${{ vars.CURSEFORGE_BEDROCK_API_BASE || 'https://minecraft-bedrock.curseforge.com' }}
-      artifact-pattern: bedrock-addon
-      primary-file: "Burmaldaholic-*.mcaddon"
-      game-versions: ${{ vars.CURSEFORGE_BEDROCK_GAME_VERSIONS || '26.50' }}
-      version-type-prefixes: ""
-      release-type: ${{ needs.version.outputs.release-type }}
-      display-name: Burmaldaholic ${{ needs.version.outputs.version }} (Bedrock)
       tag: ${{ needs.version.outputs.tag }}
       dry-run: ${{ inputs.curseforge-dry-run == true }}
     secrets:
