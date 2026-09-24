@@ -214,7 +214,7 @@ final class DiceScreen extends ExtrasScreen {
 			if (!kinds.contains(stakeKind)) {
 				stakeKind = BetSelector.CHIPS;
 			}
-			addRenderableWidget(TableKit.button(ox + 214, oy + 185, 40, Component.translatable("gui.burmaldaholic.extras.stake_kind", kindLabel(stakeKind)),
+			addRenderableWidget(TableKit.button(ox + 214, oy + 212, 40, Component.translatable("gui.burmaldaholic.extras.stake_kind", kindLabel(stakeKind)),
 				theme, b -> {
 					stakeKind = kinds.get((kinds.indexOf(stakeKind) + 1) % kinds.size());
 					stakeAmount = BetSelector.CHIPS.equals(stakeKind) ? Math.max(1, s.getLongOr("min", 1)) : BetSelector.ITEM.equals(stakeKind) ? 0 : 1;
@@ -222,7 +222,7 @@ final class DiceScreen extends ExtrasScreen {
 				}));
 			if (BetSelector.XP.equals(stakeKind) || BetSelector.HEARTS.equals(stakeKind)) {
 				long max = BetSelector.XP.equals(stakeKind) ? Math.min(s.getIntOr("xp_level", 0), 30) : s.getIntOr("hearts_max", 3);
-				addRenderableWidget(TableKit.button(ox + 214 + 90, oy + 185, 20, Component.translatable("gui.burmaldaholic.extras.add", Texts.number(1)), theme,
+				addRenderableWidget(TableKit.button(ox + 190, oy + 190, 20, Component.translatable("gui.burmaldaholic.extras.add", Texts.number(1)), theme,
 					b -> {
 						stakeAmount = Math.min(stakeAmount + 1, Math.max(1, max));
 						rebuildWidgets();
@@ -404,7 +404,13 @@ final class DiceScreen extends ExtrasScreen {
 		}
 		// bottom bar: stake line + status
 		Component stake = stakeLine(s);
-		g.text(font, TableChrome.fit(font, stake, 150), ox + 216, oy + 218, TableChrome.BONE, true);
+		int sx = ox + 216;
+		for (var child : children()) {
+			if (child instanceof dev.nezo.burmaldaholic.client.ui.CasinoButton cb && cb.getY() == oy + 212) {
+				sx = cb.getX() + cb.getWidth() + 6;
+			}
+		}
+		g.text(font, TableChrome.fit(font, stake, Math.max(30, ox + 370 - sx)), sx, oy + 218, TableChrome.BONE, true);
 		if (err != null) {
 			var seq = TableChrome.fit(font, err, 300);
 			g.text(font, seq, ox + 214 - font.width(seq) / 2, oy + 202, TableChrome.RED, true);

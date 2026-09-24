@@ -648,12 +648,13 @@ public class CrapsScreen extends CasinoTableScreen {
 			}
 		}
 		DiceThrowPath p = throwPath;
-		if (p == null || t >= CrapsBeats.IDLE) {
+		if (p == null) {
 			return;
 		}
 		boolean reduced = FxSettings.reduceMotion();
-		double stick = Math.max(0, Math.min(1, (t - CrapsBeats.STICK) / 300.0));
-		int stickDx = (int) Math.round(Ease.IN_OUT_CUBIC.apply(stick) * (f.w() - 60));
+		// the dice stay where they landed, with their total, until the next throw (visual/tables.md mockups)
+		double stick = 0;
+		int stickDx = 0;
 		int rightX = 0;
 		int topY = Integer.MAX_VALUE;
 		for (int d = 0; d < 2; d++) {
@@ -673,10 +674,6 @@ public class CrapsScreen extends CasinoTableScreen {
 			}
 			rightX = Math.max(rightX, x + 18);
 			topY = Math.min(topY, y);
-		}
-		// the stick drags the dice back
-		if (stick > 0 && stick < 1) {
-			TableGfx.blit(g, "craps/stick", rightX - 4, topY + 8, 64, 10);
 		}
 		// total badge: pops at 1350 in the event colour
 		if (t >= CrapsBeats.BADGE && stick <= 0) {
@@ -810,7 +807,7 @@ public class CrapsScreen extends CasinoTableScreen {
 			var seq = TableChrome.fit(font, line1, 130);
 			g.text(font, seq, ox + 200 - font.width(seq) / 2, oy + 140, c1, true);
 		} else {
-			TableChrome.status(g, font, ox + 268, oy + 211, 196, line1, line2, c1);
+			TableChrome.status(g, font, ox + 262, oy + 211, 216, line1, line2, c1);
 			if (window >= 0) {
 				TableChrome.timer(g, ox + 352 - 4, oy + 186, window, Math.max(1, s.getLongOr("window_total", 20)), true);
 			}

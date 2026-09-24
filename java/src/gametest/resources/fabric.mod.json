@@ -34,6 +34,13 @@
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpAdversarialGameTests"
 		],
 		"fabric-client-gametest": [
+			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.poker.PokerClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.independent.RuLayoutClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.slots.SlotsV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.FxClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.TablesClientGameTests"
 		]
 	},

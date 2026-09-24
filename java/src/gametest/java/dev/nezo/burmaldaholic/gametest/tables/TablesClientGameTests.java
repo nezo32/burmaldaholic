@@ -52,8 +52,8 @@ public class TablesClientGameTests implements FabricClientGameTest {
 			roulette(context, world, "en_us_bastion", 1, true);
 			craps(context, world, "en_us_end", 2);
 			dice(context, world, "en_us_end", 2);
-			guiScale(context, 3);
-			roulette(context, world, "en_us_compact_end", 2, false);
+			guiScale(context, 4);
+			roulette(context, world, "en_us_end", 2, false);
 			invite(context, world);
 		} finally {
 			guiScale(context, 0);
@@ -69,7 +69,7 @@ public class TablesClientGameTests implements FabricClientGameTest {
 
 	private static BlockPos place(MinecraftServer server, int dx, net.minecraft.world.level.block.Block block) {
 		ServerPlayer p = player(server);
-		BlockPos pos = p.blockPosition().offset(dx, 0, 2);
+		BlockPos pos = p.blockPosition().offset(dx - 2, 0, 3);
 		server.overworld().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
 		server.overworld().setBlockAndUpdate(pos, block.defaultBlockState());
 		return pos;
@@ -92,14 +92,13 @@ public class TablesClientGameTests implements FabricClientGameTest {
 				be.setThemeForTesting(theme);
 				ServerPlayer p = player(server);
 				p.openMenu(be);
-				bet(be, p, "straight", 25, 17);
-				bet(be, p, "straight", 5, 17);
+				bet(be, p, "straight", 10, 17);
 				bet(be, p, "split", 5, 8, 11);
-				bet(be, p, "corner", 25, 20, 21, 23, 24);
-				bet(be, p, "red", 100, redNumbers());
-				bet(be, p, "dozen", 25, range(13, 24));
-				bet(be, p, "dozen", 25, range(1, 12));
-				bet(be, p, "dozen", 25, range(25, 36));
+				bet(be, p, "corner", 5, 20, 21, 23, 24);
+				bet(be, p, "red", 10, redNumbers());
+				bet(be, p, "dozen", 5, range(13, 24));
+				bet(be, p, "dozen", 5, range(1, 12));
+				bet(be, p, "column", 5, range3(2));
 				be.sendStateTo(p);
 			}
 		});
@@ -108,7 +107,7 @@ public class TablesClientGameTests implements FabricClientGameTest {
 		}
 		context.waitTicks(10);
 		context.takeScreenshot("jtest_tables_" + name + "_roulette_betting");
-		if (!fullCycle && !name.contains("compact")) {
+		if (!fullCycle && !name.contains("end")) {
 			return;
 		}
 		world.getServer().runOnServer(server -> {
@@ -119,7 +118,7 @@ public class TablesClientGameTests implements FabricClientGameTest {
 		// no more bets (20 t), then 2.6 s into the 5 s spin
 		context.waitTicks(20 + 52);
 		context.takeScreenshot("jtest_tables_" + name + "_roulette_spin");
-		context.waitTicks(48 + 36);
+		context.waitTicks(48 + 26);
 		context.takeScreenshot("jtest_tables_" + name + "_roulette_win");
 		int[] result = new int[1];
 		world.getServer().runOnServer(server -> {
@@ -135,15 +134,28 @@ public class TablesClientGameTests implements FabricClientGameTest {
 		}
 		// the in-world wheel from the player's view (screen closed)
 		close(context, world);
+		look(world, pos[0]);
 		context.waitTicks(5);
 		context.takeScreenshot("jtest_tables_" + name + "_roulette_world");
 		context.waitTicks(40);
+	}
+
+	private static void look(TestSingleplayerContext world, BlockPos pos) {
+		world.getServer().runCommand("tp @p ~ ~ ~ facing " + (pos.getX() + 0.5) + " " + (pos.getY() - 0.6) + " " + (pos.getZ() + 0.5));
 	}
 
 	private static int[] range(int a, int b) {
 		int[] out = new int[b - a + 1];
 		for (int i = a; i <= b; i++) {
 			out[i - a] = i;
+		}
+		return out;
+	}
+
+	private static int[] range3(int first) {
+		int[] out = new int[12];
+		for (int i = 0; i < 12; i++) {
+			out[i] = first + 3 * i;
 		}
 		return out;
 	}
@@ -204,6 +216,7 @@ public class TablesClientGameTests implements FabricClientGameTest {
 		int[] faces = context.computeOnClient(mc -> mc.gui.screen() instanceof CrapsScreen s ? new int[] {1} : new int[] {0});
 		report.add(name + " craps: screen open " + (faces[0] == 1));
 		close(context, world);
+		look(world, pos[0]);
 		context.waitTicks(5);
 		context.takeScreenshot("jtest_tables_" + name + "_craps_world");
 	}

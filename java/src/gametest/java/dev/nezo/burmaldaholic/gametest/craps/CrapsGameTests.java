@@ -51,6 +51,32 @@ public class CrapsGameTests {
 		return t;
 	}
 
+	/**
+	 * Lane J-L6 (J-T, tables.md §2.7): the update tag carries the roll for the in-world dice, the state carries the
+	 * throw seed / time and {@code last_res} with the server's returns, the money settles at once, and the next betting
+	 * window only opens after the reveal delay.
+	 */
+	@GameTest
+	public void rollSyncAndRevealDelay(GameTestHelper helper) {
+		CrapsTableBlockEntity table = table(helper);
+		withPlayer(helper, 100, player -> {
+			table.onAction(player, "bet", bet(BetKind.PASS, 10));
+			table.roll(5, 6); // natural: pass wins
+			helper.assertTrue(Economies.get().balance(player) == 110, "money settles at the roll, not after the animation");
+			var sync = dev.nezo.burmaldaholic.games.craps.logic.CrapsSync.decode(
+				table.getUpdateTag(helper.getLevel().registryAccess()).getIntArray("craps_sync").orElseThrow());
+			helper.assertTrue(sync.d1() == 5 && sync.d2() == 6 && sync.rolls() == 1, "update tag has the dice: " + sync);
+			CompoundTag state = table.writeClientState(player);
+			helper.assertTrue(state.getLongOr("roll_time", -1) >= 0 && state.contains("seed"), "throw time + seed");
+			var res = state.getListOrEmpty("last_res");
+			helper.assertTrue(res.size() == 1 && "win".equals(res.getCompoundOrEmpty(0).getStringOr("outcome", ""))
+				&& res.getCompoundOrEmpty(0).getLongOr("ret", 0) == 20, "last_res with the server return: " + res);
+			helper.assertTrue(table.windowEnd() >= state.getLongOr("roll_time", 0) + dev.nezo.burmaldaholic.games.craps.logic.CrapsBeats.REVEAL_DELAY_TICKS,
+				"the next window opens after the reveal");
+		});
+		helper.succeed();
+	}
+
 	@GameTest
 	public void passLineWithOddsPaysTrueOdds(GameTestHelper helper) {
 		CrapsTableBlockEntity table = table(helper);

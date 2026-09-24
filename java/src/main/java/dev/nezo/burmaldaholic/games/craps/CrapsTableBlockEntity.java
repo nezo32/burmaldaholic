@@ -296,7 +296,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	}
 
 	/** Bets close {@code craps.betWindowTicks} after each roll when more than one player is seated. */
-	long windowEnd() {
+	public long windowEnd() {
 		// tables.md §2.7: the window starts after the reveal, so nobody has to bet while the dice are still moving
 		return lastRollTime + CrapsBeats.REVEAL_DELAY_TICKS + (seats().occupied().size() > 1 ? CasinoConfig.craps().betWindowTicks : 0);
 	}
