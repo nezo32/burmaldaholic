@@ -100,8 +100,9 @@ public final class CoinDuelMode implements PvpMode<CoinDuelMode.Params, CoinDuel
 		if (players != 2) {
 			throw new IllegalArgumentException("Coin Flip Duel needs exactly 2 players");
 		}
-		boolean heads = rng.nextBoolean();
-		return new Tape(rng.permutation(2), heads);
+		// seat order first, then the coin (the same draw order as Bedrock: same fair stream → same tape)
+		int[] seatOrder = rng.permutation(2);
+		return new Tape(seatOrder, rng.nextBoolean());
 	}
 
 	/** Participant index of the winner: 0 if the coin shows participant 0's side. */

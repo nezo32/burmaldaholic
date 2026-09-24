@@ -46,7 +46,7 @@ public final class PlinkoBattle {
 	public static int drawPath(PvpRng rng) {
 		boolean[] path = new boolean[ROWS];
 		for (int i = 0; i < ROWS; i++) {
-			path[i] = rng.nextInt(2) == 1;
+			path[i] = rng.nextBoolean(); // right = "heads" of the fair stream, like Bedrock's dropBall (next() < ½)
 		}
 		return Plinko.encode(path);
 	}

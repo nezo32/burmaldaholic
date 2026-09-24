@@ -57,8 +57,8 @@ public final class PlinkoBattleMode implements PvpMode<PlinkoBattleMode.Params, 
 
 		@Override
 		public boolean equals(Object o) {
-			return o instanceof Params p && risk.equals(p.risk) && balls == p.balls && Arrays.equals(points, p.points)
-				&& java.util.Objects.equals(underdogBoost, p.underdogBoost);
+			// the set-up choice; the row / boost are a copy of the config at creation, not part of equality
+			return o instanceof Params p && risk.equals(p.risk) && balls == p.balls;
 		}
 
 		@Override

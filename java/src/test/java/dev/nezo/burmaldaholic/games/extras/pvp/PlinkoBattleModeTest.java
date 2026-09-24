@@ -104,7 +104,7 @@ class PlinkoBattleModeTest {
 		// boost off → a three-way tie on points and best ball → split
 		PlinkoBattle.Scored off = PlinkoBattle.score(paths, new int[] {2, 0, 1}, low, false);
 		assertArrayEquals(new long[] {15, 20, 20}, off.totals());
-		assertArrayEquals(new int[] {2, 1}, off.winners()); // winners listed in seat order
+		assertArrayEquals(new int[] {1, 2}, off.winners()); // winners by participant index (Bedrock parity)
 		assertArrayEquals(new int[] {2, 1, 0}, off.rankOrder()); // exact tie ordered by seat order [2, 0, 1]
 		// one ball: nobody is boosted
 		assertFalse(PlinkoBattle.score(new int[][] {{m(6)}, {m(0)}}, new int[] {0, 1}, low, true).underdog()[0]);
@@ -125,8 +125,8 @@ class PlinkoBattleModeTest {
 		// equal best too → split; odd chip to the first winner in seat order
 		int[][] same = {{m(1), m(4)}, {m(11), m(8)}};
 		PlinkoBattle.Scored split = PlinkoBattle.score(same, new int[] {1, 0}, low, false);
-		assertArrayEquals(new int[] {1, 0}, split.winners());
-		assertArrayEquals(new long[] {48, 49}, PvpMath.split(97, split.winners(), new int[] {1, 0}, 2));
+		assertArrayEquals(new int[] {0, 1}, split.winners());
+		assertArrayEquals(new long[] {48, 49}, PvpMath.split(97, split.winners(), new int[] {1, 0}, 2)); // odd chip by seat order
 	}
 
 	@Test

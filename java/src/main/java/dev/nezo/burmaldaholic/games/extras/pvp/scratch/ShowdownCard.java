@@ -156,9 +156,11 @@ public final class ShowdownCard {
 			if (s < Sym.VALUED) {
 				counts[s]++;
 			} else if (s == Sym.CREEPER.ordinal()) {
+				// the highest surviving value; equal values: the higher symbol, then the earliest cell (PVP.md §8.1)
 				int target = -1;
 				for (int j = 0; j < c; j++) {
-					if (cells[j] < Sym.VALUED && burnedAt[j] < 0 && (target < 0 || values[cells[j]] > values[cells[target]])) {
+					if (cells[j] < Sym.VALUED && burnedAt[j] < 0 && (target < 0 || values[cells[j]] > values[cells[target]]
+						|| (values[cells[j]] == values[cells[target]] && cells[j] > cells[target]))) {
 						target = j;
 					}
 				}

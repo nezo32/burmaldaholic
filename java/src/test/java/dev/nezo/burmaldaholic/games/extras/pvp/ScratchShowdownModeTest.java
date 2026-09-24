@@ -181,7 +181,7 @@ class ScratchShowdownModeTest {
 		assertArrayEquals(new int[] {1}, o.winners()); // 16 vs 16: best cell 2 beats 1
 		assertArrayEquals(new int[] {1, 2, 0}, o.rankOrder());
 		Outcome split = MODE.score(new ScratchShowdownMode.Tape(new int[] {1, 0}, new int[][] {b, b}, V), new long[2], p);
-		assertArrayEquals(new int[] {1, 0}, split.winners());
+		assertArrayEquals(new int[] {0, 1}, split.winners());
 	}
 
 	@Test

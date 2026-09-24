@@ -41,7 +41,7 @@ class WheelPartyModeTest {
 			Outcome o = WheelPartyMode.scoreAt(us[i], STAKES, SEAT, 1000);
 			assertArrayEquals(new int[] {owners[i]}, o.winners(), "u " + us[i]);
 			assertEquals(owners[i], o.rankOrder()[0]);
-			assertEquals(1, o.points()[owners[i]]);
+			assertEquals(STAKES[owners[i]], o.points()[owners[i]]); // points = slices (Bedrock parity)
 			assertEquals(us[i], event(o, "spin").data().get("u"));
 		}
 	}

@@ -111,8 +111,9 @@ public final class WheelPartyMode implements PvpMode<WheelPartyMode.Params, Whee
 		if (players < 2) {
 			throw new IllegalArgumentException("Wheel Party needs at least 2 players");
 		}
-		long r = rng.nextLong(WheelMath.SPIN_RESOLUTION);
-		return new Tape(rng.permutation(players), r);
+		// seat order first, then the spin (the same draw order as Bedrock: same fair stream → same tape)
+		int[] seatOrder = rng.permutation(players);
+		return new Tape(seatOrder, rng.nextLong(WheelMath.SPIN_RESOLUTION));
 	}
 
 	@Override
@@ -130,24 +131,32 @@ public final class WheelPartyMode implements PvpMode<WheelPartyMode.Params, Whee
 		int n = stakes.length;
 		long pot = PvpMath.pot(stakes);
 		int w = WheelMath.winner(stakes, u);
-		long[] points = new long[n];
-		points[w] = 1;
-		int[] rank = new int[n];
-		rank[0] = w;
-		int k = 1;
+		// the "score" of a Wheel Party is the slice (same Outcome as Bedrock): losers by slice, ties by seat order
+		long[] points = stakes.clone();
+		int[] seatPos = new int[n];
+		for (int k = 0; k < seatOrder.length; k++) {
+			seatPos[seatOrder[k]] = k;
+		}
+		List<Integer> others = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
 			if (i != w) {
-				rank[k++] = i;
+				others.add(i);
 			}
 		}
+		others.sort((a, b) -> stakes[a] != stakes[b] ? Long.compare(stakes[b], stakes[a]) : Integer.compare(seatPos[a], seatPos[b]));
+		int[] rank = new int[n];
+		rank[0] = w;
+		for (int k = 0; k < others.size(); k++) {
+			rank[k + 1] = others.get(k);
+		}
 		List<PvpEvent> events = new ArrayList<>();
-		events.add(new PvpEvent("spin", w, 0, Map.of("u", u, "pot", pot)));
+		events.add(new PvpEvent("spin", w, -1, Map.of("u", u, "pot", pot)));
 		int hair = WheelMath.byAHair(stakes, u);
 		if (hair >= 0) {
-			events.add(PvpEvent.of("by_a_hair", hair, 0));
+			events.add(PvpEvent.of("by_a_hair", hair, -1));
 		}
 		if (WheelMath.underdog(stakes[w], pot, underdogBasisPoints)) {
-			events.add(new PvpEvent("underdog", w, 0, Map.of("shareBp", WheelMath.shareBasisPoints(stakes[w], pot))));
+			events.add(new PvpEvent("underdog", w, -1, Map.of("shareBp", WheelMath.shareBasisPoints(stakes[w], pot))));
 		}
 		return new Outcome(points, rank, new int[] {w}, seatOrder.clone(), events);
 	}

@@ -47,14 +47,15 @@ public final class ScratchShowdownMode implements PvpMode<ScratchShowdownMode.Pa
 			this(null, null);
 		}
 
+		/** No set-up choice: the weights / values are a copy of the config at creation, not part of equality. */
 		@Override
 		public boolean equals(Object o) {
-			return o instanceof Params p && Arrays.equals(weights, p.weights) && Arrays.equals(values, p.values);
+			return o instanceof Params;
 		}
 
 		@Override
 		public int hashCode() {
-			return Arrays.hashCode(weights) * 31 + Arrays.hashCode(values);
+			return 0;
 		}
 	}
 
@@ -164,12 +165,11 @@ public final class ScratchShowdownMode implements PvpMode<ScratchShowdownMode.Pa
 		long[] points = new long[n];
 		long[] best = new long[n];
 		List<PvpEvent> events = new ArrayList<>();
-		for (int c = 0; c < ShowdownCard.CELLS; c++) {
-			for (int i = 0; i < n; i++) {
+		// per card (participant-major, the same event order as Bedrock): its cell events, final cell, lucky feet
+		for (int i = 0; i < n; i++) {
+			for (int c = 0; c < ShowdownCard.CELLS; c++) {
 				events.addAll(cellEvents(ev[i], i, c));
 			}
-		}
-		for (int i = 0; i < n; i++) {
 			points[i] = ev[i].score();
 			best[i] = ev[i].best();
 			int last = ShowdownCard.CELLS - 1;

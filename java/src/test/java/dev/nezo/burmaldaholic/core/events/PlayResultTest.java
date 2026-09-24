@@ -54,6 +54,6 @@ class PlayResultTest {
 		assertEquals(List.of("first_bet", "beginners_luck"),
 			CasinoAdvancements.wagerAdvancements(PlayResult.of("poker", 50, 100).pvp().withGoldenHour(true), 0), "PvP: no golden_hour");
 		assertEquals(List.of("first_bet", "black_cat"), CasinoAdvancements.wagerAdvancements(PlayResult.of("slots", 5, 0), -10));
-		assertEquals(42, CasinoAdvancements.IDS.size());
+		assertEquals(45, CasinoAdvancements.IDS.size());
 	}
 }

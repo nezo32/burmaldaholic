@@ -16,7 +16,7 @@ public final class ModeRanking {
 
 	/**
 	 * @param rankOrder participant indices best → worst (exact ties adjacent, in seat order)
-	 * @param winners   every participant equal to the best on both keys (≥ 1), in seat order
+	 * @param winners   every participant equal to the best on both keys (≥ 1), ascending participant index
 	 */
 	public record Ranked(int[] rankOrder, int[] winners) {}
 
@@ -49,6 +49,7 @@ public final class ModeRanking {
 				}
 			}
 		}
-		return new Ranked(order, winners.stream().mapToInt(Integer::intValue).toArray());
+		// winners by participant index (same as Bedrock); the odd-chip order of a split comes from the seat order
+		return new Ranked(order, winners.stream().mapToInt(Integer::intValue).sorted().toArray());
 	}
 }

@@ -62,4 +62,17 @@ class BotEconomyTest {
 		assertEquals(97, BotEconomyMath.pvp(97, 100, 100, 0, 0));
 		assertEquals(-50, BotEconomyMath.pvp(-100, 100, 200, 97, 194));
 	}
+
+	@Test
+	void adaptiveHeatSameVectorsAsBedrock() {
+		// > +20 BB/100 over ≥ 200 hands (Bedrock ledger.test.ts "adaptive heat")
+		assertEquals(false, BotEconomyMath.adaptiveHot(199, 100));
+		assertEquals(true, BotEconomyMath.adaptiveHot(200, 41));
+		assertEquals(false, BotEconomyMath.adaptiveHot(200, 40));
+		assertEquals(dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL,
+			BotEconomyMath.levelUp(dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.EASY));
+		assertEquals(dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.HARD,
+			BotEconomyMath.levelUp(dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.HARD));
+		assertTrue(BotEconomyMath.ADAPTIVE_WINDOW >= BotEconomyMath.ADAPTIVE_MIN_HANDS);
+	}
 }
