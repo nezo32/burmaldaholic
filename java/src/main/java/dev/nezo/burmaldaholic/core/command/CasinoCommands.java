@@ -46,6 +46,32 @@ public final class CasinoCommands {
 		EXTENSIONS.add(extension);
 	}
 
+	private static final List<java.util.function.Consumer<LiteralArgumentBuilder<CommandSourceStack>>> PLAYER_EXTENSIONS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	/**
+	 * Adds sub-commands under {@code /casino} that EVERY player may use (permission 0, e.g.
+	 * {@code /casino table invite}); the sub-tree checks its own rights. Core's own sub-commands and
+	 * everything added with {@link #extend} keep requiring permission level 2.
+	 */
+	public static void extendPlayer(java.util.function.Consumer<LiteralArgumentBuilder<CommandSourceStack>> extension) {
+		PLAYER_EXTENSIONS.add(extension);
+	}
+
+	/** Rebuilds the admin root without its own requirement: each admin child gets it instead, then the player sub-commands are added. */
+	private static LiteralArgumentBuilder<CommandSourceStack> withPlayerCommands(LiteralArgumentBuilder<CommandSourceStack> adminRoot) {
+		java.util.function.Predicate<CommandSourceStack> admin = Commands.hasPermission(Commands.LEVEL_GAMEMASTERS);
+		LiteralArgumentBuilder<CommandSourceStack> open = Commands.literal("casino");
+		for (com.mojang.brigadier.tree.CommandNode<CommandSourceStack> child : adminRoot.getArguments()) {
+			var copy = child.createBuilder();
+			java.util.function.Predicate<CommandSourceStack> own = child.getRequirement();
+			copy.requires(src -> admin.test(src) && own.test(src));
+			child.getChildren().forEach(copy::then);
+			open.then(copy);
+		}
+		PLAYER_EXTENSIONS.forEach(e -> e.accept(open));
+		return open;
+	}
+
 	public static void register() {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
 	}
@@ -79,7 +105,7 @@ public final class CasinoCommands {
 					.executes(CasinoCommands::configReset)))
 				.then(Commands.literal("reload").executes(CasinoCommands::configReload)));
 		EXTENSIONS.forEach(e -> e.accept(root));
-		var node = dispatcher.register(root);
+		var node = dispatcher.register(PLAYER_EXTENSIONS.isEmpty() ? root : withPlayerCommands(root));
 		dispatcher.register(Commands.literal("burmaldaholic").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).redirect(node));
 	}
 

@@ -2122,6 +2122,17 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.bots.admin.line` | %1$s at %2$s · %3$s · %4$s | %1$s — %2$s · %3$s · %4$s |
 | `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить всех ботов по домам |
 | `gui.burmaldaholic.bots.admin.reset_heat` | Reset a player's bot limits… | Сбросить лимиты игрока… |
+| `gui.burmaldaholic.bots.nameplate` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.bots.menu.tab` | Bots | Боты |
+| `gui.burmaldaholic.bots.menu.chatter_on` | Bot chatter: on | Болтовня ботов: включена |
+| `gui.burmaldaholic.bots.menu.chatter_off` | Bot chatter: muted | Болтовня ботов: выключена |
+| `gui.burmaldaholic.bots.menu.mute` | Mute bot chatter | Заглушить ботов |
+| `gui.burmaldaholic.bots.menu.unmute` | Hear bot chatter | Слушать ботов |
+| `gui.burmaldaholic.bots.menu.table` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.bots.settings.access` | Who may sit | Кто может сесть |
+| `gui.burmaldaholic.bots.settings.limits` | Owner limits | Ограничения владельца |
+| `gui.burmaldaholic.bots.settings.seated` | At the table | За столом |
+| `gui.burmaldaholic.bots.settings.none_seated` | No bots at the table | Ботов за столом нет |
 
 ### Bot names (`gui.burmaldaholic.bots.name.<id>`; theme in the comment column is data for the code)
 
@@ -2259,6 +2270,12 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.bots.none_available` | No bots are free right now: the casino floor is packed | Свободных ботов сейчас нет: в казино аншлаг |
 | `msg.burmaldaholic.bots.session_ended` | The bots pack up their chips. See you next time! | Боты собирают фишки. До встречи! |
 | `msg.burmaldaholic.bots.heat_reset` | Bot limits reset for %1$s | Лимиты ботов для игрока %1$s сброшены |
+| `msg.burmaldaholic.bots.private_on` | This table is now private | Теперь этот стол закрытый |
+| `msg.burmaldaholic.bots.private_off` | This table is open to all again | Этот стол снова открыт для всех |
+| `msg.burmaldaholic.bots.defaults_saved` | Saved as the table defaults | Сохранено как настройки стола по умолчанию |
+| `msg.burmaldaholic.bots.limits_saved` | Table limits saved | Ограничения стола сохранены |
+| `msg.burmaldaholic.bots.list_empty` | No bots are seated right now | Сейчас за столами нет ботов |
+| `msg.burmaldaholic.bots.cleared` | Bots leave after the current round. Tables: %1$s | Боты уйдут после текущего раунда. Столов: %1$s |
 | `gui.burmaldaholic.bots.error.bots_only_table` | %1$s is playing against bots here. Ask them to let you in. | Здесь %1$s играет с ботами. Попросите пустить вас. |
 | `gui.burmaldaholic.bots.error.others_seated` | Other players are seated, so Just me and bots is not available | За столом другие игроки — режим «Только я и боты» недоступен |
 | `gui.burmaldaholic.bots.error.owner_off` | The casino owner has turned bots off at this table | Владелец казино отключил ботов за этим столом |
@@ -2272,6 +2289,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.bots.error.not_host` | Sit at the table as its host first | Сначала сядьте за стол как его хозяин |
 | `gui.burmaldaholic.bots.error.disabled` | Bots are turned off on this server | Боты на этом сервере отключены |
 | `gui.burmaldaholic.bots.error.debt` | While you owe the Loan Shark you can only play against the house's own bots | Пока вы должны Ростовщику, можно играть только с ботами заведения |
+| `gui.burmaldaholic.bots.error.no_table` | Sit at a table or look at one first | Сначала сядьте за стол или посмотрите на него |
 
 ## advancements
 

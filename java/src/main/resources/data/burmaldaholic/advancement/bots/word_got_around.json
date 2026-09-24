@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/shark_hunter",
+  "display": {
+    "icon": {
+      "id": "minecraft:bell"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.word_got_around.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.word_got_around.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
