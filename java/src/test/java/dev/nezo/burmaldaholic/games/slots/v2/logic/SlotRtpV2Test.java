@@ -33,8 +33,8 @@ public class SlotRtpV2Test {
 		pct(1.0, r.jackpotContribution(), "contributions");
 		pct(95.073509, r.total(), "total");
 		pct(94.048300, r.totalOwned(), "owned");
-		// SLOTS.md §7.1 prints 0.041 282, but 0.99 / 0.950 735 09 − 1 = 0.041 300 (doc typo; Nether and End rows match the formula)
-		assertEquals(0.99 / 0.95073509 - 1, r.streakCap(), 5e-7);
+		// SLOTS.md §7.1: 0.99 / 0.950 735 09 − 1 = 0.041 300 (the doc printed 0.041 282 before the J-L8 review; fixed)
+		assertEquals(0.041300, r.streakCap(), 5e-7);
 		assertEquals(9.560752, r.bonusPerTrigger(), 5e-7);
 		assertEquals(8.6270, r.fsExpectedSpins()[0], 5e-5);
 		assertEquals(16.1754, r.fsExpectedSpins()[2], 5e-5);

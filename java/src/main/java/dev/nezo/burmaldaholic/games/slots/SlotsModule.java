@@ -74,7 +74,14 @@ public final class SlotsModule implements CasinoModule {
 			MACHINES.put(tier, type);
 		}
 		ConfigManager.get().addListener(SlotsMath::invalidate);
-		ConfigManager.get().addListener(SlotMachinesV2::invalidate);
+		ConfigManager.get().addListener(() -> {
+			SlotMachinesV2.invalidate();
+			// review J-L8 (Bedrock parity): a runtime change (e.g. the buy price on the admin page) is re-validated at once,
+			// otherwise an over-paying table or buy would go unflagged until the next restart
+			if (CasinoConfig.slots().validateRtp && CasinoConfig.slots().v2) {
+				SlotMachinesV2.validateAsync();
+			}
+		});
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			SlotsMath.invalidate();
 			SlotMachinesV2.invalidate();

@@ -10,7 +10,12 @@ import dev.nezo.burmaldaholic.games.slots.SlotsModule;
 import dev.nezo.burmaldaholic.games.slots.api.SlotsApi;
 import dev.nezo.burmaldaholic.games.slots.logic.JackpotPool;
 import dev.nezo.burmaldaholic.games.slots.logic.Tier;
+import dev.nezo.burmaldaholic.games.slots.JackpotPoolsV2;
+import dev.nezo.burmaldaholic.games.slots.SlotMachinesV2;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
+import dev.nezo.burmaldaholic.games.slots.v2.logic.TapeCodec;
+import java.util.Arrays;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.storage.TagValueInput;
 import java.util.Map;
@@ -249,6 +254,170 @@ public class SlotsGameTests {
 			end.onAction(player, "spin", bet(50));
 			helper.assertFalse(end.spinning(), "Bronze cannot play End Void");
 			helper.assertTrue(Economies.get().balance(player) == balance, "nothing taken");
+		});
+		helper.succeed();
+	}
+
+	// ---- review J-L8: adversarial v2 GameTests ----------------------------------------------------------
+
+	private static long[] meters(MinecraftServer server, Machine m) {
+		return JackpotPoolsV2.get(server).pools(m, SlotMachinesV2.def(m));
+	}
+
+	/** Gate, skip + gate, leave, disconnect, table removed (closing the screen is the same {@code finishV2(true)} as leaving): every exit pays exactly the drawn tape. */
+	@GameTest
+	public void v2EveryExitPaysTheTape(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		String[] exits = {"gate", "skip", "left", "disconnect", "removed"};
+		for (int i = 0; i < exits.length; i++) {
+			String exit = exits[i];
+			SlotMachineBlockEntity machine = placeV2(helper, Tier.GOLD, new BlockPos(1 + i, 1, 1));
+			withPlayer(helper, 5_000, player -> {
+				machine.onAction(player, "spin", bet(50));
+				SpinTape tape = machine.roundTape();
+				helper.assertTrue(tape != null && Economies.get().balance(player) == 4_950, exit + ": staked");
+				long[] poolsAfterDraw = meters(server, Machine.NETHER);
+				switch (exit) {
+					case "gate" -> machine.finishV2(false);
+					case "skip" -> {
+						for (int k = 0; k < 20; k++) machine.onAction(player, "skip", new CompoundTag());
+						helper.assertTrue(machine.roundTape() == null || machine.roundTape().equals(tape), "skip never changes the tape");
+						machine.finishV2(false);
+					}
+					case "left" -> machine.leave(player.getUUID(), SlotMachineBlockEntity.LeaveReason.LEFT);
+					case "disconnect" -> machine.leave(player.getUUID(), SlotMachineBlockEntity.LeaveReason.DISCONNECT);
+					case "removed" -> machine.playOutNow("removed");
+					default -> throw new IllegalStateException(exit);
+				}
+				helper.assertFalse(machine.spinning(), exit + ": settled");
+				helper.assertTrue(machine.stakeOf(player.getUUID()) == 0, exit + ": stake closed");
+				helper.assertTrue(Economies.get().balance(player) == 4_950 + tape.payoutChips(), exit + ": paid exactly the tape");
+				helper.assertTrue(Arrays.equals(poolsAfterDraw, meters(server, Machine.NETHER)), exit + ": pools are only touched at draw time");
+				machine.finishV2(false);
+				machine.leave(player.getUUID(), SlotMachineBlockEntity.LeaveReason.LEFT);
+				helper.assertTrue(Economies.get().balance(player) == 4_950 + tape.payoutChips(), exit + ": never paid twice");
+			});
+		}
+		helper.succeed();
+	}
+
+	/** §15 test 13 with a Treasure Hunt: restart mid-feature settles from the tape once (no re-roll, no refund). */
+	@GameTest(maxTicks = 400)
+	public void v2RestartMidTreasureHuntSettlesOnce(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = placeV2(helper, Tier.COPPER, new BlockPos(1, 1, 1));
+		withPlayer(helper, 1_000_000, player -> {
+			SpinTape hunt = null;
+			for (int i = 0; i < 4_000 && hunt == null; i++) {
+				machine.onAction(player, "spin", bet(5));
+				SpinTape t = machine.roundTape();
+				helper.assertTrue(t != null, "spin " + i + " started");
+				if (t.hunt() != null) {
+					hunt = t;
+				} else {
+					machine.finishV2(true);
+				}
+			}
+			helper.assertTrue(hunt != null, "a Treasure Hunt in 4 000 spins");
+			long before = Economies.get().balance(player);
+			CompoundTag visible = machine.writeClientState(player).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin");
+			SpinTape shown = TapeCodec.decode(visible.getStringOr("tape", ""));
+			helper.assertTrue(shown.hunt().entries().length == 0 && shown.totalFifths() == -1 && shown.jackpots().isEmpty(),
+				"unopened chests and the total are not sent before the picks");
+			machine.onAction(player, "pick", new CompoundTag()); // out of order: the hunt is not paused yet
+			helper.assertTrue(machine.roundTape().hunt().opened() == 0, "a pick before the pause reveals nothing");
+			var registries = helper.getLevel().registryAccess();
+			CompoundTag saved = machine.saveCustomOnly(registries);
+			machine.loadCustomOnly(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved));
+			helper.assertTrue(hunt.equals(machine.roundTape()), "the same tape after the restart (no re-roll)");
+			machine.tick(helper.getLevel());
+			helper.assertFalse(machine.spinning(), "settled on load");
+			helper.assertTrue(Economies.get().balance(player) == before + hunt.payoutChips(), "paid the drawn hunt, not refunded");
+			machine.tick(helper.getLevel());
+			machine.finishV2(false);
+			helper.assertTrue(Economies.get().balance(player) == before + hunt.payoutChips(), "paid once");
+		});
+		helper.succeed();
+	}
+
+	/** Protocol abuse: another player's picks / skips / stop, out-of-order picks, bad bets, autoplay without a loss limit. */
+	@GameTest
+	public void v2RejectsForeignAndOutOfOrderActions(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = placeV2(helper, Tier.GOLD, new BlockPos(1, 1, 1));
+		withPlayer(helper, 5_000, owner -> withPlayer(helper, 5_000, other -> {
+			machine.onAction(owner, "spin", bet(20));
+			SpinTape tape = machine.roundTape();
+			CompoundTag before = machine.writeClientState(owner).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin");
+			for (String a : new String[] {"pick", "pick_all", "skip", "stop_auto", "spin", "buy", "auto"}) {
+				CompoundTag args = bet(20);
+				args.putInt("count", 10);
+				args.putInt("loss_limit", 25);
+				machine.onAction(other, a, args);
+			}
+			CompoundTag after = machine.writeClientState(owner).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin");
+			helper.assertTrue(tape.equals(machine.roundTape()), "the round is untouched");
+			helper.assertTrue(before.getLongOr("start_tick", -1) == after.getLongOr("start_tick", -2), "a stranger cannot skip");
+			helper.assertTrue(Economies.get().balance(other) == 5_000, "the stranger staked nothing");
+			machine.finishV2(false);
+			machine.onAction(owner, "buy", bet(7));
+			helper.assertFalse(machine.spinning(), "a bet off the ladder is refused");
+			machine.onAction(owner, "spin", bet(1_000_000));
+			helper.assertFalse(machine.spinning(), "a bet above the VIP max is refused");
+			CompoundTag auto = bet(20);
+			auto.putInt("count", 10);
+			machine.onAction(owner, "auto", auto);
+			helper.assertFalse(machine.spinning(), "autoplay needs a loss limit");
+			auto.putInt("loss_limit", 7);
+			machine.onAction(owner, "auto", auto);
+			helper.assertFalse(machine.spinning(), "autoplay needs a configured loss limit");
+			helper.assertTrue(Economies.get().balance(owner) == 4_980 + tape.payoutChips(), "only the first stake was taken");
+		}));
+		helper.succeed();
+	}
+
+	/** One player never holds two rounds: a second machine refuses until the first round settles. */
+	@GameTest
+	public void v2OnePlayerOneRound(GameTestHelper helper) {
+		SlotMachineBlockEntity a = placeV2(helper, Tier.COPPER, new BlockPos(1, 1, 1));
+		SlotMachineBlockEntity b = placeV2(helper, Tier.GOLD, new BlockPos(3, 1, 1));
+		withPlayer(helper, 5_000, player -> {
+			a.onAction(player, "spin", bet(10));
+			helper.assertTrue(a.spinning(), "first round");
+			b.onAction(player, "spin", bet(20));
+			helper.assertFalse(b.spinning(), "second machine refuses while a round is in play");
+			b.onAction(player, "buy", bet(20));
+			helper.assertFalse(b.spinning(), "also for a buy");
+			long paid = a.roundTape().payoutChips();
+			helper.assertTrue(Economies.get().balance(player) == 4_990, "one stake");
+			a.finishV2(false);
+			b.onAction(player, "spin", bet(20));
+			helper.assertTrue(b.spinning(), "free to play elsewhere once settled");
+			helper.assertTrue(Economies.get().balance(player) == 4_970 + paid, "stakes and payout add up");
+			b.finishV2(false);
+		});
+		helper.succeed();
+	}
+
+	/** Autoplay without a bet in the request runs at the player's bet (stop rules are relative to it, §6.4). */
+	@GameTest
+	public void v2AutoplayUsesTheRoundBet(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = placeV2(helper, Tier.COPPER, new BlockPos(1, 1, 1));
+		withPlayer(helper, 100_000, player -> {
+			player.openMenu(machine);
+			CompoundTag args = new CompoundTag();
+			args.putInt("count", 10);
+			args.putInt("loss_limit", 100);
+			args.putBoolean("stop_feature", false);
+			machine.onAction(player, "auto", args);
+			SpinTape tape = machine.roundTape();
+			helper.assertTrue(tape != null && tape.bet() == 10, "autoplay at the default bet");
+			machine.finishV2(false);
+			CompoundTag st = machine.writeClientState(player).getCompoundOrEmpty("v2");
+			boolean legitStop = !tape.jackpots().isEmpty() || tape.capHit() || tape.payoutChips() >= 50 * 10;
+			helper.assertTrue(legitStop || st.getCompoundOrEmpty("auto").getIntOr("left", -1) == 9,
+				"autoplay continues after an ordinary spin: " + st.getCompoundOrEmpty("auto_summary"));
+			machine.onAction(player, "stop_auto", new CompoundTag());
+			helper.assertFalse(machine.writeClientState(player).getCompoundOrEmpty("v2").contains("auto"), "stopped");
+			player.closeContainer();
 		});
 		helper.succeed();
 	}

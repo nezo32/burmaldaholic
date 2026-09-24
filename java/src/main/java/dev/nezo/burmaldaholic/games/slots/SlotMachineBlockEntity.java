@@ -739,6 +739,22 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 
 	private boolean forceV2;
 
+	/**
+	 * The machine holding each player's live v2 round (server thread). One player never holds two rounds at once
+	 * (review J-L8, Bedrock parity: the service keys live rounds by player); stale entries (machine removed / unloaded,
+	 * round settled) are ignored and dropped.
+	 */
+	private static final Map<UUID, SlotMachineBlockEntity> LIVE_ROUNDS = new HashMap<>();
+
+	private static @Nullable SlotMachineBlockEntity liveRoundOf(UUID player) {
+		SlotMachineBlockEntity be = LIVE_ROUNDS.get(player);
+		if (be != null && (be.isRemoved() || be.round == null || !be.round.player.equals(player))) {
+			LIVE_ROUNDS.remove(player);
+			return null;
+		}
+		return be;
+	}
+
 	/** The v2 engine runs this machine ({@code slots.v2}, the cut-over flag; or forced for GameTests). */
 	public boolean v2Active() {
 		return forceV2 || CasinoConfig.slots().v2;
@@ -823,7 +839,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		MinecraftServer server = serverLevel.getServer();
 		Machine m = machineV2();
 		SlotsV2Config.Machine cfg = SlotMachinesV2.cfg(m);
-		if (round != null || pending != null) {
+		SlotMachineBlockEntity elsewhere = liveRoundOf(player.getUUID());
+		if (round != null || pending != null || (elsewhere != null && elsewhere != this)) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
 			return false;
 		}
@@ -905,6 +922,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		r.anticipation = CasinoConfig.slots().anticipation;
 		r.auto = autoSpin;
 		round = r;
+		LIVE_ROUNDS.put(r.player, this);
 		autoSummaries.remove(player.getUUID());
 		setChanged(); // PERSIST before anything is shown (saved with the open stake)
 		setPhase("spinning");
@@ -1029,9 +1047,23 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		round = null;
+		if (LIVE_ROUNDS.get(r.player) == this) {
+			LIVE_ROUNDS.remove(r.player);
+		}
 		cancelTimer(TIMER_V2);
 		setPhase("idle");
 		MinecraftServer server = serverLevel.getServer();
+		if (!hasStake(r.player)) {
+			// the stake was already returned or settled elsewhere: paying the tape (or its pool awards) now would mint chips
+			Burmaldaholic.LOGGER.error("Slots at {}: v2 round of {} has no open stake; dropped without payout", worldPosition, r.player);
+			if (!r.owned) {
+				JackpotPoolsV2.get(server).revealed(r.machine, r.tape);
+			}
+			setChanged();
+			syncViewers();
+			sendSync();
+			return;
+		}
 		SpinTape tape = r.tape.hunt() == null ? r.tape : r.tape.withHuntOpened(SlotDraw.huntOpens(SlotMachinesV2.def(r.machine), r.tape));
 		MachineDef def = SlotMachinesV2.def(r.machine);
 		double edge = SlotMachinesV2.houseEdge(r.machine, r.bought, r.owned);
@@ -1210,6 +1242,13 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		autoV2 = a;
 		if (!startV2(player, bet, false, true)) {
 			autoV2 = null;
+			return;
+		}
+		RoundV2 started = round;
+		if (started != null && started.bet != bet) {
+			// no / stale bet in the request: the round used the player's current bet; limits are relative to it (§6.4)
+			a.bet = started.bet;
+			a.lossLimit = (long) loss * started.bet;
 		}
 	}
 
@@ -1440,6 +1479,15 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			Burmaldaholic.LOGGER.info("Slots at {}: settling the persisted v2 round of {} from its tape", worldPosition, round.player);
 			finishV2(true);
 		}
+	}
+
+	/** Removal / unload / stop: the drawn round is settled from its tape (never refunded), seated or not (§4.1). */
+	@Override
+	protected void playOutForRemoval(ServerLevel level) {
+		if (round != null) {
+			finishV2(true);
+		}
+		super.playOutForRemoval(level);
 	}
 
 	@Override

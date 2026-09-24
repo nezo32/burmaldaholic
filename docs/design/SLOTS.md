@@ -478,7 +478,7 @@ All values are percent of the total amount staked. "Exact" = full enumeration or
 | **Total RTP** | **95.073 509** | **95.394 383** | **96.534 419** | |
 | House edge | 4.926 % | 4.606 % | 3.466 % | |
 | Owned-casino RTP (fixed jackpots, no pools) | 94.048 300 | 93.809 143 | 93.756 641 | same, §5.2 fixed values |
-| Streak `r_cap = 0.99 / RTP − 1` (§8.2) | 0.041 282 | 0.037 797 | 0.025 541 | GAME_DESIGN §14 |
+| Streak `r_cap = 0.99 / RTP − 1` (§8.2) | 0.041 300 | 0.037 797 | 0.025 541 | GAME_DESIGN §14 |
 
 Replaces the three slot rows of GAME_DESIGN §17 and the per-tier `houseEdge` used by cashback
 (§12): cashback uses 1 − the house RTP above (4.926 % / 4.606 % / 3.466 %), and for a buy-feature

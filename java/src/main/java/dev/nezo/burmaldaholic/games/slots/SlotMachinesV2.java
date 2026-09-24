@@ -27,6 +27,8 @@ public final class SlotMachinesV2 {
 	private static final Map<Machine, MachineDef> DEFS = new ConcurrentHashMap<>();
 	private static final Map<Machine, SlotRtpV2.Report> REPORTS = new ConcurrentHashMap<>();
 	private static final AtomicReference<List<SlotRtpV2.Warning>> WARNINGS = new AtomicReference<>(List.of());
+	/** Bumped by {@link #invalidate()}: a validation that started on an older config must not publish its reports. */
+	private static final java.util.concurrent.atomic.AtomicInteger GENERATION = new java.util.concurrent.atomic.AtomicInteger();
 
 	/** SLOTS.md §7.1 (default machines; verified by {@code SlotRtpV2Test}). */
 	static final double[] DEFAULT_RTP = {0.950735093002, 0.953943832565, 0.965344189995};
@@ -38,6 +40,7 @@ public final class SlotMachinesV2 {
 	private SlotMachinesV2() {}
 
 	public static void invalidate() {
+		GENERATION.incrementAndGet();
 		DEFS.clear();
 		REPORTS.clear();
 	}
@@ -223,6 +226,7 @@ public final class SlotMachinesV2 {
 	 * machine RTP. Never auto-fixes.
 	 */
 	public static List<SlotRtpV2.Warning> validate() {
+		int generation = GENERATION.get();
 		List<SlotRtpV2.Warning> out = new ArrayList<>();
 		Map<Machine, SlotRtpV2.Report> fresh = new EnumMap<>(Machine.class);
 		for (Machine m : Machine.values()) {
@@ -239,8 +243,12 @@ public final class SlotMachinesV2 {
 			Burmaldaholic.LOGGER.info("slots.{}: RTP {} % (owned {} %)", m.id, String.format(java.util.Locale.ROOT, "%.4f", r.total() * 100),
 				String.format(java.util.Locale.ROOT, "%.4f", r.totalOwned() * 100));
 		}
-		REPORTS.putAll(fresh);
-		WARNINGS.set(List.copyOf(out));
+		synchronized (SlotMachinesV2.class) {
+			if (GENERATION.get() == generation) { // the config changed meanwhile: a newer validation publishes instead
+				REPORTS.putAll(fresh);
+				WARNINGS.set(List.copyOf(out));
+			}
+		}
 		return out;
 	}
 
