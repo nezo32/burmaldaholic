@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.baccarat.client;
 
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
+import dev.nezo.burmaldaholic.core.bots.BotNames;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratRules;
@@ -731,6 +732,75 @@ public class BaccaratScreen extends CasinoTableScreen {
 		return y;
 	}
 
+	/** A seat / punt entry: a bot's display name ([BOT] Name) or the player's name. */
+	private static Component seatName(CompoundTag t) {
+		String bot = t.getStringOr("bot", "");
+		return bot.isEmpty() ? Texts.raw(t.getStringOr("name", "")) : botName(bot);
+	}
+
+	/** {@code <field>} of the chemmy state as a name ({@code <field>_bot} holds a bot's name key). */
+	private static Component who(CompoundTag c, String field) {
+		String bot = c.getStringOr(field + "_bot", "");
+		return bot.isEmpty() ? Texts.raw(c.getStringOr(field, "")) : botName(bot);
+	}
+
+	private static Component botName(String nameKey) {
+		return Texts.raw(BotNames.GLYPH + " ").append(Component.translatable("gui.burmaldaholic.bots.display", Component.translatable(nameKey)));
+	}
+
+	/** "Humans + 3 bots · Steady · Open to all" (+ "New settings from the next round"), when bots are on. */
+	private @Nullable Component botsHeader() {
+		CompoundTag h = state().getCompoundOrEmpty("bots");
+		if (h.isEmpty()) {
+			return null;
+		}
+		Component access = Component.translatable(h.getBooleanOr("private", false) ? "gui.burmaldaholic.bots.summary.private" : "gui.burmaldaholic.bots.summary.open");
+		String policy = h.getStringOr("policy", "HUMANS_ONLY");
+		MutableComponent out;
+		if ("HUMANS_ONLY".equals(policy)) {
+			out = Component.translatable("gui.burmaldaholic.bots.summary.humans_only", access);
+		} else {
+			Component count = Texts.plural("unit.burmaldaholic.bot", h.getIntOr("count", 0));
+			Component level = Component.translatable(h.getStringOr("level", "gui.burmaldaholic.bots.style.normal"));
+			out = "BOTS_ONLY".equals(policy) ? Component.translatable("gui.burmaldaholic.bots.summary.bots_only", Texts.raw(h.getStringOr("host", "?")), count, level)
+				: Component.translatable("gui.burmaldaholic.bots.summary.mixed", count, level, access);
+		}
+		if (h.getBooleanOr("pending", false)) {
+			out = out.append(" · ").append(Component.translatable("gui.burmaldaholic.bots.pending"));
+		}
+		return out;
+	}
+
+	/** "Bots bet (for fun): [BOT] A: Banker 40, …" — atmosphere bets are virtual (BOTS.md §5.2). */
+	private @Nullable Component botBetsLine() {
+		ListTag list = state().getListOrEmpty("bot_bets");
+		if (list.isEmpty()) {
+			return null;
+		}
+		MutableComponent all = Component.empty();
+		for (int i = 0; i < list.size(); i++) {
+			CompoundTag v = list.getCompoundOrEmpty(i);
+			if (i > 0) {
+				all.append("; ");
+			}
+			all.append(botName(v.getStringOr("bot", ""))).append(": ");
+			boolean first = true;
+			for (BetKind k : BetKind.values()) {
+				long a = v.getLongOr(k.id(), 0);
+				if (a <= 0) {
+					continue;
+				}
+				if (!first) {
+					all.append(", ");
+				}
+				all.append(Component.translatable("gui.burmaldaholic.baccarat.bet_line", Component.translatable("gui.burmaldaholic.baccarat." + k.id()),
+					Texts.number(a)));
+				first = false;
+			}
+		}
+		return Component.translatable("gui.burmaldaholic.bots.virtual_bets", all);
+	}
+
 	private void drawChemmyInfo(GuiGraphicsExtractor g, int y) {
 		CompoundTag c = ch();
 		List<Component> parts = new ArrayList<>();
@@ -738,18 +808,18 @@ public class BaccaratScreen extends CasinoTableScreen {
 		if (c.getBooleanOr("held", false)) {
 			parts.add(Component.translatable("gui.burmaldaholic.baccarat.chemmy.bank", Texts.number(c.getLongOr("bank", 0))));
 			parts.add(Component.translatable("gui.burmaldaholic.baccarat.chemmy.coverage", Texts.number(c.getLongOr("coverage", 0)), Texts.number(c.getLongOr("open", 0))));
-			parts.add(Component.translatable("gui.burmaldaholic.baccarat.chemmy.banker_is", Texts.raw(c.getStringOr("banker", ""))));
+			parts.add(Component.translatable("gui.burmaldaholic.baccarat.chemmy.banker_is", who(c, "banker")));
 		}
 		Component status = null;
 		if ("bank_offer".equals(phase)) {
 			status = c.getBooleanOr("offer_you", false) ? Component.translatable("gui.burmaldaholic.baccarat.chemmy.offer")
-				: Component.translatable("gui.burmaldaholic.baccarat.chemmy.waiting_offer", Texts.raw(c.getStringOr("candidate", "")));
+				: Component.translatable("gui.burmaldaholic.baccarat.chemmy.waiting_offer", who(c, "candidate"));
 		} else if ("betting".equals(phase) && c.getBooleanOr("you_bank", false)) {
 			status = Component.translatable("gui.burmaldaholic.baccarat.chemmy.you_bank");
 		} else if ("betting".equals(phase)) {
-			String banco = c.getStringOr("banco", "");
-			status = banco.isEmpty() ? Component.translatable("gui.burmaldaholic.baccarat.place_bets")
-				: Component.translatable("msg.burmaldaholic.baccarat.chemmy.banco_called", Texts.raw(banco));
+			boolean banco = !c.getStringOr("banco", "").isEmpty() || !c.getStringOr("banco_bot", "").isEmpty();
+			status = !banco ? Component.translatable("gui.burmaldaholic.baccarat.place_bets")
+				: Component.translatable("msg.burmaldaholic.baccarat.chemmy.banco_called", who(c, "banco"));
 		} else if ("waiting".equals(phase)) {
 			status = Component.translatable("gui.burmaldaholic.baccarat.chemmy.take", Texts.number(c.getLongOr("min_bank", 20)));
 		}
@@ -783,7 +853,7 @@ public class BaccaratScreen extends CasinoTableScreen {
 		}
 		for (int i = 0; i < punts.size(); i++) {
 			CompoundTag pt = punts.getCompoundOrEmpty(i);
-			Component who = pt.getBooleanOr("you", false) ? Component.translatable("gui.burmaldaholic.common.you") : Texts.raw(pt.getStringOr("name", ""));
+			Component who = pt.getBooleanOr("you", false) ? Component.translatable("gui.burmaldaholic.common.you") : seatName(pt);
 			Component t = Component.translatable("gui.burmaldaholic.baccarat.bet_line", who, Texts.number(pt.getLongOr("amount", 0)));
 			if (x + font.width(t) > imageWidth - PAD) {
 				break;
@@ -847,10 +917,24 @@ public class BaccaratScreen extends CasinoTableScreen {
 			lines.add(Component.translatable("gui.burmaldaholic.baccarat.ready_count",
 				Texts.number(state().getIntOr("ready_count", 0)), Texts.number(state().getIntOr("bettors", 0))));
 		}
+		Component header = botsHeader();
+		if (header != null) {
+			lines.addFirst(header);
+		}
 		ListTag seats = state().getListOrEmpty("seat_list");
 		MutableComponent seatLine = Component.translatable("gui.burmaldaholic.baccarat.seated", Texts.number(seats.size()));
+		List<Component> botLines = new ArrayList<>();
 		for (int i = 0; i < seats.size(); i++) {
 			CompoundTag st = seats.getCompoundOrEmpty(i);
+			if (!st.getStringOr("bot", "").isEmpty()) {
+				// "Seat 3: [BOT] Creeper42 · Wild · 180 chips" / "· Banker Only · Watching" (BOTS.md §8.1)
+				long stake = st.getLongOr("stake", 0);
+				Component right = st.getBooleanOr("watching", false) || stake <= 0 ? Component.translatable("gui.burmaldaholic.bots.watching")
+					: Texts.chips(stake);
+				botLines.add(Component.translatable("gui.burmaldaholic.bots.seat_line", Texts.number(st.getIntOr("index", 0) + 1), seatName(st),
+					Component.translatable(st.getStringOr("style", "")), right));
+				continue;
+			}
 			seatLine.append(i == 0 ? " " : " · ");
 			Component who = st.getBooleanOr("you", false) ? Component.translatable("gui.burmaldaholic.common.you") : Texts.raw(st.getStringOr("name", ""));
 			seatLine.append(who);
@@ -867,6 +951,11 @@ public class BaccaratScreen extends CasinoTableScreen {
 			}
 		}
 		lines.add(seatLine);
+		lines.addAll(botLines);
+		Component virtual = botBetsLine();
+		if (virtual != null) {
+			lines.add(virtual);
+		}
 		for (Component c : lines) {
 			for (FormattedCharSequence l : font.split(c, rw)) {
 				if (ry + 9 > bottom) {

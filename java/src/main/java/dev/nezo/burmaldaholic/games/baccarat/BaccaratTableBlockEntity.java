@@ -4,6 +4,11 @@ import dev.nezo.burmaldaholic.core.config.sections.BaccaratConfig;
 import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.CoreSounds;
+import dev.nezo.burmaldaholic.core.bots.BotLedger;
+import dev.nezo.burmaldaholic.core.bots.BotRounds;
+import dev.nezo.burmaldaholic.core.bots.Bots;
+import dev.nezo.burmaldaholic.core.bots.logic.BotProfile;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy;
@@ -33,6 +38,8 @@ import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratShoe;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BetKind;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Card;
 import dev.nezo.burmaldaholic.games.baccarat.logic.ChemmyBank;
+import dev.nezo.burmaldaholic.games.baccarat.logic.ChemmyBotMoney;
+import dev.nezo.burmaldaholic.games.baccarat.logic.ChemmyBotPolicy;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Paytable;
 import dev.nezo.burmaldaholic.games.baccarat.logic.SeatDecider;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Slips;
@@ -100,6 +107,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 	static final String T_PHASE = "phase";
 	static final String T_OFFER = "offer";
 	static final String T_IDLE = "idle";
+	static final String T_BOT = "bot";
 	static final int NO_MORE_BETS_TICKS = 20;
 	static final int SHUFFLE_TICKS = 40;
 	static final int RESULT_TICKS = 60;
@@ -151,10 +159,52 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 	private long orphanBank;
 	private long orphanInvested;
 
+	// ---- Seats & Bots (BaccaratBots) --------------------------------------------------------------
+	private final BaccaratBots bots;
+	/** The bank decision a bot candidate made; applied after its think delay (timer {@link #T_BOT}). */
+	private SeatDecider.@Nullable BankDecision botBankDecision;
+	/** Bot punters of this coup: who acted, their offset before the deadline, their think delay. */
+	private final Set<UUID> botActed = new HashSet<>();
+	private final Map<UUID, Integer> botOffset = new LinkedHashMap<>();
+	private final Map<UUID, Integer> botThink = new LinkedHashMap<>();
+	private long bettingOpenedAt;
+	private long waitingSince;
+	/** The chemmy safe point runs (a claimant seated there must not start another offer). */
+	private boolean inSafePoint;
+
 	public BaccaratTableBlockEntity(TableType<BaccaratTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
 		this.variant = BaccaratModule.CHEMMY_NAME.equals(type.name()) ? Variant.CHEMMY
 			: BaccaratModule.HIGH_ROLLER_NAME.equals(type.name()) ? Variant.HIGH_ROLLER : Variant.STANDARD;
+		this.bots = new BaccaratBots(this, variant == Variant.CHEMMY);
+		if (variant == Variant.CHEMMY) {
+			bots.held = new BaccaratBots.Held() {
+				@Override
+				public long staked(UUID bot) {
+					return bank.punts().getOrDefault(bot, 0L);
+				}
+
+				@Override
+				public long bank(UUID bot) {
+					return bot.equals(bank.banker()) ? bank.bank() : 0;
+				}
+
+				@Override
+				public long release(UUID bot) {
+					return releaseBot(bot);
+				}
+
+				@Override
+				public boolean banker(UUID bot) {
+					return bot.equals(bank.banker());
+				}
+			};
+		}
+	}
+
+	/** Seats &amp; Bots of this table (core {@code TableBots} + the game's bot seats). */
+	public BaccaratBots bots() {
+		return bots;
 	}
 
 	private static BaccaratConfig cfg() {
@@ -203,7 +253,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		return BaccaratOdds.of(cfg().decks).edge(BetKind.BANKER, pay());
 	}
 
-	/** Seat decider (humans wait for the screen; the bot framework will return a policy here). */
+	/** Seat decider of a human seat (waits for the screen). Bots are driven by {@link BaccaratBots} (ChemmyBotPolicy / BaccaratBettor). */
 	protected SeatDecider deciderFor(UUID participant) {
 		return SeatDecider.HUMAN;
 	}
@@ -266,11 +316,15 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (!vipAllowed(player)) {
 			return false;
 		}
+		if (!bots.admit(player)) {
+			return false; // private table / BOTS_ONLY (error shown) or claimant (seated at the next safe point)
+		}
 		boolean ok = super.sit(player);
 		if (ok) {
+			bots.onJoin(player.getUUID());
 			names.put(player.getUUID(), player.getName().getString());
 			tableMessage(Component.translatable("msg.burmaldaholic.baccarat.player_joined", Texts.raw(player.getName().getString())), player.getUUID());
-			if (isChemmy() && (P_IDLE.equals(phase) || P_WAITING.equals(phase)) && chemmyEnabled()) {
+			if (isChemmy() && (P_IDLE.equals(phase) || P_WAITING.equals(phase)) && chemmyEnabled() && !inSafePoint) {
 				startOffer(false);
 			} else if (!isChemmy() && P_IDLE.equals(phase)) {
 				phase(P_BETTING);
@@ -295,6 +349,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (reason == LeaveReason.REMOVED) {
 			return; // playOutForRemoval settles or returns everything
 		}
+		bots.onLeave(player);
 		boolean walkedAway = reason == LeaveReason.LEFT || reason == LeaveReason.TOO_FAR;
 		ready.remove(player);
 		puntReady.remove(player);
@@ -320,7 +375,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (P_BETTING.equals(phase)) {
 			checkAllReady();
 		}
-		if (seats().isEmpty() && P_BETTING.equals(phase) && bets.isEmpty() && bank.punts().isEmpty() && !bank.held()) {
+		if (seats().isEmpty() && P_BETTING.equals(phase) && bets.isEmpty() && humanPunts().isEmpty() && !bank.held()) {
 			cancelTimer(T_BET);
 			cancelTimer(T_IDLE);
 			phase(P_IDLE);
@@ -520,9 +575,24 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			if (!bets.isEmpty() && bets.keySet().stream().allMatch(ready::contains)) {
 				closeBetting();
 			}
-		} else if (!bank.punts().isEmpty() && bank.punts().keySet().stream().allMatch(puntReady::contains)) {
-			closeBetting();
+		} else {
+			// Bots always count as Ready (they never delay a coup); at least one human punt must be Ready.
+			List<UUID> humans = humanPunts();
+			if (!humans.isEmpty() && humans.stream().allMatch(puntReady::contains)) {
+				closeBetting();
+			}
 		}
+	}
+
+	/** Human punters with chips on this coup (placement order). */
+	private List<UUID> humanPunts() {
+		List<UUID> out = new ArrayList<>();
+		for (UUID id : bank.punts().keySet()) {
+			if (!bots.isBot(id)) {
+				out.add(id);
+			}
+		}
+		return out;
 	}
 
 	static Component message(Slips.Violation v) {
@@ -550,9 +620,21 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 
 	/** @param passed seats that already passed in this rotation (all seats passed → house coup / wait) */
 	private void startOffer(boolean keep, int passed) {
+		if (passed == 0 && !inSafePoint) {
+			// Seats & Bots safe point (after RESULT, before BANK_OFFER): pending settings apply, bots join or
+			// yield (a leaving bot banker takes its bank back), claimants sit.
+			inSafePoint = true;
+			try {
+				bots.safePoint();
+			} finally {
+				inSafePoint = false;
+			}
+		}
 		passes = passed;
 		cancelTimer(T_BET);
 		cancelTimer(T_IDLE);
+		cancelTimer(T_BOT);
+		botBankDecision = null;
 		puntReady.clear();
 		houseCoup = false;
 		if (seats().isEmpty() || !chemmyEnabled()) {
@@ -564,27 +646,62 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			phase(P_IDLE);
 			return;
 		}
-		if (keep && bank.held() && seats().isSeated(bank.banker())) {
+		if (keep && bank.held() && occupantSeated(bank.banker())) {
 			candidate = bank.banker();
-			candidateSeat = seats().seatOf(candidate).orElse(-1);
+			candidateSeat = seatOfOccupant(candidate);
 			offerKeep = true;
 		} else {
 			if (bank.held()) {
 				returnBank(true);
 			}
 			offerKeep = false;
-			OptionalInt next = seats().nextOccupied(lastOfferSeat < 0 ? seats().size() - 1 : lastOfferSeat);
-			if (next.isEmpty()) {
+			Map.Entry<Integer, UUID> next = nextOccupant(lastOfferSeat < 0 ? seats().size() - 1 : lastOfferSeat);
+			if (next == null) {
 				phase(P_IDLE);
 				return;
 			}
-			candidateSeat = next.getAsInt();
-			candidate = seats().get(candidateSeat).player();
+			candidateSeat = next.getKey();
+			candidate = next.getValue();
 		}
 		lastOfferSeat = candidateSeat;
 		phase(P_BANK_OFFER);
 		startTimer(T_OFFER, cfg().chemmy.bankOfferTicks);
 		askBankDecider();
+	}
+
+	/** Humans and bots in seat order: (seat index, id). */
+	private List<Map.Entry<Integer, UUID>> occupantOrder() {
+		List<Map.Entry<Integer, UUID>> out = new ArrayList<>();
+		for (TableSeats.Seat s : seats().occupied()) {
+			out.add(Map.entry(s.index(), s.player()));
+		}
+		out.addAll(bots.seated());
+		out.sort(Map.Entry.comparingByKey());
+		return out;
+	}
+
+	/** The next occupant clockwise after seat {@code after} (wrapping), or null when the table is empty. */
+	private Map.@Nullable Entry<Integer, UUID> nextOccupant(int after) {
+		List<Map.Entry<Integer, UUID>> order = occupantOrder();
+		for (Map.Entry<Integer, UUID> e : order) {
+			if (e.getKey() > after) {
+				return e;
+			}
+		}
+		return order.isEmpty() ? null : order.getFirst();
+	}
+
+	private boolean occupantSeated(@Nullable UUID id) {
+		return id != null && (seats().isSeated(id) || bots.isBot(id));
+	}
+
+	private int seatOfOccupant(UUID id) {
+		for (Map.Entry<Integer, UUID> e : occupantOrder()) {
+			if (e.getValue().equals(id)) {
+				return e.getKey();
+			}
+		}
+		return -1;
 	}
 
 	private void askBankDecider() {
@@ -593,6 +710,25 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		long min = cfg().chemmy.minBank;
+		if (bots.isBot(candidate)) {
+			// A bot decides at once (bot rng) but shows its think delay (bank offer 20–60 t, BOTS.md §7.3).
+			BotProfile p = bots.profile(candidate);
+			long balance = bots.balance(candidate);
+			SeatDecider.BankDecision d = SeatDecider.BankDecision.pass();
+			if (p != null) {
+				try {
+					long suggested = Math.max(min, Math.min(balance, min));
+					ChemmyBotPolicy.OfferView v = new ChemmyBotPolicy.OfferView(offerKeep, offerKeep ? bank.bank() : suggested, min, balance,
+						bank.wins(), bots.facts(candidate));
+					d = ChemmyBotPolicy.BANK.act(p, v, null, bots.tb().rng());
+				} catch (RuntimeException e) {
+					Burmaldaholic.LOGGER.error("baccarat bot bank decision failed", e);
+				}
+			}
+			botBankDecision = d;
+			startTimer(T_BOT, Math.max(1, bots.think(candidate, cfg().chemmy.bankOfferTicks)));
+			return;
+		}
 		long balance = Economies.get().balance(server, candidate);
 		long def = Math.max(min, Math.min(balance, lastBank > 0 ? lastBank : min));
 		deciderFor(candidate).bankOffer(new SeatDecider.BankOffer(offerKeep, bank.bank(), min, def, balance))
@@ -635,7 +771,24 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 				startChemmyBetting();
 			}
 			case TAKE -> {
-				if (offerKeep || online == null) {
+				if (offerKeep) {
+					return;
+				}
+				if (bots.isBot(id)) {
+					// A bot bank comes out of the bot's own chips (already in the bank escrow).
+					long amount = d.amount();
+					if (amount < cfg().chemmy.minBank || !bots.take(id, amount)) {
+						decideBank(id, SeatDecider.BankDecision.pass());
+						return;
+					}
+					bank.take(id, amount);
+					bots.sync(id);
+					tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.took_bank", who(id), Texts.chips(amount)), null);
+					bots.quip(id, "bank_take", null);
+					startChemmyBetting();
+					break;
+				}
+				if (online == null) {
 					return;
 				}
 				long amount = d.amount();
@@ -657,20 +810,20 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 				}
 				bank.take(id, amount);
 				lastBank = amount;
-				tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.took_bank", Texts.raw(name(id)), Texts.chips(amount)), null);
+				tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.took_bank", who(id), Texts.chips(amount)), null);
 				startChemmyBetting();
 			}
 			case PASS -> {
 				cancelTimer(T_OFFER);
 				if (offerKeep && id.equals(bank.banker())) {
-					tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.passed_bank", Texts.raw(name(id))), null);
+					tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.passed_bank", who(id)), null);
 					returnBank(true);
 					offerKeep = false;
 					passes = 1;
 				} else {
 					passes++;
 				}
-				if (passes >= seats().occupied().size()) {
+				if (passes >= occupantOrder().size()) {
 					allPassed();
 				} else {
 					startOffer(false, passes);
@@ -694,6 +847,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			tableMessage(Component.translatable("gui.burmaldaholic.baccarat.chemmy.house_coup"), null);
 			askHouseDeciders();
 		} else {
+			waitingSince = gameTime();
 			phase(P_WAITING);
 		}
 	}
@@ -705,9 +859,137 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		candidate = null;
 		offerKeep = false;
 		puntReady.clear();
+		botActed.clear();
+		botOffset.clear();
+		botThink.clear();
+		bettingOpenedAt = gameTime();
 		phase(P_BETTING);
 		startTimer(T_IDLE, cfg().chemmy.idleTicks);
 		askPuntDeciders();
+	}
+
+	/** Coverage cap of the current banker: a bot bank covers at most the bot bank cap (BOTS.md §4.4). */
+	private long bankerMax(MinecraftServer server) {
+		UUID b = bank.banker();
+		if (b == null) {
+			return 0;
+		}
+		return bots.isBot(b) ? bots.bankCap() : maxFor(server, b);
+	}
+
+	/** A human has chips on this coup (bots then never call Banco). */
+	private boolean humanBetOnCoup() {
+		return !humanPunts().isEmpty();
+	}
+
+	/** Debtors: never against a human bank; against a house-funded bot bank if {@code bots.debtorsMayPlay} (BOTS.md §5.5). */
+	private boolean debtorMayPunt() {
+		UUID b = bank.banker();
+		return b != null && bots.isBot(b) && bots.houseBot(b) && CasinoConfig.bots().debtorsMayPlay;
+	}
+
+	/** Bot punter bets never reduce the coverage a human asks for: bot stakes shrink, latest first (BOTS.md §4.4). */
+	private void makeRoomFor(ServerPlayer player, long amount, long punterMax, long bankerMax) {
+		if (bots.count() == 0 || amount <= 0) {
+			return;
+		}
+		long own = bank.punts().getOrDefault(player.getUUID(), 0L);
+		long want = Math.min(amount, Math.min(punterMax - own, Economies.get().balance(player)));
+		long need = want - bank.open(bankerMax);
+		if (need <= 0) {
+			return;
+		}
+		ChemmyBotPolicy.makeRoomForHuman(bank.punts(), bots::isBot, need).forEach((id, back) -> {
+			bots.give(id, back);
+			bots.sync(id);
+		});
+		setChanged();
+	}
+
+	/** Bot punters act in the last 100 t of BETTING, snapped to the coverage humans left open (BOTS.md §4.4). */
+	private void botPunts() {
+		if (!isChemmy() || houseCoup || !P_BETTING.equals(phase) || !bank.held() || bank.banco() != null || bots.count() == 0) {
+			return;
+		}
+		// No bot-vs-bot money: while a bot holds the bank the other bots only watch.
+		if (bots.isBot(bank.banker())) {
+			return;
+		}
+		UUID banker = bank.banker();
+		int humanPunters = (int) seats().occupied().stream().filter(s -> !s.player().equals(banker)).count();
+		long deadline = ticksLeft(T_BET) >= 0 ? ticksLeft(T_BET) : ticksLeft(T_IDLE);
+		long since = gameTime() - bettingOpenedAt;
+		List<UUID> punters = new ArrayList<>();
+		for (Map.Entry<Integer, UUID> e : bots.seated()) {
+			punters.add(e.getValue());
+		}
+		for (UUID id : punters) {
+			if (botActed.contains(id) || bank.banco() != null || !P_BETTING.equals(phase)) {
+				continue;
+			}
+			int off = botOffset.computeIfAbsent(id, k -> bots.puntOffset());
+			int th = botThink.computeIfAbsent(id, k -> bots.think(k, 0));
+			if (!ChemmyBotPolicy.puntDue(deadline, since, humanPunters, off, th)) {
+				continue;
+			}
+			botActed.add(id);
+			try {
+				botPunt(id);
+			} catch (RuntimeException ex) {
+				Burmaldaholic.LOGGER.error("baccarat bot punt failed", ex);
+			}
+		}
+		// A human banker facing bots only: once every bot has acted the coup is dealt.
+		if (P_BETTING.equals(phase) && humanPunters == 0 && !bank.punts().isEmpty() && bank.banco() == null && botActed.containsAll(punters)) {
+			closeBetting();
+		}
+	}
+
+	private void botPunt(UUID id) {
+		MinecraftServer server = server();
+		BotProfile p = bots.profile(id);
+		if (server == null || p == null) {
+			return;
+		}
+		long balance = bots.balance(id);
+		long cap = bots.bankCap();
+		long bmax = bankerMax(server);
+		long cov = bank.coverage(bmax);
+		ChemmyBotPolicy.Memory m = bots.memory(id);
+		ChemmyBotPolicy.PuntView v = new ChemmyBotPolicy.PuntView(cov, bank.open(bmax), bots.tableMin(), cap, balance,
+			bank.banco() == null && cov > 0 && balance >= cov && cap >= cov, humanBetOnCoup(), m.base, m.mult, bots.facts(bank.banker()));
+		ChemmyBotPolicy.Punt a = ChemmyBotPolicy.PUNT.act(p, v, null, bots.tb().rng());
+		switch (a.kind()) {
+			case BANCO -> {
+				if (!bots.take(id, cov)) {
+					return;
+				}
+				Map<UUID, Long> others = bank.banco(id);
+				others.forEach((who, amt) -> giveBack(who, amt, amt, "chemmy_refund"));
+				bank.addPunt(id, cov);
+				bots.sync(id);
+				tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.banco_called", who(id)), null);
+				bots.quip(id, "banco", null);
+				setChanged();
+				closeBetting();
+			}
+			case BET -> {
+				ChemmyBank.Punt r = bank.checkPunt(id, a.amount(), bots.tableMin(), cap, bmax);
+				if (r.error().isPresent() || !bots.take(id, r.accepted())) {
+					return;
+				}
+				boolean first = bank.punts().isEmpty();
+				bank.addPunt(id, r.accepted());
+				bots.sync(id);
+				if (first) {
+					cancelTimer(T_IDLE);
+					startTimer(T_BET, cfg().betTimerTicks);
+				}
+				playChip();
+				setChanged();
+			}
+			default -> { }
+		}
 	}
 
 	private void askPuntDeciders() {
@@ -715,7 +997,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (server == null || !bank.held()) {
 			return;
 		}
-		long bankerMax = maxFor(server, bank.banker());
+		long bankerMax = bankerMax(server);
 		for (TableSeats.Seat s : seats().occupied()) {
 			if (s.player().equals(bank.banker())) {
 				continue;
@@ -773,7 +1055,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (!isSeated(player) && !sit(player)) {
 			return;
 		}
-		if (owing(server, id)) {
+		if (owing(server, id) && !debtorMayPunt()) {
 			sendError(player, Component.translatable("gui.burmaldaholic.baccarat.error.pvp_owing"));
 			return;
 		}
@@ -782,8 +1064,9 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, veto);
 			return;
 		}
-		long bankerMax = maxFor(server, bank.banker());
+		long bankerMax = bankerMax(server);
 		long min = limitsFor(player)[0];
+		makeRoomFor(player, amount, maxFor(server, id), bankerMax);
 		ChemmyBank.Punt p = bank.checkPunt(id, amount, min, maxFor(server, id), bankerMax);
 		if (p.error().isPresent()) {
 			sendError(player, switch (p.error().get()) {
@@ -828,7 +1111,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (!isSeated(player) && !sit(player)) {
 			return;
 		}
-		if (owing(server, id)) {
+		if (owing(server, id) && !debtorMayPunt()) {
 			sendError(player, Component.translatable("gui.burmaldaholic.baccarat.error.pvp_owing"));
 			return;
 		}
@@ -837,7 +1120,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, veto);
 			return;
 		}
-		long cov = bank.coverage(maxFor(server, bank.banker()));
+		long cov = bank.coverage(bankerMax(server));
 		long own = bank.punts().getOrDefault(id, 0L);
 		if (maxFor(server, id) < cov || Economies.get().balance(player) + own < cov || cov <= 0) {
 			sendError(player, Component.translatable("gui.burmaldaholic.baccarat.chemmy.error.banco_funds", Texts.number(cov)));
@@ -860,6 +1143,9 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		bank.addPunt(id, cov);
 		names.put(id, player.getName().getString());
 		tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.banco_called", Texts.raw(player.getName().getString())), null);
+		if (bots.isBot(bank.banker())) {
+			bots.quip(bank.banker(), "banco", player.getName().getString());
+		}
 		setChanged();
 		closeBetting();
 	}
@@ -875,11 +1161,30 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (amount > 0) {
 			giveBack(who, amount, invested, "chemmy_bank");
 			MinecraftServer server = server();
-			if (tell && server != null) {
+			if (tell && server != null && !bots.isBot(who)) {
 				OfflineMail.chips(server, who, "msg.burmaldaholic.baccarat.bank_returned", amount, false);
 			}
 		}
 		setChanged();
+	}
+
+	/**
+	 * A bot leaves at the safe point (after RESULT, before BANK_OFFER): its stake and its bank go with it.
+	 * Returns what it had in play (added to its free chips by the caller).
+	 */
+	private long releaseBot(UUID bot) {
+		long held = 0;
+		if (bank.punts().containsKey(bot) && !bot.equals(bank.banco())) {
+			held += bank.removePunt(bot);
+		}
+		if (bot.equals(bank.banker())) {
+			refundPunts(false); // never at the safe point itself; defensive
+			held += bank.close();
+			lastOfferSeat = Math.max(-1, seatOfOccupant(bot));
+		}
+		botActed.remove(bot);
+		setChanged();
+		return held;
 	}
 
 	private void refundPunts(boolean tableClosed) {
@@ -904,6 +1209,12 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 	 * money (non-garnishable transfer), the rest is a win (garnishable payout), like poker's cash-out.
 	 */
 	private void giveBack(UUID player, long total, long principal, String detail) {
+		if (bots.isBot(player)) {
+			// A bot's chips never leave the bank escrow: only its free stack grows.
+			bots.give(player, total);
+			bots.sync(player);
+			return;
+		}
 		MinecraftServer server = server();
 		if (server == null || total <= 0) {
 			return;
@@ -930,10 +1241,17 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 					decideBank(candidate, SeatDecider.BankDecision.pass());
 				}
 			}
+			case T_BOT -> {
+				SeatDecider.BankDecision d = botBankDecision;
+				botBankDecision = null;
+				if (d != null && candidate != null && bots.isBot(candidate) && P_BANK_OFFER.equals(phase)) {
+					decideBank(candidate, d);
+				}
+			}
 			case T_IDLE -> {
 				if (!houseCoup && P_BETTING.equals(phase) && bank.punts().isEmpty() && bank.held()) {
 					// §20.9: no punter bet within idleTicks → the bank is passed
-					tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.passed_bank", Texts.raw(name(bank.banker()))), null);
+					tableMessage(Component.translatable("msg.burmaldaholic.baccarat.chemmy.passed_bank", who(bank.banker())), null);
 					returnBank(true);
 					startOffer(false);
 				}
@@ -1034,6 +1352,10 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		} else {
 			coupPunts.putAll(bank.punts());
 			coupBanker = bank.banker();
+			// Crash safety: the coup is drawn — persist what every bot holds now (stack = free + stake, bank).
+			// A crash refunds the coup on Java (see loadAdditional), so these are exactly the chips core's
+			// orphan recovery returns to a bankroll purse.
+			bots.syncAll();
 		}
 		phase(P_REVEAL);
 		startTimer(T_PHASE, cfg().revealTicks);
@@ -1142,17 +1464,29 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		Side winner = c.winner();
 		UUID banker = bank.banker();
 		UUID bancoCaller = bank.banco();
-		long matched = bank.punted();
+		boolean bankerBot = bots.isBot(banker);
 		int rakeBp = Paytable.basisPoints(cfg().chemmy.rakePercent);
-		ChemmyBank.Settlement<UUID> s = bank.settle(winner, rakeBp);
+		// A bot bank pays no rake; rake on chips won from bot punters stays in the bank sink (BOTS.md §5.1).
+		ChemmyBotMoney.Result<UUID> m = ChemmyBotMoney.settle(bank, winner, rakeBp, bots::isBot, bots::houseBot);
+		ChemmyBank.Settlement<UUID> s = m.base();
+		long matched = m.matched();
 		String bankroll = ownership().map(OwnedTable::bankrollId).orElse("");
 		ServerLevel sl = (ServerLevel) level;
+		List<Long> humanStakes = new ArrayList<>();
 		for (Map.Entry<UUID, Long> e : coupPunts.entrySet()) {
 			UUID id = e.getKey();
 			long stake = e.getValue();
 			long ret = s.punterReturns().getOrDefault(id, 0L);
 			coupPuntReturns.put(id, ret);
 			giveBack(id, ret, stake, "chemmy_stake_return");
+			if (bots.isBot(id)) {
+				BotProfile botProfile = bots.profile(id);
+				if (botProfile != null) {
+					ChemmyBotPolicy.afterPunt(bots.memory(id), botProfile.level(), ret - stake);
+				}
+				continue;
+			}
+			humanStakes.add(stake);
 			List<String> tags = new ArrayList<>(List.of("chemmy", "player"));
 			if (id.equals(bancoCaller)) {
 				tags.add("banco");
@@ -1161,27 +1495,37 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			if (naturalWin) {
 				tags.add("natural");
 			}
-			PlayResults.fire(server, id, PlayResult.of(gameId(), stake, ret).pvp().withTags(tags.toArray(String[]::new))
-				.withTable(sl, worldPosition, bankroll));
+			// against a bot banker every chip on the other side is a bot's (BOTS.md §5.3: no streak, weighted VIP)
+			PlayResult result = PlayResult.of(gameId(), stake, ret).pvp().withTags(tags.toArray(String[]::new)).withTable(sl, worldPosition, bankroll);
+			PlayResults.fire(server, id, BotRounds.tag(result, m.vsBots(id), m.onlyBots(id)));
 			if (naturalWin) {
 				notify(id, Component.translatable("msg.burmaldaholic.baccarat.natural_nine").withStyle(ChatFormatting.GOLD));
 				BaccaratAdvancements.grant(server, id, "baccarat_natural");
 			}
-			if (id.equals(bancoCaller) && winner == Side.PLAYER) {
+			// banco needs a human on the other side (BOTS.md §5.3)
+			if (id.equals(bancoCaller) && winner == Side.PLAYER && !bankerBot) {
 				BaccaratAdvancements.grant(server, id, "banco");
 			}
 			ServerPlayer p = server.getPlayerList().getPlayer(id);
 			if (p != null) {
 				p.sendOverlayMessage(netLine(ret - stake));
+				if (bankerBot && winner == Side.PLAYER) {
+					bots.quip(banker, "human_wins", p.getName().getString());
+				}
 			}
 		}
 		coupBankDelta = s.bankDelta();
 		coupRake = s.rake();
-		if (banker != null && matched > 0) {
+		if (banker != null && !bankerBot && winner == Side.BANKER && matched > 0 && m.humanPunts() == 0) {
+			// bank_holder needs a human on the other side: coups won only from bots do not count
+			bank.restore(banker, bank.bank(), bank.invested(), Math.max(0, bank.wins() - 1));
+		}
+		if (banker != null && !bankerBot && matched > 0) {
 			long bankerReturn = matched + s.bankDelta();
 			boolean naturalWin = winner == Side.BANKER && c.winnerNaturalNine();
-			PlayResults.fire(server, banker, PlayResult.of(gameId(), matched, bankerReturn).pvp()
-				.withTags(naturalWin ? new String[] {"chemmy", "bank", "natural"} : new String[] {"chemmy", "bank"}).withTable(sl, worldPosition, bankroll));
+			PlayResult result = PlayResult.of(gameId(), matched, bankerReturn).pvp()
+				.withTags(naturalWin ? new String[] {"chemmy", "bank", "natural"} : new String[] {"chemmy", "bank"}).withTable(sl, worldPosition, bankroll);
+			PlayResults.fire(server, banker, BotRounds.tag(result, m.vsBots(banker), m.onlyBots(banker)));
 			if (naturalWin) {
 				notify(banker, Component.translatable("msg.burmaldaholic.baccarat.natural_nine").withStyle(ChatFormatting.GOLD));
 				BaccaratAdvancements.grant(server, banker, "baccarat_natural");
@@ -1190,7 +1534,18 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 				BaccaratAdvancements.grant(server, banker, "bank_holder");
 			}
 		}
-		collectRake(s.rake());
+		if (bankerBot && winner == Side.BANKER && matched > 0 && c.winnerNaturalNine()) {
+			bots.quip(banker, "natural", null);
+		}
+		collectRake(m.rakeToOwner()); // the part taken from bot punters stays in the bank (sink)
+		// Heat: net won from house-funded bots (BOTS.md §5.4).
+		m.heat().forEach((id, net) -> {
+			if (net != 0) {
+				BotLedger.record(server, id, net);
+			}
+		});
+		bots.recordStakes(humanStakes);
+		bots.syncAll();
 		tieRun = winner == Side.TIE ? tieRun + 1 : 0;
 		lastTieWinners = new HashSet<>();
 		if (winner == Side.BANKER) {
@@ -1214,7 +1569,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (!coupWasHouse && bank.held()) {
 			UUID banker = bank.banker();
 			boolean lost = coup != null && coup.winner() == Side.PLAYER;
-			boolean stays = seats().isSeated(banker) && !lost && bank.bank() >= cfg().chemmy.minBank && chemmyEnabled();
+			boolean stays = occupantSeated(banker) && !lost && bank.bank() >= cfg().chemmy.minBank && chemmyEnabled();
 			if (stays) {
 				startOffer(true);
 				return;
@@ -1246,6 +1601,11 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 
 	private @Nullable MinecraftServer server() {
 		return level instanceof ServerLevel sl ? sl.getServer() : null;
+	}
+
+	/** How a seat is written in chat: the player's name, or a bot's display name ([BOT] Name). */
+	private Component who(@Nullable UUID id) {
+		return id != null && bots.isBot(id) ? bots.display(id) : Texts.raw(name(id));
 	}
 
 	private String name(@Nullable UUID id) {
@@ -1339,7 +1699,50 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		if (!CasinoMode.isEnabled(level) && hasRoundInPlay()) {
 			playOutNow("casino mode off"); // drawn coups settle, undrawn bets and the bank go back (§20.5)
 			syncViewers();
+			return;
 		}
+		tickBots();
+	}
+
+	/** Seats &amp; Bots per tick: bots alone leave, bot punters, WAITING retries, atmosphere bets. */
+	private void tickBots() {
+		boolean drawn = coupPending || P_NO_MORE_BETS.equals(phase) || P_SHUFFLE.equals(phase) || P_REVEAL.equals(phase);
+		if (bots.count() > 0 && seats().isEmpty() && !drawn && !P_RESULT.equals(phase)) {
+			// Nobody plays with bots alone (BOTS.md §2.1): stakes and the bank go back, the bots leave.
+			if (isChemmy()) {
+				refundPunts(false);
+				returnBank(false);
+				cancelTimer(T_BET);
+				cancelTimer(T_IDLE);
+				cancelTimer(T_OFFER);
+				cancelTimer(T_BOT);
+				candidate = null;
+				candidateSeat = -1;
+				houseCoup = false;
+				if (!P_IDLE.equals(phase)) {
+					phase(P_IDLE);
+				}
+			}
+			bots.safePoint();
+			syncViewers();
+			return;
+		}
+		if (isChemmy()) {
+			if (P_BETTING.equals(phase) && !houseCoup) {
+				botPunts();
+			} else if (P_WAITING.equals(phase) && bots.count() > 0 && gameTime() - waitingSince >= 3L * cfg().chemmy.bankOfferTicks) {
+				startOffer(false); // a bot may take the bank now
+			}
+			return;
+		}
+		BaccaratConfig c = cfg();
+		long ownerMax = ownerMax();
+		long max = isHighRoller() ? (long) Math.floor(VipTiers.maxBet(0) * c.highRollerMaxMultiplier) : VipTiers.maxBet(0);
+		if (ownerMax > 0) {
+			max = Math.min(max, ownerMax);
+		}
+		Slips.Limits l = Slips.Limits.of(Math.max(c.minBet, ownerMin()), max, c.sideMaxFraction, pay().bankerStep(), 0, c.pairBets);
+		bots.tickHouse(gameTime(), houseBetting(), l, beads, coupNo + 1);
 	}
 
 	/** An escrow found in the saved table (after a crash) is always returned (§20.9). */
@@ -1395,7 +1798,10 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		candidate = null;
 		candidateSeat = -1;
 		houseCoup = !isChemmy();
+		cancelTimer(T_BOT);
 		phase(P_IDLE);
+		// The round is paid: every bot leaves (stacks / banks back to their purses, BOTS.md §3.5).
+		bots.end();
 	}
 
 	// ---- tests ----------------------------------------------------------------------------------
@@ -1518,20 +1924,70 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			st.putBoolean("banker", s.player().equals(bank.banker()));
 			seatList.add(st);
 		}
+		boolean botBank = isChemmy() && bots.isBot(bank.banker());
+		for (Map.Entry<Integer, UUID> e : bots.seated()) {
+			UUID id = e.getValue();
+			BotProfile p = bots.profile(id);
+			if (p == null) {
+				continue;
+			}
+			CompoundTag st = new CompoundTag();
+			st.putInt("index", e.getKey());
+			st.putString("name", "");
+			st.putString("bot", p.nameKey());
+			// chemmy: Style (Wild / Steady / Cool-headed); house tables: the betting style of the personality
+			st.putString("style", isChemmy() ? p.level().styleKey() : p.personality().betStyleKey("baccarat"));
+			boolean watching = isChemmy() ? botBank && !id.equals(bank.banker()) : !bots.virtualBets().containsKey(bots.keyOf(id));
+			st.putBoolean("watching", watching);
+			long stake = isChemmy() ? bots.stackOf(id) : Slips.total(bots.virtualBets().getOrDefault(bots.keyOf(id), new EnumMap<>(BetKind.class)));
+			st.putLong("stake", stake);
+			st.putBoolean("ready", true);
+			st.putBoolean("banker", id.equals(bank.banker()));
+			seatList.add(st);
+		}
 		t.put("seat_list", seatList);
+		if (!isChemmy()) {
+			// Atmosphere bets are virtual (BOTS.md §5.2): shown, never counted in "others" or any account.
+			ListTag virtual = new ListTag();
+			bots.virtualBets().forEach((key, slip) -> {
+				UUID id = BaccaratBots.uuidOf(key);
+				BotProfile p = bots.profile(id);
+				if (p != null && Slips.total(slip) > 0) {
+					CompoundTag v = slipTag(slip, null, pay);
+					v.putString("bot", p.nameKey());
+					virtual.add(v);
+				}
+			});
+			t.put("bot_bets", virtual);
+		}
+		if (Bots.enabled()) {
+			BotSettings bs = bots.tb().settings();
+			CompoundTag h = new CompoundTag();
+			h.putString("policy", bs.policy().name());
+			h.putInt("count", bs.count());
+			h.putString("level", bs.difficulty().styleKey());
+			UUID host = bots.tb().host();
+			h.putString("host", host == null ? "" : name(host));
+			h.putBoolean("private", bots.tb().access().isPrivate());
+			h.putBoolean("pending", bots.tb().pending() != null);
+			t.put("bots", h);
+		}
 		if (isChemmy()) {
 			MinecraftServer server = viewer.level().getServer();
 			CompoundTag ch = new CompoundTag();
 			ch.putBoolean("held", bank.held());
 			ch.putString("banker", name(bank.banker()));
+			ch.putString("banker_bot", botNameKey(bank.banker()));
 			ch.putBoolean("you_bank", me.equals(bank.banker()));
 			ch.putLong("bank", bank.bank());
-			long cov = bank.held() ? bank.coverage(maxFor(server, bank.banker())) : 0;
+			long cov = bank.held() ? bank.coverage(bankerMax(server)) : 0;
 			ch.putLong("coverage", cov);
-			ch.putLong("open", bank.held() ? bank.open(maxFor(server, bank.banker())) : 0);
+			ch.putLong("open", bank.held() ? bank.open(bankerMax(server)) : 0);
 			ch.putString("banco", name(bank.banco()));
+			ch.putString("banco_bot", botNameKey(bank.banco()));
 			ch.putLong("my_punt", bank.punts().getOrDefault(me, 0L));
 			ch.putString("candidate", name(candidate));
+			ch.putString("candidate_bot", botNameKey(candidate));
 			ch.putBoolean("offer_you", me.equals(candidate) && P_BANK_OFFER.equals(phase));
 			ch.putBoolean("offer_keep", offerKeep);
 			ch.putLong("min_bank", c.chemmy.minBank);
@@ -1542,6 +1998,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			bank.punts().forEach((id, amt) -> {
 				CompoundTag pt = new CompoundTag();
 				pt.putString("name", name(id));
+				pt.putString("bot", botNameKey(id));
 				pt.putLong("amount", amt);
 				pt.putBoolean("you", id.equals(me));
 				punts.add(pt);
@@ -1550,6 +2007,12 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 			t.put("chemmy", ch);
 		}
 		return t;
+	}
+
+	/** A bot's name key for the client ({@code gui.burmaldaholic.bots.name.<id>}), "" for players / nobody. */
+	private String botNameKey(@Nullable UUID id) {
+		BotProfile p = id == null ? null : bots.profile(id);
+		return p == null ? "" : p.nameKey();
 	}
 
 	private static CompoundTag slipTag(Map<BetKind, Long> slip, @Nullable Map<BetKind, Long> returns, Paytable pay) {
@@ -1592,15 +2055,21 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		// chemin de fer escrow: always returned on load (crash) — a clean stop plays the coup out first
 		CompoundTag esc = new CompoundTag();
-		bank.punts().forEach((id, v) -> esc.putLong(id.toString(), v));
+		bank.punts().forEach((id, v) -> {
+			if (!bots.isBot(id)) { // a bot's holdings are recorded by core (BotLedger) and returned to its purse
+				esc.putLong(id.toString(), v);
+			}
+		});
 		orphanPunts.forEach((id, v) -> esc.putLong(id.toString(), esc.getLongOr(id.toString(), 0) + v));
 		t.put("punts", esc);
-		UUID banker = bank.held() ? bank.banker() : orphanBanker;
+		UUID banker = bank.held() && !bots.isBot(bank.banker()) ? bank.banker() : orphanBanker;
 		if (banker != null) {
 			t.putString("banker", banker.toString());
-			t.putLong("bank", bank.held() ? bank.bank() : orphanBank);
-			t.putLong("bank_invested", bank.held() ? bank.invested() : orphanInvested);
+			boolean live = banker.equals(bank.banker());
+			t.putLong("bank", live ? bank.bank() : orphanBank);
+			t.putLong("bank_invested", live ? bank.invested() : orphanInvested);
 		}
+		bots.save(t);
 		output.store(STATE_KEY, CompoundTag.CODEC, t);
 	}
 
@@ -1618,6 +2087,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity {
 		coupNo = t.getLongOr("coup_no", 0);
 		lastBank = t.getLongOr("last_bank", 0);
 		lastOfferSeat = t.getIntOr("last_offer_seat", -1);
+		bots.load(t);
 		int[] cp = t.getIntArray("coup_player").orElse(new int[0]);
 		int[] cb = t.getIntArray("coup_banker").orElse(new int[0]);
 		try {
