@@ -2,7 +2,7 @@ package dev.nezo.burmaldaholic.client.fx;
 
 /**
  * Palette tokens (global.md §2.1), ARGB. The asset generator's palette
- * ({@code bedrock/tools/assets/lib/palette.mjs}) holds the same hex values; change both together.
+ * ({@code tools/assets/lib/palette.mjs}) holds the same hex values; change both together.
  */
 public final class CasinoPalette {
 	public static final int BG_DEEP = 0xE626103C;
