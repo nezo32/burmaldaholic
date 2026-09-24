@@ -1,5 +1,6 @@
 {
   "textures": [
-    "minecraft:glow"
+    "burmaldaholic:core/golden_mote_0",
+    "burmaldaholic:core/golden_mote_1"
   ]
 }

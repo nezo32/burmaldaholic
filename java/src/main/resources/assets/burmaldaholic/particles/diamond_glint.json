@@ -1,5 +1,8 @@
 {
   "textures": [
-    "minecraft:glint"
+    "burmaldaholic:core/diamond_glint_0",
+    "burmaldaholic:core/diamond_glint_1",
+    "burmaldaholic:core/diamond_glint_2",
+    "burmaldaholic:core/diamond_glint_3"
   ]
 }

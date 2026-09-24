@@ -1,12 +1,8 @@
 {
   "textures": [
-    "minecraft:spark_0",
-    "minecraft:spark_1",
-    "minecraft:spark_2",
-    "minecraft:spark_3",
-    "minecraft:spark_4",
-    "minecraft:spark_5",
-    "minecraft:spark_6",
-    "minecraft:spark_7"
+    "burmaldaholic:core/gold_burst_0",
+    "burmaldaholic:core/gold_burst_1",
+    "burmaldaholic:core/gold_burst_2",
+    "burmaldaholic:core/gold_burst_3"
   ]
 }

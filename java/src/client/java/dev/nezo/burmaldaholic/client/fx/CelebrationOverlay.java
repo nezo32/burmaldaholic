@@ -13,7 +13,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.input.KeyEvent;
 
 /**
  * The shared celebration kit (global.md §2.6): banner / overlay, roll-up with tier-upgrade beats, chip burst,
@@ -81,7 +81,7 @@ public final class CelebrationOverlay {
 	private void start(CelebrationRequest request) {
 		this.active = request;
 		this.plan = CelebrationPlan.of(request.tier(), request.ret(), request.stake(), request.table(), FxSettings.localProfile(),
-			FxSettings.celebrations() == FxSettings.Celebrations.OFF);
+			FxSettings.celebrations() == FxSettings.Celebrations.OFF, request.maxWin());
 		this.startMs = AnimClock.localMs();
 		this.lastFrameMs = startMs;
 		this.rng = new SeedMix.FxRng(request.seed());
@@ -97,7 +97,10 @@ public final class CelebrationOverlay {
 		if (plan.style() == WinTier.EPIC && request.stems() == CelebrationRequest.TierStems.CORE) FxSounds.play("win_big", 1f);
 	}
 
-	/** Click / Space / Enter / Esc: jump to the final frame (hold 300 ms, then exit). */
+	/**
+	 * Click / Space / Enter / Esc: jump to the final frame (hold 300 ms, then exit). Also valid before the first
+	 * frame: the final word, exact amount and MAX WIN plate are still drawn for the hold.
+	 */
 	public void skip() {
 		if (plan != null) plan = plan.withSkipAt((int) (AnimClock.localMs() - startMs));
 	}
@@ -142,7 +145,8 @@ public final class CelebrationOverlay {
 	/**
 	 * Draws the current frame (call once per frame; also advances sounds and particles). {@code allowBlur}: MEGA+
 	 * may blur what is behind (vanilla allows ONE blur per frame, so pass true only where nothing else blurs:
-	 * the HUD pass with no screen open, or a screen that does not blur its own background).
+	 * a {@link Host} screen that does not blur its own background; verify with a client game test — on the HUD
+	 * pass a blur hid the whole overlay in 26.2, so {@link ClientFx} never blurs there).
 	 */
 	public void extract(GuiGraphicsExtractor g, boolean allowBlur) {
 		if (active == null) return;
@@ -363,7 +367,7 @@ public final class CelebrationOverlay {
 		float s = scale * plan.wordScale(t);
 		int y = h / 3 - (int) (font.lineHeight * scale / 2f) + (int) plan.bannerOffset(t);
 		int ink = CasinoPalette.withAlpha(CasinoPalette.INK, alpha);
-		if (word == WinTier.JACKPOT && !plan.reduced()) jackpotWave(g, font, t, cx, y, s, alpha, ink);
+		if (word == WinTier.JACKPOT && !plan.reduced() && !plan.finalFrame(t)) jackpotWave(g, font, t, cx, y, s, alpha, ink);
 		else FxText.outlinedCentered(g, font, wordSeq, wordWidth, cx, y, s, wordColor(word, alpha), ink);
 		int ay = y + font.lineHeight * scale + 6;
 		if (!wordHasAmount) {
@@ -377,13 +381,13 @@ public final class CelebrationOverlay {
 			FxText.outlinedCentered(g, font, m, cx, ay, 1f, CasinoPalette.withAlpha(CasinoPalette.BONE, alpha), ink);
 			ay += font.lineHeight + 4;
 		}
-		if (active.maxWin() && active.words().maxWin() != null) {
+		if (plan.maxWinPlate(t) && active.words().maxWin() != null) {
 			Component m = Component.translatable(active.words().maxWin());
 			int ms = FxText.fitScale(font, m, 2, maxW);
 			FxText.outlinedCentered(g, font, m, cx, ay, ms, CasinoPalette.withAlpha(CasinoPalette.CHIP_RED_LIGHT, alpha), ink);
 			ay += font.lineHeight * ms + 4;
 		}
-		if (skippable()) {
+		if (skippable() && Minecraft.getInstance().gui.screen() != null) { // skip input exists on screens only
 			Component hint = Component.translatable("gui.burmaldaholic.fx.skip");
 			FxText.outlinedCentered(g, font, hint, cx, Math.min(h - 14, ay + 8), 1f, CasinoPalette.withAlpha(CasinoPalette.BONE_SHADE, alpha * 0.8f), ink);
 		}
@@ -427,7 +431,8 @@ public final class CelebrationOverlay {
 		boolean withAmount = !wordHasAmount && active.tier().isWin();
 		if (withAmount) updateAmount(plan.amountAt(t), font);
 		int textW = Math.max((int) (wordWidth * scale), withAmount ? amountWidth : 0);
-		int boxH = font.lineHeight * scale + (withAmount ? font.lineHeight + 3 : 0) + 8;
+		boolean plate = plan.maxWinPlate(t) && active.words().maxWin() != null;
+		int boxH = font.lineHeight * scale + (withAmount ? font.lineHeight + 3 : 0) + (plate ? font.lineHeight + 3 : 0) + 8;
 		int top = h / 4 - boxH / 2 + (int) plan.bannerOffset(t);
 		int left = cx - textW / 2 - 8;
 		int right = cx + textW / 2 + 8;
@@ -441,6 +446,10 @@ public final class CelebrationOverlay {
 			FxText.outlinedCentered(g, font, amountSeq, amountWidth, cx, top + 4 + font.lineHeight * scale + 3, 1f,
 				CasinoPalette.withAlpha(CasinoPalette.BONUS, alpha), ink);
 		}
+		if (plate) {
+			Component m = Component.translatable(active.words().maxWin());
+			FxText.outlinedCentered(g, font, m, cx, top + boxH - 4 - font.lineHeight, 1f, CasinoPalette.withAlpha(CasinoPalette.CHIP_RED_LIGHT, alpha), ink);
+		}
 	}
 
 	private static String formatMultiple(double m) {
@@ -451,9 +460,10 @@ public final class CelebrationOverlay {
 	// ---- input ----------------------------------------------------------------------------------
 
 	/** Key handling for the screen hook: Space / Enter / Esc skip a skippable celebration (consumed). */
-	public boolean onKey(int key) {
+	public boolean onKey(KeyEvent key) {
 		if (!skippable()) return false;
-		if (key == GLFW.GLFW_KEY_SPACE || key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER || key == GLFW.GLFW_KEY_ESCAPE) {
+		// semantic checks, not key codes: 26.2 (GLFW) and 26.3 (SDL3) use different codes for the same keys
+		if (key.isSelection() || key.isConfirmation() || key.isEscape()) {
 			skip();
 			return true;
 		}

@@ -1,12 +1,8 @@
 {
   "textures": [
-    "minecraft:effect_0",
-    "minecraft:effect_1",
-    "minecraft:effect_2",
-    "minecraft:effect_3",
-    "minecraft:effect_4",
-    "minecraft:effect_5",
-    "minecraft:effect_6",
-    "minecraft:effect_7"
+    "burmaldaholic:core/teleport_ring_0",
+    "burmaldaholic:core/teleport_ring_1",
+    "burmaldaholic:core/teleport_ring_2",
+    "burmaldaholic:core/teleport_ring_3"
   ]
 }

@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.client.fx;
 
 import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.core.anim.RateBudget;
 import dev.nezo.burmaldaholic.core.sound.CasinoSounds;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +52,11 @@ public final class FxSounds {
 
 	/** ≤ 20 casino sounds per second per player (docs/architecture/animation.md §2.4). */
 	static final int MAX_PER_SECOND = 20;
+	/** One id (e.g. the count-up tick) may use at most this many, so fanfares and toasts always get through. */
+	static final int MAX_PER_ID_PER_SECOND = 15;
 
 	private static final RandomSource RANDOM = RandomSource.create();
-	private static long windowStart;
-	private static int windowCount;
+	private static final RateBudget BUDGET = new RateBudget(MAX_PER_ID_PER_SECOND, MAX_PER_SECOND, 1000);
 
 	private FxSounds() {}
 
@@ -68,7 +70,7 @@ public final class FxSounds {
 		SoundEvent e = CasinoSounds.get(id);
 		if (e == null) return;
 		SoundSource src = CasinoSounds.sourceOf(id);
-		if (!emit(e.location(), src, volume, pitch, 0, true, 0, 0, 0)) return;
+		if (!allow(id) || !emit(e.location(), src, volume, pitch, 0, true, 0, 0, 0)) return;
 		for (Layer l : LAYERS.getOrDefault(id, List.of()))
 			emit(Identifier.withDefaultNamespace(l.event), src, volume * l.volume, l.pitch, l.delayTicks, true, 0, 0, 0);
 	}
@@ -78,7 +80,7 @@ public final class FxSounds {
 		SoundEvent e = CasinoSounds.get(id);
 		if (e == null) return;
 		SoundSource src = CasinoSounds.sourceOf(id);
-		if (!emit(e.location(), src, volume, pitch, 0, false, x, y, z)) return;
+		if (!allow(id) || !emit(e.location(), src, volume, pitch, 0, false, x, y, z)) return;
 		for (Layer l : LAYERS.getOrDefault(id, List.of()))
 			emit(Identifier.withDefaultNamespace(l.event), src, volume * l.volume, l.pitch, l.delayTicks, false, x, y, z);
 	}
@@ -86,7 +88,7 @@ public final class FxSounds {
 	/** Plays a burmaldaholic sound that is not in the catalog (legacy ids), personal. */
 	public static void playLegacy(String path, float volume, float pitch) {
 		SoundEvent e = BuiltInRegistries.SOUND_EVENT.getValue(Burmaldaholic.id(path));
-		if (e != null) emit(e.location(), SoundSource.PLAYERS, volume, pitch, 0, true, 0, 0, 0);
+		if (e != null && allow(path)) emit(e.location(), SoundSource.PLAYERS, volume, pitch, 0, true, 0, 0, 0);
 	}
 
 	private static boolean emit(Identifier sound, SoundSource source, float volume, float pitch, int delayTicks, boolean relative, double x,
@@ -94,7 +96,7 @@ public final class FxSounds {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc == null || mc.getSoundManager() == null) return false;
 		float v = volume * FxSettings.volume();
-		if (v <= 0.001f || !allow()) return false;
+		if (v <= 0.001f) return false;
 		SoundInstance inst = relative
 			? new SimpleSoundInstance(sound, source, v, pitch, RANDOM, false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true)
 			: new SimpleSoundInstance(sound, source, v, pitch, RANDOM, false, 0, SoundInstance.Attenuation.LINEAR, x, y, z, false);
@@ -103,14 +105,8 @@ public final class FxSounds {
 		return true;
 	}
 
-	private static synchronized boolean allow() {
-		long now = Util.getMillis();
-		if (now - windowStart >= 1000) {
-			windowStart = now;
-			windowCount = 0;
-		}
-		if (windowCount >= MAX_PER_SECOND) return false;
-		windowCount++;
-		return true;
+	/** Per-id budget under the overall 20/s cap (a busy id never starves the others). */
+	private static synchronized boolean allow(String id) {
+		return BUDGET.tryAcquire(id, Util.getMillis());
 	}
 }

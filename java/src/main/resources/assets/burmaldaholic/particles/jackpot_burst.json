@@ -1,12 +1,8 @@
 {
   "textures": [
-    "minecraft:glitter_0",
-    "minecraft:glitter_1",
-    "minecraft:glitter_2",
-    "minecraft:glitter_3",
-    "minecraft:glitter_4",
-    "minecraft:glitter_5",
-    "minecraft:glitter_6",
-    "minecraft:glitter_7"
+    "burmaldaholic:core/jackpot_burst_0",
+    "burmaldaholic:core/jackpot_burst_1",
+    "burmaldaholic:core/jackpot_burst_2",
+    "burmaldaholic:core/jackpot_burst_3"
   ]
 }

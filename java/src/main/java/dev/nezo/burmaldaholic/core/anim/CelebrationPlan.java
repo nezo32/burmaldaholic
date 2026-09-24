@@ -40,12 +40,23 @@ public final class CelebrationPlan {
 	 */
 	public static CelebrationPlan of(WinTier tier, long ret, long stake, WinTierTable table, TimingProfile profile,
 			boolean celebrationsOff) {
+		return of(tier, ret, stake, table, profile, celebrationsOff, false);
+	}
+
+	/**
+	 * Builds the plan of one celebration.
+	 *
+	 * @param celebrationsOff {@code anim.celebrations = off}: WIN banner style for every tier
+	 * @param maxWin          the max-win cap was hit: the MAX WIN plate shows for the whole celebration
+	 */
+	public static CelebrationPlan of(WinTier tier, long ret, long stake, WinTierTable table, TimingProfile profile,
+			boolean celebrationsOff, boolean maxWin) {
 		WinTier style = celebrationsOff && tier.isWin() ? WinTier.WIN : tier;
 		int max = ROLL_MAX[style.ordinal()];
 		if (profile.reduceMotion()) max = Math.min(max, 300);
 		int roll = tier.isWin() && ret > 0 ? RollUp.durationMs(ret, stake, Math.min(400, max), max) : 0;
 		return new CelebrationPlan(tier, style, ret, stake, table, profile.scale(roll), profile.scale(HOLD[style.ordinal()]),
-			profile.scale(EXIT[style.ordinal()]), profile.reduceMotion(), profile.speedPct(), -1);
+			profile.scale(EXIT[style.ordinal()]), profile.reduceMotion(), profile.speedPct(), -1, maxWin);
 	}
 
 	private final WinTier tier;
@@ -59,6 +70,7 @@ public final class CelebrationPlan {
 	private final boolean reduced;
 	private final int speedPct;
 	private final int skipAt;
+	private final boolean maxWin;
 	/** Upgrade words (ordinals) and the amounts at which they appear, ascending. */
 	private final WinTier[] upWords;
 	private final long[] upAmounts;
@@ -76,9 +88,10 @@ public final class CelebrationPlan {
 	 * @param reduced  reduce motion
 	 * @param speedPct {@code anim.speed} (all durations already scaled)
 	 * @param skipAt   local ms of a skip, or −1
+	 * @param maxWin   the max-win cap was hit
 	 */
 	public CelebrationPlan(WinTier tier, WinTier style, long ret, long stake, WinTierTable table, int rollMs, int holdMs,
-			int exitMs, boolean reduced, int speedPct, int skipAt) {
+			int exitMs, boolean reduced, int speedPct, int skipAt, boolean maxWin) {
 		this.tier = tier;
 		this.style = style;
 		this.ret = ret;
@@ -90,6 +103,7 @@ public final class CelebrationPlan {
 		this.reduced = reduced;
 		this.speedPct = speedPct;
 		this.skipAt = skipAt;
+		this.maxWin = maxWin;
 		boolean upgrades = tier.isOverlay() && tier != WinTier.JACKPOT && style == tier;
 		WinTier start = upgrades ? firstWord(tier, table) : tier;
 		long[][] pts = upgrades ? table.upgradePoints(stake, start, tier) : new long[0][];
@@ -175,7 +189,7 @@ public final class CelebrationPlan {
 	/** Same plan skipped at local {@code ms} (a second skip keeps the first). */
 	public CelebrationPlan withSkipAt(int ms) {
 		if (skipAt >= 0) return this;
-		return new CelebrationPlan(tier, style, ret, stake, table, rollMs, holdMs, exitMs, reduced, speedPct, Math.max(0, ms));
+		return new CelebrationPlan(tier, style, ret, stake, table, rollMs, holdMs, exitMs, reduced, speedPct, Math.max(0, ms), maxWin);
 	}
 
 	public boolean skipped() {
@@ -253,9 +267,26 @@ public final class CelebrationPlan {
 		return upTimes[i];
 	}
 
+	/**
+	 * True from a skip on: the final frame is drawn statically (full-size word, rest position, exact amount), even
+	 * when the skip came before the first frame (e.g. a skip key already held when the win lands).
+	 */
+	public boolean finalFrame(double t) {
+		return skipAt >= 0 && t >= skipAt;
+	}
+
+	public boolean maxWin() {
+		return maxWin;
+	}
+
+	/** The MAX WIN plate shows for the whole celebration when the cap was hit — also after the roll-up and a skip. */
+	public boolean maxWinPlate(double t) {
+		return maxWin && !done(t);
+	}
+
 	/** Word scale multiplier at {@code t}: scale-in (BIG/MEGA outBack 300 ms, EPIC/JACKPOT outElastic 600 ms) × punch. */
 	public float wordScale(double t) {
-		if (reduced) return 1;
+		if (reduced || finalFrame(t)) return 1;
 		double s = 1;
 		if (style.isOverlay()) {
 			boolean elastic = style == WinTier.EPIC || style == WinTier.JACKPOT;
@@ -273,7 +304,7 @@ public final class CelebrationPlan {
 
 	/** Banner vertical offset (px, positive = below its rest position): 8 px → 0 over 150 ms outCubic. */
 	public float bannerOffset(double t) {
-		if (reduced) return 0;
+		if (reduced || finalFrame(t)) return 0;
 		double p = Math.max(0, Math.min(1, t / BANNER_IN_MS));
 		return (float) (8 * (1 - Ease.OUT_CUBIC.apply(p)));
 	}

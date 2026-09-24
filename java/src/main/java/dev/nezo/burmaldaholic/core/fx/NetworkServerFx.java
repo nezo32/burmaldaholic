@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.core.fx;
 
+import dev.nezo.burmaldaholic.core.anim.RateBudget;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.TierWords;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
@@ -23,17 +24,20 @@ import net.minecraft.world.phys.Vec3;
 /**
  * The installed {@link ServerFx}: sends {@link FxPayload} to modded clients, vanilla titles to others
  * (global.md §3.1). Budgets (global §2.9): celebrations are never dropped (one per settlement by contract);
- * every other kind is limited to 4 payloads per second per player; server-wide toasts to 1 per 10 s with at
+ * every other kind is limited to 4 payloads per second per player, at most 2 of them of one kind (budget per
+ * component, {@link RateBudget}); server-wide toasts to 1 per 10 s with at
  * most 3 queued (beyond that the chat line alone tells it). Server thread only.
  */
 public final class NetworkServerFx implements ServerFx {
 	/** Radius of the "players nearby" rule (global §4.7). */
 	public static final double NEARBY_RADIUS = 32;
 	static final int PER_SECOND = 4;
+	/** One kind (e.g. nearby wins in a busy casino) may use at most this many per second of a player's budget. */
+	static final int PER_KIND_PER_SECOND = 2;
 	static final int BROADCAST_GAP_TICKS = 200;
 	static final int BROADCAST_QUEUE = 3;
 
-	private final Map<UUID, int[]> recent = new HashMap<>();
+	private final Map<UUID, RateBudget> recent = new HashMap<>();
 	private final Deque<Pending> broadcasts = new ArrayDeque<>();
 	private int lastBroadcastTick = Integer.MIN_VALUE / 2;
 
@@ -110,16 +114,11 @@ public final class NetworkServerFx implements ServerFx {
 	 */
 	boolean send(ServerPlayer player, FxPayload payload, boolean essential) {
 		if (FxPayload.TYPE == null || !ServerPlayNetworking.canSend(player, FxPayload.TYPE)) return false;
-		int now = player.level().getServer().getTickCount();
-		int[] ring = recent.computeIfAbsent(player.getUUID(), k -> {
-			int[] r = new int[PER_SECOND];
-			java.util.Arrays.fill(r, Integer.MIN_VALUE / 2);
-			return r;
-		});
-		int oldest = 0;
-		for (int i = 1; i < ring.length; i++) if (ring[i] < ring[oldest]) oldest = i;
-		if (!essential && now - ring[oldest] < 20) return true;
-		ring[oldest] = now;
+		if (!essential) {
+			long nowMs = player.level().getServer().getTickCount() * 50L;
+			RateBudget budget = recent.computeIfAbsent(player.getUUID(), k -> new RateBudget(PER_KIND_PER_SECOND, PER_SECOND, 1000));
+			if (!budget.tryAcquire(payload.kind().name(), nowMs)) return true;
+		}
 		ServerPlayNetworking.send(player, payload);
 		return true;
 	}

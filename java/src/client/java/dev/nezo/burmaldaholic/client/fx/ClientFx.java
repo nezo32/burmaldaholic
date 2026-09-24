@@ -55,7 +55,7 @@ public final class ClientFx {
 				if (!(s instanceof CelebrationOverlay.Host)) CelebrationOverlay.get().extract(g, false);
 			});
 			ScreenMouseEvents.allowMouseClick(screen).register((s, e) -> s instanceof CelebrationOverlay.Host || !CelebrationOverlay.get().onClick());
-			ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> s instanceof CelebrationOverlay.Host || !CelebrationOverlay.get().onKey(e.key()));
+			ScreenKeyboardEvents.allowKeyPress(screen).register((s, e) -> s instanceof CelebrationOverlay.Host || !CelebrationOverlay.get().onKey(e));
 		});
 		if (FxPayload.TYPE != null) ClientPlayNetworking.registerGlobalReceiver(FxPayload.TYPE, (payload, context) -> handle(payload));
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
@@ -76,7 +76,9 @@ public final class ClientFx {
 	private static void extractHud(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.gui.screen() != null) return; // drawn by the screen hook, on top of the screen
-		CelebrationOverlay.get().extract(g, true);
+		// no blur on the HUD pass: a HUD-layer blur swallowed every later stratum in the 26.2 client game test
+		// (EPIC drew nothing); the dim backdrop carries the beat
+		CelebrationOverlay.get().extract(g, false);
 	}
 
 	/** Dispatches one {@code fx} payload (client thread). */

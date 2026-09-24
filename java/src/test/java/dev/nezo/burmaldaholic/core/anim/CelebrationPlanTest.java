@@ -171,4 +171,45 @@ class CelebrationPlanTest {
 		assertEquals(0f, p.alpha(p.endMs()));
 		assertTrue(p.done(p.endMs()));
 	}
+
+	@Test
+	void skipBeforeTheFirstFrameStillShowsTheFinalFrame() {
+		// review of the Bedrock celebrate feature: a skip already pending when the win lands must not hide it
+		for (WinTier tier : new WinTier[] {WinTier.WIN, WinTier.BIG, WinTier.EPIC, WinTier.JACKPOT}) {
+			CelebrationPlan p = CelebrationPlan.of(tier, 6000, 100, WinTierTable.DEFAULT, NORMAL, false).withSkipAt(0);
+			assertEquals(tier, p.wordAt(0), "final word at once");
+			assertEquals(6000, p.amountAt(0), "exact amount at once");
+			assertEquals(1f, p.wordScale(0), "full-size word, no scale-in from 0");
+			assertEquals(0f, p.bannerOffset(0));
+			assertEquals(1f, p.alpha(0));
+			assertTrue(!p.done(0) && p.endMs() >= CelebrationPlan.SKIP_HOLD_MS, "the final frame is held");
+		}
+	}
+
+	@Test
+	void maxWinPlateShowsForTheWholeCelebration() {
+		CelebrationPlan p = CelebrationPlan.of(WinTier.EPIC, 500000, 100, WinTierTable.SLOTS, NORMAL, false, true);
+		for (int t = 0; t < p.endMs(); t += 50) assertTrue(p.maxWinPlate(t), "plate at " + t);
+		assertTrue(p.maxWinPlate(p.rollMs() + 1), "after the roll-up");
+		CelebrationPlan s = p.withSkipAt(10);
+		assertTrue(s.maxWinPlate(11) && s.maxWin(), "after a skip");
+		assertTrue(CelebrationPlan.of(WinTier.EPIC, 500000, 100, WinTierTable.SLOTS, NORMAL, true, true).maxWinPlate(100), "celebrations off");
+		assertTrue(!CelebrationPlan.of(WinTier.EPIC, 500000, 100, WinTierTable.SLOTS, NORMAL, false, false).maxWinPlate(100));
+		assertTrue(!p.maxWinPlate(p.endMs()));
+	}
+
+	@Test
+	void rateBudgetIsPerComponent() {
+		RateBudget b = new RateBudget(15, 20, 1000);
+		int ticks = 0;
+		for (int i = 0; i < 40; i++) if (b.tryAcquire("chip_count", i * 10)) ticks++;
+		assertEquals(15, ticks, "one component is capped at its own share");
+		assertTrue(b.tryAcquire("win_big", 400), "a busy component does not starve another");
+		assertTrue(b.tryAcquire("chip_count", 1000), "window slides");
+		RateBudget total = new RateBudget(2, 3, 1000);
+		assertTrue(total.tryAcquire("a", 0) && total.tryAcquire("a", 1) && !total.tryAcquire("a", 2));
+		assertTrue(total.tryAcquire("b", 3));
+		assertTrue(!total.tryAcquire("c", 4), "overall cap");
+		assertTrue(total.tryAcquire("c", 1000));
+	}
 }

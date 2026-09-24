@@ -1,8 +1,8 @@
 {
   "textures": [
-    "minecraft:spark_0",
-    "minecraft:spark_1",
-    "minecraft:spark_2",
-    "minecraft:spark_3"
+    "burmaldaholic:core/chip_pop_0",
+    "burmaldaholic:core/chip_pop_1",
+    "burmaldaholic:core/chip_pop_2",
+    "burmaldaholic:core/chip_pop_3"
   ]
 }

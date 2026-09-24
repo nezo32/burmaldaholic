@@ -1,12 +1,8 @@
 {
   "textures": [
-    "minecraft:glitter_0",
-    "minecraft:glitter_1",
-    "minecraft:glitter_2",
-    "minecraft:glitter_3",
-    "minecraft:glitter_4",
-    "minecraft:glitter_5",
-    "minecraft:glitter_6",
-    "minecraft:glitter_7"
+    "burmaldaholic:core/sparkle_0",
+    "burmaldaholic:core/sparkle_1",
+    "burmaldaholic:core/sparkle_2",
+    "burmaldaholic:core/sparkle_3"
   ]
 }

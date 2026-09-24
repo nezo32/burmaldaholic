@@ -1,8 +1,7 @@
 {
   "textures": [
-    "minecraft:soul_0",
-    "minecraft:soul_1",
-    "minecraft:soul_2",
-    "minecraft:soul_3"
+    "burmaldaholic:core/curse_wisp_0",
+    "burmaldaholic:core/curse_wisp_1",
+    "burmaldaholic:core/curse_wisp_2"
   ]
 }
