@@ -228,7 +228,9 @@ the tag is updated in place and its assets are overwritten.
 
 | Input | Default | Description |
 |---|---|---|
-| `project-id` | `""` | Numeric CurseForge project id. Empty = the job is skipped |
+| `project-id` | `""` | Numeric CurseForge project id. Empty = read the variable named by `project-id-var` |
+| `project-id-var` | `""` | Name of a repository **or Environment** variable holding the project id (e.g. `CURSEFORGE_PROJECT_ID`). Resolved inside the job; unset = skipped with a warning |
+| `environment` | `""` | GitHub Environment for the upload job. Its variables/secrets (e.g. `CURSEFORGE_PROJECT_ID`, `CURSEFORGE_TOKEN`) become available and its protection rules (required reviewers, branch rules) apply |
 | `api-base` | `https://minecraft.curseforge.com` | Upload API host of the CurseForge game |
 | `artifact-pattern` | **required** | Which artifacts of the run to publish |
 | `primary-file` | `!(*-@(sources\|dev\|javadoc)).jar` | Extglob; must match exactly one file |
@@ -244,6 +246,7 @@ the tag is updated in place and its assets are overwritten.
 
 | Secret | Description |
 |---|---|
+| `CURSEFORGE_TOKEN` | Same token under its conventional name. When `environment` is set, an Environment secret named `CURSEFORGE_TOKEN` takes precedence over the value passed by the caller |
 | `curseforge-token` | CurseForge Upload API token. Declared `required: false` so that callers without CurseForge still validate; the upload fails loudly without it |
 
 Output: `file-id` (of the primary file; `0` in dry-run). Permissions: `contents: read` (reads the release body).
@@ -363,7 +366,7 @@ in the `version` job, before anything is built or published.
 - **Least privilege.** The caller's top level grants `contents: read`, and only the `github-release` job gets
   `contents: write`. A called workflow can never exceed what its caller job grants. Checkouts use
   `persist-credentials: false`.
-- **Pass the token explicitly** (`secrets: curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}`), never with
+- **Pass the token explicitly** (`secrets: CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}`), never with
   `secrets: inherit`, so a called workflow only ever sees the one secret it needs.
 - **`*-command` inputs are code.** `install-command`, `check-command` and `build-command` are run as shell. Write them
   as literals in your workflow file. Never build them from event data such as PR titles, branch names or issue text.
@@ -443,3 +446,7 @@ after the release job:
           java: 25
           dependencies: fabric-api(required){curseforge:fabric-api}
 ```
+
+## Using a GitHub Environment for CurseForge settings
+
+You can keep `CURSEFORGE_TOKEN` (secret) and `CURSEFORGE_PROJECT_ID` (variable) in an Environment instead of at repository level, and add protection rules such as required reviewers before anything is published. Set the repository variable `CURSEFORGE_ENVIRONMENT` to the Environment's name (the template passes it as `environment:`); the upload job then runs in that Environment and reads the id and token from it. Job-level `if:` conditions cannot see Environment variables, which is why the id is resolved inside the job (`project-id-var`) and a missing id produces a warning instead of a silently skipped job.

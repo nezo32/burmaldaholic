@@ -91,7 +91,7 @@ jobs:
           set -euo pipefail
           # compare BRANCH...TAG: "behind" (tag is an ancestor of the branch) or "identical" = tag is on the branch
           if ! status="$(gh api "repos/$GITHUB_REPOSITORY/compare/${BRANCH}...${TAG}" --jq .status)"; then
-            echo "::error::Could not compare '$TAG' with '$BRANCH' (does the branch exist?)"
+            echo "::error::Could not compare '$TAG' with '$BRANCH': does the tag exist? (run the Release workflow from $BRANCH with a new tag to create it)"
             exit 1
           fi
           case "$status" in

@@ -1,10 +1,12 @@
 # Burmaldaholic release: push tag vX.Y.Z[-pre] (on a commit of main) ->
 #   version -> build-mod || build-addon -> github-release -> curseforge-mod || curseforge-addon
+# Or: Actions -> Release -> Run workflow on main with a new tag: the tag is created on main's tip.
 # Everything runs in ONE workflow run: releases created with GITHUB_TOKEN never trigger other workflows.
 # The reusable-*.yml workflows are shared with nezo32/enchantaholic (identical files; see
 # docs/ci/REUSABLE_RELEASE_PIPELINE.md). Maintainer runbook: docs/ci/RELEASING.md.
 #
-# Repo config: secret CURSEFORGE_TOKEN; var CURSEFORGE_PROJECT_ID (empty = CurseForge skipped);
+# Config (repository level or in the Environment named by var CURSEFORGE_ENVIRONMENT, default Burmaldaholic):
+# secret CURSEFORGE_TOKEN; var CURSEFORGE_PROJECT_ID (unset = CurseForge skipped with a warning);
 # optional vars CURSEFORGE_GAME_VERSIONS, CURSEFORGE_BEDROCK_PROJECT_ID, CURSEFORGE_BEDROCK_API_BASE,
 # CURSEFORGE_BEDROCK_GAME_VERSIONS.
 name: Release
@@ -15,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to (re)build, release and publish, e.g. v1.2.3
+        description: Tag to release, e.g. v1.2.3. A new tag is created on the tip of main; an existing one is rebuilt.
         required: true
       skip-curseforge:
         description: Only (re)build and update the GitHub release; do not upload to CurseForge
@@ -34,7 +36,34 @@ permissions:
   contents: read
 
 jobs:
+  # Manual runs: create the tag if it does not exist yet (on the tip of main), otherwise re-release it.
+  # A tag created with GITHUB_TOKEN does not start another run, so the release continues in this one.
+  create-tag:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create tag on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::Tag '$TAG' is not vX.Y.Z[-pre] (e.g. v1.2.3 or v1.2.3-beta.1)"; exit 1; }
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists: rebuilding and re-releasing it" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [[ "$REF" == refs/heads/main ]] || { echo "::error::Tag $TAG does not exist. Run the workflow from main to create it (got $REF)."; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" >/dev/null
+          echo "Created $TAG at $SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+
   version:
+    needs: create-tag
+    if: ${{ !cancelled() && needs.create-tag.result != 'failure' }}
     uses: ./.github/workflows/reusable-version.yml
     with:
       tag: ${{ inputs.tag }}
@@ -44,6 +73,7 @@ jobs:
   # `build` runs the unit tests, gametests and checkLinkage against the other supported versions.
   build-mod:
     needs: version
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/reusable-build-gradle.yml
     with:
       ref: ${{ needs.version.outputs.tag }}
@@ -55,6 +85,7 @@ jobs:
 
   build-addon:
     needs: version
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/reusable-build-node.yml
     with:
       ref: ${{ needs.version.outputs.tag }}
@@ -68,6 +99,7 @@ jobs:
 
   github-release:
     needs: [version, build-mod, build-addon]
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: write
     uses: ./.github/workflows/reusable-github-release.yml
@@ -79,10 +111,12 @@ jobs:
 
   curseforge-mod:
     needs: [version, github-release]
-    if: ${{ !inputs.skip-curseforge && vars.CURSEFORGE_PROJECT_ID != '' }}
+    if: ${{ !cancelled() && !failure() && !inputs.skip-curseforge }}
     uses: ./.github/workflows/reusable-publish-curseforge.yml
     with:
-      project-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+      # Read inside the job so repository- and Environment-level variables both work.
+      project-id-var: CURSEFORGE_PROJECT_ID
+      environment: ${{ vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
       artifact-pattern: java-mod
       primary-file: "burmaldaholic-!(*-sources).jar"
       # When a 26.2.x / 26.3.x patch ships, add it to the repo var; no code change needed.
@@ -93,14 +127,16 @@ jobs:
       tag: ${{ needs.version.outputs.tag }}
       dry-run: ${{ inputs.curseforge-dry-run == true }}
     secrets:
-      curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
 
   curseforge-addon:
     needs: [version, github-release]
-    if: ${{ !inputs.skip-curseforge && vars.CURSEFORGE_BEDROCK_PROJECT_ID != '' }}
+    if: ${{ !cancelled() && !failure() && !inputs.skip-curseforge }}
     uses: ./.github/workflows/reusable-publish-curseforge.yml
     with:
-      project-id: ${{ vars.CURSEFORGE_BEDROCK_PROJECT_ID }}
+      # Read inside the job so repository- and Environment-level variables both work.
+      project-id-var: CURSEFORGE_BEDROCK_PROJECT_ID
+      environment: ${{ vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
       api-base: ${{ vars.CURSEFORGE_BEDROCK_API_BASE || 'https://minecraft-bedrock.curseforge.com' }}
       artifact-pattern: bedrock-addon
       primary-file: "Burmaldaholic-*.mcaddon"
@@ -111,4 +147,4 @@ jobs:
       tag: ${{ needs.version.outputs.tag }}
       dry-run: ${{ inputs.curseforge-dry-run == true }}
     secrets:
-      curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

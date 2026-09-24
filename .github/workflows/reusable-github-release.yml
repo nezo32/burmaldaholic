@@ -51,6 +51,17 @@ jobs:
 
       - run: ls -laR dist
 
+      # Generate the notes ourselves and pass them as the full body: letting the action generate them
+      # appends a fresh copy to the existing body every time a tag is re-run.
+      - name: Generate release notes
+        if: inputs.generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" --jq .body > "$RUNNER_TEMP/notes.md"
+
       - id: release
         uses: softprops/action-gh-release@v3
         with:
@@ -58,7 +69,8 @@ jobs:
           name: ${{ inputs.name || inputs.tag }}
           prerelease: ${{ inputs.prerelease }}
           draft: ${{ inputs.draft }}
-          generate_release_notes: ${{ inputs.generate-notes }}
+          body_path: ${{ inputs.generate-notes && format('{0}/notes.md', runner.temp) || '' }}
+          append_body: false
           # legacy = GitHub picks latest by date + SemVer, so re-running an old tag does not make it "latest"
           make_latest: ${{ inputs.prerelease && 'false' || 'legacy' }}
           working_directory: dist

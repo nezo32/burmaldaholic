@@ -84,13 +84,15 @@ jobs:
       prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
       artifact-pattern: dist
 
-  # Delete this job if the project is not on CurseForge. It is skipped while CURSEFORGE_PROJECT_ID is unset.
+  # Delete this job if the project is not on CurseForge. It is skipped (with a warning) while CURSEFORGE_PROJECT_ID is unset.
   curseforge:
     needs: [version, github-release]
-    if: ${{ !inputs.skip-curseforge && vars.CURSEFORGE_PROJECT_ID != '' }}
+    if: ${{ !inputs.skip-curseforge }}
     uses: nezo32/enchantaholic/.github/workflows/reusable-publish-curseforge.yml@main
     with:
-      project-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+      # Read inside the job, so the variable may live at repository level or in the Environment below.
+      project-id-var: CURSEFORGE_PROJECT_ID
+      environment: ${{ vars.CURSEFORGE_ENVIRONMENT || '' }}   # optional: Environment holding the CurseForge vars/secret
       artifact-pattern: dist
       primary-file: "!(*-sources).jar"     # PROJECT-SPECIFIC: must match exactly one file (Node: e.g. "*.mcaddon")
       additional-files: "*-sources.jar"    # PROJECT-SPECIFIC: "" = no child files
@@ -101,4 +103,4 @@ jobs:
       tag: ${{ needs.version.outputs.tag }}
       dry-run: ${{ inputs.curseforge-dry-run == true }}
     secrets:
-      curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

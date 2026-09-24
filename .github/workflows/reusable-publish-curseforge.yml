@@ -6,7 +6,15 @@ on:
   workflow_call:
     inputs:
       project-id:
-        description: Numeric CurseForge project id. Empty = skip.
+        description: Numeric CurseForge project id. Empty = read it from the variable named by project-id-var.
+        type: string
+        default: ""
+      project-id-var:
+        description: Name of a repository or environment variable holding the project id (used when project-id is empty). Unset/empty variable = skip with a warning.
+        type: string
+        default: ""
+      environment:
+        description: GitHub Environment to run the upload job in (its variables and secrets become available, and its protection rules apply). Empty = none.
         type: string
         default: ""
       api-base:
@@ -61,6 +69,9 @@ on:
       curseforge-token:
         description: CurseForge Upload API token (authors portal -> API tokens).
         required: false
+      CURSEFORGE_TOKEN:
+        description: Same token under its conventional name; an Environment secret of this name wins when `environment` is set.
+        required: false
     outputs:
       file-id:
         value: ${{ jobs.publish.outputs.file-id }}
@@ -70,19 +81,36 @@ permissions:
 
 jobs:
   publish:
-    if: inputs.project-id != ''
+    if: inputs.project-id != '' || inputs.project-id-var != ''
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     timeout-minutes: 15
     outputs:
       file-id: ${{ steps.upload.outputs.file-id }}
     steps:
+      # Environment-level variables are only visible inside the job, so the id is resolved here, not in `if:`.
+      - name: Resolve project id
+        id: project
+        env:
+          PROJECT_ID: ${{ inputs.project-id || vars[inputs.project-id-var] }}
+          VAR_NAME: ${{ inputs.project-id-var }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          if [[ -z "$PROJECT_ID" ]]; then
+            echo "::warning::CurseForge upload skipped: variable '${VAR_NAME}' is not set (environment: '${ENVIRONMENT:-none}')"
+            echo "### CurseForge upload skipped — variable \`${VAR_NAME}\` not set" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
+
       - uses: actions/download-artifact@v8
+        if: steps.project.outputs.id != ''
         with:
           pattern: ${{ inputs.artifact-pattern }}
           path: dist
           merge-multiple: true
 
       - name: Resolve changelog
+        if: steps.project.outputs.id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           CHANGELOG: ${{ inputs.changelog }}
@@ -105,6 +133,7 @@ jobs:
       # A called workflow cannot read files of the repo that hosts it, so the script is inlined byte-for-byte.
       # Edit scripts/curseforge-upload.sh first, then paste it here (indented 10 spaces).
       - name: Write upload script
+        if: steps.project.outputs.id != ''
         run: |
           cat > "$RUNNER_TEMP/curseforge-upload.sh" <<'CF_UPLOAD_SCRIPT'
           #!/usr/bin/env bash
@@ -274,10 +303,11 @@ jobs:
 
       - name: Upload to CurseForge
         id: upload
+        if: steps.project.outputs.id != ''
         working-directory: dist
         env:
-          CF_TOKEN: ${{ secrets.curseforge-token }}
-          CF_PROJECT_ID: ${{ inputs.project-id }}
+          CF_TOKEN: ${{ secrets.curseforge-token || secrets.CURSEFORGE_TOKEN }}
+          CF_PROJECT_ID: ${{ steps.project.outputs.id }}
           CF_API_BASE: ${{ inputs.api-base }}
           CF_GAME_VERSIONS: ${{ inputs.game-versions }}
           CF_TYPE_PREFIXES: ${{ inputs.version-type-prefixes }}
@@ -304,7 +334,7 @@ jobs:
         if: steps.upload.outputs.file-id != ''
         env:
           FILE_ID: ${{ steps.upload.outputs.file-id }}
-          PROJECT_ID: ${{ inputs.project-id }}
+          PROJECT_ID: ${{ steps.project.outputs.id }}
           DRY_RUN: ${{ inputs.dry-run }}
         run: |
           if [[ "$DRY_RUN" == true ]]; then
