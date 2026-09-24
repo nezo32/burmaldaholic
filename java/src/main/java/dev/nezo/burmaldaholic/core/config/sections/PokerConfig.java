@@ -41,23 +41,25 @@ public final class PokerConfig implements Validatable {
 	@Range(min = 0, max = 0.1) public double rakePercent = 0.05;
 	@Range(min = 0, max = 100) public int rakeCapBb = 3;
 	public boolean rakeNoFlopNoDrop = true;
+	/** Legacy alias of {@code bots.enabled} for poker: false forces poker tables to HUMANS_ONLY (BOTS.md §9.3). */
 	public boolean botsEnabled = true;
 	@Range(min = 20, max = 1000) public int botBuyInBb = 100;
 	@Range(min = 0, max = 200) public int botThinkMinTicks = 20;
 	@Range(min = 0, max = 400) public int botThinkMaxTicks = 60;
 	public static final class Bot {
-		/** Monte-Carlo iterations. */
-		@Range(min = 50, max = 5000) public int regularSamples = 200;
-		@Range(min = 50, max = 5000) public int sharkSamples = 500;
+		/** Monte-Carlo samples of a NORMAL (Regular) bot decision (range-aware equity, BOTS.md §4.3). */
+		@Range(min = 50, max = 5000) public int regularSamples = 300;
+		/** Monte-Carlo samples of a HARD (Shark) bot decision. */
+		@Range(min = 50, max = 5000) public int sharkSamples = 700;
 	}
 	public Bot bot = new Bot();
 
 	public static final class BotMix {
-		/** Fish/Regular/Shark %. Normalized. */
-		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] micro = {50, 40, 10};
-		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] low = {50, 40, 10};
-		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] mid = {30, 50, 20};
-		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] high = {10, 50, 40};
+		/** Easy/Normal/Hard (Fish/Regular/Shark) % for MIXED difficulty. Normalized; Easy is forced to 0 above {@code bots.poker.easyMaxStake}. */
+		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] micro = {45, 45, 10};
+		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] low = {35, 50, 15};
+		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] mid = {10, 55, 35};
+		@Range(min = 0, max = 100) @Size(min = 3, max = 3) public int[] high = {0, 45, 55};
 	}
 	public BotMix botMix = new BotMix();
 

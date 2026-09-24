@@ -239,7 +239,12 @@ public class PokerScreen extends CasinoTableScreen {
 		clearWidgets();
 		List<List<AbstractWidget>> rows = new ArrayList<>();
 		if (s().getBooleanOr("enabled", true)) {
-			if (!seated()) {
+			if (!seated() && s().getBooleanOr("waiting_seat", false)) {
+				// claimant (BOTS.md §3.2): the buy-in is escrowed until a bot gives up its seat after this hand
+				List<AbstractWidget> row = new ArrayList<>();
+				row.add(btn(PokerText.gui("stand_up"), b -> sendAction("stand_up"), Component.translatable("msg.burmaldaholic.bots.seat_after_round"), true));
+				rows.add(row);
+			} else if (!seated()) {
 				buildJoin(rows);
 			} else if (legal() != null) {
 				topUpMode = false;

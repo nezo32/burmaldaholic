@@ -277,6 +277,14 @@ their seat type is mapped to `SeatOccupant`.
    `PokerConfig` + Bedrock catalog (the rows were intentionally not touched by the pre-merge).
 8. Add the seeded exploit-regression suite (BOTS.md §12.2) in both editions.
 
+Java (J-G1, done): `PokerBotPolicy` (+ `Ranges`, range-aware `Equity.Work`, `PokerMoney`) mirror Bedrock's
+`bots.ts` / `ranges.ts` / `equity.ts` / `money.ts`; `PokerTableBlockEntity` implements `BotTable` (stake gate
+via `BotTable.botLevelAllowed` → `TableBots.levelAllowed`, a gated fixed level applies as NORMAL), escrows a
+claimant's buy-in until the safe point (`TableBots.withdrawClaim` when it lapses), tags results with
+`BotRounds.tag` + `withShare`, records heat, keeps the drawn outcome current for humans (saved refunds) and
+bots (`TableBots.setStack`), and reaches the bots UI through `PokerBotsUi` (no-op until J-B2 installs it).
+`Pvp.addBusyCheck(PokerTableBlockEntity::isSeatedAnywhere)` is left for the PvP integration (TODO in `PokerModule`).
+
 ---
 
 ## 5. Data formats

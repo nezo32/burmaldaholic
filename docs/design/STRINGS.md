@@ -2329,7 +2329,7 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.royal_flush.title` | Royalty | Королевская особа |
 | `advancement.burmaldaholic.royal_flush.description` | Win a poker pot with a royal flush | Выиграйте банк с роял-флешем |
 | `advancement.burmaldaholic.shark_hunter.title` | Bigger Fish | Рыбка покрупнее |
-| `advancement.burmaldaholic.shark_hunter.description` | Take every chip from a Shark bot | Оставьте бота-акулу без фишек |
+| `advancement.burmaldaholic.shark_hunter.description` | Take every chip from a Hard (Shark) poker bot | Оставьте сложного бота-акулу без фишек |
 | `advancement.burmaldaholic.three_sevens.title` | Lucky Sevens | Три топора |
 | `advancement.burmaldaholic.three_sevens.description` | Hit three Redstone Sevens on a payline | Соберите три семёрки на линии |
 | `advancement.burmaldaholic.jackpot.title` | JACKPOT! | ДЖЕКПОТ! |

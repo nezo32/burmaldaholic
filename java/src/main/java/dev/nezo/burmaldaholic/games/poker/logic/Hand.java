@@ -91,6 +91,22 @@ public final class Hand {
 			this.stack = stack;
 		}
 
+		private Player(Player o) {
+			this.id = o.id;
+			this.human = o.human;
+			this.startStack = o.startStack;
+			this.stack = o.stack;
+			this.bet = o.bet;
+			this.total = o.total;
+			System.arraycopy(o.hole, 0, this.hole, 0, 2);
+			this.holeCount = o.holeCount;
+			this.folded = o.folded;
+			this.allIn = o.allIn;
+			this.acted = o.acted;
+			this.vpip = o.vpip;
+			this.pfr = o.pfr;
+		}
+
 		public long stack() {
 			return stack;
 		}
@@ -144,8 +160,24 @@ public final class Hand {
 
 	public record Dealt(Street street, int[] cards) implements Event {}
 
+	/** @param paid chips each player (by index) put into this pot */
 	public record PotResult(long amount, List<Integer> eligible, List<Integer> contributors, long rake, List<Integer> winners,
-			long[] shares, int value) {}
+			long[] shares, int value, long[] paid) {
+		public long paidBy(int i) {
+			return i >= 0 && i < paid.length ? paid[i] : 0;
+		}
+
+		/** Chips player i won from this pot. */
+		public long wonBy(int i) {
+			long w = 0;
+			for (int k = 0; k < winners.size(); k++) {
+				if (winners.get(k) == i && k < shares.length) {
+					w += shares[k];
+				}
+			}
+			return w;
+		}
+	}
 
 	/**
 	 * @param won    chips won per player (excluding the returned uncalled bet)
@@ -224,6 +256,72 @@ public final class Hand {
 		if (toAct < 0) {
 			endStreet();
 		}
+	}
+
+	/** Deep copy (the drawn-outcome play-out runs on a copy; the dealt deck order is kept). */
+	private Hand(Hand o) {
+		List<Player> ps = new ArrayList<>(o.players.size());
+		for (Player p : o.players) {
+			ps.add(new Player(p));
+		}
+		this.players = Collections.unmodifiableList(ps);
+		this.button = o.button;
+		this.sbIndex = o.sbIndex;
+		this.bbIndex = o.bbIndex;
+		this.sb = o.sb;
+		this.bb = o.bb;
+		this.rake = o.rake;
+		this.deck = o.deck.clone();
+		this.deckPos = o.deckPos;
+		this.board.addAll(o.board);
+		this.events.addAll(o.events);
+		this.street = o.street;
+		this.toAct = o.toAct;
+		this.currentBet = o.currentBet;
+		this.minRaise = o.minRaise;
+		this.aggressor = o.aggressor;
+		this.lastAggressor = o.lastAggressor;
+		this.preflopRaiser = o.preflopRaiser;
+		this.sawFlop = o.sawFlop;
+		this.seq = o.seq;
+		this.complete = o.complete;
+		this.result = o.result;
+	}
+
+	/** An independent copy of this hand in its current state. */
+	public Hand copy() {
+		return new Hand(this);
+	}
+
+	/** Who acts in a play-out: the action for player {@code i} of the (copied) hand. */
+	@FunctionalInterface
+	public interface Actor {
+		Action act(Hand h, int i);
+	}
+
+	/**
+	 * Plays a COPY of this hand to the end (GAME_DESIGN §4.1 drawn outcome): every decision comes from
+	 * {@code actor} (coerced to a legal action; errors check/fold), the board comes from the deck already
+	 * dealt. Returns the finished copy, or null if it did not finish within {@code maxActions}. This hand
+	 * is not changed.
+	 */
+	public Hand playOut(Actor actor, int maxActions) {
+		Hand h = copy();
+		for (int n = 0; n < maxActions && !h.complete && h.toAct >= 0; n++) {
+			Action a;
+			try {
+				a = h.coerce(actor.act(h, h.toAct));
+				h.apply(a);
+			} catch (RuntimeException e) {
+				h.apply(h.legal().canCheck() ? Action.check() : Action.fold());
+			}
+		}
+		return h.complete ? h : null;
+	}
+
+	/** The dealt deck (tests: RNG independence checks compare it). */
+	public int[] deck() {
+		return deck.clone();
 	}
 
 	// ---- accessors ------------------------------------------------------------------------------
@@ -601,7 +699,13 @@ public final class Hand {
 					humans++;
 				}
 			}
-			long r = Pots.rakeFor(pot.amount(), humans, sawFlop, bb, rake);
+			long botContrib = 0;
+			for (int c = 0; c < n; c++) {
+				if (!players.get(c).human) {
+					botContrib += pot.paidBy(c);
+				}
+			}
+			long r = Pots.rakeFor(pot.amount(), humans, sawFlop, bb, rake, botContrib);
 			long net = pot.amount() - r;
 			int best = 0;
 			for (int e : pot.eligible()) {
@@ -624,7 +728,7 @@ public final class Hand {
 			}
 			totalRake += r;
 			results.add(new PotResult(pot.amount(), pot.eligible(), pot.contributors(), r, List.copyOf(winners), shares,
-				uncontested ? 0 : bestValue));
+				uncontested ? 0 : bestValue, pot.paid()));
 		}
 		long[] net = new long[n];
 		for (int i = 0; i < n; i++) {

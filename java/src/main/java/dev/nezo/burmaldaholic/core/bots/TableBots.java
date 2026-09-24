@@ -158,11 +158,25 @@ public final class TableBots {
 
 	/** Effective settings of the running session (defaults outside a session). */
 	public BotSettings settings() {
-		return session != null ? session : defaults;
+		return gated(session != null ? session : defaults);
 	}
 
 	public @Nullable BotSettings pending() {
-		return pending;
+		return pending == null ? null : gated(pending);
+	}
+
+	/** May this fixed level be chosen here (the game's stake gate, {@link BotTable#botLevelAllowed})? */
+	public boolean levelAllowed(BotDifficulty level) {
+		try {
+			return level == BotDifficulty.MIXED || table.botLevelAllowed(level);
+		} catch (RuntimeException e) {
+			return true;
+		}
+	}
+
+	/** A gated fixed level (e.g. EASY at a high-stakes poker table) is applied as NORMAL. */
+	private BotSettings gated(BotSettings s) {
+		return s.difficulty() != BotDifficulty.MIXED && !levelAllowed(s.difficulty()) ? s.withDifficulty(BotDifficulty.NORMAL) : s;
 	}
 
 	public boolean inSession() {
@@ -214,6 +228,11 @@ public final class TableBots {
 			}
 		}
 		return null;
+	}
+
+	/** A claimant gave up the wait (stood up / cancelled before being seated): the claim is dropped. */
+	public void withdrawClaim(UUID player) {
+		claimants.remove(player);
 	}
 
 	/** Humans waiting for a bot's seat, in claim order. */

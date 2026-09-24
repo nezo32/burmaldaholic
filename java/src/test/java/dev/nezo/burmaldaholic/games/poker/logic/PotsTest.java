@@ -20,13 +20,14 @@ class PotsTest {
 
 	@Test
 	void singlePot() {
-		assertEquals(List.of(new Pots.Pot(300, List.of(0, 1, 2), List.of(0, 1, 2))),
+		assertEquals(List.of(new Pots.Pot(300, List.of(0, 1, 2), List.of(0, 1, 2), new long[] {100, 100, 100})),
 			Pots.buildPots(new long[] {100, 100, 100}, new boolean[3]));
 	}
 
 	@Test
 	void shortAllInMakesASidePot() {
-		assertEquals(List.of(new Pots.Pot(150, List.of(0, 1, 2), List.of(0, 1, 2)), new Pots.Pot(300, List.of(1, 2), List.of(1, 2))),
+		assertEquals(List.of(new Pots.Pot(150, List.of(0, 1, 2), List.of(0, 1, 2), new long[] {50, 50, 50}),
+			new Pots.Pot(300, List.of(1, 2), List.of(1, 2), new long[] {0, 150, 150})),
 			Pots.buildPots(new long[] {50, 200, 200}, new boolean[3]));
 	}
 
@@ -39,13 +40,14 @@ class PotsTest {
 
 	@Test
 	void foldedChipsGoInButFoldedPlayersAreNeverEligible() {
-		assertEquals(List.of(new Pots.Pot(100, List.of(0, 1), List.of(0, 1, 2, 3)), new Pots.Pot(100, List.of(0), List.of(0, 2))),
+		assertEquals(List.of(new Pots.Pot(100, List.of(0, 1), List.of(0, 1, 2, 3), new long[] {30, 30, 30, 10}),
+			new Pots.Pot(100, List.of(0), List.of(0, 2), new long[] {50, 0, 50, 0})),
 			Pots.buildPots(new long[] {80, 30, 80, 10}, new boolean[] {false, false, true, true}));
 	}
 
 	@Test
 	void mergesLevelsWithTheSameEligibleSet() {
-		assertEquals(List.of(new Pots.Pot(260, List.of(0, 1), List.of(0, 1, 2))),
+		assertEquals(List.of(new Pots.Pot(260, List.of(0, 1), List.of(0, 1, 2), new long[] {100, 100, 60})),
 			Pots.buildPots(new long[] {100, 100, 60}, new boolean[] {false, false, true}));
 	}
 
@@ -71,6 +73,32 @@ class PotsTest {
 			assertTrue(r <= pot * 0.05 + 1e-9 && r <= 150, "pot " + pot);
 			assertEquals(Math.min(pot / 20, 150), r, "exact 5 % for pot " + pot);
 		}
+	}
+
+	@Test
+	void paidPerPotSumsToTheContributions() {
+		long[] totals = {13, 400, 77, 400, 250, 0};
+		boolean[] folded = {true, false, false, false, true, true};
+		long[] sum = new long[totals.length];
+		for (Pots.Pot p : Pots.buildPots(totals, folded)) {
+			long inPot = 0;
+			for (int i = 0; i < totals.length; i++) {
+				sum[i] += p.paidBy(i);
+				inPot += p.paidBy(i);
+			}
+			assertEquals(p.amount(), inPot, "paid adds up to the pot");
+		}
+		assertArrayEquals(totals, sum);
+	}
+
+	@Test
+	void rakeNeverTakesBotChips() {
+		// BOTS.md §5.1: rake = min(floor((pot − botContrib) × 5 %), 3 BB), only with ≥ 2 human contributors
+		assertEquals(10, Pots.rakeFor(300, 2, true, 10, RAKE, 100), "200 human chips → 10");
+		assertEquals(0, Pots.rakeFor(300, 2, true, 10, RAKE, 300), "all bot chips → 0");
+		assertEquals(30, Pots.rakeFor(10_000, 2, true, 10, RAKE, 1000), "still capped");
+		assertEquals(0, Pots.rakeFor(300, 1, true, 10, RAKE, 0), "one human vs bots");
+		assertEquals(Pots.rakeFor(777, 3, true, 10, RAKE), Pots.rakeFor(777, 3, true, 10, RAKE, 0));
 	}
 
 	@Test

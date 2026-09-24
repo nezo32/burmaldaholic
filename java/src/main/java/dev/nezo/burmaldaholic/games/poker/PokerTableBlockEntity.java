@@ -2,19 +2,30 @@ package dev.nezo.burmaldaholic.games.poker;
 
 import com.mojang.serialization.Codec;
 import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.bots.BotJobs;
+import dev.nezo.burmaldaholic.core.bots.BotLedger;
+import dev.nezo.burmaldaholic.core.bots.BotRounds;
+import dev.nezo.burmaldaholic.core.bots.BotTable;
+import dev.nezo.burmaldaholic.core.bots.TableBots;
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotProfile;
+import dev.nezo.burmaldaholic.core.bots.logic.BotRole;
+import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
+import dev.nezo.burmaldaholic.core.bots.logic.BotWork;
+import dev.nezo.burmaldaholic.core.bots.logic.OwnerControls;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatingMath;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.PokerConfig;
 import dev.nezo.burmaldaholic.core.economy.AccountId;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
-import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.events.PlayResults;
-import dev.nezo.burmaldaholic.core.wager.Stake;
-import dev.nezo.burmaldaholic.core.wager.WagerVeto;
-import dev.nezo.burmaldaholic.core.wager.Wagers;
-import dev.nezo.burmaldaholic.games.poker.logic.HandEvaluator;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.rng.CasinoRng;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
@@ -25,19 +36,28 @@ import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableType;
 import dev.nezo.burmaldaholic.core.text.Texts;
-import dev.nezo.burmaldaholic.games.poker.logic.Bots;
+import dev.nezo.burmaldaholic.core.util.Result;
+import dev.nezo.burmaldaholic.core.wager.Stake;
+import dev.nezo.burmaldaholic.core.wager.WagerVeto;
+import dev.nezo.burmaldaholic.core.wager.Wagers;
 import dev.nezo.burmaldaholic.games.poker.logic.Hand;
+import dev.nezo.burmaldaholic.games.poker.logic.HandEvaluator;
+import dev.nezo.burmaldaholic.games.poker.logic.PokerBotPolicy;
+import dev.nezo.burmaldaholic.games.poker.logic.PokerMoney;
 import dev.nezo.burmaldaholic.games.poker.logic.PokerRng;
 import dev.nezo.burmaldaholic.games.poker.logic.PokerTable;
 import dev.nezo.burmaldaholic.games.poker.logic.Pots;
 import dev.nezo.burmaldaholic.games.poker.logic.StakeLevel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.ChatFormatting;
@@ -56,27 +76,47 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Texas Hold'em cash table (GAME_DESIGN.md §7, UI.md §5). Humans buy in (balance → table stack), house
- * bots fill empty seats, hands run on {@link Hand} with per-action timers, side pots and rake.
+ * Texas Hold'em cash table (GAME_DESIGN.md §7, UI.md §5). Humans buy in (balance → table stack), money
+ * bots take seats through core Seats &amp; Bots ({@link TableBots}, BOTS.md: seat policy, Easy / Normal /
+ * Hard = Fish / Regular / Shark, personalities), hands run on {@link Hand} with per-action timers, side
+ * pots and rake.
+ *
+ * <p><b>Bots</b> (pvp-bots.md §4.7): {@link TableBots} decides who sits at the safe point (between hands,
+ * before the button moves; claimants take the seat of the bot that just posted the big blind), funds bots
+ * from their purse (the bank at house tables, the owner's bankroll at owned tables with Bots = Allowed) and
+ * returns their stacks when they leave. Every bot decision goes through the pure {@link PokerBotPolicy}
+ * with the table's BOT rng ({@link TableBots#rng()}); the game rng only shuffles. The Monte-Carlo work runs
+ * as a {@link BotJobs} job within the think delay. EASY sits only up to {@code bots.poker.easyMaxStake}
+ * ({@link #botLevelAllowed}, gated MIXED weights); heat ({@link BotLedger#record}); results against bots
+ * carry the bot tags ({@link BotRounds}: no streak, weighted VIP credit, no house bonuses); the rake never
+ * takes bot chips.
  *
  * <p><b>Money</b>: poker is PvP, so the core open-stake/bankroll machinery is not used. The buy-in is
  * escrowed in the world bank ({@link AccountId#HOUSE}) and the stack is paid back on stand-up / removal
- * (the invested part as a transfer, the profit as a garnishable payout). Bots are funded by the bank; the
- * rake of raked pots goes to the owner's bankroll at owned tables (§18.2), otherwise it stays in the bank
- * (sink). A table that stops running (broken, chunk unloaded, server stopping, casino mode off) plays the hand
- * out and cashes everybody out (review M1). Only after a crash is a seat's start-of-hand stack still saved with
- * the block entity and paid back on the next load (§4.1).
+ * (the invested part as a transfer, the profit as a garnishable payout). A claimant (every seat taken, a
+ * bot yields at the next safe point) pays the buy-in up front; it is escrowed the same way and returned if
+ * the claim lapses. The rake of raked pots goes to the owner's bankroll at owned tables (§18.2), otherwise
+ * it stays in the bank (sink). A table that stops running (broken, chunk unloaded, server stopping, casino
+ * mode off) plays the hand out, cashes everybody out and ends the bots' session (review M1).
+ *
+ * <p><b>Crash safety</b>: during a hand the hand's DRAWN outcome is kept current (after every action the
+ * hand is played out on a copy as if every human left now: humans check/fold, bots play on, the dealt deck
+ * decides): the humans' final stacks are saved with the block entity as refunds and the bots' final stacks
+ * go to {@link TableBots#setStack} (bankroll bots: the world ledger returns them on the next start), so a
+ * crash mid-hand settles both sides at the same result (GAME_DESIGN §4.1).
  */
-public class PokerTableBlockEntity extends CasinoTableBlockEntity {
+public class PokerTableBlockEntity extends CasinoTableBlockEntity implements BotTable {
 	private static final String STAKE_KEY = "burmaldaholic_poker_stake";
 	private static final String REFUND_KEY = "burmaldaholic_poker_refunds";
+	private static final String BOTS_KEY = "burmaldaholic_poker_bots";
 	private static final Codec<Map<String, Long>> REFUND_CODEC = Codec.unboundedMap(Codec.STRING, Codec.LONG);
 	private static final int LOG_SIZE = 8;
-	/** Player → table they are seated at (one poker seat per player). */
+	private static final String GAME = "poker";
+	/** Player → table they are seated (or waiting as a claimant) at: one poker seat per player. */
 	private static final Map<UUID, PokerTableBlockEntity> SEATED = new ConcurrentHashMap<>();
-	private static int botIds;
 
 	private StakeLevel stake;
 	private PokerTable table;
@@ -87,7 +127,42 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 	private final Map<String, Long> pendingRefunds = new LinkedHashMap<>();
 	private boolean refundsLoaded;
 	/** Seats marked leaving only because the player disconnected (re-attached if they come back). */
-	private final java.util.Set<String> droppedSeats = new java.util.HashSet<>();
+	private final Set<String> droppedSeats = new HashSet<>();
+
+	/** Core Seats &amp; Bots state (created on first use; see {@link #tableBots()}). */
+	private @Nullable TableBots bots;
+	/** Saved bot state read before the level was known (applied when {@link #bots} is created). */
+	private @Nullable CompoundTag savedBots;
+	/** Claimants who paid their buy-in and wait for a bot's seat: player id → escrowed buy-in. */
+	private final Map<String, Long> waiting = new LinkedHashMap<>();
+	/** Drawn-outcome stacks of the humans in the running hand (crash refunds; empty between hands). */
+	private final Map<String, Long> drawn = new HashMap<>();
+	/** Increments whenever a pending bot decision must be dropped (table stopped, hand aborted). */
+	private int botSeq;
+	/** The bot decision being prepared (think delay / Monte-Carlo job). */
+	private @Nullable BotTurn botTurn;
+	/** BOTS_ONLY sessions: NORMAL/HARD bots busted per human ({@code clean_sweep}). */
+	private final Map<String, Integer> sweeps = new HashMap<>();
+
+	/** A pending bot decision: taken when the "bot" timer fires and the hand is still at {@code seq}. */
+	private static final class BotTurn {
+		final int seq;
+		final int botSeq;
+		final BotProfile bot;
+		final PokerBotPolicy.View view;
+		/** the Monte-Carlo result, or null (none needed / not finished) */
+		Object work;
+		/** the job (if any) finished or was cut at its deadline */
+		boolean workDone;
+		boolean timerDone;
+
+		BotTurn(int seq, int botSeq, BotProfile bot, PokerBotPolicy.View view) {
+			this.seq = seq;
+			this.botSeq = botSeq;
+			this.bot = bot;
+			this.view = view;
+		}
+	}
 
 	public PokerTableBlockEntity(TableType<PokerTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -127,7 +202,16 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		return new Pots.RakeConfig(cfg().rakePercent, cfg().rakeCapBb, cfg().rakeNoFlopNoDrop);
 	}
 
-	private static PokerRng rng() {
+	private static PokerBotPolicy policy() {
+		return new PokerBotPolicy(new PokerBotPolicy.Config(cfg().bot.regularSamples, cfg().bot.sharkSamples));
+	}
+
+	private static String easyMaxStake() {
+		return CasinoConfig.bots().poker.easyMaxStake.name();
+	}
+
+	/** The GAME rng (shuffles only, fair — poker is never odds-adjusted). Bot code never calls it (BOTS.md §4.1). */
+	private static PokerRng gameRng() {
 		CasinoRng r = OddsService.get().fair();
 		return new PokerRng() {
 			@Override
@@ -148,7 +232,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 
 	private ServerPlayer online(String id) {
 		MinecraftServer server = server();
-		if (server == null || id.startsWith("bot:")) {
+		if (server == null || SeatOccupant.isBotKey(id)) {
 			return null;
 		}
 		try {
@@ -174,6 +258,141 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 
 	private int vipTier(ServerPlayer player) {
 		return CoreServices.vip().tier(player.level().getServer(), player.getUUID());
+	}
+
+	private static @Nullable UUID uuid(String id) {
+		try {
+			return UUID.fromString(id);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
+	// ---- Seats & Bots (core TableBots hooks) ---------------------------------------------------------
+
+	/** This table's Seats &amp; Bots state (bots UI, commands). Created with the saved / worldgen / configured defaults. */
+	@Override
+	public TableBots tableBots() {
+		if (bots == null) {
+			boolean worldgen = preset().isPresent();
+			BotSettings d = TableBots.defaultsFor(GAME, worldgen);
+			// Generated tables use bots.table.poker.worldgen* (not the preset's fixed pokerBots).
+			// HOOK (J-G6 integration): when CoreServices.tablePresets().botDefaults(level, pos, "poker") exists,
+			// use its BotPreset.defaults here, and its nameTheme / levelMix in botNameTheme() / botDifficultyMix().
+			bots = new TableBots(this, d, OwnerControls.unowned(botSeatCount()));
+			if (savedBots != null) {
+				bots.load(savedBots);
+				savedBots = null;
+			}
+			try {
+				PokerBotsUi.get().attach(this, bots);
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.warn("Poker: bots UI attach failed", e);
+			}
+		}
+		return bots;
+	}
+
+	@Override
+	public String botGameId() {
+		return GAME;
+	}
+
+	@Override
+	public BotRole botRole() {
+		return BotRole.MONEY;
+	}
+
+	@Override
+	public int botSeatCount() {
+		return table != null ? table.size() : Math.max(2, cfg().maxSeats);
+	}
+
+	@Override
+	public List<UUID> seatedHumans() {
+		if (table == null) {
+			return List.of();
+		}
+		List<UUID> out = new ArrayList<>();
+		for (String id : table.seatedHumans()) {
+			UUID u = uuid(id);
+			if (u != null) {
+				out.add(u);
+			}
+		}
+		return out;
+	}
+
+	@Override
+	public List<SeatOccupant> occupants() {
+		return table != null ? table.occupants() : Collections.nCopies(botSeatCount(), null);
+	}
+
+	@Override
+	public boolean seatBot(SeatOccupant.Bot bot, long stack) {
+		if (table == null || table.inHand()) {
+			return false;
+		}
+		boolean ok = table.seatBot(bot.profile(), bot.purse(), stack) >= 0;
+		if (ok) {
+			setChanged();
+		}
+		return ok;
+	}
+
+	@Override
+	public long unseatBot(String botKey) {
+		if (table == null) {
+			return 0;
+		}
+		setChanged();
+		return table.unseatBot(botKey);
+	}
+
+	@Override
+	public SeatingMath.YieldRule yieldRule() {
+		return SeatingMath.YieldRule.POKER_BIG_BLIND;
+	}
+
+	@Override
+	public long botBuyIn() {
+		return table == null ? 0 : (long) cfg().botBuyInBb * table.bb();
+	}
+
+	/** Stake level fixed right now: the running table's, else the generated table's preset. */
+	private @Nullable StakeLevel currentStake() {
+		if (stake != null && table != null) {
+			return stake;
+		}
+		String fixed = preset().map(TablePresetProvider.TablePreset::pokerStakes).orElse("");
+		return fixed.isEmpty() ? stake : StakeLevel.byId(fixed);
+	}
+
+	@Override
+	public int[] botDifficultyMix() {
+		// HOOK (J-G6): prefer CoreServices.tablePresets().botDefaults(...).levelMix when merged (still stake-gated below).
+		StakeLevel s = currentStake();
+		int[] mix = preset().map(TablePresetProvider.TablePreset::pokerBotMix).filter(m -> m.size() == 3)
+			.map(m -> m.stream().mapToInt(Integer::intValue).toArray()) // Piglin Parlor: Regular-heavy
+			.orElseGet(() -> botMix(s == null ? StakeLevel.MICRO : s));
+		return PokerBotPolicy.gatedMix(mix, s, easyMaxStake());
+	}
+
+	/** Stake gate (BOTS.md §4.2): no EASY above {@code bots.poker.easyMaxStake}. */
+	@Override
+	public boolean botLevelAllowed(BotDifficulty level) {
+		return level != BotDifficulty.EASY || PokerBotPolicy.easyAllowed(currentStake(), easyMaxStake());
+	}
+
+	@Override
+	public BotRoster.Theme botNameTheme() {
+		// HOOK (J-G6): prefer CoreServices.tablePresets().botDefaults(...).nameTheme when merged.
+		return preset().map(p -> p.id().contains("parlor") ? BotRoster.Theme.PIGLIN : BotRoster.Theme.ANY).orElse(BotRoster.Theme.ANY);
+	}
+
+	@Override
+	public int handsSinceBigBlind(String botKey) {
+		return table == null ? Integer.MAX_VALUE : table.handsSinceBigBlind(botKey);
 	}
 
 	// ---- actions ----------------------------------------------------------------------------------
@@ -222,11 +441,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		PokerTableBlockEntity other = SEATED.get(player.getUUID());
-		if (other != null && other != this && !other.isRemoved() && other.table != null && other.table.seatOf(id(player)) != null) {
+		if (other != null && other != this && !other.isRemoved() && other.holds(id(player))) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.busy"));
 			return;
 		}
-		if (table != null && table.seatOf(id(player)) != null) {
+		if (holds(id(player))) {
 			return;
 		}
 		if (table != null && table.dealtInto(id(player))) {
@@ -236,18 +455,18 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		// A generated table may fix the stake level (Piglin Parlor: Low, §16.2).
 		String fixed = preset().map(TablePresetProvider.TablePreset::pokerStakes).orElse("");
-		StakeLevel level = humansSeated() ? stake : StakeLevel.byId(fixed.isEmpty() ? levelId : fixed);
-		if (level == null) {
+		StakeLevel lvl = humansSeated() ? stake : StakeLevel.byId(fixed.isEmpty() ? levelId : fixed);
+		if (lvl == null) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.invalid_amount"));
 			return;
 		}
-		if (vipTier(player) < level.minTier()) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(level.minTier())));
+		if (vipTier(player) < lvl.minTier()) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(lvl.minTier())));
 			return;
 		}
 		Economy eco = Economies.get();
 		long balance = eco.balance(player);
-		long bb = bbFor(level);
+		long bb = bbFor(lvl);
 		long[] range = StakeLevel.buyInRange(bb, cfg().minBuyInBb, cfg().maxBuyInBb, balance, 0);
 		if (range[1] < range[0]) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(balance)));
@@ -257,31 +476,71 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			sendError(player, Component.translatable("gui.burmaldaholic.poker.buy_in_range", Texts.number(range[0]), Texts.number(range[1])));
 			return;
 		}
-		if (!humansSeated()) {
-			stake = level;
-			table = new PokerTable(cfg().maxSeats, bb, rakeConfig());
-			log.clear();
-			lastResult.clear();
-			setPhase("waiting");
+		// Seats & Bots admission (BOTS.md §3.2): private table, someone's BOTS_ONLY table, or a claim on a bot's seat.
+		if (!humansSeated() && waiting.isEmpty()) {
+			stake = lvl; // the stake gate of the admission / first safe point reads it
 		}
-		int seat = table.addHuman(id(player), player.getName().getString(), amount);
-		if (seat < 0) {
-			table.makeRoom();
-			seat = table.addHuman(id(player), player.getName().getString(), amount);
+		Result<Boolean> admit = tableBots().admit(player);
+		if (!admit.isOk()) {
+			sendError(player, admit.error());
+			endIdleSession();
+			return;
 		}
-		if (seat < 0) {
-			sendError(player, Component.translatable(table.inHand() ? "gui.burmaldaholic.error.round_in_progress" : "gui.burmaldaholic.error.table_full"));
+		boolean claimant = !Boolean.TRUE.equals(admit.value());
+		if (claimant && table == null) {
+			tableBots().withdrawClaim(player.getUUID());
+			sendError(player, Component.translatable("gui.burmaldaholic.error.table_full"));
 			return;
 		}
 		if (!eco.tryWithdraw(player, amount, new Transaction(PokerModule.ID, "buy_in", Transaction.Kind.TRANSFER))) {
-			table.removeSeat(id(player));
+			if (claimant) {
+				tableBots().withdrawClaim(player.getUUID());
+			}
+			endIdleSession();
 			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(eco.balance(player))));
 			return;
 		}
 		SEATED.put(player.getUUID(), this);
+		if (claimant) {
+			// Claimant: seated at the next safe point in the seat of the bot that leaves (BOTS.md §3.2);
+			// the buy-in waits in escrow and is returned if the claim lapses.
+			waiting.put(id(player), amount);
+			setChanged();
+			if (!table.inHand()) {
+				scheduleHand(40);
+			}
+			return;
+		}
+		if (table == null) {
+			stake = lvl;
+			table = new PokerTable(cfg().maxSeats, bb, rakeConfig());
+			log.clear();
+			lastResult.clear();
+			sweeps.clear();
+			setPhase("waiting");
+		}
+		int seat = table.addHuman(id(player), player.getName().getString(), amount);
+		if (seat < 0) {
+			SEATED.remove(player.getUUID(), this);
+			payOut(player.getUUID(), amount, amount);
+			sendError(player, Component.translatable(table.inHand() ? "gui.burmaldaholic.error.round_in_progress" : "gui.burmaldaholic.error.table_full"));
+			return;
+		}
 		setChanged();
 		if (!table.inHand()) {
 			scheduleHand(40);
+		}
+	}
+
+	/** Seated at this table or waiting here as a claimant. */
+	private boolean holds(String id) {
+		return (table != null && table.seatOf(id) != null) || waiting.containsKey(id);
+	}
+
+	/** A session {@code admit} opened for nobody (refused buy-in at an empty table) ends again. */
+	private void endIdleSession() {
+		if (!humansSeated() && waiting.isEmpty() && table == null && bots != null && bots.inSession() && level instanceof ServerLevel sl) {
+			bots.endSession(sl);
 		}
 	}
 
@@ -319,10 +578,15 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	private void standUp(ServerPlayer player) {
+		String id = id(player);
+		if (waiting.containsKey(id)) {
+			refundWaiting(id);
+			afterHumanLeft();
+			return;
+		}
 		if (table == null) {
 			return;
 		}
-		String id = id(player);
 		PokerTable.Seat seat = table.seatOf(id);
 		if (seat == null) {
 			return;
@@ -393,7 +657,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			switch (id) {
 				case "next_hand" -> beginHand();
 				case "action" -> onActionTimeout();
-				case "bot" -> botAct();
+				case "bot" -> onBotTimer();
 				case "auto" -> autoAct();
 				default -> {
 				}
@@ -428,23 +692,14 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			}
 		}
 		removeFinished();
-		if (!humansSeated()) {
+		if (!humansSeated() && waiting.isEmpty()) {
 			afterHumanLeft();
 			return;
 		}
-		boolean bots = cfg().botsEnabled && ownership().map(OwnedTable::bots).orElse(true); // owner "bots on/off" (§18.2)
-		int maxBots = preset().map(TablePresetProvider.TablePreset::pokerBots).orElse(-1);
-		int[] mix = preset().map(TablePresetProvider.TablePreset::pokerBotMix).filter(m -> m.size() == 3)
-			.map(m -> m.stream().mapToInt(Integer::intValue).toArray()).orElseGet(() -> botMix(stake)); // Parlor: Regular-heavy
-		PokerTable.FillResult fill = table.fillBots(new PokerTable.BotFill(bots, mix, cfg().botBuyInBb * table.bb(), maxBots),
-			rng(), () -> "bot:" + (++botIds));
-		for (PokerTable.Seat b : fill.left()) {
-			if (b.stack <= 0) {
-				broadcast(PokerText.msg("bot_busts", Texts.raw(b.name)));
-			}
-		}
-		for (PokerTable.Seat b : fill.joined()) {
-			broadcast(PokerText.msg("bot_joins", Texts.raw(b.name), PokerText.tier(b.tier)));
+		safePoint(serverLevel);
+		if (!humansSeated()) {
+			afterHumanLeft();
+			return;
 		}
 		if (!table.canStart()) {
 			boolean allSittingOut = table.humans().stream().allMatch(s -> s.sittingOut || s.stack <= 0);
@@ -460,7 +715,8 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			startTimer("next_hand", 100);
 			return;
 		}
-		Hand h = table.startHand(rng());
+		// The GAME rng shuffles; bots never draw from it (BOTS.md §4.1).
+		Hand h = table.startHand(gameRng());
 		if (h == null) {
 			return;
 		}
@@ -472,6 +728,76 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		setChanged();
 		streamEvents();
 		drive();
+	}
+
+	/**
+	 * The safe point (BOTS.md §3.1: between hands, before the button moves): pending settings apply, bots
+	 * leave / join (core messages), busted bots are replaced, claimants take the freed seats with their
+	 * escrowed buy-in; lapsed claims are refunded.
+	 */
+	private void safePoint(ServerLevel sl) {
+		TableBots tb = tableBots();
+		if (!cfg().botsEnabled && tb.settings().policy() != SeatPolicy.HUMANS_ONLY) {
+			tb.clear(); // legacy alias: poker.botsEnabled = false forces HUMANS_ONLY (BOTS.md §9.3)
+		}
+		TableBots.SafePointResult r;
+		try {
+			r = tb.safePoint(sl);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("Poker table {}: bots safe point failed", worldPosition, e);
+			return;
+		}
+		for (UUID id : r.seatedClaimants()) {
+			Long amount = waiting.remove(id.toString());
+			if (amount == null) {
+				continue;
+			}
+			ServerPlayer p = online(id.toString());
+			String name = p != null ? p.getName().getString() : "?";
+			if (table.addHuman(id.toString(), name, amount) < 0) {
+				waiting.put(id.toString(), amount);
+				refundWaiting(id.toString());
+			}
+		}
+		// Claims that lapsed in core (walked away, logged out) get their buy-in back.
+		for (String id : List.copyOf(waiting.keySet())) {
+			UUID u = uuid(id);
+			if (u == null || !tb.claimants().contains(u)) {
+				refundWaiting(id);
+			}
+		}
+		try {
+			tb.announce(sl, r);
+			if (!r.joined().isEmpty()) {
+				quip(sl, r.joined().getFirst().profile, "join", null);
+			}
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("Poker table {}: bot announcements failed", worldPosition, e);
+		}
+		setChanged();
+	}
+
+	/** A waiting claimant leaves / the claim lapsed: the escrowed buy-in goes back (offline-safe). */
+	private void refundWaiting(String id) {
+		Long amount = waiting.remove(id);
+		UUID u = uuid(id);
+		if (u == null) {
+			return;
+		}
+		if (bots != null) {
+			bots.withdrawClaim(u);
+		}
+		if (table == null || table.seatOf(id) == null) {
+			SEATED.remove(u, this);
+		}
+		if (amount != null && amount > 0) {
+			payOut(u, amount, amount);
+			ServerPlayer p = online(id);
+			if (p != null) {
+				p.sendSystemMessage(PokerText.msg("removed", Texts.chips(amount)));
+			}
+		}
+		setChanged();
 	}
 
 	private void addLog(Component line) {
@@ -512,6 +838,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		cancelTimer("action");
 		cancelTimer("bot");
 		cancelTimer("auto");
+		botTurn = null;
 		Hand h = table.hand();
 		if (h == null) {
 			return;
@@ -520,13 +847,12 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			endHand();
 			return;
 		}
+		saveDrawn(h);
 		Hand.Player p = h.player(h.toAct());
 		PokerTable.Seat seat = table.seatOf(p.id);
 		actionSeq = h.seq();
 		if (seat == null || !seat.human) {
-			int lo = Math.min(cfg().botThinkMinTicks, cfg().botThinkMaxTicks);
-			int hi = Math.max(cfg().botThinkMinTicks, cfg().botThinkMaxTicks);
-			startTimer("bot", rng().between(lo, hi));
+			scheduleBot(h, seat);
 			return;
 		}
 		ServerPlayer player = online(p.id);
@@ -582,22 +908,124 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		apply(Hand.Action.fold());
 	}
 
-	private void botAct() {
-		if (!current()) {
+	// ---- bots' decisions ------------------------------------------------------------------------------
+
+	/**
+	 * A bot's turn (BOTS.md §7.3): its think delay (from the BOT rng) runs while the heavy work (range
+	 * equity, {@link BotWork}) runs as a {@link BotJobs} job; at the deadline the partial result is used.
+	 * Stale decisions (the hand moved on, the table stopped) are dropped; bot code errors check / fold.
+	 */
+	private void scheduleBot(Hand h, PokerTable.@Nullable Seat seat) {
+		if (seat == null || seat.bot == null) {
+			startTimer("auto", 10);
 			return;
 		}
-		Hand h = table.hand();
-		PokerTable.Seat seat = table.seatOf(h.player(h.toAct()).id);
-		Bots.Tier tier = seat != null && seat.tier != null ? seat.tier : Bots.Tier.REGULAR;
+		try {
+			int i = h.toAct();
+			PokerBotPolicy.View view = PokerBotPolicy.view(h, i, table::statsOf, seat.tilt > 0);
+			TableBots tb = tableBots();
+			int humanTimer = cfg().actionTimerTicks;
+			boolean big = view.toCall() > 0.25 * (view.stack() + view.bet());
+			int think = tb.thinkTicks(seat.bot, big, humanTimer);
+			// EASY: half the delay and a readable tell (+40 t) with a strong hand (BOTS.md §4.3, documented in the Rules page).
+			if (seat.bot.level() == BotDifficulty.EASY) {
+				think = think / 2 + (PokerBotPolicy.fishStrong(view) ? 40 : 0);
+			}
+			think = Math.max(0, Math.min(think, Math.min(humanTimer / 2, CasinoConfig.bots().think.maxTicks + 40)));
+			BotTurn turn = new BotTurn(h.seq(), botSeq, seat.bot, view);
+			botTurn = turn;
+			BotWork work = policy().work(seat.bot, view, tb.rng());
+			if (work == null) {
+				turn.workDone = true;
+			} else {
+				BotJobs.submit(work, Math.max(1, think), () -> botTurn == turn && turn.botSeq == botSeq && current(), result -> {
+					turn.work = result;
+					turn.workDone = true;
+					if (turn.timerDone) {
+						botDecide(turn);
+					}
+				});
+			}
+			startTimer("bot", think);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("Poker: bot turn failed; checking / folding", e);
+			startTimer("auto", 10);
+		}
+	}
+
+	private void onBotTimer() {
+		BotTurn turn = botTurn;
+		if (turn == null || !current()) {
+			return;
+		}
+		turn.timerDone = true;
+		if (turn.workDone) {
+			botDecide(turn);
+		}
+		// else: the job's deadline equals the think delay; it calls back with its partial result
+	}
+
+	private void botDecide(BotTurn turn) {
+		if (botTurn != turn || turn.botSeq != botSeq || !current() || table.hand().seq() != turn.seq) {
+			return;
+		}
+		botTurn = null;
 		Hand.Action a;
 		try {
-			a = Bots.decide(h, tier, table.vpipMap(), cfg().bot.regularSamples, cfg().bot.sharkSamples, rng());
+			a = policy().act(turn.bot, turn.view, turn.work, tableBots().rng());
 		} catch (RuntimeException e) {
-			Burmaldaholic.LOGGER.error("Poker bot failed; folding", e);
-			a = Hand.Action.fold();
+			Burmaldaholic.LOGGER.error("Poker bot decision failed; checking / folding", e);
+			a = table.hand().legal().canCheck() ? Hand.Action.check() : Hand.Action.fold();
 		}
 		apply(a);
+		syncViewers();
 	}
+
+	/** Action in the drawn play-out: humans check/fold (they left), bots decide as usual (bot rng). */
+	private Hand.Action leaveAction(Hand h, int i) {
+		Hand.Player p = h.player(i);
+		PokerTable.Seat seat = table.seatOf(p.id);
+		if (p.human || seat == null || seat.bot == null) {
+			return h.legal(i).canCheck() ? Hand.Action.check() : Hand.Action.fold();
+		}
+		PokerBotPolicy.View v = PokerBotPolicy.view(h, i, table::statsOf, seat.tilt > 0);
+		return policy().decideNow(seat.bot, v, tableBots().rng(), PokerBotPolicy.PLAYOUT_SAMPLES);
+	}
+
+	/**
+	 * Keeps the hand's drawn outcome current (GAME_DESIGN §4.1, review M1/M2): the stacks every seat ends
+	 * with if every human left now (auto check/fold) and the bots played on, on the deck already dealt.
+	 * Humans' stacks are saved as crash refunds; bots' stacks go to TableBots (bankroll bots: the ledger),
+	 * both from the same play-out, so a crash settles both sides at the same result.
+	 */
+	private void saveDrawn(Hand h) {
+		Hand end;
+		try {
+			end = h.playOut(this::leaveAction, 500);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("Poker: drawn play-out failed", e);
+			return;
+		}
+		if (end == null) {
+			return;
+		}
+		drawn.clear();
+		TableBots tb = tableBots();
+		for (Map.Entry<String, Long> e : table.drawnHoldings(end).entrySet()) {
+			PokerTable.Seat s = table.seatOf(e.getKey());
+			if (s == null) {
+				continue;
+			}
+			if (s.human) {
+				drawn.put(e.getKey(), e.getValue());
+			} else {
+				tb.setStack(e.getKey(), e.getValue());
+			}
+		}
+		setChanged();
+	}
+
+	// ---- settlement ----------------------------------------------------------------------------------
 
 	private void endHand() {
 		Hand h = table.hand();
@@ -612,23 +1040,55 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		MinecraftServer server = server();
 		String bankroll = ownership().map(OwnedTable::bankrollId).orElse("");
-		boolean sharkBusted = false;
-		for (int k = 0; k < h.players().size(); k++) {
-			Hand.Player p = h.player(k);
-			PokerTable.Seat seat = table.seatOf(p.id);
-			if (!p.human && p.stack() <= 0 && seat != null && seat.tier == Bots.Tier.SHARK) {
-				sharkBusted = true;
+		int n = h.players().size();
+		PokerTable.Seat[] seatOf = new PokerTable.Seat[n];
+		for (int k = 0; k < n; k++) {
+			seatOf[k] = table.seatOf(h.player(k).id);
+		}
+		java.util.function.IntPredicate isBot = k -> !h.player(k).human;
+		java.util.function.IntPredicate isHouseBot = k -> isBot.test(k) && (seatOf[k] == null || seatOf[k].purse == null || seatOf[k].purse.houseFunded());
+		PokerMoney.Attribution attr = PokerMoney.attribute(h, isBot, isHouseBot);
+		boolean anyBot = false;
+		boolean anyHouseBot = false;
+		List<Integer> humans = new ArrayList<>();
+		List<Integer> bustedBots = new ArrayList<>();
+		for (int k = 0; k < n; k++) {
+			if (isBot.test(k)) {
+				anyBot = true;
+				anyHouseBot |= isHouseBot.test(k);
+				if (h.player(k).stack() <= 0) {
+					bustedBots.add(k);
+				}
+			} else {
+				humans.add(k);
 			}
 		}
-		for (int k = 0; k < h.players().size(); k++) {
+		boolean sharkBusted = bustedBots.stream().anyMatch(k -> levelOf(seatOf[k]) == BotDifficulty.HARD);
+		boolean botsOnly = tableBots().settings().policy() == SeatPolicy.BOTS_ONLY;
+		for (int k : humans) {
 			Hand.Player p = h.player(k);
-			if (!p.human || p.total() <= 0 || server == null || !(level instanceof ServerLevel sl)) {
+			UUID uuid = uuid(p.id);
+			if (uuid == null || server == null || !(level instanceof ServerLevel sl)) {
 				continue;
 			}
-			UUID uuid = UUID.fromString(p.id);
-			// PvP pot: no house edge, no Golden Hour, no cashback; reported offline-safe (a disconnected seat
-			// is folded and gets its streak / VIP credit on the next join).
-			PlayResults.fire(server, uuid, CasinoEvents.PlayResult.of(gameId(), p.total(), r.won()[k]).pvp().withTable(sl, worldPosition, bankroll));
+			// Heat (house-funded bots only, BOTS.md §5.4): the round that crosses a line is kept.
+			if (anyHouseBot && attr.houseNet()[k] != 0) {
+				try {
+					BotLedger.record(server, uuid, attr.houseNet()[k]);
+				} catch (RuntimeException e) {
+					Burmaldaholic.LOGGER.error("Poker: heat ledger failed", e);
+				}
+			}
+			if (p.total() <= 0) {
+				continue;
+			}
+			// PvP pot: no house edge, no Golden Hour, no cashback. Against money bots: bot tags (no streak,
+			// VIP / wager credit weighted by the bots' share, no house bonuses — BOTS.md §5.3). Offline-safe.
+			CasinoEvents.PlayResult result = CasinoEvents.PlayResult.of(gameId(), p.total(), r.won()[k]).pvp().withTable(sl, worldPosition, bankroll);
+			if (anyBot) {
+				result = BotRounds.withShare(BotRounds.tag(result, true, humans.size() <= 1), humans.size() <= 1 ? 1 : attr.botShare()[k]);
+			}
+			PlayResults.fire(server, uuid, result);
 			if (r.won()[k] > 0) {
 				final int kk = k;
 				boolean royal = r.pots().stream().anyMatch(pot -> pot.winners().contains(kk) && pot.value() != 0
@@ -639,8 +1099,20 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 				if (sharkBusted) {
 					CasinoAdvancements.grant(server, uuid, "shark_hunter");
 				}
+				// man_vs_machine: a pot won at showdown against a HARD bot still in it (bots module registers it).
+				if (!r.uncontested() && r.pots().stream().anyMatch(pot -> pot.winners().contains(kk)
+					&& pot.eligible().stream().anyMatch(e -> levelOf(seatOf[e]) == BotDifficulty.HARD))) {
+					CasinoAdvancements.grant(server, uuid, "man_vs_machine");
+				}
+				if (botsOnly) {
+					long swept = bustedBots.stream().filter(b -> levelOf(seatOf[b]) != BotDifficulty.EASY).count();
+					if (swept > 0 && sweeps.merge(p.id, (int) swept, Integer::sum) >= 3) {
+						CasinoAdvancements.grant(server, uuid, "clean_sweep");
+					}
+				}
 			}
 		}
+		handQuips(h, seatOf);
 		collectRake(r.rake()); // core: to the owner's bankroll at owned tables, else stays in the bank
 
 		if (CasinoConfig.debug().logRounds) {
@@ -648,14 +1120,93 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 				r.pots().stream().map(Hand.PotResult::amount).toList(), r.rake());
 		}
 		table.settleHand();
+		drawn.clear();
+		// Crash safety: the bots' settled stacks (bankroll bots: the world ledger returns them after a crash).
+		TableBots tb = tableBots();
+		for (PokerTable.Seat b : table.bots()) {
+			tb.setStack(b.id, b.stack);
+		}
+		try {
+			List<UUID> dealt = humans.stream().map(k -> uuid(h.player(k).id)).filter(java.util.Objects::nonNull).toList();
+			PokerBotsUi.get().handPlayed(this, tb, dealt);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("Poker: bots UI handPlayed failed", e);
+		}
 		setPhase("result");
 		setChanged();
 		removeFinished();
-		if (!humansSeated()) {
+		if (!humansSeated() && waiting.isEmpty()) {
 			afterHumanLeft();
 			return;
 		}
 		scheduleHand(r.uncontested() ? 60 : 120);
+	}
+
+	private static @Nullable BotDifficulty levelOf(PokerTable.@Nullable Seat s) {
+		return s == null || s.bot == null ? null : s.bot.level();
+	}
+
+	/**
+	 * A bot event line (BOTS.md §7.4) through core's rate-limited chatter ({@link TableBots#say}).
+	 * HOOK (bots UI, J-B2): chatter delivery lives behind TableBots.say / core BotChatter; if the bots UI's
+	 * {@code BotChatter.event(level, pos, bot, event, human)} becomes the only route, call it here instead.
+	 */
+	private void quip(ServerLevel sl, BotProfile bot, String event, @Nullable String human) {
+		try {
+			tableBots().say(sl, bot, event, human);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("Poker: bot quip failed", e);
+		}
+	}
+
+	/** Bot quips after the hand (never about hidden cards before they were shown). */
+	private void handQuips(Hand h, PokerTable.Seat[] seatOf) {
+		if (!(level instanceof ServerLevel sl)) {
+			return;
+		}
+		try {
+			Hand.Result r = h.result();
+			long big = 40 * h.bb();
+			for (int k = 0; k < h.players().size(); k++) {
+				BotProfile bot = seatOf[k] == null ? null : seatOf[k].bot;
+				if (bot == null) {
+					continue;
+				}
+				if (h.player(k).stack() <= 0) {
+					quip(sl, bot, "bust", null);
+					return;
+				}
+				if (r.net()[k] >= big) {
+					quip(sl, bot, "win_big", null);
+					return;
+				}
+			}
+			for (int k = 0; k < h.players().size(); k++) {
+				if (h.player(k).human && r.net()[k] >= big) {
+					for (int j = 0; j < h.players().size(); j++) {
+						if (!h.player(j).human && r.net()[j] < 0 && seatOf[j] != null && seatOf[j].bot != null) {
+							quip(sl, seatOf[j].bot, "human_wins", seatOf[k] != null ? seatOf[k].name : "");
+							return;
+						}
+					}
+				}
+			}
+			// A bot folded to an all-in.
+			boolean facingAllIn = false;
+			for (Hand.Event e : h.events()) {
+				if (!(e instanceof Hand.Acted a)) {
+					continue;
+				}
+				if (a.allIn() && (a.type() == Hand.ActionType.BET || a.type() == Hand.ActionType.RAISE)) {
+					facingAllIn = true;
+				} else if (facingAllIn && a.type() == Hand.ActionType.FOLD && seatOf[a.player()] != null && seatOf[a.player()].bot != null) {
+					quip(sl, seatOf[a.player()].bot, "fold_to_shove", null);
+					return;
+				}
+			}
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("Poker: bot quip failed", e);
+		}
 	}
 
 	/** Removes humans who stood up, disconnected, went broke or sat out too long (between hands). */
@@ -681,6 +1232,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		UUID uuid = UUID.fromString(id);
 		SEATED.remove(uuid, this);
 		droppedSeats.remove(id);
+		drawn.remove(id);
 		payOut(uuid, amount, seat.invested);
 		firePlayerLeft(uuid, removing() ? LeaveReason.REMOVED : seat.disconnected ? LeaveReason.DISCONNECT : LeaveReason.LEFT);
 		ServerPlayer p = online(id);
@@ -705,8 +1257,20 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		}
 	}
 
+	/**
+	 * The last human left (and no claimant waits): the table closes. A hand still running between bots only is
+	 * undone (bots keep their start stacks), then every bot leaves (stacks back to their purses) and the
+	 * session ends.
+	 */
 	private void afterHumanLeft() {
 		if (table == null || humansSeated()) {
+			return;
+		}
+		if (!waiting.isEmpty()) {
+			// a claimant still waits: the next safe point seats it (or refunds a lapsed claim)
+			if (!table.inHand()) {
+				scheduleHand(20);
+			}
 			return;
 		}
 		if (table.inHand()) {
@@ -716,15 +1280,37 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		cancelTimer("action");
 		cancelTimer("bot");
 		cancelTimer("auto");
+		botSeq++;
+		botTurn = null;
+		drawn.clear();
+		endBotSession();
 		table = null;
 		stake = null;
 		log.clear();
 		lastResult.clear();
+		sweeps.clear();
 		setPhase("idle");
 		setChanged();
 	}
 
-	/** Casino off / game disabled / broken: cancel the running hand and pay everybody out. */
+	/** Every bot leaves (stacks back to their purses), host invites expire, defaults restored. */
+	private void endBotSession() {
+		if (bots == null || !(level instanceof ServerLevel sl)) {
+			return;
+		}
+		try {
+			bots.endSession(sl);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("Poker table {}: bots session end failed", worldPosition, e);
+		}
+		try {
+			PokerBotsUi.get().sessionEnded(this);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("Poker: bots UI sessionEnded failed", e);
+		}
+	}
+
+	/** Game disabled / internal error: cancel the running hand and pay everybody out (claimants too). */
 	private void shutdown() {
 		if (table == null) {
 			return;
@@ -732,6 +1318,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		table.abortHand();
 		for (PokerTable.Seat s : table.humans()) {
 			cashOut(s.id);
+		}
+		for (String id : List.copyOf(waiting.keySet())) {
+			refundWaiting(id);
 		}
 		afterHumanLeft();
 	}
@@ -810,32 +1399,32 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 
 	/**
 	 * Table broken (review B1): the running hand is played out now — every human acts by the timeout rule
-	 * (check, else fold; all-in players are already committed), bots decide as usual, the board runs out and
-	 * the pots are paid — then everybody is cashed out. No abort: breaking a table never returns chips
-	 * already in a pot. The same runs when the table's chunk unloads, the server stops or casino mode turns off
+	 * (check, else fold; all-in players are already committed), bots decide as usual (bot rng), the board
+	 * runs out and the pots are paid — then everybody is cashed out, waiting claimants are refunded and every
+	 * bot leaves with its settled stack (BOTS.md §3.5). No abort: breaking a table never returns chips already
+	 * in a pot. The same runs when the table's chunk unloads, the server stops or casino mode turns off
 	 * (review M1, core {@code playOutNow}); only a disabled game / internal error aborts the hand.
 	 */
 	@Override
 	protected void playOutForRemoval(ServerLevel level) {
 		if (table == null) {
+			for (String id : List.copyOf(waiting.keySet())) {
+				refundWaiting(id);
+			}
 			return;
 		}
 		cancelTimer("next_hand");
 		cancelTimer("action");
 		cancelTimer("bot");
 		cancelTimer("auto");
+		botSeq++;
+		botTurn = null;
 		Hand h = table.hand();
 		for (int guard = 0; guard < 400 && h != null && !h.complete(); guard++) {
-			PokerTable.Seat seat = table.seatOf(h.player(h.toAct()).id);
 			Hand.Action a;
-			if (seat != null && !seat.human) {
-				Bots.Tier tier = seat.tier != null ? seat.tier : Bots.Tier.REGULAR;
-				try {
-					a = Bots.decide(h, tier, table.vpipMap(), cfg().bot.regularSamples, cfg().bot.sharkSamples, rng());
-				} catch (RuntimeException e) {
-					a = Hand.Action.fold();
-				}
-			} else {
+			try {
+				a = leaveAction(h, h.toAct());
+			} catch (RuntimeException e) {
 				a = h.legal().canCheck() ? Hand.Action.check() : Hand.Action.fold();
 			}
 			try {
@@ -852,14 +1441,26 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			for (PokerTable.Seat s : table.humans()) {
 				cashOut(s.id);
 			}
+			for (String id : List.copyOf(waiting.keySet())) {
+				refundWaiting(id);
+			}
 			afterHumanLeft();
 		}
 	}
 
-	/** A table with seats (humans) is in play even without core stakes: {@code playOutNow} must run (review M1). */
+	/** A table with seats (humans) or waiting claimants is in play even without core stakes: {@code playOutNow} must run (review M1). */
 	@Override
 	protected boolean hasRoundInPlay() {
-		return table != null;
+		return table != null || !waiting.isEmpty();
+	}
+
+	/**
+	 * Seated at (or waiting for a seat at) any poker table: busy for PvP invites / lobbies (PVP.md eligibility
+	 * rule 4). Registered with the PvP engine's busy checks ({@code PokerModule}).
+	 */
+	public static boolean isSeatedAnywhere(MinecraftServer server, UUID player) {
+		PokerTableBlockEntity t = SEATED.get(player);
+		return t != null && !t.isRemoved() && t.holds(player.toString());
 	}
 
 	@Override
@@ -876,17 +1477,32 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		Map<String, Long> refunds = new HashMap<>(pendingRefunds);
 		if (table != null) {
 			for (PokerTable.Seat s : table.humans()) {
-				long v = table.refundableStack(s.id);
+				// during a hand: the drawn outcome (both sides from one play-out); between hands: the stack
+				long v = table.inHand() && table.handIndexOf(s) >= 0 ? drawn.getOrDefault(s.id, table.refundableStack(s.id)) : s.stack;
 				if (v > 0) {
 					refunds.merge(s.id, v, Long::sum);
 				}
 			}
 		}
+		waiting.forEach((id, amount) -> {
+			if (amount > 0) {
+				refunds.merge(id, amount, Long::sum);
+			}
+		});
 		if (!refunds.isEmpty()) {
 			output.store(REFUND_KEY, REFUND_CODEC, refunds);
 		}
 		if (stake != null) {
 			output.putString(STAKE_KEY, stake.id());
+		}
+		CompoundTag botsTag = new CompoundTag();
+		if (bots != null) {
+			bots.save(botsTag);
+		} else if (savedBots != null) {
+			botsTag = savedBots.copy();
+		}
+		if (!botsTag.isEmpty()) {
+			output.store(BOTS_KEY, CompoundTag.CODEC, botsTag);
 		}
 	}
 
@@ -897,6 +1513,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		input.read(REFUND_KEY, REFUND_CODEC).ifPresent(pendingRefunds::putAll);
 		stake = StakeLevel.byId(input.getStringOr(STAKE_KEY, ""));
 		refundsLoaded = false;
+		savedBots = input.read(BOTS_KEY, CompoundTag.CODEC).orElse(null);
+		if (bots != null && savedBots != null) {
+			bots.load(savedBots);
+			savedBots = null;
+		}
 	}
 
 	// ---- client state -----------------------------------------------------------------------------
@@ -914,6 +1535,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 		long balance = Economies.get().balance(viewer);
 		tag.putBoolean("enabled", cfg().enabled);
 		tag.putBoolean("seated", false);
+		tag.putBoolean("waiting_seat", waiting.containsKey(me));
 		tag.putString("stake", stake == null || !humansSeated() ? "" : stake.id());
 		tag.putInt("vip", tier);
 		tag.putLong("rake_permille", Math.round(cfg().rakePercent * 1000));
@@ -984,6 +1606,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity {
 			st.putInt("index", i);
 			st.put("name", encode(ops, PokerText.seatName(s)));
 			st.putBoolean("bot", !s.human);
+			if (s.bot != null) {
+				st.putString("level", s.bot.level().id());
+			}
 			st.putBoolean("you", s.id.equals(me));
 			st.putBoolean("out", s.sittingOut);
 			int k = h != null ? h.indexOf(s.id) : -1;

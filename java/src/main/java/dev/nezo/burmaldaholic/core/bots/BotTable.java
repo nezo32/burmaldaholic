@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.core.bots;
 
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRole;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant;
@@ -83,6 +84,14 @@ public interface BotTable {
 	/** MIXED weights [easy, normal, hard] for new bots (poker: {@code poker.botMix.<stake>} with the stake gate). */
 	default int[] botDifficultyMix() {
 		return CasinoConfig.bots().difficultyMix;
+	}
+
+	/**
+	 * May a fixed difficulty be chosen here (poker: no EASY above {@code bots.poker.easyMaxStake})? A gated
+	 * level is applied as NORMAL; MIXED is gated by {@link #botDifficultyMix}. Default: every level.
+	 */
+	default boolean botLevelAllowed(BotDifficulty level) {
+		return true;
 	}
 
 	/** Name pool (Piglin Parlor / End lounge tables: themed). */
@@ -185,6 +194,11 @@ public interface BotTable {
 		@Override
 		default int[] botDifficultyMix() {
 			return botDelegate().botDifficultyMix();
+		}
+
+		@Override
+		default boolean botLevelAllowed(BotDifficulty level) {
+			return botDelegate().botLevelAllowed(level);
 		}
 
 		@Override

@@ -1,26 +1,31 @@
 package dev.nezo.burmaldaholic.games.poker.logic;
 
-import java.util.ArrayDeque;
+import dev.nezo.burmaldaholic.core.bots.logic.BotProfile;
+import dev.nezo.burmaldaholic.core.bots.logic.BotRole;
+import dev.nezo.burmaldaholic.core.bots.logic.Purse;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
+import java.util.UUID;
 
 /**
- * Cash-game table model (GAME_DESIGN.md §7.1, §7.3, §7.4): seats (humans + house bots), button movement,
- * bot filling, sit-out and timeout bookkeeping. Pure — the block entity drives it and moves the money.
+ * Cash-game table model (GAME_DESIGN.md §7.1, §7.3): seats (humans + money bots), button movement,
+ * sit-out and timeout bookkeeping, the humans' public stats (the HARD opponent model) and the EASY tilt.
+ * Pure — the block entity drives it and moves the money. Bot seats are filled / emptied by core
+ * {@code TableBots} at the safe point (between hands) through {@link #seatBot} / {@link #unseatBot}; the
+ * seats are exposed as core {@link SeatOccupant}s. Same model as Bedrock {@code games/poker/logic/table.ts}.
  */
 public final class PokerTable {
-	/** One occupied seat. Humans use their UUID string as id, bots {@code "bot:<n>"}. */
+	/** One occupied seat. Humans use their UUID string as id, bots their core key {@code "bot:<id>"}. */
 	public static final class Seat {
 		public final String id;
+		/** player name ("" for bots: shown from the profile's name id) */
 		public final String name;
 		public final boolean human;
-		public final Bots.Tier tier;
+		/** bots: the core profile (level = the level it plays here, after the stake gate); null for humans */
+		public final BotProfile bot;
+		/** bots: where its chips return to; null for humans */
+		public final Purse purse;
 		public long stack;
 		/** chips this human bought in with (buy-in + top-ups), to tell refunds from winnings on cash-out */
 		public long invested;
@@ -33,28 +38,36 @@ public final class PokerTable {
 		/** leaves at the end of the current hand (stood up, disconnected) */
 		public boolean leaving;
 		public boolean disconnected;
-		/** VPIP of the last 20 hands (humans; sharks read it) */
-		public final Deque<Boolean> vpipHistory = new ArrayDeque<>();
+		/** humans: public stats of the last 50 hands (the HARD opponent model; bots are never modelled) */
+		public final List<Ranges.HandStat> history = Ranges.newHistory();
+		/** sit-down order (host = longest seated) */
+		public final int since;
+		/** EASY bots: hands of tilt left (lost a pot &gt; 40 BB) */
+		public int tilt;
 
-		Seat(String id, String name, boolean human, Bots.Tier tier, long stack) {
+		Seat(String id, String name, boolean human, BotProfile bot, Purse purse, long stack, int since) {
 			this.id = id;
 			this.name = name;
 			this.human = human;
-			this.tier = tier;
+			this.bot = bot;
+			this.purse = purse;
 			this.stack = stack;
 			this.invested = human ? stack : 0;
+			this.since = since;
+		}
+
+		/** The seat as a core occupant. */
+		public SeatOccupant occupant() {
+			if (!human && bot != null) {
+				return new SeatOccupant.Bot(bot, BotRole.MONEY, purse == null ? Purse.BANK : purse);
+			}
+			try {
+				return new SeatOccupant.Human(UUID.fromString(id), name);
+			} catch (IllegalArgumentException e) {
+				return new SeatOccupant.Human(new UUID(0, id.hashCode()), name);
+			}
 		}
 	}
-
-	/** @param maxBots cap on the number of bots (-1 = no cap; generated tables, e.g. the Parlor's 3) */
-	public record BotFill(boolean enabled, int[] mix, long buyIn, int maxBots) {
-		public BotFill(boolean enabled, int[] mix, long buyIn) {
-			this(enabled, mix, buyIn, -1);
-		}
-	}
-
-	/** Bots that joined / left while filling (for announcements). */
-	public record FillResult(List<Seat> joined, List<Seat> left) {}
 
 	private final Seat[] seats;
 	private long bb;
@@ -66,6 +79,7 @@ public final class PokerTable {
 	private int[] handSeats = new int[0];
 	/** The Seat objects dealt into the current / last hand (review B1: hand entries match by seat identity, not id). */
 	private Seat[] handSeatRefs = new Seat[0];
+	private int sitCounter;
 
 	public PokerTable(int maxSeats, long bb, Pots.RakeConfig rake) {
 		this.seats = new Seat[Math.max(2, maxSeats)];
@@ -159,7 +173,8 @@ public final class PokerTable {
 		return s == null ? -1 : handIndexOf(s);
 	}
 
-	private int handIndexOf(Seat s) {
+	/** Hand player index of this seat object in the current hand, or -1. */
+	public int handIndexOf(Seat s) {
 		if (hand == null) {
 			return -1;
 		}
@@ -209,35 +224,11 @@ public final class PokerTable {
 	public int addHuman(String id, String name, long stack) {
 		for (int i = 0; i < seats.length; i++) {
 			if (seats[i] == null) {
-				seats[i] = new Seat(id, name, true, null, stack);
+				seats[i] = new Seat(id, name, true, null, null, stack, ++sitCounter);
 				return i;
 			}
 		}
 		return -1;
-	}
-
-	/**
-	 * Frees a seat for a waiting human: between hands a bot is removed right away (returned); during a
-	 * hand the last bot is marked leaving so the seat frees at the end of the hand (returns null).
-	 */
-	public Seat makeRoom() {
-		for (Seat s : seats) {
-			if (s == null) {
-				return null;
-			}
-		}
-		for (int i = seats.length - 1; i >= 0; i--) {
-			Seat s = seats[i];
-			if (s != null && !s.human) {
-				if (inHand()) {
-					s.leaving = true;
-					return null;
-				}
-				seats[i] = null;
-				return s;
-			}
-		}
-		return null;
 	}
 
 	public Seat removeSeat(String id) {
@@ -250,63 +241,65 @@ public final class PokerTable {
 		return s;
 	}
 
-	/** Bots wanted: 0 without humans, else max seats − humans − 1 (a seat kept for walk-ins), at least 1 for a lone human. */
-	public int botTarget(boolean enabled) {
-		int humans = humans().size();
-		if (!enabled || humans == 0) {
-			return 0;
-		}
-		int free = seats.length - humans;
-		return Math.max(humans == 1 ? Math.min(1, free) : 0, free - 1);
-	}
-
-	/** Between hands: removes busted, leaving and surplus bots and adds bots up to the target. */
-	public FillResult fillBots(BotFill o, PokerRng rng, Supplier<String> nextId) {
-		List<Seat> joined = new ArrayList<>();
-		List<Seat> left = new ArrayList<>();
-		if (inHand()) {
-			return new FillResult(joined, left);
+	/** A money bot sits down (core TableBots safe point); returns the seat index or -1 (full / hand running). */
+	public int seatBot(BotProfile profile, Purse purse, long stack) {
+		if (inHand() || stack <= 0) {
+			return -1;
 		}
 		for (int i = 0; i < seats.length; i++) {
-			Seat s = seats[i];
-			if (s != null && !s.human && (s.stack <= 0 || s.leaving)) {
-				left.add(s);
-				seats[i] = null;
+			if (seats[i] == null) {
+				seats[i] = new Seat(profile.key(), "", false, profile, purse, stack, ++sitCounter);
+				return i;
 			}
 		}
-		int target = botTarget(o.enabled());
-		if (o.maxBots() >= 0) {
-			target = Math.min(target, o.maxBots());
+		return -1;
+	}
+
+	/** A bot leaves (safe point / session end): returns what it holds (its hand stack while dealt in). */
+	public long unseatBot(String key) {
+		int i = seatIndexOf(key);
+		Seat s = i >= 0 ? seats[i] : null;
+		if (s == null || s.human) {
+			return 0;
 		}
-		List<Seat> bots = new ArrayList<>(bots());
-		while (bots.size() > target) {
-			Seat b = bots.remove(bots.size() - 1);
-			removeSeat(b.id);
-			left.add(b);
+		int k = inHand() ? handIndexOf(s) : -1;
+		long held = k >= 0 ? hand.player(k).stack() : s.stack;
+		seats[i] = null;
+		return Math.max(0, held);
+	}
+
+	/** Seats as core occupants (null = empty seat), for TableBots. */
+	public List<SeatOccupant> occupants() {
+		List<SeatOccupant> out = new ArrayList<>(seats.length);
+		for (Seat s : seats) {
+			out.add(s == null ? null : s.occupant());
 		}
-		Set<String> used = new HashSet<>();
-		for (Seat b : bots()) {
-			used.add(b.name);
+		return out;
+	}
+
+	/** Seated humans in sit-down order (not those standing up after this hand). */
+	public List<String> seatedHumans() {
+		return humans().stream().filter(s -> !s.leaving).sorted(java.util.Comparator.comparingInt(s -> s.since)).map(s -> s.id).toList();
+	}
+
+	/**
+	 * Poker yield rule (BOTS.md §3.3): hands since this seat posted the big blind, counted in seats
+	 * clockwise from the last hand's big blind (0 = just posted it, yields first). No hand yet → large.
+	 */
+	public int handsSinceBigBlind(String id) {
+		Hand h = hand != null ? hand : lastHand;
+		int seat = seatIndexOf(id);
+		if (h == null || seat < 0 || h.bbIndex() >= handSeats.length) {
+			return Integer.MAX_VALUE;
 		}
-		while (bots().size() < target) {
-			int free = -1;
-			for (int i = 0; i < seats.length; i++) {
-				if (seats[i] == null) {
-					free = i;
-					break;
-				}
-			}
-			if (free < 0) {
-				break;
-			}
-			List<String> names = Bots.NAMES.stream().filter(n -> !used.contains(n)).toList();
-			String name = rng.pick(names.isEmpty() ? Bots.NAMES : names);
-			used.add(name);
-			Seat seat = new Seat(nextId.get(), name, false, Bots.pickTier(rng, o.mix()), o.buyIn());
-			seats[free] = seat;
-			joined.add(seat);
-		}
-		return new FillResult(joined, left);
+		int bbSeat = handSeats[h.bbIndex()];
+		return Math.floorMod(bbSeat - seat, seats.length);
+	}
+
+	/** Public stats of a seated human (the HARD opponent model; null for bots / too few hands). */
+	public Ranges.HumanStats statsOf(String id) {
+		Seat s = seatOf(id);
+		return s != null && s.human ? Ranges.statsOf(s.history) : null;
 	}
 
 	/** Seats that will be dealt in: occupied, chips &gt; 0, not leaving. */
@@ -396,15 +389,35 @@ public final class PokerTable {
 			}
 			s.stack = p.stack();
 			if (s.human) {
-				s.vpipHistory.addLast(p.vpip());
-				while (s.vpipHistory.size() > 20) {
-					s.vpipHistory.removeFirst();
-				}
+				Ranges.record(s.history, Ranges.handStat(hand, k));
 				if (s.sittingOut) {
 					s.sitOutHands++;
 				}
+			} else {
+				long net = hand.result() != null ? hand.result().net()[k] : 0;
+				s.tilt = net < -40 * hand.bb() ? 5 : Math.max(0, s.tilt - 1);
 			}
 		}
+	}
+
+	/**
+	 * What every seat still at the table holds at the end of a drawn play-out {@code end} (a finished copy
+	 * of the current hand, GAME_DESIGN §4.1): humans and bots from the SAME play-out, so a crash mid-hand
+	 * returns exactly what the hand would have left on both sides (never the humans' play-out against the
+	 * bots' pre-hand stacks). Key = seat id. Empty when no hand runs or {@code end} is not finished.
+	 */
+	public java.util.Map<String, Long> drawnHoldings(Hand end) {
+		java.util.Map<String, Long> out = new java.util.LinkedHashMap<>();
+		if (hand == null || end == null || !end.complete() || end.players().size() != handSeatRefs.length) {
+			return out;
+		}
+		for (int k = 0; k < handSeatRefs.length; k++) {
+			Seat s = seats[handSeats[k]];
+			if (s != null && s == handSeatRefs[k] && s.id.equals(end.player(k).id)) {
+				out.put(s.id, Math.max(0, end.player(k).stack()));
+			}
+		}
+		return out;
 	}
 
 	/** Undoes a hand in progress (table broken / casino off): everyone keeps their start stack. */
@@ -421,18 +434,6 @@ public final class PokerTable {
 			}
 		}
 		hand = null;
-	}
-
-	/** VPIP (0..1) per human id, for sharks; only humans with ≥ 5 recorded hands. */
-	public Map<String, Double> vpipMap() {
-		Map<String, Double> m = new HashMap<>();
-		for (Seat s : humans()) {
-			if (s.vpipHistory.size() >= 5) {
-				long v = s.vpipHistory.stream().filter(Boolean::booleanValue).count();
-				m.put(s.id, (double) v / s.vpipHistory.size());
-			}
-		}
-		return m;
 	}
 
 	/** Records a timed-out action; true when the player has just been moved to sitting out. */

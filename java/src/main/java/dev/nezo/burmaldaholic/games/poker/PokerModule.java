@@ -21,5 +21,7 @@ public final class PokerModule implements CasinoModule {
 	@Override
 	public void register(ModuleContext ctx) {
 		TABLE = ctx.tables().register("poker_table", PokerTableBlockEntity::new);
+		// TODO(integration): once the PvP engine (J-P1) is merged, register the busy rule so seated poker
+		// players are busy for PvP invites / lobbies: Pvp.addBusyCheck(PokerTableBlockEntity::isSeatedAnywhere);
 	}
 }
