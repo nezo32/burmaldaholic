@@ -45,6 +45,15 @@ msg.burmaldaholic.slots.seven_title=Три семёрки!
 gui.burmaldaholic.slots.playing=Сейчас играет: %1
 msg.burmaldaholic.slots.jackpot_pool=%1: джекпот %2
 msg.burmaldaholic.slots.rtp_ok=Все автоматы возвращают меньше 99 %%
+## [slots / Slots v2 tier words (early import of `SLOTS.md` §13.3 / §13.4 rows used by the shared celebration API)]
+gui.burmaldaholic.slots.win=Выигрыш %1
+gui.burmaldaholic.slots.returned=Возвращено %1
+gui.burmaldaholic.slots.tier.nice=НЕПЛОХО!
+gui.burmaldaholic.slots.tier.big=КРУПНЫЙ ВЫИГРЫШ!
+gui.burmaldaholic.slots.tier.mega=МЕГАВЫИГРЫШ!
+gui.burmaldaholic.slots.tier.epic=ЭПИЧЕСКИЙ ВЫИГРЫШ!
+gui.burmaldaholic.slots.max_win=МАКСИМАЛЬНЫЙ ВЫИГРЫШ!
+gui.burmaldaholic.slots.jackpot.won=ДЖЕКПОТ %1!
 ## [config / Family templates]
 config.burmaldaholic.slots.weights=%1 — веса символов
 config.burmaldaholic.slots.pays=%1 — выплаты

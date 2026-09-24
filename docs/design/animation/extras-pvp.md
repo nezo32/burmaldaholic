@@ -560,7 +560,7 @@ which rises 0.5 block and fades over 60 t.
   same `from_deci`/`to_deci` properties (the party angle comes from `angle1000`). It cannot show proportional slices in
   colour (Bedrock has no dynamic textures), so ownership is carried by the text channels below.
 - **Player / spectators:**
-  - Countdown bar (every 20 t, exists) gains a colour swatch glyph for "your slice" (U+E1C0–E1CF, the 16 dye colours
+  - Countdown bar (every 20 t, exists) gains a colour swatch glyph for "your slice" (⚠ CHANGED: U+E1E0–E1EF, the 16 dye colours
     as square glyphs, V6), e.g. `■ Pot 1 000 · your slice 5 % · spins in 18 s`.
   - The **No more bets** title §c, `random.anvil_land` at 0.4.
   - Spin: action-bar frames `§l▶ [swatch] NAME ◀` (exists) with the flapper-style tick per frame and rising pitch.
@@ -1120,8 +1120,9 @@ Reused from `global.md` (J11/B3): `burmaldaholic:chip_pop`, `chip_fountain` (Bed
 
 Reused from `global.md` §2.3: coin frames **U+E186–E189** (face, ¾, edge, ¾ back), **U+E18A / E18B** (heads / tails),
 **U+E199** (emerald), **U+E19A** (gold ingot), **U+E19B** (sparkle), U+E170 (flame). Reused from PVP.md: U+E1A0
-(rabbit's foot), U+E1A1 (charred). **New in this file: U+E1A2–U+E1B8 and U+E1C0–U+E1CF.** Record them in UI.md §0.1
-when merging.
+(rabbit's foot), U+E1A1 (charred). **New in this file: U+E1A2–U+E1B8 and U+E1E0–U+E1EF.** Record them in UI.md §0.1
+when merging. ⚠ CHANGED (`docs/architecture/animation.md` §6, glyph map): the dye swatches moved from
+U+E1C0–E1CF (which tables.md §4.2 also claimed) to **U+E1E0–E1EF**.
 
 | Code | Glyph | Code | Glyph |
 |------|-------|------|-------|
@@ -1132,7 +1133,7 @@ when merging.
 | E1A6 | creeper face | E1AF | bin lamp gold (edge) |
 | E1A7 | foil (unscratched) | E1B0 | wheel (mode icon) |
 | E1A8 | foil, half-scratched | E1B1–E1B8 | wheel segment icons B, C, H, M, D, T, E, X |
-| E1A9 | chain pip empty | E1C0–E1CF | 16 dye-colour squares (Wheel Party swatches, in `WheelArt.COLORS` order) |
+| E1A9 | chain pip empty | E1E0–E1EF | 16 dye-colour squares (Wheel Party swatches, in `WheelArt.COLORS` order) — ⚠ CHANGED from E1C0–E1CF |
 | E1AA | chain pip current | | |
 
 Scratch symbol set in rank order: coal E1A2, iron E1A3, gold E19A, emerald E199, diamond E1A4, nether star E1A5,

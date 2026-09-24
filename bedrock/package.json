@@ -15,7 +15,10 @@
     "gen:textures": "node tools/gen-textures.mjs",
     "check:spec": "node tools/gen-lang.mjs --check && node tools/gen-config.mjs --check",
     "deploy": "node scripts/deploy.mjs",
-    "gen:glyphs": "node tools/gen-glyphs.mjs"
+    "gen:glyphs": "node tools/gen-glyphs.mjs",
+    "gen:assets": "node tools/gen-assets.mjs",
+    "check:assets": "node tools/gen-assets.mjs --check",
+    "sync:vectors": "node tools/sync-fx-vectors.mjs"
   },
   "license": "MIT",
   "devDependencies": {

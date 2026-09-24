@@ -296,6 +296,16 @@ hud.burmaldaholic.loan_default=ПРОСРОЧКА · долг %1
 hud.burmaldaholic.golden_hour=«Золотой час» %1
 hud.burmaldaholic.time.dhm=%1д %2
 hud.burmaldaholic.actionbar=%1 · %2 · %3
+## [core / Win tiers and celebrations (animation wave; `docs/design/animation/global.md` §9, `docs/architecture/animation.md` §4)]
+gui.burmaldaholic.fx.tier.win=ВЫИГРЫШ
+gui.burmaldaholic.fx.tier.nice=НЕПЛОХО!
+gui.burmaldaholic.fx.tier.big=КРУПНЫЙ ВЫИГРЫШ
+gui.burmaldaholic.fx.tier.mega=МЕГАВЫИГРЫШ
+gui.burmaldaholic.fx.tier.epic=ЭПИЧЕСКИЙ ВЫИГРЫШ
+gui.burmaldaholic.fx.tier.jackpot=ДЖЕКПОТ
+gui.burmaldaholic.fx.tier.push=НИЧЬЯ
+gui.burmaldaholic.fx.tier.loss=БЕЗ ВЫИГРЫША
+gui.burmaldaholic.fx.returned=Возвращено: %1
 ## [core / Messages]
 msg.burmaldaholic.core.welcome=Добро пожаловать в Бурмалдоголик! Держите клубную карту и %1 на удачу.
 msg.burmaldaholic.core.welcome_hint=Копайте, сражайтесь и торгуйте — за это дают фишки. Тратьте их за столами. Желательно не все.

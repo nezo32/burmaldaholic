@@ -340,6 +340,20 @@ casino mode in world saved data and has no game rule.
 | `hud.burmaldaholic.time.dhm` | %1$sd %2$s | %1$sд %2$s |
 | `hud.burmaldaholic.actionbar` | %1$s · %2$s · %3$s | %1$s · %2$s · %3$s |
 
+### Win tiers and celebrations (animation wave; `docs/design/animation/global.md` §9, `docs/architecture/animation.md` §4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.fx.tier.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.fx.tier.nice` | NICE WIN | НЕПЛОХО! |
+| `gui.burmaldaholic.fx.tier.big` | BIG WIN | КРУПНЫЙ ВЫИГРЫШ |
+| `gui.burmaldaholic.fx.tier.mega` | MEGA WIN | МЕГАВЫИГРЫШ |
+| `gui.burmaldaholic.fx.tier.epic` | EPIC WIN | ЭПИЧЕСКИЙ ВЫИГРЫШ |
+| `gui.burmaldaholic.fx.tier.jackpot` | JACKPOT | ДЖЕКПОТ |
+| `gui.burmaldaholic.fx.tier.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.fx.tier.loss` | NO WIN | БЕЗ ВЫИГРЫША |
+| `gui.burmaldaholic.fx.returned` | Returned %1$s | Возвращено: %1$s |
+
 ### Messages
 
 | Key | EN | RU |
@@ -772,6 +786,19 @@ fallback, narration).
 | `msg.burmaldaholic.slots.rtp_ok` | All slot machines pay back less than 99%% | Все автоматы возвращают меньше 99 %% |
 
 ---
+
+### Slots v2 tier words (early import of `SLOTS.md` §13.3 / §13.4 rows used by the shared celebration API)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.win` | Win %1$s | Выигрыш %1$s |
+| `gui.burmaldaholic.slots.returned` | Returned %1$s | Возвращено %1$s |
+| `gui.burmaldaholic.slots.tier.nice` | NICE WIN! | НЕПЛОХО! |
+| `gui.burmaldaholic.slots.tier.big` | BIG WIN! | КРУПНЫЙ ВЫИГРЫШ! |
+| `gui.burmaldaholic.slots.tier.mega` | MEGA WIN! | МЕГАВЫИГРЫШ! |
+| `gui.burmaldaholic.slots.tier.epic` | EPIC WIN! | ЭПИЧЕСКИЙ ВЫИГРЫШ! |
+| `gui.burmaldaholic.slots.max_win` | MAX WIN! | МАКСИМАЛЬНЫЙ ВЫИГРЫШ! |
+| `gui.burmaldaholic.slots.jackpot.won` | %1$s JACKPOT! | ДЖЕКПОТ %1$s! |
 
 ## roulette
 

@@ -45,6 +45,15 @@ msg.burmaldaholic.slots.seven_title=Triple seven!
 gui.burmaldaholic.slots.playing=Now playing: %1
 msg.burmaldaholic.slots.jackpot_pool=%1: jackpot %2
 msg.burmaldaholic.slots.rtp_ok=All slot machines pay back less than 99%%
+## [slots / Slots v2 tier words (early import of `SLOTS.md` §13.3 / §13.4 rows used by the shared celebration API)]
+gui.burmaldaholic.slots.win=Win %1
+gui.burmaldaholic.slots.returned=Returned %1
+gui.burmaldaholic.slots.tier.nice=NICE WIN!
+gui.burmaldaholic.slots.tier.big=BIG WIN!
+gui.burmaldaholic.slots.tier.mega=MEGA WIN!
+gui.burmaldaholic.slots.tier.epic=EPIC WIN!
+gui.burmaldaholic.slots.max_win=MAX WIN!
+gui.burmaldaholic.slots.jackpot.won=%1 JACKPOT!
 ## [config / Family templates]
 config.burmaldaholic.slots.weights=%1 — symbol weights
 config.burmaldaholic.slots.pays=%1 — payouts

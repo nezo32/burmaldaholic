@@ -1110,7 +1110,8 @@ particle atlas. Together they hold **63 frames/cells**.
 | U+E1C9 | Push or bar marker (gray ring with a bar) |
 | U+E1CA / U+E1CB | ✔ win tick / ✘ lose cross (if there is no existing glyph) |
 
-That is **12 glyph cells**, and U+E1CC–E1CF are reserved.
+That is **12 glyph cells**, and U+E1CC–E1CF are reserved. (extras-pvp.md also claimed E1C0–E1CF for dye
+swatches; that clash is resolved by moving the swatches to E1E0–E1EF — `docs/architecture/animation.md` §6.)
 
 ### 4.3 Java models and renderers
 

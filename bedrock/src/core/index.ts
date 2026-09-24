@@ -64,3 +64,6 @@ export { CHIP_VALUES, chipItemId, chipValueOf, fitsUnderCap } from './logic/econ
 export { coreModule } from './module-core';
 export { CHIP_GLYPH, CARD_BACK_GLYPH, STREAK_FLAME_GLYPH, STREAK_CLOUD_GLYPH, cardGlyph, suitGlyph, dieGlyph, vipBadgeGlyph, glyphRaw } from './logic/glyphs';
 export { type Card, type Rank, type Suit, SUITS, RANKS, cardId, parseCard, newShoe, rankLabel, suitLabel, cardName, hiddenCard } from './logic/cards';
+// Presentation (docs/architecture/animation.md): pure timeline/easing/tiers in logic/anim, runtime in presentation/.
+export * as anim from './logic/anim';
+export * as presentation from './presentation';

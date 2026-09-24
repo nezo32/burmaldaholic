@@ -296,6 +296,16 @@ hud.burmaldaholic.loan_default=OVERDUE · owed %1
 hud.burmaldaholic.golden_hour=Golden Hour %1
 hud.burmaldaholic.time.dhm=%1d %2
 hud.burmaldaholic.actionbar=%1 · %2 · %3
+## [core / Win tiers and celebrations (animation wave; `docs/design/animation/global.md` §9, `docs/architecture/animation.md` §4)]
+gui.burmaldaholic.fx.tier.win=WIN
+gui.burmaldaholic.fx.tier.nice=NICE WIN
+gui.burmaldaholic.fx.tier.big=BIG WIN
+gui.burmaldaholic.fx.tier.mega=MEGA WIN
+gui.burmaldaholic.fx.tier.epic=EPIC WIN
+gui.burmaldaholic.fx.tier.jackpot=JACKPOT
+gui.burmaldaholic.fx.tier.push=PUSH
+gui.burmaldaholic.fx.tier.loss=NO WIN
+gui.burmaldaholic.fx.returned=Returned %1
 ## [core / Messages]
 msg.burmaldaholic.core.welcome=Welcome to Burmaldaholic! Here's your Casino Card and %1 for luck.
 msg.burmaldaholic.core.welcome_hint=Mine, fight and trade to earn chips. Spend them at the tables. Try not to spend all of them.

@@ -364,7 +364,8 @@ Assumptions (verify during implementation):
 - The Bedrock title renders glyphs at about 2.5× (large enough for the squeeze card). If it does not,
   the squeeze uses the subtitle line and the title shows the side name.
 - Glyph code points **U+E1D0–U+E1DF are free** and are reserved here. Already claimed: E100–E19B
-  (UI.md, global), E1A0–E1AB (extras-pvp), E1B0–E1B8 (extras-pvp) and E1C0–E1CF (tables).
+  (UI.md, global), E1A0–E1AF (extras-pvp), E1B0–E1B8 (extras-pvp), E1C0–E1CF (tables) and E1E0–E1EF
+  (extras-pvp dye swatches, moved there to resolve a clash). Full map: `docs/architecture/animation.md` §6.
 
 ---
 
@@ -587,7 +588,9 @@ Beats: `poker.fx.dealBeatTicks` 3, `poker.fx.gatherTicks` 8, `poker.fx.streetTic
 | Viewer result | after the award | The viewer's net → the global celebration (tier on the viewer's net vs their contributions this hand). Losing pots: no banner beyond "Alex wins 340" (existing `msg…wins_pot`). |
 | Next hand | award + 1 500 ms | Then gather (K5), and the next hand starts on the existing `next_hand` timer. |
 
-**All-in run-out** (the most dramatic poker moment):
+**All-in run-out** (the most dramatic poker moment) — **APPROVED (lead decision 2026-09-24,
+presentation only; `docs/architecture/animation.md` §1):** the slow run-out below ships as MUST. It changes
+pacing only; the board is drawn and persisted before the first street is shown, and no decision remains.
 1. Every live hand is flipped face up at once (K2, all simultaneously). This needs server config
    `poker.exposeAllIn` (true), the standard all-in exposure rule. It is a rules dependency and must be
    approved by the GAME_DESIGN owner; if it is off, the hands stay hidden until the showdown.

@@ -720,7 +720,7 @@ Largest tape (6 players × 10 spins) < 3 000 characters (fits one Bedrock dynami
 
 ### 9.5 UI
 
-As PVP.md §5.5, with 5×3 mini-reels (Java panels 124 × 76: 5 × 3 cells at 14 px), a feature badge
+As PVP.md §5.5, with 5×3 mini-reels (Java panels 124 × 76: 5 × 3 cells at **16 px**, using the 16 × 16 base art 1:1 — ⚠ CHANGED (D2, `animation/slots.md` §0.3): was 14 px, which forced fractional scaling), a feature badge
 ("FS 12", "HOARD", "WHEEL") and the hazard icon on each panel. Bedrock: a 5×3 grid does not fit the one-line action bar,
 so the line shows your **middle row** plus your points; the full grid is in the Standings form.
 
@@ -731,6 +731,13 @@ or bonus game win. Other values: `jackpot` (any jackpot result), `five_top` (5 o
 
 ---
 ## 10. Presentation (both editions)
+
+> ⚠ CHANGED 2026-09-24 (lead decision, `docs/architecture/animation.md` §1): six presentation-only changes
+> from `docs/design/animation/slots.md` §0.3 are accepted and applied below — D1 symbol sprites 40 × 40 at 1:1
+> (+ 32 × 32 compact sheet), D2 Showdown mini-cells 16 px (§9.5), D3 in-world tumbles keep the first window
+> (§10.6), D4 slot tier words passed to the shared celebration API (§10.1), D5 Hoard filler never scrolls a
+> coin (§10.4), D6 Treasure Hunt chest rattles until the server confirms (§10.4). No rule, number or RTP
+> changes. `animation/slots.md` wins on frame-level detail; this file still wins on rules and numbers.
 
 All timings are at normal speed; **turbo = × 0.5**; **reduce motion** (`anim.reduceMotion`,
 research §8) replaces reel scrolling with a 300 ms cross-fade, removes shake/flash/blur/bounce and
@@ -748,6 +755,11 @@ makes roll-ups instant. Bedrock rounds every time **up to whole ticks** (50 ms).
 | **Epic Win** | ≥ 100× | `slots.tier.epic` | + GUI shake 400 ms, fireworks at the cabinet (BER) | + `camerashake` 0.25 / 0.6 s, fireworks, chat to players ≤ 32 blocks | `slots.epic_win` |
 | **Max Win** | = cap | `slots.max_win` | Epic presentation + "MAX WIN" plate | same | `slots.max_win` |
 | **Jackpot** | any tier | `slots.jackpot.won` | own 3 s celebration after the spin's roll-up | title, `jackpot_burst`, camera push-in (opt-out) | `jackpot` |
+
+⚠ CHANGED (D4, `animation/slots.md` §0.3): slot screens show the **slot keys** of this table (`slots.tier.*`,
+`slots.returned`, `slots.max_win`), not the generic `gui.burmaldaholic.fx.tier.*` words. The shared
+`CelebrationOverlay` (Java) / `fx.celebrate` (Bedrock) takes the caller's tier words and the caller's threshold
+table (`WinTierTable.SLOTS` = these 5 / 15 / 40 / 100) — `docs/architecture/animation.md` §4.
 
 The roll-up **upgrades the banner as it passes each threshold** (Nice → Big → Mega → Epic) — the
 main excitement beat. Roll-up duration `d = clamp(600 + 900 × log10(1 + win/bet), 600, 8000)` ms,
@@ -792,15 +804,15 @@ paid grid, (b) anticipation happens **iff** the condition above holds on already
 
 | Feature | Timeline |
 |---|---|
-| Treasure Hunt | board intro 600 ms (15 chests drop, 40 ms stagger); each open 400 ms (6-frame lid flipbook) + prize pop 300 ms `outBack` + `slots.chest_open`; Creeper: 600 ms swell + hiss, white flash (not with reduce motion), puff particles, no damage; end: remaining chests open dimmed (50 %), 80 ms stagger; total roll-up. Jackpot gem: gem glyph flies to its meter 500 ms. |
-| Piglin's Hoard | intro 800 ms (non-coins fade out, coins lock with gold frame); respin 900 ms (empty cells mini-spin 500 ms, 30 ms stagger); new coin: `slots.coin_land` + counter dots flash back to 3 (200 ms); end: collect sweep 120 ms per coin into the total; all 15 filled: GRAND 3 000 ms. |
+| Treasure Hunt | board intro 600 ms (15 chests drop, 40 ms stagger); each open: the clicked chest **rattles until the server confirms the reveal** (one round trip; the *i*-th entry is sent only on the *i*-th pick, §1.2), then opens in 400 ms (6-frame lid flipbook) — ⚠ CHANGED (D6, `animation/slots.md` §0.3; was a fixed 400 ms flipbook started on click) + prize pop 300 ms `outBack` + `slots.chest_open`; Creeper: 600 ms swell + hiss, white flash (not with reduce motion), puff particles, no damage; end: remaining chests open dimmed (50 %), 80 ms stagger; total roll-up. Jackpot gem: gem glyph flies to its meter 500 ms. |
+| Piglin's Hoard | intro 800 ms (non-coins fade out, coins lock with gold frame); respin 900 ms (empty cells mini-spin 500 ms, 30 ms stagger, through a **neutral ember blur** that never scrolls a coin past the window — ⚠ CHANGED (D5, `animation/slots.md` §0.3): a coin sliding past an empty cell would be a fake near-miss); new coin: `slots.coin_land` + counter dots flash back to 3 (200 ms); end: collect sweep 120 ms per coin into the total; all 15 filled: GRAND 3 000 ms. |
 | Dragon Wheel | intro 700 ms (wheel rises); outer spin 4 500 ms `outCubic`, peg ticks with pointer deflect 12° `outElastic`; **UP** → zoom 800 ms `inOutSine` into the next ring; middle 4 000 ms; core 5 000 ms; result glow 600 ms. The wheel's final angle is the tape's segment (drawn), plus a uniform offset inside the wedge for looks. |
 | Jackpot | 3 000 ms: meter explodes into coins, title, fireworks, broadcast; Bedrock camera push-in 20 t (opt-out). |
 
 ### 10.5 Java — `SlotMachineScreen` v2 (client screen, server-driven)
 
 Panel **400 × 240** (compact < 400 × 240 window: 320 × 220). Sprites from
-`textures/gui/sprites/slots/<machine>/<symbol>.png` (48 × 48, plus `_blur` and animated `_win`),
+per-machine symbol sheets `textures/gui/slots/<machine>_symbols.png` with **40 × 40** frames (16 × 16 pixel art ×2 + a 4 px effect margin) drawn **1:1 in the 44 px cells**, and a separate **32 × 32** sheet for compact mode (base, `blur`, 8 `win`, 6 `idle` frames) — ⚠ CHANGED (D1, `animation/slots.md` §0.3 and §9.1): was 48 × 48 sprites scaled into 44 px cells, which drops pixel rows and shimmers while scrolling under nearest filtering;
 cabinet frame nine-slice per machine, drum gradient (research §2.4).
 
 ```
@@ -870,8 +882,11 @@ strip), `state` enum idle/spin/land/win/big/feature/jackpot, `sticky` int 0–7 
 `hold` int 0–32 767 (Hoard locked-cell mask), `mult` int 0–10 (multiplier plate), `wheel` int
 (ring × 100 + segment). 11 properties. Staggered stops through `playAnimation(land_r)` at the
 §10.2 times. **Tumbles are not animated in-world** (research: per-cell falls are hard on entities):
-the cabinet shows the first drop, an `ember_burst` per tumble and the multiplier plate; the final
-grid is shown when the spin ends. Particles: `burmaldaholic:coin_burst`, `sparkle`, `confetti`,
+the cabinet shows the first drop, an `ember_burst` per tumble and the multiplier plate. ⚠ CHANGED (D3,
+`animation/slots.md` §0.3 and §6.6): **MUST** — the cabinet keeps the **first landed window** for the whole
+tumble chain (a strip-window entity cannot show a post-tumble grid; showing another strip window would be a
+wrong grid); tumbles are told by the win-frame pulse, `ember_burst` and the plate only. **NICE** — three packed
+row properties `g0…g2` (4 bits × 5 cells) drive overlay bones that show the final window after the chain. Particles: `burmaldaholic:coin_burst`, `sparkle`, `confetti`,
 `jackpot_burst`, `ember_burst`, `void_motes` (≤ 60 per burst, ≤ 150 jackpot). Sounds via
 `dimension.playSound` for Big+ (neighbours hear), `player.playSound` otherwise. Visible to players
 ≤ `slots.inWorld.radius` (24) blocks; `setPropertyOverrideForEntity` is not needed because the
