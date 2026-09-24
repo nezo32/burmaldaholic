@@ -542,6 +542,28 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `toast.burmaldaholic.golden_hour.ending` | Golden Hour ends in %1$s | «Золотой час» закончится через %1$s |
 | `toast.burmaldaholic.achievement.title` | Achievement unlocked | Достижение получено |
 
+### Casino UI kit, HUD and meta screens (lane J-L2; `docs/design/visual/extras.md` §8, §9, §14)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.menu.wallet.balance` | Balance | Баланс |
+| `gui.burmaldaholic.menu.wallet.chips.p1` | chip | фишка |
+| `gui.burmaldaholic.menu.wallet.chips.p21` | chips | фишка |
+| `gui.burmaldaholic.menu.wallet.chips.p2` | chips | фишки |
+| `gui.burmaldaholic.menu.wallet.chips.p5` | chips | фишек |
+| `gui.burmaldaholic.menu.wallet.row.wagered` | Wagered, all time | Поставлено за всё время |
+| `gui.burmaldaholic.menu.wallet.row.today` | Net today | Итог за сегодня |
+| `gui.burmaldaholic.menu.wallet.row.streak` | Streak | Серия |
+| `gui.burmaldaholic.menu.wallet.row.bots` | Won from bots today | Выиграно у ботов сегодня |
+| `gui.burmaldaholic.menu.wallet.row.bots_value` | %1$s / %2$s | %1$s / %2$s |
+| `gui.burmaldaholic.menu.wallet.pocket` | In your pocket | В кармане |
+| `gui.burmaldaholic.menu.wallet.pocket_empty` | No chips on you | Фишек при себе нет |
+| `gui.burmaldaholic.menu.wallet.next_tier` | Next: %1$s | Далее: %1$s |
+| `gui.burmaldaholic.menu.wallet.progress` | %1$s / %2$s | %1$s / %2$s |
+| `gui.burmaldaholic.menu.wallet.perks` | Max bet %1$s · Cashback %2$s%% | Макс. ставка %1$s · Кэшбэк %2$s %% |
+| `gui.burmaldaholic.menu.cashier` | Cashier | Касса |
+| `gui.burmaldaholic.cashier.tray` | Chip tray | Лоток с фишками |
+
 ---
 
 ## streak
@@ -2104,6 +2126,28 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.loan.admin.info` | Loan (%1$s): %2$s · on-time loans: %3$s | Займ (%1$s): %2$s · погашено вовремя: %3$s |
 | `gui.burmaldaholic.loan.admin.wave_sent` | Debt collectors sent to %1$s | Коллекторы отправлены: %1$s |
 | `gui.burmaldaholic.loan.admin.wave_failed` | No wave: the player is not overdue, already has a squad, collectors are off, or there is no safe spot nearby | Волны не будет: у игрока нет просрочки, бригада уже в пути, коллекторы выключены или рядом нет безопасного места |
+
+### Loan Shark dark look (lane J-L2; `docs/design/visual/extras.md` §8.4, §9, §14)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.loan.borrow` | Borrow | Взять в долг |
+| `gui.burmaldaholic.loan.offer_line` | %1$s → %2$s | %1$s → %2$s |
+| `gui.burmaldaholic.loan.locked_vip` | Needs VIP %1$s | Нужен VIP: %1$s |
+| `gui.burmaldaholic.loan.overdue_by` | Overdue by %1$s | Просрочено на %1$s |
+| `gui.burmaldaholic.loan.due_in` | Due in %1$s | Вернуть через %1$s |
+| `gui.burmaldaholic.loan.collectors_coming` | Collectors are on their way | Коллекторы уже в пути |
+| `gui.burmaldaholic.loan.no_new_overdue` | No new loans while you are overdue | Пока есть просрочка, новых займов нет |
+| `gui.burmaldaholic.loan.stamp.overdue` | OVERDUE | ПРОСРОЧЕНО |
+| `gui.burmaldaholic.loan.contract.terms` | %1$s: %2$s → %3$s | %1$s: %2$s → %3$s |
+| `gui.burmaldaholic.loan.you_owe` | You owe %1$s | Ваш долг: %1$s |
+| `gui.burmaldaholic.loan.pay_more` | Pay… | Заплатить… |
+| `gui.burmaldaholic.loan.shark.none` | Need a little something? | Нужна мелочь на жизнь? |
+| `gui.burmaldaholic.loan.shark.active` | Tick tock, friend. | Тик-так, дружище. |
+| `gui.burmaldaholic.loan.shark.default` | Late fees are adding up… | Пени капают… |
+| `gui.burmaldaholic.loan.shark.cooldown` | Come back later. | Зайди попозже. |
+| `toast.burmaldaholic.loan.overdue` | Payment overdue | Платёж просрочен |
+| `toast.burmaldaholic.loan.owed` | You owe %1$s | Ваш долг: %1$s |
 
 ### Loan messages
 

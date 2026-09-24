@@ -9,7 +9,12 @@ import java.util.List;
 import java.util.Map;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
+import dev.nezo.burmaldaholic.client.ui.CasinoButton;
+import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
+import dev.nezo.burmaldaholic.client.ui.CasinoUi;
+import dev.nezo.burmaldaholic.client.ui.ScreenEntrance;
+import dev.nezo.burmaldaholic.core.ui.UiLayout;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.CompoundTag;
@@ -27,13 +32,11 @@ public class CharterScreen extends Screen {
 	private static final int W = 320;
 	private static final int H = 220;
 	private static final int PAD = 8;
-	private static final int PANEL = 0xF0202830;
-	private static final int BORDER = 0xFFC9A227;
-	private static final int TEXT = 0xFFFFFFFF;
-	private static final int DIM = 0xFFBBBBBB;
-	private static final int GOLD = 0xFFFFD700;
-	private static final int GOOD = 0xFF55FF55;
-	private static final int BAD = 0xFFFF5555;
+	private static final int TEXT = CasinoPalette.BONE;
+	private static final int DIM = CasinoPalette.BONE_SHADE;
+	private static final int GOLD = CasinoPalette.GOLD;
+	private static final int GOOD = CasinoPalette.BONUS;
+	private static final int BAD = CasinoPalette.CHIP_RED_LIGHT;
 	private static final int TABLES_PER_PAGE = 2;
 
 	private enum Tab {
@@ -61,6 +64,7 @@ public class CharterScreen extends Screen {
 
 	private CompoundTag state;
 	private Tab tab = Tab.OVERVIEW;
+	private ScreenEntrance entrance;
 	private int page;
 	private int left;
 	private int top;
@@ -151,7 +155,7 @@ public class CharterScreen extends Screen {
 			if (t == Tab.BANKROLL && !isOwner()) {
 				continue;
 			}
-			Button b = flow(Component.translatable(t.key), 40, x -> {
+			CasinoButton b = flow(Component.translatable(t.key), 40, x -> {
 				tab = t;
 				page = 0;
 				send("refresh", new CompoundTag());
@@ -170,7 +174,8 @@ public class CharterScreen extends Screen {
 		}
 		Component close = Component.translatable("gui.burmaldaholic.common.close");
 		int cw = Math.max(50, font.width(close) + 8);
-		addRenderableWidget(Button.builder(close, b -> onClose()).bounds(left + W - PAD - cw, top + H - PAD - 20, cw, 20).build());
+		addRenderableWidget(new CasinoButton(left + W - PAD - cw, top + H - PAD - 20, cw, 20, close, CasinoButton.Style.SECONDARY, b -> onClose()));
+		if (entrance == null) entrance = ScreenEntrance.install(this, () -> new UiLayout.Rect(left, top, W, H));
 	}
 
 	private void captureText() {
@@ -186,12 +191,12 @@ public class CharterScreen extends Screen {
 		});
 	}
 
-	private Button flow(Component label, int minWidth, Button.OnPress onPress) {
+	private CasinoButton flow(Component label, int minWidth, java.util.function.Consumer<CasinoButton> onPress) {
 		int w = Math.max(minWidth, font.width(label) + 8);
 		if (flowX + w > W - PAD && flowX > PAD) {
 			newRow();
 		}
-		Button b = addRenderableWidget(Button.builder(label, onPress).bounds(left + flowX, top + flowY, w, 20).build());
+		CasinoButton b = addRenderableWidget(new CasinoButton(left + flowX, top + flowY, w, 20, label, CasinoButton.Style.SECONDARY, onPress));
 		flowX += w + 4;
 		return b;
 	}
@@ -223,8 +228,8 @@ public class CharterScreen extends Screen {
 		// text is drawn in extractRenderState; the link button sits above the close button
 		Component link = Component.translatable("gui.burmaldaholic.charter.link_tables");
 		int w = Math.min(W - 2 * PAD - 60, font.width(link) + 8);
-		addRenderableWidget(Button.builder(link, b -> send("link", new CompoundTag()))
-			.bounds(left + PAD, top + H - PAD - 20, Math.max(80, w), 20).build());
+		addRenderableWidget(new CasinoButton(left + PAD, top + H - PAD - 20, Math.max(80, w), 20, link, CasinoButton.Style.PRIMARY,
+			b -> send("link", new CompoundTag())));
 	}
 
 	private ListTag tables() {
@@ -366,14 +371,18 @@ public class CharterScreen extends Screen {
 	@Override
 	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractBackground(g, mouseX, mouseY, a);
-		g.fill(left - 1, top - 1, left + W + 1, top + H + 1, BORDER);
-		g.fill(left, top, left + W, top + H, PANEL);
+		// J-L2 kit: the casino's themed backdrop in a gold frame, a dark well for the ledger text
+		UiLayout.Rect r = new UiLayout.Rect(left, top, W, H);
+		CasinoTheme theme = CasinoTheme.current();
+		CasinoUi.backdrop(g, theme, r);
+		CasinoUi.inset(g, left + 6, top + 16, W - 12, H - 22);
+		CasinoUi.frame(g, theme, new UiLayout.Rect(left - 6, top - 6, W + 12, H + 12));
+		CasinoUi.banner(g, font, theme, title, left + W / 2, top - 9, W - 40);
 	}
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
-		g.text(font, title, left + PAD, top + 6, GOLD, true);
 		int x = left + PAD;
 		int y = top + contentY + 2;
 		int wrap = W - 2 * PAD;

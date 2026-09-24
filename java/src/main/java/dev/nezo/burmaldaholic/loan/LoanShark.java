@@ -105,6 +105,11 @@ public final class LoanShark {
 			case NONE -> now < rec.cooldownUntil ? "cooldown" : "none";
 		};
 		t.putString("status", status);
+		// presentation (J-L2 dossier look, extras.md §8.4): debt meter, contract parchment, "overdue by"
+		t.putLong("principal", rec.principal);
+		t.putLong("due_total", rec.due);
+		t.putLong("ticks_left", rec.deadlineTick - now);
+		if (rec.product >= 0 && rec.product < LoanService.products().size()) t.putString("product", LoanService.products().get(rec.product).id());
 		putComponent(server, t, "status_line", statusLine(rec, now));
 		boolean canTake = rec.status == Status.NONE && now >= rec.cooldownUntil;
 		t.putBoolean("can_take", canTake);
