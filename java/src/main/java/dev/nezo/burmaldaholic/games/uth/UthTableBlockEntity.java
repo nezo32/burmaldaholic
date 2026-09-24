@@ -6,6 +6,21 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.CoreSounds;
+import dev.nezo.burmaldaholic.core.bots.BotJobs;
+import dev.nezo.burmaldaholic.core.bots.BotTable;
+import dev.nezo.burmaldaholic.core.bots.Bots;
+import dev.nezo.burmaldaholic.core.bots.TableBots;
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotProfile;
+import dev.nezo.burmaldaholic.core.bots.logic.BotRole;
+import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
+import dev.nezo.burmaldaholic.core.bots.logic.BotWork;
+import dev.nezo.burmaldaholic.core.bots.logic.OwnerControls;
+import dev.nezo.burmaldaholic.core.bots.logic.Purse;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatingMath;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.AccountId;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -31,6 +46,8 @@ import dev.nezo.burmaldaholic.games.uth.logic.Decision;
 import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
 import dev.nezo.burmaldaholic.games.uth.logic.Paytables;
 import dev.nezo.burmaldaholic.games.uth.logic.SeatDecider;
+import dev.nezo.burmaldaholic.games.uth.logic.UthBotPolicy;
+import dev.nezo.burmaldaholic.games.uth.logic.UthBotRules;
 import dev.nezo.burmaldaholic.games.uth.logic.Settlement;
 import dev.nezo.burmaldaholic.games.uth.logic.UthCards;
 import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
@@ -44,6 +61,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
@@ -81,8 +99,16 @@ import org.jspecify.annotations.Nullable;
  * directly from the offline balance and added to the round's report. Player-banked rounds (§21.9) do not
  * use core stakes: the bank and the seats' bets are escrowed in the world bank by this table, saved with the
  * block entity (an orphaned escrow found on load after a crash is returned), and settled here.
+ *
+ * <p><b>Bots</b> (BOTS.md §4.5, §4.6; pvp-bots.md §4.6): atmosphere bots sit in free player seats (core
+ * {@link TableBots}; safe point = the start of BETTING and any time during it), put down virtual bets 60–160 t
+ * into BETTING (never delaying the round), are dealt AFTER the board (the humans' cards, the dealer's hand and
+ * the board never depend on them), decide through {@link UthBotPolicy} after a think delay (NORMAL / HARD
+ * rivers: the 990-hand enumeration as a {@link BotJobs} job, deadline → fallback rule) and are never settled:
+ * no money, no reports, no advancements. Under a human banker they only watch; with nobody banking a house
+ * round may show a bot stand-in on the dealer plate (flavour only).
  */
-public class UthTableBlockEntity extends CasinoTableBlockEntity {
+public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTable {
 	public static final String BETTING = "betting", PREFLOP = "preflop", FLOP = "flop", RIVER = "river", SHOWDOWN = "showdown",
 		RESULT = "result";
 	static final int REVEAL_TICKS = 20;
@@ -147,6 +173,31 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 	private int @Nullable [] stackedDeck;
 	private final List<Escrow> orphaned = new ArrayList<>();
 
+	// ---- bots (BOTS.md §4.5, §4.6) ----
+	private static final String BOTS_KEY = "burmaldaholic_bots";
+	/** Chips a bot seat "has" for its virtual Play bets (never debited). */
+	private static final long BOT_BALANCE = Long.MAX_VALUE / 4;
+	private @Nullable TableBots tableBots;
+	private @Nullable CompoundTag savedBots;
+	private final UthBotRules.BotSlots slots = new UthBotRules.BotSlots();
+	/** Seated bots by key ({@code bot:<id>}). */
+	private final Map<String, BotProfile> botSeats = new LinkedHashMap<>();
+	/** Virtual bets placed this BETTING (bot key → bets). */
+	private final Map<String, UthBotRules.VirtualBet> botBets = new LinkedHashMap<>();
+	private final Set<String> botBetScheduled = new HashSet<>();
+	/** Bot participants of the dealt round (seat id → profile). */
+	private final Map<UUID, BotProfile> roundBots = new HashMap<>();
+	/** Bot actions due at a game time; {@link #botEpoch} invalidates them. */
+	private record BotTask(long due, int epoch, Runnable run) {}
+	private final List<BotTask> botTasks = new ArrayList<>();
+	private int botEpoch;
+	/** Humans in sit-down order (host = longest seated). */
+	private final List<UUID> sitOrder = new ArrayList<>();
+	private @Nullable BotProfile standIn;
+	private int houseRounds;
+	private int standInOfferFrom = -1;
+	private boolean inBotSafePoint;
+
 	public UthTableBlockEntity(TableType<UthTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
 		String name = type.name();
@@ -190,6 +241,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 	public int fastForwardForTests(int steps) {
 		int fired = 0;
 		for (; fired < steps; fired++) {
+			runBotTasksForTests();
 			String next = null;
 			long best = Long.MAX_VALUE;
 			for (String id : new String[] {"bet", "decide", "step"}) {
@@ -333,11 +385,17 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		if (bankerSeat(player.getUUID())) {
 			return false; // the banker gave up their player seat (§21.9)
 		}
-		if (!vipAllowed(player, true) || !super.sit(player)) {
+		if (!vipAllowed(player, true) || !admitBots(player) || !super.sit(player)) {
 			return false;
 		}
 		names.put(player.getUUID(), player.getName().getString());
+		sitOrder.remove(player.getUUID());
+		sitOrder.add(player.getUUID());
 		tellTable(Component.translatable("msg.burmaldaholic.uth.player_joined", player.getDisplayName()), player.getUUID());
+		// atmosphere safe point: any time during BETTING (a bot yields its seat at once)
+		if (BETTING.equals(phase()) && !inBotSafePoint) {
+			botSafePoint();
+		}
 		return true;
 	}
 
@@ -351,8 +409,12 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 
 	@Override
 	protected void onPlayerLeft(UUID player, LeaveReason reason) {
+		sitOrder.remove(player);
 		if (!quietLeave) {
 			tellTable(Component.translatable("msg.burmaldaholic.uth.player_left", Texts.raw(nameOf(player))), player);
+		}
+		if (BETTING.equals(phase()) && round == null && !removing()) {
+			botSafePoint(); // the last human gone ends the bot session; otherwise pending changes / claimants apply
 		}
 		UthRound r = round;
 		UthRound.Seat seat = r == null || r.settled() ? null : r.seat(player);
@@ -432,6 +494,11 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 			case "clear" -> clear(player);
 			case "take_bank" -> takeBank(player, args.getLongOr("amount", 0));
 			case "leave_bank" -> leaveBank(player);
+			case "bot_settings" -> {
+				if (Bots.enabled()) {
+					UthBotUi.get().openSettings(player, this);
+				}
+			}
 			default -> {
 				Decision d = Decision.byId(action);
 				if (d != null) {
@@ -567,6 +634,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 			setPhase(BETTING);
 			return;
 		}
+		addBotEntries(entries);
 		int[] deck = stackedDeck != null ? stackedDeck : UthCards.shuffledDeck(bound -> OddsService.get().fair().nextInt(bound));
 		stackedDeck = null;
 		round = UthRound.deal(entries, deck);
@@ -574,7 +642,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		royalThisRound = false;
 		bankResultShown = false;
 		for (UthRound.Seat s : round.seats()) {
-			if (online(s.player) == null || !seats().isSeated(s.player)) {
+			if (!s.bot && (online(s.player) == null || !seats().isSeated(s.player))) {
 				away.add(s.player);
 			}
 		}
@@ -596,12 +664,20 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		for (UthRound.Seat s : r.pendingSeats()) {
-			if (online(s.player) == null && !s.bot) {
+			if (s.bot) {
+				continue; // table bots think below, inside the street's decision window
+			}
+			if (online(s.player) == null) {
 				away.add(s.player);
 			}
 			Decision d = deciderFor(s).decide(r, s, deciderContext(s));
 			if (d != null) {
 				applyDecision(s, d, false);
+			}
+		}
+		for (UthRound.Seat s : r.pendingSeats()) {
+			if (s.bot) {
+				scheduleBotDecision(r, s);
 			}
 		}
 		if (r.anyPending()) {
@@ -620,7 +696,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	private SeatDecider.Context deciderContext(UthRound.Seat seat) {
-		return new SeatDecider.Context(cfg().allow3x, cfg().autoPlayMadeHands, balanceOf(seat.player));
+		return new SeatDecider.Context(cfg().allow3x, cfg().autoPlayMadeHands, seat.bot ? BOT_BALANCE : balanceOf(seat.player));
 	}
 
 	private void decide(ServerPlayer player, Decision d) {
@@ -707,8 +783,9 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		if (!r.legal(seat, true).contains(d)) {
 			d = r.street() == UthRound.Street.RIVER ? Decision.FOLD : Decision.CHECK;
 		}
-		ServerPlayer p = away.contains(seat.player) ? null : online(seat.player);
-		if (d.isBet() && !collectPlay(seat, (long) d.multiple() * seat.ante, p)) {
+		ServerPlayer p = away.contains(seat.player) || seat.bot ? null : online(seat.player);
+		// bots: virtual chips (BOTS.md §5.2) — nothing is collected
+		if (d.isBet() && !seat.bot && !collectPlay(seat, (long) d.multiple() * seat.ante, p)) {
 			d = r.street() == UthRound.Street.RIVER ? Decision.FOLD : Decision.CHECK;
 		}
 		r.decide(seat, d, true);
@@ -780,10 +857,17 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 	}
 
 	private void toBetting() {
+		boolean houseRound = !pvpRound;
 		round = null;
 		away.clear();
+		roundBots.clear();
 		pvpRound = false;
 		setPhase(BETTING);
+		if (houseRound) {
+			standInRotation();
+		}
+		// bots' safe point: the start of BETTING (join / leave / pending settings, then their bet timers)
+		botSafePoint();
 		setChanged();
 	}
 
@@ -798,10 +882,17 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		long bankerNet = 0;
 		long wagered = 0;
 		int players = 0;
+		List<UthBotRules.SeatResultFacts> quipFacts = new ArrayList<>();
 		for (UthRound.Seat s : r.seats()) {
 			Settlement.Result res = s.result;
 			if (res == null) {
 				continue;
+			}
+			BotProfile botProfile = roundBots.get(s.player);
+			quipFacts.add(new UthBotRules.SeatResultFacts(s.bot && botProfile != null ? botProfile.key() : s.player.toString(), s.bot,
+				UthBotRules.Outcome.valueOf(res.outcome().name()), s.ante > 0 ? (double) res.net() / s.ante : 0, res.blindBonus()));
+			if (s.bot) {
+				continue; // atmosphere bots: shown only - never settled, never in a report or the bank's result (BOTS.md §5.2)
 			}
 			players++;
 			long ret = res.totalReturn();
@@ -839,6 +930,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		if (pvpRound && banker != null) {
 			settleBanker(server, bankerNet, wagered, players);
 		}
+		roundQuip(quipFacts);
 		setChanged();
 	}
 
@@ -1019,6 +1111,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		offeredTo = null;
 		names.put(id, player.getName().getString());
 		banker = new Banker(id, player.getName().getString(), seat, amount);
+		// under a human banker bots only watch (BOTS.md §4.6): their virtual bets vanish, the stand-in leaves
+		clearBotBets();
+		standIn = null;
+		houseRounds = 0;
 		lastBankResult = 0;
 		lastRake = 0;
 		bankResultShown = false;
@@ -1056,6 +1152,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		if (announce) {
 			tellTable(Component.translatable("msg.burmaldaholic.uth.pvp.left_seat", Texts.raw(b.name)), null);
+		}
+		// a house round again: seated bots are dealt in (virtual bets from now on)
+		if (BETTING.equals(phase()) && round == null) {
+			scheduleBotBets();
 		}
 		setChanged();
 	}
@@ -1108,6 +1208,9 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		MinecraftServer server = level.getServer();
 		if (!orphaned.isEmpty()) {
 			returnOrphans(server);
+		}
+		if (!botTasks.isEmpty()) {
+			runBotTasks(level.getGameTime());
 		}
 		if (server.getTickCount() % 20 != 0) {
 			return;
@@ -1179,8 +1282,11 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		offeredTo = null;
 		round = null;
 		away.clear();
+		roundBots.clear();
 		pvpRound = false;
 		setPhase(BETTING);
+		// the round is paid: every bot leaves (table broken / unloaded, server stopping, casino off)
+		endBots(level);
 		setChanged();
 	}
 
@@ -1202,6 +1308,14 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		if (!list.isEmpty()) {
 			output.store(ESCROW_KEY, Escrow.CODEC.listOf(), list);
 		}
+		CompoundTag bots = savedBots;
+		if (tableBots != null) {
+			bots = new CompoundTag();
+			tableBots.save(bots);
+		}
+		if (bots != null) {
+			output.store(BOTS_KEY, CompoundTag.CODEC, bots);
+		}
 	}
 
 	@Override
@@ -1209,6 +1323,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		super.loadAdditional(input);
 		orphaned.clear();
 		input.read(ESCROW_KEY, Escrow.CODEC.listOf()).ifPresent(orphaned::addAll);
+		savedBots = input.read(BOTS_KEY, CompoundTag.CODEC).orElse(null);
+		if (tableBots != null && savedBots != null) {
+			tableBots.load(savedBots);
+		}
 	}
 
 	/** After a crash: every escrow saved with the table goes back to its owner (§21.9: an orphaned bank is always returned). */
@@ -1225,6 +1343,546 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		orphaned.clear();
 		setChanged();
+	}
+
+	// ---- bots: seats, safe points, virtual bets, decisions (BOTS.md §3, §4.5, §4.6) --------------------------
+
+	@Override
+	public String botGameId() {
+		return UthModule.ID;
+	}
+
+	@Override
+	public BotRole botRole() {
+		return BotRole.ATMOSPHERE;
+	}
+
+	@Override
+	public int botSeatCount() {
+		return seats().size();
+	}
+
+	/** Humans in player seats (the banker is not one), in sit-down order. */
+	@Override
+	public List<UUID> seatedHumans() {
+		List<UUID> seated = new ArrayList<>();
+		for (TableSeats.Seat s : seats().occupied()) {
+			seated.add(s.player());
+		}
+		List<UUID> out = new ArrayList<>();
+		for (UUID id : sitOrder) {
+			if (seated.contains(id)) {
+				out.add(id);
+			}
+		}
+		for (UUID id : seated) {
+			if (!out.contains(id)) {
+				out.add(id);
+			}
+		}
+		return out;
+	}
+
+	private Set<Integer> humanSlots() {
+		Set<Integer> out = new HashSet<>();
+		for (TableSeats.Seat s : seats().occupied()) {
+			out.add(s.index());
+		}
+		return out;
+	}
+
+	@Override
+	public List<SeatOccupant> occupants() {
+		int n = seats().size();
+		Map<Integer, SeatOccupant> humans = new HashMap<>();
+		for (TableSeats.Seat s : seats().occupied()) {
+			humans.put(s.index(), new SeatOccupant.Human(s.player(), s.name()));
+		}
+		slots.settle(n, humans.keySet());
+		Map<String, SeatOccupant> bots = new HashMap<>();
+		botSeats.forEach((k, p) -> bots.put(k, new SeatOccupant.Bot(p, BotRole.ATMOSPHERE, Purse.NONE)));
+		return slots.occupants(n, humans, bots);
+	}
+
+	@Override
+	public boolean seatBot(SeatOccupant.Bot bot, long stack) {
+		String key = bot.key();
+		if (slots.place(key, seats().size(), humanSlots()) == null) {
+			return false;
+		}
+		botSeats.put(key, bot.profile());
+		return true;
+	}
+
+	@Override
+	public long unseatBot(String botKey) {
+		slots.remove(botKey);
+		botSeats.remove(botKey);
+		botBets.remove(botKey);
+		botBetScheduled.remove(botKey);
+		return 0; // atmosphere: nothing to return
+	}
+
+	@Override
+	public SeatingMath.YieldRule yieldRule() {
+		return SeatingMath.YieldRule.HIGHEST_SEAT;
+	}
+
+	/** The table's bot state (created on first use; the bots UI finds the table through it). Chatter: {@link TableBots#say}. */
+	@Override
+	public TableBots tableBots() {
+		TableBots tb = tableBots;
+		if (tb == null) {
+			tb = new TableBots(this, botDefaults(), OwnerControls.unowned(Math.max(1, seats().size())));
+			if (savedBots != null) {
+				tb.load(savedBots);
+			}
+			tableBots = tb;
+		}
+		return tb;
+	}
+
+	/**
+	 * Craftable / worldgen defaults; player-banked tables: stand-in dealer plate, atmosphere seats opt-in (BOTS.md §2.3).
+	 * Generated tables use the worldgen preset (J-G6) as it is.
+	 */
+	private BotSettings botDefaults() {
+		var preset = dev.nezo.burmaldaholic.core.bots.BotPresets.of(this, UthModule.ID);
+		if (preset.isPresent()) {
+			return preset.get().defaults();
+		}
+		boolean worldgen = preset().isPresent();
+		BotSettings d = TableBots.defaultsFor(UthModule.ID, worldgen);
+		return variant == Variant.PLAYER_BANKED && !worldgen ? d.withPolicy(SeatPolicy.MIXED).withCount(0) : d;
+	}
+
+	/** The worldgen preset's level mix when present (J-G6). */
+	@Override
+	public int[] botDifficultyMix() {
+		int[] mix = dev.nezo.burmaldaholic.core.bots.BotPresets.mix(this, UthModule.ID);
+		return mix != null ? mix : BotTable.super.botDifficultyMix();
+	}
+
+	/** The worldgen preset's name theme when present (J-G6; End lounge: ender). */
+	@Override
+	public BotRoster.Theme botNameTheme() {
+		return dev.nezo.burmaldaholic.core.bots.BotPresets.theme(this, UthModule.ID, BotTable.super.botNameTheme());
+	}
+
+	/**
+	 * Seats &amp; bots access (private tables, someone else's "Just me and bots", BOTS.md §2.1, §2.5) and the
+	 * claim on a bot's seat: a claimant was told "seat after this round" by core and is refused quietly here;
+	 * the next safe point seats them.
+	 */
+	private boolean admitBots(ServerPlayer player) {
+		if (!Bots.enabled()) {
+			return true;
+		}
+		try {
+			Result<Boolean> r = tableBots().admit(player);
+			if (!r.isOk()) {
+				sendError(player, r.error());
+				return false;
+			}
+			return Boolean.TRUE.equals(r.value());
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("uth table {}: bot admission failed", worldPosition, e);
+			return true;
+		}
+	}
+
+	/**
+	 * Safe point (start of BETTING, and any time during BETTING: virtual bets simply vanish). Bots join / leave,
+	 * pending settings apply, claimants get their seat; bots that joined get their bet timers.
+	 */
+	private void botSafePoint() {
+		if (!(level instanceof ServerLevel sl) || !BETTING.equals(phase()) || round != null || inBotSafePoint) {
+			return;
+		}
+		if (tableBots == null && seats().isEmpty()) {
+			return;
+		}
+		inBotSafePoint = true;
+		try {
+			TableBots tb = tableBots();
+			TableBots.SafePointResult r = tb.safePoint(sl);
+			// keep the local seats in step with core
+			Set<String> live = new HashSet<>();
+			for (TableBots.SeatedBot b : tb.bots()) {
+				live.add(b.key());
+			}
+			for (String k : List.copyOf(botSeats.keySet())) {
+				if (!live.contains(k)) {
+					unseatBot(k);
+				}
+			}
+			tb.announce(sl, r);
+			for (TableBots.SeatedBot b : r.joined()) {
+				tb.say(sl, b.profile, "join", null);
+			}
+			for (UUID c : r.seatedClaimants()) {
+				ServerPlayer p = online(c);
+				if (p != null && p.level() == level) {
+					sit(p); // the seat a bot gave up
+				}
+			}
+			scheduleBotBets();
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("uth table {}: bot safe point failed", worldPosition, e);
+		} finally {
+			inBotSafePoint = false;
+		}
+		syncViewers();
+	}
+
+	/** The table stops (broken, unloaded, server stopping, casino off): every bot leaves, stored settings stay. */
+	private void endBots(ServerLevel level) {
+		clearBotBets();
+		standIn = null;
+		houseRounds = 0;
+		roundBots.clear();
+		TableBots tb = tableBots;
+		if (tb != null && tb.inSession()) {
+			try {
+				tb.endSession(level);
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("uth table {}: ending the bot session failed", worldPosition, e);
+			}
+		}
+		botSeats.clear();
+		slots.clear();
+	}
+
+	/** Drops every virtual bet and pending bot action of this BETTING / street. */
+	private void clearBotBets() {
+		botBets.clear();
+		botBetScheduled.clear();
+		botTasks.clear();
+		botEpoch++;
+	}
+
+	private void botTask(int ticks, Runnable run) {
+		long now = level == null ? 0 : level.getGameTime();
+		botTasks.add(new BotTask(now + Math.max(0, ticks), botEpoch, run));
+	}
+
+	private void runBotTasks(long now) {
+		for (BotTask t : List.copyOf(botTasks)) {
+			if (t.due() > now) {
+				continue;
+			}
+			botTasks.remove(t);
+			if (t.epoch() != botEpoch) {
+				continue;
+			}
+			try {
+				t.run().run();
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("uth table {}: bot action failed", worldPosition, e);
+			}
+		}
+	}
+
+	/** GameTests: every pending bot action happens now (queued river jobs fall back to their deadline rule). */
+	private void runBotTasksForTests() {
+		for (int guard = 0; guard < 64 && !botTasks.isEmpty(); guard++) {
+			runBotTasks(Long.MAX_VALUE);
+		}
+	}
+
+	/** Bots are dealt in (not under a human banker: they watch, BOTS.md §4.6). */
+	private boolean botsPlay() {
+		boolean humanBanker = round != null || !confirmed.isEmpty() ? pvpRound : playerBanked() && banker != null && !banker.leaving;
+		return UthBotRules.botsDealtIn(humanBanker);
+	}
+
+	/** Largest virtual Ante: what the first seated human may bet (W / 6), else 11 × the minimum. */
+	private long maxVirtualAnte(long min) {
+		for (TableSeats.Seat s : seats().occupied()) {
+			ServerPlayer p = online(s.player());
+			if (p != null) {
+				long w = limitsFor(p)[1];
+				if (w > 0) {
+					return Math.max(min, w / 6);
+				}
+			}
+		}
+		return min * 11;
+	}
+
+	/** Puts down a bot's virtual bets now (if it has none yet). */
+	private void placeBotBet(String key) {
+		BotProfile bot = botSeats.get(key);
+		if (bot == null || botBets.containsKey(key) || !BETTING.equals(phase()) || round != null || !botsPlay() || slots.slotOf(key) == null) {
+			return;
+		}
+		long min = Math.max(1, minBet());
+		botBets.put(key, UthBotRules.virtualBet(bot, tableBots().rng(), min, maxVirtualAnte(min), cfg().tripsEnabled));
+		setChanged();
+	}
+
+	/** Each seated bot bets at a random moment 60–160 t into BETTING; it never delays the round. */
+	private void scheduleBotBets() {
+		TableBots tb = tableBots;
+		if (tb == null || !BETTING.equals(phase()) || round != null || !botsPlay()) {
+			return;
+		}
+		for (String key : botSeats.keySet()) {
+			if (botBets.containsKey(key) || !botBetScheduled.add(key)) {
+				continue;
+			}
+			int delay = UthBotRules.virtualBetDelay(tb.rng(), tb.settings().effectiveSpeed(), CasinoConfig.bots().think.fastFactor);
+			botTask(delay, () -> {
+				placeBotBet(key);
+				syncViewers();
+			});
+		}
+	}
+
+	/** Seat id of a bot in a round (stable per bot, never a player's UUID). */
+	static UUID botSeatId(String key) {
+		return UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+	}
+
+	/** Atmosphere bots are always ready: one that has not bet yet bets now; then they join the deal (dealt after the board). */
+	private void addBotEntries(List<UthRound.Entry> entries) {
+		roundBots.clear();
+		if (pvpRound || !botsPlay()) {
+			clearBotBets();
+			return;
+		}
+		for (String key : botSeats.keySet()) {
+			placeBotBet(key);
+		}
+		Set<Integer> taken = new HashSet<>();
+		for (UthRound.Entry e : entries) {
+			taken.add(e.seat());
+		}
+		for (Map.Entry<String, UthBotRules.VirtualBet> e : botBets.entrySet()) {
+			BotProfile bot = botSeats.get(e.getKey());
+			Integer slot = slots.slotOf(e.getKey());
+			if (bot == null || slot == null || !taken.add(slot) || entries.size() >= 7) {
+				continue;
+			}
+			UUID id = botSeatId(e.getKey());
+			roundBots.put(id, bot);
+			entries.add(new UthRound.Entry(slot, id, "", e.getValue().ante(), e.getValue().trips(), true));
+		}
+		clearBotBets();
+	}
+
+	/**
+	 * A bot decides after its think delay (≤ half the decision timer; ≤ 10 t when no human is still deciding).
+	 * NORMAL / HARD rivers run the enumeration as a heavy job within that window; at the deadline the partial
+	 * result (or the fallback rule) is used. Stale decisions are dropped.
+	 */
+	private void scheduleBotDecision(UthRound r, UthRound.Seat seat) {
+		BotProfile bot = roundBots.get(seat.player);
+		if (bot == null) {
+			applyDefault(seat, false);
+			return;
+		}
+		TableBots tb = tableBots();
+		UthRound.Street street = r.street();
+		int epoch = botEpoch;
+		BooleanSupplier wanted = () -> round == r && r.street() == street && r.pending(seat) && epoch == botEpoch && isDecisionPhase();
+		boolean humansDeciding = false;
+		for (UthRound.Seat s : r.pendingSeats()) {
+			if (!s.bot && !away.contains(s.player)) {
+				humansDeciding = true;
+			}
+		}
+		int think = tb.thinkTicks(bot, false, cfg().decisionTimerTicks);
+		if (!humansDeciding) {
+			think = Math.min(think, 10);
+		}
+		UthBotPolicy.View view = UthBotPolicy.View.of(r, seat, BOT_BALANCE, cfg().allow3x, pays());
+		boolean[] acted = new boolean[1];
+		java.util.function.Consumer<Object> act = work -> {
+			if (acted[0] || !wanted.getAsBoolean()) {
+				return;
+			}
+			acted[0] = true;
+			Decision d;
+			try {
+				d = UthBotPolicy.INSTANCE.act(bot, view, work, tb.rng());
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("uth table {}: bot decision failed", worldPosition, e);
+				d = UthBotPolicy.safeDefault(view);
+			}
+			applyDecision(seat, d, false);
+			afterDecision();
+			syncViewers();
+		};
+		BotWork job = null;
+		try {
+			job = UthBotPolicy.INSTANCE.work(bot, view, tb.rng());
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.error("uth table {}: bot work failed", worldPosition, e);
+		}
+		if (job == null) {
+			botTask(think, () -> act.accept(null));
+			return;
+		}
+		Object[] result = new Object[1];
+		boolean[] finished = new boolean[1];
+		boolean[] thought = new boolean[1];
+		BotJobs.submit(job, Math.max(1, think), wanted, res -> {
+			result[0] = res;
+			finished[0] = true;
+			if (thought[0]) {
+				act.accept(res);
+			}
+		});
+		botTask(think, () -> {
+			thought[0] = true;
+			if (finished[0]) {
+				act.accept(result[0]);
+			}
+		});
+		// never wait for a queued job past the window: the fallback rule decides
+		botTask(think + 20, () -> act.accept(finished[0] ? result[0] : null));
+	}
+
+	/** At most one quip after the reveal (never about hidden cards). */
+	private void roundQuip(List<UthBotRules.SeatResultFacts> facts) {
+		TableBots tb = tableBots;
+		if (tb == null || botSeats.isEmpty() || !(level instanceof ServerLevel sl)) {
+			return;
+		}
+		UthBotRules.Quip q = UthBotRules.roundQuip(facts);
+		if (q == null) {
+			return;
+		}
+		try {
+			if (q.event().equals("win_big")) {
+				BotProfile bot = botSeats.get(q.key());
+				if (bot != null) {
+					tb.say(sl, bot, "win_big", null);
+				}
+				return;
+			}
+			List<BotProfile> speakers = List.copyOf(botSeats.values());
+			BotProfile who = speakers.get(tb.rng().nextInt(speakers.size()));
+			String human = names.getOrDefault(UUID.fromString(q.key()), "");
+			tb.say(sl, who, "human_wins", human);
+		} catch (RuntimeException e) {
+			Burmaldaholic.LOGGER.warn("uth table {}: bot quip failed: {}", worldPosition, e.toString());
+		}
+	}
+
+	/** Dealer-plate stand-in of a player-banked house round (BOTS.md §4.6), else null. */
+	private @Nullable BotProfile standInBot() {
+		if (variant != Variant.PLAYER_BANKED || !cfg().pvp.enabled || !Bots.enabled()) {
+			return standIn = null;
+		}
+		SeatPolicy policy = tableBots != null ? tableBots.settings().policy() : botDefaults().policy();
+		boolean on = UthBotRules.standInShown(new UthBotRules.StandInFacts(true, true, banker != null, policy, cfg().pvp.houseRoundsWhenNoBanker));
+		if (!on) {
+			return standIn = null;
+		}
+		if (standIn == null) {
+			List<String> used = new ArrayList<>();
+			for (BotProfile b : botSeats.values()) {
+				used.add(b.nameId());
+			}
+			standIn = BotRoster.create(tableBots().rng(), BotDifficulty.NORMAL, new int[] {0, 1, 0},
+				dev.nezo.burmaldaholic.core.bots.BotPresets.theme(this, UthModule.ID, BotRoster.Theme.ENDER), used, false);
+		}
+		return standIn;
+	}
+
+	/** After a house round with a stand-in: offer the dealer seat at every rotation point (chat only). */
+	private void standInRotation() {
+		if (banker != null || !playerBanked() || standInBot() == null) {
+			return;
+		}
+		houseRounds++;
+		if (!UthBotRules.standInOfferDue(houseRounds, cfg().pvp.bankerRounds)) {
+			return;
+		}
+		MinecraftServer server = server();
+		int n = seats().size();
+		for (int k = 1; server != null && k <= n; k++) {
+			int idx = Math.floorMod(standInOfferFrom + k, n);
+			TableSeats.Seat s = seats().get(idx);
+			if (s == null) {
+				continue;
+			}
+			ServerPlayer p = online(s.player());
+			if (p == null || CoreServices.vip().tier(server, s.player()) < cfg().pvp.minBankerVip || CoreServices.debt().owed(server, s.player()) > 0) {
+				continue;
+			}
+			standInOfferFrom = idx;
+			p.sendSystemMessage(Component.translatable("msg.burmaldaholic.uth.pvp.seat_offered"));
+			return;
+		}
+	}
+
+	/** Bot seat plates for the screen: betting (virtual bets / Thinking… / Watching) or watching during a round. */
+	private ListTag botPlates() {
+		ListTag out = new ListTag();
+		boolean play = botsPlay();
+		UthRound r = round;
+		for (Map.Entry<String, BotProfile> e : botSeats.entrySet()) {
+			Integer slot = slots.slotOf(e.getKey());
+			if (slot == null || (r != null && r.seat(botSeatId(e.getKey())) != null)) {
+				continue; // dealt in: the round's players list shows it
+			}
+			CompoundTag t = new CompoundTag();
+			t.putInt("seat", slot);
+			t.putString("bot_name", e.getValue().nameId());
+			t.putString("bot_level", e.getValue().level().id());
+			UthBotRules.VirtualBet bet = botBets.get(e.getKey());
+			if (!play || r != null) {
+				t.putString("bot_state", "watching");
+			} else if (bet != null) {
+				t.putString("bot_state", "bet");
+				t.putLong("ante", bet.ante());
+				t.putLong("trips", bet.trips());
+			} else {
+				t.putString("bot_state", "thinking");
+			}
+			out.add(t);
+		}
+		return out;
+	}
+
+	/** Bot state for the screen (settings button, plates, pending settings, per-level cost lines). */
+	private void writeBotState(CompoundTag tag, ServerPlayer viewer) {
+		if (!Bots.enabled()) {
+			return;
+		}
+		tag.putBoolean("bots_ui", UthBotUi.get().available(viewer));
+		if (botSeats.isEmpty()) {
+			return;
+		}
+		tag.put("bots", botPlates());
+		tag.putBoolean("bots_virtual", botsPlay());
+		TableBots tb = tableBots;
+		if (tb != null && tb.pending() != null) {
+			tag.putBoolean("bots_pending", true);
+		}
+		ListTag levels = new ListTag();
+		Set<BotDifficulty> seen = new java.util.TreeSet<>();
+		for (BotProfile b : botSeats.values()) {
+			if (seen.add(b.level())) {
+				levels.add(StringTag.valueOf(b.level().id()));
+			}
+		}
+		tag.put("bot_levels", levels);
+	}
+
+	/** GameTests: seated bots (key → slot) and their virtual bets. */
+	public Map<String, Integer> botSlotsForTests() {
+		Map<String, Integer> out = new LinkedHashMap<>();
+		for (String k : botSeats.keySet()) {
+			Integer s = slots.slotOf(k);
+			if (s != null) {
+				out.put(k, s);
+			}
+		}
+		return out;
 	}
 
 	// ---- client state -------------------------------------------------------------------------------
@@ -1271,6 +1929,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		}
 		tag.put("pays", pt);
 		writeBankState(tag, viewer);
+		writeBotState(tag, viewer);
 		UthRound r = round;
 		if (r == null) {
 			return tag;
@@ -1290,6 +1949,12 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 			boolean you = s.player.equals(me);
 			p.putInt("seat", s.seat);
 			p.putString("name", s.name);
+			BotProfile bot = s.bot ? roundBots.get(s.player) : null;
+			if (bot != null) {
+				p.putBoolean("bot", true);
+				p.putString("bot_name", bot.nameId());
+				p.putString("bot_level", bot.level().id());
+			}
 			p.putBoolean("you", you);
 			p.putLong("ante", s.ante);
 			p.putLong("trips", s.trips);
@@ -1377,6 +2042,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity {
 		b.putBoolean("can_take", canTake && !bankerSeat(viewer.getUUID()));
 		b.putBoolean("offered", viewer.getUUID().equals(offeredTo));
 		b.putBoolean("house_rounds", c.pvp.houseRoundsWhenNoBanker);
+		BotProfile stand = bk == null ? standInBot() : null;
+		if (stand != null) {
+			b.putString("stand_in", stand.nameId());
+		}
 		if (bk != null) {
 			b.putString("name", bk.name);
 			b.putLong("bank", bk.bank);

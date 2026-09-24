@@ -16,6 +16,11 @@ public enum MatchState {
 	CANCELLED,
 	CLOSED;
 
+	/** The bank holds this match's entries (they must be paid back or settled): LOBBY and DRAWN. */
+	public boolean holdsEscrow() {
+		return this == LOBBY || this == DRAWN;
+	}
+
 	public boolean persisted() {
 		return this == LOBBY || this == DRAWN || this == SETTLED;
 	}

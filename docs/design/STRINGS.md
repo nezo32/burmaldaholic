@@ -379,6 +379,7 @@ casino mode in world saved data and has no game rule.
 | `msg.burmaldaholic.core.source.cashback` | VIP cashback | ВИП-кешбэк |
 | `msg.burmaldaholic.core.source.golden_hour` | Golden Hour bonus | Бонус «Золотого часа» |
 | `msg.burmaldaholic.core.balance_capped` | Your balance is at the maximum. The rest went to charity. | Баланс на максимуме. Остальное ушло на благотворительность. |
+| `msg.burmaldaholic.core.bankroll_late_return` | %1$s came back to your closed casino and was paid to you. | В кассу закрытого казино вернулось %1$s — они выплачены вам. |
 | `msg.burmaldaholic.core.deposited` | Deposited %1$s. Balance: %2$s | Внесено: %1$s. Баланс: %2$s |
 | `msg.burmaldaholic.core.withdrawn` | Withdrew %1$s. Balance: %2$s | Снято: %1$s. Баланс: %2$s |
 | `msg.burmaldaholic.core.no_chips_to_deposit` | You have no chips to deposit | Вам нечего внести — фишек нет |
@@ -1772,6 +1773,24 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.admin.state.settled` | settled | рассчитан |
 | `gui.burmaldaholic.pvp.admin.rake_warning` | Warning: the PvP house cut (%1$s) is below the cheapest house game — VIP can be farmed cheaply | Внимание: комиссия PvP (%1$s) ниже преимущества самой дешёвой игры заведения — ВИП можно накрутить задёшево |
 | `gui.burmaldaholic.pvp.charter.rake` | PvP house cut collected: %1$s | Комиссия с PvP-матчей: %1$s |
+| `gui.burmaldaholic.pvp.toggle` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.pvp.hub.current` | Your match: %1$s | Ваш матч: %1$s |
+| `gui.burmaldaholic.pvp.hub.show` | Show match | Показать матч |
+| `gui.burmaldaholic.pvp.hub.withdraw` | Withdraw challenge | Отозвать вызов |
+| `gui.burmaldaholic.pvp.new.pick_game` | Pick a game | Выберите игру |
+| `gui.burmaldaholic.pvp.new.no_games` | No duel games are available right now | Сейчас нет доступных дуэлей |
+| `gui.burmaldaholic.pvp.new.stake_hint` | Type the stake in the box next to your opponent (%1$s – %2$s) | Впишите ставку в поле рядом с соперником (%1$s – %2$s) |
+| `gui.burmaldaholic.pvp.admin.none` | No PvP matches right now | Сейчас PvP-матчей нет |
+| `gui.burmaldaholic.pvp.admin.state.invited` | challenge | вызов |
+| `gui.burmaldaholic.pvp.match.step` | Step %1$s | Этап %1$s |
+| `gui.burmaldaholic.pvp.match.live` | %1$s · pot %2$s | %1$s · банк %2$s |
+| `gui.burmaldaholic.pvp.result.standings` | Final standings | Итоговая таблица |
+| `msg.burmaldaholic.pvp.command.no_invite` | You have no challenge to answer | Отвечать не на что — вызовов нет |
+| `msg.burmaldaholic.pvp.command.no_match` | You're not in a PvP match | Вы не участвуете в PvP-матче |
+| `msg.burmaldaholic.pvp.command.unknown_game` | Unknown PvP game: %1$s | Неизвестная PvP-игра: %1$s |
+| `msg.burmaldaholic.pvp.command.unknown_match` | No PvP match with id %1$s | PvP-матча с номером %1$s нет |
+| `msg.burmaldaholic.pvp.command.unknown_taunt` | Unknown line. Pick one of: %1$s | Такой фразы нет. Выберите: %1$s |
+| `msg.burmaldaholic.pvp.command.cancelled` | Match %1$s: cancelled or settled | Матч %1$s отменён или рассчитан |
 | `tooltip.burmaldaholic.lucky_coin.pvp` | Use on a player: challenge them to a Coin Flip Duel | На игрока — вызов на дуэль на монетке |
 
 ### Rivalry, win streaks, grudge matches
@@ -2479,8 +2498,19 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.menu.settings.bot_chatter` | Bot chatter | Болтовня ботов |
 | `gui.burmaldaholic.bots.admin.title` | Bots | Боты |
 | `gui.burmaldaholic.bots.admin.line` | %1$s at %2$s · %3$s · %4$s | %1$s — %2$s · %3$s · %4$s |
-| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить всех ботов по домам |
+| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить ботов домой |
 | `gui.burmaldaholic.bots.admin.reset_heat` | Reset a player's bot limits… | Сбросить лимиты игрока… |
+| `gui.burmaldaholic.bots.nameplate` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.bots.menu.tab` | Bots | Боты |
+| `gui.burmaldaholic.bots.menu.chatter_on` | Bot chatter: on | Болтовня ботов: включена |
+| `gui.burmaldaholic.bots.menu.chatter_off` | Bot chatter: muted | Болтовня ботов: выключена |
+| `gui.burmaldaholic.bots.menu.mute` | Mute bot chatter | Заглушить ботов |
+| `gui.burmaldaholic.bots.menu.unmute` | Hear bot chatter | Слушать ботов |
+| `gui.burmaldaholic.bots.menu.table` | %1$s: %2$s | %1$s: %2$s |
+| `gui.burmaldaholic.bots.settings.access` | Who may sit | Кто может сесть |
+| `gui.burmaldaholic.bots.settings.limits` | Owner limits | Ограничения владельца |
+| `gui.burmaldaholic.bots.settings.seated` | At the table | За столом |
+| `gui.burmaldaholic.bots.settings.none_seated` | No bots at the table | Ботов за столом нет |
 
 ### Bot names (`gui.burmaldaholic.bots.name.<id>`; theme in the comment column is data for the code)
 
@@ -2618,6 +2648,12 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.bots.none_available` | No bots are free right now: the casino floor is packed | Свободных ботов сейчас нет: в казино аншлаг |
 | `msg.burmaldaholic.bots.session_ended` | The bots pack up their chips. See you next time! | Боты собирают фишки. До встречи! |
 | `msg.burmaldaholic.bots.heat_reset` | Bot limits reset for %1$s | Лимиты ботов для игрока %1$s сброшены |
+| `msg.burmaldaholic.bots.private_on` | This table is now private | Теперь этот стол закрытый |
+| `msg.burmaldaholic.bots.private_off` | This table is open to all again | Этот стол снова открыт для всех |
+| `msg.burmaldaholic.bots.defaults_saved` | Saved as the table defaults | Сохранено как настройки стола по умолчанию |
+| `msg.burmaldaholic.bots.limits_saved` | Table limits saved | Ограничения стола сохранены |
+| `msg.burmaldaholic.bots.list_empty` | No bots are seated right now | Сейчас за столами нет ботов |
+| `msg.burmaldaholic.bots.cleared` | Bots leave after the current round. Tables: %1$s | Боты уйдут после текущего раунда. Столов: %1$s |
 | `gui.burmaldaholic.bots.error.bots_only_table` | %1$s is playing against bots here. Ask them to let you in. | Здесь %1$s играет с ботами. Попросите пустить вас. |
 | `gui.burmaldaholic.bots.error.others_seated` | Other players are seated, so Just me and bots is not available | За столом другие игроки — режим «Только я и боты» недоступен |
 | `gui.burmaldaholic.bots.error.owner_off` | The casino owner has turned bots off at this table | Владелец казино отключил ботов за этим столом |
@@ -2631,6 +2667,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.bots.error.not_host` | Sit at the table as its host first | Сначала сядьте за стол как его хозяин |
 | `gui.burmaldaholic.bots.error.disabled` | Bots are turned off on this server | Боты на этом сервере отключены |
 | `gui.burmaldaholic.bots.error.debt` | While you owe the Loan Shark you can only play against the house's own bots | Пока вы должны Ростовщику, можно играть только с ботами заведения |
+| `gui.burmaldaholic.bots.error.no_table` | Sit at a table or look at one first | Сначала сядьте за стол или посмотрите на него |
 
 ## advancements
 
@@ -2651,7 +2688,7 @@ Java: advancement tab; Bedrock: Achievements page. Titles are short (≤ 24 char
 | `advancement.burmaldaholic.royal_flush.title` | Royalty | Королевская особа |
 | `advancement.burmaldaholic.royal_flush.description` | Win a poker pot with a royal flush | Выиграйте банк с роял-флешем |
 | `advancement.burmaldaholic.shark_hunter.title` | Bigger Fish | Рыбка покрупнее |
-| `advancement.burmaldaholic.shark_hunter.description` | Take every chip from a Shark bot | Оставьте бота-акулу без фишек |
+| `advancement.burmaldaholic.shark_hunter.description` | Take every chip from a Hard (Shark) poker bot | Оставьте сложного бота-акулу без фишек |
 | `advancement.burmaldaholic.top_five.title` | Top of the Reels | Лучшие на барабанах |
 | `advancement.burmaldaholic.top_five.description` | Land five of a machine's top symbol | Соберите пять главных символов автомата |
 | `advancement.burmaldaholic.jackpot.title` | Jackpot! | Джекпот! |
@@ -3352,7 +3389,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.bots.poker.easyMaxStake.mid` | Mid | Средние |
 | `config.burmaldaholic.bots.poker.easyMaxStake.high` | High | Высокие |
 | `config.burmaldaholic.bots.chemmy.bankCapMultiple` | Bot bank cap (× table min) | Лимит банка бота (× мин. ставка) |
-| `config.burmaldaholic.bots.craps.canShoot` | Bots may shoot at craps | Боты могут бросать кости в крэпсе |
 | `config.burmaldaholic.bots.pvp.fillDelayTicks` | PvP lobbies: bots fill after (ticks) | PvP-лобби: боты заходят через (тики) |
 | `config.burmaldaholic.bots.pvp.maxPerMatch` | PvP: max bots per match | PvP: макс. ботов в матче |
 | `config.burmaldaholic.bots.tournament.maxFill` | Tournaments: max bot fillers | Турниры: макс. ботов-заполнителей |

@@ -56,6 +56,10 @@ ADVANCEMENTS = [
     ("bank_holder", "banco", "challenge", "minecraft:gold_block"),
     ("uth_house_seat", "uth_four_x", "goal", "burmaldaholic:uth_table_player_banked"),
     ("uth_royal", "uth_four_x", "challenge", "burmaldaholic:uth_table_high_roller"),
+    # Seats & Bots (BOTS.md §10): granted by poker / baccarat (bots module: members_only, no_robots, word_got_around)
+    ("man_vs_machine", "beginners_luck", "task", "minecraft:observer"),
+    ("clean_sweep", "shark_hunter", "challenge", "minecraft:brush"),
+    ("short_circuit", "banco", "goal", "minecraft:lightning_rod"),
 ]
 
 

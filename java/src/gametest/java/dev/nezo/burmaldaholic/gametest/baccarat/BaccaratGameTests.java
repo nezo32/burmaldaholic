@@ -1,5 +1,10 @@
 package dev.nezo.burmaldaholic.gametest.baccarat;
 
+import dev.nezo.burmaldaholic.core.bots.BotLedger;
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
@@ -50,6 +55,9 @@ public class BaccaratGameTests {
 		try {
 			for (ServerPlayer p : List.of(a, b, c)) {
 				Economies.get().setBalance(server, p.getUUID(), 1000, TEST);
+				// next to the table: the leave-distance check must not unseat them wherever the test is placed
+				net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 1, 1.5));
+				p.setPos(at.x, at.y, at.z);
 			}
 			body.run(a, b, c);
 		} finally {
@@ -63,6 +71,12 @@ public class BaccaratGameTests {
 		BlockPos pos = new BlockPos(1, 1, 1);
 		helper.setBlock(pos, block);
 		return helper.getBlockEntity(pos, BaccaratTableBlockEntity.class);
+	}
+
+	/** Chemin de fer tables seat bots by default (bots.table.chemmy MIXED 2): these tests are about humans. */
+	private static BaccaratTableBlockEntity humansOnly(BaccaratTableBlockEntity table) {
+		table.bots().setDefaults(BotSettings.HUMANS_ONLY);
+		return table;
 	}
 
 	private static CompoundTag bet(BetKind box, long amount) {
@@ -195,7 +209,7 @@ public class BaccaratGameTests {
 
 	@GameTest
 	public void chemmyBancoAndRakeConserveChips(GameTestHelper helper) {
-		BaccaratTableBlockEntity table = place(helper, BaccaratModule.CHEMMY_TABLE.block());
+		BaccaratTableBlockEntity table = humansOnly(place(helper, BaccaratModule.CHEMMY_TABLE.block()));
 		withPlayers(helper, (a, b, c) -> {
 			table.sit(a);
 			table.sit(b);
@@ -236,7 +250,7 @@ public class BaccaratGameTests {
 
 	@GameTest
 	public void chemmyBankerLeavingReturnsEverything(GameTestHelper helper) {
-		BaccaratTableBlockEntity table = place(helper, BaccaratModule.CHEMMY_TABLE.block());
+		BaccaratTableBlockEntity table = humansOnly(place(helper, BaccaratModule.CHEMMY_TABLE.block()));
 		withPlayers(helper, (a, b, c) -> {
 			table.sit(a);
 			table.sit(b);
@@ -261,7 +275,7 @@ public class BaccaratGameTests {
 
 	@GameTest
 	public void chemmyAllPassPlaysAHouseCoup(GameTestHelper helper) {
-		BaccaratTableBlockEntity table = place(helper, BaccaratModule.CHEMMY_TABLE.block());
+		BaccaratTableBlockEntity table = humansOnly(place(helper, BaccaratModule.CHEMMY_TABLE.block()));
 		withPlayers(helper, (a, b, c) -> {
 			table.sit(a);
 			table.sit(b);
@@ -273,6 +287,44 @@ public class BaccaratGameTests {
 			table.onAction(a, "ready", new CompoundTag());
 			runTo(helper, table, "result");
 			helper.assertTrue(bal(a) == 1019, "house coup paid by the house");
+		});
+		helper.succeed();
+	}
+
+	/**
+	 * BOTS.md §4.4 / §5.1 / §5.4: a human bank against bot punters only. Bots punt from their own chips
+	 * (bank escrow), the coup is dealt once every bot acted, the rake on bot chips goes to the sink, the
+	 * human's heat is the bots' settled stakes minus that rake, and every chip is accounted for.
+	 */
+	@GameTest
+	public void chemmyBotsPuntAgainstAHumanBank(GameTestHelper helper) {
+		BaccaratTableBlockEntity table = place(helper, BaccaratModule.CHEMMY_TABLE.block());
+		table.bots().setDefaults(new BotSettings(SeatPolicy.BOTS_ONLY, 2, BotDifficulty.NORMAL, false, false, BotSpeed.INSTANT));
+		withPlayers(helper, (a, b, c) -> {
+			MinecraftServer server = helper.getLevel().getServer();
+			long heat0 = BotLedger.netToday(server, a.getUUID());
+			table.sit(a);
+			helper.assertTrue(table.bots().count() == 2, "two bots sit down at the safe point before the first bank offer");
+			helper.assertTrue("bank_offer".equals(table.phase()), "the human is offered the bank first");
+			long botChips = table.bots().chipsHeld();
+			table.onAction(a, "take_bank", amount(100));
+			helper.assertTrue(table.bank().held() && bal(a) == 900, "bank of 100 escrowed");
+			table.stackCardsForTests(BANKER_WINS);
+			for (int i = 0; i < 40 && "betting".equals(table.phase()); i++) {
+				table.tick(helper.getLevel());
+			}
+			helper.assertTrue("no_more_bets".equals(table.phase()), "alone against bots: dealt once every bot acted (is " + table.phase() + ")");
+			long matched = table.bank().punted();
+			helper.assertTrue(matched > 0 && matched <= 100, "bots punted within the coverage: " + matched);
+			helper.assertTrue(table.bots().chipsHeld() == botChips, "a punt moves chips from free to staked");
+			runTo(helper, table, "result");
+			long rake = matched * 5 / 100;
+			helper.assertTrue(table.bank().bank() == 100 + matched - rake, "bank 100 + " + matched + " − rake " + rake);
+			helper.assertTrue(table.bots().chipsHeld() == botChips - matched, "the bots lost their stakes");
+			helper.assertTrue(BotLedger.netToday(server, a.getUUID()) - heat0 == matched - rake, "heat = bot stakes won minus the rake on them");
+			table.playOutNow("removed");
+			helper.assertTrue(bal(a) == 1000 + matched - rake, "the bank came back with the win");
+			helper.assertTrue(table.bots().count() == 0, "bots leave when the table stops");
 		});
 		helper.succeed();
 	}

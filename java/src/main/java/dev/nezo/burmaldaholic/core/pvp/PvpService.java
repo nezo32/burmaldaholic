@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.pvp.logic.AnchorKind;
+import dev.nezo.burmaldaholic.core.pvp.logic.DecisionView;
 import dev.nezo.burmaldaholic.core.pvp.logic.HeadToHead;
 import dev.nezo.burmaldaholic.core.util.Result;
 import java.util.List;
@@ -70,6 +71,12 @@ public interface PvpService {
 	/** Host "Start" (MIXED: fills empty seats with bots first). */
 	Result<PvpMatch> start(ServerPlayer host, String matchId);
 
+	/**
+	 * Invite-only lobby (BOTS.md §2.5): the host of {@code player}'s lobby invites {@code guest} (chat line with a
+	 * clickable [Join]); only guests, the host and operators may join. Max {@code bots.private.maxInvites}.
+	 */
+	Result<Boolean> inviteToLobby(ServerPlayer host, UUID guest);
+
 	/** Host "Fill with bots" (MIXED lobbies). */
 	void fillWithBots(ServerPlayer host, String matchId);
 
@@ -78,8 +85,17 @@ public interface PvpService {
 	/** The mode's advance button (Spin! / Drop! / Scratch!); only speeds up the timeline. */
 	void press(ServerPlayer player);
 
-	/** A decision between links (Double or nothing side / let it ride). {@code option} per {@code DecisionView}. */
-	void decide(ServerPlayer player, String decision, long option);
+	/**
+	 * A decision between Coin Flip Duel links (PVP.md §4.2): {@code coin.don_offer} (chain loser) with
+	 * option 0 = walk away, 1 = Double or nothing on Heads, 2 = on Tails; {@code coin.let_it_ride} (chain
+	 * winner) with 1 = let it ride, 0 = take the money. {@code coin.side} (0 heads / 1 tails) before
+	 * {@code coin.don_offer} 1 sets the called side (Bedrock form flow). The open decision is {@link #decisionFor}.
+	 *
+	 * <p>{@code seq} ({@link PvpMatch#decisionSeq}, sent with the view's {@code decision}) and, when given,
+	 * {@code matchId} must still be the open question, else the answer is stale and dropped (review wave 2, m2).
+	 * There is no unchecked form: {@code seq} &lt; 0 (a client that names no question) is always dropped.
+	 */
+	void decide(ServerPlayer player, String decision, long option, @Nullable String matchId, long seq);
 
 	/** One of the 8 fixed taunt lines (§3.9). */
 	Result<Void> taunt(ServerPlayer player, int line);
@@ -103,6 +119,14 @@ public interface PvpService {
 	List<Rival> rivals(UUID player, int max);
 
 	Stats stats(UUID player);
+
+	/** The decision {@code player} has to answer right now (Double or nothing / let it ride), if any. */
+	Optional<DecisionView> decisionFor(UUID player);
+
+	/** Per-player "Accept PvP challenges" setting (PVP.md §3.11.2, default on). */
+	boolean acceptsInvites(UUID player);
+
+	void setAcceptInvites(UUID player, boolean accept);
 
 	// ---- admin (§3.13) ---------------------------------------------------------------------------
 

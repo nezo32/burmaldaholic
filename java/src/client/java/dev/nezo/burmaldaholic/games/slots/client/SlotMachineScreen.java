@@ -39,7 +39,9 @@ public class SlotMachineScreen extends CasinoTableScreen {
 	private static final int REEL_X = PAD;
 	private static final int REEL_Y = 32;
 	private static final int PANEL_X = REEL_X + WINDOW + 10;
-	private static final int HEIGHT = 222;
+	private static final int HEIGHT = 256;
+	/** Bottom of the status lines; the Slot Showdown entry button sits below. */
+	private static final int STATUS_BOTTOM = 210;
 	private static final int RESULT_Y = 180;
 	private static final int GOLD = 0xFFFFD24A;
 	private static final int GREEN = 0xFF55FF55;
@@ -49,6 +51,34 @@ public class SlotMachineScreen extends CasinoTableScreen {
 	private static final long FLASH_MS = 3000;
 
 	private final int panelWidth;
+	private final dev.nezo.burmaldaholic.games.slots.client.pvp.ShowdownPanel showdown = new dev.nezo.burmaldaholic.games.slots.client.pvp.ShowdownPanel(
+		new dev.nezo.burmaldaholic.games.slots.client.pvp.ShowdownPanel.Host() {
+			@Override
+			public net.minecraft.client.gui.components.Button button(Component label, int x, int y, int minWidth,
+					net.minecraft.client.gui.components.Button.OnPress onPress) {
+				return SlotMachineScreen.this.button(label, x, y, minWidth, onPress);
+			}
+
+			@Override
+			public void send(String action, CompoundTag args) {
+				sendAction(action, args);
+			}
+
+			@Override
+			public CompoundTag state() {
+				return SlotMachineScreen.this.state();
+			}
+
+			@Override
+			public void rebuild() {
+				rebuildWidgets();
+			}
+
+			@Override
+			public Font font() {
+				return SlotMachineScreen.this.font;
+			}
+		});
 
 	private long lineBet = -1;
 	private boolean firstState = true;
@@ -273,6 +303,10 @@ public class SlotMachineScreen extends CasinoTableScreen {
 	}
 
 	private void buildWidgets() {
+		if (showdown.open()) { // Slot Showdown panel (games/slots/client/pvp)
+			showdown.buildWidgets(PANEL_X, panelWidth, REEL_X, PANEL_X - REEL_X - 6, 200);
+			return;
+		}
 		if (showPaytable) {
 			button(Component.translatable("gui.burmaldaholic.common.back"), PANEL_X, 156, panelWidth, b -> {
 				showPaytable = false;
@@ -307,6 +341,7 @@ public class SlotMachineScreen extends CasinoTableScreen {
 			paytableScroll = 0;
 			rebuildWidgets();
 		});
+		showdown.entryButton(PAD, STATUS_BOTTOM + 4, imageWidth - 2 * PAD);
 	}
 
 	private long spinBet() {
@@ -356,7 +391,10 @@ public class SlotMachineScreen extends CasinoTableScreen {
 				g.fill(wx + c * CELL + 1, wy + r * CELL + 1, wx + (c + 1) * CELL - 1, wy + (r + 1) * CELL - 1, 0xFFEFE6D2);
 			}
 		}
-		if (showPaytable) {
+		if (showdown.open()) {
+			showdown.drawBackground(g, wx, wy, PANEL_X - REEL_X - 6, topPos + imageHeight - 24);
+		}
+		if (showPaytable || showdown.open()) {
 			return;
 		}
 		g.enableScissor(wx, wy, wx + WINDOW, wy + WINDOW);
@@ -449,6 +487,10 @@ public class SlotMachineScreen extends CasinoTableScreen {
 			Component jp = Component.translatable("gui.burmaldaholic.slots.jackpot", Texts.number(s.getLongOr("jackpot", 0)));
 			g.centeredText(font, jp, REEL_X + WINDOW / 2, 20, GOLD);
 		}
+		if (showdown.open()) {
+			showdown.drawLabels(g, PANEL_X, REEL_X, REEL_Y, PANEL_X - REEL_X - 6, imageHeight - 24);
+			return;
+		}
 		if (showPaytable) {
 			drawPaytable(g);
 			return;
@@ -533,7 +575,7 @@ public class SlotMachineScreen extends CasinoTableScreen {
 				Texts.chipsAcc(summary.getLongOr("bet", 0)), Texts.chipsAcc(summary.getLongOr("won", 0))));
 			colors.add(TEXT);
 		}
-		int maxY = imageHeight - 14;
+		int maxY = STATUS_BOTTOM;
 		for (int i = 0; i < out.size() && y < maxY; i++) {
 			for (FormattedCharSequence line : font.split(out.get(i), width)) {
 				if (y >= maxY) {

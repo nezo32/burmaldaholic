@@ -16,8 +16,39 @@ public final class Pots {
 	 *
 	 * @param eligible     non-folded players who can win it
 	 * @param contributors everyone who put chips into it (folded players included)
+	 * @param paid         chips each player (by index) put into this pot
 	 */
-	public record Pot(long amount, List<Integer> eligible, List<Integer> contributors) {}
+	public record Pot(long amount, List<Integer> eligible, List<Integer> contributors, long[] paid) {
+		public Pot {
+			paid = paid.clone();
+		}
+
+		/** Chips player i put into this pot. */
+		public long paidBy(int i) {
+			return i >= 0 && i < paid.length ? paid[i] : 0;
+		}
+
+		@Override
+		public long[] paid() {
+			return paid.clone();
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			return o instanceof Pot p && amount == p.amount && eligible.equals(p.eligible) && contributors.equals(p.contributors)
+				&& java.util.Arrays.equals(paid, p.paid);
+		}
+
+		@Override
+		public int hashCode() {
+			return java.util.Objects.hash(amount, eligible, contributors, java.util.Arrays.hashCode(paid));
+		}
+
+		@Override
+		public String toString() {
+			return "Pot[" + amount + ", eligible=" + eligible + ", contributors=" + contributors + ", paid=" + java.util.Arrays.toString(paid) + "]";
+		}
+	}
 
 	/** @param percent 0.05 = 5 %; @param capBb cap in big blinds; @param noFlopNoDrop no flop, no rake */
 	public record RakeConfig(double percent, int capBb, boolean noFlopNoDrop) {
@@ -75,11 +106,13 @@ public final class Pots {
 			long amount = 0;
 			List<Integer> contributors = new ArrayList<>();
 			List<Integer> eligible = new ArrayList<>();
+			long[] paid = new long[totals.length];
 			for (int i = 0; i < totals.length; i++) {
 				long c = totals[i];
 				long part = Math.min(c, level) - Math.min(c, prev);
 				if (part > 0) {
 					amount += part;
+					paid[i] = part;
 					contributors.add(i);
 				}
 				if (!folded[i] && c >= level) {
@@ -88,8 +121,11 @@ public final class Pots {
 			}
 			if (li == levels.size() - 1) {
 				for (int i = 0; i < totals.length; i++) {
-					if (totals[i] > level && !contributors.contains(i)) {
-						contributors.add(i);
+					if (totals[i] > level) {
+						paid[i] += totals[i] - level;
+						if (!contributors.contains(i)) {
+							contributors.add(i);
+						}
 					}
 				}
 				amount = grand - assigned;
@@ -105,9 +141,13 @@ public final class Pots {
 						merged.add(c);
 					}
 				}
-				pots.set(pots.size() - 1, new Pot(last.amount() + amount, last.eligible(), List.copyOf(merged)));
+				long[] sum = last.paid();
+				for (int i = 0; i < sum.length; i++) {
+					sum[i] += paid[i];
+				}
+				pots.set(pots.size() - 1, new Pot(last.amount() + amount, last.eligible(), List.copyOf(merged), sum));
 			} else if (amount > 0) {
-				pots.add(new Pot(amount, List.copyOf(eligible), List.copyOf(contributors)));
+				pots.add(new Pot(amount, List.copyOf(eligible), List.copyOf(contributors), paid));
 			}
 		}
 		if (pots.isEmpty() && grand > 0) {
@@ -117,7 +157,7 @@ public final class Pots {
 					contributors.add(i);
 				}
 			}
-			pots.add(new Pot(grand, List.of(), List.copyOf(contributors)));
+			pots.add(new Pot(grand, List.of(), List.copyOf(contributors), totals));
 		}
 		return pots;
 	}
@@ -126,18 +166,25 @@ public final class Pots {
 		return a.size() == b.size() && a.containsAll(b);
 	}
 
-	/**
-	 * Rake for one pot: {@code min(floor(pot × percent), capBb × BB)}, only when the hand saw a flop (with
-	 * no-flop-no-drop) and at least 2 humans contributed (a lone human facing bots is never raked).
-	 */
+	/** Rake of a pot without bot chips (see {@link #rakeFor(long, int, boolean, long, RakeConfig, long)}). */
 	public static long rakeFor(long amount, int humanContributors, boolean sawFlop, long bb, RakeConfig cfg) {
+		return rakeFor(amount, humanContributors, sawFlop, bb, cfg, 0);
+	}
+
+	/**
+	 * Rake for one pot: {@code min(floor((pot − botContrib) × percent), capBb × BB)} (BOTS.md §5.1: bot chips
+	 * never become rake), only when the hand saw a flop (with no-flop-no-drop) and at least 2 humans
+	 * contributed (a lone human facing bots is never raked — the bots are the house).
+	 */
+	public static long rakeFor(long amount, int humanContributors, boolean sawFlop, long bb, RakeConfig cfg, long botContrib) {
 		if (humanContributors < 2) {
 			return 0;
 		}
 		if (cfg.noFlopNoDrop() && !sawFlop) {
 			return 0;
 		}
-		long r = Math.min((long) Math.floor(amount * cfg.percent() + 1e-9), Math.max(0, cfg.capBb()) * bb);
+		long raked = Math.max(0, amount - Math.max(0, botContrib));
+		long r = Math.min((long) Math.floor(raked * cfg.percent() + 1e-9), Math.max(0, cfg.capBb()) * bb);
 		return Math.max(0, Math.min(amount, r));
 	}
 

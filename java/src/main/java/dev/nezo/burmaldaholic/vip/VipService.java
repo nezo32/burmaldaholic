@@ -3,6 +3,8 @@ package dev.nezo.burmaldaholic.vip;
 import dev.nezo.burmaldaholic.core.CoreContent;
 import dev.nezo.burmaldaholic.core.PlayerSync;
 import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
+import dev.nezo.burmaldaholic.core.bots.BotRounds;
+import dev.nezo.burmaldaholic.core.bots.logic.BotEconomyMath;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.VipConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -101,8 +103,9 @@ public final class VipService {
 		VipData data = VipData.get(server);
 		VipData.Record rec = data.player(player.getUUID());
 		long bet = Math.max(0, result.bet());
-		rec.wagered = rec.wagered > Long.MAX_VALUE - bet ? Long.MAX_VALUE : rec.wagered + bet;
-		boolean eligible = CashbackRules.eligible(result.houseBanked(), result.ownedCasino(), result.pawn());
+		long credit = wagerCredit(result, bet);
+		rec.wagered = rec.wagered > Long.MAX_VALUE - credit ? Long.MAX_VALUE : rec.wagered + credit;
+		boolean eligible = CashbackRules.eligible(result.houseBanked(), result.ownedCasino(), result.pawn()) && !BotRounds.vsBots(result);
 		CashbackRules.Roll roll = CashbackRules.record(rec.ledger, Contracts.today(server), bet, result.payout(), result.houseEdge(), eligible);
 		rec.ledger = roll.ledger();
 		data.setDirty();
@@ -113,8 +116,31 @@ public final class VipService {
 		if (result.won() && !result.deferred()) {
 			winParticles(player);
 		}
-		ContractRules.playContracts(result.gameId(), bet, result.payout()).forEach((id, n) -> Contracts.progress(player, id, n));
+		Map<String, Long> progress = new java.util.LinkedHashMap<>(ContractRules.playContracts(result.gameId(), bet, result.payout()));
+		if (progress.containsKey("wager")) {
+			if (credit > 0) {
+				progress.put("wager", credit); // the `wager` contract gets the same (bot-weighted) credit as VIP (BOTS.md §5.3)
+			} else {
+				progress.remove("wager");
+			}
+		}
+		progress.forEach((id, n) -> Contracts.progress(player, id, n));
 		markSync(player);
+	}
+
+	/**
+	 * Lifetime-wagered / {@code wager} contract credit of a settled round: PvP-engine matches only with
+	 * {@code pvp.countsTowardVip}; rounds against money bots weighted by {@code bots.vipWagerWeight} × the bots'
+	 * share of the counterparty money (BOTS.md §5.3).
+	 */
+	static long wagerCredit(CasinoEvents.PlayResult result, long bet) {
+		if ("pvp".equals(result.gameId()) && !CasinoConfig.pvp().countsTowardVip) {
+			return 0;
+		}
+		if (BotRounds.vsBots(result)) {
+			return BotEconomyMath.vipCredit(bet, CasinoConfig.bots().vipWagerWeight, BotRounds.botShare(result));
+		}
+		return bet;
 	}
 
 	// ---- cashback ----------------------------------------------------------------------------
@@ -257,7 +283,9 @@ public final class VipService {
 		}
 		CashbackRules.DayLedger l = rec.ledger != null && rec.ledger.day() == Contracts.today(server) ? rec.ledger : null;
 		return new VipSyncPayload(open, rec.wagered, tier(server, player.getUUID()), l == null ? 0 : l.staked(), l == null ? 0 : l.returned(),
-			on, Contracts.ticksToReset(server), Math.max(0, CasinoConfig.contracts().rerollCost), List.copyOf(list));
+			on, Contracts.ticksToReset(server), Math.max(0, CasinoConfig.contracts().rerollCost), List.copyOf(list),
+			Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.netToday(server, player.getUUID())),
+			CasinoConfig.bots().enabled ? Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.threshold(server, player.getUUID())) : 0);
 	}
 
 	/** Sends the state if it changed (or {@code force}); {@code open} also opens the menu. */

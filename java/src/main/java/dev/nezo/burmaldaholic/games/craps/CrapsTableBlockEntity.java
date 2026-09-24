@@ -1,5 +1,11 @@
 package dev.nezo.burmaldaholic.games.craps;
 
+import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.core.bots.AtmosphereBots;
+import dev.nezo.burmaldaholic.core.bots.BotNames;
+import dev.nezo.burmaldaholic.core.bots.BotTable;
+import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats;
+import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats.VirtualBot;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.CrapsConfig;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
@@ -10,11 +16,14 @@ import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableSeats;
 import dev.nezo.burmaldaholic.core.table.TableType;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.games.craps.logic.Bet;
 import dev.nezo.burmaldaholic.games.craps.logic.BetKind;
 import dev.nezo.burmaldaholic.games.craps.logic.BetResolution;
+import dev.nezo.burmaldaholic.games.craps.logic.CrapsBettor;
+import dev.nezo.burmaldaholic.games.craps.logic.CrapsBotTable;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsMath;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsResolver;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsRules;
@@ -38,6 +47,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -52,8 +63,14 @@ import org.jspecify.annotations.Nullable;
  * <p><b>Leaving</b> (button, disconnect, distance, table broken): the player's bets are played out
  * immediately with honest dice (§4.1 "bets stay working until resolved", same expected value; review B1:
  * breaking the table never refunds a contract bet). Casino mode switched off: bets are refunded.
+ *
+ * <p><b>Seats &amp; Bots</b> (BOTS.md §4.7): ATMOSPHERE bettors ({@link CrapsBettor}, style by personality,
+ * difficulty hidden) sit on free seats ({@link AtmosphereBots}) and bet VIRTUALLY on a shadow table
+ * ({@link CrapsBotTable}) that follows the real puck; every real roll resolves them with the same dice.
+ * Bots NEVER shoot (the rotation only sees human seats) and never delay a roll. Safe point: the start of
+ * each betting window (join, leave, after every roll).
  */
-public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
+public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
 	static final String TIMER_WINDOW = "window";
 	static final String TIMER_ROLL = "roll";
 	private static final String K = "gui.burmaldaholic.craps.";
@@ -67,6 +84,16 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 	private int rollTimerFor = -1;
 	private @Nullable UUID rollTimerShooter;
 	private @Nullable UUID announcedShooter;
+	/** Seats &amp; Bots: core TableBots + virtual bot seats (bots never shoot) */
+	private final AtmosphereBots bots = new AtmosphereBots(this, CrapsModule.ID, false);
+	/** the bots' VIRTUAL bets (shadow table: same dice, no stakes) */
+	private final CrapsBotTable botTable = new CrapsBotTable(rules());
+	/** rollCount the bots last placed their bets for */
+	private int botsActedFor = -1;
+	/** game time of the bots' bet moment for the coming roll (-1 = none) */
+	private long botBetAt = -1;
+	/** "Bots bet (for fun): …" results of the last roll (display) */
+	private @Nullable Component lastBotResults;
 
 	public CrapsTableBlockEntity(TableType<CrapsTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -110,12 +137,41 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 
 	@Override
 	public boolean sit(ServerPlayer player) {
+		if (isSeated(player)) {
+			return true;
+		}
+		// Seats & Bots: private table, someone's BOTS_ONLY table, claimant of a bot seat (BOTS.md §3.2)
+		Result<Boolean> admit = bots.admit(player);
+		if (!admit.isOk()) {
+			sendError(player, admit.error());
+			return false;
+		}
+		if (!Boolean.TRUE.equals(admit.value())) {
+			return false; // claimant: TableBots already said "a bot gives up its seat after this round"
+		}
 		boolean ok = super.sit(player);
 		if (ok) {
+			bots.noteJoin(player.getUUID());
+			botSafePoint();
 			rearm();
 			syncViewers();
 		}
 		return ok;
+	}
+
+	@Override
+	public BotTable botDelegate() {
+		return bots;
+	}
+
+	/** Seats &amp; Bots of this table (tests, bots UI). */
+	public AtmosphereBots bots() {
+		return bots;
+	}
+
+	/** The bots' virtual bets (tests). */
+	public CrapsBotTable botBets() {
+		return botTable;
 	}
 
 	void placeFlat(ServerPlayer player, @Nullable BetKind kind, long amount) {
@@ -298,7 +354,13 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 		UUID shooterForRun = table.shooter();
 		String shooterName = nameOf(shooterForRun);
 		List<SeatInfo> seats = seatInfos();
+		// Bots never delay a roll: whoever has not bet for this roll bets now (virtual, shadow table).
+		if (!bots.bots().isEmpty() && botsActedFor != table.rollCount()) {
+			botsBet();
+		}
+		int pointBefore = table.point();
 		CrapsTable.TableRoll tr = table.roll(d1, d2, seats);
+		botsRolled(pointBefore, d1, d2, tr.sevenOut());
 		lastRollTime = gameTime();
 		cancelTimer(TIMER_ROLL);
 		rollTimerFor = -1;
@@ -340,7 +402,138 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 		if (tr.sevenOut()) {
 			announcedShooter = null;
 		}
+		botSafePoint();
 		rearm();
+	}
+
+	// ---- bots (atmosphere: virtual bets on a shadow table, never the shooter) ---------------------
+
+	/**
+	 * Safe point = start of a betting window (join, leave, after every roll): bots join / leave / yield;
+	 * the bets of bots that left vanish; the next bet moment is drawn.
+	 */
+	private void botSafePoint() {
+		if (!(level instanceof ServerLevel sl) || removing()) {
+			return;
+		}
+		if (bots.safePoint(sl) == null) {
+			return;
+		}
+		java.util.Set<UUID> live = new java.util.HashSet<>();
+		for (VirtualBot b : bots.bots()) {
+			live.add(VirtualSeats.botUuid(b.key));
+		}
+		for (UUID owner : botTable.owners()) {
+			if (!live.contains(owner)) {
+				botTable.remove(owner);
+			}
+		}
+		botBetAt = live.isEmpty() || seats().isEmpty() ? -1 : gameTime() + bots.betDelay();
+	}
+
+	/** Every bot places its style's bets for this roll (bot rng only). */
+	private void botsBet() {
+		botsActedFor = table.rollCount();
+		botBetAt = -1;
+		botTable.sync(table.point(), table.rules());
+		for (VirtualBot b : bots.bots()) {
+			UUID owner = VirtualSeats.botUuid(b.key);
+			try {
+				List<CrapsBettor.Action> acts = CrapsBettor.INSTANCE.act(b.profile(), botTable.view(owner, minBet()), null, bots.rng());
+				botTable.apply(owner, acts);
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("craps bot bet failed", e);
+			}
+		}
+	}
+
+	/** The same dice resolve the bots' virtual bets (no extra throw, no stake); seven-out quip. */
+	private void botsRolled(int pointBefore, int d1, int d2, boolean sevenOut) {
+		lastBotResults = null;
+		if (botTable.owners().isEmpty()) {
+			return;
+		}
+		botTable.sync(pointBefore, table.rules());
+		CrapsTable.TableRoll br = botTable.roll(pointBefore, d1, d2);
+		Map<UUID, Long> net = new LinkedHashMap<>();
+		UUID loser = null;
+		for (BetResolution res : br.result().resolutions()) {
+			if (res.outcome().resolved()) {
+				net.merge(res.bet().owner(), res.net(), Long::sum);
+			}
+			if (sevenOut && loser == null && res.outcome() == BetResolution.Outcome.LOSE
+				&& (res.bet().kind() == BetKind.PASS || res.bet().kind() == BetKind.COME)) {
+				loser = res.bet().owner();
+			}
+		}
+		List<Component> parts = new ArrayList<>();
+		for (VirtualBot b : bots.bots()) {
+			UUID owner = VirtualSeats.botUuid(b.key);
+			Long n = net.get(owner);
+			if (n != null) {
+				parts.add(Component.empty().append(BotNames.display(b.profile())).append(Texts.raw(": ")).append(outcome(n)));
+			}
+			if (owner.equals(loser) && level instanceof ServerLevel sl) {
+				bots.quip(sl, b.profile(), "seven_out", null);
+			}
+		}
+		lastBotResults = parts.isEmpty() ? null : Component.translatable("gui.burmaldaholic.bots.virtual_bets", joined(parts));
+	}
+
+	private static Component joined(List<Component> parts) {
+		MutableComponent out = Component.empty();
+		for (int i = 0; i < parts.size(); i++) {
+			if (i > 0) {
+				out.append(Texts.raw(" · "));
+			}
+			out.append(parts.get(i));
+		}
+		return out;
+	}
+
+	/** "Bots bet (for fun): [BOT] Creeper42: Pass — 20 + odds 60, Field — 10 · …" (null without bot bets). */
+	private @Nullable Component botBetsLine() {
+		List<Component> parts = new ArrayList<>();
+		for (VirtualBot b : bots.bots()) {
+			List<Bet> mine = botTable.shadow().betsOf(VirtualSeats.botUuid(b.key));
+			if (mine.isEmpty()) {
+				continue;
+			}
+			MutableComponent p = Component.empty().append(BotNames.display(b.profile())).append(Texts.raw(": "));
+			for (int i = 0; i < mine.size(); i++) {
+				Bet x = mine.get(i);
+				if (i > 0) {
+					p.append(Texts.raw(", "));
+				}
+				p.append(x.odds() > 0
+					? Component.translatable(K + "bet_with_odds", betLabel(x.kind(), x.point()), Texts.chips(x.flat()), Texts.chips(x.odds()))
+					: Component.translatable(K + "bet_flat", betLabel(x.kind(), x.point()), Texts.chips(x.flat())));
+			}
+			parts.add(p);
+		}
+		return parts.isEmpty() ? null : Component.translatable("gui.burmaldaholic.bots.virtual_bets", joined(parts));
+	}
+
+	/** The table is broken: its bets were played out by core; now every bot leaves (BOTS.md §3.5). */
+	@Override
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		super.preRemoveSideEffects(pos, state);
+		if (level instanceof ServerLevel sl) {
+			bots.endSession(sl);
+		}
+		botTable.clear();
+	}
+
+	@Override
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+		bots.save(output);
+	}
+
+	@Override
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		bots.load(input);
 	}
 
 	static List<Component> eventLines(RollEvent e) {
@@ -434,6 +627,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 			runShooter = null;
 			pointsInRow = 0;
 		}
+		botSafePoint(); // the last human leaving ends the bot session
 		rearm();
 	}
 
@@ -519,6 +713,10 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 	@Override
 	protected void serverTick(ServerLevel level) {
 		MinecraftServer server = level.getServer();
+		if (botBetAt >= 0 && gameTime() >= botBetAt && botsActedFor != table.rollCount() && CasinoMode.isEnabled(level)) {
+			botsBet(); // the bots' bet moment in this betting window (60–160 t)
+			syncViewers();
+		}
 		if (!table.bets().isEmpty() && openStakes().isEmpty()) {
 			table.clear(); // stakes were returned by core after a reload (§4.1): the bets are gone too
 		}
@@ -529,6 +727,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 			if (!openStakes().isEmpty()) {
 				refundAll(server, true);
 			}
+			botSafePoint(); // everybody left: the bot session ends
 			rearm();
 			syncViewers();
 		}
@@ -582,6 +781,19 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity {
 		CrapsRules r = table.rules();
 		tag.putInt("field2", r.fieldPays2());
 		tag.putInt("field12", r.fieldPays12());
+		if (level instanceof ServerLevel sl) {
+			Component header = bots.header(sl);
+			if (header != null) {
+				tag.put("bots_header", AtmosphereBots.encode(sl, header));
+			}
+			Component line = botBetsLine();
+			if (line == null) {
+				line = lastBotResults;
+			}
+			if (line != null) {
+				tag.put("bot_line", AtmosphereBots.encode(sl, line));
+			}
+		}
 		return tag;
 	}
 }

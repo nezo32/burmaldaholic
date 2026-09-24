@@ -12,6 +12,7 @@
 			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.JavaReviewGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.BotsGameTests",
 			"dev.nezo.burmaldaholic.gametest.lastchance.LastChanceGameTests",
 			"dev.nezo.burmaldaholic.gametest.chaos.ChaosGameTests",
 			"dev.nezo.burmaldaholic.gametest.craps.CrapsGameTests",
@@ -24,13 +25,18 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratGameTests",
-			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests"
+			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpUiGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpIntegrationGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpAdversarialGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.poker.PokerClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.independent.RuLayoutClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.pvp.PvpClientGameTests"
 		]
 	},
 	"depends": {

@@ -10,7 +10,11 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -406,6 +410,10 @@ public class CrapsScreen extends CasinoTableScreen {
 		Component balance = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
 		g.text(font, balance, leftPos + W - PAD - font.width(balance), topPos + 6, GOLD, true);
 		List<Component> lines = new ArrayList<>();
+		Tag header = s.get("bots_header"); // Seats & Bots: "Humans + 2 bots · Mixed · Open to all"
+		if (header != null) {
+			lines.add(decode(header).copy().withStyle(ChatFormatting.GRAY));
+		}
 		int point = s.getIntOr("point", 0);
 		lines.add(point == 0 ? Component.translatable(K + "point_off").withStyle(ChatFormatting.YELLOW)
 			: Component.translatable(K + "point_on", Texts.number(point)).withStyle(ChatFormatting.YELLOW));
@@ -441,6 +449,10 @@ public class CrapsScreen extends CasinoTableScreen {
 				lines.add(ev);
 			}
 		}
+		Tag botLine = s.get("bot_line"); // bots' virtual bets (they never shoot)
+		if (botLine != null) {
+			lines.add(decode(botLine).copy().withStyle(ChatFormatting.GRAY));
+		}
 		int limit = topPos + diceY() - 4;
 		for (Component c : lines) {
 			for (FormattedCharSequence seq : font.split(c, RW)) {
@@ -451,6 +463,16 @@ public class CrapsScreen extends CasinoTableScreen {
 				y += font.lineHeight + 1;
 			}
 		}
+	}
+
+	/** A component sent by the server (bots header, bot line). */
+	private static Component decode(@Nullable Tag tag) {
+		if (tag == null) {
+			return Component.empty();
+		}
+		var level = Minecraft.getInstance().level;
+		var ops = level != null ? level.registryAccess().createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
+		return ComponentSerialization.CODEC.parse(ops, tag).result().orElse(Component.empty());
 	}
 
 	private static @Nullable Component eventLine(String event, int total) {

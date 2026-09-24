@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/shark_hunter",
+  "display": {
+    "icon": {
+      "id": "minecraft:brush"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.clean_sweep.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.clean_sweep.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.core.bots.logic;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -57,6 +59,31 @@ public final class SeatingMath {
 			return keeper;
 		}
 		return seatedOrder.isEmpty() ? null : seatedOrder.getFirst();
+	}
+
+	/**
+	 * A seated bot as seen by the yield rule (§3.3).
+	 *
+	 * @param seat               seat index (0-based)
+	 * @param joinOrder          increasing per join in the session (PvP: last joined yields first)
+	 * @param banker             chemin de fer: this bot holds the bank (yields last)
+	 * @param handsSinceBigBlind poker: 0 = posted the big blind in the hand that just ended (yields first)
+	 */
+	public record YieldCandidate(String key, int seat, long stack, int joinOrder, boolean banker, int handsSinceBigBlind) {}
+
+	/** Bot keys in the order they give up their seat (first = leaves first). Deterministic, pure. */
+	public static List<String> yieldOrder(YieldRule rule, List<YieldCandidate> bots) {
+		Comparator<YieldCandidate> bySeatDesc = Comparator.comparingInt(YieldCandidate::seat).reversed();
+		Comparator<YieldCandidate> c = switch (rule) {
+			case POKER_BIG_BLIND -> Comparator.comparingInt(YieldCandidate::handsSinceBigBlind)
+				.thenComparingLong(YieldCandidate::stack).thenComparing(bySeatDesc);
+			case CHEMMY_PUNTER_FIRST -> Comparator.comparing(YieldCandidate::banker).thenComparing(bySeatDesc);
+			case HIGHEST_SEAT -> bySeatDesc;
+			case LAST_JOINED -> Comparator.comparingInt(YieldCandidate::joinOrder).reversed().thenComparing(bySeatDesc);
+		};
+		List<YieldCandidate> sorted = new ArrayList<>(bots);
+		sorted.sort(c);
+		return sorted.stream().map(YieldCandidate::key).toList();
 	}
 
 	/** How a game picks the bot that yields its seat to a claimant (§3.3). */

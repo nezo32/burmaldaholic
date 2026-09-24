@@ -476,7 +476,9 @@ Bets are virtual; levels change only what the table sees them do.
 | Trips | 50 % of rounds, 1 × Ante | never | never |
 
 Tooltip line (Java) / body line (Bedrock) for the level: `…bots.uth_edge` "Costs this bot about %1$s
-of the Ante" — EASY "≈ 5 %" (to be replaced by the simulated figure, §12.3), NORMAL 2.27 %, HARD 2.19 %.
+of the Ante" — EASY "≈ 19.4 %" (measured, §12.3: 2 × 10⁵ boards, 19.45 % ± 0.23 %; mostly the 15 %
+"scared money" ×3 preflop bets, plus Blind, Play and the 50 % Trips habit — atmosphere bots bet virtual
+chips, so the behaviour is kept and only the published figure changed), NORMAL 2.27 %, HARD 2.19 %.
 The river enumeration (990 × 2 evaluations) runs inside the street's shared decision window; Bedrock
 runs one bot per tick via `runJob`.
 
@@ -524,8 +526,8 @@ a **betting style** from their personality (research §2.5):
 | `LAG` | *Martingale Maria*: doubles an even-money bet after a loss, resets at 8× | Pass + Field + odds | *Chop Chaser*: bets against the last winner |
 
 Virtual amounts `min + k × step`, k = 1–2 (ROCK, STATION), 2–5 (TAG), 5–10 (MANIAC, LAG), within the
-table min/max. Craps bots **never shoot** unless `bots.craps.canShoot` (false); when allowed they roll
-after 20–40 t. With bots unable to shoot, the rotation skips them, so a seven-out never depends on a bot.
+table min/max. Craps bots **never shoot** (their bets are virtual; there is no switch): the shooter
+rotation skips them, so a seven-out never depends on a bot.
 
 ### 4.8 PvP modes (money; chance only)
 
@@ -962,7 +964,6 @@ Percent-like values are fractions unless the key ends in `Percent` (CONFIG.md ru
 | `bots.atmosphere.maxPerTable.baccarat` | int | 3 | 0–6 | |
 | `bots.poker.easyMaxStake` | enum(MICRO, LOW, MID, HIGH) | LOW | — | Highest stake level where EASY bots may sit (§4.2). |
 | `bots.chemmy.bankCapMultiple` | int | 50 | 5–1000 | A bot bank is at most this × table min (and ≤ the table max coverage). |
-| `bots.craps.canShoot` | bool | false | — | Bots join the shooter rotation (roll after 20–40 t). |
 | `bots.pvp.fillDelayTicks` | int | 400 | 0–1800 | MIXED lobbies: bots fill after this long without a human joiner. |
 | `bots.pvp.maxPerMatch` | int | 3 | 1–7 | Max bots in one PvP match. |
 | `bots.tournament.maxFill` | int | 8 | 0–31 | Max bot fillers per tournament. |
@@ -1183,7 +1184,7 @@ name; `bot` = nested `gui.burmaldaholic.bots.display` component; `level` = neste
 | `gui.burmaldaholic.menu.settings.bot_chatter` | Bot chatter | Болтовня ботов |
 | `gui.burmaldaholic.bots.admin.title` | Bots | Боты |
 | `gui.burmaldaholic.bots.admin.line` | %1$s at %2$s · %3$s · %4$s | %1$s — %2$s · %3$s · %4$s |
-| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить всех ботов по домам |
+| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить ботов домой |
 | `gui.burmaldaholic.bots.admin.reset_heat` | Reset a player's bot limits… | Сбросить лимиты игрока… |
 
 ### 11.3 Bot names (`gui.burmaldaholic.bots.name.<id>`; theme in the comment column is data for the code)
@@ -1391,7 +1392,6 @@ banco 3, pvp_win 3, pvp_loss 3, duel_accept 3, duel_decline 2, word_got_around 3
 | `config.burmaldaholic.bots.atmosphere.maxPerTable` | %1$s: max bots per table | %1$s: макс. ботов за столом |
 | `config.burmaldaholic.bots.poker.easyMaxStake` | Highest stakes for Easy poker bots | Макс. ставки для лёгких покерных ботов |
 | `config.burmaldaholic.bots.chemmy.bankCapMultiple` | Bot bank cap (× table min) | Лимит банка бота (× мин. ставка) |
-| `config.burmaldaholic.bots.craps.canShoot` | Bots may shoot at craps | Боты могут бросать кости в крэпсе |
 | `config.burmaldaholic.bots.pvp.fillDelayTicks` | PvP lobbies: bots fill after (ticks) | PvP-лобби: боты заходят через (тики) |
 | `config.burmaldaholic.bots.pvp.maxPerMatch` | PvP: max bots per match | PvP: макс. ботов в матче |
 | `config.burmaldaholic.bots.tournament.maxFill` | Tournaments: max bot fillers | Турниры: макс. ботов-заполнителей |
@@ -1470,7 +1470,8 @@ Scripted human strategies: *always-shove*, *always-c-bet*, *calling-station* (VP
   hard 5–21, soft 13–21, pairs × dealer 2–A); EASY never doubles; NORMAL deviates in 5 % ± 0.5 % of
   soft/double spots over 10⁵ decisions.
 - **UTH:** 2.5 × 10⁷ rounds per level: NORMAL edge 2.27 % ± 0.2 % of the Ante (strategy R), HARD 2.19 % ±
-  0.2 %, EASY measured and published into `…bots.uth_edge` (expected 4–6 %).
+  0.2 %, EASY measured and published into `…bots.uth_edge`: ≈ 19.4 % (19.45 % ± 0.23 % over 2 × 10⁵
+  boards; the earlier 4–6 % estimate ignored the scared ×3 raises and the Trips habit).
 - **Chemin de fer EV invariance:** 10⁶ coups with one scripted human punter (flat 10) against bot
   bankers of each style: human EV −1.24 % ± 0.15 % in all three styles; bot bank never pays rake;
   no bot punter bet while a bot banks; bot punter bets never reduce the coverage a human requested.

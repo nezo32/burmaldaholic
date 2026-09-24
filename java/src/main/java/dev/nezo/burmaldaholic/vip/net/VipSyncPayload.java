@@ -19,9 +19,16 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param contractsOn   {@code contracts.enabled}
  * @param resetTicks    world ticks until the next day's contracts
  * @param rerollCost    chips per reroll
+ * @param botNet        net winnings from money bots today (BOTS.md §5.4 heat, Wallet line)
+ * @param botCap        today's heat cap ({@code 0} = bots off / no line)
  */
 public record VipSyncPayload(boolean open, long wagered, int tier, long todayStaked, long todayReturned, boolean contractsOn,
-		long resetTicks, long rerollCost, List<ContractView> contracts) implements CustomPacketPayload {
+		long resetTicks, long rerollCost, List<ContractView> contracts, long botNet, long botCap) implements CustomPacketPayload {
+	public VipSyncPayload(boolean open, long wagered, int tier, long todayStaked, long todayReturned, boolean contractsOn, long resetTicks,
+			long rerollCost, List<ContractView> contracts) {
+		this(open, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, 0, 0);
+	}
+
 	public static CustomPacketPayload.Type<VipSyncPayload> TYPE;
 
 	/** One contract row. */
@@ -46,7 +53,9 @@ public record VipSyncPayload(boolean open, long wagered, int tier, long todaySta
 				list.add(new ContractView(ByteBufCodecs.stringUtf8(64).decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf),
 					ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.BOOL.decode(buf), ByteBufCodecs.BOOL.decode(buf)));
 			}
-			return new VipSyncPayload(open, wagered, tier, staked, returned, on, reset, cost, List.copyOf(list));
+			long botNet = ByteBufCodecs.VAR_LONG.decode(buf);
+			long botCap = ByteBufCodecs.VAR_LONG.decode(buf);
+			return new VipSyncPayload(open, wagered, tier, staked, returned, on, reset, cost, List.copyOf(list), botNet, botCap);
 		}
 
 		@Override
@@ -70,19 +79,22 @@ public record VipSyncPayload(boolean open, long wagered, int tier, long todaySta
 				ByteBufCodecs.BOOL.encode(buf, c.done());
 				ByteBufCodecs.BOOL.encode(buf, c.rerolled());
 			}
+			ByteBufCodecs.VAR_LONG.encode(buf, p.botNet);
+			ByteBufCodecs.VAR_LONG.encode(buf, p.botCap);
 		}
 	};
 	public static final StreamCodec<RegistryFriendlyByteBuf, VipSyncPayload> CODEC = RAW.cast();
 
 	/** Same data without the open request (what the client caches). */
 	public VipSyncPayload withoutOpen() {
-		return open ? new VipSyncPayload(false, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts) : this;
+		return open ? new VipSyncPayload(false, wagered, tier, todayStaked, todayReturned, contractsOn, resetTicks, rerollCost, contracts, botNet, botCap)
+			: this;
 	}
 
 	/** Change detection that ignores the ticking reset timer. */
 	public boolean sameContent(VipSyncPayload o) {
 		return o != null && wagered == o.wagered && tier == o.tier && todayStaked == o.todayStaked && todayReturned == o.todayReturned
-			&& contractsOn == o.contractsOn && rerollCost == o.rerollCost && contracts.equals(o.contracts);
+			&& contractsOn == o.contractsOn && rerollCost == o.rerollCost && contracts.equals(o.contracts) && botNet == o.botNet && botCap == o.botCap;
 	}
 
 	@Override

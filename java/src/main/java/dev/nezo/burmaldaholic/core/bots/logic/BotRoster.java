@@ -26,6 +26,23 @@ public final class BotRoster {
 
 	private BotRoster() {}
 
+	/** Every name id (32), themed pools first. */
+	public static List<String> all() {
+		List<String> out = new ArrayList<>(PIGLIN);
+		out.addAll(ENDER);
+		out.addAll(ANY);
+		return out;
+	}
+
+	/** A saved name id as it is today: legacy ids/names mapped ({@code diamond_dave} → {@code diamond_dora}), unknown → null. */
+	public static String canonical(String saved) {
+		if (saved == null) {
+			return null;
+		}
+		String id = LEGACY.getOrDefault(saved, saved);
+		return all().contains(id) ? id : null;
+	}
+
 	public static String nameKey(String id) {
 		return "gui.burmaldaholic.bots.name." + id;
 	}

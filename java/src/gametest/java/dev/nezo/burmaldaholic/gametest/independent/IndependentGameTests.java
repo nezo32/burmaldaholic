@@ -162,7 +162,9 @@ public class IndependentGameTests {
 			Map.entry("bankrupt", "the_house"), Map.entry("piglin_parlor", "root"), Map.entry("high_roller", "piglin_parlor"),
 			Map.entry("baccarat_natural", "beginners_luck"), Map.entry("tie_streak", "baccarat_natural"), Map.entry("banco", "baccarat_natural"),
 			Map.entry("bank_holder", "banco"), Map.entry("uth_four_x", "beginners_luck"), Map.entry("uth_house_seat", "uth_four_x"),
-			Map.entry("uth_royal", "uth_four_x"));
+			Map.entry("uth_royal", "uth_four_x"),
+			// Seats & Bots (BOTS.md §10)
+			Map.entry("man_vs_machine", "beginners_luck"), Map.entry("clean_sweep", "shark_hunter"), Map.entry("short_circuit", "banco"));
 		MinecraftServer server = helper.getLevel().getServer();
 		List<String> errors = new ArrayList<>();
 		for (Map.Entry<String, String> e : parent.entrySet()) {

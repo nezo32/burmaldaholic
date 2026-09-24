@@ -93,8 +93,19 @@ public interface Economy {
 		/** Releases a reservation (after settlement). */
 		void release(String id, long amount);
 
-		/** Deletes the account and returns its balance (caller credits it to the owner). */
+		/**
+		 * Deletes the account and returns its balance (caller credits it to the owner). The id is
+		 * tombstoned to the bankroll's owner: chips credited to it later (bots leaving after their hand,
+		 * PvP refunds / payouts / rake, a chemin de fer rake) go to that player (offline-safe), debits
+		 * fail, and a late write never re-creates it. Tombstones are pruned once nothing refers to them
+		 * ({@link BankrollReferences}).
+		 */
 		long close(String id);
+
+		/** The player a CLOSED bankroll pays to (empty while it is open or unknown). */
+		default Optional<UUID> closedOwner(String id) {
+			return Optional.empty();
+		}
 	}
 
 	record BankrollInfo(String id, UUID owner, long balance, long reserved) {

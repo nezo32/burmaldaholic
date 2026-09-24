@@ -72,6 +72,15 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 
 	@Override
 	public void onAction(ServerPlayer player, String action, CompoundTag args) {
+		if (action.startsWith(dev.nezo.burmaldaholic.games.extras.pvp.plinko.PlinkoBattleMachine.PREFIX) && level instanceof ServerLevel sl) {
+			// Plinko Battle entries (PVP.md §7.4): Start / Join / Start now / Leave
+			Component err = dev.nezo.burmaldaholic.games.extras.pvp.plinko.PlinkoBattleMachine.onAction(player, action, args, sl, getBlockPos());
+			if (err != null) {
+				sendError(player, err);
+			}
+			syncViewers();
+			return;
+		}
 		if (!action.equals("drop")) {
 			return;
 		}
@@ -157,6 +166,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		}
 		tag.put("tables", tables);
 		tag.putInt("step_ticks", STEP_TICKS);
+		dev.nezo.burmaldaholic.games.extras.pvp.plinko.PlinkoBattleMachine.writeState(tag, viewer); // Plinko Battle entries
 		CompoundTag last = lastDrop.get(viewer.getUUID());
 		if (last != null) {
 			tag.put("result", last);
