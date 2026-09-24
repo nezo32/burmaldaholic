@@ -31,7 +31,7 @@ class CardMotionTest {
 		assertTrue(p.y < 100);
 		CardMotion.deal(p, 0, 100, 200, 100, 0.3, 0, 5, true);
 		assertEquals(200, p.x, 1e-9, "reduced motion: at the slot");
-		assertEquals(0.3, p.alpha, 1e-9);
+		assertEquals(0.3 * CardMotion.DEAL_MS / CardMotion.REDUCED_FADE_MS, p.alpha, 1e-9, "reduced: a 120 ms fade-in");
 	}
 
 	@Test
