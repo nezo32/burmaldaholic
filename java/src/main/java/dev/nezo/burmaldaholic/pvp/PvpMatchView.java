@@ -211,6 +211,26 @@ public final class PvpMatchView {
 			o.add("payouts", longs(payouts(m, out)));
 			r.add("places", ints(RevealOrder.places(out.rankOrder(), out.points(), out.winners())));
 			o.add("result", r);
+			// the same outcome in the shape the mode screens read (games.*.client.pvp: PvpModeView / MatchView)
+			JsonObject oc = new JsonObject();
+			oc.add("points", longs(out.points()));
+			oc.add("rankOrder", ints(out.rankOrder()));
+			oc.add("winners", ints(out.winners()));
+			oc.add("seatOrder", ints(out.seatOrder()));
+			JsonArray events = new JsonArray();
+			for (var e : out.events()) {
+				JsonObject ev = new JsonObject();
+				ev.addProperty("kind", e.kind());
+				ev.addProperty("seat", e.seat());
+				ev.addProperty("round", e.round());
+				JsonObject d = new JsonObject();
+				e.data().forEach(d::addProperty);
+				ev.add("data", d);
+				events.add(ev);
+			}
+			oc.add("events", events);
+			o.add("outcome", oc);
+			o.add("points", longs(out.points()));
 		}
 		PvpViewContributors.apply(m, viewer, o);
 		return o;

@@ -101,6 +101,11 @@ final class PvpEngine implements PvpService {
 	private final Map<String, ChatterLimiter> chatter = new HashMap<>();
 	private final List<BiPredicate<MinecraftServer, UUID>> busyChecks = new CopyOnWriteArrayList<>();
 	private @Nullable MinecraftServer server;
+	/** Engine-wide sequence of chain questions (review wave 2, m2). */
+	private long decisionSeqCounter;
+	/** First / maximum settlement retry back-off (review wave 2, m6). */
+	static final int SETTLE_RETRY_FIRST = 20;
+	static final int SETTLE_RETRY_MAX = 1200;
 
 	enum Reason { NORMAL, OFFLINE, STOP, CASINO_OFF, ADMIN }
 
@@ -120,6 +125,26 @@ final class PvpEngine implements PvpService {
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> onJoin(handler.getPlayer()));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, s) -> onDisconnect(handler.getPlayer()));
+		// a closed bankroll's tombstone stays while a live match may still refund / pay / rake to it (review wave 2, M1)
+		dev.nezo.burmaldaholic.core.economy.BankrollReferences.add((s, id) -> referencesBankroll(id));
+	}
+
+	/** Some live match (not yet history) is anchored at bankroll {@code id} or has bots funded by it. */
+	boolean referencesBankroll(String id) {
+		for (PvpMatch m : matches.values()) {
+			if (m.phase == Phase.HISTORY || m.phase == Phase.CLOSED) {
+				continue;
+			}
+			if (m.bankroll.equals(id)) {
+				return true;
+			}
+			for (Participant p : m.participants) {
+				if (p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL && b.purse().bankrollId().equals(id)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Engine fields of the match view (pvp module screens): the viewer's pending decision, chain, timers. */
@@ -147,10 +172,17 @@ final class PvpEngine implements PvpService {
 					&& d.link() == match.link).ifPresent(d -> {
 					JsonObject o = new JsonObject();
 					o.addProperty("id", d.decision());
+					o.addProperty("match", match.id);
+					o.addProperty("seq", match.decisionSeq);
 					o.addProperty("ticksLeft", d.ticksLeft());
 					o.addProperty("deficit", d.deficit());
 					o.addProperty("link", d.link());
 					o.addProperty("side", match.donSide);
+					o.addProperty("called", match.donSide == 1 ? 2 : 1);
+					if (match.offerBlock != null && "coin.don_offer".equals(d.decision())) {
+						o.addProperty("blocked", match.offerBlock);
+						o.addProperty("blockedArg", match.chain == null ? 0 : match.chain.nextStake());
+					}
 					view.add("decision", o);
 				});
 			}
@@ -322,6 +354,10 @@ final class PvpEngine implements PvpService {
 	}
 
 	private void tickMatch(MinecraftServer s, PvpMatch m, long now) {
+		if ((m.phase == Phase.LOBBY || m.phase == Phase.NO_MORE_BETS) && now % 20 == 0 && anchorLost(s, m)) {
+			cancelLobby(s, m); // machine broken, or its charter closed / changed: entries back (Bedrock watchLobbyAnchors)
+			return;
+		}
 		switch (m.phase) {
 			case INVITE -> tickInvite(s, m, now);
 			case LOBBY -> {
@@ -653,7 +689,13 @@ final class PvpEngine implements PvpService {
 		if (participantOf(m, player.getUUID()) != null) {
 			return fail("gui.burmaldaholic.pvp.error.self");
 		}
-		if (m.participants.size() >= maxPlayers(md)) {
+		if (m.inviteOnly && CasinoConfig.bots().privateTables.enabled && !m.guests.contains(player.getUUID()) && !player.getUUID().equals(m.host)
+				&& !net.minecraft.commands.Commands.LEVEL_GAMEMASTERS.check(player.permissions())) {
+			return Result.fail(Component.translatable("gui.burmaldaholic.bots.error.private_table", hostName(s, m)));
+		}
+		// a full lobby with bots: the last bot to join yields its seat, after the human's escrow succeeded (m7)
+		Participant yielding = m.participants.size() >= maxPlayers(md) ? lastBot(m) : null;
+		if (m.participants.size() >= maxPlayers(md) && yielding == null) {
 			return fail("gui.burmaldaholic.pvp.error.lobby_full");
 		}
 		long amount = equalStakes(m) ? m.participants.get(0).stake() : stake;
@@ -668,6 +710,18 @@ final class PvpEngine implements PvpService {
 		Participant p = new Participant(m.participants.size(), human(player), amount);
 		if (!escrow(s, m, List.of(p))) {
 			return Result.fail(Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.chips(Economies.get().balance(player))));
+		}
+		if (yielding != null) {
+			if (!refundOne(s, yielding)) {
+				refundOne(s, p);
+				return fail("gui.burmaldaholic.pvp.error.lobby_full");
+			}
+			quip(s, m, yielding, "yield", player.getDisplayName(), now(s));
+			tell(s, m, Component.translatable("msg.burmaldaholic.bots.left", PvpText.name(yielding, md)), false);
+			boolean allIn = p.allIn();
+			renumber(m, yielding);
+			p = new Participant(m.participants.size(), p.occupant, amount);
+			p.setAllIn(allIn);
 		}
 		m.participants.add(p);
 		long now = now(s);
@@ -758,6 +812,62 @@ final class PvpEngine implements PvpService {
 				}
 			}
 		}
+	}
+
+	/** The bot that joined last (PvP yield rule, BOTS.md §3.3), or null. */
+	private static @Nullable Participant lastBot(PvpMatch m) {
+		for (int i = m.participants.size() - 1; i >= 0; i--) {
+			if (m.participants.get(i).isBot()) {
+				return m.participants.get(i);
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public Result<Boolean> inviteToLobby(ServerPlayer host, UUID guest) {
+		MinecraftServer s = server(host);
+		PvpMatch m = null;
+		for (PvpMatch x : matches.values()) {
+			if (x.phase == Phase.LOBBY && host.getUUID().equals(x.host)) {
+				m = x;
+			}
+		}
+		if (m == null) {
+			return fail("gui.burmaldaholic.pvp.error.lobby_gone");
+		}
+		if (guest.equals(host.getUUID())) {
+			return fail("gui.burmaldaholic.pvp.error.self");
+		}
+		if (m.guests.size() >= CasinoConfig.bots().privateTables.maxInvites && !m.guests.contains(guest)) {
+			return Result.fail(Component.translatable("gui.burmaldaholic.bots.error.invites_full", Texts.number(CasinoConfig.bots().privateTables.maxInvites)));
+		}
+		ServerPlayer g = online(s, guest);
+		if (g == null) {
+			return Result.fail(Component.translatable("gui.burmaldaholic.pvp.error.target_unavailable", Texts.raw("?")));
+		}
+		m.guests.add(guest);
+		BlockPos at = m.anchor.pos();
+		MutableComponent line = Component.translatable("msg.burmaldaholic.bots.invited", host.getDisplayName(), PvpText.modeName(m.mode),
+			Texts.raw(at.getX() + " " + at.getY() + " " + at.getZ())).withStyle(ChatFormatting.GOLD);
+		String cmd = "/casino pvp join " + m.id;
+		line.append(Texts.raw(" ")).append(Component.translatable("gui.burmaldaholic.pvp.invite.accept_button").withStyle(st -> st
+			.withColor(ChatFormatting.GREEN).withBold(true).withClickEvent(new net.minecraft.network.chat.ClickEvent.RunCommand(cmd))
+			.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(Texts.raw(cmd)))));
+		g.sendSystemMessage(line);
+		presenter().lobbyChanged(m);
+		return Result.ok(true);
+	}
+
+	/** Returns one entry from the bank escrow; false if the transaction failed (humans, bankroll bots). */
+	private boolean refundOne(MinecraftServer s, Participant p) {
+		UUID h = p.humanId();
+		AccountId to = h != null ? AccountId.player(h)
+			: p.occupant instanceof SeatOccupant.Bot b && b.purse().kind() == Purse.Kind.BANKROLL ? AccountId.bankroll(b.purse().bankrollId()) : null;
+		if (to == null || p.stake() <= 0) {
+			return true;
+		}
+		return Economies.get().batch(s).debit(AccountId.HOUSE, p.stake()).credit(to, p.stake()).commit(Transaction.refund(GAME)).ok();
 	}
 
 	private void leaveLobby(MinecraftServer s, PvpMatch m, UUID id) {
@@ -974,6 +1084,29 @@ final class PvpEngine implements PvpService {
 		presenter().lobbyChanged(m);
 	}
 
+	/**
+	 * A machine lobby whose anchor is gone (the block was broken) or whose casino changed since creation (the
+	 * charter broke, closed the table, or a charter linked a house machine): the lobby cannot go on with the
+	 * money routing it was opened with.
+	 */
+	private boolean anchorLost(MinecraftServer s, PvpMatch m) {
+		if (m.anchorKind == AnchorKind.NONE) {
+			return false;
+		}
+		ServerLevel level = s.getLevel(m.anchor.dimension());
+		if (level == null || !level.isLoaded(m.anchor.pos())) {
+			return false;
+		}
+		if (level.getBlockState(m.anchor.pos()).isAir()) {
+			return true;
+		}
+		OwnedTable owned = owned(s, m);
+		if (m.bankroll.isEmpty()) {
+			return owned != null;
+		}
+		return owned == null || !owned.bankrollId().equals(m.bankroll) || !owned.open();
+	}
+
 	private void cancelLobby(MinecraftServer s, PvpMatch m) {
 		tell(s, m, Component.translatable("msg.burmaldaholic.pvp.lobby.cancelled").withStyle(ChatFormatting.GRAY), false);
 		refundAll(s, m, false, false);
@@ -1057,19 +1190,18 @@ final class PvpEngine implements PvpService {
 		return Economies.get().bankrolls(s).get(purse.bankrollId()).map(b -> b.available() >= amount).orElse(false);
 	}
 
+	/**
+	 * A PvP bot's quip (BOTS.md §7.4) through core {@link dev.nezo.burmaldaholic.core.bots.BotChatter}: its rate
+	 * limits and chance, the bots module's delivery (per-player mute, emotes, audience around the anchor).
+	 */
 	private void quip(MinecraftServer s, PvpMatch m, Participant bot, String trigger, Component human, long now) {
 		if (!(bot.occupant instanceof SeatOccupant.Bot b) || !m.seating.chatter() || !CasinoConfig.bots().chatter.enabled) {
 			return;
 		}
-		var c = CasinoConfig.bots().chatter;
-		double chance = b.profile().level() == BotDifficulty.HARD ? c.chance / 2 : c.chance;
-		ChatterLimiter lim = chatter.computeIfAbsent(m.id, k -> new ChatterLimiter());
-		if (lim.admit(b.key(), trigger, now, new ChatterLimiter.Config(chance, c.botCooldownTicks, c.tableCooldownTicks), rng(m)) < 0) {
-			return;
+		ServerLevel level = s.getLevel(m.anchor.dimension());
+		if (level != null) {
+			dev.nezo.burmaldaholic.core.bots.BotChatter.event(level, m.anchor.pos(), b.profile(), trigger, human.getString());
 		}
-		int variants = QUIP_VARIANTS.getOrDefault(trigger, 1);
-		Component line = Component.translatable("dialog.burmaldaholic.bots." + trigger + "." + (1 + rng(m).nextInt(variants)), human);
-		tell(s, m, Component.translatable("msg.burmaldaholic.bots.say", PvpText.name(bot, mode(m)), line).withStyle(ChatFormatting.GRAY), true);
 	}
 
 	private static int bots(PvpMatch m) {
@@ -1207,7 +1339,9 @@ final class PvpEngine implements PvpService {
 
 	private void tickReveal(MinecraftServer s, PvpMatch m, long now) {
 		if (m.cursor >= m.steps.size()) {
-			settle(s, m, Reason.NORMAL);
+			if (now >= m.settleRetryAt) {
+				settle(s, m, m.forcedSettle ? Reason.OFFLINE : Reason.NORMAL);
+			}
 			return;
 		}
 		Step step = m.steps.get(m.cursor);
@@ -1284,9 +1418,11 @@ final class PvpEngine implements PvpService {
 		}
 		Economy.TxResult tx = batch.commit(Transaction.payout(GAME));
 		if (!tx.ok()) {
-			Burmaldaholic.LOGGER.error("PvP: settlement of {} failed ({}); retried next tick", m.id, tx.failed());
+			settleFailed(s, m, reason, String.valueOf(tx.failed()));
 			return;
 		}
+		m.settleBackoff = 0;
+		m.settleRetryAt = 0;
 		m.payouts = r.payouts();
 		m.rake = r.rake();
 		m.state = MatchState.SETTLED;
@@ -1303,6 +1439,20 @@ final class PvpEngine implements PvpService {
 			}
 		}
 		afterSettle(s, m, md, seats, r, reason, now);
+	}
+
+	/**
+	 * A settlement transaction failed (review wave 2, m6): the match stays DRAWN (escrow held) and the reveal
+	 * tick retries after 20 t, doubling up to 1 200 t. Every failure is logged; it settles exactly once.
+	 */
+	private void settleFailed(MinecraftServer s, PvpMatch m, Reason reason, String why) {
+		m.settleBackoff = m.settleBackoff <= 0 ? SETTLE_RETRY_FIRST : Math.min(SETTLE_RETRY_MAX, m.settleBackoff * 2);
+		m.settleRetryAt = now(s) + m.settleBackoff;
+		m.forcedSettle = reason != Reason.NORMAL;
+		m.phase = Phase.REVEAL;
+		m.cursor = m.steps.size();
+		matches.putIfAbsent(m.id, m);
+		Burmaldaholic.LOGGER.error("PvP: settlement of {} failed ({}); retry in {} t", m.id, why, m.settleBackoff);
 	}
 
 	private void afterSettle(MinecraftServer s, PvpMatch m, PvpMode<?, ?> md, List<Settlement.Seat> seats, Settlement.Result r, Reason reason,
@@ -1527,6 +1677,7 @@ final class PvpEngine implements PvpService {
 
 	private void openOffer(MinecraftServer s, PvpMatch m, Phase phase, int who, long now) {
 		m.phase = phase;
+		m.decisionSeq = ++decisionSeqCounter;
 		m.phaseEnd = now + CasinoConfig.pvp().decisionTimeoutTicks;
 		for (Participant p : m.participants) {
 			p.botActAt = -1;
@@ -1570,9 +1721,15 @@ final class PvpEngine implements PvpService {
 	}
 
 	@Override
-	public void decide(ServerPlayer player, String decision, long option) {
+	public void decide(ServerPlayer player, String decision, long option, @Nullable String matchId, long seq) {
 		MinecraftServer s = server(player);
 		for (PvpMatch m : new ArrayList<>(matches.values())) {
+			if (matchId != null && !matchId.isEmpty() && !matchId.equals(m.id)) {
+				continue;
+			}
+			if (seq >= 0 && seq != m.decisionSeq) {
+				continue; // a stale form / screen answering an earlier question (review wave 2, m2)
+			}
 			Participant p = participantOf(m, player.getUUID());
 			if (p != null && (m.phase == Phase.OFFER_LOSER || m.phase == Phase.OFFER_WINNER)) {
 				decideFor(s, m, p, decision, option);
@@ -1878,7 +2035,7 @@ final class PvpEngine implements PvpService {
 			if (m.phase != Phase.LOBBY || (mode != null && !mode.equals(m.mode)) || m.seating.policy() == SeatPolicy.BOTS_ONLY) {
 				continue;
 			}
-			if (m.inviteOnly && participantOf(m, player.getUUID()) == null) {
+			if (m.inviteOnly && participantOf(m, player.getUUID()) == null && !m.guests.contains(player.getUUID())) {
 				continue;
 			}
 			if (!player.level().dimension().equals(m.anchor.dimension())

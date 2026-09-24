@@ -96,6 +96,43 @@ public final class Ownership {
 		return new TablePos(dim(level), pos.getX(), pos.getY(), pos.getZ()).key();
 	}
 
+	/**
+	 * Charter "Bots" switch changed: the table's Seats &amp; Bots owner mode follows (off → Off; on → Allowed if it
+	 * was Off). Bots already seated leave at the table's next safe point (BOTS.md §6.2).
+	 */
+	static void syncTableBots(MinecraftServer server, String tableKey, boolean allowed) {
+		TablePos.parse(tableKey).ifPresent(tp -> {
+			ServerLevel level = level(server, tp.dimension());
+			BlockPos pos = new BlockPos(tp.x(), tp.y(), tp.z());
+			if (level == null || !level.isLoaded(pos)
+					|| !(level.getBlockEntity(pos) instanceof dev.nezo.burmaldaholic.core.bots.BotTable bt) || bt.tableBots() == null) {
+				return;
+			}
+			var tb = bt.tableBots();
+			var cur = tb.limits();
+			var mode = allowed ? (cur.botsMode() == dev.nezo.burmaldaholic.core.bots.logic.BotsMode.OFF
+				? dev.nezo.burmaldaholic.core.bots.logic.BotsMode.ALLOWED : cur.botsMode()) : dev.nezo.burmaldaholic.core.bots.logic.BotsMode.OFF;
+			if (mode != cur.botsMode()) {
+				tb.setLimits(new dev.nezo.burmaldaholic.core.bots.logic.OwnerControls(mode, cur.hostMayChange(), cur.maxBots(), cur.allowPrivate()));
+				level.getBlockEntity(pos).setChanged();
+			}
+		});
+	}
+
+	/** Bots module → charter: the owner saved a bots mode for an owned table. */
+	static boolean setCharterBots(ServerLevel level, BlockPos pos, boolean allowed) {
+		MinecraftServer server = level.getServer();
+		Optional<TableRecord> rec = book(server).table(key(level, pos));
+		if (rec.isEmpty() || rec.get().casinoId == null) {
+			return false;
+		}
+		if (rec.get().bots != allowed) {
+			rec.get().bots = allowed;
+			data(server).setDirty();
+		}
+		return true;
+	}
+
 	static MultiplayerData data(MinecraftServer server) {
 		return MultiplayerData.get(server);
 	}
@@ -800,8 +837,12 @@ public final class Ownership {
 				t.open = args.getBooleanOr("open", t.open);
 				t.min = limits.min();
 				t.max = limits.max();
+				boolean botsBefore = t.bots;
 				t.bots = args.getBooleanOr("bots", t.bots);
 				data(server).setDirty();
+				if (botsBefore != t.bots) {
+					syncTableBots(server, key, t.bots);
+				}
 				msg = Component.translatable("msg.burmaldaholic.multiplayer.table_saved", tableLabel(t));
 				refreshSolvency(server, c, false);
 			}

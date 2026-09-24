@@ -86,6 +86,13 @@ public final class PvpMatch {
 	int grudgeUnderdog = -1;
 	/** Settled by a play-out (world load, server stop, casino mode off, admin): no offers, no rematch. */
 	boolean forcedSettle;
+	/** Engine-wide sequence of the open Double-or-nothing / let-it-ride question (stale answers are dropped). */
+	long decisionSeq;
+	/** Settlement failed: next retry tick and the current back-off (review wave 2, m6). */
+	long settleRetryAt;
+	int settleBackoff;
+	/** Invite-only lobby: players the host invited (BOTS.md §2.5; the host and ops always may join). */
+	final java.util.Set<UUID> guests = new java.util.LinkedHashSet<>();
 
 	/** Engine phases. */
 	enum Phase {
@@ -162,6 +169,16 @@ public final class PvpMatch {
 	/** Why the Double-or-nothing offer is disabled (a translation key) or null. */
 	public @Nullable String offerBlock() {
 		return offerBlock;
+	}
+
+	/** Sequence number of the open chain question (match id + this = a decision's identity). */
+	public long decisionSeq() {
+		return decisionSeq;
+	}
+
+	/** Invite-only lobby guests. */
+	public java.util.Set<UUID> guests() {
+		return java.util.Set.copyOf(guests);
 	}
 
 	public long drawnTick() {

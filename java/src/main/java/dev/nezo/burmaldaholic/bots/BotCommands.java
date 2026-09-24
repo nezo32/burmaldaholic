@@ -226,28 +226,40 @@ final class BotCommands {
 		return out;
 	}
 
-	/** Bots leave at the next safe point: the session switches to Humans only. Needs an in-game operator (TableBots.requestChange takes a player). */
+	/**
+	 * Bots leave at the next safe point (never mid-round, review wave 2 m1): the session switches to Humans only
+	 * ({@link dev.nezo.burmaldaholic.core.bots.TableBots#clear}). {@code all} works from the console too.
+	 */
 	private static int clear(CommandContext<CommandSourceStack> ctx, boolean all) throws CommandSyntaxException {
-		ServerPlayer op = ctx.getSource().getPlayerOrException();
 		List<BotTables.Found> tables = new ArrayList<>();
 		if (all) {
 			tables.addAll(BotTables.known(toList(ctx.getSource().getServer().getAllLevels())));
 		} else {
+			ServerPlayer op = ctx.getSource().getPlayerOrException();
 			BotTables.Found f = target(ctx.getSource(), op);
 			if (f == null) {
 				return 0;
 			}
 			tables.add(f);
 		}
+		java.util.Set<dev.nezo.burmaldaholic.core.bots.TableBots> done = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 		int n = 0;
 		for (BotTables.Found f : tables) {
 			BotSettings cur = TableSettings.currentOrPending(f.bots());
 			if (cur.policy() == SeatPolicy.HUMANS_ONLY && f.bots().bots().isEmpty()) {
 				continue;
 			}
-			if (f.bots().requestChange(op, cur.withPolicy(SeatPolicy.HUMANS_ONLY), false).isOk()) {
-				f.blockEntity().setChanged();
-				n++;
+			f.bots().clear();
+			done.add(f.bots());
+			f.blockEntity().setChanged();
+			n++;
+		}
+		if (all) {
+			for (dev.nezo.burmaldaholic.core.bots.TableBots t : dev.nezo.burmaldaholic.core.bots.Bots.tables()) {
+				if (done.add(t)) {
+					t.clear(); // tables with bots the module has not seen yet
+					n++;
+				}
 			}
 		}
 		int cleared = n;

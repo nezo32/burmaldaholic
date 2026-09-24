@@ -246,9 +246,7 @@ public final class PvpUi {
 				}
 			}
 			for (PvpMatch invite : pvp.invitesFor(p.getUUID())) {
-				if (NOTIFIED.add(invite.id + "/" + p.getUUID())) {
-					sendInvite(server, p, invite);
-				}
+				notifyInvite(server, p, invite);
 			}
 		}
 		if (server.getTickCount() % 400 == 0) {
@@ -279,6 +277,13 @@ public final class PvpUi {
 			return Component.translatable(challengerHeads ? "gui.burmaldaholic.extras.coin.tails" : "gui.burmaldaholic.extras.coin.heads");
 		}
 		return null;
+	}
+
+	/** Sends {@code target} the invite of {@code m} once (presenter at creation; the periodic scan as a safety net). */
+	static void notifyInvite(MinecraftServer server, ServerPlayer target, PvpMatch m) {
+		if (NOTIFIED.add(m.id + "/" + target.getUUID())) {
+			sendInvite(server, target, m);
+		}
 	}
 
 	public static void sendInvite(MinecraftServer server, ServerPlayer target, PvpMatch m) {
@@ -328,7 +333,21 @@ public final class PvpUi {
 				case "fill_bots" -> pvp.fillWithBots(p, id);
 				case "leave" -> pvp.leave(p);
 				case "press" -> pvp.press(p);
-				case "decide" -> pvp.decide(p, a.arg(), a.value());
+				case "decide" -> {
+					// arg = "<decision>" or "<decision>#<seq>" (the question the screen was opened for, review wave 2 m2)
+					String arg = a.arg();
+					int hash = arg.indexOf('#');
+					long seq = -1;
+					if (hash >= 0) {
+						try {
+							seq = Long.parseLong(arg.substring(hash + 1));
+						} catch (NumberFormatException e) {
+							seq = Long.MAX_VALUE; // never matches
+						}
+						arg = arg.substring(0, hash);
+					}
+					pvp.decide(p, arg, a.value(), id.isEmpty() ? null : id, seq);
+				}
 				case "taunt" -> error = Taunts.valid((int) a.value()) ? err(pvp.taunt(p, (int) a.value())) : null;
 				case "rematch" -> pvp.rematch(p, id);
 				case "accept" -> error = err(pvp.accept(p, id));

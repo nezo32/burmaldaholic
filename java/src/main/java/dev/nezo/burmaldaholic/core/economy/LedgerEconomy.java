@@ -18,7 +18,9 @@ public final class LedgerEconomy implements Economy {
 	private final List<CreditHook> hooks = new CopyOnWriteArrayList<>();
 
 	private static Ledger ledger(MinecraftServer server) {
-		return CasinoWorldData.get(server).ledger();
+		Ledger l = CasinoWorldData.get(server).ledger();
+		l.setNow(server.overworld() == null ? 0 : server.overworld().getGameTime());
+		return l;
 	}
 
 	private static long maxBalance() {
@@ -101,6 +103,11 @@ public final class LedgerEconomy implements Economy {
 				CasinoWorldData.get(server).setDirty();
 				return ledger(server).closeBankroll(id);
 			}
+
+			@Override
+			public Optional<UUID> closedOwner(String id) {
+				return ledger(server).closedOwner(id);
+			}
 		};
 	}
 
@@ -139,6 +146,7 @@ public final class LedgerEconomy implements Economy {
 			}
 			committed = true;
 			CasinoWorldData data = CasinoWorldData.get(server);
+			ledger(server);
 			Ledger.Commit result = data.ledger().commit(legs, maxBalance(), e -> {
 				long amount = e.getValue();
 				if (!reason.kind().garnishable() || !(e.getKey() instanceof AccountId.Player p)) {
@@ -153,6 +161,15 @@ public final class LedgerEconomy implements Economy {
 				return TxResult.insufficient(result.failed());
 			}
 			data.setDirty();
+			result.lateReturns().forEach((id, amount) -> {
+				UUID owner = data.ledger().tombstones().get(id).owner();
+				dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.info("Closed bankroll {}: {} chips ({}) went to its owner {}", id, amount, reason.detail(), owner);
+				ServerPlayer online = server.getPlayerList().getPlayer(owner);
+				if (online != null) {
+					online.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.bankroll_late_return",
+						dev.nezo.burmaldaholic.core.text.Texts.chips(amount)));
+				}
+			});
 			for (Map.Entry<AccountId, Long> e : result.before().entrySet()) {
 				if (e.getKey() instanceof AccountId.Player p) {
 					long before = e.getValue();

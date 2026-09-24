@@ -55,6 +55,8 @@ public final class PvpHubPage implements CasinoMenu.Page {
 		boolean heads = true;
 		SeatPolicy policy = SeatPolicy.HUMANS_ONLY;
 		BotDifficulty difficulty = BotDifficulty.NORMAL;
+		/** Invite-only lobby (BOTS.md §2.5). */
+		boolean inviteOnly;
 	}
 
 	private final Map<UUID, State> states = new ConcurrentHashMap<>();
@@ -164,6 +166,17 @@ public final class PvpHubPage implements CasinoMenu.Page {
 			out.button(P + "show", Component.translatable("gui.burmaldaholic.pvp.hub.show"));
 			if (m.state() == MatchState.LOBBY) {
 				out.button(P + "leave", Component.translatable("gui.burmaldaholic.pvp.lobby.leave"));
+				if (m.inviteOnly && me.equals(m.host())) {
+					// invite-only lobby: the host invites nearby players (chat line with a clickable [Join])
+					out.line(Component.translatable("gui.burmaldaholic.bots.private.invite"), 0xFFD700);
+					int radius = CasinoConfig.bots().privateTables.inviteRadius;
+					for (ServerPlayer other : server.getPlayerList().getPlayers()) {
+						boolean near = radius <= 0 || (other.level() == player.level() && other.distanceToSqr(player) <= (double) radius * radius);
+						if (other != player && near && !m.guests().contains(other.getUUID()) && PvpMatchView.indexOf(m, other.getUUID()) < 0) {
+							out.button(P + "guest:" + other.getUUID(), other.getDisplayName());
+						}
+					}
+				}
 			}
 		} else if (mine.isPresent()) {
 			PvpMatch m = mine.get();
@@ -277,6 +290,10 @@ public final class PvpHubPage implements CasinoMenu.Page {
 					out.button(P + "difficulty", Component.translatable("gui.burmaldaholic.pvp.toggle",
 						Component.translatable("gui.burmaldaholic.pvp.bots.difficulty"), Component.translatable(s.difficulty.translationKey())));
 				}
+				if (CasinoConfig.bots().privateTables.enabled) {
+					out.button(P + "private", Component.translatable("gui.burmaldaholic.pvp.toggle", Component.translatable("gui.burmaldaholic.bots.private.toggle"),
+						Component.translatable(s.inviteOnly ? "gui.burmaldaholic.bots.private.yes" : "gui.burmaldaholic.bots.private.no")));
+				}
 				out.amountButton(P + "lobby", Component.translatable("gui.burmaldaholic.pvp.new.open_lobby"), min);
 			}
 		}
@@ -323,6 +340,14 @@ public final class PvpHubPage implements CasinoMenu.Page {
 			case "policy" -> s.policy = SeatPolicy.values()[(s.policy.ordinal() + 1) % SeatPolicy.values().length];
 			case "difficulty" -> s.difficulty = BotDifficulty.values()[(s.difficulty.ordinal() + 1) % BotDifficulty.values().length];
 			case "invites" -> setAcceptsInvites(server, player.getUUID(), !acceptsInvites(server, player.getUUID()));
+			case "private" -> s.inviteOnly = !s.inviteOnly;
+			case "guest" -> {
+				try {
+					return PvpUi.errorOf(pvp.inviteToLobby(player, UUID.fromString(arg)));
+				} catch (IllegalArgumentException e) {
+					return null;
+				}
+			}
 			case "show" -> {
 				Optional<PvpMatch> m = pvp.matchOf(player.getUUID());
 				if (m.isPresent() && m.get().state() != MatchState.INVITED) {
@@ -378,7 +403,8 @@ public final class PvpHubPage implements CasinoMenu.Page {
 				int size = mode == null ? 2 : mode.maxPlayers();
 				BotSettings seating = new BotSettings(s.policy, Math.max(1, size - 1), s.difficulty, false, true, BotSpeed.NORMAL);
 				Result<PvpMatch> r = pvp.openLobby(player, s.mode, params(s.mode, s.heads, amount), amount,
-					new PvpService.Anchor(AnchorKind.NONE, player.level(), player.blockPosition()), seating, false);
+					new PvpService.Anchor(AnchorKind.NONE, player.level(), player.blockPosition()), seating,
+					s.inviteOnly && CasinoConfig.bots().privateTables.enabled);
 				if (r.isOk()) {
 					s.view = "main";
 				}
@@ -485,27 +511,12 @@ public final class PvpHubPage implements CasinoMenu.Page {
 
 	// ---- "Accept PvP challenges" (stored in the player's PvP record JSON, pvp-bots.md §5.2) --------
 
+	/** "Accept PvP challenges": the engine's player record (the same flag it checks for invites, pvp-bots.md §5.2). */
 	static boolean acceptsInvites(MinecraftServer server, UUID player) {
-		try {
-			JsonObject o = JsonParser.parseString(PvpRecordData.get(server).json(player)).getAsJsonObject();
-			return !o.has("acceptInvites") || o.get("acceptInvites").getAsBoolean();
-		} catch (RuntimeException e) {
-			return true;
-		}
+		return Pvp.service().acceptsInvites(player);
 	}
 
 	static void setAcceptsInvites(MinecraftServer server, UUID player, boolean accept) {
-		PvpRecordData data = PvpRecordData.get(server);
-		JsonObject o;
-		try {
-			o = JsonParser.parseString(data.json(player)).getAsJsonObject();
-		} catch (RuntimeException e) {
-			o = new JsonObject();
-		}
-		if (!o.has("v")) {
-			o.addProperty("v", 1);
-		}
-		o.addProperty("acceptInvites", accept);
-		data.put(player, o.toString());
+		Pvp.service().setAcceptInvites(player, accept);
 	}
 }

@@ -287,6 +287,11 @@ public class CasinoMenuScreen extends Screen {
 		add(streak == 0 ? Component.translatable("gui.burmaldaholic.menu.wallet.streak_none")
 			: Component.translatable("gui.burmaldaholic.menu.wallet.streak", Component.translatable(
 				streak > 0 ? "hud.burmaldaholic.streak.lucky" : "hud.burmaldaholic.streak.unlucky", Texts.number(Math.abs(streak)))), TEXT, 0, w);
+		if (d.botCap() > 0) {
+			// BOTS.md §5.4: "Winnings from bots today: 3 200 / 5 000"
+			add(Component.translatable("gui.burmaldaholic.bots.wallet_line", Texts.chips(d.botNet()), Texts.chips(d.botCap())),
+				d.botNet() >= d.botCap() ? 0xFFFF5555 : 0xFFFFD700, 0, w);
+		}
 		blank();
 		add(Component.translatable("gui.burmaldaholic.vip.current", VipTiers.name(d.tier())), TEXT, 0, w);
 		add(Component.translatable("gui.burmaldaholic.vip.max_bet", Texts.chips(VipTiers.maxBet(d.tier()))), TEXT, 0, w);

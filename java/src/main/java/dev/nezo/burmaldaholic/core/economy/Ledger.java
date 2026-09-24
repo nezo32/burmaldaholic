@@ -35,8 +35,26 @@ public final class Ledger {
 
 	public record Leg(AccountId account, long delta) {}
 
-	/** Result of a commit. {@code applied} = final per-account delta actually applied. */
-	public record Commit(boolean ok, AccountId failed, Map<AccountId, Long> applied, Map<AccountId, Long> before, long lostToCap) {}
+	/**
+	 * Tombstone of a closed bankroll (review wave 2, M1): the player its last balance was paid to, and the
+	 * tick of the close or of the last late credit (pruning grace, see {@link #pruneTombstones}).
+	 */
+	public record Tombstone(UUID owner, long touched) {}
+
+	/**
+	 * Result of a commit. {@code applied} = final per-account delta actually applied. {@code lateReturns} =
+	 * chips credited to a closed bankroll that went to its tombstone owner instead (bankroll id → amount).
+	 */
+	public record Commit(boolean ok, AccountId failed, Map<AccountId, Long> applied, Map<AccountId, Long> before, long lostToCap,
+			Map<String, Long> lateReturns) {
+		public Commit(boolean ok, AccountId failed, Map<AccountId, Long> applied, Map<AccountId, Long> before, long lostToCap) {
+			this(ok, failed, applied, before, lostToCap, Map.of());
+		}
+	}
+
+	private final Map<String, Tombstone> closed = new LinkedHashMap<>();
+	/** Clock for tombstones (world ticks), set by the economy before each commit / close. */
+	private long now;
 
 	public long balance(UUID player) {
 		return balances.getOrDefault(player, 0L);
@@ -60,16 +78,64 @@ public final class Ledger {
 	}
 
 	public Economy.BankrollInfo openBankroll(String id, UUID owner) {
+		closed.remove(id); // a new charter re-using the id
 		return bankrolls.computeIfAbsent(id, k -> new Bankroll(owner, 0, 0)).info(id);
+	}
+
+	/** Current world tick for tombstone bookkeeping. */
+	public void setNow(long tick) {
+		now = tick;
+	}
+
+	/** Closed bankrolls (id → tombstone), for persistence and admin. */
+	public Map<String, Tombstone> tombstones() {
+		return closed;
+	}
+
+	public void loadTombstone(String id, UUID owner, long touched) {
+		closed.put(id, new Tombstone(owner, touched));
+	}
+
+	/** The player a closed bankroll pays to (empty while it is open or never existed). */
+	public Optional<UUID> closedOwner(String id) {
+		Tombstone t = bankrolls.containsKey(id) ? null : closed.get(id);
+		return t == null ? Optional.empty() : Optional.of(t.owner());
+	}
+
+	/**
+	 * Drops tombstones nothing refers to any more: {@code referenced} says whether some live state (bots
+	 * funded by it, PvP matches, open rounds) may still send chips to the id; an unreferenced tombstone is
+	 * kept for {@code graceTicks} after its close / last late credit (in-flight rounds not tracked by any
+	 * reference). Returns the ids removed.
+	 */
+	public List<String> pruneTombstones(long nowTick, long graceTicks, java.util.function.Predicate<String> referenced) {
+		List<String> removed = new java.util.ArrayList<>();
+		closed.entrySet().removeIf(e -> {
+			if (nowTick - e.getValue().touched() < graceTicks || referenced.test(e.getKey())) {
+				return false;
+			}
+			removed.add(e.getKey());
+			return true;
+		});
+		return removed;
 	}
 
 	public void loadBankroll(String id, UUID owner, long balance, long reserved) {
 		bankrolls.put(id, new Bankroll(owner, balance, reserved));
 	}
 
+	/**
+	 * Deletes the account and returns its balance (the caller pays it to the owner). The id is tombstoned
+	 * to the bankroll's owner: later credits to it go to that player, debits fail, and it is never
+	 * re-created by a late write (review wave 2, M1).
+	 */
 	public long closeBankroll(String id) {
 		Bankroll b = bankrolls.remove(id);
-		return b == null ? 0 : b.balance;
+		if (b == null) {
+			return 0;
+		}
+		closed.put(id, new Tombstone(b.owner, now));
+		return b.balance;
 	}
 
 	public boolean reserve(String id, long amount) {
@@ -139,9 +205,29 @@ public final class Ledger {
 			}
 		}
 		Map<AccountId, Long> net = net(legs);
+		// Legs to a closed bankroll: a net credit goes to its tombstone owner, a net debit fails.
+		Map<String, Long> late = new LinkedHashMap<>();
+		for (Map.Entry<AccountId, Long> e : List.copyOf(net.entrySet())) {
+			if (e.getKey() instanceof AccountId.Bankroll b && !bankrolls.containsKey(b.id()) && closed.containsKey(b.id())) {
+				long delta = e.getValue();
+				if (delta < 0) {
+					return new Commit(false, b, Map.of(), Map.of(), 0);
+				}
+				net.remove(b);
+				if (delta > 0) {
+					late.put(b.id(), delta);
+				}
+			}
+		}
+		for (Map.Entry<String, Long> e : late.entrySet()) {
+			net.merge(AccountId.player(closed.get(e.getKey()).owner()), e.getValue(), Math::addExact);
+		}
 		AccountId failed = check(net);
 		if (failed != null) {
 			return new Commit(false, failed, Map.of(), Map.of(), 0);
+		}
+		for (String id : late.keySet()) {
+			closed.computeIfPresent(id, (k, t) -> new Tombstone(t.owner(), now));
 		}
 		Map<AccountId, Long> applied = new LinkedHashMap<>();
 		Map<AccountId, Long> before = new LinkedHashMap<>();
@@ -172,6 +258,6 @@ public final class Ledger {
 				}
 			}
 		}
-		return new Commit(true, null, applied, before, lost);
+		return new Commit(true, null, applied, before, lost, late);
 	}
 }

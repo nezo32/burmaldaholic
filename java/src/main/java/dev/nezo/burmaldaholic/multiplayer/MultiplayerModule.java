@@ -67,6 +67,7 @@ public final class MultiplayerModule implements CasinoModule {
 		CharterStatePayload.TYPE = ctx.payloads().clientbound("multiplayer_charter_state", CharterStatePayload.CODEC);
 
 		CoreServices.setTableOwnership(Ownership::owner);
+		dev.nezo.burmaldaholic.core.service.CharterBots.install(Ownership::setCharterBots);
 		CoreServices.setClaims(new ClaimProvider() {
 			@Override
 			public boolean isClaimed(ServerLevel level, BlockPos pos) {

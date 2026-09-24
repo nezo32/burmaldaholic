@@ -12,9 +12,8 @@ import net.minecraft.server.level.ServerPlayer;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Casino Menu tab "Bots" (order 45): the heat line "Winnings from bots today: 3 200 / 5 000" (BOTS.md
- * §5.4; the Wallet tab is drawn by the vip client module, so the line lives here until the Wallet gets an
- * extension point), the heat stage, the player's Bot chatter mute (§7.4) and shortcuts to the table
+ * Casino Menu tab "Bots" (order 45): the heat stage (the "Winnings from bots today" line is on the Wallet
+ * tab, sent with the vip sync, BOTS.md §5.4), the player's Bot chatter mute (§7.4) and shortcuts to the table
  * the player sits at (Table settings…, Private table…, Table defaults…).
  */
 final class BotsMenuPage implements CasinoMenu.Page {
@@ -43,8 +42,7 @@ final class BotsMenuPage implements CasinoMenu.Page {
 		MinecraftServer server = player.level().getServer();
 		long threshold = BotLedger.threshold(server, player.getUUID());
 		if (threshold > 0) {
-			long net = BotLedger.netToday(server, player.getUUID());
-			out.line(Component.translatable("gui.burmaldaholic.bots.wallet_line", Texts.chips(Math.max(0, net)), Texts.chips(threshold)), 0xFFD700);
+			// the "Winnings from bots today" line itself is on the Wallet tab (vip, BOTS.md §5.4)
 			HeatStage stage = TableSettings.heat(player);
 			if (stage == HeatStage.SULKING) {
 				long ticks = HeatStage.ticksToNextDay(server.overworld().getGameTime());

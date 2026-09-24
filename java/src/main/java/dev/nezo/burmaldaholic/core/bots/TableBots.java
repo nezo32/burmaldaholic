@@ -479,6 +479,17 @@ public final class TableBots {
 		OwnerControls eff = BotPurses.effectiveControls(owned, limits, limitsSet, table.botSeatCount());
 		BotRole role = table.botRole();
 		Purse purse = BotPurses.purseFor(owned, eff, role);
+		// A money bot whose purse is no longer this table's (a charter linked / unlinked the table, Bots turned
+		// off by the owner) leaves with what it holds, back to its own purse (review wave 2, m5, BOTS.md §5.1).
+		List<SeatedBot> repursed = new ArrayList<>();
+		if (role == BotRole.MONEY) {
+			for (SeatedBot b : List.copyOf(bots)) {
+				if (!b.purse.equals(purse)) {
+					leave(srv, b);
+					repursed.add(b);
+				}
+			}
+		}
 		boolean houseMoney = role == BotRole.MONEY && purse != null && purse.houseFunded();
 		boolean sulk = false;
 		boolean hardOnly = false;
@@ -502,7 +513,7 @@ public final class TableBots {
 			hardOnly, sulk, applied && !hardOnly && table.botDifficultyMatters() ? settings().difficulty() : null);
 		SeatPlan.Plan plan = SeatPlan.plan(in);
 
-		List<SeatedBot> left = new ArrayList<>();
+		List<SeatedBot> left = new ArrayList<>(repursed);
 		for (String k : plan.leave()) {
 			SeatedBot b = bot(k);
 			if (b != null) {
@@ -537,7 +548,10 @@ public final class TableBots {
 		return new SafePointResult(joined, left, seated, applied);
 	}
 
-	/** Sends the standard join / leave lines for a safe point to the seated humans (one line for all joiners). */
+	/**
+	 * Sends the standard join / leave lines for a safe point to the seated humans (one line for all joiners)
+	 * and fires the bots' {@code join} / {@code leave} chatter events (BOTS.md §7.4; yields already said theirs).
+	 */
 	public void announce(ServerLevel level, SafePointResult r) {
 		List<UUID> to = table.seatedHumans();
 		if (r.joined().size() == 1) {
@@ -545,8 +559,19 @@ public final class TableBots {
 		} else if (r.joined().size() > 1) {
 			tell(level, to, Component.translatable("msg.burmaldaholic.bots.joined_many", BotNames.list(r.joined().stream().map(b -> b.profile).toList())));
 		}
+		if (!r.joined().isEmpty()) {
+			say(level, r.joined().getFirst().profile, "join", null);
+		}
+		boolean saidLeave = false;
 		for (SeatedBot b : r.left()) {
 			tell(level, to, Component.translatable("msg.burmaldaholic.bots.left", BotNames.display(b.profile)));
+			if (!saidLeave && !r.seatedClaimants().isEmpty()) {
+				continue; // a yielding bot already said its line
+			}
+			if (!saidLeave) {
+				saidLeave = true;
+				say(level, b.profile, b.stack <= 0 && table.botRole() == BotRole.MONEY ? "bust" : "leave", null);
+			}
 		}
 	}
 

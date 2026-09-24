@@ -66,6 +66,8 @@ final class PvpCommands {
 				.then(Commands.argument("id", StringArgumentType.word()).suggests(MY_INVITES)
 					.executes(c -> answer(c, false, StringArgumentType.getString(c, "id")))))
 			.then(Commands.literal("leave").executes(PvpCommands::leave))
+			.then(Commands.literal("join").then(Commands.argument("id", StringArgumentType.word()).executes(PvpCommands::join)))
+			.then(Commands.literal("invite").then(Commands.argument("player", EntityArgument.player()).executes(PvpCommands::invite)))
 			.then(Commands.literal("record").executes(c -> record(c, null))
 				.then(Commands.argument("player", EntityArgument.player()).executes(c -> record(c, EntityArgument.getPlayer(c, "player")))))
 			.then(Commands.literal("taunt").then(Commands.argument("line", StringArgumentType.word()).suggests(TAUNTS)
@@ -91,6 +93,32 @@ final class PvpCommands {
 		}
 		c.getSource().sendFailure(r.error());
 		return 0;
+	}
+
+	/** {@code /casino pvp join <id>} (the [Join] of an invite-only lobby invite; equal-stake modes use the entry). */
+	private static int join(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer p = player(c);
+		if (p == null) {
+			return 0;
+		}
+		String id = StringArgumentType.getString(c, "id");
+		java.util.Optional<dev.nezo.burmaldaholic.core.pvp.PvpMatch> m = Pvp.service().get(id);
+		long stake = m.map(PvpMatchView::entry).orElse(0L);
+		Result<dev.nezo.burmaldaholic.core.pvp.PvpMatch> r = Pvp.service().join(p, id, stake);
+		if (r.isOk() && r.value() != null) {
+			PvpUi.push(p, r.value(), true);
+		}
+		return result(c, r);
+	}
+
+	/** {@code /casino pvp invite <player>}: the host of an invite-only lobby invites a player (BOTS.md §2.5). */
+	private static int invite(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer p = player(c);
+		if (p == null) {
+			return 0;
+		}
+		ServerPlayer guest = EntityArgument.getPlayer(c, "player");
+		return result(c, Pvp.service().inviteToLobby(p, guest.getUUID()));
 	}
 
 	private static int challenge(CommandContext<CommandSourceStack> c, boolean heads) throws CommandSyntaxException {

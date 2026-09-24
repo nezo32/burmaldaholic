@@ -246,6 +246,10 @@ public final class TableSettings {
 			a.getBooleanOr("allowPrivate", cur.allowPrivate()));
 		OwnerControls next = SettingsRules.clampLimits(wanted, cur, f.table().botSeatCount(), f.owned(), v.mayEditBotsMode());
 		f.bots().setLimits(next);
+		if (f.owned() && next.botsMode() != cur.botsMode()) {
+			// the charter's per-table "Bots" switch follows the owner's mode (BOTS.md §6.2)
+			dev.nezo.burmaldaholic.core.service.CharterBots.set(f.level(), f.pos(), next.botsMode() != BotsMode.OFF);
+		}
 		if (!next.allowPrivate() && f.bots().access().isPrivate()) {
 			f.bots().access().setPrivate(false, List.of());
 		}

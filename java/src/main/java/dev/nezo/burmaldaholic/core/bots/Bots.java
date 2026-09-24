@@ -34,6 +34,9 @@ public final class Bots {
 	public static void register() {
 		BotJobs.register();
 		BotChatter.register();
+		// a closed bankroll's tombstone stays while bots funded by it may still bring chips back (review wave 2, M1)
+		dev.nezo.burmaldaholic.core.economy.BankrollReferences.add((server, id) -> fundedBy(id)
+			|| BotLedgerData.get(server).escrows().stream().anyMatch(e -> e.bankrollId().equals(id)));
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			long back = BotLedger.returnOrphans(server, null);
 			if (back > 0) {
@@ -120,6 +123,18 @@ public final class Bots {
 			}
 		}
 		return sum;
+	}
+
+	/** Some seated bot is funded by bankroll {@code bankrollId}. */
+	public static boolean fundedBy(String bankrollId) {
+		for (TableBots t : tables()) {
+			for (TableBots.SeatedBot b : t.bots()) {
+				if (b.purse.kind() == Purse.Kind.BANKROLL && b.purse.bankrollId().equals(bankrollId)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Returns crash leftovers of every table now (also run on SERVER_STARTED); for ops / tests. */

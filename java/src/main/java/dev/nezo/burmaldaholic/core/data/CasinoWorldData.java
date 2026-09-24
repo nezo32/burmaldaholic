@@ -113,6 +113,14 @@ public final class CasinoWorldData extends SavedData {
 			bankrolls.put(id, t);
 		});
 		root.put("bankrolls", bankrolls);
+		CompoundTag closed = new CompoundTag();
+		ledger.tombstones().forEach((id, t) -> {
+			CompoundTag c = new CompoundTag();
+			c.putString("owner", t.owner().toString());
+			c.putLong("touched", t.touched());
+			closed.put(id, c);
+		});
+		root.put("bankrolls_closed", closed);
 		CompoundTag playerTag = new CompoundTag();
 		players.forEach((id, r) -> playerTag.put(id.toString(), r.save()));
 		root.put("players", playerTag);
@@ -135,6 +143,11 @@ public final class CasinoWorldData extends SavedData {
 			CompoundTag t = bankrolls.getCompoundOrEmpty(key);
 			parse(t.getStringOr("owner", "")).ifPresent(owner ->
 				data.ledger.loadBankroll(key, owner, t.getLongOr("balance", 0), t.getLongOr("reserved", 0)));
+		}
+		CompoundTag closed = root.getCompoundOrEmpty("bankrolls_closed");
+		for (String key : closed.keySet()) {
+			CompoundTag t = closed.getCompoundOrEmpty(key);
+			parse(t.getStringOr("owner", "")).ifPresent(owner -> data.ledger.loadTombstone(key, owner, t.getLongOr("touched", 0)));
 		}
 		CompoundTag playerTag = root.getCompoundOrEmpty("players");
 		for (String key : playerTag.keySet()) {

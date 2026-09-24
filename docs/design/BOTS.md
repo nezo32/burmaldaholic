@@ -1183,7 +1183,7 @@ name; `bot` = nested `gui.burmaldaholic.bots.display` component; `level` = neste
 | `gui.burmaldaholic.menu.settings.bot_chatter` | Bot chatter | Болтовня ботов |
 | `gui.burmaldaholic.bots.admin.title` | Bots | Боты |
 | `gui.burmaldaholic.bots.admin.line` | %1$s at %2$s · %3$s · %4$s | %1$s — %2$s · %3$s · %4$s |
-| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить всех ботов по домам |
+| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить ботов домой |
 | `gui.burmaldaholic.bots.admin.reset_heat` | Reset a player's bot limits… | Сбросить лимиты игрока… |
 
 ### 11.3 Bot names (`gui.burmaldaholic.bots.name.<id>`; theme in the comment column is data for the code)

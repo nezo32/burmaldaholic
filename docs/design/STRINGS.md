@@ -358,6 +358,7 @@ casino mode in world saved data and has no game rule.
 | `msg.burmaldaholic.core.source.cashback` | VIP cashback | ВИП-кешбэк |
 | `msg.burmaldaholic.core.source.golden_hour` | Golden Hour bonus | Бонус «Золотого часа» |
 | `msg.burmaldaholic.core.balance_capped` | Your balance is at the maximum. The rest went to charity. | Баланс на максимуме. Остальное ушло на благотворительность. |
+| `msg.burmaldaholic.core.bankroll_late_return` | %1$s came back to your closed casino and was paid to you. | В кассу закрытого казино вернулось %1$s — они выплачены вам. |
 | `msg.burmaldaholic.core.deposited` | Deposited %1$s. Balance: %2$s | Внесено: %1$s. Баланс: %2$s |
 | `msg.burmaldaholic.core.withdrawn` | Withdrew %1$s. Balance: %2$s | Снято: %1$s. Баланс: %2$s |
 | `msg.burmaldaholic.core.no_chips_to_deposit` | You have no chips to deposit | Вам нечего внести — фишек нет |
@@ -2138,7 +2139,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.menu.settings.bot_chatter` | Bot chatter | Болтовня ботов |
 | `gui.burmaldaholic.bots.admin.title` | Bots | Боты |
 | `gui.burmaldaholic.bots.admin.line` | %1$s at %2$s · %3$s · %4$s | %1$s — %2$s · %3$s · %4$s |
-| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить всех ботов по домам |
+| `gui.burmaldaholic.bots.admin.clear_all` | Send all bots home | Отправить ботов домой |
 | `gui.burmaldaholic.bots.admin.reset_heat` | Reset a player's bot limits… | Сбросить лимиты игрока… |
 | `gui.burmaldaholic.bots.nameplate` | %1$s · %2$s | %1$s · %2$s |
 | `gui.burmaldaholic.bots.menu.tab` | Bots | Боты |

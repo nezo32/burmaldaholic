@@ -283,7 +283,9 @@ public final class VipService {
 		}
 		CashbackRules.DayLedger l = rec.ledger != null && rec.ledger.day() == Contracts.today(server) ? rec.ledger : null;
 		return new VipSyncPayload(open, rec.wagered, tier(server, player.getUUID()), l == null ? 0 : l.staked(), l == null ? 0 : l.returned(),
-			on, Contracts.ticksToReset(server), Math.max(0, CasinoConfig.contracts().rerollCost), List.copyOf(list));
+			on, Contracts.ticksToReset(server), Math.max(0, CasinoConfig.contracts().rerollCost), List.copyOf(list),
+			Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.netToday(server, player.getUUID())),
+			CasinoConfig.bots().enabled ? Math.max(0, dev.nezo.burmaldaholic.core.bots.BotLedger.threshold(server, player.getUUID())) : 0);
 	}
 
 	/** Sends the state if it changed (or {@code force}); {@code open} also opens the menu. */

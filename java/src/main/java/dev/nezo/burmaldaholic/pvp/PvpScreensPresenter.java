@@ -23,12 +23,24 @@ import org.jspecify.annotations.Nullable;
  * Players whose screen is closed see the HUD ticker (client) fed by the same payloads.
  */
 public final class PvpScreensPresenter implements PvpPresenter {
+	/**
+	 * Lobby / invite changed. A new duel invite sends the target its clickable chat line at once (the engine
+	 * only records the invite, PVP.md §3.3.1); the 10-tick scan in {@link PvpUi} is the safety net.
+	 */
 	@Override
 	public void lobbyChanged(PvpMatch match) {
 		MinecraftServer server = server(match);
-		if (server != null) {
-			PvpUi.pushAll(server, match, false);
+		if (server == null) {
+			return;
 		}
+		if (match.state() == MatchState.INVITED && match.invitee() != null) {
+			ServerPlayer target = server.getPlayerList().getPlayer(match.invitee());
+			if (target != null) {
+				PvpUi.notifyInvite(server, target, match);
+			}
+			return;
+		}
+		PvpUi.pushAll(server, match, false);
 	}
 
 	@Override
@@ -150,6 +162,12 @@ public final class PvpScreensPresenter implements PvpPresenter {
 
 	/** Who is revealed at {@code place}: from the outcome once known, else from a revealed Final Reveal step. */
 	private static @Nullable Placed placed(PvpMatch match, int place) {
+		// during the Final Reveal the engine exposes each place as it is revealed (never ahead of it)
+		var shown = match.placing(Math.max(1, place));
+		if (shown.isPresent()) {
+			Participant p = PvpMatchView.participant(match, shown.get().participant());
+			return p == null ? null : new Placed(shown.get().participant(), PvpMatchView.name(match, p), shown.get().points());
+		}
 		Outcome o = match.outcome();
 		int pos = Math.max(0, place - 1);
 		if (o != null && pos < o.rankOrder().length) {

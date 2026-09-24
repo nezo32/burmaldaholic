@@ -125,6 +125,7 @@ public final class CoreModule implements CasinoModule {
 		dev.nezo.burmaldaholic.core.data.OfflineMail.register();
 		dev.nezo.burmaldaholic.core.pvp.Pvp.register(); // PvP engine lifecycle
 		dev.nezo.burmaldaholic.core.bots.Bots.register(); // bot job scheduler + ledger (skeleton)
+		dev.nezo.burmaldaholic.core.economy.BankrollReferences.register(); // closed-bankroll tombstone pruning
 		CoreMenu.register(ctx);
 	}
 

@@ -71,6 +71,12 @@ public interface PvpService {
 	/** Host "Start" (MIXED: fills empty seats with bots first). */
 	Result<PvpMatch> start(ServerPlayer host, String matchId);
 
+	/**
+	 * Invite-only lobby (BOTS.md §2.5): the host of {@code player}'s lobby invites {@code guest} (chat line with a
+	 * clickable [Join]); only guests, the host and operators may join. Max {@code bots.private.maxInvites}.
+	 */
+	Result<Boolean> inviteToLobby(ServerPlayer host, UUID guest);
+
 	/** Host "Fill with bots" (MIXED lobbies). */
 	void fillWithBots(ServerPlayer host, String matchId);
 
@@ -85,7 +91,17 @@ public interface PvpService {
 	 * winner) with 1 = let it ride, 0 = take the money. {@code coin.side} (0 heads / 1 tails) before
 	 * {@code coin.don_offer} 1 sets the called side (Bedrock form flow). The open decision is {@link #decisionFor}.
 	 */
-	void decide(ServerPlayer player, String decision, long option);
+	default void decide(ServerPlayer player, String decision, long option) {
+		decide(player, decision, option, null, -1);
+	}
+
+	/**
+	 * {@link #decide(ServerPlayer, String, long)} for the question the UI was opened for: {@code matchId} and
+	 * {@code seq} ({@link PvpMatch#decisionSeq}, sent with the view's {@code decision}) must still be the open
+	 * question, else the answer is stale and dropped (review wave 2, m2). {@code matchId} null / {@code seq} &lt; 0 =
+	 * unchecked (commands).
+	 */
+	void decide(ServerPlayer player, String decision, long option, @Nullable String matchId, long seq);
 
 	/** One of the 8 fixed taunt lines (§3.9). */
 	Result<Void> taunt(ServerPlayer player, int line);
