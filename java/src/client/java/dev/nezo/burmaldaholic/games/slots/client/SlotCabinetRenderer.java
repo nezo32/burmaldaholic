@@ -723,7 +723,9 @@ public final class SlotCabinetRenderer extends SpectatorBlockEntityRenderer<Slot
 		float rise = Math.max(0f, f.wheelRise);
 		float cy = MQ_Y1 + 0.06f + WHEEL_R * Math.min(1f, rise);
 		for (int ring = 0; ring < 3; ring++) {
-			float angle = ring < f.ringCount ? f.ringAngle[ring] : 0f;
+			// rings of this bonus that are not up yet idle at their seeded pre-spin angle (a parked 0° read as wedge 0);
+			// rings the bonus never reaches stay at rest
+			float angle = f.ringSize[ring] > 0 ? f.ringAngle[ring] : 0f;
 			float br = ring < f.ringCount ? f.ringBright[ring] : 0.4f;
 			disc(p, vc, cy, ring * 0.004f, DISC_R[ring] * rise, angle, DISC_UV[ring], grey(br, 1f));
 		}

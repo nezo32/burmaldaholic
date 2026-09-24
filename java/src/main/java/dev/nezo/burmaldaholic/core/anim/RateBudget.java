@@ -40,6 +40,10 @@ public final class RateBudget {
 	/** Takes one event for {@code key} at {@code nowMs}; false (nothing taken) when the key or the total is spent. */
 	public boolean tryAcquire(String key, long nowMs) {
 		long[] ring = windows.computeIfAbsent(key, k -> filled(perKey));
+		// a clock that went backwards (e.g. a server tick counter restarting with a new world) would otherwise
+		// block the key until it caught up again: stamps from the "future" are forgotten
+		forgetFuture(ring, nowMs);
+		if (all != null) forgetFuture(all, nowMs);
 		int oldest = 0;
 		for (int i = 1; i < ring.length; i++) if (ring[i] < ring[oldest]) oldest = i;
 		if (nowMs - ring[oldest] < windowMs) return false;
@@ -50,6 +54,10 @@ public final class RateBudget {
 			allNext = (allNext + 1) % all.length;
 		}
 		return true;
+	}
+
+	private static void forgetFuture(long[] ring, long nowMs) {
+		for (int i = 0; i < ring.length; i++) if (ring[i] > nowMs) ring[i] = Long.MIN_VALUE / 2;
 	}
 
 	/** Forgets a key (e.g. a player who left). */

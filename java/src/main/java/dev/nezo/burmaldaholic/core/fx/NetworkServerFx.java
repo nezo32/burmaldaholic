@@ -92,6 +92,7 @@ public final class NetworkServerFx implements ServerFx {
 	/** Sends the queued server-wide notices that are due (called every server tick by {@link CoreFx}). */
 	void flush(MinecraftServer server) {
 		int now = server.getTickCount();
+		if (now < lastBroadcastTick) lastBroadcastTick = Integer.MIN_VALUE / 2; // tick counter restarted (new server)
 		while (!broadcasts.isEmpty() && now - lastBroadcastTick >= BROADCAST_GAP_TICKS) {
 			Pending p = broadcasts.poll();
 			lastBroadcastTick = now;
@@ -101,6 +102,17 @@ public final class NetworkServerFx implements ServerFx {
 					Optional.of(p.winner), Optional.of(p.name), Optional.empty()), false);
 			}
 		}
+	}
+
+	/**
+	 * Server stopped (singleplayer: the next world starts a new server whose tick counter restarts at 0): drops the
+	 * queued notices of the old world and every rate window, so the new world's first toast is not blocked for as
+	 * long as the old world had run.
+	 */
+	void reset() {
+		broadcasts.clear();
+		recent.clear();
+		lastBroadcastTick = Integer.MIN_VALUE / 2;
 	}
 
 	/** Forgets per-player rate state (logout). */

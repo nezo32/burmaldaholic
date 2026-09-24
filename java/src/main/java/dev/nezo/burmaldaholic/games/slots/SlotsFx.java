@@ -11,6 +11,7 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
 import net.minecraft.core.BlockPos;
@@ -61,6 +62,8 @@ public final class SlotsFx {
 		emberBurst = Registry.register(BuiltInRegistries.PARTICLE_TYPE, ctx.id(EMBER_BURST), FabricParticleTypes.simple());
 		voidMotes = Registry.register(BuiltInRegistries.PARTICLE_TYPE, ctx.id(VOID_MOTES), FabricParticleTypes.simple());
 		ServerTickEvents.END_SERVER_TICK.register(SlotsFx::tick);
+		// singleplayer: the next world is a new server with the same dimension keys; never replay the old world's FX there
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> QUEUE.clear());
 	}
 
 	public static @Nullable SimpleParticleType emberBurst() {

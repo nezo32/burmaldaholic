@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.core.fx;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
 import dev.nezo.burmaldaholic.core.network.FxPayload;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
@@ -21,6 +22,7 @@ public final class CoreFx {
 		installed = new NetworkServerFx();
 		ServerFx.set(installed);
 		ServerTickEvents.END_SERVER_TICK.register(installed::flush);
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> installed.reset());
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> installed.forget(handler.getPlayer().getUUID()));
 		CasinoEvents.PLAY_RESOLVED.register(BigWinBroadcast::onResolved);
 	}
