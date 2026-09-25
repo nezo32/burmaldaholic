@@ -202,7 +202,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 		});
 		context.runOnClient(mc -> {
 			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-			mc.options.hideGui = true; // the world only: no chat, HUD or toasts over the machines
+			if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle(); // the world only: no chat, HUD or toasts over the machines
 			if (mc.player != null) {
 				mc.player.setYRot(-90f);
 				mc.player.setXRot(4f);
@@ -232,7 +232,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 		if (!synced[0] || !synced[1]) report.add("in-world sync missing on the client: wheel " + synced[0] + ", plinko " + synced[1]);
 		context.runOnClient(mc -> {
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
-			mc.options.hideGui = false;
+			if (mc.gui.hud.isHidden()) mc.gui.hud.toggle();
 			CelebrationOverlay.get().clear();
 		});
 		world.getServer().runOnServer(server -> {
