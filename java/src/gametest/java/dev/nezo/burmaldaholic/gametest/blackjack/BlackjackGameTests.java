@@ -1,5 +1,9 @@
 package dev.nezo.burmaldaholic.gametest.blackjack;
 
+import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity.LeaveReason;
@@ -91,6 +95,27 @@ public class BlackjackGameTests {
 			helper.assertTrue(Economies.get().balance(a) == expected, "balance = start − staked + return");
 			table.onAction(a, "bet", amount(10));
 			helper.assertTrue(table.stakeOf(a.getUUID()) == 0, "no betting during the result phase");
+		});
+		helper.succeed();
+	}
+
+	/**
+	 * J-L3 thinking dots ({@code BotTable#botThinking}): right after the safe point seats atmosphere bots in BETTING, each
+	 * has a bet moment 60–160 t ahead, so the table names the seated bot whose moment is next.
+	 */
+	@GameTest
+	public void seatedBotsThinkUntilTheirBetMoment(GameTestHelper helper) {
+		BlackjackTableBlockEntity table = place(helper);
+		withPlayers(helper, (a, b) -> {
+			helper.assertTrue(table.sit(a), "seated");
+			BotSettings three = new BotSettings(SeatPolicy.MIXED, 3, BotDifficulty.NORMAL, false, false, BotSpeed.NORMAL);
+			helper.assertTrue(table.bots().table().requestChange(a, three, false).isOk(), "bots requested");
+			table.botSafePointForTests();
+			helper.assertTrue(!table.bots().bots().isEmpty(), "bots seated at the safe point");
+			helper.assertTrue(BlackjackTableBlockEntity.BETTING.equals(table.phase()), "betting open");
+			String thinking = table.botThinking();
+			helper.assertTrue(thinking != null && table.bots().bots().stream().anyMatch(v -> v.key.equals(thinking)),
+				"a seated bot is thinking about its bet: " + thinking);
 		});
 		helper.succeed();
 	}
