@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/beginners_luck",
+  "display": {
+    "icon": {
+      "id": "minecraft:cod"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.shark_hunter.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.shark_hunter.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/beginners_luck",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:uth_table"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.uth_four_x.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.uth_four_x.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

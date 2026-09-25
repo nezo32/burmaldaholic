@@ -1,0 +1,264 @@
+// =============================================================================================
+// Burmaldaholic build checks (applied from build.gradle). Owned by the core team.
+//
+//  mergeLang            src/main/lang/<module>/<lang>.json  ->  assets/burmaldaholic/lang/<lang>.json
+//                       FAILS on: missing language file, key-set mismatch between languages,
+//                       placeholder mismatch, duplicate key across modules, key outside the
+//                       module's namespace, non-string values, unsupported format specifiers.
+//  mergeSounds          src/main/sounds/<module>/sounds.json -> assets/burmaldaholic/sounds.json
+//  checkNoLiterals      bans Component.literal(...) / literal(...) / nullToEmpty(...) in main+client
+//                       sources, except files in config/literal-whitelist.txt or lines tagged
+//                       `// literal-ok: <reason>` (numbers/symbols only!)
+//  checkAssetOwnership  every file under assets|data/burmaldaholic/** must be named `<ns>_*` or live in a
+//                       `<ns>/` subfolder, where <ns> is a module id or a namespace it owns
+//                       (config/namespaces.properties). Core-owned shared files: `core_*` / `core/`.
+//  Plural keys          a key ending in .p1/.p21/.p2/.p5 requires all four siblings (Plural.java).
+//
+// All run as part of `./gradlew check` (and therefore `build`).
+// =============================================================================================
+
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+def MOD_ID = 'burmaldaholic'
+def LANGS = ['en_us', 'ru_ru']              // every module must ship exactly these
+def CORE_MODULE = 'core'                    // may own any key/asset inside the mod namespace
+def langRoot = file('src/main/lang')
+def soundsRoot = file('src/main/sounds')
+def generatedRes = layout.buildDirectory.dir('generated/casinoResources')
+
+/** Module ids = directory names under src/main/lang (every module owns a lang fragment). */
+def moduleIds = { ->
+	(langRoot.listFiles()?.findAll { it.isDirectory() }*.name ?: []).sort()
+}
+
+/** Normalised placeholder signature of a MC translation string: list of %s / %N$s tokens. */
+def placeholders = { String value, List<String> errors, String where ->
+	def tokens = []
+	def m = value =~ /%(?:(\d+)\$)?([A-Za-z%]|$)/
+	while (m.find()) {
+		def idx = m.group(1)
+		def conv = m.group(2)
+		if (conv == '%') continue
+		if (conv != 's') {
+			errors << "${where}: unsupported format '%${idx ? idx + '$' : ''}${conv}' (Minecraft only supports %s and %N\$s)"
+			continue
+		}
+		tokens << (idx ? "%${idx}\$s" : '%s')
+	}
+	// Unnumbered %s are order-dependent: keep count; numbered are a set.
+	return tokens.sort()
+}
+
+/** module -> extra namespaces, from config/namespaces.properties (shared with the Java runtime). */
+def namespacesFile = file('config/namespaces.properties')
+def namespaces = { ->
+	def props = new Properties()
+	namespacesFile.withReader('UTF-8') { props.load(it) }
+	props.collectEntries { k, v -> [(k): v.split(',')*.trim().findAll { it }] }
+}
+
+/** Same rule as dev.nezo.burmaldaholic.core.module.Namespaces#owns. */
+def owns = { Map ns, String module, String name ->
+	def extra = ns[module]
+	if (extra == null) return false
+	if ('*' in extra) return true
+	return ([module] + extra).any { n -> name == n || name.startsWith(n + '_') || name.startsWith(n + '.') || name.startsWith(n + '/') }
+}
+
+/** A lang key belongs to module `m` if the text after "burmaldaholic." is owned by m. */
+def keyAllowed = { Map ns, String key, String module ->
+	if ('*' in (ns[module] ?: [])) return key.contains(MOD_ID)
+	def idx = key.indexOf(MOD_ID + '.')
+	if (idx < 0) return false
+	return owns(ns, module, key.substring(idx + MOD_ID.length() + 1))
+}
+
+def PLURAL_SUFFIXES = ['p1', 'p21', 'p2', 'p5']
+
+def mergeLang = tasks.register('mergeLang') {
+	group = 'casino'
+	description = 'Merges and validates per-module lang fragments.'
+	inputs.dir(langRoot).withPropertyName('langFragments')
+	inputs.file(namespacesFile)
+	def outDir = generatedRes.map { it.dir("assets/${MOD_ID}/lang") }
+	outputs.dir(outDir)
+	doLast {
+		def errors = []
+		def slurper = new JsonSlurper()
+		def merged = LANGS.collectEntries { [(it): new TreeMap<String, String>()] }
+		def owner = [:]
+		def ns = namespaces()
+		moduleIds().each { module ->
+			if (!ns.containsKey(module)) errors << "lang/${module}: module missing from config/namespaces.properties"
+			def dir = new File(langRoot, module)
+			def extra = dir.listFiles().findAll { it.isFile() && !(it.name - '.json' in LANGS) }
+			extra.each { errors << "lang/${module}/${it.name}: unexpected file (allowed: ${LANGS.collect { it + '.json' }})" }
+			def perLang = [:]
+			LANGS.each { lang ->
+				def f = new File(dir, "${lang}.json")
+				if (!f.isFile()) { errors << "lang/${module}/${lang}.json is missing"; return }
+				def parsed
+				try { parsed = slurper.parse(f, 'UTF-8') } catch (Exception e) { errors << "lang/${module}/${lang}.json: invalid JSON: ${e.message}"; return }
+				if (!(parsed instanceof Map)) { errors << "lang/${module}/${lang}.json: root must be an object"; return }
+				perLang[lang] = parsed
+				parsed.each { k, v ->
+					def where = "lang/${module}/${lang}.json '${k}'"
+					if (!(v instanceof String)) errors << "${where}: value must be a string"
+					if (!keyAllowed(ns, k, module)) errors << "${where}: key is not in a namespace owned by '${module}' (expected '<category>.${MOD_ID}.${module}...' or a namespace from config/namespaces.properties)"
+					def lastDot = k.lastIndexOf('.')
+					if (lastDot > 0 && k.substring(lastDot + 1) in PLURAL_SUFFIXES) {
+						def base = k.substring(0, lastDot)
+						PLURAL_SUFFIXES.each { sfx -> if (!parsed.containsKey(base + '.' + sfx)) errors << "lang/${module}/${lang}.json: plural key '${base}' lacks '.${sfx}' (all of ${PLURAL_SUFFIXES} are required)" }
+					}
+					if (lang == LANGS[0]) {
+						if (owner.containsKey(k)) errors << "${where}: duplicate key, already defined by module '${owner[k]}'"
+						owner[k] = module
+					}
+					merged[lang][k] = v.toString()
+				}
+			}
+			if (perLang.size() != LANGS.size()) return
+			def ref = LANGS[0]
+			LANGS.drop(1).each { lang ->
+				def a = perLang[ref].keySet(), b = perLang[lang].keySet()
+				(a - b).each { errors << "lang/${module}/${lang}.json: missing key '${it}' (present in ${ref})" }
+				(b - a).each { errors << "lang/${module}/${lang}.json: extra key '${it}' (absent in ${ref})" }
+				a.intersect(b).each { k ->
+					def pa = placeholders(perLang[ref][k].toString(), errors, "lang/${module}/${ref}.json '${k}'")
+					def pb = placeholders(perLang[lang][k].toString(), errors, "lang/${module}/${lang}.json '${k}'")
+					if (pa != pb) errors << "lang/${module}: placeholder mismatch for '${k}': ${ref}=${pa} ${lang}=${pb}"
+				}
+			}
+		}
+		if (!errors.isEmpty()) {
+			throw new GradleException("Lang validation failed (${errors.size()} problem(s)):\n  - " + errors.unique().join('\n  - '))
+		}
+		def out = outDir.get().asFile
+		out.mkdirs()
+		merged.each { lang, map ->
+			new File(out, "${lang}.json").setText(JsonOutput.prettyPrint(JsonOutput.toJson(map)) + '\n', 'UTF-8')
+		}
+		logger.lifecycle("mergeLang: ${moduleIds().size()} modules, ${merged[LANGS[0]].size()} keys per language")
+	}
+}
+
+def mergeSounds = tasks.register('mergeSounds') {
+	group = 'casino'
+	description = 'Merges per-module sounds.json fragments.'
+	inputs.files(fileTree(soundsRoot)).withPropertyName('soundFragments')
+	def outFile = generatedRes.map { it.file("assets/${MOD_ID}/sounds.json") }
+	outputs.file(outFile)
+	doLast {
+		def errors = []
+		def merged = new TreeMap<String, Object>()
+		def ns = namespaces()
+		(soundsRoot.listFiles()?.findAll { it.isDirectory() } ?: []).each { dir ->
+			def module = dir.name
+			if (!(module in moduleIds())) errors << "sounds/${module}: unknown module (no src/main/lang/${module})"
+			def f = new File(dir, 'sounds.json')
+			if (!f.isFile()) return
+			def parsed = new JsonSlurper().parse(f, 'UTF-8')
+			parsed.each { k, v ->
+				if (!owns(ns, module, k))
+					errors << "sounds/${module}/sounds.json '${k}': sound event id not owned by '${module}' (see config/namespaces.properties)"
+				if (merged.containsKey(k)) errors << "sounds/${module}/sounds.json '${k}': duplicate sound event"
+				merged[k] = v
+			}
+		}
+		if (!errors.isEmpty()) throw new GradleException("Sound validation failed:\n  - " + errors.join('\n  - '))
+		def out = outFile.get().asFile
+		out.parentFile.mkdirs()
+		if (merged.isEmpty()) { out.delete(); return }
+		out.setText(JsonOutput.prettyPrint(JsonOutput.toJson(merged)) + '\n', 'UTF-8')
+	}
+}
+
+sourceSets.main.resources.srcDir(files(generatedRes).builtBy(mergeLang, mergeSounds))
+
+// ---------------------------------------------------------------------------------------------
+
+def checkNoLiterals = tasks.register('checkNoLiterals') {
+	group = 'verification'
+	description = 'Forbids hardcoded user-facing strings (Component.literal etc.) in main/client sources.'
+	def roots = [file('src/main/java'), file('src/client/java')]
+	def whitelistFile = file('config/literal-whitelist.txt')
+	roots.each { if (it.exists()) inputs.dir(it) }
+	inputs.file(whitelistFile).optional()
+	def marker = rootProject.layout.buildDirectory.file('checks/checkNoLiterals.ok')
+	outputs.file(marker)
+	doLast {
+		def whitelist = whitelistFile.exists()
+			? whitelistFile.readLines('UTF-8').collect { it.trim() }.findAll { it && !it.startsWith('#') } as Set
+			: [] as Set
+		def banned = ~/(?:\bComponent\s*\.\s*literal\s*\(|(?<![.\w])literal\s*\(|\bComponent\s*\.\s*nullToEmpty\s*\(|\bTextComponent\b|\bPlainTextContents\b)/
+		def problems = []
+		roots.findAll { it.exists() }.each { root ->
+			root.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+				if (!f.name.endsWith('.java')) return
+				def rel = projectDir.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+				if (rel in whitelist) return
+				f.readLines('UTF-8').eachWithIndex { line, i ->
+					if (line.contains('literal-ok:')) return
+					def code = line.replaceAll(/\/\/.*$/, '')
+					if (code =~ banned) problems << "${rel}:${i + 1}: ${line.trim()}"
+				}
+			}
+		}
+		if (problems) {
+			throw new GradleException("Hardcoded text is forbidden — use Component.translatable(key) (+ lang fragment) or Texts.number(n).\n  " + problems.join('\n  '))
+		}
+		def m = marker.get().asFile; m.parentFile.mkdirs(); m.text = 'ok'
+	}
+}
+
+def checkAssetOwnership = tasks.register('checkAssetOwnership') {
+	group = 'verification'
+	description = 'Every asset/data file must be prefixed by (or nested under) its owning module id.'
+	def roots = [file("src/main/resources/assets/${MOD_ID}"), file("src/main/resources/data/${MOD_ID}"),
+				 file("src/client/resources/assets/${MOD_ID}")]
+	roots.each { if (it.exists()) inputs.dir(it) }
+	inputs.dir(langRoot)
+	inputs.file(namespacesFile)
+	def coreIdsFile = file('config/core-ids.txt')
+	inputs.file(coreIdsFile).optional()
+	def marker = rootProject.layout.buildDirectory.file('checks/checkAssetOwnership.ok')
+	outputs.file(marker)
+	doLast {
+		def modules = moduleIds()
+		def ns = namespaces()
+		// Files the core team owns regardless of name, plus files named after a core id (config/core-ids.txt).
+		def coreOwned = ['icon.png'] as Set
+		def coreIds = coreIdsFile.exists()
+			? coreIdsFile.readLines('UTF-8').collect { it.trim() }.findAll { it && !it.startsWith('#') } as Set
+			: [] as Set
+		def problems = []
+		roots.findAll { it.exists() }.each { root ->
+			root.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+				def rel = root.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+				def parts = rel.split('/') as List
+				if (parts[0] == 'lang' || rel == 'sounds.json') {
+					problems << "${root.name}/${rel}: generated file — edit src/main/lang/<module>/ or src/main/sounds/<module>/ instead"
+					return
+				}
+				if (rel in coreOwned) return
+				def base = parts.last().contains('.') ? parts.last().substring(0, parts.last().lastIndexOf('.')) : parts.last()
+				if (base in coreIds) return
+				// Ignore the category folder(s) (e.g. textures/block/...). Ownership = any path segment
+				// (after the first) that equals a module id, or file name starting with `<module>_`.
+				def rest = parts.drop(1)
+				def owned = rest.any { seg -> modules.findAll { it != CORE_MODULE }.any { m -> owns(ns, m, seg) } || seg == CORE_MODULE || seg.startsWith(CORE_MODULE + '_') }
+				if (!owned) problems << "${root.name}/${rel}: name must start with '<moduleId>_' / an owned namespace (config/namespaces.properties) or be inside a '<moduleId>/' folder"
+			}
+		}
+		if (problems) throw new GradleException("Asset ownership check failed:\n  " + problems.join('\n  '))
+		def m = marker.get().asFile; m.parentFile.mkdirs(); m.text = 'ok'
+	}
+}
+
+tasks.named('check') {
+	dependsOn mergeLang, mergeSounds, checkNoLiterals, checkAssetOwnership
+}
+// Fail fast in normal builds too (compile-time feedback before tests).
+tasks.named('processResources') { dependsOn checkAssetOwnership }
+tasks.named('compileJava') { dependsOn checkNoLiterals }

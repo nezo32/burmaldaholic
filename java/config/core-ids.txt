@@ -1,0 +1,30 @@
+# Core-owned registry ids whose asset/data files must be named exactly like the id (items/<id>.json,
+# blockstates/<id>.json, loot_table/blocks/<id>.json, recipe/<id>.json, damage_type/<id>.json).
+# checkAssetOwnership accepts files whose base name is listed here. Owned by core; feature modules
+# never need this file (their ids already start with their namespace).
+chip_1
+chip_5
+chip_25
+chip_100
+chip_500
+casino_card
+cashier
+nether_cashier
+soul_wager
+casino_charter
+# core particle types (core.fx.CoreParticles): particles/<id>.json
+chip_pop
+chip_glint
+sparkle
+gold_burst
+golden_mote
+diamond_glint
+curse_wisp
+summon_rune
+teleport_ring
+collector_smoke
+coin_burst
+confetti
+jackpot_burst
+# core glyph font (docs/architecture/animation.md §2.2): font/default.json
+default

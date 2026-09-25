@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "dev.nezo.burmaldaholic.vip.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"FurnaceResultSlotMixin",
+		"PlayerMixin",
+		"ServerPlayerMixin"
+	],
+	"client": [],
+	"server": [],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/tumble_six",
+  "display": {
+    "icon": {
+      "id": "minecraft:gold_block"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.hoard_full.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.hoard_full.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

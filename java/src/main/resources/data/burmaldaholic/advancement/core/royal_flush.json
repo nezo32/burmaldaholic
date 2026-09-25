@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/beginners_luck",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:poker_table"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.royal_flush.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.royal_flush.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

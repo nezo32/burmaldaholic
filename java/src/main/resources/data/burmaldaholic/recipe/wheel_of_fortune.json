@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "P": "#minecraft:planks",
+    "S": "minecraft:stick",
+    "C": "minecraft:clock",
+    "X": "burmaldaholic:chip_25"
+  },
+  "pattern": [
+    "PSP",
+    "SCS",
+    "PXP"
+  ],
+  "result": {
+    "id": "burmaldaholic:wheel_of_fortune"
+  }
+}

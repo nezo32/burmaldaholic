@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/epic_win",
+  "display": {
+    "icon": {
+      "id": "minecraft:nether_star"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.max_win.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.max_win.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

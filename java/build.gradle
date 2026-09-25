@@ -1,0 +1,132 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+// ---------------------------------------------------------------------------------------------
+// Target Minecraft version. Default = lowest supported (see gradle.properties). Override with
+//   ./gradlew build -Pmc=26.3
+// ---------------------------------------------------------------------------------------------
+def mcVersion = project.property('mc').toString()
+def mcKey = mcVersion.replace('.', '_')
+def depVersion = { String name ->
+	def key = "${name}_${mcKey}"
+	if (!project.hasProperty(key)) {
+		throw new GradleException("No '${key}' in gradle.properties — add dependency versions for Minecraft ${mcVersion}")
+	}
+	return project.property(key).toString()
+}
+// Version: -Pmod_version=X (CI/release contract, see docs/ci/RELEASING.md) > $MOD_VERSION > gradle.properties.
+version = gradle.startParameter.projectProperties.mod_version
+	?: System.getenv('MOD_VERSION')
+	?: project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	maven {
+		name = 'TerraformersMC (Mod Menu)'
+		url = 'https://maven.terraformersmc.com/releases/'
+		content { includeGroup 'com.terraformersmc' }
+	}
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"burmaldaholic" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+
+	runs {
+		// Dev runs use per-version run dirs so 26.2 and 26.3 worlds never mix.
+		client { runDir = "run/${mcVersion}/client" }
+		server { runDir = "run/${mcVersion}/server" }
+	}
+}
+
+// Fabric GameTest: creates the `gametest` source set, `runGameTest` (headless server, part of `check`)
+// and `runClientGameTest` (real client; needs a display -> `xvfb-run ./gradlew runClientGameTest`).
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "burmaldaholic-gametest"
+		enableGameTests = true
+		enableClientGameTests = true
+		eula = true
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${mcVersion}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${depVersion('fabric_api')}"
+
+	// Mod Menu is OPTIONAL at runtime: we only compile against its API. The `modmenu` entrypoint
+	// in fabric.mod.json is simply ignored when Mod Menu is absent.
+	clientCompileOnly "com.terraformersmc:modmenu:${depVersion('modmenu')}"
+	if (project.hasProperty('withModMenu')) {
+		clientRuntimeOnly "com.terraformersmc:modmenu:${depVersion('modmenu')}"
+	}
+
+	// Pure-logic unit tests (no Minecraft bootstrap). Game math, plural rules, odds, config parsing.
+	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
+	// Lets tests locate src/main/lang etc. regardless of the working directory.
+	systemProperty 'burmaldaholic.projectDir', projectDir.absolutePath
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+	}
+}
+
+processResources {
+	// Module namespace table, also read at runtime by ModuleContext (see config/namespaces.properties).
+	from('config/namespaces.properties') {
+		into 'burmaldaholic'
+	}
+	def props = [
+		version: project.version,
+		mc_range: project.supported_mc_range,
+		loader_version: project.loader_version,
+	]
+	inputs.properties props
+	filesMatching("fabric.mod.json") {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = 'UTF-8'
+	it.options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked']
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+	from(rootProject.file("../LICENSE")) {
+		rename { "${it}_$projectName" }
+	}
+}
+
+// Lang fragment merge + validation, hardcoded-string ban, asset ownership check.
+apply from: 'gradle/casino-checks.gradle'
+// Binary compatibility of the release jar with every other supported Minecraft version.
+apply from: 'gradle/linkage-check.gradle'

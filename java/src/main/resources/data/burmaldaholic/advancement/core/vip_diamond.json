@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/vip_platinum",
+  "display": {
+    "icon": {
+      "id": "minecraft:diamond"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.vip_diamond.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.vip_diamond.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

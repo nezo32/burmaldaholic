@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "W": "minecraft:green_wool",
+    "P": "#minecraft:planks",
+    "F": "#minecraft:wooden_fences",
+    "C": "minecraft:compass"
+  },
+  "pattern": [
+    "WWW",
+    "PPP",
+    "FCF"
+  ],
+  "result": {
+    "id": "burmaldaholic:roulette_table"
+  }
+}

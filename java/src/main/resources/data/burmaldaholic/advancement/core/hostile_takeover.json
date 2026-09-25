@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/knock_knock",
+  "display": {
+    "icon": {
+      "id": "minecraft:iron_sword"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.hostile_takeover.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.hostile_takeover.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

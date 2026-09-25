@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "G": "minecraft:glass",
+    "B": "minecraft:iron_bars",
+    "I": "minecraft:iron_ingot",
+    "X": "burmaldaholic:chip_5"
+  },
+  "pattern": [
+    "GGG",
+    "BIB",
+    "BXB"
+  ],
+  "result": {
+    "id": "burmaldaholic:plinko_machine"
+  }
+}

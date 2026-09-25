@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/extras/wheel_of_fortune"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/extras/wheel_of_fortune",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/extras/wheel_of_fortune",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/extras/wheel_of_fortune",
+      "y": 270
+    }
+  }
+}

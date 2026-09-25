@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/loan_taken",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:loan_overdue_notice"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.knock_knock.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.knock_knock.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

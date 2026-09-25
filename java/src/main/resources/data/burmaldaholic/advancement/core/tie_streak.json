@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/baccarat_natural",
+  "display": {
+    "icon": {
+      "id": "minecraft:lead"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.tie_streak.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.tie_streak.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

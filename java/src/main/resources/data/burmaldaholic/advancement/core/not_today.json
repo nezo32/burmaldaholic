@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/root",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:lucky_coin"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.not_today.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.not_today.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

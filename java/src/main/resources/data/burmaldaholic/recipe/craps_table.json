@@ -1,0 +1,27 @@
+{
+  "fabric:load_conditions": [
+    {
+      "condition": "fabric:registry_contains",
+      "registry": "minecraft:item",
+      "values": [
+        "burmaldaholic:dice"
+      ]
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "W": "minecraft:green_wool",
+    "P": "#minecraft:planks",
+    "F": "#minecraft:wooden_fences",
+    "D": "burmaldaholic:dice"
+  },
+  "pattern": [
+    "WWW",
+    "PPP",
+    "FDF"
+  ],
+  "result": {
+    "id": "burmaldaholic:craps_table"
+  }
+}

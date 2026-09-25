@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:pvp/pvp_first_win",
+  "display": {
+    "icon": {
+      "id": "minecraft:crossbow"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.pvp_revenge.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.pvp_revenge.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

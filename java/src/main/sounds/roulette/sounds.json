@@ -1,0 +1,83 @@
+{
+  "roulette_spin": {
+    "subtitle": "subtitles.burmaldaholic.roulette_spin",
+    "sounds": [
+      {
+        "name": "minecraft:random/wood_click",
+        "pitch": 1.4,
+        "volume": 0.6
+      },
+      {
+        "name": "minecraft:random/click",
+        "pitch": 1.8,
+        "volume": 0.4
+      }
+    ]
+  },
+  "roulette_ball_roll": {
+    "subtitle": "subtitles.burmaldaholic.roulette_ball_roll",
+    "sounds": [
+      {
+        "name": "minecraft:block.stone_button.click_off",
+        "type": "event",
+        "volume": 0.25,
+        "pitch": 1.9
+      }
+    ]
+  },
+  "roulette_ball_drop": {
+    "subtitle": "subtitles.burmaldaholic.roulette_ball_drop",
+    "sounds": [
+      {
+        "name": "minecraft:block.bamboo_wood.hit",
+        "type": "event",
+        "volume": 0.7,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "roulette_ball_bounce": {
+    "subtitle": "subtitles.burmaldaholic.roulette_ball_bounce",
+    "sounds": [
+      {
+        "name": "minecraft:block.bamboo_wood_button.click_on",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "roulette_ball_settle": {
+    "subtitle": "subtitles.burmaldaholic.roulette_ball_settle",
+    "sounds": [
+      {
+        "name": "minecraft:block.wooden_button.click_off",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 1.1
+      }
+    ]
+  },
+  "roulette_bell": {
+    "subtitle": "subtitles.burmaldaholic.roulette_bell",
+    "sounds": [
+      {
+        "name": "minecraft:block.bell.use",
+        "type": "event",
+        "volume": 0.4,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "roulette_dolly": {
+    "subtitle": "subtitles.burmaldaholic.roulette_dolly",
+    "sounds": [
+      {
+        "name": "minecraft:block.amethyst_block.hit",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 1.3
+      }
+    ]
+  }
+}

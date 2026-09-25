@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/first_bet",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:scratch_card_gold"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.scratch_top.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.scratch_top.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

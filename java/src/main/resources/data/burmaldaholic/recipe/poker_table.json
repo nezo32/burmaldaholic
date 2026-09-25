@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "W": "minecraft:green_wool",
+    "P": "minecraft:dark_oak_planks",
+    "F": "minecraft:dark_oak_fence",
+    "C": "burmaldaholic:chip_100"
+  },
+  "pattern": [
+    "WWW",
+    "PPP",
+    "FCF"
+  ],
+  "result": {
+    "id": "burmaldaholic:poker_table"
+  }
+}

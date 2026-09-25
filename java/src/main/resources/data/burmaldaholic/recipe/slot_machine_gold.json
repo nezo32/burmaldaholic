@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "R": "minecraft:redstone_block",
+    "5": "burmaldaholic:chip_25"
+  },
+  "pattern": [
+    "GGG",
+    "GRG",
+    "G5G"
+  ],
+  "result": {
+    "id": "burmaldaholic:slot_machine_gold"
+  }
+}

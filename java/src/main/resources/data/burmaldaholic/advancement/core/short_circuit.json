@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/banco",
+  "display": {
+    "icon": {
+      "id": "minecraft:lightning_rod"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.short_circuit.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.short_circuit.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "coin_flip": {
+    "subtitle": "subtitles.burmaldaholic.coin_flip",
+    "sounds": [
+      {
+        "name": "minecraft:entity.experience_orb.pickup",
+        "type": "event"
+      }
+    ]
+  },
+  "plinko_peg": {
+    "subtitle": "subtitles.burmaldaholic.plinko_peg",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.xylophone",
+        "type": "event",
+        "volume": 0.5
+      }
+    ]
+  },
+  "dice_roll": {
+    "subtitle": "subtitles.burmaldaholic.dice_roll",
+    "sounds": [
+      {
+        "name": "minecraft:block.bamboo_wood.hit",
+        "type": "event"
+      }
+    ]
+  },
+  "plinko_bin": {
+    "subtitle": "subtitles.burmaldaholic.plinko_bin",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.pling",
+        "type": "event"
+      }
+    ]
+  }
+}

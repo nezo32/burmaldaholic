@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/free_spins",
+  "display": {
+    "icon": {
+      "id": "minecraft:blaze_powder"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.tumble_six.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.tumble_six.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

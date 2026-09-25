@@ -1,0 +1,151 @@
+# Feature flow: <type>/<name> branch -> PR -> main (squash). Runs on every PR to main and on main.
+# Required status check on main: ci-ok ONLY. It aggregates every job below and always reports, even when the path
+# filters skip the mod build or the asset check (a skipped required check would otherwise block the PR). See docs/ci/RELEASING.md.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main] # keeps the Gradle / npm caches warm (caches are written from the default branch)
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists PR files via the API
+    outputs:
+      java: ${{ github.event_name != 'pull_request' || steps.filter.outputs.java == 'true' }}
+      assets: ${{ github.event_name != 'pull_request' || steps.filter.outputs.assets == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+      # Everything runs on main pushes, merge queue and manual runs; PRs only run the jobs whose paths they touch.
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            java:
+              - 'java/**'
+              - 'docs/design/CONFIG.md' # ConfigSpecCoverageTest reads it
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/reusable-build-gradle.yml'
+            # the asset generator (tools/assets) and the Java textures it writes; SLOTS.md Appendix A feeds the strips
+            assets:
+              - 'tools/**'
+              - 'java/src/main/resources/assets/burmaldaholic/textures/**'
+              - 'docs/design/SLOTS.md'
+              - '.github/workflows/ci.yml'
+
+  branch-name:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$BRANCH" =~ ^(feature|feat|fix|hotfix|chore|docs|refactor|ci|build|test|perf|release)/[a-z0-9._-]+$|^(dependabot|renovate|claude)/ ]]; then
+            echo "::error::Branch '$BRANCH' should be <type>/<short-name>, type in feature|feat|fix|hotfix|chore|docs|refactor|ci|build|test|perf|release"
+            exit 1
+          fi
+
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+          # .github/templates/ is not a workflow directory, so it has to be linted explicitly
+          ./actionlint -color .github/templates/release-caller.yml
+
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck scripts/*.sh scripts/test/*.sh
+      - name: curseforge-upload.sh dry-run tests
+        run: bash scripts/test/curseforge-upload.test.sh
+      - name: Inlined script copy is up to date
+        run: bash scripts/check-inlined-script.sh
+
+  # One jar supports every version of supported_mc_range (java/gradle.properties): build + test + gametests
+  # against each of them. Override the list with the repo var JAVA_MC_VERSIONS (JSON array).
+  mod:
+    needs: changes
+    if: needs.changes.outputs.java == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        mc: ${{ fromJSON(vars.JAVA_MC_VERSIONS || '["26.2","26.3"]') }}
+    uses: ./.github/workflows/reusable-build-gradle.yml
+    with:
+      working-directory: java
+      gradle-tasks: build -Pmc=${{ matrix.mc }}
+      artifact-name: java-mod-ci-${{ matrix.mc }}
+      artifact-files: build/libs/burmaldaholic-!(*-sources).jar
+
+  # Generated textures are committed: the generator must reproduce them byte for byte, and its tests must pass.
+  assets:
+    needs: changes
+    if: needs.changes.outputs.assets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+      - run: npm ci
+      - name: Generated assets are up to date
+        run: npm run check:assets
+      - name: Generator tests
+        run: npm test
+
+  ci-ok:
+    if: always()
+    needs: [changes, branch-name, actionlint, scripts, mod, assets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Aggregate results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          bad="$(echo "$RESULTS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")')"
+          if [[ -n "$bad" ]]; then
+            echo "::error::Failed jobs: $bad"
+            exit 1
+          fi
+          echo "All jobs passed or were skipped."

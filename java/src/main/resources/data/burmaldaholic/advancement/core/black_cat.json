@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/first_bet",
+  "display": {
+    "icon": {
+      "id": "minecraft:black_dye"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.black_cat.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.black_cat.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

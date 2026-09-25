@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "burmaldaholic:item/loan/piglin_moneylender_spawn_egg"
+  }
+}

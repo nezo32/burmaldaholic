@@ -1,0 +1,26 @@
+{
+	"required": true,
+	"package": "dev.nezo.burmaldaholic.core.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"AbstractVillagerMixin",
+		"BlockItemMixin",
+		"LevelStorageAccessMixin",
+		"MinecraftServerStorageAccessor",
+		"MobMixin"
+	],
+	"client": [
+		"client.BossHealthOverlayAccessor",
+		"client.CreateWorldGameTabMixin",
+		"client.CreateWorldScreenMixin",
+		"client.MouseHandlerFitMixin",
+		"client.WorldCreationUiStateMixin"
+	],
+	"server": [],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

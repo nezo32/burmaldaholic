@@ -1,0 +1,19 @@
+{
+  "name": "burmaldaholic-tools",
+  "version": "0.1.0",
+  "description": "Burmaldaholic asset generator: writes the Java mod's generated textures under java/",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "gen:assets": "node assets/gen-assets.mjs",
+    "check:assets": "node assets/gen-assets.mjs --check",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

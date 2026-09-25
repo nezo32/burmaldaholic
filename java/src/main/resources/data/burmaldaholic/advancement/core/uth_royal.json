@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/uth_four_x",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:uth_table_high_roller"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.uth_royal.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.uth_royal.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

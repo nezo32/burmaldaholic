@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "burmaldaholic:block/craps/craps_table"
+    },
+    "facing=east": {
+      "model": "burmaldaholic:block/craps/craps_table",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "burmaldaholic:block/craps/craps_table",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "burmaldaholic:block/craps/craps_table",
+      "y": 270
+    }
+  }
+}

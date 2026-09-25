@@ -1,0 +1,8 @@
+{
+	"last_chance": {
+		"subtitle": "subtitles.burmaldaholic.last_chance",
+		"sounds": [
+			{ "name": "minecraft:item.totem.use", "type": "event", "volume": 0.7, "pitch": 1.2 }
+		]
+	}
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "G": "minecraft:gold_block",
+    "E": "minecraft:emerald_block",
+    "C": "burmaldaholic:chip_500",
+    "L": "minecraft:lodestone"
+  },
+  "pattern": [
+    "GEG",
+    "CLC",
+    "GGG"
+  ],
+  "result": {
+    "id": "burmaldaholic:casino_charter"
+  }
+}

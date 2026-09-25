@@ -1,0 +1,16 @@
+enhancement:
+  - head-branch: ['^feat(ure)?/']
+bug:
+  - head-branch: ['^(fix|hotfix)/']
+chore:
+  - head-branch: ['^(chore|ci|build|refactor|perf|test)/']
+documentation:
+  - head-branch: ['^docs/']
+dependencies:
+  - head-branch: ['^(dependabot|renovate)/']
+java:
+  - changed-files:
+      - any-glob-to-any-file: ['java/**']
+tools:
+  - changed-files:
+      - any-glob-to-any-file: ['tools/**']

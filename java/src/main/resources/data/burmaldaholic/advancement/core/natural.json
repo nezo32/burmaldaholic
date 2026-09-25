@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/beginners_luck",
+  "display": {
+    "icon": {
+      "id": "burmaldaholic:blackjack_table"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.natural.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.natural.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

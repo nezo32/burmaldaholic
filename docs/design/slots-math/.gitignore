@@ -1,0 +1,13 @@
+machines.h
+features.h
+strips.md
+design.json
+cache.json
+results.json
+analysis.out
+engine
+engine_t
+sim
+mc_*.json
+mc_done
+__pycache__/

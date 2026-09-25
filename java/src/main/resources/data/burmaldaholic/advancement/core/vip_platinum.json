@@ -1,0 +1,23 @@
+{
+  "parent": "burmaldaholic:core/vip_gold",
+  "display": {
+    "icon": {
+      "id": "minecraft:quartz"
+    },
+    "title": {
+      "translate": "advancement.burmaldaholic.vip_platinum.title"
+    },
+    "description": {
+      "translate": "advancement.burmaldaholic.vip_platinum.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "granted": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

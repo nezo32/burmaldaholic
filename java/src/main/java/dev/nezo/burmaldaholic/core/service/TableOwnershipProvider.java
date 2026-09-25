@@ -1,0 +1,38 @@
+package dev.nezo.burmaldaholic.core.service;
+
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+
+/**
+ * Tells the table framework whether a table belongs to a player-owned casino (§18.2). The
+ * multiplayer module implements it; the default says every table is a house table (bank-funded).
+ */
+@FunctionalInterface
+public interface TableOwnershipProvider {
+	TableOwnershipProvider HOUSE = (level, pos) -> Optional.empty();
+
+	Optional<OwnedTable> owner(ServerLevel level, BlockPos pos);
+
+	/**
+	 * @param owner      owning player (cannot play at own tables)
+	 * @param bankrollId {@code Economy.bankrolls()} account paying out and receiving stakes
+	 * @param minBet     owner's min bet (0 = table default)
+	 * @param maxBet     owner's max bet (0 = table default; tier max still applies)
+	 * @param open       owner's open/closed switch
+	 * @param bots       owner's "bots on/off" switch (poker, §18.2)
+	 * @param slotsBuy   owner's "bonus buy on/off" switch (slots, SLOTS.md §8.6)
+	 * @param slotsAutoplay owner's "autoplay on/off" switch (slots, SLOTS.md §8.6)
+	 */
+	record OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open, boolean bots, boolean slotsBuy,
+			boolean slotsAutoplay) {
+		public OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open) {
+			this(owner, bankrollId, minBet, maxBet, open, true, true, true);
+		}
+
+		public OwnedTable(UUID owner, String bankrollId, long minBet, long maxBet, boolean open, boolean bots) {
+			this(owner, bankrollId, minBet, maxBet, open, bots, true, true);
+		}
+	}
+}

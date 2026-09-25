@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "E": "minecraft:emerald",
+    "I": "minecraft:iron_ingot",
+    "C": "minecraft:chest"
+  },
+  "pattern": [
+    "GEG",
+    "ICI",
+    "III"
+  ],
+  "result": {
+    "id": "burmaldaholic:cashier"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "burmaldaholic:baccarat_table_player_banked"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "burmaldaholic:blocks/baccarat_table_player_banked"
+}
