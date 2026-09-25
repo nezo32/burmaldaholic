@@ -20,6 +20,10 @@ import dev.nezo.burmaldaholic.core.table.TableType;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.wager.BetLimits;
+import dev.nezo.burmaldaholic.core.anim.WinTier;
+import dev.nezo.burmaldaholic.core.anim.WinTierTable;
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
+import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBeats;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBotPolicy;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBotPolicy.BetMemory;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound;
@@ -82,13 +86,21 @@ import net.minecraft.world.level.storage.ValueOutput;
  */
 public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
 	public static final String BETTING = "betting", INSURANCE = "insurance", TURNS = "turns", RESULT = "result";
-	static final int RESULT_TICKS = 60;
+	/** RESULT after the reveal gate (cards.md §8 {@code blackjack.resultTicks}; was 60). */
+	static final int RESULT_TICKS = 80;
 	static final int SHUFFLE_NOTICE_TICKS = 40;
 	static final int PEEK_NOTICE_TICKS = 30;
+	static final String PEEK_NOTICE = "gui.burmaldaholic.blackjack.dealer_peeks";
 
 	private final boolean highRoller;
 	private Shoe shoe;
 	private BlackjackRound round;
+	/** When each card of the round becomes public (C1 / J-C1): the round resolves at once, publication is paced. */
+	private BlackjackBeats beats;
+	/** Next tick at which something becomes public (-1 = nothing pending). */
+	private long nextPub = -1;
+	private long lastPub;
+	private int roundSeq;
 	/** main bets placed in the current betting phase */
 	private final Map<UUID, Long> mainBets = new LinkedHashMap<>();
 	private final Map<UUID, Long> lastBet = new HashMap<>();
@@ -413,6 +425,9 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			return;
 		}
 		round.act(seatNo, action);
+		if (action == Action.STAND) {
+			dealerGesture(DealerGesture.WAVE_OFF);
+		}
 		step();
 	}
 
@@ -470,12 +485,19 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			all.add(new SeatBet(bot.seat(), VirtualSeats.botUuid(bot.key), mem.next()));
 		}
 		round = new BlackjackRound(rules, source, all);
-		if (level != null && CoreSounds.CARD_DEAL != null) {
-			level.playSound(null, worldPosition, noticeKey.equals("gui.burmaldaholic.blackjack.shuffling") && noticeUntil > gameTime()
-				? CoreSounds.CARD_SHUFFLE : CoreSounds.CARD_DEAL, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
+		boolean shuffling = noticeKey.equals("gui.burmaldaholic.blackjack.shuffling") && noticeUntil > gameTime();
+		if (level != null && shuffling && CoreSounds.CARD_SHUFFLE != null) {
+			level.playSound(null, worldPosition, CoreSounds.CARD_SHUFFLE, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
+			dealerGesture(DealerGesture.SHUFFLE);
 		}
+		// the deal is published one card per beat (after the riffle when the shoe was shuffled)
+		BlackjackBeats.Config cfg = seats().occupied().size() == 1 ? BlackjackBeats.Config.DEFAULT.scaled(CasinoConfig.cards().soloSpeed) : BlackjackBeats.Config.DEFAULT;
+		roundSeq++;
+		lastPub = gameTime() - 1;
+		beats = new BlackjackBeats(round, gameTime() + (shuffling ? SHUFFLE_NOTICE_TICKS / 2 : 0), cfg);
+		nextPub = beats.nextChange(lastPub);
 		if (round.peeked() && round.phase() == Phase.TURNS && !noticeKey.equals("gui.burmaldaholic.blackjack.shuffling")) {
-			notice("gui.burmaldaholic.blackjack.dealer_peeks", PEEK_NOTICE_TICKS);
+			notice(PEEK_NOTICE, PEEK_NOTICE_TICKS);
 		}
 		setChanged();
 		step();
@@ -486,11 +508,113 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		noticeUntil = gameTime() + ticks;
 	}
 
+	/** Re-reads the round into the publication schedule (new cards one beat apart). */
+	private void publish() {
+		if (round == null || beats == null) {
+			return;
+		}
+		beats.sync(round, gameTime());
+		nextPub = beats.nextChange(lastPub);
+	}
+
+	/** Ticks until the last published card is readable (decision timers and RESULT start after it). */
+	private int delay() {
+		return beats == null ? 0 : beats.delay(gameTime());
+	}
+
+	/** A card is still moving: no decision, timer or result is shown yet. */
+	private boolean busy() {
+		return beats != null && beats.busy(gameTime());
+	}
+
+	/** GameTests: the publication schedule of the current round. */
+	public BlackjackBeats beats() {
+		return beats;
+	}
+
+	/** GameTests / screenshots: every scheduled beat is already public (timers move with it). */
+	public void revealAllForTests() {
+		if (beats != null) {
+			long d = beats.delay(gameTime());
+			if (d > 0) {
+				for (String t : List.of("turn", "insurance", "bot", "result")) {
+					if (ticksLeft(t) > 0) {
+						startTimer(t, (int) Math.max(1, ticksLeft(t) - d));
+					}
+				}
+				beats.shiftEarlier(d);
+				lastPub = gameTime();
+				nextPub = beats.nextChange(lastPub);
+			}
+		}
+		syncViewers();
+	}
+
+	/** GameTests / screenshots: the atmosphere safe point now (pending bot settings apply, bots sit). */
+	public void botSafePointForTests() {
+		botSafePoint();
+	}
+
+	/** GameTests / screenshots: every beat public, then the pending bot decision is taken now. */
+	public void fastForwardForTests() {
+		revealAllForTests();
+		if (ticksLeft("bot") >= 0) {
+			cancelTimer("bot");
+			onTimer("bot");
+		}
+	}
+
+	/** Beats that became public since the last check: re-sync the viewers and move the dealer (cards.md §1.4). */
+	private void publishTick() {
+		if (beats == null || nextPub < 0) {
+			return;
+		}
+		long now = gameTime();
+		if (now < nextPub) {
+			return;
+		}
+		List<String> kinds = beats.kindsBetween(lastPub, now);
+		lastPub = now;
+		nextPub = beats.nextChange(now);
+		if (kinds.contains(BlackjackBeats.FLIP)) {
+			dealerGesture(DealerGesture.FLIP);
+		} else if (kinds.contains(BlackjackBeats.PEEK)) {
+			dealerGesture(DealerGesture.PEEK);
+		} else if (!kinds.isEmpty()) {
+			dealerGesture(DealerGesture.DEAL);
+		} else if (!busy() && RESULT.equals(phase()) && round != null) {
+			boolean paid = round.seats().stream().anyMatch(s -> round.returnOf(s.seat) > round.stakedOf(s.seat));
+			dealerGesture(paid ? DealerGesture.PAY : DealerGesture.SWEEP);
+		}
+		syncViewers();
+	}
+
+	/** The nearest blackjack dealer NPC within {@link BlackjackDealer#TABLE_RADIUS} blocks plays {@code g}. */
+	private void dealerGesture(DealerGesture g) {
+		if (!(level instanceof ServerLevel sl)) {
+			return;
+		}
+		BlackjackDealer best = null;
+		double bestD = Double.MAX_VALUE;
+		net.minecraft.world.phys.Vec3 c = net.minecraft.world.phys.Vec3.atCenterOf(worldPosition);
+		for (BlackjackDealer d : sl.getEntitiesOfClass(BlackjackDealer.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(BlackjackDealer.TABLE_RADIUS))) {
+			double dist = d.distanceToSqr(c);
+			if (dist < bestD) {
+				bestD = dist;
+				best = d;
+			}
+		}
+		if (best != null) {
+			best.gesture(g);
+		}
+	}
+
 	/** Drives the round after every change: pays settled seats, starts the right timer or finishes. */
 	private void step() {
 		if (round == null) {
 			return;
 		}
+		publish();
 		payNewlySettled();
 		switch (round.phase()) {
 			case INSURANCE -> {
@@ -511,13 +635,13 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 				}
 				setPhase(INSURANCE);
 				if (ticksLeft("insurance") < 0) {
-					startTimer("insurance", CasinoConfig.blackjack().insuranceTimerTicks);
+					startTimer("insurance", CasinoConfig.blackjack().insuranceTimerTicks + delay());
 				}
 			}
 			case TURNS -> {
 				cancelTimer("insurance");
 				if (INSURANCE.equals(phase()) && round.peeked()) {
-					notice("gui.burmaldaholic.blackjack.dealer_peeks", PEEK_NOTICE_TICKS);
+					notice(PEEK_NOTICE, PEEK_NOTICE_TICKS);
 				}
 				setPhase(TURNS);
 				Turn t = round.current();
@@ -530,7 +654,8 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 					// Bots act in seat order after a short think; they never use the human turn timer.
 					cancelTimer("turn");
 					if (ticksLeft("bot") < 0) {
-						startTimer("bot", Math.max(1, BlackjackBotPolicy.thinkTicks(bots.rng(), bot.profile().level(), bots.speed(), AtmosphereBots.fastFactor())));
+						startTimer("bot", Math.max(1, BlackjackBotPolicy.thinkTicks(bots.rng(), bot.profile().level(), bots.speed(), AtmosphereBots.fastFactor()))
+							+ delay());
 					}
 					lastTurnSeat = t.seat().seat;
 					return;
@@ -540,7 +665,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 					step();
 					return;
 				}
-				startTimer("turn", CasinoConfig.blackjack().turnTimerTicks);
+				startTimer("turn", CasinoConfig.blackjack().turnTimerTicks + delay());
 				if (t.seat().seat != lastTurnSeat) {
 					lastTurnSeat = t.seat().seat;
 					ServerPlayer p = online(t.seat().player);
@@ -597,12 +722,15 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		cancelTimer("bot");
 		botsAfterRound();
 		setPhase(RESULT);
-		startTimer("result", RESULT_TICKS);
+		// RESULT starts at the reveal gate (the dealer's last card is readable); money is settled already
+		startTimer("result", delay() + RESULT_TICKS);
 		setChanged();
 	}
 
 	private void toBetting() {
 		round = null;
+		beats = null;
+		nextPub = -1;
 		away.clear();
 		paid.clear();
 		lastTurnSeat = -1;
@@ -712,6 +840,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	/** Shows a bot's virtual bet in the lobby once its bet moment has come (they never delay the deal). */
 	@Override
 	protected void serverTick(ServerLevel level) {
+		publishTick();
 		if (botBetAt.isEmpty()) {
 			return;
 		}
@@ -790,12 +919,20 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	@Override
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
+		putCardsTheme(tag);
 		UUID me = viewer.getUUID();
 		tag.putBoolean("high_roller", isHighRoller());
 		tag.putLong("last_bet", lastBet.getOrDefault(me, 0L));
 		tag.putBoolean("bet_placed", mainBets.containsKey(me));
-		if (!noticeKey.isEmpty() && gameTime() < noticeUntil) {
-			tag.putString("notice", noticeKey);
+		// the peek notice follows the PEEK beat (both outcomes alike): set when the round resolved, it would tell
+		// whether the dealer has blackjack before the peek is on the felt (cards.md §0.7.1)
+		String notice = !noticeKey.isEmpty() && gameTime() < noticeUntil && !noticeKey.equals(PEEK_NOTICE) ? noticeKey : "";
+		if (notice.isEmpty() && beats != null && beats.peekTick() >= 0 && gameTime() >= beats.peekTick()
+			&& gameTime() < beats.peekTick() + PEEK_NOTICE_TICKS) {
+			notice = PEEK_NOTICE;
+		}
+		if (!notice.isEmpty()) {
+			tag.putString("notice", notice);
 		}
 		ListTag betList = new ListTag();
 		for (Map.Entry<UUID, Long> e : mainBets.entrySet()) {
@@ -811,11 +948,38 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		if (round == null) {
 			return tag;
 		}
-		List<Card> dealer = round.dealerCards();
-		boolean reveal = round.holeRevealed();
-		tag.put("dealer", codes(reveal ? dealer : dealer.subList(0, 1)));
-		tag.putBoolean("hole_hidden", !reveal);
-		Turn turn = round.current();
+		// Only PUBLISHED cards (C1 / J-C1): one card per beat, the hole card a back until its flip beat; results,
+		// decisions and timers wait for the reveal gate (cards.md §0.7.1, §0.7.4).
+		long now = gameTime();
+		boolean busy = busy();
+		long start = beats.startTick();
+		tag.putInt("round_seq", roundSeq);
+		tag.putLong("round_tick", start);
+		tag.putBoolean("busy", busy);
+		if (busy) {
+			CompoundTag timers = tag.getCompoundOrEmpty("timers");
+			for (String t : List.of("turn", "insurance", "bot", "result")) {
+				timers.remove(t);
+			}
+			tag.put("timers", timers);
+			// while cards are moving the phase must not run ahead of the felt: a dealer blackjack (RESULT) or an ace up
+			// (INSURANCE) is only told by its own beat (cards.md §0.7.1)
+			if (RESULT.equals(phase())) {
+				tag.putString("phase", beats.holeShown(now) ? "dealer" : TURNS);
+			} else if (INSURANCE.equals(phase()) && beats.dealerAt(now).isEmpty()) {
+				tag.putString("phase", TURNS);
+			}
+		}
+		putEvs(tag, "dealer", beats.dealerAt(now), start);
+		boolean holeShown = beats.holeShown(now);
+		tag.putBoolean("hole_hidden", !holeShown);
+		if (holeShown) {
+			tag.putInt("hole_flip_at", (int) (beats.holeFlipTick() - start));
+		}
+		if (beats.peekTick() >= 0 && beats.peekTick() <= now) {
+			tag.putInt("peek_at", (int) (beats.peekTick() - start));
+		}
+		Turn turn = busy ? null : round.current();
 		tag.putInt("current_seat", turn == null ? -1 : turn.seat().seat);
 		tag.putInt("current_hand", turn == null ? -1 : turn.handIndex());
 		ListTag players = new ListTag();
@@ -827,26 +991,38 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			if (bot != null && level instanceof ServerLevel sl) {
 				p.putBoolean("bot", true);
 				p.put("name_c", AtmosphereBots.encode(sl, botName(bot)));
+				p.putInt("bot_level", Math.min(3, bot.profile().level().ordinal() + 1));
+				p.putString("bot_name", bot.profile().nameKey());
 			}
 			p.putBoolean("you", s.player.equals(me));
 			p.putBoolean("away", away.contains(s.player));
 			p.putLong("bet", s.bet);
 			p.putLong("insurance", s.insurance);
-			p.putBoolean("settled", s.settled);
-			if (s.settled) {
-				p.putLong("net", round.returnOf(s.seat) - round.stakedOf(s.seat));
+			boolean settled = s.settled && !busy;
+			p.putBoolean("settled", settled);
+			if (settled) {
+				long ret = round.returnOf(s.seat);
+				long staked = round.stakedOf(s.seat);
+				p.putLong("net", ret - staked);
+				p.putLong("ret", ret);
+				p.putLong("staked", staked);
 				p.putLong("insurance_return", s.insuranceReturn);
+				// the viewer's tier, server-computed over all bets of the round (cards.md §0.5)
+				p.putString("tier", WinTier.of(ret, staked, WinTierTable.DEFAULT).name());
 			}
+			List<List<BlackjackBeats.Ev>> pub = beats.handsAt(s.seat, now);
 			ListTag hands = new ListTag();
-			for (Hand h : s.hands) {
+			for (int h = 0; h < s.hands.size(); h++) {
+				Hand hand = s.hands.get(h);
 				CompoundTag ht = new CompoundTag();
-				ht.put("cards", codes(h.cards));
-				ht.putLong("bet", h.bet);
-				ht.putBoolean("doubled", h.doubled);
-				ht.putBoolean("split", h.split);
-				if (h.outcome != null) {
-					ht.putString("outcome", h.outcome.id());
-					ht.putLong("ret", h.ret);
+				putEvs(ht, "cards", h < pub.size() ? pub.get(h) : List.of(), start);
+				ht.putLong("bet", hand.bet);
+				ht.putBoolean("doubled", hand.doubled);
+				ht.putBoolean("split", hand.split);
+				ht.putBoolean("done", hand.done && !busy);
+				if (hand.outcome != null && !busy) {
+					ht.putString("outcome", hand.outcome.id());
+					ht.putLong("ret", hand.ret);
 				}
 				hands.add(ht);
 			}
@@ -855,7 +1031,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		}
 		tag.put("players", players);
 		Seat mine = seatOf(me);
-		if (mine != null && !away.contains(me)) {
+		if (mine != null && !away.contains(me) && !busy) {
 			Offer offer = round.offer(mine.seat);
 			if (offer != null) {
 				tag.putString("offer", offer == Offer.INSURANCE ? "insurance" : "even_money");
@@ -888,6 +1064,8 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			CompoundTag bt = new CompoundTag();
 			bt.putInt("seat", b.seat());
 			bt.put("name_c", AtmosphereBots.encode(sl, botName(b)));
+			bt.putInt("bot_level", Math.min(3, b.profile().level().ordinal() + 1));
+			bt.putString("bot_name", b.profile().nameKey());
 			BetMemory mem = botMem.get(b.key);
 			if (mem != null && now >= botBetAt.getOrDefault(b.key, Long.MAX_VALUE)) {
 				bt.putLong("amount", mem.next());
@@ -896,6 +1074,22 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		}
 		tag.put("bot_seats", list);
 		tag.putBoolean("virtual", !roundBots.isEmpty() || !list.isEmpty());
+	}
+
+	/** {@code key} = codes (−1 = back), {@code key_ids} = stable card ids, {@code key_at} = deal tick − round start. */
+	private static void putEvs(CompoundTag tag, String key, List<BlackjackBeats.Ev> evs, long start) {
+		int[] codes = new int[evs.size()];
+		int[] ids = new int[evs.size()];
+		int[] at = new int[evs.size()];
+		for (int i = 0; i < codes.length; i++) {
+			BlackjackBeats.Ev e = evs.get(i);
+			codes[i] = e.code();
+			ids[i] = e.id();
+			at[i] = (int) (e.tick() - start);
+		}
+		tag.putIntArray(key, codes);
+		tag.putIntArray(key + "_ids", ids);
+		tag.putIntArray(key + "_at", at);
 	}
 
 	private static IntArrayTag codes(List<Card> cards) {

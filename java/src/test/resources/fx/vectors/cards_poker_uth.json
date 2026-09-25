@@ -1,0 +1,1898 @@
+{
+  "v": 1,
+  "poker": [
+    {
+      "case": "deal 2 sb0",
+      "sharedEndMs": 1530,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 11,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.button",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 180,
+            "kind": "poker.blind",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 400,
+            "dur": 180,
+            "kind": "poker.blind",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 750,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 900,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1050,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1100,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1250,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "deal 6 sb1",
+      "sharedEndMs": 2730,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 12,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.button",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 180,
+            "kind": "poker.blind",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 400,
+            "dur": 180,
+            "kind": "poker.blind",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 750,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 900,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1050,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1200,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1350,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1500,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1650,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1700,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1800,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1850,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1950,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2000,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2100,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2150,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2250,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2300,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2450,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "deal 9 sb8",
+      "sharedEndMs": 3630,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 13,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.button",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 180,
+            "kind": "poker.blind",
+            "lane": 8,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 400,
+            "dur": 180,
+            "kind": "poker.blind",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 8,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 750,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 900,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1050,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1200,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1350,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1500,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1650,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 6,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1800,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 7,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1950,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 8,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2100,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2150,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 8,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2250,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2300,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2400,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2450,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2550,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2600,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2700,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2750,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2850,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2900,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 3000,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 6,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 3050,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 3150,
+            "dur": 200,
+            "kind": "poker.deal",
+            "lane": 7,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 3200,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 6,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 3350,
+            "dur": 280,
+            "kind": "poker.lift",
+            "lane": 7,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "street 1",
+      "sharedEndMs": 1540,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 21,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 750,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 900,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1100,
+            "dur": 280,
+            "kind": "poker.flip",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1180,
+            "dur": 280,
+            "kind": "poker.flip",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1260,
+            "dur": 280,
+            "kind": "poker.flip",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "street 2",
+      "sharedEndMs": 1080,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 22,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 800,
+            "dur": 280,
+            "kind": "poker.flip",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "street 3",
+      "sharedEndMs": 1080,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 23,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 800,
+            "dur": 280,
+            "kind": "poker.flip",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "finish uncontested",
+      "sharedEndMs": 900,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 30,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "finish river showdown",
+      "sharedEndMs": 2780,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 31,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 900,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1680,
+            "dur": 400,
+            "kind": "poker.best",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2280,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "finish runout from flop",
+      "sharedEndMs": 11370,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 32,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 400,
+            "kind": "poker.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 400,
+            "dur": 280,
+            "kind": "poker.expose",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 680,
+            "dur": 1200,
+            "kind": "poker.sweat",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 680,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1880,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2030,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2180,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2380,
+            "dur": 450,
+            "kind": "poker.flip",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2460,
+            "dur": 450,
+            "kind": "poker.flip",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2540,
+            "dur": 450,
+            "kind": "poker.flip",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2990,
+            "dur": 1200,
+            "kind": "poker.sweat",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2990,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 4190,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 4390,
+            "dur": 450,
+            "kind": "poker.flip",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 4840,
+            "dur": 1200,
+            "kind": "poker.sweat",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 4840,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 6040,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 6240,
+            "dur": 450,
+            "kind": "poker.flip",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 6690,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 7190,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 7690,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 8470,
+            "dur": 400,
+            "kind": "poker.best",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 9070,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 9970,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 10870,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "finish runout from river",
+      "sharedEndMs": 5410,
+      "timeline": {
+        "v": 1,
+        "game": "poker",
+        "seed": 33,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 280,
+            "kind": "poker.expose",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 280,
+            "dur": 1200,
+            "kind": "poker.sweat",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 280,
+            "dur": 200,
+            "kind": "poker.burn",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1480,
+            "dur": 200,
+            "kind": "poker.slide",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1680,
+            "dur": 450,
+            "kind": "poker.flip",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2130,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2630,
+            "dur": 480,
+            "kind": "poker.show",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 3410,
+            "dur": 400,
+            "kind": "poker.best",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 4010,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 4910,
+            "dur": 500,
+            "kind": "poker.award",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    }
+  ],
+  "uth": [
+    {
+      "case": "deal 1",
+      "sharedEndMs": 1490,
+      "timeline": {
+        "v": 1,
+        "game": "uth",
+        "seed": 41,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 150,
+            "dur": 200,
+            "kind": "uth.dealer_deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 300,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 450,
+            "dur": 200,
+            "kind": "uth.dealer_deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 500,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 950,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1010,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1070,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1130,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1190,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "deal 6",
+      "sharedEndMs": 2990,
+      "timeline": {
+        "v": 1,
+        "game": "uth",
+        "seed": 42,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 150,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 300,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 450,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 750,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 900,
+            "dur": 200,
+            "kind": "uth.dealer_deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1050,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1200,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1250,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1350,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1400,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1500,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1550,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1650,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1700,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1800,
+            "dur": 200,
+            "kind": "uth.deal",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1850,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1950,
+            "dur": 200,
+            "kind": "uth.dealer_deal",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 2000,
+            "dur": 280,
+            "kind": "uth.lift",
+            "lane": 5,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2450,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2510,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2570,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2630,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 2690,
+            "dur": 300,
+            "kind": "uth.board",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "flop",
+      "sharedEndMs": 480,
+      "timeline": {
+        "v": 1,
+        "game": "uth",
+        "seed": 43,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 280,
+            "kind": "uth.flip",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 100,
+            "dur": 280,
+            "kind": "uth.flip",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 200,
+            "dur": 280,
+            "kind": "uth.flip",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "turn river",
+      "sharedEndMs": 780,
+      "timeline": {
+        "v": 1,
+        "game": "uth",
+        "seed": 44,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 280,
+            "kind": "uth.flip",
+            "lane": 3,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 500,
+            "dur": 280,
+            "kind": "uth.flip",
+            "lane": 4,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    },
+    {
+      "case": "showdown 3",
+      "sharedEndMs": 2300,
+      "timeline": {
+        "v": 1,
+        "game": "uth",
+        "seed": 45,
+        "beats": [
+          {
+            "at": 0,
+            "dur": 280,
+            "kind": "uth.dealer_flip",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 200,
+            "dur": 280,
+            "kind": "uth.dealer_flip",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 600,
+            "dur": 200,
+            "kind": "uth.qualify",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1100,
+            "dur": 280,
+            "kind": "uth.reveal",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          },
+          {
+            "at": 1500,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              3
+            ]
+          },
+          {
+            "at": 1580,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1650,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              3
+            ]
+          },
+          {
+            "at": 1660,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              2
+            ]
+          },
+          {
+            "at": 1730,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1740,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 0,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1800,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              3
+            ]
+          },
+          {
+            "at": 1810,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              2
+            ]
+          },
+          {
+            "at": 1880,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              1
+            ]
+          },
+          {
+            "at": 1890,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 1,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          },
+          {
+            "at": 1960,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              2
+            ]
+          },
+          {
+            "at": 2040,
+            "dur": 260,
+            "kind": "uth.settle",
+            "lane": 2,
+            "group": 0,
+            "clock": "S",
+            "args": [
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case": "result",
+      "sharedEndMs": 3680,
+      "timeline": {
+        "v": 1,
+        "game": "uth",
+        "seed": 46,
+        "beats": [
+          {
+            "at": 3400,
+            "dur": 280,
+            "kind": "uth.gather",
+            "lane": -1,
+            "group": 0,
+            "clock": "S",
+            "args": []
+          }
+        ]
+      }
+    }
+  ]
+}

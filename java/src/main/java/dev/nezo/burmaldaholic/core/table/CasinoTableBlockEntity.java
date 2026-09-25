@@ -770,6 +770,14 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 * (list of {index, name, you}), {@code seat} (viewer's seat or -1), {@code stake} (viewer's open stake),
 	 * {@code balance}, {@code min}/{@code max} (viewer's effective limits).
 	 */
+	/** Card tables: the server's {@code cards.theme} (AUTO = omitted, the client resolves by dimension). */
+	protected static void putCardsTheme(CompoundTag tag) {
+		String id = dev.nezo.burmaldaholic.core.config.CasinoConfig.cards().theme.id();
+		if (!id.isEmpty()) {
+			tag.putString("theme", id);
+		}
+	}
+
 	protected CompoundTag baseState(ServerPlayer viewer) {
 		CompoundTag tag = new CompoundTag();
 		tag.putString("phase", phase);

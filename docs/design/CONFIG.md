@@ -193,6 +193,15 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `poker.botMix.mid` | list<int> | [10,55,35] | each 0–100 | |
 | `poker.botMix.high` | list<int> | [0,45,55] | each 0–100 | |
 | `poker.maxDistance` | int | 8 | 3–32 | Blocks from table before sitting out. |
+| `poker.exposeAllIn` | bool | true | — | All-in exposure: on an all-in run-out (betting closed, at most one live player with chips) every live hand turns face up before the remaining streets (`animation/cards.md` §2.2; lead approval 2026-09-24). |
+| `poker.fx.dealBeatTicks` | int | 3 | 1–10 | Presentation pacing (publication only, `animation/cards.md` §2.2, §8): ticks between hole-card deal beats. |
+| `poker.fx.gatherTicks` | int | 8 | 2–40 | Street-end gather of the bets into the pot. |
+| `poker.fx.streetTicks` | int | 12 | 2–40 | Street start → the board cards slide in (at least `gatherTicks` + 4). |
+| `poker.fx.showBeatTicks` | int | 10 | 2–40 | Between showdown show beats (one per live hand, shown or mucked). |
+| `poker.fx.awardTicks` | int | 12 | 2–40 | Best five → the first pot award. |
+| `poker.fx.runoutPauseTicks` | int | 24 | 0–60 | Sweat pause before every all-in run-out street (the same for every street). |
+| `poker.fx.bigPotBb` | int | 50 | 10–1000 | Pot (in big blinds) for the big-pot moment. |
+| `poker.fx.monsterPotBb` | int | 100 | 10–1000 | Pot (in big blinds) for the monster-pot moment (≥ `bigPotBb`). |
 
 ## slots
 
@@ -311,7 +320,7 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | `baccarat.highRollerMinVipTier` | int | 2 | 0–5 | 2 = Gold. |
 | `baccarat.seats` | int | 7 | 1–7 | Seats per table (house and chemin de fer). |
 | `baccarat.betTimerTicks` | int | 400 | 100–2400 | Betting window after the first bet. |
-| `baccarat.revealTicks` | int | 80 | 20–300 | Card reveal animation. |
+| `baccarat.revealTicks` | int | 160 | 20–300 | Cap of the card reveal timeline (deal, flips, squeezes; `animation/cards.md` §4.2). |
 | `baccarat.historyLength` | int | 60 | 0–120 | Bead plate size (coups of the current shoe). |
 | `baccarat.tieStreakChaos` | int | 3 | 0–10 | Ties in a row that trigger `chip_shower` for Tie winners; 0 = off. |
 | `baccarat.chemmy.enabled` | bool | true | — | Chemin de fer (player-banked) tables work (§20.9). |
@@ -347,6 +356,15 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | `uth.pvp.rakePercent` | double | 0.01 | 0.0–0.10 | House rake on the banker's positive net per round. |
 | `uth.pvp.bankerRounds` | int | 10 | 0–1000 | Rounds before the dealer seat is offered on; 0 = unlimited. |
 | `uth.pvp.houseRoundsWhenNoBanker` | bool | true | — | Nobody banks → the house deals instead of waiting. |
+
+## cards
+
+The four card tables' presentation (`animation/cards.md` §8, `visual/cards.md` §7).
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `cards.theme` | enum(AUTO, VILLAGE, BASTION, END) | AUTO | — | Look of every card table: AUTO = by the table's dimension; otherwise forced on all card tables (sent with each table's state). |
+| `cards.soloSpeed` | double | 0.75 | 0.25–1.0 | Beat multiplier when exactly one human is seated (blackjack's single-seat fast deal, §0.2). |
 
 ## extras
 

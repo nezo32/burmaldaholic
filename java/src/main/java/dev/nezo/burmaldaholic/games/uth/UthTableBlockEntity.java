@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.uth;
 
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
 import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import com.mojang.serialization.Codec;
@@ -41,7 +42,13 @@ import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.wager.Stake;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.wager.Wagers;
+import dev.nezo.burmaldaholic.client.dealer.DealerCueSource;
+import dev.nezo.burmaldaholic.core.anim.SeedMix;
+import dev.nezo.burmaldaholic.core.anim.Timeline;
+import dev.nezo.burmaldaholic.games.poker.logic.BestFive;
 import dev.nezo.burmaldaholic.games.uth.logic.BankRules;
+import dev.nezo.burmaldaholic.games.uth.logic.UthBeats;
+import dev.nezo.burmaldaholic.games.uth.present.UthPub;
 import dev.nezo.burmaldaholic.games.uth.logic.Decision;
 import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
 import dev.nezo.burmaldaholic.games.uth.logic.Paytables;
@@ -108,7 +115,7 @@ import org.jspecify.annotations.Nullable;
  * no money, no reports, no advancements. Under a human banker they only watch; with nobody banking a house
  * round may show a bot stand-in on the dealer plate (flavour only).
  */
-public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTable {
+public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTable, DealerCueSource {
 	public static final String BETTING = "betting", PREFLOP = "preflop", FLOP = "flop", RIVER = "river", SHOWDOWN = "showdown",
 		RESULT = "result";
 	static final int REVEAL_TICKS = 20;
@@ -171,6 +178,17 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	private boolean bankResultShown;
 	private boolean royalThisRound;
 	private int @Nullable [] stackedDeck;
+	// ---- presentation (animation/cards.md §3.2, task J-C3) -----------------------------------------------------
+	/** Segment counter / kind ({@link UthPub#DEAL} …) / start tick of the running segment. */
+	private int stageSeq;
+	private int stageKind;
+	private long stageStart;
+	/** Last published public tag (block updates only on change) and, client side, the last one received. */
+	private @Nullable CompoundTag lastPub;
+	private CompoundTag clientPub = new CompoundTag();
+	private @Nullable UthPub clientPubCache;
+	private @Nullable Timeline clientTl;
+	private int clientTlSeq = -1;
 	private final List<Escrow> orphaned = new ArrayList<>();
 
 	// ---- bots (BOTS.md §4.5, §4.6) ----
@@ -652,8 +670,20 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			level.playSound(null, worldPosition, CoreSounds.CARD_SHUFFLE, SoundSource.BLOCKS, 0.8f, 1.0f);
 		}
 		setPhase(PREFLOP);
+		stage(UthPub.DEAL);
 		setChanged();
 		openDecisions();
+	}
+
+	private void stage(int kind) {
+		stageSeq++;
+		stageKind = kind;
+		stageStart = level == null ? 0 : level.getGameTime();
+	}
+
+	/** Seats dealt into the running round (lane count of {@link UthBeats}). */
+	private int roundSeats() {
+		return round == null ? 1 : Math.max(1, round.seats().size());
 	}
 
 	/**
@@ -683,7 +713,9 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			}
 		}
 		if (r.anyPending()) {
-			startTimer("decide", cfg().decisionTimerTicks);
+			// preflop: the decision window opens with the deal and runs its full length after the last card lands
+			int deal = r.street() == UthRound.Street.PREFLOP ? UthBeats.dealTicks(roundSeats()) : 0;
+			startTimer("decide", cfg().decisionTimerTicks + deal);
 		} else {
 			advanceStreet();
 		}
@@ -813,10 +845,16 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			case RIVER -> setPhase(RIVER);
 			default -> setPhase(SHOWDOWN);
 		}
+		stage(switch (r.street()) {
+			case FLOP -> UthPub.FLOP;
+			case RIVER -> UthPub.RIVER;
+			default -> UthPub.SHOWDOWN;
+		});
 		if (level != null && CoreSounds.CARD_DEAL != null) {
 			level.playSound(null, worldPosition, CoreSounds.CARD_DEAL, SoundSource.BLOCKS, 0.7f, 1.0f);
 		}
-		startTimer("step", REVEAL_TICKS);
+		// the showdown settles at its gate: dealer flips, the qualify pause (same either way), seat reveal, per-seat settle
+		startTimer("step", r.settled() ? Math.max(REVEAL_TICKS, UthBeats.showdownTicks(roundSeats())) : REVEAL_TICKS);
 		setChanged();
 	}
 
@@ -847,6 +885,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 				} else if (r.settled()) {
 					settleAll();
 					setPhase(RESULT);
+					stage(UthPub.RESULT);
 					startTimer("step", RESULT_TICKS);
 				} else {
 					openDecisions();
@@ -865,6 +904,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		roundBots.clear();
 		pvpRound = false;
 		setPhase(BETTING);
+		stageKind = 0;
 		if (houseRound) {
 			standInRotation();
 		}
@@ -1323,6 +1363,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
+		input.read(PUB_KEY, CompoundTag.CODEC).ifPresent(t -> {
+			clientPub = t;
+			clientPubCache = null;
+		});
 		orphaned.clear();
 		input.read(ESCROW_KEY, Escrow.CODEC.listOf()).ifPresent(orphaned::addAll);
 		savedBots = input.read(BOTS_KEY, CompoundTag.CODEC).orElse(null);
@@ -1903,6 +1947,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	@Override
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
+		putCardsTheme(tag);
 		UUID me = viewer.getUUID();
 		UthConfig c = cfg();
 		Paytables pays = pays();
@@ -1947,13 +1992,17 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		if (r == null) {
 			return tag;
 		}
+		writeStage(tag);
 		tag.put("board", new IntArrayTag(r.visibleBoardCards()));
 		boolean showdown = r.settled();
+		// money and the per-bet lines are shown after the showdown gate (RESULT); the cards are public at the showdown
+		boolean settledNow = RESULT.equals(phase());
 		if (showdown) {
 			tag.put("dealer", new IntArrayTag(r.dealerCards()));
 			tag.putString("dealer_hand", UthCards.handName(r.dealerValue()));
 			tag.putBoolean("qualifies", r.dealerQualifies());
-			tag.putBoolean("settled", RESULT.equals(phase()));
+			tag.putBoolean("settled", settledNow);
+			tag.putInt("dealer_best", BestFive.mask(r.dealerCards(), r.board()));
 		}
 		int deciding = 0;
 		ListTag players = new ListTag();
@@ -1982,7 +2031,12 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			Settlement.Result res = s.result;
 			if (showdown && res != null) {
 				p.putString("hand", UthCards.handName(res.playerValue()));
-				p.putLong("net", res.net());
+				p.putInt("best", BestFive.mask(s.hole, r.board()));
+				// per-circle nets (Trips, Ante, Blind, Play): public with the cards, they drive the settle beats' chips
+				p.putLongArray("circles", new long[] {res.tripsNet(), res.anteNet(), res.blindNet(), res.playNet()});
+				if (settledNow) {
+					p.putLong("net", res.net());
+				}
 			}
 			players.add(p);
 		}
@@ -2005,6 +2059,9 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			}
 			Settlement.Result res = my.result;
 			if (showdown && res != null) {
+				tag.putInt("my_best", BestFive.mask(my.hole, r.board()));
+			}
+			if (showdown && settledNow && res != null) {
 				CompoundTag rt = new CompoundTag();
 				rt.putString("outcome", res.outcome().name().toLowerCase(java.util.Locale.ROOT));
 				rt.putLong("ante_net", res.anteNet());
@@ -2014,6 +2071,11 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 				rt.putLong("play", res.play());
 				rt.putLong("trips", res.trips());
 				rt.putLong("net", res.net());
+				rt.putLong("staked", res.staked());
+				rt.putLong("ret", res.totalReturn());
+				rt.putString("tier", dev.nezo.burmaldaholic.core.anim.WinTier.of(res.totalReturn(), res.staked(),
+					dev.nezo.burmaldaholic.core.anim.WinTierTable.DEFAULT, false,
+					res.hand() == PayHand.ROYAL && res.blindBonus() ? dev.nezo.burmaldaholic.core.anim.WinTier.EPIC : null).name());
 				rt.putString("pay_hand", res.hand().key());
 				rt.putDouble("blind_pay", pays.blindPay(res.hand()));
 				rt.putInt("trips_pay", pays.tripsPay(res.hand()));
@@ -2023,6 +2085,142 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			tag.putBoolean("waiting_next", true);
 		}
 		return tag;
+	}
+
+	/** The running segment: clients rebuild the same {@link UthBeats} timeline from it. */
+	private void writeStage(CompoundTag tag) {
+		if (stageKind == 0) {
+			return;
+		}
+		CompoundTag fx = new CompoundTag();
+		fx.putInt("seq", stageSeq);
+		fx.putInt("kind", stageKind);
+		fx.putLong("start", stageStart);
+		fx.putInt("seats", roundSeats());
+		fx.putInt("seed", SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), stageSeq));
+		tag.put("fx", fx);
+	}
+
+	// ---- public tag (in-world renderer + dealer NPC, J-C10 / J-C11) ------------------------------------------
+
+	private static final String PUB_KEY = "burmaldaholic_uth_pub";
+
+	/** Public state: the board face up, the dealer's cards from the showdown on, seats' cards only at the showdown. */
+	public UthPub buildPub() {
+		UthRound r = round;
+		if (r == null || stageKind == 0) {
+			return UthPub.EMPTY;
+		}
+		List<UthRound.Seat> list = r.seats();
+		int n = list.size();
+		int[] seatIdx = new int[n];
+		int[] flags = new int[n];
+		long[] bets = new long[n];
+		int[] cards = new int[n * 2];
+		java.util.Arrays.fill(cards, -1);
+		boolean showdown = r.settled();
+		for (int i = 0; i < n; i++) {
+			UthRound.Seat s = list.get(i);
+			seatIdx[i] = s.seat;
+			boolean won = RESULT.equals(phase()) && s.result != null && s.result.net() > 0;
+			flags[i] = UthPub.flags(s.bot, s.folded, won, s.playMultiple);
+			bets[i] = s.ante * 2 + s.trips + s.play();
+			if (showdown) {
+				cards[i * 2] = s.hole[0];
+				cards[i * 2 + 1] = s.hole[1];
+			}
+		}
+		int seed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), stageSeq);
+		return new UthPub(stageSeq, stageKind, stageStart, seed, r.visibleBoardCards(), showdown ? r.dealerCards() : new int[0], seatIdx, flags,
+			bets, cards);
+	}
+
+	/** Client: the last public state received with a block update. */
+	public UthPub clientPub() {
+		UthPub p = clientPubCache;
+		if (p == null) {
+			p = UthPub.decode(clientPub.getIntArray("d").orElse(new int[0]));
+			clientPubCache = p;
+		}
+		return p;
+	}
+
+	@Override
+	public void syncViewers() {
+		super.syncViewers();
+		publishPub();
+	}
+
+	private void publishPub() {
+		if (!(level instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		CompoundTag pub = new CompoundTag();
+		pub.putIntArray("d", buildPub().encode());
+		if (pub.equals(lastPub)) {
+			return;
+		}
+		lastPub = pub;
+		BlockState st = getBlockState();
+		serverLevel.sendBlockUpdated(worldPosition, st, st, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		CompoundTag pub = new CompoundTag();
+		pub.putIntArray("d", buildPub().encode());
+		t.put(PUB_KEY, pub);
+		return t;
+	}
+
+	@Override
+	public net.minecraft.network.protocol.@Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+		return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+	}
+
+	/** The timeline of the public segment (client, cached per segment). */
+	public @Nullable Timeline clientTimeline() {
+		UthPub p = clientPub();
+		if (p.seq() == 0) {
+			return null;
+		}
+		if (clientTl == null || clientTlSeq != p.seq()) {
+			clientTlSeq = p.seq();
+			clientTl = timelineOf(p.kind(), p.seats().length, p.seed());
+		}
+		return clientTl;
+	}
+
+	/** The {@link UthBeats} timeline of a segment kind. */
+	public static @Nullable Timeline timelineOf(int kind, int seats, int seed) {
+		return switch (kind) {
+			case UthPub.DEAL -> UthBeats.deal(seats, seed);
+			case UthPub.FLOP -> UthBeats.street(1, seed);
+			case UthPub.RIVER -> UthBeats.street(2, seed);
+			case UthPub.SHOWDOWN -> UthBeats.showdown(seats, seed);
+			case UthPub.RESULT -> UthBeats.result(seed);
+			default -> null;
+		};
+	}
+
+	@Override
+	public DealerCueSource.@Nullable Cue dealerCue(long gameTime, float partialTick) {
+		UthPub p = clientPub();
+		Timeline tl = clientTimeline();
+		if (tl == null) {
+			return null;
+		}
+		double t = (gameTime - p.startTick() + partialTick) * 50.0;
+		int n = Math.max(1, p.seats().length);
+		return DealerCueSource.latest(tl, t, b -> switch (b.kind()) {
+			case UthBeats.DEAL, UthBeats.DEALER_DEAL, UthBeats.BOARD -> DealerGesture.DEAL;
+			case UthBeats.DEALER_FLIP -> DealerGesture.FLIP;
+			case UthBeats.SETTLE -> b.arg(0) == UthBeats.SETTLE_ORDER[0] ? DealerGesture.PAY : null;
+			case UthBeats.GATHER -> DealerGesture.SWEEP;
+			default -> null;
+		}, b -> b.lane() < 0 || b.kind().equals(UthBeats.DEALER_DEAL) || b.kind().equals(UthBeats.BOARD) ? 0f
+			: n <= 1 ? 0f : (b.lane() / (float) (n - 1)) * 2f - 1f);
 	}
 
 	private String statusTag(UthRound r, UthRound.Seat s) {

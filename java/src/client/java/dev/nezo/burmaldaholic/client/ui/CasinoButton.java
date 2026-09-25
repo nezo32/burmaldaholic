@@ -85,6 +85,8 @@ public class CasinoButton extends AbstractButton {
 	private final Consumer<CasinoButton> onPress;
 	private Style style;
 	private @Nullable Icon icon;
+	/** Sprite family replacing the style's (e.g. the card tables' themed leather buttons, visual/cards.md §8.1). */
+	private UiSprites.@Nullable Family family;
 	private boolean selected;
 	private @Nullable Component disabledReason;
 	private @Nullable Tooltip normalTooltip;
@@ -113,6 +115,12 @@ public class CasinoButton extends AbstractButton {
 
 	public CasinoButton icon(@Nullable Icon i) {
 		this.icon = i;
+		return this;
+	}
+
+	/** A sprite family replacing the style's background (labels keep the style's colours); null = the style's. */
+	public CasinoButton family(UiSprites.@Nullable Family f) {
+		this.family = f;
 		return this;
 	}
 
@@ -172,7 +180,7 @@ public class CasinoButton extends AbstractButton {
 		int h = getHeight();
 		int alphaMask = ((int) (this.alpha * 255) << 24) | 0xFFFFFF;
 		Identifier sprite = style == Style.ACTION && active && pressedAt >= 0 && now - pressedAt < UiLayout.PRESS_MS ? UiSprites.BUTTON_ACTION_PRESSED
-			: style.sprites.get(active, hot || selected);
+			: (family != null ? family : style.sprites).get(active, hot || selected);
 		if (!CasinoUi.sprite(g, sprite, x, y, w, h, alphaMask)) fallback(g, x, y, w, h, hot);
 		if (selected && active) g.outline(x - 1, y - 1, w + 2, h + 2, CasinoPalette.GOLD);
 		if (isFocused()) g.outline(x - 2, y - 2, w + 4, h + 4, CasinoPalette.GLINT);

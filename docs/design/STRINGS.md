@@ -743,6 +743,31 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.actionbar` | Dealer %1$s · %2$s | Дилер %1$s · %2$s |
 | `gui.burmaldaholic.blackjack.actionbar_seat` | %1$s %2$s | %1$s %2$s |
 
+### Card table redesign (lane J-L4, `docs/design/visual/cards.md` §13; `cards.*` keys shared by the four card tables)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.blackjack.print.pays` | BLACKJACK PAYS 3 TO 2 | БЛЭКДЖЕК ПЛАТИТ 3 К 2 |
+| `gui.burmaldaholic.blackjack.print.insurance` | INSURANCE PAYS 2 TO 1 | СТРАХОВКА ПЛАТИТ 2 К 1 |
+| `gui.burmaldaholic.blackjack.your_turn_hand` | Your turn · hand %1$s of %2$s | Ваш ход · рука %1$s из %2$s |
+| `gui.burmaldaholic.blackjack.bet_doubled` | Bet %1$s + %2$s (doubled) | Ставка %1$s + %2$s (удвоена) |
+| `gui.burmaldaholic.blackjack.bet_total` | Bet %1$s | Ставка %1$s |
+| `gui.burmaldaholic.blackjack.badge.bj` | BJ | БД |
+| `gui.burmaldaholic.blackjack.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.blackjack.sub.bust` | Bust | Перебор |
+| `gui.burmaldaholic.blackjack.sub.blackjack` | Blackjack | Блэкджек |
+| `gui.burmaldaholic.blackjack.next_round` | Next round in %1$s | Новая раздача через %1$s |
+| `gui.burmaldaholic.blackjack.place_bet` | Choose a chip, then Deal | Выберите фишку и нажмите «Раздать» |
+| `gui.burmaldaholic.cards.join` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.cards.plaque` | %1$s · %2$s–%3$s | %1$s · %2$s–%3$s |
+| `gui.burmaldaholic.cards.stamp.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.cards.theme.village` | Village parlour | Деревенский салон |
+| `gui.burmaldaholic.cards.theme.bastion` | Bastion parlour | Салон бастиона |
+| `gui.burmaldaholic.cards.theme.end` | High Roller Lounge | Лаунж хайроллеров |
+| `gui.burmaldaholic.cards.level.easy.tooltip` | Easy bot (1 pip) | Лёгкий бот (1 точка) |
+| `gui.burmaldaholic.cards.level.normal.tooltip` | Normal bot (2 pips) | Обычный бот (2 точки) |
+| `gui.burmaldaholic.cards.level.hard.tooltip` | Hard bot (3 pips) | Сильный бот (3 точки) |
+
 ---
 
 ## poker
@@ -809,6 +834,80 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.hand.four_of_a_kind` | Four of a kind | Каре |
 | `gui.burmaldaholic.poker.hand.straight_flush` | Straight flush | Стрит-флеш |
 | `gui.burmaldaholic.poker.hand.royal_flush` | Royal flush | Роял-флеш |
+| `gui.burmaldaholic.poker.rank.2.one` | deuce | двойка |
+| `gui.burmaldaholic.poker.rank.2.high` | deuce | двойки |
+| `gui.burmaldaholic.poker.rank.2.three` | deuces | двойки |
+| `gui.burmaldaholic.poker.rank.2.many` | deuces | двойки |
+| `gui.burmaldaholic.poker.rank.2.set` | deuces | двоек |
+| `gui.burmaldaholic.poker.rank.3.one` | three | тройка |
+| `gui.burmaldaholic.poker.rank.3.high` | three | тройки |
+| `gui.burmaldaholic.poker.rank.3.three` | threes | тройки |
+| `gui.burmaldaholic.poker.rank.3.many` | threes | тройки |
+| `gui.burmaldaholic.poker.rank.3.set` | threes | троек |
+| `gui.burmaldaholic.poker.rank.4.one` | four | четвёрка |
+| `gui.burmaldaholic.poker.rank.4.high` | four | четвёрки |
+| `gui.burmaldaholic.poker.rank.4.three` | fours | четвёрки |
+| `gui.burmaldaholic.poker.rank.4.many` | fours | четвёрки |
+| `gui.burmaldaholic.poker.rank.4.set` | fours | четвёрок |
+| `gui.burmaldaholic.poker.rank.5.one` | five | пятёрка |
+| `gui.burmaldaholic.poker.rank.5.high` | five | пятёрки |
+| `gui.burmaldaholic.poker.rank.5.three` | fives | пятёрки |
+| `gui.burmaldaholic.poker.rank.5.many` | fives | пятёрки |
+| `gui.burmaldaholic.poker.rank.5.set` | fives | пятёрок |
+| `gui.burmaldaholic.poker.rank.6.one` | six | шестёрка |
+| `gui.burmaldaholic.poker.rank.6.high` | six | шестёрки |
+| `gui.burmaldaholic.poker.rank.6.three` | sixes | шестёрки |
+| `gui.burmaldaholic.poker.rank.6.many` | sixes | шестёрки |
+| `gui.burmaldaholic.poker.rank.6.set` | sixes | шестёрок |
+| `gui.burmaldaholic.poker.rank.7.one` | seven | семёрка |
+| `gui.burmaldaholic.poker.rank.7.high` | seven | семёрки |
+| `gui.burmaldaholic.poker.rank.7.three` | sevens | семёрки |
+| `gui.burmaldaholic.poker.rank.7.many` | sevens | семёрки |
+| `gui.burmaldaholic.poker.rank.7.set` | sevens | семёрок |
+| `gui.burmaldaholic.poker.rank.8.one` | eight | восьмёрка |
+| `gui.burmaldaholic.poker.rank.8.high` | eight | восьмёрки |
+| `gui.burmaldaholic.poker.rank.8.three` | eights | восьмёрки |
+| `gui.burmaldaholic.poker.rank.8.many` | eights | восьмёрки |
+| `gui.burmaldaholic.poker.rank.8.set` | eights | восьмёрок |
+| `gui.burmaldaholic.poker.rank.9.one` | nine | девятка |
+| `gui.burmaldaholic.poker.rank.9.high` | nine | девятки |
+| `gui.burmaldaholic.poker.rank.9.three` | nines | девятки |
+| `gui.burmaldaholic.poker.rank.9.many` | nines | девятки |
+| `gui.burmaldaholic.poker.rank.9.set` | nines | девяток |
+| `gui.burmaldaholic.poker.rank.10.one` | ten | десятка |
+| `gui.burmaldaholic.poker.rank.10.high` | ten | десятки |
+| `gui.burmaldaholic.poker.rank.10.three` | tens | десятки |
+| `gui.burmaldaholic.poker.rank.10.many` | tens | десятки |
+| `gui.burmaldaholic.poker.rank.10.set` | tens | десяток |
+| `gui.burmaldaholic.poker.rank.j.one` | jack | валет |
+| `gui.burmaldaholic.poker.rank.j.high` | jack | валета |
+| `gui.burmaldaholic.poker.rank.j.three` | jacks | валета |
+| `gui.burmaldaholic.poker.rank.j.many` | jacks | валеты |
+| `gui.burmaldaholic.poker.rank.j.set` | jacks | валетов |
+| `gui.burmaldaholic.poker.rank.q.one` | queen | дама |
+| `gui.burmaldaholic.poker.rank.q.high` | queen | дамы |
+| `gui.burmaldaholic.poker.rank.q.three` | queens | дамы |
+| `gui.burmaldaholic.poker.rank.q.many` | queens | дамы |
+| `gui.burmaldaholic.poker.rank.q.set` | queens | дам |
+| `gui.burmaldaholic.poker.rank.k.one` | king | король |
+| `gui.burmaldaholic.poker.rank.k.high` | king | короля |
+| `gui.burmaldaholic.poker.rank.k.three` | kings | короля |
+| `gui.burmaldaholic.poker.rank.k.many` | kings | короли |
+| `gui.burmaldaholic.poker.rank.k.set` | kings | королей |
+| `gui.burmaldaholic.poker.rank.a.one` | ace | туз |
+| `gui.burmaldaholic.poker.rank.a.high` | ace | туза |
+| `gui.burmaldaholic.poker.rank.a.three` | aces | туза |
+| `gui.burmaldaholic.poker.rank.a.many` | aces | тузы |
+| `gui.burmaldaholic.poker.rank.a.set` | aces | тузов |
+| `gui.burmaldaholic.poker.hand_named.high_card` | High card, %s | Старшая карта: %s |
+| `gui.burmaldaholic.poker.hand_named.pair` | Pair of %s | Пара %s |
+| `gui.burmaldaholic.poker.hand_named.two_pair` | Two pair, %s and %s | Две пары: %s и %s |
+| `gui.burmaldaholic.poker.hand_named.three_of_a_kind` | Three %s | Три %s |
+| `gui.burmaldaholic.poker.hand_named.straight` | Straight, %s high | Стрит до %s |
+| `gui.burmaldaholic.poker.hand_named.flush` | Flush, %s high | Флеш от %s |
+| `gui.burmaldaholic.poker.hand_named.full_house` | Full house, %s over %s | Фулл-хаус из %s и %s |
+| `gui.burmaldaholic.poker.hand_named.four_of_a_kind` | Four %s | Каре %s |
+| `gui.burmaldaholic.poker.hand_named.straight_flush` | Straight flush, %s high | Стрит-флеш до %s |
 | `msg.burmaldaholic.poker.action.fold` | %1$s folds | %1$s: пас |
 | `msg.burmaldaholic.poker.action.check` | %1$s checks | %1$s: чек |
 | `msg.burmaldaholic.poker.action.call` | %1$s calls %2$s | %1$s: колл %2$s |
@@ -850,6 +949,12 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.fx.split` | Split pot: %1$s each | Банк делится: по %1$s |
 | `gui.burmaldaholic.poker.fx.returned` | Returned %1$s | Возврат: %1$s |
 | `gui.burmaldaholic.poker.actionbar` | Board %1$s · Pot %2$s | Стол %1$s · Банк %2$s |
+
+### Redesigned table screen (lane J-L5; `visual/cards.md` §6.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.poker.next_hand_in` | Next hand in %1$s s | Следующая раздача через %1$s с |
 
 ---
 
@@ -1407,6 +1512,23 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.fx.banco` | Banco! | Банко! |
 | `gui.burmaldaholic.baccarat.fx.shoe_passes` | The shoe passes to %1$s | Шуз переходит к игроку %1$s |
 
+### Card table redesign (lane J-L4, `docs/design/visual/cards.md` §6.6, §13)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.baccarat.box.player` | PLAYER | ИГРОК |
+| `gui.burmaldaholic.baccarat.box.banker` | BANKER | БАНКИР |
+| `gui.burmaldaholic.baccarat.box.tie` | TIE | НИЧЬЯ |
+| `gui.burmaldaholic.baccarat.box.player_pair` | P. PAIR | ПАРА И. |
+| `gui.burmaldaholic.baccarat.box.banker_pair` | B. PAIR | ПАРА Б. |
+| `gui.burmaldaholic.baccarat.box_label` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.baccarat.stamp.player` | PLAYER WINS %1$s : %2$s | ИГРОК %1$s : %2$s |
+| `gui.burmaldaholic.baccarat.stamp.banker` | BANKER WINS %1$s : %2$s | БАНКИР %1$s : %2$s |
+| `gui.burmaldaholic.baccarat.stamp.tie` | TIE %1$s : %2$s | НИЧЬЯ %1$s : %2$s |
+| `gui.burmaldaholic.baccarat.stamp.natural` | NATURAL %1$s | НАТУРАЛЬНАЯ %1$s |
+| `gui.burmaldaholic.baccarat.you_win` | You win %1$s | Ваш выигрыш: %1$s |
+| `gui.burmaldaholic.baccarat.next_coup` | Next coup in %1$s | Следующая раздача через %1$s |
+
 ---
 
 ## uth
@@ -1549,6 +1671,22 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.fx.blind_bonus` | Blind bonus! | Бонус блайнда! |
 | `gui.burmaldaholic.uth.fx.trips_bonus` | Trips bonus! | Бонус трипс! |
 | `gui.burmaldaholic.uth.fx.royal` | ROYAL FLUSH! | РОЯЛ-ФЛЕШ! |
+
+### Redesigned table screen (lane J-L5; `visual/cards.md` §6.5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.uth.button.bet_4x` | Bet 4× | Ставка 4× |
+| `gui.burmaldaholic.uth.button.bet_3x` | Bet 3× | Ставка 3× |
+| `gui.burmaldaholic.uth.button.bet_2x` | Bet 2× | Ставка 2× |
+| `gui.burmaldaholic.uth.button.bet_1x` | Bet 1× | Ставка 1× |
+| `gui.burmaldaholic.uth.hint.preflop` | Pre-flop: bet 3× or 4× the ante, or check | До флопа: ставка 3× или 4× анте или чек |
+| `gui.burmaldaholic.uth.hint.preflop_no3x` | Pre-flop: bet 4× the ante, or check | До флопа: ставка 4× анте или чек |
+| `gui.burmaldaholic.uth.hint.flop` | Flop: bet 2× the ante, or check | Флоп: ставка 2× анте или чек |
+| `gui.burmaldaholic.uth.hint.river` | River: bet 1× the ante, or fold | Ривер: ставка 1× анте или пас |
+| `gui.burmaldaholic.uth.at_risk_now` | At risk: %1$s | На кону: %1$s |
+| `gui.burmaldaholic.uth.seconds_short` | %1$s s | %1$s с |
+| `gui.burmaldaholic.uth.paytable.blind_short` | Blind pays | Блайнд платит |
 
 ---
 
@@ -3202,6 +3340,12 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 |-----|----|----|
 | `config.burmaldaholic.section.baccarat` | Baccarat | Баккара |
 | `config.burmaldaholic.section.uth` | Ultimate Texas Hold'em | Ультимейт Техас Холдем |
+| `config.burmaldaholic.section.cards` | Card tables | Карточные столы |
+| `config.burmaldaholic.cards.theme` | Card table look | Оформление столов |
+| `config.burmaldaholic.cards.theme.auto` | By location | По месту |
+| `config.burmaldaholic.cards.theme.village` | Village | Деревня |
+| `config.burmaldaholic.cards.theme.bastion` | Bastion | Бастион |
+| `config.burmaldaholic.cards.theme.end` | End | Энд |
 | `config.burmaldaholic.baccarat.enabled` | Baccarat | Баккара |
 | `config.burmaldaholic.baccarat.decks` | Decks in the shoe | Колод в шузе |
 | `config.burmaldaholic.baccarat.penetration` | Reshuffle point | Когда перемешивать |

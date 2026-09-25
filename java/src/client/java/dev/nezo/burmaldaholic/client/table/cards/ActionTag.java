@@ -16,13 +16,17 @@ import net.minecraft.network.chat.Component;
 public final class ActionTag {
 	private ActionTag() {}
 
+	/** Widest tag text (px): longer (RU) text is scaled / trimmed so a tag never outgrows its seat. */
+	public static final int MAX_TEXT_W = 92;
+
 	/** A steady bubble centred on {@code cx} with its top at {@code y}. */
 	public static void draw(GuiGraphicsExtractor g, Font font, Component text, int cx, int y, double alpha) {
-		int w = font.width(text) + 8;
+		int tw = CardGfx.fittedWidth(font, text, MAX_TEXT_W);
+		int w = tw + 8;
 		int a = CardGfx.white(alpha);
 		CardGfx.sprite(g, FxSprites.sprite("cards/tag/bubble"), cx - w / 2, y, w, 11, a, CasinoPalette.BONE);
 		CardGfx.sprite(g, FxSprites.sprite("cards/tag/tail"), cx - 2, y + 10, 5, 3, a);
-		CardGfx.text(g, font, text, cx - w / 2 + 4, y + 2, CardGfx.alpha(CasinoPalette.INK, alpha), false);
+		CardGfx.fitted(g, font, text, cx - w / 2 + 4, y + 2, MAX_TEXT_W, CardGfx.alpha(CasinoPalette.INK, alpha), false);
 	}
 
 	/** A K12 tag {@code ageMs} after the action; nothing once it has faded. */

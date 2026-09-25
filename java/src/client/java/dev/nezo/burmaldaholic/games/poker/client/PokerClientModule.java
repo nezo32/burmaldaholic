@@ -17,6 +17,7 @@ public final class PokerClientModule implements CasinoClientModule {
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
 		ctx.tableScreen(PokerModule.TABLE, PokerScreen::new);
+		PokerTableRenderer.register(); // J-C10: the hand on the table top for spectators
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
 			if (PokerModule.TABLE != null && stack.is(PokerModule.TABLE.item())) {
 				lines.add(Component.translatable("tooltip.burmaldaholic.poker_table").withStyle(ChatFormatting.GRAY));

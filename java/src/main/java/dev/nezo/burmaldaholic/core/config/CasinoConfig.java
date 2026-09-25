@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.core.config;
 import dev.nezo.burmaldaholic.core.config.sections.BaccaratConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BlackjackConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BotsConfig;
+import dev.nezo.burmaldaholic.core.config.sections.CardsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
 import dev.nezo.burmaldaholic.core.config.sections.ContractsConfig;
 import dev.nezo.burmaldaholic.core.config.sections.CoreConfig;
@@ -51,6 +52,7 @@ public final class CasinoConfig {
 	private static ConfigHandle<CrapsConfig> craps;
 	private static ConfigHandle<BaccaratConfig> baccarat;
 	private static ConfigHandle<UthConfig> uth;
+	private static ConfigHandle<CardsConfig> cards;
 	private static ConfigHandle<ExtrasConfig> extras;
 	private static ConfigHandle<PvpConfig> pvp;
 	private static ConfigHandle<LoanConfig> loan;
@@ -79,6 +81,7 @@ public final class CasinoConfig {
 		craps = m.register("craps", CrapsConfig.class, CrapsConfig::new);
 		baccarat = m.register("baccarat", BaccaratConfig.class, BaccaratConfig::new);
 		uth = m.register("uth", UthConfig.class, UthConfig::new);
+		cards = m.register("cards", CardsConfig.class, CardsConfig::new);
 		extras = m.register("extras", ExtrasConfig.class, ExtrasConfig::new);
 		pvp = m.register("pvp", PvpConfig.class, PvpConfig::new);
 		loan = m.register("loan", LoanConfig.class, LoanConfig::new);
@@ -144,6 +147,11 @@ public final class CasinoConfig {
 	/** Ultimate Texas Hold'em (GAME_DESIGN §21). */
 	public static UthConfig uth() {
 		return get(uth, UthConfig::new);
+	}
+
+	/** The card tables' presentation (theme, solo speed; animation/cards.md §8). */
+	public static CardsConfig cards() {
+		return get(cards, CardsConfig::new);
 	}
 
 	public static ExtrasConfig extras() {
