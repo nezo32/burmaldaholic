@@ -1778,6 +1778,7 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.error.other_dimension` | %1$s is in another dimension | %1$s в другом измерении |
 | `gui.burmaldaholic.pvp.error.no_invites` | %1$s isn't taking challenges right now | %1$s сейчас не принимает вызовы |
 | `gui.burmaldaholic.pvp.error.cooldown_target` | %1$s just said no. Give them a moment. | Игрок %1$s только что отказал. Дайте ему минутку. |
+| `gui.burmaldaholic.pvp.error.cooldown_rechallenge` | You just challenged %1$s. Try again in %2$s. | Вы только что вызывали игрока %1$s. Попробуйте через %2$s. |
 | `gui.burmaldaholic.pvp.error.cant_afford_target` | %1$s can't cover that stake | Игроку %1$s не хватает на такую ставку |
 | `gui.burmaldaholic.pvp.error.over_target_max` | That's over %1$s's VIP limit (%2$s) | Это выше ВИП-лимита игрока %1$s (%2$s) |
 | `gui.burmaldaholic.pvp.error.stake_min` | The minimum PvP stake is %1$s | Минимальная ставка в PvP — %1$s |
@@ -1806,6 +1807,9 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.pvp.new.no_games` | No duel games are available right now | Сейчас нет доступных дуэлей |
 | `gui.burmaldaholic.pvp.new.stake_hint` | Type the stake in the box next to your opponent (%1$s – %2$s) | Впишите ставку в поле рядом с соперником (%1$s – %2$s) |
 | `gui.burmaldaholic.pvp.admin.none` | No PvP matches right now | Сейчас PvP-матчей нет |
+| `gui.burmaldaholic.pvp.admin.quarantine` | Quarantined match records (escrow still in the bank, see the server log) | Матчи в карантине (ставки остаются в банке, см. журнал сервера) |
+| `gui.burmaldaholic.pvp.admin.quarantine_row` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.pvp.admin.quarantine_resolve` | Mark resolved | Отметить как решённое |
 | `gui.burmaldaholic.pvp.admin.state.invited` | challenge | вызов |
 | `gui.burmaldaholic.pvp.match.step` | Step %1$s | Этап %1$s |
 | `gui.burmaldaholic.pvp.match.live` | %1$s · pot %2$s | %1$s · банк %2$s |
