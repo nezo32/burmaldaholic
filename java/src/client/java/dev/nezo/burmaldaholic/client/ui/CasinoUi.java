@@ -169,10 +169,14 @@ public final class CasinoUi {
 
 	// ---- text ------------------------------------------------------------------------------------------------------
 
-	/** {@code text} cut with an ellipsis to fit {@code maxW} (RU fallback; fixed boxes should be budgeted to fit). */
+	/**
+	 * {@code text} cut with an ellipsis to fit {@code maxW} (RU fallback; fixed boxes should be budgeted to fit); empty when
+	 * not even the ellipsis fits, so the result is never wider than {@code maxW}.
+	 */
 	public static FormattedCharSequence fit(Font font, Component text, int maxW) {
 		if (font.width(text) <= maxW) return text.getVisualOrderText();
 		FormattedText ell = FormattedText.of("…"); // literal-ok: ellipsis
+		if (font.width(ell) > maxW) return FormattedCharSequence.EMPTY;
 		FormattedText cut = font.substrByWidth(text, Math.max(0, maxW - font.width(ell)));
 		return Language.getInstance().getVisualOrder(FormattedText.composite(cut, ell));
 	}
@@ -185,6 +189,12 @@ public final class CasinoUi {
 	/** Right-aligned at {@code right}. */
 	public static void textRight(GuiGraphicsExtractor g, Font font, Component text, int right, int y, int color) {
 		g.text(font, text, right - font.width(text), y, color, true);
+	}
+
+	/** Queues {@code message} on the vanilla narrator when it is active (no-op otherwise). */
+	public static void say(Component message) {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc != null && mc.getNarrator().isActive()) mc.getNarrator().saySystemQueued(message);
 	}
 
 	/** Linear ARGB mix ({@code t} 0 → a, 1 → b). */
