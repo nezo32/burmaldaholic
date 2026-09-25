@@ -1225,6 +1225,14 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.layout.field` | FIELD | ФИЛД |
 | `gui.burmaldaholic.craps.layout.odds` | ODDS | ОДДС |
 
+### Undo / Clear (lane J-L6 review: only chips put down since the last roll; contract bets stay, GAME_DESIGN §10.1)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.craps.button.undo` | Take back the last chip | Вернуть последнюю фишку |
+| `gui.burmaldaholic.craps.button.clear` | Take back all new bets | Вернуть все новые ставки |
+| `gui.burmaldaholic.craps.nothing_to_undo` | Nothing to take back: bets a roll has seen stay on the table | Нечего вернуть: ставки, сыгравшие в броске, остаются на столе |
+
 ---
 
 ## baccarat

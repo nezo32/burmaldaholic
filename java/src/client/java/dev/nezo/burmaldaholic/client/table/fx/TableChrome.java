@@ -36,9 +36,12 @@ public final class TableChrome {
 
 	private TableChrome() {}
 
+	/** Client GameTests / previews: the compact frame at any screen size (screenshots of the compact layout). */
+	public static boolean forceCompact;
+
 	/** The frame that fits the screen (compact below 427 × 240). */
 	public static Frame frameFor(int screenW, int screenH) {
-		return screenW >= FULL.w() && screenH >= FULL.h() ? FULL : COMPACT;
+		return !forceCompact && screenW >= FULL.w() && screenH >= FULL.h() ? FULL : COMPACT;
 	}
 
 	/** Seat tint of seat index {@code i} (0-based). */
@@ -217,6 +220,30 @@ public final class TableChrome {
 			int c = tint != 0 ? mul(tint, argb) : argb;
 			TableGfx.blit(g, sprite, x - 6, y - 8 - ChipStacks.DISC_STEP * k, 12, 11, c);
 		}
+	}
+
+	/**
+	 * The exact value of a stack (tables.md §0.4: the disc count is visual, the number is the server's amount), in a
+	 * small half-scale tag just above the top disc. Needs ≥ 2 real pixels per GUI pixel to stay legible, so it is
+	 * skipped at GUI scale 1 (the tooltips and the status line still carry the amounts).
+	 */
+	public static void stackValue(GuiGraphicsExtractor g, Font font, long amount, int x, int y, int argb) {
+		if (amount <= 0 || net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale() < 2) {
+			return;
+		}
+		int a = argb >>> 24;
+		if (a < 0x40) {
+			return;
+		}
+		Component n = Texts.number(amount);
+		int w = font.width(n);
+		int top = y - stackHeight(amount) - 5;
+		g.pose().pushMatrix();
+		g.pose().translate(x, top);
+		g.pose().scale(0.5f, 0.5f);
+		g.fill(-w / 2 - 2, -1, w / 2 + 2 + (w & 1), 8, (Math.min(a, 0xC0) << 24) | 0x180A28);
+		g.text(font, n, -w / 2, 0, (a << 24) | (GOLD & 0xFFFFFF), false);
+		g.pose().popMatrix();
 	}
 
 	/** Height of a stack in px above its base point (label placement). */

@@ -120,7 +120,6 @@ public class CrapsScreen extends CasinoTableScreen {
 		theme = TableKit.theme(theme());
 		int rolls = s.getIntOr("rolls", 0);
 		if (rolls != shownRolls) {
-			boolean first = shownRolls < 0;
 			shownRolls = rolls;
 			rollPressedAt = -1;
 			int d1 = s.getIntOr("d1", 0);
@@ -134,7 +133,8 @@ public class CrapsScreen extends CasinoTableScreen {
 				throwPath = DiceThrowPath.of(s.getIntOr("seed", 0), d1, d2,
 					DiceThrowPath.Params.craps(sx, st[1], f.wall(), f.dcW() + 2, f.w(), r[0], r[1], r[2], r[3]));
 				double age = rollMs();
-				lateRoll = first || age >= 0.85 * CrapsBeats.IDLE;
+				// opened mid-throw: the throw plays on from the synced roll time; past 85 % the table is shown settled
+				lateRoll = age >= 0.85 * CrapsBeats.IDLE;
 				skipped = false;
 				cueIndex = 0;
 				puckCue = sweepCue = -1;
@@ -285,6 +285,12 @@ public class CrapsScreen extends CasinoTableScreen {
 			ChipButton b = addRenderableWidget(new ChipButton(x, y, d, theme, !compact(), () -> selectedChip, v -> selectedChip = v));
 			b.active = d >= minBet() && (max <= 0 || d <= max);
 		}
+		// Undo / Clear: only chips put down since the last roll (contract bets stay; GAME_DESIGN §10.1)
+		boolean canUndo = state().getBooleanOr("can_undo", false);
+		int ux = compact() ? ox + 154 : ox + 12 + CHIPS.length * 27;
+		int uy = compact() ? oy + 138 : oy + 214;
+		addRenderableWidget(TableButton.icon(ux, uy, "undo", Component.translatable(K + "button.undo"), theme, b -> sendAction("undo"))).active = canUndo;
+		addRenderableWidget(TableButton.icon(ux + 22, uy, "clear", Component.translatable(K + "button.clear"), theme, b -> sendAction("clear"))).active = canUndo;
 		int bw = TableChrome.balanceWidth(font, balance());
 		int tx = ox + frame.w() - (compact() ? 2 : 4) - bw - 46;
 		if (compact()) {
@@ -603,9 +609,15 @@ public class CrapsScreen extends CasinoTableScreen {
 		int tint = slot == 0 ? 0 : TableChrome.seatTint(slot);
 		int[] p = f.chipSpot(kind, point, slot);
 		TableChrome.stack(g, flat, lx() + p[0] + dx, ly() + p[1] + dy, tint, TableGfx.fade(alpha));
+		if (slot == 0) {
+			TableChrome.stackValue(g, font, flat, lx() + p[0] + dx, ly() + p[1] + dy, TableGfx.fade(alpha));
+		}
 		if (odds > 0) {
 			int[] o = f.oddsSpot(kind, point, slot);
 			TableChrome.stack(g, odds, lx() + o[0] + dx, ly() + o[1] + dy, tint, TableGfx.fade(alpha));
+			if (slot == 0) {
+				TableChrome.stackValue(g, font, odds, lx() + o[0] + dx, ly() + o[1] + dy, TableGfx.fade(alpha));
+			}
 		}
 	}
 

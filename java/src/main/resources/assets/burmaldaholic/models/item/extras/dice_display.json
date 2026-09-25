@@ -1,0 +1,20 @@
+{
+  "textures": {
+    "particle": "burmaldaholic:item/extras/dice_display",
+    "die": "burmaldaholic:item/extras/dice_display"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "up": {"uv": [0, 0, 4, 8], "texture": "#die"},
+        "down": {"uv": [4, 8, 8, 16], "texture": "#die"},
+        "north": {"uv": [4, 0, 8, 8], "texture": "#die"},
+        "south": {"uv": [0, 8, 4, 16], "texture": "#die"},
+        "east": {"uv": [8, 0, 12, 8], "texture": "#die"},
+        "west": {"uv": [12, 0, 16, 8], "texture": "#die"}
+      }
+    }
+  ]
+}

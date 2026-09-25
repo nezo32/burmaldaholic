@@ -148,4 +148,66 @@ public class CrapsGameTests {
 		});
 		helper.succeed();
 	}
+
+	/**
+	 * Lane J-L6 review: Undo / Clear take back only chips put down since the last roll (GAME_DESIGN §10.1: a Pass bet
+	 * with a point is a contract bet); the money comes back exactly; odds come off their bet; nothing moves after a roll.
+	 */
+	@GameTest
+	public void undoAndClearOnlyBeforeTheRoll(GameTestHelper helper) {
+		CrapsTableBlockEntity table = table(helper);
+		withPlayer(helper, 200, player -> {
+			table.onAction(player, "bet", bet(BetKind.PASS, 10));
+			table.onAction(player, "bet", bet(BetKind.FIELD, 5));
+			helper.assertTrue(Economies.get().balance(player) == 185, "two bets");
+			helper.assertTrue(table.writeClientState(player).getBooleanOr("can_undo", false), "can undo");
+			table.onAction(player, "undo", new CompoundTag());
+			helper.assertTrue(Economies.get().balance(player) == 190 && table.table().betsOf(player.getUUID()).size() == 1, "field taken back");
+			table.onAction(player, "undo", new CompoundTag());
+			helper.assertTrue(Economies.get().balance(player) == 200 && table.table().betsOf(player.getUUID()).isEmpty() && table.escrowed() == 0,
+				"pass taken back before the come-out roll");
+			table.onAction(player, "bet", bet(BetKind.PASS, 10));
+			table.roll(2, 2); // point 4: the pass bet is now a contract bet
+			helper.assertTrue(!table.writeClientState(player).getBooleanOr("can_undo", true), "nothing to undo after a roll");
+			table.onAction(player, "clear", new CompoundTag());
+			helper.assertTrue(Economies.get().balance(player) == 190 && table.table().betsOf(player.getUUID()).size() == 1, "contract bet stays");
+			Bet pass = table.table().betsOf(player.getUUID()).get(0);
+			table.onAction(player, "odds", odds(pass.id(), 20));
+			table.onAction(player, "bet", bet(BetKind.COME, 10));
+			table.onAction(player, "bet", bet(BetKind.FIELD, 10));
+			helper.assertTrue(Economies.get().balance(player) == 150 && table.escrowed() == 50, "odds + come + field");
+			table.onAction(player, "undo", new CompoundTag());
+			helper.assertTrue(Economies.get().balance(player) == 160, "field back");
+			table.onAction(player, "clear", new CompoundTag());
+			Bet after = table.table().bet(pass.id());
+			helper.assertTrue(Economies.get().balance(player) == 190 && table.escrowed() == 10 && after != null && after.odds() == 0
+				&& table.table().betsOf(player.getUUID()).size() == 1, "come and odds back, the pass flat stays");
+			helper.assertTrue(table.stakeOf(player.getUUID()) == 10, "open stake = the flat bet only");
+			table.roll(2, 2); // point made
+			helper.assertTrue(Economies.get().balance(player) == 210 && table.escrowed() == 0, "the contract bet still pays 1:1");
+		});
+		helper.succeed();
+	}
+
+	/** Lane J-L6 review: the lines held back until the dice land reach a player who left meanwhile (offline mail). */
+	@SuppressWarnings("removal")
+	@GameTest(maxTicks = 100)
+	public void heldBackLinesAreNeverLost(GameTestHelper helper) {
+		CrapsTableBlockEntity table = table(helper);
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		MinecraftServer server = helper.getLevel().getServer();
+		Economies.get().setBalance(server, player.getUUID(), 100, TEST);
+		table.onAction(player, "bet", bet(BetKind.PASS, 10));
+		table.roll(3, 4);
+		helper.assertTrue(table.pendingLines() > 0, "lines wait for the dice");
+		var rec = dev.nezo.burmaldaholic.core.data.CasinoWorldData.get(server).player(player.getUUID());
+		int before = rec.pendingMail.size();
+		server.getPlayerList().remove(player); // leaves before the reveal
+		table.playOutNow("removed"); // the table stops: every held line is posted now
+		helper.assertTrue(table.pendingLines() == 0, "nothing dropped");
+		int after = rec.pendingMail.size();
+		helper.assertTrue(after > before, "offline: kept for the next join (" + before + " -> " + after + ")");
+		rec.pendingMail.clear();
+		helper.succeed();
+	}
 }

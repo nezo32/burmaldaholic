@@ -281,29 +281,50 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		}
 	}
 
-	/** Undo: takes back the newest chip group of this round (refund, then the rest is placed again). */
+	/**
+	 * Undo (visual/tables.md §2.3 icon button): takes back the newest chip group placed this round, only while betting
+	 * is open (never after "no more bets"). The chips go back through core's partial refund of the open stake, so the
+	 * rest of the slip stays placed untouched (no re-debit, no second wager check) and the money is conserved.
+	 */
 	private void undo(ServerPlayer player) {
 		UUID id = player.getUUID();
+		if (!round.canBet()) {
+			sendError(player, Component.translatable("gui.burmaldaholic.roulette.no_more_bets"));
+			return;
+		}
 		Deque<List<Bet>> log = addLog.get(id);
-		if (!round.canBet() || log == null || log.isEmpty()) {
+		List<Bet> current = round.bets(id);
+		if (log == null || log.isEmpty() || current.isEmpty()) {
 			sendError(player, Component.translatable("gui.burmaldaholic.roulette.no_bets"));
 			return;
 		}
-		List<Bet> last = log.pollLast();
+		List<Bet> rest = undoRest(current, log.peekLast());
+		long amount = Bets.totalStaked(current) - Bets.totalStaked(rest);
+		boolean laPartage = cfg().laPartage;
+		long release = Bets.worstCase(current, laPartage) - Bets.worstCase(rest, laPartage);
+		if (amount > 0 && !refundPart(id, "", amount, release)) {
+			sendError(player, Component.translatable("gui.burmaldaholic.roulette.no_bets"));
+			return;
+		}
+		log.pollLast();
+		round.clear(id);
+		if (!rest.isEmpty()) {
+			round.addBets(id, rest);
+		}
+		setChanged();
+		syncViewers();
+	}
+
+	/** The slip without the chips of {@code group} (Undo). */
+	static List<Bet> undoRest(List<Bet> slip, List<Bet> group) {
 		List<Bet> rest = new ArrayList<>();
-		for (Bet b : round.bets(id)) {
-			long left = b.amount() - Bets.amountOn(last, b.spot());
+		for (Bet b : slip) {
+			long left = b.amount() - Bets.amountOn(group, b.spot());
 			if (left > 0) {
 				rest.add(new Bet(b.spot(), left));
 			}
 		}
-		if (!round.clear(id).isEmpty()) {
-			refund(id, true);
-		}
-		if (!rest.isEmpty()) {
-			addBets(player, rest, false);
-		}
-		syncViewers();
+		return rest;
 	}
 
 	private boolean addBets(ServerPlayer player, List<Bet> bets, boolean log) {

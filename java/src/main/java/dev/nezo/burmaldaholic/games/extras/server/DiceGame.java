@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.server;
 
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.dice.DuelTimeline;
+import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.core.events.PlayResults;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
@@ -286,6 +287,11 @@ public final class DiceGame {
 		resolvePvp(challenger, player, c.stake());
 	}
 
+	/** GameTests: a PvP duel between two players resolved at once, as if {@code b} accepted {@code a}'s challenge. */
+	public static void resolvePvpForTesting(ServerPlayer a, ServerPlayer b, long stake) {
+		resolvePvp(a, b, stake);
+	}
+
 	/** Escrow both stakes, roll (ties re-roll up to 3 times), pay the winner the pot minus rake or refund. */
 	static void resolvePvp(ServerPlayer a, ServerPlayer b, long stake) {
 		MinecraftServer server = a.level().getServer();
@@ -313,6 +319,7 @@ public final class DiceGame {
 			rollLines(at, b, a, round.b(), round.a());
 		}
 		long end = start + DuelTimeline.revealTick(duel.rounds().size() - 1);
+		DuelStage.start(a, b, duel, seed, start); // the dice between the two players (tables.md §3.4)
 		if (duel.result() == DiceDuel.PvpResult.REFUND) {
 			eco.batch(server).debit(AccountId.HOUSE, 2 * stake)
 				.credit(AccountId.player(a.getUUID()), stake).credit(AccountId.player(b.getUUID()), stake)
@@ -394,19 +401,8 @@ public final class DiceGame {
 	// ---- housekeeping ---------------------------------------------------------------------------
 
 	public static void tick(MinecraftServer server) {
-		if (!PENDING.isEmpty()) {
-			long now = now(server);
-			PENDING.removeIf(m -> {
-				if (m.at() > now) {
-					return false;
-				}
-				ServerPlayer p = server.getPlayerList().getPlayer(m.player());
-				if (p != null) {
-					p.sendSystemMessage(m.message());
-				}
-				return true;
-			});
-		}
+		flushPending(server, false);
+		DuelStage.tick(server);
 		if (BOOK.size() == 0 || server.getTickCount() % 20 != 0) {
 			return;
 		}
@@ -424,9 +420,35 @@ public final class DiceGame {
 		SEQ.remove(player);
 	}
 
+	/**
+	 * Posts the held-back duel lines that are due ({@code all}: every one, the server stops). A player who went offline
+	 * meanwhile gets them on the next join ({@link OfflineMail}): a line is never lost.
+	 */
+	public static void flushPending(MinecraftServer server, boolean all) {
+		if (PENDING.isEmpty()) {
+			return;
+		}
+		long now = now(server);
+		List<Pending> due = new ArrayList<>();
+		PENDING.removeIf(m -> {
+			if (!all && m.at() > now) {
+				return false;
+			}
+			due.add(m);
+			return true;
+		});
+		due.forEach(m -> OfflineMail.line(server, m.player(), m.message()));
+	}
+
+	/** Held-back duel lines not posted yet (tests). */
+	public static int pendingLines() {
+		return PENDING.size();
+	}
+
 	public static void clear() {
 		BOOK.clear();
 		SEQ.clear();
 		PENDING.clear();
+		DuelStage.clear();
 	}
 }

@@ -16,6 +16,7 @@ import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.rng.CasinoRng;
 import dev.nezo.burmaldaholic.core.rng.OddsContext;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
+import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableSeats;
@@ -39,6 +40,7 @@ import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable.OddsInfo;
 import dev.nezo.burmaldaholic.games.craps.logic.RollEvent;
 import dev.nezo.burmaldaholic.games.craps.logic.ShooterRotation.SeatInfo;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,10 +114,26 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	/** What the last roll did to one bet, frozen at roll time (the screen's chip motion; tables.md §2.7 {@code last_res}). */
 	private record LastRes(UUID owner, String kind, int point, String outcome, long flat, long odds, long ret, int movedTo) {}
 
-	/** A chat line held back until the dice have landed (tables.md §0.6.3). */
-	private record Pending(long at, @Nullable UUID player, Component message) {}
+	/**
+	 * A chat line (or a side effect such as an advancement toast or a bot quip) held back until the dice have landed
+	 * (tables.md §0.6.3). Never lost: a player who went offline gets the line on their next join ({@link OfflineMail}),
+	 * and a table that stops (broken, chunk unloaded, server stop) posts everything at once.
+	 */
+	private record Pending(long at, @Nullable UUID player, @Nullable Component message, @Nullable Runnable action) {
+		Pending(long at, @Nullable UUID player, Component message) {
+			this(at, player, message, null);
+		}
+	}
 
 	private final List<LastRes> lastRes = new ArrayList<>();
+	/**
+	 * Chips put down since the last roll, per player, newest last (Undo / Clear). Only these can be taken back: a bet a
+	 * roll has seen stays (a Pass / Come bet with a point is a contract bet, GAME_DESIGN §10.1), so the log is cleared
+	 * at every roll.
+	 */
+	private record Chip(int bet, boolean odds, long amount, long reserve) {}
+
+	private final Map<UUID, java.util.Deque<Chip>> chipLog = new HashMap<>();
 	/** the bets as they were before the last roll (drawn in place while the dice fly) */
 	private final List<Bet> prevBets = new ArrayList<>();
 	private final List<Pending> pending = new ArrayList<>();
@@ -160,6 +178,8 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			case "bet" -> placeFlat(player, BetKind.byId(args.getStringOr("kind", "")), args.getLongOr("amount", 0));
 			case "odds" -> placeOdds(player, args.getIntOr("bet", -1), args.getLongOr("amount", 0));
 			case "roll" -> shooterRolls(player);
+			case "undo" -> undo(player, false);
+			case "clear" -> undo(player, true);
 			default -> {
 				return;
 			}
@@ -225,10 +245,12 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			return;
 		}
 		Bet bet = table.addBet(player.getUUID(), kind, amount);
-		if (!placeBet(player, key(bet.id()), amount, minBet(), 0, CrapsMath.flatWorstCase(kind, amount, table.rules()), true).isOk()) {
+		long reserve = CrapsMath.flatWorstCase(kind, amount, table.rules());
+		if (!placeBet(player, key(bet.id()), amount, minBet(), 0, reserve, true).isOk()) {
 			table.removeBet(bet.id());
 			return;
 		}
+		chipLog.computeIfAbsent(player.getUUID(), k -> new java.util.ArrayDeque<>()).addLast(new Chip(bet.id(), false, amount, reserve));
 		setChanged();
 		rearm();
 	}
@@ -250,11 +272,44 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			return;
 		}
 		// §10.2: odds are not counted in the max bet; funds are still checked.
-		if (!placeBet(player, key(betId), amount, 1, 0, CrapsMath.oddsWorstCase(info.side(), info.point(), amount), false).isOk()) {
+		long reserve = CrapsMath.oddsWorstCase(info.side(), info.point(), amount);
+		if (!placeBet(player, key(betId), amount, 1, 0, reserve, false).isOk()) {
 			return;
 		}
 		table.addOdds(betId, amount);
+		chipLog.computeIfAbsent(player.getUUID(), k -> new java.util.ArrayDeque<>()).addLast(new Chip(betId, true, amount, reserve));
 		setChanged();
+	}
+
+	/**
+	 * Undo (the newest chip) / Clear (every chip) put down since the last roll: the flat bet leaves the layout, odds
+	 * come off their bet; the chips return through core's refund of that open stake (no result, no wager). Bets a roll
+	 * has already seen are never touched, so contract bets (Pass / Come with a point) cannot be removed.
+	 */
+	void undo(ServerPlayer player, boolean all) {
+		java.util.Deque<Chip> log = chipLog.get(player.getUUID());
+		if (log == null || log.isEmpty()) {
+			sendError(player, Component.translatable(K + "nothing_to_undo"));
+			return;
+		}
+		UUID id = player.getUUID();
+		do {
+			Chip c = log.pollLast();
+			Bet bet = table.bet(c.bet());
+			if (bet == null || !bet.owner().equals(id)) {
+				continue; // resolved or gone (cannot happen before a roll; defensive)
+			}
+			if (c.odds()) {
+				if (bet.odds() >= c.amount() && refundPart(id, key(c.bet()), c.amount(), c.reserve())) {
+					table.removeOdds(c.bet(), c.amount());
+				}
+			} else if (bet.odds() == 0 && stakeOf(id, key(c.bet())) == bet.flat()) {
+				refundBet(id, key(c.bet()), true);
+				table.removeBet(c.bet());
+			}
+		} while (all && !log.isEmpty());
+		setChanged();
+		rearm();
 	}
 
 	void shooterRolls(ServerPlayer player) {
@@ -397,6 +452,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		table.bets().forEach(b -> prevBets.add(b.copy()));
 		shooterDir = shooterDirection(shooterForRun);
 		CrapsTable.TableRoll tr = table.roll(d1, d2, seats);
+		chipLog.clear(); // the roll has seen every bet: none can be taken back now
 		rollSeed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table.rollCount());
 		lastRes.clear();
 		for (BetResolution res : tr.result().resolutions()) {
@@ -473,25 +529,47 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		return dz > 0 ? 0 : 2;
 	}
 
-	/** Posts the held-back lines whose time has come. */
-	private void flushPending(ServerLevel level) {
+	/** Posts the held-back lines whose time has come ({@code all}: every line, the table stops). */
+	private void flushPending(ServerLevel level, boolean all) {
 		if (pending.isEmpty()) {
 			return;
 		}
 		long now = gameTime();
 		MinecraftServer server = level.getServer();
+		List<Pending> due = new ArrayList<>();
 		pending.removeIf(m -> {
-			if (m.at() > now) {
+			if (!all && m.at() > now) {
 				return false;
 			}
-			if (m.player() != null) {
-				ServerPlayer p = server.getPlayerList().getPlayer(m.player());
-				if (p != null) {
-					p.sendSystemMessage(m.message());
-				}
-			}
+			due.add(m);
 			return true;
 		});
+		for (Pending m : due) {
+			if (m.action() != null) {
+				try {
+					m.action().run();
+				} catch (RuntimeException e) {
+					Burmaldaholic.LOGGER.error("craps: delayed action failed", e);
+				}
+			} else if (m.player() != null && m.message() != null) {
+				OfflineMail.line(server, m.player(), m.message()); // offline: delivered on the next join
+			}
+		}
+	}
+
+	/** The table stops (broken, chunk unloaded, server stop): the held-back lines are posted now, never dropped. */
+	@Override
+	public boolean playOutNow(String why) {
+		boolean busy = super.playOutNow(why);
+		if (level instanceof ServerLevel sl) {
+			flushPending(sl, true);
+		}
+		return busy;
+	}
+
+	/** Held-back lines not posted yet (tests). */
+	public int pendingLines() {
+		return pending.size();
 	}
 
 	private void broadcastAt(long at, Component message) {
@@ -619,7 +697,9 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				parts.add(Component.empty().append(BotNames.display(b.profile())).append(Texts.raw(": ")).append(outcome(n)));
 			}
 			if (owner.equals(loser) && level instanceof ServerLevel sl) {
-				bots.quip(sl, b.profile(), "seven_out", null);
+				var profile = b.profile();
+				// the quip would tell the seven-out before the dice land (tables.md §0.6.3)
+				pending.add(new Pending(gameTime() + CrapsBeats.REVEAL_DELAY_TICKS, null, null, () -> bots.quip(sl, profile, "seven_out", null)));
 			}
 		}
 		lastBotResults = parts.isEmpty() ? null : Component.translatable("gui.burmaldaholic.bots.virtual_bets", joined(parts));
@@ -812,6 +892,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	@Override
 	protected void onPlayerLeft(UUID player, LeaveReason reason) {
 		// No super call: the core default would refund the player's open (per-bet) stakes.
+		chipLog.remove(player);
 		int point = table.point();
 		List<Bet> mine = table.removeOwner(player);
 		if (!mine.isEmpty() && level instanceof ServerLevel sl) {
@@ -852,7 +933,9 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			case POINT_MADE -> {
 				pointsInRow++;
 				if (pointsInRow >= 3 && level instanceof ServerLevel sl) {
-					CasinoAdvancements.grant(sl.getServer(), shooter, "hot_shooter");
+					// the toast waits for the dice like the chat lines (tables.md §2.7)
+					pending.add(new Pending(gameTime() + CrapsBeats.REVEAL_DELAY_TICKS, null, null,
+						() -> CasinoAdvancements.grant(sl.getServer(), shooter, "hot_shooter")));
 				}
 			}
 			case SEVEN_OUT -> {
@@ -921,7 +1004,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	@Override
 	protected void serverTick(ServerLevel level) {
 		MinecraftServer server = level.getServer();
-		flushPending(level);
+		flushPending(level, false);
 		if (botBetAt >= 0 && gameTime() >= botBetAt && botsActedFor != table.rollCount() && CasinoMode.isEnabled(level)) {
 			botsBet(); // the bots' bet moment in this betting window (60–160 t)
 			syncViewers();
@@ -987,6 +1070,8 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			list.add(bt);
 		}
 		tag.put("bets", list);
+		java.util.Deque<Chip> chips = chipLog.get(me);
+		tag.putBoolean("can_undo", chips != null && !chips.isEmpty());
 		writePresentation(tag, me);
 		CrapsRules r = table.rules();
 		tag.putInt("field2", r.fieldPays2());

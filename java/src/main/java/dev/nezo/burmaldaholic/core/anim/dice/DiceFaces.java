@@ -30,4 +30,34 @@ public final class DiceFaces {
 		}
 		return new int[] {top, 7 - top, north, 7 - north, east, 7 - east};
 	}
+
+	/**
+	 * The rotation that turns a cube modelled like {@link #layout layout(1)} (1 up, 6 down, 2 north, 5 south, 3 east,
+	 * 4 west; the {@code extras/dice_display} item model) so that {@code face} points up, as {@code {axisX, axisY,
+	 * axisZ, degrees}} (right-handed, counter-clockwise about the axis).
+	 */
+	public static double[] upRotation(int face) {
+		return switch (face) {
+			case 1 -> new double[] {1, 0, 0, 0};
+			case 6 -> new double[] {1, 0, 0, 180};
+			case 2 -> new double[] {1, 0, 0, 90};
+			case 5 -> new double[] {1, 0, 0, -90};
+			case 3 -> new double[] {0, 0, 1, 90};
+			case 4 -> new double[] {0, 0, 1, -90};
+			default -> throw new IllegalArgumentException("face " + face);
+		};
+	}
+
+	/** Outward normal of {@code face} on the unrotated model ({@link #upRotation}). */
+	public static int[] modelNormal(int face) {
+		return switch (face) {
+			case 1 -> new int[] {0, 1, 0};
+			case 6 -> new int[] {0, -1, 0};
+			case 2 -> new int[] {0, 0, -1};
+			case 5 -> new int[] {0, 0, 1};
+			case 3 -> new int[] {1, 0, 0};
+			case 4 -> new int[] {-1, 0, 0};
+			default -> throw new IllegalArgumentException("face " + face);
+		};
+	}
 }

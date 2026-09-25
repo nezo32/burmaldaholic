@@ -611,6 +611,7 @@ final class DiceScreen extends ExtrasScreen {
 		long stake = Math.max(1, Math.abs(net));
 		if (rt < DuelTimeline.CHIPS) {
 			TableChrome.stack(g, stake, ax() + 150, ay() + 124, 0, 0xFFFFFFFF);
+			TableChrome.stackValue(g, font, stake, ax() + 150, ay() + 124, 0xFFFFFFFF);
 			return;
 		}
 		double k = reduced ? 1 : Math.min(1, (rt - DuelTimeline.CHIPS) / 400.0);

@@ -17,8 +17,10 @@ import dev.nezo.burmaldaholic.games.extras.net.ExtrasErrorPayload;
 import dev.nezo.burmaldaholic.games.extras.net.ExtrasScreenPayload;
 import dev.nezo.burmaldaholic.games.extras.server.CoinFlipGame;
 import dev.nezo.burmaldaholic.games.extras.server.DiceGame;
+import dev.nezo.burmaldaholic.games.extras.server.DuelStage;
 import dev.nezo.burmaldaholic.games.extras.server.ExtrasGames;
 import dev.nezo.burmaldaholic.games.extras.server.ScratchGame;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -119,6 +121,12 @@ public final class ExtrasModule implements CasinoModule {
 			CoinFlipGame.forget(handler.player.getUUID());
 			ExtrasGames.forgetScreen(handler.player.getUUID());
 		});
+		// the held-back duel lines reach the players' mail before the world data is saved; the staged dice go
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			DiceGame.flushPending(server, true);
+			DuelStage.stopAll(server);
+		});
+		ServerEntityEvents.ENTITY_LOAD.register(DuelStage::onEntityLoad);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			DiceGame.clear();
 			ExtrasGames.clearScreens();

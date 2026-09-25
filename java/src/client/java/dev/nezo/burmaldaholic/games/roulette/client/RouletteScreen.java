@@ -643,6 +643,7 @@ public class RouletteScreen extends CasinoTableScreen {
 			if (!result) {
 				int dx = 0;
 				TableChrome.stack(g, s.amount(), p[0] + dx, p[1], 0, 0xFFFFFFFF);
+				TableChrome.stackValue(g, font, s.amount(), p[0] + dx, p[1], 0xFFFFFFFF);
 				continue;
 			}
 			boolean win = s.ret() > 0 || (s.ret() < 0 && s.spot().covers(r));

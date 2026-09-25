@@ -1,9 +1,11 @@
 package dev.nezo.burmaldaholic.gametest.tables;
 
+import dev.nezo.burmaldaholic.client.table.fx.TableChrome;
 import dev.nezo.burmaldaholic.games.craps.CrapsModule;
 import dev.nezo.burmaldaholic.games.craps.CrapsTableBlockEntity;
 import dev.nezo.burmaldaholic.games.craps.client.CrapsScreen;
 import dev.nezo.burmaldaholic.games.extras.server.DiceGame;
+import dev.nezo.burmaldaholic.games.extras.server.DuelStage;
 import dev.nezo.burmaldaholic.games.extras.server.ExtrasGames;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity;
@@ -54,10 +56,25 @@ public class TablesClientGameTests implements FabricClientGameTest {
 			roulette(context, world, "en_us_bastion", 1, true);
 			craps(context, world, "en_us_end", 2);
 			dice(context, world, "en_us_end", 2);
-			guiScale(context, 4);
-			roulette(context, world, "en_us_end", 2, false);
+			// compact layouts: GUI scale 3 of the 854 × 480 test window is exactly the 284 × 160 compact frame
+			guiScale(context, 3);
+			report.add("gui scale 3: " + context.computeOnClient(mc -> mc.getWindow().getGuiScaledWidth() + " x " + mc.getWindow().getGuiScaledHeight()));
+			roulette(context, world, "en_us_compact", 2, true);
+			craps(context, world, "en_us_compact", 0);
+			dice(context, world, "en_us_compact", 0);
+			// and the compact frame forced at GUI scale 2 (twice the pixels: the details are inspectable)
+			guiScale(context, 2);
+			TableChrome.forceCompact = true;
+			try {
+				roulette(context, world, "ru_ru_compact_forced", 0, false);
+				craps(context, world, "en_us_compact_forced", 1);
+			} finally {
+				TableChrome.forceCompact = false;
+			}
 			invite(context, world);
+			duelStage(context, world);
 		} finally {
+			TableChrome.forceCompact = false;
 			guiScale(context, 0);
 			language(context, "en_us");
 			DiceGame.themeOverride = -1;
@@ -271,6 +288,41 @@ public class TablesClientGameTests implements FabricClientGameTest {
 		context.waitTicks(20);
 		context.takeScreenshot("jtest_tables_en_us_duel_invite");
 		close(context, world);
+	}
+
+	// ---- the PvP duel in the world (DuelStage) ------------------------------------------------------------------------
+
+	/** Stages a two-round duel (a tie, then 6+5 vs 2+1) from the player to a point ahead and shoots the world. */
+	private void duelStage(ClientGameTestContext context, TestSingleplayerContext world) {
+		close(context, world);
+		world.getServer().runOnServer(server -> {
+			ServerPlayer p = player(server);
+			server.overworld().setBlockAndUpdate(p.blockPosition().offset(0, 0, 4), Blocks.AIR.defaultBlockState());
+		});
+		world.getServer().runCommand("tp @p ~ ~ ~ facing ~ ~-1 ~4");
+		context.waitTicks(3);
+		boolean[] staged = new boolean[1];
+		world.getServer().runOnServer(server -> {
+			ServerPlayer p = player(server);
+			net.minecraft.world.phys.Vec3 a = new net.minecraft.world.phys.Vec3(p.getX() - 0.6, p.getY() + 1.1, p.getZ() + 0.8);
+			net.minecraft.world.phys.Vec3 b = a.add(1.2, 0, 3.6);
+			staged[0] = DuelStage.stage(server.overworld(), a, b, p, List.of(new int[][] {{3, 4}, {5, 2}}, new int[][] {{6, 5}, {2, 1}}), 0, 1234,
+				server.overworld().getGameTime(), java.util.Set.of());
+		});
+		report.add("duel stage: staged " + staged[0]);
+		context.waitTicks(14); // round 1 in flight
+		context.takeScreenshot("jtest_tables_en_us_duel_world_throw");
+		context.waitTicks(26); // round 1 at rest: the tie, totals up
+		context.takeScreenshot("jtest_tables_en_us_duel_world_tie");
+		context.waitTicks(50); // round 2 landed: 11 vs 3
+		context.takeScreenshot("jtest_tables_en_us_duel_world_rest");
+		int[] left = new int[1];
+		context.waitTicks(80);
+		world.getServer().runOnServer(server -> left[0] = DuelStage.active());
+		report.add("duel stage: active after the linger " + left[0]);
+		if (left[0] != 0) {
+			report.add("  FAIL: the staged dice were not removed");
+		}
 	}
 
 	// ---- helpers ---------------------------------------------------------------------------------------------------
