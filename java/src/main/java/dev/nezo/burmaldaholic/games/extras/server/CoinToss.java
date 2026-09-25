@@ -62,10 +62,11 @@ public final class CoinToss {
 		TossDisplayAccessor a = (TossDisplayAccessor) d;
 		a.burmaldaholic$extrasViewRange(0.5f);
 		a.burmaldaholic$extrasTransformation(transform(0f, 0f, CoinTossKeys.SCALE));
-		if (!level.addFreshEntity(d)) {
-			return;
-		}
+		// registered BEFORE it is added: the entity-load hook discards tagged displays it does not know
 		TOSSES.put(player.getUUID(), new Toss(level, d.getUUID(), level.getGameTime(), heads));
+		if (!level.addFreshEntity(d)) {
+			TOSSES.remove(player.getUUID());
+		}
 	}
 
 	/** The coin item with the item model's variant ({@code spin}, {@code heads}, {@code tails}). */
