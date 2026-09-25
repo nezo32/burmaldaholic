@@ -201,6 +201,15 @@ public final class VipRules {
 	}
 
 	/** Advancement id for reaching {@code tier} (§19 {@code vip_*}), null for Bronze. */
+	/**
+	 * Wallet "Biggest win" (extras.md §8.3): the net win of a settled round, {@code payout − bet}, when it beats
+	 * {@code best}; else {@code best}. Pushes and losses never count.
+	 */
+	public static long biggestWin(long best, long bet, long payout) {
+		long net = payout - Math.max(0, bet);
+		return net > Math.max(0, best) ? net : Math.max(0, best);
+	}
+
 	public static String advancementId(int tier) {
 		return switch (tier) {
 			case SILVER -> "vip_silver";

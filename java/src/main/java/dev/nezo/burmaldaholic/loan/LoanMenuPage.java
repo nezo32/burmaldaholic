@@ -47,7 +47,7 @@ final class LoanMenuPage implements CasinoMenu.Page {
 		if (rec.status == Status.DEFAULT) {
 			out.line(Component.translatable("gui.burmaldaholic.loan.status.default", Texts.chips(rec.owed)), 0xFF5555);
 		} else {
-			out.line(Component.translatable("gui.burmaldaholic.loan.status.active", Texts.chips(rec.owed), LoanService.dhm(rec.deadlineTick - now)), 0xFFD700);
+			out.line(Component.translatable("gui.burmaldaholic.loan.status.active", Texts.chips(rec.owed), LoanTexts.dueIn(rec.deadlineTick - now)), 0xFFD700);
 		}
 		long balance = Economies.get().balance(player);
 		long all = Math.min(rec.owed, balance);

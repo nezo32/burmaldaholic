@@ -7,7 +7,7 @@ import dev.nezo.burmaldaholic.core.network.PlayerStatusPayload;
  * ({@link PlayerStatusPayload}). Read it from HUD segments and screens; never write it.
  */
 public final class ClientCasinoState {
-	private static volatile PlayerStatusPayload status = new PlayerStatusPayload(0, 0, 0, 0, 0, false, 0);
+	private static volatile PlayerStatusPayload status = PlayerStatusPayload.EMPTY;
 	private static volatile boolean received;
 	private static volatile long lastDelta;
 	private static volatile long lastDeltaTick = Long.MIN_VALUE / 2;
@@ -16,6 +16,7 @@ public final class ClientCasinoState {
 	private static volatile long holdUntilMs;
 	private static volatile long heldBalance;
 	private static volatile boolean releasePending;
+	private static volatile long deltaSeq;
 
 	private ClientCasinoState() {}
 
@@ -73,6 +74,16 @@ public final class ClientCasinoState {
 		return clientTicks - lastDeltaTick;
 	}
 
+	/** Identity of the last balance change (its client tick): a new value means a new delta to float. */
+	public static long deltaStamp() {
+		return deltaSeq;
+	}
+
+	/** True while {@link #holdBalanceDelta} holds the shown balance. */
+	public static boolean holdingBalance() {
+		return holding(net.minecraft.util.Util.getMillis());
+	}
+
 	public static long clientTicks() {
 		return clientTicks;
 	}
@@ -85,6 +96,7 @@ public final class ClientCasinoState {
 			if (d != 0) {
 				lastDelta = d;
 				lastDeltaTick = clientTicks;
+				deltaSeq++;
 			}
 		}
 	}
@@ -93,13 +105,14 @@ public final class ClientCasinoState {
 		if (received && next.balance() != status.balance() && !holding(net.minecraft.util.Util.getMillis())) {
 			lastDelta = next.balance() - status.balance();
 			lastDeltaTick = clientTicks;
+			deltaSeq++;
 		}
 		status = next;
 		received = true;
 	}
 
 	static void reset() {
-		status = new PlayerStatusPayload(0, 0, 0, 0, 0, false, 0);
+		status = PlayerStatusPayload.EMPTY;
 		received = false;
 		lastDelta = 0;
 		holdUntilMs = 0;

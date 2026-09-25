@@ -107,6 +107,11 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 		this.errorTicks = 60;
 	}
 
+	/** The current error line (null = none; J-L2 hook for screens that draw their own labels). */
+	protected @Nullable Component errorLine() {
+		return error;
+	}
+
 	@Override
 	protected void containerTick() {
 		super.containerTick();
@@ -191,8 +196,12 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
-		graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, FELT_BORDER);
-		graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, FELT);
+		// J-L2 kit: the felt nine-slice (global.md §2.2 panel/felt); flat felt when the art is missing
+		if (!dev.nezo.burmaldaholic.client.ui.CasinoUi.sprite(graphics, dev.nezo.burmaldaholic.client.ui.UiSprites.PANEL_FELT, leftPos, topPos, imageWidth,
+			imageHeight)) {
+			graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, FELT_BORDER);
+			graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, FELT);
+		}
 	}
 
 	@Override

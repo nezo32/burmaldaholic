@@ -31,6 +31,9 @@ public final class VipData extends SavedData {
 		public int tier;
 		public CashbackRules.DayLedger ledger;
 		public ContractRules.State contracts;
+		/** Biggest single net win (payout − bet) of a settled round, and its game id (Wallet row). */
+		public long biggestWin;
+		public String biggestWinGame = "";
 	}
 
 	private final Map<UUID, Record> players = new HashMap<>();
@@ -59,6 +62,10 @@ public final class VipData extends SavedData {
 		CompoundTag t = new CompoundTag();
 		t.putLong("wagered", r.wagered);
 		t.putInt("tier", r.tier);
+		if (r.biggestWin > 0) {
+			t.putLong("biggest_win", r.biggestWin);
+			t.putString("biggest_win_game", r.biggestWinGame);
+		}
 		if (r.ledger != null) {
 			CompoundTag l = new CompoundTag();
 			l.putLong("day", r.ledger.day());
@@ -106,6 +113,8 @@ public final class VipData extends SavedData {
 		Record r = new Record();
 		r.wagered = Math.max(0, t.getLongOr("wagered", 0));
 		r.tier = Math.max(0, Math.min(5, t.getIntOr("tier", 0)));
+		r.biggestWin = Math.max(0, t.getLongOr("biggest_win", 0));
+		r.biggestWinGame = t.getStringOr("biggest_win_game", "");
 		if (t.contains("ledger")) {
 			CompoundTag l = t.getCompoundOrEmpty("ledger");
 			r.ledger = new CashbackRules.DayLedger(l.getLongOr("day", 0), l.getLongOr("staked", 0), l.getLongOr("returned", 0),
