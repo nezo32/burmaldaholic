@@ -88,8 +88,6 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	public static final String BETTING = "betting", INSURANCE = "insurance", TURNS = "turns", RESULT = "result";
 	/** RESULT after the reveal gate (cards.md §8 {@code blackjack.resultTicks}; was 60). */
 	static final int RESULT_TICKS = 80;
-	/** Single human seat: beats × {@code cards.soloSpeed} (cards.md §0.2). */
-	static final double SOLO_SPEED = 0.75;
 	static final int SHUFFLE_NOTICE_TICKS = 40;
 	static final int PEEK_NOTICE_TICKS = 30;
 	static final String PEEK_NOTICE = "gui.burmaldaholic.blackjack.dealer_peeks";
@@ -482,7 +480,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			dealerGesture(DealerGesture.SHUFFLE);
 		}
 		// the deal is published one card per beat (after the riffle when the shoe was shuffled)
-		BlackjackBeats.Config cfg = seats().occupied().size() == 1 ? BlackjackBeats.Config.DEFAULT.scaled(SOLO_SPEED) : BlackjackBeats.Config.DEFAULT;
+		BlackjackBeats.Config cfg = seats().occupied().size() == 1 ? BlackjackBeats.Config.DEFAULT.scaled(CasinoConfig.cards().soloSpeed) : BlackjackBeats.Config.DEFAULT;
 		roundSeq++;
 		lastPub = gameTime() - 1;
 		beats = new BlackjackBeats(round, gameTime() + (shuffling ? SHUFFLE_NOTICE_TICKS / 2 : 0), cfg);
@@ -910,6 +908,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	@Override
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
+		putCardsTheme(tag);
 		UUID me = viewer.getUUID();
 		tag.putBoolean("high_roller", isHighRoller());
 		tag.putLong("last_bet", lastBet.getOrDefault(me, 0L));

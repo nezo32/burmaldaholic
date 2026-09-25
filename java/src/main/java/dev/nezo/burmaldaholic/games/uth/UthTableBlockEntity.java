@@ -1934,6 +1934,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	@Override
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
+		putCardsTheme(tag);
 		UUID me = viewer.getUUID();
 		UthConfig c = cfg();
 		Paytables pays = pays();

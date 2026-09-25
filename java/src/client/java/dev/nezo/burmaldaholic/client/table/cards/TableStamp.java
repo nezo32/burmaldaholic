@@ -31,6 +31,9 @@ public final class TableStamp {
 
 	private static final int[] FALLBACK = {0xFFFFD640, 0xFFD83440, 0xFF2FA64A, 0xFF8A3AAA};
 
+	/** Widest stamp text (px): longer (RU) text is scaled / trimmed so a stamp never outgrows its hand. */
+	public static final int MAX_TEXT_W = 110;
+
 	private TableStamp() {}
 
 	/**
@@ -41,11 +44,11 @@ public final class TableStamp {
 		if (ageMs < 0) return;
 		CardMotion.stamp(pose, ageMs / CardMotion.STAMP_MS, deg, reduced);
 		if (pose.alpha <= 0.01) return;
-		int w = font.width(text) + 14;
+		int w = CardGfx.fittedWidth(font, text, MAX_TEXT_W) + 14;
 		int h = 16;
 		CardGfx.pushBox(g, cx - w / 2.0, cy - h / 2.0, w, h, pose.rot, pose.scale, pose.scale);
 		CardGfx.sprite(g, FxSprites.sprite("cards/stamp/" + kind.id), 0, 0, w, h, CardGfx.white(pose.alpha), FALLBACK[kind.ordinal()]);
-		CardGfx.text(g, font, text, 7, 4, CardGfx.alpha(kind.ink, pose.alpha), kind.shadow);
+		CardGfx.fitted(g, font, text, 7, 4, MAX_TEXT_W, CardGfx.alpha(kind.ink, pose.alpha), kind.shadow);
 		CardGfx.pop(g);
 	}
 }

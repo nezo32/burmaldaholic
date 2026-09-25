@@ -357,6 +357,15 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | `uth.pvp.bankerRounds` | int | 10 | 0–1000 | Rounds before the dealer seat is offered on; 0 = unlimited. |
 | `uth.pvp.houseRoundsWhenNoBanker` | bool | true | — | Nobody banks → the house deals instead of waiting. |
 
+## cards
+
+The four card tables' presentation (`animation/cards.md` §8, `visual/cards.md` §7).
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `cards.theme` | enum(AUTO, VILLAGE, BASTION, END) | AUTO | — | Look of every card table: AUTO = by the table's dimension; otherwise forced on all card tables (sent with each table's state). |
+| `cards.soloSpeed` | double | 0.75 | 0.25–1.0 | Beat multiplier when exactly one human is seated (blackjack's single-seat fast deal, §0.2). |
+
 ## extras
 
 | Key | Type | Default | Range | Description |

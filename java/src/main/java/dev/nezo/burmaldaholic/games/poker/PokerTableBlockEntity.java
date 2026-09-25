@@ -1872,6 +1872,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	@Override
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
+		putCardsTheme(tag);
 		RegistryOps<Tag> ops = viewer.level().registryAccess().createSerializationContext(NbtOps.INSTANCE);
 		String me = id(viewer);
 		int tier = vipTier(viewer);

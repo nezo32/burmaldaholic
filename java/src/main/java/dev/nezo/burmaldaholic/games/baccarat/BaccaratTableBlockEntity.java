@@ -2026,6 +2026,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 	@Override
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag t = baseState(viewer);
+		putCardsTheme(t);
 		UUID me = viewer.getUUID();
 		BaccaratConfig c = cfg();
 		Paytable pay = pay();
