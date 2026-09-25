@@ -15,7 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
  * VIP presentation, server side (global.md §4.11, lane J-L3): the tier-up celebration through the shared {@code fx}
  * channel ({@code VIP_UP}: {@code tier} = the tier before the jump, {@code arg} = the new tier, {@code pos} /
  * {@code actor} = the promoted player) — the promoted player's client plays the overlay, spectators within 16 blocks
- * see a rising ring in the tier colour — plus the Netherite server-wide toast and the win aura cosmetics.
+ * see a rising ring in the tier colour — plus the Netherite server-wide toast ({@link #netheriteToast}) and the win aura cosmetics.
  */
 final class VipFx {
 	static final double SPECTATORS = 16;
@@ -44,14 +44,19 @@ final class VipFx {
 				ServerPlayNetworking.send(other, payload);
 			}
 		}
-		if (tier >= VipRules.NETHERITE) {
-			for (ServerPlayer other : level.getServer().getPlayerList().getPlayers()) {
-				if (other != player) {
-					ServerFx.get().toast(other, "toast.burmaldaholic.vip_netherite.title", player.getDisplayName(), ServerFx.ToastIcon.VIP);
-				}
+		return true;
+	}
+
+	/**
+	 * Netherite promotion: a casino toast for every other player (once per promotion; sent with the chat broadcast,
+	 * so it honours {@code vip.announceNetherite} and does not depend on the promoted player's client).
+	 */
+	static void netheriteToast(ServerPlayer player) {
+		for (ServerPlayer other : player.level().getServer().getPlayerList().getPlayers()) {
+			if (other != player) {
+				ServerFx.get().toast(other, "toast.burmaldaholic.vip_netherite.title", player.getDisplayName(), ServerFx.ToastIcon.VIP);
 			}
 		}
-		return true;
 	}
 
 	/** Win aura (§12 cosmetics): Gold+ a sparkle puff, Netherite soul fire + gold embers; ≤ 2 particle calls. */

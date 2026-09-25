@@ -42,6 +42,9 @@ import net.minecraft.world.phys.Vec3;
 final class CasinoAttractFx {
 	private record View(CasinoKind kind, Geometry.Box box, List<double[]> bulbs, AttractRules.Theme theme) {}
 
+	/** Idle / viewer check of a slot machine's attract chime (the 60 s / 120 s timers do not need tick precision). */
+	private static final int CHIME_CHECK_TICKS = 20;
+
 	private static final List<View> NEAR = new ArrayList<>();
 	private static final List<BlockPos> BLOCKS = new ArrayList<>();
 	private static final Map<BlockPos, long[]> CHIME = new HashMap<>();
@@ -151,12 +154,21 @@ final class CasinoAttractFx {
 		CHIME.keySet().retainAll(BLOCKS);
 	}
 
+	/**
+	 * One casino block: nothing at all on most ticks — the block state / player query runs only on its staggered roll
+	 * tick (once per {@link AttractRules#ROLL_TICKS}) or its chime check (once per {@link #CHIME_CHECK_TICKS}), so the
+	 * cost stays flat with many machines in range.
+	 */
 	private static void attract(ClientLevel level, BlockPos pos, Player viewer) {
+		boolean roll = AttractRules.rolls(pos.getX(), pos.getY(), pos.getZ(), tick);
+		boolean chimeCheck = Math.floorMod(tick + pos.hashCode(), (long) CHIME_CHECK_TICKS) == 0;
+		if (!roll && !chimeCheck) return;
 		String path = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).getPath();
 		boolean slot = path.startsWith("slot_machine");
+		if (!roll && !slot) return;
 		boolean busy = !level.getEntitiesOfClass(Player.class, new net.minecraft.world.phys.AABB(pos).inflate(AttractRules.BUSY_RADIUS - 0.5)).isEmpty();
-		if (slot) chime(pos, viewer, busy);
-		if (busy || !AttractRules.rolls(pos.getX(), pos.getY(), pos.getZ(), tick)) return;
+		if (slot && chimeCheck) chime(pos, viewer, busy);
+		if (busy || !roll) return;
 		SeedMix.FxRng rng = new SeedMix.FxRng(SeedMix.mix(pos.getX(), pos.getY(), pos.getZ(), (int) (tick / 40)));
 		if (rng.nextInt(2) != 0) return; // one glint per ~80 t per block on average
 		double x = pos.getX() + 0.2 + rng.nextDouble() * 0.6;

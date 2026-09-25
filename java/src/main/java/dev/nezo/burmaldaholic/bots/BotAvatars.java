@@ -336,7 +336,12 @@ final class BotAvatars {
 	}
 
 	private static void discard(TablePlates t) {
-		KEYS.removeIf(k -> k.level() == t.level() && !k.discard());
+		// only this table's pending scale keys: another table's plate in the same level must still finish its join
+		Set<UUID> mine = new HashSet<>();
+		for (Plate p : t.plates().values()) {
+			mine.add(p.entity());
+		}
+		KEYS.removeIf(k -> !k.discard() && mine.contains(k.entity()));
 		for (Plate p : t.plates().values()) {
 			Entity e = t.level().getEntity(p.entity());
 			if (e != null) {

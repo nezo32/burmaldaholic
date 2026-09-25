@@ -8,6 +8,9 @@
 //   font/bots/badges.png + font/bots.json                                        bot difficulty pills (U+E500–E503)
 //   block/core/{cashier,nether_cashier}_front, block/extras/{wheel_of_fortune,plinko_machine}_front (+ .mcmeta)
 //                                                                                attract strips (global.md §4.13)
+// Ownership: this module is the only writer of the four block fronts above (frame 0 keeps the extras / core art;
+// the lamp frames are J-L3's). The core and extras modules must not emit them — meta-art.test.mjs checks it; art
+// changes to those fronts go into ./meta/art.mjs (CASHIER / WHEEL / PLINKO rows).
 import { json, mcmeta, png, JAVA_ASSETS } from '../lib/emit.mjs';
 import { hstrip, strip } from '../lib/grid.mjs';
 import {

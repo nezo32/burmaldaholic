@@ -225,6 +225,7 @@ public final class VipService {
 					other.sendSystemMessage(msg);
 				}
 			}
+			VipFx.netheriteToast(player);
 		}
 	}
 

@@ -305,8 +305,8 @@ public final class LastChance {
 			}
 			it.remove();
 			ServerPlayer player = server.getPlayerList().getPlayer(l.player());
-			if (player == null) {
-				continue;
+			if (player == null || !player.isAlive()) {
+				continue; // presentation only: the revive already happened on the damage event
 			}
 			ServerLevel level = player.level();
 			level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1.0, player.getZ(), TOTEM_PARTICLES, 0.4, 0.8, 0.4, 0.5);

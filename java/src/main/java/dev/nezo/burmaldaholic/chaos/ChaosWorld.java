@@ -144,6 +144,38 @@ final class ChaosWorld {
 		return new Vec3(x + 0.5, y0 + Math.max(0, h) + 0.5, z + 0.5);
 	}
 
+	/**
+	 * A teleport landing chosen earlier is still safe now (§13.4, re-checked when the teleport happens after its
+	 * veil): inside the border, chunk loaded (no new load), and the column still passes the landing rules.
+	 */
+	static boolean landingStillSafe(ServerLevel level, int x, int y, int z) {
+		return level.getWorldBorder().isWithinBounds(new BlockPos(x, 0, z))
+			&& level.hasChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z))
+			&& Safety.isSafeLanding(column(level, x, y, z));
+	}
+
+	/**
+	 * An item drop spot chosen earlier is still safe now (§13.4, re-checked when the diamond lands after its glint
+	 * column): chunk loaded, not inside a fluid or hazard, and the first non-air block below is solid and safe.
+	 */
+	static boolean dropStillSafe(ServerLevel level, Vec3 at) {
+		BlockPos pos = BlockPos.containing(at);
+		if (!level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ()))) {
+			return false;
+		}
+		BlockInfo here = info(level, pos);
+		if (here.fluid() || Safety.UNSAFE_DROP_SURFACE.contains(here.id())) {
+			return false;
+		}
+		for (int y = pos.getY() - 1; y >= Math.max(level.getMinY(), pos.getY() - 24); y--) {
+			BlockInfo b = info(level, new BlockPos(pos.getX(), y, pos.getZ()));
+			if (!b.air()) {
+				return !b.fluid() && Safety.safeDropSurface(b);
+			}
+		}
+		return false;
+	}
+
 	/** Within {@code radius} of a Wither, Warden or Ender Dragon. */
 	static boolean nearBoss(ServerPlayer player, int radius) {
 		if (radius <= 0) {

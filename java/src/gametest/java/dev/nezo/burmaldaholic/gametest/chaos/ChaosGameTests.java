@@ -127,4 +127,83 @@ public class ChaosGameTests {
 		});
 		helper.succeed();
 	}
+
+	// ---- §13.4 after the presentation delays (lane J-L3: the diamond lands 8 t after its column, the teleport 5 t after
+	// its veil, the wave 18 t after its runes) ----------------------------------------------------------------------
+
+	private static long diamondsNear(GameTestHelper helper, net.minecraft.world.phys.Vec3 at) {
+		return helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(at, at).inflate(8)).stream()
+			.filter(e -> e.getItem().is(net.minecraft.world.item.Items.DIAMOND))
+			.count();
+	}
+
+	@GameTest(maxTicks = 200)
+	public void diamondRainGivesNothingToAPlayerWhoLeftDuringTheColumn(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer player = survivalPlayer(helper);
+		net.minecraft.world.phys.Vec3 at = player.position();
+		TriggerResult r = ChaosApi.triggerEvent(player, ChaosEvent.DIAMOND_RAIN, "admin", true);
+		helper.assertTrue(r == TriggerResult.STARTED, "diamond rain started, got " + r);
+		// the first glint column starts on tick 1; its diamond is due on tick 1 + COLUMN_TICKS
+		helper.runAfterDelay(3, () -> {
+			helper.assertTrue(diamondsNear(helper, at) == 0, "no diamond before its column lands");
+			server.getPlayerList().remove(player);
+		});
+		helper.runAfterDelay(130, () -> {
+			helper.assertTrue(diamondsNear(helper, at) == 0, "logged out during the fall: no diamonds spawned");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(maxTicks = 200)
+	public void diamondRainLandsForAPlayerWhoStays(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer player = survivalPlayer(helper);
+		net.minecraft.world.phys.Vec3 at = player.position();
+		TriggerResult r = ChaosApi.triggerEvent(player, ChaosEvent.DIAMOND_RAIN, "admin", true);
+		helper.assertTrue(r == TriggerResult.STARTED, "diamond rain started, got " + r);
+		helper.runAfterDelay(130, () -> {
+			long n = diamondsNear(helper, at);
+			helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(at, at).inflate(8)).forEach(e -> e.discard());
+			server.getPlayerList().remove(player);
+			helper.assertTrue(n >= 2 && n <= 6, "2–6 diamonds landed, got " + n);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(maxTicks = 100)
+	public void teleportIsCancelledWhenThePlayerStartsFallingInsideTheVeil(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer player = survivalPlayer(helper);
+		net.minecraft.world.phys.Vec3 start = player.position();
+		TriggerResult r = ChaosApi.triggerEvent(player, ChaosEvent.RANDOM_TELEPORT, "admin", true);
+		if (r != TriggerResult.STARTED) {
+			server.getPlayerList().remove(player); // no safe landing in this test world: nothing to re-check
+			helper.succeed();
+			return;
+		}
+		player.fallDistance = 10; // §13.4: falling (> 3) → no teleport, even when it happens after the veil
+		helper.runAfterDelay(10, () -> {
+			double moved = player.position().distanceTo(start);
+			server.getPlayerList().remove(player);
+			helper.assertTrue(moved < 1, "a player who started falling during the veil stays put, moved " + moved);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(maxTicks = 100)
+	public void mobWaveIsCancelledForAPlayerWhoLeftDuringTheRunes(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer player = survivalPlayer(helper);
+		net.minecraft.world.phys.Vec3 at = player.position();
+		ChaosApi.triggerEvent(player, ChaosEvent.MOB_WAVE, "admin", true);
+		server.getPlayerList().remove(player);
+		helper.runAfterDelay(30, () -> {
+			var mobs = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new AABB(at, at).inflate(24),
+				e -> e.entityTags().contains("burmaldaholic:chaos"));
+			mobs.forEach(e -> e.discard());
+			helper.assertTrue(mobs.isEmpty(), "no wave for a player who left before the runes finished, got " + mobs.size());
+			helper.succeed();
+		});
+	}
 }

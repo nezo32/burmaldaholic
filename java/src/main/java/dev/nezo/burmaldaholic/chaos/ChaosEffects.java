@@ -179,6 +179,30 @@ final class ChaosEffects {
 		level.addFreshEntity(item);
 	}
 
+	/**
+	 * A diamond of the rain lands {@link ChaosFxMath#COLUMN_TICKS} after its glint column started. The §13.4 rules are
+	 * re-checked at that moment: no diamond for a player who logged out or died meanwhile; a player who changed
+	 * dimension, or a spot that became unsafe (lava flowed in, chunk unloaded), gets it at their feet instead.
+	 */
+	private static void landDiamond(MinecraftServer server, UUID id, ServerLevel level, Vec3 at) {
+		ServerPlayer q = server.getPlayerList().getPlayer(id);
+		if (q == null || !q.isAlive()) {
+			return;
+		}
+		ServerLevel into = level;
+		Vec3 spot = at;
+		if (q.level() != level || !ChaosWorld.dropStillSafe(level, at)) {
+			into = q.level();
+			spot = new Vec3(q.getX(), q.getY() + 0.2, q.getZ());
+		}
+		spawnItem(into, new ItemStack(Items.DIAMOND), spot);
+		for (ServerPlayer v : into.players()) {
+			if (!ChaosFxNet.modded(v) && v.distanceToSqr(spot) < ChaosFxNet.SPECTATORS * ChaosFxNet.SPECTATORS) {
+				into.sendParticles(v, ParticleTypes.HAPPY_VILLAGER, false, false, spot.x, spot.y, spot.z, 6, 0.2, 0.2, 0.2, 0.0);
+			}
+		}
+	}
+
 	// ---- buffs / curses ----------------------------------------------------------------------
 
 	static Optional<Holder.Reference<MobEffect>> effectHolder(String id) {
@@ -242,14 +266,7 @@ final class ChaosEffects {
 				Vec3 at = ChaosWorld.dropSpot(level, q.position(), o[0], o[1], 6);
 				// the glint column falls onto the real drop point; the diamond appears when it lands (global §4.6)
 				ChaosFxNet.points(level, q, at, ChaosFxPayload.DIAMOND_COLUMN, List.of(at), index, null);
-				ChaosEngine.schedule(server, ChaosFxMath.COLUMN_TICKS, () -> {
-					spawnItem(level, new ItemStack(Items.DIAMOND), at);
-					for (ServerPlayer v : level.players()) {
-						if (!ChaosFxNet.modded(v) && v.distanceToSqr(at) < ChaosFxNet.SPECTATORS * ChaosFxNet.SPECTATORS) {
-							level.sendParticles(v, ParticleTypes.HAPPY_VILLAGER, false, false, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
-						}
-					}
-				});
+				ChaosEngine.schedule(server, ChaosFxMath.COLUMN_TICKS, () -> landDiamond(server, id, level, at));
 			});
 		}
 		for (int k = 0; k < RAIN_TICKS; k += 10) {
@@ -346,7 +363,15 @@ final class ChaosEffects {
 	/** Spawns the wave at the spots chosen (and announced by runes) {@link ChaosFxMath#RUNE_LEAD_TICKS} earlier. */
 	private static void spawnWave(ServerLevel level, UUID target, List<BlockPos> spots, List<String> types, long until) {
 		ServerPlayer p = level.getServer().getPlayerList().getPlayer(target);
+		// §13.4 re-checked after the runes: no wave for a player who left, died, changed dimension, or meanwhile
+		// entered a boss zone / claimed casino (or the world went Peaceful)
+		if (p == null || p.level() != level || !ChaosEngine.stillSafe(p, ChaosEvent.MOB_WAVE)) {
+			return;
+		}
 		for (int i = 0; i < spots.size(); i++) {
+			if (!level.isLoaded(spots.get(i))) {
+				continue;
+			}
 			EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.withDefaultNamespace(types.get(i)));
 			if (type == null) {
 				continue;
@@ -361,7 +386,7 @@ final class ChaosEffects {
 			mob.addTag(WAVE_TAG);
 			mob.setAttached(waveUntil, until);
 			Earnings.markNoReward(mob);
-			if (mob instanceof Mob m && p != null && p.level() == level && p.isAlive()) {
+			if (mob instanceof Mob m) {
 				m.setTarget(p);
 			}
 			BlockPos s = spots.get(i);
@@ -421,6 +446,8 @@ final class ChaosEffects {
 				q -> level.sendParticles(q, ParticleTypes.PORTAL, false, false, from.x, from.y + 1, from.z, 40, 0.5, 1.0, 0.5, 0.2));
 			UUID id = p.getUUID();
 			BlockPos landing = new BlockPos(x, y + 1, z);
+			// keep the (possibly just loaded) target chunk loaded until the teleport inside the veil: no second load
+			level.getChunkSource().addTicketWithRadius(net.minecraft.server.level.TicketType.ENDER_PEARL, net.minecraft.world.level.ChunkPos.containing(landing), 1);
 			ChaosEngine.schedule(level.getServer(), ChaosFxMath.TELEPORT_LEAD_TICKS, () -> finishTeleport(level, id, from, to, landing));
 			return true;
 		}
@@ -431,6 +458,13 @@ final class ChaosEffects {
 	private static void finishTeleport(ServerLevel level, UUID id, Vec3 from, Vec3 to, BlockPos landing) {
 		ServerPlayer p = level.getServer().getPlayerList().getPlayer(id);
 		if (p == null || !p.isAlive() || p.level() != level) {
+			return;
+		}
+		// §13.4 re-checked inside the veil: the player may have started gliding, mounted, fallen, reached a boss zone
+		// or a table round, and the landing may have changed (or been claimed) since it was chosen
+		BlockPos ground = landing.below();
+		if (!ChaosEngine.stillSafe(p, ChaosEvent.RANDOM_TELEPORT) || !ChaosWorld.landingStillSafe(level, ground.getX(), ground.getY(), ground.getZ())
+			|| CoreServices.claims().isClaimed(level, ground)) {
 			return;
 		}
 		if (!p.teleportTo(level, to.x, to.y, to.z, Set.of(), p.getYRot(), p.getXRot(), true)) {

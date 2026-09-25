@@ -74,4 +74,14 @@ describe('meta art (lane J-L3)', () => {
     expect(pngSize(byPath.get(`${T}/block/core/cashier_front.png`))).toEqual([16, 32]);
     expect(pngSize(byPath.get(`${T}/block/extras/plinko_machine_front.png`))).toEqual([16, 48]);
   });
+
+  it('owns its outputs alone: the core and extras generators never write the same files (block fronts included)', async () => {
+    const mine = new Set(out.map((o) => o.path));
+    expect(mine.size).toBe(out.length);
+    for (const m of ['core', 'extras']) {
+      const { default: other } = await import(`../${m}.mjs`);
+      const clash = (await other({ module: m })).map((o) => o.path).filter((p) => mine.has(p));
+      expect(clash, `module ${m} also writes`).toEqual([]);
+    }
+  }, 60000);
 });
