@@ -41,6 +41,7 @@ public final class LoanModule implements CasinoModule {
 	public void register(ModuleContext ctx) {
 		LoanContent.register(ctx);
 		LoanUiPayload.TYPE = ctx.payloads().clientbound("loan_ui", LoanUiPayload.CODEC);
+		dev.nezo.burmaldaholic.loan.net.LoanFxPayload.TYPE = ctx.payloads().clientbound("loan_fx", dev.nezo.burmaldaholic.loan.net.LoanFxPayload.CODEC);
 		LoanActionPayload.TYPE = ctx.payloads().serverbound("loan_action", LoanActionPayload.CODEC, (payload, context) -> {
 			if (LoanUiPayload.NEGOTIATE.equals(payload.screen())) {
 				LoanSquads.onAnswer(context.player(), payload);

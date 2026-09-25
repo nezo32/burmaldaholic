@@ -29,6 +29,18 @@ public final class LoanClientModule implements CasinoClientModule {
 	public void registerClient(ClientModuleContext ctx) {
 		LoanRenderers.register();
 		ClientPlayNetworking.registerGlobalReceiver(LoanUiPayload.TYPE, (payload, context) -> onUi(context.client(), payload));
+		// Debt Collectors' arrival (global §4.9, lane J-L3)
+		if (dev.nezo.burmaldaholic.loan.net.LoanFxPayload.TYPE != null) {
+			ClientPlayNetworking.registerGlobalReceiver(dev.nezo.burmaldaholic.loan.net.LoanFxPayload.TYPE, (payload, context) -> CollectorFx.onPayload(payload));
+		}
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> CollectorFx.tick());
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CollectorFx.reset());
+		net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.attachElementAfter(
+			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.MISC_OVERLAYS, dev.nezo.burmaldaholic.Burmaldaholic.id("loan_vignette"),
+			CollectorFx::extractVignette);
+		net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.attachElementBefore(
+			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.TITLE_AND_SUBTITLE, dev.nezo.burmaldaholic.Burmaldaholic.id("loan_card"),
+			CollectorFx::extractCard);
 	}
 
 	private static void onUi(Minecraft mc, LoanUiPayload payload) {
@@ -70,5 +82,10 @@ public final class LoanClientModule implements CasinoClientModule {
 	static void putError(CompoundTag state, Component message) {
 		ComponentSerialization.CODEC.encodeStart(ops(), message).result().ifPresent(t -> state.put("message", t));
 		state.putBoolean("error", true);
+	}
+
+	/** Client game-test hook: the collectors' arrival card is showing (lane J-L3). */
+	public static boolean arrivalActive() {
+		return CollectorFx.active();
 	}
 }

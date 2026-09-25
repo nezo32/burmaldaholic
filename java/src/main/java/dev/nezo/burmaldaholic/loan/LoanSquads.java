@@ -23,6 +23,7 @@ import dev.nezo.burmaldaholic.loan.logic.SquadRules.Machine;
 import dev.nezo.burmaldaholic.loan.logic.SquadRules.State;
 import dev.nezo.burmaldaholic.loan.logic.SquadRules.Unit;
 import dev.nezo.burmaldaholic.loan.net.LoanActionPayload;
+import dev.nezo.burmaldaholic.loan.net.LoanFxPayload;
 import dev.nezo.burmaldaholic.loan.net.LoanUiPayload;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -241,9 +242,36 @@ public final class LoanSquads {
 		LoanService.title(player, Component.translatable("msg.burmaldaholic.loan.wave_title").withStyle(ChatFormatting.RED),
 			Component.translatable("msg.burmaldaholic.loan.wave_subtitle"));
 		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.loan.wave_incoming", Texts.chips(owed)).withStyle(ChatFormatting.RED));
-		LoanService.sound(player, dev.nezo.burmaldaholic.core.CoreSounds.COLLECTOR_KNOCK, 0.6F);
+		arrival(level, player, squad);
 		LoanModule.LOG.info("Debt collector wave {} ({} members) for {}, owed {}", wave, squad.members.size(), player.getName().getString(), owed);
 		return true;
+	}
+
+	/**
+	 * The arrival FX (global §4.9): the debtor and players within 16 blocks of a member get {@link LoanFxPayload} (knocks,
+	 * card, vignette, smoke columns at the real member spots); clients without it hear the vanilla knock as before.
+	 */
+	private static void arrival(ServerLevel level, ServerPlayer debtor, Squad squad) {
+		List<net.minecraft.world.phys.Vec3> at = new ArrayList<>();
+		for (UUID id : squad.members) {
+			Entity e = level.getEntity(id);
+			if (e != null) {
+				at.add(e.position());
+			}
+		}
+		LoanFxPayload payload = new LoanFxPayload(debtor.getUUID(), debtor.position(), at);
+		double r2 = 16 * 16;
+		for (ServerPlayer p : level.players()) {
+			boolean near = p == debtor || p.distanceToSqr(debtor) <= r2 || at.stream().anyMatch(v -> p.distanceToSqr(v) <= r2);
+			if (!near) {
+				continue;
+			}
+			if (LoanFxPayload.TYPE != null && net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(p, LoanFxPayload.TYPE)) {
+				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, payload);
+			} else if (p == debtor) {
+				LoanService.sound(debtor, dev.nezo.burmaldaholic.core.CoreSounds.COLLECTOR_KNOCK, 0.6F);
+			}
+		}
 	}
 
 	/** Block classifier for the spawn search (null = unloaded / outside the border). */

@@ -21,6 +21,7 @@ import dev.nezo.burmaldaholic.lastchance.logic.LastChanceRules.Mode;
 import dev.nezo.burmaldaholic.lastchance.logic.LastChanceRules.Settings;
 import dev.nezo.burmaldaholic.lastchance.logic.LastChanceRules.SkipReason;
 import dev.nezo.burmaldaholic.lastchance.logic.LastChanceRules.SuccessPlan;
+import dev.nezo.burmaldaholic.lastchance.logic.CoinFlipTimeline;
 import dev.nezo.burmaldaholic.lastchance.net.CoinFlipPayload;
 import java.util.ArrayList;
 import java.util.List;
@@ -103,10 +104,12 @@ public final class LastChance {
 		ServerPlayerEvents.JOIN.register(LastChance::refreshScar);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> refreshScar(newPlayer));
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			runLandings(server);
 			if (server.getTickCount() % 20 == 0) {
 				tickSecond(server);
 			}
 		});
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> LANDINGS.clear());
 	}
 
 	// ---- config / world facts ---------------------------------------------------------------
@@ -260,9 +263,8 @@ public final class LastChance {
 		player.resetFallDistance();
 		player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 60, 4));
 		player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, 0));
-		ServerLevel level = player.level();
-		level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1.0, player.getZ(), TOTEM_PARTICLES, 0.4, 0.8, 0.4, 0.5);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), sound, SoundSource.PLAYERS, 1.0f, 1.0f);
+		// the world agrees with the coin: totem burst + sound when the coin lands on heads (global §4.8, +1 300 ms)
+		scheduleLanding(player, server);
 
 		CasinoAdvancements.grant(player, "not_today");
 		if (d.mode() == Mode.HIGH_STAKES && hardcore(server)) {
@@ -278,6 +280,41 @@ public final class LastChance {
 		}
 		if (d.cooldownTicks() > 0) {
 			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.lastchance.cooldown_started", duration(d.cooldownTicks())));
+		}
+	}
+
+	/** A pending heads landing: totem burst, gold sparkle and the {@code last_chance} sound at the coin's landing tick. */
+	private record Landing(java.util.UUID player, int atTick) {}
+
+	private static final java.util.List<Landing> LANDINGS = new java.util.ArrayList<>();
+
+	private static void scheduleLanding(ServerPlayer player, MinecraftServer server) {
+		LANDINGS.add(new Landing(player.getUUID(), server.getTickCount() + CoinFlipTimeline.LAND_TICKS));
+	}
+
+	private static void runLandings(MinecraftServer server) {
+		if (LANDINGS.isEmpty()) {
+			return;
+		}
+		int now = server.getTickCount();
+		var it = LANDINGS.iterator();
+		while (it.hasNext()) {
+			Landing l = it.next();
+			if (now < l.atTick() && now >= l.atTick() - CoinFlipTimeline.LAND_TICKS - 1) {
+				continue;
+			}
+			it.remove();
+			ServerPlayer player = server.getPlayerList().getPlayer(l.player());
+			if (player == null) {
+				continue;
+			}
+			ServerLevel level = player.level();
+			level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1.0, player.getZ(), TOTEM_PARTICLES, 0.4, 0.8, 0.4, 0.5);
+			var sparkle = dev.nezo.burmaldaholic.core.fx.CoreParticles.get("sparkle");
+			if (sparkle != null) {
+				level.sendParticles(sparkle, player.getX(), player.getY() + 1.2, player.getZ(), 20, 0.5, 0.6, 0.5, 0.06);
+			}
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), sound, SoundSource.PLAYERS, 1.0f, 1.0f);
 		}
 	}
 

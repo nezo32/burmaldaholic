@@ -23,4 +23,9 @@ public final class LastChanceClientModule implements CasinoClientModule {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CoinFlipOverlay.reset());
 		HudElementRegistry.addLast(Burmaldaholic.id("last_chance_flip"), CoinFlipOverlay::extract);
 	}
+
+	/** Client game-test hook: the coin-flip frame shown now, or null (lane J-L3). */
+	public static dev.nezo.burmaldaholic.lastchance.logic.CoinFlipTimeline.Frame flipFrame() {
+		return CoinFlipOverlay.active() ? CoinFlipOverlay.frameNow() : null;
+	}
 }

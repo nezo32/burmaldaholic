@@ -91,6 +91,16 @@ public final class FxSounds {
 		if (e != null && allow(path)) emit(e.location(), SoundSource.PLAYERS, volume, pitch, 0, true, 0, 0, 0);
 	}
 
+	/**
+	 * Additive hook (lane J-L3): plays any sound id (vanilla layers of world / meta FX, the Golden Hour loop voices) with
+	 * an explicit source, × {@code anim.volume}, under the same 20/s budget; {@code at} null = personal (non-positional).
+	 */
+	public static void playRaw(Identifier sound, SoundSource source, float volume, float pitch, int delayTicks, net.minecraft.world.phys.Vec3 at) {
+		if (sound == null || source == SoundSource.MASTER || !allow(sound.getPath())) return;
+		if (at == null) emit(sound, source, volume, pitch, delayTicks, true, 0, 0, 0);
+		else emit(sound, source, volume, pitch, delayTicks, false, at.x, at.y, at.z);
+	}
+
 	private static boolean emit(Identifier sound, SoundSource source, float volume, float pitch, int delayTicks, boolean relative, double x,
 			double y, double z) {
 		Minecraft mc = Minecraft.getInstance();

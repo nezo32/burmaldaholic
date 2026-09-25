@@ -189,10 +189,11 @@ public final class VipService {
 			return;
 		}
 		List<Integer> gained = VipRules.promotions(rec.tier, now);
+		int before = rec.tier;
 		rec.tier = now;
 		data.setDirty();
 		for (int i = 0; i < gained.size(); i++) {
-			announce(player, gained.get(i), i == gained.size() - 1);
+			announce(player, gained.get(i), i == gained.size() - 1, before);
 		}
 		Contracts.topUp(player);
 		if (now >= VipRules.DIAMOND) {
@@ -202,9 +203,11 @@ public final class VipService {
 		markSync(player);
 	}
 
-	private static void announce(ServerPlayer player, int tier, boolean loud) {
+	private static void announce(ServerPlayer player, int tier, boolean loud, int fromTier) {
 		Component name = VipTiers.name(tier);
-		if (loud) {
+		if (loud && VipFx.celebrate(player, fromTier, tier)) {
+			// modded client: the tier-up overlay replaces the vanilla title (global §4.11); spectators get the ring
+		} else if (loud) {
 			player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
 			player.connection.send(new ClientboundSetTitleTextPacket(Component.translatable("msg.burmaldaholic.vip.promoted_title", name)));
 			player.connection.send(new ClientboundSetSubtitleTextPacket(Component.translatable("gui.burmaldaholic.vip.max_bet", Texts.chips(VipTiers.maxBet(tier)))));
@@ -235,15 +238,9 @@ public final class VipService {
 		}
 	}
 
-	/** Gold+: gold sparkle on wins; Netherite: soul-fire aura (UI/§12 cosmetics). */
+	/** Gold+: gold sparkle on wins; Netherite: soul-fire aura (UI/§12 cosmetics); one particle call per layer. */
 	static void winParticles(ServerPlayer player) {
-		int tier = tier(player.level().getServer(), player.getUUID());
-		if (tier >= VipRules.NETHERITE) {
-			ring(player, ParticleTypes.SOUL_FIRE_FLAME, 0.9, 0.2, 12);
-			ring(player, ParticleTypes.SOUL, 0.7, 1.2, 8);
-		} else if (tier >= VipRules.GOLD) {
-			ring(player, ParticleTypes.TOTEM_OF_UNDYING, 0.6, 1.0, 6);
-		}
+		VipFx.winAura(player, tier(player.level().getServer(), player.getUUID()));
 	}
 
 	/** Diamond+: every Casino Card in the inventory becomes the Diamond Casino Card (same menu). */

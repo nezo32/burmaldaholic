@@ -4,6 +4,8 @@ import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
 import com.mojang.serialization.Codec;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosEvent;
+import dev.nezo.burmaldaholic.chaos.logic.ChaosFxMath;
+import dev.nezo.burmaldaholic.chaos.net.ChaosFxPayload;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosRules;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosRules.EffectSpec;
 import dev.nezo.burmaldaholic.chaos.logic.ChaosRules.RolledEffect;
@@ -97,12 +99,25 @@ final class ChaosEffects {
 		p.connection.send(new ClientboundSetTitleTextPacket(title));
 	}
 
+	/** Title in the event's kind colour (global §4.6: good {@code bonus}, bad {@code chip.red}, neutral {@code lilac}). */
 	private static void announce(ServerPlayer p, String titleKey, Component subtitle) {
-		title(p, Component.translatable(titleKey), subtitle, 5, 50, 15);
+		String id = titleKey.replace("msg.burmaldaholic.chaos.", "").replace(".title", "");
+		ChaosEvent event = "weather".equals(id) ? ChaosEvent.WEATHER_CHANGE : ChaosEvent.byId(id).orElse(null);
+		MutableComponent title = Component.translatable(titleKey);
+		if (event != null) {
+			int rgb = ChaosFxMath.Tone.of(event.kind()).color & 0xFFFFFF;
+			title = title.withStyle(st -> st.withColor(net.minecraft.network.chat.TextColor.fromRgb(rgb)));
+		}
+		title(p, title, subtitle, 5, 50, 15);
 	}
 
+	/** Vanilla sound of before, for clients that do not draw the chaos FX (modded clients play the event tone). */
 	private static void sound(ServerPlayer p, SoundEvent sound, float pitch) {
-		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), sound, SoundSource.PLAYERS, 1.0F, pitch);
+		if (ChaosFxNet.modded(p)) {
+			return;
+		}
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound),
+			SoundSource.PLAYERS, p.getX(), p.getY(), p.getZ(), 1.0F, pitch, p.getRandom().nextLong()));
 	}
 
 	/** "2 minutes" / "45 seconds" in the accusative ("на 2 минуты", "for 45 seconds"). */
@@ -125,11 +140,17 @@ final class ChaosEffects {
 		List<ItemStack> piles = new ArrayList<>();
 		addPiles(piles, 5, split[0]);
 		addPiles(piles, 1, split[1]);
+		List<Vec3> spots = new ArrayList<>(piles.size());
 		for (ItemStack stack : piles) {
 			int[] o = ChaosRules.randomOffset(rng, 0.5, 2);
-			spawnItem(level, stack, ChaosWorld.dropSpot(level, origin, o[0], o[1], 1));
+			Vec3 at = ChaosWorld.dropSpot(level, origin, o[0], o[1], 1);
+			spawnItem(level, stack, at);
+			spots.add(at);
 		}
-		level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, origin.x, origin.y + 1, origin.z, 30, 1.0, 0.5, 1.0, 0.3);
+		// one chip pop per real pile (global §4.6 / §6.4); vanilla clients keep the totem burst
+		ChaosFxNet.intro(p, ChaosEvent.CHIP_SHOWER);
+		ChaosFxNet.points(level, p, origin, ChaosFxPayload.CHIP_POP, spots, 0,
+			q -> level.sendParticles(q, ParticleTypes.TOTEM_OF_UNDYING, false, false, origin.x, origin.y + 1, origin.z, 30, 1.0, 0.5, 1.0, 0.3));
 		sound(p, SoundEvents.PLAYER_LEVELUP, 1.4F);
 		announce(p, "msg.burmaldaholic.chaos.chip_shower.title", Component.translatable("msg.burmaldaholic.chaos.chip_shower.subtitle"));
 		p.sendSystemMessage(Component.translatable("msg.burmaldaholic.chaos.chip_shower.chat", Texts.chips(amount)));
@@ -185,6 +206,9 @@ final class ChaosEffects {
 			return false;
 		}
 		Component name = effectName(holder.get(), spec.amplifier());
+		ChaosFxNet.intro(p, buff ? ChaosEvent.LUCKY_BUFF : ChaosEvent.CURSE);
+		ChaosFxNet.points(p.level(), p, p.position(), buff ? (bigWin ? ChaosFxPayload.GOLD_RING : ChaosFxPayload.BUFF_RING) : ChaosFxPayload.CURSE_SPIRAL,
+			List.of(p.position()), 0, null);
 		String prefix = buff ? "msg.burmaldaholic.chaos.lucky_buff" : "msg.burmaldaholic.chaos.curse";
 		announce(p, prefix + ".title", Component.translatable(prefix + ".subtitle", name, duration(rolled.ticks())));
 		sound(p, buff ? SoundEvents.PLAYER_LEVELUP : SoundEvents.WITCH_AMBIENT, buff ? 1.8F : 1.0F);
@@ -206,6 +230,7 @@ final class ChaosEffects {
 		}
 		UUID id = p.getUUID();
 		for (int i = 0; i < count; i++) {
+			int index = i;
 			int delay = Math.max(1, i * RAIN_TICKS / count);
 			ChaosEngine.schedule(server, delay, () -> {
 				ServerPlayer q = server.getPlayerList().getPlayer(id);
@@ -213,19 +238,29 @@ final class ChaosEffects {
 					return;
 				}
 				int[] o = ChaosRules.randomOffset(ChaosEngine.rng(), 0, 3);
-				Vec3 at = ChaosWorld.dropSpot(q.level(), q.position(), o[0], o[1], 6);
-				spawnItem(q.level(), new ItemStack(Items.DIAMOND), at);
-				q.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
+				ServerLevel level = q.level();
+				Vec3 at = ChaosWorld.dropSpot(level, q.position(), o[0], o[1], 6);
+				// the glint column falls onto the real drop point; the diamond appears when it lands (global §4.6)
+				ChaosFxNet.points(level, q, at, ChaosFxPayload.DIAMOND_COLUMN, List.of(at), index, null);
+				ChaosEngine.schedule(server, ChaosFxMath.COLUMN_TICKS, () -> {
+					spawnItem(level, new ItemStack(Items.DIAMOND), at);
+					for (ServerPlayer v : level.players()) {
+						if (!ChaosFxNet.modded(v) && v.distanceToSqr(at) < ChaosFxNet.SPECTATORS * ChaosFxNet.SPECTATORS) {
+							level.sendParticles(v, ParticleTypes.HAPPY_VILLAGER, false, false, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
+						}
+					}
+				});
 			});
 		}
 		for (int k = 0; k < RAIN_TICKS; k += 10) {
 			ChaosEngine.schedule(server, k + 1, () -> {
 				ServerPlayer q = server.getPlayerList().getPlayer(id);
-				if (q != null) {
-					q.level().sendParticles(ParticleTypes.END_ROD, q.getX(), q.getY() + 5, q.getZ(), 12, 2.5, 1.0, 2.5, 0.02);
+				if (q != null && !ChaosFxNet.modded(q)) {
+					q.level().sendParticles(q, ParticleTypes.END_ROD, false, false, q.getX(), q.getY() + 5, q.getZ(), 12, 2.5, 1.0, 2.5, 0.02);
 				}
 			});
 		}
+		ChaosFxNet.intro(p, ChaosEvent.DIAMOND_RAIN);
 		sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.2F);
 		announce(p, "msg.burmaldaholic.chaos.diamond_rain.title", Component.translatable("msg.burmaldaholic.chaos.diamond_rain.subtitle"));
 		return true;
@@ -249,9 +284,11 @@ final class ChaosEffects {
 					return;
 				}
 				ExperienceOrb.award(q.level(), q.position().add(0, 1.5, 0), xp);
-				q.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, q.getX(), q.getY() + 1.5, q.getZ(), 10, 0.4, 0.6, 0.4, 0.1);
+				ChaosFxNet.points(q.level(), q, q.position(), ChaosFxPayload.XP_SPARKLE, List.of(q.position()), 0,
+					v -> v.level().sendParticles(v, ParticleTypes.HAPPY_VILLAGER, false, false, q.getX(), q.getY() + 1.5, q.getZ(), 10, 0.4, 0.6, 0.4, 0.1));
 			});
 		}
+		ChaosFxNet.intro(p, ChaosEvent.XP_FOUNTAIN);
 		sound(p, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8F);
 		announce(p, "msg.burmaldaholic.chaos.xp_fountain.title", Component.translatable("msg.burmaldaholic.chaos.xp_fountain.subtitle"));
 		return true;
@@ -289,10 +326,27 @@ final class ChaosEffects {
 			}
 			spots.add(spot);
 		}
-		long until = ChaosEngine.now(server) + mw.despawnTicks;
+		long until = ChaosEngine.now(server) + mw.despawnTicks + ChaosFxMath.RUNE_LEAD_TICKS;
 		List<String> types = ChaosRules.waveComposition(rng, ChaosWorld.dimension(level), n);
-		int spawned = 0;
-		for (int i = 0; i < n; i++) {
+		// summon runes where the mobs will appear, 900 ms before they do (global §4.6 / §6.5)
+		List<Vec3> runes = new ArrayList<>(n);
+		for (BlockPos s : spots) {
+			runes.add(new Vec3(s.getX() + 0.5, s.getY() + 0.05, s.getZ() + 0.5));
+		}
+		ChaosFxNet.intro(p, ChaosEvent.MOB_WAVE);
+		ChaosFxNet.points(level, p, p.position(), ChaosFxPayload.MOB_RUNE, runes, ChaosFxMath.RUNE_LEAD_TICKS, null);
+		UUID target = p.getUUID();
+		ChaosEngine.schedule(server, ChaosFxMath.RUNE_LEAD_TICKS, () -> spawnWave(level, target, spots, types, until));
+		sound(p, SoundEvents.EVOKER_PREPARE_SUMMON, 1.0F);
+		announce(p, "msg.burmaldaholic.chaos.mob_wave.title", Component.translatable("msg.burmaldaholic.chaos.mob_wave.subtitle"));
+		p.sendSystemMessage(Component.translatable("msg.burmaldaholic.chaos.mob_wave.chat"));
+		return true;
+	}
+
+	/** Spawns the wave at the spots chosen (and announced by runes) {@link ChaosFxMath#RUNE_LEAD_TICKS} earlier. */
+	private static void spawnWave(ServerLevel level, UUID target, List<BlockPos> spots, List<String> types, long until) {
+		ServerPlayer p = level.getServer().getPlayerList().getPlayer(target);
+		for (int i = 0; i < spots.size(); i++) {
 			EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.withDefaultNamespace(types.get(i)));
 			if (type == null) {
 				continue;
@@ -307,20 +361,12 @@ final class ChaosEffects {
 			mob.addTag(WAVE_TAG);
 			mob.setAttached(waveUntil, until);
 			Earnings.markNoReward(mob);
-			if (mob instanceof Mob m) {
+			if (mob instanceof Mob m && p != null && p.level() == level && p.isAlive()) {
 				m.setTarget(p);
 			}
 			BlockPos s = spots.get(i);
 			level.sendParticles(ParticleTypes.POOF, s.getX() + 0.5, s.getY() + 0.5, s.getZ() + 0.5, 12, 0.3, 0.5, 0.3, 0.05);
-			spawned++;
 		}
-		if (spawned == 0) {
-			return false;
-		}
-		sound(p, SoundEvents.EVOKER_PREPARE_SUMMON, 1.0F);
-		announce(p, "msg.burmaldaholic.chaos.mob_wave.title", Component.translatable("msg.burmaldaholic.chaos.mob_wave.subtitle"));
-		p.sendSystemMessage(Component.translatable("msg.burmaldaholic.chaos.mob_wave.chat"));
-		return true;
 	}
 
 	/** Removes chaos-wave mobs whose lifetime is over (§13.2: despawn after chaos.mobWave.despawnTicks). */
@@ -368,21 +414,38 @@ final class ChaosEffects {
 			double tx = x + 0.5;
 			double ty = y + 1;
 			double tz = z + 0.5;
-			level.sendParticles(ParticleTypes.PORTAL, from.x, from.y + 1, from.z, 40, 0.5, 1.0, 0.5, 0.2);
-			if (!p.teleportTo(level, tx, ty, tz, Set.of(), p.getYRot(), p.getXRot(), true)) {
-				return false;
-			}
-			p.fallDistance = 0;
-			effectHolder("resistance").ifPresent(h -> p.addEffect(new MobEffectInstance(h, 60, 4, false, false)));
-			level.playSound(null, tx, ty, tz, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
-			long dist = Math.round(Math.hypot(tx - from.x, tz - from.z));
-			announce(p, "msg.burmaldaholic.chaos.random_teleport.title",
-				Component.translatable("msg.burmaldaholic.chaos.random_teleport.subtitle", Texts.plural("unit.burmaldaholic.block", dist)));
-			p.sendSystemMessage(Component.translatable("msg.burmaldaholic.chaos.random_teleport.chat", Texts.raw(x + ", " + (y + 1) + ", " + z)));
-			CasinoAdvancements.grant(p, "beam_me_up");
+			Vec3 to = new Vec3(tx, ty, tz);
+			// origin ring + the veil now; the teleport itself 250 ms later, inside the veil (global §4.6)
+			ChaosFxNet.intro(p, ChaosEvent.RANDOM_TELEPORT);
+			ChaosFxNet.points(level, p, from, ChaosFxPayload.TELEPORT_RING, List.of(from), 0,
+				q -> level.sendParticles(q, ParticleTypes.PORTAL, false, false, from.x, from.y + 1, from.z, 40, 0.5, 1.0, 0.5, 0.2));
+			UUID id = p.getUUID();
+			BlockPos landing = new BlockPos(x, y + 1, z);
+			ChaosEngine.schedule(level.getServer(), ChaosFxMath.TELEPORT_LEAD_TICKS, () -> finishTeleport(level, id, from, to, landing));
 			return true;
 		}
 		return false; // no safe spot: skip silently (§13.4)
+	}
+
+	/** The teleport of {@link #teleport}, {@link ChaosFxMath#TELEPORT_LEAD_TICKS} after its veil started. */
+	private static void finishTeleport(ServerLevel level, UUID id, Vec3 from, Vec3 to, BlockPos landing) {
+		ServerPlayer p = level.getServer().getPlayerList().getPlayer(id);
+		if (p == null || !p.isAlive() || p.level() != level) {
+			return;
+		}
+		if (!p.teleportTo(level, to.x, to.y, to.z, Set.of(), p.getYRot(), p.getXRot(), true)) {
+			return;
+		}
+		p.fallDistance = 0;
+		effectHolder("resistance").ifPresent(h -> p.addEffect(new MobEffectInstance(h, 60, 4, false, false)));
+		level.playSound(null, to.x, to.y, to.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
+		ChaosFxNet.points(level, p, to, ChaosFxPayload.TELEPORT_RING, List.of(to), 1, null);
+		long dist = Math.round(Math.hypot(to.x - from.x, to.z - from.z));
+		announce(p, "msg.burmaldaholic.chaos.random_teleport.title",
+			Component.translatable("msg.burmaldaholic.chaos.random_teleport.subtitle", Texts.plural("unit.burmaldaholic.block", dist)));
+		p.sendSystemMessage(Component.translatable("msg.burmaldaholic.chaos.random_teleport.chat",
+			Texts.raw(landing.getX() + ", " + landing.getY() + ", " + landing.getZ())));
+		CasinoAdvancements.grant(p, "beam_me_up");
 	}
 
 	// ---- weather -----------------------------------------------------------------------------
@@ -398,6 +461,7 @@ final class ChaosEffects {
 			case THUNDER -> server.setWeatherParameters(0, dur, true, true);
 		}
 		Component line = Component.translatable("msg.burmaldaholic.chaos.weather." + next.id());
+		ChaosFxNet.intro(p, ChaosEvent.WEATHER_CHANGE);
 		announce(p, "msg.burmaldaholic.chaos.weather.title", line);
 		for (ServerPlayer o : server.overworld().players()) {
 			if (o != p) {

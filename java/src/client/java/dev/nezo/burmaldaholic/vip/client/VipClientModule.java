@@ -66,7 +66,14 @@ public final class VipClientModule implements CasinoClientModule {
 				screen.showError(payload.message());
 			}
 		});
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> VipClientState.reset());
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			VipClientState.reset();
+			VipTierUpOverlay.reset();
+		});
+		// VIP tier-up (global §4.11, lane J-L3): overlay for the promoted player, ring for spectators
+		dev.nezo.burmaldaholic.client.fx.ClientFx.on(dev.nezo.burmaldaholic.core.fx.ServerFx.Kind.VIP_UP, VipTierUpOverlay::onPayload);
+		net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.attachElementAfter(
+			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.CHAT, Burmaldaholic.id("vip_tier_up"), VipTierUpOverlay::extract);
 		ClientTickEvents.END_CLIENT_TICK.register(VipClientModule::tick);
 
 		ctx.hudSegment("vip_hud", 110, (hud, out) -> {
@@ -112,5 +119,10 @@ public final class VipClientModule implements CasinoClientModule {
 				mc.gui.setScreen(new CasinoMenuScreen(CasinoMenuScreen.WALLET));
 			}
 		}
+	}
+
+	/** Client game-test hook: the VIP tier whose badge the tier-up overlay shows now (−1 none; lane J-L3). */
+	public static int tierUpShown() {
+		return VipTierUpOverlay.active() ? VipTierUpOverlay.shownTier() : -1;
 	}
 }
