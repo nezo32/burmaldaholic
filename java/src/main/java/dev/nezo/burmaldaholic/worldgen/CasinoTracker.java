@@ -40,6 +40,7 @@ public final class CasinoTracker {
 
 	static void clear() {
 		INSIDE.clear();
+		CasinoAttract.clear();
 	}
 
 	static void tick(MinecraftServer server) {
@@ -71,11 +72,14 @@ public final class CasinoTracker {
 			CasinoRecord casino = casinoAt(player);
 			if (casino == null) {
 				INSIDE.remove(player.getUUID());
+				CasinoAttract.update(player, null);
 				continue;
 			}
 			if (casino.id().equals(INSIDE.put(player.getUUID(), casino.id()))) {
+				CasinoAttract.update(player, null);
 				continue;
 			}
+			CasinoAttract.update(player, casino); // arrival flourish (global §4.13)
 			welcome(player, casino.kind());
 			if (casino.kind() == CasinoKind.PIGLIN_PARLOR) {
 				award(player, "piglin_parlor");

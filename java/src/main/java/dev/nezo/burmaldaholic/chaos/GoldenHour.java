@@ -9,6 +9,7 @@ import dev.nezo.burmaldaholic.core.config.sections.ChaosConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
+import dev.nezo.burmaldaholic.core.fx.ServerFx;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.module.ModuleContext;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
@@ -44,6 +45,10 @@ public final class GoldenHour {
 
 	static void register(ModuleContext ctx) {
 		bell = ctx.registry().sound("golden_hour");
+		// the lounge loop voices (client GoldenHourFx; AMBIENT, subtitle "Golden Hour music")
+		for (String voice : new String[] {"chime", "bass", "bell"}) {
+			ctx.registry().sound("golden_hour_music." + voice);
+		}
 		CoreServices.setGoldenHour(GoldenHour::remainingTicks);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> server.execute(() -> syncBar(server)));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
@@ -103,6 +108,8 @@ public final class GoldenHour {
 		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
 			ChaosEffects.title(p, title, subtitle, 10, 60, 20);
 			toll(p);
+			// vignette, motes, countdown plaque and the lounge loop (global §4.5); arg = duration in ticks
+			ServerFx.get().event(p, ServerFx.Kind.GOLDEN_HOUR_START, "chaos", dur);
 		}
 		if (by != null) {
 			server.getPlayerList().broadcastSystemMessage(Component.translatable("msg.burmaldaholic.chaos.golden_hour.start_by", by.getDisplayName()), false);
@@ -124,6 +131,9 @@ public final class GoldenHour {
 		st.stop(now, cfg().cooldownTicks);
 		ChaosData.get(server).setDirty();
 		tick(server);
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+			ServerFx.get().event(p, ServerFx.Kind.GOLDEN_HOUR_END, "chaos", 0);
+		}
 		return true;
 	}
 
@@ -135,7 +145,8 @@ public final class GoldenHour {
 
 	private static void toll(ServerPlayer p) {
 		SoundEvent s = bell != null ? bell : net.minecraft.sounds.SoundEvents.BELL_BLOCK;
-		p.connection.send(new ClientboundSoundPacket(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(s), SoundSource.MASTER, p.getX(), p.getY(), p.getZ(),
+		// AMBIENT, never MASTER (global §2.7): the player's ambient slider applies
+		p.connection.send(new ClientboundSoundPacket(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(s), SoundSource.AMBIENT, p.getX(), p.getY(), p.getZ(),
 			1.0F, 1.0F, p.getRandom().nextLong()));
 	}
 
@@ -164,6 +175,7 @@ public final class GoldenHour {
 			server.getPlayerList().broadcastSystemMessage(Component.translatable("msg.burmaldaholic.chaos.golden_hour.end"), false);
 			for (ServerPlayer p : server.getPlayerList().getPlayers()) {
 				toll(p);
+				ServerFx.get().event(p, ServerFx.Kind.GOLDEN_HOUR_END, "chaos", 0);
 			}
 			syncBar(server);
 			return;

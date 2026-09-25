@@ -51,6 +51,7 @@
 	"msg.burmaldaholic.chaos.admin.unknown_event": "Unknown chaos event: %1$s",
 	"msg.burmaldaholic.chaos.admin.golden_hour_stopped": "Golden Hour stopped",
 	"msg.burmaldaholic.chaos.admin.golden_hour_inactive": "Golden Hour is not active",
+	"subtitles.burmaldaholic.golden_hour_music": "Golden Hour music plays",
 	"advancement.burmaldaholic.golden_hour.title": "Golden Touch",
 	"advancement.burmaldaholic.golden_hour.description": "Win during Golden Hour",
 	"gui.burmaldaholic.chaos.event.chip_shower": "Chip shower",

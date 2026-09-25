@@ -41,6 +41,7 @@ public final class VipModule implements CasinoModule {
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE));
 
 		CoreServices.setVip((server, player) -> VipService.tier(server, player));
+		dev.nezo.burmaldaholic.core.sound.CasinoSounds.registerOwned(ctx, ID); // vip_tier_up (global §2.7)
 		CasinoEvents.PLAY_RESOLVED.register(VipService::onPlayResolved);
 		Contracts.register();
 		VipApi.publish();

@@ -59,6 +59,8 @@ public final class WorldgenModule implements CasinoModule {
 
 		NpcContent.register(ctx);
 		NpcInteractions.register();
+		CasinoAttract.register(ctx);
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> CasinoAttract.forget(handler.getPlayer().getUUID()));
 		CoreServices.setTablePresets(new WorldgenPresets());
 
 		ServerLifecycleEvents.SERVER_STARTING.register(WorldgenRuntime::setServer);

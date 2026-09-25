@@ -20,6 +20,8 @@ public final class ChaosModule implements CasinoModule {
 	@Override
 	public void register(ModuleContext ctx) {
 		ChaosEffects.register(ctx);
+		ChaosFxNet.register(ctx);
+		dev.nezo.burmaldaholic.core.sound.CasinoSounds.registerOwned(ctx, ID); // chaos_good / _bad / _teleport, golden_hour_end
 		GoldenHour.register(ctx);
 		ChaosEngine.register();
 		ChaosCommands.register();

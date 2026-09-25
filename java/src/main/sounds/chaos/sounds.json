@@ -5,5 +5,47 @@
 			{"name": "minecraft:block/bell/bell_use01", "pitch": 0.8},
 			{"name": "minecraft:block/bell/bell_use02", "pitch": 0.8}
 		]
+	},
+	"golden_hour_end": {
+		"subtitle": "subtitles.burmaldaholic.golden_hour_end",
+		"sounds": [
+			{"name": "minecraft:block.bell.use", "type": "event", "pitch": 0.6, "volume": 0.6}
+		]
+	},
+	"golden_hour_music.chime": {
+		"subtitle": "subtitles.burmaldaholic.golden_hour_music",
+		"sounds": [
+			{"name": "minecraft:block.note_block.chime", "type": "event"}
+		]
+	},
+	"golden_hour_music.bass": {
+		"subtitle": "subtitles.burmaldaholic.golden_hour_music",
+		"sounds": [
+			{"name": "minecraft:block.note_block.bass", "type": "event"}
+		]
+	},
+	"golden_hour_music.bell": {
+		"subtitle": "subtitles.burmaldaholic.golden_hour_music",
+		"sounds": [
+			{"name": "minecraft:block.note_block.bell", "type": "event"}
+		]
+	},
+	"chaos_good": {
+		"subtitle": "subtitles.burmaldaholic.chaos_good",
+		"sounds": [
+			{"name": "minecraft:block.amethyst_block.chime", "type": "event", "pitch": 1.4}
+		]
+	},
+	"chaos_bad": {
+		"subtitle": "subtitles.burmaldaholic.chaos_bad",
+		"sounds": [
+			{"name": "minecraft:entity.evoker.prepare_wololo", "type": "event", "pitch": 0.8, "volume": 0.6}
+		]
+	},
+	"chaos_teleport": {
+		"subtitle": "subtitles.burmaldaholic.chaos_teleport",
+		"sounds": [
+			{"name": "minecraft:entity.enderman.teleport", "type": "event", "pitch": 1.2}
+		]
 	}
 }

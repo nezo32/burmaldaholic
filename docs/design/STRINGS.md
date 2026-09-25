@@ -2332,6 +2332,12 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.chaos.admin.golden_hour_stopped` | Golden Hour stopped | «Золотой час» остановлен |
 | `msg.burmaldaholic.chaos.admin.golden_hour_inactive` | Golden Hour is not active | «Золотой час» сейчас не идёт |
 
+### World & meta FX (lane J-L3, `animation/global.md` §4.5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `subtitles.burmaldaholic.golden_hour_music` | Golden Hour music plays | Играет музыка «Золотого часа» |
+
 ---
 
 ## lastchance

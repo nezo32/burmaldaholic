@@ -99,6 +99,15 @@ public interface BotTable {
 		return BotRoster.Theme.ANY;
 	}
 
+	/**
+	 * Presentation hook (global.md §4.12, lane J-L3): the key of the bot whose decision timer runs right now, or null.
+	 * The nameplate shows thinking dots while it is set — identical for every decision (never correlated with the
+	 * hand). Default: none (games opt in by returning their acting bot while its think delay runs).
+	 */
+	default @Nullable String botThinking() {
+		return null;
+	}
+
 	/** Chemin de fer: this bot holds the bank (it yields last, §3.3). */
 	default boolean isBotBanker(String botKey) {
 		return false;

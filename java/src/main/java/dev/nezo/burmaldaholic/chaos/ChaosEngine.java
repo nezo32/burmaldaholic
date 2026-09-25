@@ -165,6 +165,14 @@ public final class ChaosEngine {
 			p.level().getDifficulty() == Difficulty.PEACEFUL, ChaosWorld.dimension(p.level()).equals("overworld"));
 	}
 
+	/**
+	 * Re-checks the §13.4 player rules for {@code event} when a started event acts later (teleport inside the veil,
+	 * the mob wave after its runes): true only if the event could start right now (a deferral counts as unsafe).
+	 */
+	static boolean stillSafe(ServerPlayer player, ChaosEvent event) {
+		return player.isAlive() && Safety.evaluate(event, snapshot(player), cfg().respawnGraceTicks).action() == Safety.Action.RUN;
+	}
+
 	private static TriggerResult attempt(ServerPlayer player, ChaosEvent requested, String source) {
 		Safety.PlayerSnapshot snap = snapshot(player);
 		int grace = cfg().respawnGraceTicks;

@@ -129,6 +129,41 @@ class ResourceIntegrityTest {
 		report(errors);
 	}
 
+	/**
+	 * Fonts: every bitmap provider's texture exists and its {@code chars} grid is rectangular. One missing texture makes
+	 * Minecraft drop the WHOLE font (every glyph then renders as a box) — the bot glyph U+E190 of
+	 * {@code burmaldaholic:default} did exactly that while the retired E2–E4 slot sheets were still listed.
+	 */
+	@Test
+	void fontProvidersResolve() throws IOException {
+		List<String> errors = new ArrayList<>();
+		for (Path f : json(assets.resolve("font"))) {
+			JsonElement root0 = parse(f, errors);
+			if (!root0.isJsonObject() || !root0.getAsJsonObject().has("providers")) {
+				continue;
+			}
+			for (JsonElement pe : root0.getAsJsonObject().getAsJsonArray("providers")) {
+				JsonObject p = pe.getAsJsonObject();
+				if (!"bitmap".equals(p.get("type").getAsString())) {
+					continue;
+				}
+				String file = own(p.get("file").getAsString());
+				if (file != null && !Files.isRegularFile(assets.resolve("textures").resolve(file))) {
+					errors.add(root.relativize(f) + ": missing bitmap " + p.get("file").getAsString());
+				}
+				int width = -1;
+				for (JsonElement row : p.getAsJsonArray("chars")) {
+					int n = row.getAsString().codePointCount(0, row.getAsString().length());
+					if (width >= 0 && n != width) {
+						errors.add(root.relativize(f) + ": ragged chars grid in " + p.get("file").getAsString());
+					}
+					width = n;
+				}
+			}
+		}
+		report(errors);
+	}
+
 	@Test
 	void modelsTexturesAndItemDefinitions() throws IOException {
 		List<String> errors = new ArrayList<>();

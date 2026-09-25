@@ -1,0 +1,8 @@
+{
+	"vip_tier_up": {
+		"subtitle": "subtitles.burmaldaholic.vip_tier_up",
+		"sounds": [
+			{"name": "minecraft:ui.toast.challenge_complete", "type": "event", "volume": 0.8}
+		]
+	}
+}
