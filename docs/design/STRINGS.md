@@ -1154,6 +1154,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.panel.win` | WIN | ВЫИГРЫШ |
 | `gui.burmaldaholic.slots.panel.returned` | RETURNED | ВОЗВРАТ |
 | `gui.burmaldaholic.slots.panel.recent` | Last wins | Последние |
+| `gui.burmaldaholic.slots.panel.recent_short` | Recent | История |
 | `gui.burmaldaholic.slots.panel.none` | — | — |
 | `gui.burmaldaholic.slots.panel.features` | Features | Бонусы |
 | `gui.burmaldaholic.slots.panel.count_plus` | %1$s+ | %1$s+ |

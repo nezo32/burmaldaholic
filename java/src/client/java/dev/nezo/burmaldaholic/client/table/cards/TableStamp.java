@@ -36,6 +36,11 @@ public final class TableStamp {
 
 	private TableStamp() {}
 
+	/** Width of a stamp's art for {@code text} (fitted text + 14 px). */
+	public static int artWidth(Font font, Component text) {
+		return CardGfx.fittedWidth(font, text, MAX_TEXT_W) + 14;
+	}
+
 	/**
 	 * Draws a stamp centred on (cx, cy) {@code ageMs} after it appeared (negative = not yet), rotated {@code deg}.
 	 */
@@ -44,7 +49,7 @@ public final class TableStamp {
 		if (ageMs < 0) return;
 		CardMotion.stamp(pose, ageMs / CardMotion.STAMP_MS, deg, reduced);
 		if (pose.alpha <= 0.01) return;
-		int w = CardGfx.fittedWidth(font, text, MAX_TEXT_W) + 14;
+		int w = artWidth(font, text);
 		int h = 16;
 		CardGfx.pushBox(g, cx - w / 2.0, cy - h / 2.0, w, h, pose.rot, pose.scale, pose.scale);
 		CardGfx.sprite(g, FxSprites.sprite("cards/stamp/" + kind.id), 0, 0, w, h, CardGfx.white(pose.alpha), FALLBACK[kind.ordinal()]);

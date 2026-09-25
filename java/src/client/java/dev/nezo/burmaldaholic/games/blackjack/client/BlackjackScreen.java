@@ -68,6 +68,8 @@ public class BlackjackScreen extends CardTableScreen {
 	private int resultRound = -1;
 	private int celebratedRound = -1;
 	private final Map<Integer, Long> stampSeen = new HashMap<>();
+	/** This frame's seat plates (canvas x, y, w, h): stamps keep clear of them. */
+	private final List<int[]> plateBoxes = new ArrayList<>();
 
 	public BlackjackScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable(menu.tableType().name().endsWith("high_roller")
@@ -778,6 +780,7 @@ public class BlackjackScreen extends CardTableScreen {
 	}
 
 	private void drawPlates(GuiGraphicsExtractor g) {
+		plateBoxes.clear();
 		if (compact) return; // compact: avatars collapse into the cards' badges (§6.7)
 		long local = Util.getMillis();
 		boolean results = resultAt >= 0 && resultRound == m.roundSeq && !m.busy;
@@ -800,6 +803,7 @@ public class BlackjackScreen extends CardTableScreen {
 			SeatPlate.Info info = new SeatPlate.Info(name, s.name(), avatar, s.bot() ? Math.max(1, s.botLevel()) : 0, sub, CasinoPalette.GOLD, st, thinking);
 			int w = SeatPlate.width(font, info);
 			int px = Math.max(2, Math.min(tx(p[0]), canvasW() - w - 2));
+			plateBoxes.add(new int[] {px, ty(p[1]), w, Blackjack.PLATE_H});
 			SeatPlate.draw(g, font, info, px, ty(p[1]), 1, 0);
 			if (s.bot() && results && s.settled()) {
 				SeatPlate.emote(g, s.net() >= 0, px + w - 6, ty(p[1]), local - resultAt - 300);
@@ -839,7 +843,10 @@ public class BlackjackScreen extends CardTableScreen {
 				Component text = nat ? Component.translatable("gui.burmaldaholic.blackjack.fx.blackjack") : bust ? Component.translatable(
 					"gui.burmaldaholic.blackjack.fx.bust") : Component.translatable("gui.burmaldaholic.cards.stamp.push");
 				TableStamp.Kind kind = nat ? TableStamp.Kind.GOLD : bust ? TableStamp.Kind.RED : TableStamp.Kind.GREEN;
-				TableStamp.draw(g, font, text, kind, cx, cy, nat ? -6 : 6, local - t0, reduced, pose);
+				// never over a seat plate (a bot's BLACKJACK! covered the neighbouring bot's name)
+				double deg = nat ? -6 : 6;
+				cy = Blackjack.clearOfPlates(cx, cy, TableStamp.artWidth(font, text), deg, plateBoxes);
+				TableStamp.draw(g, font, text, kind, cx, cy, deg, local - t0, reduced, pose);
 			}
 		}
 		// dealer blackjack / dealer busts

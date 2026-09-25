@@ -167,6 +167,7 @@
 	"gui.burmaldaholic.slots.panel.win": "ВЫИГРЫШ",
 	"gui.burmaldaholic.slots.panel.returned": "ВОЗВРАТ",
 	"gui.burmaldaholic.slots.panel.recent": "Последние",
+	"gui.burmaldaholic.slots.panel.recent_short": "История",
 	"gui.burmaldaholic.slots.panel.none": "—",
 	"gui.burmaldaholic.slots.panel.features": "Бонусы",
 	"gui.burmaldaholic.slots.panel.count_plus": "%1$s+",

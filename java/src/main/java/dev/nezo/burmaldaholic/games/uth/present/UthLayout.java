@@ -99,6 +99,54 @@ public final class UthLayout {
 		return new int[] {TABLE_X + CIRCLE_X[c], TABLE_Y + 121};
 	}
 
+	/** The caption over circle {@code c} ("Trips", «Трипс»…): fitted to 40 px, one text row (glyphs + shadow). */
+	public static Rect circleCaption(int c) {
+		int[] l = circleLabel(c);
+		return new Rect(l[0] - 20, l[1], 40, 9);
+	}
+
+	/** Tilt of the Trips / Blind bonus stamps (degrees). */
+	public static final double STAMP_TILT = -4;
+
+	/**
+	 * Placement box of a bonus stamp whose art is {@code artW} × 16 (text + 14): the bounding box of the art tilted by
+	 * {@link #STAMP_TILT}, plus 1 px of air on every side, so the drawn stamp never touches a caption or a card.
+	 */
+	public static int[] stampBox(int artW) {
+		double a = Math.toRadians(Math.abs(STAMP_TILT));
+		int w = (int) Math.ceil(artW * Math.cos(a) + 16 * Math.sin(a)) + 2;
+		int h = (int) Math.ceil(artW * Math.sin(a) + 16 * Math.cos(a)) + 2;
+		return new int[] {w + (w & 1), h + (h & 1)};
+	}
+
+	/** What a bonus stamp never covers: every card (dealer, board, hole cards, the seats', the deck), the circles, their captions. */
+	public static java.util.List<Rect> stampObstacles(int others) {
+		java.util.List<Rect> out = cardRects(others);
+		for (int c = 0; c < 4; c++) {
+			out.add(circle(c));
+			out.add(circleCaption(c));
+		}
+		return out;
+	}
+
+	/**
+	 * Bonus stamp request for circle {@code c} ({@code artW} = text + 14): under its circle (right of the viewer's hole
+	 * cards), else under the row at the right edge (both also bottom-aligned on the felt), else beside the row on the right. The captions sit above the
+	 * circles, so a stamp never goes there.
+	 */
+	public static LabelPlacer.Request bonusStamp(int c, int artW) {
+		int[] box = stampBox(artW);
+		Rect r = circle(c);
+		Rect hole = hole(1);
+		Rect b = labelBounds();
+		int under = Math.max(r.cx() - box[0] / 2, hole.x() + hole.w() + 1);
+		int y = r.y() + r.h() + 1;
+		Rect play = circle(3);
+		int low = b.y() + b.h() - box[1]; // bottom-aligned: clears a crowded lower-right seat's cards on the rail
+		int right = b.x() + b.w() - box[0];
+		return new LabelPlacer.Request(box[0], box[1], under, y, right, y, under, low, right, low, play.x() + play.w() + 3, r.cy() - box[1] / 2);
+	}
+
 	/** Pitch between circle centres (the Blind mirror slide distance, animation/cards.md §3.2). */
 	public static int circlePitch() {
 		return CIRCLE_X[1] - CIRCLE_X[0];

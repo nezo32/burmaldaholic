@@ -35,6 +35,8 @@ public class SlotGeometry {
 
 	/** Cabinet nine-slice overhang around the frame (the sprite is drawn this much outside the border). */
 	public static final int CABINET_PAD = 8;
+	/** Visible rim of the side panel art (outline + bevel) in px: panel text keeps clear of it. */
+	public static final int PANEL_RIM = 3;
 	public static final int CABINET_TOP = 2;
 	public static final int CAPTION_H = 9;
 	/** Title plate rim (outline + bevel) in px: the nine-slice border of {@code slots/<m>/title_plate}. */
@@ -172,6 +174,19 @@ public class SlotGeometry {
 	public Rect nicePlate(int textW, int scale) {
 		int w = Math.min(windowW() + 2 * border, textW * scale + 24);
 		return new Rect(wx + windowW() / 2 - w / 2, niceY, w, niceH);
+	}
+
+	/**
+	 * Inset of the side panels' contents from the panel edge: the rim plus air (compact 6 px: the compact panels are
+	 * 58 px wide, and RU labels such as «Последние» touched the rim at 4).
+	 */
+	public int panelPad() {
+		return compact ? PANEL_RIM + 3 : PANEL_RIM + 1;
+	}
+
+	/** Width of the side panels' contents (labels, plates, rows). */
+	public int panelInnerW() {
+		return panelW - 2 * panelPad();
 	}
 
 	/** Result line under the reels. */
