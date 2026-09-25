@@ -143,4 +143,18 @@ class PokerBeatsTest {
 		assertEquals(HandEvaluator.evaluate(seven), HandEvaluator.evaluate(five));
 		assertArrayEquals(new int[] {0, 1, 2, 3, 4}, idx);
 	}
+
+	@Test
+	void publishedArgsCarryThePacing() {
+		PokerBeats.Pacing custom = new PokerBeats.Pacing(5, 10, 20, 14, 16, 40);
+		int[] args = PokerBeats.withPacing(new int[] {1, 2, 1, 3, 2}, custom);
+		assertEquals(5 + PokerBeats.Pacing.SIZE, args.length);
+		assertEquals(custom, PokerBeats.pacingOf(args, 5));
+		Timeline viaArgs = PokerBeats.segment("finish", args, 9);
+		Timeline direct = PokerBeats.finish(new PokerBeats.Finish(true, 2, true, 3, 2), custom, 9);
+		assertEquals(direct.beats(), viaArgs.beats());
+		// args without the tail (older states): the defaults
+		assertEquals(PokerBeats.Pacing.DEFAULT, PokerBeats.pacingOf(new int[] {3}, 1));
+		assertEquals(PokerBeats.street(3, P, 4).beats(), PokerBeats.segment("street", new int[] {3}, 4).beats());
+	}
 }

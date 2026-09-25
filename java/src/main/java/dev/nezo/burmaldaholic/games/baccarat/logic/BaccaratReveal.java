@@ -55,14 +55,16 @@ public final class BaccaratReveal {
 	 * natural (then no third card is dealt).
 	 */
 	public static BaccaratReveal build(int playerCards, int bankerCards, boolean natural, Config cfg) {
-		BaccaratReveal r = build(playerCards, bankerCards, natural, cfg, cfg.squeezeTicks);
-		if (cfg.squeeze && r.total > cfg.capTicks) {
-			int squeezes = 2 + (playerCards > 2 ? 1 : 0) + (bankerCards > 2 ? 1 : 0);
-			int over = r.total - cfg.capTicks;
-			int sq = Math.max(10, cfg.squeezeTicks - (over + squeezes - 1) / squeezes);
-			r = build(playerCards, bankerCards, natural, cfg, sq);
+		// the squeeze window is sized on the LONGEST coup (both sides draw), never on this one: P2's squeeze starts
+		// before the third cards are public, so its length must not depend on them (§0.7.3, §0.7.7)
+		int sq = cfg.squeezeTicks;
+		BaccaratReveal worst = build(3, 3, false, cfg, sq);
+		if (cfg.squeeze && worst.total > cfg.capTicks) {
+			int squeezes = 4;
+			int over = worst.total - cfg.capTicks;
+			sq = Math.max(10, cfg.squeezeTicks - (over + squeezes - 1) / squeezes);
 		}
-		return r;
+		return build(playerCards, bankerCards, natural, cfg, sq);
 	}
 
 	private static BaccaratReveal build(int pCards, int bCards, boolean natural, Config cfg, int sq) {

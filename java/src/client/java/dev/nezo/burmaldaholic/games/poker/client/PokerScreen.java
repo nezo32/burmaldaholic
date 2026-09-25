@@ -309,13 +309,7 @@ public class PokerScreen extends CardTableScreen {
 	}
 
 	private static @Nullable Timeline timeline(String kind, int[] a, int seed) {
-		return switch (kind) {
-			case "deal" -> a.length >= 2 ? PokerBeats.deal(a[0], a[1], PokerBeats.Pacing.DEFAULT, seed) : null;
-			case "street" -> a.length >= 1 ? PokerBeats.street(a[0], PokerBeats.Pacing.DEFAULT, seed) : null;
-			case "finish" -> a.length >= 5
-				? PokerBeats.finish(new PokerBeats.Finish(a[0] != 0, a[1], a[2] != 0, a[3], a[4]), PokerBeats.Pacing.DEFAULT, seed) : null;
-			default -> null;
-		};
+		return PokerBeats.segment(kind, a, seed);
 	}
 
 	/** K12 tag text of the latest action ("Check", "Call 20", "Raise to 120", "SB 5", "Fold"). */

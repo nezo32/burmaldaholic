@@ -765,8 +765,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		boardPresented = 0;
 		moment = "";
 		streamEvents();
-		startStage("deal", new int[] {h.players().size(), h.sbIndex()},
-			PokerBeats.deal(h.players().size(), h.sbIndex(), PokerBeats.Pacing.DEFAULT, stageSeed()));
+		startStage("deal", new int[] {h.players().size(), h.sbIndex()});
 	}
 
 	/**
@@ -911,7 +910,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			int street = target == 3 ? 1 : target - 2;
 			boardBase = boardPresented;
 			boardPresented = target;
-			startStage("street", new int[] {street}, PokerBeats.street(street, PokerBeats.Pacing.DEFAULT, stageSeed()));
+			startStage("street", new int[] {street});
 			return;
 		}
 		Hand.Player p = h.player(h.toAct());
@@ -1098,12 +1097,23 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		return SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table == null ? 0 : table.handNo(), stageSeq + 1);
 	}
 
-	/** Starts a presentation segment now; publication beats sync viewers, the end runs the continuation. */
-	private void startStage(String kind, int[] args, Timeline tl) {
+	/** Server pacing from {@code poker.fx.*} (published with every segment's args). */
+	private static PokerBeats.Pacing pacing() {
+		PokerConfig.Fx fx = cfg().fx;
+		return new PokerBeats.Pacing(fx.dealBeatTicks, fx.gatherTicks, fx.streetTicks, fx.showBeatTicks, fx.awardTicks, fx.runoutPauseTicks);
+	}
+
+	/**
+	 * Starts a presentation segment now; publication beats sync viewers, the end runs the continuation. The args
+	 * carry the pacing, so the server and every client build the same timeline ({@link PokerBeats#segment}).
+	 */
+	private void startStage(String kind, int[] args) {
+		int[] published = PokerBeats.withPacing(args, pacing());
+		int seed = stageSeed();
 		stageSeq++;
 		stageKind = kind;
-		stageArgs = args.clone();
-		stageTl = tl;
+		stageArgs = published;
+		stageTl = PokerBeats.segment(kind, published, seed);
 		stageStart = gameTime();
 		stageDone = false;
 		scheduleBeat();
@@ -1181,20 +1191,28 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				gather = true;
 			}
 		}
-		int shows = r.uncontested() ? 0 : r.shown().size();
-		boolean expose = runoutFrom > 0 && shows >= 2;
+		// one show beat per live hand, shown or mucked alike: how many hands show depends on who wins, and the
+		// schedule is public when the segment starts (§0.7.3); the mucks trail the shows as silent beats
+		int shows = 0;
+		if (!r.uncontested()) {
+			for (Hand.Player p : h.players()) {
+				if (!p.folded()) {
+					shows++;
+				}
+			}
+			shows = Math.max(shows, r.shown().size());
+		}
+		boolean expose = cfg().exposeAllIn && runoutFrom > 0 && shows >= 2;
 		int pots = Math.max(1, r.pots().size());
 		long total = 0;
 		for (Hand.PotResult pot : r.pots()) {
 			total += pot.amount();
 		}
 		long bb = Math.max(1, h.bb());
-		moment = total >= 100 * bb ? "monster" : total >= 50 * bb ? "big" : "";
+		moment = total >= (long) cfg().fx.monsterPotBb * bb ? "monster" : total >= (long) cfg().fx.bigPotBb * bb ? "big" : "";
 		boardBase = boardPresented;
 		boardPresented = dealt;
-		PokerBeats.Finish f = new PokerBeats.Finish(gather, runoutFrom, expose, shows, pots);
-		startStage("finish", new int[] {gather ? 1 : 0, runoutFrom, expose ? 1 : 0, shows, pots},
-			PokerBeats.finish(f, PokerBeats.Pacing.DEFAULT, stageSeed()));
+		startStage("finish", new int[] {gather ? 1 : 0, runoutFrom, expose ? 1 : 0, shows, pots});
 	}
 
 	/** The reveal gate of a finished hand: result lines in chat, the rest of the log, then the next hand. */

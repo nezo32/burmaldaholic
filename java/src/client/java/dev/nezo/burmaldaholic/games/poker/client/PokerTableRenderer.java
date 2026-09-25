@@ -52,14 +52,7 @@ public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockE
 	}
 
 	static @Nullable Timeline timeline(PokerPub p) {
-		int[] a = p.args();
-		return switch (PokerPub.kindName(p.kind())) {
-			case "deal" -> a.length >= 2 ? PokerBeats.deal(a[0], a[1], PokerBeats.Pacing.DEFAULT, p.seed()) : null;
-			case "street" -> a.length >= 1 ? PokerBeats.street(a[0], PokerBeats.Pacing.DEFAULT, p.seed()) : null;
-			case "finish" -> a.length >= 5
-				? PokerBeats.finish(new PokerBeats.Finish(a[0] != 0, a[1], a[2] != 0, a[3], a[4]), PokerBeats.Pacing.DEFAULT, p.seed()) : null;
-			default -> null;
-		};
+		return PokerBeats.segment(PokerPub.kindName(p.kind()), p.args(), p.seed());
 	}
 
 	/** Back design by the table's dimension (visual/cards.md §7: crimson in the village, bastion, end). */

@@ -743,9 +743,11 @@ A pure `revealTimeline(coup, cfg)`:
 Totals: a natural coup takes 88 t (4.4 s). The longest coup takes 152 t (7.6 s). Today's reveal is 80 t.
 
 - **Squeeze off:** each SQUEEZE becomes a FLIP (6 t). A natural takes 54 t; the longest takes 84 t.
-- `reveal_total` in the state = `total`. The existing `baccarat.revealTicks` is kept as a **cap**
-  (default raised to 160). If the timeline would exceed it, the squeeze windows are scaled down
-  proportionally, never below 10 t.
+- The total is **not** sent (no `reveal_total`, no phase timer during the reveal): with the coup drawn at
+  once it would tell whether third cards follow. The shoe count also counts only the cards already dealt
+  on the felt. The existing `baccarat.revealTicks` is kept as a **cap** (default raised to 160). If the
+  **longest** timeline (both sides draw) would exceed it, the squeeze windows are scaled down
+  proportionally, never below 10 t, for every coup alike.
 - **Squeezed slots:** P2, B2 and both third cards. P1 and B1 only flip, because a full squeeze on all
   six cards drags.
 - The schedule depends only on **how many** cards each side gets and whether there is a natural. Both
@@ -1023,7 +1025,7 @@ Config (`CONFIG.md` format candidates, section per game; all are ints in ticks u
 | `uth.fx.dealBeatTicks` / `boardSlideTicks` / `qualifyTicks` | 3 / 8 / 16 | 1–40 | |
 | `baccarat.squeeze` | true | bool | per-table (owner-settable) |
 | `baccarat.fx.squeezeTicks` | 20 | 10–60 | |
-| `baccarat.revealTicks` | 160 (was 80) | 40–400 | now the cap (§4.2) |
+| `baccarat.revealTicks` | 160 (was 80) | 20–300 | now the cap (§4.2); the squeeze window is sized on the longest coup, so it never depends on the third cards |
 
 The **per-game** server data is listed in §1.7, §2.7, §3.6 and §4.9. The **common** fields:
 - `beatTick` (server game time of the last beat) and `gateTick` in every table state;

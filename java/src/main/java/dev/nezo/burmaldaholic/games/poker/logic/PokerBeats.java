@@ -61,10 +61,13 @@ public final class PokerBeats {
 	public static final int BEST_HOLD_MS = 400;
 
 	/**
-	 * Server pacing in ticks ({@code poker.fx.*} of animation/cards.md §8; the defaults until the config keys land).
+	 * Server pacing in ticks (config {@code poker.fx.*}, animation/cards.md §8). The server appends it to every
+	 * segment's args ({@link #withPacing}), so every client rebuilds the timeline with the server's pacing.
 	 */
 	public record Pacing(int dealBeatTicks, int gatherTicks, int streetTicks, int showBeatTicks, int awardTicks, int runoutPauseTicks) {
 		public static final Pacing DEFAULT = new Pacing(3, 8, 12, 10, 12, 24);
+		/** Ints {@link #withPacing} appends. */
+		public static final int SIZE = 6;
 
 		public Pacing {
 			dealBeatTicks = clamp(dealBeatTicks, 1, 10);
@@ -87,7 +90,8 @@ public final class PokerBeats {
 	 * @param runoutFrom first street still to show on an all-in run-out (1 flop, 2 turn, 3 river), 0 when the
 	 *                   board was complete (or the pot is uncontested)
 	 * @param expose     live hands are turned face up before the run-out (all-in exposure)
-	 * @param shows      hands shown at the showdown (0 when uncontested)
+	 * @param shows      show beats: every live hand at the showdown, shown or mucked (0 when uncontested); never
+	 *                   the number that actually show, which depends on who wins
 	 * @param pots       pots awarded (main + side pots)
 	 */
 	public record Finish(boolean gather, int runoutFrom, boolean expose, int shows, int pots) {
@@ -99,6 +103,49 @@ public final class PokerBeats {
 	}
 
 	private PokerBeats() {}
+
+	// ---- segment args (server → clients) ------------------------------------------------------------------------
+
+	/** Builder args of each segment kind before the pacing tail. */
+	public static int argCount(String kind) {
+		return switch (kind) {
+			case "deal" -> 2;
+			case "street" -> 1;
+			case "finish" -> 5;
+			default -> 0;
+		};
+	}
+
+	/** {@code args} followed by the pacing (what the server publishes as the segment's args). */
+	public static int[] withPacing(int[] args, Pacing p) {
+		int[] out = java.util.Arrays.copyOf(args, args.length + Pacing.SIZE);
+		int i = args.length;
+		out[i++] = p.dealBeatTicks();
+		out[i++] = p.gatherTicks();
+		out[i++] = p.streetTicks();
+		out[i++] = p.showBeatTicks();
+		out[i++] = p.awardTicks();
+		out[i] = p.runoutPauseTicks();
+		return out;
+	}
+
+	/** The pacing tail of published args ({@link #withPacing}) from index {@code from}; {@link Pacing#DEFAULT} if absent. */
+	public static Pacing pacingOf(int[] a, int from) {
+		if (a.length < from + Pacing.SIZE) return Pacing.DEFAULT;
+		return new Pacing(a[from], a[from + 1], a[from + 2], a[from + 3], a[from + 4], a[from + 5]);
+	}
+
+	/** The timeline of a published segment ({@code kind}, args with the pacing tail), or null. */
+	public static Timeline segment(String kind, int[] a, int seed) {
+		int n = argCount(kind);
+		if (n == 0 || a.length < n) return null;
+		Pacing p = pacingOf(a, n);
+		return switch (kind) {
+			case "deal" -> deal(a[0], a[1], p, seed);
+			case "street" -> street(a[0], p, seed);
+			default -> finish(new Finish(a[0] != 0, a[1], a[2] != 0, a[3], a[4]), p, seed);
+		};
+	}
 
 	// ---- segments ----------------------------------------------------------------------------------------------
 

@@ -193,6 +193,15 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `poker.botMix.mid` | list<int> | [10,55,35] | each 0–100 | |
 | `poker.botMix.high` | list<int> | [0,45,55] | each 0–100 | |
 | `poker.maxDistance` | int | 8 | 3–32 | Blocks from table before sitting out. |
+| `poker.exposeAllIn` | bool | true | — | All-in exposure: on an all-in run-out (betting closed, at most one live player with chips) every live hand turns face up before the remaining streets (`animation/cards.md` §2.2; lead approval 2026-09-24). |
+| `poker.fx.dealBeatTicks` | int | 3 | 1–10 | Presentation pacing (publication only, `animation/cards.md` §2.2, §8): ticks between hole-card deal beats. |
+| `poker.fx.gatherTicks` | int | 8 | 2–40 | Street-end gather of the bets into the pot. |
+| `poker.fx.streetTicks` | int | 12 | 2–40 | Street start → the board cards slide in (at least `gatherTicks` + 4). |
+| `poker.fx.showBeatTicks` | int | 10 | 2–40 | Between showdown show beats (one per live hand, shown or mucked). |
+| `poker.fx.awardTicks` | int | 12 | 2–40 | Best five → the first pot award. |
+| `poker.fx.runoutPauseTicks` | int | 24 | 0–60 | Sweat pause before every all-in run-out street (the same for every street). |
+| `poker.fx.bigPotBb` | int | 50 | 10–1000 | Pot (in big blinds) for the big-pot moment. |
+| `poker.fx.monsterPotBb` | int | 100 | 10–1000 | Pot (in big blinds) for the monster-pot moment (≥ `bigPotBb`). |
 
 ## slots
 

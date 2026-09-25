@@ -92,6 +92,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	static final double SOLO_SPEED = 0.75;
 	static final int SHUFFLE_NOTICE_TICKS = 40;
 	static final int PEEK_NOTICE_TICKS = 30;
+	static final String PEEK_NOTICE = "gui.burmaldaholic.blackjack.dealer_peeks";
 
 	private final boolean highRoller;
 	private Shoe shoe;
@@ -487,7 +488,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		beats = new BlackjackBeats(round, gameTime() + (shuffling ? SHUFFLE_NOTICE_TICKS / 2 : 0), cfg);
 		nextPub = beats.nextChange(lastPub);
 		if (round.peeked() && round.phase() == Phase.TURNS && !noticeKey.equals("gui.burmaldaholic.blackjack.shuffling")) {
-			notice("gui.burmaldaholic.blackjack.dealer_peeks", PEEK_NOTICE_TICKS);
+			notice(PEEK_NOTICE, PEEK_NOTICE_TICKS);
 		}
 		setChanged();
 		step();
@@ -631,7 +632,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			case TURNS -> {
 				cancelTimer("insurance");
 				if (INSURANCE.equals(phase()) && round.peeked()) {
-					notice("gui.burmaldaholic.blackjack.dealer_peeks", PEEK_NOTICE_TICKS);
+					notice(PEEK_NOTICE, PEEK_NOTICE_TICKS);
 				}
 				setPhase(TURNS);
 				Turn t = round.current();
@@ -913,8 +914,15 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		tag.putBoolean("high_roller", isHighRoller());
 		tag.putLong("last_bet", lastBet.getOrDefault(me, 0L));
 		tag.putBoolean("bet_placed", mainBets.containsKey(me));
-		if (!noticeKey.isEmpty() && gameTime() < noticeUntil) {
-			tag.putString("notice", noticeKey);
+		// the peek notice follows the PEEK beat (both outcomes alike): set when the round resolved, it would tell
+		// whether the dealer has blackjack before the peek is on the felt (cards.md §0.7.1)
+		String notice = !noticeKey.isEmpty() && gameTime() < noticeUntil && !noticeKey.equals(PEEK_NOTICE) ? noticeKey : "";
+		if (notice.isEmpty() && beats != null && beats.peekTick() >= 0 && gameTime() >= beats.peekTick()
+			&& gameTime() < beats.peekTick() + PEEK_NOTICE_TICKS) {
+			notice = PEEK_NOTICE;
+		}
+		if (!notice.isEmpty()) {
+			tag.putString("notice", notice);
 		}
 		ListTag betList = new ListTag();
 		for (Map.Entry<UUID, Long> e : mainBets.entrySet()) {
@@ -944,8 +952,12 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 				timers.remove(t);
 			}
 			tag.put("timers", timers);
+			// while cards are moving the phase must not run ahead of the felt: a dealer blackjack (RESULT) or an ace up
+			// (INSURANCE) is only told by its own beat (cards.md §0.7.1)
 			if (RESULT.equals(phase())) {
-				tag.putString("phase", "dealer");
+				tag.putString("phase", beats.holeShown(now) ? "dealer" : TURNS);
+			} else if (INSURANCE.equals(phase()) && beats.dealerAt(now).isEmpty()) {
+				tag.putString("phase", TURNS);
 			}
 		}
 		putEvs(tag, "dealer", beats.dealerAt(now), start);

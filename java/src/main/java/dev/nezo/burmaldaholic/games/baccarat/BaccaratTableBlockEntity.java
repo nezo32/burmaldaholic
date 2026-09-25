@@ -1519,6 +1519,25 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		}
 	}
 
+	/** Cards of the drawn coup whose DEAL step has not started yet (0 outside the reveal). */
+	private int undealtCoupCards() {
+		if (coup == null || !P_REVEAL.equals(phase) || reveal == null || revealStart == Long.MIN_VALUE) {
+			return 0;
+		}
+		long now = gameTime();
+		int n = 0;
+		for (int side = 0; side < 2; side++) {
+			int size = side == 0 ? coup.player().size() : coup.banker().size();
+			for (int i = 0; i < size; i++) {
+				int d = reveal.dealAt(side, i);
+				if (d < 0 || revealStart + d > now) {
+					n++;
+				}
+			}
+		}
+		return n;
+	}
+
 	/** RESULT (§20.5 / §20.9): settles the drawn coup. */
 	private void finishCoup() {
 		if (coup == null || !coupPending) {
@@ -2017,7 +2036,9 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		t.putBoolean("enabled", c.enabled && (!isChemmy() || chemmyEnabled()));
 		t.putBoolean("house_coup", houseCoup);
 		t.putLong("coup_no", coupNo + 1);
-		t.putInt("shoe_left", shoe.size() == 0 ? c.decks * 52 : shoe.remaining());
+		// during the reveal the shoe counts only the cards already out on the felt: the coup is drawn at once, and
+		// the full count would tell whether third cards follow (cards.md §0.7.1)
+		t.putInt("shoe_left", shoe.size() == 0 ? c.decks * 52 : shoe.remaining() + undealtCoupCards());
 		t.putInt("decks", c.decks);
 		t.putInt("burned", burned);
 		t.putInt("commission_bp", pay.commissionBp());
