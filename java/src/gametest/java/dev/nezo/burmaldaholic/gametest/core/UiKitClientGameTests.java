@@ -248,7 +248,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			check(CasinoTheme.current() == expected, id + " → " + expected + " (got " + CasinoTheme.current() + ")");
 			check(TableTheme.current().casino() == expected, id + " card tables");
 		});
-		open(context, CasinoTheme.current());
+		open(context, expected);
 		context.takeScreenshot("jtest_kit_dim_" + expected.id);
 	}
 
