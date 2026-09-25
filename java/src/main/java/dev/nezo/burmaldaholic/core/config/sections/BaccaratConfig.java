@@ -19,7 +19,7 @@ public final class BaccaratConfig {
 	@Range(min = 0, max = 5) public int highRollerMinVipTier = 2;
 	@Range(min = 1, max = 7) public int seats = 7;
 	@Range(min = 100, max = 2400) public int betTimerTicks = 400;
-	@Range(min = 20, max = 300) public int revealTicks = 80;
+	@Range(min = 20, max = 300) public int revealTicks = 160; // the cap of the reveal timeline (animation/cards.md §4.2)
 	@Range(min = 0, max = 120) public int historyLength = 60;
 	@Range(min = 0, max = 10) public int tieStreakChaos = 3;
 	public Chemmy chemmy = new Chemmy();

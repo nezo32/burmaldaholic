@@ -24,8 +24,8 @@ import org.jspecify.annotations.Nullable;
  * balance HUD, the console buttons ({@link CardButton}) and overlays. Widgets live in canvas coordinates; mouse input
  * is mapped into the canvas.
  *
- * <p>Thin local adapter for the shared {@code CasinoScreen} kit (lane J-L2): switch the frame to it when it lands; the
- * games only use {@link #drawScene}, {@link #buildConsole}, {@link #addButton} and the canvas helpers.
+ * <p>Built on the shared kit (lane J-L2): {@link CasinoTableScreen}'s entrance and location theme ({@link #theme()}),
+ * {@code CasinoButton} (via {@link CardButton}); the card tables add the scaled canvas, the table art and the console.
  */
 public abstract class CardTableScreen extends CasinoTableScreen {
 	private final List<CardButton> buttons = new ArrayList<>();
@@ -71,6 +71,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		return compact;
 	}
 
+	/** The card-table look of this table (from the kit's location theme, {@link #theme()}). */
 	public TableTheme tableTheme() {
 		return theme;
 	}
@@ -86,16 +87,19 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 
 	@Override
 	protected void init() {
-		super.init();
-		theme = TableTheme.current();
-		int kk = CardLayout.scale(width, height);
+		// the canvas first: super.init() replays the cached state, which rebuilds the console
+		theme = TableTheme.of(theme());
+		int kk = forceCompact ? 0 : CardLayout.scale(width, height);
 		compact = kk == 0;
 		k = Math.max(1, kk);
 		fk = compact ? Math.min(1f, Math.min(width / (float) CardLayout.COMPACT_W, height / (float) CardLayout.COMPACT_H)) : k;
 		ox = (int) Math.floor((width - canvasW() * fk) / 2f);
 		oy = (int) Math.floor((height - canvasH() * fk) / 2f);
-		leftPos = 0;
-		topPos = 0;
+		buttons.clear();
+		super.init();
+		// the kit's entrance veils (leftPos, topPos, imageWidth × imageHeight): the canvas on screen
+		leftPos = ox;
+		topPos = oy;
 		rebuildConsole();
 	}
 
@@ -109,6 +113,25 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 
 	/** Adds the console buttons with {@link #addButton} / {@link #layoutButtons}. */
 	protected abstract void buildConsole();
+
+	/** Test hook: draw the compact layout whatever the GUI size (vanilla never picks a GUI that small at 854 × 480). */
+	public static boolean forceCompact;
+
+	/**
+	 * A small icon-only utility button (rules, leave) in the top corner, left of the balance plaque; {@code hint} is its
+	 * tooltip. Placed right to left in the order added.
+	 */
+	protected CardButton cornerButton(String icon, Component hint, boolean active, Runnable action) {
+		int w = 18;
+		int h = 16;
+		int right = canvasW() - (compact ? 3 : 5) - (font.width(Texts.number(shownBalance())) + 20) - 4;
+		for (CardButton b : buttons) if (b.getY() < 20) right = Math.min(right, b.getX() - 3);
+		CardButton b = new CardButton(right - w, compact ? 0 : 2, w, h, Component.empty(), icon, CardButton.Family.TABLE, theme, x -> action.run());
+		b.active = active;
+		b.hint(hint);
+		b.setMessage(Component.empty());
+		return addButton(b);
+	}
 
 	/** Adds a button (canvas coordinates). */
 	protected CardButton addButton(CardButton b) {
@@ -201,21 +224,19 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 
 	/** The room behind the table: the backdrop picture tiled horizontally, letterboxed with the darkest colour. */
 	private void drawRoom(GuiGraphicsExtractor g) {
-		if (compact) {
-			CardGfx.tex(g, theme.backdrop(), 0, 0, CardLayout.COMPACT_W, CardLayout.COMPACT_H, 72, 40, CardLayout.COMPACT_W, CardLayout.COMPACT_H, 428,
-				240, 0xFFFFFFFF);
-			return;
-		}
+		// the compact canvas shows the centre of the room (crop at 72, 40); beyond the canvas the room continues
+		int dx = compact ? -72 : 0;
+		int dy = compact ? -40 : 0;
 		int left = (int) Math.floor(-ox / fk) - 1;
 		int right = (int) Math.ceil((width - ox) / fk) + 1;
-		for (int x = Math.floorDiv(left, 428) * 428; x < right; x += 428) CardGfx.picture(g, theme.backdrop(), x, 0, 428, 240, 0xFFFFFFFF);
+		for (int x = dx + Math.floorDiv(left - dx, 428) * 428; x < right; x += 428) CardGfx.picture(g, theme.backdrop(), x, dy, 428, 240, 0xFFFFFFFF);
 	}
 
 	private void drawConsole(GuiGraphicsExtractor g) {
 		int y = compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y;
 		int h = compact ? CardLayout.CONSOLE_CH : CardLayout.CONSOLE_H;
 		int top = y;
-		for (CardButton b : buttons) top = Math.min(top, b.getY() - 3);
+		for (CardButton b : buttons) if (b.getY() > canvasH() / 2) top = Math.min(top, b.getY() - 3);
 		CardGfx.sprite(g, theme.themed("panel/console"), 0, top, canvasW() + 1, y + h - top, 0xFFFFFFFF, 0xFF26103C);
 	}
 

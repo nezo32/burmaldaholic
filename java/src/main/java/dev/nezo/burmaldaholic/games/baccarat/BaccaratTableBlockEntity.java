@@ -35,6 +35,10 @@ import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratRules;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratRules.Coup;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratRules.Side;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratShoe;
+import dev.nezo.burmaldaholic.core.anim.WinTier;
+import dev.nezo.burmaldaholic.core.anim.WinTierTable;
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
+import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratReveal;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BetKind;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Card;
 import dev.nezo.burmaldaholic.games.baccarat.logic.ChemmyBank;
@@ -135,6 +139,10 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 	private @Nullable Coup coup;
 	/** The drawn coup has not been settled yet (REVEAL). */
 	private boolean coupPending;
+	/** Reveal timeline of the shown coup (C1 / J-C4) and its start tick; MIN_VALUE = everything public (reload). */
+	private @Nullable BaccaratReveal reveal;
+	private long revealStart = Long.MIN_VALUE;
+	private long lastRevealSync = Long.MIN_VALUE;
 	private final Map<UUID, EnumMap<BetKind, Long>> coupSlips = new LinkedHashMap<>();
 	private final Map<UUID, EnumMap<BetKind, Long>> coupReturns = new LinkedHashMap<>();
 	private final Map<UUID, Long> coupPunts = new LinkedHashMap<>();
@@ -1364,11 +1372,151 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 			bots.syncAll();
 		}
 		phase(P_REVEAL);
-		startTimer(T_PHASE, cfg().revealTicks);
-		if (level != null && CoreSounds.CARD_DEAL != null) {
-			level.playSound(null, worldPosition, CoreSounds.CARD_DEAL, SoundSource.BLOCKS, 0.8f, 1.0f);
-		}
+		// the reveal timeline (cards.md §4.2): one card per beat, flips, squeezes; its length is the reveal gate
+		reveal = BaccaratReveal.build(coup.player().size(), coup.banker().size(), natural(coup), revealConfig());
+		revealStart = gameTime();
+		lastRevealSync = revealStart;
+		startTimer(T_PHASE, reveal.total());
+		dealerGesture(DealerGesture.DEAL);
 		setChanged();
+	}
+
+	private static boolean natural(Coup c) {
+		List<Card> p = c.player();
+		List<Card> b = c.banker();
+		return BaccaratRules.isNatural(BaccaratRules.total(p.subList(0, 2))) || BaccaratRules.isNatural(BaccaratRules.total(b.subList(0, 2)));
+	}
+
+	/** Reveal config: squeeze on, {@code baccarat.revealTicks} as the cap (cards.md §4.2). */
+	private BaccaratReveal.Config revealConfig() {
+		return BaccaratReveal.Config.DEFAULT.withCap(cfg().revealTicks);
+	}
+
+	/** GameTests / screenshots: the reveal jumps to its end (the coup is settled by the phase timer as usual). */
+	public void revealAllForTests() {
+		if (reveal != null && revealStart != Long.MIN_VALUE) {
+			revealStart = gameTime() - reveal.total();
+		}
+	}
+
+	/** Reveal steps that started since the last sync: re-sync viewers, the dealer deals / turns (cards.md §4.7). */
+	private void revealTick() {
+		if (!P_REVEAL.equals(phase) || reveal == null || revealStart == Long.MIN_VALUE) {
+			return;
+		}
+		long now = gameTime();
+		boolean changed = false;
+		boolean flip = false;
+		for (BaccaratReveal.Step st : reveal.steps()) {
+			long at = revealStart + st.at();
+			if (at > lastRevealSync && at <= now) {
+				changed = true;
+				flip |= st.kind() == BaccaratReveal.Kind.FLIP || st.kind() == BaccaratReveal.Kind.SQUEEZE;
+			}
+		}
+		lastRevealSync = now;
+		if (changed) {
+			dealerGesture(flip ? DealerGesture.FLIP : DealerGesture.DEAL);
+			syncViewers();
+		}
+	}
+
+	/** The nearest baccarat dealer NPC within 3 blocks plays {@code g}. */
+	private void dealerGesture(DealerGesture g) {
+		if (!(level instanceof ServerLevel sl)) {
+			return;
+		}
+		BaccaratDealer best = null;
+		double bestD = Double.MAX_VALUE;
+		Vec3 c = Vec3.atCenterOf(worldPosition);
+		for (BaccaratDealer d : sl.getEntitiesOfClass(BaccaratDealer.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(3))) {
+			double dist = d.distanceToSqr(c);
+			if (dist < bestD) {
+				bestD = dist;
+				best = d;
+			}
+		}
+		if (best != null) {
+			best.gesture(g);
+		}
+	}
+
+	/**
+	 * The shown coup's public cards (cards.md §0.7.1): {@code <side>_cards} codes (−1 = a face-down card), {@code _deal}
+	 * deal tick and {@code _rev} reveal tick relative to {@code rv_start} (−1 = not yet public), {@code _sqz} squeeze
+	 * length in ticks (0 = a flip). A card exists in the state only from its DEAL step, a face only from its FLIP /
+	 * SQUEEZE start; the reveal's total length is never sent.
+	 */
+	private void putRevealed(CompoundTag t, Coup c) {
+		long now = gameTime();
+		boolean all = !P_REVEAL.equals(phase) || reveal == null || revealStart == Long.MIN_VALUE;
+		BaccaratReveal r = reveal != null ? reveal : BaccaratReveal.build(c.player().size(), c.banker().size(), natural(c), revealConfig());
+		long start = revealStart == Long.MIN_VALUE ? 0 : revealStart; // 0: long past (after a reload), drawn settled
+		t.putLong("rv_start", start);
+		for (int side = 0; side < 2; side++) {
+			List<Card> cards = side == 0 ? c.player() : c.banker();
+			List<Integer> codes = new ArrayList<>();
+			List<Integer> deal = new ArrayList<>();
+			List<Integer> rev = new ArrayList<>();
+			List<Integer> sqz = new ArrayList<>();
+			for (int i = 0; i < cards.size(); i++) {
+				int d = r.dealAt(side, i);
+				if (d < 0 || (!all && start + d > now)) {
+					break;
+				}
+				BaccaratReveal.Step rs = r.revealStep(side, i);
+				boolean shown = rs != null && (all || start + rs.at() <= now);
+				codes.add(shown ? cards.get(i).code() : -1);
+				deal.add(d);
+				rev.add(shown ? rs.at() : -1);
+				sqz.add(rs != null && rs.kind() == BaccaratReveal.Kind.SQUEEZE ? rs.dur() : 0);
+			}
+			String key = side == 0 ? "player" : "banker";
+			t.putIntArray(key + "_cards", codes.stream().mapToInt(Integer::intValue).toArray());
+			t.putIntArray(key + "_deal", deal.stream().mapToInt(Integer::intValue).toArray());
+			t.putIntArray(key + "_rev", rev.stream().mapToInt(Integer::intValue).toArray());
+			t.putIntArray(key + "_sqz", sqz.stream().mapToInt(Integer::intValue).toArray());
+		}
+		for (int n = 0; n < 2; n++) {
+			BaccaratReveal.Step a = r.announce(n);
+			if (a != null && (all || start + a.at() <= now)) {
+				t.putInt("announce_" + n, a.at());
+			}
+		}
+		// who squeezes (cosmetic): the largest stake on each side (chemmy: the banker squeezes the Banker hand)
+		UUID sp = null;
+		UUID sb = coupWasHouse ? null : coupBanker;
+		long bestP = 0;
+		long bestB = 0;
+		if (coupWasHouse) {
+			for (Map.Entry<UUID, EnumMap<BetKind, Long>> e : coupSlips.entrySet()) {
+				long vp = e.getValue().getOrDefault(BetKind.PLAYER, 0L);
+				long vb = e.getValue().getOrDefault(BetKind.BANKER, 0L);
+				if (vp > bestP) {
+					bestP = vp;
+					sp = e.getKey();
+				}
+				if (vb > bestB) {
+					bestB = vb;
+					sb = e.getKey();
+				}
+			}
+		} else {
+			for (Map.Entry<UUID, Long> e : coupPunts.entrySet()) {
+				if (e.getValue() > bestP) {
+					bestP = e.getValue();
+					sp = e.getKey();
+				}
+			}
+		}
+		if (sp != null) {
+			t.putString("sq_player", name(sp));
+			t.putString("sq_player_id", sp.toString());
+		}
+		if (sb != null) {
+			t.putString("sq_banker", name(sb));
+			t.putString("sq_banker_id", sb.toString());
+		}
 	}
 
 	/** RESULT (§20.5 / §20.9): settles the drawn coup. */
@@ -1392,6 +1540,8 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		}
 		spectatorSummary();
 		phase(P_RESULT);
+		dealerGesture(coupReturns.values().stream().anyMatch(r -> r.values().stream().mapToLong(Long::longValue).sum() > 0)
+			? DealerGesture.PAY : DealerGesture.SWEEP);
 		startTimer(T_PHASE, RESULT_TICKS);
 		setChanged();
 	}
@@ -1699,6 +1849,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 
 	@Override
 	protected void serverTick(ServerLevel level) {
+		revealTick();
 		if (!orphanPunts.isEmpty() || orphanBanker != null) {
 			returnOrphans();
 		}
@@ -1878,18 +2029,27 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		t.putLong("bet_min", l.minBet());
 		t.putLong("side_max", l.sideMax());
 		t.putLong("min_total", l.minTotal());
-		t.putInt("reveal_total", c.revealTicks);
 		t.putIntArray("beads", beads.stream().mapToInt(Integer::intValue).toArray());
 		t.putInt("tie_run", tieRun);
-		// the shown coup (during REVEAL the client animates the cards from reveal_left)
+		// the shown coup: only the public cards (a back until its flip / squeeze starts); the reveal's length (the
+		// phase timer) is not sent, it would tell whether third cards follow
+		if (P_REVEAL.equals(phase)) {
+			CompoundTag timers = t.getCompoundOrEmpty("timers");
+			timers.remove(T_PHASE);
+			t.put("timers", timers);
+		}
 		if (coup != null) {
-			t.putIntArray("player_cards", coup.playerCodes());
-			t.putIntArray("banker_cards", coup.bankerCodes());
-			t.putLong("reveal_left", P_REVEAL.equals(phase) ? Math.max(0, ticksLeft(T_PHASE)) : 0);
+			putRevealed(t, coup);
 			EnumMap<BetKind, Long> myRets = coupReturns.get(me);
 			EnumMap<BetKind, Long> mySlip = coupSlips.get(me);
 			if (myRets != null && mySlip != null && !P_REVEAL.equals(phase)) {
-				t.put("my_result", slipTag(mySlip, myRets, pay));
+				CompoundTag res = slipTag(mySlip, myRets, pay);
+				long staked = mySlip.values().stream().mapToLong(Long::longValue).sum();
+				long ret = myRets.values().stream().mapToLong(Long::longValue).sum();
+				res.putString("tier", WinTier.of(ret, staked, WinTierTable.DEFAULT).name());
+				res.putLong("ret", ret);
+				res.putLong("staked", staked);
+				t.put("my_result", res);
 			}
 			if (coupPuntReturns.containsKey(me) && !P_REVEAL.equals(phase)) {
 				t.putLong("my_punt", coupPunts.getOrDefault(me, 0L));
@@ -1941,6 +2101,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 			st.putInt("index", e.getKey());
 			st.putString("name", "");
 			st.putString("bot", p.nameKey());
+			st.putInt("bot_level", Math.min(3, p.level().ordinal() + 1));
 			// chemmy: Style (Wild / Steady / Cool-headed); house tables: the betting style of the personality
 			st.putString("style", isChemmy() ? p.level().styleKey() : p.personality().betStyleKey("baccarat"));
 			boolean watching = isChemmy() ? botBank && !id.equals(bank.banker()) : !bots.virtualBets().containsKey(bots.keyOf(id));

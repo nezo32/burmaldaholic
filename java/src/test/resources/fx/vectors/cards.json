@@ -1,0 +1,159 @@
+{
+  "v": 1,
+  "motion": [
+    {
+      "t": 0.0,
+      "dealX": 358.0,
+      "dealY": 30.0,
+      "dealRot": -15.81,
+      "dealScale": 0.82,
+      "flipScaleX": 1.0,
+      "flipFace": false,
+      "squeeze": 0.0,
+      "gatherX": 200.0,
+      "gatherAlpha": 1.0
+    },
+    {
+      "t": 0.25,
+      "dealX": 247.0,
+      "dealY": 10.018555,
+      "dealRot": -12.422143,
+      "dealScale": 0.89875,
+      "flipScaleX": 0.707107,
+      "flipFace": false,
+      "squeeze": 0.18,
+      "gatherX": 197.21875,
+      "gatherAlpha": 1.0
+    },
+    {
+      "t": 0.5,
+      "dealX": 190.0,
+      "dealY": 11.1875,
+      "dealRot": -9.034286,
+      "dealScale": 0.955,
+      "flipScaleX": 0.0,
+      "flipFace": true,
+      "squeeze": 0.241508,
+      "gatherX": 177.75,
+      "gatherAlpha": 1.0
+    },
+    {
+      "t": 0.75,
+      "dealX": 169.0,
+      "dealY": 13.573242,
+      "dealRot": -2.41426,
+      "dealScale": 0.98875,
+      "flipScaleX": 1.0375,
+      "flipFace": true,
+      "squeeze": 0.584015,
+      "gatherX": 124.90625,
+      "gatherAlpha": 0.875
+    },
+    {
+      "t": 1.0,
+      "dealX": 166.0,
+      "dealY": 14.0,
+      "dealRot": 0.0,
+      "dealScale": 1.0,
+      "flipScaleX": 1.0,
+      "flipFace": true,
+      "squeeze": 1.0,
+      "gatherX": 22.0,
+      "gatherAlpha": 0.0
+    }
+  ],
+  "blackjack": {
+    "stand": "{\"v\":1,\"game\":\"blackjack\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":300,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":600,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":900,\"dur\":240,\"kind\":\"blackjack.hole\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1450,\"dur\":280,\"kind\":\"blackjack.hole_flip\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":2150,\"dur\":520,\"kind\":\"blackjack.dealer_draw\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,2]}]}",
+    "hitBust": "{\"v\":1,\"game\":\"blackjack\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":300,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":600,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":900,\"dur\":240,\"kind\":\"blackjack.hole\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1450,\"dur\":520,\"kind\":\"blackjack.hit\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,2]},{\"at\":1950,\"dur\":280,\"kind\":\"blackjack.hole_flip\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]}]}",
+    "twoSeatsDealerDraws": "{\"v\":1,\"game\":\"blackjack\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":300,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":600,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":900,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1200,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1500,\"dur\":240,\"kind\":\"blackjack.hole\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":2100,\"dur\":280,\"kind\":\"blackjack.hole_flip\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":2800,\"dur\":520,\"kind\":\"blackjack.dealer_draw\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,2]}]}",
+    "split": "{\"v\":1,\"game\":\"blackjack\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":300,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":600,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1,0]},{\"at\":900,\"dur\":240,\"kind\":\"blackjack.hole\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1200,\"dur\":600,\"kind\":\"blackjack.peek\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]},{\"at\":1800,\"dur\":520,\"kind\":\"blackjack.split_card\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":2100,\"dur\":520,\"kind\":\"blackjack.split_card\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1,1]},{\"at\":2700,\"dur\":280,\"kind\":\"blackjack.hole_flip\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]}]}",
+    "double": "{\"v\":1,\"game\":\"blackjack\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":300,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":600,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":900,\"dur\":240,\"kind\":\"blackjack.hole\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1200,\"dur\":600,\"kind\":\"blackjack.peek\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]},{\"at\":1800,\"dur\":520,\"kind\":\"blackjack.double\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,2]},{\"at\":2300,\"dur\":280,\"kind\":\"blackjack.hole_flip\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]}]}",
+    "peekTen": "{\"v\":1,\"game\":\"blackjack\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":300,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0]},{\"at\":600,\"dur\":520,\"kind\":\"blackjack.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":900,\"dur\":240,\"kind\":\"blackjack.hole\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":1200,\"dur\":600,\"kind\":\"blackjack.peek\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]},{\"at\":2000,\"dur\":280,\"kind\":\"blackjack.hole_flip\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,1]},{\"at\":2700,\"dur\":520,\"kind\":\"blackjack.dealer_draw\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,2]}]}"
+  },
+  "baccarat": [
+    {
+      "squeeze": true,
+      "player": 2,
+      "banker": 2,
+      "natural": true,
+      "total": 90,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2600,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":4000,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":4500,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": true,
+      "player": 2,
+      "banker": 2,
+      "natural": false,
+      "total": 96,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2600,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":4000,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":4800,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": true,
+      "player": 3,
+      "banker": 2,
+      "natural": false,
+      "total": 130,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2600,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":4000,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":4500,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":4800,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":5900,\"dur\":300,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":6500,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": true,
+      "player": 2,
+      "banker": 3,
+      "natural": false,
+      "total": 124,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2600,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":4000,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":4500,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":4800,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":6200,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": true,
+      "player": 3,
+      "banker": 3,
+      "natural": false,
+      "total": 158,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2600,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":4000,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":4500,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":4800,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":5900,\"dur\":300,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":6200,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":6500,\"dur\":1000,\"kind\":\"baccarat.squeeze\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":7900,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": false,
+      "player": 2,
+      "banker": 2,
+      "natural": true,
+      "total": 58,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1800,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2100,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2400,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": false,
+      "player": 2,
+      "banker": 2,
+      "natural": false,
+      "total": 64,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1800,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2100,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2400,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":3200,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": false,
+      "player": 3,
+      "banker": 2,
+      "natural": false,
+      "total": 82,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1800,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2100,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2400,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":3200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":3500,\"dur\":300,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":4100,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": false,
+      "player": 2,
+      "banker": 3,
+      "natural": false,
+      "total": 76,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1800,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2100,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2400,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":3200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":3800,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "squeeze": false,
+      "player": 3,
+      "banker": 3,
+      "natural": false,
+      "total": 94,
+      "timeline": "{\"v\":1,\"game\":\"baccarat\",\"seed\":0,\"beats\":[{\"at\":0,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":300,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":600,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":1500,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":1800,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2100,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":2400,\"dur\":500,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":2900,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":3200,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":3500,\"dur\":300,\"kind\":\"baccarat.announce\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[1]},{\"at\":3800,\"dur\":300,\"kind\":\"baccarat.deal\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":4100,\"dur\":300,\"kind\":\"baccarat.flip\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[2]},{\"at\":4700,\"dur\":0,\"kind\":\"baccarat.gate\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[]}]}"
+    },
+    {
+      "cap": 120,
+      "total": 118
+    }
+  ]
+}

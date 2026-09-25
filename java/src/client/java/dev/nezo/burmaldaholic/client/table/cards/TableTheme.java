@@ -53,6 +53,16 @@ public enum TableTheme {
 		forced = theme;
 	}
 
+	/** The card-table look of a kit location theme (J-L2 {@code CasinoTheme}), or the forced one. */
+	public static TableTheme of(dev.nezo.burmaldaholic.client.ui.CasinoTheme t) {
+		if (forced != null) return forced;
+		return switch (t) {
+			case BASTION -> BASTION;
+			case END -> END;
+			default -> VILLAGE;
+		};
+	}
+
 	/** The theme of the current level (or the forced one). */
 	public static TableTheme current() {
 		if (forced != null) return forced;

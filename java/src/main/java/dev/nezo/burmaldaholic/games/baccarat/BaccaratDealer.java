@@ -1,7 +1,12 @@
 package dev.nezo.burmaldaholic.games.baccarat;
 
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
+import dev.nezo.burmaldaholic.client.dealer.GesturingDealer;
+import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,12 +30,50 @@ import net.minecraft.world.level.Level;
  * (normal, High Roller or chemin de fer) within {@link #TABLE_RADIUS} blocks, else
  * {@code msg.burmaldaholic.baccarat.no_table}. The table deals itself; the dealer is only its face.
  */
-public class BaccaratDealer extends PathfinderMob {
+public class BaccaratDealer extends PathfinderMob implements GesturingDealer {
+	/** Dealer gesture (docs/design/animation/cards.md §1.4): {@link DealerGesture} id, set by the table on its beats. */
+	private static final EntityDataAccessor<Byte> GESTURE = SynchedEntityData.defineId(BaccaratDealer.class, EntityDataSerializers.BYTE);
+	/** Game time the gesture started (the renderer's age = level time − this). */
+	private static final EntityDataAccessor<Integer> GESTURE_TICK = SynchedEntityData.defineId(BaccaratDealer.class, EntityDataSerializers.INT);
+
 	public static final int TABLE_RADIUS = 3;
 
 	public BaccaratDealer(EntityType<? extends BaccaratDealer> type, Level level) {
 		super(type, level);
 		setPersistenceRequired();
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+		super.defineSynchedData(entityData);
+		entityData.define(GESTURE, (byte) 0);
+		entityData.define(GESTURE_TICK, 0);
+	}
+
+	/** Plays {@code gesture} now (one synced-data change per beat, cards.md §0.8). */
+	public void gesture(DealerGesture gesture) {
+		entityData.set(GESTURE_TICK, (int) level().getGameTime());
+		entityData.set(GESTURE, gesture.id());
+	}
+
+	/** Current gesture (client: the renderer; {@link DealerGesture#NONE} = idle). */
+	public DealerGesture gesture() {
+		return DealerGesture.byId(entityData.get(GESTURE));
+	}
+
+	/** Game time the current gesture started. */
+	public int gestureTick() {
+		return entityData.get(GESTURE_TICK);
+	}
+
+	@Override
+	public DealerGesture dealerGesture() {
+		return gesture();
+	}
+
+	@Override
+	public long dealerGestureTick() {
+		return gestureTick();
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {

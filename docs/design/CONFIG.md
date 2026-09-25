@@ -311,7 +311,7 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | `baccarat.highRollerMinVipTier` | int | 2 | 0–5 | 2 = Gold. |
 | `baccarat.seats` | int | 7 | 1–7 | Seats per table (house and chemin de fer). |
 | `baccarat.betTimerTicks` | int | 400 | 100–2400 | Betting window after the first bet. |
-| `baccarat.revealTicks` | int | 80 | 20–300 | Card reveal animation. |
+| `baccarat.revealTicks` | int | 160 | 20–300 | Cap of the card reveal timeline (deal, flips, squeezes; `animation/cards.md` §4.2). |
 | `baccarat.historyLength` | int | 60 | 0–120 | Bead plate size (coups of the current shoe). |
 | `baccarat.tieStreakChaos` | int | 3 | 0–10 | Ties in a row that trigger `chip_shower` for Tie winners; 0 = off. |
 | `baccarat.chemmy.enabled` | bool | true | — | Chemin de fer (player-banked) tables work (§20.9). |

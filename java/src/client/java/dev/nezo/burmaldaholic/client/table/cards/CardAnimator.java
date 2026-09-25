@@ -150,6 +150,13 @@ public final class CardAnimator {
 			} else if (code != s.code && code >= 0 && s.code >= 0) {
 				s.revealAt = Double.NaN; // a different card in the slot (layout change): no animation
 			}
+			// the server moved the schedule earlier (fast-forward, skip): follow it, never later
+			if (!Double.isNaN(dealMs) && !Double.isNaN(s.dealAt) && dealMs < s.dealAt) {
+				double shift = s.dealAt - dealMs;
+				s.dealAt = dealMs;
+				if (!Double.isNaN(s.revealAt) && Double.isNaN(revealMs)) s.revealAt -= shift;
+			}
+			if (!Double.isNaN(revealMs) && !Double.isNaN(s.revealAt) && revealMs < s.revealAt) s.revealAt = revealMs;
 			s.code = code;
 			if (s.size != size) s.size = size;
 			if (Math.abs(s.tx - x) > 0.5 || Math.abs(s.ty - y) > 0.5 || s.rot != rotDeg) {
