@@ -175,6 +175,13 @@ public final class SlotShowdownEntry {
 		t.putInt("max_players", mode.maxPlayers());
 		t.putBoolean("bots", CasinoConfig.bots().enabled && CasinoConfig.bots().pvp.maxPerMatch > 0);
 		t.putInt("star", defaults.rules().starPoints());
+		// the rule switches the panel explains (only the rules this game really plays)
+		t.putBoolean("hot", defaults.rules().hotSymbol());
+		t.putBoolean("underdog", defaults.rules().underdogBoost());
+		t.putBoolean("kaboom", defaults.rules().kaboom());
+		t.putBoolean("swap", defaults.rules().pearlSwap());
+		t.putLong("pearl_points", ShowdownScoring.PEARL_POINTS);
+		t.putLong("clock_points", ShowdownScoring.CLOCK_POINTS);
 		PvpService pvp = Pvp.service();
 		Optional<PvpMatch> mine = pvp.matchOf(viewer.getUUID());
 		if (mine.isPresent()) {

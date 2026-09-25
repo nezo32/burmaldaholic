@@ -1960,12 +1960,13 @@ Args: `record_chip` %1$s num wins, %2$s num losses · `match.step_of` %1$s num, 
 | `gui.burmaldaholic.pvp.slots.underdog` | UNDERDOG BOOST | ФОРА АУТСАЙДЕРУ |
 | `msg.burmaldaholic.pvp.slots.underdog` | Underdog boost: %1$s scores double on the final spin! | Фора аутсайдеру: %1$s получает двойные очки в финальном вращении! |
 | `msg.burmaldaholic.pvp.slots.underdog_you` | You're in last place — your final spin counts double! | Вы на последнем месте — финальное вращение даст двойные очки! |
-| `gui.burmaldaholic.pvp.slots.rules.1` | Everyone spins the same machine. Each spin's win becomes points (10 per 1× bet); the most points takes the pot. | Все крутят один и тот же автомат. Выигрыш вращения превращается в очки (10 за 1× ставки); у кого больше очков, тот забирает банк. |
-| `gui.burmaldaholic.pvp.slots.rules.2` | Each round one symbol is HOT: its wins score double. | В каждом раунде один символ — горячий: его выигрыши дают двойные очки. |
-| `gui.burmaldaholic.pvp.slots.rules.3` | Free spins and bonus games play out fast and count in full. | Бесплатные вращения и бонусы разыгрываются быстро и засчитываются полностью. |
-| `gui.burmaldaholic.pvp.slots.rules.4` | Surprises (%1$s%% each): KABOOM halves your score, SWAP trades it with the leader, TIME WARP doubles your next spin. | Сюрпризы (по %1$s %%): БАБАХ делит ваши очки пополам, РОКИРОВКА меняет их с лидером, ПЕТЛЯ ВРЕМЕНИ удваивает следующее вращение. |
-| `gui.burmaldaholic.pvp.slots.rules.5` | Jackpots give fixed points: Mini %1$s · Minor %2$s · Major %3$s · Grand %4$s. | Джекпоты дают фиксированные очки: мини %1$s · минор %2$s · мажор %3$s · гранд %4$s. |
+| `gui.burmaldaholic.pvp.slots.rules.1` | Everyone spins the same machine. A winning line scores its multiplier in points (a ×10 line scores 10); the most points takes the pot. | Все крутят один и тот же автомат. Выигрышная линия приносит очки по своему множителю (линия ×10 — 10 очков); у кого больше очков, тот забирает банк. |
+| `gui.burmaldaholic.pvp.slots.rules.2` | Each round one symbol is HOT: its lines score double. | В каждом раунде один символ — горячий: его линии дают двойные очки. |
+| `gui.burmaldaholic.pvp.slots.rules.3` | Special lines score fixed points: Ender Pearl %1$s · Clock %2$s · Nether Star %3$s. | Особые линии дают фиксированные очки: жемчуг Края — %1$s · часы — %2$s · звезда Незера — %3$s. |
+| `gui.burmaldaholic.pvp.slots.rules.4` | KABOOM: a Creeper or TNT line halves your total before the spin counts. | БАБАХ: линия криперов или динамита делит ваши очки пополам перед подсчётом вращения. |
+| `gui.burmaldaholic.pvp.slots.rules.5` | SWAP: an Ender Pearl line trades your total with the leader's. | РОКИРОВКА: линия жемчуга Края меняет ваши очки на очки лидера. |
 | `gui.burmaldaholic.pvp.slots.rules.6` | Last place before the final spin scores double on it. | Последнее место перед финальным вращением получает в нём двойные очки. |
+| `gui.burmaldaholic.pvp.slots.rules.7` | TIME WARP: a Clock line doubles your next spin. | ПЕТЛЯ ВРЕМЕНИ: линия часов удваивает ваше следующее вращение. |
 | `gui.burmaldaholic.pvp.slots.tiebreak` | Tie-break: more winning lines, then the best single spin | При равенстве: больше выигрышных линий, затем лучшее вращение |
 | `gui.burmaldaholic.pvp.slots.time_warp_title` | TIME WARP! | ПЕТЛЯ ВРЕМЕНИ! |
 | `msg.burmaldaholic.pvp.slots.jackpot` | %1$s: %2$s jackpot, +%3$s points | %1$s: джекпот %2$s, очки: +%3$s |

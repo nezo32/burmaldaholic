@@ -51,7 +51,7 @@ import org.jspecify.annotations.Nullable;
 public class CasinoMenuScreen extends CasinoScreen {
 	/** Built-in tab ids (server tabs use their page id). */
 	public static final String WALLET = "wallet", VIP = "vip", CONTRACTS = "contracts";
-	private static final String LOAN = "loan", ACHIEVEMENTS = "achievements";
+	private static final String LOAN = "loan", ACHIEVEMENTS = "achievements", PVP_HUB = "challenges";
 	private static final List<ClientCasinoMenu.Tab> NATIVE = List.of(
 		new ClientCasinoMenu.Tab(WALLET, 10, Component.translatable("gui.burmaldaholic.menu.wallet")),
 		new ClientCasinoMenu.Tab(VIP, 15, Component.translatable("gui.burmaldaholic.vip.title")),
@@ -89,6 +89,10 @@ public class CasinoMenuScreen extends CasinoScreen {
 	private record Plate(Component title, Component desc, boolean got) {}
 
 	private final List<Plate> plates = new ArrayList<>();
+	/** The PvP hub's main view (tab {@code challenges}, extras.md §7.2), or null for any other page. */
+	private HubView.@Nullable Hub hub;
+	/** Hub lobby plaques: [content y, lobby index, text x, text width]. */
+	private final List<int[]> hubLobbies = new ArrayList<>();
 	private @Nullable Component achSummary;
 	private double achFraction;
 
@@ -221,6 +225,8 @@ public class CasinoMenuScreen extends CasinoScreen {
 		amountBoxes.clear();
 		contractBars.clear();
 		plates.clear();
+		hub = null;
+		hubLobbies.clear();
 		achSummary = null;
 		List<ClientCasinoMenu.Tab> tabs = allTabs();
 		if (tabs.stream().noneMatch(t -> t.id().equals(tab))) tab = WALLET;
@@ -233,6 +239,13 @@ public class CasinoMenuScreen extends CasinoScreen {
 			case CONTRACTS -> contracts(w);
 			case LOAN -> loan(w);
 			case ACHIEVEMENTS -> achievements(w);
+			case PVP_HUB -> {
+				if (tab.equals(ClientCasinoMenu.page()) && HubView.isMain(ClientCasinoMenu.lines())) {
+					pvpHub(w);
+				} else {
+					serverPage(w);
+				}
+			}
 			default -> serverPage(w);
 		}
 		lastServerPage = isNative(tab) ? "" : tab;
@@ -667,6 +680,154 @@ public class CasinoMenuScreen extends CasinoScreen {
 		}
 	}
 
+	// ---- the PvP hub (extras.md §7.2: mode cards, record, nemesis, open lobbies with Join) ----------------------------------
+
+	private void pvpHub(int w) {
+		HubView.Hub h = HubView.parse(ClientCasinoMenu.lines(), ClientCasinoMenu.buttons());
+		hub = h;
+		boolean nemesis = h.nemesis() != null;
+		for (int i = 0; i < dev.nezo.burmaldaholic.core.ui.HubLayout.CARDS; i++) {
+			int[] r = dev.nezo.burmaldaholic.core.ui.HubLayout.card(i, w, nemesis);
+			HubView.ModeCard card;
+			if (i < HubView.MODES.length) {
+				String mode = HubView.MODES[i];
+				ClientCasinoMenu.Button b = h.create().get(mode);
+				card = new HubView.ModeCard(0, 0, r[2], r[3], Component.translatable(HubView.GAME + mode), i, b == null ? null : c -> pressServer(b, null),
+					h.machineHint());
+			} else {
+				ClientCasinoMenu.Button b = h.rivals();
+				card = new HubView.ModeCard(0, 0, r[2], r[3], b != null ? b.label() : Component.translatable("gui.burmaldaholic.pvp.hub.rivals"), -1,
+					b == null ? null : c -> pressServer(b, null), null);
+			}
+			put(card, r[0], r[1]);
+		}
+		contentH = dev.nezo.burmaldaholic.core.ui.HubLayout.gridBottom(nemesis) + 6;
+		int kind = 0;
+		for (ClientCasinoMenu.Line l : h.status()) text(l.text(), 0xFF000000 | l.color(), 4, w, kind++ % 2);
+		placeButtons(h.statusButtons(), w);
+		if (h.lobbiesHeader() != null) {
+			rows.add(new Row(contentH, 12, -1, CasinoUi.fit(font, h.lobbiesHeader(), w - 4), GOLD, null, 0, 0));
+			contentH += 13;
+		}
+		for (int i = 0; i < h.lobbies().size(); i++) {
+			HubView.Lobby lobby = h.lobbies().get(i);
+			int y = contentH;
+			int joinW = 0;
+			ClientCasinoMenu.Button join = lobby.join();
+			EditBox field = null;
+			CasinoButton jb = null;
+			if (join != null) {
+				int bw = CasinoButton.width(font, join.label(), 44, false);
+				if (join.amount()) {
+					field = new EditBox(font, 0, 0, 50, 16, join.label());
+					field.setMaxLength(12);
+					String prev = typed.get(tab + ":" + amountBoxes.size());
+					field.setValue(prev != null ? prev : join.suggested() > 0 ? Long.toString(join.suggested()) : "");
+					joinW = 50 + 4;
+				}
+				final EditBox f = field;
+				jb = CasinoButton.builder(join.label(), b -> pressServer(join, f)).style(CasinoButton.Style.PRIMARY).size(bw, 18).build();
+				jb.enabled(join.active(), null);
+				joinW += bw;
+			}
+			int[] lay = dev.nezo.burmaldaholic.core.ui.HubLayout.lobby(w, Math.max(joinW, 1));
+			if (field != null) put(field, lay[3], y + 3);
+			if (jb != null) {
+				if (jb.getWidth() > lay[4] - (field != null ? 54 : 0)) {
+					jb.setWidth(Math.max(24, lay[4] - (field != null ? 54 : 0)));
+					jb.tooltip(join.label());
+				}
+				put(jb, lay[3] + (field != null ? 54 : 0), y + 2);
+			}
+			if (join != null) amountBoxes.add(field);
+			hubLobbies.add(new int[] {y, i, lay[1], lay[2]});
+			contentH += dev.nezo.burmaldaholic.core.ui.HubLayout.LOBBY_H + dev.nezo.burmaldaholic.core.ui.HubLayout.LOBBY_GAP;
+		}
+		contentH += 4;
+		placeButtons(h.bottom(), w);
+		if (h.machineHint() != null) text(h.machineHint(), DIM, 4, w, -1);
+	}
+
+	/** A wrapped row of server buttons (with their amount fields) at the content bottom. */
+	private void placeButtons(List<ClientCasinoMenu.Button> buttons, int w) {
+		if (buttons.isEmpty()) return;
+		int bx = 0;
+		int by = contentH;
+		for (ClientCasinoMenu.Button spec : buttons) {
+			int bw = Math.min(w, CasinoButton.width(font, spec.label(), 60, false));
+			int fw = spec.amount() ? Math.max(50, Math.min(90, w - bw - 6)) : 0;
+			int need = bw + (fw > 0 ? fw + 4 : 0);
+			if (bx > 0 && bx + need > w) {
+				bx = 0;
+				by += 24;
+			}
+			EditBox box = null;
+			if (spec.amount()) {
+				box = new EditBox(font, 0, 0, fw, 18, spec.label());
+				box.setMaxLength(12);
+				String prev = typed.get(tab + ":" + amountBoxes.size());
+				box.setValue(prev != null ? prev : spec.suggested() > 0 ? Long.toString(spec.suggested()) : "");
+				put(box, bx, by + 1);
+				bx += fw + 4;
+			}
+			final EditBox field = box;
+			CasinoButton b = CasinoButton.builder(spec.label(), btn -> pressServer(spec, field)).size(bw, 20).build();
+			b.enabled(spec.active(), null);
+			if (font.width(spec.label()) + 8 > bw) b.tooltip(spec.label());
+			put(b, bx, by);
+			amountBoxes.add(field);
+			bx += bw + 4;
+		}
+		contentH = by + 26;
+	}
+
+	private void drawHub(GuiGraphicsExtractor g, int x, int y, int w) {
+		HubView.Hub h = hub;
+		if (h == null) return;
+		// heading, record chip and record line (right)
+		Component title = Component.translatable(HubView.TITLE);
+		g.text(font, title, x + 2, y + 3, GOLD, true);
+		int right = x + w - 2;
+		if (h.record() != null) {
+			int avail = w - font.width(title) - 16;
+			Component rec = h.record();
+			if (h.wins() >= 0 && h.losses() >= 0) {
+				Component chip = Component.translatable("gui.burmaldaholic.pvp.record_chip", Texts.number(h.wins()), Texts.number(h.losses()));
+				int cw = font.width(chip) + 8;
+				String kind = h.wins() > h.losses() ? "lead" : h.wins() < h.losses() ? "trail" : "even";
+				int textW = Math.min(font.width(rec), Math.max(0, avail - cw - 4));
+				int cx = right - textW - 4 - cw;
+				dev.nezo.burmaldaholic.client.pvp.kit.Kit.sprite(g, dev.nezo.burmaldaholic.client.pvp.kit.Kit.pvp("record_chip_" + kind), cx, y + 1, cw, 12);
+				g.text(font, chip, cx + 4, y + 3, BONE, true);
+				g.text(font, CasinoUi.fit(font, rec, textW), right - textW, y + 3, BONE, true);
+			} else {
+				int textW = Math.min(font.width(rec), Math.max(0, avail));
+				g.text(font, CasinoUi.fit(font, rec, textW), right - textW, y + 3, DIM, true);
+			}
+		}
+		if (h.nemesis() != null) {
+			int ny = y + dev.nezo.burmaldaholic.core.ui.HubLayout.HEAD_H;
+			dev.nezo.burmaldaholic.client.pvp.kit.Kit.region(g, dev.nezo.burmaldaholic.client.pvp.kit.Kit.sheet("pvp/badges"), 96, 16, 32, 0, 16, 16, x + 2, ny - 3,
+				10, 10, 0xFFFFFFFF);
+			g.text(font, CasinoUi.fit(font, h.nemesis(), w - 18), x + 16, ny, CasinoPalette.CHIP_RED_LIGHT, true);
+		}
+		// open lobbies: plaques under their Join controls
+		for (int[] l : hubLobbies) {
+			HubView.Lobby lobby = h.lobbies().get(l[1]);
+			int ly = y + l[0];
+			if (!dev.nezo.burmaldaholic.client.pvp.kit.Kit.sprite(g, dev.nezo.burmaldaholic.client.pvp.kit.Kit.pvp("lobby_row"), x, ly, w,
+				dev.nezo.burmaldaholic.core.ui.HubLayout.LOBBY_H)) {
+				CasinoUi.row(g, 0, x, ly, w, dev.nezo.burmaldaholic.core.ui.HubLayout.LOBBY_H);
+			}
+			int icon = HubView.icon(lobby.mode());
+			if (icon >= 0) {
+				dev.nezo.burmaldaholic.client.pvp.kit.Kit.region(g, dev.nezo.burmaldaholic.client.pvp.kit.Kit.sheet("pvp/mode_icons"), 80, 16, icon * 16, 0, 16, 16,
+					x + 4, ly + 3);
+			}
+			g.text(font, CasinoUi.fit(font, lobby.text(), l[3]), x + l[2], ly + 7, BONE, true);
+		}
+	}
+
 	// ---- generic server pages ---------------------------------------------------------------------------------------------
 
 	/** A server page: button rows (with optional amount fields) on top, then the text lines as ledger rows. */
@@ -787,6 +948,7 @@ public class CasinoMenuScreen extends CasinoScreen {
 				if (tab.equals(ClientCasinoMenu.page())) drawLoan(g, x, y, w);
 			}
 			case ACHIEVEMENTS -> drawAchievements(g, x, y, w, age);
+			case PVP_HUB -> drawHub(g, x, y, w);
 			default -> {
 			}
 		}

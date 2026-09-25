@@ -1,16 +1,11 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
-import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
-import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.PvpDraw;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
-import dev.nezo.burmaldaholic.core.anim.SeedMix;
-import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.WinTierTable;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
@@ -36,7 +31,7 @@ import net.minecraft.world.entity.player.Inventory;
  * server tier (JACKPOT for an edge bin on High). No neighbour ever lights. Click on the board, Space or Enter skip;
  * reduce motion draws the path as dots row by row and puts the ball in the cup.
  */
-final class PlinkoScreen extends ExtrasTableScreen {
+final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
 	private static final int BX = 14;
 	private static final int BY = 28;
 	private static final int RX = 296;
@@ -123,6 +118,11 @@ final class PlinkoScreen extends ExtrasTableScreen {
 	}
 
 	@Override
+	public boolean holdsCelebration(String game) {
+		return dev.nezo.burmaldaholic.games.extras.server.ExtrasGames.PLINKO.equals(game) && dropping();
+	}
+
+	@Override
 	protected boolean skip() {
 		if (!dropping()) return false;
 		skipAt = Util.getMillis();
@@ -141,15 +141,8 @@ final class PlinkoScreen extends ExtrasTableScreen {
 		LAST.add(mult);
 		while (LAST.size() > 4) LAST.removeFirst();
 		FxSounds.play("plinko_bin", 1f, PlinkoAnim.binPitch(mult));
-		long net = r.getLongOr("net", 0);
-		long stake = r.getLongOr("stake", 0);
-		if (net > 0 && stake > 0) {
-			long ret = stake + net;
-			int bin = r.getIntOr("bin", 6);
-			boolean edge = "high".equals(r.getStringOr("risk", "")) && (bin == 0 || bin == Plinko.BINS - 1);
-			WinTier tier = WinTier.of(ret, stake, WinTierTable.DEFAULT, edge, null);
-			CelebrationOverlay.get().play(CelebrationRequest.core(tier, ret, stake, SeedMix.mix(SeedMix.hash("plinko"), shownSeq)));
-		}
+		// the celebration is the server's (sent when the ball lands in the world; held if it came first)
+		dev.nezo.burmaldaholic.client.fx.ClientFx.releaseCelebration();
 		if (minecraft != null) rebuild();
 	}
 

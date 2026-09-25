@@ -68,7 +68,12 @@ public final class RevealState {
 			bySeat.clear();
 		}
 		long now = Util.getMillis();
-		if (finalStartMs < 0 && hasFinalStep(state)) finalStartMs = now;
+		if (finalStartMs < 0 && hasFinalStep(state)) {
+			// opened late (the reveal is already past "Final results…"): no drumroll replay over plaques already shown
+			boolean late = !lastStepIsFinal(state) || hasPlacings(state);
+			finalStartMs = late ? now - (PvpMotion.DRUM_TICKS[PvpMotion.DRUM_TICKS.length - 1] + 4) * 50L : now;
+			if (late) drumTick = PvpMotion.DRUM_TICKS[PvpMotion.DRUM_TICKS.length - 1] + 4;
+		}
 		JsonArray steps = state.getAsJsonArray("steps");
 		if (countdownMs < 0 && steps != null && !steps.isEmpty() && steps.get(0).isJsonObject()) {
 			JsonObject first = steps.get(0).getAsJsonObject();
@@ -94,6 +99,17 @@ public final class RevealState {
 		}
 		if (fresh && finalStartMs < 0) finalStartMs = now;
 		return fresh;
+	}
+
+	private static boolean lastStepIsFinal(JsonObject state) {
+		JsonArray steps = state.getAsJsonArray("steps");
+		if (steps == null || steps.isEmpty() || !steps.get(steps.size() - 1).isJsonObject()) return false;
+		return "pvp.final".equals(PvpSeat.str(steps.get(steps.size() - 1).getAsJsonObject(), "kind", ""));
+	}
+
+	private static boolean hasPlacings(JsonObject state) {
+		JsonArray pl = state.getAsJsonArray("placings");
+		return pl != null && !pl.isEmpty();
 	}
 
 	private static boolean hasFinalStep(JsonObject state) {
@@ -127,7 +143,7 @@ public final class RevealState {
 	public void drum() {
 		double t = ticks();
 		if (t < 0) return;
-		if (drumTick < 0) drumTick = 0; // the server plays the first hit with the cue
+		if (drumTick < 0) drumTick = 0; // the server plays the first hit with the cue (a late open starts past the roll)
 		int hits = PvpMotion.drumHitsBetween(drumTick, t);
 		for (int i = 0; i < hits; i++) Kit.vanilla("block.note_block.basedrum", 0.8f, 1f);
 		if (hits > 0 || t > drumTick) drumTick = t;

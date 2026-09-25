@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Subclass contract: build widgets in {@link #init()} after {@code super.init()} with {@link #button} / {@link #add};
  * keep all state in fields (init runs again on resize).
  */
-public abstract class CasinoScreen extends Screen {
+public abstract class CasinoScreen extends Screen implements FitScaled {
 	private final int fullW;
 	private final int fullH;
 	private @Nullable CasinoTheme theme;
@@ -109,10 +109,28 @@ public abstract class CasinoScreen extends Screen {
 		return entrance == null ? Long.MAX_VALUE / 4 : entrance.age();
 	}
 
+	/**
+	 * Opt in to the compact layout of the fixed-size game screens ({@link FitScaled}): on a GUI smaller than the full
+	 * panel the screen keeps its full layout and is drawn at a lower whole GUI scale. Default false (screens with their
+	 * own M / S layouts, e.g. the Casino Menu).
+	 */
+	protected boolean fitToScreen() {
+		return false;
+	}
+
+	private float fit = 1f;
+	private final int[] fitMemo = {-1, -1, -1, -1};
+
+	@Override
+	public float fitScale() {
+		return fit;
+	}
+
 	// ---- lifecycle -------------------------------------------------------------------------------------------------
 
 	@Override
 	protected void init() {
+		fit = FitScaled.apply(this, fitToScreen(), fullW + 8, fullH, fitMemo);
 		panel = UiLayout.panel(width, height, fullW, fullH);
 		if (entrance == null) entrance = ScreenEntrance.install(this, () -> panel);
 		balanceTicker.retarget(balance(), Util.getMillis(), true);

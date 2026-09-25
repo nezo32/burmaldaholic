@@ -1,16 +1,12 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
-import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
-import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
-import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.WinTierTable;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.extras.logic.Payouts;
@@ -39,7 +35,7 @@ import net.minecraft.world.entity.player.Inventory;
  * shared celebration plays the server tier. A creeper swells and the screen closes for the mob wave. Click on the wheel,
  * Space or Enter skip to the stop; reduce motion turns straight to the segment. The chip counter is held until the stop.
  */
-final class WheelScreen extends ExtrasTableScreen {
+final class WheelScreen extends ExtrasTableScreen implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
 	private static final int WX = 22;
 	private static final int WY = 32;
 	private static final int RX = 212;
@@ -142,6 +138,11 @@ final class WheelScreen extends ExtrasTableScreen {
 	}
 
 	@Override
+	public boolean holdsCelebration(String game) {
+		return dev.nezo.burmaldaholic.games.extras.server.ExtrasGames.WHEEL.equals(game) && spinning();
+	}
+
+	@Override
 	protected boolean skip() {
 		if (!spinning() || skipAt >= 0) return false;
 		skipFrom = currentAngle();
@@ -159,16 +160,12 @@ final class WheelScreen extends ExtrasTableScreen {
 		CompoundTag r = result();
 		String code = r.getStringOr("code", "B");
 		long net = r.getLongOr("net", 0);
-		long stake = r.getLongOr("stake", 0);
 		if (Wheel.CREEPER.equals(code)) {
 			Kit.vanilla("entity.creeper.primed", 1f, 1f);
 		} else if (net > 0) {
 			FxSounds.play("wheel_stop", 1f, 1f);
-			if (stake > 0 && !r.getBooleanOr("pawn", false)) {
-				long ret = stake + net;
-				CelebrationOverlay.get().play(CelebrationRequest.core(WinTier.of(ret, stake, WinTierTable.DEFAULT), ret, stake,
-					SeedMix.mix(SeedMix.hash("wheel"), shownSeq)));
-			}
+			// the celebration is the server's (sent when the wheel stops in the world; held if it came first)
+			dev.nezo.burmaldaholic.client.fx.ClientFx.releaseCelebration();
 		} else if (net == 0 || "H".equals(code) || "M".equals(code)) {
 			FxSounds.play("push", 0.6f, 1f);
 		} else {

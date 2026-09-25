@@ -221,6 +221,10 @@ public final class PvpHubPage implements CasinoMenu.Page {
 			}
 		}
 		out.blank();
+		// one "create" per game that can start from the hub (the hub page's mode cards; plain buttons elsewhere)
+		for (PvpMode<?, ?> m : duelModes()) {
+			out.button(P + "new:" + m.id(), game(m.id()));
+		}
 		out.button(P + "view:new", Component.translatable("gui.burmaldaholic.pvp.hub.new_match"));
 		out.button(P + "view:rivals", Component.translatable("gui.burmaldaholic.pvp.hub.rivals"));
 		if (diceVisible(player)) {
@@ -336,6 +340,10 @@ public final class PvpHubPage implements CasinoMenu.Page {
 				}
 			}
 			case "mode" -> s.mode = arg.isEmpty() ? null : arg;
+			case "new" -> { // a mode card of the hub: the New match view of that game
+				s.view = "new";
+				s.mode = duelModes().stream().anyMatch(m -> m.id().equals(arg)) ? arg : null;
+			}
 			case "side" -> s.heads = !s.heads;
 			case "policy" -> s.policy = SeatPolicy.values()[(s.policy.ordinal() + 1) % SeatPolicy.values().length];
 			case "difficulty" -> s.difficulty = BotDifficulty.values()[(s.difficulty.ordinal() + 1) % BotDifficulty.values().length];

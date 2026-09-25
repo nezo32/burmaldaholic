@@ -115,11 +115,16 @@ public final class ExtrasModule implements CasinoModule {
 		ExtrasErrorPayload.TYPE = ctx.payloads().clientbound("extras_error", ExtrasErrorPayload.CODEC);
 
 		ServerTickEvents.END_SERVER_TICK.register(DiceGame::tick);
+		ServerTickEvents.END_SERVER_TICK.register(dev.nezo.burmaldaholic.games.extras.server.CoinToss::tick); // in-world toss (extras-pvp §1.3)
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, level) ->
+			dev.nezo.burmaldaholic.games.extras.server.CoinToss.onEntityLoad(entity));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			dev.nezo.burmaldaholic.games.extras.server.CoinToss.forget(handler.player.getUUID());
 			DiceGame.forget(handler.player.getUUID());
 			CoinFlipGame.forget(handler.player.getUUID());
 			ExtrasGames.forgetScreen(handler.player.getUUID());
 		});
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> dev.nezo.burmaldaholic.games.extras.server.CoinToss.clear());
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			DiceGame.clear();
 			ExtrasGames.clearScreens();

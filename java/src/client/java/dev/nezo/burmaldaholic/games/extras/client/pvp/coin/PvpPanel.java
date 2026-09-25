@@ -61,6 +61,12 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 		return top + Math.min(panelHeight, Scene.H) - 52;
 	}
 
+	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	@Override
+	protected boolean fitToScreen() {
+		return true;
+	}
+
 	@Override
 	protected void init() {
 		super.init();

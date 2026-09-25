@@ -33,6 +33,12 @@ abstract class ExtrasTableScreen extends CasinoTableScreen {
 		this.titleLabelY = -10_000;
 	}
 
+	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	@Override
+	protected boolean fitToScreen() {
+		return true;
+	}
+
 	@Override
 	protected void init() {
 		super.init();

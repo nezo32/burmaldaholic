@@ -1,15 +1,10 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
-import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
-import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
-import dev.nezo.burmaldaholic.core.anim.SeedMix;
-import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.WinTierTable;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.extras.logic.CoinFlip;
 import dev.nezo.burmaldaholic.games.extras.logic.Payouts;
@@ -39,7 +34,7 @@ import net.minecraft.util.Util;
  * <p>Hardcore Soul Wager (Stakes): the red button leads to the warning, the type-to-confirm word and the 5-second hold
  * (the server enforces it); the coin is tinted blood-red with the heat rim and the hold bar is an ember progress bar.
  */
-final class CoinFlipScreen extends SceneScreen {
+final class CoinFlipScreen extends SceneScreen implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
 	private static final Identifier SPIN = Kit.sheet("extras/coin_spin");
 	private static final Identifier GLINT = Kit.sheet("extras/coin_glint");
 	private static final Identifier HEAT = Kit.sheet("extras/coin_heat");
@@ -123,6 +118,11 @@ final class CoinFlipScreen extends SceneScreen {
 	}
 
 	@Override
+	public boolean holdsCelebration(String game) {
+		return dev.nezo.burmaldaholic.games.extras.server.ExtrasGames.COIN.equals(game) && flipping();
+	}
+
+	@Override
 	protected boolean skip() {
 		if (!flipping()) return false;
 		finishToss(true);
@@ -134,16 +134,11 @@ final class CoinFlipScreen extends SceneScreen {
 		landedDone = true;
 		skipped = viaSkip;
 		releaseBalance();
-		CompoundTag r = state().getCompoundOrEmpty("result");
 		HISTORY.add(new int[] {heads() ? 1 : 0, won() ? 1 : 0});
 		while (HISTORY.size() > 10) HISTORY.removeFirst();
-		long net = r.getLongOr("net", 0);
-		long stake = r.getLongOr("stake", 0);
-		if (won() && stake > 0 && !r.getBooleanOr("pawn", false)) {
-			long ret = stake + net;
-			WinTier tier = WinTier.of(ret, stake, WinTierTable.DEFAULT);
-			CelebrationOverlay.get().play(CelebrationRequest.core(tier, ret, stake, SeedMix.mix(SeedMix.hash("coin"), shownSeq)));
-		} else if (!won()) {
+		// the celebration is the server's (tier computed there, ExtrasGames.celebrate), held until this landing
+		dev.nezo.burmaldaholic.client.fx.ClientFx.releaseCelebration();
+		if (!won()) {
 			FxSounds.play("lose", 0.6f, 1f);
 		}
 		if (minecraft != null) rebuildWidgets();

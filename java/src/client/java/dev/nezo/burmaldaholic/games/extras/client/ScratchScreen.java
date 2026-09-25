@@ -1,7 +1,5 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
-import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
-import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.GuiParticlePool;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
@@ -9,8 +7,6 @@ import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
-import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.WinTierTable;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.extras.logic.Scratch;
 import dev.nezo.burmaldaholic.games.extras.logic.anim.ScratchMask;
@@ -39,7 +35,7 @@ import net.minecraft.util.Util;
  * sweep; three creepers blink, char the edges and close the screen for the mob wave; a loss greys the cells and folds
  * the corner. Reduce motion: cells cross-fade (150 ms), no flakes, no shake.
  */
-final class ScratchScreen extends SceneScreen {
+final class ScratchScreen extends SceneScreen implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
 	private static final Identifier TICKET_BASIC = Kit.sheet("extras/scratch_ticket_basic");
 	private static final Identifier TICKET_GOLD = Kit.sheet("extras/scratch_ticket_gold");
 	private static final int TX = 20;
@@ -135,6 +131,11 @@ final class ScratchScreen extends SceneScreen {
 		if (s.getBooleanOr("done", false) && !oldState.getBooleanOr("done", false)) {
 			holdBalance(oldState.getLongOr("balance", s.getLongOr("balance", 0)));
 		}
+	}
+
+	@Override
+	public boolean holdsCelebration(String game) {
+		return dev.nezo.burmaldaholic.games.extras.server.ExtrasGames.SCRATCH.equals(game) && state().getBooleanOr("done", false) && !celebrated;
 	}
 
 	private boolean anyStarted() {
@@ -352,9 +353,8 @@ final class ScratchScreen extends SceneScreen {
 			if (!celebrated && since >= 700) {
 				celebrated = true;
 				releaseBalance();
-				long price = s.getLongOr("buy_price", 1);
-				WinTier tier = WinTier.of(prize, Math.max(1, price), WinTierTable.DEFAULT, s.getBooleanOr("top", false), null);
-				CelebrationOverlay.get().play(CelebrationRequest.core(tier, prize, Math.max(1, price), SeedMix.hash(cardId)));
+				// the server's celebration (tier from the card's own price), held until the trio line is drawn
+				dev.nezo.burmaldaholic.client.fx.ClientFx.releaseCelebration();
 			}
 		} else if (!celebrated && since >= 300) {
 			celebrated = true;

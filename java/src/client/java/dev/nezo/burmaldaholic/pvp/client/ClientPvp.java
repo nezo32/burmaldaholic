@@ -159,7 +159,10 @@ public final class ClientPvp {
 		if (s == null || !kind.equals("match") || screen instanceof PvpResultScreen || !isPvpScreen(screen)) {
 			return;
 		}
+		// drawn after the screen's pass: in the screen's own GUI when it runs the compact layout (FitScaled)
+		boolean fit = dev.nezo.burmaldaholic.client.ui.FitScaled.push(g, screen);
 		dev.nezo.burmaldaholic.client.pvp.kit.MatchOverlay.draw(g, Minecraft.getInstance().font, screen.width, screen.height, s, REVEAL);
+		if (fit) dev.nezo.burmaldaholic.client.ui.FitScaled.pop(g);
 	}
 
 	/** Opens the taunt picker over {@code parent}. */

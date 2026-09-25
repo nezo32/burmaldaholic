@@ -139,6 +139,12 @@ public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.Cas
 		return false;
 	}
 
+	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	@Override
+	protected boolean fitToScreen() {
+		return true;
+	}
+
 	@Override
 	protected void init() {
 		super.init();

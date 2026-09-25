@@ -80,6 +80,12 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 		return bool(state, "grudge") ? Scene.PVP_GRUDGE : Scene.PVP;
 	}
 
+	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	@Override
+	protected boolean fitToScreen() {
+		return true;
+	}
+
 	@Override
 	protected void init() {
 		super.init();

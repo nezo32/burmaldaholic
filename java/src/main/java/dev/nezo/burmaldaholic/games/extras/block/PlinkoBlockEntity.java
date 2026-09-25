@@ -26,6 +26,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import dev.nezo.burmaldaholic.games.extras.logic.ExtrasTiers;
+import dev.nezo.burmaldaholic.games.extras.logic.anim.PlinkoAnim;
+import dev.nezo.burmaldaholic.games.extras.logic.anim.PlinkoSync;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.ValueInput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Plinko machine (GAME_DESIGN.md §11.4, UI.md §9). Risk Low/Medium/High, bet 1…tier max × {@code extras.plinko.maxBetFraction}
@@ -37,7 +48,12 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 	/** Until the ball lands in the screen's timeline (release, 12 rows, the fall into the bin; PlinkoAnim). */
 	public static final int DROP_TICKS = (dev.nezo.burmaldaholic.games.extras.logic.anim.PlinkoAnim.landMs(STEP_TICKS * 50) + 49) / 50;
 
-	private record Pending(UUID player, long due, Component line) {}
+	private record Pending(UUID player, long due, Component line, long stake, long ret, boolean jackpot) {}
+
+	/** Update-tag key of the in-world drop ({@link PlinkoSync}). */
+	public static final String SYNC_KEY = "extras_plinko";
+	/** The last published drop (client: from the update tag), or {@code null} before the first drop. */
+	private @Nullable PlinkoSync sync;
 
 	private final Map<UUID, CompoundTag> lastDrop = new HashMap<>();
 	private final Map<UUID, Long> busyUntil = new HashMap<>();
@@ -130,9 +146,73 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		t.putLong("stake", bet); // the celebration's tier base (extras-pvp.md §0.4)
 		lastDrop.put(player.getUUID(), t);
 		busyUntil.put(player.getUUID(), now + DROP_TICKS);
+		boolean jackpot = ExtrasTiers.plinkoJackpot(risk, drop.bin(), table.length);
 		pending.add(new Pending(player.getUUID(), now + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
-			Texts.decimal(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net))));
+			Texts.decimal(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net)), bet, ret, jackpot));
+		publish(new PlinkoSync(seq, now, Plinko.encode(drop.path()), STEP_TICKS, PlinkoAnim.tier(drop.multiplier()), jackpot));
 		syncViewers();
+	}
+
+	/** Sends the drop to every nearby client's machine renderer (extras-pvp.md §5.4): once, at the release. */
+	private void publish(PlinkoSync s) {
+		sync = s;
+		setChanged();
+		if (level instanceof ServerLevel serverLevel) {
+			BlockState st = getBlockState();
+			serverLevel.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
+		}
+	}
+
+	/** The last published drop, or {@code null} (client: the in-world renderer reads it). */
+	public @Nullable PlinkoSync plinkoSync() {
+		return sync;
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		if (sync != null) {
+			t.putIntArray(SYNC_KEY, sync.encode());
+		}
+		return t;
+	}
+
+	@Override
+	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
+	}
+
+	@Override
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		if (level != null && level.isClientSide()) {
+			sync = input.getIntArray(SYNC_KEY).map(PlinkoBlockEntity::decode).orElse(sync);
+		}
+	}
+
+	private static @Nullable PlinkoSync decode(int[] data) {
+		try {
+			return PlinkoSync.decode(data);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
+	/** The ball lands (the screen's landing): world particles for everyone around (vanilla), the celebration. */
+	private void land(ServerLevel level, Pending p, @Nullable ServerPlayer player) {
+		double x = worldPosition.getX() + 0.5;
+		double y = worldPosition.getY() + 1.1;
+		double z = worldPosition.getZ() + 0.5;
+		if (p.jackpot()) {
+			level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, x, y, z, 20, 0.3, 0.4, 0.3, 0.3);
+			level.playSound(null, x, y, z, net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_TWINKLE, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1f);
+		} else if (p.stake() > 0 && dev.nezo.burmaldaholic.core.anim.WinTier.of(p.ret(), p.stake(), dev.nezo.burmaldaholic.core.anim.WinTierTable.DEFAULT)
+			.ordinal() >= dev.nezo.burmaldaholic.core.anim.WinTier.MEGA.ordinal()) {
+			level.sendParticles(ParticleTypes.END_ROD, x, y, z, 10, 0.2, 0.3, 0.2, 0.05);
+		}
+		if (player != null) {
+			ExtrasGames.celebrate(player, gameId(), p.stake(), p.ret(), p.jackpot(), true);
+		}
 	}
 
 	@Override
@@ -145,6 +225,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 			if (p.due() <= now) {
 				pending.remove(p);
 				ServerPlayer player = level.getServer().getPlayerList().getPlayer(p.player());
+				land(level, p, player);
 				if (player != null) {
 					player.sendSystemMessage(p.line());
 				}

@@ -3,7 +3,16 @@ package dev.nezo.burmaldaholic.gametest.extras;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
+import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
+import dev.nezo.burmaldaholic.client.ui.FitScaled;
+import dev.nezo.burmaldaholic.core.menu.CasinoMenu;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlock;
+import dev.nezo.burmaldaholic.games.extras.block.PlinkoBlockEntity;
+import dev.nezo.burmaldaholic.games.extras.block.WheelBlockEntity;
+import net.minecraft.client.CameraType;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableType;
@@ -52,6 +61,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 12250");
 			world.getServer().runOnServer(server -> CasinoConfig.chaos().enabled = false);
+			inWorld(context, world);
 			for (String lang : List.of("en_us", "ru_ru")) {
 				language(context, lang);
 				coin(context, world, lang);
@@ -59,9 +69,12 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 				plinko(context, world, lang);
 				scratch(context, world, lang, false);
 				pvp(context, lang);
+				hub(context, world, lang);
+				compact(context, world, lang);
 			}
 			language(context, "en_us");
 			scratch(context, world, "en_us_gold", true);
+			compactGrudge(context); // the themed variant at a small GUI: the grudge arena
 		} finally {
 			write(context);
 			language(context, "en_us");
@@ -162,6 +175,187 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 			double y = py + 66 + (cell / 3) * 48 + dy;
 			return new double[] {x * scale, y * scale};
 		});
+	}
+
+	// ---- in-world spectator animations (lane J-L7 finish) ---------------------------------------------------------------
+
+	/**
+	 * The machines as a spectator sees them: a wheel and a Plinko machine facing the player (third person), a spin, a drop
+	 * and a coin flip at the same tick: mid-flight (the coin still edge-on, the ball on the face, the wheel turning), the
+	 * coin's face after its landing, the wheel stopped on its segment with the Plinko lamp lit.
+	 */
+	private void inWorld(ClientGameTestContext context, TestSingleplayerContext world) {
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(2);
+		BlockPos[] at = new BlockPos[2];
+		world.getServer().runOnServer(server -> {
+			ServerPlayer p = player(server);
+			p.closeContainer();
+			BlockPos base = p.blockPosition();
+			at[0] = base.offset(4, 0, -2);
+			at[1] = base.offset(4, 0, 1);
+			server.overworld().setBlockAndUpdate(at[0], ExtrasModule.WHEEL.block().defaultBlockState()
+				.setValue(CasinoTableBlock.FACING, Direction.WEST));
+			server.overworld().setBlockAndUpdate(at[1], ExtrasModule.PLINKO.block().defaultBlockState()
+				.setValue(CasinoTableBlock.FACING, Direction.WEST));
+		});
+		context.runOnClient(mc -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			if (mc.player != null) {
+				mc.player.setYRot(-90f);
+				mc.player.setXRot(4f);
+			}
+		});
+		context.waitTicks(20);
+		shot(context, "inworld_idle");
+		world.getServer().runOnServer(server -> {
+			action(server, at[0], "spin", chips(50));
+			CompoundTag drop = chips(20);
+			drop.putString("risk", "high");
+			action(server, at[1], "drop", drop);
+			CompoundTag flip = chips(10);
+			flip.putString("side", "heads");
+			CoinFlipGame.action(player(server), "flip", flip);
+		});
+		context.waitTicks(9);
+		shot(context, "inworld_flight");
+		context.waitTicks(15);
+		shot(context, "inworld_coin_face");
+		context.runOnClient(mc -> CelebrationOverlay.get().clear());
+		context.waitTicks(58);
+		shot(context, "inworld_stop");
+		boolean[] synced = context.computeOnClient(mc -> new boolean[] {
+			mc.level.getBlockEntity(at[0]) instanceof WheelBlockEntity w && w.wheelSync() != null,
+			mc.level.getBlockEntity(at[1]) instanceof PlinkoBlockEntity pl && pl.plinkoSync() != null});
+		if (!synced[0] || !synced[1]) report.add("in-world sync missing on the client: wheel " + synced[0] + ", plinko " + synced[1]);
+		context.runOnClient(mc -> {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			CelebrationOverlay.get().clear();
+		});
+		world.getServer().runOnServer(server -> {
+			server.overworld().removeBlock(at[0], false);
+			server.overworld().removeBlock(at[1], false);
+		});
+		context.waitTicks(5);
+	}
+
+	// ---- the PvP hub page of the Casino Menu (extras.md §7.2) ----------------------------------------------------------------
+
+	private void hub(ClientGameTestContext context, TestSingleplayerContext world, String lang) {
+		open(context, world, server -> CasinoMenu.open(player(server), "challenges"));
+		context.waitTicks(10);
+		shot(context, lang + "_hub_live");
+		// a busy hub: a record, the nemesis, an invite, three open lobbies (one with its own stake), every create card
+		context.runOnClient(mc -> ClientCasinoMenu.setPageForTests("challenges", hubLines(), hubButtons()));
+		context.waitTicks(12);
+		shot(context, lang + "_hub");
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(2);
+	}
+
+	private static Component t(String key, Object... args) {
+		return Component.translatable(key, args);
+	}
+
+	private static Component lit(String s) {
+		return Component.literal(s);
+	}
+
+	private static List<ClientCasinoMenu.Line> hubLines() {
+		List<ClientCasinoMenu.Line> l = new ArrayList<>();
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.title"), 0xFFD700));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.record", lit("12"), lit("7"), lit("+1,450")), 0xFFFFFF));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.nemesis", lit("Notch"), lit("2"), lit("5")), 0xFF8888));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.pending"), 0xFFD700));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.invite.body", lit("Alex"), t("gui.burmaldaholic.pvp.game.coin"), lit("250")), 0xFFFFFF));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.nearby", lit("3")), 0xFFD700));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.lobby_row", t("gui.burmaldaholic.pvp.game.scratch"), lit("Notch"), lit("2"), lit("6")),
+			0xFFFFFF));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.lobby_row", t("gui.burmaldaholic.pvp.game.plinko"),
+			t("block.burmaldaholic.plinko_machine"), lit("3"), lit("6")), 0xFFFFFF));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.lobby_row", t("gui.burmaldaholic.pvp.game.wheel"),
+			t("block.burmaldaholic.wheel_of_fortune"), lit("4"), lit("8")), 0xFFFFFF));
+		l.add(new ClientCasinoMenu.Line(Component.empty(), 0xFFFFFF));
+		l.add(new ClientCasinoMenu.Line(t("gui.burmaldaholic.pvp.hub.machine_hint"), 0xAAAAAA));
+		return l;
+	}
+
+	private static List<ClientCasinoMenu.Button> hubButtons() {
+		List<ClientCasinoMenu.Button> b = new ArrayList<>();
+		b.add(new ClientCasinoMenu.Button("p:accept:m1", t("gui.burmaldaholic.pvp.hub.accept", lit("Alex"), t("gui.burmaldaholic.pvp.game.coin")), true,
+			false, 0));
+		b.add(new ClientCasinoMenu.Button("p:decline:m1", t("gui.burmaldaholic.pvp.hub.decline", lit("Alex")), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:join:m2", t("gui.burmaldaholic.pvp.lobby.join", lit("200")), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:join:m3", t("gui.burmaldaholic.pvp.lobby.join", lit("100")), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:join:m4", t("gui.burmaldaholic.pvp.hub.join"), true, true, 10));
+		b.add(new ClientCasinoMenu.Button("p:new:coin", t("gui.burmaldaholic.pvp.game.coin"), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:new:scratch", t("gui.burmaldaholic.pvp.game.scratch"), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:view:new", t("gui.burmaldaholic.pvp.hub.new_match"), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:view:rivals", t("gui.burmaldaholic.pvp.hub.rivals"), true, false, 0));
+		b.add(new ClientCasinoMenu.Button("p:invites", t("gui.burmaldaholic.pvp.toggle", t("gui.burmaldaholic.pvp.settings.invites"),
+			t("gui.burmaldaholic.common.on")), true, false, 0));
+		return b;
+	}
+
+	// ---- compact layout (GUI scale 3–4: the full scene at a lower whole scale, nothing overlaps or clips) ----------------
+
+	private void guiScale(ClientGameTestContext context, int scale) {
+		context.runOnClient(mc -> {
+			mc.options.guiScale().set(scale);
+			mc.resizeDisplay();
+		});
+		context.waitTicks(5);
+	}
+
+	private void compact(ClientGameTestContext context, TestSingleplayerContext world, String lang) {
+		int before = context.computeOnClient(mc -> mc.options.guiScale().get());
+		try {
+			guiScale(context, 4);
+			open(context, world, server -> CoinFlipGame.open(player(server)));
+			fit(context, lang + "_compact_coin");
+			table(context, world, ExtrasModule.WHEEL);
+			fit(context, lang + "_compact_wheel");
+			table(context, world, ExtrasModule.PLINKO);
+			fit(context, lang + "_compact_plinko");
+			payload(context, "match", scratchMatch(false), 30);
+			fit(context, lang + "_compact_pvp_scratch");
+			payload(context, "result", result(), 60);
+			fit(context, lang + "_compact_pvp_result");
+			payload(context, "lobby", lobby(), 20);
+			fit(context, lang + "_compact_pvp_lobby");
+			guiScale(context, 3);
+			payload(context, "match", plinkoMatch(), 22);
+			fit(context, lang + "_compact3_pvp_plinko");
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+		} finally {
+			guiScale(context, before);
+		}
+	}
+
+	private void compactGrudge(ClientGameTestContext context) {
+		int before = context.computeOnClient(mc -> mc.options.guiScale().get());
+		try {
+			guiScale(context, 4);
+			payload(context, "match", scratchMatch(true), 25);
+			fit(context, "en_us_compact_pvp_grudge_reveal");
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+		} finally {
+			guiScale(context, before);
+		}
+	}
+
+	/** A compact screenshot plus the fit check: drawn below its GUI scale, the full panel inside the screen's GUI. */
+	private void fit(ClientGameTestContext context, String name) {
+		shot(context, name);
+		String problem = context.computeOnClient(mc -> {
+			Screen s = mc.gui.screen();
+			if (!(s instanceof FitScaled f)) return "not a fit screen: " + (s == null ? "none" : s.getClass().getSimpleName());
+			if (mc.getWindow().getGuiScaledWidth() >= 408 && mc.getWindow().getGuiScaledHeight() >= 240) return null;
+			if (f.fitScale() >= 1f) return "not scaled down at GUI " + mc.getWindow().getGuiScaledWidth() + "x" + mc.getWindow().getGuiScaledHeight();
+			if (s.width < 400 || s.height < 240) return "the full panel does not fit: " + s.width + "x" + s.height;
+			return null;
+		});
+		if (problem != null) report.add(name + ": " + problem);
 	}
 
 	// ---- pvp -------------------------------------------------------------------------------------------------------

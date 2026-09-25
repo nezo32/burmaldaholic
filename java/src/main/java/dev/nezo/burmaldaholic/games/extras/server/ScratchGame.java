@@ -341,5 +341,7 @@ public final class ScratchGame {
 			CasinoAdvancements.grant(player, "scratch_top");
 		}
 		ExtrasGames.send(player, SCREEN, false, state(player, kind, card));
+		// the tier from the card's own price (the screen holds the overlay until its end emphasis)
+		ExtrasGames.celebrate(player, ExtrasGames.SCRATCH, price, prize, top && prize > 0, true);
 	}
 }

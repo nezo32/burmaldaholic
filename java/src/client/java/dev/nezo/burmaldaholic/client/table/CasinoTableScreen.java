@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
  * {@link #mySeat()}, {@link #seatNames()}, {@link #timerSeconds}), and {@link #button} which sizes
  * buttons to their (translated, possibly Russian) label as UI.md §0.1 requires.
  */
-public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTableMenu> {
+public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTableMenu> implements dev.nezo.burmaldaholic.client.ui.FitScaled {
 	protected static final int FELT = 0xFF1E5E3A;
 	protected static final int FELT_BORDER = 0xFF0E2E1C;
 	protected static final int TEXT = 0xFFFFFFFF;
@@ -43,8 +43,22 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 		this.inventoryLabelY = -10_000; // slot-less menus: hide the "Inventory" label
 	}
 
+	/** Opt in to the compact layout ({@link dev.nezo.burmaldaholic.client.ui.FitScaled}; the extras machines). Default false. */
+	protected boolean fitToScreen() {
+		return false;
+	}
+
+	private float fit = 1f;
+	private final int[] fitMemo = {-1, -1, -1, -1};
+
+	@Override
+	public float fitScale() {
+		return fit;
+	}
+
 	@Override
 	protected void init() {
+		fit = dev.nezo.burmaldaholic.client.ui.FitScaled.apply(this, fitToScreen(), imageWidth + 8, imageHeight, fitMemo);
 		super.init();
 		if (entrance == null) {
 			entrance = dev.nezo.burmaldaholic.client.ui.ScreenEntrance.install(this, this::entranceRect);

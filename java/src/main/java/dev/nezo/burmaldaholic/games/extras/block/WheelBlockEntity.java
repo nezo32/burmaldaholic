@@ -28,6 +28,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import dev.nezo.burmaldaholic.games.extras.logic.anim.WheelSync;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.ValueInput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wheel of Fortune machine (GAME_DESIGN.md §11.2, UI.md §9). Single bet 1…tier max × {@code extras.wheel.maxBetFraction};
@@ -39,7 +48,12 @@ import net.minecraft.world.level.block.state.BlockState;
 public class WheelBlockEntity extends CasinoTableBlockEntity {
 	public static final int SPIN_TICKS = 80;
 
-	private record Pending(UUID player, long due, Component line, boolean creeper) {}
+	private record Pending(UUID player, long due, Component line, boolean creeper, long stake, long ret, boolean chips) {}
+
+	/** Update-tag key of the in-world spin ({@link WheelSync}). */
+	public static final String SYNC_KEY = "extras_wheel";
+	/** The last published spin (client: from the update tag), or {@code null} before the first spin. */
+	private @Nullable WheelSync sync;
 
 	private final Map<UUID, CompoundTag> lastSpin = new HashMap<>();
 	private final Map<UUID, Long> busyUntil = new HashMap<>();
@@ -139,8 +153,79 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		lastSpin.put(player.getUUID(), t);
 		busyUntil.put(player.getUUID(), now + SPIN_TICKS);
 		Component segment = Component.translatable(Wheel.segmentKey(spin.code()));
-		pending.add(new Pending(player.getUUID(), now + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)), spin.creeper()));
+		pending.add(new Pending(player.getUUID(), now + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)),
+			spin.creeper(), value, ret, pawn == null));
+		publish(new WheelSync(seq, now, spin.index(), sync == null ? -1 : sync.index(), sync == null ? -1 : sync.seq(), SPIN_TICKS,
+			String.join("", wheel.segments())));
 		syncViewers();
+	}
+
+	/** Sends the spin to every nearby client's wheel renderer (extras-pvp.md §3.4): once, at the start. */
+	private void publish(WheelSync s) {
+		sync = s;
+		setChanged();
+		if (level instanceof ServerLevel serverLevel) {
+			BlockState st = getBlockState();
+			serverLevel.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
+		}
+	}
+
+	/** The last published spin, or {@code null} (client: the in-world renderer reads it). */
+	public @Nullable WheelSync wheelSync() {
+		return sync;
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		if (sync != null) {
+			t.putIntArray(SYNC_KEY, sync.encode());
+		}
+		return t;
+	}
+
+	@Override
+	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
+	}
+
+	@Override
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		if (level != null && level.isClientSide()) {
+			sync = input.getIntArray(SYNC_KEY).map(WheelBlockEntity::decode).orElse(sync);
+		}
+	}
+
+	private static @Nullable WheelSync decode(int[] data) {
+		try {
+			return WheelSync.decode(data);
+		} catch (IllegalArgumentException e) {
+			return null; // another format: the wheel just shows its rest until the next spin
+		}
+	}
+
+	/** The wheel stops (the screen's stop beat): world sound and particles for everyone around, the celebration. */
+	private void stop(ServerLevel level, Pending p, @Nullable ServerPlayer player) {
+		double x = worldPosition.getX() + 0.5;
+		double y = worldPosition.getY() + 2.05;
+		double z = worldPosition.getZ() + 0.5;
+		boolean win = p.ret() > p.stake();
+		net.minecraft.sounds.SoundEvent stop = dev.nezo.burmaldaholic.core.sound.CasinoSounds.get(p.creeper() || !win ? "lose" : "wheel_stop");
+		if (stop != null) {
+			level.playSound(player, x, y, z, stop, net.minecraft.sounds.SoundSource.BLOCKS, win ? 0.8f : 0.4f, 1f);
+		}
+		if (p.creeper()) {
+			level.sendParticles(ParticleTypes.SMOKE, x, y, z, 10, 0.4, 0.4, 0.1, 0.02);
+		} else if (win) {
+			for (int i = 0; i < 8; i++) { // a ring of 8 around the disc (vanilla particles: every client sees them)
+				double a = Math.PI * 2 * i / 8;
+				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x + Math.cos(a) * 1.2, y + Math.sin(a) * 1.2, z, 1, 0, 0, 0, 0);
+			}
+		}
+		if (player != null) {
+			ExtrasGames.celebrate(player, gameId(), p.stake(), p.ret(), false, p.chips());
+		}
 	}
 
 	@Override
@@ -155,6 +240,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 			}
 			pending.remove(p);
 			ServerPlayer player = level.getServer().getPlayerList().getPlayer(p.player());
+			stop(level, p, player);
 			if (player == null) {
 				continue;
 			}
