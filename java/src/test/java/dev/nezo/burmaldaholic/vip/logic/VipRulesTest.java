@@ -94,4 +94,14 @@ class VipRulesTest {
 		assertEquals("vip_silver", VipRules.advancementId(1));
 		assertEquals("vip_netherite", VipRules.advancementId(5));
 	}
+
+	@Test
+	void biggestWinIsTheLargestNetWinOnly() {
+		assertEquals(0, VipRules.biggestWin(0, 100, 0), "a loss never counts");
+		assertEquals(0, VipRules.biggestWin(0, 100, 100), "a push never counts");
+		assertEquals(150, VipRules.biggestWin(0, 100, 250));
+		assertEquals(150, VipRules.biggestWin(150, 100, 200), "a smaller win keeps the record");
+		assertEquals(4_900, VipRules.biggestWin(150, 100, 5_000));
+		assertEquals(150, VipRules.biggestWin(150, -5, 100), "a negative bet is treated as 0");
+	}
 }

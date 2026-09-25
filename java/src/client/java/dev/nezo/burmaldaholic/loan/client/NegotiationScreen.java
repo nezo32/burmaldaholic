@@ -7,7 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
+import dev.nezo.burmaldaholic.client.ui.CasinoButton;
+import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
+import dev.nezo.burmaldaholic.client.ui.CasinoUi;
+import dev.nezo.burmaldaholic.client.ui.ScreenEntrance;
+import dev.nezo.burmaldaholic.core.ui.UiLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -26,6 +31,7 @@ final class NegotiationScreen extends Screen {
 	private int left;
 	private int top;
 	private int panelW;
+	private ScreenEntrance entrance;
 	private int panelH;
 	private int textY;
 	private int timerY;
@@ -39,6 +45,7 @@ final class NegotiationScreen extends Screen {
 
 	@Override
 	protected void init() {
+		if (entrance == null) entrance = ScreenEntrance.install(this, () -> new UiLayout.Rect(left, top, panelW, panelH));
 		panelW = Math.min(300, width - 16);
 		left = (width - panelW) / 2;
 		int inner = panelW - 2 * PAD;
@@ -85,7 +92,8 @@ final class NegotiationScreen extends Screen {
 				by += 24;
 			}
 			String action = actions.get(i);
-			addRenderableWidget(Button.builder(l, b -> answer(action)).bounds(bx, by, w, 20).build());
+			addRenderableWidget(new CasinoButton(bx, by, w, 20, l, "pay_all".equals(action) ? CasinoButton.Style.PRIMARY
+				: "refuse".equals(action) ? CasinoButton.Style.DANGER : CasinoButton.Style.SECONDARY, b -> answer(action)));
 			bx += w + 4;
 		}
 	}
@@ -119,8 +127,11 @@ final class NegotiationScreen extends Screen {
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
-		graphics.fill(left - 1, top - 1, left + panelW + 1, top + panelH + 1, 0xFF8B1A1A);
-		graphics.fill(left, top, left + panelW, top + panelH, 0xF0201414);
+		// J-L2 kit: the Loan Shark's steel dossier (extras.md §8.4)
+		UiLayout.Rect r = new UiLayout.Rect(left - 6, top - 6, panelW + 12, panelH + 12);
+		CasinoUi.backdrop(graphics, CasinoTheme.LOAN, r);
+		CasinoUi.sprite(graphics, dev.nezo.burmaldaholic.client.ui.UiSprites.PAGE_LOAN, left, top, panelW, panelH, 0xF00E1A1E, CasinoPalette.CHIP_RED_DARK);
+		CasinoUi.frame(graphics, CasinoTheme.LOAN, r);
 	}
 
 	@Override

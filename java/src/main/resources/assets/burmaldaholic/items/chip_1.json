@@ -1,6 +1,34 @@
 {
   "model": {
-    "type": "minecraft:model",
-    "model": "burmaldaholic:item/core/chip_1"
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:count",
+    "normalize": false,
+    "entries": [
+      {
+        "threshold": 2,
+        "model": {
+          "type": "minecraft:model",
+          "model": "burmaldaholic:item/core/chip_1_few"
+        }
+      },
+      {
+        "threshold": 8,
+        "model": {
+          "type": "minecraft:model",
+          "model": "burmaldaholic:item/core/chip_1_stack"
+        }
+      },
+      {
+        "threshold": 32,
+        "model": {
+          "type": "minecraft:model",
+          "model": "burmaldaholic:item/core/chip_1_tower"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "burmaldaholic:item/core/chip_1"
+    }
   }
 }

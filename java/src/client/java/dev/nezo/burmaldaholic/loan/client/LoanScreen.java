@@ -1,54 +1,59 @@
 package dev.nezo.burmaldaholic.loan.client;
 
+import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
+import dev.nezo.burmaldaholic.client.fx.FxSettings;
+import dev.nezo.burmaldaholic.client.fx.FxText;
+import dev.nezo.burmaldaholic.client.ui.CasinoButton;
+import dev.nezo.burmaldaholic.client.ui.CasinoScreen;
+import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
+import dev.nezo.burmaldaholic.client.ui.CasinoUi;
+import dev.nezo.burmaldaholic.client.ui.UiSprites;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.ui.LedgerLayout;
+import dev.nezo.burmaldaholic.core.ui.LoanLook;
+import dev.nezo.burmaldaholic.core.ui.UiLayout;
+import dev.nezo.burmaldaholic.loan.LoanTexts;
 import dev.nezo.burmaldaholic.loan.net.LoanActionPayload;
 import dev.nezo.burmaldaholic.loan.net.LoanUiPayload;
-import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Loan Shark screen (UI.md §10): portrait, greeting, status, the product table (amount, interest, due,
- * deadline; locked rows show the VIP tier needed), Take loan → confirmation, and Pay / Pay all when a
- * loan exists. Server-driven: renders {@link LoanUiPayload} state, sends {@link LoanActionPayload}.
- * Every text is wrapped / measured at runtime so Russian labels never get cut.
+ * Loan Shark screen (UI.md §10) in the Loan Shark's dark look (docs/design/visual/extras.md §8.4, mockup
+ * {@code extras_menu_loan.png}; lane J-L2): the gunmetal dossier on the night harbour, the shark portrait (72²; the
+ * Piglin moneylender is rendered from its entity) with a cheeky bubble, the debt meter with the skull, the active
+ * contract on parchment with the OVERDUE stamp, the loan products as offer cards (locked ones chained, with the VIP
+ * tier needed), <i>Pay all</i> as a danger button, an amount field + <i>Pay</i>, <i>Close</i>. Taking a loan asks for a
+ * signature on the parchment first. Server-driven: renders {@link LoanUiPayload} state, sends {@link LoanActionPayload}.
+ * Motion: the shared entrance; the portrait slides in from the left (250 ms {@code outCubic}); reduce motion: static.
  */
-final class LoanScreen extends Screen {
-	private static final int PAD = 8;
-	private static final int PANEL = 0xF0202028;
-	private static final int BORDER = 0xFFB8912E;
-	private static final int TEXT = 0xFFE8E8E8;
-	private static final int GOLD = 0xFFFFD35A;
-	private static final int GRAY = 0xFFA0A0A0;
-	private static final int ERROR = 0xFFFF6060;
-	private static final int OK = 0xFF7CFC7C;
-	private static final int PORTRAIT = 56;
+final class LoanScreen extends CasinoScreen {
+	private static final int BONE = CasinoPalette.BONE;
+	private static final int RED = CasinoPalette.CHIP_RED_LIGHT;
+	private static final int PAGE_Y = 28;
+	private static final int COL_W = 128;
 
 	private CompoundTag state;
 	private int confirmIndex = -1;
 	private @Nullable EditBox amount;
 	private String amountText = "";
-	private final List<TextLine> lines = new ArrayList<>();
-	private int left;
-	private int top;
-	private int panelW;
-	private int panelH;
-
-	private record TextLine(int x, int y, FormattedCharSequence text, int color) {}
 
 	LoanScreen(CompoundTag state) {
 		super(Component.translatable("gui.burmaldaholic.loan.title"));
@@ -57,202 +62,117 @@ final class LoanScreen extends Screen {
 
 	void accept(CompoundTag newState) {
 		this.state = newState;
-		if (!newState.getBooleanOr("can_take", false)) {
-			confirmIndex = -1;
-		}
+		if (!newState.getBooleanOr("can_take", false)) confirmIndex = -1;
 		if (newState.contains("message") && !newState.getBooleanOr("error", false)) {
 			confirmIndex = -1; // loan taken / paid: back to the overview
 			amountText = "";
 		}
-		if (minecraft != null) {
-			rebuildWidgets();
-		}
+		Component msg = component("message");
+		if (msg != null && newState.getBooleanOr("error", false)) showError(msg);
+		if (minecraft != null) rebuildWidgets();
 	}
 
 	@Override
-	protected void init() {
-		panelW = Math.min(340, width - 16);
-		int h = layout(0, false);
-		panelH = h;
-		left = (width - panelW) / 2;
-		top = Math.max(4, (height - panelH) / 2);
-		layout(top, true);
+	protected CasinoTheme theme() {
+		return CasinoTheme.LOAN;
+	}
+
+	@Override
+	protected boolean showBanner() {
+		return false;
+	}
+
+	@Override
+	protected boolean showBalance() {
+		return false;
 	}
 
 	private boolean piglin() {
 		return state.getBooleanOr("piglin", false);
 	}
 
-	private @Nullable LivingEntity portrait() {
-		if (minecraft == null || minecraft.level == null) {
-			return null;
-		}
-		Entity e = minecraft.level.getEntity(state.getIntOr("entity", -1));
-		return e instanceof LivingEntity living ? living : null;
+	private long owed() {
+		return state.getLongOr("owed", 0);
 	}
 
-	/** Lays out text and widgets from y = {@code y0}; returns the panel height. */
-	private int layout(int y0, boolean create) {
-		if (create) {
-			if (amount != null) {
-				amountText = amount.getValue();
-			}
-			amount = null;
-			lines.clear();
-		}
-		int x0 = left + PAD;
-		int inner = panelW - 2 * PAD;
-		int y = y0 + PAD;
-		// header: name + balance
-		Component name = Component.translatable(piglin() ? "entity.burmaldaholic.piglin_moneylender" : "gui.burmaldaholic.loan.title");
-		Component balance = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(state.getLongOr("balance", 0)));
-		if (create) {
-			lines.add(new TextLine(x0, y, name.getVisualOrderText(), GOLD));
-			lines.add(new TextLine(left + panelW - PAD - font.width(balance), y, balance.getVisualOrderText(), TEXT));
-		}
-		y += 14;
-		int portraitW = portrait() != null ? PORTRAIT + 6 : 0;
-		int tx = x0 + portraitW;
-		int tw = inner - portraitW;
-		int textTop = y;
-		y = text(tx, y, tw, component("greeting"), GOLD, create);
-		y += 4;
-		y = text(tx, y, tw, component("status_line"), TEXT, create);
-		if (portraitW > 0) {
-			y = Math.max(y, textTop + PORTRAIT + 4);
-		}
-		y += 6;
-
-		boolean canTake = state.getBooleanOr("can_take", false);
-		ListTag products = state.getListOrEmpty("products");
-		if (confirmIndex >= 0 && canTake && confirmIndex < products.size()) {
-			CompoundTag p = products.getCompoundOrEmpty(confirmIndex);
-			y = text(x0, y, inner, Component.translatable("gui.burmaldaholic.loan.confirm_title").withStyle(ChatFormatting.BOLD), GOLD, create);
-			y += 2;
-			y = text(x0, y, inner, Component.translatable("gui.burmaldaholic.loan.confirm", Texts.chipsAcc(p.getLongOr("principal", 0)),
-				Texts.chipsAcc(p.getLongOr("due", 0)), Texts.plural("unit.burmaldaholic.day", p.getIntOr("days", 0))), TEXT, create);
-			y += 6;
-			int index = confirmIndex;
-			int bx = x0;
-			bx = button(bx, y, Component.translatable("gui.burmaldaholic.loan.sign"), b -> send("take", index, 0), true, create);
-			button(bx + 4, y, Component.translatable("gui.burmaldaholic.common.cancel"), b -> {
-				confirmIndex = -1;
-				rebuildWidgets();
-			}, true, create);
-			y += 24;
-		} else if (canTake) {
-			y = text(x0, y, inner, Component.translatable("gui.burmaldaholic.loan.interest", Texts.raw(state.getStringOr("rate", "0"))), TEXT, create);
-			Component gs = component("good_standing");
-			if (gs != null) {
-				y = text(x0, y, inner, gs, OK, create);
-			}
-			y += 4;
-			Component take = Component.translatable("gui.burmaldaholic.loan.take");
-			int bw = Math.max(60, font.width(take) + 10);
-			for (int i = 0; i < products.size(); i++) {
-				CompoundTag p = products.getCompoundOrEmpty(i);
-				boolean locked = p.getBooleanOr("locked", false);
-				int rowTop = y;
-				int rw = inner - bw - 6;
-				y = text(x0, y, rw, Component.translatable("gui.burmaldaholic.loan.product." + p.getStringOr("id", "pocket")).withStyle(ChatFormatting.BOLD),
-					locked ? GRAY : GOLD, create);
-				Component offer = locked
-					? Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(p.getIntOr("min_tier", 0)))
-					: Component.translatable("gui.burmaldaholic.loan.offer", Texts.chipsAcc(p.getLongOr("principal", 0)), Texts.chipsAcc(p.getLongOr("due", 0)),
-						Texts.plural("unit.burmaldaholic.day", p.getIntOr("days", 0)));
-				y = text(x0, y, rw, offer, locked ? GRAY : TEXT, create);
-				int index = p.getIntOr("index", i);
-				if (create) {
-					Button b = addRenderableWidget(Button.builder(take, btn -> {
-						confirmIndex = index;
-						rebuildWidgets();
-					}).bounds(left + panelW - PAD - bw, rowTop, bw, 20).build());
-					b.active = !locked;
-				}
-				y = Math.max(y, rowTop + 20) + 4;
-			}
-			int locked = state.getIntOr("locked", 0);
-			if (locked > 0) {
-				y = text(x0, y, inner, Component.translatable("gui.burmaldaholic.loan.locked_count", Texts.number(locked)), GRAY, create);
-				Component refuse = component("refuse_line");
-				if (refuse != null) {
-					y = text(x0, y, inner, refuse, GRAY, create);
-				}
-			}
-		} else if (state.getLongOr("owed", 0) > 0) {
-			long owed = state.getLongOr("owed", 0);
-			y = text(x0, y, inner, Component.translatable("gui.burmaldaholic.loan.pay_amount"), TEXT, create);
-			y += 2;
-			int bx = x0;
-			if (create) {
-				amount = new EditBox(font, bx, y, 80, 20, Component.translatable("gui.burmaldaholic.loan.pay_amount"));
-				amount.setMaxLength(12);
-				amount.setResponder(v -> {
-					if (!v.chars().allMatch(Character::isDigit)) {
-						amount.setValue(v.replaceAll("\\D", ""));
-					}
-				});
-				amount.setHint(Component.translatable("gui.burmaldaholic.common.amount"));
-				amount.setValue(amountText);
-				addRenderableWidget(amount);
-			}
-			bx += 84;
-			bx = flowButton(x0, bx, y, Component.translatable("gui.burmaldaholic.loan.pay"), b -> pay(), create);
-			int[] pos = flow(x0, bx + 4, y, Component.translatable("gui.burmaldaholic.loan.pay_all", Texts.chips(owed)));
-			y = pos[1];
-			button(pos[0], y, Component.translatable("gui.burmaldaholic.loan.pay_all", Texts.chips(owed)), b -> send("pay_all", 0, 0), true, create);
-			y += 24;
-		}
-		Component msg = component("message");
-		if (msg != null) {
-			y += 2;
-			y = text(x0, y, inner, msg, state.getBooleanOr("error", false) ? ERROR : OK, create);
-		}
-		y += 4;
-		button(left + panelW - PAD - Math.max(60, font.width(Component.translatable("gui.burmaldaholic.common.close")) + 10), y,
-			Component.translatable("gui.burmaldaholic.common.close"), b -> onClose(), true, create);
-		y += 20 + PAD;
-		return y - y0;
-	}
-
-	/** Where a button of this label goes: same row if it fits, else the next row. */
-	private int[] flow(int rowStart, int x, int y, Component label) {
-		int w = Math.max(40, font.width(label) + 10);
-		if (x + w > left + panelW - PAD) {
-			return new int[] {rowStart, y + 24};
-		}
-		return new int[] {x, y};
-	}
-
-	private int flowButton(int rowStart, int x, int y, Component label, Button.OnPress onPress, boolean create) {
-		int[] pos = flow(rowStart, x, y, label);
-		return button(pos[0], pos[1], label, onPress, true, create);
-	}
-
-	private int button(int x, int y, Component label, Button.OnPress onPress, boolean active, boolean create) {
-		int w = Math.max(40, font.width(label) + 10);
-		if (create) {
-			Button b = addRenderableWidget(Button.builder(label, onPress).bounds(x, y, w, 20).build());
-			b.active = active;
-		}
-		return x + w;
-	}
-
-	private int text(int x, int y, int w, @Nullable Component c, int color, boolean create) {
-		if (c == null) {
-			return y;
-		}
-		for (FormattedCharSequence line : font.split(c, Math.max(40, w))) {
-			if (create) {
-				lines.add(new TextLine(x, y, line, color));
-			}
-			y += 10;
-		}
-		return y;
+	private String status() {
+		return state.getStringOr("status", "none");
 	}
 
 	private @Nullable Component component(String key) {
 		return LoanClientModule.readComponent(state, key);
+	}
+
+	private @Nullable LivingEntity portraitEntity() {
+		if (!piglin() || minecraft == null || minecraft.level == null) return null;
+		Entity e = minecraft.level.getEntity(state.getIntOr("entity", -1));
+		return e instanceof LivingEntity living ? living : null;
+	}
+
+	// ---- geometry (panel-local) ---------------------------------------------------------------------------------------
+
+	private int colX() {
+		return panel.w() - 16 - 8 - COL_W;
+	}
+
+	private int leftW() {
+		return colX() - 24 - 12;
+	}
+
+	// ---- widgets ------------------------------------------------------------------------------------------------------------
+
+	@Override
+	protected void init() {
+		super.init();
+		if (amount != null) amountText = amount.getValue();
+		amount = null;
+		ListTag products = state.getListOrEmpty("products");
+		boolean canTake = state.getBooleanOr("can_take", false);
+		int cx = px(colX());
+		int y = py(PAGE_Y + 22);
+		int maxCards = owed() > 0 ? 2 : 5;
+		for (int i = 0; i < Math.min(maxCards, products.size()); i++) {
+			CompoundTag p = products.getCompoundOrEmpty(i);
+			boolean locked = p.getBooleanOr("locked", false);
+			int index = p.getIntOr("index", i);
+			OfferCard card = new OfferCard(cx, y, COL_W, 24, p, locked, () -> {
+				confirmIndex = index;
+				rebuildWidgets();
+			});
+			card.active = canTake && !locked;
+			if (locked) card.setTooltip(Tooltip.create(Component.translatable("gui.burmaldaholic.loan.locked_vip", VipTiers.name(p.getIntOr("min_tier", 0)))));
+			addRenderableWidget(card);
+			y += 27;
+		}
+		int bottom = py(panel.h() - 16 - 8);
+		Component close = Component.translatable("gui.burmaldaholic.common.close");
+		if (owed() > 0) {
+			Component payAll = Component.translatable("gui.burmaldaholic.loan.pay_all", Texts.number(owed()));
+			button(payAll, cx, bottom - 68, COL_W, 20, CasinoButton.Style.DANGER, b -> send("pay_all", 0, 0));
+			amount = new EditBox(font, cx, bottom - 44, 60, 20, Component.translatable("gui.burmaldaholic.loan.pay_amount"));
+			amount.setMaxLength(12);
+			amount.setResponder(v -> {
+				if (!v.chars().allMatch(Character::isDigit)) amount.setValue(v.replaceAll("\\D", ""));
+			});
+			amount.setHint(Component.translatable("gui.burmaldaholic.common.amount"));
+			amount.setValue(amountText);
+			add(amount);
+			button(Component.translatable("gui.burmaldaholic.loan.pay"), cx + 62, bottom - 44, COL_W - 62, 20, CasinoButton.Style.SECONDARY, b -> pay());
+		}
+		int closeW = CasinoButton.width(font, close, 60, false);
+		button(close, cx + COL_W - closeW, bottom - 20, closeW, 20, CasinoButton.Style.SECONDARY, b -> onClose());
+		if (confirmIndex >= 0 && canTake) {
+			int sx = px(24) + 8;
+			int sy = py(PAGE_Y + 8 + 146) - 2;
+			Component sign = Component.translatable("gui.burmaldaholic.loan.sign");
+			int sw = CasinoButton.width(font, sign, 60, false);
+			button(sign, sx, sy, sw, 18, CasinoButton.Style.PRIMARY, b -> send("take", confirmIndex, 0));
+			Component cancel = Component.translatable("gui.burmaldaholic.common.cancel");
+			button(cancel, sx + sw + 4, sy, CasinoButton.width(font, cancel, 50, false), 18, CasinoButton.Style.SECONDARY, b -> {
+				confirmIndex = -1;
+				rebuildWidgets();
+			});
+		}
 	}
 
 	private void pay() {
@@ -264,9 +184,7 @@ final class LoanScreen extends Screen {
 			n = -1;
 		}
 		if (n <= 0) {
-			CompoundTag copy = state.copy();
-			LoanClientModule.putError(copy, Component.translatable("gui.burmaldaholic.error.invalid_amount"));
-			accept(copy);
+			showError(Component.translatable("gui.burmaldaholic.error.invalid_amount"));
 			return;
 		}
 		send("pay", 0, n);
@@ -282,35 +200,191 @@ final class LoanScreen extends Screen {
 		super.removed();
 	}
 
+	// ---- drawing ---------------------------------------------------------------------------------------------------------
+
 	@Override
-	public boolean isPauseScreen() {
-		return false;
+	protected void extractFrame(GuiGraphicsExtractor g, CasinoTheme t) {
+		CasinoUi.sprite(g, UiSprites.SHELL_LOAN, panel.x(), panel.y(), panel.w(), panel.h(), 0xFF0E1A1E, RED);
+		Component name = Component.translatable(piglin() ? "entity.burmaldaholic.piglin_moneylender" : "gui.burmaldaholic.loan.title");
+		CasinoUi.header(g, font, name, px(LedgerLayout.HEADER_X), py(LedgerLayout.HEADER_Y), Math.max(LedgerLayout.HEADER_W, font.width(name) + 24));
+		CasinoUi.balancePlaque(g, font, state.getLongOr("balance", 0), panel.right() - 16 - LedgerLayout.PLAQUE_W, py(LedgerLayout.HEADER_Y),
+			LedgerLayout.PLAQUE_W, CasinoPalette.GOLD);
+		CasinoUi.sprite(g, UiSprites.PAGE_LOAN, px(16), py(PAGE_Y), panel.w() - 32, panel.h() - PAGE_Y - 16, 0xFF0E1A1E, CasinoPalette.CHIP_RED_DARK);
 	}
 
 	@Override
-	public boolean isInGameUi() {
-		return true;
-	}
-
-	@Override
-	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		super.extractBackground(graphics, mouseX, mouseY, a);
-		graphics.fill(left - 1, top - 1, left + panelW + 1, top + panelH + 1, BORDER);
-		graphics.fill(left, top, left + panelW, top + panelH, PANEL);
-	}
-
-	@Override
-	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		super.extractRenderState(graphics, mouseX, mouseY, a);
-		for (TextLine l : lines) {
-			graphics.text(font, l.text(), l.x(), l.y(), l.color(), true);
+	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		int x = px(24);
+		int y = py(PAGE_Y + 8);
+		int lw = leftW();
+		LoanLook.Mood mood = LoanLook.mood(status());
+		// portrait slides in from the left
+		long age = openAge();
+		int slide = FxSettings.reduceMotion() ? 0 : (int) Math.round(-24 * (1 - dev.nezo.burmaldaholic.core.anim.Ease.OUT_CUBIC.apply(Math.min(1, age / 250.0))));
+		g.enableScissor(x - 2, y - 2, x + 76, y + 76);
+		g.fill(x - 1, y - 1, x + 73, y + 73, 0xFF0A1214);
+		LivingEntity piglin = portraitEntity();
+		if (piglin != null) {
+			InventoryScreen.extractEntityInInventoryFollowsMouse(g, x + slide, y, x + 72 + slide, y + 72, 30, 0.0625F, mouseX, mouseY, piglin);
+		} else {
+			CasinoUi.sheet(g, UiSprites.SHARK, 0, 0, 72, 72, x + slide, y);
 		}
-		LivingEntity e = portrait();
-		if (e != null) {
-			int px = left + PAD;
-			int py = top + PAD + 14;
-			graphics.fill(px, py, px + PORTRAIT, py + PORTRAIT, 0xFF101014);
-			InventoryScreen.extractEntityInInventoryFollowsMouse(graphics, px, py, px + PORTRAIT, py + PORTRAIT, 24, 0.0625F, mouseX, mouseY, e);
+		g.disableScissor();
+		// the cheeky bubble
+		Component line = Component.translatable(mood.key());
+		int bw = Math.min(lw + 40, font.width(line) + 16);
+		CasinoUi.sprite(g, UiSprites.BUBBLE_CHEEKY, x + 76, y + 2, bw, 18, 0xFFF4ECF8, CasinoPalette.CHIP_RED);
+		g.text(font, CasinoUi.fit(font, line, bw - 12), x + 84, y + 7, CasinoPalette.CHIP_RED_DARK, false);
+		Component name = Component.translatable(piglin() ? "entity.burmaldaholic.piglin_moneylender" : "gui.burmaldaholic.loan.title");
+		FxText.outlined(g, font, name.copy().withStyle(ChatFormatting.BOLD), x + 78, y + 28, RED, CasinoPalette.INK);
+		long owed = owed();
+		long ticksLeft = state.getLongOr("ticks_left", 0);
+		if (owed > 0) {
+			CasinoUi.text(g, font, Component.translatable("gui.burmaldaholic.loan.you_owe", Texts.number(owed)), x + 78, y + 40, lw - 78, BONE);
+			Component when = "default".equals(status())
+				? Component.translatable("gui.burmaldaholic.loan.overdue_by", Texts.plural("unit.burmaldaholic.day", LoanLook.overdueDays(-ticksLeft)))
+				: Component.translatable("gui.burmaldaholic.loan.due_in", LoanTexts.dueIn(ticksLeft));
+			List<FormattedCharSequence> wl = font.split(when, lw - 78);
+			for (int i = 0; i < Math.min(2, wl.size()); i++) g.text(font, wl.get(i), x + 78, y + 50 + i * 10, "default".equals(status()) ? RED : CasinoPalette.GOLD, true);
+		} else {
+			List<FormattedCharSequence> st = font.split(component("status_line") == null ? Component.empty() : component("status_line"), lw - 78);
+			for (int i = 0; i < Math.min(3, st.size()); i++) g.text(font, st.get(i), x + 78, y + 40 + i * 10, BONE, true);
+		}
+		// debt meter
+		int my = y + 80;
+		CasinoUi.sprite(g, UiSprites.DEBT_METER, x, my, lw, 12, 0xFF140810, CasinoPalette.CHIP_RED_DARK);
+		int fw = UiLayout.fillPixels(lw - 16, UiLayout.barFill(LoanLook.debtFill(owed, state.getLongOr("principal", 0)), age, FxSettings.reduceMotion()));
+		if (fw > 0 && !CasinoUi.sprite(g, UiSprites.Fill.RED.id, x + 2, my + 3, fw, 6)) g.fill(x + 2, my + 3, x + 2 + fw, my + 9, CasinoPalette.CHIP_RED);
+		CasinoUi.sprite(g, UiSprites.DEBT_SKULL, x + lw - 12, my, 12, 12);
+		if ("default".equals(status())) g.text(font, Component.translatable("gui.burmaldaholic.loan.collectors_coming"), x, my + 16, BONE, true);
+		// parchment: the contract, the confirmation, or the terms of the house
+		int cy = y + 108;
+		int ch = panel.h() - 16 - 8 - (cy - panel.y());
+		CasinoUi.sprite(g, UiSprites.CONTRACT, x, cy, lw, ch, 0xFFE8DCC0, 0xFF8A6A3A);
+		int ink = 0xFF3A2410;
+		ListTag products = state.getListOrEmpty("products");
+		if (confirmIndex >= 0 && confirmIndex < products.size()) {
+			CompoundTag p = products.getCompoundOrEmpty(confirmIndex);
+			g.text(font, Component.translatable("gui.burmaldaholic.loan.confirm_title").withStyle(ChatFormatting.BOLD), x + 8, cy + 6, CasinoPalette.CHIP_RED_DARK,
+				false);
+			List<FormattedCharSequence> lines = font.split(Component.translatable("gui.burmaldaholic.loan.confirm", Texts.chipsAcc(p.getLongOr("principal", 0)),
+				Texts.chipsAcc(p.getLongOr("due", 0)), Texts.plural("unit.burmaldaholic.day", p.getIntOr("days", 0))), lw - 16);
+			for (int i = 0; i < Math.min(2, lines.size()); i++) g.text(font, lines.get(i), x + 8, cy + 17 + i * 9, ink, false);
+		} else if (owed > 0) {
+			// the terms: "Rent: 2,500 → 3,000" (principal → due at issue); an admin-set debt has no product and no interest
+			String product = state.getStringOr("product", "");
+			long principal = state.getLongOr("principal", 0);
+			long dueTotal = state.getLongOr("due_total", owed);
+			Component pname = Component.translatable(product.isEmpty() ? "gui.burmaldaholic.loan.contract.loan" : "gui.burmaldaholic.loan.product." + product);
+			Component terms = principal > 0 && dueTotal != principal
+				? Component.translatable("gui.burmaldaholic.loan.contract.terms", pname, Texts.number(principal), Texts.number(dueTotal))
+				: Component.translatable("gui.burmaldaholic.loan.contract.amount", pname, Texts.number(Math.max(principal, dueTotal)));
+			int ly = para(g, terms, x + 8, cy + 6, lw - 16, ink) - 2;
+			// the deadline: "Due: day 12" (the day of the chat message), then the time left while active
+			long day = state.getLongOr("deadline_day", 0);
+			if (day > 0) ly = para(g, Component.translatable("gui.burmaldaholic.loan.contract.due", Component.translatable("gui.burmaldaholic.loan.contract.day",
+				Texts.number(day))), x + 8, ly, lw - 16, ink) - 2;
+			if (!"default".equals(status())) {
+				ly = para(g, Component.translatable("gui.burmaldaholic.loan.due_in", LoanTexts.dueIn(ticksLeft)), x + 8, ly, lw - 16, ink) - 2;
+			}
+			if (owed != dueTotal) para(g, Component.translatable("gui.burmaldaholic.loan.contract.owed_now", Texts.number(owed)), x + 8, ly, lw - 16,
+				CasinoPalette.CHIP_RED_DARK);
+			String sig = "× ________________"; // literal-ok: signature rule
+			g.text(font, sig, x + 8, cy + ch - 14, 0xFF6A5030, false);
+			if ("default".equals(status())) {
+				Component word = Component.translatable("gui.burmaldaholic.loan.stamp.overdue").withStyle(ChatFormatting.BOLD);
+				int stampW = Math.max(72, font.width(word) + 16); // the RU word is longer: the stamp stretches
+				int sx = x + lw - stampW - 8;
+				int sy = cy + ch - 34; // bottom right, beside the signature: the terms above keep the full width
+				CasinoUi.sprite(g, UiSprites.STAMP_OVERDUE, sx, sy, stampW, 28);
+				FormattedCharSequence ws = CasinoUi.fit(font, word, stampW - 8);
+				g.pose().pushMatrix();
+				g.pose().translate(sx + stampW / 2f, sy + 14);
+				g.pose().rotate((float) Math.toRadians(-4));
+				g.text(font, ws, -font.width(ws) / 2, -4, CasinoPalette.CHIP_RED, false);
+				g.pose().popMatrix();
+			}
+		} else {
+			int ly = cy + 7;
+			ly = para(g, Component.translatable("gui.burmaldaholic.loan.interest", Texts.raw(state.getStringOr("rate", "0"))), x + 8, ly, lw - 16, ink);
+			Component gs = component("good_standing");
+			if (gs != null) ly = para(g, gs, x + 8, ly, lw - 16, 0xFF1E5E1E);
+			int locked = state.getIntOr("locked", 0);
+			if (locked > 0) para(g, Component.translatable("gui.burmaldaholic.loan.locked_count", Texts.number(locked)), x + 8, ly, lw - 16, 0xFF6A5030);
+		}
+		// right column header and notes
+		int cx = px(colX());
+		g.text(font, Component.translatable("gui.burmaldaholic.loan.borrow"), cx, y, RED, true);
+		if (owed > 0) {
+			int ny = py(PAGE_Y + 22) + 2 * 27;
+			Component note = "default".equals(status()) ? Component.translatable("gui.burmaldaholic.loan.no_new_overdue")
+				: component("status_line") == null ? Component.empty() : component("status_line");
+			List<FormattedCharSequence> nl = font.split(note, COL_W);
+			for (int i = 0; i < Math.min(2, nl.size()); i++) g.text(font, nl.get(i), cx, ny + i * 10, BONE, true);
+		}
+	}
+
+	private int para(GuiGraphicsExtractor g, Component text, int x, int y, int w, int color) {
+		for (FormattedCharSequence s : font.split(text, w)) {
+			g.text(font, s, x, y, color, false);
+			y += 9;
+		}
+		return y + 2;
+	}
+
+	@Override
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		Component msg = component("message");
+		if (msg != null && !state.getBooleanOr("error", false)) {
+			FxText.wrappedCentered(g, font, msg, px(24 + leftW() / 2), py(PAGE_Y + 8 + 94), leftW(), 1, CasinoPalette.BONUS, CasinoPalette.INK);
+		}
+	}
+
+	/** A loan product card (extras.md §8.4 {@code offer} / {@code offer_locked}): name and "borrow → repay". */
+	private final class OfferCard extends AbstractButton {
+		private final CompoundTag product;
+		private final boolean locked;
+		private final Runnable onPress;
+
+		OfferCard(int x, int y, int w, int h, CompoundTag product, boolean locked, Runnable onPress) {
+			super(x, y, w, h, Component.translatable("gui.burmaldaholic.loan.product." + product.getStringOr("id", "pocket")));
+			this.product = product;
+			this.locked = locked;
+			this.onPress = onPress;
+		}
+
+		@Override
+		public void onPress(InputWithModifiers input) {
+			onPress.run();
+		}
+
+		@Override
+		protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+			int x = getX();
+			int y = getY() - (active && isHoveredOrFocused() ? 1 : 0);
+			CasinoUi.sprite(g, locked ? UiSprites.OFFER_LOCKED : UiSprites.OFFER, x, y, getWidth(), getHeight(), 0xFF1A2A2E, CasinoPalette.CHIP_RED);
+			if (active && isHoveredOrFocused()) g.outline(x - 1, y - 1, getWidth() + 2, getHeight() + 2, CasinoPalette.GOLD);
+			int c1 = locked ? 0xFF6A7A88 : BONE;
+			int c2 = locked ? 0xFF4A5A68 : active ? BONE : 0xFF8A9AA8;
+			CasinoUi.text(g, font, getMessage(), x + 6, y + 3, getWidth() - 24, c1);
+			Component second = locked ? Component.translatable("gui.burmaldaholic.loan.locked_vip", VipTiers.name(product.getIntOr("min_tier", 0)))
+				: Component.translatable("gui.burmaldaholic.loan.offer_line", Texts.number(product.getLongOr("principal", 0)), Texts.number(product.getLongOr("due", 0)));
+			CasinoUi.text(g, font, second, x + 6, y + 13, getWidth() - 24, c2);
+			if (locked) {
+				// padlock (drawn: the PvP kit's padlock is the same shape)
+				int lx = x + getWidth() - 14;
+				int ly = y + 8;
+				g.fill(lx + 1, ly, lx + 7, ly + 1, 0xFFB0B8C0);
+				g.fill(lx, ly + 1, lx + 1, ly + 4, 0xFFB0B8C0);
+				g.fill(lx + 7, ly + 1, lx + 8, ly + 4, 0xFFB0B8C0);
+				g.fill(lx - 1, ly + 4, lx + 9, ly + 10, 0xFFE8B830);
+				g.fill(lx + 3, ly + 6, lx + 5, ly + 8, 0xFF5A3A08);
+			}
+		}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput output) {
+			this.defaultButtonNarrationText(output);
 		}
 	}
 }
