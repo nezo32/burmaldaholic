@@ -86,6 +86,47 @@ class UthPresentTest {
 		}
 	}
 
+	/**
+	 * v0.1.1: the Trips / Blind bonus stamps (tilted −4°) never touch a circle caption, a circle, a card or each other,
+	 * for EN and RU words (and the widest fitted text) with 0–5 other seats.
+	 */
+	@Test
+	void bonusStampsNeverCoverCaptionsCirclesOrCards() {
+		// art widths = text + 14: "Trips bonus!" / "Blind bonus!", «Бонус трипс!» / «Бонус блайнда!», longer words
+		int[][] words = {{62 + 14, 62 + 14}, {66 + 14, 78 + 14}, {100 + 14, 100 + 14}};
+		for (int others = 0; others <= 5; others++) {
+			for (int[] w : words) {
+				List<Rect> hard = UthLayout.stampObstacles(others);
+				List<Rect> obstacles = List.copyOf(hard);
+				List<Rect> stamps = new ArrayList<>();
+				for (int k = 0; k < 2; k++) {
+					int c = k == 0 ? 0 : 2;
+					Rect spot = LabelPlacer.place(hard, List.of(), UthLayout.labelBounds(), List.of(UthLayout.bonusStamp(c, w[k]))).get(0);
+					hard.add(spot);
+					stamps.add(spot);
+					// the tilted art (w × 16 at −4°) stays inside the placed box
+					double a = Math.toRadians(Math.abs(UthLayout.STAMP_TILT));
+					double hw = (w[k] * Math.cos(a) + 16 * Math.sin(a)) / 2;
+					double hh = (w[k] * Math.sin(a) + 16 * Math.cos(a)) / 2;
+					double cx = spot.x() + spot.w() / 2.0;
+					double cy = spot.y() + spot.h() / 2.0;
+					String tag = others + " others, art " + w[k] + ": " + spot;
+					assertTrue(cx - hw >= spot.x() + 1 && cx + hw <= spot.x() + spot.w() - 1 && cy - hh >= spot.y() + 1 && cy + hh <= spot.y() + spot.h() - 1,
+						tag + " clips the tilted art");
+					assertTrue(spot.inside(UthLayout.labelBounds()), tag + " off the felt");
+					for (Rect o : obstacles) assertFalse(spot.intersects(o), tag + " covers " + o);
+					for (int cc = 0; cc < 4; cc++) assertFalse(spot.intersects(UthLayout.circleCaption(cc)), tag + " covers caption " + cc);
+				}
+				assertFalse(stamps.get(0).intersects(stamps.get(1)), others + " others: the stamps overlap " + stamps);
+			}
+		}
+		// the captions never touch their circles or the board
+		for (int c = 0; c < 4; c++) {
+			for (int d = 0; d < 4; d++) assertFalse(UthLayout.circleCaption(c).intersects(UthLayout.circle(d)));
+			for (int i = 0; i < 5; i++) assertFalse(UthLayout.circleCaption(c).intersects(UthLayout.board(i)));
+		}
+	}
+
 	private static boolean samePair(Rect a, Rect b) {
 		return a.y() == b.y() && Math.abs(a.x() - b.x()) == 12 && a.w() == UthLayout.M_W;
 	}

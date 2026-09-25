@@ -156,6 +156,45 @@ public final class CardLayout {
 				default -> new int[] {s[0] - 26, s[1] + 14};
 			};
 		}
+
+		/** Seat plate height (visual/cards.md §8.2). */
+		public static final int PLATE_H = 22;
+
+		/**
+		 * Canvas rectangle {x, y, w, h} of the {@code w} px wide plate of other seat position {@code pos} (full layout; the
+		 * screen keeps it 2 px inside the canvas).
+		 */
+		public static int[] plateBox(int pos, int w) {
+			int[] p = plate(pos);
+			int x = Math.max(2, Math.min(TABLE_X + p[0], CANVAS_W - w - 2));
+			return new int[] {x, TABLE_Y + p[1], w, PLATE_H};
+		}
+
+		/** Half extents (x, y) of a stamp's art ({@code artW} × 16) tilted by {@code deg}, plus 1 px of air. */
+		public static double[] stampHalf(int artW, double deg) {
+			double a = Math.toRadians(Math.abs(deg));
+			return new double[] {(artW * Math.cos(a) + 16 * Math.sin(a)) / 2 + 1, (artW * Math.sin(a) + 16 * Math.cos(a)) / 2 + 1};
+		}
+
+		/**
+		 * Centre y of a hand's stamp (BLACKJACK! / BUST / PUSH) at ({@code cx}, {@code cy}) that never covers a seat plate
+		 * ({@code plates}: canvas {x, y, w, h}): it stays on its hand, pushed just below a plate over its centre or just
+		 * above one under it (v0.1.1: a bot's BLACKJACK! covered the neighbouring bot's name).
+		 */
+		public static double clearOfPlates(double cx, double cy, int artW, double deg, java.util.List<int[]> plates) {
+			double[] half = stampHalf(artW, deg);
+			for (int pass = 0; pass <= plates.size(); pass++) {
+				boolean moved = false;
+				for (int[] p : plates) {
+					boolean overlaps = cx - half[0] < p[0] + p[2] && p[0] < cx + half[0] && cy - half[1] < p[1] + p[3] && p[1] < cy + half[1];
+					if (!overlaps) continue;
+					cy = p[1] + p[3] / 2.0 <= cy ? p[1] + p[3] + half[1] : p[1] - half[1];
+					moved = true;
+				}
+				if (!moved) break;
+			}
+			return cy;
+		}
 	}
 
 	// ---- baccarat / chemin de fer (§6.6) --------------------------------------------------------------------------

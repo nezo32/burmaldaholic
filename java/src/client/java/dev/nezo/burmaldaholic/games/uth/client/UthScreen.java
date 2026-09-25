@@ -693,9 +693,9 @@ public class UthScreen extends CardTableScreen {
 		boolean settling = fxKind == UthPub.SHOWDOWN || fxKind == UthPub.RESULT;
 		int lane = myLane();
 		double now = nowMs();
-		// bonus stamps never cover a card (board, hole cards) nor each other: placed below / above their circle
-		List<Rect> stampHard = new ArrayList<>(UthLayout.cardRects(0));
-		for (int c = 0; c < 4; c++) stampHard.add(UthLayout.circle(c));
+		// bonus stamps never cover a card, a circle, a caption (Trips / Ante / Blind / Play) nor each other: placed
+		// under the circle row, right of the hole cards (UthLayout#bonusStamp)
+		List<Rect> stampHard = UthLayout.stampObstacles(others().size());
 		for (int c = 0; c < 4; c++) {
 			long amount = amounts[c];
 			Rect r = UthLayout.circle(c);
@@ -741,11 +741,11 @@ public class UthScreen extends CardTableScreen {
 						Component word = Component.translatable(c == 0 ? "gui.burmaldaholic.uth.fx.trips_bonus" : "gui.burmaldaholic.uth.fx.blind_bonus");
 						double age = b == null ? 1000 : fxMs() - b.end();
 						if (fxKind == UthPub.RESULT) age = 1000;
-						int sw = CardGfx.fittedWidth(font, word, TableStamp.MAX_TEXT_W) + 18;
-						Rect spot = LabelPlacer.place(stampHard, List.of(), UthLayout.labelBounds(), List.of(new LabelPlacer.Request(sw, 18,
-							cx - sw / 2, r.y() + r.h() + 2, cx - sw / 2, r.y() - 20))).get(0);
+						int artW = CardGfx.fittedWidth(font, word, TableStamp.MAX_TEXT_W) + 14;
+						Rect spot = LabelPlacer.place(stampHard, plates, UthLayout.labelBounds(), List.of(UthLayout.bonusStamp(c, artW))).get(0);
 						stampHard.add(spot);
-						TableStamp.draw(g, font, word, TableStamp.Kind.VIOLET, spot.cx(), spot.cy(), -4, age, FxSettings.reduceMotion(), pose);
+						TableStamp.draw(g, font, word, TableStamp.Kind.VIOLET, spot.x() + spot.w() / 2.0, spot.y() + spot.h() / 2.0, UthLayout.STAMP_TILT, age,
+							FxSettings.reduceMotion(), pose);
 					}
 				}
 				if (net == 0 && u > 0 && u < 1 && !FxSettings.reduceMotion()) {

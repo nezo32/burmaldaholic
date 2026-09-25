@@ -107,6 +107,8 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	/** round participants who left (auto-stand; still settled, offline-safe) */
 	private final Set<UUID> away = new HashSet<>();
 	private final Set<UUID> paid = new HashSet<>();
+	/** Players whose "natural" advancement waits for the reveal gate (its toast must not spoil the dealer's flip). */
+	private final Set<UUID> naturalAtGate = new java.util.LinkedHashSet<>();
 	private final Map<UUID, String> names = new HashMap<>();
 	private String noticeKey = "";
 	private long noticeUntil;
@@ -692,7 +694,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			settle(s.player, ret, r -> r.withTags(natural ? "natural" : "", splits ? "split" : "", s.insurance > 0 ? "insurance" : ""));
 			if (level instanceof ServerLevel sl) {
 				if (natural) {
-					CasinoAdvancements.grant(sl.getServer(), s.player, "natural");
+					naturalAtGate.add(s.player); // granted at the reveal gate (grantAtGate), like the other result effects
 				}
 				if (s.hands.size() >= 4) {
 					CasinoAdvancements.grant(sl.getServer(), s.player, "split_personality");
@@ -727,7 +729,22 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		setChanged();
 	}
 
+	/**
+	 * Result-gated advancements: granted once the reveal gate is open (the peek / hole flip and the dealer's last card
+	 * are readable), or at once when {@code force} (the round is over).
+	 */
+	private void grantAtGate(boolean force) {
+		if (naturalAtGate.isEmpty() || !force && busy() || !(level instanceof ServerLevel sl)) {
+			return;
+		}
+		for (UUID p : naturalAtGate) {
+			CasinoAdvancements.grant(sl.getServer(), p, "natural");
+		}
+		naturalAtGate.clear();
+	}
+
 	private void toBetting() {
+		grantAtGate(true);
 		round = null;
 		beats = null;
 		nextPub = -1;
@@ -841,6 +858,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	@Override
 	protected void serverTick(ServerLevel level) {
 		publishTick();
+		grantAtGate(false);
 		if (botBetAt.isEmpty()) {
 			return;
 		}

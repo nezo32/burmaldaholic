@@ -167,6 +167,7 @@
 	"gui.burmaldaholic.slots.panel.win": "WIN",
 	"gui.burmaldaholic.slots.panel.returned": "RETURNED",
 	"gui.burmaldaholic.slots.panel.recent": "Last wins",
+	"gui.burmaldaholic.slots.panel.recent_short": "Recent",
 	"gui.burmaldaholic.slots.panel.none": "—",
 	"gui.burmaldaholic.slots.panel.features": "Features",
 	"gui.burmaldaholic.slots.panel.count_plus": "%1$s+",

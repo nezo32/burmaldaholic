@@ -39,11 +39,11 @@ public final class SidePanels {
 	private SidePanels() {}
 
 	private static int innerX(SlotLayout l, boolean right) {
-		return (right ? l.rightPanelX : l.leftPanelX) + 4;
+		return (right ? l.rightPanelX : l.leftPanelX) + l.panelPad();
 	}
 
 	private static int innerW(SlotLayout l) {
-		return l.panelW - 8;
+		return l.panelInnerW();
 	}
 
 	private static int innerY(SlotLayout l) {
@@ -277,7 +277,9 @@ public final class SidePanels {
 		else SlotDraw.centeredFit(g, font, value, x + w / 2, py + (ph - 8) / 2 + 1, w - 6, color);
 		// last settled wins (newest first)
 		int ry = py + ph + 4;
-		SlotDraw.centeredFit(g, font, Component.translatable("gui.burmaldaholic.slots.panel.recent"), x + w / 2, ry, w, HEAD);
+		Component recent = Component.translatable("gui.burmaldaholic.slots.panel.recent");
+		if (font.width(recent) > w) recent = Component.translatable("gui.burmaldaholic.slots.panel.recent_short"); // compact RU
+		SlotDraw.centeredFit(g, font, recent, x + w / 2, ry, w, HEAD);
 		ry += 10;
 		WinHistory h = s.history();
 		int lines = l.compact ? 3 : 2;

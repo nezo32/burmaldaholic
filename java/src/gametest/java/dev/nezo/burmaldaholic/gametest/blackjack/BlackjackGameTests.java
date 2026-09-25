@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.blackjack;
 
+import dev.nezo.burmaldaholic.core.advancement.CasinoAdvancements;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
 import dev.nezo.burmaldaholic.core.bots.logic.BotSpeed;
@@ -176,6 +177,42 @@ public class BlackjackGameTests {
 			helper.assertTrue(table.ticksLeft("bet") < 0, "bet timer cancelled");
 		});
 		helper.succeed();
+	}
+
+	/**
+	 * v0.1.1: the "natural" advancement (and its toast) waits for the reveal gate (the hole flip and the dealer's last
+	 * card readable) instead of arriving with the settlement at the start of the deal (~1 s early).
+	 */
+	@GameTest(maxTicks = 400)
+	@SuppressWarnings("removal")
+	public void naturalAdvancementWaitsForTheRevealGate(GameTestHelper helper) {
+		BlackjackTableBlockEntity table = place(helper);
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer a = helper.makeMockServerPlayerInLevel();
+		Economies.get().setBalance(server, a.getUUID(), 1000, TEST);
+		helper.assertTrue(table.sit(a), "seated");
+		// player A + K (blackjack); dealer 9 up (no peek), 8 in the hole: 17 stands, the hole card is flipped
+		table.stackCardsForTests(List.of(Card.of(1, Card.SPADES), Card.of(9, Card.HEARTS), Card.of(13, Card.CLUBS), Card.of(8, Card.DIAMONDS),
+			Card.of(5), Card.of(5), Card.of(5)));
+		table.onAction(a, "bet", amount(10));
+		BlackjackRound r = table.round();
+		long now0 = helper.getLevel().getGameTime();
+		helper.assertTrue(r != null && r.phase() == BlackjackRound.Phase.DONE, "a natural against a 9 up resolves at once");
+		helper.assertTrue(table.beats() != null && table.beats().busy(now0), "the reveal is still playing");
+		helper.assertTrue(table.beats().holeFlipTick() > now0, "the hole flip is still ahead");
+		helper.assertTrue(!CasinoAdvancements.has(a, "natural"), "no natural toast before the dealer reveal");
+		long gate = table.beats().busyUntil();
+		helper.onEachTick(() -> {
+			long now = helper.getLevel().getGameTime();
+			if (now < gate) {
+				helper.assertTrue(!CasinoAdvancements.has(a, "natural"), "natural granted " + (gate - now) + " t before the reveal gate");
+			}
+		});
+		helper.succeedWhen(() -> {
+			helper.assertTrue(helper.getLevel().getGameTime() >= gate, "the reveal gate");
+			helper.assertTrue(CasinoAdvancements.has(a, "natural"), "natural granted at the reveal gate");
+			server.getPlayerList().remove(a);
+		});
 	}
 
 	@GameTest

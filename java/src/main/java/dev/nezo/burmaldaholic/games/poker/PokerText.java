@@ -196,7 +196,7 @@ public final class PokerText {
 		};
 	}
 
-	/** Chat lines announcing the winners of a finished hand. */
+	/** Chat lines announcing the winners of a finished hand, with the specific hand names of the plates ("Pair of sixes"). */
 	public static List<Component> resultLines(PokerTable table, Hand h) {
 		List<Component> out = new ArrayList<>();
 		Hand.Result r = h.result();
@@ -225,11 +225,11 @@ public final class PokerText {
 					names.append(nameOf(table, h, pot.winners().get(w)));
 				}
 				out.add(msg("split_pot", Texts.number(pot.shares()[pot.shares().length - 1])).append(Texts.raw(" — ")).append(names)
-					.append(Texts.raw(" — ")).append(handName(pot.value())).withStyle(ChatFormatting.GREEN));
+					.append(Texts.raw(" — ")).append(handLabel(pot.value())).withStyle(ChatFormatting.GREEN));
 				continue;
 			}
 			int w = pot.winners().get(0);
-			out.add(msg(k == 0 ? "wins_pot" : "wins_side_pot", nameOf(table, h, w), Texts.number(total), handName(pot.value()))
+			out.add(msg(k == 0 ? "wins_pot" : "wins_side_pot", nameOf(table, h, w), Texts.number(total), handLabel(pot.value()))
 				.withStyle(ChatFormatting.GREEN));
 		}
 		return out;

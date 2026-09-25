@@ -408,6 +408,40 @@ class SlotPresentTest {
 		}
 	}
 
+	/**
+	 * v0.1.1: side-panel text keeps clear of the panel rim (compact RU «Последние» touched it), and the "Last wins"
+	 * heading fits the compact panel unscaled in both languages (its short form «История» / "Recent" where needed).
+	 */
+	@Test
+	void sidePanelTextClearsTheRimInEnglishAndRussian() throws Exception {
+		java.nio.file.Path root = java.nio.file.Path.of(System.getProperty("burmaldaholic.projectDir", "."));
+		for (int[] sz : SCREENS) {
+			SlotGeometry g = SlotGeometry.of(sz[0], sz[1]);
+			String tag = sz[0] + "x" + sz[1] + (g.compact ? " compact" : "");
+			assertTrue(g.panelPad() >= SlotGeometry.PANEL_RIM + (g.compact ? 3 : 1), tag + ": panel text on the rim");
+			assertEquals(g.panelW - 2 * g.panelPad(), g.panelInnerW(), tag);
+			assertTrue(g.panelInnerW() >= 46, tag + ": panel contents too narrow: " + g.panelInnerW());
+		}
+		SlotGeometry compact = SlotGeometry.of(320, 220);
+		for (String lang : new String[] {"en_us", "ru_ru"}) {
+			com.google.gson.JsonObject j = com.google.gson.JsonParser.parseString(
+				java.nio.file.Files.readString(root.resolve("src/main/lang/slots/" + lang + ".json"))).getAsJsonObject();
+			String full = j.get("gui.burmaldaholic.slots.panel.recent").getAsString();
+			String brief = j.get("gui.burmaldaholic.slots.panel.recent_short").getAsString();
+			int w = Math.min(textW(full), textW(brief));
+			assertTrue(w <= compact.panelInnerW(), lang + ": \"" + brief + "\" (" + textW(brief) + " px) wider than the compact panel " + compact.panelInnerW());
+		}
+	}
+
+	/** Upper bound of the vanilla font width: 6 px a glyph (wide Cyrillic Ж Ш Щ Ы Ю М 8), 4 a space, 2 for ! . , : i l. */
+	private static int textW(String s) {
+		int w = 0;
+		for (char ch : s.toCharArray()) {
+			w += ch == ' ' ? 4 : "!.,:il'".indexOf(ch) >= 0 ? 2 : "ЖШЩЫЮМжшщыюм".indexOf(ch) >= 0 ? 8 : 6;
+		}
+		return w - 1;
+	}
+
 	@Test
 	void controlButtonsFlowInsideTheirAreaInEnglishAndRussian() {
 		// label widths (font px) + icon + padding as SlotButton#preferredWidth: EN, RU (≈ 1.45 ×), and the compact icons
