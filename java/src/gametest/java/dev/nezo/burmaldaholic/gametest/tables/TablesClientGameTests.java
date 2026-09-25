@@ -66,7 +66,9 @@ public class TablesClientGameTests implements FabricClientGameTest {
 			guiScale(context, 2);
 			TableChrome.forceCompact = true;
 			try {
+				language(context, "ru_ru"); // the shot is labelled ru_ru: the longer Russian lines in the compact frame
 				roulette(context, world, "ru_ru_compact_forced", 0, false);
+				language(context, "en_us");
 				craps(context, world, "en_us_compact_forced", 1);
 			} finally {
 				TableChrome.forceCompact = false;
@@ -365,6 +367,7 @@ public class TablesClientGameTests implements FabricClientGameTest {
 			return mc.reloadResourcePacks();
 		});
 		context.waitFor(mc -> reload.isDone(), 1200);
+		context.waitFor(mc -> mc.gui.overlay() == null, 1200); // the Mojang reload overlay fades out (no overlay in screenshots)
 		context.waitTicks(20);
 	}
 

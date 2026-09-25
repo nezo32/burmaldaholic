@@ -522,6 +522,7 @@ public class PokerClientGameTests implements FabricClientGameTest {
 			return mc.reloadResourcePacks();
 		});
 		context.waitFor(mc -> reload.isDone(), 1200);
+		context.waitFor(mc -> mc.gui.overlay() == null, 1200); // the Mojang reload overlay fades out (no overlay in screenshots)
 		context.waitTicks(40);
 	}
 

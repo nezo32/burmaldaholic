@@ -54,6 +54,27 @@ public final class HubLayout {
 	}
 
 	/**
+	 * Word-wraps a card name to {@code maxW}: breaks at spaces and after hyphens ("Head-to-" / "head"), never inside a
+	 * word; a single word wider than {@code maxW} stays whole on its own line (the caller clips it).
+	 */
+	public static java.util.List<String> wrapName(String text, int maxW, java.util.function.ToIntFunction<String> widthOf) {
+		java.util.List<String> lines = new java.util.ArrayList<>();
+		StringBuilder line = new StringBuilder();
+		for (String token : text.split("(?<=-)|(?= )")) {
+			String candidate = line + token;
+			if (line.isEmpty() || widthOf.applyAsInt(candidate.strip()) <= maxW) {
+				line.append(token);
+			} else {
+				lines.add(line.toString().strip());
+				line.setLength(0);
+				line.append(token.stripLeading());
+			}
+		}
+		if (!line.toString().isBlank()) lines.add(line.toString().strip());
+		return lines;
+	}
+
+	/**
 	 * A lobby plaque of the page width: {icon x, text x, text width, join x, join width} for a Join control of
 	 * {@code joinW} (a button, or a field + button) — the text never runs under the control.
 	 */

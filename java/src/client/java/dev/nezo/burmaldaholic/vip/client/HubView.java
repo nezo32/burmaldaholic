@@ -18,7 +18,6 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.util.FormattedCharSequence;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -191,11 +190,14 @@ final class HubView {
 			if (!HubLayout.named(w)) return;
 			Font font = Minecraft.getInstance().font;
 			int tw = HubLayout.cardTextW(w);
-			List<FormattedCharSequence> lines = font.split(getMessage(), tw);
+			// word wrap that never breaks inside a word ("Head-to-he" / "ad" was the vanilla splitter's result)
+			List<String> lines = HubLayout.wrapName(getMessage().getString(), tw, font::width);
 			int n = Math.min(3, lines.size());
 			int ty = y + (h - n * 10) / 2 + 1;
 			for (int i = 0; i < n; i++) {
-				g.text(font, lines.get(i), x + 4 + HubLayout.ICON + 4, ty + i * 10, active ? CasinoPalette.GOLD : CasinoPalette.BONE_SHADE, true);
+				String s = lines.get(i);
+				if (font.width(s) > tw) s = font.plainSubstrByWidth(s, tw);
+				g.text(font, s, x + 4 + HubLayout.ICON + 4, ty + i * 10, active ? CasinoPalette.GOLD : CasinoPalette.BONE_SHADE, true);
 			}
 		}
 
