@@ -71,7 +71,11 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		return compact;
 	}
 
-	/** The card-table look of this table (from the kit's location theme, {@link #theme()}). */
+	/**
+	 * The card-table theme, resolved in {@link #init} from the kit's {@link #theme()} (forced / {@code cards.theme}, the
+	 * table state's {@code theme}, then the dimension). Named {@code tableTheme} because {@code theme()} is the shared
+	 * {@code CasinoTableScreen} hook (it returns the kit's {@code CasinoTheme}).
+	 */
 	public TableTheme tableTheme() {
 		return theme;
 	}
@@ -101,6 +105,12 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		leftPos = ox;
 		topPos = oy;
 		rebuildConsole();
+	}
+
+	/** The entrance scales / veils the drawn canvas (GUI coordinates), not the unscaled 427 × 240 image at (0, 0). */
+	@Override
+	protected dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
+		return new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(ox, oy, Math.round(canvasW() * fk), Math.round(canvasH() * fk));
 	}
 
 	/** Re-creates the console buttons ({@link #buildConsole}). */
@@ -306,13 +316,26 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 			return;
 		}
 		double a = age > 2600 ? (3000 - age) / 400.0 : 1;
-		int w = font.width(error) + 12;
+		// a long (RU) message wraps to at most two lines inside the canvas and grows upward, above the console
+		java.util.List<net.minecraft.util.FormattedCharSequence> lines = font.split(error, canvasW() - 28);
+		if (lines.size() > 2) lines = lines.subList(0, 2);
+		int tw = 0;
+		for (var l : lines) tw = Math.max(tw, font.width(l));
+		int w = tw + 12;
+		int h = 4 + 10 * lines.size();
 		int x = (canvasW() - w) / 2;
-		int y = (compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y) - 16 - (age < 150 ? (int) (6 * (1 - age / 150.0)) : 0);
-		g.fill(x, y, x + w, y + 13, CardGfx.alpha(0xE0180A28, a));
-		CardGfx.frame(g, x, y, w, 13, CardGfx.alpha(CasinoPalette.CHIP_RED, a));
-		CardGfx.text(g, font, error, x + 6, y + 3, CardGfx.alpha(CasinoPalette.CHIP_RED_LIGHT, a), false);
+		int y = (compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y) - 3 - h - (age < 150 ? (int) (6 * (1 - age / 150.0)) : 0);
+		g.fill(x, y, x + w, y + h, CardGfx.alpha(0xE0180A28, a));
+		CardGfx.frame(g, x, y, w, h, CardGfx.alpha(CasinoPalette.CHIP_RED, a));
+		for (int i = 0; i < lines.size(); i++) {
+			var l = lines.get(i);
+			CardGfx.text(g, font, l, x + (w - font.width(l)) / 2, y + 3 + 10 * i, CardGfx.alpha(CasinoPalette.CHIP_RED_LIGHT, a), false);
+		}
 	}
+
+	/** The card canvas draws its own title plaque and error line ({@link #drawError}); the kit's unscaled ones would overlap it. */
+	@Override
+	protected void extractLabels(GuiGraphicsExtractor g, int xm, int ym) {}
 
 	// ---- input (screen → canvas) ----------------------------------------------------------------------------------
 

@@ -47,6 +47,8 @@ public final class CardMotion {
 	/** Reduced motion: fade-in at the slot instead of travel; cross-fade instead of a flip. */
 	public static final int REDUCED_FADE_MS = 120;
 	public static final int REDUCED_FLIP_MS = 100;
+	/** Reduced motion: K5 / K6 gather and muck fade in place (§0.6). */
+	public static final int REDUCED_GATHER_MS = 150;
 	/** Chips (§0.4). */
 	public static final int CHIP_FLIGHT_MS = 180;
 	public static final int SWEEP_MS = 260;
@@ -136,8 +138,9 @@ public final class CardMotion {
 	public static Pose deal(Pose out, double sx, double sy, double tx, double ty, double t, double endDeg, int seed, boolean reduced) {
 		double u = clamp(t);
 		if (reduced) {
+			// §0.6: a 120 ms fade-in at the slot (t is still the deal's own progress, so the fade is its first half)
 			out.rest(tx, ty, endDeg, false);
-			out.alpha = u;
+			out.alpha = clamp(u * DEAL_MS / REDUCED_FADE_MS);
 			return out;
 		}
 		double p = Ease.OUT_CUBIC.apply(u);
@@ -227,7 +230,7 @@ public final class CardMotion {
 	/** Scale pop of the squeeze snap (1.08 → 1, outBack over u 0.88 → 1). */
 	public static double squeezePop(double u) {
 		double x = clamp(u);
-		if (x < 0.88) return 1;
+		if (x < 0.88 || x >= 1) return 1;
 		return 1.08 - 0.08 * Ease.outBack(1.70158, (x - 0.88) / 0.12);
 	}
 
@@ -247,7 +250,7 @@ public final class CardMotion {
 
 	/** K4 slide progress (outCubic). */
 	public static double slide(double t) {
-		return Ease.OUT_CUBIC.apply(t);
+		return Ease.OUT_CUBIC.apply(clamp(t));
 	}
 
 	/**
@@ -258,16 +261,16 @@ public final class CardMotion {
 		double u = clamp(t);
 		if (reduced) {
 			out.rest(sx, sy, 0, faceUp);
-			out.alpha = 1 - u;
+			out.alpha = 1 - clamp(u * GATHER_MS / REDUCED_GATHER_MS);
 			return out;
 		}
 		double p = Ease.IN_CUBIC.apply(u);
-		out.x = sx + (tx - sx) * p;
-		out.y = sy + (ty - sy) * p;
+		out.x = lerp(sx, tx, p);
+		out.y = lerp(sy, ty, p);
 		out.rot = 8 * u;
 		out.scale = 1;
 		double fadeFrom = 1 - 80.0 / GATHER_MS;
-		out.alpha = u < fadeFrom ? 1 : Math.max(0, 1 - (u - fadeFrom) / (1 - fadeFrom));
+		out.alpha = u < fadeFrom ? 1 : u >= 1 ? 0 : Math.max(0, 1 - (u - fadeFrom) / (1 - fadeFrom));
 		// faces become backs mid-flight: a short squash around u = 0.45
 		double sq = Math.abs(u - 0.45) / 0.1;
 		out.scaleX = faceUp && sq < 1 ? Math.max(0, sq) : 1;
@@ -294,13 +297,13 @@ public final class CardMotion {
 		double u = clamp(t);
 		if (reduced) {
 			out.rest(sx, sy, 0, false);
-			out.alpha = 1 - u;
+			out.alpha = 1 - clamp(u * MUCK_MS / REDUCED_GATHER_MS);
 			return out;
 		}
 		double p = Ease.IN_CUBIC.apply(u);
-		out.rest(sx + (tx - sx) * p, sy + (ty - sy) * p, 25 * u, false);
+		out.rest(lerp(sx, tx, p), lerp(sy, ty, p), 25 * u, false);
 		double fadeFrom = 1 - 120.0 / MUCK_MS;
-		out.alpha = u < fadeFrom ? 1 : Math.max(0, 1 - (u - fadeFrom) / (1 - fadeFrom));
+		out.alpha = u < fadeFrom ? 1 : u >= 1 ? 0 : Math.max(0, 1 - (u - fadeFrom) / (1 - fadeFrom));
 		return out;
 	}
 
@@ -314,14 +317,14 @@ public final class CardMotion {
 			out.alpha = clamp(t * STAMP_MS / (double) REDUCED_FADE_MS);
 			return out;
 		}
-		out.scale = 1.4 - 0.4 * Ease.OUT_BACK.apply(u);
+		out.scale = u >= 1 ? 1 : 1.4 - 0.4 * Ease.OUT_BACK.apply(u);
 		out.alpha = Math.min(1, u * 2);
 		return out;
 	}
 
 	/** K8 shimmer band position: the band's left edge from {@code -band} to {@code width} (inOutQuad). */
 	public static double shimmerX(double t, int width, int band) {
-		return -band + (width + band) * Ease.IN_OUT_QUAD.apply(t);
+		return -band + (width + band) * Ease.IN_OUT_QUAD.apply(clamp(t));
 	}
 
 	/** K9 glow ring alpha: 0.35 ↔ 0.8 at 1 Hz (inOutSine); static 0.6 reduced, 0.5 with flashes off. */
@@ -335,16 +338,16 @@ public final class CardMotion {
 
 	/** K10 badge roll: the old digits' y offset (0 → −6) and the new ones' (6 → 0) at {@code t}. */
 	public static double badgeOldDy(double t) {
-		return -6 * Ease.OUT_CUBIC.apply(t);
+		return -6 * Ease.OUT_CUBIC.apply(clamp(t));
 	}
 
 	public static double badgeNewDy(double t) {
-		return 6 * (1 - Ease.OUT_CUBIC.apply(t));
+		return 6 * (1 - Ease.OUT_CUBIC.apply(clamp(t)));
 	}
 
 	/** K11 desaturation amount 0 → 1 over {@link #DESAT_MS}. */
 	public static double desat(double t) {
-		return Ease.OUT_QUAD.apply(t);
+		return Ease.OUT_QUAD.apply(clamp(t));
 	}
 
 	/** Bust badge shake: ±2 px, 3 times over {@link #BUST_SHAKE_MS}. */
@@ -378,7 +381,7 @@ public final class CardMotion {
 	public static int knockDy(double t) {
 		double u = clamp(t);
 		if (u >= 1) return 0;
-		return Math.sin(u * Math.PI * 2) > 0 ? 2 : 0;
+		return Math.sin(u * Math.PI * 4) > 0 ? 2 : 0; // two raps: down on each half
 	}
 
 	// ---- chips (§0.4) ---------------------------------------------------------------------------------------------
@@ -396,7 +399,7 @@ public final class CardMotion {
 		double cy = Math.min(sy, ty) - 12;
 		double a = 1 - p;
 		out.rest(a * a * sx + 2 * a * p * cx + p * p * tx, a * a * sy + 2 * a * p * cy + p * p * ty, 0, true);
-		out.scale = 1 + 0.25 * Math.sin(Math.PI * u);
+		out.scale = u >= 1 ? 1 : 1 + 0.25 * Math.sin(Math.PI * u);
 		return out;
 	}
 
@@ -405,12 +408,12 @@ public final class CardMotion {
 		double u = clamp(t);
 		if (reduced) {
 			out.rest(sx, sy, 0, true);
-			out.alpha = 1 - u;
+			out.alpha = 1 - clamp(u * SWEEP_MS / REDUCED_FADE_MS);
 			return out;
 		}
 		double p = Ease.IN_CUBIC.apply(u);
-		out.rest(sx + (tx - sx) * p, sy + (ty - sy) * p, 0, true);
-		out.alpha = u < 0.66 ? 1 : Math.max(0, 1 - (u - 0.66) / 0.34);
+		out.rest(lerp(sx, tx, p), lerp(sy, ty, p), 0, true);
+		out.alpha = u < 0.66 ? 1 : u >= 1 ? 0 : Math.max(0, 1 - (u - 0.66) / 0.34);
 		return out;
 	}
 
@@ -423,12 +426,13 @@ public final class CardMotion {
 
 	/** Chemin de fer shoe pass / pot slide progress (inOutCubic). */
 	public static double pass(double t) {
-		return Ease.IN_OUT_CUBIC.apply(t);
+		return Ease.IN_OUT_CUBIC.apply(clamp(t));
 	}
 
 	/** Bead drop: y offset −10 → 0 (outBounce). */
 	public static double beadDropDy(double t) {
-		return -10 * (1 - Ease.OUT_BOUNCE.apply(t));
+		double u = clamp(t);
+		return u >= 1 ? 0 : -10 * (1 - Ease.OUT_BOUNCE.apply(u));
 	}
 
 	// ---- helpers --------------------------------------------------------------------------------------------------
@@ -444,7 +448,13 @@ public final class CardMotion {
 		return elapsedMs < 2.0 * durMs;
 	}
 
+	/** [0, 1]; NaN (a 0 / 0 progress, an unknown start) counts as settled so nothing is drawn off its target. */
 	static double clamp(double t) {
-		return t <= 0 ? 0 : t >= 1 ? 1 : t;
+		return t <= 0 ? 0 : t >= 1 || t != t ? 1 : t;
+	}
+
+	/** Linear interpolation that returns exactly {@code b} at {@code p = 1} (a + (b − a)·1 can miss b by an ulp). */
+	static double lerp(double a, double b, double p) {
+		return p >= 1 ? b : p <= 0 ? a : a + (b - a) * p;
 	}
 }

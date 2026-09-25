@@ -38,6 +38,6 @@ public enum DealerGesture {
 
 	/** Progress 0..1 of a gesture started {@code ageMs} ago; ≥ 1 means idle again. */
 	public double progress(double ageMs) {
-		return ms <= 0 ? 1 : Math.max(0, Math.min(1, ageMs / ms));
+		return ms <= 0 || ageMs != ageMs ? 1 : Math.max(0, Math.min(1, ageMs / ms));
 	}
 }

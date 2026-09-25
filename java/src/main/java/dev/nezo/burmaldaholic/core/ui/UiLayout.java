@@ -175,6 +175,19 @@ public final class UiLayout {
 		return Math.max(minWidth, textWidth + 8 + (iconWidth > 0 ? iconWidth + 3 : 0));
 	}
 
+	/** Balance plaque of the screen header: width and its gap to the panel's right edge (CasinoScreen). */
+	public static final int PLAQUE_W = 90;
+	public static final int PLAQUE_RIGHT = 16;
+
+	/**
+	 * Widest title banner centred on a panel of width {@code panelW} that stays clear of the balance plaque (4 px gap) when
+	 * {@code balance} is shown, and inside the 12 px frame border otherwise; at most 220.
+	 */
+	public static int bannerMaxW(int panelW, boolean balance) {
+		int half = balance ? panelW / 2 - PLAQUE_RIGHT - PLAQUE_W - 4 : panelW / 2 - 12;
+		return Math.max(0, Math.min(220, 2 * half));
+	}
+
 	/** The plaque width for a centred title (extras.md §2.2: {@code max(110, textWidth + 32)}), capped at {@code maxW}. */
 	public static int bannerWidth(int textWidth, int maxW) {
 		return Math.min(maxW, Math.max(110, textWidth + 32));

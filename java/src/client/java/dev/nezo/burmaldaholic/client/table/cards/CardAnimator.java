@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.client.table.cards;
 
+import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
 import dev.nezo.burmaldaholic.core.anim.cards.CardMotion;
@@ -76,6 +77,9 @@ public final class CardAnimator {
 	private boolean reduced;
 	private boolean gather = true;
 	private boolean sounds = true;
+	private int dealMs = CardMotion.DEAL_MS;
+	private int seedTable;
+	private int seedRound;
 
 	/** Shoe mouth (K1 start) in layout pixels. */
 	public CardAnimator origin(double x, double y) {
@@ -100,6 +104,22 @@ public final class CardAnimator {
 	/** Mute the per-card sounds (spectator copies, tests). */
 	public CardAnimator sounds(boolean on) {
 		this.sounds = on;
+		return this;
+	}
+
+	/** K1 length: {@link CardMotion#DEAL_MS} (default) or {@link CardMotion#DEAL_MS_POKER}. */
+	public CardAnimator dealMs(int ms) {
+		this.dealMs = Math.max(1, ms);
+		return this;
+	}
+
+	/**
+	 * Cosmetic seed of this table's current round (faithfulness §0.7.8: {@code mix(tableKey hash, roundSeq, slot)}); call
+	 * when the round changes. Without it every table jitters alike.
+	 */
+	public CardAnimator seed(int tableHash, int roundSeq) {
+		this.seedTable = tableHash;
+		this.seedRound = roundSeq;
 		return this;
 	}
 
@@ -138,9 +158,9 @@ public final class CardAnimator {
 			s.drawnY = y;
 			s.rot = rotDeg;
 			s.dealAt = dealMs;
-			s.revealAt = code >= 0 ? (Double.isNaN(revealMs) ? (Double.isNaN(dealMs) ? Double.NaN : dealMs + CardMotion.DEAL_MS) : revealMs) : Double.NaN;
+			s.revealAt = code >= 0 ? (Double.isNaN(revealMs) ? (Double.isNaN(dealMs) ? Double.NaN : dealMs + this.dealMs) : revealMs) : Double.NaN;
 			// a tween that is long over is drawn settled, silently
-			s.sDeal = s.sLand = Double.isNaN(dealMs) || now - dealMs > 2 * CardMotion.DEAL_MS;
+			s.sDeal = s.sLand = Double.isNaN(dealMs) || now - dealMs > 2 * this.dealMs;
 			s.sFlip = Double.isNaN(s.revealAt) || now - s.revealAt > 2 * CardMotion.FLIP_MS;
 			slots.put(key, s);
 		} else {
@@ -246,7 +266,7 @@ public final class CardAnimator {
 	/** Whether any card is still moving (tests: settle checks). */
 	public boolean busy() {
 		for (Slot s : order) {
-			if (!Double.isNaN(s.dealAt) && now - s.dealAt < CardMotion.DEAL_MS) return true;
+			if (!Double.isNaN(s.dealAt) && now - s.dealAt < dealMs) return true;
 			if (!Double.isNaN(s.revealAt) && now - s.revealAt < CardMotion.FLIP_MS) return true;
 			if (!Double.isNaN(s.squeezeAt) && now < s.squeezeAt + s.squeezeMs) return true;
 		}
@@ -266,7 +286,8 @@ public final class CardAnimator {
 		for (Slot s : order) drawSlot(g, font, s);
 		for (Iterator<Slot> it = leaving.iterator(); it.hasNext();) {
 			Slot s = it.next();
-			double t = CardMotion.progress(now, s.leaveAt, reduced ? CardMotion.REDUCED_FADE_MS * 2 : CardMotion.GATHER_MS);
+			// reduced motion: CardMotion.gather fades in place over the first REDUCED_GATHER_MS of the same window
+			double t = CardMotion.progress(now, s.leaveAt, CardMotion.GATHER_MS);
 			if (t >= 1) {
 				it.remove();
 				slots.remove(s.key, s);
@@ -293,13 +314,14 @@ public final class CardAnimator {
 			}
 		}
 		double dealElapsed = dealing ? now - s.dealAt : Double.MAX_VALUE;
-		if (dealing && dealElapsed < CardMotion.DEAL_MS && CardMotion.playTween(dealElapsed, CardMotion.DEAL_MS)) {
+		if (dealing && dealElapsed < dealMs && CardMotion.playTween(dealElapsed, dealMs)) {
 			if (!s.sDeal) {
 				s.sDeal = true;
 				if (sounds) FxSounds.play("card_slide", 0.3f, 1f);
 			}
-			int seed = CardMotion.seed(0, 0, s.key);
-			CardMotion.deal(pose, originX, originY, tx, ty, dealElapsed / CardMotion.DEAL_MS, s.rot, seed, reduced);
+			int seed = CardMotion.seed(seedTable, seedRound, s.key);
+			// reduced motion: the fade is 120 ms whatever the deal length (CardMotion.deal scales by DEAL_MS)
+			CardMotion.deal(pose, originX, originY, tx, ty, dealElapsed / (reduced ? CardMotion.DEAL_MS : dealMs), s.rot, seed, reduced);
 			s.drawnX = pose.x;
 			s.drawnY = pose.y;
 			paint(g, font, s, pose, false, 0);
@@ -307,15 +329,15 @@ public final class CardAnimator {
 		}
 		if (!s.sLand) {
 			s.sLand = true;
-			if (sounds) FxSounds.play("card_deal", 1f, CardMotion.dealPitch(CardMotion.seed(0, 0, s.key)));
+			if (sounds) FxSounds.play("card_deal", 1f, CardMotion.dealPitch(CardMotion.seed(seedTable, seedRound, s.key)));
 		}
 		pose.rest(tx, ty, s.rot, s.code >= 0);
 		if (s.lifted) pose.y -= 3;
 		s.drawnX = tx;
 		s.drawnY = ty;
 		// K1b settle for a face-down landing
-		if (dealing && s.code < 0 && !reduced && dealElapsed < CardMotion.DEAL_MS + CardMotion.SETTLE_MS) {
-			pose.y += CardMotion.settleDy((dealElapsed - CardMotion.DEAL_MS) / CardMotion.SETTLE_MS);
+		if (dealing && s.code < 0 && !reduced && dealElapsed < dealMs + CardMotion.SETTLE_MS) {
+			pose.y += CardMotion.settleDy((dealElapsed - dealMs) / CardMotion.SETTLE_MS);
 		}
 		if (s.code < 0) {
 			paint(g, font, s, pose, false, 0);
@@ -390,7 +412,7 @@ public final class CardAnimator {
 		double sy = p.scale;
 		if (sx <= 0.01) return;
 		CardGfx.pushBox(g, cx - w / 2.0, cy - h / 2.0, w, h, p.rot, sx, sy);
-		if (s.glow) CardSprites.glow(g, s.size, 0, 0, CardMotion.glowAlpha((long) now, reduced, true) * p.alpha);
+		if (s.glow) CardSprites.glow(g, s.size, 0, 0, CardMotion.glowAlpha((long) now, reduced, FxSettings.flashes()) * p.alpha);
 		if (s.size != CardSprites.S || p.shadowDx > 1) {
 			CardSprites.shadow(g, s.size, (int) Math.round(p.shadowDx), (int) Math.round(p.shadowDy - 1), p.alpha);
 		}
@@ -426,7 +448,7 @@ public final class CardAnimator {
 		double cy = p.y + fh / 2.0 - (reduced ? 0 : CardMotion.squeezeLift(u));
 		double pop = reduced ? 1 : CardMotion.squeezePop(u);
 		CardGfx.pushBox(g, cx - w / 2.0, cy - h / 2.0, w, h, s.rot, pop, pop);
-		if (s.glow) CardSprites.glow(g, s.size, 0, 0, CardMotion.glowAlpha((long) now, reduced, true));
+		if (s.glow) CardSprites.glow(g, s.size, 0, 0, CardMotion.glowAlpha((long) now, reduced, FxSettings.flashes()));
 		CardSprites.shadow(g, s.size, 1, reduced ? 0 : 1, 1);
 		if (reduced) {
 			CardSprites.back(g, s.back, s.size, 0, 0, 0xFFFFFFFF);
