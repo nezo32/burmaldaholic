@@ -150,6 +150,18 @@ public class WorldFxClientGameTests implements FabricClientGameTest {
 				if (plates == 0) throw new AssertionError("no bot nameplates at the stage table; occupants " + occ);
 			});
 			context.takeScreenshot("jtest_jl3_bot_plates_attract");
+			// harden the world close (a loaded close can deadlock Test / Render / Server threads): no screen open, bots
+			// gone, and a few ticks for the server to drain before the singleplayer context closes
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			// breaking the table takes its plates with it (no leaked text displays)
+			world.getServer().runOnServer(server -> player(server).level().removeBlock(base.offset(5, 0, 0), false));
+			context.waitTicks(50);
+			world.getServer().runOnServer(server -> {
+				long left = player(server).level().getEntitiesOfClass(net.minecraft.world.entity.Display.TextDisplay.class,
+					new net.minecraft.world.phys.AABB(base).inflate(12)).size();
+				if (left != 0) throw new AssertionError("bot nameplates outlived their table: " + left);
+			});
+			context.waitTicks(20);
 		}
 	}
 
