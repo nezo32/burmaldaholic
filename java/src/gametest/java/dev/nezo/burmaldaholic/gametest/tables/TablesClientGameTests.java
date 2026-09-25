@@ -36,8 +36,10 @@ public class TablesClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		context.runOnClient(mc -> mc.gui.setScreen(null));
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			context.waitTicks(20);
+			context.runOnClient(mc -> mc.gui.setScreen(null)); // never start with a pause screen: server tasks would wait forever
 			world.getServer().runCommand("casino balance set @p 12500");
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
 			for (String lang : List.of("en_us", "ru_ru")) {
