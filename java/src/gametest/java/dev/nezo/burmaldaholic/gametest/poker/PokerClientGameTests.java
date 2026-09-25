@@ -63,6 +63,7 @@ public class PokerClientGameTests implements FabricClientGameTest {
 			pokerLive(context, world);
 			pokerMockups(context, world);
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = true);
+			quiesce(context);
 		} finally {
 			context.runOnClient(mc -> {
 				TableTheme.force(null);
@@ -494,6 +495,16 @@ public class PokerClientGameTests implements FabricClientGameTest {
 	}
 
 	// ---- helpers --------------------------------------------------------------------------------------------------
+
+	/**
+	 * Before the singleplayer world closes: no screen open and a second of ticks so the server drains its queue
+	 * (closing under load can deadlock the Test thread in TestSingleplayerContext.close, the Render thread in
+	 * IntegratedServer.halt and the Server thread in the gametest phaser).
+	 */
+	private static void quiesce(ClientGameTestContext context) {
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(20);
+	}
 
 	private static void guiScale(ClientGameTestContext context, int scale) {
 		context.runOnClient(mc -> {

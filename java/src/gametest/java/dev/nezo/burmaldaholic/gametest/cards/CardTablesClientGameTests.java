@@ -68,6 +68,7 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 			context.runOnClient(mc -> FxSettings.get().reduceMotion = true);
 			guiScale(context, 2);
 			baccarat(context, world, "en_us_reduced", null);
+			quiesce(context);
 		} finally {
 			context.runOnClient(mc -> {
 				FxSettings.get().reduceMotion = false;
@@ -280,6 +281,16 @@ public class CardTablesClientGameTests implements FabricClientGameTest {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	/**
+	 * Before the singleplayer world closes: no screen open and a second of ticks so the server drains its queue
+	 * (closing under load can deadlock the Test thread in TestSingleplayerContext.close, the Render thread in
+	 * IntegratedServer.halt and the Server thread in the gametest phaser).
+	 */
+	private static void quiesce(ClientGameTestContext context) {
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(20);
 	}
 
 	private static void guiScale(ClientGameTestContext context, int scale) {
