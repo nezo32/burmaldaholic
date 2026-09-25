@@ -320,7 +320,7 @@ final class LoanScreen extends CasinoScreen {
 			Component note = "default".equals(status()) ? Component.translatable("gui.burmaldaholic.loan.no_new_overdue")
 				: component("status_line") == null ? Component.empty() : component("status_line");
 			List<FormattedCharSequence> nl = font.split(note, COL_W);
-			for (int i = 0; i < Math.min(2, nl.size()); i++) g.text(font, nl.get(i), cx, ny + i * 10, BONE, true);
+			for (int i = 0; i < Math.min(3, nl.size()); i++) g.text(font, nl.get(i), cx, ny + i * 10, BONE, true); // 3 lines fit above Pay all (RU wraps to 3)
 		}
 	}
 

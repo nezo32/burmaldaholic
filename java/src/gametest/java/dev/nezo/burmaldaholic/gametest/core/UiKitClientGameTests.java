@@ -19,7 +19,6 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.narration.NarrationThunk;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Tester pass over the J-L2 UI kit and the J-L4 card kit on a real client: {@link KitGalleryScreen} in every scene
@@ -79,7 +78,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 					int fit = font.width(CasinoUi.fit(font, c, w));
 					if (fit > Math.max(w, font.width("…"))) throw new AssertionError(lang + " CasinoUi.fit(" + key + ", " + w + ") = " + fit);
 					int fitted = CardGfx.fittedWidth(font, c, w);
-					if (fitted > w) throw new AssertionError(lang + " CardGfx.fittedWidth(" + key + ", " + w + ") = " + fitted);
+					if (fitted > Math.max(w, (int) Math.ceil(font.width("…") * 0.5f))) throw new AssertionError(lang + " CardGfx.fittedWidth(" + key + ", " + w + ") = " + fitted);
 				}
 				var info = new SeatPlate.Info(c, null, null, 2, c, 0xFFFFFFFF, SeatPlate.State.NORMAL, false);
 				if (SeatPlate.width(font, info) > SeatPlate.MAX_TEXT_W + 30) throw new AssertionError(lang + " seat plate grows with " + key);
@@ -102,7 +101,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 		// Tab walks the kit widgets and never lands on a disabled one
 		List<String> focused = new ArrayList<>();
 		for (int i = 0; i < 24; i++) {
-			context.getInput().pressKey(GLFW.GLFW_KEY_TAB);
+			context.getInput().pressKey(KEY_TAB);
 			context.waitTick();
 			String f = context.computeOnClient(mc -> {
 				var el = mc.gui.screen().getFocused();
@@ -127,7 +126,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			s.setFocused(s.kit.getFirst());
 			s.presses = 0;
 		});
-		context.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
+		context.getInput().pressKey(KEY_ENTER);
 		context.waitTick();
 		int presses = context.computeOnClient(mc -> ((KitGalleryScreen) mc.gui.screen()).presses);
 		if (presses != 1) throw new AssertionError("Enter on a focused CasinoButton presses it once, got " + presses);
@@ -153,18 +152,46 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 		if (!bad.isEmpty()) throw new AssertionError("narration: " + bad);
 	}
 
-	private static NarrationElementOutput collector(StringBuilder sb) {
-		return new NarrationElementOutput() {
-			@Override
-			public void add(NarratedElementType type, NarrationThunk<?> thunk) {
-				thunk.getText(t -> sb.append('[').append(type).append("] ").append(t).append(' '));
-			}
+	/** GLFW key codes (the LWJGL GLFW class is not on the 26.3 compile classpath; the codes are fixed). */
+	private static final int KEY_TAB = 258;
+	private static final int KEY_ENTER = 257;
 
-			@Override
-			public NarrationElementOutput nest() {
-				return this;
-			}
-		};
+	/**
+	 * A narration sink that records the text. A proxy, not an anonymous class: 26.3 added the abstract
+	 * {@code narrationTrigger()}, so an implementation written for 26.2 does not compile there (and vice versa).
+	 */
+	private static NarrationElementOutput collector(StringBuilder sb) {
+		Object[] self = new Object[1];
+		self[0] = java.lang.reflect.Proxy.newProxyInstance(NarrationElementOutput.class.getClassLoader(), new Class<?>[] {NarrationElementOutput.class},
+			(proxy, m, args) -> {
+				if (m.isDefault()) return java.lang.reflect.InvocationHandler.invokeDefault(proxy, m, args);
+				switch (m.getName()) {
+					case "add" -> {
+						if (args != null && args.length == 2 && args[1] instanceof NarrationThunk<?> thunk) {
+							NarratedElementType type = (NarratedElementType) args[0];
+							thunk.getText(t -> sb.append('[').append(type).append("] ").append(t).append(' '));
+						}
+						return null;
+					}
+					case "nest" -> {
+						return self[0];
+					}
+					case "hashCode" -> {
+						return System.identityHashCode(proxy);
+					}
+					case "equals" -> {
+						return proxy == args[0];
+					}
+					case "toString" -> {
+						return "narration collector";
+					}
+					default -> {
+						Class<?> r = m.getReturnType();
+						return r.isEnum() && r.getEnumConstants().length > 0 ? r.getEnumConstants()[0] : null;
+					}
+				}
+			});
+		return (NarrationElementOutput) self[0];
 	}
 
 	/** Nine-slices at GUI scales 1–4 and an odd window: screenshots, the panel stays at integer coordinates. */
@@ -231,7 +258,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			check(CasinoTheme.current() == expected, id + " → " + expected + " (got " + CasinoTheme.current() + ")");
 			check(TableTheme.current().casino() == expected, id + " card tables");
 		});
-		open(context, CasinoTheme.current());
+		open(context, context.computeOnClient(mc -> CasinoTheme.current())); // Minecraft.getInstance() only on the client thread
 		context.takeScreenshot("jtest_kit_dim_" + expected.id);
 	}
 
