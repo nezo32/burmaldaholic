@@ -133,5 +133,9 @@
 	"config.burmaldaholic.loan.collectorHealthMultiplier.easy": "Collector health: Easy",
 	"config.burmaldaholic.loan.collectorHealthMultiplier.hard": "Collector health: Hard",
 	"config.burmaldaholic.loan.peacefulSeizePercent": "Asset freeze seizure per day (%%)",
-	"subtitles.burmaldaholic.loan_shark_idle": "Loan Shark hums"
+	"subtitles.burmaldaholic.loan_shark_idle": "Loan Shark hums",
+	"gui.burmaldaholic.loan.shark.none": "Need a little something?",
+	"gui.burmaldaholic.loan.shark.active": "Tick tock, friend.",
+	"gui.burmaldaholic.loan.shark.default": "Late fees are adding up…",
+	"gui.burmaldaholic.loan.shark.cooldown": "Come back later."
 }

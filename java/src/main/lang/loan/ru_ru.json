@@ -133,5 +133,9 @@
 	"config.burmaldaholic.loan.collectorHealthMultiplier.easy": "Здоровье коллекторов: лёгкая",
 	"config.burmaldaholic.loan.collectorHealthMultiplier.hard": "Здоровье коллекторов: сложная",
 	"config.burmaldaholic.loan.peacefulSeizePercent": "Арест счёта: списание в день (%%)",
-	"subtitles.burmaldaholic.loan_shark_idle": "Ростовщик напевает"
+	"subtitles.burmaldaholic.loan_shark_idle": "Ростовщик напевает",
+	"gui.burmaldaholic.loan.shark.none": "Нужна мелочь на жизнь?",
+	"gui.burmaldaholic.loan.shark.active": "Тик-так, дружище.",
+	"gui.burmaldaholic.loan.shark.default": "Пени капают…",
+	"gui.burmaldaholic.loan.shark.cooldown": "Зайди попозже."
 }
