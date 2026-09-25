@@ -4,7 +4,8 @@
 
 **Burmaldaholic** (Russian: **«Бурмалдоголик»**) turns a survival world into a casino economy.
 You earn chips by mining, fighting, trading and doing daily contracts. You spend them on blackjack,
-Texas Hold'em, slots, roulette, craps and a handful of quick games. If you run short, the Loan Shark
+Texas Hold'em, Ultimate Texas Hold'em, baccarat, slots, roulette, craps and a handful of quick games,
+or on PvP duels against other players. Bots can fill the empty seats. If you run short, the Loan Shark
 will lend you some, and his Debt Collectors will come for you if you don't pay him back. On top of
 that, chaos events rain diamonds or mobs on you, and Last Chance lets you flip a coin with Death.
 
@@ -64,7 +65,9 @@ numbers below are defaults, and most can be changed ([Configuration](#configurat
 |---|---|
 | **Blackjack** | 6 decks, dealer stands on soft 17, blackjack pays 3:2, double after split, re-split up to 4 hands, insurance and even money. Up to 5 seats. |
 | **Texas Hold'em** | No-Limit, 6-max cash game with side pots. Four stake levels (1/2 up to 100/200). Empty seats can be filled by **bots** at three skill tiers (Fish, Regular, Shark). The house takes a 5 % rake from pots with 2 or more human players, capped at 3 BB, and only if the hand saw a flop. |
-| **Slots** | Three machines: Copper Bandit (1 line), Golden Reels (3 lines) and Netherite High Roller (5 lines, Gold VIP). Golden Reels and Netherite have **progressive jackpots**. Special symbols start chaos events, and the Clock symbol starts Golden Hour. |
+| **Slots** | Three themed 5×3 video slots with **243 ways** to win: **Overworld Riches** (low volatility, free spins, **Treasure Hunt** bonus), **Nether Inferno** (tumbling reels with a multiplier ladder, **Piglin's Hoard** hold-and-spin bonus) and **End Void** (Gold VIP; sticky expanding wilds, **Dragon Wheel** bonus). Each machine has four progressive jackpots (**Mini, Minor, Major, Grand**), won through its bonus game. Big outcomes start chaos events, and five scatters start Golden Hour. |
+| **Baccarat** | Punto Banco from an 8-deck shoe: Player 1:1, Banker 0.95:1, Tie 8:1, Player / Banker Pair 11:1. Up to 7 seats. A player-banked **Chemin de fer** table is also available. |
+| **Ultimate Texas Hold'em** | Each seat plays the dealer: Ante + Blind, then one Play bet (×4 preflop, ×2 on the flop, ×1 at the river) or a fold, plus an optional Trips bet. Up to 6 seats. |
 | **European roulette** | Single zero. All standard inside and outside bets, from straight up (35:1) to even money. |
 | **Craps** | Pass / Don't Pass, Come / Don't Come, Field (2 pays 2:1, 12 pays 3:1) and free odds up to 3-4-5×. Up to 6 players, with a rotating shooter. |
 | **Coin flip** | Lucky Coin item, usable anywhere. Pays 0.96:1. |
@@ -80,7 +83,9 @@ numbers below are defaults, and most can be changed ([Configuration](#configurat
 | Blackjack (basic strategy) | 99.59 % | 0.41 % |
 | Blackjack insurance | 92.60 % | 7.40 % |
 | Poker vs players | — | rake ≤ 5 % of raked pots |
-| Slots: Copper Bandit / Golden Reels / Netherite High Roller | 89.76 / 93.71 / 96.04 % | 10.24 / 6.29 / 3.96 % |
+| Slots: Overworld Riches / Nether Inferno / End Void | 95.07 / 95.39 / 96.53 % | 4.93 / 4.61 / 3.47 % |
+| Baccarat Banker / Player / Tie | 98.94 / 98.76 / 85.64 % | 1.06 / 1.24 / 14.36 % |
+| Ultimate Texas Hold'em (optimal play) / Trips | 97.82 % of the Ante / 98.10 % | 2.19 % of the Ante / 1.90 % |
 | Roulette (any bet) | 97.30 % | 2.70 % |
 | Craps Pass / Come | 98.59 % | 1.41 % |
 | Craps Don't Pass / Don't Come | 98.64 % | 1.36 % |
@@ -123,8 +128,8 @@ test that checks its RTP.
   - bad: curse (a mild debuff), mob wave
   - neutral: random teleport to a safe spot, weather change
 - **Golden Hour** is server-wide and lasts 3 minutes. The net winnings of house-banked games are
-  doubled, up to a cap per player, and the bank pays the bonus. It can start at sunset, from the
-  Netherite slot Clock symbol, or as a rare ambient event.
+  doubled, up to a cap per player, and the bank pays the bonus. It can start at sunset, from five
+  scatters on a slot machine, or as a rare ambient event.
 - Safety rules:
   - no events in Creative or Spectator, while you sleep, or right after you respawn
   - mob waves never contain creepers, never spawn in Peaceful or near a boss, and never spawn
@@ -166,9 +171,9 @@ Casino buildings are generated only in newly generated chunks.
 
 | Structure | Where | Contents |
 |---|---|---|
-| **Lucky Villager** (village casino) | ≈ 1 in 3 villages. Five village styles. | Cashier, blackjack, roulette, 3 Copper Bandits, a Golden Reels machine, Wheel of Fortune, Loan Shark, Croupier, loot chest |
-| **Piglin Parlor** | 30 % of bastions | Craps, poker (with bots), 2 Golden Reels, Plinko, Nether cashier, Piglin Dealers, Piglin Moneylender, loot |
-| **High Roller Lounge** | 20 % of End Cities, on a tower's top floor | 2 Netherite slots, high-roller blackjack and roulette, cashier, Shulker Croupier, loot |
+| **Lucky Villager** (village casino) | ≈ 1 in 3 villages. Five village styles. | Cashier, blackjack, roulette, 3 Overworld Riches slots, a Nether Inferno slot, Wheel of Fortune, Loan Shark, Croupier, loot chest |
+| **Piglin Parlor** | 30 % of bastions | Craps, poker (with bots), 2 Nether Inferno slots, Plinko, Nether cashier, Piglin Dealers, Piglin Moneylender, loot |
+| **High Roller Lounge** | 20 % of End Cities, on a tower's top floor | 2 End Void slots, high-roller blackjack and roulette, cashier, Shulker Croupier, loot |
 
 Village casinos are built **inside** villages, as one of the village's houses; the Piglin Parlor and the High Roller
 Lounge are part of the bastion or End City. To turn them off, disable the built-in `burmaldaholic:casinos` data pack
@@ -184,7 +189,7 @@ Your VIP tier depends on the total amount you have ever wagered, and tiers are n
 |---|---|---|---|
 | Bronze | 0 | 100 | Micro poker, basic scratch cards, loans of 100 and 500 |
 | Silver | 5 000 | 250 | Low poker, gold scratch cards, 2 000 loan, +5 % contract rewards |
-| Gold | 25 000 | 1 000 | Netherite slots, high-roller tables, Mid poker, 10 000 loan, 2 % cashback |
+| Gold | 25 000 | 1 000 | End Void slots, high-roller tables, Mid poker, 10 000 loan, 2 % cashback |
 | Platinum | 100 000 | 2 500 | 4 contract slots, −2 % loan interest, 3 % cashback |
 | Diamond | 500 000 | 10 000 | High poker, 50 000 loan, 5 contract slots, 4 % cashback |
 | Netherite | 2 500 000 | 50 000 | 5 % cashback, a win aura, a server-wide announcement when you reach it |
@@ -210,11 +215,40 @@ re-roll a contract once a day for 10 chips.
   - Linked tables are protected from other players and from explosions.
 - **Dice duels between players**, and server-wide announcements for big wins and jackpots.
 
+### PvP modes
+
+Players can also bet **against each other** instead of the house. The stakes form a pot, and the
+winner takes it minus a small house cut (3 % by default). The house never takes a side, so every
+mode is fair. Challenges and lobbies live on the PvP page of the Casino Menu.
+
+| Mode | Players | How it plays |
+|---|---|---|
+| **Coin Flip Duel** | 2 | Call it and flip; the loser may shout "Double or nothing!" |
+| **Wheel Party** | 2–8 | Buy a slice of the wheel (bigger stake, bigger slice); one shared spin picks the winner |
+| **Plinko Battle** | 2–6 | Everyone drops at the same risk; the bins are points |
+| **Scratch Showdown** | 2–6 | Everyone scratches a card, one cell at a time, together |
+| **Slot Showdown** | 2–6 | Everyone spins the same machine; wins are points, with twists like HOT symbols and KABOOM |
+
+### Seats & Bots
+
+Every multi-seat table (poker, Ultimate Texas Hold'em, baccarat, blackjack, roulette, craps) and
+every PvP match has a seating policy: **humans only**, **bots only** (you and bots) or **mixed**
+(bots fill the empty seats and give them up to arriving players). Bots come in three levels,
+**Easy, Normal and Hard** (or a mix). Each bot wears a nameplate with its level, and thinking dots
+show while it decides.
+
+### Animated screens
+
+Every game has a redesigned, animated screen: cards are dealt and flipped, chips stack and slide,
+reels spin and tumble, and wins are celebrated. The screens take on the look of the place where the
+table stands: the village casino, the Piglin Parlor or the End. The HUD chip counter, the Casino Menu
+ledger, the cashier and the Loan Shark screens use the same style.
+
 ### Achievements
 
-35 achievements — first bet, natural blackjack, royal flush, jackpot, both extremes of the streak, surviving
-through Last Chance, paying off a loan, owning a casino, and more — are real advancements, in their own
-"Burmaldaholic" tab.
+65 achievements — first bet, natural blackjack, royal flush, a Major or Grand jackpot, both extremes of the streak,
+surviving through Last Chance, paying off a loan, owning a casino, PvP wins, private and bot tables, and more — are
+real advancements, in their own "Burmaldaholic" tab.
 
 ---
 
@@ -301,7 +335,7 @@ other vanilla game rule. It only *reads* the difficulty to scale its own mechani
 
 ## Configuration
 
-About 355 settings cover payouts, odds, timers, loan terms, chaos weights, worldgen chances and
+Hundreds of settings cover payouts, odds, timers, loan terms, chaos weights, worldgen chances and
 more. Every key, with its type, default and allowed range, is listed in
 [`docs/design/CONFIG.md`](docs/design/CONFIG.md). Out-of-range values are clamped.
 

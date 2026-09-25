@@ -136,6 +136,7 @@ public class WorldFxClientGameTests implements FabricClientGameTest {
 			context.waitTicks(60);
 
 			// ---- casino scene: bot nameplates, attract fronts, roofline marquee ---------------------------------------
+			java.util.Set<java.util.UUID> plateIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
 			world.getServer().runOnServer(server -> seatBots(server, base));
 			int casinos = context.computeOnClient(mc -> WorldgenClientModule.previewAttract(new CasinoViewPayload(List.of(
 				new CasinoViewPayload.Casino(CasinoKind.VILLAGE_CASINO.ordinal(), base.getX() + 2, base.getY(), base.getZ() - 5, base.getX() + 9,
@@ -148,8 +149,20 @@ public class WorldFxClientGameTests implements FabricClientGameTest {
 				long plates = p.level().getEntitiesOfClass(net.minecraft.world.entity.Display.TextDisplay.class, new net.minecraft.world.phys.AABB(base).inflate(12)).size();
 				String occ = be instanceof BotTable t ? t.occupants().toString() : "none";
 				if (plates == 0) throw new AssertionError("no bot nameplates at the stage table; occupants " + occ);
+				p.level().getEntitiesOfClass(net.minecraft.world.entity.Display.TextDisplay.class, new net.minecraft.world.phys.AABB(base).inflate(12))
+					.forEach(d -> plateIds.add(d.getUUID()));
 			});
 			context.takeScreenshot("jtest_jl3_bot_plates_attract");
+			// the SAME plates are still there 2 s later: the entity-load hook never discards a fresh plate (a discarded one
+			// would be respawned by the next sync under a new UUID, hiding the bug from a plain count)
+			context.waitTicks(40);
+			world.getServer().runOnServer(server -> {
+				ServerLevel level = player(server).level();
+				for (java.util.UUID id : plateIds) {
+					net.minecraft.world.entity.Entity e = level.getEntity(id);
+					if (e == null || e.isRemoved()) throw new AssertionError("bot nameplate " + id + " vanished after spawning");
+				}
+			});
 			// harden the world close (a loaded close can deadlock Test / Render / Server threads): no screen open, bots
 			// gone, and a few ticks for the server to drain before the singleplayer context closes
 			context.runOnClient(mc -> mc.gui.setScreen(null));
