@@ -56,9 +56,9 @@ public class TablesClientGameTests implements FabricClientGameTest {
 			roulette(context, world, "en_us_bastion", 1, true);
 			craps(context, world, "en_us_end", 2);
 			dice(context, world, "en_us_end", 2);
-			// compact layouts: GUI scale 3 of the 854 × 480 test window is exactly the 284 × 160 compact frame
-			guiScale(context, 3);
-			report.add("gui scale 3: " + context.computeOnClient(mc -> mc.getWindow().getGuiScaledWidth() + " x " + mc.getWindow().getGuiScaledHeight()));
+			// compact layouts: GUI scale 4 of the 1280 × 720 test window is 320 × 180 (< 427 × 240: the compact frame)
+			guiScale(context, 4);
+			report.add("gui scale 4: " + context.computeOnClient(mc -> mc.getWindow().getGuiScaledWidth() + " x " + mc.getWindow().getGuiScaledHeight()));
 			roulette(context, world, "en_us_compact", 2, true);
 			craps(context, world, "en_us_compact", 0);
 			dice(context, world, "en_us_compact", 0);

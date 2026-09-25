@@ -287,8 +287,9 @@ public class CrapsScreen extends CasinoTableScreen {
 		}
 		// Undo / Clear: only chips put down since the last roll (contract bets stay; GAME_DESIGN §10.1)
 		boolean canUndo = state().getBooleanOr("can_undo", false);
-		int ux = compact() ? ox + 154 : ox + 12 + CHIPS.length * 27;
-		int uy = compact() ? oy + 138 : oy + 214;
+		// compact: on the top bar left of the balance (the bottom bar holds the chips, rules and the status line)
+		int ux = compact() ? ox + frame.w() - 2 - TableChrome.balanceWidth(font, balance()) - 46 : ox + 12 + CHIPS.length * 27;
+		int uy = compact() ? oy - 1 : oy + 214;
 		addRenderableWidget(TableButton.icon(ux, uy, "undo", Component.translatable(K + "button.undo"), theme, b -> sendAction("undo"))).active = canUndo;
 		addRenderableWidget(TableButton.icon(ux + 22, uy, "clear", Component.translatable(K + "button.clear"), theme, b -> sendAction("clear"))).active = canUndo;
 		int bw = TableChrome.balanceWidth(font, balance());
