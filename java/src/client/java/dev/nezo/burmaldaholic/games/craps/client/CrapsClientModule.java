@@ -17,6 +17,7 @@ public final class CrapsClientModule implements CasinoClientModule {
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
 		ctx.tableScreen(CrapsModule.TABLE, CrapsScreen::new);
+		CrapsTableRenderer.register(); // in-world dice and puck (tables.md §2.6)
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
 			if (stack.is(CrapsModule.TABLE.item())) {
 				lines.add(Component.translatable("tooltip.burmaldaholic.craps_table").withStyle(ChatFormatting.GRAY));

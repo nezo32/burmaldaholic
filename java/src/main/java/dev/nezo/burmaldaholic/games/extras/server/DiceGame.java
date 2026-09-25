@@ -1,5 +1,8 @@
 package dev.nezo.burmaldaholic.games.extras.server;
 
+import dev.nezo.burmaldaholic.core.anim.SeedMix;
+import dev.nezo.burmaldaholic.core.anim.dice.DuelTimeline;
+import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.core.events.PlayResults;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
@@ -18,9 +21,9 @@ import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.wager.BetLimits;
 import dev.nezo.burmaldaholic.core.wager.Stake;
 import dev.nezo.burmaldaholic.core.wager.Stakes;
-import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
 import dev.nezo.burmaldaholic.games.extras.logic.ChallengeBook;
 import dev.nezo.burmaldaholic.games.extras.logic.DiceDuel;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -47,6 +51,12 @@ public final class DiceGame {
 
 	private static final ChallengeBook BOOK = new ChallengeBook();
 	private static final Map<UUID, Integer> SEQ = new HashMap<>();
+	/** A chat line held back until the duel's dice have landed on the screens (tables.md §3.6). */
+	private record Pending(long at, UUID player, Component message) {}
+
+	private static final List<Pending> PENDING = new ArrayList<>();
+	/** GameTests / previews: forces the duel screen's location theme (-1 = by dimension). */
+	public static int themeOverride = -1;
 
 	private DiceGame() {}
 
@@ -84,6 +94,7 @@ public final class DiceGame {
 		ExtrasGames.writePawnInfo(tag, player);
 		tag.putBoolean("pvp", cfg().pvpEnabled);
 		tag.put("tie_on", new IntArrayTag(cfg().houseWinsTieOn.clone()));
+		tag.putString("theme", new String[] {"village", "bastion", "end"}[theme(player)]);
 		ListTag incoming = new ListTag();
 		for (ChallengeBook.Challenge c : BOOK.incoming(player.getUUID(), now)) {
 			CompoundTag ct = new CompoundTag();
@@ -162,12 +173,13 @@ public final class DiceGame {
 			case PUSH -> Stakes.Outcome.PUSH;
 			case LOSE, HOUSE_TIE -> Stakes.Outcome.LOSS;
 		};
-		ExtrasGames.playSound(player, ExtrasModule.DICE_ROLL_SOUND, 1.0f);
+		// the cup, throw and landing sounds are played by the screen from the shared throw (tables.md §0.8)
 		Stakes.settle(player, stake, outcome, stake.value());
 		long net = DiceDuel.houseReturn(stake.value(), duel.outcome()) - stake.value();
 		int seq = SEQ.merge(player.getUUID(), 1, Integer::sum);
 		CompoundTag r = new CompoundTag();
 		r.putInt("seq", seq);
+		r.putInt("seed", SeedMix.mix(SeedMix.hash(player.getUUID().toString()), seq));
 		r.putString("mode", "house");
 		r.put("you", new IntArrayTag(new int[] {duel.player().a(), duel.player().b()}));
 		r.put("them", new IntArrayTag(new int[] {duel.dealer().a(), duel.dealer().b()}));
@@ -275,6 +287,11 @@ public final class DiceGame {
 		resolvePvp(challenger, player, c.stake());
 	}
 
+	/** GameTests: a PvP duel between two players resolved at once, as if {@code b} accepted {@code a}'s challenge. */
+	public static void resolvePvpForTesting(ServerPlayer a, ServerPlayer b, long stake) {
+		resolvePvp(a, b, stake);
+	}
+
 	/** Escrow both stakes, roll (ties re-roll up to 3 times), pay the winner the pot minus rake or refund. */
 	static void resolvePvp(ServerPlayer a, ServerPlayer b, long stake) {
 		MinecraftServer server = a.level().getServer();
@@ -290,23 +307,28 @@ public final class DiceGame {
 			a.sendSystemMessage(err.copy().withStyle(ChatFormatting.RED));
 			return;
 		}
-		ExtrasGames.playSound(a, ExtrasModule.DICE_ROLL_SOUND, 1.0f);
-		ExtrasGames.playSound(b, ExtrasModule.DICE_ROLL_SOUND, 1.0f);
 		DiceDuel.PvpDuel duel = DiceDuel.duelPvp(OddsService.get().fair(), DiceDuel.PVP_MAX_ROLLS);
 		DiceDuel.PvpRound last = duel.rounds().get(duel.rounds().size() - 1);
-		for (DiceDuel.PvpRound round : duel.rounds()) {
-			rollLines(a, b, round.a(), round.b());
-			rollLines(b, a, round.b(), round.a());
+		// text trails the dice (tables.md §3.6): each round's lines at its reveal on the screens; the money settles now
+		long start = now(server);
+		int seed = SeedMix.mix(SeedMix.hash(a.getUUID().toString()), SeedMix.hash(b.getUUID().toString()), (int) start);
+		for (int i = 0; i < duel.rounds().size(); i++) {
+			DiceDuel.PvpRound round = duel.rounds().get(i);
+			long at = start + DuelTimeline.revealTick(i);
+			rollLines(at, a, b, round.a(), round.b());
+			rollLines(at, b, a, round.b(), round.a());
 		}
+		long end = start + DuelTimeline.revealTick(duel.rounds().size() - 1);
+		DuelStage.start(a, b, duel, seed, start); // the dice between the two players (tables.md §3.4)
 		if (duel.result() == DiceDuel.PvpResult.REFUND) {
 			eco.batch(server).debit(AccountId.HOUSE, 2 * stake)
 				.credit(AccountId.player(a.getUUID()), stake).credit(AccountId.player(b.getUUID()), stake)
 				.commit(Transaction.refund(ExtrasGames.DICE_PVP));
 			Component msg = Component.translatable("msg.burmaldaholic.extras.dice.pvp_refund").withStyle(ChatFormatting.GRAY);
-			a.sendSystemMessage(msg);
-			b.sendSystemMessage(msg);
-			sendPvpResult(a, last.a(), last.b(), 0, b);
-			sendPvpResult(b, last.b(), last.a(), 0, a);
+			later(end, a, msg);
+			later(end, b, msg);
+			sendPvpResult(a, duel, true, 0, b, seed);
+			sendPvpResult(b, duel, false, 0, a, seed);
 			return;
 		}
 		ServerPlayer winner = duel.result() == DiceDuel.PvpResult.A ? a : b;
@@ -315,28 +337,49 @@ public final class DiceGame {
 		eco.deposit(winner, pay.winnerGets(), Transaction.payout(ExtrasGames.DICE_PVP));
 		Component msg = Component.translatable("msg.burmaldaholic.extras.dice.pvp_result", winner.getDisplayName(), loser.getDisplayName(), Texts.chipsAcc(pay.winnerGets()))
 			.withStyle(ChatFormatting.GOLD);
-		a.sendSystemMessage(msg);
-		b.sendSystemMessage(msg);
+		later(end, a, msg);
+		later(end, b, msg);
 		// PvP: no house edge, no Golden Hour, no cashback (§12/§13.3).
 		PlayResults.fire(winner, CasinoEvents.PlayResult.of(ExtrasGames.DICE_PVP, stake, pay.winnerGets()).pvp());
 		PlayResults.fire(loser, CasinoEvents.PlayResult.of(ExtrasGames.DICE_PVP, stake, 0).pvp());
-		sendPvpResult(a, last.a(), last.b(), winner == a ? pay.winnerGets() - stake : -stake, b);
-		sendPvpResult(b, last.b(), last.a(), winner == b ? pay.winnerGets() - stake : -stake, a);
+		sendPvpResult(a, duel, true, winner == a ? pay.winnerGets() - stake : -stake, b, seed);
+		sendPvpResult(b, duel, false, winner == b ? pay.winnerGets() - stake : -stake, a, seed);
 	}
 
-	private static void rollLines(ServerPlayer viewer, ServerPlayer other, DiceDuel.Roll mine, DiceDuel.Roll theirs) {
-		viewer.sendSystemMessage(Component.translatable("gui.burmaldaholic.extras.dice.your_roll",
+	private static void later(long at, ServerPlayer player, Component message) {
+		PENDING.add(new Pending(at, player.getUUID(), message));
+	}
+
+	private static void rollLines(long at, ServerPlayer viewer, ServerPlayer other, DiceDuel.Roll mine, DiceDuel.Roll theirs) {
+		later(at, viewer, Component.translatable("gui.burmaldaholic.extras.dice.your_roll",
 			Texts.number(mine.a()), Texts.number(mine.b()), Texts.number(mine.total())));
-		viewer.sendSystemMessage(Component.translatable("gui.burmaldaholic.extras.dice.their_roll", other.getDisplayName(),
+		later(at, viewer, Component.translatable("gui.burmaldaholic.extras.dice.their_roll", other.getDisplayName(),
 			Texts.number(theirs.a()), Texts.number(theirs.b()), Texts.number(theirs.total())));
 	}
 
-	private static void sendPvpResult(ServerPlayer p, DiceDuel.Roll mine, DiceDuel.Roll theirs, long net, ServerPlayer other) {
+	/**
+	 * The PvP result for one side: every round (tables.md §3.6 {@code rounds}), so the screen shows each tie and its
+	 * re-roll; {@code you} / {@code them} keep the last round for older readers.
+	 */
+	private static void sendPvpResult(ServerPlayer p, DiceDuel.PvpDuel duel, boolean sideA, long net, ServerPlayer other, int seed) {
 		int seq = SEQ.merge(p.getUUID(), 1, Integer::sum);
 		CompoundTag r = new CompoundTag();
 		r.putInt("seq", seq);
+		r.putInt("seed", seed);
 		r.putString("mode", "pvp");
 		r.putString("opponent", other.getName().getString());
+		ListTag rounds = new ListTag();
+		DiceDuel.Roll mine = null;
+		DiceDuel.Roll theirs = null;
+		for (DiceDuel.PvpRound round : duel.rounds()) {
+			mine = sideA ? round.a() : round.b();
+			theirs = sideA ? round.b() : round.a();
+			CompoundTag rt = new CompoundTag();
+			rt.put("you", new IntArrayTag(new int[] {mine.a(), mine.b()}));
+			rt.put("them", new IntArrayTag(new int[] {theirs.a(), theirs.b()}));
+			rounds.add(rt);
+		}
+		r.put("rounds", rounds);
 		r.put("you", new IntArrayTag(new int[] {mine.a(), mine.b()}));
 		r.put("them", new IntArrayTag(new int[] {theirs.a(), theirs.b()}));
 		r.putString("outcome", net > 0 ? "win" : net < 0 ? "lose" : "refund");
@@ -344,9 +387,22 @@ public final class DiceGame {
 		ExtrasGames.send(p, SCREEN, false, state(p, r));
 	}
 
+	/** Location theme of the duel screen (visual/tables.md §2.1): Nether → Piglin Parlor, End → lounge, else village. */
+	static int theme(ServerPlayer player) {
+		if (themeOverride >= 0) {
+			return themeOverride;
+		}
+		if (player.level().dimension() == Level.NETHER) {
+			return 1;
+		}
+		return player.level().dimension() == Level.END ? 2 : 0;
+	}
+
 	// ---- housekeeping ---------------------------------------------------------------------------
 
 	public static void tick(MinecraftServer server) {
+		flushPending(server, false);
+		DuelStage.tick(server);
 		if (BOOK.size() == 0 || server.getTickCount() % 20 != 0) {
 			return;
 		}
@@ -364,8 +420,35 @@ public final class DiceGame {
 		SEQ.remove(player);
 	}
 
+	/**
+	 * Posts the held-back duel lines that are due ({@code all}: every one, the server stops). A player who went offline
+	 * meanwhile gets them on the next join ({@link OfflineMail}): a line is never lost.
+	 */
+	public static void flushPending(MinecraftServer server, boolean all) {
+		if (PENDING.isEmpty()) {
+			return;
+		}
+		long now = now(server);
+		List<Pending> due = new ArrayList<>();
+		PENDING.removeIf(m -> {
+			if (!all && m.at() > now) {
+				return false;
+			}
+			due.add(m);
+			return true;
+		});
+		due.forEach(m -> OfflineMail.line(server, m.player(), m.message()));
+	}
+
+	/** Held-back duel lines not posted yet (tests). */
+	public static int pendingLines() {
+		return PENDING.size();
+	}
+
 	public static void clear() {
 		BOOK.clear();
 		SEQ.clear();
+		PENDING.clear();
+		DuelStage.clear();
 	}
 }

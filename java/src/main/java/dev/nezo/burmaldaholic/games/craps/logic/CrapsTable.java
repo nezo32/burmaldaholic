@@ -215,6 +215,14 @@ public final class CrapsTable {
 		}
 	}
 
+	/** Takes odds back off a bet (undo of odds placed since the last roll; the caller returns the chips). */
+	public void removeOdds(int betId, long amount) {
+		Bet b = bet(betId);
+		if (b != null) {
+			b.takeOdds(amount);
+		}
+	}
+
 	/** Takes every bet of a player off the table (they left); returns them for auto-completion/refund. */
 	public List<Bet> removeOwner(UUID owner) {
 		List<Bet> mine = betsOf(owner);

@@ -56,6 +56,13 @@ public final class Bet {
 		odds += amount;
 	}
 
+	void takeOdds(long amount) {
+		if (amount < 0 || amount > odds) {
+			throw new IllegalArgumentException("odds " + odds + " - " + amount);
+		}
+		odds -= amount;
+	}
+
 	void moveTo(int newPoint) {
 		point = newPoint;
 	}

@@ -557,6 +557,33 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		setChanged();
 	}
 
+	/**
+	 * Takes part of one open bet back before its draw (roulette Undo, craps take-down of a bet no roll has seen yet):
+	 * {@code amount} goes back to the player's balance without a result (no PLAY_RESOLVED; like {@link #refundBet},
+	 * silent) and up to {@code release} of the bankroll reservation is freed. The rest of the stake stays open. The
+	 * whole stake → {@link #refundBet}.
+	 *
+	 * @return false (nothing moved) when the bet is not open or holds less than {@code amount}
+	 */
+	protected boolean refundPart(UUID player, String bet, long amount, long release) {
+		StakeKey key = new StakeKey(player, bet);
+		OpenStake s = openStakes.get(key);
+		if (s == null || amount <= 0 || amount > s.amount() || !(level instanceof ServerLevel serverLevel)) {
+			return false;
+		}
+		if (amount == s.amount()) {
+			refundBet(player, bet, true);
+			return true;
+		}
+		MinecraftServer server = serverLevel.getServer();
+		long freed = Math.max(0, Math.min(release, s.reserved()));
+		OpenStake part = new OpenStake(player, bet, amount, freed, s.bankroll());
+		openStakes.put(key, new OpenStake(player, bet, s.amount() - amount, s.reserved() - freed, s.bankroll()));
+		refundStake(server, part, true);
+		setChanged();
+		return true;
+	}
+
 	private void refundStake(MinecraftServer server, OpenStake s, boolean quiet) {
 		Economy eco = Economies.get();
 		AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());

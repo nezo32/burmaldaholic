@@ -1283,6 +1283,22 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.fx.last_bets` | Last bets! | Последние ставки! |
 | `gui.burmaldaholic.roulette.fx.bet_placed` | %1$s on %2$s | %1$s на «%2$s» |
 
+### Table redesign (lane J-L6, `docs/design/visual/tables.md` §10: felt labels, racetrack, icon tooltips)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.roulette.layout.even` | EVEN | ЧЁТ |
+| `gui.burmaldaholic.roulette.layout.odd` | ODD | НЕЧЕТ |
+| `gui.burmaldaholic.roulette.racetrack.tier` | Tier | Тьер |
+| `gui.burmaldaholic.roulette.racetrack.orphelins` | Orphelins | Орфелен |
+| `gui.burmaldaholic.roulette.racetrack.voisins` | Voisins | Вуазен |
+| `gui.burmaldaholic.roulette.racetrack.zero` | Zero | Зеро |
+| `gui.burmaldaholic.roulette.racetrack.toggle` | Racetrack | Трек |
+| `gui.burmaldaholic.roulette.racetrack.neighbours` | Neighbours of %1$s | Соседи %1$s |
+| `gui.burmaldaholic.roulette.button.undo` | Undo last chip | Отменить фишку |
+| `gui.burmaldaholic.roulette.button.double` | Double all bets | Удвоить ставки |
+| `gui.burmaldaholic.roulette.fx.straight_up_win` | Straight up! +%1$s | Прямое попадание! +%1$s |
+
 ---
 
 ## craps
@@ -1349,6 +1365,25 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.fx.new_shooter` | New shooter: %1$s | Новый бросающий: %1$s |
 | `gui.burmaldaholic.craps.fx.bar_push` | Bar 12 — push | Бар на 12 — возврат |
 | `gui.burmaldaholic.craps.fx.throwing` | %1$s throws… | Бросает %1$s… |
+
+### Table redesign (lane J-L6, `docs/design/visual/tables.md` §10: felt labels)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.craps.layout.pass_line` | PASS LINE | ПАСС-ЛАЙН |
+| `gui.burmaldaholic.craps.layout.dont_pass` | DON'T PASS BAR | НЕ-ПАСС |
+| `gui.burmaldaholic.craps.layout.come` | COME | КАМ |
+| `gui.burmaldaholic.craps.layout.dont_come` | DON'T COME | НЕ-КАМ |
+| `gui.burmaldaholic.craps.layout.field` | FIELD | ФИЛД |
+| `gui.burmaldaholic.craps.layout.odds` | ODDS | ОДДС |
+
+### Undo / Clear (lane J-L6 review: only chips put down since the last roll; contract bets stay, GAME_DESIGN §10.1)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.craps.button.undo` | Take back the last chip | Вернуть последнюю фишку |
+| `gui.burmaldaholic.craps.button.clear` | Take back all new bets | Вернуть все новые ставки |
+| `gui.burmaldaholic.craps.nothing_to_undo` | Nothing to take back: bets a roll has seen stay on the table | Нечего вернуть: ставки, сыгравшие в броске, остаются на столе |
 
 ---
 

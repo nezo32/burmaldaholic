@@ -64,6 +64,32 @@ export function diceWorld() {
   return img;
 }
 
+/**
+ * Dice Duel in-world die (animation/tables.md §3.4, item model `extras/dice_display`): 32 × 16, faces 1–6 as 8 × 8
+ * cells, face k at (8((k−1) mod 4), 8⌊(k−1)/4⌋) — the same pips as the BER dice, with a darker edge all round so
+ * the cube reads as a cube from any side.
+ */
+export function diceDisplay() {
+  const img = image(32, 16);
+  const src = diceWorld();
+  for (let f = 1; f <= 6; f++) {
+    const sx = (f - 1) * 8;
+    const dx = ((f - 1) % 4) * 8;
+    const dy = Math.floor((f - 1) / 4) * 8;
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      const o = (y * src.w + sx + x) * 4;
+      put(img, dx + x, dy + y, [src.data[o], src.data[o + 1], src.data[o + 2], 255]);
+    }
+    for (let i = 0; i < 8; i++) {
+      P(img, dx + i, dy, '#C0B0DC');
+      P(img, dx, dy + i, '#C0B0DC');
+      P(img, dx + i, dy + 7, '#9A88BC');
+      P(img, dx + 7, dy + i, '#9A88BC');
+    }
+  }
+  return img;
+}
+
 function particle(kind, f) {
   const img = image(8, 8);
   if (kind === 'dice_dust') {
@@ -181,6 +207,7 @@ export default function generate() {
   anim('craps/point_glow', D.pointGlow(), 3, 48, 40);
   anim('craps/flame', D.flame(), 3, 32, 10);
   out.push(png(`${T}/entity/craps/dice.png`, diceWorld()));
+  out.push(png(`${T}/item/extras/dice_display.png`, diceDisplay()));
 
   // ---- dice duel (extras) ----
   // dice_big: row = face 1–6; columns: base, land ×2, win ×6, idle ×4 (40 × 40 cells); tumble_big: 8 frames
