@@ -201,8 +201,9 @@ public final class TableChrome {
 		if (font.width(text) <= maxW) {
 			return text.getVisualOrderText();
 		}
-		return net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(text, Math.max(8, maxW - font.width("…")))) // literal-ok: ellipsis
-			;
+		// the cut text AND the ellipsis (a bare cut read as a typo: "Европейская рулет")
+		return net.minecraft.locale.Language.getInstance().getVisualOrder(net.minecraft.network.chat.FormattedText.composite(
+			font.substrByWidth(text, Math.max(8, maxW - font.width("…"))), net.minecraft.network.chat.FormattedText.of("…"))); // literal-ok: ellipsis
 	}
 
 	// ---- chips ----------------------------------------------------------------------------------------------------------

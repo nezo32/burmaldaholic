@@ -499,7 +499,7 @@ public class RouletteScreen extends CasinoTableScreen {
 	private void topBar(GuiGraphicsExtractor g) {
 		int bx = TableChrome.balanceWidth(font, balance());
 		int right = frame.w() - (compact() ? 2 : 4) - bx - (compact() ? 4 : 50);
-		int x = TableChrome.title(g, font, theme, frame, ox, oy, title, compact() ? 120 : 170);
+		int x = TableChrome.title(g, font, theme, frame, ox, oy, title, compact() ? Math.min(140, right - 2) : 170); // 140: «Европейская рулетка» fits, never into the balance
 		if (!compact()) {
 			List<TableChrome.Seat> seats = new ArrayList<>();
 			ListTag list = state().getListOrEmpty("seats");
