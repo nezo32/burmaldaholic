@@ -73,6 +73,9 @@ public class TablesClientGameTests implements FabricClientGameTest {
 			}
 			invite(context, world);
 			duelStage(context, world);
+			// a clean world close (lead rule): no screen open, the server idle for a moment first
+			close(context, world);
+			context.waitTicks(20);
 		} finally {
 			TableChrome.forceCompact = false;
 			guiScale(context, 0);
