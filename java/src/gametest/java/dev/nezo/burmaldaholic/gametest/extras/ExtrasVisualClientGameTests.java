@@ -193,8 +193,8 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 			ServerPlayer p = player(server);
 			p.closeContainer();
 			BlockPos base = p.blockPosition();
-			at[0] = base.offset(4, 0, -2);
-			at[1] = base.offset(4, 0, 1);
+			at[0] = base.offset(5, 0, -2);
+			at[1] = base.offset(5, 0, 2);
 			server.overworld().setBlockAndUpdate(at[0], ExtrasModule.WHEEL.block().defaultBlockState()
 				.setValue(CasinoTableBlock.FACING, Direction.WEST));
 			server.overworld().setBlockAndUpdate(at[1], ExtrasModule.PLINKO.block().defaultBlockState()
@@ -202,6 +202,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 		});
 		context.runOnClient(mc -> {
 			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true; // the world only: no chat, HUD or toasts over the machines
 			if (mc.player != null) {
 				mc.player.setYRot(-90f);
 				mc.player.setXRot(4f);
@@ -231,6 +232,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 		if (!synced[0] || !synced[1]) report.add("in-world sync missing on the client: wheel " + synced[0] + ", plinko " + synced[1]);
 		context.runOnClient(mc -> {
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
 			CelebrationOverlay.get().clear();
 		});
 		world.getServer().runOnServer(server -> {

@@ -210,14 +210,15 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 	@Override
 	public void submit(State s, PoseStack pose, SubmitNodeCollector out, CameraRenderState camera) {
 		int light = s.lightCoords;
+		int lit = FULL_BRIGHT; // the wheel is lit by its own bulbs: the face reads at dusk and in dark casinos
 		pose.pushPose();
 		pose.translate(0.5f, 0f, 0.5f);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f); // mulPose(Quaternionfc) is gone in 26.3
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(WHITE_TEX), (p, vc) -> stand(p, vc, light));
 		if (s.defaultFace) {
-			out.submitCustomGeometry(pose, RenderTypes.entityCutout(FACE), (p, vc) -> face(p, vc, s.angle, light));
+			out.submitCustomGeometry(pose, RenderTypes.entityCutout(FACE), (p, vc) -> face(p, vc, s.angle, lit));
 		} else {
-			out.submitCustomGeometry(pose, RenderTypes.entityCutout(WHITE_TEX), (p, vc) -> wedges(p, vc, s.segments, s.angle, light));
+			out.submitCustomGeometry(pose, RenderTypes.entityCutout(WHITE_TEX), (p, vc) -> wedges(p, vc, s.segments, s.angle, lit));
 		}
 		if (s.landed >= 0) {
 			out.submitCustomGeometry(pose, RenderTypes.entityTranslucentEmissive(WHITE_TEX), (p, vc) -> stopBeat(p, vc, s));
