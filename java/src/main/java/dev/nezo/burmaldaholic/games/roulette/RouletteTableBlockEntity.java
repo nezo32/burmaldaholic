@@ -285,6 +285,17 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		return bots;
 	}
 
+	/** Thinking dots while betting is open: the bot whose (virtual) bet moment comes next. */
+	@Override
+	public @Nullable String botThinking() {
+		if (!round.canBet() || botSlips.isEmpty()) {
+			return null;
+		}
+		Map<String, Long> due = new LinkedHashMap<>();
+		botSlips.forEach((key, s) -> due.put(key, s.bets.isEmpty() ? s.betAt : -1L));
+		return dev.nezo.burmaldaholic.core.bots.logic.ThinkingBot.next(due, gameTime());
+	}
+
 	/** Seats &amp; Bots of this table (tests, bots UI). */
 	public AtmosphereBots bots() {
 		return bots;

@@ -592,6 +592,18 @@ public final class BaccaratBots implements BotTable {
 		return virtual;
 	}
 
+	/** House table in BETTING: the bot whose virtual bet moment comes next (thinking dots), or null. */
+	@Nullable String nextVirtualBettor(long now) {
+		if (chemmy || !wasBetting || atmoDue.isEmpty()) {
+			return null;
+		}
+		Map<String, Long> due = new LinkedHashMap<>();
+		for (String key : occ.keySet()) {
+			due.put(key, virtual.containsKey(key) ? -1L : atmoDue.getOrDefault(key, -1L));
+		}
+		return dev.nezo.burmaldaholic.core.bots.logic.ThinkingBot.next(due, now);
+	}
+
 	/** Every tick of a house table: virtual bets 60–160 t into BETTING; the safe point runs during BETTING. */
 	void tickHouse(long now, boolean betting, Slips.Limits limits, List<Integer> beads, long coupNo) {
 		if (chemmy) {

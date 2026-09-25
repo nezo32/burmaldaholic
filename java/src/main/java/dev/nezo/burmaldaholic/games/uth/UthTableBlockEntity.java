@@ -191,6 +191,8 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	private record BotTask(long due, int epoch, Runnable run) {}
 	private final List<BotTask> botTasks = new ArrayList<>();
 	private int botEpoch;
+	/** Bot key → game time its pending bet / decision is due ({@link #botThinking()}; timing only). */
+	private final Map<String, Long> botThinkUntil = new LinkedHashMap<>();
 	/** Humans in sit-down order (host = longest seated). */
 	private final List<UUID> sitOrder = new ArrayList<>();
 	private @Nullable BotProfile standIn;
@@ -1404,6 +1406,12 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		return slots.occupants(n, humans, bots);
 	}
 
+	/** Thinking dots: the bot whose virtual bet (BETTING) or street decision is due next; bots decide in parallel. */
+	@Override
+	public @Nullable String botThinking() {
+		return botThinkUntil.isEmpty() ? null : dev.nezo.burmaldaholic.core.bots.logic.ThinkingBot.next(botThinkUntil, gameTime());
+	}
+
 	@Override
 	public boolean seatBot(SeatOccupant.Bot bot, long stack) {
 		String key = bot.key();
@@ -1558,6 +1566,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		botBets.clear();
 		botBetScheduled.clear();
 		botTasks.clear();
+		botThinkUntil.clear();
 		botEpoch++;
 	}
 
@@ -1617,6 +1626,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			return;
 		}
 		long min = Math.max(1, minBet());
+		botThinkUntil.remove(key);
 		botBets.put(key, UthBotRules.virtualBet(bot, tableBots().rng(), min, maxVirtualAnte(min), cfg().tripsEnabled));
 		setChanged();
 	}
@@ -1632,6 +1642,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 				continue;
 			}
 			int delay = UthBotRules.virtualBetDelay(tb.rng(), tb.settings().effectiveSpeed(), CasinoConfig.bots().think.fastFactor);
+			botThinkUntil.put(key, gameTime() + Math.max(0, delay));
 			botTask(delay, () -> {
 				placeBotBet(key);
 				syncViewers();
@@ -1697,12 +1708,14 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			think = Math.min(think, 10);
 		}
 		UthBotPolicy.View view = UthBotPolicy.View.of(r, seat, BOT_BALANCE, cfg().allow3x, pays());
+		botThinkUntil.put(bot.key(), gameTime() + Math.max(0, think));
 		boolean[] acted = new boolean[1];
 		java.util.function.Consumer<Object> act = work -> {
 			if (acted[0] || !wanted.getAsBoolean()) {
 				return;
 			}
 			acted[0] = true;
+			botThinkUntil.remove(bot.key());
 			Decision d;
 			try {
 				d = UthBotPolicy.INSTANCE.act(bot, view, work, tb.rng());

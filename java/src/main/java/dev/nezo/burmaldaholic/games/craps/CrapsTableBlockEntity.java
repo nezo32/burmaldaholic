@@ -164,6 +164,16 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		return bots;
 	}
 
+	/** Thinking dots until the bots' shared bet moment of this roll: shown over the first seated bot. */
+	@Override
+	public @Nullable String botThinking() {
+		if (botBetAt < 0 || gameTime() >= botBetAt || botsActedFor == table.rollCount()) {
+			return null;
+		}
+		List<VirtualBot> seated = bots.bots();
+		return seated.isEmpty() ? null : seated.getFirst().key;
+	}
+
 	/** Seats &amp; Bots of this table (tests, bots UI). */
 	public AtmosphereBots bots() {
 		return bots;

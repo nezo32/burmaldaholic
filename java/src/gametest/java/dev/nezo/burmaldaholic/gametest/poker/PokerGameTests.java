@@ -76,6 +76,10 @@ public class PokerGameTests {
 		table.onAction(p, "buy_in", buyIn("micro", amount));
 		helper.assertTrue(Economies.get().balance(p) == 1000 - amount, "buy-in escrowed");
 		helper.succeedWhen(() -> {
+			// J-L3 thinking dots: only ever a seated bot (the one whose turn is being prepared)
+			String thinking = table.botThinking();
+			helper.assertTrue(thinking == null || table.occupants().stream().anyMatch(o -> o != null && o.isBot() && o.key().equals(thinking)),
+				"botThinking names a seated bot: " + thinking);
 			CompoundTag state = table.writeClientState(p);
 			CompoundTag legal = state.getCompoundOrEmpty("legal");
 			if (!legal.isEmpty()) {

@@ -215,6 +215,12 @@ public interface BotTable {
 			return botDelegate().botNameTheme();
 		}
 
+		/** The helper rarely knows the game's timers: delegating tables override this with their own (J-L3 hook). */
+		@Override
+		default @Nullable String botThinking() {
+			return botDelegate().botThinking();
+		}
+
 		@Override
 		default boolean isBotBanker(String botKey) {
 			return botDelegate().isBotBanker(botKey);

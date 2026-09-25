@@ -326,6 +326,13 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		return table != null ? table.occupants() : Collections.nCopies(botSeatCount(), null);
 	}
 
+	/** The bot whose turn is being prepared (think delay / Monte-Carlo job) shows the thinking dots. */
+	@Override
+	public @Nullable String botThinking() {
+		BotTurn turn = botTurn;
+		return turn == null || turn.botSeq != botSeq ? null : turn.bot.key();
+	}
+
 	@Override
 	public boolean seatBot(SeatOccupant.Bot bot, long stack) {
 		if (table == null || table.inHand()) {

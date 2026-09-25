@@ -209,6 +209,34 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		return bots;
 	}
 
+	/**
+	 * Thinking dots: a bot candidate weighing the bank offer (its {@link #T_BOT} delay), chemmy bot punters before
+	 * their think delay since betting opened, or on a house table the bot whose virtual bet moment is next.
+	 */
+	@Override
+	public @Nullable String botThinking() {
+		long now = gameTime();
+		if (ticksLeft(T_BOT) >= 0 && botBankDecision != null && bots.isBot(candidate)) {
+			return bots.keyOf(candidate);
+		}
+		if (isChemmy()) {
+			if (!P_BETTING.equals(phase) || bank.banco() != null) {
+				return null;
+			}
+			Map<String, Long> due = new LinkedHashMap<>();
+			for (Map.Entry<Integer, UUID> e : bots.seated()) {
+				UUID id = e.getValue();
+				Integer th = botThink.get(id);
+				String key = bots.keyOf(id);
+				if (key != null) {
+					due.put(key, th == null || botActed.contains(id) ? -1L : bettingOpenedAt + th);
+				}
+			}
+			return dev.nezo.burmaldaholic.core.bots.logic.ThinkingBot.next(due, now);
+		}
+		return bots.nextVirtualBettor(now);
+	}
+
 	public BaccaratBots bots() {
 		return bots;
 	}

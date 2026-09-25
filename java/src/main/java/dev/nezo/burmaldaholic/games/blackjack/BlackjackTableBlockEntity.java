@@ -214,6 +214,17 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		return bots;
 	}
 
+	/** Thinking dots: the bot on its turn while its think timer runs, else in BETTING the bot whose bet moment is next. */
+	@Override
+	public @org.jspecify.annotations.Nullable String botThinking() {
+		if (ticksLeft("bot") >= 0) {
+			Turn t = round == null ? null : round.current();
+			VirtualBot bot = t == null ? null : roundBots.get(t.seat().seat);
+			return bot == null ? null : bot.key;
+		}
+		return BETTING.equals(phase()) ? dev.nezo.burmaldaholic.core.bots.logic.ThinkingBot.next(botBetAt, gameTime()) : null;
+	}
+
 	/** Seats &amp; Bots of this table (tests, bots UI). */
 	public AtmosphereBots bots() {
 		return bots;
