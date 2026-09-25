@@ -992,15 +992,15 @@ public class RouletteScreen extends CasinoTableScreen {
 		}
 		if (compact()) {
 			if (line1 != null && !"spin".equals(ph)) {
-				var seq = TableChrome.fit(font, line1, total() > 0 ? 170 : 250);
-				int cx = total() > 0 ? ox + 100 : ox + 142;
+				var seq = TableChrome.fit(font, line1, total() > 0 ? 150 : 250);
+				int cx = total() > 0 ? ox + 90 : ox + 142;
 				g.text(font, seq, cx - font.width(seq) / 2, oy + 112, c1, true);
 			}
 			if (total() > 0) {
 				// right end of the status row (the bottom bar is full: chips, icons, Spin)
 				Component bet = Component.translatable("gui.burmaldaholic.common.bet_amount", Texts.number(total()));
 				var seq = TableChrome.fit(font, bet, 80);
-				g.text(font, seq, ox + 272 - font.width(seq), oy + 112, TableChrome.GOLD, true);
+				g.text(font, seq, ox + 226 - font.width(seq), oy + 112, TableChrome.GOLD, true);
 			}
 		} else {
 			TableChrome.status(g, font, ox + 296, oy + 211, 150, line1, line2, c1);
