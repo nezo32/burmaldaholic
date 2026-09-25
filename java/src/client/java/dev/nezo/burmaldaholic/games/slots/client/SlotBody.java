@@ -159,6 +159,10 @@ public final class SlotBody implements StageHost {
 		// the other buttons (J-L2 CasinoButton kit) flow into ≤ 2 rows between the bet group and the SPIN button
 		List<AbstractButton> flow = new ArrayList<>();
 		if (model.canBuy()) {
+			// the price without its unit when the full label cannot fit the row even at the top bet (compact Russian)
+			buyShort = false;
+			long top = (long) model.def.buyPriceFifths() * model.bets[model.bets.length - 1] / 5;
+			buyShort = CasinoButton.width(font, Component.translatable("gui.burmaldaholic.slots.buy.button", Texts.chips(top)), 22, true) > l.flowW;
 			buy = CasinoButton.builder(buyLabel(), b -> openBuy()).style(CasinoButton.Style.PRIMARY).icon(icon(SlotSprites.ICON_BONUS_ID)).build();
 			flow.add(buy);
 		} else {
@@ -231,8 +235,11 @@ public final class SlotBody implements StageHost {
 		return stage.spinning() ? Component.translatable("gui.burmaldaholic.slots.stop") : Component.translatable("gui.burmaldaholic.slots.spin", Texts.chips(model.bet()));
 	}
 
+	/** The Buy label shows the bare price (no "chips") when the full label cannot fit the control row. */
+	private boolean buyShort;
+
 	private Component buyLabel() {
-		return Component.translatable("gui.burmaldaholic.slots.buy.button", Texts.chips(model.buyPrice()));
+		return Component.translatable("gui.burmaldaholic.slots.buy.button", buyShort ? Texts.number(model.buyPrice()) : Texts.chips(model.buyPrice()));
 	}
 
 	private Component autoLabel() {

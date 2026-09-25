@@ -37,6 +37,10 @@ public class SlotGeometry {
 	public static final int CABINET_PAD = 8;
 	public static final int CABINET_TOP = 2;
 	public static final int CAPTION_H = 9;
+	/** Title plate rim (outline + bevel) in px: the nine-slice border of {@code slots/<m>/title_plate}. */
+	public static final int TITLE_RIM = 2;
+	/** A line of vanilla text: 7 px caps, the descender row and the drop shadow. */
+	public static final int TEXT_H = 9;
 
 	public final boolean compact;
 	public final int left;
@@ -157,6 +161,11 @@ public class SlotGeometry {
 		int max = windowW() + 2 * border - 16;
 		int w = Math.min(max, Math.max(60, textW + 20));
 		return new Rect(wx + windowW() / 2 - w / 2, titleY, w, titleH);
+	}
+
+	/** Top of the title text in {@code plate}: its glyphs, descenders and shadow all sit on the face, inside the rim. */
+	public static int titleTextY(Rect plate) {
+		return plate.y() + (plate.h() - 8) / 2;
 	}
 
 	/** Nice tier plate for a word {@code textW} px wide at {@code scale}. */

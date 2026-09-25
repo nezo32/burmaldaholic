@@ -394,6 +394,10 @@ class SlotPresentTest {
 				SlotGeometry.Rect title = g.titlePlate(textW);
 				assertFalse(title.overlaps(window), tag + ": title plate over the reels");
 				assertTrue(title.inside(g.regions().get("header")), tag + ": title plate outside the header " + title);
+				// the title's glyphs, descenders and shadow sit on the plate's face: no rim line crosses the letters
+				int ty = SlotGeometry.titleTextY(title);
+				assertTrue(ty >= title.y() + SlotGeometry.TITLE_RIM && ty + SlotGeometry.TEXT_H <= title.bottom() - SlotGeometry.TITLE_RIM,
+					tag + ": title text rows " + ty + ".." + (ty + SlotGeometry.TEXT_H) + " cross the rim of " + title);
 				for (int sc = 1; sc <= 2; sc++) {
 					SlotGeometry.Rect nice = g.nicePlate(textW, sc);
 					assertFalse(nice.overlaps(window), tag + ": Nice plate hides the reels " + nice);
@@ -472,5 +476,33 @@ class SlotPresentTest {
 		assertEquals(20, h.get(2).amount());
 		h.settle(null, 5, 5);
 		assertEquals(60, h.get(0).amount());
+	}
+
+	@Test
+	void miniPaytableFollowsTheRealPaytableConfig() {
+		for (Machine m : Machine.values()) {
+			MachineDef def = dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDefaults.def(m);
+			int[] top = MiniPaytable.top(def);
+			assertEquals(MiniPaytable.ROWS, top.length, m + ": three rows");
+			assertTrue(top == MiniPaytable.top(def), "cached per def: no per-frame work");
+			int best = 0;
+			for (int i = 0; i < def.roles().length; i++) {
+				if (def.roles()[i] == dev.nezo.burmaldaholic.games.slots.v2.logic.SymbolRole.PAY) best = Math.max(best, def.paysFifths()[i][2]);
+			}
+			assertEquals(best, def.paysFifths()[top[0]][2], m + ": the best 5-of-a-kind first");
+			for (int k = 1; k < top.length; k++) assertTrue(def.paysFifths()[top[k - 1]][2] >= def.paysFifths()[top[k]][2]);
+			for (int sym : top) assertEquals(def.roles()[sym], dev.nezo.burmaldaholic.games.slots.v2.logic.SymbolRole.PAY);
+			assertEquals((long) def.paysFifths()[top[0]][2] * 50 / 5, MiniPaytable.pay(def, top[0], 50));
+			// an owner-edited paytable (server-sent def) reorders and reprices the preview
+			int[][] pays = new int[def.paysFifths().length][];
+			for (int i = 0; i < pays.length; i++) pays[i] = def.paysFifths()[i].clone();
+			int last = top[2];
+			pays[last][2] = best * 10;
+			MachineDef edited = new MachineDef(def.machine(), def.codes(), def.roles(), def.strips(), pays, def.scatterFifths(), def.bonusReelsMask(),
+				def.freeSpins(), def.retrigger(), def.fsCap(), def.fsMultiplier(), def.ladder(), def.ladderFree(), def.capMultiple(), def.buyPriceFifths(),
+				def.features());
+			assertEquals(last, MiniPaytable.top(edited)[0], m + ": the edited top symbol leads");
+			assertEquals((long) best * 10 * 25 / 5, MiniPaytable.pay(edited, last, 25));
+		}
 	}
 }

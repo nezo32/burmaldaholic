@@ -262,10 +262,17 @@ public final class HuntView {
 				case OPEN, DIMMED -> drawOpened(s, g, c, x, y, since, st == HuntBoard.State.DIMMED);
 			}
 		}
-		Component hint = board.ended() ? Component.translatable("gui.burmaldaholic.slots.bonus.total", Texts.chips(board.totalTimesBet() * s.bet()))
+		// the hint / total is the label line UNDER the board (SidePanels.label, slots.md §4.8), never over the chests
+	}
+
+	/**
+	 * The line under the board while it shows: {@code slots.pick.hint}, then {@code slots.bonus.total} once the hunt
+	 * has ended; null while the board is not (fully) up.
+	 */
+	public Component hint(SlotStage s) {
+		if (coverAlpha(s) < 0.95) return null;
+		return board.ended() ? Component.translatable("gui.burmaldaholic.slots.bonus.total", Texts.chips(board.totalTimesBet() * s.bet()))
 			: Component.translatable("gui.burmaldaholic.slots.pick.hint");
-		g.fill(s.wx(), s.wy() + s.windowH() - 11, s.wx() + s.windowW(), s.wy() + s.windowH(), 0xB0100804);
-		SlotDraw.centeredFit(g, s.font(), hint, s.wx() + s.windowW() / 2, s.wy() + s.windowH() - 10, s.windowW() - 4, board.ended() ? 0xFFFFD640 : 0xFFF4ECD8);
 	}
 
 	private void drawOpened(SlotStage s, GuiGraphicsExtractor g, int c, int x, int y, double since, boolean dimmed) {

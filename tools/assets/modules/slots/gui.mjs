@@ -261,18 +261,20 @@ function rim(m) {
   return m === 'end' ? { rim: '#A77BA7', light: '#D8B4D8', dark: '#5A3A5A' } : { rim: t.trim, light: t.trimLight, dark: t.trimDark };
 }
 
-/** Title plate over the marquee (nine-slice 32 × 16, border 5): engraved dark face, rim, corner rivets. */
+/**
+ * Title plate over the marquee (nine-slice 32 × 16, border 2): a 1 px outline and a 1 px bevelled rim around an
+ * engraved dark face. The rim is thin on purpose: the plate is only 16 px (14 px compact) tall, and a thicker rim
+ * crossed the title's lowest pixel row and its shadow (Cyrillic descenders, J-L9b review).
+ */
 function titlePlate(m) {
   const t = THEME[m];
   const r = rim(m);
   const img = image(32, 16);
   rect(img, 1, 0, 30, 16, INK);
   rect(img, 0, 1, 32, 14, INK);
-  rect(img, 1, 1, 30, 14, r.rim);
   frameRect(img, 1, 1, 30, 14, r.light, r.dark);
-  vgrad(img, 3, 3, 26, 10, c(t.panel), c(INK), 4);
-  frameRect(img, 3, 3, 26, 10, r.dark, r.light);
-  for (const [x, y] of [[2, 2], [29, 2], [2, 13], [29, 13]]) put(img, x, y, c(t.rivetLight));
+  put(img, 1, 1, c(t.rivetLight));
+  vgrad(img, 2, 2, 28, 12, c(t.panel), c(INK), 4);
   return img;
 }
 
@@ -749,7 +751,7 @@ export function guiOutputs() {
     sprite(`${m}/banner`, banner(m, 48, 12), { nineSlice: { width: 48, height: 48, border: 12 } });
     sprite(`${m}/banner_small`, banner(m, 32, 8), { nineSlice: { width: 32, height: 32, border: 8 } });
     sprite(`${m}/anticipation`, anticipation(m), { frametime: 1, frame: [48, 140] });
-    sprite(`${m}/title_plate`, titlePlate(m), { nineSlice: { width: 32, height: 16, border: 5 } });
+    sprite(`${m}/title_plate`, titlePlate(m), { nineSlice: { width: 32, height: 16, border: 2 } });
     sprite(`${m}/side_panel`, sidePanel(m), { nineSlice: { width: 32, height: 32, border: 8 } });
     out.push(png(`${J}/textures/gui/slots/${m}_backdrop.png`, backdrop(m, false)));
     out.push(png(`${J}/textures/gui/slots/${m}_backdrop_fs.png`, backdrop(m, true)));

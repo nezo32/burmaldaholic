@@ -11,10 +11,9 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.MachineDef;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SymbolRole;
 import dev.nezo.burmaldaholic.games.slots.v2.present.FeatureMotion;
 import dev.nezo.burmaldaholic.games.slots.v2.present.HuntBoard;
+import dev.nezo.burmaldaholic.games.slots.v2.present.MiniPaytable;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry.Rect;
 import dev.nezo.burmaldaholic.games.slots.v2.present.WinHistory;
-import java.util.ArrayList;
-import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -73,7 +72,8 @@ public final class SidePanels {
 
 	public static void draw(GuiGraphicsExtractor g, SlotLayout l, SlotStage s, SlotModel model) {
 		Font font = s.font();
-		for (int x : new int[] {l.leftPanelX, l.rightPanelX}) {
+		for (int k = 0; k < 2; k++) {
+			int x = k == 0 ? l.leftPanelX : l.rightPanelX;
 			if (CabinetArt.ART) SlotSprites.blit(g, SlotSprites.machine(s.machine(), "side_panel"), x, l.panelY, l.panelW, l.panelH);
 			else SlotDraw.panel(g, x, l.panelY, l.panelW, l.panelH, 0xC0140822, 0xFF3A1450, 0x40D696FF);
 		}
@@ -221,27 +221,27 @@ public final class SidePanels {
 	private static void guide(GuiGraphicsExtractor g, SlotStage s, Font font, int x, int y, int w, int bottom) {
 		MachineDef def = s.def();
 		Machine m = s.machine();
-		List<Object[]> rows = new ArrayList<>();
-		rows.add(new Object[] {index(def, SymbolRole.SCATTER), 3, true, "fs"});
-		switch (m) {
-			case OVERWORLD -> rows.add(new Object[] {index(def, SymbolRole.BONUS), 3, false, "hunt"});
-			case NETHER -> rows.add(new Object[] {index(def, SymbolRole.COIN), def.features().holdTrigger(), true, "hoard"});
-			case END -> rows.add(new Object[] {index(def, SymbolRole.BONUS), 3, false, "wheel"});
-		}
-		if (y + 12 + rows.size() * 21 <= bottom) {
+		if (y + 12 + 2 * 21 <= bottom) {
 			SlotDraw.centeredFit(g, font, Component.translatable("gui.burmaldaholic.slots.panel.features"), x + w / 2, y, w, HEAD);
 			y += 12;
 		}
-		for (Object[] r : rows) {
-			if (y + 18 > bottom + 2) return;
-			int sym = (int) r[0];
-			if (sym >= 0) symbol(g, m, sym, x, y + 1);
-			Component count = (boolean) r[2] ? Component.translatable("gui.burmaldaholic.slots.panel.count_plus", Texts.number((int) r[1]))
-				: Texts.number((int) r[1]);
-			SlotDraw.textFit(g, font, count, x + 19, y, w - 19, GOLD);
-			SlotDraw.textFit(g, font, Component.translatable("gui.burmaldaholic.slots.panel." + r[3]), x + 19, y + 9, w - 19, BONE);
-			y += 21;
+		// row 1: the scatter (3+ -> free spins); row 2: the machine's bonus (no per-frame row objects, slots.md perf budget)
+		if (y + 18 > bottom + 2) return;
+		guideRow(g, font, m, index(def, SymbolRole.SCATTER), 3, true, "gui.burmaldaholic.slots.panel.fs", x, y, w);
+		y += 21;
+		if (y + 18 > bottom + 2) return;
+		switch (m) {
+			case OVERWORLD -> guideRow(g, font, m, index(def, SymbolRole.BONUS), 3, false, "gui.burmaldaholic.slots.panel.hunt", x, y, w);
+			case NETHER -> guideRow(g, font, m, index(def, SymbolRole.COIN), def.features().holdTrigger(), true, "gui.burmaldaholic.slots.panel.hoard", x, y, w);
+			case END -> guideRow(g, font, m, index(def, SymbolRole.BONUS), 3, false, "gui.burmaldaholic.slots.panel.wheel", x, y, w);
 		}
+	}
+
+	private static void guideRow(GuiGraphicsExtractor g, Font font, Machine m, int sym, int n, boolean plus, String key, int x, int y, int w) {
+		if (sym >= 0) symbol(g, m, sym, x, y + 1);
+		Component count = plus ? Component.translatable("gui.burmaldaholic.slots.panel.count_plus", Texts.number(n)) : Texts.number(n);
+		SlotDraw.textFit(g, font, count, x + 19, y, w - 19, GOLD);
+		SlotDraw.textFit(g, font, Component.translatable(key), x + 19, y + 9, w - 19, BONE);
 	}
 
 	private static void symbol(GuiGraphicsExtractor g, Machine m, int sym, int x, int y) {
@@ -298,14 +298,12 @@ public final class SidePanels {
 		MachineDef def = model.def;
 		SlotDraw.centeredFit(g, font, Component.translatable("gui.burmaldaholic.common.paytable"), x + w / 2, y, w, HEAD);
 		y += 11;
-		List<Integer> pays = new ArrayList<>();
-		for (int i = 0; i < def.roles().length; i++) if (def.roles()[i] == SymbolRole.PAY) pays.add(i);
-		pays.sort((a, b) -> Integer.compare(def.paysFifths()[b][2], def.paysFifths()[a][2]));
-		for (int k = 0; k < Math.min(3, pays.size()); k++) {
-			int sym = pays.get(k);
+		int[] top = MiniPaytable.top(def);
+		for (int k = 0; k < top.length; k++) {
+			int sym = top[k];
 			symbol(g, def.machine(), sym, x, y - 4 + k * 15);
 			SlotDraw.textFit(g, font, Component.translatable("gui.burmaldaholic.slots.fx.times", Texts.number(5)), x + 17, y + k * 15, 14, GREY);
-			long pay = (long) def.paysFifths()[sym][2] * model.bet() / 5;
+			long pay = MiniPaytable.pay(def, sym, model.bet());
 			SlotDraw.textRight(g, font, Texts.number(pay), x + w, y + k * 15, w - 32, GOLD);
 		}
 	}
@@ -331,6 +329,10 @@ public final class SidePanels {
 			return;
 		}
 		if (s.active()) line = s.winShow().label(s);
+		if (line == null && s.hunt().covers(s)) {
+			line = s.hunt().hint(s);
+			if (s.hunt().board().ended()) color = GOLD;
+		}
 		if (line == null && model.autoLeft >= 0) line = Component.translatable("gui.burmaldaholic.slots.auto_left", Texts.number(model.autoLeft));
 		if (line == null && model.autoSummary != null && !s.spinning()) line = model.autoSummary;
 		if (line != null) backed(g, font, line, cx, l.labelY, maxW, color);

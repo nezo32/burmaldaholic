@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.slots.client.fx;
 
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
@@ -102,14 +103,14 @@ public final class SlotSprites {
 	public static final Tex POINTER = sprite("end/pointer", 16, 48, 24, 0, 0);
 	public static final Tex UP_ARROW = sprite("end/up_arrow", 16, 16);
 
-	/** Per-machine sprites: cabinet(_fs) 64 nine-slice 12, banner 48/12, banner_small 32/8, title_plate 32×16/5, side_panel 32/8, marquee(_fs) 4 × 12, anticipation 8 × 140. */
+	/** Per-machine sprites: cabinet(_fs) 64 nine-slice 12, banner 48/12, banner_small 32/8, title_plate 32×16/2, side_panel 32/8, marquee(_fs) 4 × 12, anticipation 8 × 140. */
 	public static Tex machine(Machine m, String name) {
 		String p = m.id + "/" + name;
 		return switch (name) {
 			case "cabinet", "cabinet_fs" -> sprite(p, 64, 64, 64, 0, 12);
 			case "banner" -> sprite(p, 48, 48, 48, 0, 12);
 			case "banner_small" -> sprite(p, 32, 32, 32, 0, 8);
-			case "title_plate" -> sprite(p, 32, 16, 16, 0, 5);
+			case "title_plate" -> sprite(p, 32, 16, 16, 0, SlotGeometry.TITLE_RIM);
 			case "side_panel" -> sprite(p, 32, 32, 32, 0, 8);
 			case "marquee", "marquee_fs" -> sprite(p, 128, 48, 12, 150, 0);
 			case "anticipation" -> sprite(p, 48, 1120, 140, 50, 0);

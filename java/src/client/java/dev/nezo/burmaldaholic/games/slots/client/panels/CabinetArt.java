@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.games.slots.client.fx.SlotDraw;
 import dev.nezo.burmaldaholic.games.slots.client.fx.SlotSprites;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.present.MeterModel;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SymbolStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -196,7 +197,7 @@ public final class CabinetArt {
 		var r = l.titlePlate(font.width(name));
 		if (ART) SlotSprites.blit(g, SlotSprites.machine(s.machine(), "title_plate"), r.x(), r.y(), r.w(), r.h());
 		else SlotDraw.plate(g, r.x(), r.y(), r.w(), r.h(), 0xFF2A1A3A, 0xFF120818, 0xFFFFD640);
-		SlotDraw.centeredFit(g, font, name, r.x() + r.w() / 2, r.y() + (r.h() - 8) / 2 + (l.compact ? 0 : 1), r.w() - 12, 0xFFFFE680);
+		SlotDraw.centeredFit(g, font, name, r.x() + r.w() / 2, SlotGeometry.titleTextY(r), r.w() - 12, 0xFFFFE680);
 	}
 
 	/** Jackpot meters: badge, tier word and rolling amount; "WON!" + flash when another player's jackpot drops a pool. */
