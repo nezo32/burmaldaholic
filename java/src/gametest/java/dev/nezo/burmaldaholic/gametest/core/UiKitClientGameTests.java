@@ -236,6 +236,12 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			context.runOnClient(mc -> check(CasinoTheme.current() == CasinoTheme.VILLAGE, "overworld → village"));
 			dimension(context, world, "the_nether", Level.NETHER, CasinoTheme.BASTION);
 			dimension(context, world, "the_end", Level.END, CasinoTheme.END);
+			// back to the overworld before closing: halting the integrated server from the End deadlocks the
+			// test thread in TestSingleplayerContext.close (the client waits on the server, the server on the test)
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			world.getServer().runCommand("execute in minecraft:overworld run tp @p 0 100 0");
+			context.waitFor(mc -> mc.level != null && mc.level.dimension() == Level.OVERWORLD, 400);
+			context.waitTicks(20);
 		}
 	}
 

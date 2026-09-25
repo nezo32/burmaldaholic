@@ -94,6 +94,39 @@ public final class PokerText {
 		return gui("hand." + HandEvaluator.handName(value));
 	}
 
+	/**
+	 * The specific name of an evaluated hand for the plates ("Three kings", «Три короля», "Flush, ace high"), from the
+	 * ranks the evaluator packs; a royal flush keeps its category name. Each slot names the grammatical form the
+	 * languages need there ({@code rank.<r>.<slot>}: one / high / three / many / set).
+	 */
+	public static MutableComponent handLabel(int value) {
+		int cat = HandEvaluator.category(value);
+		String id = HandEvaluator.handName(value);
+		int[] r = HandEvaluator.ranks(value);
+		return switch (cat) {
+			case HandEvaluator.HIGH_CARD -> gui("hand_named." + id, rank(r[0], "one"));
+			case HandEvaluator.PAIR -> gui("hand_named." + id, rank(r[0], "set"));
+			case HandEvaluator.TWO_PAIR -> gui("hand_named." + id, rank(r[0], "many"), rank(r[2], "many"));
+			case HandEvaluator.THREE_OF_A_KIND -> gui("hand_named." + id, rank(r[0], "three"));
+			case HandEvaluator.STRAIGHT, HandEvaluator.FLUSH -> gui("hand_named." + id, rank(r[0], "high"));
+			case HandEvaluator.FULL_HOUSE -> gui("hand_named." + id, rank(r[0], "set"), rank(r[3], "set"));
+			case HandEvaluator.FOUR_OF_A_KIND -> gui("hand_named." + id, rank(r[0], "set"));
+			case HandEvaluator.STRAIGHT_FLUSH -> "royal_flush".equals(id) ? handName(value) : gui("hand_named." + id, rank(r[0], "high"));
+			default -> handName(value);
+		};
+	}
+
+	private static MutableComponent rank(int r, String slot) {
+		String id = switch (r) {
+			case 1, 14 -> "a";
+			case 11 -> "j";
+			case 12 -> "q";
+			case 13 -> "k";
+			default -> Integer.toString(Math.max(2, Math.min(10, r)));
+		};
+		return gui("rank." + id + "." + slot);
+	}
+
 	/** Level color (BOTS.md §4.2: E green, N yellow, H red; never color alone — the word is shown too). */
 	public static ChatFormatting levelColor(BotDifficulty level) {
 		return switch (level) {

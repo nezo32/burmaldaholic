@@ -2001,7 +2001,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 						cards[1] = p.hole()[1];
 						System.arraycopy(visibleBoard, 0, cards, 2, visibleBoard.length);
 						int value = HandEvaluator.evaluate(cards, cards.length);
-						st.put("hand", encode(ops, PokerText.handName(value)));
+						st.put("hand", encode(ops, PokerText.handLabel(value)));
 						st.putString("hand_id", HandEvaluator.handName(value));
 						if (result != null && finishStarted(PokerBeats.BEST) > 0 && visibleBoard.length == 5 && !result.uncontested()) {
 							st.putInt("best", BestFive.mask(p.hole(), visibleBoard));
