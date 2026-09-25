@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.games.slots.client.fx.SlotDraw;
 import dev.nezo.burmaldaholic.games.slots.client.fx.SlotSprites;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.present.MeterModel;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SymbolStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -121,8 +122,8 @@ public final class CabinetArt {
 		Machine m = s.machine();
 		SymbolStyle.Theme th = SymbolStyle.theme(m);
 		double fs = s.freeSpins().themeAmount(s);
-		int b = l.compact ? 5 : 6;
-		int marquee = l.compact ? 10 : 14;
+		int b = l.border;
+		int marquee = l.marquee;
 		int x0 = l.wx - b;
 		int y0 = l.wy - b - marquee;
 		int x1 = l.wx + l.windowW() + b;
@@ -135,9 +136,10 @@ public final class CabinetArt {
 		int trim = SlotDraw.lerp(th.trim(), th.glow(), fs * 0.5);
 		g.fill(x0 - 2, y0 - 2, x1 + 2, y1 + 2, 0xFF0C0610);
 		if (ART) {
-			int pad = 8;
-			SlotSprites.blit(g, SlotSprites.machine(m, "cabinet"), x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad);
-			if (fs > 0) SlotSprites.blit(g, SlotSprites.machine(m, "cabinet_fs"), x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad,
+			// the frame overhangs 8 px at the sides and bottom, 2 px at the top (clear of the jackpot meters)
+			var cab = l.cabinet();
+			SlotSprites.blit(g, SlotSprites.machine(m, "cabinet"), cab.x(), cab.y(), cab.w(), cab.h());
+			if (fs > 0) SlotSprites.blit(g, SlotSprites.machine(m, "cabinet_fs"), cab.x(), cab.y(), cab.w(), cab.h(),
 				SlotDraw.withAlpha(0xFFFFFFFF, fs));
 		} else {
 			g.fillGradient(x0, y0, x1, y1, SlotDraw.shade(body, 1.2), SlotDraw.shade(body, 0.8));
@@ -158,7 +160,7 @@ public final class CabinetArt {
 		g.fill(x0 + 4, my, x1 - 4, my + mh, 0xFF1A0E22);
 		if (ART && ANIMATED_STRIPS && !jackpot && !tier.isWin()) {
 			SlotSprites.blit(g, SlotSprites.machine(m, fs > 0.5 ? "marquee_fs" : "marquee"), x0 + 4, my, x1 - x0 - 8, mh);
-			SlotDraw.centeredFit(g, s.font(), name, (x0 + x1) / 2, my + (mh - 8) / 2, x1 - x0 - 24, 0xFFFFE680);
+			titlePlate(g, l, s, name);
 			return;
 		}
 		int bulbs = (x1 - x0 - 12) / 6;
@@ -183,7 +185,19 @@ public final class CabinetArt {
 			g.fill(bx, my + 1, bx + 2, my + 3, lit ? color : 0xFF3A2A40);
 			g.fill(bx, my + mh - 3, bx + 2, my + mh - 1, lit ? color : 0xFF3A2A40);
 		}
-		SlotDraw.centeredFit(g, s.font(), name, (x0 + x1) / 2, my + (mh - 8) / 2, x1 - x0 - 16, 0xFFFFE680);
+		titlePlate(g, l, s, name);
+	}
+
+	/**
+	 * The machine's title on its own plate over the middle of the marquee (the bulbs show on both sides of it, never
+	 * through the letters); a Nice win's tier plate covers it for the win show.
+	 */
+	private static void titlePlate(GuiGraphicsExtractor g, SlotLayout l, SlotStage s, Component name) {
+		Font font = s.font();
+		var r = l.titlePlate(font.width(name));
+		if (ART) SlotSprites.blit(g, SlotSprites.machine(s.machine(), "title_plate"), r.x(), r.y(), r.w(), r.h());
+		else SlotDraw.plate(g, r.x(), r.y(), r.w(), r.h(), 0xFF2A1A3A, 0xFF120818, 0xFFFFD640);
+		SlotDraw.centeredFit(g, font, name, r.x() + r.w() / 2, SlotGeometry.titleTextY(r), r.w() - 12, 0xFFFFE680);
 	}
 
 	/** Jackpot meters: badge, tier word and rolling amount; "WON!" + flash when another player's jackpot drops a pool. */

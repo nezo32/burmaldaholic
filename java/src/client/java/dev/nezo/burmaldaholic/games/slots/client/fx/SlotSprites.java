@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.slots.client.fx;
 
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotGeometry;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
@@ -54,6 +55,33 @@ public final class SlotSprites {
 	public static final Tex SPIN_PRESSED = sprite("spin_button_pressed", 56, 40);
 	public static final Tex SPIN_DISABLED = sprite("spin_button_disabled", 56, 40);
 	public static final Tex SPIN_STOP = sprite("spin_button_stop", 56, 40);
+	// casino controls (lane J-L9b): nine-slice button faces, 12 px icons, the inset value plate
+	public static final Tex BUTTON = sprite("button", 32, 20, 20, 0, 6);
+	public static final Tex BUTTON_HOVER = sprite("button_hover", 32, 20, 20, 0, 6);
+	public static final Tex BUTTON_PRESSED = sprite("button_pressed", 32, 20, 20, 0, 6);
+	public static final Tex BUTTON_DISABLED = sprite("button_disabled", 32, 20, 20, 0, 6);
+	public static final Tex BUTTON_ON = sprite("button_on", 32, 20, 20, 0, 6);
+	public static final Tex BUTTON_GOLD = sprite("button_gold", 32, 20, 20, 0, 6);
+	/** Nice tier plate (thin rim so a 2× word fits a 20 px plate). */
+	public static final Tex TIER_PLATE = sprite("tier_plate", 16, 16, 16, 0, 3);
+	public static final Tex VALUE_PLATE = sprite("value_plate", 32, 18, 18, 0, 5);
+	public static final Tex ICON_AUTO = sprite("icon_auto", 12, 12);
+	public static final Tex ICON_PAYTABLE = sprite("icon_paytable", 12, 12);
+	public static final Tex ICON_MINUS = sprite("icon_minus", 12, 12);
+	public static final Tex ICON_PLUS = sprite("icon_plus", 12, 12);
+	public static final Tex ICON_BONUS = sprite("icon_bonus", 12, 12);
+	/** Atlas ids of the control icons (for the J-L2 {@code CasinoButton} kit, which draws atlas sprites). */
+	public static Identifier atlas(String path) {
+		return Identifier.fromNamespaceAndPath("burmaldaholic", "burmaldaholic/slots/" + path);
+	}
+
+	public static final Identifier ICON_AUTO_ID = atlas("icon_auto");
+	public static final Identifier ICON_PAYTABLE_ID = atlas("icon_paytable");
+	public static final Identifier ICON_MINUS_ID = atlas("icon_minus");
+	public static final Identifier ICON_PLUS_ID = atlas("icon_plus");
+	public static final Identifier ICON_BONUS_ID = atlas("icon_bonus");
+	public static final Identifier TURBO_ON_ID = atlas("turbo_on");
+	public static final Identifier TURBO_OFF_ID = atlas("turbo_off");
 	private static final String[] PLATES = {"mini", "minor", "major", "grand"};
 
 	public static Tex jackpotPlate(int tier) {
@@ -75,13 +103,15 @@ public final class SlotSprites {
 	public static final Tex POINTER = sprite("end/pointer", 16, 48, 24, 0, 0);
 	public static final Tex UP_ARROW = sprite("end/up_arrow", 16, 16);
 
-	/** Per-machine sprites: cabinet(_fs) 64 nine-slice 12, banner 48/12, banner_small 32/8, marquee(_fs) 4 × 12, anticipation 8 × 140. */
+	/** Per-machine sprites: cabinet(_fs) 64 nine-slice 12, banner 48/12, banner_small 32/8, title_plate 32×16/2, side_panel 32/8, marquee(_fs) 4 × 12, anticipation 8 × 140. */
 	public static Tex machine(Machine m, String name) {
 		String p = m.id + "/" + name;
 		return switch (name) {
 			case "cabinet", "cabinet_fs" -> sprite(p, 64, 64, 64, 0, 12);
 			case "banner" -> sprite(p, 48, 48, 48, 0, 12);
 			case "banner_small" -> sprite(p, 32, 32, 32, 0, 8);
+			case "title_plate" -> sprite(p, 32, 16, 16, 0, SlotGeometry.TITLE_RIM);
+			case "side_panel" -> sprite(p, 32, 32, 32, 0, 8);
 			case "marquee", "marquee_fs" -> sprite(p, 128, 48, 12, 150, 0);
 			case "anticipation" -> sprite(p, 48, 1120, 140, 50, 0);
 			default -> sprite(p, 16, 16);

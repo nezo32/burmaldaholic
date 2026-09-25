@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.slots.client;
 
+import dev.nezo.burmaldaholic.games.slots.v2.present.WinHistory;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.core.anim.Beat;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
@@ -68,6 +69,8 @@ public final class SlotStage {
 	private long idleSince;
 	private boolean finished = true;
 	private long lastWin;
+	/** Settled wins for the win panel's "last wins" list (recorded at the settle point, F6). */
+	private final WinHistory history = new WinHistory();
 
 	public SlotStage(StageHost host, Machine machine, MachineDef def) {
 		this.host = host;
@@ -191,7 +194,10 @@ public final class SlotStage {
 			for (int r = 0; r < 5; r++) stops[r] = last.reels[r] != null ? last.reels[r].stop() : last.restStops[r];
 			rest(stops, script.finalCells(last));
 		}
-		if (tape != null) lastWin = tape.totalChips();
+		if (tape != null) {
+			lastWin = tape.totalChips();
+			history.settle(script, tape.totalChips(), tape.bet());
+		}
 	}
 
 	private boolean anyMoving() {
@@ -437,6 +443,10 @@ public final class SlotStage {
 
 	public long bet() {
 		return tape == null ? 0 : tape.bet();
+	}
+
+	public WinHistory history() {
+		return history;
 	}
 
 	public long lastWin() {

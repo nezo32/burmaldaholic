@@ -1045,6 +1045,22 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.fx.step_win` | +%1$s ×%2$s | +%1$s ×%2$s |
 | `gui.burmaldaholic.slots.fx.cabinet_view` | Watch the machine while spinning | Смотреть на автомат при вращении |
 | `gui.burmaldaholic.slots.fx.cabinet_view.tooltip` | Closes the window during a spin and turns the camera to the machine | Во время вращения закрывает окно и поворачивает камеру к автомату |
+| `gui.burmaldaholic.slots.bet_label` | BET | СТАВКА |
+| `gui.burmaldaholic.slots.panel.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.slots.panel.returned` | RETURNED | ВОЗВРАТ |
+| `gui.burmaldaholic.slots.panel.recent` | Last wins | Последние |
+| `gui.burmaldaholic.slots.panel.none` | — | — |
+| `gui.burmaldaholic.slots.panel.features` | Features | Бонусы |
+| `gui.burmaldaholic.slots.panel.count_plus` | %1$s+ | %1$s+ |
+| `gui.burmaldaholic.slots.panel.fs` | Free spins | Фриспины |
+| `gui.burmaldaholic.slots.panel.hunt` | Hunt | Охота |
+| `gui.burmaldaholic.slots.panel.hoard` | Hoard | Клад |
+| `gui.burmaldaholic.slots.panel.wheel` | Wheel | Колесо |
+| `gui.burmaldaholic.slots.panel.fs_of` | %1$s of %2$s | %1$s из %2$s |
+| `gui.burmaldaholic.slots.panel.bonus_win` | Bonus win | В бонусе |
+| `gui.burmaldaholic.slots.panel.opened` | Opened | Открыто |
+| `gui.burmaldaholic.slots.panel.opening` | Opening… | Открываем… |
+| `gui.burmaldaholic.slots.panel.respins` | Respins | Повторы |
 
 ### Sound subtitles (`SLOTS.md` §13.9; `fs_music.<machine>` events share `slots.fs_music`)
 

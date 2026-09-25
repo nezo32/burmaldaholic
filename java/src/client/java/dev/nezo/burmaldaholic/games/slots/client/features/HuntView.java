@@ -232,7 +232,7 @@ public final class HuntView {
 		double introMs = t - intro.at();
 		for (int c = 0; c < HuntBoard.CHESTS; c++) {
 			int x = chestX(s, c);
-			int y = chestY(s, c) - (int) Math.round(s.reduceMotion() ? 0 : HuntBoard.dropOffset(c, introMs));
+			int y = chestY(s, c) - (int) Math.round(s.reduceMotion() ? 0 : HuntBoard.dropOffset(c, introMs, intro.dur()));
 			HuntBoard.State st = board.state(c);
 			boolean hover = st == HuntBoard.State.CLOSED && awaitingPick(s) && mouseX >= x && mouseX < x + cell && mouseY >= y && mouseY < y + cell;
 			float cx = x + cell / 2f;
@@ -249,7 +249,7 @@ public final class HuntView {
 					}
 					if (CabinetArt.ART) {
 						int size = cell < 40 ? 29 : 40;
-						int frame = st == HuntBoard.State.PENDING ? 1 : hover && (now / 250) % 2 == 0 ? 1 : 0;
+						int frame = st == HuntBoard.State.PENDING ? 1 : 0; // hover wobbles only: frame 1 reads as "opening"
 						SlotSprites.frame(g, SlotSprites.CHEST, 40, 40, 6, frame, -size / 2, -size + 2, size, size, 0xFFFFFFFF);
 					} else {
 						float sc = (cell - 12) / 16f;
@@ -262,10 +262,17 @@ public final class HuntView {
 				case OPEN, DIMMED -> drawOpened(s, g, c, x, y, since, st == HuntBoard.State.DIMMED);
 			}
 		}
-		Component hint = board.ended() ? Component.translatable("gui.burmaldaholic.slots.bonus.total", Texts.chips(board.totalTimesBet() * s.bet()))
+		// the hint / total is the label line UNDER the board (SidePanels.label, slots.md §4.8), never over the chests
+	}
+
+	/**
+	 * The line under the board while it shows: {@code slots.pick.hint}, then {@code slots.bonus.total} once the hunt
+	 * has ended; null while the board is not (fully) up.
+	 */
+	public Component hint(SlotStage s) {
+		if (coverAlpha(s) < 0.95) return null;
+		return board.ended() ? Component.translatable("gui.burmaldaholic.slots.bonus.total", Texts.chips(board.totalTimesBet() * s.bet()))
 			: Component.translatable("gui.burmaldaholic.slots.pick.hint");
-		g.fill(s.wx(), s.wy() + s.windowH() - 11, s.wx() + s.windowW(), s.wy() + s.windowH(), 0xB0100804);
-		SlotDraw.centeredFit(g, s.font(), hint, s.wx() + s.windowW() / 2, s.wy() + s.windowH() - 10, s.windowW() - 4, board.ended() ? 0xFFFFD640 : 0xFFF4ECD8);
 	}
 
 	private void drawOpened(SlotStage s, GuiGraphicsExtractor g, int c, int x, int y, double since, boolean dimmed) {
@@ -274,13 +281,18 @@ public final class HuntView {
 		float cx = x + cell / 2f;
 		float cy = y + cell / 2f;
 		if (since < 0) {
-			// dimmed reveal not reached yet (80 ms stagger): still closed
-			g.pose().pushMatrix();
-			g.pose().translate(cx, y + cell - 4);
-			float sc = (cell - 12) / 16f;
-			g.pose().scale(sc, sc);
-			g.item(CHEST, -8, -16);
-			g.pose().popMatrix();
+			// dimmed reveal not reached yet (80 ms stagger): still the closed chest, in the same grid slot
+			int size = cell < 40 ? 29 : 40;
+			if (CabinetArt.ART) {
+				SlotSprites.frame(g, SlotSprites.CHEST, 40, 40, 6, 0, (int) cx - size / 2, y + cell - 4 - size + 2, size, size, 0xFFFFFFFF);
+			} else {
+				g.pose().pushMatrix();
+				g.pose().translate(cx, y + cell - 4);
+				float sc = (cell - 12) / 16f;
+				g.pose().scale(sc, sc);
+				g.item(CHEST, -8, -16);
+				g.pose().popMatrix();
+			}
 			return;
 		}
 		// open chest: the lid flipbook, light spills out

@@ -67,18 +67,95 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = true);
 			for (String lang : List.of("en_us", "ru_ru")) {
 				language(context, lang);
-				for (int scale : new int[] {2, 4}) {
-					guiScale(context, scale);
-					for (Machine m : Machine.values()) shots(context, lang + "_" + m.id + "_s" + scale, m);
+				for (Object[] v : VIEWS) {
+					view(context, v);
+					String tag = (String) v[3];
+					for (Machine m : Machine.values()) shots(context, lang + "_" + m.id + "_" + tag, m);
+					if ((boolean) v[4]) states(context, lang + "_" + tag);
 				}
 			}
 		} finally {
+			context.getInput().resizeWindow(854, 480);
 			guiScale(context, 0);
 			language(context, "en_us");
 			context.runOnClient(mc -> FxSettings.get().reduceMotion = false);
 			write(context);
 		}
 		if (!failures.isEmpty()) throw new AssertionError("slots v2 screen: " + String.join("; ", failures));
+	}
+
+	/**
+	 * Window sizes × GUI scales the gallery is shot at (lane J-L9b): {window w, h, GUI scale, tag, feature states}.
+	 * 854 × 480 at 2 = 427 × 240 (normal), 1280 × 800 at 3 = 426 × 266 (normal), 1280 × 960 at 4 = 320 × 240 and
+	 * 1100 × 720 at 3 = 366 × 240 (compact).
+	 */
+	private static final Object[][] VIEWS = {
+		{854, 480, 2, "s2", true},
+		{1280, 800, 3, "s3", false},
+		{1280, 960, 4, "s4c", true},
+		{1100, 720, 3, "s3c", false},
+	};
+
+	private static void view(ClientGameTestContext context, Object[] v) {
+		context.getInput().resizeWindow((int) v[0], (int) v[1]);
+		context.waitTicks(3);
+		guiScale(context, (int) v[2]);
+	}
+
+	/**
+	 * Feature states (lane J-L9b): a Nice win mid win-show (tier plate in the header, every reel visible), free spins on
+	 * all three machines (counter + bonus win + extra), the Treasure Hunt board waiting for a pick and after one pick.
+	 */
+	private void states(ClientGameTestContext context, String tag) {
+		state(context, tag, "nice", Machine.OVERWORLD, "ow_nice", true,
+			st -> st.bigWin().panelTier(st) == dev.nezo.burmaldaholic.core.anim.WinTier.NICE, 16);
+		state(context, tag, "fs_ow", Machine.OVERWORLD, "ow_fs", true, st -> st.freeSpins().counter(st) != null && st.freeSpins().counter(st)[0] >= 1, 4);
+		state(context, tag, "fs_ne", Machine.NETHER, "ne_fs", true, st -> st.freeSpins().counter(st) != null && st.freeSpins().counter(st)[0] >= 1, 4);
+		state(context, tag, "fs_end", Machine.END, "end_fs", true, st -> st.freeSpins().counter(st) != null && st.freeSpins().counter(st)[0] >= 1, 4);
+		// Treasure Hunt, interactive: the board holds for a pick (every chest on the regular 5 × 3 grid)
+		state(context, tag, "hunt_board", Machine.OVERWORLD, "ow_hunt", false, st -> st.hunt().awaitingPick(st), 4);
+		String problem = context.computeOnClient(mc -> {
+			SlotStage st = stage(mc);
+			if (st == null || !st.hunt().awaitingPick(st)) return "hunt board not waiting";
+			if (st.hunt().board().opened() != 0) return "chests opened before a pick";
+			st.click(st.cellX(2) + 4, st.cellY(1) + 4);
+			return st.hunt().board().pending() == 7 ? null : "the pressed chest is not the pending one";
+		});
+		if (problem != null) failures.add(tag + " hunt: " + problem);
+		context.takeScreenshot("jtest_slots_" + tag + "_hunt_opening");
+		context.waitTicks(20);
+		String counted = context.computeOnClient(mc -> {
+			SlotStage st = stage(mc);
+			return st != null && st.hunt().board().opened() == 1 && st.hunt().board().pending() < 0 ? null : "opened counter did not count the revealed chest";
+		});
+		if (counted != null) failures.add(tag + " hunt: " + counted);
+		context.takeScreenshot("jtest_slots_" + tag + "_hunt_pick");
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(2);
+	}
+
+	private void state(ClientGameTestContext context, String tag, String what, Machine m, String scenario, boolean auto,
+		java.util.function.Predicate<SlotStage> ready, int settleTicks) {
+		context.runOnClient(mc -> {
+			SlotPreviewScreen screen = new SlotPreviewScreen(m, scenario).autoFeatures(auto);
+			mc.gui.setScreen(screen);
+			screen.playNow(scenario);
+		});
+		try {
+			context.waitFor(mc -> {
+				SlotStage st = stage(mc);
+				return st != null && ready.test(st);
+			}, 1200);
+		} catch (RuntimeException | AssertionError e) {
+			failures.add(tag + " " + what + ": state not reached");
+		}
+		context.waitTicks(settleTicks);
+		context.takeScreenshot("jtest_slots_" + tag + "_" + what);
+		for (String p : context.computeOnClient(mc -> inspect(mc, mc.gui.screen()))) layoutProblem(tag + "_" + what, p);
+		if (!what.startsWith("hunt")) {
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			context.waitTicks(2);
+		}
 	}
 
 	private enum Mode {
@@ -262,9 +339,15 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 		context.runOnClient(mc -> mc.gui.setScreen(new SlotPreviewScreen(m, null).autoFeatures(true)));
 		context.waitTicks(10);
 		context.takeScreenshot("jtest_slots_" + name);
-		for (String p : context.computeOnClient(mc -> inspect(mc, mc.gui.screen()))) report.add(name + ": " + p);
+		for (String p : context.computeOnClient(mc -> inspect(mc, mc.gui.screen()))) layoutProblem(name, p);
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(2);
+	}
+
+	/** Overlapping or off-screen widgets fail the test (lane J-L9b); other findings go to the layout report. */
+	private void layoutProblem(String where, String p) {
+		report.add(where + ": " + p);
+		if (p.startsWith("widgets overlap") || p.startsWith("widget outside")) failures.add(where + ": " + p);
 	}
 
 	private static List<String> inspect(Minecraft mc, Screen screen) {
@@ -272,10 +355,23 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 		if (screen == null) return out;
 		for (var child : screen.children()) {
 			if (!(child instanceof AbstractWidget w) || !w.visible) continue;
+			// icon-only buttons and SPIN (its cost is the caption under it) keep the label as tooltip / narration
+			boolean hidden = w instanceof dev.nezo.burmaldaholic.games.slots.client.panels.SlotButton b && b.labelHidden();
 			String label = w.getMessage().getString();
-			if (mc.font.width(w.getMessage()) > 2 * (w.getWidth() - 4)) out.add("label far wider than its button: \"" + label + "\"");
+			if (!hidden && mc.font.width(w.getMessage()) > 2 * (w.getWidth() - 4)) out.add("label far wider than its button: \"" + label + "\"");
 			if (w.getX() < 0 || w.getY() < 0 || w.getX() + w.getWidth() > screen.width || w.getY() + w.getHeight() > screen.height) {
 				out.add("widget outside the screen: \"" + label + "\"");
+			}
+		}
+		List<AbstractWidget> ws = new ArrayList<>();
+		for (var child : screen.children()) if (child instanceof AbstractWidget w && w.visible) ws.add(w);
+		for (int i = 0; i < ws.size(); i++) {
+			for (int j = i + 1; j < ws.size(); j++) {
+				AbstractWidget a = ws.get(i);
+				AbstractWidget b = ws.get(j);
+				if (a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth() && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight()) {
+					out.add("widgets overlap: \"" + a.getMessage().getString() + "\" / \"" + b.getMessage().getString() + "\"");
+				}
 			}
 		}
 		return out;

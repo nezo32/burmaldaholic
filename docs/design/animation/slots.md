@@ -597,7 +597,7 @@ The win panel (right) always shows the running amount; overlays add on top by ti
 |---|---|
 | Returned | no dim, no pulse, no frames; the panel shows `slots.returned` in `bone.shade` gray for 1 500 ms; one `slots.returned` muted tick |
 | Win | win show (§4.4) + panel roll-up (`ROLLUP`, ≈ 600–1 300 ms, ticks ≤ 15/s at rising pitch) + `slots.win_small` at the end |
-| Nice | + an in-panel banner (nine-slice `slots/<m>/banner_small.png`, 2× `slots.tier.nice`) pops over the reels' lower edge (250 ms `outBack`), 20 GUI coins burst from it; `slots.win_nice` |
+| Nice | + a tier plate (nine-slice `slots/tier_plate.png`, 2× `slots.tier.nice`) pops in the cabinet header over the title plate, ending above the reel window so every winning cell stays visible (250 ms `outBack`), 20 GUI coins burst from it; `slots.win_nice`. ⚠ CHANGED (J-L9b): was "over the reels' lower edge", which hid the bottom row |
 | Big / Mega / Epic | `CelebrationOverlay` (global J7) with the slot tier word supplied (D4). It **starts at the Nice word** (or Big if the total is > 15× already at the first frame) and **upgrades** at the moments the rolling value passes 15×, 40× and 100× the bet: 150 ms punch (1.25 → 1), rays change colour (gold → orange → magenta), the coin emitter rate steps 20 → 40 → 60 per s, and the tier stem plays (`slots.big_win` → `slots.mega_win` → `slots.epic_win`). The final word always equals the server tier. Mega adds one 30 % flash at its upgrade (flashes on). Epic adds a 4 px 400 ms shake at its upgrade and fireworks at the cabinet (server, §5.3). |
 | Hold | at the final exact value: 800 ms hold, then `global` fx skip hint; any key/click dismisses; autoplay dismisses after 1 500 ms |
 
@@ -617,7 +617,7 @@ capped total. The plate stays on the win panel until the next spin.
 
 | Control | Normal / hover | Press | Invalid |
 |---|---|---|---|
-| **Spin** (round 56 × 40 sprite `slots/spin_button.png`, 5 states: normal, hover, pressed, disabled, stop) | breathing ring (0.5 Hz); hover: ring brightens, 1 px lift | 2 px depress 60 ms; during a spin the button shows **Stop** (red square icon) and pressing it = skip (§2.2) | global.md §2.2 shake (±2 px, 240 ms) + `ui_deny` + the error line (e.g. `error.bet_unavailable`) slides in; the reels do **not** move |
+| **Spin** (round 56 × 40 sprite `slots/spin_button.png`, 5 states: normal, hover, pressed, disabled, stop; the icon is never covered: the cost / Stop is a 1× caption under the button) | breathing ring (0.5 Hz); hover: ring brightens, 1 px lift | 2 px depress 60 ms; during a spin the button shows **Stop** (red square icon) and pressing it = skip (§2.2) | global.md §2.2 shake (±2 px, 240 ms) + `ui_deny` + the error line (e.g. `error.bet_unavailable`) slides in; the reels do **not** move |
 | Bet − / + | `CasinoButton` | the bet value flips: the old number slides out upward (+) or downward (−), 120 ms; `chip_place` pitch 1.2 (+) / 0.9 (−) | at the ladder end: the button shakes, no sound other than `ui_deny` |
 | Buy (Nether, End) | primary style; hover shows the RTP tooltip | opens a confirm panel (stratum 2, scale-in 150 ms) with `slots.buy.confirm_*`; confirm → the panel folds into the reels and the FS intro starts directly (no base spin) | as above |
 | Auto… | `CasinoButton` | opens the autoplay panel; while running, the button shows `slots.auto_left` counting down with a flip per spin | — |
