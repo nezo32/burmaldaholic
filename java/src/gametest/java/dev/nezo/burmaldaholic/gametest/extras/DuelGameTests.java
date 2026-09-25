@@ -42,7 +42,7 @@ public class DuelGameTests {
 		ServerPlayer b = player(helper, 100, 3);
 		DiceGame.resolvePvpForTesting(a, b, 10);
 		long ab = Economies.get().balance(a) + Economies.get().balance(b);
-		helper.assertTrue(ab < 200 && ab >= 190, "settled at once (winner paid minus rake, or both refunded): " + ab);
+		helper.assertTrue(ab <= 200 && ab >= 190, "settled at once (winner paid minus rake, or both refunded): " + ab);
 		helper.assertTrue(DuelStage.active() >= 1, "staged");
 		helper.assertTrue(DiceGame.pendingLines() > 0, "the round lines wait for the dice");
 		int[] seenDice = new int[1];
