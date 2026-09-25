@@ -57,7 +57,8 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 12250");
 			world.getServer().runOnServer(server -> CasinoConfig.chaos().enabled = false);
@@ -302,7 +303,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 	private void guiScale(ClientGameTestContext context, int scale) {
 		context.runOnClient(mc -> {
 			mc.options.guiScale().set(scale);
-			mc.resizeDisplay();
+			mc.resizeGui();
 		});
 		context.waitTicks(5);
 	}

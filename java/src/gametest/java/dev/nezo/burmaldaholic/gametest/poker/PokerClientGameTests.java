@@ -22,7 +22,8 @@ public class PokerClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			world.getServer().runCommand("casino balance set @p 12500");
 			world.getServer().runOnServer(server -> {
 				ServerPlayer player = server.getPlayerList().getPlayers().getFirst();

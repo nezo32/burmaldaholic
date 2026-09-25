@@ -159,8 +159,7 @@ final class HubView {
 			this.icon = icon;
 			this.onPress = onPress;
 			this.active = onPress != null;
-			Component tip = onPress == null && hint != null ? Component.empty().append(name).append("\n").append(hint)
-				: HubLayout.named(w) ? null : name;
+			Component tip = onPress == null && hint != null ? hint : HubLayout.named(w) ? null : name;
 			if (tip != null) setTooltip(Tooltip.create(tip));
 		}
 

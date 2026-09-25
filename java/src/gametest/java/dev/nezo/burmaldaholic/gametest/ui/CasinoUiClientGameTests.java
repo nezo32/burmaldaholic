@@ -48,7 +48,8 @@ public class CasinoUiClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 12500");
 			world.getServer().runCommand("time set noon");

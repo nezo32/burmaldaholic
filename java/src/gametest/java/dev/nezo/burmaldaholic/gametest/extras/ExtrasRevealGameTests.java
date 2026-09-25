@@ -23,7 +23,6 @@ import dev.nezo.burmaldaholic.games.extras.logic.anim.WheelAnim;
 import dev.nezo.burmaldaholic.games.extras.logic.anim.WheelSync;
 import dev.nezo.burmaldaholic.games.extras.pvp.plinko.PlinkoBattleMode;
 import dev.nezo.burmaldaholic.games.extras.pvp.scratch.ScratchShowdownMode;
-import dev.nezo.burmaldaholic.games.extras.server.CoinFlipGame;
 import dev.nezo.burmaldaholic.games.extras.server.CoinToss;
 import dev.nezo.burmaldaholic.pvp.PvpMatchView;
 import java.util.HashSet;
@@ -108,8 +107,10 @@ public class ExtrasRevealGameTests {
 		ServerPlayer a = player(helper, 5000);
 		ServerPlayer spectator = player(helper, 0);
 		MinecraftServer server = helper.getLevel().getServer();
-		PvpMatch m = pvp.openLobby(a, mode, params, 40, new PvpService.Anchor(AnchorKind.NONE, (ServerLevel) a.level(), a.blockPosition()),
-			new BotSettings(SeatPolicy.BOTS_ONLY, 3, BotDifficulty.NORMAL, false, true, BotSpeed.INSTANT), false).value();
+		var opened = pvp.openLobby(a, mode, params, 40, new PvpService.Anchor(AnchorKind.NONE, (ServerLevel) a.level(), a.blockPosition()),
+			new BotSettings(SeatPolicy.BOTS_ONLY, 3, BotDifficulty.NORMAL, false, true, BotSpeed.INSTANT), false);
+		helper.assertTrue(opened.isOk(), mode + ": " + (opened.error() == null ? "" : opened.error().getString()));
+		PvpMatch m = opened.value();
 		helper.assertTrue(m != null && m.state() == MatchState.DRAWN, mode + ": drawn at once");
 		Set<Integer> seenByPlayer = new HashSet<>();
 		Set<Integer> seenBySpectator = new HashSet<>();
@@ -133,7 +134,7 @@ public class ExtrasRevealGameTests {
 
 	@GameTest(maxTicks = 3000)
 	public void plinkoFinalBallNeverLeaksEarly(GameTestHelper helper) {
-		run(helper, "plinko", new PlinkoBattleMode().encodeParams(new PlinkoBattleMode.Params("medium", 2)), "final_ball");
+		run(helper, "plinko", new PlinkoBattleMode().encodeParams(new PlinkoBattleMode.Params("medium", 3)), "final_ball");
 	}
 
 	@GameTest(maxTicks = 3000)
@@ -200,9 +201,7 @@ public class ExtrasRevealGameTests {
 	@GameTest(maxTicks = 200)
 	public void coinTossShowsTheFaceOnlyAtTheLanding(GameTestHelper helper) {
 		ServerPlayer p = player(helper, 5000);
-		CompoundTag args = chips(10);
-		args.putString("side", "heads");
-		CoinFlipGame.action(p, "flip", args);
+		CoinToss.toss(p, false); // a settled "tails": the display may only ever show it from the landing tick
 		Display.ItemDisplay d = CoinToss.displayOf(p);
 		helper.assertTrue(d != null, "a toss display spawned");
 		long start = helper.getLevel().getGameTime();
@@ -220,7 +219,7 @@ public class ExtrasRevealGameTests {
 			}
 		});
 		helper.runAfterDelay(CoinTossKeys.REMOVE_TICK + 3, () -> {
-			helper.assertTrue(landed[0] != null && (landed[0].equals("heads") || landed[0].equals("tails")), "the face at the landing: " + landed[0]);
+			helper.assertTrue("tails".equals(landed[0]), "the settled face at the landing: " + landed[0]);
 			helper.assertTrue(CoinToss.displayOf(p) == null, "removed after the toss");
 			helper.getLevel().getServer().getPlayerList().remove(p);
 			helper.succeed();

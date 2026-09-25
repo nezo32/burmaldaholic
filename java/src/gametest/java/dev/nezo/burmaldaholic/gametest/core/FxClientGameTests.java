@@ -26,7 +26,8 @@ public class FxClientGameTests implements FabricClientGameTest {
 		context.takeScreenshot("jtest_fx_settings");
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			// HUD: EPIC at 60x (upgrades BIG → MEGA → EPIC)
 			celebrate(world, WinTier.EPIC, 6000, 100);
 			context.waitFor(mc -> CelebrationOverlay.get().isActive(), 100);

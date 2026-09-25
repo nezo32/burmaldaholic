@@ -46,7 +46,8 @@ public class RuLayoutClientGameTests implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		language(context, "ru_ru");
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			world.getServer().runCommand("casino balance set @p 12500");
 			Map<String, TableType<?>> tables = new LinkedHashMap<>();
 			tables.put("blackjack", BlackjackModule.TABLE);

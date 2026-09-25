@@ -53,7 +53,8 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 1000000");
 			// no chaos events from the real rounds (a Creeper-first hunt calls a mob wave that would kill the player

@@ -18,7 +18,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
@@ -66,7 +65,6 @@ public final class CoinToss {
 		if (!level.addFreshEntity(d)) {
 			return;
 		}
-		player.swing(InteractionHand.MAIN_HAND, true);
 		TOSSES.put(player.getUUID(), new Toss(level, d.getUUID(), level.getGameTime(), heads));
 	}
 
