@@ -86,6 +86,7 @@ public final class ExtrasModule implements CasinoModule {
 		COIN_FLIP_SOUND = ctx.registry().sound("coin_flip");
 		PLINKO_PEG_SOUND = ctx.registry().sound("plinko_peg");
 		DICE_ROLL_SOUND = ctx.registry().sound("dice_roll");
+		dev.nezo.burmaldaholic.core.sound.CasinoSounds.registerOwned(ctx, ID); // plinko_bin (extras-pvp.md §10.3)
 
 		ExtrasActionPayload.TYPE = ctx.payloads().serverbound("extras_action", ExtrasActionPayload.CODEC, (payload, context) -> {
 			ServerPlayer player = context.player();
@@ -116,15 +117,21 @@ public final class ExtrasModule implements CasinoModule {
 		ExtrasErrorPayload.TYPE = ctx.payloads().clientbound("extras_error", ExtrasErrorPayload.CODEC);
 
 		ServerTickEvents.END_SERVER_TICK.register(DiceGame::tick);
+		ServerTickEvents.END_SERVER_TICK.register(dev.nezo.burmaldaholic.games.extras.server.CoinToss::tick); // in-world toss (extras-pvp §1.3)
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, level) ->
+			dev.nezo.burmaldaholic.games.extras.server.CoinToss.onEntityLoad(entity));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			dev.nezo.burmaldaholic.games.extras.server.CoinToss.forget(handler.player.getUUID());
 			DiceGame.forget(handler.player.getUUID());
 			CoinFlipGame.forget(handler.player.getUUID());
 			ExtrasGames.forgetScreen(handler.player.getUUID());
 		});
-		// the held-back duel lines reach the players' mail before the world data is saved; the staged dice go
+		// the held-back duel lines reach the players' mail before the world data is saved; the staged dice and the
+		// thrown coin displays go
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
 			DiceGame.flushPending(server, true);
 			DuelStage.stopAll(server);
+			dev.nezo.burmaldaholic.games.extras.server.CoinToss.clear();
 		});
 		ServerEntityEvents.ENTITY_LOAD.register(DuelStage::onEntityLoad);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {

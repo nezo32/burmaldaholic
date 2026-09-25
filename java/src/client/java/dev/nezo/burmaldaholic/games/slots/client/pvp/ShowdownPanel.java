@@ -238,10 +238,16 @@ public final class ShowdownPanel {
 		if (mine.isEmpty() && POLICIES[policy] != SeatPolicy.HUMANS_ONLY) {
 			lines.add(Component.translatable("gui.burmaldaholic.bots.luck_only"));
 		}
-		// rules.4 / .5 describe the Slot Showdown v2 surprises and jackpot points (SLOTS.md §9); this v1 panel shows the rest
-		for (int i : new int[] {1, 2, 3, 6}) {
-			lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules." + i));
-		}
+		// the rules of the Showdown this server plays (ShowdownScoring on the frozen ShowdownTables; switches from the state)
+		CompoundTag p = pvp();
+		lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.1"));
+		if (p.getBooleanOr("hot", true)) lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.2"));
+		lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.3", Texts.number(p.getLongOr("pearl_points", 10)),
+			Texts.number(p.getLongOr("clock_points", 50)), Texts.number(p.getIntOr("star", 500))));
+		if (p.getBooleanOr("kaboom", true)) lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.4"));
+		if (p.getBooleanOr("swap", true)) lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.5"));
+		if (p.getBooleanOr("underdog", true)) lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.6"));
+		lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.rules.7"));
 		lines.add(Component.translatable("gui.burmaldaholic.pvp.slots.tiebreak"));
 		for (Component c : lines) {
 			for (FormattedCharSequence l : font.split(c, textW)) {

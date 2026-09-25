@@ -1,6 +1,27 @@
 {
   "model": {
-    "type": "minecraft:model",
-    "model": "burmaldaholic:item/extras/lucky_coin"
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "cases": [
+      {
+        "when": "heads",
+        "model": {
+          "type": "minecraft:model",
+          "model": "burmaldaholic:item/extras/lucky_coin_heads"
+        }
+      },
+      {
+        "when": "tails",
+        "model": {
+          "type": "minecraft:model",
+          "model": "burmaldaholic:item/extras/lucky_coin_tails"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "burmaldaholic:item/extras/lucky_coin"
+    }
   }
 }

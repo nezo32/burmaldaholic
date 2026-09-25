@@ -2186,6 +2186,7 @@ final class PvpEngine implements PvpService {
 		p.lastTaunt = now;
 		tell(s, m, Component.translatable("msg.burmaldaholic.pvp.taunt.say", PvpText.name(p, mode(m)), Component.translatable(Taunts.key(line))), true);
 		presenter().sound(m, Taunts.friendly(line) ? "minecraft:entity.villager.yes" : "minecraft:entity.villager.no", p.index);
+		presenter().taunt(m, p.index, line);
 	}
 
 	// =====================================================================================================

@@ -12,8 +12,9 @@
     "subtitle": "subtitles.burmaldaholic.plinko_peg",
     "sounds": [
       {
-        "name": "minecraft:block.note_block.hat",
-        "type": "event"
+        "name": "minecraft:block.note_block.xylophone",
+        "type": "event",
+        "volume": 0.5
       }
     ]
   },
@@ -22,6 +23,15 @@
     "sounds": [
       {
         "name": "minecraft:block.bamboo_wood.hit",
+        "type": "event"
+      }
+    ]
+  },
+  "plinko_bin": {
+    "subtitle": "subtitles.burmaldaholic.plinko_bin",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.pling",
         "type": "event"
       }
     ]

@@ -4,49 +4,51 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.nezo.burmaldaholic.client.pvp.PvpScreens;
+import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
+import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Base of the pvp module's screens (lobby, generic match, result, taunts): a server-driven felt panel
- * (256 wide, PVP.md §3.11.2/§3.11.3) that grows downwards to fit wrapped text and flowed buttons, so Russian
- * labels (≈1.45× English) wrap instead of being cut (UI.md §0.1: widths = max(min, text + 10)).
+ * Base of the pvp module's screens (lobby, generic match, result, taunts; visual/extras.md §7): the arena scene (the
+ * grudge variant in a grudge match) as a 400 × 240 panel, the title at the top left and a right-aligned status at the
+ * top right (or a title banner), casino buttons and the error line. Server-driven: renders the last
+ * {@code PvpSyncPayload} state; buttons send {@code PvpActionPayload}s.
  */
-abstract class PvpScreen extends Screen {
-	static final int FELT = 0xFF1B3A5C;
-	static final int FELT_BORDER = 0xFF0B1A2C;
-	static final int TEXT = 0xFFFFFFFF;
-	static final int MUTED = 0xFFBBBBBB;
-	static final int GOLD = 0xFFFFD700;
-	static final int GREEN = 0xFF55FF55;
-	static final int RED = 0xFFFF5555;
+abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
+	static final int TEXT = Kit.BONE;
+	static final int MUTED = Kit.BONE_SHADE;
+	static final int GOLD = Kit.GOLD;
+	static final int GREEN = Kit.BONUS;
+	static final int RED = Kit.RED_LIGHT;
 	static final int PAD = 8;
 	static final int ROW = 22;
 	/** Text line pitch (UI.md compact rows: 10 px). */
 	static final int LINE = 10;
-	static final int WIDTH = 256;
+	static final int WIDTH = Scene.W;
 
 	private JsonObject state;
-	private @Nullable Component error;
-	private int errorTicks;
-	protected int panelWidth = WIDTH;
-	protected int panelHeight = 120;
+	protected int panelWidth = Scene.W;
+	protected int panelHeight = Scene.H;
 	protected int left;
 	protected int top;
 	protected int ticks;
 	/** Client tick when the state arrived (timers count down from it). */
 	protected int stateTick;
+	/** Local time the screen opened (entrance motion). */
+	protected final long openedAt = Util.getMillis();
 
 	protected PvpScreen(Component title, JsonObject state) {
-		super(title);
+		super(title, Scene.W, Scene.H);
 		this.state = state;
 	}
 
@@ -70,89 +72,102 @@ abstract class PvpScreen extends Screen {
 
 	protected void onState(JsonObject oldState, JsonObject newState) {}
 
-	void showError(Component message) {
-		error = message;
-		errorTicks = 80;
-	}
-
 	protected void send(String action, String arg, long value) {
 		PvpScreens.action(action, matchId(), arg, value);
 	}
 
+	protected Scene scene() {
+		return bool(state, "grudge") ? Scene.PVP_GRUDGE : Scene.PVP;
+	}
+
+	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	@Override
+	protected boolean fitToScreen() {
+		return true;
+	}
+
 	@Override
 	protected void init() {
-		panelWidth = Math.min(WIDTH, width - 8);
-		left = (width - panelWidth) / 2;
-		top = Math.max(4, (height - panelHeight) / 2);
+		super.init();
+		left = Scene.left(width);
+		top = Scene.top(height);
 		layout();
 	}
 
-	/** Adds widgets; call {@link #fitHeight} with the lowest used y. */
-	protected abstract void layout();
-
-	/** Content below the title bar (absolute coordinates). */
-	protected abstract void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float a);
-
-	protected void fitHeight(int contentBottom) {
-		int needed = Math.min(Math.max(60, contentBottom - top + 16), Math.max(60, height - 8));
-		if (needed != panelHeight) {
-			panelHeight = needed;
-			top = Math.max(4, (height - panelHeight) / 2);
-			clearWidgets();
-			layout();
-		}
-	}
-
 	@Override
-	public void tick() {
-		ticks++;
-		if (errorTicks > 0 && --errorTicks == 0) {
-			error = null;
-		}
-	}
-
-	@Override
-	public boolean isPauseScreen() {
+	protected boolean showBanner() {
 		return false;
 	}
 
 	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		super.extractBackground(g, mouseX, mouseY, a);
-		g.fill(left - 1, top - 1, left + panelWidth + 1, top + panelHeight + 1, FELT_BORDER);
-		g.fill(left, top, left + panelWidth, top + panelHeight, FELT);
+	protected boolean showBalance() {
+		return false;
 	}
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		Component right = titleRight();
-		int rw = right == null ? 0 : font.width(right);
-		List<FormattedCharSequence> title = font.split(getTitle(), panelWidth - 2 * PAD - (rw > 0 ? rw + PAD : 0));
-		int y = top + 6;
-		for (FormattedCharSequence line : title) {
-			g.text(font, line, left + PAD, y, GOLD, true);
-			y += font.lineHeight;
-		}
-		if (right != null) {
-			g.text(font, right, left + panelWidth - PAD - rw, top + 6, TEXT, true);
-		}
-		extractContent(g, mouseX, mouseY, a);
-		super.extractRenderState(g, mouseX, mouseY, a);
-		if (error != null) {
-			wrap(g, font, error, left + PAD, top + panelHeight - 12, panelWidth - 2 * PAD, RED);
-		}
+	protected int errorY() {
+		return top + 188;
 	}
 
-	/** Right side of the title bar (timer / balance), or null. */
+	/** Adds widgets (panel-local positions through {@link #button}). */
+	protected abstract void layout();
+
+	/** Content (absolute coordinates) over the scene, under the widgets. */
+	protected abstract void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float a);
+
+	protected KitButton button(int x, int y, int w, Component label, KitButton.Style style, Consumer<KitButton> onPress) {
+		KitButton b = KitButton.of(left + x, top + y, w, label, style, onPress);
+		addRenderableWidget(b);
+		return b;
+	}
+
+	/** Width for a label: {@code max(min, text + 12)}. */
+	protected int labelWidth(Component label, int min) {
+		return Math.max(min, font.width(label) + 12);
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		ticks++;
+	}
+
+	/** The title drawn on the scene's banner ({@code null}: the top-left title line instead). */
+	protected @Nullable Component bannerTitle() {
+		return null;
+	}
+
+	@Override
+	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		Scene sc = scene();
+		sc.backdrop(g, left, top);
+		sc.frame(g, font, left, top, bannerTitle());
+	}
+
+	@Override
+	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		if (bannerTitle() == null && titleLine()) {
+			Component right = titleRight();
+			int rw = right == null ? 0 : font.width(right);
+			Kit.fit(g, font, getTitle(), left + 16, top + 15, Scene.W - 32 - (rw > 0 ? rw + 12 : 0), GOLD, true);
+			if (right != null) g.text(font, right, left + Scene.W - 16 - rw, top + 15, GOLD, true);
+		}
+		extractContent(g, mouseX, mouseY, a);
+	}
+
+	/** Draw the title line at the top left (the result window's banner replaces it). */
+	protected boolean titleLine() {
+		return true;
+	}
+
+	/** Right side of the title line (timer / step), or null. */
 	protected @Nullable Component titleRight() {
 		return null;
 	}
 
-	/** Y below the (possibly wrapped) title. */
+	/** Y below the title line. */
 	protected int contentTop() {
-		Component right = titleRight();
-		int rw = right == null ? 0 : font.width(right) + PAD;
-		return top + 6 + font.split(getTitle(), panelWidth - 2 * PAD - rw).size() * font.lineHeight + 4;
+		return top + 28;
 	}
 
 	// ---- text helpers ----------------------------------------------------------------------------
@@ -167,10 +182,6 @@ abstract class PvpScreen extends Screen {
 
 	int wrappedHeight(Component text, int width) {
 		return font.split(text, width).size() * LINE;
-	}
-
-	void separator(GuiGraphicsExtractor g, int y) {
-		g.fill(left + PAD, y, left + panelWidth - PAD, y + 1, 0x66FFFFFF);
 	}
 
 	// ---- JSON helpers --------------------------------------------------------------------------
@@ -260,44 +271,5 @@ abstract class PvpScreen extends Screen {
 
 	static Component percent(JsonObject s) {
 		return Component.translatable("gui.burmaldaholic.pvp.percent", Texts.decimal(str(s, "rakePercent", "3")));
-	}
-
-	// ---- flow layout -----------------------------------------------------------------------------
-
-	/** Buttons as wide as their label needs; rows wrap. */
-	final class Flow {
-		private final int x0;
-		private final int x1;
-		private int x;
-		private int y;
-
-		Flow(int y) {
-			this.x0 = left + PAD;
-			this.x1 = left + panelWidth - PAD;
-			this.x = x0;
-			this.y = y;
-		}
-
-		Button button(Component label, int minWidth, Button.OnPress onPress) {
-			int w = Math.min(x1 - x0, Math.max(minWidth, font.width(label) + 10));
-			if (x + w > x1 && x > x0) {
-				newRow();
-			}
-			Button b = Button.builder(label, onPress).bounds(x, y, w, 20).build();
-			addRenderableWidget(b);
-			x += w + 3;
-			return b;
-		}
-
-		void newRow() {
-			if (x > x0) {
-				x = x0;
-				y += ROW;
-			}
-		}
-
-		int bottom() {
-			return x > x0 ? y + ROW : y;
-		}
 	}
 }

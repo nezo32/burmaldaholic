@@ -231,7 +231,8 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			check(CasinoTheme.forced() == null, "cleared");
 			for (CasinoTheme t : CasinoTheme.values()) check(TableTheme.of(t).casino() == (t.location() ? t : CasinoTheme.VILLAGE), "mapping " + t);
 		});
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitFor(mc -> mc.level != null && mc.player != null, 1200);
 			context.runOnClient(mc -> check(CasinoTheme.current() == CasinoTheme.VILLAGE, "overworld → village"));
 			dimension(context, world, "the_nether", Level.NETHER, CasinoTheme.BASTION);

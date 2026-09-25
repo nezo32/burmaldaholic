@@ -137,6 +137,16 @@ public final class ClientCasinoMenu {
 		}
 	}
 
+	/** Test hook (client GameTests): installs page {@code id} as if the server had sent it and refreshes the open menu. */
+	public static void setPageForTests(String id, List<Line> newLines, List<Button> newButtons) {
+		page = id;
+		lines = List.copyOf(newLines);
+		buttons = List.copyOf(newButtons);
+		if (listener != null) {
+			listener.run();
+		}
+	}
+
 	private static DynamicOps<Tag> ops() {
 		Minecraft mc = Minecraft.getInstance();
 		return mc.level != null ? mc.level.registryAccess().createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;

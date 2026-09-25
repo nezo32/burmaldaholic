@@ -13,6 +13,7 @@
 		"client.BossHealthOverlayAccessor",
 		"client.CreateWorldGameTabMixin",
 		"client.CreateWorldScreenMixin",
+		"client.MouseHandlerFitMixin",
 		"client.WorldCreationUiStateMixin"
 	],
 	"server": [],

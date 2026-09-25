@@ -30,6 +30,8 @@ public final class ClientPvp {
 	/** The mode screen currently created from a {@code PvpScreens} factory. */
 	private static PvpScreens.@Nullable ModeScreen modeScreen;
 	private static String modeScreenMatch = "";
+	/** Countdown / grudge / Final Reveal clock of the current match (the shared overlay). */
+	private static final dev.nezo.burmaldaholic.client.pvp.kit.RevealState REVEAL = dev.nezo.burmaldaholic.client.pvp.kit.RevealState.current();
 
 	private ClientPvp() {}
 
@@ -82,6 +84,7 @@ public final class ClientPvp {
 		state = s;
 		kind = p.kind();
 		receivedTick = clientTicks;
+		REVEAL.update(s);
 		String id = PvpScreen.str(s, "id", "");
 		boolean mayOpen = p.open() || isPvpScreen(cur);
 		switch (p.kind()) {
@@ -144,6 +147,22 @@ public final class ClientPvp {
 		} catch (RuntimeException ex) {
 			return null;
 		}
+	}
+
+	public static dev.nezo.burmaldaholic.client.pvp.kit.RevealState reveal() {
+		return REVEAL;
+	}
+
+	/** The shared match overlay (grudge clash, countdown, Final Reveal) over a live mode screen. */
+	static void drawOverlay(Screen screen, net.minecraft.client.gui.GuiGraphicsExtractor g) {
+		JsonObject s = state;
+		if (s == null || !kind.equals("match") || screen instanceof PvpResultScreen || !isPvpScreen(screen)) {
+			return;
+		}
+		// drawn after the screen's pass: in the screen's own GUI when it runs the compact layout (FitScaled)
+		boolean fit = dev.nezo.burmaldaholic.client.ui.FitScaled.push(g, screen);
+		dev.nezo.burmaldaholic.client.pvp.kit.MatchOverlay.draw(g, Minecraft.getInstance().font, screen.width, screen.height, s, REVEAL);
+		if (fit) dev.nezo.burmaldaholic.client.ui.FitScaled.pop(g);
 	}
 
 	/** Opens the taunt picker over {@code parent}. */

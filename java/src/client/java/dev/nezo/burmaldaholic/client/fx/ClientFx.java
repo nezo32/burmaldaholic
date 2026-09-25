@@ -42,6 +42,23 @@ public final class ClientFx {
 	private static final Map<ServerFx.Kind, List<Consumer<FxPayload>>> HANDLERS = new EnumMap<>(ServerFx.Kind.class);
 	private static boolean initialized;
 
+	/**
+	 * A screen that reveals a result the server has already settled (the extras games): while its own reveal of
+	 * {@code game} still runs, the server's celebration for that game waits and plays at the landing, so the overlay
+	 * never spoils the animation (extras-pvp.md §0.3 rule 4). Closing the screen, a skip or the reveal ending releases
+	 * it at once (rule 6: interrupt = reveal); a held celebration never waits longer than {@link #HOLD_LIMIT_MS}.
+	 */
+	public interface CelebrationGate {
+		boolean holdsCelebration(String game);
+	}
+
+	/** A held celebration plays at the latest this long after it arrived. */
+	public static final int HOLD_LIMIT_MS = 6000;
+	private static CelebrationRequest held;
+	private static String heldGame = "";
+	private static int heldBalanceMs;
+	private static long heldAt;
+
 	private ClientFx() {}
 
 	public static synchronized void init() {
@@ -62,7 +79,9 @@ public final class ClientFx {
 			FxSprites.invalidate();
 			CasinoParticle.resetBudget();
 		});
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(ClientFx::tickHeld);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			held = null;
 			CelebrationOverlay.get().clear();
 			CasinoParticle.resetBudget();
 		});
@@ -87,8 +106,17 @@ public final class ClientFx {
 		WinTier tier = tiers[Math.max(0, Math.min(tiers.length - 1, p.tier()))];
 		switch (p.kind()) {
 			case WIN -> {
-				CelebrationOverlay.get().play(CelebrationStyles.request(p.game(), tier, p.amount(), p.stake(), p.arg(), p.maxWin(), p.seed()));
-				if (p.holdMs() > 0) balanceHold.accept(p.holdMs());
+				CelebrationRequest request = CelebrationStyles.request(p.game(), tier, p.amount(), p.stake(), p.arg(), p.maxWin(), p.seed());
+				if (Minecraft.getInstance().gui.screen() instanceof CelebrationGate gate && gate.holdsCelebration(p.game())) {
+					releaseCelebration(); // an older held one first (never two queued)
+					held = request;
+					heldGame = p.game();
+					heldBalanceMs = p.holdMs();
+					heldAt = net.minecraft.util.Util.getMillis();
+				} else {
+					CelebrationOverlay.get().play(request);
+					if (p.holdMs() > 0) balanceHold.accept(p.holdMs());
+				}
 			}
 			case BIG_WIN_NEARBY -> {
 				if (FxSettings.othersCelebrations() && p.pos().isPresent()) nearby(p.pos().get(), tier, p.seed());
@@ -112,6 +140,27 @@ public final class ClientFx {
 		}
 		List<Consumer<FxPayload>> hs = HANDLERS.get(p.kind());
 		if (hs != null) for (Consumer<FxPayload> h : hs) h.accept(p);
+	}
+
+	/** Plays the held celebration now (a gate screen's landing, skip or close). */
+	public static void releaseCelebration() {
+		CelebrationRequest r = held;
+		if (r == null) return;
+		held = null;
+		CelebrationOverlay.get().play(r);
+		if (heldBalanceMs > 0) balanceHold.accept(heldBalanceMs);
+	}
+
+	/** The celebration waiting for a screen's landing, or {@code null} (tests). */
+	public static CelebrationRequest heldCelebration() {
+		return held;
+	}
+
+	/** Client tick: a held celebration plays once its screen no longer holds it (landed, closed) or after the limit. */
+	private static void tickHeld(Minecraft mc) {
+		if (held == null) return;
+		boolean holding = mc.gui.screen() instanceof CelebrationGate gate && gate.holdsCelebration(heldGame);
+		if (!holding || net.minecraft.util.Util.getMillis() - heldAt > HOLD_LIMIT_MS) releaseCelebration();
 	}
 
 	/** Another player's BIG+ win near us (global §4.7): burst at the spot + positional fanfare at half volume. */

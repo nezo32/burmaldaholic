@@ -180,6 +180,20 @@ public final class ExtrasGames {
 	}
 
 	/**
+	 * The shared celebration of a settled extras round, with the tier computed HERE (extras-pvp.md §0.4,
+	 * {@link dev.nezo.burmaldaholic.games.extras.logic.ExtrasTiers}). Call it at the reveal gate: Coin Flip and Scratch
+	 * Cards when the result is sent (the open screen holds the overlay until its landing), Wheel and Plinko when the
+	 * wheel stops / the ball lands in the world. Nothing is sent for a loss, a push, a partial return or a non-chip stake.
+	 */
+	public static void celebrate(ServerPlayer player, String game, long stake, long ret, boolean jackpot, boolean chips) {
+		dev.nezo.burmaldaholic.core.anim.WinTier tier = dev.nezo.burmaldaholic.games.extras.logic.ExtrasTiers.celebrated(stake, ret, jackpot, chips);
+		if (tier != null) {
+			dev.nezo.burmaldaholic.core.fx.ServerFx.get().celebrate(player,
+				new dev.nezo.burmaldaholic.core.fx.ServerFx.Celebration(tier, ret, stake, game, 0, false, 0));
+		}
+	}
+
+	/**
 	 * GAME_DESIGN.md §11.2/§11.3: the Creeper segment / Creeper card triggers the chaos {@code mob_wave} event.
 	 * The chaos module publishes its trigger through Fabric's ObjectShare ({@code burmaldaholic:chaos/trigger},
 	 * {@code BiFunction<ServerPlayer, String, String>}, argument {@code "event@source"}); absent → no-op.

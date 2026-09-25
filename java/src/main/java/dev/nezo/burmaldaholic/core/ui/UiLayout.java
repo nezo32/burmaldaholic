@@ -98,6 +98,30 @@ public final class UiLayout {
 		return new Rect(Math.max(0, (guiW - w) / 2), Math.max(0, (guiH - h) / 2), w, h);
 	}
 
+	/**
+	 * Effective GUI scale for a fixed-size game panel on a small GUI (GUI scale 3–4 or a small window, extras.md §2.4):
+	 * the largest whole scale {@code k ≤ guiScale} at which a {@code needW × needH} panel fits the framebuffer of
+	 * {@code fbW × fbH} pixels; {@code guiScale} when it already fits, 1 when nothing fits (then the S layout of the
+	 * screen takes over). Drawing the unchanged full layout at {@code k / guiScale} keeps every art pixel a whole number
+	 * of screen pixels ({@code k}), so pixel art is never blurred and nothing overlaps or clips.
+	 */
+	public static int fitScale(int fbW, int fbH, int guiScale, int needW, int needH) {
+		int gs = Math.max(1, guiScale);
+		for (int k = gs; k >= 1; k--) {
+			if (ceilDiv(fbW, k) >= needW && ceilDiv(fbH, k) >= needH) return k;
+		}
+		return 1;
+	}
+
+	/** The GUI size the screen works in at the effective scale {@code k}: {@code ceil(fb / k)}. */
+	public static int fitGui(int fbSize, int k) {
+		return ceilDiv(fbSize, Math.max(1, k));
+	}
+
+	private static int ceilDiv(int a, int b) {
+		return (a + b - 1) / b;
+	}
+
 	// ---- motion -----------------------------------------------------------------------------------------------------
 
 	private static double progress(long ms, int dur) {

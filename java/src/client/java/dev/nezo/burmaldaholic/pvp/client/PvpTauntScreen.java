@@ -2,13 +2,18 @@ package dev.nezo.burmaldaholic.pvp.client;
 
 import com.google.gson.JsonObject;
 import dev.nezo.burmaldaholic.client.pvp.PvpScreens;
+import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.PvpDraw;
 import dev.nezo.burmaldaholic.pvp.logic.Taunts;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
-/** The 8 fixed taunt lines (PVP.md §3.9) as buttons; picking one sends it and returns to the parent screen. */
+/**
+ * The 8-line taunt picker (PVP.md §3.9) on the arena scene: one casino button per line with its pictogram
+ * ({@code taunt_icons}: gg, luck, wow, rigged, again, steel, bye, respect), two columns; returns to its parent.
+ */
 final class PvpTauntScreen extends PvpScreen {
 	private final @Nullable Screen parent;
 	private final String matchId;
@@ -25,18 +30,22 @@ final class PvpTauntScreen extends PvpScreen {
 	}
 
 	@Override
+	protected @Nullable Component bannerTitle() {
+		return getTitle();
+	}
+
+	@Override
 	protected void layout() {
-		Flow flow = new Flow(contentTop() + 2);
 		for (int i = 0; i < Taunts.IDS.size(); i++) {
 			int line = i;
-			flow.button(Component.translatable(Taunts.key(i)), 70, b -> {
+			int x = 40 + (i % 2) * 164;
+			int y = 44 + (i / 2) * 36;
+			button(x, y, 156, Component.translatable(Taunts.key(i)), KitButton.Style.SECONDARY, b -> {
 				PvpScreens.action("taunt", matchId, "", line);
 				onClose();
-			});
+			}).icon(new KitButton.Icon(PvpDraw.TAUNT_ICONS, 128, 16, i * 16, 0, 16, 16));
 		}
-		flow.newRow();
-		flow.button(Component.translatable("gui.burmaldaholic.common.back"), 50, b -> onClose());
-		fitHeight(flow.bottom());
+		button(170, 200, 60, Component.translatable("gui.burmaldaholic.common.back"), KitButton.Style.SECONDARY, b -> onClose());
 	}
 
 	@Override

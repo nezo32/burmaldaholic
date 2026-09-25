@@ -136,6 +136,12 @@ least **320 × 240**. Three layouts:
 | **M** (compact) | `320 ≤ guiW < 416` | 320 × 240 | The game object keeps its size (pixel art is never scaled by a non-integer). Side columns merge into one 104 px right column. Buttons drop their labels and use 20 × 20 icon buttons with tooltips (icons from `tab_icons`, `mode_icons`, `coin_mini`, the `+`/`−` glyphs). The backdrop is cropped at the centre, not scaled. Coin: the history column becomes a single row of 6 pips under the pad. Wheel: legend becomes icons with counts only. Plinko: the board (272) sits at x 8, the column is 32 px icon buttons. Scratch: the prize table moves into a tooltip on the `?` button. |
 | **S** (forced) | `guiW < 320` or `guiH < 240` (only with a forced GUI scale) | 300 × 200 minimum | Frame border stays 12. The title banner shrinks to the text. Side panels become a drawer toggled with *Tab* (a 12 px tab on the right edge). If the game object does not fit, the screen asks for a smaller GUI scale (`gui.burmaldaholic.visual.scale_hint`) under the object and keeps working. |
 
+**As built (J-L7 finish):** the extras and PvP game screens implement M and S by *fit scaling* (`client/ui/FitScaled`,
+`UiLayout.fitScale`): when the 400 × 240 panel does not fit the GUI, the screen works in the GUI of the largest whole
+scale that fits and is drawn at `k / guiScale` (the mouse is scaled by a client mixin). The full L layout is kept, so no
+widget moves, overlaps or clips, and every art pixel stays a whole number of screen pixels. The Casino Menu keeps its own
+compact layout.
+
 Pixel density: GUI coordinates are integers; draw every sprite at integer positions; text at 1× (body), 2× (hero
 numbers, pop-out names) or 3× (celebration words only), as `global.md` §2.2 says.
 

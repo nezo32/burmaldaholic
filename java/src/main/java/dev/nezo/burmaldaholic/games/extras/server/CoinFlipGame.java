@@ -118,7 +118,12 @@ public final class CoinFlipGame {
 		long winnings = CoinFlip.winnings(stake.value(), r.win(), payout);
 		ExtrasGames.playSound(player, ExtrasModule.COIN_FLIP_SOUND, 1.0f);
 		Stakes.settle(player, stake, r.win() ? Stakes.Outcome.WIN : Stakes.Outcome.LOSS, winnings);
-		ExtrasGames.send(player, SCREEN, false, state(player, result(player, r, r.win() ? winnings : -stake.value(), stake.isPawn(), false)));
+		CompoundTag res = result(player, r, r.win() ? winnings : -stake.value(), stake.isPawn(), false);
+		res.putLong("stake", stake.value()); // the win preview's base; the tier itself comes from celebrate below
+		ExtrasGames.send(player, SCREEN, false, state(player, res));
+		// the result is settled and on its way: the screen holds this overlay until the coin lands
+		ExtrasGames.celebrate(player, ExtrasGames.COIN, stake.value(), r.win() ? stake.value() + winnings : 0, false, !stake.isPawn());
+		CoinToss.toss(player, r.landed() == CoinFlip.Side.HEADS);
 	}
 
 	private static void soul(ServerPlayer player, CompoundTag args) {
@@ -141,6 +146,7 @@ public final class CoinFlipGame {
 		Stake stake = taken.value();
 		CoinFlip.Result r = draw(player, ExtrasGames.odds(player, ExtrasGames.COIN, stake.value()), pick, 1.0);
 		ExtrasGames.playSound(player, ExtrasModule.COIN_FLIP_SOUND, 0.7f);
+		CoinToss.toss(player, r.landed() == CoinFlip.Side.HEADS);
 		if (r.win()) {
 			Stakes.settle(player, stake, Stakes.Outcome.WIN, stake.value());
 			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.extras.soul.won", Texts.chips(stake.value())).withStyle(ChatFormatting.GOLD));

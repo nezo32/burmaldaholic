@@ -54,7 +54,8 @@ public class PokerClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
+		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			world.getServer().runCommand("casino balance set @p 12500");
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
 			world.getServer().runOnServer(server -> TABLE[0] = server.getPlayerList().getPlayers().getFirst().blockPosition().offset(2, 0, 0));

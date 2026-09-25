@@ -19,6 +19,7 @@ public final class ScreenEntrance {
 	private final long openedAt = Util.getMillis();
 	private final Supplier<UiLayout.Rect> panel;
 	private boolean pushed;
+	private boolean entering;
 
 	private ScreenEntrance(Supplier<UiLayout.Rect> panel) {
 		this.panel = panel;
@@ -30,22 +31,29 @@ public final class ScreenEntrance {
 		ScreenEvents.beforeExtract(screen).register((s, g, mx, my, pt) -> {
 			long ms = Util.getMillis() - e.openedAt;
 			e.pushed = false;
-			if (ms >= UiLayout.ENTRANCE_MS || FxSettings.reduceMotion()) return;
+			e.entering = ms < UiLayout.ENTRANCE_MS && !FxSettings.reduceMotion();
+			float fit = s instanceof FitScaled f ? f.fitScale() : 1f;
+			if (!e.entering && fit >= 1f) return;
+			g.pose().pushMatrix();
+			e.pushed = true;
+			// the compact layout: the screen's own GUI drawn at k / guiScale (FitScaled), then the entrance inside it
+			if (fit < 1f) g.pose().scale(fit, fit);
+			if (!e.entering) return;
 			UiLayout.Rect r = e.panel.get();
 			float scale = UiLayout.entranceScale(ms, false);
-			g.pose().pushMatrix();
 			g.pose().translate(r.centerX(), r.centerY());
 			g.pose().scale(scale, scale);
 			g.pose().translate(-r.centerX(), -r.centerY());
-			e.pushed = true;
 		});
 		ScreenEvents.afterExtract(screen).register((s, g, mx, my, pt) -> {
 			if (!e.pushed) return;
-			long ms = Util.getMillis() - e.openedAt;
-			float alpha = UiLayout.entranceAlpha(ms, false);
-			UiLayout.Rect r = e.panel.get();
-			g.nextStratum();
-			g.fill(r.x(), r.y(), r.right(), r.bottom(), CasinoPalette.withAlpha(CasinoPalette.INK, 0.85f * (1 - alpha)));
+			if (e.entering) {
+				long ms = Util.getMillis() - e.openedAt;
+				float alpha = UiLayout.entranceAlpha(ms, false);
+				UiLayout.Rect r = e.panel.get();
+				g.nextStratum();
+				g.fill(r.x(), r.y(), r.right(), r.bottom(), CasinoPalette.withAlpha(CasinoPalette.INK, 0.85f * (1 - alpha)));
+			}
 			g.pose().popMatrix();
 			e.pushed = false;
 		});

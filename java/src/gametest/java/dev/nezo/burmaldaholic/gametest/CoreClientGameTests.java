@@ -54,7 +54,8 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		context.takeScreenshot("burmaldaholic_config_slots");
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 
-		try (TestSingleplayerContext world = context.worldBuilder().create()) {
+		try (TestSingleplayerContext world = context.worldBuilder().create();
+			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			// A world created without touching the button: casino mode OFF (the default).
 			boolean serverSide = world.getServer().computeOnServer(CasinoMode::isEnabled);
 			if (serverSide || CasinoMode.DEFAULT) {

@@ -2,201 +2,202 @@ package dev.nezo.burmaldaholic.pvp.client;
 
 import com.google.gson.JsonObject;
 import dev.nezo.burmaldaholic.client.pvp.PvpScreens;
+import dev.nezo.burmaldaholic.client.pvp.kit.Faces;
+import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
+import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.PvpDraw;
+import dev.nezo.burmaldaholic.client.pvp.kit.PvpSeat;
+import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.pvp.logic.PvpMotion;
 import dev.nezo.burmaldaholic.pvp.logic.PvpText;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import net.minecraft.ChatFormatting;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
 
 /**
- * PvP lobby view (PVP.md §3.11.3), 256 wide:
- * <pre>
- *  Slot Showdown — lobby                                       ⏱ 58
- *  Entry 100 · Pot 300 · House cut 3%        Players: 3/6
- *  1 ◆ Alex (host)      ALL-IN      Head-to-head 3–5
- *  2 ◆ You
- *  3   Empty seat
- *  Empty seats at the start: bots fill 2 bots
- *  [Start now] [Leave lobby] [Taunt…]                     Balance: 12 500
- * </pre>
- * Rows whose right part does not fit (Russian) continue on a second line.
+ * PvP lobby (PVP.md §3.11.3; visual/extras.md §7.2 "Lobby", extras-pvp.md §9.3): seat rows on the arena scene — the
+ * host's {@code lobby_row_host} with the crown, heads, names, badges (bot difficulty, head-to-head record, ALL-IN),
+ * dashed empty seats breathing (a waiting bot in each seat a MIXED lobby will fill) — and on the right the timer ring
+ * (gold, red for the last 5 s), entry, pot, house cut and players. New rows slide in from the right with
+ * {@code chip_place}; a full table chimes. *Start now* breathes once there are two players.
  */
 final class PvpLobbyScreen extends PvpScreen {
-	/** One drawn line: left text, optional right text (right-aligned, or on its own line when it does not fit). */
-	private record Line(Component left, @Nullable Component right, int color, boolean separatorBefore) {}
-
-	private final List<Line> lines = new ArrayList<>();
-	private final List<Integer> lineY = new ArrayList<>();
-	private int buttonsY;
-	private int balanceY;
+	private static final int ROW_X = 16;
+	private static final int ROW_Y = 30;
+	private static final int ROW_W = 240;
+	private static final int ROW_H = 22;
+	private static final int COL_X = 268;
+	private final Map<String, Long> arrived = new HashMap<>();
+	private boolean fullChimed;
 
 	PvpLobbyScreen(JsonObject state) {
 		super(Component.translatable("gui.burmaldaholic.pvp.lobby.title", game(state)), state);
+		noteArrivals(state, true);
 	}
 
 	@Override
 	protected void onState(JsonObject oldState, JsonObject newState) {
-		// title keeps the mode (same match)
+		noteArrivals(newState, false);
 	}
 
-	long secondsLeft() {
+	private void noteArrivals(JsonObject s, boolean opening) {
+		long now = Util.getMillis();
+		for (PvpSeat seat : PvpSeat.all(s)) {
+			if (!arrived.containsKey(seat.key())) {
+				arrived.put(seat.key(), opening ? 0L : now);
+				if (!opening) Kit.vanilla("block.stone_button.click_on", 0.6f, 1.4f); // chip_place stand-in
+			}
+		}
+		List<PvpSeat> seats = PvpSeat.all(s);
+		long max = Math.max(seats.size(), num(s, "max", seats.size()));
+		if (!opening && !fullChimed && seats.size() >= max && max >= 2) {
+			fullChimed = true;
+			Kit.vanilla("block.note_block.chime", 1f, 1.5f);
+		}
+	}
+
+	long ticksLeft() {
 		long left = num(state(), "ticksLeft", -1);
-		return left < 0 ? -1 : PvpText.seconds(left - (ticks - stateTick));
+		return left < 0 ? -1 : Math.max(0, left - (ticks - stateTick));
 	}
 
 	@Override
 	protected @Nullable Component titleRight() {
-		long s = secondsLeft();
-		return s < 0 ? null : Texts.raw("⏱ " + s); // literal-ok: clock glyph + number
-	}
-
-	private void buildLines() {
-		lines.clear();
 		JsonObject s = state();
-		List<JsonObject> ps = participants(s);
-		long max = Math.max(ps.size(), num(s, "max", ps.size()));
-		MutableComponent money = Component.translatable("gui.burmaldaholic.pvp.lobby.entry", Texts.chips(num(s, "entry", 0)));
-		money.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.pvp.lobby.pot", Texts.chips(num(s, "pot", 0))));
-		money.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.pvp.lobby.rake", percent(s)));
-		lines.add(new Line(money, null, TEXT, false));
-		lines.add(new Line(Component.translatable("gui.burmaldaholic.pvp.lobby.players", Texts.number(ps.size()), Texts.number(max)), null, MUTED, false));
-		if (bool(s, "grudge")) {
-			lines.add(new Line(Component.translatable("gui.burmaldaholic.pvp.grudge.title").withStyle(ChatFormatting.BOLD), null, RED, false));
-		}
-		boolean first = true;
-		for (int seat = 0; seat < max; seat++) {
-			JsonObject p = seat < ps.size() ? ps.get(seat) : null;
-			Component left;
-			Component right = null;
-			int color = TEXT;
-			if (p == null) {
-				left = Texts.raw((seat + 1) + "   ").append(Component.translatable("gui.burmaldaholic.common.seat_empty"));
-				color = MUTED;
-			} else {
-				Component n = name(p);
-				if (bool(p, "host")) {
-					n = Component.translatable("gui.burmaldaholic.pvp.lobby.host", n);
-				}
-				left = Texts.raw((seat + 1) + " ◆ ").append(n);
-				if (bool(p, "you")) {
-					color = GREEN;
-				}
-				MutableComponent r = Component.empty();
-				if (bool(p, "allIn")) {
-					r.append(Component.translatable("gui.burmaldaholic.pvp.all_in_tag").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-				}
-				if (!bool(s, "equalStakes")) {
-					if (!r.getSiblings().isEmpty()) {
-						r.append(Texts.raw("  "));
-					}
-					r.append(Texts.chips(num(p, "stake", 0)));
-				}
-				if (p.has("wins")) {
-					if (!r.getSiblings().isEmpty()) {
-						r.append(Texts.raw("  "));
-					}
-					r.append(Component.translatable("gui.burmaldaholic.pvp.lobby.record", Texts.number(num(p, "wins", 0)), Texts.number(num(p, "losses", 0)))
-						.withStyle(ChatFormatting.GRAY));
-				}
-				right = r.getSiblings().isEmpty() ? null : r;
-			}
-			lines.add(new Line(left, right, color, first));
-			first = false;
-		}
-		long fill = num(s, "botsToFill", 0);
-		if (fill > 0) {
-			lines.add(new Line(Component.translatable("gui.burmaldaholic.pvp.bots.will_fill", Texts.plural("unit.burmaldaholic.bot", fill)), null, MUTED,
-				true));
-		} else if (ps.size() < 2) {
-			lines.add(new Line(Component.translatable("gui.burmaldaholic.pvp.lobby.need_more"), null, MUTED, true));
-		}
-		long secs = secondsLeft();
-		if (secs >= 0) {
-			lines.add(new Line(Component.translatable("gui.burmaldaholic.pvp.lobby.starts_in", Texts.plural("unit.burmaldaholic.second_acc", secs)), null,
-				secs <= 10 ? GOLD : MUTED, fill <= 0 && ps.size() >= 2));
-		}
+		return Component.translatable("gui.burmaldaholic.pvp.lobby.players", Texts.number(participants(s).size()),
+			Texts.number(Math.max(participants(s).size(), num(s, "max", 2))));
 	}
 
 	@Override
 	protected void layout() {
-		buildLines();
-		int w = panelWidth - 2 * PAD;
-		int y = contentTop();
-		lineY.clear();
-		for (Line l : lines) {
-			if (l.separatorBefore()) {
-				y += 4;
-			}
-			lineY.add(y);
-			int lw = font.width(l.left());
-			int rw = l.right() == null ? 0 : font.width(l.right());
-			if (l.right() == null || lw + rw + 12 <= w) {
-				y += Math.max(1, font.split(l.left(), w).size()) * LINE;
-			} else {
-				y += font.split(l.left(), w).size() * LINE + font.split(l.right(), w - 12).size() * LINE;
-			}
-		}
-		buttonsY = y + 6;
-		Flow flow = new Flow(buttonsY);
 		JsonObject s = state();
 		boolean host = num(s, "host", -2) == num(s, "you", -1) && num(s, "you", -1) >= 0;
 		int players = participants(s).size();
 		boolean mixed = "mixed".equals(str(s, "policy", ""));
+		int x = 16;
 		if (host) {
-			if (mixed && num(s, "botsToFill", 0) > 0) {
-				flow.button(Component.translatable("gui.burmaldaholic.pvp.bots.start_with_bots").withStyle(ChatFormatting.GREEN), 60,
-					b -> send("start", "", 0));
-			} else {
-				flow.button(Component.translatable("gui.burmaldaholic.pvp.lobby.start").withStyle(ChatFormatting.GREEN), 60,
-					b -> send("start", "", 0)).active = players >= 2;
-			}
+			Component start = Component.translatable(mixed && num(s, "botsToFill", 0) > 0 ? "gui.burmaldaholic.pvp.bots.start_with_bots"
+				: "gui.burmaldaholic.pvp.lobby.start");
+			int w = labelWidth(start, 90);
+			button(x, 206, w, start, KitButton.Style.PRIMARY, b -> send("start", "", 0)).active(players >= 2 || mixed).breathe(players >= 2);
+			x += w + 4;
 		}
 		if (num(s, "you", -1) >= 0) {
-			flow.button(Component.translatable("gui.burmaldaholic.pvp.lobby.leave"), 60, b -> {
+			Component leave = Component.translatable("gui.burmaldaholic.pvp.lobby.leave");
+			int w = labelWidth(leave, 70);
+			button(x, 206, w, leave, KitButton.Style.SECONDARY, b -> {
 				send("leave", "", 0);
 				onClose();
 			});
-			flow.button(Component.translatable("gui.burmaldaholic.pvp.taunt.button"), 50, b -> PvpScreens.openTaunts(this));
+			x += w + 4;
+			Component taunt = Component.translatable("gui.burmaldaholic.pvp.taunt.button");
+			int tw = labelWidth(taunt, 60);
+			button(x, 206, tw, taunt, KitButton.Style.SECONDARY, b -> PvpScreens.openTaunts(this));
 		}
-		flow.button(Component.translatable("gui.burmaldaholic.common.close"), 50, b -> onClose());
-		balanceY = flow.bottom() + 2;
-		fitHeight(balanceY + 10);
-	}
-
-	@Override
-	public void tick() {
-		super.tick();
-		if ((ticks - stateTick) % 20 == 0 && num(state(), "ticksLeft", -1) >= 0) {
-			buildLines(); // countdown text
-		}
+		Component close = Component.translatable("gui.burmaldaholic.common.close");
+		int cw = labelWidth(close, 60);
+		button(Scene.W - 16 - cw, 206, cw, close, KitButton.Style.SECONDARY, b -> onClose());
 	}
 
 	@Override
 	protected void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		int w = panelWidth - 2 * PAD;
-		int x = left + PAD;
-		for (int i = 0; i < lines.size() && i < lineY.size(); i++) {
-			Line l = lines.get(i);
-			int y = lineY.get(i);
-			if (l.separatorBefore()) {
-				separator(g, y - 3);
+		JsonObject s = state();
+		List<PvpSeat> seats = PvpSeat.all(s);
+		long max = Math.max(seats.size(), num(s, "max", seats.size()));
+		boolean mixed = "mixed".equals(str(s, "policy", ""));
+		long toFill = num(s, "botsToFill", 0);
+		long now = Util.getMillis();
+		boolean still = Kit.reduceMotion();
+		int rows = (int) Math.min(7, max);
+		int pitch = rows > 6 ? 22 : 25;
+		for (int seat = 0; seat < rows; seat++) {
+			int y = top + ROW_Y + seat * pitch;
+			int x = left + ROW_X;
+			if (seat >= seats.size()) {
+				double alpha = PvpMotion.breathe(now, still);
+				Kit.sprite(g, Kit.pvp("seat_empty"), x, y, ROW_W, ROW_H, Kit.fade(alpha));
+				boolean botSeat = mixed && seat - seats.size() < toFill;
+				if (botSeat) Kit.region(g, PvpDraw.BADGES, 96, 16, 3 * 16, 0, 16, 16, x + 6, y + 3, 16, 16, Kit.fade(alpha));
+				Kit.text(g, font, Component.translatable("gui.burmaldaholic.common.seat_empty"), x + 28, y + 7, Kit.alpha(MUTED, alpha));
+				continue;
 			}
-			int lw = font.width(l.left());
-			int end = wrap(g, font, l.left(), x, y, w, l.color());
-			if (l.right() != null) {
-				int rw = font.width(l.right());
-				if (lw + rw + 12 <= w) {
-					g.text(font, l.right(), x + w - rw, y, TEXT, true);
-				} else {
-					wrap(g, font, l.right(), x + 12, end, w - 12, TEXT);
-				}
+			PvpSeat p = seats.get(seat);
+			double slide = PvpMotion.rowSlide(now - arrived.getOrDefault(p.key(), 0L), still);
+			x += (int) Math.round(slide * 140);
+			Kit.sprite(g, Kit.pvp(p.host() ? "lobby_row_host" : "lobby_row"), x, y, ROW_W, ROW_H);
+			Faces.draw(g, p.key(), p.bot(), p.name(), x + 5, y + 3, 16);
+			if (p.host()) Kit.sprite(g, Kit.pvp("crown"), x + 5, y - 7, 16, 12);
+			int bx = x + ROW_W - 6;
+			if (p.bot() && !p.level().isEmpty()) {
+				bx -= 22;
+				Kit.sprite(g, Kit.pvp("bot_" + p.level()), bx, y + 5, 22, 11);
+			}
+			if (p.hasRecord()) {
+				Component rec = Component.translatable("gui.burmaldaholic.pvp.record_chip", Texts.number(p.wins()), Texts.number(p.losses()));
+				int rw = font.width(rec) + 6;
+				bx -= rw + 3;
+				String chip = switch (PvpMotion.recordChip(p.wins(), p.losses())) {
+					case 0 -> "record_chip_lead";
+					case 1 -> "record_chip_trail";
+					default -> "record_chip_even";
+				};
+				Kit.sprite(g, Kit.pvp(chip), bx, y + 6, rw, 10);
+				g.text(font, rec, bx + 3, y + 7, Kit.BONE, false);
+			}
+			if (p.allIn()) {
+				Component tag = Component.translatable("gui.burmaldaholic.pvp.all_in_tag");
+				int tw = Math.min(font.width(tag) + 8, 52);
+				bx -= tw + 3;
+				double glow = still ? 1 : 0.75 + 0.25 * Math.sin(now / 1000.0 * Math.PI * 2);
+				Kit.sprite(g, Kit.pvp("all_in"), bx, y + 5, tw, 12, Kit.shade(glow));
+				Kit.fit(g, font, tag, bx + 4, y + 7, tw - 6, Kit.BONE, false);
+			}
+			if (!bool(s, "equalStakes")) {
+				Component stake = Texts.number(p.stake());
+				bx -= font.width(stake) + 4;
+				g.text(font, stake, bx, y + 7, Kit.GOLD, true);
+			}
+			Kit.fit(g, font, p.you() ? Component.translatable("gui.burmaldaholic.common.you") : p.displayName(), x + 26, y + 7,
+				Math.max(20, bx - (x + 26) - 4), p.you() ? Kit.GOLD : Kit.BONE, true);
+		}
+		// right column: timer ring, money, players
+		int cx = left + COL_X + 58;
+		Scene.inset(g, left + COL_X, top + 28, 116, 172);
+		long tl = ticksLeft();
+		if (tl >= 0) {
+			timerTotal = Math.max(timerTotal, tl);
+			long total = timerTotal;
+			Kit.ring(g, cx, top + 64, 26, 1 - tl / (double) Math.max(1, total), PvpMotion.timerColor(tl), 0x60180A28);
+			Component secs = Texts.number(PvpText.seconds(tl));
+			Kit.big(g, font, secs, cx, top + 57, 2, PvpMotion.timerColor(tl), Kit.INK);
+			if (tl <= 100 && tl > 0 && (ticks - stateTick) % 20 == 0 && lastTickSound != ticks) {
+				lastTickSound = ticks;
+				Kit.vanilla("block.note_block.hat", 0.5f, 1.2f);
 			}
 		}
-		Component balance = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(num(state(), "balance", 0)));
-		g.text(font, balance, left + panelWidth - PAD - font.width(balance), balanceY, GOLD, true);
+		int y = top + 98;
+		y = Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.pvp.lobby.entry", Texts.chips(num(s, "entry", 0))), left + COL_X + 6, y, 106,
+			TEXT);
+		y = Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.pvp.lobby.pot", Texts.chips(num(s, "pot", 0))), left + COL_X + 6, y, 106, GOLD);
+		y = Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.pvp.lobby.rake", percent(s)), left + COL_X + 6, y, 106, MUTED) + 4;
+		if (toFill > 0) {
+			y = Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.pvp.bots.will_fill", Texts.plural("unit.burmaldaholic.bot", toFill)),
+				left + COL_X + 6, y, 106, MUTED);
+		} else if (seats.size() < 2) {
+			y = Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.pvp.lobby.need_more"), left + COL_X + 6, y, 106, MUTED);
+		} else if (seats.size() >= max) {
+			y = Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.anim.lobby.full"), left + COL_X + 6, y, 106, Kit.BONUS);
+		}
+		if (bool(s, "grudge")) {
+			Kit.wrap(g, font, Component.translatable("gui.burmaldaholic.pvp.grudge.title"), left + COL_X + 6, y + 2, 106, RED);
+		}
 	}
+
+	private int lastTickSound = -1;
+	private long timerTotal = 1;
 }

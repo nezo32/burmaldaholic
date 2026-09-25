@@ -1,68 +1,70 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
+import dev.nezo.burmaldaholic.client.ClientCasinoState;
+import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
+import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.PvpDraw;
+import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
 import dev.nezo.burmaldaholic.games.extras.logic.Payouts;
 import dev.nezo.burmaldaholic.games.extras.logic.Plinko;
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
+import dev.nezo.burmaldaholic.games.extras.logic.anim.PlinkoAnim;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
- * Plinko screen (UI.md §9): 12 rows of pegs, 13 bins with the chosen risk's multipliers, risk toggle
- * Low | Medium | High, chip bet selector and [Drop ball]. The ball follows the exact server path, one row every
- * {@code step_ticks} (4) ticks, with a peg sound per row.
+ * Plinko (UI.md §9; visual/extras.md §5, mockup {@code extras_plinko_drop.png}; extras-pvp.md §5.3): the neon arcade
+ * with the 272 × 204 board (20 × 12 peg pitch) on the left and Risk, bet, Drop and the last balls on the right. A
+ * result drops the ball down the server's exact path ({@link PlinkoAnim}): the chute gate opens, one peg per row with a
+ * hop and a squash, the hit peg flashes then glows, the peg sound is pitched by the column, three ghost balls trail;
+ * the ball falls into its cup, the cap presses and lights, the label pops, and the shared celebration plays the
+ * server tier (JACKPOT for an edge bin on High). No neighbour ever lights. Click on the board, Space or Enter skip;
+ * reduce motion draws the path as dots row by row and puts the ball in the cup.
  */
-final class PlinkoScreen extends ExtrasTableScreen {
-	private static final int BIN_W = 22;
-	private static final int ROW_H = 8;
-	private static final int BOARD_Y = 24;
-	private static final int BINS_Y = BOARD_Y + Plinko.ROWS * ROW_H + 2;
+final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
+	private static final int BX = 14;
+	private static final int BY = 28;
+	private static final int RX = 296;
 	private static long lastAmount = 1;
-	private static Plinko.Risk risk = Plinko.Risk.LOW;
+	private static Plinko.Risk risk = Plinko.Risk.MEDIUM;
+	/** Last landed balls of this session (multipliers, newest last). */
+	private static final List<Double> LAST = new ArrayList<>();
 
-	private final BetSelector bet;
+	private final BetControl bet;
 	private int shownSeq = -1;
-	private int animStart = -1000;
-	private int lastStep = -1;
-	private int statusY;
-	private int betLineY;
+	private boolean seenState;
+	private long dropStart = -1;
+	private boolean landed = true;
+	private long landedAt = -1;
+	private long skipAt = -1;
+	private int lastRowSound = -1;
+	private boolean battle;
 
 	PlinkoScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
-		super(menu, inventory, Component.translatable("gui.burmaldaholic.extras.plinko.title"), 310, 230);
-		this.bet = new BetSelector(false, lastAmount, this::rebuild);
+		super(menu, inventory, Component.translatable("gui.burmaldaholic.extras.plinko.title"), Scene.PLINKO);
+		this.bet = new BetControl(false, lastAmount);
 	}
 
-	private int stepTicks() {
-		return Math.max(1, state().getIntOr("step_ticks", 4));
+	private int rowMs() {
+		return Math.max(1, state().getIntOr("step_ticks", 4)) * 50;
 	}
 
-	private int dropTicks() {
-		return stepTicks() * Plinko.ROWS + 4;
+	private CompoundTag result() {
+		return state().getCompoundOrEmpty("result");
 	}
 
 	private boolean dropping() {
-		return ticks - animStart < dropTicks();
-	}
-
-	@Override
-	protected void stateArrived(CompoundTag newState) {
-		int seq = newState.getCompoundOrEmpty("result").getIntOr("seq", -1);
-		if (shownSeq < 0) {
-			shownSeq = seq;
-			return;
-		}
-		if (seq >= 0 && seq != shownSeq) {
-			shownSeq = seq;
-			animStart = ticks;
-			lastStep = -1;
-		}
+		return dropStart >= 0 && !landed;
 	}
 
 	private double[] table(Plinko.Risk r) {
@@ -71,135 +73,232 @@ final class PlinkoScreen extends ExtrasTableScreen {
 			CompoundTag t = tables.getCompoundOrEmpty(i);
 			if (r.id().equals(t.getStringOr("risk", ""))) {
 				double[] out = new double[Plinko.BINS];
-				for (int b = 0; b < Plinko.BINS; b++) {
-					out[b] = t.getDoubleOr("m" + b, 0);
-				}
+				for (int b = 0; b < Plinko.BINS; b++) out[b] = t.getDoubleOr("m" + b, 0);
 				return out;
 			}
 		}
 		return r.defaults();
 	}
 
-	private int boardLeft() {
-		return (imageWidth - Plinko.BINS * BIN_W) / 2;
+	@Override
+	protected void stateArrived(CompoundTag newState) {
+		CompoundTag r = newState.getCompoundOrEmpty("result");
+		int seq = r.getIntOr("seq", -1);
+		if (!seenState) {
+			if (newState.isEmpty()) return; // the cache before the first server state
+			// the screen (re)opened: the last result at rest, no replay
+			seenState = true;
+			shownSeq = seq;
+			return;
+		}
+		if (seq < 0) shownSeq = -1; // no result yet (a new machine at this position)
+		if (seq >= 0 && seq != shownSeq) {
+			if (dropping()) land(false);
+			shownSeq = seq;
+			dropStart = Util.getMillis();
+			landed = false;
+			landedAt = -1;
+			skipAt = -1;
+			lastRowSound = -1;
+			holdBalance(newState.getLongOr("balance", 0) - r.getLongOr("net", 0));
+			ClientCasinoState.holdBalanceDelta((int) (durationMs() + 300));
+			Kit.vanilla("block.wooden_button.click_on", 0.4f, 1f);
+		}
+	}
+
+	private double durationMs() {
+		return Kit.reduceMotion() ? PlinkoAnim.reducedMs() : PlinkoAnim.landMs(rowMs()) * 100.0 / Kit.speedPct();
+	}
+
+	/** Storyboard time of the running drop (speed-scaled), or −1. */
+	private double dropMs() {
+		if (dropStart < 0) return -1;
+		double ms = Util.getMillis() - dropStart;
+		return Kit.reduceMotion() ? ms : ms * Kit.speedPct() / 100.0;
 	}
 
 	@Override
-	protected int layout() {
-		CompoundTag s = state();
-		int w = imageWidth - 2 * PAD;
-		statusY = BINS_Y + 16;
-		int y = statusY + 12;
-		Flow flow = flow(PAD, y, w);
-		for (Plinko.Risk r : Plinko.Risk.values()) {
-			Component label = Component.translatable(r.key());
-			flow.button(r == risk ? label.copy().withStyle(ChatFormatting.GOLD, ChatFormatting.UNDERLINE) : label, 44, b -> {
-				risk = r;
-				rebuild();
-			}).active = !dropping();
-		}
-		flow.button(Component.translatable("gui.burmaldaholic.extras.plinko.drop").withStyle(ChatFormatting.BOLD), 60, b -> {
-			lastAmount = Math.max(1, bet.amount());
-			CompoundTag args = bet.args();
-			args.putString("risk", risk.id());
-			sendAction("drop", args);
-		}).active = !dropping();
-		flow.newRow();
-		betLineY = flow.y() - topPos;
-		flow.gap(12);
-		bet.build(flow, s);
-		// Plinko Battle entries (PVP.md §7.4): Start a Plinko Battle / Join the battle / Start now / Leave lobby
-		return dev.nezo.burmaldaholic.games.extras.client.pvp.plinko.PlinkoBattleEntries.layout(font, this::addRenderableWidget, leftPos + PAD,
-			flow.bottom() + 4, imageWidth - 2 * PAD, s, risk.id(), () -> Math.max(1, bet.amount()), this::sendAction, this::rebuild, dropping());
+	public boolean holdsCelebration(String game) {
+		return dev.nezo.burmaldaholic.games.extras.server.ExtrasGames.PLINKO.equals(game) && dropping();
+	}
+
+	@Override
+	protected boolean skip() {
+		if (!dropping()) return false;
+		skipAt = Util.getMillis();
+		land(true);
+		return true;
+	}
+
+	/** The ball is in its cup: cap lit, sound by multiplier, the celebration for the server tier. */
+	private void land(boolean viaSkip) {
+		if (landed) return;
+		landed = true;
+		landedAt = Util.getMillis();
+		releaseBalance();
+		CompoundTag r = result();
+		double mult = r.getDoubleOr("mult", 0);
+		LAST.add(mult);
+		while (LAST.size() > 4) LAST.removeFirst();
+		FxSounds.play("plinko_bin", 1f, PlinkoAnim.binPitch(mult));
+		// the celebration is the server's (sent when the ball lands in the world; held if it came first)
+		dev.nezo.burmaldaholic.client.fx.ClientFx.releaseCelebration();
+		if (minecraft != null) rebuild();
 	}
 
 	@Override
 	protected void containerTick() {
 		super.containerTick();
-		if (!dropping() && ticks - animStart == dropTicks()) {
-			rebuild();
-		}
-		if (dropping()) {
-			int step = (ticks - animStart) / stepTicks();
-			if (step != lastStep && step < Plinko.ROWS && ExtrasModule.PLINKO_PEG_SOUND != null) {
-				lastStep = step;
-				Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(ExtrasModule.PLINKO_PEG_SOUND, 0.9f + 0.05f * step, 0.4f));
+		if (!dropping()) return;
+		double ms = dropMs();
+		CompoundTag r = result();
+		int path = r.getIntOr("path", 0);
+		if (!Kit.reduceMotion()) {
+			for (int row = lastRowSound + 1; row < PlinkoAnim.ROWS && ms >= PlinkoAnim.contactMs(rowMs(), row); row++) {
+				lastRowSound = row;
+				Kit.mod(ExtrasModule.PLINKO_PEG_SOUND, 0.5f, PlinkoAnim.pegPitch(path, row));
 			}
 		}
+		if (ms >= (Kit.reduceMotion() ? PlinkoAnim.reducedMs() : PlinkoAnim.landMs(rowMs()))) land(false);
+	}
+
+	@Override
+	public void onClose() {
+		if (dropping()) land(true);
+		super.onClose();
+	}
+
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		double x = event.x() - leftPos;
+		double y = event.y() - topPos;
+		if (!battle && event.button() == 0 && x >= BX && x < BX + PlinkoDraw.BOARD_W && y >= BY && y < BY + PlinkoDraw.BOARD_H && skip()) return true;
+		return super.mouseClicked(event, doubleClick);
+	}
+
+	// ---- layout ------------------------------------------------------------------------------------------------
+
+	@Override
+	protected void layout() {
+		CompoundTag s = state();
+		bet.validate(s);
+		boolean busy = dropping();
+		Plinko.Risk[] risks = Plinko.Risk.values();
+		for (int i = 0; i < risks.length; i++) {
+			Plinko.Risk rk = risks[i];
+			button(RX - 2, 44 + 16 * i, 92, 14, Component.translatable(rk.key()), KitButton.Style.SECONDARY, b -> {
+				risk = rk;
+				rebuild();
+			}).selected(rk == risk).active(!busy);
+		}
+		button(RX - 4, 132, 46, 20, Component.translatable("gui.burmaldaholic.extras.minus"), KitButton.Style.SECONDARY, b -> {
+			bet.step(state(), -1);
+			rebuild();
+		}).active(!busy);
+		button(RX + 46, 132, 46, 20, Component.translatable("gui.burmaldaholic.extras.plus"), KitButton.Style.SECONDARY, b -> {
+			bet.step(state(), 1);
+			rebuild();
+		}).active(!busy);
+		button(RX - 4, 156, 96, 20, Component.translatable("gui.burmaldaholic.extras.plinko.drop"), KitButton.Style.PRIMARY, b -> {
+			lastAmount = Math.max(1, bet.amount());
+			CompoundTag args = bet.args();
+			args.putString("risk", risk.id());
+			sendAction("drop", args);
+		}).active(!busy);
+		if (s.contains("pvp")) {
+			// Plinko Battle (PVP.md §7.4): the entries open on a card over the board
+			button(RX + 72, 29, 18, 13, Component.empty(), battle ? KitButton.Style.PRIMARY : KitButton.Style.SECONDARY, b -> {
+				battle = !battle;
+				rebuild();
+			}).selected(battle).tooltip(Component.translatable("gui.burmaldaholic.pvp.plinko.host"))
+				.icon(new KitButton.Icon(PvpDraw.MODE_ICONS, 80, 16, 32, 0, 16, 16));
+			if (battle) {
+				dev.nezo.burmaldaholic.games.extras.client.pvp.plinko.PlinkoBattleEntries.layout(font, this::addRenderableWidget, leftPos + BX + 12,
+					topPos + BY + 26, PlinkoDraw.BOARD_W - 24, s, risk.id(), () -> Math.max(1, bet.amount()), this::sendAction, this::rebuild, busy);
+			}
+		}
+	}
+
+	// ---- drawing -------------------------------------------------------------------------------------------------
+
+	@Override
+	protected void extractPlayArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+		int bx = leftPos + BX;
+		int by = topPos + BY;
+		CompoundTag r = result();
+		boolean have = r.getIntOr("seq", -1) >= 0;
+		boolean anim = dropping();
+		Plinko.Risk shownRisk = have && (anim || landed && landedAt >= 0) ? Plinko.Risk.parse(r.getStringOr("risk", risk.id())) : risk;
+		if (shownRisk == null) shownRisk = risk;
+		double[] table = table(shownRisk);
+		int path = r.getIntOr("path", 0);
+		int rowMs = rowMs();
+		double ms = anim ? dropMs() : -1;
+		boolean rm = Kit.reduceMotion();
+		PlinkoDraw.board(g, bx, by);
+		PlinkoDraw.pegs(g, bx, by, anim && !rm && Kit.flashes() ? (row, j) -> PlinkoAnim.pegState(path, rowMs, ms, row, j) : null);
+		PlinkoDraw.chute(g, bx, by, anim && ms < PlinkoAnim.RELEASE_MS + rowMs);
+		boolean showLanded = have && shownRisk.id().equals(r.getStringOr("risk", "")) && (landed && landedAt >= 0 || !anim && shownSeq >= 0 && dropStart < 0);
+		int lit = showLanded ? r.getIntOr("bin", -1) : -1;
+		double press = 0;
+		double pop = -1;
+		if (landed && landedAt >= 0) {
+			double since = Util.getMillis() - landedAt;
+			press = rm || since > 80 ? 0 : Math.sin(Math.PI * since / 80);
+			pop = rm ? -1 : Math.min(1, since / 300.0);
+		}
+		if (anim) {
+			if (rm) {
+				PlinkoDraw.dottedPath(g, bx, by, path, PlinkoAnim.reducedRows(ms), 0xFFFFE680);
+			} else {
+				// ghosts at 2, 4 and 6 frames ago, then the ball
+				double[] lag = {100, 67, 33};
+				double[] alpha = {0.1, 0.25, 0.45};
+				for (int i = 0; i < 3; i++) {
+					PlinkoAnim.Ball gb = PlinkoAnim.sample(path, rowMs, Math.max(0, ms - lag[i]));
+					if (ms - lag[i] > PlinkoAnim.RELEASE_MS) PlinkoDraw.ball(g, bx, by, gb.x(), gb.y(), gb.roll(), 1, 1, false, alpha[i]);
+				}
+				PlinkoAnim.Ball b = PlinkoAnim.sample(path, rowMs, ms);
+				PlinkoDraw.ball(g, bx, by, b.x(), b.y(), b.roll(), b.sx(), b.sy(), false, 1);
+			}
+		} else if (skipAt >= 0 && Util.getMillis() - skipAt < 150) {
+			PlinkoDraw.dottedPath(g, bx, by, path, PlinkoAnim.ROWS, 0xFFFFE680);
+		}
+		// the ball rests in its cup, behind the cap
+		PlinkoDraw.bins(g, font, bx, by, table, lit, press, pop, false);
+		// right column wells
+		int rx = leftPos + RX;
+		Scene.inset(g, rx - 4, topPos + 28, 96, 66);
+		Scene.inset(g, rx - 4, topPos + 98, 96, 30);
+		if (battle) {
+			Scene.card(g, bx + 4, by + 4, PlinkoDraw.BOARD_W - 8, PlinkoDraw.BOARD_H - 8);
+		}
+	}
+
+	@Override
+	protected int[] chipCounterAt() {
+		return new int[] {RX - 4, 214};
 	}
 
 	@Override
 	protected void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		CompoundTag s = state();
-		CompoundTag r = s.getCompoundOrEmpty("result");
-		boolean anim = dropping() && r.getIntOr("seq", -1) >= 0;
-		Plinko.Risk shownRisk = anim ? Plinko.Risk.parse(r.getStringOr("risk", risk.id())) : risk;
-		if (shownRisk == null) {
-			shownRisk = risk;
+		Kit.text(g, font, Component.translatable("gui.burmaldaholic.extras.plinko.risk"), RX, 33, Kit.GOLD);
+		Component betLabel = Component.translatable("gui.burmaldaholic.extras.bet");
+		Kit.text(g, font, betLabel, RX, 103, Kit.BONE_SHADE);
+		int cx = RX + font.width(betLabel) + 4;
+		Kit.sprite(g, Kit.core("fx/chip_" + BetControl.chipDenom(bet.amount())), cx, 103, 8, 8);
+		Kit.fit(g, font, bet.shown(s), cx + 12, 103, RX + 88 - cx - 12, Kit.GOLD, true);
+		double top = 0;
+		for (double m : table(risk)) top = Math.max(top, m);
+		Kit.fit(g, font, Component.translatable("gui.burmaldaholic.extras.plinko.top", Texts.decimal(Payouts.formatMultiplier(top))), RX, 115, 88,
+			Kit.BONE_SHADE, true);
+		Kit.fit(g, font, Component.translatable("gui.burmaldaholic.extras.plinko.last"), RX, 182, 90, Kit.GOLD, true);
+		for (int i = 0; i < LAST.size(); i++) {
+			PlinkoDraw.cap(g, font, LAST.get(i), RX + i * 22, 194, true, -1);
 		}
-		double[] table = table(shownRisk);
-		int left = boardLeft();
-		int center = left + Plinko.BINS * BIN_W / 2;
-		// pegs
-		for (int row = 0; row < Plinko.ROWS; row++) {
-			for (int j = 0; j <= row; j++) {
-				int x = (int) Math.round(center + (j - row / 2.0) * BIN_W);
-				int y = BOARD_Y + row * ROW_H;
-				g.fill(x - 1, y - 1, x + 1, y + 1, 0xFFE8E8E8);
-			}
+		if (battle) {
+			Kit.text(g, font, Component.translatable("gui.burmaldaholic.pvp.plinko.title"), BX + 16, BY + 12, Kit.GOLD);
 		}
-		// bins
-		int landed = !anim && r.getIntOr("seq", -1) >= 0 && shownRisk.id().equals(r.getStringOr("risk", "")) ? r.getIntOr("bin", -1) : -1;
-		for (int b = 0; b < Plinko.BINS; b++) {
-			int x = left + b * BIN_W;
-			double m = table[b];
-			int color = m >= 10 ? 0xFFB8860B : m >= 2 ? 0xFF2E7D32 : m >= 1 ? 0xFF3D5A80 : 0xFF8E2A2A;
-			g.fill(x + 1, BINS_Y, x + BIN_W - 1, BINS_Y + 12, b == landed ? 0xFFFFFFFF : color);
-			g.centeredText(font, Texts.decimal(Payouts.formatMultiplier(m)), x + BIN_W / 2, BINS_Y + 2, b == landed ? 0xFF000000 : 0xFFFFFFFF);
-		}
-		// ball
-		if (r.getIntOr("seq", -1) >= 0 && (anim || landed >= 0)) {
-			boolean[] path = Plinko.decode(r.getIntOr("path", 0));
-			double t = anim ? (ticks - animStart + partial) / stepTicks() : Plinko.ROWS;
-			double bx;
-			double by;
-			if (t >= Plinko.ROWS) {
-				bx = center + (r.getIntOr("bin", 6) - Plinko.ROWS / 2.0) * BIN_W;
-				by = BINS_Y - 4;
-			} else {
-				int row = (int) Math.floor(t);
-				double frac = t - row;
-				double x0 = ballX(center, path, row - 1);
-				double x1 = ballX(center, path, row);
-				bx = x0 + (x1 - x0) * frac;
-				by = BOARD_Y + (row - 1) * ROW_H + ROW_H * frac - 3 - Math.sin(Math.PI * frac) * 3;
-			}
-			Art.disc(g, (int) Math.round(bx), (int) Math.round(by), 3, 1.0, 0xFFFF4040);
-		}
-		// status line
-		Component status = null;
-		if (anim) {
-			status = Component.translatable("gui.burmaldaholic.extras.plinko.dropping");
-		} else if (r.getIntOr("seq", -1) >= 0) {
-			status = Component.translatable("gui.burmaldaholic.extras.plinko.result", Texts.decimal(Payouts.formatMultiplier(r.getDoubleOr("mult", 0))),
-				WheelScreen.resultLine(r.getLongOr("net", 0)));
-		}
-		if (status != null) {
-			g.centeredText(font, status, imageWidth / 2, statusY, MUTED);
-		}
-		g.text(font, bet.line(s), PAD, betLineY, 0xFFFFFFFF, true);
-		Component limits = limitsLine();
-		g.text(font, limits, imageWidth - PAD - font.width(limits), betLineY, MUTED, true);
-	}
-
-	/** Ball x after {@code row} rows (row −1 = start, centered). */
-	private static double ballX(int center, boolean[] path, int row) {
-		int rights = 0;
-		for (int i = 0; i <= row && i < path.length; i++) {
-			if (path[i]) {
-				rights++;
-			}
-		}
-		return center + (rights - (row + 1) / 2.0) * BIN_W;
 	}
 }

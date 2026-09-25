@@ -1,28 +1,48 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
+import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
+import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import java.util.function.Consumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Shared bits of the wheel and plinko machine screens: widget rebuild on state, auto-growing panel, partial tick. */
+/**
+ * Shared frame of the Wheel of Fortune and Plinko machine screens (visual/extras.md §2.2): the themed {@link Scene} as
+ * a 400 × 240 panel (backdrop, frame, title banner), casino buttons, the chip counter (held while a reveal runs) and
+ * the base error line. Widgets are rebuilt on every server state.
+ */
 abstract class ExtrasTableScreen extends CasinoTableScreen {
 	static final int PAD = 8;
 	static final int MUTED = 0xFFDDDDDD;
 	static final int GOLD = 0xFFFFD700;
+	protected final Scene scene;
 	protected float partial;
 	protected int ticks;
+	private long heldBalance = -1;
 
-	protected ExtrasTableScreen(CasinoTableMenu menu, Inventory inventory, Component title, int width, int height) {
-		super(menu, inventory, title, width, height);
+	protected ExtrasTableScreen(CasinoTableMenu menu, Inventory inventory, Component title, Scene scene) {
+		super(menu, inventory, title, Scene.W, Scene.H);
+		this.scene = scene;
+		this.titleLabelY = -10_000;
+	}
+
+	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	@Override
+	protected boolean fitToScreen() {
+		return true;
 	}
 
 	@Override
 	protected void init() {
 		super.init();
+		topPos = Scene.top(height);
 		rebuild();
 	}
 
@@ -38,37 +58,28 @@ abstract class ExtrasTableScreen extends CasinoTableScreen {
 
 	protected final void rebuild() {
 		clearWidgets();
-		if (extraHeight > 0) {
-			topPos = Math.max(2, (height - imageHeight - extraHeight) / 2);
-		}
-		int bottom = layout();
-		int needed = bottom - topPos + 16;
-		if (needed > imageHeight + extraHeight) {
-			// Very long (Russian) labels wrapped into more rows than planned: extend the felt downwards and re-center.
-			extraHeight = needed - imageHeight;
-			topPos = Math.max(2, (height - imageHeight - extraHeight) / 2);
-			clearWidgets();
-			layout();
-		}
+		layout();
 	}
 
-	private int extraHeight;
+	/** Adds widgets at panel-local positions. */
+	protected abstract void layout();
 
-	@Override
-	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		super.extractBackground(graphics, mouseX, mouseY, a);
-		if (extraHeight > 0) {
-			int bottom = topPos + imageHeight;
-			graphics.fill(leftPos - 1, bottom - 1, leftPos + imageWidth + 1, bottom + extraHeight + 1, FELT_BORDER);
-			graphics.fill(leftPos, bottom - 1, leftPos + imageWidth, bottom + extraHeight, FELT);
-		}
+	protected KitButton button(int x, int y, int w, int h, Component label, KitButton.Style style, Consumer<KitButton> onPress) {
+		KitButton b = new KitButton(leftPos + x, topPos + y, w, h, label, style, onPress);
+		addRenderableWidget(b);
+		return b;
 	}
 
-	/** Adds widgets at absolute positions (leftPos/topPos based); returns the absolute bottom of the content. */
-	protected abstract int layout();
+	protected void holdBalance(long balance) {
+		heldBalance = balance;
+	}
 
-	protected Flow flow(int relX, int relY, int width) {
-		return new Flow(font, this::addRenderableWidget, leftPos + relX, topPos + relY, width);
+	protected void releaseBalance() {
+		heldBalance = -1;
+	}
+
+	protected long shownBalance() {
+		return heldBalance >= 0 ? heldBalance : balance();
 	}
 
 	@Override
@@ -78,26 +89,55 @@ abstract class ExtrasTableScreen extends CasinoTableScreen {
 	}
 
 	@Override
+	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		super.extractBackground(g, mouseX, mouseY, a);
+		scene.backdrop(g, leftPos, topPos);
+		extractPlayArea(g, mouseX - leftPos, mouseY - topPos);
+		scene.frame(g, font, leftPos, topPos, title);
+	}
+
+	/** Objects on the backdrop under the frame, panel-local via the pose. */
+	protected void extractPlayArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
+
+	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		partial = a;
 		super.extractRenderState(graphics, mouseX, mouseY, a);
+		extractOverlay(graphics, mouseX, mouseY);
 	}
+
+	/** Over the widgets (pop-outs, banners). Absolute coordinates. */
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
 		super.extractLabels(graphics, xm, ym);
-		Component balance = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
-		int bw = font.width(balance);
-		if (font.width(title) + bw + 3 * PAD < imageWidth) {
-			graphics.text(font, balance, imageWidth - PAD - bw, titleLabelY, GOLD, true);
-		}
 		extractContent(graphics, xm - leftPos, ym - topPos);
+		int[] at = chipCounterAt();
+		Scene.chipCounter(graphics, font, Texts.number(shownBalance()), at[0], at[1], false);
 	}
 
-	/** Draws in panel-relative coordinates. */
+	/** Panel-local position of the chip counter (bottom left by default). */
+	protected int[] chipCounterAt() {
+		return new int[] {16, 210};
+	}
+
+	/** Draws in panel-relative coordinates (text, side columns). */
 	protected abstract void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY);
 
-	protected int wrappedHeight(Component text, int width) {
-		return font.split(text, width).size() * font.lineHeight;
+	/** Space / Enter skip the running reveal. */
+	protected boolean skip() {
+		return false;
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		int k = event.key();
+		if ((k == 32 || k == 257 || k == 335) && skip()) return true;
+		return super.keyPressed(event);
+	}
+
+	protected static int alphaWhite(double a) {
+		return Kit.fade(a);
 	}
 }

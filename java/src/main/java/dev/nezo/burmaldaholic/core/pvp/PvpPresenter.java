@@ -33,5 +33,8 @@ public interface PvpPresenter {
 	/** Particle id of PVP.md §12 at a participant (-1 = anchor). */
 	default void particles(PvpMatch match, String particleId, int who) {}
 
+	/** A taunt line was said by participant {@code who} (the chat line is already sent; screens draw a bubble). */
+	default void taunt(PvpMatch match, int who, int line) {}
+
 	PvpPresenter NONE = new PvpPresenter() {};
 }
