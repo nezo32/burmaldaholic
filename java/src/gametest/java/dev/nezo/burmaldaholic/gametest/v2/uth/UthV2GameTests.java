@@ -65,13 +65,13 @@ public class UthV2GameTests {
 			helper.assertTrue(Economies.get().balance(a) == START, "refunded");
 			helper.assertTrue(table.confirmedBet(a.getUUID()).isEmpty(), "no confirmed bet after clear");
 			// … and the edited bet
-			act(table, a, "bet", bet(25, 0));
-			helper.assertTrue(Economies.get().balance(a) == START - 50, "the new bet debited");
+			act(table, a, "bet", bet(15, 0));
+			helper.assertTrue(Economies.get().balance(a) == START - 30, "the new bet debited");
 			long[] c = table.confirmedBet(a.getUUID()).orElseThrow();
-			helper.assertTrue(c[0] == 25 && c[1] == 0, "the server holds the changed bet");
+			helper.assertTrue(c[0] == 15 && c[1] == 0, "the server holds the changed bet");
 			act(table, b, "bet", bet(10, 0));
 			helper.assertTrue(table.round() != null, "dealt when everyone confirmed");
-			helper.assertTrue(table.round().seat(a.getUUID()).ante == 25, "the round plays the changed Ante");
+			helper.assertTrue(table.round().seat(a.getUUID()).ante == 15, "the round plays the changed Ante");
 			for (int i = 0; i < 20 && table.round() != null; i++) table.fastForwardForTests(1);
 		} finally {
 			server.getPlayerList().remove(a);

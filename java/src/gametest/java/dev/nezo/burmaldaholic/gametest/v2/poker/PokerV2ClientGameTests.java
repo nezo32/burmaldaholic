@@ -236,7 +236,7 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.click("primary");
 		f.waitServer(pos, UthTableBlockEntity.class, t -> uthConfirmed(f, pos) == null, "Change bet refunded the bet");
 		check(balance(f) == bal0, "refund after Change bet");
-		f.click("chip.2");
+		f.click("chip.0"); // +1: 6 × Ante + Trips stays under the VIP-0 maximum
 		long[] bigger = draft(f);
 		check(bigger[0] > d[0], "the changed bet is bigger: " + bigger[0]);
 		f.click("primary");
