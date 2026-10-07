@@ -1754,6 +1754,46 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.seconds_short` | %1$s s | %1$s с |
 | `gui.burmaldaholic.uth.paytable.blind_short` | Blind pays | Блайнд платит |
 
+### Table UI v2 (lane B; `docs/architecture/ui-v2.md`, REDESIGN.md §7.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.uth.v2.chips` | Chips | Фишки |
+| `gui.burmaldaholic.uth.v2.spot.ante` | Ante | Анте |
+| `gui.burmaldaholic.uth.v2.spot.trips` | Trips | Трипс |
+| `gui.burmaldaholic.uth.v2.tool.undo` | Undo | Отменить |
+| `gui.burmaldaholic.uth.v2.tool.double` | Double the bet | Удвоить ставку |
+| `gui.burmaldaholic.uth.v2.primary.wait` | Waiting | Ожидание |
+| `gui.burmaldaholic.uth.v2.primary.sit` | Sit down | Сесть |
+| `gui.burmaldaholic.uth.v2.primary.deal` | Deal · %1$s | Раздать · %1$s |
+| `gui.burmaldaholic.uth.v2.primary.deal_plain` | Deal | Раздать |
+| `gui.burmaldaholic.uth.v2.primary.change` | Change bet | Изменить ставку |
+| `gui.burmaldaholic.uth.v2.primary.bank` | Take the bank | Взять банк |
+| `gui.burmaldaholic.uth.v2.primary.bank_amount` | Bank %1$s | Банк %1$s |
+| `gui.burmaldaholic.uth.v2.reason.you_bank` | You hold the bank – the players bet against you | Банк за вами – игроки ставят против вас |
+| `gui.burmaldaholic.uth.v2.reason.sit_to_bet` | Sit down to bet | Сядьте, чтобы делать ставки |
+| `gui.burmaldaholic.uth.v2.reason.nothing_to_undo` | Nothing to undo | Нечего отменять |
+| `gui.burmaldaholic.uth.v2.reason.no_bet` | No chips on the table yet | На столе пока нет фишек |
+| `gui.burmaldaholic.uth.v2.reason.no_last_bet` | No previous bet to repeat | Нет прошлой ставки |
+| `gui.burmaldaholic.uth.v2.reason.same_as_last` | This already is your last bet | Это и есть прошлая ставка |
+| `gui.burmaldaholic.uth.v2.reason.place_ante` | Put chips on the Ante to deal | Поставьте фишки на анте, чтобы раздать |
+| `gui.burmaldaholic.uth.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
+| `gui.burmaldaholic.uth.v2.reason.showdown` | Showdown | Вскрытие |
+| `gui.burmaldaholic.uth.v2.reason.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.uth.v2.status.chips_to` | Chips go on the %1$s · click a spot to switch | Фишки идут на %1$s · клик по полю — сменить |
+| `gui.burmaldaholic.uth.v2.status.cost` | Ante %1$s + Blind %1$s + Trips %2$s = %3$s | Анте %1$s + блайнд %1$s + трипс %2$s = %3$s |
+| `gui.burmaldaholic.uth.v2.status.right_click` | Right click takes a chip off | Правый клик снимает фишку |
+| `gui.burmaldaholic.uth.v2.status.bet_placed` | Bet placed · you can change it until the deal | Ставка сделана · её можно изменить до раздачи |
+| `gui.burmaldaholic.uth.v2.status.starts_in` | Round starts in %1$s s | Раунд начнётся через %1$s с |
+| `gui.burmaldaholic.uth.v2.status.decide_in` | Decide in %1$s s | На решение %1$s с |
+| `gui.burmaldaholic.uth.v2.status.watching` | You are watching · sit down to play | Вы зритель · сядьте, чтобы играть |
+| `gui.burmaldaholic.uth.v2.status.bank_form` | Your bank covers the players' bets this round | Ваш банк покрывает ставки игроков в этом раунде |
+| `gui.burmaldaholic.uth.v2.dealer_no_open` | Dealer does not open – the Ante pushes | Дилер не открылся – анте возвращается |
+| `gui.burmaldaholic.uth.v2.board.bets_open` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.uth.v2.board.street` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.uth.v2.board.deciding` | %1$s to decide | Решает: %1$s |
+| `gui.burmaldaholic.uth.v2.board.result` | %1$s %2$s | %1$s %2$s |
+
 ---
 
 ## extras

@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * The Hold'em v2 gates over every state (docs/architecture/ui-v2.md §5.3): never stuck (an enabled gate or a reason
  * that names what the table waits for), no disabled gate without a reason, every label / reason key in EN and RU.
  */
-class PokerFlowTest {
+public class PokerFlowTest {
 	static final PokerView.Level MICRO = new PokerView.Level("micro", 1, 2, 40, 200, 0, true);
 	static final PokerView.Level LOW = new PokerView.Level("low", 5, 10, 200, 1000, 0, true);
 	static final PokerView.Level BROKE = new PokerView.Level("mid", 25, 50, 1000, 300, 0, true);
@@ -143,7 +143,7 @@ class PokerFlowTest {
 		}
 	}
 
-	static Set<String> langKeys(String lang) throws IOException {
+	public static Set<String> langKeys(String lang) throws IOException {
 		Path root = Path.of("src/main/lang");
 		Set<String> have = new HashSet<>();
 		try (Stream<Path> dirs = Files.list(root)) {
