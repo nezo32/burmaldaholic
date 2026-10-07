@@ -29,6 +29,7 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenSpawnSurvey",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoBuildingGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratGameTests",
 			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests",
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpGameTests",
