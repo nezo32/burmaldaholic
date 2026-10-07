@@ -1,0 +1,167 @@
+package dev.nezo.burmaldaholic.client.ui.v2;
+
+import dev.nezo.burmaldaholic.client.config.CasinoConfigScreen;
+import dev.nezo.burmaldaholic.client.ui.CasinoScreen;
+import dev.nezo.burmaldaholic.client.ui.FitScaled;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
+import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
+import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Base of the v2 non-container screens (Coin Flip, Scratch, Dice Duel, Plinko / Wheel machines, PvP invite and duel;
+ * docs/architecture/ui-v2.md §4.1, D5): the same {@link V2Chrome} over {@link CasinoScreen}. These screens have no table
+ * menu: the subclass decides what {@link #sendRaw} does (a module payload) and calls {@link #state} with its view when
+ * its data changes. Fills the virtual GUI like {@link V2TableScreen}.
+ */
+public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.Host, V2Chrome.Holder {
+	protected final V2Chrome chrome = new V2Chrome(this);
+	private Viewport viewport = new Viewport(480, 270, 1, 1f);
+	protected @Nullable V view;
+
+	protected V2SceneScreen(Component title) {
+		super(title, 480, 270);
+	}
+
+	/** The game's flow (gates). */
+	protected abstract Flow<V> flow();
+
+	/** Registers the PlayArea targets for the current view. */
+	protected abstract void layoutPlay(TableGrid grid, V view, HitMap hits);
+
+	/** Draws the PlayArea content over the felt. */
+	protected abstract void renderPlay(GuiGraphicsExtractor g, TableGrid grid, V view, int mouseX, int mouseY, float partial);
+
+	protected void renderOverlay(GuiGraphicsExtractor g, TableGrid grid, V view, int mouseX, int mouseY, float partial) {}
+
+	/** The BetBar port (null = no BetBar). */
+	protected @Nullable BetPort betPort() {
+		return null;
+	}
+
+	protected long minBet() {
+		return 0;
+	}
+
+	protected long maxBet() {
+		return 0;
+	}
+
+	protected void openRules() {}
+
+	/** Sets the view (the subclass's state arrived) and re-applies the flow; {@code ack} = the server's ack or -1. */
+	public void state(V view, long ack) {
+		this.view = view;
+		CompoundTag t = new CompoundTag();
+		t.putLong("ack", ack);
+		chrome.acceptState(t);
+		refresh();
+	}
+
+	protected void refresh() {
+		if (view == null || font == null) return;
+		chrome.top.set(title, minBet(), maxBet(), 0, 0);
+		chrome.top.balance.target(balance());
+		chrome.apply(flow(), view, betPort());
+	}
+
+	@Override
+	public V2Chrome chrome() {
+		return chrome;
+	}
+
+	@Override
+	protected float applyFit(int[] memo) {
+		viewport = FitScaled.applyViewport(this, memo);
+		return viewport.factor();
+	}
+
+	@Override
+	protected void init() {
+		super.init();
+		panel = new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(0, 0, width, height);
+		chrome.resize(viewport);
+		refresh();
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		chrome.tick();
+	}
+
+	@Override
+	public Font font() {
+		return font;
+	}
+
+	@Override
+	public void layoutPlay(TableGrid grid, HitMap hits) {
+		if (view != null) layoutPlay(grid, view, hits);
+	}
+
+	@Override
+	public void onGate(String id, Gate gate) {
+		if (!gate.action().isEmpty()) chrome.send(gate.action());
+	}
+
+	@Override
+	public void onTopIcon(String id) {
+		switch (id) {
+			case KeyMap.Ids.TOP_LEAVE -> onClose();
+			case KeyMap.Ids.TOP_SETTINGS -> {
+				if (minecraft != null) minecraft.gui.setScreen(new CasinoConfigScreen(this));
+			}
+			case KeyMap.Ids.TOP_RULES -> openRules();
+			default -> {}
+		}
+	}
+
+	@Override
+	public void showError(Component message) {
+		chrome.error(message);
+	}
+
+	@Override
+	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		chrome.renderBackground(g, theme());
+	}
+
+	@Override
+	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		if (view != null) renderPlay(g, chrome.grid(), view, mouseX, mouseY, a);
+	}
+
+	@Override
+	protected void extractOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		chrome.renderChrome(g, mouseX, mouseY);
+		if (view != null) renderOverlay(g, chrome.grid(), view, mouseX, mouseY, a);
+	}
+
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (chrome.click(event.x(), event.y(), event.button())) return true;
+		return super.mouseClicked(event, doubleClick);
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (chrome.key(event.key())) return true;
+		return super.keyPressed(event);
+	}
+
+	@Override
+	public boolean mouseScrolled(double x, double y, double dx, double dy) {
+		if (chrome.scroll(x, y, dy)) return true;
+		return super.mouseScrolled(x, y, dx, dy);
+	}
+}
