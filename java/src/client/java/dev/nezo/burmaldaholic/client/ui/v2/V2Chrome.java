@@ -93,6 +93,7 @@ public final class V2Chrome {
 	private final Map<String, Supplier<Component>> narration = new HashMap<>();
 	private String lastPressed = "";
 	private boolean resynced;
+	private boolean deltaShown;
 
 	public V2Chrome(Host host) {
 		this.host = host;
@@ -174,8 +175,7 @@ public final class V2Chrome {
 			Gate[] tg = new Gate[tools.length];
 			for (int i = 0; i < tools.length; i++) tg[i] = flow.tool(tools[i], view);
 			bet.gates(cg, tg);
-			if (b.secondsLeft() >= 0) status.timer(b.secondsLeft(), Math.max(b.secondsLeft(), 15));
-			else status.timer.clear();
+			status.timer.auto(b.secondsLeft());
 		}
 		status.reason(p);
 		Optional<String> hint = flow.hintKey(view);
@@ -213,8 +213,33 @@ public final class V2Chrome {
 		hits.add(KeyMap.Ids.PRIMARY, dock.primary(), primary.gate().enabled());
 		status.place(dock.status());
 		top.layout(grid, font, hits);
+		narrateKit();
 		banner.tier(grid.tier);
 		toasts.place(grid.play);
+	}
+
+	/** Narrations of the kit's own targets (Tab focus): label, and the reason when disabled. */
+	private void narrateKit() {
+		java.util.function.Function<Gate, Component> say = g -> {
+			Component r = V2Draw.reason(g);
+			return r == null ? V2Draw.label(g) : V2Draw.label(g).copy().append(". ").append(r); // literal-ok: punctuation
+		};
+		narration.put(KeyMap.Ids.PRIMARY, () -> say.apply(primary.gate()));
+		for (Gate a : actions.gates()) narration.put(ActionRow.id(a), () -> say.apply(a));
+		long[] chips = bet.chips();
+		for (int i = 0; i < chips.length; i++) {
+			int idx = i;
+			narration.put(KeyMap.Ids.chip(i), () -> {
+				Gate g = bet.chipGate(idx);
+				Component label = V2Draw.tr(V2Keys.CHIP, chips[idx]);
+				Component r = V2Draw.reason(g);
+				return r == null ? label : label.copy().append(". ").append(r); // literal-ok: punctuation
+			});
+		}
+		for (String t : bet.toolIds()) narration.put(KeyMap.Ids.tool(t), () -> say.apply(bet.toolGate(t)));
+		narration.put(KeyMap.Ids.TOP_RULES, () -> Component.translatable(V2Keys.TOP_RULES));
+		narration.put(KeyMap.Ids.TOP_SETTINGS, () -> Component.translatable(V2Keys.TOP_SETTINGS));
+		narration.put(KeyMap.Ids.TOP_LEAVE, () -> Component.translatable(V2Keys.TOP_LEAVE));
 	}
 
 	/** One client tick: the watchdog; when an action timed out, the reason shows and a {@code resync} is sent. */
@@ -414,6 +439,11 @@ public final class V2Chrome {
 	/** TopBar, Dock (BetBar or ActionRow, status, primary), then the banner and the toasts. */
 	public void renderChrome(GuiGraphicsExtractor g, int mx, int my) {
 		Font font = host.font();
+		boolean delta = top.balance.deltaVisible();
+		if (delta != deltaShown) { // the TopBar makes room for the delta pill while it shows
+			deltaShown = delta;
+			relayout();
+		}
 		Box d = grid.dock;
 		if (!V2Draw.sprite(g, V2Sprites.DOCK, d, 0xFFFFFFFF)) {
 			V2Draw.fill(g, d, CasinoPalette.V2_INK);
@@ -436,9 +466,27 @@ public final class V2Chrome {
 			&& !f.equals(KeyMap.Ids.PRIMARY)) {
 			hits.box(f).ifPresent(b -> V2Draw.outline(g, b.inset(-1), CasinoPalette.V2_GOLD));
 		}
+		hits.at(mx, my).ifPresent(t -> {
+			if (!t.id().startsWith("tool.") && !t.id().startsWith("top.")) return;
+			Supplier<Component> n = narration.get(t.id());
+			if (n != null) iconTip(g, font, t.box(), n.get());
+		});
 		if (debugOverlay) {
 			for (HitMap.Target t : hits.targets()) V2Draw.outline(g, t.box(), t.enabled() ? 0x8000FFFF : 0x80FF4040);
 		}
+	}
+
+	/** The label of an icon-only button on hover: a pill above it (below it for TopBar icons), kept on screen. */
+	private void iconTip(GuiGraphicsExtractor g, Font font, Box icon, Component text) {
+		int w = Math.min(grid.screen.w() - 4, font.width(text) + 8);
+		int h = 13;
+		boolean below = icon.y() < grid.play.y();
+		int x = Math.max(2, Math.min(grid.screen.w() - w - 2, icon.cx() - w / 2));
+		int y = below ? icon.bottom() + 3 : icon.y() - h - 3;
+		Box b = new Box(x, y, w, h);
+		g.nextStratum();
+		V2Draw.pill(g, b, CasinoPalette.V2_PANEL_HI, CasinoPalette.V2_INK);
+		V2Draw.centred(g, font, text, b, 1, CasinoPalette.V2_TEXT, true);
 	}
 
 	/** Draws every hit target's outline (gallery / debugging). */
