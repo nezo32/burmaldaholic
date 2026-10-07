@@ -236,6 +236,9 @@ public final class SlotBody implements StageHost {
 		return stage.spinning() ? Component.translatable("gui.burmaldaholic.slots.stop") : Component.translatable("gui.burmaldaholic.slots.spin", Texts.chips(model.bet()));
 	}
 
+	/** The locked SPIN's tooltip (the VIP lock reason), or null. */
+	private Component spinTip;
+
 	/** The Buy label shows the bare price (no "chips") when the full label cannot fit the control row. */
 	private boolean buyShort;
 
@@ -267,7 +270,8 @@ public final class SlotBody implements StageHost {
 		spin.setMessage(locked ? model.lockReason : spinLabel());
 		spin.caption(busy ? Component.translatable("gui.burmaldaholic.slots.stop")
 			: locked ? Component.translatable("gui.burmaldaholic.slots.locked") : Texts.chips(model.bet()));
-		if (locked != (spin.getTooltip() != null)) spin.setTooltip(locked ? net.minecraft.client.gui.components.Tooltip.create(model.lockReason) : null);
+		Component tip = locked ? model.lockReason : null;
+		if (!java.util.Objects.equals(tip, spinTip)) spin.setTooltip((spinTip = tip) == null ? null : net.minecraft.client.gui.components.Tooltip.create(tip));
 		spin.active = busy || model.playable && model.autoLeft < 0;
 		betDown.active = !busy && model.betIndex > 0;
 		betUp.active = !busy && model.betIndex < model.bets.length - 1;

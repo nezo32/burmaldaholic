@@ -235,7 +235,7 @@ public final class CasinoHud {
 	 * A casino screen (table, machine, cashier, menu…) is open: it shows the balance itself, and the HUD drawn under its
 	 * panel only peeked out around the edges (top-left pill and streak lines). The HUD keeps ticking, it is just not drawn.
 	 */
-	static boolean casinoScreenOpen(Minecraft mc) {
+	public static boolean casinoScreenOpen(Minecraft mc) {
 		net.minecraft.client.gui.screens.Screen s = mc.gui.screen();
 		return s != null && !(s instanceof ChatScreen) && s.getClass().getName().startsWith("dev.nezo.burmaldaholic.");
 	}
