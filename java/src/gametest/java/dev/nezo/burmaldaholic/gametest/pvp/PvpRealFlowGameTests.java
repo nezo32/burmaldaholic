@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.gametest.pvp;
 
 import com.google.gson.JsonObject;
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.network.MenuRequestPayload;
 import dev.nezo.burmaldaholic.core.network.TableActionPayload;
 import dev.nezo.burmaldaholic.core.pvp.Pvp;
@@ -388,6 +389,70 @@ public class PvpRealFlowGameTests {
 	@GameTest(maxTicks = 3000)
 	public void hubVsBotSlots(GameTestHelper helper) {
 		hubVsBot(helper, "slots", PVP_PRESS);
+	}
+
+	// ---- the result window opens once ----------------------------------------------------------------------------
+
+	/**
+	 * The result window opens once at the settle; after the player closed it, nothing re-opens it — not the rematch
+	 * window ending, not the rival leaving, not another player's lobby nearby (a real client run saw the Plinko Battle
+	 * result pop up again over the next machine screen).
+	 */
+	@GameTest(maxTicks = 2400)
+	public void resultWindowOpensOnce(GameTestHelper helper) {
+		MockClient[] p = two(helper);
+		MockClient a = p[0];
+		MockClient b = p[1];
+		BlockPos rel = new BlockPos(1, 1, 1);
+		BlockPos pos = helper.absolutePos(rel);
+		helper.setBlock(rel, ExtrasModule.PLINKO.block());
+		helper.useBlock(rel, b.player);
+		b.send(new TableActionPayload(pos, "pvp_host", MockClient.args("amount", STAKE, "risk", "low", "balls", 3, "policy", "humans_only",
+			"difficulty", "normal", "size", 2)));
+		helper.useBlock(rel, a.player);
+		PvpMatch m = matchOf(helper, b);
+		a.send(new TableActionPayload(pos, "pvp_join", MockClient.args("id", m.id)));
+		b.send(new PvpActionPayload("start", m.id, "", 0));
+		long[] closedAt = {-1};
+		MockClient[] host = {null};
+		helper.succeedWhen(() -> {
+			for (MockClient c : List.of(a, b)) {
+				if (closedAt[0] >= 0 && c == b) {
+					continue;
+				}
+				c.drain();
+				if (c.kind.equals("match")) {
+					EXTRAS_PRESS.accept(c);
+				}
+			}
+			if (closedAt[0] < 0) {
+				helper.assertTrue(m.state() == MatchState.SETTLED && "result".equals(a.screen), "settled, result window open: " + a);
+				a.closeScreen();
+				a.opened.clear();
+				closedAt[0] = helper.getTick();
+				b.remove(helper); // the rival leaves during the rematch window
+			}
+			if (host[0] == null && helper.getTick() > closedAt[0] + 20) {
+				// the next game: a Wheel of Fortune where the machine was; another player opens a party there
+				helper.setBlock(rel, ExtrasModule.WHEEL.block());
+				helper.useBlock(rel, a.player);
+				host[0] = MockClient.join(helper, new Vec3(1.5, 1, 3.5), START);
+				host[0].send(new WheelPartyNet.Action("open", MockClient.args("x", pos.getX(), "y", pos.getY(), "z", pos.getZ())));
+				host[0].send(new WheelPartyNet.Action("host", MockClient.args("cap", STAKE, "stake", STAKE, "policy", "humans_only",
+					"difficulty", "normal", "size", 2)));
+				helper.useBlock(rel, a.player);
+				// and a match revealing right next to the player (its steps reach them as a spectator ticker)
+				MockClient c = MockClient.join(helper, new Vec3(3.5, 1, 1.5), START);
+				hub(c, "p:new:scratch", 0);
+				hub(c, "p:bot:normal", STAKE);
+			}
+			helper.assertTrue(a.opened.isEmpty(), "nothing re-opened a PvP screen after Close: " + a.opened);
+			helper.assertTrue(helper.getTick() > closedAt[0] + CasinoConfig.pvp().decisionTimeoutTicks + 60 && m.phase().equals("history"),
+				"waited past the rematch window: " + m.phase());
+			Pvp.service().leave(host[0].player);
+			host[0].remove(helper);
+			a.remove(helper);
+		});
 	}
 
 	// ---- after a match: the machines' PvP entries work again at once ----------------------------------------

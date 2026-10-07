@@ -487,7 +487,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		});
 		context.getInput().lookAt(pos);
 		context.getInput().pressKey(o -> o.keyUse);
-		waitForScreen(context, named(machineScreen), "the machine screen reopens");
+		waitForScreen(context, named(machineScreen), "the machine screen reopens (no old result window pops up)");
 		context.waitTicks(10);
 		entry.run();
 		context.waitTicks(10);
