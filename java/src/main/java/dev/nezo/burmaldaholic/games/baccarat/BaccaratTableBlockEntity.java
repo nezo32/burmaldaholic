@@ -47,6 +47,7 @@ import dev.nezo.burmaldaholic.games.baccarat.logic.ChemmyBotPolicy;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Paytable;
 import dev.nezo.burmaldaholic.games.baccarat.logic.SeatDecider;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Slips;
+import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratPub;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -2226,6 +2227,158 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		return t;
 	}
 
+	// ---- public tag (in-world board, docs/architecture/ui-v2.md §7.2) -------------------------------------------
+
+	public static final String PUB_KEY = "burmaldaholic_baccarat_pub";
+	private @Nullable CompoundTag lastPubTag;
+	private CompoundTag clientPub = new CompoundTag();
+	private @Nullable BaccaratPub clientPubDecoded;
+
+	/** The table's public state: the coup's cards only as far as the reveal has shown them, the winner after it. */
+	public BaccaratPub buildPub() {
+		long now = gameTime();
+		long deadline = -1;
+		for (String id : List.of(T_BET, T_OFFER, T_IDLE, T_PHASE)) {
+			if (id.equals(T_PHASE) && P_REVEAL.equals(phase)) {
+				continue; // the reveal's length would tell whether third cards follow
+			}
+			long left = ticksLeft(id);
+			if (left >= 0) {
+				deadline = now + left;
+				break;
+			}
+		}
+		int[][] hands = new int[6][0];
+		long revStart = 0;
+		if (coup != null) {
+			CompoundTag rv = new CompoundTag();
+			putRevealed(rv, coup);
+			revStart = rv.getLongOr("rv_start", 0);
+			hands[0] = rv.getIntArray("player_cards").orElse(new int[0]);
+			hands[1] = rv.getIntArray("player_deal").orElse(new int[0]);
+			hands[2] = rv.getIntArray("player_rev").orElse(new int[0]);
+			hands[3] = rv.getIntArray("banker_cards").orElse(new int[0]);
+			hands[4] = rv.getIntArray("banker_deal").orElse(new int[0]);
+			hands[5] = rv.getIntArray("banker_rev").orElse(new int[0]);
+		}
+		int winner = 0;
+		if (coup != null && P_RESULT.equals(phase)) {
+			winner = coup.winner().ordinal() + 1;
+		}
+		boolean inCoup = coupPending || P_REVEAL.equals(phase) || P_RESULT.equals(phase);
+		boolean chemmy = !(inCoup ? coupWasHouse : houseCoup);
+		long[] boxes = new long[BaccaratPub.BOXES];
+		java.util.TreeMap<Integer, BaccaratPub.SeatPub> seatPubs = new java.util.TreeMap<>();
+		Map<UUID, EnumMap<BetKind, Long>> slips = inCoup && coupWasHouse ? coupSlips : bets;
+		Map<UUID, Long> punts = inCoup && !coupWasHouse ? coupPunts : bank.punts();
+		for (TableSeats.Seat s : seats().occupied()) {
+			long[] mine = new long[BaccaratPub.BOXES];
+			if (chemmy) {
+				mine[BaccaratPub.P] = punts.getOrDefault(s.player(), 0L);
+			} else {
+				slips.getOrDefault(s.player(), new EnumMap<>(BetKind.class)).forEach((k, v) -> mine[k.ordinal()] += v);
+			}
+			int flags = (s.player().equals(bank.banker()) ? BaccaratPub.BANKER : 0)
+				| (ready.contains(s.player()) || puntReady.contains(s.player()) ? BaccaratPub.READY : 0);
+			seatPubs.put(s.index(), new BaccaratPub.SeatPub(s.index(), flags, mine));
+		}
+		for (Map.Entry<Integer, UUID> e : bots.seated()) {
+			UUID id = e.getValue();
+			long[] mine = new long[BaccaratPub.BOXES];
+			if (chemmy) {
+				mine[BaccaratPub.P] = punts.getOrDefault(id, 0L);
+			} else {
+				String key = bots.keyOf(id);
+				EnumMap<BetKind, Long> v = key == null ? null : bots.virtualBets().get(key);
+				if (v != null) {
+					v.forEach((k, a) -> mine[k.ordinal()] += a);
+				}
+			}
+			int flags = BaccaratPub.BOT | (id.equals(bank.banker()) ? BaccaratPub.BANKER : 0);
+			seatPubs.putIfAbsent(e.getKey(), new BaccaratPub.SeatPub(e.getKey(), flags, mine));
+		}
+		for (BaccaratPub.SeatPub sp : seatPubs.values()) {
+			for (int k = 0; k < BaccaratPub.BOXES; k++) {
+				boxes[k] += sp.bets()[k];
+			}
+		}
+		long bankAmount = chemmy ? bank.bank() : 0;
+		if (chemmy) {
+			boxes[BaccaratPub.B] = bankAmount;
+		}
+		return new BaccaratPub((int) coupNo, BaccaratPub.phaseCode(phase), chemmy, minBet(), tableMaxBet(), deadline, revStart, hands[0], hands[1],
+			hands[2], hands[3], hands[4], hands[5], boxes, winner, bankAmount, new ArrayList<>(seatPubs.values()));
+	}
+
+	/** Seat names for the board: players by name, bots by their name key prefixed with {@code #}. */
+	private CompoundTag pubNames() {
+		CompoundTag n = new CompoundTag();
+		for (TableSeats.Seat s : seats().occupied()) {
+			n.putString(Integer.toString(s.index()), s.name());
+		}
+		for (Map.Entry<Integer, UUID> e : bots.seated()) {
+			BotProfile p = bots.profile(e.getValue());
+			if (p != null) {
+				n.putString(Integer.toString(e.getKey()), "#" + p.nameKey());
+			}
+		}
+		return n;
+	}
+
+	private CompoundTag pubTag() {
+		CompoundTag pub = new CompoundTag();
+		pub.putIntArray("d", buildPub().encode());
+		pub.put("n", pubNames());
+		return pub;
+	}
+
+	/** Client: the last public state received with a block update. */
+	public BaccaratPub clientPub() {
+		BaccaratPub p = clientPubDecoded;
+		if (p == null) {
+			p = BaccaratPub.decode(clientPub.getIntArray("d").orElse(new int[0]));
+			clientPubDecoded = p;
+		}
+		return p;
+	}
+
+	/** Client: seat index to name ({@code #key} = a bot's translatable name). */
+	public CompoundTag clientPubNames() {
+		return clientPub.getCompoundOrEmpty("n");
+	}
+
+	@Override
+	public void syncViewers() {
+		super.syncViewers();
+		publishPub();
+	}
+
+	/** Sends a block update when the public state changed. */
+	private void publishPub() {
+		if (!(level instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		CompoundTag pub = pubTag();
+		if (pub.equals(lastPubTag)) {
+			return;
+		}
+		lastPubTag = pub;
+		BlockState st = getBlockState();
+		serverLevel.sendBlockUpdated(worldPosition, st, st, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		CompoundTag t = super.getUpdateTag(registries);
+		t.put(PUB_KEY, pubTag());
+		return t;
+	}
+
+	@Override
+	public net.minecraft.network.protocol.@Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+		return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+	}
+
 	/** A bot's name key for the client ({@code gui.burmaldaholic.bots.name.<id>}), "" for players / nobody. */
 	private String botNameKey(@Nullable UUID id) {
 		BotProfile p = id == null ? null : bots.profile(id);
@@ -2293,6 +2446,10 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
+		input.read(PUB_KEY, CompoundTag.CODEC).ifPresent(t -> {
+			clientPub = t;
+			clientPubDecoded = null;
+		});
 		CompoundTag t = input.read(STATE_KEY, CompoundTag.CODEC).orElseGet(CompoundTag::new);
 		int[] codes = t.getIntArray("shoe").orElse(new int[0]);
 		shoe.restore(codes, t.getIntOr("shoe_pos", 0), t.getIntOr("shoe_decks", 8));
