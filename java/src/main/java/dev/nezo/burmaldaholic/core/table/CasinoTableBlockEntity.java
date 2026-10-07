@@ -124,6 +124,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	private boolean removing;
 	/** Net result per player of rounds played out by {@link #playOutNow} at a server stop (for the notice). */
 	private @Nullable Map<UUID, Long> playedOut;
+	/** Server: the seat header last published (ui-v2.md §7.2); client: the last one received. */
+	private List<TablePublic.SeatPub> publishedSeats = List.of();
+	private TablePublic.@Nullable SeatPub[] clientSeats = new TablePublic.SeatPub[0];
+	private int clientSeatsSeq;
 
 	/** {@link #playOutNow} reason used when the server stops: players get {@code msg.burmaldaholic.core.round_played_out}. */
 	public static final String SERVER_STOPPING = "server stopping";
@@ -704,6 +708,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 				}
 			}
 		}
+		if (server.getTickCount() % PUBLIC_PERIOD == 0 && publicSeats()) publishSeats(level);
 		serverTick(level);
 	}
 
@@ -883,6 +888,83 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 	}
 
+	// ---- public header (in-world board, docs/architecture/ui-v2.md §7.2) --------------------------
+
+	/** Ticks between seat-header checks (≤ 4 block updates per second). */
+	private static final int PUBLIC_PERIOD = 5;
+
+	/**
+	 * Does this table publish a seat header for the in-world seat plates? Default: multi-seat tables and bot tables.
+	 * Single-player machines (slots, Plinko, Wheel) show their player another way.
+	 */
+	protected boolean publicSeats() {
+		return seatCount() > 1 || this instanceof dev.nezo.burmaldaholic.core.bots.BotTable;
+	}
+
+	/** The seat header now: the bot-aware seat model when the table has one, else the base seats. */
+	protected List<TablePublic.SeatPub> publicSeatList() {
+		if (this instanceof dev.nezo.burmaldaholic.core.bots.BotTable t) {
+			try {
+				return TablePublic.ofOccupants(t.occupants());
+			} catch (RuntimeException e) {
+				// a table whose bots are not ready yet (no level): the base seats
+			}
+		}
+		return TablePublic.of(seats());
+	}
+
+	/** Seat count of the header (the bot-aware model may have more seats than the base one). */
+	protected int publicSeatCount() {
+		if (this instanceof dev.nezo.burmaldaholic.core.bots.BotTable t) {
+			try {
+				return Math.max(seats().size(), t.botSeatCount());
+			} catch (RuntimeException e) {
+				// fall through
+			}
+		}
+		return seats().size();
+	}
+
+	/**
+	 * Writes the PUBLIC part every passer-by may see into an update tag: the seat header ({@link TablePublic}). The
+	 * default {@link #getUpdateTag} calls it; a game that overrides {@code getUpdateTag} calls
+	 * {@code writePublic(tag)} in its override (one line) so its seat plates get names.
+	 */
+	protected void writePublic(CompoundTag tag) {
+		if (publicSeats()) TablePublic.writeSeats(tag, publicSeatCount(), publicSeatList());
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		writePublic(t);
+		return t;
+	}
+
+	@Override
+	public net.minecraft.network.protocol.@Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+		return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+	}
+
+	/** Sends a block update when the seat header changed (checked every {@link #PUBLIC_PERIOD} ticks). */
+	private void publishSeats(ServerLevel level) {
+		List<TablePublic.SeatPub> now = publicSeatList();
+		if (now.equals(publishedSeats)) return;
+		publishedSeats = List.copyOf(now);
+		BlockState st = getBlockState();
+		level.sendBlockUpdated(worldPosition, st, st, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+	}
+
+	/** Client: the seat header of the last update (indexed by seat, null = empty; empty array before the first). */
+	public TablePublic.@Nullable SeatPub[] clientSeats() {
+		return clientSeats;
+	}
+
+	/** Client: bumps whenever {@link #clientSeats} changes (render caches key on it). */
+	public int clientSeatsSeq() {
+		return clientSeatsSeq;
+	}
+
 	// ---- persistence --------------------------------------------------------------------------
 
 	@Override
@@ -899,6 +981,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		openStakes.clear();
 		input.read(STAKES_KEY, OpenStake.CODEC.listOf()).ifPresent(list -> list.forEach(s -> openStakes.put(s.key(), s)));
 		refundPending = !openStakes.isEmpty();
+		input.read(TablePublic.KEY, CompoundTag.CODEC).ifPresent(t -> {
+			CompoundTag wrap = new CompoundTag();
+			wrap.put(TablePublic.KEY, t);
+			TablePublic.SeatPub[] read = TablePublic.readSeats(wrap);
+			if (!java.util.Arrays.equals(read, clientSeats)) {
+				clientSeats = read;
+				clientSeatsSeq++;
+			}
+		});
 	}
 
 	// ---- menu ---------------------------------------------------------------------------------

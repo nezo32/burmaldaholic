@@ -361,6 +361,28 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.fx.skip` | Click to skip | Нажмите, чтобы пропустить |
 | `gui.burmaldaholic.fx.nearby_float` | %1$s +%2$s | %1$s +%2$s |
 
+### In-world board (ui-v2.md §7; lane W — shared lines of the table boards and seat plates)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.core.board.title_limits` | %1$s · %2$s–%3$s | %1$s · %2$s–%3$s |
+| `gui.burmaldaholic.core.board.dealer` | Dealer %1$s | Дилер %1$s |
+| `gui.burmaldaholic.core.board.dealer_draws` | Dealer draws | Дилер берёт карту |
+| `gui.burmaldaholic.core.board.turn` | %1$s's turn | Ход: %1$s |
+| `gui.burmaldaholic.core.board.turn_seconds` | %1$s's turn · %2$s s | Ход: %1$s · %2$s с |
+| `gui.burmaldaholic.core.board.seconds` | %1$s s | %1$s с |
+| `gui.burmaldaholic.core.board.place_bets` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.core.board.no_more_bets` | No more bets | Ставок больше нет |
+| `gui.burmaldaholic.core.board.waiting` | Waiting for players | Ждём игроков |
+| `gui.burmaldaholic.core.board.result_line` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.core.board.bet_total` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.core.board.on_bets.p1` | %1$s on %2$s bet | %1$s на %2$s ставке |
+| `gui.burmaldaholic.core.board.on_bets.p21` | %1$s on %2$s bets | %1$s на %2$s ставке |
+| `gui.burmaldaholic.core.board.on_bets.p2` | %1$s on %2$s bets | %1$s на %2$s ставках |
+| `gui.burmaldaholic.core.board.on_bets.p5` | %1$s on %2$s bets | %1$s на %2$s ставках |
+| `gui.burmaldaholic.core.board.lost` | lost | проигрыш |
+| `gui.burmaldaholic.core.board.push` | push | ничья |
+
 ### Messages
 
 | Key | EN | RU |
