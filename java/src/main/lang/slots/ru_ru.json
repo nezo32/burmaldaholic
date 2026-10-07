@@ -46,6 +46,8 @@
 	"gui.burmaldaholic.slots.symbol.creeper": "Крипер",
 	"gui.burmaldaholic.slots.spin": "Крутить (%1$s)",
 	"gui.burmaldaholic.slots.stop": "Стоп",
+	"gui.burmaldaholic.slots.locked": "Закрыто",
+	"gui.burmaldaholic.slots.vip_lock": "Нужен ВИП-статус «%1$s», у вас «%2$s»",
 	"gui.burmaldaholic.slots.skip": "Пропустить",
 	"gui.burmaldaholic.slots.bet": "Ставка: %1$s",
 	"gui.burmaldaholic.slots.bet_down": "Меньше",

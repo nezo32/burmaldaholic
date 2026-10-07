@@ -37,6 +37,49 @@ class ExtrasRulesTest {
 		assertEquals("1.4", Payouts.formatMultiplier(1.4));
 	}
 
+	// ---- minimum bets: a win always pays at least +1 -------------------------------------------
+
+	@Test
+	void minStakeForProfitKeepsEveryWinAboveOneChip() {
+		assertEquals(2, Payouts.minStakeForProfit(1.96), "floor(1 × 0.96) = 0, floor(2 × 0.96) = 1");
+		assertEquals(1, Payouts.minStakeForProfit(2.0));
+		assertEquals(1, Payouts.minStakeForProfit(0, 0.5, 1.0, 2.0, 10), "losses and pushes do not count");
+		assertEquals(3, Payouts.minStakeForProfit(1.4, 1.6), "floor(2 × 1.4) = 2 is a push; floor(3 × 1.4) = 4");
+		assertEquals(100, Payouts.minStakeForProfit(1.01));
+		assertEquals(Payouts.MAX_MIN_STAKE, Payouts.minStakeForProfit(1.0000001));
+	}
+
+	@Test
+	void coinFlipMinimumBetPaysAtLeastOne() {
+		assertEquals(2, CoinFlip.minBet(CoinFlip.DEFAULT_PAYOUT));
+		assertEquals(2, CoinFlip.minBet(0.5), "the config floor: floor(2 × 0.5) = 1");
+		assertEquals(1, CoinFlip.minBet(1.0));
+		for (double payout = 0.5; payout <= 1.0; payout += 0.01) {
+			long min = CoinFlip.minBet(payout);
+			for (long stake = min; stake < min + 200; stake++) {
+				assertTrue(CoinFlip.winnings(stake, true, payout) >= 1, "payout " + payout + " stake " + stake);
+			}
+		}
+		// normal bets keep the documented 0.96:1 (RTP 98 %) exactly
+		assertEquals(96, CoinFlip.winnings(100, true, CoinFlip.DEFAULT_PAYOUT));
+	}
+
+	@Test
+	void plinkoAndWheelMinimumBetsPayAtLeastOne() {
+		assertEquals(3, Plinko.minBet(Plinko.Risk.LOW.defaults()));
+		assertEquals(1, Plinko.minBet(Plinko.Risk.MEDIUM.defaults()));
+		assertEquals(1, Plinko.minBet(Plinko.Risk.HIGH.defaults()));
+		long min = Plinko.minBet(Plinko.Risk.LOW.defaults(), Plinko.Risk.MEDIUM.defaults(), Plinko.Risk.HIGH.defaults());
+		assertEquals(3, min);
+		for (Plinko.Risk risk : Plinko.Risk.values()) {
+			for (double m : risk.defaults()) {
+				if (m > 1) assertTrue(Payouts.floorPay(min, m) >= min + 1, risk + " " + m);
+			}
+		}
+		dev.nezo.burmaldaholic.core.config.sections.ExtrasConfig.Wheel cfg = new dev.nezo.burmaldaholic.core.config.sections.ExtrasConfig.Wheel();
+		assertEquals(1, new Wheel(cfg.segments, cfg.multipliers).minBet(), "the default wheel wins are whole multiples");
+	}
+
 	// ---- coin flip ----------------------------------------------------------------------------
 
 	@Test

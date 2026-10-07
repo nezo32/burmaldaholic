@@ -929,7 +929,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putString("machine", m.id);
 		t.putBoolean("enabled", CasinoConfig.slots().enabled && cfg.enabled);
 		t.putInt("min_vip", cfg.minVipTier);
-		t.putBoolean("vip_ok", CoreServices.vip().tier(server, viewer.getUUID()) >= cfg.minVipTier);
+		int vip = CoreServices.vip().tier(server, viewer.getUUID());
+		t.putInt("vip", vip); // the viewer's tier: the locked machine says "requires X — you are Y"
+		t.putBoolean("vip_ok", vip >= cfg.minVipTier);
 		t.putBoolean("owned", owned);
 		List<Long> offered = offeredBets(viewer);
 		t.putLongArray("bets", offered.stream().mapToLong(Long::longValue).toArray());

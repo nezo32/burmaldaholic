@@ -268,6 +268,10 @@ final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldah
 		PlinkoDraw.bins(g, font, bx, by, table, lit, press, pop, false);
 		// right column wells
 		int rx = leftPos + RX;
+		// one dark plate under the whole column (board edge → frame): the backdrop's neon grid lines no longer cross the
+		// controls, the bet line, "Last balls" and the balance
+		int colX = leftPos + BX + PlinkoDraw.BOARD_W + 1;
+		g.fill(colX, topPos + 26, leftPos + Scene.W - 12, topPos + Scene.H - 12, 0xE0120A20);
 		Scene.inset(g, rx - 4, topPos + 28, 96, 66);
 		Scene.inset(g, rx - 4, topPos + 98, 96, 30);
 		if (battle) {

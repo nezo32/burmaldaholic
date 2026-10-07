@@ -93,15 +93,25 @@ public final class ExtrasGames {
 
 	/** Takes a chip stake ({@code kind = chips}) or a pawn stake. */
 	public static Result<Stake> takeStake(ServerPlayer player, String game, CompoundTag args, long maxValue, boolean pawnAllowed) {
+		return takeStake(player, game, args, 1, maxValue, pawnAllowed);
+	}
+
+	/** Same, with a minimum stake value {@code minValue} (chips, and the appraised value of a pawn). */
+	public static Result<Stake> takeStake(ServerPlayer player, String game, CompoundTag args, long minValue, long maxValue, boolean pawnAllowed) {
 		String kind = args.getStringOr("stake", "chips");
 		long amount = args.getLongOr("amount", 0);
 		if (kind.equals("chips")) {
-			return Stakes.chips(player, game, amount, 1, maxValue);
+			return Stakes.chips(player, game, amount, Math.max(1, minValue), maxValue);
 		}
 		if (!pawnAllowed) {
 			return Result.fail(error("invalid_bet_position"));
 		}
-		return takePawn(player, game, kind, amount, maxValue);
+		Result<Stake> r = takePawn(player, game, kind, amount, maxValue);
+		if (r.isOk() && r.value().value() < minValue) {
+			Stakes.refund(player, r.value());
+			return Result.fail(Component.translatable("gui.burmaldaholic.error.bet_too_low", Texts.number(minValue)));
+		}
+		return r;
 	}
 
 	/** Pawn availability flags + current level for the stake selector (UI.md §9). */
@@ -116,8 +126,12 @@ public final class ExtrasGames {
 	}
 
 	public static void writeLimits(CompoundTag tag, ServerPlayer player, long max) {
+		writeLimits(tag, player, 1, max);
+	}
+
+	public static void writeLimits(CompoundTag tag, ServerPlayer player, long min, long max) {
 		tag.putLong("balance", Economies.get().balance(player));
-		tag.putLong("min", 1);
+		tag.putLong("min", Math.max(1, min));
 		tag.putLong("max", Math.max(1, max));
 	}
 
