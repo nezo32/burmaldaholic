@@ -325,7 +325,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 	private static void openHub(ClientGameTestContext context) {
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(2);
-		context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_B);
+		context.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_B);
 		waitForScreen(context, named("CasinoMenuScreen"), "key B opens the Casino Menu");
 		click(context, labelled("gui.burmaldaholic.menu.challenges"), "Challenges tab");
 		context.waitTicks(10);
