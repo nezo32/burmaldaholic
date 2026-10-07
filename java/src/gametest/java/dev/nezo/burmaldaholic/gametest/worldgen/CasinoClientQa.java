@@ -213,7 +213,7 @@ public final class CasinoClientQa {
 
 	public static void closeScreen(ClientGameTestContext context) {
 		if (context.computeOnClient(mc -> mc.gui.screen() != null)) {
-			context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE);
+			context.getInput().pressKey(256); // GLFW_KEY_ESCAPE
 			safeWait(context, mc -> mc.gui.screen() == null, 40);
 		}
 	}

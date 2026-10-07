@@ -353,7 +353,7 @@ public class CasinoBuildingGameTests {
 		CasinoQa.loadChunks(level, at, 1);
 		return CasinoQa.context(level.getSeed(), server.registryAccess(), level.getChunkSource().getGenerator(),
 			level.getChunkSource().getGenerator().getBiomeSource(), level.getChunkSource().randomState(),
-			level.getChunkSource().randomState().sampler(), server.getStructureManager(), CasinoQa.chunk(at), (LevelHeightAccessor) level,
+			CasinoQa.climateSampler(level.getChunkSource().randomState()), dev.nezo.burmaldaholic.worldgen.CasinoBuilder.templates(server), CasinoQa.chunk(at), (LevelHeightAccessor) level,
 			(java.util.function.Predicate<Holder<net.minecraft.world.level.biome.Biome>>) b -> true);
 	}
 
@@ -411,7 +411,7 @@ public class CasinoBuildingGameTests {
 		List<Integer> nearest = new ArrayList<>();
 		StringBuilder perSeed = new StringBuilder();
 		for (long seed : seeds) {
-			RandomState rs = RandomState.create(((NoiseBasedChunkGenerator) gen).generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
+			RandomState rs = CasinoQa.randomState(((NoiseBasedChunkGenerator) gen).generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
 			ChunkGeneratorStructureState state = gen.createState(sets, rs, seed);
 			int spacing = placement.spacing();
 			int rc = radius / 16;
@@ -472,8 +472,8 @@ public class CasinoBuildingGameTests {
 			}
 			StructureSet.StructureSelectionEntry sel = options.get(index);
 			Holder<Structure> holder = sel.structure();
-			StructureStart start = CasinoQa.generate(holder, seed, Level.OVERWORLD, reg, gen, gen.getBiomeSource(), rs, rs.sampler(),
-				server.getStructureManager(), chunk, height, (java.util.function.Predicate<Holder<net.minecraft.world.level.biome.Biome>>) holder.value().biomes()::contains);
+			StructureStart start = CasinoQa.generate(holder, seed, Level.OVERWORLD, reg, gen, gen.getBiomeSource(), rs, CasinoQa.climateSampler(rs),
+				dev.nezo.burmaldaholic.worldgen.CasinoBuilder.templates(server), chunk, height, (java.util.function.Predicate<Holder<net.minecraft.world.level.biome.Biome>>) holder.value().biomes()::contains);
 			if (start.isValid()) {
 				return true;
 			}

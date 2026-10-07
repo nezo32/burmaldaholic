@@ -605,7 +605,11 @@ public final class CasinoQa {
 			java.lang.reflect.Field pending = net.minecraft.server.network.ServerGamePacketListenerImpl.class.getDeclaredField("awaitingPositionFromClient");
 			pending.setAccessible(true);
 			if (pending.get(p.connection) != null) {
-				p.connection.handleAcceptTeleportPacket(new net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket(f.getInt(p.connection)));
+				// 26.2: (id); 26.3: (id, x, y, z, yRot, xRot) — the client echoes where it was put
+				Constructor<?> c = net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket.class.getConstructors()[0];
+				Object[] args = c.getParameterCount() == 1 ? new Object[] {f.getInt(p.connection)}
+					: new Object[] {f.getInt(p.connection), p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot()};
+				p.connection.handleAcceptTeleportPacket((net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket) c.newInstance(args));
 			}
 		} catch (ReflectiveOperationException e) {
 			throw new AssertionError("cannot confirm the join teleport of the mock player", e);
@@ -932,7 +936,7 @@ public final class CasinoQa {
 				continue;
 			}
 			Class<?> last = m.getParameterTypes()[6];
-			Object ctx = last.isInstance(rs) ? rs : rs.sampler();
+			Object ctx = last.isInstance(rs) ? rs : climateSampler(rs);
 			try {
 				return m.invoke(gen.getBiomeSource(), x, y, z, 0, test, net.minecraft.util.RandomSource.create(0), ctx) != null;
 			} catch (ReflectiveOperationException e) {
@@ -940,6 +944,44 @@ public final class CasinoQa {
 			}
 		}
 		throw new AssertionError("no findBiomeHorizontal(…7) overload");
+	}
+
+	/** The climate sampler of a random state: {@code sampler()} on 26.2, {@code createClimateSampler(EMPTY_UNCACHED)} on 26.3. */
+	public static Object climateSampler(net.minecraft.world.level.levelgen.RandomState rs) {
+		try {
+			for (Method m : rs.getClass().getMethods()) {
+				if (m.getName().equals("sampler") && m.getParameterCount() == 0) {
+					return m.invoke(rs);
+				}
+			}
+			for (Method m : rs.getClass().getMethods()) {
+				if (m.getName().equals("createClimateSampler") && m.getParameterCount() == 1) {
+					Class<?> ctx = m.getParameterTypes()[0];
+					return m.invoke(rs, ctx.getField("EMPTY_UNCACHED").get(null));
+				}
+			}
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("climate sampler", e);
+		}
+		throw new AssertionError("no climate sampler accessor on RandomState");
+	}
+
+	/** {@code RandomState.create(settings, noises, seed)} — the argument order differs between 26.2 and 26.3. */
+	public static net.minecraft.world.level.levelgen.RandomState randomState(net.minecraft.world.level.levelgen.NoiseGeneratorSettings settings,
+			net.minecraft.core.HolderGetter<?> noises, long seed) {
+		for (Method m : net.minecraft.world.level.levelgen.RandomState.class.getMethods()) {
+			if (m.getName().equals("create") && m.getParameterCount() == 3) {
+				Object[] args = fill(m.getParameterTypes(), List.of(settings, noises), seed);
+				if (args != null) {
+					try {
+						return (net.minecraft.world.level.levelgen.RandomState) m.invoke(null, args);
+					} catch (ReflectiveOperationException e) {
+						throw new AssertionError("RandomState.create", e);
+					}
+				}
+			}
+		}
+		throw new AssertionError("no RandomState.create(3) overload");
 	}
 
 	/** Quantile of a sorted copy. */
