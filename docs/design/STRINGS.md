@@ -1324,6 +1324,10 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.odds_multiple` | Odds must be a multiple of %1$s | Ставка на коэффициент должна быть кратна %1$s |
 | `gui.burmaldaholic.craps.odds_max` | Max odds: %1$s | Макс. коэффициент: %1$s |
 | `gui.burmaldaholic.craps.line_only_come_out` | Line bets only on the come-out roll | Ставки на линию — только на первом броске |
+| `gui.burmaldaholic.craps.come_needs_point` | Come needs a point: bet the Pass Line first | Кам — только после поинта: сначала пасс-лайн |
+| `gui.burmaldaholic.craps.already_placed` | You already have this bet: Undo to change it | Эта ставка уже есть: верните её, чтобы изменить |
+| `gui.burmaldaholic.craps.numbers_come_out` | Numbers hold Come bets after the point: bet Pass Line | Числа — для кам-ставок после поинта: ставьте на пасс-лайн |
+| `gui.burmaldaholic.craps.numbers_need_come` | Put chips on COME: the next roll moves them to a number | Ставьте на «Кам»: бросок перенесёт фишки на число |
 | `gui.burmaldaholic.craps.need_line_bet` | The shooter needs a Pass or Don't Pass bet | Бросающему нужна ставка на пасс-лайн или не-пасс |
 | `gui.burmaldaholic.craps.rules.1` | Pass: 7 or 11 wins, 2, 3, 12 loses. Otherwise hit the point before a 7. | Пасс-лайн: 7 или 11 — победа, 2, 3, 12 — проигрыш. Иначе нужно выбросить поинт раньше семёрки. |
 | `gui.burmaldaholic.craps.rules.2` | Field: 3, 4, 9, 10, 11 pay 1:1 · 2 pays 2:1 · 12 pays 3:1 | Филд: 3, 4, 9, 10, 11 платят 1:1 · 2 платит 2:1 · 12 платит 3:1 |

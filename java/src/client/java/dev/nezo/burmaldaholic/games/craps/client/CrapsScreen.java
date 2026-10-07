@@ -278,6 +278,17 @@ public class CrapsScreen extends CasinoTableScreen {
 				}
 			}
 		}
+		// v0.1.2: never leave a chip the player cannot afford selected (a fresh player has 50 chips; every click on the
+		// felt said "not enough chips"): the largest chip that fits the balance
+		long bal = balance();
+		if (selectedChip > bal && state().contains("balance")) {
+			for (int k = CHIPS.length - 1; k >= 0; k--) {
+				if (CHIPS[k] <= bal && CHIPS[k] >= minBet()) {
+					selectedChip = CHIPS[k];
+					break;
+				}
+			}
+		}
 		for (int i = 0; i < CHIPS.length; i++) {
 			int d = CHIPS[i];
 			int x = compact() ? ox + 4 + i * 25 : ox + 8 + i * 27;
@@ -371,11 +382,24 @@ public class CrapsScreen extends CasinoTableScreen {
 			FxSounds.play("chip_place", 1f, 1.1f);
 			return;
 		}
-		if ((a.kind().equals("pass") || a.kind().equals("dont_pass")) && state().getIntOr("point", 0) != 0) {
-			showError(Component.translatable(K + "line_only_come_out"));
-		} else {
-			showError(Component.translatable("gui.burmaldaholic.error.invalid_bet_position"));
+		showError(whyNot(a.kind(), state().getIntOr("point", 0), state().getBooleanOr("enabled", true)));
+	}
+
+	/**
+	 * Why a click on the felt put nothing down (v0.1.2: players read a bare "invalid bet position" as "craps won't let me
+	 * bet"): the bet only opens in the other phase, the player already has it, or the numbers are not a bet of their own.
+	 */
+	static Component whyNot(String kind, int point, boolean enabled) {
+		if (!enabled) {
+			return Component.translatable("gui.burmaldaholic.error.disabled");
 		}
+		return switch (kind) {
+			case "pass", "dont_pass" -> Component.translatable(point != 0 ? K + "line_only_come_out" : K + "already_placed");
+			case "come", "dont_come" -> Component.translatable(point == 0 ? K + "come_needs_point" : K + "already_placed");
+			case "field" -> Component.translatable(K + "already_placed");
+			case "point" -> Component.translatable(point == 0 ? K + "numbers_come_out" : K + "numbers_need_come");
+			default -> Component.translatable("gui.burmaldaholic.error.invalid_bet_position");
+		};
 	}
 
 	// ---- rendering ----------------------------------------------------------------------------------------------------

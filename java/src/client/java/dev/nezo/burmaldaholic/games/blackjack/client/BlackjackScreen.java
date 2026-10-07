@@ -363,6 +363,10 @@ public class BlackjackScreen extends CardTableScreen {
 				long max = maxAffordable();
 				if (pendingBet + CHIPS[i] > max) {
 					FxSounds.play("ui_deny", 1f);
+					// v0.1.2: say why the chip stays in the rack (a bare deny sound read as "blackjack won't let me bet")
+					showError(balance() < maxBet() || maxBet() <= 0
+						? Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(balance()))
+						: Component.translatable("gui.burmaldaholic.error.table_max", Texts.number(maxBet())));
 				} else {
 					pendingBet += CHIPS[i];
 					FxSounds.play("chip_place", 1f);
