@@ -64,7 +64,7 @@ public final class PlinkoBattleMachine {
 		pvp.putBoolean("bots", bots);
 		pvp.putInt("bots_max", bots ? CasinoConfig.bots().pvp.maxPerMatch : 0);
 		PvpService service = Pvp.service();
-		Optional<PvpMatch> mine = service.matchOf(viewer.getUUID());
+		Optional<PvpMatch> mine = service.matchOf(viewer.getUUID()).filter(x -> x.state().live()); // a settled match is history
 		mine.ifPresent(match -> {
 			pvp.putString("in_match", match.id);
 			pvp.putBoolean("host", viewer.getUUID().equals(match.host()));

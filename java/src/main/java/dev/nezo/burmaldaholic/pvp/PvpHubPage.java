@@ -234,12 +234,17 @@ public final class PvpHubPage implements CasinoMenu.Page {
 		out.line(Component.translatable("gui.burmaldaholic.pvp.hub.machine_hint"), 0xAAAAAA);
 	}
 
-	/** Enabled modes that can be started from the hub (anchor-less: Coin Flip Duel, Scratch Showdown). */
+	/**
+	 * Enabled modes that can be started from the hub: every mode (v0.1.2). The machine modes (Slot Showdown, Plinko
+	 * Battle, Wheel Party) were machine-only, so Challenges offered Coin Flip Duel and Scratch Showdown only and the
+	 * other cards did nothing; from the hub they play anchor-less (a duel, or a lobby at the host's position) with the
+	 * mode's default set-up, exactly like {@code /casino pvp challenge <player> <game> <amount>}.
+	 */
 	static List<PvpMode<?, ?>> duelModes() {
 		List<PvpMode<?, ?>> out = new ArrayList<>();
 		for (PvpMode<?, ?> m : PvpModes.all()) {
 			try {
-				if (m.anchor() == AnchorKind.NONE && m.enabled()) {
+				if (m.enabled()) {
 					out.add(m);
 				}
 			} catch (RuntimeException ignored) {
@@ -456,6 +461,10 @@ public final class PvpHubPage implements CasinoMenu.Page {
 			}
 			if (o.has("stake")) {
 				o.addProperty("stake", stake);
+			}
+			// Wheel Party: the cap (max stake per player) must allow the stake the host picked
+			if (o.has("cap") && o.get("cap").isJsonPrimitive() && o.get("cap").getAsLong() < stake) {
+				o.addProperty("cap", stake);
 			}
 		}
 		return json;

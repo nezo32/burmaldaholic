@@ -1912,7 +1912,7 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.pvp.hub.join` | Join | Войти |
 | `gui.burmaldaholic.pvp.hub.new_match` | New match… | Новый матч… |
 | `gui.burmaldaholic.pvp.hub.rivals` | Head-to-head | Личные встречи |
-| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party start at their machines | Битва автоматов, битва Плинко и «Колесо на всех» начинаются у самих автоматов |
+| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party can also start at their machines | Битву автоматов, битву Плинко и «Колесо на всех» можно начать и у самих автоматов |
 | `gui.burmaldaholic.pvp.new.title` | New match | Новый матч |
 | `gui.burmaldaholic.pvp.new.opponent` | Opponent | Соперник |
 | `gui.burmaldaholic.pvp.new.open_lobby` | Open lobby (anyone nearby) | Открытое лобби (все, кто рядом) |
@@ -2031,7 +2031,7 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.pvp.hub.show` | Show match | Показать матч |
 | `gui.burmaldaholic.pvp.hub.withdraw` | Withdraw challenge | Отозвать вызов |
 | `gui.burmaldaholic.pvp.new.pick_game` | Pick a game | Выберите игру |
-| `gui.burmaldaholic.pvp.new.no_games` | No duel games are available right now | Сейчас нет доступных дуэлей |
+| `gui.burmaldaholic.pvp.new.no_games` | No PvP games are available right now | Сейчас нет доступных дуэлей |
 | `gui.burmaldaholic.pvp.new.stake_hint` | Type the stake in the box next to your opponent (%1$s – %2$s) | Впишите ставку в поле рядом с соперником (%1$s – %2$s) |
 | `gui.burmaldaholic.pvp.admin.none` | No PvP matches right now | Сейчас PvP-матчей нет |
 | `gui.burmaldaholic.pvp.admin.quarantine` | Quarantined match records (escrow still in the bank, see the server log) | Матчи в карантине (ставки остаются в банке, см. журнал сервера) |
