@@ -223,6 +223,24 @@ export function pill(colour, newest = false) {
   return img;
 }
 
+/**
+ * "Last numbers" pill of the v2 wheel column (23 × 13, lane C): pocket colour with an ink edge (gold for the newest),
+ * the shape marker on the left (red = disc, black = ring, zero = diamond: never colour alone); the number is drawn by
+ * the screen in the vanilla font right of the marker.
+ */
+export function historyPill(colour, newest = false) {
+  const img = image(23, 13);
+  const pc = POCKET[colour];
+  rrect(img, 0, 0, 23, 13, newest ? GOLD[1] : INK, 2);
+  rrect(img, 1, 1, 21, 11, pc[1], 1);
+  R(img, 2, 1, 19, 1, pc[0]);
+  R(img, 2, 11, 19, 1, pc[3]);
+  if (colour === 'red') disc(img, 5, 6.5, 2.2, c(BONE));
+  else if (colour === 'black') ring(img, 5, 6.5, 2.4, 1, c(BONE));
+  else polygon(img, [[5, 3.5], [8, 6.5], [5, 9.5], [2, 6.5]], BONE);
+  return img;
+}
+
 /** Spark: 7 × 7, 4 frames (deflector kick, dice wall hit). */
 export function spark() {
   return vstrip([0, 1, 2, 3].map((f) => {

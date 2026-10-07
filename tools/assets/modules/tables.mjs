@@ -186,6 +186,15 @@ export default function generate() {
     sprite(`roulette/pill_${col}`, Ro.pill(col));
     sprite(`roulette/pill_${col}_new`, Ro.pill(col, true));
   }
+  // v2 wheel column (lane C): medium bowls per theme + 74 head frames per size, "Last numbers" pills
+  for (const [tag, bowlG, headG] of [['104', W.BOWL_M2, W.HEAD_M2], ['144', W.BOWL_M3, W.HEAD_M3]]) {
+    gui(`roulette/wheel_head_m${tag}`, sheet(Array.from({ length: HEAD_FRAMES }, (_, i) => W.head(headG, i * pitch)), HEAD_COLS));
+    for (const t of THEME_ORDER) gui(`roulette/wheel_bowl_m${tag}_${t}`, W.bowl(bowlG, t));
+  }
+  for (const col of ['red', 'black', 'green']) {
+    sprite(`roulette/history_pill_${col}`, Ro.historyPill(col));
+    sprite(`roulette/history_pill_${col}_new`, Ro.historyPill(col, true));
+  }
   sprite('roulette/cell_hover', Ro.cellHover(), nine(12, 12, 3));
   sprite('roulette/cell_neighbour', Ro.cellNeighbour(), nine(12, 12, 3));
   out.push(png(`${SPR}/roulette/cell_win.png`, Ro.cellWin()));
