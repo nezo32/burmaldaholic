@@ -18,7 +18,10 @@ import net.minecraft.client.gui.screens.Screen;
  * wrap their drawing with {@link #push} / {@link #pop}.
  */
 public interface FitScaled {
-	/** Drawing factor of the screen's GUI onto the real GUI: 1 when the full layout fits, else {@code k / guiScale} &lt; 1. */
+	/**
+	 * Drawing factor of the screen's GUI onto the real GUI: 1 when the full layout fits, else {@code k / guiScale} (&lt; 1
+	 * for the compact layout; &gt; 1 for a table UI v2 screen stepped up on a big GUI, {@link #applyViewport}).
+	 */
 	float fitScale();
 
 	/** The factor of the open screen (1 for any other screen). */
@@ -54,10 +57,32 @@ public interface FitScaled {
 		return k / (float) gs;
 	}
 
+	/**
+	 * Table UI v2 (docs/architecture/ui-v2.md D2, D3): resizes {@code screen} into the virtual GUI of
+	 * {@link dev.nezo.burmaldaholic.core.ui.v2.Viewport} — the player's GUI kept between 320 × 240 and 539 px high, stepped
+	 * down below, stepped UP by whole factors from 540 px high. The returned viewport's {@code factor} (may be &gt; 1) is
+	 * what the screen reports as {@link #fitScale()}: the entrance scales the pose by it and the mouse mixin divides by it.
+	 * Same {@code memo} contract as {@link #apply}.
+	 */
+	static dev.nezo.burmaldaholic.core.ui.v2.Viewport applyViewport(Screen screen, int[] memo) {
+		if (screen.width != memo[2] || screen.height != memo[3]) {
+			memo[0] = screen.width;
+			memo[1] = screen.height;
+		}
+		Window w = Minecraft.getInstance().getWindow();
+		int gs = Math.max(1, w.getGuiScale());
+		dev.nezo.burmaldaholic.core.ui.v2.Viewport vp = dev.nezo.burmaldaholic.core.ui.v2.Viewport.of(w.getWidth(), w.getHeight(), gs);
+		screen.width = vp.w();
+		screen.height = vp.h();
+		memo[2] = screen.width;
+		memo[3] = screen.height;
+		return vp;
+	}
+
 	/** Scales the pose for drawing in {@code screen}'s GUI; returns true when it pushed (then call {@link #pop}). */
 	static boolean push(GuiGraphicsExtractor g, Screen screen) {
 		float f = screen instanceof FitScaled s ? s.fitScale() : 1f;
-		if (f >= 1f) return false;
+		if (f == 1f) return false;
 		g.pose().pushMatrix();
 		g.pose().scale(f, f);
 		return true;
