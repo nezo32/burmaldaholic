@@ -37,7 +37,7 @@ public class CasinoModeDefaultGameTests {
 				helper.assertTrue(storage.get(CasinoModeData.TYPE).enabled(), "fresh world is not ON");
 				storage.saveAndJoin();
 			}
-			helper.assertTrue(Boolean.TRUE.equals(storedValue(dir)), "mode.dat of a fresh world has no explicit enabled=true");
+			helper.assertTrue(stored(dir, true), "mode.dat of a fresh world has no explicit enabled=true");
 			try (SavedDataStorage storage = storage(server, dir)) {
 				CasinoMode.Boot boot = CasinoMode.bootstrap(storage, dir, null);
 				helper.assertTrue(boot == CasinoMode.Boot.STORED && storage.get(CasinoModeData.TYPE).enabled(),
@@ -64,7 +64,7 @@ public class CasinoModeDefaultGameTests {
 				helper.assertTrue(boot == CasinoMode.Boot.NEW_WORLD && !storage.get(CasinoModeData.TYPE).enabled(), "new world OFF: " + boot);
 				storage.saveAndJoin();
 			}
-			helper.assertTrue(Boolean.FALSE.equals(storedValue(dir)), "explicit OFF not written as enabled=false");
+			helper.assertTrue(stored(dir, false), "explicit OFF not written as enabled=false");
 			try (SavedDataStorage storage = storage(server, dir)) {
 				CasinoMode.Boot boot = CasinoMode.bootstrap(storage, dir, null);
 				helper.assertTrue(boot == CasinoMode.Boot.STORED && !storage.get(CasinoModeData.TYPE).enabled(),
@@ -81,7 +81,7 @@ public class CasinoModeDefaultGameTests {
 					"v0.1.1 file without a value: " + boot);
 				storage.saveAndJoin();
 			}
-			helper.assertTrue(Boolean.TRUE.equals(storedValue(dir)), "upgraded world not written back as enabled=true");
+			helper.assertTrue(stored(dir, true), "upgraded world not written back as enabled=true");
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		} finally {
@@ -104,7 +104,7 @@ public class CasinoModeDefaultGameTests {
 			server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "casino mode off");
 			helper.assertTrue(!CasinoMode.isEnabled(server), "/casino mode off did not switch the mode off");
 			server.getDataStorage().saveAndJoin();
-			helper.assertTrue(Boolean.FALSE.equals(storedValue(dataDir)), "/casino mode off not saved as enabled=false");
+			helper.assertTrue(stored(dataDir, false), "/casino mode off not saved as enabled=false");
 			try (SavedDataStorage reloaded = storage(server, dataDir)) {
 				CasinoMode.Boot boot = CasinoMode.bootstrap(reloaded, dataDir, null);
 				helper.assertTrue(boot == CasinoMode.Boot.STORED && !reloaded.get(CasinoModeData.TYPE).enabled(),
@@ -112,7 +112,7 @@ public class CasinoModeDefaultGameTests {
 			}
 			server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "casino mode on");
 			server.getDataStorage().saveAndJoin();
-			helper.assertTrue(Boolean.TRUE.equals(storedValue(dataDir)), "/casino mode on not saved as enabled=true");
+			helper.assertTrue(stored(dataDir, true), "/casino mode on not saved as enabled=true");
 		} finally {
 			CasinoMode.set(server, before);
 		}
@@ -123,14 +123,35 @@ public class CasinoModeDefaultGameTests {
 		return new SavedDataStorage(dir, server.getFixerUpper(), server.registryAccess());
 	}
 
-	/** The {@code enabled} value in mode.dat, or null if the file or the key is missing. */
-	private static Boolean storedValue(Path dataDir) {
+	/**
+	 * Whether mode.dat holds an explicit {@code enabled} = {@code expected}. Bootstrap's own {@code scheduleSave()}
+	 * writes asynchronously, and a later {@code saveAndJoin()} with nothing dirty left does not wait for that
+	 * write, so a missing, half-written or older file is re-read for up to 5 s.
+	 */
+	private static boolean stored(Path dataDir, boolean expected) {
 		Path file = dataDir.resolve("burmaldaholic/mode.dat");
-		if (!Files.isRegularFile(file)) {
-			return null;
+		long deadline = System.currentTimeMillis() + 5000;
+		while (true) {
+			try {
+				if (Files.isRegularFile(file)) {
+					CompoundTag data = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap()).getCompoundOrEmpty("data");
+					if (data.contains("enabled") && data.getBooleanOr("enabled", !expected) == expected) {
+						return true;
+					}
+				}
+			} catch (IOException e) {
+				// still being written
+			}
+			if (System.currentTimeMillis() > deadline) {
+				return false;
+			}
+			try {
+				Thread.sleep(20);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return false;
+			}
 		}
-		CompoundTag data = read(file).getCompoundOrEmpty("data");
-		return data.contains("enabled") ? data.getBooleanOr("enabled", false) : null;
 	}
 
 	private static CompoundTag read(Path file) {
