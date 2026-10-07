@@ -151,6 +151,7 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 			rollOnce(f, pos, rolled % 2 == 0);
 		}
 		int pt = point(f, pos);
+		context(f).waitTicks(60); // the throw, the puck and the chip beat
 		f.shot(tag + "_point");
 
 		// 5. odds behind the Pass line: click the odds lane
@@ -164,6 +165,7 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 		f.click(CrapsLayout.FIELD);
 		f.waitServer(pos, CrapsTableBlockEntity.class, be -> be.table().betsOf(playerId(f)).stream().anyMatch(b -> b.kind() == BetKind.FIELD),
 			"Field bet");
+		f.waitChrome(c -> c.bet.toolGate("undo").enabled(), "Undo enabled after the Field bet (status: " + f.status() + ")");
 		f.click("tool.undo");
 		f.waitServer(pos, CrapsTableBlockEntity.class, be -> be.table().betsOf(playerId(f)).stream().noneMatch(b -> b.kind() == BetKind.FIELD),
 			"Field taken back by Undo");
@@ -174,7 +176,7 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 			if (++rolled > MAX_ROLLS) throw new AssertionError("point " + pt + " unresolved after " + MAX_ROLLS + " rolls");
 			rollOnce(f, pos, false);
 		}
-		context(f).waitTicks(30); // the chip beat + the banner
+		context(f).waitTicks(36); // the chip beat + the banner
 		f.shot(tag + "_resolved");
 		f.close();
 		// leaving plays any travelled Come bet out: the seat frees, no stake stays open
