@@ -403,6 +403,12 @@ Bedrock ActionForm "Challenges": body = record line (+ nemesis line); buttons: o
 lobbies nearby (n)* · *New match…* · *Head-to-head* · *Dice Duel* (existing flow) · Back.
 - *New match…* → ActionForm of duel-capable modes (Coin Flip Duel, Scratch Showdown) + a body line
   explaining that machine modes start at their machines → mode set-up ModalForm (§4.4, §8.4).
+  **Java (v0.1.2):** every enabled mode is offered (its hub card opens *New match* for it): Slot Showdown,
+  Plinko Battle and Wheel Party then play anchor-less with the mode's default set-up (Copper table; Low risk
+  and the middle ball count; Wheel cap = max(default, stake)) — a duel against a nearby player or a house
+  bot, or a lobby at the host's position — exactly like `/casino pvp challenge <player> <game> <amount>`.
+  The machines keep their own entries with the full set-up. A settled match (rematch window / history) never
+  blocks the machines' entries, and `matchOf` returns the live match before a settled one.
 - *Head-to-head* → ActionForm body listing up to 10 rivals `Name: W–L · net N`, button Back.
 - Settings page gains toggle *Accept PvP challenges* (`gui.burmaldaholic.pvp.settings.invites`).
 
@@ -1383,7 +1389,7 @@ joined names, %3$s chips_acc · `result.offline`/`casino_off` %1$s game, %2$s ne
 | `gui.burmaldaholic.pvp.hub.join` | Join | Войти |
 | `gui.burmaldaholic.pvp.hub.new_match` | New match… | Новый матч… |
 | `gui.burmaldaholic.pvp.hub.rivals` | Head-to-head | Личные встречи |
-| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party start at their machines | Битва автоматов, битва Плинко и «Колесо на всех» начинаются у самих автоматов |
+| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party can also start at their machines | Битву автоматов, битву Плинко и «Колесо на всех» можно начать и у самих автоматов |
 | `gui.burmaldaholic.pvp.new.title` | New match | Новый матч |
 | `gui.burmaldaholic.pvp.new.opponent` | Opponent | Соперник |
 | `gui.burmaldaholic.pvp.new.open_lobby` | Open lobby (anyone nearby) | Открытое лобби (все, кто рядом) |

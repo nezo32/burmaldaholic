@@ -59,6 +59,9 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			context.waitTicks(20);
 			run(context, world, "coin_hub", () -> hubDuel(context, world, "coin"));
 			run(context, world, "scratch_hub", () -> hubDuel(context, world, "scratch"));
+			run(context, world, "plinko_hub", () -> hubDuel(context, world, "plinko"));
+			run(context, world, "wheel_hub", () -> hubDuel(context, world, "wheel"));
+			run(context, world, "slots_hub", () -> hubDuel(context, world, "slots"));
 			run(context, world, "scratch_accept_ui", () -> acceptFromHub(context, world));
 			run(context, world, "scratch_vs_bot", () -> hubVsBot(context, world));
 			run(context, world, "plinko_machine", () -> plinko(context, world, false));
@@ -180,7 +183,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 	}
 
 	private static Predicate<AbstractWidget> labelled(String key) {
-		return w -> key.equals(keyOf(w.getMessage())) || key.equals(tooltipKey(w));
+		return w -> !(w instanceof net.minecraft.client.gui.components.EditBox) && (key.equals(keyOf(w.getMessage())) || key.equals(tooltipKey(w)));
 	}
 
 	private static Predicate<AbstractWidget> labelText(String text) {
@@ -217,6 +220,14 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 				return null;
 			});
 			if (pos == null) {
+				// scrolled out of the page (the Casino Menu hides widgets outside its content area): scroll down, like a player
+				boolean hidden = context.computeOnClient(mc -> mc.gui.screen() != null && widgets(mc.gui.screen()).stream()
+					.anyMatch(w -> !w.visible && w.active && which.test(w)));
+				if (hidden) {
+					double[] centre = context.computeOnClient(mc -> new double[] {mc.getWindow().getWidth() / 2.0, mc.getWindow().getHeight() / 2.0});
+					context.getInput().setCursorPos(centre[0], centre[1]);
+					context.getInput().scroll(-1);
+				}
 				context.waitTicks(2);
 			}
 		}
@@ -295,8 +306,10 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		} catch (RuntimeException | AssertionError e) {
 			throw new AssertionError("the result never reached the client");
 		}
-		context.waitTicks(20);
+		waitForScreen(context, named("PvpResultScreen"), "the result window opens");
+		context.waitTicks(10);
 		context.takeScreenshot("jtest_pvp_realflow_" + m.mode + "_result");
+		closeResult(context);
 		long after = world.getServer().computeOnServer(s -> Economies.get().balance(s, me) + (rival == null ? 0 : rival.balance()));
 		long rake = m.rake();
 		if (rival != null && after != before - rake) {
@@ -346,12 +359,13 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			}
 			rival.command(cmd);
 		});
-		String screen = mode.equals("coin") ? "CoinDuelScreen" : "ScratchShowdownScreen";
+		String screen = SCREENS.get(mode);
 		if (mode.equals("coin")) {
 			// the coin flip runs itself; walk away from any Double or nothing
 			waitForScreen(context, named(screen), "the coin duel screen opens");
-			for (int i = 0; i < 400 && !world.getServer().computeOnServer(s -> Pvp.service().matchOf(me).map(x -> x.state() == MatchState.SETTLED
-				&& x.chainOf.isEmpty()).orElse(true)); i += 5) {
+			// until no Double or nothing / let it ride question is open (the chain is over: rematch window or history)
+			for (int i = 0; i < 1200 && !world.getServer().computeOnServer(s -> Pvp.service().matchOf(me).map(x -> x.state() == MatchState.SETTLED
+				&& (x.phase().equals("rematch") || x.phase().equals("history"))).orElse(true)); i += 5) {
 				if (present(context, labelled("gui.burmaldaholic.pvp.coin.walk_away"))) {
 					click(context, labelled("gui.burmaldaholic.pvp.coin.walk_away"), "walk away");
 				} else if (present(context, labelled("gui.burmaldaholic.pvp.coin.take_money"))) {
@@ -367,9 +381,25 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 				});
 				context.waitTicks(5);
 			}
+			if (!world.getServer().computeOnServer(s -> Pvp.service().matchOf(me).map(x -> x.state() == MatchState.SETTLED).orElse(true))) {
+				throw new AssertionError("the coin duel did not end");
+			}
+			closeResult(context);
 			return;
 		}
-		playOut(context, world, screen, "gui.burmaldaholic.pvp.scratch.scratch_now", rival, before);
+		playOut(context, world, screen, PRESS.get(mode), rival, before);
+	}
+
+	private static final java.util.Map<String, String> SCREENS = java.util.Map.of("coin", "CoinDuelScreen", "scratch", "ScratchShowdownScreen",
+		"plinko", "PlinkoBattleScreen", "wheel", "WheelPartyScreen", "slots", "SlotShowdownScreen");
+	private static final java.util.Map<String, String> PRESS = java.util.Map.of("scratch", "gui.burmaldaholic.pvp.scratch.scratch_now",
+		"plinko", "gui.burmaldaholic.pvp.plinko.drop_now", "slots", "gui.burmaldaholic.pvp.slots.spin_now");
+
+	/** The result window opens after the Final Reveal; the player closes it. */
+	private static void closeResult(ClientGameTestContext context) {
+		waitForScreen(context, named("PvpResultScreen"), "the result window opens");
+		click(context, labelled("gui.burmaldaholic.common.close"), "Close");
+		context.waitTicks(5);
 	}
 
 	/** The rival challenges the client from the hub; the client accepts with the hub's [Accept] button. */
@@ -395,7 +425,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		setUp(context, world, false);
 		openHub(context);
 		click(context, labelled("gui.burmaldaholic.pvp.game.scratch"), "Scratch Showdown card");
-		click(context, w -> keyOf(w.getMessage()).equals("gui.burmaldaholic.pvp.bots.opponent"), "Bot opponent");
+		click(context, labelled("gui.burmaldaholic.pvp.bots.opponent"), "Bot opponent");
 		playOut(context, world, "ScratchShowdownScreen", "gui.burmaldaholic.pvp.scratch.scratch_now", null, 0);
 	}
 

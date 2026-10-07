@@ -165,6 +165,7 @@ Bedrock `PvpModeUi.describe(step)` action-bar lines), its advancements (via `Pvp
 |------|------|
 | Presenter | `Pvp.setPresenter(...)` by the pvp module: `PvpMatchSyncPayload` → `client.pvp.PvpScreens` mode screen, fallback titles/ticker HUD segment |
 | Hub | `CasinoMenu.register(PvpHubPage)` (page id `challenges`, takes over extras' `ChallengesPage`; Dice Duel becomes a hub button) |
+| Hub modes (v0.1.2) | every enabled mode has a working card → *New match* (machine modes anchor-less with default set-up); real-flow proof: `gametest/pvp/PvpRealFlowGameTests` (mock clients through the real C2S handlers) and `PvpRealFlowClientGameTests` (real UI clicks) |
 | Invites | clickable chat `[Accept]/[Decline]` → `/casino pvp accept <id>` |
 | Machine entries | mode owners' screens/buttons |
 
