@@ -55,15 +55,17 @@ public final class ExtrasLayout {
 	 */
 	public static Scene scene(TableGrid g, int w, int h, int lastCol, boolean allowDouble) {
 		Box play = g.play;
-		int top = play.y() + 2;
-		int availH = play.h() - 4;
+		// a 2 px breath above and below the art when the PlayArea has it, else the art may touch the bars (never scale for 4 px)
+		int inset = play.h() >= h + 4 ? 2 : 0;
+		int top = play.y() + inset;
+		int availH = play.h() - 2 * inset;
 		Box left = g.columns(1, lastCol, top, availH);
 		float scale = Math.min(1f, Math.min(availH / (float) h, left.w() / (float) w));
 		if (allowDouble && availH >= 2 * h && left.w() >= 2 * w) scale = 2f;
 		int ow = Math.round(w * scale);
 		int oh = Math.round(h * scale);
 		Box object = new Box(left.x() + (left.w() - ow) / 2, top + (availH - oh) / 2, ow, oh);
-		Box side = lastCol >= 12 ? Box.EMPTY : g.columns(lastCol + 1, 12, top + 6, availH - 8);
+		Box side = lastCol >= 12 ? Box.EMPTY : g.columns(lastCol + 1, 12, play.y() + 8, play.h() - 12);
 		return new Scene(object, scale, side, rowH(g.tier));
 	}
 

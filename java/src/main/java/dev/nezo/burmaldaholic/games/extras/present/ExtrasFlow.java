@@ -42,14 +42,18 @@ public final class ExtrasFlow implements Flow<ExtrasView> {
 	@Override
 	public Gate primary(ExtrasView v) {
 		if (v.busy()) return Gate.off(action, labelKey, busyKey);
-		if (v.blockKey() != null) return Gate.off(action, labelKey, v.blockKey());
 		BetView b = v.bet();
+		Gate g;
 		if (b == null) {
-			return v.stake() > 0 || v.stakeMax() == 0 ? Gate.on(action, labelKey) : Gate.off(action, labelKey, ExtrasKeys.REASON_NO_ITEM);
+			g = v.stake() > 0 ? Gate.on(action, labelKey) : Gate.off(action, labelKey, ExtrasKeys.REASON_NO_ITEM);
+		} else if (b.myTotal() > b.balance()) {
+			// the stake is taken with the play action: it must still be covered now (a loss elsewhere since)
+			g = Gate.off(action, labelKey, V2Keys.REASON_NOT_ENOUGH);
+		} else {
+			g = BetGates.primary(action, labelKey, b);
 		}
-		// the stake is taken with the play action: it must still be covered now (a loss elsewhere since)
-		if (b.myTotal() > b.balance()) return Gate.off(action, labelKey, V2Keys.REASON_NOT_ENOUGH);
-		return BetGates.primary(action, labelKey, b);
+		// a game rule (pick a side) only matters once the bet itself is fine
+		return g.enabled() && v.blockKey() != null ? Gate.off(action, labelKey, v.blockKey()) : g;
 	}
 
 	@Override
