@@ -52,11 +52,15 @@ public final class CrapsFlow {
 			return Gate.on(BetGates.SIT, V2Keys.PRIMARY_SIT);
 		}
 		if (v.rolling()) return Gate.off("roll", K + "primary.roll", V2Keys.REASON_ROLLING);
+		boolean hasLine = v.mine().stream().anyMatch(b -> b.kind().equals("pass") || b.kind().equals("dont_pass"));
+		if (v.comeOut() && !hasLine && !v.canRoll() && v.balance() < v.min()) {
+			return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
+		}
 		if (v.youShoot()) {
 			if (v.canRoll()) return Gate.on("roll", K + "primary.roll");
 			if (v.needLine()) return Gate.off("roll", K + "primary.roll", K + "reason.need_line");
-			if (v.windowSeconds() >= 0) return Gate.off("roll", K + "primary.roll", K + "reason.roll_in", v.windowSeconds());
-			return Gate.off("roll", K + "primary.roll", K + "reason.settling");
+			if (v.windowSeconds() >= 0) return Gate.off("roll", K + "primary.roll", K + "reason.wait_roll", v.windowSeconds());
+			return Gate.off("roll", K + "primary.roll", K + "reason.wait_settling");
 		}
 		if (v.shooter().isEmpty()) {
 			if (v.balance() < v.min()) return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
