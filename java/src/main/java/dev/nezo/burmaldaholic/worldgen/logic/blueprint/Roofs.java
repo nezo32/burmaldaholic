@@ -146,9 +146,13 @@ public final class Roofs {
 			boolean last = c - a <= 1 || y == maxY;
 			for (int t = from; t <= to; t++) {
 				if (last) {
+					int mid = (a + c) / 2;
 					for (int s = a; s <= c; s++) {
 						boolean slope = (s == a || s == c) && c - a > 1;
-						BlockSpec spec = slope ? m.stairs(slopeFacing(ridgeAlongX, s == a), false) : ridge.slab("bottom");
+						// a wide strip left at maxY (truncated roof) is capped in roof slabs with a trim line on the ridge
+						boolean ridgeLine = c - a <= 2 || s == mid || (c - a) % 2 == 1 && s == mid + 1;
+						BlockSpec spec = slope ? m.stairs(slopeFacing(ridgeAlongX, s == a), false)
+							: ridgeLine ? ridge.slab("bottom") : b.palette().get(roof).slab("bottom");
 						if (c - a == 1) {
 							spec = m.stairs(slopeFacing(ridgeAlongX, s == a), false);
 						}
@@ -376,6 +380,48 @@ public final class Roofs {
 		}
 		if (baseY + height < b.size().y()) {
 			b.set(x, baseY + height, z, FINIAL);
+		}
+		return b;
+	}
+
+	/**
+	 * Lit cupola (lantern turret) on a ridge: a 3 × 3 turret centred on ({@code cx}, {@code cz}) with FRAME
+	 * corner posts and PANE sides on rows {@code baseY .. maxY-1}, a LIGHT block glowing inside on the bottom
+	 * row, and a ROOF_TRIM stair cap with a TRIM centre on row {@code maxY}.
+	 */
+	public static Blueprint cupola(Blueprint b, int cx, int cz, int baseY, int maxY) {
+		Material trim = b.palette().get(Role.ROOF_TRIM);
+		String pane = b.palette().get(Role.PANE).full();
+		for (int y = baseY; y < maxY; y++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					int x = cx + dx, z = cz + dz;
+					if (dx != 0 && dz != 0) {
+						b.set(x, y, z, Role.FRAME);
+					} else if (dx == 0 && dz == 0) {
+						b.set(x, y, z, y == baseY ? b.palette().block(Role.LIGHT) : Blueprint.AIR);
+					} else {
+						boolean alongX = dz != 0;
+						b.set(x, y, z, BlockSpec.of(pane, "east", Boolean.toString(alongX), "west", Boolean.toString(alongX),
+							"north", Boolean.toString(!alongX), "south", Boolean.toString(!alongX), "waterlogged", "false"));
+					}
+				}
+			}
+		}
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				BlockSpec cap;
+				if (dx == 0 && dz == 0) {
+					cap = b.palette().block(Role.TRIM);
+				} else if (dz == -1) {
+					cap = trim.stairs(Facing.SOUTH, false);
+				} else if (dz == 1) {
+					cap = trim.stairs(Facing.NORTH, false);
+				} else {
+					cap = trim.stairs(dx < 0 ? Facing.EAST : Facing.WEST, false);
+				}
+				b.set(cx + dx, maxY, cz + dz, cap);
+			}
 		}
 		return b;
 	}

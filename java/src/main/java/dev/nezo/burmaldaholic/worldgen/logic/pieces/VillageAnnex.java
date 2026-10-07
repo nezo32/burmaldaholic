@@ -21,23 +21,25 @@ import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Roofs;
  * the end of a village street, one template per {@link VillageStyle}, dressed in the Overworld style of that
  * village type. Layout id {@code casino/annex/<village style>}.
  *
- * <p>Footprint 17 × 17 × 17 (x × y × z). Front = +z: the street connector sits in the porch floor at the
- * front edge (like v0.1, {@code minecraft:street}), the floor block row is y = 0 (village terrain adaptation
+ * <p>Footprint 17 × 17 × 17 (x × y × z). The hall (walls x 1..15, z 0..14) is one block narrower than the
+ * template so the roof's eaves and the side posts stand out; the facade on z = 14 spans the full 17 as a
+ * false front carrying the marquee. Front = +z: the street connector sits in the porch floor at the front
+ * edge (like v0.1, {@code minecraft:street}); the floor block row is y = 0 (the village's terrain adaptation
  * beards the ground under it). Plan at the floor row (y = 1), door at the bottom:
  *
  * <pre>
  *  z 0   back wall (froglight band)
- *  z 1   chest  [lectern]   [Baccarat Dealer]   [lectern]   barrel      dealer row
- *  z 2   ch[BJ]ch          ch[BA]ch            ch[RO]ch                row 1 tables (players south)
- *  z 3,4 ═══════════ table aisle: players of both rows ═══════════════
- *  z 5   ch[CR]ch          ch[PK]ch            ch[UT]ch                row 2 tables (players north)
- *  z 6,7 dealer cells / cross aisle
- *  z 8         ╔═ bars [CASHIER] bars ═╗   (Croupier behind at z 7)
- *  z 9   [WH]                              [PL]      wheel / plinko
- *  z10   [$ ]        lobby, carpet         [G ]      copper / gold slots
- *  z11   [$ ]          runner              [G ]
- *  z12,13 signature decor, planters      Loan Shark
- *  z14   ───── facade: 3 × 3 door, windows, marquee "CASINO" on the porch line (y 6..12) ─────
+ *  z 1   chest [lectern]     [Baccarat Dealer]     [lectern] barrel        dealer row
+ *  z 2     ch[BJ]ch          ch[BA]ch          ch[RO]ch                    row 1 tables (players south)
+ *  z 3,4 ═══════════ table aisle: players of both rows ═══════════
+ *  z 5     ch[CR]ch          ch[PK]ch          ch[UT]ch                    row 2 tables (players north)
+ *  z 6,7 dealer cells / cross aisle (Croupier at z 7)
+ *  z 8            bars bars [CASHIER] bars bars
+ *  z 9   [WH]                                  [PL]     wheel / plinko
+ *  z10   [$ ]     chequered lobby, runner      [G ]     copper / gold slots
+ *  z11   [$ ]                                  [G ]
+ *  z12,13   signature decor       Loan Shark, planters
+ *  z14   ───── facade: 3 × 3 door, windows, marquee "CASINO" on the porch line (y 5..11), crown to y 16 ─────
  *  z15,16 porch / canopy / lamp posts; street jigsaw at (8, 0, 16)
  * </pre>
  */
@@ -53,6 +55,9 @@ public final class VillageAnnex {
 	public static final int CEILING = 7;
 	/** Front wall plane. */
 	public static final int FRONT = 14;
+	/** Hall side walls. */
+	public static final int WEST = 1;
+	public static final int EAST = 15;
 
 	public static String id(VillageStyle v) {
 		return "casino/annex/" + v.id();
@@ -64,36 +69,44 @@ public final class VillageAnnex {
 
 		// clear the whole volume above the floor (grass, flowers, tree canopies), then build
 		b.clear(0, 1, 0, SX - 1, SY - 1, SZ - 1);
-		b.room(0, 0, 0, SX - 1, CEILING, FRONT)
+		b.room(WEST, 0, 0, EAST, CEILING, FRONT)
 			.frame(4)
-			.windows(Facing.WEST, 4, 2, 2)
-			.windows(Facing.EAST, 4, 2, 2)
+			.windows(Facing.WEST, 4, 2, 3)
+			.windows(Facing.EAST, 4, 2, 3)
 			.done();
-		// side walls: TRIM band under the eaves; back wall: froglight band behind the dealers
-		b.fill(0, CEILING - 1, 0, 0, CEILING - 1, FRONT, Role.BEAM);
-		b.fill(SX - 1, CEILING - 1, 0, SX - 1, CEILING - 1, FRONT, Role.BEAM);
-		b.fill(0, CEILING - 1, 0, SX - 1, CEILING - 1, 0, Role.BEAM);
-		for (int x = 2; x <= 14; x += 3) {
+		// BEAM band under the eaves; froglight band behind the dealers
+		b.fill(WEST, CEILING - 1, 0, WEST, CEILING - 1, FRONT, Role.BEAM);
+		b.fill(EAST, CEILING - 1, 0, EAST, CEILING - 1, FRONT, Role.BEAM);
+		b.fill(WEST, CEILING - 1, 0, EAST, CEILING - 1, 0, Role.BEAM);
+		for (int x = 3; x <= 13; x += 5) {
 			b.set(x, 4, 0, Role.LIGHT);
+		}
+		// side posts under the eaves (x 0 / x 16), between the windows
+		for (int z = 0; z <= FRONT - 2; z += 4) {
+			for (int x : new int[] {0, SX - 1}) {
+				b.fill(x, 0, z, x, 0, z, Role.FOUNDATION);
+				b.fill(x, 1, z, x, CEILING - 1, z, Role.FRAME);
+			}
 		}
 
 		// floor: carpeted gaming hall, chequered lobby floor, accent runner door → cashier
-		b.fill(1, Y, 1, 15, Y, 7, Role.CARPET);
-		b.fill(1, Y, 3, 15, Y, 4, Role.CARPET_ACCENT);
-		for (int x = 1; x <= 15; x++) {
-			for (int z = 8; z <= 13; z++) {
+		b.fill(WEST + 1, Y, 1, EAST - 1, Y, 7, Role.CARPET);
+		b.fill(WEST + 1, Y, 3, EAST - 1, Y, 4, Role.CARPET_ACCENT);
+		for (int x = WEST + 1; x <= EAST - 1; x++) {
+			for (int z = 8; z <= FRONT - 1; z++) {
 				if ((x + z) % 2 == 0) {
 					b.set(x, 0, z, Role.FLOOR_ACCENT);
 				}
 			}
 		}
-		b.fill(7, Y, 9, 9, Y, 13, Role.CARPET_ACCENT);
+		b.fill(7, Y, 9, 9, Y, FRONT - 1, Role.CARPET_ACCENT);
 
-		// roof (behind the facade), then the facade itself
-		Roofs.roof(b, style.roof(), 0, 0, SX - 1, FRONT, CEILING + 1, SY - 1);
+		// roof with eaves over the posts, then the facade
+		Roofs.roof(b, style.roof(), 0, 0, SX - 1, FRONT, CEILING, SY - 1);
 		if (style.roof() == RoofKind.HIP) {
-			// cross gable running from the front gable back into the hip
+			// front cross gable meeting the facade's half-timbered gable, and a lit cupola on the ridge
 			Roofs.gable(b, 4, 9, 12, FRONT, 12, SY - 1, false, Role.ROOF, Role.ROOF, Role.WALL);
+			Roofs.cupola(b, 8, 7, 14, SY - 1);
 		}
 		Facades.front(b, style.facade(), new Facades.Front(0, SX - 1, FRONT, 0, 8, 3, 3, 5, SY - 1, 2, "CASINO"));
 
@@ -105,17 +118,17 @@ public final class VillageAnnex {
 		pod(b, Game.POKER, 8, 5, Facing.NORTH, null);
 		pod(b, Game.UTH, 13, 5, Facing.NORTH, null);
 		b.kit(Kits.cashierCage(Game.CASHIER), 8, Y, 8, Facing.SOUTH);
-		machine(b, Game.WHEEL, 1, 9, Facing.EAST);
-		machine(b, Game.PLINKO, 15, 9, Facing.WEST);
-		b.kit(Kits.slotBank(Game.SLOTS_COPPER, 2), 1, Y, 11, Facing.EAST);
-		b.kit(Kits.slotBank(Game.SLOTS_GOLD, 2), 15, Y, 10, Facing.WEST);
+		machine(b, Game.WHEEL, WEST + 1, 9, Facing.EAST);
+		machine(b, Game.PLINKO, EAST - 1, 9, Facing.WEST);
+		b.kit(Kits.slotBank(Game.SLOTS_COPPER, 2), WEST + 1, Y, 11, Facing.EAST);
+		b.kit(Kits.slotBank(Game.SLOTS_GOLD, 2), EAST - 1, Y, 10, Facing.WEST);
 
 		// ---- dealer stations, back-of-house ----
 		for (int x : new int[] {3, 13}) {
 			b.set(x, Y, 1, BlockSpec.mc("lectern", "facing", "south", "has_book", "false", "powered", "false"));
 		}
-		b.set(15, Y, 1, BlockSpec.mc("barrel", "facing", "up", "open", "false"));
-		b.chest(CasinoLoot.Table.VILLAGE_CASINO, 1, Y, 1, Facing.SOUTH);
+		b.set(EAST - 1, Y, 1, BlockSpec.mc("barrel", "facing", "up", "open", "false"));
+		b.chest(CasinoLoot.Table.VILLAGE_CASINO, WEST + 1, Y, 1, Facing.SOUTH);
 
 		// ---- lights: chandeliers over the tables, ceiling lights over the lobby ----
 		for (int x : new int[] {3, 8, 13}) {
@@ -123,20 +136,20 @@ public final class VillageAnnex {
 				b.kit(Kits.chandelier(2), x, CEILING, z, Facing.SOUTH);
 			}
 		}
-		for (int[] c : new int[][] {{4, 11}, {12, 11}, {8, 12}, {1, 7}, {15, 7}}) {
+		for (int[] c : new int[][] {{4, 11}, {12, 11}, {8, 12}, {WEST + 1, 7}, {EAST - 1, 7}}) {
 			b.set(c[0], CEILING, c[1], Role.LIGHT);
 		}
 
 		// ---- lobby decor ----
-		style.signature().apply(b, 4, Y, 12, Facing.SOUTH);
-		b.set(13, Y, 13, Role.PLANTER);
-		b.set(15, Y, 13, Role.PLANTER);
-		b.set(1, Y, 13, Role.PLANTER);
-		b.npc(NpcRole.LOAN_SHARK, 14, Y, 12, Facing.WEST);
+		style.signature().apply(b, 5, Y, 12, Facing.SOUTH);
+		b.set(WEST + 1, Y, FRONT - 1, Role.PLANTER);
+		b.set(EAST - 1, Y, FRONT - 1, Role.PLANTER);
+		b.set(11, Y, FRONT - 1, Role.PLANTER);
+		b.npc(NpcRole.LOAN_SHARK, 12, Y, 12, Facing.WEST);
 
 		// ---- markers, clearances, connector ----
 		b.anchor(8, 3, 11);
-		b.keepClear(7, Y, 9, 9, Y + 2, 16); // door throat → cashier
+		b.keepClear(7, Y, 9, 9, Y + 2, SZ - 1); // door throat → cashier
 		b.jigsaw(8, 0, SZ - 1, Facing.SOUTH, "minecraft:street", "minecraft:street", "minecraft:empty", style.palette().block(Role.PATH));
 		return b.build();
 	}
