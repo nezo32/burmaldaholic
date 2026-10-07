@@ -108,6 +108,15 @@ public final class VillageAnnex {
 			Roofs.gable(b, 4, 9, 12, FRONT, 12, SY - 1, false, Role.ROOF, Role.ROOF, Role.WALL);
 			Roofs.cupola(b, 8, 7, 14, SY - 1);
 		}
+		if (style.roof() == RoofKind.STEEP_GABLE) {
+			// back gable end: collar beam, king post and a pair of windows
+			b.fill(4, 9, 0, 12, 9, 0, Role.BEAM);
+			b.fill(8, 10, 0, 8, 13, 0, Role.FRAME);
+			for (int x : new int[] {7, 9}) {
+				b.fill(x, 10, 0, x, 11, 0, BlockSpec.of(style.palette().get(Role.PANE).full(), "east", "true", "west", "true",
+					"north", "false", "south", "false", "waterlogged", "false"));
+			}
+		}
 		Facades.front(b, style.facade(), new Facades.Front(0, SX - 1, FRONT, 0, 8, 3, 3, 5, SY - 1, 2, "CASINO"));
 
 		// ---- games ----
