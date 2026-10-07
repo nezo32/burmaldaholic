@@ -68,7 +68,7 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 	private static void round(RealFlow f, String lang, int fw, int fh, int scale, int dx, boolean negatives) {
 		f.size(fw, fh, scale);
 		String tag = "v2a_bj_" + lang + "_" + f.viewport().w() + "x" + f.viewport().h();
-		BlockPos pos = f.place(BlackjackModule.TABLE.block(), dx);
+		BlockPos pos = fresh(f, BlackjackModule.TABLE.block());
 		f.open(pos, BlackjackScreen.class);
 		f.shot(tag + "_open");
 		// sit (the primary says Sit down)
@@ -146,7 +146,7 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 
 	/** Insurance offered (dealer ace up) → declined by clicking; then a pair split by clicking. */
 	private static void insuranceAndSplit(RealFlow f, int dx) {
-		BlockPos pos = f.place(BlackjackModule.TABLE.block(), dx);
+		BlockPos pos = fresh(f, BlackjackModule.TABLE.block());
 		f.open(pos, BlackjackScreen.class);
 		f.click(KeyMap.Ids.PRIMARY);
 		UUID me = f.server(server -> RealFlow.player(server).getUUID());
@@ -203,6 +203,14 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		f.context().waitTicks(20);
 		f.shot("v2a_bj_en_us_split_result");
 		f.close();
+	}
+
+	/** Walks the player 7 blocks along +x (a clear spot, the old table out of the way) and places a table in reach. */
+	public static BlockPos fresh(RealFlow f, net.minecraft.world.level.block.Block block) {
+		f.close();
+		f.world().getServer().runCommand("execute as @p at @s run tp @s ~7 ~ ~ 0 0");
+		f.context().waitTicks(5);
+		return f.place(block, 0);
 	}
 
 	private static void reveal(RealFlow f, BlockPos pos) {

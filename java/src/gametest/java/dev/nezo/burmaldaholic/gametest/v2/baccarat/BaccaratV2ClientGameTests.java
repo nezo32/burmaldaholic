@@ -62,7 +62,7 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 	private static void coup(RealFlow f, String lang, int fw, int fh, int scale, int dx, boolean negatives) {
 		f.size(fw, fh, scale);
 		String tag = "v2a_bac_" + lang + "_" + f.viewport().w() + "x" + f.viewport().h();
-		BlockPos pos = f.place(BaccaratModule.TABLE.block(), dx);
+		BlockPos pos = fresh(f, BaccaratModule.TABLE.block());
 		f.open(pos, BaccaratScreen.class);
 		f.shot(tag + "_open");
 		f.click(KeyMap.Ids.PRIMARY); // Sit down
@@ -126,7 +126,7 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 
 	/** Chemin de fer: the bank comes to the viewer; the primary takes it. */
 	private static void chemmy(RealFlow f, int dx) {
-		BlockPos pos = f.place(BaccaratModule.CHEMMY_TABLE.block(), dx);
+		BlockPos pos = fresh(f, BaccaratModule.CHEMMY_TABLE.block());
 		f.open(pos, BaccaratScreen.class);
 		f.click(KeyMap.Ids.PRIMARY);
 		UUID me = f.server(server -> RealFlow.player(server).getUUID());
@@ -148,6 +148,10 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		f.context().waitTicks(10);
 		f.shot("v2a_bac_en_us_chemmy_bank");
 		f.close();
+	}
+
+	private static BlockPos fresh(RealFlow f, net.minecraft.world.level.block.Block block) {
+		return dev.nezo.burmaldaholic.gametest.v2.blackjack.BlackjackV2ClientGameTests.fresh(f, block);
 	}
 
 	private static int chipIndex(RealFlow f, long denom) {
