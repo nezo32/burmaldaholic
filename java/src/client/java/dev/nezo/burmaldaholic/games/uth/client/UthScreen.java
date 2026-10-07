@@ -1,45 +1,56 @@
 package dev.nezo.burmaldaholic.games.uth.client;
 
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
-import dev.nezo.burmaldaholic.client.fx.FxSprites;
-import dev.nezo.burmaldaholic.client.table.cards.ActionTag;
 import dev.nezo.burmaldaholic.client.table.cards.CardAnimator;
-import dev.nezo.burmaldaholic.client.table.cards.CardButton;
-import dev.nezo.burmaldaholic.client.table.cards.CardGfx;
 import dev.nezo.burmaldaholic.client.table.cards.CardSprites;
-import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
-import dev.nezo.burmaldaholic.client.table.cards.ChipStackView;
-import dev.nezo.burmaldaholic.client.table.cards.SeatPlate;
-import dev.nezo.burmaldaholic.client.table.cards.TableStamp;
 import dev.nezo.burmaldaholic.client.table.cards.TableTheme;
+import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
+import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
+import dev.nezo.burmaldaholic.client.ui.v2.FeltPrint;
+import dev.nezo.burmaldaholic.client.ui.v2.SeatPlate;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Felt;
+import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
+import dev.nezo.burmaldaholic.client.ui.v2.ValuePill;
 import dev.nezo.burmaldaholic.core.anim.Beat;
-import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.cards.CardMotion;
 import dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
-import dev.nezo.burmaldaholic.games.poker.present.LabelPlacer;
-import dev.nezo.burmaldaholic.games.poker.present.LabelPlacer.Rect;
+import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
+import dev.nezo.burmaldaholic.core.ui.v2.BetView;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
+import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
+import dev.nezo.burmaldaholic.core.ui.v2.Tier;
+import dev.nezo.burmaldaholic.games.poker.client.V2Cards;
 import dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity;
-import dev.nezo.burmaldaholic.games.uth.logic.Decision;
 import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBeats;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBotPolicy;
 import dev.nezo.burmaldaholic.games.uth.logic.UthCards;
-import dev.nezo.burmaldaholic.games.uth.present.UthLayout;
+import dev.nezo.burmaldaholic.games.uth.present.UthBetDraft;
+import dev.nezo.burmaldaholic.games.uth.present.UthFlow;
 import dev.nezo.burmaldaholic.games.uth.present.UthPub;
+import dev.nezo.burmaldaholic.games.uth.present.UthTableLayout;
+import dev.nezo.burmaldaholic.games.uth.present.UthView;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
@@ -49,60 +60,79 @@ import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Ultimate Texas Hold'em screen, redesigned (docs/design/visual/cards.md §6.5, mockup {@code cards_uth_decision.png};
- * motion animation/cards.md §3.2–§3.3, tasks J-C8 + J-C12): the crescent felt, the dealer's two cards at the dealer
- * edge with the chip rack, the five board cards, the Blind paytable panel, the viewer's hole cards "in your hands" and
- * the row of four circles (Trips, Ante, Blind, Play), the other seats' plates (mob-face bot avatars with level badges,
- * thinking dots) with their cards and combined stacks, the console with Bet 4× / 3× (primary), Check, the ghost Play
- * stack on hover, and the chip rack while betting.
+ * Ultimate Texas Hold'em, table UI v2 (REDESIGN.md §7.4; docs/architecture/ui-v2.md): the dealer's cards at the top
+ * centre, the board in the middle, the viewer's cards bottom-centre with the four bet spots Trips · Ante · Blind · Play
+ * right of them, the other seats in the side columns, and the kit's Dock.
  *
- * <p>Motion follows the server's {@link UthBeats} segments ({@code fx}): the deal (seats, dealer, the board backs
- * sweeping out), street flips, the showdown (dealer flip, the qualify banner — the same pause either way — every
- * seat's cards, then settlement circle by circle: payouts pop from the rack, losses sweep to it, pushes wiggle), and the
- * gather. The per-bet lines, the result and the celebration appear after the gate ({@code result}). Actions as before:
- * {@code bet {ante, trips}}, {@code clear}, {@code check|bet_4x|bet_3x|bet_2x|bet_1x|fold}, {@code take_bank {amount}},
- * {@code leave_bank}, {@code bot_settings}, core's {@code sit|leave}.
+ * <p>Betting (the v0.1.1 report "I could not change my UTH bet"): the BetBar edits a local {@link UthBetDraft} — a chip
+ * adds to the armed spot (Ante, or Trips after clicking the Trips spot), right click takes one off, Undo / Clear /
+ * Rebet / ×2 work, the readout and the status line show the cost (Ante + Blind + Trips), and the gold primary
+ * <b>Deal · 30</b> sends {@code bet {ante, trips}}. While others still bet, the primary is <b>Change bet</b> and any
+ * chip or tool changes it too: {@code clear} is sent (the server refunds) and the draft keeps the amounts to edit.
+ * Decisions: ActionRow {@code Check · Bet ×3} + primary {@code Bet ×4} pre-flop, {@code Check} + {@code Bet ×2} on the
+ * flop, {@code Fold} + {@code Bet ×1} on the river. Player bank: {@code take_bank {amount}} (stepper),
+ * {@code leave_bank}. Bot settings and the paytable live behind the TopBar icons.
  */
-public class UthScreen extends CardTableScreen {
-	private static final int[] CHIPS = {1, 5, 25, 100, 500};
-	private static final int GREEN = 0xFF80FF40;
-	private static final int MUTED = 0xFFB0A0C0;
+public class UthScreen extends V2TableScreen<UthView> {
 	private static final int[] NO_CARDS = new int[0];
+	private static final String STEPPER = "~stepper";
+	public static final String STEP_MINUS = "stepper.minus", STEP_PLUS = "stepper.plus";
 
 	private final CardAnimator cards = new CardAnimator();
-	private final CardMotion.Pose pose = new CardMotion.Pose();
-	private final List<Hover> hovers = new ArrayList<>();
-	/** This frame's seat plates (labels keep off them). */
-	private final List<Rect> plates = new ArrayList<>();
-	private long ante;
-	private long trips;
-	private boolean chipsToTrips;
-	private boolean showPaytable;
+	private UthBetDraft draft = UthBetDraft.empty();
+	private boolean draftLoaded;
 	private boolean bankForm;
-	private @Nullable EditBox bankBox;
-	private String bankText = "";
+	private long bankAmount = -1;
+	private boolean rulesOpen;
 	private int clientTicks;
 	private int stateTick;
-	private @Nullable CardButton hoveredBet;
-	private long hoveredBetAmount;
-	/** GameTests: a decision whose ghost Play stack is shown as if its button were hovered. */
 	private @Nullable String previewBet;
+	private UthTableLayout.@Nullable Layout layout;
 
-	// presentation
 	private int fxSeq = -1;
 	private int fxKind;
 	private long fxStart;
-	private int fxSeats = 1;
 	private @Nullable Timeline fx;
 	private int roundKey;
-	private double anteAt = Double.NaN;
-	private long shownAnte;
 	private int celebrated = -1;
 
-	private record Hover(int x, int y, int w, int h, Component text) {}
+	private final Flow<UthView> flow = new Flow<>() {
+		@Override
+		public Gate primary(UthView v) {
+			return UthFlow.primary(v);
+		}
+
+		@Override
+		public List<Gate> actions(UthView v) {
+			List<Gate> out = new ArrayList<>();
+			if (v.deciding() || (v.bank() != null && v.bank().form() && v.betting())) out.addAll(UthFlow.actions(v));
+			UthFlow.stepper(v).ifPresent(s -> out.add(new Gate(STEPPER, "gui.burmaldaholic.poker.v2.stepper", new Object[] {s.value()}, true, null, null)));
+			return out;
+		}
+
+		@Override
+		public @Nullable BetView bet(UthView v) {
+			if (!v.betting() || v.deciding()) return null;
+			UthBetDraft d = v.draft();
+			return BetView.builder().seated(v.seated() && !v.banker()).canSit(!v.seated()).phase(BetView.Phase.BETTING).bettingOpen(true)
+				.limits(v.minAnte(), v.maxW()).balance(v.balance()).myTotal(d.cost()).canUndo(d.canUndo()).canClear(!d.isEmpty())
+				.rebet(v.lastAnte() > 0, 2 * v.lastAnte() + v.lastTrips()).canDouble(!d.isEmpty()).secondsLeft(v.secondsLeft()).build();
+		}
+
+		@Override
+		public Gate tool(String id, UthView v) {
+			return UthFlow.tool(id, v);
+		}
+
+		@Override
+		public Gate chip(long denom, UthView v) {
+			Gate c = UthFlow.chips(v);
+			return c.enabled() ? Gate.on(BetGates.CHIP, c.labelKey()) : Gate.off(BetGates.CHIP, c.labelKey(), c.reasonKey(), c.reasonArgs());
+		}
+	};
 
 	public UthScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
-		super(menu, inventory, Component.translatable(titleKey(menu)), TableTheme.Shape.CRESCENT);
+		super(menu, inventory, Component.translatable(titleKey(menu)));
 	}
 
 	private static String titleKey(CasinoTableMenu menu) {
@@ -111,22 +141,31 @@ public class UthScreen extends CardTableScreen {
 			: name.endsWith("player_banked") ? "gui.burmaldaholic.uth.title_player_banked" : "gui.burmaldaholic.uth.title";
 	}
 
-	// ---- state helpers ------------------------------------------------------------------------------------------
+	// ---- GameTest hooks ---------------------------------------------------------------------------------------------
+
+	/** The running segment kind ({@link UthPub#DEAL} …, 0 = betting). */
+	public int fxKind() {
+		return fxKind;
+	}
+
+	/** Shows the ghost Play stack of decision {@code id} as if its button were hovered (mockup screenshots). */
+	public void previewBetForTests(@Nullable String id) {
+		this.previewBet = id;
+	}
+
+	/** The bet being built (tests assert the draft after clicks). */
+	public UthBetDraft draft() {
+		return draft;
+	}
+
+	public UthTableLayout.@Nullable Layout layout() {
+		return layout;
+	}
+
+	// ---- state ------------------------------------------------------------------------------------------------------
 
 	private CompoundTag s() {
 		return state();
-	}
-
-	private boolean seated() {
-		return mySeat() >= 0;
-	}
-
-	private boolean betting() {
-		return "betting".equals(phase()) || "idle".equals(phase());
-	}
-
-	private boolean confirmedBet() {
-		return s().getLongOr("my_ante", 0) > 0;
 	}
 
 	private CompoundTag bank() {
@@ -137,8 +176,8 @@ public class UthScreen extends CardTableScreen {
 		return "player_banked".equals(s().getStringOr("variant", ""));
 	}
 
-	private boolean iAmBanker() {
-		return bank().getBooleanOr("you", false);
+	private boolean bettingPhase() {
+		return "betting".equals(phase()) || "idle".equals(phase());
 	}
 
 	private long secondsLeft(String id) {
@@ -171,60 +210,76 @@ public class UthScreen extends CardTableScreen {
 		return -1;
 	}
 
-	private boolean pendingValid() {
-		long min = minBet();
-		long tripsMin = s().getLongOr("trips_min", 1);
-		return ante >= min && (trips == 0 || trips >= tripsMin) && 6 * ante + trips <= maxBet() && 3 * ante + trips <= balance();
-	}
-
-	/** GameTests (mockup screenshots): show the ghost Play stack of decision {@code id} as if its button were hovered. */
-	public void previewBetForTests(@Nullable String id) {
-		this.previewBet = id;
-	}
-
-	/** GameTests: the running segment kind ({@link UthPub#DEAL} …, 0 = betting). */
-	public int fxKind() {
-		return fxKind;
+	private double nowMs() {
+		return AnimClock.levelMs(minecraft == null ? 0 : minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
 	}
 
 	@Override
-	protected void onStateChanged(CompoundTag st) {
+	protected UthView view(CompoundTag st) {
 		stateTick = clientTicks;
-		if (ante == 0 && st.getLongOr("last_ante", 0) == 0) ante = Math.max(0, st.getLongOr("min", 0));
 		CompoundTag f = st.getCompoundOrEmpty("fx");
 		int seq = f.getIntOr("seq", -1);
 		if (seq != fxSeq) {
 			fxSeq = seq;
 			fxKind = f.getIntOr("kind", 0);
 			fxStart = f.getLongOr("start", 0);
-			fxSeats = f.getIntOr("seats", 1);
-			fx = UthTableBlockEntity.timelineOf(fxKind, fxSeats, f.getIntOr("seed", 0));
+			fx = UthTableBlockEntity.timelineOf(fxKind, f.getIntOr("seats", 1), f.getIntOr("seed", 0));
 			if (fxKind == UthPub.DEAL) roundKey = seq;
 		}
 		if (f.isEmpty()) fxKind = 0;
-		long a = st.getLongOr("my_ante", 0);
-		CompoundTag me = me();
-		if (me != null) a = me.getLongOr("ante", a);
-		if (a != shownAnte) {
-			if (a > 0) {
-				anteAt = nowMs();
-				FxSounds.play("chip_place", 0.7f, 1f);
-			}
-			shownAnte = a;
+		long myAnte = st.getLongOr("my_ante", 0);
+		long[] confirmed = myAnte > 0 ? new long[] {myAnte, st.getLongOr("my_trips", 0)} : null;
+		if (!draftLoaded) {
+			// first state: the draft starts from the confirmed bet, else the last round's, else empty
+			draftLoaded = true;
+			if (confirmed != null) draft = UthBetDraft.empty().load(confirmed[0], confirmed[1]);
+			else if (st.getLongOr("last_ante", 0) > 0) draft = UthBetDraft.empty().load(st.getLongOr("last_ante", 0), st.getLongOr("last_trips", 0));
 		}
 		celebrate(st);
-		if (minecraft != null) rebuildConsole();
+		return build(st, confirmed);
+	}
+
+	private UthView build(CompoundTag st, long @Nullable [] confirmed) {
+		CompoundTag b = st.getCompoundOrEmpty("bank");
+		boolean banker = b.getBooleanOr("you", false);
+		UthView.Phase phase = bettingPhase() ? UthView.Phase.BETTING
+			: fxKind == UthPub.SHOWDOWN || fxKind == UthPub.RESULT || "result".equals(phase()) ? UthView.Phase.SHOWDOWN : UthView.Phase.PLAYING;
+		CompoundTag me = me();
+		String waiting = "";
+		for (CompoundTag p : players()) {
+			if (!p.getBooleanOr("you", false) && "deciding".equals(p.getStringOr("tag", ""))) {
+				waiting = p.getBooleanOr("bot", false) ? Component.translatable(BotRoster.nameKey(p.getStringOr("bot_name", ""))).getString()
+					: p.getStringOr("name", "");
+				break;
+			}
+		}
+		long sec = phase == UthView.Phase.BETTING ? secondsLeft("bet") : secondsLeft("decide");
+		UthView.Bank bank = null;
+		if (playerBanked() && b.getBooleanOr("enabled", false)) {
+			long min = b.getLongOr("min_bank", 0);
+			if (bankAmount < min) bankAmount = Math.max(min, Math.min(balance(), min * 2));
+			bank = new UthView.Bank(b.getBooleanOr("can_take", false), b.getBooleanOr("leaving", false), bankForm && !banker, bankAmount, min);
+		}
+		return new UthView(mySeat() >= 0, banker, phase, confirmed, draft, Math.max(1, minBet()), maxBet() <= 0 ? Long.MAX_VALUE / 16 : maxBet(),
+			st.getBooleanOr("trips_enabled", true), st.getLongOr("trips_min", 1), balance(), st.getLongOr("last_ante", 0), st.getLongOr("last_trips", 0),
+			legal(), me == null ? 0 : me.getLongOr("ante", 0), me != null, waiting, (int) sec, bank);
+	}
+
+	/** Re-applies a local change (draft, form) without waiting for the server. */
+	private void local() {
+		view = build(s(), s().getLongOr("my_ante", 0) > 0 ? new long[] {s().getLongOr("my_ante", 0), s().getLongOr("my_trips", 0)} : null);
+		refresh();
 	}
 
 	private void celebrate(CompoundTag st) {
 		CompoundTag r = st.getCompoundOrEmpty("result");
 		if (r.isEmpty() || celebrated == fxSeq) return;
 		celebrated = fxSeq;
+		chrome.banner.show(r.getLongOr("net", 0));
 		try {
 			WinTier tier = WinTier.valueOf(r.getStringOr("tier", "LOSS"));
 			if (tier.isWin()) {
-				CelebrationRequest req = CelebrationRequest.core(tier, r.getLongOr("ret", 0), Math.max(1, r.getLongOr("staked", 1)), SeedMix.mix(fxSeq, 7));
-				CelebrationOverlay.get().play(req);
+				CelebrationOverlay.get().play(CelebrationRequest.core(tier, r.getLongOr("ret", 0), Math.max(1, r.getLongOr("staked", 1)), SeedMix.mix(fxSeq, 7)));
 			} else if (tier == WinTier.RETURN || tier == WinTier.PUSH) {
 				FxSounds.play("push", 0.8f, 1f);
 			}
@@ -237,6 +292,7 @@ public class UthScreen extends CardTableScreen {
 	protected void containerTick() {
 		super.containerTick();
 		clientTicks++;
+		if (clientTicks % 10 == 0 && view != null) local();
 	}
 
 	private double fxMs() {
@@ -254,192 +310,308 @@ public class UthScreen extends CardTableScreen {
 		return b == null ? Double.NaN : fxStart * 50.0 + b.at();
 	}
 
+	private double beatAt(String kind, int lane, int arg) {
+		if (fx == null) return Double.NaN;
+		for (Beat b : fx.beats()) if (b.kind().equals(kind) && b.lane() == lane && b.arg(0) == arg) return fxStart * 50.0 + b.at();
+		return Double.NaN;
+	}
+
 	private boolean started(String kind) {
 		Beat b = beat(kind, kind.equals(UthBeats.QUALIFY) || kind.equals(UthBeats.REVEAL) || kind.equals(UthBeats.GATHER) ? -1 : 0);
 		return b != null && fxMs() >= b.at();
 	}
 
-	// ---- console ------------------------------------------------------------------------------------------------
+	// ---- the kit's hooks -------------------------------------------------------------------------------------------
 
 	@Override
-	protected void buildConsole() {
-		if (bankBox != null) {
-			bankText = bankBox.getValue();
-			removeWidget(bankBox);
-			bankBox = null;
-		}
-		hoveredBet = null;
-		List<CardButton> row = new ArrayList<>();
-		CompoundTag bank = bank();
-		boolean bankerView = iAmBanker();
-		if (!seated() && !bankerView) {
-			row.add(button(Component.translatable("gui.burmaldaholic.poker.sit_down"), "deal", CardButton.Family.PRIMARY, true, () -> sendAction("sit")));
-		}
-		if (seated() && betting() && !confirmedBet() && !bankerView) {
-			long lastAnte = s().getLongOr("last_ante", 0);
-			long lastTrips = s().getLongOr("last_trips", 0);
-			row.add(button(Component.translatable("gui.burmaldaholic.common.clear"), "clear", CardButton.Family.TABLE, ante > 0 || trips > 0, () -> {
-				ante = 0;
-				trips = 0;
-				rebuildConsole();
-			}));
-			if (lastAnte > 0) {
-				row.add(button(Component.translatable("gui.burmaldaholic.common.rebet"), "rebet", CardButton.Family.TABLE, true, () -> {
-					ante = lastAnte;
-					trips = lastTrips;
-					rebuildConsole();
-				}));
+	protected Flow<UthView> flow() {
+		return flow;
+	}
+
+	@Override
+	protected @Nullable BetPort betPort() {
+		return new BetPort() {
+			@Override
+			public void add(long denom) {
+				edit(draft.add(draft.spot(), denom));
 			}
-			row.add(button(Component.translatable("gui.burmaldaholic.common.deal"), "deal", CardButton.Family.PRIMARY, pendingValid(), this::deal));
-		} else if (seated() && betting() && confirmedBet()) {
-			row.add(button(Component.translatable("gui.burmaldaholic.common.clear"), "clear", CardButton.Family.TABLE, true, () -> sendAction("clear")));
-		}
-		List<String> legal = legal();
-		if (!legal.isEmpty()) {
-			CompoundTag me = me();
-			long a = me == null ? 0 : me.getLongOr("ante", 0);
-			for (Decision d : List.of(Decision.BET_4X, Decision.BET_3X, Decision.BET_2X, Decision.BET_1X, Decision.CHECK, Decision.FOLD)) {
-				if (!legal.contains(d.id())) continue;
-				long amount = d.multiple() * a;
-				boolean affordable = amount <= balance();
-				Component label = d.isBet() ? Component.translatable("gui.burmaldaholic.uth.button." + d.id()) : Component.translatable("gui.burmaldaholic.uth." + d.id());
-				CardButton.Family fam = d.isBet() ? CardButton.Family.PRIMARY : d == Decision.FOLD ? CardButton.Family.DANGER : CardButton.Family.TABLE;
-				String icon = d.isBet() ? "play" : d == Decision.FOLD ? "fold" : "check";
-				Component tip = affordable ? Component.translatable("gui.burmaldaholic.uth." + d.id() + ".tooltip") : Component.translatable("gui.burmaldaholic.uth.unaffordable");
-				CardButton b = button(label, icon, fam, affordable, () -> sendAction(d.id())).hint(tip);
-				if (d.isBet()) b.setWidth(Math.max(b.getWidth(), compact() ? 50 : 64));
-				row.add(b);
+
+			@Override
+			public void remove(long denom) {
+				edit(draft.remove(draft.spot(), denom));
 			}
-		}
-		if (playerBanked() && bank.getBooleanOr("enabled", false)) {
-			if (bankerView) {
-				boolean leaving = bank.getBooleanOr("leaving", false);
-				row.add(button(Component.translatable(leaving ? "gui.burmaldaholic.uth.pvp.leaving_after_round" : "gui.burmaldaholic.uth.pvp.leave_seat"),
-					"leave", CardButton.Family.TABLE, !leaving, () -> sendAction("leave_bank")));
-			} else if (bank.getBooleanOr("can_take", false)) {
-				if (bankForm) {
-					row.add(button(Component.translatable("gui.burmaldaholic.common.cancel"), null, CardButton.Family.TABLE, true, () -> {
-						bankForm = false;
-						rebuildConsole();
-					}));
-					row.add(button(Component.translatable("gui.burmaldaholic.uth.pvp.take_seat_submit"), "take_bank", CardButton.Family.PRIMARY, true,
-						this::takeBank));
-				} else {
-					row.add(button(Component.translatable("gui.burmaldaholic.uth.pvp.take_seat"), "take_bank", CardButton.Family.TABLE, true, () -> {
-						bankForm = true;
-						rebuildConsole();
-					}).hint(Component.translatable("gui.burmaldaholic.uth.pvp.rules.1")));
+
+			@Override
+			public void tool(String toolId) {
+				switch (toolId) {
+					case BetGates.UNDO -> edit(draft.undo());
+					case BetGates.CLEAR -> edit(draft.clear());
+					case BetGates.REBET -> edit(draft.load(s().getLongOr("last_ante", 0), s().getLongOr("last_trips", 0)));
+					case BetGates.DOUBLE -> edit(draft.doubled());
+					default -> {
+					}
 				}
 			}
-		}
-		if (s().getBooleanOr("bots_ui", false)) {
-			row.add(button(Component.translatable("gui.burmaldaholic.bots.settings.open"), null, CardButton.Family.TABLE, true, () -> sendAction("bot_settings")));
-		}
-		if (legal.isEmpty()) {
-			// the paytable panel is on the felt unless 4+ seats fold it into this button
-			if (UthLayout.crowded(others().size()) || !rackShown()) {
-				row.add(button(Component.translatable("gui.burmaldaholic.common.paytable"), "paytable", CardButton.Family.TABLE, true,
-					() -> showPaytable = !showPaytable));
-			}
-			if (seated() && betting() && !rackShown()) {
-				row.add(button(Component.translatable("gui.burmaldaholic.common.leave"), "leave", CardButton.Family.TABLE, true, () -> sendAction("leave")));
-			}
-		}
-		// betting: the chip rack sits at the console's left; the buttons keep right of it
-		int minX = seated() && betting() && !confirmedBet() && !bankerView ? 8 + CHIPS.length * 25 + 40 : compact() ? 0 : 150;
-		layoutButtons(row, minX);
-		if (bankForm && bank.getBooleanOr("can_take", false) && !bankerView) {
-			long min = bank.getLongOr("min_bank", 0);
-			int x = row.isEmpty() ? 8 : row.get(0).getX() - 70;
-			bankBox = new EditBox(font, Math.max(4, x), row.isEmpty() ? 213 : row.get(0).getY(), 64, 20,
-				Component.translatable("gui.burmaldaholic.uth.pvp.bank_amount", Texts.number(min)));
-			bankBox.setMaxLength(12);
-			bankBox.setValue(bankText.isEmpty() ? Long.toString(min) : bankText);
-			bankBox.setResponder(v -> {
-				if (!v.chars().allMatch(Character::isDigit)) bankBox.setValue(v.replaceAll("\\D", ""));
-			});
-			addWidget(bankBox);
-		}
+		};
 	}
 
-	private void deal() {
-		CompoundTag args = new CompoundTag();
-		args.putLong("ante", ante);
-		args.putLong("trips", trips);
-		sendAction("bet", args);
-	}
-
-	private void takeBank() {
-		long amount;
-		try {
-			amount = Long.parseLong(bankBox != null ? bankBox.getValue() : bankText);
-		} catch (NumberFormatException e) {
-			amount = bank().getLongOr("min_bank", 0);
+	/**
+	 * A draft edit from the BetBar or a felt spot. When the bet was already confirmed this IS the change: the server
+	 * refunds it ({@code clear}) and the edited draft waits for Deal again.
+	 */
+	private void edit(UthBetDraft next) {
+		UthView v = view;
+		if (v == null || !v.betting() || !v.seated() || v.banker()) return;
+		if (v.confirmed() != null) {
+			sendTracked("clear", new CompoundTag(), "", 0);
+			if (draft.isEmpty()) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
 		}
-		CompoundTag args = new CompoundTag();
-		args.putLong("amount", amount);
-		bankForm = false;
-		bankText = "";
-		sendAction("take_bank", args);
-	}
-
-	private boolean rackShown() {
-		return seated() && betting() && !confirmedBet() && !iAmBanker();
+		if (next.ante() != draft.ante() || next.trips() != draft.trips()) FxSounds.play("chip_place", 0.6f, 1.1f);
+		draft = next;
+		local();
 	}
 
 	@Override
-	protected boolean onCanvasClick(double x, double y, int button) {
-		if (!rackShown() || button != 0) return false;
-		int ry = compact() ? 138 : 211;
-		for (int i = 0; i < CHIPS.length; i++) {
-			int cx = (compact() ? 4 : 8) + i * 25;
-			if (x >= cx && x < cx + 22 && y >= ry && y < ry + 22) {
-				if (chipsToTrips) trips += CHIPS[i];
-				else ante += CHIPS[i];
-				FxSounds.play("chip_place", 0.6f, 1.1f);
-				rebuildConsole();
-				return true;
+	protected void refresh() {
+		if (view == null || font == null) return;
+		KeyMap k = KeyMap.standard();
+		k.bind(KeyMap.C, KeyMap.Ids.action("check"));
+		k.bind(KeyMap.F, KeyMap.Ids.action("fold"));
+		k.bind(KeyMap.KEY_3, KeyMap.Ids.action("bet_3x"));
+		k.bind(KeyMap.T, KeyMap.Ids.felt("trips"));
+		k.bind(KeyMap.A, KeyMap.Ids.felt("ante"));
+		chrome.keys(k);
+		chrome.actions.danger("fold", "leave_bank");
+		chrome.bet.multiSpot(false);
+		chrome.secondary(secondary(view));
+		super.refresh();
+		status(view);
+		stepperHits();
+	}
+
+	/** Player-bank controls while betting sit in the Dock's secondary slot (the BetBar keeps the row). */
+	private @Nullable Gate secondary(UthView v) {
+		if (!v.betting() || v.bank() == null || v.bank().form()) return null;
+		List<Gate> a = UthFlow.actions(v);
+		return a.isEmpty() ? null : a.get(0);
+	}
+
+	private void stepperHits() {
+		Optional<Box> b = chrome.hits().box(KeyMap.Ids.action(STEPPER));
+		if (b.isEmpty() || view == null) return;
+		UthFlow.Stepper s = UthFlow.stepper(view).orElse(null);
+		if (s == null) return;
+		Box box = b.get();
+		int third = Math.max(10, box.w() / 3);
+		chrome.hits().add(STEP_MINUS, new Box(box.x(), box.y(), third, box.h()), s.value() > s.min());
+		chrome.hits().add(STEP_PLUS, new Box(box.right() - third, box.y(), third, box.h()), s.value() < s.max());
+	}
+
+	private void status(UthView v) {
+		Component l1 = null;
+		Component l2 = null;
+		int c1 = CasinoPalette.V2_GOLD;
+		CompoundTag res = s().getCompoundOrEmpty("result");
+		CompoundTag me = me();
+		if (v.deciding()) {
+			boolean allow3x = s().getBooleanOr("allow3x", true);
+			List<String> legal = v.legal();
+			l1 = Component.translatable(legal.contains("bet_4x") ? allow3x ? "gui.burmaldaholic.uth.hint.preflop" : "gui.burmaldaholic.uth.hint.preflop_no3x"
+				: legal.contains("bet_2x") ? "gui.burmaldaholic.uth.hint.flop" : "gui.burmaldaholic.uth.hint.river");
+			long a = me == null ? 0 : me.getLongOr("ante", 0);
+			long t = me == null ? 0 : me.getLongOr("trips", 0);
+			MutableComponent l = Component.translatable("gui.burmaldaholic.uth.at_risk_now", Texts.number(2 * a + t));
+			if (v.secondsLeft() >= 0) {
+				l.append(Texts.raw(" · ")).append(Component.translatable(UthFlow.V2 + "status.decide_in", Texts.number(v.secondsLeft())));
+				chrome.status.timer(v.secondsLeft(), Math.max(1, s().getIntOr("decision_ticks", 400) / 20));
+			}
+			l2 = l;
+		} else if (!res.isEmpty()) {
+			l1 = resultLine(res);
+			c1 = res.getLongOr("net", 0) > 0 ? CasinoPalette.V2_WIN : res.getLongOr("net", 0) < 0 ? CasinoPalette.V2_LOSE : CasinoPalette.V2_MUTED;
+			l2 = perBetLine(res);
+		} else if (v.banker()) {
+			CompoundTag b = bank();
+			if (b.contains("last_result")) {
+				long r = b.getLongOr("last_result", 0);
+				l1 = Component.translatable("gui.burmaldaholic.uth.pvp.round_result", V2Draw.net(r), Texts.number(b.getLongOr("last_rake", 0)));
+			} else {
+				l1 = Component.translatable("gui.burmaldaholic.uth.pvp.you_bank");
+			}
+		} else if (v.betting() && v.bank() != null && v.bank().form()) {
+			l1 = Component.translatable(UthFlow.V2 + "status.bank_form");
+		} else if (v.betting() && !v.seated()) {
+			l1 = Component.translatable(UthFlow.V2 + "status.watching");
+			l2 = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
+		} else if (v.betting() && v.confirmed() != null) {
+			l1 = Component.translatable(UthFlow.V2 + "status.bet_placed");
+			if (v.secondsLeft() >= 0) l2 = Component.translatable(UthFlow.V2 + "status.starts_in", Texts.number(v.secondsLeft()));
+		} else if (v.betting()) {
+			Component spot = Component.translatable(draft.spot() == UthBetDraft.Spot.TRIPS ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
+			l1 = Component.translatable(UthFlow.V2 + "status.chips_to", spot);
+			l2 = draft.isEmpty() ? Component.translatable(UthFlow.V2 + "status.right_click")
+				: Component.translatable(UthFlow.V2 + "status.cost", Texts.number(draft.ante()), Texts.number(draft.trips()), Texts.number(draft.cost()));
+		} else if (me != null && me.getIntOr("play", 0) > 0) {
+			l1 = Component.translatable("gui.burmaldaholic.uth.waiting_showdown",
+				Component.translatable("gui.burmaldaholic.uth.play_multiple", Texts.number(me.getIntOr("play", 0))));
+		}
+		if (!v.deciding()) {
+			if (v.betting() && v.secondsLeft() >= 0) chrome.status.timer(v.secondsLeft(), Math.max(v.secondsLeft(), 15));
+			else chrome.status.timer.clear();
+		}
+		chrome.status.set(l1, l2);
+		chrome.status.color(c1);
+	}
+
+	private Component resultLine(CompoundTag res) {
+		return switch (res.getStringOr("outcome", "")) {
+			case "win" -> Component.translatable("gui.burmaldaholic.uth.result.win", handName(s().getStringOr("my_hand", "")));
+			case "lose" -> Component.translatable("gui.burmaldaholic.uth.result.lose", handName(s().getStringOr("dealer_hand", "")));
+			case "tie" -> Component.translatable("gui.burmaldaholic.uth.result.tie");
+			default -> Component.translatable("gui.burmaldaholic.uth.result.folded");
+		};
+	}
+
+	private Component perBetLine(CompoundTag res) {
+		long net = res.getLongOr("net", 0);
+		MutableComponent line = Component.empty().append(net > 0 ? Component.translatable("gui.burmaldaholic.common.result.win", Texts.number(net))
+			: net < 0 ? Component.translatable("gui.burmaldaholic.common.result.loss", Texts.number(-net)) : Component.translatable("gui.burmaldaholic.common.result.push"));
+		long blind = res.getLongOr("blind_net", 0);
+		if (blind > 0) {
+			line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.line.blind_bonus", handName(handOf(res.getStringOr("pay_hand", ""))),
+				ratio(res.getDoubleOr("blind_pay", 0)), Texts.number(blind)));
+		}
+		long tn = res.getLongOr("trips_net", 0);
+		if (res.getLongOr("trips", 0) > 0 && tn > 0) {
+			line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.line.trips_bonus", handName(handOf(res.getStringOr("pay_hand", ""))),
+				ratio(res.getIntOr("trips_pay", 0)), Texts.number(tn)));
+		}
+		return line;
+	}
+
+	private static String handOf(String payKey) {
+		for (PayHand h : PayHand.values()) if (h.key().equals(payKey)) return h.handName();
+		return "";
+	}
+
+	private static Component ratio(double pay) {
+		String plain = pay == Math.rint(pay) ? Long.toString((long) pay) : String.format(java.util.Locale.ROOT, "%.2f", pay).replaceAll("0+$", "");
+		return Component.empty().append(Texts.decimal(plain)).append(Texts.raw(":1"));
+	}
+
+	private static Component handName(String name) {
+		return name.isEmpty() ? Component.empty() : Component.translatable("gui.burmaldaholic.poker.hand." + name);
+	}
+
+	@Override
+	public void onGate(String id, Gate gate) {
+		UthView v = view;
+		if (v == null) return;
+		String a = gate.action();
+		switch (a) {
+			case "bet" -> {
+				CompoundTag args = new CompoundTag();
+				args.putLong("ante", draft.ante());
+				args.putLong("trips", draft.trips());
+				sendTracked("bet", args, "ante", draft.ante());
+			}
+			case UthFlow.LOCAL + "change" -> {
+				if (v.confirmed() != null && draft.isEmpty()) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
+				sendTracked("clear", new CompoundTag(), "", 0);
+			}
+			case UthFlow.LOCAL + "bank_form" -> {
+				bankForm = true;
+				local();
+			}
+			case UthFlow.LOCAL + "back" -> {
+				bankForm = false;
+				local();
+			}
+			case "take_bank" -> {
+				CompoundTag args = new CompoundTag();
+				args.putLong("amount", bankAmount);
+				bankForm = false;
+				sendTracked("take_bank", args, "", 0);
+			}
+			case STEPPER -> {
+				UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
+				if (s != null) {
+					bankAmount = s.value() >= s.max() ? s.min() : s.max();
+					local();
+				}
+			}
+			default -> {
+				if (!a.isEmpty() && !a.startsWith(UthFlow.LOCAL)) sendTracked(a);
 			}
 		}
-		// the Trips / Ante circles pick where the chips go
-		for (int c = 0; c < 2; c++) {
-			Rect r = mapped(UthLayout.circle(c));
-			if (x >= r.x() && x < r.x() + r.w() && y >= r.y() && y < r.y() + r.h()) {
-				chipsToTrips = c == 0 && s().getBooleanOr("trips_enabled", true);
+	}
+
+	@Override
+	public boolean onTarget(String id, boolean enabled, int button) {
+		UthView v = view;
+		if (v == null) return false;
+		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
+			UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
+			if (s == null) return true;
+			int dir = button == 2 || id.equals(STEP_PLUS) && button == 0 ? 1 : button == 3 || id.equals(STEP_MINUS) && button == 0 ? -1 : 0;
+			if (dir != 0) {
+				bankAmount = Math.max(s.min(), Math.min(s.max(), s.value() + dir * s.step()));
 				FxSounds.play("chip_count", 0.5f, 1f);
+				local();
+			}
+			return true;
+		}
+		for (String spot : new String[] {"ante", "trips"}) {
+			if (!id.equals(KeyMap.Ids.felt(spot))) continue;
+			Gate g = UthFlow.spot(spot, v);
+			if (!g.enabled()) {
+				chrome.refuse(g);
 				return true;
 			}
+			UthBetDraft.Spot sp = spot.equals("trips") ? UthBetDraft.Spot.TRIPS : UthBetDraft.Spot.ANTE;
+			long chip = chrome.bet.armOrDefault();
+			if (button == 1) edit(draft.arm(sp).remove(sp, chip));
+			else if (button == 2) edit(draft.add(sp, chip));
+			else if (button == 3) edit(draft.arm(sp).remove(sp, chip));
+			else edit(draft.add(sp, chip));
+			return true;
 		}
 		return false;
 	}
 
-	/** A table-layout rectangle in canvas coordinates (the compact layout scales the full one into its table). */
-	private Rect mapped(Rect r) {
-		if (!compact()) return r;
-		float k = 280f / 408f;
-		return new Rect(Math.round((r.x() - UthLayout.TABLE_X) * k) + tableX(), Math.round((r.y() - UthLayout.TABLE_Y) * k) + tableY(),
-			Math.round(r.w() * k), Math.round(r.h() * k));
+	@Override
+	public void onTopIcon(String id) {
+		if (id.equals(KeyMap.Ids.TOP_SETTINGS) && s().getBooleanOr("bots_ui", false)) {
+			sendAction("bot_settings");
+			return;
+		}
+		super.onTopIcon(id);
 	}
 
-	// ---- the scene ----------------------------------------------------------------------------------------------
-
-	/** UTH card (poker encoding) → the kit's card code. */
-	private static int kit(int card) {
-		int r = UthCards.rank(card);
-		return UthCards.suit(card) * 13 + (r == 14 ? 0 : r - 1);
+	@Override
+	protected void openRules() {
+		rulesOpen = !rulesOpen;
 	}
 
-	private int backRow() {
-		return tableTheme().back(CardSprites.BACK_EMERALD);
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (rulesOpen) {
+			rulesOpen = false;
+			return true;
+		}
+		return super.mouseClicked(event, doubleClick);
 	}
 
-	private String backName() {
-		return switch (tableTheme()) {
-			case BASTION -> "bastion";
-			case END -> "end";
-			default -> "emerald";
-		};
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (rulesOpen && (event.key() == KeyMap.ESCAPE || event.key() == KeyMap.ENTER)) {
+			rulesOpen = false;
+			return true;
+		}
+		return super.keyPressed(event);
 	}
+
+	// ---- layout -----------------------------------------------------------------------------------------------------
 
 	/** Other seats in the viewer's order: dealt-in players, or (betting) the seated players and the atmosphere bots. */
 	private List<CompoundTag> others() {
@@ -479,173 +651,145 @@ public class UthScreen extends CardTableScreen {
 		return out;
 	}
 
+	private Component dealerLine() {
+		MutableComponent c = Component.translatable("gui.burmaldaholic.uth.dealer").copy();
+		String hand = s().getStringOr("dealer_hand", "");
+		if (!hand.isEmpty() && s().getIntArray("dealer").isPresent() && (fxKind != UthPub.SHOWDOWN || started(UthBeats.QUALIFY))) {
+			c.append(Texts.raw(" · ")).append(handName(hand));
+		}
+		return c;
+	}
+
 	@Override
-	protected void drawScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
-		hovers.clear();
-		int mx = mouseX;
-		int my = mouseY;
-		if (compact()) {
-			float k = 280f / 408f;
-			g.pose().pushMatrix();
-			g.pose().translate(tableX(), tableY());
-			g.pose().scale(k, k);
-			g.pose().translate(-UthLayout.TABLE_X, -UthLayout.TABLE_Y);
-			mx = Math.round((mouseX - tableX()) / k) + UthLayout.TABLE_X;
-			my = Math.round((mouseY - tableY()) / k) + UthLayout.TABLE_Y;
-		}
+	protected void layoutPlay(TableGrid grid, UthView v, HitMap hits) {
+		int labelW = 0;
+		for (String k : new String[] {"trips", "ante", "blind", "play"}) labelW = Math.max(labelW, font.width(Component.translatable("gui.burmaldaholic.uth." + k)));
+		int handW = font.width(handName(s().getStringOr("my_hand", "")));
+		layout = UthTableLayout.of(grid, others().size(), font.width(dealerLine()) + 2 * ValuePill.PAD, Math.max(40, handW + 2 * ValuePill.PAD), labelW + 2,
+			font.width("+88 888") + 2 * ValuePill.PAD);
+		UthTableLayout.Layout l = layout;
+		List<Box> obstacles = new ArrayList<>(List.of(l.board()));
+		obstacles.add(l.hero());
+		obstacles.add(l.dealer());
+		chrome.banner.regions(List.of(l.banner()), obstacles);
+		Gate ante = UthFlow.spot("ante", v);
+		Gate trips = UthFlow.spot("trips", v);
+		Box ta = l.spots()[0];
+		Box aa = l.spots()[1];
+		hits.add(KeyMap.Ids.felt("trips"), new Box(ta.x(), l.spotLabels()[0].y(), ta.w(), l.spotValues()[0].bottom() - l.spotLabels()[0].y()).inset(-2),
+			trips.enabled());
+		hits.add(KeyMap.Ids.felt("ante"), new Box(aa.x(), l.spotLabels()[1].y(), aa.w(), l.spotValues()[1].bottom() - l.spotLabels()[1].y()).inset(-2),
+			ante.enabled());
+	}
+
+	// ---- drawing ----------------------------------------------------------------------------------------------------
+
+	private static int kit(int card) {
+		int r = UthCards.rank(card);
+		return UthCards.suit(card) * 13 + (r == 14 ? 0 : r - 1);
+	}
+
+	@Override
+	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, UthView v, int mouseX, int mouseY, float partial) {
+		if (layout == null || layout.grid() != grid) layoutPlay(grid, v, new HitMap());
+		UthTableLayout.Layout l = layout;
 		List<CompoundTag> others = others();
-		drawFelt(g, others.size());
-		drawCards(g, others);
-		drawMyChips(g);
-		drawSeats(g, others, mx, my);
-		drawLabels(g, others);
-		if (showPaytable) drawPaytableOverlay(g);
-		if (compact()) g.pose().popMatrix();
+		drawFelt(g, grid, l, v, mouseX, mouseY);
+		drawCards(g, grid.tier, l, others);
+		drawSpots(g, grid.tier, l, v, mouseX, mouseY);
+		drawSeats(g, grid.tier, l, others);
+		drawPills(g, l);
 	}
 
-	private void drawFelt(GuiGraphicsExtractor g, int others) {
-		int print = tableTheme().printArgb(0.55);
-		Rect rack = UthLayout.rack();
-		CardGfx.sprite(g, tableTheme().themed("prop/rack"), rack.x(), rack.y(), rack.w(), rack.h(), 0xFFFFFFFF, 0xFF4A2A1A);
-		Rect deck = UthLayout.deck(others);
-		CardGfx.sprite(g, FxSprites.sprite("cards/prop/deck_" + backName()), deck.x(), deck.y(), deck.w(), deck.h(), 0xFFFFFFFF, 0xFF1A5A3A);
-		boolean round = !players().isEmpty();
-		if (!round) {
-			for (int i = 0; i < 5; i++) {
-				Rect b = UthLayout.board(i);
-				CardGfx.sprite(g, FxSprites.sprite("cards/print/slot_l"), b.x(), b.y(), b.w(), b.h(), CardGfx.alpha(print, 0.3 / 0.55));
-			}
-		}
-		// the viewer's circles: ring style carries the meaning (dotted Trips, solid Ante, double Blind, dashed Play)
-		String[] prints = {"uth_trips", "uth_ante", "uth_blind", "uth_play"};
-		String[] labels = {"trips", "ante", "blind", "play"};
-		boolean tripsOn = s().getBooleanOr("trips_enabled", true);
-		for (int c = 0; c < 4; c++) {
-			if (c == 0 && !tripsOn) continue;
-			Rect r = UthLayout.circle(c);
-			boolean target = rackShown() && ((c == 0) == chipsToTrips) && c <= 1;
-			if (target) CardGfx.sprite(g, FxSprites.sprite("cards/fx/spot_glow"), r.x() - 5, r.y() - 5, 34, 34, CardGfx.white(0.55));
-			CardGfx.sprite(g, FxSprites.sprite("cards/print/" + prints[c]), r.x(), r.y(), r.w(), r.h(), print);
-			int[] l = UthLayout.circleLabel(c);
-			Component label = Component.translatable("gui.burmaldaholic.uth." + labels[c]);
-			CardGfx.fitted(g, font, label, l[0] - Math.min(font.width(label), 40) / 2, l[1], 40, tableTheme().print, false);
-		}
-		if (!UthLayout.crowded(others)) drawPaytablePanel(g);
-		if (playerBanked()) drawBankLine(g);
-	}
-
-	/** The Blind paytable panel (top-left of the felt): the three best rows, a paying row outlined in gold. */
-	private void drawPaytablePanel(GuiGraphicsExtractor g) {
-		Rect p = UthLayout.paytable();
-		CardGfx.sprite(g, FxSprites.sprite("cards/panel/road"), p.x(), p.y(), p.w(), p.h(), 0xFFFFFFFF, 0xE0180A28);
-		CardGfx.fitted(g, font, Component.translatable("gui.burmaldaholic.uth.paytable.blind_short"), p.x() + 5, p.y() + 4, p.w() - 10,
-			CasinoPalette.GOLD, true);
-		CompoundTag pays = s().getCompoundOrEmpty("pays");
-		String paying = s().getCompoundOrEmpty("result").getStringOr("pay_hand", "");
-		int y = p.y() + 14;
-		int rows = 0;
-		for (PayHand h : PayHand.values()) {
-			if (h == PayHand.NONE || rows >= 3) continue;
-			double bp = pays.getDoubleOr("blind_" + h.key(), 0);
-			if (bp <= 0) continue;
-			Component name = handName(h.handName());
-			Component ratio = ratio(bp);
-			int rw = font.width(ratio);
-			if (h.key().equals(paying)) CardGfx.frame(g, p.x() + 3, y - 1, p.w() - 6, 10, CasinoPalette.GOLD);
-			CardGfx.fitted(g, font, name, p.x() + 5, y, p.w() - 16 - rw, CasinoPalette.BONE, true);
-			CardGfx.text(g, font, ratio, p.x() + p.w() - 5 - rw, y, CasinoPalette.BONE, true);
-			y += 10;
-			rows++;
-		}
-		hovers.add(new Hover(p.x(), p.y(), p.w(), p.h(), Component.translatable("gui.burmaldaholic.uth.paytable.blind")));
-	}
-
-	private void drawBankLine(GuiGraphicsExtractor g) {
-		CompoundTag b = bank();
-		Component who = b.contains("name") ? Texts.raw(b.getStringOr("name", ""))
-			: b.contains("stand_in") ? botName(b.getStringOr("stand_in", "")) : Component.translatable("gui.burmaldaholic.uth.pvp.the_house");
-		MutableComponent line = Component.translatable("gui.burmaldaholic.uth.pvp.dealer_seat", who);
-		if (b.contains("bank")) {
-			line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.pvp.bank", Texts.number(b.getLongOr("bank", 0)),
+	private void drawFelt(GuiGraphicsExtractor g, TableGrid grid, UthTableLayout.Layout l, UthView v, int mx, int my) {
+		// the dealer's rail along the top of the felt
+		Box rail = new Box(grid.play.x(), grid.play.y(), grid.play.w(), 3);
+		V2Draw.fill(g, rail, V2Felt.rail(theme()));
+		g.fill(rail.x(), rail.bottom(), rail.right(), rail.bottom() + 1, CasinoPalette.V2_GOLD_SHADE);
+		int print = TableTheme.of(theme()).printArgb(0.45);
+		if (players().isEmpty()) for (Box b : l.board()) V2Draw.outline(g, b, print);
+		FeltPrint.draw(g, font, l.banner(), Component.translatable("gui.burmaldaholic.uth.blind_equals_ante"), 0.35f, List.of());
+		if (playerBanked()) {
+			CompoundTag b = bank();
+			Component who = b.contains("name") ? Texts.raw(b.getStringOr("name", ""))
+				: b.contains("stand_in") ? Component.translatable("gui.burmaldaholic.bots.display", Component.translatable(BotRoster.nameKey(b.getStringOr("stand_in", ""))))
+				: Component.translatable("gui.burmaldaholic.uth.pvp.the_house");
+			MutableComponent line = Component.translatable("gui.burmaldaholic.uth.pvp.dealer_seat", who);
+			if (b.contains("bank")) line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.pvp.bank", Texts.number(b.getLongOr("bank", 0)),
 				Texts.number(b.getLongOr("reserved", 0))));
+			Box d = l.deck();
+			V2Draw.left(g, font, line, new Box(d.right() + 6, d.y(), Math.max(0, grid.felt().right() - d.right() - 6), 11), 0, 1, CasinoPalette.V2_GOLD, true);
 		}
-		Rect rack = UthLayout.rack();
-		CardGfx.fitted(g, font, line, rack.x() + rack.w() + 6, rack.y() + 3, 150, CasinoPalette.GOLD, true);
 	}
 
-	private void drawCards(GuiGraphicsExtractor g, List<CompoundTag> others) {
-		Rect deck = UthLayout.deck(others.size());
-		int[] origin = UthLayout.dealOrigin(others.size());
-		cards.origin(origin[0] - 18, origin[1] - 24).tray(deck.x(), deck.y());
+	private void drawCards(GuiGraphicsExtractor g, Tier tier, UthTableLayout.Layout l, List<CompoundTag> others) {
+		Box deck = l.deck();
+		cards.origin(l.dealer().cx() - 10, l.dealer().y()).tray(deck.x(), deck.y());
 		cards.begin(nowMs(), FxSettings.reduceMotion());
-		int back = backRow();
+		int back = TableTheme.of(theme()).back(CardSprites.BACK_EMERALD);
 		int key = Math.floorMod(roundKey, 100) * 1000;
 		List<CompoundTag> ps = players();
 		boolean round = !ps.isEmpty();
 		boolean gathered = fxKind == UthPub.RESULT && started(UthBeats.GATHER);
+		int hero = V2Cards.size(tier, true);
+		int seat = V2Cards.size(tier, false);
 		if (round && !gathered) {
 			boolean dealing = fxKind == UthPub.DEAL;
+			boolean settled = s().getBooleanOr("settled", false);
 			int[] dealer = s().getIntArray("dealer").orElse(NO_CARDS);
 			int dealerBest = s().getIntOr("dealer_best", 0);
 			for (int k = 0; k < 2; k++) {
-				Rect r = UthLayout.dealer(k);
+				int[] at = V2Cards.at(l.dealerCard(k), tier, true);
 				int code = k < dealer.length ? kit(dealer[k]) : -1;
 				double dealAt = dealing ? beatAt(UthBeats.DEALER_DEAL, k) : Double.NaN;
 				double revealAt = fxKind == UthPub.SHOWDOWN ? beatAt(UthBeats.DEALER_FLIP, k) : Double.NaN;
-				CardAnimator.Slot sl = cards.card(key + 10 + k, code, CardSprites.L, back, r.x(), r.y(), 0, dealAt, revealAt);
-				if (code >= 0 && s().getBooleanOr("settled", false)) cards.dim(sl, (dealerBest & (1 << k)) == 0);
+				CardAnimator.Slot sl = cards.card(key + 10 + k, code, hero, back, at[0], at[1], 0, dealAt, revealAt);
+				if (code >= 0 && settled) cards.dim(sl, (dealerBest & (1 << k)) == 0);
 			}
 			int[] board = s().getIntArray("board").orElse(NO_CARDS);
 			int myBest = s().getIntOr("my_best", 0);
-			boolean resultShown = s().getBooleanOr("settled", false);
 			for (int i = 0; i < 5; i++) {
-				Rect r = UthLayout.board(i);
+				int[] at = V2Cards.at(l.board()[i], tier, true);
 				int code = i < board.length ? kit(board[i]) : -1;
 				double dealAt = dealing ? beatAt(UthBeats.BOARD, i) : Double.NaN;
 				double revealAt = fxKind == UthPub.FLOP || fxKind == UthPub.RIVER ? beatAt(UthBeats.FLIP, i) : Double.NaN;
-				CardAnimator.Slot sl = cards.card(key + 20 + i, code, CardSprites.L, back, r.x(), r.y(), 0, dealAt, revealAt);
-				if (resultShown && myBest != 0) {
+				CardAnimator.Slot sl = cards.card(key + 20 + i, code, hero, back, at[0], at[1], 0, dealAt, revealAt);
+				if (settled && myBest != 0) {
 					boolean in = (myBest & (1 << (2 + i))) != 0;
 					cards.lift(sl, in);
 					cards.glow(sl, in);
 				}
-				if (code >= 0) hovers.add(new Hover(r.x(), r.y(), r.w(), r.h(), CardSprites.narration(code)));
 			}
 			CompoundTag me = me();
 			int lane = myLane();
-			if (me != null) {
+			if (me != null && !"folded".equals(me.getStringOr("tag", ""))) {
 				int[] mine = me.getIntArray("cards").orElse(NO_CARDS);
-				boolean folded = "folded".equals(me.getStringOr("tag", ""));
-				if (!folded) { // a river fold mucks the viewer's cards (K6: they gather to the deck)
-					for (int k = 0; k < 2; k++) {
-						Rect r = UthLayout.hole(k);
-						int code = k < mine.length ? kit(mine[k]) : -1;
-						double dealAt = dealing ? beatAt(UthBeats.DEAL, lane, k) : Double.NaN;
-						double revealAt = dealing ? beatAt(UthBeats.LIFT, lane) : Double.NaN;
-						CardAnimator.Slot sl = cards.card(key + 100 + k, code, CardSprites.L, back, r.x(), r.y(), 0, dealAt, revealAt);
-						if (resultShown && myBest != 0) {
-							boolean in = (myBest & (1 << k)) != 0;
-							cards.lift(sl, in);
-							cards.glow(sl, in);
-						}
-						if (code >= 0) hovers.add(new Hover(r.x(), r.y(), r.w(), r.h(), CardSprites.narration(code)));
+				for (int k = 0; k < 2; k++) {
+					int[] at = V2Cards.at(l.heroCard(k), tier, true);
+					int code = k < mine.length ? kit(mine[k]) : -1;
+					double dealAt = dealing ? beatAt(UthBeats.DEAL, lane, k) : Double.NaN;
+					double revealAt = dealing ? beatAt(UthBeats.LIFT, lane) : Double.NaN;
+					CardAnimator.Slot sl = cards.card(key + 100 + k, code, hero, back, at[0], at[1], 0, dealAt, revealAt);
+					if (settled && myBest != 0) {
+						boolean in = (myBest & (1 << k)) != 0;
+						cards.lift(sl, in);
+						cards.glow(sl, in);
 					}
 				}
 			}
-			UthLayout.Seat[] slots = UthLayout.others(others.size());
 			for (int i = 0; i < others.size(); i++) {
 				CompoundTag p = others.get(i);
 				if (p.getBooleanOr("idle_bot", false) || "folded".equals(p.getStringOr("tag", ""))) continue;
 				int pl = laneOf(ps, p);
 				int[] theirs = p.getIntArray("cards").orElse(NO_CARDS);
+				UthTableLayout.Other o = l.others()[i];
 				for (int k = 0; k < 2; k++) {
-					Rect r = slots[i].card(k);
+					int[] at = V2Cards.at(o.card(k, tier), tier, false);
 					int code = k < theirs.length ? kit(theirs[k]) : -1;
 					double dealAt = dealing ? beatAt(UthBeats.DEAL, pl, k) : Double.NaN;
 					double revealAt = fxKind == UthPub.SHOWDOWN ? beatAt(UthBeats.REVEAL, -1) : Double.NaN;
-					CardAnimator.Slot sl = cards.card(key + 200 + p.getIntOr("seat", i) * 10 + k, code, CardSprites.M, back, r.x(), r.y(), 0, dealAt,
-						revealAt);
-					if (resultShown && p.getLongOr("net", 0) < 0) cards.dim(sl, true);
+					CardAnimator.Slot sl = cards.card(key + 200 + p.getIntOr("seat", i) * 10 + k, code, seat, back, at[0], at[1], 0, dealAt, revealAt);
+					if (settled && p.getLongOr("net", 0) < 0) cards.dim(sl, true);
 				}
 			}
 		}
@@ -658,415 +802,189 @@ public class UthScreen extends CardTableScreen {
 		return 0;
 	}
 
-	private double beatAt(String kind, int lane, int arg) {
-		if (fx == null) return Double.NaN;
-		for (Beat b : fx.beats()) if (b.kind().equals(kind) && b.lane() == lane && b.arg(0) == arg) return fxStart * 50.0 + b.at();
-		return Double.NaN;
-	}
-
-	/** The viewer's four stacks; the Blind mirrors the Ante 120 ms later (a 34 px slide); settle beats move them. */
-	private void drawMyChips(GuiGraphicsExtractor g) {
+	/** The four circles: label, ring (the armed spot gold), stack (the draft at 60 % until dealt), value or net pill. */
+	private void drawSpots(GuiGraphicsExtractor g, Tier tier, UthTableLayout.Layout l, UthView v, int mx, int my) {
 		CompoundTag me = me();
 		long a;
 		long t;
 		int play;
-		boolean pendingBet = false;
+		boolean pending = false;
 		if (me != null) {
 			a = me.getLongOr("ante", 0);
 			t = me.getLongOr("trips", 0);
 			play = me.getIntOr("play", 0);
-		} else if (seated() && betting() && !iAmBanker()) {
-			boolean conf = confirmedBet();
-			a = conf ? s().getLongOr("my_ante", 0) : ante;
-			t = conf ? s().getLongOr("my_trips", 0) : trips;
+		} else if (v.seated() && v.betting() && !v.banker()) {
+			a = draft.ante();
+			t = draft.trips();
 			play = 0;
-			pendingBet = !conf;
+			pending = v.confirmed() == null;
 		} else {
-			return;
+			a = 0;
+			t = 0;
+			play = 0;
 		}
 		long[] amounts = {t, a, a, (long) play * a};
 		if (me != null && "folded".equals(me.getStringOr("tag", ""))) {
-			amounts[1] = 0; // a fold sweeps Ante and Blind at once; Trips still settles
+			amounts[1] = 0;
 			amounts[2] = 0;
 		}
-		long[] nets = me == null ? null : me.getLongArray("circles").orElse(null);
-		boolean settling = fxKind == UthPub.SHOWDOWN || fxKind == UthPub.RESULT;
-		int lane = myLane();
-		double now = nowMs();
-		// bonus stamps never cover a card, a circle, a caption (Trips / Ante / Blind / Play) nor each other: placed
-		// under the circle row, right of the hole cards (UthLayout#bonusStamp)
-		List<Rect> stampHard = UthLayout.stampObstacles(others().size());
+		long[] nets = me == null || !s().getBooleanOr("settled", false) ? null : me.getLongArray("circles").orElse(null);
+		boolean gathered = fxKind == UthPub.RESULT && started(UthBeats.GATHER);
+		String ghost = previewBet;
+		if (ghost == null) {
+			Optional<HitMap.Target> h = chrome.hits().at(mx, my);
+			if (h.isPresent() && h.get().id().startsWith("action.bet_") && h.get().enabled()) ghost = h.get().id().substring("action.".length());
+			if (h.isPresent() && h.get().id().equals(KeyMap.Ids.PRIMARY) && chrome.primary.gate().action().startsWith("bet_")) ghost = chrome.primary.gate().action();
+		}
+		int print = TableTheme.of(theme()).printArgb(0.75);
+		boolean editable = UthFlow.spot("ante", v).enabled();
 		for (int c = 0; c < 4; c++) {
-			long amount = amounts[c];
-			Rect r = UthLayout.circle(c);
-			int cx = r.cx();
-			int base = r.y() + r.h() - 4;
-			if (c == 3 && amount == 0 && hoveredBet != null && hoveredBetAmount > 0) {
-				// the ghost Play stack of the hovered Bet button (45 %, glow, amount)
-				CardGfx.sprite(g, FxSprites.sprite("cards/fx/spot_glow"), r.x() - 5, r.y() - 5, 34, 34, CardGfx.white(0.8));
-				ChipStackView.stack(g, cx, base, hoveredBetAmount, 5, 0, false, 0.45);
-				Component plus = Component.empty().append(Texts.raw("+")).append(Texts.number(hoveredBetAmount));
-				CardGfx.text(g, font, plus, r.x() + r.w() + 3, r.y() + 8, CardGfx.alpha(CasinoPalette.GOLD, 0.9), true);
+			if (c == 0 && !v.tripsOn()) continue;
+			Box ring = l.spots()[c];
+			boolean armed = editable && c <= 1 && (c == 0) == (draft.spot() == UthBetDraft.Spot.TRIPS);
+			boolean hover = editable && c <= 1 && l.spotLabels()[c].x() <= mx && mx < l.spotLabels()[c].right() && l.spotLabels()[c].y() <= my
+				&& my < l.spotValues()[c].bottom();
+			FeltPrint.ring(g, ring, armed ? CasinoPalette.V2_GOLD : hover ? V2Draw.alpha(CasinoPalette.V2_GOLD, 0.7f) : print);
+			if (armed) FeltPrint.ring(g, ring.inset(-2), V2Draw.alpha(CasinoPalette.V2_GOLD, 0.5f));
+			Component label = Component.translatable("gui.burmaldaholic.uth." + UthTableLayout.SPOTS[c]);
+			V2Draw.centred(g, font, label, l.spotLabels()[c], 1, armed ? CasinoPalette.V2_GOLD : print, false);
+			long amount = gathered ? 0 : amounts[c];
+			Box stack = Box.centredAt(ring.cx(), ring.cy(), tier.feltChip, tier.feltChip + 4);
+			if (c == 3 && amount == 0 && ghost != null && me != null) {
+				long ga = switch (ghost) {
+					case "bet_4x" -> 4 * a;
+					case "bet_3x" -> 3 * a;
+					case "bet_2x" -> 2 * a;
+					default -> a;
+				};
+				ChipStack.draw(g, stack, ga, 0.45f);
+				Component plus = Component.empty().append(Texts.raw("+")).append(Texts.number(ga));
+				ValuePill.draw(g, font, l.spotValues()[c].centred(Math.min(l.spotValues()[c].w(), ValuePill.width(font, plus)), l.spotValues()[c].h()), plus,
+					ValuePill.Style.YOU);
 				continue;
 			}
-			if (amount <= 0) continue;
-			double alpha = pendingBet ? 0.75 : 1;
-			int dx = 0;
-			if (c == 2 && !Double.isNaN(anteAt) && !FxSettings.reduceMotion()) {
-				// Blind = Ante, shown as a copy sliding from the Ante circle 120 ms later
-				double u = Math.min(1, Math.max(0, (now - anteAt - 120) / 220.0));
-				if (u <= 0) continue;
-				dx = (int) Math.round(-UthLayout.circlePitch() * (1 - Ease.OUT_CUBIC.apply(u)));
+			if (amount <= 0 && (nets == null || nets[c] == 0)) continue;
+			if (amount > 0) ChipStack.draw(g, stack, amount, pending ? 0.6f : 1f);
+			Component text;
+			ValuePill.Style style;
+			if (nets != null && c < nets.length && (amount > 0 || nets[c] != 0)) {
+				text = V2Draw.net(nets[c]);
+				style = ValuePill.ofNet(nets[c]);
+			} else {
+				text = Texts.number(amount);
+				style = ValuePill.Style.YOU;
 			}
-			if (settling && nets != null && fx != null && lane >= 0) {
-				Beat b = null;
-				for (Beat x : fx.beats()) if (x.kind().equals(UthBeats.SETTLE) && x.lane() == lane && x.arg(0) == c) b = x;
-				double u = fxKind == UthPub.RESULT ? 1 : b == null ? 1 : b.progress(fxMs());
-				long net = nets[c];
-				boolean gather = fxKind == UthPub.RESULT && started(UthBeats.GATHER);
-				if (gather) continue;
-				if (net < 0 && u > 0) {
-					// lost: swept to the rack
-					Rect rack = UthLayout.rack();
-					CardMotion.sweep(pose, cx, base, rack.cx(), rack.y() + 8, u, FxSettings.reduceMotion());
-					if (pose.alpha > 0.02) ChipStackView.stack(g, (int) Math.round(pose.x), (int) Math.round(pose.y), amount, 5, 0, false, pose.alpha);
-					continue;
-				}
-				if (net > 0 && u > 0) {
-					// won: the payout pops in beside the stack (+14 px) from the rack
-					Rect rack = UthLayout.rack();
-					CardMotion.chipFlight(pose, rack.cx(), rack.y() + 8, cx + 14, base + 2, u, FxSettings.reduceMotion());
-					ChipStackView.stack(g, (int) Math.round(pose.x), (int) Math.round(pose.y), net, 5, 0, false, pose.alpha);
-					if ((c == 0 || c == 2) && u >= 1 && s().getBooleanOr("settled", false)) {
-						Component word = Component.translatable(c == 0 ? "gui.burmaldaholic.uth.fx.trips_bonus" : "gui.burmaldaholic.uth.fx.blind_bonus");
-						double age = b == null ? 1000 : fxMs() - b.end();
-						if (fxKind == UthPub.RESULT) age = 1000;
-						int artW = CardGfx.fittedWidth(font, word, TableStamp.MAX_TEXT_W) + 14;
-						Rect spot = LabelPlacer.place(stampHard, plates, UthLayout.labelBounds(), List.of(UthLayout.bonusStamp(c, artW))).get(0);
-						stampHard.add(spot);
-						TableStamp.draw(g, font, word, TableStamp.Kind.VIOLET, spot.x() + spot.w() / 2.0, spot.y() + spot.h() / 2.0, UthLayout.STAMP_TILT, age,
-							FxSettings.reduceMotion(), pose);
-					}
-				}
-				if (net == 0 && u > 0 && u < 1 && !FxSettings.reduceMotion()) {
-					dx += (int) Math.round(Math.sin(u * Math.PI * 4) * 1.2); // push: wiggle, stays
-				}
-			}
-			ChipStackView.stack(g, cx + dx, base, amount, 5, 0, false, alpha);
-			hovers.add(new Hover(r.x(), r.y(), r.w(), r.h(), Texts.number(amount)));
+			Box vb = l.spotValues()[c];
+			ValuePill.draw(g, font, vb.centred(Math.min(vb.w(), ValuePill.width(font, text)), vb.h()), text, style);
 		}
 	}
 
-	private void drawSeats(GuiGraphicsExtractor g, List<CompoundTag> others, int mx, int my) {
-		UthLayout.Seat[] slots = UthLayout.others(others.size());
-		boolean resultShown = s().getBooleanOr("settled", false);
-		plates.clear();
+	private void drawSeats(GuiGraphicsExtractor g, Tier tier, UthTableLayout.Layout l, List<CompoundTag> others) {
+		boolean settled = s().getBooleanOr("settled", false);
+		boolean showdown = s().getIntArray("dealer").isPresent() && (fxKind != UthPub.SHOWDOWN || started(UthBeats.REVEAL));
 		for (int i = 0; i < others.size(); i++) {
 			CompoundTag p = others.get(i);
-			UthLayout.Seat sl = slots[i];
+			UthTableLayout.Other o = l.others()[i];
 			boolean bot = p.getBooleanOr("bot", false);
-			String botId = p.getStringOr("bot_name", "");
-			Component name = bot ? Component.translatable(BotRoster.nameKey(botId)) : Texts.raw(p.getStringOr("name", ""));
-			int level = switch (p.getStringOr("bot_level", "")) {
-				case "easy" -> 1;
-				case "normal" -> 2;
-				case "hard" -> 3;
-				default -> 0;
-			};
+			Component name = bot ? Component.translatable(BotRoster.nameKey(p.getStringOr("bot_name", ""))) : Texts.raw(p.getStringOr("name", ""));
 			String tag = p.getStringOr("tag", "");
-			boolean thinking = bot && ("deciding".equals(tag) || "thinking".equals(p.getStringOr("bot_state", "")));
+			SeatPlate.draw(g, font, o.plate(), name, "deciding".equals(tag) || "thinking".equals(p.getStringOr("bot_state", "")) ? SeatPlate.Kind.ACTING
+				: SeatPlate.Kind.OTHER, bot);
 			Component sub;
-			int subColor = CasinoPalette.GOLD;
-			if (resultShown && p.contains("net")) {
+			ValuePill.Style style = ValuePill.Style.OTHER;
+			if (settled && p.contains("net")) {
 				long net = p.getLongOr("net", 0);
-				sub = net > 0 ? Component.empty().append(Texts.raw("+")).append(Texts.number(net))
-					: net < 0 ? Component.empty().append(Texts.raw("−")).append(Texts.number(-net)) : Component.translatable("gui.burmaldaholic.common.result.push");
-				subColor = net > 0 ? GREEN : net < 0 ? CasinoPalette.CHIP_RED_LIGHT : MUTED;
+				sub = V2Draw.net(net);
+				style = ValuePill.ofNet(net);
+			} else if (showdown && !p.getStringOr("hand", "").isEmpty() && !"folded".equals(tag)) {
+				sub = handName(p.getStringOr("hand", ""));
 			} else if ("play".equals(tag)) {
 				sub = Component.translatable("gui.burmaldaholic.uth.tag.play", Texts.number(p.getIntOr("play", 0)));
 			} else if (!tag.isEmpty()) {
 				sub = Component.translatable("gui.burmaldaholic.uth.tag." + tag);
-				subColor = MUTED;
+				style = ValuePill.Style.PUSH;
 			} else if ("watching".equals(p.getStringOr("bot_state", ""))) {
 				sub = Component.translatable("gui.burmaldaholic.bots.watching");
-				subColor = MUTED;
+				style = ValuePill.Style.PUSH;
 			} else if (p.getLongOr("ante", 0) > 0) {
 				sub = Component.translatable("gui.burmaldaholic.uth.ante_amount", Texts.number(p.getLongOr("ante", 0)));
 			} else {
-				sub = Component.empty();
+				continue;
 			}
-			SeatPlate.State st = "folded".equals(tag) ? SeatPlate.State.FOLDED
-				: resultShown && p.getLongOr("net", 0) > 0 ? SeatPlate.State.WINNER : "deciding".equals(tag) ? SeatPlate.State.ACTIVE : SeatPlate.State.NORMAL;
-			Component shown = font.width(name) <= 62 ? name : Texts.raw(font.plainSubstrByWidth(name.getString(), 62 - font.width("…")) + "…");
-			SeatPlate.Info info = new SeatPlate.Info(shown, bot ? null : p.getStringOr("name", ""), bot ? tableTheme().botAvatar(botId) : null, level, sub,
-				subColor, st, thinking);
-			int w = SeatPlate.width(font, info);
-			int px = Math.min(sl.plateX(), UthLayout.CANVAS_W - 2 - w);
-			// the combined stack (sum of the circles), atmosphere bots hatched, before the plate
-			long total = 2 * p.getLongOr("ante", 0) + p.getLongOr("trips", 0) + (long) p.getIntOr("play", 0) * p.getLongOr("ante", 0);
-			if (total > 0 && !(fxKind == UthPub.RESULT && started(UthBeats.GATHER))) {
-				ChipStackView.stack(g, sl.stackX(), sl.stackY(), total, 5, bot ? 0 : ChipStackView.seatTint(p.getIntOr("seat", i)), bot, 1);
-				hovers.add(new Hover(sl.stackX() - 7, sl.stackY() - 16, 14, 16, Texts.number(total)));
-			}
-			SeatPlate.draw(g, font, info, px, sl.plateY(), 1, 0);
-			plates.add(new Rect(px, sl.plateY(), w, UthLayout.PLATE_H));
-			MutableComponent tip = Component.empty().append(bot ? Component.translatable("gui.burmaldaholic.bots.display", name) : name);
-			if (level > 0) {
-				BotDifficulty d = level == 1 ? BotDifficulty.EASY : level == 2 ? BotDifficulty.NORMAL : BotDifficulty.HARD;
-				tip.append(Texts.raw(" · ")).append(Component.translatable(d.translationKey()));
-			}
-			if (bot) tip.append(Texts.raw("\n")).append(Component.translatable("gui.burmaldaholic.bots.virtual_tooltip"));
-			hovers.add(new Hover(px, sl.plateY(), w, UthLayout.PLATE_H, tip));
+			Box pb = o.pill();
+			int w = Math.min(o.plate().w(), ValuePill.width(font, sub));
+			Box pill = o.plate().x() == pb.x() ? new Box(pb.x(), pb.y(), w, pb.h()) : new Box(o.plate().right() - w, pb.y(), w, pb.h());
+			ValuePill.draw(g, font, pill, sub, style);
 		}
+		// the viewer's plate
+		if (mySeat() >= 0) SeatPlate.draw(g, font, l.heroPlate(), Component.translatable("gui.burmaldaholic.common.you"), SeatPlate.Kind.YOU, false);
 	}
 
-	/** The viewer's hand name, the others' hand names at the showdown and the qualify banner — never over a card. */
-	private void drawLabels(GuiGraphicsExtractor g, List<CompoundTag> others) {
-		List<Rect> hard = new ArrayList<>(UthLayout.cardRects(others.size()));
-		for (int c = 0; c < 4; c++) hard.add(UthLayout.circle(c));
-		hard.addAll(plates);
-		List<LabelPlacer.Request> reqs = new ArrayList<>();
-		List<Component> texts = new ArrayList<>();
+	private void drawPills(GuiGraphicsExtractor g, UthTableLayout.Layout l) {
+		if (!players().isEmpty()) {
+			Component d = dealerLine();
+			if (s().getIntArray("dealer").isPresent() && s().getBooleanOr("settled", false) && !s().getBooleanOr("qualifies", true)) {
+				d = Component.translatable(UthFlow.V2 + "dealer_no_open");
+			}
+			Box dp = l.dealerPill();
+			int w = Math.min(dp.w(), ValuePill.width(font, d));
+			ValuePill.draw(g, font, new Box(dp.right() - w, dp.y(), w, dp.h()), d, ValuePill.Style.OTHER);
+		}
 		String myHand = s().getStringOr("my_hand", "");
-		boolean showdown = s().getIntArray("dealer").isPresent() && (fxKind != UthPub.SHOWDOWN || started(UthBeats.REVEAL));
 		if (!myHand.isEmpty() && me() != null) {
 			Component t = handName(myHand);
-			reqs.add(UthLayout.viewerTag(font.width(t) + 8));
-			texts.add(t);
-		}
-		UthLayout.Seat[] slots = UthLayout.others(others.size());
-		for (int i = 0; i < others.size() && showdown; i++) {
-			CompoundTag p = others.get(i);
-			String hand = p.getStringOr("hand", "");
-			if (hand.isEmpty() || "folded".equals(p.getStringOr("tag", ""))) continue;
-			Component t = handName(hand);
-			reqs.add(UthLayout.seatTag(slots[i], 60, font.width(t) + 8));
-			texts.add(t);
-		}
-		List<Rect> placed = LabelPlacer.place(hard, List.of(), UthLayout.labelBounds(), reqs);
-		for (int i = 0; i < placed.size(); i++) {
-			ActionTag.draw(g, font, texts.get(i), placed.get(i).cx(), placed.get(i).y(), 1);
-			hard.add(placed.get(i));
-		}
-		// the qualify banner slides down from the dealer area at its beat (the same pause either way)
-		if (s().getIntArray("dealer").isPresent()) {
-			double age = fxKind == UthPub.SHOWDOWN && beat(UthBeats.QUALIFY, -1) != null ? fxMs() - beat(UthBeats.QUALIFY, -1).at() : 10_000;
-			if (age >= 0) {
-				boolean q = s().getBooleanOr("qualifies", false);
-				Component t = Component.translatable(q ? "gui.burmaldaholic.uth.qualifies" : "gui.burmaldaholic.uth.not_qualifies");
-				Rect d = UthLayout.dealer(1);
-				int w = font.width(t) + 14;
-				Rect spot = LabelPlacer.place(hard, List.of(), UthLayout.labelBounds(),
-					List.of(new LabelPlacer.Request(w, 16, d.x() + d.w() + 8, d.y() + 16, d.x() + d.w() + 8, d.y() + 2))).get(0);
-				TableStamp.draw(g, font, t, q ? TableStamp.Kind.GREEN : TableStamp.Kind.RED, spot.cx(), spot.cy(), 0, age, FxSettings.reduceMotion(), pose);
-			}
+			Box hb = l.heroHand();
+			int w = Math.min(hb.w(), ValuePill.width(font, t));
+			ValuePill.draw(g, font, new Box(hb.x() + (hb.w() - w) / 2, hb.y(), w, hb.h()), t, ValuePill.Style.YOU);
 		}
 	}
 
-	private void drawPaytableOverlay(GuiGraphicsExtractor g) {
-		int x = UthLayout.TABLE_X + 40;
-		int y = UthLayout.TABLE_Y + 20;
-		int w = 328;
-		int h = 150;
-		CardGfx.sprite(g, FxSprites.sprite("cards/panel/road"), x, y, w, h, 0xF8FFFFFF, 0xF0180A28);
+	/** The {@code ?} overlay: Blind and Trips paytables, bot edges, the player-bank rules. */
+	@Override
+	protected void renderOverlay(GuiGraphicsExtractor g, TableGrid grid, UthView v, int mouseX, int mouseY, float partial) {
+		if (!rulesOpen) return;
+		Box play = grid.play;
+		V2Draw.fill(g, play, 0xB0080410);
+		Box panel = play.inset(grid.m() + 6);
+		V2Draw.pill(g, panel, CasinoPalette.V2_PANEL, CasinoPalette.V2_GOLD_SHADE);
 		CompoundTag pays = s().getCompoundOrEmpty("pays");
-		int colW = (w - 18) / 2;
-		int x1 = x + 6;
+		int colW = (panel.w() - 18) / 2;
+		int x1 = panel.x() + 6;
 		int x2 = x1 + colW + 6;
-		int bottom = y + h - 4;
-		int y1 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.blind"), x1, y + 5, colW, CasinoPalette.GOLD, bottom);
-		int y2 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.trips"), x2, y + 5, colW, CasinoPalette.GOLD, bottom);
+		int bottom = panel.bottom() - 4;
+		int y1 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.blind"), x1, panel.y() + 5, colW, CasinoPalette.V2_GOLD, bottom);
+		int y2 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.trips"), x2, panel.y() + 5, colW, CasinoPalette.V2_GOLD, bottom);
 		for (PayHand ph : PayHand.values()) {
 			if (ph == PayHand.NONE) continue;
 			double bp = pays.getDoubleOr("blind_" + ph.key(), 0);
 			if (bp > 0) y1 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.row", handName(ph.handName()), ratio(bp)), x1, y1, colW,
-				CasinoPalette.BONE, bottom);
+				CasinoPalette.V2_TEXT, bottom);
 			int tp = pays.getIntOr("trips_" + ph.key(), 0);
 			if (tp > 0) y2 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.row", handName(ph.handName()), ratio(tp)), x2, y2, colW,
-				CasinoPalette.BONE, bottom);
+				CasinoPalette.V2_TEXT, bottom);
 		}
-		y1 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.blind_lower"), x1, y1, colW, MUTED, bottom);
+		y1 = wrapped(g, Component.translatable("gui.burmaldaholic.uth.paytable.blind_lower"), x1, y1, colW, CasinoPalette.V2_MUTED, bottom);
 		ListTag levels = s().getListOrEmpty("bot_levels");
 		for (int i = 0; i < levels.size(); i++) {
 			BotDifficulty lvl = BotDifficulty.byId(levels.getStringOr(i, ""), BotDifficulty.NORMAL);
 			Component line = Component.empty().append(Component.translatable(lvl.translationKey())).append(Texts.raw(": "))
 				.append(Component.translatable("gui.burmaldaholic.bots.uth_edge", Texts.raw(UthBotPolicy.edgePercent(lvl))));
-			y1 = wrapped(g, line, x1, y1 + (i == 0 ? 2 : 0), colW, MUTED, bottom);
+			y1 = wrapped(g, line, x1, y1 + (i == 0 ? 2 : 0), colW, CasinoPalette.V2_MUTED, bottom);
 		}
 		if (playerBanked()) {
 			CompoundTag b = bank();
 			String pct = UthClientModule.trimPercent(b.getDoubleOr("rake", 0) * 100);
 			wrapped(g, Component.translatable("gui.burmaldaholic.uth.pvp.rules.2", Texts.number(b.getLongOr("ante_factor", 505)),
-				Texts.number(b.getLongOr("trips_factor", 50)), Texts.decimal(pct)), x2, y2 + 2, colW, MUTED, bottom);
+				Texts.number(b.getLongOr("trips_factor", 50)), Texts.decimal(pct)), x2, y2 + 2, colW, CasinoPalette.V2_MUTED, bottom);
 		}
 	}
 
 	private int wrapped(GuiGraphicsExtractor g, Component text, int x, int y, int w, int color, int bottom) {
 		for (FormattedCharSequence l : font.split(text, w)) {
 			if (y + 9 > bottom) return y;
-			CardGfx.text(g, font, l, x, y, color, true);
+			V2Draw.text(g, font, l, x, y, 1, color, true);
 			y += 10;
 		}
 		return y;
-	}
-
-	// ---- console text, overlay, tooltips ------------------------------------------------------------------------
-
-	@Override
-	protected void drawConsoleText(GuiGraphicsExtractor g, int mouseX, int mouseY) {
-		hoveredBet = null;
-		hoveredBetAmount = 0;
-		CompoundTag me = me();
-		for (CardButton b : buttons()) {
-			boolean preview = previewBet != null && b.getMessage().getString().equals(Component.translatable("gui.burmaldaholic.uth.button." + previewBet).getString());
-			if ((b.isMouseOver(mouseX, mouseY) || preview) && b.active && me != null) {
-				for (Decision d : Decision.values()) {
-					if (d.isBet() && b.getMessage().getString().equals(Component.translatable("gui.burmaldaholic.uth.button." + d.id()).getString())) {
-						hoveredBet = b;
-						hoveredBetAmount = d.multiple() * me.getLongOr("ante", 0);
-					}
-				}
-			}
-		}
-		int x = compact() ? 4 : 8;
-		int y1 = compact() ? 141 : 212;
-		if (rackShown()) {
-			int ry = compact() ? 138 : 211;
-			for (int i = 0; i < CHIPS.length; i++) {
-				int cx = x + i * 25;
-				boolean hover = mouseX >= cx && mouseX < cx + 22 && mouseY >= ry && mouseY < ry + 22;
-				ChipStackView.big(g, CHIPS[i], cx, ry, false, hover, true);
-			}
-			Component where = Component.translatable(chipsToTrips ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
-			long at = 6 * ante + trips;
-			Component line = Component.empty().append(where).append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.at_risk",
-				Texts.number(at)));
-			int lx = x + CHIPS.length * 25 + 2;
-			CardGfx.fitted(g, font, line, lx, ry + 7, Math.max(20, consoleTextRight() - lx), MUTED, true);
-			return;
-		}
-		int maxW = Math.max(40, consoleTextRight() - x);
-		Component l1 = null;
-		Component l2 = null;
-		int c1 = CasinoPalette.BONE;
-		List<String> legal = legal();
-		CompoundTag res = s().getCompoundOrEmpty("result");
-		if (!legal.isEmpty()) {
-			boolean allow3x = s().getBooleanOr("allow3x", true);
-			l1 = Component.translatable(legal.contains("bet_4x") ? allow3x ? "gui.burmaldaholic.uth.hint.preflop" : "gui.burmaldaholic.uth.hint.preflop_no3x"
-				: legal.contains("bet_2x") ? "gui.burmaldaholic.uth.hint.flop" : "gui.burmaldaholic.uth.hint.river");
-			long a = me == null ? 0 : me.getLongOr("ante", 0);
-			long t = me == null ? 0 : me.getLongOr("trips", 0);
-			MutableComponent l = Component.translatable("gui.burmaldaholic.uth.at_risk_now", Texts.number(2 * a + t));
-			long sec = secondsLeft("decide");
-			if (sec >= 0) l.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.seconds_short", Texts.number(sec)));
-			l2 = l;
-		} else if (!res.isEmpty()) {
-			l1 = resultLine(res);
-			c1 = res.getLongOr("net", 0) > 0 ? GREEN : res.getLongOr("net", 0) < 0 ? CasinoPalette.CHIP_RED_LIGHT : MUTED;
-			l2 = perBetLine(res);
-		} else if (iAmBanker()) {
-			CompoundTag b = bank();
-			if (b.contains("last_result") && ("result".equals(phase()) || betting())) {
-				long r = b.getLongOr("last_result", 0);
-				l1 = Component.translatable("gui.burmaldaholic.uth.pvp.round_result", Component.empty().append(Texts.raw(r >= 0 ? "+" : "−"))
-					.append(Texts.number(Math.abs(r))), Texts.number(b.getLongOr("last_rake", 0)));
-			} else {
-				l1 = Component.translatable("gui.burmaldaholic.uth.pvp.you_bank");
-			}
-		} else if (s().getBooleanOr("waiting_next", false) && !betting()) {
-			l1 = Component.translatable("gui.burmaldaholic.uth.waiting_next");
-		} else if (me != null && me.getIntOr("play", 0) > 0) {
-			l1 = Component.translatable("gui.burmaldaholic.uth.waiting_showdown",
-				Component.translatable("gui.burmaldaholic.uth.play_multiple", Texts.number(me.getIntOr("play", 0))));
-			if (s().getIntOr("deciding", 0) > 0) l2 = Component.translatable("gui.burmaldaholic.uth.still_deciding", Texts.number(s().getIntOr("deciding", 0)));
-		} else if (s().getIntOr("deciding", 0) > 0) {
-			l1 = Component.translatable("gui.burmaldaholic.uth.still_deciding", Texts.number(s().getIntOr("deciding", 0)));
-		} else if (betting()) {
-			long sec = secondsLeft("bet");
-			if (sec >= 0) l1 = Component.translatable("msg.burmaldaholic.uth.round_starts_in", Texts.plural("unit.burmaldaholic.second_acc", sec));
-			else if (!seated()) {
-				int free = s().getIntOr("seat_count", 0) - s().getListOrEmpty("seats").size();
-				l1 = Texts.plural("gui.burmaldaholic.uth.seats_free", Math.max(0, free));
-			}
-			if (confirmedBet()) l2 = Component.translatable("gui.burmaldaholic.uth.at_risk", Texts.number(6 * s().getLongOr("my_ante", 0) + s().getLongOr("my_trips", 0)));
-			else if (!seated()) l2 = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
-		}
-		if (s().getBooleanOr("bots_pending", false) && betting() && l2 == null) l2 = Component.translatable("gui.burmaldaholic.bots.pending");
-		if (l1 != null) CardGfx.fitted(g, font, l1, x, y1, maxW, c1, true);
-		if (l2 != null) CardGfx.fitted(g, font, l2, x, y1 + 12, maxW, MUTED, true);
-		if (l1 != null && font.width(l1) > maxW) hovers.add(new Hover(x, y1, maxW, 10, l1));
-		if (l2 != null && font.width(l2) > maxW) hovers.add(new Hover(x, y1 + 12, maxW, 10, l2));
-	}
-
-	private Component resultLine(CompoundTag res) {
-		return switch (res.getStringOr("outcome", "")) {
-			case "win" -> Component.translatable("gui.burmaldaholic.uth.result.win", handName(s().getStringOr("my_hand", "")));
-			case "lose" -> Component.translatable("gui.burmaldaholic.uth.result.lose", handName(s().getStringOr("dealer_hand", "")));
-			case "tie" -> Component.translatable("gui.burmaldaholic.uth.result.tie");
-			default -> Component.translatable("gui.burmaldaholic.uth.result.folded");
-		};
-	}
-
-	private Component perBetLine(CompoundTag res) {
-		long net = res.getLongOr("net", 0);
-		MutableComponent line = Component.empty().append(net > 0 ? Component.translatable("gui.burmaldaholic.common.result.win", Texts.number(net))
-			: net < 0 ? Component.translatable("gui.burmaldaholic.common.result.loss", Texts.number(-net)) : Component.translatable("gui.burmaldaholic.common.result.push"));
-		long blind = res.getLongOr("blind_net", 0);
-		if (blind > 0) {
-			line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.line.blind_bonus", handName(handOf(res.getStringOr("pay_hand", ""))),
-				ratio(res.getDoubleOr("blind_pay", 0)), Texts.number(blind)));
-		}
-		long tn = res.getLongOr("trips_net", 0);
-		if (res.getLongOr("trips", 0) > 0 && tn > 0) {
-			line.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.line.trips_bonus", handName(handOf(res.getStringOr("pay_hand", ""))),
-				ratio(res.getIntOr("trips_pay", 0)), Texts.number(tn)));
-		}
-		return line;
-	}
-
-	private static String handOf(String payKey) {
-		for (PayHand h : PayHand.values()) if (h.key().equals(payKey)) return h.handName();
-		return "";
-	}
-
-	/** "500:1", "1.5:1" (decimal separator per language). */
-	private static Component ratio(double pay) {
-		String plain = pay == Math.rint(pay) ? Long.toString((long) pay) : String.format(java.util.Locale.ROOT, "%.2f", pay).replaceAll("0+$", "");
-		return Component.empty().append(Texts.decimal(plain)).append(Texts.raw(":1"));
-	}
-
-	private static Component botName(String nameId) {
-		return Component.translatable("gui.burmaldaholic.bots.display", Component.translatable(BotRoster.nameKey(nameId)));
-	}
-
-	private static Component handName(String name) {
-		return name.isEmpty() ? Component.empty() : Component.translatable("gui.burmaldaholic.poker.hand." + name);
-	}
-
-	@Override
-	protected void drawOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
-		if (bankBox != null) bankBox.extractRenderState(g, mouseX, mouseY, partial);
-	}
-
-	@Override
-	protected void drawTooltips(GuiGraphicsExtractor g, int mx, int my, int sx, int sy) {
-		int hx = mx;
-		int hy = my;
-		if (compact()) {
-			float k = 280f / 408f;
-			hx = Math.round((mx - tableX()) / k) + UthLayout.TABLE_X;
-			hy = Math.round((my - tableY()) / k) + UthLayout.TABLE_Y;
-		}
-		for (int i = hovers.size() - 1; i >= 0; i--) {
-			Hover h = hovers.get(i);
-			boolean console = h.y() >= 200;
-			int tx = console ? mx : hx;
-			int ty = console ? my : hy;
-			if (tx >= h.x() && tx < h.x() + h.w() && ty >= h.y() && ty < h.y() + h.h()) {
-				g.setTooltipForNextFrame(font, font.split(h.text(), 220), sx, sy);
-				return;
-			}
-		}
 	}
 }

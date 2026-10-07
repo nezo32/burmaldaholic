@@ -696,7 +696,7 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		int felt = V2Felt.felt(theme());
 		int railC = V2Felt.rail(theme());
 		int railDark = CasinoPalette.V2_RAIL_DARK;
-		int gold = CasinoPalette.alpha(CasinoPalette.V2_GOLD_SHADE, 0.9f);
+		int gold = V2Draw.alpha(CasinoPalette.V2_GOLD_SHADE, 0.9f);
 		for (int y = (int) (cy - ry - rail); y <= cy + ry + rail; y++) {
 			int ow = halfWidth(rx + rail, ry + rail, y - cy);
 			if (ow < 0) continue;

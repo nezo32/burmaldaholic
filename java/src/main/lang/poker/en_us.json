@@ -177,6 +177,7 @@
 	"gui.burmaldaholic.poker.v2.primary.buy_in_amount": "Buy in %1$s",
 	"gui.burmaldaholic.poker.v2.primary.top_up": "Top up %1$s",
 	"gui.burmaldaholic.poker.v2.bet_to": "Bet %1$s",
+	"gui.burmaldaholic.poker.v2.stepper": "−   %1$s   +",
 	"gui.burmaldaholic.poker.v2.leave_queue": "Cancel",
 	"gui.burmaldaholic.poker.v2.reason.pick_stakes": "Pick the stakes to sit down",
 	"gui.burmaldaholic.poker.v2.reason.vip_stakes": "These stakes need a higher VIP tier",

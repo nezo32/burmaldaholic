@@ -133,8 +133,6 @@
 	"gui.burmaldaholic.uth.v2.chips": "Фишки",
 	"gui.burmaldaholic.uth.v2.spot.ante": "Анте",
 	"gui.burmaldaholic.uth.v2.spot.trips": "Трипс",
-	"gui.burmaldaholic.uth.v2.tool.undo": "Отменить",
-	"gui.burmaldaholic.uth.v2.tool.double": "Удвоить ставку",
 	"gui.burmaldaholic.uth.v2.primary.wait": "Ожидание",
 	"gui.burmaldaholic.uth.v2.primary.sit": "Сесть",
 	"gui.burmaldaholic.uth.v2.primary.deal": "Раздать · %1$s",

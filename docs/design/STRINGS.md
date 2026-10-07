@@ -1054,6 +1054,7 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.v2.primary.buy_in_amount` | Buy in %1$s | Бай-ин %1$s |
 | `gui.burmaldaholic.poker.v2.primary.top_up` | Top up %1$s | Докупить %1$s |
 | `gui.burmaldaholic.poker.v2.bet_to` | Bet %1$s | Бет %1$s |
+| `gui.burmaldaholic.poker.v2.stepper` | −   %1$s   + | −   %1$s   + |
 | `gui.burmaldaholic.poker.v2.leave_queue` | Cancel | Отмена |
 | `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
 | `gui.burmaldaholic.poker.v2.reason.vip_stakes` | These stakes need a higher VIP tier | Для этого лимита нужен ВИП-статус выше |
@@ -1850,8 +1851,6 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.v2.chips` | Chips | Фишки |
 | `gui.burmaldaholic.uth.v2.spot.ante` | Ante | Анте |
 | `gui.burmaldaholic.uth.v2.spot.trips` | Trips | Трипс |
-| `gui.burmaldaholic.uth.v2.tool.undo` | Undo | Отменить |
-| `gui.burmaldaholic.uth.v2.tool.double` | Double the bet | Удвоить ставку |
 | `gui.burmaldaholic.uth.v2.primary.wait` | Waiting | Ожидание |
 | `gui.burmaldaholic.uth.v2.primary.sit` | Sit down | Сесть |
 | `gui.burmaldaholic.uth.v2.primary.deal` | Deal · %1$s | Раздать · %1$s |

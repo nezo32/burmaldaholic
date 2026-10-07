@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.uth.present;
 
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,8 +56,12 @@ public final class UthFlow {
 	}
 
 	public static Gate tool(String id, UthView v) {
-		String label = "gui.burmaldaholic.common." + id;
-		if (id.equals("double") || id.equals("undo")) label = V2 + "tool." + id;
+		String label = switch (id) {
+			case "undo" -> V2Keys.TOOL_UNDO;
+			case "clear" -> V2Keys.TOOL_CLEAR;
+			case "rebet" -> V2Keys.TOOL_REBET;
+			default -> V2Keys.TOOL_DOUBLE;
+		};
 		String lock = betLock(v);
 		if (lock != null) return Gate.off(LOCAL + id, label, lock);
 		UthBetDraft d = v.draft();
