@@ -1,6 +1,9 @@
 package dev.nezo.burmaldaholic.games.blackjack.present;
 
+import dev.nezo.burmaldaholic.core.ui.v2.BetView;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackView.Phase;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +17,9 @@ import java.util.List;
  * {@code insurance}, {@code no_insurance}, {@code even_money}, {@code no_even_money}, {@code hit}, {@code stand},
  * {@code double}, {@code split}, {@code surrender}, {@code leave}.
  */
-public final class BlackjackFlow {
+public final class BlackjackFlow implements Flow<BlackjackView> {
+	public static final BlackjackFlow INSTANCE = new BlackjackFlow();
+
 	private BlackjackFlow() {}
 
 	public static final String V2 = "gui.burmaldaholic.core.v2.";
@@ -24,13 +29,14 @@ public final class BlackjackFlow {
 	/** A status line: translation key + plain arguments. */
 	public record Line(String key, Object... args) {}
 
-	public static Gate primary(BlackjackView v) {
+	@Override
+	public Gate primary(BlackjackView v) {
 		if (!v.seated()) {
 			if (!v.canSit()) return Gate.off("sit", V2 + "primary.sit", V2 + "reason.table_full");
 			if (v.balance() < v.min()) return Gate.off("sit", V2 + "primary.sit", V2 + "reason.not_enough", v.min());
 			return Gate.on("sit", V2 + "primary.sit");
 		}
-		if (v.pending()) return Gate.off("bet", V2 + "primary.deal", V2 + "reason.waiting_answer");
+		if (v.pending()) return Gate.off("bet", V2 + "primary.deal", V2Keys.STATUS_PENDING);
 		return switch (v.phase()) {
 			case BETTING -> betting(v);
 			case INSURANCE -> insurance(v);
@@ -82,7 +88,8 @@ public final class BlackjackFlow {
 	}
 
 	/** Action row left of the primary (≤ 4): the decisions while playing, the decline of an insurance / even-money offer. */
-	public static List<Gate> actions(BlackjackView v) {
+	@Override
+	public List<Gate> actions(BlackjackView v) {
 		List<Gate> out = new ArrayList<>();
 		if (!v.seated() || v.pending()) return out;
 		if (v.phase() == Phase.INSURANCE && "insurance".equals(v.offer())) {
@@ -92,6 +99,8 @@ public final class BlackjackFlow {
 		} else if (v.phase() == Phase.TURNS && v.inRound()) {
 			for (String a : new String[] {"hit", "double", "split"}) out.add(decision(v, a));
 			if (v.myTurn() && v.legal().contains("surrender")) out.add(Gate.on("surrender", BJ + "surrender"));
+		} else if (v.phase() == Phase.RESULT) {
+			out.add(Gate.on("leave", V2Keys.PRIMARY_LEAVE));
 		}
 		return out;
 	}
@@ -110,8 +119,23 @@ public final class BlackjackFlow {
 		});
 	}
 
+	/** The bet model for the kit's BetBar (single spot: the local draft is the bet until the server holds one). */
+	@Override
+	public BetView bet(BlackjackView v) {
+		BetView.Phase ph = switch (v.phase()) {
+			case BETTING -> BetView.Phase.BETTING;
+			case INSURANCE, TURNS -> BetView.Phase.ACTING;
+			case DEALER, RESULT -> BetView.Phase.SETTLING;
+		};
+		long total = v.placed() > 0 ? v.placed() : v.draft();
+		return BetView.builder().seated(v.seated()).canSit(v.canSit()).phase(ph).bettingOpen(v.bettingOpen() && !v.pending()).limits(v.min(), v.max())
+			.balance(v.balance()).myTotal(total).canUndo(v.canUndo()).canClear(v.draft() > 0).rebet(v.lastBet() > 0, v.lastBet())
+			.canDouble(v.draft() > 0).secondsLeft(v.secondsLeft()).waitingFor(v.waitingFor()).build();
+	}
+
 	/** Bet tools: {@code undo}, {@code clear}, {@code rebet}, {@code double}. */
-	public static Gate tool(String id, BlackjackView v) {
+	@Override
+	public Gate tool(String id, BlackjackView v) {
 		String label = V2 + "tool." + id;
 		Gate closed = closedReason(v, id, label);
 		if (closed != null) return closed;
@@ -131,7 +155,8 @@ public final class BlackjackFlow {
 	}
 
 	/** A chip of the tray: adds {@code d} to the draft. */
-	public static Gate chip(long d, BlackjackView v) {
+	@Override
+	public Gate chip(long d, BlackjackView v) {
 		String label = V2 + "bet";
 		Gate closed = closedReason(v, "chip", label);
 		if (closed != null) return closed;
@@ -143,7 +168,7 @@ public final class BlackjackFlow {
 	/** Why the bet bar is closed (null = open). */
 	private static Gate closedReason(BlackjackView v, String id, String label) {
 		if (!v.seated()) return Gate.off(id, label, V2 + "reason.sit_to_bet");
-		if (v.pending()) return Gate.off(id, label, V2 + "reason.waiting_answer");
+		if (v.pending()) return Gate.off(id, label, V2Keys.STATUS_PENDING);
 		if (v.phase() != Phase.BETTING) return Gate.off(id, label, V2 + "reason.round_in_progress");
 		if (v.placed() > 0) return Gate.off(id, label, BJ2 + "reason.bet_placed", v.placed());
 		return null;

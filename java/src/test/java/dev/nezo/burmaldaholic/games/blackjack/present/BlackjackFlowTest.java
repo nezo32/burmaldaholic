@@ -57,17 +57,17 @@ class BlackjackFlowTest {
 
 	private static void check(BlackjackView v) {
 		List<Gate> all = new ArrayList<>();
-		all.add(BlackjackFlow.primary(v));
-		all.addAll(BlackjackFlow.actions(v));
-		for (String t : new String[] {"undo", "clear", "rebet", "double"}) all.add(BlackjackFlow.tool(t, v));
-		for (long d : v.chips()) all.add(BlackjackFlow.chip(d, v));
+		all.add(BlackjackFlow.INSTANCE.primary(v));
+		all.addAll(BlackjackFlow.INSTANCE.actions(v));
+		for (String t : new String[] {"undo", "clear", "rebet", "double"}) all.add(BlackjackFlow.INSTANCE.tool(t, v));
+		for (long d : v.chips()) all.add(BlackjackFlow.INSTANCE.chip(d, v));
 		boolean anyOn = all.stream().anyMatch(Gate::enabled);
 		Gate p = all.get(0);
 		boolean waits = !p.enabled() && p.reasonKey() != null;
 		assertTrue(anyOn || waits, () -> "stuck: " + v);
 		for (Gate g : all) assertTrue(g.enabled() || g.reasonKey() != null && !g.reasonKey().isEmpty(), () -> g + " " + v);
 		if (v.seated() && v.bettingOpen() && !v.pending() && v.balance() >= v.min()) {
-			assertTrue(v.chips().stream().anyMatch(d -> BlackjackFlow.chip(d, v).enabled()) || v.draft() >= v.cap(), () -> "no chip: " + v);
+			assertTrue(v.chips().stream().anyMatch(d -> BlackjackFlow.INSTANCE.chip(d, v).enabled()) || v.draft() >= v.cap(), () -> "no chip: " + v);
 		}
 		if (v.seated() && v.phase() == Phase.BETTING && v.placed() == 0 && !v.pending() && v.draft() >= v.min() && v.draft() <= v.cap()) {
 			assertTrue(p.enabled() && p.action().equals("bet"), () -> "deal not offered: " + v);
@@ -79,18 +79,18 @@ class BlackjackFlowTest {
 	@Test
 	void theDealPathIsOpen() {
 		BlackjackView v = new BlackjackView(true, true, Phase.BETTING, false, MIN, MAX, 1_000, 0, 0, 0, false, false, false, Set.of(), "", 0, "", 12, 0, 0, false);
-		assertEquals("gui.burmaldaholic.core.v2.reason.place_bet", BlackjackFlow.primary(v).reasonKey());
-		assertTrue(BlackjackFlow.chip(25, v).enabled());
-		assertFalse(BlackjackFlow.tool("undo", v).enabled());
+		assertEquals("gui.burmaldaholic.core.v2.reason.place_bet", BlackjackFlow.INSTANCE.primary(v).reasonKey());
+		assertTrue(BlackjackFlow.INSTANCE.chip(25, v).enabled());
+		assertFalse(BlackjackFlow.INSTANCE.tool("undo", v).enabled());
 		BlackjackView d = new BlackjackView(true, true, Phase.BETTING, false, MIN, MAX, 1_000, 25, 0, 0, true, false, false, Set.of(), "", 0, "", 12, 0, 0, false);
-		assertTrue(BlackjackFlow.primary(d).enabled());
-		assertEquals("bet", BlackjackFlow.primary(d).action());
-		assertFalse(BlackjackFlow.chip(100, d).enabled()); // 125 > max
-		assertTrue(BlackjackFlow.tool("double", d).enabled());
+		assertTrue(BlackjackFlow.INSTANCE.primary(d).enabled());
+		assertEquals("bet", BlackjackFlow.INSTANCE.primary(d).action());
+		assertFalse(BlackjackFlow.INSTANCE.chip(100, d).enabled()); // 125 > max
+		assertTrue(BlackjackFlow.INSTANCE.tool("double", d).enabled());
 		BlackjackView unseated = new BlackjackView(false, true, Phase.BETTING, false, MIN, MAX, 1_000, 0, 0, 0, false, false, false, Set.of(), "", 0, "", -1, 0, 0,
 			false);
-		assertEquals("sit", BlackjackFlow.primary(unseated).action());
-		assertTrue(BlackjackFlow.primary(unseated).enabled());
+		assertEquals("sit", BlackjackFlow.INSTANCE.primary(unseated).action());
+		assertTrue(BlackjackFlow.INSTANCE.primary(unseated).enabled());
 		assertEquals(List.of(1L, 5L, 25L, 100L), unseated.chips());
 	}
 

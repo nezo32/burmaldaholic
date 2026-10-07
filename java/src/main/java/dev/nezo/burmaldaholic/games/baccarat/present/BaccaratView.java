@@ -64,12 +64,6 @@ public record BaccaratView(boolean seated, boolean canSit, boolean chemmy, Strin
 
 	/** Chips of the tray (≤ 5), as blackjack's. */
 	public List<Long> chips() {
-		java.util.ArrayList<Long> out = new java.util.ArrayList<>();
-		long top = max > 0 ? max : Long.MAX_VALUE;
-		for (long d : DENOMS) if (d <= top) out.add(d);
-		if (out.isEmpty()) out.add(DENOMS[0]);
-		while (out.size() > 5 && out.get(0) * 20 < min) out.remove(0);
-		while (out.size() > 5) out.remove(0);
-		return List.copyOf(out);
+		return java.util.Arrays.stream(BaccaratFlow.INSTANCE.bet(this).chips()).boxed().toList();
 	}
 }

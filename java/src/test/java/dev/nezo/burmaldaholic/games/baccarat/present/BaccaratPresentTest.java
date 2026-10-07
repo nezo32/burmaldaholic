@@ -64,18 +64,18 @@ class BaccaratPresentTest {
 
 	private static void check(BaccaratView v) {
 		List<Gate> all = new ArrayList<>();
-		all.add(BaccaratFlow.primary(v));
-		all.addAll(BaccaratFlow.actions(v));
-		for (String t : new String[] {"undo", "clear", "rebet", "double"}) all.add(BaccaratFlow.tool(t, v));
+		all.add(BaccaratFlow.INSTANCE.primary(v));
+		all.addAll(BaccaratFlow.INSTANCE.actions(v));
+		for (String t : new String[] {"undo", "clear", "rebet", "double"}) all.add(BaccaratFlow.INSTANCE.tool(t, v));
 		for (long d : v.chips()) {
-			all.add(BaccaratFlow.chip(d, v));
+			all.add(BaccaratFlow.INSTANCE.chip(d, v));
 			for (int b = 0; b < BaccaratPub.BOXES; b++) all.add(BaccaratFlow.box(b, d, v));
 		}
 		Gate p = all.get(0);
 		assertTrue(all.stream().anyMatch(Gate::enabled) || p.reasonKey() != null, () -> "stuck: " + v);
 		for (Gate g : all) assertTrue(g.enabled() || g.reasonKey() != null, () -> g.toString());
 		if (v.seated() && v.houseOpen() && !v.ready() && !v.pending() && v.balance() >= v.min()) {
-			assertTrue(v.chips().stream().anyMatch(d -> BaccaratFlow.chip(d, v).enabled() && BaccaratFlow.box(BaccaratPub.P, d, v).enabled()),
+			assertTrue(v.chips().stream().anyMatch(d -> BaccaratFlow.INSTANCE.chip(d, v).enabled() && BaccaratFlow.box(BaccaratPub.P, d, v).enabled()),
 				() -> "no chip: " + v);
 		}
 		if (v.seated() && v.houseOpen() && !v.ready() && !v.pending() && v.total() >= v.minTotal()) {

@@ -72,16 +72,7 @@ public record BlackjackView(boolean seated, boolean canSit, Phase phase, boolean
 	 * the smallest affordable chip is always offered when the balance covers the minimum (§5.1).
 	 */
 	public List<Long> chips() {
-		java.util.ArrayList<Long> out = new java.util.ArrayList<>();
-		long top = max > 0 ? max : Long.MAX_VALUE;
-		for (long d : DENOMS) {
-			if (d <= top) out.add(d);
-		}
-		if (out.isEmpty()) out.add(DENOMS[0]);
-		// far below the minimum first, then the smallest: at most 5
-		while (out.size() > 5 && out.get(0) * 20 < min) out.remove(0);
-		while (out.size() > 5) out.remove(0);
-		return List.copyOf(out);
+		return java.util.Arrays.stream(BlackjackFlow.INSTANCE.bet(this).chips()).boxed().toList();
 	}
 
 	/** A chip of value {@code d} can be added to the draft now. */
