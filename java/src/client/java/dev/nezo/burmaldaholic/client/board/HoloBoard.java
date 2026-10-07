@@ -50,7 +50,7 @@ final class HoloBoard {
 			f.toBlock(l.x, l.y, l.z, P);
 			pose.pushPose();
 			pose.translate(P.x, P.y, P.z);
-			pose.mulPose(f.orientation);
+			pose.rotateAround(f.orientation, 0f, 0f, 0f);
 			float px = s.platePx;
 			pose.scale(px, -px, px);
 			out.submitText(pose, -font.width(l.seq) / 2f, 0, l.seq, false, Font.DisplayMode.POLYGON_OFFSET, Quads.FULL_BRIGHT, l.color, HoloText.BACKING, 0);
