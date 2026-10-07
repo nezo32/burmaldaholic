@@ -121,13 +121,13 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 				});
 			addRenderableWidget(add);
 			if (isHost() && view.seats().size() >= 2) {
-				addRenderableWidget(KitButton.of(left + RX, top + 187, 88, Component.translatable("gui.burmaldaholic.pvp.wheel.spin_now"),
+				addRenderableWidget(KitButton.of(left + RX, dockY(), 88, Component.translatable("gui.burmaldaholic.pvp.wheel.spin_now"),
 					KitButton.Style.PRIMARY, b -> WheelPartyClient.send("spin", new CompoundTag())).breathe(true));
 			}
-			addRenderableWidget(KitButton.of(left + RX + 92, top + 187, 84, Component.translatable("gui.burmaldaholic.pvp.lobby.leave"),
+			addRenderableWidget(KitButton.of(left + RX + 92, dockY(), 84, Component.translatable("gui.burmaldaholic.pvp.lobby.leave"),
 				KitButton.Style.SECONDARY, b -> WheelPartyClient.send("leave", new CompoundTag())));
 		} else if (view.settled() && youIn()) {
-			addRenderableWidget(KitButton.of(left + RX, top + 187, 176, Component.translatable("gui.burmaldaholic.pvp.rematch"), KitButton.Style.PRIMARY, b -> {
+			addRenderableWidget(KitButton.of(left + RX, dockY(), 176, Component.translatable("gui.burmaldaholic.pvp.rematch"), KitButton.Style.PRIMARY, b -> {
 				CompoundTag a = new CompoundTag();
 				a.putString("id", view.id());
 				WheelPartyClient.send("rematch", a);
@@ -135,7 +135,7 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 			}));
 		}
 		if (youIn()) {
-			addRenderableWidget(KitButton.of(left + RX, top + 210, 86, Component.translatable("gui.burmaldaholic.pvp.taunt.button"), KitButton.Style.SECONDARY,
+			addRenderableWidget(KitButton.of(left + 16, dockY(), 86, Component.translatable("gui.burmaldaholic.pvp.taunt.button"), KitButton.Style.SECONDARY,
 				b -> {
 					if (minecraft != null) {
 						minecraft.gui.setScreen(new TauntScreen(this, line -> {
@@ -146,7 +146,7 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 					}
 				}));
 		}
-		addRenderableWidget(KitButton.of(left + RX + 90, top + 210, 86, Component.translatable("gui.burmaldaholic.common.close"), KitButton.Style.SECONDARY,
+		addRenderableWidget(KitButton.of(left + 106, dockY(), 86, Component.translatable("gui.burmaldaholic.common.close"), KitButton.Style.SECONDARY,
 			b -> onClose()));
 		return top + 232;
 	}

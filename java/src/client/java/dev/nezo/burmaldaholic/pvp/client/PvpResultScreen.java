@@ -180,7 +180,7 @@ final class PvpResultScreen extends PvpScreen {
 			Kit.big(g, font, Component.translatable("gui.burmaldaholic.pvp.match.final"), cx, top + 24, 1, Kit.BONE_SHADE, Kit.INK);
 		}
 		// standings: face-up plaques with medals; the winner's flips gold
-		Kit.text(g, font, Component.translatable("gui.burmaldaholic.pvp.result.standings"), left + SX, top + 16, GOLD);
+		Kit.text(g, font, Component.translatable("gui.burmaldaholic.pvp.result.standings"), left + SX, top + 20, GOLD);
 		long[] points = longs(r, "points");
 		int n = Math.min(order.length, 6);
 		int pitch = n > 4 ? 18 : 24;
@@ -239,7 +239,7 @@ final class PvpResultScreen extends PvpScreen {
 			tx, iy + 39, 120, MUTED, true);
 		Component rm = rematchLine();
 		if (rm != null) Kit.fit(g, font, rm, tx, iy + 50, 120, GOLD, true);
-		Scene.chipCounter(g, font, Texts.number(num(s, "balance", 0)), left + Scene.W - 90, top + 212, false);
+		// the balance is the TopBar's pill (v2 frame)
 	}
 
 	private void confetti(GuiGraphicsExtractor g, double ms) {

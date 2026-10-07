@@ -20,14 +20,17 @@ public final class ExtrasKeys {
 	public static final String NEXT_CARD = P + "primary.next_card";
 
 	// reasons
-	public static final String REASON_DROPPING = P + "reason.dropping";
-	public static final String REASON_FLIPPING = P + "reason.flipping";
-	public static final String REASON_SCRATCHING = P + "reason.scratching";
+	public static final String REASON_DROPPING = P + "reason.wait_drop";
+	public static final String REASON_FLIPPING = P + "reason.wait_flip";
+	public static final String REASON_SCRATCHING = P + "reason.wait_scratch";
 	public static final String REASON_PICK_SIDE = P + "reason.pick_side";
-	public static final String REASON_NO_ITEM = P + "reason.no_item";
+	public static final String REASON_NO_ITEM = P + "reason.wait_item";
 	public static final String REASON_STAKE_MIN = P + "reason.stake_min";
 	public static final String REASON_STAKE_MAX = P + "reason.stake_max";
 	public static final String REASON_SOUL = P + "reason.soul";
+	public static final String REASON_TICKET_CURRENT = P + "reason.ticket_current";
+	public static final String KIND_BASIC = "gui.burmaldaholic.extras.scratch.kind.basic";
+	public static final String KIND_GOLD = "gui.burmaldaholic.extras.scratch.kind.gold";
 
 	// status hints
 	public static final String HINT_CHIPS = P + "hint.chips";
@@ -52,6 +55,6 @@ public final class ExtrasKeys {
 	public static final String CHALLENGE = P + "challenge";
 
 	public static final String[] ALL = {DROP, SPIN, FLIP, ROLL, SCRATCH_ALL, BUY, NEXT_CARD, REASON_DROPPING, REASON_FLIPPING, REASON_SCRATCHING,
-		REASON_PICK_SIDE, REASON_NO_ITEM, REASON_STAKE_MIN, REASON_STAKE_MAX, REASON_SOUL, HINT_CHIPS, HINT_WIN_UP_TO, HINT_SCRATCH, HINT_STAKE, STAKE_MINUS,
+		REASON_PICK_SIDE, REASON_NO_ITEM, REASON_STAKE_MIN, REASON_STAKE_MAX, REASON_SOUL, REASON_TICKET_CURRENT, KIND_BASIC, KIND_GOLD, HINT_CHIPS, HINT_WIN_UP_TO, HINT_SCRATCH, HINT_STAKE, STAKE_MINUS,
 		STAKE_PLUS, RISK, LAST_BALLS, TOP_PRIZE, SEGMENTS, YOUR_CALL, LAST_FLIPS, PRIZES, TICKET, STAKE, CHALLENGE};
 }

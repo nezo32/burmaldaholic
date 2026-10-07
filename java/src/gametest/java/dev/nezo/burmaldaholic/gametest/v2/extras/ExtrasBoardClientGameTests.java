@@ -26,7 +26,7 @@ import net.minecraft.server.level.ServerPlayer;
 public class ExtrasBoardClientGameTests implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		if (!LaneFilter.on("E")) return;
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("E")) return;
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.getInput().resizeWindow(1920, 1080);

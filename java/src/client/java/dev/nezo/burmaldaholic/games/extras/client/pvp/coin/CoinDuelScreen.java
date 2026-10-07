@@ -136,7 +136,7 @@ public final class CoinDuelScreen extends PvpPanel implements PvpScreens.ModeScr
 
 	@Override
 	protected int layout() {
-		Flow flow = new Flow(left + 20, top + 207, 360);
+		Flow flow = new Flow(left + 20, dockY(), 360);
 		JsonObject d = view.decision();
 		String id = d == null ? "" : MatchView.str(d, "id", "");
 		if (d != null && !id.equals(sentDecision)) {
