@@ -6,40 +6,41 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
-import dev.nezo.burmaldaholic.client.table.cards.ActionTag;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import dev.nezo.burmaldaholic.client.table.cards.CardAnimator;
-import dev.nezo.burmaldaholic.client.table.cards.CardButton;
-import dev.nezo.burmaldaholic.client.table.cards.CardGfx;
 import dev.nezo.burmaldaholic.client.table.cards.CardSprites;
-import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
-import dev.nezo.burmaldaholic.client.table.cards.ChipStackView;
-import dev.nezo.burmaldaholic.client.table.cards.SeatPlate;
-import dev.nezo.burmaldaholic.client.table.cards.TableStamp;
 import dev.nezo.burmaldaholic.client.table.cards.TableTheme;
+import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
+import dev.nezo.burmaldaholic.client.ui.v2.SeatPlate;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Felt;
+import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
+import dev.nezo.burmaldaholic.client.ui.v2.ValuePill;
 import dev.nezo.burmaldaholic.core.anim.Beat;
 import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.cards.CardMotion;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
-import dev.nezo.burmaldaholic.core.config.CasinoConfig;
-import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
+import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
+import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.poker.PokerText;
 import dev.nezo.burmaldaholic.games.poker.logic.PokerBeats;
-import dev.nezo.burmaldaholic.games.poker.present.HoldemLayout;
-import dev.nezo.burmaldaholic.games.poker.present.LabelPlacer;
-import dev.nezo.burmaldaholic.games.poker.present.LabelPlacer.Rect;
+import dev.nezo.burmaldaholic.games.poker.present.PokerFlow;
+import dev.nezo.burmaldaholic.games.poker.present.PokerLayout;
+import dev.nezo.burmaldaholic.games.poker.present.PokerView;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.LongConsumer;
-import java.util.function.LongFunction;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.AbstractSliderButton;
-import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
@@ -51,44 +52,52 @@ import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Texas Hold'em screen, redesigned (docs/design/visual/cards.md §6.4, mockups {@code cards_holdem_showdown.png} and
- * {@code cards_holdem_nether.png}; motion animation/cards.md §2.2–§2.3, tasks J-C7 + J-C12): the themed room, the oval
- * felt, up to nine seat plates around it (mob-face bot avatars with level badges, the viewer at the bottom with L cards
- * "in your hands"), the board, pot and side pots, bet stacks on the bet line, the dealer button travelling along the
- * ellipse, K12 action tags, the ALL-IN / MONSTER POT stamps and the showdown's hand names — placed by
- * {@link LabelPlacer} so a label never covers a card (the mockup's flaw, fixed).
+ * Texas Hold'em, table UI v2 (REDESIGN.md §7.3, mockups {@code v2_poker_turn_480/640.png}; docs/architecture/ui-v2.md):
+ * the screen is the table — the oval felt in the PlayArea, the board and the pot in the middle, the viewer's hero cards
+ * at the bottom centre (plate left, stack above it, hand strength and bet right), the other seats clockwise around the
+ * rail (plate + stack / last action, two cards inside the rail, bet toward the centre, the dealer button), and the Dock:
+ * status + timer, Fold · Check / Call · the amount stepper ({@code −  40  +}, scroll, click for presets) · the gold
+ * primary (Raise to / Bet / All-in / Call / Check; Buy in; I'm back; or a disabled "Waiting" that says why).
  *
- * <p>Everything moves on the server's {@link PokerBeats} segments (the {@code fx} tag: deal, street, finish) sampled on
- * the shared clock: hole cards arc from the deck, streets gather / burn / slide / flip, the slow all-in run-out, the
- * ordered showdown, best five lifted, pots sliding to the winners (side pots first). The screen only draws the
- * PUBLISHED state (the server sends a board card on its slide beat and a hand on its show beat), so skip, reduce motion
- * and late joins all end on the server's result. Actions: {@code buy_in}, {@code act}, {@code sit_out}/{@code sit_in},
- * {@code top_up}, {@code stand_up}.
+ * <p>Layout is pure ({@link PokerLayout}), gates are pure ({@link PokerFlow}). Motion follows the server's
+ * {@link PokerBeats} segments ({@code fx}): hole cards arc from the centre, streets slide and flip, the showdown lifts
+ * the best five, the pot slides to the winners. Only PUBLISHED cards are drawn (the server sends a board card on its
+ * slide beat; others' hole cards only when shown), so nothing leaks. Actions: {@code buy_in {level, amount}},
+ * {@code act {kind, to, seq}}, {@code sit_out}, {@code sit_in}, {@code top_up {amount}}, {@code stand_up}.
  */
-public class PokerScreen extends CardTableScreen {
-	private static final int GREEN = 0xFF80FF40;
+public class PokerScreen extends V2TableScreen<PokerView> {
 	private static final int[] NO_CARDS = new int[0];
+	public static final String STEP_MINUS = "stepper.minus", STEP_PLUS = "stepper.plus";
+	private static final String STEPPER = "~stepper";
+	private static final int KEY_UP = 265, KEY_DOWN = 264;
+	private boolean rulesOpen;
 
 	private final CardAnimator cards = new CardAnimator();
-	private final CardMotion.Pose pose = new CardMotion.Pose();
-	private final List<AbstractWidget> extras = new ArrayList<>();
-	private final List<Hover> hovers = new ArrayList<>();
+	private final Flow<PokerView> flow = new Flow<>() {
+		@Override
+		public Gate primary(PokerView v) {
+			return PokerFlow.primary(v);
+		}
+
+		@Override
+		public List<Gate> actions(PokerView v) {
+			List<Gate> out = new ArrayList<>(PokerFlow.actions(v));
+			PokerFlow.stepper(v).ifPresent(s -> out.add(new Gate(STEPPER, PokerFlow.V2 + "stepper", new Object[] {s.value()}, true, null, null)));
+			return out;
+		}
+	};
+
+	// ---- local choices --------------------------------------------------------------------------------------------
 	private @Nullable String pickedLevel;
-	private boolean topUpMode;
+	private long buyIn = -1;
+	private boolean topUpForm;
+	private long topUp = -1;
 	private long raiseTo = -1;
 	private int raiseSeq = -1;
-	private long buyIn = -1;
-	private long topUp = -1;
 	private int clientTicks;
-	/** The raise sizing panel (slider, ½ / ¾ / pot, all-in) is open above the console. */
-	private boolean raiseOpen;
-	private int panelX = -1;
-	/** Buttons of the raise panel (not console buttons: the console must not grow under them). */
-	private final List<CardButton> panel = new ArrayList<>();
-	private int panelY;
 	private int stateTick;
 
-	// ---- the parsed state -------------------------------------------------------------------------------------
+	// ---- the parsed state -----------------------------------------------------------------------------------------
 	private final List<SeatView> seats = new ArrayList<>();
 	private int size = 6;
 	private int me = -1;
@@ -102,40 +111,32 @@ public class PokerScreen extends CardTableScreen {
 	private long potTotal;
 	private final List<Award> awards = new ArrayList<>();
 	private List<Component> results = List.of();
+	private PokerLayout.@Nullable Layout layout;
 
-	// ---- presentation state -----------------------------------------------------------------------------------
+	// ---- presentation ---------------------------------------------------------------------------------------------
 	private int fxSeq = -1;
 	private String fxKind = "";
 	private long fxStart;
 	private int[] fxArgs = NO_CARDS;
 	private @Nullable Timeline fx;
-	private String moment = "";
 	private boolean fxDone = true;
-	/** Bets on the felt before the running street / finish segment (they gather to the pot on its gather beat). */
 	private long[] gatherBets = new long[0];
 	private long[] lastBets = new long[0];
-	private int prevButton = -1;
 	private int lastActionN = -1;
 	private int lastActionSeat = -1;
 	private double lastActionAt = Double.NaN;
 	private Component lastActionText = Component.empty();
-	private final double[] allInAt = new double[16];
 	private int celebratedHand = -1;
+	private int bannerHand = -1;
 	private int soundedAward = -1;
-
-	private record Hover(int x, int y, int w, int h, Component text) {}
 
 	private record Award(int pot, long amount, int[] seats, long[] shares) {}
 
 	private static final class SeatView {
 		int index;
 		Component name = Component.empty();
-		String rawName = "";
-		@Nullable String uuid;
 		boolean you;
 		boolean bot;
-		@Nullable String botName;
-		int level;
 		boolean folded;
 		boolean allIn;
 		boolean out;
@@ -150,42 +151,45 @@ public class PokerScreen extends CardTableScreen {
 		int[] cards = NO_CARDS;
 		int hidden;
 		@Nullable Component hand;
+		@Nullable Component act;
 		int best = -1;
 	}
 
 	public PokerScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
-		super(menu, inventory, PokerText.gui("title"), TableTheme.Shape.OVAL);
-		java.util.Arrays.fill(allInAt, Double.NaN);
+		super(menu, inventory, PokerText.gui("title"));
 	}
 
-	// ---- state -------------------------------------------------------------------------------------------------
+	// ---- GameTest hooks (kept from the v1 screen) --------------------------------------------------------------------
+
+	/** True while the server says it is the viewer's turn. */
+	public boolean isMyTurn() {
+		return legal() != null;
+	}
+
+	/** The presentation segment playing now ("deal" / "street" / "finish"). */
+	public String fxKind() {
+		return fxKind;
+	}
+
+	/** The board cards drawn (published) now. */
+	public int boardShown() {
+		return board.length;
+	}
+
+	/** The current pure layout (tests read seat boxes from it). */
+	public PokerLayout.@Nullable Layout layout() {
+		return layout;
+	}
+
+	// ---- state ------------------------------------------------------------------------------------------------------
 
 	private CompoundTag s() {
 		return state();
 	}
 
-	private boolean seated() {
-		return s().getBooleanOr("seated", false);
-	}
-
 	private @Nullable CompoundTag legal() {
 		CompoundTag t = s().getCompoundOrEmpty("legal");
 		return t.isEmpty() ? null : t;
-	}
-
-	/** True while the server says it is the viewer's turn (tests, narration). */
-	public boolean isMyTurn() {
-		return legal() != null;
-	}
-
-	/** GameTests: the presentation segment playing now ("deal" / "street" / "finish"). */
-	public String fxKind() {
-		return fxKind;
-	}
-
-	/** GameTests: the board cards drawn (published) now. */
-	public int boardShown() {
-		return board.length;
 	}
 
 	private Component decode(@Nullable Tag tag) {
@@ -195,43 +199,82 @@ public class PokerScreen extends CardTableScreen {
 		return ComponentSerialization.CODEC.parse(ops, tag).result().orElse(Component.empty());
 	}
 
-	private @Nullable CompoundTag level(String id) {
-		ListTag levels = s().getListOrEmpty("levels");
-		for (int i = 0; i < levels.size(); i++) {
-			CompoundTag l = levels.getCompoundOrEmpty(i);
-			if (l.getStringOr("id", "").equals(id)) return l;
-		}
-		return null;
-	}
-
-	private @Nullable String levelId() {
-		String fixed = s().getStringOr("stake", "");
-		return fixed.isEmpty() ? pickedLevel : fixed;
-	}
-
 	private long ticksLeft(String id) {
 		long t = s().getCompoundOrEmpty("timers").getLongOr(id, -1);
 		return t < 0 ? -1 : Math.max(0, t - (clientTicks - stateTick));
 	}
 
+	private double nowMs() {
+		return AnimClock.levelMs(minecraft == null ? 0 : minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+	}
+
 	@Override
-	protected void onStateChanged(CompoundTag st) {
+	protected PokerView view(CompoundTag st) {
+		parse(st);
+		List<PokerView.Level> levels = new ArrayList<>();
+		ListTag lt = st.getListOrEmpty("levels");
+		int vip = st.getIntOr("vip", 0);
+		for (int i = 0; i < lt.size(); i++) {
+			CompoundTag l = lt.getCompoundOrEmpty(i);
+			int minTier = l.getIntOr("min_tier", 0);
+			levels.add(new PokerView.Level(l.getStringOr("id", ""), l.getLongOr("sb", 1), l.getLongOr("bb", 2), l.getLongOr("buy_min", 0),
+				l.getLongOr("buy_max", 0), minTier, vip >= minTier));
+		}
+		String fixed = st.getStringOr("stake", "");
+		String chosen = fixed.isEmpty() ? pickedLevel : fixed;
+		PokerView.Level level = null;
+		for (PokerView.Level l : levels) if (l.id().equals(chosen)) level = l;
+		if (level == null && levels.size() == 1) level = levels.get(0);
+		if (level != null && (buyIn < level.buyMin() || buyIn > level.buyMax())) buyIn = level.buyMax();
+		PokerView.Seat seat = st.getBooleanOr("seated", false) ? PokerView.Seat.SEATED
+			: st.getBooleanOr("waiting_seat", false) ? PokerView.Seat.QUEUED : PokerView.Seat.NONE;
+		long topMax = st.getLongOr("top_max", 0);
+		if (topUp < 1 || topUp > topMax) topUp = topMax;
+		PokerView.Turn turn = null;
+		CompoundTag l = legal();
+		if (l != null) {
+			int seq = l.getIntOr("seq", 0);
+			long minTo = l.getLongOr("min_to", 0);
+			long maxTo = l.getLongOr("max_to", 0);
+			if (raiseSeq != seq || raiseTo < minTo || raiseTo > maxTo) {
+				raiseSeq = seq;
+				raiseTo = minTo;
+			}
+			turn = new PokerView.Turn(seq, l.getLongOr("to_call", 0), l.getBooleanOr("can_check", false), l.getBooleanOr("can_raise", false), minTo, maxTo,
+				l.getBooleanOr("is_bet", false), l.getLongOr("my_stack", 0), l.getLongOr("my_bet", 0), l.getLongOr("current_bet", 0), potTotal,
+				Math.max(1, st.getLongOr("bb", 2)), raiseTo);
+		}
+		if (seat != PokerView.Seat.SEATED) topUpForm = false;
+		String waiting = "";
+		SeatView acting = seat(toAct);
+		if (live && acting != null && !acting.you) waiting = acting.name.getString();
+		long next = ticksLeft("next_hand");
+		long action = ticksLeft("action");
+		return new PokerView(st.getBooleanOr("enabled", true), seat, !fixed.isEmpty(), levels, level, buyIn, balance(),
+			st.getBooleanOr("sitting_out", false), st.getBooleanOr("leaving", false), st.getBooleanOr("can_top_up", false), topMax, topUpForm, topUp,
+			turn, seats.size(), live, presenting, waiting, (int) ((action >= 0 ? action : next) + 19) / 20, next < 0 ? -1 : (int) ((next + 19) / 20));
+	}
+
+	/** Rebuilds the view from the current state and local choices (a local click: pick, stepper, form). */
+	private void local() {
+		view = view(state());
+		refresh();
+	}
+
+	private void parse(CompoundTag st) {
 		stateTick = clientTicks;
-		// bets on the felt before a new street / finish segment: they gather to the pot on its beat
 		CompoundTag fxTag = st.getCompoundOrEmpty("fx");
 		int seq = fxTag.getIntOr("seq", -1);
 		if (seq != fxSeq) {
 			String kind = fxTag.getStringOr("kind", "");
 			gatherBets = kind.equals("street") || kind.equals("finish") ? lastBets.clone() : new long[0];
-			if (kind.equals("deal")) prevButton = button;
 			fxSeq = seq;
 			fxKind = kind;
 			fxStart = fxTag.getLongOr("start", 0);
 			fxArgs = fxTag.getIntArray("args").orElse(NO_CARDS);
-			fx = timeline(fxKind, fxArgs, fxTag.getIntOr("seed", 0));
+			fx = PokerBeats.segment(fxKind, fxArgs, fxTag.getIntOr("seed", 0));
 		}
 		fxDone = fxTag.getBooleanOr("done", true);
-		moment = fxTag.getStringOr("moment", "");
 		size = Math.max(2, st.getIntOr("table_size", 6));
 		handNo = st.getIntOr("hand_no", 0);
 		live = st.getBooleanOr("live", false);
@@ -251,12 +294,8 @@ public class PokerScreen extends CardTableScreen {
 			v.index = t.getIntOr("index", 0);
 			v.you = t.getBooleanOr("you", false);
 			v.bot = t.getBooleanOr("bot", false);
-			v.botName = t.contains("bot_name") ? t.getStringOr("bot_name", "") : null;
-			String lvl = t.getStringOr("level", "");
-			v.level = lvl.equals("easy") ? 1 : lvl.equals("normal") ? 2 : lvl.equals("hard") ? 3 : 0;
-			v.name = v.bot && v.botName != null ? Component.translatable(BotRoster.nameKey(v.botName)) : decode(t.get("name"));
-			v.rawName = v.name.getString();
-			v.uuid = t.contains("uuid") ? t.getStringOr("uuid", "") : null;
+			String botName = t.contains("bot_name") ? t.getStringOr("bot_name", "") : null;
+			v.name = v.bot && botName != null ? Component.translatable(BotRoster.nameKey(botName)) : decode(t.get("name"));
 			v.folded = t.getBooleanOr("folded", false);
 			v.allIn = t.getBooleanOr("all_in", false);
 			v.out = t.getBooleanOr("out", false);
@@ -271,6 +310,7 @@ public class PokerScreen extends CardTableScreen {
 			v.cards = t.getIntArray("cards").orElse(NO_CARDS);
 			v.hidden = t.getIntOr("hidden", 0);
 			v.hand = t.contains("hand") ? decode(t.get("hand")) : null;
+			v.act = t.contains("act") ? decode(t.get("act")) : null;
 			v.best = t.getIntOr("best", -1);
 			if (v.you) me = v.index;
 			if (v.index >= 0 && v.index < bets.length) bets[v.index] = v.bet;
@@ -298,21 +338,9 @@ public class PokerScreen extends CardTableScreen {
 			lastActionText = actionTag(la);
 			if (!first) actionSound(la);
 		}
-		for (SeatView v : seats) {
-			if (v.index < allInAt.length) {
-				if (v.allIn && Double.isNaN(allInAt[v.index])) allInAt[v.index] = nowMs();
-				if (!v.allIn) allInAt[v.index] = Double.NaN;
-			}
-		}
 		celebrate();
-		if (minecraft != null) rebuildConsole();
 	}
 
-	private static @Nullable Timeline timeline(String kind, int[] a, int seed) {
-		return PokerBeats.segment(kind, a, seed);
-	}
-
-	/** K12 tag text of the latest action ("Check", "Call 20", "Raise to 120", "SB 5", "Fold"). */
 	private static Component actionTag(CompoundTag la) {
 		long amount = la.getLongOr("amount", 0);
 		return switch (la.getStringOr("type", "")) {
@@ -342,21 +370,25 @@ public class PokerScreen extends CardTableScreen {
 		}
 	}
 
-	/** The viewer's celebration after the gate (the server's tier on this hand; global kit). */
+	/** The viewer's celebration and the result banner after the gate. */
 	private void celebrate() {
-		if (live || presenting || handNo == celebratedHand) return;
+		if (live || presenting || handNo <= 0) return;
 		for (SeatView v : seats) {
 			if (!v.you || v.tier == null) continue;
-			celebratedHand = handNo;
-			WinTier tier;
-			try {
-				tier = WinTier.valueOf(v.tier);
-			} catch (IllegalArgumentException e) {
-				return;
+			if (bannerHand != handNo) {
+				bannerHand = handNo;
+				chrome.banner.show(v.net);
 			}
-			if (tier.isWin()) {
-				long stake = Math.max(1, v.won - v.net);
-				CelebrationOverlay.get().play(CelebrationRequest.core(tier, v.won, stake, SeedMix.mix(handNo, v.index)));
+			if (celebratedHand == handNo) return;
+			celebratedHand = handNo;
+			try {
+				WinTier tier = WinTier.valueOf(v.tier);
+				if (tier.isWin()) {
+					long stake = Math.max(1, v.won - v.net);
+					CelebrationOverlay.get().play(CelebrationRequest.core(tier, v.won, stake, SeedMix.mix(handNo, v.index)));
+				}
+			} catch (IllegalArgumentException ignored) {
+				// unknown tier: no celebration
 			}
 		}
 	}
@@ -365,6 +397,7 @@ public class PokerScreen extends CardTableScreen {
 	protected void containerTick() {
 		super.containerTick();
 		clientTicks++;
+		if (clientTicks % 10 == 0 && view != null) local(); // timers in the status line / gates
 	}
 
 	private double fxMs() {
@@ -375,311 +408,13 @@ public class PokerScreen extends CardTableScreen {
 		return fx == null ? null : PokerBeats.find(fx, kind, lane);
 	}
 
-	/** Shared-clock start (ms) of a beat of the current segment, or NaN. */
 	private double beatAt(String kind, int lane) {
 		Beat b = beat(kind, lane);
 		return b == null ? Double.NaN : fxStart * 50.0 + b.at();
 	}
 
 	private boolean started(String kind) {
-		return fx != null && (PokerBeats.started(fx, kind, fxMs()) > 0);
-	}
-
-	// ---- console -----------------------------------------------------------------------------------------------
-
-	@Override
-	protected Component plaqueTitle() {
-		if (!s().contains("bb")) return title;
-		return Component.empty().append(title).append(Texts.raw(" · ")).append(Texts.number(s().getLongOr("sb", 1))).append(Texts.raw("/"))
-			.append(Texts.number(s().getLongOr("bb", 2)));
-	}
-
-	@Override
-	protected void buildConsole() {
-		for (AbstractWidget w : extras) removeWidget(w);
-		extras.clear();
-		for (CardButton b : panel) removeWidget(b);
-		panel.clear();
-		List<CardButton> row = new ArrayList<>();
-		List<CardButton> row2 = new ArrayList<>();
-		if (s().getBooleanOr("enabled", true)) {
-			if (!seated() && s().getBooleanOr("waiting_seat", false)) {
-				row.add(button(PokerText.gui("stand_up"), "leave", CardButton.Family.TABLE, true, () -> sendAction("stand_up"))
-					.hint(Component.translatable("msg.burmaldaholic.bots.seat_after_round")));
-			} else if (!seated()) {
-				buildJoin(row, row2);
-			} else if (legal() != null) {
-				topUpMode = false;
-				buildTurn(row, row2, legal());
-			} else if (topUpMode) {
-				buildTopUp(row);
-			} else {
-				boolean out = s().getBooleanOr("sitting_out", false);
-				boolean canTop = s().getBooleanOr("can_top_up", false) && s().getLongOr("top_max", 0) > 0;
-				row.add(button(PokerText.gui(out ? "sit_in" : "sit_out"), "leave", CardButton.Family.TABLE, true,
-					() -> sendAction(out ? "sit_in" : "sit_out")));
-				row.add(button(PokerText.gui("top_up"), "deal", CardButton.Family.TABLE, canTop, () -> {
-					topUpMode = true;
-					topUp = -1;
-					rebuildConsole();
-				}));
-				row.add(button(PokerText.gui("stand_up"), "leave", CardButton.Family.TABLE, !s().getBooleanOr("leaving", false),
-					() -> sendAction("stand_up")));
-			}
-		}
-		int minX = compact() ? 0 : seated() ? 150 : 104;
-		layoutButtons(row, minX);
-		if (!row2.isEmpty()) {
-			// the raise panel: right-aligned above the console, over the felt's lower-right corner
-			int x = canvasW() - 8;
-			int y = (compact() ? 139 : 213) - 26;
-			for (int i = row2.size() - 1; i >= 0; i--) {
-				CardButton b = row2.get(i);
-				x -= b.getWidth();
-				b.setX(x);
-				b.setY(y);
-				x -= 3;
-				panel.add(b);
-				addWidget(b);
-			}
-			layoutExtras(row2, true);
-			panelX = extras.isEmpty() ? x : extras.get(extras.size() - 1).getX() - 4;
-			panelY = y - 3;
-		} else {
-			layoutExtras(row, false);
-			panelX = -1;
-		}
-	}
-
-	/** Sliders sit left of their button row. */
-	private void layoutExtras(List<CardButton> row, boolean upper) {
-		if (extras.isEmpty()) return;
-		int x = row.isEmpty() ? canvasW() - 6 : row.get(0).getX();
-		for (AbstractWidget w : extras) {
-			x -= w.getWidth() + 4;
-			w.setX(Math.max(4, x));
-			w.setY(row.isEmpty() ? (compact() ? 139 : 213) : row.get(0).getY());
-			addWidget(w);
-		}
-	}
-
-	private void buildJoin(List<CardButton> row, List<CardButton> row2) {
-		String levelId = levelId();
-		int vip = s().getIntOr("vip", 0);
-		if (levelId == null) {
-			ListTag levels = s().getListOrEmpty("levels");
-			for (int i = 0; i < levels.size(); i++) {
-				CompoundTag l = levels.getCompoundOrEmpty(i);
-				String id = l.getStringOr("id", "");
-				int minTier = l.getIntOr("min_tier", 0);
-				boolean ok = vip >= minTier;
-				Component label = PokerText.gui("stakes." + id, Texts.number(l.getLongOr("sb", 1)), Texts.number(l.getLongOr("bb", 2)));
-				row.add(button(label, null, CardButton.Family.TABLE, ok, () -> {
-					pickedLevel = id;
-					buyIn = -1;
-					rebuildConsole();
-				}).hint(ok ? null : Component.translatable("gui.burmaldaholic.common.requires_vip", VipTiers.name(minTier))));
-			}
-			return;
-		}
-		CompoundTag l = level(levelId);
-		if (l == null) return;
-		long min = l.getLongOr("buy_min", 0);
-		long max = l.getLongOr("buy_max", 0);
-		long bb = Math.max(1, l.getLongOr("bb", 2));
-		boolean can = max >= min && max > 0 && vip >= l.getIntOr("min_tier", 0);
-		if (can) {
-			if (buyIn < min || buyIn > max) buyIn = max;
-			extras.add(new AmountSlider(compact() ? 100 : 120, min, max, bb, buyIn,
-				v -> PokerText.gui("buy_in").append(Texts.raw(": ")).append(Texts.number(v)), v -> buyIn = v));
-		}
-		String id = levelId;
-		if (s().getStringOr("stake", "").isEmpty()) {
-			row.add(button(Component.translatable("gui.burmaldaholic.common.back"), null, CardButton.Family.TABLE, true, () -> {
-				pickedLevel = null;
-				rebuildConsole();
-			}));
-		}
-		row.add(button(PokerText.gui("sit_down"), "deal", CardButton.Family.PRIMARY, can, () -> {
-			CompoundTag args = new CompoundTag();
-			args.putString("level", id);
-			args.putLong("amount", buyIn);
-			sendAction("buy_in", args);
-		}).hint(rakeInfo(l)));
-	}
-
-	private Component rakeInfo(CompoundTag level) {
-		long permille = s().getLongOr("rake_permille", 50);
-		String pct = permille % 10 == 0 ? Long.toString(permille / 10) : (permille / 10) + "." + (permille % 10);
-		return PokerText.gui("rake_info", Texts.raw(pct), Texts.number(level.getLongOr("rake_cap", 0)));
-	}
-
-	private void buildTopUp(List<CardButton> row) {
-		long max = s().getLongOr("top_max", 0);
-		if (max <= 0 || !s().getBooleanOr("can_top_up", false)) {
-			topUpMode = false;
-			return;
-		}
-		if (topUp < 1 || topUp > max) topUp = max;
-		extras.add(new AmountSlider(compact() ? 100 : 120, 1, max, 1, topUp,
-			v -> PokerText.gui("top_up").append(Texts.raw(": ")).append(Texts.number(v)), v -> topUp = v));
-		row.add(button(Component.translatable("gui.burmaldaholic.common.back"), null, CardButton.Family.TABLE, true, () -> {
-			topUpMode = false;
-			rebuildConsole();
-		}));
-		row.add(button(PokerText.gui("top_up"), "deal", CardButton.Family.PRIMARY, true, () -> {
-			CompoundTag args = new CompoundTag();
-			args.putLong("amount", topUp);
-			sendAction("top_up", args);
-			topUpMode = false;
-		}));
-	}
-
-	private void sendAct(String kind, long to, int seq) {
-		CompoundTag args = new CompoundTag();
-		args.putString("kind", kind);
-		args.putLong("to", to);
-		args.putInt("seq", seq);
-		sendAction("act", args);
-	}
-
-	/** Fold (table), Check / Call (primary), Raise to (primary); the raise slider row with ½ ¾ Pot All-in (danger). */
-	private void buildTurn(List<CardButton> row, List<CardButton> row2, CompoundTag l) {
-		int seq = l.getIntOr("seq", 0);
-		long toCall = l.getLongOr("to_call", 0);
-		boolean canCheck = l.getBooleanOr("can_check", false);
-		boolean canRaise = l.getBooleanOr("can_raise", false);
-		long minTo = l.getLongOr("min_to", 0);
-		long maxTo = l.getLongOr("max_to", 0);
-		boolean isBet = l.getBooleanOr("is_bet", false);
-		long myStack = l.getLongOr("my_stack", 0);
-		long myBet = l.getLongOr("my_bet", 0);
-		long currentBet = l.getLongOr("current_bet", 0);
-		long pot = s().getLongOr("pot_total", 0);
-		long bb = Math.max(1, s().getLongOr("bb", 2));
-		if (!canCheck) {
-			row.add(button(PokerText.gui("fold"), "fold", CardButton.Family.TABLE, true, () -> sendAct("fold", 0, seq))
-				.hint(PokerText.gui("fold.tooltip")));
-		}
-		if (canCheck) {
-			row.add(button(PokerText.gui("check"), "check", CardButton.Family.PRIMARY, true, () -> sendAct("check", 0, seq)));
-		} else if (myStack <= toCall) {
-			row.add(button(PokerText.gui("all_in", Texts.number(myBet + myStack)), "all_in", CardButton.Family.DANGER, true,
-				() -> sendAct("call", 0, seq)));
-		} else {
-			row.add(button(PokerText.gui("call", Texts.number(toCall)), "call", CardButton.Family.PRIMARY, true, () -> sendAct("call", 0, seq)));
-		}
-		if (!canRaise) return;
-		if (raiseSeq != seq || raiseTo < minTo || raiseTo > maxTo) {
-			raiseSeq = seq;
-			raiseTo = minTo;
-		}
-		CardButton confirm = button(raiseLabel(raiseTo, maxTo, isBet), "raise", CardButton.Family.PRIMARY, true, () -> {
-			if (raiseTo >= maxTo) sendAct("all_in", 0, seq);
-			else sendAct("raise", raiseTo, seq);
-		});
-		int widest = Math.max(CardButton.naturalWidth(font, raiseLabel(maxTo, maxTo, isBet), true),
-			CardButton.naturalWidth(font, raiseLabel(Math.max(minTo, maxTo - 1), maxTo, isBet), true));
-		confirm.setWidth(Math.max(confirm.getWidth(), widest));
-		// the sizing controls live in a panel above the console (one console row keeps the viewer's seat visible)
-		CardButton sizing = button(Component.empty(), "raise", CardButton.Family.TABLE, true, () -> {
-			raiseOpen = !raiseOpen;
-			rebuildConsole();
-		}).hint(PokerText.gui("raise"));
-		sizing.setWidth(26); // icon only: opens / closes the sizing panel
-		row.add(sizing);
-		row.add(confirm);
-		if (!raiseOpen) return;
-		AmountSlider slider = new AmountSlider(compact() ? 70 : 96, minTo, maxTo, bb, raiseTo, Texts::number, v -> {
-			raiseTo = v;
-			confirm.setMessage(raiseLabel(v, maxTo, isBet));
-		});
-		extras.add(slider);
-		String[] keys = {"half_pot", "three_quarter_pot", "pot_size"};
-		double[] fractions = {0.5, 0.75, 1.0};
-		for (int k = 0; k < keys.length; k++) {
-			long to = currentBet == 0 ? Math.round(pot * fractions[k]) : Math.round(currentBet + fractions[k] * (pot + toCall));
-			long clamped = Math.max(minTo, Math.min(maxTo, to));
-			CardButton b = button(PokerText.gui(keys[k]), null, CardButton.Family.TABLE, true, () -> slider.setAmount(clamped));
-			b.setWidth(Math.max(compact() ? 30 : 34, CardButton.naturalWidth(font, PokerText.gui(keys[k]), false) - 6));
-			row2.add(b.hint(Texts.number(clamped)));
-		}
-		row2.add(button(PokerText.gui("all_in", Texts.number(maxTo)), "all_in", CardButton.Family.DANGER, true, () -> slider.setAmount(maxTo)));
-	}
-
-	private static Component raiseLabel(long to, long maxTo, boolean isBet) {
-		if (to >= maxTo) return PokerText.gui("all_in", Texts.number(maxTo));
-		return isBet ? PokerText.gui("bet").append(Texts.raw(" ")).append(Texts.number(to)) : PokerText.gui("raise_to", Texts.number(to));
-	}
-
-	/** Slider over [min, max] in steps (bb); every step change plays {@code chip_count} (≤ 15/s by the sound budget). */
-	private final class AmountSlider extends AbstractSliderButton {
-		private final long min;
-		private final long max;
-		private final long step;
-		private final LongFunction<Component> label;
-		private final LongConsumer onChange;
-		private long shown = Long.MIN_VALUE;
-
-		AmountSlider(int width, long min, long max, long step, long initial, LongFunction<Component> label, LongConsumer onChange) {
-			super(0, 0, width, 20, Component.empty(), 0);
-			this.min = min;
-			this.max = Math.max(min, max);
-			this.step = Math.max(1, step);
-			this.label = label;
-			this.onChange = onChange;
-			setAmountSilently(initial);
-		}
-
-		long amount() {
-			if (max <= min || value >= 1.0) return max;
-			long raw = min + Math.round(value * (max - min));
-			long snapped = min + Math.round((raw - min) / (double) step) * step;
-			return Math.max(min, Math.min(max, snapped));
-		}
-
-		private void setAmountSilently(long a) {
-			value = max <= min ? 1.0 : Math.max(0, Math.min(1, (a - min) / (double) (max - min)));
-			updateMessage();
-		}
-
-		void setAmount(long a) {
-			setAmountSilently(a);
-			applyValue();
-		}
-
-		@Override
-		protected void updateMessage() {
-			setMessage(label.apply(amount()));
-		}
-
-		@Override
-		protected void applyValue() {
-			long a = amount();
-			if (a != shown && shown != Long.MIN_VALUE) {
-				double f = max <= min ? 1 : (a - min) / (double) (max - min);
-				FxSounds.play("chip_count", 0.5f, (float) (0.9 + 0.5 * f));
-			}
-			shown = a;
-			onChange.accept(a);
-		}
-	}
-
-	// ---- the scene ---------------------------------------------------------------------------------------------
-
-	private int backRow() {
-		return tableTheme().back(CardSprites.BACK_CRIMSON);
-	}
-
-	/** Poker card (rank index × 4 + suit) → the kit's card code (suit × 13 + rank − 1, ace = 1). */
-	static int kit(int card) {
-		int r = (card >> 2) + 2;
-		return (card & 3) * 13 + (r == 14 ? 0 : r - 1);
-	}
-
-	/** Card slot keys are per hand, so a new hand deals fresh cards and the last hand's cards gather to the muck. */
-	private int handKey() {
-		return Math.floorMod(handNo, 50) * 20_000;
+		return fx != null && PokerBeats.started(fx, kind, fxMs()) > 0;
 	}
 
 	private @Nullable SeatView seat(int index) {
@@ -687,8 +422,322 @@ public class PokerScreen extends CardTableScreen {
 		return null;
 	}
 
-	private HoldemLayout.Slot slotOf(int index) {
-		return HoldemLayout.slotOf(index, me, size);
+	// ---- the kit's hooks -------------------------------------------------------------------------------------------
+
+	@Override
+	protected Flow<PokerView> flow() {
+		return flow;
+	}
+
+	@Override
+	protected dev.nezo.burmaldaholic.client.ui.v2.@Nullable BetPort betPort() {
+		return null; // no BetBar: the buy-in, raise and top-up amounts are on the stepper
+	}
+
+	@Override
+	protected Component tableTitle() {
+		if (!s().contains("bb")) return title;
+		return Component.empty().append(title).append(Texts.raw("  ")).append(Texts.number(s().getLongOr("sb", 1))).append(Texts.raw("/"))
+			.append(Texts.number(s().getLongOr("bb", 2)));
+	}
+
+	@Override
+	protected void refresh() {
+		if (view == null || font == null) return;
+		chrome.keys(keyMap(view));
+		chrome.actions.danger("fold", "stand_up");
+		super.refresh();
+		status(view);
+		stepperHits();
+	}
+
+	/** Game keys: F fold, C check / call, R the raise primary, ↑ / ↓ the stepper. */
+	private KeyMap keyMap(PokerView v) {
+		KeyMap k = KeyMap.standard();
+		k.bind(KeyMap.F, KeyMap.Ids.action("fold"));
+		List<Gate> acts = PokerFlow.actions(v);
+		String cc = acts.stream().map(Gate::action).filter(a -> a.equals("check") || a.equals("call")).findFirst().orElse("");
+		k.bind(KeyMap.C, cc.isEmpty() ? KeyMap.Ids.PRIMARY : KeyMap.Ids.action(cc));
+		k.bind(KeyMap.R, KeyMap.Ids.PRIMARY);
+		return k;
+	}
+
+	/** The stepper's − / + halves on top of its button (registered last: topmost). */
+	private void stepperHits() {
+		Box b = stepperBox();
+		if (b == null) return;
+		int third = Math.max(10, b.w() / 3);
+		PokerFlow.Stepper s = view == null ? null : PokerFlow.stepper(view).orElse(null);
+		if (s == null) return;
+		chrome.hits().add(STEP_MINUS, new Box(b.x(), b.y(), third, b.h()), s.canMinus());
+		chrome.hits().add(STEP_PLUS, new Box(b.right() - third, b.y(), third, b.h()), s.canPlus());
+	}
+
+	private @Nullable Box stepperBox() {
+		return chrome.hits().box(KeyMap.Ids.action(STEPPER)).orElse(null);
+	}
+
+	private void status(PokerView v) {
+		Component l1 = null;
+		Component l2 = null;
+		int c1 = CasinoPalette.V2_GOLD;
+		PokerView.Turn t = v.turn();
+		if (!v.enabled()) {
+			l1 = Component.translatable("gui.burmaldaholic.error.disabled");
+		} else if (t != null) {
+			l1 = t.toCall() > 0 && !t.canCheck() ? PokerText.gui("v2.status.to_call", Texts.number(t.toCall())) : PokerText.gui("your_turn");
+			long left = ticksLeft("action");
+			if (left >= 0) {
+				l2 = PokerText.gui(t.canCheck() ? "v2.status.auto_check" : "v2.status.auto_fold", Texts.number((left + 19) / 20));
+				chrome.status.timer((int) ((left + 19) / 20), Math.max(1, dev.nezo.burmaldaholic.core.config.CasinoConfig.poker().actionTimerTicks / 20));
+			} else {
+				chrome.status.timer.clear();
+			}
+			if (t.canRaise() && l2 == null) l2 = PokerText.gui("v2.status.stepper");
+		} else {
+			chrome.status.timer.clear();
+			if (presenting) {
+				boolean runout = fxArgs.length >= 2 && fxArgs[1] > 0 && !started(PokerBeats.SHOW);
+				l1 = runout ? PokerText.gui("fx.all_in_runout") : PokerText.gui("showdown");
+			} else if (!live && !results.isEmpty()) {
+				l1 = results.get(0);
+				c1 = CasinoPalette.V2_WIN;
+				long next = ticksLeft("next_hand");
+				if (next >= 0) l2 = PokerText.gui("next_hand_in", Texts.number((next + 19) / 20));
+			}
+			if (v.seat() == PokerView.Seat.NONE) {
+				PokerView.Level lv = v.level();
+				if (lv == null) {
+					l1 = PokerText.gui("v2.status.watching");
+					l2 = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
+				} else {
+					l2 = PokerText.gui("v2.status.buy_in", Texts.number(lv.buyMin()), Texts.number(lv.buyMax()), Texts.number(lv.sb()), Texts.number(lv.bb()));
+				}
+			} else if (v.seated() && v.topUpForm()) {
+				l2 = PokerText.gui("v2.status.top_up", Texts.number(v.topMax()));
+			} else if (v.seated() && l2 == null) {
+				SeatView mine = seat(me);
+				if (mine != null) l2 = PokerText.gui("stack", Texts.number(mine.stack));
+			}
+		}
+		chrome.status.set(l1, l2);
+		chrome.status.color(c1);
+	}
+
+	@Override
+	public void onGate(String id, Gate gate) {
+		PokerView v = view;
+		if (v == null) return;
+		String a = gate.action();
+		if (a.startsWith(PokerFlow.LOCAL + "pick:")) {
+			pickedLevel = a.substring((PokerFlow.LOCAL + "pick:").length());
+			buyIn = -1;
+			local();
+			return;
+		}
+		switch (a) {
+			case PokerFlow.LOCAL + "back" -> {
+				if (topUpForm) topUpForm = false;
+				else pickedLevel = null;
+				local();
+			}
+			case PokerFlow.LOCAL + "top_up_form" -> {
+				topUpForm = true;
+				topUp = v.topMax();
+				local();
+			}
+			case STEPPER -> presetClick(v);
+			case "buy_in" -> {
+				if (v.level() == null) return;
+				CompoundTag args = new CompoundTag();
+				args.putString("level", v.level().id());
+				args.putLong("amount", PokerFlow.stepper(v).map(PokerFlow.Stepper::value).orElse(buyIn));
+				sendTracked("buy_in", args, "", 0);
+			}
+			case "top_up" -> {
+				CompoundTag args = new CompoundTag();
+				args.putLong("amount", topUp);
+				topUpForm = false;
+				sendTracked("top_up", args, "", 0);
+			}
+			case "fold", "check", "call", "raise", "all_in" -> {
+				PokerView.Turn t = v.turn();
+				if (t == null) return;
+				CompoundTag args = new CompoundTag();
+				args.putString("kind", a);
+				args.putLong("to", a.equals("raise") ? raiseTo : 0);
+				args.putInt("seq", t.seq());
+				sendTracked("act", args, "", 0);
+			}
+			default -> {
+				if (!a.isEmpty() && !a.startsWith(PokerFlow.LOCAL)) sendTracked(a);
+			}
+		}
+	}
+
+	/** A click on the stepper's amount: the next raise preset (½ pot, ¾, pot, all-in), or min / max for a buy-in. */
+	private void presetClick(PokerView v) {
+		PokerFlow.Stepper s = PokerFlow.stepper(v).orElse(null);
+		if (s == null) return;
+		long next;
+		if (s.id().equals("raise") && v.turn() != null) next = PokerFlow.nextPreset(v.turn(), s.value());
+		else next = s.value() >= s.max() ? s.min() : s.max();
+		setAmount(s.id(), next);
+	}
+
+	private void step(int dir) {
+		PokerView v = view;
+		if (v == null) return;
+		PokerFlow.Stepper s = PokerFlow.stepper(v).orElse(null);
+		if (s == null) return;
+		setAmount(s.id(), s.next(dir, 1));
+	}
+
+	private void setAmount(String id, long amount) {
+		long before = switch (id) {
+			case "raise" -> raiseTo;
+			case "buy_in" -> buyIn;
+			default -> topUp;
+		};
+		switch (id) {
+			case "raise" -> raiseTo = amount;
+			case "buy_in" -> buyIn = amount;
+			default -> topUp = amount;
+		}
+		if (before != amount) FxSounds.play("chip_count", 0.5f, 1f);
+		local();
+	}
+
+	@Override
+	public boolean onTarget(String id, boolean enabled, int button) {
+		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
+			if (button == 2) step(1);
+			else if (button == 3) step(-1);
+			else if (id.equals(STEP_MINUS)) step(-1);
+			else if (id.equals(STEP_PLUS)) step(1);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (rulesOpen && (event.key() == KeyMap.ESCAPE || event.key() == KeyMap.ENTER)) {
+			rulesOpen = false;
+			return true;
+		}
+		if (event.key() == KEY_UP || event.key() == KEY_DOWN) {
+			if (view != null && PokerFlow.stepper(view).isPresent()) {
+				step(event.key() == KEY_UP ? 1 : -1);
+				return true;
+			}
+		}
+		return super.keyPressed(event);
+	}
+
+	@Override
+	public void onTopIcon(String id) {
+		if (id.equals(KeyMap.Ids.TOP_LEAVE)) {
+			if (view != null && view.seated()) sendAction("stand_up");
+			onClose();
+			return;
+		}
+		super.onTopIcon(id);
+	}
+
+	// ---- layout ---------------------------------------------------------------------------------------------------
+
+	@Override
+	protected void layoutPlay(TableGrid grid, PokerView v, HitMap hits) {
+		int pill = font.width("888 888") + 2 * ValuePill.PAD;
+		int bet = font.width("88 888") + 2 * ValuePill.PAD;
+		int potW = font.width(PokerText.gui("v2.pot")) + 6 + 2 * font.width("888 888");
+		int handW = 0;
+		for (SeatView s : seats) if (s.hand != null) handW = Math.max(handW, font.width(s.hand) + 2 * ValuePill.PAD);
+		handW = Math.max(handW, font.width(PokerText.gui("tag.fold")) + 2 * ValuePill.PAD);
+		layout = PokerLayout.of(grid, size, new PokerLayout.Measure(pill, bet, potW, Math.max(60, handW)));
+		List<Box> obstacles = new ArrayList<>(layout.cardBoxes());
+		Box board0 = layout.board()[0];
+		Box hero = layout.seat(0).cards();
+		chrome.banner.regions(List.of(new Box(board0.x(), layout.pot().bottom() + 2, layout.board()[4].right() - board0.x(),
+			Math.max(0, hero.y() - layout.pot().bottom() - 4)), layout.oval()), obstacles);
+		for (int r = 0; r < layout.seats().length; r++) hits.add("seat." + r, layout.seat(r).plate(), false);
+	}
+
+	private PokerLayout.Seat slot(int index) {
+		return layout.seat(PokerLayout.rel(index, me, size));
+	}
+
+	// ---- drawing ----------------------------------------------------------------------------------------------------
+
+	@Override
+	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, PokerView v, int mouseX, int mouseY, float partial) {
+		if (layout == null || layout.grid() != grid) layoutPlay(grid, v, new HitMap());
+		PokerLayout.Layout l = layout;
+		drawOval(g, grid, l.oval());
+		if (!v.enabled()) return;
+		drawBoardSlots(g, l);
+		drawCards(g, grid.tier, l);
+		drawChips(g, grid.tier, l);
+		drawButton(g, l);
+		drawSeats(g, l);
+		drawPot(g, l);
+	}
+
+	/** The dimmed room, the rail and the oval felt (scanlines: crisp at every size, no sprite needed). */
+	private void drawOval(GuiGraphicsExtractor g, TableGrid grid, Box o) {
+		TableTheme theme = TableTheme.of(theme());
+		V2Draw.fill(g, grid.play, 0x8C0C0614);
+		int cx = o.cx();
+		int cy = o.cy();
+		double rx = o.w() / 2.0;
+		double ry = o.h() / 2.0;
+		int rail = grid.tier == Tier.T1 ? 6 : 8;
+		int felt = V2Felt.felt(theme());
+		int railC = V2Felt.rail(theme());
+		int railDark = CasinoPalette.V2_RAIL_DARK;
+		int gold = CasinoPalette.alpha(CasinoPalette.V2_GOLD_SHADE, 0.9f);
+		for (int y = (int) (cy - ry - rail); y <= cy + ry + rail; y++) {
+			int ow = halfWidth(rx + rail, ry + rail, y - cy);
+			if (ow < 0) continue;
+			g.fill(cx - ow, y, cx + ow, y + 1, railDark);
+			int mw = halfWidth(rx + rail - 1, ry + rail - 1, y - cy);
+			if (mw > 0) g.fill(cx - mw, y, cx + mw, y + 1, railC);
+			int gw = halfWidth(rx + 1, ry + 1, y - cy);
+			if (gw > 0) g.fill(cx - gw, y, cx + gw, y + 1, gold);
+			int iw = halfWidth(rx, ry, y - cy);
+			if (iw > 0) g.fill(cx - iw, y, cx + iw, y + 1, felt);
+		}
+		int print = theme.printArgb(0.18);
+		int iw = halfWidth(rx - 10, ry - 10, 0);
+		if (iw > 0) {
+			for (int y = (int) (cy - ry + 10); y <= cy + ry - 10; y++) {
+				int w = halfWidth(rx - 10, ry - 10, y - cy);
+				int w2 = halfWidth(rx - 11, ry - 11, y - cy);
+				if (w < 0) continue;
+				if (w2 < 0) g.fill(cx - w, y, cx + w, y + 1, print);
+				else {
+					g.fill(cx - w, y, cx - w2, y + 1, print);
+					g.fill(cx + w2, y, cx + w, y + 1, print);
+				}
+			}
+		}
+	}
+
+	private static int halfWidth(double rx, double ry, double dy) {
+		double t = 1 - (dy * dy) / (ry * ry);
+		return t < 0 ? -1 : (int) Math.round(rx * Math.sqrt(t));
+	}
+
+	private void drawBoardSlots(GuiGraphicsExtractor g, PokerLayout.Layout l) {
+		boolean handOn = live || presenting || handNo > 0;
+		if (!handOn) return;
+		int print = TableTheme.of(theme()).printArgb(0.45);
+		for (int i = board.length; i < 5; i++) V2Draw.outline(g, l.board()[i], print);
+	}
+
+	private int handKey() {
+		return Math.floorMod(handNo, 50) * 20_000;
 	}
 
 	private boolean awardStarted(int lane) {
@@ -701,91 +750,39 @@ public class PokerScreen extends CardTableScreen {
 		return false;
 	}
 
-	@Override
-	protected void drawScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
-		hovers.clear();
-		int mx = mouseX;
-		int my = mouseY;
-		if (compact()) {
-			// the full layout, scaled into the compact table (visual §6.7: anchors × 280/408)
-			float k = 280f / 408f;
-			g.pose().pushMatrix();
-			g.pose().translate(tableX(), tableY());
-			g.pose().scale(k, k);
-			g.pose().translate(-HoldemLayout.TABLE_X, -HoldemLayout.TABLE_Y);
-			mx = Math.round((mouseX - tableX()) / k) + HoldemLayout.TABLE_X;
-			my = Math.round((mouseY - tableY()) / k) + HoldemLayout.TABLE_Y;
-		}
-		if (!s().getBooleanOr("enabled", true)) {
-			CardGfx.centered(g, font, Component.translatable("gui.burmaldaholic.error.disabled"), HoldemLayout.CENTER_X, HoldemLayout.CENTER_Y,
-				CasinoPalette.CHIP_RED_LIGHT, true);
-		} else {
-			drawFelt(g);
-			drawCards(g);
-			drawChips(g);
-			drawButton(g);
-			drawPlates(g, mx, my);
-			drawLabels(g);
-		}
-		if (compact()) g.pose().popMatrix();
-	}
-
-	/** Prints: the pot well and the board slots (tinted, 55 %). */
-	private void drawFelt(GuiGraphicsExtractor g) {
-		int print = tableTheme().printArgb(0.55);
-		Rect p = HoldemLayout.potPrint();
-		CardGfx.sprite(g, FxSprites.sprite("cards/print/pot"), p.x(), p.y(), p.w(), p.h(), CardGfx.alpha(print, 0.35 / 0.55));
-		boolean handOn = live || presenting || !seats.isEmpty() && handNo > 0;
-		if (handOn) {
-			for (int i = board.length; i < 5; i++) {
-				Rect b = HoldemLayout.board(i);
-				CardGfx.sprite(g, FxSprites.sprite("cards/print/slot_l"), b.x(), b.y(), b.w(), b.h(), CardGfx.alpha(print, 0.3 / 0.55));
-			}
-		}
-		Rect d = HoldemLayout.deck();
-		CardGfx.sprite(g, FxSprites.sprite("cards/prop/deck_" + backName()), d.x(), d.y(), d.w(), d.h(), 0xFFFFFFFF, 0xFF8A1A2A);
-	}
-
-	private String backName() {
-		return switch (tableTheme()) {
-			case BASTION -> "bastion";
-			case END -> "end";
-			default -> "crimson";
-		};
-	}
-
-	/** Board and hole cards through the kit's animator (deal arcs, flips, gather to the muck, dim / lift / glow). */
-	private void drawCards(GuiGraphicsExtractor g) {
-		Rect deck = HoldemLayout.deck();
-		cards.origin(HoldemLayout.dealOriginX() - 18, HoldemLayout.dealOriginY() - 24).tray(deck.x(), deck.y());
+	/** Board and hole cards through the kit's animator (deal arcs, flips, best five lifted). */
+	private void drawCards(GuiGraphicsExtractor g, Tier tier, PokerLayout.Layout l) {
+		int[] c = l.centre();
+		cards.origin(c[0] - 10, c[1] - 14).tray(c[0] - 10, c[1] - 14);
 		cards.begin(nowMs(), FxSettings.reduceMotion());
-		int back = backRow();
+		int back = TableTheme.of(theme()).back(CardSprites.BACK_CRIMSON);
 		boolean best = started(PokerBeats.BEST) || (!live && !presenting && handNo > 0 && !awards.isEmpty());
-		int winnerMask = 0; // board bits (0..4) of the winners' best five
+		int winnerMask = 0;
 		for (SeatView v : seats) if (v.best >= 0 && winner(v.index)) winnerMask |= v.best >> 2;
-		boolean[] boardInBest = new boolean[5];
-		for (int i = 0; i < 5; i++) boardInBest[i] = (winnerMask & (1 << i)) != 0;
 		boolean street = "street".equals(fxKind) || "finish".equals(fxKind);
+		int heroSize = V2Cards.size(tier, true);
 		for (int i = 0; i < board.length; i++) {
-			Rect r = HoldemLayout.board(i);
+			int[] at = V2Cards.at(l.board()[i], tier, true);
 			double dealAt = street ? beatAt(PokerBeats.SLIDE, i) : Double.NaN;
 			double revealAt = street ? beatAt(PokerBeats.FLIP, i) : Double.NaN;
-			CardAnimator.Slot slot = cards.card(handKey() + 100 + i, kit(board[i]), CardSprites.L, back, r.x(), r.y(), 0, dealAt, revealAt);
+			CardAnimator.Slot slot = cards.card(handKey() + 100 + i, kit(board[i]), heroSize, back, at[0], at[1], 0, dealAt, revealAt);
 			if (best && winnerMask != 0) {
-				cards.lift(slot, boardInBest[i]);
-				cards.glow(slot, boardInBest[i]);
-				cards.dim(slot, !boardInBest[i]);
+				boolean in = (winnerMask & (1 << i)) != 0;
+				cards.lift(slot, in);
+				cards.glow(slot, in);
+				cards.dim(slot, !in);
 			}
 		}
 		boolean dealing = "deal".equals(fxKind);
 		for (SeatView v : seats) {
-			if (!v.dealt || (v.folded && !v.you && v.cards.length == 0) || v.mucked) continue;
-			if (v.folded) continue; // mucked: the cards gather to the deck
-			HoldemLayout.Slot sl = slotOf(v.index);
-			int size = sl.large() ? CardSprites.L : CardSprites.M;
+			if (!v.dealt || v.mucked || v.folded) continue;
+			int rel = PokerLayout.rel(v.index, me, size);
+			PokerLayout.Seat sl = l.seat(rel);
+			boolean hero = rel == 0;
+			int sz = V2Cards.size(tier, hero);
 			int n = v.cards.length > 0 ? v.cards.length : v.hidden;
 			for (int k = 0; k < n; k++) {
-				Rect r = sl.card(k);
+				int[] at = V2Cards.at(sl.card(k, tier, hero), tier, hero);
 				int code = k < v.cards.length ? kit(v.cards[k]) : -1;
 				double dealAt = Double.NaN;
 				double revealAt = Double.NaN;
@@ -795,328 +792,194 @@ public class PokerScreen extends CardTableScreen {
 					}
 					if (v.you) revealAt = beatAt(PokerBeats.LIFT, v.handIndex);
 				}
-				CardAnimator.Slot slot = cards.card(handKey() + 1000 + v.index * 10 + k, code, size, back, r.x(), r.y(), 0, dealAt, revealAt);
+				CardAnimator.Slot slot = cards.card(handKey() + 1000 + v.index * 10 + k, code, sz, back, at[0], at[1], 0, dealAt, revealAt);
 				if (best && code >= 0 && v.best >= 0) {
 					boolean in = (v.best & (1 << k)) != 0 && winner(v.index);
 					cards.lift(slot, in);
 					cards.glow(slot, in);
 					cards.dim(slot, !winner(v.index));
 				}
-				if (code >= 0) hovers.add(new Hover(r.x(), r.y(), r.w(), r.h(), CardSprites.narration(code)));
 			}
+			if (hero && v.index == toAct && live) V2Draw.outline(g, sl.cards().inset(-2), CasinoPalette.V2_GOLD);
 		}
 		cards.end();
 		cards.draw(g, font);
 	}
 
-	/** Bet stacks on the bet line, the gather to the pot, the pot and side pots, the award slides. */
-	private void drawChips(GuiGraphicsExtractor g) {
+	/** Poker card (rank index × 4 + suit) → the kit's card code (suit × 13 + rank − 1, ace = 1). */
+	static int kit(int card) {
+		int r = (card >> 2) + 2;
+		return (card & 3) * 13 + (r == 14 ? 0 : r - 1);
+	}
+
+	/** Bets on the felt, the gather to the pot, the award slides. */
+	private void drawChips(GuiGraphicsExtractor g, Tier tier, PokerLayout.Layout l) {
 		double t = fxMs();
 		Beat gather = beat(PokerBeats.GATHER, -1);
 		boolean gathering = gather != null && gatherBets.length > 0 && t < gather.end() + 50;
+		Box pot = l.pot();
 		for (SeatView v : seats) {
-			HoldemLayout.Slot sl = slotOf(v.index);
-			int[] spot = HoldemLayout.betSpot(sl, plateWidth(v));
-			int tint = v.you ? 0 : ChipStackView.seatTint(v.index);
+			PokerLayout.Seat sl = slot(v.index);
+			Box stack = sl.stack(tier);
 			if (gathering && v.index < gatherBets.length && gatherBets[v.index] > 0) {
-				double u = gather == null || t < gather.at() ? 0 : Math.min(1, (t - gather.at()) / gather.dur());
+				double u = t < gather.at() ? 0 : Math.min(1, (t - gather.at()) / gather.dur());
 				double p = Ease.OUT_CUBIC.apply(u);
-				int x = (int) Math.round(spot[0] + (HoldemLayout.potX(0) - spot[0]) * p);
-				int y = (int) Math.round(spot[1] + (HoldemLayout.potY() - spot[1]) * p);
-				if (u < 1) ChipStackView.stack(g, x, y + 4, gatherBets[v.index], 5, tint, false, 1 - Math.max(0, u - 0.8) * 5);
+				int x = (int) Math.round(stack.x() + (pot.cx() - stack.x()) * p);
+				int y = (int) Math.round(stack.y() + (pot.y() - stack.y()) * p);
+				if (u < 1) ChipStack.draw(g, new Box(x, y, stack.w(), stack.h()), gatherBets[v.index], (float) (1 - Math.max(0, u - 0.8) * 5));
 				continue;
 			}
 			if (live && v.bet > 0) {
-				ChipStackView.stack(g, spot[0], spot[1] + 4, v.bet, 5, tint, false, 1);
-				if (v.you) ChipStackView.label(g, font, spot[0], spot[1] + 4, v.bet, CasinoPalette.GOLD, 1);
-				else hovers.add(new Hover(spot[0] - 7, spot[1] - 8, 14, 12, Texts.number(v.bet)));
+				ChipStack.draw(g, stack, v.bet);
+				ValuePill.draw(g, font, sl.betPill(), Texts.number(v.bet), v.you ? ValuePill.Style.YOU : ValuePill.Style.OTHER);
 			}
 		}
-		int potY = HoldemLayout.potY() + 6;
-		if (live) {
-			long[] list = pots.length > 0 ? pots : potTotal > 0 ? new long[] {potTotal} : new long[0];
-			if (gathering) list = new long[] {potTotal};
-			for (int i = 0; i < list.length; i++) {
-				if (list[i] <= 0) continue;
-				int x = HoldemLayout.potX(i);
-				ChipStackView.stack(g, x, potY, list[i], 5, 0, false, 1);
-				ChipStackView.label(g, font, x, potY, list[i], CasinoPalette.GOLD, 1);
-				hovers.add(new Hover(x - 8, potY - 16, 16, 26, i == 0 ? PokerText.gui("pot", Texts.number(list[i]))
-					: PokerText.gui("side_pot", Texts.number(i), Texts.number(list[i]))));
-			}
-			return;
-		}
-		if (!presenting && !fxDone) return;
-		// finished hand: the pot waits in the middle, then each award slides to its winners (side pots first)
-		if (awards.isEmpty()) {
-			if (presenting && potTotal > 0) {
-				ChipStackView.stack(g, HoldemLayout.potX(0), potY, potTotal, 5, 0, false, 1);
-				ChipStackView.label(g, font, HoldemLayout.potX(0), potY, potTotal, CasinoPalette.GOLD, 1);
-			}
-			return;
-		}
+		if (!presenting || awards.isEmpty()) return;
 		for (int lane = 0; lane < awards.size(); lane++) {
 			Award a = awards.get(lane);
 			Beat b = beat(PokerBeats.AWARD, lane);
-			double u = !presenting || b == null ? 1 : t < b.at() ? 0 : Math.min(1, (t - b.at()) / b.dur());
-			if (u >= 1 && !presenting) continue; // settled: the chips are in the winners' stacks
-			if (u > 0 && soundedAward != handNo * 16 + lane && presenting) {
+			double u = b == null ? 1 : t < b.at() ? 0 : Math.min(1, (t - b.at()) / b.dur());
+			if (u > 0 && soundedAward != handNo * 16 + lane) {
 				soundedAward = handNo * 16 + lane;
 				FxSounds.play("pot_win", 0.8f, 1f);
 			}
-			int sx = HoldemLayout.potX(lane);
 			for (int w = 0; w < a.seats().length; w++) {
 				SeatView v = seat(a.seats()[w]);
 				if (v == null) continue;
-				Rect plate = HoldemLayout.plate(slotOf(v.index), plateWidth(v));
+				Box plate = slot(v.index).plate();
 				double p = Ease.IN_OUT_CUBIC.apply(u);
-				int x = (int) Math.round(sx + (plate.cx() - sx) * p);
-				int y = (int) Math.round(potY + (plate.y() - potY) * p);
+				int x = (int) Math.round(pot.cx() + (plate.cx() - pot.cx()) * p);
+				int y = (int) Math.round(pot.y() + (plate.y() - pot.y()) * p);
 				long share = w < a.shares().length ? a.shares()[w] : a.amount();
-				double alpha = u < 0.85 ? 1 : 1 - (u - 0.85) / 0.15;
-				ChipStackView.stack(g, x, y, share, 5, 0, false, alpha);
-				if (u == 0) ChipStackView.label(g, font, x, y, a.amount(), CasinoPalette.GOLD, 1);
+				if (u < 1) ChipStack.draw(g, new Box(x - tier.feltChip / 2, y, tier.feltChip, tier.feltChip + 4), share, (float) (u < 0.85 ? 1 : (1 - u) / 0.15));
 			}
 		}
 	}
 
-	private void drawButton(GuiGraphicsExtractor g) {
+	private void drawButton(GuiGraphicsExtractor g, PokerLayout.Layout l) {
 		if (button < 0 || handNo <= 0) return;
-		HoldemLayout.Slot to = slotOf(button);
-		int[] p;
-		Beat b = "deal".equals(fxKind) ? beat(PokerBeats.BUTTON, -1) : null;
-		if (b != null && prevButton >= 0 && prevButton != button && !FxSettings.reduceMotion()) {
-			p = HoldemLayout.button(slotOf(prevButton), to, b.progress(fxMs()));
-		} else {
-			p = HoldemLayout.button(to, to, 1);
-		}
-		CardGfx.sprite(g, FxSprites.sprite("cards/prop/dealer_button"), p[0] - 6, p[1] - 6, 13, 13, 0xFFFFFFFF, CasinoPalette.BONE);
-		hovers.add(new Hover(p[0] - 6, p[1] - 6, 13, 13, PokerText.gui("button")));
+		Box b = slot(button).button();
+		V2Draw.sprite(g, FxSprites.sprite("cards/prop/dealer_button"), b, 0xFFF4ECF8, 0xFF180A28);
 	}
 
-	private SeatPlate.Info plateInfo(SeatView v) {
-		SeatPlate.State state = v.you ? SeatPlate.State.ME : SeatPlate.State.NORMAL;
-		if ((v.folded && (live || presenting)) || v.out) state = SeatPlate.State.FOLDED;
-		if (v.index == toAct) state = SeatPlate.State.ACTIVE;
-		if (winner(v.index) && !live) state = SeatPlate.State.WINNER;
-		Component sub = Texts.number(v.stack);
-		int subColor = CasinoPalette.GOLD;
-		if (v.out) {
-			sub = PokerText.gui("sitting_out");
-			subColor = 0xFFB0A0C0;
-		}
-		boolean thinking = v.bot && v.index == toAct;
-		String avatar = v.bot ? tableTheme().botAvatar(v.botName != null ? v.botName : v.rawName) : null;
-		return new SeatPlate.Info(fit(v.name, 62), v.bot ? null : v.rawName, avatar, v.bot ? v.level : 0, sub, subColor, state, thinking);
-	}
-
-	/** A name cut with "…" to {@code maxW} px (plates stay off the board; the full name is in the tooltip). */
-	private Component fit(Component name, int maxW) {
-		if (font.width(name) <= maxW) return name;
-		return Texts.raw(font.plainSubstrByWidth(name.getString(), maxW - font.width("…")) + "…");
-	}
-
-	private int plateWidth(SeatView v) {
-		return SeatPlate.width(font, plateInfo(v));
-	}
-
-	private void drawPlates(GuiGraphicsExtractor g, int mx, int my) {
-		for (SeatView v : seats) {
-			HoldemLayout.Slot sl = slotOf(v.index);
-			SeatPlate.Info info = plateInfo(v);
-			int w = SeatPlate.width(font, info);
-			Rect r = HoldemLayout.plate(sl, w);
-			int dy = 0;
-			if (v.index == lastActionSeat && live && lastActionText.getString().equals(PokerText.gui("tag.check").getString())) {
-				dy = CardMotion.knockDy(Math.min(1, (nowMs() - lastActionAt) / CardMotion.KNOCK_MS));
-			}
-			if (info.state() == SeatPlate.State.ACTIVE) {
-				CardGfx.sprite(g, FxSprites.sprite("cards/fx/spot_glow"), r.x() - 3, r.y() - 3, r.w() + 6, r.h() + 6,
-					CardGfx.white(CardMotion.glowAlpha((long) nowMs(), FxSettings.reduceMotion(), FxSettings.flashes())));
-			}
-			SeatPlate.draw(g, font, info, r.x(), r.y(), 1, dy);
-			// the acting human's timer bar (bots never use the human timer, BOTS.md §7.3)
-			if (v.index == toAct && !v.bot) {
-				long left = ticksLeft("action");
-				if (left >= 0) {
-					int total = Math.max(1, CasinoConfig.poker().actionTimerTicks);
-					int bw = (int) Math.round((r.w() - 4) * Math.min(1.0, left / (double) total));
-					boolean hurry = left < 100;
-					int color = hurry && FxSettings.flashes() && (clientTicks / 5) % 2 == 0 ? CasinoPalette.CHIP_RED_LIGHT : hurry ? CasinoPalette.CHIP_RED
-						: CasinoPalette.GOLD;
-					g.fill(r.x() + 2, r.y() + r.h(), r.x() + 2 + bw, r.y() + r.h() + 2, color);
-				}
-			}
-			MutableComponent tip = Component.empty().append(v.bot ? Component.translatable("gui.burmaldaholic.bots.display", v.name) : v.name);
-			if (v.bot && v.level > 0) {
-				String[] ids = {"", "easy", "normal", "hard"};
-				tip.append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.bots.level." + ids[v.level]));
-			}
-			tip.append(Texts.raw("\n")).append(PokerText.gui("stack", Texts.number(v.stack)));
-			hovers.add(new Hover(r.x(), r.y(), r.w(), r.h(), tip));
-		}
-	}
-
-	/**
-	 * Hand names, action tags, "Mucks", the ALL-IN stamps and the pot moment, placed so that none covers a card (hard
-	 * obstacles: the board, every seat's hole cards, the deck) — the mockup's label/card overlap fixed.
-	 */
-	private void drawLabels(GuiGraphicsExtractor g) {
-		List<Rect> hard = new ArrayList<>(HoldemLayout.cardRects(size));
-		List<Rect> soft = new ArrayList<>();
-		for (SeatView v : seats) soft.add(HoldemLayout.plate(slotOf(v.index), plateWidth(v)));
-		List<LabelPlacer.Request> reqs = new ArrayList<>();
-		List<Component> texts = new ArrayList<>();
-		List<Double> ages = new ArrayList<>();
+	private void drawSeats(GuiGraphicsExtractor g, PokerLayout.Layout l) {
 		boolean showdownNames = !live && (presenting || handNo > 0);
 		for (SeatView v : seats) {
-			Component text = null;
-			double age = -1;
-			if (v.mucked) {
-				text = PokerText.gui("tag.mucks");
-			} else if (v.hand != null && (v.you || showdownNames) && !v.folded) {
-				text = v.hand;
+			PokerLayout.Seat sl = slot(v.index);
+			SeatPlate.Kind kind = v.you ? SeatPlate.Kind.YOU : v.index == toAct && live ? SeatPlate.Kind.ACTING : SeatPlate.Kind.OTHER;
+			Component name = v.you ? Component.translatable("gui.burmaldaholic.common.you") : v.name;
+			SeatPlate.draw(g, font, sl.plate(), name, kind, v.bot);
+			if (v.index == toAct && live && !v.you) {
+				long left = ticksLeft("action");
+				int total = Math.max(1, dev.nezo.burmaldaholic.core.config.CasinoConfig.poker().actionTimerTicks);
+				Box p = sl.plate();
+				int w = left < 0 ? p.w() : (int) Math.round(p.w() * Math.min(1.0, left / (double) total));
+				g.fill(p.x(), p.bottom(), p.x() + w, p.bottom() + 1, left >= 0 && left < 100 ? CasinoPalette.V2_LOSE : CasinoPalette.V2_GOLD);
 			}
-			if (text == null && live && v.index == lastActionSeat && !Double.isNaN(lastActionAt) && !lastActionText.getString().isEmpty()) {
-				text = lastActionText;
-				age = nowMs() - lastActionAt;
-				if (age > CardMotion.tagTotalMs()) text = null;
+			// stack pill: the number, "Fold" muted, sitting out, or the won net at the end of a hand
+			Component pill;
+			ValuePill.Style style;
+			if (!live && !presenting && handNo > 0 && v.tier != null && v.net != 0 && winner(v.index)) {
+				pill = V2Draw.net(v.net);
+				style = ValuePill.Style.WIN;
+			} else if (v.out) {
+				pill = PokerText.gui("sitting_out");
+				style = ValuePill.Style.PUSH;
+			} else if (v.folded && (live || presenting)) {
+				pill = PokerText.gui("tag.fold");
+				style = ValuePill.Style.PUSH;
+			} else {
+				pill = Texts.number(v.stack);
+				style = v.you ? ValuePill.Style.YOU : ValuePill.Style.OTHER;
 			}
-			if (text == null) continue;
-			HoldemLayout.Slot sl = slotOf(v.index);
-			reqs.add(HoldemLayout.tagRequest(sl, plateWidth(v), font.width(text) + 8));
-			texts.add(text);
-			ages.add(age);
-		}
-		List<Rect> placed = LabelPlacer.place(hard, soft, HoldemLayout.labelBounds(), reqs);
-		for (int i = 0; i < placed.size(); i++) {
-			Rect r = placed.get(i);
-			if (ages.get(i) >= 0) ActionTag.timed(g, font, texts.get(i), r.cx(), r.y(), (long) (double) ages.get(i), FxSettings.reduceMotion());
-			else ActionTag.draw(g, font, texts.get(i), r.cx(), r.y(), 1);
-			hard.add(r);
-		}
-		// ALL-IN stamps over the all-in seats' plates, the pot moment over the pot (K7)
-		for (SeatView v : seats) {
-			if (!v.allIn || !(live || presenting) || v.index >= allInAt.length || Double.isNaN(allInAt[v.index])) continue;
-			Rect plate = HoldemLayout.plate(slotOf(v.index), plateWidth(v));
-			Component text = PokerText.gui("all_in_tag");
-			int w = font.width(text) + 14;
-			Rect spot = LabelPlacer.place(hard, List.of(), HoldemLayout.labelBounds(),
-				List.of(new LabelPlacer.Request(w, 16, plate.x() + 4, plate.y() - 14, plate.x() + 4, plate.y() + plate.h() - 2))).get(0);
-			TableStamp.draw(g, font, text, TableStamp.Kind.RED, spot.cx(), spot.cy(), -6, nowMs() - allInAt[v.index], FxSettings.reduceMotion(), pose);
-		}
-		if (!moment.isEmpty() && (presenting || fxDone && !live)) {
-			Beat award = beat(PokerBeats.AWARD, 0);
-			double age = award == null ? 1000 : fxMs() - award.at() + 400;
-			Component text = PokerText.gui("monster".equals(moment) ? "fx.monster_pot" : "fx.big_pot");
-			int w = font.width(text) + 14;
-			Rect pot = HoldemLayout.potPrint();
-			Rect spot = LabelPlacer.place(hard, List.of(), HoldemLayout.labelBounds(),
-				List.of(new LabelPlacer.Request(w, 16, pot.cx() - w / 2, pot.y() + 2, pot.x() + pot.w() + 4, pot.y()))).get(0);
-			TableStamp.draw(g, font, text, "monster".equals(moment) ? TableStamp.Kind.GOLD : TableStamp.Kind.VIOLET, spot.cx(), spot.cy(), -3, age,
-				FxSettings.reduceMotion(), pose);
+			ValuePill.draw(g, font, fit(sl.pill(), pill), pill, style);
+			// hand name / last action under the plate (the viewer: right of the cards)
+			Component tag = null;
+			if (v.mucked) tag = PokerText.gui("tag.mucks");
+			else if (v.hand != null && (v.you || showdownNames) && !v.folded) tag = v.hand;
+			else if (v.allIn && (live || presenting)) tag = PokerText.gui("all_in_tag");
+			if (tag == null && live && v.index == lastActionSeat && nowMs() - lastActionAt < 2500 && !lastActionText.getString().isEmpty()) {
+				tag = lastActionText;
+			}
+			if (tag != null) {
+				ValuePill.Style ts = winner(v.index) && !live ? ValuePill.Style.WIN : v.you ? ValuePill.Style.YOU : ValuePill.Style.OTHER;
+				ValuePill.draw(g, font, fit(sl.hand(), tag), tag, ts);
+			}
 		}
 	}
 
-	// ---- console text, overlay, tooltips ------------------------------------------------------------------------
+	/** {@code box} narrowed to the pill's text (left-aligned; never wider than the box). */
+	private Box fit(Box box, Component text) {
+		return new Box(box.x(), box.y(), Math.min(box.w(), ValuePill.width(font, text)), box.h());
+	}
 
-	@Override
-	protected void drawConsoleText(GuiGraphicsExtractor g, int mouseX, int mouseY) {
-		int x = compact() ? 4 : 8;
-		int y1 = compact() ? 141 : 212;
-		int y2 = y1 + 12;
-		int maxW = Math.max(40, consoleTextRight() - x);
-		if (!extras.isEmpty() && !compact()) maxW = Math.max(40, extras.get(extras.size() - 1).getX() - 4 - x);
-		Component l1 = null;
-		Component l2 = null;
-		int c1 = CasinoPalette.BONE;
-		CompoundTag l = legal();
-		if (l != null) {
-			MutableComponent c = PokerText.gui("your_turn").copy();
-			long toCall = l.getLongOr("to_call", 0);
-			if (toCall > 0) c.append(Texts.raw(" · ")).append(PokerText.gui("to_call", Texts.number(toCall)));
-			l1 = c;
-			c1 = GREEN;
-			long left = ticksLeft("action");
-			if (left >= 0) {
-				Component auto = PokerText.gui(l.getBooleanOr("can_check", false) ? "check" : "fold");
-				l2 = Component.translatable("gui.burmaldaholic.common.auto_action", auto, Texts.plural("unit.burmaldaholic.second_acc", (left + 19) / 20));
+	private void drawPot(GuiGraphicsExtractor g, PokerLayout.Layout l) {
+		long amount = live ? potTotal : presenting && !awardStarted(0) ? potTotal : 0;
+		if (amount <= 0) return;
+		Box p = l.pot();
+		Component cap = PokerText.gui("v2.pot");
+		Component val = Texts.number(amount);
+		int capW = font.width(cap);
+		int valW = font.width(val) * 2;
+		int x = p.cx() - (capW + 4 + valW) / 2;
+		V2Draw.text(g, font, cap, x, p.y() + 10, 1, CasinoPalette.V2_MUTED, true);
+		V2Draw.text(g, font, val, x + capW + 4, p.y() + 2, 2, CasinoPalette.V2_GOLD, true);
+		if (pots.length > 1) {
+			MutableComponent side = Component.empty();
+			for (int i = 1; i < pots.length; i++) {
+				if (i > 1) side.append(Texts.raw("  "));
+				side.append(PokerText.gui("side_pot", Texts.number(i), Texts.number(pots[i])));
 			}
-		} else if (presenting) {
-			boolean runout = fxArgs.length >= 2 && fxArgs[1] > 0 && !started(PokerBeats.SHOW);
-			l1 = runout ? PokerText.gui("fx.all_in_runout") : PokerText.gui("showdown");
-			c1 = CasinoPalette.GOLD;
-		} else if (!live && !results.isEmpty()) {
-			l1 = results.get(0);
-			c1 = GREEN;
-			long next = ticksLeft("next_hand");
-			if (next >= 0) l2 = PokerText.gui("next_hand_in", Texts.number((next + 19) / 20));
-		} else if (seated()) {
-			if (s().getBooleanOr("leaving", false)) l1 = PokerText.msg("leaving_after_hand");
-			else if (s().getBooleanOr("sitting_out", false)) l1 = PokerText.gui("sitting_out");
-			else if (!live) l1 = seats.size() < 2 ? Component.translatable("gui.burmaldaholic.common.waiting_players") : PokerText.gui("waiting_hand");
-		} else {
-			CompoundTag lv = levelId() == null ? null : level(levelId());
-			l1 = lv == null ? PokerText.gui("choose_stakes")
-				: PokerText.gui("buy_in_range", Texts.number(lv.getLongOr("full_min", 0)), Texts.number(lv.getLongOr("full_max", 0)));
-			l2 = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
+			V2Draw.centred(g, font, side, new Box(p.x() - 40, p.bottom(), p.w() + 80, 10), 1, CasinoPalette.V2_MUTED, true);
 		}
-		if (l1 != null) CardGfx.fitted(g, font, l1, x, y1, maxW, c1, true);
-		if (l2 != null) CardGfx.fitted(g, font, l2, x, y2, maxW, 0xFFB0A0C0, true);
-		if (results.size() > 1 && !live && !presenting) hovers.add(new Hover(x, y1, maxW, 20, joined(results)));
-		List<Component> log = logLines();
-		if (!log.isEmpty() && !compact()) {
-			Component hist = Component.translatable("gui.burmaldaholic.common.history");
-			int hw = font.width(hist);
-			int hx = canvasW() - hw - 8;
-			CardGfx.text(g, font, hist, hx, 20, 0xFFB8A8FF, true);
-			hovers.add(new Hover(hx, 20, hw, 9, joined(log)));
-		}
-	}
-
-	private List<Component> logLines() {
-		List<Component> out = new ArrayList<>();
-		ListTag log = s().getListOrEmpty("log");
-		for (int i = 0; i < log.size(); i++) out.add(decode(log.get(i)));
-		return out;
-	}
-
-	private static Component joined(List<Component> lines) {
-		MutableComponent all = Component.empty();
-		for (int i = 0; i < lines.size(); i++) {
-			if (i > 0) all.append(Texts.raw("\n"));
-			all.append(lines.get(i));
-		}
-		return all;
 	}
 
 	@Override
-	protected void drawOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
-		if (panelX >= 0) {
-			CardGfx.sprite(g, FxSprites.sprite("cards/panel/road"), panelX, panelY, canvasW() - 4 - panelX, 26, 0xFFFFFFFF, 0xE0180A28);
-			for (CardButton b : panel) b.extractRenderState(g, mouseX, mouseY, partial);
-		}
-		for (AbstractWidget w : extras) w.extractRenderState(g, mouseX, mouseY, partial);
+	protected void openRules() {
+		rulesOpen = !rulesOpen;
 	}
 
 	@Override
-	protected void drawTooltips(GuiGraphicsExtractor g, int mx, int my, int sx, int sy) {
-		int hx = mx;
-		int hy = my;
-		if (compact()) {
-			float k = 280f / 408f;
-			hx = Math.round((mx - tableX()) / k) + HoldemLayout.TABLE_X;
-			hy = Math.round((my - tableY()) / k) + HoldemLayout.TABLE_Y;
+	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+		if (rulesOpen) {
+			rulesOpen = false;
+			return true;
 		}
-		for (int i = hovers.size() - 1; i >= 0; i--) {
-			Hover h = hovers.get(i);
-			boolean console = h.y() >= 200;
-			int tx = console ? mx : hx;
-			int ty = console ? my : hy;
-			if (tx >= h.x() && tx < h.x() + h.w() && ty >= h.y() && ty < h.y() + h.h()) {
-				g.setTooltipForNextFrame(font, font.split(h.text(), 220), sx, sy);
-				return;
-			}
+		return super.mouseClicked(event, doubleClick);
+	}
+
+	/** The {@code ?} overlay: the hand history of this table and the rake (the old console's History tooltip). */
+	@Override
+	protected void renderOverlay(GuiGraphicsExtractor g, TableGrid grid, PokerView v, int mouseX, int mouseY, float partial) {
+		if (!rulesOpen) return;
+		Box play = grid.play;
+		V2Draw.fill(g, play, 0xB0080410);
+		int w = Math.min(play.w() - 2 * grid.m(), 360);
+		List<Component> lines = new ArrayList<>();
+		ListTag lt = s().getListOrEmpty("log");
+		for (int i = 0; i < lt.size(); i++) lines.add(decode(lt.get(i)));
+		int max = Math.max(1, (play.h() - 40) / 11);
+		if (lines.size() > max) lines = lines.subList(lines.size() - max, lines.size());
+		Box panel = Box.centredAt(play.cx(), play.cy(), w, 30 + 11 * Math.max(1, lines.size()));
+		V2Draw.pill(g, panel, CasinoPalette.V2_PANEL, CasinoPalette.V2_GOLD_SHADE);
+		V2Draw.text(g, font, Component.translatable("gui.burmaldaholic.common.history"), panel.x() + 8, panel.y() + 6, 1, CasinoPalette.V2_GOLD, true);
+		long permille = s().getLongOr("rake_permille", 50);
+		String pct = permille % 10 == 0 ? Long.toString(permille / 10) : (permille / 10) + "." + (permille % 10);
+		CompoundTag lv = null;
+		ListTag levels = s().getListOrEmpty("levels");
+		for (int i = 0; i < levels.size(); i++) {
+			CompoundTag c = levels.getCompoundOrEmpty(i);
+			if (v.level() != null && c.getStringOr("id", "").equals(v.level().id())) lv = c;
+		}
+		if (lv != null) {
+			Component rake = PokerText.gui("rake_info", Texts.raw(pct), Texts.number(lv.getLongOr("rake_cap", 0)));
+			int rw = Math.min(font.width(rake), w / 2);
+			V2Draw.left(g, font, rake, new Box(panel.right() - 8 - rw, panel.y() + 6, rw, 11), 0, 1, CasinoPalette.V2_MUTED, true);
+		}
+		int y = panel.y() + 20;
+		for (Component c : lines) {
+			V2Draw.left(g, font, c, new Box(panel.x() + 8, y, panel.w() - 16, 11), 0, 1, CasinoPalette.V2_TEXT, true);
+			y += 11;
 		}
 	}
 }
