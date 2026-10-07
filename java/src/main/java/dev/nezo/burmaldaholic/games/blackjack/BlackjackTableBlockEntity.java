@@ -1142,10 +1142,6 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 
 	private BlackjackPub clientPubDecoded;
 
-	/** Client: seat index → name ({@code #key} = a bot's translatable name). */
-	public CompoundTag clientPubNames() {
-		return clientPub.getCompoundOrEmpty("n");
-	}
 
 	/** The table's public state: only published cards (the hole card a back until its flip), no decision data. */
 	public BlackjackPub buildPub() {
@@ -1229,31 +1225,9 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			turn == null ? -1 : turn.seat().seat, turn == null ? -1 : turn.handIndex(), deadline, dealer, dealerAt, seatPubs);
 	}
 
-	/** Seat names for the board: players by name, bots by their name key prefixed with {@code #} (translated client-side). */
-	private CompoundTag pubNames() {
-		CompoundTag n = new CompoundTag();
-		for (TableSeats.Seat s : seats().occupied()) {
-			n.putString(Integer.toString(s.index()), s.name());
-		}
-		if (round != null) {
-			for (Seat s : round.seats()) {
-				String name = names.get(s.player);
-				if (name != null && !name.isEmpty()) n.putString(Integer.toString(s.seat), name);
-			}
-		}
-		for (VirtualBot b : bots.bots()) {
-			n.putString(Integer.toString(b.seat()), "#" + b.profile().nameKey());
-		}
-		for (VirtualBot b : roundBots.values()) {
-			n.putString(Integer.toString(b.seat()), "#" + b.profile().nameKey());
-		}
-		return n;
-	}
-
 	private CompoundTag pubTag() {
 		CompoundTag pub = new CompoundTag();
 		pub.putIntArray("d", buildPub().encode());
-		pub.put("n", pubNames());
 		return pub;
 	}
 

@@ -2310,25 +2310,9 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 			hands[2], hands[3], hands[4], hands[5], boxes, winner, bankAmount, new ArrayList<>(seatPubs.values()));
 	}
 
-	/** Seat names for the board: players by name, bots by their name key prefixed with {@code #}. */
-	private CompoundTag pubNames() {
-		CompoundTag n = new CompoundTag();
-		for (TableSeats.Seat s : seats().occupied()) {
-			n.putString(Integer.toString(s.index()), s.name());
-		}
-		for (Map.Entry<Integer, UUID> e : bots.seated()) {
-			BotProfile p = bots.profile(e.getValue());
-			if (p != null) {
-				n.putString(Integer.toString(e.getKey()), "#" + p.nameKey());
-			}
-		}
-		return n;
-	}
-
 	private CompoundTag pubTag() {
 		CompoundTag pub = new CompoundTag();
 		pub.putIntArray("d", buildPub().encode());
-		pub.put("n", pubNames());
 		return pub;
 	}
 
@@ -2342,10 +2326,6 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		return p;
 	}
 
-	/** Client: seat index to name ({@code #key} = a bot's translatable name). */
-	public CompoundTag clientPubNames() {
-		return clientPub.getCompoundOrEmpty("n");
-	}
 
 	@Override
 	public void syncViewers() {
