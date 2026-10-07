@@ -111,6 +111,53 @@ final class RouletteWheelView {
 		}
 	}
 
+	/**
+	 * The v2 wheel column (lane C): the medium wheel ({@code wheel_bowl_m<d>_<θ>} + 74 head frames {@code wheel_head_m<d>},
+	 * d = 104 or 144) centred on (cx, cy), the ball on the shared path (or resting in {@code lastResult}'s pocket when
+	 * {@code path} is null), the pocket glow and the result badge once settled. A 72 px column uses the mini wheel.
+	 */
+	static void medium(GuiGraphicsExtractor g, Font font, TableTheme t, @org.jspecify.annotations.Nullable RouletteBallPath path, double tMs, int cx,
+			int cy, int d, int lastResult) {
+		if (d < 100) {
+			if (path == null) {
+				mini(g, t, cx - 36, cy - 36, lastResult);
+			} else {
+				compact(g, font, t, path, tMs, cx, cy, 1, lastResult);
+			}
+			return;
+		}
+		boolean reduced = FxSettings.reduceMotion();
+		double k = d / 208.0;
+		int hs = d == 104 ? 76 : 105;
+		Identifier head = TableGfx.sheet("roulette/wheel_head_m" + d);
+		TableGfx.region(g, TableGfx.sheet("roulette/wheel_bowl_m" + d + "_" + t.id), d, d, 0, 0, d, d, cx - d / 2, cy - d / 2, 0xFFFFFFFF);
+		double base = baseAngle(lastResult);
+		double headAngle = path == null ? base : headAngle(path, tMs, base, reduced);
+		int f = RouletteBallPath.headFrame(headAngle, HEAD_FRAMES);
+		TableGfx.region(g, head, hs * HEAD_COLS, hs * 8, (f % HEAD_COLS) * hs, (f / HEAD_COLS) * hs, hs, hs, cx - hs / 2, cy - hs / 2, 0xFFFFFFFF);
+		double frameAngle = RouletteBallPath.frameAngle(f, HEAD_FRAMES);
+		double rp = 55.5 * k;
+		if (path == null) {
+			if (lastResult >= 0) {
+				double fa = Math.toRadians(frameAngle + RouletteBallPath.pocketAngle(lastResult));
+				drawBall(g, cx + rp * Math.sin(fa), cy - rp * Math.cos(fa), 2, 1, true);
+			}
+			return;
+		}
+		ball(g, path, tMs, cx, cy, RW_BIG * k, headAngle, frameAngle, reduced, true);
+		if (path.settled(tMs)) {
+			double pa = Math.toRadians(frameAngle + RouletteBallPath.pocketAngle(path.result));
+			int px = (int) Math.round(cx + rp * Math.sin(pa));
+			int py = (int) Math.round(cy - rp * Math.cos(pa));
+			if (FxSettings.flashes()) {
+				TableGfx.blit(g, "roulette/pocket_glow", px - 10, py - 10, 20, 20);
+			} else {
+				TableGfx.frame(g, "roulette/pocket_glow", 20, 20, 4, 0, px - 10, py - 10, 0xFFFFFFFF);
+			}
+			badge(g, font, path.result, cx, cy, tMs - RouletteBallPath.U_SETTLED * path.spinMs);
+		}
+	}
+
 	/** Compact spin view (72² bowl + 56² head, 37 pocket-step frames) centred on (cx, cy). */
 	static void compact(GuiGraphicsExtractor g, Font font, TableTheme t, RouletteBallPath path, double tMs, int cx, int cy, double alpha, int lastResult) {
 		boolean reduced = FxSettings.reduceMotion();
