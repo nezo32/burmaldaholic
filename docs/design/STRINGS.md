@@ -956,6 +956,36 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 |-----|----|----|
 | `gui.burmaldaholic.poker.next_hand_in` | Next hand in %1$s s | Следующая раздача через %1$s с |
 
+### Table UI v2 (lane B; `docs/architecture/ui-v2.md`, REDESIGN.md §7.3)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.poker.v2.primary.wait` | Waiting | Ожидание |
+| `gui.burmaldaholic.poker.v2.primary.buy_in` | Buy in | Бай-ин |
+| `gui.burmaldaholic.poker.v2.primary.buy_in_amount` | Buy in %1$s | Бай-ин %1$s |
+| `gui.burmaldaholic.poker.v2.primary.top_up` | Top up %1$s | Докупить %1$s |
+| `gui.burmaldaholic.poker.v2.bet_to` | Bet %1$s | Бет %1$s |
+| `gui.burmaldaholic.poker.v2.leave_queue` | Cancel | Отмена |
+| `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
+| `gui.burmaldaholic.poker.v2.reason.vip_stakes` | These stakes need a higher VIP tier | Для этого лимита нужен ВИП-статус выше |
+| `gui.burmaldaholic.poker.v2.reason.buy_in_min` | Not enough chips for the minimum buy-in %1$s | Не хватает фишек на минимальный бай-ин %1$s |
+| `gui.burmaldaholic.poker.v2.reason.no_top_up` | Top up between hands, below the maximum stack | Докупка — между раздачами и ниже максимума |
+| `gui.burmaldaholic.poker.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
+| `gui.burmaldaholic.poker.v2.status.to_call` | Your move – to call %1$s | Ваш ход – колл %1$s |
+| `gui.burmaldaholic.poker.v2.status.auto_fold` | Auto-fold in %1$s s | Автопас через %1$s с |
+| `gui.burmaldaholic.poker.v2.status.auto_check` | Auto-check in %1$s s | Авточек через %1$s с |
+| `gui.burmaldaholic.poker.v2.status.stepper` | Scroll or ± sets the amount · click it for ½ pot, pot, all-in | Колесо или ± — сумма · клик по ней: ½ банка, банк, олл-ин |
+| `gui.burmaldaholic.poker.v2.status.buy_in` | Buy-in %1$s – %2$s · blinds %3$s/%4$s | Бай-ин %1$s – %2$s · блайнды %3$s/%4$s |
+| `gui.burmaldaholic.poker.v2.status.watching` | You are watching · pick the stakes and buy in | Вы зритель · выберите лимит и купите фишки |
+| `gui.burmaldaholic.poker.v2.status.top_up` | Top up to %1$s at most | Докупка — не больше %1$s |
+| `gui.burmaldaholic.poker.v2.status.seated` | Stack %1$s · you play the next hand | Стек %1$s · вы играете следующую раздачу |
+| `gui.burmaldaholic.poker.v2.pot` | Pot | Банк |
+| `gui.burmaldaholic.poker.v2.board.pot_street` | Pot %1$s · %2$s | Банк %1$s · %2$s |
+| `gui.burmaldaholic.poker.v2.board.acting` | %1$s to act | Ход: %1$s |
+| `gui.burmaldaholic.poker.v2.board.winner` | %1$s +%2$s | %1$s +%2$s |
+| `gui.burmaldaholic.poker.v2.board.waiting` | Waiting for players | Ждём игроков |
+| `gui.burmaldaholic.poker.v2.board.next_hand` | Next hand soon | Скоро новая раздача |
+
 ---
 
 ## slots
