@@ -1223,6 +1223,8 @@ def _style_of(entry):
     parts = ident.split(':')[-1].replace('worldgen/', '').split('/')
     if parts and parts[0] == 'casino' and len(parts) > 2:
         return parts[1]
+    if parts and parts[0] == 'casino' and len(parts) == 2:
+        return parts[1]          # casino/parlor, casino/lounge: their own folder
     return parts[0] if len(parts) > 1 else 'misc'
 
 
@@ -1242,10 +1244,11 @@ def run_manifest(manifest, style=None, views=VIEWS, scale=10, only=None, out=Non
         s = _style_of(asm)
         if style and s != style:
             continue
-        name = 'assembly_' + asm.get('id', 'x').split('/')[-1].replace('+', '_')
+        aid = asm.get('id') or asm.get('name') or 'x'
+        name = 'assembly_' + aid.split('/')[-1].replace('+', '_').replace(' ', '_')
         if only and name not in only:
             continue
-        st = assemble(asm['pieces'], roots, '%s / %s' % (s, asm.get('id', name)))
+        st = assemble(asm['pieces'], roots, '%s / %s' % (s, aid))
         per_style.setdefault(s, []).extend(render_views(st, out / s, name, views, scale))
     sheets = []
     for s, paths in per_style.items():
