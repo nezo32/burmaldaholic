@@ -321,6 +321,27 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 			}
 			closeAndLeave(context, world, pos);
 		}
+		name = "fresh blackjack";
+		pos = placeAndOpen(context, world, BlackjackModule.TABLE, BlackjackScreen.class, name, 50);
+		if (pos != null && clickLabel(context, name, "gui.burmaldaholic.blackjack.sit")
+				&& serverWait(context, world, pos, name + ": seated after Sit", (t, p) -> t.isSeated(p))) {
+			context.waitTicks(3);
+			// the default chip (25) put on the player's own betting circle, then Deal
+			double[] spot = context.computeOnClient(mc -> {
+				Screen s = mc.gui.screen();
+				boolean compact = (boolean) field(s, "compact");
+				int x = (int) call(s, "tx", compact ? 140 : dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_X);
+				int y = (int) call(s, "ty", compact ? dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.C_STACK_Y
+					: dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_Y);
+				return canvasToWindow(mc, s, x, y);
+			});
+			click(context, spot[0], spot[1]);
+			if (clickLabel(context, name, "gui.burmaldaholic.common.deal")) {
+				serverWait(context, world, pos, name + ": the chip put on the circle is the bet",
+					(t, p) -> t.stakeOf(p.getUUID()) == 25 || t.writeClientState(p).getLongOr("last_bet", 0) == 25);
+			}
+		}
+		if (pos != null) closeAndLeave(context, world, pos);
 		name = "fresh craps";
 		pos = placeAndOpen(context, world, CrapsModule.TABLE, CrapsScreen.class, name, 50);
 		if (pos == null) return;

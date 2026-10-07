@@ -69,6 +69,7 @@ public class RealFlowMultiplayerGameTests {
 		server.getPlayerList().placeNewPlayer(connection, player, cookie);
 		player.snapTo(helper.absoluteVec(new Vec3(x, 1, z)));
 		Economies.get().setBalance(server, player.getUUID(), balance, TEST);
+		dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, true); // a filtered run can start before GameTestCasinoMode
 		return player;
 	}
 
@@ -79,7 +80,14 @@ public class RealFlowMultiplayerGameTests {
 	}
 
 	private static void use(GameTestHelper helper, CasinoTableBlockEntity table, ServerPlayer player) {
-		helper.useBlock(helper.relativePos(table.getBlockPos()), player);
+		BlockPos rel = null;
+		for (BlockPos c : BlockPos.betweenClosed(0, 0, 0, 7, 3, 7)) {
+			if (helper.absolutePos(c).equals(table.getBlockPos())) {
+				rel = c.immutable();
+			}
+		}
+		helper.assertTrue(rel != null, "table inside the test area");
+		helper.useBlock(rel, player);
 		helper.assertTrue(player.containerMenu instanceof CasinoTableMenu m && m.pos().equals(table.getBlockPos()),
 			player.getName().getString() + ": using the block opens the table menu (got " + player.containerMenu + ")");
 	}
@@ -88,6 +96,10 @@ public class RealFlowMultiplayerGameTests {
 	private static List<String> errors(ServerPlayer player) {
 		EmbeddedChannel ch = CHANNELS.get(player.getUUID());
 		List<String> out = new ArrayList<>();
+		if (ch != null) {
+			ch.runPendingTasks(); // packets sent off the channel's event loop are queued there
+			ch.flush();
+		}
 		while (ch != null) {
 			Object o = ch.readOutbound();
 			if (o == null) break;
@@ -97,6 +109,10 @@ public class RealFlowMultiplayerGameTests {
 			for (Object pk : packets) {
 				if (pk instanceof ClientboundCustomPayloadPacket c && c.payload() instanceof TableErrorPayload e) {
 					out.add(key(e.message()));
+				} else if (pk instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket chat && chat.overlay()) {
+					// sendError's action-bar copy (a test connection never negotiated the table_error channel)
+					String k = key(chat.content());
+					if (!out.contains(k)) out.add(k);
 				}
 			}
 		}
