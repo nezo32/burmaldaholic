@@ -43,7 +43,7 @@ final class HoloText {
 		int h = height(count);
 		pose.pushPose();
 		pose.translate(bottom.x, bottom.y, bottom.z);
-		pose.mulPose(rot);
+		pose.rotateAround(rot, 0f, 0f, 0f);
 		pose.scale(px, -px, px);
 		float x0 = -w / 2f, x1 = w / 2f, y0 = -h, y1 = 0;
 		out.submitCustomGeometry(pose, RenderTypes.entityTranslucent(BoardTextures.BACKING), (p, vc) -> {
