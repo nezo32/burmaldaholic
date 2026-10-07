@@ -182,6 +182,16 @@ public class UthScreen extends CardTableScreen {
 		this.previewBet = id;
 	}
 
+	/** GameTests: the pending (not yet dealt) bet {Ante, Trips}. */
+	public long[] pendingForTests() {
+		return new long[] {ante, trips};
+	}
+
+	/** GameTests: the error line shown, or null. */
+	public @Nullable Component errorForTests() {
+		return errorLine();
+	}
+
 	/** GameTests: the running segment kind ({@link UthPub#DEAL} …, 0 = betting). */
 	public int fxKind() {
 		return fxKind;
