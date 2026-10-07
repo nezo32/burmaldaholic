@@ -26,7 +26,7 @@ import net.minecraft.world.level.block.Blocks;
  * USING the block, place a straight, a split, a corner, a street, a dozen, red and a call bet by CLICKING the layout at
  * 480 × 270 (1920 × 1080 @4) and 640 × 360 (2560 × 1440 @4, 1920 × 1080 @3), spin with the primary, assert every
  * stake and the payout on the SERVER — plus the in-world board at 3 / 5 / 8 blocks. Screenshots {@code v2c_*}, report
- * {@code v2c_report.txt}. Runs when {@code BURMALDAHOLIC_CGT} is unset or names {@code roulette}.
+ * {@code v2c_report.txt}. Run only this lane: {@code BURMALDAHOLIC_CGT=C}.
  */
 public class RouletteV2ClientGameTests implements FabricClientGameTest {
 	private final List<String> report = new ArrayList<>();
@@ -34,8 +34,7 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		String only = System.getenv("BURMALDAHOLIC_CGT");
-		if (only != null && !only.isEmpty() && !only.contains("roulette")) return;
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("C")) return;
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {

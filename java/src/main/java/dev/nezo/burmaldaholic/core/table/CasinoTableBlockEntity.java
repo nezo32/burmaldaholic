@@ -832,6 +832,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		long[] limits = limitsFor(viewer);
 		tag.putLong("min", limits[0]);
 		tag.putLong("max", limits[1]);
+		tag.putLong("ack", acks.getOrDefault(viewer.getUUID(), 0L));
 		return tag;
 	}
 
@@ -859,9 +860,22 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 	}
 
+	/** Per player: table actions handled (the v2 ack watchdog's echo, docs/architecture/ui-v2.md §5.2; not persisted). */
+	private final java.util.Map<java.util.UUID, Long> acks = new java.util.HashMap<>();
+
 	/** Generic actions handled by core before {@link #onAction}. */
 	void handleAction(ServerPlayer player, String action, CompoundTag args) {
+		acks.merge(player.getUUID(), 1L, Long::sum);
+		try {
+			dispatchAction(player, action, args);
+		} finally {
+			sendStateTo(player); // v2 kit: every action is answered by a state with a higher "ack": no click is silently lost
+		}
+	}
+
+	private void dispatchAction(ServerPlayer player, String action, CompoundTag args) {
 		switch (action) {
+			case "resync" -> {} // v2 kit: the answer is the state sent by handleAction
 			case "sit" -> sit(player);
 			case "leave" -> {
 				if (!canLeaveNow(player.getUUID())) {
