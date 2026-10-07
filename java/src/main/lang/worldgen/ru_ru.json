@@ -8,6 +8,7 @@
 	"gui.burmaldaholic.worldgen.village_casino": "Казино «Счастливый житель»",
 	"gui.burmaldaholic.worldgen.piglin_parlor": "Пиглинский салон",
 	"gui.burmaldaholic.worldgen.high_roller": "Лаунж хайроллеров",
+	"gui.burmaldaholic.worldgen.casino": "Гранд-казино",
 	"msg.burmaldaholic.worldgen.entered": "Добро пожаловать в %1$s",
 	"msg.burmaldaholic.worldgen.entered_subtitle": "Играйте ответственно. Ну или хотя бы зрелищно.",
 	"gui.burmaldaholic.croupier.title": "Крупье",
@@ -31,5 +32,9 @@
 	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Возрождение ростовщика (тики)",
 	"pack.burmaldaholic.casinos": "Казино Burmaldaholic",
 	"msg.burmaldaholic.worldgen.built": "Построено: %1$s",
-	"msg.burmaldaholic.worldgen.build_failed": "Здесь не получилось построить казино. Включён ли набор данных «Казино Burmaldaholic»?"
+	"msg.burmaldaholic.worldgen.build_failed": "Здесь не получилось построить казино. Включён ли набор данных «Казино Burmaldaholic»?",
+	"msg.burmaldaholic.worldgen.locate.inactive": "Генерация казино выключена (режим казино или worldgen.enabled): новые казино не появляются",
+	"msg.burmaldaholic.worldgen.locate.none": "Поблизости нет ни одного гранд-казино",
+	"msg.burmaldaholic.worldgen.locate.known": "Ближайшее построенное казино: %1$s, %2$s (%3$s бл.)",
+	"msg.burmaldaholic.worldgen.locate.none_known": "В этом измерении ещё не появилось ни одного казино"
 }

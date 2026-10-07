@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.worldgen;
 
 import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.Gates;
 import dev.nezo.burmaldaholic.worldgen.logic.Geometry;
@@ -79,11 +80,13 @@ public final class CasinoStructures {
 
 	private static void appendParlor(RegistryAccess registries, StructureTemplateManager templates, long seed, ChunkPos chunk,
 			StructurePiecesBuilder builder) {
-		Layout layout = Layouts.piglinParlorLayout();
-		Optional<StructurePoolElement> element = CasinoElements.element(registries.lookupOrThrow(Registries.TEMPLATE_POOL), layout);
-		if (element.isEmpty()) {
+		Optional<CasinoElements.Choice> choice = CasinoElements.preferV2(registries.lookupOrThrow(Registries.TEMPLATE_POOL), CasinoPack.parlor(),
+			Layouts.piglinParlorLayout());
+		if (choice.isEmpty()) {
 			return;
 		}
+		Layout layout = choice.get().layout();
+		Optional<StructurePoolElement> element = Optional.of(choice.get().element());
 		Geometry.Box host = box(builder.getBoundingBox());
 		int first = (int) (Gates.unit(seed, chunk.x(), chunk.z(), Gates.SALT_PARLOR ^ 0x51DE) * 4);
 		for (int i = 0; i < 4; i++) {
@@ -96,11 +99,13 @@ public final class CasinoStructures {
 
 	private static void appendLounge(RegistryAccess registries, StructureTemplateManager templates, long seed, ChunkPos chunk,
 			StructurePiecesBuilder builder) {
-		Layout layout = Layouts.highRollerLayout();
-		Optional<StructurePoolElement> element = CasinoElements.element(registries.lookupOrThrow(Registries.TEMPLATE_POOL), layout);
-		if (element.isEmpty()) {
+		Optional<CasinoElements.Choice> choice = CasinoElements.preferV2(registries.lookupOrThrow(Registries.TEMPLATE_POOL), CasinoPack.lounge(),
+			Layouts.highRollerLayout());
+		if (choice.isEmpty()) {
 			return;
 		}
+		Layout layout = choice.get().layout();
+		Optional<StructurePoolElement> element = Optional.of(choice.get().element());
 		List<StructurePiece> tops = new ArrayList<>();
 		for (StructurePiece piece : builder.build().pieces()) {
 			if (piece instanceof TemplateStructurePiece t

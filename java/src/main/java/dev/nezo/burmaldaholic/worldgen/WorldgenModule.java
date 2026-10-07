@@ -9,6 +9,9 @@ import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
+import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
+import dev.nezo.burmaldaholic.worldgen.logic.VillageStyle;
+import dev.nezo.burmaldaholic.worldgen.structure.CasinoStructureTypes;
 import dev.nezo.burmaldaholic.worldgen.npc.NpcContent;
 import dev.nezo.burmaldaholic.worldgen.npc.NpcInteractions;
 import java.util.Optional;
@@ -38,7 +41,11 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
  *   <li>Casino staff: Croupier, Piglin Dealer, Shulker Croupier ({@code npc/}); their shop / table opening
  *       in {@code NpcInteractions}.</li>
  *   <li>Table presets (Parlor poker, High Roller tables) through core's hook ({@link WorldgenPresets}).</li>
- *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller>}.</li>
+ *   <li>v0.2.0 standalone casinos: structure type {@code burmaldaholic:casino} ({@code structure/CasinoStructure}),
+ *       set {@code burmaldaholic:casinos}, tag {@code #burmaldaholic:casino}; pack generated at build time by
+ *       {@code logic/PackGen} (docs/architecture/casino-buildings.md).</li>
+ *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller|casino [style]>},
+ *       {@code /casino worldgen locate}.</li>
  * </ul>
  * New casinos generate only while casino mode and {@code worldgen.enabled} are on; the tables inside
  * are ordinary (house) tables of their modules and follow casino mode themselves.
@@ -71,13 +78,124 @@ public final class WorldgenModule implements CasinoModule {
 		ServerTickEvents.END_SERVER_TICK.register(CasinoTracker::tick);
 		CasinoEvents.PLAY_RESOLVED.register((player, result) -> CasinoTracker.onPlayResolved(player));
 
+		CasinoStructureTypes.init();
+
 		CasinoCommands.extend(root -> {
 			var build = Commands.literal("build");
 			for (CasinoKind kind : CasinoKind.values()) {
-				build.then(Commands.literal(kind.id()).executes(c -> build(c.getSource(), kind)));
+				if (kind == CasinoKind.CASINO) {
+					var casino = Commands.literal(kind.id()).executes(c -> buildCasino(c.getSource(), null));
+					for (String style : PackFiles.STYLE_BIOMES.keySet()) {
+						casino.then(Commands.literal(style).executes(c -> buildCasino(c.getSource(), style)));
+					}
+					build.then(casino);
+				} else {
+					build.then(Commands.literal(kind.id()).executes(c -> build(c.getSource(), kind)));
+				}
 			}
-			root.then(Commands.literal(ID).then(build));
+			root.then(Commands.literal(ID).then(build).then(Commands.literal("locate").executes(c -> locate(c.getSource()))));
 		});
+	}
+
+	/** Style matching the biome at a position (plains → tudor, desert → oasis, …). */
+	static String styleFor(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos at) {
+		String biome = level.getBiome(at).unwrapKey().map(k -> k.identifier().toString()).orElse("minecraft:plains");
+		return switch (VillageStyle.forBiome(biome)) {
+			case PLAINS -> "tudor";
+			case DESERT -> "oasis";
+			case SAVANNA -> "safari";
+			case TAIGA -> "alpine";
+			case SNOWY -> "ice_palace";
+		};
+	}
+
+	/**
+	 * {@code /casino worldgen build casino [style]}: the standalone casino is a jigsaw structure, so it is built by
+	 * dispatching vanilla {@code place structure} (version-proof; same {@code placeInChunk} path as world generation,
+	 * so markers and the one-record-per-start context behave as in a generated world). Entrance faces a random way,
+	 * start chunk 2 chunks ahead of the player.
+	 */
+	private static int buildCasino(CommandSourceStack source, String requested) {
+		ServerPlayer player = source.getPlayer();
+		if (player == null) {
+			source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.build_failed"));
+			return 0;
+		}
+		var level = player.level();
+		var registry = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE);
+		String style = requested != null ? requested : styleFor(level, player.blockPosition());
+		if (registry.getValue(net.minecraft.resources.Identifier.parse(PackFiles.structureId(style))) == null) {
+			// the biome's style is not in this pack yet: any available one
+			style = PackFiles.STYLE_BIOMES.keySet().stream()
+				.filter(s -> registry.getValue(net.minecraft.resources.Identifier.parse(PackFiles.structureId(s))) != null)
+				.findFirst().orElse(null);
+			if (style == null || requested != null) {
+				source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.build_failed"));
+				return 0;
+			}
+		}
+		var dir = player.getDirection();
+		var at = player.blockPosition().relative(dir, 32);
+		String cmd = "place structure " + PackFiles.structureId(style) + " " + at.getX() + " " + at.getY() + " " + at.getZ();
+		try {
+			int ok = level.getServer().getCommands().getDispatcher().execute(cmd, source.withSuppressedOutput());
+			if (ok > 0) {
+				source.sendSuccess(() -> Component.translatable("msg.burmaldaholic.worldgen.built",
+					Component.translatable(CasinoKind.CASINO.nameKey())), true);
+				return 1;
+			}
+		} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+			Burmaldaholic.LOGGER.info("[worldgen] {} failed: {}", cmd, e.getMessage());
+		}
+		source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.build_failed"));
+		return 0;
+	}
+
+	/**
+	 * {@code /casino worldgen locate}: the nearest standalone casino (vanilla {@code locate structure
+	 * #burmaldaholic:casino}, which also generates nothing) and the nearest casino of any kind this world has
+	 * already generated ({@link CasinoIndex}), with clickable coordinates.
+	 */
+	private static int locate(CommandSourceStack source) {
+		var level = source.getLevel();
+		if (!WorldgenRuntime.active()) {
+			source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.locate.inactive"));
+		} else {
+			try {
+				level.getServer().getCommands().getDispatcher().execute("locate structure #" + PackFiles.TAG, source);
+			} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+				source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.locate.none"));
+			}
+		}
+		var pos = net.minecraft.core.BlockPos.containing(source.getPosition());
+		String dim = level.dimension().identifier().toString();
+		dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord best = null;
+		double bestD = Double.MAX_VALUE;
+		for (var r : CasinoIndex.get(level.getServer()).casinos()) {
+			if (r.box() == null || r.kind() == null || !dim.equals(r.dimension())) {
+				continue;
+			}
+			double d = Math.hypot(r.box().centerX() - pos.getX(), r.box().centerZ() - pos.getZ());
+			if (d < bestD) {
+				bestD = d;
+				best = r;
+			}
+		}
+		if (best == null) {
+			source.sendSuccess(() -> Component.translatable("msg.burmaldaholic.worldgen.locate.none_known"), false);
+			return 0;
+		}
+		int x = best.box().centerX();
+		int z = best.box().centerZ();
+		int y = best.box().minY();
+		int distance = (int) Math.floor(bestD);
+		Component coords = net.minecraft.network.chat.ComponentUtils.wrapInSquareBrackets(Component.translatable("chat.coordinates", x, y, z))
+			.withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)
+				.withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/tp @s " + x + " " + (y + 1) + " " + z))
+				.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(Component.translatable("chat.coordinates.tooltip"))));
+		Component name = Component.translatable(best.kind().nameKey());
+		source.sendSuccess(() -> Component.translatable("msg.burmaldaholic.worldgen.locate.known", name, coords, distance), false);
+		return Math.max(1, distance);
 	}
 
 	private static int build(CommandSourceStack source, CasinoKind kind) {

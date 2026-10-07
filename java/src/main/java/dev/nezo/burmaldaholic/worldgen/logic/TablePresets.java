@@ -35,7 +35,8 @@ public final class TablePresets {
 					: blockId.equals(Layouts.BACCARAT) || blockId.equals(Layouts.BACCARAT_HIGH_ROLLER)
 						? Optional.of(HIGH_ROLLER_BACCARAT)
 						: blockId.equals(Layouts.UTH) || blockId.equals(Layouts.UTH_HIGH_ROLLER) ? Optional.of(HIGH_ROLLER_UTH) : Optional.empty();
-			case VILLAGE_CASINO -> Optional.empty();
+			// Standalone casinos: VIP tables are their own *_high_roller block ids; no preset needed.
+			case VILLAGE_CASINO, CASINO -> Optional.empty();
 		};
 	}
 }

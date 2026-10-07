@@ -1,6 +1,23 @@
 package dev.nezo.burmaldaholic.gametest.worldgen;
 
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
+import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.worldgen.CasinoBuilder;
+import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
+import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
+import dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.level.levelgen.structure.TerrainAdjustment;
+import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import dev.nezo.burmaldaholic.worldgen.CasinoElements;
 import dev.nezo.burmaldaholic.worldgen.CasinoIndex;
 import dev.nezo.burmaldaholic.worldgen.CasinoStructures;
@@ -53,8 +70,13 @@ public class WorldgenGameTests {
 		var templates = CasinoBuilder.templates(level.getServer());
 		helper.assertTrue(WorldgenRuntime.active(), "worldgen active (casino mode on, worldgen.enabled)");
 		for (Layout l : Layouts.all().values()) {
-			Optional<StructurePoolElement> element = CasinoElements.element(pools, l);
-			helper.assertTrue(element.isPresent(), "pool burmaldaholic:" + l.templatePath() + " loaded from the casinos data pack");
+			// v0.1 + annex/parlor/lounge v2: single-element pool at the template path; standalone pieces: their style pool
+			Optional<String> style = PackFiles.styleOf(l.id());
+			String poolPath = style.isPresent() ? PackFiles.stylePoolPath(style.get(), PackFiles.poolName(PackFiles.pieceName(l.id()))) : l.templatePath();
+			Optional<StructurePoolElement> element = pools.get(ResourceKey.create(Registries.TEMPLATE_POOL, dev.nezo.burmaldaholic.Burmaldaholic.id(poolPath)))
+				.flatMap(h -> h.value().getTemplates().stream().map(com.mojang.datafixers.util.Pair::getFirst)
+					.filter(e -> CasinoElements.layoutOf(e).orElse(null) == l).findFirst());
+			helper.assertTrue(element.isPresent(), "pool burmaldaholic:" + poolPath + " holds " + l.id() + " (casinos data pack)");
 			helper.assertTrue(CasinoElements.layoutOf(element.get()).orElseThrow() == l, "element recognised as " + l.id());
 			Vec3i size = element.get().getSize(templates, Rotation.NONE);
 			helper.assertTrue(size.getX() == l.size().x() && size.getY() == l.size().y() && size.getZ() == l.size().z(),
@@ -231,6 +253,143 @@ public class WorldgenGameTests {
 	private static long count(ServerLevel level, String dim, BlockPos near) {
 		return CasinoIndex.get(level.getServer()).casinos().stream().filter(r -> r.kind() == CasinoKind.VILLAGE_CASINO
 			&& r.dimension().equals(dim) && Math.abs(r.box().centerX() - near.getX()) < 130 && Math.abs(r.box().centerZ() - near.getZ()) < 130).count();
+	}
+
+	// ---- v0.2 standalone casino: structure type, set, tag, D5, D6 (architecture doc §6, §9.2) --------------
+
+	/** Styles with a structure in this pack (empty until a lane delivers pieces, or with -PcasinoPlaceholders). */
+	private static List<String> styles() {
+		return PackFiles.completeStyles(CasinoPack.layouts());
+	}
+
+	@GameTest
+	public void standaloneCasinoRegistryLoads(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		helper.assertTrue(BuiltInRegistries.STRUCTURE_TYPE.containsKey(Burmaldaholic.id("casino")), "structure type burmaldaholic:casino registered");
+		var structures = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
+		var tag = structures.get(TagKey.create(Registries.STRUCTURE, Burmaldaholic.id("casino")));
+		helper.assertTrue(tag.isPresent(), "#burmaldaholic:casino loaded");
+		List<String> styles = styles();
+		helper.assertTrue(tag.get().size() == styles.size(), "#burmaldaholic:casino lists " + tag.get().size() + " structures, pack has " + styles);
+		var set = level.registryAccess().lookupOrThrow(Registries.STRUCTURE_SET)
+			.get(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.parse(PackFiles.SET)));
+		helper.assertTrue(set.isPresent() == !styles.isEmpty(), "structure set present iff a style is complete");
+		if (set.isPresent()) {
+			var placement = (RandomSpreadStructurePlacement) set.get().value().placement();
+			helper.assertTrue(placement.spacing() == PackFiles.SPACING && placement.separation() == PackFiles.SEPARATION,
+				"spacing " + placement.spacing() + " / separation " + placement.separation());
+			helper.assertTrue(set.get().value().structures().size() == styles.size(), "one set entry per style");
+		}
+		var pools = level.registryAccess().lookupOrThrow(Registries.TEMPLATE_POOL);
+		for (String style : styles) {
+			Structure s = structures.getValue(Identifier.parse(PackFiles.structureId(style)));
+			helper.assertTrue(s instanceof CasinoStructure, style + " is a burmaldaholic:casino structure, got " + s);
+			CasinoStructure cs = (CasinoStructure) s;
+			helper.assertTrue(cs.requiredPieces().equals(PackFiles.REQUIRED_POOLS) && cs.maxHeightRange() == PackFiles.MAX_HEIGHT_RANGE,
+				style + " required " + cs.requiredPieces() + " range " + cs.maxHeightRange());
+			helper.assertTrue(s.terrainAdaptation() == TerrainAdjustment.BEARD_THIN, style + " beard_thin");
+			helper.assertTrue(tag.get().stream().anyMatch(h -> h.value() == s), style + " in #burmaldaholic:casino");
+			for (String pool : List.of("entrance", "floor", "bar")) {
+				var p = pools.get(ResourceKey.create(Registries.TEMPLATE_POOL, Identifier.parse(PackFiles.stylePoolId(style, pool))));
+				helper.assertTrue(p.isPresent() && !p.get().value().getTemplates().isEmpty(), style + " pool " + pool);
+			}
+		}
+		helper.succeed();
+	}
+
+	private static StructureStart generate(ServerLevel level, Structure structure, ChunkPos chunk) {
+		var source = level.getChunkSource();
+		return StructureGen.generate(Holder.direct(structure), level.dimension(), level.registryAccess(), source.getGenerator(),
+			source.randomState(), CasinoBuilder.templates(level.getServer()), level.getSeed(), chunk, level, b -> true);
+	}
+
+	private static String pieces(StructureStart start) {
+		StringBuilder sb = new StringBuilder();
+		for (var p : start.getPieces()) {
+			if (p instanceof PoolElementStructurePiece e) {
+				sb.append(CasinoElements.layoutOf(e.getElement()).map(Layout::id).orElse("?")).append('@').append(e.getPosition())
+					.append('/').append(e.getRotation()).append(' ');
+			}
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * The structure JSON we generate decodes through our codec (vanilla jigsaw fields inlined), assembles the same
+	 * casino twice for the same chunk (the jigsaw runs once per start, re-wrapped), and D5: the same structure
+	 * requiring a pool no piece belongs to never produces a start.
+	 */
+	@GameTest
+	public void casinoCodecDeterminismAndCompleteness(GameTestHelper helper) {
+		List<String> styles = styles();
+		if (styles.isEmpty()) {
+			Burmaldaholic.LOGGER.info("[worldgen test] no standalone casino style in the pack yet: casinoCodecDeterminismAndCompleteness skipped");
+			helper.succeed();
+			return;
+		}
+		ServerLevel level = helper.getLevel();
+		var ops = RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
+		String json = PackFiles.structureJson(styles.getFirst());
+		Structure ok = Structure.DIRECT_CODEC.parse(ops, JsonParser.parseString(json)).getOrThrow();
+		Structure incomplete = Structure.DIRECT_CODEC.parse(ops, JsonParser.parseString(json.replace("\"bar\"]", "\"bar\", \"vault\"]"))).getOrThrow();
+		helper.assertTrue(((CasinoStructure) incomplete).requiredPieces().contains("vault"), "required_pieces decoded");
+		ChunkPos chunk = ChunkPos.containing(helper.absolutePos(BlockPos.ZERO).offset(1200, 0, -1200));
+		StructureStart a = generate(level, ok, chunk);
+		StructureStart b = generate(level, ok, chunk);
+		helper.assertTrue(a.isValid() && b.isValid(), "complete casino generates on flat ground");
+		helper.assertTrue(a.getPieces().size() >= 3, "entrance + floor + bar at least, got " + pieces(a));
+		helper.assertTrue(pieces(a).equals(pieces(b)), "same chunk → same assembly:\n" + pieces(a) + "\n" + pieces(b));
+		helper.assertTrue(!generate(level, incomplete, chunk).isValid(), "D5: a start missing a required pool is rejected");
+		helper.succeed();
+	}
+
+	/**
+	 * D6 through the real placement path: {@code place structure} runs {@code StructureStart.placeInChunk} chunk by
+	 * chunk; every marker of every piece must land in ONE CASINO record whose box is the union of the pieces.
+	 */
+	@GameTest(maxTicks = 400)
+	public void standaloneCasinoIsOneRecord(GameTestHelper helper) {
+		List<String> styles = styles();
+		if (styles.isEmpty()) {
+			Burmaldaholic.LOGGER.info("[worldgen test] no standalone casino style in the pack yet: standaloneCasinoIsOneRecord skipped");
+			helper.succeed();
+			return;
+		}
+		ServerLevel level = helper.getLevel();
+		BlockPos at = helper.absolutePos(BlockPos.ZERO).offset(700, 0, -700);
+		for (int x = (at.getX() >> 4) - 6; x <= (at.getX() >> 4) + 6; x++) {
+			for (int z = (at.getZ() >> 4) - 6; z <= (at.getZ() >> 4) + 6; z++) {
+				level.getChunk(x, z);
+			}
+		}
+		String dim = level.dimension().identifier().toString();
+		java.util.function.Supplier<List<CasinoRecord>> near = () -> CasinoIndex.get(level.getServer()).casinos().stream()
+			.filter(r -> r.kind() == CasinoKind.CASINO && dim.equals(r.dimension()) && r.box() != null
+				&& Math.abs(r.box().centerX() - at.getX()) < 100 && Math.abs(r.box().centerZ() - at.getZ()) < 100)
+			.toList();
+		CasinoIndex.get(level.getServer()).removeIf(r -> near.get().contains(r));
+		try {
+			var source = level.getServer().createCommandSourceStack().withLevel(level).withSuppressedOutput();
+			int ok = level.getServer().getCommands().getDispatcher().execute("place structure " + PackFiles.structureId(styles.getFirst())
+				+ " " + at.getX() + " " + at.getY() + " " + at.getZ(), source);
+			helper.assertTrue(ok > 0, "place structure succeeded");
+		} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+			helper.fail("place structure failed: " + e.getMessage());
+			return;
+		}
+		helper.succeedWhen(() -> {
+			List<CasinoRecord> records = near.get();
+			helper.assertTrue(records.size() == 1, "exactly one CASINO record for the start, got " + records.size());
+			CasinoRecord r = records.getFirst();
+			Geometry.Box box = r.box();
+			helper.assertTrue(r.layoutId().endsWith("/entrance"), "anchored by the entrance, got " + r.layoutId());
+			helper.assertTrue(box.xSpan() > 31 || box.zSpan() > 31, "record box is the union of several pieces: " + box);
+			helper.assertTrue(r.npcs().size() >= 2, "croupier + loan shark (+ dealers) of all pieces in one record, got " + r.npcs().size());
+			for (CasinoRecord.NpcSlot npc : r.npcs()) {
+				Vec h = npc.home();
+				helper.assertTrue(box.contains(h.x(), h.y(), h.z()), npc.role() + " home " + h + " inside " + box);
+			}
+		});
 	}
 
 	@GameTest

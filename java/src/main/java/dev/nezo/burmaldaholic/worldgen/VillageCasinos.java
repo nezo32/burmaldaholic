@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.worldgen;
 
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
+import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
 import dev.nezo.burmaldaholic.worldgen.logic.Gates;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import dev.nezo.burmaldaholic.worldgen.logic.VillageStyle;
@@ -49,7 +50,8 @@ public final class VillageCasinos {
 		if (style.isEmpty()) {
 			return shuffled;
 		}
-		Optional<StructurePoolElement> casino = CasinoElements.element(pools, Layouts.village(style.get()));
+		Optional<StructurePoolElement> casino = CasinoElements.preferV2(pools, CasinoPack.villageAnnex(style.get()), Layouts.village(style.get()))
+			.map(CasinoElements.Choice::element);
 		if (casino.isEmpty()) {
 			return shuffled;
 		}

@@ -8,6 +8,7 @@
 	"gui.burmaldaholic.worldgen.village_casino": "Lucky Villager Casino",
 	"gui.burmaldaholic.worldgen.piglin_parlor": "Piglin Parlor",
 	"gui.burmaldaholic.worldgen.high_roller": "High Roller Lounge",
+	"gui.burmaldaholic.worldgen.casino": "Grand Casino",
 	"msg.burmaldaholic.worldgen.entered": "Welcome to %1$s",
 	"msg.burmaldaholic.worldgen.entered_subtitle": "Please gamble responsibly. Or at least entertainingly.",
 	"gui.burmaldaholic.croupier.title": "Croupier",
@@ -31,5 +32,9 @@
 	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Loan Shark respawn (ticks)",
 	"pack.burmaldaholic.casinos": "Burmaldaholic Casinos",
 	"msg.burmaldaholic.worldgen.built": "Built: %1$s",
-	"msg.burmaldaholic.worldgen.build_failed": "Could not build a casino here. Is the \"Burmaldaholic Casinos\" data pack enabled?"
+	"msg.burmaldaholic.worldgen.build_failed": "Could not build a casino here. Is the \"Burmaldaholic Casinos\" data pack enabled?",
+	"msg.burmaldaholic.worldgen.locate.inactive": "Casino generation is off (casino mode or worldgen.enabled): no new casinos appear",
+	"msg.burmaldaholic.worldgen.locate.none": "No Grand Casino within reach",
+	"msg.burmaldaholic.worldgen.locate.known": "Nearest generated casino: %1$s at %2$s (%3$s blocks)",
+	"msg.burmaldaholic.worldgen.locate.none_known": "No casino has been generated in this dimension yet"
 }
