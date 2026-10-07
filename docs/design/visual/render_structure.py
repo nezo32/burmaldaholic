@@ -787,7 +787,7 @@ def _font(size, bold=False):
     return ImageFont.load_default()
 
 
-def render(st, out, scale=10, cut=None, title=None, rotate=0, night=False, texels=None, ground=None, subtitle=None):
+def render(st, out, scale=10, cut=None, title=None, rotate=0, night=False, texels=None, ground=None, subtitle=None, labels=False):
     """Isometric render of a Structure (2:1 dimetric, view direction (1, 1, 1))."""
     if isinstance(st, tuple):  # legacy call style: (vox dict, size)
         vox, size = st
@@ -897,11 +897,30 @@ def render(st, out, scale=10, cut=None, title=None, rotate=0, night=False, texel
         layer = layer.filter(ImageFilter.GaussianBlur(scale * 1.2))
         img = _add(img, layer)
         d = ImageDraw.Draw(img, 'RGBA')
+    if labels:
+        _game_tags(d, scene, proj, scale)
     if title:
         _title(d, title, subtitle, night)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     img.save(out, optimize=True)
     return out
+
+
+def _game_tags(d, scene, proj, scale):
+    """Pins a code tag (BJ, RO, …) over every game block so a cutaway reads at a glance."""
+    font = _font(max(9, int(scale * 0.9)), True)
+    for (x, y, z), (name, props, boxes, kind) in sorted(scene.models.items(), key=lambda kv: sum(kv[0])):
+        g = game_label(name)
+        if not g:
+            continue
+        code, col = g
+        px, py = proj(x + 0.5, y + 1.6, z + 0.5)
+        w = scale * 1.6
+        h = scale * 0.95
+        d.line([(px, py + h / 2), proj(x + 0.5, y + 1.0, z + 0.5)], fill=(20, 20, 20, 200), width=1)
+        d.rounded_rectangle((px - w / 2, py - h / 2, px + w / 2, py + h / 2), radius=3, fill=col + (235,), outline=(15, 15, 15, 255))
+        tc = (20, 20, 20) if sum(col) > 380 else (250, 250, 250)
+        d.text((px, py), code, fill=tc, font=font, anchor='mm')
 
 
 def _add(a, b):
@@ -1147,7 +1166,7 @@ def render_views(st, out_dir, stem, views=VIEWS, scale=10, ground='auto'):
             render(st, path, scale=scale, rotate=VIEW_TURNS[v], title=st.title or stem,
                    subtitle=info + '  ·  view ' + v[4:].upper(), ground=g)
         elif v == 'cutaway':
-            render(st, path, scale=scale, cut=fr + 3, rotate=0, title=(st.title or stem) + ' — interior',
+            render(st, path, scale=scale, cut=fr + 3, rotate=0, title=(st.title or stem) + ' — interior', labels=True,
                    subtitle=info + '  ·  cut at y=%d' % (fr + 3), ground=g)
         elif v == 'night':
             render(st, path, scale=scale, rotate=0, night=True, title=(st.title or stem) + ' — night',
