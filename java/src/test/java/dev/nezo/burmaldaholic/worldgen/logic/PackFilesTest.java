@@ -106,7 +106,7 @@ class PackFilesTest {
 		}
 		assertTrue(files.containsKey(PackFiles.structureSetFile()));
 		String set = text(files, PackFiles.structureSetFile());
-		assertTrue(set.contains("\"spacing\": 22") && set.contains("\"separation\": 8") && set.contains("\"salt\": 1592770897")
+		assertTrue(set.contains("\"spacing\": 28") && set.contains("\"separation\": 10") && set.contains("\"salt\": 1592770897")
 			&& set.contains("\"other_set\": \"minecraft:villages\", \"chunk_count\": 3"), set);
 		String tag = text(files, PackFiles.structureTagFile());
 		for (String s : PackFiles.STYLE_BIOMES.keySet()) {
@@ -125,7 +125,7 @@ class PackFilesTest {
 			  "terrain_adaptation": "beard_thin",
 			  "start_pool": "burmaldaholic:worldgen/casino/tudor/entrance",
 			  "size": 3,
-			  "start_height": { "absolute": -3 },
+			  "start_height": { "absolute": -2 },
 			  "project_start_to_heightmap": "WORLD_SURFACE_WG",
 			  "max_distance_from_center": 48,
 			  "use_expansion_hack": false,
@@ -141,8 +141,8 @@ class PackFilesTest {
 			  ],
 			  "placement": {
 			    "type": "minecraft:random_spread",
-			    "spacing": 22,
-			    "separation": 8,
+			    "spacing": 28,
+			    "separation": 10,
 			    "salt": 1592770897,
 			    "exclusion_zone": { "other_set": "minecraft:villages", "chunk_count": 3 }
 			  }

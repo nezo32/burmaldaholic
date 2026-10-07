@@ -29,17 +29,18 @@ public final class PackFiles {
 	public static final String SET = NS + ":casinos";
 	public static final String TAG = NS + ":casino";
 	/**
-	 * 352-block cells. Measured (WorldgenSpawnSurvey, 4 seeds): only ~19 % of cells hold a casino (oceans, rivers,
-	 * mountains, uncovered biomes, steep or wet footprints), so the contract's 40/12 gave one per ~1500 blocks; 22/8
-	 * gives the design target of one per ~830 blocks.
+	 * 448-block cells. Measured (WorldgenSpawnSurvey, 4 seeds): with one fixed spot only ~19 % of cells hold a casino
+	 * (oceans, rivers, mountains, uncovered biomes, steep or wet footprints) and the contract's 40/12 gave one per
+	 * ~1500 blocks; trying 5 spots per cell (CasinoStructure) raises that to ~29 %, so 28/10 gives the design target
+	 * of one per ~830 blocks.
 	 */
-	public static final int SPACING = 22;
-	public static final int SEPARATION = 8;
+	public static final int SPACING = 28;
+	public static final int SEPARATION = 10;
 	public static final int SALT = 1592770897;
 	/** Never closer than 3 chunks to a village placement: the village annex covers villages. */
 	public static final int VILLAGE_EXCLUSION_CHUNKS = 3;
 	public static final int SIZE = 3;
-	public static final int START_HEIGHT = -3;
+	public static final int START_HEIGHT = -2;
 	public static final int MAX_DISTANCE = 48;
 	public static final int MAX_HEIGHT_RANGE = 12;
 	/** Pools every standalone casino must contain (D5: complete or absent). */

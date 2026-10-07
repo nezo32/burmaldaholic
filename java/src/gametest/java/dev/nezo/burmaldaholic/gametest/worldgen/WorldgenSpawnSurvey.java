@@ -67,11 +67,28 @@ public class WorldgenSpawnSurvey {
 		boolean standalone = reg.lookupOrThrow(Registries.STRUCTURE_SET)
 			.get(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.parse(PackFiles.SET))).isPresent();
 		if (standalone) {
-			List<String> summary = new ArrayList<>();
-			for (long seed : SEEDS) {
-				summary.add(casinos(reg, templates, seed));
+			// configurations: "legacy-like" (no biome pre-check, one candidate) vs the shipped defaults; same seeds
+			boolean sweep = Boolean.getBoolean("burmaldaholic.worldgenSurvey.sweep");
+			Object[][] configs = sweep ? new Object[][] {{false, 1}, {true, 1}, {true, CasinoStructure.candidates}, {true, 9}}
+				: new Object[][] {{CasinoStructure.biomePrecheck, CasinoStructure.candidates}};
+			boolean pre0 = CasinoStructure.biomePrecheck;
+			int cand0 = CasinoStructure.candidates;
+			try {
+				for (Object[] cfg : configs) {
+					CasinoStructure.biomePrecheck = (Boolean) cfg[0];
+					CasinoStructure.candidates = (Integer) cfg[1];
+					CasinoStructure.clearCaches();
+					List<String> summary = new ArrayList<>();
+					for (long seed : SEEDS) {
+						summary.add(casinos(reg, templates, seed));
+					}
+					Burmaldaholic.LOGGER.info("[survey] CASINO SUMMARY precheck={} candidates={} (radius {}): {}", cfg[0], cfg[1], CASINO_RADIUS, summary);
+				}
+			} finally {
+				CasinoStructure.biomePrecheck = pre0;
+				CasinoStructure.candidates = cand0;
+				CasinoStructure.clearCaches();
 			}
-			Burmaldaholic.LOGGER.info("[survey] CASINO SUMMARY (radius {}): {}", CASINO_RADIUS, summary);
 		} else {
 			Burmaldaholic.LOGGER.info("[survey] no {} structure set in the pack (no complete style yet) — standalone survey skipped", PackFiles.SET);
 		}
@@ -179,7 +196,6 @@ public class WorldgenSpawnSurvey {
 		int ocz = o[1] >> 4;
 		Map<String, Integer> noBiome = new TreeMap<>();
 		CasinoStructure.STATS.reset();
-		CasinoStructure.STATS.detailed = Boolean.getBoolean("burmaldaholic.worldgenSurvey.dense");
 		long t0 = System.nanoTime();
 		for (int cx = Math.floorDiv(ocx - rc, spacing) - 1; cx <= Math.floorDiv(ocx + rc, spacing) + 1; cx++) {
 			for (int cz = Math.floorDiv(ocz - rc, spacing) - 1; cz <= Math.floorDiv(ocz + rc, spacing) + 1; cz++) {
@@ -211,7 +227,6 @@ public class WorldgenSpawnSurvey {
 				}
 			}
 		}
-		CasinoStructure.STATS.detailed = false;
 		long ms = (System.nanoTime() - t0) / 1_000_000;
 		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} origin={},{} cells without a casino biome (biome at y 64): {}", seed, o[0], o[1], noBiome);
 		List<Integer> fromSpawn = new ArrayList<>();
@@ -245,6 +260,17 @@ public class WorldgenSpawnSurvey {
 		double medianMs = ns.length == 0 ? 0 : ns[ns.length / 2] / 1e6;
 		double p99Ms = ns.length == 0 ? 0 : ns[Math.min(ns.length - 1, (int) (ns.length * 0.99))] / 1e6;
 		int rejectPct = biomeValid == 0 ? 0 : Math.round(100f * rejected / biomeValid);
+		long[] all = CasinoStructure.STATS.sortedAllNanos();
+		double allMedian = all.length == 0 ? 0 : all[all.length / 2] / 1e6;
+		double allP99 = all.length == 0 ? 0 : all[Math.min(all.length - 1, (int) (all.length * 0.99))] / 1e6;
+		double perCell = CasinoStructure.STATS.allNanos.get() / 1e6 / Math.max(1, cells - excluded);
+		double p = found.size() / (double) Math.max(1, cells);
+		String predicted = p == 0 ? "-" : String.format(java.util.Locale.ROOT, "S=%d→%.0f S=28→%.0f S=32→%.0f", spacing,
+			16 * spacing / Math.sqrt(p), 16 * 28 / Math.sqrt(p), 16 * 32 / Math.sqrt(p));
+		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} cost: all attempts median {} ms p99 {} ms over {} | per placement cell {} ms | "
+				+ "casinos per cell {} → predicted mean spacing {}", seed, String.format(java.util.Locale.ROOT, "%.2f", allMedian),
+			String.format(java.util.Locale.ROOT, "%.2f", allP99), all.length, String.format(java.util.Locale.ROOT, "%.1f", perCell),
+			String.format(java.util.Locale.ROOT, "%.3f", p), predicted);
 		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} r={}: cells={} excludedByVillages/placement={} biomeValid={} rejected={} ({}%) casinos={} "
 				+ "({} per km², mean spacing ≈ {} blocks, median nearest-neighbour {}) perStructure={} | within {}: {} casinos, distances from spawn {} "
 				+ "| unrecognisedStarts={} | gen median {} ms p99 {} ms over {} attempts | stats {} | {} ms",
@@ -253,7 +279,11 @@ public class WorldgenSpawnSurvey {
 			CASINO_RADIUS, inner, fromSpawn, unrecognised, String.format(java.util.Locale.ROOT, "%.2f", medianMs),
 			String.format(java.util.Locale.ROOT, "%.2f", p99Ms), ns.length, CasinoStructure.STATS, ms);
 		return "seed " + seed + ": " + inner + " within " + CASINO_RADIUS + ", nearest " + (fromSpawn.isEmpty() ? "-" : fromSpawn.getFirst())
-			+ ", spacing≈" + meanSpacing + ", NN median " + (nn.isEmpty() ? -1 : nn.get(nn.size() / 2)) + ", rejected " + rejectPct + "%";
+			+ ", spacing≈" + meanSpacing + ", NN median " + (nn.isEmpty() ? -1 : nn.get(nn.size() / 2)) + ", rejected " + rejectPct + "%"
+			+ ", p=" + String.format(java.util.Locale.ROOT, "%.3f", p) + " (" + predicted + ")"
+			+ ", assembled median/p99 " + String.format(java.util.Locale.ROOT, "%.1f/%.1f", medianMs, p99Ms)
+			+ " ms, all median/p99 " + String.format(java.util.Locale.ROOT, "%.2f/%.1f", allMedian, allP99) + " ms, per cell "
+			+ String.format(java.util.Locale.ROOT, "%.1f", perCell) + " ms";
 	}
 
 	/** Every piece of a standalone start is one of our layouts (the pack and {@code Layouts.byId} agree). */
