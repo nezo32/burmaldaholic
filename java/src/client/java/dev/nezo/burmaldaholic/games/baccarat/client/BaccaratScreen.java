@@ -163,14 +163,14 @@ public class BaccaratScreen extends CardTableScreen {
 	}
 
 	private boolean chipRackShown() {
-		if (compact || !seated() || !betting()) return false;
+		if (!seated() || !betting()) return false;
 		return !chemmy() || houseCoup() || !ch().getBooleanOr("you_bank", false);
 	}
 
 	@Override
 	protected void buildConsole() {
 		List<CardButton> row = new ArrayList<>();
-		int minX = chipRackShown() ? 8 + CHIPS.length * 25 + 6 : compact ? 4 : 250;
+		int minX = chipRackShown() ? rackEnd(CHIPS.length) : compact ? 4 : 250;
 		String phase = phase();
 		if (!seated()) {
 			row.add(button(Component.translatable("gui.burmaldaholic.baccarat.sit"), "play", CardButton.Family.PRIMARY, true, () -> sendAction("sit")));
@@ -225,7 +225,7 @@ public class BaccaratScreen extends CardTableScreen {
 		} else {
 			row.add(button(Component.translatable("gui.burmaldaholic.common.leave"), "leave", CardButton.Family.TABLE, !revealing(), () -> sendAction("leave")));
 		}
-		layoutButtons(row, minX);
+		layoutButtons(row, minX, chipRackShown() ? rackEnd(CHIPS.length) : 4);
 		if (seated()) cornerButton("leave", Component.translatable("gui.burmaldaholic.common.leave"), !revealing(), () -> sendAction("leave"));
 		cornerButton("paytable", Component.translatable(showRules ? "gui.burmaldaholic.common.back" : "gui.burmaldaholic.common.rules"), true, () -> {
 			showRules = !showRules;
@@ -256,11 +256,17 @@ public class BaccaratScreen extends CardTableScreen {
 	}
 
 	@Override
+	public int @Nullable [] chipRackSlot(int index) {
+		if (!chipRackShown() || index < 0 || index >= CHIPS.length) return null;
+		return rackRect(index);
+	}
+
+	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
 		if (chipRackShown() && button == 0) {
 			for (int i = 0; i < CHIPS.length; i++) {
-				int cx = 8 + i * 25;
-				if (x >= cx && x < cx + 22 && y >= 212 && y < 234) {
+				int[] r = chipRackSlot(i);
+				if (r != null && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) {
 					chip = CHIPS[i];
 					FxSounds.play("chip_place", 0.6f, 1.2f);
 					return true;
@@ -290,9 +296,9 @@ public class BaccaratScreen extends CardTableScreen {
 		if (chipRackShown()) {
 			long max = Math.max(0, Math.min(maxBet(), balance()));
 			for (int i = 0; i < CHIPS.length; i++) {
-				int x = 8 + i * 25;
-				boolean hover = mouseX >= x && mouseX < x + 22 && mouseY >= 212 && mouseY < 234;
-				ChipStackView.big(g, (int) CHIPS[i], x, 212, CHIPS[i] == chip, hover, CHIPS[i] <= max);
+				int[] r = chipRackSlot(i);
+				boolean hover = mouseX >= r[0] && mouseX < r[0] + r[2] && mouseY >= r[1] && mouseY < r[1] + r[3];
+				ChipStackView.big(g, (int) CHIPS[i], r[0], r[1], CHIPS[i] == chip, hover, CHIPS[i] <= max);
 			}
 			return;
 		}

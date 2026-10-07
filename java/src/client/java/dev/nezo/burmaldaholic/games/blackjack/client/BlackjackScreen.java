@@ -274,7 +274,7 @@ public class BlackjackScreen extends CardTableScreen {
 			row.add(button(Component.translatable("gui.burmaldaholic.blackjack.sit"), "play", CardButton.Family.PRIMARY, true, () -> sendAction("sit")));
 		} else if (betting && !m.betPlaced) {
 			long max = maxAffordable();
-			minX = compact ? 4 : 8 + CHIPS.length * 25 + 6;
+			minX = rackEnd(CHIPS.length);
 			row.add(button(Component.translatable("gui.burmaldaholic.common.clear"), "clear", CardButton.Family.TABLE, pendingBet > 0, () -> {
 				pendingBet = 0;
 				rebuildConsole();
@@ -309,7 +309,7 @@ public class BlackjackScreen extends CardTableScreen {
 					() -> sendAction("surrender")));
 			}
 		}
-		layoutButtons(row, minX);
+		layoutButtons(row, minX, chipRackShown() ? rackEnd(CHIPS.length) : 4);
 		if (seated) {
 			cornerButton("leave", Component.translatable("gui.burmaldaholic.common.leave"), !m.inRound || "result".equals(m.phase) && !m.busy,
 				() -> sendAction("leave"));
@@ -344,15 +344,21 @@ public class BlackjackScreen extends CardTableScreen {
 	}
 
 	private boolean chipRackShown() {
-		return !compact && mySeat() >= 0 && ("betting".equals(m.phase) || "idle".equals(m.phase)) && !m.inRound && !m.betPlaced;
+		return mySeat() >= 0 && ("betting".equals(m.phase) || "idle".equals(m.phase)) && !m.inRound && !m.betPlaced;
+	}
+
+	@Override
+	public int @Nullable [] chipRackSlot(int index) {
+		if (!chipRackShown() || index < 0 || index >= CHIPS.length) return null;
+		return rackRect(index);
 	}
 
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
 		if (!chipRackShown() || button != 0) return false;
 		for (int i = 0; i < CHIPS.length; i++) {
-			int cx = 8 + i * 25;
-			if (x >= cx && x < cx + 22 && y >= 212 && y < 234) {
+			int[] r = chipRackSlot(i);
+			if (r != null && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) {
 				selectedChip = CHIPS[i];
 				long max = maxAffordable();
 				if (pendingBet + CHIPS[i] > max) {
@@ -373,9 +379,9 @@ public class BlackjackScreen extends CardTableScreen {
 		if (chipRackShown()) {
 			long max = maxAffordable();
 			for (int i = 0; i < CHIPS.length; i++) {
-				int x = 8 + i * 25;
-				boolean hover = mouseX >= x && mouseX < x + 22 && mouseY >= 212 && mouseY < 234;
-				ChipStackView.big(g, CHIPS[i], x, 212, CHIPS[i] == selectedChip, hover, pendingBet + CHIPS[i] <= max);
+				int[] r = chipRackSlot(i);
+				boolean hover = mouseX >= r[0] && mouseX < r[0] + r[2] && mouseY >= r[1] && mouseY < r[1] + r[3];
+				ChipStackView.big(g, CHIPS[i], r[0], r[1], CHIPS[i] == selectedChip, hover, pendingBet + CHIPS[i] <= max);
 			}
 			return;
 		}

@@ -14,18 +14,25 @@ public final class TableNetworking {
 	public static void register(ModuleContext core) {
 		TableSyncPayload.TYPE = core.payloads().clientbound("table_sync", TableSyncPayload.CODEC);
 		TableErrorPayload.TYPE = core.payloads().clientbound("table_error", TableErrorPayload.CODEC);
-		TableActionPayload.TYPE = core.payloads().serverbound("table_action", TableActionPayload.CODEC, (payload, context) -> {
-			ServerPlayer player = context.player();
-			if (!(player.containerMenu instanceof CasinoTableMenu menu) || !menu.pos().equals(payload.pos()) || !menu.stillValid(player)) {
-				return;
+		TableActionPayload.TYPE = core.payloads().serverbound("table_action", TableActionPayload.CODEC,
+			(payload, context) -> receive(context.player(), payload));
+	}
+
+	/**
+	 * The {@code table_action} receiver (server thread, casino mode on): only from a player who has that table's menu
+	 * open and is still in range; then core's generic actions or the game's {@code onAction}. Public so server
+	 * GameTests drive the same path as the packet.
+	 */
+	public static void receive(ServerPlayer player, TableActionPayload payload) {
+		if (!(player.containerMenu instanceof CasinoTableMenu menu) || !menu.pos().equals(payload.pos()) || !menu.stillValid(player)) {
+			return;
+		}
+		if (player.level().getBlockEntity(payload.pos()) instanceof CasinoTableBlockEntity table) {
+			try {
+				table.handleAction(player, payload.action(), payload.args());
+			} catch (RuntimeException e) {
+				Burmaldaholic.LOGGER.error("Table action '{}' at {} failed", payload.action(), payload.pos(), e);
 			}
-			if (player.level().getBlockEntity(payload.pos()) instanceof CasinoTableBlockEntity table) {
-				try {
-					table.handleAction(player, payload.action(), payload.args());
-				} catch (RuntimeException e) {
-					Burmaldaholic.LOGGER.error("Table action '{}' at {} failed", payload.action(), payload.pos(), e);
-				}
-			}
-		});
+		}
 	}
 }
