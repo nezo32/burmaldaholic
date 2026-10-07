@@ -130,7 +130,7 @@ class StylesTest {
 		for (Facing side : Facing.values()) {
 			Blueprint b = Blueprint.of("casino/test/sign", CasinoKind.VILLAGE_CASINO, 21, 9, 21, OverworldStyles.TUDOR.palette());
 			Facades.SignBox box = Facades.marquee(b, "CA", side, 10, 1, side == Facing.SOUTH || side == Facing.EAST ? 20 : 0);
-			assertEquals(8, box.width());
+			assertEquals(9, box.width());
 			Grid g = b.build().layout().grid();
 			int s = side.rotate(-1).dx() + side.rotate(-1).dz();
 			int first = s > 0 ? box.alongFrom() : box.alongTo(); // reader's leftmost column
@@ -161,7 +161,10 @@ class StylesTest {
 				for (int z = 0; z < 8; z++) {
 					for (int y = 0; y < 18; y++) {
 						for (int x = 0; x < 31; x++) {
-							assertEquals(null, g.get(x, y, z), s.id() + " " + k + " writes behind the wall at " + x + "," + y + "," + z);
+							BlockSpec c = g.get(x, y, z);
+							// only the sign's backing (hides the letter lights from behind) may sit right behind the wall
+							boolean backing = z == 7 && c != null && c.equals(s.palette().block(Role.WALL));
+							assertTrue(c == null || backing, s.id() + " " + k + " writes behind the wall at " + x + "," + y + "," + z + ": " + c);
 						}
 					}
 				}

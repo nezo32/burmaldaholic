@@ -5,7 +5,6 @@ import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Facade verbs (architecture doc §3.3 / §7, lane CB-3): pixel lettering on any side, the marquee with its
@@ -19,77 +18,12 @@ import java.util.Map;
 public final class Facades {
 	private Facades() {}
 
-	// ---- lettering --------------------------------------------------------------------------------------
+	// ---- lettering ---------------------------------------------------------------------------------------
 
-	/** 3 × 5 pixel font (I is one column, or two with {@code wideI}); same glyphs as the v0.1 sign for CASINO. */
-	static final Map<Character, String[]> FONT = Map.ofEntries(
-		Map.entry('A', new String[] {"###", "#.#", "###", "#.#", "#.#"}),
-		Map.entry('B', new String[] {"##.", "#.#", "###", "#.#", "##."}),
-		Map.entry('C', new String[] {"###", "#..", "#..", "#..", "###"}),
-		Map.entry('D', new String[] {"##.", "#.#", "#.#", "#.#", "##."}),
-		Map.entry('E', new String[] {"###", "#..", "##.", "#..", "###"}),
-		Map.entry('F', new String[] {"###", "#..", "##.", "#..", "#.."}),
-		Map.entry('G', new String[] {"###", "#..", "#.#", "#.#", "###"}),
-		Map.entry('H', new String[] {"#.#", "#.#", "###", "#.#", "#.#"}),
-		Map.entry('I', new String[] {"#", "#", "#", "#", "#"}),
-		Map.entry('J', new String[] {"..#", "..#", "..#", "#.#", "###"}),
-		Map.entry('K', new String[] {"#.#", "#.#", "##.", "#.#", "#.#"}),
-		Map.entry('L', new String[] {"#..", "#..", "#..", "#..", "###"}),
-		Map.entry('M', new String[] {"#.#", "###", "###", "#.#", "#.#"}),
-		Map.entry('N', new String[] {"##.", "#.#", "#.#", "#.#", "#.#"}),
-		Map.entry('O', new String[] {"###", "#.#", "#.#", "#.#", "###"}),
-		Map.entry('P', new String[] {"###", "#.#", "###", "#..", "#.."}),
-		Map.entry('R', new String[] {"###", "#.#", "##.", "#.#", "#.#"}),
-		Map.entry('S', new String[] {"###", "#..", "###", "..#", "###"}),
-		Map.entry('T', new String[] {"###", ".#.", ".#.", ".#.", ".#."}),
-		Map.entry('U', new String[] {"#.#", "#.#", "#.#", "#.#", "###"}),
-		Map.entry('V', new String[] {"#.#", "#.#", "#.#", "#.#", ".#."}),
-		Map.entry('W', new String[] {"#.#", "#.#", "###", "###", "#.#"}),
-		Map.entry('X', new String[] {"#.#", "#.#", ".#.", "#.#", "#.#"}),
-		Map.entry('Y', new String[] {"#.#", "#.#", ".#.", ".#.", ".#."}),
-		Map.entry('Z', new String[] {"###", "..#", ".#.", "#..", "###"}),
-		Map.entry('0', new String[] {"###", "#.#", "#.#", "#.#", "###"}),
-		Map.entry('1', new String[] {".#.", "##.", ".#.", ".#.", "###"}),
-		Map.entry('2', new String[] {"###", "..#", "###", "#..", "###"}),
-		Map.entry('3', new String[] {"###", "..#", "###", "..#", "###"}),
-		Map.entry('4', new String[] {"#.#", "#.#", "###", "..#", "..#"}),
-		Map.entry('5', new String[] {"###", "#..", "###", "..#", "###"}),
-		Map.entry('7', new String[] {"###", "..#", ".#.", ".#.", ".#."}),
-		Map.entry('8', new String[] {"###", "#.#", "###", "#.#", "###"}),
-		Map.entry('9', new String[] {"###", "#.#", "###", "..#", "###"}),
-		Map.entry('!', new String[] {"#", "#", "#", ".", "#"}),
-		Map.entry(' ', new String[] {".", ".", ".", ".", "."}));
-
-	/** Lettering options: blank columns between letters, two-column I (fills an odd width). */
-	public record Lettering(int gap, boolean wideI) {
-		public static final Lettering TIGHT = new Lettering(0, false);
-		public static final Lettering WIDE_I = new Lettering(0, true);
-		public static final Lettering SPACED = new Lettering(1, false);
-	}
-
-	/** Pixels of {@code word}: column from the reader's left, row from the top (0..4), letter index. */
-	public static Layouts.Sign text(String word, Lettering l) {
-		List<Layouts.SignPixel> pixels = new ArrayList<>();
-		int col = 0;
-		for (int letter = 0; letter < word.length(); letter++) {
-			char ch = word.charAt(letter);
-			String[] glyph = FONT.get(ch);
-			if (glyph == null) {
-				throw new IllegalArgumentException("no glyph for '" + ch + "'");
-			}
-			if (ch == 'I' && l.wideI()) {
-				glyph = new String[] {"##", "##", "##", "##", "##"};
-			}
-			for (int row = 0; row < 5; row++) {
-				for (int dx = 0; dx < glyph[row].length(); dx++) {
-					if (glyph[row].charAt(dx) == '#') {
-						pixels.add(new Layouts.SignPixel(col + dx, row, letter));
-					}
-				}
-			}
-			col += glyph[0].length() + (letter < word.length() - 1 ? l.gap() : 0);
-		}
-		return new Layouts.Sign(pixels, col);
+	/** Single-line SMALL layout of {@code word} (letters one column apart). See {@link SignFont} for the planner. */
+	public static Layouts.Sign text(String word) {
+		SignFont.Plan p = SignFont.SMALL.line(word);
+		return new Layouts.Sign(p.pixels(), p.width());
 	}
 
 	/** Cell of a wall plane: {@code along} runs along the wall, {@code plane} is the wall's z (front/back) or x (sides). */
@@ -121,39 +55,38 @@ public final class Facades {
 
 	/**
 	 * Marquee on the wall plane {@code plane} of {@code side}: a SIGN_BACK board {@code pad} cells wider than the
-	 * text on each side, 7 rows from {@code bottomY}, letters alternating NEON_A / NEON_B on the 5 middle rows.
-	 * The top and bottom rows carry a BULB every second cell; with {@code sideBulbs}
-	 * the end columns get bulbs too. Centred on {@code center} (along the wall).
+	 * text on each side, {@code plan.height() + 2} rows from {@code bottomY} (bulb row, text, bulb row), letters
+	 * alternating NEON_A / NEON_B, a BULB every second cell on the top and bottom rows (and on the end columns
+	 * when {@code sideBulbs}). Centred on {@code center} (along the wall).
 	 */
-	public static SignBox marquee(Blueprint b, String word, Facing side, int center, int bottomY, int plane, Lettering l, int pad,
+	public static SignBox marquee(Blueprint b, SignFont.Plan plan, Facing side, int center, int bottomY, int plane, int pad,
 			boolean sideBulbs) {
-		Layouts.Sign sign = text(word, l);
-		int w = sign.width() + 2 * pad;
+		int w = plan.width() + 2 * pad, top = bottomY + plan.height() + 1;
 		int s = step(side);
 		int start = center - s * ((w - 1) / 2);
 		for (int i = 0; i < w; i++) {
-			for (int y = bottomY; y <= bottomY + 6; y++) {
+			for (int y = bottomY; y <= top; y++) {
 				put(b, side, plane, start + s * i, y, Role.SIGN_BACK);
 			}
 		}
-		for (Layouts.SignPixel px : sign.pixels()) {
-			put(b, side, plane, start + s * (pad + px.col()), bottomY + 5 - px.row(), px.letter() % 2 == 0 ? Role.NEON_A : Role.NEON_B);
+		for (Layouts.SignPixel px : plan.pixels()) {
+			put(b, side, plane, start + s * (pad + px.col()), top - 1 - px.row(), px.letter() % 2 == 0 ? Role.NEON_A : Role.NEON_B);
 		}
 		for (int i = 0; i < w; i += 2) {
 			put(b, side, plane, start + s * i, bottomY, Role.BULB);
-			put(b, side, plane, start + s * i, bottomY + 6, Role.BULB);
+			put(b, side, plane, start + s * i, top, Role.BULB);
 		}
 		if (w % 2 == 0) {
 			put(b, side, plane, start + s * (w - 1), bottomY, Role.BULB);
-			put(b, side, plane, start + s * (w - 1), bottomY + 6, Role.BULB);
+			put(b, side, plane, start + s * (w - 1), top, Role.BULB);
 		}
 		if (sideBulbs) {
-			for (int y = bottomY; y <= bottomY + 6; y += 2) {
+			for (int y = bottomY; y <= top; y += 2) {
 				put(b, side, plane, start, y, Role.BULB);
 				put(b, side, plane, start + s * (w - 1), y, Role.BULB);
 			}
 		}
-		return new SignBox(Math.min(start, start + s * (w - 1)), Math.max(start, start + s * (w - 1)), bottomY, bottomY + 6);
+		return new SignBox(Math.min(start, start + s * (w - 1)), Math.max(start, start + s * (w - 1)), bottomY, top);
 	}
 
 	/** Stained glass of the same colour as a {@code *_concrete} block (other blocks are returned unchanged). */
@@ -163,13 +96,17 @@ public final class Facades {
 
 	/**
 	 * Illuminated sign (glows day and night): letters of stained glass in the NEON_A / NEON_B colours, each backed
-	 * by a LIGHT block in the cell behind it (towards the wall), on a SIGN_BACK board. 7 rows from {@code bottomY}:
-	 * a bulb strip (BULB every second cell between ROOF_TRIM top slabs), 5 lit text rows, a ROOF_TRIM slab cap.
-	 * With {@code pad > 0} the end columns are a TRIM frame. The cell behind the board must be inside the template.
+	 * by a LIGHT block in the cell behind it (towards the wall), on a SIGN_BACK board {@code boardWidth} wide
+	 * (at least {@code plan.width() + 2 * pad}; extra columns re-centre the text). Rows from {@code bottomY}: a
+	 * bulb strip (BULB every second cell between ROOF_TRIM top slabs), the {@code plan.height()} text rows, a
+	 * ROOF_TRIM slab cap. With {@code pad > 0} the end columns are a TRIM frame. The cell behind the board must be
+	 * inside the template.
 	 */
-	public static SignBox litSign(Blueprint b, String word, Facing side, int center, int bottomY, int plane, Lettering l, int pad) {
-		Layouts.Sign sign = text(word, l);
-		int w = sign.width() + 2 * pad;
+	public static SignBox litSign(Blueprint b, SignFont.Plan plan, Facing side, int center, int bottomY, int plane, int pad,
+			int boardWidth) {
+		int w = Math.max(boardWidth, plan.width() + 2 * pad);
+		SignFont.Plan p = plan.widen(w - 2 * pad);
+		int top = bottomY + p.height() + 1;
 		int s = step(side);
 		int start = center - s * ((w - 1) / 2);
 		int behind = plane - (side == Facing.SOUTH || side == Facing.EAST ? 1 : -1);
@@ -177,23 +114,36 @@ public final class Facades {
 		for (int i = 0; i < w; i++) {
 			int a = start + s * i;
 			put(b, side, plane, a, bottomY, i % 2 == 0 ? b.palette().block(Role.BULB) : trim.slab("top"));
-			put(b, side, plane, a, bottomY + 6, trim.slab("bottom"));
-			for (int y = bottomY + 1; y <= bottomY + 5; y++) {
-				put(b, side, plane, a, y, pad > 0 && (i == 0 || i == w - 1) ? Role.TRIM : Role.SIGN_BACK);
+			put(b, side, plane, a, top, trim.slab("bottom"));
+			for (int y = bottomY + 1; y < top; y++) {
+				put(b, side, plane, a, y, pad > 0 && (i == 0 || i == w - 1) ? Role.ROOF_TRIM : Role.SIGN_BACK);
 			}
 		}
-		for (Layouts.SignPixel px : sign.pixels()) {
+		for (Layouts.SignPixel px : p.pixels()) {
 			int a = start + s * (pad + px.col());
-			int y = bottomY + 5 - px.row();
+			int y = top - 1 - px.row();
 			put(b, side, plane, a, y, glassOf(b.palette().block(px.letter() % 2 == 0 ? Role.NEON_A : Role.NEON_B)));
 			put(b, side, behind, a, y, Role.LIGHT);
 		}
-		return new SignBox(Math.min(start, start + s * (w - 1)), Math.max(start, start + s * (w - 1)), bottomY, bottomY + 6);
+		// hide the letter lights from the other side: plain WALL behind the board where nothing stands there
+		int back = behind - (plane - behind);
+		for (int i = 0; i < w; i++) {
+			for (int y = bottomY + 1; y < top; y++) {
+				int[] c = cell(side, back, start + s * i, y);
+				if (b.size().x() > c[0] && c[0] >= 0 && b.size().z() > c[2] && c[2] >= 0) {
+					BlockSpec there = b.at(c[0], c[1], c[2]);
+					if (there == null || there.is("minecraft:air")) {
+						put(b, side, back, start + s * i, y, Role.WALL);
+					}
+				}
+			}
+		}
+		return new SignBox(Math.min(start, start + s * (w - 1)), Math.max(start, start + s * (w - 1)), bottomY, top);
 	}
 
-	/** Marquee with the default look: tight letters, one cell of padding, bulbs all round. */
+	/** Marquee with the default look: SMALL letters on one line, one cell of padding, bulbs all round. */
 	public static SignBox marquee(Blueprint b, String word, Facing side, int center, int bottomY, int plane) {
-		return marquee(b, word, side, center, bottomY, plane, Lettering.TIGHT, 1, true);
+		return marquee(b, SignFont.SMALL.line(word), side, center, bottomY, plane, 1, true);
 	}
 
 	/**
@@ -217,11 +167,8 @@ public final class Facades {
 				b.set(bx + 4 * out.dx(), y, bz + 4 * out.dz(), Role.BULB);
 			}
 			for (int i = 0; i < word.length(); i++) {
-				String[] glyph = FONT.get(word.charAt(i));
-				if (glyph == null) {
-					throw new IllegalArgumentException("no glyph for '" + word.charAt(i) + "'");
-				}
-				int gw = glyph[0].length(), left = 1 + (3 - gw) / 2;
+				String[] glyph = SignFont.SMALL.glyph(word.charAt(i));
+				int gw = glyph[0].length(), left = Math.max(0, (5 - gw) / 2);
 				for (int row = 0; row < 5; row++) {
 					for (int c = 0; c < gw; c++) {
 						if (glyph[row].charAt(c) != '#') {
@@ -311,7 +258,7 @@ public final class Facades {
 		Material trim = b.palette().get(Role.ROOF_TRIM);
 		for (int z = zWall + 1; z <= zFront; z++) {
 			for (int x = x0; x <= x1; x++) {
-				b.set(x, top, z, z == zFront ? b.palette().block(Role.TRIM) : trim.slab("top"));
+				b.set(x, top, z, z == zFront ? b.palette().block(Role.ROOF_TRIM) : trim.slab("top"));
 			}
 		}
 		if (top + 1 < b.size().y()) {
@@ -348,8 +295,9 @@ public final class Facades {
 			return (x0 + x1) / 2;
 		}
 
+		/** Top row of the marquee (its height depends on the lettering plan that fits this front). */
 		public int signTopY() {
-			return signBottomY + 6;
+			return signBottomY + frontPlan(this).plan().height() + 1;
 		}
 
 		public int canopyY() {
@@ -435,20 +383,45 @@ public final class Facades {
 
 	private static final BlockSpec HANGING_LANTERN = BlockSpec.mc("lantern", "hanging", "true", "waterlogged", "false");
 
-	/** The marquee on the porch line, lettering chosen so the board is symmetric and fits the wall. */
-	private static SignBox frontSign(Blueprint b, Front f, boolean sideFrame) {
+	/** Lettering plan + padding + board width of a front's marquee. */
+	public record FrontPlan(SignFont.Plan plan, int pad, int boardWidth) {}
+
+	/**
+	 * The marquee layout for a front: the largest font that fits with a 2-cell (then 1, then 0) margin, falling
+	 * back to two SMALL lines; the board is widened by one when that keeps it centred on the front.
+	 */
+	public static FrontPlan frontPlan(Front f) {
 		int avail = f.x1() - f.x0() + 1;
-		boolean hasI = f.word().indexOf('I') >= 0;
-		Lettering l = Lettering.TIGHT;
-		int tw = text(f.word(), l).width();
-		int pad = sideFrame ? 2 : 1;
-		while (pad > 0 && tw + 2 * pad > avail) {
-			pad--;
+		SignFont.Plan best = null;
+		int bestPad = 0;
+		for (int pad = 2; pad >= 0 && best == null; pad--) {
+			SignFont.Plan p = SignFont.plan(f.word(), avail - 2 * pad).orElse(null);
+			if (p != null && p.font() == SignFont.LARGE) {
+				best = p;
+				bestPad = pad;
+			}
 		}
-		if (hasI && (avail - tw - 2 * pad) % 2 == 1 && tw + 1 + 2 * pad <= avail) {
-			l = Lettering.WIDE_I; // odd leftover: a two-column I keeps the board centred
+		for (int pad = 2; pad >= 0 && best == null; pad--) {
+			SignFont.Plan p = SignFont.plan(f.word(), avail - 2 * pad).orElse(null);
+			if (p != null) {
+				best = p;
+				bestPad = pad;
+			}
 		}
-		return litSign(b, f.word(), Facing.SOUTH, f.centerX(), f.signBottomY(), f.signPlane(), l, pad);
+		if (best == null) {
+			throw new IllegalArgumentException("'" + f.word() + "' does not fit a " + avail + "-wide front");
+		}
+		int w = best.width() + 2 * bestPad;
+		if ((avail - w) % 2 == 1) {
+			w++;
+		}
+		return new FrontPlan(best, bestPad, w);
+	}
+
+	/** The illuminated marquee on the porch line. */
+	private static SignBox frontSign(Blueprint b, Front f, boolean sideFrame) {
+		FrontPlan fp = frontPlan(f);
+		return litSign(b, fp.plan(), Facing.SOUTH, f.centerX(), f.signBottomY(), f.signPlane(), fp.pad(), fp.boardWidth());
 	}
 
 	/** Half-width of a 45° crown triangle with its apex at ({@code centerX}, {@code topY}) at row {@code y}. */
@@ -495,7 +468,7 @@ public final class Facades {
 			Material trim = b.palette().get(Role.ROOF_TRIM);
 			for (int z = f.z() + 1; z <= zf; z++) {
 				for (int x = l - 1; x <= r + 1; x++) {
-					b.set(x, f.canopyY(), z, z == zf ? b.palette().block(Role.TRIM) : trim.slab("top"));
+					b.set(x, f.canopyY(), z, z == zf ? b.palette().block(Role.ROOF_TRIM) : trim.slab("top"));
 				}
 			}
 			b.set(l - 1, f.canopyY(), zf, trim.stairs(Facing.EAST, true));

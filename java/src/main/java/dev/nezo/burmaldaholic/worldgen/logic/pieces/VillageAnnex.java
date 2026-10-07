@@ -47,9 +47,11 @@ public final class VillageAnnex {
 	private VillageAnnex() {}
 
 	public static final int SX = 17;
-	public static final int SY = 23;
+	public static final int SY = 25;
 	/** Top row of the hall roof and the facade crown (the tower rises above it to SY - 1). */
 	public static final int HALL_TOP = 16;
+	/** Top row of the facade crown above the two-line marquee. */
+	public static final int FACADE_TOP = 21;
 	public static final int SZ = 17;
 	/** Floor row (first air row above the floor blocks). */
 	public static final int Y = 1;
@@ -131,7 +133,7 @@ public final class VillageAnnex {
 			b.set(0, CEILING - 1, z, HANGING_LANTERN);
 			b.set(SX - 1, CEILING - 1, z, HANGING_LANTERN);
 		}
-		Facades.front(b, style.facade(), new Facades.Front(0, SX - 1, FRONT, 0, 8, 3, 3, 5, HALL_TOP, 2, "CASINO"));
+		Facades.front(b, style.facade(), new Facades.Front(0, SX - 1, FRONT, 0, 8, 3, 3, 5, FACADE_TOP, 2, "CASINO"));
 
 		// ---- games ----
 		pod(b, Game.BLACKJACK, 3, 2, Facing.SOUTH, null);
@@ -205,7 +207,7 @@ public final class VillageAnnex {
 	 * the west, so the casino reads from across the village day and night.
 	 */
 	static void tower(Blueprint b, Style style) {
-		int x0 = 1, x1 = 5, z0 = 8, z1 = 12, y0 = CEILING + 1, y1 = 17;
+		int x0 = 1, x1 = 5, z0 = 8, z1 = 12, y0 = CEILING + 1, y1 = 20;
 		b.clear(x0, y0, z0, x1, y1, z1);
 		for (int y = y0; y <= y1; y++) {
 			for (int x = x0; x <= x1; x++) {
@@ -214,7 +216,7 @@ public final class VillageAnnex {
 					if (edgeX && edgeZ) {
 						b.set(x, y, z, Role.FRAME);
 					} else if (edgeX || edgeZ) {
-						b.set(x, y, z, y == 12 || y == y1 ? Role.BEAM : Role.WALL);
+						b.set(x, y, z, y == 15 || y == y1 ? Role.BEAM : Role.WALL);
 					}
 				}
 			}
@@ -223,12 +225,12 @@ public final class VillageAnnex {
 			"false", "waterlogged", "false");
 		BlockSpec paneZ = BlockSpec.of(style.palette().get(Role.PANE).full(), "east", "false", "west", "false", "north", "true", "south",
 			"true", "waterlogged", "false");
-		b.fill(3, 14, z0, 3, 15, z0, pane);
-		b.fill(x1, 14, 10, x1, 15, 10, paneZ);
-		b.set(3, 14, 10, Role.LIGHT);
+		b.fill(3, 17, z0, 3, 18, z0, pane);
+		b.fill(x1, 17, 10, x1, 18, 10, paneZ);
+		b.set(3, 17, 10, Role.LIGHT);
 		// glowing diamond emblems (stained glass lit from behind) on the street side and the west side
 		BlockSpec glass = Facades.glassOf(style.palette().block(Role.NEON_A));
-		int[][] diamond = {{0, 16}, {-1, 15}, {0, 15}, {1, 15}, {-1, 14}, {0, 14}, {1, 14}, {0, 13}};
+		int[][] diamond = {{0, 19}, {-1, 18}, {0, 18}, {1, 18}, {-1, 17}, {0, 17}, {1, 17}, {0, 16}};
 		for (int[] d : diamond) {
 			b.set(3 + d[0], d[1], z1, glass);
 			b.set(3 + d[0], d[1], z1 - 1, Role.LIGHT);

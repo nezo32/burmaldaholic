@@ -412,7 +412,7 @@ public final class Roofs {
 			for (int dz = -1; dz <= 1; dz++) {
 				BlockSpec cap;
 				if (dx == 0 && dz == 0) {
-					cap = b.palette().block(Role.TRIM);
+					cap = b.palette().block(Role.LIGHT);
 				} else if (dz == -1) {
 					cap = trim.stairs(Facing.SOUTH, false);
 				} else if (dz == 1) {
