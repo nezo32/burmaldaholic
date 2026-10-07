@@ -441,8 +441,7 @@ public class UthScreen extends V2TableScreen<UthView> {
 		} else if (v.betting() && v.bank() != null && v.bank().form()) {
 			l1 = Component.translatable(UthFlow.V2 + "status.bank_form");
 		} else if (v.betting() && !v.seated()) {
-			l1 = Component.translatable(UthFlow.V2 + "status.watching");
-			l2 = Component.translatable("gui.burmaldaholic.common.balance", Texts.number(balance()));
+			l1 = null; // the gold "Sit down" says it; the balance is in the TopBar
 		} else if (v.betting() && v.confirmed() != null) {
 			l1 = Component.translatable(UthFlow.V2 + "status.bet_placed");
 			if (v.secondsLeft() >= 0) l2 = Component.translatable(UthFlow.V2 + "status.starts_in", Texts.number(v.secondsLeft()));
@@ -707,7 +706,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 		g.fill(rail.x(), rail.bottom(), rail.right(), rail.bottom() + 1, CasinoPalette.V2_GOLD_SHADE);
 		int print = TableTheme.of(theme()).printArgb(0.45);
 		if (players().isEmpty()) for (Box b : l.board()) V2Draw.outline(g, b, print);
-		FeltPrint.draw(g, font, l.banner(), Component.translatable("gui.burmaldaholic.uth.blind_equals_ante"), 0.35f, List.of());
+		Component print2 = Component.translatable("gui.burmaldaholic.uth.blind_equals_ante");
+		if (font.width(print2) <= l.banner().w()) FeltPrint.draw(g, font, l.banner(), print2, 0.35f, List.of());
 		if (playerBanked()) {
 			CompoundTag b = bank();
 			Component who = b.contains("name") ? Texts.raw(b.getStringOr("name", ""))
