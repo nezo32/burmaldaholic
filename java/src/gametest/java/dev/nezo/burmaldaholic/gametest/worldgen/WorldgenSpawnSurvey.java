@@ -113,7 +113,7 @@ public class WorldgenSpawnSurvey {
 			.createWorldDimensions().dimensions().get(stemKey);
 		ChunkGenerator gen = stem.generator();
 		NoiseBasedChunkGenerator noise = (NoiseBasedChunkGenerator) gen;
-		RandomState randomState = SurveyCompat.randomState(noise.generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
+		RandomState randomState = SurveyCompat.randomState(noise.generatorSettings().value(), reg, seed);
 		HolderLookup<StructureSet> sets = reg.lookupOrThrow(Registries.STRUCTURE_SET);
 		ChunkGeneratorStructureState state = gen.createState(sets, randomState, seed);
 		DimensionType type = stem.type().value();

@@ -1,13 +1,13 @@
 package dev.nezo.burmaldaholic.gametest.worldgen;
 
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderGetter;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
-import net.minecraft.world.level.levelgen.synth.NormalNoise;
 
 /**
  * Minecraft 26.2 side of the worldgen GameTests' version shims (26.3 reworked RandomState / climate samplers).
@@ -16,8 +16,8 @@ import net.minecraft.world.level.levelgen.synth.NormalNoise;
 final class SurveyCompat {
 	private SurveyCompat() {}
 
-	static RandomState randomState(NoiseGeneratorSettings settings, HolderGetter<NormalNoise> noises, long seed) {
-		return RandomState.create(settings, noises, seed);
+	static RandomState randomState(NoiseGeneratorSettings settings, RegistryAccess reg, long seed) {
+		return RandomState.create(settings, reg.lookupOrThrow(Registries.NOISE), seed);
 	}
 
 	static Climate.Sampler sampler(RandomState randomState) {
