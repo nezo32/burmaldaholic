@@ -59,7 +59,7 @@ public final class CrapsFlow {
 			return Gate.off("roll", K + "primary.roll", K + "reason.settling");
 		}
 		if (v.shooter().isEmpty()) {
-			if (v.balance() < v.min() && v.mine().isEmpty()) return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
+			if (v.balance() < v.min()) return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
 			return Gate.off("roll", K + "primary.roll", K + "reason.no_shooter");
 		}
 		return Gate.off("roll", K + "primary.roll", K + "reason.waiting_for", v.shooter());
