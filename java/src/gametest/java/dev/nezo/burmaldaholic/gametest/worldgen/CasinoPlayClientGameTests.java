@@ -41,7 +41,7 @@ import net.minecraft.server.level.ServerPlayer;
 public class CasinoPlayClientGameTests implements FabricClientGameTest {
 	private static final Transaction QA = Transaction.of("casino_qa", "client_gametest");
 	/** Widget label keys that move a bet forward, in the order a player would press them. */
-	private static final List<String> FORWARD = List.of(".sit", ".play", ".join", ".buy_in", ".deal", ".spin", ".drop", ".roll",
+	private static final List<String> FORWARD = List.of(".sit", ".sit_down", ".play", ".join", ".buy_in", ".deal", ".spin", ".drop", ".roll",
 		".bet", ".place_bet", ".confirm", ".buy");
 	private final List<String> report = new ArrayList<>();
 	private final List<String> failures = new ArrayList<>();

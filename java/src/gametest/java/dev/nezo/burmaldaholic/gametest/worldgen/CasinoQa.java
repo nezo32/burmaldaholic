@@ -462,7 +462,9 @@ public final class CasinoQa {
 
 	/** Feet cell passable, head free, something solid to stand on. */
 	public static boolean stand(ServerLevel level, BlockPos p) {
-		return walkable(level, p) && !level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty();
+		BlockState below = level.getBlockState(p.below());
+		return walkable(level, p) && !below.getCollisionShape(level, p.below()).isEmpty()
+			&& gameOf(below) == null; // nobody walks across the tables
 	}
 
 	/** Natural terrain that must never stand inside a building (cut terrain) — stone, dirt, sand, leaves, logs, water. */
