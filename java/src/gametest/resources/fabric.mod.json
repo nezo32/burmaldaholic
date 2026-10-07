@@ -49,7 +49,8 @@
 			"dev.nezo.burmaldaholic.gametest.ui.CasinoUiClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.UiKitClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.WorldFxClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.cards.CardTablesClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.cards.CardTablesClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.design.RedesignCaptureClientGameTests"
 		]
 	},
 	"depends": {
