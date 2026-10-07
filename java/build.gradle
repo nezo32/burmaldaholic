@@ -106,6 +106,41 @@ processResources {
 	}
 }
 
+// ---------------------------------------------------------------------------------------------
+// v0.2 casino buildings: the data pack is GENERATED at build time from the pure-Java blueprints
+// (docs/architecture/casino-buildings.md §3.7). The v0.1 files in src/main/resources stay committed
+// and frozen; the generated tree never contains the same paths (PackFilesTest).
+//   -PcasinoPlaceholders   platform testing only: every style without real pieces gets placeholder
+//                          boxes (CasinoPack), for PackGen AND every run task. Never for a release.
+// ---------------------------------------------------------------------------------------------
+def casinoPlaceholders = project.hasProperty('casinoPlaceholders')
+def casinoPackDir = layout.buildDirectory.dir("generated/casino-pack")
+def generateCasinoPack = tasks.register("generateCasinoPack", JavaExec) {
+	group = 'build'
+	description = 'Generates the v0.2 casino data pack (templates, pools, structures, tags) + previews/manifest.json.'
+	dependsOn tasks.named("compileJava")
+	// NOT runtimeClasspath: it contains the processResources output -> circular dependency.
+	classpath = sourceSets.main.output.classesDirs + sourceSets.main.compileClasspath
+	mainClass = "dev.nezo.burmaldaholic.worldgen.logic.PackGen"
+	args casinoPackDir.get().asFile.absolutePath
+	systemProperty 'burmaldaholic.casinoPlaceholders', casinoPlaceholders
+	inputs.files(sourceSets.main.output.classesDirs)
+	inputs.property('casinoPlaceholders', casinoPlaceholders)
+	outputs.dir(casinoPackDir)
+}
+sourceSets.main.resources.srcDir(files(casinoPackDir).builtBy(generateCasinoPack))
+processResources {
+	// The preview manifest is for docs/design/visual/render_structure.py, not for the jar.
+	exclude 'previews/**'
+}
+if (casinoPlaceholders) {
+	loom.runs.configureEach { vmArg '-Dburmaldaholic.casinoPlaceholders=true' }
+}
+// `./gradlew runServer -PserverStdin` forwards stdin to the dev server console (scripted /locate checks).
+if (project.hasProperty('serverStdin')) {
+	tasks.matching { it.name == 'runServer' }.configureEach { standardInput = System.in }
+}
+
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
 	it.options.encoding = 'UTF-8'

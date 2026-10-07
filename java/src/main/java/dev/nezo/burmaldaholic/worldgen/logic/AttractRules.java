@@ -44,7 +44,7 @@ public final class AttractRules {
 
 	public static Theme theme(CasinoKind kind) {
 		return switch (kind) {
-			case VILLAGE_CASINO -> VILLAGE;
+			case VILLAGE_CASINO, CASINO -> VILLAGE;
 			case PIGLIN_PARLOR -> PIGLIN;
 			case HIGH_ROLLER -> END;
 		};

@@ -31,7 +31,8 @@ public final class WorldgenBotPresets {
 	public static final Map<CasinoKind, BotRoster.Theme> CASINO_NAME_THEME = Map.of(
 		CasinoKind.VILLAGE_CASINO, BotRoster.Theme.ANY,
 		CasinoKind.PIGLIN_PARLOR, BotRoster.Theme.PIGLIN,
-		CasinoKind.HIGH_ROLLER, BotRoster.Theme.ENDER);
+		CasinoKind.HIGH_ROLLER, BotRoster.Theme.ENDER,
+		CasinoKind.CASINO, BotRoster.Theme.ANY);
 
 	/** Bot table block ids → game family ({@code bots.table.<game>}) of the tables worldgen places. */
 	private static final Map<String, String> GAME_OF = Map.of(

@@ -65,7 +65,7 @@ class WorldgenBotPresetsTest {
 	@Test
 	void nameThemePerCasinoType() {
 		assertEquals(Map.of(CasinoKind.VILLAGE_CASINO, BotRoster.Theme.ANY, CasinoKind.PIGLIN_PARLOR, BotRoster.Theme.PIGLIN,
-			CasinoKind.HIGH_ROLLER, BotRoster.Theme.ENDER), WorldgenBotPresets.CASINO_NAME_THEME);
+			CasinoKind.HIGH_ROLLER, BotRoster.Theme.ENDER, CasinoKind.CASINO, BotRoster.Theme.ANY), WorldgenBotPresets.CASINO_NAME_THEME);
 		assertEquals(WorldgenBotPresets.Preset.theme(BotRoster.Theme.ANY), WorldgenBotPresets.preset(CasinoKind.VILLAGE_CASINO, null));
 		assertEquals(WorldgenBotPresets.Preset.theme(BotRoster.Theme.PIGLIN), WorldgenBotPresets.preset(CasinoKind.PIGLIN_PARLOR, null));
 		assertEquals(WorldgenBotPresets.Preset.theme(BotRoster.Theme.ENDER),
