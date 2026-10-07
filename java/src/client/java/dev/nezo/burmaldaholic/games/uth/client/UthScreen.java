@@ -449,8 +449,7 @@ public class UthScreen extends V2TableScreen<UthView> {
 		} else if (v.betting()) {
 			Component spot = Component.translatable(draft.spot() == UthBetDraft.Spot.TRIPS ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
 			l1 = Component.translatable(UthFlow.V2 + "status.chips_to", spot);
-			l2 = draft.isEmpty() ? Component.translatable(UthFlow.V2 + "status.right_click")
-				: Component.translatable(UthFlow.V2 + "status.cost", Texts.number(draft.ante()), Texts.number(draft.trips()), Texts.number(draft.cost()));
+			l2 = Component.translatable(UthFlow.V2 + "status.right_click");
 		} else if (me != null && me.getIntOr("play", 0) > 0) {
 			l1 = Component.translatable("gui.burmaldaholic.uth.waiting_showdown",
 				Component.translatable("gui.burmaldaholic.uth.play_multiple", Texts.number(me.getIntOr("play", 0))));

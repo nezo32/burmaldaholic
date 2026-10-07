@@ -109,6 +109,7 @@ public final class PokerLayout {
 		// the others: plates first (outside the rail), then cards, then bets, then button spots
 		Box[] plates = new Box[n];
 		Box[] pills = new Box[n];
+		Box[] hands = new Box[n];
 		double[][] dir = new double[n][2];
 		int[][] at = new int[n][2];
 		double prx = rx * 1.06;
@@ -120,9 +121,15 @@ public final class PokerLayout {
 			int plateW = t.plateW;
 			int groupW = plateW + 2 + m.stackPillW();
 			int gx = Math.max(felt.x(), Math.min(felt.right() - groupW, px - groupW / 2));
-			int gy = Math.max(play.y() + 2, Math.min(play.bottom() - 4 - Tier.PLATE_H, py - Tier.PLATE_H / 2));
-			Box group = new Box(gx, gy, groupW, Tier.PLATE_H);
-			group = free(group, taken, felt, 0, Math.cos(a) > 0 ? -1 : 1, 0, 2);
+			// plate + stack pill, and under them the tag line (hand name / last action): placed as one block
+			int gh = Tier.PLATE_H + 1 + PILL_H;
+			int gy = Math.max(play.y() + 2, Math.min(play.bottom() - 4 - gh, py - Tier.PLATE_H / 2));
+			Box group = free(new Box(gx, gy, groupW, gh), taken, felt, 0, Math.cos(a) > 0 ? -1 : 1, 0, 2);
+			boolean tagLine = n <= 7 && clear(group, taken, 0);
+			if (!tagLine) {
+				// a crowded table (8–9 seats on a narrow GUI): no own tag line, the tag takes the stack pill's place
+				group = free(new Box(gx, gy, groupW, Tier.PLATE_H), taken, felt, 0, Math.cos(a) > 0 ? -1 : 1, 0, 2);
+			}
 			plates[r] = new Box(group.x(), group.y(), plateW, Tier.PLATE_H);
 			pills[r] = new Box(plates[r].right() + 2, group.y() + (Tier.PLATE_H - PILL_H) / 2, m.stackPillW(), PILL_H);
 			taken.add(group);
@@ -132,7 +139,8 @@ public final class PokerLayout {
 			dir[r][0] = dx / len;
 			dir[r][1] = dy / len;
 			at[r][0] = group.cx();
-			at[r][1] = group.cy();
+			at[r][1] = group.y() + Tier.PLATE_H / 2;
+			hands[r] = tagLine ? new Box(group.x(), group.y() + Tier.PLATE_H + 1, Math.min(m.handW(), groupW), PILL_H) : pills[r];
 		}
 		int cw = t.seatW;
 		int ch = t.seatH;
@@ -158,8 +166,7 @@ public final class PokerLayout {
 			Box start = new Box(cards[r].right() + 2, cards[r].bottom() - BUTTON, BUTTON, BUTTON);
 			Box button = free(start, taken, felt, 0, dir[r][0], dir[r][1], 2);
 			taken.add(button);
-			Box hand = new Box(plates[r].x(), plates[r].bottom() + 1, Math.min(m.handW(), plates[r].w() + 2 + m.stackPillW()), PILL_H);
-			seats[r] = new Seat(r, plates[r], pills[r], cards[r], step, bets[r], betPills[r], button, hand);
+			seats[r] = new Seat(r, plates[r], pills[r], cards[r], step, bets[r], betPills[r], button, hands[r]);
 		}
 		return new Layout(g, oval, board, pot, seats, new int[] {cx, cy});
 	}

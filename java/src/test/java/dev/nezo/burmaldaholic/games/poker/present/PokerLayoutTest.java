@@ -40,7 +40,7 @@ class PokerLayoutTest {
 					String p = "s" + seat.rel() + ".";
 					a.add(p + "plate", seat.plate()).add(p + "pill", seat.pill()).add(p + "cards", seat.cards()).add(p + "bet", seat.bet())
 						.add(p + "button", seat.button());
-					if (seat.rel() == 0) a.add(p + "hand", seat.hand());
+					if (!seat.hand().equals(seat.pill())) a.add(p + "hand", seat.hand());
 				}
 				for (String pr : a.problems()) problems.add(s[0] + "x" + s[1] + " n=" + n + ": " + pr);
 			}

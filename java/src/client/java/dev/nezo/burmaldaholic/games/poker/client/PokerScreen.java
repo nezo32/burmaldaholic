@@ -451,6 +451,10 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		chrome.keys(keyMap(view));
 		chrome.actions.danger("fold", "stand_up");
 		super.refresh();
+		// TopBar: the blinds are in the title; the pills show the buy-in range and the seats taken
+		PokerView.Level lv = view.level();
+		chrome.top.set(tableTitle(), lv == null ? 0 : lv.buyMin(), lv == null ? 0 : lv.buyMax(), seats.size(), size);
+		chrome.relayout();
 		status(view);
 		stepperHits();
 	}
@@ -508,8 +512,6 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 			} else if (!live && !results.isEmpty()) {
 				l1 = results.get(0);
 				c1 = CasinoPalette.V2_WIN;
-				long next = ticksLeft("next_hand");
-				if (next >= 0) l2 = PokerText.gui("next_hand_in", Texts.number((next + 19) / 20));
 			}
 			if (v.seat() == PokerView.Seat.NONE) {
 				PokerView.Level lv = v.level();
@@ -842,7 +844,8 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 			}
 			if (live && v.bet > 0) {
 				ChipStack.draw(g, stack, v.bet);
-				ValuePill.draw(g, font, sl.betPill(), Texts.number(v.bet), v.you ? ValuePill.Style.YOU : ValuePill.Style.OTHER);
+				Component amount = Texts.number(v.bet);
+				ValuePill.draw(g, font, fit(sl.betPill(), amount), amount, v.you ? ValuePill.Style.YOU : ValuePill.Style.OTHER);
 			}
 		}
 		if (!presenting || awards.isEmpty()) return;

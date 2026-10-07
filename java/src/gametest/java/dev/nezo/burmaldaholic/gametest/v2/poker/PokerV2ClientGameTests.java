@@ -106,7 +106,7 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_poker_en_480_buyin");
 		long bal0 = balance(f);
 		f.click("primary");
-		f.waitServer(pos, PokerTableBlockEntity.class, t -> pokerState(f, pos).getBooleanOr("seated", false), "seated after Buy in");
+		f.waitServer(pos, PokerTableBlockEntity.class, t -> state(t).getBooleanOr("seated", false), "seated after Buy in");
 		long bal1 = balance(f);
 		check(bal0 - bal1 == after, "the buy-in left the balance: " + (bal0 - bal1) + " vs " + after);
 		// play one hand by clicking: raise on the stepper the first time, then call / check
@@ -140,7 +140,7 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 				f.click("primary");
 			}
 			final int s0 = seq;
-			f.waitServer(pos, PokerTableBlockEntity.class, t -> pokerState(f, pos).getCompoundOrEmpty("legal").getIntOr("seq", -1) != s0, "the action was taken",
+			f.waitServer(pos, PokerTableBlockEntity.class, t -> state(t).getCompoundOrEmpty("legal").getIntOr("seq", -1) != s0, "the action was taken",
 				200);
 		}
 		check(turns > 0, "the viewer's turn never came");
@@ -156,8 +156,8 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_poker_ru_480_after");
 		f.language("en_us");
 		// Stand up from the TopBar: chips back to the balance after the hand
-		f.click("top.leave");
-		f.waitServer(pos, PokerTableBlockEntity.class, t -> !pokerState(f, pos).getBooleanOr("seated", true) || pokerState(f, pos).getBooleanOr("leaving", false),
+		clickClosing(f, "top.leave"); // Leave closes the screen: no "pressed" read-back
+		f.waitServer(pos, PokerTableBlockEntity.class, t -> !state(t).getBooleanOr("seated", true) || state(t).getBooleanOr("leaving", false),
 			"standing up");
 	}
 
@@ -226,25 +226,39 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_uth_en_480_bet");
 		long bal0 = balance(f);
 		f.click("primary"); // Deal · cost
-		f.waitServer(pos, UthTableBlockEntity.class, t -> uthConfirmed(f, pos) != null, "the bet was confirmed");
+		long[] myBet = d;
+		try {
+			// alone at the table the round deals at once; with the absent second seat the bet waits (and can be changed)
+			f.waitServer(pos, UthTableBlockEntity.class, t -> confirmed(t) != null || myRoundAnte(t) > 0, "the bet was taken");
+		} catch (AssertionError e) {
+			f.shot("v2_uth_en_480_deal_failed");
+			throw new AssertionError(e.getMessage() + " (status: " + f.status() + ")");
+		}
+		check(bal0 - balance(f) == 2 * d[0] + d[1], "debited Ante + Blind + Trips: " + (bal0 - balance(f)));
 		long[] conf = uthConfirmed(f, pos);
-		check(conf[0] == d[0] && conf[1] == d[1], "server bet = draft: " + conf[0] + "/" + conf[1] + " vs " + d[0] + "/" + d[1]);
-		check(bal0 - balance(f) == 2 * d[0] + d[1], "debited Ante + Blind + Trips");
-		f.context().waitTicks(4);
-		f.shot("v2_uth_en_480_confirmed");
-		// CHANGE the bet: the primary says so; a click refunds and keeps the amounts in the draft
-		f.click("primary");
-		f.waitServer(pos, UthTableBlockEntity.class, t -> uthConfirmed(f, pos) == null, "Change bet refunded the bet");
-		check(balance(f) == bal0, "refund after Change bet");
-		f.click("chip.0"); // +1: 6 × Ante + Trips stays under the VIP-0 maximum
-		long[] bigger = draft(f);
-		check(bigger[0] > d[0], "the changed bet is bigger: " + bigger[0]);
-		f.click("primary");
-		f.waitServer(pos, UthTableBlockEntity.class, t -> uthConfirmed(f, pos) != null && uthConfirmed(f, pos)[0] == bigger[0], "the changed bet was confirmed");
-		// the absent player leaves: the round starts with the next confirm / the bet timer
-		f.server(server -> server.overworld().getBlockEntity(pos) instanceof UthTableBlockEntity t && t.seats().leave(other).isPresent());
-		long balBet = balance(f);
-		f.waitServer(pos, UthTableBlockEntity.class, t -> !uthPhase(f, pos).equals("betting"), "the round started", 1200);
+		if (conf != null) {
+			check(conf[0] == d[0] && conf[1] == d[1], "server bet = draft: " + conf[0] + "/" + conf[1] + " vs " + d[0] + "/" + d[1]);
+			f.context().waitTicks(4);
+			f.shot("v2_uth_en_480_confirmed");
+			// CHANGE the bet: the primary says so; a click refunds and keeps the amounts in the draft
+			f.click("primary");
+			f.waitServer(pos, UthTableBlockEntity.class, t -> confirmed(t) == null, "Change bet refunded the bet");
+			check(balance(f) == bal0, "refund after Change bet");
+			f.click("chip.0"); // +1: 6 × Ante + Trips stays under the VIP-0 maximum
+			long[] bigger = draft(f);
+			check(bigger[0] > d[0], "the changed bet is bigger: " + bigger[0]);
+			f.click("primary");
+			f.waitServer(pos, UthTableBlockEntity.class, t -> confirmed(t) != null && confirmed(t)[0] == bigger[0], "the changed bet was confirmed");
+			myBet = bigger;
+			changeBetClicked = true;
+			// the absent player leaves: the round starts with the bet timer
+			f.server(server -> server.overworld().getBlockEntity(pos) instanceof UthTableBlockEntity t && t.seats().leave(other).isPresent());
+		} else {
+			check(f.server(server -> myRoundAnte((UthTableBlockEntity) server.overworld().getBlockEntity(pos))) == d[0], "the round plays the draft's Ante");
+		}
+		long balBet = balance(f) + (conf != null ? 0 : 0);
+		if (conf == null) balBet = bal0 - (2 * d[0] + d[1]);
+		f.waitServer(pos, UthTableBlockEntity.class, t -> !t.phase().equals("betting"), "the round started", 1200);
 		boolean decided = false;
 		for (int i = 0; i < 600; i++) {
 			String phase = uthPhase(f, pos);
@@ -270,7 +284,7 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_uth_en_480_result");
 		check(net != Long.MIN_VALUE, "the server reported the round's result");
 		long change = balance(f) - balBet;
-		check(change == net + 2 * bigger[0] + bigger[1], "balance after the round = the Ante + Blind + Trips back + the net: " + change + " vs net " + net);
+		check(change == net + 2 * myBet[0] + myBet[1], "balance after the round = the Ante + Blind + Trips back + the net: " + change + " vs net " + net);
 		f.size(2560, 1440, 4);
 		f.shot("v2_uth_en_640_result");
 		f.language("ru_ru");
@@ -278,6 +292,34 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_uth_ru_480_result");
 		f.language("en_us");
 		f.close();
+	}
+
+	private boolean changeBetClicked;
+
+	/** The viewer's Ante in the running UTH round (0 = none; server side). */
+	private static long myRoundAnte(UthTableBlockEntity t) {
+		var r = t.round();
+		var seat = r == null || t.getLevel() == null ? null : r.seat(RealFlow.player(t.getLevel().getServer()).getUUID());
+		return seat == null ? 0L : seat.ante;
+	}
+
+	/** The viewer's confirmed UTH bet (server side, inside a waitServer predicate), or null. */
+	private static long[] confirmed(UthTableBlockEntity t) {
+		return t.getLevel() == null ? null : t.confirmedBet(RealFlow.player(t.getLevel().getServer()).getUUID()).orElse(null);
+	}
+
+	/** The viewer's poker state (server side, inside a waitServer predicate). */
+	private static CompoundTag state(PokerTableBlockEntity t) {
+		return t.writeClientState(RealFlow.player(t.getLevel().getServer()));
+	}
+
+	/** A left click on target {@code id} that closes the screen (TopBar Leave). */
+	private static void clickClosing(RealFlow f, String id) {
+		double[] p = f.windowPoint(id);
+		f.context().getInput().setCursorPos(p[0], p[1]);
+		f.context().waitTick();
+		f.context().getInput().pressMouse(0);
+		f.context().waitTicks(4);
 	}
 
 	/** The open UTH screen's draft {ante, trips}. */
