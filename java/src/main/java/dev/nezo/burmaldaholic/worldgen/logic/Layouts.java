@@ -282,7 +282,7 @@ public final class Layouts {
 	// ---- registry --------------------------------------------------------------------------------
 
 	private static Map<String, Layout> legacy;
-	private static Map<String, Layout> cache;
+	private static volatile Map<String, Layout> cache;
 
 	/**
 	 * The v0.1 layouts (village casinos, Piglin Parlor, High Roller Lounge). Their template ids, sizes and
@@ -309,7 +309,12 @@ public final class Layouts {
 	 * {@code casino/…}). Built lazily on first use; {@code CasinoPack} never reads this registry, so there is
 	 * no static-initialisation cycle.
 	 */
-	public static synchronized Map<String, Layout> all() {
+	public static Map<String, Layout> all() {
+		Map<String, Layout> c = cache; // lock-free fast path: worldgen threads call this for every jigsaw piece
+		return c != null ? c : build();
+	}
+
+	private static synchronized Map<String, Layout> build() {
 		if (cache == null) {
 			Map<String, Layout> m = new LinkedHashMap<>(legacy());
 			for (Layout l : CasinoPack.layouts()) {

@@ -43,7 +43,7 @@ public final class PackGen {
 			Files.write(p, f.getValue());
 		}
 		System.out.println("[PackGen] " + CasinoPack.pieces().size() + " pieces, styles " + PackFiles.completeStyles(CasinoPack.layouts())
-			+ (CasinoPack.placeholders() ? " (PLACEHOLDERS — not for release)" : "") + " → " + out);
+			+ (CasinoPack.placeholders() ? " (PLACEHOLDERS — not for release)" : "") + " -> " + out);
 	}
 
 	/** Every output file, path relative to the output directory → bytes. */
