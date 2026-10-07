@@ -18,12 +18,12 @@ abstract class MouseHandlerFitMixin {
 	@Inject(method = "getScaledXPos(Lcom/mojang/blaze3d/platform/Window;)D", at = @At("RETURN"), cancellable = true)
 	private void burmaldaholic$fitX(Window window, CallbackInfoReturnable<Double> cir) {
 		float f = FitScaled.current();
-		if (f < 1f) cir.setReturnValue(cir.getReturnValueD() / f);
+		if (f != 1f) cir.setReturnValue(cir.getReturnValueD() / f);
 	}
 
 	@Inject(method = "getScaledYPos(Lcom/mojang/blaze3d/platform/Window;)D", at = @At("RETURN"), cancellable = true)
 	private void burmaldaholic$fitY(Window window, CallbackInfoReturnable<Double> cir) {
 		float f = FitScaled.current();
-		if (f < 1f) cir.setReturnValue(cir.getReturnValueD() / f);
+		if (f != 1f) cir.setReturnValue(cir.getReturnValueD() / f);
 	}
 }
