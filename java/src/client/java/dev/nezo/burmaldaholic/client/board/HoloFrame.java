@@ -22,8 +22,11 @@ final class HoloFrame {
 	/** Yaw-only camera rotation (the board never swims with the pitch). */
 	final Quaternionf yawOnly = new Quaternionf();
 	private final Vector3f tmp = new Vector3f();
+	/** Content scale around the centre (the fallback felt). */
+	private float k = 1f;
 
-	void set(CameraRenderState camera, BlockPos pos, Direction dir, float centreY) {
+	void set(CameraRenderState camera, BlockPos pos, Direction dir, float centreY, float contentScale) {
+		k = contentScale;
 		orientation.set(camera.orientation);
 		right.set(1, 0, 0).rotate(orientation);
 		up.set(0, 1, 0).rotate(orientation);
@@ -36,7 +39,7 @@ final class HoloFrame {
 
 	/** Table-local (x, y, z) → block space. */
 	Vector3f toBlock(float x, float y, float z, Vector3f out) {
-		out.set(x - 0.5f, y, z - 0.5f).rotate(facing);
+		out.set((x - 0.5f) * k, y, (z - 0.5f) * k).rotate(facing);
 		out.x += 0.5f;
 		out.z += 0.5f;
 		return out;

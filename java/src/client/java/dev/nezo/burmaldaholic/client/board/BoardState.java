@@ -32,8 +32,16 @@ public class BoardState extends SpectatorRenderState {
 	public static final int GOLD = 0xFFFFD640, WHITE = 0xFFF4ECF8, MUTED = 0xFFB8A8D0, CYAN = 0xFF5CE8E0, GREEN = 0xFF80FF40, RED = 0xFFFF6E6A;
 
 	public Direction facing = Direction.NORTH;
-	/** The felt drawn (already {@link BoardGeometry.Felt#FALLBACK} when the overhang is blocked). */
+	/**
+	 * The felt the game lays out on (its full shape). When the overhang is blocked the kit draws
+	 * {@link #drawnFelt} = {@link BoardGeometry.Felt#FALLBACK} and shrinks all content by {@link #contentScale} around
+	 * the centre, so a game never has to handle the fallback itself.
+	 */
 	public BoardGeometry.Felt felt = BoardGeometry.Felt.CRESCENT;
+	/** The felt actually drawn. */
+	public BoardGeometry.Felt drawnFelt = BoardGeometry.Felt.CRESCENT;
+	/** Content scale around the felt centre (1, or < 1 on the fallback felt). */
+	public float contentScale = 1f;
 	/** Felt theme: 0 village, 1 bastion, 2 end. */
 	public int theme;
 	/** Card back row of {@code faces_w2.png} (0 navy … 5 end; see {@link BoardTextures}). */

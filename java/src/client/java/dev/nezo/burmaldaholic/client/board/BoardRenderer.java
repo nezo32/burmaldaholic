@@ -106,7 +106,9 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			int light = LightCoordsUtil.getLightCoords(level, be.getBlockPos().above());
 			s.lightCoords = LightCoordsUtil.max(light, LightCoordsUtil.pack(MIN_BLOCK_LIGHT, 0));
 		}
-		s.felt = BoardGeometry.fallback(wanted, m.blocked);
+		s.felt = wanted;
+		s.drawnFelt = BoardGeometry.fallback(wanted, m.blocked);
+		s.contentScale = BoardGeometry.contentScale(wanted, s.drawnFelt);
 		double dist = Math.sqrt(s.distSq);
 		s.dist = dist;
 		s.hlod = HoloScale.lod(dist, m.lod);
@@ -122,9 +124,9 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		st.reset(0);
 		st.lod = s.hlod;
 		if (s.hlod != HoloScale.Lod.MODEL) {
-			fill(be, s, partialTick);
-			BiConsumer<BlockEntity, BoardState> demo = DEMO.get(be.getBlockPos().asLong());
+			BiConsumer<BlockEntity, BoardState> demo = DEMO.isEmpty() ? null : DEMO.get(be.getBlockPos().asLong());
 			if (demo != null) demo.accept(be, s);
+			else fill(be, s, partialTick);
 		}
 		st.nanos += System.nanoTime() - t0;
 	}
@@ -146,7 +148,13 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		pose.pushPose();
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
 		FeltPainter.submit(pose, out, s, light);
-		st.feltQuads += FeltPainter.quads(s.felt);
+		st.feltQuads += FeltPainter.quads(s.drawnFelt);
+		if (s.contentScale != 1f) {
+			// the fallback felt: everything on it shrinks around the centre (the game laid out for the full felt)
+			pose.translate(0.5f, BoardGeometry.TOP, 0.5f);
+			pose.scale(s.contentScale, s.contentScale, s.contentScale);
+			pose.translate(-0.5f, -BoardGeometry.TOP, -0.5f);
+		}
 		if (m.cardCount > 0) {
 			CardPainter.submit(pose, out, s, m, light);
 			st.cardQuads += m.cardCount * CardPainter.QUADS_PER_CARD;
@@ -157,7 +165,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		}
 		pose.popPose();
 		if (s.showsBoard() && s.font != null) {
-			frame.set(camera, s.blockPos, s.facing, BoardGeometry.TOP);
+			frame.set(camera, s.blockPos, s.facing, BoardGeometry.TOP, s.contentScale);
 			float top = s.showsPlates() ? SeatPlates.submit(pose, out, font, s, m, frame, st) : contentTop(m);
 			HoloBoard.submit(pose, out, font, s, m, frame, top, st);
 		}
@@ -227,7 +235,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 	 * the viewer, bots by their translated name), anchored outside the felt behind the seat's spot. {@code detail}
 	 * (nullable) adds the second line.
 	 */
-	protected static void seatPlates(BoardState s, CasinoTableBlockEntity be, SeatSpot spot, @Nullable PlateDetail detail) {
+	public static void seatPlates(BoardState s, CasinoTableBlockEntity be, SeatSpot spot, @Nullable PlateDetail detail) {
 		if (!s.showsPlates()) return;
 		TablePublic.SeatPub[] seats = be.clientSeats();
 		long seq = be.clientSeatsSeq();
@@ -245,7 +253,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 	}
 
 	/**
-	 * Registers a demo filler for the table at {@code pos} (GameTests, {@code /casino debug board}): called after
+	 * Registers a demo filler for the table at {@code pos} (GameTests, design captures): called INSTEAD of
 	 * {@link #fill} each frame; null removes it.
 	 */
 	public static void demo(BlockPos pos, @Nullable BiConsumer<BlockEntity, BoardState> filler) {
