@@ -1226,7 +1226,8 @@ def _style_of(entry):
     return parts[0] if len(parts) > 1 else 'misc'
 
 
-def run_manifest(manifest, style=None, views=VIEWS, scale=10, only=None):
+def run_manifest(manifest, style=None, views=VIEWS, scale=10, only=None, out=None):
+    out = Path(out) if out else V2
     data = json.loads(Path(manifest).read_text())
     roots = manifest_roots(manifest)
     per_style = {}
@@ -1236,7 +1237,7 @@ def run_manifest(manifest, style=None, views=VIEWS, scale=10, only=None):
         if (style and s != style) or (only and name not in only):
             continue
         st = Structure.load(template_path(pc['template'], roots), title='%s / %s' % (s, name))
-        per_style.setdefault(s, []).extend(render_views(st, V2 / s, name, views, scale))
+        per_style.setdefault(s, []).extend(render_views(st, out / s, name, views, scale))
     for asm in data.get('assemblies', []):
         s = _style_of(asm)
         if style and s != style:
@@ -1245,11 +1246,11 @@ def run_manifest(manifest, style=None, views=VIEWS, scale=10, only=None):
         if only and name not in only:
             continue
         st = assemble(asm['pieces'], roots, '%s / %s' % (s, asm.get('id', name)))
-        per_style.setdefault(s, []).extend(render_views(st, V2 / s, name, views, scale))
+        per_style.setdefault(s, []).extend(render_views(st, out / s, name, views, scale))
     sheets = []
     for s, paths in per_style.items():
         best = [p for p in paths if p.stem.endswith(('iso_se', 'night', 'plan', 'cutaway'))]
-        sheet = contact_sheet(best or paths, V2 / s / '_contact_sheet.png', 'Casino style: ' + s)
+        sheet = contact_sheet(best or paths, out / s / '_contact_sheet.png', 'Casino style: ' + s)
         if sheet:
             sheets.append(sheet)
             print(sheet)
@@ -1258,7 +1259,7 @@ def run_manifest(manifest, style=None, views=VIEWS, scale=10, only=None):
         overview += [p for p in paths if p.stem.startswith('assembly_') and p.stem.endswith('iso_se')][:2] or \
             [p for p in paths if p.stem.endswith('iso_se')][:2]
     if overview:
-        print(contact_sheet(overview, V2 / '_contact_sheet.png', 'Burmaldaholic casinos v0.2 — all styles', cols=4))
+        print(contact_sheet(overview, out / '_contact_sheet.png', 'Burmaldaholic casinos v0.2 — all styles', cols=4))
     if UNKNOWN:
         print('UNKNOWN block ids (rendered magenta, add a colour or fix the id):', ', '.join(sorted(UNKNOWN)))
     return per_style
@@ -1273,7 +1274,7 @@ def voxels_from_template(path):
     return {p: n for p, (n, _) in st.blocks.items()}, st.size
 
 
-def run_legacy(views=VIEWS, scale=10):
+def run_legacy(views=('iso_se', 'plan'), scale=10):
     out = V2 / '_legacy'
     paths = []
     for f in sorted(TPL.glob('*.nbt')):
@@ -1339,13 +1340,14 @@ def main(argv):
     ap.add_argument('--cutaway', action='store_true')
     ap.add_argument('--sheet', action='store_true', help='also write contact sheets (manifest mode always does)')
     ap.add_argument('--selftest', action='store_true')
+    ap.add_argument('--out', dest='outdir', help='output directory (manifest mode; default mockups/casinos/v2)')
     a = ap.parse_args(argv)
     views = tuple(a.views.split(',')) if a.views else VIEWS
     if a.selftest:
         selftest()
         return
     if a.manifest:
-        run_manifest(a.manifest, a.style, views, a.scale, set(a.only.split(',')) if a.only else None)
+        run_manifest(a.manifest, a.style, views, a.scale, set(a.only.split(',')) if a.only else None, a.outdir)
         return
     if a.nbt and a.out:
         st = Structure.load(a.nbt)
@@ -1360,7 +1362,7 @@ def main(argv):
         st = Structure.load(a.nbt)
         render_views(st, Path(a.nbt).parent, Path(a.nbt).stem, views, a.scale)
         return
-    run_legacy(views, a.scale)
+    run_legacy(views if a.views else ('iso_se', 'plan'), a.scale)
     if UNKNOWN:
         print('UNKNOWN block ids:', ', '.join(sorted(UNKNOWN)))
 
