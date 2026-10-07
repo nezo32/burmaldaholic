@@ -54,6 +54,10 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 	public static final String SYNC_KEY = "extras_plinko";
 	/** The last published drop (client: from the update tag), or {@code null} before the first drop. */
 	private @Nullable PlinkoSync sync;
+	/** Who dropped last and the bins of that risk (the in-world board, ui-v2.md §7.6). */
+	private dev.nezo.burmaldaholic.games.extras.present.MachinePub pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.EMPTY;
+	public static final String PUB_KEY = "extras_plinko_pub";
+	public static final String PUB_NAME_KEY = "extras_plinko_name";
 
 	private final Map<UUID, CompoundTag> lastDrop = new HashMap<>();
 	private final Map<UUID, Long> busyUntil = new HashMap<>();
@@ -149,6 +153,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		boolean jackpot = ExtrasTiers.plinkoJackpot(risk, drop.bin(), table.length);
 		pending.add(new Pending(player.getUUID(), now + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
 			Texts.decimal(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net)), bet, ret, jackpot));
+		pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.plinko(player.getGameProfile().name(), risk.ordinal(), table);
 		publish(new PlinkoSync(seq, now, Plinko.encode(drop.path()), STEP_TICKS, PlinkoAnim.tier(drop.multiplier()), jackpot));
 		syncViewers();
 	}
@@ -168,11 +173,18 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		return sync;
 	}
 
+	/** The machine's public face (client: the in-world board's bins and plate). */
+	public dev.nezo.burmaldaholic.games.extras.present.MachinePub machinePub() {
+		return pub;
+	}
+
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
 		if (sync != null) {
 			t.putIntArray(SYNC_KEY, sync.encode());
+			t.putIntArray(PUB_KEY, pub.encode());
+			t.putString(PUB_NAME_KEY, pub.name());
 		}
 		return t;
 	}
@@ -187,6 +199,8 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		super.loadAdditional(input);
 		if (level != null && level.isClientSide()) {
 			sync = input.getIntArray(SYNC_KEY).map(PlinkoBlockEntity::decode).orElse(sync);
+			int[] p = input.getIntArray(PUB_KEY).orElse(null);
+			if (p != null) pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.decode(input.getStringOr(PUB_NAME_KEY, ""), p);
 		}
 	}
 

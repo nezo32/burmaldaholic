@@ -23,6 +23,7 @@ import {
   modeIcons16, modeIcons40, padlock, plate, PLATES, podium, potChips, potGlow, potPlaque, rankMedals, recordChip, revealPlaque, seatEmpty, streakFlame,
   tauntIcons16, tauntIcons20, vsBadge, winnerBanner,
 } from './extras/pvp.mjs';
+import { FILLS } from './extras/fills.mjs';
 import { BACKDROPS, SCENE, banner, marquee, sceneFrame } from './extras/scenes.mjs';
 import {
   TICKET, charVignette, charred, explosionPuff, flakes, foil, foilFinal, foilShimmer, scraper, scratchEdges, scratchSymbols16, scratchSymbols20,
@@ -58,6 +59,8 @@ export default function generate() {
   // ---- scenes: backdrops (code-blitted), frames / marquees / banners (atlas) ----
   for (const g of ['coin', 'wheel', 'plinko', 'scratch']) sheetOut(GUI, `${g}_backdrop`, BACKDROPS[g]());
   sheetOut(GUI_PVP, 'arena_backdrop', BACKDROPS.arena());
+  // ---- Table UI v2 (lane E): seamless PlayArea fills tiled behind the game object ----
+  for (const [g, f] of Object.entries(FILLS)) sheetOut(GUI, `fill_${g}`, f());
   sheetOut(GUI_PVP, 'arena_backdrop_grudge', BACKDROPS.arena_grudge());
   for (const theme of Object.keys(SCENE)) {
     const dir = theme === 'pvp' || theme === 'grudge' ? SPR_PVP : SPR;

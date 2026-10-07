@@ -54,6 +54,9 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 	public static final String SYNC_KEY = "extras_wheel";
 	/** The last published spin (client: from the update tag), or {@code null} before the first spin. */
 	private @Nullable WheelSync sync;
+	/** Who spun last (the in-world plate, ui-v2.md §7.6). */
+	private String lastName = "";
+	public static final String NAME_KEY = "extras_wheel_name";
 
 	private final Map<UUID, CompoundTag> lastSpin = new HashMap<>();
 	private final Map<UUID, Long> busyUntil = new HashMap<>();
@@ -155,6 +158,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		Component segment = Component.translatable(Wheel.segmentKey(spin.code()));
 		pending.add(new Pending(player.getUUID(), now + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)),
 			spin.creeper(), value, ret, pawn == null));
+		lastName = dev.nezo.burmaldaholic.games.extras.present.MachinePub.wheel(player.getGameProfile().name()).name();
 		publish(new WheelSync(seq, now, spin.index(), sync == null ? -1 : sync.index(), sync == null ? -1 : sync.seq(), SPIN_TICKS,
 			String.join("", wheel.segments())));
 		syncViewers();
@@ -175,11 +179,17 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		return sync;
 	}
 
+	/** The player who spun last (client: the in-world plate), "" before the first spin. */
+	public String lastPlayerName() {
+		return lastName;
+	}
+
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
 		if (sync != null) {
 			t.putIntArray(SYNC_KEY, sync.encode());
+			t.putString(NAME_KEY, lastName);
 		}
 		return t;
 	}
@@ -194,6 +204,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		super.loadAdditional(input);
 		if (level != null && level.isClientSide()) {
 			sync = input.getIntArray(SYNC_KEY).map(WheelBlockEntity::decode).orElse(sync);
+			lastName = input.getStringOr(NAME_KEY, lastName);
 		}
 	}
 
