@@ -138,6 +138,16 @@ public final class RealFlow {
 		return place(block, 0);
 	}
 
+	/** {@link #place(Block)} of a table type, e.g. {@code place(BlackjackModule.TABLE)}. */
+	public BlockPos place(dev.nezo.burmaldaholic.core.table.TableType<?> type) {
+		return place(type.block(), 0);
+	}
+
+	/** Places the table and opens it by using it: the usual first step of a real-flow test. */
+	public <T extends Screen> T placeAndOpen(dev.nezo.burmaldaholic.core.table.TableType<?> type, Class<T> screen) {
+		return open(place(type), screen);
+	}
+
 	/** Uses the block like a right click of the player (empty hand, the top face). */
 	public void use(BlockPos pos) {
 		context.runOnClient(mc -> {
