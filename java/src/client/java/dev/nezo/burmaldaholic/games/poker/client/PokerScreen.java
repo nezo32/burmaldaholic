@@ -112,6 +112,7 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	private final List<Award> awards = new ArrayList<>();
 	private List<Component> results = List.of();
 	private PokerLayout.@Nullable Layout layout;
+	private @Nullable CompoundTag parsed;
 
 	// ---- presentation ---------------------------------------------------------------------------------------------
 	private int fxSeq = -1;
@@ -210,7 +211,10 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 
 	@Override
 	protected PokerView view(CompoundTag st) {
-		parse(st);
+		if (st != parsed) {
+			parsed = st;
+			parse(st); // a new state from the server (local re-builds keep the timers' baseline)
+		}
 		List<PokerView.Level> levels = new ArrayList<>();
 		ListTag lt = st.getListOrEmpty("levels");
 		int vip = st.getIntOr("vip", 0);
@@ -457,8 +461,10 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		k.bind(KeyMap.F, KeyMap.Ids.action("fold"));
 		List<Gate> acts = PokerFlow.actions(v);
 		String cc = acts.stream().map(Gate::action).filter(a -> a.equals("check") || a.equals("call")).findFirst().orElse("");
-		k.bind(KeyMap.C, cc.isEmpty() ? KeyMap.Ids.PRIMARY : KeyMap.Ids.action(cc));
-		k.bind(KeyMap.R, KeyMap.Ids.PRIMARY);
+		String p = PokerFlow.primary(v).action();
+		if (!cc.isEmpty()) k.bind(KeyMap.C, KeyMap.Ids.action(cc));
+		else if (p.equals("check") || p.equals("call")) k.bind(KeyMap.C, KeyMap.Ids.PRIMARY); // Space still works (keyPressed)
+		if (p.equals("raise") || p.equals("all_in")) k.bind(KeyMap.R, KeyMap.Ids.PRIMARY);
 		return k;
 	}
 
@@ -625,6 +631,11 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		if (rulesOpen && (event.key() == KeyMap.ESCAPE || event.key() == KeyMap.ENTER)) {
 			rulesOpen = false;
 			return true;
+		}
+		if (event.key() == KeyMap.SPACE && chrome.keys().idFor(KeyMap.SPACE).isEmpty()) {
+			// the primary's plate shows its letter (C / R); Space presses it as everywhere else
+			boolean on = chrome.hits().targets().stream().anyMatch(t -> t.id().equals(KeyMap.Ids.PRIMARY) && t.enabled());
+			return chrome.press(KeyMap.Ids.PRIMARY, on, 0);
 		}
 		if (event.key() == KEY_UP || event.key() == KEY_DOWN) {
 			if (view != null && PokerFlow.stepper(view).isPresent()) {
