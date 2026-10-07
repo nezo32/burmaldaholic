@@ -119,6 +119,8 @@
 	"gui.burmaldaholic.blackjack.v2.board.dealer_draws": "The dealer draws",
 	"gui.burmaldaholic.blackjack.v2.board.result": "%1$s %2$s",
 	"gui.burmaldaholic.blackjack.v2.plate.line": "%1$s · %2$s",
+	"gui.burmaldaholic.blackjack.v2.plus": "+%1$s",
+	"gui.burmaldaholic.blackjack.v2.minus": "−%1$s",
 	"config.burmaldaholic.blackjack.enabled": "Blackjack",
 	"config.burmaldaholic.blackjack.decks": "Decks in the shoe",
 	"config.burmaldaholic.blackjack.penetration": "Reshuffle point",

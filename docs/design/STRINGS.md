@@ -814,6 +814,8 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.board.dealer_draws` | The dealer draws | Дилер берёт карту |
 | `gui.burmaldaholic.blackjack.v2.board.result` | %1$s %2$s | %1$s %2$s |
 | `gui.burmaldaholic.blackjack.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.blackjack.v2.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.blackjack.v2.minus` | −%1$s | −%1$s |
 
 ---
 
@@ -1652,7 +1654,8 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.v2.board.no_more_bets` | No more bets | Ставок больше нет |
 | `gui.burmaldaholic.baccarat.v2.board.bank` | Bank %1$s | Банк %1$s |
 | `gui.burmaldaholic.baccarat.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
-| `gui.burmaldaholic.baccarat.v2.you_net` | %1$s | %1$s |
+| `gui.burmaldaholic.baccarat.v2.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.baccarat.v2.minus` | −%1$s | −%1$s |
 
 ---
 
