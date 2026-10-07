@@ -18,5 +18,6 @@ public final class BaccaratClientModule implements CasinoClientModule {
 		ctx.tableScreen(BaccaratModule.HIGH_ROLLER_TABLE, BaccaratScreen::new);
 		ctx.tableScreen(BaccaratModule.CHEMMY_TABLE, BaccaratScreen::new);
 		EntityRenderers.register(BaccaratModule.DEALER, BaccaratDealerRenderer::new);
+		BaccaratBoardRenderer.register(); // ui-v2.md §7: the table in the world
 	}
 }
