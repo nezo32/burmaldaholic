@@ -37,7 +37,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `key.category.burmaldaholic` | Burmaldaholic | Бурмалдоголик |
 | `key.burmaldaholic.open_menu` | Open Casino Menu | Открыть меню казино |
 | `gui.burmaldaholic.core.create_world.casino_mode` | Casino Mode: %1$s | Режим казино: %1$s |
-| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. Off by default and saved with the world; operators can switch it later with /casino mode on or /casino mode off. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию выключен и сохраняется вместе с миром; позже оператор может переключить его командой /casino mode on или /casino mode off. Сложность не меняется. |
+| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. On by default and saved with the world; operators can switch it later with /casino mode on or /casino mode off. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию включён и сохраняется вместе с миром; позже оператор может переключить его командой /casino mode on или /casino mode off. Сложность не меняется. |
 | `gui.burmaldaholic.core.setup.title` | Casino setup | Настройка казино |
 | `gui.burmaldaholic.core.setup.intro` | The add-on is active. Choose how this world plays. You can change it later in Casino Card → Admin. | Аддон подключён. Выберите правила для этого мира — потом их можно поменять в «Клубная карта → Админ». |
 | `gui.burmaldaholic.core.setup.casino_mode` | Casino mode | Режим казино |
@@ -369,6 +369,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.welcome_hint` | Mine, fight and trade to earn chips. Spend them at the tables. Try not to spend all of them. | Копайте, сражайтесь и торгуйте — за это дают фишки. Тратьте их за столами. Желательно не все. |
 | `msg.burmaldaholic.core.mode_enabled` | Casino mode is ON. The doors are open. | Режим казино ВКЛЮЧЁН. Двери открыты. |
 | `msg.burmaldaholic.core.mode_disabled` | Casino mode is OFF. Your chips are safe until it reopens. | Режим казино ВЫКЛЮЧЕН. Фишки сохранятся до открытия. |
+| `msg.burmaldaholic.core.mode_default_on` | Casino mode is ON in this world (the default since v0.1.2). Not wanted here? /casino mode off | В этом мире включён режим казино (по умолчанию с версии 0.1.2). Не нужен? /casino mode off |
 | `msg.burmaldaholic.core.command.mode_set_on` | Casino mode is now ON for this world | Режим казино в этом мире теперь ВКЛЮЧЁН |
 | `msg.burmaldaholic.core.command.mode_set_off` | Casino mode is now OFF for this world | Режим казино в этом мире теперь ВЫКЛЮЧЕН |
 | `msg.burmaldaholic.core.command.mode_status_on` | Casino mode is ON in this world | В этом мире режим казино ВКЛЮЧЁН |
