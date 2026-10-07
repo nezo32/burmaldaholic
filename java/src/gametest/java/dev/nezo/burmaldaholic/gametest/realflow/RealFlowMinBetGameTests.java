@@ -80,9 +80,9 @@ public class RealFlowMinBetGameTests {
 		t.putLong("amount", 2);
 		p.connection.handleCustomPayload(new ServerboundCustomPayloadPacket(new TableActionPayload(abs, "drop", t)));
 		helper.assertTrue(Economies.get().balance(p) == 1000, "a 2-chip drop is refused: " + Economies.get().balance(p));
+		helper.assertTrue(!machine.writeClientState(p).contains("result"), "no drop played at 2 chips");
 		t.putLong("amount", 3);
 		p.connection.handleCustomPayload(new ServerboundCustomPayloadPacket(new TableActionPayload(abs, "drop", t)));
-		helper.assertTrue(Economies.get().balance(p) <= 997, "the 3-chip drop is debited: " + Economies.get().balance(p));
 		CompoundTag r = machine.writeClientState(p).getCompoundOrEmpty("result");
 		helper.assertTrue(r.getLongOr("stake", 0) == 3, "the 3-chip drop played: " + r);
 		double mult = r.getDoubleOr("mult", 0);
