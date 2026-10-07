@@ -261,14 +261,14 @@ public final class RouletteLayout {
 		return Optional.empty();
 	}
 
-	/** HitMap id of a felt spot ({@code spot.split:17-20}). */
+	/** HitMap id of a felt spot ({@code felt.split:17-20}, the kit's {@code felt.<id>} convention). */
 	public static String spotId(Spot s) {
-		return "spot." + s.key();
+		return "felt." + s.key();
 	}
 
-	/** HitMap id of a call bet ({@code call.voisins}). */
+	/** HitMap id of a call bet ({@code felt.call.voisins}). */
 	public static String callId(Racetrack.Section s) {
-		return "call." + s.id();
+		return "felt.call." + s.id();
 	}
 
 	/**

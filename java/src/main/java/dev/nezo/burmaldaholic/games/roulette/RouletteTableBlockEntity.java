@@ -789,6 +789,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		writePresentation(t);
 		t.putLong("total", Bets.totalStaked(mine));
 		t.putBoolean("can_rebet", round.canBet() && lastSlips.containsKey(id));
+		t.putLong("rebet_total", Bets.totalStaked(lastSlips.getOrDefault(id, List.of()))); // v2 primary "Rebet 55"
 		t.putBoolean("ready", round.isReady(id));
 		t.putInt("ready_count", round.readyCount());
 		t.putInt("bettors", round.bettors().size());
