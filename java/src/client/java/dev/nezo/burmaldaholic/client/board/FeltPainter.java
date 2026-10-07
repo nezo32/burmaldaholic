@@ -29,7 +29,7 @@ public final class FeltPainter {
 	}
 
 	public static void submit(PoseStack pose, SubmitNodeCollector out, BoardState s, int light) {
-		Felt f = s.felt;
+		Felt f = s.drawnFelt;
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.felt(f, s.theme)), (p, vc) -> top(p, vc, f, light));
 		if (f != Felt.FALLBACK) out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.rail(s.theme)), (p, vc) -> apron(p, vc, f, light));
 	}
