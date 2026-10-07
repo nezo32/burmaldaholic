@@ -147,6 +147,7 @@
 	"gui.burmaldaholic.extras.v2.reason.no_item": "Hold an item to stake it",
 	"gui.burmaldaholic.extras.v2.reason.stake_min": "That is the smallest stake",
 	"gui.burmaldaholic.extras.v2.reason.stake_max": "That is the largest stake",
+	"gui.burmaldaholic.extras.v2.reason.soul": "Finish or cancel the Soul Wager",
 	"gui.burmaldaholic.extras.v2.hint.chips": "Chips add to your bet",
 	"gui.burmaldaholic.extras.v2.hint.win_up_to": "Win up to %1$s",
 	"gui.burmaldaholic.extras.v2.hint.scratch": "Drag over the cells to scratch",

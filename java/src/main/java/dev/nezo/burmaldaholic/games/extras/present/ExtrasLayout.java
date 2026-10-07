@@ -39,7 +39,7 @@ public final class ExtrasLayout {
 	}
 
 	/** Native sizes of the scene art (GUI px). */
-	public static final int PLINKO_W = 272, PLINKO_H = 204, WHEEL = 196, TICKET_W = 212, TICKET_H = 186, COIN = 150, DICE_W = 340, DICE_H = 180;
+	public static final int PLINKO_W = 272, PLINKO_H = 204, WHEEL = 184, TICKET_W = 212, TICKET_H = 196, COIN = 150, DICE_W = 360, DICE_H = 140;
 
 	public static int rowH(Tier t) {
 		return switch (t) {
@@ -85,6 +85,18 @@ public final class ExtrasLayout {
 
 	/** Dice Duel: the arena over the full width (plates above each lane); the options column holds the challenges. */
 	public static Scene dice(TableGrid g) {
-		return scene(g, DICE_W, DICE_H, 9, false);
+		Box play = g.play;
+		int row = rowH(g.tier);
+		Box all = g.columns(1, 12, play.y() + 2, play.h() - 4);
+		int strip = 2 * row + 8;
+		int availH = all.h() - strip - 4;
+		float scale = Math.min(1f, Math.min(availH / (float) DICE_H, all.w() / (float) DICE_W));
+		int ow = Math.round(DICE_W * scale);
+		int oh = Math.round(DICE_H * scale);
+		int top = all.y() + strip + 4 + (availH - oh) / 2;
+		Box object = new Box(all.x() + (all.w() - ow) / 2, top, ow, oh);
+		// the PvP strip spans the arena's width above it
+		Box side = new Box(object.x(), all.y() + 2, object.w(), strip);
+		return new Scene(object, scale, side, row);
 	}
 }

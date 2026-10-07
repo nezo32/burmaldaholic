@@ -147,6 +147,7 @@
 	"gui.burmaldaholic.extras.v2.reason.no_item": "Возьмите предмет в руку",
 	"gui.burmaldaholic.extras.v2.reason.stake_min": "Это минимальная ставка",
 	"gui.burmaldaholic.extras.v2.reason.stake_max": "Это максимальная ставка",
+	"gui.burmaldaholic.extras.v2.reason.soul": "Завершите или отмените сделку души",
 	"gui.burmaldaholic.extras.v2.hint.chips": "Фишки добавляются к ставке",
 	"gui.burmaldaholic.extras.v2.hint.win_up_to": "Выигрыш до %1$s",
 	"gui.burmaldaholic.extras.v2.hint.scratch": "Проведите по клеткам, чтобы стереть",

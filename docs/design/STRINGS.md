@@ -1911,6 +1911,7 @@ Args: `board.plinko_result` %1$s name, %2$s compact multiplier · `board.wheel_r
 | `gui.burmaldaholic.extras.v2.reason.no_item` | Hold an item to stake it | Возьмите предмет в руку |
 | `gui.burmaldaholic.extras.v2.reason.stake_min` | That is the smallest stake | Это минимальная ставка |
 | `gui.burmaldaholic.extras.v2.reason.stake_max` | That is the largest stake | Это максимальная ставка |
+| `gui.burmaldaholic.extras.v2.reason.soul` | Finish or cancel the Soul Wager | Завершите или отмените сделку души |
 | `gui.burmaldaholic.extras.v2.hint.chips` | Chips add to your bet | Фишки добавляются к ставке |
 | `gui.burmaldaholic.extras.v2.hint.win_up_to` | Win up to %1$s | Выигрыш до %1$s |
 | `gui.burmaldaholic.extras.v2.hint.scratch` | Drag over the cells to scratch | Проведите по клеткам, чтобы стереть |

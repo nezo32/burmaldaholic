@@ -184,7 +184,7 @@ public final class ScratchGame {
 		switch (action) {
 			case "scratch" -> scratch(player, kind, args.getStringOr("id", ""), args.getIntOr("cell", -1));
 			case "all" -> scratch(player, kind, args.getStringOr("id", ""), -1);
-			case "new" -> ExtrasGames.send(player, SCREEN, false, state(player, kind, null));
+			case "new", "refresh" -> ExtrasGames.send(player, SCREEN, false, state(player, kind, null));
 			case "buy" -> buy(player, kind);
 			default -> {
 			}
