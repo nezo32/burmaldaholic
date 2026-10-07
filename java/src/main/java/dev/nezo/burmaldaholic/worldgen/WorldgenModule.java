@@ -41,7 +41,11 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
  *   <li>Casino staff: Croupier, Piglin Dealer, Shulker Croupier ({@code npc/}); their shop / table opening
  *       in {@code NpcInteractions}.</li>
  *   <li>Table presets (Parlor poker, High Roller tables) through core's hook ({@link WorldgenPresets}).</li>
- *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller>}.</li>
+ *   <li>v0.2.0 standalone casinos: structure type {@code burmaldaholic:casino} ({@code structure/CasinoStructure}),
+ *       set {@code burmaldaholic:casinos}, tag {@code #burmaldaholic:casino}; pack generated at build time by
+ *       {@code logic/PackGen} (docs/architecture/casino-buildings.md).</li>
+ *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller|casino [style]>},
+ *       {@code /casino worldgen locate}.</li>
  * </ul>
  * New casinos generate only while casino mode and {@code worldgen.enabled} are on; the tables inside
  * are ordinary (house) tables of their modules and follow casino mode themselves.

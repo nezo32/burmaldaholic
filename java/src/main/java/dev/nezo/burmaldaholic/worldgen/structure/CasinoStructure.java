@@ -32,8 +32,9 @@ import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
  * <ul>
  *   <li>the casino-mode gate ({@link WorldgenRuntime#active()}, like the annexes);</li>
  *   <li>D5 "complete or absent": the assembly must contain a piece of every {@code required_pieces} pool;</li>
- *   <li>a flatness / water check on the assembled footprint: the WORLD_SURFACE_WG heights at the footprint
- *       corners and every piece centre span at most {@code max_height_range}, and no sample is under water.</li>
+ *   <li>a terrain check on the assembled footprint ({@link #probes}: every piece centre + the footprint corners):
+ *       no deep / widespread water, dry ground spanning at most {@code max_height_range}; the assembly is then
+ *       moved vertically so its floor sits mid-span (see {@link #terrain}).</li>
  * </ul>
  * The jigsaw assembles <b>once</b> (inside the vanilla stub's consumer, with the context's random); the built
  * pieces are re-wrapped as {@code Either.right} so {@code Structure.generate} never runs it a second time with

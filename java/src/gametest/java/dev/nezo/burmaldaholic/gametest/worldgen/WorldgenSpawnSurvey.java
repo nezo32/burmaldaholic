@@ -113,7 +113,7 @@ public class WorldgenSpawnSurvey {
 			.createWorldDimensions().dimensions().get(stemKey);
 		ChunkGenerator gen = stem.generator();
 		NoiseBasedChunkGenerator noise = (NoiseBasedChunkGenerator) gen;
-		RandomState randomState = RandomState.create(noise.generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
+		RandomState randomState = SurveyCompat.randomState(noise.generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
 		HolderLookup<StructureSet> sets = reg.lookupOrThrow(Registries.STRUCTURE_SET);
 		ChunkGeneratorStructureState state = gen.createState(sets, randomState, seed);
 		DimensionType type = stem.type().value();
@@ -174,37 +174,18 @@ public class WorldgenSpawnSurvey {
 		int inner = 0;
 		Map<String, int[]> perStructure = new TreeMap<>();
 		List<int[]> found = new ArrayList<>();
-		{ // cost of one terrain probe (decides how many samples the structure type can afford)
-			long a = 0;
-			long b = 0;
-			long c = 0;
-			for (int i = 0; i < 60; i++) {
-				int x = i * 977 - 30000;
-				int z = i * 1231 - 30000;
-				long s0 = System.nanoTime();
-				w.gen().getFirstOccupiedHeight(x, z, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG, w.height(), w.randomState());
-				long s1 = System.nanoTime();
-				w.gen().getFirstOccupiedHeight(x, z, net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR_WG, w.height(), w.randomState());
-				long s2 = System.nanoTime();
-				w.gen().getBaseColumn(x, z, w.height(), w.randomState());
-				long s3 = System.nanoTime();
-				if (i >= 10) {
-					a += s1 - s0;
-					b += s2 - s1;
-					c += s3 - s2;
-				}
-			}
-			Burmaldaholic.LOGGER.info("[survey] probe cost ms: surface {} oceanFloor {} baseColumn {}", a / 50e6, b / 50e6, c / 50e6);
-		}
+		int[] o = SurveyCompat.origin(w.gen(), w.randomState()); // spawn region centre (0, 0 in 26.2)
+		int ocx = o[0] >> 4;
+		int ocz = o[1] >> 4;
 		Map<String, Integer> noBiome = new TreeMap<>();
 		CasinoStructure.STATS.reset();
 		CasinoStructure.STATS.detailed = Boolean.getBoolean("burmaldaholic.worldgenSurvey.dense");
 		long t0 = System.nanoTime();
-		for (int cx = Math.floorDiv(-rc, spacing) - 1; cx <= Math.floorDiv(rc, spacing) + 1; cx++) {
-			for (int cz = Math.floorDiv(-rc, spacing) - 1; cz <= Math.floorDiv(rc, spacing) + 1; cz++) {
+		for (int cx = Math.floorDiv(ocx - rc, spacing) - 1; cx <= Math.floorDiv(ocx + rc, spacing) + 1; cx++) {
+			for (int cz = Math.floorDiv(ocz - rc, spacing) - 1; cz <= Math.floorDiv(ocz + rc, spacing) + 1; cz++) {
 				ChunkPos chunk = placement.getPotentialStructureChunk(seed, cx * spacing, cz * spacing);
-				int bx = chunk.getMiddleBlockX();
-				int bz = chunk.getMiddleBlockZ();
+				int bx = chunk.getMiddleBlockX() - o[0];
+				int bz = chunk.getMiddleBlockZ() - o[1];
 				if ((long) bx * bx + (long) bz * bz > (long) CASINO_SPACING_RADIUS * CASINO_SPACING_RADIUS) {
 					continue;
 				}
@@ -219,20 +200,20 @@ public class WorldgenSpawnSurvey {
 				if (start != null) {
 					biomeValid++;
 					BoundingBox b = start.getBoundingBox();
-					found.add(new int[] {b.getCenter().getX(), b.getCenter().getZ(), recognised(start) ? 1 : 0});
+					found.add(new int[] {b.getCenter().getX() - o[0], b.getCenter().getZ() - o[1], recognised(start) ? 1 : 0});
 				} else if (rejectedNow > rejectedBefore) {
 					biomeValid++;
 					rejected++;
 				} else {
-					var biome = w.gen().getBiomeSource().getNoiseBiome(QuartPos.fromBlock(chunk.getMinBlockX()), QuartPos.fromBlock(64),
-						QuartPos.fromBlock(chunk.getMinBlockZ()), w.randomState().sampler());
+					var biome = SurveyCompat.biome(w.gen(), w.randomState(), QuartPos.fromBlock(chunk.getMinBlockX()), QuartPos.fromBlock(64),
+						QuartPos.fromBlock(chunk.getMinBlockZ()));
 					noBiome.merge(biome.unwrapKey().map(k -> k.identifier().getPath()).orElse("?"), 1, Integer::sum);
 				}
 			}
 		}
 		CasinoStructure.STATS.detailed = false;
 		long ms = (System.nanoTime() - t0) / 1_000_000;
-		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} cells without a casino biome (biome at y 64): {}", seed, noBiome);
+		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} origin={},{} cells without a casino biome (biome at y 64): {}", seed, o[0], o[1], noBiome);
 		List<Integer> fromSpawn = new ArrayList<>();
 		int unrecognised = 0;
 		for (int[] f : found) {

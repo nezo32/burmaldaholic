@@ -133,6 +133,10 @@ processResources {
 	// The preview manifest is for docs/design/visual/render_structure.py, not for the jar.
 	exclude 'previews/**'
 }
+// Per-version shims of the worldgen GameTests (26.3 reworked RandomState / climate samplers).
+sourceSets.matching { it.name == 'gametest' }.configureEach {
+	it.java.srcDir("src/gametestCompat/mc${mcKey}")
+}
 if (casinoPlaceholders) {
 	loom.runs.configureEach { vmArg '-Dburmaldaholic.casinoPlaceholders=true' }
 }

@@ -57,7 +57,7 @@ final class StructureGen {
 			} else if (t == BiomeSource.class) {
 				args[i] = generator.getBiomeSource();
 			} else if (t == Climate.Sampler.class) {
-				args[i] = randomState.sampler();
+				args[i] = SurveyCompat.sampler(randomState);
 			} else if (t == RandomState.class) {
 				args[i] = randomState;
 			} else if (t == StructureTemplateManager.class) {
