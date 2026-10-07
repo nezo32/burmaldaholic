@@ -78,6 +78,9 @@ class BlueprintDslTest {
 	@Test
 	void legacyLayoutsHaveNoBlockNbt() {
 		for (Layout l : Layouts.all().values()) {
+			if (l.id().startsWith("casino/")) {
+				continue; // v0.2 pieces (merged into Layouts.all() by lane CB-1) may carry banners
+			}
 			assertTrue(l.blockNbt().isEmpty(), l.id());
 		}
 	}

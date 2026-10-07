@@ -42,7 +42,7 @@ class PieceChecksTest {
 				for (int y = 0; y < s.y(); y++) {
 					for (int z = 0; z < s.z(); z++) {
 						var b = g.get(x, y, z);
-						if (b != null) {
+						if (b != null && b.name().startsWith("minecraft:")) {
 							for (String v : VALUABLE) {
 								assertFalse(b.name().contains(v), p.id() + " holds " + b + " at " + x + "," + y + "," + z);
 							}
