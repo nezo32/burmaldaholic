@@ -452,6 +452,17 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		var theme = theme();
 		int print = V2Felt.print(theme);
 		double now = Minecraft.getInstance().level == null ? 0 : (Minecraft.getInstance().level.getGameTime() + partial) * 50.0;
+		// the players' rail along the bottom (decor, under the plates)
+		if (l.plates().length > 0) {
+			Box p0 = l.plates()[0];
+			int th = t == Tier.T3 ? 10 : t == Tier.T2 ? 8 : 6;
+			int ry = p0.cy() - th / 2;
+			g.fill(grid.play.x(), ry, grid.play.right(), ry + th, V2Felt.rail(theme));
+			g.fill(grid.play.x(), ry, grid.play.right(), ry + 1, CasinoPalette.V2_RAIL_DARK);
+			g.fill(grid.play.x(), ry + 1, grid.play.right(), ry + 2, CasinoPalette.V2_RAIL_HI);
+			g.fill(grid.play.x(), ry + th / 2, grid.play.right(), ry + th / 2 + 1, CasinoPalette.V2_GOLD_SHADE);
+			g.fill(grid.play.x(), ry + th - 1, grid.play.right(), ry + th, CasinoPalette.V2_RAIL_DARK);
+		}
 		int winner = winner();
 		hand(g, t, l.player(), l.playerCards(), l.playerLabel(), l.playerTotal(), "player", PLAYER_EDGE, winner == 1, winner == 3, now);
 		hand(g, t, l.banker(), l.bankerCards(), l.bankerLabel(), l.bankerTotal(), "banker", BANKER_EDGE, winner == 2, winner == 3, now);

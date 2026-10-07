@@ -560,7 +560,9 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		var theme = theme();
 		int back = CardSprites.BACK_CRIMSON;
 		double nowMs = Minecraft.getInstance().level == null ? 0 : (Minecraft.getInstance().level.getGameTime() + partial) * 50.0;
-		// rail, rack, shoe, discard
+		// the crescent rail (decor, under the seats), the dealer rail, rack, shoe, discard
+		dev.nezo.burmaldaholic.client.table.cards.RailArc.draw(g, grid.play, t, grid.play.bottom() - (t == Tier.T1 ? 4 : 7),
+			grid.fy(0.18), V2Felt.rail(theme), CasinoPalette.V2_RAIL_DARK, CasinoPalette.V2_RAIL_HI);
 		g.fill(l.rail().x(), l.rail().y(), l.rail().right(), l.rail().bottom(), V2Felt.rail(theme));
 		g.fill(l.rail().x(), l.rail().bottom() - 1, l.rail().right(), l.rail().bottom(), CasinoPalette.V2_GOLD_SHADE);
 		drawRack(g, l.rack());
