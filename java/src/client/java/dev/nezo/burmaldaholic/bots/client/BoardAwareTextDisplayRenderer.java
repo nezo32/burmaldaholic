@@ -5,9 +5,9 @@ import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import java.util.Map;
 import java.util.WeakHashMap;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.DisplayRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.state.TextDisplayEntityRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -29,9 +29,11 @@ public final class BoardAwareTextDisplayRenderer extends DisplayRenderer.TextDis
 		super(context);
 	}
 
+	/** Same signature on 26.2 and 26.3 (shouldRender's is not): a hidden plate keeps no text sub-state, so nothing draws. */
 	@Override
-	public boolean shouldRender(Display.TextDisplay entity, Frustum culler, double camX, double camY, double camZ) {
-		return super.shouldRender(entity, culler, camX, camY, camZ) && !hiddenAtBoard(entity);
+	public void extractRenderState(Display.TextDisplay entity, TextDisplayEntityRenderState state, float partialTicks) {
+		super.extractRenderState(entity, state, partialTicks);
+		if (hiddenAtBoard(entity)) state.textRenderState = null;
 	}
 
 	private static boolean hiddenAtBoard(Display.TextDisplay entity) {
