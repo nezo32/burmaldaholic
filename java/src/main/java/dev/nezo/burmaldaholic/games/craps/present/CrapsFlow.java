@@ -84,8 +84,9 @@ public final class CrapsFlow {
 	public static Gate tool(String id, CrapsView v) {
 		String label = BetGates.CLEAR.equals(id) ? V2Keys.TOOL_CLEAR : V2Keys.TOOL_UNDO;
 		if (!BetGates.UNDO.equals(id) && !BetGates.CLEAR.equals(id)) return Gate.off(id, label, K + "reason.no_tool");
-		if (v.canUndo() && !v.rolling()) return Gate.on(id, label);
-		return Gate.off(id, label, v.rolling() ? V2Keys.REASON_ROLLING : "gui.burmaldaholic.craps.nothing_to_undo");
+		// chips put down after the throw can be taken back even while it is still shown (the server already settled it)
+		if (v.canUndo()) return Gate.on(id, label);
+		return Gate.off(id, label, "gui.burmaldaholic.craps.nothing_to_undo");
 	}
 
 	/** The kit's view of this flow (the screen's chrome and {@code FlowCheck}). */
