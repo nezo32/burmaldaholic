@@ -117,6 +117,40 @@ class CrapsLayoutTest {
 		};
 	}
 
+	/** Dumps the 480 × 270 and 640 × 360 boxes for the design preview ({@code build/craps_layout_<w>.txt}). */
+	@Test
+	void dumpForPreview() throws Exception {
+		for (int[] wh : new int[][] {{480, 270}, {640, 360}, {427, 240}}) {
+			CrapsLayout l = CrapsLayout.of(TableGrid.of(wh[0], wh[1]));
+			StringBuilder sb = new StringBuilder();
+			java.util.function.BiConsumer<String, Box> put = (n, b) -> sb.append(n).append(' ').append(b.x()).append(' ').append(b.y()).append(' ')
+				.append(b.w()).append(' ').append(b.h()).append('\n');
+			put.accept("felt", l.felt);
+			l.spots().forEach(put);
+			for (int i = 0; i < 6; i++) put.accept("glyph." + CrapsLayout.POINTS[i], l.pointGlyphs[i]);
+			for (int i = 0; i < 7; i++) put.accept("fglyph." + l.fieldNumbers[i], l.fieldGlyphs[i]);
+			put.accept("comeWord", l.comeWord);
+			put.accept("fieldWord", l.fieldWord);
+			put.accept("dpWord", l.dontPassWord);
+			put.accept("passWord", l.passWord);
+			put.accept("oddsWord", l.oddsWord);
+			put.accept("die1", l.die1);
+			put.accept("die2", l.die2);
+			put.accept("total", l.total);
+			put.accept("caption", l.pointCaption);
+			put.accept("puck8", l.puckBox(8));
+			put.accept("puck0", l.puckBox(0));
+			put.accept("stack.pass", l.stack("pass", 0, Layer.MINE));
+			put.accept("stack.pass_odds", l.stack("pass", 0, Layer.ODDS));
+			put.accept("stack.field", l.stack("field", 0, Layer.MINE));
+			put.accept("stack.come5", l.stack("come", 5, Layer.MINE));
+			put.accept("stack.others_field", l.stack("field", 0, Layer.OTHERS));
+			put.accept("banner", l.bannerRegion());
+			String root = System.getProperty("burmaldaholic.projectDir", ".");
+			java.nio.file.Files.writeString(java.nio.file.Path.of(root, "build", "craps_layout_" + wh[0] + ".txt"), sb.toString());
+		}
+	}
+
 	@Test
 	void spotIdsRoundTrip() {
 		assertEquals("point", CrapsLayout.kindOf(CrapsLayout.pointId(8)));
