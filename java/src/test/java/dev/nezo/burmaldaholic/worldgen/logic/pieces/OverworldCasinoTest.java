@@ -109,7 +109,7 @@ class OverworldCasinoTest {
 			for (Layout.Jigsaw j : parent.layout().jigsaws()) {
 				assertEquals(OverworldCasino.FLOOR_Y, j.pos().y(), parent.id() + " " + j.name());
 				assertEquals(floor.toString(), j.finalState());
-				assertEquals("rigid", j.joint());
+				assertEquals("aligned", j.joint());
 				assertDoorway(parent, j);
 				if (j.pool().equals(OverworldCasino.EMPTY_POOL)) {
 					continue;

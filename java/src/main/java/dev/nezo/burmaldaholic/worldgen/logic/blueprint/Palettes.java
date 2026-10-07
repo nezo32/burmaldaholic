@@ -21,7 +21,7 @@ public final class Palettes {
 		.put(Role.CEILING, Material.of("minecraft:spruce_planks", "minecraft:spruce_stairs", "minecraft:spruce_slab"))
 		.put(Role.ROOF, Material.of("minecraft:deepslate_tiles", "minecraft:deepslate_tile_stairs", "minecraft:deepslate_tile_slab"))
 		.put(Role.ROOF_TRIM, Material.of("minecraft:dark_oak_planks", "minecraft:dark_oak_stairs", "minecraft:dark_oak_slab"))
-		.put(Role.TRIM, "minecraft:gold_block")
+		.put(Role.TRIM, "minecraft:honeycomb_block")
 		.put(Role.GLASS, "minecraft:glass")
 		.put(Role.PANE, "minecraft:glass_pane")
 		.put(Role.LIGHT, "minecraft:ochre_froglight")

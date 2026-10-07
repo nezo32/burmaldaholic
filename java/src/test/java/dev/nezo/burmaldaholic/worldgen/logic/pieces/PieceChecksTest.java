@@ -29,6 +29,30 @@ class PieceChecksTest {
 		})).toList();
 	}
 
+	/** Blocks players would strip a casino for (resource farming). Copper / iron decor (chains, bars) is fine. */
+	private static final List<String> VALUABLE = List.of("gold_block", "iron_block", "diamond", "emerald", "netherite",
+		"raw_gold", "raw_iron", "lapis_block", "redstone_block", "ancient_debris", "beacon", "weighted_pressure_plate");
+
+	@TestFactory
+	List<DynamicTest> noValuableBlocks() {
+		return pieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
+			var g = p.layout().grid();
+			var s = g.size();
+			for (int x = 0; x < s.x(); x++) {
+				for (int y = 0; y < s.y(); y++) {
+					for (int z = 0; z < s.z(); z++) {
+						var b = g.get(x, y, z);
+						if (b != null) {
+							for (String v : VALUABLE) {
+								assertFalse(b.name().contains(v), p.id() + " holds " + b + " at " + x + "," + y + "," + z);
+							}
+						}
+					}
+				}
+			}
+		})).toList();
+	}
+
 	@TestFactory
 	List<DynamicTest> anchorsOnlyInStartPiecesAndEveryPieceHasEntries() {
 		return pieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {

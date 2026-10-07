@@ -714,7 +714,7 @@ public final class OverworldCasino {
 		b.fill(12, ROW, 3, 15, ROW, 3, s.palette().get(Role.COUNTER).slab("top"));
 		b.set(12, ROW + 1, 3, BlockSpec.mc("potted_red_tulip"));
 		b.set(15, ROW + 1, 3, BlockSpec.mc("green_candle", "candles", "3", "lit", "true", "waterlogged", "false"));
-		b.set(13, ROW + 1, 3, BlockSpec.mc("light_weighted_pressure_plate", "power", "0"));
+		b.set(13, ROW + 1, 3, BlockSpec.mc("yellow_candle", "candles", "4", "lit", "true", "waterlogged", "false"));
 		b.npc(NpcRole.LOAN_SHARK, 14, ROW, 2, Facing.SOUTH);
 		b.banner(12, ROW + 3, 1, Facing.SOUTH, "green", Blueprint.layer("border", "yellow"), Blueprint.layer("circle", "yellow"));
 		b.banner(15, ROW + 3, 1, Facing.SOUTH, "green", Blueprint.layer("border", "yellow"), Blueprint.layer("rhombus", "yellow"));
@@ -765,11 +765,11 @@ public final class OverworldCasino {
 		b.fill(5, ROW, 4, 9, ROW, 4, desk.slab("top"));
 		b.set(5, ROW + 1, 4, BlockSpec.mc("lantern", "hanging", "false", "waterlogged", "false"));
 		b.set(9, ROW + 1, 4, BlockSpec.mc("potted_fern"));
-		b.set(7, ROW + 1, 4, BlockSpec.mc("light_weighted_pressure_plate", "power", "0"));
+		b.set(7, ROW + 1, 4, BlockSpec.mc("red_candle", "candles", "2", "lit", "true", "waterlogged", "false"));
 		b.chest(CasinoLoot.Table.VILLAGE_CASINO, 2, ROW, 4, Facing.EAST);
-		b.fill(1, ROW, 6, 1, ROW + 1, 7, BlockSpec.mc("iron_block"));
+		b.fill(1, ROW, 6, 1, ROW + 1, 7, BlockSpec.mc("chiseled_deepslate"));
 		b.set(13, ROW, 6, BlockSpec.mc("barrel", "facing", "west", "open", "false"));
-		b.set(13, ROW + 1, 6, BlockSpec.mc("gold_block"));
+		b.set(13, ROW + 1, 6, BlockSpec.mc("potted_fern"));
 		b.kit(Kits.chandelier(2), 7, 9, 5, Facing.SOUTH);
 		b.banner(4, ROW + 4, 1, Facing.SOUTH, "red", suitLayers(Suit.HEART));
 		b.banner(10, ROW + 4, 1, Facing.SOUTH, "red", suitLayers(Suit.SPADE));

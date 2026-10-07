@@ -518,7 +518,7 @@ public final class Blueprint {
 	 * block that replaces the jigsaw after assembly (usually the floor block at that cell).
 	 */
 	public Blueprint jigsaw(int x, int y, int z, Facing out, String name, String target, String pool, BlockSpec finalState) {
-		jigsaws.add(new Layout.Jigsaw(new Vec(x, y, z), out.id() + "_up", name, target, pool, finalState.toString(), "rigid"));
+		jigsaws.add(new Layout.Jigsaw(new Vec(x, y, z), out.id() + "_up", name, target, pool, finalState.toString(), "aligned"));
 		return this;
 	}
 
