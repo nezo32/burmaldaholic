@@ -191,6 +191,10 @@ class KitContractTest {
 		k.bind(KeyMap.H, "action.hit").bind(KeyMap.R, "action.raise");
 		assertEquals(KeyMap.H, k.keyOf("action.hit"));
 		assertEquals(-1, k.keyOf("tool.rebet"), "a game key replaces a kit key");
+		assertEquals("key.keyboard.space", KeyMap.vanillaNameKey(KeyMap.SPACE));
+		assertEquals("key.keyboard.h", KeyMap.vanillaNameKey(KeyMap.H));
+		assertEquals("key.keyboard.1", KeyMap.vanillaNameKey(KeyMap.KEY_1));
+		assertEquals("key.keyboard.backspace", KeyMap.vanillaNameKey(KeyMap.BACKSPACE));
 	}
 
 	@Test
