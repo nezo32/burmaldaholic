@@ -162,10 +162,14 @@ public class CasinoBuildingGameTests {
 		List<Placed> lit = new ArrayList<>();
 		List<ChunkPos> forced = new ArrayList<>();
 		int i = 0;
+		int placements = 0;
 		for (Target t : CasinoQa.all(level.getServer())) {
+			int base = i++;
 			for (int turns = 0; turns < 4; turns++) {
-				BlockPos at = region(0, i++);
+				// v0.2 buildings stay up for the light poll (own region each); others reuse one region (fewer chunks)
+				BlockPos at = t.v2() && turns > 0 ? region(0, i++) : region(0, base);
 				Placed p = CasinoQa.place(level, t, at, turns);
+				placements++;
 				problems.computeIfAbsent(t + " r" + turns, k -> new ArrayList<>()).addAll(CasinoQa.structuralProblems(level, p));
 				if (t.v2()) {
 					lit.add(p);
@@ -176,7 +180,7 @@ public class CasinoBuildingGameTests {
 		String report = CasinoQa.report(problems);
 		helper.assertTrue(report.isEmpty(), "placement problems:" + report);
 		if (lit.isEmpty()) {
-			CasinoQa.log("placesEveryCasinoInEveryRotation: {} placements ok (no v0.2 casino yet: light bar not checked)", i);
+			CasinoQa.log("placesEveryCasinoInEveryRotation: {} placements ok (no v0.2 casino yet: light bar not checked)", placements);
 			helper.succeed();
 			return;
 		}
@@ -300,13 +304,24 @@ public class CasinoBuildingGameTests {
 		ServerLevel level = helper.getLevel();
 		MinecraftServer server = level.getServer();
 		List<Target> standalone = CasinoQa.standalone(server);
+		RegistryOps<com.google.gson.JsonElement> ops = server.registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE);
 		if (standalone.isEmpty()) {
 			helper.assertFalse(CasinoQa.requireV2(), "v0.2 casino structures missing");
-			CasinoQa.log("incompleteAssemblyRejected: skipped (no v0.2 structure yet)");
+			// harness self-check on a vanilla jigsaw structure: codec round trip + reflective context + a start on flat ground
+			Holder<Structure> village = server.registryAccess().lookupOrThrow(Registries.STRUCTURE)
+				.getOrThrow(ResourceKey.create(Registries.STRUCTURE, Identifier.parse("minecraft:village_plains")));
+			var json = Structure.DIRECT_CODEC.encodeStart(ops, village.value()).getOrThrow().getAsJsonObject();
+			json.addProperty("size", 1);
+			Structure.DIRECT_CODEC.parse(ops, json).getOrThrow();
+			int starts = 0;
+			for (int k = 0; k < 4; k++) {
+				starts += village.value().findValidGenerationPoint(flatContext(level, region(3, k))).isPresent() ? 1 : 0;
+			}
+			helper.assertTrue(starts > 0, "harness: village_plains found no start on flat ground");
+			CasinoQa.log("incompleteAssemblyRejected: no v0.2 structure yet — harness self-check on village_plains ok ({} starts)", starts);
 			helper.succeed();
 			return;
 		}
-		RegistryOps<com.google.gson.JsonElement> ops = server.registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE);
 		int realStarts = 0;
 		int incompleteStarts = 0;
 		int tries = 0;
@@ -318,13 +333,7 @@ public class CasinoBuildingGameTests {
 			json.addProperty("size", 1);
 			Structure incomplete = Structure.DIRECT_CODEC.parse(ops, json).getOrThrow();
 			for (int k = 0; k < 6; k++) {
-				BlockPos at = region(3, tries++);
-				CasinoQa.loadChunks(level, at, 1);
-				Structure.GenerationContext ctx = CasinoQa.context(level.getSeed(), server.registryAccess(),
-					level.getChunkSource().getGenerator(), level.getChunkSource().getGenerator().getBiomeSource(),
-					level.getChunkSource().randomState(), level.getChunkSource().randomState().sampler(),
-					server.getStructureManager(), CasinoQa.chunk(at), (LevelHeightAccessor) level,
-					(java.util.function.Predicate<Holder<net.minecraft.world.level.biome.Biome>>) b -> true);
+				Structure.GenerationContext ctx = flatContext(level, region(3, tries++));
 				if (real.value().findValidGenerationPoint(ctx).isPresent()) {
 					realStarts++;
 				}
@@ -338,36 +347,70 @@ public class CasinoBuildingGameTests {
 		helper.succeed();
 	}
 
+	/** A generation context for the test level's (flat) chunk at {@code at}, every biome accepted. */
+	private static Structure.GenerationContext flatContext(ServerLevel level, BlockPos at) {
+		MinecraftServer server = level.getServer();
+		CasinoQa.loadChunks(level, at, 1);
+		return CasinoQa.context(level.getSeed(), server.registryAccess(), level.getChunkSource().getGenerator(),
+			level.getChunkSource().getGenerator().getBiomeSource(), level.getChunkSource().randomState(),
+			level.getChunkSource().randomState().sampler(), server.getStructureManager(), CasinoQa.chunk(at), (LevelHeightAccessor) level,
+			(java.util.function.Predicate<Holder<net.minecraft.world.level.biome.Biome>>) b -> true);
+	}
+
 	/**
 	 * 7. Fit rate and generation time on the default world preset (§9.4 / §9.5): over 4 seeds, within 2000 blocks,
 	 * ≥ 8 casinos, median nearest ≤ 700, ≤ 40 % of biome-valid cells rejected by flatness / completeness, median
-	 * start generation ≤ 5 ms and p99 ≤ 25 ms. No chunk is generated (like WorldgenSpawnSurvey).
+	 * start generation ≤ 5 ms and p99 ≤ 25 ms. No chunk is generated (like WorldgenSpawnSurvey). Before the v0.2
+	 * structures exist the same survey runs on {@code minecraft:villages} (one seed) as a harness self-check.
 	 */
 	@GameTest(maxTicks = 40)
 	public void casinoFitRateAndGenerationTime(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
-		RegistryAccess reg = server.registryAccess();
 		if (CasinoQa.standalone(server).isEmpty()) {
 			helper.assertFalse(CasinoQa.requireV2(), "v0.2 casino structures missing");
-			CasinoQa.log("casinoFitRateAndGenerationTime: skipped (no v0.2 structure yet)");
+			Survey s = survey(server, Identifier.parse("minecraft:villages"), new long[] {SEEDS[0]}, 2000);
+			CasinoQa.log("casinoFitRateAndGenerationTime: no v0.2 structure yet — harness self-check on villages: {}", s);
+			helper.assertTrue(s.placed() > 0 && s.biomeValid() >= s.placed(), "harness: the villages survey found nothing: " + s);
 			helper.succeed();
 			return;
 		}
+		Survey s = survey(server, CasinoQa.SET, SEEDS, 2000);
+		CasinoQa.log("fit: {}", s);
+		helper.assertTrue(s.placed() >= 8, "≥ 8 casinos within 2000 blocks over 4 seeds: " + s);
+		helper.assertTrue(s.medianNearest() <= 700, "median nearest casino ≤ 700 blocks: " + s);
+		helper.assertTrue(s.rejected() <= 0.40, "≤ 40 % of biome-valid cells rejected: " + s);
+		helper.assertTrue(s.medianMs() <= 5 && s.p99Ms() <= 25, "start generation median ≤ 5 ms, p99 ≤ 25 ms: " + s);
+		helper.succeed();
+	}
+
+	record Survey(int placed, int biomeValid, double medianMs, double p99Ms, int medianNearest, String perSeed) {
+		double rejected() {
+			return biomeValid == 0 ? 1 : 1 - placed / (double) biomeValid;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("placed %d of %d biome-valid cells (%d%% rejected) · start gen median %.2f ms p99 %.2f ms · median nearest %d · per seed %s",
+				placed, biomeValid, Math.round(rejected() * 100), medianMs, p99Ms, medianNearest, perSeed);
+		}
+	}
+
+	private static Survey survey(MinecraftServer server, Identifier setId, long[] seeds, int radius) {
+		RegistryAccess reg = server.registryAccess();
 		HolderLookup.RegistryLookup<StructureSet> sets = reg.lookupOrThrow(Registries.STRUCTURE_SET);
-		StructureSet set = sets.getOrThrow(ResourceKey.create(Registries.STRUCTURE_SET, CasinoQa.SET)).value();
+		StructureSet set = sets.getOrThrow(ResourceKey.create(Registries.STRUCTURE_SET, setId)).value();
 		RandomSpreadStructurePlacement placement = (RandomSpreadStructurePlacement) set.placement();
 		LevelStem stem = reg.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.NORMAL).value()
 			.createWorldDimensions().dimensions().get(LevelStem.OVERWORLD);
 		ChunkGenerator gen = stem.generator();
 		DimensionType type = stem.type().value();
 		LevelHeightAccessor height = LevelHeightAccessor.create(type.minY(), type.height());
-		int radius = 2000;
 		int biomeValid = 0;
 		int placed = 0;
 		List<Double> millis = new ArrayList<>();
 		List<Integer> nearest = new ArrayList<>();
 		StringBuilder perSeed = new StringBuilder();
-		for (long seed : SEEDS) {
+		for (long seed : seeds) {
 			RandomState rs = RandomState.create(((NoiseBasedChunkGenerator) gen).generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
 			ChunkGeneratorStructureState state = gen.createState(sets, rs, seed);
 			int spacing = placement.spacing();
@@ -406,17 +449,8 @@ public class CasinoBuildingGameTests {
 			perSeed.append(seed).append(": ").append(seedPlaced).append(" (nearest ").append(best == Integer.MAX_VALUE ? "-" : best).append(") ");
 		}
 		nearest.sort(Integer::compare);
-		double rejected = biomeValid == 0 ? 1 : 1 - placed / (double) biomeValid;
-		double median = CasinoQa.quantile(millis, 0.5);
-		double p99 = CasinoQa.quantile(millis, 0.99);
-		int medianNearest = nearest.isEmpty() ? Integer.MAX_VALUE : nearest.get(nearest.size() / 2);
-		CasinoQa.log("fit: placed {} of {} biome-valid cells ({}% rejected) · per seed {}· start gen median {} ms p99 {} ms · median nearest {}",
-			placed, biomeValid, Math.round(rejected * 100), perSeed, String.format("%.2f", median), String.format("%.2f", p99), medianNearest);
-		helper.assertTrue(placed >= 8, "≥ 8 casinos within 2000 blocks over 4 seeds, got " + placed + " (" + perSeed + ")");
-		helper.assertTrue(medianNearest <= 700, "median nearest casino ≤ 700 blocks, got " + medianNearest);
-		helper.assertTrue(rejected <= 0.40, "≤ 40 % of biome-valid cells rejected, got " + Math.round(rejected * 100) + " %");
-		helper.assertTrue(median <= 5 && p99 <= 25, "start generation median ≤ 5 ms, p99 ≤ 25 ms; got " + median + " / " + p99);
-		helper.succeed();
+		return new Survey(placed, biomeValid, CasinoQa.quantile(millis, 0.5), CasinoQa.quantile(millis, 0.99),
+			nearest.isEmpty() ? Integer.MAX_VALUE : nearest.get(nearest.size() / 2), perSeed.toString().trim());
 	}
 
 	/** Same weighted pick as ChunkGenerator.createStructures; true when one of the set's casinos starts here. */
