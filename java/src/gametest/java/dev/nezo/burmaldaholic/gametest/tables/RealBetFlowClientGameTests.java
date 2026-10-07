@@ -65,6 +65,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		{1278, 720, 3, "1440p_auto"},
 		{854, 480, 2, "default"},
 		{960, 540, 1, "1080p_gui2"},
+		{910, 512, 2, "1366x768_auto"}, // GUI 455 × 256 (laptops; lane A10)
 	};
 	private static final int TIMEOUT = 600;
 
