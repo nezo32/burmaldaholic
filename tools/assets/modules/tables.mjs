@@ -210,6 +210,7 @@ export default function generate() {
   // v2 felt (lane D): dice per tier (faces row + tumble row) and the puck per tier
   for (const s of C2.DIE_SIZES) gui(`craps/v2/dice_${s}`, C2.diceSheet(s));
   for (const s of C2.PUCK_SIZES) gui(`craps/v2/puck_${s}`, C2.puckSheet(s));
+  out.push(png(`${T}/entity/craps/board_print.png`, C2.boardPrint()));
   out.push(png(`${T}/entity/craps/dice.png`, diceWorld()));
   out.push(png(`${T}/item/extras/dice_display.png`, diceDisplay()));
 

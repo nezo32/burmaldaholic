@@ -1,203 +1,303 @@
 package dev.nezo.burmaldaholic.games.craps.client;
 
+import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
-import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
-import dev.nezo.burmaldaholic.client.table.fx.ChipButton;
-import dev.nezo.burmaldaholic.client.table.fx.TableButton;
-import dev.nezo.burmaldaholic.client.table.fx.TableChrome;
 import dev.nezo.burmaldaholic.client.table.fx.TableClock;
-import dev.nezo.burmaldaholic.client.table.fx.TableGfx;
-import dev.nezo.burmaldaholic.client.table.fx.TableKit;
-import dev.nezo.burmaldaholic.client.table.fx.TableTheme;
+import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
+import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
+import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Felt;
+import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
+import dev.nezo.burmaldaholic.client.ui.v2.ValuePill;
 import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.dice.ChipStacks;
 import dev.nezo.burmaldaholic.core.anim.dice.DiceThrowPath;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
+import dev.nezo.burmaldaholic.core.ui.v2.BetView;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
+import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
+import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsBeats;
-import dev.nezo.burmaldaholic.games.craps.logic.CrapsFelt;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsFlow;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsLayout;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsLayout.Layer;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsView;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsView.BetPub;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentSerialization;
-import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Craps (UI.md §8; docs/design/visual/tables.md §4, §6; animation/tables.md §2.4). The full felt with its back wall,
- * chips on the layout (odds behind the line), the puck and the point glow. A roll: the dice fly from the shooter's
- * side, hit the pyramid wall, bounce twice and rest on the REAL faces (shared {@link DiceThrowPath}; blank tumble
- * frames before 82 %), the total badge pops in the event colour, the puck flips and flies, losing chips are swept,
- * come bets travel to their box, winners get payout discs and fly to the balance, and the stick drags the dice back.
- * Every chip motion uses the server's {@code last_res} (per-bet returns); the chat lines wait for the dice
- * (REVEAL_DELAY, server). Late joiners past 85 % see the settled table; Space / click skips the local chip beats.
+ * Craps, table UI v2 (REDESIGN.md §7.6, mockup {@code v2_craps_point_480.png}; docs/architecture/ui-v2.md, lane D). The
+ * felt fills the PlayArea ({@link CrapsLayout}): the place row with the puck, the COME row with the dice and the total,
+ * the FIELD, the DON'T PASS BAR and the PASS LINE with its odds lane. The Dock is the kit's: the chip tray (multi-spot:
+ * a chip arms, a felt click places it — {@link CrapsFlow#click}: a flat bet, odds behind it, or the reason), Undo /
+ * Clear, the {@code On table} readout, the status ({@code Point is 8} / {@code Roll in 18 s}) and the primary
+ * ({@code Sit down} → {@code Roll}).
+ *
+ * <p>The roll (animation/tables.md §2.4): the dice fly from the shooter's side over the felt and hit the back of the
+ * COME row (the shared {@link DiceThrowPath}, blank tumble frames until 82 %), rest on the real faces, the total pill
+ * pops, the puck flips and flies, every bet shows its net (server returns from {@code last_res}), and the round's net
+ * shows in the banner and the balance delta. Late joiners see the settled table; Space / a click skips the chip beats.
  */
-public class CrapsScreen extends CasinoTableScreen {
+public class CrapsScreen extends V2TableScreen<CrapsView> {
 	private static final String K = "gui.burmaldaholic.craps.";
-	private static final int[] CHIPS = ChipStacks.DENOMS;
+	private static final String K2 = CrapsFlow.K;
 
-	/** One bet as sent by the server. */
-	private record BetView(int id, String kind, long flat, long odds, int point, boolean mine, int unit, long oddsMax, long room, boolean off) {}
-
-	/** What the last roll did to a bet. */
+	/** What the last roll did to a bet (server {@code last_res}). */
 	private record Res(String kind, int point, boolean mine, String outcome, long flat, long odds, long ret, int movedTo) {}
 
-	private TableChrome.Frame frame = TableChrome.FULL;
-	private int ox;
-	private int oy;
-	private TableTheme theme = TableTheme.VILLAGE;
+	private static final Flow<CrapsView> FLOW = new Flow<>() {
+		@Override
+		public Gate primary(CrapsView v) {
+			return CrapsFlow.primary(v);
+		}
+
+		@Override
+		public BetView bet(CrapsView v) {
+			Map<String, Long> spots = new LinkedHashMap<>();
+			for (BetPub b : v.mine()) spots.merge(b.kind() + (b.point() != 0 ? "@" + b.point() : ""), b.staked(), Long::sum);
+			Gate chips = CrapsFlow.chips(v);
+			long secs = v.windowSeconds() >= 0 ? v.windowSeconds() : v.rollSeconds();
+			return BetView.builder().seated(v.seated()).canSit(v.seatFree()).phase(BetView.Phase.BETTING).bettingOpen(chips.enabled())
+				.limits(v.min(), v.max()).balance(v.balance()).myTotal(v.myTotal()).spots(spots).canUndo(v.canUndo()).canClear(v.canUndo())
+				.waitingFor(v.youShoot() ? "" : v.shooter()).secondsLeft((int) Math.min(Integer.MAX_VALUE, secs)).build();
+		}
+
+		@Override
+		public Gate chip(long denom, CrapsView v) {
+			Gate g = CrapsFlow.chips(v);
+			if (!g.enabled()) return g;
+			// a chip under the balance; odds can take a smaller chip, so only the balance limits it
+			if (denom > v.balance()) return Gate.off(BetGates.CHIP, g.labelKey(), K2 + "reason.not_enough", denom);
+			return new Gate(BetGates.CHIP, g.labelKey(), new Object[] {denom}, true, null, null);
+		}
+
+		@Override
+		public Gate tool(String id, CrapsView v) {
+			return CrapsFlow.tool(id, v);
+		}
+	};
+
 	private final TableClock clock = new TableClock();
-	private int selectedChip = 5;
-	private boolean showRules;
+	private CrapsLayout layout = CrapsLayout.of(TableGrid.of(480, 270));
 	private float partial;
-	private CrapsFelt.@Nullable Area hoverArea;
+	private boolean showRules;
+	private @Nullable String hoverSpot;
+	/** spots a click would place on now (lit while a chip is armed) */
+	private final Set<String> live = new HashSet<>();
 	// the roll
 	private int shownRolls = -1;
 	private @Nullable DiceThrowPath throwPath;
-	private int cueIndex;
 	private boolean lateRoll;
 	private boolean skipped;
 	private long rollPressedAt = -1;
+	private int cueIndex;
 	private int puckCue = -1;
 	private int sweepCue = -1;
-	private int celebrated = -1;
-	private @Nullable Component error;
-	private int errorTicks;
+	private int settledFor = -1;
+	private boolean rollingShown;
+	private long lastSecond = -1;
 	private final DiceThrowPath.Sample sample = new DiceThrowPath.Sample();
 	private final CrapsBeats.Puck puck = new CrapsBeats.Puck();
 
 	public CrapsScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
-		super(menu, inventory, Component.translatable(K + "title"), 427, 240);
-		this.titleLabelY = -10_000;
+		super(menu, inventory, Component.translatable(K + "title"));
+		chrome.bet.multiSpot(true);
+		chrome.bet.tools(BetGates.UNDO, BetGates.CLEAR);
 	}
 
-	private boolean compact() {
-		return frame.compact();
-	}
+	// ---- the game's pure parts ----------------------------------------------------------------------------------------
 
-	private CrapsFelt felt() {
-		return compact() ? CrapsFelt.COMPACT : CrapsFelt.BIG;
-	}
-
-	private int lx() {
-		return ox + (compact() ? 10 : 20);
-	}
-
-	private int ly() {
-		return oy + (compact() ? 17 : 33);
+	@Override
+	protected CrapsView view(CompoundTag s) {
+		return CrapsView.read(s, secondsLeft(s, "window"), secondsLeft(s, "roll"), rolling());
 	}
 
 	@Override
-	protected void init() {
-		frame = TableChrome.frameFor(width, height);
-		super.init();
-		ox = (width - frame.w()) / 2;
-		oy = (height - frame.h()) / 2;
-		leftPos = ox;
-		topPos = oy;
-		rebuild();
+	protected Flow<CrapsView> flow() {
+		return FLOW;
 	}
 
 	@Override
 	protected void onStateChanged(CompoundTag s) {
 		clock.sync(s.getLongOr("game_time", 0));
-		theme = TableKit.theme(theme());
 		int rolls = s.getIntOr("rolls", 0);
 		if (rolls != shownRolls) {
+			boolean first = shownRolls < 0;
 			shownRolls = rolls;
 			rollPressedAt = -1;
+			throwPath = null;
 			int d1 = s.getIntOr("d1", 0);
 			int d2 = s.getIntOr("d2", 0);
 			if (d1 > 0 && d2 > 0) {
-				CrapsFelt f = felt();
-				double[] r = f.restRegion();
-				double[] st = f.throwStart();
-				int dir = s.getIntOr("shooter_dir", 0);
-				double sx = dir == 1 ? 24 : st[0];
-				throwPath = DiceThrowPath.of(s.getIntOr("seed", 0), d1, d2,
-					DiceThrowPath.Params.craps(sx, st[1], f.wall(), f.dcW() + 2, f.w(), r[0], r[1], r[2], r[3]));
-				double age = rollMs();
-				// opened mid-throw: the throw plays on from the synced roll time; past 85 % the table is shown settled
-				lateRoll = age >= 0.85 * CrapsBeats.IDLE;
-				skipped = false;
-				cueIndex = 0;
-				puckCue = sweepCue = -1;
-			} else {
-				throwPath = null;
+				newThrow(s, d1, d2);
+				lateRoll = first || rollMs(s) >= 0.85 * CrapsBeats.IDLE;
 			}
+			skipped = false;
+			cueIndex = 0;
+			puckCue = sweepCue = -1;
+			if (lateRoll) settledFor = rolls;
 		}
-		if (minecraft != null) {
-			rebuild();
-		}
+		super.onStateChanged(s);
+		rollingShown = rolling();
+		statusLines();
+	}
+
+	private void newThrow(CompoundTag s, int d1, int d2) {
+		CrapsLayout l = layout;
+		Box r = l.restRegion;
+		double sx = s.getIntOr("shooter_dir", 0) == 1 ? l.felt.x() + l.die1.w() : l.throwX;
+		throwPath = DiceThrowPath.of(s.getIntOr("seed", 0), d1, d2, DiceThrowPath.Params.craps(sx, l.throwY, l.come.y() + 2, l.come.x(), l.felt.right(),
+			r.x(), r.y(), r.right(), r.bottom()));
 	}
 
 	@Override
-	public void showError(Component message) {
-		super.showError(message);
-		error = message;
-		errorTicks = 60;
-		FxSounds.play("ui_deny", 1f);
+	protected void layoutPlay(TableGrid grid, CrapsView v, HitMap hits) {
+		CrapsLayout l = CrapsLayout.of(grid);
+		boolean moved = !l.felt.equals(layout.felt);
+		layout = l;
+		if (moved && throwPath != null) {
+			CompoundTag s = state();
+			newThrow(s, s.getIntOr("d1", 1), s.getIntOr("d2", 1));
+		}
+		live.clear();
+		long chip = Math.max(1, chrome.bet.selected());
+		for (Map.Entry<String, Box> e : l.spots().entrySet()) {
+			boolean sends = CrapsFlow.click(v, e.getKey(), chip).sends();
+			if (sends) live.add(e.getKey());
+			hits.add(e.getKey(), e.getValue(), true);
+		}
+		List<Box> obstacles = new ArrayList<>(l.glyphs());
+		obstacles.add(l.die1);
+		obstacles.add(l.die2);
+		obstacles.add(l.total);
+		chrome.banner.regions(List.of(l.bannerRegion()), obstacles.stream().filter(b -> b != l.comeWord).toList());
 	}
 
 	@Override
-	protected void containerTick() {
-		super.containerTick();
-		if (errorTicks > 0 && --errorTicks == 0) {
-			error = null;
+	public boolean onTarget(String id, boolean enabled, int button) {
+		if (!id.startsWith("felt.") || view == null) return false;
+		if (button == 1) {
+			sendTracked("undo");
+			return true;
 		}
+		if (button > 1) return true; // scroll over the felt: nothing
+		long chip = chrome.bet.armOrDefault();
+		if (chip <= 0) {
+			chrome.status.flash(V2Draw.tr(K2 + "reason.not_enough", view.min()));
+			return true;
+		}
+		CrapsFlow.Click c = CrapsFlow.click(view, id, chip);
+		if (!c.sends()) {
+			chrome.status.flash(V2Draw.tr(c.errorKey(), c.errorArgs()));
+			FxSounds.play("ui_deny", 1f);
+			return true;
+		}
+		CompoundTag args = new CompoundTag();
+		if (c.action().equals("bet")) {
+			args.putString("kind", c.kind());
+		} else {
+			args.putInt("bet", c.betId());
+		}
+		args.putLong("amount", c.amount());
+		sendTracked(c.action(), args, id, c.amount());
+		FxSounds.play("chip_place", 1f, (float) (0.9 + 0.1 * Math.log(Math.max(1, c.amount())) / Math.log(5)));
+		return true;
 	}
 
-	// ---- state ------------------------------------------------------------------------------------------------------
+	@Override
+	protected @Nullable BetPort betPort() {
+		return new BetPort() {
+			@Override
+			public void add(long denom) {
+				// multi-spot: chips arm (the chrome never calls add); a stray call bets the Pass line on the come-out
+				if (view != null) onTarget(CrapsLayout.PASS, true, 0);
+			}
 
-	private double rollMs() {
-		return clock.msSince(state().getLongOr("roll_time", 0), partial);
+			@Override
+			public void remove(long denom) {
+				sendTracked("undo");
+			}
+
+			@Override
+			public void tool(String toolId) {
+				sendTracked(toolId);
+			}
+		};
+	}
+
+	@Override
+	public void onGate(String id, Gate gate) {
+		if ("roll".equals(gate.action())) {
+			rollPressedAt = Util.getMillis();
+			FxSounds.play("dice_cup", 1f);
+		}
+		super.onGate(id, gate);
+	}
+
+	@Override
+	protected void openRules() {
+		showRules = !showRules;
+	}
+
+	// ---- state helpers ------------------------------------------------------------------------------------------------
+
+	private long secondsLeft(CompoundTag s, String timer) {
+		long ticks = s.getCompoundOrEmpty("timers").getLongOr(timer, -1);
+		if (ticks < 0) return -1;
+		double elapsed = clock.msSince(s.getLongOr("game_time", 0), partial) / 50.0;
+		return (long) Math.max(0, Math.ceil((ticks - elapsed) / 20.0));
+	}
+
+	private double rollMs(CompoundTag s) {
+		return clock.msSince(s.getLongOr("roll_time", 0), partial);
 	}
 
 	/** ms into the roll storyboard (IDLE and beyond = settled). */
 	private double t() {
-		if (throwPath == null || lateRoll) {
-			return CrapsBeats.IDLE + 1;
-		}
-		double t = rollMs();
-		if (skipped && t >= CrapsBeats.BADGE) {
-			return CrapsBeats.IDLE + 1;
-		}
+		if (throwPath == null || lateRoll) return CrapsBeats.IDLE + 1;
+		double t = rollMs(state());
+		if (skipped && t >= CrapsBeats.BADGE) return CrapsBeats.IDLE + 1;
 		return t;
 	}
 
-	private List<BetView> bets() {
-		List<BetView> out = new ArrayList<>();
-		ListTag list = state().getListOrEmpty("bets");
-		for (int i = 0; i < list.size(); i++) {
-			CompoundTag t = list.getCompoundOrEmpty(i);
-			out.add(new BetView(t.getIntOr("id", -1), t.getStringOr("kind", ""), t.getLongOr("flat", 0), t.getLongOr("odds", 0), t.getIntOr("point", 0),
-				t.getBooleanOr("mine", false), t.getIntOr("unit", 1), t.getLongOr("odds_max", 0), t.getLongOr("room", 0), t.getBooleanOr("off", false)));
-		}
-		return out;
+	/** The throw is still being shown (no Roll, no Undo meanwhile). */
+	private boolean rolling() {
+		return throwPath != null && !lateRoll && t() < CrapsBeats.CHIPS;
 	}
 
-	private List<BetView> prevBets() {
-		List<BetView> out = new ArrayList<>();
+	private List<BetPub> prevBets() {
+		List<BetPub> out = new ArrayList<>();
 		ListTag list = state().getListOrEmpty("prev_bets");
 		for (int i = 0; i < list.size(); i++) {
 			CompoundTag t = list.getCompoundOrEmpty(i);
-			out.add(new BetView(-1, t.getStringOr("kind", ""), t.getLongOr("flat", 0), t.getLongOr("odds", 0), t.getIntOr("point", 0),
+			out.add(new BetPub(-1, t.getStringOr("kind", ""), t.getLongOr("flat", 0), t.getLongOr("odds", 0), t.getIntOr("point", 0),
 				t.getBooleanOr("mine", false), 1, 0, 0, false));
 		}
 		return out;
@@ -214,105 +314,31 @@ public class CrapsScreen extends CasinoTableScreen {
 		return out;
 	}
 
-	private boolean allowed(String kind) {
-		return state().getCompoundOrEmpty("allowed").getBooleanOr(kind, false);
+	private void statusLines() {
+		if (view == null) return;
+		CrapsFlow.Status st = CrapsFlow.status(view);
+		Gate p = CrapsFlow.primary(view);
+		Component l1 = V2Draw.tr(st.line1().key(), st.line1().args());
+		Component l2 = V2Draw.tr(st.line2().key(), st.line2().args());
+		// a disabled primary shows its reason on line 1: then line 2 carries the point
+		chrome.status.set(l1, p.enabled() ? l2 : l1);
+		if (hoverSpot != null) {
+			CrapsFlow.Line h = CrapsFlow.hover(hoverSpot, view);
+			chrome.status.set(l1, V2Draw.tr(h.key(), h.args()));
+		}
 	}
 
-	private List<BetView> betsOn(CrapsFelt.Area a) {
-		List<BetView> out = new ArrayList<>();
-		for (BetView b : bets()) {
-			boolean on = a.kind().equals("point") ? (b.point() == a.point() && (b.kind().equals("come") || b.kind().equals("dont_come")))
-				: b.kind().equals(a.kind()) && b.point() == 0;
-			if (on) {
-				out.add(b);
-			}
-		}
-		return out;
-	}
-
-	private @Nullable BetView oddsTarget(CrapsFelt.Area a) {
-		BetView best = null;
-		for (BetView b : betsOn(a)) {
-			if (b.mine() && b.room() > 0 && !b.kind().equals("field")) {
-				if (best == null || b.kind().equals("come") || b.kind().equals("pass")) {
-					best = b;
-				}
-			}
-		}
-		return best;
-	}
-
-	private long oddsAmount(BetView b) {
-		long raw = Math.min(selectedChip, b.room());
-		return raw / Math.max(1, b.unit()) * Math.max(1, b.unit());
-	}
-
-	private long secondsLeft(String timer) {
-		long ticks = state().getCompoundOrEmpty("timers").getLongOr(timer, -1);
-		if (ticks < 0) {
-			return -1;
-		}
-		double elapsed = clock.msSince(state().getLongOr("game_time", 0), partial) / 50.0;
-		return (long) Math.max(0, Math.ceil((ticks - elapsed) / 20.0));
-	}
-
-	private static Component decode(@Nullable Tag tag) {
-		if (tag == null) {
-			return Component.empty();
-		}
-		var level = Minecraft.getInstance().level;
-		var ops = level != null ? level.registryAccess().createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
-		return ComponentSerialization.CODEC.parse(ops, tag).result().orElse(Component.empty());
-	}
-
-	// ---- widgets ------------------------------------------------------------------------------------------------------
-
-	private void rebuild() {
-		clearWidgets();
-		long max = maxBet();
-		if (selectedChip < minBet() || (max > 0 && selectedChip > max)) {
-			for (int c : CHIPS) {
-				if (c >= minBet() && (max <= 0 || c <= max)) {
-					selectedChip = c;
-					break;
-				}
-			}
-		}
-		for (int i = 0; i < CHIPS.length; i++) {
-			int d = CHIPS[i];
-			int x = compact() ? ox + 4 + i * 25 : ox + 8 + i * 27;
-			int y = compact() ? oy + 136 : oy + 212;
-			ChipButton b = addRenderableWidget(new ChipButton(x, y, d, theme, !compact(), () -> selectedChip, v -> selectedChip = v));
-			b.active = d >= minBet() && (max <= 0 || d <= max);
-		}
-		// Undo / Clear: only chips put down since the last roll (contract bets stay; GAME_DESIGN §10.1)
-		boolean canUndo = state().getBooleanOr("can_undo", false);
-		// compact: on the top bar left of the balance (the bottom bar holds the chips, rules and the status line)
-		int ux = compact() ? ox + frame.w() - 2 - TableChrome.balanceWidth(font, balance()) - 46 : ox + 12 + CHIPS.length * 27;
-		int uy = compact() ? oy - 1 : oy + 214;
-		addRenderableWidget(TableButton.icon(ux, uy, "undo", Component.translatable(K + "button.undo"), theme, b -> sendAction("undo"))).active = canUndo;
-		addRenderableWidget(TableButton.icon(ux + 22, uy, "clear", Component.translatable(K + "button.clear"), theme, b -> sendAction("clear"))).active = canUndo;
-		int bw = TableChrome.balanceWidth(font, balance());
-		int tx = ox + frame.w() - (compact() ? 2 : 4) - bw - 46;
-		if (compact()) {
-			addRenderableWidget(TableButton.icon(ox + 132, oy + 138, "rules", Component.translatable("gui.burmaldaholic.common.rules"), theme,
-				b -> showRules = !showRules));
-		} else {
-			addRenderableWidget(TableButton.icon(tx, oy + 1, "rules", Component.translatable("gui.burmaldaholic.common.rules"), theme,
-				b -> showRules = !showRules));
-			addRenderableWidget(TableButton.icon(tx + 22, oy + 1, "leave", Component.translatable("gui.burmaldaholic.common.leave"), theme,
-				b -> sendAction("leave"))).active = mySeat() >= 0;
-		}
-		if (state().getBooleanOr("you_shoot", false)) {
-			int sx = compact() ? ox + 236 : ox + 373;
-			int sy = compact() ? oy + 112 : oy + 189;
-			TableButton roll = addRenderableWidget(TableButton.action(sx, sy, TableButton.Kind.ROLL, Component.translatable(K + "roll"), b -> {
-				rollPressedAt = Util.getMillis();
-				FxSounds.play("dice_cup", 1f);
-				sendAction("roll");
-			}));
-			roll.active = state().getBooleanOr("can_roll", false);
-			roll.pulse(roll.active);
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		boolean r = rolling();
+		long sec = Util.getMillis() / 1000;
+		if (r != rollingShown || sec != lastSecond) {
+			rollingShown = r;
+			lastSecond = sec;
+			view = view(state());
+			refresh();
+			statusLines();
 		}
 	}
 
@@ -320,413 +346,344 @@ public class CrapsScreen extends CasinoTableScreen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == 0) {
-			if (throwPath != null && !skipped && rollMs() >= CrapsBeats.BADGE && rollMs() < CrapsBeats.IDLE) {
-				skipped = true;
-			}
-			if (showRules) {
-				if (!super.mouseClicked(event, doubleClick)) {
-					showRules = false;
-				}
-				return true;
-			}
-			var a = felt().hit(event.x() - lx(), event.y() - ly());
-			if (a.isPresent()) {
-				click(a.get());
-				return true;
-			}
+		if (showRules) {
+			showRules = false;
+			return true;
 		}
+		skipBeats();
 		return super.mouseClicked(event, doubleClick);
 	}
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == 32 && throwPath != null && rollMs() >= CrapsBeats.BADGE) { // Space skips the chip beats
-			skipped = true;
+		if (event.key() == 32 && !chrome.primary.gate().enabled() && skipBeats()) return true;
+		if (event.key() == 256 && showRules) {
+			showRules = false;
 			return true;
 		}
 		return super.keyPressed(event);
 	}
 
-	private void click(CrapsFelt.Area a) {
-		if (!a.kind().equals("point") && allowed(a.kind())) {
-			CompoundTag args = new CompoundTag();
-			args.putString("kind", a.kind());
-			args.putLong("amount", selectedChip);
-			sendAction("bet", args);
-			FxSounds.play("chip_place", 1f, (float) (0.9 + 0.1 * Math.log(selectedChip) / Math.log(5)));
-			return;
+	/** Space / a click while the chips resolve: jump to the settled table. */
+	private boolean skipBeats() {
+		if (throwPath == null || skipped || lateRoll) return false;
+		double t = rollMs(state());
+		if (t >= CrapsBeats.BADGE && t < CrapsBeats.IDLE) {
+			skipped = true;
+			return true;
 		}
-		BetView target = oddsTarget(a);
-		if (target != null) {
-			long amount = oddsAmount(target);
-			if (amount <= 0) {
-				showError(Component.translatable(K + "odds_multiple", Texts.chips(target.unit())));
-				return;
-			}
-			CompoundTag args = new CompoundTag();
-			args.putInt("bet", target.id());
-			args.putLong("amount", amount);
-			sendAction("odds", args);
-			FxSounds.play("chip_place", 1f, 1.1f);
-			return;
-		}
-		if ((a.kind().equals("pass") || a.kind().equals("dont_pass")) && state().getIntOr("point", 0) != 0) {
-			showError(Component.translatable(K + "line_only_come_out"));
-		} else {
-			showError(Component.translatable("gui.burmaldaholic.error.invalid_bet_position"));
-		}
+		return false;
 	}
 
-	// ---- rendering ----------------------------------------------------------------------------------------------------
+	// ---- drawing ------------------------------------------------------------------------------------------------------
 
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, CrapsView v, int mx, int my, float a) {
 		partial = a;
-		hoverArea = showRules ? null : felt().hit(mouseX - lx(), mouseY - ly()).orElse(null);
-		super.extractRenderState(g, mouseX, mouseY, a);
-		g.nextStratum();
-		status(g);
-		if (showRules) {
-			rules(g);
+		CrapsLayout l = layout;
+		CasinoTheme theme = theme();
+		int print = V2Felt.print(theme);
+		String hover = null;
+		if (!showRules) {
+			Optional<HitMap.Target> tgt = chrome.hits().at(mx, my);
+			if (tgt.isPresent() && tgt.get().id().startsWith("felt.")) hover = tgt.get().id();
 		}
-		if (hoverArea != null) {
-			List<FormattedCharSequence> tip = new ArrayList<>();
-			for (Component c : tooltip(hoverArea)) {
-				tip.addAll(font.split(c, 200));
-			}
-			g.setTooltipForNextFrame(font, tip, mouseX, mouseY);
+		if (!java.util.Objects.equals(hover, hoverSpot)) {
+			hoverSpot = hover;
+			statusLines();
 		}
-	}
-
-	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		partial = a;
-		TableChrome.backdrop(g, theme, width, height);
-		TableChrome.table(g, theme, frame, ox, oy);
-		topBar(g);
-		CrapsFelt f = felt();
-		TableGfx.region(g, TableGfx.sheet("craps/layout" + (compact() ? "_compact_" : "_") + theme.id), f.w(), f.height(), 0, 0, f.w(), f.height(), lx(),
-			ly(), 0xFFFFFFFF);
-		labels(g, f);
 		double t = t();
-		boolean settled = t >= CrapsBeats.IDLE;
 		CompoundTag s = state();
-		int point = s.getIntOr("point", 0);
-		int pointBefore = settled ? point : s.getIntOr("point_before", point);
-		// hover outline
-		if (hoverArea != null) {
-			var r = hoverArea.rect();
-			frameRect(g, lx() + r.x(), ly() + r.y(), r.w(), r.h(), 0xB0FFFFFF);
-		}
-		// point glow (steady after the puck landed)
-		int glowPoint = t >= CrapsBeats.PUCK + CrapsBeats.PUCK_TOTAL ? point : pointBefore;
-		if (glowPoint != 0) {
-			var b = f.place(glowPoint);
-			int gx = lx() + b.x() + b.w() / 2 - 24;
-			int gy = ly() + b.y() + b.h() / 2 - 20;
-			if (FxSettings.flashes() && !FxSettings.reduceMotion()) {
-				TableGfx.blit(g, "craps/point_glow", gx, gy, 48, 40);
-			} else {
-				TableGfx.frame(g, "craps/point_glow", 48, 40, 4, 2, gx, gy, 0xFFFFFFFF);
-			}
-		}
-		chips(g, f, t);
-		puck(g, f, t, pointBefore, point);
-		dice(g, f, t);
+		int point = v.point();
+		int pointBefore = t >= CrapsBeats.PUCK + CrapsBeats.PUCK_TOTAL ? point : s.getIntOr("point_before", point);
+		boolean armed = chrome.bet.armed();
+		feltLines(g, l, print, pointBefore, armed);
+		labels(g, l, print);
+		chips(g, l, v, t);
+		puck(g, l, t, s.getIntOr("point_before", point), point);
+		dice(g, l, s, t);
 		cues(t);
-		celebrate(t);
+		settle(t);
 	}
 
-	private void topBar(GuiGraphicsExtractor g) {
-		int bx = TableChrome.balanceWidth(font, balance());
-		int right = frame.w() - (compact() ? 2 : 4) - bx - (compact() ? 4 : 50);
-		int x = TableChrome.title(g, font, theme, frame, ox, oy, title, compact() ? 90 : 120);
-		if (!compact()) {
-			String shooter = state().getStringOr("shooter", "");
-			List<TableChrome.Seat> seats = new ArrayList<>();
-			ListTag list = state().getListOrEmpty("seats");
-			for (int i = 0; i < list.size(); i++) {
-				CompoundTag s = list.getCompoundOrEmpty(i);
-				String name = s.getStringOr("name", "");
-				int idx = s.getIntOr("index", i);
-				String kind = name.equals(shooter) ? "active" : s.getBooleanOr("you", false) ? "you" : "other";
-				seats.add(new TableChrome.Seat(Texts.raw(name), kind, TableChrome.seatTint(idx)));
+	private void feltLines(GuiGraphicsExtractor g, CrapsLayout l, int print, int point, boolean armed) {
+		int line = V2Draw.alpha(print, 0.85f);
+		for (Map.Entry<String, Box> e : l.spots().entrySet()) {
+			String id = e.getKey();
+			Box b = e.getValue();
+			if (id.equals(CrapsLayout.PASS_ODDS)) continue;
+			boolean lit = armed && live.contains(id);
+			if (id.equals(hoverSpot)) {
+				V2Draw.fill(g, b, live.contains(id) ? 0x24FFFFFF : 0x10FFFFFF);
+			} else if (lit) {
+				V2Draw.fill(g, b, 0x10FFD640);
 			}
-			int end = TableChrome.seats(g, font, theme, ox, oy, x + 6, seats, right);
-			// hot shooter: the flame under the active plate (static with reduced motion)
-			if (state().getIntOr("points_in_row", 0) >= 3 && !shooter.isEmpty() && end > x + 6) {
-				int fx = x + 6;
-				for (TableChrome.Seat seat : seats) {
-					int w = font.width(seat.name()) + 20;
-					if ("active".equals(seat.kind())) {
-						if (FxSettings.reduceMotion()) {
-							TableGfx.frame(g, "craps/flame", 32, 10, 3, 0, ox + fx + (w - 32) / 2, oy + 14, 0xFFFFFFFF);
-						} else {
-							TableGfx.blit(g, "craps/flame", ox + fx + (w - 32) / 2, oy + 14, 32, 10);
-						}
-					}
-					fx += w + 4;
-				}
+			V2Draw.outline(g, b, line);
+			if (id.equals(CrapsLayout.PASS)) {
+				V2Draw.outline(g, b, CasinoPalette.V2_GOLD);
+				V2Draw.outline(g, b.inset(1), V2Draw.alpha(CasinoPalette.V2_GOLD, 0.45f));
 			}
+			if (id.equals(hoverSpot) && live.contains(id)) V2Draw.outline(g, b.inset(1), CasinoPalette.V2_GOLD);
 		}
-		TableChrome.balance(g, font, theme, frame, ox, oy, balance());
+		if (CrapsLayout.PASS_ODDS.equals(hoverSpot)) {
+			V2Draw.fill(g, l.passOdds.inset(2), live.contains(CrapsLayout.PASS_ODDS) ? 0x24FFFFFF : 0x10FFFFFF);
+		}
+		if (point != 0) {
+			Box b = l.point(point);
+			V2Draw.outline(g, b, CasinoPalette.V2_GOLD);
+			V2Draw.outline(g, b.inset(1), CasinoPalette.V2_GOLD);
+		}
 	}
 
-	private void labels(GuiGraphicsExtractor g, CrapsFelt f) {
-		int line = theme.line;
-		var dc = f.dontCome();
-		List<FormattedCharSequence> dcl = font.split(Component.translatable(K + "layout.dont_come"), dc.w() - 6);
-		int dy = ly() + dc.y() + (dc.h() - dcl.size() * 10) / 2 + 1;
-		for (FormattedCharSequence l : dcl) {
-			g.text(font, l, lx() + dc.x() + (dc.w() - font.width(l)) / 2, dy, line, true);
+	private void labels(GuiGraphicsExtractor g, CrapsLayout l, int print) {
+		Font f = font;
+		// DON'T COME: two lines centred in its box
+		Box dc = l.dontCome;
+		List<FormattedCharSequence> dcl = f.split(Component.translatable(K + "layout.dont_come"), dc.w() - 6);
+		int dy = dc.y() + (dc.h() - dcl.size() * 10) / 2 + 1;
+		for (FormattedCharSequence seq : dcl) {
+			g.text(f, seq, dc.x() + (dc.w() - f.width(seq)) / 2, dy, print, true);
 			dy += 10;
 		}
-		var come = f.come();
-		big(g, Component.translatable(K + "layout.come"), lx() + come.cx() + (compact() ? 24 : 0), ly() + come.y() + (f.big() ? 9 : 7), come.w() / 2, line);
-		var fl = f.fieldLabel();
-		big(g, Component.translatable(K + "layout.field"), lx() + fl.cx(), ly() + fl.y() + (f.big() ? 8 : 7), fl.w() - 4, line);
-		var dp = f.dontPass();
-		small(g, Component.translatable(K + "layout.dont_pass"), lx() + dp.cx(), ly() + dp.y() + (dp.h() - 8) / 2 + 1, dp.w() - 60, line);
-		var pass = f.pass();
-		small(g, Component.translatable(K + "layout.pass_line"), lx() + pass.cx(), ly() + pass.y() + (pass.h() - 8) / 2 + 1, pass.w() - 20, line);
-		var odds = f.odds();
-		if (f.big()) {
-			Component o = Component.translatable(K + "layout.odds");
-			g.text(font, TableChrome.fit(font, o, 60), lx() + odds.x() + 6, ly() + odds.y(), line, true);
+		for (int i = 0; i < CrapsLayout.POINTS.length; i++) {
+			Box gl = l.pointGlyphs[i];
+			Component n = Texts.number(CrapsLayout.POINTS[i]);
+			int w = f.width(n) * l.pointScale;
+			V2Draw.text(g, f, n, gl.cx() - w / 2, gl.y(), l.pointScale, print, true);
 		}
-	}
-
-	/** Label at 2× when it fits its box, else 1×. */
-	private void big(GuiGraphicsExtractor g, Component c, int cx, int y, int maxW, int color) {
-		int w = font.width(c);
-		if (w * 2 <= maxW) {
-			g.pose().pushMatrix();
-			g.pose().translate(cx - w, y);
-			g.pose().scale(2f, 2f);
-			g.text(font, c, 0, 0, color, true);
-			g.pose().popMatrix();
-		} else {
-			small(g, c, cx, y + 4, maxW, color);
-		}
-	}
-
-	private void small(GuiGraphicsExtractor g, Component c, int cx, int y, int maxW, int color) {
-		FormattedCharSequence s = TableChrome.fit(font, c, maxW);
-		g.text(font, s, cx - font.width(s) / 2, y, color, true);
-	}
-
-	private static void frameRect(GuiGraphicsExtractor g, int x, int y, int w, int h, int c) {
-		g.fill(x, y, x + w, y + 1, c);
-		g.fill(x, y + h - 1, x + w, y + h, c);
-		g.fill(x, y, x + 1, y + h, c);
-		g.fill(x + w - 1, y, x + w, y + h, c);
-	}
-
-	/** Chip stacks: pre-roll bets while the dice fly, the resolution beats, then the current bets. */
-	private void chips(GuiGraphicsExtractor g, CrapsFelt f, double t) {
-		int other = 1;
-		if (t < CrapsBeats.CHIPS) {
-			for (BetView b : prevBets()) {
-				drawBet(g, f, b.kind(), b.point(), b.flat(), b.odds(), b.mine() ? 0 : other, 0, 0, 1);
+		big(g, Component.translatable(K + "layout.come"), l.comeWord, print);
+		big(g, Component.translatable(K + "layout.field"), l.fieldWord, print);
+		int numScale = l.tier == Tier.T3 ? 2 : 1;
+		for (int i = 0; i < l.fieldNumbers.length; i++) {
+			int n = l.fieldNumbers[i];
+			Box gl = l.fieldGlyphs[i];
+			boolean gold = n == 2 || n == 12;
+			int c = gold ? CasinoPalette.V2_GOLD : print;
+			Component num = Texts.number(n);
+			int w = f.width(num) * numScale;
+			V2Draw.text(g, f, num, gl.cx() - w / 2, gl.y(), numScale, c, true);
+			if (gold) {
+				int mult = n == 2 ? state().getIntOr("field2", 2) : state().getIntOr("field12", 3);
+				Component m = Component.translatable(K2 + "field_mult", Texts.number(mult));
+				V2Draw.text(g, f, m, gl.cx() - f.width(m) / 2, gl.y() + 8 * numScale + 2, 1, c, true);
 			}
-			return;
 		}
-		if (t < CrapsBeats.STICK) {
-			double k = (t - CrapsBeats.CHIPS);
-			int feltTop = oy + frame.feltY();
-			int stagger = 0;
+		small(g, Component.translatable(K + "layout.dont_pass"), l.dontPass, l.dontPassWord.cx(), print);
+		small(g, Component.translatable(K + "layout.pass_line"), l.pass, l.passWord.cx(), print);
+		Component odds = Component.translatable(K2 + "caption.odds");
+		V2Draw.text(g, f, odds, l.oddsWord.x(), l.pass.cy() - 4, 1, V2Draw.alpha(print, 0.8f), true);
+	}
+
+	/** A felt word at 2× when it fits its box, else 1×, centred. */
+	private void big(GuiGraphicsExtractor g, Component c, Box b, int color) {
+		int w = font.width(c);
+		int scale = w * 2 <= b.w() + 8 ? 2 : 1;
+		V2Draw.text(g, font, c, b.cx() - w * scale / 2, b.cy() - 4 * scale + 1, scale, color, true);
+	}
+
+	private void small(GuiGraphicsExtractor g, Component c, Box row, int cx, int color) {
+		Component fit = c;
+		int max = row.w() / 3;
+		FormattedCharSequence seq = font.width(c) <= max ? c.getVisualOrderText()
+			: dev.nezo.burmaldaholic.client.ui.CasinoUi.fit(font, fit, max);
+		g.text(font, seq, cx - font.width(seq) / 2, row.cy() - 3, color, true);
+	}
+
+	// ---- chips ------------------------------------------------------------------------------------------------------
+
+	private Box stackBox(String kind, int point, boolean odds, boolean mine) {
+		return layout.stack(kind, point, mine ? (odds ? Layer.ODDS : Layer.MINE) : Layer.OTHERS);
+	}
+
+	/** Bets: before the roll while the dice fly, the nets of the resolution beat, then the current bets. */
+	private void chips(GuiGraphicsExtractor g, CrapsLayout l, CrapsView v, double t) {
+		if (t < CrapsBeats.CHIPS) {
+			drawBets(g, prevBets(), 1f);
+		} else if (t < CrapsBeats.IDLE) {
+			drawBets(g, v.bets(), 1f);
+			double k = t - CrapsBeats.CHIPS;
 			for (Res r : lastRes()) {
-				int slot = r.mine() ? 0 : other;
+				if (!r.mine()) continue;
 				switch (r.outcome()) {
-					case "lose" -> {
-						double s = Math.max(0, Math.min(1, (k - 30 * Math.min(12, stagger++)) / 260.0));
-						if (s < 1) {
-							int[] p = spot(f, r.kind(), r.point(), slot);
-							int dy = -(int) Math.round((p[1] - feltTop) * Ease.IN_CUBIC.apply(s));
-							drawBet(g, f, r.kind(), r.point(), r.flat(), r.odds(), slot, 0, dy, s > 0.7 ? 1 - (s - 0.7) / 0.3 : 1);
-						}
+					case "win", "lose", "push", "odds_off" -> {
+						long net = r.ret() - r.flat() - r.odds();
+						Box at = stackBox(r.kind(), r.point(), false, true);
+						float fade = (float) Math.max(0, 1 - Math.max(0, k - 600) / 500.0);
+						if (net < 0) ChipStack.draw(g, at.offset(0, -(int) Math.round(Ease.IN_CUBIC.apply(Math.min(1, k / 500.0)) * 6)), r.flat() + r.odds(),
+							fade * 0.8f);
+						netPill(g, at, net, fade);
 					}
-					case "move" -> {
-						double s = Ease.IN_OUT_CUBIC.apply(Math.min(1, k / 400.0));
-						int[] from = spot(f, r.kind(), 0, slot);
-						int[] to = spot(f, r.kind(), r.movedTo(), slot);
-						int x = (int) Math.round(from[0] + (to[0] - from[0]) * s);
-						int y = (int) Math.round(from[1] + (to[1] - from[1]) * s - 10 * Math.sin(Math.PI * s));
-						TableChrome.stack(g, r.flat(), x, y, r.mine() ? 0 : TableChrome.seatTint(other), 0xFFFFFFFF);
-					}
-					case "win" -> {
-						long payout = Math.max(0, r.ret() - r.flat() - r.odds());
-						double fly = Math.max(0, Math.min(1, (k - 400) / 420.0));
-						int[] p = spot(f, r.kind(), r.point(), slot);
-						int x = p[0];
-						int y = p[1];
-						if (fly > 0 && r.mine() && !FxSettings.reduceMotion()) {
-							double e = Ease.IN_CUBIC.apply(fly);
-							int bx = ox + frame.w() - 30;
-							int by = oy + 10;
-							x = (int) Math.round(x + (bx - x) * e);
-							y = (int) Math.round(y + (by - y) * e);
-						}
-						if (fly < 1) {
-							TableChrome.stack(g, r.flat() + r.odds(), x, y, r.mine() ? 0 : TableChrome.seatTint(other), 0xFFFFFFFF);
-							int n = Math.min(5, (int) (k / 40) + 1);
-							int[] discs = new int[ChipStacks.MAX_DISCS];
-							n = Math.min(n, ChipStacks.discs(payout, discs));
-							for (int d = 0; d < n; d++) {
-								TableChrome.disc(g, discs[d], x + 8, y - 3 * d, r.mine() ? 0xFFFFFFFF : 0xB0FFFFFF);
-							}
-							if (r.mine() && fly <= 0) {
-								TableChrome.label(g, font, theme, Component.empty().append(Texts.raw("+")).append(Texts.number(payout)), x + 4,
-									y - TableChrome.stackHeight(r.flat() + r.odds()) - 16, Math.min(1, k / 250.0));
-							}
-						}
-					}
-					case "push", "odds_off" -> {
-						double s = Math.min(1, k / 400.0);
-						int[] p = spot(f, r.kind(), r.point(), slot);
-						int x = (int) Math.round(p[0] + (ox + 60 - p[0]) * Ease.IN_CUBIC.apply(s));
-						int y = (int) Math.round(p[1] + (oy + frame.barY() + 10 - p[1]) * Ease.IN_CUBIC.apply(s));
-						if (s < 1) {
-							TableChrome.stack(g, r.flat() + r.odds(), x, y, r.mine() ? 0 : TableChrome.seatTint(other), TableGfx.fade(1 - s * 0.6));
-						}
-					}
-					default -> drawBet(g, f, r.kind(), r.point(), r.flat(), r.odds(), slot, 0, 0, 1);
+					default -> {}
 				}
 			}
-			return;
+		} else {
+			drawBets(g, v.bets(), 1f);
 		}
-		for (BetView b : bets()) {
-			drawBet(g, f, b.kind(), b.point(), b.flat(), b.odds(), b.mine() ? 0 : other, 0, 0, 1);
+		// the pending chip of a bet / odds not yet answered
+		var p = chrome.pending();
+		if (p != null && p.spot().startsWith("felt.")) {
+			String kind = CrapsLayout.kindOf(p.spot());
+			Box at = switch (kind) {
+				case "point" -> stackBox("come", CrapsLayout.pointOf(p.spot()), true, true);
+				case "pass_odds" -> stackBox("pass", 0, true, true);
+				default -> stackBox(kind, 0, "odds".equals(p.action()), true);
+			};
+			ChipStack.drawPending(g, at.offset(0, -3), p.amount());
 		}
 	}
 
-	private int[] spot(CrapsFelt f, String kind, int point, int slot) {
-		int[] p = f.chipSpot(kind, point, slot);
-		return new int[] {lx() + p[0], ly() + p[1]};
-	}
-
-	private void drawBet(GuiGraphicsExtractor g, CrapsFelt f, String kind, int point, long flat, long odds, int slot, int dx, int dy, double alpha) {
-		int tint = slot == 0 ? 0 : TableChrome.seatTint(slot);
-		int[] p = f.chipSpot(kind, point, slot);
-		TableChrome.stack(g, flat, lx() + p[0] + dx, ly() + p[1] + dy, tint, TableGfx.fade(alpha));
-		if (slot == 0) {
-			TableChrome.stackValue(g, font, flat, lx() + p[0] + dx, ly() + p[1] + dy, TableGfx.fade(alpha));
+	private void drawBets(GuiGraphicsExtractor g, List<BetPub> bets, float alpha) {
+		Map<String, Long> others = new LinkedHashMap<>();
+		for (BetPub b : bets) {
+			if (b.mine()) continue;
+			String k = (b.point() != 0 && (b.kind().equals("come") || b.kind().equals("dont_come")) ? "come" : b.kind()) + "@" + b.point();
+			others.merge(k, b.staked(), Long::sum);
 		}
-		if (odds > 0) {
-			int[] o = f.oddsSpot(kind, point, slot);
-			TableChrome.stack(g, odds, lx() + o[0] + dx, ly() + o[1] + dy, tint, TableGfx.fade(alpha));
-			if (slot == 0) {
-				TableChrome.stackValue(g, font, odds, lx() + o[0] + dx, ly() + o[1] + dy, TableGfx.fade(alpha));
+		for (Map.Entry<String, Long> e : others.entrySet()) {
+			String[] kp = e.getKey().split("@");
+			ChipStack.draw(g, stackBox(kp[0], Integer.parseInt(kp[1]), false, false), e.getValue(), alpha * 0.85f);
+		}
+		List<Box> tags = new ArrayList<>();
+		for (BetPub b : bets) {
+			if (!b.mine()) continue;
+			Box flat = stackBox(b.kind(), b.point(), false, true);
+			ChipStack.draw(g, flat, b.flat(), alpha);
+			valueTag(g, flat, b.flat(), tags);
+			if (b.odds() > 0) {
+				Box odds = stackBox(b.kind(), b.point(), true, true);
+				ChipStack.draw(g, odds, b.odds(), alpha);
+				valueTag(g, odds, b.odds(), tags);
 			}
 		}
 	}
 
-	private void puck(GuiGraphicsExtractor g, CrapsFelt f, double t, int from, int to) {
-		double pt = FxSettings.reduceMotion() ? (t >= CrapsBeats.PUCK ? CrapsBeats.PUCK_TOTAL : 0) : t - CrapsBeats.PUCK;
-		CrapsBeats.puck(f.puck(from), from, f.puck(to), to, Math.max(0, pt), puck);
-		int x = lx() + (int) Math.round(puck.x);
-		int y = ly() + (int) Math.round(puck.y);
-		int lift = (int) Math.round(puck.lift);
-		if (lift > 0) {
-			TableGfx.blit(g, "craps/die_shadow", x, y + 13, 18, 6, 0xB0FFFFFF);
+	/** The value pill of one of your stacks: above-right of its top disc, kept inside the felt and off other tags. */
+	private void valueTag(GuiGraphicsExtractor g, Box stack, long amount, List<Box> placed) {
+		Component n = Texts.number(amount);
+		int w = ValuePill.width(font, n);
+		int top = stack.bottom() - stack.w() - Math.min(3, ChipStack.discs(amount).size() - 1) - 1;
+		Box tag = new Box(stack.right() - 2, top - 9, w, 11);
+		Box felt = layout.felt;
+		if (tag.right() > felt.right() - 1) tag = tag.offset(felt.right() - 1 - tag.right(), 0);
+		if (tag.y() < felt.y() + 1) tag = tag.offset(0, felt.y() + 1 - tag.y());
+		for (Box o : placed) {
+			if (o.intersects(tag)) tag = tag.offset(0, o.y() - tag.bottom() - 1);
 		}
-		TableGfx.frame(g, "craps/puck", 18, 18, 5, puck.frame, x, y - lift, 0xFFFFFFFF);
+		placed.add(tag);
+		ValuePill.draw(g, font, tag, n, ValuePill.Style.YOU);
+	}
+
+	private void netPill(GuiGraphicsExtractor g, Box stack, long net, float alpha) {
+		if (alpha <= 0.05f) return;
+		Component n = V2Draw.net(net);
+		int w = ValuePill.width(font, n);
+		Box tag = new Box(stack.cx() - w / 2, stack.y() - 12, w, 11);
+		if (tag.y() < layout.felt.y() + 1) tag = tag.offset(0, layout.felt.y() + 1 - tag.y());
+		ValuePill.draw(g, font, tag, n, ValuePill.ofNet(net));
+	}
+
+	// ---- puck and dice ----------------------------------------------------------------------------------------------
+
+	private void puck(GuiGraphicsExtractor g, CrapsLayout l, double t, int from, int to) {
+		double pt = FxSettings.reduceMotion() ? (t >= CrapsBeats.PUCK ? CrapsBeats.PUCK_TOTAL : 0) : t - CrapsBeats.PUCK;
+		Box fb = l.puckBox(from);
+		Box tb = l.puckBox(to);
+		CrapsBeats.puck(new int[] {fb.x(), fb.y()}, from, new int[] {tb.x(), tb.y()}, to, Math.max(0, pt), puck);
+		int size = to != 0 ? tb.w() : fb.w();
+		int sheet = size <= 12 ? 12 : size <= 16 ? 16 : 20;
+		int x = (int) Math.round(puck.x);
+		int y = (int) Math.round(puck.y) - (int) Math.round(puck.lift);
+		Identifier tex = dev.nezo.burmaldaholic.Burmaldaholic.id("textures/gui/tables/craps/v2/puck_" + sheet + ".png");
+		g.blit(tex, x, y, x + sheet, y + sheet, 0f, 1f, puck.frame / 5f, (puck.frame + 1) / 5f);
 		if (puck.frame == CrapsBeats.FRAME_ON || puck.frame == CrapsBeats.FRAME_OFF) {
-			Component l = Component.translatable(puck.frame == CrapsBeats.FRAME_ON ? "gui.burmaldaholic.common.on" : "gui.burmaldaholic.common.off");
-			int w = font.width(l);
-			float sc = w > 14 ? 0.5f : 1f;
-			g.pose().pushMatrix();
-			g.pose().translate(x + 9, y - lift + 9);
-			g.pose().scale(sc, sc);
-			g.text(font, l, -w / 2, -4, puck.frame == CrapsBeats.FRAME_ON ? 0xFF26202C : 0xFFF4ECF8, false);
-			g.pose().popMatrix();
+			Component word = Component.translatable(puck.frame == CrapsBeats.FRAME_ON ? "gui.burmaldaholic.common.on" : "gui.burmaldaholic.common.off");
+			int w = font.width(word);
+			int c = puck.frame == CrapsBeats.FRAME_ON ? 0xFF26202C : CasinoPalette.V2_TEXT;
+			if (w <= sheet - 2) {
+				g.text(font, word, x + (sheet - w) / 2, y + (sheet - 7) / 2, c, false);
+			} else {
+				// RU "ВКЛ" / small pucks: half size (still ≥ 2 real px per glyph px at GUI 4)
+				g.pose().pushMatrix();
+				g.pose().translate(x + sheet / 2f, y + sheet / 2f);
+				g.pose().scale(0.5f, 0.5f);
+				g.text(font, word, -w / 2, -4, c, false);
+				g.pose().popMatrix();
+			}
 		}
 	}
 
-	private static final int[] BLANK = {0, 0};
+	private Identifier diceTex() {
+		int s = layout.die1.w();
+		return dev.nezo.burmaldaholic.Burmaldaholic.id("textures/gui/tables/craps/v2/dice_" + s + ".png");
+	}
 
-	/** The dice: waiting rattle, the shared throw, rest, the total badge, the stick-back. */
-	private void dice(GuiGraphicsExtractor g, CrapsFelt f, double t) {
-		var tex = TableGfx.sheet("craps/dice_small");
+	private void die(GuiGraphicsExtractor g, int x, int y, int col, int row, float alpha) {
+		int s = layout.die1.w();
+		g.blit(diceTex(), x, y, x + s, y + s, col / 8f, (col + 1) / 8f, row / 2f, (row + 1) / 2f);
+	}
+
+	/** The dice: the shooter's rattle, the throw, the rest with the total pill and the {@code point} caption. */
+	private void dice(GuiGraphicsExtractor g, CrapsLayout l, CompoundTag s, double t) {
+		int size = l.die1.w();
 		long now = Util.getMillis();
-		if (rollPressedAt >= 0 && now - rollPressedAt < 600) {
-			// the shooter's dice rattle (blank tumble frames: no number before the result)
+		if (rollPressedAt >= 0 && now - rollPressedAt < 700 && (throwPath == null || rollMs(s) < 0 || shownRollsStale())) {
 			int j = (int) ((now - rollPressedAt) / 60) % 2 == 0 ? 1 : -1;
-			int bx = compact() ? ox + 210 : ox + 330;
-			int by = compact() ? oy + 118 : oy + 196;
 			for (int d = 0; d < 2; d++) {
 				int fr = (int) ((now / 60 + d * 3) % 8);
-				TableGfx.region(g, tex, 144, 36, fr * 18, 18, 18, 18, bx + d * 20 + j * (d == 0 ? 1 : -1), by, 0xFFFFFFFF);
+				die(g, l.throwX - size - 4 + d * (size + 2) + j * (d == 0 ? 1 : -1) - size, l.throwY - size, fr, 1, 1f);
 			}
 		}
+		int d1 = s.getIntOr("d1", 0);
+		int d2 = s.getIntOr("d2", 0);
 		DiceThrowPath p = throwPath;
-		if (p == null) {
+		if (p == null || d1 <= 0) {
+			return; // no roll yet: the COME row stays clean
+		}
+		boolean settled = t >= p.durationMs() || FxSettings.reduceMotion();
+		if (!settled) {
+			for (int d = 0; d < 2; d++) {
+				p.sample(d, t, sample);
+				int x = (int) Math.round(sample.x) - size / 2;
+				int y = (int) Math.round(sample.y - sample.z) - size / 2;
+				g.fill(x + 1, (int) Math.round(sample.y) + size / 2 - 1, x + size - 1, (int) Math.round(sample.y) + size / 2 + 1, 0x50000000);
+				if (sample.frame >= 0) die(g, x, y, sample.frame, 1, 1f);
+				else die(g, x, y, sample.face - 1, 0, 1f);
+			}
 			return;
 		}
-		boolean reduced = FxSettings.reduceMotion();
-		// the dice stay where they landed, with their total, until the next throw (visual/tables.md mockups)
-		double stick = 0;
-		int stickDx = 0;
-		int rightX = 0;
-		int topY = Integer.MAX_VALUE;
-		for (int d = 0; d < 2; d++) {
-			p.sample(d, reduced ? p.durationMs() : t, sample);
-			int x = lx() + (int) Math.round(sample.x) - 9 + (stick > 0 ? stickDx : 0);
-			int y = ly() + (int) Math.round(sample.y - sample.z) - 9;
-			double a = reduced ? Math.min(1, t / 200.0) : 1;
-			TableGfx.blit(g, "craps/die_shadow", lx() + (int) Math.round(sample.x) - 9 + (stick > 0 ? stickDx : 0), ly() + (int) Math.round(sample.y) + 6, 18, 6,
-				TableGfx.fade(a * Math.max(0.3, 1 - sample.z / 30)));
-			if (sample.frame >= 0) {
-				if (!reduced && sample.z > 8) {
-					TableGfx.frame(g, "craps/streak", 12, 18, 1, 0, x + 12, y, 0x90FFFFFF);
-				}
-				TableGfx.region(g, tex, 144, 36, sample.frame * 18, 18, 18, 18, x, y, TableGfx.fade(a));
-			} else {
-				TableGfx.region(g, tex, 144, 36, (sample.face - 1) * 18, 0, 18, 18, x, y, TableGfx.fade(a));
-			}
-			rightX = Math.max(rightX, x + 18);
-			topY = Math.min(topY, y);
-		}
-		// total badge: pops at 1350 in the event colour
-		if (t >= CrapsBeats.BADGE && stick <= 0) {
-			int total = state().getIntOr("d1", 0) + state().getIntOr("d2", 0);
-			double k = reduced ? 1 : Math.min(1, (t - CrapsBeats.BADGE) / 250.0);
-			double pop = Ease.OUT_BACK.apply(k);
-			int shake = 0;
-			if ("seven_out".equals(state().getStringOr("event", "")) && !reduced && t < CrapsBeats.BADGE + 400) {
-				shake = (int) Math.round(2 * Math.sin((t - CrapsBeats.BADGE) / 400.0 * Math.PI * 6));
-			}
-			int bx = rightX + 6 + shake;
-			int by = topY - 3 - (int) Math.round(4 * (1 - pop));
-			TableGfx.blit(g, "craps/total_" + badgeKind(), bx, by, 24, 24, TableGfx.fade(Math.min(1, k * 2)));
-			if (k > 0.4) {
-				Component n = Texts.number(total);
-				g.text(font, n, bx + 12 - font.width(n) / 2, by + 8, TableChrome.GOLD, true);
+		// at rest: the dice in their slots (the throw ends in the rest region; the slots keep the total readable)
+		die(g, l.die1.x(), l.die1.y(), d1 - 1, 0, 1f);
+		die(g, l.die2.x(), l.die2.y(), d2 - 1, 0, 1f);
+		if (t >= CrapsBeats.BADGE || lateRoll) {
+			Component n = Texts.number(d1 + d2);
+			int color = switch (s.getStringOr("event", "")) {
+				case "natural", "point_made" -> CasinoPalette.V2_WIN;
+				case "craps", "seven_out" -> CasinoPalette.V2_LOSE;
+				default -> CasinoPalette.V2_GOLD;
+			};
+			Box tb = l.total;
+			V2Draw.fill(g, tb, CasinoPalette.V2_INK);
+			V2Draw.outline(g, tb, V2Draw.alpha(CasinoPalette.V2_GOLD_SHADE, 1f));
+			int scale = l.tier == Tier.T1 ? 1 : 2;
+			int w = font.width(n) * scale;
+			V2Draw.text(g, font, n, tb.cx() - w / 2 + 1, tb.cy() - 4 * scale + 1, scale, color, true);
+			if (state().getIntOr("point", 0) != 0) {
+				V2Draw.text(g, font, Component.translatable(K2 + "caption.point"), l.pointCaption.x(), l.pointCaption.y(), 1, V2Felt.print(theme()), true);
 			}
 		}
 	}
 
-	private String badgeKind() {
-		return switch (state().getStringOr("event", "")) {
-			case "natural", "point_made" -> "natural";
-			case "craps", "seven_out" -> "craps";
-			case "point_set" -> "point";
-			default -> "neutral";
-		};
+	private boolean shownRollsStale() {
+		return state().getIntOr("rolls", 0) == shownRolls && rollMs(state()) > CrapsBeats.IDLE;
 	}
 
-	/** Sound cues of the roll (own screen, personal playback). */
+	/** Sound cues of the roll (own screen). */
 	private void cues(double t) {
 		DiceThrowPath p = throwPath;
-		if (p == null || lateRoll || t >= CrapsBeats.IDLE) {
-			return;
-		}
+		if (p == null || lateRoll || t >= CrapsBeats.IDLE) return;
 		var list = p.cues();
 		if (cueIndex == 0 && t > 300) {
-			while (cueIndex < list.size() && list.get(cueIndex).atMs() < t - 100) {
-				cueIndex++;
-			}
+			while (cueIndex < list.size() && list.get(cueIndex).atMs() < t - 100) cueIndex++;
 		}
 		while (cueIndex < list.size() && list.get(cueIndex).atMs() <= t) {
 			var c = list.get(cueIndex++);
@@ -749,18 +706,17 @@ public class CrapsScreen extends CasinoTableScreen {
 		}
 	}
 
-	/** The shared celebration after the payout flew to the balance (tables.md §0.3, §2.9). */
-	private void celebrate(double t) {
-		if (celebrated == shownRolls || t < CrapsBeats.CHIPS + 820 || lateRoll) {
-			return;
-		}
-		celebrated = shownRolls;
+	/** The result of the roll for the viewer: banner, balance delta, celebration (once per roll). */
+	private void settle(double t) {
+		if (settledFor == shownRolls || t < CrapsBeats.CHIPS || throwPath == null) return;
+		settledFor = shownRolls;
 		CompoundTag s = state();
 		long staked = s.getLongOr("res_staked", 0);
 		long ret = s.getLongOr("res_return", 0);
-		if (staked <= 0) {
-			return;
-		}
+		if (staked <= 0) return;
+		long net = ret - staked;
+		chrome.banner.show(net);
+		chrome.top.balance.delta(net);
 		WinTier tier = WinTier.valueOf(s.getStringOr("tier", "LOSS"));
 		if (tier.ordinal() >= WinTier.NICE.ordinal() && FxSettings.celebrations() != FxSettings.Celebrations.OFF) {
 			CelebrationOverlay.get().play(CelebrationRequest.core(tier, ret, staked, s.getIntOr("seed", 0)));
@@ -771,143 +727,25 @@ public class CrapsScreen extends CasinoTableScreen {
 		}
 	}
 
-	private void status(GuiGraphicsExtractor g) {
-		CompoundTag s = state();
-		int point = s.getIntOr("point", 0);
-		double t = t();
-		Component line1;
-		int c1 = TableChrome.GOLD;
-		String event = s.getStringOr("event", "");
-		if (throwPath != null && t < CrapsBeats.BANNER) {
-			line1 = Component.translatable("gui.burmaldaholic.craps.fx.throwing", Texts.raw(s.getStringOr("shooter", "")));
-		} else if (throwPath != null && t < CrapsBeats.IDLE && eventLine(event, s.getIntOr("event_total", 0)) != null) {
-			line1 = eventLine(event, s.getIntOr("event_total", 0));
-			c1 = switch (event) {
-				case "natural", "point_made" -> TableChrome.GREEN;
-				case "craps", "seven_out" -> TableChrome.RED;
-				default -> TableChrome.GOLD;
-			};
-		} else {
-			line1 = point == 0 ? Component.translatable(K + "point_off") : Component.translatable(K + "point_on", Texts.number(point));
-		}
-		Component line2;
-		long window = s.getBooleanOr("window", false) ? secondsLeft("window") : -1;
-		long roll = secondsLeft("roll");
-		boolean youShoot = s.getBooleanOr("you_shoot", false);
-		String shooter = s.getStringOr("shooter", "");
-		if (s.getBooleanOr("need_line", false)) {
-			line2 = Component.translatable(K + "need_line_bet");
-		} else if (window >= 0) {
-			line2 = Component.translatable(K + "bet_window", Texts.plural("unit.burmaldaholic.second", window));
-		} else if (!youShoot && !shooter.isEmpty()) {
-			line2 = Component.translatable(K + "waiting_shooter", Texts.raw(shooter));
-		} else if (roll >= 0 && youShoot) {
-			line2 = Component.translatable(K + "auto_roll_in", Texts.plural("unit.burmaldaholic.second", roll));
-		} else {
-			long total = 0;
-			for (BetView b : bets()) {
-				if (b.mine()) {
-					total += b.flat() + b.odds();
-				}
-			}
-			line2 = Component.translatable("gui.burmaldaholic.common.total_bet", Texts.number(total));
-		}
-		if (error != null) {
-			line1 = error;
-			c1 = TableChrome.RED;
-		}
-		if (compact()) {
-			var seq = TableChrome.fit(font, line1, 130);
-			g.text(font, seq, ox + 200 - font.width(seq) / 2, oy + 140, c1, true);
-		} else {
-			TableChrome.status(g, font, ox + 262, oy + 211, 216, line1, line2, c1);
-			if (window >= 0) {
-				TableChrome.timer(g, ox + 352 - 4, oy + 186, window, Math.max(1, s.getLongOr("window_total", 20)), true);
-			}
-			Tag botLine = s.get("bot_line");
-			if (botLine != null) {
-				var seq = TableChrome.fit(font, decode(botLine), 200);
-				g.text(font, seq, ox + 150, oy + 197, TableChrome.MUTED, true);
-			}
-		}
-	}
-
-	private static @Nullable Component eventLine(String event, int total) {
-		String m = "msg.burmaldaholic.craps.";
-		return switch (event) {
-			case "natural" -> Component.translatable(m + "natural", Texts.number(total));
-			case "craps" -> Component.translatable(m + "craps", Texts.number(total));
-			case "point_set" -> Component.translatable(m + "point_set", Texts.number(total));
-			case "point_made" -> Component.translatable(m + "point_made", Texts.number(total));
-			case "seven_out" -> Component.translatable(m + "seven_out");
-			default -> null;
-		};
-	}
-
-	private void rules(GuiGraphicsExtractor g) {
-		int x = ox + frame.feltX() + 16;
-		int y = oy + frame.feltY() + 10;
-		int w = frame.feltW() - 32;
-		TableGfx.blit(g, "core/plate_" + theme.id, x, y, w, frame.feltH() - 20);
-		int ty = y + 8;
-		for (int i = 1; i <= 3; i++) {
-			for (FormattedCharSequence seq : font.split(Component.translatable(K + "rules." + i), w - 16)) {
-				g.text(font, seq, x + 8, ty, TableChrome.BONE, true);
-				ty += 10;
-			}
-			ty += 4;
-		}
-		g.text(font, TableChrome.fit(font, limitsLine(), w - 16), x + 8, ty, TableChrome.GOLD, true);
-	}
-
-	private List<Component> tooltip(CrapsFelt.Area a) {
-		List<Component> out = new ArrayList<>();
-		out.add(a.kind().equals("point") ? Texts.number(a.point()).withStyle(ChatFormatting.YELLOW)
-			: Component.translatable(K + a.kind()).withStyle(ChatFormatting.YELLOW));
-		long others = 0;
-		for (BetView b : betsOn(a)) {
-			if (!b.mine()) {
-				others += b.flat() + b.odds();
-				continue;
-			}
-			Component label = betLabel(b.kind(), b.point());
-			out.add(b.odds() > 0 ? Component.translatable(K + "bet_with_odds", label, Texts.chips(b.flat()), Texts.chips(b.odds()))
-				: Component.translatable(K + "bet_flat", label, Texts.chips(b.flat())));
-			if (b.off() && b.odds() > 0) {
-				out.add(Component.translatable(K + "odds_off").withStyle(ChatFormatting.GRAY));
-			}
-		}
-		if (others > 0) {
-			out.add(Component.translatable(K + "others", Texts.chips(others)).withStyle(ChatFormatting.GRAY));
-		}
-		if (!a.kind().equals("point") && allowed(a.kind())) {
-			out.add(Component.translatable(K + "click_to_bet", Texts.chipsAcc(selectedChip)).withStyle(ChatFormatting.GREEN));
-		} else {
-			BetView t = oddsTarget(a);
-			if (t != null) {
-				out.add(Component.translatable(K + "odds_max", Texts.chips(t.oddsMax())).withStyle(ChatFormatting.GRAY));
-				out.add(Component.translatable(K + "odds_multiple", Texts.chips(t.unit())).withStyle(ChatFormatting.GRAY));
-				long amt = oddsAmount(t);
-				if (amt > 0) {
-					out.add(Component.translatable(K + "click_odds", Texts.chips(amt)).withStyle(ChatFormatting.GREEN));
-				}
-			}
-		}
-		return out;
-	}
-
-	private static MutableComponent betLabel(String kind, int point) {
-		if (kind.equals("come") && point != 0) {
-			return Component.translatable(K + "come_point", Texts.number(point));
-		}
-		if (kind.equals("dont_come") && point != 0) {
-			return Component.translatable(K + "dont_come_point", Texts.number(point));
-		}
-		return Component.translatable(K + kind);
-	}
-
 	@Override
-	protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
-		// the chrome draws the title, status and error line
+	protected void renderOverlay(GuiGraphicsExtractor g, TableGrid grid, CrapsView v, int mx, int my, float a) {
+		if (!showRules) return;
+		Box b = grid.play.inset(grid.m() + 10);
+		V2Draw.fill(g, grid.play, 0x90000000);
+		V2Draw.pill(g, b, CasinoPalette.V2_PANEL, CasinoPalette.V2_GOLD_SHADE);
+		int y = b.y() + 8;
+		for (int i = 1; i <= 3; i++) {
+			for (FormattedCharSequence seq : font.split(Component.translatable(K + "rules." + i), b.w() - 16)) {
+				g.text(font, seq, b.x() + 8, y, CasinoPalette.V2_TEXT, true);
+				y += 10;
+			}
+			y += 4;
+		}
+		g.text(font, dev.nezo.burmaldaholic.client.ui.CasinoUi.fit(font, limitsLine(), b.w() - 16), b.x() + 8, y, CasinoPalette.V2_GOLD, true);
+	}
+
+	/** The current layout (tests). */
+	public CrapsLayout layout() {
+		return layout;
 	}
 }

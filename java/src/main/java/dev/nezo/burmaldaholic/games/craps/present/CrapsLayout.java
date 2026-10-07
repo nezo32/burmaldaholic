@@ -16,22 +16,22 @@ import java.util.Map;
  * PASS LINE (gold edge) with its odds lane on the right.
  *
  * <p>Every bet area is a {@link Box} in layout px; the screen draws and hit-tests with exactly these boxes (ids
- * {@code spot.<id>}); chip stacks, the puck, the dice and the banner region are placed here as well so the pure
+ * {@code felt.<id>}); chip stacks, the puck, the dice and the banner region are placed here as well so the pure
  * layout test can audit every size of ui-v2.md §11.1 (nothing outside the felt, stacks never on a printed number,
  * stacks never overlapping each other). Pure.
  */
 public final class CrapsLayout {
 	public static final int[] POINTS = {4, 5, 6, 8, 9, 10};
 	/** Hit ids of the bet areas (the felt spots of the HitMap, ui-v2.md §6). */
-	public static final String DONT_COME = "spot.dont_come", COME = "spot.come", FIELD = "spot.field", DONT_PASS = "spot.dont_pass",
-		PASS = "spot.pass", PASS_ODDS = "spot.pass_odds";
+	public static final String DONT_COME = "felt.dont_come", COME = "felt.come", FIELD = "felt.field", DONT_PASS = "felt.dont_pass",
+		PASS = "felt.pass", PASS_ODDS = "felt.pass_odds";
 
 	/** Every felt spot id (point boxes, Don't Come, Come, Field, Don't Pass, Pass, the odds lane). */
-	public static final List<String> SPOT_IDS = List.of("spot.point.4", "spot.point.5", "spot.point.6", "spot.point.8", "spot.point.9",
-		"spot.point.10", DONT_COME, COME, FIELD, DONT_PASS, PASS, PASS_ODDS);
+	public static final List<String> SPOT_IDS = List.of("felt.point.4", "felt.point.5", "felt.point.6", "felt.point.8", "felt.point.9",
+		"felt.point.10", DONT_COME, COME, FIELD, DONT_PASS, PASS, PASS_ODDS);
 
 	public static String pointId(int point) {
-		return "spot.point." + point;
+		return "felt.point." + point;
 	}
 
 	public final TableGrid grid;
@@ -111,7 +111,7 @@ public final class CrapsLayout {
 		// dice region: the centre-right of the COME row
 		int die = tier == Tier.T1 ? 14 : tier == Tier.T2 ? 18 : 22;
 		int dy = come.cy() - die / 2;
-		int dx = come.x() + come.w() * 44 / 100;
+		int dx = come.x() + come.w() * 52 / 100;
 		die1 = new Box(dx, dy, die, die);
 		die2 = new Box(dx + die + 6, dy - 2, die, die);
 		int tw = tier == Tier.T1 ? 18 : tier == Tier.T2 ? 22 : 28;
@@ -179,13 +179,13 @@ public final class CrapsLayout {
 
 	/** The bet-kind id of a hit id ({@code pass}, {@code point}, …; the odds lane is {@code pass_odds}). */
 	public static String kindOf(String spotId) {
-		String s = spotId.startsWith("spot.") ? spotId.substring(5) : spotId;
+		String s = spotId.startsWith("felt.") ? spotId.substring(5) : spotId;
 		return s.startsWith("point.") ? "point" : s;
 	}
 
 	/** The point of a {@code spot.point.N} id, else 0. */
 	public static int pointOf(String spotId) {
-		return spotId.startsWith("spot.point.") ? Integer.parseInt(spotId.substring("spot.point.".length())) : 0;
+		return spotId.startsWith("felt.point.") ? Integer.parseInt(spotId.substring("felt.point.".length())) : 0;
 	}
 
 	// ---- chips --------------------------------------------------------------------------------------------------------

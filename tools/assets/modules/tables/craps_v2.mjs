@@ -3,7 +3,7 @@
 // at 12 / 16 / 20 px (5 flip frames: OFF, flip, edge, flip, ON — the same order as `craps/puck`). Words (ON / OFF)
 // stay out of the art (drawn by the screen, translated). Deterministic, pure.
 import { BONE, INK } from './theme.mjs';
-import { P, R, image, inked, rrect } from './draw.mjs';
+import { P, R, image, inked, rrect, textC } from './draw.mjs';
 import { tumble } from './dice.mjs';
 
 const PIP = '#2A1A3C';
@@ -97,4 +97,76 @@ function put(dst, src, ox, oy) {
       const j = ((oy + y) * dst.w + ox + x) * 4;
       for (let k = 0; k < 4; k++) dst.data[j + k] = src.data[i + k];
     }
+}
+
+// ---- in-world layout print (ui-v2.md §7.6, lane D) -------------------------------------------------------------------
+/**
+ * Geometry of the in-world craps print, in texture px (the Java mirror is `games/craps/present/CrapsBoardGeometry`, same
+ * fractions as the v2 screen's `CrapsLayout`): Don't Come, six point boxes, Come, Field, Don't Pass bar, Pass line.
+ */
+export const PRINT_W = 256;
+export const PRINT_H = 168;
+export function printGeometry() {
+  const m = 4;
+  const gap = 3;
+  const w = PRINT_W - 2 * m;
+  const h = PRINT_H - 2 * m;
+  const avail = h - 4 * gap;
+  const placeH = Math.round(avail * 0.28);
+  const comeH = Math.round(avail * 0.245);
+  const fieldH = Math.round(avail * 0.18);
+  const dpH = Math.round(avail * 0.105);
+  const passH = avail - placeH - comeH - fieldH - dpH;
+  const dcW = Math.round(w * 0.17);
+  const px0 = m + dcW + gap;
+  const pw = m + w - px0;
+  const points = [4, 5, 6, 8, 9, 10].map((p, i) => {
+    const a = px0 + Math.floor((pw * i) / 6);
+    const b = px0 + Math.floor((pw * (i + 1)) / 6);
+    return { p, x: a, y: m, w: b - a - (i < 5 ? gap : 0), h: placeH };
+  });
+  const comeY = m + placeH + gap;
+  const fieldY = comeY + comeH + gap;
+  const dpY = fieldY + fieldH + gap;
+  const passY = dpY + dpH + gap;
+  return {
+    dontCome: { x: m, y: m, w: dcW, h: placeH + gap + comeH },
+    points,
+    come: { x: px0, y: comeY, w: pw, h: comeH },
+    field: { x: m, y: fieldY, w, h: fieldH },
+    dontPass: { x: m, y: dpY, w, h: dpH },
+    pass: { x: m, y: passY, w, h: passH },
+  };
+}
+
+/** The print: bone lines, the point numbers ×2, the field numbers (2 and 12 gold), the Pass line's gold edge. No words. */
+export function boardPrint() {
+  const img = image(PRINT_W, PRINT_H);
+  const g = printGeometry();
+  const line = (b, hex, k = 0.85) => {
+    R(img, b.x, b.y, b.w, 1, hex, k);
+    R(img, b.x, b.y + b.h - 1, b.w, 1, hex, k);
+    R(img, b.x, b.y, 1, b.h, hex, k);
+    R(img, b.x + b.w - 1, b.y, 1, b.h, hex, k);
+  };
+  const BONE_P = '#E8D9A0';
+  const GOLD_P = '#FFD640';
+  line(g.dontCome, BONE_P);
+  for (const b of g.points) {
+    line(b, BONE_P);
+    textC(img, String(b.p), b.x + b.w / 2, b.y + 11, BONE_P, { s: 2 });
+  }
+  line(g.come, BONE_P);
+  line(g.field, BONE_P);
+  const nums = [2, 3, 4, 9, 10, 11, 12];
+  const fx0 = g.field.x + Math.round(g.field.w * 0.2);
+  const fw = g.field.x + g.field.w - 6 - fx0;
+  nums.forEach((n, i) => {
+    const cx = fx0 + (fw * (2 * i + 1)) / (2 * nums.length);
+    textC(img, String(n), cx, g.field.y + 8, n === 2 || n === 12 ? GOLD_P : BONE_P);
+  });
+  line(g.dontPass, BONE_P);
+  line(g.pass, GOLD_P, 1);
+  line({ x: g.pass.x + 1, y: g.pass.y + 1, w: g.pass.w - 2, h: g.pass.h - 2 }, GOLD_P, 0.45);
+  return img;
 }
