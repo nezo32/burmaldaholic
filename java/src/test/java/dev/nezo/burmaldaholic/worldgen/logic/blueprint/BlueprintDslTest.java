@@ -90,8 +90,8 @@ class BlueprintDslTest {
 		// "CASINO" = 16 columns + 5 gaps = 21, board 23 wide: x 4..26, symmetric around 15
 		assertEquals(Palettes.TUDOR.block(Role.SIGN_BACK), g.get(4, 5, 1));
 		assertEquals(Palettes.TUDOR.block(Role.SIGN_BACK), g.get(26, 5, 1));
-		assertNull(g.get(3, 5, 1));
-		assertNull(g.get(27, 5, 1));
+		assertTrue(Checks.air(g.get(3, 5, 1)));
+		assertTrue(Checks.air(g.get(27, 5, 1)));
 		// raised letters stand at z + 1: the C's top-left pixel and the O's top-right pixel
 		assertEquals(Palettes.TUDOR.block(Role.NEON_A), g.get(5, 8, 2));
 		assertEquals(Palettes.TUDOR.block(Role.NEON_B), g.get(25, 8, 2));

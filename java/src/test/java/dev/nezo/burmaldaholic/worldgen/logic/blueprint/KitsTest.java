@@ -19,15 +19,15 @@ import org.junit.jupiter.api.Test;
  * reachable, decor supported, nothing dark) and writes only inside its documented footprint.
  */
 class KitsTest {
-	private static final int N = 15, H = 10, C = 7, ROW = 2;
+	private static final int N = 15, H = 8, C = 7, ROW = 2;
 
-	/** Lit hall: floor at y 1 over a slab at y 0, ceiling at y 9 with lights, doors on all four sides. */
+	/** Lit hall: floor at y 1 over a foundation at y 0, ceiling at y 7 with a light grid, doors on all four sides. */
 	private static Blueprint hall() {
 		Blueprint b = Blueprint.of("casino/test/kits", CasinoKind.VILLAGE_CASINO, N, H, N, Palettes.TUDOR);
 		b.fill(0, 0, 0, N - 1, 0, N - 1, Role.FOUNDATION);
 		b.room(0, 1, 0, N - 1, H - 1, N - 1);
-		for (int x = 2; x < N - 1; x += 3) {
-			for (int z = 2; z < N - 1; z += 3) {
+		for (int x = 1; x < N - 1; x += 3) {
+			for (int z = 1; z < N - 1; z += 3) {
 				b.set(x, H - 1, z, Role.LIGHT);
 			}
 		}

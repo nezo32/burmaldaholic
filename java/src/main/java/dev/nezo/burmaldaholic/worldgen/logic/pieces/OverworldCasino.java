@@ -150,7 +150,7 @@ public final class OverworldCasino {
 	 * and {@code y1}, and in every plain panel above the rail a diagonal FRAME brace (alternating / and \).
 	 * Only overwrites WALL cells (openings, panes and decor stay).
 	 */
-	static void halfTimber(Blueprint b, boolean alongX, int c, int a0, int a1, int y0, int y1, int every, int railY) {
+	public static void halfTimber(Blueprint b, boolean alongX, int c, int a0, int a1, int y0, int y1, int every, int railY) {
 		BlockSpec wall = b.palette().block(Role.WALL);
 		BlockSpec beam = axis(b.palette().block(Role.BEAM), alongX ? "x" : "z");
 		BlockSpec post = axis(b.palette().block(Role.FRAME), "y");
@@ -196,13 +196,13 @@ public final class OverworldCasino {
 		}
 	}
 
-	static BlockSpec axis(BlockSpec b, String axis) {
+	public static BlockSpec axis(BlockSpec b, String axis) {
 		return b.properties().containsKey("axis") || dev.nezo.burmaldaholic.worldgen.logic.blueprint.Shapes.hasAxis(b.name())
 			? BlockSpec.of(b.name(), "axis", axis) : b;
 	}
 
 	/** Leaded window: PANE cells {@code w} wide, {@code h} high, with a BEAM sill under it. */
-	static void window(Blueprint b, boolean alongX, int c, int a, int y, int w, int h) {
+	public static void window(Blueprint b, boolean alongX, int c, int a, int y, int w, int h) {
 		BlockSpec pane = b.palette().block(Role.PANE);
 		for (int i = 0; i < w; i++) {
 			for (int j = 0; j < h; j++) {
@@ -213,7 +213,7 @@ public final class OverworldCasino {
 	}
 
 	/** Tudor chimney stack of WALL_BASE with a stone cap and two pots, rows y0..top. */
-	static void chimney(Blueprint b, int x, int z, int y0, int top) {
+	public static void chimney(Blueprint b, int x, int z, int y0, int top) {
 		b.fill(x, y0, z, x + 1, top - 1, z + 1, Role.WALL_BASE);
 		b.fill(x, top - 3, z, x + 1, top - 3, z + 1, Role.FOUNDATION);
 		b.fill(x, top, z, x + 1, top, z + 1, b.palette().get(Role.FOUNDATION).slab("double"));
@@ -222,12 +222,12 @@ public final class OverworldCasino {
 	}
 
 	/** Ridge finial: a brass spike (waxed lightning rod, never oxidises) on the ridge cell. */
-	static void finial(Blueprint b, int x, int y, int z) {
+	public static void finial(Blueprint b, int x, int y, int z) {
 		b.set(x, y, z, BlockSpec.mc("waxed_lightning_rod", "facing", "up", "powered", "false", "waterlogged", "false"));
 	}
 
 	/** Gilded tower finial: a TRIM block with a brass spike on top. */
-	static void grandFinial(Blueprint b, int x, int y, int z) {
+	public static void grandFinial(Blueprint b, int x, int y, int z) {
 		b.set(x, y, z, Role.TRIM);
 		finial(b, x, y + 1, z);
 	}
@@ -236,7 +236,7 @@ public final class OverworldCasino {
 	 * Gabled dormer on a WEST (x = 0) or NORTH (z = 0) roof slope whose eave sits on row {@code eaveY}: a
 	 * 3-wide timbered face with a window, cheeks and a little gable roof running 4 cells into the roof.
 	 */
-	static void dormer(Blueprint b, boolean west, int a0, int eaveY) {
+	public static void dormer(Blueprint b, boolean west, int a0, int eaveY) {
 		Material roof = b.palette().get(Role.ROOF);
 		for (int i = 0; i < 3; i++) {
 			for (int y = eaveY; y <= eaveY + 1; y++) {
@@ -265,12 +265,12 @@ public final class OverworldCasino {
 	}
 
 	/** Two wall banners in the style's colours flanking a point on a wall (suit-like patterns). */
-	static void bannerPair(Blueprint b, int xLeft, int xRight, int y, int z, Facing facing, Suit left, Suit right) {
+	public static void bannerPair(Blueprint b, int xLeft, int xRight, int y, int z, Facing facing, Suit left, Suit right) {
 		b.banner(xLeft, y, z, facing, "red", suitLayers(left));
 		b.banner(xRight, y, z, facing, "red", suitLayers(right));
 	}
 
-	static Blueprint.BannerLayer[] suitLayers(Suit suit) {
+	public static Blueprint.BannerLayer[] suitLayers(Suit suit) {
 		String sym = switch (suit) {
 			case DIAMOND -> "rhombus";
 			case CLUB -> "flower";
@@ -285,15 +285,28 @@ public final class OverworldCasino {
 	}
 
 	/** Rug: CARPET field with a CARPET_ACCENT border on the floor row (needs the floor below). */
-	static void rug(Blueprint b, int x0, int z0, int x1, int z1) {
+	public static void rug(Blueprint b, int x0, int z0, int x1, int z1) {
 		b.fill(x0, ROW, z0, x1, ROW, z1, Role.CARPET_ACCENT);
 		if (x1 - x0 >= 2 && z1 - z0 >= 2) {
 			b.fill(x0 + 1, ROW, z0 + 1, x1 - 1, ROW, z1 - 1, Role.CARPET);
 		}
 	}
 
+	/**
+	 * Casino carpet: CARPET field with a diagonal CARPET_ACCENT lattice (diamonds every {@code period}) on the
+	 * floor row of the box.
+	 */
+	public static void casinoCarpet(Blueprint b, int x0, int z0, int x1, int z1, int period) {
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				boolean line = Math.floorMod(x + z, period) == 0 || Math.floorMod(x - z, period) == 0;
+				b.set(x, ROW, z, line ? b.palette().block(Role.CARPET_ACCENT) : b.palette().block(Role.CARPET));
+			}
+		}
+	}
+
 	/** Suit medallion: a 9 × 9 carpet with a CARPET_ACCENT ring, a cream field and the 7 × 7 suit. */
-	static void medallion(Blueprint b, Suit suit, int cx, int cz) {
+	public static void medallion(Blueprint b, Suit suit, int cx, int cz) {
 		int h = Suit.SIZE / 2 + 1;
 		b.fill(cx - h, ROW, cz - h, cx + h, ROW, cz + h, Role.CARPET_ACCENT);
 		b.fill(cx - h + 1, ROW, cz - h + 1, cx + h - 1, ROW, cz + h - 1, BlockSpec.mc("white_carpet"));
@@ -301,14 +314,14 @@ public final class OverworldCasino {
 	}
 
 	/** Roof hook: the style's own roof, else the given default. */
-	static void roof(Style s, Blueprint b, Style.Hall hall, Runnable fallback) {
+	public static void roof(Style s, Blueprint b, Style.Hall hall, Runnable fallback) {
 		if (!s.signature().roof(b, hall)) {
 			fallback.run();
 		}
 	}
 
 	/** Coffered ceiling: BEAM grid every {@code every} cells on row {@code y}. */
-	static void coffers(Blueprint b, int x0, int z0, int x1, int z1, int y, int every) {
+	public static void coffers(Blueprint b, int x0, int z0, int x1, int z1, int y, int every) {
 		for (int x = x0; x <= x1; x += every) {
 			b.beam(x, y, z0, x, y, z1, Role.BEAM);
 		}
@@ -322,7 +335,7 @@ public final class OverworldCasino {
 	 * FOUNDATION quoins, TRIM bands, window slits glowing with a LIGHT core behind the pane, a crenellated
 	 * parapet and a pyramid cap with a finial.
 	 */
-	static void tower(Blueprint b, int x0, int z0, int topY) {
+	public static void tower(Blueprint b, int x0, int z0, int topY) {
 		Material roof = b.palette().get(Role.ROOF);
 		b.fill(x0, FLOOR_Y, z0, x0 + 2, topY, z0 + 2, Role.WALL_BASE);
 		for (int y = ROW; y <= topY; y++) {
@@ -537,6 +550,7 @@ public final class OverworldCasino {
 		roof(s, b, roofHall, () -> {
 			b.hipRoof(0, 0, 30, 16, 14, 1, Role.ROOF_TRIM, false);
 			b.hipRoof(1, 1, 29, 15, 15, 4, Role.ROOF, false);
+			b.fill(5, 18, 5, 25, 18, 11, Role.ROOF); // roof deck around the lantern
 			// light well up to the clerestory lantern
 			b.fill(cx0, 14, cz0, cx1, 17, cz1, Role.WALL);
 			b.clear(cx0 + 1, 14, cz0 + 1, cx1 - 1, 17, cz1 - 1);
@@ -558,7 +572,8 @@ public final class OverworldCasino {
 	/** Floor A: two rows of pods either side of a central runner with a suit medallion; slots on the back wall. */
 	static Piece floorA(Style s) {
 		Blueprint b = floorShell(s, Part.FLOOR_A, 5, 5, 25, 11);
-		// floor finish: runner, medallion, carpet to the bar door
+		// floor finish: casino carpet, runner, medallion, carpet to the bar door
+		casinoCarpet(b, 1, 2, 29, 15, 6);
 		rug(b, 13, 0, 17, 16);
 		b.fill(14, ROW, 0, 16, ROW, 16, Role.CARPET);
 		b.fill(18, ROW, 7, 29, ROW, 9, Role.CARPET);

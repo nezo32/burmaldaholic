@@ -285,6 +285,11 @@ public final class Blueprint {
 	 * {@code x0..x1 × z0..z1} for rows {@code y0..y1}, air inside (registered as interior), the ceiling under
 	 * it opened. The caller roofs it (e.g. {@link #hipRoof}) at {@code y1 + 1}.
 	 */
+	public Blueprint clerestory(Geometry.Box box) {
+		return clerestory(box.minX(), box.minZ(), box.maxX(), box.maxZ(), box.minY(), box.maxY());
+	}
+
+	/** {@link #clerestory(Geometry.Box)} with explicit ring {@code x0..x1 × z0..z1} and glass rows {@code y0..y1}. */
 	public Blueprint clerestory(int x0, int z0, int x1, int z1, int y0, int y1) {
 		clear(x0 + 1, y0 - 1, z0 + 1, x1 - 1, y1, z1 - 1);
 		for (int y = y0; y <= y1; y++) {
