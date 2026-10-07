@@ -177,6 +177,7 @@ export default function generate() {
     gui(`roulette/layout_compact_${t}`, Ro.layout(t, Ro.LAYOUT_COMPACT));
     gui(`roulette/racetrack_${t}`, Ro.racetrack(t));
     out.push(png(`${T}/entity/roulette/wheel_${t}.png`, W.worldTexture(t)));
+    out.push(png(`${T}/entity/roulette/layout_w_${t}.png`, Ro.layout(t, Ro.LAYOUT_WORLD))); // in-world board print (lane C)
   }
   sprite('roulette/ball', vstrip([0, 1, 2].map(W.ball)));
   sprite('roulette/pocket_glow', vstrip([0, 1, 2, 3].map(W.pocketGlow)), { frametime: 3 });

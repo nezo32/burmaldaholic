@@ -6,6 +6,8 @@ import { P, R, blend, c, disc, grid, image, inked, polygon, ring, rrect, shine, 
 
 /** Cell geometry. Numbers: col 0–11 (1–3, 4–6 …), row 0 = top (3, 6, …, 36). */
 export const LAYOUT_BIG = { cellW: 20, cellH: 22, zeroW: 18, colW: 20, dozenH: 16, outsideH: 16, font: 'bold', inset: 2 };
+/** In-world print (lane C, `RouletteWorld.PRINT`, 144 px per block): numbers only, outside boxes by colour and dots. */
+export const LAYOUT_WORLD = { cellW: 10, cellH: 12, zeroW: 10, colW: 10, dozenH: 8, outsideH: 8, font: 'small', inset: 1, world: true };
 export const LAYOUT_COMPACT = { cellW: 14, cellH: 15, zeroW: 12, colW: 14, dozenH: 11, outsideH: 11, font: 'small', inset: 1 };
 export const layoutSize = (g) => ({ w: g.zeroW + 12 * g.cellW + g.colW, h: 3 * g.cellH + g.dozenH + g.outsideH });
 
@@ -25,6 +27,7 @@ export function layout(theme, g) {
   const x0 = g.zeroW;
   const x12 = g.zeroW + 12 * g.cellW;
   // soft felt darkening under the printed area
+  if (g.world) R(img, 0, 0, w, h, t.feltDark);
   R(img, 0, 0, w, gridH + 1, '#000000', 0.12);
   R(img, x0, gridH + 1, x12 - x0 + 1, h - gridH - 1, '#000000', 0.12);
   // number plates
@@ -55,6 +58,17 @@ export function layout(theme, g) {
   hl(h - 1, x0, x12);
   for (let k = 0; k <= 3; k++) vl(x0 + k * 4 * g.cellW, gridH, gridH + g.dozenH);
   for (let k = 0; k <= 6; k++) vl(x0 + k * 2 * g.cellW, gridH + g.dozenH, h - 1);
+  if (g.world) {
+    // world print: 2:1 / dozens / 1-18 / 19-36 as dots (the words are unreadable at this size), the colour diamonds
+    for (let r = 0; r < 3; r++) R(img, x12 + g.colW / 2 - 1, r * g.cellH + g.cellH / 2 - 1, 2, 2, L);
+    for (let k = 0; k < 3; k++) for (let d = 0; d <= k; d++) R(img, x0 + (k * 4 + 2) * g.cellW - k * 2 + d * 4, gridH + g.dozenH / 2 - 1, 2, 2, L);
+    const oyw = gridH + g.dozenH + g.outsideH / 2;
+    for (const [k, col] of [[2, 'red'], [3, 'black']]) {
+      const cx = x0 + (k + 0.5) * 2 * g.cellW;
+      polygon(img, [[cx - 7, oyw], [cx, oyw - 3], [cx + 7, oyw], [cx, oyw + 3]], POCKET[col][1]);
+    }
+    return img;
+  }
   // column bets: 2:1
   for (let r = 0; r < 3; r++) textC(img, '2:1', x12 + g.colW / 2 + 0.5, r * g.cellH + g.cellH / 2 - 0.5, L, { font: 'small', shadow: t.feltDeep });
   // dozens
