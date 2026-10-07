@@ -86,6 +86,11 @@ class CrapsFlowTest {
 			KEYS.add(g.labelKey());
 			if (g.reasonKey() != null) KEYS.add(g.reasonKey());
 		}
+		assertEquals(List.of(), dev.nezo.burmaldaholic.core.ui.v2.FlowCheck.problems(CrapsFlow.FLOW, v), "FlowCheck " + v);
+		for (long d : CrapsFlow.FLOW.bet(v).chips()) {
+			Gate g = CrapsFlow.FLOW.chip(d, v);
+			if (g.reasonKey() != null) KEYS.add(g.reasonKey());
+		}
 		boolean something = all.stream().anyMatch(Gate::enabled);
 		boolean waits = !v.shooter().isEmpty() || v.windowSeconds() >= 0 || v.rolling() || !v.seatFree() || v.balance() < v.min();
 		assertTrue(something || waits, "stuck: " + v);

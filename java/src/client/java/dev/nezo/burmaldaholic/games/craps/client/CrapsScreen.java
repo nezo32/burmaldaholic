@@ -72,38 +72,6 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	/** What the last roll did to a bet (server {@code last_res}). */
 	private record Res(String kind, int point, boolean mine, String outcome, long flat, long odds, long ret, int movedTo) {}
 
-	private static final Flow<CrapsView> FLOW = new Flow<>() {
-		@Override
-		public Gate primary(CrapsView v) {
-			return CrapsFlow.primary(v);
-		}
-
-		@Override
-		public BetView bet(CrapsView v) {
-			Map<String, Long> spots = new LinkedHashMap<>();
-			for (BetPub b : v.mine()) spots.merge(b.kind() + (b.point() != 0 ? "@" + b.point() : ""), b.staked(), Long::sum);
-			Gate chips = CrapsFlow.chips(v);
-			long secs = v.windowSeconds() >= 0 ? v.windowSeconds() : v.rollSeconds();
-			return BetView.builder().seated(v.seated()).canSit(v.seatFree()).phase(BetView.Phase.BETTING).bettingOpen(chips.enabled())
-				.limits(v.min(), v.max()).balance(v.balance()).myTotal(v.myTotal()).spots(spots).canUndo(v.canUndo()).canClear(v.canUndo())
-				.waitingFor(v.youShoot() ? "" : v.shooter()).secondsLeft((int) Math.min(Integer.MAX_VALUE, secs)).build();
-		}
-
-		@Override
-		public Gate chip(long denom, CrapsView v) {
-			Gate g = CrapsFlow.chips(v);
-			if (!g.enabled()) return g;
-			// a chip under the balance; odds can take a smaller chip, so only the balance limits it
-			if (denom > v.balance()) return Gate.off(BetGates.CHIP, g.labelKey(), K2 + "reason.not_enough", denom);
-			return new Gate(BetGates.CHIP, g.labelKey(), new Object[] {denom}, true, null, null);
-		}
-
-		@Override
-		public Gate tool(String id, CrapsView v) {
-			return CrapsFlow.tool(id, v);
-		}
-	};
-
 	private final TableClock clock = new TableClock();
 	private CrapsLayout layout = CrapsLayout.of(TableGrid.of(480, 270));
 	private float partial;
@@ -141,7 +109,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	@Override
 	protected Flow<CrapsView> flow() {
-		return FLOW;
+		return CrapsFlow.FLOW;
 	}
 
 	@Override
@@ -667,7 +635,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			int scale = l.tier == Tier.T1 ? 1 : 2;
 			int w = font.width(n) * scale;
 			V2Draw.text(g, font, n, tb.cx() - w / 2 + 1, tb.cy() - 4 * scale + 1, scale, color, true);
-			if (state().getIntOr("point", 0) != 0) {
+			String ev = s.getStringOr("event", "");
+			if (ev.equals("point_set") || ev.equals("point_made")) {
 				V2Draw.text(g, font, Component.translatable(K2 + "caption.point"), l.pointCaption.x(), l.pointCaption.y(), 1, V2Felt.print(theme()), true);
 			}
 		}

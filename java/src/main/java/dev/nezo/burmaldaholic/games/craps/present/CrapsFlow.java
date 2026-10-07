@@ -1,6 +1,12 @@
 package dev.nezo.burmaldaholic.games.craps.present;
 
+import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
+import dev.nezo.burmaldaholic.core.ui.v2.BetView;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsView.BetPub;
 
 /**
@@ -41,38 +47,74 @@ public final class CrapsFlow {
 	public static Gate primary(CrapsView v) {
 		if (!v.enabled()) return Gate.off("roll", K + "primary.roll", K + "reason.disabled");
 		if (!v.seated()) {
-			if (!v.seatFree()) return Gate.off("sit", K + "primary.sit", K + "reason.table_full");
-			if (v.balance() < v.min()) return Gate.off("sit", K + "primary.sit", K + "reason.not_enough", v.min());
-			return Gate.on("sit", K + "primary.sit");
+			if (!v.seatFree()) return Gate.off(BetGates.SIT, V2Keys.PRIMARY_SIT, V2Keys.REASON_TABLE_FULL);
+			if (v.balance() < v.min()) return Gate.off(BetGates.SIT, V2Keys.PRIMARY_SIT, V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
+			return Gate.on(BetGates.SIT, V2Keys.PRIMARY_SIT);
 		}
-		if (v.rolling()) return Gate.off("roll", K + "primary.roll", K + "reason.rolling");
+		if (v.rolling()) return Gate.off("roll", K + "primary.roll", V2Keys.REASON_ROLLING);
 		if (v.youShoot()) {
 			if (v.canRoll()) return Gate.on("roll", K + "primary.roll");
 			if (v.needLine()) return Gate.off("roll", K + "primary.roll", K + "reason.need_line");
 			if (v.windowSeconds() >= 0) return Gate.off("roll", K + "primary.roll", K + "reason.roll_in", v.windowSeconds());
 			return Gate.off("roll", K + "primary.roll", K + "reason.settling");
 		}
-		if (v.shooter().isEmpty()) return Gate.off("roll", K + "primary.roll", K + "reason.no_shooter");
+		if (v.shooter().isEmpty()) {
+			if (v.balance() < v.min() && v.mine().isEmpty()) return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
+			return Gate.off("roll", K + "primary.roll", K + "reason.no_shooter");
+		}
 		return Gate.off("roll", K + "primary.roll", K + "reason.waiting_for", v.shooter());
 	}
 
 	/** The chip tray: a chip can be put down now (a felt click places it or says why the spot is closed). */
 	public static Gate chips(CrapsView v) {
-		if (!v.enabled()) return Gate.off("", K + "bet", K + "reason.disabled");
-		if (!v.seated() && !v.seatFree()) return Gate.off("", K + "bet", K + "reason.table_full");
+		if (!v.enabled()) return Gate.off(BetGates.CHIP, V2Keys.CHIP, K + "reason.disabled");
+		if (!v.seated() && !v.seatFree()) return Gate.off(BetGates.CHIP, V2Keys.CHIP, V2Keys.REASON_TABLE_FULL);
 		boolean flat = v.balance() >= v.min() && !v.allowed().isEmpty();
 		boolean odds = v.balance() > 0 && !v.oddsTargets().isEmpty();
-		if (flat || odds) return Gate.on("", K + "bet");
-		if (v.balance() < v.min()) return Gate.off("", K + "bet", K + "reason.not_enough", v.min());
-		return Gate.off("", K + "bet", K + "reason.all_down");
+		if (flat || odds) return Gate.on(BetGates.CHIP, V2Keys.CHIP);
+		if (v.balance() < v.min()) return Gate.off(BetGates.CHIP, V2Keys.CHIP, V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
+		return Gate.off(BetGates.CHIP, V2Keys.CHIP, K + "reason.all_down");
 	}
 
 	/** Undo ({@code tool.undo}) and Clear ({@code tool.clear}): only chips put down since the last roll. */
 	public static Gate tool(String id, CrapsView v) {
-		String label = K + "tool." + id;
+		String label = BetGates.CLEAR.equals(id) ? V2Keys.TOOL_CLEAR : V2Keys.TOOL_UNDO;
+		if (!BetGates.UNDO.equals(id) && !BetGates.CLEAR.equals(id)) return Gate.off(id, label, K + "reason.no_tool");
 		if (v.canUndo() && !v.rolling()) return Gate.on(id, label);
-		return Gate.off(id, label, v.rolling() ? K + "reason.rolling" : "gui.burmaldaholic.craps.nothing_to_undo");
+		return Gate.off(id, label, v.rolling() ? V2Keys.REASON_ROLLING : "gui.burmaldaholic.craps.nothing_to_undo");
 	}
+
+	/** The kit's view of this flow (the screen's chrome and {@code FlowCheck}). */
+	public static final Flow<CrapsView> FLOW = new Flow<>() {
+		@Override
+		public Gate primary(CrapsView v) {
+			return CrapsFlow.primary(v);
+		}
+
+		@Override
+		public BetView bet(CrapsView v) {
+			Map<String, Long> spots = new LinkedHashMap<>();
+			for (BetPub b : v.mine()) spots.merge(b.kind() + (b.point() != 0 ? "@" + b.point() : ""), b.staked(), Long::sum);
+			long secs = v.windowSeconds() >= 0 ? v.windowSeconds() : v.rollSeconds();
+			return BetView.builder().seated(v.seated()).canSit(v.seatFree()).phase(BetView.Phase.BETTING).bettingOpen(CrapsFlow.chips(v).enabled())
+				.limits(v.min(), v.max()).balance(v.balance()).myTotal(v.myTotal()).spots(spots).canUndo(v.canUndo()).canClear(v.canUndo())
+				.waitingFor(v.youShoot() ? "" : v.shooter()).secondsLeft((int) Math.min(Integer.MAX_VALUE, secs)).build();
+		}
+
+		@Override
+		public Gate chip(long denom, CrapsView v) {
+			Gate g = CrapsFlow.chips(v);
+			if (!g.enabled()) return g;
+			// odds take any chip the balance covers (snapped to their unit on the click)
+			if (denom > v.balance()) return Gate.off(BetGates.CHIP, V2Keys.CHIP, V2Keys.REASON_NOT_ENOUGH);
+			return new Gate(BetGates.CHIP, V2Keys.CHIP, new Object[] {denom}, true, null, null);
+		}
+
+		@Override
+		public Gate tool(String id, CrapsView v) {
+			return CrapsFlow.tool(id, v);
+		}
+	};
 
 	public static Status status(CrapsView v) {
 		Line one = v.point() == 0 ? new Line(K + "status.come_out") : new Line(K + "status.point", v.point());

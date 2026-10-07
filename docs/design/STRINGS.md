@@ -1479,24 +1479,18 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 
 | Key | EN | RU |
 |-----|----|----|
-| `gui.burmaldaholic.craps.v2.primary.sit` | Sit down | Сесть |
 | `gui.burmaldaholic.craps.v2.primary.roll` | Roll | Бросок |
-| `gui.burmaldaholic.craps.v2.bet` | Bet | Ставка |
-| `gui.burmaldaholic.craps.v2.on_table` | On table | На столе |
-| `gui.burmaldaholic.craps.v2.tool.undo` | Undo | Отменить |
-| `gui.burmaldaholic.craps.v2.tool.clear` | Clear | Убрать всё |
 | `gui.burmaldaholic.craps.v2.caption.point` | point | поинт |
 | `gui.burmaldaholic.craps.v2.caption.odds` | odds | одды |
 | `gui.burmaldaholic.craps.v2.field_mult` | x%1$s | x%1$s |
 | `gui.burmaldaholic.craps.v2.reason.disabled` | Craps is switched off on this server | Крэпс отключён на этом сервере |
-| `gui.burmaldaholic.craps.v2.reason.table_full` | The table is full | Все места заняты |
 | `gui.burmaldaholic.craps.v2.reason.not_enough` | Not enough chips: %1$s needed | Не хватает фишек: нужно %1$s |
-| `gui.burmaldaholic.craps.v2.reason.rolling` | The dice are rolling | Кости катятся |
 | `gui.burmaldaholic.craps.v2.reason.need_line` | Bet the Pass Line or Don't Pass to roll | Чтобы бросать, поставьте на пасс-лайн или не-пасс |
 | `gui.burmaldaholic.craps.v2.reason.roll_in` | Bets are open: roll in %1$s s | Идёт приём ставок: бросок через %1$s с |
 | `gui.burmaldaholic.craps.v2.reason.settling` | The bets are being paid | Выплата ставок |
 | `gui.burmaldaholic.craps.v2.reason.no_shooter` | Bet the Pass Line to get the dice | Поставьте на пасс-лайн, чтобы получить кости |
 | `gui.burmaldaholic.craps.v2.reason.waiting_for` | Waiting for %1$s to roll | Ждём броска: %1$s |
+| `gui.burmaldaholic.craps.v2.reason.no_tool` | Not at the craps table | Не для крэпса |
 | `gui.burmaldaholic.craps.v2.reason.all_down` | All your bets are down | Все ваши ставки сделаны |
 | `gui.burmaldaholic.craps.v2.reason.point_box` | Come bets travel here: bet Come first | Сюда переходят кам-ставки: сначала поставьте на кам |
 | `gui.burmaldaholic.craps.v2.reason.point_box_come_out` | Come bets travel here once a point is on | Сюда переходят кам-ставки, когда установлен поинт |
@@ -1521,12 +1515,6 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.v2.hover.come` | Come: like the Pass Line, on the next roll · 1:1 | Кам: как пасс-лайн, со следующего броска · 1:1 |
 | `gui.burmaldaholic.craps.v2.hover.dont_come` | Don't Come: like Don't Pass, on the next roll · 1:1 | Не-кам: как не-пасс, со следующего броска · 1:1 |
 | `gui.burmaldaholic.craps.v2.hover.field` | Field: one roll · 3 4 9 10 11 pay 1:1, 2 and 12 more | Филд: на один бросок · 3 4 9 10 11 — 1:1, 2 и 12 — больше |
-| `gui.burmaldaholic.craps.v2.banner.win` | YOU WIN | ВЫИГРЫШ |
-| `gui.burmaldaholic.craps.v2.banner.lost` | LOST | ПРОИГРЫШ |
-| `gui.burmaldaholic.craps.v2.banner.push` | PUSH | ВОЗВРАТ |
-| `gui.burmaldaholic.craps.v2.stamp.win` | WIN | ВЫИГРЫШ |
-| `gui.burmaldaholic.craps.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
-| `gui.burmaldaholic.craps.v2.stamp.push` | PUSH | ВОЗВРАТ |
 | `gui.burmaldaholic.craps.v2.board.title` | Craps %1$s–%2$s | Крэпс %1$s–%2$s |
 | `gui.burmaldaholic.craps.v2.board.point` | Point %1$s | Поинт %1$s |
 | `gui.burmaldaholic.craps.v2.board.come_out` | Come-out | Первый бросок |

@@ -240,6 +240,11 @@ public final class CrapsLayout {
 				int rw = come.right() - 2 - r0;
 				cx = r0 + rw * (layer == Layer.OTHERS ? 80 : 35) / 100;
 				bottom = come.bottom() - 3;
+				if (layer == Layer.OTHERS && rw < 2 * c + 8) {
+					// a narrow band: everybody else's chips above yours
+					cx = r0 + rw * 35 / 100;
+					bottom = come.y() + 2 + sh;
+				}
 			}
 			case "field" -> {
 				// between 10 and 11, under the numbers

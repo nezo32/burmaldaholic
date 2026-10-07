@@ -113,13 +113,11 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	// ---- presentation (animation wave, lane J-L6; docs/design/animation/tables.md §2.7) ---------------------------
 	private static final String SYNC_KEY = "craps_sync";
 	private static final String PUB_KEY = "craps_pub";
-	public static final String SEATS_KEY = "craps_seats";
 	private boolean publicDirty;
 	private long lastPublish = Long.MIN_VALUE / 2;
 	/** client side: the last public layout */
 	private CrapsPub clientPub = CrapsPub.EMPTY;
-	/** client side: the seat names of the last update tag (index → name) */
-	private final Map<Integer, String> clientSeats = new HashMap<>();
+
 	/** What the last roll did to one bet, frozen at roll time (the screen's chip motion; tables.md §2.7 {@code last_res}). */
 	private record LastRes(UUID owner, String kind, int point, String outcome, long flat, long odds, long ret, int movedTo) {}
 
@@ -682,20 +680,8 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		CompoundTag t = new CompoundTag();
 		t.putIntArray(SYNC_KEY, sync().encode());
 		t.putIntArray(PUB_KEY, pub().encode());
-		writePublicSeats(t);
+		writePublic(t); // seat header for the in-world plates (ui-v2.md D12)
 		return t;
-	}
-
-	/** Seat names for the in-world plates (ui-v2.md D12); the W lane's TablePublic hook replaces this when it lands. */
-	protected void writePublicSeats(CompoundTag t) {
-		ListTag names = new ListTag();
-		for (TableSeats.Seat s : seats().occupied()) {
-			CompoundTag st = new CompoundTag();
-			st.putInt("index", s.index());
-			st.putString("name", s.name());
-			names.add(st);
-		}
-		t.put(SEATS_KEY, names);
 	}
 
 	@Override
@@ -846,12 +832,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				clientPub = CrapsPub.EMPTY;
 			}
 		});
-		input.read(SEATS_KEY, CompoundTag.CODEC.listOf()).ifPresent(list -> {
-			clientSeats.clear();
-			for (CompoundTag st : list) {
-				clientSeats.put(st.getIntOr("index", -1), st.getStringOr("name", ""));
-			}
-		});
+
 		bots.load(input);
 	}
 
@@ -1088,11 +1069,6 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	}
 
 	// ---- ticking & lifecycle --------------------------------------------------------------------
-
-	/** Client side: seat names of the last update tag (index → name). */
-	public Map<Integer, String> clientSeats() {
-		return clientSeats;
-	}
 
 	@Override
 	protected void serverTick(ServerLevel level) {

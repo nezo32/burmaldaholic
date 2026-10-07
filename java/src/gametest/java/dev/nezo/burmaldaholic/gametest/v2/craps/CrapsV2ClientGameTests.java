@@ -49,6 +49,8 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 				f.language("ru_ru");
 				round(f, 1920, 1080, 4, "ru_ru", 6);
 				round(f, 1280, 720, 3, "ru_ru", 8);
+				f.language("en_us");
+				inWorld(f);
 			} finally {
 				f.close();
 				f.language("en_us");
@@ -180,6 +182,51 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 			CrapsTableBlockEntity be = (CrapsTableBlockEntity) server.overworld().getBlockEntity(pos);
 			be.leave(RealFlow.player(server).getUUID(), dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity.LeaveReason.LEFT);
 			server.overworld().removeBlock(pos, false);
+			return null;
+		});
+		context(f).waitTicks(4);
+	}
+
+	/**
+	 * The in-world board: a table with the player's Pass + odds, a Field bet and a point on, seen from 3 and 6 blocks
+	 * (print, stacks, puck ON, dice at rest, the board lines and the plate). Screenshots {@code v2_craps_world_<d>}.
+	 */
+	private void inWorld(RealFlow f) {
+		f.size(1920, 1080, 4);
+		BlockPos pos = f.place(CrapsModule.TABLE.block(), 0);
+		f.server(server -> {
+			ServerPlayer p = RealFlow.player(server);
+			CrapsTableBlockEntity be = (CrapsTableBlockEntity) server.overworld().getBlockEntity(pos);
+			CompoundTag pass = new CompoundTag();
+			pass.putString("kind", "pass");
+			pass.putLong("amount", 25);
+			be.onAction(p, "bet", pass);
+			be.roll(4, 4);
+			Bet line = be.table().betsOf(p.getUUID()).get(0);
+			CompoundTag odds = new CompoundTag();
+			odds.putInt("bet", line.id());
+			odds.putLong("amount", 50);
+			be.onAction(p, "odds", odds);
+			CompoundTag field = new CompoundTag();
+			field.putString("kind", "field");
+			field.putLong("amount", 10);
+			be.onAction(p, "bet", field);
+			return null;
+		});
+		for (int d : new int[] {3, 6}) {
+			int dd = d;
+			f.server(server -> {
+				ServerPlayer p = RealFlow.player(server);
+				// the table faces north (towards where the player stood): stand north of it, look south and down at the felt
+				p.teleportTo(server.overworld(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5 - dd, java.util.Set.of(), 0f, dd <= 3 ? 35f : 22f, true);
+				return null;
+			});
+			context(f).waitTicks(60);
+			f.shot("v2_craps_world_" + d);
+		}
+		f.server(server -> {
+			CrapsTableBlockEntity be = (CrapsTableBlockEntity) server.overworld().getBlockEntity(pos);
+			be.leave(RealFlow.player(server).getUUID(), dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity.LeaveReason.LEFT);
 			return null;
 		});
 		context(f).waitTicks(4);
