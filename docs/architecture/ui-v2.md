@@ -328,6 +328,37 @@ GameTest (CI is software-rendered; times are reported, not asserted).
 | Craps | D | puck, dice 0.12 block, pass / field / odds stacks | `Point 8` / `3 + 5 = 8` | name / on table · net |
 | Plinko, Wheel | E | upright boards (Plinko gains pegs + ball + bins) | last multiplier | the player only |
 
+### 7.7 As built (lane W) — how a game plugs in
+```java
+public final class BlackjackBoardRenderer extends BoardRenderer<BlackjackTableBlockEntity, BoardState> {
+  public BlackjackBoardRenderer(BlockEntityRendererProvider.Context c) { super(c); }
+  @Override public BoardState createRenderState() { return new BoardState(); }
+  @Override protected Felt felt(BlackjackTableBlockEntity be) { return Felt.CRESCENT; }
+  @Override protected void fill(BlackjackTableBlockEntity be, BoardState s, float pt) {
+    BlackjackPub p = be.clientPub();                       // PUBLIC data only
+    s.line(BoardState.TITLE, key, () -> Component…, BoardState.GOLD);   // built only when key/lang change
+    float[] d = BoardGeometry.dealerSlot(s.felt, 0, 2); s.card(d[0], d[1], 0, cardId);   // −1 = back
+    float[] seat = BoardGeometry.crescentSeat(i, 7);  s.card(…); s.stack(x, z, amount);
+    BoardRenderer.seatPlates(s, be, BoardGeometry::crescentSeat, (i, pub, plate) -> plate.detail(k, () -> …, BoardState.GOLD).acting(i == acting));
+  }
+}
+// register (game client module, after core): BlockEntityRendererRegistry.register(type, BlackjackBoardRenderer::new)
+```
+- Coordinates are table-local (`BoardGeometry`: x right, z toward the players, felt at `TOP`); the kit rotates by
+  FACING, shrinks everything onto the 1 × 1 fallback felt when the overhang is blocked (`contentScale`), and computes
+  LOD / text px. `s.content(x, y, z, r)` declares a wheel / dice the plates must clear; `s.cache(Cache::new)` keeps a
+  per-table game cache (timelines). Interim boards for blackjack / baccarat (`SeatsBoardRenderer`, names only) are
+  registered by `BoardKit` from the core client module; a game's own registration (later) overrides them.
+- Seat names: `CasinoTableBlockEntity#writePublic` writes `TablePublic` into the default update tag. **A game that
+  overrides `getUpdateTag` adds one line `writePublic(t);`** (poker, UTH, roulette, craps today), else its plates have no
+  names. Bot avatars (`[BOT] …` text displays) are hidden client-side near a table with a board.
+- Sprites: `textures/entity/core/board/` from `tools/assets/modules/board.mjs` — `faces_w2.png` cells are 37 × 49
+  (a dedicated in-world face: 2× index, big pip), not 32 × 44.
+- Spacing (worldgen / casino buildings): the overhang reaches 0.625 block left/right and 0.125 front/back
+  (crescent), 0.5 / 0.2 (rect), 0.5 all round (oval). A table needs the blocks beside it at table level (left / right, and
+  front / back: even 0.125 counts) free of colliding blocks — one free block on each long side is the rule; two tables side by side need **2 free blocks between them**
+  (centre pitch ≥ 3), else both fall back to the 1 × 1 top.
+
 ---
 
 ## 8. Animation integration

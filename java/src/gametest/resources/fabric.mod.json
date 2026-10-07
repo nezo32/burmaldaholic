@@ -50,7 +50,8 @@
 			"dev.nezo.burmaldaholic.gametest.core.UiKitClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.WorldFxClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.cards.CardTablesClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.design.RedesignCaptureClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.design.RedesignCaptureClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.board.BoardClientGameTests"
 		]
 	},
 	"depends": {
