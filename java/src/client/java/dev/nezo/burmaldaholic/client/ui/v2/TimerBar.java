@@ -14,6 +14,16 @@ public final class TimerBar {
 		this.total = Math.max(1, total);
 	}
 
+	/** A countdown whose total is the largest value seen since it (re)started: the bar drains from full. */
+	public void auto(int secondsLeft) {
+		if (secondsLeft < 0) {
+			clear();
+			return;
+		}
+		if (this.secondsLeft < 0 || secondsLeft > this.secondsLeft) total = Math.max(1, secondsLeft);
+		this.secondsLeft = secondsLeft;
+	}
+
 	public void clear() {
 		secondsLeft = -1;
 	}

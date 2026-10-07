@@ -63,6 +63,24 @@ public final class KeyMap {
 		return new ArrayList<>(byKey.entrySet());
 	}
 
+	/**
+	 * The vanilla translation key of a key's display name ({@code key.keyboard.space} → "Space" / "Пробел"), or null for
+	 * keys the kit does not name. Built from the code so it is the same on every supported Minecraft version.
+	 */
+	public static String vanillaNameKey(int key) {
+		if (key >= A && key <= Z) return "key.keyboard." + (char) ('a' + key - A);
+		if (key >= KEY_0 && key <= KEY_0 + 9) return "key.keyboard." + (char) ('0' + key - KEY_0);
+		return switch (key) {
+			case SPACE -> "key.keyboard.space";
+			case ENTER -> "key.keyboard.enter";
+			case TAB -> "key.keyboard.tab";
+			case BACKSPACE -> "key.keyboard.backspace";
+			case DELETE -> "key.keyboard.delete";
+			case ESCAPE -> "key.keyboard.escape";
+			default -> null;
+		};
+	}
+
 	/** The HitMap ids the kit uses (docs/architecture/ui-v2.md §4.2). */
 	public static final class Ids {
 		private Ids() {}
