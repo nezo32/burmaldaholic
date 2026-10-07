@@ -37,6 +37,27 @@ public final class Stamp {
 		return Stamps.width(font.width(word), scale);
 	}
 
+	/** The outcome levels of a seat for {@link SeatColumn#table} (measured with the current language). */
+	public static int[] levels(Font font, Stamps.Outcome outcome, boolean hero) {
+		return Stamps.levels(font.width(word(outcome)), hero);
+	}
+
+	/**
+	 * Per slot levels for {@link SeatColumn#table}: the stamp levels when the seat has an outcome, else the total pill
+	 * ({@code totals[i]}, 2× for the hero then 1×) — so one call lays out a table before and after settle.
+	 */
+	public static int[][] levels(Font font, Stamps.@org.jspecify.annotations.Nullable Outcome[] outcomes, Component[] totals, int heroSlot) {
+		int[][] out = new int[outcomes.length][];
+		for (int i = 0; i < outcomes.length; i++) {
+			boolean hero = i == heroSlot;
+			if (outcomes[i] != null) out[i] = levels(font, outcomes[i], hero);
+			else if (totals[i] != null) out[i] = hero ? new int[] {TotalPill.width(font, totals[i], 2), TotalPill.width(font, totals[i], 1)}
+				: new int[] {TotalPill.width(font, totals[i], 1)};
+			else out[i] = new int[0];
+		}
+		return out;
+	}
+
 	/** The stamp word of an outcome. */
 	public static Component word(Stamps.Outcome o) {
 		return Component.translatable(o.wordKey);

@@ -127,8 +127,9 @@ public final class TopBar {
 			if (!V2Draw.sprite(g, V2Sprites.ButtonStyle.ICON.sprite(true, hover, false), b, 0xFFFFFFFF)) {
 				V2Button.flat(g, b, V2Sprites.ButtonStyle.ICON, true, hover);
 			}
-			Box gl = b.centred(b.w() - 4, b.h() - 4);
-			if (!V2Draw.sprite(g, V2Sprites.icon(name), gl, 0xFFFFFFFF)) Glyphs.draw(g, name, gl, CasinoPalette.V2_TEXT);
+			int gs = V2Sprites.iconSize(b.w());
+			Box gl = b.centred(gs, gs).offset(0, -1);
+			if (!V2Draw.sprite(g, V2Sprites.icon(name, gs), gl, 0xFFFFFFFF)) Glyphs.draw(g, name, gl, CasinoPalette.V2_TEXT);
 			if (e.getKey().equals(focusedId)) V2Draw.outline(g, b.inset(-1), CasinoPalette.V2_GOLD);
 		}
 		balance.draw(g, font, balanceScale);

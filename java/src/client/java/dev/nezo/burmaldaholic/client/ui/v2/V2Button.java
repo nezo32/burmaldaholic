@@ -1,6 +1,5 @@
 package dev.nezo.burmaldaholic.client.ui.v2;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import net.minecraft.client.gui.Font;
@@ -21,8 +20,8 @@ public final class V2Button {
 
 	/** The display name of a GLFW key ("Space" / "Пробел", "H"), or null for -1. */
 	public static @Nullable Component keyName(int key) {
-		if (key < 0) return null;
-		return InputConstants.Type.KEYSYM.getOrCreate(key).getDisplayName();
+		String k = key < 0 ? null : dev.nezo.burmaldaholic.core.ui.v2.KeyMap.vanillaNameKey(key);
+		return k == null ? null : Component.translatable(k);
 	}
 
 	/** Width a button needs for {@code label} and the optional key hint. */

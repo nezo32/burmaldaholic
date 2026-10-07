@@ -217,7 +217,7 @@ public final class BetBar {
 			chip(g, font, cb, denom, on);
 			if (sel) {
 				Box ring = cb.inset(-2);
-				if (!V2Draw.sprite(g, V2Sprites.CHIP_SELECTED_RING, ring, 0xFFFFFFFF)) {
+				if (!V2Draw.sprite(g, V2Sprites.chipRing(cb.w()), ring, 0xFFFFFFFF)) {
 					FeltPrint.ring(g, ring, CasinoPalette.V2_GOLD);
 				}
 				g.fill(b.x(), b.bottom() + 1, b.right(), b.bottom() + 2, CasinoPalette.V2_GOLD);
@@ -231,9 +231,10 @@ public final class BetBar {
 			if (!V2Draw.sprite(g, V2Sprites.ButtonStyle.ICON.sprite(on, hover, false), b, 0xFFFFFFFF)) {
 				V2Button.flat(g, b, V2Sprites.ButtonStyle.ICON, on, hover);
 			}
-			Box gl = b.centred(b.w() - 6, b.h() - 6);
+			int gs = V2Sprites.iconSize(b.w());
+			Box gl = b.centred(gs, gs).offset(0, -1);
 			int c = on ? CasinoPalette.V2_TEXT : 0xFF6A5A7C;
-			if (!V2Draw.sprite(g, V2Sprites.icon(tools[i]), gl, on ? 0xFFFFFFFF : 0x80FFFFFF)) Glyphs.draw(g, tools[i], gl, c);
+			if (!V2Draw.sprite(g, V2Sprites.icon(tools[i], gs), gl, on ? 0xFFFFFFFF : 0x60FFFFFF)) Glyphs.draw(g, tools[i], gl, c);
 			if (KeyMap.Ids.tool(tools[i]).equals(focusedId)) V2Draw.outline(g, b.inset(-1), CasinoPalette.V2_GOLD);
 		}
 		if (!readout.isEmpty()) {

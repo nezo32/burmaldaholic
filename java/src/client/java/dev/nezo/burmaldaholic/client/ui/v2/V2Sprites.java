@@ -21,7 +21,6 @@ public final class V2Sprites {
 	public static final Identifier FELT_VIGNETTE = v2("felt_vignette");
 	public static final Identifier FOCUS_RING = v2("focus_ring");
 	public static final Identifier KEY_HINT = v2("key_hint");
-	public static final Identifier CHIP_SELECTED_RING = v2("chip_selected_ring");
 	public static final Identifier CHIP_ICON = v2("chip_icon");
 	public static final Identifier BALANCE = v2("balance_pill");
 	public static final Identifier TITLE_PILL = v2("title_pill");
@@ -46,9 +45,25 @@ public final class V2Sprites {
 		}
 	}
 
-	/** Tool and TopBar icon glyphs: undo, clear, rebet, double, rules, settings, leave. */
+	/** Tool and TopBar icon glyphs (undo, clear, rebet, double, rules, settings, leave) at 12² or 16² ({@code _l}). */
+	public static Identifier icon(String name, int size) {
+		return v2("icon/" + name + (size >= 16 ? "_l" : ""));
+	}
+
+	/** @deprecated K0 signature; use {@link #icon(String, int)}. */
+	@Deprecated
 	public static Identifier icon(String name) {
-		return v2("icon/" + name);
+		return icon(name, 12);
+	}
+
+	/** The glyph size that fits a {@code box}-sized icon button (drawn at its native size, centred). */
+	public static int iconSize(int box) {
+		return box >= 22 ? 16 : 12;
+	}
+
+	/** The gold ring around the selected tray chip of {@code chipSize} (sprite is chip + 4). */
+	public static Identifier chipRing(int chipSize) {
+		return v2("chip_selected_ring" + (chipSize >= 32 ? "_l" : chipSize <= 20 ? "_s" : ""));
 	}
 
 	/** Tray chip of a denomination ({@code chip_<d>}; {@code _l} = the 32² T3 size, {@code _s} = the 20² T1 size). */
@@ -58,7 +73,7 @@ public final class V2Sprites {
 
 	/** Top-down felt disc of a denomination (12² / 16²). */
 	public static Identifier disc(long denom, int size) {
-		return v2("felt_disc_" + denom + (size >= 16 ? "_l" : ""));
+		return v2("felt_disc_" + denom + (size >= 16 ? "_l" : size <= 10 ? "_s" : ""));
 	}
 
 	public static Identifier valuePill(ValuePill.Style s) {
