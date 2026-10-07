@@ -932,6 +932,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
+		writePublic(t); // the seat header for the board's plates (ui-v2.md §7.2)
 		t.putIntArray(SYNC_KEY, sync().encode());
 		RoulettePub pub = pub();
 		t.putLongArray(PUB_KEY, pub.encode());
@@ -954,7 +955,12 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			long[] out = result ? outcomes.get(id) : null;
 			slips.add(new RoulettePub.Slip(seat.name(), seat.index(), false, spotMap(bets), out != null, out != null ? out[1] - out[0] : 0));
 		}
-		for (BotSlip b : botSlips.values()) {
+		Map<String, Integer> botSeat = new HashMap<>();
+		for (VirtualBot vb : bots.bots()) {
+			botSeat.put(vb.key, vb.seat());
+		}
+		for (Map.Entry<String, BotSlip> be : botSlips.entrySet()) {
+			BotSlip b = be.getValue();
 			if (b.bets.isEmpty()) {
 				continue;
 			}
@@ -968,9 +974,9 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 					}
 				}
 			}
-			slips.add(new RoulettePub.Slip(BotNames.display(b.bot).getString(), -1, true, spotMap(b.bets), settled, net));
+			slips.add(new RoulettePub.Slip(BotNames.display(b.bot).getString(), botSeat.getOrDefault(be.getKey(), -1), true, spotMap(b.bets), settled, net));
 		}
-		return RoulettePub.build(slips);
+		return RoulettePub.build(slips, round.history());
 	}
 
 	private static Map<Spot, Long> spotMap(List<Bet> bets) {

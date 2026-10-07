@@ -18,9 +18,9 @@ public final class RouletteWorld {
 	public static final float RAIL = 0.08f;
 	/** Wheel bowl centre and radius; the head radius (pockets) and the ball's track radius. */
 	public static final float WHEEL_X = -0.52f, WHEEL_Z = -0.02f, WHEEL_R = 0.42f;
-	public static final float HEAD_R = WHEEL_R * 76f / 104f;
-	/** Ball radii on the bowl: resting in a pocket, running on the track (fractions of the bowl as in the GUI art). */
-	public static final float BALL_POCKET_R = HEAD_R * 0.73f, BALL_TRACK_R = WHEEL_R * 0.82f;
+	public static final float HEAD_R = WHEEL_R * 21f / 32f;
+	/** Ball radii: resting in a pocket, running on the track (fractions of {@code entity/roulette/wheel_<θ>.png}'s 64-texel bowl). */
+	public static final float BALL_POCKET_R = HEAD_R * 22.75f / 32f, BALL_TRACK_R = WHEEL_R * 25f / 32f;
 	/** The printed layout: cell geometry in print px and the print's px per block. */
 	public static final LayoutGrid PRINT = new LayoutGrid(10, 10, 12, 10, 8, 8, 0, 2);
 	public static final float PX_PER_BLOCK = 144f;
