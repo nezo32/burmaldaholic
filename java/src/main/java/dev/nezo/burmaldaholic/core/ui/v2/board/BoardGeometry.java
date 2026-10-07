@@ -103,6 +103,18 @@ public final class BoardGeometry {
 	}
 
 	/**
+	 * Scale of the content laid out for {@code wanted} when {@code drawn} is the felt actually drawn: 1 normally; on
+	 * the fallback felt the inside of the rail of the wanted felt maps into the inside of the drawn one (uniform, so
+	 * cards keep their aspect).
+	 */
+	public static float contentScale(Felt wanted, Felt drawn) {
+		if (wanted == drawn) return 1f;
+		float sx = (drawn.w - 2 * RAIL) / (wanted.w - 2 * RAIL);
+		float sz = (drawn.d - 2 * RAIL) / (wanted.d - 2 * RAIL);
+		return Math.min(1f, Math.min(sx, sz));
+	}
+
+	/**
 	 * Cells (dx, dz in table-local block steps, before rotation) the overhang covers beside the block: used for the
 	 * blocked check. Returns pairs {dx0, dz0, dx1, dz1, …}.
 	 */
@@ -168,7 +180,7 @@ public final class BoardGeometry {
 		float u = n == 1 ? 0.5f : seat / (float) (n - 1);
 		double a = Math.toRadians((u - 0.5) * 2 * 62); // −62° … 62°
 		float x = 0.5f + 0.86f * (float) Math.sin(a);
-		float z = 0.10f + 0.72f * (float) Math.cos(a);
+		float z = 0.10f + 0.66f * (float) Math.cos(a);
 		// the seat looks at the dealer (0.5, 0.10): yaw 0 = card top toward −z
 		float yaw = (float) Math.toDegrees(a);
 		return new float[] {x, z, -yaw};
