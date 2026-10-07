@@ -4,7 +4,16 @@ import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlock;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity;
+import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.games.roulette.client.RouletteScreen;
+import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
+import dev.nezo.burmaldaholic.games.roulette.logic.Bets;
+import dev.nezo.burmaldaholic.games.roulette.logic.Bets.Bet;
+import dev.nezo.burmaldaholic.games.roulette.logic.Racetrack;
+import dev.nezo.burmaldaholic.games.roulette.logic.Spot;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteLayout;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
+import dev.nezo.burmaldaholic.gametest.v2.RealFlow;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,15 +53,128 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 			world.getServer().runCommand("time set noon");
 			world.getServer().runCommand("gamerule doDaylightCycle false");
 			world.getServer().runOnServer(server -> CasinoConfig.chaos().enabled = false);
+			RealFlow f = new RealFlow(context, world);
+			int dx = 0;
+			// the real player flow at the real players' sizes (ui-v2.md §11.2)
+			step("en 1920@4", () -> round(f, "en_us", 1920, 1080, 4, -6, true));
+			step("ru 1920@4", () -> round(f, "ru_ru", 1920, 1080, 4, -3, true));
+			step("en 2560@4", () -> round(f, "en_us", 2560, 1440, 4, 0, true));
+			step("ru 1920@3", () -> round(f, "ru_ru", 1920, 1080, 3, 3, false));
+			step("en 1280@3", () -> round(f, "en_us", 1280, 720, 3, 6, false));
+			f.close();
+			f.language("en_us");
 			context.getInput().resizeWindow(1920, 1080);
 			context.waitTicks(5);
-			inWorld(context, world);
+			step("world", () -> inWorld(context, world));
 		} finally {
 			guiScale(context, 0);
 			language(context, "en_us");
 			write(context);
 		}
 		if (!failures.isEmpty()) throw new AssertionError("roulette v2: " + String.join("; ", failures));
+	}
+
+	private void step(String name, Runnable r) {
+		try {
+			r.run();
+			report.add(name + ": ok");
+		} catch (RuntimeException | AssertionError e) {
+			failures.add(name + ": " + e.getMessage());
+		}
+	}
+
+	// ---- the real player flow ---------------------------------------------------------------------------------------
+
+	/**
+	 * Opens the table by using it, sits with the primary, checks the "place a bet" reason, arms a chip and clicks a
+	 * straight, a split, a corner, a street, a six line, a dozen, red and the Voisins call bet on the layout; asserts each
+	 * stake on the SERVER; spins with the primary, waits for the result and asserts the balance change equals the server's
+	 * settle of exactly those bets; then (full) Rebet with the primary and Clear with the tool.
+	 */
+	private void round(RealFlow f, String lang, int fbW, int fbH, int gui, int dx, boolean full) {
+		f.close();
+		f.language(lang);
+		f.size(fbW, fbH, gui);
+		String tag = "v2c_" + lang + "_" + fbW + "x" + fbH + "@" + gui;
+		BlockPos pos = f.place(RouletteModule.TABLE.block(), dx);
+		f.server(server -> {
+			if (server.overworld().getBlockEntity(pos) instanceof RouletteTableBlockEntity be) be.setThemeForTesting(0);
+			return 0;
+		});
+		f.open(pos, RouletteScreen.class);
+		report.add(tag + ": viewport " + f.viewport());
+		f.shot(tag + "_open");
+		// sit with the primary (not seated, no bet: "Sit down")
+		f.click("primary");
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.seats().occupied().size() == 1, "seated by the primary");
+		f.context().waitTicks(4);
+		// the primary without a bet says why (never silently nothing)
+		f.click("primary");
+		String why = f.status();
+		if (why.isEmpty()) throw new AssertionError("primary without a bet shows no reason");
+		report.add(tag + ": primary without a bet: " + why);
+		// arm the smallest chip, then click the layout
+		long chip = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc ? sc.chrome().bet.chips()[0] : -1L);
+		f.click("chip.0");
+		List<Spot> spots = List.of(Spot.of(BetType.STRAIGHT, 17), Spot.of(BetType.SPLIT, 8, 11), Spot.of(BetType.CORNER, 20, 21, 23, 24),
+			Spot.of(BetType.STREET, 4, 5, 6), Spot.of(BetType.SIX_LINE, 31, 32, 33, 34, 35, 36), Spot.of(BetType.SPLIT, 0, 2),
+			Spot.of(BetType.DOZEN, Spot.outsideNumbers(BetType.DOZEN, 2)), Spot.of(BetType.RED, Spot.outsideNumbers(BetType.RED, 0)));
+		List<Bet> expected = new ArrayList<>();
+		for (Spot s : spots) {
+			f.click(RouletteLayout.spotId(s));
+			expected = Bets.merge(expected, new Bet(s, chip));
+			List<Bet> want = expected;
+			f.waitServer(pos, RouletteTableBlockEntity.class, be -> Bets.amountOn(be.betsOf(owner(be)), s) == Bets.amountOn(want, s),
+				"stake " + chip + " on " + s.key());
+		}
+		f.click("felt.call.voisins");
+		expected = Bets.mergeAll(expected, Racetrack.bets(Racetrack.Section.VOISINS, chip));
+		long staked = Bets.totalStaked(expected);
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> Bets.totalStaked(be.betsOf(owner(be))) == staked, "Voisins call bet, total " + staked);
+		List<Bet> slip = expected;
+		boolean same = f.server(server -> server.overworld().getBlockEntity(pos) instanceof RouletteTableBlockEntity be
+			&& sameSlip(be.betsOf(owner(be)), slip));
+		if (!same) throw new AssertionError("server slip differs from the clicked bets");
+		f.context().waitTicks(4);
+		f.shot(tag + "_betting");
+		if (!full) {
+			f.click("tool.clear");
+			f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.betsOf(owner(be)).isEmpty(), "Clear");
+			return;
+		}
+		// spin with the primary; the balance change is exactly the server's settle of these bets
+		long before = f.server(server -> Economies.get().balance(RealFlow.player(server)));
+		f.click("primary");
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.roundPhase().equals("spin"), "spin", 120);
+		f.context().waitTicks(50);
+		f.shot(tag + "_spin");
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.roundPhase().equals("result"), "result", 400);
+		f.context().waitTicks(30);
+		f.shot(tag + "_result");
+		int result = f.server(server -> server.overworld().getBlockEntity(pos) instanceof RouletteTableBlockEntity be ? be.sync().result() : -1);
+		long after = f.server(server -> Economies.get().balance(RealFlow.player(server)));
+		long ret = Bets.totalReturn(slip, result, CasinoConfig.roulette().laPartage);
+		report.add(tag + ": result " + result + ", staked " + staked + ", returned " + ret + ", balance " + before + " -> " + after);
+		if (after - before != ret) throw new AssertionError("balance moved " + (after - before) + " but the settle returns " + ret + " (result " + result + ")");
+		// next round: the primary is Rebet <total>
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.roundPhase().equals("betting"), "betting again", 200);
+		f.context().waitTicks(6);
+		f.click("primary");
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> Bets.totalStaked(be.betsOf(owner(be))) == staked, "Rebet " + staked);
+		f.context().waitTicks(4);
+		f.shot(tag + "_rebet");
+		f.click("tool.clear");
+		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.betsOf(owner(be)).isEmpty(), "Clear");
+	}
+
+	private static java.util.UUID owner(RouletteTableBlockEntity be) {
+		return be.seats().occupied().isEmpty() ? new java.util.UUID(0, 0) : be.seats().occupied().getFirst().player();
+	}
+
+	private static boolean sameSlip(List<Bet> a, List<Bet> b) {
+		if (a.size() != b.size()) return false;
+		for (Bet x : b) if (Bets.amountOn(a, x.spot()) != x.amount()) return false;
+		return true;
 	}
 
 	// ---- the in-world board ------------------------------------------------------------------------------------------

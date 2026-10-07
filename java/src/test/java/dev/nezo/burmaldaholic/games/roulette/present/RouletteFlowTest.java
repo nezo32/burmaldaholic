@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.core.anim.dice.ChipStacks;
+import dev.nezo.burmaldaholic.core.ui.v2.FlowCheck;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.games.roulette.present.RouletteFlow.Phase;
 import dev.nezo.burmaldaholic.games.roulette.present.RouletteFlow.View;
@@ -58,6 +59,10 @@ class RouletteFlowTest {
 			boolean waiting = v.phase() != Phase.BETTING || v.ready() || !v.enabled() || (!v.seated() && v.tableFull())
 				|| v.balance() < MIN || (v.minTotal() > v.total() && v.total() > 0);
 			assertTrue(anyOn || waiting, "stuck: " + v);
+			if (v.enabled() && (v.seated() || v.total() == 0)) { // a disabled game says so (error.disabled) and has nothing to press
+				RouletteView rv = RouletteView.of(v, java.util.Map.of());
+				assertEquals(List.of(), FlowCheck.problems(RouletteFlow.FLOW, rv), v.toString());
+			}
 			if (v.bettingOpen() && (v.seated() || !v.tableFull()) && v.balance() >= MIN && v.total() + MIN <= MAX) {
 				assertTrue(RouletteFlow.chip(v, MIN).enabled(), "no chip: " + v);
 			}
@@ -93,6 +98,7 @@ class RouletteFlowTest {
 		View v = betting(true, 1000, 300);
 		assertFalse(RouletteFlow.tool("double", v).enabled());
 		assertEquals(RouletteFlow.CORE + "reason.above_max", RouletteFlow.tool("double", v).reasonKey());
+		assertFalse(RouletteFlow.tool("undo", new View(true, false, true, Phase.SPIN, MIN, MAX, 0, 1000, 25, false, 0, true, false, 1, 1, 2)).enabled());
 		assertFalse(RouletteFlow.chip(v, 500).enabled());
 		assertTrue(RouletteFlow.chip(v, 100).enabled());
 		assertFalse(RouletteFlow.chip(betting(true, 1000, 0), 1).enabled());

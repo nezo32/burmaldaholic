@@ -908,6 +908,16 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		syncViewers();
 	}
 
+	/** The player's open bets this spin (real-flow GameTests read the server's stakes). */
+	public List<Bet> betsOf(UUID player) {
+		return round.bets(player);
+	}
+
+	/** The round's phase id ({@code betting}, {@code no_more_bets}, {@code spin}, {@code result}). */
+	public String roundPhase() {
+		return round.phase().id();
+	}
+
 	/** Client side: the last sync received in the update tag (null before the first). */
 	public @Nullable RouletteSync clientSync() {
 		return clientSync;
