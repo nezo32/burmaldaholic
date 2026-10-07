@@ -34,6 +34,7 @@ import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBeats;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBotPolicy;
 import dev.nezo.burmaldaholic.games.uth.logic.UthCards;
+import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
 import dev.nezo.burmaldaholic.games.uth.present.UthLayout;
 import dev.nezo.burmaldaholic.games.uth.present.UthPub;
 import java.util.ArrayList;
@@ -72,10 +73,14 @@ public class UthScreen extends CardTableScreen {
 	private final CardAnimator cards = new CardAnimator();
 	private final CardMotion.Pose pose = new CardMotion.Pose();
 	private final List<Hover> hovers = new ArrayList<>();
+	/** Hover areas in the console (unscaled canvas coordinates; {@link #hovers} are table-layout coordinates). */
+	private final List<Hover> consoleHovers = new ArrayList<>();
 	/** This frame's seat plates (labels keep off them). */
 	private final List<Rect> plates = new ArrayList<>();
 	private long ante;
 	private long trips;
+	/** The pending bet before each change ({Ante, Trips}), for the − button. */
+	private final java.util.ArrayDeque<long[]> undo = new java.util.ArrayDeque<>();
 	private boolean chipsToTrips;
 	private boolean showPaytable;
 	private boolean bankForm;
@@ -171,10 +176,94 @@ public class UthScreen extends CardTableScreen {
 		return -1;
 	}
 
-	private boolean pendingValid() {
-		long min = minBet();
+	// ---- the pending bet (client side; the server re-checks everything on "bet") -----------------------------------
+
+	/** Max W = 6 × Ante + Trips (≤ 0 = no limit sent). */
+	private long maxW() {
+		long m = maxBet();
+		return m > 0 ? m : Long.MAX_VALUE / 16;
+	}
+
+	/** Largest Ante with {@code t} on Trips: the table limit and the balance (Ante + Blind + a river bet + Trips). */
+	private long maxAnte(long t) {
+		long byLimit = UthLimits.maxAnte(maxW(), t);
+		long byBalance = Math.max(0, (balance() - t) / 3);
+		return Math.min(byLimit, byBalance);
+	}
+
+	/** Largest Trips with Ante {@code a}. */
+	private long maxTrips(long a) {
+		return Math.max(0, Math.min(maxW() - 6 * a, balance() - 3 * a));
+	}
+
+	private boolean tripsOn() {
+		return s().getBooleanOr("trips_enabled", true);
+	}
+
+	private boolean toTrips() {
+		return chipsToTrips && tripsOn();
+	}
+
+	/** The rack chip {@code value} can add something to the current target. */
+	private boolean chipUsable() {
+		return toTrips() ? trips < maxTrips(ante) : ante < maxAnte(trips);
+	}
+
+	private void remember() {
+		undo.push(new long[] {ante, trips});
+		while (undo.size() > 64) undo.removeLast();
+	}
+
+	/**
+	 * Adds (or, right click, removes) a chip on the current target. Over the limit / balance the amount clamps to the
+	 * largest allowed and the error line says why.
+	 */
+	private void chip(long value, boolean remove) {
+		if (remove) {
+			if (toTrips() ? trips == 0 : ante == 0) return;
+			remember();
+			if (toTrips()) trips = Math.max(0, trips - value);
+			else ante = Math.max(0, ante - value);
+			FxSounds.play("chip_count", 0.5f, 0.9f);
+			rebuildConsole();
+			return;
+		}
+		long cur = toTrips() ? trips : ante;
+		long cap = toTrips() ? maxTrips(ante) : maxAnte(trips);
+		long want = cur + value;
+		if (want > cap) {
+			showError(limitError(toTrips(), cap));
+			if (cap <= cur) return;
+			want = cap;
+		}
+		remember();
+		if (toTrips()) trips = want;
+		else ante = want;
+		FxSounds.play("chip_place", 0.6f, 1.1f);
+		rebuildConsole();
+	}
+
+	private Component limitError(boolean forTrips, long cap) {
+		if (forTrips) return Component.translatable("gui.burmaldaholic.uth.error.max_trips", Texts.number(cap));
+		boolean byBalance = Math.max(0, (balance() - trips) / 3) < UthLimits.maxAnte(maxW(), trips);
+		return byBalance ? Component.translatable("gui.burmaldaholic.uth.error.max_ante_balance", Texts.number(cap))
+			: Component.translatable("gui.burmaldaholic.uth.error.max_ante", Texts.number(cap), Texts.number(maxW()));
+	}
+
+	/** The reason the pending bet can't be dealt (the server's own checks, UthLimits), or null. */
+	private @Nullable Component pendingProblem() {
+		if (ante <= 0) return Component.translatable("gui.burmaldaholic.uth.error.place_ante");
 		long tripsMin = s().getLongOr("trips_min", 1);
-		return ante >= min && (trips == 0 || trips >= tripsMin) && 6 * ante + trips <= maxBet() && 3 * ante + trips <= balance();
+		return switch (UthLimits.check(ante, trips, minBet(), maxW(), tripsOn(), tripsMin, balance())) {
+			case NONE -> null;
+			case INVALID -> Component.translatable("gui.burmaldaholic.error.invalid_amount");
+			case ANTE_MIN -> Component.translatable("gui.burmaldaholic.uth.error.ante_min", Texts.number(minBet()));
+			case TRIPS_OFF -> Component.translatable("gui.burmaldaholic.uth.error.trips_off");
+			case TRIPS_MIN -> Component.translatable("gui.burmaldaholic.error.bet_too_low", Texts.number(tripsMin));
+			case WORST_CASE_MAX -> Component.translatable("gui.burmaldaholic.uth.error.max_ante", Texts.number(maxAnte(trips)), Texts.number(maxW()));
+			case INSUFFICIENT_FUNDS -> Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(balance()));
+			case KEEP_FOR_RIVER -> Component.translatable("gui.burmaldaholic.uth.error.keep_for_river", Texts.number(ante));
+		};
 	}
 
 	/** GameTests (mockup screenshots): show the ghost Play stack of decision {@code id} as if its button were hovered. */
@@ -200,7 +289,6 @@ public class UthScreen extends CardTableScreen {
 	@Override
 	protected void onStateChanged(CompoundTag st) {
 		stateTick = clientTicks;
-		if (ante == 0 && st.getLongOr("last_ante", 0) == 0) ante = Math.max(0, st.getLongOr("min", 0));
 		CompoundTag f = st.getCompoundOrEmpty("fx");
 		int seq = f.getIntOr("seq", -1);
 		if (seq != fxSeq) {
@@ -288,19 +376,52 @@ public class UthScreen extends CardTableScreen {
 		if (seated() && betting() && !confirmedBet() && !bankerView) {
 			long lastAnte = s().getLongOr("last_ante", 0);
 			long lastTrips = s().getLongOr("last_trips", 0);
+			// the bet builder: where the chips go (Ante / Trips), − (take back the last chip), Clear, Rebet, Deal
+			if (tripsOn()) {
+				boolean t = toTrips();
+				row.add(button(Component.translatable(t ? "gui.burmaldaholic.uth.target.trips" : "gui.burmaldaholic.uth.target.ante"), null,
+					CardButton.Family.TABLE, true, () -> {
+						chipsToTrips = !chipsToTrips;
+						FxSounds.play("chip_count", 0.5f, 1f);
+						rebuildConsole();
+					}).hint(Component.translatable("gui.burmaldaholic.uth.target.tooltip")));
+			}
+			Component minus = Component.translatable("gui.burmaldaholic.uth.undo");
+			CardButton undoButton = new CardButton(0, 0, font.width(minus) + (compact() ? 10 : 14), minus, null, CardButton.Family.TABLE, tableTheme(), x -> {
+				long[] prev = undo.poll();
+				if (prev != null) {
+					ante = prev[0];
+					trips = prev[1];
+					FxSounds.play("chip_count", 0.5f, 0.9f);
+				}
+				rebuildConsole();
+			});
+			undoButton.active = !undo.isEmpty();
+			row.add(undoButton.hint(Component.translatable("gui.burmaldaholic.uth.undo.tooltip")));
 			row.add(button(Component.translatable("gui.burmaldaholic.common.clear"), "clear", CardButton.Family.TABLE, ante > 0 || trips > 0, () -> {
+				remember();
 				ante = 0;
 				trips = 0;
 				rebuildConsole();
 			}));
 			if (lastAnte > 0) {
-				row.add(button(Component.translatable("gui.burmaldaholic.common.rebet"), "rebet", CardButton.Family.TABLE, true, () -> {
-					ante = lastAnte;
-					trips = lastTrips;
-					rebuildConsole();
-				}));
+				row.add(button(Component.translatable("gui.burmaldaholic.common.rebet"), "rebet", CardButton.Family.TABLE, ante != lastAnte || trips != lastTrips,
+					() -> {
+						remember();
+						ante = lastAnte;
+						trips = tripsOn() ? lastTrips : 0;
+						// the limits / balance may have changed since: clamp and say why
+						if (trips > maxTrips(0)) trips = maxTrips(0);
+						long cap = maxAnte(trips);
+						if (ante > cap) {
+							showError(limitError(false, cap));
+							ante = cap;
+						}
+						rebuildConsole();
+					}));
 			}
-			row.add(button(Component.translatable("gui.burmaldaholic.common.deal"), "deal", CardButton.Family.PRIMARY, pendingValid(), this::deal));
+			// Deal stays clickable: an invalid bet is explained instead of a silently disabled button
+			row.add(button(Component.translatable("gui.burmaldaholic.common.deal"), "deal", CardButton.Family.PRIMARY, true, this::deal));
 		} else if (seated() && betting() && confirmedBet()) {
 			row.add(button(Component.translatable("gui.burmaldaholic.common.clear"), "clear", CardButton.Family.TABLE, true, () -> sendAction("clear")));
 		}
@@ -356,8 +477,23 @@ public class UthScreen extends CardTableScreen {
 			}
 		}
 		// betting: the chip rack sits at the console's left; the buttons keep right of it
-		int minX = seated() && betting() && !confirmedBet() && !bankerView ? 8 + CHIPS.length * 25 + 40 : compact() ? 0 : 150;
+		boolean rack = seated() && betting() && !confirmedBet() && !bankerView;
+		int minX = rack ? rackRight() + 4 : compact() ? 0 : 150;
 		layoutButtons(row, minX);
+		if (rack && compact()) {
+			// the compact row starts at the left edge: keep it right of the chip rack, wrapping upward
+			int x = minX;
+			int y = 139;
+			for (CardButton b : row) {
+				if (x + b.getWidth() > canvasW() - 3 && x > minX) {
+					x = minX;
+					y -= 22;
+				}
+				b.setX(x);
+				b.setY(y);
+				x += b.getWidth() + 3;
+			}
+		}
 		if (bankForm && bank.getBooleanOr("can_take", false) && !bankerView) {
 			long min = bank.getLongOr("min_bank", 0);
 			int x = row.isEmpty() ? 8 : row.get(0).getX() - 70;
@@ -373,10 +509,26 @@ public class UthScreen extends CardTableScreen {
 	}
 
 	private void deal() {
+		Component problem = pendingProblem();
+		if (problem != null) {
+			showError(problem);
+			return;
+		}
 		CompoundTag args = new CompoundTag();
 		args.putLong("ante", ante);
 		args.putLong("trips", trips);
 		sendAction("bet", args);
+		undo.clear();
+	}
+
+	/** Canvas x right of the chip rack. */
+	private int rackRight() {
+		return (compact() ? 4 : 8) + CHIPS.length * 25 - 3;
+	}
+
+	/** Chip {@code i} of the rack (console, canvas coordinates). */
+	private Rect chipRect(int i) {
+		return new Rect((compact() ? 4 : 8) + i * 25, compact() ? 138 : 211, 22, 22);
 	}
 
 	private void takeBank() {
@@ -399,24 +551,22 @@ public class UthScreen extends CardTableScreen {
 
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
-		if (!rackShown() || button != 0) return false;
-		int ry = compact() ? 138 : 211;
+		if (!rackShown() || (button != 0 && button != 1)) return false;
 		for (int i = 0; i < CHIPS.length; i++) {
-			int cx = (compact() ? 4 : 8) + i * 25;
-			if (x >= cx && x < cx + 22 && y >= ry && y < ry + 22) {
-				if (chipsToTrips) trips += CHIPS[i];
-				else ante += CHIPS[i];
-				FxSounds.play("chip_place", 0.6f, 1.1f);
-				rebuildConsole();
+			Rect r = chipRect(i);
+			if (x >= r.x() && x < r.x() + r.w() && y >= r.y() && y < r.y() + r.h()) {
+				chip(CHIPS[i], button == 1); // left click adds, right click takes the chip's value back
 				return true;
 			}
 		}
+		if (button != 0) return false;
 		// the Trips / Ante circles pick where the chips go
 		for (int c = 0; c < 2; c++) {
 			Rect r = mapped(UthLayout.circle(c));
 			if (x >= r.x() && x < r.x() + r.w() && y >= r.y() && y < r.y() + r.h()) {
-				chipsToTrips = c == 0 && s().getBooleanOr("trips_enabled", true);
+				chipsToTrips = c == 0 && tripsOn();
 				FxSounds.play("chip_count", 0.5f, 1f);
+				rebuildConsole();
 				return true;
 			}
 		}
@@ -533,15 +683,39 @@ public class UthScreen extends CardTableScreen {
 		for (int c = 0; c < 4; c++) {
 			if (c == 0 && !tripsOn) continue;
 			Rect r = UthLayout.circle(c);
-			boolean target = rackShown() && ((c == 0) == chipsToTrips) && c <= 1;
+			boolean target = rackShown() && ((c == 0) == toTrips()) && c <= 1;
 			if (target) CardGfx.sprite(g, FxSprites.sprite("cards/fx/spot_glow"), r.x() - 5, r.y() - 5, 34, 34, CardGfx.white(0.55));
 			CardGfx.sprite(g, FxSprites.sprite("cards/print/" + prints[c]), r.x(), r.y(), r.w(), r.h(), print);
 			int[] l = UthLayout.circleLabel(c);
 			Component label = Component.translatable("gui.burmaldaholic.uth." + labels[c]);
 			CardGfx.fitted(g, font, label, l[0] - Math.min(font.width(label), 40) / 2, l[1], 40, tableTheme().print, false);
 		}
+		if (rackShown()) drawBetHint(g);
 		if (!UthLayout.crowded(others)) drawPaytablePanel(g);
 		if (playerBanked()) drawBankLine(g);
+	}
+
+	/**
+	 * While betting: the pending amount under the Trips / Ante / Blind circles and, below, where the chips go and the
+	 * largest Ante allowed (table limit and balance) — the limits are visible before a chip is refused.
+	 */
+	private void drawBetHint(GuiGraphicsExtractor g) {
+		long[] amounts = {trips, ante, ante};
+		for (int c = 0; c < 3; c++) {
+			if (c == 0 && !tripsOn()) continue;
+			Rect r = UthLayout.circle(c);
+			boolean target = (c == 0) == toTrips() && c <= 1;
+			Component t = Texts.number(amounts[c]);
+			CardGfx.centered(g, font, t, r.cx(), r.y() + r.h() + 2, target ? CasinoPalette.GOLD : amounts[c] > 0 ? CasinoPalette.BONE : MUTED, true);
+		}
+		Rect a = UthLayout.circle(0);
+		Rect b = UthLayout.circle(3);
+		Component where = Component.translatable(toTrips() ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
+		Component line = Component.translatable("gui.burmaldaholic.uth.chips_to", where, Texts.number(maxAnte(trips)));
+		int w = b.x() + b.w() - a.x() + 40;
+		int x = (a.x() + b.x() + b.w()) / 2;
+		CardGfx.fitted(g, font, line, x - Math.min(font.width(line), w) / 2, a.y() + a.h() + 13, w, CasinoPalette.BONE, true);
+		if (font.width(line) > w) hovers.add(new Hover(x - w / 2, a.y() + a.h() + 13, w, 10, line));
 	}
 
 	/** The Blind paytable panel (top-left of the felt): the three best rows, a paying row outlined in gold. */
@@ -926,6 +1100,7 @@ public class UthScreen extends CardTableScreen {
 	protected void drawConsoleText(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		hoveredBet = null;
 		hoveredBetAmount = 0;
+		consoleHovers.clear();
 		CompoundTag me = me();
 		for (CardButton b : buttons()) {
 			boolean preview = previewBet != null && b.getMessage().getString().equals(Component.translatable("gui.burmaldaholic.uth.button." + previewBet).getString());
@@ -941,18 +1116,19 @@ public class UthScreen extends CardTableScreen {
 		int x = compact() ? 4 : 8;
 		int y1 = compact() ? 141 : 212;
 		if (rackShown()) {
-			int ry = compact() ? 138 : 211;
+			// chips that can't add anything more to the target are greyed (a click still explains the limit)
+			boolean usable = chipUsable();
+			Component where = Component.translatable(toTrips() ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
 			for (int i = 0; i < CHIPS.length; i++) {
-				int cx = x + i * 25;
-				boolean hover = mouseX >= cx && mouseX < cx + 22 && mouseY >= ry && mouseY < ry + 22;
-				ChipStackView.big(g, CHIPS[i], cx, ry, false, hover, true);
+				Rect r = chipRect(i);
+				boolean hover = mouseX >= r.x() && mouseX < r.x() + r.w() && mouseY >= r.y() && mouseY < r.y() + r.h();
+				ChipStackView.big(g, CHIPS[i], r.x(), r.y(), false, hover, usable);
+				// the denomination on the chip (the rack chips are only colours otherwise)
+				int lift = hover && usable ? 2 : 0;
+				int ink = !usable ? 0xFFB0B0B8 : i == 0 ? 0xFF202028 : 0xFFFFFFFF;
+				CardGfx.centered(g, font, Texts.number(CHIPS[i]), r.x() + 11, r.y() + 7 - lift, ink, i != 0);
+				consoleHovers.add(new Hover(r.x(), r.y(), r.w(), r.h(), Component.translatable("gui.burmaldaholic.uth.chip.tooltip", Texts.number(CHIPS[i]), where)));
 			}
-			Component where = Component.translatable(chipsToTrips ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
-			long at = 6 * ante + trips;
-			Component line = Component.empty().append(where).append(Texts.raw(" · ")).append(Component.translatable("gui.burmaldaholic.uth.at_risk",
-				Texts.number(at)));
-			int lx = x + CHIPS.length * 25 + 2;
-			CardGfx.fitted(g, font, line, lx, ry + 7, Math.max(20, consoleTextRight() - lx), MUTED, true);
 			return;
 		}
 		int maxW = Math.max(40, consoleTextRight() - x);
@@ -1005,8 +1181,8 @@ public class UthScreen extends CardTableScreen {
 		if (s().getBooleanOr("bots_pending", false) && betting() && l2 == null) l2 = Component.translatable("gui.burmaldaholic.bots.pending");
 		if (l1 != null) CardGfx.fitted(g, font, l1, x, y1, maxW, c1, true);
 		if (l2 != null) CardGfx.fitted(g, font, l2, x, y1 + 12, maxW, MUTED, true);
-		if (l1 != null && font.width(l1) > maxW) hovers.add(new Hover(x, y1, maxW, 10, l1));
-		if (l2 != null && font.width(l2) > maxW) hovers.add(new Hover(x, y1 + 12, maxW, 10, l2));
+		if (l1 != null && font.width(l1) > maxW) consoleHovers.add(new Hover(x, y1, maxW, 10, l1));
+		if (l2 != null && font.width(l2) > maxW) consoleHovers.add(new Hover(x, y1 + 12, maxW, 10, l2));
 	}
 
 	private Component resultLine(CompoundTag res) {
@@ -1068,12 +1244,15 @@ public class UthScreen extends CardTableScreen {
 			hx = Math.round((mx - tableX()) / k) + UthLayout.TABLE_X;
 			hy = Math.round((my - tableY()) / k) + UthLayout.TABLE_Y;
 		}
+		for (Hover h : consoleHovers) {
+			if (mx >= h.x() && mx < h.x() + h.w() && my >= h.y() && my < h.y() + h.h()) {
+				g.setTooltipForNextFrame(font, font.split(h.text(), 220), sx, sy);
+				return;
+			}
+		}
 		for (int i = hovers.size() - 1; i >= 0; i--) {
 			Hover h = hovers.get(i);
-			boolean console = h.y() >= 200;
-			int tx = console ? mx : hx;
-			int ty = console ? my : hy;
-			if (tx >= h.x() && tx < h.x() + h.w() && ty >= h.y() && ty < h.y() + h.h()) {
+			if (hx >= h.x() && hx < h.x() + h.w() && hy >= h.y() && hy < h.y() + h.h()) {
 				g.setTooltipForNextFrame(font, font.split(h.text(), 220), sx, sy);
 				return;
 			}

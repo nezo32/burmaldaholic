@@ -109,6 +109,21 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(dealt[0] == 15 && dealt[1] == 1, "round 3 (rebet): dealt Ante/Trips " + dealt[0] + "/" + dealt[1]);
 			playToPayout(context, world, pos, before, "round3");
 
+			// the compact frame (1280 × 720 at GUI scale 3 = 426 × 240): the rack and the bet builder must not overlap
+			context.getInput().resizeWindow(1280, 720);
+			context.waitTicks(3);
+			guiScale(context, 3);
+			context.waitTicks(5);
+			context.takeScreenshot("uth_flow_compact_betting");
+			String overlap = context.computeOnClient(mc -> {
+				if (!(mc.gui.screen() instanceof UthScreen s) || !s.compact()) return "not the compact frame";
+				for (GuiEventListener c : s.children()) {
+					if (c instanceof CardButton b && b.visible && b.getY() > 100 && b.getX() < 4 + 5 * 25) return "button over the chip rack at x " + b.getX();
+				}
+				return null;
+			});
+			check(overlap == null, "compact layout: " + overlap);
+
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			context.waitTicks(20);
 		} finally {
@@ -133,7 +148,24 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 	/** Looks at the table and presses the Use key, as a player does. */
 	private static void openByUse(ClientGameTestContext context, TestSingleplayerContext world, BlockPos pos) {
 		world.getServer().runCommand("execute as @p at @s run tp @s ~ ~ ~ facing " + (pos.getX() + 0.5) + " " + (pos.getY() + 0.5) + " " + (pos.getZ() + 0.5));
-		context.waitTicks(5);
+		// aim the camera at the table (as the mouse would), until the client sees it under the crosshair (the server may lag
+		// behind under load; a stray mouse delta may turn the camera, so the aim is held)
+		net.minecraft.world.phys.Vec3 target = new net.minecraft.world.phys.Vec3(pos.getX() + 0.5, pos.getY() + 0.4, pos.getZ() + 0.5);
+		try {
+			context.waitFor(mc -> {
+				if (mc.player == null || mc.level == null) return false;
+				mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target);
+				mc.player.xRotO = mc.player.getXRot();
+				mc.player.yRotO = mc.player.getYRot();
+				return mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+					&& hit.getBlockPos().equals(pos) && mc.level.getBlockEntity(pos) instanceof UthTableBlockEntity;
+			}, TIMEOUT);
+		} catch (AssertionError e) {
+			context.takeScreenshot("uth_flow_fail_not_aimed");
+			String seen = context.computeOnClient(mc -> String.valueOf(mc.hitResult == null ? null : mc.hitResult.getLocation()) + " player "
+				+ (mc.player == null ? null : mc.player.blockPosition()));
+			throw new AssertionError("UTH real flow: the table at " + pos + " is not under the crosshair (" + seen + ")", e);
+		}
 		context.getInput().pressKey(o -> o.keyUse);
 		context.waitFor(mc -> mc.gui.screen() instanceof UthScreen, TIMEOUT);
 		context.waitTicks(10);
