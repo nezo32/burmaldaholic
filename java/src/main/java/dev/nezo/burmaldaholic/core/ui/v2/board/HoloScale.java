@@ -35,6 +35,20 @@ public final class HoloScale {
 		return Lod.MODEL;
 	}
 
+	/** Hysteresis of the LOD thresholds (blocks): no flicker for a player standing on a boundary. */
+	public static final double HYSTERESIS = 0.5;
+
+	/**
+	 * LOD with hysteresis: keeps {@code previous} while the distance is within {@link #HYSTERESIS} of the boundary
+	 * that separates it from the plain {@link #lod(double)} answer.
+	 */
+	public static Lod lod(double distance, Lod previous) {
+		Lod plain = lod(distance);
+		if (previous == null || plain == previous) return plain;
+		Lod nearer = plain.ordinal() < previous.ordinal() ? lod(distance + HYSTERESIS) : lod(distance - HYSTERESIS);
+		return nearer == previous ? previous : plain;
+	}
+
 	/** Screen px per block at {@code distance} for a vertical FOV and a framebuffer height. */
 	public static double pxPerBlock(double distance, double fovYDeg, int screenH) {
 		double d = Math.max(0.5, distance);
