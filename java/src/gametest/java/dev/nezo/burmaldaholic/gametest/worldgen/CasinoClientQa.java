@@ -212,10 +212,17 @@ public final class CasinoClientQa {
 	}
 
 	public static void closeScreen(ClientGameTestContext context) {
-		if (context.computeOnClient(mc -> mc.gui.screen() != null)) {
-			context.getInput().pressKey(256); // GLFW_KEY_ESCAPE
-			safeWait(context, mc -> mc.gui.screen() == null, 40);
-		}
+		// the player's own close (sends the container-close packet); never ESC: a screen that already closed would
+		// turn the key into the pause menu, which pauses the integrated server (and deadlocks the world close)
+		context.runOnClient(mc -> {
+			if (mc.player != null && mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+				mc.player.closeContainer();
+			}
+			if (mc.gui.screen() != null) {
+				mc.gui.setScreen(null);
+			}
+		});
+		safeWait(context, mc -> mc.gui.screen() == null, 40);
 	}
 
 	// ---- photos --------------------------------------------------------------------------------------------------------

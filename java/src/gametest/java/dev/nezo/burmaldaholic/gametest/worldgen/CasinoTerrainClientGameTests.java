@@ -146,8 +146,21 @@ public class CasinoTerrainClientGameTests implements FabricClientGameTest {
 			failures.add(tag + " (" + p.target() + "): " + String.join("; ", problems));
 		}
 		int floorY = p.spots().stream().mapToInt(s -> s.pos().getY()).min().orElse(p.box().minY() + 1);
-		CasinoClientQa.photograph(context, world, CasinoClientQa.vantagePoints(p, floorY).getFirst(),
-			"jcasino_terrain_" + seed + "_" + p.target().name().replace('/', '_'));
+		context.runOnClient(mc -> {
+			if (!mc.gui.hud.isHidden()) {
+				mc.gui.hud.toggle();
+			}
+		});
+		try {
+			CasinoClientQa.photograph(context, world, CasinoClientQa.vantagePoints(p, floorY).getFirst(),
+				"jcasino_terrain_" + seed + "_" + p.target().name().replace('/', '_'));
+		} finally {
+			context.runOnClient(mc -> {
+				if (mc.gui.hud.isHidden()) {
+					mc.gui.hud.toggle();
+				}
+			});
+		}
 	}
 
 	/** Wall time to bring the 9×9 chunks around {@code at} to FULL on the server thread. */

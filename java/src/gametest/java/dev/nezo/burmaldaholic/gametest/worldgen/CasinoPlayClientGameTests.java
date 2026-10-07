@@ -102,7 +102,8 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 				failures.add("families missing in the building: " + missing);
 			}
 			CasinoClientQa.closeScreen(context);
-			context.waitTicks(10);
+			write(); // before the world closes: the report survives a hung close
+			context.waitTicks(40);
 		} finally {
 			CasinoClientQa.guiScale(context, scaleBefore);
 			context.getInput().resizeWindow(window[0], window[1]);
