@@ -106,7 +106,7 @@ class PackFilesTest {
 		}
 		assertTrue(files.containsKey(PackFiles.structureSetFile()));
 		String set = text(files, PackFiles.structureSetFile());
-		assertTrue(set.contains("\"spacing\": 40") && set.contains("\"separation\": 12") && set.contains("\"salt\": 1592770897")
+		assertTrue(set.contains("\"spacing\": 22") && set.contains("\"separation\": 8") && set.contains("\"salt\": 1592770897")
 			&& set.contains("\"other_set\": \"minecraft:villages\", \"chunk_count\": 3"), set);
 		String tag = text(files, PackFiles.structureTagFile());
 		for (String s : PackFiles.STYLE_BIOMES.keySet()) {
@@ -129,7 +129,7 @@ class PackFilesTest {
 			  "project_start_to_heightmap": "WORLD_SURFACE_WG",
 			  "max_distance_from_center": 48,
 			  "use_expansion_hack": false,
-			  "max_height_range": 6,
+			  "max_height_range": 12,
 			  "required_pieces": ["entrance", "floor", "bar"]
 			}
 			""", PackFiles.structureJson("tudor"));
@@ -141,8 +141,8 @@ class PackFilesTest {
 			  ],
 			  "placement": {
 			    "type": "minecraft:random_spread",
-			    "spacing": 40,
-			    "separation": 12,
+			    "spacing": 22,
+			    "separation": 8,
 			    "salt": 1592770897,
 			    "exclusion_zone": { "other_set": "minecraft:villages", "chunk_count": 3 }
 			  }
@@ -154,7 +154,8 @@ class PackFilesTest {
 			  "values": [
 			    { "id": "#minecraft:has_structure/village_desert", "required": false },
 			    { "id": "minecraft:badlands", "required": false },
-			    { "id": "minecraft:wooded_badlands", "required": false }
+			    { "id": "minecraft:wooded_badlands", "required": false },
+			    { "id": "minecraft:eroded_badlands", "required": false }
 			  ]
 			}
 			""", PackFiles.biomeTagJson("oasis"));

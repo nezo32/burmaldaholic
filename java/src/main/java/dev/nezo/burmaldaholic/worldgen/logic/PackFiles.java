@@ -28,16 +28,20 @@ public final class PackFiles {
 	public static final String STRUCTURE_TYPE = NS + ":casino";
 	public static final String SET = NS + ":casinos";
 	public static final String TAG = NS + ":casino";
-	/** Vanilla-village-like spread: 640-block cells, ~830 blocks mean spacing at ~60 % biome pass (design §2). */
-	public static final int SPACING = 40;
-	public static final int SEPARATION = 12;
+	/**
+	 * 352-block cells. Measured (WorldgenSpawnSurvey, 4 seeds): only ~19 % of cells hold a casino (oceans, rivers,
+	 * mountains, uncovered biomes, steep or wet footprints), so the contract's 40/12 gave one per ~1500 blocks; 22/8
+	 * gives the design target of one per ~830 blocks.
+	 */
+	public static final int SPACING = 22;
+	public static final int SEPARATION = 8;
 	public static final int SALT = 1592770897;
 	/** Never closer than 3 chunks to a village placement: the village annex covers villages. */
 	public static final int VILLAGE_EXCLUSION_CHUNKS = 3;
 	public static final int SIZE = 3;
 	public static final int START_HEIGHT = -3;
 	public static final int MAX_DISTANCE = 48;
-	public static final int MAX_HEIGHT_RANGE = 6;
+	public static final int MAX_HEIGHT_RANGE = 12;
 	/** Pools every standalone casino must contain (D5: complete or absent). */
 	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "bar");
 	/** Pool path segment of annex pieces; never a style. */
@@ -48,11 +52,15 @@ public final class PackFiles {
 
 	static {
 		Map<String, List<String>> m = new LinkedHashMap<>();
+		// §4.1 table + the open land biomes the survey found uncovered (sunflower plains, old-growth birch / pine,
+		// sparse jungle, eroded badlands); dense-canopy, swamp and mountain biomes stay out on purpose.
 		m.put("tudor", List.of("#minecraft:has_structure/village_plains", "minecraft:meadow", "minecraft:forest", "minecraft:birch_forest",
-			"minecraft:flower_forest"));
-		m.put("oasis", List.of("#minecraft:has_structure/village_desert", "minecraft:badlands", "minecraft:wooded_badlands"));
-		m.put("safari", List.of("#minecraft:has_structure/village_savanna", "minecraft:savanna_plateau"));
-		m.put("alpine", List.of("#minecraft:has_structure/village_taiga", "minecraft:cherry_grove", "minecraft:old_growth_spruce_taiga"));
+			"minecraft:flower_forest", "minecraft:sunflower_plains", "minecraft:old_growth_birch_forest"));
+		m.put("oasis", List.of("#minecraft:has_structure/village_desert", "minecraft:badlands", "minecraft:wooded_badlands",
+			"minecraft:eroded_badlands"));
+		m.put("safari", List.of("#minecraft:has_structure/village_savanna", "minecraft:savanna_plateau", "minecraft:sparse_jungle"));
+		m.put("alpine", List.of("#minecraft:has_structure/village_taiga", "minecraft:cherry_grove", "minecraft:old_growth_spruce_taiga",
+			"minecraft:old_growth_pine_taiga"));
 		m.put("ice_palace", List.of("#minecraft:has_structure/village_snowy", "minecraft:snowy_taiga", "minecraft:ice_spikes"));
 		STYLE_BIOMES = java.util.Collections.unmodifiableMap(m);
 	}
