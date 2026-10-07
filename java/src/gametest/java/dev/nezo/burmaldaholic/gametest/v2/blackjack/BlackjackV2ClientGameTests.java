@@ -37,6 +37,11 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 100000");
+			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
+			world.getServer().runOnServer(server -> {
+				dev.nezo.burmaldaholic.core.config.CasinoConfig.contracts().enabled = false; // rewards would move the balance
+				dev.nezo.burmaldaholic.core.config.CasinoConfig.streak().enabled = false;
+			});
 			world.getServer().runCommand("time set noon");
 			RealFlow f = new RealFlow(context, world);
 			int dx = -12;
@@ -141,6 +146,9 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 			t.revealAllForTests();
 			return null;
 		});
+		// let this table pay out completely before the next size measures balances
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> "result".equals(t.phase()) && t.openStakes().isEmpty(), "the rebet round settled", 400);
+		f.context().waitTicks(20);
 		f.close();
 	}
 

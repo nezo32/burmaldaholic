@@ -34,6 +34,11 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 100000");
+			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
+			world.getServer().runOnServer(server -> {
+				dev.nezo.burmaldaholic.core.config.CasinoConfig.contracts().enabled = false; // rewards would move the balance
+				dev.nezo.burmaldaholic.core.config.CasinoConfig.streak().enabled = false;
+			});
 			RealFlow f = new RealFlow(context, world);
 			int dx = -12;
 			for (String lang : List.of("en_us", "ru_ru")) {

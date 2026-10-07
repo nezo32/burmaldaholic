@@ -284,7 +284,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		} else {
 			chrome.status.color(CasinoPalette.V2_GOLD);
 		}
-		if (!m.notice.isEmpty() && view.phase() != BlackjackView.Phase.BETTING) l2 = Component.translatable(m.notice);
+		boolean mine = view.myTurn() || me != null && me.settled() && !m.busy;
+		if (!m.notice.isEmpty() && !mine && view.phase() != BlackjackView.Phase.BETTING) l2 = Component.translatable(m.notice);
 		chrome.status.set(l1, l2);
 	}
 
