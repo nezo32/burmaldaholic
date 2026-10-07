@@ -111,11 +111,16 @@ public class BoardClientGameTests implements FabricClientGameTest {
 			for (int angle : new int[] {0, 30, 60}) shot(context, world, pos, "board_bj_" + (int) d + "m_" + angle, d, angle, true);
 		}
 		shot(context, world, pos, "board_bj_5m_back", 5, 160, true);
+		// the concept's camera: a raised eye (standing on a step / a balcony) looking down at the felt
+		shotAt(context, world, pos, "board_bj_5m_0_high", 5, 0, 1.6, true);
+		shotAt(context, world, pos, "board_bj_3m_30_high", 3, 30, 1.2, true);
 		shot(context, world, pos, "board_bj_12m_0", 12, 0, false);
 		// a wall beside the table: the overhang falls back to the block top
 		world.getServer().runOnServer(server -> server.overworld().setBlockAndUpdate(pos.west(), Blocks.STONE_BRICKS.defaultBlockState()));
 		context.waitTicks(50);
 		shot(context, world, pos, "board_bj_blocked_5m", 5, 20, true);
+		int felt = context.computeOnClient(mc -> BoardStats.of(pos).feltQuads);
+		if (felt != 1) throw new AssertionError("a wall beside the table: the felt must fall back to the 1 x 1 top (quads " + felt + ")");
 		world.getServer().runOnServer(server -> server.overworld().setBlockAndUpdate(pos.west(), Blocks.AIR.defaultBlockState()));
 		context.runOnClient(mc -> BoardRenderer.demo(pos, null));
 		world.getServer().runOnServer(server -> {
@@ -217,10 +222,15 @@ public class BoardClientGameTests implements FabricClientGameTest {
 	 * height, looking at the felt; shoots; checks the stats of the table at {@code pos}.
 	 */
 	private void shot(ClientGameTestContext context, TestSingleplayerContext world, BlockPos pos, String name, double d, int angle, boolean plates) {
+		shotAt(context, world, pos, name, d, angle, 0, plates);
+	}
+
+	private void shotAt(ClientGameTestContext context, TestSingleplayerContext world, BlockPos pos, String name, double d, int angle, double raise,
+			boolean plates) {
 		double a = Math.toRadians(angle);
 		double cx = pos.getX() + 0.5 + d * Math.sin(a);
 		double cz = pos.getZ() + 0.5 - d * Math.cos(a);
-		double eye = pos.getY() + 0.0; // spectator feet at the floor: eye 1.62 above, like a standing player
+		double eye = pos.getY() + raise; // spectator feet at the floor (+ raise): eye 1.62 above, like a standing player
 		world.getServer().runCommand(String.format(Locale.ROOT, "tp @p %.3f %.3f %.3f facing %.3f %.3f %.3f", cx, eye, cz, pos.getX() + 0.5, pos.getY() + 1.15,
 			pos.getZ() + 0.5));
 		context.waitTicks(8);

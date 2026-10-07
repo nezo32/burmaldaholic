@@ -73,8 +73,9 @@ final class SeatPlates {
 		for (int a = 0; a < n; a++) {
 			int i = order[a];
 			BoardModel.Plate p = m.plates[i];
-			f.toBlock(p.ax, p.ay, p.az, P);
-			Vector3f bottom = new Vector3f(P).add(new Vector3f(f.right).mul(OU[i] - AU[i])).add(new Vector3f(f.up).mul(OV[i] - AV[i]));
+			// every plate lives in the camera plane through the table centre: one depth, so the plane layout (disjoint
+			// rectangles) is exactly what the screen shows — no perspective overlap between near and far seats
+			Vector3f bottom = f.onPlane(OU[i], OV[i], new Vector3f());
 			int lines = 0;
 			seqs[lines] = p.name.seq;
 			widths[lines] = p.name.width;
@@ -88,7 +89,7 @@ final class SeatPlates {
 			st.lines += lines;
 			st.plates++;
 			if (LEADER[i]) {
-				HoloText.leader(pose, out, f, new Vector3f(bottom), new Vector3f(P).sub(new Vector3f(f.up).mul(0.02f)), 0.012f, 0x99FFD640);
+				HoloText.leader(pose, out, f, new Vector3f(bottom), f.onPlane(AU[i], AV[i] - 0.02f, new Vector3f()), 0.012f, 0x99FFD640);
 				st.leaders++;
 			}
 			if (st.plateRectCount < st.plateRects.length / 4) {
