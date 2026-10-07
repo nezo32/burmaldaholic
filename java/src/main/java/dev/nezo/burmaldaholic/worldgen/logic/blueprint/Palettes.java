@@ -2,7 +2,8 @@ package dev.nezo.burmaldaholic.worldgen.logic.blueprint;
 
 /**
  * The style palettes (architecture doc §5). Skeleton: only {@link #TUDOR} (plains / forest / meadow) is
- * filled in; lane B2 adds OASIS, SAFARI, ALPINE, ICE_PALACE; lane B4 adds GOLD_VAULT and VOID_PENTHOUSE.
+ * filled in here (lane CB-2); lane CB-3 adds the other Overworld styles in pieces/OverworldPalettes, lane CB-4
+ * the Nether / End ones in pieces/OtherworldPalettes.
  */
 public final class Palettes {
 	private Palettes() {}

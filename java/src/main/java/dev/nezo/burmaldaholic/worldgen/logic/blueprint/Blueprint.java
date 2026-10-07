@@ -138,7 +138,7 @@ public final class Blueprint {
 	/**
 	 * Pixel-font sign on a wall plane facing {@code Facing.SOUTH} (z = {@code z}), letters alternating
 	 * NEON_A / NEON_B on SIGN_BACK, BULB border every second cell. {@code topY} is the top text row.
-	 * Only the front (+z) is supported in the skeleton; side signs come with lane B1.
+	 * Only the front (+z) is supported in the skeleton; side signs come with lane CB-3 (Facades).
 	 */
 	public Blueprint marquee(String word, int centerX, int topY, int z) {
 		Layouts.Sign sign = Layouts.signPixels(word);

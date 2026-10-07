@@ -5,7 +5,7 @@ import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
 
 /**
- * Furniture kits (architecture doc §3.4). Skeleton set; lane B1 owns this file and adds BAR, VIP_SOFA,
+ * Furniture kits (architecture doc §3.4). Skeleton set; lane CB-2 owns this file and adds BAR, VIP_SOFA,
  * PLANTER, ROPE_BARRIER, DUEL_PIT, LAMP_POST, PORTICO.
  *
  * <p>Footprint rules every kit obeys (checked by {@link Checks}):

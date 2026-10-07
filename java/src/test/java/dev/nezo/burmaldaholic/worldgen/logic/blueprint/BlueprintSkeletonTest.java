@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Proves the DSL skeleton of docs/architecture/casino-buildings.md compiles, composes and passes its own
- * checks. The demo room is NOT a shipped piece (lane B1 replaces it with the real pieces + their tests).
+ * checks. The demo room is NOT a shipped piece (lane CB-2 replaces it with the real pieces + their tests).
  */
 class BlueprintSkeletonTest {
 	static Piece demoFloor() {
