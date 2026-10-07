@@ -313,6 +313,16 @@ public final class OverworldCasino {
 		b.inlay(suit, cx - h + 1, ROW, cz - h + 1, BlockSpec.mc(suit.red() ? "red_carpet" : "black_carpet"));
 	}
 
+	/**
+	 * Door throat: the 3-wide doorway at the wall cell ({@code x}, {@code z}) facing {@code out} and the two
+	 * cells inside it stay walkable for {@link #DOOR_H} − 1 rows (nothing may stand in a door, not even a sofa).
+	 */
+	public static void throat(Blueprint b, int x, int z, Facing out) {
+		Facing along = out.rotate(1);
+		int ix = x - 2 * out.dx(), iz = z - 2 * out.dz();
+		b.keepClear(x - along.dx(), ROW, z - along.dz(), ix + along.dx(), ROW + DOOR_H - 2, iz + along.dz());
+	}
+
 	/** Roof hook: the style's own roof, else the given default. */
 	public static void roof(Style s, Blueprint b, Style.Hall hall, Runnable fallback) {
 		if (!s.signature().roof(b, hall)) {
@@ -512,6 +522,7 @@ public final class OverworldCasino {
 		b.kit(Kits.chandelier(2), 7, 11, 6, Facing.SOUTH);
 		b.kit(Kits.chandelier(2), 23, 11, 6, Facing.SOUTH);
 		b.keepClear(13, ROW, 9, 17, ROW + 3, 11);
+		throat(b, 15, 0, Facing.NORTH);
 		b.aisle(14, ROW, 1, 16, 9);
 
 		s.signature().decorate(b, Part.ENTRANCE);
@@ -654,6 +665,9 @@ public final class OverworldCasino {
 	}
 
 	private static Piece finishFloor(Style s, Blueprint b, Part part) {
+		throat(b, 15, 16, Facing.SOUTH);
+		throat(b, 15, 0, Facing.NORTH);
+		throat(b, 30, 8, Facing.EAST);
 		s.signature().decorate(b, part);
 		b.entry(15, ROW, 16);
 		b.entry(15, ROW, 0);
@@ -725,7 +739,8 @@ public final class OverworldCasino {
 		b.kit(Kits.grandChandelier(3), 8, 11, 7, Facing.SOUTH);
 		b.kit(Kits.chandelier(2), 3, 11, 8, Facing.SOUTH);
 		b.kit(Kits.planter(), 14, ROW, 10, Facing.SOUTH);
-		b.kit(Kits.vipSofa(2), 9, ROW, 11, Facing.NORTH);
+		b.kit(Kits.chipStacks(), 11, ROW, 11, Facing.SOUTH);
+		throat(b, 8, 12, Facing.SOUTH);
 		s.signature().decorate(b, Part.BAR);
 		b.entry(8, ROW, 12);
 		b.jigsaw(8, FLOOR_Y, 12, Facing.SOUTH, BAR_SIDE, FLOOR_SIDE, EMPTY_POOL, s.palette().block(Role.FLOOR));
@@ -774,6 +789,7 @@ public final class OverworldCasino {
 		b.banner(4, ROW + 4, 1, Facing.SOUTH, "red", suitLayers(Suit.HEART));
 		b.banner(10, ROW + 4, 1, Facing.SOUTH, "red", suitLayers(Suit.SPADE));
 		s.signature().decorate(b, Part.OFFICE);
+		throat(b, 7, 8, Facing.SOUTH);
 		b.entry(7, ROW, 8);
 		b.jigsaw(7, FLOOR_Y, 8, Facing.SOUTH, REAR_FRONT, FLOOR_BACK, EMPTY_POOL, s.palette().block(Role.FLOOR));
 		return b.build();
@@ -825,6 +841,7 @@ public final class OverworldCasino {
 		b.fill(6, ROW + 4, 11, 10, ROW + 4, 11, Role.TRIM);
 		b.set(8, ROW + 4, 11, Role.BULB);
 		bannerPair(b, 6, 10, ROW + 3, 12, Facing.SOUTH, Suit.DIAMOND, Suit.HEART);
+		throat(b, 8, 12, Facing.SOUTH);
 		s.signature().decorate(b, Part.VIP);
 		b.entry(8, ROW, 12);
 		b.jigsaw(8, FLOOR_Y, 12, Facing.SOUTH, REAR_FRONT, FLOOR_BACK, EMPTY_POOL, s.palette().block(Role.FLOOR));
