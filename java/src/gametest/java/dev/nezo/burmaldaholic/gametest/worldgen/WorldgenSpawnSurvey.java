@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.worldgen.CasinoElements;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,7 +69,7 @@ public class WorldgenSpawnSurvey {
 		helper.assertTrue(cfg.villageCasino.chance == 0.5 && cfg.piglinParlor.chance == 0.6 && cfg.highRoller.chance == 0.5,
 			"attach chances are not the v0.1.2 defaults: " + cfg.villageCasino.chance + "/" + cfg.piglinParlor.chance + "/" + cfg.highRoller.chance);
 		RegistryAccess reg = server.registryAccess();
-		StructureTemplateManager templates = server.getStructureManager();
+		StructureTemplateManager templates = templates(server);
 		Count village = new Count(0, 0);
 		Count bastion = new Count(0, 0);
 		Count end = new Count(0, 0);
@@ -95,7 +96,7 @@ public class WorldgenSpawnSurvey {
 		}
 		var server = helper.getLevel().getServer();
 		RegistryAccess reg = server.registryAccess();
-		StructureTemplateManager templates = server.getStructureManager();
+		StructureTemplateManager templates = templates(server);
 		var cfg = CasinoConfig.worldgen();
 		double v0 = cfg.villageCasino.chance;
 		double p0 = cfg.piglinParlor.chance;
@@ -127,7 +128,7 @@ public class WorldgenSpawnSurvey {
 			.createWorldDimensions().dimensions().get(stemKey);
 		ChunkGenerator gen = stem.generator();
 		NoiseBasedChunkGenerator noise = (NoiseBasedChunkGenerator) gen;
-		RandomState randomState = RandomState.create(noise.generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
+		RandomState randomState = randomState(noise.generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
 		HolderLookup<StructureSet> sets = reg.lookupOrThrow(Registries.STRUCTURE_SET);
 		ChunkGeneratorStructureState state = gen.createState(sets, randomState, seed);
 		DimensionType type = stem.type().value();
@@ -170,7 +171,7 @@ public class WorldgenSpawnSurvey {
 					}
 					StructureSet.StructureSelectionEntry sel = options.get(index);
 					Holder<net.minecraft.world.level.levelgen.structure.Structure> holder = sel.structure();
-					StructureStart start = holder.value().generate(holder, levelKey, reg, gen, gen.getBiomeSource(), randomState, templates,
+					StructureStart start = generate(holder, levelKey, reg, gen, randomState, templates,
 						seed, chunk, 0, height, holder.value().biomes()::contains);
 					if (start.isValid()) {
 						String id = holder.unwrapKey().map(k -> k.identifier().getPath()).orElse("?");
@@ -213,6 +214,102 @@ public class WorldgenSpawnSurvey {
 			casinos = 0;
 		}
 		return new Count(starts, casinos);
+	}
+
+	// ---- 26.2 / 26.3 differences (one source set): resolved by reflection, dev (Mojang-named) runtime only ----
+
+	private static StructureTemplateManager templates(net.minecraft.server.MinecraftServer server) {
+		for (java.lang.reflect.Method m : net.minecraft.server.MinecraftServer.class.getMethods()) {
+			if (m.getParameterCount() == 0 && m.getReturnType() == StructureTemplateManager.class) {
+				return (StructureTemplateManager) invoke(m, server);
+			}
+		}
+		throw new IllegalStateException("no StructureTemplateManager getter on MinecraftServer");
+	}
+
+	/** 26.2: create(settings, noises, seed); 26.3: create(noises, seed, settings). */
+	private static RandomState randomState(net.minecraft.world.level.levelgen.NoiseGeneratorSettings settings,
+			Object noises, long seed) {
+		for (java.lang.reflect.Method m : RandomState.class.getMethods()) {
+			if (!m.getName().equals("create") || m.getParameterCount() != 3 || !java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+				continue;
+			}
+			Object[] args = new Object[3];
+			Class<?>[] types = m.getParameterTypes();
+			for (int i = 0; i < 3; i++) {
+				args[i] = types[i] == long.class ? seed
+					: types[i].isInstance(settings) ? settings
+					: noises;
+			}
+			if (Arrays.stream(types).anyMatch(t -> t == long.class) && Arrays.stream(types).anyMatch(t -> t.isInstance(settings))) {
+				return (RandomState) invoke(m, null, args);
+			}
+		}
+		throw new IllegalStateException("no RandomState.create(settings, noises, seed)");
+	}
+
+	/** {@code Structure.generate}; 26.3 adds a {@code Climate.Sampler} parameter (built like ChunkGenerator does). */
+	private static StructureStart generate(Holder<net.minecraft.world.level.levelgen.structure.Structure> holder, ResourceKey<Level> levelKey,
+			RegistryAccess reg, ChunkGenerator gen, RandomState randomState, StructureTemplateManager templates, long seed, ChunkPos chunk,
+			int references, LevelHeightAccessor height, java.util.function.Predicate<Holder<net.minecraft.world.level.biome.Biome>> biomes) {
+		for (java.lang.reflect.Method m : net.minecraft.world.level.levelgen.structure.Structure.class.getMethods()) {
+			if (!m.getName().equals("generate") || m.getReturnType() != StructureStart.class) {
+				continue;
+			}
+			Class<?>[] types = m.getParameterTypes();
+			Object[] args = new Object[types.length];
+			for (int i = 0; i < types.length; i++) {
+				Class<?> t = types[i];
+				args[i] = t == Holder.class ? holder
+					: t == ResourceKey.class ? levelKey
+					: t == RegistryAccess.class ? reg
+					: t == ChunkGenerator.class ? gen
+					: t == net.minecraft.world.level.biome.BiomeSource.class ? gen.getBiomeSource()
+					: t == RandomState.class ? randomState
+					: t == StructureTemplateManager.class ? templates
+					: t == long.class ? seed
+					: t == ChunkPos.class ? chunk
+					: t == int.class ? references
+					: t == LevelHeightAccessor.class ? height
+					: t == java.util.function.Predicate.class ? biomes
+					: t.getSimpleName().equals("Sampler") ? climateSampler(randomState)
+					: null;
+				if (args[i] == null) {
+					throw new IllegalStateException("Structure.generate: unknown parameter " + t);
+				}
+			}
+			return (StructureStart) invoke(m, holder.value(), args);
+		}
+		throw new IllegalStateException("no Structure.generate");
+	}
+
+	/** 26.3: {@code randomState.createClimateSampler(SamplerContext.builder().enableCaches().build())}; 26.2: {@code sampler()}. */
+	private static Object climateSampler(RandomState randomState) {
+		for (java.lang.reflect.Method m : RandomState.class.getMethods()) {
+			if (m.getName().equals("sampler") && m.getParameterCount() == 0) {
+				return invoke(m, randomState);
+			}
+			if (m.getName().equals("createClimateSampler") && m.getParameterCount() == 1) {
+				try {
+					Class<?> ctx = m.getParameterTypes()[0];
+					Object builder = ctx.getMethod("builder").invoke(null);
+					builder = builder.getClass().getMethod("enableCaches").invoke(builder);
+					Object context = builder.getClass().getMethod("build").invoke(builder);
+					return invoke(m, randomState, context);
+				} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException(e);
+				}
+			}
+		}
+		throw new IllegalStateException("no climate sampler on RandomState");
+	}
+
+	private static Object invoke(java.lang.reflect.Method m, Object target, Object... args) {
+		try {
+			return m.invoke(target, args);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(m.toString(), e);
+		}
 	}
 
 	private static String fmt(Map<String, int[]> m) {
