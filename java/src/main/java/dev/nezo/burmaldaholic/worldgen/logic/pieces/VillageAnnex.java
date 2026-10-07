@@ -47,7 +47,9 @@ public final class VillageAnnex {
 	private VillageAnnex() {}
 
 	public static final int SX = 17;
-	public static final int SY = 17;
+	public static final int SY = 23;
+	/** Top row of the hall roof and the facade crown (the tower rises above it to SY - 1). */
+	public static final int HALL_TOP = 16;
 	public static final int SZ = 17;
 	/** Floor row (first air row above the floor blocks). */
 	public static final int Y = 1;
@@ -91,6 +93,12 @@ public final class VillageAnnex {
 
 		// floor: carpeted gaming hall, chequered lobby floor, accent runner door → cashier
 		b.fill(WEST + 1, Y, 1, EAST - 1, Y, 7, Role.CARPET);
+		for (int x = WEST + 1; x <= EAST - 1; x++) { // accent border round the gaming hall
+			b.set(x, Y, 1, Role.CARPET_ACCENT);
+			b.set(x, Y, 7, Role.CARPET_ACCENT);
+		}
+		b.fill(WEST + 1, Y, 1, WEST + 1, Y, 7, Role.CARPET_ACCENT);
+		b.fill(EAST - 1, Y, 1, EAST - 1, Y, 7, Role.CARPET_ACCENT);
 		b.fill(WEST + 1, Y, 3, EAST - 1, Y, 4, Role.CARPET_ACCENT);
 		for (int x = WEST + 1; x <= EAST - 1; x++) {
 			for (int z = 8; z <= FRONT - 1; z++) {
@@ -102,11 +110,11 @@ public final class VillageAnnex {
 		b.fill(7, Y, 9, 9, Y, FRONT - 1, Role.CARPET_ACCENT);
 
 		// roof with eaves over the posts, then the facade
-		Roofs.roof(b, style.roof(), 0, 0, SX - 1, FRONT, CEILING, SY - 1);
+		Roofs.roof(b, style.roof(), 0, 0, SX - 1, FRONT, CEILING, HALL_TOP);
 		if (style.roof() == RoofKind.HIP) {
 			// front cross gable meeting the facade's half-timbered gable, and a lit cupola on the ridge
-			Roofs.gable(b, 4, 9, 12, FRONT, 12, SY - 1, false, Role.ROOF, Role.ROOF, Role.WALL);
-			Roofs.cupola(b, 8, 7, 14, SY - 1);
+			Roofs.gable(b, 4, 9, 12, FRONT, 12, HALL_TOP, false, Role.ROOF, Role.ROOF, Role.WALL);
+			Roofs.cupola(b, 8, 7, 14, HALL_TOP);
 		}
 		if (style.roof() == RoofKind.STEEP_GABLE) {
 			// back gable end: collar beam, king post and a pair of windows
@@ -117,7 +125,13 @@ public final class VillageAnnex {
 					"north", "false", "south", "false", "waterlogged", "false"));
 			}
 		}
-		Facades.front(b, style.facade(), new Facades.Front(0, SX - 1, FRONT, 0, 8, 3, 3, 5, SY - 1, 2, "CASINO"));
+		tower(b, style);
+		// lanterns hanging under the eaves between the side posts (night glow along the walls)
+		for (int z = 2; z <= FRONT - 2; z += 4) {
+			b.set(0, CEILING - 1, z, HANGING_LANTERN);
+			b.set(SX - 1, CEILING - 1, z, HANGING_LANTERN);
+		}
+		Facades.front(b, style.facade(), new Facades.Front(0, SX - 1, FRONT, 0, 8, 3, 3, 5, HALL_TOP, 2, "CASINO"));
 
 		// ---- games ----
 		pod(b, Game.BLACKJACK, 3, 2, Facing.SOUTH, null);
@@ -138,6 +152,26 @@ public final class VillageAnnex {
 		}
 		b.set(EAST - 1, Y, 1, BlockSpec.mc("barrel", "facing", "up", "open", "false"));
 		b.chest(CasinoLoot.Table.VILLAGE_CASINO, WEST + 1, Y, 1, Facing.SOUTH);
+		// back bars between the dealer stations: counter, bottles (brewing stands) and plants, shelves in the wall
+		for (int[] bar : new int[][] {{5, 6}, {11, 10}}) {
+			b.set(bar[0], Y, 1, Role.COUNTER);
+			b.set(bar[1], Y, 1, Role.COUNTER);
+			b.set(bar[0], Y + 1, 1, BlockSpec.mc("brewing_stand", "has_bottle_0", "true", "has_bottle_1", "true", "has_bottle_2", "false"));
+			b.set(bar[1], Y + 1, 1, Role.PLANTER);
+			for (int x : bar) {
+				b.fill(x, Y + 1, 0, x, Y + 2, 0, BlockSpec.mc("bookshelf"));
+			}
+		}
+		// columns framing the cashier, rope barrier along the runner, a sofa by the door
+		for (int x : new int[] {6, 10}) {
+			b.fill(x, Y, 7, x, CEILING - 1, 7, Role.ACCENT);
+		}
+		b.set(10, Y, 10, Facades.post("minecraft:dark_oak_fence"));
+		b.set(10, Y, 11, BlockSpec.mc("iron_chain", "axis", "z", "waterlogged", "false"));
+		b.set(10, Y, 12, Facades.post("minecraft:dark_oak_fence"));
+		for (int x : new int[] {12, 13}) {
+			b.set(x, Y, FRONT - 1, style.palette().get(Role.STOOL).stairs(Facing.SOUTH, false));
+		}
 
 		// ---- lights: chandeliers over the tables, ceiling lights over the lobby ----
 		for (int x : new int[] {3, 8, 13}) {
@@ -161,6 +195,47 @@ public final class VillageAnnex {
 		b.keepClear(7, Y, 9, 9, Y + 2, SZ - 1); // door throat → cashier
 		b.jigsaw(8, 0, SZ - 1, Facing.SOUTH, "minecraft:street", "minecraft:street", "minecraft:empty", style.palette().block(Role.PATH));
 		return b.build();
+	}
+
+	static final BlockSpec HANGING_LANTERN = BlockSpec.mc("lantern", "hanging", "true", "waterlogged", "false");
+
+	/**
+	 * Landmark tower over the front-left corner of the hall (x 1..5, z 8..12, rising from the ceiling to row 17)
+	 * with the style's roof on top (rows 18..SY-1): lit windows, a glowing diamond emblem facing the street and
+	 * the west, so the casino reads from across the village day and night.
+	 */
+	static void tower(Blueprint b, Style style) {
+		int x0 = 1, x1 = 5, z0 = 8, z1 = 12, y0 = CEILING + 1, y1 = 17;
+		b.clear(x0, y0, z0, x1, y1, z1);
+		for (int y = y0; y <= y1; y++) {
+			for (int x = x0; x <= x1; x++) {
+				for (int z = z0; z <= z1; z++) {
+					boolean edgeX = x == x0 || x == x1, edgeZ = z == z0 || z == z1;
+					if (edgeX && edgeZ) {
+						b.set(x, y, z, Role.FRAME);
+					} else if (edgeX || edgeZ) {
+						b.set(x, y, z, y == 12 || y == y1 ? Role.BEAM : Role.WALL);
+					}
+				}
+			}
+		}
+		BlockSpec pane = BlockSpec.of(style.palette().get(Role.PANE).full(), "east", "true", "west", "true", "north", "false", "south",
+			"false", "waterlogged", "false");
+		BlockSpec paneZ = BlockSpec.of(style.palette().get(Role.PANE).full(), "east", "false", "west", "false", "north", "true", "south",
+			"true", "waterlogged", "false");
+		b.fill(3, 14, z0, 3, 15, z0, pane);
+		b.fill(x1, 14, 10, x1, 15, 10, paneZ);
+		b.set(3, 14, 10, Role.LIGHT);
+		// glowing diamond emblems (stained glass lit from behind) on the street side and the west side
+		BlockSpec glass = Facades.glassOf(style.palette().block(Role.NEON_A));
+		int[][] diamond = {{0, 16}, {-1, 15}, {0, 15}, {1, 15}, {-1, 14}, {0, 14}, {1, 14}, {0, 13}};
+		for (int[] d : diamond) {
+			b.set(3 + d[0], d[1], z1, glass);
+			b.set(3 + d[0], d[1], z1 - 1, Role.LIGHT);
+			b.set(x0, d[1], 10 + d[0], glass);
+			b.set(x0 + 1, d[1], 10 + d[0], Role.LIGHT);
+		}
+		Roofs.roof(b, style.roof(), x0 - 1, z0 - 1, x1 + 1, z1 + 1, y1 + 1, SY - 1);
 	}
 
 	/**

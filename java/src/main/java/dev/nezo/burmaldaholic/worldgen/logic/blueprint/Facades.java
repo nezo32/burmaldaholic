@@ -156,6 +156,41 @@ public final class Facades {
 		return new SignBox(Math.min(start, start + s * (w - 1)), Math.max(start, start + s * (w - 1)), bottomY, bottomY + 6);
 	}
 
+	/** Stained glass of the same colour as a {@code *_concrete} block (other blocks are returned unchanged). */
+	public static BlockSpec glassOf(BlockSpec b) {
+		return b.name().endsWith("_concrete") ? BlockSpec.of(b.name().replace("_concrete", "_stained_glass")) : b;
+	}
+
+	/**
+	 * Illuminated sign (glows day and night): letters of stained glass in the NEON_A / NEON_B colours, each backed
+	 * by a LIGHT block in the cell behind it (towards the wall), on a SIGN_BACK board. 7 rows from {@code bottomY}:
+	 * a bulb strip (BULB every second cell between ROOF_TRIM top slabs), 5 lit text rows, a ROOF_TRIM slab cap.
+	 * With {@code pad > 0} the end columns are a TRIM frame. The cell behind the board must be inside the template.
+	 */
+	public static SignBox litSign(Blueprint b, String word, Facing side, int center, int bottomY, int plane, Lettering l, int pad) {
+		Layouts.Sign sign = text(word, l);
+		int w = sign.width() + 2 * pad;
+		int s = step(side);
+		int start = center - s * ((w - 1) / 2);
+		int behind = plane - (side == Facing.SOUTH || side == Facing.EAST ? 1 : -1);
+		Material trim = b.palette().get(Role.ROOF_TRIM);
+		for (int i = 0; i < w; i++) {
+			int a = start + s * i;
+			put(b, side, plane, a, bottomY, i % 2 == 0 ? b.palette().block(Role.BULB) : trim.slab("top"));
+			put(b, side, plane, a, bottomY + 6, trim.slab("bottom"));
+			for (int y = bottomY + 1; y <= bottomY + 5; y++) {
+				put(b, side, plane, a, y, pad > 0 && (i == 0 || i == w - 1) ? Role.TRIM : Role.SIGN_BACK);
+			}
+		}
+		for (Layouts.SignPixel px : sign.pixels()) {
+			int a = start + s * (pad + px.col());
+			int y = bottomY + 5 - px.row();
+			put(b, side, plane, a, y, glassOf(b.palette().block(px.letter() % 2 == 0 ? Role.NEON_A : Role.NEON_B)));
+			put(b, side, behind, a, y, Role.LIGHT);
+		}
+		return new SignBox(Math.min(start, start + s * (w - 1)), Math.max(start, start + s * (w - 1)), bottomY, bottomY + 6);
+	}
+
 	/** Marquee with the default look: tight letters, one cell of padding, bulbs all round. */
 	public static SignBox marquee(Blueprint b, String word, Facing side, int center, int bottomY, int plane) {
 		return marquee(b, word, side, center, bottomY, plane, Lettering.TIGHT, 1, true);
@@ -413,15 +448,7 @@ public final class Facades {
 		if (hasI && (avail - tw - 2 * pad) % 2 == 1 && tw + 1 + 2 * pad <= avail) {
 			l = Lettering.WIDE_I; // odd leftover: a two-column I keeps the board centred
 		}
-		SignBox box = marquee(b, f.word(), Facing.SOUTH, f.centerX(), f.signBottomY(), f.signPlane(), l, pad, sideFrame && pad > 0);
-		if (f.porch() > 0 && f.signTopY() + 1 <= f.topY()) {
-			// the board is a box: a ROOF_TRIM slab cap on top of it
-			Material trim = b.palette().get(Role.ROOF_TRIM);
-			for (int x = box.alongFrom(); x <= box.alongTo(); x++) {
-				b.set(x, f.signTopY() + 1, f.signPlane(), trim.slab("bottom"));
-			}
-		}
-		return box;
+		return litSign(b, f.word(), Facing.SOUTH, f.centerX(), f.signBottomY(), f.signPlane(), l, pad);
 	}
 
 	/** Half-width of a 45° crown triangle with its apex at ({@code centerX}, {@code topY}) at row {@code y}. */
