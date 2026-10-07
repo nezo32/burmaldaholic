@@ -58,6 +58,8 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 			f.close();
 		}
 		if (!problems.isEmpty()) throw new AssertionError("extras v2 real-flow problems:\n - " + String.join("\n - ", problems));
+		// the in-world machines (upright Plinko board, wheel plate) in their own world
+		new ExtrasBoardClientGameTests().runTest(context);
 	}
 
 	private interface Body {
