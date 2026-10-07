@@ -313,7 +313,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 
 	private void menuKey(ClientGameTestContext ctx, TestSingleplayerContext world) {
 		closeScreen(ctx, world);
-		ctx.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_B);
+		ctx.getInput().pressKey(RealFlow.keyMapping(ctx, "key.burmaldaholic.open_menu"));
 		awaitScreenNamed(ctx, "CasinoMenuScreen");
 		closeScreen(ctx, world);
 	}

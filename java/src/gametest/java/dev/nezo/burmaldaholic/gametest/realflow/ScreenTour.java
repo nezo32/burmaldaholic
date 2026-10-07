@@ -54,7 +54,7 @@ final class ScreenTour {
 		screens.put("casino_menu", () -> {
 			ctx.runOnClient(mc -> mc.gui.setScreen(null));
 			ctx.waitTicks(2);
-			ctx.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_B);
+			ctx.getInput().pressKey(RealFlow.keyMapping(ctx, "key.burmaldaholic.open_menu"));
 		});
 		for (int scale : new int[] {4, 3}) {
 			window(ctx, 1920, 1080, scale);

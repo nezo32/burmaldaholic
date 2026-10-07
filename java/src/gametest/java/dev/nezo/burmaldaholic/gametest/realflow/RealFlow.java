@@ -137,6 +137,16 @@ public final class RealFlow {
 		ctx.waitTicks(1);
 	}
 
+	/** The key mapping with this name (the player's own binding, e.g. {@code key.burmaldaholic.open_menu}). */
+	public static net.minecraft.client.KeyMapping keyMapping(ClientGameTestContext ctx, String name) {
+		return ctx.computeOnClient(mc -> {
+			for (net.minecraft.client.KeyMapping k : mc.options.keyMappings) {
+				if (k.getName().equals(name)) return k;
+			}
+			throw new AssertionError("no key mapping " + name);
+		});
+	}
+
 	// ---- waits ------------------------------------------------------------------------------------------------------------
 
 	/** Waits (bounded) for {@code condition} on the server thread; fails with {@code what}. */
