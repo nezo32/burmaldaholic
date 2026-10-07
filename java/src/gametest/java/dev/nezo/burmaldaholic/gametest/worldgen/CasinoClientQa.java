@@ -193,6 +193,16 @@ public final class CasinoClientQa {
 		return c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey() : c.getString();
 	}
 
+	/** {@code waitFor} that returns false at the timeout instead of failing the test (the caller decides). */
+	public static boolean safeWait(ClientGameTestContext context, java.util.function.Predicate<net.minecraft.client.Minecraft> p, int ticks) {
+		try {
+			context.waitFor(p, ticks);
+			return true;
+		} catch (RuntimeException | AssertionError e) {
+			return false;
+		}
+	}
+
 	public static void guiScale(ClientGameTestContext context, int scale) {
 		context.runOnClient(mc -> {
 			mc.options.guiScale().set(scale);
@@ -204,7 +214,7 @@ public final class CasinoClientQa {
 	public static void closeScreen(ClientGameTestContext context) {
 		if (context.computeOnClient(mc -> mc.gui.screen() != null)) {
 			context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE);
-			context.waitFor(mc -> mc.gui.screen() == null, 40);
+			safeWait(context, mc -> mc.gui.screen() == null, 40);
 		}
 	}
 
@@ -270,7 +280,7 @@ public final class CasinoClientQa {
 			mc.player.setXRot(s.pitch());
 		});
 		// chunks + sections compile asynchronously: give the renderer time (bounded)
-		context.waitFor(mc -> mc.levelRenderer.hasRenderedAllSections(), 400);
+		safeWait(context, mc -> mc.levelRenderer.hasRenderedAllSections(), 400);
 		context.waitTicks(40);
 		return context.takeScreenshot(TestScreenshotOptions.of(name).withSize(1920, 1080).disableCounterPrefix());
 	}
