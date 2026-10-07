@@ -60,11 +60,13 @@ public final class PlinkoBattleMachine {
 		pvp.putInt("balls_default", mode.defaults().balls());
 		pvp.putInt("max_players", mode.maxPlayers());
 		pvp.putLong("min_stake", CasinoConfig.pvp().minStake);
+		// the entry has its own selector (the machine's solo bet starts at 1 chip, under the PvP minimum)
+		pvp.putLong("max_stake", Math.max(CasinoConfig.pvp().minStake, dev.nezo.burmaldaholic.games.extras.server.ExtrasGames.tierMax(viewer)));
 		boolean bots = Bots.enabled();
 		pvp.putBoolean("bots", bots);
 		pvp.putInt("bots_max", bots ? CasinoConfig.bots().pvp.maxPerMatch : 0);
 		PvpService service = Pvp.service();
-		Optional<PvpMatch> mine = service.matchOf(viewer.getUUID());
+		Optional<PvpMatch> mine = service.matchOf(viewer.getUUID()).filter(x -> x.state().live()); // a settled match is history
 		mine.ifPresent(match -> {
 			pvp.putString("in_match", match.id);
 			pvp.putBoolean("host", viewer.getUUID().equals(match.host()));

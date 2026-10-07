@@ -183,7 +183,7 @@ public final class SlotShowdownEntry {
 		t.putLong("pearl_points", ShowdownScoring.PEARL_POINTS);
 		t.putLong("clock_points", ShowdownScoring.CLOCK_POINTS);
 		PvpService pvp = Pvp.service();
-		Optional<PvpMatch> mine = pvp.matchOf(viewer.getUUID());
+		Optional<PvpMatch> mine = pvp.matchOf(viewer.getUUID()).filter(m -> m.state().live()); // a settled match is history
 		if (mine.isPresent()) {
 			PvpMatch m = mine.get();
 			CompoundTag my = new CompoundTag();
