@@ -65,6 +65,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		{1278, 720, 3, "1440p_auto"},
 		{854, 480, 2, "default"},
 		{960, 540, 1, "1080p_gui2"},
+		{910, 512, 2, "1366x768_auto"}, // GUI 455 × 256 (laptops; lane A10)
 	};
 	private static final int TIMEOUT = 600;
 
@@ -88,6 +89,8 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 					craps(context, world.getServer(), tag);
 					baccarat(context, world.getServer(), tag);
 				}
+				view(context, VIEWS[0]);
+				freshPlayer(context, world.getServer());
 				context.runOnClient(mc -> mc.gui.setScreen(null));
 				context.waitTicks(20);
 			}
@@ -294,15 +297,108 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		closeAndLeave(context, world, pos);
 	}
 
+	// ---- a fresh player (lane A10) -------------------------------------------------------------------------------------
+
+	/**
+	 * What a fresh Survival player does (lane A10): few chips and NO chip picked — the screen's default chip — then the
+	 * felt. Roulette with 20 chips: the default 25 chip cannot be afforded, so the screen must offer one that fits and
+	 * the RED click must land. Craps on the come-out: COME (the biggest box) and a number box take no bet then — the
+	 * status line must say WHY (not a bare "invalid bet position"); the Pass Line takes the chip.
+	 */
+	private void freshPlayer(ClientGameTestContext context, TestServerContext world) {
+		String name = "fresh roulette";
+		BlockPos pos = placeAndOpen(context, world, RouletteModule.TABLE, RouletteScreen.class, name, 20);
+		if (pos != null) {
+			double[] red = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
+				Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
+				return spot.isPresent() && spot.get().toString().contains("RED");
+			}));
+			if (red == null) {
+				failures.add(name + ": no RED spot on screen");
+			} else {
+				click(context, red[0], red[1]);
+				serverWait(context, world, pos, name + ": RED bet with the default chip and 20 chips lands", (t, p) -> t.stakeOf(p.getUUID()) > 0);
+				log.add(name + ": staked " + stake(world, pos) + " of 20");
+			}
+			closeAndLeave(context, world, pos);
+		}
+		name = "fresh blackjack";
+		pos = placeAndOpen(context, world, BlackjackModule.TABLE, BlackjackScreen.class, name, 50);
+		if (pos != null && clickLabel(context, name, "gui.burmaldaholic.blackjack.sit")
+				&& serverWait(context, world, pos, name + ": seated after Sit", (t, p) -> t.isSeated(p))) {
+			context.waitTicks(3);
+			// the default chip (25) put on the player's own betting circle, then Deal
+			double[] spot = context.computeOnClient(mc -> {
+				Screen s = mc.gui.screen();
+				boolean compact = (boolean) field(s, "compact");
+				int x = (int) call(s, "tx", compact ? 140 : dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_X);
+				int y = (int) call(s, "ty", compact ? dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.C_STACK_Y
+					: dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_Y);
+				return canvasToWindow(mc, s, x, y);
+			});
+			click(context, spot[0], spot[1]);
+			if (clickLabel(context, name, "gui.burmaldaholic.common.deal")) {
+				serverWait(context, world, pos, name + ": the chip put on the circle is the bet",
+					(t, p) -> t.stakeOf(p.getUUID()) == 25 || t.writeClientState(p).getLongOr("last_bet", 0) == 25);
+			}
+		}
+		if (pos != null) closeAndLeave(context, world, pos);
+		name = "fresh craps";
+		pos = placeAndOpen(context, world, CrapsModule.TABLE, CrapsScreen.class, name, 50);
+		if (pos == null) return;
+		feltClick(context, name, "Area[kind=come,", "gui.burmaldaholic.craps.come_needs_point");
+		feltClick(context, name, "Area[kind=point,", "gui.burmaldaholic.craps.numbers_come_out");
+		if (stake(world, pos) != 0) failures.add(name + ": COME / a number took a bet on the come-out");
+		double[] pass = feltPoint(context, "Area[kind=pass,");
+		if (pass == null) {
+			failures.add(name + ": no Pass Line");
+		} else {
+			click(context, pass[0], pass[1]);
+			serverWait(context, world, pos, name + ": Pass Line with the default chip lands", (t, p) -> t.stakeOf(p.getUUID()) > 0);
+		}
+		closeAndLeave(context, world, pos);
+	}
+
+	private static double[] feltPoint(ClientGameTestContext context, String area) {
+		return context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
+			Object felt = call(s, "felt");
+			Optional<?> a = (Optional<?>) call(felt, "hit", x - (int) call(s, "lx"), y - (int) call(s, "ly"));
+			return a.isPresent() && a.get().toString().startsWith(area);
+		}));
+	}
+
+	/** Clicks a felt area and checks the screen's error line names the reason {@code key}. */
+	private void feltClick(ClientGameTestContext context, String name, String area, String key) {
+		double[] at = feltPoint(context, area);
+		if (at == null) {
+			failures.add(name + ": no " + area);
+			return;
+		}
+		click(context, at[0], at[1]);
+		context.waitTicks(5);
+		String shown = context.computeOnClient(mc -> {
+			Object e = field(mc.gui.screen(), "error");
+			return e instanceof Component c && c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey()
+				: String.valueOf(e);
+		});
+		log.add(name + ": " + area + " -> " + shown);
+		if (!key.equals(shown)) failures.add(name + ": clicking " + area + " on the come-out shows " + shown + ", expected " + key);
+	}
+
 	// ---- the real flow helpers ----------------------------------------------------------------------------------------
 
 	/** Places a table two blocks east of the player (fresh block entity) and opens it by using the block from the client. */
 	private BlockPos placeAndOpen(ClientGameTestContext context, TestServerContext world, TableType<?> type, Class<? extends Screen> screen,
 			String name) {
+		return placeAndOpen(context, world, type, screen, name, 5000);
+	}
+
+	private BlockPos placeAndOpen(ClientGameTestContext context, TestServerContext world, TableType<?> type, Class<? extends Screen> screen,
+			String name, long chips) {
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(2);
 		int n = tableNo++;
-		world.runCommand("casino balance set @p 5000"); // every table starts with the same chips (a lost round must not starve the next)
+		world.runCommand("casino balance set @p " + chips); // every table starts with the same chips (a lost round must not starve the next)
 		BlockPos pos = world.computeOnServer(server -> {
 			ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
 			player.closeContainer();

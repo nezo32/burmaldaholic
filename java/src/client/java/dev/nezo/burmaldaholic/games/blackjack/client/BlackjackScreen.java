@@ -356,22 +356,43 @@ public class BlackjackScreen extends CardTableScreen {
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
 		if (!chipRackShown() || button != 0) return false;
+		// v0.1.2 (lane A10): players put the chip on their betting circle, as at a real table — that adds the selected
+		// chip too (it used to do nothing: "blackjack won't let me place a bet down")
+		int sx = tx(compact ? 140 : Blackjack.ME_SPOT_X);
+		int sy = ty(compact ? Blackjack.C_STACK_Y : Blackjack.ME_SPOT_Y);
+		// (never over a console button: the compact circle sits right above Deal)
+		if (Math.abs(x - sx) <= 16 && Math.abs(y - sy) <= 16 && getChildAt(x, y).isEmpty()) {
+			for (int i = 0; i < CHIPS.length; i++) {
+				if (CHIPS[i] == selectedChip) {
+					return addChip(i);
+				}
+			}
+		}
 		for (int i = 0; i < CHIPS.length; i++) {
 			int[] r = chipRackSlot(i);
 			if (r != null && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) {
-				selectedChip = CHIPS[i];
-				long max = maxAffordable();
-				if (pendingBet + CHIPS[i] > max) {
-					FxSounds.play("ui_deny", 1f);
-				} else {
-					pendingBet += CHIPS[i];
-					FxSounds.play("chip_place", 1f);
-				}
-				rebuildConsole();
-				return true;
+				return addChip(i);
 			}
 		}
 		return false;
+	}
+
+	/** The rack chip {@code i} goes onto the pending bet (or the screen says why it cannot). */
+	private boolean addChip(int i) {
+		selectedChip = CHIPS[i];
+		long max = maxAffordable();
+		if (pendingBet + CHIPS[i] > max) {
+			FxSounds.play("ui_deny", 1f);
+			// v0.1.2: say why the chip stays in the rack (a bare deny sound read as "blackjack won't let me bet")
+			showError(balance() < maxBet() || maxBet() <= 0
+				? Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(balance()))
+				: Component.translatable("gui.burmaldaholic.error.table_max", Texts.number(maxBet())));
+		} else {
+			pendingBet += CHIPS[i];
+			FxSounds.play("chip_place", 1f);
+		}
+		rebuildConsole();
+		return true;
 	}
 
 	@Override

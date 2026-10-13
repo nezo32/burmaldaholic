@@ -250,8 +250,12 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		CrapsTable.PlaceError err = table.placeError(player.getUUID(), kind);
 		if (err != null) {
-			sendError(player, Component.translatable(err == CrapsTable.PlaceError.LINE_ONLY_COME_OUT
-				? K + "line_only_come_out" : "gui.burmaldaholic.error.invalid_bet_position"));
+			// v0.1.2: say WHY (the screen shows it on the status line), never a bare "invalid bet position"
+			sendError(player, Component.translatable(switch (err) {
+				case LINE_ONLY_COME_OUT -> K + "line_only_come_out";
+				case NEEDS_POINT -> K + "come_needs_point";
+				case ALREADY_PLACED -> K + "already_placed";
+			}));
 			return;
 		}
 		Bet bet = table.addBet(player.getUUID(), kind, amount);
