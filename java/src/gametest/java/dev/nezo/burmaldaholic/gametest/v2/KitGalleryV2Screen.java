@@ -51,7 +51,7 @@ public final class KitGalleryV2Screen extends V2SceneScreen<KitGalleryV2Screen.D
 	/** When set, the fake server ignores actions (the watchdog test). */
 	public boolean deaf;
 	private long ack;
-	private Demo demo = new Demo(Phase.BETTING, 12_500, 0, 50, 2, 0);
+	private Demo demo = new Demo(Phase.BETTING, 12_500, 0, 0, 2, 0);
 	private final List<Runnable> inbox = new ArrayList<>();
 	private long stampAt = Util.getMillis();
 
