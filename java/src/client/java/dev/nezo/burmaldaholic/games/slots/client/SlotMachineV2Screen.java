@@ -127,7 +127,11 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		}
 		long[] pools = s.getLongArray("jackpots").orElse(null);
 		if (pools != null && pools.length == 4) model.pools = pools;
-		model.playable = s.getBooleanOr("enabled", true) && s.getBooleanOr("vip_ok", true) && bets.length > 0;
+		boolean vipOk = s.getBooleanOr("vip_ok", true);
+		model.playable = s.getBooleanOr("enabled", true) && vipOk && bets.length > 0;
+		// a machine above the player's VIP tier: a lock state with its reason, not just a greyed-out SPIN
+		model.lockReason = vipOk ? null : Component.translatable("gui.burmaldaholic.slots.vip_lock",
+			dev.nezo.burmaldaholic.core.service.VipTiers.name(s.getIntOr("min_vip", 0)), dev.nezo.burmaldaholic.core.service.VipTiers.name(s.getIntOr("vip", 0)));
 		model.turboAllowed = s.getBooleanOr("turbo_allowed", true);
 		model.turbo = model.turboAllowed && s.getBooleanOr("turbo", model.turbo);
 		model.buyAllowed = s.getBooleanOr("buy_enabled", false);

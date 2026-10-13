@@ -854,15 +854,33 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 	}
 
+	/** Re-sends state to one player if they have this table's screen open. */
+	private void syncIfViewing(ServerPlayer player) {
+		if (player.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition)) {
+			sendStateTo(player);
+		}
+	}
+
 	/** Generic actions handled by core before {@link #onAction}. */
 	void handleAction(ServerPlayer player, String action, CompoundTag args) {
 		switch (action) {
-			case "sit" -> sit(player);
+			case "sit" -> {
+				sit(player);
+				// v0.1.2 hotfix: a game's sit() may change more after core's sync (baccarat opens betting after
+				// super.sit() synced the seat): the screen must see the final state or it waits for a phase that
+				// already began (no chip rack, no bet boxes — "won't let me place a bet").
+				syncViewers();
+			}
 			case "leave" -> {
+				// only a leave that frees a seat resyncs every viewer (leave() does); a refused or empty one refreshes the
+				// sender's own screen only — a client spamming "leave" must not make the server resync the whole table
 				if (!canLeaveNow(player.getUUID())) {
 					sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
-				} else {
+					syncIfViewing(player);
+				} else if (seats().isSeated(player.getUUID())) {
 					leave(player.getUUID(), LeaveReason.LEFT);
+				} else {
+					syncIfViewing(player);
 				}
 			}
 			default -> onAction(player, action, args);

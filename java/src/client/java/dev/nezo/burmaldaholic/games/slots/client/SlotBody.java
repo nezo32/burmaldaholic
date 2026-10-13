@@ -161,8 +161,7 @@ public final class SlotBody implements StageHost {
 		if (model.canBuy()) {
 			// the price without its unit when the full label cannot fit the row even at the top bet (compact Russian)
 			buyShort = false;
-			long top = (long) model.def.buyPriceFifths() * model.bets[model.bets.length - 1] / 5;
-			buyShort = CasinoButton.width(font, Component.translatable("gui.burmaldaholic.slots.buy.button", Texts.chips(top)), 22, true) > l.flowW;
+			buyShort = CasinoButton.width(font, buyLabel(topBuyPrice()), 22, true) > l.flowW;
 			buy = CasinoButton.builder(buyLabel(), b -> openBuy()).style(CasinoButton.Style.PRIMARY).icon(icon(SlotSprites.ICON_BONUS_ID)).build();
 			flow.add(buy);
 		} else {
@@ -226,6 +225,8 @@ public final class SlotBody implements StageHost {
 			AbstractButton b = flow.get(i);
 			if (b instanceof SlotButton sb) widths[i] = sb.preferredWidth(font);
 			else if (iconic.contains(b)) widths[i] = 16 + 8;
+			// Buy follows the bet (its label is refreshed every frame): size it for the top bet's price, never truncated
+			else if (b == buy) widths[i] = CasinoButton.width(font, buyLabel(topBuyPrice()), 22, true);
 			else widths[i] = CasinoButton.width(font, b.getMessage(), 22, true);
 		}
 		return widths;
@@ -235,11 +236,25 @@ public final class SlotBody implements StageHost {
 		return stage.spinning() ? Component.translatable("gui.burmaldaholic.slots.stop") : Component.translatable("gui.burmaldaholic.slots.spin", Texts.chips(model.bet()));
 	}
 
+	/** The locked SPIN's tooltip (the VIP lock reason), or null. */
+	private Component spinTip;
+
 	/** The Buy label shows the bare price (no "chips") when the full label cannot fit the control row. */
 	private boolean buyShort;
 
 	private Component buyLabel() {
-		return Component.translatable("gui.burmaldaholic.slots.buy.button", buyShort ? Texts.number(model.buyPrice()) : Texts.chips(model.buyPrice()));
+		return buyLabel(model.buyPrice());
+	}
+
+	private Component buyLabel(long price) {
+		return Component.translatable("gui.burmaldaholic.slots.buy.button", buyShort ? Texts.number(price) : Texts.chips(price));
+	}
+
+	/** The Buy price at the highest offered bet (the widest Buy label). */
+	private long topBuyPrice() {
+		long top = 0;
+		for (long bet : model.bets) top = Math.max(top, bet);
+		return model.def == null ? 0 : (long) model.def.buyPriceFifths() * Math.max(top, model.bet()) / 5;
 	}
 
 	private Component autoLabel() {
@@ -251,8 +266,12 @@ public final class SlotBody implements StageHost {
 		if (spin == null) return;
 		boolean busy = stage.spinning();
 		spin.stopMode(busy);
-		spin.setMessage(spinLabel());
-		spin.caption(busy ? Component.translatable("gui.burmaldaholic.slots.stop") : Texts.chips(model.bet()));
+		boolean locked = !busy && model.lockReason != null;
+		spin.setMessage(locked ? model.lockReason : spinLabel());
+		spin.caption(busy ? Component.translatable("gui.burmaldaholic.slots.stop")
+			: locked ? Component.translatable("gui.burmaldaholic.slots.locked") : Texts.chips(model.bet()));
+		Component tip = locked ? model.lockReason : null;
+		if (!java.util.Objects.equals(tip, spinTip)) spin.setTooltip((spinTip = tip) == null ? null : net.minecraft.client.gui.components.Tooltip.create(tip));
 		spin.active = busy || model.playable && model.autoLeft < 0;
 		betDown.active = !busy && model.betIndex > 0;
 		betUp.active = !busy && model.betIndex < model.bets.length - 1;
@@ -299,6 +318,10 @@ public final class SlotBody implements StageHost {
 			return;
 		}
 		if (!model.playable) {
+			if (model.lockReason != null) {
+				spin.shake(); // the lock reason is already on the line under the reels
+				return;
+			}
 			invalid("gui.burmaldaholic.error.disabled");
 			return;
 		}

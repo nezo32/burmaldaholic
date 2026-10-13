@@ -122,6 +122,7 @@
 	"gui.burmaldaholic.extras.wheel.count": "%1$s/%2$s",
 	"gui.burmaldaholic.extras.wheel.you_win": "Выигрыш",
 	"gui.burmaldaholic.extras.plinko.top": "Максимум: ×%1$s",
+	"gui.burmaldaholic.extras.plinko.min": "Минимальная ставка: %1$s",
 	"gui.burmaldaholic.extras.plinko.last": "Последние шарики",
 	"gui.burmaldaholic.extras.scratch.ticket.basic": "ВЕЗУЧИЙ ШАХТЁР",
 	"gui.burmaldaholic.extras.scratch.ticket.gold": "ЗОЛОТАЯ ЛИХОРАДКА",

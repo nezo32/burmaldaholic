@@ -58,6 +58,8 @@ public final class PvpUi {
 	private record Sent(String id, MatchState state, String signature, boolean spectator) {}
 
 	private static final Map<UUID, Sent> SENT = new ConcurrentHashMap<>();
+	/** What a player was last sent of their OWN match (spectator ticker pushes of other matches do not count). */
+	private static final Map<UUID, Sent> OWN = new ConcurrentHashMap<>();
 	private static final Map<String, List<JsonObject>> STEPS = new ConcurrentHashMap<>();
 	private static final Map<String, long[]> PAYOUTS = new ConcurrentHashMap<>();
 	private static final Map<String, Integer> FINAL = new ConcurrentHashMap<>();
@@ -128,6 +130,7 @@ public final class PvpUi {
 
 	static void clearAll() {
 		SENT.clear();
+		OWN.clear();
 		STEPS.clear();
 		PAYOUTS.clear();
 		FINAL.clear();
@@ -170,7 +173,11 @@ public final class PvpUi {
 		}
 		JsonObject view = PvpMatchView.build(p.level().getServer(), p, m);
 		boolean spectator = PvpMatchView.indexOf(m, p.getUUID()) < 0;
-		SENT.put(p.getUUID(), new Sent(m.id, m.state(), signature(m), spectator));
+		Sent sent = new Sent(m.id, m.state(), signature(m), spectator);
+		SENT.put(p.getUUID(), sent);
+		if (!spectator) {
+			OWN.put(p.getUUID(), sent);
+		}
 		if (canSend(p)) {
 			ServerPlayNetworking.send(p, new PvpSyncPayload(kind, open, view.toString()));
 		}
@@ -184,6 +191,7 @@ public final class PvpUi {
 
 	public static void clear(ServerPlayer p) {
 		SENT.remove(p.getUUID());
+		OWN.remove(p.getUUID());
 		if (canSend(p)) {
 			ServerPlayNetworking.send(p, new PvpSyncPayload("clear", false, "{}"));
 		}
@@ -259,7 +267,10 @@ public final class PvpUi {
 						clear(p);
 					}
 				} else if (prev == null || prev.spectator() || !prev.id().equals(m.id) || !prev.signature().equals(signature(m))) {
-					boolean newView = prev == null || prev.spectator() || !prev.id().equals(m.id) || prev.state() != m.state();
+					// "not seen yet" is about the player's OWN view of this match: a spectator ticker push of a match
+					// revealing nearby must not re-open a result the player already closed (v0.1.2)
+					Sent own = OWN.get(p.getUUID());
+					boolean newView = own == null || !own.id().equals(m.id) || own.state() != m.state();
 					// a lobby, a match or a result the player has not seen yet opens its screen
 					push(p, m, newView);
 				}

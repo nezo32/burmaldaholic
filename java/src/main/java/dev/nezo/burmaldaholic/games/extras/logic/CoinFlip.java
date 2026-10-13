@@ -71,6 +71,14 @@ public final class CoinFlip {
 		return win ? 2 * value : 0;
 	}
 
+	/**
+	 * Minimum chip stake: the smallest stake whose floored win is still ≥ +1 ({@code floor(1 × 0.96) = 0} would make a
+	 * winning flip at 1 chip pay nothing). 2 at the default 0.96; 1 only at payout 1.
+	 */
+	public static long minBet(double payout) {
+		return Payouts.minStakeForProfit(1 + payout);
+	}
+
 	/** RTP before flooring. */
 	public static double rtp(double payout) {
 		return 0.5 * (1 + payout);

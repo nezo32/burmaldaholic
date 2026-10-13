@@ -23,7 +23,7 @@ It is a Fabric mod for Minecraft Java Edition 26.2–26.3 (`burmaldaholic-<versi
 - [Features](#features)
 - [Compatibility](#compatibility)
 - [Installation](#installation)
-- [Turning casino mode on](#turning-casino-mode-on)
+- [Turning casino mode on and off](#turning-casino-mode-on-and-off)
 - [Difficulty and Hardcore](#difficulty-and-hardcore)
 - [Configuration](#configuration)
 - [Languages](#languages)
@@ -171,9 +171,9 @@ Casino buildings are generated only in newly generated chunks.
 
 | Structure | Where | Contents |
 |---|---|---|
-| **Lucky Villager** (village casino) | ≈ 1 in 3 villages. Five village styles. | Cashier, blackjack, roulette, 3 Overworld Riches slots, a Nether Inferno slot, Wheel of Fortune, Loan Shark, Croupier, loot chest |
-| **Piglin Parlor** | 30 % of bastions | Craps, poker (with bots), 2 Nether Inferno slots, Plinko, Nether cashier, Piglin Dealers, Piglin Moneylender, loot |
-| **High Roller Lounge** | 20 % of End Cities, on a tower's top floor | 2 End Void slots, high-roller blackjack and roulette, cashier, Shulker Croupier, loot |
+| **Lucky Villager** (village casino) | ≈ 1 in 2 villages. Five village styles. | Cashier, blackjack, roulette, 3 Overworld Riches slots, a Nether Inferno slot, Wheel of Fortune, Loan Shark, Croupier, loot chest |
+| **Piglin Parlor** | 60 % of bastions | Craps, poker (with bots), 2 Nether Inferno slots, Plinko, Nether cashier, Piglin Dealers, Piglin Moneylender, loot |
+| **High Roller Lounge** | 50 % of End Cities, on a tower's top floor | 2 End Void slots, high-roller blackjack and roulette, cashier, Shulker Croupier, loot |
 
 Village casinos are built **inside** villages, as one of the village's houses; the Piglin Parlor and the High Roller
 Lounge are part of the bastion or End City. To turn them off, disable the built-in `burmaldaholic:casinos` data pack
@@ -278,24 +278,26 @@ screens and items.
 4. *(Optional)* Add [Mod Menu](https://modrinth.com/mod/modmenu) for an in-game config screen.
 5. **On a server**, put the same jar and Fabric API in the server's `mods` folder. Every player
    needs the mod too.
-6. **Turn casino mode on** — it is off by default. When creating a world, press **"Casino Mode:
-   OFF"** on the **Game** tab (right below Difficulty) so it reads **ON**; the choice is saved with
-   the world. For an existing world or a server, an operator runs `/casino mode on`
-   (`/casino mode status` shows the current state).
+6. **Casino mode is on by default** — new worlds and servers open the casino right away. To create a
+   world without it, press **"Casino Mode: ON"** on the **Game** tab (right below Difficulty) so it
+   reads **OFF**; the choice is saved with the world. An operator can switch it any time with
+   `/casino mode on|off` (`/casino mode status` shows the current state).
 
 ---
 
-## Turning casino mode on
+## Turning casino mode on and off
 
-Casino mode is a per-world switch. On **Java** it is **off by default**: turn it on with the
-**Casino Mode** button right below **Difficulty** when you create the world, or in an existing world
-with `/casino mode on` (everyone then gets the starting chips and Casino Card). When it's off, the mod goes
+Casino mode is a per-world switch. On **Java** it is **on by default** (since v0.1.2): every player
+gets the starting chips and Casino Card on first join. Turn it off with the **Casino Mode** button
+right below **Difficulty** when you create the world, or in an existing world with `/casino mode off`
+(the choice is saved and kept). Worlds from v0.1.1 that were left off are switched on once by the
+update — an operator can turn them back off with `/casino mode off`. When it's off, the mod goes
 **dormant**: no HUD, earning, chaos, debt or Last Chance, and tables say "Casino mode is off". All
 saved data (balances, loans, casinos) is kept untouched until you turn it back on.
 
 | When | How |
 |---|---|
-| At world creation | **Create World → Game** tab → **"Casino Mode: ON/OFF"** button below Difficulty (**off** by default). Saved with the world in `data/burmaldaholic/mode.dat`; it is not a game rule. |
+| At world creation | **Create World → Game** tab → **"Casino Mode: ON/OFF"** button below Difficulty (**on** by default). Saved with the world in `data/burmaldaholic/mode.dat`; it is not a game rule. |
 | Existing world / later (operators) | `/casino mode on\|off\|status` (permission level 2, like /gamerule; in single-player needs cheats) |
 
 Operators have `/casino …` (alias `/burmaldaholic`, permission level 2) for casino mode, config, balances,

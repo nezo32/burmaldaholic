@@ -24,6 +24,8 @@ public final class SlotModel {
 	/** Autoplay spins left (−1 = off). */
 	public int autoLeft = -1;
 	public boolean playable = true;
+	/** Why the machine is locked (VIP tier too low: "Requires VIP tier X — you are Y"), or null. */
+	public net.minecraft.network.chat.Component lockReason;
 	/** Return to player in hundredths of a percent (e.g. 9507), 0 = unknown. */
 	public int rtpBasisPoints;
 	public int buyRtpBasisPoints;

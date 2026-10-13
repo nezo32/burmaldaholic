@@ -83,6 +83,24 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		}, risk);
 	}
 
+	/**
+	 * Minimum bet of one risk: every winning landing of THAT risk's table pays ≥ +1 (Payouts#minStakeForProfit over
+	 * its row set). Medium / High have no win near ×1, so they are not held to Low's minimum (v0.1.2 review).
+	 */
+	public static long minBetFor(Plinko.Risk risk) {
+		return Plinko.minBet(table(risk));
+	}
+
+	/** The machine's general minimum (state "min"): the lowest per-risk minimum; each drop checks its own risk's. */
+	@Override
+	protected long minBet() {
+		long min = Long.MAX_VALUE;
+		for (Plinko.Risk risk : Plinko.Risk.values()) {
+			min = Math.min(min, minBetFor(risk));
+		}
+		return min;
+	}
+
 	private long maxFor(ServerPlayer player) {
 		return ExtrasGames.fractionMax(player, CasinoConfig.extras().plinko.maxBetFraction);
 	}
@@ -117,7 +135,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		}
 		double[] table = table(risk);
 		long bet = args.getLongOr("amount", 0);
-		Result<Long> placed = placeBet(player, bet, 1, maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
+		Result<Long> placed = placeBet(player, bet, minBetFor(risk), maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
 		if (!placed.isOk()) {
 			return;
 		}
@@ -241,6 +259,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		for (Plinko.Risk risk : Plinko.Risk.values()) {
 			CompoundTag rt = new CompoundTag();
 			rt.putString("risk", risk.id());
+			rt.putLong("min", minBetFor(risk));
 			double[] table = table(risk);
 			for (int i = 0; i < table.length; i++) {
 				rt.putDouble("m" + i, table[i]);

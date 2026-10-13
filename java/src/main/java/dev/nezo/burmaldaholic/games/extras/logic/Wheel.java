@@ -110,6 +110,15 @@ public final class Wheel {
 		return max;
 	}
 
+	/** Minimum bet: every winning segment (> 1×) pays at least +1 after flooring (1 with the default integer multipliers). */
+	public long minBet() {
+		double[] m = new double[segments.size()];
+		for (int i = 0; i < m.length; i++) {
+			m[i] = multiplier(segments.get(i));
+		}
+		return Payouts.minStakeForProfit(m);
+	}
+
 	public Map<String, Integer> counts() {
 		Map<String, Integer> m = new LinkedHashMap<>();
 		for (String s : segments) {

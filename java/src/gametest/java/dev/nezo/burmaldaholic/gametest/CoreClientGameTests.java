@@ -56,19 +56,19 @@ public class CoreClientGameTests implements FabricClientGameTest {
 
 		try (TestSingleplayerContext world = context.worldBuilder().create();
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
-			// A world created without touching the button: casino mode OFF (the default).
+			// A world created without touching the button: casino mode ON (the default since v0.1.2), client
+			// synced, first-join welcome (starting balance, Casino Card) handed out.
 			boolean serverSide = world.getServer().computeOnServer(CasinoMode::isEnabled);
-			if (serverSide || CasinoMode.DEFAULT) {
-				throw new AssertionError("casino mode should default to OFF");
+			if (!serverSide || !CasinoMode.DEFAULT) {
+				throw new AssertionError("casino mode should default to ON");
 			}
-			context.waitTicks(20);
-			if (context.computeOnClient(mc -> CoreClientModule.casinoEnabled())) {
-				throw new AssertionError("client thinks casino mode is on in a default world");
+			context.waitFor(mc -> CoreClientModule.casinoEnabled(), 20 * 30);
+			context.waitFor(mc -> ClientCasinoState.hasStatus() && ClientCasinoState.balance() > 0, 20 * 30);
+			boolean card = world.getServer().computeOnServer(server -> server.getPlayerList().getPlayers().getFirst()
+				.getInventory().contains(st -> st.is(CoreContent.CASINO_CARD)));
+			if (!card) {
+				throw new AssertionError("no Casino Card from the first-join welcome in a default world");
 			}
-			// Turning it on later (existing world): client sync + first-join welcome (starting balance, card).
-			world.getServer().runCommand("casino mode on");
-			context.waitFor(mc -> CoreClientModule.casinoEnabled());
-			context.waitFor(mc -> ClientCasinoState.hasStatus() && ClientCasinoState.balance() > 0);
 			world.getServer().runCommand("casino balance set @p 12500");
 			context.waitFor(mc -> ClientCasinoState.balance() == 12500);
 			context.waitTicks(5);
@@ -90,23 +90,26 @@ public class CoreClientGameTests implements FabricClientGameTest {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 
 			world.getServer().runCommand("casino mode off");
-			context.waitFor(mc -> !CoreClientModule.casinoEnabled());
+			context.waitFor(mc -> !CoreClientModule.casinoEnabled(), 20 * 30);
+			world.getServer().runCommand("casino mode on");
+			context.waitFor(mc -> CoreClientModule.casinoEnabled(), 20 * 30);
 		}
 	}
 
 	/**
 	 * Create World -> Game tab: "Casino Mode" sits directly below "Difficulty" (same column and width, one
-	 * grid row lower, above "Allow Commands"), defaults OFF, toggles the creation state, fits in English and
-	 * Russian, and a world created with it ON has data/burmaldaholic/mode.dat = ON right away (saved, read
-	 * back on re-open) and hands out the starting balance. Cancel and Re-Create do not leak the choice.
+	 * grid row lower, above "Allow Commands"), defaults ON (v0.1.2), toggles the creation state, fits in
+	 * English and Russian, and a world created with it turned OFF by a real click has
+	 * data/burmaldaholic/mode.dat = explicit OFF right away (saved, read back OFF on re-open, no starting
+	 * balance). Cancel and Re-Create do not leak the choice.
 	 */
 	private static void createWorldButton(ClientGameTestContext context) {
 		context.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(null)));
 		context.waitForScreen(CreateWorldScreen.class);
 		context.waitTicks(2);
 		checkPlacement(context, "en_us");
-		if (uiRule(context) || context.computeOnClient(mc -> (Boolean) casinoButton(mc).getValue())) {
-			throw new AssertionError("Casino Mode should default to OFF on the Create World screen");
+		if (!uiRule(context) || !context.computeOnClient(mc -> (Boolean) casinoButton(mc).getValue())) {
+			throw new AssertionError("Casino Mode should default to ON on the Create World screen");
 		}
 		screenshotWithTooltip(context, "jmode_create_world_en_us");
 
@@ -116,15 +119,15 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		boolean second = uiRule(context);
 		clickCasinoButton(context);
 		boolean third = uiRule(context);
-		if (!first || second || !third) {
+		if (first || !second || third) {
 			throw new AssertionError("toggle failed: first=" + first + " second=" + second + " third=" + third);
 		}
 
 		language(context, "ru_ru");
 		context.waitForScreen(CreateWorldScreen.class);
 		checkPlacement(context, "ru_ru");
-		if (!uiRule(context)) {
-			throw new AssertionError("Casino Mode choice lost after the screen was rebuilt");
+		if (uiRule(context)) {
+			throw new AssertionError("Casino Mode OFF choice lost after the screen was rebuilt");
 		}
 		screenshotWithTooltip(context, "jmode_create_world_ru_ru");
 		language(context, "en_us");
@@ -133,40 +136,42 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		context.clickScreenButton("selectWorld.create");
 		Path world = waitInWorld(context);
 		boolean onServer = context.computeOnClient(mc -> CasinoMode.isEnabled(mc.getSingleplayerServer()));
-		if (!onServer) {
-			throw new AssertionError("world created with Casino Mode: ON does not have casino mode on");
+		if (onServer) {
+			throw new AssertionError("world created with Casino Mode: OFF has casino mode on");
 		}
 		Path modeFile = world.resolve("data/burmaldaholic/mode.dat");
 		if (!Files.isRegularFile(modeFile)) {
 			throw new AssertionError("mode.dat not written right after creating " + world);
 		}
-		context.waitFor(mc -> CoreClientModule.casinoEnabled(), 20 * 30);
-		context.waitFor(mc -> ClientCasinoState.hasStatus() && ClientCasinoState.balance() > 0, 20 * 30);
+		context.waitTicks(40);
+		if (context.computeOnClient(mc -> CoreClientModule.casinoEnabled() || ClientCasinoState.balance() > 0)) {
+			throw new AssertionError("client sees casino mode / a starting balance in a world created OFF");
+		}
 		leaveWorld(context);
-		if (!storedMode(modeFile)) {
-			throw new AssertionError("mode.dat does not say enabled=true after saving " + world);
+		if (!Boolean.FALSE.equals(storedMode(modeFile))) {
+			throw new AssertionError("mode.dat does not say an explicit enabled=false after saving " + world);
 		}
 
-		// Cancel after toggling ON must not leak into the next Create World screen.
+		// Cancel after toggling OFF must not leak into the next Create World screen.
 		context.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
 		context.waitForScreen(CreateWorldScreen.class);
 		clickCasinoButton(context);
-		if (!uiRule(context)) {
-			throw new AssertionError("toggle before cancel did not turn ON");
+		if (uiRule(context)) {
+			throw new AssertionError("toggle before cancel did not turn OFF");
 		}
 		context.clickScreenButton("gui.cancel");
 		context.waitForScreen(TitleScreen.class);
 		context.runOnClient(mc -> CreateWorldScreen.openFresh(mc, () -> mc.gui.setScreen(new TitleScreen())));
 		context.waitForScreen(CreateWorldScreen.class);
-		if (uiRule(context)) {
-			throw new AssertionError("a fresh Create World screen starts ON after a cancelled one");
+		if (!uiRule(context)) {
+			throw new AssertionError("a fresh Create World screen starts OFF after a cancelled one");
 		}
 		context.setScreen(TitleScreen::new);
 
-		// Re-open: the stored value is read back (no pending value from a Create World screen).
+		// Re-open: the explicit OFF is read back (no pending value from a Create World screen), not the ON default.
 		joinWorld(context, world);
-		if (!context.computeOnClient(mc -> CasinoMode.isEnabled(mc.getSingleplayerServer()))) {
-			throw new AssertionError("re-opened world lost Casino Mode: ON");
+		if (context.computeOnClient(mc -> CasinoMode.isEnabled(mc.getSingleplayerServer()))) {
+			throw new AssertionError("re-opened world lost its explicit Casino Mode: OFF (the default ON won)");
 		}
 		leaveWorld(context);
 	}
@@ -187,10 +192,11 @@ public class CoreClientGameTests implements FabricClientGameTest {
 		context.setScreen(TitleScreen::new);
 	}
 
-	private static boolean storedMode(Path modeFile) {
+	/** The explicit {@code enabled} value in mode.dat, null if the key is missing. */
+	private static Boolean storedMode(Path modeFile) {
 		try {
-			CompoundTag root = NbtIo.readCompressed(modeFile, NbtAccounter.unlimitedHeap());
-			return root.getCompoundOrEmpty("data").getBooleanOr("enabled", false);
+			CompoundTag data = NbtIo.readCompressed(modeFile, NbtAccounter.unlimitedHeap()).getCompoundOrEmpty("data");
+			return data.contains("enabled") ? data.getBooleanOr("enabled", false) : null;
 		} catch (IOException e) {
 			throw new AssertionError("cannot read " + modeFile, e);
 		}

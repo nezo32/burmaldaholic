@@ -274,7 +274,7 @@ public class BlackjackScreen extends CardTableScreen {
 			row.add(button(Component.translatable("gui.burmaldaholic.blackjack.sit"), "play", CardButton.Family.PRIMARY, true, () -> sendAction("sit")));
 		} else if (betting && !m.betPlaced) {
 			long max = maxAffordable();
-			minX = compact ? 4 : 8 + CHIPS.length * 25 + 6;
+			minX = rackEnd(CHIPS.length);
 			row.add(button(Component.translatable("gui.burmaldaholic.common.clear"), "clear", CardButton.Family.TABLE, pendingBet > 0, () -> {
 				pendingBet = 0;
 				rebuildConsole();
@@ -309,7 +309,7 @@ public class BlackjackScreen extends CardTableScreen {
 					() -> sendAction("surrender")));
 			}
 		}
-		layoutButtons(row, minX);
+		layoutButtons(row, minX, chipRackShown() ? rackEnd(CHIPS.length) : 4);
 		if (seated) {
 			cornerButton("leave", Component.translatable("gui.burmaldaholic.common.leave"), !m.inRound || "result".equals(m.phase) && !m.busy,
 				() -> sendAction("leave"));
@@ -344,28 +344,55 @@ public class BlackjackScreen extends CardTableScreen {
 	}
 
 	private boolean chipRackShown() {
-		return !compact && mySeat() >= 0 && ("betting".equals(m.phase) || "idle".equals(m.phase)) && !m.inRound && !m.betPlaced;
+		return mySeat() >= 0 && ("betting".equals(m.phase) || "idle".equals(m.phase)) && !m.inRound && !m.betPlaced;
+	}
+
+	@Override
+	public int @Nullable [] chipRackSlot(int index) {
+		if (!chipRackShown() || index < 0 || index >= CHIPS.length) return null;
+		return rackRect(index);
 	}
 
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
 		if (!chipRackShown() || button != 0) return false;
-		for (int i = 0; i < CHIPS.length; i++) {
-			int cx = 8 + i * 25;
-			if (x >= cx && x < cx + 22 && y >= 212 && y < 234) {
-				selectedChip = CHIPS[i];
-				long max = maxAffordable();
-				if (pendingBet + CHIPS[i] > max) {
-					FxSounds.play("ui_deny", 1f);
-				} else {
-					pendingBet += CHIPS[i];
-					FxSounds.play("chip_place", 1f);
+		// v0.1.2 (lane A10): players put the chip on their betting circle, as at a real table — that adds the selected
+		// chip too (it used to do nothing: "blackjack won't let me place a bet down")
+		int sx = tx(compact ? 140 : Blackjack.ME_SPOT_X);
+		int sy = ty(compact ? Blackjack.C_STACK_Y : Blackjack.ME_SPOT_Y);
+		// (never over a console button: the compact circle sits right above Deal)
+		if (Math.abs(x - sx) <= 16 && Math.abs(y - sy) <= 16 && getChildAt(x, y).isEmpty()) {
+			for (int i = 0; i < CHIPS.length; i++) {
+				if (CHIPS[i] == selectedChip) {
+					return addChip(i);
 				}
-				rebuildConsole();
-				return true;
+			}
+		}
+		for (int i = 0; i < CHIPS.length; i++) {
+			int[] r = chipRackSlot(i);
+			if (r != null && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) {
+				return addChip(i);
 			}
 		}
 		return false;
+	}
+
+	/** The rack chip {@code i} goes onto the pending bet (or the screen says why it cannot). */
+	private boolean addChip(int i) {
+		selectedChip = CHIPS[i];
+		long max = maxAffordable();
+		if (pendingBet + CHIPS[i] > max) {
+			FxSounds.play("ui_deny", 1f);
+			// v0.1.2: say why the chip stays in the rack (a bare deny sound read as "blackjack won't let me bet")
+			showError(balance() < maxBet() || maxBet() <= 0
+				? Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(balance()))
+				: Component.translatable("gui.burmaldaholic.error.table_max", Texts.number(maxBet())));
+		} else {
+			pendingBet += CHIPS[i];
+			FxSounds.play("chip_place", 1f);
+		}
+		rebuildConsole();
+		return true;
 	}
 
 	@Override
@@ -373,9 +400,9 @@ public class BlackjackScreen extends CardTableScreen {
 		if (chipRackShown()) {
 			long max = maxAffordable();
 			for (int i = 0; i < CHIPS.length; i++) {
-				int x = 8 + i * 25;
-				boolean hover = mouseX >= x && mouseX < x + 22 && mouseY >= 212 && mouseY < 234;
-				ChipStackView.big(g, CHIPS[i], x, 212, CHIPS[i] == selectedChip, hover, pendingBet + CHIPS[i] <= max);
+				int[] r = chipRackSlot(i);
+				boolean hover = mouseX >= r[0] && mouseX < r[0] + r[2] && mouseY >= r[1] && mouseY < r[1] + r[3];
+				ChipStackView.big(g, CHIPS[i], r[0], r[1], CHIPS[i] == selectedChip, hover, pendingBet + CHIPS[i] <= max);
 			}
 			return;
 		}

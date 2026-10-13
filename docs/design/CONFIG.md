@@ -8,7 +8,7 @@ the numbers used throughout `GAME_DESIGN.md` (section references in the last col
 | | |
 |---|---|
 | Storage | `config/burmaldaholic.json` (server side). Keys are dotted paths; the file is **nested JSON objects** following the dots (`economy.ore.diamond` → `{"economy":{"ore":{"diamond":20}}}`). Unknown keys are ignored with a log warning; missing keys use defaults. Per-world override: `<world>/data/burmaldaholic_config.json` (same format), which wins over the global file. |
-| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default OFF; `/casino mode on\|off\|status`) |
+| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default ON since v0.1.2; `/casino mode on\|off\|status`) |
 | Editing | Config screen (Mod Menu integration, client) for single-player; `/casino config get/set/reset <key> [value]` (permission level 2) on servers; reload with `/casino config reload`. |
 | Validation | Out-of-range values are **clamped** to the range and a warning is logged / shown to the editor. Wrong type → default. |
 | Sync | Server sends the effective config subset needed for UI (limits, payouts tables) to clients on join and on change. |
@@ -23,7 +23,7 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `core.casinoMode` | bool | false (on world creation) | — | Master switch (§2.1). Stored in world saved data `mode.dat`, not in the config file. |
+| `core.casinoMode` | bool | true (since v0.1.2; on world creation, and for worlds that never chose) | — | Master switch (§2.1). Stored in world saved data `mode.dat`, not in the config file. An explicit `/casino mode off` is stored and kept. |
 | `core.giveCasinoCardOnJoin` | bool | true | — | Give a Casino Card on a player's first join. |
 | `core.hud.enabled` | bool | true | — | Show the HUD panel (players can hide it individually too). |
 | `core.hud.position` | enum(TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT) | TOP_LEFT | — | Default HUD corner (per-player override in Casino Menu). |
@@ -371,11 +371,11 @@ The four card tables' presentation (`animation/cards.md` §8, `visual/cards.md` 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `extras.coinFlip.enabled` | bool | true | — | |
-| `extras.coinFlip.payout` | double | 0.96 | 0.5–1.0 | Win pays X:1. |
+| `extras.coinFlip.payout` | double | 0.96 | 0.5–1.0 | Win pays X:1. Also sets the minimum stake: the smallest stake whose floored win is ≥ 1 (2 below 1.0, 1 at 1.0; GAME_DESIGN §11.1). |
 | `extras.wheel.enabled` | bool | true | — | |
 | `extras.wheel.maxBetFraction` | double | 0.5 | 0.01–1.0 | × tier max. |
 | `extras.wheel.segments` | list<string> | Appendix B | 2–100 entries | Segment codes in order. |
-| `extras.wheel.multipliers` | map<code,double> | B 0, C 0, H 0.5, M 1, D 2, T 3, E 5, X 10 | 0–1000 | |
+| `extras.wheel.multipliers` | map<code,double> | B 0, C 0, H 0.5, M 1, D 2, T 3, E 5, X 10 | 0–1000 | A fractional winning multiplier (> 1) raises the minimum bet until every win pays ≥ +1 after flooring (1 with the defaults). |
 | `extras.scratch.enabled` | bool | true | — | |
 | `extras.scratch.basic.price` | int | 10 | 1–10⁶ | |
 | `extras.scratch.basic.prizes` | list<[int,double]> | §11.3 | | (prize, probability) pairs; Σp ≤ 1. |
@@ -386,7 +386,7 @@ The four card tables' presentation (`animation/cards.md` §8, `visual/cards.md` 
 | `extras.plinko.maxBetFraction` | double | 0.2 | 0.01–1.0 | |
 | `extras.plinko.low` | list<double> | §11.4 | 13 entries | |
 | `extras.plinko.medium` | list<double> | §11.4 | 13 entries | |
-| `extras.plinko.high` | list<double> | §11.4 | 13 entries | |
+| `extras.plinko.high` | list<double> | §11.4 | 13 entries | The minimum bet is derived from the three tables: the smallest bet at which every bin above 1× pays ≥ +1 after flooring (3 with the defaults, from Low's 1.4× / 1.6×). |
 | `extras.diceDuel.enabled` | bool | true | — | |
 | `extras.diceDuel.houseWinsTieOn` | list<int> | [7] | totals 2–12 | Tie totals the house wins (others push). |
 | `extras.diceDuel.pvpEnabled` | bool | true | — | |
@@ -599,9 +599,9 @@ Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `worldgen.enabled` | bool | true | — | New chunks only. |
-| `worldgen.villageCasino.chance` | double | 0.35 | 0.0–1.0 | |
-| `worldgen.piglinParlor.chance` | double | 0.30 | 0.0–1.0 | |
-| `worldgen.highRoller.chance` | double | 0.20 | 0.0–1.0 | |
+| `worldgen.villageCasino.chance` | double | 0.50 | 0.0–1.0 | Share of villages that get a casino (v0.1.1: 0.35). |
+| `worldgen.piglinParlor.chance` | double | 0.60 | 0.0–1.0 | Share of bastions with a Piglin Parlor (v0.1.1: 0.30). |
+| `worldgen.highRoller.chance` | double | 0.50 | 0.0–1.0 | Share of End Cities with a High Roller Lounge (v0.1.1: 0.20). A global config file still holding exactly a v0.1.1 default (0.35 / 0.30 / 0.20) is upgraded to the new default on load; any other value is kept. |
 | `worldgen.loanSharkRespawnTicks` | int | 24000 | 0–240 000 | |
 
 ## multiplayer / ownership

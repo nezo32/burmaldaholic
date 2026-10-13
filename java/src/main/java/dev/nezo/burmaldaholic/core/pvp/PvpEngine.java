@@ -2195,15 +2195,35 @@ final class PvpEngine implements PvpService {
 
 	@Override
 	public Optional<PvpMatch> matchOf(UUID player) {
+		// the match the player is IN wins over a settled one still in its rematch / Double-or-nothing window, which wins
+		// over a pending invite, which wins over history: a new lobby right after a match must be "the" match of the
+		// player (v0.1.2: the old result was shown, Start / Spin went to the settled match), and an incoming challenge
+		// must not hide the just-finished match's result with its Rematch / Double-or-nothing (PvpUi skips INVITED)
 		PvpMatch best = null;
+		int bestRank = -1;
 		for (PvpMatch m : matches.values()) {
 			if (participantOf(m, player) != null && m.phase != Phase.CLOSED) {
-				if (best == null || m.phase != Phase.HISTORY) {
+				int rank = matchRank(m);
+				if (rank > bestRank || (rank == bestRank && m.createdTick >= best.createdTick)) {
 					best = m;
+					bestRank = rank;
 				}
 			}
 		}
 		return Optional.ofNullable(best);
+	}
+
+	private static int matchRank(PvpMatch m) {
+		if (m.phase == Phase.HISTORY) {
+			return 0;
+		}
+		if (m.state.live()) {
+			return 4;
+		}
+		if (m.state == MatchState.SETTLED) {
+			return 3; // not HISTORY: still in its offer / rematch window
+		}
+		return m.state == MatchState.INVITED ? 2 : 1;
 	}
 
 	@Override

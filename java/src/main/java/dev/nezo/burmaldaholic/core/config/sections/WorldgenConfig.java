@@ -7,17 +7,17 @@ public final class WorldgenConfig {
 	/** New chunks only. */
 	public boolean enabled = true;
 	public static final class VillageCasino {
-		@Range(min = 0, max = 1) public double chance = 0.35;
+		@Range(min = 0, max = 1) public double chance = 0.5;
 	}
 	public VillageCasino villageCasino = new VillageCasino();
 
 	public static final class PiglinParlor {
-		@Range(min = 0, max = 1) public double chance = 0.3;
+		@Range(min = 0, max = 1) public double chance = 0.6;
 	}
 	public PiglinParlor piglinParlor = new PiglinParlor();
 
 	public static final class HighRoller {
-		@Range(min = 0, max = 1) public double chance = 0.2;
+		@Range(min = 0, max = 1) public double chance = 0.5;
 	}
 	public HighRoller highRoller = new HighRoller();
 

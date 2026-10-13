@@ -100,6 +100,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		ox = (int) Math.floor((width - canvasW() * fk) / 2f);
 		oy = (int) Math.floor((height - canvasH() * fk) / 2f);
 		buttons.clear();
+		utilities.clear(); // re-added by their owners' ScreenEvents.AFTER_INIT (bots: the table-settings gear)
 		super.init();
 		// the kit's entrance veils (leftPos, topPos, imageWidth × imageHeight): the canvas on screen
 		leftPos = ox;
@@ -119,6 +120,26 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		buttons.clear();
 		if (minecraft == null) return;
 		buildConsole();
+		for (Utility u : utilities) {
+			CardButton b = cornerButton(null, u.hint(), true, u.action());
+			b.setMessage(u.label());
+		}
+	}
+
+	/** A utility button another module puts in the corner row (bots: the table-settings [⚙]); kept until the next init. */
+	private record Utility(Component label, Component hint, Runnable action) {}
+
+	private final List<Utility> utilities = new ArrayList<>();
+
+	/**
+	 * Adds an icon-label utility button to the canvas corner row (left of the game's own corner buttons and the balance),
+	 * drawn and hit-tested with the canvas like every console button. For modules that add a button from
+	 * {@code ScreenEvents.AFTER_INIT}: a plain screen-space widget would be neither drawn (the canvas draws only its own
+	 * buttons) nor clickable (input is mapped into the canvas). Re-placed on every {@link #rebuildConsole}.
+	 */
+	public void addCornerUtility(Component label, Component hint, Runnable action) {
+		utilities.add(new Utility(label, hint, action));
+		rebuildConsole();
 	}
 
 	/** Adds the console buttons with {@link #addButton} / {@link #layoutButtons}. */
@@ -131,7 +152,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	 * A small icon-only utility button (rules, leave) in the top corner, left of the balance plaque; {@code hint} is its
 	 * tooltip. Placed right to left in the order added.
 	 */
-	protected CardButton cornerButton(String icon, Component hint, boolean active, Runnable action) {
+	protected CardButton cornerButton(@Nullable String icon, Component hint, boolean active, Runnable action) {
 		int w = 18;
 		int h = 16;
 		int right = canvasW() - (compact ? 3 : 5) - (font.width(Texts.number(shownBalance())) + 20) - 4;
@@ -159,13 +180,22 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	 * gaps, each as wide as icon + label; wraps into a second row above when the row would pass {@code minX}.
 	 */
 	protected void layoutButtons(List<CardButton> row, int minX) {
+		layoutButtons(row, minX, 4);
+	}
+
+	/**
+	 * Same; in the compact layout the row starts at {@code compactStartX} (right of a compact chip rack, {@link #rackEnd})
+	 * and wraps back to it.
+	 */
+	protected void layoutButtons(List<CardButton> row, int minX, int compactStartX) {
 		int gap = compact ? 3 : 4;
 		if (compact) {
-			int x = 4;
+			int x0 = Math.max(4, compactStartX);
+			int x = x0;
 			int y = 139;
 			for (CardButton b : row) {
-				if (x + b.getWidth() > canvasW() - 4 && x > 4) {
-					x = 4;
+				if (x + b.getWidth() > canvasW() - 4 && x > x0) {
+					x = x0;
 					y -= 22;
 				}
 				b.setX(x);
@@ -324,7 +354,10 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		int w = tw + 12;
 		int h = 4 + 10 * lines.size();
 		int x = (canvasW() - w) / 2;
-		int y = (compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y) - 3 - h - (age < 150 ? (int) (6 * (1 - age / 150.0)) : 0);
+		// above the console as drawn: a wrapped (two-row) button row grows it upward (drawConsole), so start from its top
+		int top = compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y;
+		for (CardButton b : buttons) if (b.getY() > canvasH() / 2) top = Math.min(top, b.getY() - 3);
+		int y = top - 3 - h - (age < 150 ? (int) (6 * (1 - age / 150.0)) : 0);
 		g.fill(x, y, x + w, y + h, CardGfx.alpha(0xE0180A28, a));
 		CardGfx.frame(g, x, y, w, h, CardGfx.alpha(CasinoPalette.CHIP_RED, a));
 		for (int i = 0; i < lines.size(); i++) {
@@ -363,6 +396,28 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	@Override
 	public boolean mouseScrolled(double x, double y, double dx, double dy) {
 		return super.mouseScrolled((x - ox) / fk, (y - oy) / fk, dx, dy);
+	}
+
+	/**
+	 * Canvas rectangle {x, y, w, h} of chip {@code index} of the console chip rack while it is shown and clickable, else
+	 * null (no rack on this table / not now). The one source of the rack geometry: drawing, hit test and real-flow tests.
+	 */
+	public int @Nullable [] chipRackSlot(int index) {
+		return null;
+	}
+
+	/**
+	 * Where chip {@code index} of a console chip rack sits: 22 px chips at (8 + 25i, 212) on the full canvas, at
+	 * (4 + 24i, 138) in the compact console (GUI scale Auto at 2560 × 1440 is 426 × 240: the compact layout, so the rack
+	 * must be there too — without it a player cannot put a bet together).
+	 */
+	protected int[] rackRect(int index) {
+		return compact ? new int[] {4 + index * 24, 138, 22, 22} : new int[] {8 + index * 25, 212, 22, 22};
+	}
+
+	/** First x right of a rack of {@code chips} chips (where the console buttons may start). */
+	protected int rackEnd(int chips) {
+		return compact ? 4 + chips * 24 + 2 : 8 + chips * 25 + 6;
 	}
 
 	/** Clicks on the scene (chip rack, bet spots) in canvas coordinates; true when handled. */

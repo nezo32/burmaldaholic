@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.bots.net.BotsScreenPayload;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.client.module.ClientModuleContext;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
+import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
 import dev.nezo.burmaldaholic.core.bots.BotTable;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -40,9 +41,15 @@ public final class BotsClientModule implements CasinoClientModule {
 			if (screen instanceof CasinoTableScreen table && client.level != null
 				&& client.level.getBlockEntity(table.getMenu().pos()) instanceof BotTable) {
 				BlockPos pos = table.getMenu().pos();
+				Component hint = Component.translatable("gui.burmaldaholic.bots.settings.open");
+				if (screen instanceof CardTableScreen card) {
+					// the card tables draw and hit-test a scaled canvas: the gear joins its corner row (drawn, clickable)
+					card.addCornerUtility(Texts.raw(GEAR), hint, () -> ClientPlayNetworking.send(new BotsActionPayload(pos, "open", new CompoundTag())));
+					return;
+				}
 				Button gear = Button.builder(Texts.raw(GEAR), b -> ClientPlayNetworking.send(new BotsActionPayload(pos, "open", new CompoundTag())))
 					.bounds(width - 24, 4, 20, 20).build();
-				gear.setTooltip(Tooltip.create(Component.translatable("gui.burmaldaholic.bots.settings.open")));
+				gear.setTooltip(Tooltip.create(hint));
 				Screens.getWidgets(screen).add(gear);
 			}
 		});

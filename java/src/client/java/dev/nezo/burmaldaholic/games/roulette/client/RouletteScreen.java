@@ -303,6 +303,17 @@ public class RouletteScreen extends CasinoTableScreen {
 				}
 			}
 		}
+		// v0.1.2: never leave a chip the player cannot afford selected (a fresh player has 50 chips; every click on the
+		// felt said "not enough chips"): the largest chip that fits the balance
+		long bal = balance();
+		if (selectedChip > bal && state().contains("balance")) {
+			for (int k = CHIPS.length - 1; k >= 0; k--) {
+				if (CHIPS[k] <= bal && CHIPS[k] >= minBet()) {
+					selectedChip = CHIPS[k];
+					break;
+				}
+			}
+		}
 		boolean bet = betting();
 		for (int i = 0; i < CHIPS.length; i++) {
 			int d = CHIPS[i];
@@ -358,6 +369,12 @@ public class RouletteScreen extends CasinoTableScreen {
 		return grid().hit(mx - layoutX(), my - layoutY());
 	}
 
+	/** The click lands on the betting layout or the racetrack (whatever the phase). */
+	private boolean onFelt(double mx, double my) {
+		return showLayout() && grid().hit(mx - layoutX(), my - layoutY()).isPresent()
+			|| showTrack() && (Racetrack.numberAt(mx - trackX(), my - trackY()).isPresent() || Racetrack.sectionAt(mx - trackX(), my - trackY()).isPresent());
+	}
+
 	private void updateHover(double mx, double my) {
 		hover = spotAt(mx, my).orElse(null);
 		hoverNumber = -1;
@@ -402,6 +419,12 @@ public class RouletteScreen extends CasinoTableScreen {
 				args.putLong("amount", selectedChip);
 				sendAction("call", args);
 				FxSounds.play("chip_place", 1f, 1f);
+				return true;
+			}
+			if (!betting() && !rulesOn && onFelt(event.x(), event.y())) {
+				// v0.1.2: a chip put on the felt outside BETTING said nothing ("roulette won't let me bet"): tell why
+				showError(Component.translatable(state().getBooleanOr("enabled", true) ? "gui.burmaldaholic.roulette.no_more_bets"
+					: "gui.burmaldaholic.error.disabled"));
 				return true;
 			}
 		}

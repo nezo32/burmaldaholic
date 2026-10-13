@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.slots;
 
+import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.games.slots.SlotMachineBlockEntity;
@@ -182,10 +183,33 @@ public class SlotsGameTests {
 		helper.succeed();
 	}
 
-	/** §15 test 13 with a Treasure Hunt: restart mid-feature settles from the tape once (no re-roll, no refund). */
+	/**
+	 * §15 test 13 with a Treasure Hunt: restart mid-feature settles from the tape once (no re-roll, no refund).
+	 * Only the slot round may move chips here: the search spins usually trigger a feature first, so a random daily
+	 * {@code slots_feature} contract (target 2) completed on the hunt round and paid its reward on top of the tape
+	 * (~7% of mock-player UUIDs); a server-wide Golden Hour would add its bonus too (it pays while active even with
+	 * chaos off, so its multiplier is 1). Contracts, chaos and the Golden Hour bonus are off for this one-tick test.
+	 */
 	@GameTest(maxTicks = 400)
 	public void v2RestartMidTreasureHuntSettlesOnce(GameTestHelper helper) {
 		SlotMachineBlockEntity machine = placeV2(helper, Tier.COPPER, new BlockPos(1, 1, 1));
+		boolean contractsBefore = CasinoConfig.contracts().enabled;
+		boolean chaosBefore = CasinoConfig.chaos().enabled;
+		double goldenBefore = CasinoConfig.chaos().goldenHour.multiplier;
+		CasinoConfig.contracts().enabled = false;
+		CasinoConfig.chaos().enabled = false;
+		CasinoConfig.chaos().goldenHour.multiplier = 1;
+		try {
+			restartMidTreasureHunt(helper, machine);
+		} finally {
+			CasinoConfig.contracts().enabled = contractsBefore;
+			CasinoConfig.chaos().enabled = chaosBefore;
+			CasinoConfig.chaos().goldenHour.multiplier = goldenBefore;
+		}
+		helper.succeed();
+	}
+
+	private static void restartMidTreasureHunt(GameTestHelper helper, SlotMachineBlockEntity machine) {
 		withPlayer(helper, 1_000_000, player -> {
 			SpinTape hunt = null;
 			for (int i = 0; i < 4_000 && hunt == null; i++) {
@@ -217,7 +241,6 @@ public class SlotsGameTests {
 			machine.finishV2(false);
 			helper.assertTrue(Economies.get().balance(player) == before + hunt.payoutChips(), "paid once");
 		});
-		helper.succeed();
 	}
 
 	/** Protocol abuse: another player's picks / skips / stop, out-of-order picks, bad bets, autoplay without a loss limit. */

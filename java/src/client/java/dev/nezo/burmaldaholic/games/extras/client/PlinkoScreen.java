@@ -80,6 +80,25 @@ final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldah
 		return r.defaults();
 	}
 
+	/** The minimum bet of a risk (the server's per-risk "min" of its table; the machine's "min" from an older server). */
+	private long minFor(Plinko.Risk r) {
+		ListTag tables = state().getListOrEmpty("tables");
+		for (int i = 0; i < tables.size(); i++) {
+			CompoundTag t = tables.getCompoundOrEmpty(i);
+			if (r.id().equals(t.getStringOr("risk", "")) && t.contains("min")) {
+				return Math.max(1, t.getLongOr("min", 1));
+			}
+		}
+		return Math.max(1, state().getLongOr("min", 1));
+	}
+
+	/** The state the bet well clamps against: "min" is the selected risk's own minimum. */
+	private CompoundTag betState() {
+		CompoundTag s = state().copy();
+		s.putLong("min", minFor(risk));
+		return s;
+	}
+
 	@Override
 	protected void stateArrived(CompoundTag newState) {
 		CompoundTag r = newState.getCompoundOrEmpty("result");
@@ -181,7 +200,7 @@ final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldah
 	@Override
 	protected void layout() {
 		CompoundTag s = state();
-		bet.validate(s);
+		bet.validate(betState());
 		boolean busy = dropping();
 		Plinko.Risk[] risks = Plinko.Risk.values();
 		for (int i = 0; i < risks.length; i++) {
@@ -189,14 +208,15 @@ final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldah
 			button(RX - 2, 44 + 16 * i, 92, 14, Component.translatable(rk.key()), KitButton.Style.SECONDARY, b -> {
 				risk = rk;
 				rebuild();
-			}).selected(rk == risk).active(!busy);
+			}).selected(rk == risk).active(!busy)
+				.tooltip(Component.translatable("gui.burmaldaholic.extras.plinko.min", Texts.chips(minFor(rk))));
 		}
 		button(RX - 4, 132, 46, 20, Component.translatable("gui.burmaldaholic.extras.minus"), KitButton.Style.SECONDARY, b -> {
-			bet.step(state(), -1);
+			bet.step(betState(), -1);
 			rebuild();
 		}).active(!busy);
 		button(RX + 46, 132, 46, 20, Component.translatable("gui.burmaldaholic.extras.plus"), KitButton.Style.SECONDARY, b -> {
-			bet.step(state(), 1);
+			bet.step(betState(), 1);
 			rebuild();
 		}).active(!busy);
 		button(RX - 4, 156, 96, 20, Component.translatable("gui.burmaldaholic.extras.plinko.drop"), KitButton.Style.PRIMARY, b -> {
@@ -268,6 +288,10 @@ final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldah
 		PlinkoDraw.bins(g, font, bx, by, table, lit, press, pop, false);
 		// right column wells
 		int rx = leftPos + RX;
+		// one dark plate under the whole column (board edge → frame): the backdrop's neon grid lines no longer cross the
+		// controls, the bet line, "Last balls" and the balance
+		int colX = leftPos + BX + PlinkoDraw.BOARD_W + 1;
+		g.fill(colX, topPos + 26, leftPos + Scene.W - 12, topPos + Scene.H - 12, 0xFF120A20);
 		Scene.inset(g, rx - 4, topPos + 28, 96, 66);
 		Scene.inset(g, rx - 4, topPos + 98, 96, 30);
 		if (battle) {

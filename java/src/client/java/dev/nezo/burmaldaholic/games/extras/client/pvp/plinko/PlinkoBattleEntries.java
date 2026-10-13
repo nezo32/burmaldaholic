@@ -29,6 +29,8 @@ public final class PlinkoBattleEntries {
 	private static SeatPolicy policy = SeatPolicy.MIXED;
 	private static BotDifficulty difficulty = BotDifficulty.MIXED;
 	private static int size = -1;
+	/** The battle's entry: its own selector (v0.1.2: the machine's solo bet, 1 chip by default, was sent and refused). */
+	private static long entry = -1;
 
 	private PlinkoBattleEntries() {}
 
@@ -71,6 +73,11 @@ public final class PlinkoBattleEntries {
 		int bottom() {
 			return x > left ? y + 22 : y;
 		}
+	}
+
+	/** Entry −/+ with growing steps (as the Slot Showdown panel). */
+	static long step(long entry) {
+		return entry < 50 ? 5 : entry < 200 ? 10 : entry < 1000 ? 50 : 500;
 	}
 
 	/**
@@ -130,6 +137,22 @@ public final class PlinkoBattleEntries {
 		}).active = !busy;
 		if (expanded) {
 			row.newRow();
+			long minStake = Math.max(1, pvp.getLongOr("min_stake", 1));
+			long maxStake = Math.max(minStake, pvp.getLongOr("max_stake", minStake));
+			if (entry < minStake || entry > maxStake) {
+				entry = Math.max(minStake, Math.min(maxStake, amount.getAsLong()));
+			}
+			row.button(Texts.raw("−"), 20, b -> { // literal-ok: symbol
+				entry = Math.max(minStake, entry - step(entry));
+				rebuild.run();
+			}).active = entry > minStake;
+			row.button(Component.translatable("gui.burmaldaholic.pvp.lobby.entry", Texts.chips(entry)), 70, b -> {
+			}).active = false;
+			row.button(Texts.raw("+"), 20, b -> { // literal-ok: symbol
+				entry = Math.min(maxStake, entry + step(entry));
+				rebuild.run();
+			}).active = entry < maxStake;
+			row.newRow();
 			row.button(Component.translatable("gui.burmaldaholic.pvp.plinko.balls_value", Texts.number(balls)), 60, b -> {
 				balls = choices.get((choices.indexOf(balls) + 1) % choices.size());
 				rebuild.run();
@@ -154,7 +177,7 @@ public final class PlinkoBattleEntries {
 			}
 			row.button(Component.translatable("gui.burmaldaholic.pvp.lobby.open").withStyle(ChatFormatting.BOLD), 60, b -> {
 				CompoundTag args = new CompoundTag();
-				args.putLong("amount", amount.getAsLong());
+				args.putLong("amount", entry);
 				args.putString("risk", risk);
 				args.putInt("balls", balls);
 				args.putString("policy", policy.id());

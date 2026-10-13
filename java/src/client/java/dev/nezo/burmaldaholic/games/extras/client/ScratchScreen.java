@@ -459,10 +459,11 @@ final class ScratchScreen extends SceneScreen implements dev.nezo.burmaldaholic.
 			g.text(font, lines.get(0), tx + 106 - font.width(lines.get(0)) / 2, ty + 180, ended ? endColor(s) : Kit.BONE, true);
 		} else {
 			float sc = 0.75f;
-			g.pose().pushMatrix();
-			g.pose().translate(tx + 106, ty + 177);
-			g.pose().scale(sc, sc);
 			List<net.minecraft.util.FormattedCharSequence> l2 = font.split(hint, (int) (184 / sc));
+			g.pose().pushMatrix();
+			// centred on the ribbon (rows 178–190 of the ticket art): one scaled line sits mid-band, two fill it
+			g.pose().translate(tx + 106, ty + (l2.size() == 1 ? 181.5f : 177.5f));
+			g.pose().scale(sc, sc);
 			for (int k = 0; k < Math.min(2, l2.size()); k++) {
 				g.text(font, l2.get(k), -font.width(l2.get(k)) / 2, k * 9, ended ? endColor(s) : Kit.BONE, true);
 			}

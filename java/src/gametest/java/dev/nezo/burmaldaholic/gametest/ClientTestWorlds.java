@@ -11,7 +11,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldBuilder;
 
-/** Client GameTest worlds. Casino mode is OFF by default, so tests that play the casino opt in at creation. */
+/** Client GameTest worlds. Casino mode is ON by default (v0.1.2); casino tests still set it explicitly at creation. */
 public final class ClientTestWorlds {
 	/** Longest wait for the integrated server to become idle before the world closes (ticks). */
 	public static final int QUIET_TIMEOUT_TICKS = 200;
