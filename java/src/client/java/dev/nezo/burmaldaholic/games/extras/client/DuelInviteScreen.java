@@ -1,9 +1,7 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
-import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.pvp.kit.Faces;
 import dev.nezo.burmaldaholic.client.pvp.kit.InviteCard;
-import dev.nezo.burmaldaholic.client.table.fx.TableGfx;
 import dev.nezo.burmaldaholic.client.ui.CasinoScreen;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
@@ -15,12 +13,10 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
 
 /**
  * PvP Dice Duel invitation, table UI v2 (REDESIGN.md §7.8 "Invite: a centred 232 × 96 card on a scrim"; lane E): the
- * {@link InviteCard} with the challenger's head (the dice cup rattling beside it once per second, still with reduced
- * motion), "Alex challenges you", "Dice Duel · 200 chips" 2× gold, the TimerBar, <b>Accept</b> {@code Y} and
+ * {@link InviteCard} with the challenger's head, "Alex challenges you", "Dice Duel · 200 chips" 2× gold, the TimerBar, <b>Accept</b> {@code Y} and
  * <b>Decline</b> {@code N}. Only shown when the target has no other screen open; closes itself when it times out (the
  * dice screen still lists the challenge until then).
  *
@@ -30,7 +26,6 @@ final class DuelInviteScreen extends CasinoScreen {
 	private final CompoundTag state;
 	private final InviteCard card = new InviteCard();
 	private final HitMap hits = new HitMap();
-	private final long openedAt = Util.getMillis();
 	private int ticks;
 
 	DuelInviteScreen(CompoundTag state) {
@@ -109,10 +104,5 @@ final class DuelInviteScreen extends CasinoScreen {
 		String uuid = state.getStringOr("uuid", "");
 		card.draw(g, font, width, height, (gg, x, y, size) -> Faces.draw(gg, uuid, false, "", x, y, size), from, stake, left, (int) (total / 20), mouseX,
 			mouseY);
-		// the dice cup rattles once per second beside the head
-		long since = Util.getMillis() - openedAt;
-		int cupFrame = FxSettings.reduceMotion() ? 0 : (since % 1000) < 240 ? 1 + (int) ((since % 1000) / 120) : 0;
-		var c = card.card();
-		TableGfx.frame(g, "extras/dice_duel_cup", 40, 40, 6, cupFrame, c.right() - 44, c.y() + 4, 0x90FFFFFF);
 	}
 }

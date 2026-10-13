@@ -407,19 +407,23 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		int y = side.y() + lastTop();
 		SceneKit.caption(g, font, Component.translatable(ExtrasKeys.LAST_BALLS), side, y);
 		double topNow = top(table(risk));
-		for (int i = 0; i < LAST.size(); i++) {
+		boolean pvp = state().contains("pvp");
+		int rows = 2;
+		// With the Battle toggle at the bottom, drop a row of last balls rather than the Top prize.
+		if (pvp && side.y() + lastTop() + 12 + 2 * (scene.row() + 2) + 6 + 30 > battleBox().y()) rows = 1;
+		for (int i = 0; i < Math.min(LAST.size(), 2 * rows); i++) {
 			int k = LAST.size() - 1 - i; // newest first
 			Box cell = scene.cell(lastTop() + 12, i / 2, i % 2);
 			Box pill = new Box(cell.x(), cell.y(), Math.min(cell.w(), 40), Math.min(cell.h(), 14));
 			double m = LAST.get(k);
 			SceneKit.pill(g, font, pill, Texts.raw("×" + MachinePub.compact(m)), SceneKit.multColor(m, topNow));
 		}
-		int ty = side.y() + lastTop() + 12 + 2 * (scene.row() + 2) + 6;
-		if (ty + 30 <= battleBox().y() || !state().contains("pvp")) {
+		int ty = side.y() + lastTop() + 12 + rows * (scene.row() + 2) + 6;
+		if (ty + 30 <= battleBox().y() || !pvp) {
 			SceneKit.caption(g, font, Component.translatable(ExtrasKeys.TOP_PRIZE), side, ty);
 			SceneKit.big(g, font, Texts.raw("×" + MachinePub.compact(topNow)), side.x(), ty + 11, side.w(), CasinoPalette.V2_GOLD);
 		}
-		if (state().contains("pvp")) {
+		if (pvp) {
 			SceneKit.toggle(g, font, battleBox(), Component.translatable("gui.burmaldaholic.pvp.plinko.host"), battle, true, mx, my);
 		}
 	}

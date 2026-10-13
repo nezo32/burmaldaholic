@@ -236,7 +236,7 @@ public final class PlinkoMachineRenderer extends SpectatorBlockEntityRenderer<Pl
 		if (text && c.name != null) {
 			Minecraft mc = Minecraft.getInstance();
 			s.plate = landedShown && c.result != null ? c.result : c.name;
-			s.plateScale = HoloScale.textPx(HoloScale.PLATE_BASE, Math.sqrt(s.distSq), mc.options.fov().get(), mc.getWindow().getHeight());
+			s.plateScale = HoloScale.textPx(HoloScale.BOARD_BASE, Math.sqrt(s.distSq), mc.options.fov().get(), mc.getWindow().getHeight());
 		}
 	}
 

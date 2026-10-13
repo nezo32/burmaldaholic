@@ -162,6 +162,10 @@ public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.Cas
 		int dy = frame.dockY() - top; // the main buttons sit in the v2 Dock
 		int[][] pos = side ? sideControlPositions()
 			: new int[][] {{cx - 124, dy, 96}, {cx - 24, dy, 72}, {cx + 52, dy, 64}, {cx + 120, dy, 20}};
+		if (side) { // Close and rules always live in the Dock, never across its edge
+			pos[2] = new int[] {cx + 52, dy, 64};
+			pos[3] = new int[] {cx + 120, dy, 20};
+		}
 		KitButton press = KitButton.of(left + pos[0][0], top + pos[0][1], pos[0][2], Component.translatable(pressKey), KitButton.Style.PRIMARY, b -> {
 			pressedStep = view.steps().size() - 1;
 			send("press", new CompoundTag());
