@@ -177,11 +177,14 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 		for (int waited = 0; waited < 2400; waited += 5) {
 			UthRound.Seat seat = world.getServer().computeOnServer(s -> mySeat(s, pos));
 			if (seat != null && seat.result != null && world.getServer().computeOnServer(s -> !UthTableBlockEntity.SHOWDOWN.equals(phase(s, pos)))) {
+				// before = balance before Deal; Ante + Blind + Play + Trips were debited, the return paid back: before + net
+				long net = seat.result.net();
 				long ret = seat.result.totalReturn();
 				context.waitTicks(40);
-				context.takeScreenshot("uth_flow_s4_" + name + "_payout");
+				context.takeScreenshot("uth_flow_" + name + "_payout");
 				long after = balance(world);
-				check(after == before + ret, name + ": balance " + before + " + return " + ret + " = " + (before + ret) + ", got " + after);
+				check(after == before + net, name + ": balance " + before + " − staked " + seat.result.staked() + " + return " + ret + " = " + (before + net)
+					+ ", got " + after);
 				context.waitFor(mc -> buttonCenter(mc, "gui.burmaldaholic.common.deal") != null, TIMEOUT);
 				return;
 			}
@@ -189,7 +192,7 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 				: buttonCenter(mc, "gui.burmaldaholic.uth.button.bet_1x") != null ? "gui.burmaldaholic.uth.button.bet_1x" : null);
 			if (id != null && seat != null && !seat.decided) {
 				if (!shotDecision) {
-					context.takeScreenshot("uth_flow_s4_" + name + "_decision");
+					context.takeScreenshot("uth_flow_" + name + "_decision");
 					shotDecision = true;
 				}
 				clickButton(context, id);
