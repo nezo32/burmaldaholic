@@ -433,8 +433,10 @@ public class CasinoBuildingGameTests {
 						continue;
 					}
 					boolean anyBiome = false;
+					// biome where the jigsaw checks it: at the start projected onto the surface (WORLD_SURFACE_WG)
+					int sy = gen.getBaseHeight(bx, bz, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG, height, rs);
 					for (StructureSet.StructureSelectionEntry e : set.structures()) {
-						anyBiome |= CasinoQa.biomeMatches(gen, rs, bx, 64, bz, e.structure().value().biomes()::contains);
+						anyBiome |= CasinoQa.biomeMatches(gen, rs, bx, sy, bz, e.structure().value().biomes()::contains);
 					}
 					if (!anyBiome) {
 						continue;
