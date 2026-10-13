@@ -876,13 +876,20 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	private void dispatchAction(ServerPlayer player, String action, CompoundTag args) {
 		switch (action) {
 			case "resync" -> {} // v2 kit: the answer is the state sent by handleAction
-			case "sit" -> sit(player);
+			case "sit" -> {
+				sit(player);
+				// v0.1.2 hotfix: a game's sit() may change more after core's sync (baccarat opens betting after
+				// super.sit() synced the seat): the screen must see the final state or it waits for a phase that
+				// already began (no chip rack, no bet boxes — "won't let me place a bet").
+				syncViewers();
+			}
 			case "leave" -> {
 				if (!canLeaveNow(player.getUUID())) {
 					sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
 				} else {
 					leave(player.getUUID(), LeaveReason.LEFT);
 				}
+				syncViewers();
 			}
 			default -> onAction(player, action, args);
 		}

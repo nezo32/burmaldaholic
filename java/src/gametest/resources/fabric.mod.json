@@ -10,6 +10,7 @@
 		],
 		"fabric-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.RealFlowTableGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.JavaReviewGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.BotsGameTests",
@@ -69,7 +70,8 @@
 			"dev.nezo.burmaldaholic.gametest.v2.roulette.RouletteV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.craps.CrapsV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.extras.ExtrasV2ClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.v2.pvp.PvpV2ClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.v2.pvp.PvpV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.RealBetFlowClientGameTests"
 		]
 	},
 	"depends": {
