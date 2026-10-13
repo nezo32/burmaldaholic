@@ -360,7 +360,8 @@ public class BlackjackScreen extends CardTableScreen {
 		// chip too (it used to do nothing: "blackjack won't let me place a bet down")
 		int sx = tx(compact ? 140 : Blackjack.ME_SPOT_X);
 		int sy = ty(compact ? Blackjack.C_STACK_Y : Blackjack.ME_SPOT_Y);
-		if (Math.abs(x - sx) <= 16 && Math.abs(y - sy) <= 16) {
+		// (never over a console button: the compact circle sits right above Deal)
+		if (Math.abs(x - sx) <= 16 && Math.abs(y - sy) <= 16 && getChildAt(x, y).isEmpty()) {
 			for (int i = 0; i < CHIPS.length; i++) {
 				if (CHIPS[i] == selectedChip) {
 					return addChip(i);
