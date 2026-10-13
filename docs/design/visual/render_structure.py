@@ -258,6 +258,10 @@ COLOURS = {
     'wall_torch': (255, 210, 90), 'soul_torch': (110, 220, 230), 'campfire': (230, 140, 50),
     'soul_campfire': (90, 210, 220), 'beacon': (120, 220, 215), 'copper_bulb': (230, 150, 90),
     'waxed_copper_bulb': (230, 150, 90),
+    'honeycomb_block': (229, 148, 29), 'flowering_azalea': (112, 121, 64), 'azalea': (95, 124, 47),
+    'small_amethyst_bud': (164, 126, 207), 'medium_amethyst_bud': (164, 126, 207), 'large_amethyst_bud': (164, 126, 207),
+    'piglin_head': (196, 128, 100), 'piglin_wall_head': (196, 128, 100), 'dragon_head': (30, 30, 34),
+    'dragon_wall_head': (30, 30, 34),
     'gold_block': (246, 208, 61), 'raw_gold_block': (221, 169, 46), 'emerald_block': (42, 203, 87),
     'diamond_block': (98, 237, 228), 'lapis_block': (31, 67, 140), 'iron_block': (220, 220, 220),
     'netherite_block': (66, 61, 63), 'redstone_block': (175, 24, 5), 'amethyst_block': (133, 97, 191),
@@ -567,7 +571,8 @@ def model(name, props):
         if 'wall' in n:
             return [_box(*_facing_box(_opp(props.get('facing', 'north')), 0, 2, 4, 12))], 'part'
         return [_box(7, 0, 7, 9, 9, 9), _box(0, 8, 7, 16, 16, 9)], 'part'
-    if n in ('amethyst_cluster', 'large_amethyst_bud', 'pointed_dripstone', 'sea_pickle'):
+    if n in ('amethyst_cluster', 'large_amethyst_bud', 'medium_amethyst_bud', 'small_amethyst_bud', 'pointed_dripstone',
+             'sea_pickle', 'flowering_azalea', 'azalea'):
         return [_box(4, 0, 4, 12, 10, 12)], 'part'
     if n in ('player_head', 'skeleton_skull', 'wither_skeleton_skull', 'piglin_head', 'zombie_head', 'creeper_head',
              'dragon_head'):
@@ -886,7 +891,7 @@ def render(st, out, scale=10, cut=None, title=None, rotate=0, night=False, texel
                 c = mix(c, (255, 196, 120), 0.18 * lit) if lit > 0.2 else mix(c, (40, 52, 90), 0.35)
             nt = n_tex if (X1 - X0) * (Z1 - Z0) >= 0.2 or face != 'top' else 1
             _draw_face(d, quad, c, alpha, name, face, nt, pos, scene, bx, night or glow)
-        if glow and night:
+        if glow and night and bi == 0 and _sees_viewer(scene, pos):
             halos.append((proj(x + 0.5, y + 0.5, z + 0.5), glow, colour(name)))
     if night and halos:
         layer = Image.new('RGB', img.size, (0, 0, 0))
@@ -904,6 +909,19 @@ def render(st, out, scale=10, cut=None, title=None, rotate=0, night=False, texel
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     img.save(out, optimize=True)
     return out
+
+
+def _sees_viewer(scene, pos):
+    """True when nothing solid lies between the block and the viewer (view ray +x +y +z): no halo through roofs."""
+    x, y, z = pos
+    top = scene.st.size[1] + 4
+    for i in range(1, 64):
+        for c in ((x + i, y + i, z + i), (x + i - 1, y + i, z + i), (x + i, y + i, z + i - 1)):
+            if c in scene.solid and c not in scene.emit:
+                return False
+        if y + i > top:
+            return True
+    return True
 
 
 def _game_tags(d, scene, proj, scale):
