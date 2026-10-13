@@ -176,6 +176,8 @@ public final class V2Chrome {
 			for (int i = 0; i < tools.length; i++) tg[i] = flow.tool(tools[i], view);
 			bet.gates(cg, tg);
 			status.timer.auto(b.secondsLeft());
+		} else {
+			status.timer.clear(); // games without a bet model this phase set their own timer after apply
 		}
 		status.reason(p);
 		Optional<String> hint = flow.hintKey(view);
@@ -262,7 +264,10 @@ public final class V2Chrome {
 
 	/** A new state arrived (reads the server's {@code ack}). */
 	public void acceptState(CompoundTag state) {
-		watchdog.state(state.getLongOr("ack", -1));
+		long before = watchdog.lastAck();
+		long ack = state.getLongOr("ack", -1);
+		watchdog.state(ack);
+		if (ack > before && before >= 0) status.clearFlash(); // an answered action makes an old "why not" stale
 	}
 
 	/** A server error: toast on the felt, status line, the pending chip dropped. */

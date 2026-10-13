@@ -50,6 +50,11 @@ public final class StatusLine {
 		this.flashAt = Util.getMillis();
 	}
 
+	/** Drops a flashed reason (the player did something that worked since). */
+	public void clearFlash() {
+		flash = null;
+	}
+
 	public void error(Component message) {
 		this.error = message;
 		this.errorAt = Util.getMillis();
