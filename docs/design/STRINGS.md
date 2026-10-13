@@ -37,7 +37,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `key.category.burmaldaholic` | Burmaldaholic | Бурмалдоголик |
 | `key.burmaldaholic.open_menu` | Open Casino Menu | Открыть меню казино |
 | `gui.burmaldaholic.core.create_world.casino_mode` | Casino Mode: %1$s | Режим казино: %1$s |
-| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. Off by default and saved with the world; operators can switch it later with /casino mode on or /casino mode off. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию выключен и сохраняется вместе с миром; позже оператор может переключить его командой /casino mode on или /casino mode off. Сложность не меняется. |
+| `gui.burmaldaholic.core.create_world.casino_mode.tooltip` | Adds the Burmaldaholic casino to this world: chips, tables, loans, chaos events. On by default and saved with the world; operators can switch it later with /casino mode on or /casino mode off. Does not change difficulty. | Добавляет в мир казино Бурмалдоголик: фишки, столы, займы, хаос-события. По умолчанию включён и сохраняется вместе с миром; позже оператор может переключить его командой /casino mode on или /casino mode off. Сложность не меняется. |
 | `gui.burmaldaholic.core.setup.title` | Casino setup | Настройка казино |
 | `gui.burmaldaholic.core.setup.intro` | The add-on is active. Choose how this world plays. You can change it later in Casino Card → Admin. | Аддон подключён. Выберите правила для этого мира — потом их можно поменять в «Клубная карта → Админ». |
 | `gui.burmaldaholic.core.setup.casino_mode` | Casino mode | Режим казино |
@@ -369,6 +369,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.welcome_hint` | Mine, fight and trade to earn chips. Spend them at the tables. Try not to spend all of them. | Копайте, сражайтесь и торгуйте — за это дают фишки. Тратьте их за столами. Желательно не все. |
 | `msg.burmaldaholic.core.mode_enabled` | Casino mode is ON. The doors are open. | Режим казино ВКЛЮЧЁН. Двери открыты. |
 | `msg.burmaldaholic.core.mode_disabled` | Casino mode is OFF. Your chips are safe until it reopens. | Режим казино ВЫКЛЮЧЕН. Фишки сохранятся до открытия. |
+| `msg.burmaldaholic.core.mode_default_on` | Casino mode is ON in this world (the default since v0.1.2). Not wanted here? /casino mode off | В этом мире включён режим казино (по умолчанию с версии 0.1.2). Не нужен? /casino mode off |
 | `msg.burmaldaholic.core.command.mode_set_on` | Casino mode is now ON for this world | Режим казино в этом мире теперь ВКЛЮЧЁН |
 | `msg.burmaldaholic.core.command.mode_set_off` | Casino mode is now OFF for this world | Режим казино в этом мире теперь ВЫКЛЮЧЕН |
 | `msg.burmaldaholic.core.command.mode_status_on` | Casino mode is ON in this world | В этом мире режим казино ВКЛЮЧЁН |
@@ -1012,6 +1013,8 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 |-----|----|----|
 | `gui.burmaldaholic.slots.spin` | Spin (%1$s) | Крутить (%1$s) |
 | `gui.burmaldaholic.slots.stop` | Stop | Стоп |
+| `gui.burmaldaholic.slots.locked` | Locked | Закрыто |
+| `gui.burmaldaholic.slots.vip_lock` | Requires VIP tier %1$s — you are %2$s | Нужен ВИП-статус «%1$s», у вас «%2$s» |
 | `gui.burmaldaholic.slots.skip` | Skip | Пропустить |
 | `gui.burmaldaholic.slots.bet` | Bet: %1$s | Ставка: %1$s |
 | `gui.burmaldaholic.slots.bet_down` | Lower bet | Меньше |
@@ -1324,6 +1327,10 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.odds_multiple` | Odds must be a multiple of %1$s | Ставка на коэффициент должна быть кратна %1$s |
 | `gui.burmaldaholic.craps.odds_max` | Max odds: %1$s | Макс. коэффициент: %1$s |
 | `gui.burmaldaholic.craps.line_only_come_out` | Line bets only on the come-out roll | Ставки на линию — только на первом броске |
+| `gui.burmaldaholic.craps.come_needs_point` | Come needs a point: bet the Pass Line first | Кам — только после поинта: сначала пасс-лайн |
+| `gui.burmaldaholic.craps.already_placed` | You already have this bet: Undo to change it | Эта ставка уже есть: верните её, чтобы изменить |
+| `gui.burmaldaholic.craps.numbers_come_out` | Numbers hold Come bets after the point: bet Pass Line | Числа — для кам-ставок после поинта: ставьте на пасс-лайн |
+| `gui.burmaldaholic.craps.numbers_need_come` | Put chips on COME: the next roll moves them to a number | Ставьте на «Кам»: бросок перенесёт фишки на число |
 | `gui.burmaldaholic.craps.need_line_bet` | The shooter needs a Pass or Don't Pass bet | Бросающему нужна ставка на пасс-лайн или не-пасс |
 | `gui.burmaldaholic.craps.rules.1` | Pass: 7 or 11 wins, 2, 3, 12 loses. Otherwise hit the point before a 7. | Пасс-лайн: 7 или 11 — победа, 2, 3, 12 — проигрыш. Иначе нужно выбросить поинт раньше семёрки. |
 | `gui.burmaldaholic.craps.rules.2` | Field: 3, 4, 9, 10, 11 pay 1:1 · 2 pays 2:1 · 12 pays 3:1 | Филд: 3, 4, 9, 10, 11 платят 1:1 · 2 платит 2:1 · 12 платит 3:1 |
@@ -1601,6 +1608,17 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.trips_optional` | Trips (optional, 0 = no bet) | Трипс (по желанию, 0 — без ставки) |
 | `gui.burmaldaholic.uth.ante_limits` | Ante %1$s – %2$s (6 × Ante + Trips ≤ %3$s) | Анте %1$s – %2$s (6 × анте + трипс ≤ %3$s) |
 | `gui.burmaldaholic.uth.at_risk` | At risk: up to %1$s | На кону: до %1$s |
+| `gui.burmaldaholic.uth.target.ante` | Chips → Ante | Фишки → анте |
+| `gui.burmaldaholic.uth.target.trips` | Chips → Trips | Фишки → трипс |
+| `gui.burmaldaholic.uth.target.tooltip` | Where the chips go: click to switch between Ante and Trips (or click a circle on the table) | Куда идут фишки: нажмите, чтобы переключить анте и трипс (или нажмите на круг на столе) |
+| `gui.burmaldaholic.uth.undo` | − Chip | − Фишка |
+| `gui.burmaldaholic.uth.undo.tooltip` | Take back the last chip. Right-click a chip in the rack to remove its value | Убрать последнюю фишку. Правый клик по фишке убирает её номинал |
+| `gui.burmaldaholic.uth.chip.tooltip` | +%1$s on the %2$s · right-click: −%1$s | +%1$s на %2$s · правый клик: −%1$s |
+| `gui.burmaldaholic.uth.chips_to` | Chips go on: %1$s · max Ante %2$s | Фишки идут на: %1$s · анте до %2$s |
+| `gui.burmaldaholic.uth.error.place_ante` | Put chips on the Ante first | Сначала поставьте фишки на анте |
+| `gui.burmaldaholic.uth.error.max_ante` | The largest Ante here is %1$s (6 × Ante + Trips ≤ %2$s) | Анте здесь — не больше %1$s (6 × анте + трипс ≤ %2$s) |
+| `gui.burmaldaholic.uth.error.max_ante_balance` | Your balance covers an Ante of up to %1$s (Ante, Blind and a river bet) | Баланса хватает на анте до %1$s (анте, блайнд и ставка после ривера) |
+| `gui.burmaldaholic.uth.error.max_trips` | With this Ante, Trips can be at most %1$s | С таким анте трипс — не больше %1$s |
 | `gui.burmaldaholic.uth.check` | Check | Чек |
 | `gui.burmaldaholic.uth.fold` | Fold | Пас |
 | `gui.burmaldaholic.uth.bet_4x` | Bet ×4 (%1$s) | Ставка ×4 (%1$s) |
@@ -1912,7 +1930,7 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.pvp.hub.join` | Join | Войти |
 | `gui.burmaldaholic.pvp.hub.new_match` | New match… | Новый матч… |
 | `gui.burmaldaholic.pvp.hub.rivals` | Head-to-head | Личные встречи |
-| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party start at their machines | Битва автоматов, битва Плинко и «Колесо на всех» начинаются у самих автоматов |
+| `gui.burmaldaholic.pvp.hub.machine_hint` | Slot Showdown, Plinko Battle and Wheel Party can also start at their machines | Битву автоматов, битву Плинко и «Колесо на всех» можно начать и у самих автоматов |
 | `gui.burmaldaholic.pvp.new.title` | New match | Новый матч |
 | `gui.burmaldaholic.pvp.new.opponent` | Opponent | Соперник |
 | `gui.burmaldaholic.pvp.new.open_lobby` | Open lobby (anyone nearby) | Открытое лобби (все, кто рядом) |
@@ -2031,7 +2049,7 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.pvp.hub.show` | Show match | Показать матч |
 | `gui.burmaldaholic.pvp.hub.withdraw` | Withdraw challenge | Отозвать вызов |
 | `gui.burmaldaholic.pvp.new.pick_game` | Pick a game | Выберите игру |
-| `gui.burmaldaholic.pvp.new.no_games` | No duel games are available right now | Сейчас нет доступных дуэлей |
+| `gui.burmaldaholic.pvp.new.no_games` | No PvP games are available right now | Сейчас нет доступных дуэлей |
 | `gui.burmaldaholic.pvp.new.stake_hint` | Type the stake in the box next to your opponent (%1$s – %2$s) | Впишите ставку в поле рядом с соперником (%1$s – %2$s) |
 | `gui.burmaldaholic.pvp.admin.none` | No PvP matches right now | Сейчас PvP-матчей нет |
 | `gui.burmaldaholic.pvp.admin.quarantine` | Quarantined match records (escrow still in the bank, see the server log) | Матчи в карантине (ставки остаются в банке, см. журнал сервера) |

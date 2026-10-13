@@ -24,6 +24,11 @@ Conventions used below:
   `floor()` unless stated otherwise; the fractional remainder stays with the house (the bank).
 - "Payout X:1" means the player gets the stake back **plus** X × stake. "Multiplier X×" means the
   player receives X × stake in total (stake included).
+- **A win always wins.** Where flooring could turn a winning outcome (total return > stake) into
+  a push at a tiny stake, the game's **minimum bet** is raised to the smallest stake at which
+  every winning outcome still pays at least +1 chip (Coin Flip 2, Plinko 3; derived from the
+  configured payouts, so it follows the config). Payouts are never rounded up, so the documented
+  RTP holds for every allowed bet.
 - **RTP** = expected total return / total staked. **House edge (HE)** = 1 − RTP.
 - Time is measured in **game ticks of world time** (`world.getTime()` Java / `system.currentTick` is
   NOT acceptable because it resets; Bedrock must use `world.getAbsoluteTime()`), so timers keep
@@ -89,13 +94,18 @@ everything in this document is active.
 **Java (Fabric):**
 - **Not a game rule.** The value is saved with the world in its own file
   `<world>/data/burmaldaholic/mode.dat` (world saved data, like Enchantaholic's per-world mode).
-  It defaults to **OFF**: installing the mod changes nothing until a world opts in. A world without
-  the file (dedicated server, other launcher) starts OFF; an unreadable file logs a warning and
-  resets to OFF.
-- The mod adds a toggle button **"Casino Mode: ON/OFF"** (default **OFF**, full width, with a
+  ⚠ **CHANGED 2026-10 (v0.1.2)**: it defaults to **ON** (was OFF): casinos only generate while the
+  mode is on, so OFF-by-default worlds and dedicated servers had none. A world without the file
+  (dedicated server, other launcher) starts ON; an unreadable file logs a warning and resets to ON.
+  `enabled` is always written, so an explicit `/casino mode off` (or the button left OFF) stays OFF
+  across saves. v0.1.1 did not write the old default (OFF), so its `mode.dat` cannot tell "never
+  set" from "turned off": such a world is upgraded to ON once on load (written back explicitly) and
+  operators see a one-time chat hint how to turn it off (`msg.burmaldaholic.core.mode_default_on`).
+  Gameplay is the same as turning it on: every player gets the first-join welcome (§3.3).
+- The mod adds a toggle button **"Casino Mode: ON/OFF"** (default **ON** since v0.1.2, full width, with a
   tooltip) to the *Game* tab of the Create World screen, directly **below "Difficulty"** and above
   "Allow Commands". The choice is kept with the screen's creation settings (Cancel and Re-Create
-  start OFF again) and written to `mode.dat` as soon as the world is created (saved immediately,
+  start ON again) and written to `mode.dat` as soon as the world is created (saved immediately,
   not at the first autosave).
 - Operators (permission level 2) switch it later with `/casino mode on|off` and check it with
   `/casino mode status` (bare `/casino mode` = status; alias `/burmaldaholic mode …`). In
@@ -868,13 +878,16 @@ Limits: each flat bet (Pass/DP/Come/DC/Field) 1…tier max; odds not counted in 
 
 ### 11.1 Coin Flip (Lucky Coin item `lucky_coin`, usable anywhere, vs the house)
 
-Choose Heads/Tails, stake 1…tier max. Win pays **0.96:1** (floor) i.e. 1.96× total.
+Choose Heads/Tails, stake **2**…tier max. Win pays **0.96:1** (floor) i.e. 1.96× total. The
+minimum is 2 because floor(1 × 0.96) = 0 would make a winning 1-chip flip pay nothing (§ conventions:
+a win always wins; min = 1 only if `extras.coinFlip.payout` = 1). Pawn stakes below the minimum value are refused.
 **RTP 98.0 %, HE 2.0 %.** Streak adjustment applies (§14). Pawn stakes and Soul Wager allowed.
 Lucky Coin: crafted from 1 gold ingot + 1 chip_5 (shapeless), not consumed.
 
 ### 11.2 Wheel of Fortune (`wheel_of_fortune` block, 3×3 face multiblock-looking model, 1 block hitbox)
 
-Single bet 1…tier max/2; spin; the segment's multiplier × stake is paid (floor). 54 segments:
+Single bet 1…tier max/2 (every winning segment is a whole multiple; a configured fractional
+winning multiplier raises the minimum as in § conventions); spin; the segment's multiplier × stake is paid (floor). 54 segments:
 
 | Segment | Count | Multiplier |
 |---------|-------|-----------|
@@ -909,7 +922,9 @@ Unscratched card stack 16; scratched card becomes `scratch_card_used` (junk, sta
 ### 11.4 Plinko (`plinko_machine` block)
 
 12 rows of pegs, ball ends in bin k ~ Binomial(12, ½) (12 independent left/right coin flips;
-animate that exact path). Choose risk Low/Medium/High; bet 1…tier max/5. Payout = floor(bet × mult).
+animate that exact path). Choose risk Low/Medium/High; bet **3**…tier max/5. Payout = floor(bet × mult). The minimum is 3 so
+the Low table's 1.4× and 1.6× bins still win (floor(2 × 1.4) = 2 would be a push; § conventions);
+it is the largest of the three tables' minimums, so one minimum covers every risk.
 
 | Bin | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
 |-----|---|---|---|---|---|---|---|---|---|---|----|----|----|
@@ -1120,10 +1135,10 @@ for sizes below are bounding boxes (X × Y × Z).
 
 - Size 17 × 10 × 17, one palette variant per village type (plains, desert, savanna, taiga, snowy)
   via block replacement processors.
-- Frequency target: **≈ 1 per 3 villages** (`worldgen.villageCasino.chance` 0.35).
+- Frequency target: **≈ 1 per 2 villages** (`worldgen.villageCasino.chance` 0.50; 0.35 before v0.1.2).
   Java: added as a jigsaw element to each village's `houses` pool with a weight calibrated to that
   frequency, max 1 per village. Bedrock: custom jigsaw structure with the village structure-set
-  spacing (34/8) in village biomes, frequency 0.35 — so it may appear next to or near villages
+  spacing (34/8) in village biomes, frequency 0.50 — so it may appear next to or near villages
   (accepted edition difference).
 - Contents: Cashier ×1; Blackjack table ×1 (standard); Roulette table ×1; Copper Bandit ×3;
   Golden Reels ×1; Wheel of Fortune ×1; Loan Shark ×1; Croupier (villager-like NPC, sells scratch
@@ -1138,7 +1153,7 @@ for sizes below are bounding boxes (X × Y × Z).
 
 ### 16.2 Nether casino — "Piglin Parlor"
 
-- Inside bastion remnants: `worldgen.piglinParlor.chance` 0.30 of bastions, placed as an extra room
+- Inside bastion remnants: `worldgen.piglinParlor.chance` 0.60 of bastions (0.30 before v0.1.2), placed as an extra room
   appended to the bastion (Java: added to bastion jigsaw pools).
 - Size 21 × 12 × 21, blackstone/gold/crimson palette.
 - Contents: Craps table ×1; Poker table ×1 (Low stakes, 3 bots, mix Regular-heavy); Golden Reels ×2;
@@ -1154,7 +1169,7 @@ for sizes below are bounding boxes (X × Y × Z).
 
 ### 16.3 End City High Roller Lounge
 
-- `worldgen.highRoller.chance` 0.20 of End Cities, placed as a top-floor room on a tower.
+- `worldgen.highRoller.chance` 0.50 of End Cities (0.20 before v0.1.2), placed as a top-floor room on a tower.
 - Size 15 × 9 × 15 (13 × 9 × 13 before the 2026-09 games, see below), purpur/obsidian/end-rod palette.
 - Contents: Netherite High Roller slots ×2; High-Roller Blackjack table ×1 (min 100, max 2× tier,
   Gold VIP); High-Roller Roulette ×1 (min 100); Cashier ×1; **Shulker Croupier** (cosmetic

@@ -48,4 +48,37 @@ class ConfigManagerTest {
 		m.load();
 		assertEquals(500, h.get().maxBet);
 	}
+
+	public static final class Worldgen {
+		public Chance villageCasino = new Chance(0.5);
+		public Chance piglinParlor = new Chance(0.6);
+		public Chance highRoller = new Chance(0.5);
+	}
+
+	public static final class Chance {
+		public double chance;
+
+		public Chance() {}
+
+		Chance(double chance) {
+			this.chance = chance;
+		}
+	}
+
+	/** A v0.1.1 global file still holding the old attach-chance defaults is upgraded; custom values are kept. */
+	@Test
+	void oldWorldgenChanceDefaultsAreUpgradedCustomValuesKept(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("burmaldaholic.json");
+		Files.writeString(file, "{\"worldgen\":{\"villageCasino\":{\"chance\":0.35},\"piglinParlor\":{\"chance\":0.3},"
+			+ "\"highRoller\":{\"chance\":0.25}}}");
+		ConfigManager m = new ConfigManager(file);
+		ConfigHandle<Worldgen> h = m.register("worldgen", Worldgen.class, Worldgen::new);
+		m.load();
+		assertEquals(0.5, h.get().villageCasino.chance);
+		assertEquals(0.6, h.get().piglinParlor.chance);
+		assertEquals(0.25, h.get().highRoller.chance, "a custom value is not an old default");
+		m.load(); // the rewritten file now holds the new defaults and stays stable
+		assertEquals(0.5, h.get().villageCasino.chance);
+		assertTrue(Files.readString(file).contains("\"chance\": 0.6"));
+	}
 }

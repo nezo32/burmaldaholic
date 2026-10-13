@@ -331,6 +331,10 @@ public final class SidePanels {
 			return;
 		}
 		if (s.active()) line = s.winShow().label(s);
+		if (line == null && model.lockReason != null && !s.spinning()) {
+			line = model.lockReason;
+			color = 0xFFFF9A6A;
+		}
 		if (line == null && s.hunt().covers(s)) {
 			line = s.hunt().hint(s);
 			if (s.hunt().board().ended()) color = GOLD;

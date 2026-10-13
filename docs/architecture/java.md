@@ -313,12 +313,12 @@ Access wideners/class tweakers are a shared file — request from core.
 ## 7. Manual testing
 
 - `./gradlew runClient` → Singleplayer → Create New World: the **Game** tab has a
-  **"Casino Mode: ON/OFF"** button directly below "Difficulty" (default OFF). It is **not** a game
+  **"Casino Mode: ON/OFF"** button directly below "Difficulty" (default ON since v0.1.2). It is **not** a game
   rule: the choice is stored in `WorldCreationUiState` (duck `client.CasinoModeCreationState`), handed
   to the new world's `LevelStorageAccess` when Create is pressed, and written to
   `<world>/data/burmaldaholic/mode.dat` on SERVER_STARTING with an immediate save. In game (operators,
-  permission level 2): `/casino mode on|off|status`. Worlds without `mode.dat` start OFF; an
-  unreadable file logs a warning and resets to OFF. The client GameTest checks the placement, the saved
+  permission level 2): `/casino mode on|off|status`. Worlds without `mode.dat` (or a v0.1.1 file
+  without an explicit value) start ON; an unreadable file logs a warning and resets to ON. The client GameTest checks the placement, the saved
   file, Cancel, re-open, and writes `jmode_create_world_{en_us,ru_ru}.png`. Server GameTests turn the
   mode on in `GameTestCasinoMode`; client tests opt in with `ClientTestWorlds.casino`.
 - `./gradlew runClient -PwithModMenu` adds Mod Menu → Mods → Burmaldaholic → config screen.

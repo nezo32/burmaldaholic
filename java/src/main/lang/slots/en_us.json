@@ -46,6 +46,8 @@
 	"gui.burmaldaholic.slots.symbol.creeper": "Creeper",
 	"gui.burmaldaholic.slots.spin": "Spin (%1$s)",
 	"gui.burmaldaholic.slots.stop": "Stop",
+	"gui.burmaldaholic.slots.locked": "Locked",
+	"gui.burmaldaholic.slots.vip_lock": "Requires VIP tier %1$s — you are %2$s",
 	"gui.burmaldaholic.slots.skip": "Skip",
 	"gui.burmaldaholic.slots.bet": "Bet: %1$s",
 	"gui.burmaldaholic.slots.bet_down": "Lower bet",

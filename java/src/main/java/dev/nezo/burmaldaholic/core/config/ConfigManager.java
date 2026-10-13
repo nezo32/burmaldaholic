@@ -110,6 +110,7 @@ public final class ConfigManager {
 	/** (Re)loads global + per-world files, applies them and rewrites the normalised global file. */
 	public synchronized List<ConfigIssue> load() {
 		JsonObject global = file == null ? new JsonObject() : read(file);
+		upgradeRetiredDefaults(global);
 		if (worldFile != null) {
 			worldOverrides = read(worldFile);
 		}
@@ -282,6 +283,34 @@ public final class ConfigManager {
 	private boolean isKnownPrefix(String key) {
 		int dot = key.indexOf('.');
 		return handles.containsKey(dot < 0 ? key : key.substring(0, dot));
+	}
+
+	/**
+	 * Values that were the shipped default of an older release and changed since (key -> old default).
+	 * The global file is rewritten complete on every load, so an untouched old default looks like a user
+	 * choice; such a value (exact match) is dropped from the global file so the current default applies.
+	 * Per-world overrides are explicit {@code /casino config set} choices and are never upgraded.
+	 */
+	static final Map<String, Double> RETIRED_DEFAULTS = Map.of(
+		// v0.1.1 casino attach chances (v0.1.2: 0.5 / 0.6 / 0.5, docs/design/CONFIG.md)
+		"worldgen.villageCasino.chance", 0.35,
+		"worldgen.piglinParlor.chance", 0.3,
+		"worldgen.highRoller.chance", 0.2);
+
+	static void upgradeRetiredDefaults(JsonObject global) {
+		for (Map.Entry<String, Double> e : RETIRED_DEFAULTS.entrySet()) {
+			JsonElement v = at(global, e.getKey());
+			if (v != null && v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()
+					&& v.getAsDouble() == e.getValue()) {
+				String key = e.getKey();
+				int dot = key.lastIndexOf('.');
+				JsonElement parent = at(global, key.substring(0, dot));
+				if (parent != null && parent.isJsonObject()) {
+					parent.getAsJsonObject().remove(key.substring(dot + 1));
+					LOG.info("Config: {} = {} was the old default; using the new default", key, e.getValue());
+				}
+			}
+		}
 	}
 
 	// ---- JSON helpers -----------------------------------------------------------------------

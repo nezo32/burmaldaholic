@@ -49,6 +49,16 @@ final class BaccaratPresets implements TablePresetProvider {
 		return new TablePreset(PARLOR, "", -1, 0, 0, 0, List.of());
 	}
 
+	/**
+	 * Seats &amp; Bots defaults of generated tables come from the wrapped (worldgen) provider. v0.1.2 (lane A10): this
+	 * decorator used to inherit the interface default (empty), so EVERY generated table — blackjack, roulette, craps,
+	 * baccarat, UTH, the Parlor poker — fell back to the craftable HUMANS_ONLY defaults and the casinos had no bots.
+	 */
+	@Override
+	public Optional<BotPreset> botDefaults(ServerLevel level, BlockPos pos, String gameId) {
+		return delegate.botDefaults(level, pos, gameId);
+	}
+
 	@Override
 	public Optional<TablePreset> preset(ServerLevel level, BlockPos pos) {
 		Optional<TablePreset> own = delegate.preset(level, pos);

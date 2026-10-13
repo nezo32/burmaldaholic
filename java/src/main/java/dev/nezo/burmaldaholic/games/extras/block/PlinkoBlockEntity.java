@@ -83,6 +83,13 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		}, risk);
 	}
 
+	/** Every winning landing pays ≥ +1 at the minimum bet (Plinko#minBet over the three tables: 3 by default). */
+	@Override
+	protected long minBet() {
+		ExtrasConfig.Plinko cfg = CasinoConfig.extras().plinko;
+		return Plinko.minBet(cfg.low, cfg.medium, cfg.high);
+	}
+
 	private long maxFor(ServerPlayer player) {
 		return ExtrasGames.fractionMax(player, CasinoConfig.extras().plinko.maxBetFraction);
 	}
@@ -117,7 +124,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		}
 		double[] table = table(risk);
 		long bet = args.getLongOr("amount", 0);
-		Result<Long> placed = placeBet(player, bet, 1, maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
+		Result<Long> placed = placeBet(player, bet, minBet(), maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
 		if (!placed.isOk()) {
 			return;
 		}

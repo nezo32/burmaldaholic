@@ -74,6 +74,7 @@ public final class CoreModule implements CasinoModule {
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(s -> {
 			server = null;
+			DEFAULT_ON_NOTIFIED.clear();
 			StreakTracker.bind(null);
 			ConfigManager.get().setWorldFile(null);
 			ConfigManager.get().load();
@@ -108,6 +109,7 @@ public final class CoreModule implements CasinoModule {
 			sender.sendPacket(new CasinoModeSyncPayload(CasinoMode.isEnabled(s)));
 			sendConfig(player);
 			welcome(player);
+			defaultOnNotice(player);
 		});
 		CasinoMode.onChange((s, value) -> {
 			for (ServerPlayer player : PlayerLookup.all(s)) {
@@ -134,6 +136,24 @@ public final class CoreModule implements CasinoModule {
 		if (ConfigSyncPayload.TYPE != null && ServerPlayNetworking.canSend(player, ConfigSyncPayload.TYPE)) {
 			ServerPlayNetworking.send(player, new ConfigSyncPayload(ConfigManager.get().toJson().toString()));
 		}
+	}
+
+	/** Operators told (once per server run) that this world got casino mode ON by default. */
+	private static final java.util.Set<java.util.UUID> DEFAULT_ON_NOTIFIED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+	/**
+	 * A world that never chose a casino mode (dedicated server first start, a v0.1.1 world left OFF) is ON
+	 * since v0.1.2 (GAME_DESIGN §2.1): tell operators how to turn it off, once per server run.
+	 */
+	private static void defaultOnNotice(ServerPlayer player) {
+		CasinoMode.Boot boot = CasinoMode.lastBoot();
+		if ((boot != CasinoMode.Boot.LEGACY_UPGRADED && boot != CasinoMode.Boot.MISSING)
+				|| !CasinoMode.isEnabled(player.level().getServer())
+				|| !net.minecraft.commands.Commands.LEVEL_GAMEMASTERS.check(player.permissions())
+				|| !DEFAULT_ON_NOTIFIED.add(player.getUUID())) {
+			return;
+		}
+		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.mode_default_on"));
 	}
 
 	/** First join while casino mode is on: starting balance + Casino Card + welcome (§3.3, economy.startingBalance). */
