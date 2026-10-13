@@ -14,11 +14,13 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gamerules.GameRuleMap;
 import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.SavedDataStorage;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Casino mode is a per-world switch saved with the world in {@code data/burmaldaholic/mode.dat}
- * ({@link CasinoModeData}, default OFF, docs/design/GAME_DESIGN.md §2.1). The player opts in with the
- * "Casino Mode" button directly below "Difficulty" on the Create World "Game" tab (client mixins
+ * ({@link CasinoModeData}, default ON since v0.1.2, docs/design/GAME_DESIGN.md §2.1). The player can opt
+ * out with the "Casino Mode" button directly below "Difficulty" on the Create World "Game" tab (client mixins
  * {@code CreateWorldGameTabMixin} / {@code CreateWorldScreenMixin}); operators switch it later with
  * {@code /casino mode on|off|status}. It is not a game rule, and config never overrides it. Vanilla
  * difficulty and hardcore are untouched.
@@ -28,7 +30,22 @@ import net.minecraft.world.level.storage.LevelResource;
  * {@link #onChange}.
  */
 public final class CasinoMode {
-	public static final boolean DEFAULT = false;
+	/** ON since v0.1.2 (owner decision: casinos must generate in worlds nobody configured). */
+	public static final boolean DEFAULT = true;
+
+	/** How {@link #bootstrap(SavedDataStorage, Path, Boolean)} resolved this world's value. */
+	public enum Boot {
+		/** New world from the Create World screen: the button value. */
+		NEW_WORLD,
+		/** mode.dat with an explicit value: authoritative. */
+		STORED,
+		/** mode.dat without a value (v0.1.1 wrote OFF as "no value"): upgraded to the default, ON. */
+		LEGACY_UPGRADED,
+		/** No (readable) mode.dat: dedicated server, other launcher, pre-mode world. The default, ON. */
+		MISSING
+	}
+
+	private static volatile Boot lastBoot = Boot.STORED;
 
 	/** Called on the server thread after the stored value actually changed. */
 	@FunctionalInterface
@@ -86,36 +103,60 @@ public final class CasinoMode {
 		clientLookup = lookup;
 	}
 
+	/** How the running server's world resolved its value on start (for the operator notice on join). */
+	public static Boot lastBoot() {
+		return lastBoot;
+	}
+
 	/** SERVER_STARTING. */
 	static void bootstrap(MinecraftServer server) {
-		// 1. new world from the Create World screen: the button value rides on this world's storage access
+		// new world from the Create World screen: the button value rides on this world's storage access
 		Boolean pending = ((PendingCasinoMode) ((MinecraftServerStorageAccessor) server).burmaldaholic$storageSource())
 			.burmaldaholic$takePendingCasinoMode();
+		lastBoot = bootstrap(server.getDataStorage(), server.getWorldPath(LevelResource.DATA), pending);
+	}
+
+	/**
+	 * Resolves and stores the casino mode of the world whose saved data is {@code storage} (public for the
+	 * GameTests, which run it against a fresh storage). No change listeners fire: nobody is online yet.
+	 * Whenever the value was not read from an explicit key, the file is saved right away.
+	 */
+	public static Boot bootstrap(SavedDataStorage storage, Path dataDir, @Nullable Boolean pending) {
+		// 1. new world from the Create World screen
 		if (pending != null) {
-			CasinoModeData.get(server).setEnabled(pending); // no listeners: nobody is online yet
+			storage.computeIfAbsent(CasinoModeData.TYPE).setEnabled(pending);
 			// persist now: a crash before the first autosave must not lose the choice
-			server.getDataStorage().scheduleSave();
+			storage.scheduleSave();
 			Burmaldaholic.LOGGER.info("Casino mode {} for the new world", pending ? "ON" : "OFF");
-			return;
+			return Boot.NEW_WORLD;
 		}
-		// 2. existing world with mode.dat: it is authoritative
-		if (server.getDataStorage().get(CasinoModeData.TYPE) != null) {
-			return;
+		CasinoModeData stored = storage.get(CasinoModeData.TYPE);
+		// 2. existing world with an explicit value: it is authoritative (an explicit OFF stays OFF)
+		if (stored != null && !stored.legacy()) {
+			return Boot.STORED;
 		}
-		// 3. no (readable) mode.dat: dedicated server, other launcher, or a development world from the
-		//    game-rule era. Default OFF, written once so this runs once per world.
-		Path dataDir = server.getWorldPath(LevelResource.DATA);
+		// 3. mode.dat without a value: never set, or v0.1.1's OFF (it did not write the old default).
+		//    Upgraded to the new default and written explicitly, so this runs once per world.
+		if (stored != null) {
+			stored.setEnabled(DEFAULT);
+			storage.scheduleSave();
+			Burmaldaholic.LOGGER.info("Casino mode is now ON by default; this world had no explicit choice (operators: /casino mode off)");
+			return Boot.LEGACY_UPGRADED;
+		}
+		// 4. no (readable) mode.dat: dedicated server, other launcher, or a development world from the
+		//    game-rule era. The default (ON), written once so this runs once per world.
 		if (Files.exists(dataDir.resolve("burmaldaholic/mode.dat"))) {
 			// vanilla already logged the read error; the file is replaced on the next save
-			Burmaldaholic.LOGGER.warn("Unreadable burmaldaholic/mode.dat; casino mode reset to OFF (operators: /casino mode on)");
+			Burmaldaholic.LOGGER.warn("Unreadable burmaldaholic/mode.dat; casino mode reset to the default, ON (operators: /casino mode off)");
 		}
-		CasinoModeData.get(server).setEnabled(DEFAULT);
+		storage.computeIfAbsent(CasinoModeData.TYPE).setEnabled(DEFAULT);
 		// A development world may still carry the removed "burmaldaholic:casino_mode" game rule in
 		// game_rules.dat (vanilla skips unknown rules with a log line). Rewrite that file once without it.
-		GameRuleMap rules = server.getDataStorage().get(GameRuleMap.TYPE);
+		GameRuleMap rules = storage.get(GameRuleMap.TYPE);
 		if (rules != null) {
 			rules.setDirty();
 		}
-		server.getDataStorage().scheduleSave();
+		storage.scheduleSave();
+		return Boot.MISSING;
 	}
 }

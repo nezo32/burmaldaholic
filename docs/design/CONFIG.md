@@ -8,7 +8,7 @@ the numbers used throughout `GAME_DESIGN.md` (section references in the last col
 | | |
 |---|---|
 | Storage | `config/burmaldaholic.json` (server side). Keys are dotted paths; the file is **nested JSON objects** following the dots (`economy.ore.diamond` → `{"economy":{"ore":{"diamond":20}}}`). Unknown keys are ignored with a log warning; missing keys use defaults. Per-world override: `<world>/data/burmaldaholic_config.json` (same format), which wins over the global file. |
-| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default OFF; `/casino mode on\|off\|status`) |
+| Casino mode flag | World saved data `data/burmaldaholic/mode.dat` (source of truth for `core.casinoMode`; not a game rule; default ON since v0.1.2; `/casino mode on\|off\|status`) |
 | Editing | Config screen (Mod Menu integration, client) for single-player; `/casino config get/set/reset <key> [value]` (permission level 2) on servers; reload with `/casino config reload`. |
 | Validation | Out-of-range values are **clamped** to the range and a warning is logged / shown to the editor. Wrong type → default. |
 | Sync | Server sends the effective config subset needed for UI (limits, payouts tables) to clients on join and on change. |
@@ -23,7 +23,7 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `core.casinoMode` | bool | false (on world creation) | — | Master switch (§2.1). Stored in world saved data `mode.dat`, not in the config file. |
+| `core.casinoMode` | bool | true (since v0.1.2; on world creation, and for worlds that never chose) | — | Master switch (§2.1). Stored in world saved data `mode.dat`, not in the config file. An explicit `/casino mode off` is stored and kept. |
 | `core.giveCasinoCardOnJoin` | bool | true | — | Give a Casino Card on a player's first join. |
 | `core.hud.enabled` | bool | true | — | Show the HUD panel (players can hide it individually too). |
 | `core.hud.position` | enum(TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT) | TOP_LEFT | — | Default HUD corner (per-player override in Casino Menu). |
@@ -599,9 +599,9 @@ Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `worldgen.enabled` | bool | true | — | New chunks only. |
-| `worldgen.villageCasino.chance` | double | 0.35 | 0.0–1.0 | |
-| `worldgen.piglinParlor.chance` | double | 0.30 | 0.0–1.0 | |
-| `worldgen.highRoller.chance` | double | 0.20 | 0.0–1.0 | |
+| `worldgen.villageCasino.chance` | double | 0.50 | 0.0–1.0 | Share of villages that get a casino (v0.1.1: 0.35). |
+| `worldgen.piglinParlor.chance` | double | 0.60 | 0.0–1.0 | Share of bastions with a Piglin Parlor (v0.1.1: 0.30). |
+| `worldgen.highRoller.chance` | double | 0.50 | 0.0–1.0 | Share of End Cities with a High Roller Lounge (v0.1.1: 0.20). A global config file still holding exactly a v0.1.1 default (0.35 / 0.30 / 0.20) is upgraded to the new default on load; any other value is kept. |
 | `worldgen.loanSharkRespawnTicks` | int | 24000 | 0–240 000 | |
 
 ## multiplayer / ownership
