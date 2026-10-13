@@ -33,11 +33,11 @@ public final class ScreenEntrance {
 			e.pushed = false;
 			e.entering = ms < UiLayout.ENTRANCE_MS && !FxSettings.reduceMotion();
 			float fit = s instanceof FitScaled f ? f.fitScale() : 1f;
-			if (!e.entering && fit >= 1f) return;
+			if (!e.entering && fit == 1f) return;
 			g.pose().pushMatrix();
 			e.pushed = true;
 			// the compact layout: the screen's own GUI drawn at k / guiScale (FitScaled), then the entrance inside it
-			if (fit < 1f) g.pose().scale(fit, fit);
+			if (fit != 1f) g.pose().scale(fit, fit);
 			if (!e.entering) return;
 			UiLayout.Rect r = e.panel.get();
 			float scale = UiLayout.entranceScale(ms, false);

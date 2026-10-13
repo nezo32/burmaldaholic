@@ -563,3 +563,51 @@ code in the owning modules, coordinated), removed STRINGS rows; final `build`, `
 | `.../core/ui/v2/BoardMathTest.java` | legibility 3–8 blocks at 1080p/1440p FOV 70/90; plates above felt and disjoint (2000 random tables) |
 
 Run: `./gradlew test --tests 'dev.nezo.burmaldaholic.core.ui.v2.*'` (11 tests, green).
+
+---
+
+## 15. Kit as built (K0 contract; lane K)
+
+How a game lane uses the kit. Signatures are stable; later K commits only add.
+
+**Pure (`core/ui/v2`)** — `BetView` (record + `builder()`; `chips()` = the tray: ≤ 5 consecutive denominations from the
+largest one ≤ min, filtered by max and balance), `BetGates` (shared gates: `chip(d, v)`, `tool(id, v)`, `sit(v)`,
+`primary(action, labelKey, v)`, `betOrRebet(...)`, `waiting(...)`), `Flow<V>` (`primary`, `actions`, `bet`, `tool`,
+`chip`, `hintKey`/`hintArgs`; defaults use `BetGates`), `FlowCheck.problems(flow, view)` (§5.3 — call it from every
+`<G>FlowTest` over the enumerated views), `V2Keys` (all kit translation keys), `KeyMap` (`standard()` + `bind(GLFW, id)`;
+ids in `KeyMap.Ids`: `primary`, `secondary`, `chip.N`, `tool.<undo|clear|rebet|double>`, `action.<a>`, `felt.<id>`,
+`seat.<i>`, `top.<rules|settings|leave>`, `readout`), `Stamps` (`Outcome` → word key + colour kind; `levels(wordW, hero)`
+for `SeatColumn.table`, `scaleOf(level, hero)` back), `FreeSlot`, `TagPlacer` (Box version of `LabelPlacer`; STRICT =
+no tag when nothing is free), `AckWatchdog` (40-tick echo watchdog).
+
+**Server** — `CasinoTableBlockEntity`: every handled action bumps a per-player counter written as `ack` in `baseState`,
+and the acting player always gets a state back; `resync` is a core action (answer = that state).
+
+**Client (`client/ui/v2`)** — subclass `V2TableScreen<V>` (menu tables) or `V2SceneScreen<V>` (scene screens; implement
+`sendRaw`, call `state(view, ack)`):
+
+```java
+public final class BlackjackScreen extends V2TableScreen<BlackjackView> {
+	protected BlackjackView view(CompoundTag s) { return BlackjackView.of(s); }          // pure
+	protected Flow<BlackjackView> flow() { return BlackjackFlow.INSTANCE; }              // pure
+	protected void layoutPlay(TableGrid g, BlackjackView v, HitMap hits) {               // felt targets + banner regions
+		hits.add(KeyMap.Ids.seat(i), box, true);
+		chrome.banner.regions(List.of(gapBetweenDealerAndSeats), cardBoxes);
+	}
+	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, BlackjackView v, int mx, int my, float pt) {
+		// cards (lane A), SeatPlate.draw, ChipStack.draw, ValuePill.draw, Stamp.drawResolved / TotalPill.draw, FeltPrint
+	}
+	@Override protected void init() { super.init(); chrome.keys(KeyMap.standard().bind(KeyMap.H, "action.hit")); }
+	@Override public boolean onTarget(String id, boolean enabled, int button) { /* seat.i → sendTracked("sit") */ }
+}
+```
+
+- Gates → actions: an enabled primary / action sends `gate.action()` through `sendTracked` (override `onGate` for args).
+  Single-spot bets go through `betPort()` (default: `bet {amount}` and the tool ids as actions); multi-spot games call
+  `chrome.bet.multiSpot(true)` and, on a felt click, `long d = chrome.bet.armOrDefault(); sendTracked("bet", args, spot, d)`.
+- Results: `chrome.banner.show(net)` (after the last stamp), `chrome.top.balance.delta(net)`, `chrome.status.set(l1, l2)`.
+- Errors: `showError` → toast on the felt + status line. The watchdog reason / resync are automatic.
+- Tests: `gametest/v2/RealFlow` (`size`, `place`, `open`, `click(id)`, `key`, `waitServer`, `waitChrome`, `status()`,
+  `shot`, `close`); the dropped-packet hook is `V2Chrome.dropNextSends = 1`. Lane classes are pre-registered:
+  `gametest/v2/<game>/<Game>V2ClientGameTests` and `<Game>V2GameTests` (board: `BoardClientGameTests`, `BoardGameTests`).
+- Sprites: `client/ui/v2/V2Sprites` ids under `core/v2/`; every component has a flat fallback (`V2Draw.forceFallback`).

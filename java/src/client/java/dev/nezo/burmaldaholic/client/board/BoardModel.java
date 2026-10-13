@@ -14,6 +14,7 @@ import org.jspecify.annotations.Nullable;
  * a {@link FormattedCharSequence} is built only when the key changes (ui-v2.md §7.1).
  */
 final class BoardModel {
+	static final int MAX_FAN = 6;
 	static final int MAX_CARDS = 32, MAX_STACKS = 16, MAX_LINES = 3, MAX_PLATES = 8, MAX_LABELS = 8, MAX_CONTENT = 6;
 
 	/** A cached line of text. */
@@ -23,6 +24,8 @@ final class BoardModel {
 		@Nullable FormattedCharSequence seq;
 		int width;
 		int color;
+		/** Size of this line relative to the panel's text px (2 = the prominent line). */
+		float scale = 1f;
 		boolean on;
 
 		void set(Font font, long key, String lang, Supplier<? extends @Nullable Component> text, int color) {
@@ -34,6 +37,7 @@ final class BoardModel {
 				this.lang = lang;
 			}
 			this.color = color;
+			this.scale = 1f;
 			on = seq != null;
 		}
 	}
@@ -44,6 +48,9 @@ final class BoardModel {
 		float ax, ay, az;
 		final Line name = new Line(), detail = new Line();
 		boolean viewer, acting, on;
+		/** Visible cards of this seat shown on the plate (−1 = a back), within {@link BoardState#FAN_RANGE}. */
+		final int[] cards = new int[MAX_FAN];
+		int cardCount;
 	}
 
 	/** A free label (legacy billboard text, e.g. the poker pot). */
@@ -60,6 +67,9 @@ final class BoardModel {
 	final int[] stackTint = new int[MAX_STACKS];
 	int stackCount;
 	final Line[] lines = new Line[MAX_LINES];
+	/** The dealer's / board's visible cards shown on the floating board (−1 = a back). */
+	final int[] boardCards = new int[MAX_FAN];
+	int boardCardCount;
 	final Plate[] plates = new Plate[MAX_PLATES];
 	int plateCount;
 	final Label[] labels = new Label[MAX_LABELS];
@@ -93,6 +103,7 @@ final class BoardModel {
 		plateCount = 0;
 		labelCount = 0;
 		contentCount = 0;
+		boardCardCount = 0;
 		for (Line l : lines) l.on = false;
 	}
 }

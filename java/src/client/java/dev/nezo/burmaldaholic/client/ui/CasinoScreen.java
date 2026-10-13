@@ -126,11 +126,19 @@ public abstract class CasinoScreen extends Screen implements FitScaled {
 		return fit;
 	}
 
+	/**
+	 * Sizes the screen's GUI at the start of {@code init()} and returns the drawing factor (table UI v2 kit hook:
+	 * {@code V2SceneScreen} uses the stepped viewport). Default: the compact-layout rule of {@link FitScaled#apply}.
+	 */
+	protected float applyFit(int[] memo) {
+		return FitScaled.apply(this, fitToScreen(), fullW + 8, fullH, memo);
+	}
+
 	// ---- lifecycle -------------------------------------------------------------------------------------------------
 
 	@Override
 	protected void init() {
-		fit = FitScaled.apply(this, fitToScreen(), fullW + 8, fullH, fitMemo);
+		fit = applyFit(fitMemo);
 		panel = UiLayout.panel(width, height, fullW, fullH);
 		if (entrance == null) entrance = ScreenEntrance.install(this, () -> panel);
 		balanceTicker.retarget(balance(), Util.getMillis(), true);

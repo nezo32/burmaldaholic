@@ -27,13 +27,13 @@ public final class BoardGeometry {
 
 	/** In-world card size: 1.5 × the screen card, readable from 3–8 blocks (REDESIGN §9.1). */
 	public static final float CARD_W = 0.22f, CARD_H = 0.30f;
-	/** Cards lie 1/32 above the felt and lean 20° toward their owner. */
-	public static final float CARD_LIFT = 1 / 32f, CARD_TILT = 20f;
+	/** Cards lie 1/32 above the felt and lean 30° toward their owner (readable from outside the rail). */
+	public static final float CARD_LIFT = 1 / 32f, CARD_TILT = 30f;
 	/** Layer step between overlapping cards (no z-fighting). */
 	public static final float LAYER = 0.0015f;
 
 	/** Chip disc radius / height; stacks hold ≤ {@link #CHIP_MAX} discs. */
-	public static final float CHIP_R = 0.07f, CHIP_H = 0.025f;
+	public static final float CHIP_R = 0.085f, CHIP_H = 0.03f;
 	public static final int CHIP_MAX = 6;
 	/** Chip denominations of {@code chips_w.png}, left to right. */
 	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1000, 5000};

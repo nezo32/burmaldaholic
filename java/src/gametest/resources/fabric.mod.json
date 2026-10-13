@@ -34,7 +34,16 @@
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpUiGameTests",
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpIntegrationGameTests",
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpAdversarialGameTests",
-			"dev.nezo.burmaldaholic.gametest.extras.ExtrasRevealGameTests"
+			"dev.nezo.burmaldaholic.gametest.extras.ExtrasRevealGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.board.BoardGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.blackjack.BlackjackV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.baccarat.BaccaratV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.poker.PokerV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.uth.UthV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.roulette.RouletteV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.craps.CrapsV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.extras.ExtrasV2GameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.pvp.PvpV2GameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.tables.TablesClientGameTests",
@@ -51,7 +60,16 @@
 			"dev.nezo.burmaldaholic.gametest.core.WorldFxClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.cards.CardTablesClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.design.RedesignCaptureClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.v2.board.BoardClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.v2.KitV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.board.BoardClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.blackjack.BlackjackV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.baccarat.BaccaratV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.poker.PokerV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.uth.UthV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.roulette.RouletteV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.craps.CrapsV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.extras.ExtrasV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.pvp.PvpV2ClientGameTests"
 		]
 	},
 	"depends": {

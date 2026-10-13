@@ -595,6 +595,73 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.menu.wallet.biggest_value` | %1$s (%2$s) | %1$s (%2$s) |
 | `gui.burmaldaholic.menu.wallet.biggest_none` | None yet | Пока нет |
 
+### Table UI v2 kit (`docs/architecture/ui-v2.md` §10; lane K)
+
+Shared by every v2 table screen: the Dock, the bet flow reasons (every disabled button says why), stamps and the
+result banner. Keys under `gui.burmaldaholic.core.v2.*` (constants in `core.ui.v2.V2Keys`). Key names on the key-hint
+plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.core.v2.bet` | Bet | Ставка |
+| `gui.burmaldaholic.core.v2.on_table` | On table | На столе |
+| `gui.burmaldaholic.core.v2.spots.p1` | %1$s spot | %1$s поле |
+| `gui.burmaldaholic.core.v2.spots.p21` | %1$s spots | %1$s поле |
+| `gui.burmaldaholic.core.v2.spots.p2` | %1$s spots | %1$s поля |
+| `gui.burmaldaholic.core.v2.spots.p5` | %1$s spots | %1$s полей |
+| `gui.burmaldaholic.core.v2.limits` | %1$s – %2$s | %1$s – %2$s |
+| `gui.burmaldaholic.core.v2.seats` | %1$s/%2$s | %1$s/%2$s |
+| `gui.burmaldaholic.core.v2.net.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.core.v2.net.minus` | −%1$s | −%1$s |
+| `gui.burmaldaholic.core.v2.chip` | Chip %1$s | Фишка %1$s |
+| `gui.burmaldaholic.core.v2.sit` | Sit | Сесть |
+| `gui.burmaldaholic.core.v2.tool.undo` | Undo | Отменить |
+| `gui.burmaldaholic.core.v2.tool.clear` | Clear bets | Убрать ставки |
+| `gui.burmaldaholic.core.v2.tool.rebet` | Rebet | Повторить |
+| `gui.burmaldaholic.core.v2.tool.double` | Double the bet | Удвоить ставку |
+| `gui.burmaldaholic.core.v2.top.rules` | Rules | Правила |
+| `gui.burmaldaholic.core.v2.top.settings` | Settings | Настройки |
+| `gui.burmaldaholic.core.v2.top.leave` | Leave the table | Выйти из-за стола |
+| `gui.burmaldaholic.core.v2.primary.sit` | Sit down | Сесть |
+| `gui.burmaldaholic.core.v2.primary.deal` | Deal | Раздать |
+| `gui.burmaldaholic.core.v2.primary.rebet` | Rebet %1$s | Повтор %1$s |
+| `gui.burmaldaholic.core.v2.primary.leave` | Leave | Уйти |
+| `gui.burmaldaholic.core.v2.primary.wait` | Wait | Ждите |
+| `gui.burmaldaholic.core.v2.reason.place_bet` | Place a bet first | Сначала сделайте ставку |
+| `gui.burmaldaholic.core.v2.reason.sit_to_bet` | Sit down to bet | Сядьте, чтобы ставить |
+| `gui.burmaldaholic.core.v2.reason.below_min` | The minimum bet is %1$s | Минимальная ставка — %1$s |
+| `gui.burmaldaholic.core.v2.reason.above_max` | The maximum bet is %1$s | Максимальная ставка — %1$s |
+| `gui.burmaldaholic.core.v2.reason.not_enough` | Not enough chips | Не хватает фишек |
+| `gui.burmaldaholic.core.v2.reason.not_enough_min` | Not enough chips for the minimum %1$s | Не хватает фишек на минимум %1$s |
+| `gui.burmaldaholic.core.v2.reason.table_full` | Table full | Мест нет |
+| `gui.burmaldaholic.core.v2.reason.bets_closed` | No more bets | Ставки закрыты |
+| `gui.burmaldaholic.core.v2.reason.bets_open_in` | Bets open in %1$s s | Ставки через %1$s с |
+| `gui.burmaldaholic.core.v2.reason.round_in_progress` | Round in progress | Идёт раунд |
+| `gui.burmaldaholic.core.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
+| `gui.burmaldaholic.core.v2.reason.no_answer` | The table did not answer — try again | Стол не ответил — попробуйте ещё раз |
+| `gui.burmaldaholic.core.v2.reason.spinning` | Spinning… | Вращение… |
+| `gui.burmaldaholic.core.v2.reason.rolling` | Rolling… | Бросок… |
+| `gui.burmaldaholic.core.v2.reason.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.core.v2.reason.nothing_to_undo` | Nothing to undo | Нечего отменять |
+| `gui.burmaldaholic.core.v2.reason.nothing_to_clear` | No bets to clear | Нет ставок |
+| `gui.burmaldaholic.core.v2.reason.no_rebet` | No previous bet | Нет прошлой ставки |
+| `gui.burmaldaholic.core.v2.reason.cannot_double` | You can't double now | Удвоить сейчас нельзя |
+| `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место или нажмите Пробел |
+| `gui.burmaldaholic.core.v2.status.click_layout` | Click the layout to place %1$s | Нажмите на поле, чтобы поставить %1$s |
+| `gui.burmaldaholic.core.v2.status.chips_add` | Chips add to your bet | Фишки добавляются к ставке |
+| `gui.burmaldaholic.core.v2.status.next_round_in` | Next round in %1$s s | Новый раунд через %1$s с |
+| `gui.burmaldaholic.core.v2.status.pending` | Sending… | Отправка… |
+| `gui.burmaldaholic.core.v2.stamp.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.core.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
+| `gui.burmaldaholic.core.v2.stamp.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.core.v2.stamp.bust` | BUST | ПЕРЕБОР |
+| `gui.burmaldaholic.core.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
+| `gui.burmaldaholic.core.v2.stamp.natural` | NATURAL | НАТУРАЛЬНАЯ |
+| `gui.burmaldaholic.core.v2.stamp.surrender` | SURRENDER | СДАЧА |
+| `gui.burmaldaholic.core.v2.banner.you_win` | YOU WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.core.v2.banner.you_lost` | LOST | ПРОИГРЫШ |
+| `gui.burmaldaholic.core.v2.banner.push` | PUSH | НИЧЬЯ |
+
 ---
 
 ## streak

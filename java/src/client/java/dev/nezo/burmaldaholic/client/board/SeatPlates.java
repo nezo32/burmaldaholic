@@ -25,6 +25,13 @@ final class SeatPlates {
 	private static final boolean[] LEADER = new boolean[BoardModel.MAX_PLATES];
 	private static final float[] O0 = new float[MAX_OBS], O1 = new float[MAX_OBS], OT = new float[MAX_OBS];
 	private static final Vector3f P = new Vector3f(), Q = new Vector3f();
+	private static final HoloText.Spec[] SPECS = new HoloText.Spec[BoardModel.MAX_PLATES];
+	/** Plate frames: other seats, the viewer, the acting seat. */
+	static final int FRAME = 0xFF783CBE, FRAME_YOU = 0xFF5CE8E0, FRAME_ACTING = 0xFFFFD640;
+
+	static {
+		for (int i = 0; i < SPECS.length; i++) SPECS[i] = new HoloText.Spec();
+	}
 
 	private SeatPlates() {}
 
@@ -49,9 +56,16 @@ final class SeatPlates {
 			f.toBlock(p.ax, p.ay, p.az, P);
 			AU[i] = f.u(P);
 			AV[i] = f.v(P);
-			int lw = Math.max(p.name.width, p.detail.on ? p.detail.width : 0);
-			W[i] = HoloText.width(lw) * px;
-			H[i] = HoloText.height(p.detail.on ? 2 : 1) * px;
+			HoloText.Spec sp = SPECS[i];
+			sp.clear();
+			sp.back = s.back;
+			if (p.cardCount > 0 && s.dist <= BoardState.FAN_RANGE) sp.cards(p.cards, p.cardCount);
+			sp.add(p.name.seq, p.name.width, p.name.color != 0 ? p.name.color : p.viewer ? BoardState.CYAN : BoardState.WHITE, 1f);
+			if (p.detail.on) sp.add(p.detail.seq, p.detail.width, p.detail.color, p.detail.scale);
+			sp.border = p.acting ? FRAME_ACTING : p.viewer ? FRAME_YOU : FRAME;
+			// the frame (1 px) is part of the footprint
+			W[i] = (sp.width() + 2) * px;
+			H[i] = (sp.height() + 2) * px;
 			near[i] = f.dist(P) - (p.viewer ? 1000 : 0) - (p.acting ? 100 : 0);
 			order[k++] = i;
 		}
@@ -67,26 +81,15 @@ final class SeatPlates {
 		}
 		PlateLayout.place(AU, AV, W, H, order, O0, O1, OT, obs, GAP, m.plateShift, OU, OV, LEADER);
 		float top = contentTop;
-		FormattedCharSequence[] seqs = new FormattedCharSequence[2];
-		int[] widths = new int[2];
-		int[] colors = new int[2];
 		for (int a = 0; a < n; a++) {
 			int i = order[a];
 			BoardModel.Plate p = m.plates[i];
 			// every plate lives in the camera plane through the table centre: one depth, so the plane layout (disjoint
 			// rectangles) is exactly what the screen shows — no perspective overlap between near and far seats
-			Vector3f bottom = f.onPlane(OU[i], OV[i], new Vector3f());
-			int lines = 0;
-			seqs[lines] = p.name.seq;
-			widths[lines] = p.name.width;
-			colors[lines++] = p.name.color != 0 ? p.name.color : p.viewer ? BoardState.CYAN : BoardState.WHITE;
-			if (p.detail.on) {
-				seqs[lines] = p.detail.seq;
-				widths[lines] = p.detail.width;
-				colors[lines++] = p.detail.color;
-			}
-			st.backings += HoloText.panel(pose, out, font, bottom, f.orientation, px, seqs, widths, colors, lines, p.acting ? BoardState.GOLD : 0);
-			st.lines += lines;
+			Vector3f bottom = f.onPlane(OU[i], OV[i] + px, new Vector3f());
+			HoloText.Spec sp = SPECS[i];
+			st.backings += HoloText.panel(pose, out, font, bottom, f.orientation, px, sp);
+			st.lines += sp.count;
 			st.plates++;
 			if (LEADER[i]) {
 				HoloText.leader(pose, out, f, new Vector3f(bottom), f.onPlane(AU[i], AV[i] - 0.02f, new Vector3f()), 0.012f, 0x99FFD640);

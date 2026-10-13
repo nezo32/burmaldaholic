@@ -35,7 +35,9 @@ final class BoardDemo {
 		Component table = be.getBlockState().getBlock().getName();
 		s.line(BoardState.TITLE, 1, () -> Component.translatable("gui.burmaldaholic.core.board.title_limits", table, Texts.number(1), Texts.number(100)),
 			BoardState.GOLD);
-		s.line(BoardState.STATE, 2, () -> Component.translatable("gui.burmaldaholic.core.board.dealer", Texts.number(10)), BoardState.WHITE);
+		// the dealer's total is the prominent line (2×); the dealer's cards repeat on the board at a readable size
+		s.line(BoardState.STATE, 2, () -> Component.translatable("gui.burmaldaholic.core.board.dealer", Texts.number(10)), BoardState.WHITE, 2f);
+		s.boardCards(card(10, 0), -1);
 		s.line(BoardState.RESULT, 3, () -> Component.translatable("gui.burmaldaholic.core.board.turn_seconds", Texts.raw(name(be, 2)), Texts.number(18)),
 			BoardState.MUTED);
 		// dealer: the 10 up, the hole card down; the shoe at the dealer's right
@@ -62,7 +64,7 @@ final class BoardDemo {
 			BoardState.PlateRef plate = s.plate(SEATS[k], an[0], an[1], an[2]);
 			if (plate == null) continue;
 			String name = name(be, k);
-			plate.name(name.hashCode(), () -> Texts.raw(name), 0).viewer(k == viewerSeat).acting(k == 2);
+			plate.name(name.hashCode(), () -> Texts.raw(name), 0).viewer(k == viewerSeat).acting(k == 2).cards(hand);
 			long bet = BETS[k];
 			switch (k) {
 				case 0 -> plate.detail(10, () -> Component.translatable("gui.burmaldaholic.core.board.bet_total", Texts.number(bet), Component.translatable(
@@ -70,7 +72,7 @@ final class BoardDemo {
 				case 1 -> plate.detail(11, () -> Component.translatable("gui.burmaldaholic.core.board.bet_total", Texts.raw("+75"), Texts.raw("BLACKJACK")),
 					BoardState.GOLD);
 				case 2 -> plate.detail(12, () -> Component.translatable("gui.burmaldaholic.core.board.bet_total", Texts.number(bet), Texts.number(15)),
-					BoardState.GOLD);
+					BoardState.GOLD, 2f); // the acting seat: its status is the prominent line
 				default -> plate.detail(13, () -> Component.translatable("gui.burmaldaholic.core.board.bet_total", Texts.number(bet), Texts.number(17)),
 					BoardState.GOLD);
 			}

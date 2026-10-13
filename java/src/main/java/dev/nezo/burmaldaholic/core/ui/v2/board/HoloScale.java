@@ -49,6 +49,35 @@ public final class HoloScale {
 		return nearer == previous ? previous : plain;
 	}
 
+	/** Cap height of the vanilla font in text px (letters and digits are 7 px tall in an 8 px box). */
+	public static final int CAP = 7;
+	/** Readability targets measured on screenshots (orchestrator review): cap height ≥ 18 px up to 5 blocks, ≥ 13 px at 8. */
+	public static final double CAP_NEAR_PX = 18, CAP_FAR_PX = 13, NEAR = 5;
+	/** Base text px of the v2 board / plates (up close, before the distance growth). */
+	public static final float BOARD_READ = 1 / 48f, PLATE_READ = 1 / 60f;
+
+	/** Target cap height in screen px at {@code distance} (18 up to 5 blocks, falling linearly to 13 at 8). */
+	public static double capTarget(double distance) {
+		if (distance <= NEAR) return CAP_NEAR_PX;
+		double d = Math.min(distance, READ_RANGE);
+		return CAP_NEAR_PX + (CAP_FAR_PX - CAP_NEAR_PX) * (d - NEAR) / (READ_RANGE - NEAR);
+	}
+
+	/**
+	 * Text px (block size of one font px) so the CAP height on screen meets {@link #capTarget} at {@code distance}
+	 * (1920 × 1080, the player's FOV), never below {@code base}; constant past {@link #READ_RANGE}.
+	 */
+	public static float readablePx(float base, double distance, double fovYDeg, int screenH) {
+		double d = Math.min(Math.max(distance, 1), READ_RANGE);
+		double need = capTarget(d) / (CAP * pxPerBlock(d, fovYDeg, screenH));
+		return (float) Math.max(base, need);
+	}
+
+	/** Cap height in screen px of a text px at a distance. */
+	public static double capPx(float textPx, double distance, double fovYDeg, int screenH) {
+		return CAP * textPx * pxPerBlock(distance, fovYDeg, screenH);
+	}
+
 	/** Screen px per block at {@code distance} for a vertical FOV and a framebuffer height. */
 	public static double pxPerBlock(double distance, double fovYDeg, int screenH) {
 		double d = Math.max(0.5, distance);

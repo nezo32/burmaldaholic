@@ -28,6 +28,8 @@ import org.jspecify.annotations.Nullable;
 public class BoardState extends SpectatorRenderState {
 	/** Line slots of the board. */
 	public static final int TITLE = 0, STATE = 1, RESULT = 2;
+	/** Cards are repeated on the plates / board (readable size) within this distance (blocks). */
+	public static final double FAN_RANGE = 6.5;
 	/** Board colours (REDESIGN §9.2). */
 	public static final int GOLD = 0xFFFFD640, WHITE = 0xFFF4ECF8, MUTED = 0xFFB8A8D0, CYAN = 0xFF5CE8E0, GREEN = 0xFF80FF40, RED = 0xFFFF6E6A;
 
@@ -129,9 +131,26 @@ public class BoardState extends SpectatorRenderState {
 	 * {@code key} (any hash of what the line shows) or the language changed — never per frame.
 	 */
 	public void line(int slot, long key, Supplier<? extends @Nullable Component> text, int color) {
+		line(slot, key, text, color, 1f);
+	}
+
+	/** A board line drawn {@code scale} × the board text size (2 = the prominent line: the dealer's total, the result). */
+	public void line(int slot, long key, Supplier<? extends @Nullable Component> text, int color, float scale) {
 		BoardModel m = model;
 		if (m == null || font == null || slot < 0 || slot >= BoardModel.MAX_LINES || !showsBoard()) return;
 		m.lines[slot].set(font, key, lang, text, color);
+		m.lines[slot].scale = scale;
+	}
+
+	/**
+	 * The dealer's (or the community) cards repeated on the floating board at a readable size within
+	 * {@link #FAN_RANGE}: card ids, −1 for a card lying face down. Pass only what the felt shows.
+	 */
+	public void boardCards(int... ids) {
+		BoardModel m = model;
+		if (m == null) return;
+		m.boardCardCount = Math.min(ids.length, BoardModel.MAX_FAN);
+		System.arraycopy(ids, 0, m.boardCards, 0, m.boardCardCount);
 	}
 
 	/**
@@ -167,6 +186,7 @@ public class BoardState extends SpectatorRenderState {
 		p.on = true;
 		p.name.on = false;
 		p.detail.on = false;
+		p.cardCount = 0;
 		return new PlateRef(this, p);
 	}
 
@@ -212,7 +232,22 @@ public class BoardState extends SpectatorRenderState {
 
 		/** The detail line ({@code 50 · 15}, {@code +75 BLACKJACK}), cached by {@code key}. */
 		public PlateRef detail(long key, Supplier<? extends @Nullable Component> text, int color) {
-			if (state.font != null) plate.detail.set(state.font, key, state.lang, text, color);
+			return detail(key, text, color, 1f);
+		}
+
+		/** The detail line at {@code scale} × (2 = prominent: the acting seat's total, a result). */
+		public PlateRef detail(long key, Supplier<? extends @Nullable Component> text, int color, float scale) {
+			if (state.font != null) {
+				plate.detail.set(state.font, key, state.lang, text, color);
+				plate.detail.scale = scale;
+			}
+			return this;
+		}
+
+		/** The seat's visible cards repeated on the plate at a readable size (−1 = face down); ≤ 6. */
+		public PlateRef cards(int... ids) {
+			plate.cardCount = Math.min(ids.length, BoardModel.MAX_FAN);
+			System.arraycopy(ids, 0, plate.cards, 0, plate.cardCount);
 			return this;
 		}
 

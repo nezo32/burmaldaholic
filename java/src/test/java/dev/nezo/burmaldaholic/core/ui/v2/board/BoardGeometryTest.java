@@ -88,6 +88,19 @@ class BoardGeometryTest {
 	}
 
 	@Test
+	void readableTextMeetsTheMeasuredTargets() {
+		// orchestrator's measured targets at 1920 × 1080, FOV 70: cap ≥ 18 px up to 5 blocks, ≥ 13 px at 8
+		for (double d = 2; d <= 8; d += 0.5) {
+			float plate = HoloScale.readablePx(HoloScale.PLATE_READ, d, 70, 1080);
+			float board = HoloScale.readablePx(HoloScale.BOARD_READ, d, 70, 1080);
+			double want = d <= 5 ? 18 : 13;
+			assertTrue(HoloScale.capPx(plate, d, 70, 1080) >= want - 1e-6, "plate at " + d);
+			assertTrue(HoloScale.capPx(board, d, 70, 1080) >= want - 1e-6, "board at " + d);
+		}
+		assertEquals(HoloScale.PLATE_READ, HoloScale.readablePx(HoloScale.PLATE_READ, 3, 70, 1080));
+	}
+
+	@Test
 	void lodHasHysteresis() {
 		assertEquals(HoloScale.Lod.FULL, HoloScale.lod(8.3, HoloScale.Lod.FULL));
 		assertEquals(HoloScale.Lod.BOARD, HoloScale.lod(8.6, HoloScale.Lod.FULL));

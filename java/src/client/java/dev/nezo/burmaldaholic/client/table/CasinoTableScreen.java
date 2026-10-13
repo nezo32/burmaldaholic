@@ -58,12 +58,21 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 
 	@Override
 	protected void init() {
-		fit = dev.nezo.burmaldaholic.client.ui.FitScaled.apply(this, fitToScreen(), imageWidth + 8, imageHeight, fitMemo);
+		fit = applyFit(fitMemo);
 		super.init();
 		if (entrance == null) {
 			entrance = dev.nezo.burmaldaholic.client.ui.ScreenEntrance.install(this, this::entranceRect);
 		}
 		acceptState(ClientTableCache.get(menu.pos()));
+	}
+
+	/**
+	 * Sizes the screen's GUI at the start of {@code init()} and returns the drawing factor (table UI v2 kit hook,
+	 * docs/architecture/ui-v2.md §5.4: {@code V2TableScreen} uses the stepped viewport and fills the GUI). Default: the
+	 * compact-layout rule of {@link dev.nezo.burmaldaholic.client.ui.FitScaled#apply}.
+	 */
+	protected float applyFit(int[] memo) {
+		return dev.nezo.burmaldaholic.client.ui.FitScaled.apply(this, fitToScreen(), imageWidth + 8, imageHeight, memo);
 	}
 
 	/** The panel the entrance scales and veils, in GUI coordinates (default: the container image; J-L2 kit hook). */
@@ -207,9 +216,15 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 
 	// ---- rendering ----------------------------------------------------------------------------
 
+	/** Draw the felt panel behind the image (table UI v2 kit hook: v2 screens paint their own full-bleed felt). */
+	protected boolean drawsPanel() {
+		return true;
+	}
+
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
+		if (!drawsPanel()) return;
 		// J-L2 kit: the felt nine-slice (global.md §2.2 panel/felt); flat felt when the art is missing
 		if (!dev.nezo.burmaldaholic.client.ui.CasinoUi.sprite(graphics, dev.nezo.burmaldaholic.client.ui.UiSprites.PANEL_FELT, leftPos, topPos, imageWidth,
 			imageHeight)) {

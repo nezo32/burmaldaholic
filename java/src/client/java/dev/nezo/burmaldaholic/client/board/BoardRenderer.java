@@ -116,8 +116,8 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		m.lod = s.hlod;
 		double fov = mc.options.fov().get();
 		int screenH = Math.max(240, mc.getWindow().getHeight());
-		s.boardPx = HoloScale.textPx(HoloScale.BOARD_BASE, dist, fov, screenH);
-		s.platePx = HoloScale.textPx(HoloScale.PLATE_BASE, dist, fov, screenH);
+		s.boardPx = HoloScale.readablePx(HoloScale.BOARD_READ, dist, fov, screenH);
+		s.platePx = HoloScale.readablePx(HoloScale.PLATE_READ, dist, fov, screenH);
 		s.viewer = mc.player == null ? null : mc.player.getUUID();
 		s.theme = theme(be);
 		s.back = defaultBack(level);

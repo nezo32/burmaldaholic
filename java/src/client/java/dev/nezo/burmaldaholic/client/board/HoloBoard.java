@@ -16,22 +16,25 @@ import org.joml.Vector3f;
  */
 final class HoloBoard {
 	private static final Vector3f P = new Vector3f();
+	private static final HoloText.Spec SPEC = new HoloText.Spec();
+	/** The board's frame: gold, the table's accent. */
+	static final int FRAME = 0xFFFFD640;
 
 	private HoloBoard() {}
 
 	static void submit(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, BoardModel m, HoloFrame f, float minV, BoardStats.Table st) {
-		FormattedCharSequence[] seqs = new FormattedCharSequence[BoardModel.MAX_LINES];
-		int[] widths = new int[BoardModel.MAX_LINES];
-		int[] colors = new int[BoardModel.MAX_LINES];
-		int n = 0;
+		HoloText.Spec sp = SPEC;
+		sp.clear();
+		sp.back = s.back;
 		boolean full = s.hlod == HoloScale.Lod.FULL;
+		if (m.boardCardCount > 0 && s.dist <= BoardState.FAN_RANGE) sp.cards(m.boardCards, m.boardCardCount);
 		for (int i = 0; i < BoardModel.MAX_LINES; i++) {
 			BoardModel.Line l = m.lines[i];
 			if (!l.on || i == BoardState.TITLE && !full) continue;
-			seqs[n] = l.seq;
-			widths[n] = l.width;
-			colors[n++] = l.color;
+			sp.add(l.seq, l.width, l.color, l.scale);
 		}
+		sp.border = FRAME;
+		int n = sp.count;
 		if (n > 0) {
 			float[] a = BoardGeometry.boardAnchor(s.felt);
 			f.toBlock(a[0], a[1], a[2], P);
@@ -40,7 +43,7 @@ final class HoloBoard {
 			float need = minV + 0.06f;
 			if (v < need && f.up.y > 0.2f) P.y += (need - v) / f.up.y;
 			Vector3f bottom = new Vector3f(P);
-			st.backings += HoloText.panel(pose, out, font, bottom, f.yawOnly, s.boardPx, seqs, widths, colors, n, 0);
+			st.backings += HoloText.panel(pose, out, font, bottom, f.yawOnly, s.boardPx, sp);
 			st.lines += n;
 		}
 		// free labels: small full billboards (no backing), within 8 blocks
