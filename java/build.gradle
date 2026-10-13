@@ -62,6 +62,18 @@ fabricApi {
 	}
 }
 
+// Real-flow audit switches (src/gametest/.../realflow): `-Dburmaldaholic.realflow.known=true` runs the known-bug
+// reproductions, `-Dburmaldaholic.realflow.screens=true` the 1920 x 1080 GUI 4 / 3 screenshot tour (also as -P);
+// `-Dfabric-api.gametest.filter=<substring>` runs only the matching server GameTests.
+tasks.matching { it.name in ['runClientGameTest', 'runGameTest'] }.configureEach { t ->
+	['burmaldaholic.realflow.known', 'burmaldaholic.realflow.screens', 'fabric-api.gametest.filter'].each { k ->
+		def v = System.getProperty(k) ?: project.findProperty(k)?.toString()
+		if (v != null) {
+			t.systemProperty k, v
+		}
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${mcVersion}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
