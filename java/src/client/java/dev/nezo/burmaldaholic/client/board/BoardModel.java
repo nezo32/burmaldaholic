@@ -72,7 +72,8 @@ final class BoardModel {
 	HoloScale.@Nullable Lod lod;
 	/** Overhang blocked (cached; re-checked every {@link BoardRenderer#BLOCK_CHECK_TICKS}). */
 	boolean blocked;
-	long blockedCheckedAt = Long.MIN_VALUE;
+	long blockedCheckedAt;
+	boolean blockedChecked;
 	/** PlateLayout's 1-frame memory per plate slot. */
 	final int[] plateShift = new int[MAX_PLATES];
 	/** Game-side cache owned by the renderer subclass (timelines, keys). */
