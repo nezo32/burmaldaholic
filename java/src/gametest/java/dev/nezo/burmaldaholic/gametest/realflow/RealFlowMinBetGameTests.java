@@ -73,8 +73,7 @@ public class RealFlowMinBetGameTests {
 		PlinkoBlockEntity machine = helper.getBlockEntity(MACHINE, PlinkoBlockEntity.class);
 		ServerPlayer p = player(helper, 1000);
 		p.openMenu(machine);
-		helper.assertTrue(machine.writeClientState(p).getLongOr("min", 0) == 3, "plinko minimum in the state: "
-			+ machine.writeClientState(p).getLongOr("min", 0));
+		helper.assertTrue(tableMin(machine.writeClientState(p), "low") == 3, "plinko Low minimum in the state: " + machine.writeClientState(p));
 		CompoundTag t = new CompoundTag();
 		t.putString("risk", "low");
 		t.putLong("amount", 2);
@@ -88,6 +87,53 @@ public class RealFlowMinBetGameTests {
 		double mult = r.getDoubleOr("mult", 0);
 		long net = r.getLongOr("net", 0);
 		helper.assertTrue(mult <= 1 || net >= 1, "a winning landing (" + mult + "×) pays at least +1: net " + net);
+		p.closeContainer();
+		helper.getLevel().getServer().getPlayerList().remove(p);
+		helper.succeed();
+	}
+
+	private static long tableMin(CompoundTag state, String risk) {
+		net.minecraft.nbt.ListTag tables = state.getListOrEmpty("tables");
+		for (int i = 0; i < tables.size(); i++) {
+			if (risk.equals(tables.getCompoundOrEmpty(i).getStringOr("risk", ""))) {
+				return tables.getCompoundOrEmpty(i).getLongOr("min", -1);
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * v0.1.2 review: the minimum is per risk — Medium / High have no win near ×1, so 1 chip drops there (every win pays
+	 * ≥ +1 at 1 chip) while Low still needs 3. The state carries each risk's minimum for the screen.
+	 */
+	@GameTest(maxTicks = 400)
+	public void realflowPlinkoMinimumBetPerRisk(GameTestHelper helper) {
+		helper.setBlock(MACHINE, ExtrasModule.PLINKO.block());
+		BlockPos abs = helper.absolutePos(MACHINE);
+		PlinkoBlockEntity machine = helper.getBlockEntity(MACHINE, PlinkoBlockEntity.class);
+		for (String risk : new String[] {"medium", "high"}) {
+			ServerPlayer p = player(helper, 1000);
+			p.openMenu(machine);
+			CompoundTag state = machine.writeClientState(p);
+			helper.assertTrue(tableMin(state, risk) == 1 && state.getLongOr("min", 0) == 1, risk + " minimum in the state: " + state);
+			CompoundTag t = new CompoundTag();
+			t.putString("risk", risk);
+			t.putLong("amount", 1);
+			p.connection.handleCustomPayload(new ServerboundCustomPayloadPacket(new TableActionPayload(abs, "drop", t)));
+			CompoundTag r = machine.writeClientState(p).getCompoundOrEmpty("result");
+			helper.assertTrue(r.getLongOr("stake", 0) == 1 && risk.equals(r.getStringOr("risk", "")), "a 1-chip " + risk + " drop played: " + r);
+			double mult = r.getDoubleOr("mult", 0);
+			helper.assertTrue(mult <= 1 || r.getLongOr("net", 0) >= 1, "a winning " + risk + " landing pays at least +1: " + r);
+			p.closeContainer();
+			helper.getLevel().getServer().getPlayerList().remove(p);
+		}
+		ServerPlayer p = player(helper, 1000);
+		p.openMenu(machine);
+		CompoundTag t = new CompoundTag();
+		t.putString("risk", "low");
+		t.putLong("amount", 1);
+		p.connection.handleCustomPayload(new ServerboundCustomPayloadPacket(new TableActionPayload(abs, "drop", t)));
+		helper.assertTrue(Economies.get().balance(p) == 1000, "a 1-chip Low drop is still refused: " + Economies.get().balance(p));
 		p.closeContainer();
 		helper.getLevel().getServer().getPlayerList().remove(p);
 		helper.succeed();

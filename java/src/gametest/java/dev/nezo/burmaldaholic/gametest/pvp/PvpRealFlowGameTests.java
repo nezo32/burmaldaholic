@@ -510,4 +510,48 @@ public class PvpRealFlowGameTests {
 			b.remove(helper);
 		});
 	}
+
+	// ---- an incoming challenge during the rematch window ------------------------------------------------------
+
+	/**
+	 * v0.1.2 review: {@code matchOf} ranked a pending invite above the settled match, PvpUi skips INVITED, so a
+	 * challenge arriving right after a match cleared the result screen (and its Rematch / Double-or-nothing).
+	 * The settled match in its rematch window stays the player's match; the invite still reaches them.
+	 */
+	@GameTest(maxTicks = 2400)
+	public void incomingChallengeKeepsResultScreen(GameTestHelper helper) {
+		MockClient[] p = two(helper);
+		MockClient a = p[0];
+		MockClient b = p[1];
+		hub(a, "p:new:scratch", 0);
+		hub(a, "p:ch:" + b.player.getUUID(), STAKE);
+		acceptFromChat(helper, b);
+		PvpMatch first = matchOf(helper, a);
+		MockClient[] challenger = {null};
+		long[] challengedAt = {-1};
+		helper.succeedWhen(() -> {
+			for (MockClient c : List.of(a, b)) {
+				c.drain();
+				if (c.kind.equals("match")) {
+					EXTRAS_PRESS.accept(c);
+				}
+			}
+			helper.assertTrue(first.state() == MatchState.SETTLED && "result".equals(a.kind), "first match settled, result shown: " + a);
+			if (challenger[0] == null) {
+				challenger[0] = MockClient.join(helper, new Vec3(1.5, 1, 3.5), START);
+				challenger[0].command("casino pvp challenge " + a.player.getName().getString() + " scratch " + STAKE);
+				challengedAt[0] = helper.getTick();
+			}
+			helper.assertTrue(Pvp.service().invitesFor(a.player.getUUID()).size() == 1, "the challenge reached the player");
+			helper.assertTrue(helper.getTick() > challengedAt[0] + 40, "waiting for the UI scans");
+			helper.assertTrue(first.phase().equals("rematch") || first.phase().startsWith("offer"), "still in the rematch window: " + first.phase());
+			helper.assertTrue(matchOf(helper, a) == first, "the settled match stays the player's match");
+			helper.assertTrue("result".equals(a.kind) && first.id.equals(a.matchId()) && "result".equals(a.screen),
+				"the result screen (Rematch) is not cleared by the invite: " + a);
+			Pvp.service().withdraw(challenger[0].player, Pvp.service().invitesFor(a.player.getUUID()).get(0).id);
+			challenger[0].remove(helper);
+			a.remove(helper);
+			b.remove(helper);
+		});
+	}
 }

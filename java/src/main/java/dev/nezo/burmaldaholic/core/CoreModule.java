@@ -143,13 +143,14 @@ public final class CoreModule implements CasinoModule {
 
 	/**
 	 * A world that never chose a casino mode (dedicated server first start, a v0.1.1 world left OFF) is ON
-	 * since v0.1.2 (GAME_DESIGN §2.1): tell operators how to turn it off, once per server run.
+	 * since v0.1.2 (GAME_DESIGN §2.1): tell operators — and the host of a singleplayer world without cheats, who may
+	 * run {@code /casino mode off} too ({@link CasinoCommands#mayToggleMode}) — how to turn it off, once per server run.
 	 */
 	private static void defaultOnNotice(ServerPlayer player) {
 		CasinoMode.Boot boot = CasinoMode.lastBoot();
 		if ((boot != CasinoMode.Boot.LEGACY_UPGRADED && boot != CasinoMode.Boot.MISSING)
 				|| !CasinoMode.isEnabled(player.level().getServer())
-				|| !net.minecraft.commands.Commands.LEVEL_GAMEMASTERS.check(player.permissions())
+				|| !(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS.check(player.permissions()) || CasinoCommands.isIntegratedHost(player))
 				|| !DEFAULT_ON_NOTIFIED.add(player.getUUID())) {
 			return;
 		}

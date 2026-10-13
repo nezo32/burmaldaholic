@@ -122,6 +122,7 @@
 	"gui.burmaldaholic.extras.wheel.count": "%1$s/%2$s",
 	"gui.burmaldaholic.extras.wheel.you_win": "You win",
 	"gui.burmaldaholic.extras.plinko.top": "Top: ×%1$s",
+	"gui.burmaldaholic.extras.plinko.min": "Minimum bet: %1$s",
 	"gui.burmaldaholic.extras.plinko.last": "Last balls",
 	"gui.burmaldaholic.extras.scratch.ticket.basic": "LUCKY MINER",
 	"gui.burmaldaholic.extras.scratch.ticket.gold": "GOLD RUSH",
