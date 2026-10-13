@@ -324,7 +324,10 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		int w = tw + 12;
 		int h = 4 + 10 * lines.size();
 		int x = (canvasW() - w) / 2;
-		int y = (compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y) - 3 - h - (age < 150 ? (int) (6 * (1 - age / 150.0)) : 0);
+		// above the console as drawn: a wrapped (two-row) button row grows it upward (drawConsole), so start from its top
+		int top = compact ? CardLayout.CONSOLE_CY : CardLayout.CONSOLE_Y;
+		for (CardButton b : buttons) if (b.getY() > canvasH() / 2) top = Math.min(top, b.getY() - 3);
+		int y = top - 3 - h - (age < 150 ? (int) (6 * (1 - age / 150.0)) : 0);
 		g.fill(x, y, x + w, y + h, CardGfx.alpha(0xE0180A28, a));
 		CardGfx.frame(g, x, y, w, h, CardGfx.alpha(CasinoPalette.CHIP_RED, a));
 		for (int i = 0; i < lines.size(); i++) {

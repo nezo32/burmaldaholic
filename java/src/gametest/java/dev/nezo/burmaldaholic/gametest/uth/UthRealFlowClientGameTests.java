@@ -109,8 +109,15 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(dealt[0] == 15 && dealt[1] == 1, "round 3 (rebet): dealt Ante/Trips " + dealt[0] + "/" + dealt[1]);
 			playToPayout(context, world, pos, before, "round3");
 
-			// the compact frame (1280 × 720 at GUI scale 3 = 426 × 240): the rack and the bet builder must not overlap
+			// 1280 × 720 at GUI scale 3 (427 × 240: the full canvas, tight), then the compact frame (forced: GUIs under
+			// 427 × 240); the rack and the bet builder must not overlap
 			context.getInput().resizeWindow(1280, 720);
+			context.waitTicks(3);
+			guiScale(context, 3);
+			context.waitTicks(5);
+			context.takeScreenshot("uth_flow_720p_s3_betting");
+			context.runOnClient(mc -> dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = true);
+			context.getInput().resizeWindow(1920, 1080);
 			context.waitTicks(3);
 			guiScale(context, 3);
 			context.waitTicks(5);
@@ -127,6 +134,7 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			context.waitTicks(20);
 		} finally {
+			context.runOnClient(mc -> dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = false);
 			context.getInput().resizeWindow(854, 480);
 			guiScale(context, 0);
 		}
