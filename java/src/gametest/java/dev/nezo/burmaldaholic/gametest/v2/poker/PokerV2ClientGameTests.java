@@ -260,8 +260,26 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		if (conf == null) balBet = bal0 - (2 * d[0] + d[1]);
 		f.waitServer(pos, UthTableBlockEntity.class, t -> !t.phase().equals("betting"), "the round started", 1200);
 		boolean decided = false;
+		long net = Long.MIN_VALUE;
+		boolean shotResult = false;
 		for (int i = 0; i < 600; i++) {
 			String phase = uthPhase(f, pos);
+			long n = f.server(server -> server.overworld().getBlockEntity(pos) instanceof UthTableBlockEntity t
+				? t.writeClientState(RealFlow.player(server)).getCompoundOrEmpty("result").getLongOr("net", Long.MIN_VALUE) : Long.MIN_VALUE);
+			if (n != Long.MIN_VALUE) {
+				net = n;
+				if (!shotResult) {
+					f.context().waitTicks(30);
+					f.shot("v2_uth_en_480_showdown");
+					f.size(2560, 1440, 4);
+					f.shot("v2_uth_en_640_showdown");
+					f.language("ru_ru");
+					f.shot("v2_uth_ru_640_showdown");
+					f.language("en_us");
+					f.size(1920, 1080, 4);
+					shotResult = true;
+				}
+			}
 			if (decided && (phase.equals("betting") || phase.equals("idle"))) break;
 			boolean legal = f.client(mc -> mc.gui.screen() instanceof UthScreen s && s.currentView() != null && s.currentView().deciding());
 			if (legal && f.enabledTarget("primary")) {
@@ -278,8 +296,6 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 			f.context().waitTicks(5);
 		}
 		check(decided, "a decision was clicked");
-		long net = f.server(server -> server.overworld().getBlockEntity(pos) instanceof UthTableBlockEntity t
-			? t.writeClientState(RealFlow.player(server)).getCompoundOrEmpty("result").getLongOr("net", Long.MIN_VALUE) : Long.MIN_VALUE);
 		f.context().waitTicks(10);
 		f.shot("v2_uth_en_480_result");
 		check(net != Long.MIN_VALUE, "the server reported the round's result");
