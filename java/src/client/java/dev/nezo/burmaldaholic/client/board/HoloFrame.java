@@ -57,6 +57,11 @@ final class HoloFrame {
 		return tmp.dot(up);
 	}
 
+	/** The block-space point at plane coordinates (u, v). */
+	Vector3f onPlane(float u, float v, Vector3f out) {
+		return out.set(centre).add(right.x * u + up.x * v, right.y * u + up.y * v, right.z * u + up.z * v);
+	}
+
 	/** Distance camera → block-space point. */
 	float dist(Vector3f p) {
 		return tmp.set(p).sub(cam).length();
