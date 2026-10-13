@@ -1608,6 +1608,17 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.trips_optional` | Trips (optional, 0 = no bet) | Трипс (по желанию, 0 — без ставки) |
 | `gui.burmaldaholic.uth.ante_limits` | Ante %1$s – %2$s (6 × Ante + Trips ≤ %3$s) | Анте %1$s – %2$s (6 × анте + трипс ≤ %3$s) |
 | `gui.burmaldaholic.uth.at_risk` | At risk: up to %1$s | На кону: до %1$s |
+| `gui.burmaldaholic.uth.target.ante` | Chips → Ante | Фишки → анте |
+| `gui.burmaldaholic.uth.target.trips` | Chips → Trips | Фишки → трипс |
+| `gui.burmaldaholic.uth.target.tooltip` | Where the chips go: click to switch between Ante and Trips (or click a circle on the table) | Куда идут фишки: нажмите, чтобы переключить анте и трипс (или нажмите на круг на столе) |
+| `gui.burmaldaholic.uth.undo` | − Chip | − Фишка |
+| `gui.burmaldaholic.uth.undo.tooltip` | Take back the last chip. Right-click a chip in the rack to remove its value | Убрать последнюю фишку. Правый клик по фишке убирает её номинал |
+| `gui.burmaldaholic.uth.chip.tooltip` | +%1$s on the %2$s · right-click: −%1$s | +%1$s на %2$s · правый клик: −%1$s |
+| `gui.burmaldaholic.uth.chips_to` | Chips go on: %1$s · max Ante %2$s | Фишки идут на: %1$s · анте до %2$s |
+| `gui.burmaldaholic.uth.error.place_ante` | Put chips on the Ante first | Сначала поставьте фишки на анте |
+| `gui.burmaldaholic.uth.error.max_ante` | The largest Ante here is %1$s (6 × Ante + Trips ≤ %2$s) | Анте здесь — не больше %1$s (6 × анте + трипс ≤ %2$s) |
+| `gui.burmaldaholic.uth.error.max_ante_balance` | Your balance covers an Ante of up to %1$s (Ante, Blind and a river bet) | Баланса хватает на анте до %1$s (анте, блайнд и ставка после ривера) |
+| `gui.burmaldaholic.uth.error.max_trips` | With this Ante, Trips can be at most %1$s | С таким анте трипс — не больше %1$s |
 | `gui.burmaldaholic.uth.check` | Check | Чек |
 | `gui.burmaldaholic.uth.fold` | Fold | Пас |
 | `gui.burmaldaholic.uth.bet_4x` | Bet ×4 (%1$s) | Ставка ×4 (%1$s) |
