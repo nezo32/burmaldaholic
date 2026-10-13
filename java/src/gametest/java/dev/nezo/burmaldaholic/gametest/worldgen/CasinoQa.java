@@ -413,8 +413,10 @@ public final class CasinoQa {
 		int dark = 0;
 		String first = null;
 		BoundingBox b = placed.box();
-		for (BlockPos p : BlockPos.betweenClosed(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ())) {
-			if (!enclosedFloorCell(level, p, b)) {
+		// rooms players walk into: enclosed AND reachable on foot from outside (sealed attics / roof voids are not floors)
+		Set<BlockPos> reach = reachableFromOutside(level, b);
+		for (BlockPos p : reach) {
+			if (!b.isInside(p) || !enclosedFloorCell(level, p, b)) {
 				continue;
 			}
 			if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, p) < 1) {
@@ -423,7 +425,7 @@ public final class CasinoQa {
 			}
 		}
 		if (dark > 0) {
-			bad.add(dark + " enclosed floor cells at block light 0 (mob spawns), e.g. " + first);
+			bad.add(dark + " walkable interior cells at block light 0 (mob spawns), e.g. " + first);
 		}
 		return bad;
 	}
