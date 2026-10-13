@@ -159,13 +159,22 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	 * gaps, each as wide as icon + label; wraps into a second row above when the row would pass {@code minX}.
 	 */
 	protected void layoutButtons(List<CardButton> row, int minX) {
+		layoutButtons(row, minX, 4);
+	}
+
+	/**
+	 * Same; in the compact layout the row starts at {@code compactStartX} (right of a compact chip rack, {@link #rackEnd})
+	 * and wraps back to it.
+	 */
+	protected void layoutButtons(List<CardButton> row, int minX, int compactStartX) {
 		int gap = compact ? 3 : 4;
 		if (compact) {
-			int x = 4;
+			int x0 = Math.max(4, compactStartX);
+			int x = x0;
 			int y = 139;
 			for (CardButton b : row) {
-				if (x + b.getWidth() > canvasW() - 4 && x > 4) {
-					x = 4;
+				if (x + b.getWidth() > canvasW() - 4 && x > x0) {
+					x = x0;
 					y -= 22;
 				}
 				b.setX(x);
@@ -363,6 +372,28 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	@Override
 	public boolean mouseScrolled(double x, double y, double dx, double dy) {
 		return super.mouseScrolled((x - ox) / fk, (y - oy) / fk, dx, dy);
+	}
+
+	/**
+	 * Canvas rectangle {x, y, w, h} of chip {@code index} of the console chip rack while it is shown and clickable, else
+	 * null (no rack on this table / not now). The one source of the rack geometry: drawing, hit test and real-flow tests.
+	 */
+	public int @Nullable [] chipRackSlot(int index) {
+		return null;
+	}
+
+	/**
+	 * Where chip {@code index} of a console chip rack sits: 22 px chips at (8 + 25i, 212) on the full canvas, at
+	 * (4 + 24i, 138) in the compact console (GUI scale Auto at 2560 × 1440 is 426 × 240: the compact layout, so the rack
+	 * must be there too — without it a player cannot put a bet together).
+	 */
+	protected int[] rackRect(int index) {
+		return compact ? new int[] {4 + index * 24, 138, 22, 22} : new int[] {8 + index * 25, 212, 22, 22};
+	}
+
+	/** First x right of a rack of {@code chips} chips (where the console buttons may start). */
+	protected int rackEnd(int chips) {
+		return compact ? 4 + chips * 24 + 2 : 8 + chips * 25 + 6;
 	}
 
 	/** Clicks on the scene (chip rack, bet spots) in canvas coordinates; true when handled. */
