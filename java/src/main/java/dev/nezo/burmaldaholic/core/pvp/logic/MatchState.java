@@ -21,6 +21,15 @@ public enum MatchState {
 		return this == LOBBY || this == DRAWN;
 	}
 
+	/**
+	 * The player is still IN this match (lobby, starting, revealing). A SETTLED match stays the player's
+	 * {@code matchOf} for the rematch window and {@code pvp.historyTicks} (5 min) but must not block the machines'
+	 * PvP entries (v0.1.2: the Plinko Battle card / Slot Showdown panel stayed empty after any match).
+	 */
+	public boolean live() {
+		return this == LOBBY || this == STARTING || this == DRAWN;
+	}
+
 	public boolean persisted() {
 		return this == LOBBY || this == DRAWN || this == SETTLED;
 	}
