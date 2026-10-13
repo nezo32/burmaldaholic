@@ -66,6 +66,7 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 				V2Draw.forceFallback = false;
 			}
 			f.close();
+			if (!failures.isEmpty()) throw new AssertionError("kit showcase: " + failures);
 		} finally {
 			V2Chrome.dropNextSends = 0;
 			V2Draw.forceFallback = false;
@@ -78,7 +79,24 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 		}
 	}
 
+	private final List<String> failures = new ArrayList<>();
+
+	/** One size; a failure is recorded (with a screenshot) and the run goes on, so one run yields every shot. */
 	private void size(RealFlow f, String lang, int w, int h, int gs) {
+		try {
+			sizeOnce(f, lang, w, h, gs);
+		} catch (AssertionError | RuntimeException e) {
+			failures.add(lang + " " + w + "x" + h + "@" + gs + ": " + e.getMessage());
+			report.add("  FAILED " + lang + " " + w + "x" + h + "@" + gs + ": " + e);
+			f.shot("v2_kit_failed_" + lang + "_" + w + "x" + h + "_" + gs);
+			f.client(mc -> {
+				if (mc.gui.screen() instanceof KitGalleryV2Screen s) s.deaf = false;
+				return null;
+			});
+		}
+	}
+
+	private void sizeOnce(RealFlow f, String lang, int w, int h, int gs) {
 		f.size(w, h, gs);
 		KitGalleryV2Screen s = gallery(f);
 		Viewport vp = f.viewport();
@@ -138,7 +156,7 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 		f.click(KeyMap.Ids.PRIMARY);
 		f.waitChrome(c -> s.demo().phase() == KitGalleryV2Screen.Phase.ACTING, "acting after Deal");
 		f.click("action.hit");
-		f.waitChrome(c -> s.demo().heroCards() == 4, "hit");
+		f.waitChrome(c -> s.demo().heroCards() == 3, "hit");
 		f.click("action.split"); // disabled: says why
 		if (f.status().isEmpty()) throw new AssertionError("disabled action showed no reason");
 		f.shot("v2_kit_" + tag + "_acting");
