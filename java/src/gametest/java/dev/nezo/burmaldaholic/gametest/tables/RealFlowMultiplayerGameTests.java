@@ -399,4 +399,75 @@ public class RealFlowMultiplayerGameTests {
 			finish(helper, p);
 		});
 	}
+
+	// ---- "leave" spam: a refused or empty leave does not resync every viewer ------------------------------------
+
+	/** Table state packets the server sent to the player since the last drain of its channel. */
+	private static int syncs(ServerPlayer player) {
+		EmbeddedChannel ch = CHANNELS.get(player.getUUID());
+		int n = 0;
+		if (ch == null) {
+			return 0;
+		}
+		ch.runPendingTasks();
+		ch.flush();
+		for (Object o = ch.readOutbound(); o != null; o = ch.readOutbound()) {
+			List<Object> packets = new ArrayList<>();
+			if (o instanceof ClientboundBundlePacket b) b.subPackets().forEach(packets::add);
+			else packets.add(o);
+			for (Object pk : packets) {
+				if (pk instanceof ClientboundCustomPayloadPacket c && c.payload() instanceof dev.nezo.burmaldaholic.core.network.TableSyncPayload) {
+					n++;
+				}
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * v0.1.2 review: every "leave" packet resynced every viewer of the table, even a refused one (bet in play) or one
+	 * from a player who sits nowhere — a cheap amplification vector. Only a leave that frees a seat syncs everyone;
+	 * otherwise only the sender's own screen is refreshed.
+	 */
+	@GameTest(maxTicks = 200)
+	public void leaveSpamDoesNotResyncOtherViewers(GameTestHelper helper) {
+		CrapsTableBlockEntity cr = place(helper, CrapsModule.TABLE, CrapsTableBlockEntity.class);
+		ServerPlayer a = player(helper, "lv-alice", 2.5, 1.5, FRESH * 4);
+		ServerPlayer b = player(helper, "lv-bob", 0.5, 2.5, FRESH * 4);
+		ServerPlayer c = player(helper, "lv-carol", 3.5, 3.5, FRESH * 4);
+		use(helper, cr, a);
+		use(helper, cr, b);
+		use(helper, cr, c);
+		CompoundTag pass = new CompoundTag();
+		pass.putString("kind", "pass");
+		pass.putLong("amount", 5);
+		act(a, cr, "bet", pass);
+		helper.assertTrue(cr.stakeOf(a.getUUID()) == 5, "alice's Pass Line lands: " + errors(a));
+		syncs(b);
+		for (int i = 0; i < 10; i++) {
+			act(a, cr, "leave", new CompoundTag()); // refused: a bet in play
+			act(c, cr, "leave", new CompoundTag()); // accepted but nothing to leave
+		}
+		int seen = syncs(b);
+		helper.assertTrue(seen == 0, "20 refused / empty leaves resynced another viewer " + seen + " times");
+		helper.assertTrue(cr.stakeOf(a.getUUID()) == 5, "the refused leave kept the bet");
+		finish(helper, a, b, c);
+	}
+
+	/** A real leave (a seat freed) still updates every viewer. */
+	@GameTest(maxTicks = 200)
+	public void acceptedLeaveResyncsViewers(GameTestHelper helper) {
+		BlackjackTableBlockEntity t = place(helper, BlackjackModule.TABLE, BlackjackTableBlockEntity.class);
+		ServerPlayer a = player(helper, "lv2-alice", 2.5, 1.5, FRESH * 4);
+		ServerPlayer b = player(helper, "lv2-bob", 0.5, 2.5, FRESH * 4);
+		use(helper, t, a);
+		use(helper, t, b);
+		act(a, t, "sit", new CompoundTag());
+		helper.assertTrue(t.isSeated(a), "alice sits: " + errors(a));
+		syncs(b);
+		act(a, t, "leave", new CompoundTag());
+		helper.assertTrue(!t.isSeated(a), "alice left: " + errors(a));
+		helper.assertTrue(syncs(b) >= 1, "bob's screen saw the seat freed");
+		finish(helper, a, b);
+	}
 }

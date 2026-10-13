@@ -110,7 +110,10 @@ public final class ConfigManager {
 	/** (Re)loads global + per-world files, applies them and rewrites the normalised global file. */
 	public synchronized List<ConfigIssue> load() {
 		JsonObject global = file == null ? new JsonObject() : read(file);
-		upgradeRetiredDefaults(global);
+		if (schemaVersion(global) < SCHEMA_VERSION) {
+			upgradeRetiredDefaults(global);
+		}
+		global.remove(SCHEMA_KEY);
 		if (worldFile != null) {
 			worldOverrides = read(worldFile);
 		}
@@ -126,7 +129,7 @@ public final class ConfigManager {
 		}
 		List<ConfigIssue> issues = applyEffective(merge(global.deepCopy(), worldOverrides));
 		if (file != null) {
-			write(file, normalisedGlobal);
+			writeGlobal(normalisedGlobal);
 		}
 		List<ConfigIssue> all = new ArrayList<>(globalIssues);
 		issues.stream().filter(i -> !all.contains(i)).forEach(all::add);
@@ -195,7 +198,7 @@ public final class ConfigManager {
 	/** Replaces the global file (config screen) and reloads. */
 	public synchronized List<ConfigIssue> saveGlobal(JsonObject root) {
 		if (file != null) {
-			write(file, root);
+			writeGlobal(root.deepCopy());
 		}
 		return load();
 	}
@@ -258,7 +261,7 @@ public final class ConfigManager {
 			write(worldFile, worldOverrides);
 			load();
 		} else if (file != null) {
-			write(file, target);
+			writeGlobal(target);
 			load();
 		} else {
 			applyJson(candidate);
@@ -291,6 +294,24 @@ public final class ConfigManager {
 	 * choice; such a value (exact match) is dropped from the global file so the current default applies.
 	 * Per-world overrides are explicit {@code /casino config set} choices and are never upgraded.
 	 */
+	/**
+	 * Schema version of the global file, written as the top-level {@code configVersion} on every save.
+	 * A file without it (v0.1.1) or older than this is upgraded once ({@link #upgradeRetiredDefaults});
+	 * after that an admin may set an old default again on purpose and it is kept.
+	 * 2 = v0.1.2 (worldgen attach chances).
+	 */
+	static final int SCHEMA_VERSION = 2;
+	static final String SCHEMA_KEY = "configVersion";
+
+	/** The file's {@code configVersion}; 1 when absent (every file written before v0.1.2). */
+	static int schemaVersion(JsonObject global) {
+		JsonElement v = global.get(SCHEMA_KEY);
+		if (v != null && v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()) {
+			return v.getAsInt();
+		}
+		return 1;
+	}
+
 	static final Map<String, Double> RETIRED_DEFAULTS = Map.of(
 		// v0.1.1 casino attach chances (v0.1.2: 0.5 / 0.6 / 0.5, docs/design/CONFIG.md)
 		"worldgen.villageCasino.chance", 0.35,
@@ -367,6 +388,14 @@ public final class ConfigManager {
 			LOG.error("Could not read {}, using defaults", path, e);
 		}
 		return new JsonObject();
+	}
+
+	/** Writes the global file with {@code configVersion} = {@link #SCHEMA_VERSION} first. */
+	private void writeGlobal(JsonObject root) {
+		JsonObject stamped = new JsonObject();
+		stamped.addProperty(SCHEMA_KEY, SCHEMA_VERSION);
+		root.entrySet().stream().filter(e -> !e.getKey().equals(SCHEMA_KEY)).forEach(e -> stamped.add(e.getKey(), e.getValue()));
+		write(file, stamped);
 	}
 
 	private void write(Path path, JsonObject root) {

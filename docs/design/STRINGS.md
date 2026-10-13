@@ -369,7 +369,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.welcome_hint` | Mine, fight and trade to earn chips. Spend them at the tables. Try not to spend all of them. | Копайте, сражайтесь и торгуйте — за это дают фишки. Тратьте их за столами. Желательно не все. |
 | `msg.burmaldaholic.core.mode_enabled` | Casino mode is ON. The doors are open. | Режим казино ВКЛЮЧЁН. Двери открыты. |
 | `msg.burmaldaholic.core.mode_disabled` | Casino mode is OFF. Your chips are safe until it reopens. | Режим казино ВЫКЛЮЧЕН. Фишки сохранятся до открытия. |
-| `msg.burmaldaholic.core.mode_default_on` | Casino mode is ON in this world (the default since v0.1.2). Not wanted here? /casino mode off | В этом мире включён режим казино (по умолчанию с версии 0.1.2). Не нужен? /casino mode off |
+| `msg.burmaldaholic.core.mode_default_on` | Casino mode is ON in this world (the default since v0.1.2). Not wanted here? Type /casino mode off — the world's host can do it even without cheats | В этом мире включён режим казино (по умолчанию с версии 0.1.2). Не нужен? Введите /casino mode off — хозяин мира может сделать это и без читов |
 | `msg.burmaldaholic.core.command.mode_set_on` | Casino mode is now ON for this world | Режим казино в этом мире теперь ВКЛЮЧЁН |
 | `msg.burmaldaholic.core.command.mode_set_off` | Casino mode is now OFF for this world | Режим казино в этом мире теперь ВЫКЛЮЧЕН |
 | `msg.burmaldaholic.core.command.mode_status_on` | Casino mode is ON in this world | В этом мире режим казино ВКЛЮЧЁН |
@@ -1897,6 +1897,7 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.extras.wheel.count` | %1$s/%2$s | %1$s/%2$s |
 | `gui.burmaldaholic.extras.wheel.you_win` | You win | Выигрыш |
 | `gui.burmaldaholic.extras.plinko.top` | Top: ×%1$s | Максимум: ×%1$s |
+| `gui.burmaldaholic.extras.plinko.min` | Minimum bet: %1$s | Минимальная ставка: %1$s |
 | `gui.burmaldaholic.extras.plinko.last` | Last balls | Последние шарики |
 | `gui.burmaldaholic.extras.scratch.ticket.basic` | LUCKY MINER | ВЕЗУЧИЙ ШАХТЁР |
 | `gui.burmaldaholic.extras.scratch.ticket.gold` | GOLD RUSH | ЗОЛОТАЯ ЛИХОРАДКА |

@@ -119,6 +119,37 @@ public class CasinoModeDefaultGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.1.2 review: a v0.1.1 singleplayer world without cheats is upgraded to ON, so its host must be told and must be
+	 * able to run {@code /casino mode off}. The rule: an operator, or the owner of a non-dedicated server; a plain
+	 * player (not the host) still cannot switch the mode, and the other admin sub-commands stay operator-only.
+	 */
+	@GameTest(environment = "burmaldaholic:casino_mode_persist")
+	@SuppressWarnings("removal")
+	public void integratedHostMayToggleModeOthersMayNot(GameTestHelper helper) {
+		helper.assertTrue(dev.nezo.burmaldaholic.core.command.CasinoCommands.modeAllowed(false, false, true), "singleplayer host without cheats");
+		helper.assertTrue(dev.nezo.burmaldaholic.core.command.CasinoCommands.modeAllowed(true, true, false), "operator on a dedicated server");
+		helper.assertFalse(dev.nezo.burmaldaholic.core.command.CasinoCommands.modeAllowed(false, true, true), "dedicated server: no host rule");
+		helper.assertFalse(dev.nezo.burmaldaholic.core.command.CasinoCommands.modeAllowed(false, false, false), "a LAN guest");
+		MinecraftServer server = helper.getLevel().getServer();
+		boolean before = CasinoMode.isEnabled(server);
+		net.minecraft.server.level.ServerPlayer guest = helper.makeMockServerPlayerInLevel();
+		try {
+			CasinoMode.set(server, true);
+			helper.assertFalse(dev.nezo.burmaldaholic.core.command.CasinoCommands.isIntegratedHost(guest), "a mock player is not the host");
+			server.getCommands().performPrefixedCommand(guest.createCommandSourceStack(), "casino mode off");
+			helper.assertTrue(CasinoMode.isEnabled(server), "a non-operator guest switched casino mode off");
+			helper.assertTrue(server.getCommands().getDispatcher().getRoot().getChild("casino").getChild("balance")
+				.canUse(guest.createCommandSourceStack()) == false, "admin sub-commands stay operator-only");
+			server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "casino mode off");
+			helper.assertFalse(CasinoMode.isEnabled(server), "the server console still switches it");
+		} finally {
+			CasinoMode.set(server, before);
+			server.getPlayerList().remove(guest);
+		}
+		helper.succeed();
+	}
+
 	private static SavedDataStorage storage(MinecraftServer server, Path dir) {
 		return new SavedDataStorage(dir, server.getFixerUpper(), server.registryAccess());
 	}

@@ -58,13 +58,37 @@ public final class CasinoCommands {
 		PLAYER_EXTENSIONS.add(extension);
 	}
 
+	/**
+	 * Who may switch casino mode: operators (level 2), and the host of an integrated (singleplayer / Open to LAN) world
+	 * even without cheats — a v0.1.1 world upgraded to ON must be switchable off by its owner (v0.1.2 review).
+	 */
+	public static boolean mayToggleMode(CommandSourceStack src) {
+		if (Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(src)) {
+			return true;
+		}
+		net.minecraft.server.level.ServerPlayer player = src.getPlayer();
+		return player != null && isIntegratedHost(player);
+	}
+
+	/** The owner of an integrated server (never on a dedicated server). */
+	public static boolean isIntegratedHost(net.minecraft.server.level.ServerPlayer player) {
+		net.minecraft.server.MinecraftServer server = player.level().getServer();
+		return modeAllowed(false, server.isDedicatedServer(), server.isSingleplayerOwner(player.nameAndId()));
+	}
+
+	/** Pure rule of {@link #mayToggleMode}: an operator, or the owner of a non-dedicated server. */
+	public static boolean modeAllowed(boolean gamemaster, boolean dedicatedServer, boolean singleplayerOwner) {
+		return gamemaster || (!dedicatedServer && singleplayerOwner);
+	}
+
 	/** Rebuilds the admin root without its own requirement: each admin child gets it instead, then the player sub-commands are added. */
 	private static LiteralArgumentBuilder<CommandSourceStack> withPlayerCommands(LiteralArgumentBuilder<CommandSourceStack> adminRoot) {
-		java.util.function.Predicate<CommandSourceStack> admin = Commands.hasPermission(Commands.LEVEL_GAMEMASTERS);
+		java.util.function.Predicate<CommandSourceStack> gm = Commands.hasPermission(Commands.LEVEL_GAMEMASTERS);
 		LiteralArgumentBuilder<CommandSourceStack> open = Commands.literal("casino");
 		for (com.mojang.brigadier.tree.CommandNode<CommandSourceStack> child : adminRoot.getArguments()) {
 			var copy = child.createBuilder();
 			java.util.function.Predicate<CommandSourceStack> own = child.getRequirement();
+			java.util.function.Predicate<CommandSourceStack> admin = child.getName().equals("mode") ? CasinoCommands::mayToggleMode : gm;
 			copy.requires(src -> admin.test(src) && own.test(src));
 			child.getChildren().forEach(copy::then);
 			open.then(copy);
@@ -106,7 +130,8 @@ public final class CasinoCommands {
 					.executes(CasinoCommands::configReset)))
 				.then(Commands.literal("reload").executes(CasinoCommands::configReload)));
 		EXTENSIONS.forEach(e -> e.accept(root));
-		var node = dispatcher.register(PLAYER_EXTENSIONS.isEmpty() ? root : withPlayerCommands(root));
+		// always rebuilt per child: /casino mode is also open to the integrated-server host (mayToggleMode)
+		var node = dispatcher.register(withPlayerCommands(root));
 		dispatcher.register(Commands.literal("burmaldaholic").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).redirect(node));
 	}
 
