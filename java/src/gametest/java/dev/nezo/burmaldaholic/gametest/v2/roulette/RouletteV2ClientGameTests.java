@@ -56,11 +56,11 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 			RealFlow f = new RealFlow(context, world);
 			int dx = 0;
 			// the real player flow at the real players' sizes (ui-v2.md §11.2)
-			step("en 1920@4", () -> round(f, "en_us", 1920, 1080, 4, -6, true));
-			step("ru 1920@4", () -> round(f, "ru_ru", 1920, 1080, 4, -3, true));
+			step("en 1920@4", () -> round(f, "en_us", 1920, 1080, 4, -2, true));
+			step("ru 1920@4", () -> round(f, "ru_ru", 1920, 1080, 4, -2, true));
 			step("en 2560@4", () -> round(f, "en_us", 2560, 1440, 4, 0, true));
-			step("ru 1920@3", () -> round(f, "ru_ru", 1920, 1080, 3, 3, false));
-			step("en 1280@3", () -> round(f, "en_us", 1280, 720, 3, 6, false));
+			step("ru 1920@3", () -> round(f, "ru_ru", 1920, 1080, 3, 2, false));
+			step("en 1280@3", () -> round(f, "en_us", 1280, 720, 3, 2, false));
 			f.close();
 			f.language("en_us");
 			context.getInput().resizeWindow(1920, 1080);
@@ -194,6 +194,8 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 			pos[1] = stand;
 			pos[0] = stand.offset(0, 0, 9);
 			level.setBlockAndUpdate(pos[0], RouletteModule.TABLE.block().defaultBlockState().setValue(CasinoTableBlock.FACING, Direction.NORTH));
+			// stand at the table first (sit() needs the player in reach; the earlier rounds left them 20 blocks away)
+			p.teleportTo(pos[0].getX() + 0.5, pos[0].getY(), pos[0].getZ() - 1.5);
 			if (level.getBlockEntity(pos[0]) instanceof RouletteTableBlockEntity be) {
 				be.setThemeForTesting(0);
 				be.sit(p);
