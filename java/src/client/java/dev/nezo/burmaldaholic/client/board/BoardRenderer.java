@@ -99,7 +99,8 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		Felt wanted = felt(be);
 		if (level != null) {
 			long now = level.getGameTime();
-			if (now - m.blockedCheckedAt >= BLOCK_CHECK_TICKS || now < m.blockedCheckedAt) {
+			if (!m.blockedChecked || now - m.blockedCheckedAt >= BLOCK_CHECK_TICKS || now < m.blockedCheckedAt) {
+				m.blockedChecked = true;
 				m.blocked = blocked(level, be.getBlockPos(), s.facing, wanted);
 				m.blockedCheckedAt = now;
 			}
