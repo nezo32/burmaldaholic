@@ -100,6 +100,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		ox = (int) Math.floor((width - canvasW() * fk) / 2f);
 		oy = (int) Math.floor((height - canvasH() * fk) / 2f);
 		buttons.clear();
+		utilities.clear(); // re-added by their owners' ScreenEvents.AFTER_INIT (bots: the table-settings gear)
 		super.init();
 		// the kit's entrance veils (leftPos, topPos, imageWidth × imageHeight): the canvas on screen
 		leftPos = ox;
@@ -119,6 +120,26 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 		buttons.clear();
 		if (minecraft == null) return;
 		buildConsole();
+		for (Utility u : utilities) {
+			CardButton b = cornerButton(null, u.hint(), true, u.action());
+			b.setMessage(u.label());
+		}
+	}
+
+	/** A utility button another module puts in the corner row (bots: the table-settings [⚙]); kept until the next init. */
+	private record Utility(Component label, Component hint, Runnable action) {}
+
+	private final List<Utility> utilities = new ArrayList<>();
+
+	/**
+	 * Adds an icon-label utility button to the canvas corner row (left of the game's own corner buttons and the balance),
+	 * drawn and hit-tested with the canvas like every console button. For modules that add a button from
+	 * {@code ScreenEvents.AFTER_INIT}: a plain screen-space widget would be neither drawn (the canvas draws only its own
+	 * buttons) nor clickable (input is mapped into the canvas). Re-placed on every {@link #rebuildConsole}.
+	 */
+	public void addCornerUtility(Component label, Component hint, Runnable action) {
+		utilities.add(new Utility(label, hint, action));
+		rebuildConsole();
 	}
 
 	/** Adds the console buttons with {@link #addButton} / {@link #layoutButtons}. */
@@ -131,7 +152,7 @@ public abstract class CardTableScreen extends CasinoTableScreen {
 	 * A small icon-only utility button (rules, leave) in the top corner, left of the balance plaque; {@code hint} is its
 	 * tooltip. Placed right to left in the order added.
 	 */
-	protected CardButton cornerButton(String icon, Component hint, boolean active, Runnable action) {
+	protected CardButton cornerButton(@Nullable String icon, Component hint, boolean active, Runnable action) {
 		int w = 18;
 		int h = 16;
 		int right = canvasW() - (compact ? 3 : 5) - (font.width(Texts.number(shownBalance())) + 20) - 4;

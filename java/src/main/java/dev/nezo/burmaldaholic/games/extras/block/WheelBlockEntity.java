@@ -82,6 +82,12 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		return new Wheel(CasinoConfig.extras().wheel.segments, CasinoConfig.extras().wheel.multipliers);
 	}
 
+	/** Every winning segment pays ≥ +1 at the minimum bet ({@link Wheel#minBet}; 1 by default). */
+	@Override
+	protected long minBet() {
+		return wheel().minBet();
+	}
+
 	private long maxFor(ServerPlayer player) {
 		return ExtrasGames.fractionMax(player, CasinoConfig.extras().wheel.maxBetFraction);
 	}
@@ -107,7 +113,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		Stake pawn = null;
 		long value;
 		if (kind.equals("chips")) {
-			Result<Long> bet = placeBet(player, amount, 1, max, Payouts.floorPay(amount, wheel.maxMultiplier()), true);
+			Result<Long> bet = placeBet(player, amount, wheel.minBet(), max, Payouts.floorPay(amount, wheel.maxMultiplier()), true);
 			if (!bet.isOk()) {
 				return;
 			}

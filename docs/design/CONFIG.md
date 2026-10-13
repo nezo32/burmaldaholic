@@ -371,11 +371,11 @@ The four card tables' presentation (`animation/cards.md` §8, `visual/cards.md` 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `extras.coinFlip.enabled` | bool | true | — | |
-| `extras.coinFlip.payout` | double | 0.96 | 0.5–1.0 | Win pays X:1. |
+| `extras.coinFlip.payout` | double | 0.96 | 0.5–1.0 | Win pays X:1. Also sets the minimum stake: the smallest stake whose floored win is ≥ 1 (2 below 1.0, 1 at 1.0; GAME_DESIGN §11.1). |
 | `extras.wheel.enabled` | bool | true | — | |
 | `extras.wheel.maxBetFraction` | double | 0.5 | 0.01–1.0 | × tier max. |
 | `extras.wheel.segments` | list<string> | Appendix B | 2–100 entries | Segment codes in order. |
-| `extras.wheel.multipliers` | map<code,double> | B 0, C 0, H 0.5, M 1, D 2, T 3, E 5, X 10 | 0–1000 | |
+| `extras.wheel.multipliers` | map<code,double> | B 0, C 0, H 0.5, M 1, D 2, T 3, E 5, X 10 | 0–1000 | A fractional winning multiplier (> 1) raises the minimum bet until every win pays ≥ +1 after flooring (1 with the defaults). |
 | `extras.scratch.enabled` | bool | true | — | |
 | `extras.scratch.basic.price` | int | 10 | 1–10⁶ | |
 | `extras.scratch.basic.prizes` | list<[int,double]> | §11.3 | | (prize, probability) pairs; Σp ≤ 1. |
@@ -386,7 +386,7 @@ The four card tables' presentation (`animation/cards.md` §8, `visual/cards.md` 
 | `extras.plinko.maxBetFraction` | double | 0.2 | 0.01–1.0 | |
 | `extras.plinko.low` | list<double> | §11.4 | 13 entries | |
 | `extras.plinko.medium` | list<double> | §11.4 | 13 entries | |
-| `extras.plinko.high` | list<double> | §11.4 | 13 entries | |
+| `extras.plinko.high` | list<double> | §11.4 | 13 entries | The minimum bet is derived from the three tables: the smallest bet at which every bin above 1× pays ≥ +1 after flooring (3 with the defaults, from Low's 1.4× / 1.6×). |
 | `extras.diceDuel.enabled` | bool | true | — | |
 | `extras.diceDuel.houseWinsTieOn` | list<int> | [7] | totals 2–12 | Tie totals the house wins (others push). |
 | `extras.diceDuel.pvpEnabled` | bool | true | — | |

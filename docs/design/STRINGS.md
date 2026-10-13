@@ -1013,6 +1013,8 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 |-----|----|----|
 | `gui.burmaldaholic.slots.spin` | Spin (%1$s) | Крутить (%1$s) |
 | `gui.burmaldaholic.slots.stop` | Stop | Стоп |
+| `gui.burmaldaholic.slots.locked` | Locked | Закрыто |
+| `gui.burmaldaholic.slots.vip_lock` | Requires VIP tier %1$s — you are %2$s | Нужен ВИП-статус «%1$s», у вас «%2$s» |
 | `gui.burmaldaholic.slots.skip` | Skip | Пропустить |
 | `gui.burmaldaholic.slots.bet` | Bet: %1$s | Ставка: %1$s |
 | `gui.burmaldaholic.slots.bet_down` | Lower bet | Меньше |

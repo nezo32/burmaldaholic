@@ -70,7 +70,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 			report.add("window: " + windowInfo(ctx));
 			setBalance(world, 50_000);
 
-			step("slots_vip_lock_is_explained", true, () -> slotsVipLock(ctx, world));
+			step("slots_vip_lock_is_explained", false, () -> slotsVipLock(ctx, world));
 			// the Netherite machine needs a VIP tier (slotsV2.machines.*.minVipTier): play every machine as a Netherite VIP
 			world.getServer().runCommand("casino vip wagered @p 3000000");
 			for (Tier tier : Tier.values()) {
@@ -85,9 +85,10 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 			step("cashier_withdraw_deposit", false, () -> cashier(ctx, world));
 			step("cashier_shop_scratch", false, () -> cashierShop(ctx, world));
 			step("hud_balance_sync", false, () -> hud(ctx, world));
+			step("hud_hidden_under_casino_screens", false, () -> hudHidden(ctx, world));
 			step("casino_menu_key", false, () -> menuKey(ctx, world));
 			step("poker_sit_down", false, () -> pokerSit(ctx, world));
-			step("poker_bot_settings_gear", true, () -> pokerGear(ctx, world));
+			step("poker_bot_settings_gear", false, () -> pokerGear(ctx, world));
 			closeScreen(ctx, world);
 			if (SCREENS) report.addAll(ScreenTour.run(ctx, world));
 		} finally {
@@ -150,8 +151,8 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 	}
 
 	/**
-	 * KNOWN BUG: a machine above the player's VIP tier (Netherite by default) opens with a greyed-out SPIN and nothing on
-	 * the screen says why (SlotMachineV2Screen maps {@code vip_ok=false} to {@code playable=false} only).
+	 * Fixed (hotfix A9): a machine above the player's VIP tier (Netherite by default) opens LOCKED: SPIN disabled, its
+	 * caption "Locked", its message / tooltip and the line under the reels "Requires VIP tier X — you are Y".
 	 */
 	private void slotsVipLock(ClientGameTestContext ctx, TestSingleplayerContext world) {
 		closeScreen(ctx, world);
@@ -162,17 +163,30 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 			useBlock(ctx, pos);
 			awaitScreen(ctx, dev.nezo.burmaldaholic.games.slots.client.SlotMachineV2Screen.class, 60);
 			ctx.waitTicks(20);
-			WidgetRef spin = widget(ctx, "gui.burmaldaholic.slots.spin");
-			if (spin == null || spin.active()) return; // playable: nothing to explain
-			boolean explained = ctx.computeOnClient(mc -> {
-				for (var w : widgets(mc.gui.screen())) {
-					if (keyPrefix(w.getMessage(), "gui.burmaldaholic.common.requires_vip")) return true;
-				}
+			WidgetRef spin = widget(ctx, w -> w instanceof dev.nezo.burmaldaholic.games.slots.client.panels.SlotButton b
+				&& b.getMessage() != null && (keyPrefix(b.getMessage(), "gui.burmaldaholic.slots.spin") || keyPrefix(b.getMessage(), "gui.burmaldaholic.slots.vip_lock")));
+			if (spin == null) throw new AssertionError("no SPIN button: " + describe(ctx));
+			if (spin.active()) throw new AssertionError("SPIN is active on a machine above the player's VIP tier");
+			String reason = ctx.computeOnClient(mc -> {
 				Object model = readField(mc.gui.screen(), "model");
-				Object err = model == null ? null : readField(model, "errorKey");
-				return err != null && err.toString().contains("vip");
+				Object r = model == null ? null : readField(model, "lockReason");
+				return r instanceof net.minecraft.network.chat.Component c && keyPrefix(c, "gui.burmaldaholic.slots.vip_lock") ? c.getString() : null;
 			});
-			if (!explained) throw new AssertionError("SPIN is disabled (VIP tier too low) but the screen gives no reason");
+			if (reason == null) throw new AssertionError("SPIN is disabled (VIP tier too low) but the screen gives no reason");
+			boolean onSpin = ctx.computeOnClient(mc -> {
+				for (var w : widgets(mc.gui.screen())) {
+					if (keyPrefix(w.getMessage(), "gui.burmaldaholic.slots.vip_lock")) return true;
+				}
+				return false;
+			});
+			if (!onSpin) throw new AssertionError("the locked SPIN does not carry the reason (message / tooltip)");
+			report.add("  slots VIP lock: " + reason);
+			// clicking the locked SPIN plays nothing
+			int from = PLAYS.size();
+			clickWindow(ctx, spin.windowX(), spin.windowY());
+			ctx.waitTicks(10);
+			if (PLAYS.size() != from) throw new AssertionError("a locked machine played: " + PLAYS.subList(from, PLAYS.size()));
+			if (SCREENS) ctx.takeScreenshot("realflow_slots_vip_lock");
 		} finally {
 			closeScreen(ctx, world);
 			removeBlock(world, pos);
@@ -346,27 +360,59 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		removeBlock(world, pos);
 	}
 
+	/**
+	 * Fixed (hotfix A9): the bot table-settings gear on the card tables joins the canvas corner row, so it is drawn and
+	 * clickable. Checked at 1920 × 1080 and 2560 × 1440, GUI 2 / 3 / 4: find the gear, check it maps inside the window,
+	 * click it where it is drawn and get the Table settings screen.
+	 */
 	private void pokerGear(ClientGameTestContext ctx, TestSingleplayerContext world) {
-		BlockPos pos = pokerTable(ctx, world);
+		closeScreen(ctx, world);
+		BlockPos pos = place(world, PokerModule.TABLE.block(), 0, 2);
+		int[][] sizes = {{1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {2560, 1440, 2}, {2560, 1440, 3}, {2560, 1440, 4}};
 		try {
-			WidgetRef gear = widget(ctx, w -> w.getMessage().getString().equals("⚙"));
-			if (gear == null) throw new AssertionError("no gear widget: " + describe(ctx));
-			// where the gear is drawn and clickable: inside the window?
-			int[] win = ctx.computeOnClient(mc -> new int[] {mc.getWindow().getScreenWidth(), mc.getWindow().getScreenHeight()});
-			report.add("  poker gear at window " + Math.round(gear.windowX()) + "," + Math.round(gear.windowY()) + " (window " + win[0] + "x" + win[1] + ")");
-			if (gear.windowX() < 0 || gear.windowX() > win[0] || gear.windowY() < 0 || gear.windowY() > win[1]) {
-				throw new AssertionError("the bot-settings gear maps outside the window (" + Math.round(gear.windowX()) + ", " + Math.round(gear.windowY())
-					+ "): unreachable");
+			for (int[] size : sizes) {
+				closeScreen(ctx, world);
+				window(ctx, size[0], size[1], size[2]);
+				useBlock(ctx, pos);
+				awaitScreen(ctx, dev.nezo.burmaldaholic.games.poker.client.PokerScreen.class, 60);
+				ctx.waitTicks(20);
+				String at = size[0] + "x" + size[1] + " GUI " + size[2];
+				WidgetRef gear = widget(ctx, w -> w.getMessage().getString().equals("⚙"));
+				if (gear == null) throw new AssertionError(at + ": no gear widget: " + describe(ctx));
+				boolean drawn = ctx.computeOnClient(mc -> {
+					Object list = readField(mc.gui.screen(), "buttons"); // the canvas draws (and hit-tests) exactly this list
+					return list instanceof List<?> l && l.stream().anyMatch(o -> o instanceof net.minecraft.client.gui.components.AbstractWidget w
+						&& w.getMessage().getString().equals("⚙"));
+				});
+				if (!drawn) throw new AssertionError(at + ": the gear is not one of the canvas' drawn buttons");
+				int[] win = ctx.computeOnClient(mc -> new int[] {mc.getWindow().getScreenWidth(), mc.getWindow().getScreenHeight()});
+				report.add("  poker gear " + at + " at window " + Math.round(gear.windowX()) + "," + Math.round(gear.windowY()) + " (window " + win[0] + "x" + win[1] + ")");
+				if (gear.windowX() < 0 || gear.windowX() > win[0] || gear.windowY() < 0 || gear.windowY() > win[1]) {
+					throw new AssertionError(at + ": the gear maps outside the window (" + Math.round(gear.windowX()) + ", " + Math.round(gear.windowY()) + ")");
+				}
+				if (SCREENS) ctx.takeScreenshot("realflow_poker_gear_" + size[0] + "_gui" + size[2]);
+				clickWindow(ctx, gear.windowX(), gear.windowY());
+				awaitScreen(ctx, dev.nezo.burmaldaholic.bots.client.TableSettingsScreen.class, 40);
 			}
-			// the gear sits at (width − 24, 4) in screen space; click it there, as a player who sees it would
-			int sw = ctx.computeOnClient(mc -> mc.getWindow().getGuiScaledWidth());
-			double scale = ctx.computeOnClient(mc -> (double) mc.getWindow().getGuiScale());
-			clickWindow(ctx, (sw - 14) * scale, 14 * scale);
-			awaitScreen(ctx, dev.nezo.burmaldaholic.bots.client.TableSettingsScreen.class, 40);
 		} finally {
 			closeScreen(ctx, world);
 			removeBlock(world, pos);
+			window(ctx, 1920, 1080, 0);
 		}
+	}
+
+	/** Fixed (hotfix A9): the chip-counter HUD is not drawn while a casino screen is open (it peeked out top-left). */
+	private void hudHidden(ClientGameTestContext ctx, TestSingleplayerContext world) {
+		closeScreen(ctx, world);
+		if (ctx.computeOnClient(mc -> dev.nezo.burmaldaholic.client.hud.CasinoHud.casinoScreenOpen(mc))) {
+			throw new AssertionError("no screen open, yet the HUD counts as hidden");
+		}
+		ctx.getInput().pressKey(RealFlow.keyMapping(ctx, "key.burmaldaholic.open_menu"));
+		awaitScreenNamed(ctx, "CasinoMenuScreen");
+		if (!ctx.computeOnClient(mc -> dev.nezo.burmaldaholic.client.hud.CasinoHud.casinoScreenOpen(mc))) {
+			throw new AssertionError("the casino HUD is still drawn under the casino menu");
+		}
+		closeScreen(ctx, world);
 	}
 
 	// ---- helpers -----------------------------------------------------------------------------------------------------------

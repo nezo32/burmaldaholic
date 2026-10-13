@@ -119,6 +119,18 @@ public final class Plinko {
 		return s / PATHS;
 	}
 
+	/**
+	 * Minimum bet over the given tables: every landing above 1× pays at least +1 after flooring
+	 * ({@link Payouts#minStakeForProfit}): 3 with the default low table (1.4× and 1.6×), 1 for medium and high.
+	 */
+	public static long minBet(double[]... tables) {
+		long min = 1;
+		for (double[] t : tables) {
+			min = Math.max(min, Payouts.minStakeForProfit(t));
+		}
+		return min;
+	}
+
 	public static double maxMultiplier(double[] table) {
 		double m = 0;
 		for (double v : table) {

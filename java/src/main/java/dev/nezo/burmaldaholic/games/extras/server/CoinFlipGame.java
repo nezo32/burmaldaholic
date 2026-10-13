@@ -53,7 +53,7 @@ public final class CoinFlipGame {
 
 	static CompoundTag state(ServerPlayer player, CompoundTag result) {
 		CompoundTag tag = new CompoundTag();
-		ExtrasGames.writeLimits(tag, player, ExtrasGames.tierMax(player));
+		ExtrasGames.writeLimits(tag, player, CoinFlip.minBet(CasinoConfig.extras().coinFlip.payout), ExtrasGames.tierMax(player));
 		ExtrasGames.writePawnInfo(tag, player);
 		tag.putDouble("payout", CasinoConfig.extras().coinFlip.payout);
 		boolean soul = Stakes.soulWagerAvailable(player);
@@ -107,7 +107,8 @@ public final class CoinFlipGame {
 			ExtrasGames.sendError(player, ExtrasGames.error("invalid_bet_position"));
 			return;
 		}
-		Result<Stake> taken = ExtrasGames.takeStake(player, ExtrasGames.COIN, args, 0, true);
+		// the minimum stake keeps every win ≥ +1 after flooring (CoinFlip#minBet: 2 at the default 0.96)
+		Result<Stake> taken = ExtrasGames.takeStake(player, ExtrasGames.COIN, args, CoinFlip.minBet(CasinoConfig.extras().coinFlip.payout), 0, true);
 		if (!taken.isOk()) {
 			ExtrasGames.sendError(player, taken.error());
 			return;
