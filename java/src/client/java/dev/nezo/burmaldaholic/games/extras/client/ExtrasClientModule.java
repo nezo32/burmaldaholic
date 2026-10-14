@@ -26,6 +26,11 @@ public final class ExtrasClientModule implements CasinoClientModule {
 		dev.nezo.burmaldaholic.games.extras.client.pvp.coin.CoinDuelClient.register(); // PvP Coin Flip Duel (J-M1)
 		dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyClient.register(); // PvP Wheel Party (J-M2)
 		dev.nezo.burmaldaholic.games.extras.client.pvp.ExtrasPvpScreens.register(); // Plinko Battle + Scratch Showdown screens
+		// the local bets (and Plinko's last balls) live for one client session: a new world starts clean (R-CDE m5)
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			dev.nezo.burmaldaholic.games.extras.present.LocalBets.clear();
+			PlinkoScreen.clearSession();
+		});
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasScreenPayload.TYPE, (payload, context) -> accept(context.client(), payload));
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasErrorPayload.TYPE, (payload, context) -> {
 			if (context.client().gui.screen() instanceof ExtrasSceneScreen<?> screen) {

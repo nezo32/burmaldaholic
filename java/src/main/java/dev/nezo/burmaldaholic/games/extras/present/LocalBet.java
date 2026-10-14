@@ -18,6 +18,8 @@ import java.util.Deque;
 public final class LocalBet {
 	private long amount;
 	private long last;
+	/** The amount of a play sent and not yet answered by the server (0 = none). */
+	private long pending;
 	private final Deque<Long> chips = new ArrayDeque<>();
 
 	public LocalBet() {}
@@ -98,6 +100,25 @@ public final class LocalBet {
 	/** The amount was played: it becomes the Rebet target (the amount itself stays for the next round). */
 	public void played() {
 		last = amount;
+	}
+
+	/**
+	 * The play action was sent with the current amount; it becomes the Rebet target only when the server answers with
+	 * its result ({@link #ack}), so a refused play (limits, balance, a busy machine) never changes Rebet (R-CDE m5).
+	 */
+	public void sent() {
+		pending = amount;
+	}
+
+	/** The server's result for the play {@link #sent} arrived: that amount is now the Rebet target. */
+	public void ack() {
+		if (pending > 0) last = pending;
+		pending = 0;
+	}
+
+	/** The amount of a play sent and not yet answered (0 = none). */
+	public long pending() {
+		return pending;
 	}
 
 	/**

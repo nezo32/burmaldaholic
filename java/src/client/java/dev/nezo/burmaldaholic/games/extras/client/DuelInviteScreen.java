@@ -6,7 +6,6 @@ import dev.nezo.burmaldaholic.client.pvp.kit.InviteCard;
 import dev.nezo.burmaldaholic.client.ui.CasinoScreen;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
-import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
 import dev.nezo.burmaldaholic.games.extras.net.ExtrasActionPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -18,7 +17,7 @@ import net.minecraft.network.chat.Component;
 /**
  * PvP Dice Duel invitation, table UI v2 (REDESIGN.md §7.8 "Invite: a centred 232 × 96 card on a scrim"; lane E): the
  * {@link InviteCard} with the challenger's head, "Alex challenges you", "Dice Duel · 200 chips" 2× gold, the TimerBar, <b>Accept</b> {@code Y} and
- * <b>Decline</b> {@code N}. Only shown when the target has no other screen open; closes itself when it times out (the
+ * <b>Decline</b> {@code N} (Esc declines too). Only shown when the target has no other screen open; closes itself when it times out (the
  * dice screen still lists the challenge until then).
  *
  * <p>Hit ids {@code accept}, {@code decline} ({@link #hits()} for client GameTests).
@@ -73,7 +72,8 @@ final class DuelInviteScreen extends CasinoScreen {
 			answer("accept");
 			return true;
 		}
-		if (event.key() == Inputs.KEY_N) {
+		if (event.key() == Inputs.KEY_N || event.isEscape()) {
+			// Esc answers too: a dismissed card declines, so the challenger is not left waiting out the timer (R-CDE m5)
 			answer("decline");
 			return true;
 		}

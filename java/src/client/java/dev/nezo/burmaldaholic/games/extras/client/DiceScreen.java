@@ -30,6 +30,7 @@ import dev.nezo.burmaldaholic.games.extras.present.ExtrasKeys;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasLayout;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasView;
 import dev.nezo.burmaldaholic.games.extras.present.LocalBet;
+import dev.nezo.burmaldaholic.games.extras.present.LocalBets;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -54,7 +55,8 @@ import net.minecraft.util.Util;
 final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 	private static final Identifier DICE = TableGfx.sheet("extras/dice_duel_dice_big");
 	private static final Identifier TUMBLE = TableGfx.sheet("extras/dice_duel_tumble_big");
-	private static final LocalBet BET = new LocalBet(0);
+	/** This machine's bet in the client session (per position, R-CDE m5). */
+	private final LocalBet bet;
 	private static final BetControl PAWN = new BetControl(true, 1);
 
 	private String target = "";
@@ -76,6 +78,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 
 	DiceScreen(CompoundTag state) {
 		super("dice", Component.translatable("gui.burmaldaholic.extras.dice.title"), state);
+		this.bet = LocalBets.of("dice", LocalBets.HAND);
 		this.target = state.getStringOr("target", "");
 		this.shownSeq = state.getCompoundOrEmpty("result").getIntOr("seq", -1);
 		this.theme = TableKit.theme(dev.nezo.burmaldaholic.client.ui.CasinoTheme.byId(state.getStringOr("theme", "village")));
@@ -84,7 +87,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 			resultAt = Util.getMillis() - 60_000;
 			bannerShown = true;
 		}
-		if (BET.amount() <= 0) BET.add(Math.max(1, state.getLongOr("min", 1)), state.getLongOr("max", 0), state.getLongOr("balance", 0));
+		if (bet.amount() <= 0) bet.add(Math.max(1, state.getLongOr("min", 1)), state.getLongOr("max", 0), state.getLongOr("balance", 0));
 		chrome.keys(KeyMap.standard().bind(KeyMap.Y, KeyMap.Ids.felt("accept")).bind(KeyMap.N, KeyMap.Ids.felt("decline")));
 	}
 
@@ -101,8 +104,8 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 		if (!chips()) {
 			return ExtrasView.pawn(busy, null, PAWN.kind().equals(BetControl.ITEM) ? s.getLongOr("held_value", 0) : PAWN.amount(), PAWN.max(s));
 		}
-		BET.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
-		return ExtrasView.chips(BET.view(s.getLongOr("min", 1), s.getLongOr("max", 0), shownBalance(), busy), busy, null, 2 * BET.amount());
+		bet.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
+		return ExtrasView.chips(bet.view(s.getLongOr("min", 1), s.getLongOr("max", 0), shownBalance(), busy), busy, null, 2 * bet.amount());
 	}
 
 	@Override
@@ -121,13 +124,13 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 		return new BetPort() {
 			@Override
 			public void add(long denom) {
-				BET.add(denom, state().getLongOr("max", 0), shownBalance());
+				bet.add(denom, state().getLongOr("max", 0), shownBalance());
 				local();
 			}
 
 			@Override
 			public void remove(long denom) {
-				BET.undo();
+				bet.undo();
 				local();
 			}
 
@@ -136,10 +139,10 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 				long max = state().getLongOr("max", 0);
 				long bal = shownBalance();
 				switch (id) {
-					case BetGates.UNDO -> BET.undo();
-					case BetGates.CLEAR -> BET.clear();
-					case BetGates.REBET -> BET.rebet(max, bal);
-					case BetGates.DOUBLE -> BET.dbl(max, bal);
+					case BetGates.UNDO -> bet.undo();
+					case BetGates.CLEAR -> bet.clear();
+					case BetGates.REBET -> bet.rebet(max, bal);
+					case BetGates.DOUBLE -> bet.dbl(max, bal);
 					default -> {}
 				}
 				local();
@@ -151,7 +154,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 		if (!chips()) return PAWN.args();
 		CompoundTag t = new CompoundTag();
 		t.putString("stake", "chips");
-		t.putLong("amount", BET.amount());
+		t.putLong("amount", bet.amount());
 		return t;
 	}
 
@@ -159,7 +162,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 	public void onGate(String id, Gate gate) {
 		switch (gate.action()) {
 			case "roll" -> {
-				if (chips()) BET.played();
+				if (chips()) bet.sent();
 				rollPressedAt = Util.getMillis();
 				skipped = true; // a new roll skips the previous result's beats
 				FxSounds.play("dice_cup", 1f);
@@ -195,6 +198,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 		int seq = r.getIntOr("seq", -1);
 		if (seq >= 0 && seq != shownSeq) {
 			shownSeq = seq;
+			if ("house".equals(r.getStringOr("mode", ""))) bet.ack(); // the server played the amount: it becomes Rebet
 			loadRounds(r);
 			resultAt = Util.getMillis();
 			rollPressedAt = -1;
@@ -338,7 +342,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 			ListTag nearby = s.getListOrEmpty("nearby");
 			if (s.getCompoundOrEmpty("outgoing").isEmpty() && !nearby.isEmpty()) {
 				hits.add(KeyMap.Ids.felt("target"), targetBox(), nearby.size() > 1);
-				hits.add(KeyMap.Ids.felt("challenge"), challengeBox(), chips() && BET.amount() > 0);
+				hits.add(KeyMap.Ids.felt("challenge"), challengeBox(), chips() && bet.amount() > 0);
 			}
 			if (!s.getListOrEmpty("incoming").isEmpty()) {
 				hits.add(KeyMap.Ids.felt("accept"), acceptBox(), true);
@@ -383,7 +387,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 				}
 				CompoundTag args = new CompoundTag();
 				args.putString("target", currentTarget());
-				args.putLong("amount", Math.max(1, BET.amount()));
+				args.putLong("amount", Math.max(1, bet.amount()));
 				send("challenge", args);
 				return true;
 			}
@@ -461,7 +465,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 				Texts.raw(name));
 			V2Button.draw(g, font, targetBox(), who, null, V2Sprites.ButtonStyle.NORMAL, nearby.size() > 1, targetBox().contains(mx, my), false, false);
 			V2Button.draw(g, font, challengeBox(), Component.translatable("gui.burmaldaholic.extras.dice.challenge_amount",
-				Texts.chipsAcc(Math.max(1, BET.amount()))), null, V2Sprites.ButtonStyle.NORMAL, chips() && BET.amount() > 0, challengeBox().contains(mx, my),
+				Texts.chipsAcc(Math.max(1, bet.amount()))), null, V2Sprites.ButtonStyle.NORMAL, chips() && bet.amount() > 0, challengeBox().contains(mx, my),
 				false, false);
 		}
 		ListTag incoming = s.getListOrEmpty("incoming");

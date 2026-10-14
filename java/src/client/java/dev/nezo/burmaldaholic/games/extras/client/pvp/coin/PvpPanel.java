@@ -88,7 +88,39 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 		frame = PvpFrame.layout(width, height);
 		left = frame.panelLeft();
 		top = frame.panelTop();
-		layout();
+		int bottom = layout();
+		// R-M7: wrapped lines (RU) push the content down: the panel grows, moving up into the PlayArea's free band (never
+		// under the TopBar) so the content ends above the error line and the Dock
+		int limit = errorY() - 2;
+		if (bottom > limit) {
+			int room = top + PvpFrame.CONTENT_TOP - (frame.play().y() + 2);
+			int lift = Math.max(0, Math.min(bottom - limit, room));
+			if (lift > 0) {
+				clearWidgets();
+				top -= lift;
+				bottom = layout();
+			}
+		}
+		contentBottom = bottom;
+		panelHeight = Math.max(Scene.H, bottom - top + 14);
+	}
+
+	/** Absolute y below the content of the last layout (client GameTests: the panel holds every wrapped line). */
+	protected int contentBottom;
+
+	/** The content's bottom of the last layout. */
+	public int contentBottom() {
+		return contentBottom;
+	}
+
+	/** The panel's height after the regrow (≥ the content). */
+	public int panelHeight() {
+		return panelHeight;
+	}
+
+	/** The panel's top after the regrow. */
+	public int panelTop() {
+		return top;
 	}
 
 	/** Adds the widgets; returns the absolute y below the content. */
