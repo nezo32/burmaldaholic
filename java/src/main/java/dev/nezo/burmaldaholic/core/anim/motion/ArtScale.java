@@ -15,6 +15,9 @@ public final class ArtScale {
 	/** The integer scale is kept when it is at least this fraction of the available ratio. */
 	public static final double INTEGER_KEEP = 0.8;
 
+	/** Smallest ratio (physical px per art px) ever returned, for empty or degenerate boxes. */
+	public static final double MIN_RATIO = 1e-3;
+
 	private ArtScale() {}
 
 	/**
@@ -71,7 +74,9 @@ public final class ArtScale {
 	 */
 	public static Result pick(int artW, int artH, double boxW, double boxH, int k) {
 		if (artW <= 0 || artH <= 0 || k < 1) throw new IllegalArgumentException(artW + "x" + artH + " k" + k);
-		double r = Math.max(0, Math.min(boxW * k / artW, boxH * k / artH));
+		double r = Math.min(boxW * k / artW, boxH * k / artH);
+		// a degenerate box (≤ 0, NaN) must never give scale 0: draws would divide by it or throw in render
+		if (!(r >= MIN_RATIO)) r = MIN_RATIO;
 		double fl = Math.floor(r);
 		boolean integral = fl >= 1 && fl >= INTEGER_KEEP * r;
 		double n = integral ? fl : r;

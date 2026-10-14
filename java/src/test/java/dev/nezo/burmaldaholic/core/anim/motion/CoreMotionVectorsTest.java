@@ -20,7 +20,8 @@ import org.junit.jupiter.api.Test;
  * Golden vectors of the motion kit: {@code src/test/resources/fx/vectors/core_motion.json} (next to
  * {@code core_anim.json}) holds the outputs of fixed inputs, so the server, every client and a Bedrock port stay in
  * sync across refactors. Regenerate only after an intended change:
- * {@code FX_DUMP_VECTORS=1 ./gradlew test --tests '*CoreMotionVectorsTest'}.
+ * {@code FX_DUMP_VECTORS=1 ./gradlew test --tests '*CoreMotionVectorsTest'}. A missing file FAILS the test (it is
+ * never silently regenerated).
  */
 class CoreMotionVectorsTest {
 	private static final double TOL = 1e-9;
@@ -29,7 +30,10 @@ class CoreMotionVectorsTest {
 	void vectorsMatch() throws IOException {
 		Path file = Path.of(System.getProperty("burmaldaholic.projectDir", "."), "src/test/resources/fx/vectors/core_motion.json");
 		JsonObject actual = compute();
-		if (System.getenv("FX_DUMP_VECTORS") != null || !Files.isRegularFile(file)) {
+		if (System.getenv("FX_DUMP_VECTORS") == null && !Files.isRegularFile(file)) {
+			fail("golden vectors missing: " + file + " (regenerate deliberately with FX_DUMP_VECTORS=1)");
+		}
+		if (System.getenv("FX_DUMP_VECTORS") != null) {
 			Files.createDirectories(file.getParent());
 			Files.writeString(file, new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(actual) + "\n", StandardCharsets.UTF_8);
 			return;
@@ -132,7 +136,8 @@ class CoreMotionVectorsTest {
 			}
 		}
 		o.add("heightShadow", hs);
-		o.add("oscillation", arr(new double[] {Oscillation.dampedSin(2, 120, 22, 17), Oscillation.dampedCos(1, 40, 90, 33), Oscillation.shake(2, 450, 22, 123)}));
+		o.add("oscillation", arr(new double[] {Oscillation.dampedSin(2, 120, Oscillation.periodOfHz(22), 17), Oscillation.dampedCos(1, 40, 90, 33),
+			Oscillation.shake(2, 450, Oscillation.periodOfHz(22), 123)}));
 		return o;
 	}
 
