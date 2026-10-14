@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
@@ -14,6 +15,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.extras.logic.CoinFlip;
 import dev.nezo.burmaldaholic.games.extras.logic.Payouts;
@@ -271,9 +273,8 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 
 	@Override
 	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-		int k = event.key();
-		if ((k == KeyMap.ENTER || k == 335 || k == KeyMap.SPACE) && flipping() && skip()) return true;
-		if (mode == Mode.TYPE && word != null && word.isFocused() && k != KeyMap.ESCAPE) return word.keyPressed(event);
+		if (event.isSelection() && flipping() && skip()) return true; // Space / Enter / keypad Enter, resolved by the running version
+		if (mode == Mode.TYPE && word != null && word.isFocused() && !event.isEscape()) return word.keyPressed(event);
 		return super.keyPressed(event);
 	}
 
@@ -324,7 +325,7 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (id.equals(KeyMap.Ids.felt("coin"))) return skip();
 		if (!enabled && id.startsWith("felt.")) {
 			chrome.refuse(Gate.off(id, ExtrasKeys.YOUR_CALL, ExtrasKeys.REASON_FLIPPING));
@@ -424,7 +425,7 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (mode == Mode.HOLD && event.button() == 0 && holdBar().contains(event.x(), event.y())) {
+		if (mode == Mode.HOLD && Inputs.isLeft(event.button()) && holdBar().contains(event.x(), event.y())) {
 			holding = true;
 			holdStartMs = Util.getMillis();
 			sendRaw("soul_arm", new CompoundTag());

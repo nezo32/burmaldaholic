@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.fx.TableClock;
 import dev.nezo.burmaldaholic.client.ui.CasinoTheme;
 import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
@@ -24,6 +25,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsBeats;
@@ -169,13 +171,13 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (!id.startsWith("felt.") || view == null) return false;
-		if (button == 1) {
+		if (button.right()) {
 			sendTracked("undo");
 			return true;
 		}
-		if (button > 1) return true; // scroll over the felt: nothing
+		if (!button.left()) return true; // scroll over the felt: nothing
 		long chip = chrome.bet.armOrDefault();
 		if (chip <= 0) {
 			chrome.status.flash(V2Draw.tr(K2 + "reason.not_enough", view.min()));
@@ -205,7 +207,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			@Override
 			public void add(long denom) {
 				// multi-spot: chips arm (the chrome never calls add); a stray call bets the Pass line on the come-out
-				if (view != null) onTarget(CrapsLayout.PASS, true, 0);
+				if (view != null) onTarget(CrapsLayout.PASS, true, Press.LEFT);
 			}
 
 			@Override
@@ -324,8 +326,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == 32 && !chrome.primary.gate().enabled() && skipBeats()) return true;
-		if (event.key() == 256 && showRules) {
+		if (event.key() == Inputs.KEY_SPACE && !chrome.primary.gate().enabled() && skipBeats()) return true;
+		if (event.isEscape() && showRules) {
 			showRules = false;
 			return true;
 		}
