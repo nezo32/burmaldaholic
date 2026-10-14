@@ -46,6 +46,30 @@ class LoopBudgetTest {
 	}
 
 	@Test
+	void screenLoopsEvictTheWorldLoop() {
+		LoopBudget<FakeLoop> b = new LoopBudget<>(2, 1);
+		java.util.List<FakeLoop> evicted = new java.util.ArrayList<>();
+		FakeLoop world = new FakeLoop();
+		FakeLoop world2 = new FakeLoop();
+		assertTrue(b.tryAdd(world, true, GONE, evicted::add), "a WORLD loop takes a free slot");
+		assertFalse(b.tryAdd(world2, true, GONE, evicted::add), "WORLD capped at 1 slot");
+		FakeLoop screen1 = new FakeLoop();
+		FakeLoop screen2 = new FakeLoop();
+		assertTrue(b.tryAdd(screen1, false, GONE, evicted::add), "SCREEN takes the free slot");
+		assertTrue(evicted.isEmpty());
+		assertTrue(b.tryAdd(screen2, false, GONE, evicted::add), "SCREEN evicts the WORLD loop");
+		assertEquals(java.util.List.of(world), evicted);
+		assertFalse(b.holds(world));
+		assertEquals(0, b.worldCount());
+		assertFalse(b.tryAdd(new FakeLoop(), false, GONE, evicted::add), "two SCREEN loops: a third SCREEN loop gets NONE");
+		assertFalse(b.tryAdd(world2, true, GONE, evicted::add), "a WORLD loop never evicts a SCREEN loop");
+		screen1.released = true; // re-request after release
+		assertTrue(b.tryAdd(world2, true, GONE, evicted::add));
+		assertEquals(1, b.worldCount());
+		assertEquals(1, evicted.size());
+	}
+
+	@Test
 	void releaseFreesAtOnceEvenIfTheEngineStillReportsIt() {
 		LoopBudget<FakeLoop> b = new LoopBudget<>(2);
 		FakeLoop a = new FakeLoop();

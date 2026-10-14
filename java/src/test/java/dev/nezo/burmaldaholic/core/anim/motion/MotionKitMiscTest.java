@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.core.anim.motion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -24,12 +25,28 @@ class MotionKitMiscTest {
 	}
 
 	@Test
+	void ballisticValidatesGravity() {
+		for (double g : new double[] {0, -9, Double.NaN, Double.POSITIVE_INFINITY}) {
+			assertThrows(IllegalArgumentException.class, () -> Ballistic.fallTime(0, 1, g));
+			assertThrows(IllegalArgumentException.class, () -> Ballistic.hopTime(1, g));
+			assertThrows(IllegalArgumentException.class, () -> Ballistic.apexOfHop(1, g));
+			assertThrows(IllegalArgumentException.class, () -> Ballistic.apexTime(1, g));
+			assertThrows(IllegalArgumentException.class, () -> Ballistic.vzForApex(1, g));
+			assertThrows(IllegalArgumentException.class, () -> Ballistic.flightTime(0, 1, g));
+		}
+		// later root: thrown up at 60 px/s (y down), crossing 1 px ABOVE the start is the descending crossing
+		double t = Ballistic.fallTime(-60, -1, 900);
+		assertTrue(t > 60 / 900.0, "after the apex");
+		assertEquals(-1, Ballistic.pos(0, -60, 900, t), 1e-12);
+	}
+
+	@Test
 	void heightShadowLooks() {
 		HeightShadow.Out o = new HeightShadow.Out();
-		HeightShadow.apply(0, 1, o);
+		HeightShadow.apply(HeightShadow.ROULETTE, 0, 1, o);
 		assertEquals(0, o.dy, 0);
 		assertEquals(0.45, o.shadowAlpha, 1e-12);
-		HeightShadow.apply(4, 0.5, o); // RO §3.5: (−0.3z, −0.7z)·k, α 0.45·(1 − z/8)
+		HeightShadow.apply(HeightShadow.ROULETTE, 4, 0.5, o); // RO §3.5: (−0.3z, −0.7z)·k, α 0.45·(1 − z/8)
 		assertEquals(-0.6, o.dx, 1e-12);
 		assertEquals(-1.4, o.dy, 1e-12);
 		assertEquals(0.225, o.shadowAlpha, 1e-12);
@@ -92,8 +109,15 @@ class MotionKitMiscTest {
 	void oscillationsDecayAndStop() {
 		assertEquals(0, Oscillation.dampedSin(2, 450, 22, -1), 0);
 		assertEquals(1, Oscillation.dampedCos(1, 40, 90, 0), 1e-12);
-		assertEquals(0, Oscillation.shake(2, 60, 22, 60 * 4), 0, "finished shake is exactly 0");
-		assertTrue(Math.abs(Oscillation.shake(2, 450, 22, 5)) > 0);
+		double p22 = Oscillation.periodOfHz(22);
+		assertEquals(1000 / 22.0, p22, 1e-12);
+		assertEquals(0, Oscillation.shake(2, 60, p22, 60 * 4), 0, "finished shake is exactly 0");
+		assertTrue(Math.abs(Oscillation.shake(2, 450, p22, 5)) > 0);
+		assertEquals(2 * Math.exp(-5 / 450.0) * Math.sin(2 * Math.PI * 22 * 5 / 1000.0), Oscillation.shake(2, 450, p22, 5), 1e-12,
+			"period ms ≡ 22 Hz");
+		assertEquals(0, Oscillation.shake(2, 0, p22, 5), 0, "a shake without decay never runs (would never end)");
+		assertEquals(0, Oscillation.shake(2, -10, p22, 5), 0);
+		assertTrue(Oscillation.envelope(-100, 100) > 2.7, "negative tau grows");
 	}
 
 	@Test

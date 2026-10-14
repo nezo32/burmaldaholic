@@ -10,7 +10,7 @@ import dev.nezo.burmaldaholic.core.anim.motion.SoundMixer;
  *
  * <pre>{@code
  * sounds.crowd(ballsInFlight, leadSlot);            // optional lead-object voicing
- * for (Ball b : balls) sounds.advance(b.cursor, now - b.startMs, b.startMs, voicing, b::visual);
+ * for (Ball b : balls) sounds.advance(b.cursor, now - b.startMs, b.startMs, VOICING, b.visualListener);
  * sounds.flush();                                   // voices the merged batch
  * }</pre>
  *
@@ -18,7 +18,9 @@ import dev.nezo.burmaldaholic.core.anim.motion.SoundMixer;
  * listener but are never voiced). The {@link Voicing} maps an event to a sound id, volume and pitch (or declines it);
  * the {@link SoundMixer} applies the 30 ms merge window, per-id limits and lead-object voicing; {@link #flush} plays
  * the survivors through {@link FxSounds#play} / {@link FxSounds#playAt} (which add the 20/s overall and 15/s per-id
- * caps and the {@code anim.volume} setting). Allocation-free per frame; one instance per screen / renderer.
+ * caps and the {@code anim.volume} setting). Allocation-free per frame as long as the {@link Voicing} and the visual
+ * listener are stored in fields (a {@code b::visual} method reference or a capturing lambda allocates on every call).
+ * One instance per screen / renderer.
  */
 public final class SoundCursor implements EventCursor.Listener {
 	/** Maps an event to a sound; return false to stay silent. */

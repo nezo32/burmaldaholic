@@ -25,7 +25,8 @@
  * </ul>
  *
  * <p>Units: time in ms unless a parameter says otherwise; rates (velocities, accelerations, angular speeds) per
- * SECOND. No Minecraft imports. Golden vectors: {@code src/test/resources/fx/vectors/core_motion.json}. The client
+ * SECOND. Transcendentals use {@code StrictMath}, so values are bit-identical on every CPU and JVM and discrete
+ * choices derived from them agree between viewers. No Minecraft imports. Golden vectors: {@code src/test/resources/fx/vectors/core_motion.json}. The client
  * half lives in {@code dev.nezo.burmaldaholic.client.fx.motion}.
  */
 package dev.nezo.burmaldaholic.core.anim.motion;
