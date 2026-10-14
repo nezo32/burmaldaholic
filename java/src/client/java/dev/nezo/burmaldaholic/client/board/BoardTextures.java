@@ -41,7 +41,30 @@ public final class BoardTextures {
 		for (int t = 0; t < THEMES.length; t++) RAIL[t] = Burmaldaholic.id("textures/entity/core/board/rail_w_" + THEMES[t] + ".png");
 	}
 
+	/** Furniture themes of the multi-block tables (MT {@code furniture.mjs}): the print decal matches their felt. */
+	public static final String[] FURNITURE = {"standard", "high_roller", "player_banked"};
+	/** Shapes of the full-table felt print ({@code TableGame.FeltShape}). */
+	public static final String[] PRINT_SHAPES = {"crescent", "oval", "rect", "roulette"};
+	private static final Identifier[][] PRINT = new Identifier[PRINT_SHAPES.length][FURNITURE.length];
+
+	static {
+		for (int sh = 0; sh < PRINT_SHAPES.length; sh++) {
+			for (int t = 0; t < FURNITURE.length; t++) {
+				PRINT[sh][t] = Burmaldaholic.id("textures/entity/core/board/felt_print_" + PRINT_SHAPES[sh] + "_" + FURNITURE[t] + ".png");
+			}
+		}
+	}
+
 	private BoardTextures() {}
+
+	/**
+	 * {@code felt_print_<shape>_<furniture>.png}: the hi-res felt of a full table (64 texels per block over the
+	 * {@code FeltFrame}, inside the rail): baize grain in the furniture's felt colours, a soft edge shade and the printed
+	 * lines; transparent outside the rounded felt.
+	 */
+	public static Identifier print(dev.nezo.burmaldaholic.core.table.parts.TableGame.FeltShape shape, int furniture) {
+		return PRINT[shape.ordinal()][furniture < 0 || furniture >= FURNITURE.length ? 0 : furniture];
+	}
 
 	public static Identifier felt(BoardGeometry.Felt f, int theme) {
 		return FELT[f.ordinal()][clampTheme(theme)];

@@ -2,11 +2,12 @@
 //   textures/entity/core/board/faces_w2.png                 512 × 256 card faces (37 × 49, 13 × 4) + backs (row 4)
 //   textures/entity/core/board/chips_w.png                  128 × 64 chip tops (16²) + 6-disc side bands (16 × 24)
 //   textures/entity/core/board/felt_w_<shape>_<theme>.png   felt tops with the rail, 64 texels per block, cutout
+//   textures/entity/core/board/felt_print_<shape>_<furniture>.png  full 3×2 table felt decal (FeltFrame), 64 texels per block
 //   textures/entity/core/board/rail_w_<theme>.png           16 × 16 apron wood
 //   textures/entity/core/board/holo_backing.png             4 × 4 white (the text backing, tinted in code)
 // UV contracts live in java client/board/BoardTextures; shapes in core/ui/v2/board/BoardGeometry (FELTS mirrors it).
 import { png, JAVA_ASSETS } from '../lib/emit.mjs';
-import { FELTS, THEMES, chipsW, facesW2, feltTop, holoBacking, railSide } from './board/art.mjs';
+import { FELTS, PRINT_FELTS, PRINT_THEMES, THEMES, chipsW, facesW2, feltPrint, feltTop, holoBacking, railSide } from './board/art.mjs';
 
 const T = `${JAVA_ASSETS}/textures/entity/core/board`;
 
@@ -19,5 +20,8 @@ export default function generate() {
     out.push(png(`${T}/rail_w_${theme}.png`, railSide(theme)));
     for (const shape of Object.keys(FELTS)) out.push(png(`${T}/felt_w_${shape}_${theme}.png`, feltTop(shape, theme)));
   }
+  // full multi-block tables: the felt print decal over FeltFrame (java BoardTextures.print)
+  for (const theme of Object.keys(PRINT_THEMES))
+    for (const shape of Object.keys(PRINT_FELTS)) out.push(png(`${T}/felt_print_${shape}_${theme}.png`, feltPrint(shape, theme)));
   return out;
 }
