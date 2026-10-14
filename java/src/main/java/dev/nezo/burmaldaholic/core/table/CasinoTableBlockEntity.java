@@ -255,6 +255,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (seats().leave(player).isPresent()) {
 			onPlayerLeft(player, reason);
 			firePlayerLeft(player, reason);
+			if (!isViewer(player)) acks.remove(player); // gone: its ack counter goes too (review R-CDE m6)
 			syncViewers();
 		}
 	}
@@ -708,7 +709,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 				}
 			}
 		}
-		if (server.getTickCount() % PUBLIC_PERIOD == 0 && publicSeats()) publishSeats(level);
+		if ((server.getTickCount() + Math.floorMod(worldPosition.hashCode(), PUBLIC_PERIOD)) % PUBLIC_PERIOD == 0 && publicSeats()) {
+			publishSeats(level); // offset by position: a casino's tables do not all publish on the same tick (review R-KW m15)
+		}
+		if ((server.getTickCount() + Math.floorMod(worldPosition.hashCode(), ACK_SWEEP_TICKS)) % ACK_SWEEP_TICKS == 0) pruneAcks(level);
 		serverTick(level);
 	}
 
@@ -832,12 +836,25 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		long[] limits = limitsFor(viewer);
 		tag.putLong("min", limits[0]);
 		tag.putLong("max", limits[1]);
-		tag.putLong("ack", acks.getOrDefault(viewer.getUUID(), 0L));
+		long[] ack = ackEntry(viewer.getUUID());
+		tag.putInt("ack_epoch", (int) ack[0]);
+		tag.putLong("ack", ack[1]);
 		return tag;
 	}
 
 	public void sendStateTo(ServerPlayer player) {
+		if (player.getUUID().equals(dispatchingFor)) {
+			stateDeferred = true; // the action being handled answers with ONE state at its end (review R-KW B4)
+			return;
+		}
 		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, writeClientState(player)));
+	}
+
+	/** Whether {@code player} has this table's screen open. */
+	protected boolean isViewer(UUID player) {
+		if (!(level instanceof ServerLevel serverLevel)) return false;
+		ServerPlayer p = serverLevel.getServer().getPlayerList().getPlayer(player);
+		return p != null && !p.isRemoved() && p.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition);
 	}
 
 	/** Shows {@code message} as the error line of the player's table screen (and in the action bar). */
@@ -860,15 +877,54 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 	}
 
-	/** Per player: table actions handled (the v2 ack watchdog's echo, docs/architecture/ui-v2.md §5.2; not persisted). */
-	private final java.util.Map<java.util.UUID, Long> acks = new java.util.HashMap<>();
+	/**
+	 * Per player: {@code {epoch, actions handled}} (the v2 ack watchdog's echo, docs/architecture/ui-v2.md §5.2; not
+	 * persisted). The epoch is a random non-zero id of the entry's life: a reloaded table or a re-created entry starts a
+	 * new counter, and the client re-bases on it instead of waiting for the old count (review R-KW M8). Entries of
+	 * players who neither sit nor watch are pruned (leave, and a sweep every {@link #ACK_SWEEP_TICKS}; review R-CDE m6).
+	 */
+	private final Map<UUID, long[]> acks = new HashMap<>();
+	/** Ticks between sweeps of the ack entries of players who left (30 s). */
+	static final int ACK_SWEEP_TICKS = 600;
+	/** The player whose action is being handled: their states are deferred to one at its end (review R-KW B4). */
+	private @Nullable UUID dispatchingFor;
+	private boolean stateDeferred;
 
-	/** Generic actions handled by core before {@link #onAction}. */
+	private long[] ackEntry(UUID player) {
+		return acks.computeIfAbsent(player, p -> {
+			int epoch = 0;
+			while (epoch == 0) epoch = java.util.concurrent.ThreadLocalRandom.current().nextInt(); // cosmetic id, not game RNG
+			return new long[] {epoch, 0};
+		});
+	}
+
+	/** The ack entries this table keeps (tests). */
+	public int ackEntries() {
+		return acks.size();
+	}
+
+	/** Drops the ack entries of players who are neither seated nor watching. */
+	void pruneAcks(ServerLevel level) {
+		acks.keySet().removeIf(p -> !seats().isSeated(p) && !isViewer(p));
+	}
+
+	/**
+	 * Generic actions handled by core before {@link #onAction}. Every action is answered by exactly ONE state to the
+	 * sender, with a higher {@code ack}, after everything the action changed (review R-KW B4: a sit used to send two):
+	 * while it runs, {@link #sendStateTo} for the sender is deferred; other viewers are synced at once; an error message
+	 * goes out before that state.
+	 */
 	void handleAction(ServerPlayer player, String action, CompoundTag args) {
-		acks.merge(player.getUUID(), 1L, Long::sum);
+		ackEntry(player.getUUID())[1]++;
+		UUID outer = dispatchingFor;
+		boolean outerDeferred = stateDeferred;
+		dispatchingFor = player.getUUID();
+		stateDeferred = false;
 		try {
 			dispatchAction(player, action, args);
 		} finally {
+			dispatchingFor = outer;
+			stateDeferred = outerDeferred;
 			sendStateTo(player); // v2 kit: every action is answered by a state with a higher "ack": no click is silently lost
 		}
 	}
@@ -916,10 +972,20 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			try {
 				return TablePublic.ofOccupants(t.occupants());
 			} catch (RuntimeException e) {
-				// a table whose bots are not ready yet (no level): the base seats
+				logOnce(e); // a table whose bots are not ready yet (no level): the base seats
 			}
 		}
 		return TablePublic.of(seats());
+	}
+
+	private static final java.util.Set<Class<?>> LOGGED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+	/** A swallowed failure of the public header: logged once per table class (review R-KW m15). */
+	private void logOnce(RuntimeException e) {
+		if (LOGGED.add(getClass())) {
+			Burmaldaholic.LOGGER.warn("Table {} at {}: the bot-aware seat header failed, using the base seats (logged once per table type)", gameId(),
+				worldPosition, e);
+		}
 	}
 
 	/** Seat count of the header (the bot-aware model may have more seats than the base one). */
@@ -928,7 +994,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			try {
 				return Math.max(seats().size(), t.botSeatCount());
 			} catch (RuntimeException e) {
-				// fall through
+				logOnce(e); // fall through
 			}
 		}
 		return seats().size();

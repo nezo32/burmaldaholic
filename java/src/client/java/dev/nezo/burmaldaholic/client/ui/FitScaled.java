@@ -24,10 +24,28 @@ public interface FitScaled {
 	 */
 	float fitScale();
 
+	/**
+	 * Where the screen's GUI starts inside the real GUI, in real GUI px (a framed table UI v2 screen, ui-v2.md §3.7:
+	 * the frame is centred; the entrance translates the pose by it and the mouse mixin subtracts it). Default 0.
+	 */
+	default float offsetX() {
+		return 0f;
+	}
+
+	default float offsetY() {
+		return 0f;
+	}
+
 	/** The factor of the open screen (1 for any other screen). */
 	static float current() {
 		Screen s = Minecraft.getInstance().gui.screen();
 		return s instanceof FitScaled f ? f.fitScale() : 1f;
+	}
+
+	/** The frame offset of the open screen in real GUI px ({0, 0} for any other screen). */
+	static float[] currentOffset() {
+		Screen s = Minecraft.getInstance().gui.screen();
+		return s instanceof FitScaled f ? new float[] {f.offsetX(), f.offsetY()} : new float[2];
 	}
 
 	/**
@@ -58,10 +76,11 @@ public interface FitScaled {
 	}
 
 	/**
-	 * Table UI v2 (docs/architecture/ui-v2.md D2, D3): resizes {@code screen} into the virtual GUI of
-	 * {@link dev.nezo.burmaldaholic.core.ui.v2.Viewport} — the player's GUI kept between 320 × 240 and 539 px high, stepped
-	 * down below, stepped UP by whole factors from 540 px high. The returned viewport's {@code factor} (may be &gt; 1) is
-	 * what the screen reports as {@link #fitScale()}: the entrance scales the pose by it and the mouse mixin divides by it.
+	 * Table UI v2 (docs/architecture/ui-v2.md D2, D3, §3.7): resizes {@code screen} into the FRAME of the virtual GUI of
+	 * {@link dev.nezo.burmaldaholic.core.ui.v2.ViewportPolicy} — the player's GUI kept between 240 and 720 px high, stepped
+	 * down below, stepped UP by whole factors above 720, and capped at a centred 16:9 frame of ≤ 600 px high. The returned
+	 * viewport's {@code factor} (may be &gt; 1) is what the screen reports as {@link #fitScale()} and its {@code guiOx/guiOy}
+	 * as {@link #offsetX()} / {@link #offsetY()}: the entrance translates and scales the pose, the mouse mixin undoes both.
 	 * Same {@code memo} contract as {@link #apply}.
 	 */
 	static dev.nezo.burmaldaholic.core.ui.v2.Viewport applyViewport(Screen screen, int[] memo) {
@@ -72,8 +91,8 @@ public interface FitScaled {
 		Window w = Minecraft.getInstance().getWindow();
 		int gs = Math.max(1, w.getGuiScale());
 		dev.nezo.burmaldaholic.core.ui.v2.Viewport vp = dev.nezo.burmaldaholic.core.ui.v2.Viewport.of(w.getWidth(), w.getHeight(), gs);
-		screen.width = vp.w();
-		screen.height = vp.h();
+		screen.width = vp.frameW(); // the screen works in its frame (§3.7); the full layout only when unframed
+		screen.height = vp.frameH();
 		memo[2] = screen.width;
 		memo[3] = screen.height;
 		return vp;
@@ -82,8 +101,11 @@ public interface FitScaled {
 	/** Scales the pose for drawing in {@code screen}'s GUI; returns true when it pushed (then call {@link #pop}). */
 	static boolean push(GuiGraphicsExtractor g, Screen screen) {
 		float f = screen instanceof FitScaled s ? s.fitScale() : 1f;
-		if (f == 1f) return false;
+		float ox = screen instanceof FitScaled s ? s.offsetX() : 0f;
+		float oy = screen instanceof FitScaled s ? s.offsetY() : 0f;
+		if (f == 1f && ox == 0f && oy == 0f) return false;
 		g.pose().pushMatrix();
+		g.pose().translate(ox, oy);
 		g.pose().scale(f, f);
 		return true;
 	}

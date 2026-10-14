@@ -26,6 +26,7 @@ public final class ActionRow {
 	private Set<String> danger = Set.of("fold", "surrender");
 	private String pressedId = "";
 	private long pressedAt = -1;
+	java.util.function.ToIntFunction<String> shake = id -> 0;
 
 	public void set(List<Gate> gates, KeyMap keys) {
 		if (gates.size() > MAX) throw new IllegalArgumentException("at most " + MAX + " actions, got " + gates.size());
@@ -82,8 +83,8 @@ public final class ActionRow {
 		long now = Util.getMillis();
 		for (int i = 0; i < Math.min(gates.size(), boxes.size()); i++) {
 			Gate gate = gates.get(i);
-			Box b = boxes.get(i);
 			String id = id(gate);
+			Box b = boxes.get(i).offset(shake.applyAsInt(id), 0);
 			Component hint = compact ? null : V2Button.keyName(keys.keyOf(id));
 			V2Button.draw(g, font, b, V2Draw.label(gate), hint, danger.contains(gate.action()) ? V2Sprites.ButtonStyle.DANGER : V2Sprites.ButtonStyle.NORMAL,
 				gate.enabled(), b.contains(mx, my), id.equals(pressedId) && now - pressedAt < 120, id.equals(focusedId));

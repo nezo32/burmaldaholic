@@ -86,6 +86,16 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 	}
 
 	@Override
+	public float offsetX() {
+		return viewport.guiOx();
+	}
+
+	@Override
+	public float offsetY() {
+		return viewport.guiOy();
+	}
+
+	@Override
 	protected void init() {
 		super.init();
 		panel = new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(0, 0, width, height);
@@ -157,6 +167,13 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 	public boolean keyPressed(KeyEvent event) {
 		if (chrome.key(event.key())) return true;
 		return super.keyPressed(event);
+	}
+
+	/** Ends a held key (the chrome swallows its auto-repeat until then; review R-KW M5). */
+	@Override
+	public boolean keyReleased(KeyEvent event) {
+		chrome.keyReleased(event.key());
+		return super.keyReleased(event);
 	}
 
 	@Override
