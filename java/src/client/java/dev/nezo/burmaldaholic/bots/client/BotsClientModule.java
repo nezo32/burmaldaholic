@@ -36,6 +36,8 @@ public final class BotsClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
+		// seated bots at a table with an in-world board: the board's seat plate replaces the [BOT] tag (ui-v2.md §7.4)
+		net.minecraft.client.renderer.entity.EntityRenderers.register(net.minecraft.world.entity.EntityTypes.TEXT_DISPLAY, BoardAwareTextDisplayRenderer::new);
 		ClientPlayNetworking.registerGlobalReceiver(BotsScreenPayload.TYPE, (payload, context) -> accept(context.client(), payload));
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
 			if (screen instanceof CasinoTableScreen table && client.level != null

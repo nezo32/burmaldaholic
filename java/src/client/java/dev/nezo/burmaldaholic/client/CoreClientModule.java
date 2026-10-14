@@ -62,6 +62,7 @@ public final class CoreClientModule implements CasinoClientModule {
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ClientCasinoState.tick());
 		ClientTableCache.register();
+		dev.nezo.burmaldaholic.client.board.BoardKit.register(); // ui-v2.md §7: interim boards (lane W)
 		ClientCasinoMenu.register();
 		CasinoHud.init();
 		dev.nezo.burmaldaholic.client.fx.ClientFx.init(); // FX settings, celebration overlay, fx payload, particles (J-L1)

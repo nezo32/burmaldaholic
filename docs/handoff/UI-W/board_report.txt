@@ -1,0 +1,18 @@
+blackjack live: seat header on the client = 3 occupied
+board_bj_live_5m_0: lod FULL, felt quads 41, card quads 0, chip quads 0, lines 4, plates 3, leaders 1, 0.478 ms
+board_bj_3m_0: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 1, 0.498 ms
+board_bj_3m_30: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 1, 0.680 ms
+board_bj_3m_60: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 3, 0.398 ms
+board_bj_5m_0: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 2, 0.400 ms
+board_bj_5m_30: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 3, 0.414 ms
+board_bj_5m_60: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 3, 0.292 ms
+board_bj_8m_0: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 2, 0.313 ms
+board_bj_8m_30: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 3, 0.292 ms
+board_bj_8m_60: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 3, 0.293 ms
+board_bj_5m_back: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 2, 0.405 ms
+board_bj_5m_0_high: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 2, 0.218 ms
+board_bj_3m_30_high: lod FULL, felt quads 41, card quads 24, chip quads 36, lines 11, plates 4, leaders 2, 0.215 ms
+board_bj_12m_0: lod BOARD, felt quads 41, card quads 24, chip quads 36, lines 2, plates 0, leaders 0, 0.188 ms
+board_bj_blocked_5m: lod FULL, felt quads 1, card quads 24, chip quads 36, lines 11, plates 4, leaders 3, 0.225 ms
+board_poker_4m_20: lod FULL, felt quads 41, card quads 18, chip quads 36, lines 1, plates 0, leaders 0, 0.198 ms
+perf: 20 tables drawn; extract+submit 0.472 ms per sampled frame (all tables, software GL); max per table: card quads 24, chip quads 36, lines 11, plates 4
