@@ -2194,6 +2194,12 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.extras.dice.fx.defeat` | Defeat | Поражение |
 | `gui.burmaldaholic.extras.dice.fx.shake` | Shake the cup… | Трясём стакан… |
 
+### extras › dice motion (DCb, DICE-ANIM-SPEC §3–§9)
+
+| Key | EN | RU |
+|---|---|---|
+| `gui.burmaldaholic.extras.dice.motion.total` | Total: %1$s | Сумма: %1$s |
+
 ### Presentation (animation wave, `animation/extras-pvp.md` §15; `anim.*` keys are shared by extras and PvP)
 
 | Key | EN | RU |

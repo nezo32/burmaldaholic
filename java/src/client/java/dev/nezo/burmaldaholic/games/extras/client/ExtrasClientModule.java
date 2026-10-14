@@ -23,6 +23,7 @@ public final class ExtrasClientModule implements CasinoClientModule {
 		ctx.tableScreen(ExtrasModule.PLINKO, PlinkoScreen::new);
 		WheelOfFortuneRenderer.register(); // in-world spin for spectators (extras-pvp.md §3.4)
 		PlinkoMachineRenderer.register(); // in-world ball and lamps (extras-pvp.md §5.4)
+		DuelStageRenderer.register(); // DCb: the in-world PvP dice duel for modded viewers (DI §6)
 		dev.nezo.burmaldaholic.games.extras.client.pvp.coin.CoinDuelClient.register(); // PvP Coin Flip Duel (J-M1)
 		dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyClient.register(); // PvP Wheel Party (J-M2)
 		dev.nezo.burmaldaholic.games.extras.client.pvp.ExtrasPvpScreens.register(); // Plinko Battle + Scratch Showdown screens

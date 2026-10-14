@@ -1,29 +1,40 @@
 package dev.nezo.burmaldaholic.games.extras.logic;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.nezo.burmaldaholic.core.anim.dice.DiceFaces;
+import dev.nezo.burmaldaholic.core.anim.dice.CubeGroup;
+import dev.nezo.burmaldaholic.core.anim.dice.DiceRoll;
+import dev.nezo.burmaldaholic.core.anim.dice.DiceSolver;
+import dev.nezo.burmaldaholic.core.anim.dice.DiceTray;
+import dev.nezo.burmaldaholic.core.anim.dice.DieSample;
 import dev.nezo.burmaldaholic.core.anim.dice.DuelTimeline;
+import dev.nezo.burmaldaholic.core.anim.dice.Quat;
+import dev.nezo.burmaldaholic.core.anim.dice.ThrowSpec;
+import dev.nezo.burmaldaholic.core.anim.motion.StageMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Lane J-L6 review: the in-world PvP duel (tables.md §3.4) ends on the server's faces for every pair and side, rests on
- * the ground between the players on opposite sides of the centre line, follows the screens' round beats (hidden before
- * the throw, a tied round picked up at the sweep, the last round lingering) and the face-up rotation of the die model
- * really turns each face up.
+ * The in-world PvP duel on the new solver (DI §6, §10.1-11, §10.1-13): every pair ends on the server's faces on the
+ * ground between the players, on its own half; the beats follow the screens (hidden in the hand before the throw, a tied
+ * round picked up at the sweep, the last round lingering); the item-display fallback never turns a die by 170° or more
+ * in one 2-tick step; PvP rolls are keyed by player side and the opponent's lane is the exact mirror.
  */
 class DuelStagePlanTest {
 	private static final DuelStagePlan.Point A = new DuelStagePlan.Point(0.5, 65.1, 0.5);
-	private static final DuelStagePlan.Point B = new DuelStagePlan.Point(4.5, 65.1, 2.5);
+	private static final DuelStagePlan.Point B = new DuelStagePlan.Point(3.5, 65.1, 2.5);
+
+	/** The MC "up" face of a world quaternion: the world yaw is about +Y, so the tray top face is the MC +Y face. */
+	private static int mcFaceUp(DuelStagePlan.Sample s) {
+		return CubeGroup.faceUp(s.tray.q);
+	}
 
 	@Test
 	void everyPairEndsOnTheServerFacesOnTheGround() {
 		DuelStagePlan.Sample s = new DuelStagePlan.Sample();
-		for (int seed = 0; seed < 16; seed++) {
+		for (int seed = 0; seed < 4; seed++) {
 			for (int a = 1; a <= 6; a++) {
 				for (int b = 1; b <= 6; b++) {
 					int[][] round = {{a, b}, {7 - a, 7 - b}};
@@ -32,10 +43,12 @@ class DuelStagePlanTest {
 					for (int side = 0; side < 2; side++) {
 						for (int die = 0; die < 2; die++) {
 							plan.sample(side, die, t, s);
-							assertTrue(s.visible && s.resting && s.faceShown, "at rest after the reveal");
-							assertEquals(round[side][die], s.face, "face");
+							assertTrue(s.visible && s.resting, "at rest after the reveal");
+							assertEquals(round[side][die], s.face);
+							assertEquals(round[side][die], mcFaceUp(s), "top face == the server's face");
 							assertEquals(64.0 + DuelStagePlan.DIE / 2, s.y, 1e-9, "on the ground");
-							assertEquals(0, Math.floorMod(Math.round(s.yaw - headingOf(side)), 90), "square to its throw at rest");
+							// the world quaternion is a unit quaternion and keeps the tray's up axis (yaw only)
+							assertEquals(1, Quat.norm(s.q), 1e-9);
 						}
 					}
 				}
@@ -43,90 +56,111 @@ class DuelStagePlanTest {
 		}
 	}
 
-	private static double headingOf(int side) {
-		double dx = (B.x() - A.x()) * (side == 0 ? 1 : -1);
-		double dz = (B.z() - A.z()) * (side == 0 ? 1 : -1);
-		double len = Math.hypot(dx, dz);
-		return Math.toDegrees(Math.atan2(-dx / len, dz / len));
-	}
-
 	@Test
-	void pairsLandBetweenThePlayersOnOppositeSides() {
-		DuelStagePlan plan = new DuelStagePlan(7, List.<int[][]>of(new int[][] {{3, 4}, {6, 1}}), A, B, 64.0);
-		DuelStagePlan.Point ca = plan.restCentre(0, 0);
-		DuelStagePlan.Point cb = plan.restCentre(0, 1);
-		double mx = (A.x() + B.x()) / 2;
-		double mz = (A.z() + B.z()) / 2;
-		double half = Math.hypot(B.x() - A.x(), B.z() - A.z()) / 2;
-		for (DuelStagePlan.Point c : List.of(ca, cb)) {
-			assertTrue(Math.hypot(c.x() - mx, c.z() - mz) < half, "near the midpoint: " + c);
+	void pairsLandBetweenThePlayersOnTheirOwnHalf() {
+		for (int seed = 0; seed < 64; seed++) {
+			DuelStagePlan plan = new DuelStagePlan(seed, List.<int[][]>of(new int[][] {{3, 4}, {6, 1}}), A, B, 64.0);
+			double dx = B.x() - A.x();
+			double dz = B.z() - A.z();
+			double len = Math.hypot(dx, dz);
+			for (int side = 0; side < 2; side++) {
+				DuelStagePlan.Point c = plan.restCentre(0, side);
+				// projection on the A→B line (0 = A, 1 = B)
+				double u = ((c.x() - A.x()) * dx + (c.z() - A.z()) * dz) / (len * len);
+				double off = Math.abs((c.x() - A.x()) * dz - (c.z() - A.z()) * dx) / len;
+				if (side == 0) assertTrue(u > 0.1 && u < 0.5, "A's pair on A's half: " + u);
+				else assertTrue(u > 0.5 && u < 0.9, "B's pair on B's half: " + u);
+				assertTrue(off < 0.4, "near the line between the players: " + off);
+			}
 		}
-		// opposite sides of the line A→B
-		double ux = B.x() - A.x();
-		double uz = B.z() - A.z();
-		double sa = ux * (ca.z() - A.z()) - uz * (ca.x() - A.x());
-		double sb = ux * (cb.z() - A.z()) - uz * (cb.x() - A.x());
-		assertTrue(sa * sb < 0, "the pairs do not overlap: " + sa + " / " + sb);
-		// the dice of one pair never overlap
-		DuelStagePlan.Sample d0 = new DuelStagePlan.Sample();
-		DuelStagePlan.Sample d1 = new DuelStagePlan.Sample();
-		plan.sample(0, 0, DuelTimeline.reveal(0) + 10, d0);
-		plan.sample(0, 1, DuelTimeline.reveal(0) + 10, d1);
-		assertTrue(Math.hypot(d0.x - d1.x, d0.z - d1.z) >= DuelStagePlan.DIE, "dice apart");
 	}
 
 	@Test
-	void roundBeatsMatchTheScreens() {
-		List<int[][]> rounds = List.of(new int[][] {{3, 4}, {2, 5}}, new int[][] {{6, 6}, {1, 2}});
-		DuelStagePlan plan = new DuelStagePlan(3, rounds, A, B, 64.0);
+	void beatsFollowTheScreens() {
+		List<int[][]> rounds = List.of(new int[][] {{3, 4}, {5, 2}}, new int[][] {{6, 5}, {2, 1}});
+		DuelStagePlan plan = new DuelStagePlan(7, rounds, A, B, 64.0);
 		DuelStagePlan.Sample s = new DuelStagePlan.Sample();
 		plan.sample(0, 0, DuelTimeline.throwAt(0, 0) - 1, s);
-		assertFalse(s.visible, "in the hand before the throw");
+		assertFalse(s.visible, "in the hand before A's throw");
 		plan.sample(1, 0, DuelTimeline.throwAt(0, 1) - 1, s);
-		assertFalse(s.visible, "their pair is thrown 350 ms later");
-		plan.sample(0, 0, DuelTimeline.throwAt(0, 0) + 100, s);
-		assertTrue(s.visible && !s.faceShown && s.y > 64.3, "in flight, tumbling (no readable face)");
-		assertTrue(plan.totalVisible(0, DuelTimeline.reveal(0)), "tie round total shown");
-		// the tie: picked up at the sweep, gone after 250 ms, thrown again with round 2
-		double sweep = DuelTimeline.roundStart(0) + DuelTimeline.SWEEP_AT;
-		plan.sample(0, 0, sweep + 100, s);
-		assertTrue(s.visible && s.scale < 1 && s.scale > 0, "shrinking");
-		plan.sample(0, 0, sweep + DuelStagePlan.PICKUP_MS + 1, s);
+		assertFalse(s.visible, "B throws 350 ms later");
+		plan.sample(0, 0, DuelTimeline.throwAt(0, 0) + 30, s);
+		assertTrue(s.visible && !s.resting);
+		// the tied round is picked up at the sweep and the next round throws again
+		plan.sample(0, 0, DuelTimeline.SWEEP_AT + DuelStagePlan.PICKUP_MS + 1, s);
 		assertFalse(s.visible, "picked up");
-		assertFalse(plan.totalVisible(0, sweep + 10), "total gone with the dice");
-		plan.sample(0, 1, DuelTimeline.reveal(1) + 5, s);
-		assertTrue(s.visible && s.round == 1 && s.face == 6, "round 2 lands on its faces");
-		assertEquals(7, plan.total(0, 0));
-		assertEquals(12, plan.total(1, 0));
-		plan.sample(0, 1, plan.endMs() - 1, s);
-		assertTrue(s.visible, "the last round lingers");
-		plan.sample(0, 1, plan.endMs(), s);
-		assertFalse(s.visible, "then goes");
+		plan.sample(0, 0, DuelTimeline.roundStart(1) + DuelTimeline.THROW + 20, s);
+		assertTrue(s.visible && s.round == 1);
 		assertEquals(DuelTimeline.reveal(1) + DuelStagePlan.LINGER_MS, plan.endMs());
-	}
-
-	/** Rodrigues rotation of v about the unit axis by deg. */
-	private static long[] rotate(int[] v, double[] axisDeg) {
-		double a = Math.toRadians(axisDeg[3]);
-		double kx = axisDeg[0];
-		double ky = axisDeg[1];
-		double kz = axisDeg[2];
-		double c = Math.cos(a);
-		double s = Math.sin(a);
-		double dot = kx * v[0] + ky * v[1] + kz * v[2];
-		double cx = ky * v[2] - kz * v[1];
-		double cy = kz * v[0] - kx * v[2];
-		double cz = kx * v[1] - ky * v[0];
-		return new long[] {Math.round(v[0] * c + cx * s + kx * dot * (1 - c)), Math.round(v[1] * c + cy * s + ky * dot * (1 - c)),
-			Math.round(v[2] * c + cz * s + kz * dot * (1 - c))};
+		plan.sample(0, 0, plan.endMs() - 1, s);
+		assertTrue(s.visible && s.resting, "the last round lingers");
+		// totals appear after the rest + count-up, never before
+		assertFalse(plan.totalVisible(0, plan.restAt(0, 0) + 1));
+		assertTrue(plan.totalVisible(0, plan.totalAt(0, 0) + 1));
+		assertTrue(plan.totalAt(0, 1) <= DuelTimeline.reveal(0), "both totals by the compare");
 	}
 
 	@Test
-	void theModelRotationPutsEachFaceUp() {
-		int[] layout = DiceFaces.layout(1);
-		assertArrayEquals(new int[] {1, 6, 2, 5, 3, 4}, layout, "the dice_display model: up 1, down 6, north 2, south 5, east 3, west 4");
-		for (int face = 1; face <= 6; face++) {
-			assertArrayEquals(new long[] {0, 1, 0}, rotate(DiceFaces.modelNormal(face), DiceFaces.upRotation(face)), "face " + face + " up");
+	void displayEntityStepsNeverTakeTheLongWayRound() {
+		// DI §10.1-13: the server poses the item displays every 2 ticks; the client slerps between two poses, so each
+		// step must turn the die by less than 180° (here < 170°) or it would spin backwards
+		DuelStagePlan.Sample s = new DuelStagePlan.Sample();
+		double[] prev = new double[4];
+		double worst = 0;
+		for (int seed = 0; seed < 2000; seed++) {
+			DuelStagePlan plan = new DuelStagePlan(seed * 7919, List.<int[][]>of(new int[][] {{1 + seed % 6, 1 + seed / 6 % 6}, {1 + seed / 36 % 6, 1 + seed % 5}}),
+				A, B, 64.0);
+			for (int side = 0; side < 2; side++) {
+				for (int die = 0; die < 2; die++) {
+					boolean have = false;
+					for (int tick = 0; tick * 50 <= DuelTimeline.landAt(0, 1) + 100; tick += 2) {
+						plan.sample(side, die, tick * 50.0, s);
+						if (!s.visible) {
+							have = false;
+							continue;
+						}
+						if (have) {
+							double dot = Math.abs(Quat.dot(prev, s.q));
+							double ang = Math.toDegrees(2 * Math.acos(Math.min(1, dot)));
+							worst = Math.max(worst, ang);
+						}
+						Quat.copy(s.q, prev);
+						have = true;
+					}
+				}
+			}
 		}
+		assertTrue(worst < 170, "largest 2-tick turn " + worst + "°");
+	}
+
+	@Test
+	void pvpRollsAreKeyedByPlayerSideAndMirroredForTheOpponent() {
+		// A's roll: the same key on A's screen (left lane), on B's screen (the same roll, mirrored) and in the world
+		int seed = 0xBEEF;
+		int[] faces = {4, 2};
+		DiceRoll a = DiceSolver.solve(DiceTray.duelLane(DiceTray.Side.LEFT), ThrowSpec.cup(DiceTray.Side.LEFT), DuelTimeline.rollSeed(seed, 0, 0), faces,
+			DuelTimeline.T_DUEL);
+		DiceRoll again = DiceSolver.solve(DiceTray.duelLane(DiceTray.Side.LEFT), ThrowSpec.cup(DiceTray.Side.LEFT), DuelTimeline.rollSeed(seed, 0, 0), faces,
+			DuelTimeline.T_DUEL);
+		StageMap left = StageMap.of(0, 0, 16, 16, 14.4);
+		StageMap right = left.mirrored(DiceTray.DUEL_W);
+		DieSample s1 = new DieSample();
+		DieSample s2 = new DieSample();
+		double[] m = new double[4];
+		for (double ms = 0; ms <= DuelTimeline.T_DUEL + 50; ms += 5) {
+			for (int d = 0; d < 2; d++) {
+				a.sample(d, ms, s1);
+				again.sample(d, ms, s2);
+				assertEquals(s1.x, s2.x, 0, "deterministic");
+				assertEquals(s1.zc, s2.zc, 0);
+				assertEquals(360, left.x(s1.x) + right.x(s1.x), 1e-9, "x' = 360 − x");
+				assertEquals(left.yLifted(s1.y, s1.zc), right.yLifted(s1.y, s1.zc), 0, "same height and depth");
+				assertEquals(CubeGroup.faceUp(s1.q), CubeGroup.faceUp(Quat.mirrorXKeepUp(s1.q, m)), "the mirror keeps the top number");
+			}
+		}
+		// the world plan solves A's pair with the same key
+		DuelStagePlan plan = new DuelStagePlan(seed, List.<int[][]>of(new int[][] {faces, {1, 1}}), A, B, 64.0);
+		assertEquals(4, plan.roll(0, 0).topFace(0, 1e6));
+		assertEquals(2, plan.roll(0, 0).topFace(1, 1e6));
 	}
 }

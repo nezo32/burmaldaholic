@@ -544,7 +544,7 @@ final class DiceArena {
 		// land rim: a white glint over the die for 60 ms (flashes only)
 		if (!reduced && sinceLand < DuelTimeline.LAND_RIM_MS + 40 && MotionFx.flash("dice_land_rim")) {
 			double a = 1 - sinceLand / (DuelTimeline.LAND_RIM_MS + 40);
-			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, n, (((int) Math.round(255 * a)) << 24) | 0xFFFFFF);
+			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, (((int) Math.round(255 * a)) << 24) | 0xFFFFFF, n);
 		}
 		int[] faces = show.faces(round, order);
 		int lit = pipsLit(show, round, order, rt, reduced);
@@ -562,9 +562,9 @@ final class DiceArena {
 		if (pipAlpha > 0.01) pips(g, q, faces[d], mine, cx, cy, n, pipAlpha, show, round, order, d, rt, reduced);
 		if (compared && win && !reduced && MotionFx.flash("dice_win_glint")) {
 			double ga = 0.45 + 0.35 * Math.sin(sinceCompare / 1000 * Math.PI * 2 * 1.5);
-			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, n, (((int) Math.round(255 * ga)) << 24) | (GOLD & 0xFFFFFF));
+			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, (((int) Math.round(255 * ga)) << 24) | (GOLD & 0xFFFFFF), n);
 		} else if (compared && win && reduced) {
-			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, n, 0xD0000000 | (GOLD & 0xFFFFFF));
+			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, 0xD0000000 | (GOLD & 0xFFFFFF), n);
 		}
 	}
 

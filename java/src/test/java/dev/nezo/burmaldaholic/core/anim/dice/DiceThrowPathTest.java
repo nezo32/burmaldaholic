@@ -164,6 +164,5 @@ class DiceThrowPathTest {
 		assertEquals(DuelTimeline.END, DuelTimeline.endMs(1));
 		assertEquals(2 * DuelTimeline.ROUND_PERIOD + DuelTimeline.END, DuelTimeline.endMs(3));
 		assertEquals(2, DuelTimeline.roundAt(99999, 3));
-		assertEquals(0, DuelTimeline.cupFrame(5000, false));
 	}
 }

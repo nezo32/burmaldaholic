@@ -103,6 +103,7 @@
 	"gui.burmaldaholic.extras.dice.fx.victory": "Victory!",
 	"gui.burmaldaholic.extras.dice.fx.defeat": "Defeat",
 	"gui.burmaldaholic.extras.dice.fx.shake": "Shake the cup…",
+	"gui.burmaldaholic.extras.dice.motion.total": "Total: %1$s",
 	"gui.burmaldaholic.extras.coin.your_call": "Your call",
 	"gui.burmaldaholic.extras.coin.history": "Last flips",
 	"gui.burmaldaholic.extras.coin.tally": "Heads %1$s · Tails %2$s",

@@ -94,7 +94,7 @@ public final class DiceDraw {
 		int h = Math.max(2, (int) Math.round(cell * 0.42 * kk));
 		int a = (int) Math.round(255 * Math.max(0, Math.min(1, SHADOW.shadowAlpha * alphaMul)));
 		if (a <= 0) return;
-		SnapDraw.blitF(g, shadowSprite(cell, SHADOW.shadowSize), fx - w / 2.0, fy - h / 2.0, w, h, k, (a << 24) | 0xFFFFFF);
+		SnapDraw.blitF(g, shadowSprite(cell, SHADOW.shadowSize), fx - w / 2.0, fy - h / 2.0, w, h, (a << 24) | 0xFFFFFF, k);
 	}
 
 	/** GUI x of the shadow centre (floor point + light offset + height slope). */
@@ -128,7 +128,7 @@ public final class DiceDraw {
 		int f = DieAtlas.frameSize(cell);
 		double cx = map.x(s.x);
 		double cy = map.y(s.y) - lift(map, cell, s.zc);
-		SnapDraw.blitF(g, GLINTS[DieAtlas.cellIndex(cell)], cx - f / 2.0, cy - f / 2.0, f, f, k, argb);
+		SnapDraw.blitF(g, GLINTS[DieAtlas.cellIndex(cell)], cx - f / 2.0, cy - f / 2.0, f, f, argb, k);
 	}
 
 	/**
