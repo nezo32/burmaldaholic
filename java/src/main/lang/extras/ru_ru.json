@@ -203,5 +203,11 @@
 	"gui.burmaldaholic.extras.v2.reason.dropping": "Шарик падает",
 	"gui.burmaldaholic.extras.v2.reason.flipping": "Монета в воздухе",
 	"gui.burmaldaholic.extras.v2.reason.scratching": "Билет открывается",
-	"gui.burmaldaholic.extras.v2.reason.no_item": "Возьмите предмет в руку"
+	"gui.burmaldaholic.extras.v2.reason.no_item": "Возьмите предмет в руку",
+	"subtitles.burmaldaholic.dice_clack": "Кости стукаются друг о друга",
+	"subtitles.burmaldaholic.dice_tip": "Кость перекатывается",
+	"subtitles.burmaldaholic.dice_teeter": "Кость балансирует на ребре",
+	"subtitles.burmaldaholic.dice_settle": "Кости замирают",
+	"subtitles.burmaldaholic.dice_pip": "Считаются очки",
+	"subtitles.burmaldaholic.dice_stamp": "Печать заведения"
 }

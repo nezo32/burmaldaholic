@@ -441,5 +441,83 @@
         "type": "event"
       }
     ]
+  },
+  "dice_clack": {
+    "subtitle": "subtitles.burmaldaholic.dice_clack",
+    "sounds": [
+      {
+        "name": "minecraft:block.bone_block.hit",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 1.8
+      }
+    ]
+  },
+  "dice_tip": {
+    "subtitle": "subtitles.burmaldaholic.dice_tip",
+    "sounds": [
+      {
+        "name": "minecraft:block.bamboo_wood.hit",
+        "type": "event",
+        "volume": 0.35,
+        "pitch": 1.5
+      },
+      {
+        "name": "minecraft:block.wool.step",
+        "type": "event",
+        "volume": 0.25,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "dice_teeter": {
+    "subtitle": "subtitles.burmaldaholic.dice_teeter",
+    "sounds": [
+      {
+        "name": "minecraft:block.wooden_trapdoor.close",
+        "type": "event",
+        "volume": 0.15,
+        "pitch": 1.9
+      }
+    ]
+  },
+  "dice_settle": {
+    "subtitle": "subtitles.burmaldaholic.dice_settle",
+    "sounds": [
+      {
+        "name": "minecraft:block.wooden_button.click_off",
+        "type": "event",
+        "volume": 0.35,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "dice_pip": {
+    "subtitle": "subtitles.burmaldaholic.dice_pip",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.hat",
+        "type": "event",
+        "volume": 0.18,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "dice_stamp": {
+    "subtitle": "subtitles.burmaldaholic.dice_stamp",
+    "sounds": [
+      {
+        "name": "minecraft:block.anvil.land",
+        "type": "event",
+        "volume": 0.22,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block.honey_block.place",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 0.8
+      }
+    ]
   }
 }
