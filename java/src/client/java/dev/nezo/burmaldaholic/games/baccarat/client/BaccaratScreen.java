@@ -63,7 +63,7 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 	private @Nullable BaccaratLayout layout;
 	private long draft;
 	private final Deque<Long> history = new ArrayDeque<>();
-	/** Chips put down this coup, newest first: box index and the box's amount before the chip (undo). */
+	/** Chips put down this coup, newest first: box index and the chip's amount (Undo / right-click take one back). */
 	private final Deque<long[]> placed = new ArrayDeque<>();
 	private final Map<Long, Long> flipSeen = new HashMap<>();
 	private long lastCoup = -1;
@@ -308,41 +308,32 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		};
 	}
 
-	/** Undo the last chip: the box is re-placed at its amount before that chip (the server's slip stays the truth). */
+	/** Undo = one {@code unbet_chip} of the newest chip (review R-AB m8: one packet, the server's slip stays the truth). */
 	private void undo() {
+		chipBack(-1);
+	}
+
+	/** Takes one chip back from {@code box} (-1 = the newest chip anywhere) with one {@code unbet_chip}. */
+	private void chipBack(int box) {
 		if (view == null) return;
-		long[] last = placed.poll();
-		int box;
-		long before;
-		if (last != null) {
-			box = (int) last[0];
-			before = last[1];
-		} else {
-			// no local history (reopened screen): remove the last box with chips entirely
-			box = -1;
-			for (int k = BaccaratPub.BOXES - 1; k >= 0; k--) if (view.bets()[k] > 0) {
-				box = k;
-				break;
-			}
-			if (box < 0) return;
-			before = 0;
+		List<long[]> hist = new ArrayList<>(placed);
+		BaccaratFlow.ChipBack back = BaccaratFlow.chipBack(hist, view.bets(), box);
+		if (back == null) return;
+		if (back.historyIndex() >= 0) {
+			hist.remove(back.historyIndex());
+			placed.clear();
+			placed.addAll(hist);
 		}
-		CompoundTag un = new CompoundTag();
-		un.putString("box", BaccaratPub.BOX_IDS[box]);
-		sendAction("unbet", un);
-		if (before > 0) {
-			CompoundTag args = new CompoundTag();
-			args.putString("box", BaccaratPub.BOX_IDS[box]);
-			args.putLong("amount", before);
-			sendTracked("bet", args, BaccaratPub.BOX_IDS[box], before);
-		} else {
-			sendTracked("resync", new CompoundTag(), "", 0);
-		}
+		CompoundTag args = new CompoundTag();
+		args.putString("box", BaccaratPub.BOX_IDS[back.box()]);
+		args.putLong("amount", back.amount());
+		sendTracked("unbet_chip", args, "", 0);
+		FxSounds.play("chip_place", 0.8f);
 	}
 
 	private void placeChip(int box, long amount) {
 		if (view == null) return;
-		placed.push(new long[] {box, view.bets()[box]});
+		placed.push(new long[] {box, amount});
 		CompoundTag args = new CompoundTag();
 		args.putString("box", BaccaratPub.BOX_IDS[box]);
 		args.putLong("amount", amount);

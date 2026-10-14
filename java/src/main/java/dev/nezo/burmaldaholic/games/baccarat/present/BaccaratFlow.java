@@ -180,6 +180,45 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 		return b.build();
 	}
 
+	/**
+	 * One chip back (Undo, right-click on a box; review R-AB m8): what to send as {@code unbet_chip {box, amount}}.
+	 *
+	 * @param box         the box to take from, or {@code -1} for any (Undo)
+	 * @param amount      the chip's amount (never more than the box holds)
+	 * @param historyIndex index of the used entry of the chip history, {@code -1} when none was used
+	 */
+	public record ChipBack(int box, long amount, int historyIndex) {}
+
+	/**
+	 * The chip to take back: the newest chip of the local history (in {@code box}, or anywhere when {@code box < 0})
+	 * whose box still holds chips, capped at what the box holds; without history (reopened screen) the top disc of the
+	 * box's stack (the largest denomination it covers), Undo taking from the last box with chips. Null = nothing.
+	 *
+	 * @param history chips put down this coup, newest first: {@code {box, amount}}
+	 * @param bets    the server's slip per box ({@link BaccaratPub#BOX_IDS} order)
+	 */
+	public static @org.jspecify.annotations.Nullable ChipBack chipBack(List<long[]> history, long[] bets, int box) {
+		for (int i = 0; i < history.size(); i++) {
+			long[] h = history.get(i);
+			int b = (int) h[0];
+			if (b < 0 || b >= bets.length || bets[b] <= 0 || box >= 0 && b != box) continue;
+			return new ChipBack(b, Math.min(h[1], bets[b]), i);
+		}
+		int b = box;
+		if (b < 0) {
+			for (int k = bets.length - 1; k >= 0 && b < 0; k--) if (bets[k] > 0) b = k;
+		}
+		if (b < 0 || b >= bets.length || bets[b] <= 0) return null;
+		long chip = bets[b];
+		for (int d = BaccaratView.DENOMS.length - 1; d >= 0; d--) {
+			if (BaccaratView.DENOMS[d] <= bets[b]) {
+				chip = BaccaratView.DENOMS[d];
+				break;
+			}
+		}
+		return new ChipBack(b, chip, -1);
+	}
+
 	public static Line[] status(BaccaratView v) {
 		if (!v.seated()) return new Line[] {new Line(V2 + "status.pick_seat"), new Line("")};
 		Line timer = v.secondsLeft() >= 0 ? new Line(BAC2 + "status.seconds_left", v.secondsLeft()) : new Line("");
