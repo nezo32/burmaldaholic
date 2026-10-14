@@ -50,6 +50,28 @@ class CubeGroupTest {
 	}
 
 	@Test
+	void mirrorAndMcFrameAreConjugations() {
+		Random r = new Random(3);
+		for (int i = 0; i < 500; i++) {
+			double[] q = randomQ(r);
+			double[] v = {r.nextGaussian(), r.nextGaussian(), r.nextGaussian()};
+			double[] rv = Quat.rotate(q, v, new double[3]);
+			// mirror x → −x
+			double[] m = Quat.mirrorX(q, new double[4]);
+			double[] mv = Quat.rotate(m, new double[] {-v[0], v[1], v[2]}, new double[3]);
+			assertArrayEquals(new double[] {-rv[0], rv[1], rv[2]}, mv, 1e-12);
+			double[] keep = Quat.mirrorXKeepUp(q, new double[4]);
+			assertEquals(CubeGroup.faceUp(q), CubeGroup.faceUp(keep));
+			double[] turned = Quat.mul(m, new double[] {0, 0, 1, 0}, new double[4]);
+			assertTrue(Math.abs(Quat.dot(keep, m)) > 1 - 1e-12 || Math.abs(Quat.dot(keep, turned)) > 1 - 1e-12);
+			// tray (x, y, z) → MC (x, z, y)
+			double[] mc = Quat.trayToMc(q, new double[4]);
+			double[] cv = Quat.rotate(mc, new double[] {v[0], v[2], v[1]}, new double[3]);
+			assertArrayEquals(new double[] {rv[0], rv[2], rv[1]}, cv, 1e-12);
+		}
+	}
+
+	@Test
 	void supportHeights() {
 		assertEquals(1, Quat.support(Quat.identity()), EPS);
 		assertEquals(Math.sqrt(2), Quat.support(Quat.axisAngle(1, 0, 0, Math.PI / 4, new double[4])), 1e-12);

@@ -242,4 +242,38 @@ public final class Quat {
 		double r23 = 2 * (y * z - w * x);
 		return Math.abs(r11 * dx + r21 * dy) + Math.abs(r12 * dx + r22 * dy) + Math.abs(r13 * dx + r23 * dy);
 	}
+
+	/**
+	 * The orientation seen in a mirror {@code x → −x}: the reflection conjugates the rotation,
+	 * {@code (w, x, y, z) → (w, x, −y, −z)}. A reflected die is chiral, so the body's ±x faces trade places; see
+	 * {@link #mirrorXKeepUp} to draw a mirrored die that still shows the same number on top.
+	 */
+	public static double[] mirrorX(double[] q, double[] out) {
+		return set(out, q[0], q[1], -q[2], -q[3]);
+	}
+
+	/**
+	 * {@link #mirrorX} for drawing (the right duel lane from a left-lane roll): when the mirror would turn a ±x body face
+	 * (labels 3 / 4) up, a 180° body turn about y swaps them back, so the top face keeps its number (the hidden
+	 * bottom face is the one that changes).
+	 */
+	public static double[] mirrorXKeepUp(double[] q, double[] out) {
+		int up = CubeGroup.faceUp(q);
+		mirrorX(q, out);
+		if (CubeGroup.faceUp(out) != up) {
+			// out · Ry(180°) = out · (0, 0, 1, 0)
+			double w = out[0], x = out[1], y = out[2], z = out[3];
+			set(out, -y, -z, w, x);
+		}
+		return out;
+	}
+
+	/**
+	 * Tray frame (x east, y south, z up) → Minecraft model frame (X east, Y up, Z south): the axis swap y ↔ z is a
+	 * reflection, so {@code (w, x, y, z) → (w, −x, −z, −y)}. Rotating a tray vector and swapping equals swapping and
+	 * rotating with the result.
+	 */
+	public static double[] trayToMc(double[] q, double[] out) {
+		return set(out, q[0], -q[1], -q[3], -q[2]);
+	}
 }
