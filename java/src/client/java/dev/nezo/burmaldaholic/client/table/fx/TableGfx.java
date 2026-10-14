@@ -77,6 +77,19 @@ public final class TableGfx {
 		region(g, spriteFile(spritePath), fw, fh * frames, 0, i * fh, fw, fh, x, y, argb);
 	}
 
+	/**
+	 * Region drawn at a FLOAT position snapped to {@code 1/k} layout px (moving things; RO §3.1). See
+	 * {@link dev.nezo.burmaldaholic.client.fx.motion.SnapDraw#regionF}.
+	 */
+	public static void regionF(GuiGraphicsExtractor g, Identifier tex, int texW, int texH, int u, int v, int w, int h, double x, double y, int argb, int k) {
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.regionF(g, tex, texW, texH, u, v, w, h, x, y, argb, k);
+	}
+
+	/** Strip frame at a FLOAT position snapped to {@code 1/k} (see {@link dev.nezo.burmaldaholic.client.fx.motion.SnapDraw#frameF}). */
+	public static void frameF(GuiGraphicsExtractor g, String spritePath, int fw, int fh, int frames, int index, double x, double y, int argb, int k) {
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.frameF(g, spritePath, fw, fh, frames, index, x, y, argb, k);
+	}
+
 	/** Tiles {@code tex} ({@code tw × th}) over the rectangle (x, y, w, h), clipped at its right and bottom edges. */
 	public static void tile(GuiGraphicsExtractor g, Identifier tex, int tw, int th, int x, int y, int w, int h) {
 		for (int yy = 0; yy < h; yy += th) {

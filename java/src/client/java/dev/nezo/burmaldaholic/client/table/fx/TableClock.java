@@ -32,8 +32,12 @@ public final class TableClock {
 		return synced;
 	}
 
-	/** Estimated server time in ticks (with the partial tick). */
+	/** Estimated server time in ticks (with the partial tick); {@code MotionClock.testOverride} wins when set. */
 	public double nowTicks(float partialTick) {
+		java.util.function.LongSupplier test = dev.nezo.burmaldaholic.client.fx.motion.MotionClock.testOverride;
+		if (test != null) {
+			return test.getAsLong() / 50.0;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level != null) {
 			return mc.level.getGameTime() + (double) partialTick + offsetTicks;
