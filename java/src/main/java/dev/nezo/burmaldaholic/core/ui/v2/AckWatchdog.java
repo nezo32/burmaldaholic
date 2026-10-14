@@ -28,6 +28,15 @@ public final class AckWatchdog {
 
 	/** A state arrived carrying {@code ack} (-1 when the server does not send one: any state then answers). */
 	public void state(long ack) {
+		if (ack >= 0 && ack < lastAck) {
+			// the table's counter went back: a NEW block entity answers (the table was broken and placed again at this
+			// spot, or its chunk reloaded — the counter is not persisted), while the screen started from the old one's
+			// cached state. Its counter is the truth from now on, and this state answers the pending action (it used to
+			// wait until the new counter passed the old one: chips refused under "Sending…").
+			lastAck = ack;
+			if (pending()) clear();
+			return;
+		}
 		boolean answered = ack < 0 || ack > sentAck;
 		lastAck = Math.max(lastAck, ack);
 		if (answered && pending()) clear();

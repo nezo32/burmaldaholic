@@ -39,6 +39,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
  *       in {@code NpcInteractions}.</li>
  *   <li>Table presets (Parlor poker, High Roller tables) through core's hook ({@link WorldgenPresets}).</li>
  *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller>}.</li>
+ *   <li>Every player: {@code /casino locate} — the nearest casino of the dimension ({@link CasinoLocator}).</li>
  * </ul>
  * New casinos generate only while casino mode and {@code worldgen.enabled} are on; the tables inside
  * are ordinary (house) tables of their modules and follow casino mode themselves.
@@ -67,10 +68,12 @@ public final class WorldgenModule implements CasinoModule {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			WorldgenRuntime.setServer(null);
 			CasinoTracker.clear();
+			CasinoLocator.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(CasinoTracker::tick);
 		CasinoEvents.PLAY_RESOLVED.register((player, result) -> CasinoTracker.onPlayResolved(player));
 
+		CasinoLocator.register();
 		CasinoCommands.extend(root -> {
 			var build = Commands.literal("build");
 			for (CasinoKind kind : CasinoKind.values()) {

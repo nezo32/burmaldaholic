@@ -27,6 +27,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.SeatColumn;
 import dev.nezo.burmaldaholic.core.ui.v2.Stamps;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
@@ -427,13 +428,13 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (id.startsWith("seat.")) {
 			if (enabled) sendTracked(BetGates.SIT);
 			return true;
 		}
 		if (id.equals(KeyMap.Ids.felt("spot")) && view != null) {
-			if (button == 1) {
+			if (button.right()) {
 				BetPort p = betPort();
 				if (p != null) p.tool(BetGates.UNDO);
 				return true;
