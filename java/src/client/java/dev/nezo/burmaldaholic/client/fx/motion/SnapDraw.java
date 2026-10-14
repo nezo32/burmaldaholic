@@ -16,28 +16,39 @@ import net.minecraft.resources.Identifier;
  * the 208×2 focus wheel): the position is snapped FIRST, then the pose is scaled, so every texel edge lands on
  * {@code round(x·k) + i·n} physical px — whole physical px whenever {@code n} is an integer
  * ({@link PixelSnap#texelEdge}). Width, height and region sizes are then in ART px.
+ *
+ * <p>Argument order is the same everywhere: {@code ..., argb, [scale,] k}. Drawing never throws in render: a
+ * non-positive scale draws nothing, {@code k < 1} is treated as 1, and a legacy call with {@code (k, argb)} swapped
+ * (the MKa order of {@code blitF}) is detected ({@code k} outside 1..64 while {@code argb} is 1..64) and swapped back.
  */
 public final class SnapDraw {
+	/** Largest plausible physical-px-per-layout-px scale (4K at GUI 9 is 9). */
+	static final int MAX_K = 64;
+
 	private SnapDraw() {}
 
 	/** Atlas sprite {@code sprite} at float (x, y), {@code w × h}, snapped to {@code 1/k}. */
 	public static void blitF(GuiGraphicsExtractor g, Identifier sprite, double x, double y, int w, int h, int k) {
-		blitF(g, sprite, x, y, w, h, k, 0xFFFFFFFF);
+		blitF(g, sprite, x, y, w, h, 0xFFFFFFFF, k);
 	}
 
-	/** Tinted / faded atlas sprite at float (x, y). */
-	public static void blitF(GuiGraphicsExtractor g, Identifier sprite, double x, double y, int w, int h, int k, int argb) {
+	/** Tinted / faded atlas sprite at float (x, y): {@code (..., argb, k)} like {@link #regionF} / {@link #frameF}. */
+	public static void blitF(GuiGraphicsExtractor g, Identifier sprite, double x, double y, int w, int h, int argb, int k) {
+		if (legacySwapped(argb, k)) {
+			int t = argb;
+			argb = k;
+			k = t;
+		}
 		if ((argb >>> 24) == 0) return;
-		g.pose().pushMatrix();
-		g.pose().translate(PixelSnap.snapF(x, k), PixelSnap.snapF(y, k));
+		if (!push(g, x, y, 1, k)) return;
 		FxSprites.blit(g, sprite, 0, 0, w, h, argb);
 		g.pose().popMatrix();
 	}
 
 	/** Atlas sprite of {@code w × h} ART px at float (x, y), scaled by {@code scale} layout px per art px. */
-	public static void blitF(GuiGraphicsExtractor g, Identifier sprite, double x, double y, int w, int h, double scale, int k, int argb) {
+	public static void blitF(GuiGraphicsExtractor g, Identifier sprite, double x, double y, int w, int h, int argb, double scale, int k) {
 		if ((argb >>> 24) == 0) return;
-		push(g, x, y, scale, k);
+		if (!push(g, x, y, scale, k)) return;
 		FxSprites.blit(g, sprite, 0, 0, w, h, argb);
 		g.pose().popMatrix();
 	}
@@ -46,7 +57,7 @@ public final class SnapDraw {
 	public static void regionF(GuiGraphicsExtractor g, Identifier tex, int texW, int texH, int u, int v, int w, int h, double x, double y, int argb, double scale,
 			int k) {
 		if (w <= 0 || h <= 0 || (argb >>> 24) == 0) return;
-		push(g, x, y, scale, k);
+		if (!push(g, x, y, scale, k)) return;
 		TableGfx.region(g, tex, texW, texH, u, v, w, h, 0, 0, argb);
 		g.pose().popMatrix();
 	}
@@ -55,34 +66,36 @@ public final class SnapDraw {
 	public static void frameF(GuiGraphicsExtractor g, String spritePath, int fw, int fh, int frames, int index, double x, double y, int argb, double scale,
 			int k) {
 		if ((argb >>> 24) == 0) return;
-		push(g, x, y, scale, k);
+		if (!push(g, x, y, scale, k)) return;
 		TableGfx.frame(g, spritePath, fw, fh, frames, index, 0, 0, argb);
 		g.pose().popMatrix();
-	}
-
-	/** Pushes the pose, translates to the snapped (x, y), then scales (snap before scale). */
-	private static void push(GuiGraphicsExtractor g, double x, double y, double scale, int k) {
-		if (!(scale > 0)) throw new IllegalArgumentException("scale " + scale);
-		g.pose().pushMatrix();
-		g.pose().translate(PixelSnap.snapF(x, k), PixelSnap.snapF(y, k));
-		if (scale != 1) g.pose().scale((float) scale, (float) scale);
 	}
 
 	/** Region {@code (u, v, w, h)} of texture {@code tex} ({@code texW × texH}) at float (x, y) (see {@link TableGfx#region}). */
 	public static void regionF(GuiGraphicsExtractor g, Identifier tex, int texW, int texH, int u, int v, int w, int h, double x, double y, int argb, int k) {
-		if (w <= 0 || h <= 0 || (argb >>> 24) == 0) return;
-		g.pose().pushMatrix();
-		g.pose().translate(PixelSnap.snapF(x, k), PixelSnap.snapF(y, k));
-		TableGfx.region(g, tex, texW, texH, u, v, w, h, 0, 0, argb);
-		g.pose().popMatrix();
+		regionF(g, tex, texW, texH, u, v, w, h, x, y, argb, 1.0, k);
 	}
 
 	/** Frame {@code index} of a vertical sprite strip at float (x, y) (see {@link TableGfx#frame}). */
 	public static void frameF(GuiGraphicsExtractor g, String spritePath, int fw, int fh, int frames, int index, double x, double y, int argb, int k) {
-		if ((argb >>> 24) == 0) return;
+		frameF(g, spritePath, fw, fh, frames, index, x, y, argb, 1.0, k);
+	}
+
+	/**
+	 * Pushes the pose, translates to the snapped (x, y), then scales (snap before scale). Returns false (nothing
+	 * pushed) for a non-positive or non-finite scale or position.
+	 */
+	private static boolean push(GuiGraphicsExtractor g, double x, double y, double scale, int k) {
+		if (!(scale > 0) || Double.isInfinite(scale) || !Double.isFinite(x) || !Double.isFinite(y)) return false;
+		int kk = Math.max(1, Math.min(MAX_K, k));
 		g.pose().pushMatrix();
-		g.pose().translate(PixelSnap.snapF(x, k), PixelSnap.snapF(y, k));
-		TableGfx.frame(g, spritePath, fw, fh, frames, index, 0, 0, argb);
-		g.pose().popMatrix();
+		g.pose().translate(PixelSnap.snapF(x, kk), PixelSnap.snapF(y, kk));
+		if (scale != 1) g.pose().scale((float) scale, (float) scale);
+		return true;
+	}
+
+	/** True for a call with {@code k} and {@code argb} swapped (MKa's {@code blitF(..., k, argb)} order). */
+	static boolean legacySwapped(int argb, int k) {
+		return (k < 1 || k > MAX_K) && argb >= 1 && argb <= MAX_K;
 	}
 }

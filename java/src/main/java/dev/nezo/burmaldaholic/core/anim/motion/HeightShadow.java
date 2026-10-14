@@ -47,11 +47,6 @@ public final class HeightShadow {
 		public int shadowSize;
 	}
 
-	/** {@link #ROULETTE} look of height {@code z} (art px) at {@code k} layout px per art px. */
-	public static void apply(double z, double k, Out o) {
-		apply(ROULETTE, z, k, o);
-	}
-
 	/** The {@code style} look of height {@code z} at {@code k} (units of the result per art px). */
 	public static void apply(Style s, double z, double k, Out o) {
 		double h = Math.max(0, z);

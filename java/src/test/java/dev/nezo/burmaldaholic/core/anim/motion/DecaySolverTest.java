@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.core.anim.motion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.SplittableRandom;
@@ -93,6 +94,16 @@ class DecaySolverTest {
 			}
 		}
 		assertTrue(boundCases > 5000, "bound cases " + boundCases);
+	}
+
+	@Test
+	void rejectsNonFiniteInputs() {
+		double[][] bad = {{Double.NaN, 300, 3, 1000}, {700, Double.NaN, 3, 1000}, {Double.POSITIVE_INFINITY, 300, 3, 1000}, {700, 300, Double.NaN, 1000},
+			{700, 300, Double.POSITIVE_INFINITY, 1000}, {700, 300, 3, Double.NaN}, {700, 300, 0, 1000}};
+		for (double[] c : bad) {
+			assertThrows(IllegalArgumentException.class, () -> DecaySolver.solve(c[0], c[1], c[2], c[3], 1, 0.2, 6), java.util.Arrays.toString(c));
+		}
+		assertThrows(IllegalArgumentException.class, () -> DecaySolver.solve(700, 300, 3, 1000, 1, 0.2, Double.POSITIVE_INFINITY));
 	}
 
 	@Test

@@ -21,8 +21,8 @@ public final class GuiShake {
 	 *
 	 * @param p     the GUI pose
 	 * @param a     amplitude in layout px (x; y gets half)
-	 * @param tauMs decay time constant (ms)
-	 * @param hz    frequency
+	 * @param tauMs decay time constant (ms, > 0)
+	 * @param hz    frequency in Hz (the spec's 22 Hz; {@code Oscillation} itself takes periods in ms)
 	 * @param tMs   ms since the impact (negative = not started)
 	 * @param k     physical px per layout px (snapping)
 	 */
@@ -33,8 +33,11 @@ public final class GuiShake {
 	/** {@link #push(Matrix3x2fStack, double, double, double, double, int)} recorded under {@code what} (test recorder). */
 	public static void push(Matrix3x2fStack p, double a, double tauMs, double hz, double tMs, int k, String what) {
 		p.pushMatrix();
-		double dx = offset(a, tauMs, hz, tMs, k, what);
-		if (dx != 0) p.translate((float) dx, PixelSnap.snapF(dx / 2, k));
+		double raw = raw(a, tauMs, hz, tMs, what);
+		if (raw == 0) return;
+		int kk = Math.max(1, k);
+		// x and y are snapped from the UNSNAPPED value, so the y shake stays symmetric
+		p.translate(PixelSnap.snapF(raw, kk), PixelSnap.snapF(raw / 2, kk));
 	}
 
 	/** Pops what {@link #push} pushed. */
@@ -44,8 +47,15 @@ public final class GuiShake {
 
 	/** The snapped x offset of the shake (0 when finished, not started, or gated off). */
 	public static double offset(double a, double tauMs, double hz, double tMs, int k, String what) {
-		double raw = Oscillation.shake(a, tauMs, hz, tMs);
+		double raw = raw(a, tauMs, hz, tMs, what);
+		return raw == 0 ? 0 : PixelSnap.snap(raw, Math.max(1, k));
+	}
+
+	/** Unsnapped x offset; 0 when finished, not started, gated off, or with a non-positive frequency / decay. */
+	private static double raw(double a, double tauMs, double hz, double tMs, String what) {
+		if (!(hz > 0)) return 0;
+		double raw = Oscillation.shake(a, tauMs, Oscillation.periodOfHz(hz), tMs);
 		if (raw == 0 || !MotionFx.shake(what)) return 0;
-		return PixelSnap.snap(raw, Math.max(1, k));
+		return raw;
 	}
 }
