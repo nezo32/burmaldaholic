@@ -3,6 +3,8 @@ package dev.nezo.burmaldaholic.core.ui.v2;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -178,6 +180,22 @@ class KitContractTest {
 		assertFalse(legacy.pending(), "a state without ack answers anything");
 	}
 
+	/** A table broken and placed again at the same spot (or reloaded): its ack restarts below the cached state's. */
+	@Test
+	void watchdogFollowsARestartedTableCounter() {
+		AckWatchdog w = new AckWatchdog();
+		w.state(7); // the cached state of the OLD table at this position
+		w.sent("sit", "", 0);
+		w.state(1); // the new table's answer
+		assertFalse(w.pending(), "a lower ack is a new table: it answers");
+		assertEquals(1, w.lastAck());
+		w.sent("bet", "", 25);
+		w.state(1);
+		assertTrue(w.pending(), "the same counter again is not an answer");
+		w.state(2);
+		assertFalse(w.pending());
+	}
+
 	@Test
 	void standardKeys() {
 		KeyMap k = KeyMap.standard();
@@ -190,7 +208,10 @@ class KitContractTest {
 		assertEquals(Optional.of("tool.double"), k.idFor(KeyMap.X));
 		k.bind(KeyMap.H, "action.hit").bind(KeyMap.R, "action.raise");
 		assertEquals(KeyMap.H, k.keyOf("action.hit"));
-		assertEquals(-1, k.keyOf("tool.rebet"), "a game key replaces a kit key");
+		assertNull(k.keyOf("tool.rebet"), "a game key replaces a kit key");
+		assertEquals(Optional.empty(), k.idFor(null), "a key the kit does not name presses nothing");
+		assertEquals(KeyMap.KEY_3, KeyMap.digit(3));
+		assertThrows(IllegalArgumentException.class, () -> k.bind("f13", "x"), "only named keys (letters, digits, Space, Enter, ...) bind");
 		assertEquals("key.keyboard.space", KeyMap.vanillaNameKey(KeyMap.SPACE));
 		assertEquals("key.keyboard.h", KeyMap.vanillaNameKey(KeyMap.H));
 		assertEquals("key.keyboard.1", KeyMap.vanillaNameKey(KeyMap.KEY_1));

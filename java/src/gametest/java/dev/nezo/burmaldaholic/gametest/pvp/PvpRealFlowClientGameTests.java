@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.pvp;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.ui.FitScaled;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
@@ -236,7 +237,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		}
 		context.getInput().setCursorPos(pos[0], pos[1]);
 		context.waitTicks(1);
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(3);
 	}
 
@@ -257,7 +258,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		if (pos == null) throw new AssertionError("no v2 target '" + id + "' (" + what + ") on " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
 		context.getInput().setCursorPos(pos[0], pos[1]);
 		context.waitTicks(1);
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(3);
 	}
 
@@ -346,7 +347,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 	private static void openHub(ClientGameTestContext context) {
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(2);
-		context.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_B);
+		context.getInput().pressKey(Inputs.KEY_B);
 		waitForScreen(context, named("CasinoMenuScreen"), "key B opens the Casino Menu");
 		click(context, labelled("gui.burmaldaholic.menu.challenges"), "Challenges tab");
 		context.waitTicks(10);

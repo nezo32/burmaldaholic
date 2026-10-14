@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.tables;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -133,7 +134,11 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	private static void prepare(ClientGameTestContext context, TestServerContext world) {
 		world.runCommand("gamemode survival @a");
 		world.runCommand("casino balance set @p 5000");
-		world.runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
+		world.runOnServer(server -> {
+			dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false;
+			// a completed contract (win_blackjack, wager, ...) pays its reward into the balance the payout checks read
+			dev.nezo.burmaldaholic.core.config.CasinoConfig.contracts().enabled = false;
+		});
 		context.waitTicks(5);
 	}
 
@@ -580,7 +585,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	private static void click(ClientGameTestContext context, double wx, double wy) {
 		context.getInput().setCursorPos(wx, wy);
 		context.waitTicks(1);
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(3);
 	}
 

@@ -18,9 +18,9 @@ public final class V2Button {
 
 	private V2Button() {}
 
-	/** The display name of a GLFW key ("Space" / "Пробел", "H"), or null for -1. */
-	public static @Nullable Component keyName(int key) {
-		String k = key < 0 ? null : dev.nezo.burmaldaholic.core.ui.v2.KeyMap.vanillaNameKey(key);
+	/** The display name of a {@link dev.nezo.burmaldaholic.core.ui.v2.KeyMap} key ("Space" / "Пробел", "H"), or null for none. */
+	public static @Nullable Component keyName(@Nullable String key) {
+		String k = dev.nezo.burmaldaholic.core.ui.v2.KeyMap.vanillaNameKey(key);
 		return k == null ? null : Component.translatable(k);
 	}
 

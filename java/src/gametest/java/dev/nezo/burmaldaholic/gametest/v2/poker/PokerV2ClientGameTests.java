@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.v2.poker;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import dev.nezo.burmaldaholic.gametest.v2.RealFlow;
@@ -334,7 +335,7 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		double[] p = f.windowPoint(id);
 		f.context().getInput().setCursorPos(p[0], p[1]);
 		f.context().waitTick();
-		f.context().getInput().pressMouse(0);
+		f.context().getInput().pressMouse(Inputs.MOUSE_LEFT);
 		f.context().waitTicks(4);
 	}
 

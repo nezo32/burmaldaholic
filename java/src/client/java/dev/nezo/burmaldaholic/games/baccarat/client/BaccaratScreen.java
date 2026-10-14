@@ -25,6 +25,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.SeatColumn;
 import dev.nezo.burmaldaholic.core.ui.v2.Stamps;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
@@ -371,7 +372,7 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (id.startsWith("seat.")) {
 			if (enabled) sendTracked(BetGates.SIT);
 			return true;
@@ -379,7 +380,7 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		if (id.startsWith("felt.box.") && view != null) {
 			int box = boxIndex(id.substring("felt.box.".length()));
 			if (box < 0) return false;
-			if (button == 1) {
+			if (button.right()) {
 				CompoundTag un = new CompoundTag();
 				un.putString("box", BaccaratPub.BOX_IDS[box]);
 				sendTracked("unbet", un, "", 0);
