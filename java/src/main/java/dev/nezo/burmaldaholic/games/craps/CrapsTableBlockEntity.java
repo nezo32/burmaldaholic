@@ -40,6 +40,7 @@ import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable.OddsInfo;
 import dev.nezo.burmaldaholic.games.craps.logic.RollEvent;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsPub;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsThrow;
 import dev.nezo.burmaldaholic.games.craps.logic.ShooterRotation.SeatInfo;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -150,6 +151,10 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	private int rollSeed;
 	private int pointBefore;
 	private int shooterDir;
+	/** CM: the end of the Pass line the last throw left from, its solved rest time and the reveal delay derived from it. */
+	private int shooterSide;
+	private int restMs;
+	private int revealTicks = CrapsBeats.revealTicks(1700);
 	/** 0 village, 1 bastion, 2 end (-1 = not resolved yet) */
 	private int theme = -1;
 	/** client side: the last update-tag sync (the in-world dice) */
@@ -446,7 +451,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	/** Bets close {@code craps.betWindowTicks} after each roll when more than one player is seated. */
 	public long windowEnd() {
 		// tables.md §2.7: the window starts after the reveal, so nobody has to bet while the dice are still moving
-		return lastRollTime + CrapsBeats.REVEAL_DELAY_TICKS + (seats().occupied().size() > 1 ? CasinoConfig.craps().betWindowTicks : 0);
+		return lastRollTime + revealTicks + (seats().occupied().size() > 1 ? CasinoConfig.craps().betWindowTicks : 0);
 	}
 
 	boolean windowOpen() {
@@ -547,6 +552,11 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		CrapsTable.TableRoll tr = table.roll(d1, d2, seats);
 		chipLog.clear(); // the roll has seen every bet: none can be taken back now
 		rollSeed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table.rollCount());
+		// CM: the throw is solved once here (cosmetic seed, never CasinoRng); its rest time paces every reveal below
+		Integer shooterSeat = shooterForRun == null ? null : publicSeatIndex().get(shooterForRun);
+		shooterSide = CrapsThrow.sideOfSeat(shooterSeat == null ? -1 : shooterSeat, Math.max(seats().size(), shooterSeat == null ? 0 : shooterSeat + 1));
+		restMs = CrapsThrow.solve(shooterSide, rollSeed, d1, d2).restMs();
+		revealTicks = CrapsBeats.revealTicks(restMs);
 		lastRes.clear();
 		for (BetResolution res : tr.result().resolutions()) {
 			Bet b = res.bet();
@@ -585,7 +595,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		Component headline = Component.translatable(M + "rolled", Texts.raw(shooterName), Texts.number(d1), Texts.number(d2), Texts.number(total));
 		List<Component> event = eventLines(tr.result().event());
 		MinecraftServer server = level instanceof ServerLevel sl ? sl.getServer() : null;
-		// Text trails the dice (tables.md §0.6.3): every line waits REVEAL_DELAY; the money is already settled above.
+		// Text trails the dice (tables.md §0.6.3): every line waits revealTicks (the throw's rest + 330 ms); the money is already settled above.
 		long at = revealAt();
 		for (TableSeats.Seat seat : seats().occupied()) {
 			pending.add(new Pending(at, seat.player(), headline));
@@ -595,14 +605,37 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		if (tr.sevenOut()) {
 			announcedShooter = null;
 		}
+		if (level instanceof ServerLevel sl) {
+			// tables.md §2.6 / CS §6: a cue for clients without the mod, at the moment the dice rest
+			RollEvent.Kind kind = tr.result().event().kind();
+			pending.add(new Pending(lastRollTime + (long) Math.ceil(restMs / 50.0), null, null, () -> restParticles(sl, kind)));
+		}
 		botSafePoint();
 		rearm();
 		publishSync();
 	}
 
+	private void restParticles(ServerLevel sl, RollEvent.Kind kind) {
+		double x = worldPosition.getX() + 0.5;
+		double y = worldPosition.getY() + 1.1;
+		double z = worldPosition.getZ() + 0.5;
+		if (kind == RollEvent.Kind.NATURAL) sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, x, y, z, 3, 0.2, 0.05, 0.2, 0.05);
+		else if (kind == RollEvent.Kind.SEVEN_OUT) sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, x, y, z, 4, 0.2, 0.05, 0.2, 0.01);
+	}
+
 	/** Game time at which the last roll's text may be shown. */
 	private long revealAt() {
-		return lastRollTime + CrapsBeats.REVEAL_DELAY_TICKS;
+		return lastRollTime + revealTicks;
+	}
+
+	/** Reveal delay of the last roll in ticks ({@code ceil((restMs + 330) / 50)}; tests). */
+	public int revealTicks() {
+		return revealTicks;
+	}
+
+	/** Solved rest time of the last throw, ms (tests). */
+	public int restMs() {
+		return restMs;
 	}
 
 	/** 0–3: horizontal direction from the table to the shooter (south, west, north, east), for the throw's origin. */
@@ -688,7 +721,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	public CrapsSync sync() {
 		RollEvent ev = table.lastEvent();
 		return new CrapsSync(table.rollCount(), lastRollTime < 0 ? 0 : lastRollTime, table.lastD1(), table.lastD2(), rollSeed, pointBefore, table.point(),
-			shooterDir, ev == null ? -1 : ev.kind().ordinal(), theme());
+			shooterDir, ev == null ? -1 : ev.kind().ordinal(), theme(), shooterSide, restMs, CrapsSync.ANIM_V);
 	}
 
 	/** GameTests / previews: forces the location theme (0 village, 1 bastion, 2 end). */
@@ -876,7 +909,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			if (owner.equals(loser) && level instanceof ServerLevel sl) {
 				var profile = b.profile();
 				// the quip would tell the seven-out before the dice land (tables.md §0.6.3)
-				pending.add(new Pending(gameTime() + CrapsBeats.REVEAL_DELAY_TICKS, null, null, () -> bots.quip(sl, profile, "seven_out", null)));
+				pending.add(new Pending(gameTime() + revealTicks, null, null, () -> bots.quip(sl, profile, "seven_out", null)));
 			}
 		}
 		lastBotResults = parts.isEmpty() ? null : Component.translatable("gui.burmaldaholic.bots.virtual_bets", joined(parts));
@@ -963,6 +996,9 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		tag.putLong("game_time", gameTime());
 		tag.putInt("seed", rollSeed);
 		tag.putInt("shooter_dir", shooterDir);
+		tag.putInt("shooter_side", shooterSide);
+		tag.putInt("rest_ms", restMs);
+		tag.putInt("anim_v", CrapsSync.ANIM_V);
 		tag.putInt("points_in_row", pointsInRow);
 		tag.putInt("point_before", pointBefore);
 		tag.putString("theme", new String[] {"village", "bastion", "end"}[theme()]); // J-L2 kit: CasinoTableScreen#theme()
@@ -1120,7 +1156,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				pointsInRow++;
 				if (pointsInRow >= 3 && level instanceof ServerLevel sl) {
 					// the toast waits for the dice like the chat lines (tables.md §2.7)
-					pending.add(new Pending(gameTime() + CrapsBeats.REVEAL_DELAY_TICKS, null, null,
+					pending.add(new Pending(gameTime() + revealTicks, null, null,
 						() -> CasinoAdvancements.grant(sl.getServer(), shooter, "hot_shooter")));
 				}
 			}
