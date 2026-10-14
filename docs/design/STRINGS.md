@@ -2061,9 +2061,11 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
 | `gui.burmaldaholic.uth.v2.reason.showdown` | Showdown | Вскрытие |
 | `gui.burmaldaholic.uth.v2.reason.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.uth.v2.reason.press_change_bet` | Bet placed – press Change bet to edit it | Ставка сделана – нажмите «Изменить ставку» |
 | `gui.burmaldaholic.uth.v2.status.chips_to` | Chips → %1$s | Фишки → %1$s |
 | `gui.burmaldaholic.uth.v2.status.cost` | Ante %1$s + Blind %1$s + Trips %2$s = %3$s | Анте %1$s + блайнд %1$s + трипс %2$s = %3$s |
 | `gui.burmaldaholic.uth.v2.status.right_click` | Right click: −1 chip | ПКМ: −1 фишка |
+| `gui.burmaldaholic.uth.v2.status.max_ante` | max Ante %1$s | анте до %1$s |
 | `gui.burmaldaholic.uth.v2.status.bet_placed` | Bet placed – change it until the deal | Ставка сделана – менять до раздачи |
 | `gui.burmaldaholic.uth.v2.status.starts_in` | Round starts in %1$s s | Раунд начнётся через %1$s с |
 | `gui.burmaldaholic.uth.v2.status.decide_in` | Decide in %1$s s | На решение %1$s с |

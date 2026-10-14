@@ -67,8 +67,9 @@ import org.jspecify.annotations.Nullable;
  * <p>Betting (the v0.1.1 report "I could not change my UTH bet"): the BetBar edits a local {@link UthBetDraft} — a chip
  * adds to the armed spot (Ante, or Trips after clicking the Trips spot), right click takes one off, Undo / Clear /
  * Rebet / ×2 work, the readout and the status line show the cost (Ante + Blind + Trips), and the gold primary
- * <b>Deal · 30</b> sends {@code bet {ante, trips}}. While others still bet, the primary is <b>Change bet</b> and any
- * chip or tool changes it too: {@code clear} is sent (the server refunds) and the draft keeps the amounts to edit.
+ * <b>Deal · 30</b> sends {@code bet {ante, trips}}. A chip over the limit / balance clamps to the largest allowed amount
+ * and says why (R-AB M5). While others still bet, the primary is <b>Change bet</b>: only it sends {@code clear} (the
+ * server refunds) and the draft keeps the amounts to edit; until then chips and tools are locked (R-AB M4).
  * Decisions: ActionRow {@code Check · Bet ×3} + primary {@code Bet ×4} pre-flop, {@code Check} + {@code Bet ×2} on the
  * flop, {@code Fold} + {@code Bet ×1} on the river. Player bank: {@code take_bank {amount}} (stepper),
  * {@code leave_bank}. Bot settings and the paytable live behind the TopBar icons.
@@ -126,7 +127,7 @@ public class UthScreen extends V2TableScreen<UthView> {
 
 		@Override
 		public Gate chip(long denom, UthView v) {
-			Gate c = UthFlow.chips(v);
+			Gate c = UthFlow.chip(denom, v);
 			return c.enabled() ? Gate.on(BetGates.CHIP, c.labelKey()) : Gate.off(BetGates.CHIP, c.labelKey(), c.reasonKey(), c.reasonArgs());
 		}
 	};
@@ -333,7 +334,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 		return new BetPort() {
 			@Override
 			public void add(long denom) {
-				edit(draft.add(draft.spot(), denom));
+				UthView v = view;
+				if (v != null) edit(UthFlow.add(v, draft.spot(), denom));
 			}
 
 			@Override
@@ -346,7 +348,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 				switch (toolId) {
 					case BetGates.UNDO -> edit(draft.undo());
 					case BetGates.CLEAR -> edit(draft.clear());
-					case BetGates.REBET -> edit(draft.load(s().getLongOr("last_ante", 0), s().getLongOr("last_trips", 0)));
+					case BetGates.REBET -> {
+						if (view != null) edit(UthFlow.rebet(view));
+					}
 					case BetGates.DOUBLE -> edit(draft.doubled());
 					default -> {
 					}
@@ -355,16 +359,22 @@ public class UthScreen extends V2TableScreen<UthView> {
 		};
 	}
 
+	/** A clamped chip edit: applied, and its reason flashed when the amount was capped (R-AB M5). */
+	private void edit(UthFlow.Edit e) {
+		if (e.refusal() != null) chrome.refuse(e.refusal());
+		edit(e.draft());
+	}
+
 	/**
-	 * A draft edit from the BetBar or a felt spot. When the bet was already confirmed this IS the change: the server
-	 * refunds it ({@code clear}) and the edited draft waits for Deal again.
+	 * A draft edit from the BetBar or a felt spot. A confirmed bet is never touched from here (R-AB M4): the BetBar is
+	 * locked until Change bet ({@code ~change}) sent {@code clear} and the server's refund reached the screen.
 	 */
 	private void edit(UthBetDraft next) {
 		UthView v = view;
 		if (v == null || !v.betting() || !v.seated() || v.banker()) return;
 		if (v.confirmed() != null) {
-			sendTracked("clear", new CompoundTag(), "", 0);
-			if (draft.isEmpty()) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
+			chrome.refuse(UthFlow.chips(v));
+			return;
 		}
 		if (next.ante() != draft.ante() || next.trips() != draft.trips()) FxSounds.play("chip_place", 0.6f, 1.1f);
 		draft = next;
@@ -448,7 +458,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 		} else if (v.betting()) {
 			Component spot = Component.translatable(draft.spot() == UthBetDraft.Spot.TRIPS ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
 			l1 = Component.translatable(UthFlow.V2 + "status.chips_to", spot);
-			l2 = Component.translatable(UthFlow.V2 + "status.right_click");
+			// the hotfix's "max Ante" hint: what the Ante can grow to with the Trips on the felt (R-AB M5)
+			l2 = Component.translatable(UthFlow.V2 + "status.right_click").append(Texts.raw(" · "))
+				.append(Component.translatable(UthFlow.V2 + "status.max_ante", Texts.number(UthFlow.maxAnte(v, draft.trips()))));
 		} else if (me != null && me.getIntOr("play", 0) > 0) {
 			l1 = Component.translatable("gui.burmaldaholic.uth.waiting_showdown",
 				Component.translatable("gui.burmaldaholic.uth.play_multiple", Texts.number(me.getIntOr("play", 0))));
@@ -514,7 +526,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 				sendTracked("bet", args, "ante", draft.ante());
 			}
 			case UthFlow.LOCAL + "change" -> {
-				if (v.confirmed() != null && draft.isEmpty()) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
+				// the confirmed bet becomes the draft (the next state, without it, unlocks the BetBar to edit it)
+				if (v.confirmed() != null) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
 				sendTracked("clear", new CompoundTag(), "", 0);
 			}
 			case UthFlow.LOCAL + "bank_form" -> {
@@ -568,10 +581,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 			}
 			UthBetDraft.Spot sp = spot.equals("trips") ? UthBetDraft.Spot.TRIPS : UthBetDraft.Spot.ANTE;
 			long chip = chrome.bet.armOrDefault();
-			if (button == 1) edit(draft.arm(sp).remove(sp, chip));
-			else if (button == 2) edit(draft.add(sp, chip));
-			else if (button == 3) edit(draft.arm(sp).remove(sp, chip));
-			else edit(draft.add(sp, chip));
+			if (button == 1 || button == 3) edit(draft.arm(sp).remove(sp, chip));
+			else edit(UthFlow.add(v, sp, chip));
 			return true;
 		}
 		return false;

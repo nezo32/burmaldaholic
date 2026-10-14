@@ -2105,7 +2105,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 
 	private static final String PUB_KEY = "burmaldaholic_uth_pub";
 
-	/** Public state: the board face up, the dealer's cards from the showdown on, seats' cards only at the showdown. */
+	/**
+	 * Public state: the board face up, the dealer's cards from the showdown on, seats' cards only from the SHOWDOWN
+	 * segment on and never a folded hand (R-AB m10: a fold is not shown to the room).
+	 */
 	public UthPub buildPub() {
 		UthRound r = round;
 		if (r == null || stageKind == 0) {
@@ -2118,14 +2121,14 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		long[] bets = new long[n];
 		int[] cards = new int[n * 2];
 		java.util.Arrays.fill(cards, -1);
-		boolean showdown = r.settled();
+		boolean showdown = r.settled() && (stageKind == UthPub.SHOWDOWN || stageKind == UthPub.RESULT);
 		for (int i = 0; i < n; i++) {
 			UthRound.Seat s = list.get(i);
 			seatIdx[i] = s.seat;
 			boolean won = RESULT.equals(phase()) && s.result != null && s.result.net() > 0;
 			flags[i] = UthPub.flags(s.bot, s.folded, won, s.playMultiple);
 			bets[i] = s.ante * 2 + s.trips + s.play();
-			if (showdown) {
+			if (showdown && !s.folded) {
 				cards[i * 2] = s.hole[0];
 				cards[i * 2 + 1] = s.hole[1];
 			}
