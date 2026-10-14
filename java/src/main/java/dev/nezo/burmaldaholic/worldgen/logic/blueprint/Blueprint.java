@@ -9,10 +9,13 @@ import dev.nezo.burmaldaholic.worldgen.logic.Grid;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import dev.nezo.burmaldaholic.worldgen.logic.Markers;
+import dev.nezo.burmaldaholic.worldgen.logic.Nbt;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
 import dev.nezo.burmaldaholic.worldgen.logic.Vec;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Blueprint DSL (PURE; architecture doc docs/architecture/casino-buildings.md §3). A thin, palette-aware
@@ -23,6 +26,10 @@ import java.util.List;
  * layout: a viewer outside the front looks north, their left is -x (west). Text reads with x increasing.
  * Rows: y = 0 is the lowest template row. Cells never written stay {@code null} = structure void (the
  * world block is kept), so terrain around a piece is untouched unless the piece clears it explicitly.
+ *
+ * <p>Jigsaw pieces are placed with vanilla's "known shape" setting, i.e. the game does NOT recompute
+ * fence / pane / stair connections after placement. {@link #build()} therefore runs a finishing pass that
+ * writes those connection properties exactly like the game would ({@link #finishShapes()}).
  *
  * <p>Determinism: the blueprint has no randomness of its own; a variant that wants variety takes a
  * {@code long variantSeed} and draws from {@code new java.util.SplittableRandom(seed)} in a fixed order.
@@ -39,6 +46,9 @@ public final class Blueprint {
 	private final List<Piece.GameSpot> games = new ArrayList<>();
 	private final List<Geometry.Box> keepClear = new ArrayList<>();
 	private final List<Geometry.Box> interior = new ArrayList<>();
+	private final List<Geometry.Box> aisles = new ArrayList<>();
+	private final List<Vec> entries = new ArrayList<>();
+	private final Map<Vec, Map<String, Object>> blockNbt = new LinkedHashMap<>();
 
 	private Blueprint(String id, CasinoKind kind, int sx, int sy, int sz, Palette palette) {
 		this.id = id;
@@ -52,12 +62,20 @@ public final class Blueprint {
 		return new Blueprint(id, kind, sx, sy, sz, palette);
 	}
 
+	public String id() {
+		return id;
+	}
+
 	public Palette palette() {
 		return palette;
 	}
 
 	public Vec size() {
 		return grid.size();
+	}
+
+	public boolean inside(int x, int y, int z) {
+		return grid.inside(x, y, z);
 	}
 
 	public BlockSpec at(int x, int y, int z) {
@@ -68,6 +86,7 @@ public final class Blueprint {
 
 	public Blueprint set(int x, int y, int z, BlockSpec b) {
 		grid.set(x, y, z, b);
+		blockNbt.remove(new Vec(x, y, z));
 		return this;
 	}
 
@@ -75,8 +94,19 @@ public final class Blueprint {
 		return set(x, y, z, palette.block(r));
 	}
 
+	/** Sets the cell only when it is inside the piece (decor that may hang over an edge). */
+	public Blueprint setIfInside(int x, int y, int z, BlockSpec b) {
+		return grid.inside(x, y, z) ? set(x, y, z, b) : this;
+	}
+
 	public Blueprint fill(int x0, int y0, int z0, int x1, int y1, int z1, BlockSpec b) {
-		grid.box(x0, y0, z0, x1, y1, z1, b);
+		for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+			for (int y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+				for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+					set(x, y, z, b);
+				}
+			}
+		}
 		return this;
 	}
 
@@ -86,6 +116,37 @@ public final class Blueprint {
 
 	public Blueprint clear(int x0, int y0, int z0, int x1, int y1, int z1) {
 		return fill(x0, y0, z0, x1, y1, z1, AIR);
+	}
+
+	/** Stairs of the role's material; {@code facing} is the high (back) side, {@code top} = upside-down. */
+	public Blueprint stairs(int x, int y, int z, Role r, Facing facing, boolean top) {
+		return set(x, y, z, palette.get(r).stairs(facing, top));
+	}
+
+	/** Slab of the role's material ({@code bottom}, {@code top} or {@code double}). */
+	public Blueprint slab(int x, int y, int z, Role r, String type) {
+		return set(x, y, z, palette.get(r).slab(type));
+	}
+
+	/** Replaces every cell of the box that currently holds {@code from} (exact state) with {@code to}. */
+	public Blueprint replace(int x0, int y0, int z0, int x1, int y1, int z1, BlockSpec from, BlockSpec to) {
+		for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+			for (int y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+				for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+					if (from.equals(grid.get(x, y, z))) {
+						set(x, y, z, to);
+					}
+				}
+			}
+		}
+		return this;
+	}
+
+	/** Sets a block together with its block-entity NBT (written into the template's {@code blocks[].nbt}). */
+	public Blueprint setNbt(int x, int y, int z, BlockSpec block, Map<String, Object> nbt) {
+		set(x, y, z, block);
+		blockNbt.put(new Vec(x, y, z), nbt);
+		return this;
 	}
 
 	// ---- structure verbs ----------------------------------------------------------------------------
@@ -102,9 +163,9 @@ public final class Blueprint {
 	public Room room(int x0, int y0, int z0, int x1, int y1, int z1) {
 		fill(x0, y0, z0, x1, y0, z1, Role.FLOOR);
 		clear(x0 + 1, y0 + 1, z0 + 1, x1 - 1, y1 - 1, z1 - 1);
-		grid.walls(x0, y0 + 1, z0, x1, y0 + 1, z1, palette.block(Role.WALL_BASE));
+		wallRing(x0, y0 + 1, z0, x1, y0 + 1, z1, palette.block(Role.WALL_BASE));
 		if (y1 - 1 > y0 + 1) {
-			grid.walls(x0, y0 + 2, z0, x1, y1 - 1, z1, palette.block(Role.WALL));
+			wallRing(x0, y0 + 2, z0, x1, y1 - 1, z1, palette.block(Role.WALL));
 		}
 		fill(x0, y1, z0, x1, y1, z1, Role.CEILING);
 		Geometry.Box inside = new Geometry.Box(x0 + 1, y0 + 1, z0 + 1, x1 - 1, y1 - 1, z1 - 1);
@@ -112,12 +173,55 @@ public final class Blueprint {
 		return new Room(this, new Geometry.Box(x0, y0, z0, x1, y1, z1));
 	}
 
+	private void wallRing(int x0, int y0, int z0, int x1, int y1, int z1, BlockSpec b) {
+		for (int y = y0; y <= y1; y++) {
+			for (int x = x0; x <= x1; x++) {
+				set(x, y, z0, b);
+				set(x, y, z1, b);
+			}
+			for (int z = z0; z <= z1; z++) {
+				set(x0, y, z, b);
+				set(x1, y, z, b);
+			}
+		}
+	}
+
+	/** Registers an extra interior volume (a mezzanine, a clerestory) for the light check. */
+	public Blueprint interior(int x0, int y0, int z0, int x1, int y1, int z1) {
+		interior.add(Geometry.Box.corners(new Vec(x0, y0, z0), new Vec(x1, y1, z1)));
+		return this;
+	}
+
 	/** Hip roof: {@code layers} rings of ROOF stairs stepping inwards from the eave box, flat ROOF cap. */
 	public Blueprint hipRoof(int x0, int z0, int x1, int z1, int baseY, int layers) {
-		Material m = palette.get(Role.ROOF);
+		return hipRoof(x0, z0, x1, z1, baseY, layers, Role.ROOF);
+	}
+
+	/**
+	 * Horizontal or vertical beam of a role along the box's long axis: logs, pillars and other axis blocks
+	 * get {@code axis=x|y|z} so a beam lies the right way; other blocks are written as they are.
+	 */
+	public Blueprint beam(int x0, int y0, int z0, int x1, int y1, int z1, Role role) {
+		String axis = Math.abs(x1 - x0) > 0 ? "x" : Math.abs(z1 - z0) > 0 ? "z" : "y";
+		BlockSpec b = palette.block(role);
+		return fill(x0, y0, z0, x1, y1, z1, Shapes.hasAxis(b.name()) ? BlockSpec.of(b.name(), "axis", axis) : b);
+	}
+
+	/** Hip roof of any stair-shaped role (ROOF, ROOF_TRIM …); the last ring is capped flat. */
+	public Blueprint hipRoof(int x0, int z0, int x1, int z1, int baseY, int layers, Role role) {
+		return hipRoof(x0, z0, x1, z1, baseY, layers, role, true);
+	}
+
+	/** Hip roof; {@code cap = false} leaves the inside of the last ring open (a lantern or tower sits there). */
+	public Blueprint hipRoof(int x0, int z0, int x1, int z1, int baseY, int layers, Role role, boolean cap) {
+		Material m = palette.get(role);
 		for (int i = 0; i < layers; i++) {
 			int ax = x0 + i, az = z0 + i, bx = x1 - i, bz = z1 - i, y = baseY + i;
 			if (ax > bx || az > bz) {
+				break;
+			}
+			if (ax == bx || az == bz) { // a ridge line: slabs
+				fill(ax, y, az, bx, y, bz, m.slab("bottom"));
 				break;
 			}
 			for (int x = ax; x <= bx; x++) {
@@ -128,35 +232,228 @@ public final class Blueprint {
 				grid.set(ax, y, z, m.stairs(Facing.EAST, false));
 				grid.set(bx, y, z, m.stairs(Facing.WEST, false));
 			}
-			if (i == layers - 1 && ax + 1 <= bx - 1 && az + 1 <= bz - 1) {
-				fill(ax + 1, y, az + 1, bx - 1, y, bz - 1, Role.ROOF);
+			if (cap && i == layers - 1 && ax + 1 <= bx - 1 && az + 1 <= bz - 1) {
+				fill(ax + 1, y, az + 1, bx - 1, y, bz - 1, role);
 			}
 		}
 		return this;
 	}
 
 	/**
+	 * Gable roof whose ridge runs along x ({@code ridgeAlongX}) or z: stairs climb from both long eaves to a
+	 * slab ridge; the two gable ends are filled with {@code gableFill} (null = leave open). Returns the
+	 * ridge row y. Used for dormers, the porch and the bar wing; lane CB-3 adds more shapes in {@code Roofs}.
+	 */
+	public int gableRoof(int x0, int z0, int x1, int z1, int baseY, boolean ridgeAlongX, Role role, Role gableFill) {
+		Material m = palette.get(role);
+		int lo = ridgeAlongX ? z0 : x0, hi = ridgeAlongX ? z1 : x1;
+		int y = baseY;
+		for (int i = 0; lo + i <= hi - i; i++, y++) {
+			int a = lo + i, c = hi - i;
+			for (int t = ridgeAlongX ? x0 : z0; t <= (ridgeAlongX ? x1 : z1); t++) {
+				if (a == c) {
+					setXZ(ridgeAlongX, t, y, a, m.slab("bottom"));
+				} else {
+					setXZ(ridgeAlongX, t, y, a, m.stairs(ridgeAlongX ? Facing.SOUTH : Facing.EAST, false));
+					setXZ(ridgeAlongX, t, y, c, m.stairs(ridgeAlongX ? Facing.NORTH : Facing.WEST, false));
+				}
+			}
+			if (gableFill != null && c - a >= 2) {
+				for (int u = a + 1; u < c; u++) {
+					int e0 = ridgeAlongX ? x0 : z0, e1 = ridgeAlongX ? x1 : z1;
+					setXZ(ridgeAlongX, e0, y, u, palette.block(gableFill));
+					setXZ(ridgeAlongX, e1, y, u, palette.block(gableFill));
+				}
+			}
+			if (a == c || a + 1 == c) {
+				break;
+			}
+		}
+		return y;
+	}
+
+	private void setXZ(boolean alongX, int along, int y, int across, BlockSpec b) {
+		if (alongX) {
+			set(along, y, across, b);
+		} else {
+			set(across, y, along, b);
+		}
+	}
+
+	/**
+	 * Clerestory lantern: a raised band of GLASS between FRAME posts (every 3 cells) on the ring
+	 * {@code x0..x1 × z0..z1} for rows {@code y0..y1}, air inside (registered as interior), the ceiling under
+	 * it opened. The caller roofs it (e.g. {@link #hipRoof}) at {@code y1 + 1}.
+	 */
+	public Blueprint clerestory(Geometry.Box box) {
+		return clerestory(box.minX(), box.minZ(), box.maxX(), box.maxZ(), box.minY(), box.maxY());
+	}
+
+	/** {@link #clerestory(Geometry.Box)} with explicit ring {@code x0..x1 × z0..z1} and glass rows {@code y0..y1}. */
+	public Blueprint clerestory(int x0, int z0, int x1, int z1, int y0, int y1) {
+		clear(x0 + 1, y0 - 1, z0 + 1, x1 - 1, y1, z1 - 1);
+		for (int y = y0; y <= y1; y++) {
+			for (int x = x0; x <= x1; x++) {
+				set(x, y, z0, (x - x0) % 3 == 0 ? palette.block(Role.FRAME) : palette.block(Role.GLASS));
+				set(x, y, z1, (x - x0) % 3 == 0 ? palette.block(Role.FRAME) : palette.block(Role.GLASS));
+			}
+			for (int z = z0; z <= z1; z++) {
+				set(x0, y, z, (z - z0) % 3 == 0 ? palette.block(Role.FRAME) : palette.block(Role.GLASS));
+				set(x1, y, z, (z - z0) % 3 == 0 ? palette.block(Role.FRAME) : palette.block(Role.GLASS));
+			}
+		}
+		for (int[] c : new int[][] {{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+			fill(c[0], y0, c[1], c[0], y1, c[1], Role.FRAME);
+		}
+		fill(x0, y0 - 1, z0, x1, y0 - 1, z0, Role.BEAM);
+		fill(x0, y0 - 1, z1, x1, y0 - 1, z1, Role.BEAM);
+		fill(x0, y0 - 1, z0, x0, y0 - 1, z1, Role.BEAM);
+		fill(x1, y0 - 1, z0, x1, y0 - 1, z1, Role.BEAM);
+		interior.add(new Geometry.Box(x0 + 1, y0 - 1, z0 + 1, x1 - 1, y1, z1 - 1));
+		return this;
+	}
+
+	/**
 	 * Pixel-font sign on a wall plane facing {@code Facing.SOUTH} (z = {@code z}), letters alternating
 	 * NEON_A / NEON_B on SIGN_BACK, BULB border every second cell. {@code topY} is the top text row.
-	 * Only the front (+z) is supported in the skeleton; side signs come with lane CB-3 (Facades).
+	 * Only the front (+z) is supported here; side signs come with lane CB-3 (Facades).
 	 */
 	public Blueprint marquee(String word, int centerX, int topY, int z) {
+		return marquee(word, centerX, topY, z, false);
+	}
+
+	/**
+	 * Marquee with {@code raised} letters: the SIGN_BACK board stays at {@code z} and the letters stand one
+	 * block proud of it at {@code z + 1} (depth reads from far away and at grazing angles); the bulb
+	 * border is raised too. Returns the board box via the blueprint for chaining.
+	 */
+	public Blueprint marquee(String word, int centerX, int topY, int z, boolean raised) {
+		return marquee(word, centerX, topY, z, raised, 0);
+	}
+
+	/**
+	 * Marquee with {@code spacing} empty columns between letters (an odd total width centres exactly on an
+	 * odd facade: "CASINO" with spacing 1 is 21 wide + border = 23).
+	 */
+	public Blueprint marquee(String word, int centerX, int topY, int z, boolean raised, int spacing) {
 		Layouts.Sign sign = Layouts.signPixels(word);
-		int left = centerX - sign.width() / 2;
-		int x0 = left - 1, x1 = left + sign.width(), y0 = topY - 5, y1 = topY + 1;
+		int width = sign.width() + spacing * (word.length() - 1);
+		int left = centerX - width / 2;
+		int x0 = left - 1, x1 = left + width, y0 = topY - 5, y1 = topY + 1;
+		int lz = raised ? z + 1 : z;
 		fill(x0, y0, z, x1, y1, z, Role.SIGN_BACK);
 		for (Layouts.SignPixel px : sign.pixels()) {
-			set(left + px.col(), topY - px.row(), z, px.letter() % 2 == 0 ? Role.NEON_A : Role.NEON_B);
+			set(left + px.col() + px.letter() * spacing, topY - px.row(), lz, px.letter() % 2 == 0 ? Role.NEON_A : Role.NEON_B);
 		}
 		for (int x = x0; x <= x1; x += 2) {
-			set(x, y0, z, Role.BULB);
-			set(x, y1, z, Role.BULB);
+			set(x, y0, lz, Role.BULB);
+			set(x, y1, lz, Role.BULB);
 		}
 		for (int y = y0; y <= y1; y += 2) {
-			set(x0, y, z, Role.BULB);
-			set(x1, y, z, Role.BULB);
+			set(x0, y, lz, Role.BULB);
+			set(x1, y, lz, Role.BULB);
+		}
+		if (raised) { // bulbs alternate with dark sockets so the border reads as a chaser
+			for (int x = x0 + 1; x < x1; x += 2) {
+				set(x, y0, lz, Role.SIGN_BACK);
+				set(x, y1, lz, Role.SIGN_BACK);
+			}
+			for (int y = y0 + 1; y < y1; y += 2) {
+				set(x0, y, lz, Role.SIGN_BACK);
+				set(x1, y, lz, Role.SIGN_BACK);
+			}
 		}
 		return this;
+	}
+
+	// ---- signage and floor art -----------------------------------------------------------------------
+
+	/** Dye colours valid for banners, carpets, concrete … (vanilla ids). */
+	public static final List<String> DYES = List.of("white", "orange", "magenta", "light_blue", "yellow", "lime", "pink",
+		"gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black");
+
+	/** One banner layer: vanilla pattern id path ({@code rhombus}, {@code flower}, {@code circle} …) + dye. */
+	public record BannerLayer(String pattern, String color) {
+		public BannerLayer {
+			if (!DYES.contains(color)) {
+				throw new IllegalArgumentException("not a dye colour: " + color);
+			}
+			if (pattern.contains(":")) {
+				throw new IllegalArgumentException("pattern without namespace please: " + pattern);
+			}
+		}
+	}
+
+	public static BannerLayer layer(String pattern, String color) {
+		return new BannerLayer(pattern, color);
+	}
+
+	/**
+	 * Wall banner hanging on the wall block behind it ({@code facing} = the side the banner shows to;
+	 * the supporting wall is at {@code -facing}). Patterns are written as block-entity NBT in the 26.2
+	 * component format ({@code patterns: [{pattern: "minecraft:rhombus", color: "red"}]}); newer versions
+	 * upgrade it through DFU.
+	 */
+	public Blueprint banner(int x, int y, int z, Facing facing, String baseColor, BannerLayer... layers) {
+		if (!DYES.contains(baseColor)) {
+			throw new IllegalArgumentException("not a dye colour: " + baseColor);
+		}
+		BlockSpec block = BlockSpec.mc(baseColor + "_wall_banner", "facing", facing.id());
+		Map<String, Object> nbt = Nbt.compound();
+		nbt.put("id", "minecraft:banner");
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (BannerLayer l : layers) {
+			Map<String, Object> e = Nbt.compound();
+			e.put("color", l.color());
+			e.put("pattern", "minecraft:" + l.pattern());
+			list.add(e);
+		}
+		nbt.put("patterns", Nbt.TagList.compounds(list));
+		return setNbt(x, y, z, block, nbt);
+	}
+
+	/** Card suits for {@link #inlay}: 7 × 7 pixel glyphs (5 × 5 reads as a cross from eye height). */
+	public enum Suit {
+		SPADE("...#...", "..###..", ".#####.", "#######", "##.#.##", "...#...", "..###.."),
+		HEART(".##.##.", "#######", "#######", "#######", ".#####.", "..###..", "...#..."),
+		DIAMOND("...#...", "..###..", ".#####.", "#######", ".#####.", "..###..", "...#..."),
+		CLUB("..###..", "..###..", "##.#.##", "#######", "##.#.##", "...#...", "..###..");
+
+		/** Glyph edge length in cells. */
+		public static final int SIZE = 7;
+
+		private final String[] rows;
+
+		Suit(String... rows) {
+			this.rows = rows;
+		}
+
+		public boolean pixel(int col, int row) {
+			return rows[row].charAt(col) == '#';
+		}
+
+		public boolean red() {
+			return this == HEART || this == DIAMOND;
+		}
+	}
+
+	/**
+	 * {@link Suit#SIZE}² pixel suit laid flat in the plane y = {@code y}, top-left at ({@code x}, {@code z}); it
+	 * reads upright for someone standing at the front (+z) looking north. Only the suit's pixels are written.
+	 */
+	public Blueprint inlay(Suit suit, int x, int y, int z, BlockSpec pixel) {
+		for (int row = 0; row < Suit.SIZE; row++) {
+			for (int col = 0; col < Suit.SIZE; col++) {
+				if (suit.pixel(col, row)) {
+					set(x + col, y, z + row, pixel);
+				}
+			}
+		}
+		return this;
+	}
+
+	public Blueprint inlay(Suit suit, int x, int y, int z, Role pixel) {
+		return inlay(suit, x, y, z, palette.block(pixel));
 	}
 
 	// ---- game blocks, markers, jigsaws --------------------------------------------------------------
@@ -175,6 +472,25 @@ public final class Blueprint {
 
 	public Blueprint keepClear(int x0, int y0, int z0, int x1, int y1, int z1) {
 		keepClear.add(Geometry.Box.corners(new Vec(x0, y0, z0), new Vec(x1, y1, z1)));
+		return this;
+	}
+
+	/**
+	 * A walking aisle on the floor row {@code y}: every cell of the box (2 rows tall) must stay walkable
+	 * (air or carpet) and its narrow side must be ≥ 2 wide ({@link Checks}).
+	 */
+	public Blueprint aisle(int x0, int y, int z0, int x1, int z1) {
+		Geometry.Box box = Geometry.Box.corners(new Vec(x0, y, z0), new Vec(x1, y + 1, z1));
+		aisles.add(box);
+		return this;
+	}
+
+	/**
+	 * A cell (on the floor row) where people walk into this piece: the front door or a jigsaw doorway.
+	 * {@link Checks} proves every game's player cell is reachable on foot from an entry.
+	 */
+	public Blueprint entry(int x, int y, int z) {
+		entries.add(new Vec(x, y, z));
 		return this;
 	}
 
@@ -202,7 +518,7 @@ public final class Blueprint {
 	 * block that replaces the jigsaw after assembly (usually the floor block at that cell).
 	 */
 	public Blueprint jigsaw(int x, int y, int z, Facing out, String name, String target, String pool, BlockSpec finalState) {
-		jigsaws.add(new Layout.Jigsaw(new Vec(x, y, z), out.id() + "_up", name, target, pool, finalState.toString(), "rigid"));
+		jigsaws.add(new Layout.Jigsaw(new Vec(x, y, z), out.id() + "_up", name, target, pool, finalState.toString(), "aligned"));
 		return this;
 	}
 
@@ -213,8 +529,100 @@ public final class Blueprint {
 	}
 
 	public Piece build() {
-		Layout layout = new Layout(id, kind, grid, markers, jigsaws);
-		return new Piece(layout, games, keepClear, interior);
+		finishShapes();
+		Layout layout = new Layout(id, kind, grid, markers, jigsaws, blockNbt);
+		return new Piece(layout, games, keepClear, interior, aisles, entries);
+	}
+
+	// ---- finishing pass: connection properties ------------------------------------------------------
+
+	/**
+	 * Writes the neighbour-dependent properties the game would compute (jigsaw pieces are placed with a
+	 * "known shape" and never updated): fence / pane / iron-bar arms and stair corner shapes.
+	 */
+	void finishShapes() {
+		Vec s = grid.size();
+		for (int y = 0; y < s.y(); y++) {
+			for (int z = 0; z < s.z(); z++) {
+				for (int x = 0; x < s.x(); x++) {
+					BlockSpec b = grid.get(x, y, z);
+					if (b == null) {
+						continue;
+					}
+					String n = b.name();
+					if (Shapes.isFence(n) || Shapes.isPane(n)) {
+						grid.set(x, y, z, connect(b, x, y, z));
+					}
+				}
+			}
+		}
+		for (int y = 0; y < s.y(); y++) {
+			for (int z = 0; z < s.z(); z++) {
+				for (int x = 0; x < s.x(); x++) {
+					BlockSpec b = grid.get(x, y, z);
+					if (b != null && Shapes.isStairs(b.name())) {
+						grid.set(x, y, z, with(b, "shape", stairShape(b, x, y, z)));
+					}
+				}
+			}
+		}
+	}
+
+	private BlockSpec connect(BlockSpec b, int x, int y, int z) {
+		Map<String, String> p = new LinkedHashMap<>(b.properties());
+		for (Facing f : Facing.values()) {
+			int nx = x + f.dx(), nz = z + f.dz();
+			BlockSpec n = grid.inside(nx, y, nz) ? grid.get(nx, y, nz) : null;
+			p.put(f.id(), Boolean.toString(Shapes.connects(b.name(), n, f.opposite())));
+		}
+		p.putIfAbsent("waterlogged", "false");
+		return new BlockSpec(b.name(), p);
+	}
+
+	private String stairShape(BlockSpec b, int x, int y, int z) {
+		Facing facing = Facing.byId(b.properties().getOrDefault("facing", "north"));
+		String half = b.properties().getOrDefault("half", "bottom");
+		BlockSpec behind = stairAt(x + facing.dx(), y, z + facing.dz(), half);
+		if (behind != null) {
+			Facing f2 = Facing.byId(behind.properties().get("facing"));
+			if (axis(f2) != axis(facing) && canTakeShape(b, x, y, z, f2.opposite())) {
+				return f2 == facing.rotate(-1) ? "outer_left" : "outer_right";
+			}
+		}
+		BlockSpec front = stairAt(x - facing.dx(), y, z - facing.dz(), half);
+		if (front != null) {
+			Facing f3 = Facing.byId(front.properties().get("facing"));
+			if (axis(f3) != axis(facing) && canTakeShape(b, x, y, z, f3)) {
+				return f3 == facing.rotate(-1) ? "inner_left" : "inner_right";
+			}
+		}
+		return "straight";
+	}
+
+	private boolean canTakeShape(BlockSpec b, int x, int y, int z, Facing face) {
+		int nx = x + face.dx(), nz = z + face.dz();
+		BlockSpec n = grid.inside(nx, y, nz) ? grid.get(nx, y, nz) : null;
+		return n == null || !Shapes.isStairs(n.name())
+			|| !n.properties().get("facing").equals(b.properties().get("facing"))
+			|| !n.properties().get("half").equals(b.properties().get("half"));
+	}
+
+	private BlockSpec stairAt(int x, int y, int z, String half) {
+		if (!grid.inside(x, y, z)) {
+			return null;
+		}
+		BlockSpec n = grid.get(x, y, z);
+		return n != null && Shapes.isStairs(n.name()) && half.equals(n.properties().get("half")) ? n : null;
+	}
+
+	private static boolean axis(Facing f) {
+		return f == Facing.EAST || f == Facing.WEST;
+	}
+
+	static BlockSpec with(BlockSpec b, String key, String value) {
+		Map<String, String> p = new LinkedHashMap<>(b.properties());
+		p.put(key, value);
+		return new BlockSpec(b.name(), p);
 	}
 
 	// ---- rooms --------------------------------------------------------------------------------------
@@ -247,18 +655,25 @@ public final class Blueprint {
 
 		/** Pane windows every {@code every} cells along {@code side}, rows sill..sill+height-1 above the floor. */
 		public Room windows(Facing side, int every, int sill, int height) {
+			return windows(side, every, sill, height, 1);
+		}
+
+		/** Like {@link #windows(Facing, int, int, int)} with {@code width} panes side by side per window. */
+		public Room windows(Facing side, int every, int sill, int height, int width) {
 			boolean alongX = side == Facing.NORTH || side == Facing.SOUTH;
 			BlockSpec pane = BlockSpec.of(b.palette.get(Role.PANE).full(),
 				"east", Boolean.toString(alongX), "west", Boolean.toString(alongX),
 				"north", Boolean.toString(!alongX), "south", Boolean.toString(!alongX), "waterlogged", "false");
 			int from = (alongX ? box.minX() : box.minZ()) + 2, to = (alongX ? box.maxX() : box.maxZ()) - 2;
-			for (int t = from; t <= to; t += every) {
-				for (int y = box.minY() + sill; y < box.minY() + sill + height; y++) {
-					switch (side) {
-						case SOUTH -> b.set(t, y, box.maxZ(), pane);
-						case NORTH -> b.set(t, y, box.minZ(), pane);
-						case WEST -> b.set(box.minX(), y, t, pane);
-						case EAST -> b.set(box.maxX(), y, t, pane);
+			for (int t0 = from; t0 + width - 1 <= to; t0 += every) {
+				for (int t = t0; t < t0 + width; t++) {
+					for (int y = box.minY() + sill; y < box.minY() + sill + height; y++) {
+						switch (side) {
+							case SOUTH -> b.set(t, y, box.maxZ(), pane);
+							case NORTH -> b.set(t, y, box.minZ(), pane);
+							case WEST -> b.set(box.minX(), y, t, pane);
+							case EAST -> b.set(box.maxX(), y, t, pane);
+						}
 					}
 				}
 			}
@@ -280,6 +695,27 @@ public final class Blueprint {
 				b.fill(c[0], y0, c[1], c[0], y1, c[1], Role.FRAME);
 			}
 			return this;
+		}
+
+		/** Horizontal BEAM band around the room at {@code dy} rows above the floor (Tudor rails, sill lines). */
+		public Room band(int dy, Role role) {
+			int y = box.minY() + dy;
+			for (int x = box.minX(); x <= box.maxX(); x++) {
+				bandCell(x, y, box.minZ(), role);
+				bandCell(x, y, box.maxZ(), role);
+			}
+			for (int z = box.minZ(); z <= box.maxZ(); z++) {
+				bandCell(box.minX(), y, z, role);
+				bandCell(box.maxX(), y, z, role);
+			}
+			return this;
+		}
+
+		private void bandCell(int x, int y, int z, Role role) {
+			BlockSpec cur = b.at(x, y, z);
+			if (cur != null && !Checks.air(cur) && !Shapes.isPane(cur.name())) {
+				b.set(x, y, z, role);
+			}
 		}
 
 		public Blueprint done() {

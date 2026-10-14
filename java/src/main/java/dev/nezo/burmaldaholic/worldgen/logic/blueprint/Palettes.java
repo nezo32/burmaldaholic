@@ -21,7 +21,7 @@ public final class Palettes {
 		.put(Role.CEILING, Material.of("minecraft:spruce_planks", "minecraft:spruce_stairs", "minecraft:spruce_slab"))
 		.put(Role.ROOF, Material.of("minecraft:deepslate_tiles", "minecraft:deepslate_tile_stairs", "minecraft:deepslate_tile_slab"))
 		.put(Role.ROOF_TRIM, Material.of("minecraft:dark_oak_planks", "minecraft:dark_oak_stairs", "minecraft:dark_oak_slab"))
-		.put(Role.TRIM, "minecraft:gold_block")
+		.put(Role.TRIM, "minecraft:honeycomb_block")
 		.put(Role.GLASS, "minecraft:glass")
 		.put(Role.PANE, "minecraft:glass_pane")
 		.put(Role.LIGHT, "minecraft:ochre_froglight")
@@ -32,7 +32,7 @@ public final class Palettes {
 		.put(Role.BULB, "minecraft:pearlescent_froglight")
 		.put(Role.ACCENT, Material.of("minecraft:quartz_pillar"))
 		.put(Role.COUNTER, Material.of("minecraft:polished_deepslate", "minecraft:polished_deepslate_stairs", "minecraft:polished_deepslate_slab"))
-		.put(Role.STOOL, Material.of("minecraft:dark_oak_planks", "minecraft:dark_oak_stairs", "minecraft:dark_oak_slab"))
+		.put(Role.STOOL, Material.of("minecraft:crimson_planks", "minecraft:crimson_stairs", "minecraft:crimson_slab"))
 		.put(Role.PLANTER, "minecraft:potted_red_tulip")
 		.put(Role.PATH, Material.of("minecraft:polished_andesite", "minecraft:polished_andesite_stairs", "minecraft:polished_andesite_slab"))
 		.build();
