@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.gametest.extras;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.client.ui.FitScaled;
@@ -139,14 +140,14 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 		}
 		double[] a = cellWindow(context, 3, 4, 40);
 		context.getInput().setCursorPos(a[0], a[1]);
-		context.getInput().holdMouse(0);
+		context.getInput().holdMouse(Inputs.MOUSE_LEFT);
 		for (int k = 1; k <= 10; k++) {
 			double[] b = cellWindow(context, 3, 4 + k * 3, 40 - k * 3.2);
 			context.getInput().setCursorPos(b[0], b[1]);
 			context.waitTicks(1);
 		}
 		shot(context, lang + "_scratch_half");
-		context.getInput().releaseMouse(0);
+		context.getInput().releaseMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(20);
 		// scratch the rest: every remaining cell by click, then the end emphasis
 		for (int cell : new int[] {2, 4, 6, 7, 8}) {
@@ -161,7 +162,7 @@ public class ExtrasVisualClientGameTests implements FabricClientGameTest {
 	private void click(ClientGameTestContext context, int cell) {
 		double[] c = cellWindow(context, cell, 30, 22);
 		context.getInput().setCursorPos(c[0], c[1]);
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 	}
 
 	/** Window position of a point inside a scratch cell (solo layout: ticket at (20, 30), cells 60 × 44, pitch 64 × 48). */

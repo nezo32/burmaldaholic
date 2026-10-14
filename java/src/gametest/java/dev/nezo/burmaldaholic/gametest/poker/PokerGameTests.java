@@ -67,10 +67,7 @@ public class PokerGameTests {
 		PokerTableBlockEntity table = helper.getBlockEntity(TABLE, PokerTableBlockEntity.class);
 		ServerPlayer p = player(helper, 1000);
 		MinecraftServer server = helper.getLevel().getServer();
-		int thinkMin = CasinoConfig.poker().botThinkMinTicks;
-		int thinkMax = CasinoConfig.poker().botThinkMaxTicks;
-		CasinoConfig.poker().botThinkMinTicks = 0;
-		CasinoConfig.poker().botThinkMaxTicks = 2;
+		FastPokerBots.Handle fast = FastPokerBots.acquire();
 		long bb = CasinoConfig.poker().stakes.micro.bb;
 		long amount = (long) CasinoConfig.poker().maxBuyInBb * bb;
 		table.onAction(p, "buy_in", buyIn("micro", amount));
@@ -93,8 +90,7 @@ public class PokerGameTests {
 			helper.assertTrue(busted || state.getIntOr("hand_no", 0) >= 4 && !state.getBooleanOr("live", true), "played a few hands");
 			table.onAction(p, "stand_up", new CompoundTag());
 			long balance = Economies.get().balance(p);
-			CasinoConfig.poker().botThinkMinTicks = thinkMin;
-			CasinoConfig.poker().botThinkMaxTicks = thinkMax;
+			fast.release();
 			server.getPlayerList().remove(p);
 			helper.assertTrue(balance >= 1000 - amount, "stack paid back: " + balance);
 			helper.assertTrue(!table.writeClientState(p).getBooleanOr("seated", true), "stood up");

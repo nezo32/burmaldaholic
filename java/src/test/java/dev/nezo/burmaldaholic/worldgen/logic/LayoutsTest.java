@@ -56,7 +56,9 @@ class LayoutsTest {
 			assertEquals(1, count(l, Layouts.SLOTS_GOLD));
 			assertEquals(1, count(l, Layouts.WHEEL));
 			assertEquals(1, count(l, Layouts.UTH));
+			assertEquals(1, count(l, Layouts.BACCARAT));
 			assertEquals(1, npcs(l, NpcRole.LOAN_SHARK));
+			assertEquals(1, npcs(l, NpcRole.BACCARAT_DEALER));
 			assertEquals(1, npcs(l, NpcRole.CROUPIER));
 			assertEquals(1, l.markers().stream().filter(m -> m.marker() instanceof Markers.Chest c
 				&& c.table() == CasinoLoot.Table.VILLAGE_CASINO).count());

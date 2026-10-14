@@ -603,6 +603,7 @@ Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on 
 | `worldgen.piglinParlor.chance` | double | 0.60 | 0.0–1.0 | Share of bastions with a Piglin Parlor (v0.1.1: 0.30). |
 | `worldgen.highRoller.chance` | double | 0.50 | 0.0–1.0 | Share of End Cities with a High Roller Lounge (v0.1.1: 0.20). A global config file still holding exactly a v0.1.1 default (0.35 / 0.30 / 0.20) is upgraded to the new default on load; any other value is kept. |
 | `worldgen.loanSharkRespawnTicks` | int | 24000 | 0–240 000 | |
+| `worldgen.locateCooldownSeconds` | int | 30 | 0–3 600 | `/casino locate`: seconds between two searches of the same non-operator player (in memory, reset on restart). Operators and the singleplayer host are exempt. New in v0.1.3; old config files simply get the default (no schema bump). |
 
 ## multiplayer / ownership
 

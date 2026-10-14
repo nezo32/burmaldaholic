@@ -158,7 +158,7 @@ public final class Layouts {
 				g.set(x, y, 15, BlockSpec.mc("redstone_block"));
 			}
 		}
-		// tables (§16.1: Cashier, Blackjack, Roulette, Copper Bandit ×3, Golden Reels, Wheel of Fortune)
+		// tables (§16.1: Cashier, Blackjack, Roulette, Baccarat, Copper Bandit ×3, Golden Reels, Wheel of Fortune)
 		g.set(2, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
 		g.set(3, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
 		g.set(4, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
@@ -169,12 +169,17 @@ public final class Layouts {
 		g.set(15, 1, 13, table(CASHIER, Facing.WEST));
 		// §16.1 (2026-09): Ultimate Texas Hold'em along the back wall
 		g.set(6, 1, 6, table(UTH, Facing.SOUTH));
+		// v0.1.3: baccarat in the east hall column below the roulette (players stand on z 14..15, the dealer on z 12;
+		// x 11/13 stay free so the cashier's player cell (14, 1, 13) and the central aisle x 7..9 are untouched)
+		g.set(12, 1, 13, table(BACCARAT, Facing.SOUTH));
 
 		String id = "village_casino_" + style.id();
 		List<Layout.PlacedMarker> markers = List.of(
 			new Layout.PlacedMarker(new Vec(8, 3, 11), new Markers.Anchor(id)),
 			new Layout.PlacedMarker(new Vec(2, 2, 13), new Markers.Npc(NpcRole.CROUPIER, Facing.EAST)),
 			new Layout.PlacedMarker(new Vec(8, 2, 7), new Markers.Npc(NpcRole.LOAN_SHARK, Facing.SOUTH)),
+			// behind the baccarat table, like the Parlor / Lounge (cosmetic; the dealer opens the nearest baccarat table)
+			new Layout.PlacedMarker(new Vec(12, 2, 12), new Markers.Npc(NpcRole.BACCARAT_DEALER, Facing.SOUTH)),
 			new Layout.PlacedMarker(new Vec(8, 1, 1), new Markers.Chest(CasinoLoot.Table.VILLAGE_CASINO, Facing.SOUTH)));
 		// Street-end connector (like vanilla street terminators): the door faces the end of a village road.
 		List<Layout.Jigsaw> jigsaws = List.of(new Layout.Jigsaw(new Vec(8, 0, 16), "south_up",
