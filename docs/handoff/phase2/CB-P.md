@@ -69,3 +69,24 @@ GameTests ran as `rm -rf build/run/gameTest/world; with-heavy-lock.sh ./gradlew 
 - The CARVE piece clears whole piece boxes above the floor. A hill can show a clean vertical cut along the walls, up to 8 blocks high (the cut limit).
 - `StructureCheckMixin`: while the standalone gate is closed, `/locate` also reports no standalone casino that was already generated.
 - The new piece type `burmaldaholic:casino_ground` is saved in chunk data. Removing it later would drop those pieces when old starts load (harmless; vanilla logs and skips unknown piece types).
+
+## Final gates (per the "test only what changed" policy)
+
+- **26.2 compile + unit tests:** `./gradlew compileJava compileClientJava compileGametestJava test --tests 'dev.nezo.burmaldaholic.worldgen.*' --tests '*RawInputGuardTest'` → BUILD SUCCESSFUL, 248 tests, 0 failures.
+- **26.3 compile:** `./gradlew compileJava compileClientJava compileGametestJava -Pmc=26.3` → BUILD SUCCESSFUL.
+- **Filtered server GameTests (26.2):**
+  - `burmaldaholic-gametest:*worldgen*`: 20/20.
+  - `burmaldaholic-gametest:*casino*`: 35/36. The only failure is `places_every_casino_in_every_rotation` for `casino/annex/snowy` (CB-A, open item 2). Fit: 33 % rejected, median 12.8 ms, p99 30.6 ms.
+  - `burmaldaholic-gametest:*locate*`: 7/7.
+- **Client:** 3 locked `CasinoTerrainClientGameTests` runs, results above.
+- **Two full `./gradlew build` runs** happened before the policy change (238 GameTests). Both had the snowy-annex failure plus 3–5 bot tests failing in the same batch as the casino tests:
+  - `chemmy_bots_punt_against_ahuman_bank`
+  - `atmosphere_bots_never_change_the_human_round`
+  - `bots_watch_under_ahuman_banker`
+  - `wheel_party_with_bots`, `bots_fill_then_yield_to_human` (first run only)
+
+  The same bot tests pass alone (`*bots*`: 27/27). Two possible causes were seen:
+  - The first build's runtime GameTest toggled casino mode, whose listeners reset bot tables. That toggle is now removed.
+  - The long synchronous survey tests (fit test: 8 seeds, several seconds) block the server thread in the same batch. The second build failed this way after the toggle was gone.
+
+  Unresolved. For integration it is either a batch-isolation item for the casino survey tests (e.g. its own GameTest environment/batch) or a tolerance item for the bot tests' "safe point" timing.
