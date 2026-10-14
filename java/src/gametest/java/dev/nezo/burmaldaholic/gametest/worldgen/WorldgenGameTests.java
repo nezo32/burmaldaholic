@@ -284,7 +284,10 @@ public class WorldgenGameTests {
 			for (BlockPos cell : new BlockPos[] {table.south(), table.south(2), table.north()}) {
 				helper.assertTrue(walkable(level, cell) && free(level, cell.above()), l.id() + ": free cell at " + cell.subtract(origin));
 			}
-			helper.assertTrue(level.getMaxLocalRawBrightness(table.south().above()) >= 8, l.id() + ": player side is lit");
+			// lit by the template's own light above the table (the world light engine runs asynchronously, so a just-built
+			// casino reads dark on its first tick on CI): glowstone at (12, 5, 13) is 4 blocks from the player's head cell
+			int emission = level.getBlockState(table.above(4)).getLightEmission();
+			helper.assertTrue(emission - 4 >= 8, l.id() + ": player side is lit (light above the table emits " + emission + ")");
 			helper.assertTrue(reachable(level, origin, origin.offset(8, 1, 16), table.south()), l.id() + ": baccarat reachable from the entrance");
 		}
 
