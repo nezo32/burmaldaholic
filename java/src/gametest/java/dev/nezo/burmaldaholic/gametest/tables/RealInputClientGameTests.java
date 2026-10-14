@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.tables;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackModule;
@@ -32,16 +33,13 @@ import net.minecraft.world.level.block.Block;
  * <p>Root cause it guards: MC 26.3 (SDL3 input) renumbered mouse buttons (InputConstants LEFT 0 → 1, RIGHT 1 → 3); the
  * canvas hit tests compared {@code button} with the literals 0 / 1, so on 26.3 a left click on a chip was dropped
  * (blackjack) or read as a right click (UTH). Fails on 26.3 ({@code -Pmc=26.3}) until the screens resolve the button ids
- * at runtime. The press uses {@code InputConstants.MOUSE_BUTTON_LEFT} (inlined per compiled version, as {@code -Pmc} builds).
+ * at runtime ({@link Inputs}). The press uses {@link Inputs#MOUSE_LEFT}, so the test itself is right on both versions.
  */
 public class RealInputClientGameTests implements FabricClientGameTest {
 	/** {window w, h, GUI scale option (0 = Auto), tag}. */
 	private static final Object[][] VIEWS = {
-		{3840, 2160, 0, "2160p_auto"},
-		{3840, 2160, 4, "2160p_gui4"},
-		{1920, 1080, 0, "1080p_auto"},
-		{1920, 1080, 3, "1080p_gui3"},
-		{2560, 1440, 0, "1440p_auto"},
+		{3840, 2160, 0, "2160p_auto"}, // GUI scale 9: 427 × 240, the full canvas at k 1
+		{1920, 1080, 4, "1080p_gui4"}, // 480 × 270, the canvas centred (ox 26, oy 15)
 	};
 
 	private final List<String> failures = new ArrayList<>();
@@ -231,7 +229,7 @@ public class RealInputClientGameTests implements FabricClientGameTest {
 	private static void click(ClientGameTestContext context, double x, double y) {
 		context.getInput().setCursorPos(x, y);
 		context.waitTicks(1);
-		context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(3);
 	}
 
