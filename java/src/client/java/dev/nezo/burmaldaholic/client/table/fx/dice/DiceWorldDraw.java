@@ -49,7 +49,7 @@ public final class DiceWorldDraw {
 		ROT.set((float) MC[1], (float) MC[2], (float) MC[3], (float) MC[0]);
 		pose.pushPose();
 		pose.translate(s.x * h, surfaceY + s.zc * h, s.y * h);
-		pose.mulPose(ROT);
+		pose.rotateAround(ROT, 0f, 0f, 0f);
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEXTURE), (p, vc) -> WorldQuads.cube(p, vc, h, UV, 32, 16, light));
 		pose.popPose();
 	}
