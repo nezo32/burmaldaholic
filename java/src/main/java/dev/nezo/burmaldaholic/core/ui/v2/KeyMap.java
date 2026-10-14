@@ -90,11 +90,17 @@ public final class KeyMap {
 	}
 
 	/**
-	 * The vanilla translation key of a key's display name ({@code key.keyboard.space} → "Space" / "Пробел"), or null for
-	 * keys the kit does not name. The same on every supported Minecraft version.
+	 * The vanilla translation key of a NAMED key's display name ({@code key.keyboard.space} → "Space" / "Пробел"), or
+	 * null for letters, digits and keys the kit does not name: vanilla has no {@code key.keyboard.h}, so translating it
+	 * printed the raw key on the plates (review R-KW B1). The same on every supported Minecraft version.
 	 */
 	public static @Nullable String vanillaNameKey(@Nullable String key) {
-		return known(key) ? "key.keyboard." + key : null;
+		return key != null && NAMED.contains(key) ? "key.keyboard." + key : null;
+	}
+
+	/** The plate text of a letter / digit key ({@code "h"} → {@code "H"}), or null for named and unknown keys. */
+	public static @Nullable String plateChar(@Nullable String key) {
+		return key != null && key.length() == 1 && known(key) ? key.toUpperCase(java.util.Locale.ROOT) : null;
 	}
 
 	/** The HitMap ids the kit uses (docs/architecture/ui-v2.md §4.2). */
