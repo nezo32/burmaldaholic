@@ -4,13 +4,10 @@
     "particle": "burmaldaholic:block/extras/wheel_of_fortune_side",
     "side": "burmaldaholic:block/extras/wheel_of_fortune_side",
     "front": "burmaldaholic:block/extras/wheel_of_fortune_front",
-    "top": "burmaldaholic:block/extras/wheel_of_fortune_top",
     "wood": "burmaldaholic:block/core/tables/standard/wood",
     "trim": "burmaldaholic:block/core/tables/standard/trim",
-    "rail": "burmaldaholic:block/core/tables/standard/rail",
-    "felt": "burmaldaholic:block/core/tables/standard/felt",
-    "bars": "minecraft:block/iron_bars",
-    "glass": "minecraft:block/glass"
+    "dark": "burmaldaholic:block/core/tables/standard/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs"
   },
   "elements": []
 }

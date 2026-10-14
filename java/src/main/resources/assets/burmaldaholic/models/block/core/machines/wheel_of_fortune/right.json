@@ -4,13 +4,10 @@
     "particle": "burmaldaholic:block/extras/wheel_of_fortune_side",
     "side": "burmaldaholic:block/extras/wheel_of_fortune_side",
     "front": "burmaldaholic:block/extras/wheel_of_fortune_front",
-    "top": "burmaldaholic:block/extras/wheel_of_fortune_top",
     "wood": "burmaldaholic:block/core/tables/standard/wood",
     "trim": "burmaldaholic:block/core/tables/standard/trim",
-    "rail": "burmaldaholic:block/core/tables/standard/rail",
-    "felt": "burmaldaholic:block/core/tables/standard/felt",
-    "bars": "minecraft:block/iron_bars",
-    "glass": "minecraft:block/glass"
+    "dark": "burmaldaholic:block/core/tables/standard/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs"
   },
   "elements": [
     {
@@ -32,7 +29,7 @@
             16,
             12
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "down": {
           "uv": [
@@ -41,7 +38,7 @@
             16,
             12
           ],
-          "texture": "#rail",
+          "texture": "#dark",
           "cullface": "down"
         },
         "north": {
@@ -51,7 +48,7 @@
             14,
             16
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "south": {
           "uv": [
@@ -60,7 +57,7 @@
             16,
             16
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "west": {
           "uv": [
@@ -69,7 +66,7 @@
             12,
             16
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "east": {
           "uv": [
@@ -78,7 +75,76 @@
             14,
             16
           ],
-          "texture": "#rail"
+          "texture": "#dark"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        1,
+        1.5
+      ],
+      "to": [
+        16,
+        2.5,
+        2
+      ],
+      "light_emission": 12,
+      "faces": {
+        "up": {
+          "uv": [
+            3,
+            1.5,
+            16,
+            2
+          ],
+          "texture": "#bulbs"
+        },
+        "down": {
+          "uv": [
+            3,
+            1.5,
+            16,
+            2
+          ],
+          "texture": "#bulbs"
+        },
+        "north": {
+          "uv": [
+            0,
+            13.5,
+            13,
+            15
+          ],
+          "texture": "#bulbs"
+        },
+        "south": {
+          "uv": [
+            3,
+            13.5,
+            16,
+            15
+          ],
+          "texture": "#bulbs"
+        },
+        "west": {
+          "uv": [
+            1.5,
+            13.5,
+            2,
+            15
+          ],
+          "texture": "#bulbs"
+        },
+        "east": {
+          "uv": [
+            14,
+            13.5,
+            14.5,
+            15
+          ],
+          "texture": "#bulbs"
         }
       }
     },

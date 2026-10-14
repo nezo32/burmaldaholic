@@ -178,6 +178,39 @@ export function bowlTexture(theme) {
   return img;
 }
 
+/** Table-limit placard: dark plaque, brass frame, a chip and two lit pips (no words: the limits live in the UI). */
+export function placardTexture(theme) {
+  const t = THEMES[theme];
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, t.trim[2]);
+  R(img, 1, 1, 14, 14, t.trim[0]);
+  R(img, 2, 2, 12, 12, '#141018');
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 7);
+    if (d < 4) put(img, x, y, c(d < 2.2 ? '#F4EEE0' : (Math.floor(Math.atan2(y - 7, x - 8) * 3) & 1) ? '#D23A3A' : '#F4EEE0'));
+  }
+  R(img, 4, 12, 3, 1, '#FFD640');
+  R(img, 9, 12, 3, 1, '#5FE07A');
+  return img;
+}
+
+/** Roulette tote board: black screen with a column of last numbers as red / black / green tiles and lit digits. */
+export function toteTexture(theme) {
+  const t = THEMES[theme];
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, t.trim[1]);
+  R(img, 1, 1, 14, 14, '#0C0A10');
+  const cols = ['#D8343C', '#2A2430', '#D8343C', '#1E8A3C', '#2A2430', '#D8343C'];
+  cols.forEach((col, i) => {
+    const y = 2 + i * 2;
+    const right = i % 2 === 0;
+    R(img, right ? 9 : 3, y, 4, 2, col);
+    R(img, (right ? 9 : 3) + 1, y, 2, 1, '#FFF4C8');
+  });
+  R(img, 2, 14, 12, 1, t.trim[0]);
+  return img;
+}
+
 // ---- footprint outline (rounded rectangle) ---------------------------------------------------------------------
 const OUT = { cx: 8, hx: 24, hz: 16 };
 
@@ -251,13 +284,14 @@ function circleSpan(x, r) {
 function strip(xm, shape) {
   const out = [];
   const outer = iv(span(xm, shape, 0));
-  if (!outer.length) return out;
+  if (!iv(span(xm, shape, -1)).length) return out;
   const inner = iv(span(xm, shape, RAIL));
-  const apron = iv(span(xm, shape, 1.5));
-  out.push({ mat: 'wood', y0: 8, y1: 11, zs: apron });
-  out.push({ mat: 'rail', y0: 7.5, y1: 8, zs: iv(span(xm, shape, 2)) }); // dark kick band under the apron
-  out.push({ mat: 'wood', y0: 11, y1: 12.5, zs: outer });
-  out.push({ mat: 'trim', y0: 12.5, y1: 13, zs: outer });
+  const apron = iv(span(xm, shape, 1));
+  const overhang = iv(span(xm, shape, -1)); // the padded rail bulges 1 px past the footprint (collision does not)
+  out.push({ mat: 'wood', y0: 6.5, y1: 11, zs: apron }); // deep apron: the table reads solid from across the room
+  out.push({ mat: 'trim', y0: 6, y1: 6.5, zs: iv(span(xm, shape, 1.25)) }); // brass bead under the apron
+  out.push({ mat: 'wood', y0: 11, y1: 12, zs: outer });
+  out.push({ mat: 'trim', y0: 12, y1: 12.5, zs: outer, emit: 7 }); // brass band, softly lit (night)
   let felt = inner;
   let deck = [];
   let bowlRing = [];
@@ -272,7 +306,7 @@ function strip(xm, shape) {
     bowlFloor = bowl;
     deck = minus(minus(inner, felt), bowl);
   }
-  let rail = minus(outer, inner);
+  let rail = minus(overhang.length ? overhang : outer, inner);
   let ledge = [];
   if (shape === 'crescent' && inner.length) {
     // dealer side: a low wooden ledge instead of the padded rail along the straight back edge
@@ -284,7 +318,7 @@ function strip(xm, shape) {
   if (ledge.length) out.push({ mat: 'wood', y0: 13, y1: 14, zs: ledge });
   if (rail.length) {
     const high = shape === 'craps' ? 16 : RAIL_TOP;
-    out.push({ mat: 'rail', y0: 13, y1: high - 0.5, zs: rail });
+    out.push({ mat: 'rail', y0: 12.5, y1: high - 0.5, zs: rail });
     // rounded top of the padded rail: half a pixel narrower on each side
     const top = rail.map(([z0, z1]) => [z0 + 0.5, z1 - 0.5]).filter(([z0, z1]) => z1 > z0);
     out.push({ mat: 'rail', y0: high - 0.5, y1: high, zs: top });
@@ -313,7 +347,24 @@ function legs(shape) {
   list.push([OUT.cx, OUT.hz - 3.5], [OUT.cx, -(OUT.hz - 3.5)]);
   // turned legs: square upper post, slimmer lower post, dark foot
   const box = (x, z, h, mat, y0, y1) => ({ mat, x0: q(x - h), x1: q(x + h), z0: q(z - h), z1: q(z + h), y0, y1 });
-  return list.flatMap(([x, z]) => [box(x, z, 1.5, 'wood', 4, 7.5), box(x, z, 1, 'wood', 1, 4), box(x, z, 1.5, 'rail', 0, 1)]);
+  return list.flatMap(([x, z]) => [box(x, z, 2, 'wood', 3.5, 6.5), box(x, z, 2.25, 'trim', 3, 3.5), box(x, z, 1.5, 'wood', 1, 3), box(x, z, 2, 'rail', 0, 1)]);
+}
+
+/**
+ * Lit props on the dealer side: a table-limit placard (card tables, poker, craps) at the back-left corner and, for
+ * roulette, a tote board on a brass pole at the back-right corner (above the block, no collision). Emissive faces.
+ */
+function props(shape) {
+  if (shape === 'roulette') {
+    return [
+      { mat: 'trim', x0: 28.5, x1: 29.5, z0: -13.5, z1: -12.5, y0: 15, y1: 26 },
+      { mat: 'tote', x0: 26, x1: 31.5, z0: -14, z1: -12, y0: 25, y1: 32, emit: 12 },
+    ];
+  }
+  return [
+    { mat: 'trim', x0: -12, x1: -11, z0: -14, z1: -13, y0: 14, y1: 16 },
+    { mat: 'placard', x0: -13.5, x1: -9.5, z0: -14.25, z1: -12.75, y0: 15.5, y1: 19.5, emit: 10 },
+  ];
 }
 
 /** Dealer chip tray (card tables and poker): recessed rack in the back-centre cell. */
@@ -327,12 +378,12 @@ export function tableBoxes(shape) {
   const boxes = [];
   // strips per 1 px column, clipped to cell columns so no box crosses a block boundary
   const cols = [];
-  for (let x = -16; x < 32; x++) cols.push({ x0: x, x1: x + 1, layers: strip(x + 0.5, shape) });
+  for (let x = -17; x < 33; x++) cols.push({ x0: x, x1: x + 1, layers: strip(x + 0.5, shape) });
   // merge identical neighbouring columns inside the same cell column
   const merged = [];
   for (const col of cols) {
     const prev = merged[merged.length - 1];
-    const sameCell = prev && Math.floor(prev.x0 / 16) === Math.floor(col.x0 / 16);
+    const sameCell = prev && colOf(prev.x0 + 0.5) === colOf(col.x0 + 0.5);
     if (sameCell && JSON.stringify(prev.layers) === JSON.stringify(col.layers)) prev.x1 = col.x1;
     else merged.push({ ...col });
   }
@@ -341,10 +392,10 @@ export function tableBoxes(shape) {
       for (const [z0, z1] of l.zs) {
         // split at the cell row boundary z = 0
         const cuts = z0 < 0 && z1 > 0 ? [[z0, 0], [0, z1]] : [[z0, z1]];
-        for (const [a, b] of cuts) boxes.push({ mat: l.mat, x0: col.x0, x1: col.x1, y0: l.y0, y1: l.y1, z0: a, z1: b });
+        for (const [a, b] of cuts) boxes.push({ mat: l.mat, x0: col.x0, x1: col.x1, y0: l.y0, y1: l.y1, z0: a, z1: b, ...(l.emit ? { emit: l.emit } : {}) });
       }
   // merge boxes that continue each other along x inside one cell (e.g. the square back of a crescent)
-  const keyOf = (b) => `${b.mat}|${b.y0}|${b.y1}|${b.z0}|${b.z1}|${Math.floor(b.x0 / 16)}`;
+  const keyOf = (b) => `${b.mat}|${b.y0}|${b.y1}|${b.z0}|${b.z1}|${b.emit ?? 0}|${colOf(b.x0 + 0.5)}`;
   const open = new Map();
   const mergedBoxes = [];
   for (const b of boxes.sort((a, z) => a.x0 - z.x0)) {
@@ -359,7 +410,7 @@ export function tableBoxes(shape) {
   }
   boxes.length = 0;
   boxes.push(...mergedBoxes);
-  for (const b of [...legs(shape), ...tray(shape)]) {
+  for (const b of [...legs(shape), ...tray(shape), ...props(shape)]) {
     // split legs / tray at cell boundaries
     const xs = [b.x0, ...[0, 16].filter((v) => v > b.x0 && v < b.x1), b.x1];
     const zs = [b.z0, ...[0].filter((v) => v > b.z0 && v < b.z1), b.z1];
@@ -370,7 +421,10 @@ export function tableBoxes(shape) {
 }
 
 /** Cell (r, f) of a local box (boxes never cross cells). */
-const cellOf = (b) => [Math.floor((b.x0 + b.x1) / 2 / 16), Math.floor((b.z0 + b.z1) / 2 / 16)];
+const clampI = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+/** Column index of an x (px): the 1 px rail overhang outside the footprint belongs to the outer cells. */
+const colOf = (x) => clampI(Math.floor(x / 16), -1, 1);
+const cellOf = (b) => [colOf((b.x0 + b.x1) / 2), clampI(Math.floor((b.z0 + b.z1) / 2 / 16), -1, 0)];
 
 const r2 = (v) => Math.round(v * 1000) / 1000;
 
@@ -403,7 +457,7 @@ function element(b, r, f, scale) {
     west: side(uvTop[1], uvTop[3]),
     east: side(16 - uvTop[3], 16 - uvTop[1]),
   };
-  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), faces };
+  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), ...(b.emit && !scale ? { light_emission: b.emit } : {}), faces };
 }
 
 function textures(theme) {
@@ -416,6 +470,8 @@ function textures(theme) {
     trim: `${base}/trim`,
     tray: `${base}/tray`,
     bowl: `${base}/bowl`,
+    placard: `${base}/placard`,
+    tote: `${base}/tote`,
   };
 }
 
@@ -492,6 +548,8 @@ export default function generate() {
     out.push(png(`${T}/${theme}/trim.png`, trimTexture(theme)));
     out.push(png(`${T}/${theme}/tray.png`, trayTexture(theme)));
     out.push(png(`${T}/${theme}/bowl.png`, bowlTexture(theme)));
+    out.push(png(`${T}/${theme}/placard.png`, placardTexture(theme)));
+    out.push(png(`${T}/${theme}/tote.png`, toteTexture(theme)));
   }
   for (const table of TABLES) {
     out.push(json(`${JAVA_ASSETS}/blockstates/${table.name}.json`, blockstate(table)));
