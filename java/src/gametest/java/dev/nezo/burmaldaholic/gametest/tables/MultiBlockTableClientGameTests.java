@@ -89,6 +89,20 @@ public class MultiBlockTableClientGameTests implements FabricClientGameTest {
 			world.getServer().runOnServer(server -> player(server).connection.teleport(facings.getX() + 6.5, facings.getY() + 8, facings.getZ() - 3.5, 0f, 50f));
 			context.waitTicks(15);
 			context.takeScreenshot("mt_facings");
+			// ---- MT-3 machines: slot bank, wheel, Plinko, cashier, Nether cashier, compact machines -----------------
+			BlockPos machines = base.offset(0, 0, -22);
+			for (int d : new int[] {5, 9}) {
+				world.getServer().runOnServer(server -> player(server).connection.teleport(machines.getX() + 9.5, machines.getY(), machines.getZ() + 1 + d + 0.5,
+					180f, d == 5 ? 12f : 8f));
+				context.waitTicks(12);
+				context.takeScreenshot("mt3_machines_" + d + "m");
+			}
+			for (int[] m : new int[][] {{1, 0}, {5, 1}, {9, 2}, {13, 3}}) {
+				world.getServer().runOnServer(server -> player(server).connection.teleport(machines.getX() + m[0] + 0.5 + 2.5, machines.getY(),
+					machines.getZ() + 5.5, 155f, 14f));
+				context.waitTicks(10);
+				context.takeScreenshot("mt3_machine_" + m[1] + "_angle");
+			}
 
 			// ---- real input: use key on the far back-left PART opens the main block's screen ------------------------
 			context.getInput().pressKey(o -> o.keyToggleGui); // F1 again: crosshair back for the real-input checks
@@ -183,6 +197,20 @@ public class MultiBlockTableClientGameTests implements FabricClientGameTest {
 			for (int i = 0; i < 4; i++) {
 				TableParts.placeFull(level, facings.offset(1 + i * 4, 0, 0), (MultiBlockTableBlock) BlackjackModule.TABLE.block(), ds[i]);
 			}
+			// MT-3 machines row (facing south): a bank of three slots, wheel, Plinko, cashier, Nether cashier, compact v0.1 ones
+			BlockPos machines = base.offset(0, 0, -22);
+			for (int i = 0; i < 3; i++) {
+				TableParts.placeFull(level, machines.offset(i, 0, 0),
+					(MultiBlockTableBlock) dev.nezo.burmaldaholic.games.slots.SlotsModule.MACHINES.values().toArray(new TableType<?>[0])[i].block(), Direction.SOUTH);
+			}
+			TableParts.placeFull(level, machines.offset(5, 0, 0), (MultiBlockTableBlock) dev.nezo.burmaldaholic.games.extras.ExtrasModule.WHEEL.block(), Direction.SOUTH);
+			TableParts.placeFull(level, machines.offset(9, 0, 0), (MultiBlockTableBlock) dev.nezo.burmaldaholic.games.extras.ExtrasModule.PLINKO.block(), Direction.SOUTH);
+			TableParts.placeFull(level, machines.offset(13, 0, 0), (MultiBlockTableBlock) dev.nezo.burmaldaholic.core.CoreContent.CASHIER.block(), Direction.SOUTH);
+			TableParts.placeFull(level, machines.offset(17, 0, 0), (MultiBlockTableBlock) dev.nezo.burmaldaholic.core.CoreContent.NETHER_CASHIER.block(), Direction.SOUTH);
+			level.setBlock(machines.offset(20, 0, 0), dev.nezo.burmaldaholic.games.extras.ExtrasModule.WHEEL.block().defaultBlockState()
+				.setValue(MultiBlockTableBlock.FACING, Direction.SOUTH), 3);
+			level.setBlock(machines.offset(21, 0, 0), dev.nezo.burmaldaholic.games.extras.ExtrasModule.PLINKO.block().defaultBlockState()
+				.setValue(MultiBlockTableBlock.FACING, Direction.SOUTH), 3);
 			p.connection.teleport(base.getX() + 0.5, base.getY(), base.getZ() + 6.5, 180f, 10f);
 			out.set(base);
 		});

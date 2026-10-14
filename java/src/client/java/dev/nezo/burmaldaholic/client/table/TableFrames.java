@@ -1,7 +1,9 @@
 package dev.nezo.burmaldaholic.client.table;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import dev.nezo.burmaldaholic.core.table.parts.BoardFrame;
 import dev.nezo.burmaldaholic.core.table.parts.FeltFrame;
+import dev.nezo.burmaldaholic.core.table.parts.MachineKind;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
@@ -43,5 +45,24 @@ public final class TableFrames {
 		pose.translate((float) w[0], top, (float) w[1]);
 		pose.scale(s, s, s);
 		pose.translate(-0.5f, -legacyTop, -0.5f);
+	}
+
+	/**
+	 * MT-3: for a full (multi-block) machine, maps content drawn for the v0.1 1×1 machine (wheel, Plinko ball and
+	 * lamps) onto the full face: {@code full.centre + s·(p − compact.centre)} with {@code s} =
+	 * {@link BoardFrame#scaleCompactToFull}. Compact machines and slots (s = 1, same centre) are untouched.
+	 */
+	public static void toFullFace(PoseStack pose, TablePart part, @Nullable MachineKind kind, Direction facing) {
+		if (kind == null || !part.isMultiBlock()) {
+			return;
+		}
+		BoardFrame c = BoardFrame.of(kind, TablePart.SINGLE);
+		BoardFrame f = BoardFrame.of(kind, TablePart.MAIN);
+		float s = (float) BoardFrame.scaleCompactToFull(kind);
+		double[] cw = TableFootprint.toWorld(c.cx(), c.faceZ(), facing.getStepX(), facing.getStepZ());
+		double[] fw = TableFootprint.toWorld(f.cx(), f.faceZ(), facing.getStepX(), facing.getStepZ());
+		pose.translate((float) fw[0], (float) f.cy(), (float) fw[1]);
+		pose.scale(s, s, s);
+		pose.translate((float) -cw[0], (float) -c.cy(), (float) -cw[1]);
 	}
 }

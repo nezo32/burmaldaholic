@@ -42,3 +42,24 @@ describe('multi-block table furniture', () => {
       }
   });
 });
+
+import { MACHINES, machineBlockstate, machinePartModel, partsOf } from './machines.mjs';
+
+describe('multi-block machines (MT-3)', () => {
+  it('has facing × (single + footprint) variants and in-block elements', () => {
+    const sizes = { slot: 2, wheel: 9, plinko: 9, cashier: 6 };
+    for (const m of MACHINES) {
+      expect(partsOf(m.kind).length).toBe(sizes[m.kind]);
+      expect(Object.keys(machineBlockstate(m).variants).length).toBe(4 * (1 + sizes[m.kind]));
+      for (const part of partsOf(m.kind)) {
+        if (m.kind === 'slot' && part === 'main') continue;
+        for (const e of machinePartModel(m, part).elements)
+          for (let i = 0; i < 3; i++) {
+            expect(e.from[i]).toBeGreaterThanOrEqual(0);
+            expect(e.to[i]).toBeLessThanOrEqual(16);
+            expect(e.from[i]).toBeLessThanOrEqual(e.to[i]);
+          }
+      }
+    }
+  });
+});

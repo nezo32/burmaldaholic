@@ -31,7 +31,7 @@ public final class MachineShapes {
 			}
 			case WHEEL -> {
 				out.add(new Box(-1 + 2 * P, 0, 4 * P, 2 - 2 * P, 4 * P, 14 * P)); // plinth
-				out.add(new Box(6 * P, 0, 6 * P, 10 * P, 1, 11 * P)); // post
+				out.add(new Box(6 * P, 0, 4 * P, 10 * P, 1, 8 * P)); // post (behind the wheel plane)
 				// disc: stepped circle (1/8 block rows) in the wheel plane
 				BoardFrame f = BoardFrame.of(kind, TablePart.MAIN);
 				double r = f.w() / 2;

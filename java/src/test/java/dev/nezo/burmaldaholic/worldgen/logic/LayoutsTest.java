@@ -143,7 +143,12 @@ class LayoutsTest {
 					for (int z = 0; z < s.z(); z++) {
 						BlockSpec b = l.grid().get(x, y, z);
 						if (b != null && b.name().startsWith("burmaldaholic:")) {
-							assertEquals(1, y, l.id() + " table off the floor row: " + b);
+							// MT-3: upper cells of upright machines stand above the floor row; the main block is on it
+							if (isPart(b)) {
+								assertTrue(y >= 1, l.id() + " part below the floor row: " + b);
+							} else {
+								assertEquals(1, y, l.id() + " table off the floor row: " + b);
+							}
 							assertTrue(b.properties().containsKey("facing"), b.toString());
 						}
 					}
