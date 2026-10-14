@@ -209,10 +209,13 @@ public class CasinoBuildingGameTests {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
 		List<ServerPlayer> players = new ArrayList<>();
+		List<Map.Entry<Target, BlockPos>> built = new ArrayList<>();
 		int i = 0;
 		try {
 			for (Target t : CasinoQa.all(level.getServer())) {
-				Placed p = CasinoQa.place(level, t, region(1, i++), 1);
+				BlockPos at = region(1, i++);
+				built.add(Map.entry(t, at));
+				Placed p = CasinoQa.place(level, t, at, 1);
 				List<String> bad = problems.computeIfAbsent(t.toString(), k -> new ArrayList<>());
 				ServerPlayer player = CasinoQa.player(helper, 1_000_000);
 				players.add(player);
@@ -251,6 +254,9 @@ public class CasinoBuildingGameTests {
 			}
 		} finally {
 			players.forEach(pl -> level.getServer().getPlayerList().remove(pl));
+			// Betting seated atmosphere / house bots at every table: wipe the buildings so those tables leave the
+			// server-wide bot budget (bots.maxActiveTables) — otherwise later bot GameTests find no free table slot.
+			built.forEach(e -> CasinoQa.reset(level, e.getValue(), e.getKey().structure().isPresent() ? 56 : 36, 40));
 		}
 		String report = CasinoQa.report(problems);
 		helper.assertTrue(report.isEmpty(), "real-flow problems:" + report);

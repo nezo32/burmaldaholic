@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.worldgen;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.gametest.worldgen.CasinoQa.Placed;
 import dev.nezo.burmaldaholic.gametest.worldgen.CasinoQa.Spot;
 import dev.nezo.burmaldaholic.gametest.worldgen.CasinoQa.Target;
@@ -179,7 +180,7 @@ public final class CasinoClientQa {
 	public static void rightClick(ClientGameTestContext context, BlockPos pos) {
 		context.getInput().lookAt(pos);
 		context.waitTicks(2);
-		context.getInput().pressMouse(1);
+		context.getInput().pressMouse(Inputs.MOUSE_RIGHT);
 	}
 
 	/** Centre of a widget in window pixels (GUI coords × fit scale × GUI scale). */

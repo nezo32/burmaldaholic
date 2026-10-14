@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.client.table.fx.ChipButton;
 import dev.nezo.burmaldaholic.client.table.fx.TableButton;
@@ -387,7 +388,7 @@ public class RouletteScreen extends CasinoTableScreen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == 0) {
+		if (Inputs.isLeft(event.button())) {
 			if ("result".equals(phase()) && !resultSkipped && resultMs() < RESULT_MS) {
 				resultSkipped = true; // skip the local result beats (never the spin)
 			}
@@ -433,7 +434,7 @@ public class RouletteScreen extends CasinoTableScreen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == 32 /* GLFW space; lwjgl is not on the 26.3 compile path */ && "result".equals(phase())) {
+		if (event.key() == Inputs.KEY_SPACE && "result".equals(phase())) {
 			resultSkipped = true;
 			return true;
 		}

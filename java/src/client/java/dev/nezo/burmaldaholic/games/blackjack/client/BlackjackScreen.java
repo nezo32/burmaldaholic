@@ -6,6 +6,7 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.ClientFx;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.ActionTag;
 import dev.nezo.burmaldaholic.client.table.cards.CardAnimator;
 import dev.nezo.burmaldaholic.client.table.cards.CardButton;
@@ -355,7 +356,7 @@ public class BlackjackScreen extends CardTableScreen {
 
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
-		if (!chipRackShown() || button != 0) return false;
+		if (!chipRackShown() || !Inputs.isLeft(button)) return false;
 		// v0.1.2 (lane A10): players put the chip on their betting circle, as at a real table — that adds the selected
 		// chip too (it used to do nothing: "blackjack won't let me place a bet down")
 		int sx = tx(compact ? 140 : Blackjack.ME_SPOT_X);

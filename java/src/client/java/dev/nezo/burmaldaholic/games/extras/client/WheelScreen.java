@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
@@ -193,7 +194,7 @@ final class WheelScreen extends ExtrasTableScreen implements dev.nezo.burmaldaho
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		double dx = event.x() - (leftPos + WX + WheelDraw.C);
 		double dy = event.y() - (topPos + WY + WheelDraw.C);
-		if (event.button() == 0 && dx * dx + dy * dy < 92 * 92 && skip()) return true;
+		if (Inputs.isLeft(event.button()) && dx * dx + dy * dy < 92 * 92 && skip()) return true;
 		return super.mouseClicked(event, doubleClick);
 	}
 
