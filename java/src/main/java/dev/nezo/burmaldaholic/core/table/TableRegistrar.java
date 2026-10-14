@@ -55,6 +55,10 @@ public final class TableRegistrar {
 		if (game != null) {
 			return register(name, beFactory, multiBlockProperties(props), (p, t) -> new MultiBlockTableBlock(p, t, game));
 		}
+		dev.nezo.burmaldaholic.core.table.parts.MachineKind machine = dev.nezo.burmaldaholic.core.table.parts.MachineKind.ofBlockName(name);
+		if (machine != null) {
+			return register(name, beFactory, multiBlockProperties(props), (p, t) -> MultiBlockTableBlock.machine(p, t, machine));
+		}
 		return register(name, beFactory, props, CasinoTableBlock::new);
 	}
 

@@ -24,6 +24,9 @@ import org.junit.jupiter.api.Test;
 class TableAssetContractTest {
 	private static final Path RES = Path.of("src/main/resources");
 	private static final Path ASSETS = RES.resolve("assets/burmaldaholic");
+	/** The seven {@code part} values of a table block (SINGLE + the 3×2 cells; MT-3 machine parts excluded). */
+	private static final List<TablePart> TABLE_PARTS = List.of(TablePart.SINGLE, TablePart.MAIN, TablePart.LEFT, TablePart.RIGHT,
+		TablePart.BACK_LEFT, TablePart.BACK, TablePart.BACK_RIGHT);
 	private static final List<String> TABLES = List.of("blackjack_table", "blackjack_table_high_roller", "baccarat_table",
 		"baccarat_table_high_roller", "baccarat_table_player_banked", "uth_table", "uth_table_high_roller", "uth_table_player_banked",
 		"poker_table", "roulette_table", "roulette_table_high_roller", "craps_table");
@@ -45,7 +48,7 @@ class TableAssetContractTest {
 			JsonObject variants = read(ASSETS.resolve("blockstates/" + t + ".json")).getAsJsonObject("variants");
 			assertEquals(28, variants.size(), t + " variants");
 			for (String facing : List.of("north", "east", "south", "west")) {
-				for (TablePart part : TablePart.values()) {
+				for (TablePart part : TABLE_PARTS) {
 					String key = "facing=" + facing + ",part=" + part.getSerializedName();
 					assertTrue(variants.has(key), t + " " + key);
 					String model = variants.getAsJsonObject(key).get("model").getAsString();
@@ -62,7 +65,7 @@ class TableAssetContractTest {
 		for (String t : TABLES) {
 			boolean craps = t.startsWith("craps");
 			double maxFelt = 0;
-			for (TablePart part : TablePart.values()) {
+			for (TablePart part : TABLE_PARTS) {
 				if (part == TablePart.SINGLE) continue;
 				JsonObject m = read(ASSETS.resolve("models/block/tables/" + t + "/" + part.getSerializedName() + ".json"));
 				Set<String> textures = new HashSet<>(m.getAsJsonObject("textures").keySet());

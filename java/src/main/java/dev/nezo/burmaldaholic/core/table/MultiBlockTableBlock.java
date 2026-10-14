@@ -1,6 +1,8 @@
 package dev.nezo.burmaldaholic.core.table;
 
 import dev.nezo.burmaldaholic.core.table.parts.LocalCell;
+import dev.nezo.burmaldaholic.core.table.parts.MachineKind;
+import dev.nezo.burmaldaholic.core.table.parts.MachineShapes;
 import dev.nezo.burmaldaholic.core.table.parts.MigrationDecision;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
@@ -53,19 +55,37 @@ public class MultiBlockTableBlock extends CasinoTableBlock {
 	public static final EnumProperty<TablePart> PART = TableParts.TABLE_PART;
 	private static final double TOP = 14.0;
 
+	/** The part property a machine block is being constructed with (createBlockStateDefinition runs in Block's constructor). */
+	private static final ThreadLocal<EnumProperty<TablePart>> PENDING_PART = new ThreadLocal<>();
+
 	private final @Nullable TableGame game;
+	private final @Nullable MachineKind machine;
+	private final EnumProperty<TablePart> partProperty;
 	private final List<LocalCell> cells;
 	private final Map<TablePart, LocalCell> byPart = new EnumMap<>(TablePart.class);
 	/** [2D data value of facing][part ordinal]. */
 	private final VoxelShape[][] shapes = new VoxelShape[4][TablePart.values().length];
 
 	public MultiBlockTableBlock(Properties properties, TableType<?> type, TableGame game) {
-		this(properties, type, game, TableFootprint.localCells(game));
+		this(properties, type, game, null, TableFootprint.localCells(game));
 	}
 
-	protected MultiBlockTableBlock(Properties properties, TableType<?> type, @Nullable TableGame game, List<LocalCell> cells) {
+	/** MT-3: an upright multi-block machine (slots, wheel, Plinko, cashier) with its own {@code part} property. */
+	public static MultiBlockTableBlock machine(Properties properties, TableType<?> type, MachineKind kind) {
+		PENDING_PART.set(TableParts.propertyFor(kind));
+		try {
+			return new MultiBlockTableBlock(properties, type, null, kind, kind.localCells());
+		} finally {
+			PENDING_PART.remove();
+		}
+	}
+
+	protected MultiBlockTableBlock(Properties properties, TableType<?> type, @Nullable TableGame game, @Nullable MachineKind machine,
+			List<LocalCell> cells) {
 		super(properties, type);
 		this.game = game;
+		this.machine = machine;
+		this.partProperty = machine == null ? PART : TableParts.propertyFor(machine);
 		this.cells = List.copyOf(cells);
 		for (LocalCell c : this.cells) {
 			byPart.put(c.part(), c);
@@ -73,18 +93,30 @@ public class MultiBlockTableBlock extends CasinoTableBlock {
 		registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(partProperty(), TablePart.SINGLE));
 		for (Direction d : Direction.Plane.HORIZONTAL) {
 			for (TablePart p : TablePart.values()) {
-				shapes[d.get2DDataValue()][p.ordinal()] = p == TablePart.SINGLE ? Shapes.block() : buildShape(p, d);
+				shapes[d.get2DDataValue()][p.ordinal()] = p == TablePart.SINGLE ? Shapes.block()
+					: machine != null ? MachineShapes.shape(machine, byPart.get(p), d) : buildShape(p, d);
 			}
 		}
 	}
 
-	/** The part property of this block (subclasses with other footprints return their own static property). */
+	/** The part property of this block: {@link #PART} for tables, the machine kind's own property for machines. */
+	@SuppressWarnings("ConstantConditions")
 	public EnumProperty<TablePart> partProperty() {
-		return PART;
+		if (partProperty != null) {
+			return partProperty;
+		}
+		EnumProperty<TablePart> pending = PENDING_PART.get(); // still inside the constructor
+		return pending != null ? pending : PART;
 	}
 
+	/** Footprint kind of a TABLE (null for machines). */
 	public @Nullable TableGame game() {
 		return game;
+	}
+
+	/** Kind of an upright MACHINE (null for tables). */
+	public @Nullable MachineKind machine() {
+		return machine;
 	}
 
 	/** Every cell of the full footprint, main first. */

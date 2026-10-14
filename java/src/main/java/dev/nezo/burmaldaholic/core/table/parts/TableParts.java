@@ -42,6 +42,28 @@ public final class TableParts {
 	public static final EnumProperty<TablePart> TABLE_PART = EnumProperty.create("part", TablePart.class,
 		TablePart.SINGLE, TablePart.MAIN, TablePart.LEFT, TablePart.RIGHT, TablePart.BACK_LEFT, TablePart.BACK, TablePart.BACK_RIGHT);
 
+	/** MT-3 {@code part} of a 1 × 2 slot cabinet. */
+	public static final EnumProperty<TablePart> SLOT_PART = EnumProperty.create("part", TablePart.class, MachineKind.SLOT.partValues());
+	/** MT-3 {@code part} of the 3 × 3 upright machines (Wheel of Fortune, Plinko). */
+	public static final EnumProperty<TablePart> UPRIGHT_PART = EnumProperty.create("part", TablePart.class, MachineKind.WHEEL.partValues());
+	/** MT-3 {@code part} of the 3 × 2 cashier booth. */
+	public static final EnumProperty<TablePart> BOOTH_PART = EnumProperty.create("part", TablePart.class, MachineKind.CASHIER.partValues());
+
+	/** The {@code part} property of a machine kind. */
+	public static EnumProperty<TablePart> propertyFor(MachineKind kind) {
+		return switch (kind) {
+			case SLOT -> SLOT_PART;
+			case WHEEL, PLINKO -> UPRIGHT_PART;
+			case CASHIER -> BOOTH_PART;
+		};
+	}
+
+	/** Machine kind of a block state, or null for tables / other blocks. */
+	public static @Nullable MachineKind machineOf(BlockState state) {
+		MultiBlockTableBlock b = blockOf(state);
+		return b == null ? null : b.machine();
+	}
+
 	/** Players that already saw the "compact table" hint this server session. */
 	private static final Set<UUID> HINTED = new HashSet<>();
 	/** >0 while this class places or rearranges cells itself (server thread): integrity checks stand aside. */
