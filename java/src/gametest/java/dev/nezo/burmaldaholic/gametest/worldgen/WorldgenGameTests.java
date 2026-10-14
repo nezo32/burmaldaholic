@@ -445,7 +445,7 @@ public class WorldgenGameTests {
 		ServerPlayer p = CasinoQa.player(helper, 0);
 		var list = helper.getLevel().getServer().getPlayerList();
 		if (op) {
-			list.op(p.nameAndId());
+			list.op(p.nameAndId(), Optional.of(net.minecraft.server.permissions.LevelBasedPermissionSet.GAMEMASTER), Optional.of(false));
 		} else {
 			list.deop(p.nameAndId());
 		}
@@ -618,8 +618,26 @@ public class WorldgenGameTests {
 			helper.assertTrue(HouseGames.explosionProof(level, roulette.pos(), rouletteBe), "Tudor roulette is explosion-proof (MT applies it)");
 			helper.assertFalse(HouseGames.dropsAllowed(level, roulette.pos(), rouletteBe, null), "Tudor roulette never drops (MT applies it)");
 
+			// the VIP room is an optional rear piece of the jigsaw: build the Tudor VIP piece itself, registered as a casino
+			Layout vipLayout = Layouts.byId("casino/tudor/vip").orElseThrow(() -> new AssertionError("casino/tudor/vip layout missing"));
+			BlockPos vipAt = new BlockPos(-12000, 0, 8400);
+			CasinoQa.loadChunks(level, vipAt, 2);
+			CasinoQa.reset(level, vipAt, 24, 30);
+			vipAt = vipAt.atY(CasinoQa.groundY(level, vipAt.getX(), vipAt.getZ()) - 2);
+			var template = CasinoBuilder.templates(level.getServer()).get(Burmaldaholic.id(vipLayout.templatePath()))
+				.orElseThrow(() -> new AssertionError(vipLayout.templatePath() + " template missing"));
+			var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings();
+			template.placeInWorld(level, vipAt, vipAt, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+			BoundingBox vipBox = template.getBoundingBox(settings, vipAt);
+			CasinoQa.Placed vipRoom = new CasinoQa.Placed(new CasinoQa.Target(vipLayout.id(), false, true, Optional.empty(), Optional.of(vipLayout)),
+				vipBox, CasinoQa.spots(level, vipBox), Optional.empty(), 0);
+			BoundingBox vb = vipRoom.box();
+			String dim = level.dimension().identifier().toString();
+			String vipId = CasinoRecord.idFor(dim, vb.minX(), vb.minY(), vb.minZ());
+			CasinoIndex.get(level.getServer()).setAnchor(vipId, dim, vipLayout.id(), CasinoKind.CASINO,
+				new Geometry.Box(vb.minX(), vb.minY(), vb.minZ(), vb.maxX(), vb.maxY(), vb.maxZ()));
 			for (Game g : List.of(Game.BACCARAT_PLAYER_BANKED, Game.UTH_PLAYER_BANKED)) {
-				CasinoQa.Spot vip = spots.stream().filter(s -> s.game() == g).findFirst()
+				CasinoQa.Spot vip = vipRoom.spots().stream().filter(s -> s.game() == g).findFirst()
 					.orElseThrow(() -> new AssertionError("no " + g + " in Tudor"));
 				BlockEntity be = level.getBlockEntity(vip.pos());
 				helper.assertTrue(be instanceof BotTable bt && bt.tableBots() != null, g + " has Seats & Bots");

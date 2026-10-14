@@ -123,7 +123,7 @@ public final class HouseGames {
 			sp.sendOverlayMessage(Component.translatable(PROTECTED_KEY));
 			return false;
 		}
-		if (sp.isCreative()) {
+		if (sp.gameMode.isCreative()) {
 			return true; // creative breaks drop nothing
 		}
 		level.destroyBlock(main, false, player);
