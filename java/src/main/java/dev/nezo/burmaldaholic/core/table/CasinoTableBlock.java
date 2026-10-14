@@ -7,13 +7,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import java.util.List;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -26,10 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -40,39 +33,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class CasinoTableBlock extends BaseEntityBlock {
 	public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
-	private static volatile HouseTables houseTables = HouseTables.NONE;
 	private final TableType<?> type;
-
-	/**
-	 * Which tables are "house" tables: game blocks a generated casino placed (worldgen's {@code HouseGames}, R-CB M9).
-	 * A house table drops nothing (any break path: operators, {@code /setblock … destroy}, withers) and explosions
-	 * leave it standing; the worldgen module also refuses non-operator players breaking one. Core only asks.
-	 */
-	public interface HouseTables {
-		HouseTables NONE = new HouseTables() {
-			@Override
-			public boolean isHouseTable(ServerLevel level, BlockPos pos, @Nullable BlockEntity be) {
-				return false;
-			}
-
-			@Override
-			public void placedByPlayer(ServerLevel level, BlockPos pos, @Nullable BlockEntity be) {}
-		};
-
-		/** True for a table at {@code pos} that a generated casino placed ({@code be}: its block entity, if known). */
-		boolean isHouseTable(ServerLevel level, BlockPos pos, @Nullable BlockEntity be);
-
-		/** A player placed this table (it is theirs even inside a generated casino). */
-		void placedByPlayer(ServerLevel level, BlockPos pos, @Nullable BlockEntity be);
-	}
-
-	public static void setHouseTables(HouseTables tables) {
-		houseTables = tables == null ? HouseTables.NONE : tables;
-	}
-
-	public static boolean isHouseTable(ServerLevel level, BlockPos pos, @Nullable BlockEntity be) {
-		return houseTables.isHouseTable(level, pos, be);
-	}
 
 	public CasinoTableBlock(Properties properties, TableType<?> type) {
 		super(properties);
@@ -124,35 +85,6 @@ public class CasinoTableBlock extends BaseEntityBlock {
 			return null;
 		}
 		return (lvl, pos, st, be) -> ((CasinoTableBlockEntity) be).tick((ServerLevel) lvl);
-	}
-
-	@Override
-	public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
-		super.setPlacedBy(level, pos, state, placer, stack);
-		if (level instanceof ServerLevel serverLevel && placer instanceof Player) {
-			houseTables.placedByPlayer(serverLevel, pos, level.getBlockEntity(pos));
-		}
-	}
-
-	/** House tables drop nothing, whoever or whatever removes them (R-CB M9: no free tables from generated casinos). */
-	@Override
-	protected List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
-		Vec3 origin = params.getOptionalParameter(LootContextParams.ORIGIN);
-		if (origin != null && houseTables.isHouseTable(params.getLevel(), BlockPos.containing(origin),
-			params.getOptionalParameter(LootContextParams.BLOCK_ENTITY))) {
-			return List.of();
-		}
-		return super.getDrops(state, params);
-	}
-
-	/** Explosions (TNT, creepers, fireballs) leave house tables standing; other tables break and drop as usual. */
-	@Override
-	protected void onExplosionHit(BlockState state, ServerLevel level, BlockPos pos, Explosion explosion,
-			java.util.function.BiConsumer<ItemStack, BlockPos> dropConsumer) {
-		if (houseTables.isHouseTable(level, pos, level.getBlockEntity(pos))) {
-			return;
-		}
-		super.onExplosionHit(state, level, pos, explosion, dropConsumer);
 	}
 
 	@Override

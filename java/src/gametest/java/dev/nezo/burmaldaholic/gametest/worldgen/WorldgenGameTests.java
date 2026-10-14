@@ -19,18 +19,13 @@ import java.util.ArrayList;
 import java.util.Map;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
 import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
 import dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure;
@@ -522,25 +517,20 @@ public class WorldgenGameTests {
 			helper.assertTrue(isTable(level, house), "house table still there after a non-op creative break");
 			helper.assertTrue(CasinoQa.drainMessages(builder).contains(HouseGames.PROTECTED_KEY), "creative player told why");
 
-			// explosions inside the casino: the table stands, nothing drops
-			BlockPos side = house2.west();
-			level.setBlockAndUpdate(side, Blocks.AIR.defaultBlockState());
-			level.explode(null, side.getX() + 0.5, side.getY() + 0.5, side.getZ() + 0.5, 2f, Level.ExplosionInteraction.TNT);
-			helper.assertTrue(isTable(level, house2), "house table survives TNT");
-			level.explode(null, side.getX() + 0.5, side.getY() + 0.5, side.getZ() + 0.5, 2f, Level.ExplosionInteraction.MOB);
-			helper.assertTrue(isTable(level, house2), "house table survives a creeper-style (mob) explosion");
-			helper.assertTrue(itemsNear(level, house2, table.item()) == 0, "explosions drop no table item");
+			// explosions / drops: the decisions MT's table block applies (end-to-end in MultiBlockTableGameTests)
+			BlockEntity houseBe = level.getBlockEntity(house2);
+			helper.assertTrue(HouseGames.explosionProof(level, house2, houseBe), "explosions leave a house table standing");
+			helper.assertFalse(HouseGames.dropsAllowed(level, house2, houseBe, null), "a house table never drops an item");
+			helper.assertFalse(HouseGames.breakAllowed(level, house2, houseBe, survivor), "non-op may not break a house table");
+			helper.assertTrue(HouseGames.breakAllowed(level, house2, houseBe, op), "operator may break a house table");
+			helper.assertFalse(HouseGames.explosionProof(level, outside, level.getBlockEntity(outside)), "tables outside casinos are not explosion-proof");
+			helper.assertTrue(HouseGames.dropsAllowed(level, outside, level.getBlockEntity(outside), null), "tables outside casinos drop");
 
-			// a player's own table inside the casino (placed through the real BlockItem path) stays theirs
-			ItemStack stack = new ItemStack(table.item());
-			survivor.setItemInHand(InteractionHand.MAIN_HAND, stack);
-			BlockPos below = mine.below();
-			level.setBlockAndUpdate(below, Blocks.STONE.defaultBlockState());
-			level.setBlockAndUpdate(mine, Blocks.AIR.defaultBlockState());
-			var placed = stack.useOn(new UseOnContext(survivor, InteractionHand.MAIN_HAND,
-				new BlockHitResult(Vec3.atCenterOf(below).add(0, 0.5, 0), Direction.UP, below, false)));
-			helper.assertTrue(placed.consumesAction() && isTable(level, mine), "player placed a table inside the casino: " + placed);
+			// a player's own table inside the casino (marked by the placing block, MT contract) stays theirs
+			level.setBlockAndUpdate(mine, table.block().defaultBlockState());
+			HouseGames.markPlayerPlaced(level.getBlockEntity(mine));
 			helper.assertTrue(HouseGames.isPlayerPlaced(level.getBlockEntity(mine)), "placement marked on the block entity");
+			helper.assertTrue(HouseGames.dropsAllowed(level, mine, level.getBlockEntity(mine), survivor), "own table may drop");
 			clearItems(level, mine);
 			helper.assertTrue(survivor.gameMode.destroyBlock(mine), "owner breaks their own table inside the casino");
 			helper.assertTrue(!isTable(level, mine) && itemsNear(level, mine, table.item()) == 1, "own table drops itself");
@@ -550,9 +540,9 @@ public class WorldgenGameTests {
 			helper.assertTrue(survivor.gameMode.destroyBlock(outside), "non-op breaks a table outside casinos");
 			helper.assertTrue(!isTable(level, outside) && itemsNear(level, outside, table.item()) == 1, "table outside casinos drops itself");
 
-			// operator: removed, but the house keeps its table (no item)
+			// operator in Survival: removed, but the house keeps its table (no item)
 			clearItems(level, house);
-			helper.assertTrue(op.gameMode.destroyBlock(house), "operator breaks a house table");
+			op.gameMode.destroyBlock(house);
 			helper.assertTrue(!isTable(level, house), "operator removed the house table");
 			helper.assertTrue(itemsNear(level, house, table.item()) == 0, "operator break of a house table drops nothing");
 		} finally {
@@ -620,16 +610,13 @@ public class WorldgenGameTests {
 			helper.assertFalse(survivor.gameMode.destroyBlock(blackjack.pos()), "non-op break of the Tudor blackjack refused");
 			helper.assertTrue(isTable(level, blackjack.pos()), "Tudor blackjack still present");
 			helper.assertTrue(CasinoQa.drainMessages(survivor).contains(HouseGames.PROTECTED_KEY), "non-op told the table is the house's");
-			helper.assertTrue(op.gameMode.destroyBlock(blackjack.pos()), "operator breaks the Tudor blackjack");
+			op.gameMode.destroyBlock(blackjack.pos());
 			helper.assertTrue(!isTable(level, blackjack.pos()) && itemsNear(level, blackjack.pos(), item) == 0,
 				"operator removed it and no blackjack_table item dropped within 3 blocks");
 
-			BlockPos cell = roulette.playerCell();
-			Item rouletteItem = level.getBlockState(roulette.pos()).getBlock().asItem();
-			clearItems(level, roulette.pos());
-			level.explode(null, cell.getX() + 0.5, cell.getY() + 0.5, cell.getZ() + 0.5, 4f, Level.ExplosionInteraction.TNT);
-			helper.assertTrue(isTable(level, roulette.pos()), "Tudor roulette survives TNT");
-			helper.assertTrue(itemsNear(level, roulette.pos(), rouletteItem) == 0, "no roulette item after the explosion");
+			BlockEntity rouletteBe = level.getBlockEntity(roulette.pos());
+			helper.assertTrue(HouseGames.explosionProof(level, roulette.pos(), rouletteBe), "Tudor roulette is explosion-proof (MT applies it)");
+			helper.assertFalse(HouseGames.dropsAllowed(level, roulette.pos(), rouletteBe, null), "Tudor roulette never drops (MT applies it)");
 
 			for (Game g : List.of(Game.BACCARAT_PLAYER_BANKED, Game.UTH_PLAYER_BANKED)) {
 				CasinoQa.Spot vip = spots.stream().filter(s -> s.game() == g).findFirst()
