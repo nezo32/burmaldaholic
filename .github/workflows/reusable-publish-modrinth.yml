@@ -1,0 +1,235 @@
+# Publishes a build artifact as a new version on Modrinth via the Modrinth API v2 (curl + jq, no 3rd-party action).
+# Skipped with a warning when the token is missing; a version_number that already exists on the project is
+# skipped with a notice (re-runs are safe; Modrinth would also reject the identical file).
+name: reusable / publish-modrinth
+
+on:
+  workflow_call:
+    inputs:
+      project-id:
+        description: Modrinth project id or slug (default). The variable named by project-id-var, when set, overrides it.
+        type: string
+        default: ""
+      project-id-var:
+        description: Name of a repository or environment variable holding the project id or slug. Empty = use project-id only.
+        type: string
+        default: ""
+      environment:
+        description: GitHub Environment to run the upload job in (its variables and secrets become available, and its protection rules apply). Empty = none.
+        type: string
+        default: ""
+      api-base:
+        description: Modrinth API base (staging = https://staging-api.modrinth.com/v2).
+        type: string
+        default: https://api.modrinth.com/v2
+      artifact-pattern:
+        description: download-artifact pattern selecting the artifacts to publish.
+        type: string
+        required: true
+      primary-file:
+        description: Bash extglob (relative to the download dir) matching exactly ONE file to upload.
+        type: string
+        default: "!(*-@(sources|dev|javadoc)).jar"
+      version-number:
+        description: Modrinth version_number, e.g. 1.2.3 or 1.2.3-beta.1.
+        type: string
+        required: true
+      name:
+        description: Version name shown on Modrinth (empty = version-number).
+        type: string
+        default: ""
+      game-versions:
+        description: Comma/newline separated Modrinth game versions, e.g. "26.2,26.3".
+        type: string
+        required: true
+      loaders:
+        description: Comma separated Modrinth loaders.
+        type: string
+        default: fabric
+      release-type:
+        description: release | beta | alpha
+        type: string
+        default: release
+      dependencies:
+        description: '"slug-or-id:type,..." type in required|optional|incompatible|embedded, e.g. "fabric-api:required"'
+        type: string
+        default: ""
+      featured:
+        type: boolean
+        default: false
+      changelog:
+        description: Changelog markdown. Empty = body of the GitHub release for `tag`.
+        type: string
+        default: ""
+      tag:
+        description: Tag whose GitHub release body is used as changelog when `changelog` is empty.
+        type: string
+        default: ""
+      dry-run:
+        description: Resolve the project, game versions and dependencies and print the metadata without uploading.
+        type: boolean
+        default: false
+    secrets:
+      MODRINTH_TOKEN:
+        description: Modrinth personal access token (scopes CREATE_VERSION, PROJECT_READ, VERSION_READ). An Environment secret of this name wins when `environment` is set.
+        required: false
+    outputs:
+      version-id:
+        value: ${{ jobs.publish.outputs.version-id }}
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 15
+    outputs:
+      version-id: ${{ steps.upload.outputs.version-id }}
+    steps:
+      # Environment-level variables and secrets are only visible inside the job, so everything is resolved here.
+      - name: Check configuration
+        id: config
+        env:
+          MR_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          PROJECT: ${{ vars[inputs.project-id-var] || inputs.project-id }}
+          VAR_NAME: ${{ inputs.project-id-var }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          skip=""
+          if [[ -z "$PROJECT" ]]; then skip="no project id (input project-id / variable '${VAR_NAME}')"
+          elif [[ -z "$MR_TOKEN" ]]; then skip="secret MODRINTH_TOKEN is not set"; fi
+          if [[ -n "$skip" ]]; then
+            echo "::warning::Modrinth upload skipped: $skip (environment: '${ENVIRONMENT:-none}')"
+            echo "### Modrinth upload skipped — $skip" >> "$GITHUB_STEP_SUMMARY"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v8
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          pattern: ${{ inputs.artifact-pattern }}
+          path: dist
+          merge-multiple: true
+
+      - name: Resolve changelog
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGELOG: ${{ inputs.changelog }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          f="$RUNNER_TEMP/changelog.md"
+          if [[ -n "$CHANGELOG" ]]; then
+            printf '%s\n' "$CHANGELOG" > "$f"
+          elif [[ -n "$TAG" ]] && gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$f" 2>/dev/null && [[ -s "$f" ]]; then
+            echo "Using body of GitHub release $TAG"
+          else
+            echo "See ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}" > "$f"
+          fi
+          # the changelog is built from PR titles: print it with workflow commands (::...::) disabled
+          stop="$(openssl rand -hex 16)"
+          echo "::stop-commands::$stop"; cat "$f"; echo "::$stop::"
+
+      - name: Upload to Modrinth
+        id: upload
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: dist
+        env:
+          MR_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MR_API: ${{ inputs.api-base }}
+          PROJECT: ${{ steps.config.outputs.project }}
+          PRIMARY: ${{ inputs.primary-file }}
+          VERSION_NUMBER: ${{ inputs.version-number }}
+          VERSION_NAME: ${{ inputs.name }}
+          GAME_VERSIONS: ${{ inputs.game-versions }}
+          LOADERS: ${{ inputs.loaders }}
+          RELEASE_TYPE: ${{ inputs.release-type }}
+          DEPENDENCIES: ${{ inputs.dependencies }}
+          FEATURED: ${{ inputs.featured }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          shopt -s extglob nullglob
+          die() { echo "::error::$*" >&2; exit 1; }
+          api="${MR_API%/}"
+          ua="${GITHUB_REPOSITORY} release workflow (github.com/${GITHUB_REPOSITORY})"
+          mr_get() { # $1 = path; private (draft / unapproved) projects need the token
+            curl -fsS --retry 4 --retry-connrefused --retry-delay 5 -A "$ua" -H "Authorization: $MR_TOKEN" "$api$1"
+          }
+          csv_json() { tr ',\n' '\n\n' <<<"$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | jq -Rsc 'split("\n") | map(select(length > 0)) | unique'; }
+
+          # shellcheck disable=SC2206
+          primary=( $PRIMARY )
+          [[ ${#primary[@]} -eq 1 ]] || { echo "::error::primary-file '$PRIMARY' matched ${#primary[@]} files: ${primary[*]:-none}"; ls -la; exit 1; }
+          file="${primary[0]}"
+          echo "file: $file ($(stat -c %s "$file") bytes, sha256 $(sha256sum "$file" | cut -d' ' -f1))"
+          case "$RELEASE_TYPE" in release|beta|alpha) ;; *) die "release-type must be release|beta|alpha (got '$RELEASE_TYPE')";; esac
+
+          project="$(mr_get "/project/$PROJECT")" || die "Modrinth project '$PROJECT' not found or not visible to the token (needs PROJECT_READ for a draft project)"
+          project_id="$(jq -r .id <<<"$project")"
+          echo "project '$PROJECT' -> $project_id ($(jq -r '.title + ", status " + .status' <<<"$project"))"
+
+          # validate game versions and loaders against Modrinth's tags so typos fail before uploading
+          gv="$(csv_json "$GAME_VERSIONS")"; loaders="$(csv_json "$LOADERS")"
+          [[ "$(jq length <<<"$gv")" -gt 0 ]] || die "no game versions given"
+          [[ "$(jq length <<<"$loaders")" -gt 0 ]] || die "no loaders given"
+          bad="$(mr_get /tag/game_version | jq -r --argjson want "$gv" '[.[].version] as $all | $want - $all | join(", ")')"
+          [[ -z "$bad" ]] || die "unknown Modrinth game version(s): $bad"
+          bad="$(mr_get /tag/loader | jq -r --argjson want "$loaders" '[.[].name] as $all | $want - $all | join(", ")')"
+          [[ -z "$bad" ]] || die "unknown Modrinth loader(s): $bad"
+
+          deps='[]'
+          IFS=',' read -r -a items <<<"$DEPENDENCIES"
+          for d in "${items[@]}"; do
+            d="$(tr -d '[:space:]' <<<"$d")"; [[ -z "$d" ]] && continue
+            slug="${d%%:*}"; dtype="${d#*:}"; [[ "$dtype" == "$d" ]] && dtype=required
+            case "$dtype" in required|optional|incompatible|embedded) ;; *) die "bad dependency type '$dtype' for '$slug'";; esac
+            dep_id="$(mr_get "/project/$slug" | jq -r .id)" || die "dependency project '$slug' not found on Modrinth"
+            echo "dependency '$slug' -> $dep_id ($dtype)"
+            deps="$(jq -c --arg id "$dep_id" --arg t "$dtype" '. + [{project_id:$id, dependency_type:$t}]' <<<"$deps")"
+          done
+
+          existing="$(mr_get "/project/$project_id/version" | jq -r --arg v "$VERSION_NUMBER" '[.[] | select(.version_number == $v) | .id] | first // empty')"
+          if [[ -n "$existing" ]]; then
+            echo "::notice::Modrinth version $VERSION_NUMBER already exists (id $existing): nothing uploaded"
+            echo "### Modrinth: version $VERSION_NUMBER already exists (id $existing), nothing uploaded" >> "$GITHUB_STEP_SUMMARY"
+            echo "version-id=$existing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          printf '%s' "$(jq -nc \
+            --arg pid "$project_id" --arg num "$VERSION_NUMBER" --arg name "${VERSION_NAME:-$VERSION_NUMBER}" \
+            --rawfile changelog "$RUNNER_TEMP/changelog.md" --arg vtype "$RELEASE_TYPE" \
+            --argjson gv "$gv" --argjson loaders "$loaders" --argjson deps "$deps" --argjson featured "$FEATURED" \
+            '{project_id:$pid, version_number:$num, name:$name, changelog:$changelog, version_type:$vtype,
+              game_versions:$gv, loaders:$loaders, dependencies:$deps, featured:$featured, status:"listed",
+              file_parts:["file"], primary_file:"file"}')" > "$RUNNER_TEMP/modrinth-data.json"
+
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "[dry-run] POST $api/version  file=$file"
+            jq 'del(.changelog)' "$RUNNER_TEMP/modrinth-data.json"
+            echo "version-id=dry-run" >> "$GITHUB_OUTPUT"
+            echo "### Modrinth dry run OK — project $PROJECT ($project_id), $VERSION_NUMBER, game versions $(jq -r 'join(", ")' <<<"$gv"), nothing uploaded" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Not retried: a POST that reached Modrinth may have created the version.
+          rc=0
+          resp="$(curl -sS -w '\n%{http_code}' -A "$ua" -H "Authorization: $MR_TOKEN" \
+            -F "data=<$RUNNER_TEMP/modrinth-data.json;type=application/json" \
+            -F "file=@$file;type=application/java-archive" \
+            "$api/version")" || rc=$?
+          [[ $rc -eq 0 ]] || die "upload failed (curl exit $rc); check the project's Versions page before re-running"
+          code="${resp##*$'\n'}"; resp="${resp%$'\n'*}"
+          [[ "$code" == 2* ]] || die "upload failed (HTTP $code): $resp"
+          version_id="$(jq -er .id <<<"$resp")" || die "unexpected response: $resp"
+          echo "uploaded $file -> Modrinth version $version_id"
+          echo "version-id=$version_id" >> "$GITHUB_OUTPUT"
+          slug="$(jq -r .slug <<<"$project")"
+          echo "### Modrinth upload OK — https://modrinth.com/mod/$slug/version/$version_id" >> "$GITHUB_STEP_SUMMARY"
