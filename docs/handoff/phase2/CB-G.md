@@ -1,50 +1,73 @@
-# CB-G: house games (break/loot protection, presets). PAUSED, WIP
+# CB-G — House games (break/loot protection, presets)
 
-Branch `p2/cb-g` (base `feature/v020-casino-buildings` @fb57e0f). Status: code written, **never compiled, no tests run**.
+Branch `p2/cb-g`. Base: `feature/v020-casino-buildings` @fb57e0f, then merged `p2b-base-cb` (8844eb9, v0.1.3).
+Findings: R-CB M9, M10, M11.
 
-## Done (code only)
-- **M9 protection.** New `worldgen/HouseGames.java` is registered with one line in `WorldgenModule` (`HouseGames.register();`).
-  - A "house table" is a `CasinoTableBlock` (all game blocks, including cashiers, slots, wheel and plinko) inside any complete `CasinoIndex` record box of the same dimension.
-  - The table must also lack the persistent BE attachment `burmaldaholic:player_placed_table`. `CasinoTableBlock.setPlacedBy` sets it when a player places a table, so player-placed tables stay normal, inside or outside casinos.
-  - `PlayerBlockBreakEvents.BEFORE`: a non-op (below level 2, Survival or Creative) is refused and sees the overlay `msg.burmaldaholic.worldgen.house_table_protected`. This hook is separate from `Ownership.beforeBreak` and both run. Either one can cancel.
-  - The protection is always on: no config key, and casino mode does not matter.
-- **`core/table/CasinoTableBlock.java`** gets a `HouseTables` hook interface (static setter) and 3 overrides:
-  - `getDrops` returns nothing for a house table. This covers ops, `/setblock destroy` and withers.
-  - `onExplosionHit` is a no-op for a house table, so TNT, creepers and fireballs leave it standing. This goes further than the spec's "no drop only".
-  - `setPlacedBy` sets the player-placed mark.
-  - The spec only listed the getDrops hook. The other two are in the same file, which CB-G owns.
-- **Pistons:** I made no change. Vanilla pistons don't move blocks that have block entities, so tables are immovable. `pistonsDoNotMoveTables` covers pushing and sticky-pulling but has not been run.
-- **`CasinoIndex.recordAt(dim, BlockPos)`:** only does an index scan. It never loads chunks, and the preset lookups are unchanged (fb57e0f behaviour kept).
-- **M10:** `GAME_OF` is now `Map.ofEntries` and includes `baccarat_table_player_banked` and `uth_table_player_banked`.
-- **M11:** `TablePresets` changes:
-  - PIGLIN_PARLOR baccarat → `parlor_baccarat`.
-  - HIGH_ROLLER craps → `high_roller_craps` (100 / 2× / Gold).
-  - HIGH_ROLLER poker → `high_roller_poker`, with fixed "mid" stakes (needs Gold VIP, the same tier as the Lounge).
-  - `WorldgenPresets.of` builds all three.
-- **STRINGS:** added the worldgen row `msg.burmaldaholic.worldgen.house_table_protected` (EN and RU) and ran `python java/tools/gen_lang.py`. That changed the en_us and ru_ru lang files.
-- **Tests written, not run:**
-  - Unit: `NpcShopAndPresetsTest` (updated expectations, plus `theV2ParlorAndLoungeGetTheirPresets`) and `WorldgenBotPresetsTest` (`everyBotCapableGameIsMapped`, player-banked ids).
-  - Server GameTests in `WorldgenGameTests`:
-    - `houseTablesCannotBeLooted` (synthetic record): Survival and Creative non-ops are refused with the message; the op break leaves no item; TNT and MOB explosions leave the table standing; a player-placed table inside the casino drops; a table outside casinos drops.
-    - `pistonsDoNotMoveTables`
-    - `tudorHouseGames`: real Tudor via `CasinoQa.place` at (-12000, 8000): non-op, op and TNT checks, and VIP player-banked bot defaults.
-    - `parlorAndLoungePresets`
+## Done
+- **M9 house-table protection** — `worldgen/HouseGames.java` (registered by one line in `WorldgenModule`).
+  - House table = `CasinoTableBlock` (tables, slots, wheel, Plinko, cashiers) whose MAIN block is inside any complete
+    `CasinoIndex` record box of its dimension (all kinds: standalone, v0.2 + v0.1 annexes, Parlor, Lounge) and whose
+    main BE lacks the persistent attachment `burmaldaholic:player_placed_table`. Always on, independent of casino mode.
+  - `PlayerBlockBreakEvents.BEFORE` (alongside `Ownership.beforeBreak`; either may cancel): non-op (below level 2,
+    Survival or Creative) → cancelled + overlay `msg.burmaldaholic.worldgen.house_table_protected`; op in Survival →
+    the hook removes the main block with `level.destroyBlock(main, false, player)` and cancels vanilla (no item);
+    op in Creative → vanilla (no drop anyway). Game mode read from `player.gameMode` (mock players override isCreative).
+  - `CasinoIndex.recordAt(dim, BlockPos)` — index scan only; no chunk loads (fb57e0f preset behaviour untouched).
+  - `CasinoTableBlock.java` is **unchanged** (MT owns it in phase 2b) — see contract below.
+- **M10** `WorldgenBotPresets.GAME_OF` → `Map.ofEntries` + `baccarat_table_player_banked`, `uth_table_player_banked`.
+- **M11** `TablePresets`: PIGLIN_PARLOR baccarat → `parlor_baccarat`; HIGH_ROLLER craps → `high_roller_craps`
+  (min 100, 2× tier max, Gold VIP); HIGH_ROLLER poker → `high_roller_poker` (fixed `mid` stakes = Gold VIP, the Lounge
+  tier; `high` would need Diamond). `WorldgenPresets.of` builds them.
+- STRINGS worldgen row `msg.burmaldaholic.worldgen.house_table_protected` (EN/RU) + `gen_lang.py`.
 
-## Verified
-Nothing. The only build attempt first failed because the Gradle daemon was out of memory (machine memory pressure). The retry was killed by the winddown.
+## Contract with MT (multi-block tables; MT owns `CasinoTableBlock` / `TableParts`)
+All static, in `dev.nezo.burmaldaholic.worldgen.HouseGames`, always called with the **main** block position / BE:
+| MT call site | Call | Meaning |
+|---|---|---|
+| `TableParts.removeAll` drop decision (every removal: ops, `/setblock … destroy`, withers) | `dropsAllowed(level, mainPos, mainBe, @Nullable player)` | false → no item |
+| `onExplosionHit` on any part (or the explosion position filter, part → main) | `explosionProof(level, mainPos, mainBe)` | true → table stays, no item |
+| `setPlacedBy` (placer is a Player) | `markPlayerPlaced(mainBe)` | the table is the player's even inside a casino |
+| optional | `breakAllowed(level, mainPos, mainBe, player)`, `isHouseTable(...)`, `isPlayerPlaced(be)` | same rules |
+- `HouseGames.mainOf(level, pos, state)` is the part → main seam used by the BEFORE hook; today identity. **MT-1
+  integration: replace its body with `TableParts.mainOf`** (one line). With MT the op path `destroyBlock(main,false)`
+  lets the parts cascade to air through MT's integrity rule (no drop).
+- Until MT lands the explosion / no-drop-for-other-paths / player-placed mark are **decisions only** (tested at decision
+  level); MT's MultiBlockTableGameTests should assert end-to-end "CB-G house part no drop", TNT at a house table → table
+  stays, player-placed table inside a casino drops.
+- Pistons: tables have block entities → vanilla never pushes/pulls them (MT adds `pushReaction(BLOCK)`);
+  `pistonsDoNotMoveTables` proves push + sticky pull on today's blocks.
 
-## Next steps, in order
-1. `./gradlew compileJava compileClientJava compileGametestJava` and fix compile errors. Check these first:
-   - `ServerPlayer.nameAndId()`
-   - `PlayerList.op/deop(NameAndId)`
-   - `stack.useOn(...)` returning `InteractionResult.consumesAction()`
-   - The switch on `Layouts` constants in `TablePresets`
-2. `test --tests '*NpcShopAndPresetsTest' --tests '*WorldgenBotPresetsTest'`
-3. `runGameTest -Dfabric-api.gametest.filter=WorldgenGameTests`. Check that the mock player is not op by default (the test deops explicitly). Check that the explosion asserts are meaningful (the synthetic test uses power 2 so the outside table at (7,1,7) is out of range).
-4. Full `./gradlew build` and `compileJava compileClientJava compileGametestJava -Pmc=26.3`.
+## Verified (2026-10-14, Windows, JDK 25.0.4)
+- `./gradlew --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g compileJava compileClientJava compileGametestJava test --tests '*NpcShopAndPresetsTest' --tests '*WorldgenBotPresetsTest'`
+  → BUILD SUCCESSFUL; NpcShopAndPresetsTest 5/5, WorldgenBotPresetsTest 9/9.
+- `rm -rf java/build/run/gameTest/world; ./gradlew --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g runGameTest -Dfabric-api.gametest.filter=worldgen_`
+  → "All 22 required tests passed" (WorldgenGameTests incl. new `houseTablesCannotBeLooted`, `pistonsDoNotMoveTables`,
+  `tudorHouseGames`, `parlorAndLoungePresets`; WorldgenNpcGameTests incl. updated Lounge poker expectation).
+- An earlier broader filter (`WorldgenGameTests`, which also matched other classes) showed two failures NOT from CB-G:
+  `casino_building_game_tests_places_every_casino_in_every_rotation` (casino/annex/snowy player cells unreachable — CB-A)
+  and `casino_building_game_tests_casino_fit_rate_and_generation_time` (median nearest 890 > 700 — CB-P).
+- `./gradlew --no-daemon --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g build` → runGameTest (all server GameTests): "2 required
+  tests failed" — only the two CB-A/CB-P ones above; every other test incl. all CB-G ones passed. The GameTest server
+  then hung in "Saving chunks" (> 25 min idle) and was killed, so `build` reported FAILED (41 min).
+- `./gradlew --no-daemon --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g test` → BUILD SUCCESSFUL, 1452 tests, 0 failures.
+- `./gradlew --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g compileJava compileClientJava compileGametestJava -Pmc=26.3` → BUILD SUCCESSFUL.
+- Not run: client GameTests (CB-G has no UI); `build -Pmc=26.3` full.
+
+## Tests added / changed
+- Unit: `NpcShopAndPresetsTest` (new expectations + `theV2ParlorAndLoungeGetTheirPresets`), `WorldgenBotPresetsTest`
+  (`everyBotCapableGameIsMapped`, player-banked ids).
+- Server: `WorldgenGameTests.houseTablesCannotBeLooted` (synthetic record: non-op Survival + Creative refused with
+  message, op removes without item, table outside casinos and player-marked table inside drop normally, decisions for
+  explosions/drops), `pistonsDoNotMoveTables`, `tudorHouseGames` (real Tudor via `/place structure`: non-op refused,
+  op no item, roulette explosion-proof decision; Tudor VIP piece template placed + registered → player-banked
+  baccarat/UTH use the worldgen bot defaults), `parlorAndLoungePresets` (v2 Parlor/Lounge through CoreServices presets).
+  `WorldgenNpcGameTests.presetsFollowTheGeneratedCasino`: Lounge poker now `high_roller_poker`/mid.
 
 ## Requests / risks
-- **D2 (craps):** craps ignores `preset()` limits. `high_roller_craps` minBet 100 / 2× / Gold is only data until `CrapsTableBlockEntity.minBet/limits` read it. Today it only grants the `high_roller` advancement and marks the table as generated.
-- **Multiplayer owner:** a charter near a generated casino might link house tables to a player casino. `claimError` doesn't exclude CasinoIndex boxes. Not changed here.
-- Tables that players placed inside a casino box before this version have no mark, so they become house tables (no drop, even for ops).
-- Withers and the dragon can still remove house tables, though no item drops.
+- **MT**: the three calls above + `mainOf` swap.
+- **D2/CM (craps)**: craps ignores `preset()` limits; `high_roller_craps` is data (it already grants the `high_roller`
+  advancement and marks the table generated) until craps reads minBet / tierMax / minTier.
+- **Multiplayer**: a charter near a generated casino may link house tables (`claimError` ignores CasinoIndex boxes).
+- Tables players placed inside a casino box before this version are unmarked → treated as house tables.
+- Withers/dragon may still remove house tables (no item once MT applies `dropsAllowed`).
+- The op break is cancelled-and-done by the hook, so `PlayerBlockBreakEvents.AFTER` listeners do not fire for it.
