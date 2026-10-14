@@ -46,14 +46,14 @@ class GrandCasinoTest {
 	}
 
 	@Test
-	void twentySixGamesOfEveryFamilyAsFullTables() {
+	void thirtyTwoGamesOfEveryFamilyAsFullTables() {
 		Piece p = whole(GrandCasino.Variant.RIVIERA);
 		Map<Game, Integer> n = new EnumMap<>(Game.class);
 		p.games().forEach(s -> n.merge(s.game(), 1, Integer::sum));
-		assertEquals(26, p.games().size());
+		assertEquals(32, p.games().size());
 		assertEquals(Map.ofEntries(Map.entry(Game.ROULETTE, 2), Map.entry(Game.CRAPS, 1), Map.entry(Game.BACCARAT, 1),
 			Map.entry(Game.BLACKJACK, 2), Map.entry(Game.UTH, 1), Map.entry(Game.POKER, 2), Map.entry(Game.UTH_PLAYER_BANKED, 1),
-			Map.entry(Game.BACCARAT_PLAYER_BANKED, 1), Map.entry(Game.SLOTS_COPPER, 6), Map.entry(Game.SLOTS_GOLD, 4),
+			Map.entry(Game.BACCARAT_PLAYER_BANKED, 1), Map.entry(Game.SLOTS_COPPER, 6), Map.entry(Game.SLOTS_GOLD, 10),
 			Map.entry(Game.SLOTS_NETHERITE, 2), Map.entry(Game.CASHIER, 1), Map.entry(Game.WHEEL, 1), Map.entry(Game.PLINKO, 1)), n);
 		assertEquals(Game.Family.REQUIRED, Checks.families(List.of(p)));
 		Grid g = p.layout().grid();
@@ -99,7 +99,7 @@ class GrandCasinoTest {
 		int total = ps.stream().mapToInt(p -> p.layout().size().z()).sum();
 		assertEquals(GrandCasino.SZ, total, "the slices tile the building");
 		int games = ps.stream().mapToInt(p -> p.games().size()).sum();
-		assertEquals(26, games);
+		assertEquals(32, games);
 		Assembly.Result r = Assembly.all(ps.stream().map(Piece::layout).toList()).getFirst();
 		assertEquals(List.of(), r.problems());
 		assertEquals(GrandCasino.SX, r.footprint().xSpan());
@@ -165,7 +165,7 @@ class GrandCasinoTest {
 				}
 			}
 			assertTrue(v == GrandCasino.Variant.RIVIERA || differ > 3000, v + " looks different (" + differ + " cells)");
-			assertEquals(26, p.games().size());
+			assertEquals(32, p.games().size());
 		}
 	}
 

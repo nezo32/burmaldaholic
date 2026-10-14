@@ -34,7 +34,7 @@ import java.util.List;
  * Rows: foundation y 0..1, floor blocks y {@value #FLOOR_Y}, floor row {@value #ROW}; gallery / VIP floor y
  * {@value #MEZZ_Y} (row {@value #ROW2}); hall ceiling y {@value #CEIL_Y}; dome crown near the top.
  *
- * <p>Games (26): 8 hall tables, 3 VIP tables + 2 netherite slots, 6 copper + 4 gold slots, cashier, wheel, plinko. Every
+ * <p>Games (32): 8 hall tables, 3 VIP tables + 2 netherite slots, 6 copper + 10 gold slots, cashier, wheel, plinko. Every
  * table is a full 3 × 2 multi-block table obeying MT-DESIGN §6 R1–R6; light ≥ 10 over every game comes from glowing
  * floor tiles ({@link Blueprint#uplightGames()}). NPCs: Croupier, Baccarat Dealer, Loan Shark; one loot chest.
  */
