@@ -35,6 +35,58 @@ final class HoloFrame {
 		facing.rotationY((float) Math.toRadians(-dir.toYRot()));
 		yawOnly.rotationY((float) (Math.PI - Math.toRadians(camera.yRot)));
 		toBlock(0.5f, centreY, 0.5f, centre);
+		tmp.set(centre).sub(cam);
+		depth0 = Math.max(0.05f, tmp.dot(fwd));
+		cu0 = tmp.dot(right);
+		cv0 = tmp.dot(up);
+	}
+
+	/** Camera-space depth / right / up of the plane origin (the felt centre). */
+	float depth0 = 1, cu0, cv0;
+	/** Projection results of {@link #project}: plane u, v and the scale a size at that point gets in the plane. */
+	float pu, pv, ps;
+
+	/**
+	 * Projects a block-space point into the camera plane through the felt centre ALONG THE VIEW RAY (perspective), so a
+	 * point behind or in front of the plane lands where the screen shows it relative to the plates (which live in the
+	 * plane). Orthographic {@link #u}/{@link #v} put far content (the dealer row) too low under a raised or tilted camera,
+	 * so plates covered it (design audit W P1). Results in {@link #pu}, {@link #pv}, {@link #ps}.
+	 */
+	void project(Vector3f p) {
+		tmp.set(p).sub(cam);
+		float z = tmp.dot(fwd);
+		if (z < 0.05f) {
+			pu = u(p);
+			pv = v(p);
+			ps = 1;
+			return;
+		}
+		float s = depth0 / z;
+		pu = tmp.dot(right) * s - cu0;
+		pv = tmp.dot(up) * s - cv0;
+		ps = s;
+	}
+
+	/** Screen x / y (camera tangents) of plane coordinates: comparable across tables. */
+	float sx(float u) {
+		return (cu0 + u) / depth0;
+	}
+
+	float sy(float v) {
+		return (cv0 + v) / depth0;
+	}
+
+	/** Screen x / y (camera tangents) of a block-space point; NaN behind the camera. */
+	float screenX(Vector3f p) {
+		tmp.set(p).sub(cam);
+		float z = tmp.dot(fwd);
+		return z < 0.05f ? Float.NaN : tmp.dot(right) / z;
+	}
+
+	float screenY(Vector3f p) {
+		tmp.set(p).sub(cam);
+		float z = tmp.dot(fwd);
+		return z < 0.05f ? Float.NaN : tmp.dot(up) / z;
 	}
 
 	/** Table-local (x, y, z) → block space. */

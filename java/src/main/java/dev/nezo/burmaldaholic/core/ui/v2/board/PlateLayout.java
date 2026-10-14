@@ -44,10 +44,26 @@ public final class PlateLayout {
 	 */
 	public static void place(float[] au, float[] av, float[] w, float[] h, int[] order, float[] obsU0, float[] obsU1, float[] obsTop, int obsCount,
 			float gap, int @org.jspecify.annotations.Nullable [] shift, float[] outU, float[] outV, boolean[] leader) {
-		int n = order.length;
-		int[] placed = new int[n];
-		float[] cv = new float[SHIFTS.length];
-		boolean[] cfree = new boolean[SHIFTS.length];
+		place(au, av, w, h, order, order.length, obsU0, obsU1, obsTop, obsCount, gap, shift, outU, outV, leader, new Scratch(order.length));
+	}
+
+	/** Reusable work arrays of {@link #place} (the renderer keeps one; finding R-KW m11: no per-frame allocation). */
+	public static final class Scratch {
+		final int[] placed;
+		final float[] cv = new float[SHIFTS.length];
+		final boolean[] cfree = new boolean[SHIFTS.length];
+
+		public Scratch(int maxPlates) {
+			placed = new int[maxPlates];
+		}
+	}
+
+	/** {@link #place} on the first {@code n} entries of {@code order}, with caller-owned scratch (≥ n plates). */
+	public static void place(float[] au, float[] av, float[] w, float[] h, int[] order, int n, float[] obsU0, float[] obsU1, float[] obsTop,
+			int obsCount, float gap, int @org.jspecify.annotations.Nullable [] shift, float[] outU, float[] outV, boolean[] leader, Scratch sc) {
+		int[] placed = sc.placed;
+		float[] cv = sc.cv;
+		boolean[] cfree = sc.cfree;
 		int count = 0;
 		for (int oi = 0; oi < n; oi++) {
 			int i = order[oi];
@@ -96,5 +112,99 @@ public final class PlateLayout {
 
 	static boolean overlaps(float u1, float v1, float w1, float h1, float u2, float v2, float w2, float h2, float gap) {
 		return Math.abs(u1 - u2) < (w1 + w2) / 2 + gap && v1 < v2 + h2 + gap && v2 < v1 + h1 + gap;
+	}
+
+	// ---- across tables (finding R-KW M7, design audit W P0 "merged plates") ------------------------------------------
+
+	/**
+	 * One table's plates for the frame-level resolve, as SCREEN rectangles (any common unit, x right, y up — the renderer
+	 * uses camera-space tangents, so rectangles of tables at different depths compare as the player sees them), plus
+	 * fixed occupants that are always drawn (its board panel). Reused across frames: {@link #clear} then {@link #add}.
+	 */
+	public static final class TablePlates {
+		public static final int MAX = 16, MAX_FIXED = 2;
+		/** Any stable key of the table (its block position). */
+		public long key;
+		/** Lower is placed first: the seated / looked-at table, then by distance. */
+		public double rank;
+		public int count;
+		public final int[] ids = new int[MAX];
+		/** x0, y0, x1, y1 per plate. */
+		public final float[] rects = new float[4 * MAX];
+		/** In: the plate was shown by the previous resolve (hysteresis). Out: shown now. */
+		public final boolean[] shown = new boolean[MAX];
+		public final float[] fixed = new float[4 * MAX_FIXED];
+		public int fixedCount;
+
+		public void clear() {
+			count = 0;
+			fixedCount = 0;
+		}
+
+		/** Adds a plate; {@code wasShown} = the previous resolve's answer for it (true for a plate seen the first time). */
+		public void add(int id, float x0, float y0, float x1, float y1, boolean wasShown) {
+			if (count >= MAX) return;
+			ids[count] = id;
+			int k = count * 4;
+			rects[k] = x0;
+			rects[k + 1] = y0;
+			rects[k + 2] = x1;
+			rects[k + 3] = y1;
+			shown[count++] = wasShown;
+		}
+
+		public void addFixed(float x0, float y0, float x1, float y1) {
+			if (fixedCount >= MAX_FIXED) return;
+			int k = fixedCount++ * 4;
+			fixed[k] = x0;
+			fixed[k + 1] = y0;
+			fixed[k + 2] = x1;
+			fixed[k + 3] = y1;
+		}
+
+		/** The resolve's answer for plate {@code id}; {@code dflt} when the table had no such plate. */
+		public boolean shown(int id, boolean dflt) {
+			for (int i = 0; i < count; i++) if (ids[i] == id) return shown[i];
+			return dflt;
+		}
+	}
+
+	/**
+	 * Frame-level plate visibility across tables: tables in {@link TablePlates#rank} order (ties by key), each plate shown
+	 * iff its rectangle is free of every plate already shown and every fixed occupant of a better-ranked table; a shown
+	 * plate is added to the occupied set. Hysteresis: a plate hidden last time must be free by {@code margin} on every
+	 * side before it comes back, so a plate on the edge of another does not blink. Result: the shown plates of all tables
+	 * are pairwise disjoint (touching edges allowed), and the best-ranked table keeps all its (already disjoint) plates.
+	 * The renderer feeds last frame's rectangles and fades a plate whose answer changed (150 ms).
+	 */
+	public static void resolveGlobal(java.util.List<TablePlates> tables, float margin) {
+		tables.sort((a, b) -> a.rank != b.rank ? Double.compare(a.rank, b.rank) : Long.compare(a.key, b.key));
+		int total = 0;
+		for (TablePlates t : tables) total += t.count + t.fixedCount;
+		float[] occ = new float[4 * Math.max(1, total)];
+		int[] owner = new int[Math.max(1, total)];
+		int n = 0;
+		for (int ti = 0; ti < tables.size(); ti++) {
+			TablePlates t = tables.get(ti);
+			for (int i = 0; i < t.count; i++) {
+				int k = i * 4;
+				boolean free = true;
+				for (int j = 0; j < n && free; j++) {
+					int o = j * 4;
+					// the margin applies against OTHER tables only (a table's own plates are laid out apart already)
+					float m = t.shown[i] || owner[j] == ti ? 0 : margin;
+					if (t.rects[k] - m < occ[o + 2] && occ[o] < t.rects[k + 2] + m && t.rects[k + 1] - m < occ[o + 3] && occ[o + 1] < t.rects[k + 3] + m) free = false;
+				}
+				t.shown[i] = free;
+				if (free) {
+					System.arraycopy(t.rects, k, occ, n * 4, 4);
+					owner[n++] = ti;
+				}
+			}
+			for (int f = 0; f < t.fixedCount; f++) {
+				System.arraycopy(t.fixed, f * 4, occ, n * 4, 4);
+				owner[n++] = ti;
+			}
+		}
 	}
 }

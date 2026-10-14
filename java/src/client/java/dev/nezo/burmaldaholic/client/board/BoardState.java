@@ -56,6 +56,8 @@ public class BoardState extends SpectatorRenderState {
 	public float boardPx = HoloScale.BOARD_BASE, platePx = HoloScale.PLATE_BASE;
 	/** The local player's UUID (plates mark "you" in cyan). */
 	public java.util.@Nullable UUID viewer;
+	/** The viewer sits at this table / looks at it (its plates win against a neighbour's, {@link PlateFrame}). */
+	boolean seated, lookedAt;
 
 	@Nullable BoardModel model;
 	@Nullable Font font;
@@ -187,7 +189,8 @@ public class BoardState extends SpectatorRenderState {
 		p.name.on = false;
 		p.detail.on = false;
 		p.cardCount = 0;
-		return new PlateRef(this, p);
+		p.ref.state = this;
+		return p.ref;
 	}
 
 	/** A small free label (legacy billboard text, e.g. a pot amount) within 8 blocks. */
@@ -216,17 +219,18 @@ public class BoardState extends SpectatorRenderState {
 
 	/** Handle of one plate being filled. */
 	public static final class PlateRef {
-		private final BoardState state;
+		/** Set by {@link BoardState#plate} before the handle is handed out. */
+		@Nullable BoardState state;
 		private final BoardModel.Plate plate;
 
-		PlateRef(BoardState state, BoardModel.Plate plate) {
-			this.state = state;
+		PlateRef(BoardModel.Plate plate) {
 			this.plate = plate;
 		}
 
 		/** The name line (cached by {@code key}); cyan for the viewer, white for others unless {@code color} ≠ 0. */
 		public PlateRef name(long key, Supplier<? extends @Nullable Component> text, int color) {
-			if (state.font != null) plate.name.set(state.font, key, state.lang, text, color);
+			BoardState st = state;
+			if (st != null && st.font != null) plate.name.set(st.font, key, st.lang, text, color);
 			return this;
 		}
 
@@ -237,8 +241,9 @@ public class BoardState extends SpectatorRenderState {
 
 		/** The detail line at {@code scale} × (2 = prominent: the acting seat's total, a result). */
 		public PlateRef detail(long key, Supplier<? extends @Nullable Component> text, int color, float scale) {
-			if (state.font != null) {
-				plate.detail.set(state.font, key, state.lang, text, color);
+			BoardState st = state;
+			if (st != null && st.font != null) {
+				plate.detail.set(st.font, key, st.lang, text, color);
 				plate.detail.scale = scale;
 			}
 			return this;

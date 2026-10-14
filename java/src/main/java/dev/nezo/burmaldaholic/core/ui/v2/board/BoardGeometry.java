@@ -38,8 +38,11 @@ public final class BoardGeometry {
 	/** Chip denominations of {@code chips_w.png}, left to right. */
 	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1000, 5000};
 
-	/** Seat plate anchor: outside the felt edge by this much, raised this much above the felt. */
-	public static final float PLATE_OUT = 0.12f, PLATE_UP = 0.35f;
+	/**
+	 * Seat plate anchor: outside the felt edge by this much, raised this much above the felt — the seat rail edge,
+	 * y ≈ 1.30 (design audit W P1: reads as the seat's, clear of the dealer row behind it).
+	 */
+	public static final float PLATE_OUT = 0.12f, PLATE_UP = 0.28f;
 	/** Table board: centred over the dealer side, this high above the felt. */
 	public static final float BOARD_UP = 1.25f;
 
@@ -95,7 +98,45 @@ public final class BoardGeometry {
 		}
 	}
 
+	/** Height of the felt surface above the table block's own floor (block-local y). */
+	public static final float FELT_Y = TOP;
+	/** Tolerance below the felt: a neighbour whose collision top stays this far under the felt does not block. */
+	public static final float OVERHANG_CLEARANCE = 0.05f;
+
 	private BoardGeometry() {}
+
+	/**
+	 * The "blocked overhang" predicate (contract with the casino builders, docs/architecture/ui-v2.md §7.6): a block
+	 * beside the table, at the table's level, blocks the felt overhang iff the top of its collision shape (block-local y,
+	 * 0 = the table block's floor) reaches above {@link #FELT_Y} − {@link #OVERHANG_CLEARANCE}. Carpet (1/16), bottom
+	 * slabs (0.5) and anything without collision (pressure plates, buttons: pass {@code Double.NEGATIVE_INFINITY}) do
+	 * not block; full blocks, top slabs, stairs, fences and walls do.
+	 */
+	public static boolean blocksOverhang(double collisionTopY) {
+		return collisionTopY > FELT_Y - OVERHANG_CLEARANCE;
+	}
+
+	/**
+	 * Table-local rectangle where the dealer's (or the community) cards lie: an obstacle for the seat plates even before
+	 * a card is dealt (design audit W P1: plates covered the dealer row). {x0, z0, x1, z1, yTop}; yTop = the top edge of
+	 * a leaning card. Null when the felt has no card row (roulette and craps register their wheel / dice as content).
+	 */
+	public static float @org.jspecify.annotations.Nullable [] dealerRect(Felt f) {
+		float yTop = TOP + CARD_LIFT + (float) Math.sin(Math.toRadians(CARD_TILT)) * CARD_H;
+		float pitch = CARD_W * 0.62f;
+		return switch (f) {
+			case CRESCENT -> {
+				float half = 2.5f * pitch + CARD_W / 2;
+				float[] slot = dealerSlot(f, 0, 1);
+				yield new float[] {0.5f - half, f.z0() + RAIL, 0.5f + half, slot[1] + CARD_H / 2 + 0.02f, yTop};
+			}
+			case OVAL -> {
+				float half = 2 * pitch + CARD_W / 2;
+				yield new float[] {0.5f - half, 0.5f - CARD_H / 2 - 0.02f, 0.5f + half, 0.5f + CARD_H / 2 + 0.02f, yTop};
+			}
+			default -> null;
+		};
+	}
 
 	/** The felt actually drawn: {@code felt}, or {@link Felt#FALLBACK} when the overhang is blocked. */
 	public static Felt fallback(Felt felt, boolean blocked) {

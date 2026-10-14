@@ -36,7 +36,44 @@ public final class HoloScale {
 	}
 
 	/** Hysteresis of the LOD thresholds (blocks): no flicker for a player standing on a boundary. */
-	public static final double HYSTERESIS = 0.5;
+	public static final double HYSTERESIS = 1.0;
+
+	/** The ink panel behind every board / plate text (90 % opaque) and the muted text colour drawn on it. */
+	public static final int PANEL = 0xE6180A28, MUTED = 0xFFB8A8D0;
+	/** WCAG AA contrast for body text: the muted ink must keep it on the panel over any background. */
+	public static final double MIN_CONTRAST = 4.5;
+
+	/**
+	 * The vertical FOV actually rendered (degrees), from the camera's FOV (which includes sprint / effect / zoom
+	 * modifiers); falls back to the option when the camera reports none (finding R-KW m14).
+	 */
+	public static double effectiveFov(double cameraFov, double optionFov) {
+		return cameraFov > 1 && cameraFov < 179 ? cameraFov : optionFov;
+	}
+
+	/** {@code argb} composited over the opaque {@code bg} (alpha blend), opaque result. */
+	public static int over(int argb, int bg) {
+		double a = (argb >>> 24) / 255.0;
+		int r = (int) Math.round(((argb >> 16) & 0xFF) * a + ((bg >> 16) & 0xFF) * (1 - a));
+		int g = (int) Math.round(((argb >> 8) & 0xFF) * a + ((bg >> 8) & 0xFF) * (1 - a));
+		int b = (int) Math.round((argb & 0xFF) * a + (bg & 0xFF) * (1 - a));
+		return 0xFF000000 | r << 16 | g << 8 | b;
+	}
+
+	/** WCAG 2.1 contrast ratio of two opaque colours (1 … 21). */
+	public static double contrast(int c1, int c2) {
+		double l1 = luminance(c1), l2 = luminance(c2);
+		return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+	}
+
+	private static double luminance(int c) {
+		return 0.2126 * channel(c >> 16) + 0.7152 * channel(c >> 8) + 0.0722 * channel(c);
+	}
+
+	private static double channel(int v) {
+		double s = (v & 0xFF) / 255.0;
+		return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+	}
 
 	/**
 	 * LOD with hysteresis: keeps {@code previous} while the distance is within {@link #HYSTERESIS} of the boundary

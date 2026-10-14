@@ -24,6 +24,9 @@ import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
@@ -64,6 +67,15 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 
 	/** Writes the table's PUBLIC state into {@code s} (table-local coordinates). Called only when the board is visible. */
 	protected abstract void fill(T be, S s, float partialTick);
+
+	/**
+	 * Where the dealer's (or the community) cards lie, table-local {x0, z0, x1, z1, yTop}: an obstacle the seat plates
+	 * stay above even before a card is dealt (design audit W P1). Default: the felt's card row
+	 * ({@link BoardGeometry#dealerRect}); null = none.
+	 */
+	protected float @Nullable [] dealerRect(T be) {
+		return BoardGeometry.dealerRect(felt(be));
+	}
 
 	/** Felt theme: 0 village, 1 bastion, 2 end. Default by dimension; tables with a synced theme override. */
 	protected int theme(T be) {
@@ -114,11 +126,21 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		s.dist = dist;
 		s.hlod = HoloScale.lod(dist, m.lod);
 		m.lod = s.hlod;
-		double fov = mc.options.fov().get();
+		double fov = HoloScale.effectiveFov(mc.gameRenderer.mainCamera().getFov(), mc.options.fov().get());
 		int screenH = Math.max(240, mc.getWindow().getHeight());
 		s.boardPx = HoloScale.readablePx(HoloScale.BOARD_READ, dist, fov, screenH);
 		s.platePx = HoloScale.readablePx(HoloScale.PLATE_READ, dist, fov, screenH);
 		s.viewer = mc.player == null ? null : mc.player.getUUID();
+		s.seated = false;
+		if (s.viewer != null && be instanceof CasinoTableBlockEntity table) {
+			for (TablePublic.SeatPub pub : table.clientSeats()) {
+				if (pub != null && pub.is(s.viewer)) {
+					s.seated = true;
+					break;
+				}
+			}
+		}
+		s.lookedAt = mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(be.getBlockPos());
 		s.theme = theme(be);
 		s.back = defaultBack(level);
 		BoardStats.Table st = BoardStats.begin(be.getBlockPos(), 0);
@@ -128,6 +150,11 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			BiConsumer<BlockEntity, BoardState> demo = DEMO.isEmpty() ? null : DEMO.get(be.getBlockPos().asLong());
 			if (demo != null) demo.accept(be, s);
 			else fill(be, s, partialTick);
+			float[] d = s.showsPlates() ? dealerRect(be) : null;
+			if (d != null) {
+				System.arraycopy(d, 0, m.dealer, 0, 5);
+				m.hasDealer = true;
+			}
 		}
 		st.nanos += System.nanoTime() - t0;
 	}
@@ -144,6 +171,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		BoardModel m = s.model;
 		if (m == null || !s.visibleBoard()) return;
 		long t0 = System.nanoTime();
+		PlateFrame.begin(Minecraft.getInstance().getFrameTimeNs());
 		BoardStats.Table st = BoardStats.of(s.blockPos);
 		int light = s.lightCoords;
 		pose.pushPose();
@@ -181,8 +209,9 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 	// ---- the blocked-overhang fallback ------------------------------------------------------------------------------
 
 	/**
-	 * True when a neighbour would intersect the felt overhang: a colliding block in a cell the felt covers (at the
-	 * table's level), or another table two blocks away along the long axis (both overhangs would meet in the gap).
+	 * True when a neighbour would intersect the felt overhang: a block in a cell the felt covers (at the table's level)
+	 * whose collision top reaches the felt ({@link BoardGeometry#blocksOverhang}: carpet, bottom slabs, pressure plates
+	 * do not block), or another table two blocks away along the long axis (both overhangs would meet in the gap).
 	 */
 	public static boolean blocked(Level level, BlockPos pos, Direction facing, Felt felt) {
 		if (felt == Felt.FALLBACK) return false;
@@ -193,8 +222,8 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			int dx = cells[i], dz = cells[i + 1];
 			if (!covers(felt, dx, dz)) continue;
 			BlockPos p = offset(pos, q, dx, dz, v);
-			BlockState st = level.getBlockState(p);
-			if (!st.getCollisionShape(level, p).isEmpty()) return true;
+			VoxelShape shape = level.getBlockState(p).getCollisionShape(level, p);
+			if (!shape.isEmpty() && BoardGeometry.blocksOverhang(shape.max(Direction.Axis.Y))) return true;
 		}
 		for (int dx : new int[] {-2, 2}) {
 			if (level.getBlockEntity(offset(pos, q, dx, 0, v)) instanceof CasinoTableBlockEntity) return true;
