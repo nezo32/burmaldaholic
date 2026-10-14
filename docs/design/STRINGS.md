@@ -1617,7 +1617,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.v2.reason.point_box` | Come bets travel here: bet Come first | Сюда переходят кам-ставки: сначала поставьте на кам |
 | `gui.burmaldaholic.craps.v2.reason.point_box_come_out` | Come bets travel here once a point is on | Сюда переходят кам-ставки, когда установлен поинт |
 | `gui.burmaldaholic.craps.v2.reason.odds_full` | Your odds are at the maximum | Коэффициент уже максимальный |
-| `gui.burmaldaholic.craps.v2.reason.odds_need_point` | Odds go behind the line once a point is on | Коэффициент ставится за линию, когда установлен поинт |
+| `gui.burmaldaholic.craps.v2.reason.odds_need_point` | Odds come after the point | Коэффициент — после поинта |
 | `gui.burmaldaholic.craps.v2.reason.odds_need_pass` | Odds need a Pass Line bet | Для коэффициента нужна ставка на пасс-лайн |
 | `gui.burmaldaholic.craps.v2.reason.already_placed` | This bet is down: Undo to change it before the roll | Ставка уже сделана: до броска её можно отменить |
 | `gui.burmaldaholic.craps.v2.reason.come_needs_point` | Come bets open once a point is on | Ставки кам открываются, когда установлен поинт |

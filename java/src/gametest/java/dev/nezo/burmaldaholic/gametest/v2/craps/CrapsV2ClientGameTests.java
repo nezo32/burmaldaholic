@@ -122,6 +122,11 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 		});
 	}
 
+	private static void waitSettled(RealFlow f) {
+		for (int t = 0; t < RealFlow.TIMEOUT && throwShown(f); t += 2) context(f).waitTicks(2);
+		if (throwShown(f)) throw new AssertionError("the throw never settled");
+	}
+
 	private static boolean throwShown(RealFlow f) {
 		return f.client(mc -> mc.gui.screen() instanceof CrapsScreen s && s.throwShown());
 	}
@@ -192,6 +197,7 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 		while (point(f, pos) == 0) {
 			if (++rolled > MAX_ROLLS) throw new AssertionError("no point in " + MAX_ROLLS + " rolls");
 			if (myBets(f, pos).stream().noneMatch(b -> b.kind() == BetKind.PASS)) {
+				waitSettled(f); // the felt is closed while the dice fly (R-CDE M5)
 				f.waitChrome(c -> c.hits().box(CrapsLayout.PASS).isPresent(), "felt");
 				f.click(CrapsLayout.PASS);
 				f.waitServer(pos, CrapsTableBlockEntity.class, be -> be.table().hasLineBet(playerId(f)), "Pass again");
