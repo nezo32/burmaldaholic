@@ -566,7 +566,7 @@ public final class CasinoQa {
 				}
 				if (!grounded) {
 					floating++;
-					firstFloat = firstFloat == null ? base.toShortString() : firstFloat;
+					firstFloat = firstFloat == null ? base.toShortString() + " " + level.getBlockState(base).getBlock() : firstFloat;
 				}
 			}
 		}
