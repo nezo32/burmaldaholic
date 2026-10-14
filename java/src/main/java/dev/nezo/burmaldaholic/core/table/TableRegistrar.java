@@ -35,12 +35,31 @@ public final class TableRegistrar {
 		return BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GREEN).strength(2.5f).sound(SoundType.WOOD).noOcclusion();
 	}
 
+	/**
+	 * MT §2: multi-block table / machine properties — solid for fluids and mob spawning rules, never a spawn spot.
+	 * Pistons: every part is a state of a block-entity block, which vanilla never pushes (pushReaction is NOT set:
+	 * {@code PushReaction.BLOCK} was renamed {@code IMMOVEABLE} in 26.3, so naming it would break one of the two
+	 * versions). Suffocation / view blocking stay vanilla-default (not a full cube → false; {@code isViewBlocking} also
+	 * changed its lambda type in 26.3).
+	 */
+	public static BlockBehaviour.Properties multiBlockProperties(BlockBehaviour.Properties props) {
+		return props.forceSolidOn().isValidSpawn((state, level, pos, entityType) -> false);
+	}
+
 	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory) {
 		return register(name, beFactory, defaultProperties());
 	}
 
 	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory,
 			BlockBehaviour.Properties props) {
+		dev.nezo.burmaldaholic.core.table.parts.TableGame game = dev.nezo.burmaldaholic.core.table.parts.TableGame.ofBlockName(name);
+		if (game != null) {
+			return register(name, beFactory, multiBlockProperties(props), (p, t) -> new MultiBlockTableBlock(p, t, game));
+		}
+		dev.nezo.burmaldaholic.core.table.parts.MachineKind machine = dev.nezo.burmaldaholic.core.table.parts.MachineKind.ofBlockName(name);
+		if (machine != null) {
+			return register(name, beFactory, multiBlockProperties(props), (p, t) -> MultiBlockTableBlock.machine(p, t, machine));
+		}
 		return register(name, beFactory, props, CasinoTableBlock::new);
 	}
 

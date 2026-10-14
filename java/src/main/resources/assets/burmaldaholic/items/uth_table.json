@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "burmaldaholic:block/uth/table"
+    "model": "burmaldaholic:block/tables/uth_table/item"
   }
 }
