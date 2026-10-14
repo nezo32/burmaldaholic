@@ -80,18 +80,29 @@ public final class CrapsThrow {
 		return new DiceTray(G, floor, walls, List.of(), List.of(zone), keep, Optional.empty(), 2.4);
 	}
 
-	/** Dice home centre {x, y} (tray units) of {@code side}: the far end of the Pass line. */
-	public static double[] home(int side) {
-		double fy = CrapsFeltFractions.rowTop(4) + CrapsFeltFractions.PASS / 2;
-		double fx = side == LEFT ? CrapsFeltFractions.HOME / 2 : 1 - CrapsFeltFractions.HOME / 2;
-		return new double[] {u(fx), v(fy)};
+	/** Release centre of die 0 from the outer end of the Pass line: inboard so die 1 (released outboard) clears the rail. */
+	static final double RELEASE_INSET = 3.6;
+
+	/** The hand's spec of {@code side}: die 0 leaves at dice home, die 1 beside it (outboard), toward the back wall. */
+	public static ThrowSpec spec(int side) {
+		double y = v(CrapsFeltFractions.rowTop(4) + CrapsFeltFractions.PASS / 2);
+		double x = side == LEFT ? RELEASE_INSET : ARENA_W - RELEASE_INSET;
+		return ThrowSpec.hand(side == LEFT ? 1 : 0, x, y);
 	}
 
-	/** Where the hand releases die 0 (dice home, nudged inboard so die 1 clears the rail). */
-	public static ThrowSpec spec(int side) {
-		double[] p = home(side);
-		double x = side == LEFT ? Math.max(p[0], 2.6) : Math.min(p[0], ARENA_W - 2.6);
-		return ThrowSpec.hand(side == LEFT ? 1 : 0, x, Math.min(p[1], ARENA_H - 2.2));
+	/** Release centre {x, y} (tray units) of {@code die} for {@code side}: where the stick leaves it and the throw starts. */
+	public static double[] release(int side, int die) {
+		ThrowSpec s = spec(side);
+		double px = -StrictMath.sin(s.dir());
+		double py = StrictMath.cos(s.dir());
+		return new double[] {s.x() + px * s.side() * die, s.y() + py * s.side() * die};
+	}
+
+	/** Dice home centre {x, y} of {@code side}: between the two release points. */
+	public static double[] home(int side) {
+		double[] a = release(side, 0);
+		double[] b = release(side, 1);
+		return new double[] {(a[0] + b[0]) / 2, (a[1] + b[1]) / 2};
 	}
 
 	/**

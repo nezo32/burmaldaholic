@@ -262,10 +262,10 @@ export function printGeometry() {
   const y0 = ROWS_Y;
   const h = PRINT_H - y0 - m;
   const avail = h - 4 * gap;
-  const placeH = Math.round(avail * 0.28);
+  const placeH = Math.round(avail * 0.27);
   const comeH = Math.round(avail * 0.245);
   const fieldH = Math.round(avail * 0.18);
-  const dpH = Math.round(avail * 0.105);
+  const dpH = Math.round(avail * 0.115);
   const passH = avail - placeH - comeH - fieldH - dpH;
   const dcW = Math.round(w * 0.17);
   const px0 = m + dcW + gap;

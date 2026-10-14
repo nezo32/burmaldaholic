@@ -19,7 +19,7 @@ public final class CrapsFeltFractions {
 	public static final double ARENA_W = 52, ARENA_H = 21;
 
 	/** Row heights as fractions of the playing area's height (the Pass line takes the rest). */
-	public static final double PLACE = 0.28, COME = 0.245, FIELD = 0.18, DONT_PASS = 0.105;
+	public static final double PLACE = 0.27, COME = 0.245, FIELD = 0.18, DONT_PASS = 0.115;
 	public static final double PASS = 1 - PLACE - COME - FIELD - DONT_PASS;
 	/** Don't Come box width (fraction of the felt width). */
 	public static final double DONT_COME_W = 0.17;

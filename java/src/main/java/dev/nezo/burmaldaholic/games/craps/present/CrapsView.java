@@ -28,15 +28,25 @@ import net.minecraft.nbt.ListTag;
  * @param bets          every bet on the layout (others' with id -1)
  * @param rolling       the throw is still being shown (client presentation)
  * @param seats         players seated
+ * @param settling      the roll is still being settled on the felt (chips, stick; client presentation): Roll waits (D5)
  */
 public record CrapsView(boolean seated, boolean seatFree, long balance, long min, long max, boolean enabled, int point, boolean youShoot,
 		boolean canRoll, boolean needLine, boolean window, long windowSeconds, long rollSeconds, String shooter, boolean canUndo,
-		List<String> allowed, List<BetPub> bets, boolean rolling, int seats) {
+		List<String> allowed, List<BetPub> bets, boolean rolling, int seats, boolean settling) {
 	public static final String[] KINDS = {"pass", "dont_pass", "come", "dont_come", "field"};
 
 	public CrapsView {
 		allowed = List.copyOf(allowed);
 		bets = List.copyOf(bets);
+		settling |= rolling;
+	}
+
+	/** A view without the settling beat (the felt and Roll share the throw gate). */
+	public CrapsView(boolean seated, boolean seatFree, long balance, long min, long max, boolean enabled, int point, boolean youShoot, boolean canRoll,
+			boolean needLine, boolean window, long windowSeconds, long rollSeconds, String shooter, boolean canUndo, List<String> allowed, List<BetPub> bets,
+			boolean rolling, int seats) {
+		this(seated, seatFree, balance, min, max, enabled, point, youShoot, canRoll, needLine, window, windowSeconds, rollSeconds, shooter, canUndo, allowed,
+			bets, rolling, seats, rolling);
 	}
 
 	/**
@@ -93,6 +103,11 @@ public record CrapsView(boolean seated, boolean seatFree, long balance, long min
 	 * timers (they tick down between packets); {@code rolling} is the screen's own presentation state.
 	 */
 	public static CrapsView read(CompoundTag s, long windowSeconds, long rollSeconds, boolean rolling) {
+		return read(s, windowSeconds, rollSeconds, rolling, rolling);
+	}
+
+	/** {@link #read(CompoundTag, long, long, boolean)} with the settling beat (Roll waits for the stick and idle, D5). */
+	public static CrapsView read(CompoundTag s, long windowSeconds, long rollSeconds, boolean rolling, boolean settling) {
 		List<String> allowed = new ArrayList<>();
 		CompoundTag a = s.getCompoundOrEmpty("allowed");
 		for (String k : KINDS) {
@@ -110,6 +125,6 @@ public record CrapsView(boolean seated, boolean seatFree, long balance, long min
 		return new CrapsView(s.getIntOr("seat", -1) >= 0, seated < s.getIntOr("seat_count", 0), s.getLongOr("balance", 0), s.getLongOr("min", 1),
 			s.getLongOr("max", 0), s.getBooleanOr("enabled", true), s.getIntOr("point", 0), s.getBooleanOr("you_shoot", false),
 			s.getBooleanOr("can_roll", false), s.getBooleanOr("need_line", false), window, window ? windowSeconds : -1, rollSeconds,
-			s.getStringOr("shooter", ""), s.getBooleanOr("can_undo", false), allowed, bets, rolling, seated);
+			s.getStringOr("shooter", ""), s.getBooleanOr("can_undo", false), allowed, bets, rolling, seated, settling);
 	}
 }

@@ -57,11 +57,21 @@ public final class CrapsLayout {
 	/** The odds lane at the right of the Pass line (click = odds behind the Pass bet). */
 	public final Box passOdds;
 	public final Box oddsWord;
-	/** Two dice at rest, the total pill and the {@code point} caption, inside the COME row. */
-	public final Box die1, die2, total, pointCaption;
-	/** Where the dice rest (centre of die 1 range) and where they are thrown from (layout px). */
-	public final Box restRegion;
-	public final int throwX, throwY;
+	/** The total pill and the {@code point} caption: fixed boxes right of the dice zone (the readout never moves). */
+	public final Box total, pointCaption;
+	/**
+	 * CM (CS §4.1): the rubber-pyramid back wall along the felt's top edge (the dice's wall plane is its bottom), the
+	 * zone the resting dice CENTRES lie in (COME row from {@code come.x + 44 %} to {@code total.x − 4}; no slots, no
+	 * snap) and dice home at either end of the Pass line (two dice wide: where the stick returns them and the throw
+	 * starts).
+	 */
+	public final Box backWall, diceZone, diceHomeR, diceHomeL;
+	/** Die cell (atlas) px: 14 / 18 / 22 at T1 / T2 / T3, 30 when ROOMY. */
+	public final int die;
+	/** Stick shaft width (px): 3 / 4 / 5 / 6. */
+	public final int stick;
+	/** The playing area under the wall (arena y 0 = {@code backWall.bottom()}, y = ARENA_H = {@code felt.bottom()}). */
+	public final Box arena;
 	/** Number scale of the point boxes (2 / 3) and of the field word. */
 	public final int pointScale, wordScale;
 	/** Chip disc size on the felt and the puck size. */
@@ -74,19 +84,29 @@ public final class CrapsLayout {
 		int m = tier.margin;
 		gap = tier == Tier.T1 ? 2 : 3;
 		chip = tier.feltChip;
-		puck = tier == Tier.T1 ? 12 : tier == Tier.T2 ? 16 : 20;
+		boolean roomy = g.roomy();
+		puck = roomy ? 26 : tier == Tier.T1 ? 12 : tier == Tier.T2 ? 16 : 20;
+		die = roomy ? 30 : tier == Tier.T1 ? 14 : tier == Tier.T2 ? 18 : 22;
+		stick = roomy ? 6 : tier == Tier.T1 ? 3 : tier == Tier.T2 ? 4 : 5;
+		int wallH = roomy ? CrapsFeltFractions.WALL_ROOMY : tier == Tier.T1 ? CrapsFeltFractions.WALL_T1
+			: tier == Tier.T2 ? CrapsFeltFractions.WALL_T2 : CrapsFeltFractions.WALL_T3;
 		int x0 = g.play.x() + m + 4;
 		int y0 = g.play.y() + m + 2;
 		int w = g.play.w() - 2 * (m + 4);
 		int h = g.play.h() - (m + 2) - (m + 6);
 		felt = new Box(x0, y0, w, h);
+		backWall = new Box(x0, y0, w, wallH);
+		arena = new Box(x0, backWall.bottom(), w, felt.bottom() - backWall.bottom());
+		// the rows start under the wall
+		y0 = backWall.bottom() + gap;
+		h = felt.bottom() - y0;
 		int avail = h - 4 * gap;
-		int placeH = (int) Math.round(avail * 0.28);
-		int comeH = (int) Math.round(avail * 0.245);
-		int fieldH = (int) Math.round(avail * 0.18);
-		int dpH = (int) Math.round(avail * 0.105);
+		int placeH = (int) Math.round(avail * CrapsFeltFractions.PLACE);
+		int comeH = (int) Math.round(avail * CrapsFeltFractions.COME);
+		int fieldH = (int) Math.round(avail * CrapsFeltFractions.FIELD);
+		int dpH = (int) Math.round(avail * CrapsFeltFractions.DONT_PASS);
 		int passH = avail - placeH - comeH - fieldH - dpH;
-		int dcW = (int) Math.round(w * 0.17);
+		int dcW = (int) Math.round(w * CrapsFeltFractions.DONT_COME_W);
 		dontCome = new Box(x0, y0, dcW, placeH + gap + comeH);
 		int px0 = x0 + dcW + gap;
 		int pw = x0 + w - px0;
@@ -108,18 +128,16 @@ public final class CrapsLayout {
 		int comeY = y0 + placeH + gap;
 		come = new Box(px0, comeY, pw, comeH);
 		comeWord = new Box(come.x() + come.w() * 6 / 100, come.cy() - 7, Math.max(40, come.w() * 26 / 100), 14);
-		// dice region: the centre-right of the COME row
-		int die = tier == Tier.T1 ? 14 : tier == Tier.T2 ? 18 : 22;
-		int dy = come.cy() - die / 2;
-		int dx = come.x() + come.w() * 52 / 100;
-		die1 = new Box(dx, dy, die, die);
-		die2 = new Box(dx + die + 6, dy - 2, die, die);
-		int tw = tier == Tier.T1 ? 18 : tier == Tier.T2 ? 22 : 28;
-		total = new Box(die2.right() + 6, come.cy() - tw / 2 - 1, tw, tw + 2);
+		// the dice zone and the fixed total pill: the centre-right of the COME row (CS §4.1)
+		int tw = roomy ? 34 : tier == Tier.T1 ? 18 : tier == Tier.T2 ? 22 : 28;
+		int tx = come.x() + (int) Math.round(come.w() * CrapsFeltFractions.TOTAL_AT);
+		total = new Box(tx, come.cy() - tw / 2 - 1, tw, tw + 2);
 		pointCaption = new Box(total.right() + 4, come.cy() - 4, 32, 9);
-		restRegion = new Box(die1.x() - die, come.y() + die / 2 + 1, die * 2, Math.max(1, come.h() - die - 2));
-		throwX = felt.right() - die;
-		throwY = felt.bottom() - die / 2;
+		int zx0 = come.x() + (int) Math.round(come.w() * CrapsFeltFractions.ZONE_FROM) + die / 2;
+		int zx1 = total.x() - 4 - die / 2;
+		int zy0 = come.y() + die / 2 + 1;
+		int zy1 = come.bottom() - die / 2 - 1;
+		diceZone = new Box(zx0, zy0, Math.max(1, zx1 - zx0), Math.max(1, zy1 - zy0));
 		int fieldY = comeY + comeH + gap;
 		field = new Box(x0, fieldY, w, fieldH);
 		int fw = (int) Math.round(w * 0.2);
@@ -143,7 +161,39 @@ public final class CrapsLayout {
 		passWord = new Box(pass.cx() - w * 8 / 100, pass.cy() - 4, w * 16 / 100, 8);
 		int ox = pass.x() + w * 70 / 100;
 		passOdds = new Box(ox, pass.y(), pass.right() - ox, pass.h());
-		oddsWord = new Box(passOdds.x() + w * 9 / 100, pass.cy() - 4, Math.min(passOdds.w() - w * 9 / 100 - 4, w * 12 / 100), 8);
+		int homeW = 2 * die + 2;
+		int ow = Math.min(passOdds.w() - w * 9 / 100 - 4, w * 12 / 100);
+		ow = Math.min(ow, pass.right() - 2 - homeW - 2 - (passOdds.x() + w * 9 / 100));
+		oddsWord = new Box(passOdds.x() + w * 9 / 100, pass.cy() - 4, Math.max(1, ow), 8);
+		int homeH = Math.min(pass.h() - 2, die + 2);
+		int hy = pass.cy() - homeH / 2;
+		diceHomeR = new Box(pass.right() - 2 - homeW, hy, homeW, homeH);
+		diceHomeL = new Box(pass.x() + 2, hy, homeW, homeH);
+	}
+
+	/** Dice home of a shooter side ({@link CrapsThrow#LEFT} / {@link CrapsThrow#RIGHT}). */
+	public Box diceHome(int side) {
+		return side == CrapsThrow.LEFT ? diceHomeL : diceHomeR;
+	}
+
+	/** Layout px per tray unit along x / y. */
+	public double sx() {
+		return arena.w() / CrapsFeltFractions.ARENA_W;
+	}
+
+	public double sy() {
+		return arena.h() / CrapsFeltFractions.ARENA_H;
+	}
+
+	/** Lift (layout px) per tray unit of height: a little under the floor scale so a hop into the wall stays on the wall. */
+	public static final double LIFT = 0.62;
+
+	/**
+	 * The arena → layout map (CS §2.2 ArenaMap): x across the felt, y from the wall plane ({@code backWall.bottom()})
+	 * to the shooter's rail ({@code felt.bottom()}), height lifting the sprite.
+	 */
+	public dev.nezo.burmaldaholic.core.anim.motion.StageMap arenaMap() {
+		return dev.nezo.burmaldaholic.core.anim.motion.StageMap.of(arena.x(), arena.y(), sx(), sy(), sy() * LIFT);
 	}
 
 	public static CrapsLayout of(TableGrid g) {
@@ -308,7 +358,7 @@ public final class CrapsLayout {
 	 * word, never a number, a stack or the dice).
 	 */
 	public Box bannerRegion() {
-		return new Box(come.x() + 2, come.y() + 2, die1.x() - 6 - come.x() - 2, come.h() - 4);
+		return new Box(come.x() + 2, come.y() + 2, diceZone.x() - die / 2 - 4 - come.x() - 2, come.h() - 4);
 	}
 
 	/** Every printed glyph (point numbers, field numbers, words): obstacles for stacks and tags. */

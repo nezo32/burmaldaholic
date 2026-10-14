@@ -57,7 +57,8 @@ public final class CrapsFlow {
 			return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
 		}
 		if (v.youShoot()) {
-			if (v.canRoll()) return Gate.on("roll", K + "primary.roll");
+			// D5: the chips and the stickman finish before the next throw (skip with Space / a click)
+			if (v.canRoll()) return v.settling() ? Gate.off("roll", K + "primary.roll", K + "reason.wait_settling") : Gate.on("roll", K + "primary.roll");
 			if (v.needLine()) return Gate.off("roll", K + "primary.roll", K + "reason.need_line");
 			if (v.windowSeconds() >= 0) return Gate.off("roll", K + "primary.roll", K + "reason.wait_roll", v.windowSeconds());
 			return Gate.off("roll", K + "primary.roll", K + "reason.wait_settling");
