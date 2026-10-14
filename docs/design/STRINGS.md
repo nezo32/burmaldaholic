@@ -2621,6 +2621,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.village_casino` | Lucky Villager Casino | Казино «Счастливый житель» |
 | `gui.burmaldaholic.worldgen.piglin_parlor` | Piglin Parlor | Пиглинский салон |
 | `gui.burmaldaholic.worldgen.high_roller` | High Roller Lounge | Лаунж хайроллеров |
+| `gui.burmaldaholic.worldgen.casino` | Grand Casino | Гранд-казино |
 | `msg.burmaldaholic.worldgen.entered` | Welcome to %1$s | Добро пожаловать в %1$s |
 | `msg.burmaldaholic.worldgen.entered_subtitle` | Please gamble responsibly. Or at least entertainingly. | Играйте ответственно. Ну или хотя бы зрелищно. |
 | `gui.burmaldaholic.croupier.title` | Croupier | Крупье |
@@ -2635,6 +2636,10 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `dialog.burmaldaholic.shulker_croupier.greeting.2` | High rollers only. You'll float out if you lose. Joke. Mostly. | Только хайроллеры. Проиграете — улетите. Шутка. В основном. |
 | `gui.burmaldaholic.worldgen.shop.offer` | %1$s — %2$s | %1$s — %2$s |
 | `msg.burmaldaholic.worldgen.bought` | Bought %1$s for %2$s | Куплено: %1$s за %2$s |
+| `msg.burmaldaholic.worldgen.locate.inactive` | Casino generation is off (casino mode or worldgen.enabled): no new casinos appear | Генерация казино выключена (режим казино или worldgen.enabled): новые казино не появляются |
+| `msg.burmaldaholic.worldgen.locate.none` | No Grand Casino within reach | Поблизости нет ни одного гранд-казино |
+| `msg.burmaldaholic.worldgen.locate.known` | Nearest generated casino: %1$s at %2$s (%3$s blocks) | Ближайшее построенное казино: %1$s, %2$s (%3$s бл.) |
+| `msg.burmaldaholic.worldgen.locate.none_known` | No casino has been generated in this dimension yet | В этом измерении ещё не появилось ни одного казино |
 
 ---
 

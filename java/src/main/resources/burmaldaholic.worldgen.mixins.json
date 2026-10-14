@@ -8,6 +8,7 @@
 		"SinglePoolElementAccessor",
 		"SinglePoolElementMixin",
 		"StructureMixin",
+		"StructureStartMixin",
 		"TemplateStructurePieceAccessor"
 	],
 	"client": [],

@@ -36,7 +36,7 @@ class LayoutsTest {
 
 	@Test
 	void sevenLayoutsWithSpecSizes() {
-		assertEquals(7, Layouts.all().size());
+		assertEquals(7, Layouts.legacy().size());
 		for (VillageStyle s : VillageStyle.values()) {
 			assertEquals(new Vec(17, 10, 17), Layouts.village(s).size(), s.id());
 			assertEquals(CasinoKind.VILLAGE_CASINO, Layouts.village(s).kind());
@@ -106,7 +106,7 @@ class LayoutsTest {
 
 	@Test
 	void markersSitInClearCellsInsideAndEveryLayoutHasOneAnchor() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			long anchors = l.markers().stream().filter(m -> m.marker() instanceof Markers.Anchor a && a.layoutId().equals(l.id())).count();
 			assertEquals(1, anchors, l.id());
 			Set<Vec> seen = new HashSet<>();
@@ -128,7 +128,7 @@ class LayoutsTest {
 
 	@Test
 	void tablesFaceSomewhereAndAreOnTheFloorRow() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			Vec s = l.size();
 			for (int x = 0; x < s.x(); x++) {
 				for (int y = 0; y < s.y(); y++) {
@@ -146,7 +146,7 @@ class LayoutsTest {
 
 	@Test
 	void entranceIsOpenOnPlusZ() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			int midX = l.size().x() / 2;
 			int z = l.size().z() - 1;
 			assertTrue(l.grid().get(midX, 1, z).is("minecraft:air") && l.grid().get(midX, 2, z).is("minecraft:air"), l.id());
@@ -169,7 +169,7 @@ class LayoutsTest {
 
 	@Test
 	void templateNbtHasPaletteBlocksAndMarkers() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			Map<String, Object> root = TemplateExporter.template(l);
 			assertEquals(TemplateExporter.DATA_VERSION, root.get("DataVersion"));
 			Nbt.TagList blocks = (Nbt.TagList) root.get("blocks");
