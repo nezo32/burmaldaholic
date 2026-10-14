@@ -89,7 +89,7 @@ class GrandCasinoTest {
 	@Test
 	void slicesAreTheThreeRequiredPoolsAndTheirConnectorsMeet() {
 		List<Piece> ps = GrandCasino.pieces(GrandCasino.Variant.RIVIERA);
-		assertEquals(List.of("casino/tudor/entrance", "casino/tudor/floor", "casino/tudor/bar"), ps.stream().map(Piece::id).toList());
+		assertEquals(List.of("casino/riviera/entrance", "casino/riviera/floor", "casino/riviera/bar"), ps.stream().map(Piece::id).toList());
 		for (Piece p : ps) {
 			assertEquals(PackFiles.REQUIRED_POOLS.get(ps.indexOf(p)), PackFiles.poolName(PackFiles.pieceName(p.id())));
 			assertEquals(GrandCasino.FLOOR_Y, p.layout().jigsaws().getFirst().pos().y(), "connectors in the floor row");
@@ -109,11 +109,11 @@ class GrandCasinoTest {
 	@Test
 	void theActivePackIsTheGrandCasinoInFiveSlots() {
 		List<String> styles = PackFiles.completeStyles(CasinoPack.layouts());
-		assertEquals(List.of("tudor", "oasis", "safari", "alpine", "ice_palace"), styles);
+		assertEquals(List.of("riviera", "oasis", "safari", "alpine", "ice_palace", "cherry"), styles);
 		for (Piece p : OverworldPieces.all()) {
 			assertTrue(p.layout().size().x() == GrandCasino.SX, p.id());
 		}
-		assertEquals(15, OverworldPieces.all().size());
+		assertEquals(18, OverworldPieces.all().size());
 	}
 
 	@Test

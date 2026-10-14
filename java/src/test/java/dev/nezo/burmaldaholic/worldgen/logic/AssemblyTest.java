@@ -43,7 +43,7 @@ class AssemblyTest {
 		assertEquals(PackFiles.STYLE_BIOMES.size() * 4, results.size(), "2 floors × 2 rears per style");
 		assertGood(results);
 		assertEquals(List.of("floor_a+office", "floor_a+vip", "floor_b+office", "floor_b+vip"),
-			results.stream().filter(r -> r.style().equals("tudor")).map(Assembly.Result::name).toList());
+			results.stream().filter(r -> r.style().equals("riviera")).map(Assembly.Result::name).toList());
 	}
 
 	/** Connector math: entrance back (north) → floor front; floor east → bar entry (+z face) rotated a quarter turn. */

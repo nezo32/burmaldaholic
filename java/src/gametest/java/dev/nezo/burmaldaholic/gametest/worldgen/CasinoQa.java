@@ -71,7 +71,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * {@code -Dburmaldaholic.requireCasinoV2=true} turns "v0.2 content missing" into a failure (integration gate).
  */
 public final class CasinoQa {
-	public static final List<String> STYLES = List.of("tudor", "oasis", "safari", "alpine", "ice_palace");
+	public static final List<String> STYLES = List.of("riviera", "oasis", "safari", "alpine", "ice_palace", "cherry");
 	public static final Identifier SET = Identifier.parse("burmaldaholic:casinos");
 	public static final Identifier TAG = Identifier.parse("burmaldaholic:casino");
 	/** Air kept above every table for the in-world board (mirrors {@code Kits.BOARD_CLEARANCE}). */

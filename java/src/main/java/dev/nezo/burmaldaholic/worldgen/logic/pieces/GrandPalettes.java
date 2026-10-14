@@ -32,6 +32,7 @@ public final class GrandPalettes {
 		.put(Role.FLOOR_ACCENT, m("polished_deepslate", "polished_deepslate_stairs", "polished_deepslate_slab"))
 		.put(Role.CARPET, m("red_carpet"))
 		.put(Role.CARPET_ACCENT, m("black_carpet"))
+		.put(Role.CARPET_PATTERN, m("brown_carpet"))
 		.put(Role.WALL, m("smooth_sandstone", "smooth_sandstone_stairs", "smooth_sandstone_slab"))
 		.put(Role.WALL_ALT, m("cut_sandstone", "sandstone_stairs", "cut_sandstone_slab"))
 		.put(Role.WALL_BASE, m("deepslate_tiles", "deepslate_tile_stairs", "deepslate_tile_slab"))
@@ -175,6 +176,7 @@ public final class GrandPalettes {
 		.put(Role.COUNTER, m("spruce_planks", "spruce_stairs", "spruce_slab"))
 		.put(Role.STOOL, m("warped_planks", "warped_stairs", "warped_slab"))
 		.put(Role.CARPET, m("blue_carpet"))
+		.put(Role.CARPET_PATTERN, m("cyan_carpet"))
 		.put(Role.PLANTER, m("potted_spruce_sapling"))
 		.put(Role.PATH, m("polished_diorite", "polished_diorite_stairs", "polished_diorite_slab"))
 		.build();
@@ -193,6 +195,7 @@ public final class GrandPalettes {
 		.put(Role.STOOL, m("cherry_planks", "cherry_stairs", "cherry_slab"))
 		.put(Role.COUNTER, m("cherry_planks", "cherry_stairs", "cherry_slab"))
 		.put(Role.CARPET, m("pink_carpet"))
+		.put(Role.CARPET_PATTERN, m("magenta_carpet"))
 		.put(Role.PLANTER, m("potted_cherry_sapling"))
 		.build();
 

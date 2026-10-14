@@ -44,7 +44,9 @@ public enum Role {
 	/** Second wall material for gradients and bands (rusticated base, string courses). */
 	WALL_ALT(WALL),
 	/** Coffer panels of the ceiling. */
-	COFFER(CEILING);
+	COFFER(CEILING),
+	/** The subtle pattern colour woven into the casino carpet (a lattice on CARPET). */
+	CARPET_PATTERN(CARPET_ACCENT);
 
 	private final Role fallback;
 

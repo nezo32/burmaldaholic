@@ -46,7 +46,7 @@ public class CasinoPhotoClientGameTests implements FabricClientGameTest {
 					return CasinoQa.standalone(server);
 				}
 				if (!all) {
-					return List.of(CasinoClientQa.defaultTarget(server, "tudor"));
+					return List.of(CasinoClientQa.defaultTarget(server, "riviera"));
 				}
 				List<Target> out = new ArrayList<>(CasinoQa.standalone(server));
 				out.addAll(CasinoQa.v2Singles());

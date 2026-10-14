@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * The v0.2 standalone Overworld casino pieces (architecture doc §2) — since the casino redesign (CR-1) the
  * {@link GrandCasino} in its biome {@link GrandCasino.Variant variants}: three jigsaw pieces ({@code entrance},
- * {@code floor}, {@code bar}) per active variant, under the style slots {@code tudor} (Riviera), {@code oasis},
- * {@code safari}, {@code alpine}, {@code ice_palace}. Built lazily once; PURE (no Minecraft types, no {@code Layouts}
+ * {@code floor}, {@code bar}) per active variant, under the style slots {@code riviera}, {@code oasis},
+ * {@code safari}, {@code alpine}, {@code ice_palace}, {@code cherry}. Built lazily once; PURE (no Minecraft types, no {@code Layouts}
  * statics, so {@code CasinoPack} can read it from {@code Layouts.all()} without an init cycle).
  *
  * <p>The pre-redesign styles ({@link OverworldStyles} × {@link OverworldCasino.Part}) are kept as {@link #legacy()} —

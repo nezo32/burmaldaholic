@@ -6,6 +6,7 @@ import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
 import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Blueprint;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Facades;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Kits;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Material;
@@ -92,16 +93,15 @@ public final class GrandCasino {
 
 	/**
 	 * Biome looks. {@code slot} is the standalone structure (style id, {@code casino_<slot>}, biome tag
-	 * {@code has_structure/casino_<slot>}) the variant generates as; the slot ids predate the redesign (Riviera takes
-	 * the plains slot that Tudor had). {@link #CHERRY} has no slot yet (cherry groves are in the alpine biome list).
+	 * {@code has_structure/casino_<slot>}, pieces {@code casino/<slot>/…}) the variant generates as.
 	 */
 	public enum Variant {
-		RIVIERA("tudor", GrandPalettes.RIVIERA),
+		RIVIERA("riviera", GrandPalettes.RIVIERA),
 		OASIS("oasis", GrandPalettes.OASIS),
 		SAFARI("safari", GrandPalettes.SAFARI),
 		ALPINE("alpine", GrandPalettes.ALPINE),
 		ICE_PALACE("ice_palace", GrandPalettes.ICE_PALACE),
-		CHERRY(null, GrandPalettes.CHERRY);
+		CHERRY("cherry", GrandPalettes.CHERRY);
 
 		private final String slot;
 		private final Palette palette;
@@ -121,7 +121,7 @@ public final class GrandCasino {
 
 		/** Variants that generate in the world (have a structure slot). */
 		public static List<Variant> active() {
-			return List.of(RIVIERA, OASIS, SAFARI, ALPINE, ICE_PALACE);
+			return List.of(RIVIERA, OASIS, SAFARI, ALPINE, ICE_PALACE, CHERRY);
 		}
 
 		/** The layout-id style segment: the slot, or {@code grand_<name>} for a variant without one. */
@@ -233,6 +233,30 @@ public final class GrandCasino {
 		}
 	}
 
+	/**
+	 * One window bay of a side or back elevation ({@code alongX}: the wall runs along x at {@code plane}, else along z),
+	 * window {@code a..a+2}: ground windows under a hood moulding (a shadow line), an arched upper window with a
+	 * balconette (a projecting cornice-slab floor, balusters, rail) lit by a lantern hanging under it, and a floor
+	 * uplight in the apron washing the bay at night. {@code out} is the projection row (the apron side of the wall).
+	 */
+	static void sideBay(Blueprint b, boolean alongX, int a, int plane, int out) {
+		archWindow(b, alongX, a, a + 2, plane, ROW2 + 1, ROW2 + 3, 1.5);
+		Facing face = alongX ? Facing.NORTH : Facing.WEST;
+		for (int t = a; t <= a + 2; t++) {
+			int x = alongX ? t : plane, z = alongX ? plane : t;
+			int ox = alongX ? t : out, oz = alongX ? out : t;
+			b.set(x, ROW + 1, z, pane());
+			b.set(x, ROW + 2, z, pane());
+			b.set(ox, ROW + 3, oz, b.palette().get(Role.CORNICE).stairs(face.opposite(), true)); // hood
+			b.set(ox, ROW2, oz, b.palette().get(Role.CORNICE).slab("top")); // balcony floor
+			b.set(ox, ROW2 + 1, oz, b.palette().block(Role.BALUSTER));
+			b.set(ox, ROW2 + 2, oz, b.palette().get(Role.RAIL).slab("bottom"));
+		}
+		int cx = alongX ? a + 1 : out, cz = alongX ? out : a + 1;
+		b.set(cx, ROW2 - 1, cz, lantern(b, true));
+		b.set(cx, FLOOR_Y, cz, b.palette().block(Role.UPLIGHT));
+	}
+
 	static BlockSpec lantern(Blueprint b, boolean hanging) {
 		return BlockSpec.of(b.palette().get(Role.LIGHT_HANGING).full(), "hanging", Boolean.toString(hanging), "waterlogged", "false");
 	}
@@ -301,22 +325,26 @@ public final class GrandCasino {
 		BlockSpec floorAccent = b.palette().block(Role.FLOOR_ACCENT);
 		BlockSpec red = b.palette().block(Role.CARPET);
 		BlockSpec gold = BlockSpec.mc("yellow_carpet");
-		// the pits (both sides): casino carpet, the CARPET colour with a gilt diamond lattice, bordered in gilt; the tables'
-		// walkways (CARPET_ACCENT, dark) frame every table
+		// the pits (both sides): a calm casino carpet, the deep CARPET colour with a subtle CARPET_PATTERN diamond lattice
+		// and border; the tables' dark walkways (CARPET_ACCENT) frame every table. Bright gilt only on the runner.
+		BlockSpec pattern = b.palette().block(Role.CARPET_PATTERN);
 		b.mirrorX(AX2, m -> {
 			for (int x = 9; x <= 17; x++) {
 				for (int z = 9; z <= 20; z++) {
-					m.set(x, ROW, z, Math.floorMod(x + z, 4) == 0 || Math.floorMod(x - z, 4) == 0 ? gold : red);
+					boolean border = x == 9 || x == 17 || z == 9 || z == 20;
+					boolean lattice = Math.floorMod(x + z, 4) == 0 || Math.floorMod(x - z, 4) == 0;
+					m.set(x, ROW, z, border || lattice ? pattern : red);
 				}
 			}
-			for (int x = 9; x <= 17; x++) {
-				m.set(x, ROW, 9, gold);
-				m.set(x, ROW, 20, gold);
+			// planters on pedestals at the pit corners
+			for (int[] c : new int[][] {{9, 9}, {17, 9}, {17, 20}}) {
+				Kits.pottedPlant().apply(m, c[0], ROW, c[1], Facing.SOUTH);
 			}
-			for (int z = 9; z <= 20; z++) {
-				m.set(9, ROW, z, gold);
-				m.set(17, ROW, z, gold);
+			// a chandelier over the middle of each pit, high above the tables' board volume
+			for (int y = CEIL_Y - 1; y >= MEZZ_Y + 2; y--) {
+				m.set(13, y, DOME_Z, chain());
 			}
+			Kits.grandChandelier(1).apply(m, 13, MEZZ_Y + 2, DOME_Z, Facing.SOUTH);
 		});
 		// runner with gilt edges from the lobby arch to the rear arcade, broken by the medallion under the dome
 		for (int z = Z_HALL0; z <= Z_HALL1; z++) {
@@ -485,7 +513,22 @@ public final class GrandCasino {
 			b.set(x, ROW2, Z_LOGGIA + 1, b.palette().get(Role.CORNICE).stairs(Facing.NORTH, true));
 		}
 		SignFont.Plan plan = SignFont.SMALL.line("CASINO");
-		Ornament.neon(b, plan, Facing.SOUTH, CX, ROW2 + 1, Z_LOGGIA, 1, false);
+		Facades.SignBox sign = Ornament.neon(b, plan, Facing.SOUTH, CX, ROW2 + 1, Z_LOGGIA, 1, false);
+		BlockSpec back = b.palette().block(Role.SIGN_BACK), light = b.palette().block(Role.LIGHT);
+		for (int x = sign.alongFrom(); x <= sign.alongTo(); x++) {
+			for (int y : new int[] {sign.y0(), sign.y1()}) {
+				if (back.equals(b.at(x, y, Z_LOGGIA))) {
+					b.set(x, y, Z_LOGGIA, light); // marquee chase: bulb, light, bulb, light …
+				}
+			}
+		}
+		for (int y = sign.y0(); y <= sign.y1(); y++) {
+			for (int x : new int[] {sign.alongFrom(), sign.alongTo()}) {
+				if (back.equals(b.at(x, y, Z_LOGGIA))) {
+					b.set(x, y, Z_LOGGIA, light);
+				}
+			}
+		}
 		// a proud gilt frame round the board: a hood of upside-down stairs on top, gilt jambs at both ends
 		for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
 			b.set(x, ROW2 + 8, Z_LOGGIA + 1, b.palette().get(Role.GILT).stairs(Facing.NORTH, true));
@@ -512,7 +555,8 @@ public final class GrandCasino {
 				for (int x = x0; x <= x1; x++) {
 					boolean edge = x == x0 || x == x1;
 					boolean flute = Math.floorMod(x - CX, 3) == 0;
-					BlockSpec face = edge ? gilt.block() : flute ? b.palette().block(Role.NEON_A) : b.palette().block(Role.SIGN_BACK);
+					BlockSpec face = edge ? (y % 2 == 0 ? b.palette().block(Role.BULB) : b.palette().block(Role.LIGHT))
+						: flute ? b.palette().block(Role.NEON_A) : b.palette().block(Role.SIGN_BACK);
 					b.set(x, y, Z_LOGGIA, face);
 					b.set(x, y, Z_LOGGIA - 1, face); // double-faced: the crown glows toward the back too
 				}
@@ -633,8 +677,16 @@ public final class GrandCasino {
 	static void roofs(Blueprint b) {
 		int deck = CEIL_Y + 1;
 		Material roof = b.palette().get(Role.DOME);
-		// roof deck over the hall block (the light well round the drum)
+		// roof deck over the hall block (the light well round the drum), glazed as a skylight grid: glass panels in copper
+		// muntins over the coffered ceiling, so the well glows at night from the coffer lights below
 		b.fill(X_WALL + 1, deck, Z_BACK + 1, SX - 2 - X_WALL, deck, Z_HALL1, Role.ROOF);
+		for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
+			for (int z = Z_HALL0; z <= Z_HALL1; z++) {
+				if (Math.floorMod(x - CX, 3) != 0 && Math.floorMod(z - Z_HALL0, 3) != 0) {
+					b.set(x, deck, z, Role.GLASS);
+				}
+			}
+		}
 		// entablature on the side and back walls (band y14, frieze y15, cornice y16)
 		b.mirrorX(AX2, m -> {
 			Ornament.entablature(m, X_WALL, Z_BACK, X_WALL, Z_HALL1, CEIL_Y, Facing.WEST);
@@ -749,7 +801,7 @@ public final class GrandCasino {
 			for (int z = Z_BACK; z <= Z_PAVILION; z += 5) {
 				int zz = Math.min(z, Z_PAVILION);
 				Ornament.pilaster(m, 0, zz, ROW, CEIL_Y - 1);
-				for (int y = ROW + 2; y <= ROW + 8; y++) {
+				for (int y = ROW + 2; y <= ROW + 5; y++) {
 					if (zz - 1 >= 0) {
 						m.set(0, y, zz - 1, ROD_UP);
 					}
@@ -759,19 +811,12 @@ public final class GrandCasino {
 				}
 			}
 			for (int z = Z_BACK + 2; z <= Z_HALL1 - 2; z += 5) {
-				archWindow(m, false, z, z + 2, X_WALL, ROW2 + 1, ROW2 + 3, 1.5);
-				for (int a = z; a <= z + 2; a++) {
-					m.set(X_WALL, ROW + 1, a, pane());
-					m.set(X_WALL, ROW + 2, a, pane());
-				}
-				// sconce between the windows
-				m.set(0, MEZZ_Y, z + 1, lantern(m, false));
-				m.set(0, MEZZ_Y - 1, z + 1, m.palette().get(Role.CORNICE).slab("top"));
+				sideBay(m, false, z, X_WALL, 0);
 			}
 			// back wall (z1): pilasters at z0, windows between, the gallery lit behind
 			for (int x = X_WALL; x <= CX; x += 5) {
 				Ornament.pilaster(m, x, 0, ROW, CEIL_Y - 1);
-				for (int y = ROW + 2; y <= ROW + 8; y++) {
+				for (int y = ROW + 2; y <= ROW + 5; y++) {
 					if (x - 1 >= 0) {
 						m.set(x - 1, y, 0, ROD_UP);
 					}
@@ -779,13 +824,20 @@ public final class GrandCasino {
 				}
 			}
 			for (int x = X_WALL + 2; x <= CX - 3; x += 5) {
-				archWindow(m, true, x, x + 2, Z_BACK, ROW2 + 1, ROW2 + 3, 1.5);
-				m.set(x + 1, MEZZ_Y, 0, lantern(m, false));
-				m.set(x + 1, MEZZ_Y - 1, 0, m.palette().get(Role.CORNICE).slab("top"));
+				sideBay(m, true, x, Z_BACK, 0);
 			}
-			// front corners of the pavilions: pilasters with neon lines facing the forecourt
+			// front corners of the pavilions: pilasters with neon lines up the tower and uplights at their feet
 			for (int x : new int[] {X_WALL, X_COLONNADE}) {
 				Ornament.pilaster(m, x, Z_PAVILION + 1, ROW, CEIL_Y + 3);
+				for (int y = ROW + 2; y <= CEIL_Y + 3; y++) {
+					m.set(x == X_WALL ? 0 : X_COLONNADE + 1, y, Z_PAVILION + 1, ROD_UP);
+				}
+			}
+			for (int x : new int[] {3, 5}) {
+				m.set(x, FLOOR_Y, Z_PAVILION + 1, m.palette().block(Role.UPLIGHT)); // floodlights washing the tower front
+			}
+			for (int x : new int[] {9, 11, 13, 15}) {
+				m.set(x, FLOOR_Y, Z_PAVILION, m.palette().block(Role.UPLIGHT)); // the loggia arcade lit from below
 			}
 		});
 		// a service door in the back wall (closed, decorative)
@@ -825,6 +877,9 @@ public final class GrandCasino {
 		Kits.cashierCage(Game.CASHIER).apply(b, 9, ROW, 25, Facing.EAST);
 		Kits.machineAlcove(Game.WHEEL).apply(b, 31, ROW, 25, Facing.WEST);
 		Kits.machineAlcove(Game.PLINKO).apply(b, 2, ROW, 25, Facing.EAST);
+		// hall front wall (z21): a gold bank in each pit, clear of the arcade openings
+		Kits.slotBank(Game.SLOTS_GOLD, 3).apply(b, 11, ROW, Z_HALL1, Facing.NORTH);
+		Kits.slotBank(Game.SLOTS_GOLD, 3).apply(b, SX - 1 - 9, ROW, Z_HALL1, Facing.NORTH);
 		// east pavilion: the gold slot bank against the outer wall
 		Kits.slotBank(Game.SLOTS_GOLD, 4).apply(b, SX - 3, ROW, 26, Facing.WEST);
 	}

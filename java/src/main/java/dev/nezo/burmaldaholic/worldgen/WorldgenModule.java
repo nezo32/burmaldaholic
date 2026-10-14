@@ -104,7 +104,7 @@ public final class WorldgenModule implements CasinoModule {
 	static String styleFor(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos at) {
 		String biome = level.getBiome(at).unwrapKey().map(k -> k.identifier().toString()).orElse("minecraft:plains");
 		return switch (VillageStyle.forBiome(biome)) {
-			case PLAINS -> "tudor";
+			case PLAINS -> "riviera";
 			case DESERT -> "oasis";
 			case SAVANNA -> "safari";
 			case TAIGA -> "alpine";
