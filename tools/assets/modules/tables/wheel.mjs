@@ -20,6 +20,27 @@ export const HEAD_MINI = { size: 56, lip: [26.5, 28], num: [22.5, 26.5], ring2: 
 export const BOWL_BIG = { size: 208, head: HEAD_BIG, edge: [101, 104], rim: [93, 101], inlay: [91.8, 93], track: [79, 91.8], gap: [76, 79], deflector: 84, deflectorR: 3.4 };
 export const BOWL_WORLD = { size: 64, head: null, edge: [31, 32], rim: [28, 31], inlay: [27.4, 28], track: [22.5, 27.4], gap: [21, 22.5], deflector: 25, deflectorR: 1.3 };
 export const BOWL_MINI = { size: 72, head: HEAD_MINI, edge: [34.5, 36], rim: [32, 34.5], inlay: [31.4, 32], track: [29, 31.4], gap: [28, 29], deflector: 30.2, deflectorR: 1.1 };
+/**
+ * Medium wheels of the v2 screen's wheel column (docs/architecture/ui-v2.md §9, lane C): the big wheel's geometry
+ * scaled to a 104 px (T2) and a 144 px (T3) bowl, heads 76 / 105 px, no baked digits (the pockets are too narrow for
+ * them; the result is named by the badge and the gold cell). Rendered natively at the size, never scaled at runtime.
+ */
+function scaleHead(h, size) {
+  const k = size / h.size;
+  const r = ([a, b]) => [a * k, b * k];
+  return { size, lip: r(h.lip), num: r(h.num), ring2: r(h.ring2), pocket: r(h.pocket), ring3: r(h.ring3), turret: h.turret * k, arm: h.arm * k,
+    armW: Math.max(0.8, h.armW * k), knob: Math.max(1.1, h.knob * k), digits: 0, sep: Math.max(0.35, h.sep * k), fret: Math.max(0.35, h.fret * k) };
+}
+function scaleBowl(b, size, head) {
+  const k = size / b.size;
+  const r = ([a, c2]) => [a * k, c2 * k];
+  return { size, head, edge: r(b.edge), rim: r(b.rim), inlay: r(b.inlay), track: r(b.track), gap: r(b.gap), deflector: b.deflector * k,
+    deflectorR: Math.max(1.2, b.deflectorR * k) };
+}
+export const HEAD_M2 = scaleHead(HEAD_BIG, 76);
+export const BOWL_M2 = scaleBowl(BOWL_BIG, 104, HEAD_M2);
+export const HEAD_M3 = scaleHead(HEAD_BIG, 105);
+export const BOWL_M3 = scaleBowl(BOWL_BIG, 144, HEAD_M3);
 /** Wheel radius Rw used by the ball path fractions (tables animation §1.3): the outer wall of the ball track. */
 export const WHEEL_RADIUS_BIG = 92;
 

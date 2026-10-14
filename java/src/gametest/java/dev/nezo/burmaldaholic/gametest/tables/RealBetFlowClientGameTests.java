@@ -18,6 +18,12 @@ import dev.nezo.burmaldaholic.games.craps.client.CrapsScreen;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity;
 import dev.nezo.burmaldaholic.games.roulette.client.RouletteScreen;
+import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
+import dev.nezo.burmaldaholic.games.roulette.logic.Spot;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteLayout;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -177,43 +183,53 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		BlockPos pos = placeAndOpen(context, world, RouletteModule.TABLE, RouletteScreen.class, name);
 		if (pos == null) return;
 		long before = balance(world);
-		// select the 5 chip, then put it on RED (found from the screen's own hit test) with a real click
-		if (!clickWidget(context, name, w -> w.getClass().getSimpleName().equals("ChipButton") && w.getMessage().getString().equals(Texts.chips(5).getString()))) {
-			failures.add(name + ": no 5 chip button");
+		// v2 screen (lane C): arm the smallest chip, put it on RED, both by real clicks on the screen's HitMap targets
+		long chip = context.computeOnClient(mc -> mc.gui.screen() instanceof RouletteScreen sc && sc.chrome().bet.chips().length > 0
+			? sc.chrome().bet.chips()[0] : -1L);
+		if (chip <= 0 || !clickTarget(context, name, "chip.0")) {
+			failures.add(name + ": no chip in the tray");
 			return;
 		}
-		double[] red = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
-			return spot.isPresent() && spot.get().toString().contains("RED");
-		}));
-		if (red == null) {
-			failures.add(name + ": no RED spot on screen");
-			return;
-		}
+		Spot red = Spot.of(BetType.RED, Spot.outsideNumbers(BetType.RED, 0));
 		shot(context, tag, "roulette");
-		click(context, red[0], red[1]);
-		if (!serverWait(context, world, pos, name + ": RED bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5)) return;
-		if (!clickWidget(context, name, w -> w.getMessage().getString().equals(Component.translatable("gui.burmaldaholic.common.spin").getString()))) {
-			failures.add(name + ": no Spin button");
-			return;
-		}
+		if (!clickTarget(context, name, RouletteLayout.spotId(red))) return;
+		if (!serverWait(context, world, pos, name + ": RED bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == chip)) return;
+		if (!clickTarget(context, name, "primary")) return; // Spin
 		if (!serverWait(context, world, pos, name + ": spin settled", (t, p) -> t.stakeOf(p.getUUID()) == 0)) return;
 		long after = balance(world);
 		log.add(name + ": balance " + before + " -> " + after);
-		if (after != before - 5 && after != before + 5 && after != before - 2 /* la partage */ && after != before - 3) {
-			failures.add(name + ": balance moved by " + (after - before) + " on a 5 even-money bet");
+		if (after != before - chip && after != before + chip && after != before - chip + chip / 2 /* la partage */) {
+			failures.add(name + ": balance moved by " + (after - before) + " on a " + chip + " even-money bet");
 		}
 		if (!serverWait(context, world, pos, name + ": next spin opens", (t, p) -> "betting".equals(phase(t, p)))) return;
 		context.waitTicks(5);
-		double[] again = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
-			return spot.isPresent() && spot.get().toString().contains("BLACK");
-		}));
-		if (again != null) {
-			click(context, again[0], again[1]);
-			serverWait(context, world, pos, name + ": second bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5);
+		Spot black = Spot.of(BetType.BLACK, Spot.outsideNumbers(BetType.BLACK, 0));
+		if (clickTarget(context, name, RouletteLayout.spotId(black))) {
+			serverWait(context, world, pos, name + ": second bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == chip);
 		}
 		closeAndLeave(context, world, pos);
+	}
+
+	/** Clicks the centre of a v2 screen's HitMap target (window px through the screen's viewport), like a player. */
+	private boolean clickTarget(ClientGameTestContext context, String name, String id) {
+		double[] at = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof V2Chrome.Holder h)) return null;
+			Optional<Box> b = h.chrome().hits().box(id);
+			if (b.isEmpty()) return null;
+			Viewport vp = h.chrome().viewport();
+			return new double[] {vp.toWindow(b.get().x() + b.get().w() / 2.0), vp.toWindow(b.get().y() + b.get().h() / 2.0)};
+		});
+		if (at == null) {
+			failures.add(name + ": no target " + id);
+			return false;
+		}
+		click(context, at[0], at[1]);
+		String pressed = context.computeOnClient(mc -> mc.gui.screen() instanceof V2Chrome.Holder h ? h.chrome().lastPressed() : "");
+		if (!id.equals(pressed)) {
+			failures.add(name + ": clicked " + id + " but the screen pressed " + pressed);
+			return false;
+		}
+		return true;
 	}
 
 	// ---- craps --------------------------------------------------------------------------------------------------------

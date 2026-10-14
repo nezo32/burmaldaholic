@@ -177,6 +177,7 @@ export default function generate() {
     gui(`roulette/layout_compact_${t}`, Ro.layout(t, Ro.LAYOUT_COMPACT));
     gui(`roulette/racetrack_${t}`, Ro.racetrack(t));
     out.push(png(`${T}/entity/roulette/wheel_${t}.png`, W.worldTexture(t)));
+    out.push(png(`${T}/entity/roulette/layout_w_${t}.png`, Ro.layout(t, Ro.LAYOUT_WORLD))); // in-world board print (lane C)
   }
   sprite('roulette/ball', vstrip([0, 1, 2].map(W.ball)));
   sprite('roulette/pocket_glow', vstrip([0, 1, 2, 3].map(W.pocketGlow)), { frametime: 3 });
@@ -185,6 +186,15 @@ export default function generate() {
   for (const col of ['red', 'black', 'green']) {
     sprite(`roulette/pill_${col}`, Ro.pill(col));
     sprite(`roulette/pill_${col}_new`, Ro.pill(col, true));
+  }
+  // v2 wheel column (lane C): medium bowls per theme + 74 head frames per size, "Last numbers" pills
+  for (const [tag, bowlG, headG] of [['104', W.BOWL_M2, W.HEAD_M2], ['144', W.BOWL_M3, W.HEAD_M3]]) {
+    gui(`roulette/wheel_head_m${tag}`, sheet(Array.from({ length: HEAD_FRAMES }, (_, i) => W.head(headG, i * pitch)), HEAD_COLS));
+    for (const t of THEME_ORDER) gui(`roulette/wheel_bowl_m${tag}_${t}`, W.bowl(bowlG, t));
+  }
+  for (const col of ['red', 'black', 'green']) {
+    sprite(`roulette/history_pill_${col}`, Ro.historyPill(col));
+    sprite(`roulette/history_pill_${col}_new`, Ro.historyPill(col, true));
   }
   sprite('roulette/cell_hover', Ro.cellHover(), nine(12, 12, 3));
   sprite('roulette/cell_neighbour', Ro.cellNeighbour(), nine(12, 12, 3));

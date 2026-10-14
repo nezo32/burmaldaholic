@@ -1441,6 +1441,41 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.button.double` | Double all bets | Удвоить ставки |
 | `gui.burmaldaholic.roulette.fx.straight_up_win` | Straight up! +%1$s | Прямое попадание! +%1$s |
 
+### Table UI v2 (lane C, `docs/architecture/ui-v2.md` §7.6; `REDESIGN.md` §7.5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.roulette.v2.bet` | Bet | Ставка |
+| `gui.burmaldaholic.roulette.v2.last_numbers` | Last numbers | Последние числа |
+| `gui.burmaldaholic.roulette.v2.primary.spinning` | Spinning | Крутится |
+| `gui.burmaldaholic.roulette.v2.reason.waiting_ready` | Ready: %1$s of %2$s — waiting for the others | Готовы %1$s из %2$s — ждём остальных |
+| `gui.burmaldaholic.roulette.v2.reason.ready_locked` | You are ready — wait for the spin | Вы готовы — ждём спина |
+| `gui.burmaldaholic.roulette.v2.reason.no_last_bets` | No bets from the last spin | Нет ставок с прошлого спина |
+| `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Добавьте фишки или крутите |
+| `gui.burmaldaholic.roulette.v2.status.spin_in` | Spin in %1$s s | Спин через %1$s с |
+| `gui.burmaldaholic.roulette.v2.status.ball_spinning` | The ball is spinning… | Шарик катится… |
+| `gui.burmaldaholic.roulette.v2.hover` | %1$s · %2$s · pays %3$s : 1 | %1$s · %2$s · выплата %3$s : 1 |
+| `gui.burmaldaholic.roulette.v2.hover_empty` | %1$s · pays %2$s : 1 | %1$s · выплата %2$s : 1 |
+| `gui.burmaldaholic.roulette.v2.call_hover` | %1$s · %2$s per chip · %3$s in all | %1$s · %2$s за фишку · всего %3$s |
+| `gui.burmaldaholic.roulette.v2.your_bets` | Your bets | Ваши ставки |
+| `gui.burmaldaholic.roulette.v2.result` | %1$s %2$s | %1$s, %2$s |
+| `gui.burmaldaholic.roulette.v2.won` | You win %1$s | Выигрыш %1$s |
+| `gui.burmaldaholic.roulette.v2.lost` | Lost %1$s | Проигрыш %1$s |
+| `gui.burmaldaholic.roulette.v2.returned` | Returned %1$s | Возврат %1$s |
+| `gui.burmaldaholic.roulette.v2.racetrack_hint` | Click a number for neighbours, a section for a call bet | Число — ставка на соседей, сектор — ставка по анонсу |
+| `gui.burmaldaholic.roulette.v2.board.title` | ROULETTE | РУЛЕТКА |
+| `gui.burmaldaholic.roulette.v2.board.title_high_roller` | HIGH ROLLER ROULETTE | РУЛЕТКА ХАЙРОЛЛЕРОВ |
+| `gui.burmaldaholic.roulette.v2.board.place_bets` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.roulette.v2.board.result` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.roulette.v2.board.top_win` | %1$s +%2$s | %1$s +%2$s |
+| `gui.burmaldaholic.roulette.v2.board.on_table` | %1$s on the table | %1$s на столе |
+| `gui.burmaldaholic.roulette.v2.board.net_win` | %1$s · +%2$s | %1$s · +%2$s |
+| `gui.burmaldaholic.roulette.v2.board.net_lost` | %1$s · lost | %1$s · проигрыш |
+| `gui.burmaldaholic.roulette.v2.board.net_even` | %1$s · even | %1$s · при своих |
+| `gui.burmaldaholic.roulette.v2.board.color.red` | RED | КРАСНОЕ |
+| `gui.burmaldaholic.roulette.v2.board.color.black` | BLACK | ЧЁРНОЕ |
+| `gui.burmaldaholic.roulette.v2.board.color.green` | ZERO | ЗЕРО |
+
 ---
 
 ## craps
