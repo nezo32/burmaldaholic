@@ -237,6 +237,19 @@ Art: nine-slices from `core/v2/*` sprites (§9); every component has a flat-colo
 5. Every reason is a translation key from the core v2 set (§10) or the game's own; a test asserts every reason key
    exists in EN and RU.
 6. Keyboard parity: every pointer action has a key; the key hint plate shows it.
+7. Phase 2 (K2b). **Acks**: the server keeps `{epoch, count}` per player (`ack_epoch`, `ack` in `baseState`; the epoch
+   is a random non-zero id of the entry, so a reloaded / replaced table or a pruned and re-created entry is a NEW
+   counter). The client waits for `ack ≥ expected`, `expected = max(expected, lastAck) + 1` per send (two clicks wait for
+   two acks); a changed epoch — or, without an epoch, a counter that went back — re-bases and drops the pending action.
+   Entries of players who neither sit nor watch are pruned (leave, and a 30 s sweep). **One state per action**: while
+   `handleAction` runs, states for the sender are deferred to one at its end (other viewers are synced at once; an
+   error message goes out before that state). **Held keys**: a key held down presses its chip / primary / action /
+   stepper once; the auto-repeat is swallowed until `keyReleased`. **Key plates**: named keys use vanilla's
+   `key.keyboard.<name>`; letters and digits show the key cap (`H`, `1`); vanilla has no `key.keyboard.h`. The primary's
+   plate is dark ink with gold text; the disabled primary is slate (one disabled style everywhere).
+   **Status width**: the Dock gives the status `min(40 % of the Dock, max(w(line1), w(line2)))` when it can (actions go
+   compact first); otherwise line 2 moves to an 11-px strip above the Dock (`Dock.hintStrip`, a banner obstacle).
+   **Vanilla toasts** neither render nor update while a v2 screen is open (`ToastManagerV2Mixin`).
 
 ### 5.3 Exhaustive tests
 Per game: `<G>FlowTest` (unit) enumerates the view's phases × seated × balance (0, < min, ≥ min, ≥ max) × bet (0, > 0)
@@ -579,10 +592,13 @@ largest one ≤ min, filtered by max and balance), `BetGates` (shared gates: `ch
 ids in `KeyMap.Ids`: `primary`, `secondary`, `chip.N`, `tool.<undo|clear|rebet|double>`, `action.<a>`, `felt.<id>`,
 `seat.<i>`, `top.<rules|settings|leave>`, `readout`), `Stamps` (`Outcome` → word key + colour kind; `levels(wordW, hero)`
 for `SeatColumn.table`, `scaleOf(level, hero)` back), `FreeSlot`, `TagPlacer` (Box version of `LabelPlacer`; STRICT =
-no tag when nothing is free), `AckWatchdog` (40-tick echo watchdog).
+no tag when nothing is free), `AckWatchdog` (40-tick echo watchdog; `state(epoch, ack)`, §5.2-7),
+`BetGates.armDefault(chips, min, balance, lastUsed)` (the chip of an unarmed felt click; never below the minimum when one
+fits).
 
-**Server** — `CasinoTableBlockEntity`: every handled action bumps a per-player counter written as `ack` in `baseState`,
-and the acting player always gets a state back; `resync` is a core action (answer = that state).
+**Server** — `CasinoTableBlockEntity`: every handled action bumps a per-player counter written as `ack` (with
+`ack_epoch`) in `baseState`, and the acting player gets exactly ONE state back at the end of the action (§5.2-7);
+`resync` is a core action (answer = that state).
 
 **Client (`client/ui/v2`)** — subclass `V2TableScreen<V>` (menu tables) or `V2SceneScreen<V>` (scene screens; implement
 `sendRaw`, call `state(view, ack)`):
