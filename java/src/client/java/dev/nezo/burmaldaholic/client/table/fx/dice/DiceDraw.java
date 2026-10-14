@@ -18,7 +18,7 @@ import net.minecraft.resources.Identifier;
  * Everything moving is placed at float GUI positions snapped to physical pixels ({@code 1/k}) and blitted 1:1.
  *
  * <p>Coordinates: a {@link StageMap} maps tray units to GUI px. {@link #stage} builds the map that matches the atlas
- * art (1 u = the die half-edge in px; y foreshortened by the 22° camera pitch; height lifts by {@code sin 22°}). A
+ * art (1 u = the die half-edge in px; y foreshortened by the 22° camera pitch; height lifts by 0.9 half-edge per u, DI κ_lift). A
  * mirrored map (a left-lane roll shown in the right lane) mirrors the orientation too and keeps the top number.
  *
  * <p>Draw order per frame (CS §4.2 / DI §4.3): all shadows ({@link #shadow}), then dice sorted by y ({@link #die});
@@ -32,6 +32,10 @@ public final class DiceDraw {
 	/** After-image alpha. */
 	public static final double AFTER_ALPHA = 0.35;
 	private static final double PITCH = Math.toRadians(DieAtlasTable.PITCH_DEG);
+	/** Screen lift per unit of centre height, in half-edges (DI §4.2 κ_lift 0.9: the flight height reads). */
+	public static final double LIFT = 0.9;
+	/** Rest shadow offset from the floor point, in half-edges: down-right, so it peeks out under the die (light top-left). */
+	public static final double SHADOW_DX = 0.3, SHADOW_DY = 0.45;
 	private static final HeightShadow.Out SHADOW = new HeightShadow.Out();
 	private static final Identifier[][] SHADOWS = new Identifier[DieAtlasTable.CELLS.length][3];
 	private static final Identifier[] GLINTS = new Identifier[DieAtlasTable.CELLS.length];
@@ -59,15 +63,15 @@ public final class DiceDraw {
 
 	/**
 	 * The stage map that matches the atlas art for a tray drawn with its origin at GUI (ox, oy): x 1 u = half-edge px,
-	 * y foreshortened by {@code cos 22°}, height {@code sin 22°} per u.
+	 * y foreshortened by {@code cos 22°}, height {@link #LIFT} half-edges per u.
 	 */
 	public static StageMap stage(double ox, double oy, int cell) {
 		double h = halfEdge(cell);
-		return StageMap.of(ox, oy, h, h * Math.cos(PITCH), h * Math.sin(PITCH));
+		return StageMap.of(ox, oy, h, h * Math.cos(PITCH), h * LIFT);
 	}
 
 	private static double lift(StageMap map, int cell, double zc) {
-		return map.zScale() > 0 ? map.lift(zc) : zc * halfEdge(cell) * Math.sin(PITCH);
+		return map.zScale() > 0 ? map.lift(zc) : zc * halfEdge(cell) * LIFT;
 	}
 
 	private static double[] viewQ(DieSample s, StageMap map, double[] buf) {
@@ -83,14 +87,26 @@ public final class DiceDraw {
 	public static void shadow(GuiGraphicsExtractor g, DieSample s, StageMap map, int cell, int k, double alphaMul) {
 		if (s.phase == DieSample.HELD) return;
 		HeightShadow.apply(HeightShadow.CRAPS, s.zLow, 1, SHADOW);
-		double fx = map.x(s.x) + SHADOW.shadowDx * Math.abs(map.sx()) * (map.isMirrored() ? -1 : 1);
-		double fy = map.y(s.y) + SHADOW.shadowDy * map.sy() + halfEdge(cell) * 0.15;
+		double fx = shadowX(s, map, cell);
+		double fy = shadowY(s, map, cell);
 		double kk = SHADOW.shadowSize == 0 ? 1 : SHADOW.shadowSize == 1 ? 0.8 : 0.6;
 		int w = Math.max(4, (int) Math.round(cell * kk));
 		int h = Math.max(2, (int) Math.round(cell * 0.42 * kk));
 		int a = (int) Math.round(255 * Math.max(0, Math.min(1, SHADOW.shadowAlpha * alphaMul)));
 		if (a <= 0) return;
 		SnapDraw.blitF(g, shadowSprite(cell, SHADOW.shadowSize), fx - w / 2.0, fy - h / 2.0, w, h, k, (a << 24) | 0xFFFFFF);
+	}
+
+	/** GUI x of the shadow centre (floor point + light offset + height slope). */
+	public static double shadowX(DieSample s, StageMap map, int cell) {
+		double z = Math.max(0, s.zLow);
+		return map.x(s.x) + (0.25 * z * Math.abs(map.sx()) + SHADOW_DX * halfEdge(cell)) * (map.isMirrored() ? -1 : 1);
+	}
+
+	/** GUI y of the shadow centre. */
+	public static double shadowY(DieSample s, StageMap map, int cell) {
+		double z = Math.max(0, s.zLow);
+		return map.y(s.y) + 0.15 * z * map.sy() + SHADOW_DY * halfEdge(cell);
 	}
 
 	/** The die itself: the atlas frame of its (model) orientation centred on its lifted centre. */

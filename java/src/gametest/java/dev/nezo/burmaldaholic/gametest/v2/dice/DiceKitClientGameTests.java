@@ -104,7 +104,7 @@ public class DiceKitClientGameTests implements FabricClientGameTest {
 				double ox = cx - f / 2.0;
 				double oy = cy - f / 2.0;
 				// 1. width: the row through the top face centre spans exactly cell·k physical px
-				int row = (int) Math.round((oy + (top[1] + top[5]) / 2) * k);
+				int row = (int) Math.round((oy + (Math.min(Math.min(top[1], top[3]), Math.min(top[5], top[7])) + Math.max(Math.max(top[1], top[3]), Math.max(top[5], top[7]))) / 2) * k);
 				int x0 = (int) Math.floor(ox * k);
 				int x1 = (int) Math.ceil((ox + f) * k);
 				int first = -1;
@@ -119,10 +119,14 @@ public class DiceKitClientGameTests implements FabricClientGameTest {
 				if (width != cell * k) errors.add(at + " cell " + cell + " die " + d + ": width " + width + " != " + cell * k);
 				// 2. pips: dark clusters inside the top face (inset 2 art px) == the face
 				int want = DiceKitScreen.FACES[i][d];
-				int qx0 = (int) Math.ceil((ox + Math.min(top[0], top[6]) + 1.5) * k);
-				int qx1 = (int) Math.floor((ox + Math.max(top[2], top[4]) - 1.5) * k);
-				int qy0 = (int) Math.ceil((oy + Math.min(top[1], top[3]) + 1.5) * k);
-				int qy1 = (int) Math.floor((oy + Math.max(top[5], top[7]) - 1.5) * k);
+				double minU = Math.min(Math.min(top[0], top[2]), Math.min(top[4], top[6]));
+				double maxU = Math.max(Math.max(top[0], top[2]), Math.max(top[4], top[6]));
+				double minV = Math.min(Math.min(top[1], top[3]), Math.min(top[5], top[7]));
+				double maxV = Math.max(Math.max(top[1], top[3]), Math.max(top[5], top[7]));
+				int qx0 = (int) Math.ceil((ox + minU + 1.5) * k);
+				int qx1 = (int) Math.floor((ox + maxU - 1.5) * k);
+				int qy0 = (int) Math.ceil((oy + minV + 1.5) * k);
+				int qy1 = (int) Math.floor((oy + maxV - 1.5) * k);
 				int clusters = clusters(img, qx0, qy0, qx1, qy1, want == 1);
 				if (clusters != want) errors.add(at + " cell " + cell + " die " + d + ": " + clusters + " pips, want " + want);
 			}

@@ -85,9 +85,8 @@ public class DiceKitScreen extends Screen {
 			StageMap air = DiceDraw.stage(cxAir - h * s.x, cyAir - DiceDraw.stage(0, 0, cell).sy() * s.y, cell);
 			DiceDraw.shadow(g, s, air, cell, k, 1);
 			DiceDraw.die(g, s, air, cell, k, 0xFFFFFFFF, scratch);
-			// shadow centre exactly as DiceDraw places it (CRAPS height style: +0.25z, +0.15z, plus 0.15 h down)
-			probes[i][4] = cxAir + 0.25 * s.zLow * air.sx();
-			probes[i][5] = cyAir + 0.15 * s.zLow * air.sy() + h * 0.15;
+			probes[i][4] = DiceDraw.shadowX(s, air, cell);
+			probes[i][5] = DiceDraw.shadowY(s, air, cell);
 		}
 	}
 }
