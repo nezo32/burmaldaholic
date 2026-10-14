@@ -31,12 +31,15 @@ public final class PlateFrame {
 		/** The resolve's answer for this table's plates of the previous frame (ids → shown). */
 		final PlateLayout.TablePlates answer = new PlateLayout.TablePlates();
 		long frame = Long.MIN_VALUE;
+		/** The frame this table's renderer last started submitting in ({@link #beginTable}). */
+		long touched = Long.MIN_VALUE;
 	}
 
 	private static final Map<Long, Entry> TABLES = new HashMap<>();
 	private static final List<PlateLayout.TablePlates> SCRATCH = new ArrayList<>();
-	private static long frame = Long.MIN_VALUE, previous = Long.MIN_VALUE;
-	private static long dtNs;
+	/** Frame counter (rolled by {@link #beginTable}) and the one before it. */
+	private static long frame = 0, previous = -1;
+	private static long dtNs, frameStartNs = Long.MIN_VALUE;
 	/** Shown plate rectangles (alpha ≥ ½) of the last complete frame, all tables: x0, y0, x1, y1 (tests). */
 	private static float[] lastRects = new float[64];
 	private static int lastRectCount;
@@ -46,15 +49,26 @@ public final class PlateFrame {
 
 	private PlateFrame() {}
 
-	/** Rolls to frame {@code now} (any per-frame timestamp, ns) when it changed: resolves the frame just finished. */
-	static void begin(long now) {
-		if (now == frame) return;
-		dtNs = frame == Long.MIN_VALUE ? 0 : Math.max(0, Math.min(100_000_000L, now - frame));
+	/**
+	 * Called once per table at the start of its submit: a table submitting a second time means a new frame began (no
+	 * per-frame timestamp is shared across 26.2 / 26.3 — {@code Minecraft.getFrameTimeNs} is a DURATION), so the frame
+	 * just finished is resolved first.
+	 */
+	static void beginTable(long key) {
+		Entry e = TABLES.computeIfAbsent(key, k -> new Entry());
+		if (e.touched == frame) roll(System.nanoTime());
+		e.touched = frame;
+	}
+
+	/** Rolls to the next frame: resolves the frame just finished. */
+	private static void roll(long nowNs) {
+		dtNs = frameStartNs == Long.MIN_VALUE ? 0 : Math.max(0, Math.min(100_000_000L, nowNs - frameStartNs));
+		frameStartNs = nowNs;
 		SCRATCH.clear();
 		for (Iterator<Entry> it = TABLES.values().iterator(); it.hasNext();) {
 			Entry e = it.next();
 			if (e.frame == frame) SCRATCH.add(e.plates);
-			else if (frame - e.frame > 2_000_000_000L) it.remove();
+			else if (frame - e.frame > 600 && frame - e.touched > 600) it.remove();
 		}
 		if (!SCRATCH.isEmpty()) PlateLayout.resolveGlobal(SCRATCH, MARGIN);
 		for (Entry e : TABLES.values()) {
@@ -72,7 +86,7 @@ public final class PlateFrame {
 		lastHidden = curHidden;
 		curHidden = 0;
 		previous = frame;
-		frame = now;
+		frame++;
 	}
 
 	/** The current frame's key, and the one before it. */
@@ -139,7 +153,9 @@ public final class PlateFrame {
 	public static void clear() {
 		TABLES.clear();
 		SCRATCH.clear();
-		frame = previous = Long.MIN_VALUE;
+		frame = 0;
+		previous = -1;
+		frameStartNs = Long.MIN_VALUE;
 		lastRectCount = curRectCount = 0;
 		lastHidden = curHidden = 0;
 	}

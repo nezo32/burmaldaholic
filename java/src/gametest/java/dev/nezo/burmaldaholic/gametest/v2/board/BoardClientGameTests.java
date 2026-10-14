@@ -168,7 +168,7 @@ public class BoardClientGameTests implements FabricClientGameTest {
 		shot(context, world, pos, "p2_w2_bj_12m_0", 12, 0, 0, false);
 		// carpet in the players' cells: the table still draws its full felt (no fallback)
 		world.getServer().runOnServer(server -> {
-			for (int dx = -1; dx <= 1; dx++) server.overworld().setBlockAndUpdate(pos.offset(dx, 0, -1), Blocks.RED_CARPET.defaultBlockState());
+			for (int dx = -1; dx <= 1; dx++) server.overworld().setBlockAndUpdate(pos.offset(dx, 0, -1), Blocks.MOSS_CARPET.defaultBlockState());
 		});
 		context.waitTicks(10);
 		shot(context, world, pos, "p2_w2_bj_carpet_5m", 5, 20, 0, true);

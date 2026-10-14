@@ -28,6 +28,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import dev.nezo.burmaldaholic.core.table.parts.FeltFrame;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteWorld;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
@@ -172,7 +173,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		BoardModel m = s.model;
 		if (m == null || !s.visibleBoard()) return;
 		long t0 = System.nanoTime();
-		PlateFrame.begin(Minecraft.getInstance().getFrameTimeNs());
+		PlateFrame.beginTable(s.blockPos.asLong());
 		BoardStats.Table st = BoardStats.of(s.blockPos);
 		int light = s.lightCoords;
 		pose.pushPose();
@@ -217,13 +218,19 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			s.full = true;
 			s.frame = f;
 			s.drawnFelt = wanted;
-			// roulette: the design felt (wheel + layout) spans the whole table inside the rail, not just the layout
-			double w = f.hasWheel() ? game.width() - 2 * FeltFrame.RAIL : f.w();
-			double cx = f.hasWheel() ? 0.5 : f.cx();
-			s.contentScale = BoardGeometry.fullScale(wanted, w, f.d());
-			s.originX = (float) cx;
 			s.originY = (float) (f.top() + FeltFrame.CONTENT_LIFT);
-			s.originZ = (float) f.cz();
+			if (f.hasWheel()) {
+				// roulette: the design wheel lands on the furniture's bowl (FeltFrame wheel centre, Ø1.0) and the layout
+				// to its right, on the betting felt: scale from the wheel radius (rotor just inside the bowl's rim)
+				float k = (float) (f.wheelDiameter() / 2 * 0.96 / RouletteWorld.WHEEL_R);
+				s.contentScale = k;
+				s.originX = (float) f.wheelCx() - k * RouletteWorld.WHEEL_X;
+				s.originZ = (float) f.wheelCz() - k * RouletteWorld.WHEEL_Z;
+			} else {
+				s.contentScale = BoardGeometry.fullScale(wanted, f.w(), f.d());
+				s.originX = (float) f.cx();
+				s.originZ = (float) f.cz();
+			}
 			String path = BuiltInRegistries.BLOCK.getKey(bs.getBlock()).getPath();
 			s.furniture = path.contains("high_roller") ? 1 : path.contains("player_banked") ? 2 : 0;
 		} else {

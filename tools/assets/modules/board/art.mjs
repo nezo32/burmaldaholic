@@ -300,10 +300,27 @@ export function feltPrint(shape, theme) {
         if (a > 0) B(img, i, j, t.line, k * a);
       }
   };
-  // inner border, 0.07 inside the rail
-  const inset = 0.07;
-  const g = { w: f.w - 2 * inset, d: f.d - 2 * inset, frontR: Math.max(0, f.frontR - inset), backR: Math.max(0, f.backR - inset) };
-  line((x, z) => printSdf(g, x, z), 0.45);
+  // inner border: a fine line 0.06 inside the rail and a second, fainter one 0.03 further in (a printed double rule)
+  for (const [inset, k] of [
+    [0.06, 0.5],
+    [0.09, 0.28],
+  ]) {
+    const g = { w: f.w - 2 * inset, d: f.d - 2 * inset, frontR: Math.max(0, f.frontR - inset), backR: Math.max(0, f.backR - inset) };
+    line((x, z) => printSdf(g, x, z), k);
+  }
+  // the casino's emblem: the four suits in a row, printed in the line colour (crescent: just in front of the dealer
+  // row; oval: the centre of the racetrack); roulette and craps print their own layouts over the felt
+  const suitsEmblem = (cz) => {
+    const size = 9;
+    const gap = 4;
+    const total = 4 * size + 3 * gap;
+    const x0 = Math.round(w / 2 - total / 2);
+    const y0 = Math.round((cz + f.d / 2) * FELT_PX - size / 2);
+    SUIT_ORDER.forEach((suit, k) => {
+      const ink = { base: t.line, light: t.line, dark: t.line };
+      over(img, pip(suit, size, ink, { flat: true }), x0 + k * (size + gap), y0, 0.42);
+    });
+  };
   if (shape === 'crescent') {
     // the players' arc round the dealer: the design arc (dealer (0.5, 0.10), radii 0.60 × 0.48, ±62°) on the full felt
     // (design → full scale 1.2222, design centre (0.5, 0.5) → (0, 0))
@@ -317,9 +334,20 @@ export function feltPrint(shape, theme) {
       if (Math.abs(a) > (62 * Math.PI) / 180) return 9;
       return (Math.hypot(x / rx, (z - cz) / rz) - 1) * Math.min(rx, rz);
     }, 0.55);
+    // a second arc just outside it (the printed band players bet behind) and the emblem behind the arc
+    line((x, z) => {
+      if (z < cz) return 9;
+      const a = Math.atan2(x / (rx + 0.06), (z - cz) / (rz + 0.06));
+      if (Math.abs(a) > (62 * Math.PI) / 180) return 9;
+      return (Math.hypot(x / (rx + 0.06), (z - cz) / (rz + 0.06)) - 1) * Math.min(rx, rz);
+    }, 0.3);
+    suitsEmblem(cz + rz * 0.45);
   } else if (shape === 'oval') {
     const r = { w: f.w - 0.7, d: f.d - 0.7, frontR: f.frontR - 0.35, backR: f.backR - 0.35 };
     line((x, z) => printSdf(r, x, z), 0.35);
+    const r2 = { w: f.w - 0.78, d: f.d - 0.78, frontR: f.frontR - 0.39, backR: f.backR - 0.39 };
+    line((x, z) => printSdf(r2, x, z), 0.2);
+    suitsEmblem(0.18);
   }
   return img;
 }

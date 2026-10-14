@@ -17,6 +17,8 @@ import org.joml.Vector3f;
 final class HoloBoard {
 	private static final Vector3f P = new Vector3f(), C = new Vector3f();
 	private static final HoloText.Spec SPEC = new HoloText.Spec();
+	/** Height of a full table's board above its felt (blocks): close enough to read as the table's own sign. */
+	static final float FULL_BOARD_UP = 0.95f;
 	/** The board's frame: gold, the table's accent. */
 	static final int FRAME = 0xFFFFD640;
 
@@ -52,8 +54,9 @@ final class HoloBoard {
 		int n = sp.count;
 		if (n > 0) {
 			if (s.full && s.frame != null) {
-				// a full table: over the dealer row (footprint z = −0.5), BOARD_UP above its felt
-				f.footToBlock((float) s.frame.cx(), (float) s.frame.top() + BoardGeometry.BOARD_UP, -0.5f, P);
+				// a full table: over the dealer row (footprint z = −0.5), FULL_BOARD_UP above its felt (it still rises over
+				// the plates below); roulette: over the wheel and layout centre
+				f.footToBlock(s.frame.hasWheel() ? 0.5f : (float) s.frame.cx(), (float) s.frame.top() + FULL_BOARD_UP, -0.5f, P);
 			} else {
 				float[] a = BoardGeometry.boardAnchor(s.felt);
 				f.toBlock(a[0], a[1], a[2], P);

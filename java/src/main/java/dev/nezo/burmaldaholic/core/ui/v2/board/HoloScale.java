@@ -90,8 +90,12 @@ public final class HoloScale {
 	public static final int CAP = 7;
 	/** Readability targets measured on screenshots (orchestrator review): cap height ≥ 18 px up to 5 blocks, ≥ 13 px at 8. */
 	public static final double CAP_NEAR_PX = 18, CAP_FAR_PX = 13, NEAR = 5;
-	/** Base text px of the v2 board / plates (up close, before the distance growth). */
-	public static final float BOARD_READ = 1 / 48f, PLATE_READ = 1 / 60f;
+	/**
+	 * Base text px of the v2 board / plates (the floor up close, before the distance growth): 1/60 and 1/75 block per
+	 * text px (design audit W P0) — at 3 blocks the cap is ≈ 26 / 21 px (enough; larger plates collided on 6-max
+	 * Hold'em), from ≈ 4 blocks on {@link #readablePx} grows them to the 18 → 13 px targets.
+	 */
+	public static final float BOARD_READ = 1 / 60f, PLATE_READ = 1 / 75f;
 
 	/** Target cap height in screen px at {@code distance} (18 up to 5 blocks, falling linearly to 13 at 8). */
 	public static double capTarget(double distance) {
