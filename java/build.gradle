@@ -79,7 +79,10 @@ static String gameTestSelector(String v) {
 }
 
 tasks.matching { it.name in ['runClientGameTest', 'runGameTest'] }.configureEach { t ->
-	['burmaldaholic.realflow.known', 'burmaldaholic.realflow.screens', 'fabric-api.gametest.filter', 'fabric-api.gametest.verify'].each { k ->
+	// CB-P: casino worldgen switches (`-Dburmaldaholic.requireCasinoV2=true` contract gates, `-Dburmaldaholic.worldgenStats=true`,
+	// `-Dburmaldaholic.worldgenSurvey=true` survey + probe benchmark) reach the GameTest JVM too.
+	['burmaldaholic.realflow.known', 'burmaldaholic.realflow.screens', 'fabric-api.gametest.filter', 'fabric-api.gametest.verify',
+			'burmaldaholic.requireCasinoV2', 'burmaldaholic.worldgenStats', 'burmaldaholic.worldgenSurvey'].each { k ->
 		def v = System.getProperty(k) ?: project.findProperty(k)?.toString()
 		if (v != null) {
 			if (k == 'fabric-api.gametest.filter' && t.name == 'runGameTest') {
