@@ -13,6 +13,7 @@ import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
 import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
 import dev.nezo.burmaldaholic.client.ui.v2.FeltPrint;
 import dev.nezo.burmaldaholic.client.ui.v2.SeatPlate;
+import dev.nezo.burmaldaholic.client.ui.v2.Stepper;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Felt;
 import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
@@ -77,8 +78,8 @@ import org.jspecify.annotations.Nullable;
  */
 public class UthScreen extends V2TableScreen<UthView> {
 	private static final int[] NO_CARDS = new int[0];
-	private static final String STEPPER = "~stepper";
-	public static final String STEP_MINUS = "stepper.minus", STEP_PLUS = "stepper.plus";
+	/** The kit stepper's HitMap ids (bank amount; R-AB M3: laid out by the Dock, they survive every relayout). */
+	public static final String STEP_MINUS = Stepper.MINUS, STEP_PLUS = Stepper.PLUS;
 
 	private final CardAnimator cards = new CardAnimator();
 	private UthBetDraft draft = UthBetDraft.empty();
@@ -108,7 +109,6 @@ public class UthScreen extends V2TableScreen<UthView> {
 		public List<Gate> actions(UthView v) {
 			List<Gate> out = new ArrayList<>();
 			if (v.deciding() || (v.bank() != null && v.bank().form() && v.betting())) out.addAll(UthFlow.actions(v));
-			UthFlow.stepper(v).ifPresent(s -> out.add(new Gate(STEPPER, "gui.burmaldaholic.poker.v2.stepper", new Object[] {s.value()}, true, null, null)));
 			return out;
 		}
 
@@ -395,9 +395,11 @@ public class UthScreen extends V2TableScreen<UthView> {
 		chrome.actions.danger("fold", "leave_bank");
 		chrome.bet.multiSpot(false);
 		chrome.secondary(secondary(view));
+		Optional<UthFlow.Stepper> st = UthFlow.stepper(view);
+		if (st.isPresent()) chrome.stepper.set(UthFlow.stepMinus(st.get()), UthFlow.stepPlus(st.get()), Texts.number(st.get().value()), null, null);
+		else chrome.stepper.clear();
 		super.refresh();
 		status(view);
-		stepperHits();
 	}
 
 	/** Player-bank controls while betting sit in the Dock's secondary slot (the BetBar keeps the row). */
@@ -405,17 +407,6 @@ public class UthScreen extends V2TableScreen<UthView> {
 		if (!v.betting() || v.bank() == null || v.bank().form()) return null;
 		List<Gate> a = UthFlow.actions(v);
 		return a.isEmpty() ? null : a.get(0);
-	}
-
-	private void stepperHits() {
-		Optional<Box> b = chrome.hits().box(KeyMap.Ids.action(STEPPER));
-		if (b.isEmpty() || view == null) return;
-		UthFlow.Stepper s = UthFlow.stepper(view).orElse(null);
-		if (s == null) return;
-		Box box = b.get();
-		int third = Math.max(10, box.w() / 3);
-		chrome.hits().add(STEP_MINUS, new Box(box.x(), box.y(), third, box.h()), s.value() > s.min());
-		chrome.hits().add(STEP_PLUS, new Box(box.right() - third, box.y(), third, box.h()), s.value() < s.max());
 	}
 
 	private void status(UthView v) {
@@ -545,34 +536,26 @@ public class UthScreen extends V2TableScreen<UthView> {
 				bankForm = false;
 				sendTracked("take_bank", args, "", 0);
 			}
-			case STEPPER -> {
-				UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
-				if (s != null) {
-					bankAmount = s.value() >= s.max() ? s.min() : s.max();
-					local();
-				}
-			}
+			case UthFlow.STEP_MINUS -> stepBank(v, -1);
+			case UthFlow.STEP_PLUS -> stepBank(v, 1);
 			default -> {
 				if (!a.isEmpty() && !a.startsWith(UthFlow.LOCAL)) sendTracked(a);
 			}
 		}
 	}
 
+	private void stepBank(UthView v, int dir) {
+		UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
+		if (s == null) return;
+		bankAmount = Math.max(s.min(), Math.min(s.max(), s.value() + dir * s.step()));
+		FxSounds.play("chip_count", 0.5f, 1f);
+		local();
+	}
+
 	@Override
 	public boolean onTarget(String id, boolean enabled, Press button) {
 		UthView v = view;
 		if (v == null) return false;
-		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
-			UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
-			if (s == null) return true;
-			int dir = button.scroll() != 0 ? button.scroll() : !button.left() ? 0 : id.equals(STEP_PLUS) ? 1 : id.equals(STEP_MINUS) ? -1 : 0;
-			if (dir != 0) {
-				bankAmount = Math.max(s.min(), Math.min(s.max(), s.value() + dir * s.step()));
-				FxSounds.play("chip_count", 0.5f, 1f);
-				local();
-			}
-			return true;
-		}
 		for (String spot : new String[] {"ante", "trips"}) {
 			if (!id.equals(KeyMap.Ids.felt(spot))) continue;
 			Gate g = UthFlow.spot(spot, v);

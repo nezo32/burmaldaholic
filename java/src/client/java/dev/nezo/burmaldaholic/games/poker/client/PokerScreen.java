@@ -29,6 +29,9 @@ import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.DockLayout;
+import dev.nezo.burmaldaholic.client.ui.v2.Stepper;
+import java.util.Optional;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
 import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
@@ -69,8 +72,10 @@ import org.jspecify.annotations.Nullable;
  */
 public class PokerScreen extends V2TableScreen<PokerView> {
 	private static final int[] NO_CARDS = new int[0];
-	public static final String STEP_MINUS = "stepper.minus", STEP_PLUS = "stepper.plus";
-	private static final String STEPPER = "~stepper";
+	/** The kit stepper's HitMap ids (R-AB M3: laid out by the Dock, they survive every relayout). */
+	public static final String STEP_MINUS = Stepper.MINUS, STEP_PLUS = Stepper.PLUS;
+	/** Over the stepper's value: click = the next raise preset (or min / max of a buy-in), scroll = − / +. */
+	public static final String PRESET = "poker.preset";
 	private boolean rulesOpen;
 
 	private final CardAnimator cards = new CardAnimator();
@@ -82,9 +87,7 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 
 		@Override
 		public List<Gate> actions(PokerView v) {
-			List<Gate> out = new ArrayList<>(PokerFlow.actions(v));
-			PokerFlow.stepper(v).ifPresent(s -> out.add(new Gate(STEPPER, PokerFlow.V2 + "stepper", new Object[] {s.value()}, true, null, null)));
-			return out;
+			return PokerFlow.actions(v);
 		}
 	};
 
@@ -451,13 +454,15 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		if (view == null || font == null) return;
 		chrome.keys(keyMap(view));
 		chrome.actions.danger("fold", "stand_up");
+		Optional<PokerFlow.Stepper> st = PokerFlow.stepper(view);
+		if (st.isPresent()) chrome.stepper.set(PokerFlow.stepMinus(st.get()), PokerFlow.stepPlus(st.get()), Texts.number(st.get().value()), null, null);
+		else chrome.stepper.clear();
 		super.refresh();
 		// TopBar: the blinds are in the title; the pills show the buy-in range and the seats taken
 		PokerView.Level lv = view.level();
 		chrome.top.set(tableTitle(), lv == null ? 0 : lv.buyMin(), lv == null ? 0 : lv.buyMax(), seats.size(), size);
 		chrome.relayout();
 		status(view);
-		stepperHits();
 	}
 
 	/** Game keys: F fold, C check / call, R the raise primary, ↑ / ↓ the stepper. */
@@ -473,19 +478,11 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		return k;
 	}
 
-	/** The stepper's − / + halves on top of its button (registered last: topmost). */
-	private void stepperHits() {
-		Box b = stepperBox();
-		if (b == null) return;
-		int third = Math.max(10, b.w() / 3);
-		PokerFlow.Stepper s = view == null ? null : PokerFlow.stepper(view).orElse(null);
-		if (s == null) return;
-		chrome.hits().add(STEP_MINUS, new Box(b.x(), b.y(), third, b.h()), s.canMinus());
-		chrome.hits().add(STEP_PLUS, new Box(b.right() - third, b.y(), third, b.h()), s.canPlus());
-	}
-
-	private @Nullable Box stepperBox() {
-		return chrome.hits().box(KeyMap.Ids.action(STEPPER)).orElse(null);
+	/** The preset target over the stepper's value (registered last: topmost; the kit's − / + keep their boxes). */
+	@Override
+	public void layoutOverlay(DockLayout.Dock dock, HitMap hits) {
+		if (!chrome.stepper.visible()) return;
+		hits.box(Stepper.VALUE).ifPresent(b -> hits.add(PRESET, b, true));
 	}
 
 	private void status(PokerView v) {
@@ -555,7 +552,8 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 				topUp = v.topMax();
 				local();
 			}
-			case STEPPER -> presetClick(v);
+			case PokerFlow.STEP_MINUS -> step(-1);
+			case PokerFlow.STEP_PLUS -> step(1);
 			case "buy_in" -> {
 				if (v.level() == null) return;
 				CompoundTag args = new CompoundTag();
@@ -619,10 +617,9 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 
 	@Override
 	public boolean onTarget(String id, boolean enabled, Press button) {
-		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
-			if (button.scroll() != 0) step(button.scroll());
-			else if (id.equals(STEP_MINUS)) step(-1);
-			else if (id.equals(STEP_PLUS)) step(1);
+		if (id.equals(PRESET)) {
+			if (button.scroll() != 0) chrome.press(button.scroll() > 0 ? STEP_PLUS : STEP_MINUS, true, Press.LEFT);
+			else if (button.left() && view != null) presetClick(view);
 			return true;
 		}
 		return false;
@@ -640,10 +637,7 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 			return chrome.press(KeyMap.Ids.PRIMARY, on, Press.LEFT);
 		}
 		if (event.isUp() || event.isDown()) {
-			if (view != null && PokerFlow.stepper(view).isPresent()) {
-				step(event.isUp() ? 1 : -1);
-				return true;
-			}
+			if (chrome.stepper.visible()) return chrome.press(event.isUp() ? STEP_PLUS : STEP_MINUS, true, Press.LEFT);
 		}
 		return super.keyPressed(event);
 	}

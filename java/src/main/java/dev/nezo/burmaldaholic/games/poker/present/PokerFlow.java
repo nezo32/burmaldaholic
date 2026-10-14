@@ -139,6 +139,19 @@ public final class PokerFlow {
 		return out;
 	}
 
+	/** Gate actions of the kit stepper's − / + (R-AB M3: the kit's {@code Stepper}, HitMap {@code stepper.minus/plus}). */
+	public static final String STEP_MINUS = LOCAL + "step_minus", STEP_PLUS = LOCAL + "step_plus";
+
+	/** The stepper's −: off at the minimum, with the reason. */
+	public static Gate stepMinus(Stepper s) {
+		return s.canMinus() ? Gate.on(STEP_MINUS, V2 + "step_minus") : Gate.off(STEP_MINUS, V2 + "step_minus", V2 + "reason.stepper_min", s.min());
+	}
+
+	/** The stepper's +: off at the maximum, with the reason. */
+	public static Gate stepPlus(Stepper s) {
+		return s.canPlus() ? Gate.on(STEP_PLUS, V2 + "step_plus") : Gate.off(STEP_PLUS, V2 + "step_plus", V2 + "reason.stepper_max", s.max());
+	}
+
 	/** The amount stepper (between the action row and the primary), if the state has an amount to choose. */
 	public static Optional<Stepper> stepper(PokerView v) {
 		if (!v.enabled()) return Optional.empty();

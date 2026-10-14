@@ -112,6 +112,30 @@ public class PokerFlowTest {
 		assertFalse(new PokerFlow.Stepper("raise", 40, 40, 188, 10).canMinus());
 	}
 
+	/** R-AB M3: the kit Stepper's − / + gates — live inside the range, off at its ends with the reason and the bound. */
+	@Test
+	void stepperGatesCarryReasonsAtTheEnds() {
+		PokerFlow.Stepper mid = new PokerFlow.Stepper("raise", 60, 40, 188, 10);
+		assertTrue(PokerFlow.stepMinus(mid).enabled());
+		assertTrue(PokerFlow.stepPlus(mid).enabled());
+		assertEquals(PokerFlow.STEP_MINUS, PokerFlow.stepMinus(mid).action());
+		Gate atMin = PokerFlow.stepMinus(new PokerFlow.Stepper("raise", 40, 40, 188, 10));
+		assertFalse(atMin.enabled());
+		assertEquals(PokerFlow.V2 + "reason.stepper_min", atMin.reasonKey());
+		assertEquals(40L, atMin.reasonArgs()[0]);
+		Gate atMax = PokerFlow.stepPlus(new PokerFlow.Stepper("raise", 188, 40, 188, 10));
+		assertFalse(atMax.enabled());
+		assertEquals(PokerFlow.V2 + "reason.stepper_max", atMax.reasonKey());
+		for (String lang : new String[] {"en_us", "ru_ru"}) {
+			try {
+				java.util.Set<String> have = langKeys(lang);
+				for (String k : List.of("step_minus", "step_plus", "reason.stepper_min", "reason.stepper_max")) assertTrue(have.contains(PokerFlow.V2 + k), lang + " " + k);
+			} catch (java.io.IOException e) {
+				throw new AssertionError(e);
+			}
+		}
+	}
+
 	@Test
 	void raisePresetsAreLegalAscendingAndCycle() {
 		PokerView.Turn t = new PokerView.Turn(3, 10, false, true, 40, 188, false, 188, 10, 20, 120, 2, 40);

@@ -1106,6 +1106,10 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.v2.bet_to` | Bet %1$s | Бет %1$s |
 | `gui.burmaldaholic.poker.v2.stepper` | −   %1$s   + | −   %1$s   + |
 | `gui.burmaldaholic.poker.v2.leave_queue` | Cancel | Отмена |
+| `gui.burmaldaholic.poker.v2.step_minus` | Less | Меньше |
+| `gui.burmaldaholic.poker.v2.step_plus` | More | Больше |
+| `gui.burmaldaholic.poker.v2.reason.stepper_min` | Already the minimum, %1$s | Уже минимум: %1$s |
+| `gui.burmaldaholic.poker.v2.reason.stepper_max` | Already the maximum, %1$s | Уже максимум: %1$s |
 | `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
 | `gui.burmaldaholic.poker.v2.reason.vip_stakes` | These stakes need a higher VIP tier | Для этого лимита нужен ВИП-статус выше |
 | `gui.burmaldaholic.poker.v2.reason.buy_in_min` | Not enough chips for the minimum buy-in %1$s | Не хватает фишек на минимальный бай-ин %1$s |

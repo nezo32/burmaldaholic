@@ -244,6 +244,18 @@ public final class UthFlow {
 		return out;
 	}
 
+	/** Gate actions of the kit stepper's − / + on the bank amount (R-AB M3; labels shared with poker's stepper). */
+	public static final String STEP_MINUS = LOCAL + "step_minus", STEP_PLUS = LOCAL + "step_plus";
+	private static final String PV2 = "gui.burmaldaholic.poker.v2.";
+
+	public static Gate stepMinus(Stepper s) {
+		return s.value() > s.min() ? Gate.on(STEP_MINUS, PV2 + "step_minus") : Gate.off(STEP_MINUS, PV2 + "step_minus", PV2 + "reason.stepper_min", s.min());
+	}
+
+	public static Gate stepPlus(Stepper s) {
+		return s.value() < s.max() ? Gate.on(STEP_PLUS, PV2 + "step_plus") : Gate.off(STEP_PLUS, PV2 + "step_plus", PV2 + "reason.stepper_max", s.max());
+	}
+
 	/** The bank amount stepper while the take-the-bank form is open. */
 	public static Optional<Stepper> stepper(UthView v) {
 		if (!v.betting() || v.bank() == null || !v.bank().form() || v.banker()) return Optional.empty();
