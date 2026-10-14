@@ -90,6 +90,8 @@ public final class CasinoStructure extends Structure {
 	static final int BED_SLACK = 4;
 	/** The FLAT test ignores one in this many probes at each end of the height span. */
 	static final int TRIM_SHARE = 24;
+	/** Ground above the floor (feet level at the door) the carve piece may cut out of the rooms. */
+	static final int CUT_MAX = 8;
 	/** Outline spacing of the coarse pass that screens each candidate shift. */
 	static final int COARSE_SPACING = 16;
 	/** Horizontal shifts of the whole casino tried in order (the first that fits wins); multiples of {@link FitSite#SPACING}. */
@@ -212,6 +214,7 @@ public final class CasinoStructure extends Structure {
 				}
 			}
 			BlockPos at = stub.get().position().offset(fit.dx(), fit.dy(), fit.dz());
+			StructurePiecesBuilder out = withGround(pieces);
 			// 4. vanilla's biome check at the final start (findValidGenerationPoint repeats it)
 			Holder<Biome> biome = BiomeLookup.at(ctx, QuartPos.fromBlock(at.getX()), QuartPos.fromBlock(at.getY()), QuartPos.fromBlock(at.getZ()));
 			if (biome != null && !ctx.validBiome().test(biome)) {
@@ -225,7 +228,7 @@ public final class CasinoStructure extends Structure {
 				STATS.count(Reason.OK, biome == null ? "?" : name(biome));
 				STATS.candidateUsed.incrementAndGet(Math.min(fit.candidate(), STATS.candidateUsed.length() - 1));
 			}
-			return Optional.of(new GenerationStub(at, Either.right(built)));
+			return Optional.of(new GenerationStub(at, Either.right(out)));
 		} finally {
 			if (stats) {
 				long ns = System.nanoTime() - t0;
@@ -235,6 +238,27 @@ public final class CasinoStructure extends Structure {
 				}
 			}
 		}
+	}
+
+	/**
+	 * The start's final piece list: {@link CasinoGroundPiece} CARVE first (clears the rooms' volume above the floor
+	 * before any template is placed), the template pieces, then the SKIRT (foundation continued down to the ground).
+	 */
+	static StructurePiecesBuilder withGround(List<StructurePiece> pieces) {
+		List<FitSite.Box> boxes = new ArrayList<>(pieces.size());
+		int top = Integer.MIN_VALUE;
+		for (StructurePiece p : pieces) {
+			BoundingBox b = p.getBoundingBox();
+			boxes.add(new FitSite.Box(b.minX(), b.minZ(), b.maxX(), b.maxZ()));
+			top = Math.max(top, b.maxY());
+		}
+		// floor block row = template y 3 of the start piece (every piece shares it)
+		int floorY = pieces.getFirst().getBoundingBox().minY() + CasinoGroundPiece.FOUNDATION_ROWS;
+		StructurePiecesBuilder out = new StructurePiecesBuilder();
+		out.addPiece(new CasinoGroundPiece(CasinoGroundPiece.Mode.CARVE, boxes, floorY, top));
+		pieces.forEach(out::addPiece);
+		out.addPiece(new CasinoGroundPiece(CasinoGroundPiece.Mode.SKIRT, boxes, floorY, top));
+		return out;
 	}
 
 	private static void remember(Map<Long, Reason> cache, long chunk, Reason reason) {
@@ -529,13 +553,37 @@ public final class CasinoStructure extends Structure {
 				verdict = check(cell, fine, throatKeys, dx, dz, range, span);
 			}
 			if (verdict == Reason.OK) {
-				return new Fit(Reason.OK, dx, Math.floorDiv(span[0] + span[1], 2) - ref, dz, k);
+				// the floor goes to the door's ground (the throat median), inside the trimmed span; terrain higher than
+				// CUT_MAX above it would be a hillside carved out of the rooms: try the next shift
+				int floor = throatLevel(cell, throat, dx, dz, Math.floorDiv(span[0] + span[1], 2));
+				floor = Math.clamp(floor, span[0], span[1]);
+				if (span[1] - floor <= CUT_MAX) {
+					return new Fit(Reason.OK, dx, floor - 1 - ref, dz, k);
+				}
+				verdict = Reason.FLAT;
 			}
 			if (first == null) {
 				first = verdict;
 			}
 		}
 		return new Fit(first, 0, 0, 0, -1);
+	}
+
+	/** Median ground (feet) height of the door throat, {@code fallback} without a dry throat column. */
+	private static int throatLevel(Cell cell, List<int[]> throat, int dx, int dz, int fallback) {
+		int[] h = new int[throat.size()];
+		int n = 0;
+		for (int[] t : throat) {
+			int[] c = cell.heights(t[0] + dx, t[1] + dz);
+			if (c[0] == c[1]) {
+				h[n++] = c[0];
+			}
+		}
+		if (n == 0) {
+			return fallback;
+		}
+		java.util.Arrays.sort(h, 0, n);
+		return h[n / 2];
 	}
 
 	/** One candidate shift against one probe set (see {@link #site}); {@code span} receives the trimmed {lo, hi}. */
