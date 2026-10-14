@@ -113,7 +113,7 @@ class WorldgenBotPresetsTest {
 		all.addAll(tablesOf(Layouts.village(VillageStyle.values()[0])));
 		all.addAll(tablesOf(Layouts.piglinParlorLayout()));
 		all.addAll(tablesOf(Layouts.highRollerLayout()));
-		// village: blackjack, roulette, uth; parlor: craps, poker, baccarat; lounge: HR blackjack, roulette, baccarat, uth
+		// village: baccarat, blackjack, roulette, uth; parlor: craps, poker, baccarat; lounge: HR blackjack, roulette, baccarat, uth
 		for (Table t : all) {
 			assertEquals(want.get(t.game()), t.settings(), t.block());
 			assertEquals(WorldgenBotPresets.CASINO_NAME_THEME.get(t.kind()), t.preset().nameTheme(), t.block());
@@ -124,7 +124,7 @@ class WorldgenBotPresetsTest {
 		Set<String> games = new HashSet<>();
 		all.forEach(t -> games.add(t.game()));
 		assertTrue(games.containsAll(List.of("poker", "blackjack", "roulette", "craps", "baccarat", "uth")), games.toString());
-		assertEquals(List.of("blackjack", "roulette", "uth"),
+		assertEquals(List.of("baccarat", "blackjack", "roulette", "uth"),
 			tablesOf(Layouts.village(VillageStyle.values()[0])).stream().map(Table::game).sorted().toList());
 		assertEquals(List.of("baccarat", "craps", "poker"), tablesOf(Layouts.piglinParlorLayout()).stream().map(Table::game).sorted().toList());
 		assertEquals(List.of("baccarat", "blackjack", "roulette", "uth"),
@@ -135,7 +135,7 @@ class WorldgenBotPresetsTest {
 	void everyVillageStyleGetsTheSameDefaults() {
 		for (VillageStyle style : VillageStyle.values()) {
 			List<Table> tables = tablesOf(Layouts.village(style));
-			assertEquals(List.of("blackjack", "roulette", "uth"), tables.stream().map(Table::game).sorted().toList(), style.name());
+			assertEquals(List.of("baccarat", "blackjack", "roulette", "uth"), tables.stream().map(Table::game).sorted().toList(), style.name());
 			for (Table t : tables) {
 				assertEquals(WorldgenBotPresets.Preset.theme(BotRoster.Theme.ANY), t.preset());
 			}
