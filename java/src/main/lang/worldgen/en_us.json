@@ -27,6 +27,7 @@
 	"msg.burmaldaholic.worldgen.locate.none": "No Grand Casino within reach",
 	"msg.burmaldaholic.worldgen.locate.known": "Nearest generated casino: %1$s at %2$s (%3$s blocks)",
 	"msg.burmaldaholic.worldgen.locate.none_known": "No casino has been generated in this dimension yet",
+	"msg.burmaldaholic.worldgen.house_table_protected": "This game belongs to the house and stays in the casino",
 	"advancement.burmaldaholic.piglin_parlor.title": "Snouts and Ladders",
 	"advancement.burmaldaholic.piglin_parlor.description": "Enter a Piglin Parlor",
 	"config.burmaldaholic.worldgen.enabled": "Generate casinos",

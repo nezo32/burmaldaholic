@@ -2640,6 +2640,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `msg.burmaldaholic.worldgen.locate.none` | No Grand Casino within reach | Поблизости нет ни одного гранд-казино |
 | `msg.burmaldaholic.worldgen.locate.known` | Nearest generated casino: %1$s at %2$s (%3$s blocks) | Ближайшее построенное казино: %1$s, %2$s (%3$s бл.) |
 | `msg.burmaldaholic.worldgen.locate.none_known` | No casino has been generated in this dimension yet | В этом измерении ещё не появилось ни одного казино |
+| `msg.burmaldaholic.worldgen.house_table_protected` | This game belongs to the house and stays in the casino | Эта игра принадлежит заведению и останется в казино |
 
 ---
 

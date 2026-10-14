@@ -27,6 +27,7 @@
 	"msg.burmaldaholic.worldgen.locate.none": "Поблизости нет ни одного гранд-казино",
 	"msg.burmaldaholic.worldgen.locate.known": "Ближайшее построенное казино: %1$s, %2$s (%3$s бл.)",
 	"msg.burmaldaholic.worldgen.locate.none_known": "В этом измерении ещё не появилось ни одного казино",
+	"msg.burmaldaholic.worldgen.house_table_protected": "Эта игра принадлежит заведению и останется в казино",
 	"advancement.burmaldaholic.piglin_parlor.title": "Свинство и азарт",
 	"advancement.burmaldaholic.piglin_parlor.description": "Зайдите в пиглинский салон",
 	"config.burmaldaholic.worldgen.enabled": "Генерировать казино",
