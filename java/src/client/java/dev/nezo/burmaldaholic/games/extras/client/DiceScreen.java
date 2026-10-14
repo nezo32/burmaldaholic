@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.fx.TableGfx;
 import dev.nezo.burmaldaholic.client.table.fx.TableKit;
 import dev.nezo.burmaldaholic.client.table.fx.TableTheme;
@@ -22,6 +23,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasFlow;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasKeys;
@@ -275,7 +277,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == KeyMap.SPACE && t() >= 0 && t() < DuelTimeline.endMs(rounds.size())) {
+		if (event.key() == Inputs.KEY_SPACE && t() >= 0 && t() < DuelTimeline.endMs(rounds.size())) {
 			skipped = true;
 			return true;
 		}
@@ -350,7 +352,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		CompoundTag s = state();
 		switch (id) {
 			case "felt.arena" -> {

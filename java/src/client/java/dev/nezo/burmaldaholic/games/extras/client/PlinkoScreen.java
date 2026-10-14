@@ -15,6 +15,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
 import dev.nezo.burmaldaholic.games.extras.logic.Plinko;
@@ -301,8 +302,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 
 	@Override
 	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-		int k = event.key();
-		if ((k == KeyMap.ENTER || k == 335 || k == KeyMap.SPACE) && dropping() && skip()) return true;
+		if (event.isSelection() && dropping() && skip()) return true; // Space / Enter / keypad Enter, resolved by the running version
 		return super.keyPressed(event);
 	}
 
@@ -341,7 +341,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (id.equals(KeyMap.Ids.felt("board"))) {
 			return !battle && skip();
 		}
@@ -357,8 +357,8 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				chrome.refuse(Gate.off("risk", ExtrasKeys.RISK, ExtrasKeys.REASON_DROPPING));
 				return true;
 			}
-			if (button == 2 || button == 3) {
-				int k = Math.floorMod(risk.ordinal() + (button == 2 ? -1 : 1), 3);
+			if (button.scroll() != 0) {
+				int k = Math.floorMod(risk.ordinal() - button.scroll(), 3);
 				risk = Plinko.Risk.values()[k];
 			} else {
 				risk = r;

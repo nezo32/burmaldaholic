@@ -121,6 +121,14 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	private static final Codec<Map<String, Long>> REFUND_CODEC = Codec.unboundedMap(Codec.STRING, Codec.LONG);
 	private static final int LOG_SIZE = 8;
 	private static final String GAME = "poker";
+	/** Ticks from a buy-in (or a claim) to the first hand at an idle table. */
+	public static final int HAND_START_DELAY_TICKS = 40;
+	/** Ticks from the reveal gate of an uncontested hand to the next hand. */
+	public static final int NEXT_HAND_UNCONTESTED_TICKS = 40;
+	/** Ticks from the reveal gate of a showdown to the next hand. */
+	public static final int NEXT_HAND_SHOWDOWN_TICKS = 60;
+	/** Ticks between start attempts while the table cannot start a hand (too few players). */
+	public static final int WAITING_RETRY_TICKS = 100;
 	/** Player → table they are seated (or waiting as a claimant) at: one poker seat per player. */
 	private static final Map<UUID, PokerTableBlockEntity> SEATED = new ConcurrentHashMap<>();
 
@@ -540,7 +548,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			waiting.put(id(player), amount);
 			setChanged();
 			if (!table.inHand()) {
-				scheduleHand(40);
+				scheduleHand(HAND_START_DELAY_TICKS);
 			}
 			return;
 		}
@@ -561,7 +569,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		setChanged();
 		if (!table.inHand()) {
-			scheduleHand(40);
+			scheduleHand(HAND_START_DELAY_TICKS);
 		}
 	}
 
@@ -754,7 +762,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				}
 			}
 			setPhase("waiting");
-			startTimer("next_hand", 100);
+			startTimer("next_hand", WAITING_RETRY_TICKS);
 			return;
 		}
 		// The GAME rng shuffles; bots never draw from it (BOTS.md §4.1).
@@ -1003,7 +1011,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			if (seat.bot.level() == BotDifficulty.EASY) {
 				think = think / 2 + (PokerBotPolicy.fishStrong(view) ? 40 : 0);
 			}
-			think = Math.max(0, Math.min(think, Math.min(humanTimer / 2, CasinoConfig.bots().think.maxTicks + 40)));
+			think = Math.max(0, Math.min(think, botThinkCapTicks()));
 			BotTurn turn = new BotTurn(h.seq(), botSeq, seat.bot, view);
 			botTurn = turn;
 			BotWork work = policy().work(seat.bot, view, tb.rng());
@@ -1023,6 +1031,11 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			Burmaldaholic.LOGGER.error("Poker: bot turn failed; checking / folding", e);
 			startTimer("auto", 10);
 		}
+	}
+
+	/** The longest a bot's turn can take (its think delay after the EASY tell / HARD tank), in ticks. */
+	public static int botThinkCapTicks() {
+		return Math.min(cfg().actionTimerTicks / 2, CasinoConfig.bots().think.maxTicks + 40);
 	}
 
 	private void onBotTimer() {
@@ -1105,7 +1118,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	}
 
 	/** Server pacing from {@code poker.fx.*} (published with every segment's args). */
-	private static PokerBeats.Pacing pacing() {
+	public static PokerBeats.Pacing pacing() {
 		PokerConfig.Fx fx = cfg().fx;
 		return new PokerBeats.Pacing(fx.dealBeatTicks, fx.gatherTicks, fx.streetTicks, fx.showBeatTicks, fx.awardTicks, fx.runoutPauseTicks);
 	}
@@ -1233,7 +1246,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		}
 		if (!table.inHand()) {
 			boolean uncontested = h == null || h.result() == null || h.result().uncontested();
-			scheduleHand(uncontested ? 40 : 60);
+			scheduleHand(uncontested ? NEXT_HAND_UNCONTESTED_TICKS : NEXT_HAND_SHOWDOWN_TICKS);
 		}
 	}
 

@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.extras.client;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Faces;
 import dev.nezo.burmaldaholic.client.pvp.kit.InviteCard;
 import dev.nezo.burmaldaholic.client.ui.CasinoScreen;
@@ -59,7 +60,7 @@ final class DuelInviteScreen extends CasinoScreen {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		var t = hits.at(event.x(), event.y());
-		if (t.isPresent() && event.button() == 0) {
+		if (t.isPresent() && Inputs.isLeft(event.button())) {
 			answer(t.get().id().equals(InviteCard.ACCEPT) ? "accept" : "decline");
 			return true;
 		}
@@ -68,11 +69,11 @@ final class DuelInviteScreen extends CasinoScreen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == KeyMap.Y) {
+		if (event.key() == Inputs.KEY_Y) {
 			answer("accept");
 			return true;
 		}
-		if (event.key() == KeyMap.N || event.key() == KeyMap.ESCAPE) {
+		if (event.key() == Inputs.KEY_N || event.isEscape()) {
 			// Esc answers too: a dismissed card declines, so the challenger is not left waiting out the timer (R-CDE m5)
 			answer("decline");
 			return true;
