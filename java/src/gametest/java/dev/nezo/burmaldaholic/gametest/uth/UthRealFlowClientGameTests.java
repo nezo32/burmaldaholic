@@ -98,10 +98,15 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(d2[0] == 16 && d2[1] == 1, "Ante 16 / Trips 1 built, draft " + d2[0] + "/" + d2[1]);
 			context.takeScreenshot("uth_flow_s4_ante16_trips1");
 
-			// R-AB M4: a second (absent) seat keeps bets open, so the confirmed bet waits for the deal
-			UUID other = UUID.randomUUID();
-			world.getServer().runOnServer(s -> table(s, pos).seats().sit(other, "Alex"));
+			// R-AB M4: a second player (online, next to the table, never betting) keeps bets open, so the confirmed bet waits
+			// for the deal. An absent UUID would be unseated by the table's online sweep within a second.
+			UUID other = world.getServer().computeOnServer(s -> {
+				ServerPlayer p = secondPlayer(s, pos);
+				table(s, pos).seats().sit(p.getUUID(), "Alex");
+				return p.getUUID();
+			});
 			context.waitTicks(4);
+			check(world.getServer().computeOnServer(s -> table(s, pos).seatedHumans().size() == 2), "the second player is seated");
 			before = balance(world);
 			f.click("primary");
 			waitServer(context, world, "round 2 bet confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
@@ -123,7 +128,10 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(draft(f)[0] == 16 && draft(f)[1] == 1, "Change bet keeps 16/1 in the draft, draft " + draft(f)[0] + "/" + draft(f)[1]);
 			f.click("primary"); // Deal again
 			waitServer(context, world, "round 2 bet re-confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
-			world.getServer().runOnServer(s -> table(s, pos).seats().leave(other));
+			world.getServer().runOnServer(s -> {
+				ServerPlayer p = s.getPlayerList().getPlayer(other);
+				if (p != null) s.getPlayerList().remove(p); // leaves the table (disconnect: the bet timer deals our round)
+			});
 			waitServer(context, world, "round 2 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == d2[0]);
 			dealt = dealt(world, pos);
 			check(dealt[0] == d2[0] && dealt[1] == d2[1], "round 2: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", built " + d2[0] + "/" + d2[1]);
@@ -245,6 +253,19 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			}
 		}
 		throw new AssertionError(name + ": the round did not settle");
+	}
+
+	private static final java.util.List<io.netty.channel.embedded.EmbeddedChannel> CHANNELS = new java.util.ArrayList<>();
+
+	/** A second server player on an embedded connection, standing next to the table (server thread). */
+	private static ServerPlayer secondPlayer(MinecraftServer server, BlockPos pos) {
+		var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(new com.mojang.authlib.GameProfile(UUID.randomUUID(), "Alex"), false);
+		ServerPlayer p = new ServerPlayer(server, server.overworld(), cookie.gameProfile(), cookie.clientInformation());
+		net.minecraft.network.Connection c = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+		CHANNELS.add(new io.netty.channel.embedded.EmbeddedChannel(c));
+		server.getPlayerList().placeNewPlayer(c, p, cookie);
+		p.snapTo(net.minecraft.world.phys.Vec3.atCenterOf(pos).add(1.5, 0, 0));
+		return p;
 	}
 
 	/** Decision clicks that pressed another target (reported at the end of the run). */

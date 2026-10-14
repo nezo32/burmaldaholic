@@ -363,6 +363,7 @@ public class UthScreen extends V2TableScreen<UthView> {
 	/** A clamped chip edit: applied, and its reason flashed when the amount was capped (R-AB M5). */
 	private void edit(UthFlow.Edit e) {
 		if (e.refusal() != null) chrome.refuse(e.refusal());
+		else chrome.status.clearFlash(); // an edit that applied as asked makes an old "why not" stale
 		edit(e.draft());
 	}
 
