@@ -19,6 +19,7 @@ import * as W from './tables/wheel.mjs';
 import * as Ro from './tables/roulette.mjs';
 import * as D from './tables/dice.mjs';
 import * as Cr from './tables/craps.mjs';
+import * as C2 from './tables/craps_v2.mjs';
 
 const T = `${JAVA_ASSETS}/textures`;
 const GUI = `${T}/gui/tables`;
@@ -216,6 +217,10 @@ export default function generate() {
   for (const k of ['neutral', 'natural', 'craps', 'point']) sprite(`craps/total_${k}`, D.totalBadge(k));
   anim('craps/point_glow', D.pointGlow(), 3, 48, 40);
   anim('craps/flame', D.flame(), 3, 32, 10);
+  // v2 felt (lane D): dice per tier (faces row + tumble row) and the puck per tier
+  for (const s of C2.DIE_SIZES) gui(`craps/v2/dice_${s}`, C2.diceSheet(s));
+  for (const s of C2.PUCK_SIZES) gui(`craps/v2/puck_${s}`, C2.puckSheet(s));
+  out.push(png(`${T}/entity/craps/board_print.png`, C2.boardPrint()));
   out.push(png(`${T}/entity/craps/dice.png`, diceWorld()));
   out.push(png(`${T}/item/extras/dice_display.png`, diceDisplay()));
 

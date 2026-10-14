@@ -38,6 +38,7 @@ import dev.nezo.burmaldaholic.games.craps.logic.CrapsRules;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable.OddsInfo;
 import dev.nezo.burmaldaholic.games.craps.logic.RollEvent;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsPub;
 import dev.nezo.burmaldaholic.games.craps.logic.ShooterRotation.SeatInfo;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -111,6 +112,12 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 
 	// ---- presentation (animation wave, lane J-L6; docs/design/animation/tables.md §2.7) ---------------------------
 	private static final String SYNC_KEY = "craps_sync";
+	private static final String PUB_KEY = "craps_pub";
+	private boolean publicDirty;
+	private long lastPublish = Long.MIN_VALUE / 2;
+	/** client side: the last public layout */
+	private CrapsPub clientPub = CrapsPub.EMPTY;
+
 	/** What the last roll did to one bet, frozen at roll time (the screen's chip motion; tables.md §2.7 {@code last_res}). */
 	private record LastRes(UUID owner, String kind, int point, String outcome, long flat, long odds, long ret, int movedTo) {}
 
@@ -184,6 +191,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				return;
 			}
 		}
+		markPublic();
 		syncViewers();
 	}
 
@@ -206,6 +214,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			bots.noteJoin(player.getUUID());
 			botSafePoint();
 			rearm();
+			markPublic();
 			syncViewers();
 		}
 		return ok;
@@ -628,13 +637,54 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		if (level instanceof ServerLevel sl) {
 			BlockState st = getBlockState();
 			sl.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
+			publicDirty = false;
+			lastPublish = gameTime();
 		}
+	}
+
+	/** The layout's public content changed (a bet, a seat): the in-world board is updated at most 4 times a second. */
+	private void markPublic() {
+		publicDirty = true;
+	}
+
+	/**
+	 * The in-world board's public data (ui-v2.md §7.2, lane D): every stack on the layout by seat and each seat's net of
+	 * the last roll. Nothing about craps is secret.
+	 */
+	public CrapsPub pub() {
+		List<CrapsPub.Stack> stacks = new ArrayList<>();
+		for (Bet b : table.bets()) {
+			int seat = seats().seatOf(b.owner()).orElse(-1);
+			stacks.add(new CrapsPub.Stack(seat, b.kind().id(), b.point(), b.flat(), b.odds()));
+		}
+		stacks.sort((a, b) -> Long.compare(b.flat() + b.odds(), a.flat() + a.odds()));
+		Map<Integer, Long> nets = new LinkedHashMap<>();
+		for (LastRes r : lastRes) {
+			if ("move".equals(r.outcome()) || "stay".equals(r.outcome())) {
+				continue;
+			}
+			int seat = seats().seatOf(r.owner()).orElse(-1);
+			if (seat >= 0) {
+				nets.merge(seat, r.ret() - r.flat() - r.odds(), Long::sum);
+			}
+		}
+		List<CrapsPub.Net> netList = new ArrayList<>();
+		nets.forEach((k, v) -> netList.add(new CrapsPub.Net(k, v)));
+		int seq = java.util.Objects.hash(stacks, netList, table.rollCount());
+		return new CrapsPub(seq, stacks, netList);
+	}
+
+	/** Client side: the last public layout (stacks, nets). */
+	public CrapsPub clientPub() {
+		return clientPub;
 	}
 
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
 		t.putIntArray(SYNC_KEY, sync().encode());
+		t.putIntArray(PUB_KEY, pub().encode());
+		writePublic(t); // seat header for the in-world plates (ui-v2.md D12)
 		return t;
 	}
 
@@ -779,6 +829,14 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				clientSync = null;
 			}
 		});
+		input.getIntArray(PUB_KEY).ifPresent(a -> {
+			try {
+				clientPub = CrapsPub.decode(a);
+			} catch (IllegalArgumentException e) {
+				clientPub = CrapsPub.EMPTY;
+			}
+		});
+
 		bots.load(input);
 	}
 
@@ -930,6 +988,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			runShooter = null;
 			pointsInRow = 0;
 		}
+		markPublic();
 		botSafePoint(); // the last human leaving ends the bot session
 		rearm();
 	}
@@ -1019,6 +1078,9 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	protected void serverTick(ServerLevel level) {
 		MinecraftServer server = level.getServer();
 		flushPending(level, false);
+		if (publicDirty && gameTime() - lastPublish >= 5) {
+			publishSync();
+		}
 		if (botBetAt >= 0 && gameTime() >= botBetAt && botsActedFor != table.rollCount() && CasinoMode.isEnabled(level)) {
 			botsBet(); // the bots' bet moment in this betting window (60–160 t)
 			syncViewers();

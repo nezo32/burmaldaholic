@@ -15,6 +15,7 @@ import dev.nezo.burmaldaholic.games.blackjack.client.BlackjackScreen;
 import dev.nezo.burmaldaholic.games.craps.CrapsModule;
 import dev.nezo.burmaldaholic.games.craps.CrapsTableBlockEntity;
 import dev.nezo.burmaldaholic.games.craps.client.CrapsScreen;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsLayout;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity;
 import dev.nezo.burmaldaholic.games.roulette.client.RouletteScreen;
@@ -235,45 +236,55 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	// ---- craps --------------------------------------------------------------------------------------------------------
 
 	private void craps(ClientGameTestContext context, TestServerContext world, String tag) {
+		// v2 screen (lane D): chips and felt spots are HitMap targets; clicked at the window pixel of their box
 		String name = tag + " craps";
 		BlockPos pos = placeAndOpen(context, world, CrapsModule.TABLE, CrapsScreen.class, name);
 		if (pos == null) return;
-		if (!clickWidget(context, name, w -> w.getClass().getSimpleName().equals("ChipButton") && w.getMessage().getString().equals(Texts.chips(5).getString()))) {
-			failures.add(name + ": no 5 chip button");
-			return;
-		}
-		double[] pass = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Object felt = call(s, "felt");
-			int lx = (int) call(s, "lx");
-			int ly = (int) call(s, "ly");
-			Optional<?> a = (Optional<?>) call(felt, "hit", x - lx, y - ly);
-			return a.isPresent() && a.get().toString().startsWith("Area[kind=pass,");
-		}));
-		if (pass == null) {
-			failures.add(name + ": no Pass Line on screen");
+		int five = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof CrapsScreen s)) return -1;
+			long[] chips = s.chrome().bet.chips();
+			for (int i = 0; i < chips.length; i++) if (chips[i] == 5) return i;
+			return -1;
+		});
+		if (five < 0 || !clickTarget(context, "chip." + five)) {
+			failures.add(name + ": no 5 chip in the tray");
 			return;
 		}
 		shot(context, tag, "craps");
-		click(context, pass[0], pass[1]);
+		if (!clickTarget(context, CrapsLayout.PASS)) {
+			failures.add(name + ": no Pass Line on screen");
+			return;
+		}
 		if (!serverWait(context, world, pos, name + ": Pass Line bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5)) return;
-		// the shooter rolls until the pass line resolves (come-out decision or the point made / seven out)
+		// the shooter rolls (the primary) until the pass line resolves (come-out decision or the point made / seven out)
 		for (int i = 0; i < 60 && stake(world, pos) > 0; i++) {
-			if (!tryClick(context, "gui.burmaldaholic.craps.roll")) context.waitTicks(10);
+			boolean canRoll = context.computeOnClient(mc -> mc.gui.screen() instanceof CrapsScreen s && s.chrome().primary.gate().enabled()
+				&& "roll".equals(s.chrome().primary.gate().action()));
+			if (canRoll) clickTarget(context, "primary");
+			else context.waitTicks(10);
 			context.waitTicks(20);
 		}
 		if (stake(world, pos) > 0) failures.add(name + ": the pass line never resolved by rolling");
 		// the next come-out: a new Pass Line bet goes through
 		context.waitTicks(10);
-		double[] again = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Object felt = call(s, "felt");
-			Optional<?> a = (Optional<?>) call(felt, "hit", x - (int) call(s, "lx"), y - (int) call(s, "ly"));
-			return a.isPresent() && a.get().toString().startsWith("Area[kind=pass,");
-		}));
-		if (again != null) {
-			click(context, again[0], again[1]);
+		if (clickTarget(context, CrapsLayout.PASS)) {
 			serverWait(context, world, pos, name + ": next Pass Line bet accepted", (t, p) -> t.stakeOf(p.getUUID()) > 0);
 		}
 		closeAndLeave(context, world, pos);
+	}
+
+	/** Clicks the centre of a v2 screen's HitMap target (layout px → window px through the screen's viewport). */
+	private static boolean clickTarget(ClientGameTestContext context, String id) {
+		double[] at = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return null;
+			var b = h.chrome().hits().box(id);
+			if (b.isEmpty()) return null;
+			var vp = h.chrome().viewport();
+			return new double[] {vp.toWindow(b.get().x() + b.get().w() / 2.0), vp.toWindow(b.get().y() + b.get().h() / 2.0)};
+		});
+		if (at == null) return false;
+		click(context, at[0], at[1]);
+		return true;
 	}
 
 	// ---- baccarat -----------------------------------------------------------------------------------------------------
