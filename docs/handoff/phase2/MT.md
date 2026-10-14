@@ -33,7 +33,13 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
 - Breaking any part → `TableParts.breakFromPart`: main destroyed with drops (one item, none in creative / house
   table), other parts cleared without drops + particles, the hit part left for the vanilla break so the break events
   fire for it. Explosions on a part route to the main's `onExplosionHit` (idempotent, ≤1 item). Loot: `any_of
-  block_state_property part ∈ {main, single}` + `survives_explosion`. Mirror swaps parts; rotate FACING only.
+  block_state_property part ∈ {main, single}` + `survives_explosion`, AND in code: `MultiBlockTableBlock.getDrops`
+  returns nothing for non-controller parts. **Finding (affects the whole mod on 26.3):** 26.3 changed the loot predicate
+  format (`"conditions": [{"condition": "minecraft:block_state_property", …}]` → `"condition": {"type":
+  "minecraft:match_block", "blocks", "state"}`) and silently ignores the 26.2 form — so on 26.3 every part dropped an
+  item, and every v0.1 loot table's `survives_explosion` is ignored (tables/machines always drop in explosions). The
+  part rule is now enforced in Java (same signature both versions); the explosion-survival roll on 26.3 is an open item
+  for whoever owns data packs (needs a per-version data overlay or code). Mirror swaps parts; rotate FACING only.
 - Use any part → main (`openAt`). `CasinoTableMenu.stillValid`, the BE's seat-leave check and bot claimants use
   `TableParts.inRange` (centre distance for compact, nearest point of the footprint box for full).
 - Routing (§4): `Ownership.beforeBreak/afterBreak/onUseBlock/isExplosionProof`, `ServerExplosionMixin`,

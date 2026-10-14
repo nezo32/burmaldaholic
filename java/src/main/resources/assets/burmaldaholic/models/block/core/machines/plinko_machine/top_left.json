@@ -4,13 +4,10 @@
     "particle": "burmaldaholic:block/extras/plinko_machine_side",
     "side": "burmaldaholic:block/extras/plinko_machine_side",
     "front": "burmaldaholic:block/extras/plinko_machine_front",
-    "top": "burmaldaholic:block/extras/plinko_machine_top",
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
-    "rail": "burmaldaholic:block/core/tables/high_roller/rail",
-    "felt": "burmaldaholic:block/core/tables/high_roller/felt",
-    "bars": "minecraft:block/iron_bars",
-    "glass": "minecraft:block/glass"
+    "dark": "burmaldaholic:block/core/tables/high_roller/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs"
   },
   "elements": [
     {
@@ -162,6 +159,7 @@
         9,
         1
       ],
+      "light_emission": 12,
       "faces": {
         "up": {
           "uv": [
@@ -170,7 +168,7 @@
             15,
             1
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "down": {
           "uv": [
@@ -179,7 +177,7 @@
             15,
             1
           ],
-          "texture": "#trim",
+          "texture": "#bulbs",
           "cullface": "down"
         },
         "north": {
@@ -189,7 +187,7 @@
             7.5,
             16
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "south": {
           "uv": [
@@ -198,7 +196,7 @@
             15,
             16
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "west": {
           "uv": [
@@ -207,7 +205,7 @@
             1,
             16
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "east": {
           "uv": [
@@ -216,7 +214,7 @@
             16,
             16
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         }
       }
     },
@@ -231,6 +229,7 @@
         15,
         12
       ],
+      "light_emission": 10,
       "faces": {
         "up": {
           "uv": [
@@ -239,7 +238,7 @@
             15,
             12
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "down": {
           "uv": [
@@ -248,7 +247,7 @@
             15,
             12
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "north": {
           "uv": [
@@ -257,7 +256,7 @@
             16,
             7
           ],
-          "texture": "#rail"
+          "texture": "#bulbs"
         },
         "south": {
           "uv": [
@@ -266,7 +265,7 @@
             15,
             7
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "west": {
           "uv": [
@@ -275,7 +274,7 @@
             12,
             7
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         },
         "east": {
           "uv": [
@@ -284,7 +283,7 @@
             16,
             7
           ],
-          "texture": "#rail"
+          "texture": "#dark"
         }
       }
     },

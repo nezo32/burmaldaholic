@@ -1,152 +1,224 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "particle": "burmaldaholic:block/slots/slot_machine_netherite_side",
+    "particle": "burmaldaholic:block/core/machines/slot_netherite_cab",
     "side": "burmaldaholic:block/slots/slot_machine_netherite_side",
     "front": "burmaldaholic:block/slots/slot_machine_netherite_front",
-    "top": "burmaldaholic:block/slots/slot_machine_netherite_top",
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
-    "rail": "burmaldaholic:block/core/tables/high_roller/rail",
-    "felt": "burmaldaholic:block/core/tables/high_roller/felt",
-    "bars": "minecraft:block/iron_bars",
-    "glass": "minecraft:block/glass"
+    "dark": "burmaldaholic:block/core/tables/high_roller/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "cab": "burmaldaholic:block/core/machines/slot_netherite_cab",
+    "reels": "burmaldaholic:block/core/machines/slot_netherite_reels",
+    "topper": "burmaldaholic:block/core/machines/slot_netherite_topper",
+    "base": "burmaldaholic:block/core/machines/slot_netherite_base",
+    "deck": "burmaldaholic:block/core/machines/slot_netherite_deck"
   },
   "elements": [
     {
       "from": [
         1.1,
         0,
-        2.1
+        2.4
       ],
       "to": [
         14.9,
-        13,
+        12.5,
         13.9
       ],
       "faces": {
         "up": {
           "uv": [
             1.1,
-            2.1,
+            2.4,
             14.9,
             13.9
           ],
-          "texture": "#side"
+          "texture": "#cab"
         },
         "down": {
           "uv": [
             1.1,
-            2.1,
+            2.4,
             14.9,
             13.9
           ],
-          "texture": "#side",
+          "texture": "#cab",
           "cullface": "down"
         },
         "north": {
           "uv": [
             1.1,
-            3,
+            3.5,
             14.9,
             16
           ],
-          "texture": "#rail"
+          "texture": "#cab"
         },
         "south": {
           "uv": [
             1.1,
-            3,
+            3.5,
             14.9,
             16
           ],
-          "texture": "#side"
+          "texture": "#cab"
         },
         "west": {
           "uv": [
-            2.1,
-            3,
+            2.4,
+            3.5,
             13.9,
             16
           ],
-          "texture": "#side"
+          "texture": "#cab"
         },
         "east": {
           "uv": [
             2.1,
-            3,
-            13.9,
+            3.5,
+            13.6,
             16
           ],
-          "texture": "#side"
+          "texture": "#cab"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        1.5,
+        2.15
+      ],
+      "to": [
+        14,
+        11.5,
+        2.4
+      ],
+      "light_emission": 9,
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            2.15,
+            14,
+            2.4
+          ],
+          "texture": "#reels"
+        },
+        "down": {
+          "uv": [
+            2,
+            2.15,
+            14,
+            2.4
+          ],
+          "texture": "#reels"
+        },
+        "north": {
+          "uv": [
+            2,
+            4.5,
+            14,
+            14.5
+          ],
+          "texture": "#reels"
+        },
+        "south": {
+          "uv": [
+            2,
+            4.5,
+            14,
+            14.5
+          ],
+          "texture": "#reels"
+        },
+        "west": {
+          "uv": [
+            2.15,
+            4.5,
+            2.4,
+            14.5
+          ],
+          "texture": "#reels"
+        },
+        "east": {
+          "uv": [
+            13.6,
+            4.5,
+            13.85,
+            14.5
+          ],
+          "texture": "#reels"
         }
       }
     },
     {
       "from": [
         1.6,
-        13,
+        12.5,
         2.6
       ],
       "to": [
         14.4,
         15.9,
-        13.4
+        13
       ],
+      "light_emission": 14,
       "faces": {
         "up": {
           "uv": [
             1.6,
             2.6,
             14.4,
-            13.4
+            13
           ],
-          "texture": "#trim"
+          "texture": "#topper"
         },
         "down": {
           "uv": [
             1.6,
             2.6,
             14.4,
-            13.4
+            13
           ],
-          "texture": "#trim"
+          "texture": "#topper"
         },
         "north": {
           "uv": [
             1.6,
             0.1,
             14.4,
-            3
+            3.5
           ],
-          "texture": "#trim"
+          "texture": "#topper"
         },
         "south": {
           "uv": [
             1.6,
             0.1,
             14.4,
-            3
+            3.5
           ],
-          "texture": "#trim"
+          "texture": "#topper"
         },
         "west": {
           "uv": [
             2.6,
             0.1,
-            13.4,
-            3
+            13,
+            3.5
           ],
-          "texture": "#trim"
+          "texture": "#topper"
         },
         "east": {
           "uv": [
-            2.6,
+            3,
             0.1,
             13.4,
-            3
+            3.5
           ],
-          "texture": "#trim"
+          "texture": "#topper"
         }
       }
     }

@@ -4,13 +4,10 @@
     "particle": "burmaldaholic:block/extras/plinko_machine_side",
     "side": "burmaldaholic:block/extras/plinko_machine_side",
     "front": "burmaldaholic:block/extras/plinko_machine_front",
-    "top": "burmaldaholic:block/extras/plinko_machine_top",
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
-    "rail": "burmaldaholic:block/core/tables/high_roller/rail",
-    "felt": "burmaldaholic:block/core/tables/high_roller/felt",
-    "bars": "minecraft:block/iron_bars",
-    "glass": "minecraft:block/glass"
+    "dark": "burmaldaholic:block/core/tables/high_roller/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs"
   },
   "elements": [
     {

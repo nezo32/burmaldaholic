@@ -278,6 +278,16 @@ public class MultiBlockTableBlock extends CasinoTableBlock {
 		return result;
 	}
 
+	/**
+	 * Only the main (or compact) block ever drops the item. Done in code, not only in the loot table: 26.3 replaced the
+	 * loot predicate format ({@code conditions}/{@code block_state_property} → {@code condition}/{@code match_block}) and
+	 * silently ignores the 26.2 form, so a JSON-only part check would drop one item per cell there.
+	 */
+	@Override
+	protected List<ItemStack> getDrops(BlockState state, net.minecraft.world.level.storage.loot.LootParams.Builder params) {
+		return state.getValue(partProperty()).isController() ? super.getDrops(state, params) : List.of();
+	}
+
 	/** A part value whose loot table drops nothing (any non-controller part of this block). */
 	protected TablePart noLootPart() {
 		for (TablePart p : partProperty().getPossibleValues()) {
