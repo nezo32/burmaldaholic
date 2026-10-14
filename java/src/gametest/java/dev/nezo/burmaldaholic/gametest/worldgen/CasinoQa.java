@@ -142,6 +142,9 @@ public final class CasinoQa {
 	}
 
 	public static List<Target> all(MinecraftServer server) {
+		if ("standalone".equals(System.getProperty("burmaldaholic.casinoQaOnly"))) {
+			return standalone(server); // -Dburmaldaholic.casinoQaOnly=standalone: only the standalone structures
+		}
 		List<Target> out = new ArrayList<>(standalone(server));
 		out.addAll(v2Singles());
 		out.addAll(legacy());
@@ -338,12 +341,35 @@ public final class CasinoQa {
 		for (BlockPos p : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
 			BlockState s = level.getBlockState(p);
 			Game g = gameOf(s);
-			if (g != null) {
+			if (g != null && holdsEntity(s)) {
 				Direction f = s.hasProperty(CasinoTableBlock.FACING) ? s.getValue(CasinoTableBlock.FACING) : Direction.UP;
 				out.add(new Spot(p.immutable(), g, f));
 			}
 		}
 		return out;
+	}
+
+	/** Multi-block tables / machines (MT): one game per block entity, i.e. its MAIN (or compact SINGLE) cell. */
+	static boolean holdsEntity(BlockState s) {
+		for (net.minecraft.world.level.block.state.properties.Property<?> p : s.getProperties()) {
+			if (p.getName().equals("part")) {
+				String v = s.getValue(p).toString().toLowerCase(java.util.Locale.ROOT);
+				return v.equals("main") || v.equals("single");
+			}
+		}
+		return true;
+	}
+
+	/** Where a game's light is read: above a table's main block; for an upright multi-block machine, the player's head. */
+	static BlockPos lightProbe(ServerLevel level, Spot s) {
+		BlockState st = level.getBlockState(s.pos());
+		boolean upright = dev.nezo.burmaldaholic.core.table.parts.MachineKind.ofBlockName(
+			BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath()) != null;
+		boolean full = false;
+		for (net.minecraft.world.level.block.state.properties.Property<?> p : st.getProperties()) {
+			full |= p.getName().equals("part") && st.getValue(p).toString().equalsIgnoreCase("main");
+		}
+		return upright && full && s.facing().getAxis() != Direction.Axis.Y ? s.playerCell().above() : s.pos().above();
 	}
 
 	// ---- static checks on placed buildings ------------------------------------------------------------------------
@@ -405,7 +431,7 @@ public final class CasinoQa {
 	public static List<String> lightProblems(ServerLevel level, Placed placed) {
 		List<String> bad = new ArrayList<>();
 		for (Spot s : placed.spots()) {
-			int l = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, s.pos().above());
+			int l = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, lightProbe(level, s));
 			if (l < 10) {
 				bad.add(s + ": block light " + l + " < 10 above");
 			}
