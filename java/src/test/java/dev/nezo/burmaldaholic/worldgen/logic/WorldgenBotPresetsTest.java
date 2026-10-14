@@ -47,8 +47,8 @@ class WorldgenBotPresetsTest {
 			for (int y = 0; y < l.size().y(); y++) {
 				for (int z = 0; z < l.size().z(); z++) {
 					BlockSpec b = l.grid().get(x, y, z);
-					if (b == null) {
-						continue;
+					if (b == null || (b.properties().containsKey("part") && !"main".equals(b.properties().get("part")))) {
+						continue; // MT: one entry per table (its main block)
 					}
 					Optional<String> game = WorldgenBotPresets.gameOf(b.name());
 					if (game.isEmpty()) {

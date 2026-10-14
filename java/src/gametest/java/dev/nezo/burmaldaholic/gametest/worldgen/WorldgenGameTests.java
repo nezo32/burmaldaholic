@@ -434,25 +434,26 @@ public class WorldgenGameTests {
 			Layout l = Layouts.village(styles[i]);
 			BlockPos origin = origin(helper).offset(0, 40 + i * 12, 0);
 			boxes.add(CasinoBuilder.build(level, l, origin, Rotation.NONE).orElseThrow());
-			BlockPos table = origin.offset(12, 1, 13);
+			BlockPos table = origin.offset(12, 1, 14);
 			BlockState state = level.getBlockState(table);
 			helper.assertTrue(state.getBlock() == dev.nezo.burmaldaholic.games.baccarat.BaccaratModule.TABLE.block(),
-				l.id() + ": baccarat table at (12, 1, 13), found " + state);
+				l.id() + ": baccarat table (main block) at (12, 1, 14), found " + state);
 			helper.assertTrue(state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING) == Direction.SOUTH,
 				l.id() + ": baccarat faces the hall (south)");
-			for (BlockPos cell : new BlockPos[] {table.south(), table.south(2), table.north()}) {
+			// MT: players on the walkway row south of the 3×2 table, the dealer two rows behind the main block
+			for (BlockPos cell : new BlockPos[] {table.south(), table.south().east(), table.south().west(), table.north(2)}) {
 				helper.assertTrue(walkable(level, cell) && free(level, cell.above()), l.id() + ": free cell at " + cell.subtract(origin));
 			}
 			// lit by the template's own light above the table (the world light engine runs asynchronously, so a just-built
-			// casino reads dark on its first tick on CI): glowstone at (12, 5, 13) is 4 blocks from the player's head cell
-			int emission = level.getBlockState(table.above(4)).getLightEmission();
-			helper.assertTrue(emission - 4 >= 8, l.id() + ": player side is lit (light above the table emits " + emission + ")");
+			// casino reads dark on its first tick on CI): glowstone at (12, 5, 13) is 5 blocks from the player's head cell (12, 2, 15)
+			int emission = level.getBlockState(origin.offset(12, 5, 13)).getLightEmission();
+			helper.assertTrue(emission - 5 >= 8, l.id() + ": player side is lit (light above the table emits " + emission + ")");
 			helper.assertTrue(reachable(level, origin, origin.offset(8, 1, 16), table.south()), l.id() + ": baccarat reachable from the entrance");
 		}
 
 		// Plains: a player standing at the table opens it by using the block and bets through the packet path.
 		BlockPos origin = origin(helper).offset(0, 40, 0);
-		BlockPos table = origin.offset(12, 1, 13);
+		BlockPos table = origin.offset(12, 1, 14);
 		dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, true);
 		// connected like a real Survival player (RealFlowTableGameTests): the block's own use handler opens the menu
 		var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(

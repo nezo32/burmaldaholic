@@ -42,7 +42,7 @@ final class BotInteractions {
 		});
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
 			if (player instanceof ServerPlayer sp && !sp.isShiftKeyDown() && CasinoMode.isEnabled(sp)) {
-				BotTables.at(sp.level(), hit.getBlockPos()).ifPresent(f -> askToJoin(sp, f));
+				BotTables.at(sp.level(), dev.nezo.burmaldaholic.core.table.parts.TableParts.mainOf(sp.level(), hit.getBlockPos())).ifPresent(f -> askToJoin(sp, f));
 			}
 			return InteractionResult.PASS;
 		});

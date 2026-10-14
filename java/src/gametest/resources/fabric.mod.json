@@ -45,7 +45,8 @@
 			"dev.nezo.burmaldaholic.gametest.extras.ExtrasRevealGameTests",
 			"dev.nezo.burmaldaholic.gametest.realflow.RealFlowWorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.realflow.RealFlowPokerGameTests",
-			"dev.nezo.burmaldaholic.gametest.realflow.RealFlowMinBetGameTests"
+			"dev.nezo.burmaldaholic.gametest.realflow.RealFlowMinBetGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.MultiBlockTableGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.tables.TablesClientGameTests",

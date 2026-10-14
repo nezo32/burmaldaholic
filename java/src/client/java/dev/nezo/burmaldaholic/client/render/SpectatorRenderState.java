@@ -13,4 +13,7 @@ public class SpectatorRenderState extends BlockEntityRenderState {
 	public double distSq;
 	/** Level of detail for this frame. */
 	public SpectatorBlockEntityRenderer.Lod lod = SpectatorBlockEntityRenderer.Lod.STATIC;
+	/** MT: part of the block (SINGLE for compact tables and machines) and its footprint kind (null for machines). */
+	public dev.nezo.burmaldaholic.core.table.parts.TablePart tablePart = dev.nezo.burmaldaholic.core.table.parts.TablePart.SINGLE;
+	public dev.nezo.burmaldaholic.core.table.parts.@org.jspecify.annotations.Nullable TableGame tableGame;
 }
