@@ -31,6 +31,7 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenSpawnSurvey",
+			"dev.nezo.burmaldaholic.gametest.worldgen.LocateGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.CasinoModeDefaultGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratGameTests",
 			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests",
