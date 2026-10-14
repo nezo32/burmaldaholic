@@ -1,18 +1,108 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,part=single": {
       "model": "burmaldaholic:block/uth/table_high_roller"
     },
-    "facing=east": {
+    "facing=north,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/main"
+    },
+    "facing=north,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/left"
+    },
+    "facing=north,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/right"
+    },
+    "facing=north,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_left"
+    },
+    "facing=north,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back"
+    },
+    "facing=north,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_right"
+    },
+    "facing=east,part=single": {
       "model": "burmaldaholic:block/uth/table_high_roller",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/main",
+      "y": 90
+    },
+    "facing=east,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/left",
+      "y": 90
+    },
+    "facing=east,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/right",
+      "y": 90
+    },
+    "facing=east,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_left",
+      "y": 90
+    },
+    "facing=east,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back",
+      "y": 90
+    },
+    "facing=east,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_right",
+      "y": 90
+    },
+    "facing=south,part=single": {
       "model": "burmaldaholic:block/uth/table_high_roller",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/main",
+      "y": 180
+    },
+    "facing=south,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/left",
+      "y": 180
+    },
+    "facing=south,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/right",
+      "y": 180
+    },
+    "facing=south,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_left",
+      "y": 180
+    },
+    "facing=south,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back",
+      "y": 180
+    },
+    "facing=south,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_right",
+      "y": 180
+    },
+    "facing=west,part=single": {
       "model": "burmaldaholic:block/uth/table_high_roller",
+      "y": 270
+    },
+    "facing=west,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/main",
+      "y": 270
+    },
+    "facing=west,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/left",
+      "y": 270
+    },
+    "facing=west,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/right",
+      "y": 270
+    },
+    "facing=west,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_left",
+      "y": 270
+    },
+    "facing=west,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back",
+      "y": 270
+    },
+    "facing=west,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_high_roller/back_right",
       "y": 270
     }
   }

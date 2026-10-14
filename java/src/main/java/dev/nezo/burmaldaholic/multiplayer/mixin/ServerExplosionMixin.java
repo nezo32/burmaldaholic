@@ -29,7 +29,7 @@ abstract class ServerExplosionMixin {
 		List<BlockPos> kept = null;
 		for (int i = 0; i < positions.size(); i++) {
 			BlockPos pos = positions.get(i);
-			boolean prot = Ownership.isExplosionProof(level, pos);
+			boolean prot = Ownership.isExplosionProof(level, pos) || burmaldaholic$houseProof(pos);
 			if (prot && kept == null) {
 				kept = new ArrayList<>(positions.subList(0, i));
 			} else if (!prot && kept != null) {
@@ -39,5 +39,14 @@ abstract class ServerExplosionMixin {
 		if (kept != null) {
 			cir.setReturnValue(kept);
 		}
+	}
+
+	/** MT: house games (CB-G hook) are explosion-proof as a whole — any part resolves to the main block. */
+	@org.spongepowered.asm.mixin.Unique
+	private boolean burmaldaholic$houseProof(BlockPos pos) {
+		var state = level.getBlockState(pos);
+		return state.getBlock() instanceof dev.nezo.burmaldaholic.core.table.CasinoTableBlock
+			&& dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().explosionProof(level,
+				dev.nezo.burmaldaholic.core.table.parts.TableParts.mainPos(pos, state));
 	}
 }

@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "burmaldaholic:block/baccarat/table_player_banked"
+    "model": "burmaldaholic:block/tables/baccarat_table_player_banked/item"
   }
 }

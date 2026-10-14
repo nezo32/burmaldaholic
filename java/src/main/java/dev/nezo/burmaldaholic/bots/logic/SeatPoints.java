@@ -1,7 +1,8 @@
 package dev.nezo.burmaldaholic.bots.logic;
 
 /**
- * Where a seat's avatar nameplate floats (BOTS.md §7.2): seats are spread over the half circle on the
+ * Legacy (compact 1×1 table) seat points; {@code core.table.parts.TableFootprint#seatPoint} is the single source
+ * for every table now and reproduces this for {@code part=single}. Where a seat's avatar nameplate floats (BOTS.md §7.2): seats are spread over the half circle on the
  * players' side of the table (the side the table faces), {@link #RADIUS} blocks from the block centre,
  * {@link #HEIGHT} blocks above the table top. Pure math; the facing is a unit step (fx, fz) such as
  * (0, 1) for south.

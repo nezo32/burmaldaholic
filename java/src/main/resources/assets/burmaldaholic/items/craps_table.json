@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "burmaldaholic:block/craps/craps_table"
+    "model": "burmaldaholic:block/tables/craps_table/item"
   }
 }

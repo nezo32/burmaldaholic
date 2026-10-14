@@ -1,18 +1,108 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,part=single": {
       "model": "burmaldaholic:block/core/nether_cashier"
     },
-    "facing=east": {
+    "facing=north,part=main": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/main"
+    },
+    "facing=north,part=left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/left"
+    },
+    "facing=north,part=right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/right"
+    },
+    "facing=north,part=upper_left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_left"
+    },
+    "facing=north,part=upper": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper"
+    },
+    "facing=north,part=upper_right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_right"
+    },
+    "facing=east,part=single": {
       "model": "burmaldaholic:block/core/nether_cashier",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,part=main": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/main",
+      "y": 90
+    },
+    "facing=east,part=left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/left",
+      "y": 90
+    },
+    "facing=east,part=right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/right",
+      "y": 90
+    },
+    "facing=east,part=upper_left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_left",
+      "y": 90
+    },
+    "facing=east,part=upper": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper",
+      "y": 90
+    },
+    "facing=east,part=upper_right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_right",
+      "y": 90
+    },
+    "facing=south,part=single": {
       "model": "burmaldaholic:block/core/nether_cashier",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,part=main": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/main",
+      "y": 180
+    },
+    "facing=south,part=left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/left",
+      "y": 180
+    },
+    "facing=south,part=right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/right",
+      "y": 180
+    },
+    "facing=south,part=upper_left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_left",
+      "y": 180
+    },
+    "facing=south,part=upper": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper",
+      "y": 180
+    },
+    "facing=south,part=upper_right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_right",
+      "y": 180
+    },
+    "facing=west,part=single": {
       "model": "burmaldaholic:block/core/nether_cashier",
+      "y": 270
+    },
+    "facing=west,part=main": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/main",
+      "y": 270
+    },
+    "facing=west,part=left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/left",
+      "y": 270
+    },
+    "facing=west,part=right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/right",
+      "y": 270
+    },
+    "facing=west,part=upper_left": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_left",
+      "y": 270
+    },
+    "facing=west,part=upper": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper",
+      "y": 270
+    },
+    "facing=west,part=upper_right": {
+      "model": "burmaldaholic:block/core/machines/nether_cashier/upper_right",
       "y": 270
     }
   }

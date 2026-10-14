@@ -312,6 +312,7 @@ public final class PlinkoMachineRenderer extends SpectatorBlockEntityRenderer<Pl
 	public void submit(State s, PoseStack pose, SubmitNodeCollector out, CameraRenderState camera) {
 		int light = s.lightCoords;
 		pose.pushPose();
+		dev.nezo.burmaldaholic.client.table.TableFrames.toFullFace(pose, s.tablePart, s.machineKind, s.facing); // MT-3: 3 × 3 board
 		pose.translate(0.5f, 0f, 0.5f);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f);
 		boolean anyLamp = false;
