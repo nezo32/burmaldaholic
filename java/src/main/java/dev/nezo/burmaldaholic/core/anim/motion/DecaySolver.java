@@ -9,6 +9,10 @@ package dev.nezo.burmaldaholic.core.anim.motion;
  * integral is {@code Θ(k) = T·[ωD + (ωS − ωD)·G(k)]} with {@code G(k) = ((1 − e^(−k))/k − e^(−k)) / (1 − e^(−k))},
  * strictly decreasing in k (for ωS > ωD). {@link #solve} bisects k so that Θ(k) equals the target.
  *
+ * <p>Transcendentals use {@link StrictMath}, so the solved k (and every discrete choice a caller derives from it,
+ * e.g. RO §2.4's scatter pick) is bit-identical on every CPU and JVM. To put a solution into a {@link Track}, use
+ * {@code Track.Seg.decay(ch, solution)} (unit conversion included).
+ *
  * <p>Units: speeds in degrees (or any unit) per SECOND, {@code T} in SECONDS, angles in the same unit as speed·s.
  */
 public final class DecaySolver {
@@ -42,7 +46,7 @@ public final class DecaySolver {
 		/** Deceleration (−dω/ds, ≥ 0 when ωS ≥ ωD) at {@code s} seconds. */
 		public double decel(double s) {
 			double x = Math.max(0, Math.min(1, s / T));
-			return (omegaS - omegaD) * k * Math.exp(-k * x) / (T * oneMinusExp(k));
+			return (omegaS - omegaD) * k * StrictMath.exp(-k * x) / (T * oneMinusExp(k));
 		}
 	}
 
@@ -58,7 +62,8 @@ public final class DecaySolver {
 	 * @param kMax   upper bound of k, e.g. 6
 	 */
 	public static Solution solve(double omegaS, double omegaD, double T, double target, double kNat, double kMin, double kMax) {
-		if (!(T > 0) || !(kMin > 0) || !(kMax >= kMin) || !Double.isFinite(target)) {
+		if (!(T > 0) || !Double.isFinite(T) || !(kMin > 0) || !(kMax >= kMin) || !Double.isFinite(kMax) || !Double.isFinite(target)
+			|| !Double.isFinite(omegaS) || !Double.isFinite(omegaD)) {
 			throw new IllegalArgumentException("T " + T + " k [" + kMin + ", " + kMax + "] target " + target);
 		}
 		if (omegaS == omegaD) {
@@ -114,19 +119,19 @@ public final class DecaySolver {
 	public static double bigG(double k) {
 		if (k < 1e-3) return 0.5 - k / 12 + k * k * k / 720;
 		double om = oneMinusExp(k);
-		return (om / k - Math.exp(-k)) / om;
+		return (om / k - StrictMath.exp(-k)) / om;
 	}
 
 	/** Speed of the profile at {@code s} seconds. */
 	public static double omega(double k, double omegaS, double omegaD, double T, double s) {
 		double x = Math.max(0, Math.min(1, s / T));
-		return omegaD + (omegaS - omegaD) * (Math.exp(-k * x) - Math.exp(-k)) / oneMinusExp(k);
+		return omegaD + (omegaS - omegaD) * (StrictMath.exp(-k * x) - StrictMath.exp(-k)) / oneMinusExp(k);
 	}
 
 	/** Distance covered after {@code s} seconds: {@code ωD·s + (ωS−ωD)·T·[(1−e^(−kx))/k − x·e^(−k)]/(1−e^(−k))}. */
 	public static double angle(double k, double omegaS, double omegaD, double T, double s) {
 		double x = Math.max(0, Math.min(1, s / T));
-		double integ = T * (-Math.expm1(-k * x) / k - x * Math.exp(-k)) / oneMinusExp(k);
+		double integ = T * (-StrictMath.expm1(-k * x) / k - x * StrictMath.exp(-k)) / oneMinusExp(k);
 		return omegaD * x * T + (omegaS - omegaD) * integ;
 	}
 
@@ -153,6 +158,6 @@ public final class DecaySolver {
 	}
 
 	private static double oneMinusExp(double k) {
-		return -Math.expm1(-k);
+		return -StrictMath.expm1(-k);
 	}
 }

@@ -30,6 +30,18 @@ class ArtScaleTest {
 		assertTrue(r.fits(0.7 * 427, 186));
 	}
 
+	@Test
+	void degenerateBoxesNeverGiveScaleZero() {
+		double[][] boxes = {{0, 0}, {-5, 100}, {100, -1}, {Double.NaN, 100}, {100, Double.NaN}, {0.0001, 0.0001}};
+		for (double[] b : boxes) {
+			for (int k = 1; k <= 12; k++) {
+				ArtScale.Result r = ArtScale.pick(272, 204, b[0], b[1], k);
+				assertTrue(r.scale() > 0 && Double.isFinite(r.scale()), "scale > 0 for box " + b[0] + "x" + b[1]);
+				assertTrue(r.n() >= ArtScale.MIN_RATIO);
+			}
+		}
+	}
+
 	private static void plinko(int w, int h, int k, double playH, double n, int bw, int bh) {
 		double boxW = 0.7 * w; // columns 1–9 of the PlayArea: never the binding limit (spec: "width limit is checked too")
 		ArtScale.Result r = ArtScale.pick(272, 204, boxW, playH, k);

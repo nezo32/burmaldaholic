@@ -23,7 +23,7 @@ per second, unless a javadoc says otherwise.
 | `ArtScale` | `pick(artW, artH, boxW, boxH, k)` returns `Result(r, n, integral, scale, w, h)` with `originX/originY` floored to 1/k. `pickNative(sizes, avail, k)` covers the roulette focus wheel (largest native size, then integer ×n) |
 | `PixelSnap` | `snap(gui, k)`, `floor`, `phys`, `at(origin, art, scale, k)`, `snapF` |
 | `StageMap` | The CS `ArenaMap` (PHASE2B §3.1): a per-axis affine map plus `zScale`, `mirrored(w)` for the right duel lane, and inverses |
-| `Oscillation` | `dampedSin`, `dampedCos`, `envelope`, and `shake` (cut to exactly 0 when finished) |
+| `Oscillation` | `dampedSin`, `dampedCos`, `envelope`, `shake` (cut to exactly 0 when finished) and `periodOfHz`; decay and PERIOD in ms, like `Track.Seg.osc` |
 | `SpeedPolicy` | `SHARED` / `LOCAL` with `scale(ms, speed, clientPostsResult)`, `duration`, `factor` and `speedOf(pct)` (D1) |
 | `FxGate` | The reduced-motion and flashes gate, with `Kind {SHAKE, PARTICLES, FLASH, STREAK, MOTION}`, a `Recorder`, and a `Counter` for tests |
 | `SoundMixer` | The pure voicing rules: a 30 ms merge window (+0.1 volume per merged offer), per-id `limit(id, n/s)`, `always(id)`, and `leadVoicing(crowdAbove, othersEvery)` + `crowd(n, lead)` |
@@ -35,13 +35,35 @@ Client package `dev.nezo.burmaldaholic.client.fx.motion`:
 | `MotionClock` | `levelMs(partial)`, `msSince(startTick, partial)`, `msSince(TableClock, ...)` and `localMs()`. `testOverride` is a `LongSupplier` of level ms (null in production). `TableClock.nowTicks` honours it too |
 | `MotionFx` | `shake/particles/flash/streak/motion(what)` go through `FxGate` with `FxSettings.reduceMotion()/flashes()`. `recorder` is the test hook |
 | `GuiShake` | `push(Matrix3x2fStack, a, tauMs, hz, tMs, k[, what])` / `pop` (`what` names the effect for the test recorder); `offset(...)`. Gated, and snapped to physical px. The 26.x GUI pose is a `Matrix3x2fStack`, not a `PoseStack` |
-| `SnapDraw` | `blitF(g, sprite, x, y, w, h, k[, argb])`, `regionF(...)` and `frameF(...)`: float positions snapped to 1/k, then a 1:1 blit. Scale overloads `blitF(g, sprite, x, y, w, h, scale, k, argb)`, `regionF(..., argb, scale, k)`, `frameF(..., argb, scale, k)` draw on an ArtScale stage (Plinko ball 8/9 at 4K GUI 9, dice 8/9 or 5/2, roulette ball ×2): snap first, then scale, so texel edges land on `round(x·k) + i·n` physical px (`PixelSnap.texelEdge`). Sizes are in art px. `TableGfx.regionF/frameF` delegate here (RO §3.1) |
+| `SnapDraw` | `blitF(g, sprite, x, y, w, h, [argb,] k)`, `regionF(..., argb, k)` and `frameF(..., argb, k)`: float positions snapped to 1/k, then a 1:1 blit. Scale overloads `blitF(g, sprite, x, y, w, h, argb, scale, k)`, `regionF(..., argb, scale, k)`, `frameF(..., argb, scale, k)` draw on an ArtScale stage (Plinko ball 8/9 at 4K GUI 9, dice 8/9 or 5/2, roulette ball ×2): snap first, then scale, so texel edges land on `round(x·k) + i·n` physical px (`PixelSnap.texelEdge`). Sizes are in art px. `TableGfx.regionF/frameF` delegate here (RO §3.1) |
 | `SoundCursor` | Wraps `EventCursor` and `SoundMixer` and sends to `FxSounds.play/playAt`. Per frame: `crowd()`, then `advance(cursor, now, offset, Voicing, visualListener)` for each object, then `flush()`. Silent (late) events reach the visual listener only. `muted()` covers the `viewingOwnScreen` case |
 
 Other API pieces:
 - `FxSounds.loop(id, DoubleSupplier pitch, DoubleSupplier volume, BooleanSupplier alive)` returns a `Handle` (`active()`, `release()`). It is a tickable looping instance whose volume is × `FxSettings.volume()` every tick, with pitch clamped to 0.5–2. `activeLoops()` reports the count.
 - **`MAX_LOOPS = 2` is CLIENT-WIDE.** Every screen and renderer shares these two slots: the roulette screen's `roulette_roll`, an in-world roll loop, RO §5's `roulette_rake` drag loop, any Plinko anticipation loop. A third `loop()` returns `Handle.NONE` and stays silent. RO/PL: start a loop only while it is audible, `release()` it as soon as it ends, keep the in-world loop to the nearest table only (RO §4), and treat `NONE` as "no loop". Slots are freed at once by `release()`, by `alive` turning false, and when the sound engine drops the sound (disconnect, `/stopsound`, sound reload): `FxSounds` prunes any loop the engine no longer reports `isActive` (pure bookkeeping in `core/anim/motion/LoopBudget`, tested by `LoopBudgetTest`; fixes T-MK D1).
 - `AnimClock.freezeForTest(levelMs)`, `unfreezeForTest()` and `frozen()`: `levelMs` and `sharedMs` honour the freeze.
+
+## MK-2 follow-up (review R-MK): API changes for dependents
+
+Merged-into-feature compatibility: all changes are additive except the four marked **BREAKING**. DCa is the only
+current consumer; its two `blitF(..., k, argb)` calls keep working through the swap guard, but should be flipped.
+
+| Change | What callers do |
+|---|---|
+| `Track.Seg.decay(ch, DecaySolver.Solution)` | RO stage B: `b.seg(sol.T()*1000).decay(chAngle, sol).done()`. It emits the EXP_DECAY (τc = T/k, v∞ = ωD − (ωS−ωD)e^(−k)/(1−e^(−k)), v0 = ωS), and the segment ends exactly on `sol.theta()` (TrackTest round trip over 2000 solves, 1e-9). The duration must equal `sol.T()` in ms. |
+| **BREAKING (semantics)** `Oscillation.dampedSin/shake(a, tauMs, periodMs, t)` | Every Oscillation function and `Track.Seg.osc` now take a PERIOD in ms; `Oscillation.periodOfHz(22)` gives 1000/22. `GuiShake.push` keeps its `hz` argument (spec wording) and converts. `shake` with `tauMs ≤ 0` returns 0 (never an endless shake). |
+| `Track.Seg.osc` with a negative `tauMs` | The envelope grows (RO §2.3 hunting wobble that rises). |
+| `FxSounds.loop(..., LoopPriority.SCREEN/WORLD)` | The 4-argument `loop` = SCREEN. WORLD loops hold at most 1 of the 2 client-wide slots and are evicted (released) when a SCREEN loop needs a slot. A SCREEN loop stops by itself when the screen that was open at `loop()` time closes. At `anim.volume` 0, `loop` returns `NONE`. **Re-request:** poll `handle.active()`; when it is false while the sound is still wanted, call `loop` again (eviction, reload or a volume change can end a loop at any time). `alive` = "still wanted". |
+| Track builder | `Seg.done()` twice, or any setter on a closed `Seg`, throws `IllegalStateException`. |
+| DecaySolver | Rejects NaN or infinite ωS, ωD, T, kMax and target. |
+| **Deterministic maths** | Track, DecaySolver and Oscillation use `StrictMath` for exp/expm1/atan2, and the new `DetMath.sin/cos` for sin/cos, so values are bit-identical across CPUs and JVMs. Discrete choices made from them (RO scatter pick, DCa tips) agree between viewers. On JDK 25, `StrictMath.sin/cos` allocate 32 B on every call (FdLibm reduction buffer), which TrackTest's 0-alloc check caught. `DetMath` uses an IEEE-exact Cody–Waite reduction plus fdlibm's kernel polynomials: allocation-free and within a few ulp of StrictMath (`DetMathTest`). DCa and other game code needing deterministic, allocation-free trig in per-frame paths should use `DetMath`. Golden vectors moved ≤ 9e-16 relative. |
+| **BREAKING (order)** `SnapDraw.blitF(..., argb, k)` and `blitF(..., argb, scale, k)` | Same order as `regionF` and `frameF`. A legacy `(k, argb)` call is detected (k outside 1..64 while argb is in 1..64) and swapped back. **DCa: flip `DiceDraw.java:93,115` to `(…, argb, k)`.** SnapDraw never throws in render: a non-positive scale draws nothing, and `k` is clamped to 1..64. |
+| ArtScale | Never returns scale 0: degenerate or NaN boxes give `MIN_RATIO` = 1e-3 (tested). |
+| **BREAKING** `HeightShadow.apply(z, k, out)` removed | Pass a style: `apply(HeightShadow.ROULETTE/DICE/CRAPS, z, k, out)`. |
+| One test clock | `AnimClock.testLevelMs()` is the single hook: `freezeForTest` wins, else `MotionClock.testOverride`. `AnimClock.levelMs/sharedMs`, `MotionClock.levelMs/localMs` and `TableClock.nowTicks` all read it, so LOCAL beats freeze too. |
+| Golden test | `CoreMotionVectorsTest` FAILS when `core_motion.json` is missing; regenerate only with `FX_DUMP_VECTORS=1`. (The older `*VectorsTest`s outside MK keep their self-regenerating pattern; they are not MK-owned.) |
+| Ballistic | `fallTime` returns the LATER root (the descending crossing when thrown upward), as documented and tested. Every function validates `g` (finite, > 0). |
+| Smaller fixes | `GuiShake` y offset is snapped from the unsnapped value (symmetric). `BounceChain.plan` javadoc on `v0` is fixed. The `SoundCursor` javadoc says to keep listeners in fields (a `b::visual` reference allocates). |
 
 ## Requirement checklist per spec
 
@@ -56,7 +78,7 @@ PL = PLINKO-ANIM-SPEC, RO = ROULETTE, DI = DICE, CS = CRAPS. ✓ = provided by M
 - ✓ §2.4/§7 TURBO allowed, SLOW never slows shared time: `SpeedPolicy.SHARED.scale(ms, speed, true)`.
 - ✓ §3.1 ArtScale rows (427×240 k9 → n 8 … 960×540 k4 → 8), origin on 1/G, physical-px snap of moving things: `ArtScale`, `PixelSnap`, `SnapDraw`.
 - ✓ §3.3 trail: `Streak(6, 60, 60, …)` or a fixed sampler; dots snapped with `SnapDraw`.
-- ✓ §3.4 peg wobble `A·e^(−t/40)·cos(2πt/90)`: `Oscillation.dampedCos`.
+- ✓ §3.4 peg wobble `A·e^(−t/40)·cos(2πt/90)`: `Oscillation.dampedCos(A, 40, 90, t)` (period in ms).
 - ✓ §3.5 tier shake `A·e^(−t/τ)·sin(2π·22t)`, x and y/2, snapped: `GuiShake`.
 - ✓ §3.4/§3.5/§3.8 flashes off and reduced-motion gates: `MotionFx`.
 - ✓ §3.9 event cursor per ball, render plus containerTick fallback, hitch (lateMs 120): `EventCursor`.
@@ -68,7 +90,7 @@ PL = PLINKO-ANIM-SPEC, RO = ROULETTE, DI = DICE, CS = CRAPS. ✓ = provided by M
 
 ### RO
 - ✓ §2.2 rotor `ω_idle + (ω_a − ω_idle)·e^(−t/τ)` in closed form: `Track` `EXP_DECAY`, with the push as `CONST_ACCEL` or a separate segment.
-- ✓ §2.3 stage A exponential orbit: `EXP_DECAY`. Stage B: `DecaySolver` (g_k profile, Θ(k) monotone on [0.2, 6], k_nat via `kForDecel`).
+- ✓ §2.3 stage A exponential orbit: `EXP_DECAY`. Stage B: `DecaySolver` (g_k profile, Θ(k) monotone on [0.2, 6], k_nat via `kForDecel`), put into a track with `Seg.decay(ch, sol)`.
 - ✓ §2.4 bisection to 1e-9 with a bound path (`ok=false` plus a residual, so RO shifts t_D): DecaySolverTest (10k random cases).
 - ✓ §2.3 drop spiral radius `r_D − ½as²`: `CONST_ACCEL`. Deflector dip `−A·s·e^(−s/30)`: RO composes it (◐).
 - ✓ §2.3 rattle: `BounceChain` with `Lattice.pockets()`, 4–7 hops, T₀ 220 ±15 %, e_n 0.66–0.76, e_t 0.45–0.62, z₀ 4 px, alternating fret/floor, kick-back p 0.3 in the last 3 hops, skid ≤ 90 ms, exact final pocket, `withTimeScale(c)` for the §2.4 tail compression. RO picks `s` and the target (BounceChainTest).
@@ -107,8 +129,8 @@ PL = PLINKO-ANIM-SPEC, RO = ROULETTE, DI = DICE, CS = CRAPS. ✓ = provided by M
 - ✗ CrapsThrow, CrapsBeats.of, layout, atlas, chips: CM/DCa.
 
 ## Verified (exact commands; JDK 25.0.4.1, in `java/`)
-- `./gradlew --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g compileJava compileClientJava compileGametestJava test`: BUILD SUCCESSFUL, 1323 tests, 0 failures/errors (RawInputGuardTest included; re-run after the T-MK fixes).
-- The same with `-Pmc=26.3`: BUILD SUCCESSFUL, 1323 tests, 0 failures.
+- `compileJava compileClientJava compileGametestJava test` (heavy lock, `--max-workers=6 -Xmx4g`): BUILD SUCCESSFUL, 1332 tests, 0 failures/errors (RawInputGuardTest included; re-run after the MK-2 review fixes).
+- The same with `-Pmc=26.3`: BUILD SUCCESSFUL, 1332 tests, 0 failures.
 - New MK tests (`core/anim/motion`): TrackTest (5), DecaySolverTest (4, including the 10k-case sweep), BounceChainTest (4, 4000 seeded rattles), EventCursorTest (4), ArtScaleTest (6), PixelSnapTest (3, k 1..12), SpeedPolicyTest (3), SoundCursorTest (4), MotionRngTest (3), MotionKitMiscTest (6), CoreMotionVectorsTest (golden `src/test/resources/fx/vectors/core_motion.json`; regenerate with `FX_DUMP_VECTORS=1`).
 
 ## T-MK fixes (re-test round)

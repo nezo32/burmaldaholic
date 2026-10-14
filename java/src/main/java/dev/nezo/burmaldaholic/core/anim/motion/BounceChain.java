@@ -164,7 +164,8 @@ public final class BounceChain {
 	 *
 	 * @param start   along coordinate of the first contact (t = 0)
 	 * @param v0      along speed just after the first contact (units/s); its sign is the direction when
-	 *                {@code target == start}; its magnitude only shapes the skids
+	 *                {@code target == start}; {@code v0 == 0} disables the skids (otherwise its magnitude is
+	 *                unused: distances come from the target and timings from {@code p})
 	 * @param target  final landing (with a lattice: a FLOOR point)
 	 * @param lattice landing lattice ({@link Lattice#NONE} = continuous)
 	 * @param p       parameters
