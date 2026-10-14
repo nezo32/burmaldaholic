@@ -41,12 +41,8 @@ public final class BotsClientModule implements CasinoClientModule {
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> BotTagVisibility.clear());
 		ClientPlayNetworking.registerGlobalReceiver(BotsScreenPayload.TYPE, (payload, context) -> accept(context.client(), payload));
 		// table UI v2: the TopBar gear of a bot table opens that table's settings (no extra button over the TopBar)
-		dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen.topSettingsHook = screen -> {
-			Minecraft mc = Minecraft.getInstance();
-			if (mc.level == null || !(mc.level.getBlockEntity(screen.getMenu().pos()) instanceof BotTable)) return false;
-			ClientPlayNetworking.send(new BotsActionPayload(screen.getMenu().pos(), "open", new CompoundTag()));
-			return true;
-		};
+		dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen.registerSettings(be -> be instanceof BotTable,
+			pos -> ClientPlayNetworking.send(new BotsActionPayload(pos, "open", new CompoundTag())));
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
 			if (screen instanceof dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen<?>) return;
 			if (screen instanceof CasinoTableScreen table && client.level != null
