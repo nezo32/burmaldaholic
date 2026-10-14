@@ -153,7 +153,7 @@ public final class DuelStageRenderer {
 				pose.pushPose();
 				pose.translate(l.plan.originX(side) - cam.x, l.plan.groundY() - cam.y, l.plan.originZ(side) - cam.z);
 				YAW.identity().rotateY((float) Math.toRadians(l.plan.yawDeg(side)));
-				pose.mulPose(YAW);
+				pose.rotateAround(YAW, 0f, 0f, 0f); // 26.3 PoseStack has no mulPose(Quaternionf)
 				DiceWorldDraw.shadow(pose, ctx.submitNodeCollector(), smp, h, 0f, light);
 				if (S.scale < 1) {
 					// a tied round's dice shrink into the thrower's hand (about the die centre)
