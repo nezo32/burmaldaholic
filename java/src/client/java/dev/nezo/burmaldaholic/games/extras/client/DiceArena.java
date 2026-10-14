@@ -94,7 +94,6 @@ final class DiceArena {
 	private int cursorRound = -1;
 	private double rattleUntil = Double.NaN;
 	private int beats;
-	private int beatRound = -1;
 
 	/** One result on the arena (a house roll or a PvP duel), with its solved rolls. */
 	static final class Show {
@@ -856,25 +855,17 @@ final class DiceArena {
 		}
 		int round = DuelTimeline.roundAt(t, show.roundCount());
 		double rt = t - DuelTimeline.roundStart(round);
-		boolean fresh = cursorShow != show || cursorRound != round;
-		if (fresh) {
-			boolean late = cursorShow != show && rt > 200 && !(cursorShow == null && rattles[0] != null);
+		if (cursorShow != show || cursorRound != round) {
+			// a new result / round / a skip: start the cursors at NOW, what already passed stays silent (DI §3.3 skip)
 			for (int order = 0; order < 2; order++) {
 				cursors[order] = DiceAudio.cursor(show.rolls[round][order].events());
-				double windUp = DuelTimeline.windUp(order, show.offset);
-				rattles[order] = DiceAudio.cursor(show.shakes[order].rattle(windUp, 2));
-				if (late || cursorShow == show) {
-					cursors[order].reset(rt - DuelTimeline.throwAt(0, order), true);
-					rattles[order].reset(rt + show.offset, true);
-				} else {
-					// continue the waiting rattle without repeating what already played
-					rattles[order].reset(rt + show.offset - 1, true);
-				}
+				rattles[order] = DiceAudio.cursor(show.shakes[order].rattle(DuelTimeline.windUp(order, show.offset), 2));
+				cursors[order].reset(rt - DuelTimeline.throwAt(0, order), true);
+				rattles[order].reset(rt + show.offset, true);
 			}
+			beats = rt > 200 ? beatsDone(show, round, rt) : 0;
 			cursorShow = show;
 			cursorRound = round;
-			beatRound = round;
-			beats = late ? beatsDone(show, round, rt) : 0;
 		}
 		for (int order = 0; order < 2; order++) {
 			if (!reduced) rattleAudio[order].advance(rattles[order], rt + show.offset, 0, null);
@@ -909,9 +900,6 @@ final class DiceArena {
 		rattleAudio[0].advance(waitRattle0, ms, 0, null);
 		rattleAudio[1].advance(waitRattle1, ms, 0, null);
 		if (ms > rattleUntil - 1000) waitRattle0 = null;
-		// the result's cursors take over from here
-		cursorShow = null;
-		rattles[0] = waitRattle0;
 	}
 
 	private static final int B_DRUM = 1, B_PIP0 = 2, B_PIP1 = 4, B_PIP2 = 8, B_PIP3 = 16, B_COMPARE = 32, B_STAMP = 64, B_OUTCOME = 128, B_TOTAL0 = 256,
