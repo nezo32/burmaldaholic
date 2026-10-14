@@ -472,23 +472,23 @@ public final class GrandCasino {
 			for (int x : new int[] {10, 14, 19}) {
 				m.set(x, ROW2 - 1, Z_LOGGIA - 2, lantern(m, true));
 			}
-			// balcony balustrade over the loggia with piers above the columns
-			Ornament.balustrade(m, 8, Z_LOGGIA, 19, Z_LOGGIA, ROW2 + 1, 4);
-			m.set(8, ROW2 + 1, Z_LOGGIA, m.palette().block(Role.CAPITAL));
-			m.set(8, ROW2 + 2, Z_LOGGIA, lantern(m, false));
-			m.set(16, ROW2 + 2, Z_LOGGIA, m.palette().get(Role.RAIL).slab("bottom"));
 		});
-		Ornament.balustrade(b, 20, Z_LOGGIA, 20, Z_LOGGIA, ROW2 + 1, 0);
-		// the crown sign: CASINO in neon froglight on the front wall, letters raised onto the balcony side
+		// the marquee façade over the loggia (the sign reads from the diagonals too: only one block behind the towers):
+		// a solid attic behind it, a gilt entablature on the arcade, the CASINO board in neon froglight with a bulb chaser
+		b.fill(X_COLONNADE + 1, ROW2, Z_FRONT, SX - 2 - X_COLONNADE, ROW2 + 7, Z_LOGGIA - 1, Role.WALL);
+		for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
+			b.set(x, ROW2, Z_LOGGIA, Role.BAND);
+			b.set(x, ROW2, Z_LOGGIA + 1, b.palette().get(Role.CORNICE).stairs(Facing.NORTH, true));
+		}
 		SignFont.Plan plan = SignFont.SMALL.line("CASINO");
-		Ornament.neon(b, plan, Facing.SOUTH, CX, ROW2 + 1, Z_FRONT, 1, false);
+		Ornament.neon(b, plan, Facing.SOUTH, CX, ROW2 + 1, Z_LOGGIA, 1, false);
 		// a proud gilt frame round the board: a hood of upside-down stairs on top, gilt jambs at both ends
 		for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
-			b.set(x, ROW2 + 7, Z_FRONT + 1, b.palette().get(Role.GILT).stairs(Facing.NORTH, true));
+			b.set(x, ROW2 + 8, Z_LOGGIA + 1, b.palette().get(Role.GILT).stairs(Facing.NORTH, true));
 		}
-		for (int y = ROW2 + 1; y <= ROW2 + 6; y++) {
-			b.set(X_COLONNADE + 1, y, Z_FRONT + 1, b.palette().get(Role.GILT).block());
-			b.set(SX - 2 - X_COLONNADE, y, Z_FRONT + 1, b.palette().get(Role.GILT).block());
+		for (int y = ROW2 + 1; y <= ROW2 + 7; y++) {
+			b.set(X_COLONNADE + 1, y, Z_LOGGIA + 1, b.palette().get(Role.GILT).block());
+			b.set(SX - 2 - X_COLONNADE, y, Z_LOGGIA + 1, b.palette().get(Role.GILT).block());
 		}
 		crown(b);
 	}
@@ -508,24 +508,25 @@ public final class GrandCasino {
 				for (int x = x0; x <= x1; x++) {
 					boolean edge = x == x0 || x == x1;
 					boolean flute = Math.floorMod(x - CX, 3) == 0;
-					b.set(x, y, Z_FRONT, edge ? gilt.block() : flute ? b.palette().block(Role.NEON_A) : b.palette().block(Role.SIGN_BACK));
-					b.set(x, y, Z_FRONT - 1, flute || edge ? Role.WALL_ALT : Role.WALL);
+					BlockSpec face = edge ? gilt.block() : flute ? b.palette().block(Role.NEON_A) : b.palette().block(Role.SIGN_BACK);
+					b.set(x, y, Z_LOGGIA, face);
+					b.set(x, y, Z_LOGGIA - 1, face); // double-faced: the crown glows toward the back too
 				}
 			}
 			for (int x = x0; x <= x1; x++) {
-				b.set(x, y, Z_FRONT, gilt.slab("bottom"));
-				b.set(x, y, Z_FRONT - 1, b.palette().get(Role.CORNICE).slab("bottom"));
+				b.set(x, y, Z_LOGGIA, gilt.slab("bottom"));
+				b.set(x, y, Z_LOGGIA - 1, gilt.slab("bottom"));
 			}
-			b.set(x0, y, Z_FRONT, b.palette().block(Role.BULB));
-			b.set(x1, y, Z_FRONT, b.palette().block(Role.BULB));
+			b.set(x0, y, Z_LOGGIA, b.palette().block(Role.BULB));
+			b.set(x1, y, Z_LOGGIA, b.palette().block(Role.BULB));
 		}
 		// keystone fin and rays
-		b.set(CX, y, Z_FRONT, Role.CAPITAL);
-		b.set(CX, y, Z_FRONT - 1, Role.WALL);
-		b.set(CX, y + 1, Z_FRONT, ROD_UP);
-		b.set(CX, y + 2, Z_FRONT, ROD_UP);
+		b.set(CX, y, Z_LOGGIA, Role.CAPITAL);
+		b.set(CX, y, Z_LOGGIA - 1, Role.WALL);
+		b.set(CX, y + 1, Z_LOGGIA, ROD_UP);
+		b.set(CX, y + 2, Z_LOGGIA, ROD_UP);
 		for (int s : new int[] {-1, 1}) {
-			b.set(CX + 2 * s, y, Z_FRONT, ROD_UP);
+			b.set(CX + 2 * s, y, Z_LOGGIA, ROD_UP);
 		}
 	}
 
@@ -720,6 +721,14 @@ public final class GrandCasino {
 			Kits.planter().apply(m, 9, ROW, z0 + 1, Facing.SOUTH);
 			m.set(16, ROW, 39, BlockSpec.mc("polished_deepslate_wall"));
 			m.set(16, ROW + 1, 39, lantern(m, false));
+			// clipped hedges along the forecourt sides, topiary on posts flanking the runner
+			BlockSpec hedge = BlockSpec.mc("azalea_leaves", "distance", "1", "persistent", "true", "waterlogged", "false");
+			for (int z = Z_PAVILION + 1; z < SZ - 1; z++) {
+				m.set(0, ROW, z, hedge);
+			}
+			m.set(14, ROW, 36, BlockSpec.mc("spruce_fence"));
+			m.set(14, ROW + 1, 36, BlockSpec.mc("flowering_azalea_leaves", "distance", "1", "persistent", "true", "waterlogged", "false"));
+			m.set(14, ROW + 2, 36, hedge);
 			// the terrace edge steps down to the terrain
 			for (int x = 0; x <= CX; x++) {
 				m.set(x, FLOOR_Y, SZ - 1, m.palette().get(Role.PLINTH).stairs(Facing.NORTH, false));
