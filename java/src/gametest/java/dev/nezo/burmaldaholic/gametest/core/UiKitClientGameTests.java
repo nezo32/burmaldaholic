@@ -126,7 +126,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			s.setFocused(s.kit.getFirst());
 			s.presses = 0;
 		});
-		context.getInput().pressKey(Inputs.KEY_ENTER);
+		context.getInput().pressKey(Inputs.KEY_RETURN);
 		context.waitTick();
 		int presses = context.computeOnClient(mc -> ((KitGalleryScreen) mc.gui.screen()).presses);
 		if (presses != 1) throw new AssertionError("Enter on a focused CasinoButton presses it once, got " + presses);
