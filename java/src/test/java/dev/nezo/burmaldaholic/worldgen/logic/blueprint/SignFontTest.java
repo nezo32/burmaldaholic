@@ -53,18 +53,59 @@ class SignFontTest {
 		assertFalse(SignFont.plan("CASINO", 8).isPresent());
 	}
 
+	/** CR-1: a 1-wide I (a serif I reads as T / box from afar) and a true stem-to-stem diagonal in N ("CASIO" bug). */
 	@Test
-	void serifIAndDiagonalN() {
+	void oneWideIAndDiagonalN() {
 		for (SignFont f : SignFont.values()) {
 			String[] i = f.glyph('I');
-			assertEquals("###", i[0], f + " I top serif");
-			assertEquals("###", i[i.length - 1], f + " I bottom serif");
+			for (String row : i) {
+				assertEquals("#", row, f + " I is one stroke");
+			}
 			String[] n = f.glyph('N');
-			assertTrue(n[0].length() >= 4, f + " N wide enough for a diagonal");
-			// the diagonal: a lit cell strictly inside the glyph on an upper row and further right on a lower row
-			int upper = n[1].indexOf('#', 1), lower = n[n.length - 3].lastIndexOf('#', n[0].length() - 2);
-			assertTrue(upper > 0 && lower > upper, f + " N diagonal");
+			int w = n[0].length();
+			assertEquals(5, w, f + " N is 5 wide");
+			int prev = 0;
+			for (int r = 1; r < n.length - 1; r++) {
+				assertEquals('#', n[r].charAt(0), f + " N left stem");
+				assertEquals('#', n[r].charAt(w - 1), f + " N right stem");
+				String inner = n[r].substring(1, w - 1);
+				assertEquals(inner.indexOf('#'), inner.lastIndexOf('#'), f + " N row " + r + " has one diagonal cell");
+				int c = inner.indexOf('#') + 1;
+				assertTrue(c >= prev, f + " N diagonal runs down to the right");
+				prev = c;
+			}
+			assertEquals(1, n[1].indexOf('#', 1), f + " N diagonal starts at the left stem");
+			assertEquals(w - 2, n[n.length - 2].lastIndexOf('#', w - 2), f + " N diagonal ends at the right stem");
 			assertFalse(java.util.Arrays.equals(n, f.glyph('O')));
 		}
+	}
+
+	private static String render(SignFont.Plan p) {
+		char[][] g = new char[p.height()][p.width()];
+		for (char[] row : g) {
+			java.util.Arrays.fill(row, '.');
+		}
+		for (Layouts.SignPixel px : p.pixels()) {
+			g[px.row()][px.col()] = '#';
+		}
+		StringBuilder sb = new StringBuilder();
+		for (char[] row : g) {
+			sb.append(row).append('\n');
+		}
+		return sb.toString();
+	}
+
+	/** Golden render of the flagship word: every glyph and every glyph pair, one blank column apart, 23 wide (odd). */
+	@Test
+	void casinoRendersExactly() {
+		SignFont.Plan p = SignFont.SMALL.line("CASINO");
+		assertEquals(23, p.width(), "odd width: centres on the facade axis");
+		assertEquals("""
+			###.###.###.#.#...#.###
+			#...#.#.#...#.##..#.#.#
+			#...###.###.#.#.#.#.#.#
+			#...#.#...#.#.#..##.#.#
+			###.#.#.###.#.#...#.###
+			""", render(p));
 	}
 }
