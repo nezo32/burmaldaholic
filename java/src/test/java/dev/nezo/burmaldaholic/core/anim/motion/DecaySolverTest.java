@@ -52,6 +52,50 @@ class DecaySolverTest {
 	}
 
 	@Test
+	void rouletteRangeIncludingExactBounds() {
+		// T-MK D3: RO §2.3 distributions, spinTicks 40–300 → T 0.25–13 s, targets on and next to the reach bounds
+		SplittableRandom r = new SplittableRandom(4242);
+		double[] reach = new double[2];
+		int boundCases = 0;
+		for (int i = 0; i < 20_000; i++) {
+			double tauB = 4.2 * (1 + r.nextDouble(-0.08, 0.08));
+			double ws = 756 * (1 + r.nextDouble(-0.06, 0.06)) * Math.exp(-0.75 / tauB);
+			double wd = 306 * (1 + r.nextDouble(-0.05, 0.05));
+			int pick = r.nextInt(10);
+			double tt = pick == 0 ? 0.25 : pick == 1 ? 13 : r.nextDouble(0.25, 13);
+			double kNat = DecaySolver.kForDecel(ws, wd, tt, ws / tauB, 0.2, 6);
+			DecaySolver.reach(ws, wd, tt, 0.2, 6, reach);
+			double target;
+			switch (r.nextInt(6)) {
+				case 0 -> target = reach[0];
+				case 1 -> target = reach[1];
+				case 2 -> target = Math.nextUp(reach[0]);
+				case 3 -> target = Math.nextDown(reach[1]);
+				default -> target = reach[0] + r.nextDouble() * (reach[1] - reach[0]);
+			}
+			if (target == reach[0] || target == reach[1] || target == Math.nextUp(reach[0]) || target == Math.nextDown(reach[1])) boundCases++;
+			DecaySolver.Solution s = DecaySolver.solve(ws, wd, tt, target, kNat, 0.2, 6);
+			assertTrue(s.ok(), "case " + i + " T " + tt);
+			assertEquals(target, s.theta(), 1e-9, "case " + i);
+			assertEquals(ws, s.omega(0), 1e-9);
+			assertEquals(wd, s.omega(tt), 1e-9);
+			if (i % 200 == 0) monotone(s);
+			// just outside: bound path with an exact residual
+			if (i % 10 == 0) {
+				DecaySolver.Solution out = DecaySolver.solve(ws, wd, tt, reach[1] + 5, kNat, 0.2, 6);
+				assertFalse(out.ok());
+				assertEquals(0.2, out.k(), 0);
+				assertEquals(5, out.residual(), 1e-9);
+				DecaySolver.Solution under = DecaySolver.solve(ws, wd, tt, reach[0] - 5, kNat, 0.2, 6);
+				assertFalse(under.ok());
+				assertEquals(6, under.k(), 0);
+				assertEquals(-5, under.residual(), 1e-9);
+			}
+		}
+		assertTrue(boundCases > 5000, "bound cases " + boundCases);
+	}
+
+	@Test
 	void thetaIsStrictlyDecreasingInK() {
 		double prev = Double.POSITIVE_INFINITY;
 		for (double k = 0.2; k <= 6; k += 0.01) {

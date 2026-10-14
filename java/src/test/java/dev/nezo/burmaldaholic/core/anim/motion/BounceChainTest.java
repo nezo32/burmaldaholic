@@ -21,7 +21,7 @@ class BounceChainTest {
 			double target = Math.ceil(start) + scatter;
 			BounceChain c = BounceChain.plan(start, 45, target, lat, BounceChain.Params.roulette(), rng);
 			String id = "seed " + seed;
-			assertTrue(c.hops() >= 1 && c.hops() <= 7, id);
+			assertTrue(c.hops() >= 4 && c.hops() <= 7, id + " hops " + c.hops());
 			hopsSeen[c.hops()]++;
 			assertEquals(target, c.landAt(c.hops() - 1), 0, id + " exact target");
 			assertEquals(BounceChain.FLOOR, c.landClass(c.hops() - 1), id);
@@ -49,6 +49,34 @@ class BounceChainTest {
 		}
 		assertTrue(kicks > 600 && kicks < 1800, "kick-backs ≈ 30 %: " + kicks);
 		for (int n = 4; n <= 7; n++) assertTrue(hopsSeen[n] > 0, "hop count " + n + " " + java.util.Arrays.toString(hopsSeen));
+	}
+
+	@Test
+	void rouletteBothDirectionsAndTimeScales() {
+		// T-MK D4: the ball runs at −dir, so pocket coordinates may decrease; always 4–7 hops for scatter 5..15
+		BounceChain.Lattice lat = BounceChain.Lattice.pockets();
+		java.util.SplittableRandom r = new java.util.SplittableRandom(99);
+		int[] hops = new int[8];
+		for (int seed = 0; seed < 20_000; seed++) {
+			int dir = seed % 2 == 0 ? 1 : -1;
+			double start = r.nextDouble(-40, 40);
+			int s = r.nextInt(5, 16);
+			double target = dir > 0 ? Math.ceil(start) + s : Math.floor(start) - s;
+			double c = r.nextDouble(0.6, 1);
+			BounceChain ch = BounceChain.plan(start, dir * 45, target, lat, BounceChain.Params.roulette().withTimeScale(c), MotionRng.of(seed, "RATTLE", dir));
+			String id = "seed " + seed + " dir " + dir;
+			assertTrue(ch.hops() >= 4 && ch.hops() <= 7, id + " hops " + ch.hops());
+			hops[ch.hops()]++;
+			assertEquals(target, ch.landAt(ch.hops() - 1), 0, id);
+			double prev = start;
+			for (int j = 0; j < ch.hops(); j++) {
+				assertTrue(lat.on(ch.landAt(j), ch.landClass(j)), id);
+				if (ch.isKick(j)) assertEquals(prev - dir, ch.landAt(j), 1e-12, id + " kick against dir");
+				else assertTrue((ch.landAt(j) - prev) * dir > 0, id + " monotone along dir");
+				prev = ch.landAt(j);
+			}
+		}
+		for (int n = 4; n <= 7; n++) assertTrue(hops[n] > 2000, "hop count " + n + " " + java.util.Arrays.toString(hops));
 	}
 
 	@Test

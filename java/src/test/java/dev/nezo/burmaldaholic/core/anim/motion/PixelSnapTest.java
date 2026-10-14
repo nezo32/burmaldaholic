@@ -54,6 +54,26 @@ class PixelSnapTest {
 	}
 
 	@Test
+	void scaledSpritesKeepTexelEdgesOnPhysicalPixels() {
+		// T-MK D2: SnapDraw's scale overloads snap first, then scale by s = n/k (Plinko 8/9, dice 8/9 or 5/2, wheel ×2)
+		SplittableRandom r = new SplittableRandom(11);
+		for (int k = 1; k <= 12; k++) {
+			for (int n = 1; n <= 12; n++) {
+				double s = (double) n / k;
+				for (int t = 0; t < 200; t++) {
+					double x = r.nextDouble(-500, 500);
+					long left = PixelSnap.phys(x, k);
+					for (int i = 0; i <= 16; i++) {
+						double e = PixelSnap.texelEdge(x, i, s, k);
+						assertEquals(Math.rint(e), e, 1e-6, "k" + k + " n" + n + " edge " + i);
+						assertEquals(left + (long) i * n, Math.round(e), "every texel exactly n physical px");
+					}
+				}
+			}
+		}
+	}
+
+	@Test
 	void floatFormMatches() {
 		for (int k = 1; k <= 12; k++) {
 			assertEquals((float) PixelSnap.snap(12.3456, k), PixelSnap.snapF(12.3456, k));

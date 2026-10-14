@@ -39,6 +39,15 @@ public final class PixelSnap {
 		return snap(origin + art * scale, k);
 	}
 
+	/**
+	 * Physical-px position of texel edge {@code i} of a sprite drawn at float {@code x} with pose scale {@code scale}
+	 * (layout px per art px), snapped first then scaled as {@code SnapDraw}'s scale overloads do:
+	 * {@code (snap(x, k) + i·scale)·k}. An integer whenever {@code scale·k} (= n) is an integer.
+	 */
+	public static double texelEdge(double x, int i, double scale, int k) {
+		return (snap(x, k) + i * scale) * k;
+	}
+
 	/** Float form of {@link #snap} for pose translations. */
 	public static float snapF(double gui, int k) {
 		return (float) snap(gui, k);

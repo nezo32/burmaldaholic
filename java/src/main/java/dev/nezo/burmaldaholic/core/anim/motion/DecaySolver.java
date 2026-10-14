@@ -53,7 +53,7 @@ public final class DecaySolver {
 	 * @param omegaD end (critical) speed
 	 * @param T      duration in seconds (> 0)
 	 * @param target distance to cover
-	 * @param kNat   natural shape (kept in the solution; returned as-is when it already hits the target)
+	 * @param kNat   natural shape (kept in the solution for diagnostics; the solve itself bisects [kMin, kMax])
 	 * @param kMin   lower bound of k (> 0), e.g. 0.2
 	 * @param kMax   upper bound of k, e.g. 6
 	 */

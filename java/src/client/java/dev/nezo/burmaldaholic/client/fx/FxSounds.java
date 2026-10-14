@@ -2,8 +2,8 @@ package dev.nezo.burmaldaholic.client.fx;
 
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.anim.RateBudget;
+import dev.nezo.burmaldaholic.core.anim.motion.LoopBudget;
 import dev.nezo.burmaldaholic.core.sound.CasinoSounds;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
@@ -121,10 +121,13 @@ public final class FxSounds {
 
 	// ---- loops (PHASE2B §3.2; RO §6 roulette_roll) --------------------------------------------------------------
 
-	/** At most this many {@link #loop} sounds play at once on the client. */
+	/**
+	 * At most this many {@link #loop} sounds play at once on the WHOLE client (all screens and renderers share the
+	 * budget): a further {@link #loop} returns {@link Handle#NONE} until one ends.
+	 */
 	public static final int MAX_LOOPS = 2;
 
-	private static final List<Loop> LOOPS = new ArrayList<>();
+	private static final LoopBudget<Loop> LOOPS = new LoopBudget<>(MAX_LOOPS);
 
 	/** A running loop started by {@link #loop}. */
 	public interface Handle {
@@ -139,18 +142,22 @@ public final class FxSounds {
 			public void release() {}
 		};
 
-		/** True while the loop plays (or waits to start). */
+		/** True while the sound engine plays the loop. */
 		boolean active();
 
-		/** Stops the loop (idempotent). */
+		/** Stops the loop now and frees its slot (idempotent). */
 		void release();
 	}
 
 	/**
 	 * Starts a personal looping sound whose pitch and volume are read every tick (RO §6: {@code roulette_roll},
 	 * pitch {@code 1.4 + 0.6·ω/ω0}). It stops by itself when {@code alive} turns false or when
-	 * {@link Handle#release} is called. The volume is multiplied by {@code anim.volume} every tick ({@link FxSettings#volume()}); pitch is clamped to vanilla's 0.5–2. At most {@link #MAX_LOOPS} loops
-	 * play at once: a further call returns {@link Handle#NONE}.
+	 * {@link Handle#release} is called. The volume is multiplied by {@code anim.volume} every tick
+	 * ({@link FxSettings#volume()}); pitch is clamped to vanilla's 0.5–2.
+	 *
+	 * <p>At most {@link #MAX_LOOPS} loops play at once CLIENT-WIDE: a further call returns {@link Handle#NONE}. A slot
+	 * is freed as soon as its loop is released, stopped, or dropped by the sound engine (disconnect, {@code /stopsound},
+	 * sound reload: the engine no longer reports it active).
 	 *
 	 * @param id     catalog sound id
 	 * @param pitch  pitch supplier (read on the client tick)
@@ -161,31 +168,33 @@ public final class FxSounds {
 		SoundEvent e = CasinoSounds.get(id);
 		Minecraft mc = Minecraft.getInstance();
 		if (e == null || mc == null || mc.getSoundManager() == null || !alive.getAsBoolean()) return Handle.NONE;
-		synchronized (LOOPS) {
-			LOOPS.removeIf(l -> l.isStopped() || !l.started && Util.getMillis() - l.born > 2000);
-			if (LOOPS.size() >= MAX_LOOPS) return Handle.NONE;
-			Loop l = new Loop(e, CasinoSounds.sourceOf(id), pitch, volume, alive);
-			LOOPS.add(l);
-			mc.getSoundManager().play(l);
-			return l;
+		Loop l = new Loop(e, CasinoSounds.sourceOf(id), pitch, volume, alive);
+		if (!LOOPS.tryAdd(l, FxSounds::gone)) return Handle.NONE;
+		mc.getSoundManager().play(l);
+		if (gone(l)) {
+			LOOPS.remove(l); // the engine refused it (no sound file, engine not loaded)
+			return Handle.NONE;
 		}
+		return l;
 	}
 
-	/** Loops currently counted against {@link #MAX_LOOPS}. */
+	/** Loops currently counted against {@link #MAX_LOOPS} (ended / engine-dropped loops are pruned first). */
 	public static int activeLoops() {
-		synchronized (LOOPS) {
-			LOOPS.removeIf(l -> l.isStopped() || !l.started && Util.getMillis() - l.born > 2000);
-			return LOOPS.size();
-		}
+		return LOOPS.size(FxSounds::gone);
+	}
+
+	/** A loop no longer holds its slot when released, stopped, or not played by the engine any more. */
+	private static boolean gone(Loop l) {
+		if (l.stopRequested || l.isStopped()) return true;
+		Minecraft mc = Minecraft.getInstance();
+		return mc == null || mc.getSoundManager() == null || !mc.getSoundManager().isActive(l);
 	}
 
 	private static final class Loop extends AbstractTickableSoundInstance implements Handle {
 		private final DoubleSupplier pitchFn;
 		private final DoubleSupplier volumeFn;
 		private final BooleanSupplier alive;
-		private volatile boolean stopRequested;
-		volatile boolean started;
-		final long born = Util.getMillis();
+		volatile boolean stopRequested;
 
 		Loop(SoundEvent event, SoundSource source, DoubleSupplier pitch, DoubleSupplier volume, BooleanSupplier alive) {
 			super(event, source == SoundSource.MASTER ? SoundSource.PLAYERS : source, SoundInstance.createUnseededRandom());
@@ -211,9 +220,9 @@ public final class FxSounds {
 
 		@Override
 		public void tick() {
-			started = true;
 			if (stopRequested || !alive.getAsBoolean()) {
 				stop();
+				LOOPS.remove(this);
 				return;
 			}
 			apply();
@@ -226,12 +235,16 @@ public final class FxSounds {
 
 		@Override
 		public boolean active() {
-			return !isStopped() && !stopRequested;
+			return !gone(this);
 		}
 
 		@Override
 		public void release() {
+			if (stopRequested) return;
 			stopRequested = true;
+			LOOPS.remove(this);
+			Minecraft mc = Minecraft.getInstance();
+			if (mc != null && mc.getSoundManager() != null) mc.getSoundManager().stop(this);
 		}
 	}
 

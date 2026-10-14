@@ -27,8 +27,13 @@ public final class GuiShake {
 	 * @param k     physical px per layout px (snapping)
 	 */
 	public static void push(Matrix3x2fStack p, double a, double tauMs, double hz, double tMs, int k) {
+		push(p, a, tauMs, hz, tMs, k, "gui_shake");
+	}
+
+	/** {@link #push(Matrix3x2fStack, double, double, double, double, int)} recorded under {@code what} (test recorder). */
+	public static void push(Matrix3x2fStack p, double a, double tauMs, double hz, double tMs, int k, String what) {
 		p.pushMatrix();
-		double dx = offset(a, tauMs, hz, tMs, k, "gui_shake");
+		double dx = offset(a, tauMs, hz, tMs, k, what);
 		if (dx != 0) p.translate((float) dx, PixelSnap.snapF(dx / 2, k));
 	}
 

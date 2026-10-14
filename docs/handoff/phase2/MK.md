@@ -34,12 +34,13 @@ Client package `dev.nezo.burmaldaholic.client.fx.motion`:
 |---|---|
 | `MotionClock` | `levelMs(partial)`, `msSince(startTick, partial)`, `msSince(TableClock, ...)` and `localMs()`. `testOverride` is a `LongSupplier` of level ms (null in production). `TableClock.nowTicks` honours it too |
 | `MotionFx` | `shake/particles/flash/streak/motion(what)` go through `FxGate` with `FxSettings.reduceMotion()/flashes()`. `recorder` is the test hook |
-| `GuiShake` | `push(Matrix3x2fStack, a, tauMs, hz, tMs, k)` / `pop`; `offset(...)`. Gated, and snapped to physical px. The 26.x GUI pose is a `Matrix3x2fStack`, not a `PoseStack` |
-| `SnapDraw` | `blitF(g, sprite, x, y, w, h, k[, argb])`, `regionF(...)` and `frameF(...)`: float positions snapped to 1/k, then a 1:1 blit. `TableGfx.regionF/frameF` delegate here (RO §3.1) |
+| `GuiShake` | `push(Matrix3x2fStack, a, tauMs, hz, tMs, k[, what])` / `pop` (`what` names the effect for the test recorder); `offset(...)`. Gated, and snapped to physical px. The 26.x GUI pose is a `Matrix3x2fStack`, not a `PoseStack` |
+| `SnapDraw` | `blitF(g, sprite, x, y, w, h, k[, argb])`, `regionF(...)` and `frameF(...)`: float positions snapped to 1/k, then a 1:1 blit. Scale overloads `blitF(g, sprite, x, y, w, h, scale, k, argb)`, `regionF(..., argb, scale, k)`, `frameF(..., argb, scale, k)` draw on an ArtScale stage (Plinko ball 8/9 at 4K GUI 9, dice 8/9 or 5/2, roulette ball ×2): snap first, then scale, so texel edges land on `round(x·k) + i·n` physical px (`PixelSnap.texelEdge`). Sizes are in art px. `TableGfx.regionF/frameF` delegate here (RO §3.1) |
 | `SoundCursor` | Wraps `EventCursor` and `SoundMixer` and sends to `FxSounds.play/playAt`. Per frame: `crowd()`, then `advance(cursor, now, offset, Voicing, visualListener)` for each object, then `flush()`. Silent (late) events reach the visual listener only. `muted()` covers the `viewingOwnScreen` case |
 
 Other API pieces:
-- `FxSounds.loop(id, DoubleSupplier pitch, DoubleSupplier volume, BooleanSupplier alive)` returns a `Handle` (`active()`, `release()`). It is a tickable looping instance whose volume is × `FxSettings.volume()` every tick, with pitch clamped to 0.5–2. `MAX_LOOPS = 2`; a third loop returns `Handle.NONE`. `activeLoops()` reports the count.
+- `FxSounds.loop(id, DoubleSupplier pitch, DoubleSupplier volume, BooleanSupplier alive)` returns a `Handle` (`active()`, `release()`). It is a tickable looping instance whose volume is × `FxSettings.volume()` every tick, with pitch clamped to 0.5–2. `activeLoops()` reports the count.
+- **`MAX_LOOPS = 2` is CLIENT-WIDE.** Every screen and renderer shares these two slots: the roulette screen's `roulette_roll`, an in-world roll loop, RO §5's `roulette_rake` drag loop, any Plinko anticipation loop. A third `loop()` returns `Handle.NONE` and stays silent. RO/PL: start a loop only while it is audible, `release()` it as soon as it ends, keep the in-world loop to the nearest table only (RO §4), and treat `NONE` as "no loop". Slots are freed at once by `release()`, by `alive` turning false, and when the sound engine drops the sound (disconnect, `/stopsound`, sound reload): `FxSounds` prunes any loop the engine no longer reports `isActive` (pure bookkeeping in `core/anim/motion/LoopBudget`, tested by `LoopBudgetTest`; fixes T-MK D1).
 - `AnimClock.freezeForTest(levelMs)`, `unfreezeForTest()` and `frozen()`: `levelMs` and `sharedMs` honour the freeze.
 
 ## Requirement checklist per spec
@@ -106,12 +107,21 @@ PL = PLINKO-ANIM-SPEC, RO = ROULETTE, DI = DICE, CS = CRAPS. ✓ = provided by M
 - ✗ CrapsThrow, CrapsBeats.of, layout, atlas, chips: CM/DCa.
 
 ## Verified (exact commands; JDK 25.0.4.1, in `java/`)
-- `./gradlew --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g compileJava compileClientJava compileGametestJava test`: BUILD SUCCESSFUL. 170 test classes, 1317 tests, 0 failures/errors (RawInputGuardTest included).
-- The same with `-Pmc=26.3`: BUILD SUCCESSFUL, 1317 tests, 0 failures.
+- `./gradlew --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g compileJava compileClientJava compileGametestJava test`: BUILD SUCCESSFUL, 1323 tests, 0 failures/errors (RawInputGuardTest included; re-run after the T-MK fixes).
+- The same with `-Pmc=26.3`: BUILD SUCCESSFUL, 1323 tests, 0 failures.
 - New MK tests (`core/anim/motion`): TrackTest (5), DecaySolverTest (4, including the 10k-case sweep), BounceChainTest (4, 4000 seeded rattles), EventCursorTest (4), ArtScaleTest (6), PixelSnapTest (3, k 1..12), SpeedPolicyTest (3), SoundCursorTest (4), MotionRngTest (3), MotionKitMiscTest (6), CoreMotionVectorsTest (golden `src/test/resources/fx/vectors/core_motion.json`; regenerate with `FX_DUMP_VECTORS=1`).
 
+## T-MK fixes (re-test round)
+- **D1** `FxSounds.loop` slot leak: slots live in `LoopBudget`. A loop is pruned when it is released, stopped, or no longer `SoundManager.isActive` (the engine dropped it on disconnect, `/stopsound` or a reload). `release()` removes the loop from the budget at once and stops the sound. `LoopBudgetTest` covers the pure part.
+  - Client smoke on 26.3: a throwaway `MkLoopSmokeClientGameTests`, one filtered `runClientGameTest -Pmc=26.3` under `with-client-lock.sh`. The json swap was restored with `git checkout` and the class removed (not committed).
+  - Results: 2 loops start and the third gets `NONE`. After `SoundManager.stop()` the count is 0, three times in a row, and 2 new loops start each time. `release()` frees a slot at once and the slot is reused. `alive=false` stops its loop. With all released the count is 0. BUILD SUCCESSFUL.
+- **D2** `SnapDraw` scale overloads (`blitF/regionF/frameF` with `scale`): snap, then scale. `PixelSnap.texelEdge` and `PixelSnapTest.scaledSpritesKeepTexelEdgesOnPhysicalPixels` check every texel is exactly n physical px (k 1..12, n 1..12).
+- **D3** `DecaySolverTest.rouletteRangeIncludingExactBounds`: 20k cases drawn from the RO §2.3 distributions, T 0.25–13 s (10 % pinned at 0.25 and 13), k_nat from `kForDecel`, targets exactly at, and 1 ulp inside, both reach bounds, plus out-of-reach bound solves with exact residuals.
+- **D4** `BounceChainTest.rouletteBothDirectionsAndTimeScales`: 20k rattles in both directions with time scale 0.6–1. Every rattle has 4–7 hops, lands exactly on the target, stays on the lattice and is monotone along dir; the kick goes against dir. The existing sweep now asserts ≥ 4 hops.
+- Minor: `GuiShake.push(..., what)` records under a per-effect id. The DecaySolver `kNat` javadoc is corrected.
+
 ## Not verified
-- No client GameTest was run. The optional `FxSounds.loop` smoke run under the client lock was skipped, so the loop, `GuiShake`, `SnapDraw` and `SoundCursor`→`FxSounds` are compile-verified only on 26.2 and 26.3. The first real exercise will be RO (`roulette_roll`) and PL.
+- `GuiShake`, `SnapDraw` 1:1 and `SoundCursor`→`FxSounds` were exercised by the tester's 26.3 smoke (T-MK §5), not by a committed client test. The new `SnapDraw` scale overloads are verified by the pure texel-edge test and by compiling only.
 - `./gradlew build` (with javadoc and jar) was not run; only the gate tasks above were.
 
 ## Notes and risks for dependents
