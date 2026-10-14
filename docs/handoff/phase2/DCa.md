@@ -50,3 +50,62 @@ SoundCatalog, STRINGS.md subsection "core › dice kit sounds", gen_lang → ext
   `restMs` for `revealTicks`. Fixture examples: `DiceFixtures.crapsBig/crapsCompact` (tests).
 - World: `DiceTray.worldLane(len)` + `ThrowSpec.chest()` at `T_DUEL` = 1200 works for 2/4/8-block lanes.
 - Cache: `DiceRollCache` per screen / BER / server stage.
+
+## Verified (JDK 25.0.4.1, in `java/`)
+- `./gradlew compileJava compileClientJava compileGametestJava test` (26.2) and the same with `-Pmc=26.3`: BUILD
+  SUCCESSFUL, 175 test classes, 1349 tests, 0 failures each (RawInputGuardTest included). After the last client-only
+  commit (b1d7349) both versions recompiled (`compileJava compileClientJava compileGametestJava`, SUCCESSFUL).
+- DCa unit tests (`core/anim/dice`): `CubeGroupTest` (group closure, exact components, faceUp, relabel, mirror/MC
+  conjugation), `DiceRollTest` at the full 36 pairs × 256 seeds × 7 trays {duel L, duel R (mirrored tray), world 2/4/8,
+  craps BIG/COMPACT}: faces at rest, group element ±1e-12, rest point == restPoint and inside the zone, no OBB overlap,
+  relabel invariance bit-equal (x, y, zLow, zc, phase every 7 ms, events, rest times), 1-ms sweep: no floor/wall/bumper
+  penetration, keep-outs, one g per AIR, energy non-increasing at contacts, hops strictly decrease, angle jump < 0.5° and
+  position continuous at every phase change, last face change ≥ 120 ms before rest (teeter fall ≥ 80 ms), mustHit hit,
+  target ±0.5 ms, dice apart near the floor except one announced CLACK; ≥ 92 % of rolls show a quarter-roll (measured
+  ~95 %, teeters ~8 %); `naturalTimingAndDeterminism`; `DiceRollVectorsTest` (golden `fx/vectors/dice_roll.json`, 16
+  cases); `DiceKitTest` (tray normals, mirror, Shake DI §10.1-10, event cursor at 4.2/8.3/16.7/33/500 ms steps, sample
+  pure + 0 bytes over 10k samples, 10k sampled frames solve 0 times + DiceRollCache, worst solve (best of 3) < 20 ms over
+  10.5k rolls — measured 1.9 ms); `DieAtlasTableTest` (JSON parity, frames = offsets × Java group elements, rest pose →
+  exact frame 24 × 3, solved rolls rest on a yaw-0 frame of their face).
+- Tools: `npm run check:assets` OK (8 modules), `npm test` 10 files / 62 tests green; `dice-atlas.test.mjs`: 384 unit
+  frames, covering radius ≤ 22° (quaternion arc; measured ~19°) over 20k random rotations, every rest pose present, pip
+  clusters == face on all 24 rest frames of every cell, die width at rest == cell px, JSON == Java table, deterministic.
+- Client CGT=DK on 26.3 (one run under `with-client-lock.sh` + `with-heavy-lock.sh`, temporary entrypoint swap restored
+  with `git checkout`): 1280×720 GUI3 → 427×240 k3, 960×540 GUI2 → 480×270 k2, 1920×1080 GUI2 → 960×540 k2; cells 14/22/32:
+  resting die width == cell·k physical px, top-face pip clusters == the face, airborne die's shadow ≥ 20 % darker than
+  the felt — all pass. Shots `p2b_dca_dice_kit_en_{427,480,960}.png` in `.burmaldaholic-tools/shots/DCa/` (looked at:
+  crisp 1:1 texels, readable pips, shadows down-right). An earlier run of the same test failed on two probe bugs (quad
+  corner order, shadow hidden under the die), fixed in b1d7349; one attempt died of host OOM before starting.
+
+## Measured solve times (warm, best of 2 runs per roll, 1000 rolls per tray, shared machine)
+| Tray | p50 µs | p99 µs | max µs |
+|---|---|---|---|
+| duel L | 247 | 1119 | 2673 |
+| duel R | 277 | 1317 | 1936 |
+| world 2 | 77 | 248 | 355 |
+| world 4 | 41 | 120 | 234 |
+| world 8 | 36 | 107 | 156 |
+| craps BIG | 97 | 440 | 824 |
+| craps COMPACT | 57 | 186 | 297 |
+
+**Deviation (accepted by the coordinator):** PHASE2B §4 asks p99 ≤ 50 µs; the planner (separation of two dice in the small
+duel lane needs several seeded attempts) measures p99 ≈ 0.1–1.3 ms. `DiceRollTest.solveIsFast` asserts p99 ≤ 5 ms and
+`DiceKitTest` worst < 20 ms. Solve once per roll per side and cache (`DiceRollCache`); never in a render/sample path.
+
+## Not verified
+- No in-world render of `DiceWorldDraw` (compile-verified only; DCb/CM wire it into their renderers).
+- `DiceAudio` voicing compile-verified only (pure mixing rules are MK's `SoundCursorTest`).
+- `./gradlew build` (javadoc + jar) not run; only the gate tasks above. 26.2 client run not done (DK ran on 26.3).
+
+## Ownership notes / shared touches
+- New top-level generator module `tools/assets/modules/dicekit.mjs` (instead of editing `tables.mjs`; it also writes
+  `core/anim/dice/DieAtlasTable.java`), test at `tools/assets/test/dice-atlas.test.mjs`.
+- `SoundCatalog` (+6 core ids), `core_anim.json` sound list regenerated (only those 6 lines), STRINGS.md own subsection,
+  gen_lang output lands in `lang/extras/*` (namespace rule for `dice_*`), LF kept.
+- `DieAtlasTable` lives in core (pure, unit-testable) rather than `client/table/fx/dice`; the client `DieAtlas` wraps it.
+- Gametest `fabric.mod.json`: `DiceKitClientGameTests` registered (the UI branch registered the same class name as a
+  stub; on merge keep this implementation).
+
+## Requests
+None blocking. CM: build the craps tray with `DiceTray` records as in `DiceFixtures.crapsBig`; DCb: `DuelTimeline` should
+time die 1's pour from `roll.releaseMs(1)` (140–200 ms after die 0).
