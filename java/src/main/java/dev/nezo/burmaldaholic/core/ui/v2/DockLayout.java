@@ -36,19 +36,34 @@ public final class DockLayout {
 	 * @param secondaryW   secondary normal button left of the primary (e.g. Leave on the result), 0 = none
 	 * @param primaryW     measured primary content (label + key hint + padding); the tier minimum applies
 	 * @param primaryCompactW the primary without its key-hint plate (last resort, 320-wide windows)
+	 * @param stepperW     ACTIONS: the {@code − value +} stepper left of the action buttons (0 = none)
+	 * @param statusW      the width the status wants: {@code min(cap, max(w(line1), w(line2)))} (0 = only the minimum); when
+	 *                     the status cannot get it, actions go compact first, then line 2 moves to {@link Dock#hintStrip}
 	 */
 	public record Spec(Mode mode, int chips, int tools, int readoutW, int readoutCompactW, int[] actionW, int[] actionCompactW, int secondaryW,
-			int primaryW, int primaryCompactW) {
+			int primaryW, int primaryCompactW, int stepperW, int statusW) {
 		public static Spec betting(int chips, int tools, int readoutW, int readoutCompactW, int secondaryW, int primaryW, int primaryCompactW) {
-			return new Spec(Mode.BETTING, chips, tools, readoutW, readoutCompactW, new int[0], new int[0], secondaryW, primaryW, primaryCompactW);
+			return new Spec(Mode.BETTING, chips, tools, readoutW, readoutCompactW, new int[0], new int[0], secondaryW, primaryW, primaryCompactW, 0, 0);
 		}
 
 		public static Spec actions(int[] actionW, int[] actionCompactW, int primaryW, int primaryCompactW) {
-			return new Spec(Mode.ACTIONS, 0, 0, 0, 0, actionW, actionCompactW, 0, primaryW, primaryCompactW);
+			return actions(actionW, actionCompactW, 0, primaryW, primaryCompactW);
+		}
+
+		/** Actions with a stepper slot ({@code stepperW} 0 = none) between the status and the action buttons. */
+		public static Spec actions(int[] actionW, int[] actionCompactW, int stepperW, int primaryW, int primaryCompactW) {
+			return new Spec(Mode.ACTIONS, 0, 0, 0, 0, actionW, actionCompactW, 0, primaryW, primaryCompactW, stepperW, 0);
+		}
+
+		/** The same spec with the status's wanted width ({@link #statusW}). */
+		public Spec withStatus(int statusW) {
+			return new Spec(mode, chips, tools, readoutW, readoutCompactW, actionW, actionCompactW, secondaryW, primaryW, primaryCompactW, stepperW,
+				Math.max(0, statusW));
 		}
 
 		Spec compactPrimary() {
-			return new Spec(mode, chips, tools, readoutW, readoutCompactW, actionW, actionCompactW, secondaryW, primaryCompactW, primaryCompactW);
+			return new Spec(mode, chips, tools, readoutW, readoutCompactW, actionW, actionCompactW, secondaryW, primaryCompactW, primaryCompactW, stepperW,
+				statusW);
 		}
 	}
 
@@ -57,9 +72,21 @@ public final class DockLayout {
 	 * @param firstChip  index of the first visible denomination
 	 * @param tools      visible tool boxes (Undo, Clear, Rebet, ×2 order)
 	 * @param overflow   px that did not fit (0 = OK)
+	 * @param stepper    the stepper slot (ACTIONS with {@link Spec#stepperW}; empty otherwise)
+	 * @param hintStrip  an 11-px strip just above the Dock, inside the PlayArea, that carries status line 2 when the Dock
+	 *                   cannot give the status {@link Spec#statusW} (empty = line 2 stays in the Dock); hosts treat it as a
+	 *                   FreeSlot obstacle
 	 */
 	public record Dock(List<Box> chips, int firstChip, List<Box> tools, Box readout, boolean compactReadout, Box status, List<Box> actions,
-			boolean compactActions, Box secondary, Box primary, int overflow, boolean compactPrimary) {}
+			boolean compactActions, Box secondary, Box primary, int overflow, boolean compactPrimary, Box stepper, Box hintStrip) {
+		Dock withCompactPrimary() {
+			return new Dock(chips, firstChip, tools, readout, compactReadout, status, actions, compactActions, secondary, primary, overflow, true, stepper,
+				hintStrip);
+		}
+	}
+
+	/** Height of {@link Dock#hintStrip}. */
+	public static final int HINT_STRIP_H = 11;
 
 	public static int minStatus(Tier t) {
 		return t == Tier.T1 ? 44 : 64;
@@ -73,9 +100,7 @@ public final class DockLayout {
 	public static Dock layout(TableGrid g, Spec s, int selectedChip) {
 		Dock d = layoutOnce(g, s, selectedChip);
 		if (d.overflow() > 0 && s.primaryCompactW() > 0 && s.primaryCompactW() < s.primaryW()) {
-			Dock c = layoutOnce(g, s.compactPrimary(), selectedChip);
-			return new Dock(c.chips(), c.firstChip(), c.tools(), c.readout(), c.compactReadout(), c.status(), c.actions(), c.compactActions(), c.secondary(),
-				c.primary(), c.overflow(), true);
+			return layoutOnce(g, s.compactPrimary(), selectedChip).withCompactPrimary();
 		}
 		return d;
 	}
@@ -96,25 +121,34 @@ public final class DockLayout {
 			right = secondary.x() - 4;
 		}
 		int minStatus = minStatus(t);
+		int wantStatus = Math.max(minStatus, s.statusW());
 		if (s.mode() == Mode.ACTIONS) {
 			int n = s.actionW().length;
+			int stepperW = Math.max(0, s.stepperW());
+			int stepperGap = stepperW > 0 && n > 0 ? 6 : 0;
 			boolean compact = false;
-			int total = sum(s.actionW(), t.actionW, 4);
-			if (m + minStatus + 6 + total > right) {
+			int total = sum(s.actionW(), t.actionW, 4) + stepperW + stepperGap;
+			if (m + wantStatus + 6 + total > right && !(g.roomy() && m + minStatus + 6 + total <= right)) { // ROOMY keeps the key plates
 				compact = true;
-				total = sum(s.actionCompactW(), 0, 4);
+				total = sum(s.actionCompactW(), 0, 4) + stepperW + stepperGap;
 			}
 			int x = right - total;
 			int overflow = Math.max(0, m + minStatus + 6 - x);
+			Box stepper = Box.EMPTY;
+			if (stepperW > 0) {
+				stepper = new Box(x, by, stepperW, bh);
+				x += stepperW + stepperGap;
+			}
 			List<Box> actions = new ArrayList<>();
 			for (int i = 0; i < n; i++) {
 				int w = compact ? s.actionCompactW()[i] : Math.max(t.actionW, s.actionW()[i]);
 				actions.add(new Box(x, by, w, bh));
 				x += w + 4;
 			}
-			int statusRight = actions.isEmpty() ? right : actions.get(0).x() - 6;
+			int statusRight = !stepper.isEmpty() ? stepper.x() - 6 : actions.isEmpty() ? right : actions.get(0).x() - 6;
 			Box status = new Box(m, d.y() + 4, Math.max(0, statusRight - m), d.h() - 8);
-			return new Dock(List.of(), 0, List.of(), Box.EMPTY, false, status, actions, compact, secondary, primary, overflow, false);
+			return new Dock(List.of(), 0, List.of(), Box.EMPTY, false, status, actions, compact, secondary, primary, overflow, false, stepper,
+				hintStrip(g, status, s.statusW()));
 		}
 		// BETTING: chips · tools · readout · status
 		int chip = t.trayChip;
@@ -155,7 +189,16 @@ public final class DockLayout {
 		Box readout = new Box(x, d.y() + 4, readoutW, d.h() - 8);
 		x = readout.right() + 8;
 		Box status = new Box(x, d.y() + 4, Math.max(0, right - x), d.h() - 8);
-		return new Dock(chipBoxes, first, toolBoxes, readout, readoutW < s.readoutW(), status, List.of(), false, secondary, primary, overflow, false);
+		return new Dock(chipBoxes, first, toolBoxes, readout, readoutW < s.readoutW(), status, List.of(), false, secondary, primary, overflow, false,
+			Box.EMPTY, hintStrip(g, status, s.statusW()));
+	}
+
+	/** The hint strip when the status box is narrower than the status wants (else empty). */
+	private static Box hintStrip(TableGrid g, Box status, int statusW) {
+		if (statusW <= 0 || status.w() >= statusW) return Box.EMPTY;
+		int m = g.tier.margin;
+		int w = Math.min(g.dock.w() - 2 * m, statusW + 8);
+		return new Box(m, g.dock.y() - HINT_STRIP_H, w, HINT_STRIP_H);
 	}
 
 	private static int sum(int[] ws, int min, int gap) {

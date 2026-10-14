@@ -4,3 +4,6 @@
 
 # coin-toss animation: ticks per keyframe, not a keyboard key
 src/main/java/dev/nezo/burmaldaholic/games/extras/logic/anim/CoinTossKeys.java | public static final int KEY_TICKS = 3;
+# poker: "button" is the dealer-button seat index (-1 = none), not a mouse button
+src/client/java/dev/nezo/burmaldaholic/games/poker/client/PokerScreen.java | if (button < 0 || handNo <= 0) return;
+src/main/java/dev/nezo/burmaldaholic/games/poker/logic/PokerTable.java | if (button >= 0) {

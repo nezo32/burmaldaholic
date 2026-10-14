@@ -457,7 +457,7 @@
 	"gui.burmaldaholic.core.v2.reason.no_rebet": "No previous bet",
 	"gui.burmaldaholic.core.v2.reason.cannot_double": "You can't double now",
 	"gui.burmaldaholic.core.v2.status.pick_seat": "Pick a seat or press Space",
-	"gui.burmaldaholic.core.v2.status.click_layout": "Click the layout to place %1$s",
+	"gui.burmaldaholic.core.v2.status.click_layout": "Click the layout to bet",
 	"gui.burmaldaholic.core.v2.status.chips_add": "Chips add to your bet",
 	"gui.burmaldaholic.core.v2.status.next_round_in": "Next round in %1$s s",
 	"gui.burmaldaholic.core.v2.status.pending": "Sending…",

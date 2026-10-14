@@ -212,7 +212,7 @@ public final class RealFlow {
 	public double[] windowPoint(String id) {
 		Box b = box(id).orElseThrow(() -> new AssertionError("no target '" + id + "' on " + screenName()));
 		Viewport vp = viewport();
-		return new double[] {vp.toWindow(b.x() + b.w() / 2.0), vp.toWindow(b.y() + b.h() / 2.0)};
+		return new double[] {vp.windowX(b.x() + b.w() / 2.0), vp.windowY(b.y() + b.h() / 2.0)}; // frame-relative → window (§3.7)
 	}
 
 	/** Left click on the centre of target {@code id} (real cursor + button, through the mouse mixin and the HitMap). */
