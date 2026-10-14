@@ -6,6 +6,7 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.ActionTag;
 import dev.nezo.burmaldaholic.client.table.cards.CardAnimator;
 import dev.nezo.burmaldaholic.client.table.cards.CardButton;
@@ -551,15 +552,15 @@ public class UthScreen extends CardTableScreen {
 
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
-		if (!rackShown() || (button != 0 && button != 1)) return false;
+		if (!rackShown() || (!Inputs.isLeft(button) && !Inputs.isRight(button))) return false;
 		for (int i = 0; i < CHIPS.length; i++) {
 			Rect r = chipRect(i);
 			if (x >= r.x() && x < r.x() + r.w() && y >= r.y() && y < r.y() + r.h()) {
-				chip(CHIPS[i], button == 1); // left click adds, right click takes the chip's value back
+				chip(CHIPS[i], Inputs.isRight(button)); // left click adds, right click takes the chip's value back
 				return true;
 			}
 		}
-		if (button != 0) return false;
+		if (!Inputs.isLeft(button)) return false;
 		// the Trips / Ante circles pick where the chips go
 		for (int c = 0; c < 2; c++) {
 			Rect r = mapped(UthLayout.circle(c));

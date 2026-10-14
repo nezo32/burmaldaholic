@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.PvpDraw;
@@ -191,7 +192,7 @@ final class PlinkoScreen extends ExtrasTableScreen implements dev.nezo.burmaldah
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		double x = event.x() - leftPos;
 		double y = event.y() - topPos;
-		if (!battle && event.button() == 0 && x >= BX && x < BX + PlinkoDraw.BOARD_W && y >= BY && y < BY + PlinkoDraw.BOARD_H && skip()) return true;
+		if (!battle && Inputs.isLeft(event.button()) && x >= BX && x < BX + PlinkoDraw.BOARD_W && y >= BY && y < BY + PlinkoDraw.BOARD_H && skip()) return true;
 		return super.mouseClicked(event, doubleClick);
 	}
 

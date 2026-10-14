@@ -132,8 +132,7 @@ abstract class ExtrasTableScreen extends CasinoTableScreen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		int k = event.key();
-		if ((k == 32 || k == 257 || k == 335) && skip()) return true;
+		if (event.isSelection() && skip()) return true; // Space / Enter / keypad Enter, resolved by the running version
 		return super.keyPressed(event);
 	}
 

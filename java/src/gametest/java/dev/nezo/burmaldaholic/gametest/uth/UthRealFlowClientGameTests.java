@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.uth;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.CardButton;
 import dev.nezo.burmaldaholic.core.anim.cards.CardLayout;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -250,7 +251,7 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 	private static void click(ClientGameTestContext context, double[] at) {
 		context.getInput().setCursorPos(at[0], at[1]);
 		context.waitTicks(1);
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(2);
 	}
 
