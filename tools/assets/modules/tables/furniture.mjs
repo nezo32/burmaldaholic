@@ -14,6 +14,7 @@
 // Pure + deterministic.
 import { JAVA_ASSETS, json, png } from '../../lib/emit.mjs';
 import { R, P, c, image, put, rng } from './draw.mjs';
+import { machineOutputs } from './machines.mjs';
 
 const T = `${JAVA_ASSETS}/textures/block/core/tables`;
 const M = `${JAVA_ASSETS}/models/block/tables`;
@@ -487,5 +488,6 @@ export default function generate() {
     out.push(json(`${JAVA_ASSETS}/items/${table.name}.json`, { model: { type: 'minecraft:model', model: `burmaldaholic:block/tables/${table.name}/item` } }));
     out.push(json(`${DATA}/loot_table/blocks/${table.name}.json`, lootTable(table)));
   }
+  out.push(...machineOutputs()); // MT-3 upright machines
   return out;
 }

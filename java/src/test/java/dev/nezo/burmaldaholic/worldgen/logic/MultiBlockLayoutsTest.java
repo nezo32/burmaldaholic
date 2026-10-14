@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.nezo.burmaldaholic.core.table.parts.LocalCell;
+import dev.nezo.burmaldaholic.core.table.parts.MachineKind;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
@@ -22,7 +24,8 @@ import org.junit.jupiter.api.Test;
 class MultiBlockLayoutsTest {
 	private record Cell(int x, int z) {}
 
-	private record Spot(String id, int x, int y, int z, Facing facing, TableGame game, List<Cell> footprint, List<Cell> walkway, Cell dealer) {}
+	private record Spot(String id, int x, int y, int z, Facing facing, TableGame game, MachineKind machine, List<Cell> footprint, List<Cell> walkway,
+		Cell dealer) {}
 
 	private static boolean isGameId(String name) {
 		return name.startsWith("burmaldaholic:") && (TableGame.ofBlockName(name.substring(14)) != null || machine(name));
@@ -41,6 +44,8 @@ class MultiBlockLayoutsTest {
 				for (int z = 0; z < s.z(); z++) {
 					BlockSpec b = g.get(x, y, z);
 					if (b == null || !isGameId(b.name())) continue;
+					String part = b.properties().get("part");
+					if (part != null && !part.equals("main") && !part.equals("single")) continue;
 					Facing f = Facing.byId(b.properties().get("facing"));
 					TableGame game = TableGame.ofBlockName(b.name().substring(14));
 					if (game != null) {
@@ -53,9 +58,21 @@ class MultiBlockLayoutsTest {
 							walk.add(new Cell(x + o[0], z + o[1]));
 						}
 						int[] d = TableFootprint.dealerOffset(game, f.dx(), f.dz());
-						out.add(new Spot(b.name(), x, y, z, f, game, fp, walk, new Cell(x + d[0], z + d[1])));
+						out.add(new Spot(b.name(), x, y, z, f, game, null, fp, walk, new Cell(x + d[0], z + d[1])));
 					} else {
-						out.add(new Spot(b.name(), x, y, z, f, null, List.of(new Cell(x, z)), List.of(new Cell(x + f.dx(), z + f.dz())), null));
+						MachineKind m = MachineKind.ofBlockName(b.name().substring(14));
+						assertNotNull(m, b.name());
+						assertEquals("main", b.properties().get("part"), l.id() + " " + b.name() + " @" + x + "," + y + "," + z + " is a full machine");
+						if (!"main".equals(b.properties().get("part"))) continue;
+						List<Cell> fp = new ArrayList<>();
+						List<Cell> walk = new ArrayList<>();
+						for (LocalCell c : m.localCells()) {
+							if (c.u() != 0) continue;
+							int[] o = c.offset(f.dx(), f.dz());
+							fp.add(new Cell(x + o[0], z + o[2]));
+							walk.add(new Cell(x + o[0] + f.dx(), z + o[2] + f.dz()));
+						}
+						out.add(new Spot(b.name(), x, y, z, f, null, m, fp, walk, null));
 					}
 				}
 		return out;
@@ -115,7 +132,8 @@ class MultiBlockLayoutsTest {
 				for (int j = i + 1; j < spots.size(); j++) {
 					Spot a = spots.get(i);
 					Spot b = spots.get(j);
-					boolean bothMachines = a.game() == null && b.game() == null;
+					// slot banks stand side by side (no gap between two slot cabinets); everything else keeps R5
+					boolean bothMachines = a.machine() == MachineKind.SLOT && b.machine() == MachineKind.SLOT;
 					String w = l.id() + " " + a.id() + "@" + a.x() + "," + a.z() + " / " + b.id() + "@" + b.x() + "," + b.z();
 					if (!bothMachines) {
 						assertTrue(gap(a.footprint(), b.footprint()) >= 2, w + " R5 gap " + gap(a.footprint(), b.footprint()));
@@ -129,6 +147,24 @@ class MultiBlockLayoutsTest {
 						if (b.dealer() != null) assertFalse(za.contains(b.dealer()), w + " R5 dealer of the second in the other's zone");
 					}
 				}
+			// machines: every cell is the machine block with its facing and part (R1), a floor under the bottom row (R2)
+			// and a free walkway row in front (R3)
+			for (Spot m : spots) {
+				if (m.machine() == null) continue;
+				String w = l.id() + " " + m.id() + " @" + m.x() + "," + m.z();
+				for (LocalCell c : m.machine().localCells()) {
+					int[] o = c.offset(m.facing().dx(), m.facing().dz());
+					BlockSpec b = g.get(m.x() + o[0], m.y() + o[1], m.z() + o[2]);
+					assertNotNull(b, w + " cell missing");
+					assertEquals(m.id(), b.name(), w + " cell block");
+					assertEquals(c.part().getSerializedName(), b.properties().get("part"), w + " cell part");
+					assertEquals(m.facing().id(), b.properties().get("facing"), w + " cell facing");
+				}
+				for (Cell c : m.footprint()) assertTrue(solid(g, c.x(), m.y() - 1, c.z()), w + " R2 floor under " + c);
+				for (Cell c : m.walkway()) {
+					assertTrue(air(g, c.x(), m.y(), c.z()) && air(g, c.x(), m.y() + 1, c.z()), w + " R3 walkway " + c);
+				}
+			}
 			// no stray parts: every non-main part belongs to a counted main
 			Vec s = l.size();
 			for (int x = 0; x < s.x(); x++)

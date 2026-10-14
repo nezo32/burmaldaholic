@@ -16,4 +16,6 @@ public class SpectatorRenderState extends BlockEntityRenderState {
 	/** MT: part of the block (SINGLE for compact tables and machines) and its footprint kind (null for machines). */
 	public dev.nezo.burmaldaholic.core.table.parts.TablePart tablePart = dev.nezo.burmaldaholic.core.table.parts.TablePart.SINGLE;
 	public dev.nezo.burmaldaholic.core.table.parts.@org.jspecify.annotations.Nullable TableGame tableGame;
+	/** MT-3: kind of an upright machine (null for tables). */
+	public dev.nezo.burmaldaholic.core.table.parts.@org.jspecify.annotations.Nullable MachineKind machineKind;
 }

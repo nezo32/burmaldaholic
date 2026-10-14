@@ -369,17 +369,32 @@ public class MultiBlockTableGameTests {
 	@GameTest(maxTicks = 200)
 	public void ownershipRoutesPartsToMain(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
-		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
 		ServerPlayer owner = player(helper, "mt-owner", GameType.SURVIVAL);
 		ServerPlayer other = player(helper, "mt-other", GameType.SURVIVAL);
-		Direction facing = Direction.SOUTH;
 		// claims keep 40 blocks from the world spawn, and the GameTest batch may sit right on it: when the test area is
 		// too close, the scenario runs 300 blocks away from the spawn (absolute coordinates, own floor)
-		BlockPos base = abs(helper, BlockPos.ZERO);
-		if (dev.nezo.burmaldaholic.multiplayer.Ownership.claimError(owner, level, base.above()) != null) {
-			BlockPos spawn = level.getServer().getRespawnData().pos();
-			base = new BlockPos(spawn.getX() + 300, base.getY(), spawn.getZ() + 300);
+		BlockPos near = abs(helper, BlockPos.ZERO);
+		boolean relocated = dev.nezo.burmaldaholic.multiplayer.Ownership.claimError(owner, level, near.above()) != null;
+		BlockPos spawn = level.getServer().getRespawnData().pos();
+		BlockPos base = relocated ? new BlockPos(spawn.getX() + 300, near.getY(), spawn.getZ() + 300) : near;
+		if (relocated) {
+			// a fully loaded (entity-ticking) chunk for the drops: force it and give the ticket a second to apply
+			force(level, base, true);
+			helper.runAfterDelay(20, () -> ownershipScenario(helper, level, owner, other, base, true));
+		} else {
+			ownershipScenario(helper, level, owner, other, base, false);
 		}
+	}
+
+	private static void force(ServerLevel level, BlockPos base, boolean on) {
+		for (int cx = (base.getX() - 4) >> 4; cx <= (base.getX() + 11) >> 4; cx++)
+			for (int cz = (base.getZ() - 4) >> 4; cz <= (base.getZ() + 11) >> 4; cz++) level.setChunkForced(cx, cz, on);
+	}
+
+	private static void ownershipScenario(GameTestHelper helper, ServerLevel level, ServerPlayer owner, ServerPlayer other, BlockPos base,
+			boolean forced) {
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		Direction facing = Direction.SOUTH;
 		BlockPos mainAbs = base.offset(MAIN);
 		List<BlockPos> cells = new ArrayList<>();
 		for (int[] o : b.offsets(facing)) cells.add(mainAbs.offset(o[0], o[1], o[2]));
@@ -424,6 +439,7 @@ public class MultiBlockTableGameTests {
 		} finally {
 			remove(helper, owner);
 			remove(helper, other);
+			if (forced) force(level, base, false);
 		}
 		helper.succeed();
 	}

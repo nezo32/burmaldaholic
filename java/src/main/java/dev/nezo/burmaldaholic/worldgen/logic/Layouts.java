@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.worldgen.logic;
 
+import dev.nezo.burmaldaholic.core.table.parts.LocalCell;
+import dev.nezo.burmaldaholic.core.table.parts.MachineKind;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import java.util.ArrayList;
@@ -54,13 +56,17 @@ public final class Layouts {
 	 * {@code facing} side; the dealer cell is {@link TableFootprint#dealerOffset} (two rows behind the main block).
 	 */
 	private static void game(Grid g, String id, int x, int y, int z, Facing facing) {
-		TableGame kind = TableGame.ofBlockName(id.substring(id.indexOf(':') + 1));
-		if (kind == null) {
+		String path = id.substring(id.indexOf(':') + 1);
+		TableGame kind = TableGame.ofBlockName(path);
+		MachineKind machine = MachineKind.ofBlockName(path);
+		List<LocalCell> cells = kind != null ? TableFootprint.localCells(kind) : machine != null ? machine.localCells() : null;
+		if (cells == null) {
 			g.set(x, y, z, table(id, facing));
 			return;
 		}
-		for (TableFootprint.Cell c : TableFootprint.cells(kind, facing.dx(), facing.dz())) {
-			g.set(x + c.dx(), y, z + c.dz(), BlockSpec.of(id, "facing", facing.id(), "part", c.part().getSerializedName()));
+		for (LocalCell c : cells) {
+			int[] o = c.offset(facing.dx(), facing.dz());
+			g.set(x + o[0], y + o[1], z + o[2], BlockSpec.of(id, "facing", facing.id(), "part", c.part().getSerializedName()));
 		}
 	}
 
@@ -177,16 +183,16 @@ public final class Layouts {
 			}
 		}
 		// tables (§16.1: Cashier, Blackjack, Roulette, Baccarat, Copper Bandit ×3, Golden Reels, Wheel of Fortune)
-		g.set(2, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
-		g.set(3, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
-		g.set(4, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
-		g.set(11, 1, 6, table(SLOTS_GOLD, Facing.SOUTH));
-		g.set(13, 1, 6, table(WHEEL, Facing.SOUTH));
+		game(g, SLOTS_COPPER, 2, 1, 6, Facing.SOUTH);
+		game(g, SLOTS_COPPER, 3, 1, 6, Facing.SOUTH);
+		game(g, SLOTS_COPPER, 4, 1, 6, Facing.SOUTH);
+		game(g, SLOTS_GOLD, 11, 1, 6, Facing.SOUTH);
+		game(g, WHEEL, 14, 1, 6, Facing.SOUTH); // MT-3: 3 × 3 wheel x 13..15, clear of the gold slot (x 11)
 		// MT (v0.2): 3×2 tables — left hall column x 2..4, right x 11..13; players on z+1, dealers two rows behind (z 8 /
 		// z 12, clear of the slot players at z 7)
 		game(g, BLACKJACK, 3, 1, 10, Facing.SOUTH);
 		game(g, ROULETTE, 12, 1, 10, Facing.SOUTH);
-		g.set(15, 1, 13, table(CASHIER, Facing.WEST));
+		game(g, CASHIER, 15, 1, 13, Facing.WEST);
 		// §16.1 (2026-09): Ultimate Texas Hold'em (MT: left column below the blackjack table)
 		game(g, UTH, 3, 1, 14, Facing.SOUTH);
 		// v0.1.3: baccarat in the east hall column below the roulette (MT: cells x 11..13 z 13..14, players z 15, dealer
@@ -245,10 +251,10 @@ public final class Layouts {
 		// tables (§16.2: Craps, Poker, Golden Reels ×2, Plinko, Nether Cashier)
 		game(g, CRAPS, 6, 1, 7, Facing.SOUTH);
 		game(g, POKER, 14, 1, 7, Facing.SOUTH);
-		g.set(1, 1, 11, table(SLOTS_GOLD, Facing.EAST));
-		g.set(1, 1, 13, table(SLOTS_GOLD, Facing.EAST));
-		g.set(19, 1, 11, table(PLINKO, Facing.WEST));
-		g.set(19, 1, 15, table(NETHER_CASHIER, Facing.WEST));
+		game(g, SLOTS_GOLD, 1, 1, 11, Facing.EAST);
+		game(g, SLOTS_GOLD, 1, 1, 13, Facing.EAST);
+		game(g, PLINKO, 19, 1, 11, Facing.WEST);
+		game(g, NETHER_CASHIER, 19, 1, 15, Facing.WEST);
 		// §16.2 (2026-09): baccarat, one Piglin Dealer behind it (cosmetic)
 		game(g, BACCARAT, 6, 1, 13, Facing.SOUTH);
 
@@ -287,11 +293,11 @@ public final class Layouts {
 		g.box(1, 1, 1, m - 1, 1, m - 1, BlockSpec.mc("purple_carpet"));
 		g.box(c - 1, 1, m, c + 1, 3, m, AIR);
 		// tables (§16.3: Netherite High Roller ×2, High-Roller Blackjack, Roulette, Baccarat, UTH, Cashier)
-		g.set(2, 1, 1, table(SLOTS_NETHERITE, Facing.SOUTH));
-		g.set(4, 1, 1, table(SLOTS_NETHERITE, Facing.SOUTH));
+		game(g, SLOTS_NETHERITE, 2, 1, 1, Facing.SOUTH);
+		game(g, SLOTS_NETHERITE, 4, 1, 1, Facing.SOUTH);
 		game(g, BLACKJACK_HIGH_ROLLER, 4, 1, 5, Facing.SOUTH);
 		game(g, ROULETTE_HIGH_ROLLER, 10, 1, 5, Facing.SOUTH);
-		g.set(12, 1, 1, table(CASHIER, Facing.SOUTH));
+		game(g, CASHIER, 12, 1, 1, Facing.SOUTH);
 		game(g, BACCARAT_HIGH_ROLLER, 4, 1, 11, Facing.SOUTH);
 		game(g, UTH_HIGH_ROLLER, 10, 1, 11, Facing.SOUTH);
 

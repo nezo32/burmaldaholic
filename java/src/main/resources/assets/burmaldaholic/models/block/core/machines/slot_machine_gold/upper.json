@@ -1,0 +1,16 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "burmaldaholic:block/slots/slot_machine_gold_side",
+    "side": "burmaldaholic:block/slots/slot_machine_gold_side",
+    "front": "burmaldaholic:block/slots/slot_machine_gold_front",
+    "top": "burmaldaholic:block/slots/slot_machine_gold_top",
+    "wood": "burmaldaholic:block/core/tables/standard/wood",
+    "trim": "burmaldaholic:block/core/tables/standard/trim",
+    "rail": "burmaldaholic:block/core/tables/standard/rail",
+    "felt": "burmaldaholic:block/core/tables/standard/felt",
+    "bars": "minecraft:block/iron_bars",
+    "glass": "minecraft:block/glass"
+  },
+  "elements": []
+}

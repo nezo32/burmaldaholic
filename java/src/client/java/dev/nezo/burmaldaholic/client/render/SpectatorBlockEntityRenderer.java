@@ -55,6 +55,7 @@ public abstract class SpectatorBlockEntityRenderer<T extends BlockEntity, S exte
 		state.levelMs = AnimClock.levelMs(partialTick);
 		state.tablePart = dev.nezo.burmaldaholic.core.table.parts.TableParts.partOf(be.getBlockState());
 		state.tableGame = dev.nezo.burmaldaholic.core.table.parts.TableParts.gameOf(be.getBlockState());
+		state.machineKind = dev.nezo.burmaldaholic.core.table.parts.TableParts.machineOf(be.getBlockState());
 		state.distSq = cameraPos.distanceToSqr(Vec3.atCenterOf(be.getBlockPos()));
 		int r = animateRadius();
 		int view = getViewDistance();

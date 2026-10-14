@@ -37,7 +37,7 @@ public record BoardFrame(MachineKind kind, double cx, double cy, double w, doubl
 			// wheel disc Ø 2.625 on its stand, centre at 1.625 (the v0.1 wheel scaled × 1.64, post down to the floor)
 			case WHEEL -> new BoardFrame(kind, 0.5, 1.625, 2.625, 2.625, 0.56, false);
 			// 4:3 board 2.75 × 2.0625, bottom at 0.5 (cabinet base below, marquee above)
-			case PLINKO -> new BoardFrame(kind, 0.5, 0.5 + 2.75 / PLINKO_ASPECT / 2, 2.75, 2.75 / PLINKO_ASPECT, 1.0 - 1 / 16.0, false);
+			case PLINKO -> new BoardFrame(kind, 0.5, 0.5 + 2.75 / PLINKO_ASPECT / 2, 2.75, 2.75 / PLINKO_ASPECT, 15.5 / 16.0, false);
 			// grille window over the counter's centre cell
 			case CASHIER -> new BoardFrame(kind, 0.5, 1.5, 1.0, 0.75, 12 / 16.0, false);
 		};
