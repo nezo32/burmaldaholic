@@ -205,6 +205,7 @@ public abstract class CardTableRenderer<T extends BlockEntity, S extends CardTab
 		if (!s.visible || s.cardCount + s.stackCount + s.textCount == 0) return;
 		int light = s.lightCoords;
 		pose.pushPose();
+		TableFrames.toFullFelt(pose, s.tablePart, s.tableGame, s.facing, TableWorld.TOP, false); // MT: full 3×2 felt
 		pose.translate(0.5f, 0f, 0.5f);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f);
 		pose.translate(-0.5f, 0f, -0.5f);

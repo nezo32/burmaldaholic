@@ -64,6 +64,16 @@ public class CasinoTableBlock extends BaseEntityBlock {
 		return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
 	}
 
+	/** MT / CB-G: a placed table tells the house-protection hook (a player's own table stays theirs in a casino). */
+	@Override
+	public void setPlacedBy(Level level, BlockPos pos, BlockState state, net.minecraft.world.entity.@Nullable LivingEntity placer,
+			net.minecraft.world.item.ItemStack stack) {
+		super.setPlacedBy(level, pos, state, placer, stack);
+		if (level instanceof ServerLevel sl) {
+			dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().playerPlaced(sl, pos, placer);
+		}
+	}
+
 	@Override
 	protected BlockState rotate(BlockState state, Rotation rotation) {
 		return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));

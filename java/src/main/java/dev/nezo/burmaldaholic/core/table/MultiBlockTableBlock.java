@@ -6,6 +6,7 @@ import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
 import dev.nezo.burmaldaholic.core.table.parts.TableParts;
+import dev.nezo.burmaldaholic.core.table.parts.TableProtection;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -237,12 +238,30 @@ public class MultiBlockTableBlock extends CasinoTableBlock {
 			// breaking any part breaks the table from its main block: one item (none in creative), stakes settled
 			TableParts.breakFromPart(level, pos, state, player);
 		}
-		return super.playerWillDestroy(level, pos, state, player);
+		BlockState result = super.playerWillDestroy(level, pos, state, player);
+		if (level instanceof ServerLevel sl && part.isController() && !TableProtection.get().dropsAllowed(sl, pos)) {
+			// house game (CB-G): the vanilla break drops the returned state's loot — a part state has none
+			return result.setValue(partProperty(), noLootPart());
+		}
+		return result;
+	}
+
+	/** A part value whose loot table drops nothing (any non-controller part of this block). */
+	protected TablePart noLootPart() {
+		for (TablePart p : partProperty().getPossibleValues()) {
+			if (!p.isController()) {
+				return p;
+			}
+		}
+		return TablePart.BACK;
 	}
 
 	@Override
 	protected void onExplosionHit(BlockState state, ServerLevel level, BlockPos pos, Explosion explosion, BiConsumer<ItemStack, BlockPos> drops) {
 		TablePart part = state.getValue(partProperty());
+		if (!TableProtection.get().dropsAllowed(level, TableParts.mainPos(pos, state))) {
+			drops = (stack, at) -> {}; // house game (CB-G): no item
+		}
 		if (part.isMultiBlock() && part != TablePart.MAIN) {
 			BlockPos main = TableParts.mainPos(pos, state);
 			BlockState mainState = level.getBlockState(main);

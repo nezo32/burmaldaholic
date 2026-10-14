@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.worldgen.logic;
 
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -44,6 +46,22 @@ public final class Layouts {
 
 	private static BlockSpec table(String id, Facing facing) {
 		return BlockSpec.of(id, "facing", facing.id());
+	}
+
+	/**
+	 * Stamps a game table at main block (x, y, z): a full multi-block table (MT, every footprint cell with its
+	 * {@code part} and the facing) for the 3×2 games, a single block for 1×1 machines. Players stand on the
+	 * {@code facing} side; the dealer cell is {@link TableFootprint#dealerOffset} (two rows behind the main block).
+	 */
+	private static void game(Grid g, String id, int x, int y, int z, Facing facing) {
+		TableGame kind = TableGame.ofBlockName(id.substring(id.indexOf(':') + 1));
+		if (kind == null) {
+			g.set(x, y, z, table(id, facing));
+			return;
+		}
+		for (TableFootprint.Cell c : TableFootprint.cells(kind, facing.dx(), facing.dz())) {
+			g.set(x + c.dx(), y, z + c.dz(), BlockSpec.of(id, "facing", facing.id(), "part", c.part().getSerializedName()));
+		}
 	}
 
 	// ---- "CASINO" pixel font (3×5, I is 1 wide; letters alternate materials, no gaps) -----------
@@ -164,19 +182,21 @@ public final class Layouts {
 		g.set(4, 1, 6, table(SLOTS_COPPER, Facing.SOUTH));
 		g.set(11, 1, 6, table(SLOTS_GOLD, Facing.SOUTH));
 		g.set(13, 1, 6, table(WHEEL, Facing.SOUTH));
-		g.set(4, 1, 10, table(BLACKJACK, Facing.SOUTH));
-		g.set(12, 1, 10, table(ROULETTE, Facing.SOUTH));
+		// MT (v0.2): 3×2 tables — left hall column x 2..4, right x 11..13; players on z+1, dealers two rows behind (z 8 /
+		// z 12, clear of the slot players at z 7)
+		game(g, BLACKJACK, 3, 1, 10, Facing.SOUTH);
+		game(g, ROULETTE, 12, 1, 10, Facing.SOUTH);
 		g.set(15, 1, 13, table(CASHIER, Facing.WEST));
-		// §16.1 (2026-09): Ultimate Texas Hold'em along the back wall
-		g.set(6, 1, 6, table(UTH, Facing.SOUTH));
-		// v0.1.3: baccarat in the east hall column below the roulette (players stand on z 14..15, the dealer on z 12;
-		// x 11/13 stay free so the cashier's player cell (14, 1, 13) and the central aisle x 7..9 are untouched)
-		g.set(12, 1, 13, table(BACCARAT, Facing.SOUTH));
+		// §16.1 (2026-09): Ultimate Texas Hold'em (MT: left column below the blackjack table)
+		game(g, UTH, 3, 1, 14, Facing.SOUTH);
+		// v0.1.3: baccarat in the east hall column below the roulette (MT: cells x 11..13 z 13..14, players z 15, dealer
+		// (12, 12); the cashier's player cell (14, 1, 13) and the central aisle x 7..9 stay free)
+		game(g, BACCARAT, 12, 1, 14, Facing.SOUTH);
 
 		String id = "village_casino_" + style.id();
 		List<Layout.PlacedMarker> markers = List.of(
 			new Layout.PlacedMarker(new Vec(8, 3, 11), new Markers.Anchor(id)),
-			new Layout.PlacedMarker(new Vec(2, 2, 13), new Markers.Npc(NpcRole.CROUPIER, Facing.EAST)),
+			new Layout.PlacedMarker(new Vec(1, 2, 15), new Markers.Npc(NpcRole.CROUPIER, Facing.EAST)),
 			new Layout.PlacedMarker(new Vec(8, 2, 7), new Markers.Npc(NpcRole.LOAN_SHARK, Facing.SOUTH)),
 			// behind the baccarat table, like the Parlor / Lounge (cosmetic; the dealer opens the nearest baccarat table)
 			new Layout.PlacedMarker(new Vec(12, 2, 12), new Markers.Npc(NpcRole.BACCARAT_DEALER, Facing.SOUTH)),
@@ -223,19 +243,19 @@ public final class Layouts {
 		g.box(9, 1, 20, 11, 3, 20, AIR);
 		g.box(9, 1, 0, 11, 3, 0, AIR);
 		// tables (§16.2: Craps, Poker, Golden Reels ×2, Plinko, Nether Cashier)
-		g.set(6, 1, 6, table(CRAPS, Facing.SOUTH));
-		g.set(14, 1, 6, table(POKER, Facing.SOUTH));
+		game(g, CRAPS, 6, 1, 7, Facing.SOUTH);
+		game(g, POKER, 14, 1, 7, Facing.SOUTH);
 		g.set(1, 1, 11, table(SLOTS_GOLD, Facing.EAST));
 		g.set(1, 1, 13, table(SLOTS_GOLD, Facing.EAST));
 		g.set(19, 1, 11, table(PLINKO, Facing.WEST));
 		g.set(19, 1, 15, table(NETHER_CASHIER, Facing.WEST));
 		// §16.2 (2026-09): baccarat, one Piglin Dealer behind it (cosmetic)
-		g.set(6, 1, 12, table(BACCARAT, Facing.SOUTH));
+		game(g, BACCARAT, 6, 1, 13, Facing.SOUTH);
 
 		List<Layout.PlacedMarker> markers = List.of(
 			new Layout.PlacedMarker(new Vec(10, 4, 10), new Markers.Anchor("piglin_parlor")),
 			new Layout.PlacedMarker(new Vec(6, 2, 11), new Markers.Npc(NpcRole.PIGLIN_DEALER, Facing.SOUTH)),
-			new Layout.PlacedMarker(new Vec(14, 2, 4), new Markers.Npc(NpcRole.PIGLIN_DEALER, Facing.SOUTH)),
+			new Layout.PlacedMarker(new Vec(14, 2, 5), new Markers.Npc(NpcRole.PIGLIN_DEALER, Facing.SOUTH)),
 			new Layout.PlacedMarker(new Vec(10, 2, 3), new Markers.Npc(NpcRole.PIGLIN_MONEYLENDER, Facing.SOUTH)),
 			new Layout.PlacedMarker(new Vec(1, 1, 19), new Markers.Chest(CasinoLoot.Table.PIGLIN_PARLOR, Facing.EAST)));
 		return new Layout("piglin_parlor", CasinoKind.PIGLIN_PARLOR, g, markers, List.of());
@@ -269,11 +289,11 @@ public final class Layouts {
 		// tables (§16.3: Netherite High Roller ×2, High-Roller Blackjack, Roulette, Baccarat, UTH, Cashier)
 		g.set(2, 1, 1, table(SLOTS_NETHERITE, Facing.SOUTH));
 		g.set(4, 1, 1, table(SLOTS_NETHERITE, Facing.SOUTH));
-		g.set(4, 1, 5, table(BLACKJACK_HIGH_ROLLER, Facing.SOUTH));
-		g.set(10, 1, 5, table(ROULETTE_HIGH_ROLLER, Facing.SOUTH));
+		game(g, BLACKJACK_HIGH_ROLLER, 4, 1, 5, Facing.SOUTH);
+		game(g, ROULETTE_HIGH_ROLLER, 10, 1, 5, Facing.SOUTH);
 		g.set(12, 1, 1, table(CASHIER, Facing.SOUTH));
-		g.set(4, 1, 10, table(BACCARAT_HIGH_ROLLER, Facing.SOUTH));
-		g.set(10, 1, 10, table(UTH_HIGH_ROLLER, Facing.SOUTH));
+		game(g, BACCARAT_HIGH_ROLLER, 4, 1, 11, Facing.SOUTH);
+		game(g, UTH_HIGH_ROLLER, 10, 1, 11, Facing.SOUTH);
 
 		List<Layout.PlacedMarker> markers = List.of(
 			new Layout.PlacedMarker(new Vec(c, 3, c), new Markers.Anchor("high_roller_lounge")),

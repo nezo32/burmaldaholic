@@ -236,6 +236,7 @@ public final class CrapsTableRenderer extends SpectatorBlockEntityRenderer<Craps
 		}
 		int light = s.lightCoords;
 		pose.pushPose();
+		dev.nezo.burmaldaholic.client.table.TableFrames.toFullFelt(pose, s.tablePart, s.tableGame, net.minecraft.core.Direction.from2DDataValue(s.dir), 1.0f, false); // MT: full felt
 		pose.translate(0.5f, 0f, 0.5f);
 		// the shooter's side is +z of the felt frame; turn it toward the shooter (0 south, 1 west, 2 north, 3 east)
 		pose.rotateAround(Axis.YP.rotationDegrees(-90f * s.dir), 0f, 0f, 0f);

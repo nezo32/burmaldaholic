@@ -215,6 +215,7 @@ public final class RouletteTableRenderer extends SpectatorBlockEntityRenderer<Ro
 		Identifier tex = TEX[s.theme];
 		int light = s.lightCoords;
 		pose.pushPose();
+		dev.nezo.burmaldaholic.client.table.TableFrames.toFullFelt(pose, s.tablePart, s.tableGame, s.facing, 14 / 16f, true); // MT: wheel bowl of a full table
 		pose.translate(0.5f, 0f, 0.5f);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f);
 		float head = (float) s.head;

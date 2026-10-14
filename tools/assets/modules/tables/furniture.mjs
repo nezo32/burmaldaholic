@@ -82,7 +82,8 @@ export function feltTexture(theme) {
   for (let y = 0; y < 16; y++)
     for (let x = 0; x < 16; x++) {
       const v = r();
-      put(img, x, y, c(v < 0.6 ? t.felt[0] : v < 0.8 ? t.felt[1] : v < 0.93 ? t.felt[2] : t.felt[3]));
+      // fine woven baize: mostly the base tone, a light nap and a faint shade, no dark specks
+      put(img, x, y, c(v < 0.74 ? t.felt[0] : v < 0.9 ? t.felt[1] : t.felt[2]));
     }
   return img;
 }
@@ -91,17 +92,18 @@ export function woodTexture(theme) {
   const t = THEMES[theme];
   const img = image(16, 16);
   const r = rng(0xb00d + theme.length * 31);
-  // horizontal grain, 4 px boards with a dark seam, seamless both ways
+  // lacquered hardwood: long horizontal grain streaks, faint seams every 8 rows (seamless both ways)
   for (let y = 0; y < 16; y++) {
-    const board = y >> 2;
+    const phase = (y * 7) % 16;
     for (let x = 0; x < 16; x++) {
-      const grain = Math.sin((x + board * 5) * 0.9 + Math.sin(y * 1.7 + board) * 1.3);
-      let k = grain > 0.55 ? 1 : grain < -0.6 ? 2 : 0;
-      if (r() < 0.06) k = 3;
-      if ((y & 3) === 3) k = 3;
+      const streak = Math.sin(((x + phase) / 16) * Math.PI * 2) + 0.35 * Math.sin(((x * 3 + y * 5) / 16) * Math.PI * 2);
+      let k = 1;
+      if (streak > 1.05) k = 0;
+      else if (streak < -1.0) k = 2;
+      if (r() < 0.025) k = 2;
+      if (y % 8 === 7) k = 3;
       put(img, x, y, c(t.wood[k]));
     }
-    if ((y & 3) === 3) R(img, (board * 7) & 15, y, 1, 1, t.wood[4]);
   }
   return img;
 }
@@ -215,7 +217,7 @@ const inter = (a, b) => {
   }
   return out;
 };
-const iv = (s) => (s ? [[q(s[0]), q(s[1])]] : []);
+const iv = (s) => (s && q(s[1]) - q(s[0]) > 1e-6 ? [[q(s[0]) || 0, q(s[1]) || 0]] : []);
 
 /** Roulette: wheel bowl circle (FeltFrame wheel centre (-0.5, 0) blocks, Ø1.0) and betting layout rectangle. */
 const BOWL = { cx: -8, cz: 0, r: 8 };
@@ -240,22 +242,24 @@ function strip(xm, shape) {
   const inner = iv(span(xm, shape, RAIL));
   const apron = iv(span(xm, shape, 1.5));
   out.push({ mat: 'wood', y0: 8, y1: 11, zs: apron });
+  out.push({ mat: 'rail', y0: 7.5, y1: 8, zs: iv(span(xm, shape, 2)) }); // dark kick band under the apron
   out.push({ mat: 'wood', y0: 11, y1: 12.5, zs: outer });
   out.push({ mat: 'trim', y0: 12.5, y1: 13, zs: outer });
   let felt = inner;
   let deck = [];
-  let bowlRim = [];
+  let bowlRing = [];
   let bowlFloor = [];
   if (shape === 'roulette') {
+    // wheel housing: a raised polished-wood cabinet over column r-1 with the bowl sunk into it (the rotor is drawn
+    // by the table renderer at the felt height), a brass ring round the bowl; the betting layout is felt
     const layout = xm > LAYOUT.x0 && xm < LAYOUT.x1 ? [[LAYOUT.z0, LAYOUT.z1]] : [];
     felt = inter(inner, layout);
-    const bowlOuter = circleSpan(xm, BOWL.r);
-    const bowlInner = circleSpan(xm, BOWL.r - 1.5);
-    bowlRim = minus(inter(bowlOuter, outer), bowlInner);
-    bowlFloor = bowlInner;
-    deck = minus(minus(inner, felt), bowlOuter);
+    const bowl = circleSpan(xm, BOWL.r - 1.5);
+    bowlRing = minus(circleSpan(xm, BOWL.r - 1), bowl);
+    bowlFloor = bowl;
+    deck = minus(minus(inner, felt), bowl);
   }
-  let rail = minus(minus(outer, inner), bowlRim);
+  let rail = minus(outer, inner);
   let ledge = [];
   if (shape === 'crescent' && inner.length) {
     // dealer side: a low wooden ledge instead of the padded rail along the straight back edge
@@ -263,7 +267,7 @@ function strip(xm, shape) {
     rail = rail.filter(([z0, z1]) => z1 > inner[0][0] + 1e-6);
   }
   out.push({ mat: 'felt', y0: 13, y1: FELT_TOP, zs: felt });
-  if (deck.length) out.push({ mat: 'wood', y0: 13, y1: 14, zs: deck });
+  if (deck.length) out.push({ mat: 'wood', y0: 13, y1: shape === 'roulette' ? 15 : 14, zs: deck });
   if (ledge.length) out.push({ mat: 'wood', y0: 13, y1: 14, zs: ledge });
   if (rail.length) {
     const high = shape === 'craps' ? 16 : RAIL_TOP;
@@ -272,8 +276,8 @@ function strip(xm, shape) {
     const top = rail.map(([z0, z1]) => [z0 + 0.5, z1 - 0.5]).filter(([z0, z1]) => z1 > z0);
     out.push({ mat: 'rail', y0: high - 0.5, y1: high, zs: top });
   }
-  if (bowlRim.length) out.push({ mat: 'bowl', y0: 13, y1: 15.5, zs: bowlRim });
-  if (bowlFloor.length) out.push({ mat: 'bowl', y0: 12.5, y1: 13.25, zs: bowlFloor });
+  if (bowlRing.length) out.push({ mat: 'trim', y0: 15, y1: 15.25, zs: bowlRing });
+  if (bowlFloor.length) out.push({ mat: 'bowl', y0: 12.5, y1: 13.5, zs: bowlFloor });
   return out;
 }
 
@@ -294,7 +298,9 @@ function legs(shape) {
   corner(-1, -1, back);
   corner(1, -1, back);
   list.push([OUT.cx, OUT.hz - 3.5], [OUT.cx, -(OUT.hz - 3.5)]);
-  return list.map(([x, z]) => ({ mat: 'wood', x0: q(x - 1.5), x1: q(x + 1.5), z0: q(z - 1.5), z1: q(z + 1.5), y0: 0, y1: 8 }));
+  // turned legs: square upper post, slimmer lower post, dark foot
+  const box = (x, z, h, mat, y0, y1) => ({ mat, x0: q(x - h), x1: q(x + h), z0: q(z - h), z1: q(z + h), y0, y1 });
+  return list.flatMap(([x, z]) => [box(x, z, 1.5, 'wood', 4, 7.5), box(x, z, 1, 'wood', 1, 4), box(x, z, 1.5, 'rail', 0, 1)]);
 }
 
 /** Dealer chip tray (card tables and poker): recessed rack in the back-centre cell. */

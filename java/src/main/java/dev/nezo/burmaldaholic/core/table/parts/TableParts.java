@@ -226,7 +226,8 @@ public final class TableParts {
 		List<BlockPos> cells = cellPositions(main, mainState);
 		placing++;
 		try {
-			level.destroyBlock(main, !player.isCreative(), player);
+			boolean drop = !player.isCreative() && (!(level instanceof net.minecraft.server.level.ServerLevel sl) || TableProtection.get().dropsAllowed(sl, main));
+			level.destroyBlock(main, drop, player);
 			for (BlockPos c : cells) {
 				if (!c.equals(main) && !c.equals(partPos) && level.getBlockState(c).is(b)) {
 					level.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_DESTROY_BLOCK, c, Block.getId(level.getBlockState(c)));
