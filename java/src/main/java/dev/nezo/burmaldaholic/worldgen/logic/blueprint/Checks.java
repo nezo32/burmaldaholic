@@ -66,8 +66,10 @@ public final class Checks {
 
 	private static Set<String> pendingClearance() {
 		Set<String> s = new java.util.LinkedHashSet<>();
+		// the retired v0.2 styles (OverworldPieces.legacy, compact by construction); entrance and bar were deleted by CR-1:
+		// the Grand Casino reuses those ids and passes R1-R6
 		for (String style : new String[] {"tudor", "oasis", "safari", "alpine", "ice_palace"}) {
-			for (String part : new String[] {"entrance", "floor_a", "floor_b", "bar", "office", "vip"}) {
+			for (String part : new String[] {"floor_a", "floor_b", "office", "vip"}) {
 				s.add("casino/" + style + "/" + part);
 			}
 		}

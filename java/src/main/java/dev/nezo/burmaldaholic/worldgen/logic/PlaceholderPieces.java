@@ -38,7 +38,7 @@ public final class PlaceholderPieces {
 	}
 
 	private static Blueprint shell(String style, String piece, int sx, int sy, int sz, int ceilingY) {
-		Blueprint b = Blueprint.of(id(style, piece), CasinoKind.CASINO, sx, sy, sz, Palettes.TUDOR);
+		Blueprint b = Blueprint.of(id(style, piece), CasinoKind.CASINO, sx, sy, sz, Palettes.TUDOR).compactTables(true);
 		b.foundation(0, 0, sx - 1, sz - 1, FLOOR_Y - 1);
 		b.room(0, FLOOR_Y, 0, sx - 1, ceilingY, sz - 1).frame(5).done();
 		for (int x = 2; x < sx - 1; x += 4) {

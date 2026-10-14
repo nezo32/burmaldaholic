@@ -46,6 +46,8 @@ OUT = Path(__file__).resolve().parent / 'mockups' / 'casinos'
 V2 = OUT / 'v2'
 
 VIEWS = ('iso_se', 'iso_sw', 'iso_nw', 'iso_ne', 'cutaway', 'plan', 'night')
+# night from the other three corners (``--views night_sw,night_nw,night_ne``): every facade at night
+NIGHT_TURNS = {'night_se': 0, 'night_sw': 3, 'night_nw': 2, 'night_ne': 1}
 VIEW_TURNS = {'iso_se': 0, 'iso_sw': 3, 'iso_nw': 2, 'iso_ne': 1}
 
 # ---- NBT ------------------------------------------------------------------------------------------
@@ -240,6 +242,7 @@ COLOURS = {
     'polished_andesite': (132, 135, 134), 'diorite': (188, 188, 188), 'polished_diorite': (192, 193, 194),
     'granite': (149, 103, 85), 'polished_granite': (154, 106, 89), 'tuff': (108, 109, 102),
     'polished_tuff': (98, 104, 99), 'tuff_bricks': (98, 102, 95), 'calcite': (223, 224, 220),
+    'chiseled_tuff': (102, 106, 98), 'chiseled_tuff_bricks': (96, 100, 94),
     'deepslate': (80, 80, 82), 'cobbled_deepslate': (77, 77, 80), 'polished_deepslate': (72, 72, 73),
     'deepslate_bricks': (70, 70, 71), 'deepslate_tiles': (54, 54, 55), 'chiseled_deepslate': (54, 54, 55),
     'bricks': (150, 97, 83), 'mud_bricks': (137, 104, 79), 'packed_mud': (142, 106, 79),
@@ -268,7 +271,8 @@ COLOURS = {
     'amethyst_cluster': (164, 126, 207), 'budding_amethyst': (132, 96, 186),
     'copper_block': (192, 107, 79), 'cut_copper': (191, 106, 80), 'exposed_copper': (161, 125, 103),
     'weathered_copper': (108, 153, 110), 'oxidized_copper': (82, 162, 132), 'chiseled_copper': (184, 100, 73),
-    'copper_grate': (192, 107, 79),
+    'copper_grate': (192, 107, 79), 'oxidized_cut_copper': (79, 153, 126), 'weathered_cut_copper': (109, 145, 107),
+    'exposed_cut_copper': (155, 121, 101), 'oxidized_chiseled_copper': (84, 160, 130),
     'blackstone': (42, 35, 40), 'polished_blackstone': (53, 48, 56), 'polished_blackstone_bricks': (48, 42, 49),
     'chiseled_polished_blackstone': (53, 48, 56), 'gilded_blackstone': (90, 70, 40),
     'cracked_polished_blackstone_bricks': (44, 37, 43), 'basalt': (80, 81, 86), 'polished_basalt': (99, 98, 100),
@@ -1189,6 +1193,9 @@ def render_views(st, out_dir, stem, views=VIEWS, scale=10, ground='auto'):
         elif v == 'night':
             render(st, path, scale=scale, rotate=0, night=True, title=(st.title or stem) + ' — night',
                    subtitle=info + '  ·  block light only', ground=g)
+        elif v in NIGHT_TURNS:
+            render(st, path, scale=scale, rotate=NIGHT_TURNS[v], night=True, title=(st.title or stem) + ' — night',
+                   subtitle=info + '  ·  block light only  ·  view ' + v[6:].upper(), ground=g)
         elif v == 'plan':
             render_plan(st, path, title=(st.title or stem) + ' — plan')
         else:

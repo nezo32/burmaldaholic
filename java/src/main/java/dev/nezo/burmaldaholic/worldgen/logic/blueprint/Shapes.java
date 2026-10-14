@@ -18,6 +18,11 @@ public final class Shapes {
 		return n.endsWith("glass_pane") || n.equals("minecraft:iron_bars") || n.endsWith("_bars");
 	}
 
+	/** Wall blocks ({@code cobblestone_wall}, {@code sandstone_wall} …), not wall banners / torches / signs. */
+	public static boolean isWall(String n) {
+		return n.endsWith("_wall");
+	}
+
 	public static boolean isStairs(String n) {
 		return n.endsWith("_stairs");
 	}

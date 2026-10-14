@@ -94,18 +94,67 @@ public final class Blueprint {
 	}
 
 	public boolean inside(int x, int y, int z) {
-		return grid.inside(x, y, z);
+		return grid.inside(tx(x), y, z);
 	}
 
 	public BlockSpec at(int x, int y, int z) {
-		return grid.get(x, y, z);
+		BlockSpec b = grid.get(tx(x), y, z);
+		return mirrored() ? Mirror.x(b) : b;
+	}
+
+	// ---- mirror symmetry -----------------------------------------------------------------------------
+
+	/** Twice the mirror axis x while {@link #mirrorX} runs its second pass; {@link Integer#MIN_VALUE} = no mirror. */
+	private int mirrorAxis2 = Integer.MIN_VALUE;
+
+	private boolean mirrored() {
+		return mirrorAxis2 != Integer.MIN_VALUE;
+	}
+
+	/** Template x of a drawing x (identity unless a mirrored pass runs). */
+	private int tx(int x) {
+		return mirrored() ? mirrorAxis2 - x : x;
+	}
+
+	private Facing tf(Facing f) {
+		return mirrored() && (f == Facing.EAST || f == Facing.WEST) ? f.opposite() : f;
+	}
+
+	private Geometry.Box tbox(Geometry.Box b) {
+		if (!mirrored()) {
+			return b;
+		}
+		return new Geometry.Box(Math.min(tx(b.minX()), tx(b.maxX())), b.minY(), b.minZ(), Math.max(tx(b.minX()), tx(b.maxX())), b.maxY(),
+			b.maxZ());
+	}
+
+	/**
+	 * Mirror-symmetry helper: runs {@code draw} once as written, then once more mirrored about the plane x =
+	 * {@code axis2} / 2 ({@code axis2} = twice the axis, so an odd-width building of width w uses {@code w - 1}). Every
+	 * verb drawn in the second pass lands mirrored: cells, block states (facing / shape / hinge / east-west arms /
+	 * rotation, see {@link Mirror}), games and their player sides, NPC and chest markers, keep-clear, interior and aisle
+	 * boxes, entries and jigsaws. Reads ({@link #at}) are mirrored too, so verbs that inspect the grid behave the same.
+	 */
+	public Blueprint mirrorX(int axis2, java.util.function.Consumer<Blueprint> draw) {
+		if (mirrored()) {
+			throw new IllegalStateException("mirrorX does not nest");
+		}
+		draw.accept(this);
+		mirrorAxis2 = axis2;
+		try {
+			draw.accept(this);
+		} finally {
+			mirrorAxis2 = Integer.MIN_VALUE;
+		}
+		return this;
 	}
 
 	// ---- raw verbs ----------------------------------------------------------------------------------
 
 	public Blueprint set(int x, int y, int z, BlockSpec b) {
-		grid.set(x, y, z, b);
-		blockNbt.remove(new Vec(x, y, z));
+		int mx = tx(x);
+		grid.set(mx, y, z, mirrored() ? Mirror.x(b) : b);
+		blockNbt.remove(new Vec(mx, y, z));
 		return this;
 	}
 
@@ -115,7 +164,7 @@ public final class Blueprint {
 
 	/** Sets the cell only when it is inside the piece (decor that may hang over an edge). */
 	public Blueprint setIfInside(int x, int y, int z, BlockSpec b) {
-		return grid.inside(x, y, z) ? set(x, y, z, b) : this;
+		return inside(x, y, z) ? set(x, y, z, b) : this;
 	}
 
 	public Blueprint fill(int x0, int y0, int z0, int x1, int y1, int z1, BlockSpec b) {
@@ -152,7 +201,7 @@ public final class Blueprint {
 		for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
 			for (int y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
 				for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
-					if (from.equals(grid.get(x, y, z))) {
+					if (from.equals(at(x, y, z))) {
 						set(x, y, z, to);
 					}
 				}
@@ -164,7 +213,7 @@ public final class Blueprint {
 	/** Sets a block together with its block-entity NBT (written into the template's {@code blocks[].nbt}). */
 	public Blueprint setNbt(int x, int y, int z, BlockSpec block, Map<String, Object> nbt) {
 		set(x, y, z, block);
-		blockNbt.put(new Vec(x, y, z), nbt);
+		blockNbt.put(new Vec(tx(x), y, z), nbt);
 		return this;
 	}
 
@@ -188,7 +237,7 @@ public final class Blueprint {
 		}
 		fill(x0, y1, z0, x1, y1, z1, Role.CEILING);
 		Geometry.Box inside = new Geometry.Box(x0 + 1, y0 + 1, z0 + 1, x1 - 1, y1 - 1, z1 - 1);
-		interior.add(inside);
+		interior.add(tbox(inside));
 		return new Room(this, new Geometry.Box(x0, y0, z0, x1, y1, z1));
 	}
 
@@ -207,7 +256,7 @@ public final class Blueprint {
 
 	/** Registers an extra interior volume (a mezzanine, a clerestory) for the light check. */
 	public Blueprint interior(int x0, int y0, int z0, int x1, int y1, int z1) {
-		interior.add(Geometry.Box.corners(new Vec(x0, y0, z0), new Vec(x1, y1, z1)));
+		interior.add(tbox(Geometry.Box.corners(new Vec(x0, y0, z0), new Vec(x1, y1, z1))));
 		return this;
 	}
 
@@ -244,12 +293,12 @@ public final class Blueprint {
 				break;
 			}
 			for (int x = ax; x <= bx; x++) {
-				grid.set(x, y, az, m.stairs(Facing.SOUTH, false));
-				grid.set(x, y, bz, m.stairs(Facing.NORTH, false));
+				set(x, y, az, m.stairs(Facing.SOUTH, false));
+				set(x, y, bz, m.stairs(Facing.NORTH, false));
 			}
 			for (int z = az + 1; z < bz; z++) {
-				grid.set(ax, y, z, m.stairs(Facing.EAST, false));
-				grid.set(bx, y, z, m.stairs(Facing.WEST, false));
+				set(ax, y, z, m.stairs(Facing.EAST, false));
+				set(bx, y, z, m.stairs(Facing.WEST, false));
 			}
 			if (cap && i == layers - 1 && ax + 1 <= bx - 1 && az + 1 <= bz - 1) {
 				fill(ax + 1, y, az + 1, bx - 1, y, bz - 1, role);
@@ -328,7 +377,7 @@ public final class Blueprint {
 		fill(x0, y0 - 1, z1, x1, y0 - 1, z1, Role.BEAM);
 		fill(x0, y0 - 1, z0, x0, y0 - 1, z1, Role.BEAM);
 		fill(x1, y0 - 1, z0, x1, y0 - 1, z1, Role.BEAM);
-		interior.add(new Geometry.Box(x0 + 1, y0 - 1, z0 + 1, x1 - 1, y1, z1 - 1));
+		interior.add(tbox(new Geometry.Box(x0 + 1, y0 - 1, z0 + 1, x1 - 1, y1, z1 - 1)));
 		return this;
 	}
 
@@ -486,20 +535,71 @@ public final class Blueprint {
 	 */
 	public Blueprint game(Game g, int x, int y, int z, Facing playerSide) {
 		TableGame tg = g.tableGame();
+		// resolved in template space: a mirrored pass stamps the mirrored table, not a mirror image of its cells
+		int mx = tx(x);
+		Facing f = tf(playerSide);
 		if (tg == null || compactTables) {
-			set(x, y, z, BlockSpec.of(g.blockId(), "facing", playerSide.id()));
+			grid.set(mx, y, z, BlockSpec.of(g.blockId(), "facing", f.id()));
+			blockNbt.remove(new Vec(mx, y, z));
 		} else {
 			// a full multi-block table (MT-DESIGN §6): every footprint cell with its part; the spot keeps the main pos
-			for (TableFootprint.Cell c : TableFootprint.cells(tg, playerSide.dx(), playerSide.dz())) {
-				set(x + c.dx(), y, z + c.dz(), BlockSpec.of(g.blockId(), "facing", playerSide.id(), "part", c.part().getSerializedName()));
+			for (TableFootprint.Cell c : TableFootprint.cells(tg, f.dx(), f.dz())) {
+				grid.set(mx + c.dx(), y, z + c.dz(), BlockSpec.of(g.blockId(), "facing", f.id(), "part", c.part().getSerializedName()));
+				blockNbt.remove(new Vec(mx + c.dx(), y, z + c.dz()));
 			}
 		}
-		games.add(new Piece.GameSpot(g, new Vec(x, y, z), playerSide));
+		games.add(new Piece.GameSpot(g, new Vec(mx, y, z), f));
+		return this;
+	}
+
+	/** Every game placed so far (template space). */
+	public List<Piece.GameSpot> games() {
+		return List.copyOf(games);
+	}
+
+	/**
+	 * Floor cells (template space, {x, y, z}) of a game's glowing corner tiles: under the players' corner cells r ±1 at
+	 * f +1 (a table's walkway ends, a machine's front diagonals), on the floor-block row. The light path tile → the cell
+	 * above it → one row up → over to the centre of the walkway → over the main block reaches the cell above the game
+	 * at 15 − 4 = 11 without entering the board / headroom volume (rows y + 1..y + 3 of the zone stay air).
+	 */
+	public static List<Vec> uplightCells(Piece.GameSpot s) {
+		List<Vec> out = new ArrayList<>();
+		Facing f = s.playerSide();
+		for (int r : new int[] {-1, 1}) {
+			int[] o = TableFootprint.cellOffset(r, 1, f.dx(), f.dz());
+			out.add(new Vec(s.pos().x() + o[0], s.pos().y() - 1, s.pos().z() + o[1]));
+		}
+		return out;
+	}
+
+	/**
+	 * Auto table lighting (CASINO-REDESIGN §3.2): every game placed so far gets {@link #uplightCells} set to UPLIGHT —
+	 * a light block flush with the floor, uncovered (a carpet on the cell above is removed) — where the floor there is
+	 * a full block. Light ≥ 10 over every game then never depends on lamps inside the board clearance. Call it after
+	 * the games and their kits (carpets) are placed.
+	 */
+	public Blueprint uplightGames() {
+		BlockSpec tile = palette.block(Role.UPLIGHT);
+		for (Piece.GameSpot s : games) {
+			for (Vec v : uplightCells(s)) {
+				if (!grid.inside(v.x(), v.y(), v.z()) || !Shapes.fullCube(grid.get(v.x(), v.y(), v.z()))) {
+					continue;
+				}
+				BlockSpec above = grid.inside(v.x(), v.y() + 1, v.z()) ? grid.get(v.x(), v.y() + 1, v.z()) : null;
+				if (above != null && Shapes.isCarpet(above.name())) {
+					grid.set(v.x(), v.y() + 1, v.z(), AIR);
+				} else if (above != null && !above.is("minecraft:air")) {
+					continue; // something stands on that cell (a stool, a planter): leave the floor alone
+				}
+				grid.set(v.x(), v.y(), v.z(), tile);
+			}
+		}
 		return this;
 	}
 
 	public Blueprint keepClear(int x0, int y0, int z0, int x1, int y1, int z1) {
-		keepClear.add(Geometry.Box.corners(new Vec(x0, y0, z0), new Vec(x1, y1, z1)));
+		keepClear.add(tbox(Geometry.Box.corners(new Vec(x0, y0, z0), new Vec(x1, y1, z1))));
 		return this;
 	}
 
@@ -509,7 +609,7 @@ public final class Blueprint {
 	 */
 	public Blueprint aisle(int x0, int y, int z0, int x1, int z1) {
 		Geometry.Box box = Geometry.Box.corners(new Vec(x0, y, z0), new Vec(x1, y + 1, z1));
-		aisles.add(box);
+		aisles.add(tbox(box));
 		return this;
 	}
 
@@ -518,12 +618,17 @@ public final class Blueprint {
 	 * {@link Checks} proves every game's player cell is reachable on foot from an entry.
 	 */
 	public Blueprint entry(int x, int y, int z) {
-		entries.add(new Vec(x, y, z));
+		entries.add(new Vec(tx(x), y, z));
 		return this;
 	}
 
 	public Blueprint marker(int x, int y, int z, Markers.Marker m) {
-		markers.add(new Layout.PlacedMarker(new Vec(x, y, z), m));
+		Markers.Marker mm = switch (m) {
+			case Markers.Npc n -> new Markers.Npc(n.role(), tf(n.facing()));
+			case Markers.Chest c -> new Markers.Chest(c.table(), tf(c.facing()));
+			case Markers.Anchor a -> a;
+		};
+		markers.add(new Layout.PlacedMarker(new Vec(tx(x), y, z), mm));
 		return this;
 	}
 
@@ -546,7 +651,8 @@ public final class Blueprint {
 	 * block that replaces the jigsaw after assembly (usually the floor block at that cell).
 	 */
 	public Blueprint jigsaw(int x, int y, int z, Facing out, String name, String target, String pool, BlockSpec finalState) {
-		jigsaws.add(new Layout.Jigsaw(new Vec(x, y, z), out.id() + "_up", name, target, pool, finalState.toString(), "aligned"));
+		jigsaws.add(new Layout.Jigsaw(new Vec(tx(x), y, z), tf(out).id() + "_up", name, target, pool,
+			(mirrored() ? Mirror.x(finalState) : finalState).toString(), "aligned"));
 		return this;
 	}
 
@@ -557,9 +663,80 @@ public final class Blueprint {
 	}
 
 	public Piece build() {
-		finishShapes();
+		finish();
 		Layout layout = new Layout(id, kind, grid, markers, jigsaws, blockNbt);
 		return new Piece(layout, games, keepClear, interior, aisles, entries);
+	}
+
+	private boolean finished;
+
+	/** Runs the finishing pass ({@link #finishShapes()}) once; a later {@link #build()} / {@link #slice} reuses it. */
+	public Blueprint finish() {
+		if (!finished) {
+			finishShapes();
+			finished = true;
+		}
+		return this;
+	}
+
+	/**
+	 * A z-slab {@code z0..z1} of this (finished) blueprint as its own blueprint {@code newId} (z shifted by -z0): the
+	 * cells, block NBT, markers, games (by their main block; a footprint must not cross the cut), entries and the
+	 * keep-clear / interior / aisle boxes clipped to the slab. A big building is designed in one piece and cut into
+	 * jigsaw pieces this way; connection shapes are finished on the whole building first, so the cut is seamless.
+	 * Add the connectors with {@link #jigsaw} on the slice.
+	 */
+	public Blueprint slice(String newId, int z0, int z1) {
+		finish();
+		Vec s = grid.size();
+		Blueprint out = new Blueprint(newId, kind, s.x(), s.y(), z1 - z0 + 1, palette).compactTables(compactTables);
+		out.finished = true;
+		for (int x = 0; x < s.x(); x++) {
+			for (int y = 0; y < s.y(); y++) {
+				for (int z = z0; z <= z1; z++) {
+					out.grid.set(x, y, z - z0, grid.get(x, y, z));
+				}
+			}
+		}
+		blockNbt.forEach((v, nbt) -> {
+			if (v.z() >= z0 && v.z() <= z1) {
+				out.blockNbt.put(new Vec(v.x(), v.y(), v.z() - z0), nbt);
+			}
+		});
+		for (Layout.PlacedMarker m : markers) {
+			if (m.pos().z() >= z0 && m.pos().z() <= z1) {
+				out.markers.add(new Layout.PlacedMarker(new Vec(m.pos().x(), m.pos().y(), m.pos().z() - z0), m.marker()));
+			}
+		}
+		for (Piece.GameSpot g : games) {
+			if (g.pos().z() < z0 || g.pos().z() > z1) {
+				continue;
+			}
+			for (int[] c : TableClearance.footprint(g)) {
+				if (c[1] < z0 || c[1] > z1) {
+					throw new IllegalStateException(g.game() + " at " + g.pos() + " crosses the cut " + z0 + ".." + z1);
+				}
+			}
+			out.games.add(new Piece.GameSpot(g.game(), new Vec(g.pos().x(), g.pos().y(), g.pos().z() - z0), g.playerSide()));
+		}
+		clip(keepClear, out.keepClear, z0, z1);
+		clip(interior, out.interior, z0, z1);
+		clip(aisles, out.aisles, z0, z1);
+		for (Vec e : entries) {
+			if (e.z() >= z0 && e.z() <= z1) {
+				out.entries.add(new Vec(e.x(), e.y(), e.z() - z0));
+			}
+		}
+		return out;
+	}
+
+	private static void clip(List<Geometry.Box> from, List<Geometry.Box> to, int z0, int z1) {
+		for (Geometry.Box b : from) {
+			int a = Math.max(b.minZ(), z0), c = Math.min(b.maxZ(), z1);
+			if (a <= c) {
+				to.add(new Geometry.Box(b.minX(), b.minY(), a - z0, b.maxX(), b.maxY(), c - z0));
+			}
+		}
 	}
 
 	// ---- finishing pass: connection properties ------------------------------------------------------
@@ -580,6 +757,8 @@ public final class Blueprint {
 					String n = b.name();
 					if (Shapes.isFence(n) || Shapes.isPane(n)) {
 						grid.set(x, y, z, connect(b, x, y, z));
+					} else if (Shapes.isWall(n)) {
+						grid.set(x, y, z, connectWall(b, x, y, z));
 					}
 				}
 			}
@@ -603,6 +782,32 @@ public final class Blueprint {
 			BlockSpec n = grid.inside(nx, y, nz) ? grid.get(nx, y, nz) : null;
 			p.put(f.id(), Boolean.toString(Shapes.connects(b.name(), n, f.opposite())));
 		}
+		p.putIfAbsent("waterlogged", "false");
+		return new BlockSpec(b.name(), p);
+	}
+
+	/**
+	 * Wall arms like vanilla's WallBlock: a side connects to walls, panes, bars, fence gates and full blocks; it is
+	 * {@code tall} when the block above covers its top (a slab rail, a full block), else {@code low}; the post
+	 * ({@code up}) stays at ends, corners, crossings and under lanterns / rods, and drops on straight runs.
+	 */
+	private BlockSpec connectWall(BlockSpec b, int x, int y, int z) {
+		Map<String, String> p = new LinkedHashMap<>(b.properties());
+		BlockSpec above = grid.inside(x, y + 1, z) ? grid.get(x, y + 1, z) : null;
+		boolean covered = above != null && (Shapes.fullCube(above) || above.name().endsWith("_slab") && !"top".equals(
+			above.properties().get("type")) || Shapes.isStairs(above.name()) && "bottom".equals(above.properties().get("half")));
+		boolean[] con = new boolean[4];
+		for (Facing f : Facing.values()) {
+			int nx = x + f.dx(), nz = z + f.dz();
+			BlockSpec n = grid.inside(nx, y, nz) ? grid.get(nx, y, nz) : null;
+			con[f.ordinal()] = Shapes.connects(b.name(), n, f.opposite());
+			p.put(f.id(), con[f.ordinal()] ? covered ? "tall" : "low" : "none");
+		}
+		boolean n = con[Facing.NORTH.ordinal()], e = con[Facing.EAST.ordinal()], so = con[Facing.SOUTH.ordinal()], w = con[Facing.WEST.ordinal()];
+		boolean straight = n && so && !e && !w || e && w && !n && !so;
+		boolean postOverride = above != null && (above.name().endsWith("lantern") || above.name().endsWith("torch")
+			|| above.name().endsWith("end_rod") || Shapes.isWall(above.name()));
+		p.put("up", Boolean.toString(postOverride || !straight));
 		p.putIfAbsent("waterlogged", "false");
 		return new BlockSpec(b.name(), p);
 	}
