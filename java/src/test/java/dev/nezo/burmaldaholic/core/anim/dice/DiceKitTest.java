@@ -128,6 +128,50 @@ class DiceKitTest {
 	}
 
 	@Test
+	void samplingNeverSolvesAndTheCacheSolvesOnce() {
+		DiceFixtures.Case c = DiceFixtures.all().get(0);
+		DiceRollCache cache = new DiceRollCache(4);
+		long key = DiceRollCache.key(17, 0, 1234);
+		long before = DiceSolver.SOLVES.get();
+		DiceRoll r = cache.get(key, () -> DiceSolver.solve(c.tray(), c.spec(), 1234, new int[] {4, 4}, c.targetMs()));
+		assertEquals(before + 1, DiceSolver.SOLVES.get());
+		DieSample s = new DieSample();
+		for (int f = 0; f < 10_000; f++) {
+			DiceRoll same = cache.get(key, () -> DiceSolver.solve(c.tray(), c.spec(), 1234, new int[] {4, 4}, c.targetMs()));
+			assertTrue(same == r);
+			same.sample(f & 1, f * 0.25, s);
+			same.topFace(f & 1, f * 0.25, s);
+		}
+		assertEquals(before + 1, DiceSolver.SOLVES.get(), "10k sampled frames solve 0 times");
+		for (int k = 0; k < 6; k++) cache.get(DiceRollCache.key(k, 1, 9), () -> r);
+		assertEquals(4, cache.size());
+	}
+
+	@Test
+	void worstCaseSolveStaysUnder20ms() {
+		java.util.List<DiceFixtures.Case> cases = DiceFixtures.all();
+		for (int i = 0; i < 2000; i++) DiceSolver.solve(cases.get(i % cases.size()).tray(), cases.get(i % cases.size()).spec(), i, new int[] {1, 2}, cases.get(i % cases.size()).targetMs());
+		long worst = 0;
+		int worstAttempt = 0;
+		for (DiceFixtures.Case c : cases)
+			for (int i = 0; i < 1500; i++) {
+				// best of 3 runs per seed: the machine is shared, this measures the solver, not the scheduler
+				long dt = Long.MAX_VALUE;
+				DiceRoll r = null;
+				for (int rep = 0; rep < 3; rep++) {
+					long t0 = System.nanoTime();
+					r = DiceSolver.solve(c.tray(), c.spec(), 0x7700 + i * 31, new int[] {1 + i % 6, 6 - i % 6}, c.targetMs());
+					dt = Math.min(dt, System.nanoTime() - t0);
+				}
+				if (dt > worst) worst = dt;
+				worstAttempt = Math.max(worstAttempt, r.attempt());
+				assertTrue(r.attempt() < DiceSolver.ATTEMPTS + 2 * DiceSolver.FALLBACK_ATTEMPTS, "attempt cap");
+			}
+		System.out.printf("worst solve %.2f ms, max attempt index %d%n", worst / 1e6, worstAttempt);
+		assertTrue(worst < 20_000_000L, "worst solve " + worst / 1e6 + " ms");
+	}
+
+	@Test
 	void rejectsBadInput() {
 		DiceFixtures.Case c = DiceFixtures.all().get(0);
 		boolean thrown = false;

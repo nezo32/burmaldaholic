@@ -133,7 +133,7 @@ class DiceRollTest {
 				DiceRoll r = DiceSolver.solve(tray, c.spec(), seed, new int[] {3, 4}, c.targetMs());
 				String at = c.name() + " seed " + si;
 				if (r.fallback()) fallbacks++;
-				if (r.attempt() >= 3 * DiceSolver.ATTEMPTS) lastResort++;
+				if (r.attempt() >= DiceSolver.ATTEMPTS) lastResort++;
 				MotionEvent[] ev = r.events();
 				err.check(MotionEvent.sorted(ev), at + " events unsorted");
 				boolean anyTip = false;

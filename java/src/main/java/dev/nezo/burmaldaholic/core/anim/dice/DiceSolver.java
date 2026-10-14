@@ -36,8 +36,8 @@ import java.util.List;
 public final class DiceSolver {
 	/** {@code targetMs} value: no target, the roll rests at its natural time. */
 	public static final int NATURAL = -1;
-	/** Seeded attempts per pass (strict, relaxed, very relaxed). */
-	public static final int ATTEMPTS = 12;
+	/** Hard cap of seeded attempts before the deterministic fallback. */
+	public static final int ATTEMPTS = 16;
 	/** Minimum separation of two dice centres whenever both are near the floor (see {@link #NEAR_FLOOR}). */
 	public static final double DIE_GAP = 2 * DiceTray.R_PLANE;
 	/** "Near the floor" for the die–die separation rule: both lowest points below this. */
@@ -66,17 +66,50 @@ public final class DiceSolver {
 		if (n < 1 || n > 4) throw new IllegalArgumentException("dice " + n);
 		for (int f : faces) if (f < 1 || f > 6) throw new IllegalArgumentException("face " + f);
 		if (targetMs != NATURAL && targetMs < 500) throw new IllegalArgumentException("targetMs " + targetMs);
+		SOLVES.incrementAndGet();
 		Ctx ctx = new Ctx(tray);
-		for (int pass = 0; pass < 4; pass++) {
-			for (int attempt = 0; attempt < ATTEMPTS; attempt++) {
-				int a = attempt + pass * ATTEMPTS;
+		int a = 0;
+		for (int pass = 0; pass < PASS_ATTEMPTS.length; pass++) {
+			for (int k = 0; k < PASS_ATTEMPTS[pass]; k++, a++) {
 				DiePlan[] plans = attempt(ctx, spec, seed, n, targetMs, a, pass);
-				if (plans != null) {
-					return build(ctx, plans, seed, faces, a, pass > 0);
-				}
+				if (plans != null) return build(ctx, plans, seed, faces, a, pass > 0);
 			}
 		}
+		// deterministic fallback after the capped attempts: first the most permissive targeted plan (a brush between the
+		// dice is accepted), then the natural pace with the last die held in its rest pose until the target
+		for (int k = 0; k < FALLBACK_ATTEMPTS; k++, a++) {
+			DiePlan[] plans = attempt(ctx, spec, seed, n, targetMs, a, 3);
+			if (plans != null) return build(ctx, plans, seed, faces, a, true);
+		}
+		for (int k = 0; k < FALLBACK_ATTEMPTS; k++, a++) {
+			DiePlan[] plans = attempt(ctx, spec, seed, n, NATURAL, a, 3);
+			if (plans == null) continue;
+			if (targetMs != NATURAL) {
+				int last = 0;
+				double end = -1;
+				for (DiePlan p : plans) {
+					double e = naturalEnd(p);
+					if (e > end) {
+						end = e;
+						last = p.die;
+					}
+				}
+				if (end <= targetMs) plans[last].tTarget = targetMs;
+			}
+			return build(ctx, plans, seed, faces, a, true);
+		}
 		throw new IllegalStateException("no dice plan for seed " + seed + " target " + targetMs);
+	}
+
+	/** Seeded attempts per pass (strict, relaxed, very relaxed): {@link #ATTEMPTS} in all. */
+	static final int[] PASS_ATTEMPTS = {5, 6, 5};
+	/** Deterministic natural-pace fallback attempts after the capped ones. */
+	static final int FALLBACK_ATTEMPTS = 2;
+	/** Number of {@link #solve} calls (tests prove that sampling never solves). */
+	static final java.util.concurrent.atomic.AtomicLong SOLVES = new java.util.concurrent.atomic.AtomicLong();
+
+	private static double naturalEnd(DiePlan p) {
+		return p.segs[p.segs.length - 1].t0;
 	}
 
 	// ---- per-tray cache ---------------------------------------------------------------------------------------------
@@ -207,7 +240,7 @@ public final class DiceSolver {
 		double g = ctx.tray.g();
 		List<Path> cand = new ArrayList<>();
 		DiceTray.Box zone = ctx.tray.restZone(p.die);
-		for (int tryN = 0; tryN < 4; tryN++) {
+		for (int tryN = 0; tryN < (p.die == 0 ? 4 : 10); tryN++) {
 			double ux = r.nextDouble();
 			double ry = zone.y0() + zone.height() * r.nextDouble();
 			double rx = zone.x0() + zone.width() * ux;
