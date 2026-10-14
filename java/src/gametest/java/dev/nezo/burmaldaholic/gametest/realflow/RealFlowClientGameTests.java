@@ -3,14 +3,11 @@ package dev.nezo.burmaldaholic.gametest.realflow;
 import static dev.nezo.burmaldaholic.gametest.realflow.RealFlow.*;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
-import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
-import dev.nezo.burmaldaholic.client.table.fx.ChipButton;
 import dev.nezo.burmaldaholic.core.CoreContent;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.games.extras.ExtrasModule;
-import dev.nezo.burmaldaholic.games.extras.logic.CoinFlip;
 import dev.nezo.burmaldaholic.games.extras.server.ExtrasGames;
 import dev.nezo.burmaldaholic.games.poker.PokerModule;
 import dev.nezo.burmaldaholic.games.slots.SlotsModule;
@@ -216,7 +213,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		awaitScreenNamed(ctx, "WheelScreen");
 		ctx.waitTicks(15);
 		int from = PLAYS.size();
-		click(ctx, "gui.burmaldaholic.common.spin");
+		clickV2When(ctx, "primary"); // table UI v2 (lane E): Spin is the primary
 		awaitPlay(ctx, ExtrasGames.WHEEL, from);
 		closeScreen(ctx, world);
 		removeBlock(world, pos);
@@ -230,7 +227,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		awaitScreenNamed(ctx, "PlinkoScreen");
 		ctx.waitTicks(15);
 		int from = PLAYS.size();
-		click(ctx, "gui.burmaldaholic.extras.plinko.drop");
+		clickV2When(ctx, "primary"); // v2: Drop is the primary
 		awaitPlay(ctx, ExtrasGames.PLINKO, from);
 		closeScreen(ctx, world);
 		removeBlock(world, pos);
@@ -242,9 +239,9 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		useItem(ctx, world, new ItemStack(ExtrasModule.LUCKY_COIN));
 		awaitScreenNamed(ctx, "CoinFlipScreen");
 		ctx.waitTicks(15);
-		click(ctx, CoinFlip.Side.HEADS.key());
+		clickV2When(ctx, "felt.heads"); // v2: the HEADS side of the coin card
 		int from = PLAYS.size();
-		click(ctx, "gui.burmaldaholic.extras.coin.flip");
+		clickV2When(ctx, "primary"); // Flip
 		awaitPlay(ctx, ExtrasGames.COIN, from);
 		closeScreen(ctx, world);
 	}
@@ -253,9 +250,9 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		useItem(ctx, world, new ItemStack(ExtrasModule.DICE));
 		awaitScreenNamed(ctx, "DiceScreen");
 		ctx.waitTicks(15);
-		click(ctx, "first chip", w -> w instanceof ChipButton);
+		clickV2When(ctx, "chip.0"); // v2: the first tray chip
 		int from = PLAYS.size();
-		click(ctx, "gui.burmaldaholic.extras.dice.roll");
+		clickV2When(ctx, "primary"); // Roll
 		awaitPlay(ctx, ExtrasGames.DICE, from);
 		closeScreen(ctx, world);
 	}
@@ -265,11 +262,10 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		awaitScreenNamed(ctx, "ScratchScreen");
 		ctx.waitTicks(15);
 		// scratch one cell by clicking the foil (the real input path), then the rest with "Scratch all"
-		int[] wh = ctx.computeOnClient(mc -> new int[] {mc.gui.screen().width, mc.gui.screen().height});
-		clickGui(ctx, Scene.left(wh[0]) + 32 + 30, Scene.top(wh[1]) + 66 + 22);
+		clickV2When(ctx, "felt.cell.0"); // v2: the first foil cell
 		ctx.waitTicks(10);
 		int from = PLAYS.size();
-		click(ctx, "gui.burmaldaholic.extras.scratch.all");
+		clickV2When(ctx, "primary"); // Scratch all
 		awaitPlay(ctx, ExtrasGames.SCRATCH, from);
 		closeScreen(ctx, world);
 	}
@@ -347,23 +343,29 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 	private void pokerSit(ClientGameTestContext ctx, TestSingleplayerContext world) {
 		BlockPos pos = pokerTable(ctx, world);
 		long before = balance(world);
-		click(ctx, "an open stakes level", w -> w.active && keyPrefix(w.getMessage(), "gui.burmaldaholic.poker.stakes."));
+		// table UI v2 (lane B): the stakes are action buttons "action.~pick:<level>", the primary is Buy in
+		String pick = ctx.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+			? h.chrome().hits().targets().stream().filter(t -> t.enabled() && t.id().startsWith("action.~pick:")).map(t -> t.id()).findFirst().orElse(null)
+			: null);
+		if (pick == null) throw new AssertionError("no open stakes level on the poker screen: " + describe(ctx));
+		clickV2(ctx, pick);
 		ctx.waitTicks(3);
-		click(ctx, "gui.burmaldaholic.poker.sit_down");
-		awaitServer(ctx, world, "the buy-in debited after Sit down", s -> balanceOf(s) < before, 60);
+		clickV2(ctx, "primary");
+		awaitServer(ctx, world, "the buy-in debited after Buy in", s -> balanceOf(s) < before, 60);
 		boolean seated = world.getServer().computeOnServer(s -> s.overworld().getBlockEntity(pos) instanceof CasinoTableBlockEntity be
 			&& be.isSeated(player(s)));
 		report.add("  poker: seated(generic seats)=" + seated + ", balance " + before + " -> " + balance(world));
-		click(ctx, "gui.burmaldaholic.poker.stand_up");
+		awaitClient(ctx, "Stand up offered", mc -> v2Point(mc, "action.stand_up") != null, 100);
+		clickV2(ctx, "action.stand_up");
 		awaitServer(ctx, world, "the stack back after Stand up", s -> balanceOf(s) == before, 100);
 		closeScreen(ctx, world);
 		removeBlock(world, pos);
 	}
 
 	/**
-	 * Fixed (hotfix A9): the bot table-settings gear on the card tables joins the canvas corner row, so it is drawn and
-	 * clickable. Checked at 1920 × 1080 and 2560 × 1440, GUI 2 / 3 / 4: find the gear, check it maps inside the window,
-	 * click it where it is drawn and get the Table settings screen.
+	 * Fixed (hotfix A9): a bot table's settings gear is reachable on the card tables. Table UI v2: the TopBar gear
+	 * ({@code top.settings}) of a bot table opens its Table settings. Checked at 1920 x 1080 and 2560 x 1440, GUI 2 / 3 / 4:
+	 * find the gear, check it maps inside the window, click it where it is drawn and get the Table settings screen.
 	 */
 	private void pokerGear(ClientGameTestContext ctx, TestSingleplayerContext world) {
 		closeScreen(ctx, world);
@@ -377,21 +379,15 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 				awaitScreen(ctx, dev.nezo.burmaldaholic.games.poker.client.PokerScreen.class, 60);
 				ctx.waitTicks(20);
 				String at = size[0] + "x" + size[1] + " GUI " + size[2];
-				WidgetRef gear = widget(ctx, w -> w.getMessage().getString().equals("⚙"));
-				if (gear == null) throw new AssertionError(at + ": no gear widget: " + describe(ctx));
-				boolean drawn = ctx.computeOnClient(mc -> {
-					Object list = readField(mc.gui.screen(), "buttons"); // the canvas draws (and hit-tests) exactly this list
-					return list instanceof List<?> l && l.stream().anyMatch(o -> o instanceof net.minecraft.client.gui.components.AbstractWidget w
-						&& w.getMessage().getString().equals("⚙"));
-				});
-				if (!drawn) throw new AssertionError(at + ": the gear is not one of the canvas' drawn buttons");
+				double[] gear = ctx.computeOnClient(mc -> v2Point(mc, "top.settings"));
+				if (gear == null) throw new AssertionError(at + ": no TopBar gear: " + describe(ctx));
 				int[] win = ctx.computeOnClient(mc -> new int[] {mc.getWindow().getScreenWidth(), mc.getWindow().getScreenHeight()});
-				report.add("  poker gear " + at + " at window " + Math.round(gear.windowX()) + "," + Math.round(gear.windowY()) + " (window " + win[0] + "x" + win[1] + ")");
-				if (gear.windowX() < 0 || gear.windowX() > win[0] || gear.windowY() < 0 || gear.windowY() > win[1]) {
-					throw new AssertionError(at + ": the gear maps outside the window (" + Math.round(gear.windowX()) + ", " + Math.round(gear.windowY()) + ")");
+				report.add("  poker gear " + at + " at window " + Math.round(gear[0]) + "," + Math.round(gear[1]) + " (window " + win[0] + "x" + win[1] + ")");
+				if (gear[0] < 0 || gear[0] > win[0] || gear[1] < 0 || gear[1] > win[1]) {
+					throw new AssertionError(at + ": the gear maps outside the window (" + Math.round(gear[0]) + ", " + Math.round(gear[1]) + ")");
 				}
 				if (SCREENS) ctx.takeScreenshot("realflow_poker_gear_" + size[0] + "_gui" + size[2]);
-				clickWindow(ctx, gear.windowX(), gear.windowY());
+				clickWindow(ctx, gear[0], gear[1]);
 				awaitScreen(ctx, dev.nezo.burmaldaholic.bots.client.TableSettingsScreen.class, 40);
 			}
 		} finally {
@@ -399,6 +395,31 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 			removeBlock(world, pos);
 			window(ctx, 1920, 1080, 0);
 		}
+	}
+
+	/** Window pixel of the centre of v2 HitMap target {@code id} (enabled), or null. */
+	private static double @org.jspecify.annotations.Nullable [] v2Point(net.minecraft.client.Minecraft mc, String id) {
+		if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return null;
+		var chrome = h.chrome();
+		for (var t : chrome.hits().targets()) {
+			if (!t.id().equals(id) || !t.enabled()) continue;
+			var vp = chrome.viewport();
+			return new double[] {vp.toWindow(t.box().x() + t.box().w() / 2.0), vp.toWindow(t.box().y() + t.box().h() / 2.0)};
+		}
+		return null;
+	}
+
+	/** Waits until v2 target {@code id} is enabled, then clicks it. */
+	private static void clickV2When(ClientGameTestContext ctx, String id) {
+		awaitClient(ctx, "v2 target " + id, mc -> v2Point(mc, id) != null, 100);
+		clickV2(ctx, id);
+	}
+
+	/** Clicks v2 target {@code id} where it is drawn (fails when it is missing or disabled). */
+	private static void clickV2(ClientGameTestContext ctx, String id) {
+		double[] at = ctx.computeOnClient(mc -> v2Point(mc, id));
+		if (at == null) throw new AssertionError("no enabled v2 target '" + id + "': " + describe(ctx));
+		clickWindow(ctx, at[0], at[1]);
 	}
 
 	/** Fixed (hotfix A9): the chip-counter HUD is not drawn while a casino screen is open (it peeked out top-left). */

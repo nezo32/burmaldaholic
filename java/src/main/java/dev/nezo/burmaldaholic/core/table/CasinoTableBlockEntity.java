@@ -860,13 +860,6 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 	}
 
-	/** Re-sends state to one player if they have this table's screen open. */
-	private void syncIfViewing(ServerPlayer player) {
-		if (player.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition)) {
-			sendStateTo(player);
-		}
-	}
-
 	/** Per player: table actions handled (the v2 ack watchdog's echo, docs/architecture/ui-v2.md §5.2; not persisted). */
 	private final java.util.Map<java.util.UUID, Long> acks = new java.util.HashMap<>();
 
@@ -892,14 +885,12 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			}
 			case "leave" -> {
 				// only a leave that frees a seat resyncs every viewer (leave() does); a refused or empty one refreshes the
-				// sender's own screen only — a client spamming "leave" must not make the server resync the whole table
+				// sender's own screen only (handleAction's answer) — a client spamming "leave" must not make the server
+				// resync the whole table
 				if (!canLeaveNow(player.getUUID())) {
 					sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
-					syncIfViewing(player);
 				} else if (seats().isSeated(player.getUUID())) {
 					leave(player.getUUID(), LeaveReason.LEFT);
-				} else {
-					syncIfViewing(player);
 				}
 			}
 			default -> onAction(player, action, args);

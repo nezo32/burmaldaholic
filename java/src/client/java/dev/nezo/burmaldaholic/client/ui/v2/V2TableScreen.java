@@ -168,6 +168,12 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 		sendTracked(gate.action());
 	}
 
+	/**
+	 * The TopBar gear's owner when another module claims it (bots: a bot table's gear opens its Table settings, v0.1.2
+	 * hotfix A9); returns true when it handled the click. Default: nobody, the gear opens the casino settings.
+	 */
+	public static java.util.function.Predicate<V2TableScreen<?>> topSettingsHook = s -> false;
+
 	@Override
 	public void onTopIcon(String id) {
 		switch (id) {
@@ -176,6 +182,7 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 				onClose();
 			}
 			case KeyMap.Ids.TOP_SETTINGS -> {
+				if (topSettingsHook.test(this)) return;
 				if (minecraft != null) minecraft.gui.setScreen(new CasinoConfigScreen(this));
 			}
 			case KeyMap.Ids.TOP_RULES -> openRules();

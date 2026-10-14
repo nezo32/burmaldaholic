@@ -321,14 +321,9 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		String name = "fresh roulette";
 		BlockPos pos = placeAndOpen(context, world, RouletteModule.TABLE, RouletteScreen.class, name, 20);
 		if (pos != null) {
-			double[] red = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-				Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
-				return spot.isPresent() && spot.get().toString().contains("RED");
-			}));
-			if (red == null) {
-				failures.add(name + ": no RED spot on screen");
-			} else {
-				click(context, red[0], red[1]);
+			// v2 (lane C): no chip picked; a click on RED places the kit's default chip (BetBar.armOrDefault: one that fits)
+			Spot red = Spot.of(BetType.RED, Spot.outsideNumbers(BetType.RED, 0));
+			if (clickV2(context, name, RouletteLayout.spotId(red))) {
 				serverWait(context, world, pos, name + ": RED bet with the default chip and 20 chips lands", (t, p) -> t.stakeOf(p.getUUID()) > 0);
 				log.add(name + ": staked " + stake(world, pos) + " of 20");
 			}
@@ -336,65 +331,45 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		}
 		name = "fresh blackjack";
 		pos = placeAndOpen(context, world, BlackjackModule.TABLE, BlackjackScreen.class, name, 50);
-		if (pos != null && clickLabel(context, name, "gui.burmaldaholic.blackjack.sit")
+		if (pos != null && clickV2(context, name, "primary") // v2: the primary says Sit down
 				&& serverWait(context, world, pos, name + ": seated after Sit", (t, p) -> t.isSeated(p))) {
 			context.waitTicks(3);
-			// the default chip (25) put on the player's own betting circle, then Deal
-			double[] spot = context.computeOnClient(mc -> {
-				Screen s = mc.gui.screen();
-				boolean compact = (boolean) field(s, "compact");
-				int x = (int) call(s, "tx", compact ? 140 : dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_X);
-				int y = (int) call(s, "ty", compact ? dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.C_STACK_Y
-					: dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_Y);
-				return canvasToWindow(mc, s, x, y);
-			});
-			click(context, spot[0], spot[1]);
-			if (clickLabel(context, name, "gui.burmaldaholic.common.deal")) {
-				serverWait(context, world, pos, name + ": the chip put on the circle is the bet",
-					(t, p) -> t.stakeOf(p.getUUID()) == 25 || t.writeClientState(p).getLongOr("last_bet", 0) == 25);
+			// the default chip put on the player's own betting circle (lane A10's circle click = v2 felt.spot), then Deal
+			if (clickV2(context, name, "felt.spot")) {
+				context.waitTicks(3);
+				long draft = context.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+					? h.chrome().bet.view().myTotal() : -1L);
+				if (draft <= 0) failures.add(name + ": a click on the betting circle put no chip down (draft " + draft + ")");
+				if (clickV2(context, name, "primary")) {
+					serverWait(context, world, pos, name + ": the chip put on the circle is the bet",
+						(t, p) -> t.stakeOf(p.getUUID()) > 0 || t.writeClientState(p).getLongOr("last_bet", 0) > 0);
+				}
 			}
 		}
 		if (pos != null) closeAndLeave(context, world, pos);
 		name = "fresh craps";
 		pos = placeAndOpen(context, world, CrapsModule.TABLE, CrapsScreen.class, name, 50);
 		if (pos == null) return;
-		feltClick(context, name, "Area[kind=come,", "gui.burmaldaholic.craps.come_needs_point");
-		feltClick(context, name, "Area[kind=point,", "gui.burmaldaholic.craps.numbers_come_out");
+		feltClick(context, name, CrapsLayout.COME, "gui.burmaldaholic.craps.v2.reason.come_needs_point");
+		feltClick(context, name, CrapsLayout.pointId(6), "gui.burmaldaholic.craps.v2.reason.point_box_come_out");
 		if (stake(world, pos) != 0) failures.add(name + ": COME / a number took a bet on the come-out");
-		double[] pass = feltPoint(context, "Area[kind=pass,");
-		if (pass == null) {
-			failures.add(name + ": no Pass Line");
-		} else {
-			click(context, pass[0], pass[1]);
+		if (clickV2(context, name, CrapsLayout.PASS)) {
 			serverWait(context, world, pos, name + ": Pass Line with the default chip lands", (t, p) -> t.stakeOf(p.getUUID()) > 0);
 		}
 		closeAndLeave(context, world, pos);
 	}
 
-	private static double[] feltPoint(ClientGameTestContext context, String area) {
-		return context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Object felt = call(s, "felt");
-			Optional<?> a = (Optional<?>) call(felt, "hit", x - (int) call(s, "lx"), y - (int) call(s, "ly"));
-			return a.isPresent() && a.get().toString().startsWith(area);
-		}));
-	}
-
-	/** Clicks a felt area and checks the screen's error line names the reason {@code key}. */
-	private void feltClick(ClientGameTestContext context, String name, String area, String key) {
-		double[] at = feltPoint(context, area);
-		if (at == null) {
-			failures.add(name + ": no " + area);
-			return;
-		}
-		click(context, at[0], at[1]);
-		context.waitTicks(5);
+	/** Clicks a v2 felt spot and checks the status line names the reason {@code key}. */
+	private void feltClick(ClientGameTestContext context, String name, String id, String key) {
+		if (!clickV2(context, name, id)) return;
+		context.waitTicks(3);
 		String shown = context.computeOnClient(mc -> {
-			Object e = field(mc.gui.screen(), "error");
-			return e instanceof Component c && c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey()
-				: String.valueOf(e);
+			if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return "no v2 screen";
+			Component c = h.chrome().status.line1();
+			return c != null && c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey() : String.valueOf(c);
 		});
-		log.add(name + ": " + area + " -> " + shown);
-		if (!key.equals(shown)) failures.add(name + ": clicking " + area + " on the come-out shows " + shown + ", expected " + key);
+		log.add(name + ": " + id + " -> " + shown);
+		if (!key.equals(shown)) failures.add(name + ": clicking " + id + " on the come-out shows " + shown + ", expected " + key);
 	}
 
 	// ---- the real flow helpers ----------------------------------------------------------------------------------------
