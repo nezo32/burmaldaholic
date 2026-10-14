@@ -6,8 +6,9 @@ Branch and PR rules: [CONTRIBUTING.md](../../CONTRIBUTING.md).
 | File | Purpose |
 |---|---|
 | `.github/workflows/ci.yml` | PR / `main` checks, aggregated into the single required check `ci-ok` |
-| `.github/workflows/release.yml` | Tag `vX.Y.Z` → build the mod → GitHub release → CurseForge |
-| `.github/workflows/reusable-*.yml` | Generic reusable workflows, identical to the ones in `nezo32/enchantaholic` (`reusable-build-node.yml` is kept in sync but no job here calls it) |
+| `.github/workflows/release.yml` | Tag `vX.Y.Z` → build the mod → GitHub release → CurseForge + Modrinth |
+| `.github/workflows/publish-modrinth.yml` | Manual: publish the jar of an **existing** GitHub release to Modrinth only (no rebuild) |
+| `.github/workflows/reusable-*.yml` | Generic reusable workflows, identical to the ones in `nezo32/enchantaholic` (`reusable-build-node.yml` is kept in sync but no job here calls it; `reusable-publish-modrinth.yml` is new here and not yet in Enchantaholic) |
 | `.github/workflows/labeler.yml`, `.github/labeler.yml` | PR labels from the branch prefix and changed paths |
 | `.github/release.yml` | Release-notes categories (by label) |
 | `.github/templates/release-caller.yml` | Caller template for other repositories (not run here, only linted) |
@@ -20,7 +21,9 @@ A release is a tag. Pushing `vX.Y.Z` on a commit of `main` starts `.github/workf
 2. `build-mod`: `./gradlew build -Pmod_version=X.Y.Z` in `java/` (JDK 25; unit tests, gametests and `checkLinkage`
    included).
 3. `github-release`: the release "Burmaldaholic X.Y.Z", with generated notes and the asset `burmaldaholic-X.Y.Z.jar`.
-4. `curseforge-mod`: uploads the jar, using the release notes as the changelog.
+4. `curseforge-mod` and `modrinth-mod` (in parallel): upload the same jar, using the release notes as the changelog.
+   Modrinth gets version `X.Y.Z` named "Burmaldaholic X.Y.Z", game versions `26.2`, `26.3`, loader `fabric`, a
+   required dependency on Fabric API, not featured.
 
 The jar is compiled against the lowest supported Minecraft version (`mc` in `java/gradle.properties`) and supports
 the whole `supported_mc_range`; PR CI builds and tests it against every version of the range (`-Pmc=26.2`,
@@ -38,8 +41,8 @@ git tag -a v1.2.0 -m v1.2.0
 git push origin v1.2.0
 ```
 
-Then watch Actions → Release. When it is green, check the GitHub release and the CurseForge file pages (CurseForge
-files then go through CurseForge moderation).
+Then watch Actions → Release. When it is green, check the GitHub release, the CurseForge file pages (CurseForge
+files then go through CurseForge moderation) and the Modrinth versions page.
 
 Before tagging, look at the merged PRs since the last release: their titles and labels are the release notes. Fix a
 title or label on the PR now if needed; the notes are generated when the release job runs.
@@ -48,7 +51,7 @@ title or label on the PR now if needed; the notes are generated when the release
 
 Use a SemVer pre-release suffix:
 
-| Tag | GitHub | CurseForge |
+| Tag | GitHub | CurseForge / Modrinth |
 |---|---|---|
 | `v1.3.0-alpha.1` | pre-release | alpha |
 | `v1.3.0-beta.1` | pre-release | beta |
@@ -68,18 +71,34 @@ There are no long-lived release branches. A tag on anything other than a commit 
 ## Re-running and dry runs
 
 - **Rebuild an existing tag and update its GitHub release** (for example after a failed build): Actions → Release →
-  Run workflow, `tag: v1.2.0`, tick `skip-curseforge`.
-- **Only a CurseForge job failed:** fix the cause (usually a game version name in the repo variable), then open the
+  Run workflow, `tag: v1.2.0`, tick `skip-curseforge` and `skip-modrinth`. This rebuilds the jar (not
+  byte-identical to the old one), replaces the release asset and regenerates the release notes (manual edits to the
+  release body are lost). Never do this for a tag that is already on CurseForge or Modrinth.
+- **Publish an existing release to Modrinth only** (for example a release made before Modrinth was set up): Actions →
+  **Publish to Modrinth** → Run workflow, `tag: v1.2.0`. It downloads `burmaldaholic-1.2.0.jar` from the GitHub
+  release (checking its sha256 against the asset digest), so Modrinth gets exactly the jar that is on GitHub and
+  CurseForge; it does not touch the tag, the GitHub release or CurseForge. `dry-run` is ticked by default: run it
+  once like that, then again with `dry-run` unticked.
+
+  ```bash
+  gh workflow run publish-modrinth.yml --ref main -f tag=v1.2.0 -f dry-run=true
+  gh workflow run publish-modrinth.yml --ref main -f tag=v1.2.0 -f dry-run=false
+  ```
+- **Only a CurseForge or Modrinth job failed:** fix the cause (usually a game version name in the repo variable), then open the
   failed run and use "Re-run failed jobs". The build artifacts are reused.
 - **Dry run of the CurseForge upload:** Run workflow with `tag: <existing tag>` and `curseforge-dry-run: true`.
   The CurseForge jobs resolve the version names and print the metadata without uploading. The GitHub release for that
-  tag is still rebuilt and updated.
+  tag is still rebuilt and updated. `modrinth-dry-run` does the same for Modrinth (or use Publish to Modrinth with
+  `dry-run`, which does not rebuild anything).
+- **Modrinth is idempotent per version:** if version `X.Y.Z` already exists on the Modrinth project, the job logs a
+  notice and uploads nothing. A Modrinth upload is not retried after a curl error or HTTP 5xx: look at the
+  project's Versions page before re-running.
 - **CurseForge has no idempotency:** re-running a successful upload creates a second file. Delete the duplicate in the
   CurseForge UI. If an upload failed with HTTP 5xx or a curl error, look at the project's Files page before
   re-running: the file may have been created anyway (the script deliberately does not retry those).
 - **Wrong tag pushed:** if the run already failed or has not published yet, delete the tag
   (`git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`) and any draft/created GitHub release. If it already
-  reached CurseForge, do not reuse the version: release the next patch.
+  reached CurseForge or Modrinth, do not reuse the version: release the next patch.
 
 ## PR checks (`ci.yml`)
 
@@ -152,17 +171,23 @@ gh label create tools          --color 5319e7 --description "Asset generator (to
 
 ### Releasing from the Actions tab (no local git needed)
 
-Actions → **Release** → Run workflow, branch **main**, tag `vX.Y.Z`. If the tag does not exist yet, the workflow creates it on the tip of `main` and continues with build → GitHub release → CurseForge in the same run. If it already exists, the run rebuilds and re-publishes that release.
+Actions → **Release** → Run workflow, branch **main**, tag `vX.Y.Z`. If the tag does not exist yet, the workflow creates it on the tip of `main` and continues with build → GitHub release → CurseForge in the same run. If it already exists, the run rebuilds and re-publishes that release (to publish an existing release to Modrinth only, use Publish to Modrinth instead).
 
 ### Secrets and variables
 
 Settings → Secrets and variables → Actions. The CurseForge token and project ids may be repository-level **or** live in the GitHub Environment `Burmaldaholic` (the upload jobs run in it; override the name with the repository variable `CURSEFORGE_ENVIRONMENT`). A missing project id shows up as a warning in the run, not as a silently skipped job.
+The Modrinth job uses the same Environment (override with `MODRINTH_ENVIRONMENT`); a missing `MODRINTH_TOKEN` is a
+warning and the Modrinth upload is skipped.
 
 | Kind | Name | Value |
 |---|---|---|
 | secret | `CURSEFORGE_TOKEN` | CurseForge Authors portal → API tokens |
 | variable | `CURSEFORGE_PROJECT_ID` | numeric id of the Java project (sidebar of the project page). Empty = CurseForge skipped |
 | variable (optional) | `CURSEFORGE_GAME_VERSIONS` | default `26.2,26.3,Fabric,Java 25,Client,Server` |
+| secret | `MODRINTH_TOKEN` | Modrinth → Settings → Personal access tokens, scopes **Create versions**, **Read projects**, **Read versions** (read is needed while the project is a draft / under review). Lives in the Environment `burmaldaholic` |
+| variable (optional) | `MODRINTH_PROJECT_ID` | Modrinth project id or slug, default `burmaldaholic` |
+| variable (optional) | `MODRINTH_GAME_VERSIONS` | default `26.2,26.3` (Modrinth game version tags) |
+| variable (optional) | `MODRINTH_ENVIRONMENT` | Environment of the Modrinth job, default = `CURSEFORGE_ENVIRONMENT` or `Burmaldaholic` |
 | variable (optional) | `JAVA_MC_VERSIONS` | PR CI matrix, JSON array, default `["26.2","26.3"]` |
 
 ```bash
@@ -171,7 +196,7 @@ gh variable set CURSEFORGE_PROJECT_ID --body 123456
 ```
 
 The names are the same as in `nezo32/enchantaholic`. When a new patch of a supported Minecraft version ships (for
-example `26.2.1`), add it to `CURSEFORGE_GAME_VERSIONS`.
+example `26.2.1`), add it to `CURSEFORGE_GAME_VERSIONS` and `MODRINTH_GAME_VERSIONS`.
 
 ### Confirm the CurseForge names
 
@@ -189,6 +214,18 @@ curl -fsS -H "X-Api-Token: $T" https://minecraft.curseforge.com/api/game/version
 CF_TOKEN=$T CF_PROJECT_ID=<id> CF_DRY_RUN=true \
 CF_GAME_VERSIONS='26.2,26.3,Fabric,Java 25,Client,Server' CF_RELATIONS='fabric-api:requiredDependency' \
   bash scripts/curseforge-upload.sh LICENSE
+```
+
+### Confirm the Modrinth names
+
+The Modrinth job checks the game versions and loaders against `GET /v2/tag/game_version` and `/v2/tag/loader` and
+resolves the project and the Fabric API dependency (`fabric-api` = `P7dR8mSH`) before uploading, so a typo fails the
+job without creating anything. In October 2026 `26.2` and `26.3` were both Modrinth release tags. The project is
+looked up with the token, so a draft or unapproved project (which the public API reports as 404) works too.
+
+```bash
+curl -fsS https://api.modrinth.com/v2/tag/game_version | jq -r '.[] | select(.version | startswith("26.")) | .version'
+curl -fsS -H "Authorization: $MODRINTH_TOKEN" https://api.modrinth.com/v2/project/burmaldaholic | jq '{id, slug, status}'
 ```
 
 ### First release
