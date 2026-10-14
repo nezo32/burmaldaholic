@@ -21,7 +21,9 @@ public final class V2Button {
 	/** The display name of a {@link dev.nezo.burmaldaholic.core.ui.v2.KeyMap} key ("Space" / "Пробел", "H"), or null for none. */
 	public static @Nullable Component keyName(@Nullable String key) {
 		String k = dev.nezo.burmaldaholic.core.ui.v2.KeyMap.vanillaNameKey(key);
-		return k == null ? null : Component.translatable(k);
+		if (k != null) return Component.translatable(k);
+		String c = dev.nezo.burmaldaholic.core.ui.v2.KeyMap.plateChar(key);
+		return c == null ? null : dev.nezo.burmaldaholic.core.text.Texts.raw(c); // a key cap letter: language-neutral
 	}
 
 	/** Width a button needs for {@code label} and the optional key hint. */
