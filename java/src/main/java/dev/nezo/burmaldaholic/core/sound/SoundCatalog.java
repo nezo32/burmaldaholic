@@ -49,6 +49,9 @@ public record SoundCatalog(String id, String owner, String source, String subtit
 		existing(l, "roulette", "tables", "roulette_spin");
 		for (String id : new String[] {"dice_throw", "dice_bounce", "dice_cup", "dice_wall"})
 			l.add(new SoundCatalog(id, "core", "block", id, false, "tables"));
+		// DICE-ANIM-SPEC §7 / CRAPS-ANIM-SPEC §7 (dice kit, DCa): event-driven contact and result sounds
+		for (String id : new String[] {"dice_clack", "dice_tip", "dice_teeter", "dice_settle", "dice_pip", "dice_stamp"})
+			l.add(new SoundCatalog(id, "core", "block", id, false, "dice"));
 		l.add(new SoundCatalog("craps_puck", "craps", "block", "craps_puck", false, "tables"));
 		// extras-pvp.md §10.3
 		existing(l, "extras", "extras-pvp", "coin_flip", "plinko_peg", "dice_roll");

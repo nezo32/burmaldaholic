@@ -165,5 +165,11 @@
 	"subtitles.burmaldaholic.dice_bounce": "Dice bounce",
 	"subtitles.burmaldaholic.dice_wall": "Dice hit the wall",
 	"subtitles.burmaldaholic.dice_cup": "Dice rattle",
-	"subtitles.burmaldaholic.plinko_bin": "Ball drops into a bin"
+	"subtitles.burmaldaholic.plinko_bin": "Ball drops into a bin",
+	"subtitles.burmaldaholic.dice_clack": "Dice knock together",
+	"subtitles.burmaldaholic.dice_tip": "Die rolls over",
+	"subtitles.burmaldaholic.dice_teeter": "Die teeters",
+	"subtitles.burmaldaholic.dice_settle": "Dice settle",
+	"subtitles.burmaldaholic.dice_pip": "Pips counted",
+	"subtitles.burmaldaholic.dice_stamp": "House stamp"
 }

@@ -3851,3 +3851,14 @@ The other v1 slot config labels were removed with the slots v2 cut-over (S-J5).
 | `subtitles.burmaldaholic.wheel_stop` | Wheel stops | Останавливается колесо |
 | `subtitles.burmaldaholic.plinko_bin` | Ball drops into a bin | Шарик падает в лунку |
 | `subtitles.burmaldaholic.burn` | Cell burns | Сгорает клетка |
+
+### core › dice kit sounds (DCa, DICE-ANIM-SPEC §7)
+
+| Key | EN | RU |
+|---|---|---|
+| `subtitles.burmaldaholic.dice_clack` | Dice knock together | Кости стукаются друг о друга |
+| `subtitles.burmaldaholic.dice_tip` | Die rolls over | Кость перекатывается |
+| `subtitles.burmaldaholic.dice_teeter` | Die teeters | Кость балансирует на ребре |
+| `subtitles.burmaldaholic.dice_settle` | Dice settle | Кости замирают |
+| `subtitles.burmaldaholic.dice_pip` | Pips counted | Считаются очки |
+| `subtitles.burmaldaholic.dice_stamp` | House stamp | Печать заведения |
