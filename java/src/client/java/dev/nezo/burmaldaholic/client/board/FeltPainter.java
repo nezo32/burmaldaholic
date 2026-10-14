@@ -43,12 +43,13 @@ public final class FeltPainter {
 			float x0 = (float) (frame.cx() - frame.w() / 2), x1 = (float) (frame.cx() + frame.w() / 2);
 			float z0 = (float) (frame.cz() - frame.d() / 2), z1 = (float) (frame.cz() + frame.d() / 2);
 			float y = (float) frame.top() + DECAL_LIFT;
+			int fl = s.feltLight;
 			out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.print(frame.shape(), s.furniture)), (p, vc) -> {
 				int c = 0xFFFFFFFF;
-				Quads.v(p, vc, x0, y, z1, 0, 1, c, light, 0, 1, 0);
-				Quads.v(p, vc, x1, y, z1, 1, 1, c, light, 0, 1, 0);
-				Quads.v(p, vc, x1, y, z0, 1, 0, c, light, 0, 1, 0);
-				Quads.v(p, vc, x0, y, z0, 0, 0, c, light, 0, 1, 0);
+				Quads.v(p, vc, x0, y, z1, 0, 1, c, fl, 0, 1, 0);
+				Quads.v(p, vc, x1, y, z1, 1, 1, c, fl, 0, 1, 0);
+				Quads.v(p, vc, x1, y, z0, 1, 0, c, fl, 0, 1, 0);
+				Quads.v(p, vc, x0, y, z0, 0, 0, c, fl, 0, 1, 0);
 			});
 			return;
 		}

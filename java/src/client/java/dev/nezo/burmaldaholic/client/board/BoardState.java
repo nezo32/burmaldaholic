@@ -54,6 +54,11 @@ public class BoardState extends SpectatorRenderState {
 	public boolean full;
 	/** The footprint-local felt of a full table (null on a compact one). */
 	public dev.nezo.burmaldaholic.core.table.parts.@Nullable FeltFrame frame;
+	/**
+	 * The world light at the table, unclamped: the felt print decal of a full table uses it so it darkens with the baked
+	 * furniture felt at night (cards and chips keep the readable minimum in {@code lightCoords}).
+	 */
+	public int feltLight = net.minecraft.util.LightCoordsUtil.pack(15, 15);
 	/** Furniture theme of a full table (print decal): 0 standard, 1 high roller, 2 player-banked. */
 	public int furniture;
 

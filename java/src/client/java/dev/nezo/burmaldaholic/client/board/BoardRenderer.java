@@ -114,6 +114,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		Felt wanted = felt(be);
 		if (level != null) {
 			int light = LightCoordsUtil.getLightCoords(level, be.getBlockPos().above());
+			s.feltLight = light;
 			s.lightCoords = LightCoordsUtil.max(light, LightCoordsUtil.pack(MIN_BLOCK_LIGHT, 0));
 		}
 		s.felt = wanted;
