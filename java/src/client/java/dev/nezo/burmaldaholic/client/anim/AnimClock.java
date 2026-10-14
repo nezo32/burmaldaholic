@@ -38,7 +38,7 @@ public final class AnimClock {
 	 * time of {@link #freezeForTest}, else {@code MotionClock.testOverride}, else NaN (production: live clocks).
 	 */
 	public static double testLevelMs() {
-		double frozen = testLevelMs();
+		double frozen = frozenLevelMs;
 		if (!Double.isNaN(frozen)) return frozen;
 		java.util.function.LongSupplier o = dev.nezo.burmaldaholic.client.fx.motion.MotionClock.testOverride;
 		return o != null ? o.getAsLong() : Double.NaN;
