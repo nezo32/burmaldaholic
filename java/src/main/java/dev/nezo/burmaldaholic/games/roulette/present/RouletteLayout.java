@@ -124,7 +124,9 @@ public final class RouletteLayout {
 		this.historyLabel = new Box(px, ly, pillsW, 9);
 		List<Box> p = new ArrayList<>();
 		int py = ly + 12;
-		for (int row = 0; row < 2; row++) {
+		// ROOMY (ui-v2 §3.7, PHASE2B §2.2.5): up to 5 rows (20 pills) where the column has the height
+		int rows = g.roomy() ? 5 : 2;
+		for (int row = 0; row < rows; row++) {
 			int y = py + row * PILL_PITCH_Y;
 			if (y + PILL_H > play.bottom() - 2) break;
 			for (int i = 0; i < perRow; i++) {

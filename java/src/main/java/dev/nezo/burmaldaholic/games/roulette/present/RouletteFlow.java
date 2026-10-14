@@ -144,7 +144,7 @@ public final class RouletteFlow implements Flow<RouletteView> {
 					// DES roulette P1: Repeat stays live (gold) through the result; a press queues the slip for the next spin
 					Object[] amount = {v.rebetAmount()};
 					if (v.rebetQueued()) return new Gate(BetGates.REBET, V2Keys.PRIMARY_REBET, amount, false, K + "reason.rebet_queued", null);
-					if (v.rebetAmount() > v.balance()) return new Gate(BetGates.REBET, V2Keys.PRIMARY_REBET, amount, false, V2Keys.REASON_NOT_ENOUGH, null);
+					if (v.rebetAmount() > v.balance()) return new Gate(BetGates.REBET, V2Keys.PRIMARY_REBET, amount, false, reason, args); // wait: the chip rack may refill
 					return Gate.on(BetGates.REBET, V2Keys.PRIMARY_REBET, v.rebetAmount());
 				}
 				return new Gate(SPIN, label, null, false, reason, args);

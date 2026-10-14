@@ -181,7 +181,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		for (Spot s : RouletteLayout.allSpots()) hits.add(RouletteLayout.spotId(s), l.target(s), open);
 		for (Racetrack.Section s : Racetrack.Section.values()) hits.add(RouletteLayout.callId(s), l.calls.get(s.ordinal()), open);
 		// the banner never covers a number cell (the winning one stays visible), the wheel or the history (R-CDE M4)
-		chrome.banner.regions(l.bannerRegions(), l.bannerObstacles());
+		chrome.banner.regions(l.bannerRegions(), List.of());
+		chrome.banner.obstacles(l.bannerObstacles());
 	}
 
 	@Override

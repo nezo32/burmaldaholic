@@ -121,7 +121,7 @@ class RouletteFlowTest {
 		assertEquals(55L, q.labelArgs()[0]);
 		View poor = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 20, 0, false, 55, false, false, 0, 0, 2);
 		assertFalse(RouletteFlow.primary(poor).enabled());
-		assertEquals(RouletteFlow.CORE + "reason.not_enough", RouletteFlow.primary(poor).reasonKey());
+		assertEquals(RouletteFlow.CORE + "reason.bets_open_in", RouletteFlow.primary(poor).reasonKey());
 		View none = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 500, 0, false, 0, false, false, 0, 0, 2);
 		assertFalse(RouletteFlow.primary(none).enabled());
 	}
