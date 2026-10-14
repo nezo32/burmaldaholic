@@ -23,7 +23,7 @@ import net.minecraft.nbt.CompoundTag;
  * Flip Duel landing, Wheel Party bets and spin, Plinko Battle, Scratch Showdown grudge + Final Reveal), the lobby, the
  * result window and the Dice Duel invite card, at 480 × 270 (1920 × 1080 @4) and 640 × 360 (1920 × 1080 @3), English and
  * Russian. Asserts the v2 frame: every visible button inside the window, the main buttons in the Dock band, nothing
- * between the content and the TopBar. Screenshots {@code v2p_<lang>_<size>_<view>}. The real PvP flows (two players,
+ * between the content and the TopBar. Screenshots {@code p2b_e2_pvp_<view>_<lang>_<w>}. The real PvP flows (two players,
  * every mode played to the settle through these screens) are {@code gametest/pvp/PvpRealFlowClientGameTests}.
  */
 public class PvpV2ClientGameTests implements FabricClientGameTest {
@@ -36,7 +36,8 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			RealFlow f = new RealFlow(context, world);
 			context.waitTicks(20);
-			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}};
+			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}, {"ru_ru", "1920", "1080", "3"},
+				{"en_us", "1280", "720", "3"}};
 			for (String[] r : runs) {
 				if (!r[0].equals(f.client(mc -> mc.options.languageCode))) f.language(r[0]);
 				f.size(Integer.parseInt(r[1]), Integer.parseInt(r[2]), Integer.parseInt(r[3]));
@@ -93,14 +94,21 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 			new ExtrasScreenPayload("duel_invite", true, invite))));
 		context.waitFor(mc -> mc.gui.screen() != null && mc.gui.screen().getClass().getSimpleName().equals("DuelInviteScreen"), RealFlow.TIMEOUT);
 		context.waitTicks(10);
-		f.shot("v2p_" + tag + "_invite");
+		f.shot(shotName(tag, "invite"));
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(3);
 	}
 
+	/** 2b standard name {@code p2b_e2_pvp_<view>_<lang>_<w>} from the run tag {@code <lang>_<w>x<h>}. */
+	private static String shotName(String tag, String view) {
+		String lang = tag.substring(0, 2);
+		String w = tag.substring(tag.indexOf('_', 3) + 1).split("x")[0];
+		return "p2b_e2_pvp_" + view + "_" + lang + "_" + w;
+	}
+
 	/** Screenshot + the frame checks: buttons inside the window, the Dock row in the Dock band. */
 	private void check(RealFlow f, String tag, String view) {
-		f.shot("v2p_" + tag + "_" + view);
+		f.shot(shotName(tag, view));
 		String p = f.client(mc -> {
 			Screen s = mc.gui.screen();
 			if (s == null) return "no screen";
@@ -115,6 +123,14 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 				boolean inDock = w.getY() >= l.dock().y();
 				boolean inPlay = w.getY() + w.getHeight() <= l.dock().y();
 				if (!inDock && !inPlay) out.add("'" + w.getMessage().getString() + "' straddles the Dock edge");
+			}
+			// R-CDE M7: a PvP panel grows for wrapped (RU) lines: the panel holds the content, the content ends above the Dock
+			if (s instanceof dev.nezo.burmaldaholic.games.extras.client.pvp.coin.PvpPanel panel) {
+				if (panel.panelHeight() < panel.contentBottom() - panel.panelTop()) {
+					out.add("panel " + panel.panelHeight() + " shorter than its content " + (panel.contentBottom() - panel.panelTop()));
+				}
+				if (panel.contentBottom() > l.dock().y()) out.add("content bottom " + panel.contentBottom() + " below the Dock " + l.dock().y());
+				if (panel.panelTop() + PvpFrame.CONTENT_TOP < l.top().bottom()) out.add("content under the TopBar");
 			}
 			return String.join("; ", out);
 		});

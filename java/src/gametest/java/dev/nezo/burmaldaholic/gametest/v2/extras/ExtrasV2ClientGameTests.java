@@ -28,7 +28,7 @@ import net.minecraft.world.item.ItemStack;
  * SERVER is asserted (the stake taken, the round settled: the balance moved by exactly the server's net). At 480 × 270
  * (1920 × 1080 @4) in English and Russian, then 640 × 360 (1920 × 1080 @3 and 2560 × 1440 @4). Negative paths: the
  * primary with no bet shows the reason and sends nothing; chips above the maximum say why. Screenshots
- * {@code v2e_<lang>_<size>_<game>_<state>}. The in-world machines run in {@link ExtrasBoardClientGameTests}.
+ * {@code p2b_e2_<game>_<state>_<lang>_<w>}. The in-world machines run in {@link ExtrasBoardClientGameTests}.
  */
 public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 	private static final long START = 5000;
@@ -42,17 +42,22 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 			RealFlow f = new RealFlow(context, world);
 			context.waitTicks(20);
 			world.getServer().runOnServer(server -> CasinoConfig.chaos().enabled = false);
-			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}, {"en_us", "2560", "1440", "4"}};
+			// the PHASE2B §0.7 standard set (EN + RU at 480 and 640, EN elsewhere). Plinko and Dice run at 480 / 640 only: their
+			// screens moved to packages PL and DCb (frozen for E2), these are regression checks of the E2 behaviour
+			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}, {"ru_ru", "1920", "1080", "3"},
+				{"en_us", "1280", "720", "3"}, {"en_us", "1920", "1080", "2"}, {"en_us", "2560", "1440", "2"}};
 			for (String[] r : runs) {
 				if (!r[0].equals(f.client(mc -> mc.options.languageCode))) f.language(r[0]);
 				f.size(Integer.parseInt(r[1]), Integer.parseInt(r[2]), Integer.parseInt(r[3]));
 				String tag = r[0] + "_" + f.viewport().w() + "x" + f.viewport().h();
-				run(f, tag, "plinko", () -> plinko(f, tag));
+				boolean core = r[3].equals("4") || r[3].equals("3") && r[1].equals("1920");
+				if (core) run(f, tag, "plinko", () -> plinko(f, tag));
 				run(f, tag, "wheel", () -> wheel(f, tag));
 				run(f, tag, "coin", () -> coin(f, tag));
 				run(f, tag, "scratch", () -> scratch(f, tag));
-				run(f, tag, "dice", () -> dice(f, tag));
+				if (core) run(f, tag, "dice", () -> dice(f, tag));
 			}
+			run(f, "en_us_two", "plinko_two_machines", () -> plinkoTwoMachines(f));
 			f.language("en_us");
 			f.size(854, 480, 0);
 			f.close();
@@ -78,6 +83,13 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 			f.context().runOnClient(mc -> CelebrationOverlay.get().clear());
 			f.close();
 		}
+	}
+
+	/** 2b standard name {@code p2b_e2_<game>_<state>_<lang>_<w>} from the run tag {@code <lang>_<w>x<h>}. */
+	static String name(String tag, String what) {
+		String lang = tag.substring(0, 2);
+		String w = tag.substring(tag.indexOf('_', 3) + 1).split("x")[0];
+		return "p2b_e2_" + what + "_" + lang + "_" + w;
 	}
 
 	// ---- helpers ---------------------------------------------------------------------------------------------------
@@ -153,7 +165,7 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		f.context().waitTicks(10);
 		if (balance(f) != before) throw new AssertionError(game + ": a click without a bet reached the server");
 		if (f.status().isEmpty()) throw new AssertionError(game + ": the disabled primary shows no reason");
-		if (tag.startsWith("en_us_480")) f.shot("v2e_" + tag + "_" + game + "_nobet");
+		f.shot(name(tag, game + "_nobet"));
 	}
 
 	/** chip.k by index of the tray (0 = smallest). */
@@ -165,16 +177,16 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 
 	private void plinko(RealFlow f, String tag) {
 		BlockPos pos = machine(f, ExtrasModule.PLINKO.block());
-		f.shot("v2e_" + tag + "_plinko_open");
+		f.shot(name(tag, "plinko_open"));
 		noBetRefused(f, tag, "plinko");
 		f.click(KeyMap.Ids.felt("risk.high"));
 		chips(f, 1, 1); // 5 + 5
-		f.shot("v2e_" + tag + "_plinko_bet");
+		f.shot(name(tag, "plinko_bet"));
 		long before = balance(f);
 		f.click(KeyMap.Ids.PRIMARY); // Drop
 		f.waitServer(pos, PlinkoBlockEntity.class, be -> be.plinkoSync() != null, "the drop is published");
 		f.context().waitTicks(14);
-		f.shot("v2e_" + tag + "_plinko_drop");
+		f.shot(name(tag, "plinko_drop"));
 		long net = f.server(s -> {
 			var be = (PlinkoBlockEntity) s.overworld().getBlockEntity(pos);
 			return be.writeClientState(RealFlow.player(s)).getCompoundOrEmpty("result").getLongOr("net", Long.MIN_VALUE);
@@ -182,7 +194,7 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		if (net == Long.MIN_VALUE) throw new AssertionError("no plinko result on the server");
 		waitBalance(f, b -> b == before + net, "plinko settles " + net);
 		f.context().waitTicks(60);
-		f.shot("v2e_" + tag + "_plinko_landed");
+		f.shot(name(tag, "plinko_landed"));
 		if (!primaryEnabled(f)) throw new AssertionError("Drop not enabled again after the landing: " + primaryReason(f));
 	}
 
@@ -190,22 +202,22 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		BlockPos pos = machine(f, ExtrasModule.WHEEL.block());
 		noBetRefused(f, tag, "wheel");
 		chips(f, 2); // 25
-		f.shot("v2e_" + tag + "_wheel_bet");
+		f.shot(name(tag, "wheel_bet"));
 		long before = balance(f);
 		f.key(KeyMap.SPACE); // keyboard parity: Space = Spin
 		f.waitServer(pos, WheelBlockEntity.class, be -> be.wheelSync() != null, "the spin is published");
 		f.context().waitTicks(30);
-		f.shot("v2e_" + tag + "_wheel_spin");
+		f.shot(name(tag, "wheel_spin"));
 		long net = f.server(s -> ((WheelBlockEntity) s.overworld().getBlockEntity(pos)).writeClientState(RealFlow.player(s)).getCompoundOrEmpty("result")
 			.getLongOr("net", Long.MIN_VALUE));
 		waitBalance(f, b -> b == before + net, "wheel settles " + net);
 		f.context().waitTicks(70);
-		f.shot("v2e_" + tag + "_wheel_stop");
+		f.shot(name(tag, "wheel_stop"));
 	}
 
 	private void coin(RealFlow f, String tag) {
 		useItem(f, ExtrasModule.LUCKY_COIN, 1);
-		f.shot("v2e_" + tag + "_coin_open");
+		f.shot(name(tag, "coin_open"));
 		noBetRefused(f, tag, "coin");
 		f.click(KeyMap.Ids.felt("tails"));
 		chips(f, 2);
@@ -214,21 +226,21 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		long after = waitBalance(f, b -> b != before, "the flip settles");
 		if (after != before - 25 && after <= before) throw new AssertionError("coin: unexpected balance " + before + " → " + after);
 		f.context().waitTicks(12);
-		f.shot("v2e_" + tag + "_coin_air");
+		f.shot(name(tag, "coin_air"));
 		f.context().waitTicks(40);
-		f.shot("v2e_" + tag + "_coin_landed");
+		f.shot(name(tag, "coin_landed"));
 	}
 
 	private void scratch(RealFlow f, String tag) {
 		useItem(f, ExtrasModule.SCRATCH_CARD, 2);
-		f.shot("v2e_" + tag + "_scratch_open");
+		f.shot(name(tag, "scratch_open"));
 		f.click(KeyMap.Ids.felt("cell.0")); // a click auto-swipes one cell (the server draws the card)
 		f.context().waitTicks(20);
 		f.click(KeyMap.Ids.PRIMARY); // Scratch all
 		f.context().waitFor(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().primary.gate().action().equals("new")
 			|| !(mc.gui.screen() instanceof V2Chrome.Holder), RealFlow.TIMEOUT);
 		f.context().waitTicks(10);
-		f.shot("v2e_" + tag + "_scratch_done");
+		f.shot(name(tag, "scratch_done"));
 		boolean used = f.server(s -> RealFlow.player(s).getInventory().countItem(ExtrasModule.SCRATCH_CARD_USED) >= 1
 			|| RealFlow.player(s).getInventory().countItem(ExtrasModule.SCRATCH_CARD) <= 1);
 		if (!used) throw new AssertionError("the scratched ticket was not consumed on the server");
@@ -241,12 +253,73 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		long before = balance(f);
 		f.click(KeyMap.Ids.PRIMARY); // Roll
 		f.context().waitTicks(30);
-		f.shot("v2e_" + tag + "_dice_roll");
+		f.shot(name(tag, "dice_roll"));
 		// the result is revealed (the banner carries the server's net, a tie included)
 		f.context().waitFor(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().banner.summary() != null, 400);
 		long net = f.client(mc -> ((V2Chrome.Holder) mc.gui.screen()).chrome().banner.net());
 		long after = balance(f);
 		if (after != before + net) throw new AssertionError("dice: the banner says " + net + " but the balance moved " + (after - before));
-		f.shot("v2e_" + tag + "_dice_result");
+		f.shot(name(tag, "dice_result"));
+	}
+
+	/** Reads a field of the open screen (the screens are package-private; tests read their local state). */
+	private static Object screenField(RealFlow f, String field) {
+		return f.client(mc -> {
+			Object s = mc.gui.screen();
+			for (Class<?> k = s.getClass(); k != null; k = k.getSuperclass()) {
+				try {
+					java.lang.reflect.Field fl = k.getDeclaredField(field);
+					fl.setAccessible(true);
+					return fl.get(s);
+				} catch (NoSuchFieldException e) {
+					// up the hierarchy
+				} catch (IllegalAccessException e) {
+					throw new AssertionError(e);
+				}
+			}
+			throw new AssertionError("no field " + field + " on " + s.getClass().getSimpleName());
+		});
+	}
+
+	private static long localBet(RealFlow f) {
+		return ((dev.nezo.burmaldaholic.games.extras.present.LocalBet) screenField(f, "bet")).amount();
+	}
+
+	/**
+	 * R-CDE m5: two Plinko machines keep their own bet (the bet was one static for every machine); the hotfix's per-risk
+	 * minimum shows as the Risk toggle's tooltip (real hover).
+	 */
+	private void plinkoTwoMachines(RealFlow f) {
+		f.size(1920, 1080, 4);
+		BlockPos a = f.place(ExtrasModule.PLINKO.block(), -2);
+		BlockPos b = f.place(ExtrasModule.PLINKO.block(), 2);
+		f.context().waitTicks(3);
+		f.use(a);
+		waitV2(f, "machine A opens");
+		f.click(KeyMap.Ids.tool("clear"));
+		chips(f, 2); // 25
+		long betA = localBet(f);
+		f.hover(KeyMap.Ids.felt("risk.high"));
+		f.context().waitTicks(3);
+		Object tip = screenField(f, "riskTip");
+		if (!(tip instanceof net.minecraft.network.chat.Component c) || !c.getString().matches(".*[0-9].*")) {
+			throw new AssertionError("no per-risk minimum tooltip on the High toggle: " + tip);
+		}
+		f.context().takeScreenshot("p2b_e2_plinko_risk_tooltip_en_480");
+		f.close();
+		f.use(b);
+		waitV2(f, "machine B opens");
+		f.click(KeyMap.Ids.tool("clear"));
+		chips(f, 1); // 5
+		long betB = localBet(f);
+		if (betB == betA) throw new AssertionError("the chips on B gave the same bet as A (" + betA + ")");
+		f.close();
+		f.use(a);
+		waitV2(f, "machine A reopens");
+		if (localBet(f) != betA) throw new AssertionError("machine A reopened on " + localBet(f) + ", not its own bet " + betA + " (B has " + betB + ")");
+		f.close();
+		f.use(b);
+		waitV2(f, "machine B reopens");
+		if (localBet(f) != betB) throw new AssertionError("machine B reopened on " + localBet(f) + ", not its own bet " + betB);
 	}
 }
