@@ -22,4 +22,7 @@ public final class WorldgenConfig {
 	public HighRoller highRoller = new HighRoller();
 
 	@Range(min = 0, max = 240000) public int loanSharkRespawnTicks = 24000;
+
+	/** {@code /casino locate}: seconds between searches of one non-operator player (0 = no cooldown). */
+	@Range(min = 0, max = 3600) public int locateCooldownSeconds = 30;
 }

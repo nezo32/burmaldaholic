@@ -426,9 +426,11 @@ Unchanged format. The anchor marker lives only in the start piece (`entrance`, a
 ### 6.5 Commands, `/locate`, building by hand
 
 - `/locate structure #burmaldaholic:casino` and `/locate structure burmaldaholic:casino_tudor` work through the
-  tag/ids. `/casino worldgen locate` (CB-1) wraps it: nearest standalone casino via
-  `ChunkGenerator.findNearestMapStructure(level, tagHolderSet, pos, 100, false)` **and** the nearest known
-  annex from `CasinoIndex`; prints both with distance + clickable teleport for ops.
+  tag/ids. The CB-1 op command `/casino worldgen locate` was dropped when v0.1.3 merged in: the every-player
+  `/casino locate` (`CasinoLocator`, docs/handoff/v013-locate.md) covers all v0.2 casinos — the standalone set
+  `burmaldaholic:casinos` is one more host grid (structures of `#burmaldaholic:casino`, no hash gate,
+  `LocateRules.CAP_CASINO_CHUNKS`), annexes / Parlor v2 / Lounge v2 ride on the v0.1 hosts and gates, and every hit
+  is confirmed in the real structure start (`CasinoPlacement.of`: kind + union box of the start's casino pieces).
 - `/casino worldgen build casino [style]` dispatches `place structure burmaldaholic:casino_<style> <pos>`
   through `server.getCommands()` (version-proof; `/place structure` ignores biomes and runs the same
   `placeInChunk` path, so markers + D6 behave as in worldgen). Annex kinds keep `CasinoBuilder.build`.

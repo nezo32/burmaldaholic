@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.worldgen;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.network.TableActionPayload;
@@ -194,7 +195,7 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 				break;
 			}
 			context.getInput().setCursorPos(next.x(), next.y());
-			context.getInput().pressMouse(0);
+			context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 			clicked.add(next.key());
 			context.waitTicks(6);
 			if (betSeen(world, s, moves)) {

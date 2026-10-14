@@ -44,8 +44,9 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
  *   <li>v0.2.0 standalone casinos: structure type {@code burmaldaholic:casino} ({@code structure/CasinoStructure}),
  *       set {@code burmaldaholic:casinos}, tag {@code #burmaldaholic:casino}; pack generated at build time by
  *       {@code logic/PackGen} (docs/architecture/casino-buildings.md).</li>
- *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller|casino [style]>},
- *       {@code /casino worldgen locate}.</li>
+ *   <li>Ops: {@code /casino worldgen build <village_casino|piglin_parlor|high_roller|casino [style]>}.</li>
+ *   <li>Every player: {@code /casino locate} — the nearest casino of the dimension, standalone casinos included
+ *       ({@link CasinoLocator}; it replaces the v0.2 draft's op-only {@code /casino worldgen locate}).</li>
  * </ul>
  * New casinos generate only while casino mode and {@code worldgen.enabled} are on; the tables inside
  * are ordinary (house) tables of their modules and follow casino mode themselves.
@@ -74,12 +75,14 @@ public final class WorldgenModule implements CasinoModule {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			WorldgenRuntime.setServer(null);
 			CasinoTracker.clear();
+			CasinoLocator.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(CasinoTracker::tick);
 		CasinoEvents.PLAY_RESOLVED.register((player, result) -> CasinoTracker.onPlayResolved(player));
 
 		CasinoStructureTypes.init();
 
+		CasinoLocator.register();
 		CasinoCommands.extend(root -> {
 			var build = Commands.literal("build");
 			for (CasinoKind kind : CasinoKind.values()) {
@@ -93,7 +96,7 @@ public final class WorldgenModule implements CasinoModule {
 					build.then(Commands.literal(kind.id()).executes(c -> build(c.getSource(), kind)));
 				}
 			}
-			root.then(Commands.literal(ID).then(build).then(Commands.literal("locate").executes(c -> locate(c.getSource()))));
+			root.then(Commands.literal(ID).then(build));
 		});
 	}
 
@@ -149,53 +152,6 @@ public final class WorldgenModule implements CasinoModule {
 		}
 		source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.build_failed"));
 		return 0;
-	}
-
-	/**
-	 * {@code /casino worldgen locate}: the nearest standalone casino (vanilla {@code locate structure
-	 * #burmaldaholic:casino}, which also generates nothing) and the nearest casino of any kind this world has
-	 * already generated ({@link CasinoIndex}), with clickable coordinates.
-	 */
-	private static int locate(CommandSourceStack source) {
-		var level = source.getLevel();
-		if (!WorldgenRuntime.active()) {
-			source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.locate.inactive"));
-		} else {
-			try {
-				level.getServer().getCommands().getDispatcher().execute("locate structure #" + PackFiles.TAG, source);
-			} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
-				source.sendFailure(Component.translatable("msg.burmaldaholic.worldgen.locate.none"));
-			}
-		}
-		var pos = net.minecraft.core.BlockPos.containing(source.getPosition());
-		String dim = level.dimension().identifier().toString();
-		dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord best = null;
-		double bestD = Double.MAX_VALUE;
-		for (var r : CasinoIndex.get(level.getServer()).casinos()) {
-			if (r.box() == null || r.kind() == null || !dim.equals(r.dimension())) {
-				continue;
-			}
-			double d = Math.hypot(r.box().centerX() - pos.getX(), r.box().centerZ() - pos.getZ());
-			if (d < bestD) {
-				bestD = d;
-				best = r;
-			}
-		}
-		if (best == null) {
-			source.sendSuccess(() -> Component.translatable("msg.burmaldaholic.worldgen.locate.none_known"), false);
-			return 0;
-		}
-		int x = best.box().centerX();
-		int z = best.box().centerZ();
-		int y = best.box().minY();
-		int distance = (int) Math.floor(bestD);
-		Component coords = net.minecraft.network.chat.ComponentUtils.wrapInSquareBrackets(Component.translatable("chat.coordinates", x, y, z))
-			.withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)
-				.withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/tp @s " + x + " " + (y + 1) + " " + z))
-				.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(Component.translatable("chat.coordinates.tooltip"))));
-		Component name = Component.translatable(best.kind().nameKey());
-		source.sendSuccess(() -> Component.translatable("msg.burmaldaholic.worldgen.locate.known", name, coords, distance), false);
-		return Math.max(1, distance);
 	}
 
 	private static int build(CommandSourceStack source, CasinoKind kind) {

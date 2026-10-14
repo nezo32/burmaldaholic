@@ -1,9 +1,9 @@
 package dev.nezo.burmaldaholic.vip.client;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.hud.HudLine;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
 import dev.nezo.burmaldaholic.client.module.ClientModuleContext;
@@ -40,7 +40,7 @@ public final class VipClientModule implements CasinoClientModule {
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
 		KeyMapping.Category category = KeyMapping.Category.register(Burmaldaholic.id("vip"));
-		openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.burmaldaholic.open_menu", InputConstants.KEY_B, category));
+		openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.burmaldaholic.open_menu", Inputs.KEY_B, category));
 
 		ClientPlayNetworking.registerGlobalReceiver(VipSyncPayload.TYPE, (payload, context) -> {
 			VipClientState.accept(payload);

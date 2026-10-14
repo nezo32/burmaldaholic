@@ -1,0 +1,6 @@
+# Verified false positives for RawInputGuardTest (raw mouse-button / key-code numbers, v0.1.3 SDL3 renumbering).
+# One per line: <path relative to java/> | <the source line, trimmed>. Each entry must still match, or the test fails.
+# Only add a line after checking it is NOT a mouse button or key code (e.g. a poker dealer-button seat index).
+
+# coin-toss animation: ticks per keyframe, not a keyboard key
+src/main/java/dev/nezo/burmaldaholic/games/extras/logic/anim/CoinTossKeys.java | public static final int KEY_TICKS = 3;

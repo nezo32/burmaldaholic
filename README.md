@@ -303,6 +303,11 @@ saved data (balances, loans, casinos) is kept untouched until you turn it back o
 Operators have `/casino …` (alias `/burmaldaholic`, permission level 2) for casino mode, config, balances,
 debt, chaos and jackpots.
 
+Every player can run `/casino locate`: the nearest casino of your dimension (village casino, Piglin Parlor or
+High Roller Lounge) with its coordinates, distance and compass direction — click the coordinates to copy them
+(operators get a ready `/tp` command). Casinos nobody has visited yet are found too. Non-operators wait
+`worldgen.locateCooldownSeconds` (30 s by default) between searches.
+
 ---
 
 ## Difficulty and Hardcore
