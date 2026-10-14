@@ -2241,6 +2241,47 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.extras.scratch.kind.gold` | Golden | Золотой |
 | `gui.burmaldaholic.extras.scratch.new` | New (%1$s) | Новый (%1$s) |
 
+### Table UI v2 (lane E, `docs/architecture/ui-v2.md` §10; v2 screens of `games/extras/client` and the in-world boards)
+
+Args: `board.plinko_result` %1$s name, %2$s compact multiplier · `board.wheel_result` %1$s name, %2$s segment name.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.extras.v2.board.plinko_result` | %1$s · ×%2$s | %1$s · ×%2$s |
+| `gui.burmaldaholic.extras.v2.board.wheel_result` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.extras.v2.primary.drop` | Drop | Бросить |
+| `gui.burmaldaholic.extras.v2.primary.spin` | Spin | Крутить |
+| `gui.burmaldaholic.extras.v2.primary.flip` | Flip | Подбросить |
+| `gui.burmaldaholic.extras.v2.primary.roll` | Roll | Бросить |
+| `gui.burmaldaholic.extras.v2.primary.scratch_all` | Scratch all | Стереть всё |
+| `gui.burmaldaholic.extras.v2.primary.buy` | Buy %1$s | Купить %1$s |
+| `gui.burmaldaholic.extras.v2.primary.next_card` | Next card | Следующий |
+| `gui.burmaldaholic.extras.v2.reason.wait_drop` | The ball is dropping | Шарик падает |
+| `gui.burmaldaholic.extras.v2.reason.wait_flip` | The coin is in the air | Монета в воздухе |
+| `gui.burmaldaholic.extras.v2.reason.wait_scratch` | Revealing the ticket | Билет открывается |
+| `gui.burmaldaholic.extras.v2.reason.pick_side` | Pick heads or tails | Выберите орёл или решку |
+| `gui.burmaldaholic.extras.v2.reason.wait_item` | Hold an item to stake it | Возьмите предмет в руку |
+| `gui.burmaldaholic.extras.v2.reason.stake_min` | That is the smallest stake | Это минимальная ставка |
+| `gui.burmaldaholic.extras.v2.reason.stake_max` | That is the largest stake | Это максимальная ставка |
+| `gui.burmaldaholic.extras.v2.reason.ticket_current` | This ticket is on the counter | Этот билет уже на прилавке |
+| `gui.burmaldaholic.extras.v2.reason.soul` | Finish or cancel the Soul Wager | Завершите или отмените сделку души |
+| `gui.burmaldaholic.extras.v2.hint.chips` | Chips add to your bet | Фишки добавляются к ставке |
+| `gui.burmaldaholic.extras.v2.hint.win_up_to` | Win up to %1$s | Выигрыш до %1$s |
+| `gui.burmaldaholic.extras.v2.hint.scratch` | Drag over the cells to scratch | Проведите по клеткам, чтобы стереть |
+| `gui.burmaldaholic.extras.v2.hint.stake` | Stake: %1$s | Ставка: %1$s |
+| `gui.burmaldaholic.extras.v2.stake.minus` | − | − |
+| `gui.burmaldaholic.extras.v2.stake.plus` | + | + |
+| `gui.burmaldaholic.extras.v2.risk` | Risk | Риск |
+| `gui.burmaldaholic.extras.v2.last_balls` | Last balls | Последние шарики |
+| `gui.burmaldaholic.extras.v2.top_prize` | Top prize | Главный приз |
+| `gui.burmaldaholic.extras.v2.segments` | Segments | Сектора |
+| `gui.burmaldaholic.extras.v2.your_call` | Your call | Ваш выбор |
+| `gui.burmaldaholic.extras.v2.last_flips` | Last flips | Последние броски |
+| `gui.burmaldaholic.extras.v2.prizes` | Match 3 to win | Три одинаковых — выигрыш |
+| `gui.burmaldaholic.extras.v2.ticket` | Ticket | Билет |
+| `gui.burmaldaholic.extras.v2.stake` | Stake | Ставка |
+| `gui.burmaldaholic.extras.v2.challenge` | Challenge | Вызов |
+
 ---
 
 ## pvp
@@ -2435,6 +2476,19 @@ Args: `record_chip` %1$s num wins, %2$s num losses · `match.step_of` %1$s num, 
 | `gui.burmaldaholic.pvp.grudge.title` | GRUDGE MATCH | ДЕЛО ПРИНЦИПА |
 | `gui.burmaldaholic.pvp.grudge.subtitle` | %1$s won the last %2$s | Последние %2$s — за игроком %1$s |
 | `msg.burmaldaholic.pvp.grudge.revenge` | Sweet revenge! %1$s finally beats %2$s | Сладкая месть! %1$s наконец обыгрывает соперника — %2$s |
+
+### Table UI v2 (lane E, `docs/architecture/ui-v2.md` §10; the v2 frame of the PvP screens, the invite card)
+
+Args: `v2.invite.from` %1$s name · `v2.invite.stake` %1$s game, %2$s chips.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.v2.pill` | PvP | PvP |
+| `gui.burmaldaholic.pvp.v2.pill_grudge` | GRUDGE | ПРИНЦИП |
+| `gui.burmaldaholic.pvp.v2.invite.from` | %1$s challenges you | Вызов от игрока %1$s |
+| `gui.burmaldaholic.pvp.v2.invite.stake` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.pvp.v2.invite.accept` | Accept | Принять |
+| `gui.burmaldaholic.pvp.v2.invite.decline` | Decline | Отклонить |
 
 ### Taunts
 

@@ -213,7 +213,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 				}
 				for (AbstractWidget w : widgets(s)) {
 					if (w.visible && w.isActive() && which.test(w)) {
-						double f = mc.getWindow().getGuiScale() * FitScaled.current();
+						double f = mc.getWindow().getGuiScale() * (s instanceof FitScaled fs ? fs.fitScale() : 1f);
 						return new double[] {(w.getX() + w.getWidth() / 2.0) * f, (w.getY() + w.getHeight() / 2.0) * f};
 					}
 				}
@@ -234,6 +234,27 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		if (pos == null) {
 			throw new AssertionError("no active '" + what + "' on " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
 		}
+		context.getInput().setCursorPos(pos[0], pos[1]);
+		context.waitTicks(1);
+		context.getInput().pressMouse(0);
+		context.waitTicks(3);
+	}
+
+	/**
+	 * Clicks a target of a table UI v2 screen (the machine screens, lane E) by its HitMap id at the real window pixel —
+	 * the v2 machine screens draw their felt toggles (Plinko Battle, Wheel Party) by box, not as vanilla widgets.
+	 */
+	private static void clickV2(ClientGameTestContext context, String id, String what) {
+		double[] pos = null;
+		for (int waited = 0; waited < TIMEOUT && pos == null; waited += 2) {
+			pos = context.computeOnClient(mc -> {
+				if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return null;
+				var vp = h.chrome().viewport();
+				return h.chrome().hits().box(id).map(b -> new double[] {vp.toWindow(b.x() + b.w() / 2.0), vp.toWindow(b.y() + b.h() / 2.0)}).orElse(null);
+			});
+			if (pos == null) context.waitTicks(2);
+		}
+		if (pos == null) throw new AssertionError("no v2 target '" + id + "' (" + what + ") on " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
 		context.getInput().setCursorPos(pos[0], pos[1]);
 		context.waitTicks(1);
 		context.getInput().pressMouse(0);
@@ -436,7 +457,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, ExtrasModule.PLINKO.block());
 		waitForScreen(context, named("PlinkoScreen"), "the Plinko screen opens");
-		click(context, labelled("gui.burmaldaholic.pvp.plinko.host"), "the Plinko Battle tab");
+		clickV2(context, "felt.battle", "the Plinko Battle tab");
 		click(context, w -> keyOf(w.getMessage()).equals("gui.burmaldaholic.pvp.plinko.host"), "Start a Plinko Battle");
 		if (!vsBots) {
 			// seats: humans only (the set-up cycles humans only → mixed → bots only)
@@ -512,7 +533,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.send(new TableActionPayload(pos, "pvp_host", MockClient.args("amount", 10L, "risk", "medium", "balls", 3, "policy", "humans_only",
 				"difficulty", "normal", "size", 2)));
 		}, () -> {
-			click(context, labelled("gui.burmaldaholic.pvp.plinko.host"), "the Plinko Battle tab");
+			clickV2(context, "felt.battle", "the Plinko Battle tab");
 			click(context, w -> keyOf(w.getMessage()).equals("gui.burmaldaholic.pvp.plinko.join"), "Join the battle");
 		}, "PlinkoBattleScreen", "gui.burmaldaholic.pvp.plinko.drop_now");
 	}
@@ -523,7 +544,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.send(new WheelPartyNet.Action("host", MockClient.args("cap", 50L, "stake", 20L, "policy", "humans_only", "difficulty", "normal",
 				"size", 2)));
 		}, () -> {
-			click(context, labelled("gui.burmaldaholic.pvp.wheel.join"), "the Join the party button");
+			clickV2(context, "felt.party", "the Join the party button");
 			waitForScreen(context, named("WheelPartyPanel"), "the party panel opens");
 			click(context, labelled("gui.burmaldaholic.pvp.wheel.join"), "Join the party");
 		}, "WheelPartyScreen", null);
@@ -571,7 +592,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, ExtrasModule.WHEEL.block());
 		waitForScreen(context, named("WheelScreen"), "the wheel screen opens");
-		click(context, labelled("gui.burmaldaholic.pvp.wheel.host"), "the Wheel Party button");
+		clickV2(context, "felt.party", "the Wheel Party button");
 		waitForScreen(context, named("WheelPartyPanel"), "the party panel opens");
 		click(context, labelled("gui.burmaldaholic.pvp.wheel.host"), "Start a Wheel Party");
 		context.waitTicks(15);

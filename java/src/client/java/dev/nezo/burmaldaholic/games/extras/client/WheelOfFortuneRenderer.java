@@ -76,7 +76,11 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 		return Burmaldaholic.id("textures/" + path + ".png");
 	}
 
-	public WheelOfFortuneRenderer(BlockEntityRendererProvider.Context ctx) {}
+	private final net.minecraft.client.gui.Font font;
+
+	public WheelOfFortuneRenderer(BlockEntityRendererProvider.Context ctx) {
+		this.font = ctx.font();
+	}
 
 	/** Registers the renderer (client module hook). */
 	@SuppressWarnings("deprecation") // the only public 26.x registration path (vanilla BlockEntityRenderers.register is private)
@@ -90,6 +94,10 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 		long lastPeg = Long.MIN_VALUE;
 		double lastTickMs = -1e9;
 		double lastT = Double.NaN;
+		/** Plate text cache (rebuilt when the spin, the name or the language changes; never per frame). */
+		String plateKey = "";
+		net.minecraft.util.@Nullable FormattedCharSequence name;
+		net.minecraft.util.@Nullable FormattedCharSequence result;
 	}
 
 	public static final class State extends SpectatorRenderState {
@@ -102,6 +110,9 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 		final byte[] bulbs = new byte[24];
 		/** Stop beat: the landed segment (−1 none); every other wedge is veiled. */
 		int landed = -1;
+		/** The plate over the wheel (REDESIGN.md §9.3: the player at the machine, then the landed segment), or null. */
+		net.minecraft.util.@Nullable FormattedCharSequence plate;
+		float plateScale = dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.PLATE_BASE;
 	}
 
 	@Override
@@ -132,7 +143,9 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 		java.util.Arrays.fill(s.bulbs, (byte) 0);
 		s.landed = -1;
 		s.flapper = 0;
+		s.plate = null;
 		boolean full = s.lod == Lod.FULL;
+		if (sync != null && s.distSq <= 16 * 16) plate(be, s, sync);
 		if (sync == null) {
 			s.angle = 0;
 			s.segments = String.join("", Wheel.DEFAULT_SEGMENTS);
@@ -169,6 +182,35 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 			idleBulbs(s, full);
 		}
 		c.lastT = t;
+	}
+
+	/** The plate: the player's name while the wheel turns, then "name · segment" in the outcome colour. */
+	private void plate(WheelBlockEntity be, State s, WheelSync sync) {
+		String name = be.lastPlayerName();
+		if (name.isEmpty()) return;
+		Minecraft mc = Minecraft.getInstance();
+		Client c = CACHE.computeIfAbsent(be, k -> new Client());
+		String key = sync.seq() + "|" + name + "|" + mc.options.languageCode;
+		if (!key.equals(c.plateKey)) {
+			c.plateKey = key;
+			boolean you = mc.player != null && mc.player.getGameProfile().name().equals(name);
+			net.minecraft.network.chat.MutableComponent n = dev.nezo.burmaldaholic.core.text.Texts.raw(name).withColor(you ? 0x5CE8E0 : 0xF4ECF8);
+			String code = String.valueOf(sync.segments().charAt(sync.index()));
+			int col = switch (code) {
+				case "M" -> 0x8FA8C8;
+				case "D", "T" -> 0x80FF40;
+				case "E", "X" -> 0xFFD640;
+				default -> 0xFF6E6A;
+			};
+			c.name = n.getVisualOrderText();
+			c.result = net.minecraft.network.chat.Component.translatable("gui.burmaldaholic.extras.v2.board.wheel_result", n,
+				net.minecraft.network.chat.Component.translatable(Wheel.segmentKey(code)).withColor(col)).getVisualOrderText();
+		}
+		double t = s.levelMs - sync.startTick() * 50.0;
+		boolean stopped = t < 0 || sync.stopped(t, FxSettings.reduceMotion());
+		s.plate = stopped ? c.result : c.name;
+		s.plateScale = dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.textPx(dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.BOARD_BASE,
+			Math.sqrt(s.distSq), mc.options.fov().get(), mc.getWindow().getHeight());
 	}
 
 	/** Idle: the bulbs breathe slowly (a 3 s cycle, every other bulb). Far away: all off. */
@@ -228,6 +270,16 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(HUB), (p, vc) -> quad(p, vc, 0, CY, 14 * PX, FACE_Z + 0.008f, 0, 0, 1, 28f / 168f,
 			0xFFFFFFFF, light));
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(FLAPPER), (p, vc) -> flapper(p, vc, s.flapper, light));
+		if (s.plate != null) {
+			float k = s.plateScale;
+			int w = font.width(s.plate);
+			pose.pushPose();
+			pose.translate(0, CY + 92 * PX + 0.05f + 6 * k, FACE_Z + 0.01f);
+			pose.scale(k, -k, k);
+			out.submitText(pose, -w / 2f, -4f, s.plate, false, net.minecraft.client.gui.Font.DisplayMode.POLYGON_OFFSET, FULL_BRIGHT, 0xFFF4ECF8, 0xB2180A28,
+				0);
+			pose.popPose();
+		}
 		pose.popPose();
 	}
 

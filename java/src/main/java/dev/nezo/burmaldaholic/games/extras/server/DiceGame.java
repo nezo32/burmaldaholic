@@ -247,6 +247,7 @@ public final class DiceGame {
 		CompoundTag invite = new CompoundTag();
 		invite.putInt("id", created.challenge().id());
 		invite.putString("name", player.getName().getString());
+		invite.putString("uuid", player.getUUID().toString()); // the challenger's face on the v2 invite card
 		invite.putLong("stake", stake);
 		invite.putLong("ticks", cfg().challengeTimeoutTicks);
 		ExtrasGames.send(target, INVITE_SCREEN, true, invite);

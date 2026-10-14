@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.client.pvp.coin;
 
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.function.Consumer;
@@ -13,9 +14,10 @@ import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Base of the extras PvP panels (Coin Flip Duel, Wheel Party, their set-ups; visual/extras.md §7): the arena scene
- * (the grudge variant when {@link #grudge} says so) as a 400 × 240 panel that grows downwards on a casino card only
- * when wrapped Russian lines need it, the title at the top left, casino buttons in a wrapping flow and the error line.
+ * Base of the extras PvP panels (Coin Flip Duel, Wheel Party, their set-ups; visual/extras.md §7) in the table UI v2
+ * frame ({@link PvpFrame}, REDESIGN.md §7.8): the arena fill (red-lit when {@link #grudge}), the TopBar with the title
+ * pill, the step on the right ({@link #titleRight}) and the balance, the 400-wide content panel centred between the
+ * bands, the screen's main buttons in the Dock ({@link #dockY}), the error line above the Dock.
  * Server-driven: subclasses render state they were sent and send actions; they never decide.
  */
 public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
@@ -33,6 +35,7 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 	protected int top;
 	protected int ticks;
 	protected float partial;
+	protected PvpFrame.Layout frame = PvpFrame.layout(480, 270);
 	protected final long openedAt = Util.getMillis();
 
 	protected PvpPanel(Component title, int width, int height) {
@@ -58,7 +61,17 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 
 	@Override
 	protected int errorY() {
-		return top + Math.min(panelHeight, Scene.H) - 52;
+		return frame.dock().y() - 14;
+	}
+
+	/** y of the button row in the Dock (the screen's main buttons). */
+	protected int dockY() {
+		return frame.dockY();
+	}
+
+	/** Right side of the TopBar (step / timer), or null. */
+	protected @Nullable Component titleRight() {
+		return null;
 	}
 
 	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
@@ -72,16 +85,10 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 		super.init();
 		panelWidth = Scene.W;
 		panelHeight = Scene.H;
-		left = Scene.left(width);
-		top = Scene.top(height);
-		int bottom = layout();
-		int needed = bottom - top + 14;
-		if (needed > panelHeight) {
-			panelHeight = needed;
-			clearWidgets();
-			top = Math.max(0, (height - panelHeight) / 2);
-			layout();
-		}
+		frame = PvpFrame.layout(width, height);
+		left = frame.panelLeft();
+		top = frame.panelTop();
+		layout();
 	}
 
 	/** Adds the widgets; returns the absolute y below the content. */
@@ -107,11 +114,8 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 
 	@Override
 	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		Scene sc = grudge() ? Scene.PVP_GRUDGE : Scene.PVP;
-		if (panelHeight > Scene.H) Scene.card(g, left + 6, top + Scene.H - 20, Scene.W - 12, panelHeight - Scene.H + 20);
-		sc.backdrop(g, left, top);
+		PvpFrame.background(g, frame, grudge());
 		playArea(g, mouseX, mouseY);
-		sc.frame(g, font, left, top, null);
 	}
 
 	/** Objects on the backdrop under the frame. */
@@ -120,8 +124,8 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		partial = a;
-		Kit.fit(g, font, title, left + PAD, top + 15, panelWidth - 2 * PAD - 120, GOLD, true);
 		content(g, mouseX, mouseY);
+		PvpFrame.bars(g, font, frame, title, titleRight(), balance(), grudge());
 	}
 
 	@Override

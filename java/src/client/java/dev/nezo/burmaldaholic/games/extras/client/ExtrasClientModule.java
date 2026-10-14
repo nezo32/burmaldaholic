@@ -28,9 +28,7 @@ public final class ExtrasClientModule implements CasinoClientModule {
 		dev.nezo.burmaldaholic.games.extras.client.pvp.ExtrasPvpScreens.register(); // Plinko Battle + Scratch Showdown screens
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasScreenPayload.TYPE, (payload, context) -> accept(context.client(), payload));
 		ClientPlayNetworking.registerGlobalReceiver(ExtrasErrorPayload.TYPE, (payload, context) -> {
-			if (context.client().gui.screen() instanceof ExtrasScreen screen) {
-				screen.showError(payload.message());
-			} else if (context.client().gui.screen() instanceof SceneScreen screen) {
+			if (context.client().gui.screen() instanceof ExtrasSceneScreen<?> screen) {
 				screen.showError(payload.message());
 			}
 		});
@@ -47,11 +45,7 @@ public final class ExtrasClientModule implements CasinoClientModule {
 			}
 			return;
 		}
-		if (current instanceof ExtrasScreen open && open.game().equals(screen) && !(open instanceof DuelInviteScreen)) {
-			open.acceptState(state);
-			return;
-		}
-		if (current instanceof SceneScreen open && open.game().equals(screen)) {
+		if (current instanceof ExtrasSceneScreen<?> open && open.game().equals(screen)) {
 			open.acceptState(state);
 			return;
 		}

@@ -82,6 +82,8 @@ public final class CoinFlipGame {
 				SOUL_ARMED.put(player.getUUID(), now(player));
 			}
 			case "soul" -> soul(player, args);
+			// the v2 screen's watchdog (ui-v2.md §5.2): an unanswered action asks for the state again
+			case "refresh" -> ExtrasGames.send(player, SCREEN, false, state(player, null));
 			case "soul_cancel" -> {
 				SOUL_ARMED.remove(player.getUUID());
 				player.sendSystemMessage(Component.translatable("gui.burmaldaholic.extras.soul.cancelled").withStyle(ChatFormatting.GRAY));
