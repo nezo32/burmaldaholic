@@ -23,9 +23,9 @@ import net.minecraft.world.level.block.Block;
 
 /**
  * v0.1.3 regression (owner report on v0.1.2: "BJ / UTH chips are drawn, clicking them does nothing; UTH Deal says place
- * a bet"): the chip rack clicked through the REAL input path at the window sizes real players have — the window really
- * resized to 3840 × 2160 / 2560 × 1440 / 1920 × 1080 and the GUI scale set in the options (Auto included), the cursor
- * placed in raw window pixels by {@code TestInput}, the vanilla {@code MouseHandler} scaling it to GUI coordinates.
+ * a bet"): the chip rack clicked through the REAL input path — a 1920 × 1080 window at GUI scale Auto, the cursor placed
+ * in raw window pixels by {@code TestInput}, the vanilla {@code MouseHandler} scaling it to GUI coordinates (the window
+ * size is irrelevant to this bug: 3840 × 2160, 2560 × 1440 and 1080p at Auto / 3 / 4 all behaved the same).
  * The target is the chip rectangle the screen itself draws ({@link CardTableScreen#chipRackSlot} / the UTH rack),
  * mapped to window pixels the way vanilla maps back (window = gui × screenWidth / guiScaledWidth). A chip click must
  * add to the client draft; Deal must then put the bet on the server. Every click is also logged as the screen received it.
@@ -38,8 +38,7 @@ import net.minecraft.world.level.block.Block;
 public class RealInputClientGameTests implements FabricClientGameTest {
 	/** {window w, h, GUI scale option (0 = Auto), tag}. */
 	private static final Object[][] VIEWS = {
-		{3840, 2160, 0, "2160p_auto"}, // GUI scale 9: 427 × 240, the full canvas at k 1
-		{1920, 1080, 4, "1080p_gui4"}, // 480 × 270, the canvas centred (ox 26, oy 15)
+		{1920, 1080, 0, "1080p_auto"}, // GUI scale Auto = 4: 480 × 270, the canvas centred (ox 26, oy 15)
 	};
 
 	private final List<String> failures = new ArrayList<>();
