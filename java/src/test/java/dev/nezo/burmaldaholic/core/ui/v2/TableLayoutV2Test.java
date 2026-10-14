@@ -31,25 +31,30 @@ class TableLayoutV2Test {
 
 	@Test
 	void viewportKeepsThePlayersScaleAndStepsUpOrDownByWholeFactors() {
+		// phase 2b (§3.7): the player's scale is kept from 240 to 720 px high; above, the smallest whole step up
 		assertViewport(Viewport.of(1920, 1080, 4), 480, 270, 4);
 		assertViewport(Viewport.of(1920, 1080, 3), 640, 360, 3);
-		assertViewport(Viewport.of(1920, 1080, 2), 480, 270, 4); // 960 × 540 steps up ×2
-		assertViewport(Viewport.of(1920, 1080, 1), 480, 270, 4);
+		assertViewport(Viewport.of(1920, 1080, 2), 960, 540, 2); // ROOMY, no longer 480 × 270 drawn at 2×
+		assertViewport(Viewport.of(1920, 1080, 1), 960, 540, 2);
 		assertViewport(Viewport.of(2560, 1440, 4), 640, 360, 4);
 		assertViewport(Viewport.of(2560, 1440, 3), 854, 480, 3);
-		assertViewport(Viewport.of(2560, 1440, 2), 640, 360, 4);
-		assertViewport(Viewport.of(3840, 2160, 4), 480, 270, 8);
+		assertViewport(Viewport.of(2560, 1440, 2), 1280, 720, 2);
+		assertViewport(Viewport.of(3840, 2160, 4), 960, 540, 4);
 		assertViewport(Viewport.of(1280, 720, 4), 427, 240, 3); // 320 × 180 steps down
 		assertViewport(Viewport.of(1366, 768, 2), 683, 384, 2);
-		assertEquals(2f, Viewport.of(1920, 1080, 2).factor());
+		assertEquals(1f, Viewport.of(1920, 1080, 2).factor());
 		assertEquals(0.75f, Viewport.of(1280, 720, 4).factor());
-		for (int gs = 1; gs <= 6; gs++) {
+		for (int gs = 1; gs <= 9; gs++) {
 			for (int fw = 640; fw <= 3840; fw += 131) {
 				for (int fh = 480; fh <= 2160; fh += 97) {
 					Viewport v = Viewport.of(fw, fh, gs);
 					assertTrue(v.k() >= 1, "k");
-					assertTrue(v.h() < Viewport.STEP_UP_H || v.k() == 1 || v.w() < 2 * Viewport.MIN_W, fw + "x" + fh + "@" + gs + " -> " + v);
-					if (fw / gs >= 1 && Math.ceil(fh / 1.0) >= 240 && fw >= 320) {
+					assertTrue(v.h() <= ViewportPolicy.MAX_H || v.w() < 2 * Viewport.MIN_W, fw + "x" + fh + "@" + gs + " -> " + v);
+					assertTrue(v.frameH() <= Frame.CAP_H && v.frameW() * 9 <= v.frameH() * 16 + 9, fw + "x" + fh + "@" + gs + " frame " + v);
+					int gh = (fh + gs - 1) / gs;
+					int gw = (fw + gs - 1) / gs;
+					if (gh >= 240 && gh <= 720 && gw >= 320) assertEquals(gs, v.k(), fw + "x" + fh + "@" + gs + ": the player's scale is kept");
+					if (fw >= 320 && fh >= 240) {
 						assertTrue(v.w() >= Viewport.MIN_W && v.h() >= Viewport.MIN_H, fw + "x" + fh + "@" + gs + " -> " + v);
 					}
 				}
