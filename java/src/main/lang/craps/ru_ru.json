@@ -85,7 +85,7 @@
 	"gui.burmaldaholic.craps.v2.reason.point_box": "Сюда переходят кам-ставки: сначала поставьте на кам",
 	"gui.burmaldaholic.craps.v2.reason.point_box_come_out": "Сюда переходят кам-ставки, когда установлен поинт",
 	"gui.burmaldaholic.craps.v2.reason.odds_full": "Коэффициент уже максимальный",
-	"gui.burmaldaholic.craps.v2.reason.odds_need_point": "Коэффициент — после поинта",
+	"gui.burmaldaholic.craps.v2.reason.odds_need_point": "Сначала нужен поинт",
 	"gui.burmaldaholic.craps.v2.reason.odds_need_pass": "Для коэффициента нужна ставка на пасс-лайн",
 	"gui.burmaldaholic.craps.v2.reason.already_placed": "Ставка уже сделана: до броска её можно отменить",
 	"gui.burmaldaholic.craps.v2.reason.come_needs_point": "Ставки кам открываются, когда установлен поинт",

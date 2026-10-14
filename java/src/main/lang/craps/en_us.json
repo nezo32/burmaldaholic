@@ -85,7 +85,7 @@
 	"gui.burmaldaholic.craps.v2.reason.point_box": "Come bets travel here: bet Come first",
 	"gui.burmaldaholic.craps.v2.reason.point_box_come_out": "Come bets travel here once a point is on",
 	"gui.burmaldaholic.craps.v2.reason.odds_full": "Your odds are at the maximum",
-	"gui.burmaldaholic.craps.v2.reason.odds_need_point": "Odds come after the point",
+	"gui.burmaldaholic.craps.v2.reason.odds_need_point": "Odds need a point first",
 	"gui.burmaldaholic.craps.v2.reason.odds_need_pass": "Odds need a Pass Line bet",
 	"gui.burmaldaholic.craps.v2.reason.already_placed": "This bet is down: Undo to change it before the roll",
 	"gui.burmaldaholic.craps.v2.reason.come_needs_point": "Come bets open once a point is on",
