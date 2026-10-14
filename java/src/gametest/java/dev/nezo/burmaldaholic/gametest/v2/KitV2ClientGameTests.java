@@ -46,6 +46,7 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 			world.getServer().runCommand("casino balance set @p 12500");
 			RealFlow f = new RealFlow(context, world);
 			resyncOnARealTable(f);
+			k2OnARealTable(f);
 			for (String lang : List.of("en_us", "ru_ru")) {
 				f.language(lang);
 				size(f, lang, 1920, 1080, 4);
@@ -217,6 +218,105 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 		long after = f.client(mc -> ClientTableCache.get(pos).getLongOr("ack", -1));
 		report.add("resync on a real blackjack table: ack " + before + " → " + after);
 		f.close();
+	}
+
+	/**
+	 * Phase 2 kit fixes on a real blackjack table at 480 × 270 (K2b): a held chip key places ONE chip (auto-repeat, R-KW M5);
+	 * key plates are key caps, never {@code key.keyboard.*} (B1); a dropped bet shows the reason, resyncs and the next
+	 * press recovers (§11.2); a vanilla toast waits while the table screen is open (DES 6).
+	 */
+	private void k2OnARealTable(RealFlow f) {
+		try {
+			f.size(1920, 1080, 4);
+			BlockPos pos = f.place(BlackjackModule.TABLE.block(), 1);
+			dev.nezo.burmaldaholic.games.blackjack.client.BlackjackScreen s = f.open(pos, dev.nezo.burmaldaholic.games.blackjack.client.BlackjackScreen.class);
+			java.util.UUID me = f.server(server -> RealFlow.player(server).getUUID());
+			f.waitChrome(c -> "sit".equals(c.primary.gate().action()) && c.primary.gate().enabled(), "Sit down");
+			f.click(KeyMap.Ids.PRIMARY);
+			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated");
+			f.waitChrome(c -> c.bet.visible() && c.bet.chips().length >= 2 && c.bet.chipGate(0).enabled(), "the chip tray");
+			long chip = f.client(mc -> s.chrome().bet.chips()[0]);
+			long start = f.client(mc -> s.chrome().bet.view().myTotal());
+			int one = dev.nezo.burmaldaholic.client.ui.v2.V2Input.keyCode(KeyMap.KEY_1);
+			f.client(mc -> {
+				s.keyPressed(new net.minecraft.client.input.KeyEvent(one, 0, 0));
+				s.keyPressed(new net.minecraft.client.input.KeyEvent(one, 0, 0)); // the OS auto-repeat: no release in between
+				return null;
+			});
+			f.context().waitTicks(4);
+			long held = f.client(mc -> s.chrome().bet.view().myTotal());
+			report.add("K2 held key 1 twice: bet " + start + " → " + held + " (chip " + chip + ")");
+			if (held != start + chip) throw new AssertionError("a held '1' placed " + (held - start) + ", want one chip " + chip);
+			f.client(mc -> {
+				s.keyReleased(new net.minecraft.client.input.KeyEvent(one, 0, 0));
+				s.keyPressed(new net.minecraft.client.input.KeyEvent(one, 0, 0));
+				s.keyReleased(new net.minecraft.client.input.KeyEvent(one, 0, 0));
+				return null;
+			});
+			f.context().waitTicks(4);
+			long again = f.client(mc -> s.chrome().bet.view().myTotal());
+			if (again != start + 2 * chip) throw new AssertionError("press after release: bet " + again + ", want " + (start + 2 * chip));
+			// B1: key plates
+			String h = f.client(mc -> dev.nezo.burmaldaholic.client.ui.v2.V2Button.keyName(KeyMap.H).getString());
+			if (h.length() != 1) throw new AssertionError("keyName(H) = '" + h + "'");
+			List<String> raw = f.client(mc -> {
+				List<String> out = new ArrayList<>();
+				for (var e : s.chrome().keys().entries()) {
+					var n = dev.nezo.burmaldaholic.client.ui.v2.V2Button.keyName(e.getKey());
+					if (n != null && n.getString().startsWith("key.")) out.add(e.getKey() + "=" + n.getString());
+				}
+				return out;
+			});
+			report.add("K2 keyName(H) = '" + h + "'; raw plates " + raw);
+			if (!raw.isEmpty()) throw new AssertionError("raw key names on plates: " + raw);
+			f.shot("v2_kit_k2_bj_480_bet");
+			// a dropped bet: reason + resync, then the next press works
+			f.waitChrome(c -> c.primary.gate().enabled(), "Deal enabled");
+			V2Chrome.dropNextSends = 1;
+			f.click(KeyMap.Ids.PRIMARY);
+			f.waitChrome(c -> c.consumeResynced(), "the watchdog resynced a dropped bet");
+			String why = f.status();
+			report.add("K2 dropped bet → '" + why + "'");
+			if (why.isEmpty()) throw new AssertionError("no reason after a dropped bet");
+			f.shot("v2_kit_k2_bj_480_dropped");
+			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == 0, "the dropped bet never reached the table");
+			f.waitChrome(c -> c.primary.gate().enabled() && !c.watchdog().pending(), "Deal enabled again");
+			f.click(KeyMap.Ids.PRIMARY);
+			long want = start + 2 * chip;
+			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == want
+				|| t.writeClientState(RealFlow.player(t.getLevel().getServer())).getLongOr("last_bet", 0) == want, "the bet after the drop went through");
+			// DES 6: a vanilla toast waits
+			f.client(mc -> {
+				net.minecraft.client.gui.components.toasts.SystemToast.add(mc.gui.toastManager(),
+					net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION, dev.nezo.burmaldaholic.core.text.Texts.raw("K2"),
+					dev.nezo.burmaldaholic.core.text.Texts.raw("toast"));
+				return null;
+			});
+			f.context().waitTicks(10);
+			int during = f.client(mc -> visibleToasts(mc));
+			f.close();
+			f.context().waitTicks(10);
+			int after = f.client(mc -> visibleToasts(mc));
+			report.add("K2 toast: visible during the screen " + during + ", after closing " + after);
+			if (during != 0 || after == 0) throw new AssertionError("toast visible during " + during + ", after " + after);
+		} catch (AssertionError | RuntimeException e) {
+			failures.add("k2 real table: " + e.getMessage());
+			report.add("  FAILED k2: " + e);
+			f.shot("v2_kit_k2_failed");
+			f.close();
+		} finally {
+			V2Chrome.dropNextSends = 0;
+		}
+	}
+
+	private static int visibleToasts(Minecraft mc) {
+		try {
+			var field = net.minecraft.client.gui.components.toasts.ToastManager.class.getDeclaredField("visibleToasts");
+			field.setAccessible(true);
+			return ((List<?>) field.get(mc.gui.toastManager())).size();
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("ToastManager.visibleToasts: " + e);
+		}
 	}
 
 	private void write(ClientGameTestContext context) {
