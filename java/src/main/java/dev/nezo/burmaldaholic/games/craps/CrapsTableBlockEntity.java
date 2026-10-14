@@ -18,6 +18,7 @@ import dev.nezo.burmaldaholic.core.rng.OddsContext;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
+import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableSeats;
 import dev.nezo.burmaldaholic.core.table.TableType;
@@ -175,7 +176,41 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 
 	@Override
 	protected long minBet() {
-		return CasinoConfig.craps().minBet;
+		// a generated casino's preset (e.g. the High Roller Lounge, min 100) raises the table minimum (CB-G request)
+		long preset = preset().map(TablePresetProvider.TablePreset::minBet).orElse(0L);
+		return Math.max(CasinoConfig.craps().minBet, preset);
+	}
+
+	/** The preset's "multiplier × VIP tier max" table (0 = none). */
+	private double presetMaxMultiplier() {
+		return preset().map(TablePresetProvider.TablePreset::tierMaxMultiplier).orElse(0.0);
+	}
+
+	/** Preset table: max = multiplier × tier max (like the High-Roller blackjack / baccarat), owner max still applies. */
+	@Override
+	public long[] limitsFor(ServerPlayer player) {
+		long[] base = super.limitsFor(player);
+		double mult = presetMaxMultiplier();
+		if (mult <= 0) {
+			return base;
+		}
+		long tierMax = CoreServices.vip().maxBet(player.level().getServer(), player.getUUID());
+		long max = (long) Math.floor(tierMax * mult);
+		long ownerMax = ownership().map(o -> o.maxBet()).orElse(0L);
+		if (ownerMax > 0) {
+			max = Math.min(max, ownerMax);
+		}
+		return new long[] {base[0], max};
+	}
+
+	/** The preset's VIP tier: refused with the reason below it. */
+	private boolean presetTierAllowed(ServerPlayer player) {
+		int need = preset().map(TablePresetProvider.TablePreset::minTier).orElse(0);
+		if (need <= 0 || CoreServices.vip().tier(player.level().getServer(), player.getUUID()) >= need) {
+			return true;
+		}
+		sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", dev.nezo.burmaldaholic.core.service.VipTiers.name(need)));
+		return false;
 	}
 
 	// ---- actions --------------------------------------------------------------------------------
@@ -269,9 +304,25 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			}));
 			return;
 		}
+		if (!presetTierAllowed(player)) {
+			return;
+		}
+		boolean presetMax = presetMaxMultiplier() > 0;
+		if (presetMax) {
+			// above the tier max up to the preset's multiple: checked here against limitsFor (same as High-Roller blackjack)
+			long[] lim = limitsFor(player);
+			long balance = dev.nezo.burmaldaholic.core.economy.Economies.get().balance(player);
+			int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
+			Component limErr = dev.nezo.burmaldaholic.core.wager.BetLimits.message(
+				dev.nezo.burmaldaholic.core.wager.BetLimits.check(amount, lim[0], lim[1], lim[1], balance), lim[0], lim[1], lim[1], tier, balance);
+			if (limErr != null) {
+				sendError(player, limErr);
+				return;
+			}
+		}
 		Bet bet = table.addBet(player.getUUID(), kind, amount);
 		long reserve = CrapsMath.flatWorstCase(kind, amount, table.rules());
-		if (!placeBet(player, key(bet.id()), amount, minBet(), 0, reserve, true).isOk()) {
+		if (!placeBet(player, key(bet.id()), amount, minBet(), 0, reserve, !presetMax).isOk()) {
 			table.removeBet(bet.id());
 			return;
 		}

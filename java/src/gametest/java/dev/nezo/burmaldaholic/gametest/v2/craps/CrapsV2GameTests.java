@@ -10,6 +10,8 @@ import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.network.TableActionPayload;
+import dev.nezo.burmaldaholic.core.service.CoreServices;
+import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.network.TableErrorPayload;
 import dev.nezo.burmaldaholic.core.network.TableSyncPayload;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
@@ -328,5 +330,58 @@ public class CrapsV2GameTests {
 			// the plates read the same header: the seat header of the update tag names a bot on every bot stack's seat
 			finish(helper, p);
 		});
+	}
+	/**
+	 * CB-G request: a generated casino's table preset (Lounge craps: min 100, 2 × tier max) is honoured by craps. Through
+	 * the packet: a 50 Pass is refused (bet_too_low) and costs nothing, 100 lands, a bet above the tier max up to 2 × tier
+	 * max lands, above that is refused with the max (as at High-Roller blackjack); the screen's state shows min 100 / max 2 × tier max.
+	 */
+	@GameTest(maxTicks = 200)
+	public void presetLimitsAreHonoured(GameTestHelper helper) {
+		BlockPos rel = new BlockPos(1, 1, 1);
+		BlockPos abs = helper.absolutePos(rel);
+		TablePresetProvider old = CoreServices.tablePresets();
+		TablePresetProvider.TablePreset lounge = new TablePresetProvider.TablePreset("high_roller_craps", "", -1, 100, 2, 0, List.of());
+		CoreServices.setTablePresets(new TablePresetProvider() {
+			@Override
+			public java.util.Optional<TablePreset> preset(net.minecraft.server.level.ServerLevel level, BlockPos pos) {
+				return pos.equals(abs) ? java.util.Optional.of(lounge) : old.preset(level, pos);
+			}
+
+			@Override
+			public java.util.Optional<BotPreset> botDefaults(net.minecraft.server.level.ServerLevel level, BlockPos pos, String gameId) {
+				return old.botDefaults(level, pos, gameId);
+			}
+		});
+		ServerPlayer p = player(helper, "cr2-lounge", 0);
+		try {
+			MinecraftServer server = helper.getLevel().getServer();
+			long tierMax = CoreServices.vip().maxBet(server, p.getUUID());
+			long start = 4 * tierMax + 1000;
+			Economies.get().setBalance(server, p.getUUID(), start, TEST);
+			CrapsTableBlockEntity t = open(helper, p);
+			CompoundTag state = t.writeClientState(p);
+			helper.assertTrue(state.getLongOr("min", 0) == 100, "the screen shows the preset minimum 100: " + state.getLongOr("min", 0));
+			helper.assertTrue(state.getLongOr("max", 0) == 2 * tierMax, "the screen shows 2 x tier max " + 2 * tierMax + ": " + state.getLongOr("max", 0));
+			drain(p, t);
+			act(p, t, "bet", flat("pass", 50));
+			Sent low = drain(p, t);
+			helper.assertTrue(bet(t, p, BetKind.PASS) == null && balance(helper, p) == start, "a 50 Pass under the preset minimum costs nothing");
+			helper.assertTrue(low.errors().contains("gui.burmaldaholic.error.bet_too_low"), "a 50 Pass names the minimum: " + low.errors());
+			act(p, t, "bet", flat("pass", 100));
+			helper.assertTrue(bet(t, p, BetKind.PASS) != null && balance(helper, p) == start - 100, "a 100 Pass lands: " + drain(p, t).errors());
+			act(p, t, "bet", flat("field", 2 * tierMax + 1));
+			Sent high = drain(p, t);
+			helper.assertTrue(bet(t, p, BetKind.FIELD) == null && balance(helper, p) == start - 100, "above 2 x tier max is refused: " + high.errors());
+			helper.assertTrue((high.errors().contains("gui.burmaldaholic.error.table_max") || high.errors().contains("gui.burmaldaholic.error.bet_too_high")),
+				"the refusal names the max: " + high.errors());
+			long big = tierMax + Math.max(1, tierMax / 2); // above the tier max, inside the preset's 2 x
+			act(p, t, "bet", flat("field", big));
+			helper.assertTrue(bet(t, p, BetKind.FIELD) != null && balance(helper, p) == start - 100 - big,
+				"a Field of " + big + " (tier max " + tierMax + ") lands at the 2 x table: " + drain(p, t).errors());
+		} finally {
+			CoreServices.setTablePresets(old);
+		}
+		finish(helper, p);
 	}
 }
