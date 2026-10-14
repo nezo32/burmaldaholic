@@ -1,0 +1,56 @@
+en_us_480: viewport Viewport[w=480, h=270, k=4, factor=1.0, ox=0, oy=0, frameW=480, frameH=270]
+en_us_480: first click placed 25 on 17 (seated by the bet)
+en_us_480: value pills with 5 stacks: 5
+en_us_480: every bet type placed by clicks, 42 spots, staked 71 (chip 1)
+en_us_480: banner 'LOST −35' at Box[x=187, y=184, w=232, h=28], winning cell Box[x=395, y=114, w=23, h=41], primary rebet enabled true
+en_us_480: result 31, staked 71, returned 36, balance 12429 -> 12465
+en_us_480: Repeat pressed during the result: true, queued true
+en_us_480 spectator: banner '31 BLACK' at Box[x=187, y=184, w=232, h=28], winning cell Box[x=395, y=114, w=23, h=41], primary rebet enabled true
+en 480: ok
+ru_ru_480: viewport Viewport[w=480, h=270, k=4, factor=1.0, ox=0, oy=0, frameW=480, frameH=270]
+ru_ru_480: first click placed 25 on 17 (seated by the bet)
+ru_ru_480: value pills with 5 stacks: 5
+ru_ru_480: every bet type placed by clicks, 42 spots, staked 71 (chip 1)
+ru_ru_480: banner 'ПРОИГРЫШ −23' at Box[x=187, y=184, w=232, h=28], winning cell Box[x=211, y=73, w=23, h=41], primary rebet enabled true
+ru_ru_480: result 8, staked 71, returned 48, balance 12394 -> 12442
+ru_ru_480: Repeat pressed during the result: true, queued true
+ru_ru_480 spectator: banner '18, КРАСНОЕ' at Box[x=187, y=184, w=232, h=28], winning cell Box[x=280, y=32, w=23, h=41], primary rebet enabled true
+ru 480: ok
+en_us_640: viewport Viewport[w=640, h=360, k=3, factor=1.0, ox=0, oy=0, frameW=640, frameH=360]
+en_us_640: first click placed 25 on 17 (seated by the bet)
+en_us_640: value pills with 5 stacks: 5
+en_us_640: every bet type placed by clicks, 42 spots, staked 71 (chip 1)
+en_us_640: banner 'LOST −35' at Box[x=256, y=243, w=300, h=36], winning cell Box[x=526, y=144, w=30, h=54], primary rebet enabled true
+en_us_640: result 31, staked 71, returned 36, balance 12371 -> 12407
+en_us_640: Repeat pressed during the result: true, queued true
+en_us_640 spectator: banner '36 RED' at Box[x=256, y=243, w=300, h=36], winning cell Box[x=556, y=36, w=30, h=54], primary rebet enabled true
+en 640: ok
+ru_ru_640: viewport Viewport[w=640, h=360, k=3, factor=1.0, ox=0, oy=0, frameW=640, frameH=360]
+ru_ru_640: first click placed 25 on 17 (seated by the bet)
+ru_ru_640: value pills with 5 stacks: 5
+ru_ru_640: every bet type placed by clicks, 42 spots, staked 71 (chip 1)
+ru_ru_640: banner 'ПРОИГРЫШ −23' at Box[x=256, y=243, w=300, h=36], winning cell Box[x=286, y=90, w=30, h=54], primary rebet enabled true
+ru_ru_640: result 8, staked 71, returned 48, balance 12336 -> 12384
+ru_ru_640: Repeat pressed during the result: true, queued true
+ru_ru_640 spectator: banner '20, ЧЁРНОЕ' at Box[x=256, y=243, w=300, h=36], winning cell Box[x=406, y=90, w=30, h=54], primary rebet enabled true
+ru 640: ok
+en_us_427: viewport Viewport[w=427, h=240, k=3, factor=1.0, ox=0, oy=0, frameW=427, frameH=240]
+en_us_427: first click placed 25 on 17 (seated by the bet)
+en_us_427: value pills with 5 stacks: 5
+en_us_427: every bet type placed by clicks, 42 spots, staked 71 (chip 1)
+en_us_427: banner 'LOST −23' at Box[x=170, y=166, w=200, h=20] compact, winning cell Box[x=186, y=63, w=21, h=37], primary rebet enabled true
+en_us_427: result 8, staked 71, returned 48, balance 12313 -> 12361
+en_us_427: Repeat pressed during the result: true, queued true
+en_us_427 spectator: banner '24 BLACK' at Box[x=170, y=166, w=200, h=20] compact, winning cell Box[x=291, y=26, w=21, h=37], primary rebet enabled true
+en 427: ok
+en_us_1280: viewport Viewport[w=1280, h=720, k=2, factor=1.0, ox=106, oy=60, frameW=1067, frameH=600]
+en_us_1280: first click placed 25 on 17 (seated by the bet)
+en_us_1280: value pills with 5 stacks: 5
+en_us_1280: every bet type placed by clicks, 42 spots, staked 71 (chip 1)
+en_us_1280: banner 'LOST −29' at Box[x=525, y=390, w=300, h=36], winning cell Box[x=475, y=108, w=40, h=72], primary rebet enabled true
+en_us_1280: result 5, staked 71, returned 42, balance 12290 -> 12332
+en_us_1280: Repeat pressed during the result: true, queued true
+en_us_1280 spectator: banner '0 ZERO' at Box[x=525, y=390, w=300, h=36], winning cell Box[x=395, y=36, w=40, h=216], primary rebet enabled true
+en 1280 framed: ok
+world: server result 15, client sync 15, public stacks 5
+world: ok
