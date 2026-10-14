@@ -197,9 +197,25 @@ public final class V2Chrome {
 		}
 		status.reason(p);
 		Optional<String> hint = flow.hintKey(view);
-		status.hint(hint.map(k -> V2Draw.tr(k, flow.hintArgs(view))).orElse(showBet && bet.isMultiSpot() && bet.armed()
-			? V2Draw.tr(V2Keys.STATUS_CLICK_LAYOUT, bet.selected()) : null));
+		status.hint(hint.map(k -> V2Draw.tr(k, flow.hintArgs(view))).orElse(fallbackHint(showBet ? b : null)));
 		relayout();
+	}
+
+	/**
+	 * The kit's line-2 hint when the game gives none, by phase (never a betting hint outside betting — C2: "Click the
+	 * layout" showed on the roulette result): bets open and seated → how chips work (multi-spot: click the layout;
+	 * single: chips add to the bet); a countdown to the next round → "Next round in N s"; else nothing (the primary's
+	 * reason or the game's line 1 speaks).
+	 */
+	private @Nullable Component fallbackHint(@Nullable BetView b) {
+		if (b == null) return null;
+		if (b.seated() && b.bettingOpen()) {
+			return bet.isMultiSpot() ? V2Draw.tr(V2Keys.STATUS_CLICK_LAYOUT, Math.max(0, bet.selected())) : V2Draw.tr(V2Keys.STATUS_CHIPS_ADD);
+		}
+		if (!b.bettingOpen() && b.secondsLeft() >= 0 && (b.phase() == BetView.Phase.BETTING || b.phase() == BetView.Phase.IDLE)) {
+			return V2Draw.tr(V2Keys.STATUS_NEXT_ROUND_IN, b.secondsLeft());
+		}
+		return null;
 	}
 
 	/** Rebuilds the hit map: the host's play targets, the Dock, the TopBar (z-order = registration order). */
