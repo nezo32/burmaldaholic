@@ -154,6 +154,7 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 
 			f.close();
 			context.waitTicks(20);
+			check(MISCLICKS.isEmpty(), "decision clicks pressed another target: " + MISCLICKS);
 		} finally {
 			context.getInput().resizeWindow(854, 480);
 			context.runOnClient(mc -> {
@@ -229,13 +230,31 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 					context.takeScreenshot("uth_flow_" + name + "_decision");
 					shotDecision = true;
 				}
-				f.click(f.enabledTarget("action." + id) ? "action." + id : "primary");
+				String target = f.enabledTarget("action." + id) ? "action." + id : "primary";
+				String layout = targets(f);
+				try {
+					f.click(target);
+				} catch (AssertionError e) {
+					// a decision click that lands on another target is a money risk: keep the evidence, finish the flow, fail at the end
+					context.takeScreenshot("uth_flow_" + name + "_misclick");
+					MISCLICKS.add(name + ": " + e.getMessage() + " | before: " + layout + " | after: " + targets(f) + " | vp " + f.viewport());
+				}
 				context.waitTicks(10);
 			} else {
 				context.waitTicks(5);
 			}
 		}
 		throw new AssertionError(name + ": the round did not settle");
+	}
+
+	/** Decision clicks that pressed another target (reported at the end of the run). */
+	private static final java.util.List<String> MISCLICKS = new java.util.ArrayList<>();
+
+	/** The open screen's targets: id@box (diagnostics). */
+	private static String targets(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+			? h.chrome().hits().targets().stream().filter(t -> t.id().startsWith("action.") || t.id().equals("primary") || t.id().startsWith("felt."))
+				.map(t -> t.id() + "@" + t.box()).collect(java.util.stream.Collectors.joining(",")) : "-");
 	}
 
 	/** Decision {@code id} is offered: as an action button, or as the primary (the flow puts one decision there). */
