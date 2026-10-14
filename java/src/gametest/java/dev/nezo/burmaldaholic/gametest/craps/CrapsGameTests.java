@@ -72,7 +72,7 @@ public class CrapsGameTests {
 			helper.assertTrue(res.size() == 1 && "win".equals(res.getCompoundOrEmpty(0).getStringOr("outcome", ""))
 				&& res.getCompoundOrEmpty(0).getLongOr("ret", 0) == 20, "last_res with the server return: " + res);
 			// CM: the reveal follows the solved throw: revealTicks = ceil((restMs + 330) / 50), the same solve every client makes
-			var thrown = dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.solve(sync.shooterSide(), sync.seed(), 5, 6);
+			var thrown = dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.solve(sync.shooterSide(), sync.seed(), 5, 6, sync.pointBefore());
 			helper.assertTrue(sync.restMs() == thrown.restMs() && sync.restMs() == table.restMs() && sync.animV() == 2,
 				"sync carries the server's rest time: " + sync + " vs " + thrown.restMs());
 			helper.assertTrue(table.revealTicks() == (int) Math.ceil((thrown.restMs() + 330) / 50.0), "reveal ticks " + table.revealTicks());

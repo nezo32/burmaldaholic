@@ -122,5 +122,7 @@
 	"config.burmaldaholic.craps.betWindowTicks": "Betting window (ticks)",
 	"config.burmaldaholic.craps.rollTimerTicks": "Roll timer (ticks)",
 	"config.burmaldaholic.craps.seats": "Seats",
-	"subtitles.burmaldaholic.craps_puck": "Puck placed"
+	"subtitles.burmaldaholic.craps_puck": "Puck placed",
+	"subtitles.burmaldaholic.craps_puck_lift": "Puck lifted",
+	"subtitles.burmaldaholic.craps_stick": "Stickman returns the dice"
 }

@@ -18,7 +18,7 @@ public final class CrapsBeats {
 	/** Chip / stick / idle offsets from {@link #CHIPS} at Normal speed. */
 	public static final int TRAVEL_AFTER = 300, COLLECT_AFTER = 900, STICK_AFTER = 1000, IDLE_AFTER = 1770;
 	/** Stickman sub-beats (Normal speed): reach in, hook (the far die first), drag home, withdraw. */
-	public static final int STICK_IN = 160, STICK_HOOK = 60, STICK_DRAG = 420, STICK_OUT = 140;
+	public static final int STICK_IN = 160, STICK_HOOK = 60, STICK_DRAG = 400, STICK_OUT = 140;
 	/** SLOW is capped so the table is idle at most this long after the rest. */
 	public static final int IDLE_CAP = 2600;
 	/** Reduced motion: the dice fade in at their rest points and the total pops at this time (CS §4.8). */

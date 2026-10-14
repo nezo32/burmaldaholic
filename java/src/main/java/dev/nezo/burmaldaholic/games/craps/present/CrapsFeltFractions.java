@@ -24,9 +24,9 @@ public final class CrapsFeltFractions {
 	/** Don't Come box width (fraction of the felt width). */
 	public static final double DONT_COME_W = 0.17;
 	/** The rest zone starts this far into the COME row (fraction of the COME row width). */
-	public static final double ZONE_FROM = 0.44;
+	public static final double ZONE_FROM = 0.40;
 	/** The total pill's left edge (fraction of the COME row width); the zone ends 4 px before it. */
-	public static final double TOTAL_AT = 0.66;
+	public static final double TOTAL_AT = 0.72;
 	/** Dice home: the outer {@code HOME} of the Pass line at either end (CS §4.1: past the odds word / first 9 %). */
 	public static final double HOME = 0.09;
 

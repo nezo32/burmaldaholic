@@ -53,6 +53,8 @@ public record SoundCatalog(String id, String owner, String source, String subtit
 		for (String id : new String[] {"dice_clack", "dice_tip", "dice_teeter", "dice_settle", "dice_pip", "dice_stamp"})
 			l.add(new SoundCatalog(id, "core", "block", id, false, "dice"));
 		l.add(new SoundCatalog("craps_puck", "craps", "block", "craps_puck", false, "tables"));
+		// CRAPS-ANIM-SPEC §7 (CM): the puck's lift-off and the stickman's hook
+		for (String id : new String[] {"craps_puck_lift", "craps_stick"}) l.add(new SoundCatalog(id, "craps", "block", id, false, "craps"));
 		// extras-pvp.md §10.3
 		existing(l, "extras", "extras-pvp", "coin_flip", "plinko_peg", "dice_roll");
 		l.add(new SoundCatalog("plinko_bin", "extras", "player", "plinko_bin", false, "extras-pvp"));

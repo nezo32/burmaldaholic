@@ -555,7 +555,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		// CM: the throw is solved once here (cosmetic seed, never CasinoRng); its rest time paces every reveal below
 		Integer shooterSeat = shooterForRun == null ? null : publicSeatIndex().get(shooterForRun);
 		shooterSide = CrapsThrow.sideOfSeat(shooterSeat == null ? -1 : shooterSeat, Math.max(seats().size(), shooterSeat == null ? 0 : shooterSeat + 1));
-		restMs = CrapsThrow.solve(shooterSide, rollSeed, d1, d2).restMs();
+		restMs = CrapsThrow.solve(shooterSide, rollSeed, d1, d2, pointBefore).restMs();
 		revealTicks = CrapsBeats.revealTicks(restMs);
 		lastRes.clear();
 		for (BetResolution res : tr.result().resolutions()) {

@@ -207,8 +207,9 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		int seed = s.getIntOr("seed", 0);
 		side = s.contains("shooter_side") ? s.getIntOr("shooter_side", 0) : (s.getIntOr("shooter_dir", 0) == 1 ? CrapsThrow.LEFT : CrapsThrow.RIGHT);
 		int sd = side;
+		int pb = s.getIntOr("point_before", 0);
 		faces = new int[] {d1, d2};
-		roll = cache.get(DiceRollCache.key(s.getIntOr("rolls", 0), sd, seed), () -> CrapsThrow.solve(sd, seed, d1, d2));
+		roll = cache.get(DiceRollCache.key(s.getIntOr("rolls", 0), sd, seed), () -> CrapsThrow.solve(sd, seed, d1, d2, pb));
 		int serverRest = s.getIntOr("rest_ms", 0);
 		int rest = roll.restMs();
 		if (serverRest > 0 && serverRest != rest) {

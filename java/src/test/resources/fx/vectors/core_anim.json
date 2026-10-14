@@ -629,6 +629,8 @@
     "dice_pip@core",
     "dice_stamp@core",
     "craps_puck@craps",
+    "craps_puck_lift@craps",
+    "craps_stick@craps",
     "coin_flip@extras",
     "plinko_peg@extras",
     "dice_roll@extras",

@@ -122,5 +122,7 @@
 	"config.burmaldaholic.craps.betWindowTicks": "Окно ставок (тики)",
 	"config.burmaldaholic.craps.rollTimerTicks": "Время на бросок (тики)",
 	"config.burmaldaholic.craps.seats": "Мест за столом",
-	"subtitles.burmaldaholic.craps_puck": "Ставится шайба"
+	"subtitles.burmaldaholic.craps_puck": "Ставится шайба",
+	"subtitles.burmaldaholic.craps_puck_lift": "Поднимают шайбу",
+	"subtitles.burmaldaholic.craps_stick": "Крупье возвращает кости"
 }

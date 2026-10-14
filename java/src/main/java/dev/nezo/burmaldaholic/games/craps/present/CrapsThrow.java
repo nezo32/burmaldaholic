@@ -10,6 +10,7 @@ import dev.nezo.burmaldaholic.core.anim.dice.DiceSolver;
 import dev.nezo.burmaldaholic.core.anim.dice.DiceTray;
 import dev.nezo.burmaldaholic.core.anim.dice.ThrowSpec;
 import dev.nezo.burmaldaholic.core.anim.motion.MotionRng;
+import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,26 +35,37 @@ public final class CrapsThrow {
 	/** Normal speed kept off the pyramids / the padded rails. */
 	public static final double E_WALL = 0.58, E_RAIL = 0.5;
 
-	private static final DiceTray TRAY = buildTray();
+	/** One tray per puck position (point before the throw: 0 = OFF, else 4–10); the puck is a keep-out. */
+	private static final DiceTray[] TRAYS = new DiceTray[11];
+
+	static {
+		for (int p : new int[] {0, 4, 5, 6, 8, 9, 10}) TRAYS[p] = buildTray(p);
+	}
 
 	private CrapsThrow() {}
 
-	/** The canonical craps tray (immutable, shared). */
+	/** The canonical craps tray with the puck OFF (immutable, shared). */
 	public static DiceTray tray() {
-		return TRAY;
+		return TRAYS[0];
+	}
+
+	/** The craps tray while the puck sits on {@code pointBefore} (0 = OFF in the Don't Come box). */
+	public static DiceTray tray(int pointBefore) {
+		DiceTray t = pointBefore >= 0 && pointBefore < TRAYS.length ? TRAYS[pointBefore] : null;
+		return t != null ? t : TRAYS[0];
 	}
 
 	/** Rest zone of the dice (centres, tray units): the COME row between {@code ZONE_FROM} and the total pill. */
 	public static DiceTray.Box restZone() {
-		return TRAY.restZone(0);
+		return TRAYS[0].restZone(0);
 	}
 
 	/** The back wall (y = 0, interior +y). */
 	public static DiceTray.Wall backWall() {
-		return TRAY.walls().get(0);
+		return TRAYS[0].walls().get(0);
 	}
 
-	private static DiceTray buildTray() {
+	private static DiceTray buildTray(int puckOn) {
 		double w = ARENA_W;
 		double h = ARENA_H;
 		List<DiceTray.Wall> walls = new ArrayList<>();
@@ -66,17 +78,15 @@ public final class CrapsThrow {
 		double comeBot = v(CrapsFeltFractions.rowTop(2));
 		double zoneX0 = u(CrapsFeltFractions.comeX() + CrapsFeltFractions.comeW() * CrapsFeltFractions.ZONE_FROM);
 		double totalX = u(CrapsFeltFractions.comeX() + CrapsFeltFractions.comeW() * CrapsFeltFractions.TOTAL_AT);
-		DiceTray.Box zone = new DiceTray.Box(zoneX0 + 1.5, comeTop + 1.5, totalX - 1.8, comeBot - 1.5);
+		DiceTray.Box zone = new DiceTray.Box(zoneX0 + 1.4, comeTop + 1.5, totalX - 1.8, comeBot - 1.5);
 		List<DiceTray.Box> keep = new ArrayList<>();
 		// the total pill, the point caption and the come stacks: the rest of the COME row right of the zone
 		keep.add(new DiceTray.Box(totalX - 0.6, comeTop, w, comeBot));
-		// the puck spots: the top-right corner of each point box and of the Don't Come box
-		for (int i = 0; i < 6; i++) {
-			double x1 = u(CrapsFeltFractions.pointX1(i));
-			keep.add(new DiceTray.Box(x1 - 2.6, 0, x1, 2.8));
-		}
-		double dc = u(CrapsFeltFractions.DONT_COME_W);
-		keep.add(new DiceTray.Box(dc - 2.6, 0, dc, 2.8));
+		// the puck where it sits during the throw: the top-right corner of its point box, or of the Don't Come box
+		int[] points = {4, 5, 6, 8, 9, 10};
+		double x1 = u(CrapsFeltFractions.DONT_COME_W);
+		for (int i = 0; i < 6; i++) if (points[i] == puckOn) x1 = u(CrapsFeltFractions.pointX1(i));
+		keep.add(new DiceTray.Box(x1 - 2.6, 0, x1, 2.8));
 		return new DiceTray(G, floor, walls, List.of(), List.of(zone), keep, Optional.empty(), 2.4);
 	}
 
@@ -109,8 +119,43 @@ public final class CrapsThrow {
 	 * Solves the throw of {@code d1, d2} from {@code side} with the cosmetic {@code seed}. Callers cache the result
 	 * (server: once per roll; clients: {@code DiceRollCache} keyed by the roll counter) — never in a render path.
 	 */
-	public static DiceRoll solve(int side, int seed, int d1, int d2) {
-		return DiceSolver.solve(TRAY, spec(side), seed, new int[] {d1, d2}, targetMs(seed));
+	public static DiceRoll solve(int side, int seed, int d1, int d2, int pointBefore) {
+		DiceTray tray = tray(pointBefore);
+		ThrowSpec spec = spec(side);
+		int[] faces = {d1, d2};
+		int target = targetMs(seed);
+		DiceRoll first = null;
+		// a rare relaxed solve throws faster than a hand can (a blur across the felt): re-solve with the next derived
+		// seed (deterministic, so every viewer and the server pick the same one); the path never depends on the faces
+		for (int k = 0; k < RESEEDS; k++) {
+			int s = k == 0 ? seed : SeedMix.mix(seed, k);
+			DiceRoll r = DiceSolver.solve(tray, spec, s, faces, target);
+			if (first == null) first = r;
+			if (!r.fallback() && maxSpeed(r) <= MAX_SPEED) return r;
+			if (maxSpeed(r) <= MAX_SPEED && k == RESEEDS - 1) return r;
+		}
+		return first;
+	}
+
+	/** Re-solve attempts (first seed + derived ones). */
+	static final int RESEEDS = 4;
+	/** Fastest a die may cross the felt, u/s (≈ 1.3 felt widths a second at T2). */
+	public static final double MAX_SPEED = 110;
+
+	/** Largest horizontal speed of either die over the throw (sampled every 2 ms; tests and the re-solve guard). */
+	public static double maxSpeed(DiceRoll r) {
+		dev.nezo.burmaldaholic.core.anim.dice.DieSample a = new dev.nezo.burmaldaholic.core.anim.dice.DieSample();
+		dev.nezo.burmaldaholic.core.anim.dice.DieSample b = new dev.nezo.burmaldaholic.core.anim.dice.DieSample();
+		double max = 0;
+		for (int d = 0; d < r.dice(); d++) {
+			r.sample(d, 0, a);
+			for (double t = 2; t <= r.restMs(d); t += 2) {
+				r.sample(d, t, b);
+				max = Math.max(max, Math.hypot(b.x - a.x, b.y - a.y) / 0.002);
+				a.set(b);
+			}
+		}
+		return max;
 	}
 
 	/** Seeded rest time of the later die (CS §5: 1700 [1500–1950] ms); the solver meets it exactly, no time scaling. */

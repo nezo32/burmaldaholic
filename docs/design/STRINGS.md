@@ -4261,3 +4261,10 @@ The other v1 slot config labels were removed with the slots v2 cut-over (S-J5).
 | `subtitles.burmaldaholic.dice_settle` | Dice settle | Кости замирают |
 | `subtitles.burmaldaholic.dice_pip` | Pips counted | Считаются очки |
 | `subtitles.burmaldaholic.dice_stamp` | House stamp | Печать заведения |
+
+### craps › motion sounds (CM, CRAPS-ANIM-SPEC §7)
+
+| Key | EN | RU |
+|---|---|---|
+| `subtitles.burmaldaholic.craps_puck_lift` | Puck lifted | Поднимают шайбу |
+| `subtitles.burmaldaholic.craps_stick` | Stickman returns the dice | Крупье возвращает кости |
