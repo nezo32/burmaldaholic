@@ -97,4 +97,27 @@ public final class BetGates {
 		}
 		return primary(action, labelKey, v);
 	}
+
+	/**
+	 * The chip a felt click places when no chip is armed (§5.2-4, review R-CDE m1): the last used one when it is still
+	 * offered, at least {@code min} and affordable; else the smallest offered chip of at least {@code min} the balance
+	 * covers; else the smallest affordable one (a table whose minimum is above every chip); -1 = none affordable.
+	 */
+	public static long armDefault(long[] chips, long min, long balance, long lastUsed) {
+		boolean offered = false;
+		for (long c : chips) offered |= c == lastUsed;
+		if (offered && lastUsed > 0 && lastUsed >= min && lastUsed <= balance) return lastUsed;
+		long fallback = -1;
+		for (long c : chips) {
+			if (c > balance || c <= 0) continue;
+			if (c >= min) return c;
+			if (fallback < 0) fallback = c;
+		}
+		return offered && lastUsed > 0 && lastUsed <= balance ? lastUsed : fallback;
+	}
+
+	/** {@link #armDefault(long[], long, long, long)} with an unlimited balance (chips already filtered by it). */
+	public static long armDefault(long[] chips, long min, long lastUsed) {
+		return armDefault(chips, min, Long.MAX_VALUE, lastUsed);
+	}
 }

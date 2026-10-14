@@ -123,18 +123,12 @@ public final class BetBar {
 
 	/** The chip a felt click places: the armed one, else the last used, else the smallest affordable (§5.2-4); -1 = none. */
 	public long armOrDefault() {
-		if (selected > 0 && selected <= view.balance()) {
+		long c = BetGates.armDefault(chips, view.min(), view.balance(), selected);
+		if (c > 0) {
+			selected = c;
 			armed = true;
-			return selected;
 		}
-		for (long c : chips) {
-			if (c <= view.balance()) {
-				selected = c;
-				armed = true;
-				return c;
-			}
-		}
-		return -1;
+		return c;
 	}
 
 	/** Index of the selected chip among {@link #chips()} (for the Dock's visible window), or 0. */

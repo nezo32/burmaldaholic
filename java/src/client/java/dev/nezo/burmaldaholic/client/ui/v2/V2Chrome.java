@@ -164,6 +164,7 @@ public final class V2Chrome {
 	// ---- life cycle ------------------------------------------------------------------------------------------------
 
 	public void resize(Viewport vp) {
+		held.clear();
 		this.viewport = vp;
 		this.grid = new TableGrid(vp);
 		relayout();
@@ -341,6 +342,24 @@ public final class V2Chrome {
 		return key(V2Input.keyName(code));
 	}
 
+	/**
+	 * Keys held down now (by name): the OS auto-repeat of a held key must not place a chip per repeat or press the primary
+	 * again (review R-KW M5). Cleared by {@link #keyReleased} and on resize.
+	 */
+	private final java.util.Set<String> held = new java.util.HashSet<>();
+
+	/** A key release (raw code); true when the kit tracked it as held. */
+	public boolean keyReleased(int code) {
+		String name = V2Input.keyName(code);
+		return name != null && held.remove(name);
+	}
+
+	/** Whether a press of {@code id} repeats while its key is held (no: chips, primary, secondary, actions, the stepper, tools). */
+	private static boolean once(String id) {
+		return id.startsWith("chip.") || id.startsWith("tool.") || id.startsWith("action.") || id.startsWith("stepper.") || id.equals(KeyMap.Ids.PRIMARY)
+			|| id.equals(KeyMap.Ids.SECONDARY);
+	}
+
 	/** A key press by {@link KeyMap} name (null = unnamed key); true when consumed. Tab walks the targets, Enter presses the focused one. */
 	public boolean key(@Nullable String name) {
 		if (name == null) return false;
@@ -357,9 +376,10 @@ public final class V2Chrome {
 			if (focus < ts.size()) return press(ts.get(focus).id(), ts.get(focus).enabled(), Press.LEFT);
 		}
 		String step = stepper.idForKey(name);
-		if (step != null) return press(step, true, Press.LEFT);
+		if (step != null) return !held.add(name) || press(step, true, Press.LEFT);
 		Optional<String> id = keys.idFor(name);
 		if (id.isEmpty()) return false;
+		if (once(id.get()) && !held.add(name)) return true; // an auto-repeat of a held key: swallowed
 		Optional<HitMap.Target> t = hits.targets().stream().filter(x -> x.id().equals(id.get())).findFirst();
 		return press(id.get(), t.map(HitMap.Target::enabled).orElse(true), Press.LEFT);
 	}
