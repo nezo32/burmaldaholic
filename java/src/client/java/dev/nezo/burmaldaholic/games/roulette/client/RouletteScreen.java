@@ -22,6 +22,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
@@ -184,11 +185,11 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		RouletteView v = view;
 		RouletteLayout l = layout;
 		if (v == null || l == null || !id.startsWith("felt.")) return false;
-		if (button == 0 && "result".equals(phase()) && !resultSkipped) {
+		if (button.left() && "result".equals(phase()) && !resultSkipped) {
 			resultSkipped = true; // a click skips the local result beats (never the shared spin)
 		}
 		Optional<Gate> block = RouletteFlow.betBlock(v.flow());
@@ -196,7 +197,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			chrome.refuse(block.get());
 			return true;
 		}
-		if (button != 0) return true;
+		if (!button.left()) return true;
 		long d = chrome.bet.armOrDefault();
 		if (d <= 0) {
 			chrome.refuse(Gate.off("chip", RouletteFlow.K + "bet", "gui.burmaldaholic.core.v2.reason.not_enough", v.flow().min()));

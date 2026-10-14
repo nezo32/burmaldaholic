@@ -3023,6 +3023,28 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `dialog.burmaldaholic.shulker_croupier.greeting.2` | High rollers only. You'll float out if you lose. Joke. Mostly. | Только хайроллеры. Проиграете — улетите. Шутка. В основном. |
 | `gui.burmaldaholic.worldgen.shop.offer` | %1$s — %2$s | %1$s — %2$s |
 | `msg.burmaldaholic.worldgen.bought` | Bought %1$s for %2$s | Куплено: %1$s за %2$s |
+| `msg.burmaldaholic.worldgen.locate.searching` | Looking for the nearest casino… | Ищем ближайшее казино… |
+| `msg.burmaldaholic.worldgen.locate.found` | Nearest casino: %1$s at %2$s (%3$s m, %4$s) | Ближайшее казино: %1$s — %2$s (%3$s м, %4$s) |
+| `msg.burmaldaholic.worldgen.locate.found_unexplored` | Nearest casino: %1$s at %2$s (%3$s m, %4$s). Nobody has been there yet | Ближайшее казино: %1$s — %2$s (%3$s м, %4$s). Там ещё никто не бывал |
+| `msg.burmaldaholic.worldgen.locate.none` | No casino within %1$s m. Try further out | В радиусе %1$s м казино нет. Попробуйте подальше |
+| `msg.burmaldaholic.worldgen.locate.none_known` | No known casino in this dimension | В этом измерении известных казино нет |
+| `msg.burmaldaholic.worldgen.locate.wrong_dimension` | No casinos here. Look in villages, bastions and End Cities | Здесь казино нет. Ищите в деревнях, бастионах и городах Энда |
+| `msg.burmaldaholic.worldgen.locate.mode_off` | Casino mode is off in this world | В этом мире режим казино выключен |
+| `msg.burmaldaholic.worldgen.locate.cooldown` | The casino scout is catching his breath. Try again in %1$s s | Разведчик казино переводит дух. Попробуйте через %1$s с |
+| `msg.burmaldaholic.worldgen.locate.players_only` | Only players can look for casinos | Искать казино могут только игроки |
+| `msg.burmaldaholic.worldgen.locate.busy` | Casino scouts are busy right now. Try again in a moment | Разведчики казино сейчас заняты. Попробуйте чуть позже |
+| `msg.burmaldaholic.worldgen.locate.none_partial` | No casino found within %1$s m, but the search was cut short. Try again | В радиусе %1$s м казино не нашлось, но поиск прервался. Попробуйте ещё раз |
+| `msg.burmaldaholic.worldgen.locate.cut_short` | (search cut short: there may be a closer one) | (поиск прервался: может найтись и ближе) |
+| `gui.burmaldaholic.worldgen.locate.click_tp` | Click to put a teleport command in the chat | Нажмите, чтобы вставить команду телепорта в чат |
+| `gui.burmaldaholic.worldgen.locate.click_copy` | Click to copy the coordinates | Нажмите, чтобы скопировать координаты |
+| `gui.burmaldaholic.worldgen.dir.n` | north | север |
+| `gui.burmaldaholic.worldgen.dir.ne` | north-east | северо-восток |
+| `gui.burmaldaholic.worldgen.dir.e` | east | восток |
+| `gui.burmaldaholic.worldgen.dir.se` | south-east | юго-восток |
+| `gui.burmaldaholic.worldgen.dir.s` | south | юг |
+| `gui.burmaldaholic.worldgen.dir.sw` | south-west | юго-запад |
+| `gui.burmaldaholic.worldgen.dir.w` | west | запад |
+| `gui.burmaldaholic.worldgen.dir.nw` | north-west | северо-запад |
 
 ---
 
@@ -3992,6 +4014,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.worldgen.piglinParlor.chance` | Piglin Parlor chance | Шанс пиглинского салона |
 | `config.burmaldaholic.worldgen.highRoller.chance` | High Roller Lounge chance | Шанс лаунжа хайроллеров |
 | `config.burmaldaholic.worldgen.loanSharkRespawnTicks` | Loan Shark respawn (ticks) | Возрождение ростовщика (тики) |
+| `config.burmaldaholic.worldgen.locateCooldownSeconds` | /casino locate cooldown (seconds) | Перезарядка /casino locate (секунды) |
 | `config.burmaldaholic.ownership.enabled` | Player casinos | Казино игроков |
 | `config.burmaldaholic.ownership.licenseFee` | License fee | Лицензионный сбор |
 | `config.burmaldaholic.ownership.claimRadius` | Claim radius | Радиус зоны |

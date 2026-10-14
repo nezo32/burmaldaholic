@@ -1,6 +1,8 @@
 package dev.nezo.burmaldaholic.gametest.v2;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Input;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
 import java.nio.file.Path;
@@ -215,12 +217,12 @@ public final class RealFlow {
 
 	/** Left click on the centre of target {@code id} (real cursor + button, through the mouse mixin and the HitMap). */
 	public void click(String id) {
-		clickButton(id, 0);
+		clickButton(id, Inputs.MOUSE_LEFT);
 	}
 
 	/** Right click (e.g. remove a chip). */
 	public void rightClick(String id) {
-		clickButton(id, 1);
+		clickButton(id, Inputs.MOUSE_RIGHT);
 	}
 
 	private void clickButton(String id, int button) {
@@ -240,9 +242,9 @@ public final class RealFlow {
 		context.waitTicks(2);
 	}
 
-	/** Presses a key (GLFW code, e.g. {@code KeyMap.SPACE}). */
-	public void key(int glfw) {
-		context.getInput().pressKey(glfw);
+	/** Presses a key by its {@link dev.nezo.burmaldaholic.core.ui.v2.KeyMap} name (e.g. {@code KeyMap.SPACE}), as the running version's key code. */
+	public void key(String name) {
+		context.getInput().pressKey(V2Input.keyCode(name));
 		context.waitTicks(2);
 	}
 

@@ -9,6 +9,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one gold button of every v2 screen, always at the right edge of the Dock (HitMap id {@code primary}). It shows a
@@ -20,14 +21,14 @@ public final class PrimaryButton {
 	public static final int SHAKE_MS = 240;
 
 	private Gate gate = Gate.off("", V2Keys.PRIMARY_WAIT, V2Keys.REASON_ROUND_IN_PROGRESS);
-	private int key = KeyMap.SPACE;
+	private @Nullable String key = KeyMap.SPACE;
 	private Box box = Box.EMPTY;
 	private boolean compact;
 	private long shakeAt = -1;
 	private long pressedAt = -1;
 
-	/** Sets the gate and the key shown on the hint plate (-1 = none). */
-	public void set(Gate gate, int key) {
+	/** Sets the gate and the key shown on the hint plate (null = none). */
+	public void set(Gate gate, @Nullable String key) {
 		this.gate = gate;
 		this.key = key;
 	}
