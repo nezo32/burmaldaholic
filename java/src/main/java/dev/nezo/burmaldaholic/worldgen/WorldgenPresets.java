@@ -8,8 +8,10 @@ import dev.nezo.burmaldaholic.worldgen.logic.TablePresets;
 import dev.nezo.burmaldaholic.worldgen.logic.WorldgenBotPresets;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -57,8 +59,18 @@ public final class WorldgenPresets implements TablePresetProvider {
 			pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 	}
 
+	/**
+	 * Block id at {@code pos} without loading or promoting a chunk: tables ask for their preset while their chunk
+	 * unloads (round play-out from the chunk-unload event), and {@code level.getBlockState} there re-enters the
+	 * distance manager mid-update and crashes the server tick. An unavailable chunk reads as air (no preset).
+	 */
 	private static String blockId(ServerLevel level, BlockPos pos) {
-		return BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
+		LevelChunk chunk = level.getChunkSource().getChunkNow(SectionPos.blockToSectionCoord(pos.getX()),
+			SectionPos.blockToSectionCoord(pos.getZ()));
+		if (chunk == null) {
+			return "minecraft:air";
+		}
+		return BuiltInRegistries.BLOCK.getKey(chunk.getBlockState(pos).getBlock()).toString();
 	}
 
 	static TablePreset of(String id) {
