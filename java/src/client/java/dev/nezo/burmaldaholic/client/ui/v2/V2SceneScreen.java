@@ -159,6 +159,13 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 		return super.keyPressed(event);
 	}
 
+	/** Ends a held key (the chrome swallows its auto-repeat until then; review R-KW M5). */
+	@Override
+	public boolean keyReleased(KeyEvent event) {
+		chrome.keyReleased(event.key());
+		return super.keyReleased(event);
+	}
+
 	@Override
 	public boolean mouseScrolled(double x, double y, double dx, double dy) {
 		if (chrome.scroll(x, y, dy)) return true;

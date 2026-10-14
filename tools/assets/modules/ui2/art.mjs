@@ -198,7 +198,7 @@ export function stampDot(fill) {
 
 /** Buttons 32 × 30 per style and state. */
 const BUTTON = {
-  button_primary: { base: '#FFD640', hover: '#FFE478', pressed: '#E8B830', disabled: '#5A4E2A', rim: T.ink, bottom: T.goldShade },
+  button_primary: { base: '#FFD640', hover: '#FFE478', pressed: '#E8B830', disabled: '#3A4256', rim: T.ink, bottom: T.goldShade },
   button: { base: T.btn, hover: T.btnHi, pressed: '#40206A', disabled: '#2C2038', rim: T.ink, bottom: '#2E1650' },
   button_danger: { base: T.danger, hover: T.dangerHi, pressed: '#7C1A24', disabled: '#3A1A22', rim: T.ink, bottom: '#5A1018' },
 };

@@ -18,6 +18,7 @@ public final class StatusLine {
 	public static final int FLASH_MS = 3000, WATCHDOG_MS = 4000;
 
 	private Box box = Box.EMPTY;
+	private Box strip = Box.EMPTY;
 	private @Nullable Component line1, line2, hint;
 	private @Nullable Component watchdog, error, flash, reason;
 	private long watchdogAt, errorAt, flashAt;
@@ -70,7 +71,25 @@ public final class StatusLine {
 	}
 
 	void place(Box box) {
+		place(box, Box.EMPTY);
+	}
+
+	/** The Dock status box and the hint strip above the Dock (empty = both lines in the Dock; review R-KW B2). */
+	void place(Box box, Box strip) {
 		this.box = box;
+		this.strip = strip;
+	}
+
+	/** The hint strip of the last layout (empty = none). */
+	public Box strip() {
+		return strip;
+	}
+
+	/** The width the two lines want ({@code max(w(line1), w(line2))}, capped by the caller). */
+	public int measure(Font font) {
+		Component l1 = line1();
+		Component l2 = line2();
+		return Math.max(l1 == null ? 0 : font.width(l1), l2 == null ? 0 : font.width(l2)) + 2;
 	}
 
 	public Box box() {
@@ -104,6 +123,11 @@ public final class StatusLine {
 		if (box.isEmpty()) return;
 		Component l1 = line1();
 		Component l2 = line2();
+		if (l2 != null && !strip.isEmpty()) { // line 2 above the Dock, on a dark strip; the Dock keeps line 1
+			V2Draw.fill(g, strip, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
+			V2Draw.left(g, font, l2, strip.inset(1), 3, 1, CasinoPalette.V2_MUTED, true);
+			l2 = null;
+		}
 		int lh = 11;
 		int total = (l1 != null ? lh : 0) + (l2 != null ? lh : 0);
 		int y = box.y() + Math.max(0, (box.h() - total - 4) / 2);
