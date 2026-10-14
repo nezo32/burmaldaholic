@@ -31,6 +31,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("UiKitClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		context.getInput().resizeWindow(1280, 800);
 		context.runOnClient(mc -> {
 			mc.options.guiScale().set(2);

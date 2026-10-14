@@ -44,6 +44,7 @@ public class CoreClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("CoreClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		createWorldButton(context);
 
 		// Generated config editor: every page builds its rows (reflection + labels) without errors.
