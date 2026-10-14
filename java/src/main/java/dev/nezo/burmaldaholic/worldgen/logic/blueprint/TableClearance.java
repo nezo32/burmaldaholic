@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.worldgen.logic.blueprint;
 
+import dev.nezo.burmaldaholic.core.table.parts.LocalCell;
+import dev.nezo.burmaldaholic.core.table.parts.MachineKind;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
@@ -58,10 +60,19 @@ public final class TableClearance {
 		};
 	}
 
-	/** World cells {x, z} of a game's footprint (1 cell for machines / cashiers). */
+	/** World cells {x, z} of a game's footprint (a machine's bottom row: 1 cell for slots, 3 for wheel / Plinko / cashier). */
 	public static List<int[]> footprint(Piece.GameSpot s) {
 		List<int[]> out = new ArrayList<>();
 		TableGame tg = s.game().tableGame();
+		MachineKind mk = s.game().machineKind();
+		if (mk != null) {
+			Facing f = s.playerSide();
+			for (int r = -mk.width() / 2; r <= mk.width() / 2; r++) {
+				int[] o = TableFootprint.cellOffset(r, 0, f.dx(), f.dz());
+				out.add(new int[] {s.pos().x() + o[0], s.pos().z() + o[1]});
+			}
+			return out;
+		}
 		if (tg == null) {
 			out.add(new int[] {s.pos().x(), s.pos().z()});
 			return out;
@@ -71,6 +82,45 @@ public final class TableClearance {
 			out.add(new int[] {s.pos().x() + c.dx(), s.pos().z() + c.dz()});
 		}
 		return out;
+	}
+
+	/** Every block cell {x, y, z} of a game (a table's 3 × 2 footprint; a machine's width × height face). */
+	public static List<int[]> cells3d(Piece.GameSpot s) {
+		List<int[]> out = new ArrayList<>();
+		MachineKind mk = s.game().machineKind();
+		if (mk != null) {
+			Facing f = s.playerSide();
+			for (LocalCell c : mk.localCells()) {
+				int[] o = c.offset(f.dx(), f.dz());
+				out.add(new int[] {s.pos().x() + o[0], s.pos().y() + o[1], s.pos().z() + o[2]});
+			}
+			return out;
+		}
+		for (int[] c : footprint(s)) {
+			out.add(new int[] {c[0], s.pos().y(), c[1]});
+		}
+		return out;
+	}
+
+	/** World cells {x, z} of a machine's front walkway (across its width at f +1); empty for tables. */
+	public static List<int[]> machineWalkway(Piece.GameSpot s) {
+		List<int[]> out = new ArrayList<>();
+		MachineKind mk = s.game().machineKind();
+		if (mk == null) {
+			return out;
+		}
+		Facing f = s.playerSide();
+		for (int r = -mk.width() / 2; r <= mk.width() / 2; r++) {
+			int[] o = TableFootprint.cellOffset(r, 1, f.dx(), f.dz());
+			out.add(new int[] {s.pos().x() + o[0], s.pos().z() + o[1]});
+		}
+		return out;
+	}
+
+	/** A game placed compact (legacy pieces: no {@code part}, the 1 × 1 SINGLE block). */
+	static boolean compact(Grid g, Piece.GameSpot s) {
+		BlockSpec b = g.inside(s.pos().x(), s.pos().y(), s.pos().z()) ? g.get(s.pos().x(), s.pos().y(), s.pos().z()) : null;
+		return b == null || !b.properties().containsKey("part") || "single".equals(b.properties().get("part"));
 	}
 
 	/** World cells {x, z} of a table's walkway (r −1..1 at f +1); empty for machines. */
@@ -131,6 +181,8 @@ public final class TableClearance {
 		for (Piece.GameSpot spot : p.games()) {
 			if (spot.game().tableGame() != null) {
 				table(g, spot, reach, out);
+			} else if (spot.game().machineKind() != null && !compact(g, spot)) {
+				uprightMachine(g, spot, reach, out);
 			} else if (spot.game().family() != Game.Family.CASHIER) {
 				machine(p, g, spot, out);
 			}
@@ -245,6 +297,43 @@ public final class TableClearance {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Upright multi-block machine (MT-3; MT's final machine rule may refine it): every cell holds the machine with its
+	 * {@code part} and {@code facing} (integrity), the bottom row stands on something solid (support), and the front
+	 * walkway (the cells across the machine's width at f +1, rows y and y + 1) is walkable and reachable.
+	 */
+	private static void uprightMachine(Grid g, Piece.GameSpot spot, boolean[][][] reach, List<String> out) {
+		MachineKind mk = spot.game().machineKind();
+		Facing f = spot.playerSide();
+		Vec v = spot.pos();
+		for (LocalCell c : mk.localCells()) {
+			int[] o = c.offset(f.dx(), f.dz());
+			int x = v.x() + o[0], y = v.y() + o[1], z = v.z() + o[2];
+			if (!g.inside(x, y, z)) {
+				out.add(at(spot) + ": machine cell " + x + "," + y + "," + z + " (" + c.part() + ") is outside the piece");
+				continue;
+			}
+			BlockSpec b = g.get(x, y, z);
+			if (b == null || !b.name().equals(spot.game().blockId()) || !f.id().equals(b.properties().get("facing"))
+				|| !c.part().getSerializedName().equals(b.properties().get("part"))) {
+				out.add(at(spot) + ": machine cell " + x + "," + y + "," + z + " should be " + c.part() + " but holds " + b);
+			}
+			if (c.u() == 0 && !supports(y > 0 ? g.get(x, y - 1, z) : null)) {
+				out.add(at(spot) + ": machine cell " + x + "," + y + "," + z + " has no support");
+			}
+		}
+		for (int[] c : machineWalkway(spot)) {
+			for (int dy = 0; dy <= 1; dy++) {
+				if (g.inside(c[0], v.y() + dy, c[1]) && !walkable(g.get(c[0], v.y() + dy, c[1]))) {
+					out.add(at(spot) + ": front walkway cell " + c[0] + "," + (v.y() + dy) + "," + c[1] + " holds " + g.get(c[0], v.y() + dy, c[1]));
+				}
+			}
+			if (reach != null && g.inside(c[0], v.y(), c[1]) && !reach[c[0]][v.y()][c[1]]) {
+				out.add(at(spot) + ": front walkway cell " + c[0] + "," + v.y() + "," + c[1] + " is not reachable on foot from the entries");
+			}
+		}
 	}
 
 	private static void machine(Piece p, Grid g, Piece.GameSpot spot, List<String> out) {

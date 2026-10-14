@@ -62,7 +62,7 @@ class GrandCasinoTest {
 			if (s.game().tableGame() != null) {
 				assertEquals("main", b.properties().get("part"), s + " is a full multi-block table");
 			} else {
-				assertFalse(b.properties().containsKey("part"), s + " machines stay 1 × 1");
+				assertEquals("main", b.properties().get("part"), s + " is a full upright machine (MT-3)");
 			}
 		}
 	}
@@ -142,7 +142,7 @@ class GrandCasinoTest {
 		Grid g = whole(GrandCasino.Variant.RIVIERA).layout().grid();
 		int dome = top(g, GrandCasino.CX, GrandCasino.DOME_Z);
 		int tower = top(g, 4, 31);
-		int crown = top(g, GrandCasino.CX, GrandCasino.Z_FRONT);
+		int crown = top(g, GrandCasino.CX, GrandCasino.Z_LOGGIA);
 		int cornice = GrandCasino.CEIL_Y + 2;
 		assertTrue(dome >= cornice + 12, "dome lantern " + dome);
 		assertTrue(tower >= cornice + 10, "tower finial " + tower);

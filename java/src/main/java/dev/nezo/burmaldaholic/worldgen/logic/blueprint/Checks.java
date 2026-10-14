@@ -167,10 +167,10 @@ public final class Checks {
 			});
 		}
 		for (Piece.GameSpot spot : p.games()) {
-			Vec v = spot.pos();
-			int y = Math.min(v.y() + 1, s.y() - 1);
-			if (light[v.x()][y][v.z()] < 10) {
-				out.add(spot.game() + " at " + v + " is lit " + light[v.x()][y][v.z()] + " (< 10 above the table)");
+			Vec v = lightProbe(g, spot);
+			int y = Math.min(v.y(), s.y() - 1);
+			if (g.inside(v.x(), y, v.z()) && light[v.x()][y][v.z()] < 10) {
+				out.add(spot.game() + " at " + spot.pos() + " is lit " + light[v.x()][y][v.z()] + " (< 10 at " + v + ")");
 			}
 		}
 		if (!PENDING_CLEARANCE.contains(p.id())) {
@@ -193,6 +193,19 @@ public final class Checks {
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * Where a game's light is measured: the cell above a table's main block (inside the board volume); for an upright
+	 * multi-block machine, whose upper cells are the machine itself, the player's head cell in front of it.
+	 */
+	public static Vec lightProbe(Grid g, Piece.GameSpot spot) {
+		Vec v = spot.pos();
+		if (spot.game().machineKind() != null && !TableClearance.compact(g, spot)) {
+			Vec pc = spot.playerCell();
+			return new Vec(pc.x(), pc.y() + 1, pc.z());
+		}
+		return new Vec(v.x(), v.y() + 1, v.z());
 	}
 
 	/** Families present in a set of pieces (an assembled casino). */
@@ -304,11 +317,9 @@ public final class Checks {
 
 	private static boolean isGame(Piece p, int x, int y, int z) {
 		for (Piece.GameSpot spot : p.games()) {
-			if (spot.pos().y() == y) {
-				for (int[] c : TableClearance.footprint(spot)) {
-					if (c[0] == x && c[1] == z) {
-						return true;
-					}
+			for (int[] c : TableClearance.cells3d(spot)) {
+				if (c[0] == x && c[1] == y && c[2] == z) {
+					return true;
 				}
 			}
 		}

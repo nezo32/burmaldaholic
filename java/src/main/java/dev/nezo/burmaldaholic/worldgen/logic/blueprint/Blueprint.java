@@ -532,13 +532,23 @@ public final class Blueprint {
 	 * block-entity NBT: the block entity is created fresh on placement and resolves its preset from the
 	 * casino record (WorldgenPresets). Tables ({@link Game#tableGame()} non-null) stamp their whole 3 × 2 footprint
 	 * ({@code TableFootprint.cells}) with {@code part} + {@code facing}; the anchor is the MAIN (front-centre) cell.
+	 * Upright machines ({@link Game#machineKind()}) stamp every cell of {@code MachineKind.localCells} (width × height,
+	 * one deep); the anchor is the bottom-centre MAIN cell.
 	 */
 	public Blueprint game(Game g, int x, int y, int z, Facing playerSide) {
 		TableGame tg = g.tableGame();
 		// resolved in template space: a mirrored pass stamps the mirrored table, not a mirror image of its cells
 		int mx = tx(x);
 		Facing f = tf(playerSide);
-		if (tg == null || compactTables) {
+		dev.nezo.burmaldaholic.core.table.parts.MachineKind mk = g.machineKind();
+		if (mk != null && !compactTables) {
+			// an upright multi-block machine (MT-3): one row deep, main = bottom centre, players in front
+			for (dev.nezo.burmaldaholic.core.table.parts.LocalCell c : mk.localCells()) {
+				int[] o = c.offset(f.dx(), f.dz());
+				grid.set(mx + o[0], y + o[1], z + o[2], BlockSpec.of(g.blockId(), "facing", f.id(), "part", c.part().getSerializedName()));
+				blockNbt.remove(new Vec(mx + o[0], y + o[1], z + o[2]));
+			}
+		} else if (tg == null || compactTables) {
 			grid.set(mx, y, z, BlockSpec.of(g.blockId(), "facing", f.id()));
 			blockNbt.remove(new Vec(mx, y, z));
 		} else {

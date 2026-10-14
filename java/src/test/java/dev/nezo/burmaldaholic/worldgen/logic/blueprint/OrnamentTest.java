@@ -453,7 +453,8 @@ class OrnamentTest {
 		Piece p = b.build();
 		int[][][] light = Checks.light(p.layout().grid());
 		for (Piece.GameSpot s : p.games()) {
-			assertTrue(light[s.pos().x()][s.pos().y() + 1][s.pos().z()] >= 10, s + " lit " + light[s.pos().x()][s.pos().y() + 1][s.pos().z()]);
+			Vec v = Checks.lightProbe(p.layout().grid(), s); // over a table; a full slot's player head cell
+			assertTrue(light[v.x()][v.y()][v.z()] >= 10, s + " lit " + light[v.x()][v.y()][v.z()]);
 		}
 		List<String> out = new java.util.ArrayList<>();
 		TableClearance.check(p, out);

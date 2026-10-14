@@ -812,16 +812,15 @@ public final class GrandCasino {
 		Kits.slotBank(Game.SLOTS_COPPER, 3).apply(b, SX - 3, ROW, 17, Facing.WEST);
 		// VIP gallery (row 9): netherite slots, poker #2, player-banked UTH (centre) and baccarat
 		b.game(Game.SLOTS_NETHERITE, 9, ROW2, 4, Facing.SOUTH);
-		b.set(9, ROW2 + 1, 4, Blueprint.AIR);
 		b.game(Game.SLOTS_NETHERITE, SX - 1 - 9, ROW2, 4, Facing.SOUTH);
-		b.set(SX - 1 - 9, ROW2 + 1, 4, Blueprint.AIR);
 		Kits.tablePod(Game.POKER, null).apply(b, 13, ROW2, 4, Facing.SOUTH);
 		Kits.tablePod(Game.UTH_PLAYER_BANKED, null).apply(b, CX, ROW2, 4, Facing.SOUTH);
 		Kits.tablePod(Game.BACCARAT_PLAYER_BANKED, null).apply(b, SX - 1 - 13, ROW2, 4, Facing.SOUTH);
-		// lobby: the cashier's cage (west) with the Croupier, the wheel and plinko (east)
+		// lobby: the cashier's booth (west, 3 wide x 2 tall) with the Croupier behind its grille, facing the Wheel of
+		// Fortune (east, 3 x 3 upright) in its lit alcove; Plinko (3 x 3) stands in the west pavilion by the duel pit
 		Kits.cashierCage(Game.CASHIER).apply(b, 9, ROW, 25, Facing.EAST);
-		b.game(Game.WHEEL, 31, ROW, 24, Facing.WEST);
-		b.game(Game.PLINKO, 31, ROW, 27, Facing.WEST);
+		Kits.machineAlcove(Game.WHEEL).apply(b, 31, ROW, 25, Facing.WEST);
+		Kits.machineAlcove(Game.PLINKO).apply(b, 2, ROW, 25, Facing.EAST);
 		// east pavilion: the gold slot bank against the outer wall
 		Kits.slotBank(Game.SLOTS_GOLD, 4).apply(b, SX - 3, ROW, 26, Facing.WEST);
 	}
