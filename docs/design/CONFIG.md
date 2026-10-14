@@ -280,7 +280,7 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | `roulette.highRollerMinTotal` | int | 100 | 1–10⁶ | |
 | `roulette.highRollerMaxMultiplier` | double | 2.0 | 1.0–10.0 | |
 | `roulette.betTimerTicks` | int | 500 | 100–2400 | |
-| `roulette.spinTicks` | int | 100 | 40–300 | |
+| `roulette.spinTicks` | int | 140 | 40–300 | RO (PHASE2B D2): 7 s spin, 8 s of ball |
 | `roulette.maxBettors` | int | 8 | 1–16 | |
 | `roulette.historyLength` | int | 12 | 0–50 | |
 
