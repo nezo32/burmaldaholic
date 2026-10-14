@@ -544,7 +544,29 @@ public final class V2Chrome {
 
 	/** The felt, full bleed over the whole screen (under the TopBar and Dock, which cover it). */
 	public void renderBackground(GuiGraphicsExtractor g, dev.nezo.burmaldaholic.client.ui.CasinoTheme theme) {
+		if (viewport.framed()) { // outside the frame: the menu background dimmed (the blurred world shows through)
+			int x0 = -viewport.ox(), y0 = -viewport.oy(), x1 = viewport.w() - viewport.ox(), y1 = viewport.h() - viewport.oy();
+			int fw = viewport.frameW(), fh = viewport.frameH();
+			int dim = CasinoPalette.withAlpha(CasinoPalette.V2_INK, 0.86f);
+			g.fill(x0, y0, x1, 0, dim);
+			g.fill(x0, fh, x1, y1, dim);
+			g.fill(x0, 0, 0, fh, dim);
+			g.fill(fw, 0, x1, fh, dim);
+		}
 		V2Felt.draw(g, grid.play, theme);
+	}
+
+	/** Outset of the frame edge around a framed screen (layout px). */
+	public static final int FRAME_EDGE = 8;
+
+	/** The frame edge (nine-slice with its shadow) around a framed screen, drawn over the frame's outer pixels' surround. */
+	private void frameEdge(GuiGraphicsExtractor g) {
+		if (!viewport.framed()) return;
+		Box e = grid.screen.inset(-FRAME_EDGE);
+		if (V2Draw.sprite(g, V2Sprites.FRAME_EDGE, e, 0xFFFFFFFF)) return;
+		for (int i = 0; i < FRAME_EDGE - 2; i++) V2Draw.outline(g, e.inset(i), CasinoPalette.withAlpha(0xFF000000, 0.08f + 0.05f * i));
+		V2Draw.outline(g, grid.screen.inset(-2), CasinoPalette.V2_RAIL_DARK);
+		V2Draw.outline(g, grid.screen.inset(-1), CasinoPalette.V2_GOLD_SHADE);
 	}
 
 	/** TopBar, Dock (BetBar or ActionRow, status, primary), then the banner and the toasts. */
@@ -574,6 +596,7 @@ public final class V2Chrome {
 		primary.draw(g, font, mx, my, KeyMap.Ids.PRIMARY.equals(f));
 		banner.draw(g, font);
 		toasts.draw(g, font);
+		frameEdge(g);
 		if (focus >= 0 && !f.isEmpty() && !f.startsWith("chip.") && !f.startsWith("tool.") && !f.startsWith("action.") && !f.startsWith("top.")
 			&& !f.startsWith("stepper.")
 			&& !f.equals(KeyMap.Ids.PRIMARY)) {

@@ -99,6 +99,16 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
+	public float offsetX() {
+		return viewport.guiOx();
+	}
+
+	@Override
+	public float offsetY() {
+		return viewport.guiOy();
+	}
+
+	@Override
 	protected void init() {
 		super.init();
 		leftPos = 0; // D3: the screen is the whole GUI (imageWidth is final in this MC; nothing uses it once leftPos = 0)

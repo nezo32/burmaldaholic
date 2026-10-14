@@ -350,3 +350,22 @@ export function glyph(name, size) {
   return out;
 }
 export const GLYPHS = Object.keys(G12);
+
+/**
+ * The edge around a framed table screen (ui-v2.md §3.7) 24 × 24, nine-slice border 8: a 6-px soft shadow outside, then
+ * the rail-dark and gold-shade rims; the middle is transparent (the frame's content shows through).
+ */
+export function frameEdge() {
+  const n = 24;
+  const img = image(n, n);
+  const ring = (i, hex) => {
+    rect(img, i, i, n - 1 - i, i, hex);
+    rect(img, i, n - 1 - i, n - 1 - i, n - 1 - i, hex);
+    rect(img, i, i, i, n - 1 - i, hex);
+    rect(img, n - 1 - i, i, n - 1 - i, n - 1 - i, hex);
+  };
+  for (let i = 0; i < 6; i++) ring(i, alpha('#000000', 0.06 + 0.06 * i));
+  ring(6, T.railDark);
+  ring(7, T.goldShade);
+  return img;
+}

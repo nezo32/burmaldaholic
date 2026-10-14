@@ -33,9 +33,13 @@ public final class ScreenEntrance {
 			e.pushed = false;
 			e.entering = ms < UiLayout.ENTRANCE_MS && !FxSettings.reduceMotion();
 			float fit = s instanceof FitScaled f ? f.fitScale() : 1f;
-			if (!e.entering && fit == 1f) return;
+			float ox = s instanceof FitScaled f ? f.offsetX() : 0f;
+			float oy = s instanceof FitScaled f ? f.offsetY() : 0f;
+			if (!e.entering && fit == 1f && ox == 0f && oy == 0f) return;
 			g.pose().pushMatrix();
 			e.pushed = true;
+			// a framed v2 screen: its frame is centred in the real GUI (ui-v2.md §3.7)
+			if (ox != 0f || oy != 0f) g.pose().translate(ox, oy);
 			// the compact layout: the screen's own GUI drawn at k / guiScale (FitScaled), then the entrance inside it
 			if (fit != 1f) g.pose().scale(fit, fit);
 			if (!e.entering) return;

@@ -129,6 +129,19 @@ public final class StatusLine {
 			l2 = null;
 		}
 		int lh = 11;
+		if (l1 != null && l2 == null && font.width(l1) > box.w() && box.h() >= 2 * lh + 4) {
+			// one long line 1 and the second line free: wrap it onto two 1× lines (DES 3) instead of an ellipsis
+			java.util.List<net.minecraft.util.FormattedCharSequence> parts = font.split(l1, Math.max(1, box.w()));
+			if (parts.size() >= 2) {
+				int y = box.y() + Math.max(0, (box.h() - 2 * lh - 4) / 2);
+				for (int i = 0; i < 2; i++) {
+					V2Draw.text(g, font, parts.get(i), box.x(), y + (lh - 8) / 2 + 1, 1, line1Color(), true);
+					y += lh;
+				}
+				timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3));
+				return;
+			}
+		}
 		int total = (l1 != null ? lh : 0) + (l2 != null ? lh : 0);
 		int y = box.y() + Math.max(0, (box.h() - total - 4) / 2);
 		if (l1 != null) {
