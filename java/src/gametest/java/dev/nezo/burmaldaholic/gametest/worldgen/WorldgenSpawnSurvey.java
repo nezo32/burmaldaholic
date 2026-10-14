@@ -426,7 +426,7 @@ public class WorldgenSpawnSurvey {
 		return true;
 	}
 
-	private static Count run(RegistryAccess reg, StructureTemplateManager templates, long seed, boolean forced,
+	static Count run(RegistryAccess reg, StructureTemplateManager templates, long seed, boolean forced,
 			ResourceKey<LevelStem> stemKey, ResourceKey<Level> levelKey, String setId, int radius) {
 		World w = world(reg, seed, stemKey);
 		StructureSet set = w.sets().getOrThrow(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.parse(setId))).value();
