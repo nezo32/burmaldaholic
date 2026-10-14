@@ -1,0 +1,91 @@
+# Sets the Modrinth environment (where the mod runs) of the project and its existing versions, then prints the result.
+# The environment is a per-version loader field in API v3 (`environment`, e.g. "client_and_server"); the project's
+# `environment` array is the aggregate of its versions. Two calls cover both:
+#   PATCH /v2/project/{id} {"client_side":"required","server_side":"required"} -> labrinth sets every version to client_and_server
+#   PATCH /v3/version/{id} {"environment":"<environment-type>"}               -> each listed version explicitly
+# Runs in the GitHub Environment holding MODRINTH_TOKEN (scopes PROJECT_READ, PROJECT_WRITE, VERSION_READ, VERSION_WRITE).
+#   gh workflow run modrinth-project-settings.yml -f dry-run=true
+#   gh workflow run modrinth-project-settings.yml -f dry-run=false
+name: Modrinth project settings
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment-type:
+        description: Version environment (client_and_server = required on both client and server)
+        default: client_and_server
+      version-ids:
+        description: Comma separated Modrinth version ids to patch explicitly (empty = all versions of the project)
+        default: sScmmQX6
+      dry-run:
+        description: Only print the current settings and the requests that would be sent
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  settings:
+    runs-on: ubuntu-latest
+    environment: ${{ vars.MODRINTH_ENVIRONMENT || vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
+    timeout-minutes: 5
+    steps:
+      - name: Patch and verify
+        env:
+          MR_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          PROJECT: ${{ vars.MODRINTH_PROJECT_ID || 'L06UcR9F' }}
+          ENV_TYPE: ${{ inputs.environment-type }}
+          VERSION_IDS: ${{ inputs.version-ids }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          [[ -n "$MR_TOKEN" ]] || { echo "::error::secret MODRINTH_TOKEN is not set in this environment"; exit 1; }
+          case "$ENV_TYPE" in
+            client_and_server) client=required; server=required ;;
+            client_only) client=required; server=unsupported ;;
+            client_only_server_optional) client=required; server=optional ;;
+            server_only) client=unsupported; server=required ;;
+            server_only_client_optional) client=optional; server=required ;;
+            client_or_server) client=optional; server=optional ;;
+            singleplayer_only|dedicated_server_only|client_or_server_prefers_both) client=""; server="" ;;
+            *) echo "::error::unknown environment-type '$ENV_TYPE'"; exit 1 ;;
+          esac
+          ua="${GITHUB_REPOSITORY} settings workflow (github.com/${GITHUB_REPOSITORY})"
+          mr() { # $1 = method, $2 = url, [$3 = json body]; prints the body, fails on non-2xx
+            local code
+            code="$(curl -sS -o "$RUNNER_TEMP/mr.txt" -w '%{http_code}' -X "$1" -A "$ua" -H "Authorization: $MR_TOKEN" \
+              -H 'Content-Type: application/json' ${3:+--data "$3"} "$2")" || code=000
+            cat "$RUNNER_TEMP/mr.txt"
+            [[ "$code" == 2* ]] || { echo; echo "::error::$1 $2 -> HTTP $code"; return 1; }
+          }
+          show() {
+            echo "--- project $PROJECT"
+            mr GET "https://api.modrinth.com/v3/project/$PROJECT" | jq '{id, slug, status, environment, side_types_migration_review_status}'
+            mr GET "https://api.modrinth.com/v2/project/$PROJECT" | jq '{client_side, server_side}'
+            echo "--- versions"
+            mr GET "https://api.modrinth.com/v3/project/$PROJECT/version" | jq -c '.[] | {id, version_number, environment}'
+          }
+          show
+
+          ids="$VERSION_IDS"
+          [[ -n "${ids//[[:space:],]/}" ]] || ids="$(mr GET "https://api.modrinth.com/v3/project/$PROJECT/version" | jq -r '[.[].id] | join(",")')"
+          body="$(jq -nc --arg env "$ENV_TYPE" '{environment:$env}')"
+          calls=()
+          [[ -n "$client" ]] && calls+=("PATCH https://api.modrinth.com/v2/project/$PROJECT $(jq -nc --arg c "$client" --arg s "$server" '{client_side:$c, server_side:$s}')")
+          IFS=',' read -r -a list <<<"$ids"
+          for id in "${list[@]}"; do
+            id="${id//[[:space:]]/}"; [[ -n "$id" ]] && calls+=("PATCH https://api.modrinth.com/v3/version/$id $body")
+          done
+
+          for c in "${calls[@]}"; do
+            read -r method url json <<<"$c"
+            if [[ "$DRY_RUN" == "true" ]]; then echo "[dry-run] $method $url $json"; continue; fi
+            echo "$method $url $json"; mr "$method" "$url" "$json"; echo " -> OK"
+          done
+
+          if [[ "$DRY_RUN" != "true" ]]; then echo "=== after"; show; fi
+          {
+            echo "### Modrinth environment ($([[ "$DRY_RUN" == "true" ]] && echo dry run || echo applied))"
+            printf -- '- `%s`\n' "${calls[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
