@@ -266,6 +266,11 @@ public final class CasinoClientQa {
 		shots.add(look("floor_to_door", back, c.add(out.scale(halfDepth)).add(0, 1, 0)));
 		Vec3 corner = c.add(side.scale(halfWidth - 2)).add(out.scale(-halfDepth * 0.3)).add(0, 1.62 + 2.5, 0);
 		shots.add(look("bar_side", corner, c.add(side.scale(-halfWidth)).add(0, 1, 0)));
+		if (halfDepth >= 17) {
+			// big standalone casinos (the Grand Casino): the double-height hall seen from the lobby arch, high up
+			Vec3 high = c.add(out.scale(-1.5)).add(0, 1.62 + 6, 0);
+			shots.add(look("hall_high", high, c.add(out.scale(-halfDepth * 0.6)).add(0, 1, 0)));
+		}
 		return shots;
 	}
 
