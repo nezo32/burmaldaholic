@@ -51,8 +51,13 @@ final class HoloBoard {
 		sp.border = FRAME;
 		int n = sp.count;
 		if (n > 0) {
-			float[] a = BoardGeometry.boardAnchor(s.felt);
-			f.toBlock(a[0], a[1], a[2], P);
+			if (s.full && s.frame != null) {
+				// a full table: over the dealer row (footprint z = −0.5), BOARD_UP above its felt
+				f.footToBlock((float) s.frame.cx(), (float) s.frame.top() + BoardGeometry.BOARD_UP, -0.5f, P);
+			} else {
+				float[] a = BoardGeometry.boardAnchor(s.felt);
+				f.toBlock(a[0], a[1], a[2], P);
+			}
 			// above the plates and the content (plane v), with a gap
 			float v = f.v(P);
 			float need = minV + 0.06f;

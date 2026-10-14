@@ -42,8 +42,46 @@ public class BoardState extends SpectatorRenderState {
 	public BoardGeometry.Felt felt = BoardGeometry.Felt.CRESCENT;
 	/** The felt actually drawn. */
 	public BoardGeometry.Felt drawnFelt = BoardGeometry.Felt.CRESCENT;
-	/** Content scale around the felt centre (1, or < 1 on the fallback felt). */
+	/**
+	 * Design → drawn mapping (MT-DESIGN §2): a design point p is drawn at {@code origin + contentScale · (p − (0.5,
+	 * TOP, 0.5))} in footprint-local coordinates (before the FACING rotation). Compact tables: origin = the design
+	 * pivot, scale ≤ 1 (the fallback felt). Full tables: origin = the felt centre at the felt height, scale
+	 * {@link BoardGeometry#fullScale}.
+	 */
 	public float contentScale = 1f;
+	public float originX = 0.5f, originY = BoardGeometry.TOP, originZ = 0.5f;
+	/** A full multi-block table (part ≠ SINGLE): the furniture model is baked, the board draws the felt print decal. */
+	public boolean full;
+	/** The footprint-local felt of a full table (null on a compact one). */
+	public dev.nezo.burmaldaholic.core.table.parts.@Nullable FeltFrame frame;
+	/** Furniture theme of a full table (print decal): 0 standard, 1 high roller, 2 player-banked. */
+	public int furniture;
+
+	/** Footprint-local x / y / z of design coordinates. */
+	public float footX(float x) {
+		return originX + contentScale * (x - 0.5f);
+	}
+
+	public float footY(float y) {
+		return originY + contentScale * (y - BoardGeometry.TOP);
+	}
+
+	public float footZ(float z) {
+		return originZ + contentScale * (z - 0.5f);
+	}
+
+	/** Design coordinates of footprint-local x / y / z (inverse of {@link #footX} …). */
+	public float designX(float fx) {
+		return 0.5f + (fx - originX) / contentScale;
+	}
+
+	public float designY(float fy) {
+		return BoardGeometry.TOP + (fy - originY) / contentScale;
+	}
+
+	public float designZ(float fz) {
+		return 0.5f + (fz - originZ) / contentScale;
+	}
 	/** Felt theme: 0 village, 1 bastion, 2 end. */
 	public int theme;
 	/** Card back row of {@code faces_w2.png} (0 navy … 5 end; see {@link BoardTextures}). */

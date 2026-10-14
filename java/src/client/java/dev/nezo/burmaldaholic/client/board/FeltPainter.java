@@ -8,9 +8,11 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 
 /**
- * The felt overhang (ui-v2.md §7.1, REDESIGN §9.1): the felt top with its printed rail ({@code felt_w_<shape>_<θ>},
- * one cutout quad), the wooden apron along the rounded outline and its underside (fan). The fallback felt is the
- * block's own top: one quad, no apron. Table-local coordinates (the renderer has already rotated by FACING).
+ * The felt (ui-v2.md §7.1, MT-DESIGN §2). A full multi-block table: the furniture model is baked (legs, apron, rail,
+ * a 16-px felt at 14/16); this paints the hi-res felt print decal ({@code felt_print_<shape>_<furniture>}, one cutout
+ * quad) just above it over the footprint-local {@code FeltFrame}. A compact table: the block's own top with its printed
+ * rail ({@code felt_w_fallback_<θ>}, one quad). The shaped felts with an apron ({@link #apron}) stay for previews.
+ * Coordinates: the renderer has rotated by FACING; footprint-local = design for the compact quad.
  */
 public final class FeltPainter {
 	/** Segments per rounded corner of the apron. */
@@ -23,12 +25,33 @@ public final class FeltPainter {
 
 	private FeltPainter() {}
 
+	/** Lift of the print decal above the baked felt (no z-fighting, under the content lift of 1/64). */
+	public static final float DECAL_LIFT = 1 / 128f;
+
 	/** Number of quads {@link #submit} draws for a felt (budget accounting). */
 	public static int quads(Felt f) {
 		return f == Felt.FALLBACK ? 1 : 1 + 2 * (OUTLINES[f.ordinal()].length / 2);
 	}
 
+	public static int quads(BoardState s) {
+		return s.full ? 1 : quads(s.drawnFelt);
+	}
+
 	public static void submit(PoseStack pose, SubmitNodeCollector out, BoardState s, int light) {
+		var frame = s.frame;
+		if (s.full && frame != null) {
+			float x0 = (float) (frame.cx() - frame.w() / 2), x1 = (float) (frame.cx() + frame.w() / 2);
+			float z0 = (float) (frame.cz() - frame.d() / 2), z1 = (float) (frame.cz() + frame.d() / 2);
+			float y = (float) frame.top() + DECAL_LIFT;
+			out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.print(frame.shape(), s.furniture)), (p, vc) -> {
+				int c = 0xFFFFFFFF;
+				Quads.v(p, vc, x0, y, z1, 0, 1, c, light, 0, 1, 0);
+				Quads.v(p, vc, x1, y, z1, 1, 1, c, light, 0, 1, 0);
+				Quads.v(p, vc, x1, y, z0, 1, 0, c, light, 0, 1, 0);
+				Quads.v(p, vc, x0, y, z0, 0, 0, c, light, 0, 1, 0);
+			});
+			return;
+		}
 		Felt f = s.drawnFelt;
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.felt(f, s.theme)), (p, vc) -> top(p, vc, f, light));
 		if (f != Felt.FALLBACK) out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.rail(s.theme)), (p, vc) -> apron(p, vc, f, light));

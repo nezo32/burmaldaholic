@@ -261,7 +261,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		if (!s.print || !s.visibleBoard()) return;
 		int light = s.lightCoords;
 		pose.pushPose();
-		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
+		feltPose(pose, s); // W2: FACING + design → full 3×2 felt / compact block top (MT-DESIGN §2)
 		float y = BoardGeometry.TOP + BoardGeometry.LAYER;
 		float x0 = CrapsBoardGeometry.x(0), z0 = CrapsBoardGeometry.z(0);
 		float x1 = CrapsBoardGeometry.x(CrapsBoardGeometry.PRINT_W), z1 = CrapsBoardGeometry.z(CrapsBoardGeometry.PRINT_H);

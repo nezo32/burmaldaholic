@@ -24,21 +24,25 @@ import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
+import dev.nezo.burmaldaholic.core.table.parts.FeltFrame;
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
+import dev.nezo.burmaldaholic.core.table.parts.TablePart;
+import dev.nezo.burmaldaholic.core.table.parts.TableParts;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Base of every in-world table board (docs/architecture/ui-v2.md §7): the felt overhang, cards at 1.5 × screen size,
+ * Base of every in-world table board (docs/architecture/ui-v2.md §7): the felt print decal of a multi-block table (or
+ * the compact block-top felt), cards at 1.5 × screen size,
  * chip stacks, collision-free seat plates outside the felt and a floating, yaw-only board that stays legible from 3 to
  * 8 blocks. A game's renderer only implements {@link #felt} and {@link #fill} — writing its PUBLIC state into the
  * {@link BoardState} in table-local coordinates ({@link BoardGeometry}) — and registers itself with
  * {@code BlockEntityRendererRegistry.register(type, MyBoardRenderer::new)}.
  *
- * <p>The base computes FACING, the blocked-overhang fallback (cached, re-checked every {@link #BLOCK_CHECK_TICKS}), the
+ * <p>The base computes FACING, the design → drawn mapping ({@link #layout}: full 3×2 felt or compact block top), the
  * board LOD with hysteresis ({@link HoloScale#lod(double, HoloScale.Lod)}), the text pixel sizes from the FOV and the
  * window height, and submits felt → cards → chips → plates → board. Budget per table and frame (§7.5): ≤ 32 cards
  * (2 quads each), ≤ 16 stacks, ≤ 3 board lines + 8 plates × 2 lines + 8 labels; text sequences are cached by the
@@ -48,8 +52,6 @@ import org.jspecify.annotations.Nullable;
  * text; beyond 32 the block model only.
  */
 public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState> extends SpectatorBlockEntityRenderer<T, S> {
-	/** Ticks between two checks of the overhang's neighbours. */
-	public static final int BLOCK_CHECK_TICKS = 40;
 	/** Minimum block light of the felt / cards (readable in a dim casino). */
 	private static final int MIN_BLOCK_LIGHT = 7;
 	private static final Map<Long, BiConsumer<BlockEntity, BoardState>> DEMO = new HashMap<>();
@@ -62,7 +64,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		this.font = ctx.font();
 	}
 
-	/** The felt shape of this table (before the blocked fallback). */
+	/** The design felt shape of this table (its content is laid out for it; see {@link BoardGeometry}). */
 	protected abstract Felt felt(T be);
 
 	/** Writes the table's PUBLIC state into {@code s} (table-local coordinates). Called only when the board is visible. */
@@ -110,19 +112,12 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		Level level = be.getLevel();
 		Felt wanted = felt(be);
 		if (level != null) {
-			long now = level.getGameTime();
-			if (!m.blockedChecked || now - m.blockedCheckedAt >= BLOCK_CHECK_TICKS || now < m.blockedCheckedAt) {
-				m.blockedChecked = true;
-				m.blocked = blocked(level, be.getBlockPos(), s.facing, wanted);
-				m.blockedCheckedAt = now;
-			}
 			int light = LightCoordsUtil.getLightCoords(level, be.getBlockPos().above());
 			s.lightCoords = LightCoordsUtil.max(light, LightCoordsUtil.pack(MIN_BLOCK_LIGHT, 0));
 		}
 		s.felt = wanted;
-		s.drawnFelt = BoardGeometry.fallback(wanted, m.blocked);
-		s.contentScale = BoardGeometry.contentScale(wanted, s.drawnFelt);
-		double dist = Math.sqrt(s.distSq);
+		layout(s, wanted, bs);
+		double dist = feltDistance(s, mc);
 		s.dist = dist;
 		s.hlod = HoloScale.lod(dist, m.lod);
 		m.lod = s.hlod;
@@ -140,7 +135,9 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 				}
 			}
 		}
-		s.lookedAt = mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(be.getBlockPos());
+		// any part of a multi-block table counts as looking at it (MT: TableParts.mainOf)
+		s.lookedAt = level != null && mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
+				&& (hit.getBlockPos().equals(be.getBlockPos()) || TableParts.mainOf(level, hit.getBlockPos()).equals(be.getBlockPos()));
 		s.theme = theme(be);
 		s.back = defaultBack(level);
 		BoardStats.Table st = BoardStats.begin(be.getBlockPos(), 0);
@@ -177,13 +174,8 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		pose.pushPose();
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
 		FeltPainter.submit(pose, out, s, light);
-		st.feltQuads += FeltPainter.quads(s.drawnFelt);
-		if (s.contentScale != 1f) {
-			// the fallback felt: everything on it shrinks around the centre (the game laid out for the full felt)
-			pose.translate(0.5f, BoardGeometry.TOP, 0.5f);
-			pose.scale(s.contentScale, s.contentScale, s.contentScale);
-			pose.translate(-0.5f, -BoardGeometry.TOP, -0.5f);
-		}
+		st.feltQuads += FeltPainter.quads(s);
+		mapDesign(pose, s);
 		if (m.cardCount > 0) {
 			CardPainter.submit(pose, out, s, m, light);
 			st.cardQuads += m.cardCount * CardPainter.QUADS_PER_CARD;
@@ -194,7 +186,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		}
 		pose.popPose();
 		if (s.showsBoard() && s.font != null) {
-			frame.set(camera, s.blockPos, s.facing, BoardGeometry.TOP, s.contentScale);
+			frame.set(camera, s.blockPos, s.facing, s);
 			float top = s.showsPlates() ? SeatPlates.submit(pose, out, font, s, m, frame, st) : contentTop(m);
 			HoloBoard.submit(pose, out, font, s, m, frame, top, st);
 		}
@@ -206,44 +198,65 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		return 0.15f;
 	}
 
-	// ---- the blocked-overhang fallback ------------------------------------------------------------------------------
+	// ---- the felt: full multi-block table or compact (MT-DESIGN §2) -------------------------------------------------
 
 	/**
-	 * True when a neighbour would intersect the felt overhang: a block in a cell the felt covers (at the table's level)
-	 * whose collision top reaches the felt ({@link BoardGeometry#blocksOverhang}: carpet, bottom slabs, pressure plates
-	 * do not block), or another table two blocks away along the long axis (both overhangs would meet in the gap).
+	 * Sets the design → drawn mapping of this frame: a full table (part ≠ SINGLE) maps the design felt onto its
+	 * footprint-local {@link FeltFrame} (centre (0.5, 0) for the 3×2 tables, felt top 14/16 + lift); a compact table
+	 * draws the fallback felt on its own block top and shrinks the content onto it.
 	 */
-	public static boolean blocked(Level level, BlockPos pos, Direction facing, Felt felt) {
-		if (felt == Felt.FALLBACK) return false;
-		Quaternionf q = new Quaternionf().rotationY((float) Math.toRadians(-facing.toYRot()));
-		int[] cells = BoardGeometry.overhangCells(felt);
-		Vector3f v = new Vector3f();
-		for (int i = 0; i < cells.length; i += 2) {
-			int dx = cells[i], dz = cells[i + 1];
-			if (!covers(felt, dx, dz)) continue;
-			BlockPos p = offset(pos, q, dx, dz, v);
-			VoxelShape shape = level.getBlockState(p).getCollisionShape(level, p);
-			if (!shape.isEmpty() && BoardGeometry.blocksOverhang(shape.max(Direction.Axis.Y))) return true;
+	static void layout(BoardState s, Felt wanted, BlockState bs) {
+		TableGame game = s.tableGame != null ? s.tableGame : TableParts.gameOf(bs);
+		TablePart part = s.tablePart;
+		if (game != null && part != TablePart.SINGLE && part.isMultiBlock()) {
+			FeltFrame f = FeltFrame.of(game, part);
+			s.full = true;
+			s.frame = f;
+			s.drawnFelt = wanted;
+			// roulette: the design felt (wheel + layout) spans the whole table inside the rail, not just the layout
+			double w = f.hasWheel() ? game.width() - 2 * FeltFrame.RAIL : f.w();
+			double cx = f.hasWheel() ? 0.5 : f.cx();
+			s.contentScale = BoardGeometry.fullScale(wanted, w, f.d());
+			s.originX = (float) cx;
+			s.originY = (float) (f.top() + FeltFrame.CONTENT_LIFT);
+			s.originZ = (float) f.cz();
+			String path = BuiltInRegistries.BLOCK.getKey(bs.getBlock()).getPath();
+			s.furniture = path.contains("high_roller") ? 1 : path.contains("player_banked") ? 2 : 0;
+		} else {
+			s.full = false;
+			s.frame = null;
+			s.drawnFelt = BoardGeometry.fallback(wanted, true);
+			s.contentScale = BoardGeometry.contentScale(wanted, s.drawnFelt);
+			s.originX = 0.5f;
+			s.originY = BoardGeometry.TOP;
+			s.originZ = 0.5f;
 		}
-		for (int dx : new int[] {-2, 2}) {
-			if (level.getBlockEntity(offset(pos, q, dx, 0, v)) instanceof CasinoTableBlockEntity) return true;
-		}
-		return false;
 	}
 
-	/** Does the felt cover any part of table-local cell (dx, dz)? (5 × 5 samples.) */
-	static boolean covers(Felt felt, int dx, int dz) {
-		for (int a = 0; a < 5; a++) {
-			for (int b = 0; b < 5; b++) {
-				if (BoardGeometry.inside(felt, dx + 0.1f + 0.2f * a, dz + 0.1f + 0.2f * b)) return true;
-			}
-		}
-		return false;
+	/** Camera → felt centre (world), so a 3×2 table's LOD and text size follow its felt, not its corner block. */
+	private static double feltDistance(BoardState s, Minecraft mc) {
+		double[] w = TableFootprint.toWorld(s.originX, s.originZ, s.facing.getStepX(), s.facing.getStepZ());
+		var cam = mc.gameRenderer.mainCamera().position();
+		double dx = s.blockPos.getX() + w[0] - cam.x, dy = s.blockPos.getY() + s.originY - cam.y, dz = s.blockPos.getZ() + w[1] - cam.z;
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 
-	private static BlockPos offset(BlockPos pos, Quaternionf q, int dx, int dz, Vector3f v) {
-		v.set(dx, 0, dz).rotate(q);
-		return pos.offset(Math.round(v.x), 0, Math.round(v.z));
+	/** Applies the design → drawn mapping to a pose already rotated by FACING (see {@link BoardState#contentScale}). */
+	static void mapDesign(PoseStack pose, BoardState s) {
+		if (s.contentScale == 1f && s.originX == 0.5f && s.originY == BoardGeometry.TOP && s.originZ == 0.5f) return;
+		pose.translate(s.originX, s.originY, s.originZ);
+		pose.scale(s.contentScale, s.contentScale, s.contentScale);
+		pose.translate(-0.5f, -BoardGeometry.TOP, -0.5f);
+	}
+
+	/**
+	 * For a game renderer's own extra drawing (wheel, print, dice): rotates by FACING and applies the design → drawn
+	 * mapping, so content written in design coordinates lands on the full felt (or the compact block top). Push the
+	 * pose before, pop after.
+	 */
+	public static void feltPose(PoseStack pose, BoardState s) {
+		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
+		mapDesign(pose, s);
 	}
 
 	// ---- helpers for game renderers ---------------------------------------------------------------------------------
@@ -273,13 +286,45 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			TablePublic.SeatPub pub = seats[i];
 			if (pub == null) continue;
 			float[] sp = spot.at(i, seats.length);
-			float[] a = BoardGeometry.plateAnchor(s.felt, sp[0], sp[1]);
+			float[] a = s.full && s.frame != null ? fullPlateAnchor(s, s.frame, sp[0], sp[1]) : BoardGeometry.plateAnchor(s.felt, sp[0], sp[1]);
 			BoardState.PlateRef ref = s.plate(i, a[0], a[1], a[2]);
 			if (ref == null) return;
 			boolean you = pub.is(s.viewer);
 			ref.name(seq * 31 + i, pub::displayName, 0).viewer(you);
 			if (detail != null) detail.fill(i, pub, ref);
 		}
+	}
+
+	/** Height of a full table's plate anchors (footprint-local y): the seat rail edge, clear of the padded rail top. */
+	public static final float FULL_PLATE_Y = 1.30f;
+
+	/**
+	 * A full table's plate anchor for the seat whose design spot is (sx, sz), in DESIGN coordinates: from the dealer
+	 * (crescent) or the felt centre through the seat's spot, out past the padded rail by {@link BoardGeometry#PLATE_OUT}
+	 * — where the seat's player (or bot, {@code TableFootprint.seatPoint}) stands, so the plate reads as theirs and never
+	 * sinks behind the felt edge (D2: at 3 blocks the plate hid behind the felt) — at {@link #FULL_PLATE_Y}.
+	 */
+	static float[] fullPlateAnchor(BoardState s, FeltFrame f, float sx, float sz) {
+		double fx = s.footX(sx), fz = s.footZ(sz);
+		double ox = f.cx(), oz = s.felt == Felt.CRESCENT ? f.cz() - f.d() / 2 + 0.2 : f.cz();
+		if (f.hasWheel()) ox = 0.5;
+		double dx = fx - ox, dz = fz - oz;
+		double len = Math.sqrt(dx * dx + dz * dz);
+		if (len < 1e-4) {
+			dx = 0;
+			dz = 1;
+			len = 1;
+		}
+		dx /= len;
+		dz /= len;
+		double x = fx, z = fz;
+		for (int i = 0; i < 160 && (f.onFelt(x, z) || Math.abs(x - ox) < 1e-9 && Math.abs(z - oz) < 1e-9); i++) {
+			x += dx / 32;
+			z += dz / 32;
+		}
+		x += dx * (FeltFrame.RAIL + BoardGeometry.PLATE_OUT);
+		z += dz * (FeltFrame.RAIL + BoardGeometry.PLATE_OUT);
+		return new float[] {s.designX((float) x), s.designY(FULL_PLATE_Y), s.designZ((float) z)};
 	}
 
 	/**

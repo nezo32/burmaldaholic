@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.client.board;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import dev.nezo.burmaldaholic.core.table.parts.FeltFrame;
 import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry;
 import dev.nezo.burmaldaholic.core.ui.v2.board.PlateLayout;
 import net.minecraft.client.gui.Font;
@@ -18,7 +19,9 @@ import org.joml.Vector3f;
 final class SeatPlates {
 	/** Gap between plates and above the content (blocks). */
 	static final float GAP = 0.03f;
-	static final int MAX_OBS = BoardModel.MAX_CARDS + BoardModel.MAX_STACKS + BoardModel.MAX_CONTENT + 1;
+	/** Samples per edge of the table top outline (near-rail obstacles). */
+	private static final int RAIL_SAMPLES = 8;
+	static final int MAX_OBS = BoardModel.MAX_CARDS + BoardModel.MAX_STACKS + BoardModel.MAX_CONTENT + 1 + 4 * RAIL_SAMPLES;
 	/** Below this fade a plate is not drawn at all (vanilla text treats alpha < 4/255 as opaque). */
 	static final float MIN_ALPHA = 0.04f;
 
@@ -30,6 +33,7 @@ final class SeatPlates {
 	private static final boolean[] LEADER = new boolean[MP];
 	private static final float[] O0 = new float[MAX_OBS], O1 = new float[MAX_OBS], OT = new float[MAX_OBS];
 	private static final int[] DISCS = new int[BoardGeometry.CHIP_MAX];
+	private static final float[] RX = new float[5], RZ = new float[5];
 	private static final PlateLayout.Scratch LAYOUT = new PlateLayout.Scratch(MP);
 	private static final Vector3f P = new Vector3f(), Q = new Vector3f(), B = new Vector3f(), L = new Vector3f();
 	private static final HoloText.Spec[] SPECS = new HoloText.Spec[MP];
@@ -47,7 +51,7 @@ final class SeatPlates {
 	 * plates), so the board can sit above everything.
 	 */
 	static float submit(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, BoardModel m, HoloFrame f, BoardStats.Table st) {
-		int obs = obstacles(m, f);
+		int obs = obstacles(m, f, s);
 		float contentTop = Float.NEGATIVE_INFINITY;
 		for (int k = 0; k < obs; k++) contentTop = Math.max(contentTop, OT[k]);
 		int n = 0;
@@ -126,7 +130,7 @@ final class SeatPlates {
 	}
 
 	/** Projects cards, stacks, the dealer row and extra content into plane obstacles (u-range + top v); returns their count. */
-	private static int obstacles(BoardModel m, HoloFrame f) {
+	private static int obstacles(BoardModel m, HoloFrame f, BoardState s) {
 		int n = 0;
 		float hx = f.fwd.x, hz = f.fwd.z;
 		float hl = (float) Math.sqrt(hx * hx + hz * hz);
@@ -152,6 +156,55 @@ final class SeatPlates {
 			n = add(f, n, m.content[k], m.content[k + 1], m.content[k + 2], m.content[k + 3], hx, hz);
 		}
 		if (m.hasDealer && n < MAX_OBS) n = rect(f, n, m.dealer);
+		n = rail(f, n, s);
+		return n;
+	}
+
+	/**
+	 * The table top's outer edge (the padded rail of a full table, the block top of a compact one) where it lies IN
+	 * FRONT of the plate plane: it would hide the bottom of a plate drawn behind it (D2: at 3 blocks the name plate sank
+	 * behind the felt edge), so plates stay above its projection. The far edge lies behind the plates and is ignored.
+	 */
+	private static int rail(HoloFrame f, int n, BoardState s) {
+		float x0, z0, x1, z1, y;
+		if (s.full && s.frame != null) {
+			x0 = -1;
+			x1 = 2;
+			z0 = -1;
+			z1 = 1;
+			y = s.felt == BoardGeometry.Felt.RECT && !s.frame.hasWheel() ? 1f : (float) FeltFrame.RAIL_TOP;
+		} else {
+			x0 = 0;
+			x1 = 1;
+			z0 = 0;
+			z1 = 1;
+			y = 1f;
+		}
+		// the outline x0z0 → x1z0 → x1z1 → x0z1 → x0z0, each edge in RAIL_SAMPLES segments
+		float[] cx = RX, cz = RZ;
+		cx[0] = cx[3] = cx[4] = x0;
+		cx[1] = cx[2] = x1;
+		cz[0] = cz[1] = cz[4] = z0;
+		cz[2] = cz[3] = z1;
+		for (int e = 0; e < 4; e++) {
+			float pu = 0, pv = 0;
+			boolean prev = false;
+			for (int k = 0; k <= RAIL_SAMPLES && n < MAX_OBS; k++) {
+				float t = k / (float) RAIL_SAMPLES;
+				f.footToBlock(cx[e] + (cx[e + 1] - cx[e]) * t, y, cz[e] + (cz[e + 1] - cz[e]) * t, Q);
+				f.project(Q);
+				boolean front = f.pz > 0.05f && f.pz < f.depth0;
+				if (front && prev) {
+					O0[n] = Math.min(pu, f.pu);
+					O1[n] = Math.max(pu, f.pu);
+					OT[n] = Math.max(pv, f.pv);
+					n++;
+				}
+				pu = f.pu;
+				pv = f.pv;
+				prev = front;
+			}
+		}
 		return n;
 	}
 

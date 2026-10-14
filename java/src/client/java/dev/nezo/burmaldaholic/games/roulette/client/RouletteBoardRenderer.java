@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.games.roulette.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.client.board.BoardRenderer;
 import dev.nezo.burmaldaholic.client.board.BoardState;
@@ -302,7 +301,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 		int light = s.lightCoords;
 		boolean fallback = s.felt == Felt.FALLBACK;
 		pose.pushPose();
-		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
+		feltPose(pose, s); // W2: FACING + design → full 3×2 felt / compact block top (MT-DESIGN §2)
 		if (!fallback) {
 			float x0 = 0.5f + RouletteWorld.LAYOUT_X;
 			float z0 = 0.5f + RouletteWorld.LAYOUT_Z;
