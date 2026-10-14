@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.tables;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -541,7 +542,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	private static void click(ClientGameTestContext context, double wx, double wy) {
 		context.getInput().setCursorPos(wx, wy);
 		context.waitTicks(1);
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(3);
 	}
 

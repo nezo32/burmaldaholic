@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.CoreClientModule;
 import dev.nezo.burmaldaholic.client.cashier.CashierScreen;
 import dev.nezo.burmaldaholic.client.config.CasinoConfigScreen;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.core.CoreContent;
 import dev.nezo.burmaldaholic.core.cashier.CashierBlockEntity;
 import java.io.IOException;
@@ -274,7 +275,7 @@ public class CoreClientGameTests implements FabricClientGameTest {
 	/** A real left click in the middle of the button (the message has an argument, so clickScreenButton can't match it). */
 	private static void clickCasinoButton(ClientGameTestContext context) {
 		hoverCasinoButton(context);
-		context.getInput().pressMouse(0); // GLFW_MOUSE_BUTTON_LEFT
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		context.waitTicks(1);
 	}
 
