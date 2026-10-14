@@ -37,6 +37,7 @@ public final class CoreClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
+		dev.nezo.burmaldaholic.client.table.CashierSignRenderer.register(); // MT-3: the word on the cashier booth sign
 		CasinoMode.setClientLookup(CoreClientModule::casinoEnabled);
 		ClientPlayNetworking.registerGlobalReceiver(CasinoModeSyncPayload.TYPE, (payload, context) -> casinoEnabled = payload.enabled());
 		ClientPlayNetworking.registerGlobalReceiver(PlayerStatusPayload.TYPE, (payload, context) -> ClientCasinoState.accept(payload));

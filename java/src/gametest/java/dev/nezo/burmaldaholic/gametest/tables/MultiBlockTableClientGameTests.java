@@ -56,6 +56,7 @@ public class MultiBlockTableClientGameTests implements FabricClientGameTest {
 	public void runTest(ClientGameTestContext context) {
 		if (!lane("MT")) return;
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create(); var q = ClientTestWorlds.quiet(context, world)) {
+			context.getInput().resizeWindow(1280, 720); // owner-facing shots: a real 720p window
 			context.waitTicks(40);
 			world.getServer().runCommand("time set noon");
 			world.getServer().runCommand("weather clear");
@@ -103,6 +104,23 @@ public class MultiBlockTableClientGameTests implements FabricClientGameTest {
 				context.waitTicks(10);
 				context.takeScreenshot("mt3_machine_" + m[1] + "_angle");
 			}
+			// ---- night: emissive accents (brass bands, placards, tote board, bulbs, toppers, cashier lamps) ---------
+			world.getServer().runCommand("time set midnight");
+			context.waitTicks(20);
+			world.getServer().runOnServer(server -> player(server).connection.teleport(machines.getX() + 9.5, machines.getY(), machines.getZ() + 7.5, 180f, 10f));
+			context.waitTicks(12);
+			context.takeScreenshot("mt_night_machines");
+			look(world, base, 4, 25);
+			context.waitTicks(12);
+			context.takeScreenshot("mt_night_blackjack");
+			look(world, base.offset(28, 0, 0), 4, -25);
+			context.waitTicks(12);
+			context.takeScreenshot("mt_night_roulette");
+			world.getServer().runOnServer(server -> player(server).connection.teleport(base.getX() + 17.5, base.getY() + 4, base.getZ() + 9.5, 180f, 22f));
+			context.waitTicks(12);
+			context.takeScreenshot("mt_night_row");
+			world.getServer().runCommand("time set noon");
+			context.waitTicks(10);
 
 			// ---- real input: use key on the far back-left PART opens the main block's screen ------------------------
 			context.getInput().pressKey(o -> o.keyToggleGui); // F1 again: crosshair back for the real-input checks
