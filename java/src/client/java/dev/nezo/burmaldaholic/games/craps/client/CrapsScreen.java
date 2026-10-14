@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.client.table.fx.ChipButton;
 import dev.nezo.burmaldaholic.client.table.fx.TableButton;
@@ -331,7 +332,7 @@ public class CrapsScreen extends CasinoTableScreen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == 0) {
+		if (Inputs.isLeft(event.button())) {
 			if (throwPath != null && !skipped && rollMs() >= CrapsBeats.BADGE && rollMs() < CrapsBeats.IDLE) {
 				skipped = true;
 			}
@@ -352,7 +353,7 @@ public class CrapsScreen extends CasinoTableScreen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == 32 && throwPath != null && rollMs() >= CrapsBeats.BADGE) { // Space skips the chip beats
+		if (event.key() == Inputs.KEY_SPACE && throwPath != null && rollMs() >= CrapsBeats.BADGE) { // Space skips the chip beats
 			skipped = true;
 			return true;
 		}
