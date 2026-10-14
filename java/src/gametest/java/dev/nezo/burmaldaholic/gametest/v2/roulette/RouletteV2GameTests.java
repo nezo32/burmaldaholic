@@ -127,26 +127,36 @@ public class RouletteV2GameTests {
 		finish(helper, p);
 	}
 
-	/** m4 with atmosphere bots: their virtual stacks leave the published board too. */
-	@GameTest(maxTicks = 1200)
+	/**
+	 * m4 with atmosphere bots: their virtual stacks leave the published board too. Bots join at a safe point (the next
+	 * BETTING after the change), so the player spins once, then bets again and waits for the bots' stacks.
+	 */
+	@GameTest(maxTicks = 3000)
 	public void modeOffClearsBotStacks(GameTestHelper helper) {
 		ServerPlayer p = survivalPlayer(helper, "c2-modeoff-bots");
 		RouletteTableBlockEntity t = open(helper, p);
 		act(p, t, "bet", bet("straight", 5, 17));
 		t.bots().table().requestChange(p, new BotSettings(SeatPolicy.MIXED, 2, BotDifficulty.NORMAL, false, false, BotSpeed.FAST), false);
-		int[] waited = {0};
+		act(p, t, "spin", new CompoundTag());
+		boolean[] spun = {false};
 		boolean[] done = {false};
 		helper.onEachTick(() -> {
 			if (done[0]) return;
+			if (!"betting".equals(t.roundPhase())) {
+				spun[0] = true;
+				return;
+			}
+			if (!spun[0]) return;
+			if (t.stakeOf(p.getUUID()) == 0) act(p, t, "bet", bet("straight", 5, 17));
 			boolean botStacks = t.pub().players().stream().anyMatch(pl -> pl.bot() && pl.total() > 0);
-			if (!botStacks && ++waited[0] < 1000) return;
+			if (!botStacks) return;
 			done[0] = true;
 			long now = helper.getLevel().getGameTime();
 			tickWithModeOff(helper, t);
 			RoulettePub pub = sent(helper, t);
-			helper.assertTrue(botStacks, "the bots bet within 1000 ticks");
 			helper.assertTrue(t.pubSentAtForTesting() >= now, "mode off published the board");
-			helper.assertTrue(pub.stacks().isEmpty(), "no bot or player stacks after mode off: " + pub);
+			helper.assertTrue(pub.stacks().isEmpty() && pub.players().stream().allMatch(pl -> pl.total() == 0),
+				"no bot or player stacks after mode off: " + pub);
 			finish(helper, p);
 		});
 	}
