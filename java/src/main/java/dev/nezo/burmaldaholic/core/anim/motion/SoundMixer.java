@@ -54,7 +54,6 @@ public final class SoundMixer {
 		int perSecond;
 		boolean always;
 		double[] ring;
-		int ringNext;
 		double lastVoiced = Double.NEGATIVE_INFINITY;
 	}
 
@@ -109,7 +108,6 @@ public final class SoundMixer {
 		IdState s = state(id);
 		s.perSecond = perSecond;
 		s.ring = filled(perSecond);
-		s.ringNext = 0;
 		return this;
 	}
 
@@ -204,7 +202,6 @@ public final class SoundMixer {
 		for (IdState s : ids.values()) {
 			s.lastVoiced = Double.NEGATIVE_INFINITY;
 			if (s.ring != null) Arrays.fill(s.ring, Double.NEGATIVE_INFINITY);
-			s.ringNext = 0;
 		}
 		Arrays.fill(objKey, Integer.MIN_VALUE);
 		Arrays.fill(objCount, 0);

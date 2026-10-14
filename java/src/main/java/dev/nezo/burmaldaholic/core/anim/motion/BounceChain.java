@@ -235,6 +235,11 @@ public final class BounceChain {
 				} else {
 					l = lat.nearest(start + dir * (prog - back), cls[j]);
 					if ((l - prev) * dir <= 1e-9) l = lat.next(prev, cls[j], dir);
+					// leave room for the remaining hops: each later non-kick hop advances at least half a step
+					int later = 0;
+					for (int q = j + 1; q < n; q++) if (q != kj) later++;
+					double maxPos = target - dir * 0.5 * step * later;
+					if ((l - maxPos) * dir > 1e-9) l = lat.nearest(maxPos, cls[j]);
 				}
 				double adv = (l - prev) * dir;
 				if (lat.continuous() ? adv < -1e-12 : adv <= 1e-9) {
