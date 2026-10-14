@@ -51,7 +51,10 @@ public final class TableLifecycle {
 			}
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(TableLifecycle::onServerStopping);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> LOADED.clear());
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			LOADED.clear();
+			dev.nezo.burmaldaholic.core.table.parts.TableParts.clearSession();
+		});
 	}
 
 	/** Whether core knows the table as loaded (it will be played out on server stop). */

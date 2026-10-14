@@ -83,6 +83,16 @@ public final class TableFootprint {
 		return out;
 	}
 
+	/** Local cells of a full table (main first, then {@link #PART_ORDER}); all at u = 0. */
+	public static List<LocalCell> localCells(TableGame game) {
+		List<LocalCell> out = new ArrayList<>(game.width() * game.depth());
+		out.add(new LocalCell(0, 0, 0, TablePart.MAIN));
+		for (TablePart p : PART_ORDER) {
+			out.add(new LocalCell(p.r(), 0, p.f(), p));
+		}
+		return out;
+	}
+
 	/** World offset {dx, dz} from a part's block to its main block (inverse of the part's cell offset). */
 	public static int[] mainOffset(TablePart part, int fx, int fz) {
 		int[] o = cellOffset(part.r(), part.f(), fx, fz);

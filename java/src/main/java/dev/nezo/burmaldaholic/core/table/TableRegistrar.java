@@ -35,12 +35,26 @@ public final class TableRegistrar {
 		return BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GREEN).strength(2.5f).sound(SoundType.WOOD).noOcclusion();
 	}
 
+	/**
+	 * MT §2: multi-block table properties — pistons can't move it, solid for fluids and mob spawning rules, never
+	 * a spawn spot. (Suffocation / view blocking stay vanilla-default: the table is not a full cube, so both are
+	 * already false; {@code isViewBlocking} also changed its lambda type in 26.3, so it is deliberately not set.)
+	 */
+	public static BlockBehaviour.Properties multiBlockProperties(BlockBehaviour.Properties props) {
+		return props.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).forceSolidOn()
+			.isValidSpawn((state, level, pos, entityType) -> false);
+	}
+
 	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory) {
 		return register(name, beFactory, defaultProperties());
 	}
 
 	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory,
 			BlockBehaviour.Properties props) {
+		dev.nezo.burmaldaholic.core.table.parts.TableGame game = dev.nezo.burmaldaholic.core.table.parts.TableGame.ofBlockName(name);
+		if (game != null) {
+			return register(name, beFactory, multiBlockProperties(props), (p, t) -> new MultiBlockTableBlock(p, t, game));
+		}
 		return register(name, beFactory, props, CasinoTableBlock::new);
 	}
 

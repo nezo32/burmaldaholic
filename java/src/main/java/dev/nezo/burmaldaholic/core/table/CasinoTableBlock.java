@@ -89,6 +89,11 @@ public class CasinoTableBlock extends BaseEntityBlock {
 
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+		return openAt(level, pos, player);
+	}
+
+	/** Opens the table whose block entity is at {@code pos} (the main block of a multi-block table). */
+	protected InteractionResult openAt(Level level, BlockPos pos, Player player) {
 		if (level.isClientSide()) {
 			return InteractionResult.SUCCESS;
 		}
