@@ -56,6 +56,7 @@ public class MultiBlockTableClientGameTests implements FabricClientGameTest {
 	public void runTest(ClientGameTestContext context) {
 		if (!lane("MT")) return;
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create(); var q = ClientTestWorlds.quiet(context, world)) {
+			context.getInput().resizeWindow(1280, 720); // owner-facing shots: a real 720p window
 			context.waitTicks(40);
 			world.getServer().runCommand("time set noon");
 			world.getServer().runCommand("weather clear");

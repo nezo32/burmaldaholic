@@ -48,7 +48,7 @@ export const MACHINES = [
 
 function textures(m) {
   const base = m.single.replace(/\/[^/]+$/, `/${m.name}`);
-  const theme = m.name === 'nether_cashier' ? 'player_banked' : m.name === 'plinko_machine' ? 'high_roller' : 'standard';
+  const theme = m.name === 'nether_cashier' ? 'player_banked' : m.kind === 'plinko' || m.kind === 'slot' ? 'high_roller' : 'standard';
   const t = `burmaldaholic:block/core/tables/${theme}`;
   return {
     particle: m.side,
@@ -71,6 +71,12 @@ function textures(m) {
 export function machineBoxes(kind) {
   const B = [];
   const box = (mat, x0, y0, z0, x1, y1, z1, extra = {}) => B.push({ mat, x0, x1, y0, y1, z0, z1, ...extra });
+  if (kind === 'slot') {
+    // upper cabinet under the renderer's drawn one (a hair smaller, so the animated cabinet covers it once synced):
+    // tier-coloured body, dark glass over the reels, brass marquee
+    box('side', 1.1, 16, 2.1, 14.9, 29, 13.9, { frontTex: 'rail' });
+    box('trim', 1.6, 29, 2.6, 14.4, 31.9, 13.4);
+  }
   if (kind === 'wheel') {
     // lacquered plinth with a brass edge over the bottom row, and a post up into the wheel (drawn by the renderer)
     box('rail', -14, 0, 4, 30, 3, 14);
@@ -153,6 +159,7 @@ function element(b, r, u) {
     west: side(top[1], top[3]),
     east: side(16 - top[3], 16 - top[1]),
   };
+  if (b.frontTex) faces.north = { ...faces.north, texture: `#${b.frontTex}` };
   if (b.front) {
     // players' face (block north for facing=north): the art stretched over the mapped local rectangle
     const f = b.front;

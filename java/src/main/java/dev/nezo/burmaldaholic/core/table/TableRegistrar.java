@@ -36,13 +36,14 @@ public final class TableRegistrar {
 	}
 
 	/**
-	 * MT §2: multi-block table properties — pistons can't move it, solid for fluids and mob spawning rules, never
-	 * a spawn spot. (Suffocation / view blocking stay vanilla-default: the table is not a full cube, so both are
-	 * already false; {@code isViewBlocking} also changed its lambda type in 26.3, so it is deliberately not set.)
+	 * MT §2: multi-block table / machine properties — solid for fluids and mob spawning rules, never a spawn spot.
+	 * Pistons: every part is a state of a block-entity block, which vanilla never pushes (pushReaction is NOT set:
+	 * {@code PushReaction.BLOCK} was renamed {@code IMMOVEABLE} in 26.3, so naming it would break one of the two
+	 * versions). Suffocation / view blocking stay vanilla-default (not a full cube → false; {@code isViewBlocking} also
+	 * changed its lambda type in 26.3).
 	 */
 	public static BlockBehaviour.Properties multiBlockProperties(BlockBehaviour.Properties props) {
-		return props.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).forceSolidOn()
-			.isValidSpawn((state, level, pos, entityType) -> false);
+		return props.forceSolidOn().isValidSpawn((state, level, pos, entityType) -> false);
 	}
 
 	public <BE extends CasinoTableBlockEntity> TableType<BE> register(String name, BlockEntityFactory<BE> beFactory) {

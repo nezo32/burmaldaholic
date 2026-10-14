@@ -5,12 +5,150 @@
     "side": "burmaldaholic:block/slots/slot_machine_netherite_side",
     "front": "burmaldaholic:block/slots/slot_machine_netherite_front",
     "top": "burmaldaholic:block/slots/slot_machine_netherite_top",
-    "wood": "burmaldaholic:block/core/tables/standard/wood",
-    "trim": "burmaldaholic:block/core/tables/standard/trim",
-    "rail": "burmaldaholic:block/core/tables/standard/rail",
-    "felt": "burmaldaholic:block/core/tables/standard/felt",
+    "wood": "burmaldaholic:block/core/tables/high_roller/wood",
+    "trim": "burmaldaholic:block/core/tables/high_roller/trim",
+    "rail": "burmaldaholic:block/core/tables/high_roller/rail",
+    "felt": "burmaldaholic:block/core/tables/high_roller/felt",
     "bars": "minecraft:block/iron_bars",
     "glass": "minecraft:block/glass"
   },
-  "elements": []
+  "elements": [
+    {
+      "from": [
+        1.1,
+        0,
+        2.1
+      ],
+      "to": [
+        14.9,
+        13,
+        13.9
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            1.1,
+            2.1,
+            14.9,
+            13.9
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            1.1,
+            2.1,
+            14.9,
+            13.9
+          ],
+          "texture": "#side",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            1.1,
+            3,
+            14.9,
+            16
+          ],
+          "texture": "#rail"
+        },
+        "south": {
+          "uv": [
+            1.1,
+            3,
+            14.9,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            2.1,
+            3,
+            13.9,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            2.1,
+            3,
+            13.9,
+            16
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [
+        1.6,
+        13,
+        2.6
+      ],
+      "to": [
+        14.4,
+        15.9,
+        13.4
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            1.6,
+            2.6,
+            14.4,
+            13.4
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            1.6,
+            2.6,
+            14.4,
+            13.4
+          ],
+          "texture": "#trim"
+        },
+        "north": {
+          "uv": [
+            1.6,
+            0.1,
+            14.4,
+            3
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            1.6,
+            0.1,
+            14.4,
+            3
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            2.6,
+            0.1,
+            13.4,
+            3
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            2.6,
+            0.1,
+            13.4,
+            3
+          ],
+          "texture": "#trim"
+        }
+      }
+    }
+  ]
 }

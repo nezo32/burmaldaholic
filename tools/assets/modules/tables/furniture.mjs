@@ -149,20 +149,32 @@ export function trayTexture(theme) {
   return img;
 }
 
-/** Roulette bowl: polished wood rim + darker cone floor (the rotor itself is drawn by the table renderer). */
+/**
+ * Roulette bowl seen from above, a static wheel (pocket ring red / black with one green, ball track, wooden cone,
+ * brass turret) so the table reads as roulette while the renderer's rotor is idle. The bowl is centred on the cell
+ * boundary between the two wheel-column blocks, so the art is centred on (8, 0) and wraps vertically: each block's
+ * UV half lands on its own half of the circle.
+ */
 export function bowlTexture(theme) {
   const t = THEMES[theme];
   const img = image(16, 16);
   for (let y = 0; y < 16; y++)
     for (let x = 0; x < 16; x++) {
-      const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
-      const k = d > 7 ? 4 : d > 5.5 ? 1 : d > 3 ? 2 : 3;
-      put(img, x, y, c(t.wood[k]));
+      const dx = x + 0.5 - 8;
+      const yy = y + 0.5;
+      const dy = Math.min(yy, 16 - yy) * (yy < 8 ? 1 : -1);
+      const d = Math.hypot(dx, dy);
+      const ang = Math.atan2(dy, dx);
+      let col;
+      if (d > 6.5) col = t.wood[1];
+      else if (d > 5) {
+        const k = Math.floor(((ang + Math.PI) / (2 * Math.PI)) * 37) % 37;
+        col = k === 0 ? '#1E8A3C' : k % 2 ? '#C8242C' : '#1A1418';
+      } else if (d > 4) col = '#D8C49A';
+      else if (d > 1.5) col = Math.abs(Math.sin(ang * 2)) > 0.92 ? t.trim[1] : t.wood[2];
+      else col = t.trim[0];
+      put(img, x, y, c(col));
     }
-  for (let a = 0; a < 16; a++) {
-    const ang = (a / 16) * Math.PI * 2;
-    P(img, Math.round(8 + Math.cos(ang) * 6), Math.round(8 + Math.sin(ang) * 6), t.trim[1]);
-  }
   return img;
 }
 

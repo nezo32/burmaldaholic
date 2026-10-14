@@ -252,8 +252,9 @@ public final class TableParts {
 			level.destroyBlock(main, drop, player);
 			for (BlockPos c : cells) {
 				if (!c.equals(main) && !c.equals(partPos) && level.getBlockState(c).is(b)) {
-					level.levelEvent(net.minecraft.world.level.block.LevelEvent.PARTICLES_DESTROY_BLOCK, c, Block.getId(level.getBlockState(c)));
-					level.setBlock(c, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS);
+					// destroyBlock (no drops) plays the break particles + sound; LevelEvent ids differ between 26.2 and 26.3,
+					// so the constant is never inlined here
+					level.destroyBlock(c, false, player);
 				}
 			}
 		} finally {
