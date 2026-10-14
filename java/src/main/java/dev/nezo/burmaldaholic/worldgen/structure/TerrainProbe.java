@@ -32,6 +32,12 @@ public final class TerrainProbe {
 	static final int DEFAULT_STEP = 8;
 	/** Walk at most this many steps from the guess before giving up (→ exact column). */
 	private static final int MAX_STEPS = 48;
+	/** Guess meaning "no nearby height known": the search starts high above sea level and descends. */
+	public static final int NO_GUESS = Integer.MIN_VALUE;
+	/** The search starts this far above the guess, so a guess a little too low never starts inside a cave. */
+	static final int HEADROOM = 16;
+	/** Air samples in a row that end a climb. */
+	static final int AIR_RUN = 3;
 
 	private static final MethodHandle ROUTER_262; // RandomState -> NoiseRouter
 	private static final MethodHandle FINAL_262; // NoiseRouter -> DensityFunction
@@ -148,7 +154,10 @@ public final class TerrainProbe {
 
 	/**
 	 * {@code {surface, floor}} of the column at {@code x, z} ({@code WORLD_SURFACE_WG}, {@code OCEAN_FLOOR_WG}
-	 * equivalents); {@code guess} is a nearby surface height (the projected start) that bounds the search.
+	 * equivalents); {@code guess} is a nearby surface height (the neighbouring probe) or {@link #NO_GUESS}.
+	 * The search starts {@link #HEADROOM} above the guess: in air it descends to the first solid sample (top-down,
+	 * like the heightmap); in solid it climbs until {@link #AIR_RUN} air samples in a row (a cave pocket under the
+	 * surface is shorter).
 	 */
 	public int[] heights(int x, int z, int guess) {
 		if (density == null) {
@@ -157,32 +166,38 @@ public final class TerrainProbe {
 		try {
 			int minY = height.getMinY();
 			int maxY = height.getMaxY();
-			int y0 = minY + Math.floorDiv(Math.clamp(guess, minY, maxY) - minY, step) * step;
+			int g = guess == NO_GUESS ? seaLevel + 96 : guess + HEADROOM;
+			int y0 = minY + Math.floorDiv(Math.clamp(g, minY, maxY) - minY, step) * step;
 			double d0 = density(x, y0, z);
 			int steps = 0;
 			if (d0 > 0) {
-				// solid at the guess: climb until air (and not a cave pocket: air must hold one more step up)
-				while (true) {
-					int y1 = y0 + step;
-					if (y1 > maxY || ++steps > MAX_STEPS) {
+				int solidY = y0;
+				double solidD = d0;
+				double firstAir = 0;
+				int air = 0;
+				int y = y0;
+				while (air < AIR_RUN) {
+					y += step;
+					if (y > maxY || ++steps > MAX_STEPS) {
+						if (air > 0) {
+							break;
+						}
 						return exact(x, z);
 					}
-					double d1 = density(x, y1, z);
-					if (d1 <= 0) {
-						int y2 = y1 + step;
-						double d2 = y2 <= maxY ? density(x, y2, z) : -1;
-						if (d2 <= 0) {
-							return result(y0, d0, d1);
+					double d = density(x, y, z);
+					if (d > 0) {
+						solidY = y;
+						solidD = d;
+						air = 0;
+					} else {
+						if (air == 0) {
+							firstAir = d;
 						}
-						y0 = y2;
-						d0 = d2;
-						continue;
+						air++;
 					}
-					y0 = y1;
-					d0 = d1;
 				}
+				return result(solidY, solidD, firstAir);
 			}
-			// air (or water) at the guess: descend to the first solid sample
 			while (true) {
 				int y1 = y0 - step;
 				if (y1 < minY || ++steps > MAX_STEPS) {

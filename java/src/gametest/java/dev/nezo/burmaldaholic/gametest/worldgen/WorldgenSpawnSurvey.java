@@ -119,38 +119,47 @@ public class WorldgenSpawnSurvey {
 			long columnNs = 0;
 			long fastNs = 0;
 			List<String> worst = new ArrayList<>();
-			for (int i = 0; i < 300; i++) {
-				int x = r.nextInt(8000) - 4000;
-				int z = r.nextInt(8000) - 4000;
-				long a = System.nanoTime();
-				int[] ex = probe.exact(x, z);
-				long b = System.nanoTime();
-				w.gen().getBaseColumn(x, z, w.height(), w.randomState());
-				long c = System.nanoTime();
-				int guess = w.gen().getBaseHeight(x + 24, z, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG, w.height(), w.randomState());
-				long d = System.nanoTime();
-				int[] f = probe.heights(x, z, guess);
-				long e = System.nanoTime();
-				if (i < 20) {
-					continue; // warm-up
-				}
-				n++;
-				exactNs += b - a;
-				columnNs += c - b;
-				fastNs += e - d;
-				int err = Math.abs(f[0] - ex[0]);
-				maxErr = Math.max(maxErr, err);
-				within1 += err <= 1 ? 1 : 0;
-				within2 += err <= 2 ? 1 : 0;
-				floorWithin1 += Math.abs(f[1] - ex[1]) <= 1 ? 1 : 0;
-				if (err > 2 && worst.size() < 8) {
-					worst.add(x + "," + z + ": exact " + ex[0] + "/" + ex[1] + " fast " + f[0] + "/" + f[1] + " guess " + guess);
+			int columnN = 0;
+			for (int walk = 0; walk < 40; walk++) {
+				int x0 = r.nextInt(8000) - 4000;
+				int z0 = r.nextInt(8000) - 4000;
+				int guess = dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.NO_GUESS;
+				for (int i = 0; i < 8; i++) {
+					// a footprint edge: probes 4 blocks apart, each guessing from the previous one (as the fit does)
+					int x = x0 + 4 * i;
+					int z = z0;
+					long a = System.nanoTime();
+					int[] ex = probe.exact(x, z);
+					long b = System.nanoTime();
+					if (i == 0) {
+						w.gen().getBaseColumn(x, z, w.height(), w.randomState());
+						columnNs += System.nanoTime() - b;
+						columnN++;
+					}
+					long d = System.nanoTime();
+					int[] f = probe.heights(x, z, guess);
+					long e = System.nanoTime();
+					guess = f[0];
+					if (walk < 3) {
+						continue; // warm-up
+					}
+					n++;
+					exactNs += b - a;
+					fastNs += e - d;
+					int err = Math.abs(f[0] - ex[0]);
+					maxErr = Math.max(maxErr, err);
+					within1 += err <= 1 ? 1 : 0;
+					within2 += err <= 2 ? 1 : 0;
+					floorWithin1 += Math.abs(f[1] - ex[1]) <= 1 ? 1 : 0;
+					if (err > 2 && worst.size() < 8) {
+						worst.add(x + "," + z + ": exact " + ex[0] + "/" + ex[1] + " fast " + f[0] + "/" + f[1]);
+					}
 				}
 			}
 			Burmaldaholic.LOGGER.info("[survey] PROBE seed={} fast={} n={} surface within 1: {}% within 2: {}% max err {} | floor within 1: {}% | "
 					+ "ms/column exact(getBaseHeight) {} getBaseColumn {} fast {} | worst {}",
 				seed, probe.fast(), n, 100 * within1 / n, 100 * within2 / n, maxErr, 100 * floorWithin1 / n,
-				String.format(java.util.Locale.ROOT, "%.3f", exactNs / 1e6 / n), String.format(java.util.Locale.ROOT, "%.3f", columnNs / 1e6 / n),
+				String.format(java.util.Locale.ROOT, "%.3f", exactNs / 1e6 / n), String.format(java.util.Locale.ROOT, "%.3f", columnNs / 1e6 / Math.max(1, columnN)),
 				String.format(java.util.Locale.ROOT, "%.3f", fastNs / 1e6 / n), worst);
 		}
 		helper.succeed();
