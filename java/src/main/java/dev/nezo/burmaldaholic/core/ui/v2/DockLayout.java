@@ -128,7 +128,7 @@ public final class DockLayout {
 			int stepperGap = stepperW > 0 && n > 0 ? 6 : 0;
 			boolean compact = false;
 			int total = sum(s.actionW(), t.actionW, 4) + stepperW + stepperGap;
-			if (m + wantStatus + 6 + total > right) {
+			if (m + wantStatus + 6 + total > right && !(g.roomy() && m + minStatus + 6 + total <= right)) { // ROOMY keeps the key plates
 				compact = true;
 				total = sum(s.actionCompactW(), 0, 4) + stepperW + stepperGap;
 			}

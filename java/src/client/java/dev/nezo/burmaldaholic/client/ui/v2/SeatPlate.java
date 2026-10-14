@@ -18,6 +18,8 @@ public final class SeatPlate {
 	}
 
 	public static final int AVATAR = 14;
+	/** Height of the ROOMY two-line plate (name + stack / last action; ui-v2.md §3.7). */
+	public static final int ROOMY_H = 26;
 
 	private SeatPlate() {}
 
@@ -55,5 +57,24 @@ public final class SeatPlate {
 
 	public static void draw(GuiGraphicsExtractor g, Font font, Box box, Component name, Kind kind) {
 		draw(g, font, box, name, kind, false);
+	}
+
+	/**
+	 * ROOMY frames (grid.room(), §3.7): the plate with a second, muted line under the name (stack and last action,
+	 * e.g. "250 · Raise"). A box lower than {@link #ROOMY_H} or a null {@code line2} draws the one-line plate.
+	 */
+	public static void draw(GuiGraphicsExtractor g, Font font, Box box, Component name, @org.jspecify.annotations.Nullable Component line2, Kind kind,
+			boolean bot) {
+		if (line2 == null || box.h() < ROOMY_H) {
+			draw(g, font, box, name, kind, bot);
+			return;
+		}
+		draw(g, font, new Box(box.x(), box.y(), box.w(), box.h()), Component.empty(), kind, bot);
+		int tx = box.x() + 2 + AVATAR + 3;
+		int tw = Math.max(0, box.right() - tx - 3);
+		int top = box.y() + (box.h() - 22) / 2;
+		V2Draw.left(g, font, name, new Box(tx, top, tw, 11), 0, 1, kind == Kind.YOU ? CasinoPalette.V2_YOU : kind == Kind.ACTING ? CasinoPalette.V2_GOLD
+			: CasinoPalette.V2_TEXT, true);
+		V2Draw.left(g, font, line2, new Box(tx, top + 11, tw, 11), 0, 1, CasinoPalette.V2_MUTED, true);
 	}
 }
