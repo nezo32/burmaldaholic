@@ -1810,6 +1810,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		CompoundTag pub = new CompoundTag();
 		pub.putIntArray("d", buildPub().encode());
 		t.put(PUB_KEY, pub);
+		writePublic(t); // the seat header: names for the in-world seat plates (ui-v2.md §7.2)
 		return t;
 	}
 
