@@ -132,10 +132,20 @@ public final class CasinoGroundPiece extends StructurePiece {
 	private void skirt(WorldGenLevel level, BlockPos.MutableBlockPos p, int x, int z) {
 		int base = floorY - FOUNDATION_ROWS;
 		p.set(x, base, z);
-		BlockState foundation = level.getBlockState(p);
-		if (foundation.isAir() || !foundation.getFluidState().isEmpty() || foundation.hasBlockEntity()
-				|| !foundation.isCollisionShapeFullBlock(level, p)) {
-			return; // no solid foundation in this column (forecourt, structure void)
+		BlockState bottom = level.getBlockState(p);
+		if (bottom.isAir() || !bottom.getFluidState().isEmpty() || bottom.getCollisionShape(level, p).isEmpty()) {
+			return; // nothing of the building stands on this column's bottom row (forecourt edge, structure void)
+		}
+		// the skirt material: the column's first full, plain foundation block (stairs / slabs at the plinth edge use
+		// the block above them), else stone bricks
+		BlockState fill = Blocks.STONE_BRICKS.defaultBlockState();
+		for (int y = base; y < floorY; y++) {
+			p.set(x, y, z);
+			BlockState s = level.getBlockState(p);
+			if (!s.hasBlockEntity() && s.getFluidState().isEmpty() && s.isCollisionShapeFullBlock(level, p)) {
+				fill = s;
+				break;
+			}
 		}
 		for (int y = base - 1; y >= base - SKIRT_DEPTH; y--) {
 			p.set(x, y, z);
@@ -146,7 +156,7 @@ public final class CasinoGroundPiece extends StructurePiece {
 			if (s.isCollisionShapeFullBlock(level, p) && s.getFluidState().isEmpty()) {
 				return; // ground reached
 			}
-			level.setBlock(p, foundation, 2);
+			level.setBlock(p, fill, 2);
 		}
 	}
 }

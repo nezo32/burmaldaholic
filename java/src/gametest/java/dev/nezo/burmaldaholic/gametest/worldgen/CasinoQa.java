@@ -498,6 +498,11 @@ public final class CasinoQa {
 				net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED);
 	}
 
+	/** Natural ground (no vegetation): {@link #terrain} without logs and leaves. */
+	public static boolean ground(BlockState s) {
+		return terrain(s) && !s.is(net.minecraft.tags.BlockTags.LOGS) && !s.is(net.minecraft.tags.BlockTags.LEAVES);
+	}
+
 	/** Every walkable cell reachable on foot from outside the building (multi-source walk from the ring around it). */
 	public static Set<BlockPos> reachableFromOutside(ServerLevel level, BoundingBox box) {
 		BoundingBox area = box.inflatedBy(6, 2, 6);
@@ -590,9 +595,11 @@ public final class CasinoQa {
 			while (c.getY() < b.maxY() && level.getBlockState(c).getCollisionShape(level, c).isEmpty()) {
 				c.move(Direction.UP);
 			}
-			if (terrain(level.getBlockState(c)) || terrain(level.getBlockState(p))) {
+			// ground over a room: stone, dirt, sand, gravel, water — not logs / leaves, which the templates use as beams
+			// and hedges (Tudor's dark-oak ceiling beams were counted as 107 "cut" cells)
+			if (ground(level.getBlockState(c)) || ground(level.getBlockState(p))) {
 				cut++;
-				firstCut = firstCut == null ? c.toShortString() : firstCut;
+				firstCut = firstCut == null ? c.toShortString() + " " + level.getBlockState(c).getBlock() : firstCut;
 			}
 		}
 		if (cut > 0) {
