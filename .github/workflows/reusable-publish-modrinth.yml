@@ -162,7 +162,7 @@ jobs:
           mr_get() { # $1 = path; private (draft / unapproved) projects need the token
             curl -fsS --retry 4 --retry-connrefused --retry-delay 5 -A "$ua" -H "Authorization: $MR_TOKEN" "$api$1"
           }
-          csv_json() { tr ',\n' '\n\n' <<<"$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | jq -Rsc 'split("\n") | map(select(length > 0)) | unique'; }
+          csv_json() { tr ',' '\n' <<<"$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | jq -Rsc 'split("\n") | map(select(length > 0)) | unique'; }
 
           # shellcheck disable=SC2206
           primary=( $PRIMARY )
