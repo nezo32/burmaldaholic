@@ -74,6 +74,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		{854, 480, 2, "default"},
 		{960, 540, 1, "1080p_gui2"},
 		{910, 512, 2, "1366x768_auto"}, // GUI 455 × 256 (laptops; lane A10)
+		{2560, 1440, 2, "1440p_gui2_framed"}, // GUI 1280 × 720, framed 1067 × 600 (RS §3.7: clicks through windowX/windowY)
 	};
 	private static final int TIMEOUT = 600;
 
@@ -93,10 +94,11 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 				for (Object[] v : VIEWS) {
 					view(context, v);
 					String tag = (String) v[3];
-					blackjack(context, world.getServer(), tag);
-					roulette(context, world.getServer(), tag);
-					craps(context, world.getServer(), tag);
-					baccarat(context, world.getServer(), tag);
+					if (lane("A")) blackjack(context, world.getServer(), tag);
+					boolean framed = tag.endsWith("_framed"); // roulette / craps still click with vp.toWindow (unframed only): RO / CM
+					if (lane("C") && !framed) roulette(context, world.getServer(), tag);
+					if (lane("D") && !framed) craps(context, world.getServer(), tag);
+					if (lane("A")) baccarat(context, world.getServer(), tag);
 				}
 				view(context, VIEWS[0]);
 				freshPlayer(context, world.getServer());
@@ -112,10 +114,10 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 					context.runOnClient(mc -> mc.gui.setScreen(null));
 					prepare(context, server);
 					view(context, VIEWS[0]);
-					blackjack(context, server, "server");
-					roulette(context, server, "server");
-					craps(context, server, "server");
-					baccarat(context, server, "server");
+					if (lane("A")) blackjack(context, server, "server");
+					if (lane("C")) roulette(context, server, "server");
+					if (lane("D")) craps(context, server, "server");
+					if (lane("A")) baccarat(context, server, "server");
 					context.runOnClient(mc -> mc.gui.setScreen(null));
 					context.waitTicks(20);
 				}
@@ -129,6 +131,14 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 			write(context);
 		}
 		if (!failures.isEmpty()) throw new AssertionError("real bet flow: " + String.join("; ", failures));
+	}
+
+	/** Per-game lane gate: the game's lane letter, or the whole class (hotfix / class name) runs every game. */
+	private static boolean lane(String letter) {
+		String f = System.getenv("BURMALDAHOLIC_CGT");
+		if (f == null || f.isBlank()) return true;
+		return dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled(letter) || dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("hotfix")
+			|| dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RealBetFlowClientGameTests");
 	}
 
 	/** A Survival player with chips, chaos events off (a mob wave would end the session). */
@@ -487,7 +497,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		for (var t : chrome.hits().targets()) {
 			if (!t.id().equals(id) || enabledOnly && !t.enabled()) continue;
 			var vp = chrome.viewport();
-			return new double[] {vp.toWindow(t.box().x() + t.box().w() / 2.0), vp.toWindow(t.box().y() + t.box().h() / 2.0)};
+			return new double[] {vp.windowX(t.box().x() + t.box().w() / 2.0), vp.windowY(t.box().y() + t.box().h() / 2.0)}; // framed (RS §3.7)
 		}
 		return null;
 	}
