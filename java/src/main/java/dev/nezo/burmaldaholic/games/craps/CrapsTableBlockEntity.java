@@ -109,6 +109,8 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	private long botBetAt = -1;
 	/** "Bots bet (for fun): …" results of the last roll (display) */
 	private @Nullable Component lastBotResults;
+	/** the bots' nets of the last roll (in-world plates) */
+	private final Map<UUID, Long> lastBotNets = new LinkedHashMap<>();
 
 	// ---- presentation (animation wave, lane J-L6; docs/design/animation/tables.md §2.7) ---------------------------
 	private static final String SYNC_KEY = "craps_sync";
@@ -652,26 +654,65 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	 * the last roll. Nothing about craps is secret.
 	 */
 	public CrapsPub pub() {
+		Map<UUID, Integer> seatOf = publicSeatIndex();
 		List<CrapsPub.Stack> stacks = new ArrayList<>();
 		for (Bet b : table.bets()) {
-			int seat = seats().seatOf(b.owner()).orElse(-1);
+			int seat = seatOf.getOrDefault(b.owner(), -1);
 			stacks.add(new CrapsPub.Stack(seat, b.kind().id(), b.point(), b.flat(), b.odds()));
 		}
 		stacks.sort((a, b) -> Long.compare(b.flat() + b.odds(), a.flat() + a.odds()));
+		// R-CDE m2/m3: the bots' (virtual) bets are on the layout too, on their own seat of the bot-aware seat model
+		// (after the players' stacks: when the layout is crowded the players' own chips are the ones kept)
+		List<CrapsPub.Stack> botStacks = new ArrayList<>();
+		for (Bet b : botTable.shadow().bets()) {
+			Integer seat = seatOf.get(b.owner());
+			if (seat != null) botStacks.add(new CrapsPub.Stack(seat, b.kind().id(), b.point(), b.flat(), b.odds()));
+		}
+		botStacks.sort((a, b) -> Long.compare(b.flat() + b.odds(), a.flat() + a.odds()));
+		stacks.addAll(botStacks);
 		Map<Integer, Long> nets = new LinkedHashMap<>();
 		for (LastRes r : lastRes) {
 			if ("move".equals(r.outcome()) || "stay".equals(r.outcome())) {
 				continue;
 			}
-			int seat = seats().seatOf(r.owner()).orElse(-1);
+			int seat = seatOf.getOrDefault(r.owner(), -1);
 			if (seat >= 0) {
 				nets.merge(seat, r.ret() - r.flat() - r.odds(), Long::sum);
 			}
 		}
+		lastBotNets.forEach((owner, net) -> {
+			Integer seat = seatOf.get(owner);
+			if (seat != null) nets.merge(seat, net, Long::sum);
+		});
 		List<CrapsPub.Net> netList = new ArrayList<>();
 		nets.forEach((k, v) -> netList.add(new CrapsPub.Net(k, v)));
 		int seq = java.util.Objects.hash(stacks, netList, table.rollCount());
 		return new CrapsPub(seq, stacks, netList);
+	}
+
+	/**
+	 * Owner → seat index of the PUBLIC seat header (R-CDE m3): the bot-aware seat model the in-world plates are drawn
+	 * from ({@code occupants()}: humans by their UUID, bots by their virtual UUID), so a stack and its plate share a seat.
+	 */
+	private Map<UUID, Integer> publicSeatIndex() {
+		Map<UUID, Integer> out = new HashMap<>();
+		try {
+			List<dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant> occ = bots.occupants();
+			for (int i = 0; i < occ.size(); i++) {
+				var o = occ.get(i);
+				if (o instanceof dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant.Human h) out.put(h.id(), i);
+				else if (o instanceof dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant.Bot bot) out.put(VirtualSeats.botUuid(bot.key()), i);
+			}
+		} catch (RuntimeException e) {
+			// bots not ready yet (no level): the base seats
+		}
+		for (TableSeats.Seat s : seats().occupied()) out.putIfAbsent(s.player(), s.index());
+		return out;
+	}
+
+	/** Game time of the last in-world board publish (tests). */
+	public long lastPublishTime() {
+		return lastPublish;
 	}
 
 	/** Client side: the last public layout (stacks, nets). */
@@ -713,6 +754,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		for (UUID owner : botTable.owners()) {
 			if (!live.contains(owner)) {
 				botTable.remove(owner);
+				markPublic();
 			}
 		}
 		botBetAt = live.isEmpty() || seats().isEmpty() ? -1 : gameTime() + bots.betDelay();
@@ -732,11 +774,13 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				Burmaldaholic.LOGGER.error("craps bot bet failed", e);
 			}
 		}
+		markPublic(); // R-CDE m2: the bots' chips show on the in-world board
 	}
 
 	/** The same dice resolve the bots' virtual bets (no extra throw, no stake); seven-out quip. */
 	private void botsRolled(int pointBefore, int d1, int d2, boolean sevenOut) {
 		lastBotResults = null;
+		lastBotNets.clear();
 		if (botTable.owners().isEmpty()) {
 			return;
 		}
@@ -753,6 +797,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				loser = res.bet().owner();
 			}
 		}
+		lastBotNets.putAll(net);
 		List<Component> parts = new ArrayList<>();
 		for (VirtualBot b : bots.bots()) {
 			UUID owner = VirtualSeats.botUuid(b.key);

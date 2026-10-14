@@ -123,8 +123,10 @@ class CrapsFlowTest {
 		assertEquals("bet", pass.action());
 		assertEquals("pass", pass.kind());
 		assertEquals(25, pass.amount());
-		// the odds lane on the come-out without a Pass bet places the Pass bet (never nothing)
-		assertEquals("pass", CrapsFlow.click(comeOut, CrapsLayout.PASS_ODDS, 5).kind());
+		// R-CDE M6: the odds lane on the come-out never places the Pass line; it names the reason
+		Click lane = CrapsFlow.click(comeOut, CrapsLayout.PASS_ODDS, 5);
+		assertFalse(lane.sends());
+		assertEquals(CrapsFlow.K + "reason.odds_need_point", lane.errorKey());
 		// a chip under the table minimum is raised to the minimum
 		assertEquals(10, CrapsFlow.click(comeOut, CrapsLayout.FIELD, 1).amount());
 		Click come = CrapsFlow.click(comeOut, CrapsLayout.COME, 5);
@@ -219,6 +221,43 @@ class CrapsFlowTest {
 			if (Files.isDirectory(p)) return p;
 		}
 		throw new IllegalStateException("src/main/lang not found");
+	}
+
+	/** R-CDE M6: with a Pass bet on the come-out the odds lane still names the reason (no odds before a point). */
+	@Test
+	void oddsLaneOnComeOutWithPassNamesTheReason() {
+		CrapsView v = view(true, true, 1000, 0, 1, true, false, false, false);
+		Click c = CrapsFlow.click(v, CrapsLayout.PASS_ODDS, 25);
+		assertFalse(c.sends());
+		assertEquals(CrapsFlow.K + "reason.odds_need_point", c.errorKey());
+		// a point is on and no Pass bet: the lane asks for the Pass line, still never places one
+		CrapsView point = view(true, true, 1000, 8, 1, false, false, false, false);
+		Click p = CrapsFlow.click(point, CrapsLayout.PASS_ODDS, 25);
+		assertFalse(p.sends());
+		assertEquals(CrapsFlow.K + "reason.odds_need_pass", p.errorKey());
+	}
+
+	/** R-CDE M5: while the throw is shown every felt click and Undo / Clear name {@code reason.rolling}; nothing is sent. */
+	@Test
+	void feltAndUndoClosedWhileRolling() {
+		for (int point : new int[] {0, 8}) {
+			for (boolean line : new boolean[] {false, true}) {
+				CrapsView v = view(true, true, 1000, point, 1, line, false, true, true);
+				for (String spot : CrapsLayout.SPOT_IDS) {
+					Click c = CrapsFlow.click(v, spot, 25);
+					assertFalse(c.sends(), spot + " while rolling");
+					assertEquals(dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_ROLLING, c.errorKey(), spot);
+				}
+				for (String tool : new String[] {"undo", "clear"}) {
+					Gate g = CrapsFlow.tool(tool, v);
+					assertFalse(g.enabled(), tool + " while rolling");
+					assertEquals(dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_ROLLING, g.reasonKey());
+				}
+				// the same view settled: Undo is back
+				CrapsView settled = view(true, true, 1000, point, 1, line, false, false, true);
+				assertTrue(CrapsFlow.tool("undo", settled).enabled());
+			}
+		}
 	}
 
 	@Test

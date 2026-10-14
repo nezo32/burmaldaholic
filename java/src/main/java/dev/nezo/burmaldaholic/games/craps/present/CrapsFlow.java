@@ -84,7 +84,8 @@ public final class CrapsFlow {
 	public static Gate tool(String id, CrapsView v) {
 		String label = BetGates.CLEAR.equals(id) ? V2Keys.TOOL_CLEAR : V2Keys.TOOL_UNDO;
 		if (!BetGates.UNDO.equals(id) && !BetGates.CLEAR.equals(id)) return Gate.off(id, label, K + "reason.no_tool");
-		// chips put down after the throw can be taken back even while it is still shown (the server already settled it)
+		// R-CDE M5: nothing is taken back while the throw is shown (no chip can go down then either: the felt is closed)
+		if (v.rolling()) return Gate.off(id, label, V2Keys.REASON_ROLLING);
 		if (v.canUndo()) return Gate.on(id, label);
 		return Gate.off(id, label, "gui.burmaldaholic.craps.nothing_to_undo");
 	}
@@ -139,6 +140,8 @@ public final class CrapsFlow {
 	/** What clicking the felt spot {@code spotId} with the {@code chip} selected does. */
 	public static Click click(CrapsView v, String spotId, long chip) {
 		if (!v.enabled()) return Click.error(K + "reason.disabled");
+		// R-CDE M5: the felt is closed while the dice fly (the bets drawn then are the ones the roll saw)
+		if (v.rolling()) return Click.error(V2Keys.REASON_ROLLING);
 		String kind = CrapsLayout.kindOf(spotId);
 		if ("point".equals(kind)) {
 			int p = CrapsLayout.pointOf(spotId);
@@ -154,7 +157,7 @@ public final class CrapsFlow {
 		if ("pass_odds".equals(kind)) {
 			BetPub target = lineBet(v, "pass");
 			if (target != null && target.room() > 0) return odds(target, chip, v);
-			if (v.allowed("pass")) return flat(v, "pass", chip);
+			// R-CDE M6: the odds lane never places the Pass line itself (on the come-out it names the reason)
 			if (target != null && v.point() != 0) return Click.error(K + "reason.odds_full");
 			return Click.error(v.comeOut() ? K + "reason.odds_need_point" : K + "reason.odds_need_pass");
 		}

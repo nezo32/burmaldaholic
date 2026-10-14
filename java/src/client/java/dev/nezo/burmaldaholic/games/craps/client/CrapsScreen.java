@@ -93,6 +93,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	private long lastSecond = -1;
 	private final DiceThrowPath.Sample sample = new DiceThrowPath.Sample();
 	private final CrapsBeats.Puck puck = new CrapsBeats.Puck();
+	/** The dice ease from the throw's rest point into their slots over 4 ticks. */
+	private static final double SNAP_MS = 200;
 
 	public CrapsScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable(K + "title"));
@@ -172,7 +174,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	public boolean onTarget(String id, boolean enabled, int button) {
 		if (!id.startsWith("felt.") || view == null) return false;
 		if (button == 1) {
-			sendTracked("undo");
+			// right click = Undo, through the same gate as the tool (R-CDE M5: closed while the dice fly)
+			takeBack(BetGates.UNDO);
 			return true;
 		}
 		if (button > 1) return true; // scroll over the felt: nothing
@@ -210,14 +213,26 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 			@Override
 			public void remove(long denom) {
-				sendTracked("undo");
+				takeBack(BetGates.UNDO);
 			}
 
 			@Override
 			public void tool(String toolId) {
-				sendTracked(toolId);
+				takeBack(toolId);
 			}
 		};
+	}
+
+	/** Undo / Clear: sent only when {@link CrapsFlow#tool} allows it, else its reason is flashed (never a silent packet). */
+	private void takeBack(String toolId) {
+		if (view == null) return;
+		Gate g = CrapsFlow.tool(toolId, view(state()));
+		if (!g.enabled()) {
+			chrome.status.flash(V2Draw.tr(g.reasonKey(), g.reasonArgs()));
+			FxSounds.play("ui_deny", 1f);
+			return;
+		}
+		sendTracked(toolId);
 	}
 
 	@Override
@@ -619,9 +634,24 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			}
 			return;
 		}
-		// at rest: the dice in their slots (the throw ends in the rest region; the slots keep the total readable)
-		die(g, l.die1.x(), l.die1.y(), d1 - 1, 0, 1f);
-		die(g, l.die2.x(), l.die2.y(), d2 - 1, 0, 1f);
+		// at rest: the dice in their slots (the throw ends in the rest region; the slots keep the total readable). The
+		// move from where the throw stopped into the slots is eased over 4 ticks instead of a jump (UI-D risk).
+		double k = FxSettings.reduceMotion() || lateRoll ? 1 : Math.min(1, Math.max(0, (t - p.durationMs()) / SNAP_MS));
+		Box[] slots = {l.die1, l.die2};
+		int[] faces = {d1, d2};
+		for (int d = 0; d < 2; d++) {
+			int x = slots[d].x();
+			int y = slots[d].y();
+			if (k < 1) {
+				p.sample(d, p.durationMs(), sample);
+				double rx = sample.x - size / 2.0;
+				double ry = sample.y - sample.z - size / 2.0;
+				double e = Ease.OUT_CUBIC.apply(k);
+				x = (int) Math.round(rx + (x - rx) * e);
+				y = (int) Math.round(ry + (y - ry) * e);
+			}
+			die(g, x, y, faces[d] - 1, 0, 1f);
+		}
 		if (t >= CrapsBeats.BADGE || lateRoll) {
 			Component n = Texts.number(d1 + d2);
 			int color = switch (s.getStringOr("event", "")) {
