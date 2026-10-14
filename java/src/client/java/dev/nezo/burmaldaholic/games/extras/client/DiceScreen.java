@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.fx.ChipButton;
 import dev.nezo.burmaldaholic.client.table.fx.TableButton;
 import dev.nezo.burmaldaholic.client.table.fx.TableKit;
@@ -316,7 +317,7 @@ final class DiceScreen extends ExtrasScreen {
 		if (super.mouseClicked(event, doubleClick)) {
 			return true;
 		}
-		if (event.button() == 0) {
+		if (Inputs.isLeft(event.button())) {
 			if (showRules) {
 				showRules = false;
 				return true;
@@ -333,7 +334,7 @@ final class DiceScreen extends ExtrasScreen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == 32 && t() >= 0 && t() < DuelTimeline.endMs(rounds.size())) {
+		if (event.key() == Inputs.KEY_SPACE && t() >= 0 && t() < DuelTimeline.endMs(rounds.size())) {
 			skipped = true;
 			rebuildWidgets();
 			return true;
