@@ -94,6 +94,68 @@ public class WorldgenSpawnSurvey {
 		helper.succeed();
 	}
 
+	/**
+	 * Accuracy + cost of {@link dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe} against vanilla's exact
+	 * columns on the default preset (R-CB M6a): random land/shore columns, guess = the exact surface 24 blocks away
+	 * (like the projected start). Diagnostic; off unless {@code -Dburmaldaholic.worldgenSurvey=true}.
+	 */
+	@GameTest(maxTicks = 20)
+	public void terrainProbeAccuracy(GameTestHelper helper) {
+		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
+			helper.succeed();
+			return;
+		}
+		RegistryAccess reg = helper.getLevel().getServer().registryAccess();
+		for (long seed : SEEDS) {
+			World w = world(reg, seed, LevelStem.OVERWORLD);
+			var probe = dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.of(w.gen(), w.randomState(), w.height());
+			java.util.Random r = new java.util.Random(seed);
+			int n = 0;
+			int within1 = 0;
+			int within2 = 0;
+			int floorWithin1 = 0;
+			int maxErr = 0;
+			long exactNs = 0;
+			long columnNs = 0;
+			long fastNs = 0;
+			List<String> worst = new ArrayList<>();
+			for (int i = 0; i < 300; i++) {
+				int x = r.nextInt(8000) - 4000;
+				int z = r.nextInt(8000) - 4000;
+				long a = System.nanoTime();
+				int[] ex = probe.exact(x, z);
+				long b = System.nanoTime();
+				w.gen().getBaseColumn(x, z, w.height(), w.randomState());
+				long c = System.nanoTime();
+				int guess = w.gen().getBaseHeight(x + 24, z, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG, w.height(), w.randomState());
+				long d = System.nanoTime();
+				int[] f = probe.heights(x, z, guess);
+				long e = System.nanoTime();
+				if (i < 20) {
+					continue; // warm-up
+				}
+				n++;
+				exactNs += b - a;
+				columnNs += c - b;
+				fastNs += e - d;
+				int err = Math.abs(f[0] - ex[0]);
+				maxErr = Math.max(maxErr, err);
+				within1 += err <= 1 ? 1 : 0;
+				within2 += err <= 2 ? 1 : 0;
+				floorWithin1 += Math.abs(f[1] - ex[1]) <= 1 ? 1 : 0;
+				if (err > 2 && worst.size() < 8) {
+					worst.add(x + "," + z + ": exact " + ex[0] + "/" + ex[1] + " fast " + f[0] + "/" + f[1] + " guess " + guess);
+				}
+			}
+			Burmaldaholic.LOGGER.info("[survey] PROBE seed={} fast={} n={} surface within 1: {}% within 2: {}% max err {} | floor within 1: {}% | "
+					+ "ms/column exact(getBaseHeight) {} getBaseColumn {} fast {} | worst {}",
+				seed, probe.fast(), n, 100 * within1 / n, 100 * within2 / n, maxErr, 100 * floorWithin1 / n,
+				String.format(java.util.Locale.ROOT, "%.3f", exactNs / 1e6 / n), String.format(java.util.Locale.ROOT, "%.3f", columnNs / 1e6 / n),
+				String.format(java.util.Locale.ROOT, "%.3f", fastNs / 1e6 / n), worst);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(maxTicks = 20)
 	public void survey(GameTestHelper helper) {
 		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
