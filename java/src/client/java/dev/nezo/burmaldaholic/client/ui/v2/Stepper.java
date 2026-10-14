@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  * ACTIONS Dock left of the action buttons, laid out by {@code DockLayout} so its targets survive every relayout (review
  * R-AB M3). HitMap ids {@link #MINUS}, {@link #VALUE}, {@link #PLUS}; a press on − / + reaches the host as
  * {@code Host.onGate("stepper.minus" | "stepper.plus", gate)}, a disabled one shows its reason; the mouse wheel over
- * the value is − / +. Keys: the two given to {@link #set} (−1 = none).
+ * the value is − / +. Keys: the two logical key names ({@code KeyMap}) given to {@link #set} (null = none).
  */
 public final class Stepper {
 	public static final String MINUS = "stepper.minus", VALUE = "stepper.value", PLUS = "stepper.plus";
@@ -27,14 +27,14 @@ public final class Stepper {
 
 	private @Nullable Gate minus, plus;
 	private Component value = Component.empty();
-	private int keyMinus = -1, keyPlus = -1;
+	private @Nullable String keyMinus, keyPlus;
 	private Box box = Box.EMPTY, minusBox = Box.EMPTY, valueBox = Box.EMPTY, plusBox = Box.EMPTY;
 	private String pressedId = "";
 	private long pressedAt = -1;
 	ToIntFunction<String> shake = id -> 0;
 
-	/** Shows the stepper: the − and + gates, the value between them, and the keys of − / + (−1 = none). */
-	public void set(Gate minus, Gate plus, Component value, int keyMinus, int keyPlus) {
+	/** Shows the stepper: the − and + gates, the value between them, and the keys of − / + (logical names, null = none). */
+	public void set(Gate minus, Gate plus, Component value, @Nullable String keyMinus, @Nullable String keyPlus) {
 		this.minus = minus;
 		this.plus = plus;
 		this.value = value;
@@ -70,16 +70,16 @@ public final class Stepper {
 		return MINUS.equals(id) ? minus : PLUS.equals(id) ? plus : null;
 	}
 
-	/** The id a key presses (−1 / unbound → null). */
-	public @Nullable String idForKey(int key) {
-		if (!visible() || key < 0) return null;
-		if (key == keyMinus) return MINUS;
-		if (key == keyPlus) return PLUS;
+	/** The id a key (logical name, {@code KeyMap}) presses, or null. */
+	public @Nullable String idForKey(@Nullable String key) {
+		if (!visible() || key == null) return null;
+		if (key.equals(keyMinus)) return MINUS;
+		if (key.equals(keyPlus)) return PLUS;
 		return null;
 	}
 
-	public int keyOf(String id) {
-		return MINUS.equals(id) ? keyMinus : PLUS.equals(id) ? keyPlus : -1;
+	public @Nullable String keyOf(String id) {
+		return MINUS.equals(id) ? keyMinus : PLUS.equals(id) ? keyPlus : null;
 	}
 
 	/** Slot width: two square buttons of the tier's button height and the value (at least "888 888" wide). */

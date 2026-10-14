@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
 import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.CardAnimator;
 import dev.nezo.burmaldaholic.client.table.cards.CardSprites;
 import dev.nezo.burmaldaholic.client.table.cards.TableTheme;
@@ -29,6 +30,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.poker.PokerText;
@@ -69,7 +71,6 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	private static final int[] NO_CARDS = new int[0];
 	public static final String STEP_MINUS = "stepper.minus", STEP_PLUS = "stepper.plus";
 	private static final String STEPPER = "~stepper";
-	private static final int KEY_UP = 265, KEY_DOWN = 264;
 	private boolean rulesOpen;
 
 	private final CardAnimator cards = new CardAnimator();
@@ -617,10 +618,9 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
-			if (button == 2) step(1);
-			else if (button == 3) step(-1);
+			if (button.scroll() != 0) step(button.scroll());
 			else if (id.equals(STEP_MINUS)) step(-1);
 			else if (id.equals(STEP_PLUS)) step(1);
 			return true;
@@ -630,18 +630,18 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (rulesOpen && (event.key() == KeyMap.ESCAPE || event.key() == KeyMap.ENTER)) {
+		if (rulesOpen && (event.isEscape() || event.isConfirmation())) {
 			rulesOpen = false;
 			return true;
 		}
-		if (event.key() == KeyMap.SPACE && chrome.keys().idFor(KeyMap.SPACE).isEmpty()) {
+		if (event.key() == Inputs.KEY_SPACE && chrome.keys().idFor(KeyMap.SPACE).isEmpty()) {
 			// the primary's plate shows its letter (C / R); Space presses it as everywhere else
 			boolean on = chrome.hits().targets().stream().anyMatch(t -> t.id().equals(KeyMap.Ids.PRIMARY) && t.enabled());
-			return chrome.press(KeyMap.Ids.PRIMARY, on, 0);
+			return chrome.press(KeyMap.Ids.PRIMARY, on, Press.LEFT);
 		}
-		if (event.key() == KEY_UP || event.key() == KEY_DOWN) {
+		if (event.isUp() || event.isDown()) {
 			if (view != null && PokerFlow.stepper(view).isPresent()) {
-				step(event.key() == KEY_UP ? 1 : -1);
+				step(event.isUp() ? 1 : -1);
 				return true;
 			}
 		}

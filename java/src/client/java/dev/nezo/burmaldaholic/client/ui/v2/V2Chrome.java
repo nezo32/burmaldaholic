@@ -11,6 +11,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
@@ -50,8 +51,8 @@ public final class V2Chrome {
 		/** An enabled gate of the primary ({@code primary}), the secondary or an action ({@code action.<a>}) was pressed. */
 		void onGate(String id, Gate gate);
 
-		/** A click on one of the host's own targets (felt spots, seat boxes, …); {@code button} 0 left, 1 right. */
-		default boolean onTarget(String id, boolean enabled, int button) {
+		/** A press on one of the host's own targets (felt spots, seat boxes, …): left / right click, key, or scroll. */
+		default boolean onTarget(String id, boolean enabled, Press press) {
 			return false;
 		}
 
@@ -325,17 +326,25 @@ public final class V2Chrome {
 
 	// ---- input -----------------------------------------------------------------------------------------------------
 
-	/** A mouse click in layout px; true when consumed. */
+	/** A mouse click in layout px ({@code button}: the raw event button, resolved by {@link V2Input}); true when consumed. */
 	public boolean click(double x, double y, int button) {
+		Press p = V2Input.press(button);
+		if (p == null) return false;
 		Optional<HitMap.Target> t = hits.at(x, y);
 		if (t.isEmpty()) return false;
 		focus = -1;
-		return press(t.get().id(), t.get().enabled(), button);
+		return press(t.get().id(), t.get().enabled(), p);
 	}
 
-	/** A key press; true when consumed. Tab walks the targets, Enter presses the focused one. */
+	/** A key press (the raw event key code, resolved by {@link V2Input}); true when consumed. */
 	public boolean key(int code) {
-		if (code == KeyMap.TAB) {
+		return key(V2Input.keyName(code));
+	}
+
+	/** A key press by {@link KeyMap} name (null = unnamed key); true when consumed. Tab walks the targets, Enter presses the focused one. */
+	public boolean key(@Nullable String name) {
+		if (name == null) return false;
+		if (name.equals(KeyMap.TAB)) {
 			List<HitMap.Target> ts = focusable();
 			if (ts.isEmpty()) return false;
 			focus = (focus + 1) % ts.size();
@@ -343,27 +352,28 @@ public final class V2Chrome {
 			if (n != null) CasinoUi.say(n.get());
 			return true;
 		}
-		if (code == KeyMap.ENTER && focus >= 0) {
+		if (name.equals(KeyMap.ENTER) && focus >= 0) {
 			List<HitMap.Target> ts = focusable();
-			if (focus < ts.size()) return press(ts.get(focus).id(), ts.get(focus).enabled(), 0);
+			if (focus < ts.size()) return press(ts.get(focus).id(), ts.get(focus).enabled(), Press.LEFT);
 		}
-		String step = stepper.idForKey(code);
-		if (step != null) return press(step, true, 0);
-		Optional<String> id = keys.idFor(code);
+		String step = stepper.idForKey(name);
+		if (step != null) return press(step, true, Press.LEFT);
+		Optional<String> id = keys.idFor(name);
 		if (id.isEmpty()) return false;
 		Optional<HitMap.Target> t = hits.targets().stream().filter(x -> x.id().equals(id.get())).findFirst();
-		return press(id.get(), t.map(HitMap.Target::enabled).orElse(true), 0);
+		return press(id.get(), t.map(HitMap.Target::enabled).orElse(true), Press.LEFT);
 	}
 
-	/** Scroll over a target: routed to the host as button 2 (+) / 3 (−) presses of that target. */
+	/** Scroll over a target: routed to the host as {@link Press#SCROLL_UP} (+) / {@link Press#SCROLL_DOWN} (−) presses of that target. */
 	public boolean scroll(double x, double y, double dy) {
+		if (dy == 0) return false;
 		Optional<HitMap.Target> t = hits.at(x, y);
 		if (t.isPresent() && t.get().id().equals(Stepper.VALUE)) {
 			String id = dy > 0 ? Stepper.PLUS : Stepper.MINUS;
 			Gate g = stepper.gate(id);
-			return g != null && press(id, g.enabled(), 0);
+			return g != null && press(id, g.enabled(), Press.LEFT);
 		}
-		return t.isPresent() && host.onTarget(t.get().id(), t.get().enabled(), dy > 0 ? 2 : 3);
+		return t.isPresent() && host.onTarget(t.get().id(), t.get().enabled(), dy > 0 ? Press.SCROLL_UP : Press.SCROLL_DOWN);
 	}
 
 	private List<HitMap.Target> focusable() {
@@ -379,7 +389,7 @@ public final class V2Chrome {
 	}
 
 	/** Presses a target by id (click / key / test). */
-	public boolean press(String id, boolean hitEnabled, int button) {
+	public boolean press(String id, boolean hitEnabled, Press button) {
 		lastPressed = id;
 		if (id.equals(KeyMap.Ids.PRIMARY)) {
 			Gate g = primary.gate();
@@ -431,14 +441,14 @@ public final class V2Chrome {
 			long[] chips = bet.chips();
 			if (i < 0 || i >= chips.length) return false;
 			Gate g = bet.chipGate(i);
-			if (!g.enabled() && button != 1) {
+			if (!g.enabled() && !button.right()) {
 				refuse(g);
 				return true;
 			}
 			BetPort port = bet.port();
 			if (port == null) return false;
 			long d = chips[i];
-			if (button == 1) {
+			if (button.right()) {
 				port.remove(d);
 			} else if (bet.isMultiSpot()) {
 				bet.select(d, true);

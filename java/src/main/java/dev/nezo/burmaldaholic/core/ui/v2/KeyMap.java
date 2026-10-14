@@ -5,27 +5,41 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Keyboard parity of a v2 screen (docs/architecture/ui-v2.md §5.2-6): key code → {@link HitMap} target id. A key press
- * acts exactly like a click on that target (a disabled target shows its reason). The key hint plate of a button shows
- * the key bound to its id ({@link #keyOf}). Key codes are GLFW's (constants below; the pure layer has no GLFW import).
+ * Keyboard parity of a v2 screen (docs/architecture/ui-v2.md §5.2-6): key → {@link HitMap} target id. A key press acts
+ * exactly like a click on that target (a disabled target shows its reason). The key hint plate of a button shows the key
+ * bound to its id ({@link #keyOf}).
+ *
+ * <p>Keys are LOGICAL names ({@code "space"}, {@code "1"}, {@code "h"} — the suffix of vanilla's
+ * {@code key.keyboard.<name>}), never key codes: Minecraft 26.3 (SDL3) renumbered every key code and javac inlines
+ * numeric constants, so this common layer holds no numbers. The client resolves a real key event to a name at runtime
+ * ({@code client/ui/v2/V2Input}).
  */
 public final class KeyMap {
-	// GLFW key codes
-	public static final int SPACE = 32, ENTER = 257, TAB = 258, BACKSPACE = 259, DELETE = 261, ESCAPE = 256;
-	public static final int KEY_0 = 48, KEY_1 = 49, KEY_2 = 50, KEY_3 = 51, KEY_4 = 52, KEY_5 = 53;
-	public static final int A = 65, B = 66, C = 67, D = 68, E = 69, F = 70, G = 71, H = 72, I = 73, J = 74, K = 75, L = 76, M = 77, N = 78,
-		O = 79, P = 80, Q = 81, R = 82, S = 83, T = 84, U = 85, V = 86, W = 87, X = 88, Y = 89, Z = 90;
+	public static final String SPACE = "space", ENTER = "enter", TAB = "tab", BACKSPACE = "backspace", DELETE = "delete", ESCAPE = "escape";
+	public static final String KEY_0 = "0", KEY_1 = "1", KEY_2 = "2", KEY_3 = "3", KEY_4 = "4", KEY_5 = "5";
+	public static final String A = "a", B = "b", C = "c", D = "d", E = "e", F = "f", G = "g", H = "h", I = "i", J = "j", K = "k", L = "l", M = "m",
+		N = "n", O = "o", P = "p", Q = "q", R = "r", S = "s", T = "t", U = "u", V = "v", W = "w", X = "x", Y = "y", Z = "z";
 
-	private final Map<Integer, String> byKey = new LinkedHashMap<>();
-	private final Map<String, Integer> byId = new LinkedHashMap<>();
+	/** Every name the kit knows (the client can resolve each of them to the running version's key code). */
+	public static final List<String> NAMED = List.of(SPACE, ENTER, TAB, BACKSPACE, DELETE, ESCAPE);
+
+	private final Map<String, String> byKey = new LinkedHashMap<>();
+	private final Map<String, String> byId = new LinkedHashMap<>();
+
+	/** The digit key {@code d} (0–9). */
+	public static String digit(int d) {
+		if (d < 0 || d > 9) throw new IllegalArgumentException("digit " + d);
+		return String.valueOf((char) ('0' + d));
+	}
 
 	/** The kit's standard keys: Space = primary, 1–5 = chips, Backspace = undo, Delete = clear, R = rebet, X = ×2. */
 	public static KeyMap standard() {
 		KeyMap k = new KeyMap();
 		k.bind(SPACE, Ids.PRIMARY);
-		for (int i = 0; i < 5; i++) k.bind(KEY_1 + i, Ids.chip(i));
+		for (int i = 0; i < 5; i++) k.bind(digit(1 + i), Ids.chip(i));
 		k.bind(BACKSPACE, Ids.tool(BetGates.UNDO));
 		k.bind(DELETE, Ids.tool(BetGates.CLEAR));
 		k.bind(R, Ids.tool(BetGates.REBET));
@@ -34,51 +48,53 @@ public final class KeyMap {
 	}
 
 	/** Binds {@code key} to {@code id} (replaces an earlier binding of either). */
-	public KeyMap bind(int key, String id) {
+	public KeyMap bind(String key, String id) {
+		if (!known(key)) throw new IllegalArgumentException("unknown key name '" + key + "'");
 		String old = byKey.remove(key);
 		if (old != null) byId.remove(old);
-		Integer oldKey = byId.remove(id);
+		String oldKey = byId.remove(id);
 		if (oldKey != null) byKey.remove(oldKey);
 		byKey.put(key, id);
 		byId.put(id, key);
 		return this;
 	}
 
-	public KeyMap unbind(int key) {
+	public KeyMap unbind(String key) {
 		String id = byKey.remove(key);
 		if (id != null) byId.remove(id);
 		return this;
 	}
 
-	public Optional<String> idFor(int key) {
-		return Optional.ofNullable(byKey.get(key));
+	/** The target bound to key {@code key} (a logical name; null = a key the kit does not name). */
+	public Optional<String> idFor(@Nullable String key) {
+		return key == null ? Optional.empty() : Optional.ofNullable(byKey.get(key));
 	}
 
-	/** The key bound to {@code id}, or -1. */
-	public int keyOf(String id) {
-		return byId.getOrDefault(id, -1);
+	/** The key bound to {@code id}, or null. */
+	public @Nullable String keyOf(String id) {
+		return byId.get(id);
 	}
 
-	public List<Map.Entry<Integer, String>> entries() {
+	public List<Map.Entry<String, String>> entries() {
 		return new ArrayList<>(byKey.entrySet());
+	}
+
+	/** Whether {@code key} is a name the kit knows: a letter, a digit or one of {@link #NAMED}. */
+	public static boolean known(@Nullable String key) {
+		if (key == null) return false;
+		if (key.length() == 1) {
+			char c = key.charAt(0);
+			return c >= 'a' && c <= 'z' || c >= '0' && c <= '9';
+		}
+		return NAMED.contains(key);
 	}
 
 	/**
 	 * The vanilla translation key of a key's display name ({@code key.keyboard.space} → "Space" / "Пробел"), or null for
-	 * keys the kit does not name. Built from the code so it is the same on every supported Minecraft version.
+	 * keys the kit does not name. The same on every supported Minecraft version.
 	 */
-	public static String vanillaNameKey(int key) {
-		if (key >= A && key <= Z) return "key.keyboard." + (char) ('a' + key - A);
-		if (key >= KEY_0 && key <= KEY_0 + 9) return "key.keyboard." + (char) ('0' + key - KEY_0);
-		return switch (key) {
-			case SPACE -> "key.keyboard.space";
-			case ENTER -> "key.keyboard.enter";
-			case TAB -> "key.keyboard.tab";
-			case BACKSPACE -> "key.keyboard.backspace";
-			case DELETE -> "key.keyboard.delete";
-			case ESCAPE -> "key.keyboard.escape";
-			default -> null;
-		};
+	public static @Nullable String vanillaNameKey(@Nullable String key) {
+		return known(key) ? "key.keyboard." + key : null;
 	}
 
 	/** The HitMap ids the kit uses (docs/architecture/ui-v2.md §4.2). */

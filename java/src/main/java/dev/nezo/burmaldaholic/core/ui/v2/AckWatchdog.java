@@ -40,18 +40,23 @@ public final class AckWatchdog {
 
 	/**
 	 * A state arrived carrying {@code ack} (-1 when the server does not send one: any state then answers) of the
-	 * counter {@code epoch} (0 = unknown, never a change).
+	 * counter {@code epoch} (0 = unknown, never a change). A new counter — a changed epoch, or, from a server without
+	 * epochs, a counter that went back (the table was broken and placed again, or its chunk reloaded) — is the truth
+	 * from now on: {@code lastAck} re-bases on it and the pending action is dropped (it is not coming; waiting for the
+	 * new counter to pass the old one refused chips under "Sending…").
 	 */
 	public void state(int epoch, long ack) {
+		boolean newCounter = false;
 		if (epoch != 0 && epoch != this.epoch) {
-			boolean known = this.epoch != 0;
+			newCounter = this.epoch != 0;
 			this.epoch = epoch;
-			if (known) { // a new counter: what was pending is not coming
-				lastAck = ack;
-				expected = ack;
-				clear();
-				return;
-			}
+		}
+		if (!newCounter && ack >= 0 && ack < lastAck) newCounter = true; // fallback: no epoch, the counter went back
+		if (newCounter) {
+			lastAck = ack;
+			expected = ack;
+			clear();
+			return;
 		}
 		boolean answered = ack < 0 || ack >= expected;
 		lastAck = Math.max(lastAck, ack);

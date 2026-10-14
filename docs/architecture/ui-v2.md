@@ -575,7 +575,7 @@ How a game lane uses the kit. Signatures are stable; later K commits only add.
 largest one ≤ min, filtered by max and balance), `BetGates` (shared gates: `chip(d, v)`, `tool(id, v)`, `sit(v)`,
 `primary(action, labelKey, v)`, `betOrRebet(...)`, `waiting(...)`), `Flow<V>` (`primary`, `actions`, `bet`, `tool`,
 `chip`, `hintKey`/`hintArgs`; defaults use `BetGates`), `FlowCheck.problems(flow, view)` (§5.3 — call it from every
-`<G>FlowTest` over the enumerated views), `V2Keys` (all kit translation keys), `KeyMap` (`standard()` + `bind(GLFW, id)`;
+`<G>FlowTest` over the enumerated views), `V2Keys` (all kit translation keys), `KeyMap` (`standard()` + `bind(keyName, id)`, logical key names resolved by the client's `V2Input` — never key codes, v0.1.3;
 ids in `KeyMap.Ids`: `primary`, `secondary`, `chip.N`, `tool.<undo|clear|rebet|double>`, `action.<a>`, `felt.<id>`,
 `seat.<i>`, `top.<rules|settings|leave>`, `readout`), `Stamps` (`Outcome` → word key + colour kind; `levels(wordW, hero)`
 for `SeatColumn.table`, `scaleOf(level, hero)` back), `FreeSlot`, `TagPlacer` (Box version of `LabelPlacer`; STRICT =

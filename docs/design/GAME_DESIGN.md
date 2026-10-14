@@ -1147,6 +1147,11 @@ for sizes below are bounding boxes (X × Y × Z).
 - ⚠ **CHANGED 2026-09 — new games §20/§21 re-export the structure files**: plus an
   **Ultimate Texas Hold'em table ×1** (standard, `uth_table`) along the back wall (bounding box
   unchanged). Chunks generated before the update keep the old layout.
+- ⚠ **CHANGED v0.1.3 — village structure files re-exported**: plus a **Baccarat table ×1**
+  (standard, `baccarat_table`) in the hall's east column below the roulette (template cell
+  12, 1, 13, facing the entrance side), with a cosmetic **Baccarat Dealer** behind it like the Parlor
+  and the Lounge (the table works without a dealer). Bounding box unchanged; chunks generated
+  before the update keep the old layout.
 - Loot (4–7 rolls): chip_1 ×5–20 (w 30), chip_5 ×2–8 (w 25), chip_25 ×1–3 (w 12), scratch_card
   ×1–3 (w 15), emerald ×2–6 (w 12), golden carrot ×2–5 (w 8), lucky_coin ×1 (w 5), casino_card
   (w 3).
