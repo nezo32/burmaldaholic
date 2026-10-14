@@ -109,12 +109,13 @@ public final class HoloScale {
 	 * (1920 × 1080, the player's FOV), never below {@code base}; constant past {@link #READ_RANGE}.
 	 */
 	public static float readablePx(float base, double distance, double fovYDeg, int screenH) {
-		double d = Math.min(Math.max(distance, 1), READ_RANGE);
+		double d = Math.min(Math.max(distance, 0.5), READ_RANGE);
 		double need = capTarget(d) / (CAP * pxPerBlock(d, fovYDeg, screenH));
 		double px = Math.max(base, need);
-		// never larger on screen than CAP_MAX_PX (scaled with the window height): up close the base would dominate
+		// never larger on screen than CAP_MAX_PX (scaled with the window height; ≥ the 18 px target, so the minimum
+		// still holds): up close the base would dominate the scene
 		double max = capMax(screenH) / (CAP * pxPerBlock(Math.max(distance, 0.5), fovYDeg, screenH));
-		return (float) Math.max(need, Math.min(px, max));
+		return (float) Math.min(px, max);
 	}
 
 	/** Largest cap height on screen at 1080 px (visual QA round 1: ≤ 22 px @ 1080p, ≤ 44 px @ 4K). */
