@@ -177,26 +177,46 @@ public class WorldgenSpawnSurvey {
 		boolean standalone = reg.lookupOrThrow(Registries.STRUCTURE_SET)
 			.get(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.parse(PackFiles.SET))).isPresent();
 		if (standalone) {
-			// configurations: "legacy-like" (no biome pre-check, one candidate) vs the shipped defaults; same seeds
+			// configurations {biome pre-check, candidates, prefit, height range (-1 = the structure's), fast probe}; same seeds.
+			// -Dburmaldaholic.worldgenSurvey.sweep=true compares the knobs (R-CB M13 tuning).
 			boolean sweep = Boolean.getBoolean("burmaldaholic.worldgenSurvey.sweep");
-			Object[][] configs = sweep ? new Object[][] {{false, 1}, {true, 1}, {true, CasinoStructure.candidates}, {true, 9}}
-				: new Object[][] {{CasinoStructure.biomePrecheck, CasinoStructure.candidates}};
+			Object[][] configs = sweep
+				? new Object[][] {{true, 13, false, -1, true, 4}, {true, 9, false, -1, true, 4}, {true, 13, true, -1, true, 4}, {true, 13, false, -1, true, 8},
+					{true, 13, false, 8, true, 4}, {true, 13, false, 10, true, 4}, {true, 13, false, 14, true, 4}, {true, 13, false, 16, true, 4}}
+				: new Object[][] {{CasinoStructure.biomePrecheck, CasinoStructure.candidates, CasinoStructure.prefit, CasinoStructure.heightRangeOverride,
+					dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled, CasinoStructure.fineSpacing}};
 			boolean pre0 = CasinoStructure.biomePrecheck;
 			int cand0 = CasinoStructure.candidates;
+			boolean prefit0 = CasinoStructure.prefit;
+			int range0 = CasinoStructure.heightRangeOverride;
+			boolean fast0 = dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled;
+			int fine0 = CasinoStructure.fineSpacing;
+			boolean stats0 = CasinoStructure.STATS.enabled;
+			CasinoStructure.STATS.enabled = true;
 			try {
 				for (Object[] cfg : configs) {
 					CasinoStructure.biomePrecheck = (Boolean) cfg[0];
 					CasinoStructure.candidates = (Integer) cfg[1];
+					CasinoStructure.prefit = (Boolean) cfg[2];
+					CasinoStructure.heightRangeOverride = (Integer) cfg[3];
+					dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled = (Boolean) cfg[4];
+					CasinoStructure.fineSpacing = (Integer) cfg[5];
 					CasinoStructure.clearCaches();
 					List<String> summary = new ArrayList<>();
 					for (long seed : SEEDS) {
 						summary.add(casinos(reg, templates, seed));
 					}
-					Burmaldaholic.LOGGER.info("[survey] CASINO SUMMARY precheck={} candidates={} (radius {}): {}", cfg[0], cfg[1], CASINO_RADIUS, summary);
+					Burmaldaholic.LOGGER.info("[survey] CASINO SUMMARY precheck={} candidates={} prefit={} range={} fastProbe={} fineSpacing={} (radius {}): {}", cfg[0], cfg[1],
+						cfg[2], cfg[3], cfg[4], cfg[5], CASINO_RADIUS, summary);
 				}
 			} finally {
 				CasinoStructure.biomePrecheck = pre0;
 				CasinoStructure.candidates = cand0;
+				CasinoStructure.prefit = prefit0;
+				CasinoStructure.heightRangeOverride = range0;
+				dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled = fast0;
+				CasinoStructure.fineSpacing = fine0;
+				CasinoStructure.STATS.enabled = stats0;
 				CasinoStructure.clearCaches();
 			}
 		} else {
@@ -383,11 +403,11 @@ public class WorldgenSpawnSurvey {
 			String.format(java.util.Locale.ROOT, "%.3f", p), predicted);
 		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} r={}: cells={} excludedByVillages/placement={} biomeValid={} rejected={} ({}%) casinos={} "
 				+ "({} per km², mean spacing ≈ {} blocks, median nearest-neighbour {}) perStructure={} | within {}: {} casinos, distances from spawn {} "
-				+ "| unrecognisedStarts={} | gen median {} ms p99 {} ms over {} attempts | stats {} | {} ms",
+				+ "| unrecognisedStarts={} | gen median {} ms p99 {} ms over {} attempts | stats {} | per biome OK/FLAT/FLOOD/INCOMPLETE/BIOME {} | {} ms",
 			seed, CASINO_SPACING_RADIUS, cells, excluded, biomeValid, rejected, rejectPct, found.size(),
 			String.format(java.util.Locale.ROOT, "%.2f", found.size() / areaKm2), meanSpacing, nn.isEmpty() ? -1 : nn.get(nn.size() / 2), fmt(perStructure),
 			CASINO_RADIUS, inner, fromSpawn, unrecognised, String.format(java.util.Locale.ROOT, "%.2f", medianMs),
-			String.format(java.util.Locale.ROOT, "%.2f", p99Ms), ns.length, CasinoStructure.STATS, ms);
+			String.format(java.util.Locale.ROOT, "%.2f", p99Ms), ns.length, CasinoStructure.STATS, CasinoStructure.STATS.perBiome(), ms);
 		return "seed " + seed + ": " + inner + " within " + CASINO_RADIUS + ", nearest " + (fromSpawn.isEmpty() ? "-" : fromSpawn.getFirst())
 			+ ", spacing≈" + meanSpacing + ", NN median " + (nn.isEmpty() ? -1 : nn.get(nn.size() / 2)) + ", rejected " + rejectPct + "%"
 			+ ", p=" + String.format(java.util.Locale.ROOT, "%.3f", p) + " (" + predicted + ")"

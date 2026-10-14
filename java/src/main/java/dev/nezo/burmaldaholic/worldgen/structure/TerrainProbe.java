@@ -35,7 +35,7 @@ public final class TerrainProbe {
 	/** Guess meaning "no nearby height known": the search starts high above sea level and descends. */
 	public static final int NO_GUESS = Integer.MIN_VALUE;
 	/** The search starts this far above the guess, so a guess a little too low never starts inside a cave. */
-	static final int HEADROOM = 16;
+	static final int HEADROOM = 8;
 	/** Air samples in a row that end a climb. */
 	static final int AIR_RUN = 3;
 

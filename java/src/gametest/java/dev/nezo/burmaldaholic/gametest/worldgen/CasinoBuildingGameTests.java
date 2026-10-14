@@ -382,7 +382,15 @@ public class CasinoBuildingGameTests {
 			helper.succeed();
 			return;
 		}
-		Survey s = survey(server, CasinoQa.SET, SEEDS, 2000);
+		var stats = dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.STATS;
+		boolean stats0 = stats.enabled;
+		stats.enabled = true; // reject reasons of the cells near spawn (cheap counters; timings are measured here, not by STATS)
+		Survey s;
+		try {
+			s = survey(server, CasinoQa.SET, SEEDS, 2000);
+		} finally {
+			stats.enabled = stats0;
+		}
 		CasinoQa.log("fit: {}", s);
 		// the spread numbers are for the full set of five styles (fewer styles = fewer biomes); fit and cost always count
 		boolean allStyles = CasinoQa.standalone(server).size() == CasinoQa.STYLES.size() || CasinoQa.requireV2();
@@ -423,6 +431,7 @@ public class CasinoBuildingGameTests {
 		List<Double> millis = new ArrayList<>();
 		List<Integer> nearest = new ArrayList<>();
 		StringBuilder perSeed = new StringBuilder();
+		StringBuilder near = new StringBuilder(); // rejected biome-valid cells near spawn (tuning)
 		for (long seed : seeds) {
 			RandomState rs = CasinoQa.randomState(((NoiseBasedChunkGenerator) gen).generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
 			ChunkGeneratorStructureState state = gen.createState(sets, rs, seed);
@@ -448,6 +457,8 @@ public class CasinoBuildingGameTests {
 						continue;
 					}
 					biomeValid++;
+					var st = dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.STATS;
+					long f0 = st.steep.get(), w0 = st.flooded.get(), b0 = st.biome.get(), i0 = st.incomplete.get();
 					long t0 = System.nanoTime();
 					boolean ok = startAt(set, seed, chunk, reg, gen, rs, server, height);
 					millis.add((System.nanoTime() - t0) / 1e6);
@@ -455,6 +466,9 @@ public class CasinoBuildingGameTests {
 						placed++;
 						seedPlaced++;
 						best = Math.min(best, (int) Math.hypot(bx, bz));
+					} else if (Math.hypot(bx, bz) < 1000) {
+						near.append(seed).append("@").append(bx).append(",").append(bz).append(" flat ").append(st.steep.get() - f0).append(" flood ")
+							.append(st.flooded.get() - w0).append(" biome ").append(st.biome.get() - b0).append(" incomplete ").append(st.incomplete.get() - i0).append("; ");
 					}
 				}
 			}
@@ -464,6 +478,9 @@ public class CasinoBuildingGameTests {
 			perSeed.append(seed).append(": ").append(seedPlaced).append(" (nearest ").append(best == Integer.MAX_VALUE ? "-" : best).append(") ");
 		}
 		nearest.sort(Integer::compare);
+		if (!near.isEmpty()) {
+			CasinoQa.log("fit: rejected biome-valid cells within 1000 of spawn: {}", near);
+		}
 		return new Survey(placed, biomeValid, CasinoQa.quantile(millis, 0.5), CasinoQa.quantile(millis, 0.99),
 			nearest.isEmpty() ? Integer.MAX_VALUE : nearest.get(nearest.size() / 2), perSeed.toString().trim());
 	}

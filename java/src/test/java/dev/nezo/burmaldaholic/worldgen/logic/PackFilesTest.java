@@ -126,7 +126,6 @@ class PackFilesTest {
 			  "start_pool": "burmaldaholic:worldgen/casino/tudor/entrance",
 			  "size": 3,
 			  "start_height": { "absolute": -2 },
-			  "project_start_to_heightmap": "WORLD_SURFACE_WG",
 			  "max_distance_from_center": 48,
 			  "use_expansion_hack": false,
 			  "max_height_range": 12,

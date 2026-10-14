@@ -198,7 +198,6 @@ public final class PackFiles {
 			+ "  \"start_pool\": " + q(stylePoolId(style, "entrance")) + ",\n"
 			+ "  \"size\": " + SIZE + ",\n"
 			+ "  \"start_height\": { \"absolute\": " + START_HEIGHT + " },\n"
-			+ "  \"project_start_to_heightmap\": \"WORLD_SURFACE_WG\",\n"
 			+ "  \"max_distance_from_center\": " + MAX_DISTANCE + ",\n"
 			+ "  \"use_expansion_hack\": false,\n"
 			+ "  \"max_height_range\": " + MAX_HEIGHT_RANGE + ",\n"
