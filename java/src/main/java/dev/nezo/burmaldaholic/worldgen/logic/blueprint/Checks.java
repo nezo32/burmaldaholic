@@ -389,7 +389,7 @@ public final class Checks {
 	}
 
 	/** Flood-filled block light: every source spreads, −1 per step, through transparent cells. */
-	static int[][][] light(Grid g) {
+	public static int[][][] light(Grid g) {
 		Vec s = g.size();
 		int[][][] l = new int[s.x()][s.y()][s.z()];
 		ArrayDeque<int[]> q = new ArrayDeque<>();

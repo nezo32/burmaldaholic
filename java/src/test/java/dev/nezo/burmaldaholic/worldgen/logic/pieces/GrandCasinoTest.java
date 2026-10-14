@@ -67,6 +67,20 @@ class GrandCasinoTest {
 		}
 	}
 
+	/** Felt never muddy: every table lit >= 12 over its main block (uplights + a pendant), every machine >= 10. */
+	@Test
+	void everyFeltIsBrightlyLit() {
+		for (GrandCasino.Variant v : GrandCasino.Variant.values()) {
+			Piece p = whole(v);
+			int[][][] light = Checks.light(p.layout().grid());
+			for (Piece.GameSpot s : p.games()) {
+				Vec q = Checks.lightProbe(p.layout().grid(), s);
+				int need = s.game().tableGame() != null ? 12 : 10;
+				assertTrue(light[q.x()][q.y()][q.z()] >= need, v + " " + s + " lit " + light[q.x()][q.y()][q.z()]);
+			}
+		}
+	}
+
 	@Test
 	void npcsChestAndAnchorWithinTheBudget() {
 		Piece p = whole(GrandCasino.Variant.RIVIERA);

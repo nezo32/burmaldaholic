@@ -55,6 +55,8 @@ public final class GrandCasino {
 	public static final int ROW2 = MEZZ_Y + 1;
 	/** Hall, gallery and pavilion ceiling row. */
 	public static final int CEIL_Y = 14;
+	/** Rows above a table's floor row of its pendant lamp (just above the board / headroom volume, R6). */
+	public static final int PENDANT_DY = 4;
 	/** Top wall row of the pavilion towers. */
 	static final int TOWER_TOP = CEIL_Y + 8;
 	/** Top row of the copper mansard; the glazed drum starts above it. */
@@ -882,6 +884,12 @@ public final class GrandCasino {
 		Kits.slotBank(Game.SLOTS_GOLD, 3).apply(b, SX - 1 - 9, ROW, Z_HALL1, Facing.NORTH);
 		// east pavilion: the gold slot bank against the outer wall
 		Kits.slotBank(Game.SLOTS_GOLD, 4).apply(b, SX - 3, ROW, 26, Facing.WEST);
+		// a shaded pendant lamp over every table, one row above its board volume: the felt is lit >= 12
+		for (Piece.GameSpot s : b.games()) {
+			if (s.game().tableGame() != null) {
+				Kits.pendantLamp(CEIL_Y - (s.pos().y() + PENDANT_DY)).apply(b, s.pos().x(), CEIL_Y, s.pos().z(), Facing.SOUTH);
+			}
+		}
 	}
 
 	// =====================================================================================================
