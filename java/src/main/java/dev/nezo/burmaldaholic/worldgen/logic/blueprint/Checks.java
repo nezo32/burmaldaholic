@@ -28,11 +28,28 @@ import java.util.Set;
  *   <li>light: ≥ 10 above every game block, ≥ 1 on every interior cell a mob could spawn on;</li>
  *   <li>every game's player cell is reachable on foot from an entry (door / jigsaw doorway);</li>
  *   <li>markers inside the piece, NPC feet and chest cells free, decor physically supported
- *       (hanging lanterns, carpets, candles, pots, wall banners) — nothing floats.</li>
+ *       (hanging lanterns, carpets, candles, pots, wall banners) — nothing floats;</li>
+ *   <li>side clearance of game blocks ({@link TableClearance}): felt overhang cells of board tables hold nothing
+ *       taller than the felt, no game at local ±2 on a table's long axis, machines keep their side cells and the
+ *       column above free (a slot next to a slot is a bank).</li>
  * </ol>
  */
 public final class Checks {
 	private Checks() {}
+
+	/**
+	 * Pieces that still break the side-clearance rule ({@link TableClearance}) and are skipped by it until their
+	 * owners fix them: lane CB-A (annexes) and CB-O (Parlor, Lounge) DELETE their own entries — never add one.
+	 */
+	public static final Set<String> PENDING_CLEARANCE = Set.of(
+		"casino/annex/plains", "casino/annex/desert", "casino/annex/savanna", "casino/annex/taiga", "casino/annex/snowy",
+		"casino/parlor", "casino/lounge");
+
+	/**
+	 * Pieces that still hold valuable blocks ({@code PieceChecksTest.noValuableBlocks}); CB-O deletes its entries
+	 * once the Parlor / Lounge palettes and vault are decor-only — never add one.
+	 */
+	public static final Set<String> PENDING_VALUABLES = Set.of("casino/parlor", "casino/lounge");
 
 	/** Block light emitted by blocks the palettes use (vanilla values). Unknown blocks emit 0. */
 	static final Map<String, Integer> EMISSION = Map.ofEntries(
@@ -125,6 +142,9 @@ public final class Checks {
 			if (light[v.x()][y][v.z()] < 10) {
 				out.add(spot.game() + " at " + v + " is lit " + light[v.x()][y][v.z()] + " (< 10 above the table)");
 			}
+		}
+		if (!PENDING_CLEARANCE.contains(p.id())) {
+			TableClearance.check(p, out);
 		}
 		if (!p.entries().isEmpty()) {
 			boolean[][][] reach = reachable(g, p.entries());

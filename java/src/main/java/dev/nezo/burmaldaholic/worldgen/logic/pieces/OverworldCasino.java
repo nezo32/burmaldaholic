@@ -592,7 +592,7 @@ public final class OverworldCasino {
 		// slot banks on the back wall
 		b.kit(Kits.slotBank(Game.SLOTS_COPPER, 6), 2, ROW, 1, Facing.SOUTH);
 		b.kit(Kits.slotBank(Game.SLOTS_GOLD, 4), 23, ROW, 1, Facing.SOUTH);
-		b.kit(Kits.pottedPlant(), 27, ROW, 1, Facing.SOUTH);
+		// one plant in the corner: the gold bank's end cabinet (26, 1) keeps its side cell free
 		b.kit(Kits.pottedPlant(), 28, ROW, 1, Facing.SOUTH);
 		// table pods: row 1 (z 4) and row 2 (z 11), players stand south of the tables
 		b.kit(Kits.tablePod(Game.CRAPS, null), 4, ROW, 4, Facing.SOUTH);
@@ -638,7 +638,7 @@ public final class OverworldCasino {
 		b.kit(Kits.tablePod(Game.UTH, null), 19, ROW, 11, Facing.SOUTH);
 		b.kit(Kits.tablePod(Game.BACCARAT, NpcRole.BACCARAT_DEALER), 8, ROW, 8, Facing.WEST);
 		b.kit(Kits.tablePod(Game.POKER, null), 22, ROW, 8, Facing.EAST);
-		b.kit(Kits.ropeBarrier(3), 14, ROW, 5, Facing.NORTH);
+		b.kit(Kits.ropeBarrier(3), 16, ROW, 5, Facing.NORTH); // x 14..16: clear of the craps / roulette felts
 		b.kit(Kits.ropeBarrier(3), 14, ROW, 11, Facing.SOUTH);
 		b.kit(Kits.chipStacks(), 15, ROW, 8, Facing.SOUTH);
 		b.kit(Kits.pottedPlant(), 13, ROW, 8, Facing.SOUTH);

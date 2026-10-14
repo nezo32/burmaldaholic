@@ -71,6 +71,56 @@ public final class Shapes {
 			|| n.equals("minecraft:daylight_detector"));
 	}
 
+	/**
+	 * Top of the block's COLLISION shape in blocks above its own bottom (vanilla values; 0 = no collision). Unknown
+	 * blocks count as a full cube (1), structure void ({@code null}: whatever the world has there) as 1, fences, walls
+	 * and fence gates 1.5. Used by {@link TableClearance} (the felt overhang rule).
+	 */
+	public static double collisionTop(BlockSpec b) {
+		if (b == null) {
+			return 1.0;
+		}
+		String n = b.name();
+		if (passable(b) || n.endsWith("_sapling") || n.equals("minecraft:fern") || n.equals("minecraft:short_grass")
+			|| n.endsWith("_tulip") || n.equals("minecraft:poppy") || n.endsWith("_sign") || n.equals("minecraft:big_dripleaf")) {
+			return isCarpet(n) ? 1 / 16.0 : 0.0;
+		}
+		if (n.endsWith("_slab")) {
+			return "bottom".equals(b.properties().get("type")) ? 0.5 : 1.0;
+		}
+		if (n.endsWith("_trapdoor")) {
+			boolean open = "true".equals(b.properties().get("open"));
+			return open || "top".equals(b.properties().get("half")) ? 1.0 : 3 / 16.0;
+		}
+		if (isFence(n) || n.endsWith("_wall") || n.endsWith("_fence_gate")) {
+			return n.endsWith("_fence_gate") && "true".equals(b.properties().get("open")) ? 0.0 : 1.5;
+		}
+		if (n.endsWith("lantern") && !n.equals("minecraft:sea_lantern")) {
+			return "true".equals(b.properties().get("hanging")) ? 10 / 16.0 : 9 / 16.0;
+		}
+		if (n.endsWith("candle")) {
+			return 6 / 16.0;
+		}
+		if (n.contains("potted_") || n.equals("minecraft:flower_pot") || n.equals("minecraft:sea_pickle")
+			|| n.equals("minecraft:daylight_detector")) {
+			return 6 / 16.0;
+		}
+		if (n.equals("minecraft:snow")) {
+			int layers = Integer.parseInt(b.properties().getOrDefault("layers", "1"));
+			return (layers - 1) / 8.0;
+		}
+		return switch (n) {
+			case "minecraft:lectern" -> 15 / 16.0;
+			case "minecraft:brewing_stand" -> 14 / 16.0;
+			case "minecraft:campfire", "minecraft:soul_campfire" -> 7 / 16.0;
+			case "minecraft:chest", "minecraft:trapped_chest", "minecraft:ender_chest" -> 14 / 16.0;
+			case "minecraft:enchanting_table" -> 12 / 16.0;
+			case "minecraft:stonecutter" -> 9 / 16.0;
+			case "minecraft:cake" -> 8 / 16.0;
+			default -> n.endsWith("_bed") ? 9 / 16.0 : n.endsWith("_head") || n.endsWith("_skull") ? 0.5 : 1.0;
+		};
+	}
+
 	/** Light passes (approximation; the GameTest measures the real value). */
 	public static boolean transparent(BlockSpec b) {
 		if (b == null) {

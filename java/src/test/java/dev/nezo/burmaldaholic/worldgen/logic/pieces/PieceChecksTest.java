@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import dev.nezo.burmaldaholic.worldgen.logic.Markers;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Checks;
@@ -13,17 +14,23 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 /**
- * Runs {@link Checks} on every generated v0.2 piece (architecture doc §9.1). Lane CB-1 widens the source to
- * {@code CasinoPack.all()} once the registry exists; until then it covers every Overworld piece.
+ * Runs {@link Checks} on every generated v0.2 piece (architecture doc §9.1): the design checks and the valuables scan
+ * over {@link CasinoPack#pieces()} (Overworld styles, village annexes, Parlor, Lounge); pieces listed in
+ * {@link Checks#PENDING_CLEARANCE} skip only the side-clearance rule, those in {@link Checks#PENDING_VALUABLES} skip
+ * only the valuables scan, until their owners delete the entries.
  */
 class PieceChecksTest {
 	static List<Piece> pieces() {
 		return OverworldPieces.all();
 	}
 
+	static List<Piece> allPieces() {
+		return CasinoPack.pieces();
+	}
+
 	@TestFactory
 	List<DynamicTest> everyPiecePassesChecks() {
-		return pieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
+		return allPieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
 			List<String> problems = Checks.run(p);
 			assertEquals(List.of(), problems, p.id());
 		})).toList();
@@ -35,7 +42,7 @@ class PieceChecksTest {
 
 	@TestFactory
 	List<DynamicTest> noValuableBlocks() {
-		return pieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
+		return allPieces().stream().filter(p -> !Checks.PENDING_VALUABLES.contains(p.id())).map(p -> DynamicTest.dynamicTest(p.id(), () -> {
 			var g = p.layout().grid();
 			var s = g.size();
 			for (int x = 0; x < s.x(); x++) {

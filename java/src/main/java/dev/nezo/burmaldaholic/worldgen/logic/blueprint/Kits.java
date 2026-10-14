@@ -91,10 +91,11 @@ public final class Kits {
 	// ---- tables and machines ---------------------------------------------------------------------------
 
 	/**
-	 * Table pod — footprint r −2..2 × f −1..+1 around the table at the anchor: table wings (STOOL top slabs)
-	 * at r ±1, player row of CARPET_ACCENT at f +1 (r −1..1, walkable), stools at r ±2 f +1, dealer behind the
-	 * table at f −1 (an NPC of role {@code dealer}, or a dealer station — a lectern — when {@code dealer} is
-	 * null), keep-clear volume for the in-world board above.
+	 * Table pod — footprint r −2..2 × f −1..+1 around the table at the anchor: player row of CARPET_ACCENT at
+	 * f +1 (r −1..1, walkable), stools at r ±2 f +1, dealer behind the table at f −1 (an NPC of role
+	 * {@code dealer}, or a dealer station — a lectern, below the felt — when {@code dealer} is null), keep-clear
+	 * volume for the in-world board above. The cells at r ±1 stay free: the board's felt overhangs them
+	 * ({@link TableClearance}), so nothing taller than the felt may stand there.
 	 */
 	public static Kit tablePod(Game game, NpcRole dealer) {
 		return (b, x, y, z, front) -> {
@@ -103,8 +104,6 @@ public final class Kits {
 			for (int r = -1; r <= 1; r++) {
 				put(b, x, y, z, front, r, 1, Role.CARPET_ACCENT);
 			}
-			put(b, x, y, z, front, -1, 0, stool.slab("top"));
-			put(b, x, y, z, front, 1, 0, stool.slab("top"));
 			for (int r : new int[] {-2, 2}) {
 				put(b, x, y, z, front, r, 1, stool.slab("bottom"));
 			}
@@ -176,25 +175,32 @@ public final class Kits {
 	}
 
 	/**
-	 * Machine alcove for a wheel / plinko — r −1..1, 5 rows: the machine at the anchor, ACCENT pilasters at
-	 * r ±1 (2 rows) topped by BULBs, a TRIM lintel with a NEON_A keystone, a BULB crown; the machine's
-	 * front and the two rows above it stay clear, CARPET_ACCENT in front.
+	 * Machine alcove for a wheel / plinko — r −2..2, 6 rows: the machine at the anchor, ACCENT pilasters at r ±2
+	 * (3 rows) topped by BULBs, a TRIM lintel at y + 4 with a NEON_A keystone, a BULB crown; CARPET_ACCENT in front.
+	 * The renderers draw the Wheel disc / Plinko board 0.3 into the side cells and their name plate up to y + 3.3,
+	 * so the side cells r ±1 (y..y + 2) and the column above the machine (y + 1..y + 3) stay air
+	 * ({@link TableClearance}).
 	 */
 	public static Kit machineAlcove(Game game) {
 		return (b, x, y, z, front) -> {
 			b.game(game, x, y, z, front);
-			for (int r : new int[] {-1, 1}) {
-				put(b, x, y, z, front, r, 0, Role.ACCENT);
-				put(b, x, y + 1, z, front, r, 0, Role.ACCENT);
-				put(b, x, y + 2, z, front, r, 0, Role.BULB);
-				put(b, x, y + 3, z, front, r, 0, Role.TRIM);
+			for (int r : new int[] {-2, 2}) {
+				for (int dy = 0; dy <= 2; dy++) {
+					put(b, x, y + dy, z, front, r, 0, Role.ACCENT);
+				}
+				put(b, x, y + 3, z, front, r, 0, Role.BULB);
 			}
-			put(b, x, y + 1, z, front, 0, 0, Blueprint.AIR);
-			put(b, x, y + 2, z, front, 0, 0, Blueprint.AIR);
-			put(b, x, y + 3, z, front, 0, 0, Role.NEON_A);
-			put(b, x, y + 4, z, front, 0, 0, Role.BULB);
+			for (int r = -1; r <= 1; r++) {
+				for (int dy = r == 0 ? 1 : 0; dy <= 3; dy++) {
+					put(b, x, y + dy, z, front, r, 0, Blueprint.AIR);
+				}
+			}
+			for (int r = -2; r <= 2; r++) {
+				put(b, x, y + 4, z, front, r, 0, r == 0 ? Role.NEON_A : Role.TRIM);
+			}
+			put(b, x, y + 5, z, front, 0, 0, Role.BULB);
 			put(b, x, y, z, front, 0, 1, Role.CARPET_ACCENT);
-			b.keepClear(x, y + 1, z, x, y + 2, z);
+			b.keepClear(x, y + 1, z, x, y + 3, z);
 			b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
 		};
 	}
