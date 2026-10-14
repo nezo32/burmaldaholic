@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.GuiParticlePool;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
@@ -187,7 +188,7 @@ final class ScratchScreen extends SceneScreen implements dev.nezo.burmaldaholic.
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == 0 && playable()) {
+		if (Inputs.isLeft(event.button()) && playable()) {
 			int cell = cellAt(event.x(), event.y());
 			if (cell >= 0 && dissolveAt[cell] < 0 && swipeAt[cell] < 0 && !masks[cell].isClear()) {
 				dragCell = cell;
@@ -202,7 +203,7 @@ final class ScratchScreen extends SceneScreen implements dev.nezo.burmaldaholic.
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-		if (dragCell >= 0 && event.button() == 0) {
+		if (dragCell >= 0 && Inputs.isLeft(event.button())) {
 			double x = event.x();
 			double y = event.y();
 			dragDist += Math.hypot(x - lastX, y - lastY);
@@ -224,7 +225,7 @@ final class ScratchScreen extends SceneScreen implements dev.nezo.burmaldaholic.
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		if (dragCell >= 0 && event.button() == 0) {
+		if (dragCell >= 0 && Inputs.isLeft(event.button())) {
 			int cell = dragCell;
 			dragCell = -1;
 			if (dragDist < 3 && masks[cell].untouched()) {

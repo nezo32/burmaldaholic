@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
@@ -295,13 +296,13 @@ final class CoinFlipScreen extends SceneScreen implements dev.nezo.burmaldaholic
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (mode == Mode.HOLD && event.button() == 0 && inHold(event.x(), event.y())) {
+		if (mode == Mode.HOLD && Inputs.isLeft(event.button()) && inHold(event.x(), event.y())) {
 			holding = true;
 			holdStartMs = Util.getMillis();
 			send("soul_arm", new CompoundTag());
 			return true;
 		}
-		if (mode == Mode.NORMAL && flipping() && event.button() == 0 && Math.abs(event.x() - (px + CX)) < 40 && Math.abs(event.y() - (py + CY)) < 60) {
+		if (mode == Mode.NORMAL && flipping() && Inputs.isLeft(event.button()) && Math.abs(event.x() - (px + CX)) < 40 && Math.abs(event.y() - (py + CY)) < 60) {
 			return skip();
 		}
 		return super.mouseClicked(event, doubleClick);
