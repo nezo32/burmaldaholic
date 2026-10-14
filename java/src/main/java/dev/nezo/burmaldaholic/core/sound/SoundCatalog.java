@@ -46,6 +46,9 @@ public record SoundCatalog(String id, String owner, String source, String subtit
 		for (String id : new String[] {"roulette_ball_roll", "roulette_ball_drop", "roulette_ball_bounce", "roulette_ball_settle",
 			"roulette_bell", "roulette_dolly"})
 			l.add(new SoundCatalog(id, "roulette", "block", id, false, "tables"));
+		// ROULETTE-ANIM-SPEC §6 (RO): rotor push, the rolling-ball loop, deflector, pocket-floor knock, the croupier's rake
+		for (String id : new String[] {"roulette_rotor_push", "roulette_roll", "roulette_deflector", "roulette_floor", "roulette_rake"})
+			l.add(new SoundCatalog(id, "roulette", "block", id, false, "roulette-anim"));
 		existing(l, "roulette", "tables", "roulette_spin");
 		for (String id : new String[] {"dice_throw", "dice_bounce", "dice_cup", "dice_wall"})
 			l.add(new SoundCatalog(id, "core", "block", id, false, "tables"));

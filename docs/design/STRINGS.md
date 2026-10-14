@@ -1520,6 +1520,16 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.v2.board.color.black` | BLACK | ЧЁРНОЕ |
 | `gui.burmaldaholic.roulette.v2.board.color.green` | ZERO | ЗЕРО |
 
+### Motion sounds (RO, `ROULETTE-ANIM-SPEC.md` §6)
+
+| Key | EN | RU |
+|-----|----|----|
+| `subtitles.burmaldaholic.roulette_rotor_push` | Croupier spins the wheel | Крупье раскручивает колесо |
+| `subtitles.burmaldaholic.roulette_roll` | Ball whirs round the wheel | Шарик кружит по колесу |
+| `subtitles.burmaldaholic.roulette_deflector` | Ball strikes a diamond | Шарик бьётся о ромб |
+| `subtitles.burmaldaholic.roulette_floor` | Ball knocks in a pocket | Шарик стучит в лунке |
+| `subtitles.burmaldaholic.roulette_rake` | Croupier rakes the chips | Крупье сгребает фишки |
+
 ---
 
 ## craps

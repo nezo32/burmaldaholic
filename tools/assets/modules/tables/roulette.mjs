@@ -279,3 +279,39 @@ export function wheelShadow() {
   return img;
 }
 
+
+/** Wheel shadow scaled to another bowl size (RO §5: 112² for the 104 bowl, 152² for the 144 bowl); same look as 216². */
+export function wheelShadowSized(size) {
+  const k = size / 216;
+  const img = image(size, size);
+  const cx = 110 * k;
+  const cy = 112 * k;
+  const r0 = 100 * k;
+  const f = Math.max(2, 8 * k);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+      if (d < r0 + f) blend(img, x, y, c(INK), d < r0 ? 0.55 : 0.55 * (1 - (d - r0) / f));
+    }
+  return img;
+}
+
+/**
+ * Dealer rake bar 24 × 6 (nine-slice, 4 px end caps; RO §3.7): 1-px teeth along the top edge, a dark polished wood bar
+ * with a highlight line, brass end caps, an ink bottom edge.
+ */
+export function rake() {
+  const img = image(24, 6);
+  const wood = ['#7E4A26', '#5E381C', '#442612', '#2E180A'];
+  for (let x = 0; x < 24; x++) {
+    const cap = x < 3 || x > 20;
+    if (!cap && x % 2 === 0) P(img, x, 0, wood[2]); // teeth
+    P(img, x, 1, cap ? GOLD[0] : wood[0]);
+    P(img, x, 2, cap ? GOLD[1] : wood[1]);
+    P(img, x, 3, cap ? GOLD[2] : wood[2]);
+    P(img, x, 4, cap ? GOLD[3] : wood[3]);
+    P(img, x, 5, INK);
+  }
+  for (const x of [3, 20]) for (let y = 1; y < 5; y++) P(img, x, y, INK);
+  return img;
+}
