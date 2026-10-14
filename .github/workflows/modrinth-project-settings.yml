@@ -87,5 +87,5 @@ jobs:
           if [[ "$DRY_RUN" != "true" ]]; then echo "=== after"; show; fi
           {
             echo "### Modrinth environment ($([[ "$DRY_RUN" == "true" ]] && echo dry run || echo applied))"
-            printf -- '- `%s`\n' "${calls[@]}"
+            printf -- "- \`%s\`\n" "${calls[@]}"
           } >> "$GITHUB_STEP_SUMMARY"
