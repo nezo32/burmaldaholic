@@ -53,7 +53,47 @@ public final class CasinoClientQa {
 
 	/** Places the target on the server (test setup), {@code at} = x/z of the placement. */
 	public static Placed place(TestSingleplayerContext world, Target t, BlockPos at, int turns) {
-		return world.getServer().computeOnServer(server -> CasinoQa.place(server.overworld(), t, at, turns));
+		return world.getServer().computeOnServer(server -> {
+			Placed p = CasinoQa.place(server.overworld(), t, at, turns);
+			if (p.rotation() < 0) {
+				MARQUEE.put(p.box(), marqueeSide(server.overworld(), p.box()));
+			}
+			return p;
+		});
+	}
+
+	/** Entrance side of placed standalone structures (their rotation is unknown): see {@link #marqueeSide}. */
+	private static final Map<BoundingBox, Direction> MARQUEE = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/**
+	 * The side of a building whose outer 10-block band holds the most full-cube light blocks above the ground floor —
+	 * the illuminated sign / marquee side (end rods and lanterns on the other facades do not count).
+	 */
+	static Direction marqueeSide(ServerLevel level, BoundingBox b) {
+		Direction best = Direction.SOUTH;
+		int bestN = -1;
+		for (Direction d : Direction.Plane.HORIZONTAL) {
+			int n = 0;
+			for (BlockPos p : BlockPos.betweenClosed(b.minX(), b.minY() + 6, b.minZ(), b.maxX(), b.maxY(), b.maxZ())) {
+				int edge = switch (d) {
+					case NORTH -> p.getZ() - b.minZ();
+					case SOUTH -> b.maxZ() - p.getZ();
+					case WEST -> p.getX() - b.minX();
+					default -> b.maxX() - p.getX();
+				};
+				if (edge <= 10) {
+					var s = level.getBlockState(p);
+					if (s.getLightEmission() >= 14 && s.isCollisionShapeFullBlock(level, p)) {
+						n++;
+					}
+				}
+			}
+			if (n > bestN) {
+				bestN = n;
+				best = d;
+			}
+		}
+		return best;
 	}
 
 	// ---- paths ---------------------------------------------------------------------------------------------------------
@@ -232,6 +272,9 @@ public final class CasinoClientQa {
 	public static Direction front(Placed p) {
 		if (p.rotation() >= 0) {
 			return dev.nezo.burmaldaholic.worldgen.CasinoStructures.rotation(p.rotation()).rotate(Direction.SOUTH);
+		}
+		if (MARQUEE.containsKey(p.box())) {
+			return MARQUEE.get(p.box());
 		}
 		BoundingBox b = p.box();
 		BlockPos ref = p.spots().stream().filter(s -> s.game().family() == dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game.Family.CASHIER)
