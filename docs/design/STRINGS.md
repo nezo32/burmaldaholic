@@ -888,7 +888,7 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.total_soft` | %1$s/%2$s | %1$s/%2$s |
 | `gui.burmaldaholic.blackjack.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
 | `gui.burmaldaholic.blackjack.v2.stamp.bj` | BJ | БД |
-| `gui.burmaldaholic.blackjack.v2.stamp.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.stamp.win` | WIN | ПОБЕДА |
 | `gui.burmaldaholic.blackjack.v2.stamp.push` | PUSH | НИЧЬЯ |
 | `gui.burmaldaholic.blackjack.v2.stamp.bust` | BUST | ПЕРЕБОР |
 | `gui.burmaldaholic.blackjack.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
@@ -906,6 +906,9 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
 | `gui.burmaldaholic.blackjack.v2.plus` | +%1$s | +%1$s |
 | `gui.burmaldaholic.blackjack.v2.minus` | −%1$s | −%1$s |
+| `gui.burmaldaholic.blackjack.v2.stamp.with_net` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.blackjack.v2.open` | Open | Свободно |
+| `gui.burmaldaholic.blackjack.v2.insurance_pill` | Ins. %1$s | Страх. %1$s |
 
 ---
 
