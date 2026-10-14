@@ -5,6 +5,7 @@
 //   textures/gui/core/cards/             UV-blitted atlases and big pictures
 //     faces_{l,m,s}[_classic].png          13 × 4 faces (rows ♠ ♥ ♦ ♣, columns A 2 … 10 J Q K); four-colour default
 //     backs.png                            6 designs (rows) × L | M | S | W
+//     faces_xl[_classic].png, backs_xl.png  table UI v2 T3 cards (49 × 65; docs/architecture/ui-v2.md §9)
 //     table_{crescent,oval}_<theme>[_compact].png, backdrop_<theme>.png
 //   textures/gui/sprites/core/cards/…    sprite ids `burmaldaholic:core/cards/<path>` (nine-slice / animation .mcmeta)
 //   textures/font/core/card_index.png + font/core/card_index.json   the rank-index font (runtime text)
@@ -13,7 +14,7 @@
 //
 // Helpers live in ./cards/ (the driver only loads *.mjs directly in modules/). Deterministic (gen-assets --check).
 import { JAVA_ASSETS, json, mcmeta, png } from '../lib/emit.mjs';
-import { BACK_ORDER, backAtlas, faceAtlas, indexFontProvider, indexFontSheet, worldAtlas } from './cards/faces.mjs';
+import { BACK_ORDER, backAtlas, backAtlasXL, faceAtlas, indexFontProvider, indexFontSheet, worldAtlas } from './cards/faces.mjs';
 import {
   DENOMS, bead, chipBig, chipDisc, chipHatch, chipSelect, dealerButton, deck, discardTray, emblemPrint, pairDot, printBox, printInsurance, printPot, printSlot, printSpot,
   printUth, rack, shoe, spotGlow, trayFill,
@@ -43,11 +44,12 @@ export default function generate() {
   const nine = (w, h, border) => ({ nineSlice: { width: w, height: h, border } });
 
   // ---- cards ----
-  for (const size of ['l', 'm', 's']) {
+  for (const size of ['xl', 'l', 'm', 's']) {
     gui(`faces_${size}`, faceAtlas(size, true));
     gui(`faces_${size}_classic`, faceAtlas(size, false));
   }
   gui('backs', backAtlas());
+  gui('backs_xl', backAtlasXL());
 
   // ---- tables + rooms ----
   for (const theme of THEME_ORDER) {

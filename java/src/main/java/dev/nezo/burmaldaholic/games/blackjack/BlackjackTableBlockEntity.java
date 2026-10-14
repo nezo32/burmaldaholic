@@ -24,6 +24,7 @@ import dev.nezo.burmaldaholic.core.anim.WinTier;
 import dev.nezo.burmaldaholic.core.anim.WinTierTable;
 import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBeats;
+import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackPub;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBotPolicy;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackBotPolicy.BetMemory;
 import dev.nezo.burmaldaholic.games.blackjack.logic.BlackjackRound;
@@ -895,6 +896,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
 		bots.load(input);
+		input.read(PUB_KEY, CompoundTag.CODEC).ifPresent(t -> {
+			clientPub = t;
+			clientPubDecoded = null;
+		});
 	}
 
 	@Override
@@ -1116,6 +1121,146 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			out[i] = cards.get(i).code();
 		}
 		return new IntArrayTag(out);
+	}
+
+	// ---- public tag (in-world board, docs/architecture/ui-v2.md §7.2) -------------------------------------------
+
+	public static final String PUB_KEY = "burmaldaholic_blackjack_pub";
+	private CompoundTag lastPubTag;
+	/** Client: the last public tag received with a block update. */
+	private CompoundTag clientPub = new CompoundTag();
+
+	/** Client: the last public state received. */
+	public BlackjackPub clientPub() {
+		BlackjackPub p = clientPubDecoded;
+		if (p == null) {
+			p = BlackjackPub.decode(clientPub.getIntArray("d").orElse(new int[0]));
+			clientPubDecoded = p;
+		}
+		return p;
+	}
+
+	private BlackjackPub clientPubDecoded;
+
+
+	/** The table's public state: only published cards (the hole card a back until its flip), no decision data. */
+	public BlackjackPub buildPub() {
+		long now = gameTime();
+		int phase = BlackjackPub.phaseCode(phase());
+		long deadline = -1;
+		for (String t : List.of("bet", "insurance", "turn", "result")) {
+			long left = ticksLeft(t);
+			if (left >= 0) {
+				deadline = now + left;
+				break;
+			}
+		}
+		List<BlackjackPub.SeatPub> seatPubs = new ArrayList<>();
+		if (round == null || beats == null) {
+			java.util.TreeMap<Integer, BlackjackPub.SeatPub> bySeat = new java.util.TreeMap<>();
+			for (TableSeats.Seat s : seats().occupied()) {
+				bySeat.put(s.index(), new BlackjackPub.SeatPub(s.index(), 0,
+					mainBets.getOrDefault(s.player(), 0L), 0, List.of()));
+			}
+			for (VirtualBot b : bots.bots()) {
+				BetMemory mem = botMem.get(b.key);
+				long amount = mem != null && now >= botBetAt.getOrDefault(b.key, Long.MAX_VALUE) ? mem.next() : 0;
+				bySeat.putIfAbsent(b.seat(), new BlackjackPub.SeatPub(b.seat(),
+					BlackjackPub.BOT, amount, 0, List.of()));
+			}
+			seatPubs.addAll(bySeat.values());
+			return new BlackjackPub(roundSeq, 0, phase, minBet(), tableMaxBet(), -1, -1, deadline,
+				new int[0], new int[0], seatPubs);
+		}
+		boolean busy = busy();
+		long start = beats.startTick();
+		if (busy) {
+			deadline = -1;
+			if (phase == BlackjackPub.RESULT) {
+				phase = beats.holeShown(now) ? BlackjackPub.DEALER
+					: BlackjackPub.TURNS;
+			} else if (phase == BlackjackPub.INSURANCE && beats.dealerAt(now).isEmpty()) {
+				phase = BlackjackPub.TURNS;
+			}
+		}
+		List<BlackjackBeats.Ev> dealerEvs = beats.dealerAt(now);
+		int[] dealer = new int[dealerEvs.size()];
+		int[] dealerAt = new int[dealerEvs.size()];
+		for (int i = 0; i < dealer.length; i++) {
+			dealer[i] = dealerEvs.get(i).code();
+			dealerAt[i] = (int) (dealerEvs.get(i).tick() - start);
+		}
+		Turn turn = busy ? null : round.current();
+		for (Seat s : round.seats()) {
+			int flags = (roundBots.containsKey(s.seat) ? BlackjackPub.BOT : 0)
+				| (away.contains(s.player) ? BlackjackPub.AWAY : 0);
+			boolean settled = s.settled && !busy;
+			long net = 0;
+			if (settled) {
+				flags |= BlackjackPub.SETTLED;
+				net = round.returnOf(s.seat) - round.stakedOf(s.seat);
+			}
+			List<List<BlackjackBeats.Ev>> pub = beats.handsAt(s.seat, now);
+			List<BlackjackPub.HandPub> hands = new ArrayList<>();
+			for (int h = 0; h < s.hands.size(); h++) {
+				Hand hand = s.hands.get(h);
+				List<BlackjackBeats.Ev> evs = h < pub.size() ? pub.get(h) : List.of();
+				int[] codes = new int[evs.size()];
+				int[] at = new int[evs.size()];
+				for (int i = 0; i < codes.length; i++) {
+					codes[i] = evs.get(i).code();
+					at[i] = (int) (evs.get(i).tick() - start);
+				}
+				int hf = (hand.doubled ? BlackjackPub.DOUBLED : 0)
+					| (hand.split ? BlackjackPub.SPLIT : 0)
+					| (hand.done && !busy ? BlackjackPub.DONE : 0);
+				boolean out = hand.outcome != null && !busy;
+				hands.add(new BlackjackPub.HandPub(hand.bet, hf,
+					out ? BlackjackPub.outcomeCode(hand.outcome.id()) : 0, out ? hand.ret : 0, codes, at));
+			}
+			seatPubs.add(new BlackjackPub.SeatPub(s.seat, flags, s.bet, net, hands));
+		}
+		seatPubs.sort(java.util.Comparator.comparingInt(BlackjackPub.SeatPub::seat));
+		return new BlackjackPub(roundSeq, start, phase, minBet(), tableMaxBet(),
+			turn == null ? -1 : turn.seat().seat, turn == null ? -1 : turn.handIndex(), deadline, dealer, dealerAt, seatPubs);
+	}
+
+	private CompoundTag pubTag() {
+		CompoundTag pub = new CompoundTag();
+		pub.putIntArray("d", buildPub().encode());
+		return pub;
+	}
+
+	@Override
+	public void syncViewers() {
+		super.syncViewers();
+		publishPub();
+	}
+
+	/** Sends a block update when the public state changed (at most once per beat / action, never per tick). */
+	private void publishPub() {
+		if (!(level instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		CompoundTag pub = pubTag();
+		if (pub.equals(lastPubTag)) {
+			return;
+		}
+		lastPubTag = pub;
+		BlockState st = getBlockState();
+		serverLevel.sendBlockUpdated(worldPosition, st, st, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		CompoundTag t = super.getUpdateTag(registries);
+		t.put(PUB_KEY, pubTag());
+		return t;
+	}
+
+	@Override
+	public net.minecraft.network.protocol.@org.jspecify.annotations.Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+		return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
 	}
 
 	/** For GameTests: the viewer's participation, if any. */

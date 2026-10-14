@@ -2,6 +2,7 @@
 //   L 37 × 49 — the viewer's hands, the board, the dealer, baccarat hands (standard pip layouts, double-headed courts)
 //   M 21 × 29 — other seats (index + one big pip / court emblem)
 //   S 13 × 17 — compact mode, side pots, the discard tray top card
+//   XL 49 × 65 — table UI v2 at T3 (640 × 360 GUI): the viewer's hands, the dealer, baccarat hands (drawn natively)
 // No words in any texture: the rank index is runtime text in the `burmaldaholic:core/card_index` font (drawn
 // from `gui.burmaldaholic.card.rank.*`, RU Т/К/Д/В); faces reserve its corner. The world atlas (BER) uses
 // language-neutral indices: digits 2–10, court emblems, a big pip for the ace.
@@ -10,7 +11,7 @@ import { PAPER, SUITS_2C, SUITS_4C, SUIT_ORDER } from './theme.mjs';
 import { flipV, pip } from './suits.mjs';
 
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-export const SIZES = { l: [37, 49], m: [21, 29], s: [13, 17], w: [16, 22] };
+export const SIZES = { xl: [49, 65], l: [37, 49], m: [21, 29], s: [13, 17], w: [16, 22] };
 
 // ---- index font (runtime text; white glyphs, tinted by the draw colour) ----------------------------------------
 export const INDEX_GLYPHS = {
@@ -244,6 +245,43 @@ export function faceS(rank, suit, colours) {
   return img;
 }
 
+// ---- XL (table UI v2, T3): the L layouts re-drawn at 49 × 65 with 9 px pips (never an upscale) ----------------
+const COL_XL = { l: 11, m: 20, r: 29 };
+const rowXL = (y) => 7 + Math.round(((y - 5) * 42) / 32);
+
+/** Ace XL: one large pip (23 px) inside a gold flourish ring. */
+function acePipXL(suit, sc) {
+  const img = image(33, 33);
+  for (let a = 0; a < 40; a++) {
+    const t = (a / 40) * Math.PI * 2;
+    const x = Math.round(16 + Math.cos(t) * 15.5);
+    const y = Math.round(16 + Math.sin(t) * 15.5);
+    P(img, x, y, a % 2 ? '#FFD640' : '#B07010');
+  }
+  over(img, pip(suit, 23, sc), 5, 5);
+  return img;
+}
+
+export function faceXL(rank, suit, colours) {
+  const sc = colours[suit];
+  const [w, h] = SIZES.xl;
+  const img = cardBody(w, h);
+  const s = pip(suit, 7, sc, { flat: true });
+  over(img, s, 3, 12);
+  over(img, flipV(s), w - 10, h - 19);
+  if (rank === 'A') over(img, acePipXL(suit, sc), 8, 16);
+  else if (LAYOUT[rank]) {
+    const p = pip(suit, 9, sc);
+    const pf = flipV(p);
+    for (const [c, y, f] of LAYOUT[rank]) over(img, f ? pf : p, COL_XL[c], rowXL(y));
+  } else {
+    box(img, 12, 11, 25, 43, '#B07010');
+    box(img, 13, 12, 23, 41, '#FFD640', 0.6);
+    over(img, courtPanel(rank, suit, sc), 14, 13);
+  }
+  return img;
+}
+
 /** World (BER) face 16 × 22 with language-neutral indices. */
 export function faceW(rank, suit, colours) {
   const sc = colours[suit];
@@ -264,7 +302,7 @@ export function faceW(rank, suit, colours) {
 export function faceAtlas(size, fourColour = true) {
   const colours = fourColour ? SUITS_4C : SUITS_2C;
   const [w, h] = SIZES[size];
-  const draw = { l: faceL, m: faceM, s: faceS, w: faceW }[size];
+  const draw = { xl: faceXL, l: faceL, m: faceM, s: faceS, w: faceW }[size];
   const img = image(w * 13, h * 4);
   SUIT_ORDER.forEach((suit, r) => RANKS.forEach((rank, c) => over(img, draw(rank, suit, colours), c * w, r * h)));
   return img;
@@ -322,11 +360,11 @@ export function back(design, size) {
   const d = BACKS[design];
   const [w, h] = SIZES[size];
   const img = cardBody(w, h);
-  const m = size === 'l' ? 3 : 2;
+  const m = size === 'l' || size === 'xl' ? 3 : 2;
   R(img, m, m, w - 2 * m, h - 2 * m, d.base);
   backPattern(img, m + 1, m + 1, w - 2 * m - 2, h - 2 * m - 2, d);
   box(img, m, m, w - 2 * m, h - 2 * m, '#FFD640');
-  if (size === 'l' || size === 'm' || size === 'w') {
+  if (size === 'xl' || size === 'l' || size === 'm' || size === 'w') {
     const e = fromRows(EMBLEM_BACK[d.emblem], {
       i: PAPER.ink, g: '#FFD640', G: '#B07010', Y: '#FFF4B0', P: '#F0A0A0', k: '#8C3A4A', E: '#1E8A7A', e: '#7AE8C8', K: '#0A2A24',
     });
@@ -351,6 +389,14 @@ export function backAtlas() {
   });
   return img;
 }
+/** XL backs: one column, one row per design (49 × 65 each). */
+export function backAtlasXL() {
+  const [w, h] = SIZES.xl;
+  const img = image(w, h * BACK_ORDER.length);
+  BACK_ORDER.forEach((d, r) => over(img, back(d, 'xl'), 0, r * h));
+  return img;
+}
+
 export const BACK_COLUMNS = { l: 0, m: SIZES.l[0], s: SIZES.l[0] + SIZES.m[0], w: SIZES.l[0] + SIZES.m[0] + SIZES.s[0] };
 
 /** World atlas 256² for the BER: 13 × 4 faces (16 × 22) at the top, then the 6 backs, a blank face, a card edge. */

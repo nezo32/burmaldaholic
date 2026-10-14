@@ -858,6 +858,55 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.cards.level.normal.tooltip` | Normal bot (2 pips) | Обычный бот (2 точки) |
 | `gui.burmaldaholic.cards.level.hard.tooltip` | Hard bot (3 pips) | Сильный бот (3 точки) |
 
+### Table UI v2 (lane A, `docs/architecture/ui-v2.md`; screen, stamps, in-world board)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.blackjack.v2.insurance` | Insurance | Страховка |
+| `gui.burmaldaholic.blackjack.v2.your_bet` | Your bet | Ваша ставка |
+| `gui.burmaldaholic.blackjack.v2.note.dealer` | Dealer | Дилер |
+| `gui.burmaldaholic.blackjack.v2.note.s17` | stands on 17 | стоит на 17 |
+| `gui.burmaldaholic.blackjack.v2.note.h17` | hits soft 17 | берёт на мягких 17 |
+| `gui.burmaldaholic.blackjack.v2.reason.deal_in` | Deal in %1$s s | Раздача через %1$s с |
+| `gui.burmaldaholic.blackjack.v2.reason.others_betting` | Waiting for the other bets | Ждём остальные ставки |
+| `gui.burmaldaholic.blackjack.v2.reason.not_now` | Not possible now | Сейчас нельзя |
+| `gui.burmaldaholic.blackjack.v2.reason.cannot_double` | Double on the first two cards only | Удвоить можно только на двух первых картах |
+| `gui.burmaldaholic.blackjack.v2.reason.cannot_split` | Split needs a pair | Разделить можно только пару |
+| `gui.burmaldaholic.blackjack.v2.reason.no_last_bet` | No last bet yet | Прошлой ставки пока нет |
+| `gui.burmaldaholic.blackjack.v2.reason.already_rebet` | That is your last bet already | Это уже прошлая ставка |
+| `gui.burmaldaholic.blackjack.v2.reason.bet_placed` | Your bet of %1$s is in | Ставка %1$s принята |
+| `gui.burmaldaholic.blackjack.v2.status.rules` | Blackjack pays 3 to 2 | Блэкджек платит 3 к 2 |
+| `gui.burmaldaholic.blackjack.v2.status.bet_placed` | Your bet: %1$s | Ваша ставка: %1$s |
+| `gui.burmaldaholic.blackjack.v2.status.insurance` | Dealer shows an ace — insure for %1$s? | У дилера туз — страховка на %1$s? |
+| `gui.burmaldaholic.blackjack.v2.status.even_money` | Blackjack vs an ace — take 1:1 now? | Блэкджек против туза — забрать 1:1 сразу? |
+| `gui.burmaldaholic.blackjack.v2.status.insurance_others` | Insurance is offered | Предлагается страховка |
+| `gui.burmaldaholic.blackjack.v2.status.your_turn` | Your turn | Ваш ход |
+| `gui.burmaldaholic.blackjack.v2.status.hand` | Bet %1$s · hand %2$s of %3$s | Ставка %1$s · рука %2$s из %3$s |
+| `gui.burmaldaholic.blackjack.v2.status.seconds_left` | %1$s s left | Осталось %1$s с |
+| `gui.burmaldaholic.blackjack.v2.status.deal_in` | Deal in %1$s s | Раздача через %1$s с |
+| `gui.burmaldaholic.blackjack.v2.status.dealer_plays` | The dealer plays | Ход дилера |
+| `gui.burmaldaholic.blackjack.v2.total_soft` | %1$s/%2$s | %1$s/%2$s |
+| `gui.burmaldaholic.blackjack.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
+| `gui.burmaldaholic.blackjack.v2.stamp.bj` | BJ | БД |
+| `gui.burmaldaholic.blackjack.v2.stamp.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.stamp.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.blackjack.v2.stamp.bust` | BUST | ПЕРЕБОР |
+| `gui.burmaldaholic.blackjack.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.stamp.surrender` | SURRENDER | СДАЧА |
+| `gui.burmaldaholic.blackjack.v2.stamp.even_money` | 1:1 | 1:1 |
+| `gui.burmaldaholic.blackjack.v2.banner.win` | YOU WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.banner.lose` | YOU LOSE | ПРОИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.banner.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.blackjack.v2.board.dealer` | Dealer %1$s | Дилер %1$s |
+| `gui.burmaldaholic.blackjack.v2.board.turn` | %1$s · %2$s s | %1$s · %2$s с |
+| `gui.burmaldaholic.blackjack.v2.board.betting` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.blackjack.v2.board.betting_in` | Bets close in %1$s s | Ставки до конца: %1$s с |
+| `gui.burmaldaholic.blackjack.v2.board.dealer_draws` | The dealer draws | Дилер берёт карту |
+| `gui.burmaldaholic.blackjack.v2.board.result` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.blackjack.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.blackjack.v2.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.blackjack.v2.minus` | −%1$s | −%1$s |
+
 ---
 
 ## poker
@@ -1660,6 +1709,49 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.stamp.natural` | NATURAL %1$s | НАТУРАЛЬНАЯ %1$s |
 | `gui.burmaldaholic.baccarat.you_win` | You win %1$s | Ваш выигрыш: %1$s |
 | `gui.burmaldaholic.baccarat.next_coup` | Next coup in %1$s | Следующая раздача через %1$s |
+
+### Table UI v2 (lane A, `docs/architecture/ui-v2.md`; screen, stamps, in-world board)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.baccarat.v2.rebet` | Rebet | Повторить |
+| `gui.burmaldaholic.baccarat.v2.take_bank` | Take the bank | Взять банк |
+| `gui.burmaldaholic.baccarat.v2.take_bank_n` | Take bank %1$s | Взять банк %1$s |
+| `gui.burmaldaholic.baccarat.v2.keep_bank` | Keep the bank | Оставить банк |
+| `gui.burmaldaholic.baccarat.v2.punt` | Bet | Ставка |
+| `gui.burmaldaholic.baccarat.v2.punt_n` | Bet %1$s | Ставка %1$s |
+| `gui.burmaldaholic.baccarat.v2.pass` | Pass | Пас |
+| `gui.burmaldaholic.baccarat.v2.banco` | Banco %1$s | Банко %1$s |
+| `gui.burmaldaholic.baccarat.v2.reason.ready_waiting` | Ready — waiting for the others | Готово — ждём остальных |
+| `gui.burmaldaholic.baccarat.v2.reason.next_coup_in` | Next coup in %1$s s | Следующая раздача через %1$s с |
+| `gui.burmaldaholic.baccarat.v2.reason.shuffling` | Shuffling the shoe | Перемешиваем шуз |
+| `gui.burmaldaholic.baccarat.v2.reason.bank_offered` | The bank is offered to %1$s | Банк предлагают: %1$s |
+| `gui.burmaldaholic.baccarat.v2.reason.you_bank` | You hold the bank | Банк у вас |
+| `gui.burmaldaholic.baccarat.v2.reason.banco_called` | Banco was called | Объявлено «Банко» |
+| `gui.burmaldaholic.baccarat.v2.reason.bank_covers` | The bank covers %1$s | Банк покрывает %1$s |
+| `gui.burmaldaholic.baccarat.v2.reason.waiting_players` | Waiting for more people at the table | Ждём, пока за стол сядут ещё |
+| `gui.burmaldaholic.baccarat.v2.reason.chemmy_boxes` | Chemin de fer: bets go on Player | Шмен-де-фер: ставки только на Игрока |
+| `gui.burmaldaholic.baccarat.v2.reason.no_pairs` | Pair bets are off at this table | Ставки на пары здесь отключены |
+| `gui.burmaldaholic.baccarat.v2.reason.no_last_bet` | No last bets yet | Прошлых ставок пока нет |
+| `gui.burmaldaholic.baccarat.v2.status.seconds_left` | %1$s s left | Осталось %1$s с |
+| `gui.burmaldaholic.baccarat.v2.status.bank_yours` | The bank is offered to you | Вам предлагают банк |
+| `gui.burmaldaholic.baccarat.v2.status.you_bank` | You hold the bank — the punters bet | Банк у вас — понтёры ставят |
+| `gui.burmaldaholic.baccarat.v2.status.punt` | The bank covers %1$s | Банк покрывает %1$s |
+| `gui.burmaldaholic.baccarat.v2.pays.odds` | %1$s : 1 | %1$s : 1 |
+| `gui.burmaldaholic.baccarat.v2.pays.banker` | 1 : 1 −%1$s%% | 1 : 1 −%1$s %% |
+| `gui.burmaldaholic.baccarat.v2.pays.bank` | Bank %1$s | Банк %1$s |
+| `gui.burmaldaholic.baccarat.v2.stamp.wins` | WINS | ВЫИГРЫШ |
+| `gui.burmaldaholic.baccarat.v2.stamp.tie` | TIE | НИЧЬЯ |
+| `gui.burmaldaholic.baccarat.v2.stamp.natural` | NATURAL | НАТУРАЛЬНАЯ |
+| `gui.burmaldaholic.baccarat.v2.banner.player` | PLAYER WINS | ВЫИГРАЛ ИГРОК |
+| `gui.burmaldaholic.baccarat.v2.banner.banker` | BANKER WINS | ВЫИГРАЛ БАНКИР |
+| `gui.burmaldaholic.baccarat.v2.banner.tie` | TIE | НИЧЬЯ |
+| `gui.burmaldaholic.baccarat.v2.board.betting` | Place your bets · %1$s s | Делайте ставки · %1$s с |
+| `gui.burmaldaholic.baccarat.v2.board.no_more_bets` | No more bets | Ставок больше нет |
+| `gui.burmaldaholic.baccarat.v2.board.bank` | Bank %1$s | Банк %1$s |
+| `gui.burmaldaholic.baccarat.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.baccarat.v2.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.baccarat.v2.minus` | −%1$s | −%1$s |
 
 ---
 
