@@ -547,7 +547,7 @@ public final class V2Chrome {
 		if (viewport.framed()) { // outside the frame: the menu background dimmed (the blurred world shows through)
 			int x0 = -viewport.ox(), y0 = -viewport.oy(), x1 = viewport.w() - viewport.ox(), y1 = viewport.h() - viewport.oy();
 			int fw = viewport.frameW(), fh = viewport.frameH();
-			int dim = CasinoPalette.withAlpha(CasinoPalette.V2_INK, 0.72f);
+			int dim = CasinoPalette.withAlpha(CasinoPalette.V2_INK, 0.86f);
 			g.fill(x0, y0, x1, 0, dim);
 			g.fill(x0, fh, x1, y1, dim);
 			g.fill(x0, 0, 0, fh, dim);

@@ -67,8 +67,8 @@ Contents
 | # | Decision | Why |
 |---|---|---|
 | D1 | Pure layout lives in **`main`**: `dev.nezo.burmaldaholic.core.ui.v2` (+ `.board`). Widgets live in **`client`**: `dev.nezo.burmaldaholic.client.ui.v2`; in-world rendering in `dev.nezo.burmaldaholic.client.board`. REDESIGN's `client/table/v2/` path is replaced. | JUnit sees only `main` (animation.md A1); layout must be testable without MC. |
-| D2 | A screen works in a **virtual GUI** (`Viewport`): the player's GUI scale is kept for 320–539 px high GUIs, stepped **down** below 320 × 240 (today's `FitScaled`) and stepped **up** by `m = floor(H/270)` at ≥ 540. Always an integer framebuffer scale. One factor for drawing and the mouse. | 1080p@2 / 4K@4 got tiny tables; the canvas transform was a bug source (v0.1.1). |
-| D3 | **v2 screens fill the GUI**: `imageWidth = width`, `imageHeight = height`, `leftPos = topPos = 0`. Layout px = container px = GUI px (÷ factor). No centred canvas, no offset maths in game code. | Removes the whole class of "click lands 40 px off" bugs the hotfix is fixing one by one. |
+| D2 | A screen works in a **virtual GUI** (`Viewport`, `ViewportPolicy`; phase 2b §3.7): the player's GUI scale is kept for 240–720 px high GUIs, stepped **down** below 320 × 240 and stepped **up** above 720 px by the smallest whole `m` that brings it to ≤ 720; a centred **frame** caps the working area at 600 high and 16:9. Always an integer framebuffer scale. One factor (and one frame offset) for drawing and the mouse. | 1080p@2 used to be a 2× "zoomed in" 480 × 270; it is now a ROOMY 960 × 540 at the player's scale. |
+| D3 | **v2 screens fill the GUI** (their frame): `imageWidth = width`, `imageHeight = height`, `leftPos = topPos = 0`; width × height = the frame. Layout px = container px = GUI px (÷ factor, − frame offset). No centred canvas, no offset maths in game code (the frame offset lives in the entrance pose and the mouse mixin only). | Removes the whole class of "click lands 40 px off" bugs the hotfix is fixing one by one. |
 | D4 | **Tier = min(tier by height, tier by width)** (T2 needs ≥ 400 px wide, T3 ≥ 560). | 4:3 windows at T2 heights overflowed the Dock (prototype finding). |
 | D5 | **Composition over inheritance**: the kit's `V2Chrome` holds grid, dock, hit map, top bar, bet bar, toasts. Two thin bases host it: `V2TableScreen extends CasinoTableScreen` (menu tables) and `V2SceneScreen extends CasinoScreen` (Coin Flip, Scratch, Dice, PvP). | Two screen families exist today (`AbstractContainerScreen` vs `Screen`); the same kit must serve both. |
 | D6 | **`Gate` + per-game pure `Flow`** (`games/<g>/present/<G>Flow.java`) decide label / enabled / reason of the primary and action buttons from a small view record built from the state tag. Disabled ⇒ reason (enforced in the constructor). | "The main button always says why it's disabled"; exhaustively unit-testable per phase. |
@@ -167,6 +167,36 @@ Per-game pure layouts (owned by the game lanes, same package rules): `games/<g>/
 `BlackjackLayout.of(TableGrid, BlackjackView)` → seat columns, dealer fan, shoe, banner regions, HitMap targets.
 Roulette: `RouletteLayout` (wheel column, every bet-spot box, number glyph boxes as obstacles). Craps: `CrapsLayout`.
 Each returns a record of `Box`es and is audited in a unit test at every size of §11.1.
+
+### 3.7 Resolution policy (phase 2b, RS)
+`ViewportPolicy.of(fbW, fbH, guiScale)` → `Viewport(w, h, k, factor, ox, oy, frameW, frameH)`:
+1. **Scale**: the player's GUI scale is kept while the GUI is 240–720 px high (and ≥ 320 wide). Below 320 × 240 step
+   down; above 720 step up by the smallest whole `m` with `ceil(H / (gs·m)) ≤ 720` (never below 320 wide). Text is
+   always one layout px per font px; banner / stamp words keep their own 2× at T3+.
+2. **Frame** (`Frame.of(w, h)`): `frameH = min(h, 600)`, `frameW = min(w, ceil(frameH · 16 / 9))`, centred (offsets in
+   whole layout px; GUI offset = `ox · factor`, whole GUI px). 1280 × 720 → 1067 × 600; ultrawide 640 × 270 → 480 × 270.
+   The screen's `width × height` is the frame; `ScreenEntrance` translates the pose by the GUI offset before scaling;
+   `MouseHandlerFitMixin` returns `(gui − offset) / factor`. Outside the frame: the dimmed menu background and the
+   generated `core/v2/frame_edge` nine-slice (8-px shadow, rail and gold rims).
+3. **Room** (`grid.room()`): `ROOMY` when the frame is ≥ 800 × 450 (1080p@2, 1440p@2/3, 4K@2–4). Tier stays T1/T2/T3
+   (ROOMY is always T3). The kit at ROOMY keeps the action key plates; `SeatPlate.draw(..., name, line2, kind, bot)`
+   draws a two-line plate (name + stack / last action) when the box is ≥ 26 high. Games opt in for content (histories,
+   card sizes; X-RS); nothing is pose-scaled except through ArtScale (MK).
+4. Tests click with `Viewport.windowX/windowY` (frame-relative → window px); `toWindow` is scale only.
+
+| Window | Auto | GUI2 | GUI3 | GUI4 | GUI6 |
+|---|---|---|---|---|---|
+| 1280×720 | 427×240 k3 T1 | 640×360 k2 T3 | =Auto | clamp | clamp |
+| 1920×1080 | 480×270 k4 T2 | 960×540 k2 ROOMY | 640×360 k3 | =Auto | clamp |
+| 2560×1440 | 427×240 k6 T1 | 1280×720 k2 frame 1067×600 ROOMY | 854×480 k3 ROOMY | 640×360 k4 | =Auto |
+| 3840×2160 | 427×240 k9 T1 | 960×540 k4 ROOMY | 1280×720 k3 frame ROOMY | 960×540 k4 ROOMY | 640×360 k6 |
+
+`ViewportPolicyTest` holds this matrix plus odd windows (1366×768, 1280×1024, 854×480, 2560×1080, 3440×1440).
+
+**ROOMY adoption checklist per game (X-RS / motion packages)**: read `grid.room()` in the game's `<G>Layout`; at ROOMY give
+the extra space to content (seat plates with `line2`, longer histories: roulette 12→20, Plinko 6→12, craps 8→14;
+larger native card sprites via ArtScale); keep every box inside `grid.felt()`; add the 960×540 and 1067×600 frames to
+the game's layout test (EN/RU); never pose-scale a region to fill space.
 
 ---
 
