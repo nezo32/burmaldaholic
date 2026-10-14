@@ -526,7 +526,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	}
 
 	/** "17 RED", "0 ZERO": the banner word of a spin for a viewer without a bet. */
-	static Component numberWord(int n) {
+	public static Component numberWord(int n) {
 		return Component.translatable("gui.burmaldaholic.roulette.v2.result", Texts.number(n),
 			Component.translatable("gui.burmaldaholic.roulette.v2.board.color." + Wheel.color(n).id()));
 	}
