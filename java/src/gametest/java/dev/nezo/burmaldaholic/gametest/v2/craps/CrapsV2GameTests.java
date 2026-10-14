@@ -292,11 +292,12 @@ public class CrapsV2GameTests {
 	public void botBetsOnTheBoardOnTheirSeats(GameTestHelper helper) {
 		ServerPlayer p = player(helper, "cr2-bots", 1000);
 		CrapsTableBlockEntity t = open(helper, p);
-		t.bots().table().requestChange(p, new BotSettings(SeatPolicy.MIXED, 2, BotDifficulty.NORMAL, false, false, BotSpeed.FAST), false);
 		act(p, t, "sit", new CompoundTag());
 		helper.assertTrue(t.isSeated(p), "seated by the Sit packet: " + drain(p, t).errors());
+		t.bots().table().requestChange(p, new BotSettings(SeatPolicy.MIXED, 2, BotDifficulty.NORMAL, false, false, BotSpeed.FAST), false);
 		act(p, t, "bet", flat("pass", 20));
 		helper.assertTrue(bet(t, p, BetKind.PASS) != null, "Pass lands: " + drain(p, t).errors());
+		t.roll(3, 3); // point 6 (the Pass bet stays); the roll is the bots' safe point: they sit down
 		long[] betAt = {-1};
 		helper.onEachTick(() -> {
 			if (betAt[0] < 0 && !t.botBets().shadow().bets().isEmpty()) betAt[0] = helper.getLevel().getGameTime();
@@ -320,8 +321,11 @@ public class CrapsV2GameTests {
 			}
 			helper.assertTrue(botStacks > 0, "the bots' stacks are on the board: " + pub.stacks());
 			int mine = seatOf.get(p.getUUID());
-			helper.assertTrue(pub.stacks().stream().anyMatch(s -> s.seat() == mine && "pass".equals(s.kind()) && s.flat() == 20),
-				"the player's Pass 20 on the player's seat " + mine + ": " + pub.stacks());
+			// the player's bets as they are now (the auto roll may have resolved the Pass meanwhile) on the player's seat
+			for (Bet b : t.table().betsOf(p.getUUID())) {
+				helper.assertTrue(pub.stacks().stream().anyMatch(s -> s.seat() == mine && s.kind().equals(b.kind().id()) && s.flat() == b.flat()),
+					"the player's " + b.kind().id() + " " + b.flat() + " on the player's seat " + mine + ": " + pub.stacks());
+			}
 			for (Bet b : t.botBets().shadow().bets()) {
 				int seat = seatOf.getOrDefault(b.owner(), -2);
 				helper.assertTrue(pub.stacks().stream().anyMatch(s -> s.seat() == seat && s.kind().equals(b.kind().id()) && s.flat() == b.flat()),

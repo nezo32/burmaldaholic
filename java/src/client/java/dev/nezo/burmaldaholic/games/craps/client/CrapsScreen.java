@@ -745,6 +745,11 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		g.text(font, dev.nezo.burmaldaholic.client.ui.CasinoUi.fit(font, limitsLine(), b.w() - 16), b.x() + 8, y, CasinoPalette.V2_GOLD, true);
 	}
 
+	/** The throw is still being shown: the felt and Undo are closed (tests). */
+	public boolean throwShown() {
+		return rolling();
+	}
+
 	/** The current layout (tests). */
 	public CrapsLayout layout() {
 		return layout;
