@@ -36,10 +36,7 @@ class PieceChecksTest {
 		})).toList();
 	}
 
-	/** Blocks players would strip a casino for (resource farming). Copper / iron decor (chains, bars) is fine. */
-	private static final List<String> VALUABLE = List.of("gold_block", "iron_block", "diamond", "emerald", "netherite",
-		"raw_gold", "raw_iron", "lapis_block", "redstone_block", "ancient_debris", "beacon", "weighted_pressure_plate");
-
+	/** {@link Checks#FORBIDDEN} storage blocks (also part of {@link Checks#run}; kept separate for a clear report). */
 	@TestFactory
 	List<DynamicTest> noValuableBlocks() {
 		return allPieces().stream().filter(p -> !Checks.PENDING_VALUABLES.contains(p.id())).map(p -> DynamicTest.dynamicTest(p.id(), () -> {
@@ -49,11 +46,7 @@ class PieceChecksTest {
 				for (int y = 0; y < s.y(); y++) {
 					for (int z = 0; z < s.z(); z++) {
 						var b = g.get(x, y, z);
-						if (b != null && b.name().startsWith("minecraft:")) {
-							for (String v : VALUABLE) {
-								assertFalse(b.name().contains(v), p.id() + " holds " + b + " at " + x + "," + y + "," + z);
-							}
-						}
+						assertFalse(Checks.forbidden(b), p.id() + " holds " + b + " at " + x + "," + y + "," + z);
 					}
 				}
 			}

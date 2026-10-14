@@ -74,7 +74,7 @@ public final class Shapes {
 	/**
 	 * Top of the block's COLLISION shape in blocks above its own bottom (vanilla values; 0 = no collision). Unknown
 	 * blocks count as a full cube (1), structure void ({@code null}: whatever the world has there) as 1, fences, walls
-	 * and fence gates 1.5. Used by {@link TableClearance} (the felt overhang rule).
+	 * and fence gates 1.5.
 	 */
 	public static double collisionTop(BlockSpec b) {
 		if (b == null) {

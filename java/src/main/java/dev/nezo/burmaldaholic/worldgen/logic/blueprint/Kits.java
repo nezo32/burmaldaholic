@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.worldgen.logic.blueprint;
 
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
@@ -25,7 +26,7 @@ import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
 public final class Kits {
 	private Kits() {}
 
-	/** Air kept above a table for the in-world board renderer: 3 × 3 cells wide, 3 rows tall. */
+	/** Air kept above a table's footprint and walkway for the in-world board: rows y + 1..y + 3. */
 	public static final int BOARD_CLEARANCE = 3;
 
 	// ---- local frame helpers ---------------------------------------------------------------------------
@@ -91,32 +92,65 @@ public final class Kits {
 	// ---- tables and machines ---------------------------------------------------------------------------
 
 	/**
-	 * Table pod — footprint r −2..2 × f −1..+1 around the table at the anchor: player row of CARPET_ACCENT at
-	 * f +1 (r −1..1, walkable), stools at r ±2 f +1, dealer behind the table at f −1 (an NPC of role
-	 * {@code dealer}, or a dealer station — a lectern, below the felt — when {@code dealer} is null), keep-clear
-	 * volume for the in-world board above. The cells at r ±1 stay free: the board's felt overhangs them
-	 * ({@link TableClearance}), so nothing taller than the felt may stand there.
+	 * Table pod (MT-DESIGN §6) — the full 3 × 2 table with its main block at the anchor (footprint r −1..1 × f −1..0),
+	 * the players' walkway of CARPET_ACCENT at f +1 (r −1..1), stools at r ±2 f +1, the dealer at the table's dealer
+	 * cell ({@code TableFootprint.dealerCell}: f −2, r 0 or r −1 for roulette) — an NPC of role {@code dealer}, or a
+	 * dealer station (a lectern) when {@code dealer} is null — and a keep-clear volume over footprint ∪ walkway for
+	 * y + 1..y + 3 (the in-world board). Footprint r −2..2 × f −2..+1; {@link TableClearance} checks it.
 	 */
 	public static Kit tablePod(Game game, NpcRole dealer) {
 		return (b, x, y, z, front) -> {
+			if (b.compactTables()) {
+				legacyPod(b, game, dealer, x, y, z, front);
+				return;
+			}
 			b.game(game, x, y, z, front);
 			Material stool = b.palette().get(Role.STOOL);
 			for (int r = -1; r <= 1; r++) {
 				put(b, x, y, z, front, r, 1, Role.CARPET_ACCENT);
+				put(b, x, y + 1, z, front, r, 1, Blueprint.AIR);
 			}
 			for (int r : new int[] {-2, 2}) {
 				put(b, x, y, z, front, r, 1, stool.slab("bottom"));
 			}
-			int dx = lx(x, front, 0, -1), dz = lz(z, front, 0, -1);
+			TableGame tg = game.tableGame();
+			int dr = tg == null ? 0 : tg.dealerR(), df = tg == null ? -1 : tg.dealerF();
+			int dx = lx(x, front, dr, df), dz = lz(z, front, dr, df);
+			b.set(dx, y + 1, dz, Blueprint.AIR);
 			if (dealer != null) {
 				b.set(dx, y, dz, Blueprint.AIR);
 				b.npc(dealer, dx, y, dz, front);
 			} else {
 				b.set(dx, y, dz, BlockSpec.mc("lectern", "facing", front.id(), "has_book", "false", "powered", "false"));
 			}
-			b.keepClear(x - 1, y + 1, z - 1, x + 1, y + BOARD_CLEARANCE, z + 1);
-			b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
+			int f0 = tg == null ? 0 : -1;
+			b.keepClear(lx(x, front, -1, f0), y + 1, lz(z, front, -1, f0), lx(x, front, 1, 1), y + BOARD_CLEARANCE, lz(z, front, 1, 1));
+			b.keepClear(lx(x, front, -1, 1), y, lz(z, front, -1, 1), lx(x, front, 1, 1), y + 1, lz(z, front, 1, 1));
 		};
+	}
+
+	/**
+	 * The pre-multi-block pod of legacy pieces ({@link Blueprint#compactTables()}): compact table at the anchor, player
+	 * row of CARPET_ACCENT at f +1, stools at r ±2 f +1, dealer (NPC or lectern) at f −1, 3 × 3 × 3 keep-clear above.
+	 */
+	private static void legacyPod(Blueprint b, Game game, NpcRole dealer, int x, int y, int z, Facing front) {
+		b.game(game, x, y, z, front);
+		Material stool = b.palette().get(Role.STOOL);
+		for (int r = -1; r <= 1; r++) {
+			put(b, x, y, z, front, r, 1, Role.CARPET_ACCENT);
+		}
+		for (int r : new int[] {-2, 2}) {
+			put(b, x, y, z, front, r, 1, stool.slab("bottom"));
+		}
+		int dx = lx(x, front, 0, -1), dz = lz(z, front, 0, -1);
+		if (dealer != null) {
+			b.set(dx, y, dz, Blueprint.AIR);
+			b.npc(dealer, dx, y, dz, front);
+		} else {
+			b.set(dx, y, dz, BlockSpec.mc("lectern", "facing", front.id(), "has_book", "false", "powered", "false"));
+		}
+		b.keepClear(x - 1, y + 1, z - 1, x + 1, y + BOARD_CLEARANCE, z + 1);
+		b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
 	}
 
 	/**

@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.worldgen.logic.blueprint;
 
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoLoot;
@@ -59,11 +61,28 @@ public final class Blueprint {
 
 	/** {@code id} is the layout id, e.g. {@code casino/tudor/entrance} → template {@code burmaldaholic:worldgen/casino/tudor/entrance}. */
 	public static Blueprint of(String id, CasinoKind kind, int sx, int sy, int sz, Palette palette) {
-		return new Blueprint(id, kind, sx, sy, sz, palette);
+		return new Blueprint(id, kind, sx, sy, sz, palette).compactTables(Checks.PENDING_CLEARANCE.contains(id));
 	}
 
 	public String id() {
 		return id;
+	}
+
+	private boolean compactTables;
+
+	/**
+	 * Legacy pieces ({@link Checks#PENDING_CLEARANCE}, built before multi-block tables) place compact 1 × 1 tables
+	 * (no {@code part} property → the block's default SINGLE state) and the legacy table pod, so their layouts stay
+	 * byte-identical until the casino redesign replaces them. Every other piece gets full 3 × 2 tables.
+	 */
+	public boolean compactTables() {
+		return compactTables;
+	}
+
+	/** Overrides the {@link #compactTables()} default (tests). */
+	public Blueprint compactTables(boolean compact) {
+		this.compactTables = compact;
+		return this;
 	}
 
 	public Palette palette() {
@@ -462,10 +481,19 @@ public final class Blueprint {
 	 * A game block standing on the floor row {@code y}; {@code playerSide} is where players stand and is
 	 * written as the block's {@code facing} (CasinoTableBlock faces the placer). Game blocks need no
 	 * block-entity NBT: the block entity is created fresh on placement and resolves its preset from the
-	 * casino record (WorldgenPresets).
+	 * casino record (WorldgenPresets). Tables ({@link Game#tableGame()} non-null) stamp their whole 3 × 2 footprint
+	 * ({@code TableFootprint.cells}) with {@code part} + {@code facing}; the anchor is the MAIN (front-centre) cell.
 	 */
 	public Blueprint game(Game g, int x, int y, int z, Facing playerSide) {
-		set(x, y, z, BlockSpec.of(g.blockId(), "facing", playerSide.id()));
+		TableGame tg = g.tableGame();
+		if (tg == null || compactTables) {
+			set(x, y, z, BlockSpec.of(g.blockId(), "facing", playerSide.id()));
+		} else {
+			// a full multi-block table (MT-DESIGN §6): every footprint cell with its part; the spot keeps the main pos
+			for (TableFootprint.Cell c : TableFootprint.cells(tg, playerSide.dx(), playerSide.dz())) {
+				set(x + c.dx(), y, z + c.dz(), BlockSpec.of(g.blockId(), "facing", playerSide.id(), "part", c.part().getSerializedName()));
+			}
+		}
 		games.add(new Piece.GameSpot(g, new Vec(x, y, z), playerSide));
 		return this;
 	}
