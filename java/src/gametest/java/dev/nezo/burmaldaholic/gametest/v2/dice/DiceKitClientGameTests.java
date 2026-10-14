@@ -3,6 +3,13 @@ package dev.nezo.burmaldaholic.gametest.v2.dice;
 import dev.nezo.burmaldaholic.client.table.fx.dice.DieAtlas;
 import dev.nezo.burmaldaholic.core.anim.dice.DieAtlasTable;
 import dev.nezo.burmaldaholic.core.anim.dice.DieSample;
+import com.mojang.blaze3d.vertex.PoseStack;
+import dev.nezo.burmaldaholic.client.table.fx.WorldQuads;
+import dev.nezo.burmaldaholic.client.table.fx.dice.DiceWorldDraw;
+import dev.nezo.burmaldaholic.core.anim.dice.DiceRoll;
+import dev.nezo.burmaldaholic.core.anim.dice.DiceSolver;
+import dev.nezo.burmaldaholic.core.anim.dice.DiceTray;
+import dev.nezo.burmaldaholic.core.anim.dice.ThrowSpec;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -12,6 +19,9 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Phase 2b client GameTests of lane DK (DCa; PHASE2B §4): the dice kit drawn on a real client at GUI 427×240,
@@ -64,6 +74,8 @@ public class DiceKitClientGameTests implements FabricClientGameTest {
 				System.out.println("[DK] " + at + " shot " + shot);
 				probe(img, gui[2], probes, restFrames, at, errors);
 			}
+			context.runOnClient(mc -> mc.gui.setScreen(null));
+			world(context);
 		} finally {
 			context.runOnClient(mc -> {
 				mc.options.guiScale().set(0);
@@ -72,6 +84,65 @@ public class DiceKitClientGameTests implements FabricClientGameTest {
 			});
 		}
 		if (!errors.isEmpty()) throw new AssertionError("dice kit probes:\n" + String.join("\n", errors));
+	}
+
+	private static volatile boolean showWorldDice;
+	private static boolean registered;
+	private static final Vec3 ORIGIN = new Vec3(0.5, 119.0, 3.0);
+
+	/**
+	 * In-world dice ({@link DiceWorldDraw}) on a green-wool table in a fresh world: two dice of a solved roll at rest and
+	 * one in the air, drawn through a level render hook; shot {@code p2b_dca_dice_world_en_960}.
+	 */
+	private static void world(ClientGameTestContext context) {
+		DiceRoll roll = DiceSolver.solve(DiceTray.duelLane(DiceTray.Side.LEFT), ThrowSpec.cup(DiceTray.Side.LEFT), 11, new int[] {5, 2}, 1200);
+		double airMs = 0;
+		DieSample s = new DieSample();
+		for (double t = 0; t < 600; t++) {
+			roll.sample(0, t, s);
+			if (s.phase == DieSample.AIR && s.zLow > 2.5) {
+				airMs = t;
+				break;
+			}
+		}
+		double air = airMs;
+		if (!registered) {
+			registered = true;
+			LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
+				if (!showWorldDice) return;
+				Vec3 cam = ctx.levelState().cameraRenderState.pos;
+				PoseStack pose = ctx.poseStack();
+				DieSample x = new DieSample();
+				float b = (float) DiceTray.WORLD_BLOCKS_PER_U;
+				int light = WorldQuads.FULL_BRIGHT;
+				for (int i = 0; i < 3; i++) {
+					int die = i == 2 ? 0 : i;
+					roll.sample(die, i == 2 ? air : roll.restMs() + 400, x);
+					pose.pushPose();
+					// each die centred on its own spot of the table: rest dice side by side, the airborne one in front
+					double ox = ORIGIN.x + (i - 1) * 0.45 - x.x * b;
+					double oz = ORIGIN.z + (i == 2 ? -0.5 : 0) - x.y * b;
+					pose.translate(ox - cam.x, ORIGIN.y - cam.y, oz - cam.z);
+					DiceWorldDraw.shadow(pose, ctx.submitNodeCollector(), x, b, 0, light);
+					DiceWorldDraw.die(pose, ctx.submitNodeCollector(), x, b, 0, light);
+					pose.popPose();
+				}
+			});
+		}
+		context.getInput().resizeWindow(1920, 1080);
+		try (TestSingleplayerContext w = context.worldBuilder().create()) {
+			w.getServer().runCommand("gamerule doDaylightCycle false");
+			w.getServer().runCommand("time set noon");
+			w.getServer().runCommand("weather clear");
+			w.getServer().runCommand("fill -4 116 -1 4 118 7 minecraft:green_wool");
+			w.getServer().runCommand("fill -4 119 -2 4 125 7 minecraft:air");
+			w.getServer().runCommand("tp @a 0.5 119 1.2 0 38");
+			context.waitTicks(80); // chunks around the table render
+			showWorldDice = true;
+			context.waitTicks(3);
+			context.takeScreenshot("p2b_dca_dice_world_en_960");
+			showWorldDice = false;
+		}
 	}
 
 	private static int lum(int rgb) {
