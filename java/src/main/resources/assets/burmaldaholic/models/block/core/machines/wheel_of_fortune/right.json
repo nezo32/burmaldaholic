@@ -1,0 +1,154 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "burmaldaholic:block/extras/wheel_of_fortune_side",
+    "side": "burmaldaholic:block/extras/wheel_of_fortune_side",
+    "front": "burmaldaholic:block/extras/wheel_of_fortune_front",
+    "top": "burmaldaholic:block/extras/wheel_of_fortune_top",
+    "wood": "burmaldaholic:block/core/tables/standard/wood",
+    "trim": "burmaldaholic:block/core/tables/standard/trim",
+    "rail": "burmaldaholic:block/core/tables/standard/rail",
+    "felt": "burmaldaholic:block/core/tables/standard/felt",
+    "bars": "minecraft:block/iron_bars",
+    "glass": "minecraft:block/glass"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        2
+      ],
+      "to": [
+        16,
+        3,
+        12
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            2,
+            16,
+            12
+          ],
+          "texture": "#rail"
+        },
+        "down": {
+          "uv": [
+            2,
+            2,
+            16,
+            12
+          ],
+          "texture": "#rail",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            0,
+            13,
+            14,
+            16
+          ],
+          "texture": "#rail"
+        },
+        "south": {
+          "uv": [
+            2,
+            13,
+            16,
+            16
+          ],
+          "texture": "#rail"
+        },
+        "west": {
+          "uv": [
+            2,
+            13,
+            12,
+            16
+          ],
+          "texture": "#rail"
+        },
+        "east": {
+          "uv": [
+            4,
+            13,
+            14,
+            16
+          ],
+          "texture": "#rail"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        3,
+        2
+      ],
+      "to": [
+        16,
+        4,
+        12
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            2,
+            16,
+            12
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            2,
+            2,
+            16,
+            12
+          ],
+          "texture": "#trim"
+        },
+        "north": {
+          "uv": [
+            0,
+            12,
+            14,
+            13
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            2,
+            12,
+            16,
+            13
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            2,
+            12,
+            12,
+            13
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            4,
+            12,
+            14,
+            13
+          ],
+          "texture": "#trim"
+        }
+      }
+    }
+  ]
+}

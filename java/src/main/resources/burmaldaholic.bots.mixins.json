@@ -6,7 +6,9 @@
 		"DisplayAccessor",
 		"TextDisplayAccessor"
 	],
-	"client": [],
+	"client": [
+		"client.TextDisplayRendererMixin"
+	],
 	"server": [],
 	"injectors": {
 		"defaultRequire": 1

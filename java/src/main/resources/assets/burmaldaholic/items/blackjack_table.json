@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "burmaldaholic:block/blackjack/table"
+    "model": "burmaldaholic:block/tables/blackjack_table/item"
   }
 }

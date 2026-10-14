@@ -39,6 +39,6 @@ public class CasinoTableMenu extends AbstractContainerMenu {
 	public boolean stillValid(Player player) {
 		double max = CasinoConfig.multiplayer().tableLeaveDistance;
 		return player.level().getBlockState(pos).is(tableType.block())
-			&& player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= max * max;
+			&& dev.nezo.burmaldaholic.core.table.parts.TableParts.inRange(player.position(), player.level(), pos, max);
 	}
 }

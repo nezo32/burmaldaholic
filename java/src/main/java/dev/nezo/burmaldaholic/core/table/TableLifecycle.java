@@ -50,8 +50,16 @@ public final class TableLifecycle {
 				onChunkUnloading(chunk);
 			}
 		});
+		// MT / CB-G: house protection decides for the whole table, whichever part is hit
+		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) ->
+			!(level instanceof net.minecraft.server.level.ServerLevel sl) || !(state.getBlock() instanceof CasinoTableBlock)
+				|| dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().breakAllowed(sl,
+					dev.nezo.burmaldaholic.core.table.parts.TableParts.mainPos(pos, state), player));
 		ServerLifecycleEvents.SERVER_STOPPING.register(TableLifecycle::onServerStopping);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> LOADED.clear());
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			LOADED.clear();
+			dev.nezo.burmaldaholic.core.table.parts.TableParts.clearSession();
+		});
 	}
 
 	/** Whether core knows the table as loaded (it will be played out on server stop). */

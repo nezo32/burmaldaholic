@@ -16,7 +16,7 @@ import org.joml.Vector3f;
  */
 final class HoloText {
 	/** Ink backing, 90 % (high contrast against sky, felt and wood). */
-	static final int BACKING = 0xE6180A28;
+	static final int BACKING = dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.PANEL;
 	/** Text px padding around the content; line pitch at scale 1. */
 	static final int PAD_X = 4, PAD_Y = 3, PITCH = 10;
 	/** Card fan inside a panel: card size and step in text px. */
@@ -32,11 +32,14 @@ final class HoloText {
 		final int[] cards = new int[BoardModel.MAX_FAN];
 		int cardCount;
 		int back = BoardTextures.BACK_CRIMSON;
+		/** Fade of the whole panel (1 = opaque; a plate fading out under a neighbour's, {@link PlateFrame}). */
+		float alpha = 1f;
 
 		void clear() {
 			count = 0;
 			cardCount = 0;
 			border = 0;
+			alpha = 1f;
 		}
 
 		void add(FormattedCharSequence seq, int width, int color, float scale) {
@@ -82,14 +85,17 @@ final class HoloText {
 		pose.rotateAround(rot, 0f, 0f, 0f);
 		pose.scale(px, -px, px);
 		float x0 = -w / 2f, x1 = w / 2f, y0 = -h, y1 = 0;
-		int border = s.border;
+		float alpha = Math.max(0, Math.min(1, s.alpha));
+		int border = fade(s.border, alpha);
+		int backing = fade(BACKING, alpha);
 		out.submitCustomGeometry(pose, RenderTypes.entityTranslucent(BoardTextures.BACKING), (p, vc) -> {
 			if (border != 0) quad(p, vc, x0 - 1, y0 - 1, x1 + 1, y1 + 1, -0.7f, border);
-			quad(p, vc, x0, y0, x1, y1, -0.6f, BACKING);
+			quad(p, vc, x0, y0, x1, y1, -0.6f, backing);
 		});
 		int quads = border != 0 ? 2 : 1;
 		float y = y0 + PAD_Y;
-		if (s.cardCount > 0) {
+		// cutout cards cannot fade: they show while the panel is at least half there
+		if (s.cardCount > 0 && alpha >= 0.5f) {
 			float cx = -s.rowWidth() / 2f;
 			float cy = y;
 			int n = s.cardCount;
@@ -110,19 +116,26 @@ final class HoloText {
 				}
 			});
 			quads += n;
-			y += CARD_H + CARD_GAP;
 		}
+		if (s.cardCount > 0) y += CARD_H + CARD_GAP;
 		for (int i = 0; i < s.count; i++) {
 			float sc = s.scales[i];
 			pose.pushPose();
 			pose.translate(0, y, 0);
 			pose.scale(sc, sc, 1);
-			out.submitText(pose, -s.widths[i] / 2f, 0, s.seqs[i], true, Font.DisplayMode.POLYGON_OFFSET, Quads.FULL_BRIGHT, s.colors[i], 0, 0);
+			out.submitText(pose, -s.widths[i] / 2f, 0, s.seqs[i], true, Font.DisplayMode.POLYGON_OFFSET, Quads.FULL_BRIGHT, fade(s.colors[i], alpha), 0, 0);
 			pose.popPose();
 			y += PITCH * sc;
 		}
 		pose.popPose();
 		return quads;
+	}
+
+	/** {@code argb} with its alpha scaled by {@code alpha} (never below 4/255 for a visible colour: vanilla text reads 0–3 as opaque). */
+	static int fade(int argb, float alpha) {
+		if (argb == 0 || alpha >= 1f) return argb;
+		int a = Math.max(4, Math.round((argb >>> 24) * alpha));
+		return a << 24 | argb & 0xFFFFFF;
 	}
 
 	private static void quad(PoseStack.Pose p, com.mojang.blaze3d.vertex.VertexConsumer vc, float x0, float y0, float x1, float y1, float z, int color) {

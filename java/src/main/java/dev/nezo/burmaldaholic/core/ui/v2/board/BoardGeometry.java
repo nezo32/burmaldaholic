@@ -6,14 +6,18 @@ package dev.nezo.burmaldaholic.core.ui.v2.board;
  * block's own top face is y = 1, the block centre is (0.5, 0.5). The dealer side is z small. The board renderer
  * rotates this frame by the block's {@code FACING}, so per-game code never deals with directions.
  *
- * <p>The felt is a render-only overhang centred on the block: a rounded rectangle {@link Felt#w} × {@link Felt#d}
- * lying {@link #FELT_LIFT} above the block top with a {@link #RAIL} lip and an {@link #APRON} below it. When a
- * neighbour blocks the overhang the felt falls back to the block's own 1 × 1 top ({@link #fallback}).
- *
- * <p>Space a table needs (worldgen / casino buildings): the overhang reaches {@link #reachX} beyond the block on the
- * left and right (perpendicular to {@code FACING}) and {@link #reachZ} at the front and back, so a table needs ONE free
- * (non-colliding) block on each long side and two tables standing side by side need TWO free blocks between them
- * (centre pitch ≥ 3). Pure; no Minecraft types.
+ * <p>These are DESIGN coordinates: every game lays its content out for its {@link Felt} shape centred on (0.5, 0.5) at
+ * {@link #TOP}. Where it is drawn depends on the table (MT-DESIGN §2, multi-block tables):
+ * <ul>
+ *   <li>a full 3×2 table ({@code part != SINGLE}): the baked furniture model carries the felt at
+ *       {@code FeltFrame.FELT_Y} (14/16); the board maps the design felt uniformly onto the footprint-local
+ *       {@code FeltFrame} ({@link #fullScale}: centre → felt centre (0.5, 0), {@link #TOP} → felt top + lift) and draws
+ *       a hi-res felt print decal on it;</li>
+ *   <li>a compact table ({@code part == SINGLE}, legacy 1×1): the felt is the block's own top ({@link Felt#FALLBACK})
+ *       and the content shrinks onto it ({@link #contentScale}).</li>
+ * </ul>
+ * Footprint-local and these coordinates share axes (x = players' right, z toward the players, rotation about the main
+ * block centre), so the mapping is a translate + uniform scale. Pure; no Minecraft types.
  */
 public final class BoardGeometry {
 	/** Felt surface above the block top (no z-fighting with the block's own felt texture). */
@@ -38,8 +42,11 @@ public final class BoardGeometry {
 	/** Chip denominations of {@code chips_w.png}, left to right. */
 	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1000, 5000};
 
-	/** Seat plate anchor: outside the felt edge by this much, raised this much above the felt. */
-	public static final float PLATE_OUT = 0.12f, PLATE_UP = 0.35f;
+	/**
+	 * Seat plate anchor: outside the felt edge by this much, raised this much above the felt — the seat rail edge,
+	 * y ≈ 1.30 (design audit W P1: reads as the seat's, clear of the dealer row behind it).
+	 */
+	public static final float PLATE_OUT = 0.12f, PLATE_UP = 0.28f;
 	/** Table board: centred over the dealer side, this high above the felt. */
 	public static final float BOARD_UP = 1.25f;
 
@@ -97,14 +104,45 @@ public final class BoardGeometry {
 
 	private BoardGeometry() {}
 
-	/** The felt actually drawn: {@code felt}, or {@link Felt#FALLBACK} when the overhang is blocked. */
-	public static Felt fallback(Felt felt, boolean blocked) {
-		return blocked ? Felt.FALLBACK : felt;
+	/**
+	 * Uniform scale that maps the design felt {@code design} (w × d, centred on (0.5, 0.5)) into a full table's felt of
+	 * {@code feltW} × {@code feltD} (inside the rail): the largest that fits — crescent 1.22, rect 1.25, Hold'em's 2 × 2
+	 * oval on the 2.75 × 1.75 stadium 0.875.
+	 */
+	public static float fullScale(Felt design, double feltW, double feltD) {
+		return (float) Math.min(feltW / design.w, feltD / design.d);
 	}
 
 	/**
-	 * Scale of the content laid out for {@code wanted} when {@code drawn} is the felt actually drawn: 1 normally; on
-	 * the fallback felt the inside of the rail of the wanted felt maps into the inside of the drawn one (uniform, so
+	 * Table-local rectangle where the dealer's (or the community) cards lie: an obstacle for the seat plates even before
+	 * a card is dealt (design audit W P1: plates covered the dealer row). {x0, z0, x1, z1, yTop}; yTop = the top edge of
+	 * a leaning card. Null when the felt has no card row (roulette and craps register their wheel / dice as content).
+	 */
+	public static float @org.jspecify.annotations.Nullable [] dealerRect(Felt f) {
+		float yTop = TOP + CARD_LIFT + (float) Math.sin(Math.toRadians(CARD_TILT)) * CARD_H;
+		float pitch = CARD_W * 0.62f;
+		return switch (f) {
+			case CRESCENT -> {
+				float half = 2.5f * pitch + CARD_W / 2;
+				float[] slot = dealerSlot(f, 0, 1);
+				yield new float[] {0.5f - half, f.z0() + RAIL, 0.5f + half, slot[1] + CARD_H / 2 + 0.02f, yTop};
+			}
+			case OVAL -> {
+				float half = 2 * pitch + CARD_W / 2;
+				yield new float[] {0.5f - half, 0.5f - CARD_H / 2 - 0.02f, 0.5f + half, 0.5f + CARD_H / 2 + 0.02f, yTop};
+			}
+			default -> null;
+		};
+	}
+
+	/** The design felt drawn for a compact table: the block top ({@link Felt#FALLBACK}); a full table keeps its shape. */
+	public static Felt fallback(Felt felt, boolean compact) {
+		return compact ? Felt.FALLBACK : felt;
+	}
+
+	/**
+	 * Scale of the content laid out for {@code wanted} when {@code drawn} is the felt actually drawn (compact tables
+	 * only): 1 normally; on the fallback felt the inside of the rail of the wanted felt maps into the inside of the drawn one (uniform, so
 	 * cards keep their aspect).
 	 */
 	public static float contentScale(Felt wanted, Felt drawn) {
@@ -112,25 +150,6 @@ public final class BoardGeometry {
 		float sx = (drawn.w - 2 * RAIL) / (wanted.w - 2 * RAIL);
 		float sz = (drawn.d - 2 * RAIL) / (wanted.d - 2 * RAIL);
 		return Math.min(1f, Math.min(sx, sz));
-	}
-
-	/**
-	 * Cells (dx, dz in table-local block steps, before rotation) the overhang covers beside the block: used for the
-	 * blocked check. Returns pairs {dx0, dz0, dx1, dz1, …}.
-	 */
-	public static int[] overhangCells(Felt felt) {
-		int rx = (int) Math.ceil(felt.reachX() - 1e-4);
-		int rz = (int) Math.ceil(felt.reachZ() - 1e-4);
-		int[] out = new int[((2 * rx + 1) * (2 * rz + 1) - 1) * 2];
-		int n = 0;
-		for (int dx = -rx; dx <= rx; dx++) {
-			for (int dz = -rz; dz <= rz; dz++) {
-				if (dx == 0 && dz == 0) continue;
-				out[n++] = dx;
-				out[n++] = dz;
-			}
-		}
-		return out;
 	}
 
 	/**

@@ -36,16 +36,13 @@ public final class BotsClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
-		// seated bots at a table with an in-world board: the board's seat plate replaces the [BOT] tag (ui-v2.md §7.4)
-		net.minecraft.client.renderer.entity.EntityRenderers.register(net.minecraft.world.entity.EntityTypes.TEXT_DISPLAY, BoardAwareTextDisplayRenderer::new);
+		// seated bots at a table with an in-world board: the board's seat plate replaces the [BOT] tag (ui-v2.md §7.4) —
+		// TextDisplayRendererMixin asks BotTagVisibility; its per-entity cache goes with the world
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> BotTagVisibility.clear());
 		ClientPlayNetworking.registerGlobalReceiver(BotsScreenPayload.TYPE, (payload, context) -> accept(context.client(), payload));
 		// table UI v2: the TopBar gear of a bot table opens that table's settings (no extra button over the TopBar)
-		dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen.topSettingsHook = screen -> {
-			Minecraft mc = Minecraft.getInstance();
-			if (mc.level == null || !(mc.level.getBlockEntity(screen.getMenu().pos()) instanceof BotTable)) return false;
-			ClientPlayNetworking.send(new BotsActionPayload(screen.getMenu().pos(), "open", new CompoundTag()));
-			return true;
-		};
+		dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen.registerSettings(be -> be instanceof BotTable,
+			pos -> ClientPlayNetworking.send(new BotsActionPayload(pos, "open", new CompoundTag())));
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
 			if (screen instanceof dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen<?>) return;
 			if (screen instanceof CasinoTableScreen table && client.level != null

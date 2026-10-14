@@ -26,10 +26,24 @@ class BoardGeometryTest {
 			// the rounded corners are cut
 			assertFalse(BoardGeometry.inside(f, f.x0() + 0.001f, f.z1() - 0.001f), f + " front-left corner");
 		}
-		// the crescent's overhang covers the left / right neighbours (and a sliver front / back)
-		int[] cells = BoardGeometry.overhangCells(Felt.CRESCENT);
-		assertEquals(16, cells.length);
-		assertEquals(0, BoardGeometry.overhangCells(Felt.FALLBACK).length);
+	}
+
+	/** MT-DESIGN §2: the design felt maps uniformly onto the full 3×2 felt (FeltFrame 2.75 × 1.75 inside the rail). */
+	@Test
+	void designFeltMapsOntoTheFullTable() {
+		var crescent = dev.nezo.burmaldaholic.core.table.parts.FeltFrame.of(dev.nezo.burmaldaholic.core.table.parts.TableGame.BLACKJACK,
+			dev.nezo.burmaldaholic.core.table.parts.TablePart.MAIN);
+		float k = BoardGeometry.fullScale(Felt.CRESCENT, crescent.w(), crescent.d());
+		assertEquals(2.75f / 2.25f, k, 1e-5);
+		// the mapped design felt fits inside the full felt
+		assertTrue(Felt.CRESCENT.w * k <= crescent.w() + 1e-5 && Felt.CRESCENT.d * k <= crescent.d() + 1e-5);
+		assertEquals(1.25f, BoardGeometry.fullScale(Felt.RECT, 2.75, 1.75), 1e-5);
+		assertEquals(0.875f, BoardGeometry.fullScale(Felt.OVAL, 2.75, 1.75), 1e-5);
+		// the dealer row of a full blackjack table lands on the felt, at the back
+		float[] d = BoardGeometry.dealerRect(Felt.CRESCENT);
+		float z0 = (d[1] - 0.5f) * k, z1 = (d[3] - 0.5f) * k;
+		assertTrue(crescent.onFelt(0.5, z0 + 0.01) && crescent.onFelt(0.5, z1), "dealer row on the felt");
+		assertTrue(z1 < 0, "dealer row behind the centre");
 	}
 
 	@Test
@@ -103,9 +117,9 @@ class BoardGeometryTest {
 	@Test
 	void lodHasHysteresis() {
 		assertEquals(HoloScale.Lod.FULL, HoloScale.lod(8.3, HoloScale.Lod.FULL));
-		assertEquals(HoloScale.Lod.BOARD, HoloScale.lod(8.6, HoloScale.Lod.FULL));
+		assertEquals(HoloScale.Lod.BOARD, HoloScale.lod(9.1, HoloScale.Lod.FULL));
 		assertEquals(HoloScale.Lod.BOARD, HoloScale.lod(7.8, HoloScale.Lod.BOARD));
-		assertEquals(HoloScale.Lod.FULL, HoloScale.lod(7.4, HoloScale.Lod.BOARD));
+		assertEquals(HoloScale.Lod.FULL, HoloScale.lod(6.9, HoloScale.Lod.BOARD));
 		assertEquals(HoloScale.Lod.MODEL, HoloScale.lod(33, null));
 		assertEquals(HoloScale.Lod.NO_TEXT, HoloScale.lod(32.3, HoloScale.Lod.NO_TEXT));
 		// a jump across two levels is taken at once

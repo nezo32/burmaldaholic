@@ -2,10 +2,29 @@
   "type": "minecraft:block",
   "pools": [
     {
-      "rolls": 1.0,
+      "rolls": 1,
       "conditions": [
         {
           "condition": "minecraft:survives_explosion"
+        },
+        {
+          "condition": "minecraft:any_of",
+          "terms": [
+            {
+              "condition": "minecraft:block_state_property",
+              "block": "burmaldaholic:uth_table_high_roller",
+              "properties": {
+                "part": "main"
+              }
+            },
+            {
+              "condition": "minecraft:block_state_property",
+              "block": "burmaldaholic:uth_table_high_roller",
+              "properties": {
+                "part": "single"
+              }
+            }
+          ]
         }
       ],
       "entries": [

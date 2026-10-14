@@ -15,12 +15,29 @@ import org.joml.Vector3f;
  * the free labels (legacy billboard texts such as the poker pot).
  */
 final class HoloBoard {
-	private static final Vector3f P = new Vector3f();
+	private static final Vector3f P = new Vector3f(), C = new Vector3f();
 	private static final HoloText.Spec SPEC = new HoloText.Spec();
+	/** Height of a full table's board above its felt (blocks): close enough to read as the table's own sign. */
+	static final float FULL_BOARD_UP = 0.95f;
 	/** The board's frame: gold, the table's accent. */
 	static final int FRAME = 0xFFFFD640;
 
 	private HoloBoard() {}
+
+	/** Registers the board's screen rectangle as a fixed occupant other tables' plates keep clear of ({@link PlateFrame}). */
+	private static void occupy(BoardState s, HoloFrame f, Vector3f bottom, float halfW, float h) {
+		float x0 = Float.POSITIVE_INFINITY, y0 = Float.POSITIVE_INFINITY, x1 = Float.NEGATIVE_INFINITY, y1 = Float.NEGATIVE_INFINITY;
+		for (int c = 0; c < 4; c++) {
+			C.set((c & 1) == 0 ? -halfW : halfW, (c & 2) == 0 ? 0 : h, 0).rotate(f.yawOnly).add(bottom);
+			float x = f.screenX(C), y = f.screenY(C);
+			if (Float.isNaN(x) || Float.isNaN(y)) return;
+			x0 = Math.min(x0, x);
+			x1 = Math.max(x1, x);
+			y0 = Math.min(y0, y);
+			y1 = Math.max(y1, y);
+		}
+		PlateFrame.table(s.blockPos.asLong(), PlateFrame.rank(s)).addFixed(x0, y0, x1, y1);
+	}
 
 	static void submit(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, BoardModel m, HoloFrame f, float minV, BoardStats.Table st) {
 		HoloText.Spec sp = SPEC;
@@ -36,15 +53,21 @@ final class HoloBoard {
 		sp.border = FRAME;
 		int n = sp.count;
 		if (n > 0) {
-			float[] a = BoardGeometry.boardAnchor(s.felt);
-			f.toBlock(a[0], a[1], a[2], P);
+			if (s.full && s.frame != null) {
+				// a full table: over the dealer row (footprint z = −0.5), FULL_BOARD_UP above its felt (it still rises over
+				// the plates below); roulette: over the wheel and layout centre
+				f.footToBlock(s.frame.hasWheel() ? 0.5f : (float) s.frame.cx(), (float) s.frame.top() + FULL_BOARD_UP, -0.5f, P);
+			} else {
+				float[] a = BoardGeometry.boardAnchor(s.felt);
+				f.toBlock(a[0], a[1], a[2], P);
+			}
 			// above the plates and the content (plane v), with a gap
 			float v = f.v(P);
 			float need = minV + 0.06f;
 			if (v < need && f.up.y > 0.2f) P.y += (need - v) / f.up.y;
-			Vector3f bottom = new Vector3f(P);
-			st.backings += HoloText.panel(pose, out, font, bottom, f.yawOnly, s.boardPx, sp);
+			st.backings += HoloText.panel(pose, out, font, P, f.yawOnly, s.boardPx, sp);
 			st.lines += n;
+			occupy(s, f, P, sp.width() * s.boardPx / 2, sp.height() * s.boardPx);
 		}
 		// free labels: small full billboards (no backing), within 8 blocks
 		for (int i = 0; i < m.labelCount; i++) {
