@@ -50,6 +50,14 @@ on:
         description: release | beta | alpha
         type: string
         default: release
+      environment-type:
+        description: >-
+          Modrinth version environment (v3 loader field `environment`; the project's environment is derived from its
+          versions): client_and_server | client_only | client_only_server_optional | singleplayer_only | server_only |
+          server_only_client_optional | dedicated_server_only | client_or_server | client_or_server_prefers_both.
+          Sent with every new version; versions with an unknown environment are then patched to it (needs VERSION_WRITE).
+        type: string
+        default: client_and_server
       dependencies:
         description: '"slug-or-id:type,..." type in required|optional|incompatible|embedded, e.g. "fabric-api:required"'
         type: string
@@ -71,7 +79,7 @@ on:
         default: false
     secrets:
       MODRINTH_TOKEN:
-        description: Modrinth personal access token (scopes CREATE_VERSION, PROJECT_READ, VERSION_READ). An Environment secret of this name wins when `environment` is set.
+        description: Modrinth personal access token (scopes CREATE_VERSION, PROJECT_READ, VERSION_READ, VERSION_WRITE). An Environment secret of this name wins when `environment` is set.
         required: false
     outputs:
       version-id:
@@ -150,6 +158,7 @@ jobs:
           GAME_VERSIONS: ${{ inputs.game-versions }}
           LOADERS: ${{ inputs.loaders }}
           RELEASE_TYPE: ${{ inputs.release-type }}
+          ENV_TYPE: ${{ inputs.environment-type }}
           DEPENDENCIES: ${{ inputs.dependencies }}
           FEATURED: ${{ inputs.featured }}
           DRY_RUN: ${{ inputs.dry-run }}
@@ -170,6 +179,10 @@ jobs:
           file="${primary[0]}"
           echo "file: $file ($(stat -c %s "$file") bytes, sha256 $(sha256sum "$file" | cut -d' ' -f1))"
           case "$RELEASE_TYPE" in release|beta|alpha) ;; *) die "release-type must be release|beta|alpha (got '$RELEASE_TYPE')";; esac
+          case "$ENV_TYPE" in
+            client_and_server|client_only|client_only_server_optional|singleplayer_only|server_only|server_only_client_optional|dedicated_server_only|client_or_server|client_or_server_prefers_both) ;;
+            *) die "unknown environment-type '$ENV_TYPE'";;
+          esac
 
           project="$(mr_get "/project/$PROJECT")" || die "Modrinth project '$PROJECT' not found or not visible to the token (needs PROJECT_READ for a draft project)"
           project_id="$(jq -r .id <<<"$project")"
@@ -206,9 +219,9 @@ jobs:
           printf '%s' "$(jq -nc \
             --arg pid "$project_id" --arg num "$VERSION_NUMBER" --arg name "${VERSION_NAME:-$VERSION_NUMBER}" \
             --rawfile changelog "$RUNNER_TEMP/changelog.md" --arg vtype "$RELEASE_TYPE" \
-            --argjson gv "$gv" --argjson loaders "$loaders" --argjson deps "$deps" --argjson featured "$FEATURED" \
+            --argjson gv "$gv" --argjson loaders "$loaders" --argjson deps "$deps" --argjson featured "$FEATURED" --arg env "$ENV_TYPE" \
             '{project_id:$pid, version_number:$num, name:$name, changelog:$changelog, version_type:$vtype,
-              game_versions:$gv, loaders:$loaders, dependencies:$deps, featured:$featured, status:"listed",
+              game_versions:$gv, loaders:$loaders, environment:$env, dependencies:$deps, featured:$featured, status:"listed",
               file_parts:["file"], primary_file:"file"}')" > "$RUNNER_TEMP/modrinth-data.json"
 
           if [[ "$DRY_RUN" == "true" ]]; then
@@ -233,3 +246,31 @@ jobs:
           echo "version-id=$version_id" >> "$GITHUB_OUTPUT"
           slug="$(jq -r .slug <<<"$project")"
           echo "### Modrinth upload OK — https://modrinth.com/mod/$slug/version/$version_id" >> "$GITHUB_STEP_SUMMARY"
+
+      # The environment is a per-version loader field (API v3); the project's environment is the aggregate of its
+      # versions, so "Unknown environment" means some version has none. Patch every such version (and the one just
+      # published, if it differs). Non-fatal: the token may lack VERSION_WRITE.
+      - name: Ensure Modrinth environment
+        if: steps.config.outputs.enabled == 'true' && !inputs.dry-run && steps.upload.outputs.version-id != ''
+        env:
+          MR_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MR_API: ${{ inputs.api-base }}
+          PROJECT: ${{ steps.config.outputs.project }}
+          VERSION_ID: ${{ steps.upload.outputs.version-id }}
+          ENV_TYPE: ${{ inputs.environment-type }}
+        run: |
+          set -euo pipefail
+          v3="${MR_API%/}"; v3="${v3%/v2}/v3"
+          ua="${GITHUB_REPOSITORY} release workflow (github.com/${GITHUB_REPOSITORY})"
+          versions="$(curl -fsS --retry 4 --retry-delay 5 -A "$ua" -H "Authorization: $MR_TOKEN" "$v3/project/$PROJECT/version")" \
+            || { echo "::warning::could not list the Modrinth versions of $PROJECT"; exit 0; }
+          todo="$(jq -r --arg vid "$VERSION_ID" --arg env "$ENV_TYPE" \
+            '.[] | select((.environment // "unknown") == "unknown" or (.id == $vid and .environment != $env)) | .id' <<<"$versions")"
+          body="$(jq -nc --arg env "$ENV_TYPE" '{environment:$env}')"
+          for id in $todo; do
+            code="$(curl -sS -o "$RUNNER_TEMP/mr-patch.txt" -w '%{http_code}' -X PATCH -A "$ua" -H "Authorization: $MR_TOKEN" \
+              -H 'Content-Type: application/json' --data "$body" "$v3/version/$id")" || code=000
+            if [[ "$code" == 2* ]]; then echo "version $id: environment -> $ENV_TYPE"
+            else echo "::warning::PATCH $v3/version/$id failed (HTTP $code): $(head -c 500 "$RUNNER_TEMP/mr-patch.txt")"; fi
+          done
+          curl -fsS -A "$ua" -H "Authorization: $MR_TOKEN" "$v3/project/$PROJECT" | jq -c '{project_environment: .environment}' || true
