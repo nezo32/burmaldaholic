@@ -86,6 +86,16 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 	}
 
 	@Override
+	public float offsetX() {
+		return viewport.guiOx();
+	}
+
+	@Override
+	public float offsetY() {
+		return viewport.guiOy();
+	}
+
+	@Override
 	protected void init() {
 		super.init();
 		panel = new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(0, 0, width, height);
