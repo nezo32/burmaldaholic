@@ -133,12 +133,24 @@ public final class LocateRules {
 		return DIRECTIONS.get(index);
 	}
 
-	/** Seconds the player still has to wait (0 = may search now); {@code lastMillis} {@code null} = never searched. */
-	public static long cooldownLeftSeconds(Long lastMillis, long nowMillis, int cooldownSeconds) {
-		if (lastMillis == null || cooldownSeconds <= 0) {
+	/**
+	 * Seconds the player still has to wait (0 = may search now). Times are MONOTONIC nanoseconds
+	 * ({@link System#nanoTime()}), so wall-clock jumps neither extend nor skip the wait; {@code lastNanos}
+	 * {@code null} = never searched.
+	 */
+	public static long cooldownLeftSeconds(Long lastNanos, long nowNanos, int cooldownSeconds) {
+		if (lastNanos == null || cooldownSeconds <= 0) {
 			return 0;
 		}
-		long leftMillis = lastMillis + cooldownSeconds * 1000L - nowMillis;
-		return leftMillis <= 0 ? 0 : (leftMillis + 999) / 1000;
+		long leftNanos = cooldownSeconds * 1_000_000_000L - (nowNanos - lastNanos);
+		return leftNanos <= 0 ? 0 : (leftNanos + 999_999_999L) / 1_000_000_000L;
+	}
+
+	/** Minimum gap between two structure-grid searches server-wide (they block the server thread). */
+	public static final long GRID_SEARCH_GAP_NANOS = 1_000_000_000L;
+
+	/** Whether a new structure-grid search may start ({@code lastNanos} {@code null} = none yet; monotonic time). */
+	public static boolean gridSearchAllowed(Long lastNanos, long nowNanos) {
+		return lastNanos == null || nowNanos - lastNanos >= GRID_SEARCH_GAP_NANOS;
 	}
 }

@@ -28,12 +28,25 @@ class LocateRulesTest {
 	}
 
 	@Test
-	void cooldownCountsDownInWholeSeconds() {
-		assertEquals(0, LocateRules.cooldownLeftSeconds(null, 1_000, 30), "never searched");
-		assertEquals(30, LocateRules.cooldownLeftSeconds(1_000L, 1_000, 30));
-		assertEquals(1, LocateRules.cooldownLeftSeconds(1_000L, 30_999, 30), "part of a second rounds up");
-		assertEquals(0, LocateRules.cooldownLeftSeconds(1_000L, 31_000, 30));
-		assertEquals(0, LocateRules.cooldownLeftSeconds(1_000L, 1_000, 0), "cooldown disabled");
+	void cooldownCountsDownInWholeSecondsOfMonotonicTime() {
+		long s = 1_000_000_000L;
+		assertEquals(0, LocateRules.cooldownLeftSeconds(null, 5 * s, 30), "never searched");
+		assertEquals(30, LocateRules.cooldownLeftSeconds(5 * s, 5 * s, 30));
+		assertEquals(1, LocateRules.cooldownLeftSeconds(5 * s, 35 * s - 1, 30), "part of a second rounds up");
+		assertEquals(0, LocateRules.cooldownLeftSeconds(5 * s, 35 * s, 30));
+		assertEquals(0, LocateRules.cooldownLeftSeconds(5 * s, 5 * s, 0), "cooldown disabled");
+		// nanoTime may be negative and may wrap: only differences count.
+		assertEquals(11, LocateRules.cooldownLeftSeconds(Long.MAX_VALUE - 5 * s, Long.MIN_VALUE + 14 * s, 30), "19 s + 1 ns elapsed");
+		assertEquals(30, LocateRules.cooldownLeftSeconds(-7 * s, -7 * s, 30));
+	}
+
+	@Test
+	void gridSearchesAreSpacedServerWide() {
+		long s = 1_000_000_000L;
+		assertTrue(LocateRules.gridSearchAllowed(null, 0), "first search");
+		assertFalse(LocateRules.gridSearchAllowed(10 * s, 10 * s + s - 1));
+		assertTrue(LocateRules.gridSearchAllowed(10 * s, 11 * s));
+		assertTrue(LocateRules.gridSearchAllowed(Long.MAX_VALUE, Long.MIN_VALUE + s), "across a nanoTime wrap");
 	}
 
 	@Test

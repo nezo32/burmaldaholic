@@ -32,7 +32,10 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 
-/** {@code /casino locate}: index path as a plain player, cooldown, mode off, hosts per dimension, predicted path. */
+/**
+ * {@code /casino locate}: index path as a plain player, cooldown, server-wide limit, mode off, hosts per dimension,
+ * predicted path per host type, cut-short / busy answers, gate parity.
+ */
 public class LocateGameTests {
 	/** A known casino right next to a non-operator mock player is found, by the API and by the real command. */
 	@GameTest
@@ -56,25 +59,33 @@ public class LocateGameTests {
 			CasinoLocator.clear();
 			index.setAnchor(id, dim, Layouts.highRollerLayout().id(), CasinoKind.HIGH_ROLLER,
 				new Geometry.Box(cx - 2, y - 1, cz - 2, cx + 2, y + 4, cz + 2));
+			long t0 = System.nanoTime();
 
-			CasinoLocator.Outcome direct = CasinoLocator.locate(player, true, System.currentTimeMillis(), () -> {});
+			CasinoLocator.Outcome direct = CasinoLocator.locate(player, true, t0, () -> {}, true);
 			helper.assertTrue(direct.status() == CasinoLocator.Status.FOUND, "found: " + direct);
 			LocateRules.Candidate hit = direct.hit();
 			helper.assertTrue(hit.kind() == CasinoKind.HIGH_ROLLER && hit.x() == cx && hit.z() == cz && hit.y() == y && !hit.predicted(),
 				"the indexed record: " + hit);
+			helper.assertFalse(direct.truncated(), "first grid search ran in full: " + direct);
+			// Server-wide limit: a second grid search within a second only gets the index answer, marked as such.
+			CasinoLocator.Outcome soon = CasinoLocator.locate(player, true, t0 + 500_000_000L, () -> {}, true);
+			helper.assertTrue(soon.status() == CasinoLocator.Status.FOUND && soon.truncated(), "second grid search within 1 s: " + soon);
+			CasinoLocator.Outcome later1 = CasinoLocator.locate(player, true, t0 + 1_100_000_000L, () -> {}, true);
+			helper.assertTrue(later1.status() == CasinoLocator.Status.FOUND && !later1.truncated(), "after 1 s: " + later1);
+			CasinoLocator.clear();
 
 			helper.assertFalse(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS.check(player.permissions()), "mock player is not an operator");
 			int result = server.getCommands().getDispatcher().execute("casino locate", player.createCommandSourceStack());
 			helper.assertTrue(result == 1, "/casino locate as a plain player found it (result " + result + ")");
 
-			CasinoLocator.Outcome again = CasinoLocator.locate(player, false, System.currentTimeMillis(), () -> {});
+			CasinoLocator.Outcome again = CasinoLocator.locate(player, false, System.nanoTime(), () -> {});
 			helper.assertTrue(again.status() == CasinoLocator.Status.COOLDOWN && again.cooldownSeconds() > 0 && again.cooldownSeconds() <= 30,
 				"second search within the cooldown is refused: " + again);
 			int refused = server.getCommands().getDispatcher().execute("casino locate", player.createCommandSourceStack());
 			helper.assertTrue(refused == 0, "command refused during the cooldown");
-			CasinoLocator.Outcome exempt = CasinoLocator.locate(player, true, System.currentTimeMillis(), () -> {});
+			CasinoLocator.Outcome exempt = CasinoLocator.locate(player, true, System.nanoTime(), () -> {});
 			helper.assertTrue(exempt.status() == CasinoLocator.Status.FOUND, "operators are exempt: " + exempt);
-			CasinoLocator.Outcome later = CasinoLocator.locate(player, false, System.currentTimeMillis() + 31_000, () -> {});
+			CasinoLocator.Outcome later = CasinoLocator.locate(player, false, System.nanoTime() + 31_000_000_000L, () -> {});
 			helper.assertTrue(later.status() == CasinoLocator.Status.FOUND, "after the cooldown: " + later);
 		} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
 			helper.fail("/casino locate not usable by a plain player: " + e.getMessage());
@@ -97,7 +108,7 @@ public class LocateGameTests {
 		try {
 			CasinoLocator.clear();
 			CasinoMode.set(server, false);
-			CasinoLocator.Outcome off = CasinoLocator.locate(player, false, System.currentTimeMillis(), () -> {});
+			CasinoLocator.Outcome off = CasinoLocator.locate(player, false, System.nanoTime(), () -> {});
 			helper.assertTrue(off.status() == CasinoLocator.Status.MODE_OFF, "refused while casino mode is off: " + off);
 			int result = server.getCommands().getDispatcher().execute("casino locate", player.createCommandSourceStack());
 			helper.assertTrue(result == 0, "command refused while casino mode is off");
@@ -141,25 +152,43 @@ public class LocateGameTests {
 	}
 
 	/**
-	 * Predicted path: in an unexplored spot of the Nether (bastions; the Overworld's villages where the GameTest Nether
-	 * has none) with the casino chance forced to 1, the host starts of the nine grid cells around it are created exactly
-	 * like chunk generation does ({@code createStructures} + {@code onStructureStartsAvailable}; the GameTest server
-	 * itself never generates structures). The locator must then report the nearest of those casinos as unexplored —
-	 * found through the grid, the gate, vanilla's structure check and the real structure start.
+	 * Predicted path, for EVERY host type the test server can generate (26.2: Overworld villages + Nether bastions;
+	 * 26.3, whose GameTest Nether is flat without bastions: villages; End Cities wherever the GameTest End has them).
+	 * In an unexplored spot with the casino chance forced to 1, the host starts of the nine grid cells around it are
+	 * created exactly like chunk generation does ({@code createStructures} + {@code onStructureStartsAvailable}; the
+	 * GameTest server itself never generates structures). The locator must then report the nearest of those casinos as
+	 * unexplored: found through the grid, the gate, the vanilla structure check and the real structure start.
 	 */
 	@GameTest(maxTicks = 600)
-	public void predictsUnexploredCasino(GameTestHelper helper) {
+	public void predictsUnexploredCasinoForEveryHost(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
-		ServerLevel level = server.getLevel(Level.NETHER);
-		if (level == null || CasinoLocator.hosts(level).isEmpty()) {
-			level = server.getLevel(Level.OVERWORLD); // 26.3's GameTest Nether is flat, without bastions
+		List<CasinoKind> verified = new ArrayList<>();
+		int spot = 0;
+		for (ServerLevel level : server.getAllLevels()) {
+			for (CasinoLocator.Host host : CasinoLocator.hosts(level)) {
+				if (predict(helper, level, host, spot++)) {
+					verified.add(host.kind());
+				}
+			}
 		}
-		ServerLevel searchLevel = level;
-		CasinoLocator.Host host = CasinoLocator.hosts(level).getFirst();
+		Burmaldaholic.LOGGER.info("[locate test] predicted path verified for {}", verified);
+		helper.assertTrue(verified.contains(CasinoKind.VILLAGE_CASINO), "village casinos predicted: " + verified);
+		ServerLevel nether = server.getLevel(Level.NETHER);
+		if (nether != null && !CasinoLocator.hosts(nether).isEmpty()) {
+			helper.assertTrue(verified.contains(CasinoKind.PIGLIN_PARLOR), "Piglin Parlors predicted: " + verified);
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * One host: prepares the nine cells, searches from 100 blocks east of a prepared casino, checks the answer.
+	 * Returns false (nothing asserted) only for End Cities when none of the nine got a lounge (it needs a tower top).
+	 */
+	private static boolean predict(GameTestHelper helper, ServerLevel level, CasinoLocator.Host host, int spot) {
 		double before = chance(host.kind());
 		// Somewhere new on every run (the test world may be reused), far from spawn and other tests.
 		long salt = System.nanoTime();
-		double x = 40_000 + Math.floorMod(salt, 20_000L);
+		double x = 40_000 + Math.floorMod(salt, 20_000L) + spot * 50_000;
 		double z = -40_000 - Math.floorMod(salt / 7, 20_000L);
 		List<BoundingBox> prepared = new ArrayList<>();
 		CasinoLocator.Outcome outcome;
@@ -168,18 +197,18 @@ public class LocateGameTests {
 		try {
 			setChance(host.kind(), 1.0);
 			RandomSpreadStructurePlacement placement = host.grids().keySet().iterator().next();
-			ChunkGeneratorStructureState state = searchLevel.getChunkSource().getGeneratorState();
-			StructureTemplateManager templates = CasinoBuilder.templates(searchLevel.getServer());
+			ChunkGeneratorStructureState state = level.getChunkSource().getGeneratorState();
+			StructureTemplateManager templates = CasinoBuilder.templates(level.getServer());
 			int spacing = placement.spacing();
 			int cellX = Math.floorDiv(((int) Math.floor(x)) >> 4, spacing);
 			int cellZ = Math.floorDiv(((int) Math.floor(z)) >> 4, spacing);
 			for (int r = 0; r <= 1; r++) {
 				for (int[] cell : LocateRules.ringCells(r)) {
 					ChunkPos p = placement.getPotentialStructureChunk(state.getLevelSeed(), (cellX + cell[0]) * spacing, (cellZ + cell[1]) * spacing);
-					ChunkAccess chunk = searchLevel.getChunk(p.x(), p.z(), ChunkStatus.STRUCTURE_STARTS);
-					searchLevel.getChunkSource().getGenerator().createStructures(searchLevel.registryAccess(), state, searchLevel.structureManager(), chunk,
-						templates, searchLevel.dimension());
-					searchLevel.onStructureStartsAvailable(chunk);
+					ChunkAccess chunk = level.getChunk(p.x(), p.z(), ChunkStatus.STRUCTURE_STARTS);
+					level.getChunkSource().getGenerator().createStructures(level.registryAccess(), state, level.structureManager(), chunk,
+						templates, level.dimension());
+					level.onStructureStartsAvailable(chunk);
 					for (StructureStart start : chunk.getAllStarts().values()) {
 						for (StructurePiece piece : start.getPieces()) {
 							if (piece instanceof PoolElementStructurePiece pool && CasinoElements.layoutOf(pool.getElement()).isPresent()) {
@@ -190,17 +219,22 @@ public class LocateGameTests {
 				}
 			}
 			Burmaldaholic.LOGGER.info("[locate test] {} casinos created around {}, {}: {}", host.kind().id(), x, z, prepared.size());
-			helper.assertTrue(!prepared.isEmpty(), "no host with a casino in the nine cells around " + x + ", " + z);
+			if (prepared.isEmpty() && host.kind() == CasinoKind.HIGH_ROLLER) {
+				return false;
+			}
+			helper.assertTrue(!prepared.isEmpty(), "no " + host.kind().id() + " host with a casino in the nine cells around " + x + ", " + z);
 			// Search from 100 blocks east of the first one: well inside every cap.
 			BoundingBox first = prepared.getFirst();
 			fromX = (first.minX() + first.maxX()) / 2.0 + 100;
 			fromZ = (first.minZ() + first.maxZ()) / 2.0;
-			outcome = CasinoLocator.search(searchLevel, fromX, fromZ, () -> {}, true);
+			outcome = CasinoLocator.search(level, fromX, fromZ, () -> {},
+				new CasinoLocator.Limits(true, () -> true, CasinoLocator.BUDGET_NANOS));
 		} finally {
 			setChance(host.kind(), before);
 		}
 		Burmaldaholic.LOGGER.info("[locate test] {} search from {}, {}: {}", host.kind().id(), fromX, fromZ, outcome);
-		helper.assertTrue(outcome.status() == CasinoLocator.Status.FOUND, "a casino predicted within the cap: " + outcome);
+		helper.assertTrue(outcome.status() == CasinoLocator.Status.FOUND && !outcome.truncated(),
+			host.kind().id() + " predicted within the cap, not cut short: " + outcome);
 		LocateRules.Candidate hit = outcome.hit();
 		helper.assertTrue(hit.kind() == host.kind() && hit.predicted(), "predicted " + host.kind().id() + ": " + hit);
 		BlockPos at = new BlockPos(hit.x(), hit.y(), hit.z());
@@ -211,6 +245,51 @@ public class LocateGameTests {
 		double best = prepared.stream().mapToDouble(b -> Math.hypot((b.minX() + b.maxX()) / 2.0 - sx, (b.minZ() + b.maxZ()) / 2.0 - sz))
 			.min().orElseThrow();
 		helper.assertTrue(outcome.distance() <= best + 2, "nearest prepared casino: " + outcome.distance() + " vs " + best);
+		return true;
+	}
+
+	/**
+	 * Truncation honesty: a grid search that runs out of time (budget 0) or is refused by the server-wide limit says
+	 * so: FOUND / NONE with {@code truncated}, or BUSY when nothing is known.
+	 */
+	@GameTest
+	public void cutShortAndBusyAnswersSaySo(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel().getServer().getLevel(Level.OVERWORLD);
+		var cfg = CasinoConfig.worldgen();
+		double before = cfg.villageCasino.chance;
+		String dim = level.dimension().identifier().toString();
+		long salt = System.nanoTime();
+		double x = -140_000 - Math.floorMod(salt, 20_000L);
+		double z = 140_000;
+		String id = CasinoRecord.idFor(dim, (int) x + 100, 70, (int) z) + "|locate-cut-test";
+		CasinoIndex index = CasinoIndex.get(level.getServer());
+		CasinoLocator.Limits outOfTime = new CasinoLocator.Limits(true, () -> true, 0);
+		CasinoLocator.Limits refused = new CasinoLocator.Limits(true, () -> false, CasinoLocator.BUDGET_NANOS);
+		// A reused test world may hold casinos registered by earlier runs anywhere in the dimension: then the answer
+		// is that (far) known casino, still marked as cut short.
+		boolean anyKnown = index.casinos().stream().anyMatch(r -> r.box() != null && r.kind() != null && r.dimension().equals(dim));
+		try {
+			cfg.villageCasino.chance = 1.0; // every cell passes the gate, so only the budget stops the search
+			CasinoLocator.Outcome none = CasinoLocator.search(level, x, z, () -> {}, outOfTime);
+			helper.assertTrue(none.truncated() && none.radiusBlocks() > 0
+				&& none.status() == (anyKnown ? CasinoLocator.Status.FOUND : CasinoLocator.Status.NONE),
+				"out of time, nothing near: NONE (or the far known casino) + truncated: " + none);
+			CasinoLocator.Outcome busy = CasinoLocator.search(level, x, z, () -> helper.fail("no grid search when refused"), refused);
+			helper.assertTrue(anyKnown ? busy.status() == CasinoLocator.Status.FOUND && busy.truncated() : busy.status() == CasinoLocator.Status.BUSY,
+				"refused, nothing near: BUSY (or the far known casino + truncated): " + busy);
+
+			index.setAnchor(id, dim, Layouts.highRollerLayout().id(), CasinoKind.HIGH_ROLLER,
+				new Geometry.Box((int) x + 98, 69, (int) z - 2, (int) x + 102, 74, (int) z + 2));
+			CasinoLocator.Outcome known = CasinoLocator.search(level, x, z, () -> {}, outOfTime);
+			helper.assertTrue(known.status() == CasinoLocator.Status.FOUND && known.truncated() && !known.hit().predicted(),
+				"out of time, known casino: FOUND + truncated: " + known);
+			CasinoLocator.Outcome knownBusy = CasinoLocator.search(level, x, z, () -> {}, refused);
+			helper.assertTrue(knownBusy.status() == CasinoLocator.Status.FOUND && knownBusy.truncated(),
+				"refused, known casino: index answer + truncated: " + knownBusy);
+		} finally {
+			cfg.villageCasino.chance = before;
+			index.removeIf(r -> r.id().equals(id));
+		}
 		helper.succeed();
 	}
 
