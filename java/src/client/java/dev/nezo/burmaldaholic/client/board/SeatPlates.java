@@ -34,6 +34,8 @@ final class SeatPlates {
 	private static final float[] O0 = new float[MAX_OBS], O1 = new float[MAX_OBS], OT = new float[MAX_OBS];
 	private static final int[] DISCS = new int[BoardGeometry.CHIP_MAX];
 	private static final float[] RX = new float[5], RZ = new float[5];
+	/** Index of the dealer obstacle this frame (−1 none). */
+	private static int dealer = -1;
 	private static final PlateLayout.Scratch LAYOUT = new PlateLayout.Scratch(MP);
 	private static final Vector3f P = new Vector3f(), Q = new Vector3f(), B = new Vector3f(), L = new Vector3f();
 	private static final HoloText.Spec[] SPECS = new HoloText.Spec[MP];
@@ -52,6 +54,11 @@ final class SeatPlates {
 	 */
 	static float submit(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, BoardModel m, HoloFrame f, BoardStats.Table st) {
 		int obs = obstacles(m, f, s);
+		if (dealer >= 0) {
+			st.dealerU0 = O0[dealer];
+			st.dealerU1 = O1[dealer];
+			st.dealerTop = OT[dealer];
+		}
 		float contentTop = Float.NEGATIVE_INFINITY;
 		for (int k = 0; k < obs; k++) contentTop = Math.max(contentTop, OT[k]);
 		int n = 0;
@@ -155,7 +162,11 @@ final class SeatPlates {
 			int k = i * 4;
 			n = add(f, n, m.content[k], m.content[k + 1], m.content[k + 2], m.content[k + 3], hx, hz);
 		}
-		if (m.hasDealer && n < MAX_OBS) n = rect(f, n, m.dealer);
+		dealer = -1;
+		if (m.hasDealer && n < MAX_OBS) {
+			dealer = n;
+			n = rect(f, n, m.dealer);
+		}
 		n = rail(f, n, s);
 		return n;
 	}

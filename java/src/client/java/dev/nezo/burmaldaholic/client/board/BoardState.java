@@ -216,6 +216,14 @@ public class BoardState extends SpectatorRenderState {
 				}
 			}
 		}
+		var f = frame;
+		if (full && f != null) {
+			// a full 3×2 table: the plate stands past the padded rail, where the seat's player stands (MT-DESIGN §2)
+			float[] a = BoardRenderer.fullPlateAnchor(this, f, ax, az);
+			ax = a[0];
+			ay = a[1];
+			az = a[2];
+		}
 		m.plateCount++;
 		p.seat = seat;
 		p.ax = ax;

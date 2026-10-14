@@ -19,6 +19,12 @@ public final class BoardStats {
 		/** Screen-space rectangles of the plates drawn last frame (x0, y0, x1, y1 in plane blocks), for the overlap test. */
 		public final float[] plateRects = new float[4 * 16];
 		public int plateRectCount;
+		/** The dealer card area in the plate plane last frame (u0, u1, top v; NaN = none), for the plates ∩ dealer test. */
+		public float dealerU0 = Float.NaN, dealerU1 = Float.NaN, dealerTop = Float.NaN;
+		/** Text px (blocks) of the plates / board, the felt distance, and whether the table drew as a full 3×2 table. */
+		public float platePx, boardPx;
+		public double dist;
+		public boolean full;
 		/** LOD drawn last frame (null = not drawn). */
 		public dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.@org.jspecify.annotations.Nullable Lod lod;
 
@@ -26,6 +32,7 @@ public final class BoardStats {
 			lod = null;
 			cardQuads = chipQuads = feltQuads = backings = lines = plates = leaders = 0;
 			plateRectCount = 0;
+			dealerU0 = dealerU1 = dealerTop = Float.NaN;
 			nanos = 0;
 			this.frame = frame;
 		}

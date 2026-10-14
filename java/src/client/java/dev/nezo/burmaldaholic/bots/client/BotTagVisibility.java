@@ -59,7 +59,7 @@ public final class BotTagVisibility {
 		CACHE.clear();
 	}
 
-	static boolean isBotPlate(Component text) {
+	public static boolean isBotPlate(Component text) {
 		if (text.getContents() instanceof TranslatableContents t) {
 			if (KEY.equals(t.getKey())) return true;
 			for (Object arg : t.getArgs()) if (arg instanceof Component a && isBotPlate(a)) return true;

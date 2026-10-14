@@ -143,6 +143,10 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		BoardStats.Table st = BoardStats.begin(be.getBlockPos(), 0);
 		st.reset(0);
 		st.lod = s.hlod;
+		st.platePx = s.platePx;
+		st.boardPx = s.boardPx;
+		st.dist = s.dist;
+		st.full = s.full;
 		if (s.hlod != HoloScale.Lod.MODEL) {
 			BiConsumer<BlockEntity, BoardState> demo = DEMO.isEmpty() ? null : DEMO.get(be.getBlockPos().asLong());
 			if (demo != null) demo.accept(be, s);
@@ -286,7 +290,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			TablePublic.SeatPub pub = seats[i];
 			if (pub == null) continue;
 			float[] sp = spot.at(i, seats.length);
-			float[] a = s.full && s.frame != null ? fullPlateAnchor(s, s.frame, sp[0], sp[1]) : BoardGeometry.plateAnchor(s.felt, sp[0], sp[1]);
+			float[] a = BoardGeometry.plateAnchor(s.felt, sp[0], sp[1]); // a full table moves it past its rail (BoardState.plate)
 			BoardState.PlateRef ref = s.plate(i, a[0], a[1], a[2]);
 			if (ref == null) return;
 			boolean you = pub.is(s.viewer);
