@@ -174,16 +174,33 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		return CasinoConfig.craps().seats;
 	}
 
+	/** The table's generated-casino preset, resolved once (a placed table's preset never changes). */
+	private java.util.@Nullable Optional<TablePresetProvider.TablePreset> presetCache;
+
+	/**
+	 * {@link #preset()} cached. While the table is being removed / its chunk unloads it is never looked up: the provider
+	 * may read the world (BaccaratPresets reads block entities), which re-enters the chunk system mid-unload.
+	 */
+	private java.util.Optional<TablePresetProvider.TablePreset> tablePreset() {
+		if (presetCache == null) {
+			if (removing() || !(level instanceof ServerLevel)) {
+				return java.util.Optional.empty();
+			}
+			presetCache = preset();
+		}
+		return presetCache;
+	}
+
 	@Override
 	protected long minBet() {
 		// a generated casino's preset (e.g. the High Roller Lounge, min 100) raises the table minimum (CB-G request)
-		long preset = preset().map(TablePresetProvider.TablePreset::minBet).orElse(0L);
+		long preset = tablePreset().map(TablePresetProvider.TablePreset::minBet).orElse(0L);
 		return Math.max(CasinoConfig.craps().minBet, preset);
 	}
 
 	/** The preset's "multiplier × VIP tier max" table (0 = none). */
 	private double presetMaxMultiplier() {
-		return preset().map(TablePresetProvider.TablePreset::tierMaxMultiplier).orElse(0.0);
+		return tablePreset().map(TablePresetProvider.TablePreset::tierMaxMultiplier).orElse(0.0);
 	}
 
 	/** Preset table: max = multiplier × tier max (like the High-Roller blackjack / baccarat), owner max still applies. */
@@ -205,7 +222,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 
 	/** The preset's VIP tier: refused with the reason below it. */
 	private boolean presetTierAllowed(ServerPlayer player) {
-		int need = preset().map(TablePresetProvider.TablePreset::minTier).orElse(0);
+		int need = tablePreset().map(TablePresetProvider.TablePreset::minTier).orElse(0);
 		if (need <= 0 || CoreServices.vip().tier(player.level().getServer(), player.getUUID()) >= need) {
 			return true;
 		}
