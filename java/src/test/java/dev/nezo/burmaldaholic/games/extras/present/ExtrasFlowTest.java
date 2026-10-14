@@ -126,6 +126,77 @@ class ExtrasFlowTest {
 		assertFalse(b.view(1, 0, 10, true).bettingOpen());
 	}
 
+	/** R-CDE m5: one bet per machine position (two Plinko machines keep their own bet), cleared with the session. */
+	@Test
+	void localBetIsPerMachineAndSession() {
+		LocalBets.clear();
+		long a = 0x1234L;
+		long b = 0x5678L;
+		LocalBet plinkoA = LocalBets.of("plinko", a);
+		LocalBet plinkoB = LocalBets.of("plinko", b);
+		assertTrue(plinkoA != plinkoB, "two machines, two bets");
+		assertTrue(LocalBets.of("plinko", a) == plinkoA, "the same machine reopens on its bet");
+		assertTrue(LocalBets.of("wheel", a) != plinkoA, "games never share a bet");
+		assertTrue(LocalBets.of("coin", LocalBets.HAND) == LocalBets.of("coin", LocalBets.HAND), "the item games have one bet each");
+		plinkoA.add(25, 0, 1000);
+		plinkoB.add(5, 0, 1000);
+		assertEquals(25, LocalBets.of("plinko", a).amount());
+		assertEquals(5, LocalBets.of("plinko", b).amount());
+		LocalBets.clear();
+		assertEquals(0, LocalBets.size());
+		assertEquals(0, LocalBets.of("plinko", a).amount(), "a new session starts clean");
+	}
+
+	/** R-CDE m5: the played amount becomes Rebet on the server's answer only (a refused play leaves Rebet alone). */
+	@Test
+	void rebetFollowsTheServerAck() {
+		LocalBet b = new LocalBet();
+		b.add(25, 0, 1000);
+		b.sent();
+		assertEquals(0, b.last(), "not played before the server answers");
+		assertFalse(b.view(1, 0, 1000, false).canRebet());
+		b.ack();
+		assertEquals(25, b.last());
+		b.add(25, 0, 1000);
+		b.sent(); // refused: no ack; the next play replaces the pending amount
+		b.clear();
+		b.add(5, 0, 1000);
+		b.sent();
+		b.ack();
+		assertEquals(5, b.last());
+		b.ack();
+		assertEquals(5, b.last(), "a stray ack (another player's result) changes nothing");
+	}
+
+	/** DES Plinko P1: no "Last balls" caption without a ball; the Top prize always shows; the board centred in cols 1–9. */
+	@Test
+	void plinkoSideColumn() {
+		List<String> problems = new ArrayList<>();
+		for (int[] s : new int[][] {{427, 240}, {480, 270}, {640, 360}, {854, 480}, {960, 539}}) {
+			TableGrid g = TableGrid.of(s[0], s[1]);
+			ExtrasLayout.Scene sc = ExtrasLayout.plinko(g);
+			String at = "@" + s[0] + "x" + s[1];
+			Box cols = g.columns(1, 9, g.play.y(), g.play.h());
+			int lgap = sc.object().x() - cols.x();
+			int rgap = cols.right() - sc.object().right();
+			if (Math.abs(lgap - rgap) > 1) problems.add(at + ": board not centred in cols 1-9 (" + lgap + " | " + rgap + ")");
+			for (boolean pvp : new boolean[] {false, true}) {
+				int bottom = pvp ? sc.side().h() - sc.row() - 2 : sc.side().h();
+				int[] none = ExtrasLayout.plinkoSide(sc, 0, bottom);
+				if (none[0] != 0 || none[1] != -1) problems.add(at + " pvp=" + pvp + ": history caption with no ball");
+				if (none[3] < 0) problems.add(at + " pvp=" + pvp + ": no Top prize (no history)");
+				for (int balls = 1; balls <= 4; balls++) {
+					int[] l = ExtrasLayout.plinkoSide(sc, balls, bottom);
+					if (l[3] < 0) problems.add(at + " pvp=" + pvp + " balls=" + balls + ": Top prize dropped");
+					if (l[3] >= 0 && l[3] + ExtrasLayout.TOP_PRIZE_H > bottom) problems.add(at + ": Top prize below the column");
+					if (l[0] > 0 && l[2] + l[0] * (sc.row() + 2) > l[3]) problems.add(at + ": pills overlap the Top prize");
+					if (s[1] >= 270 && l[0] == 0) problems.add(at + " pvp=" + pvp + ": no room for one row of last balls");
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), String.join("\n", problems));
+	}
+
 	/** Every size of ui-v2.md §11.1: the object and the options column stay inside the PlayArea and never overlap. */
 	@Test
 	void scenesFitThePlayArea() {

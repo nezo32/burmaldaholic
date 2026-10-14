@@ -686,8 +686,20 @@ public class CasinoMenuScreen extends CasinoScreen {
 		HubView.Hub h = HubView.parse(ClientCasinoMenu.lines(), ClientCasinoMenu.buttons());
 		hub = h;
 		boolean nemesis = h.nemesis() != null;
+		// Your match and pending invites come first (v0.1.2 open item, E2): below the 2 × 3 cards they were off the page at
+		// 480 × 270 (GUI 4) and the player had to scroll to find [Accept]; the cards move down under them.
+		int gridTop = dev.nezo.burmaldaholic.core.ui.HubLayout.gridTop(nemesis);
+		int shift = 0;
+		if (!h.status().isEmpty() || !h.statusButtons().isEmpty()) {
+			contentH = gridTop;
+			int kind = 0;
+			for (ClientCasinoMenu.Line l : h.status()) text(l.text(), 0xFF000000 | l.color(), 4, w, kind++ % 2);
+			placeButtons(h.statusButtons(), w);
+			shift = contentH + 2 - gridTop;
+		}
 		for (int i = 0; i < dev.nezo.burmaldaholic.core.ui.HubLayout.CARDS; i++) {
 			int[] r = dev.nezo.burmaldaholic.core.ui.HubLayout.card(i, w, nemesis);
+			r[1] += shift;
 			HubView.ModeCard card;
 			if (i < HubView.MODES.length) {
 				String mode = HubView.MODES[i];
@@ -701,10 +713,7 @@ public class CasinoMenuScreen extends CasinoScreen {
 			}
 			put(card, r[0], r[1]);
 		}
-		contentH = dev.nezo.burmaldaholic.core.ui.HubLayout.gridBottom(nemesis) + 6;
-		int kind = 0;
-		for (ClientCasinoMenu.Line l : h.status()) text(l.text(), 0xFF000000 | l.color(), 4, w, kind++ % 2);
-		placeButtons(h.statusButtons(), w);
+		contentH = dev.nezo.burmaldaholic.core.ui.HubLayout.gridBottom(nemesis) + shift + 6;
 		if (h.lobbiesHeader() != null) {
 			rows.add(new Row(contentH, 12, -1, CasinoUi.fit(font, h.lobbiesHeader(), w - 4), GOLD, null, 0, 0));
 			contentH += 13;

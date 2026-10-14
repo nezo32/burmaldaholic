@@ -24,6 +24,7 @@ import dev.nezo.burmaldaholic.games.extras.present.ExtrasKeys;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasLayout;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasView;
 import dev.nezo.burmaldaholic.games.extras.present.LocalBet;
+import dev.nezo.burmaldaholic.games.extras.present.LocalBets;
 import dev.nezo.burmaldaholic.games.extras.present.MachinePub;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,10 +47,19 @@ import net.minecraft.world.entity.player.Inventory;
  * entries when PvP is on), plus the kit's {@code chip.*}, {@code tool.*}, {@code primary}.
  */
 final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
-	private static final LocalBet BET = new LocalBet(0);
+	/** This machine's bet in the client session (per position, R-CDE m5). */
+	private final LocalBet bet;
 	private static Plinko.Risk risk = Plinko.Risk.MEDIUM;
-	/** Last landed balls of this session (multipliers, newest last). */
-	private static final List<Double> LAST = new ArrayList<>();
+	/** Last landed balls of this session per machine (multipliers, newest last). */
+	private static final java.util.Map<Long, List<Double>> LAST_BY_POS = new java.util.HashMap<>();
+
+	/** Forgets the session's last balls (disconnect). */
+	static void clearSession() {
+		LAST_BY_POS.clear();
+	}
+
+	/** This machine's last landed balls (multipliers, newest last). */
+	private final List<Double> last;
 
 	private int shownSeq = -1;
 	private boolean seenState;
@@ -64,6 +74,8 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 
 	PlinkoScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable("gui.burmaldaholic.extras.plinko.title"));
+		this.bet = LocalBets.of("plinko", menu.pos().asLong());
+		this.last = LAST_BY_POS.computeIfAbsent(menu.pos().asLong(), k -> new ArrayList<>());
 	}
 
 	// ---- the pure parts ------------------------------------------------------------------------------------------------
@@ -86,16 +98,16 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	/** After a risk change: a bet below the new risk's minimum is raised to it (when the balance allows). */
 	private void topUpToMin() {
 		long min = minFor(state(), risk);
-		if (BET.amount() > 0 && BET.amount() < min) BET.add(min - BET.amount(), state().getLongOr("max", 0), shownBalance());
+		if (bet.amount() > 0 && bet.amount() < min) bet.add(min - bet.amount(), state().getLongOr("max", 0), shownBalance());
 	}
 
 	@Override
 	protected ExtrasView view(CompoundTag s) {
 		long bal = shownBalance();
-		BET.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
+		bet.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
 		boolean busy = dropping();
 		double top = top(table(risk));
-		return ExtrasView.chips(BET.view(minFor(s, risk), s.getLongOr("max", 0), bal, busy), busy, null, (long) Math.floor(BET.amount() * top));
+		return ExtrasView.chips(bet.view(minFor(s, risk), s.getLongOr("max", 0), bal, busy), busy, null, (long) Math.floor(bet.amount() * top));
 	}
 
 	@Override
@@ -114,13 +126,13 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		return new BetPort() {
 			@Override
 			public void add(long denom) {
-				if (BET.add(denom, state().getLongOr("max", 0), shownBalance())) Kit.vanilla("block.stone_button.click_on", 0.4f, 1.4f);
+				if (bet.add(denom, state().getLongOr("max", 0), shownBalance())) Kit.vanilla("block.stone_button.click_on", 0.4f, 1.4f);
 				local();
 			}
 
 			@Override
 			public void remove(long denom) {
-				BET.undo();
+				bet.undo();
 				local();
 			}
 
@@ -129,10 +141,10 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				long max = state().getLongOr("max", 0);
 				long bal = shownBalance();
 				switch (id) {
-					case BetGates.UNDO -> BET.undo();
-					case BetGates.CLEAR -> BET.clear();
-					case BetGates.REBET -> BET.rebet(max, bal);
-					case BetGates.DOUBLE -> BET.dbl(max, bal);
+					case BetGates.UNDO -> bet.undo();
+					case BetGates.CLEAR -> bet.clear();
+					case BetGates.REBET -> bet.rebet(max, bal);
+					case BetGates.DOUBLE -> bet.dbl(max, bal);
 					default -> {}
 				}
 				local();
@@ -148,9 +160,9 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		}
 		CompoundTag args = new CompoundTag();
 		args.putString("stake", "chips");
-		args.putLong("amount", BET.amount());
+		args.putLong("amount", bet.amount());
 		args.putString("risk", risk.id());
-		BET.played();
+		bet.sent();
 		sendTracked("drop", args, "", 0);
 	}
 
@@ -205,13 +217,14 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				// the screen (re)opened: the last result at rest, no replay
 				seenState = true;
 				shownSeq = seq;
-				if (BET.amount() <= 0) BET.add(minFor(newState, risk), newState.getLongOr("max", 0), newState.getLongOr("balance", 0));
+				if (bet.amount() <= 0) bet.add(minFor(newState, risk), newState.getLongOr("max", 0), newState.getLongOr("balance", 0));
 			}
 		} else {
 			if (seq < 0) shownSeq = -1;
 			if (seq >= 0 && seq != shownSeq) {
 				if (dropping()) land(false);
 				shownSeq = seq;
+				bet.ack(); // the server played the amount: it becomes Rebet
 				dropStart = Util.getMillis();
 				landed = false;
 				landedAt = -1;
@@ -254,14 +267,14 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		landedAt = Util.getMillis();
 		heldBalance = -1;
 		double mult = result().getDoubleOr("mult", 0);
-		LAST.add(mult);
-		while (LAST.size() > 4) LAST.removeFirst();
+		last.add(mult);
+		while (last.size() > 4) last.removeFirst();
 		FxSounds.play("plinko_bin", 1f, PlinkoAnim.binPitch(mult));
 		long net = result().getLongOr("net", 0);
 		long stake = result().getLongOr("stake", 0);
 		if (stake > 0) chrome.banner.show(net);
 		dev.nezo.burmaldaholic.client.fx.ClientFx.releaseCelebration();
-		if (stake > 0) BET.clamp(state().getLongOr("max", 0), state().getLongOr("balance", 0));
+		if (stake > 0) bet.clamp(state().getLongOr("max", 0), state().getLongOr("balance", 0));
 		local();
 	}
 
@@ -299,10 +312,6 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		return scene.row(14, i);
 	}
 
-	private int lastTop() {
-		return 14 + 3 * (scene.row() + 2) + 8;
-	}
-
 	@Override
 	protected void layoutPlay(TableGrid grid, ExtrasView v, HitMap hits) {
 		scene = ExtrasLayout.plinko(grid);
@@ -316,7 +325,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 			// Plinko Battle entries: casino widgets on a card over the board (the old flow, PVP.md §7.4)
 			clearWidgets();
 			dev.nezo.burmaldaholic.games.extras.client.pvp.plinko.PlinkoBattleEntries.layout(font, this::addRenderableWidget, o.x() + 12, o.y() + 26,
-				o.w() - 24, state(), risk.id(), () -> Math.max(1, BET.amount()), this::sendAction, this::rebuildBattle, v.busy());
+				o.w() - 24, state(), risk.id(), () -> Math.max(1, bet.amount()), this::sendAction, this::rebuildBattle, v.busy());
 		} else {
 			clearWidgets();
 		}
@@ -426,27 +435,49 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		for (int i = 0; i < risks.length; i++) {
 			SceneKit.toggle(g, font, riskBox(i), Component.translatable(risks[i].key()), risks[i] == risk, !v.busy(), mx, my);
 		}
-		int y = side.y() + lastTop();
-		SceneKit.caption(g, font, Component.translatable(ExtrasKeys.LAST_BALLS), side, y);
-		double topNow = top(table(risk));
 		boolean pvp = state().contains("pvp");
-		int rows = 2;
-		// With the Battle toggle at the bottom, drop a row of last balls rather than the Top prize.
-		if (pvp && side.y() + lastTop() + 12 + 2 * (scene.row() + 2) + 6 + 30 > battleBox().y()) rows = 1;
-		for (int i = 0; i < Math.min(LAST.size(), 2 * rows); i++) {
-			int k = LAST.size() - 1 - i; // newest first
-			Box cell = scene.cell(lastTop() + 12, i / 2, i % 2);
-			Box pill = new Box(cell.x(), cell.y(), Math.min(cell.w(), 40), Math.min(cell.h(), 14));
-			double m = LAST.get(k);
-			SceneKit.pill(g, font, pill, Texts.raw("×" + MachinePub.compact(m)), SceneKit.multColor(m, topNow));
+		int[] lay = sideLayout();
+		double topNow = top(table(risk));
+		if (lay[0] > 0) { // DES Plinko P1: the "Last balls" caption only with a ball under it
+			SceneKit.caption(g, font, Component.translatable(ExtrasKeys.LAST_BALLS), side, side.y() + lay[1]);
+			for (int i = 0; i < Math.min(last.size(), 2 * lay[0]); i++) {
+				int k = last.size() - 1 - i; // newest first
+				Box cell = scene.cell(lay[2], i / 2, i % 2);
+				Box pill = new Box(cell.x(), cell.y(), Math.min(cell.w(), 40), Math.min(cell.h(), 14));
+				double m = last.get(k);
+				SceneKit.pill(g, font, pill, Texts.raw("×" + MachinePub.compact(m)), SceneKit.multColor(m, topNow));
+			}
 		}
-		int ty = side.y() + lastTop() + 12 + rows * (scene.row() + 2) + 6;
-		if (ty + 30 <= battleBox().y() || !pvp) {
+		if (lay[3] >= 0) {
+			int ty = side.y() + lay[3];
 			SceneKit.caption(g, font, Component.translatable(ExtrasKeys.TOP_PRIZE), side, ty);
 			SceneKit.big(g, font, Texts.raw("×" + MachinePub.compact(topNow)), side.x(), ty + 11, side.w(), CasinoPalette.V2_GOLD);
 		}
 		if (pvp) {
 			SceneKit.toggle(g, font, battleBox(), Component.translatable("gui.burmaldaholic.pvp.plinko.host"), battle, true, mx, my);
+		}
+	}
+
+	/** {@link ExtrasLayout#plinkoSide} for this column: above the Battle toggle when PvP is on. */
+	int[] sideLayout() {
+		Box side = scene.side();
+		int bottom = state().contains("pvp") ? battleBox().y() - 2 - side.y() : side.h();
+		return ExtrasLayout.plinkoSide(scene, last.size(), bottom);
+	}
+
+	/** The tooltip of the hovered Risk toggle (its own minimum bet; v0.1.2 hotfix), or null. Read by client GameTests. */
+	@org.jspecify.annotations.Nullable Component riskTip;
+
+	@Override
+	protected void renderOverlay(GuiGraphicsExtractor g, TableGrid grid, ExtrasView v, int mouseX, int mouseY, float partial) {
+		riskTip = null;
+		if (scene == null || battle) return;
+		Plinko.Risk[] risks = Plinko.Risk.values();
+		for (int i = 0; i < risks.length; i++) {
+			if (riskBox(i).contains(mouseX, mouseY)) {
+				riskTip = Component.translatable("gui.burmaldaholic.extras.plinko.min", Texts.chips(minFor(state(), risks[i])));
+				g.setTooltipForNextFrame(font.split(riskTip, 200), mouseX, mouseY);
+			}
 		}
 	}
 }
