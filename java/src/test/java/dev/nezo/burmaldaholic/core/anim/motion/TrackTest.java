@@ -149,6 +149,56 @@ class TrackTest {
 	}
 
 	@Test
+	void decaySolutionRoundTripsThroughTheTrack() {
+		java.util.SplittableRandom r = new java.util.SplittableRandom(5);
+		double[] reach = new double[2];
+		for (int i = 0; i < 2000; i++) {
+			double ws = r.nextDouble(400, 900);
+			double wd = r.nextDouble(200, ws - 40);
+			double tt = r.nextDouble(0.25, 13);
+			DecaySolver.reach(ws, wd, tt, 0.2, 6, reach);
+			double target = reach[0] + r.nextDouble() * (reach[1] - reach[0]);
+			DecaySolver.Solution sol = DecaySolver.solve(ws, wd, tt, target, 1, 0.2, 6);
+			double a0 = r.nextDouble(-720, 720);
+			double t0 = r.nextDouble(0, 2000);
+			Track tr = Track.builder().start(t0, a0).seg(sol.T() * 1000).decay(0, sol).done().build();
+			assertEquals(a0 + sol.theta(), tr.sample(tr.end(), 0), 1e-9 * Math.max(1, Math.abs(a0 + sol.theta())), "ends on the solved angle, case " + i);
+			assertEquals(ws, tr.velocity(t0, 0), 1e-9 * ws, "starts at omegaS");
+			assertEquals(wd, tr.velocity(tr.end(), 0), 1e-6, "ends at omegaD");
+			double mid = t0 + sol.T() * 500;
+			assertEquals(a0 + sol.angle(sol.T() / 2), tr.sample(mid, 0), 1e-8 * Math.max(1, Math.abs(a0) + sol.theta()), "same profile");
+		}
+		DecaySolver.Solution sol = DecaySolver.solve(756, 306, 2.55, 1200, 1, 0.2, 6);
+		assertThrows(IllegalArgumentException.class, () -> Track.builder().start(0, 0).seg(2549).decay(0, sol));
+	}
+
+	@Test
+	void growingOscillation() {
+		Track tr = Track.builder().start(0, 1).seg(700).osc(0, 0.004, -300, 1000 / 9.0, 0).done().build();
+		double early = 0;
+		double late = 0;
+		for (double t = 0; t <= 120; t += 0.5) early = Math.max(early, Math.abs(tr.sample(t, 0) - (1 - 0.004)));
+		for (double t = 580; t <= 700; t += 0.5) late = Math.max(late, Math.abs(tr.sample(t, 0) - (1 - 0.004)));
+		assertTrue(late > 2 * early, "a negative tau makes the wobble rise: " + early + " → " + late);
+		assertEquals(1, tr.sample(0, 0), 1e-12, "C0 at the start");
+	}
+
+	@Test
+	void segLifecycleMisuseThrows() {
+		Track.Builder b = Track.builder().start(0, 0, 0);
+		Track.Seg s = b.seg(100).linear(0, 5);
+		s.done();
+		assertThrows(IllegalStateException.class, s::done, "done() twice");
+		assertThrows(IllegalStateException.class, () -> s.linear(1, 3), "setter after done()");
+		Track.Seg s2 = b.seg(50);
+		assertThrows(IllegalStateException.class, () -> s.hold(0), "an old segment cannot touch the open one");
+		s2.done();
+		Track t = b.build();
+		assertEquals(2, t.segments());
+		assertEquals(0.5, t.last(0), 1e-12);
+	}
+
+	@Test
 	void builderGuards() {
 		assertThrows(IllegalStateException.class, () -> Track.builder().hold(10));
 		Track.Builder b = Track.builder().start(0, 1);

@@ -15,15 +15,18 @@ import net.minecraft.util.Util;
  * {@link AnimClock#freezeForTest}.
  */
 public final class MotionClock {
-	/** Test hook: when non-null, its value is the level time in ms (game ticks · 50 incl. the partial tick). */
+	/**
+	 * Test hook: when non-null, its value is the level time in ms (game ticks · 50 incl. the partial tick). It is the
+	 * same single hook as {@link AnimClock#freezeForTest} (which wins when both are set): {@link AnimClock},
+	 * {@link TableClock} and this class all read {@link AnimClock#testLevelMs()}.
+	 */
 	public static volatile LongSupplier testOverride;
 
 	private MotionClock() {}
 
-	/** Level time in ms with the partial tick ({@link #testOverride} when set, else {@link AnimClock#levelMs}). */
+	/** Level time in ms with the partial tick ({@link AnimClock#levelMs}, which honours every test hook). */
 	public static double levelMs(float partialTick) {
-		LongSupplier o = testOverride;
-		return o != null ? o.getAsLong() : AnimClock.levelMs(partialTick);
+		return AnimClock.levelMs(partialTick);
 	}
 
 	/** Milliseconds since game tick {@code startTick} at the current frame. */
@@ -39,9 +42,12 @@ public final class MotionClock {
 		return clock.msSince(startTick, partialTick);
 	}
 
-	/** Wall-clock ms for LOCAL beats ({@link #testOverride} when set, so test frames stay deterministic). */
+	/**
+	 * Wall-clock ms for LOCAL beats; under a test hook ({@link #testOverride} or {@link AnimClock#freezeForTest}) the
+	 * test level time instead, so LOCAL beats freeze with the shared ones.
+	 */
 	public static long localMs() {
-		LongSupplier o = testOverride;
-		return o != null ? o.getAsLong() : Util.getMillis();
+		double t = AnimClock.testLevelMs();
+		return Double.isNaN(t) ? Util.getMillis() : (long) Math.floor(t);
 	}
 }
