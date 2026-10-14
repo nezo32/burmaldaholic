@@ -675,4 +675,117 @@ public class WorldgenGameTests {
 		}
 		helper.succeed();
 	}
+
+	/**
+	 * v0.1.3: the village casino has a baccarat table. Built from the real template (every style), the table stands at
+	 * (12, 1, 13) facing south with walkable, lit player cells in front of it reachable from the entrance, a free dealer
+	 * cell behind it; a player opens it by USING the block and a bet placed through the {@code table_action} receiver
+	 * ({@link dev.nezo.burmaldaholic.core.table.TableNetworking#receive}) lands.
+	 */
+	@GameTest(maxTicks = 200)
+	public void villageCasinoBaccaratTakesABet(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		net.minecraft.server.MinecraftServer server = level.getServer();
+		String dim = level.dimension().identifier().toString();
+		java.util.List<BoundingBox> boxes = new java.util.ArrayList<>();
+		dev.nezo.burmaldaholic.worldgen.logic.VillageStyle[] styles = dev.nezo.burmaldaholic.worldgen.logic.VillageStyle.values();
+		for (int i = 0; i < styles.length; i++) {
+			Layout l = Layouts.village(styles[i]);
+			BlockPos origin = origin(helper).offset(0, 40 + i * 12, 0);
+			boxes.add(CasinoBuilder.build(level, l, origin, Rotation.NONE).orElseThrow());
+			BlockPos table = origin.offset(12, 1, 13);
+			BlockState state = level.getBlockState(table);
+			helper.assertTrue(state.getBlock() == dev.nezo.burmaldaholic.games.baccarat.BaccaratModule.TABLE.block(),
+				l.id() + ": baccarat table at (12, 1, 13), found " + state);
+			helper.assertTrue(state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING) == Direction.SOUTH,
+				l.id() + ": baccarat faces the hall (south)");
+			for (BlockPos cell : new BlockPos[] {table.south(), table.south(2), table.north()}) {
+				helper.assertTrue(walkable(level, cell) && free(level, cell.above()), l.id() + ": free cell at " + cell.subtract(origin));
+			}
+			// lit by the template's own light above the table (the world light engine runs asynchronously, so a just-built
+			// casino reads dark on its first tick on CI): glowstone at (12, 5, 13) is 4 blocks from the player's head cell
+			int emission = level.getBlockState(table.above(4)).getLightEmission();
+			helper.assertTrue(emission - 4 >= 8, l.id() + ": player side is lit (light above the table emits " + emission + ")");
+			helper.assertTrue(reachable(level, origin, origin.offset(8, 1, 16), table.south()), l.id() + ": baccarat reachable from the entrance");
+		}
+
+		// Plains: a player standing at the table opens it by using the block and bets through the packet path.
+		BlockPos origin = origin(helper).offset(0, 40, 0);
+		BlockPos table = origin.offset(12, 1, 13);
+		dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, true);
+		// connected like a real Survival player (RealFlowTableGameTests): the block's own use handler opens the menu
+		var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
+			new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "village-bac"), false);
+		net.minecraft.server.level.ServerPlayer player = new net.minecraft.server.level.ServerPlayer(server, level, cookie.gameProfile(),
+			cookie.clientInformation()) {
+			@Override
+			public net.minecraft.world.level.GameType gameMode() {
+				return net.minecraft.world.level.GameType.SURVIVAL;
+			}
+		};
+		net.minecraft.network.Connection connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(connection);
+		server.getPlayerList().placeNewPlayer(connection, player, cookie);
+		player.snapTo(table.getX() + 0.5, table.getY(), table.getZ() + 1.5, 180f, 20f);
+		dev.nezo.burmaldaholic.core.economy.Economies.get().setBalance(server, player.getUUID(), 500,
+			dev.nezo.burmaldaholic.core.economy.Economy.Transaction.of("worldgen", "gametest"));
+		try {
+			// the server's own right-click path (ServerPlayerGameMode#useItemOn, empty hand) on the generated block
+			var used = player.gameMode.useItemOn(player, level, player.getMainHandItem(), net.minecraft.world.InteractionHand.MAIN_HAND,
+				new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(table), Direction.SOUTH, table, false));
+			helper.assertTrue(used.consumesAction(), "using the table is handled, got " + used);
+			helper.assertTrue(player.containerMenu instanceof dev.nezo.burmaldaholic.core.table.CasinoTableMenu m && m.pos().equals(table),
+				"using the village baccarat table opens its menu (got " + player.containerMenu + ")");
+			var bac = (dev.nezo.burmaldaholic.games.baccarat.BaccaratTableBlockEntity) level.getBlockEntity(table);
+			dev.nezo.burmaldaholic.core.table.TableNetworking.receive(player,
+				new dev.nezo.burmaldaholic.core.network.TableActionPayload(table, "sit", new net.minecraft.nbt.CompoundTag()));
+			helper.assertTrue(bac.isSeated(player), "Sit through the packet seats the player");
+			net.minecraft.nbt.CompoundTag bet = new net.minecraft.nbt.CompoundTag();
+			bet.putString("box", "player");
+			bet.putLong("amount", 25);
+			dev.nezo.burmaldaholic.core.table.TableNetworking.receive(player,
+				new dev.nezo.burmaldaholic.core.network.TableActionPayload(table, "bet", bet));
+			helper.assertTrue(bac.stakeOf(player.getUUID()) == 25, "the 25-chip Player bet lands, stake " + bac.stakeOf(player.getUUID()));
+			helper.assertTrue(dev.nezo.burmaldaholic.core.economy.Economies.get().balance(server, player.getUUID()) == 475, "the stake left the balance");
+			player.closeContainer();
+		} finally {
+			server.getPlayerList().remove(player);
+			for (BoundingBox b : boxes) {
+				level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, net.minecraft.world.phys.AABB.of(b),
+					e -> e.entityTags().contains(dev.nezo.burmaldaholic.worldgen.CasinoNpcs.NPC_TAG)).forEach(net.minecraft.world.entity.Entity::discard);
+				BlockPos o = new BlockPos(b.minX(), b.minY(), b.minZ());
+				CasinoIndex.get(server).removeIf(r -> r.id().equals(CasinoRecord.idFor(dim, o.getX(), o.getY(), o.getZ())));
+			}
+		}
+		helper.succeed();
+	}
+
+	private static boolean free(ServerLevel level, BlockPos p) {
+		return level.getBlockState(p).getCollisionShape(level, p).isEmpty();
+	}
+
+	/** A player's feet fit here: nothing, or a carpet-thin floor covering. */
+	private static boolean walkable(ServerLevel level, BlockPos p) {
+		var shape = level.getBlockState(p).getCollisionShape(level, p);
+		return shape.isEmpty() || shape.max(Direction.Axis.Y) <= 0.1;
+	}
+
+	/** Breadth-first walk on the casino's floor row (feet + head free) from {@code from} to {@code to}. */
+	private static boolean reachable(ServerLevel level, BlockPos origin, BlockPos from, BlockPos to) {
+		java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+		java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>(List.of(from));
+		seen.add(from);
+		while (!queue.isEmpty()) {
+			BlockPos p = queue.poll();
+			if (p.equals(to)) return true;
+			for (Direction d : Direction.Plane.HORIZONTAL) {
+				BlockPos n = p.relative(d);
+				int x = n.getX() - origin.getX();
+				int z = n.getZ() - origin.getZ();
+				if (x < 0 || x > 16 || z < 0 || z > 16 || !seen.add(n)) continue;
+				if (walkable(level, n) && free(level, n.above())) queue.add(n);
+			}
+		}
+		return false;
+	}
 }

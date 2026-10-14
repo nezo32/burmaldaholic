@@ -6,6 +6,7 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.ClientFx;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.FxSprites;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.ActionTag;
 import dev.nezo.burmaldaholic.client.table.cards.CardAnimator;
 import dev.nezo.burmaldaholic.client.table.cards.CardButton;
@@ -263,7 +264,7 @@ public class BaccaratScreen extends CardTableScreen {
 
 	@Override
 	protected boolean onCanvasClick(double x, double y, int button) {
-		if (chipRackShown() && button == 0) {
+		if (chipRackShown() && Inputs.isLeft(button)) {
 			for (int i = 0; i < CHIPS.length; i++) {
 				int[] r = chipRackSlot(i);
 				if (r != null && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]) {
@@ -277,9 +278,9 @@ public class BaccaratScreen extends CardTableScreen {
 			for (BetKind k : boxes()) {
 				int[] b = boxRect(k);
 				if (x >= b[0] && x < b[0] + b[2] && y >= b[1] && y < b[1] + b[3]) {
-					if (button == 0) {
+					if (Inputs.isLeft(button)) {
 						addChip(k);
-					} else if (button == 1 && slip("slip", k) > 0) {
+					} else if (Inputs.isRight(button) && slip("slip", k) > 0) {
 						CompoundTag args = new CompoundTag();
 						args.putString("box", k.id());
 						sendAction("unbet", args);
