@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.slots.client;
 
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.core.anim.SeedMix;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.TimingProfile;
@@ -26,8 +27,6 @@ import net.minecraft.util.Util;
  * Space spin / stop, N next scenario, M next machine. Never touches money.
  */
 public final class SlotPreviewScreen extends Screen {
-	private static final int GLFW_KEY_N = 78; // GLFW key code (lwjgl is not on the 26.3 compile path)
-	private static final int GLFW_KEY_M = 77; // GLFW key code (lwjgl is not on the 26.3 compile path)
 	private static final long LATENCY_MS = 120;
 
 	private final Machine machine;
@@ -172,11 +171,11 @@ public final class SlotPreviewScreen extends Screen {
 	@Override
 	public boolean keyPressed(KeyEvent event) {
 		if (body.keyPressed(event.key())) return true;
-		if (event.key() == GLFW_KEY_N) {
+		if (event.key() == Inputs.KEY_N) {
 			nextScenario();
 			return true;
 		}
-		if (event.key() == GLFW_KEY_M && minecraft != null) {
+		if (event.key() == Inputs.KEY_M && minecraft != null) {
 			Machine next = Machine.values()[(machine.ordinal() + 1) % Machine.values().length];
 			minecraft.gui.setScreen(new SlotPreviewScreen(next, null));
 			return true;

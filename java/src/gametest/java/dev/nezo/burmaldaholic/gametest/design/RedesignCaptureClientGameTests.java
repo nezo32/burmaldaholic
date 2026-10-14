@@ -65,6 +65,7 @@ public class RedesignCaptureClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("Q") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RedesignCaptureClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		String mode = System.getenv("BURMALDAHOLIC_CAPTURE");
 		if (mode == null || mode.isEmpty()) return;
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();

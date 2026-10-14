@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
 public class FxClientGameTests implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("FxClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		context.setScreen(() -> new FxSettingsScreen(null));
 		context.waitForScreen(FxSettingsScreen.class);
 		context.takeScreenshot("jtest_fx_settings");

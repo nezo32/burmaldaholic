@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.games.extras.client;
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.client.fx.GuiParticlePool;
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
 import dev.nezo.burmaldaholic.core.anim.Ease;
@@ -13,6 +14,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.extras.logic.Scratch;
 import dev.nezo.burmaldaholic.games.extras.logic.anim.ScratchMask;
@@ -272,9 +274,9 @@ final class ScratchScreen extends ExtrasSceneScreen<ScratchFlow.View> implements
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		if (id.equals(KeyMap.Ids.felt("next"))) return swipeNext();
-		if (id.startsWith("felt.cell.") && button == 0) {
+		if (id.startsWith("felt.cell.") && button.left()) {
 			try {
 				return startStroke(Integer.parseInt(id.substring("felt.cell.".length())), enabled);
 			} catch (NumberFormatException e) {
@@ -303,7 +305,7 @@ final class ScratchScreen extends ExtrasSceneScreen<ScratchFlow.View> implements
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-		if (dragCell >= 0 && event.button() == 0) {
+		if (dragCell >= 0 && Inputs.isLeft(event.button())) {
 			double x = lx(event.x());
 			double y = ly(event.y());
 			dragDist += Math.hypot(x - lastX, y - lastY);
@@ -325,7 +327,7 @@ final class ScratchScreen extends ExtrasSceneScreen<ScratchFlow.View> implements
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		if (dragCell >= 0 && event.button() == 0) {
+		if (dragCell >= 0 && Inputs.isLeft(event.button())) {
 			int cell = dragCell;
 			dragCell = -1;
 			if (dragDist < 3 && masks[cell].untouched()) {

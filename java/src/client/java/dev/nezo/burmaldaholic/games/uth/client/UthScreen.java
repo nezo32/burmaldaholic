@@ -32,6 +32,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.poker.client.V2Cards;
@@ -545,13 +546,13 @@ public class UthScreen extends V2TableScreen<UthView> {
 	}
 
 	@Override
-	public boolean onTarget(String id, boolean enabled, int button) {
+	public boolean onTarget(String id, boolean enabled, Press button) {
 		UthView v = view;
 		if (v == null) return false;
 		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
 			UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
 			if (s == null) return true;
-			int dir = button == 2 || id.equals(STEP_PLUS) && button == 0 ? 1 : button == 3 || id.equals(STEP_MINUS) && button == 0 ? -1 : 0;
+			int dir = button.scroll() != 0 ? button.scroll() : !button.left() ? 0 : id.equals(STEP_PLUS) ? 1 : id.equals(STEP_MINUS) ? -1 : 0;
 			if (dir != 0) {
 				bankAmount = Math.max(s.min(), Math.min(s.max(), s.value() + dir * s.step()));
 				FxSounds.play("chip_count", 0.5f, 1f);
@@ -568,9 +569,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 			}
 			UthBetDraft.Spot sp = spot.equals("trips") ? UthBetDraft.Spot.TRIPS : UthBetDraft.Spot.ANTE;
 			long chip = chrome.bet.armOrDefault();
-			if (button == 1) edit(draft.arm(sp).remove(sp, chip));
-			else if (button == 2) edit(draft.add(sp, chip));
-			else if (button == 3) edit(draft.arm(sp).remove(sp, chip));
+			if (button.right()) edit(draft.arm(sp).remove(sp, chip));
+			else if (button == Press.SCROLL_UP) edit(draft.add(sp, chip));
+			else if (button == Press.SCROLL_DOWN) edit(draft.arm(sp).remove(sp, chip));
 			else edit(draft.add(sp, chip));
 			return true;
 		}
@@ -602,7 +603,7 @@ public class UthScreen extends V2TableScreen<UthView> {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (rulesOpen && (event.key() == KeyMap.ESCAPE || event.key() == KeyMap.ENTER)) {
+		if (rulesOpen && (event.isEscape() || event.isConfirmation())) {
 			rulesOpen = false;
 			return true;
 		}

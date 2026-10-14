@@ -65,10 +65,26 @@ fabricApi {
 // Real-flow audit switches (src/gametest/.../realflow): `-Dburmaldaholic.realflow.known=true` runs the known-bug
 // reproductions, `-Dburmaldaholic.realflow.screens=true` the 1920 x 1080 GUI 4 / 3 screenshot tour (also as -P);
 // `-Dfabric-api.gametest.filter=<substring>` runs only the matching server GameTests.
+// The server filter is vanilla's test selector (ResourceSelectorArgument): an Identifier glob over the test id
+// (`burmaldaholic-gametest:<class_snake>_<method_snake>`, `*` / `?` wildcards); a bare name gets the `minecraft:`
+// namespace, matches nothing, and vanilla then System.exit(-1)s ("Test selection matcher (...) found no tests").
+// So a value without a ':' is treated as a substring: `real_flow_poker` -> `burmaldaholic-gametest:*real_flow_poker*`
+// (a value with wildcards but no ':' only gets the namespace). A full `ns:glob` value is passed through unchanged.
+// `-Dfabric-api.gametest.verify=true` (with a filter) runs each matching server test many times (vanilla's flake check).
+static String gameTestSelector(String v) {
+	if (v.contains(':')) {
+		return v
+	}
+	return 'burmaldaholic-gametest:' + (v.contains('*') || v.contains('?') ? v : "*${v}*")
+}
+
 tasks.matching { it.name in ['runClientGameTest', 'runGameTest'] }.configureEach { t ->
-	['burmaldaholic.realflow.known', 'burmaldaholic.realflow.screens', 'fabric-api.gametest.filter'].each { k ->
+	['burmaldaholic.realflow.known', 'burmaldaholic.realflow.screens', 'fabric-api.gametest.filter', 'fabric-api.gametest.verify'].each { k ->
 		def v = System.getProperty(k) ?: project.findProperty(k)?.toString()
 		if (v != null) {
+			if (k == 'fabric-api.gametest.filter' && t.name == 'runGameTest') {
+				v = gameTestSelector(v)
+			}
 			t.systemProperty k, v
 		}
 	}

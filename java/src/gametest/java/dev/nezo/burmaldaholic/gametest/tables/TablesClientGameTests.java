@@ -38,6 +38,7 @@ public class TablesClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("TablesClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			context.waitTicks(20);
