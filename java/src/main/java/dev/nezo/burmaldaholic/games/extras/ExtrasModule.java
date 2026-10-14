@@ -101,7 +101,10 @@ public final class ExtrasModule implements CasinoModule {
 					}
 				}
 				case DiceGame.SCREEN -> {
-					if (ExtrasGames.mayAct(player, DiceGame.SCREEN, DICE)) {
+					boolean answer = payload.action().equals("accept") || payload.action().equals("decline");
+					// the server-opened invite card answers too (E2: its Accept / Decline / Esc were ignored unless the
+					// challenged player happened to hold Dice): only the answer, never a roll
+					if (ExtrasGames.mayAct(player, DiceGame.SCREEN, DICE) || answer && ExtrasGames.mayAct(player, DiceGame.INVITE_SCREEN, null)) {
 						DiceGame.action(player, payload.action(), payload.args());
 					}
 				}

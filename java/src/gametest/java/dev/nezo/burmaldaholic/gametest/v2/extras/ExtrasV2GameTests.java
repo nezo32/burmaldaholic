@@ -156,4 +156,49 @@ public class ExtrasV2GameTests {
 			helper.succeed();
 		});
 	}
+
+	private static CompoundTag args(Object... kv) {
+		CompoundTag t = new CompoundTag();
+		for (int i = 0; i < kv.length; i += 2) {
+			if (kv[i + 1] instanceof Long l) t.putLong((String) kv[i], l);
+			else if (kv[i + 1] instanceof Integer n) t.putInt((String) kv[i], n);
+			else t.putString((String) kv[i], String.valueOf(kv[i + 1]));
+		}
+		return t;
+	}
+
+	/**
+	 * E2 (R-CDE m5): the Dice Duel invite card is answered through the packet by a player who does NOT hold Dice — the
+	 * server opened the card for them. Decline (also what Esc sends) takes the challenge off the book; Accept plays it
+	 * (chips conserved, less the rake). A roll from the card's player is still refused (no house game without the item).
+	 */
+	@GameTest(maxTicks = 200)
+	public void diceInviteIsAnsweredWithoutHoldingDice(GameTestHelper helper) {
+		ServerPlayer a = player(helper, 1000);
+		ServerPlayer b = player(helper, 1000);
+		a.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ExtrasModule.DICE));
+		c2s(a, new ExtrasActionPayload("dice", "challenge", args("target", b.getUUID().toString(), "amount", 50L)), ExtrasActionPayload.CODEC);
+		var first = dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(b);
+		helper.assertTrue(first.size() == 1, "the challenge reached B: " + first);
+		c2s(b, new ExtrasActionPayload("dice", "decline", args("id", first.getFirst().id())), ExtrasActionPayload.CODEC);
+		helper.assertTrue(dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(b).isEmpty(), "B's decline from the card took the challenge off the book");
+		helper.assertTrue(dev.nezo.burmaldaholic.games.extras.server.DiceGame.outgoing(a).isEmpty(), "A no longer waits");
+		// a roll vs the house from the card's player (no Dice in hand) is still ignored
+		long bBefore = Economies.get().balance(b);
+		c2s(b, new ExtrasActionPayload("dice", "roll", chips(10)), ExtrasActionPayload.CODEC);
+		helper.assertTrue(Economies.get().balance(b) == bBefore, "no house roll without the item");
+		// again, and B accepts: the duel is played, chips conserved (less the rake)
+		c2s(a, new ExtrasActionPayload("dice", "challenge", args("target", b.getUUID().toString(), "amount", 50L)), ExtrasActionPayload.CODEC);
+		var second = dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(b);
+		helper.assertTrue(second.size() == 1, "the second challenge reached B");
+		long total = Economies.get().balance(a) + Economies.get().balance(b);
+		c2s(b, new ExtrasActionPayload("dice", "accept", args("id", second.getFirst().id())), ExtrasActionPayload.CODEC);
+		long rake = dev.nezo.burmaldaholic.games.extras.logic.DiceDuel.pvpPayout(50, CasinoConfig.extras().diceDuel.pvpRakePercent).rake();
+		long after = Economies.get().balance(a) + Economies.get().balance(b);
+		helper.assertTrue(dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(b).isEmpty(), "accepted");
+		helper.assertTrue(after == total || after == total - rake, "chips conserved: " + total + " -> " + after + " (rake " + rake + ")");
+		remove(helper, a);
+		remove(helper, b);
+		helper.succeed();
+	}
 }

@@ -118,6 +118,12 @@ final class PvpResultScreen extends PvpScreen {
 	}
 
 	@Override
+	public void onClose() {
+		ClientPvp.resultClosed(matchId()); // closed by the player: a re-sent result of this match stays closed
+		super.onClose();
+	}
+
+	@Override
 	protected void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		JsonObject s = state();
 		JsonObject r = result();

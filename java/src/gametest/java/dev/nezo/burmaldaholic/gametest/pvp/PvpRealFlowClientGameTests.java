@@ -674,6 +674,8 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 	/** The rival challenges the client to a Dice Duel (what its Dice screen's Challenge sends). */
 	private static void rivalDiceChallenge(TestSingleplayerContext world, MockClient rival, UUID me, long stake) {
 		world.getServer().runOnServer(s -> {
+			// the rival holds Dice (the server only takes dice actions from a player with the item or its screen)
+			rival.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(ExtrasModule.DICE));
 			rival.send(new dev.nezo.burmaldaholic.games.extras.net.ExtrasActionPayload("dice", "challenge",
 				MockClient.args("target", me.toString(), "amount", stake)));
 			if (dev.nezo.burmaldaholic.games.extras.server.DiceGame.outgoing(rival.player).isEmpty()) {
@@ -771,7 +773,10 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			.findFirst().map(c -> c.id()).orElse(-1));
 		if (id < 0) throw new AssertionError("no challenge reached the rival: " + rival);
 		long stake = world.getServer().computeOnServer(s -> dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(rival.player).getFirst().stake());
-		world.getServer().runOnServer(s -> rival.send(new dev.nezo.burmaldaholic.games.extras.net.ExtrasActionPayload("dice", "accept", MockClient.args("id", id))));
+		world.getServer().runOnServer(s -> {
+			rival.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(ExtrasModule.DICE));
+			rival.send(new dev.nezo.burmaldaholic.games.extras.net.ExtrasActionPayload("dice", "accept", MockClient.args("id", id)));
+		});
 		context.waitTicks(10);
 		diceConserved(world, me, rival, before, stake);
 		// the PvP result reaches the open Dice screen (its banner carries the net)
