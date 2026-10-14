@@ -299,12 +299,16 @@ public final class GrandCasino {
 
 	static void hall(Blueprint b) {
 		BlockSpec floorAccent = b.palette().block(Role.FLOOR_ACCENT);
-		BlockSpec felt = b.palette().block(Role.CARPET_ACCENT);
 		BlockSpec red = b.palette().block(Role.CARPET);
 		BlockSpec gold = BlockSpec.mc("yellow_carpet");
-		// felt pits (both sides), bordered in gilt carpet
+		// the pits (both sides): casino carpet, the CARPET colour with a gilt diamond lattice, bordered in gilt; the tables'
+		// walkways (CARPET_ACCENT, dark) frame every table
 		b.mirrorX(AX2, m -> {
-			m.fill(9, ROW, 9, 17, ROW, 20, felt);
+			for (int x = 9; x <= 17; x++) {
+				for (int z = 9; z <= 20; z++) {
+					m.set(x, ROW, z, Math.floorMod(x + z, 4) == 0 || Math.floorMod(x - z, 4) == 0 ? gold : red);
+				}
+			}
 			for (int x = 9; x <= 17; x++) {
 				m.set(x, ROW, 9, gold);
 				m.set(x, ROW, 20, gold);
