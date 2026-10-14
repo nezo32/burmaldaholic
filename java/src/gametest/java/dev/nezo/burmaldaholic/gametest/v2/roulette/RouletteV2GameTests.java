@@ -41,6 +41,11 @@ import net.minecraft.world.level.GameType;
 public class RouletteV2GameTests {
 	private static final Transaction TEST = Transaction.of("roulette", "gametest");
 	private static final long START = 5000;
+	/**
+	 * Own environment = a separate batch: switching casino mode off (even for one tick) tells every PvP match and player,
+	 * which broke concurrent PvP / extras tests in the full run.
+	 */
+	private static final String MODE_OFF_ENV = "burmaldaholic:roulette_mode_off";
 	private static final int[] RED = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36};
 
 	private static ServerPlayer survivalPlayer(GameTestHelper helper, String name) {
@@ -108,7 +113,7 @@ public class RouletteV2GameTests {
 	}
 
 	/** m4: bets on the layout, casino mode off → the bets are refunded and the idle public board is published at once. */
-	@GameTest
+	@GameTest(environment = MODE_OFF_ENV)
 	public void modeOffPublishesIdleBoard(GameTestHelper helper) {
 		ServerPlayer p = survivalPlayer(helper, "c2-modeoff");
 		RouletteTableBlockEntity t = open(helper, p);
@@ -131,7 +136,7 @@ public class RouletteV2GameTests {
 	 * m4 with atmosphere bots: their virtual stacks leave the published board too. Bots join at a safe point (the next
 	 * BETTING after the change), so the player spins once, then bets again and waits for the bots' stacks.
 	 */
-	@GameTest(maxTicks = 3000)
+	@GameTest(maxTicks = 3000, environment = MODE_OFF_ENV)
 	public void modeOffClearsBotStacks(GameTestHelper helper) {
 		ServerPlayer p = survivalPlayer(helper, "c2-modeoff-bots");
 		RouletteTableBlockEntity t = open(helper, p);
