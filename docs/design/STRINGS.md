@@ -382,6 +382,16 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.core.board.on_bets.p5` | %1$s on %2$s bets | %1$s на %2$s ставках |
 | `gui.burmaldaholic.core.board.lost` | lost | проигрыш |
 | `gui.burmaldaholic.core.board.push` | push | ничья |
+| `gui.burmaldaholic.core.board.felt.bj_pays` | BLACKJACK PAYS %1$s TO %2$s | БЛЭКДЖЕК ПЛАТИТ %1$s К %2$s |
+| `gui.burmaldaholic.core.board.felt.bj_dealer` | DEALER MUST STAND ON 17 AND DRAW TO 16 | ДИЛЕР БЕРЁТ ДО 16 И СТОИТ НА 17 |
+| `gui.burmaldaholic.core.board.felt.bj_dealer_h17` | DEALER HITS SOFT 17 | ДИЛЕР БЕРЁТ НА МЯГКИХ 17 |
+| `gui.burmaldaholic.core.board.felt.insurance` | INSURANCE PAYS 2 TO 1 | СТРАХОВКА ПЛАТИТ 2 К 1 |
+| `gui.burmaldaholic.core.board.felt.player` | PLAYER | ИГРОК |
+| `gui.burmaldaholic.core.board.felt.banker` | BANKER | БАНКИР |
+| `gui.burmaldaholic.core.board.felt.tie` | TIE %1$s TO 1 | НИЧЬЯ %1$s К 1 |
+| `gui.burmaldaholic.core.board.felt.pair` | PAIR | ПАРА |
+| `gui.burmaldaholic.core.board.felt.uth_qualifies` | DEALER QUALIFIES WITH A PAIR OR BETTER | ДИЛЕР В ИГРЕ С ПАРОЙ И ВЫШЕ |
+| `gui.burmaldaholic.core.board.felt.pot` | POT | БАНК |
 
 ### Messages
 

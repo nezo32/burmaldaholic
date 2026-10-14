@@ -59,6 +59,8 @@ public class BoardState extends SpectatorRenderState {
 	 * furniture felt at night (cards and chips keep the readable minimum in {@code lightCoords}).
 	 */
 	public int feltLight = net.minecraft.util.LightCoordsUtil.pack(15, 15);
+	/** Seats of the table's public header (the runtime felt print draws a betting spot per seat). */
+	public int seatCount;
 	/** Furniture theme of a full table (print decal): 0 standard, 1 high roller, 2 player-banked. */
 	public int furniture;
 

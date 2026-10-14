@@ -129,6 +129,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		s.platePx = HoloScale.readablePx(HoloScale.PLATE_READ, dist, fov, screenH);
 		s.viewer = mc.player == null ? null : mc.player.getUUID();
 		s.seated = false;
+		s.seatCount = be instanceof CasinoTableBlockEntity seatTable ? seatTable.clientSeats().length : 0;
 		if (s.viewer != null && be instanceof CasinoTableBlockEntity table) {
 			for (TablePublic.SeatPub pub : table.clientSeats()) {
 				if (pub != null && pub.is(s.viewer)) {
@@ -153,6 +154,13 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			BiConsumer<BlockEntity, BoardState> demo = DEMO.isEmpty() ? null : DEMO.get(be.getBlockPos().asLong());
 			if (demo != null) demo.accept(be, s);
 			else fill(be, s, partialTick);
+			if (s.full) {
+				// a 3-block table: cards at a believable scale (the design sizes were made for the 1-block-wide overhang)
+				for (int i = 0; i < m.cardCount; i++) {
+					m.cards[i].w *= BoardGeometry.FULL_CARD_SCALE;
+					m.cards[i].h *= BoardGeometry.FULL_CARD_SCALE;
+				}
+			}
 			float[] d = s.showsPlates() ? dealerRect(be) : null;
 			if (d != null) {
 				System.arraycopy(d, 0, m.dealer, 0, 5);
@@ -182,6 +190,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		FeltPainter.submit(pose, out, s, light);
 		st.feltQuads += FeltPainter.quads(s);
 		mapDesign(pose, s);
+		if (s.font != null) FeltPrint.submit(pose, out, s.font, s, s.seatCount);
 		if (m.cardCount > 0) {
 			CardPainter.submit(pose, out, s, m, light);
 			st.cardQuads += m.cardCount * CardPainter.QUADS_PER_CARD;
@@ -307,14 +316,14 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		}
 	}
 
-	/** Height of a full table's plate anchors (footprint-local y): the seat rail edge, clear of the padded rail top. */
-	public static final float FULL_PLATE_Y = 1.30f;
+	/** Height of a full table's plate anchors (footprint-local y): just above the padded rail top (15/16). */
+	public static final float FULL_PLATE_Y = (float) FeltFrame.RAIL_TOP + 0.03f;
 
 	/**
 	 * A full table's plate anchor for the seat whose design spot is (sx, sz), in DESIGN coordinates: from the dealer
-	 * (crescent) or the felt centre through the seat's spot, out past the padded rail by {@link BoardGeometry#PLATE_OUT}
-	 * — where the seat's player (or bot, {@code TableFootprint.seatPoint}) stands, so the plate reads as theirs and never
-	 * sinks behind the felt edge (D2: at 3 blocks the plate hid behind the felt) — at {@link #FULL_PLATE_Y}.
+	 * (crescent) or the felt centre through the seat's spot, out to the middle of the padded rail — the seat point on the
+	 * rail, where the leader line ends — at {@link #FULL_PLATE_Y}. The plate itself floats above its content and the
+	 * near rail edge (never behind the felt edge, D2).
 	 */
 	static float[] fullPlateAnchor(BoardState s, FeltFrame f, float sx, float sz) {
 		double fx = s.footX(sx), fz = s.footZ(sz);
@@ -330,12 +339,18 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		dx /= len;
 		dz /= len;
 		double x = fx, z = fz;
+		// an anchor given outside the felt (the design anchors sit past the design rail): walk back onto the felt first
+		for (int i = 0; i < 160 && !f.onFelt(x, z); i++) {
+			x -= dx / 32;
+			z -= dz / 32;
+		}
 		for (int i = 0; i < 160 && (f.onFelt(x, z) || Math.abs(x - ox) < 1e-9 && Math.abs(z - oz) < 1e-9); i++) {
 			x += dx / 32;
 			z += dz / 32;
 		}
-		x += dx * (FeltFrame.RAIL + BoardGeometry.PLATE_OUT);
-		z += dz * (FeltFrame.RAIL + BoardGeometry.PLATE_OUT);
+		// on the padded rail at the seat (visual QA round 1: plates and leader lines ended over the floor)
+		x += dx * FeltFrame.RAIL * 0.5;
+		z += dz * FeltFrame.RAIL * 0.5;
 		return new float[] {s.designX((float) x), s.designY(FULL_PLATE_Y), s.designZ((float) z)};
 	}
 

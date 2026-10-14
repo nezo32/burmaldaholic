@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.bots.client;
 
 import dev.nezo.burmaldaholic.client.board.BoardRenderer;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
-import dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale;
 import java.util.Map;
 import java.util.WeakHashMap;
 import net.minecraft.client.Minecraft;
@@ -11,7 +10,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Which {@code [BOT]} nameplates to hide (docs/architecture/ui-v2.md §7.4, REDESIGN §9.2: "bots keep their tag only away
@@ -19,11 +17,11 @@ import net.minecraft.world.phys.Vec3;
  * extraction; every other text display is untouched. A tag is hidden only when ALL hold:
  * <ul>
  *   <li>its text is a bot plate (the {@code bots.display_level} key the server's {@code BotAvatars} writes);</li>
- *   <li>it floats 1–3 blocks above a table within 2 blocks whose renderer is an in-world board with a seat header;</li>
- *   <li>the camera is within {@link HoloScale#READ_RANGE} of it (the board draws seat plates there; further away the
- *       plates are gone and the tag comes back).</li>
+ *   <li>it floats 1–3 blocks above a table (main block within 3 blocks) whose renderer is an in-world board with a seat
+ *       header.</li>
  * </ul>
- * The first two are cached per entity for 10 ticks (weak keys; cleared on disconnect); the distance is per frame.
+ * At any distance: the board's plates are the one name system near tables. Cached per entity for 10 ticks (weak keys;
+ * cleared on disconnect).
  */
 public final class BotTagVisibility {
 	private static final String KEY = "gui.burmaldaholic.bots.display_level";
@@ -32,11 +30,12 @@ public final class BotTagVisibility {
 
 	private BotTagVisibility() {}
 
-	/** True when this text display's text must not be drawn this frame. */
+	/**
+	 * True when this text display's text must not be drawn this frame: a bot tag over a table whose board draws seat
+	 * plates — at ANY distance (visual QA round 1: a neighbouring table's [BOT] tags beside the near table's plates
+	 * mixed two name systems on one screen; past 8 blocks the board shows no names at all).
+	 */
 	public static boolean hidden(Display.TextDisplay entity) {
-		Minecraft mc = Minecraft.getInstance();
-		Vec3 cam = mc.gameRenderer.mainCamera().position();
-		if (cam.distanceToSqr(entity.getX(), entity.getY(), entity.getZ()) > HoloScale.READ_RANGE * HoloScale.READ_RANGE) return false;
 		return botPlateAtBoard(entity);
 	}
 
@@ -70,9 +69,10 @@ public final class BotTagVisibility {
 
 	private static boolean nearBoard(Level level, BlockPos at) {
 		var dispatcher = Minecraft.getInstance().getBlockEntityRenderDispatcher();
+		// a 3×2 table's seat points reach ≈ 2.4 blocks from its main block (MT seatPoint, 0.35 past the rail)
 		for (int dy = -3; dy <= -1; dy++) {
-			for (int dx = -2; dx <= 2; dx++) {
-				for (int dz = -2; dz <= 2; dz++) {
+			for (int dx = -3; dx <= 3; dx++) {
+				for (int dz = -3; dz <= 3; dz++) {
 					if (level.getBlockEntity(at.offset(dx, dy, dz)) instanceof CasinoTableBlockEntity be && be.clientSeats().length > 0
 						&& dispatcher.getRenderer(be) instanceof BoardRenderer<?, ?>) return true;
 				}

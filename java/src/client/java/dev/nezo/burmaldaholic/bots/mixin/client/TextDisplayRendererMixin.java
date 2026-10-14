@@ -10,7 +10,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Hides a bot's {@code [BOT]} nameplate while it sits at a table whose in-world board shows it on a seat plate
+ * Hides a bot's {@code [BOT]} nameplate while it sits at a table with an in-world board (the board's seat plates are the
+ * one name system there)
  * (docs/architecture/ui-v2.md §7.4; {@link BotTagVisibility} decides). Replaces the former global TEXT_DISPLAY renderer
  * override: the vanilla renderer (and any other mod's mixins on it) stays in place, every other text display is untouched.
  * A hidden plate keeps no text sub-state, so the vanilla {@code submitInner} draws nothing. The target signature is the

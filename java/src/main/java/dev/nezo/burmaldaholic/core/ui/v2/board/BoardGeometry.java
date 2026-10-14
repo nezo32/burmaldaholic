@@ -31,14 +31,19 @@ public final class BoardGeometry {
 
 	/** In-world card size: 1.5 × the screen card, readable from 3–8 blocks (REDESIGN §9.1). */
 	public static final float CARD_W = 0.22f, CARD_H = 0.30f;
-	/** Cards lie 1/32 above the felt and lean 30° toward their owner (readable from outside the rail). */
-	public static final float CARD_LIFT = 1 / 32f, CARD_TILT = 30f;
+	/**
+	 * Cards lie 1/64 above the felt, almost flat: a 5° lean toward their owner (visual QA round 1: 30° read as cards
+	 * standing up / hovering).
+	 */
+	public static final float CARD_LIFT = 1 / 64f, CARD_TILT = 5f;
+	/** Cards on a full 3×2 table are drawn at this fraction of their design size (≈ 0.16 × 0.23 block for a seat card). */
+	public static final float FULL_CARD_SCALE = 0.78f;
 	/** Layer step between overlapping cards (no z-fighting). */
 	public static final float LAYER = 0.0015f;
 
-	/** Chip disc radius / height; stacks hold ≤ {@link #CHIP_MAX} discs. */
+	/** Chip disc radius / height; an amount shows ≤ {@link #CHIP_MAX} discs, in piles of ≤ {@link #CHIP_PILE}. */
 	public static final float CHIP_R = 0.085f, CHIP_H = 0.03f;
-	public static final int CHIP_MAX = 6;
+	public static final int CHIP_MAX = 10, CHIP_PILE = 5;
 	/** Chip denominations of {@code chips_w.png}, left to right. */
 	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1000, 5000};
 

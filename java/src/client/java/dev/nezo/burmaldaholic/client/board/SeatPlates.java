@@ -156,7 +156,8 @@ final class SeatPlates {
 		}
 		for (int i = 0; i < m.stackCount && n < MAX_OBS; i++) {
 			int discs = BoardGeometry.discs(m.stackAmount[i], DISCS);
-			n = add(f, n, m.stackX[i], BoardGeometry.TOP + discs * BoardGeometry.CHIP_H, m.stackZ[i], BoardGeometry.CHIP_R, hx, hz);
+			n = add(f, n, m.stackX[i], BoardGeometry.TOP + Math.min(discs, BoardGeometry.CHIP_PILE) * BoardGeometry.CHIP_H, m.stackZ[i],
+				discs > BoardGeometry.CHIP_PILE ? BoardGeometry.CHIP_R * 2.2f : BoardGeometry.CHIP_R, hx, hz);
 		}
 		for (int i = 0; i < m.contentCount && n < MAX_OBS; i++) {
 			int k = i * 4;

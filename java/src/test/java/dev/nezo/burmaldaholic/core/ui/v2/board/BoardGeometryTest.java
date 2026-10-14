@@ -89,7 +89,7 @@ class BoardGeometryTest {
 	}
 
 	@Test
-	void chipsSplitGreedilyIntoAtMostSixDiscs() {
+	void chipsSplitGreedilyIntoAtMostTenDiscs() {
 		int[] d = new int[BoardGeometry.CHIP_MAX];
 		assertEquals(0, BoardGeometry.discs(0, d));
 		assertEquals(1, BoardGeometry.discs(1, d));
@@ -97,7 +97,7 @@ class BoardGeometryTest {
 		assertEquals(3, BoardGeometry.discs(130, d)); // 100 + 25 + 5
 		assertArrayEquals(new int[] {3, 2, 1}, new int[] {d[0], d[1], d[2]});
 		assertEquals(4, BoardGeometry.discs(4, d));
-		assertEquals(6, BoardGeometry.discs(1_000_000, d));
+		assertEquals(BoardGeometry.CHIP_MAX, BoardGeometry.discs(1_000_000, d));
 		assertEquals(BoardGeometry.DENOMS.length - 1, d[0]);
 	}
 

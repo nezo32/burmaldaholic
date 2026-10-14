@@ -18,15 +18,38 @@ public final class CardPainter {
 	/** Quads per card. */
 	public static final int QUADS_PER_CARD = 2;
 
+	/** Contact shadow under a card: colour, growth, offset away from the light. */
+	private static final int SHADOW = 0x48000000;
+
 	static void submit(PoseStack pose, SubmitNodeCollector out, BoardState s, BoardModel m, int light) {
 		int count = m.cardCount;
 		int back = s.back;
+		out.submitCustomGeometry(pose, RenderTypes.entityTranslucent(BoardTextures.BACKING), (p, vc) -> {
+			for (int i = 0; i < count; i++) shadow(p, vc, m.cards[i], light);
+		});
 		out.submitCustomGeometry(pose, RenderTypes.entityCutoutCull(BoardTextures.FACES), (p, vc) -> {
 			float[] uv = new float[4];
 			float[] bk = new float[4];
 			BoardTextures.backUv(back, bk);
 			for (int i = 0; i < count; i++) card(p, vc, m.cards[i], i, back, uv, bk, light);
 		});
+	}
+
+	/** A soft shadow on the felt under a card (grows and fades as the card rises: deal arcs, flips). */
+	private static void shadow(PoseStack.Pose p, VertexConsumer vc, BoardCard c, int light) {
+		float rise = Math.max(0, c.lift);
+		if (rise > 0.25f) return;
+		float g = 1.06f + rise * 1.5f;
+		int col = Quads.shade(SHADOW, 1f) & 0x00FFFFFF | (int) (0x48 * (1 - rise * 3.5f) + 0.5f) << 24;
+		if ((col >>> 24) < 6) return;
+		float hw = c.w / 2 * g, hh = c.h / 2 * g;
+		double a = Math.toRadians(c.yaw);
+		float cos = (float) Math.cos(a), sin = (float) Math.sin(a);
+		float cx = c.x + 0.012f + rise * 0.08f, cz = c.z + 0.016f + rise * 0.1f;
+		float y = BoardGeometry.TOP + 0.0011f;
+		float[] lx = {-hw, hw, hw, -hw};
+		float[] lz = {hh, hh, -hh, -hh};
+		for (int j = 0; j < 4; j++) Quads.v(p, vc, cx + lx[j] * cos - lz[j] * sin, y, cz + lx[j] * sin + lz[j] * cos, 0.5f, 0.5f, col, light, 0, 1, 0);
 	}
 
 	private static void card(PoseStack.Pose p, VertexConsumer vc, BoardCard c, int layer, int back, float[] uv, float[] bk, int light) {
