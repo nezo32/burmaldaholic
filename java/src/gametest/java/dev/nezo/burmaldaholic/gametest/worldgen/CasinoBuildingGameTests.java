@@ -415,36 +415,33 @@ public class CasinoBuildingGameTests {
 
 	/**
 	 * 9. The worldgen gate is a snapshot (R-CB M5): worker threads read volatile fields, recomputed on the server
-	 * thread on every casino-mode switch and config change. All in one tick so parallel tests never see it off.
+	 * thread. Casino mode is NOT toggled here: its change listeners reset the bot tables of tests running in the same
+	 * batch (a full build lost 5 bot tests to that); the mode path is {@code CasinoMode.onChange → refresh}. The config
+	 * path is exercised in one tick and restored.
 	 */
 	@GameTest
 	public void worldgenRuntimeSnapshotTracksMode(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
-		boolean mode0 = dev.nezo.burmaldaholic.core.mode.CasinoMode.isEnabled(server);
 		boolean standalone0 = cfg.standalone.enabled;
 		try {
-			dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, true);
 			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
-			helper.assertTrue(WorldgenRuntimeView.active() && WorldgenRuntimeView.standalone(), "on: active + standalone");
-			dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, false); // onChange listener refreshes at once
-			helper.assertFalse(WorldgenRuntimeView.active() || WorldgenRuntimeView.standalone(), "mode off: nothing generates");
+			boolean truth = cfg.enabled && dev.nezo.burmaldaholic.core.mode.CasinoMode.isEnabled(server);
+			helper.assertTrue(WorldgenRuntimeView.active() == truth, "snapshot == casino mode && worldgen.enabled");
+			helper.assertTrue(WorldgenRuntimeView.standalone() == (truth && cfg.standalone.enabled), "standalone snapshot");
 			// a worker thread sees the same answer without touching the server's saved data
-			boolean[] seen = new boolean[] {true};
+			boolean[] seen = new boolean[] {!truth};
 			Thread t = new Thread(() -> seen[0] = WorldgenRuntimeView.active());
 			t.start();
 			t.join();
-			helper.assertFalse(seen[0], "worker thread reads the snapshot");
-			dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, true);
-			helper.assertTrue(WorldgenRuntimeView.active() && WorldgenRuntimeView.standalone(), "mode back on");
+			helper.assertTrue(seen[0] == truth, "worker thread reads the snapshot");
 			cfg.standalone.enabled = false;
 			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
-			helper.assertTrue(WorldgenRuntimeView.active() && !WorldgenRuntimeView.standalone(), "standalone off: annexes stay active");
+			helper.assertTrue(WorldgenRuntimeView.active() == truth && !WorldgenRuntimeView.standalone(), "standalone off: annexes keep their gate");
 		} catch (InterruptedException e) {
 			throw new IllegalStateException(e);
 		} finally {
 			cfg.standalone.enabled = standalone0;
-			dev.nezo.burmaldaholic.core.mode.CasinoMode.set(server, mode0);
 			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
 		}
 		helper.succeed();
@@ -480,6 +477,13 @@ public class CasinoBuildingGameTests {
 		helper.assertTrue(off == null || off.placed() == 0, "standalone casinos started while disabled: " + off);
 		helper.assertTrue(off == null || off.biomeValid() > 0, "harness: no biome-valid cell surveyed");
 		helper.assertTrue(villages.casinos() > 0 && villages.casinos() >= 0.5 * villages.starts(), "village annexes must still attach (chance 1): " + villages);
+		helper.succeed();
+	}
+
+	/** 11. The test world is written without DSYNC ({@code GameTestServerMixin}): the shutdown save no longer takes ~30 min. */
+	@GameTest
+	public void gameTestServerSkipsSyncWrites(GameTestHelper helper) {
+		helper.assertFalse(helper.getLevel().getServer().forceSynchronousWrites(), "GameTest server still forces synchronous chunk writes");
 		helper.succeed();
 	}
 
