@@ -156,8 +156,8 @@ public final class BetBar {
 	}
 
 	private Component caption() {
-		if (multiSpot && !view.spots().isEmpty()) return Texts.plural(V2Keys.SPOTS, view.spots().size());
-		return Component.translatable(V2Keys.BET);
+		// multi-spot: "On table" (not "15 spots", which read as the label of the value; DES roulette P2)
+		return Component.translatable(multiSpot && !view.spots().isEmpty() ? V2Keys.ON_TABLE : V2Keys.BET);
 	}
 
 	void place(Tier tier, List<Box> chipBoxes, int firstChip, List<Box> toolBoxes, Box readout, boolean compactReadout) {

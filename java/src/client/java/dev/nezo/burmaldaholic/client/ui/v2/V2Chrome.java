@@ -218,6 +218,9 @@ public final class V2Chrome {
 		} else {
 			spec = DockLayout.Spec.actions(actions.measure(font), actions.measureCompact(font), stepper.measure(font, grid.tier), pw, pc);
 		}
+		// the status asks for the width of its longer line (capped at 40 % of the Dock): actions go compact first, then line 2
+		// moves to the hint strip above the Dock (review R-KW B2, DES 3)
+		spec = spec.withStatus(Math.min(grid.dock.w() * 2 / 5, status.measure(font)));
 		dock = DockLayout.layout(grid, spec, bet.selectedIndex());
 		bet.place(grid.tier, dock.chips(), dock.firstChip(), dock.tools(), dock.readout(), dock.compactReadout());
 		if (bet.visible()) bet.hits(hits);
@@ -232,7 +235,7 @@ public final class V2Chrome {
 		if (secondary != null) hits.add(KeyMap.Ids.SECONDARY, secondaryBox, secondary.enabled());
 		primary.place(dock.primary(), dock.compactPrimary());
 		hits.add(KeyMap.Ids.PRIMARY, dock.primary(), primary.gate().enabled());
-		status.place(dock.status());
+		status.place(dock.status(), dock.hintStrip());
 		top.layout(grid, font, hits);
 		narrateKit();
 		banner.tier(grid.tier);
