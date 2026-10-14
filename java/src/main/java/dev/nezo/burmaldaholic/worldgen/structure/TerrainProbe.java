@@ -46,6 +46,17 @@ public final class TerrainProbe {
 	private static final MethodHandle CELL_HEIGHT_262; // NoiseSettings -> int
 	private static final MethodHandle FINAL_263; // NoiseRouter -> DensityFunction (26.3 package)
 	private static final MethodHandle SAMPLE_263; // RandomState, DensityFunction, x, y, z -> float
+	// 26.3 volume sampling (a column window in one call: the 2D parts are evaluated once, not per sample)
+	private static final MethodHandle SAMPLER_263; // RandomState, DensityFunction -> DensitySampler
+	private static final MethodHandle VOLUME_263; // sizeX, sizeY, sizeZ, minX, minY, minZ, stepX, stepY, stepZ -> DensityVolume
+	private static final MethodHandle BUFFER_263; // int -> DensityBuffer
+	private static final MethodHandle SAMPLE_VOLUME_263; // DensitySampler, SamplerContext, DensityBuffer, DensityVolume -> void
+	private static final MethodHandle BUFFER_GET_263; // DensityBuffer, int -> float
+	private static final Object UNCACHED_263; // SamplerContext.EMPTY_UNCACHED
+	/** Samples per 26.3 column window. */
+	static final int WINDOW = 12;
+	/** The 26.3 window starts this far above the guess (one call usually covers the surface). */
+	static final int WINDOW_HEADROOM = 32;
 	static final boolean AVAILABLE;
 
 	static {
@@ -57,6 +68,12 @@ public final class TerrainProbe {
 		MethodHandle cell = null;
 		MethodHandle fin3 = null;
 		MethodHandle sample3 = null;
+		MethodHandle sampler3 = null;
+		MethodHandle volume3 = null;
+		MethodHandle buffer3 = null;
+		MethodHandle sampleVolume3 = null;
+		MethodHandle get3 = null;
+		Object uncached3 = null;
 		try {
 			Class<?> df = Class.forName("net.minecraft.world.level.levelgen.DensityFunction");
 			Class<?> fc = Class.forName("net.minecraft.world.level.levelgen.DensityFunction$FunctionContext");
@@ -81,6 +98,23 @@ public final class TerrainProbe {
 				fin3 = null;
 				sample3 = null;
 			}
+			try {
+				String pkg = "net.minecraft.world.level.levelgen.densityfunction.";
+				Class<?> df = Class.forName(pkg + "DensityFunction");
+				Class<?> ds = Class.forName(pkg + "DensitySampler");
+				Class<?> dv = Class.forName(pkg + "DensityVolume");
+				Class<?> db = Class.forName(pkg + "DensityBuffer");
+				Class<?> sc = Class.forName(pkg + "SamplerContext");
+				sampler3 = l.findVirtual(RandomState.class, "getSampler", MethodType.methodType(ds, df));
+				volume3 = l.findConstructor(dv, MethodType.methodType(void.class, int.class, int.class, int.class, int.class, int.class, int.class,
+					int.class, int.class, int.class));
+				buffer3 = l.findStatic(db, "createUnpooled", MethodType.methodType(db, int.class));
+				sampleVolume3 = l.findVirtual(ds, "sampleVolume", MethodType.methodType(void.class, sc, db, dv));
+				get3 = l.findVirtual(db, "get", MethodType.methodType(float.class, int.class));
+				uncached3 = l.findStaticGetter(sc, "EMPTY_UNCACHED", sc).invoke();
+			} catch (Throwable e) {
+				sampler3 = null;
+			}
 		}
 		ROUTER_262 = router;
 		FINAL_262 = fin;
@@ -89,6 +123,13 @@ public final class TerrainProbe {
 		CELL_HEIGHT_262 = cell;
 		FINAL_263 = fin3;
 		SAMPLE_263 = sample3;
+		boolean vol = sampler3 != null && volume3 != null && buffer3 != null && sampleVolume3 != null && get3 != null && uncached3 != null;
+		SAMPLER_263 = vol ? sampler3 : null;
+		VOLUME_263 = vol ? volume3 : null;
+		BUFFER_263 = vol ? buffer3 : null;
+		SAMPLE_VOLUME_263 = vol ? sampleVolume3 : null;
+		BUFFER_GET_263 = vol ? get3 : null;
+		UNCACHED_263 = vol ? uncached3 : null;
 		AVAILABLE = router != null || sample3 != null;
 	}
 
@@ -99,6 +140,8 @@ public final class TerrainProbe {
 	private final RandomState randomState;
 	private final LevelHeightAccessor height;
 	private final @Nullable Object density; // 26.2: wired DensityFunction; 26.3: unwired DensityFunction
+	private final @Nullable Object sampler263; // 26.3: compiled DensitySampler of the final density (volume path)
+	private final @Nullable Object buffer263;
 	private final int seaLevel;
 	private final int step;
 	/** Exact-column calls made (fallbacks + {@link #exact}); diagnostics. */
@@ -126,6 +169,19 @@ public final class TerrainProbe {
 				d = null;
 			}
 		}
+		Object smp = null;
+		Object buf = null;
+		if (d != null && ROUTER_262 == null && SAMPLER_263 != null) {
+			try {
+				smp = SAMPLER_263.invoke(randomState, d);
+				buf = BUFFER_263.invoke(WINDOW);
+			} catch (Throwable t) {
+				smp = null;
+				buf = null;
+			}
+		}
+		this.sampler263 = smp;
+		this.buffer263 = buf;
 		this.density = d;
 		this.seaLevel = sea;
 		this.step = Math.max(1, st);
@@ -162,6 +218,9 @@ public final class TerrainProbe {
 	public int[] heights(int x, int z, int guess) {
 		if (density == null) {
 			return exact(x, z);
+		}
+		if (sampler263 != null) {
+			return windowed(x, z, guess);
 		}
 		try {
 			int minY = height.getMinY();
@@ -212,6 +271,72 @@ public final class TerrainProbe {
 			}
 		} catch (Throwable t) {
 			return exact(x, z);
+		}
+	}
+
+	/**
+	 * 26.3: the same search on {@link #WINDOW}-sample column windows sampled in one {@code sampleVolume} call (26.3
+	 * samples a lone point ~5× slower than 26.2 but shares the column work inside a volume). The window starts
+	 * {@link #HEADROOM} above the guess; solid in its top {@link #AIR_RUN} samples moves it up, no solid at all moves
+	 * it down; otherwise the first solid sample from the top is the surface.
+	 */
+	private int[] windowed(int x, int z, int guess) {
+		try {
+			int minY = height.getMinY();
+			int maxY = height.getMaxY();
+			int g = guess == NO_GUESS ? seaLevel + 96 : guess + WINDOW_HEADROOM;
+			int top = minY + Math.floorDiv(Math.clamp(g, minY, maxY) - minY, step) * step;
+			double above = Double.NaN; // the sample just above this window (when moving down)
+			for (int round = 0; round < 8; round++) {
+				int low = top - (WINDOW - 1) * step;
+				if (low < minY || top > maxY) {
+					return exact(x, z);
+				}
+				Object volume = VOLUME_263.invoke(1, WINDOW, 1, x, low, z, 1, step, 1);
+				SAMPLE_VOLUME_263.invoke(sampler263, UNCACHED_263, buffer263, volume);
+				densityCalls += WINDOW;
+				float[] v = new float[WINDOW];
+				for (int i = 0; i < WINDOW; i++) {
+					v[i] = (float) BUFFER_GET_263.invoke(buffer263, i); // i = 0 is the lowest sample
+				}
+				boolean solidOnTop = false;
+				if (Double.isNaN(above)) {
+					for (int i = WINDOW - AIR_RUN; i < WINDOW; i++) {
+						solidOnTop |= v[i] > 0;
+					}
+				}
+				if (solidOnTop) {
+					top += (WINDOW - AIR_RUN) * step; // climb, keeping AIR_RUN samples of overlap
+					continue;
+				}
+				for (int i = WINDOW - 1; i >= 0; i--) {
+					if (v[i] > 0) {
+						double dHigh = i + 1 < WINDOW ? v[i + 1] : above;
+						return result(low + i * step, v[i], dHigh);
+					}
+				}
+				above = v[0];
+				top = low - step;
+			}
+			return exact(x, z);
+		} catch (Throwable t) {
+			return exact(x, z);
+		}
+	}
+
+	/** Diagnostic (26.3 volume path): nanoseconds to sample an {@code n × ny × n} grid (step 4, 8, 4); -1 without it. */
+	public long benchGrid(int x, int y, int z, int n, int ny) {
+		if (sampler263 == null) {
+			return -1;
+		}
+		try {
+			Object buf = BUFFER_263.invoke(n * ny * n);
+			Object volume = VOLUME_263.invoke(n, ny, n, x, y, z, 4, 8, 4);
+			long t0 = System.nanoTime();
+			SAMPLE_VOLUME_263.invoke(sampler263, UNCACHED_263, buf, volume);
+			return System.nanoTime() - t0;
+		} catch (Throwable t) {
+			return -2;
 		}
 	}
 

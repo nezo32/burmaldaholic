@@ -156,6 +156,17 @@ public class WorldgenSpawnSurvey {
 					}
 				}
 			}
+			StringBuilder grid = new StringBuilder();
+			for (int[] g : new int[][] {{1, 1}, {1, 12}, {4, 12}, {8, 12}, {16, 12}, {28, 12}}) {
+				probe.benchGrid(100, 40, 100, g[0], g[1]); // warm the code, then fresh positions (the samplers cache columns)
+				long ns = 0;
+				for (int rep = 0; rep < 3; rep++) {
+					ns += probe.benchGrid(r.nextInt(8000) - 4000, 40, r.nextInt(8000) - 4000, g[0], g[1]);
+				}
+				ns /= 3;
+				grid.append(g[0]).append('x').append(g[1]).append('x').append(g[0]).append('=').append(String.format(java.util.Locale.ROOT, "%.2f", ns / 1e6)).append("ms ");
+			}
+			Burmaldaholic.LOGGER.info("[survey] PROBE grid (26.3 volume path) {}", grid);
 			Burmaldaholic.LOGGER.info("[survey] PROBE seed={} fast={} n={} surface within 1: {}% within 2: {}% max err {} | floor within 1: {}% | "
 					+ "ms/column exact(getBaseHeight) {} getBaseColumn {} fast {} | worst {}",
 				seed, probe.fast(), n, 100 * within1 / n, 100 * within2 / n, maxErr, 100 * floorWithin1 / n,

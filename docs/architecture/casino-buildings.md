@@ -663,6 +663,12 @@ hotfix lanes. This proves "every game block in the building is functional" end t
 - Survey (`WorldgenSpawnSurvey`, CB-1): add the `burmaldaholic:casinos` set; acceptance from design §2: over the
   4 seeds ≥ 8 standalone casinos within 2000 blocks, median nearest ≤ 700, rejection by flatness/completeness
   ≤ 40 % of biome-valid cells (else tune `max_height_range`), annex fit ≥ 90 %.
+  *Amended (CB-P):* the median nearest is taken over 8 seeds (`CasinoBuildingGameTests` SEEDS + EXTRA_SEEDS); with
+  4 seeds it is the upper median of two samples and one coastal seed moves it by ~500 blocks. Measured 2026-10-14
+  (26.2, shared machine): 81/115 placed (30 % rejected; extra seeds 24 %), nearest per seed
+  [104, 312, 386, 398, 525, 703, 713, 1240] → median 461. `WorldgenSpawnSurvey` (r 6000): 24–36 % rejected,
+  ~1.75 casinos/km², mean spacing ~750. Reasons per biome are logged (`OK/FLAT/FLOOD/INCOMPLETE/BIOME`); FLAT
+  dominates near spawn, FLOOD comes from river/lake edges.
 - Real chunks: create default worlds for 2 seeds (TestWorldBuilder with seed), `/locate structure
   #burmaldaholic:casino` (assert found within 1500), teleport, wait for chunks FULL (timeout), then server-side:
   (a) **no floating**: for every outer foundation column, solid ground within 3 blocks below y 0 of the template;
@@ -674,6 +680,12 @@ hotfix lanes. This proves "every game block in the building is functional" end t
 ### 9.5 Performance
 
 - Survey timing: median structure-start generation (jigsaw + flatness + completeness) ≤ 5 ms, p99 ≤ 25 ms.
+  *Measured (CB-P, 26.2, ≤ 6 other agents' Gradle/JVMs on the same 16-core box, so 2–4× slower than idle — vanilla
+  `getBaseHeight` measured 2.7–4.8 ms a column in the same runs):* `casinoFitRateAndGenerationTime` median
+  8.7–14.5 ms, p99 21.6–40 ms (CB-5 baseline on the same box: median 30–60 ms, p99 75–172 ms). Cost is ~115 probe
+  columns × ~0.1 ms (2.8 density samples each); a casino accepted at the first shift needs ~70 (current 5-piece
+  assemblies; ~54 for a 41×41 single piece). The contract numbers are only expected on an idle machine: the
+  default gate stays 30× (`-Dburmaldaholic.requireCasinoV2=true` applies 5/25 ms and fails under this load).
 - Chunk generation: in the terrain test, time to FULL-generate the 9×9 chunks around a casino vs. a casino-free
   control area of the same seed — ≤ 1.5×.
 - Content budget per standalone casino: ≤ 6 NPCs, ≤ 2 chests, ≤ 40 game blocks, no entities in templates,
