@@ -66,7 +66,7 @@ public final class Shake {
 
 	/** Length of the interval ending at reversal {@code i}, ms. */
 	public static double interval(int i) {
-		return Math.max(FLOOR_INTERVAL, FIRST_INTERVAL * Math.pow(INTERVAL_RATIO, i));
+		return Math.max(FLOOR_INTERVAL, FIRST_INTERVAL * StrictMath.pow(INTERVAL_RATIO, i));
 	}
 
 	/** Time of reversal {@code i} (0-based), ms. */
@@ -121,7 +121,7 @@ public final class Shake {
 		double u = (ms - r0) / (r1 - r0);
 		double sigma = (k & 1) == 0 ? 1 : -1;
 		double amp = AMP_PX * Math.min(1, ms / RAMP_MS);
-		return amp * sigma * -Math.cos(Math.PI * u);
+		return amp * sigma * -StrictMath.cos(Math.PI * u);
 	}
 
 	/** Cup lean in degrees at {@code ms} (shake: ±6° with the offset; flick: the tip toward the throw, 0 → 70°). */
@@ -138,7 +138,7 @@ public final class Shake {
 			double s = r / RECOVER;
 			// out-back from 70° to 0 with a small overshoot
 			double c1 = 1.70158;
-			double e = 1 + (c1 + 1) * Math.pow(s - 1, 3) + c1 * Math.pow(s - 1, 2);
+			double e = 1 + (c1 + 1) * StrictMath.pow(s - 1, 3) + c1 * StrictMath.pow(s - 1, 2);
 			return TIP_DEG * (1 - e);
 		}
 		return 0;

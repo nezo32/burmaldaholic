@@ -19,7 +19,7 @@ public final class DiceEvent {
 	public static final int WALL = 3;
 	/** A bank off a round bumper; aux = bumper index. */
 	public static final int BUMPER = 4;
-	/** Die against die; obj = −1, aux = 0. (Reserved: the solver keeps the dice apart.) */
+	/** Die against die: a brief brush near the floor (≤ {@link DiceSolver#CLACK_MS}); obj = −1, aux = the later die. */
 	public static final int CLACK = 5;
 	/** A quarter-roll lands on its next face; aux = roll number (1, 2, 3). */
 	public static final int TIP = 6;

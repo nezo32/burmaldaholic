@@ -8,6 +8,10 @@ package dev.nezo.burmaldaholic.core.anim.dice;
  * rotation "first {@code b}, then {@code a}". The dice tray frame is {@code x, y} on the floor and {@code z} up
  * (tray units: 1 = the die half-edge {@code h}).
  *
+ * <p>Transcendentals use {@link StrictMath} (bit-identical on every JVM and CPU, so the solver makes the same choices
+ * on the server and every client). The {@code …Fast} variants use {@link Math} (intrinsics, never allocating; within
+ * 1 ulp) and are meant for per-frame sampling only.
+ *
  * <p>Two angle measures are used and named distinctly:
  * <ul>
  *   <li>{@link #angleTo}: the rotation angle between two orientations (radians, 0–π), the "how far did the die turn"
@@ -107,8 +111,8 @@ public final class Quat {
 	public static double[] axisAngle(double ax, double ay, double az, double angle, double[] out) {
 		double n = Math.sqrt(ax * ax + ay * ay + az * az);
 		if (n == 0 || angle == 0) return set(out, 1, 0, 0, 0);
-		double s = Math.sin(angle / 2) / n;
-		return set(out, Math.cos(angle / 2), ax * s, ay * s, az * s);
+		double s = StrictMath.sin(angle / 2) / n;
+		return set(out, StrictMath.cos(angle / 2), ax * s, ay * s, az * s);
 	}
 
 	/**
@@ -119,8 +123,30 @@ public final class Quat {
 		double n = Math.sqrt(wx * wx + wy * wy + wz * wz);
 		if (n == 0 || t == 0) return set(out, 1, 0, 0, 0);
 		double half = n * t / 2;
+		double s = StrictMath.sin(half) / n;
+		return set(out, StrictMath.cos(half), wx * s, wy * s, wz * s);
+	}
+
+	/** {@link #axisAngle} with {@link Math} (sampling). */
+	public static double[] axisAngleFast(double ax, double ay, double az, double angle, double[] out) {
+		double n = Math.sqrt(ax * ax + ay * ay + az * az);
+		if (n == 0 || angle == 0) return set(out, 1, 0, 0, 0);
+		double s = Math.sin(angle / 2) / n;
+		return set(out, Math.cos(angle / 2), ax * s, ay * s, az * s);
+	}
+
+	/** {@link #expMap} with {@link Math} (sampling). */
+	public static double[] expMapFast(double wx, double wy, double wz, double t, double[] out) {
+		double n = Math.sqrt(wx * wx + wy * wy + wz * wz);
+		if (n == 0 || t == 0) return set(out, 1, 0, 0, 0);
+		double half = n * t / 2;
 		double s = Math.sin(half) / n;
 		return set(out, Math.cos(half), wx * s, wy * s, wz * s);
+	}
+
+	/** {@link #slerp} with {@link Math} (sampling). */
+	public static double[] slerpFast(double[] a, double[] b, double u, double[] out) {
+		return slerp(a, b, u, out, false);
 	}
 
 	/**
@@ -128,6 +154,10 @@ public final class Quat {
 	 * {@code b} is flipped when {@code a·b < 0}). Falls back to a normalised lerp for nearly equal inputs.
 	 */
 	public static double[] slerp(double[] a, double[] b, double u, double[] out) {
+		return slerp(a, b, u, out, true);
+	}
+
+	private static double[] slerp(double[] a, double[] b, double u, double[] out, boolean strict) {
 		double d = dot(a, b);
 		double s = 1;
 		if (d < 0) {
@@ -140,10 +170,10 @@ public final class Quat {
 			ka = 1 - u;
 			kb = u;
 		} else {
-			double th = Math.acos(Math.min(1, d));
-			double sn = Math.sin(th);
-			ka = Math.sin((1 - u) * th) / sn;
-			kb = Math.sin(u * th) / sn;
+			double th = strict ? StrictMath.acos(Math.min(1, d)) : Math.acos(Math.min(1, d));
+			double sn = strict ? StrictMath.sin(th) : Math.sin(th);
+			ka = (strict ? StrictMath.sin((1 - u) * th) : Math.sin((1 - u) * th)) / sn;
+			kb = (strict ? StrictMath.sin(u * th) : Math.sin(u * th)) / sn;
 		}
 		kb *= s;
 		set(out, ka * a[0] + kb * b[0], ka * a[1] + kb * b[1], ka * a[2] + kb * b[2], ka * a[3] + kb * b[3]);
@@ -158,12 +188,12 @@ public final class Quat {
 	/** Arc between {@code ±a} and {@code b} on S³, radians in [0, π/2] (= half of {@link #angleTo}). */
 	public static double arcTo(double[] a, double[] b) {
 		double d = Math.abs(dot(a, b));
-		return Math.acos(Math.min(1, d));
+		return StrictMath.acos(Math.min(1, d));
 	}
 
 	/** Rotation angle of {@code q} itself (radians, 0–π). */
 	public static double angle(double[] q) {
-		return 2 * Math.acos(Math.min(1, Math.abs(q[0]) / Math.max(1e-300, norm(q))));
+		return 2 * StrictMath.acos(Math.min(1, Math.abs(q[0]) / Math.max(1e-300, norm(q))));
 	}
 
 	/** Makes the sign canonical (first non-zero component positive) so equal rotations compare equal. */

@@ -43,8 +43,8 @@ public record ThrowSpec(double x, double y, double z0, double dir, double coneMi
 		double x = 46 / DiceTray.DUEL_PX;
 		double y = 80 / DiceTray.DUEL_PX;
 		boolean m = s.mirrored();
-		return new ThrowSpec(m ? DiceTray.DUEL_W - x : x, y, 1.1, m ? Math.PI : 0, Math.toRadians(6), Math.toRadians(32), 14, 30, 2.5, 8,
-			14, 22, m ? -0.8 : 0.8, 30, 60);
+		return new ThrowSpec(m ? DiceTray.DUEL_W - x : x, y, 1.1, m ? Math.PI : 0, Math.toRadians(6), Math.toRadians(32), 6, 30, 2.5, 8,
+			14, 22, m ? -0.8 : 0.8, 140, 200);
 	}
 
 	/**
@@ -54,7 +54,7 @@ public record ThrowSpec(double x, double y, double z0, double dir, double coneMi
 	 */
 	public static ThrowSpec hand(int side, double x, double y) {
 		double base = -Math.PI / 2 + (side == 0 ? -1 : 1) * Math.toRadians(14);
-		return new ThrowSpec(x, y, 1.2, base, 0, Math.toRadians(14), 14, 46, 6, 13, 12, 22, side == 0 ? 1.8 : -1.8, 15, 35);
+		return new ThrowSpec(x, y, 1.2, base, 0, Math.toRadians(14), 14, 60, 18, 25, 12, 22, side == 0 ? 1.8 : -1.8, 15, 35);
 	}
 
 	/**
@@ -66,8 +66,8 @@ public record ThrowSpec(double x, double y, double z0, double dir, double coneMi
 		return new ThrowSpec(0, 0, z0, 0, 0, Math.toRadians(8), 6, 70, 0, 6, 10, 20, 1.6, 30, 60);
 	}
 
-	/** {@link #chest(double)} at 1.3 blocks. */
+	/** {@link #chest(double)} at 1.0 block (the hand in front of the chest). */
 	public static ThrowSpec chest() {
-		return chest(1.3);
+		return chest(1.0);
 	}
 }

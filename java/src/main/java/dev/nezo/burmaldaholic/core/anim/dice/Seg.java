@@ -41,8 +41,21 @@ final class Seg {
 		return (t1 - t0) / 1000.0;
 	}
 
-	/** Pivot angle of a TIP / TEETER / ROCK segment at local time {@code ms} (ms since t0), radians. */
+	private static double sin(double x, boolean strict) {
+		return strict ? StrictMath.sin(x) : Math.sin(x);
+	}
+
+	private static double exp(double x, boolean strict) {
+		return strict ? StrictMath.exp(x) : Math.exp(x);
+	}
+
+	/** Pivot angle (strict maths: the solver's decisions) of a TIP / TEETER / ROCK segment at local {@code ms}. */
 	double theta(double ms) {
+		return theta(ms, true);
+	}
+
+	/** Pivot angle at local {@code ms} (ms since t0), radians; {@code strict = false} for per-frame sampling. */
+	double theta(double ms, boolean strict) {
 		double tt = (t1 - t0);
 		switch (kind) {
 			case DieSample.TEETER: {
@@ -52,18 +65,18 @@ final class Seg {
 				}
 				if (ms <= p0 + p1) {
 					double h = ms - p0;
-					return TEETER_HOLD + TEETER_WOBBLE * Math.sin(2 * Math.PI * h / TEETER_WOBBLE_MS) * Math.exp(-h / 160.0);
+					return TEETER_HOLD + TEETER_WOBBLE * sin(2 * Math.PI * h / TEETER_WOBBLE_MS, strict) * exp(-h / 160.0, strict);
 				}
-				double th = TEETER_HOLD + TEETER_WOBBLE * Math.sin(2 * Math.PI * p1 / TEETER_WOBBLE_MS) * Math.exp(-p1 / 160.0);
+				double th = TEETER_HOLD + TEETER_WOBBLE * sin(2 * Math.PI * p1 / TEETER_WOBBLE_MS, strict) * exp(-p1 / 160.0, strict);
 				double s = Math.min(1, (ms - p0 - p1) / p2);
 				double target = sub > 0 ? Math.PI / 2 : 0;
 				return th + (target - th) * s * s;
 			}
 			case DieSample.ROCK:
-				return p0 * Math.exp(-ms / ROCK_TAU) * Math.sin(Math.PI * Math.min(1, ms / tt));
+				return p0 * exp(-ms / ROCK_TAU, strict) * sin(Math.PI * Math.min(1, ms / tt), strict);
 			default: {
 				double s = Math.min(1, ms / tt);
-				return Math.PI / 2 * (s + TIP_A * Math.sin(2 * Math.PI * s) / (2 * Math.PI));
+				return Math.PI / 2 * (s + TIP_A * sin(2 * Math.PI * s, strict) / (2 * Math.PI));
 			}
 		}
 	}
@@ -71,8 +84,8 @@ final class Seg {
 	/** Angular speed of a pivot segment at local {@code ms} (rad/s), by a central difference of {@link #theta}. */
 	private double thetaRate(double ms) {
 		double h = 0.05;
-		double a = theta(Math.max(0, ms - h));
-		double b = theta(Math.min(t1 - t0, ms + h));
+		double a = theta(Math.max(0, ms - h), false);
+		double b = theta(Math.min(t1 - t0, ms + h), false);
 		double dt = (Math.min(t1 - t0, ms + h) - Math.max(0, ms - h)) / 1000.0;
 		return dt > 0 ? Math.abs(b - a) / dt : 0;
 	}
@@ -98,7 +111,7 @@ final class Seg {
 				o.y = y0 + vy * tau;
 				o.zLow = Math.max(0, z0 + vz * tau - 0.5 * g * tau * tau);
 				o.vz = vz - g * tau;
-				Quat.expMap(wx, wy, wz, tau, o.q);
+				Quat.expMapFast(wx, wy, wz, tau, o.q);
 				Quat.mul(o.q, q0, o.q);
 				o.zc = o.zLow + Quat.support(o.q);
 				o.omega = Math.sqrt(wx * wx + wy * wy + wz * wz);
@@ -108,14 +121,16 @@ final class Seg {
 				if (sub == SETTLE) {
 					double tt = t1 - t0;
 					double s = tt > 0 ? local / tt : 1;
-					Quat.slerp(q0, q1, s * s, o.q);
-					o.x = x0 + vx * tau;
-					o.y = y0 + vy * tau;
+					Quat.slerpFast(q0, q1, s * s, o.q);
+					o.x = x0 + vx * tau + 0.5 * ax * tau * tau;
+					o.y = y0 + vy * tau + 0.5 * ay * tau * tau;
 					o.zLow = 0;
 					o.vz = 0;
 					o.zc = Quat.support(o.q);
 					o.omega = tt > 0 ? p0 * 2 * s / (tt / 1000.0) : 0;
-					o.speed = Math.sqrt(vx * vx + vy * vy);
+					double sx = vx + ax * tau;
+					double sy = vy + ay * tau;
+					o.speed = Math.sqrt(sx * sx + sy * sy);
 				} else {
 					pivot(local, o);
 				}
@@ -129,7 +144,7 @@ final class Seg {
 				o.zLow = 0;
 				o.vz = 0;
 				double yaw = p0 * (1 - (1 - s) * (1 - s));
-				Quat.axisAngle(0, 0, 1, yaw, o.q);
+				Quat.axisAngleFast(0, 0, 1, yaw, o.q);
 				Quat.mul(o.q, q0, o.q);
 				o.zc = Quat.support(o.q);
 				o.omega = tt > 0 ? Math.abs(p0) * 2 * (1 - s) / tt : 0;
@@ -151,7 +166,7 @@ final class Seg {
 	}
 
 	private void pivot(double local, DieSample o) {
-		double th = theta(local);
+		double th = theta(local, false);
 		double c = Math.cos(th);
 		double s = Math.sin(th);
 		double along = -c + s;
@@ -160,7 +175,7 @@ final class Seg {
 		o.zLow = 0;
 		o.vz = 0;
 		// rotation about a = z × d = (−dy, dx, 0): top tips toward d
-		Quat.axisAngle(-dy, dx, 0, th, o.q);
+		Quat.axisAngleFast(-dy, dx, 0, th, o.q);
 		Quat.mul(o.q, q0, o.q);
 		o.zc = Quat.support(o.q);
 		double rate = thetaRate(local);
