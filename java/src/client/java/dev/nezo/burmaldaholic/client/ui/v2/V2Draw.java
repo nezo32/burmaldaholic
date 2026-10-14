@@ -74,7 +74,7 @@ public final class V2Draw {
 	/** Text centred in {@code b} (both axes) at {@code scale}, ellipsised to the box width. */
 	public static void centred(GuiGraphicsExtractor g, Font font, Component c, Box b, int scale, int color, boolean shadow) {
 		int maxW = Math.max(0, b.w() / scale);
-		FormattedCharSequence seq = CasinoUi.fit(font, c, maxW);
+		FormattedCharSequence seq = fit(font, c, maxW);
 		int w = font.width(seq) * scale;
 		int h = (font.lineHeight - 1) * scale;
 		text(g, font, seq, b.x() + (b.w() - w) / 2 + (scale > 1 ? 0 : 0), b.y() + (b.h() - h + 1) / 2, scale, color, shadow);
@@ -82,9 +82,25 @@ public final class V2Draw {
 
 	/** Left-aligned, vertically centred in {@code b}, ellipsised. */
 	public static void left(GuiGraphicsExtractor g, Font font, Component c, Box b, int pad, int scale, int color, boolean shadow) {
-		FormattedCharSequence seq = CasinoUi.fit(font, c, Math.max(0, (b.w() - 2 * pad) / scale));
+		FormattedCharSequence seq = fit(font, c, Math.max(0, (b.w() - 2 * pad) / scale));
 		int h = (font.lineHeight - 1) * scale;
 		text(g, font, seq, b.x() + pad, b.y() + (b.h() - h + 1) / 2, scale, color, shadow);
+	}
+
+	private record FitKey(Component text, int maxW, String lang) {}
+
+	/** Recent fits (text, width, language) → the ellipsised line: the status / labels are refit only when they change (review R-KW m13). */
+	private static final java.util.Map<FitKey, FormattedCharSequence> FITS = new java.util.LinkedHashMap<>(64, 0.75f, true) {
+		@Override
+		protected boolean removeEldestEntry(java.util.Map.Entry<FitKey, FormattedCharSequence> e) {
+			return size() > 256;
+		}
+	};
+
+	/** {@link CasinoUi#fit}, cached (render thread only). */
+	public static FormattedCharSequence fit(Font font, Component c, int maxW) {
+		String lang = net.minecraft.client.Minecraft.getInstance().options.languageCode;
+		return FITS.computeIfAbsent(new FitKey(c, maxW, lang == null ? "" : lang), k -> CasinoUi.fit(font, c, maxW));
 	}
 
 	// ---- keys and gates --------------------------------------------------------------------------------------------

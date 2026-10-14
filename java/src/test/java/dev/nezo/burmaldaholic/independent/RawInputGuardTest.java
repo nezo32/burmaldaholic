@@ -32,14 +32,21 @@ class RawInputGuardTest {
 
 	/** Compared value: a digit 0..9, or 32 and above (10..31 are left out: they are never button / key codes). */
 	private static final String CODE = "(?:[0-9]|3[2-9]|[4-9][0-9]|[1-9][0-9]{2,})\\b";
-	/** An input-ish operand: {@code button}, {@code button()}, {@code keyCode}, {@code key()}, {@code input()}, {@code scancode}. */
-	private static final String OPERAND = "(?:\\bbutton\\b(?:\\(\\))?|\\bkeyCode\\b|\\bscan[cC]ode\\b(?:\\(\\))?|\\.key\\(\\)|\\.input\\(\\))";
+	/**
+	 * An input-ish operand: {@code button}, {@code button()}, {@code key}, {@code keyCode}, {@code key()}, {@code input()},
+	 * {@code scancode}.
+	 */
+	private static final String OPERAND = "(?:\\bbutton\\b(?:\\(\\))?|\\bkey\\b(?!\\s*\\()|\\bkeyCode\\b|\\bscan[cC]ode\\b(?:\\(\\))?|\\.key\\(\\)|\\.input\\(\\))";
+	/** A comparison: {@code == != < <= > >=} (not {@code ->}, {@code <<}, {@code >>}). */
+	private static final String CMP = "(?:[!=]=|(?<![<-])<(?!<)=?|(?<![->])>(?!>)=?)";
+	/** {@code int b = event.button();}: a local alias of a raw code; its comparisons are checked like the operand's. */
+	static final Pattern ALIAS = Pattern.compile("\\bint\\s+(\\w+)\\s*=\\s*\\w+\\.(?:key|button|input)\\(\\)");
 
 	private static final List<Rule> RULES = List.of(
 		new Rule("GLFW key / button constant", Pattern.compile("\\bGLFW\\.GLFW_(?:KEY|MOUSE_BUTTON)_")),
 		new Rule("InputConstants key / button constant (inlined at compile time)", Pattern.compile("\\bInputConstants\\.(?:KEY|MOUSE_BUTTON)_")),
-		new Rule("button / key compared with a number", Pattern.compile(OPERAND + "\\s*[!=]=\\s*" + CODE)),
-		new Rule("number compared with a button / key", Pattern.compile("(?<![\\w.])" + CODE + "\\s*[!=]=\\s*" + OPERAND)),
+		new Rule("button / key compared with a number", Pattern.compile(OPERAND + "\\s*" + CMP + "\\s*-?" + CODE)),
+		new Rule("number compared with a button / key", Pattern.compile("(?<![\\w.])-?" + CODE + "\\s*" + CMP + "\\s*" + OPERAND)),
 		new Rule("switch on a button / key code", Pattern.compile("\\bswitch\\s*\\(\\s*(?:[\\w.]+\\.)?(?:button\\b(?:\\(\\))?|keyCode\\b|key\\(\\)|input\\(\\))\\s*\\)")),
 		new Rule("home-made key / button constant", Pattern.compile("\\bstatic\\s+final\\s+int\\s+(?:GLFW_)?(?:KEY|MOUSE_BUTTON)_\\w*\\s*=\\s*-?\\d")),
 		new Rule("GameTest input with a numeric button / key", Pattern.compile("\\b(?:press|hold|release)(?:Mouse|Key)\\s*\\(\\s*-?\\d")));
@@ -67,21 +74,12 @@ class RawInputGuardTest {
 					continue;
 				}
 				List<String> lines = Files.readAllLines(f, StandardCharsets.UTF_8);
-				boolean inBlock = false;
-				for (int i = 0; i < lines.size(); i++) {
-					String raw = lines.get(i);
-					StringBuilder code = new StringBuilder();
-					inBlock = stripComments(raw, inBlock, code);
-					for (Rule r : RULES) {
-						if (r.pattern().matcher(code).find()) {
-							String key = rel + " | " + raw.trim();
-							if (allowed.contains(key)) {
-								used.add(key);
-							} else {
-								hits.add(rel + ":" + (i + 1) + "  [" + r.what() + "]  " + raw.trim());
-							}
-							break;
-						}
+				for (Hit h : scan(lines)) {
+					String key = rel + " | " + h.line().trim();
+					if (allowed.contains(key)) {
+						used.add(key);
+					} else {
+						hits.add(rel + ":" + h.number() + "  [" + h.what() + "]  " + h.line().trim());
 					}
 				}
 			}
@@ -93,6 +91,53 @@ class RawInputGuardTest {
 		stale.removeAll(used);
 		assertTrue(stale.isEmpty(), "stale entries in config/input-literal-allowlist.txt (no longer match anything):\n  "
 			+ String.join("\n  ", stale));
+	}
+
+	record Hit(int number, String what, String line) {}
+
+	/** The rule hits of one file's lines (comments and string literals ignored; aliases of raw codes followed). */
+	static List<Hit> scan(List<String> lines) {
+		List<Hit> out = new ArrayList<>();
+		List<String> codes = new ArrayList<>();
+		boolean inBlock = false;
+		Set<String> aliases = new HashSet<>();
+		for (String raw : lines) {
+			StringBuilder code = new StringBuilder();
+			inBlock = stripComments(raw, inBlock, code);
+			codes.add(code.toString());
+			Matcher m = ALIAS.matcher(code);
+			while (m.find()) aliases.add(m.group(1));
+		}
+		List<Rule> rules = new ArrayList<>(RULES);
+		if (!aliases.isEmpty()) {
+			String alias = "\\b(?:" + String.join("|", aliases) + ")\\b";
+			rules.add(new Rule("alias of a raw button / key compared with a number", Pattern.compile(alias + "\\s*" + CMP + "\\s*-?" + CODE)));
+			rules.add(new Rule("number compared with an alias of a raw button / key", Pattern.compile("(?<![\\w.])-?" + CODE + "\\s*" + CMP + "\\s*" + alias)));
+			rules.add(new Rule("switch on an alias of a raw button / key", Pattern.compile("\\bswitch\\s*\\(\\s*" + alias + "\\s*\\)")));
+		}
+		for (int i = 0; i < codes.size(); i++) {
+			for (Rule r : rules) {
+				if (r.pattern().matcher(codes.get(i)).find()) {
+					out.add(new Hit(i + 1, r.what(), lines.get(i)));
+					break;
+				}
+			}
+		}
+		return out;
+	}
+
+	@Test
+	void rulesCatchTheKnownShapes() {
+		for (String bad : List.of("if (key == 32) {", "if (button < 2) {", "if (event.key() >= 48 && x) {", "return 0 != button;",
+			"if (keyCode > 64) {", "if (GLFW.GLFW_KEY_SPACE == k) {")) {
+			assertTrue(!scan(List.of(bad)).isEmpty(), "missed: " + bad);
+		}
+		assertTrue(!scan(List.of("int b = event.button();", "if (b == 1) {")).isEmpty(), "alias compare");
+		assertTrue(!scan(List.of("int k = e.key();", "switch (k) {")).isEmpty(), "alias switch");
+		for (String ok : List.of("Map<String, Integer> key = new HashMap<>();", "list.forEach(button -> 0);", "if (key == null) {",
+			"x = key(3);", "int b = event.button();", "if (Inputs.isLeft(button)) {", "long v = a << 3;", "// key == 32")) {
+			assertTrue(scan(List.of(ok)).isEmpty(), "false positive: " + ok + " " + scan(List.of(ok)));
+		}
 	}
 
 	/** Appends the code part of {@code line} (string literals blanked, comments dropped); returns whether a block comment is still open. */

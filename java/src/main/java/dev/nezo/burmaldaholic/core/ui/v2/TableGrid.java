@@ -10,15 +10,18 @@ public final class TableGrid {
 
 	public final Viewport viewport;
 	public final Tier tier;
+	/** How much room the frame has beyond its tier ({@link Room#ROOMY} from 800 × 450; games opt in). */
+	public final Room room;
 	public final Box screen, topBar, play, dock;
 	/** Width of one grid column (≥ 1). */
 	public final int colW;
 
 	public TableGrid(Viewport viewport) {
 		this.viewport = viewport;
-		int w = viewport.w();
-		int h = viewport.h();
+		int w = viewport.frameW(); // the screen lays out in the frame (§3.7)
+		int h = viewport.frameH();
 		this.tier = Tier.of(w, h);
+		this.room = Room.of(w, h);
 		this.screen = new Box(0, 0, w, h);
 		this.topBar = new Box(0, 0, w, tier.topBar);
 		this.dock = new Box(0, h - tier.dock, w, tier.dock);
@@ -28,6 +31,14 @@ public final class TableGrid {
 
 	public static TableGrid of(int w, int h) {
 		return new TableGrid(new Viewport(w, h, 1, 1f));
+	}
+
+	public Room room() {
+		return room;
+	}
+
+	public boolean roomy() {
+		return room == Room.ROOMY;
 	}
 
 	public int m() {
