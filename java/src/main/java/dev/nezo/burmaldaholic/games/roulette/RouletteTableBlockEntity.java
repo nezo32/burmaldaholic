@@ -484,6 +484,23 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				setPhase(round.phase().id());
 				syncViewers();
 			}
+			// R-CDE m4: the in-world board goes idle too (no stale stacks / spin): the atmosphere bots' virtual slips are
+			// dropped (no money) and the idle public board is published before returning
+			boolean botBets = false;
+			for (BotSlip b : botSlips.values()) {
+				if (!b.bets.isEmpty()) {
+					b.bets = List.of();
+					b.betAt = -1;
+					botBets = true;
+				}
+			}
+			if (botBets || !botResults.isEmpty()) {
+				botResults.clear();
+				pubDirty = true;
+			}
+			if (pubDirty) {
+				publishSync();
+			}
 			return;
 		}
 		round.configure(timings(), cfg().historyLength);
@@ -899,6 +916,11 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		}
 		return new RouletteSync(RouletteSync.phaseOf(round.phase().id()), phaseStart, spinStart, round.timings().spinTicks(),
 			drawn ? round.result() : -1, spinSeed, last, theme(), spinSeq);
+	}
+
+	/** GameTests: game time of the last public-board update tag sent to the watchers. */
+	public long pubSentAtForTesting() {
+		return pubSentAt;
 	}
 
 	/** GameTests / previews: forces the location theme (0 village, 1 bastion, 2 end). */

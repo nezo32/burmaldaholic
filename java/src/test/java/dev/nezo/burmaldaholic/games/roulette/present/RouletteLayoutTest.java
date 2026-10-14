@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.FreeSlot;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.LayoutAudit;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
@@ -153,6 +154,53 @@ class RouletteLayoutTest {
 					}
 				}
 			}
+		}
+	}
+
+	/** Banner sizes the kit uses by tier (ResultBanner: T1 160×18, T2 232×28, T3 300×36) and K2a's compact 200×20. */
+	private static int[][] bannerSizes(Tier t) {
+		return switch (t) {
+			case T1 -> new int[][] {{160, 18}, {200, 20}};
+			case T2 -> new int[][] {{232, 28}, {200, 20}};
+			case T3 -> new int[][] {{300, 36}, {200, 20}};
+		};
+	}
+
+	/**
+	 * R-CDE M4: wherever the ResultBanner lands it never covers the winning cell — for each of the 37 numbers at every
+	 * size — nor the wheel and the history; at the standard sizes it is placed (not skipped) under the numbers.
+	 */
+	@Test
+	void bannerNeverCoversTheWinningCell() {
+		int placed = 0;
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			for (int[] b : bannerSizes(l.tier)) {
+				Optional<Box> at = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles());
+				if (at.isEmpty()) continue;
+				placed++;
+				Box box = at.get();
+				String where = s[0] + "x" + s[1] + " banner " + box;
+				assertTrue(box.inside(l.grid.play), where + " outside the felt");
+				for (int n = 0; n <= 36; n++) {
+					assertFalse(box.intersects(l.cell(n)), where + " covers the winning cell " + n + " " + l.cell(n));
+					assertFalse(box.intersects(l.glyph(n)), where + " covers the number " + n);
+				}
+				assertFalse(box.intersects(l.wheel), where + " covers the wheel");
+				for (Box p : l.pills) assertFalse(box.intersects(p), where + " covers a history pill");
+			}
+		}
+		assertTrue(placed > sizes().size(), "banners placed " + placed);
+		for (int[] s : List.of(new int[] {480, 270}, new int[] {640, 360}, new int[] {427, 240})) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			int[] b = bannerSizes(l.tier)[0];
+			Box box = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles()).orElse(null);
+			if (box == null) {
+				b = bannerSizes(l.tier)[1];
+				box = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles()).orElse(null);
+			}
+			assertTrue(box != null, s[0] + "x" + s[1] + " no place for the banner");
+			assertTrue(box.y() >= l.numbers.bottom(), s[0] + "x" + s[1] + " banner " + box + " not under the numbers " + l.numbers);
 		}
 	}
 }

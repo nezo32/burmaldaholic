@@ -49,8 +49,8 @@ public final class RouletteLayout {
 	public final List<Box> calls;
 	/** Felt chip disc size (px), the px each disc of a stack rises and the gap under a cell's stack. */
 	public final int chip, rise, pad;
-	/** Where the ResultBanner may go (over the wheel column). */
-	public final Box bannerRegion;
+	/** The 37 number cells (zero + 12 × 3): never under the ResultBanner (the winning cell stays visible). */
+	public final Box numbers;
 
 	private RouletteLayout(TableGrid g) {
 		this.grid = g;
@@ -132,7 +132,7 @@ public final class RouletteLayout {
 			}
 		}
 		this.pills = List.copyOf(p);
-		this.bannerRegion = new Box(column.x(), wheel.y(), column.w(), Math.max(0, Math.min(play.bottom() - 2, layout.bottom()) - wheel.y()));
+		this.numbers = new Box(gx, gy, cells.gridRight(), cells.gridBottom());
 	}
 
 	public static RouletteLayout of(TableGrid g) {
@@ -183,6 +183,42 @@ public final class RouletteLayout {
 		Box c = cell(n);
 		int gw = String.valueOf(n).length() * 6 - 1;
 		return new Box(c.cx() - gw / 2, c.cy() - GLYPH_H / 2, gw, GLYPH_H);
+	}
+
+	/** Every number glyph box (0..36). */
+	public List<Box> glyphBoxes() {
+		return glyphs();
+	}
+
+	/**
+	 * Where the ResultBanner may go, in preference order (R-CDE M4, DES roulette P1): over the call-bet row and the
+	 * even-money row (the band from the even-money row to the felt's bottom), then the whole outside-bet band under the
+	 * numbers, then the wheel column, then anywhere on the felt clear of {@link #bannerObstacles}.
+	 */
+	public List<Box> bannerRegions() {
+		int bottom = grid.play.bottom() - 2;
+		int evenTop = gy + cells.evenY();
+		int outsideTop = gy + cells.dozenY();
+		List<Box> out = new ArrayList<>(4);
+		out.add(new Box(layout.x(), evenTop, layout.w(), Math.max(0, bottom - evenTop)));
+		out.add(new Box(layout.x(), outsideTop, layout.w(), Math.max(0, bottom - outsideTop)));
+		out.add(new Box(column.x(), wheel.y(), column.w(), Math.max(0, bottom - wheel.y())));
+		out.add(grid.play);
+		return out;
+	}
+
+	/**
+	 * What the ResultBanner must never cover: the 37 number cells (so the winning cell is always visible), every printed
+	 * number glyph, the wheel and the "Last numbers" caption + history pills.
+	 */
+	public List<Box> bannerObstacles() {
+		List<Box> out = new ArrayList<>(48);
+		out.add(numbers);
+		out.addAll(glyphs());
+		out.add(wheel);
+		out.add(historyLabel);
+		out.addAll(pills);
+		return out;
 	}
 
 	/** Every number glyph box (0..36). */

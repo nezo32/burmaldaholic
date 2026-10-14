@@ -10,12 +10,14 @@ import dev.nezo.burmaldaholic.client.table.fx.TableKit;
 import dev.nezo.burmaldaholic.client.table.fx.TableTheme;
 import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
 import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
+import dev.nezo.burmaldaholic.client.ui.v2.ResultBanner;
 import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
 import dev.nezo.burmaldaholic.client.ui.v2.ValuePill;
 import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
@@ -86,6 +88,12 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	private double @Nullable [] clickAt;
 	/** what the status hint currently describes (hover readout), "" = the flow's hint */
 	private String hoverShown = "";
+	/** Repeat pressed during the result (DES roulette P1): the last slip is sent the moment betting opens */
+	private boolean rebetQueued;
+	/** own stacks that carried a value pill in the last frame (real-flow tests) */
+	private int valuePills;
+	/** above this many own stacks the value pills show on hover only (DES roulette P1) */
+	static final int PILLS_ALWAYS_MAX = 8;
 
 	public RouletteScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable(menu.tableType() == RouletteModule.HIGH_ROLLER_TABLE
@@ -111,7 +119,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		int secs = ticks < 0 || (phase == RouletteFlow.Phase.BETTING && !multi) ? -1 : (int) Math.ceil(ticks / 20.0);
 		RouletteFlow.View v = new RouletteFlow.View(seated, !seated && seatCount > 0 && occupied >= seatCount, s.getBooleanOr("enabled", true), phase,
 			s.getLongOr("min", 1), s.getLongOr("max", 0), s.getLongOr("min_total", 0), s.getLongOr("balance", 0), total,
-			s.getBooleanOr("can_rebet", false), rebet, s.getBooleanOr("ready", false), multi, s.getIntOr("ready_count", 0), s.getIntOr("bettors", 0), secs);
+			s.getBooleanOr("can_rebet", false), rebet, s.getBooleanOr("ready", false), multi, s.getIntOr("ready_count", 0), s.getIntOr("bettors", 0), secs,
+			rebetQueued && phase == RouletteFlow.Phase.RESULT);
 		// the spin's ball path (rebuilt only for a new spin)
 		int seq = s.getIntOr("spin_seq", -1);
 		int result = s.getIntOr("result", -1);
@@ -170,9 +179,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		hits.add(FELT_ALL, l.layout, open);
 		for (Spot s : RouletteLayout.allSpots()) hits.add(RouletteLayout.spotId(s), l.target(s), open);
 		for (Racetrack.Section s : Racetrack.Section.values()) hits.add(RouletteLayout.callId(s), l.calls.get(s.ordinal()), open);
-		List<Box> obstacles = new ArrayList<>();
-		obstacles.add(l.wheel);
-		chrome.banner.regions(List.of(l.bannerRegion, grid.play), obstacles);
+		// the banner never covers a number cell (the winning one stays visible), the wheel or the history (R-CDE M4)
+		chrome.banner.regions(l.bannerRegions(), l.bannerObstacles());
 	}
 
 	@Override
@@ -241,7 +249,38 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			sendTracked("spin");
 			return;
 		}
+		if (BetGates.REBET.equals(gate.action()) && "result".equals(phase())) {
+			// the server takes bets only while betting is open: queue the slip, skip the local result beats
+			rebetQueued = true;
+			resultSkipped = true;
+			if (view != null) view = view(state());
+			refresh();
+			return;
+		}
 		super.onGate(id, gate);
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (!rebetQueued) return;
+		String ph = phase();
+		if ("betting".equals(ph)) {
+			rebetQueued = false;
+			if (state().getLongOr("total", 0) == 0 && state().getBooleanOr("can_rebet", false)) sendTracked(BetGates.REBET);
+		} else if (!"result".equals(ph)) {
+			rebetQueued = false;
+		}
+	}
+
+	/** Own stacks that carried a value pill in the last frame (real-flow tests). */
+	public int valuePillsDrawn() {
+		return valuePills;
+	}
+
+	/** Whether a Repeat pressed during the result waits for betting to open. */
+	public boolean rebetQueued() {
+		return rebetQueued;
 	}
 
 	// ---- state helpers -------------------------------------------------------------------------------------------------
@@ -401,6 +440,9 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		List<Box> placedTags = new ArrayList<>();
 		Map<Spot, Long> mine = v.mine();
 		var pending = chrome.pending();
+		// value pills on every own stack while betting (hover / just placed only when crowded)
+		boolean pillsAll = !result && list.size() <= PILLS_ALWAYS_MAX;
+		int pills = 0;
 		for (int i = 0; i < list.size(); i++) {
 			CompoundTag b = list.getCompoundOrEmpty(i);
 			Optional<Spot> sp = Spot.parseKey(b.getStringOr("spot", ""));
@@ -413,8 +455,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			Box disc = new Box(box.x(), box.y(), l.chip, box.h());
 			if (!result) {
 				ChipStack.draw(g, disc, amount);
-				boolean showTag = s.equals(lastPlaced) && Util.getMillis() - lastPlacedAt < 1500 || isHover(l, s);
-				if (showTag) tag(g, l, s, n, Texts.number(amount), ValuePill.Style.YOU, placedTags);
+				boolean showTag = pillsAll || s.equals(lastPlaced) && Util.getMillis() - lastPlacedAt < 1500 || isHover(l, s);
+				if (showTag && tag(g, l, s, n, Texts.number(amount), ValuePill.Style.YOU, placedTags)) pills++;
 				continue;
 			}
 			boolean wins = ret > 0 || (ret < 0 && s.covers(r));
@@ -428,6 +470,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			g.fill(disc.x() - 1, disc.y() - 1, disc.right() + 1, disc.y(), 0xC0FFD640);
 			if (rMs >= 1000 && ret > 0) tag(g, l, s, n, Texts.raw("+").append(Texts.number(ret - amount)), ValuePill.Style.WIN, placedTags);
 		}
+		valuePills = pills;
 		if (pending != null && !pending.spot().isEmpty()) {
 			Spot.parseKey(pending.spot()).ifPresent(s -> ChipStack.drawPending(g, l.stack(s, 1), pending.amount()));
 		}
@@ -439,20 +482,31 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		return s.equals(hoverSpot);
 	}
 
-	private void tag(GuiGraphicsExtractor g, RouletteLayout l, Spot s, int discs, Component text, ValuePill.Style style, List<Box> placed) {
+	private boolean tag(GuiGraphicsExtractor g, RouletteLayout l, Spot s, int discs, Component text, ValuePill.Style style, List<Box> placed) {
 		int w = ValuePill.width(font, text);
 		Optional<Box> b = l.tag(s, discs, w, 11, placed);
-		if (b.isEmpty()) return;
+		if (b.isEmpty()) return false;
 		placed.add(b.get());
 		ValuePill.draw(g, font, b.get(), text, style);
+		return true;
 	}
 
-	/** The result beats: the banner + TopBar delta + the celebration (NICE and up) once the payout landed. */
+	/**
+	 * The result beats: the banner + TopBar delta + the celebration (NICE and up) once the payout landed; a viewer with
+	 * no bet on this spin sees the number ("17 RED") in the banner instead (R-CDE M4).
+	 */
 	private void resultBeats(double rMs) {
 		long ps = state().getLongOr("phase_start", 0);
 		long staked = state().getLongOr("out_staked", 0);
 		long ret = state().getLongOr("out_return", 0);
-		if (rMs < 1000 || resultFor == ps || staked <= 0) return;
+		if (resultFor == ps) return;
+		if (staked <= 0) {
+			if (rMs < 400) return;
+			resultFor = ps;
+			chrome.banner.show(numberWord(result()), 0, ResultBanner.SHOW_MS);
+			return;
+		}
+		if (rMs < 1000) return;
 		resultFor = ps;
 		long net = ret - staked;
 		chrome.banner.show(net);
@@ -467,6 +521,12 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		} else {
 			FxSounds.play("lose", 1f);
 		}
+	}
+
+	/** "17 RED", "0 ZERO": the banner word of a spin for a viewer without a bet. */
+	static Component numberWord(int n) {
+		return Component.translatable("gui.burmaldaholic.roulette.v2.result", Texts.number(n),
+			Component.translatable("gui.burmaldaholic.roulette.v2.board.color." + Wheel.color(n).id()));
 	}
 
 	/** "Split 17-20", "2nd dozen (13–24)", "Red (1:1)". */

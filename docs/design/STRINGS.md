@@ -1479,10 +1479,11 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.v2.bet` | Bet | Ставка |
 | `gui.burmaldaholic.roulette.v2.last_numbers` | Last numbers | Последние числа |
 | `gui.burmaldaholic.roulette.v2.primary.spinning` | Spinning | Крутится |
-| `gui.burmaldaholic.roulette.v2.reason.waiting_ready` | Ready: %1$s of %2$s — waiting for the others | Готовы %1$s из %2$s — ждём остальных |
+| `gui.burmaldaholic.roulette.v2.reason.waiting_ready` | Ready: %1$s of %2$s — waiting for the others | Готовы %1$s из %2$s — ждём других |
 | `gui.burmaldaholic.roulette.v2.reason.ready_locked` | You are ready — wait for the spin | Вы готовы — ждём спина |
 | `gui.burmaldaholic.roulette.v2.reason.no_last_bets` | No bets from the last spin | Нет ставок с прошлого спина |
-| `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Добавьте фишки или крутите |
+| `gui.burmaldaholic.roulette.v2.reason.rebet_queued` | Repeat goes on when bets open | Повтор — с началом ставок |
+| `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Ещё фишки или спин |
 | `gui.burmaldaholic.roulette.v2.status.spin_in` | Spin in %1$s s | Спин через %1$s с |
 | `gui.burmaldaholic.roulette.v2.status.ball_spinning` | The ball is spinning… | Шарик катится… |
 | `gui.burmaldaholic.roulette.v2.hover` | %1$s · %2$s · pays %3$s : 1 | %1$s · %2$s · выплата %3$s : 1 |

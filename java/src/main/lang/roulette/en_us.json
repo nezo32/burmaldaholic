@@ -78,6 +78,7 @@
 	"gui.burmaldaholic.roulette.v2.reason.waiting_ready": "Ready: %1$s of %2$s — waiting for the others",
 	"gui.burmaldaholic.roulette.v2.reason.ready_locked": "You are ready — wait for the spin",
 	"gui.burmaldaholic.roulette.v2.reason.no_last_bets": "No bets from the last spin",
+	"gui.burmaldaholic.roulette.v2.reason.rebet_queued": "Repeat goes on when bets open",
 	"gui.burmaldaholic.roulette.v2.status.add_or_spin": "Add chips or spin",
 	"gui.burmaldaholic.roulette.v2.status.spin_in": "Spin in %1$s s",
 	"gui.burmaldaholic.roulette.v2.status.ball_spinning": "The ball is spinning…",
