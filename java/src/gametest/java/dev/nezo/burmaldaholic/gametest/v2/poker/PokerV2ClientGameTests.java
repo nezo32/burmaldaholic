@@ -131,10 +131,30 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 				f.shot("v2_poker_en_480_turn");
 				shotTurn = true;
 			}
-			if (!raised && f.box("action.~stepper").isPresent()) {
+			if (!raised && f.enabledTarget(PokerScreen.STEP_PLUS)) {
+				// R-AB M3 regression: +, a forced relayout (resize), + again → exactly two steps (the kit Stepper's targets
+				// survive the relayout; the old hand-made halves vanished and the click hit the preset instead)
+				var s0 = stepperShown(f);
+				long expect = new dev.nezo.burmaldaholic.games.poker.present.PokerFlow.Stepper(s0.id(), s0.next(1, 1), s0.min(), s0.max(), s0.step()).next(1, 1);
 				f.click(PokerScreen.STEP_PLUS);
+				f.size(1920, 1080, 3);
+				f.size(1920, 1080, 4);
+				if (f.enabledTarget(PokerScreen.STEP_PLUS)) {
+					f.click(PokerScreen.STEP_PLUS);
+					check(stepperShown(f).value() == expect, "+, resize, + = two steps: " + s0.value() + " → " + stepperShown(f).value() + ", expected " + expect);
+				}
+				f.shot("v2_poker_en_480_stepper");
+				// then a preset (click on the value): the server's bet = the value shown
+				f.click(PokerScreen.PRESET);
+				long to = stepperShown(f).value();
 				f.click("primary");
 				raised = true;
+				final long raiseTo = to;
+				final int sq = seq;
+				f.waitServer(pos, PokerTableBlockEntity.class, t -> state(t).getCompoundOrEmpty("legal").getIntOr("seq", -1) != sq, "the raise was taken", 200);
+				long bet = myBet(f, pos);
+				if (bet > 0 && bet != raiseTo) failures.add("poker: raised to " + raiseTo + " on the stepper, the server bet is " + bet);
+				continue;
 			} else if (f.enabledTarget("action.call")) {
 				f.click("action.call");
 			} else {
@@ -160,6 +180,24 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		clickClosing(f, "top.leave"); // Leave closes the screen: no "pressed" read-back
 		f.waitServer(pos, PokerTableBlockEntity.class, t -> !state(t).getBooleanOr("seated", true) || state(t).getBooleanOr("leaving", false),
 			"standing up");
+	}
+
+	/** The open screen's stepper (value, range, step). */
+	private static dev.nezo.burmaldaholic.games.poker.present.PokerFlow.Stepper stepperShown(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() instanceof PokerScreen s && s.currentView() != null
+			? dev.nezo.burmaldaholic.games.poker.present.PokerFlow.stepper(s.currentView()).orElse(null) : null);
+	}
+
+	/** The viewer's bet in the running hand (server state, −1 = not in a live hand). */
+	private static long myBet(RealFlow f, BlockPos pos) {
+		CompoundTag st = pokerState(f, pos);
+		if (!st.getBooleanOr("live", false)) return -1;
+		var seats = st.getListOrEmpty("table");
+		for (int i = 0; i < seats.size(); i++) {
+			CompoundTag t = seats.getCompoundOrEmpty(i);
+			if (t.getBooleanOr("you", false) && t.contains("bet")) return t.getLongOr("bet", -1);
+		}
+		return -1;
 	}
 
 	/** The amount on the open screen's stepper. */

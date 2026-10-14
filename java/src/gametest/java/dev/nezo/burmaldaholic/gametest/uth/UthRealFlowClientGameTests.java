@@ -11,6 +11,7 @@ import dev.nezo.burmaldaholic.gametest.v2.RealFlow;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,9 +24,11 @@ import org.jspecify.annotations.Nullable;
  * scale 4 (480 x 270) and 3; the player looks at an Ultimate Texas Hold'em table and presses Use, clicks Sit down, builds
  * the Ante with real clicks on the tray chips, presses Deal and plays the round to its payout by clicking the decision
  * buttons. Asserts the SERVER state after every step: the dealt Ante / Trips are exactly the draft that was built, the
- * balance moves by the round's return. Then changes the bet for the next round (a chip that takes the bet over the table
- * limit makes Deal say why and deals nothing, Undo takes it back, a chip on the Trips spot, Clear + Rebet) and deals
- * again. Screenshots {@code uth_flow_*}.
+ * balance moves by the round's return. Then changes the bet for the next round (R-AB M5: a chip that takes the Ante over
+ * the table limit is clamped to the largest allowed Ante and the status says why, Deal stays live, the chips grey at the
+ * cap; Undo takes it back, a chip on the Trips spot), confirms it while a second seat still bets (R-AB M4: a chip click
+ * on the confirmed bet changes nothing on the server and says "press Change bet"; Change bet refunds and keeps the
+ * amounts), deals, then Clear + Rebet. Screenshots {@code uth_flow_*}.
  */
 public class UthRealFlowClientGameTests implements FabricClientGameTest {
 	private static final int TIMEOUT = 600;
@@ -70,23 +73,23 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(balance(world) == before - 20, "round 1: Ante + Blind debited (" + before + " -> " + balance(world) + ")");
 			playToPayout(f, world, pos, before, "round1");
 
-			// Round 2: the bet is changed. The 25 chip takes the Ante over the bronze limit (6 x Ante <= 100): Deal says why
-			// and deals nothing; Undo takes it back (10); +5 +1 -> 16; a 1 chip on the Trips spot.
+			// Round 2: the bet is changed. The 25 chip would take the Ante over the bronze limit (6 x Ante <= 100): it is clamped
+			// to the largest allowed Ante (16) and the status says why (R-AB M5, the v0.1.2 hotfix behaviour); Deal stays live.
+			// Undo takes it back (10); +5 +1 -> 16; a 1 chip on the Trips spot.
 			context.waitTicks(5);
 			context.takeScreenshot("uth_flow_s4_round2_betting");
 			check(draft(f)[0] == 10, "round 2 starts from the last Ante (10), draft " + draft(f)[0]);
 			long beforeLimit = balance(world);
 			f.click(chip(f, 25));
 			context.waitTicks(2);
-			check(draft(f)[0] == 35, "the 25 chip went onto the Ante, draft " + draft(f)[0]);
-			check(!f.enabledTarget("primary"), "Deal is refused while 6 x Ante is over the table limit");
-			f.click("primary");
-			context.waitTicks(3);
-			check(!f.status().isEmpty(), "a refused Deal tells the player why");
-			check(balance(world) == beforeLimit, "nothing was debited over the limit");
-			context.takeScreenshot("uth_flow_s4_limit_error");
+			check(draft(f)[0] == 16, "the 25 chip clamps the Ante to the largest allowed (16), draft " + draft(f)[0]);
+			check(f.status().contains("16"), "the clamp says why (max Ante 16): '" + f.status() + "'");
+			check(f.enabledTarget("primary"), "Deal stays live with the clamped Ante");
+			check(!f.enabledTarget(chip(f, 1)), "the chips grey out at the cap");
+			check(balance(world) == beforeLimit, "nothing was debited by the clamp");
+			context.takeScreenshot("uth_flow_s4_limit_clamped");
 			f.click("tool.undo");
-			check(draft(f)[0] == 10, "Undo takes the last chip back, draft " + draft(f)[0]);
+			check(draft(f)[0] == 10, "Undo takes the clamped chip back, draft " + draft(f)[0]);
 			f.click(chip(f, 5));
 			f.click(chip(f, 1));
 			f.click("felt.trips"); // the Trips spot takes the selected chip (1)
@@ -94,8 +97,33 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			long[] d2 = draft(f);
 			check(d2[0] == 16 && d2[1] == 1, "Ante 16 / Trips 1 built, draft " + d2[0] + "/" + d2[1]);
 			context.takeScreenshot("uth_flow_s4_ante16_trips1");
+
+			// R-AB M4: a second (absent) seat keeps bets open, so the confirmed bet waits for the deal
+			UUID other = UUID.randomUUID();
+			world.getServer().runOnServer(s -> table(s, pos).seats().sit(other, "Alex"));
+			context.waitTicks(4);
 			before = balance(world);
 			f.click("primary");
+			waitServer(context, world, "round 2 bet confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
+			long[] conf = world.getServer().computeOnServer(s -> table(s, pos).confirmedBet(player(s).getUUID()).orElseThrow());
+			check(conf[0] == 16 && conf[1] == 1, "the server holds 16/1, got " + conf[0] + "/" + conf[1]);
+			context.waitTicks(4);
+			f.click(chip(f, 5)); // locked: changes nothing, says "press Change bet"
+			context.waitTicks(4);
+			long[] still = world.getServer().computeOnServer(s -> table(s, pos).confirmedBet(player(s).getUUID()).orElse(new long[] {-1, -1}));
+			check(still[0] == 16 && still[1] == 1, "a chip click on a confirmed bet leaves the server bet alone, got " + still[0] + "/" + still[1]);
+			check(balance(world) == before - 33, "still debited once (Ante + Blind + Trips = 33): " + (before - balance(world)));
+			check(draft(f)[0] == 16 && draft(f)[1] == 1, "the draft is unchanged, draft " + draft(f)[0] + "/" + draft(f)[1]);
+			check(!f.status().isEmpty(), "the locked chip says why: '" + f.status() + "'");
+			context.takeScreenshot("uth_flow_s4_confirmed_locked");
+			f.click("primary"); // Change bet: refund, the amounts stay in the draft
+			waitServer(context, world, "Change bet refunded", s -> table(s, pos).confirmedBet(player(s).getUUID()).isEmpty());
+			check(balance(world) == before, "Change bet refunded the bet");
+			context.waitTicks(4);
+			check(draft(f)[0] == 16 && draft(f)[1] == 1, "Change bet keeps 16/1 in the draft, draft " + draft(f)[0] + "/" + draft(f)[1]);
+			f.click("primary"); // Deal again
+			waitServer(context, world, "round 2 bet re-confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
+			world.getServer().runOnServer(s -> table(s, pos).seats().leave(other));
 			waitServer(context, world, "round 2 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == d2[0]);
 			dealt = dealt(world, pos);
 			check(dealt[0] == d2[0] && dealt[1] == d2[1], "round 2: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", built " + d2[0] + "/" + d2[1]);
