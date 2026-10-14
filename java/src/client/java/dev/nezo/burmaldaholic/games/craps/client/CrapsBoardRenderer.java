@@ -193,6 +193,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		dice(be, s, c, sync, t, lodA, lodB, reduced);
 		puck(s, c, sync, t, lodA, lodB, reduced);
 		c.lastPub = pub;
+		if (probePos != null) probe(be, s);
 	}
 
 	private static Component detail(long onTable, @Nullable Long net) {
@@ -633,6 +634,25 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 				WorldQuads.vertex(p, vc, ax + o[0] * sg, ay + o[1] * sg, az + o[2] * sg, 1, 12 / 16f, 0xFFFFFFFF, light, 0, 1, 0);
 			}
 		}
+	}
+
+	/** Test probe: the table whose last filled state is recorded ({@link #probeDice}, {@link #probeFaces}). */
+	public static volatile net.minecraft.core.@Nullable BlockPos probePos;
+	/** Test probe: 1 = dice drawn in the last frame of {@link #probePos}, 0 = none, -1 = not seen. */
+	public static volatile int probeDice = -1;
+	/** Test probe: the drawn top faces and whether each cube's lowest point is above the felt. */
+	public static final int[] probeFaces = new int[2];
+	public static volatile boolean probeAboveFelt;
+
+	private static void probe(CrapsTableBlockEntity be, State s) {
+		if (!be.getBlockPos().equals(probePos)) return;
+		probeDice = s.dice ? 1 : 0;
+		boolean above = true;
+		for (int d = 0; d < 2; d++) {
+			probeFaces[d] = CubeGroup.faceUp(s.die[d].q);
+			above &= s.die[d].zc + 1e-9 >= Quat.support(s.die[d].q) && s.die[d].zLow >= -0.02;
+		}
+		probeAboveFelt = above;
 	}
 
 	/** Test hook: the dice of a filled state are drawn (LOD C spoiler check). */

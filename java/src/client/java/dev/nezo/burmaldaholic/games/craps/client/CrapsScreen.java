@@ -1425,9 +1425,30 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		return side;
 	}
 
+	/** Roll counter of the shown state (tests). */
+	public int shownRolls() {
+		return shownRolls;
+	}
+
 	/** Storyboard time now (tests). */
 	public double storyMs() {
 		return t();
+	}
+
+	/** Atlas frame of die {@code d} at story time {@code t} before the stick (tests: the pip probe at rest). */
+	public int dieFrame(int d, double t) {
+		DiceRoll r = roll;
+		if (r == null) return -1;
+		r.sample(d, t, tmp);
+		return dev.nezo.burmaldaholic.core.anim.dice.DieAtlasTable.frame(tmp.q);
+	}
+
+	/** GUI x of the back wall diamond die {@code d} hits first (tests: the flash probe), NaN when none. */
+	public double wallHitX(int d) {
+		DiceRoll r = roll;
+		if (r == null) return Double.NaN;
+		for (MotionEvent e : r.events()) if (e.kind() == DiceEvent.WALL && e.obj() == d) return map().x(e.x());
+		return Double.NaN;
 	}
 
 	/** Die centre {x, y} (layout px, lifted) of die {@code d} at story time {@code t} as drawn (tests: pixel probes). */
