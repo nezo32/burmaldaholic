@@ -150,7 +150,7 @@ All in `java/src/main/java/dev/nezo/burmaldaholic/core/ui/v2/`. No Minecraft imp
 | `Viewport` | **in tree** | `of(fbW, fbH, guiScale)` → `(w, h, k, factor)`; `toLayout(gui)`, `toWindow(layout)` |
 | `Tier` | **in tree** | T1/T2/T3 metrics (cards, chips, bars, margin, buttons, tools, plate); `of(w, h)` |
 | `TableGrid` | **in tree** | `topBar`, `play`, `dock`, `felt()`, `fx(f)`, `fy(f)`, `columns(from, to, y, h)` (12-col grid) |
-| `DockLayout` | **in tree** | `layout(grid, Spec, selectedChip)` → `Dock(chips, firstChip, tools, readout, status, actions, secondary, primary, overflow, compact flags)`; `Spec.betting(...)`, `Spec.actions(...)` |
+| `DockLayout` | **in tree** | `layout(grid, Spec, selectedChip)` → `Dock(chips, firstChip, tools, readout, status, actions, secondary, primary, overflow, compact flags, stepper, hintStrip)`; `Spec.betting(...)`, `Spec.actions(actionW, compactW[, stepperW], primaryW, primaryCompactW)`, `spec.withStatus(statusW)` (phase 2: `statusW = min(cap, max(w(line1), w(line2)))`; short ⇒ compact actions, still short ⇒ an 11-px `hintStrip` above the Dock carries line 2 and is a banner obstacle) |
 | `SeatColumn` | **in tree** | `layout(...)` one seat; `crescent(grid, seats)`, `pitch`, `plateW`; `table(grid, seats, cards[], heroSlot, outcomeW[][], valueW[], levelOut[])` resolves collisions |
 | `Gate` | **in tree** | `on(action, labelKey, args…)`, `off(action, labelKey, reasonKey, args…)` |
 | `HitMap` | **in tree** | `add(id, box, enabled)`, `at(x, y)`, `box(id)`, `targets()` |
@@ -180,8 +180,8 @@ in order (focused target gets the gold ring; `Enter` presses it).
 ### 4.1 Hosts
 | Class | Does |
 |---|---|
-| `V2Chrome` | owns `Viewport`, `TableGrid`, `HitMap`, the components below and the watchdog; `layout()` (on init / resize / state change), `render(g, mouse, partial)`, `click(x, y, button)`, `key(code)`, `scroll(x, y, dy)`; per-frame work = drawing only. |
-| `V2TableScreen<V>` | extends `CasinoTableScreen`; sets image = full GUI (D3); `protected abstract V view(CompoundTag)`, `Flow<V> flow()`, `void layoutPlay(TableGrid, V, HitMap)`, `void renderPlay(...)`; routes `mouseClicked/keyPressed/mouseScrolled` to the chrome; keeps `sendAction`, `state()`, error line → toast. |
+| `V2Chrome` | owns `Viewport`, `TableGrid`, `HitMap`, the components below and the watchdog; `layout()` (on init / resize / state change), `render(g, mouse, partial)`, `click(x, y, button)`, `key(code)`, `scroll(x, y, dy)`; per-frame work = drawing only. Phase 2: `Host.layoutOverlay(Dock, HitMap)` (default no-op) is called LAST in `relayout()`; `flash(targetId, reasonKey, args…)` = reason in the status line + 3-px shake of that target (`shakeDx(id)` for host-drawn felt targets). |
+| `V2TableScreen<V>` | extends `CasinoTableScreen`; sets image = full GUI (D3); `protected abstract V view(CompoundTag)`, `Flow<V> flow()`, `void layoutPlay(TableGrid, V, HitMap)`, `void renderPlay(...)`; routes `mouseClicked/keyPressed/mouseScrolled` to the chrome; keeps `sendAction`, `state()`, error line → toast. Phase 2: `static registerSettings(Predicate<BlockEntity> applies, Consumer<BlockPos> open)` — the TopBar gear shows only at a table a provider applies to and opens it (bots, R-AB M6; replaces the integrator's `topSettingsHook`, kept deprecated as a bot-table provider until W2 moves). |
 | `V2SceneScreen<V>` | same over `CasinoScreen` (Coin Flip, Scratch, Dice Duel, PvP invite / duel). |
 | `V2Gallery` (gametest) | `gametest/v2/KitGalleryV2Screen`: every component in every state at the current size; audit overlay. |
 
@@ -193,6 +193,7 @@ in order (focused target gets the gold ring; `Enter` presses it).
 | `BetBar` | `bind(BetView, BetPort)`; ids `chip.0..4`, `tool.undo/clear/rebet/double`, `readout` | chips filtered by limits; single-spot games: chip click = add to bet; multi-spot: chip arms, felt spots light; right-click chip = remove one; keys 1–5; shows the pending chip (§5.2) |
 | `PrimaryButton` | `set(Gate, keyHint)`; id `primary` | gold 92×30 / 132×36; disabled = dim + the status line shows the gate's reason; a click on a disabled primary shakes it and re-shows the reason (never nothing) |
 | `ActionRow` | `set(List<Gate>, keys)`; ids `action.<action>` | equal widths, danger style for fold / surrender, ≤ 5 + primary, compact (no key plates) when narrow |
+| `Stepper` (phase 2) | `chrome.stepper.set(Gate minus, Gate plus, Component value, int keyMinus, int keyPlus)`, `clear()`; ids `stepper.minus`, `stepper.value`, `stepper.plus` | ACTIONS Dock slot left of the actions (laid out by `DockLayout`, so it survives every relayout — R-AB M3); − / + presses reach `Host.onGate("stepper.minus" \| "stepper.plus", gate)`; disabled ⇒ reason + shake; wheel over the value = − / + |
 | `StatusLine` | `set(line1, line2)`, `reason(Gate)`, `timer(TimerBar)` | two lines, ellipsised (`TextFit`); priority: watchdog > error > gate reason > game hint > timer |
 | `TimerBar` | `set(secondsLeft, total)` | 3 px, gold → red under 5 s |
 | `SeatPlate` | `draw(box, name, kind)` kind = YOU / ACTING / OTHER | name only, avatar 14², ellipsised; no numbers |
@@ -200,7 +201,7 @@ in order (focused target gets the gold ring; `Enter` presses it).
 | `ValuePill` | `draw(box, text, style)` style = YOU / OTHER / WIN / LOSE / PUSH | 1×, 11 high |
 | `Stamp` | `draw(box, word, kind, scale, ageMs)` kind = WIN / LOSE / PUSH / GOLD; `dot(box, kind)` | pop-in 120 ms (reduce motion: none) |
 | `TotalPill` | `draw(box, text, scale)` | the outcome slot before settle |
-| `ResultBanner` | `show(netKey, net, ms)`; placed by `FreeSlot` | 1.5 s then folds into the status line; ≥ 10× bet hands over to `CelebrationOverlay` |
+| `ResultBanner` | `show(net)`, `show(Component word, long net, int ms)` (net 0 ⇒ the word only, e.g. `17 RED` for a spectator); `regions(regions, obstacles)`, `obstacles(List<Box>)` (more obstacles for this layout pass); placed by `FreeSlot` | full 2× look (T2 232×28, T3 300×36) or the compact one (200×20, 1× bold: always at T1, and at T2/T3 when the full one finds no place); 1.5 s then folds into the status line; ≥ 10× bet hands over to `CelebrationOverlay` |
 | `Toast` | `V2Toast.show(kind, text)` | errors and server notices **on the felt** (top-right of PlayArea via `FreeSlot`), not vanilla toasts over the TopBar; replaces the 60-tick error line |
 | `FeltPrint` | `draw(box, text, alpha)` | decor layer, drawn last-checked against content boxes |
 

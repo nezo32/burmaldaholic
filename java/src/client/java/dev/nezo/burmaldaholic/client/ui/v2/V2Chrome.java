@@ -60,6 +60,13 @@ public final class V2Chrome {
 
 		/** Registers the PlayArea targets of the current state (called by {@link #relayout}, before the Dock's). */
 		void layoutPlay(TableGrid grid, HitMap hits);
+
+		/**
+		 * Called LAST in {@link #relayout}, after the Dock and the TopBar registered their targets: targets that must sit
+		 * on top of everything (z-order = registration order) or depend on the Dock's boxes, and extra banner obstacles
+		 * ({@code chrome().banner.obstacles(..)}). Default nothing.
+		 */
+		default void layoutOverlay(DockLayout.Dock dock, HitMap hits) {}
 	}
 
 	/** Implemented by v2 screens: what client GameTests ({@code RealFlow}) and the gallery reach. */
@@ -82,6 +89,8 @@ public final class V2Chrome {
 	public final BetBar bet = new BetBar();
 	public final PrimaryButton primary = new PrimaryButton();
 	public final ActionRow actions = new ActionRow();
+	/** The {@code − value +} slot of the ACTIONS Dock (hidden until {@link Stepper#set}). */
+	public final Stepper stepper = new Stepper();
 	public final StatusLine status = new StatusLine();
 	public final ResultBanner banner = new ResultBanner();
 	public final V2Toast toasts = new V2Toast();
@@ -94,9 +103,14 @@ public final class V2Chrome {
 	private String lastPressed = "";
 	private boolean resynced;
 	private boolean deltaShown;
+	private String shakeId = "";
+	private long shakeAt = -1;
 
 	public V2Chrome(Host host) {
 		this.host = host;
+		actions.shake = this::shakeDx;
+		bet.shake = this::shakeDx;
+		stepper.shake = this::shakeDx;
 	}
 
 	// ---- accessors -------------------------------------------------------------------------------------------------
@@ -189,6 +203,7 @@ public final class V2Chrome {
 	/** Rebuilds the hit map: the host's play targets, the Dock, the TopBar (z-order = registration order). */
 	public void relayout() {
 		hits.clear();
+		banner.beginLayout();
 		Font font = host.font();
 		host.layoutPlay(grid, hits);
 		int pw = primary.measure(font);
@@ -199,12 +214,14 @@ public final class V2Chrome {
 			int sw = secondary == null ? 0 : V2Button.width(font, V2Draw.label(secondary), null);
 			spec = DockLayout.Spec.betting(bet.chips().length, bet.toolIds().length, ro[0], ro[1], sw, pw, pc);
 		} else {
-			spec = DockLayout.Spec.actions(actions.measure(font), actions.measureCompact(font), pw, pc);
+			spec = DockLayout.Spec.actions(actions.measure(font), actions.measureCompact(font), stepper.measure(font, grid.tier), pw, pc);
 		}
 		dock = DockLayout.layout(grid, spec, bet.selectedIndex());
 		bet.place(grid.tier, dock.chips(), dock.firstChip(), dock.tools(), dock.readout(), dock.compactReadout());
 		if (bet.visible()) bet.hits(hits);
 		actions.place(dock.actions(), dock.compactActions());
+		stepper.place(dock.stepper());
+		stepper.hits(hits);
 		for (int i = 0; i < Math.min(actions.gates().size(), dock.actions().size()); i++) {
 			Gate a = actions.gates().get(i);
 			hits.add(ActionRow.id(a), dock.actions().get(i), a.enabled());
@@ -217,7 +234,9 @@ public final class V2Chrome {
 		top.layout(grid, font, hits);
 		narrateKit();
 		banner.tier(grid.tier);
+		banner.kitObstacles(dock.hintStrip().isEmpty() ? List.of() : List.of(dock.hintStrip()));
 		toasts.place(grid.play);
+		host.layoutOverlay(dock, hits);
 	}
 
 	/** Narrations of the kit's own targets (Tab focus): label, and the reason when disabled. */
@@ -228,6 +247,11 @@ public final class V2Chrome {
 		};
 		narration.put(KeyMap.Ids.PRIMARY, () -> say.apply(primary.gate()));
 		for (Gate a : actions.gates()) narration.put(ActionRow.id(a), () -> say.apply(a));
+		if (stepper.visible()) {
+			narration.put(Stepper.MINUS, () -> say.apply(stepper.minus()));
+			narration.put(Stepper.PLUS, () -> say.apply(stepper.plus()));
+			narration.put(Stepper.VALUE, stepper::value);
+		}
 		long[] chips = bet.chips();
 		for (int i = 0; i < chips.length; i++) {
 			int idx = i;
@@ -266,7 +290,7 @@ public final class V2Chrome {
 	public void acceptState(CompoundTag state) {
 		long before = watchdog.lastAck();
 		long ack = state.getLongOr("ack", -1);
-		watchdog.state(ack);
+		watchdog.state(state.getIntOr("ack_epoch", 0), ack);
 		if (ack > before && before >= 0) status.clearFlash(); // an answered action makes an old "why not" stale
 	}
 
@@ -323,6 +347,8 @@ public final class V2Chrome {
 			List<HitMap.Target> ts = focusable();
 			if (focus < ts.size()) return press(ts.get(focus).id(), ts.get(focus).enabled(), 0);
 		}
+		String step = stepper.idForKey(code);
+		if (step != null) return press(step, true, 0);
 		Optional<String> id = keys.idFor(code);
 		if (id.isEmpty()) return false;
 		Optional<HitMap.Target> t = hits.targets().stream().filter(x -> x.id().equals(id.get())).findFirst();
@@ -332,6 +358,11 @@ public final class V2Chrome {
 	/** Scroll over a target: routed to the host as button 2 (+) / 3 (−) presses of that target. */
 	public boolean scroll(double x, double y, double dy) {
 		Optional<HitMap.Target> t = hits.at(x, y);
+		if (t.isPresent() && t.get().id().equals(Stepper.VALUE)) {
+			String id = dy > 0 ? Stepper.PLUS : Stepper.MINUS;
+			Gate g = stepper.gate(id);
+			return g != null && press(id, g.enabled(), 0);
+		}
 		return t.isPresent() && host.onTarget(t.get().id(), t.get().enabled(), dy > 0 ? 2 : 3);
 	}
 
@@ -377,6 +408,17 @@ public final class V2Chrome {
 				return true;
 			}
 			return false;
+		}
+		if (id.startsWith("stepper.")) {
+			if (id.equals(Stepper.VALUE)) return true;
+			Gate g = stepper.gate(id);
+			if (g == null) return false;
+			if (!g.enabled()) flash(id, g);
+			else {
+				stepper.pressed(id);
+				host.onGate(id, g);
+			}
+			return true;
 		}
 		if (id.startsWith("chip.")) {
 			if (!bet.visible()) return false;
@@ -434,6 +476,37 @@ public final class V2Chrome {
 		if (r != null) status.flash(r);
 	}
 
+	/**
+	 * "Not now, because …" for any target: the reason ({@code reasonKey} with {@code args}, numbers formatted) flashes in
+	 * the status line and the target ({@code primary}, {@code chip.N}, {@code action.<a>}, {@code stepper.*}, a felt id
+	 * the host draws with {@link #shakeDx}) shakes 3 px. E.g. a queued Rebet the balance no longer covers.
+	 */
+	public void flash(String targetId, String reasonKey, Object... args) {
+		status.flash(V2Draw.tr(reasonKey, args));
+		shake(targetId);
+	}
+
+	private void flash(String targetId, Gate disabled) {
+		refuse(disabled);
+		shake(targetId);
+	}
+
+	/** Shakes a target (3 px, {@link PrimaryButton#SHAKE_MS}; reduce motion: none). */
+	public void shake(String targetId) {
+		if (KeyMap.Ids.PRIMARY.equals(targetId)) primary.shake();
+		shakeId = targetId;
+		shakeAt = net.minecraft.util.Util.getMillis();
+	}
+
+	/** The x offset a shaking target is drawn at now (0 = still); hosts use it for their own felt targets. */
+	public int shakeDx(String targetId) {
+		if (shakeAt < 0 || !targetId.equals(shakeId) || dev.nezo.burmaldaholic.client.fx.FxSettings.reduceMotion()) return 0;
+		long age = net.minecraft.util.Util.getMillis() - shakeAt;
+		if (age >= PrimaryButton.SHAKE_MS) return 0;
+		double t = age / (double) PrimaryButton.SHAKE_MS;
+		return (int) Math.round(Math.sin(t * Math.PI * 6) * 3 * (1 - t));
+	}
+
 	// ---- drawing ---------------------------------------------------------------------------------------------------
 
 	/** The felt, full bleed over the whole screen (under the TopBar and Dock, which cover it). */
@@ -459,6 +532,7 @@ public final class V2Chrome {
 		top.draw(g, font, mx, my, f);
 		bet.draw(g, font, mx, my, f, pending());
 		actions.draw(g, font, mx, my, f);
+		stepper.draw(g, font, mx, my, f);
 		status.draw(g, font);
 		if (secondary != null && !secondaryBox.isEmpty()) {
 			V2Button.draw(g, font, secondaryBox, V2Draw.label(secondary), null, V2Sprites.ButtonStyle.NORMAL, secondary.enabled(),
@@ -468,6 +542,7 @@ public final class V2Chrome {
 		banner.draw(g, font);
 		toasts.draw(g, font);
 		if (focus >= 0 && !f.isEmpty() && !f.startsWith("chip.") && !f.startsWith("tool.") && !f.startsWith("action.") && !f.startsWith("top.")
+			&& !f.startsWith("stepper.")
 			&& !f.equals(KeyMap.Ids.PRIMARY)) {
 			hits.box(f).ifPresent(b -> V2Draw.outline(g, b.inset(-1), CasinoPalette.V2_GOLD));
 		}

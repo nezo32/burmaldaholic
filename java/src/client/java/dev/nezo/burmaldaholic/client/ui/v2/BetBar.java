@@ -45,6 +45,7 @@ public final class BetBar {
 	private Box readout = Box.EMPTY;
 	private boolean compactReadout;
 	private Tier tier = Tier.T2;
+	java.util.function.ToIntFunction<String> shake = id -> 0;
 
 	/** Binds the bet model and the port (call on every state change). */
 	public void bind(BetView view, BetPort port) {
@@ -208,7 +209,7 @@ public final class BetBar {
 		for (int i = 0; i < chipBoxes.size(); i++) {
 			int d = firstChip + i;
 			if (d >= chips.length) break;
-			Box b = chipBoxes.get(i);
+			Box b = chipBoxes.get(i).offset(shake.applyAsInt(KeyMap.Ids.chip(d)), 0);
 			long denom = chips[d];
 			boolean on = chipGate(d).enabled();
 			boolean sel = denom == selected;
@@ -225,7 +226,7 @@ public final class BetBar {
 			if (KeyMap.Ids.chip(d).equals(focusedId)) V2Draw.outline(g, b.inset(-3), CasinoPalette.V2_GOLD);
 		}
 		for (int i = 0; i < toolBoxes.size() && i < tools.length; i++) {
-			Box b = toolBoxes.get(i);
+			Box b = toolBoxes.get(i).offset(shake.applyAsInt(KeyMap.Ids.tool(tools[i])), 0);
 			boolean on = toolGate(tools[i]).enabled();
 			boolean hover = b.contains(mx, my);
 			if (!V2Draw.sprite(g, V2Sprites.ButtonStyle.ICON.sprite(on, hover, false), b, 0xFFFFFFFF)) {
