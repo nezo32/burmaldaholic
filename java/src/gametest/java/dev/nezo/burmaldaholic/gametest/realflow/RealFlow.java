@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.realflow;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.CardTableScreen;
 import dev.nezo.burmaldaholic.client.ui.FitScaled;
 import dev.nezo.burmaldaholic.core.economy.Economies;
@@ -345,7 +346,7 @@ public final class RealFlow {
 	public static void clickWindow(ClientGameTestContext ctx, double x, double y) {
 		ctx.getInput().setCursorPos(x, y);
 		ctx.waitTick();
-		ctx.getInput().pressMouse(0);
+		ctx.getInput().pressMouse(Inputs.MOUSE_LEFT);
 		ctx.waitTicks(2);
 	}
 }

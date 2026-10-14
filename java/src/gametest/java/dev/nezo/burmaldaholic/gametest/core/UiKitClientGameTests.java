@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.core;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.client.table.cards.CardGfx;
 import dev.nezo.burmaldaholic.client.table.cards.SeatPlate;
 import dev.nezo.burmaldaholic.client.table.cards.TableTheme;
@@ -30,6 +31,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("UiKitClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		context.getInput().resizeWindow(1280, 800);
 		context.runOnClient(mc -> {
 			mc.options.guiScale().set(2);
@@ -100,7 +102,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 		// Tab walks the kit widgets and never lands on a disabled one
 		List<String> focused = new ArrayList<>();
 		for (int i = 0; i < 24; i++) {
-			context.getInput().pressKey(258 /* GLFW_KEY_TAB */);
+			context.getInput().pressKey(Inputs.KEY_TAB);
 			context.waitTick();
 			String f = context.computeOnClient(mc -> {
 				var el = mc.gui.screen().getFocused();
@@ -125,7 +127,7 @@ public class UiKitClientGameTests implements FabricClientGameTest {
 			s.setFocused(s.kit.getFirst());
 			s.presses = 0;
 		});
-		context.getInput().pressKey(257 /* GLFW_KEY_ENTER */);
+		context.getInput().pressKey(Inputs.KEY_RETURN);
 		context.waitTick();
 		int presses = context.computeOnClient(mc -> ((KitGalleryScreen) mc.gui.screen()).presses);
 		if (presses != 1) throw new AssertionError("Enter on a focused CasinoButton presses it once, got " + presses);

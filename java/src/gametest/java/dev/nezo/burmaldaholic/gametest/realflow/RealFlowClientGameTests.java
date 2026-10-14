@@ -53,6 +53,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext ctx) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RF") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("hotfix") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RealFlowClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		if (!listening) {
 			listening = true;
 			CasinoEvents.PLAY_RESOLVED.register((player, result) -> PLAYS.add(result.gameId()));

@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.slots.client;
 
+import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.core.anim.Beat;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
 import dev.nezo.burmaldaholic.core.text.Texts;
@@ -36,12 +37,6 @@ import net.minecraft.util.Util;
  * the real machine screen and the preview screen; the host supplies the {@link Controls} that talk to the server.
  */
 public final class SlotBody implements StageHost {
-	private static final int GLFW_KEY_ESCAPE = 256; // GLFW key code (lwjgl is not on the 26.3 compile path)
-	private static final int GLFW_KEY_SPACE = 32; // GLFW key code (lwjgl is not on the 26.3 compile path)
-	private static final int GLFW_KEY_ENTER = 257; // GLFW key code (lwjgl is not on the 26.3 compile path)
-	private static final int GLFW_KEY_KP_ENTER = 335; // GLFW key code (lwjgl is not on the 26.3 compile path)
-	private static final int GLFW_KEY_A = 65; // GLFW key code (lwjgl is not on the 26.3 compile path)
-	private static final int GLFW_KEY_T = 84; // GLFW key code (lwjgl is not on the 26.3 compile path)
 	/** What the controls ask for (the real screen sends table actions; the preview plays fake tapes). */
 	public interface Controls {
 		void spin(long bet);
@@ -516,20 +511,20 @@ public final class SlotBody implements StageHost {
 
 	/** Keys: Space/Enter spin / stop / feature action, A autoplay, T turbo, Esc closes a panel. */
 	public boolean keyPressed(int key) {
-		if (key == GLFW_KEY_ESCAPE && overlays.mode() != Overlays.Mode.NONE) {
+		if (key == Inputs.KEY_ESCAPE && overlays.mode() != Overlays.Mode.NONE) {
 			overlays.close();
 			return true;
 		}
 		if (overlays.mode() != Overlays.Mode.NONE) return false;
-		if (key == GLFW_KEY_SPACE || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+		if (key == Inputs.KEY_SPACE || key == Inputs.KEY_RETURN || key == Inputs.KEY_NUMPADENTER) {
 			spinPressed();
 			return true;
 		}
-		if (key == GLFW_KEY_A && model.autoplayAllowed) {
+		if (key == Inputs.KEY_A && model.autoplayAllowed) {
 			autoPressed();
 			return true;
 		}
-		if (key == GLFW_KEY_T && model.turboAllowed) {
+		if (key == Inputs.KEY_T && model.turboAllowed) {
 			toggleTurbo();
 			return true;
 		}

@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.gametest.v2.craps;
 
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
 import dev.nezo.burmaldaholic.games.craps.CrapsModule;
 import dev.nezo.burmaldaholic.games.craps.CrapsTableBlockEntity;
 import dev.nezo.burmaldaholic.games.craps.client.CrapsScreen;
@@ -247,7 +248,7 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 		waitCanRoll(f);
 		int n = rolls(f, pos);
 		long before = balance(f);
-		if (space) f.key(32);
+		if (space) f.key(KeyMap.SPACE);
 		else f.click("primary");
 		f.waitServer(pos, CrapsTableBlockEntity.class, be -> be.table().rollCount() == n + 1, "the roll after pressing " + (space ? "Space" : "Roll"));
 		long ret = lastReturns(f, pos);
