@@ -7,7 +7,11 @@
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
     "dark": "burmaldaholic:block/core/tables/high_roller/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs"
+    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "chrome": "burmaldaholic:block/core/machines/chrome",
+    "board": "burmaldaholic:block/core/machines/plinko_board_back",
+    "marquee": "burmaldaholic:block/core/machines/plinko_marquee",
+    "pbase": "burmaldaholic:block/core/machines/plinko_base"
   },
   "elements": [
     {
@@ -83,7 +87,7 @@
       "from": [
         0,
         1,
-        0
+        1
       ],
       "to": [
         16,
@@ -94,7 +98,7 @@
         "up": {
           "uv": [
             0,
-            0,
+            1,
             16,
             16
           ],
@@ -103,7 +107,7 @@
         "down": {
           "uv": [
             0,
-            0,
+            1,
             16,
             16
           ],
@@ -116,7 +120,7 @@
             16,
             15
           ],
-          "texture": "#wood"
+          "texture": "#pbase"
         },
         "south": {
           "uv": [
@@ -129,7 +133,7 @@
         },
         "west": {
           "uv": [
-            0,
+            1,
             8,
             16,
             15
@@ -140,7 +144,7 @@
           "uv": [
             0,
             8,
-            16,
+            15,
             15
           ],
           "texture": "#wood"
@@ -150,13 +154,13 @@
     {
       "from": [
         0,
-        7,
-        0
+        7.5,
+        -0.5
       ],
       "to": [
         16,
-        8,
-        16
+        8.5,
+        1
       ],
       "faces": {
         "up": {
@@ -164,7 +168,7 @@
             0,
             0,
             16,
-            16
+            1
           ],
           "texture": "#trim"
         },
@@ -173,43 +177,43 @@
             0,
             0,
             16,
-            16
+            1
           ],
           "texture": "#trim"
         },
         "north": {
           "uv": [
             0,
-            8,
+            7.5,
             16,
-            9
+            8.5
           ],
           "texture": "#trim"
         },
         "south": {
           "uv": [
             0,
-            8,
+            7.5,
             16,
-            9
+            8.5
           ],
           "texture": "#trim"
         },
         "west": {
           "uv": [
             0,
-            8,
-            16,
-            9
+            7.5,
+            1,
+            8.5
           ],
           "texture": "#trim"
         },
         "east": {
           "uv": [
-            0,
-            8,
+            15,
+            7.5,
             16,
-            9
+            8.5
           ],
           "texture": "#trim"
         }
@@ -234,7 +238,7 @@
             16,
             12
           ],
-          "texture": "#wood"
+          "texture": "#board"
         },
         "down": {
           "uv": [
@@ -243,7 +247,7 @@
             16,
             12
           ],
-          "texture": "#wood"
+          "texture": "#board"
         },
         "north": {
           "uv": [
@@ -252,7 +256,7 @@
             16,
             8
           ],
-          "texture": "#wood"
+          "texture": "#board"
         },
         "south": {
           "uv": [
@@ -261,7 +265,7 @@
             16,
             8
           ],
-          "texture": "#wood"
+          "texture": "#board"
         },
         "west": {
           "uv": [
@@ -270,7 +274,7 @@
             12,
             8
           ],
-          "texture": "#wood"
+          "texture": "#board"
         },
         "east": {
           "uv": [
@@ -279,75 +283,7 @@
             15,
             8
           ],
-          "texture": "#wood"
-        }
-      }
-    },
-    {
-      "from": [
-        0,
-        8,
-        0.5
-      ],
-      "to": [
-        16,
-        16,
-        1
-      ],
-      "faces": {
-        "up": {
-          "uv": [
-            0,
-            0.5,
-            16,
-            1
-          ],
-          "texture": "#side"
-        },
-        "down": {
-          "uv": [
-            0,
-            0.5,
-            16,
-            1
-          ],
-          "texture": "#side"
-        },
-        "north": {
-          "uv": [
-            4.121,
-            12.121,
-            11.879,
-            16
-          ],
-          "texture": "#front"
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            8
-          ],
-          "texture": "#side"
-        },
-        "west": {
-          "uv": [
-            0.5,
-            0,
-            1,
-            8
-          ],
-          "texture": "#side"
-        },
-        "east": {
-          "uv": [
-            15,
-            0,
-            15.5,
-            8
-          ],
-          "texture": "#side"
+          "texture": "#board"
         }
       }
     }

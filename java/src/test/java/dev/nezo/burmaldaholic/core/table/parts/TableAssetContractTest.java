@@ -76,14 +76,16 @@ class TableAssetContractTest {
 					JsonArray to = el.getAsJsonArray("to");
 					for (int i = 0; i < 3; i++) {
 						// the padded rail bulges 1 px past the footprint; lit props (placard, tote board) stand above the block
-						double lo = i == 1 ? 0 : -1;
-						double hi = i == 1 ? 32 : 17;
+						// rotated segments (curved rails, bowl rim, pedestal feet) are bounded before their rotation
+						double lo = i == 1 ? 0 : el.has("rotation") ? -8 : -1;
+						double hi = i == 1 ? 32 : el.has("rotation") ? 24 : 17;
 						assertTrue(from.get(i).getAsDouble() >= lo && to.get(i).getAsDouble() <= hi && from.get(i).getAsDouble() <= to.get(i).getAsDouble(),
 							t + " " + part + " element inside the block");
 					}
 					double top = to.get(1).getAsDouble();
 					String tex = el.getAsJsonObject("faces").getAsJsonObject("up").get("texture").getAsString();
-					boolean prop = tex.equals("#placard") || tex.equals("#tote") || (tex.equals("#trim") && top > 16);
+					// lit props and the raised roulette bowl rim stand above the rail
+					boolean prop = tex.equals("#placard") || tex.equals("#tote") || (tex.equals("#trim") && top > 16) || (el.has("rotation") && top > 16);
 					assertTrue(prop || top <= (craps ? 16 : FeltFrame.RAIL_TOP * 16 + 0.5), t + " " + part + " element top " + top);
 					if (tex.equals("#felt")) {
 						assertEquals(felt, top, 1e-9, t + " " + part + " felt top");

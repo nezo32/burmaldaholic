@@ -25,8 +25,9 @@ describe('multi-block table furniture', () => {
         const m = partModel(t, part);
         for (const e of m.elements) {
           for (let i = 0; i < 3; i++) {
-            expect(e.from[i]).toBeGreaterThanOrEqual(i === 1 ? 0 : -1);
-            expect(e.to[i]).toBeLessThanOrEqual(i === 1 ? 32 : 17);
+            // rotated rail / rim segments may reach a little further before their rotation
+            expect(e.from[i]).toBeGreaterThanOrEqual(i === 1 ? 0 : e.rotation ? -8 : -1);
+            expect(e.to[i]).toBeLessThanOrEqual(i === 1 ? 32 : e.rotation ? 24 : 17);
             expect(e.from[i]).toBeLessThanOrEqual(e.to[i]);
           }
           if (e.faces.up.texture === '#felt') expect(e.to[1]).toBe(FELT_TOP);
@@ -56,8 +57,8 @@ describe('multi-block machines (MT-3)', () => {
       for (const part of partsOf(m.kind)) {
         for (const e of machinePartModel(m, part).elements)
           for (let i = 0; i < 3; i++) {
-            expect(e.from[i]).toBeGreaterThanOrEqual(0);
-            expect(e.to[i]).toBeLessThanOrEqual(16);
+            expect(e.from[i]).toBeGreaterThanOrEqual(-16); // vanilla element range: details may reach past their block
+            expect(e.to[i]).toBeLessThanOrEqual(32);
             expect(e.from[i]).toBeLessThanOrEqual(e.to[i]);
           }
       }
