@@ -53,6 +53,7 @@ public class SlotsV2ClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("SLOTS") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("SlotsV2ClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);

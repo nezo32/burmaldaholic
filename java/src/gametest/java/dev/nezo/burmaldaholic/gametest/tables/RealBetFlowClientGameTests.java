@@ -83,6 +83,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("A") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("C") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("D") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("hotfix") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RealBetFlowClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		try {
 			try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create(); var q = ClientTestWorlds.quiet(context, world)) {
