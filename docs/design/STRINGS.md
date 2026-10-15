@@ -870,7 +870,7 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.reason.deal_in` | Deal in %1$s s | Раздача через %1$s с |
 | `gui.burmaldaholic.blackjack.v2.reason.others_betting` | Waiting for the other bets | Ждём остальные ставки |
 | `gui.burmaldaholic.blackjack.v2.reason.not_now` | Not possible now | Сейчас нельзя |
-| `gui.burmaldaholic.blackjack.v2.reason.cannot_double` | Double on the first two cards only | Удвоить можно только на двух первых картах |
+| `gui.burmaldaholic.blackjack.v2.reason.cannot_double` | Double on the first two cards only | Удвоение — только на 2 картах |
 | `gui.burmaldaholic.blackjack.v2.reason.cannot_split` | Split needs a pair | Разделить можно только пару |
 | `gui.burmaldaholic.blackjack.v2.reason.no_last_bet` | No last bet yet | Прошлой ставки пока нет |
 | `gui.burmaldaholic.blackjack.v2.reason.already_rebet` | That is your last bet already | Это уже прошлая ставка |
@@ -878,7 +878,7 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.status.rules` | Blackjack pays 3 to 2 | Блэкджек платит 3 к 2 |
 | `gui.burmaldaholic.blackjack.v2.status.bet_placed` | Your bet: %1$s | Ваша ставка: %1$s |
 | `gui.burmaldaholic.blackjack.v2.status.insurance` | Dealer shows an ace — insure for %1$s? | У дилера туз — страховка на %1$s? |
-| `gui.burmaldaholic.blackjack.v2.status.even_money` | Blackjack vs an ace — take 1:1 now? | Блэкджек против туза — забрать 1:1 сразу? |
+| `gui.burmaldaholic.blackjack.v2.status.even_money` | Blackjack vs an ace — take 1:1 now? | Туз у дилера — взять 1:1? |
 | `gui.burmaldaholic.blackjack.v2.status.insurance_others` | Insurance is offered | Предлагается страховка |
 | `gui.burmaldaholic.blackjack.v2.status.your_turn` | Your turn | Ваш ход |
 | `gui.burmaldaholic.blackjack.v2.status.hand` | Bet %1$s · hand %2$s of %3$s | Ставка %1$s · рука %2$s из %3$s |

@@ -79,9 +79,10 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			String want = f.client(mc -> Component.translatable(V2Keys.REASON_PLACE_BET).getString());
 			if (!f.status().equals(want)) throw new AssertionError("no-bet Deal: status '" + f.status() + "', expected '" + want + "'");
 		}
-		int chip = chipIndex(f, 100);
+		// Banker 25 (not 100: the table total max is 100 at VIP 0, so a 100 on Banker leaves no room for the Tie)
+		int chip = chipIndex(f, 25);
 		idle(f);
-		f.click(KeyMap.Ids.chip(chip)); // arm 100
+		f.click(KeyMap.Ids.chip(chip)); // arm 25
 		idle(f);
 		f.click(KeyMap.Ids.felt("box.banker"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.BANKER, 0L) > 0, "banker bet placed by a box click");
