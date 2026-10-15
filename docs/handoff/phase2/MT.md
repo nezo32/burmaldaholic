@@ -33,7 +33,13 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
 - Breaking any part → `TableParts.breakFromPart`: main destroyed with drops (one item, none in creative / house
   table), other parts cleared without drops + particles, the hit part left for the vanilla break so the break events
   fire for it. Explosions on a part route to the main's `onExplosionHit` (idempotent, ≤1 item). Loot: `any_of
-  block_state_property part ∈ {main, single}` + `survives_explosion`. Mirror swaps parts; rotate FACING only.
+  block_state_property part ∈ {main, single}` + `survives_explosion`, AND in code: `MultiBlockTableBlock.getDrops`
+  returns nothing for non-controller parts. **Finding (affects the whole mod on 26.3):** 26.3 changed the loot predicate
+  format (`"conditions": [{"condition": "minecraft:block_state_property", …}]` → `"condition": {"type":
+  "minecraft:match_block", "blocks", "state"}`) and silently ignores the 26.2 form — so on 26.3 every part dropped an
+  item, and every v0.1 loot table's `survives_explosion` is ignored (tables/machines always drop in explosions). The
+  part rule is now enforced in Java (same signature both versions); the explosion-survival roll on 26.3 is an open item
+  for whoever owns data packs (needs a per-version data overlay or code). Mirror swaps parts; rotate FACING only.
 - Use any part → main (`openAt`). `CasinoTableMenu.stillValid`, the BE's seat-leave check and bot claimants use
   `TableParts.inRange` (centre distance for compact, nearest point of the footprint box for full).
 - Routing (§4): `Ownership.beforeBreak/afterBreak/onUseBlock/isExplosionProof`, `ServerExplosionMixin`,
@@ -63,19 +69,57 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
   lounge BJ HR (4,5) roulette HR (10,5) baccarat HR (4,11) UTH HR (10,11). Templates regenerated (TemplateExportTest).
   `MultiBlockLayoutsTest` = clearance R1–R6 on every layout (CB-C contract below).
 
+### Visual passes 1–2 (owner bar "perfect", coordinator + VQA round 1 `findings/VQA-INWORLD.md` §MT)
+- Tables (`tables/table_geom.mjs`): rounded rails, aprons and the brass band are **rotated segments** (6 per quarter arc;
+  26.x model elements accept any `axis`/`angle`, identical format on 26.2 and 26.3 — checked in `CuboidRotation`), so the
+  curves are smooth (no 1-px sawtooth); straight runs are axis boxes; hidden fills stay as columns. Rail section: outer drop
+  (y 12.5–13.5, 1 px past the footprint), cushion (13.5–15), bevelled cap (15–15.5 → **FeltFrame.RAIL_TOP = 15.5/16**),
+  brass lip on the felt side; proud lit brass band (light_emission 6); deep apron with dark kick band; 4-segment turned legs
+  with brass ferrules; poker on twin pedestals with splayed feet; dealer tray = brass rim + 7 chip columns; lit table-limit
+  placard (dealer side); roulette: lit tote board on a brass pole, raised bowl rim (y 13–17) with a lit brass band, bowl
+  floor at y 13–13.5 with a static wheel that the RO rotor (Ø ≥ bowl opening, drawn at FELT_Y) covers whenever it renders
+  (no second wheel; no hook needed). Palettes per VQA: standard leather #5A2E16, HR felt #4A2C86/#5A38A0/#3E2470 with black
+  leather + gold stitching, player-banked felt #5E1A2A + oxblood leather; 3-tone wood with seams; leather with tufts and
+  stitching.
+- Machines (`tables/machines.mjs`, `machine_art.mjs`): complete without any renderer and lit at night (light_emission).
+  Slots: tier cabinet panels, chrome edges, lit side strips, belly art, coin tray, lit button deck, lever (chrome + red
+  ball), reel window aligned with the slot renderer's reels (y 19–28) behind a proud chrome bezel, lit topper. Wheel:
+  bevelled plinth with lit bulbs, rear A-frame, brass rim ring (24 segments rotated about Z, 3.5 px deep) round the
+  renderer's disc, hub cap, flapper. Plinko: the cabinet FRAMES `BoardFrame.of(PLINKO, MAIN)` (no baked face any more):
+  base with coin slot + bin-tray lip, lit bulb pillars, lit crown marquee (sign art, no words), night-purple backing behind
+  the board. Cashier: quartz counter 15/16 with brass edge and kick, three raised panels, money tray, two banker's lamps
+  (lit green shades), glass partition in a brass frame with an arched brass grille window, lit dark-red sign plate with
+  the localized word drawn by `client/table/CashierSignRenderer` (registered in CoreClientModule); Nether booth uses
+  polished blackstone, gilded blackstone, crimson glass and soul-cyan lamps.
+
 ### MT-3 — upright machines (coordinator scope addition; API announced @9a26b4f)
 - Sizes (width × height, one deep, main = bottom centre; widths odd so mirror() only swaps LEFT/RIGHT): SLOT 1×2,
   WHEEL 3×3, PLINKO 3×3 (4:3 board 2.75 × 2.0625 = 272×204 art px, bottom at 0.5), CASHIER 3×2 booth (3 wide, not 2,
   for the mirror rule). `MachineKind`, `BoardFrame.of(kind, part)` (FeltFrame equivalent for faces, compact = v0.1
   geometry the renderers draw today), `BoardFrame.scaleCompactToFull`, `MachineShapes`, per-kind part properties
   (`TableParts.SLOT_PART/UPRIGHT_PART/BOOTH_PART`), `MultiBlockTableBlock.machine(...)`.
-- `machines.mjs`: blockstates, models (slot upper cabinet under the renderer's cabinet, wheel plinth + post, Plinko
-  cabinet with the v0.1 face stretched over the board square + gold side frames + marquee, cashier counter + panelled
-  wall + brass-framed iron-bar window), loot. `TableFrames.toFullFace` maps the v0.1 wheel / Plinko renderer content
+- `machines.mjs`: blockstates, per-part models (see visual passes), part-aware loot. `TableFrames.toFullFace` maps the v0.1 wheel / Plinko renderer content
   onto the full face. Layouts: machines stamped full (village wheel moved to x13..15).
 
 ## Verified (commands and results)
-See the "Gates" section below (filled at the end).
+All in `java/` with JDK 25, heavy runs via `with-heavy-lock.sh`, client runs nested in `with-client-lock.sh`.
+- Final (2026-10-15, after visual pass 2, policy "test only what changed"): `compileJava compileClientJava
+  compileGametestJava` on 26.2 and `-Pmc=26.3` → OK; `test --tests 'dev.nezo.burmaldaholic.core.table.parts.*'
+  --tests '*RawInputGuardTest' --tests '*worldgen.logic*' --tests '*BotsLogicTest'` → OK; `runGameTest
+  -Dfabric-api.gametest.filter=multi_block` → **All 12 required tests passed** on 26.2 and on `-Pmc=26.3`.
+- Tools: `npm ci && npm run gen:assets && npm run check:assets && npm test` → assets OK, 60/60 (furniture tests 5/5).
+- Earlier full gates (before the policy change): `./gradlew build` (26.2) → all 233 server GameTests passed (one run
+  failed only on an asset contract test mid-regeneration, fixed); full 26.3 `runGameTest` found the 26.3 loot-format
+  issue (now fixed in code, see MT-1).
+- Worldgen: `runGameTest -Dfabric-api.gametest.filter=worldgen` → 15/15 (26.2); old-template survey 59/64 GROW.
+- Client (CGT=MT, 26.3, real window 1280×720, one JVM): `MultiBlockTableClientGameTests` passed (use key on the far
+  BACK_LEFT part opens the main block's screen; walking into the table is stopped). Shots: `.burmaldaholic-tools/shots/MT/
+  run1` (first models), `run2` (machines v1), `run3` (visual pass 2: tables, machines, night). The wood-seam removal
+  after run3 is texture-only and was not re-shot.
+- javap (26.2 vs 26.3 jars): all §7 APIs identical except `PushReaction` constants (BLOCK → IMMOVEABLE: not used),
+  `Properties.isViewBlocking` lambda type (not used), `Block.playerDestroy` signature (not overridden), and inlined
+  `LevelEvent.PARTICLES_DESTROY_BLOCK` (2001 vs 2014: not used); model elements: `light_emission` and
+  `rotation {axis, angle}` (any angle) parse the same on both.
 
 ## Not verified / open items
 - Chunk-border cascade guard is covered by code review only (no GameTest unloads a neighbour chunk).
@@ -86,7 +130,11 @@ See the "Gates" section below (filled at the end).
   tables (against the back wall, x5..7 z5..6) stay COMPACT.
 - No per-whole-table outline (per-part outlines like beds).
 - W2: replace `TableFrames` with `FeltFrame`/`BoardFrame` geometry in `client/board`; delete overhang code.
-- PL: draw the 272×204 board on `BoardFrame.of(PLINKO, MAIN)`; my model shows the v0.1 face stretched as a stopgap.
+- PL: draw the 272×204 board on `BoardFrame.of(PLINKO, MAIN)` (x −0.875..1.875, y 0.5..2.5625, face z 15.5/16) — the
+  cabinet frames exactly that opening (pillars x −1..−0.875 and 1.875..2, bin lip under it, marquee above). On p2/mt alone
+  the opening shows a night-purple backing (+ the v0.1 ball/lamps scaled by `TableFrames.toFullFace`).
+- RO: draw the rotor opaque at `FeltFrame.FELT_Y` centred on `wheelCx/wheelCz` with radius ≥ 6.75 px so it covers the
+  static wheel in the bowl floor; idle ball resting in a pocket is RO's.
 - Games' own distance checks (poker `PokerTableBlockEntity:733`, uth `:1270`, baccarat/blackjack spectator radius)
   still measure from the main block centre (≤1.6 blocks off at the far corner) — owners may switch to
   `TableParts.inRange`.

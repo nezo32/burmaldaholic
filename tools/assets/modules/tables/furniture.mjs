@@ -15,15 +15,14 @@
 import { JAVA_ASSETS, json, png } from '../../lib/emit.mjs';
 import { R, P, c, image, put, rng } from './draw.mjs';
 import { machineOutputs } from './machines.mjs';
+import * as G from './table_geom.mjs';
 
 const T = `${JAVA_ASSETS}/textures/block/core/tables`;
 const M = `${JAVA_ASSETS}/models/block/tables`;
 const DATA = 'src/main/resources/data/burmaldaholic';
 
-/** Felt / rail heights (px) — FeltFrame.FELT_Y = 14/16, RAIL_TOP = 15/16. */
-export const FELT_TOP = 14;
-export const RAIL_TOP = 15;
-const RAIL = 2; // rail width (px) = FeltFrame.RAIL 0.125
+/** Felt / rail heights (px) — FeltFrame.FELT_Y = 14/16, RAIL_TOP = 15.5/16. */
+export { FELT_TOP, RAIL_TOP } from './table_geom.mjs';
 
 export const PARTS = ['single', 'main', 'left', 'right', 'back_left', 'back', 'back_right'];
 /** (r, f) per part — TablePart. */
@@ -53,24 +52,29 @@ export const TABLES = [
 // village oak + green felt; high roller dark oak + gold trim + royal felt; player-banked mahogany + red felt.
 export const THEMES = {
   standard: {
-    felt: ['#1E6A3E', '#1A5E37', '#22744A', '#175331'],
-    wood: ['#B07A44', '#9C6A3A', '#865A30', '#6E4826', '#59391E'],
-    rail: ['#6A3C1E', '#5A321A', '#4A2814', '#38200F'],
-    trim: ['#D8A848', '#B88830', '#8A6420'],
+    felt: ['#1E6A3E', '#22744A', '#1A5E37', '#175331'],
+    wood: ['#C08A50', '#A6703E', '#8C5A30', '#6E4424', '#55331A'],
+    rail: ['#7A4424', '#5A2E16', '#4A2412', '#341808'],
+    stitch: '#3A1C0C',
+    trim: ['#F0C860', '#D0A040', '#8A6420'],
     tray: '#2A1A10',
   },
+  // VQA r1: HR felt lifted to a royal purple that stays purple under hall light; black leather with gold stitching
   high_roller: {
-    felt: ['#3A1E5E', '#331A54', '#43246A', '#2B1648'],
-    wood: ['#4E3220', '#43291A', '#382216', '#2C1A10', '#21130C'],
-    rail: ['#1E1A1E', '#181418', '#120E12', '#0A080A'],
+    felt: ['#4A2C86', '#5A38A0', '#3E2470', '#3E2470'],
+    wood: ['#5E3E28', '#4E3220', '#3E2618', '#2E1C10', '#21130C'],
+    rail: ['#34303A', '#1C1A20', '#141218', '#0A090C'],
+    stitch: '#C8A040',
     trim: ['#FFE070', '#F0C040', '#B88A18'],
     tray: '#120C08',
   },
+  // VQA r1: player-banked felt deep burgundy-brown (separates from red carpet), oxblood leather
   player_banked: {
-    felt: ['#8A1C22', '#7A181E', '#9A2228', '#68141A'],
-    wood: ['#7A3A22', '#6C321C', '#5C2A18', '#4C2212', '#3C1A0E'],
-    rail: ['#241414', '#1C1010', '#140A0A', '#0C0606'],
-    trim: ['#E0B860', '#C09840', '#8C6A24'],
+    felt: ['#5E1A2A', '#6E2234', '#4E1422', '#4E1422'],
+    wood: ['#86442A', '#723A22', '#5E2E1A', '#4C2414', '#3A1A0E'],
+    rail: ['#5A2024', '#3A1012', '#2C0A0C', '#1C0608'],
+    stitch: '#1A0406',
+    trim: ['#F0C870', '#D0A048', '#8C6A24'],
     tray: '#1A0C08',
   },
 };
@@ -93,34 +97,47 @@ export function woodTexture(theme) {
   const t = THEMES[theme];
   const img = image(16, 16);
   const r = rng(0xb00d + theme.length * 31);
-  // lacquered hardwood: long horizontal grain streaks, faint seams every 8 rows (seamless both ways)
+  // lacquered hardwood: 3-tone long grain + a highlight streak, seamless (no baked seam: curved aprons are many short
+  // segments, each starting its UV at 0, so a seam column would repeat every 3 px)
   for (let y = 0; y < 16; y++) {
     const phase = (y * 7) % 16;
     for (let x = 0; x < 16; x++) {
       const streak = Math.sin(((x + phase) / 16) * Math.PI * 2) + 0.35 * Math.sin(((x * 3 + y * 5) / 16) * Math.PI * 2);
       let k = 1;
-      if (streak > 1.05) k = 0;
-      else if (streak < -1.0) k = 2;
-      if (r() < 0.025) k = 2;
-      if (y % 8 === 7) k = 3;
+      if (streak > 1.1) k = 0;
+      else if (streak < -0.55) k = 2;
+      if (streak < -1.15) k = 3;
+      if (r() < 0.02) k = 3;
       put(img, x, y, c(t.wood[k]));
     }
   }
   return img;
 }
 
-/** Padded leather: highlight band, tuft lines every 4 px, darker underside. Rows run along the rail. */
+/**
+ * Padded leather (isotropic, the rail runs both ways): base tone with a soft lit centre band, button tufts every 8 px,
+ * stitch dots every 4 px along both edges (gold on the high-roller rail).
+ */
 export function railTexture(theme) {
   const t = THEMES[theme];
   const img = image(16, 16);
   for (let y = 0; y < 16; y++)
     for (let x = 0; x < 16; x++) {
-      const band = y % 8;
-      let k = band <= 1 ? 0 : band <= 4 ? 1 : band <= 6 ? 2 : 3;
-      if (x % 4 === 3 && band >= 2 && band <= 5) k = Math.min(3, k + 1);
+      const dy = Math.abs(y + 0.5 - 8);
+      const dx = Math.abs(x + 0.5 - 8);
+      const k = Math.min(dx, dy) < 2 ? 0 : Math.min(dx, dy) < 5 ? 1 : 2;
       put(img, x, y, c(t.rail[k]));
     }
-  for (let x = 1; x < 16; x += 4) P(img, x, 1, t.rail[0]);
+  for (const [x, y] of [[3, 3], [11, 11], [3, 11], [11, 3]]) {
+    R(img, x, y, 2, 2, t.rail[3]);
+    P(img, x, y, t.rail[2]);
+  }
+  for (let i = 1; i < 16; i += 4) {
+    P(img, i, 0, t.stitch);
+    P(img, i, 15, t.stitch);
+    P(img, 0, i, t.stitch);
+    P(img, 15, i, t.stitch);
+  }
   return img;
 }
 
@@ -178,201 +195,78 @@ export function bowlTexture(theme) {
   return img;
 }
 
-// ---- footprint outline (rounded rectangle) ---------------------------------------------------------------------
-const OUT = { cx: 8, hx: 24, hz: 16 };
-
-function radii(shape) {
-  if (shape === 'crescent') return { front: 16, back: 0 };
-  if (shape === 'oval') return { front: 16, back: 16 };
-  return { front: 0, back: 0 };
-}
-
-/** Z interval [z0, z1] of a rounded rect inset by `inset` at x (px), or null. */
-function span(x, shape, inset) {
-  const { front, back } = radii(shape);
-  const hx = OUT.hx - inset;
-  const hz = OUT.hz - inset;
-  const ax = Math.abs(x - OUT.cx);
-  if (ax > hx) return null;
-  const edge = (rc) => {
-    const r = Math.max(0, rc - inset);
-    if (r <= 0 || ax <= hx - r) return hz;
-    const d = ax - (hx - r);
-    return hz - r + Math.sqrt(Math.max(0, r * r - d * d));
-  };
-  return [-edge(back), edge(front)];
-}
-
-const q = (v) => Math.round(v * 2) / 2; // half-pixel steps: smooth enough, few elements
-
-/** Interval set minus interval set. */
-function minus(a, b) {
-  let out = a.slice();
-  for (const [b0, b1] of b) {
-    const next = [];
-    for (const [a0, a1] of out) {
-      if (b1 <= a0 || b0 >= a1) next.push([a0, a1]);
-      else {
-        if (b0 > a0) next.push([a0, b0]);
-        if (b1 < a1) next.push([b1, a1]);
-      }
-    }
-    out = next;
+/** Table-limit placard: dark plaque, brass frame, a chip and two lit pips (no words: the limits live in the UI). */
+export function placardTexture(theme) {
+  const t = THEMES[theme];
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, t.trim[2]);
+  R(img, 1, 1, 14, 14, t.trim[0]);
+  R(img, 2, 2, 12, 12, '#141018');
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 7);
+    if (d < 4) put(img, x, y, c(d < 2.2 ? '#F4EEE0' : (Math.floor(Math.atan2(y - 7, x - 8) * 3) & 1) ? '#D23A3A' : '#F4EEE0'));
   }
-  return out.filter(([z0, z1]) => z1 - z0 > 1e-6);
-}
-const inter = (a, b) => {
-  const out = [];
-  for (const [a0, a1] of a) for (const [b0, b1] of b) {
-    const z0 = Math.max(a0, b0);
-    const z1 = Math.min(a1, b1);
-    if (z1 > z0) out.push([z0, z1]);
-  }
-  return out;
-};
-const iv = (s) => (s && q(s[1]) - q(s[0]) > 1e-6 ? [[q(s[0]) || 0, q(s[1]) || 0]] : []);
-
-/** Roulette: wheel bowl circle (FeltFrame wheel centre (-0.5, 0) blocks, Ø1.0) and betting layout rectangle. */
-const BOWL = { cx: -8, cz: 0, r: 8 };
-const LAYOUT = { x0: 0, x1: 30, z0: -14, z1: 14 };
-
-function circleSpan(x, r) {
-  const d = x - BOWL.cx;
-  if (Math.abs(d) >= r) return [];
-  const h = Math.sqrt(r * r - d * d);
-  return [[q(BOWL.cz - h), q(BOWL.cz + h)]];
+  R(img, 4, 12, 3, 1, '#FFD640');
+  R(img, 9, 12, 3, 1, '#5FE07A');
+  return img;
 }
 
-/**
- * Material layers of one 1-px strip at x (centre xm): list of {mat, y0, y1, zs: [[z0,z1]…]}.
- * Stack: legs (separate), apron 8..11, slab 11..12.5, trim 12.5..13, felt 13..14, rail 13..15 (rounded profile),
- * crescent dealer ledge 13..14 (wood), roulette deck 13..14 + bowl rim 13..15.5 + bowl floor 13..13.25.
- */
-function strip(xm, shape) {
-  const out = [];
-  const outer = iv(span(xm, shape, 0));
-  if (!outer.length) return out;
-  const inner = iv(span(xm, shape, RAIL));
-  const apron = iv(span(xm, shape, 1.5));
-  out.push({ mat: 'wood', y0: 8, y1: 11, zs: apron });
-  out.push({ mat: 'rail', y0: 7.5, y1: 8, zs: iv(span(xm, shape, 2)) }); // dark kick band under the apron
-  out.push({ mat: 'wood', y0: 11, y1: 12.5, zs: outer });
-  out.push({ mat: 'trim', y0: 12.5, y1: 13, zs: outer });
-  let felt = inner;
-  let deck = [];
-  let bowlRing = [];
-  let bowlFloor = [];
-  if (shape === 'roulette') {
-    // wheel housing: a raised polished-wood cabinet over column r-1 with the bowl sunk into it (the rotor is drawn
-    // by the table renderer at the felt height), a brass ring round the bowl; the betting layout is felt
-    const layout = xm > LAYOUT.x0 && xm < LAYOUT.x1 ? [[LAYOUT.z0, LAYOUT.z1]] : [];
-    felt = inter(inner, layout);
-    const bowl = circleSpan(xm, BOWL.r - 1.5);
-    bowlRing = minus(circleSpan(xm, BOWL.r - 1), bowl);
-    bowlFloor = bowl;
-    deck = minus(minus(inner, felt), bowl);
-  }
-  let rail = minus(outer, inner);
-  let ledge = [];
-  if (shape === 'crescent' && inner.length) {
-    // dealer side: a low wooden ledge instead of the padded rail along the straight back edge
-    ledge = rail.filter(([z0, z1]) => z1 <= inner[0][0] + 1e-6);
-    rail = rail.filter(([z0, z1]) => z1 > inner[0][0] + 1e-6);
-  }
-  out.push({ mat: 'felt', y0: 13, y1: FELT_TOP, zs: felt });
-  if (deck.length) out.push({ mat: 'wood', y0: 13, y1: shape === 'roulette' ? 15 : 14, zs: deck });
-  if (ledge.length) out.push({ mat: 'wood', y0: 13, y1: 14, zs: ledge });
-  if (rail.length) {
-    const high = shape === 'craps' ? 16 : RAIL_TOP;
-    out.push({ mat: 'rail', y0: 13, y1: high - 0.5, zs: rail });
-    // rounded top of the padded rail: half a pixel narrower on each side
-    const top = rail.map(([z0, z1]) => [z0 + 0.5, z1 - 0.5]).filter(([z0, z1]) => z1 > z0);
-    out.push({ mat: 'rail', y0: high - 0.5, y1: high, zs: top });
-  }
-  if (bowlRing.length) out.push({ mat: 'trim', y0: 15, y1: 15.25, zs: bowlRing });
-  if (bowlFloor.length) out.push({ mat: 'bowl', y0: 12.5, y1: 13.5, zs: bowlFloor });
-  return out;
+/** Roulette tote board: black screen with a column of last numbers as red / black / green tiles and lit digits. */
+export function toteTexture(theme) {
+  const t = THEMES[theme];
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, t.trim[1]);
+  R(img, 1, 1, 14, 14, '#0C0A10');
+  const cols = ['#D8343C', '#2A2430', '#D8343C', '#1E8A3C', '#2A2430', '#D8343C'];
+  cols.forEach((col, i) => {
+    const y = 2 + i * 2;
+    const right = i % 2 === 0;
+    R(img, right ? 9 : 3, y, 4, 2, col);
+    R(img, (right ? 9 : 3) + 1, y, 2, 1, '#FFF4C8');
+  });
+  R(img, 2, 14, 12, 1, t.trim[0]);
+  return img;
 }
 
-/** Legs (px, local): corner legs inset along the outline + middle legs on the long sides. */
-function legs(shape) {
-  const { front, back } = radii(shape);
-  const list = [];
-  const corner = (sx, sz, rc) => {
-    if (rc > 0) {
-      const cx = OUT.cx + sx * (OUT.hx - rc);
-      const cz = sz * (OUT.hz - rc);
-      const d = (rc - 4.5) / Math.SQRT2;
-      list.push([cx + sx * d, cz + sz * d]);
-    } else list.push([OUT.cx + sx * (OUT.hx - 3.5), sz * (OUT.hz - 3.5)]);
-  };
-  corner(-1, 1, front);
-  corner(1, 1, front);
-  corner(-1, -1, back);
-  corner(1, -1, back);
-  list.push([OUT.cx, OUT.hz - 3.5], [OUT.cx, -(OUT.hz - 3.5)]);
-  // turned legs: square upper post, slimmer lower post, dark foot
-  const box = (x, z, h, mat, y0, y1) => ({ mat, x0: q(x - h), x1: q(x + h), z0: q(z - h), z1: q(z + h), y0, y1 });
-  return list.flatMap(([x, z]) => [box(x, z, 1.5, 'wood', 4, 7.5), box(x, z, 1, 'wood', 1, 4), box(x, z, 1.5, 'rail', 0, 1)]);
-}
+// ---- geometry (table_geom.mjs) → per-cell boxes + rotated segments → block elements ----------------------------
 
-/** Dealer chip tray (card tables and poker): recessed rack in the back-centre cell. */
-function tray(shape) {
-  if (shape !== 'crescent' && shape !== 'oval') return [];
-  return [{ mat: 'tray', x0: 1, x1: 15, z0: -13.5, z1: -10.5, y0: 13, y1: 14.25 }];
-}
+const clampI = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+/** Column index of an x (px): anything just outside the footprint belongs to the outer cells. */
+const colOf = (x) => clampI(Math.floor(x / 16), -1, 1);
+const rowOf = (z) => clampI(Math.floor(z / 16), -1, 0);
+const cellOf = (b) => [colOf((b.x0 + b.x1) / 2), rowOf((b.z0 + b.z1) / 2)];
+const r2 = (v) => Math.round(v * 1000) / 1000;
 
-/** All boxes of a table in local px: {mat, x0, x1, y0, y1, z0, z1}. Strips are merged when identical. */
+/** Axis-aligned boxes of a table split at cell boundaries (x −16/0/16/32, z 0) and merged along x inside a cell. */
 export function tableBoxes(shape) {
-  const boxes = [];
-  // strips per 1 px column, clipped to cell columns so no box crosses a block boundary
-  const cols = [];
-  for (let x = -16; x < 32; x++) cols.push({ x0: x, x1: x + 1, layers: strip(x + 0.5, shape) });
-  // merge identical neighbouring columns inside the same cell column
-  const merged = [];
-  for (const col of cols) {
-    const prev = merged[merged.length - 1];
-    const sameCell = prev && Math.floor(prev.x0 / 16) === Math.floor(col.x0 / 16);
-    if (sameCell && JSON.stringify(prev.layers) === JSON.stringify(col.layers)) prev.x1 = col.x1;
-    else merged.push({ ...col });
+  const { boxes } = G.tableGeometry(shape);
+  const split = [];
+  for (const b of boxes) {
+    const xs = [b.x0, ...[0, 16].filter((v) => v > b.x0 && v < b.x1), b.x1];
+    const zs = [b.z0, ...[0].filter((v) => v > b.z0 && v < b.z1), b.z1];
+    for (let i = 0; i + 1 < xs.length; i++)
+      for (let j = 0; j + 1 < zs.length; j++) split.push({ ...b, x0: xs[i], x1: xs[i + 1], z0: zs[j], z1: zs[j + 1] });
   }
-  for (const col of merged)
-    for (const l of col.layers)
-      for (const [z0, z1] of l.zs) {
-        // split at the cell row boundary z = 0
-        const cuts = z0 < 0 && z1 > 0 ? [[z0, 0], [0, z1]] : [[z0, z1]];
-        for (const [a, b] of cuts) boxes.push({ mat: l.mat, x0: col.x0, x1: col.x1, y0: l.y0, y1: l.y1, z0: a, z1: b });
-      }
-  // merge boxes that continue each other along x inside one cell (e.g. the square back of a crescent)
-  const keyOf = (b) => `${b.mat}|${b.y0}|${b.y1}|${b.z0}|${b.z1}|${Math.floor(b.x0 / 16)}`;
+  const keyOf = (b) => `${b.mat}|${b.y0}|${b.y1}|${b.z0}|${b.z1}|${b.emit ?? 0}|${colOf(b.x0 + 0.5)}`;
   const open = new Map();
-  const mergedBoxes = [];
-  for (const b of boxes.sort((a, z) => a.x0 - z.x0)) {
+  const merged = [];
+  for (const b of split.sort((u, v) => u.x0 - v.x0 || u.y0 - v.y0 || u.z0 - v.z0)) {
     const k = keyOf(b);
     const prev = open.get(k);
     if (prev && prev.x1 === b.x0) prev.x1 = b.x1;
     else {
       const nb = { ...b };
       open.set(k, nb);
-      mergedBoxes.push(nb);
+      merged.push(nb);
     }
   }
-  boxes.length = 0;
-  boxes.push(...mergedBoxes);
-  for (const b of [...legs(shape), ...tray(shape)]) {
-    // split legs / tray at cell boundaries
-    const xs = [b.x0, ...[0, 16].filter((v) => v > b.x0 && v < b.x1), b.x1];
-    const zs = [b.z0, ...[0].filter((v) => v > b.z0 && v < b.z1), b.z1];
-    for (let i = 0; i + 1 < xs.length; i++)
-      for (let j = 0; j + 1 < zs.length; j++) boxes.push({ ...b, x0: xs[i], x1: xs[i + 1], z0: zs[j], z1: zs[j + 1] });
-  }
-  return boxes;
+  return merged;
 }
 
-/** Cell (r, f) of a local box (boxes never cross cells). */
-const cellOf = (b) => [Math.floor((b.x0 + b.x1) / 2 / 16), Math.floor((b.z0 + b.z1) / 2 / 16)];
-
-const r2 = (v) => Math.round(v * 1000) / 1000;
+/** Rotated segments of a table (curved rails, aprons, bowl rim, pedestal feet). */
+export function tableSegs(shape) {
+  return G.tableGeometry(shape).segs;
+}
 
 /** Local box in cell (r, f) → block element for facing=north (x' = 16 − (X − 16r), z' = 16 − (Z − 16f)). */
 function element(b, r, f, scale) {
@@ -380,12 +274,11 @@ function element(b, r, f, scale) {
   let x1 = 16 - (b.x0 - 16 * r);
   let z0 = 16 - (b.z1 - 16 * f);
   let z1 = 16 - (b.z0 - 16 * f);
-  const uvTop = [x0, z0, x1, z1].map(r2);
-  const vy = [16 - b.y1, 16 - b.y0].map(r2);
+  const uvTop = [x0, z0, x1, z1].map((v) => r2(clampI(v, 0, 16)));
+  const vy = [16 - Math.min(16, b.y1 % 16 || 16), 16 - (b.y0 % 16)].map(r2);
   let y0 = b.y0;
   let y1 = b.y1;
   if (scale) {
-    // item miniature: the whole 48 × 32 footprint squeezed into the item cube
     x0 = (32 - b.x1) / 3;
     x1 = (32 - b.x0) / 3;
     z0 = 8 - b.z1 / 3;
@@ -394,7 +287,9 @@ function element(b, r, f, scale) {
     y1 = b.y1 * 0.5 + 2;
   }
   const tex = `#${b.mat}`;
-  const side = (u0, u1) => ({ uv: [r2(u0), vy[0], r2(u1), vy[1]], texture: tex });
+  const v0 = Math.min(vy[0], vy[1]);
+  const v1 = Math.max(vy[0], vy[1]);
+  const side = (u0, u1) => ({ uv: [r2(Math.min(u0, u1)), v0, r2(Math.max(u0, u1)), v1 === v0 ? v0 + 0.5 : v1], texture: tex });
   const faces = {
     up: { uv: uvTop, texture: tex },
     down: { uv: uvTop, texture: tex, ...(b.y0 === 0 && !scale ? { cullface: 'down' } : {}) },
@@ -403,7 +298,52 @@ function element(b, r, f, scale) {
     west: side(uvTop[1], uvTop[3]),
     east: side(16 - uvTop[3], 16 - uvTop[1]),
   };
-  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), faces };
+  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), ...(b.emit && !scale ? { light_emission: b.emit } : {}), faces };
+}
+
+/**
+ * Rotated segment (local centre cx/cz, length along tangent (tx, tz), thickness) → block element: the 180° flip of
+ * the north mapping keeps rotation angles; JOML rotation about +Y turns +X toward −Z, so the box's +X follows the
+ * tangent with angle = atan2(−tz, tx) (folded into [−90°, 90°)).
+ */
+function segElement(sg, r, f, scale) {
+  let cx = 16 - (sg.cx - 16 * r);
+  let cz = 16 - (sg.cz - 16 * f);
+  let y0 = sg.y0;
+  let y1 = sg.y1;
+  let len = sg.len;
+  let thick = sg.thick;
+  if (scale) {
+    cx = (32 - sg.cx) / 3;
+    cz = 8 - sg.cz / 3;
+    y0 = sg.y0 * 0.5 + 2;
+    y1 = sg.y1 * 0.5 + 2;
+    len /= 3;
+    thick /= 3;
+  }
+  let ang = (Math.atan2(-(-sg.tz), -sg.tx) * 180) / Math.PI;
+  while (ang >= 90) ang -= 180;
+  while (ang < -90) ang += 180;
+  const tex = `#${sg.mat}`;
+  const U = Math.min(16, len);
+  const T = Math.min(16, Math.max(0.25, thick));
+  const vy0 = 16 - Math.min(16, y1 % 16 || 16);
+  const vy1 = Math.max(vy0 + 0.25, 16 - (y0 % 16));
+  const faces = {
+    up: { uv: [0, 0, r2(U), r2(T)], texture: tex },
+    down: { uv: [0, 0, r2(U), r2(T)], texture: tex },
+    north: { uv: [0, r2(vy0), r2(U), r2(vy1)], texture: tex },
+    south: { uv: [0, r2(vy0), r2(U), r2(vy1)], texture: tex },
+    west: { uv: [0, r2(vy0), r2(T), r2(vy1)], texture: tex },
+    east: { uv: [0, r2(vy0), r2(T), r2(vy1)], texture: tex },
+  };
+  return {
+    from: [cx - len / 2, y0, cz - thick / 2].map(r2),
+    to: [cx + len / 2, y1, cz + thick / 2].map(r2),
+    rotation: { origin: [r2(cx), r2((y0 + y1) / 2), r2(cz)], axis: 'y', angle: r2(ang) },
+    ...(sg.emit && !scale ? { light_emission: sg.emit } : {}),
+    faces,
+  };
 }
 
 function textures(theme) {
@@ -416,6 +356,8 @@ function textures(theme) {
     trim: `${base}/trim`,
     tray: `${base}/tray`,
     bowl: `${base}/bowl`,
+    placard: `${base}/placard`,
+    tote: `${base}/tote`,
   };
 }
 
@@ -428,6 +370,7 @@ export function partModel(table, part) {
       return cr === r && cf === f;
     })
     .map((b) => element(b, r, f, false));
+  for (const sg of tableSegs(table.shape)) if (colOf(sg.cx) === r && rowOf(sg.cz) === f) elements.push(segElement(sg, r, f, false));
   return { parent: 'minecraft:block/block', textures: textures(table.theme), elements };
 }
 
@@ -437,6 +380,7 @@ export function itemModel(table) {
     const [r, f] = cellOf(b);
     return element(b, r, f, true);
   });
+  for (const sg of tableSegs(table.shape)) elements.push(segElement(sg, 0, 0, true));
   return {
     parent: 'minecraft:block/block',
     textures: textures(table.theme),
@@ -492,6 +436,8 @@ export default function generate() {
     out.push(png(`${T}/${theme}/trim.png`, trimTexture(theme)));
     out.push(png(`${T}/${theme}/tray.png`, trayTexture(theme)));
     out.push(png(`${T}/${theme}/bowl.png`, bowlTexture(theme)));
+    out.push(png(`${T}/${theme}/placard.png`, placardTexture(theme)));
+    out.push(png(`${T}/${theme}/tote.png`, toteTexture(theme)));
   }
   for (const table of TABLES) {
     out.push(json(`${JAVA_ASSETS}/blockstates/${table.name}.json`, blockstate(table)));

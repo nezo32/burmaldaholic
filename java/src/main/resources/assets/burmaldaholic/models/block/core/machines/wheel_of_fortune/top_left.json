@@ -4,13 +4,325 @@
     "particle": "burmaldaholic:block/extras/wheel_of_fortune_side",
     "side": "burmaldaholic:block/extras/wheel_of_fortune_side",
     "front": "burmaldaholic:block/extras/wheel_of_fortune_front",
-    "top": "burmaldaholic:block/extras/wheel_of_fortune_top",
     "wood": "burmaldaholic:block/core/tables/standard/wood",
     "trim": "burmaldaholic:block/core/tables/standard/trim",
-    "rail": "burmaldaholic:block/core/tables/standard/rail",
-    "felt": "burmaldaholic:block/core/tables/standard/felt",
-    "bars": "minecraft:block/iron_bars",
-    "glass": "minecraft:block/glass"
+    "dark": "burmaldaholic:block/core/tables/standard/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "chrome": "burmaldaholic:block/core/machines/chrome",
+    "red": "burmaldaholic:block/core/machines/red_leather"
   },
-  "elements": []
+  "elements": [
+    {
+      "from": [
+        9.014,
+        1.573,
+        5.5
+      ],
+      "to": [
+        15.175,
+        3.073,
+        9
+      ],
+      "rotation": {
+        "origin": [
+          12.094,
+          2.323,
+          7.25
+        ],
+        "axis": "z",
+        "angle": -67.5
+      },
+      "light_emission": 3,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        }
+      }
+    },
+    {
+      "from": [
+        6.175,
+        6.491,
+        5.5
+      ],
+      "to": [
+        12.336,
+        7.991,
+        9
+      ],
+      "rotation": {
+        "origin": [
+          9.255,
+          7.241,
+          7.25
+        ],
+        "axis": "z",
+        "angle": -52.5
+      },
+      "light_emission": 3,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        }
+      }
+    },
+    {
+      "from": [
+        2.16,
+        10.505,
+        5.5
+      ],
+      "to": [
+        8.321,
+        12.005,
+        9
+      ],
+      "rotation": {
+        "origin": [
+          5.241,
+          11.255,
+          7.25
+        ],
+        "axis": "z",
+        "angle": -37.5
+      },
+      "light_emission": 3,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        }
+      }
+    },
+    {
+      "from": [
+        -2.757,
+        13.344,
+        5.5
+      ],
+      "to": [
+        3.404,
+        14.844,
+        9
+      ],
+      "rotation": {
+        "origin": [
+          0.323,
+          14.094,
+          7.25
+        ],
+        "axis": "z",
+        "angle": -22.5
+      },
+      "light_emission": 3,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            6.161,
+            3.5
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            3.5,
+            1.5
+          ],
+          "texture": "#trim"
+        }
+      }
+    }
+  ]
 }

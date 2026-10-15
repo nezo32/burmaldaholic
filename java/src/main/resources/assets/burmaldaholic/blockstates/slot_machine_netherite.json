@@ -4,7 +4,7 @@
       "model": "burmaldaholic:block/slots/slot_machine_netherite"
     },
     "facing=north,part=main": {
-      "model": "burmaldaholic:block/slots/slot_machine_netherite"
+      "model": "burmaldaholic:block/core/machines/slot_machine_netherite/main"
     },
     "facing=north,part=upper": {
       "model": "burmaldaholic:block/core/machines/slot_machine_netherite/upper"
@@ -14,7 +14,7 @@
       "y": 90
     },
     "facing=east,part=main": {
-      "model": "burmaldaholic:block/slots/slot_machine_netherite",
+      "model": "burmaldaholic:block/core/machines/slot_machine_netherite/main",
       "y": 90
     },
     "facing=east,part=upper": {
@@ -26,7 +26,7 @@
       "y": 180
     },
     "facing=south,part=main": {
-      "model": "burmaldaholic:block/slots/slot_machine_netherite",
+      "model": "burmaldaholic:block/core/machines/slot_machine_netherite/main",
       "y": 180
     },
     "facing=south,part=upper": {
@@ -38,7 +38,7 @@
       "y": 270
     },
     "facing=west,part=main": {
-      "model": "burmaldaholic:block/slots/slot_machine_netherite",
+      "model": "burmaldaholic:block/core/machines/slot_machine_netherite/main",
       "y": 270
     },
     "facing=west,part=upper": {
