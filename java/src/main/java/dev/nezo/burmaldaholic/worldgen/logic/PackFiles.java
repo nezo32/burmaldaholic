@@ -44,7 +44,7 @@ public final class PackFiles {
 	public static final int MAX_DISTANCE = 48;
 	public static final int MAX_HEIGHT_RANGE = 12;
 	/** Pools every standalone casino must contain (D5: complete or absent). */
-	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "rear", "bar"); // "bar" last: WorldgenGameTests appends to it
+	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "bar"); // the Grand Casino's three pieces (CR-1); "bar" last: WorldgenGameTests appends to it
 	/** Pool path segment of annex pieces; never a style. */
 	public static final String ANNEX = "annex";
 

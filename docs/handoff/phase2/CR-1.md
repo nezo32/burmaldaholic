@@ -1,101 +1,118 @@
-# CR-1 handoff — DSL upgrades + the Grand Casino
+# CR-1 handoff: DSL upgrades + the Grand Casino
 
-Branch `p2/cr-1` (from `p2/cb-c` @65aae7c). Worktree `E:/projects/mods/minecraft/bw-p2-cr-1`.
-Design source: `findings/CASINO-REDESIGN.md` §2–§5, MT-DESIGN §1/§6, CB-C handoff.
+Branch `p2/cr-1`, worktree `E:/projects/mods/minecraft/bw-p2-cr-1`. It is based on `p2/cb-c` and has merged `p2/mt` (MT-1, MT-2, MT-3a, MT-3b and the MT visual passes) and `p2/cb-p` (fit, carve/skirt platform).
+Design source: `findings/CASINO-REDESIGN.md` §2–§5, MT-DESIGN §1/§6, the CB-C and CB-P handoffs, and coordinator/VQA feedback.
 
-**Do not ship before MT-1 is merged.** Tables are stamped as real 3×2 multi-block tables (`part=…`). Until the
-table blocks have the `part` property, every table loads in the world as six compact SINGLE tables (expected).
+- Renders: `docs/design/visual/mockups/casinos/grand/<variant>/` (iso from 4 sides, night from 4 sides, plan, cutaway) and `_contact_sheet.png`.
+- In-game shots (26.3, real client): `E:/projects/mods/minecraft/.burmaldaholic-tools/shots/CR-1/` (`jcasino_casino_<slot>_<view>.png`).
 
 ## Done
 
 ### 1. DSL (`worldgen/logic/blueprint/**`)
-- `Ornament` (new): every verb draws through public `Blueprint` verbs, so it resolves roles through the palette and
-  works inside `mirrorX`.
-  - `column` (base, `axis=y` shaft, capital; optional stair flares only into free cells), `pilaster`.
-  - `arch` (elliptical intrados in half blocks: upside-down stairs toward the jamb where the curve steps, top slabs
-    where it is half a block, an archivolt ring, a keystone, spandrel fill), `archProfile`.
-  - `cornice` (ring, outer corners via the finishing pass), `corniceRun`, `entablature` (architrave / dentil frieze
-    / cornice), `stringCourse`.
-  - `balustrade` (wall posts + slab rail, piers every n).
-  - `flight` (straight stair: stringer, head room, returns the landing), `twinFlight` (mirrored pair).
-  - `discCells` / `ringCells` / `disc` / `ring`; `drum` (glass between compass piers + band course);
-    `dome` (half-ellipsoid shell, stairs on terrace edges, slabs on half rows, ribs on the 8 compass lines, hollow,
-    registered as interior); `lantern` (crown lantern + lightning-rod finial).
-  - `gradient` (role A→B probability fade along an axis), `blend` (speckle), `hash` (deterministic).
-  - `checker`, `diamond` (♦, mirror-symmetric), `sunburst`, `coffers` (beam grid, alternate coffers lit).
-  - `neon` (letters of the light-emitting NEON_A/NEON_B roles on a SIGN_BACK board, a BULB chaser with dark
-    sockets; optionally raised).
-- `Blueprint`:
-  - `mirrorX(axis2, draw)` symmetry helper: draws twice, the second pass mirrored (cells and states via the new
-    `Mirror.x`, games + player sides, NPC/chest markers, keep-clear/interior/aisle boxes, entries, jigsaws).
-  - `slice(id, z0, z1)`: design one building, cut it into jigsaw pieces (finishing pass on the whole first, so cuts
-    are seamless; refuses a cut through a table footprint). `finish()`.
-  - `uplightGames()` + `uplightCells(spot)`: auto table lighting — UPLIGHT floor tiles under the players' corner
-    cells (r ±1, f +1), carpet removed; path tile → up → over the walkway → over the main block = 11, never inside
-    the board/headroom zone.
-  - Finishing pass now writes wall connections (`Shapes.isWall`; low/tall/none + post like vanilla).
-- Roles: COLUMN, CAPITAL, PLINTH, CORNICE, ARCH, BAND, BALUSTER, RAIL, DOME, RIB, GILT, UPLIGHT, WATER_BASIN,
-  BASIN_RIM, WALL_ALT, COFFER — optional, each falls back to a base role, so old palettes are unchanged.
-  `Palette.derive(id)` for per-biome swaps; `Material` full blocks may carry fixed state (`[lit=true,…]`).
-- `SignFont`: I is one stroke (SMALL and LARGE); SMALL N is 5 wide with a true stem-to-stem diagonal (LARGE N was
-  already diagonal). "CASINO" in SMALL is 23 wide (odd → centres on an axis). Golden render test.
+
+**`Ornament` (new).** Every verb draws through public `Blueprint` verbs. It resolves roles through the palette, so a biome swap is free, and it works inside `mirrorX`.
+
+| Group | Verbs |
+|---|---|
+| Columns | `column`: a base, a shaft with `axis=y` and a capital. Optional stair flares go only into free cells. `pilaster`. |
+| Arches | `arch`: an elliptical intrados in half-block steps, with upside-down stairs toward the jamb where the curve steps, top slabs where it is half a block, an archivolt ring, a keystone and spandrel fill. `archProfile`. |
+| Cornices | `cornice` (a ring; the finishing pass makes outer corners), `corniceRun`, `entablature` (architrave, dentil frieze, cornice), `stringCourse`. |
+| Rails and stairs | `balustrade` (wall posts, a slab rail, a pier every n). `flight`: a straight stair with stringer and head room that returns its landing. `twinFlight`. |
+| Circles and domes | `discCells`, `ringCells`, `disc`, `ring`. `drum`: glass between compass piers, with a band course. `dome`: a half-ellipsoid shell with stair terrace edges and slab half-rows, ribs on the 8 compass lines, hollow and registered as interior. `lantern`: lantern plus finial. |
+| Texture | `gradient` (role A→B fade along an axis), `blend` (speckle), `hash` (deterministic). |
+| Patterns | `checker`, `diamond` (mirror-symmetric ♦), `sunburst`, `coffers`. |
+| Signage | `neon`: letters of the light-emitting NEON roles on a SIGN_BACK board, with a BULB chaser. |
+
+**`Blueprint`.**
+- `mirrorX(axis2, draw)` is the symmetry helper. It mirrors cells and states (through `Mirror.x`), games and their player sides, markers, boxes, entries and jigsaws.
+- `slice(id, z0, z1)` cuts one building into jigsaw pieces. The finishing pass runs on the whole building first, so the cuts are seamless. `finish()`.
+- `uplightGames()` / `uplightCells()` is the auto table lighting: UPLIGHT tiles go under the players' corner cells (r ±1, f +1) and never enter the board or headroom volume.
+- `game()` stamps full multi-block tables (3×2) and, since MT-3, upright machines: slot 1×2, wheel and Plinko 3×3, cashier 3×2. Each cell gets its `part` and `facing`.
+- The finishing pass now writes wall connections.
+
+**Rules.**
+- `TableClearance` adds an upright-machine rule: every cell has its part and facing, the bottom row is supported, and the front walkway across the machine's width (rows y and y + 1) is walkable and reachable. `footprint` and `cells3d` are machine-aware.
+- `Checks.lightProbe` measures light above a table's main block, and at the player's head for an upright machine.
+
+**Roles.** New: COLUMN, CAPITAL, PLINTH, CORNICE, ARCH, BAND, BALUSTER, RAIL, DOME, RIB, GILT, UPLIGHT, WATER_BASIN, BASIN_RIM, WALL_ALT, COFFER and CARPET_PATTERN. They are optional and fall back to a base role, so old palettes still build.
+- `Palette.derive` makes per-biome swaps.
+- A `Material` full block can carry fixed state, e.g. `[lit=true]`.
+
+**Kits.**
+- `tablePod` leaves the dealer cell as two blocks of air, as the MT contract test requires.
+- `slotBank`, `machineAlcove` and `cashierCage` support full upright machines.
+
+**`SignFont`.** The I is a single stroke, and SMALL N is 5 wide with a true diagonal. "CASINO" is 23 columns wide (odd), so it centres on the axis. There is a golden render test.
 
 ### 2. Grand Casino (`worldgen/logic/pieces/GrandCasino.java`, `GrandPalettes.java`)
-- 41 × 37 × 41, axis x = 20, front +z. Designed whole, sliced into `casino/<slot>/entrance` (z22..40, start, anchor),
-  `casino/<slot>/floor` (z7..21), `casino/<slot>/bar` (z0..6) — exactly the required pools. Jigsaws
-  `burmaldaholic:grand/{entrance_back,floor_front,floor_back,bar_front}` in the floor-block row at x = 20.
-- Plan (floor block y2, row 3; gallery floor y8, row 9; ceiling y14):
-  - Hall: two felt pits ("Salle Europe": 2 roulette, craps, baccarat + Baccarat Dealer; "Salle Amérique": 2 blackjack,
-    UTH, poker), rows facing each other over a 3-row aisle, a red runner with gilt edges, a ♦ medallion with a glowing
-    core under the dome oculus, colonnades (x7/x33) carrying U-shaped galleries, twin stairs up the side aisles,
-    3+3 copper slot banks under the galleries, coffered ceiling, grand chandelier on a chain from the dome.
-  - Rear: bar (15 long) under the VIP gallery, Loan Shark booth, loot chest, lounge sofas; rear arcade of 5 arches.
-  - VIP gallery (row 9): poker #2, player-banked UTH (centre) and baccarat, 2 netherite slots; balustrades.
-  - Lobby: checker marble, coffers, cashier cage + Croupier, wheel, plinko; inner arcade of 3 arches.
-  - Loggia arcade (single + paired quartz columns, 5 arches) carrying the marquee façade: CASINO in froglight neon
-    with a lit-copper-bulb chaser and a gilt frame, a stepped art-deco crown above (black, neon flutes, bulbs on the
-    steps, keystone + end-rod rays; double-faced so it also glows to the back).
-  - Pavilion towers (x1..7 / x33..39): two storeys of arched windows, a ♦ neon medallion, cornice with corner
-    lanterns, steep copper roof with quartz hips, glazed belvedere with a light, finial. West: duel pit; east: 4 gold
-    slots. Doors from the lobby.
-  - Roofs: entablature on all walls, copper mansard strip with œil-de-bœuf dormers, a light well, an attic cylinder,
-    a glazed lit drum, a ribbed copper dome (r 6) with lantern and finial.
-  - Forecourt: sunburst paving, red runner, two lit fountains (sea lanterns under still water), lamp posts,
-    bollards, hedges, topiary, a stepped terrace edge.
-  - Night: neon sign + crown, end-rod "neon tubes" on both edges of every pilaster on all four sides, sconces in every
-    bay, tower lanterns, belvedere lights, lit drum, fountain lights, lamp posts.
-- 26 games (8 + 3 tables, 15 machines), 3 NPCs (Croupier, Baccarat Dealer, Loan Shark), 1 chest. Every table is
-  a full 3×2 table obeying R1–R6; every game is lit ≥ 10 by uplight tiles; no forbidden blocks.
-- Variants (palette swap only): Riviera (slot `tudor`), Oasis, Safari, Alpine, Ice Palace (slots = their names),
-  Cherry (palette + pieces `casino/grand_cherry/*` buildable, no slot → not in the pack).
-- Registration: `OverworldPieces.all()` now returns the Grand Casino (15 pieces); the five old styles are
-  `OverworldPieces.legacy()` (code kept until Q cleanup, built compact, not in the pack). `Checks.PENDING_CLEARANCE`:
-  deleted the `entrance` and `bar` ids of the five slots (reused by the Grand Casino, which passes R1–R6).
 
-### 3. Small cross-package edits (please review, owners)
-- `Assembly.budget` (CB-P): counts one game per block entity — a multi-block table counts once (its `main` cell).
-  Without this the 11 tables count 66 and the budget (40) fails.
-- `PlaceholderPieces` (CB-P): `.compactTables(true)` (their ids include `entrance`/`bar`, no longer PENDING).
-- `CasinoBuildingGameTests.casinoRegistryLoads`: checks `PackFiles.REQUIRED_POOLS` instead of a hard-coded `rear`.
-- `CasinoPhotoClientGameTests`: `-Dburmaldaholic.casinoPhotos=standalone` (every standalone structure);
-  `CasinoClientQa.vantagePoints`: extra `hall_high` shot for big casinos.
-- `docs/design/visual/render_structure.py`: `night_sw/night_nw/night_ne` views (night on every side), colours for
-  oxidized cut copper and chiseled tuff.
+**Size and pieces.** 41 × 37 × 41, axis x = 20, front +z. It is designed as one building and sliced into three pieces, which are exactly the required pools:
+- `casino/<slot>/entrance` (z22..40): start piece, anchor, the door on the +z face.
+- `casino/<slot>/floor` (z7..21).
+- `casino/<slot>/bar` (z0..6).
+
+**Exterior.**
+- Front: two pavilion towers with arched windows, a ♦ neon medallion, corner lanterns, neon pilaster lines and floodlights. Each has a steep copper roof with quartz hips, a glazed lit belvedere and a finial.
+- Between the towers is the loggia arcade (single and paired quartz columns, 5 arches) carrying the marquee façade. It is the CASINO board in froglight neon: letters 5 rows high, a fully lit chase frame of lit copper bulbs alternating with froglights, and a gilt hood and jambs. It sits one block behind the towers, so it reads from the diagonals.
+- Above the board is the art-deco crown: black tiers with neon flutes and lit step edges, a keystone and end-rod rays. It is double-faced, so it also glows to the back.
+- Sides and back: every bay has a pilaster with end-rod neon, ground windows under a hood moulding, an arched upper window with a balconette, a lantern under the balconette and a floor uplight in the apron.
+- Roof: an entablature on all walls, a copper mansard with œil-de-bœuf dormers, a light well glazed as a skylight grid, an attic cylinder, a lit glass drum, and a ribbed copper dome with lantern and finial.
+- Forecourt: sunburst paving, red runner, lit fountains, lamp posts, bollards, hedges and topiary.
+
+**Interior.**
+- Hall pits: a calm casino carpet (the deep CARPET colour with a subtle CARPET_PATTERN diamond lattice) and dark walkways framing every table. A shaded pendant lamp hangs over every table, one row above its board volume, so every felt is lit to at least 12 (tested). Each pit has a chandelier and planters.
+- Centre: a red/gilt runner and a ♦ medallion with a glowing core under the oculus.
+- Colonnades carry U-shaped galleries, reached by twin stairs.
+- Bar under the VIP gallery, behind a rear arcade.
+- VIP gallery: poker, player-banked UTH and baccarat, 2 netherite slots.
+- Lobby: the cashier booth (with the Croupier) faces the Wheel of Fortune in its lit alcove.
+- West pavilion: Plinko and the duel pit. East pavilion: gold slots.
+
+**Contents.** 32 games:
+- 11 tables: 8 in the hall, 3 VIP.
+- 21 machines: 6 copper slots, 10 gold, 2 netherite, plus cashier, wheel and Plinko.
+
+3 NPCs (Croupier, Baccarat Dealer, Loan Shark) and 1 chest. All tables are full 3×2 multi-block tables and all machines are full upright machines. The building passes R1–R6, the machine rule and FORBIDDEN (no valuable blocks).
+
+**Variants (palette swap only).** Each variant is its own structure slot `casino_<slot>`:
+
+| Slot | Biomes |
+|---|---|
+| `riviera` | plains, meadow, forests |
+| `oasis` | desert, badlands |
+| `safari` | savanna |
+| `alpine` | taiga |
+| `ice_palace` | snowy |
+| `cherry` | cherry grove (new) |
+
+**Registration.**
+- `OverworldPieces.all()` returns the 18 Grand Casino pieces.
+- The old five styles remain as `OverworldPieces.legacy()`: built compact, not in the pack, code kept until Q cleanup.
+- `Checks.PENDING_CLEARANCE` no longer lists the `entrance` and `bar` ids, which the Grand Casino reuses.
+
+### 3. Cross-package edits (owners please review)
+
+| Owner | File | Change |
+|---|---|---|
+| CB-P | `PackFiles` | Slot `tudor` renamed to `riviera`. New `cherry` slot (cherry_grove moved out of `alpine`). `REQUIRED_POOLS` = entrance, floor, bar. |
+| CB-P | `WorldgenModule` | Plains maps to `riviera`. |
+| CB-P | `Assembly` | Counts one game per block entity, i.e. a table's `main` cell. |
+| CB-P | `PlaceholderPieces` | Compact. |
+| CB-P | `PackFilesTest` | Golden updated. |
+| CB-5 / QA | `CasinoQa` | Counts multi-block games once (by the `main` cell). Reads machine light at the player's head. `STYLES` updated. `-Dburmaldaholic.casinoQaOnly=standalone`. |
+| CB-5 / QA | `CasinoBuildingGameTests` | The registry test uses `REQUIRED_POOLS`. |
+| CB-5 / QA | `CasinoClientQa` | Front of a standalone structure = its lit marquee side. Extra `hall_high` shot. |
+| CB-5 / QA | `CasinoPhotoClientGameTests` | `=standalone` mode. Default target `riviera`. |
+| CB-5 / QA | `CasinoPlayClientGameTests` | Default target `riviera`. |
+| MT | `MultiBlockLayoutsTest` | Counts only v0.1 tables. Skips `PENDING_CLEARANCE` (legacy, compact) pieces. |
+| — | `render_structure.py` | `night_sw/nw/ne` views, plus copper and tuff colours. |
 
 ## Verified
-(see below — filled in at the end)
 
-## Requests
-### CB-P (PackFiles / PackGen / structure)
-1. Rename style slot `tudor` → `riviera` before v0.2.0 ships (STYLE_BIOMES key, `WorldgenModule` biome→style map,
-   `CasinoQa.STYLES`, client test defaults). Then change one line: `GrandCasino.Variant.RIVIERA` slot.
-2. Optional sixth slot `cherry` (biome `minecraft:cherry_grove`, taken out of `alpine`): add it to STYLE_BIOMES and
-   set `GrandCasino.Variant.CHERRY` slot to `cherry` and add it to `Variant.active()`.
-3. Fit: the footprint is 41×41 (was 44×47 for Tudor). Re-run the fit survey; if rejection > 40 %, tell CR and the
-   forecourt (z35..40) can be cut off into an optional jigsaw piece or dropped (building core is z0..34).
-4. The structure is 37 rows tall (foundation 2 below ground): nothing in PackFiles depends on it, noted for the
-   terrain probe's headroom.
+Exact numbers are in the final report.
 
-### MT
-- After MT-1 merges into the CB branch, re-run the server GameTests below without the single-table trick; they
-  should pass as they did in single-table mode.
+## Open items / requests
+
+- **CB-P:** the fit test (`casinoFitRateAndGenerationTime`) should be re-run on this merged branch. On the pre-CB-P base it failed with the same numbers as CB-P's pre-fix baseline (42 % rejected, median nearest 890), so it was not caused by the building.
+- **CB-A:** the annexes, Parlor and Lounge are still legacy (compact, PENDING). The snowy annex reachability failure is pre-existing (CB-P open item 2).
+- **Integration:** the in-game photos and server GameTests were run on this branch. Re-run them after the final CB/MT merges.
