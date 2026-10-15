@@ -89,6 +89,9 @@ public final class StatusLine {
 	public int measure(Font font) {
 		Component l1 = line1();
 		Component l2 = line2();
+		if (l1 != null && l2 == null) { // a lone line 1 may wrap onto the second line: it needs about half its width
+			return dev.nezo.burmaldaholic.core.ui.v2.TextFit.twoLineWidth(l1.getString(), font::width) + 2;
+		}
 		return Math.max(l1 == null ? 0 : font.width(l1), l2 == null ? 0 : font.width(l2)) + 2;
 	}
 
@@ -123,24 +126,32 @@ public final class StatusLine {
 		if (box.isEmpty()) return;
 		Component l1 = line1();
 		Component l2 = line2();
+		if (l2 == null && l1 != null && !strip.isEmpty()
+			&& !dev.nezo.burmaldaholic.core.ui.v2.TextFit.fitsTwoLines(l1.getString(), box.w(), font::width)) {
+			// a lone line 1 too long even for two lines of the Dock's status column: it goes whole into the hint strip
+			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(l1) + 8), strip.h());
+			V2Draw.fill(g, band, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
+			V2Draw.left(g, font, l1, band.inset(1), 3, 1, line1Color(), true);
+			timer.draw(g, new Box(box.x(), box.y() + Math.max(0, (box.h() - 3) / 2), Math.min(box.w(), 120), 3));
+			return;
+		}
 		if (l2 != null && !strip.isEmpty()) { // line 2 above the Dock, on a dark strip; the Dock keeps line 1
-			V2Draw.fill(g, strip, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
-			V2Draw.left(g, font, l2, strip.inset(1), 3, 1, CasinoPalette.V2_MUTED, true);
+			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(l2) + 8), strip.h());
+			V2Draw.fill(g, band, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
+			V2Draw.left(g, font, l2, band.inset(1), 3, 1, CasinoPalette.V2_MUTED, true);
 			l2 = null;
 		}
 		int lh = 11;
 		if (l1 != null && l2 == null && font.width(l1) > box.w() && box.h() >= 2 * lh + 4) {
-			// one long line 1 and the second line free: wrap it onto two 1× lines (DES 3) instead of an ellipsis
-			java.util.List<net.minecraft.util.FormattedCharSequence> parts = font.split(l1, Math.max(1, box.w()));
-			if (parts.size() >= 2) {
-				int y = box.y() + Math.max(0, (box.h() - 2 * lh - 4) / 2);
-				for (int i = 0; i < 2; i++) {
-					V2Draw.text(g, font, parts.get(i), box.x(), y + (lh - 8) / 2 + 1, 1, line1Color(), true);
-					y += lh;
-				}
-				timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3));
-				return;
+			// one long line 1 and the second line free: two 1× lines (DES 3); an overflow ends line 2 with "…" (T-K2 D1)
+			String[] two = dev.nezo.burmaldaholic.core.ui.v2.TextFit.wrap2(l1.getString(), box.w(), font::width);
+			int y = box.y() + Math.max(0, (box.h() - two.length * lh - 4) / 2);
+			for (String part : two) {
+				V2Draw.text(g, font, dev.nezo.burmaldaholic.core.text.Texts.raw(part), box.x(), y + (lh - 8) / 2 + 1, 1, line1Color(), true);
+				y += lh;
 			}
+			timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3));
+			return;
 		}
 		int total = (l1 != null ? lh : 0) + (l2 != null ? lh : 0);
 		int y = box.y() + Math.max(0, (box.h() - total - 4) / 2);
