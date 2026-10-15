@@ -222,11 +222,18 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 				f.shot("v2a_bac_en_us_chemmy_pass");
 				f.click(KeyMap.Ids.action("pass"));
 				passed = true;
-			} else if (f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().bet.visible()
+			} else if (f.server(server -> {
+				BaccaratTableBlockEntity t = table(server, pos);
+				return "betting".equals(t.phase()) && t.bank().banker() != null && !me.equals(t.bank().banker());
+			}) && f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().bet.visible()
 				&& h.chrome().hits().targets().stream().anyMatch(t -> t.id().startsWith("chip.") && t.enabled()))) {
-				int c = chipIndex(f, 5);
-				idle(f);
-				f.click(KeyMap.Ids.chip(c));
+				// a bot holds the bank and punting is open: chips build the punt until it reaches the table minimum
+				int c = chipIndex(f, 25);
+				for (int k = 0; k < 4 && !f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().primary.gate().enabled()
+					&& h.chrome().primary.gate().action().equals("punt")); k++) {
+					idle(f);
+					f.click(KeyMap.Ids.chip(c));
+				}
 				f.waitChrome(x -> x.primary.gate().enabled() && x.primary.gate().action().equals("punt"), "Punt enabled");
 				f.shot("v2a_bac_en_us_chemmy_punt");
 				f.click(KeyMap.Ids.PRIMARY);

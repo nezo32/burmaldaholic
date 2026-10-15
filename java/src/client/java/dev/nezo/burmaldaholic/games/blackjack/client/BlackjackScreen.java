@@ -615,6 +615,11 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 				for (BlackjackLayout.HandBox hb : BlackjackLayout.hands(c, t, slot == l.hero(), per, tw, tw)) content.addAll(List.of(hb.boxes()));
 			}
 		}
+		// the hero spot's "Your bet" tag (betting, no cards yet) is content too: the second print line yields to it
+		if (l.hero() >= 0 && v.bettingOpen()) {
+			Box spot = heroSpot(l);
+			content.add(new Box(spot.cx() - 50, spot.y() - 15, 100, 11));
+		}
 		int print = V2Felt.print(theme);
 		FeltPrint.draw(g, font, l.prints()[0], Component.translatable("gui.burmaldaholic.blackjack.print.pays"), 0.55f, content);
 		if (l.prints().length > 1) FeltPrint.draw(g, font, l.prints()[1], Component.translatable("gui.burmaldaholic.blackjack.print.insurance"), 0.55f, content);

@@ -423,8 +423,13 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		}
 		List<Box> obstacles = new ArrayList<>(List.of(l.player(), l.bankerCards(), l.playerCards()));
 		for (Box b : l.boxes()) obstacles.add(b);
-		chrome.banner.regions(List.of(new Box(l.player().x(), l.player().bottom() - 8, l.banker().right() - l.player().x(), 40)), List.of(l.playerCards(),
-			l.bankerCards()));
+		// the result banner (K2a: full, else the compact 200 x 20) may cover the hands' empty felt, never the cards, totals,
+		// labels or the bet boxes' names / payouts (run-4 shot: PLAYER WINS covered the PLAYER / TIE / BANKER headers)
+		List<Box> bannerObs = new ArrayList<>(List.of(l.playerCards(), l.bankerCards(), l.playerTotal(), l.bankerTotal(), l.playerLabel(), l.bankerLabel()));
+		for (Box b : l.boxName()) if (b != null && !b.isEmpty()) bannerObs.add(b);
+		for (Box b : l.boxPays()) if (b != null && !b.isEmpty()) bannerObs.add(b);
+		Box hands = new Box(l.player().x(), l.player().y(), l.banker().right() - l.player().x(), l.player().h());
+		chrome.banner.regions(List.of(new Box(l.player().x(), l.player().bottom() - 8, l.banker().right() - l.player().x(), 40), hands), bannerObs);
 	}
 
 	private @Nullable CompoundTag seatAt(int index) {
