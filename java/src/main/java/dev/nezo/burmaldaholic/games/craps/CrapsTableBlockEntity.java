@@ -553,8 +553,9 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		chipLog.clear(); // the roll has seen every bet: none can be taken back now
 		rollSeed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table.rollCount());
 		// CM: the throw is solved once here (cosmetic seed, never CasinoRng); its rest time paces every reveal below
-		Integer shooterSeat = shooterForRun == null ? null : publicSeatIndex().get(shooterForRun);
-		shooterSide = CrapsThrow.sideOfSeat(shooterSeat == null ? -1 : shooterSeat, Math.max(seats().size(), shooterSeat == null ? 0 : shooterSeat + 1));
+		// (the human seat index: never touch the bot seat model here, the roll is the bots' safe point)
+		int shooterSeat = shooterForRun == null ? -1 : seats().seatOf(shooterForRun).orElse(-1);
+		shooterSide = CrapsThrow.sideOfSeat(shooterSeat, seats().size());
 		restMs = CrapsThrow.solve(shooterSide, rollSeed, d1, d2, pointBefore).restMs();
 		revealTicks = CrapsBeats.revealTicks(restMs);
 		lastRes.clear();

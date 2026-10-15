@@ -138,7 +138,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		shot(f, natural, natural.beats.COLLECT + 200, "natural", "collect_mid");
 		f.language("ru_ru");
 		shot(f, natural, natural.beats.BADGE + 400, "natural", "badge", "ru_ru");
-		shot(f, r, r.beats.IDLE + 1, "point", "idle_old_roll", "ru_ru"); // the ON puck in RU (frozen clock of the first roll)
+		shot(f, natural, natural.beats.IDLE + 1, "natural", "idle", "ru_ru");
 		f.language("en_us");
 
 		// reduced motion: no arcs, the dice fade in at rest, the wall shows a static HOT
@@ -478,6 +478,12 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 			CrapsBoardRenderer.probePos = p;
 			for (int d : new int[] {4, 10}) {
 				view(f, p, fa, d, d <= 4 ? 48f : 30f);
+				if (d == 4) {
+					// settled: the puck ON on the 8, the dice back at home, the wall and the rail groove
+					freezeWorld(f, rollTime, CrapsBeats.of(throwRoll.restMs()).IDLE + 1);
+					f.context().waitTicks(3);
+					f.shot("p2b_cm_craps_world_" + fa.getSerializedName() + "_4_idle");
+				}
 				for (boolean atRest : new boolean[] {false, true}) {
 					double t = atRest ? rest : flight;
 					freezeWorld(f, rollTime, t);
