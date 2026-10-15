@@ -73,8 +73,8 @@ final class DiceArena {
 	private static final Identifier GLINT = TableGfx.sprite("core/dice/rest_glint_32");
 	private static final Identifier DUST = TableGfx.spriteFile("core/dice/dust");
 	private static final Identifier SPARK = TableGfx.spriteFile("core/dice/spark");
-	private static final double CP = Math.cos(Math.toRadians(DieAtlasTable.PITCH_DEG));
-	private static final double SP = Math.sin(Math.toRadians(DieAtlasTable.PITCH_DEG));
+	/** The atlas's oblique projection: screen v = y − κ·z (DCa; a resting top face is drawn 1:1, unsquashed). */
+	private static final double KAPPA = DieAtlasTable.KAPPA;
 	private static final int GOLD = 0xFFFFC83C, GOLD_HI = 0xFFFFF0A0, GOLD_RIM = 0xFFC88A1C;
 	/** Loser tint (DI §5.2). */
 	static final int DIM = 0xFF9A90A8;
@@ -563,26 +563,57 @@ final class DiceArena {
 		if (pipAlpha > 0.01) pips(g, q, faces[d], mine, cx, cy, n, pipAlpha, show, round, order, d, rt, reduced);
 	}
 
-	/** Pip centres of the TOP face {@code face} on the screen for orientation {@code q}: frame px offsets from the centre. */
-	static int pipCentres(double[] q, int face, double[] out) {
-		double[][] at = PIP_AT[face];
-		int[] nrm = CubeGroup.normal(face);
-		double[][] b = FACE_BASIS[face];
-		double[] p = new double[3];
-		for (int i = 0; i < at.length; i++) {
-			double s0 = at[i][0];
-			double t0 = at[i][1];
-			double bx = HP * (nrm[0] + s0 * b[0][0] + t0 * b[1][0]);
-			double by = HP * (nrm[1] + s0 * b[0][1] + t0 * b[1][1]);
-			double bz = HP * (nrm[2] + s0 * b[0][2] + t0 * b[1][2]);
-			Quat.rotate(q, bx, by, bz, p, 0);
-			out[2 * i] = p[0];
-			out[2 * i + 1] = p[1] * CP - p[2] * SP;
+	/** Face edge of the cell-32 raster and the pip grid of the generator ({@code dice.mjs pipGrid / PIP_LAYOUT}). */
+	static final int EDGE = CELL - 2;
+
+	/** {pip size d, grid positions a, (E−d)/2, E−d−a} of the generator for an edge of {@code e} px (big = the 1). */
+	static int[] pipGrid(int e, boolean big) {
+		double want = e * (big ? 0.36 : 0.2);
+		int parity = e & 1;
+		int fl = (int) Math.floor(want);
+		int d = -1;
+		for (int v = fl - 1; v <= fl + 2; v++) {
+			if (v < 2 || (v & 1) != parity) continue;
+			if (d < 0 || Math.abs(v - want) < Math.abs(d - want)) d = v;
 		}
-		return at.length;
+		int a = (int) Math.round(e * 0.25 - d / 2.0);
+		while (!big && (e - d) / 2.0 - a < d + 1) {
+			if (a > 1) a--;
+			else d -= 2;
+		}
+		return new int[] {d, a, (e - d) / 2, e - d - a};
 	}
 
-	private final double[] pipXY = new double[12];
+	/**
+	 * Pip centres of the UP face of orientation {@code q} on the screen (frame px offsets from the die centre, the
+	 * generator's {@code upPipCentres}), in layout order; returns the count. {@code out[12]} = pip size d.
+	 */
+	static int pipCentres(double[] q, int face, double[] out) {
+		boolean big = face == 1;
+		int[] grid = pipGrid(EDGE, big);
+		int d = grid[0];
+		int[][] layout = PIP_LAYOUT[face];
+		int[] nrm = CubeGroup.normal(face);
+		double[][] b = FACE_BASIS[face];
+		double hp = EDGE / 2.0;
+		double[] p = new double[3];
+		for (int i = 0; i < layout.length; i++) {
+			double cx = (big ? (EDGE - d) / 2.0 : grid[1 + layout[i][0]]) + d / 2.0;
+			double cy = (big ? (EDGE - d) / 2.0 : grid[1 + layout[i][1]]) + d / 2.0;
+			double s0 = cx / EDGE * 2 - 1;
+			double t0 = cy / EDGE * 2 - 1;
+			double bx = hp * (nrm[0] + s0 * b[0][0] + t0 * b[1][0]);
+			double by = hp * (nrm[1] + s0 * b[0][1] + t0 * b[1][1]);
+			double bz = hp * (nrm[2] + s0 * b[0][2] + t0 * b[1][2]);
+			Quat.rotate(q, bx, by, bz, p, 0);
+			out[2 * i] = p[0];
+			out[2 * i + 1] = p[1] - KAPPA * p[2];
+		}
+		out[12] = d;
+		return layout.length;
+	}
+
+	private final double[] pipXY = new double[13];
 	private final int[] pipOrder = new int[6];
 
 	/** Lights the first {@code count} pips (reading order) of a resting die gold (DI §5.1). */
@@ -601,7 +632,7 @@ final class DiceArena {
 			}
 			pipOrder[j + 1] = v;
 		}
-		double r = (face == 1 ? 0.3 : 0.2) * HP;
+		double r = pipXY[12] / 2.0;
 		// the frame's top-left exactly as DieAtlas snaps it, so the glow sits on the atlas pips
 		float fx = PixelSnap.snapF(cx - FRAME / 2.0, n);
 		float fy = PixelSnap.snapF(cy - FRAME / 2.0, n);
@@ -617,13 +648,13 @@ final class DiceArena {
 				// each pip flares white for 40 ms when it lights
 				double age = rt - pipAt(show, round, order, firstPip + i);
 				if (age >= 0 && age < 40 && MotionFx.flash("dice_pip_flare")) {
-					disc(g, px, py, r + 0.6, CP, TableGfx.alpha(0xFFFFFFFF, a));
+					disc(g, px, py, r + 0.6, 1, TableGfx.alpha(0xFFFFFFFF, a));
 					continue;
 				}
 			}
-			disc(g, px, py, r + 0.6, CP, TableGfx.alpha(GOLD_RIM, a));
-			disc(g, px, py, r - 0.4, CP, TableGfx.alpha(GOLD, a));
-			disc(g, px - r * 0.3, py - r * 0.3, Math.max(0.6, r * 0.35), CP, TableGfx.alpha(GOLD_HI, a));
+			disc(g, px, py, r + 0.6, 1, TableGfx.alpha(GOLD_RIM, a));
+			disc(g, px, py, r - 0.4, 1, TableGfx.alpha(GOLD, a));
+			disc(g, px - r * 0.3, py - r * 0.3, Math.max(0.6, r * 0.35), 1, TableGfx.alpha(GOLD_HI, a));
 		}
 		g.pose().popMatrix();
 	}
@@ -955,11 +986,10 @@ final class DiceArena {
 		cursorRound = -1;
 	}
 
-	// ---- the generator's pip layout (tools/assets/modules/tables/dice.mjs PIP_AT / FACE_BASIS) ------------------------
+	// ---- the generator's pip layout (tools/assets/modules/tables/dice.mjs PIP_LAYOUT / FACE_BASIS) ------------------
 
-	static final double[][][] PIP_AT = {null, {{0, 0}}, {{-0.5, -0.5}, {0.5, 0.5}}, {{-0.5, -0.5}, {0, 0}, {0.5, 0.5}},
-		{{-0.5, -0.5}, {0.5, -0.5}, {-0.5, 0.5}, {0.5, 0.5}}, {{-0.5, -0.5}, {0.5, -0.5}, {0, 0}, {-0.5, 0.5}, {0.5, 0.5}},
-		{{-0.5, -0.55}, {-0.5, 0}, {-0.5, 0.55}, {0.5, -0.55}, {0.5, 0}, {0.5, 0.55}}};
-	static final double[][][] FACE_BASIS = {null, {{1, 0, 0}, {0, 1, 0}}, {{0, 0, -1}, {1, 0, 0}}, {{0, 1, 0}, {0, 0, 1}}, {{0, -1, 0}, {0, 0, 1}},
-		{{0, 0, 1}, {1, 0, 0}}, {{1, 0, 0}, {0, -1, 0}}};
+	static final int[][][] PIP_LAYOUT = {null, {{1, 1}}, {{0, 0}, {2, 2}}, {{0, 0}, {1, 1}, {2, 2}}, {{0, 0}, {2, 0}, {0, 2}, {2, 2}},
+		{{0, 0}, {2, 0}, {1, 1}, {0, 2}, {2, 2}}, {{0, 0}, {2, 0}, {0, 1}, {2, 1}, {0, 2}, {2, 2}}};
+	static final double[][][] FACE_BASIS = {null, {{1, 0, 0}, {0, 1, 0}}, {{-1, 0, 0}, {0, 0, -1}}, {{0, -1, 0}, {0, 0, -1}},
+		{{0, 1, 0}, {0, 0, -1}}, {{1, 0, 0}, {0, 0, -1}}, {{1, 0, 0}, {0, -1, 0}}};
 }
