@@ -226,8 +226,8 @@ final class FeltPrint {
 		if (ch == null) return;
 		pose.pushPose();
 		pose.translate(x, TEXT_Y, z);
-		pose.mulPose(Axis.YP.rotation(-yaw));
-		pose.mulPose(Axis.XP.rotationDegrees(90));
+		pose.rotateAround(Axis.YP.rotation(-yaw), 0f, 0f, 0f);
+		pose.rotateAround(Axis.XP.rotationDegrees(90), 0f, 0f, 0f);
 		pose.scale(scale, scale, scale);
 		out.submitText(pose, -width / 2f, -3.5f, ch, false, Font.DisplayMode.POLYGON_OFFSET, light, CREAM, 0, 0);
 		pose.popPose();
