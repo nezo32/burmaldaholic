@@ -297,7 +297,7 @@ public final class RouletteSpin {
 			ev.add(new MotionEvent(th, EV_DEFLECTOR, 0, 1f, DIAMOND0 + diamond * DIAMOND_PITCH, R_DIAMOND, diamond));
 			hits.add(th);
 		}
-		ev.add(new MotionEvent(tC, EV_CONTACT, 0, 1f, 0, R_LIP, 0));
+		ev.add(new MotionEvent(tC, EV_CONTACT, 0, 1f, pC, R_LIP, 0));
 		hits.add(tC);
 		for (int j = 0; j < n; j++) {
 			double tl = tC + chain.landMs(j);

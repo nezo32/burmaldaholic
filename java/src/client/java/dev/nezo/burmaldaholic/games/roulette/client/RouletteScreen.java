@@ -27,10 +27,17 @@ import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
 import dev.nezo.burmaldaholic.games.roulette.logic.Racetrack;
-import dev.nezo.burmaldaholic.games.roulette.logic.RouletteBallPath;
+import dev.nezo.burmaldaholic.core.anim.motion.EventCursor;
+import dev.nezo.burmaldaholic.core.anim.motion.FxGate;
+import dev.nezo.burmaldaholic.core.anim.motion.MotionEvent;
+import dev.nezo.burmaldaholic.core.anim.motion.PixelSnap;
+import dev.nezo.burmaldaholic.games.roulette.logic.RotorModel;
+import dev.nezo.burmaldaholic.games.roulette.logic.RouletteSpin;
 import dev.nezo.burmaldaholic.games.roulette.logic.Spot;
 import dev.nezo.burmaldaholic.games.roulette.logic.Wheel;
 import dev.nezo.burmaldaholic.games.roulette.present.RouletteFlow;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteFocus;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteFx;
 import dev.nezo.burmaldaholic.games.roulette.present.RouletteLayout;
 import dev.nezo.burmaldaholic.games.roulette.present.RouletteView;
 import java.util.ArrayList;
@@ -40,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.DoubleSupplier;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
@@ -51,7 +59,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * European roulette, table UI v2 (REDESIGN.md §7.5; docs/architecture/ui-v2.md; mockups {@code v2_roulette_*}). The
- * felt fills the screen: the wheel column on the left (the wheel, the ball on the shared {@link RouletteBallPath},
+ * felt fills the screen: the wheel column on the left (the wheel, the ball on the shared {@link RouletteSpin},
  * "Last numbers"), the betting layout on the right with every inside bet reachable by precise hit-testing (cell =
  * straight, line = split, outer edge = street / six line, intersection = corner, zero edges = trio / first four), the
  * call bets (Tier / Orphelins / Voisins / Zero) under it; the kit's TopBar and Dock (chips, Undo / Clear / Rebet / ×2,
@@ -71,17 +79,38 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	private TableTheme theme = TableTheme.VILLAGE;
 	private @Nullable RouletteLayout layout;
 	private float partial;
-	// the spin
-	private @Nullable RouletteBallPath path;
-	private int pathSeq = -1;
-	private int cueIndex;
+	// the spin (RO: RouletteSpin, sampled at ms since the launch = the NO_MORE_BETS start)
+	/** Tests: ms since the launch (overrides the shared clock; null in production). */
+	static @Nullable DoubleSupplier testClock;
+	/** Tests: records every decorative effect that passed the reduced-motion / flashes gate. */
+	static FxGate.@Nullable Recorder recorder;
+	private @Nullable RouletteSpin spin;
+	private int spinSeqBuilt = Integer.MIN_VALUE;
+	private int spinResultBuilt = Integer.MIN_VALUE;
+	private int spinLast = -1;
+	private long launchTick;
+	private RotorModel rotorModel = RotorModel.idle(0);
+	private final RouletteSpin.Sample sample = new RouletteSpin.Sample();
+	private final RouletteFx.Frame fx = new RouletteFx.Frame();
+	private final RouletteWheelView.Wheel colWheel = new RouletteWheelView.Wheel();
+	private final RouletteWheelView.Wheel focusWheel = new RouletteWheelView.Wheel();
+	private @Nullable RouletteFocus focus;
+	private final EventCursor cursor = new EventCursor(new MotionEvent[0]);
+	private final EventCursor.Listener soundListener = this::onSpinEvent;
+	private FxSounds.Handle roll = FxSounds.Handle.NONE;
+	private double rollOmega;
+	private double rollVolume;
+	private boolean rollWanted;
+	private long lastFrameNs;
+	private double frameDt = 16.7;
+	/** the last drawn head frame index of the column wheel (tests: no snap at RESULT → BETTING) */
+	private int lastHeadFrame = -1;
 	private long bellFor = Long.MIN_VALUE;
 	private long resultFor = Long.MIN_VALUE;
 	private long localStartFor = Long.MIN_VALUE;
 	private long resultLocalStart;
 	private boolean resultSkipped;
-	private boolean joinedLate;
-	private int lateFor = -2;
+	private final RouletteChipFx chipFx = new RouletteChipFx();
 	// the bet just placed: its value tag shows for 1.5 s (§2.2)
 	private @Nullable Spot lastPlaced;
 	private long lastPlacedAt;
@@ -122,14 +151,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			s.getLongOr("min", 1), s.getLongOr("max", 0), s.getLongOr("min_total", 0), s.getLongOr("balance", 0), total,
 			s.getBooleanOr("can_rebet", false), rebet, s.getBooleanOr("ready", false), multi, s.getIntOr("ready_count", 0), s.getIntOr("bettors", 0), secs,
 			rebetQueued && phase == RouletteFlow.Phase.RESULT);
-		// the spin's ball path (rebuilt only for a new spin)
-		int seq = s.getIntOr("spin_seq", -1);
-		int result = s.getIntOr("result", -1);
-		if (result >= 0 && seq != pathSeq && (phase == RouletteFlow.Phase.SPIN || phase == RouletteFlow.Phase.RESULT)) {
-			path = RouletteBallPath.of(result, s.getIntOr("seed", 0), Math.max(1, s.getIntOr("spin_ticks", 100)) * 50);
-			pathSeq = seq;
-			cueIndex = 0;
-		}
+		syncSpin(s, phase);
+		chipFx.state(s, phase == RouletteFlow.Phase.BETTING, Util.getMillis());
 		return RouletteView.of(v, mine);
 	}
 
@@ -218,7 +241,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			args.putString("section", sec.get().id());
 			args.putLong("amount", d);
 			sendTracked("call", args, "", d);
-			FxSounds.play("chip_place", 1f, 1f);
+			for (Spot cs : Racetrack.spots(sec.get())) chipFx.place(cs, d, armedChipBox(), l.anchor(cs), Util.getMillis(), FxSettings.reduceMotion());
 			return true;
 		}
 		double[] at = clickAt;
@@ -231,7 +254,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		sendTracked("bet", args, spot.get().key(), d);
 		lastPlaced = spot.get();
 		lastPlacedAt = Util.getMillis();
-		FxSounds.play("chip_place", 1f, (float) (0.9 + 0.1 * Math.log(d) / Math.log(5)));
+		// §3.6: a chip flies from the armed Dock chip to the spot; chip_place plays on landing
+		chipFx.place(spot.get(), d, armedChipBox(), l.anchor(spot.get()), Util.getMillis(), FxSettings.reduceMotion());
 		return true;
 	}
 
@@ -275,6 +299,13 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		}
 	}
 
+	/** The armed Dock chip's box (the start of a placement flight), null when the Dock is not laid out. */
+	private @Nullable Box armedChipBox() {
+		List<Box> boxes = chrome.bet.chipBoxes();
+		int i = chrome.bet.selectedIndex();
+		return i >= 0 && i < boxes.size() ? boxes.get(i) : boxes.isEmpty() ? null : boxes.get(0);
+	}
+
 	/** Own stacks that carried a value pill in the last frame (real-flow tests). */
 	public int valuePillsDrawn() {
 		return valuePills;
@@ -299,9 +330,50 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		return clock.msSince(state().getLongOr("phase_start", 0), partial);
 	}
 
-	private double spinMs() {
-		return clock.msSince(state().getLongOr("spin_start", 0), partial);
+	/** Ms since the launch (the NO_MORE_BETS start) on the shared clock: the time every viewer samples the spin at. */
+	double spinT() {
+		DoubleSupplier test = testClock;
+		if (test != null) return test.getAsDouble();
+		return clock.msSince(launchTick, partial);
 	}
+
+	/** The newest settled number before the current launch: the ball being picked up / riding at idle. */
+	private int idleLast() {
+		int[] h = history();
+		return h.length > 0 ? h[0] : -1;
+	}
+
+	/** Rebuilds the spin for a new launch (pre-result) and again when the result arrives (same seed, same motion so far). */
+	private void syncSpin(CompoundTag s, RouletteFlow.Phase phase) {
+		int seq = s.getIntOr("spin_seq", 0);
+		int dir = s.getIntOr("dir", 1) < 0 ? -1 : 1;
+		boolean pushed = s.getBooleanOr("pushed", seq > 0);
+		rotorModel = new RotorModel(s.getIntOr("rotor_a", 0) / 100.0, s.getIntOr("rotor_w", (int) (RotorModel.OMEGA_IDLE * 100)) / 100.0, dir, pushed);
+		launchTick = s.getLongOr("launch_tick", 0);
+		boolean live = phase != RouletteFlow.Phase.BETTING && seq > 0;
+		if (!live) return; // BETTING: the rotor model turns, the last ball rides its pocket (drawn without a spin)
+		boolean drawn = phase == RouletteFlow.Phase.SPIN || phase == RouletteFlow.Phase.RESULT;
+		int result = drawn ? s.getIntOr("result", -1) : -1;
+		if (seq == spinSeqBuilt && result == spinResultBuilt) return;
+		boolean newSeq = seq != spinSeqBuilt;
+		if (newSeq) {
+			int[] h = s.getIntArray("history").orElse(new int[0]);
+			spinLast = phase == RouletteFlow.Phase.RESULT ? (h.length > 1 ? h[1] : -1) : (h.length > 0 ? h[0] : -1);
+		}
+		long spinStart = result >= 0 ? s.getLongOr("spin_start", launchTick + RouletteSpin.NMB_TICKS) : launchTick + RouletteSpin.NMB_TICKS;
+		int ticks = Math.max(1, s.getIntOr("spin_ticks", 140));
+		double prev = cursorAt;
+		spin = RouletteSpin.build(result, s.getIntOr("seed", 0), spinLast, launchTick, spinStart, ticks, rotorModel);
+		spinSeqBuilt = seq;
+		spinResultBuilt = result;
+		cursor.bind(spin.events());
+		double t = spinT();
+		if (!newSeq) cursor.reset(prev, true); // the pre-result spin already voiced these (identical before the draw)
+		else if (t > EventCursor.LATE_MS) cursor.reset(t, true); // late join: the path is valid at any t; old events stay silent
+		cursorAt = newSeq ? -1 : prev;
+	}
+
+	private double cursorAt = -1;
 
 	private double resultMs() {
 		long start = state().getLongOr("phase_start", 0);
@@ -333,14 +405,24 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	@Override
 	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, RouletteView v, int mouseX, int mouseY, float a) {
 		partial = a;
+		long ns = System.nanoTime();
+		if (lastFrameNs != 0) frameDt = Math.max(1, Math.min(100, (ns - lastFrameNs) / 1e6));
+		lastFrameNs = ns;
 		RouletteLayout l = layout;
 		if (l == null || l.grid.play.w() != grid.play.w() || l.grid.play.h() != grid.play.h()) {
 			l = RouletteLayout.of(grid);
 			layout = l;
 		}
+		if (focus == null || focus.colArt() != l.wheelD || focus.k() != Math.max(1, grid.viewport.k()) || focus.size() > grid.play.h() + 1) {
+			focus = RouletteFocus.of(l);
+		}
 		String ph = phase();
 		boolean betting = RouletteFlow.betBlock(v.flow()).isEmpty();
 		double rMs = "result".equals(ph) ? resultMs() : RESULT_MS * 2;
+		long now = Util.getMillis();
+		double t = spinT();
+		RouletteSpin sp = "betting".equals(ph) ? null : spin;
+		boolean settled = sp != null && sp.settled(t);
 		// hover: the spot / call under the mouse lights its numbers
 		Spot hover = betting ? l.hit(mouseX, mouseY).orElse(null) : null;
 		Racetrack.Section hoverCall = betting ? l.callAt(mouseX, mouseY).orElse(null) : null;
@@ -353,16 +435,23 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			lit.addAll(Racetrack.covered(hoverCall));
 		}
 		boolean spinView = "no_more_bets".equals(ph) || "spin".equals(ph);
-		int win = "result".equals(ph) && rMs >= 400 ? result() : spinView && path != null && path.settled(spinMs()) ? result() : -1;
-		RouletteFeltView.layout(g, font, l, spinView ? 1 : 0, lit, litOutside, win);
+		// nothing names the result before the ball rests (the gold cell shows from the rest on)
+		int win = "result".equals(ph) && rMs >= RouletteChipFx.RETURN_END ? result() : spinView && settled ? result() : -1;
+		double dim = spinView ? 1 : "result".equals(ph) ? 1 - Math.min(1, rMs / RouletteChipFx.RETURN_END) : 0;
+		RouletteFeltView.layout(g, font, l, dim, lit, litOutside, win);
 		RouletteFeltView.calls(g, font, l, hoverCall, betting);
 		// the wheel column
 		int[] hist = history();
-		boolean newShown = !"result".equals(ph) || rMs >= 400;
+		boolean newShown = !"result".equals(ph) || rMs >= RouletteChipFx.HISTORY_AT;
 		int[] shownHist = "result".equals(ph) && !newShown && hist.length > 0 ? java.util.Arrays.copyOfRange(hist, 1, hist.length) : hist;
-		wheel(g, l, ph);
-		RouletteFeltView.history(g, font, l, shownHist, "result".equals(ph) ? Math.max(0, Math.min(1, (rMs - 400) / 250.0)) : 1);
-		stacks(g, l, v, ph, rMs, win);
+		double newPill = "result".equals(ph) ? Math.max(0, Math.min(1, (rMs - RouletteChipFx.HISTORY_AT) / 250.0)) : 1;
+		RouletteFeltView.history(g, font, l, shownHist, newPill);
+		bell(ph);
+		double focusA = focusAmount(ph, t, rMs);
+		if (focusA <= 0) wheel(g, l, ph, t, rMs, 0);
+		stacks(g, l, v, ph, rMs, win, t);
+		chipFx.drawFlights(g, l, now, Math.max(1, grid.viewport.k()));
+		if (focusA > 0) wheel(g, l, ph, t, rMs, focusA);
 		// ghost chip + hover readout
 		String hoverKey = "";
 		if (hover != null) {
@@ -389,62 +478,308 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		if (hoverKey.isEmpty() && !hoverShown.isEmpty()) refresh(); // back to the flow's own hint
 		hoverShown = hoverKey;
 		hoverSpot = hover;
+		sounds(ph, t);
 		if ("result".equals(ph) && result() >= 0) resultBeats(rMs);
 	}
 
-	private void wheel(GuiGraphicsExtractor g, RouletteLayout l, String ph) {
-		int cx = l.wheel.cx();
-		int cy = l.wheel.cy();
-		RouletteBallPath p = path;
-		boolean spinning = ("spin".equals(ph) || "result".equals(ph)) && p != null && result() >= 0;
+	private void bell(String ph) {
 		if ("no_more_bets".equals(ph) && bellFor != state().getLongOr("phase_start", 0)) {
 			bellFor = state().getLongOr("phase_start", 0);
 			if (phaseMs() < 500) FxSounds.play("roulette_bell", 1f);
 		}
-		if (!spinning) {
-			RouletteWheelView.medium(g, font, theme, null, 0, cx, cy, l.wheelD, lastBefore());
-			return;
-		}
-		double t = "spin".equals(ph) ? spinMs() : p.spinMs + 1;
-		if ("spin".equals(ph)) {
-			if (lateFor != pathSeq) {
-				lateFor = pathSeq;
-				joinedLate = t >= 0.85 * p.spinMs;
-			}
-			if (joinedLate) t = Math.max(t, p.spinMs);
-			cues(p, t);
-		}
-		RouletteWheelView.medium(g, font, theme, p, t, cx, cy, l.wheelD, lastBefore());
 	}
 
-	private void cues(RouletteBallPath p, double t) {
-		List<RouletteBallPath.Cue> cues = p.cues();
-		if (cueIndex == 0 && t > 400) {
-			while (cueIndex < cues.size() && cues.get(cueIndex).atMs() < t - 100) cueIndex++;
+	/** Focus amount 0 (column) … 1 (focus wheel): grows at the launch, shrinks back in the first 400 ms of RESULT. */
+	private double focusAmount(String ph, double t, double rMs) {
+		RouletteFocus f = focus;
+		if (f == null || !f.enabled() || FxSettings.reduceMotion() || spin == null) return 0;
+		if (!RouletteFx.motion("focus", false, recorder)) return 0;
+		return switch (ph) {
+			case "no_more_bets", "spin" -> RouletteFocus.inAmount(t);
+			case "result" -> RouletteFocus.outAmount(rMs);
+			default -> 0;
+		};
+	}
+
+	/**
+	 * The wheel: the column wheel (idle: the rotor model turns and the last ball rides its pocket; spinning: the shared
+	 * spin) or, while focused, the grown column wheel cross-fading into the native focus sprite, plus the loupe.
+	 */
+	private void wheel(GuiGraphicsExtractor g, RouletteLayout l, String ph, double t, double rMs, double focusA) {
+		RouletteFocus f = focus;
+		int k = Math.max(1, l.grid.viewport.k());
+		boolean reduce = FxSettings.reduceMotion();
+		RouletteSpin sp = "betting".equals(ph) ? null : spin;
+		RouletteWheelView.Wheel w = colWheel;
+		w.k = k;
+		w.t = t;
+		w.frameDt = frameDt;
+		w.streakSpin = null;
+		w.effects = null;
+		w.glow = -1;
+		w.badge = -1;
+		w.alpha = 1;
+		if (sp == null) {
+			// idle (BETTING / before the first spin): the rotor coasts on the last launch's model; the last ball rides
+			int last = idleLast();
+			w.rotor = reduce ? (last >= 0 ? -RouletteSpin.pocketAngle(last) : 0) : rotorModel.angle(Math.max(0, t));
+			w.ball = last >= 0;
+			w.ballAlpha = 1;
+			w.ballRel = last >= 0 ? RouletteSpin.pocketAngle(last) : 0;
+			w.ballR = RouletteSpin.R_POCKET;
+			w.ballZ = 0;
+			w.ballFrame = RouletteSpin.FRAME_POCKET;
+			double bettingMs = phaseMs();
+			if (last >= 0 && "betting".equals(ph) && bettingMs < 1500 && !reduce) {
+				w.glow = last;
+				w.glowAlpha = 1 - bettingMs / 1500;
+				w.glowMs = 2000;
+			}
+		} else {
+			sp.sample(t, sample);
+			RouletteFx.plan(sp, sample, t, spinLast, reduce, FxSettings.flashes(), recorder, fx);
+			w.rotor = fx.rotor;
+			w.ball = fx.ball;
+			w.ballAlpha = fx.ballAlpha;
+			w.ballRel = fx.ballAbs - fx.rotor;
+			w.ballR = reduce ? RouletteSpin.R_POCKET : sample.r;
+			w.ballZ = reduce ? 0 : sample.z;
+			w.ballFrame = reduce ? RouletteSpin.FRAME_POCKET : sample.frame;
+			w.streakSpin = fx.streak ? sp : null;
+			w.effects = reduce ? null : sp;
+			w.sparks = RouletteFx.spark("sparks", reduce, FxSettings.flashes(), recorder);
+			w.flash = RouletteFx.diamondFlash(reduce, FxSettings.flashes(), recorder);
+			if (sp.settled(t)) {
+				w.glow = sp.result;
+				w.glowAlpha = 1;
+				w.glowMs = t - sp.restMs();
+				w.badge = sp.result;
+				w.badgeMs = reduce ? 1000 : t - sp.restMs() - 150;
+			}
 		}
-		while (cueIndex < cues.size() && cues.get(cueIndex).atMs() <= t) {
-			RouletteBallPath.Cue c = cues.get(cueIndex++);
-			FxSounds.play(c.sound(), 1f, c.pitch());
+		if (focusA <= 0 || f == null) {
+			w.art = l.wheelD;
+			w.scale = 1;
+			w.cx = l.wheel.x() + l.wheelD / 2.0;
+			w.cy = l.wheel.y() + l.wheelD / 2.0;
+			lastHeadFrame = RouletteWheelView.headFrame(w.rotor, RouletteWheelView.HEAD_FRAMES);
+			RouletteWheelView.draw(g, font, theme, w);
+			return;
 		}
+		// focused: the column sprite grows and slides; the native focus sprite fades in over it (same rotor angle)
+		boolean resultPh = "result".equals(ph);
+		double swap = resultPh ? (focusA >= 0.5 ? 1 : 0) : RouletteFocus.swapAlpha(t);
+		double cx = f.x(focusA);
+		double cy = f.y(focusA);
+		double d = f.diameter(focusA);
+		if (swap < 1) {
+			w.art = f.colArt();
+			w.scale = d / f.colArt();
+			w.cx = cx;
+			w.cy = cy;
+			RouletteWheelView.draw(g, font, theme, w);
+		}
+		if (swap > 0) {
+			RouletteWheelView.Wheel fw = focusWheel;
+			copy(w, fw);
+			fw.art = f.art();
+			fw.scale = resultPh ? d / f.art() : f.mult();
+			fw.cx = cx;
+			fw.cy = cy;
+			fw.alpha = swap;
+			RouletteWheelView.draw(g, font, theme, fw);
+			if (sp != null && sp.settled(t) && fx.loupe) loupe(g, fw, sp, t, resultPh ? 1 - Math.min(1, rMs / RouletteChipFx.RETURN_END) : 1);
+		}
+		lastHeadFrame = RouletteWheelView.headFrame(w.rotor, RouletteWheelView.HEAD_FRAMES);
+	}
+
+	private static void copy(RouletteWheelView.Wheel a, RouletteWheelView.Wheel b) {
+		b.k = a.k;
+		b.t = a.t;
+		b.frameDt = a.frameDt;
+		b.rotor = a.rotor;
+		b.ball = a.ball;
+		b.ballAlpha = a.ballAlpha;
+		b.ballRel = a.ballRel;
+		b.ballR = a.ballR;
+		b.ballZ = a.ballZ;
+		b.ballFrame = a.ballFrame;
+		b.streakSpin = a.streakSpin;
+		b.effects = a.effects;
+		b.sparks = a.sparks;
+		b.flash = a.flash;
+		b.glow = a.glow;
+		b.glowAlpha = a.glowAlpha;
+		b.glowMs = a.glowMs;
+		b.badge = a.badge;
+		b.badgeMs = a.badgeMs;
+	}
+
+	/**
+	 * The loupe (§3.3): a brass magnifier on the felt side of the focus wheel showing the 208 head (with its baked digits)
+	 * centred on the result pocket at a native integer magnification, the ball in it, following the pocket as it rides.
+	 * Pops with {@code outBack} at rest, shrinks into the badge in the first 400 ms of RESULT ({@code size} 1 → 0).
+	 */
+	private void loupe(GuiGraphicsExtractor g, RouletteWheelView.Wheel w, RouletteSpin sp, double t, double size) {
+		double age = t - sp.restMs();
+		double pop = Ease.OUT_BACK.apply(Math.max(0, Math.min(1, age / 200.0))) * size;
+		if (pop <= 0.05) return;
+		int k = w.k;
+		double ls = Math.max(1, Math.round(w.scale)); // the ring at the focus wheel's integer scale
+		double rad = w.art / 2.0 * w.scale;
+		// beside the wheel, toward the layout, in its upper half; shrinks toward the badge
+		double lx = w.cx + (rad + 4 + 20 * ls) * pop;
+		double ly = w.cy - rad * 0.45 * pop;
+		lx = PixelSnap.snap(lx, k);
+		ly = PixelSnap.snap(ly, k);
+		double mag = (w.art >= 208 ? 2 : 1) * ls; // layout px per 208-art px (native: 2× on 104, 1.44× on 144, 2× on 208)
+		double rot = RouletteWheelView.drawnRotor(208, w.rotor);
+		double pa = Math.toRadians(rot + RouletteSpin.pocketAngle(sp.result));
+		double rp = RouletteSpin.R_POCKET * RouletteWheelView.RW_BIG;
+		double half = 14 * ls * pop;
+		g.enableScissor((int) Math.ceil(lx - half), (int) Math.ceil(ly - half), (int) Math.floor(lx + half), (int) Math.floor(ly + half));
+		g.fill((int) (lx - half), (int) (ly - half), (int) (lx + half) + 1, (int) (ly + half) + 1, 0xFF0C0A10);
+		g.pose().pushMatrix();
+		g.pose().translate((float) lx, (float) ly);
+		g.pose().scale((float) (mag * pop), (float) (mag * pop));
+		g.pose().translate((float) (-rp * Math.sin(pa)), (float) (rp * Math.cos(pa)));
+		g.pose().rotate((float) Math.toRadians(rot));
+		TableGfx.region(g, RouletteWheelView.HEAD_208, 152, 152, 0, 0, 152, 152, -76, -76, 0xFFFFFFFF);
+		g.pose().popMatrix();
+		// the ball resting in the pocket, at the loupe's magnification
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.frameF(g, "roulette/ball", 7, 7, 3, RouletteSpin.FRAME_POCKET, lx - 3.5 * mag * pop,
+			ly - 3.5 * mag * pop, 0xFFFFFFFF, mag * pop, k);
+		g.disableScissor();
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.blitF(g, TableGfx.sprite("roulette/loupe"), lx - 20 * ls * pop, ly - 20 * ls * pop, 40, 40,
+			0xFFFFFFFF, ls * pop, k);
+	}
+
+	// ---- sounds (shared events, fired once at any frame rate; the hitch rule keeps late ones silent) -----------------
+
+	private void sounds(String ph, double t) {
+		RouletteSpin sp = "betting".equals(ph) ? null : spin;
+		if (sp != null) {
+			cursor.advance(t, soundListener);
+			cursorAt = t;
+		}
+		// the rolling ball: one tickable loop from the launch to the drop, pitch / volume from the ball's speed
+		boolean want = sp != null && t >= RouletteSpin.LAUNCH_MS && t < (sp.solved() ? sp.dropMs() + 120 : Double.MAX_VALUE) && ("spin".equals(ph) || "no_more_bets".equals(ph));
+		if (want) {
+			sp.sample(t, sample);
+			double v = sample.omega / RouletteSpin.OMEGA_LAUNCH;
+			double fadeOut = sp.solved() && t > sp.dropMs() ? Math.max(0, 1 - (t - sp.dropMs()) / 120) : 1;
+			double fadeIn = Math.min(1, (t - RouletteSpin.LAUNCH_MS) / 80);
+			rollOmega = 1.4 + 0.6 * v;
+			rollVolume = (0.05 + 0.13 * v) * fadeOut * fadeIn * (FxSettings.reduceMotion() ? 0.5 : 1);
+		}
+		rollWanted = want;
+		if (want && !roll.active()) {
+			roll = FxSounds.loop("roulette_roll", () -> rollOmega, () -> rollVolume, () -> rollWanted, FxSounds.LoopPriority.SCREEN);
+		} else if (!want && roll.active()) {
+			roll.release();
+		}
+	}
+
+	/** Voices a spin event (silent = late or skipped: nothing to hear; the visuals are pure in time). */
+	private void onSpinEvent(MotionEvent e, boolean silent) {
+		if (silent) return;
+		boolean reduce = FxSettings.reduceMotion();
+		float st = e.strength();
+		switch (e.kind()) {
+			case RouletteSpin.EV_PUSH -> {
+				if (!reduce) FxSounds.play("roulette_rotor_push", 1f, 1f);
+			}
+			case RouletteSpin.EV_LAUNCH -> FxSounds.play("roulette_spin", 1f, 1f);
+			case RouletteSpin.EV_ROLL -> {
+				if (!reduce) FxSounds.play("roulette_ball_roll", 0.5f + 0.5f * st, 1.75f + 0.25f * st);
+			}
+			case RouletteSpin.EV_DEFLECTOR -> {
+				if (!reduce) FxSounds.play("roulette_deflector", 1f, 1f);
+			}
+			case RouletteSpin.EV_CONTACT -> FxSounds.play("roulette_ball_drop", 1f, 1f);
+			case RouletteSpin.EV_FRET, RouletteSpin.EV_KICKBACK -> {
+				if (!reduce) {
+					RouletteSpin sp = spin;
+					int hops = sp != null && sp.rattle() != null ? sp.rattle().hops() : 6;
+					float pitch = 1.9f - 0.6f * e.aux() / Math.max(1, hops - 1);
+					FxSounds.play("roulette_ball_bounce", 0.25f + 0.75f * st, pitch);
+				}
+			}
+			case RouletteSpin.EV_FLOOR -> {
+				if (!reduce) FxSounds.play("roulette_floor", 0.3f + 0.7f * st, 1f);
+			}
+			case RouletteSpin.EV_SETTLE_CLICK -> {
+				if (!reduce) FxSounds.play("roulette_ball_settle", 0.4f * st + 0.2f, 1.25f);
+			}
+			case RouletteSpin.EV_REST -> FxSounds.play("roulette_ball_settle", 1f, 1f);
+			default -> { }
+		}
+	}
+
+	@Override
+	public void removed() {
+		roll.release();
+		RouletteTextures.releaseScreenSheets();
+		super.removed();
+	}
+
+	/** Head frame index the column wheel drew last (client GameTests: the rotor never snaps). */
+	public int lastHeadFrame() {
+		return lastHeadFrame;
+	}
+
+	/** The current spin (client GameTests); null while betting. */
+	public @Nullable RouletteSpin spin() {
+		return spin;
 	}
 
 	/** Everybody's chips: bots (steel, faded), other players (their seat colour), the viewer's (with value tags). */
-	private void stacks(GuiGraphicsExtractor g, RouletteLayout l, RouletteView v, String ph, double rMs, int win) {
+	private void stacks(GuiGraphicsExtractor g, RouletteLayout l, RouletteView v, String ph, double rMs, int win, double t) {
 		boolean result = "result".equals(ph) && result() >= 0;
+		boolean reduce = FxSettings.reduceMotion();
 		int r = result();
-		for (Map.Entry<Spot, Long> e : spots("bot_chips").entrySet()) RouletteFeltView.stack(g, l, e.getKey(), e.getValue(), 0xFF90A4AE, 0.6);
+		long now = Util.getMillis();
+		if (result) chipFx.beginResult(state().getLongOr("phase_start", 0), rMs);
+		if (result && !reduce && chipFx.cross(RouletteChipFx.RAKE_START)) {
+			FxSounds.play("chip_sweep", 0.8f, 1f);
+			FxSounds.play("roulette_rake", 1f, 1f);
+		}
+		for (Map.Entry<Spot, Long> e : spots("bot_chips").entrySet()) {
+			RouletteFeltView.stackAt(g, l, e.getKey(), e.getValue(), 0xFF90A4AE, 0.6, 0, chipFx.dropOffset(e.getKey(), now));
+		}
+		// the rake (RESULT 650–1070): a bar sweeps up from the layout's bottom to the house edge; losers ride it and fade
+		double rakeTop = l.layout.y() - 4;
+		double rakeBottom = l.layout.bottom() + 2;
+		double bar = result ? RouletteChipFx.rakeY(rMs, rakeBottom, rakeTop, reduce) : Double.NaN;
 		for (Map.Entry<Spot, Long> e : spots("others").entrySet()) {
-			double a = result && !e.getKey().covers(r) ? 1 - Math.max(0, Math.min(1, (rMs - 650) / 260.0)) : 1;
-			RouletteFeltView.stack(g, l, e.getKey(), e.getValue(), 0xFFFFB74D, a);
+			Spot s = e.getKey();
+			if (result && !s.covers(r)) {
+				Box b = l.stack(s, 1);
+				double[] ride = RouletteChipFx.rake(rMs, bar, b.bottom(), rakeTop, reduce);
+				RouletteFeltView.stackAt(g, l, s, e.getValue(), 0xFFFFB74D, ride[1], 0, ride[0]);
+			} else {
+				RouletteFeltView.stackAt(g, l, s, e.getValue(), 0xFFFFB74D, 1, 0, result ? 0 : chipFx.dropOffset(s, now));
+			}
+		}
+		if (result && !Double.isNaN(bar) && rMs < RouletteChipFx.RAKE_END + RouletteChipFx.RAKE_FADE && !reduce) {
+			// the bar passes UNDER the winning stacks and the dolly (drawn before them)
+			int x0 = l.layout.x() - 2;
+			int w = l.layout.w() + 4;
+			double a = rMs > RouletteChipFx.RAKE_END ? 1 - (rMs - RouletteChipFx.RAKE_END) / RouletteChipFx.RAKE_FADE : 1;
+			dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.blitF(g, TableGfx.sprite("roulette/rake"), x0, bar - 3, w, 6, TableGfx.fade(a),
+				Math.max(1, l.grid.viewport.k()));
 		}
 		ListTag list = state().getListOrEmpty("bets");
 		long[] rets = state().getLongArray("bet_returns").orElse(null);
 		List<Box> placedTags = new ArrayList<>();
-		Map<Spot, Long> mine = v.mine();
 		var pending = chrome.pending();
 		// value pills on every own stack while betting (hover / just placed only when crowded)
 		boolean pillsAll = !result && list.size() <= PILLS_ALWAYS_MAX;
 		int pills = 0;
+		boolean spinning = "spin".equals(ph) || "no_more_bets".equals(ph);
+		int k = Math.max(1, l.grid.viewport.k());
+		Box balance = chrome.top.balance.box();
+		double[] fly = new double[3];
 		for (int i = 0; i < list.size(); i++) {
 			CompoundTag b = list.getCompoundOrEmpty(i);
 			Optional<Spot> sp = Spot.parseKey(b.getStringOr("spot", ""));
@@ -456,26 +791,55 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			Box box = l.stack(s, n);
 			Box disc = new Box(box.x(), box.y(), l.chip, box.h());
 			if (!result) {
-				ChipStack.draw(g, disc, amount);
+				if (chipFx.flying(s, now)) continue; // its placement flight lands it (then this stack replaces it in place)
+				// your chips shimmer during the spin (1 Hz, 1 px)
+				double dy = spinning && !reduce && RouletteFx.motion("shimmer", false, recorder) && Math.sin(t / 1000.0 * 2 * Math.PI) > 0.7 ? -1 : 0;
+				dy += chipFx.growOffset(s, now);
+				drawStack(g, disc, amount, 1, 0, dy, k);
 				boolean showTag = pillsAll || s.equals(lastPlaced) && Util.getMillis() - lastPlacedAt < 1500 || isHover(l, s);
 				if (showTag && tag(g, l, s, n, Texts.number(amount), ValuePill.Style.YOU, placedTags)) pills++;
 				continue;
 			}
 			boolean wins = ret > 0 || (ret < 0 && s.covers(r));
 			if (!wins) {
-				double k = Math.max(0, Math.min(1, (rMs - 650) / 260.0));
-				if (k < 1) ChipStack.draw(g, disc, amount, (float) (1 - k));
+				double[] ride = RouletteChipFx.rake(rMs, bar, disc.bottom(), rakeTop, reduce);
+				if (ride[1] > 0.02) drawStack(g, disc, amount, ride[1], 0, ride[0], k);
 				continue;
 			}
-			ChipStack.draw(g, disc, amount);
-			// the winning stack glows; its payout tag pops at 1000 ms
-			g.fill(disc.x() - 1, disc.y() - 1, disc.right() + 1, disc.y(), 0xC0FFD640);
-			if (rMs >= 1000 && ret > 0) tag(g, l, s, n, Texts.raw("+").append(Texts.number(ret - amount)), ValuePill.Style.WIN, placedTags);
+			// winners: payout discs slide in beside the stack, then stack + payout fly to the balance
+			RouletteChipFx.flyToBalance(rMs, disc, balance, reduce, fly);
+			if (fly[2] <= 0.02) continue;
+			drawStack(g, disc, amount, fly[2], fly[0], fly[1], k);
+			long profit = ret > amount ? ret - amount : 0;
+			if (profit > 0) {
+				chipFx.payout(g, l, disc, profit, i, rMs, rakeTop, fly, reduce, k);
+				if (rMs >= RouletteChipFx.PILL_AT && rMs < RouletteChipFx.FLY_START + 60) {
+					tag(g, l, s, n, Texts.raw("+").append(Texts.number(profit)), ValuePill.Style.WIN, placedTags);
+				}
+			}
 		}
 		valuePills = pills;
 		if (pending != null && !pending.spot().isEmpty()) {
-			Spot.parseKey(pending.spot()).ifPresent(s -> ChipStack.drawPending(g, l.stack(s, 1), pending.amount()));
+			Spot.parseKey(pending.spot()).ifPresent(s -> {
+				if (!chipFx.flying(s, now)) ChipStack.drawPending(g, l.stack(s, 1), pending.amount());
+			});
 		}
+		// the dolly on the winning number (RESULT 400–650 drop, stays until betting)
+		if (result) chipFx.dolly(g, l, r, rMs, reduce, k);
+		else if ("betting".equals(ph) && phaseMs() < 300 && idleLast() >= 0) chipFx.dollyFade(g, l, idleLast(), phaseMs(), k);
+	}
+
+	/** An own stack (kit discs) at a float offset, snapped to the physical grid. */
+	private static void drawStack(GuiGraphicsExtractor g, Box disc, long amount, double alpha, double dx, double dy, int k) {
+		if (alpha <= 0.02) return;
+		boolean moved = dx != 0 || dy != 0;
+		if (moved) {
+			g.pose().pushMatrix();
+			g.pose().translate(PixelSnap.snapF(dx, k), PixelSnap.snapF(dy, k));
+		}
+		if (alpha >= 0.999) ChipStack.draw(g, disc, amount);
+		else ChipStack.draw(g, disc, amount, (float) alpha);
+		if (moved) g.pose().popMatrix();
 	}
 
 	private @Nullable Spot hoverSpot;
@@ -503,12 +867,12 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		long ret = state().getLongOr("out_return", 0);
 		if (resultFor == ps) return;
 		if (staked <= 0) {
-			if (rMs < 400) return;
+			if (rMs < RouletteChipFx.RETURN_END) return;
 			resultFor = ps;
 			chrome.banner.show(numberWord(result()), 0, ResultBanner.SHOW_MS);
 			return;
 		}
-		if (rMs < 1000) return;
+		if (rMs < (FxSettings.reduceMotion() ? RouletteChipFx.PAY_START : RouletteChipFx.BANNER_AT)) return;
 		resultFor = ps;
 		long net = ret - staked;
 		chrome.banner.show(net);

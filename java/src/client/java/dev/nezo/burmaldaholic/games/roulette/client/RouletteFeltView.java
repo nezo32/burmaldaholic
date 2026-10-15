@@ -183,6 +183,19 @@ final class RouletteFeltView {
 		}
 	}
 
+	/** {@link #stack} at a float offset (drops, the rake), snapped to the physical grid. */
+	static void stackAt(GuiGraphicsExtractor g, RouletteLayout l, Spot s, long amount, int tint, double alpha, double dx, double dy) {
+		if (dx == 0 && dy == 0) {
+			stack(g, l, s, amount, tint, alpha);
+			return;
+		}
+		int k = Math.max(1, l.grid.viewport.k());
+		g.pose().pushMatrix();
+		g.pose().translate(dev.nezo.burmaldaholic.core.anim.motion.PixelSnap.snapF(dx, k), dev.nezo.burmaldaholic.core.anim.motion.PixelSnap.snapF(dy, k));
+		stack(g, l, s, amount, tint, alpha);
+		g.pose().popMatrix();
+	}
+
 	/** One disc of a denomination centred on a point (flights, the ghost chip on hover). */
 	static void disc(GuiGraphicsExtractor g, int chip, int denom, int cx, int cy, int argb) {
 		TableGfx.blit(g, "core/stack/chip_" + denom, cx - chip / 2, cy - chip / 2, chip, chip - 1, argb);
