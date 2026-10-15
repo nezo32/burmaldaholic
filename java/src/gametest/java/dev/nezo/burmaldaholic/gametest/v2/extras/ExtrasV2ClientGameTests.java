@@ -297,7 +297,7 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		f.use(a);
 		waitV2(f, "machine A opens");
 		f.click(KeyMap.Ids.tool("clear"));
-		chips(f, 2); // 25
+		chips(f, 1, 1); // 5 + 5 (the machine's tray at 1 – 20: chips 1 and 5)
 		long betA = localBet(f);
 		f.hover(KeyMap.Ids.felt("risk.high"));
 		f.context().waitTicks(3);
@@ -310,7 +310,7 @@ public class ExtrasV2ClientGameTests implements FabricClientGameTest {
 		f.use(b);
 		waitV2(f, "machine B opens");
 		f.click(KeyMap.Ids.tool("clear"));
-		chips(f, 1); // 5
+		chips(f, 0); // 1
 		long betB = localBet(f);
 		if (betB == betA) throw new AssertionError("the chips on B gave the same bet as A (" + betA + ")");
 		f.close();
