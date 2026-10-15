@@ -198,6 +198,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 		skipped = false;
 		settled = false;
 		arena.silence();
+		chrome.banner.hide(); // the last result's banner never sits over the new throw
 		if (FxSettings.reduceMotion()) FxSounds.play("dice_cup", 0.6f, 1.8f);
 	}
 
@@ -250,6 +251,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 				pressAt = -1;
 			}
 			show = next;
+			chrome.banner.hide();
 			skipped = false;
 			settled = false;
 			bannerShown = false;
@@ -381,7 +383,12 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 	protected void layoutPlay(TableGrid grid, ExtrasView v, HitMap hits) {
 		stage = DiceStage.of(grid);
 		Box o = stage.arena();
-		chrome.banner.regions(List.of(stage.box(90, 40, 180, 40)), List.of());
+		// the result banner: above the arena when the strip is free (no PvP controls), else over the arena's middle
+		CompoundTag st = state();
+		boolean stripBusy = st.getBooleanOr("pvp", false) && (!st.getListOrEmpty("nearby").isEmpty() || !st.getListOrEmpty("incoming").isEmpty()
+			|| !st.getCompoundOrEmpty("outgoing").isEmpty());
+		Box free = new Box(strip().x(), strip().y(), Math.max(0, stakeBox().x() - 4 - strip().x()), strip().h());
+		chrome.banner.regions(stripBusy ? List.of(stage.box(90, 40, 180, 40)) : List.of(free, stage.box(90, 40, 180, 40)), List.of());
 		hits.add(KeyMap.Ids.felt("arena"), o, true);
 		CompoundTag s = state();
 		if (PAWN.kinds(s).size() > 1) hits.add(KeyMap.Ids.felt("stake"), stakeBox(), !v.busy());

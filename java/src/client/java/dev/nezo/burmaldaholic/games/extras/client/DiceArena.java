@@ -78,6 +78,8 @@ final class DiceArena {
 	private static final int GOLD = 0xFFFFC83C, GOLD_HI = 0xFFFFF0A0, GOLD_RIM = 0xFFC88A1C;
 	/** Loser tint (DI §5.2). */
 	static final int DIM = 0xFF9A90A8;
+	/** After-image on the big duel die: only a fast spin, faint (the 32-px die reads as a box at the kit's 0.35). */
+	static final double AFTER_OMEGA = 13, AFTER_ALPHA = 0.2;
 
 	private final DiceRollCache cache = new DiceRollCache(16);
 	private final DiceDraw.Scratch scratch = new DiceDraw.Scratch();
@@ -253,7 +255,7 @@ final class DiceArena {
 			if (houseTie) stamp(g, rt - DuelTimeline.COMPARE, reduced, n);
 			if (!last && compared && rt < DuelTimeline.COMPARE + DuelTimeline.TIE_BANNER_MS) tieBanner(g, f, round, show.roundCount(), rt - DuelTimeline.COMPARE);
 			if (last) chips(g, show, rt, reduced);
-			else if (rt < DuelTimeline.SWEEP_AT) ChipStack.draw(g, Box.centredAt(POT_X, POT_Y, 16, 16), Math.max(1, Math.abs(show.net)));
+			else if (rt < DuelTimeline.COMPARE) ChipStack.draw(g, Box.centredAt(POT_X, POT_Y, 16, 16), Math.max(1, Math.abs(show.net)));
 		}
 	}
 
@@ -431,7 +433,7 @@ final class DiceArena {
 			double u = since / 220.0;
 			if (u < 1) {
 				hop = 3 * 4 * u * (1 - u);
-				wiggle = u > 0.15 && u < 0.85 ? (u < 0.5 ? 1 : -1) * (order == 0 ? 1 : -1) : 0;
+				wiggle = u > 0.35 && u < 0.65 ? (u < 0.5 ? 1 : -1) * (order == 0 ? 1 : -1) : 0;
 			}
 		}
 		double shakeX = 0;
@@ -461,12 +463,12 @@ final class DiceArena {
 		if (lose) tint = TableGfx.lerp(0xFFFFFFFF, DIM, reduced ? 1 : sink);
 		int a = (int) Math.round(255 * alpha);
 		tint = (a << 24) | (tint & 0xFFFFFF);
-		if (!reduced && s.omega > DiceDraw.AFTER_OMEGA && MotionFx.streak("dice_after_image")) {
+		if (!reduced && s.omega > AFTER_OMEGA && MotionFx.streak("dice_after_image")) {
 			roll.sample(d, rollMs - DiceDraw.AFTER_MS, t);
 			double[] qb = map.isMirrored() ? Quat.mirrorXKeepUp(t.q, yawQ) : t.q;
 			double bx = map.x(t.x) + sx + (order == 1 ? half : 0);
 			double by = map.y(t.y) - map.lift(t.zc) + sy;
-			DieAtlas.blit(g, CELL, qb, bx, by, n, (((int) Math.round(255 * DiceDraw.AFTER_ALPHA * alpha)) << 24) | 0xFFFFFF);
+			DieAtlas.blit(g, CELL, qb, bx, by, n, (((int) Math.round(255 * AFTER_ALPHA * alpha)) << 24) | 0xFFFFFF);
 		}
 		DieAtlas.blit(g, CELL, q, cx, cy, n, tint);
 		if (pass == Pass.FRONT && s.phase == DieSample.REST && sweep == 0) restOverlays(g, f, show, round, order, d, rt, q, cx, cy, win, lose, since);
@@ -559,12 +561,6 @@ final class DiceArena {
 			pipAlpha = reduced ? 0.5 : rt < done ? 1 : Math.max(0.5, 1 - (rt - done) / 300 * 0.5);
 		}
 		if (pipAlpha > 0.01) pips(g, q, faces[d], mine, cx, cy, n, pipAlpha, show, round, order, d, rt, reduced);
-		if (compared && win && !reduced && MotionFx.flash("dice_win_glint")) {
-			double ga = 0.45 + 0.35 * Math.sin(sinceCompare / 1000 * Math.PI * 2 * 1.5);
-			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, (((int) Math.round(255 * ga)) << 24) | (GOLD & 0xFFFFFF), n);
-		} else if (compared && win && reduced) {
-			SnapDraw.blitF(g, GLINT, cx - FRAME / 2.0, cy - FRAME / 2.0, FRAME, FRAME, 0xD0000000 | (GOLD & 0xFFFFFF), n);
-		}
 	}
 
 	/** Pip centres of the TOP face {@code face} on the screen for orientation {@code q}: frame px offsets from the centre. */
@@ -807,11 +803,13 @@ final class DiceArena {
 
 	private void tieBanner(GuiGraphicsExtractor g, Frame f, int round, int rounds, double since) {
 		Component text = Component.translatable("gui.burmaldaholic.extras.dice.fx.tie_reroll", Texts.number(round + 2), Texts.number(rounds));
-		int w = Math.max(160, f.font().width(text) + 16);
-		Box b = new Box(180 - w / 2, 26, w, 20);
+		// on the front rail between the two plaques: never over a die
+		int room = plaqueX(1) - (plaqueX(0) + PLAQUE_W) - 6;
+		int w = Math.min(room, f.font().width(text) + 16);
+		Box b = new Box(180 - w / 2, PLAQUE_Y + 3, w, 18);
 		double in = f.reduced() ? 1 : Ease.OUT_BACK.apply(Math.min(1, since / 180));
 		g.pose().pushMatrix();
-		g.pose().translate(0, (float) Math.round(-6 * (1 - in)));
+		g.pose().translate(0, (float) Math.round(6 * (1 - in)));
 		V2Draw.pill(g, b, CasinoPalette.V2_PANEL, CasinoPalette.V2_GOLD);
 		V2Draw.centred(g, f.font(), text, b, 1, CasinoPalette.V2_GOLD, true);
 		g.pose().popMatrix();

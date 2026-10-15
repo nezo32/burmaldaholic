@@ -84,6 +84,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 				step("house ru 640", () -> house(f));
 				f.size(1920, 1080, 4);
 				step("house ru 480", () -> house(f));
+				step("pvp tie ru 480", () -> pvpTie(f));
 				f.language("en_us");
 				step("house tie", () -> houseTie(f));
 				step("pvp tie", () -> pvpTie(f));
@@ -302,32 +303,23 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 			double oy = st.oy() * k + Math.round((d[1] / 1.0 - st.oy()) / st.scale() * n - fs / 2.0 * n);
 			double vMid = (Math.min(top[1], top[5]) + Math.max(top[1], top[5])) / 2;
 			int row = (int) Math.round(oy + vMid * n);
-			int first = -1;
-			int last = -1;
-			for (int x = (int) ox; x < ox + fs * n; x++) {
-				int rgb = img.getRGB(x, row);
-				if (bone(rgb) || ink(rgb)) {
-					if (first < 0) first = x;
-					last = x;
-				}
-			}
+			// the die's own run of pixels through the top face: outward from its centre to the felt on each side
+			int cx = (int) Math.round(ox + fs * n / 2.0);
+			int first = cx;
+			int last = cx;
+			while (first > ox && !felt(img.getRGB(first - 1, row))) first--;
+			while (last < ox + fs * n && !felt(img.getRGB(last + 1, row))) last++;
 			int w = last - first + 1;
 			if (Math.abs(w - 32 * n) > 1) errors.add(width(f) + ": resting die " + die + " is " + w + " px wide, want " + 32 * n);
 		}
 	}
 
-	private static boolean bone(int rgb) {
+	/** Felt or its shadow: green dominant. */
+	private static boolean felt(int rgb) {
 		int r = (rgb >> 16) & 255;
 		int g = (rgb >> 8) & 255;
 		int b = rgb & 255;
-		return r > 150 && g > 140 && b > 150;
-	}
-
-	private static boolean ink(int rgb) {
-		int r = (rgb >> 16) & 255;
-		int g = (rgb >> 8) & 255;
-		int b = rgb & 255;
-		return r < 70 && g < 50 && b < 90 && b > g;
+		return g > r + 12 && g > b;
 	}
 
 	private static int lumAround(BufferedImage img, int x, int y) {
