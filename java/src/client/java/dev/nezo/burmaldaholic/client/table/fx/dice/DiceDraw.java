@@ -18,7 +18,8 @@ import net.minecraft.resources.Identifier;
  * Everything moving is placed at float GUI positions snapped to physical pixels ({@code 1/k}) and blitted 1:1.
  *
  * <p>Coordinates: a {@link StageMap} maps tray units to GUI px. {@link #stage} builds the map that matches the atlas
- * art (1 u = the die half-edge in px; y foreshortened by the 22° camera pitch; height lifts by 0.9 half-edge per u, DI κ_lift). A
+ * art (1 u = the die half-edge in px on both floor axes, as the oblique atlas draws a resting top face 1:1; height lifts by
+ * 0.9 half-edge per u, DI κ_lift). A
  * mirrored map (a left-lane roll shown in the right lane) mirrors the orientation too and keeps the top number.
  *
  * <p>Draw order per frame (CS §4.2 / DI §4.3): all shadows ({@link #shadow}), then dice sorted by y ({@link #die});
@@ -31,7 +32,6 @@ public final class DiceDraw {
 	public static final double AFTER_MS = 14;
 	/** After-image alpha. */
 	public static final double AFTER_ALPHA = 0.35;
-	private static final double PITCH = Math.toRadians(DieAtlasTable.PITCH_DEG);
 	/** Screen lift per unit of centre height, in half-edges (DI §4.2 κ_lift 0.9: the flight height reads). */
 	public static final double LIFT = 0.9;
 	/** Rest shadow offset from the floor point, in half-edges: down-right, so it peeks out under the die (light top-left). */
@@ -63,11 +63,11 @@ public final class DiceDraw {
 
 	/**
 	 * The stage map that matches the atlas art for a tray drawn with its origin at GUI (ox, oy): x 1 u = half-edge px,
-	 * y foreshortened by {@code cos 22°}, height {@link #LIFT} half-edges per u.
+	 * the same on y (the oblique atlas does not foreshorten the floor), height {@link #LIFT} half-edges per u.
 	 */
 	public static StageMap stage(double ox, double oy, int cell) {
 		double h = halfEdge(cell);
-		return StageMap.of(ox, oy, h, h * Math.cos(PITCH), h * LIFT);
+		return StageMap.of(ox, oy, h, h, h * LIFT);
 	}
 
 	private static double lift(StageMap map, int cell, double zc) {
@@ -92,7 +92,9 @@ public final class DiceDraw {
 		double kk = SHADOW.shadowSize == 0 ? 1 : SHADOW.shadowSize == 1 ? 0.8 : 0.6;
 		int w = Math.max(4, (int) Math.round(cell * kk));
 		int h = Math.max(2, (int) Math.round(cell * 0.42 * kk));
-		int a = (int) Math.round(255 * Math.max(0, Math.min(1, SHADOW.shadowAlpha * alphaMul)));
+		// a resting die presses a slightly darker contact shadow
+		double contact = s.zLow < 0.05 ? 1.3 : 1;
+		int a = (int) Math.round(255 * Math.max(0, Math.min(1, SHADOW.shadowAlpha * alphaMul * contact)));
 		if (a <= 0) return;
 		SnapDraw.blitF(g, shadowSprite(cell, SHADOW.shadowSize), fx - w / 2.0, fy - h / 2.0, w, h, (a << 24) | 0xFFFFFF, k);
 	}

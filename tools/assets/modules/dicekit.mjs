@@ -19,6 +19,7 @@ export default function generate() {
     out.push(png(`${SPR}/rest_glint_${cell}.png`, D.dieRestGlint(cell)));
   }
   out.push(png(`${SPR}/dust.png`, D.diceDust()));
+  out.push(png(`${T}/entity/core/dice_world.png`, D.diceWorldTexture()));
   out.push(png(`${SPR}/spark.png`, D.diceSpark()));
   out.push(json(`${GUI}/dice_atlas.json`, data));
   out.push({ path: ATLAS_JAVA, bytes: Buffer.from(D.dieAtlasJava(data)) });
