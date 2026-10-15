@@ -82,7 +82,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 	private record Size(int fw, int fh, int gs) {}
 
 	private static final Size S427 = new Size(1280, 720, 3), S480 = new Size(1920, 1080, 4), S640 = new Size(1920, 1080, 3), S960 = new Size(1920, 1080, 2),
-		FRAMED = new Size(2560, 1440, 2);
+		FRAMED = new Size(2560, 1440, 2), K4_AUTO = new Size(3840, 2160, 0);
 
 	private void screen(RealFlow f, List<String> errors) {
 		f.size(S480.fw, S480.fh, S480.gs);
@@ -97,7 +97,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		// case 1: 5 + 3 sets the point (the puck flips over to 8); the full beat strip at 480, the key beats everywhere
 		Roll r = roll(f, pos, 5, 3);
 		strip(f, r, "point", errors);
-		for (Size s : new Size[] {S427, S640, S960, FRAMED}) {
+		for (Size s : new Size[] {K4_AUTO, S427, S640, S960, FRAMED}) {
 			if (!resize(f, s, errors)) continue;
 			sized(f, r, "point", errors);
 		}
@@ -139,6 +139,12 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		f.language("ru_ru");
 		shot(f, natural, natural.beats.BADGE + 400, "natural", "badge", "ru_ru");
 		shot(f, natural, natural.beats.IDLE + 1, "natural", "idle", "ru_ru");
+		for (Size s : new Size[] {K4_AUTO, S427, S640}) {
+			if (!resize(f, s, errors)) continue;
+			shot(f, natural, natural.beats.BADGE + 400, "natural", "badge", "ru_ru");
+			shot(f, natural, natural.beats.IDLE + 1, "natural", "idle", "ru_ru");
+		}
+		resize(f, S480, errors);
 		f.language("en_us");
 
 		// reduced motion: no arcs, the dice fade in at rest, the wall shows a static HOT
