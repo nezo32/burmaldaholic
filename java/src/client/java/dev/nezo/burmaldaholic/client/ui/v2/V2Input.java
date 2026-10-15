@@ -62,4 +62,29 @@ public final class V2Input {
 		if (c == null) throw new IllegalArgumentException("unknown key name '" + name + "'");
 		return c;
 	}
+
+	private static final Map<String, String> CAPS = new HashMap<>();
+
+	/**
+	 * The key cap of a letter / digit key ON THE PLAYER'S KEYBOARD LAYOUT (AZERTY's A key prints "Q"; review T-K2
+	 * P2-c), upper case; falls back to the US name ({@link KeyMap#plateChar}). Vanilla's key display name, looked up by
+	 * reflection because 26.3 renamed {@code InputConstants.Type.KEYSYM} to {@code KEYBOARD}. Cached per name.
+	 */
+	public static @Nullable String keyCap(@Nullable String name) {
+		String us = KeyMap.plateChar(name);
+		if (us == null) return null;
+		return CAPS.computeIfAbsent(name, n -> {
+			try {
+				com.mojang.blaze3d.platform.InputConstants.Type type = null;
+				for (com.mojang.blaze3d.platform.InputConstants.Type t : com.mojang.blaze3d.platform.InputConstants.Type.values()) {
+					if (t.name().equals("KEYSYM") || t.name().equals("KEYBOARD")) type = t;
+				}
+				if (type == null) return us;
+				String shown = type.getOrCreate(keyCode(n)).getDisplayName().getString();
+				return shown.codePointCount(0, shown.length()) == 1 ? shown.toUpperCase(Locale.ROOT) : us;
+			} catch (RuntimeException | LinkageError e) {
+				return us;
+			}
+		});
+	}
 }

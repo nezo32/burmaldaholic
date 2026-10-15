@@ -22,7 +22,7 @@ public final class V2Button {
 	public static @Nullable Component keyName(@Nullable String key) {
 		String k = dev.nezo.burmaldaholic.core.ui.v2.KeyMap.vanillaNameKey(key);
 		if (k != null) return Component.translatable(k);
-		String c = dev.nezo.burmaldaholic.core.ui.v2.KeyMap.plateChar(key);
+		String c = V2Input.keyCap(key); // the player's layout (AZERTY / QWERTZ), else the US name
 		return c == null ? null : dev.nezo.burmaldaholic.core.text.Texts.raw(c); // a key cap letter: language-neutral
 	}
 

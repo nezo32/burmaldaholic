@@ -42,11 +42,15 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			world.getServer().runCommand("casino balance set @p 12500");
 			RealFlow f = new RealFlow(context, world);
 			f.language("en_us");
+			cell(f, "en_us", 3840, 2160, 0); // the owner's setup: 4K, GUI Auto → 427 × 240 k9
+			ownerTable(f, "en_us");
 			cell(f, "en_us", 1280, 720, 0);
 			cell(f, "en_us", 1920, 1080, 2);
 			cell(f, "en_us", 2560, 1440, 2);
 			framedRealTable(f, 2560, 1440, 2);
 			f.language("ru_ru");
+			cell(f, "ru_ru", 3840, 2160, 0);
+			ownerTable(f, "ru_ru");
 			cell(f, "ru_ru", 1920, 1080, 2);
 			cell(f, "ru_ru", 2560, 1440, 2);
 			f.language("en_us");
@@ -111,6 +115,47 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			});
 			f.context().waitTicks(3);
 		}
+	}
+
+	/**
+	 * The owner's setup (3840 × 2160, GUI Auto → 427 × 240 k9) on a real blackjack table: watching (the status must
+	 * show its whole text, two lines or the hint strip, T-K2 D1), then seated with a chip (the hint by phase), then
+	 * the Dock's action plates are recorded.
+	 */
+	private void ownerTable(RealFlow f, String lang) {
+		String tag = "owner_4k_auto_" + lang;
+		try {
+			f.size(3840, 2160, 0);
+			BlockPos pos = f.place(BlackjackModule.TABLE.block(), lang.equals("en_us") ? -2 : 3);
+			f.open(pos, dev.nezo.burmaldaholic.games.blackjack.client.BlackjackScreen.class);
+			f.waitChrome(c -> "sit".equals(c.primary.gate().action()), "Sit down");
+			String watch = f.client(mc -> statusText(((V2Chrome.Holder) mc.gui.screen()).chrome()));
+			report.add(tag + ": " + f.viewport() + " watching status '" + watch + "'");
+			f.shot("p2b_rs_blackjack_watching_" + lang + "_427_k9");
+			if (watch.isBlank()) throw new AssertionError("blank status while watching");
+			UUID me = f.server(server -> RealFlow.player(server).getUUID());
+			f.click(KeyMap.Ids.PRIMARY);
+			f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated");
+			f.waitChrome(c -> c.bet.visible() && c.bet.chipGate(0).enabled(), "chips");
+			String seated = f.client(mc -> statusText(((V2Chrome.Holder) mc.gui.screen()).chrome()));
+			report.add("  seated status '" + seated + "'");
+			f.click("chip.0");
+			f.shot("p2b_rs_blackjack_betting_" + lang + "_427_k9");
+			if (seated.isBlank()) throw new AssertionError("blank status when seated with no bet");
+		} catch (AssertionError | RuntimeException e) {
+			failures.add(tag + ": " + e.getMessage());
+			report.add("  FAILED " + tag + ": " + e);
+			f.shot("p2b_rs_failed_" + tag);
+		} finally {
+			f.close();
+		}
+	}
+
+	/** Everything the status shows: line 1, line 2 (where the strip is used, it carries one of them). */
+	private static String statusText(V2Chrome c) {
+		var l1 = c.status.line1();
+		var l2 = c.status.line2();
+		return (l1 == null ? "" : l1.getString()) + (l2 == null ? "" : " | " + l2.getString()) + (c.status.strip().isEmpty() ? "" : " [strip]");
 	}
 
 	/** On a framed window: Sit down on a real blackjack table, clicked at its window pixel → the server seats the player. */
