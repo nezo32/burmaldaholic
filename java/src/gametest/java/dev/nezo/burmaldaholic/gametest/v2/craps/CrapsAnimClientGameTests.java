@@ -463,8 +463,8 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 	private void inWorld(RealFlow f, List<String> errors) {
 		f.size(1920, 1080, 4);
 		f.context().runOnClient(mc -> {
-			mc.options.hideGui = true; // clean shots: no HUD, chat or toasts
-			mc.gui.getChat().clearMessages(false);
+			if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle(); // clean shots: no HUD, chat or crosshair (F1)
+			mc.gui.hud.getChat().clearMessages(false);
 		});
 		Direction[] facings = {Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST};
 		BlockPos base = f.server(server -> RealFlow.player(server).blockPosition().offset(0, 0, 12));
@@ -536,7 +536,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		CrapsBoardRenderer.probePos = null;
 		f.context().runOnClient(mc -> {
 			AnimClock.unfreezeForTest();
-			mc.options.hideGui = false;
+			if (mc.gui.hud.isHidden()) mc.gui.hud.toggle();
 		});
 	}
 
