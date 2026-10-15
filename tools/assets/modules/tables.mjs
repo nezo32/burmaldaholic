@@ -229,7 +229,6 @@ export default function generate() {
   }
   out.push(png(`${T}/entity/craps/wall.png`, C2.wallTexture()));
   out.push(png(`${T}/entity/craps/puck.png`, C2.puckTexture()));
-  out.push(png(`${T}/entity/craps/die_world.png`, C2.dieWorld()));
   out.push(png(`${T}/entity/craps/dice.png`, diceWorld()));
   out.push(png(`${T}/item/extras/dice_display.png`, diceDisplay()));
 

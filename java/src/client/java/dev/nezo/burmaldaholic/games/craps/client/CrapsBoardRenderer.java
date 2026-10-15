@@ -64,13 +64,6 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 	private static final Identifier PRINT = Burmaldaholic.id("textures/entity/craps/board_print.png");
 	private static final Identifier WALL = Burmaldaholic.id("textures/entity/craps/wall.png");
 	private static final Identifier PUCK = Burmaldaholic.id("textures/entity/craps/puck.png");
-	/** 16-px faces (generator {@code craps_v2.mjs dieWorld()}), the {@code dice_display} cell order ×2. */
-	private static final Identifier DIE_TEX = Burmaldaholic.id("textures/entity/craps/die_world.png");
-	private static final int[][] DIE_UV = {cell(1), cell(6), cell(2), cell(5), cell(3), cell(4)};
-
-	private static int[] cell(int k) {
-		return new int[] {16 * ((k - 1) % 4), 16 * ((k - 1) / 4), 16};
-	}
 	private static final double AUDIO_RANGE_SQ = 16 * 16;
 	/** Half edge of a world die (design blocks) = one tray unit. */
 	private static final float H = CrapsBoardGeometry.DIE / 2;
@@ -537,27 +530,13 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		if (s.dice) {
 			for (int d = 0; d < 2; d++) {
 				if (s.shadows) DiceWorldDraw.shadow(pose, out, s.die[d], H, y, light);
-				cube(pose, out, s.die[d], y, light);
+				DiceWorldDraw.die(pose, out, s.die[d], H, y, light); // DCa's 16-px face cube (the atlas pips)
 			}
 		}
 		if (s.stick) {
 			float sx = s.stickX, sz = s.stickZ;
 			out.submitCustomGeometry(pose, RenderTypes.entityCutout(WALL), (p, vc) -> dowel(p, vc, 0.5f, y + 0.32f, z0 - 0.35f, sx, y + 0.012f, sz, 0.007f, light));
 		}
-		pose.popPose();
-	}
-
-	private static final double[] MC = new double[4];
-
-	/** One die: the 16-px face cube by its model quaternion, centred at its support height (no corner in the felt). */
-	private static void cube(PoseStack pose, SubmitNodeCollector out, DieSample s, float surfaceY, int light) {
-		if (s.phase == DieSample.HELD) return;
-		Quat.trayToMc(s.q, MC);
-		org.joml.Quaternionf rot = new org.joml.Quaternionf((float) MC[1], (float) MC[2], (float) MC[3], (float) MC[0]);
-		pose.pushPose();
-		pose.translate((float) (s.x * H), (float) (surfaceY + s.zc * H), (float) (s.y * H));
-		pose.rotateAround(rot, 0f, 0f, 0f);
-		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEX), (p, vc) -> WorldQuads.cube(p, vc, H, DIE_UV, 64, 32, light));
 		pose.popPose();
 	}
 
