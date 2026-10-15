@@ -54,17 +54,7 @@ class StatusFitTest {
 		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.odds_need_pass",
 		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.already_placed",
 		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.come_needs_point",
-		"craps/en_us gui.burmaldaholic.craps.v2.reason.already_placed",
-		"poker/ru_ru gui.burmaldaholic.poker.v2.reason.buy_in_min",
-		"poker/ru_ru gui.burmaldaholic.poker.v2.reason.no_top_up",
-		"poker/ru_ru gui.burmaldaholic.poker.v2.status.stepper",
-		"poker/ru_ru gui.burmaldaholic.poker.v2.status.watching",
-		"poker/en_us gui.burmaldaholic.poker.v2.reason.no_top_up",
-		"poker/en_us gui.burmaldaholic.poker.v2.status.stepper",
-		"poker/en_us gui.burmaldaholic.poker.v2.status.watching",
-		"uth/ru_ru gui.burmaldaholic.uth.v2.status.bank_form",
-		"uth/en_us gui.burmaldaholic.uth.v2.reason.you_bank",
-		"uth/en_us gui.burmaldaholic.uth.v2.status.bank_form");
+		"craps/en_us gui.burmaldaholic.craps.v2.reason.already_placed");
 
 	@Test
 	void wrapKeepsEveryWordOrEndsWithAnEllipsis() {

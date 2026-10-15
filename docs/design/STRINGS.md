@@ -1112,15 +1112,15 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.v2.reason.stepper_max` | Already the maximum, %1$s | Уже максимум: %1$s |
 | `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
 | `gui.burmaldaholic.poker.v2.reason.vip_stakes` | These stakes need a higher VIP tier | Для этого лимита нужен ВИП-статус выше |
-| `gui.burmaldaholic.poker.v2.reason.buy_in_min` | Not enough chips for the minimum buy-in %1$s | Не хватает фишек на минимальный бай-ин %1$s |
-| `gui.burmaldaholic.poker.v2.reason.no_top_up` | Top up between hands, below the maximum stack | Докупка — между раздачами и ниже максимума |
+| `gui.burmaldaholic.poker.v2.reason.buy_in_min` | Not enough chips for the minimum buy-in %1$s | Мало фишек: бай-ин от %1$s |
+| `gui.burmaldaholic.poker.v2.reason.no_top_up` | Top up only between hands | Докупка — между раздачами |
 | `gui.burmaldaholic.poker.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
 | `gui.burmaldaholic.poker.v2.status.to_call` | Your move – to call %1$s | Ваш ход – колл %1$s |
 | `gui.burmaldaholic.poker.v2.status.auto_fold` | Auto-fold in %1$s s | Автопас через %1$s с |
 | `gui.burmaldaholic.poker.v2.status.auto_check` | Auto-check in %1$s s | Авточек через %1$s с |
-| `gui.burmaldaholic.poker.v2.status.stepper` | Scroll or ± sets the amount · click it for ½ pot, pot, all-in | Колесо или ± — сумма · клик по ней: ½ банка, банк, олл-ин |
+| `gui.burmaldaholic.poker.v2.status.stepper` | Scroll or ±: amount · click: ½ pot, pot | Колесо или ±: сумма · клик: ½ банка |
 | `gui.burmaldaholic.poker.v2.status.buy_in` | Buy-in %1$s – %2$s · blinds %3$s/%4$s | Бай-ин %1$s – %2$s · блайнды %3$s/%4$s |
-| `gui.burmaldaholic.poker.v2.status.watching` | You are watching · pick the stakes and buy in | Вы зритель · выберите лимит и купите фишки |
+| `gui.burmaldaholic.poker.v2.status.watching` | Watching · pick stakes to play | Вы зритель · выберите лимит |
 | `gui.burmaldaholic.poker.v2.status.top_up` | Top up to %1$s at most | Докупка — не больше %1$s |
 | `gui.burmaldaholic.poker.v2.status.seated` | Stack %1$s · you play the next hand | Стек %1$s · вы играете следующую раздачу |
 | `gui.burmaldaholic.poker.v2.pot` | Pot | Банк |
@@ -2055,7 +2055,7 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.v2.primary.change` | Change bet | Изменить ставку |
 | `gui.burmaldaholic.uth.v2.primary.bank` | Take the bank | Взять банк |
 | `gui.burmaldaholic.uth.v2.primary.bank_amount` | Bank %1$s | Банк %1$s |
-| `gui.burmaldaholic.uth.v2.reason.you_bank` | You hold the bank – the players bet against you | Банк за вами – игроки ставят против вас |
+| `gui.burmaldaholic.uth.v2.reason.you_bank` | You hold the bank | Банк за вами |
 | `gui.burmaldaholic.uth.v2.reason.sit_to_bet` | Sit down to bet | Сядьте, чтобы делать ставки |
 | `gui.burmaldaholic.uth.v2.reason.nothing_to_undo` | Nothing to undo | Нечего отменять |
 | `gui.burmaldaholic.uth.v2.reason.no_bet` | No chips on the table yet | На столе пока нет фишек |
@@ -2074,7 +2074,7 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.v2.status.starts_in` | Round starts in %1$s s | Раунд начнётся через %1$s с |
 | `gui.burmaldaholic.uth.v2.status.decide_in` | Decide in %1$s s | На решение %1$s с |
 | `gui.burmaldaholic.uth.v2.status.watching` | You are watching · sit down to play | Вы зритель · сядьте, чтобы играть |
-| `gui.burmaldaholic.uth.v2.status.bank_form` | Your bank covers the players' bets this round | Ваш банк покрывает ставки игроков в этом раунде |
+| `gui.burmaldaholic.uth.v2.status.bank_form` | Your bank covers this round | Ваш банк — на этот раунд |
 | `gui.burmaldaholic.uth.v2.dealer_no_open` | Dealer does not open – the Ante pushes | Дилер не открылся – анте возвращается |
 | `gui.burmaldaholic.uth.v2.board.bets_open` | Place your bets | Делайте ставки |
 | `gui.burmaldaholic.uth.v2.board.street` | %1$s · %2$s | %1$s · %2$s |
