@@ -109,7 +109,32 @@ Design source: `findings/CASINO-REDESIGN.md` §2–§5, MT-DESIGN §1/§6, the C
 
 ## Verified
 
-Exact numbers are in the final report.
+Environment: JDK 25.0.4.1+1. Heavy runs used `with-heavy-lock.sh ./gradlew --no-daemon --max-workers=6 -Dorg.gradle.jvmargs=-Xmx4g`, following the "test only what changed" policy.
+
+- **Compile:** `compileJava compileClientJava compileGametestJava`, and the same with `-Pmc=26.3`. BUILD SUCCESSFUL, after merging MT, which carries the 26.3 `PushReaction` fix.
+- **Unit tests:** `test --tests 'dev.nezo.burmaldaholic.worldgen.*' --tests 'dev.nezo.burmaldaholic.core.table.*' --tests '*RawInputGuardTest'`. BUILD SUCCESSFUL on the head after the CB-P merge. Coverage includes:
+  - OrnamentTest (every verb, the mirror, slice, uplights, wall connections);
+  - GrandCasinoTest (all 6 variants pass `Checks`, both whole and sliced; 32 games, all full multi-block; budget; slices tile the building; symmetric skyline; dome and towers crown the skyline; every felt lit ≥ 12; deterministic export);
+  - PieceChecksTest, with the Grand Casino in no PENDING list;
+  - the SignFont golden render;
+  - ChecksTest `uprightMachines`;
+  - MT's MultiBlockLayoutsTest, whose R1–R6 also run over the Grand Casino;
+  - RawInputGuardTest.
+- **Server GameTests (26.2):**
+  - Command: `-Dburmaldaholic.casinoQaOnly=standalone` (JAVA_TOOL_OPTIONS), `runGameTest -Dfabric-api.gametest.filter=burmaldaholic-gametest:casino_building_game_tests*`, with real MT multi-block tables and machines and CB-P's fit, carve and skirt.
+  - Result: **11/11 passed**.
+  - Placement of all 6 variants in every rotation passed, including the in-world light poll.
+  - Every game opens and takes a bet through the real packet path; the Croupier sells a scratch card.
+  - One record per start, and an incomplete assembly is rejected.
+  - Registry: 6 of 6 styles. Template palettes: 32 templates ok.
+  - Idle tick 0.05–0.40 ms.
+  - Fit: 37 % rejected; start gen median 16.9 ms, p99 39.7 ms; 8-seed median nearest 461.
+- **Client, one locked photo run on 26.3:**
+  - Command: `with-client-lock.sh with-heavy-lock.sh ./gradlew … runClientGameTest -Pmc=26.3`, `-Dburmaldaholic.casinoPhotos=standalone`, with a temporary entrypoint swap that was restored afterwards.
+  - Output: 48 shots (6 variants × front, aerial, door_in, floor_to_door, bar_side, hall_high, front_night, aerial_night) in `.burmaldaholic-tools/shots/CR-1/`, plus `_sheet_<view>.png` contact sheets.
+  - Earlier runs (3) went to diagnosing the 26.3 compile and the photo harness's entrance detection.
+- **Renders:** `render_structure.py --manifest … --views iso_se,iso_sw,iso_nw,iso_ne,night,night_sw,night_nw,night_ne,plan,cutaway` for all 6 variants, in `docs/design/visual/mockups/casinos/grand/`.
+- **Not run:** a full `build` (per policy); the client terrain test; GameTests on 26.3.
 
 ## Open items / requests
 
