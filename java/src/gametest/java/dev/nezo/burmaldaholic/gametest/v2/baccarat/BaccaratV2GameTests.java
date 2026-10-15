@@ -163,4 +163,35 @@ public class BaccaratV2GameTests {
 		}
 		helper.succeed();
 	}
+
+	/** T-D2 item 6: a baccarat coup in play is played out on removal without a single preset world read. */
+	@GameTest
+	@SuppressWarnings("removal")
+	public void removalPlayOutReadsNoPreset(GameTestHelper helper) {
+		BlockPos rel = new BlockPos(1, 1, 1);
+		helper.setBlock(rel, BaccaratModule.TABLE.block());
+		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer a = helper.makeMockServerPlayerInLevel();
+		try (dev.nezo.burmaldaholic.gametest.v2.blackjack.PresetReadCounter counter =
+				new dev.nezo.burmaldaholic.gametest.v2.blackjack.PresetReadCounter(helper.absolutePos(rel))) {
+			Economies.get().setBalance(server, a.getUUID(), 10_000, TEST);
+			helper.assertTrue(t.sit(a), "seated");
+			CompoundTag bet = new CompoundTag();
+			bet.putString("box", "player");
+			bet.putLong("amount", 100);
+			t.onAction(a, "bet", bet);
+			t.onAction(a, "ready", new CompoundTag());
+			for (int i = 0; i < 4 && "betting".equals(t.phase()); i++) t.fastForwardForTests();
+			helper.assertTrue(t.stakeOf(a.getUUID()) > 0 && !"betting".equals(t.phase()), "a coup in play (" + t.phase() + ")");
+			t.buildPub();
+			counter.reset();
+			helper.setBlock(rel, net.minecraft.world.level.block.Blocks.AIR);
+			helper.assertTrue(counter.reads() == 0, "preset world reads during the removal play-out: " + counter.reads());
+			helper.assertTrue(t.stakeOf(a.getUUID()) == 0, "the coup was played out on removal");
+		} finally {
+			server.getPlayerList().remove(a);
+		}
+		helper.succeed();
+	}
 }

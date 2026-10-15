@@ -267,6 +267,27 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		return variant == Variant.CHEMMY;
 	}
 
+	/** The last preset looked up while the table was live (T-D2 item 6; same as the core fix fb57e0f on the CB branch). */
+	private Optional<dev.nezo.burmaldaholic.core.service.TablePresetProvider.TablePreset> livePreset = Optional.empty();
+
+	/**
+	 * The generated-casino preset, cached: while the table is being removed (chunk unload, break, server stop) the last
+	 * live value is served without touching the world. A play-out runs inside the chunk system's unload callback, where
+	 * a preset lookup ({@code WorldgenPresets} / {@code BaccaratPresets} block reads) re-enters chunk loading and crashes
+	 * the server tick (T-D2 item 6; craps caches its preset the same way).
+	 */
+	@Override
+	public Optional<dev.nezo.burmaldaholic.core.service.TablePresetProvider.TablePreset> preset() {
+		if (removing()) return livePreset;
+		livePreset = super.preset();
+		return livePreset;
+	}
+
+	/** Bots: the table is being removed (no preset / world reads now). */
+	public boolean removingForBots() {
+		return removing();
+	}
+
 	public boolean isHighRoller() {
 		return variant == Variant.HIGH_ROLLER || preset().map(p -> p.id().startsWith("high_roller")).orElse(false);
 	}
