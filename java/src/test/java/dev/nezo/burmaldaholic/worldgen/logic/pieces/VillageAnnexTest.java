@@ -46,7 +46,7 @@ class VillageAnnexTest {
 			assertEquals("casino/annex/" + v.id(), p.id());
 			assertEquals(CasinoKind.VILLAGE_CASINO, p.layout().kind());
 			Vec s = p.layout().size();
-			assertTrue(s.x() <= 17 && s.z() <= 17 && s.y() <= 25, p.id() + " too big: " + s);
+			assertTrue(s.x() <= 17 && s.z() <= 17 && s.y() <= 15, p.id() + " too big: " + s);
 			assertTrue(Checks.families(List.of(p)).containsAll(Game.Family.REQUIRED), p.id() + " misses a game: "
 				+ Checks.families(List.of(p)));
 		}

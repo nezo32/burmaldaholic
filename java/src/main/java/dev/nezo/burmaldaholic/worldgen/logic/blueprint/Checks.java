@@ -73,9 +73,6 @@ public final class Checks {
 				s.add("casino/" + style + "/" + part);
 			}
 		}
-		for (String v : new String[] {"plains", "desert", "savanna", "taiga", "snowy"}) {
-			s.add("casino/annex/" + v);
-		}
 		s.add("casino/parlor");
 		s.add("casino/lounge");
 		return java.util.Collections.unmodifiableSet(s);
