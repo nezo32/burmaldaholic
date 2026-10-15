@@ -130,7 +130,7 @@ final class RouletteFeltView {
 			if (s.equals(litOutside)) rect(g, b.inset(1), 0x40FFD640);
 			Box la = l.labelArea(s);
 			switch (t) {
-				case RED, BLACK -> diamond(g, la, t == BetType.RED ? RED : BLACK, line);
+				case RED, BLACK -> diamond(g, new Box(la.x(), b.y(), la.w(), b.h()), t == BetType.RED ? RED : BLACK, line);
 				case LOW -> label(g, font, Texts.raw("1–18"), b, la, line | 0xFF000000);
 				case HIGH -> label(g, font, Texts.raw("19–36"), b, la, line | 0xFF000000);
 				case EVEN -> label(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.even"), b, la, line | 0xFF000000);

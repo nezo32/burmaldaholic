@@ -247,7 +247,9 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			return true;
 		}
 		double[] at = clickAt;
-		Optional<Spot> spot = at != null ? l.hit(at[0], at[1]) : rest.equals("layout") ? Optional.empty() : Spot.parseKey(rest);
+		// a spot's own HitMap box already routed the click precisely (line bets lie on top); only the whole-layout box
+		// needs the point hit-tested (in framed / offset viewports the raw event point is not in layout px)
+		Optional<Spot> spot = !rest.equals("layout") ? Spot.parseKey(rest) : at != null ? l.hit(at[0], at[1]) : Optional.empty();
 		if (spot.isEmpty()) return rest.equals("layout");
 		CompoundTag args = new CompoundTag();
 		args.putString("type", spot.get().type().id());
