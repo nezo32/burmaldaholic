@@ -7,7 +7,78 @@
     "wood": "burmaldaholic:block/core/tables/standard/wood",
     "trim": "burmaldaholic:block/core/tables/standard/trim",
     "dark": "burmaldaholic:block/core/tables/standard/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs"
+    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "chrome": "burmaldaholic:block/core/machines/chrome",
+    "red": "burmaldaholic:block/core/machines/red_leather"
   },
-  "elements": []
+  "elements": [
+    {
+      "from": [
+        6,
+        8,
+        4
+      ],
+      "to": [
+        10,
+        12,
+        6
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            6,
+            4,
+            10,
+            6
+          ],
+          "texture": "#trim"
+        },
+        "down": {
+          "uv": [
+            6,
+            4,
+            10,
+            6
+          ],
+          "texture": "#trim"
+        },
+        "north": {
+          "uv": [
+            6,
+            4,
+            10,
+            8
+          ],
+          "texture": "#trim"
+        },
+        "south": {
+          "uv": [
+            6,
+            4,
+            10,
+            8
+          ],
+          "texture": "#trim"
+        },
+        "west": {
+          "uv": [
+            4,
+            4,
+            6,
+            8
+          ],
+          "texture": "#trim"
+        },
+        "east": {
+          "uv": [
+            10,
+            4,
+            12,
+            8
+          ],
+          "texture": "#trim"
+        }
+      }
+    }
+  ]
 }

@@ -197,3 +197,98 @@ export function lamp() {
   }
   return img;
 }
+
+// ---- visual pass 2 (VQA round 1) ----------------------------------------------------------------------------------
+
+/** Polished chrome: bright edge, mid body, dark edge (bezels, strips, tray, lever). */
+export function chrome() {
+  const img = image(16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = (x + y) % 8;
+    put(img, x, y, c(v < 2 ? '#FFFFFF' : v < 5 ? '#D8D8E0' : '#9A9AA8'));
+  }
+  return img;
+}
+
+/** Tier light strip / accent bulbs (emissive). */
+export function glow(tier) {
+  const t = SLOT_TIERS[tier];
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, t.accent);
+  for (let y = 0; y < 16; y += 2) R(img, 0, y, 16, 1, t.glow);
+  return img;
+}
+
+/** Lever ball (glossy red). */
+export function ball() {
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, '#C81E28');
+  R(img, 2, 2, 5, 5, '#FF6A70');
+  R(img, 3, 3, 2, 2, '#FFFFFF');
+  R(img, 0, 12, 16, 4, '#8A1018');
+  return img;
+}
+
+/** Banker's lamp shade: green glass (emissive) or a soul-fire cyan for the Nether booth. */
+export function lampShade(soul) {
+  const img = image(16, 16);
+  const [a, b, h] = soul ? ['#2EC8D8', '#1A8A9A', '#B8FFFF'] : ['#2E9A4A', '#1E6A32', '#B8FFC8'];
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) put(img, x, y, c(y < 4 ? h : (x + y) % 5 === 0 ? b : a));
+  return img;
+}
+
+/** Cashier sign plate: dark red board with a gold frame (the word is drawn by the sign renderer). */
+export function signRed() {
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, '#E8B830');
+  R(img, 1, 1, 14, 14, '#5A0E14');
+  R(img, 1, 1, 14, 1, '#FFE07A');
+  R(img, 1, 14, 14, 1, '#3A0A0E');
+  return img;
+}
+
+/** Plinko board backing (shown until/behind the Plinko board renderer): night-purple with faint stars. */
+export function boardBack() {
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, '#1A1030');
+  const r = rng(5);
+  for (let i = 0; i < 10; i++) P(img, Math.floor(r() * 16), Math.floor(r() * 16), i % 3 ? '#4A3A7A' : '#B8A8FF');
+  return img;
+}
+
+/** Plinko crown marquee art (no words): a lit triangle of pegs over a falling ball between chevrons. */
+export function plinkoMarquee() {
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, '#2A0E3A');
+  for (let x = 0; x < 16; x += 2) {
+    P(img, x, 0, '#FFE07A');
+    P(img, x + 1, 15, '#FFE07A');
+  }
+  for (let row = 0; row < 4; row++) for (let i = 0; i <= row; i++) P(img, 8 - row + i * 2, 4 + row * 2, '#F4EEE0');
+  R(img, 7, 2, 2, 2, '#FF4A5A');
+  for (const x of [2, 13]) {
+    P(img, x, 6, '#FFD640');
+    P(img, x, 8, '#FFD640');
+    P(img, x, 10, '#FFD640');
+  }
+  return img;
+}
+
+/** Plinko base front: coin slot plate and a row of bin lights. */
+export function plinkoBase() {
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, '#3A1E50');
+  R(img, 0, 0, 16, 1, '#B88A18');
+  R(img, 5, 4, 6, 4, '#C8C8D0');
+  R(img, 7, 5, 2, 2, '#141018');
+  for (let x = 1; x < 16; x += 3) R(img, x, 11, 2, 2, x % 2 ? '#FF6A3A' : '#FFD640');
+  return img;
+}
+
+/** Red leather (wheel flapper). */
+export function redLeather() {
+  const img = image(16, 16);
+  R(img, 0, 0, 16, 16, '#B0202C');
+  for (let y = 0; y < 16; y += 4) R(img, 0, y, 16, 1, '#7A121C');
+  return img;
+}

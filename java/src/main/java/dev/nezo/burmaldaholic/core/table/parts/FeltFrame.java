@@ -24,7 +24,7 @@ public record FeltFrame(TableGame.FeltShape shape, double cx, double cz, double 
 	/** Felt surface of a full table: 14/16 (★3). */
 	public static final double FELT_Y = 14 / 16.0;
 	/** Top of the padded rail of a full table. */
-	public static final double RAIL_TOP = 15 / 16.0;
+	public static final double RAIL_TOP = 15.5 / 16.0;
 	/** Lift of drawn content (cards, chips, decal) above the felt. */
 	public static final double CONTENT_LIFT = 1 / 64.0;
 	/** Rail width round the felt. */

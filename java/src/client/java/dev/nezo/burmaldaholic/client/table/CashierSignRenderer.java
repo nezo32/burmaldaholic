@@ -30,11 +30,11 @@ import org.jspecify.annotations.Nullable;
 public final class CashierSignRenderer implements BlockEntityRenderer<CashierBlockEntity, CashierSignRenderer.State> {
 	private static final int FULL_BRIGHT = 0xF000F0;
 	private static final double RANGE_SQ = 48 * 48;
-	/** Sign board centre in footprint-local coordinates (machines.mjs: x −8..24 px, y 29.25..31.75 px, front z 14.5 px). */
+	/** Sign plate centre in footprint-local coordinates (machines.mjs: x −6..22 px, y 29.25..31.75 px, front z 11.5 px). */
 	private static final double SIGN_X = 0.5;
 	private static final double SIGN_Y = 30.5 / 16;
-	private static final double SIGN_Z = 14.5 / 16 + 0.004;
-	private static final double MAX_W = 1.8;
+	private static final double SIGN_Z = 11.5 / 16 + 0.004;
+	private static final double MAX_W = 1.6;
 	private static final double MAX_H = 2.0 / 16;
 
 	public static final class State extends BlockEntityRenderState {
