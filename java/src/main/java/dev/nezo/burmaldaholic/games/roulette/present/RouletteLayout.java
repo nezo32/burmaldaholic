@@ -28,6 +28,8 @@ import java.util.Optional;
 public final class RouletteLayout {
 	/** Wheel sprite diameters (generated: the mini wheel 72, {@code wheel_bowl_m} 104 / 144). */
 	public static final int[] WHEELS = {72, 104, 144};
+	/** ROOMY (ui-v2 §3.7, PHASE2B §2.2.5): the column may hold the big 208 wheel. */
+	public static final int[] WHEELS_ROOMY = {72, 104, 144, 208};
 	public static final int PILL_W = 23, PILL_H = 13, PILL_PITCH_X = 26, PILL_PITCH_Y = 15;
 	/** Glyph height of the 1× vanilla font (digits). */
 	public static final int GLYPH_H = 8;
@@ -66,12 +68,14 @@ public final class RouletteLayout {
 		};
 		int callGap = tier == Tier.T1 ? 6 : 8;
 		int top = play.y() + (tier == Tier.T1 ? 8 : 10);
+		boolean roomy = g.roomy();
 		int colW = (int) Math.round(w * (tier == Tier.T3 ? 0.26 : 0.25));
+		// ROOMY: the cells grow with the felt instead of stopping at 40 px (C2 → RO: no empty felt at 1067×600)
 		int cap = Math.max(switch (tier) {
 			case T1 -> 21;
 			case T2 -> 23;
 			case T3 -> 30;
-		}, Math.min(40, (int) (ph * 0.11)));
+		}, Math.min(roomy ? 54 : 40, (int) (ph * (roomy ? 0.10 : 0.11))));
 		int lx = m + colW + 6;
 		int cw = Math.max(8, Math.min(cap, (w - m - lx - 4) / 14));
 		int chMax = (ph - (top - play.y()) - 2 * oh - (oh + callGap) - 8) / 3;
@@ -112,7 +116,7 @@ public final class RouletteLayout {
 		this.column = new Box(m, play.y(), colW, ph);
 		int maxD = Math.min(colW - 8, ph - 64);
 		int d = WHEELS[0];
-		for (int s : WHEELS) {
+		for (int s : roomy ? WHEELS_ROOMY : WHEELS) {
 			if (s <= maxD) d = s;
 		}
 		this.wheelD = d;

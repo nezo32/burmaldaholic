@@ -37,7 +37,7 @@ public record RouletteFocus(int art, int mult, double size, double cx, double cy
 		ArtScale.Result r = ArtScale.pickNative(NATIVE, avail, k);
 		int art = r.artW();
 		int mult = r.integral() ? (int) Math.round(r.scale()) : 1;
-		boolean ok = r.integral() && art * mult > l.wheelD && l.wheelD >= 100;
+		boolean ok = r.integral() && art * mult > l.wheelD;
 		double size = ok ? art * mult : l.wheelD;
 		double cx = PixelSnap.snap(play.x() + 8 + size / 2.0, k);
 		double cy = PixelSnap.snap(play.y() + play.h() / 2.0, k);
