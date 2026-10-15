@@ -478,7 +478,7 @@ function pipMask(d) {
     for (let x = 0; x < d; x++) {
       const cx = x + 0.5 - d / 2;
       const cy = y + 0.5 - d / 2;
-      if (d < 4 || Math.hypot(cx, cy) <= d / 2 + 0.2) m.push([x, y, cx, cy]);
+      if (d < 4 || Math.hypot(cx, cy) <= d / 2 + (d >= 6 ? 0.2 : 0)) m.push([x, y, cx, cy]);
     }
   return m;
 }
@@ -702,6 +702,32 @@ export function upPipCentres(cell, q) {
     const t = (cy / E) * 2 - 1;
     return project(cell, q, [0, 1, 2].map((i) => (n[i] + s * e1[i] + t * e2[i]) * hp));
   });
+}
+
+/**
+ * In-world die texture (DiceWorldDraw): 64 × 32, face k as a 16 × 16 cell at (16·((k − 1) mod 4), 16·⌊(k − 1)/4⌋): the
+ * same pixel-designed pips as the atlas on bone, with a 1-px bevel ring (the cube's vertex shading lights the faces).
+ */
+export function diceWorldTexture() {
+  const E = 16;
+  const img = image(64, 32);
+  for (let f = 1; f <= 6; f++) {
+    const x0 = 16 * ((f - 1) % 4);
+    const y0 = 16 * Math.floor((f - 1) / 4);
+    const t = faceTexture(E, f);
+    for (let y = 0; y < E; y++)
+      for (let x = 0; x < E; x++) {
+        const ring = Math.min(x, y, E - 1 - x, E - 1 - y);
+        const code = t[y * E + x];
+        let hex = ring === 0 ? (x === 0 || y === 0 ? '#FFFFFF' : '#C8BADC') : '#F4ECF8';
+        if (code === 1 || code === 3) hex = PIP_C[0];
+        else if (code === 2) hex = PIP_C[1];
+        else if (code === 4 || code === 6) hex = RED_C[0];
+        else if (code === 5) hex = RED_C[1];
+        P(img, x0 + x, y0 + y, hex);
+      }
+  }
+  return img;
 }
 
 /** Soft elliptic die shadow in INK (alpha is applied at runtime); size 0 = 100 %, 1 = 80 %, 2 = 60 %. */
