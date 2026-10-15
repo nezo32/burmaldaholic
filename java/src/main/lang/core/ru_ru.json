@@ -456,7 +456,7 @@
 	"gui.burmaldaholic.core.v2.reason.nothing_to_clear": "Нет ставок",
 	"gui.burmaldaholic.core.v2.reason.no_rebet": "Нет прошлой ставки",
 	"gui.burmaldaholic.core.v2.reason.cannot_double": "Удвоить сейчас нельзя",
-	"gui.burmaldaholic.core.v2.status.pick_seat": "Выберите место или нажмите Пробел",
+	"gui.burmaldaholic.core.v2.status.pick_seat": "Выберите место (Пробел)",
 	"gui.burmaldaholic.core.v2.status.click_layout": "Кликните поле",
 	"gui.burmaldaholic.core.v2.status.chips_add": "Фишки → ставка",
 	"gui.burmaldaholic.core.v2.status.next_round_in": "Новый раунд через %1$s с",
