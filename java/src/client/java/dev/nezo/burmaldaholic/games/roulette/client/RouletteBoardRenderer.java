@@ -527,8 +527,8 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 
 	/** Undoes the board's FACING rotation and turns to the camera (a camera-facing quad at the pose origin). */
 	private static void billboard(PoseStack pose, State s, CameraRenderState camera) {
-		pose.mulPose(Axis.YP.rotationDegrees(s.facing.toYRot()));
-		pose.mulPose(camera.orientation);
+		pose.rotateAround(Axis.YP.rotationDegrees(s.facing.toYRot()), 0f, 0f, 0f);
+		pose.rotateAround(camera.orientation, 0f, 0f, 0f);
 	}
 
 	/** A camera-facing quad of {@code w × h} centred on x, bottom-centred on y = 0... centred (sprite region u, v, uw, vh of the 64² atlas). */
@@ -632,8 +632,8 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 
 	/** Billboard inside the wheel pose: undo the FACING rotation (full table) or the design mapping's rotation (compact). */
 	private static void billboardWheel(PoseStack pose, State s, CameraRenderState camera) {
-		pose.mulPose(Axis.YP.rotationDegrees(s.facing.toYRot()));
-		pose.mulPose(camera.orientation);
+		pose.rotateAround(Axis.YP.rotationDegrees(s.facing.toYRot()), 0f, 0f, 0f);
+		pose.rotateAround(camera.orientation, 0f, 0f, 0f);
 	}
 
 	/** One segment of a sloped ring between (r0, y0) and (r1, y1), facing up/inward; v from the outer edge. */
