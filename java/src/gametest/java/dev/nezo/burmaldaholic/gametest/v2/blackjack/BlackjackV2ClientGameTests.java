@@ -285,7 +285,11 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 			return null;
 		});
 		String notEnough = f.client(mc -> Component.translatable(V2Keys.REASON_NOT_ENOUGH).getString());
-		f.waitChrome(c -> c.status.line1() != null && c.status.line1().getString().equals(notEnough), "the queued Rebet says Not enough chips");
+		// the next betting phase opens; only the queued Rebet's flash says "Not enough chips" there (the betting primary's own
+		// reason with 10 chips and no draft is "Place a bet first")
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> "betting".equals(t.phase()) || t.round() == null, "the next betting phase", 600);
+		f.waitChrome(c -> c.status.line1() != null && c.status.line1().getString().equals(notEnough) && c.bet.visible(),
+			"the queued Rebet flashes Not enough chips in the betting phase");
 		f.shot("v2a_bj_en_us_rebet_short");
 		f.context().waitTicks(20);
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == 0 && t.round() == null || t.round() != null && mine(t, me) == null,
@@ -299,16 +303,19 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		f.size(fw, fh, scale);
 		String tag = "v2a_bj_" + lang + "_" + f.viewport().w() + "x" + f.viewport().h() + "_multi";
 		BlockPos pos = fresh(f, BlackjackModule.TABLE.block());
+		f.open(pos, BlackjackScreen.class);
+		f.click(KeyMap.Ids.PRIMARY);
+		UUID me = f.server(server -> RealFlow.player(server).getUUID());
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated");
+		// two bots join once a player is seated (the bots settings ask for a seated actor), as CardBoards does
 		f.server(server -> {
 			var two = new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
 				dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.FAST);
 			table(server, pos).bots().table().requestChange(RealFlow.player(server), two, false);
+			table(server, pos).botSafePointForTests();
 			return null;
 		});
-		f.open(pos, BlackjackScreen.class);
-		f.click(KeyMap.Ids.PRIMARY);
-		UUID me = f.server(server -> RealFlow.player(server).getUUID());
-		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated with bots");
+		f.context().waitTicks(10);
 		int chip = chipIndex(f, 25);
 		f.click(KeyMap.Ids.chip(chip));
 		f.click(KeyMap.Ids.chip(chip));

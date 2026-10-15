@@ -56,7 +56,8 @@ public final class CardsV2 {
 			g.pose().scale(sx, 1f);
 			g.pose().translate(-(x + w / 2f), -y);
 		}
-		CardSprites.shadow(g, Math.min(size, CardSprites.L), x, y, 0.5 * (argb >>> 24) / 255.0);
+		// XL (3) uses the L shadow; L = 0, M = 1, S = 2, so min(size, L) gave every card the L shadow (big dark boxes at T1)
+		CardSprites.shadow(g, size == 3 ? CardSprites.L : size, x, y, 0.5 * (argb >>> 24) / 255.0);
 		if (size == 3) {
 			if (showFace) {
 				CardGfx.tex(g, XL[CardSprites.classicDeck ? 1 : 0], x, y, w, h, (CardSprites.rank(code) - 1) * w, CardSprites.suit(code) * h, w, h, 13 * w, 4 * h,

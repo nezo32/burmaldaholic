@@ -98,6 +98,7 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 		int[] cards = new int[slots];
 		int[][] outcomeW = new int[slots][];
 		int[] valueW = new int[slots];
+		boolean[] handless = new boolean[slots];
 		java.util.Arrays.fill(cards, -1);
 		for (int i = 0; i < slots; i++) outcomeW[i] = new int[0];
 		for (int s = 0; s < n; s++) {
@@ -105,6 +106,7 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			if (in == null) continue;
 			int slot = slotOfSeat[s];
 			cards[slot] = in.fanCards(HAND_GAP);
+			handless[slot] = in.cards().length == 0;
 			outcomeW[slot] = in.outcomeW();
 			valueW[slot] = Math.max(in.valueW(), 12);
 		}
@@ -148,9 +150,9 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			Box p = Box.centredAt(play.cx(), py + k * 11 + 5, printW[k], 9);
 			boolean ok = p.inside(felt) && !p.intersects(dealer) && !p.intersects(dealerTotal) && (t != Tier.T1 || k == 0) && !(t == Tier.T2 && k > 1);
 			for (int i = 0; ok && i < slots; i++) {
-				// an outcome slot that is only the reserved dot (no total yet) draws nothing: the print may cross it (A-0001: the
+				// the outcome slot of a seat without hands is only the reserved dot and draws nothing: the print may cross it (A-0001: the
 				// second line "INSURANCE PAYS 2 TO 1" was dropped at 480 x 270 by the hero's empty slot)
-				if (cols[i] != null) for (Box b : cols[i].boxes()) ok &= !p.intersects(b) || b == cols[i].outcome() && b.w() <= SeatColumn.DOT;
+				if (cols[i] != null) for (Box b : cols[i].boxes()) ok &= !p.intersects(b) || handless[i] && b == cols[i].outcome() && b.w() <= SeatColumn.DOT;
 				if (cols[i] == null || i == heroSlot) ok &= !p.intersects(spots[i]);
 			}
 			prints[k] = ok ? p : Box.EMPTY;

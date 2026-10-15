@@ -77,7 +77,9 @@ public final class BlackjackFlow implements Flow<BlackjackView> {
 
 	private static Gate rebet(BlackjackView v) {
 		if (v.lastBet() <= 0) return Gate.off("rebet", V2 + "primary.deal", V2 + "reason.round_in_progress");
-		if (v.lastBet() > v.balance()) return Gate.off("rebet", V2 + "primary.rebet", V2 + "reason.not_enough", v.lastBet());
+		// the label keeps its amount ("Rebet 50"; it showed "Rebet %1$s" while disabled)
+		if (v.lastBet() > v.balance()) return new Gate("rebet", V2 + "primary.rebet", new Object[] {v.lastBet()}, false, V2 + "reason.not_enough",
+			new Object[] {v.lastBet()});
 		return Gate.on("rebet", V2 + "primary.rebet", v.lastBet());
 	}
 

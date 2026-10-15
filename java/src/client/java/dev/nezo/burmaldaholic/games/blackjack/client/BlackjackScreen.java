@@ -597,9 +597,23 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		// felt prints (decor; only where nothing is)
 		List<Box> content = new ArrayList<>();
 		content.add(l.dealer());
-		for (SeatColumn c : l.columns()) {
+		for (int slot = 0; slot < l.columns().length; slot++) {
+			SeatColumn c = l.columns()[slot];
 			if (c == null) continue;
-			for (Box b : c.boxes()) if (!(b == c.outcome() && b.w() <= SeatColumn.DOT)) content.add(b); // a reserved dot draws nothing
+			Seat st = null;
+			for (int q = 0; q < m.seatCount; q++) if (l.slotOfSeat()[q] == slot) st = seat(q);
+			boolean handless = st == null || st.hands().isEmpty();
+			for (Box b : c.boxes()) if (!(handless && b == c.outcome() && b.w() <= SeatColumn.DOT)) content.add(b); // a reserved dot draws nothing
+			// split hands: their own total pills and stacks sit outside the column's outcome slot
+			if (st != null && st.hands().size() > 1) {
+				int[] per = new int[st.hands().size()];
+				int[] tw = new int[per.length];
+				for (int h = 0; h < per.length; h++) {
+					per[h] = st.hands().get(h).codes().length;
+					tw[h] = 24;
+				}
+				for (BlackjackLayout.HandBox hb : BlackjackLayout.hands(c, t, slot == l.hero(), per, tw, tw)) content.addAll(List.of(hb.boxes()));
+			}
 		}
 		int print = V2Felt.print(theme);
 		FeltPrint.draw(g, font, l.prints()[0], Component.translatable("gui.burmaldaholic.blackjack.print.pays"), 0.55f, content);

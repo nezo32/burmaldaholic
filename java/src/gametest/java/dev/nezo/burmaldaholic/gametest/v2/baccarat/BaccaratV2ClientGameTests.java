@@ -80,22 +80,31 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			if (!f.status().equals(want)) throw new AssertionError("no-bet Deal: status '" + f.status() + "', expected '" + want + "'");
 		}
 		int chip = chipIndex(f, 100);
+		idle(f);
 		f.click(KeyMap.Ids.chip(chip)); // arm 100
+		idle(f);
 		f.click(KeyMap.Ids.felt("box.banker"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.BANKER, 0L) > 0, "banker bet placed by a box click");
 		int small = chipIndex(f, 5);
+		idle(f);
 		f.click(KeyMap.Ids.chip(small));
+		idle(f);
 		f.click(KeyMap.Ids.felt("box.tie"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.TIE, 0L) == 5, "tie 5 placed");
 		if (negatives) {
 			// PLAYER 25 + 25 and P.PAIR 5 too (the five boxes P.PAIR · P · T · B · B.PAIR in one shot)
 			int c25 = chipIndex(f, 25);
+			idle(f);
 			f.click(KeyMap.Ids.chip(c25));
+			idle(f);
 			f.click(KeyMap.Ids.felt("box.player"));
 			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER, 0L) == 25, "player 25");
+			idle(f);
 			f.click(KeyMap.Ids.felt("box.player"));
 			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER, 0L) == 50, "player 50");
+			idle(f);
 			f.click(KeyMap.Ids.chip(small));
+			idle(f);
 			f.click(KeyMap.Ids.felt("box.player_pair"));
 			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER_PAIR, 0L) == 5, "p.pair 5");
 			f.context().waitTicks(4);
@@ -103,9 +112,11 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			long bank = f.server(server -> table(server, pos).betsOf(me).getOrDefault(BetKind.BANKER, 0L));
 			long bal0 = f.server(server -> Economies.get().balance(RealFlow.player(server)));
 			// review R-AB m8: Undo takes back ONE chip (the newest: the 5 on P.PAIR), one packet
+			idle(f);
 			f.click(KeyMap.Ids.tool("undo"));
 			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> !t.betsOf(me).containsKey(BetKind.PLAYER_PAIR), "undo took the p.pair chip");
 			// right-click PLAYER: one 25 chip off it, not the box
+			idle(f);
 			f.rightClick(KeyMap.Ids.felt("box.player"));
 			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER, 0L) == 25, "right-click took one chip off PLAYER");
 			f.context().waitTicks(4);
@@ -156,6 +167,7 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("rebet"), "Rebet offered");
 		f.click(KeyMap.Ids.PRIMARY);
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).values().stream().mapToLong(Long::longValue).sum() == staked, "rebet placed");
+		idle(f);
 		f.click(KeyMap.Ids.tool("clear"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).isEmpty(), "cleared");
 		f.close();
@@ -212,6 +224,7 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			} else if (f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().bet.visible()
 				&& h.chrome().hits().targets().stream().anyMatch(t -> t.id().startsWith("chip.") && t.enabled()))) {
 				int c = chipIndex(f, 5);
+				idle(f);
 				f.click(KeyMap.Ids.chip(c));
 				f.waitChrome(x -> x.primary.gate().enabled() && x.primary.gate().action().equals("punt"), "Punt enabled");
 				f.shot("v2a_bac_en_us_chemmy_punt");
@@ -230,6 +243,11 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		f.context().waitTicks(10);
 		f.shot("v2a_bac_en_us_chemmy_punted");
 		f.close();
+	}
+
+	/** Waits until no action is pending (a click while the last one is unacknowledged is refused with "Waiting for the table"). */
+	private static void idle(RealFlow f) {
+		f.waitChrome(c -> c.pending() == null, "the table answered the last action");
 	}
 
 	private static BlockPos fresh(RealFlow f, net.minecraft.world.level.block.Block block) {
