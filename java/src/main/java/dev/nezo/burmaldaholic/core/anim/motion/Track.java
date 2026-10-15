@@ -26,6 +26,10 @@ import java.util.Arrays;
  * track holds its first value, after {@link #end()} its last value.
  *
  * <p>Time in ms; rates (velocity, acceleration, angular speed) per SECOND; decay constants and periods in ms.
+ * Transcendentals use {@link StrictMath} (sin/cos through the allocation-free {@link DetMath}): samples are
+ * bit-identical on every CPU and JVM, so discrete choices made from them (a pocket, a tip, a teeter) agree between
+ * viewers. A builder segment is closed once by
+ * {@link Seg#done()}; using a {@link Seg} after that throws.
  */
 public final class Track {
 	public static final int HOLD = 0;
@@ -181,15 +185,15 @@ public final class Track {
 				return p[o] + p[o + 1] * tau + 0.5 * p[o + 2] * tau * tau;
 			case EXP_DECAY: {
 				double tc = p[o + 3];
-				return p[o] + p[o + 2] * tau + (p[o + 1] - p[o + 2]) * tc * -Math.expm1(-tau / tc);
+				return p[o] + p[o + 2] * tau + (p[o + 1] - p[o + 2]) * tc * -StrictMath.expm1(-tau / tc);
 			}
 			case DAMPED_OSC: {
-				double env = p[o + 2] > 0 ? Math.exp(-tau / p[o + 2]) : 1;
-				return p[o] + p[o + 1] * env * Math.cos(TWO_PI * tau / p[o + 3] + p[o + 4]);
+				double env = p[o + 2] != 0 ? StrictMath.exp(-tau / p[o + 2]) : 1;
+				return p[o] + p[o + 1] * env * DetMath.cos(TWO_PI * tau / p[o + 3] + p[o + 4]);
 			}
 			case PIVOT: {
 				double a = p[o + 2] + p[o + 3] * tau + 0.5 * p[o + 4] * tau * tau;
-				return p[o] + p[o + 1] * (p[o + 5] != 0 ? Math.sin(a) : Math.cos(a));
+				return p[o] + p[o + 1] * (p[o + 5] != 0 ? DetMath.sin(a) : DetMath.cos(a));
 			}
 			default:
 				throw new IllegalStateException("kind " + kind);
@@ -206,19 +210,19 @@ public final class Track {
 			case BALLISTIC:
 				return p[o + 1] + p[o + 2] * tau;
 			case EXP_DECAY:
-				return p[o + 2] + (p[o + 1] - p[o + 2]) * Math.exp(-tau / p[o + 3]);
+				return p[o + 2] + (p[o + 1] - p[o + 2]) * StrictMath.exp(-tau / p[o + 3]);
 			case DAMPED_OSC: {
 				double td = p[o + 2];
-				double env = td > 0 ? Math.exp(-tau / td) : 1;
+				double env = td != 0 ? StrictMath.exp(-tau / td) : 1;
 				double w = TWO_PI / p[o + 3];
 				double ph = w * tau + p[o + 4];
-				double dEnv = td > 0 ? -env / td : 0;
-				return p[o + 1] * (dEnv * Math.cos(ph) - env * w * Math.sin(ph));
+				double dEnv = td != 0 ? -env / td : 0;
+				return p[o + 1] * (dEnv * DetMath.cos(ph) - env * w * DetMath.sin(ph));
 			}
 			case PIVOT: {
 				double a = p[o + 2] + p[o + 3] * tau + 0.5 * p[o + 4] * tau * tau;
 				double da = p[o + 3] + p[o + 4] * tau;
-				return p[o + 1] * da * (p[o + 5] != 0 ? Math.cos(a) : -Math.sin(a));
+				return p[o + 1] * da * (p[o + 5] != 0 ? DetMath.cos(a) : -DetMath.sin(a));
 			}
 			default:
 				throw new IllegalStateException("kind " + kind);
@@ -338,6 +342,7 @@ public final class Track {
 		}
 
 		void close(Seg s) {
+			if (open != s) throw new IllegalStateException("segment already done()");
 			double tau = s.durMs / 1000.0;
 			for (int c = 0; c < channels; c++) {
 				int i = s.base + c;
@@ -374,6 +379,7 @@ public final class Track {
 		}
 
 		private int o(int ch, int kind) {
+			if (b.open != this) throw new IllegalStateException("segment already done(): open a new seg()");
 			if (ch < 0 || ch >= b.channels) throw new IllegalArgumentException("channel " + ch);
 			b.kinds[base + ch] = kind;
 			int o = (base + ch) * STRIDE;
@@ -450,7 +456,8 @@ public final class Track {
 
 		/**
 		 * Channel {@code ch} oscillates {@code A·e^(−τ/τd)·cos(2π·τ/P + φ)} around a centre chosen so that the
-		 * segment starts at the current value (C0). {@code tauMs ≤ 0} = no decay.
+		 * segment starts at the current value (C0). {@code tauMs = 0} = constant amplitude; a NEGATIVE {@code tauMs}
+		 * makes the envelope GROW as {@code e^(τ/|τd|)} (RO §2.3 hunting wobble that rises).
 		 *
 		 * @param amp      amplitude A
 		 * @param tauMs    decay time constant τd (ms)
@@ -460,9 +467,9 @@ public final class Track {
 		public Seg osc(int ch, double amp, double tauMs, double periodMs, double phase) {
 			if (!(periodMs > 0)) throw new IllegalArgumentException("period " + periodMs);
 			int o = o(ch, DAMPED_OSC);
-			b.params[o] = b.cur[ch] - amp * Math.cos(phase);
+			b.params[o] = b.cur[ch] - amp * DetMath.cos(phase);
 			b.params[o + 1] = amp;
-			b.params[o + 2] = tauMs > 0 ? tauMs / 1000.0 : 0;
+			b.params[o + 2] = tauMs / 1000.0;
 			b.params[o + 3] = periodMs / 1000.0;
 			b.params[o + 4] = phase;
 			return this;
@@ -480,7 +487,7 @@ public final class Track {
 			double du = b.cur[chU] - pu;
 			double dz = b.cur[chZ] - pz;
 			double rho = Math.sqrt(du * du + dz * dz);
-			double phi0 = Math.atan2(dz, du);
+			double phi0 = StrictMath.atan2(dz, du);
 			int ou = o(chU, PIVOT);
 			int oz = o(chZ, PIVOT);
 			double[] p = b.params;
@@ -508,7 +515,24 @@ public final class Track {
 			return pivot(chU, chZ, pu, pz, omega0, 2 * (dTheta - omega0 * tt) / (tt * tt));
 		}
 
-		/** Closes the segment; returns the builder. */
+		/**
+		 * Channel {@code ch} follows a solved {@link DecaySolver} profile (RO §2.3 stage B): an EXP_DECAY with
+		 * {@code v0 = ωS}, {@code τc = T/k}, {@code v∞ = ωD − (ωS − ωD)·e^(−k)/(1 − e^(−k))}, so the segment covers exactly
+		 * {@code sol.theta()} and ends at speed {@code ωD}. The segment duration must equal {@code sol.T()} (seconds →
+		 * ms, ±1e-6 ms) and {@code sol.k() ≥ 1e-3}.
+		 */
+		public Seg decay(int ch, DecaySolver.Solution sol) {
+			if (Math.abs(durMs - sol.T() * 1000.0) > 1e-6) {
+				throw new IllegalArgumentException("segment " + durMs + " ms != solution T " + sol.T() * 1000.0 + " ms");
+			}
+			double k = sol.k();
+			if (!(k >= 1e-3) || !Double.isFinite(k)) throw new IllegalArgumentException("k " + k);
+			double e = StrictMath.exp(-k);
+			double vInf = sol.omegaD() - (sol.omegaS() - sol.omegaD()) * e / -StrictMath.expm1(-k);
+			return expDecay(ch, sol.omegaS(), vInf, sol.T() * 1000.0 / k);
+		}
+
+		/** Closes the segment; returns the builder. Calling it twice throws. */
 		public Builder done() {
 			b.close(this);
 			return b;
