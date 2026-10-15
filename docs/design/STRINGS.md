@@ -1619,20 +1619,20 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.v2.field_mult` | x%1$s | x%1$s |
 | `gui.burmaldaholic.craps.v2.reason.disabled` | Craps is switched off on this server | Крэпс отключён на этом сервере |
 | `gui.burmaldaholic.craps.v2.reason.not_enough` | Not enough chips: %1$s needed | Не хватает фишек: нужно %1$s |
-| `gui.burmaldaholic.craps.v2.reason.need_line` | Bet the Pass Line or Don't Pass to roll | Чтобы бросать, поставьте на пасс-лайн или не-пасс |
+| `gui.burmaldaholic.craps.v2.reason.need_line` | Bet the Pass Line or Don't Pass to roll | Для броска нужна ставка на пасс |
 | `gui.burmaldaholic.craps.v2.reason.wait_roll` | Bets are open: roll in %1$s s | Идёт приём ставок: бросок через %1$s с |
 | `gui.burmaldaholic.craps.v2.reason.wait_settling` | The bets are being paid | Выплата ставок |
-| `gui.burmaldaholic.craps.v2.reason.no_shooter` | Bet the Pass Line to get the dice | Поставьте на пасс-лайн, чтобы получить кости |
+| `gui.burmaldaholic.craps.v2.reason.no_shooter` | Bet the Pass Line to get the dice | Поставьте на пасс, чтобы бросать |
 | `gui.burmaldaholic.craps.v2.reason.waiting_for` | Waiting for %1$s to roll | Ждём броска: %1$s |
 | `gui.burmaldaholic.craps.v2.reason.no_tool` | Not at the craps table | Не для крэпса |
 | `gui.burmaldaholic.craps.v2.reason.all_down` | All your bets are down | Все ваши ставки сделаны |
-| `gui.burmaldaholic.craps.v2.reason.point_box` | Come bets travel here: bet Come first | Сюда переходят кам-ставки: сначала поставьте на кам |
-| `gui.burmaldaholic.craps.v2.reason.point_box_come_out` | Come bets travel here once a point is on | Сюда переходят кам-ставки, когда установлен поинт |
+| `gui.burmaldaholic.craps.v2.reason.point_box` | Come bets travel here | Сюда переходят ставки кам |
+| `gui.burmaldaholic.craps.v2.reason.point_box_come_out` | Come bets move here on a point | Кам переходит сюда при поинте |
 | `gui.burmaldaholic.craps.v2.reason.odds_full` | Your odds are at the maximum | Коэффициент уже максимальный |
 | `gui.burmaldaholic.craps.v2.reason.odds_need_point` | Odds need a point first | Сначала нужен поинт |
-| `gui.burmaldaholic.craps.v2.reason.odds_need_pass` | Odds need a Pass Line bet | Для коэффициента нужна ставка на пасс-лайн |
-| `gui.burmaldaholic.craps.v2.reason.already_placed` | This bet is down: Undo to change it before the roll | Ставка уже сделана: до броска её можно отменить |
-| `gui.burmaldaholic.craps.v2.reason.come_needs_point` | Come bets open once a point is on | Ставки кам открываются, когда установлен поинт |
+| `gui.burmaldaholic.craps.v2.reason.odds_need_pass` | Odds need a Pass Line bet | Нужна ставка на пасс |
+| `gui.burmaldaholic.craps.v2.reason.already_placed` | Bet is down: Undo to change it | Ставка уже стоит, её можно отменить |
+| `gui.burmaldaholic.craps.v2.reason.come_needs_point` | Come opens once a point is on | Кам открыт, когда есть поинт |
 | `gui.burmaldaholic.craps.v2.status.come_out` | Come-out roll | Первый бросок |
 | `gui.burmaldaholic.craps.v2.status.point` | Point is %1$s | Поинт — %1$s |
 | `gui.burmaldaholic.craps.v2.status.sit_or_bet` | Sit down or click a bet | Сядьте или нажмите на ставку |
