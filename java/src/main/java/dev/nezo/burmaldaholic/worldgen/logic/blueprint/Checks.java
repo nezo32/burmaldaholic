@@ -48,7 +48,7 @@ public final class Checks {
 	 * Pieces that still hold {@link #FORBIDDEN} blocks and skip that check until rebuilt (CR / Parlor + Lounge
 	 * palettes). Owners DELETE entries — never add one.
 	 */
-	public static final Set<String> PENDING_VALUABLES = Set.of("casino/parlor", "casino/lounge");
+	public static final Set<String> PENDING_VALUABLES = Set.of("casino/parlor");
 
 	/**
 	 * Storage / trophy blocks players would strip a casino for (resource farming). Waxed copper, chains and bars are
@@ -74,7 +74,6 @@ public final class Checks {
 			}
 		}
 		s.add("casino/parlor");
-		s.add("casino/lounge");
 		return java.util.Collections.unmodifiableSet(s);
 	}
 

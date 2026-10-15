@@ -47,27 +47,39 @@ public final class OtherworldPalettes {
 			"minecraft:polished_blackstone_brick_slab"))
 		.build();
 
-	/** High Roller Lounge "Void Penthouse": purpur shell, obsidian floor, starry black glass, end rods. */
+	/**
+	 * High Roller Lounge "Void Penthouse" (CR-2): purpur body and order, black-glass curtain walls, obsidian floor with an
+	 * end-stone border, pearlescent froglight neon on obsidian, crying-obsidian glow trim, a black casino field with a gilt
+	 * border. No shulker boxes, no dragon heads (Checks FORBIDDEN).
+	 */
 	public static final Palette LOUNGE = Palette.builder("lounge")
 		.put(Role.FOUNDATION, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
 		.put(Role.FLOOR, Material.of("minecraft:obsidian"))
 		.put(Role.FLOOR_ACCENT, Material.of("minecraft:crying_obsidian"))
-		.put(Role.CARPET, "minecraft:purple_carpet")
-		.put(Role.CARPET_ACCENT, "minecraft:magenta_carpet")
+		.put(Role.CARPET, "minecraft:black_carpet")
+		.put(Role.CARPET_ACCENT, "minecraft:black_carpet")
+		.put(Role.CARPET_PATTERN, "minecraft:yellow_carpet")
 		.put(Role.WALL, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
-		.put(Role.WALL_BASE, Material.of("minecraft:end_stone_bricks", "minecraft:end_stone_brick_stairs", "minecraft:end_stone_brick_slab"))
+		.put(Role.WALL_BASE, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
 		.put(Role.FRAME, "minecraft:purpur_pillar")
+		.put(Role.COLUMN, "minecraft:purpur_pillar")
+		.put(Role.CAPITAL, "minecraft:crying_obsidian")
 		.put(Role.BEAM, "minecraft:purpur_pillar")
 		.put(Role.CEILING, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
+		.put(Role.COFFER, Material.of("minecraft:end_stone_bricks", "minecraft:end_stone_brick_stairs", "minecraft:end_stone_brick_slab"))
 		.put(Role.ROOF, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
-		.put(Role.ROOF_TRIM, Material.of("minecraft:end_stone_bricks", "minecraft:end_stone_brick_stairs", "minecraft:end_stone_brick_slab"))
-		.put(Role.TRIM, "minecraft:end_stone_bricks")
+		.put(Role.DOME, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
+		.put(Role.ROOF_TRIM, Material.of("minecraft:obsidian"))
+		.put(Role.RAIL, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
+		.put(Role.BALUSTER, "minecraft:end_stone_brick_wall")
+		.put(Role.TRIM, Material.of("minecraft:purpur_block", "minecraft:purpur_stairs", "minecraft:purpur_slab"))
 		.put(Role.GLASS, "minecraft:black_stained_glass")
 		.put(Role.PANE, "minecraft:purple_stained_glass_pane")
 		.put(Role.LIGHT, "minecraft:pearlescent_froglight")
-		.put(Role.LIGHT_HANGING, "minecraft:soul_lantern")
-		.put(Role.NEON_A, "minecraft:magenta_concrete")
-		.put(Role.NEON_B, "minecraft:white_concrete")
+		.put(Role.UPLIGHT, "minecraft:pearlescent_froglight")
+		.put(Role.LIGHT_HANGING, "minecraft:lantern")
+		.put(Role.NEON_A, "minecraft:pearlescent_froglight")
+		.put(Role.NEON_B, "minecraft:pearlescent_froglight")
 		.put(Role.SIGN_BACK, "minecraft:obsidian")
 		.put(Role.BULB, "minecraft:pearlescent_froglight")
 		.put(Role.ACCENT, "minecraft:amethyst_block")

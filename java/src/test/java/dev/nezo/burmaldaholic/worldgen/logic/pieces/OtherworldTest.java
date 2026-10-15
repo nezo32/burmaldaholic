@@ -42,7 +42,7 @@ class OtherworldTest {
 		assertEquals(CasinoKind.PIGLIN_PARLOR, parlor.layout().kind());
 		Piece lounge = OtherworldPieces.lounge();
 		assertEquals("casino/lounge", lounge.id());
-		assertEquals(new Vec(25, 14, 25), lounge.layout().size());
+		assertEquals(new Vec(HighRollerLounge.SX, HighRollerLounge.SY, HighRollerLounge.SZ), lounge.layout().size());
 		assertEquals(CasinoKind.HIGH_ROLLER, lounge.layout().kind());
 		assertTrue(parlor.layout().jigsaws().isEmpty() && lounge.layout().jigsaws().isEmpty(), "annexes are single templates");
 	}
