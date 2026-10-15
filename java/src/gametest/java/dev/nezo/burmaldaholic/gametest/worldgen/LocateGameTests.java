@@ -161,6 +161,41 @@ public class LocateGameTests {
 		}
 	}
 
+	/**
+	 * {@code worldgen.standalone.enabled = false}: the locator neither searches nor predicts standalone casinos (no new
+	 * one can start), the other hosts stay. One tick, restored after (the gate is a server-thread snapshot).
+	 */
+	@GameTest
+	public void standaloneDisabledDropsTheStandaloneHost(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel().getServer().getLevel(Level.OVERWORLD);
+		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
+		boolean standalone0 = cfg.standalone.enabled;
+		List<CasinoKind> on;
+		List<CasinoKind> off;
+		boolean hostOn;
+		boolean hostOff;
+		try {
+			cfg.standalone.enabled = true;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			on = kinds(level);
+			hostOn = CasinoLocator.standaloneHost(level).isPresent();
+			cfg.standalone.enabled = false;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			off = kinds(level);
+			hostOff = CasinoLocator.standaloneHost(level).isPresent();
+		} finally {
+			cfg.standalone.enabled = standalone0;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+		}
+		helper.assertFalse(off.contains(CasinoKind.CASINO) || hostOff, "standalone host while disabled: " + off + " / " + hostOff);
+		List<CasinoKind> others = new java.util.ArrayList<>(on);
+		others.remove(CasinoKind.CASINO);
+		helper.assertTrue(off.equals(others), "other hosts unchanged: on " + on + ", off " + off);
+		helper.assertTrue(hostOn || dev.nezo.burmaldaholic.gametest.worldgen.CasinoQa.standalone(level.getServer()).isEmpty(),
+			"control: the standalone host exists while enabled");
+		helper.succeed();
+	}
+
 	private static List<CasinoKind> kinds(ServerLevel level) {
 		return CasinoLocator.hosts(level).stream().map(CasinoLocator.Host::kind).toList();
 	}

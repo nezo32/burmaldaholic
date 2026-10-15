@@ -67,7 +67,7 @@ public class WorldgenSpawnSurvey {
 	 * so ON by default — the real structure-start generation with the shipped attach chances (0.5 / 0.6 / 0.5)
 	 * puts casinos in villages, bastions and End Cities near spawn, at about the configured rate.
 	 */
-	@GameTest(maxTicks = 20)
+	@GameTest(maxTicks = 20, environment = CasinoQa.ENV)
 	public void casinosGenerateWithDefaultChances(GameTestHelper helper) {
 		var server = helper.getLevel().getServer();
 		helper.assertTrue(dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.active(), "worldgen inactive: casino mode/worldgen off");
@@ -99,7 +99,7 @@ public class WorldgenSpawnSurvey {
 	 * columns on the default preset (R-CB M6a): random land/shore columns, guess = the exact surface 24 blocks away
 	 * (like the projected start). Diagnostic; off unless {@code -Dburmaldaholic.worldgenSurvey=true}.
 	 */
-	@GameTest(maxTicks = 20)
+	@GameTest(maxTicks = 20, environment = CasinoQa.ENV)
 	public void terrainProbeAccuracy(GameTestHelper helper) {
 		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
 			helper.succeed();
@@ -176,7 +176,7 @@ public class WorldgenSpawnSurvey {
 		helper.succeed();
 	}
 
-	@GameTest(maxTicks = 20)
+	@GameTest(maxTicks = 20, environment = CasinoQa.ENV)
 	public void survey(GameTestHelper helper) {
 		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
 			helper.succeed();

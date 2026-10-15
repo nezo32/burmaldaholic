@@ -71,7 +71,7 @@ public class CasinoBuildingGameTests {
 	}
 
 	/** 1. Registry: the five structures, the set, the tag and every pool load (both MC versions run this). */
-	@GameTest
+	@GameTest(environment = CasinoQa.ENV)
 	public void casinoRegistryLoads(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		RegistryAccess reg = server.registryAccess();
@@ -107,7 +107,7 @@ public class CasinoBuildingGameTests {
 	 * 2. Every block id and property in every casino template resolves: an unknown id loads as AIR silently
 	 * (a typo = a missing table), an unknown property is dropped (a wrong facing = an unusable table).
 	 */
-	@GameTest
+	@GameTest(environment = CasinoQa.ENV)
 	public void templatePalettesResolve(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		Map<Identifier, Resource> files = server.getResourceManager().listResources("structure",
@@ -158,7 +158,7 @@ public class CasinoBuildingGameTests {
 	 * rotations worldgen picks): game blocks present (all ten families in a full casino), facing = a free player
 	 * cell, standing on a floor; v0.2 also keeps the board clearance free and is lit (≥ 10 over games, no dark floor).
 	 */
-	@GameTest(maxTicks = 600)
+	@GameTest(maxTicks = 600, environment = CasinoQa.ENV)
 	public void placesEveryCasinoInEveryRotation(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
@@ -205,7 +205,7 @@ public class CasinoBuildingGameTests {
 	 * C2S {@code table_action} receiver and moves money. The cashier sells chips for an emerald, the Croupier (if the
 	 * building has one) sells a scratch card through its shop page.
 	 */
-	@GameTest(maxTicks = 200)
+	@GameTest(maxTicks = 200, environment = CasinoQa.ENV)
 	public void everyGameOpensFromTheBuilding(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
@@ -269,7 +269,7 @@ public class CasinoBuildingGameTests {
 	 * 5. One casino per placement (D6): exactly one record intersects the building and its box holds every game
 	 * block; a full casino records the Croupier home, v0.2 standalone casinos also the Loan Shark and Baccarat Dealer.
 	 */
-	@GameTest(maxTicks = 100)
+	@GameTest(maxTicks = 100, environment = CasinoQa.ENV)
 	public void oneCasinoRecordPerStart(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
@@ -308,7 +308,7 @@ public class CasinoBuildingGameTests {
 	 * 6. Complete or absent (D5): the casino structure re-decoded with a jigsaw depth of 1 (entrance + floor only, the
 	 * bar never attaches) must never produce a start, while the real one does on the same flat chunks.
 	 */
-	@GameTest(maxTicks = 40)
+	@GameTest(maxTicks = 40, environment = CasinoQa.ENV)
 	public void incompleteAssemblyRejected(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		MinecraftServer server = level.getServer();
@@ -372,7 +372,7 @@ public class CasinoBuildingGameTests {
 	 * start generation ≤ 5 ms and p99 ≤ 25 ms. No chunk is generated (like WorldgenSpawnSurvey). Before the v0.2
 	 * structures exist the same survey runs on {@code minecraft:villages} (one seed) as a harness self-check.
 	 */
-	@GameTest(maxTicks = 40)
+	@GameTest(maxTicks = 40, environment = CasinoQa.ENV)
 	public void casinoFitRateAndGenerationTime(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		if (CasinoQa.standalone(server).isEmpty()) {
@@ -419,7 +419,7 @@ public class CasinoBuildingGameTests {
 	 * batch (a full build lost 5 bot tests to that); the mode path is {@code CasinoMode.onChange → refresh}. The config
 	 * path is exercised in one tick and restored.
 	 */
-	@GameTest
+	@GameTest(environment = CasinoQa.ENV)
 	public void worldgenRuntimeSnapshotTracksMode(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
@@ -451,7 +451,7 @@ public class CasinoBuildingGameTests {
 	 * 10. {@code worldgen.standalone.enabled = false}: the standalone set makes no start anywhere (default preset, real
 	 * structure-start generation, no chunk generated), village annexes still attach. One tick, restored after.
 	 */
-	@GameTest(maxTicks = 40)
+	@GameTest(maxTicks = 40, environment = CasinoQa.ENV)
 	public void standaloneDisabledKeepsAnnexes(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
@@ -481,7 +481,7 @@ public class CasinoBuildingGameTests {
 	}
 
 	/** 11. The test world is written without DSYNC ({@code GameTestServerMixin}): the shutdown save no longer takes ~30 min. */
-	@GameTest
+	@GameTest(environment = CasinoQa.ENV)
 	public void gameTestServerSkipsSyncWrites(GameTestHelper helper) {
 		helper.assertFalse(helper.getLevel().getServer().forceSynchronousWrites(), "GameTest server still forces synchronous chunk writes");
 		helper.succeed();
@@ -613,7 +613,7 @@ public class CasinoBuildingGameTests {
 	 * 8. Idle tick budget (§9.5): the casino's own server cost per tick — every game block entity's ticker plus every
 	 * NPC's tick — stays ≤ 1 ms (measured directly, so other tests running in parallel do not add noise).
 	 */
-	@GameTest(maxTicks = 100)
+	@GameTest(maxTicks = 100, environment = CasinoQa.ENV)
 	public void idleTickBudget(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		List<Target> targets = new ArrayList<>(CasinoQa.standalone(level.getServer()));

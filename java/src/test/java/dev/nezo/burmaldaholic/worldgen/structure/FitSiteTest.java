@@ -98,6 +98,36 @@ class FitSiteTest {
 		}
 	}
 
+	@Test
+	void rowsCoverEveryOutlineColumn() {
+		List<FitSite.Box> boxes = List.of(new FitSite.Box(0, 0, 40, 20), new FitSite.Box(10, -13, 30, -1), FitSite.templateBox(5, 7, 31, 17, 3));
+		for (int spacing : new int[] {4, 8, 16}) {
+			java.util.Set<Long> rows = new java.util.HashSet<>();
+			for (FitSite.Line l : FitSite.lines(boxes, spacing)) {
+				for (int i = 0; i < l.n(); i++) {
+					int x = l.alongX() ? l.x0() + i * l.spacing() : l.x0();
+					int z = l.alongX() ? l.z0() : l.z0() + i * l.spacing();
+					rows.add(((long) x << 32) | (z & 0xFFFFFFFFL));
+				}
+			}
+			List<int[]> pts = FitSite.points(boxes, List.of(), spacing);
+			int outline = 0;
+			for (int[] p : pts) {
+				boolean corner = false;
+				boolean centre = false;
+				for (FitSite.Box b : boxes) {
+					corner |= (p[0] == b.minX() || p[0] == b.maxX()) && (p[1] == b.minZ() || p[1] == b.maxZ());
+					centre |= p[0] == b.centerX() && p[1] == b.centerZ();
+				}
+				if (!corner && !centre) {
+					outline++;
+					assertTrue(rows.contains(((long) p[0] << 32) | (p[1] & 0xFFFFFFFFL)), "spacing " + spacing + ": outline " + p[0] + "," + p[1] + " in no row");
+				}
+			}
+			assertTrue(outline > 0);
+		}
+	}
+
 	private static int nearest(List<int[]> pts, int x, int z) {
 		int best = Integer.MAX_VALUE;
 		for (int[] p : pts) {

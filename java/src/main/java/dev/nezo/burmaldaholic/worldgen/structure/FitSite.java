@@ -129,6 +129,32 @@ public final class FitSite {
 		return out;
 	}
 
+	/** A straight row of outline columns: {@code (x0 + i·spacing, z0)} when {@code alongX}, else {@code (x0, z0 + i·spacing)}. */
+	public record Line(int x0, int z0, boolean alongX, int spacing, int n) {}
+
+	/**
+	 * The outline columns of {@link #points(List, List, int)} as straight rows (two per box side direction), so a
+	 * sampler can fetch a whole side in one call. Columns hidden inside another box are included (harmless extra).
+	 */
+	public static List<Line> lines(List<Box> boxes, int spacing) {
+		List<Line> out = new ArrayList<>();
+		for (Box b : boxes) {
+			int x0 = alignUp(b.minX(), spacing);
+			int nx = x0 > b.maxX() ? 0 : (b.maxX() - x0) / spacing + 1;
+			int z0 = alignUp(b.minZ(), spacing);
+			int nz = z0 > b.maxZ() ? 0 : (b.maxZ() - z0) / spacing + 1;
+			if (nx > 0) {
+				out.add(new Line(x0, b.minZ(), true, spacing, nx));
+				out.add(new Line(x0, b.maxZ(), true, spacing, nx));
+			}
+			if (nz > 0) {
+				out.add(new Line(b.minX(), z0, false, spacing, nz));
+				out.add(new Line(b.maxX(), z0, false, spacing, nz));
+			}
+		}
+		return out;
+	}
+
 	/** Outline column unless it lies strictly inside another box (a wall shared between pieces). */
 	private static void outline(Set<Long> seen, List<Box> boxes, int x, int z) {
 		for (Box o : boxes) {

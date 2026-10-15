@@ -324,6 +324,63 @@ public final class TerrainProbe {
 		}
 	}
 
+	/** True when {@link #line} samples a whole row of columns in one call (26.3 volume path). */
+	public boolean lines() {
+		return sampler263 != null;
+	}
+
+	/**
+	 * 26.3: {@code n} columns {@code (x0 + i·spacing, z0)} ({@code alongX}) or {@code (x0, z0 + i·spacing)} sampled in ONE
+	 * {@code sampleVolume} call (a lone 26.3 sample costs ~0.2 ms; a row shares that overhead). Each column gets a
+	 * {@link #WINDOW}-sample window {@link #WINDOW_HEADROOM} above {@code guess}; an entry is null when its window
+	 * does not bracket the surface (solid in the top {@link #AIR_RUN} samples, or no solid at all) — callers use
+	 * {@link #heights} for those. Null when the volume path is not available.
+	 */
+	public int @Nullable [][] line(int x0, int z0, boolean alongX, int spacing, int n, int guess) {
+		if (sampler263 == null || n <= 0) {
+			return null;
+		}
+		try {
+			int minY = height.getMinY();
+			int maxY = height.getMaxY();
+			int g = guess == NO_GUESS ? seaLevel + 32 : guess + WINDOW_HEADROOM;
+			int top = minY + Math.floorDiv(Math.clamp(g, minY, maxY) - minY, this.step) * this.step;
+			int low = top - (WINDOW - 1) * this.step;
+			if (low < minY || top > maxY) {
+				return null;
+			}
+			Object buf = BUFFER_263.invoke(n * WINDOW);
+			Object volume = alongX
+				? VOLUME_263.invoke(n, WINDOW, 1, x0, low, z0, spacing, this.step, 1)
+				: VOLUME_263.invoke(1, WINDOW, n, x0, low, z0, 1, this.step, spacing);
+			SAMPLE_VOLUME_263.invoke(sampler263, UNCACHED_263, buf, volume);
+			densityCalls += n * WINDOW;
+			int[][] out = new int[n][];
+			float[] v = new float[WINDOW];
+			for (int c = 0; c < n; c++) {
+				for (int i = 0; i < WINDOW; i++) {
+					v[i] = (float) BUFFER_GET_263.invoke(buf, c * WINDOW + i); // index = y + column · sizeY
+				}
+				boolean solidOnTop = false;
+				for (int i = WINDOW - AIR_RUN; i < WINDOW; i++) {
+					solidOnTop |= v[i] > 0;
+				}
+				if (solidOnTop) {
+					continue;
+				}
+				for (int i = WINDOW - 1; i >= 0; i--) {
+					if (v[i] > 0) {
+						out[c] = result(low + i * this.step, v[i], v[i + 1]);
+						break;
+					}
+				}
+			}
+			return out;
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
 	/** Diagnostic (26.3 volume path): nanoseconds to sample an {@code n × ny × n} grid (step 4, 8, 4); -1 without it. */
 	public long benchGrid(int x, int y, int z, int n, int ny) {
 		if (sampler263 == null) {

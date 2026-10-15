@@ -52,7 +52,7 @@ public class OtherworldFitSurvey {
 	private static final Vec[] PARLOR_SIZES = {new Vec(21, 12, 21), new Vec(33, 16, 33)};
 	private static final Vec[] LOUNGE_SIZES = {new Vec(15, 9, 15), new Vec(23, 14, 23), new Vec(25, 14, 25)};
 
-	@GameTest(maxTicks = 20)
+	@GameTest(maxTicks = 20, environment = CasinoQa.ENV)
 	public void fit(GameTestHelper helper) {
 		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
 			helper.succeed();

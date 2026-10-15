@@ -103,6 +103,8 @@ public final class CasinoStructure extends Structure {
 	public static volatile boolean prefit = false;
 	/** Outline spacing of the exact pass (contract: ≤ 4); surveys compare coarser ones. */
 	public static volatile int fineSpacing = FitSite.SPACING;
+	/** The same on 26.3 (row-volume sampler; coordinator decision 2026-10-14: 8, coarser to bound the cost). */
+	public static volatile int fineSpacing263 = 8;
 	/** Overrides {@code max_height_range} when ≥ 0 (surveys). */
 	public static volatile int heightRangeOverride = Integer.getInteger("burmaldaholic.casinoHeightRange", -1);
 
@@ -461,6 +463,47 @@ public final class CasinoStructure extends Structure {
 			CURRENT.remove();
 		}
 
+		/**
+		 * 26.3: fetches the outline rows (shifted by {@code dx, dz}) into the cache, one volume call per row; the
+		 * guess comes from the {@code anchor} column (a box corner), sampled first. Columns a row window cannot
+		 * bracket stay uncached and are sampled on their own later. No-op without the row sampler.
+		 */
+		void prefetch(List<FitSite.Line> rows, int dx, int dz, int[] anchor) {
+			if (rows.isEmpty()) {
+				return;
+			}
+			int guess = heights(anchor[0] + dx, anchor[1] + dz)[0];
+			for (FitSite.Line r : rows) {
+				int x0 = r.x0() + dx;
+				int z0 = r.z0() + dz;
+				// skip rows whose columns are all cached already (shifts reuse the lattice)
+				boolean missing = false;
+				for (int i = 0; i < r.n() && !missing; i++) {
+					missing = !columns.containsKey(BlockPos.asLong(r.alongX() ? x0 + i * r.spacing() : x0, 0, r.alongX() ? z0 : z0 + i * r.spacing()));
+				}
+				if (!missing) {
+					continue;
+				}
+				int d0 = probe.densityCalls;
+				int[][] got = probe.line(x0, z0, r.alongX(), r.spacing(), r.n(), guess);
+				if (got == null) {
+					return;
+				}
+				for (int i = 0; i < got.length; i++) {
+					if (got[i] != null) {
+						int x = r.alongX() ? x0 + i * r.spacing() : x0;
+						int z = r.alongX() ? z0 : z0 + i * r.spacing();
+						if (columns.putIfAbsent(BlockPos.asLong(x, 0, z), got[i]) == null && STATS.enabled) {
+							STATS.sampleColumns.incrementAndGet();
+						}
+					}
+				}
+				if (STATS.enabled) {
+					STATS.densitySamples.addAndGet(probe.densityCalls - d0);
+				}
+			}
+		}
+
 		/** {surface, floor} of a column ({@link TerrainProbe#heights}), cached. */
 		int[] heights(int x, int z) {
 			long key = BlockPos.asLong(x, 0, z);
@@ -535,8 +578,14 @@ public final class CasinoStructure extends Structure {
 	 * the middle of the (trimmed) span. The base spot's reason is reported when no candidate fits.
 	 */
 	static Fit site(Cell cell, List<FitSite.Box> boxes, List<int[]> throat, int range, int ref) {
-		List<int[]> fine = FitSite.points(boxes, throat, fineSpacing);
+		// 26.3 (volume sampler): lone samples are ~5x dearer than on 26.2, so the exact pass uses a coarser outline and
+		// every outline side is fetched as one row volume before the per-column checks
+		boolean rows = cell.probe.lines();
+		int fineStep = rows ? fineSpacing263 : fineSpacing;
+		List<int[]> fine = FitSite.points(boxes, throat, fineStep);
 		List<int[]> coarse = FitSite.points(boxes, throat, COARSE_SPACING);
+		List<FitSite.Line> fineRows = rows ? FitSite.lines(boxes, fineStep) : List.of();
+		List<FitSite.Line> coarseRows = rows ? FitSite.lines(boxes, COARSE_SPACING) : List.of();
 		Set<Long> throatKeys = new java.util.HashSet<>();
 		for (int[] t : throat) {
 			throatKeys.add(BlockPos.asLong(t[0], 0, t[1]));
@@ -548,8 +597,10 @@ public final class CasinoStructure extends Structure {
 			int dx = OFFSETS[k][0];
 			int dz = OFFSETS[k][1];
 			// coarse pass first (cheap rejection of a bad shift), then every outline column of the survivor
+			cell.prefetch(coarseRows, dx, dz, coarse.getFirst());
 			Reason verdict = check(cell, coarse, throatKeys, dx, dz, range, span);
 			if (verdict == Reason.OK) {
+				cell.prefetch(fineRows, dx, dz, coarse.getFirst());
 				verdict = check(cell, fine, throatKeys, dx, dz, range, span);
 			}
 			if (verdict == Reason.OK) {

@@ -71,6 +71,13 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * {@code -Dburmaldaholic.requireCasinoV2=true} turns "v0.2 content missing" into a failure (integration gate).
  */
 public final class CasinoQa {
+	/**
+	 * GameTest environment of the long casino / survey tests (CasinoBuildingGameTests, WorldgenSpawnSurvey,
+	 * OtherworldFitSurvey): their own batch, so seconds of synchronous survey work on the server thread never run in
+	 * the same batch as the tick-timed bot tests (a full build lost 3-5 bot tests to that).
+	 */
+	public static final String ENV = "burmaldaholic:casino_worldgen";
+
 	public static final List<String> STYLES = List.of("tudor", "oasis", "safari", "alpine", "ice_palace");
 	public static final Identifier SET = Identifier.parse("burmaldaholic:casinos");
 	public static final Identifier TAG = Identifier.parse("burmaldaholic:casino");
