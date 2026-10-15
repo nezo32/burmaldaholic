@@ -41,6 +41,12 @@ public record CrapsView(boolean seated, boolean seatFree, long balance, long min
 		settling |= rolling;
 	}
 
+	/** This view with other bets on the layout (the screen shows the bets as they were while the throw is shown). */
+	public CrapsView withBets(List<BetPub> other) {
+		return new CrapsView(seated, seatFree, balance, min, max, enabled, point, youShoot, canRoll, needLine, window, windowSeconds, rollSeconds, shooter,
+			canUndo, allowed, other, rolling, seats, settling);
+	}
+
 	/** A view without the settling beat (the felt and Roll share the throw gate). */
 	public CrapsView(boolean seated, boolean seatFree, long balance, long min, long max, boolean enabled, int point, boolean youShoot, boolean canRoll,
 			boolean needLine, boolean window, long windowSeconds, long rollSeconds, String shooter, boolean canUndo, List<String> allowed, List<BetPub> bets,

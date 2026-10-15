@@ -89,6 +89,7 @@
 	"gui.burmaldaholic.craps.v2.reason.odds_need_pass": "Нужна ставка на пасс",
 	"gui.burmaldaholic.craps.v2.reason.already_placed": "Ставка уже стоит, её можно отменить",
 	"gui.burmaldaholic.craps.v2.reason.come_needs_point": "Кам открыт, когда есть поинт",
+	"gui.burmaldaholic.craps.v2.reason.min_raised": "Минимум стола: %1$s",
 	"gui.burmaldaholic.craps.v2.status.come_out": "Первый бросок",
 	"gui.burmaldaholic.craps.v2.status.point": "Поинт — %1$s",
 	"gui.burmaldaholic.craps.v2.status.sit_or_bet": "Сядьте или нажмите на ставку",

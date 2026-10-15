@@ -78,7 +78,7 @@ public final class CrapsLayout {
 	public final int chip, puck;
 	public final int gap;
 
-	private CrapsLayout(TableGrid g) {
+	private CrapsLayout(TableGrid g, int reserveBottom) {
 		this.grid = g;
 		this.tier = g.tier;
 		int m = tier.margin;
@@ -93,7 +93,9 @@ public final class CrapsLayout {
 		int x0 = g.play.x() + m + 4;
 		int y0 = g.play.y() + m + 2;
 		int w = g.play.w() - 2 * (m + 4);
-		int h = g.play.h() - (m + 2) - (m + 6);
+		// T-D2 V5: the Dock's hint strip (status line 2 when the status box is narrow) sits above the Dock inside the
+		// PlayArea: the felt ends above it
+		int h = g.play.h() - (m + 2) - Math.max(m + 6, reserveBottom + 2);
 		felt = new Box(x0, y0, w, h);
 		backWall = new Box(x0, y0, w, wallH);
 		arena = new Box(x0, backWall.bottom(), w, felt.bottom() - backWall.bottom());
@@ -197,7 +199,47 @@ public final class CrapsLayout {
 	}
 
 	public static CrapsLayout of(TableGrid g) {
-		return new CrapsLayout(g);
+		return new CrapsLayout(g, 0);
+	}
+
+	/** The layout with {@code reserveBottom} px kept free above the Dock (the Dock's hint strip). */
+	public static CrapsLayout of(TableGrid g, int reserveBottom) {
+		return new CrapsLayout(g, Math.max(0, reserveBottom));
+	}
+
+	/**
+	 * Where the value pill ({@code w} × 11) of one of your stacks goes (T-D2 V1): above-right of its top disc, else
+	 * above-left, then centred higher, then beside it — inside the felt, off every printed glyph, the dice zone, the
+	 * total / caption and the pills already placed ({@code placed}, appended to).
+	 */
+	public Box valueTag(Box stack, int discs, int w, List<Box> placed) {
+		int top = stack.bottom() - stack.w() - Math.min(MAX_DISCS - 1, Math.max(0, discs - 1)) - 1;
+		Box[] tries = {new Box(stack.right() - 2, top - 9, w, 11), new Box(stack.x() - w + 2, top - 9, w, 11), new Box(stack.cx() - w / 2, top - 12, w, 11),
+			new Box(stack.right() + 1, stack.bottom() - 11, w, 11), new Box(stack.x() - w - 1, stack.bottom() - 11, w, 11)};
+		List<Box> avoid = new ArrayList<>(glyphs());
+		avoid.add(diceZone.inset(-die / 2));
+		avoid.add(total);
+		avoid.add(pointCaption);
+		Box pick = null;
+		for (Box c : tries) {
+			Box in = c;
+			if (in.right() > felt.right() - 1) in = in.offset(felt.right() - 1 - in.right(), 0);
+			if (in.x() < felt.x() + 1) in = in.offset(felt.x() + 1 - in.x(), 0);
+			if (in.y() < felt.y() + 1) in = in.offset(0, felt.y() + 1 - in.y());
+			boolean clear = true;
+			for (Box o : avoid) if (o.intersects(in)) clear = false;
+			for (Box o : placed) if (o.intersects(in)) clear = false;
+			if (clear) {
+				pick = in;
+				break;
+			}
+		}
+		if (pick == null) {
+			pick = tries[0];
+			for (Box o : placed) if (o.intersects(pick)) pick = pick.offset(0, o.y() - pick.bottom() - 1);
+		}
+		placed.add(pick);
+		return pick;
 	}
 
 	public Box point(int point) {

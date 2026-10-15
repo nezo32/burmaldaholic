@@ -159,7 +159,9 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	@Override
 	protected CrapsView view(CompoundTag s) {
-		return CrapsView.read(s, secondsLeft(s, "window"), secondsLeft(s, "roll"), rolling(), settling());
+		CrapsView v = CrapsView.read(s, secondsLeft(s, "window"), secondsLeft(s, "roll"), rolling(), settling());
+		// T-D2 V6: while the throw is shown the felt (and the Dock's "on table") show the bets as they were before it
+		return rolling() ? v.withBets(prevBets()) : v;
 	}
 
 	@Override
@@ -229,10 +231,14 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	}
 
 	private static boolean restMismatchLogged;
+	private int layoutStrip = -1;
 
 	@Override
 	protected void layoutPlay(TableGrid grid, CrapsView v, HitMap hits) {
-		CrapsLayout l = CrapsLayout.of(grid);
+		var dock = chrome.dock();
+		int strip = dock == null || dock.hintStrip().isEmpty() ? 0 : dock.hintStrip().h();
+		layoutStrip = strip;
+		CrapsLayout l = CrapsLayout.of(grid, strip);
 		if (!l.felt.equals(layout.felt)) chipPlan = null;
 		layout = l;
 		live.clear();
@@ -277,6 +283,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		args.putLong("amount", c.amount());
 		sendTracked(c.action(), args, id, c.amount());
 		startPlacing(id, c.action(), c.amount(), chip);
+		// T-D2 P-1: a chip under the table minimum bets the minimum: say so
+		if (c.action().equals("bet") && chip < view.min()) chrome.status.flash(V2Draw.tr(K2 + "reason.min_raised", Texts.number(view.min())));
 		return true;
 	}
 
@@ -461,6 +469,9 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, CrapsView v, int mx, int my, float a) {
 		partial = a;
 		k = Math.max(1, grid.viewport.k());
+		var dock = chrome.dock();
+		int strip = dock == null || dock.hintStrip().isEmpty() ? 0 : dock.hintStrip().h();
+		if (strip != layoutStrip) refresh(); // the Dock opened / closed its hint strip after the felt was laid out
 		CrapsLayout l = layout;
 		CasinoTheme theme = theme();
 		int print = V2Felt.print(theme);
@@ -593,7 +604,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			int w = f.width(n) * l.pointScale;
 			V2Draw.text(g, f, n, gl.cx() - w / 2, gl.y(), l.pointScale, print, true);
 		}
-		big(g, Component.translatable(K + "layout.come"), l.comeWord, print);
+		// T-D2 V3: the result banner may sit on the COME word: then the word is not printed under it
+		if (!chrome.banner.active()) big(g, Component.translatable(K + "layout.come"), l.comeWord, print);
 		big(g, Component.translatable(K + "layout.field"), l.fieldWord, print);
 		int numScale = l.tier == Tier.T3 ? 2 : 1;
 		for (int i = 0; i < l.fieldNumbers.length; i++) {
@@ -909,9 +921,13 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			if (w <= sheet - 4) {
 				g.text(font, word, (sheet - w) / 2, (sheet - 7) / 2, c, false);
 			} else {
-				// RU "ВКЛ" / small pucks: half size (still ≥ 2 real px per glyph px at GUI 4)
+				// T-D2 V4: the word always fits inside the disc (the face is ~60 % of the puck); the scale keeps whole
+				// physical px per glyph px
+				double room = sheet * 0.62;
+				double sc = Math.floor(room / w * k) / k;
+				if (sc <= 0) sc = 1.0 / k;
 				g.pose().translate(sheet / 2f, sheet / 2f);
-				g.pose().scale(0.5f, 0.5f);
+				g.pose().scale((float) sc, (float) sc);
 				g.text(font, word, -w / 2, -4, c, false);
 			}
 		}
@@ -1098,30 +1114,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	 */
 	private void valueTag(GuiGraphicsExtractor g, Box stack, long amount, List<Box> placed) {
 		Component n = Texts.number(amount);
-		int w = ValuePill.width(font, n);
-		int top = stack.bottom() - stack.w() - Math.min(3, ChipStack.discs(amount).size() - 1) - 1;
-		Box felt = layout.felt;
-		Box[] tries = {new Box(stack.right() - 2, top - 9, w, 11), new Box(stack.x() - w + 2, top - 9, w, 11), new Box(stack.cx() - w / 2, top - 12, w, 11),
-			new Box(stack.right() + 1, stack.bottom() - 11, w, 11)};
-		Box tag = null;
-		for (Box c : tries) {
-			Box in = c;
-			if (in.right() > felt.right() - 1) in = in.offset(felt.right() - 1 - in.right(), 0);
-			if (in.x() < felt.x() + 1) in = in.offset(felt.x() + 1 - in.x(), 0);
-			if (in.y() < felt.y() + 1) in = in.offset(0, felt.y() + 1 - in.y());
-			boolean clear = true;
-			for (Box gl : layout.glyphs()) if (gl.intersects(in)) clear = false;
-			for (Box o : placed) if (o.intersects(in)) clear = false;
-			if (clear) {
-				tag = in;
-				break;
-			}
-		}
-		if (tag == null) {
-			tag = tries[0];
-			for (Box o : placed) if (o.intersects(tag)) tag = tag.offset(0, o.y() - tag.bottom() - 1);
-		}
-		placed.add(tag);
+		Box tag = layout.valueTag(stack, ChipStack.discs(amount).size(), ValuePill.width(font, n), placed);
 		ValuePill.draw(g, font, tag, n, ValuePill.Style.YOU);
 	}
 

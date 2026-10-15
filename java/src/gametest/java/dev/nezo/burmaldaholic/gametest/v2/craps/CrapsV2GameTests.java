@@ -297,7 +297,9 @@ public class CrapsV2GameTests {
 		t.bots().table().requestChange(p, new BotSettings(SeatPolicy.MIXED, 2, BotDifficulty.NORMAL, false, false, BotSpeed.FAST), false);
 		act(p, t, "bet", flat("pass", 20));
 		helper.assertTrue(bet(t, p, BetKind.PASS) != null, "Pass lands: " + drain(p, t).errors());
-		t.roll(3, 3); // point 6 (the Pass bet stays); the roll is the bots' safe point: they sit down
+		// a natural keeps the come-out on (T-D2 G1: with a point on, ROCK / TAG bots bet nothing, so the test waited on
+		// random dice); the roll is the bots' safe point: they sit down
+		t.roll(5, 6);
 		long[] betAt = {-1};
 		helper.onEachTick(() -> {
 			if (betAt[0] < 0 && !t.botBets().shadow().bets().isEmpty()) betAt[0] = helper.getLevel().getGameTime();

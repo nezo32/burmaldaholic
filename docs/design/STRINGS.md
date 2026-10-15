@@ -1619,7 +1619,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.v2.field_mult` | x%1$s | x%1$s |
 | `gui.burmaldaholic.craps.v2.reason.disabled` | Craps is switched off on this server | Крэпс отключён на этом сервере |
 | `gui.burmaldaholic.craps.v2.reason.not_enough` | Not enough chips: %1$s needed | Не хватает фишек: нужно %1$s |
-| `gui.burmaldaholic.craps.v2.reason.need_line` | Bet the Pass Line or Don't Pass to roll | Для броска нужна ставка на пасс |
+| `gui.burmaldaholic.craps.v2.reason.need_line` | Bet Pass or Don't Pass to roll | Для броска нужна ставка на пасс |
 | `gui.burmaldaholic.craps.v2.reason.wait_roll` | Bets are open: roll in %1$s s | Идёт приём ставок: бросок через %1$s с |
 | `gui.burmaldaholic.craps.v2.reason.wait_settling` | The bets are being paid | Выплата ставок |
 | `gui.burmaldaholic.craps.v2.reason.no_shooter` | Bet the Pass Line to get the dice | Поставьте на пасс, чтобы бросать |
@@ -1633,6 +1633,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.v2.reason.odds_need_pass` | Odds need a Pass Line bet | Нужна ставка на пасс |
 | `gui.burmaldaholic.craps.v2.reason.already_placed` | Bet is down: Undo to change it | Ставка уже стоит, её можно отменить |
 | `gui.burmaldaholic.craps.v2.reason.come_needs_point` | Come opens once a point is on | Кам открыт, когда есть поинт |
+| `gui.burmaldaholic.craps.v2.reason.min_raised` | Table minimum: %1$s | Минимум стола: %1$s |
 | `gui.burmaldaholic.craps.v2.status.come_out` | Come-out roll | Первый бросок |
 | `gui.burmaldaholic.craps.v2.status.point` | Point is %1$s | Поинт — %1$s |
 | `gui.burmaldaholic.craps.v2.status.sit_or_bet` | Sit down or click a bet | Сядьте или нажмите на ставку |

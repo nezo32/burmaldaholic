@@ -259,6 +259,10 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		if (isSeated(player)) {
 			return true;
 		}
+		// T-D2 V8: a preset's VIP tier is checked at the seat (like High-Roller blackjack), not after it at the first bet
+		if (!presetTierAllowed(player)) {
+			return false;
+		}
 		// Seats & Bots: private table, someone's BOTS_ONLY table, claimant of a bot seat (BOTS.md §3.2)
 		Result<Boolean> admit = bots.admit(player);
 		if (!admit.isOk()) {

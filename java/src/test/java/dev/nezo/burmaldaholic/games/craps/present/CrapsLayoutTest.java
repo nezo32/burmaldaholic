@@ -175,6 +175,27 @@ class CrapsLayoutTest {
 		}
 	}
 
+	/** T-D2 V1: your value pills never sit on a printed number / word, the dice zone or the total, at every size. */
+	@Test
+	void valuePillsStayOffThePrint() {
+		for (int[] s : sizes()) {
+			for (int strip : new int[] {0, 11}) {
+				CrapsLayout l = CrapsLayout.of(TableGrid.of(s[0], s[1]), strip);
+				List<Box> placed = new ArrayList<>();
+				List<Box> stacks = new ArrayList<>(List.of(l.stack("pass", 0, Layer.MINE), l.stack("pass", 0, Layer.ODDS), l.stack("field", 0, Layer.MINE),
+					l.stack("dont_pass", 0, Layer.MINE), l.stack("come", 0, Layer.MINE)));
+				stacks.add(l.stack("come", 6, Layer.MINE));
+				stacks.add(l.stack("come", 6, Layer.ODDS));
+				for (Box st : stacks) {
+					Box tag = l.valueTag(st, 4, 6 * 3 + 6, placed);
+					for (Box gl : l.glyphs()) assertTrue(!tag.intersects(gl), s[0] + "x" + s[1] + " strip " + strip + " pill " + tag + " on glyph " + gl);
+					assertTrue(!tag.intersects(l.total) && !tag.intersects(l.diceZone.inset(-l.die / 2)), s[0] + "x" + s[1] + " pill " + tag + " on the dice / total");
+					assertTrue(tag.inside(l.felt), s[0] + "x" + s[1] + " pill " + tag + " off the felt");
+				}
+			}
+		}
+	}
+
 	@Test
 	void spotIdsRoundTrip() {
 		assertEquals("point", CrapsLayout.kindOf(CrapsLayout.pointId(8)));

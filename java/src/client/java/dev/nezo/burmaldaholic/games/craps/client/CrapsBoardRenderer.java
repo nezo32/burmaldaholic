@@ -516,7 +516,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		pose.translate(s.puckX, y + 0.006f + s.puckY, s.puckZ);
 		if (s.puckFlip > 0 && s.puckFlip < 1) {
 			float ang = (float) Math.toRadians(180 * s.puckFlip);
-			pose.mulPose(new org.joml.Quaternionf().rotateAxis(ang, -s.puckDirZ, 0, s.puckDirX));
+			pose.rotateAround(new org.joml.Quaternionf().rotateAxis(ang, -s.puckDirZ, 0, s.puckDirX), 0f, 0f, 0f);
 		}
 		// before the turn the start face is up (the end face under it); once turned the end face is up
 		boolean turned = s.puckFlip >= 1;
