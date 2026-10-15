@@ -155,8 +155,8 @@ class GrandCasinoTest {
 	void theDomeAndTowersCrownTheSkyline() {
 		Grid g = whole(GrandCasino.Variant.RIVIERA).layout().grid();
 		int dome = top(g, GrandCasino.CX, GrandCasino.DOME_Z);
-		int tower = top(g, 4, 31);
-		int crown = top(g, GrandCasino.CX, GrandCasino.Z_LOGGIA);
+		int tower = top(g, 4, GrandCasino.Z_TOWER + 3);
+		int crown = top(g, GrandCasino.CX, GrandCasino.Z_SIGN);
 		int cornice = GrandCasino.CEIL_Y + 2;
 		assertTrue(dome >= cornice + 12, "dome lantern " + dome);
 		assertTrue(tower >= cornice + 10, "tower finial " + tower);

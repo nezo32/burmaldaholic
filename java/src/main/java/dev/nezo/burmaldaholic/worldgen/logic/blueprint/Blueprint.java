@@ -590,6 +590,11 @@ public final class Blueprint {
 	 * the games and their kits (carpets) are placed.
 	 */
 	public Blueprint uplightGames() {
+		return uplightGames(false);
+	}
+
+	/** {@link #uplightGames()}; {@code underCarpet} keeps a carpet on the tile (light passes, the floor pattern stays). */
+	public Blueprint uplightGames(boolean underCarpet) {
 		BlockSpec tile = palette.block(Role.UPLIGHT);
 		for (Piece.GameSpot s : games) {
 			for (Vec v : uplightCells(s)) {
@@ -598,7 +603,9 @@ public final class Blueprint {
 				}
 				BlockSpec above = grid.inside(v.x(), v.y() + 1, v.z()) ? grid.get(v.x(), v.y() + 1, v.z()) : null;
 				if (above != null && Shapes.isCarpet(above.name())) {
-					grid.set(v.x(), v.y() + 1, v.z(), AIR);
+					if (!underCarpet) {
+						grid.set(v.x(), v.y() + 1, v.z(), AIR);
+					}
 				} else if (above != null && !above.is("minecraft:air")) {
 					continue; // something stands on that cell (a stool, a planter): leave the floor alone
 				}
