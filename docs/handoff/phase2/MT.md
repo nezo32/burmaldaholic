@@ -102,7 +102,24 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
   onto the full face. Layouts: machines stamped full (village wheel moved to x13..15).
 
 ## Verified (commands and results)
-See the "Gates" section below (filled at the end).
+All in `java/` with JDK 25, heavy runs via `with-heavy-lock.sh`, client runs nested in `with-client-lock.sh`.
+- Final (2026-10-15, after visual pass 2, policy "test only what changed"): `compileJava compileClientJava
+  compileGametestJava` on 26.2 and `-Pmc=26.3` → OK; `test --tests 'dev.nezo.burmaldaholic.core.table.parts.*'
+  --tests '*RawInputGuardTest' --tests '*worldgen.logic*' --tests '*BotsLogicTest'` → OK; `runGameTest
+  -Dfabric-api.gametest.filter=multi_block` → **All 12 required tests passed** on 26.2 and on `-Pmc=26.3`.
+- Tools: `npm ci && npm run gen:assets && npm run check:assets && npm test` → assets OK, 60/60 (furniture tests 5/5).
+- Earlier full gates (before the policy change): `./gradlew build` (26.2) → all 233 server GameTests passed (one run
+  failed only on an asset contract test mid-regeneration, fixed); full 26.3 `runGameTest` found the 26.3 loot-format
+  issue (now fixed in code, see MT-1).
+- Worldgen: `runGameTest -Dfabric-api.gametest.filter=worldgen` → 15/15 (26.2); old-template survey 59/64 GROW.
+- Client (CGT=MT, 26.3, real window 1280×720, one JVM): `MultiBlockTableClientGameTests` passed (use key on the far
+  BACK_LEFT part opens the main block's screen; walking into the table is stopped). Shots: `.burmaldaholic-tools/shots/MT/
+  run1` (first models), `run2` (machines v1), `run3` (visual pass 2: tables, machines, night). The wood-seam removal
+  after run3 is texture-only and was not re-shot.
+- javap (26.2 vs 26.3 jars): all §7 APIs identical except `PushReaction` constants (BLOCK → IMMOVEABLE: not used),
+  `Properties.isViewBlocking` lambda type (not used), `Block.playerDestroy` signature (not overridden), and inlined
+  `LevelEvent.PARTICLES_DESTROY_BLOCK` (2001 vs 2014: not used); model elements: `light_emission` and
+  `rotation {axis, angle}` (any angle) parse the same on both.
 
 ## Not verified / open items
 - Chunk-border cascade guard is covered by code review only (no GameTest unloads a neighbour chunk).
