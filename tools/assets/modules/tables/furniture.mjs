@@ -97,7 +97,8 @@ export function woodTexture(theme) {
   const t = THEMES[theme];
   const img = image(16, 16);
   const r = rng(0xb00d + theme.length * 31);
-  // lacquered hardwood: 3-tone long grain + a highlight streak, a panel seam at x = 0 (every block), seamless
+  // lacquered hardwood: 3-tone long grain + a highlight streak, seamless (no baked seam: curved aprons are many short
+  // segments, each starting its UV at 0, so a seam column would repeat every 3 px)
   for (let y = 0; y < 16; y++) {
     const phase = (y * 7) % 16;
     for (let x = 0; x < 16; x++) {
@@ -110,8 +111,6 @@ export function woodTexture(theme) {
       put(img, x, y, c(t.wood[k]));
     }
   }
-  for (let y = 0; y < 16; y++) P(img, 0, y, t.wood[4]);
-  for (let y = 0; y < 16; y++) P(img, 1, y, t.wood[0], 0.35);
   return img;
 }
 
