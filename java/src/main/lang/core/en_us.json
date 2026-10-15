@@ -251,6 +251,7 @@
 	"gui.burmaldaholic.core.board.felt.pair": "PAIR",
 	"gui.burmaldaholic.core.board.felt.uth_qualifies": "DEALER QUALIFIES WITH A PAIR OR BETTER",
 	"gui.burmaldaholic.core.board.felt.pot": "POT",
+	"gui.burmaldaholic.core.board.limits": "%1$s–%2$s",
 	"msg.burmaldaholic.core.welcome": "Welcome to Burmaldaholic! Here's your Casino Card and %1$s for luck.",
 	"msg.burmaldaholic.core.welcome_hint": "Mine, fight and trade to earn chips. Spend them at the tables. Try not to spend all of them.",
 	"msg.burmaldaholic.core.mode_enabled": "Casino mode is ON. The doors are open.",

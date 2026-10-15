@@ -251,6 +251,7 @@
 	"gui.burmaldaholic.core.board.felt.pair": "ПАРА",
 	"gui.burmaldaholic.core.board.felt.uth_qualifies": "ДИЛЕР В ИГРЕ С ПАРОЙ И ВЫШЕ",
 	"gui.burmaldaholic.core.board.felt.pot": "БАНК",
+	"gui.burmaldaholic.core.board.limits": "%1$s–%2$s",
 	"msg.burmaldaholic.core.welcome": "Добро пожаловать в Бурмалдоголик! Держите клубную карту и %1$s на удачу.",
 	"msg.burmaldaholic.core.welcome_hint": "Копайте, сражайтесь и торгуйте — за это дают фишки. Тратьте их за столами. Желательно не все.",
 	"msg.burmaldaholic.core.mode_enabled": "Режим казино ВКЛЮЧЁН. Двери открыты.",

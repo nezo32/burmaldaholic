@@ -392,6 +392,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.core.board.felt.pair` | PAIR | ПАРА |
 | `gui.burmaldaholic.core.board.felt.uth_qualifies` | DEALER QUALIFIES WITH A PAIR OR BETTER | ДИЛЕР В ИГРЕ С ПАРОЙ И ВЫШЕ |
 | `gui.burmaldaholic.core.board.felt.pot` | POT | БАНК |
+| `gui.burmaldaholic.core.board.limits` | %1$s–%2$s | %1$s–%2$s |
 
 ### Messages
 

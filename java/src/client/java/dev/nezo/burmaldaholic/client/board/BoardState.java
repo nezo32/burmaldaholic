@@ -190,6 +190,17 @@ public class BoardState extends SpectatorRenderState {
 	}
 
 	/**
+	 * The table's bet limits: drawn on the furniture's table-limit placard of a full table (MT {@code table_geom.mjs}
+	 * props: dealer side, left), e.g. "1–100". Games call it from {@code fill} with their public min / max.
+	 */
+	public void limits(long min, long max) {
+		BoardModel m = model;
+		if (m == null || min <= 0) return;
+		m.limitMin = min;
+		m.limitMax = max;
+	}
+
+	/**
 	 * The dealer's (or the community) cards repeated on the floating board at a readable size within
 	 * {@link #FAN_RANGE}: card ids, −1 for a card lying face down. Pass only what the felt shows.
 	 */

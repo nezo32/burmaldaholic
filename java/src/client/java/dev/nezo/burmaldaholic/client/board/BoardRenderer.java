@@ -189,6 +189,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
 		FeltPainter.submit(pose, out, s, light);
 		st.feltQuads += FeltPainter.quads(s);
+		if (s.font != null) FeltPrint.placard(pose, out, s.font, s, m);
 		mapDesign(pose, s);
 		if (s.font != null) FeltPrint.submit(pose, out, s.font, s, s.seatCount);
 		if (m.cardCount > 0) {

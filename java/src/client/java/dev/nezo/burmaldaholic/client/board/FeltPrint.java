@@ -148,6 +148,37 @@ final class FeltPrint {
 		return new int[] {(int) Math.round(payout * 10), 10};
 	}
 
+	/**
+	 * The table-limit placard of a full card / craps table (MT {@code table_geom.mjs} props: plate x −13.5…−9.5 px,
+	 * front face z −12.75 px, y 15.5…19.5 px, footprint-local): the limits ({@link BoardState#limits}) in dark enamel ink
+	 * on its lower half, full-bright like the lit plate. Pose: FACING only (footprint coordinates). Within 8 blocks.
+	 */
+	static void placard(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, BoardModel m) {
+		var f = s.frame;
+		if (!s.full || f == null || f.hasWheel() || m.limitMin <= 0 || !s.showsPlates()) return;
+		long min = m.limitMin, max = m.limitMax;
+		Prepared t = text(font, s.lang, "limits" + min + "_" + max, max > 0
+			? Component.translatable("gui.burmaldaholic.core.board.limits", dev.nezo.burmaldaholic.core.text.Texts.number(min),
+				dev.nezo.burmaldaholic.core.text.Texts.number(max))
+			: dev.nezo.burmaldaholic.core.text.Texts.number(min));
+		if (t.total <= 0) return;
+		float plateW = 4 / 16f * 0.86f;
+		float scale = Math.min(plateW / t.total, 0.0045f);
+		float cx = -11.5f / 16f, y = 16.9f / 16f, z = -12.75f / 16f + 0.002f;
+		pose.pushPose();
+		pose.translate(cx, y, z);
+		pose.scale(scale, -scale, scale);
+		float x = -t.total / 2;
+		for (int i = 0; i < t.chars.length; i++) {
+			out.submitText(pose, x, -3.5f, t.chars[i], false, Font.DisplayMode.POLYGON_OFFSET, Quads.FULL_BRIGHT, PLACARD_INK, 0, 0);
+			x += t.widths[i];
+		}
+		pose.popPose();
+	}
+
+	/** Enamel ink of the placard limits. */
+	static final int PLACARD_INK = 0xFF1A1C2C;
+
 	/** A betting mark (atlas cell 0..3) centred on design (x, z), {@code size} blocks wide, tinted. */
 	private static void mark(PoseStack pose, SubmitNodeCollector out, int cell, float x, float z, float size, int argb, int light) {
 		float h = size / 2, y = MARK_Y;
