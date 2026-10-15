@@ -81,9 +81,11 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	private float partial;
 	// the spin (RO: RouletteSpin, sampled at ms since the launch = the NO_MORE_BETS start)
 	/** Tests: ms since the launch (overrides the shared clock; null in production). */
-	static @Nullable DoubleSupplier testClock;
+	public static @Nullable DoubleSupplier testClock;
+	/** Tests: local RESULT ms (overrides the local result clock; null in production). */
+	public static @Nullable DoubleSupplier testResultClock;
 	/** Tests: records every decorative effect that passed the reduced-motion / flashes gate. */
-	static FxGate.@Nullable Recorder recorder;
+	public static FxGate.@Nullable Recorder recorder;
 	private @Nullable RouletteSpin spin;
 	private int spinSeqBuilt = Integer.MIN_VALUE;
 	private int spinResultBuilt = Integer.MIN_VALUE;
@@ -376,6 +378,8 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	private double cursorAt = -1;
 
 	private double resultMs() {
+		DoubleSupplier test = testResultClock;
+		if (test != null) return test.getAsDouble();
 		long start = state().getLongOr("phase_start", 0);
 		double shared = phaseMs();
 		if (localStartFor != start) {

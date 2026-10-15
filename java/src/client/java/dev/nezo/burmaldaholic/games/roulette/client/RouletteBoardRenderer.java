@@ -70,6 +70,11 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 	private static final float Y = BoardGeometry.TOP;
 	private static final int SEGMENTS = 24;
 
+	/** Client GameTests: whether the last frame drew a ball, and its angle relative to the rotor, per table (block pos). */
+	public static final Map<Long, double[]> TEST_BALL = new java.util.concurrent.ConcurrentHashMap<>();
+	/** Client GameTests switch the probe on (no per-frame work in production). */
+	public static volatile boolean testProbe;
+
 	public RouletteBoardRenderer(BlockEntityRendererProvider.Context ctx) {
 		super(ctx);
 	}
@@ -183,6 +188,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 		// stacks on the layout (not on the 1 × 1 fallback: no room for a layout there)
 		if (!fallback) stacks(s, sync, pub, shown, c);
 		lines(be, s, sync, pub, shown >= 0, shown);
+		if (testProbe) TEST_BALL.put(be.getBlockPos().asLong(), new double[] {s.ball ? 1 : 0, s.ballAngle - s.rotor, s.ballR, Math.sqrt(s.distSq)});
 		plates(be, s, pub);
 	}
 
