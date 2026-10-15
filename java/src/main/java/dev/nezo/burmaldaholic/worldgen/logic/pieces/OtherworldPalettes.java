@@ -13,33 +13,45 @@ import java.util.List;
 public final class OtherworldPalettes {
 	private OtherworldPalettes() {}
 
-	/** Piglin Parlor "Gold Vault": blackstone hall, gold trim, crimson ceiling, warped seats, lava light. */
+	/**
+	 * Piglin Parlor "Bastion Baroque" (CR-2): the Piglin Manor's blackstone and crimson, polished-basalt order, red
+	 * nether-brick trim, waxed-copper gilt, shroomlight neon on blackstone with an ochre froglight chaser, a deep red
+	 * casino field with a gilt border. No gold or gilded blackstone (Checks FORBIDDEN / no valuables).
+	 */
 	public static final Palette PARLOR = Palette.builder("parlor")
 		.put(Role.FOUNDATION, Material.of("minecraft:blackstone", "minecraft:blackstone_stairs", "minecraft:blackstone_slab"))
 		.put(Role.FLOOR, Material.of("minecraft:polished_blackstone", "minecraft:polished_blackstone_stairs", "minecraft:polished_blackstone_slab"))
-		.put(Role.FLOOR_ACCENT, Material.of("minecraft:gilded_blackstone"))
+		.put(Role.FLOOR_ACCENT, Material.of("minecraft:polished_blackstone_bricks"))
 		.put(Role.CARPET, "minecraft:red_carpet")
-		.put(Role.CARPET_ACCENT, "minecraft:yellow_carpet")
+		.put(Role.CARPET_ACCENT, "minecraft:red_carpet")
+		.put(Role.CARPET_PATTERN, "minecraft:yellow_carpet")
 		.put(Role.WALL, Material.of("minecraft:polished_blackstone_bricks", "minecraft:polished_blackstone_brick_stairs",
 			"minecraft:polished_blackstone_brick_slab"))
 		.put(Role.WALL_BASE, Material.of("minecraft:polished_blackstone", "minecraft:polished_blackstone_stairs",
 			"minecraft:polished_blackstone_slab"))
 		.put(Role.FRAME, "minecraft:chiseled_polished_blackstone")
-		.put(Role.BEAM, "minecraft:crimson_stem")
+		.put(Role.COLUMN, "minecraft:polished_basalt")
+		.put(Role.CAPITAL, "minecraft:chiseled_polished_blackstone")
+		.put(Role.BEAM, "minecraft:stripped_crimson_stem")
 		.put(Role.CEILING, Material.of("minecraft:crimson_planks", "minecraft:crimson_stairs", "minecraft:crimson_slab"))
+		.put(Role.COFFER, Material.of("minecraft:nether_wart_block"))
 		.put(Role.ROOF, Material.of("minecraft:blackstone", "minecraft:blackstone_stairs", "minecraft:blackstone_slab"))
 		.put(Role.ROOF_TRIM, Material.of("minecraft:polished_blackstone_bricks", "minecraft:polished_blackstone_brick_stairs",
 			"minecraft:polished_blackstone_brick_slab"))
-		.put(Role.TRIM, "minecraft:gold_block")
+		.put(Role.TRIM, Material.of("minecraft:red_nether_bricks", "minecraft:red_nether_brick_stairs", "minecraft:red_nether_brick_slab"))
+		.put(Role.GILT, Material.of("minecraft:waxed_cut_copper", "minecraft:waxed_cut_copper_stairs", "minecraft:waxed_cut_copper_slab"))
+		.put(Role.BALUSTER, "minecraft:polished_blackstone_wall")
+		.put(Role.RAIL, Material.of("minecraft:polished_blackstone_slab"))
 		.put(Role.GLASS, "minecraft:orange_stained_glass")
 		.put(Role.PANE, "minecraft:orange_stained_glass_pane")
 		.put(Role.LIGHT, "minecraft:shroomlight")
+		.put(Role.UPLIGHT, "minecraft:shroomlight")
 		.put(Role.LIGHT_HANGING, "minecraft:lantern")
-		.put(Role.NEON_A, "minecraft:gold_block")
+		.put(Role.NEON_A, "minecraft:shroomlight")
 		.put(Role.NEON_B, "minecraft:shroomlight")
-		.put(Role.SIGN_BACK, "minecraft:polished_blackstone")
+		.put(Role.SIGN_BACK, "minecraft:blackstone")
 		.put(Role.BULB, "minecraft:ochre_froglight")
-		.put(Role.ACCENT, "minecraft:gilded_blackstone")
+		.put(Role.ACCENT, Material.of("minecraft:red_nether_bricks", "minecraft:red_nether_brick_stairs", "minecraft:red_nether_brick_slab"))
 		.put(Role.COUNTER, Material.of("minecraft:crimson_planks", "minecraft:crimson_stairs", "minecraft:crimson_slab"))
 		.put(Role.STOOL, Material.of("minecraft:warped_planks", "minecraft:warped_stairs", "minecraft:warped_slab"))
 		.put(Role.PLANTER, "minecraft:potted_crimson_fungus")
