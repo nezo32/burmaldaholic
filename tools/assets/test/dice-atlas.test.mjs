@@ -99,6 +99,27 @@ describe('dice kit art', () => {
     expect(worst).toBeLessThanOrEqual(22);
   });
 
+  it('paints standard faces: opposite faces sum to 7 and the pip layouts are the standard ones', () => {
+    for (const [a, b] of [[1, 6], [2, 5], [3, 4]]) expect(D.FACE_NORMAL[a].map((v, i) => v + D.FACE_NORMAL[b][i])).toEqual([0, 0, 0]);
+    for (let f = 1; f <= 6; f++) expect(D.PIP_LAYOUT[f].length).toBe(f);
+    expect(D.PIP_LAYOUT[2]).toEqual([[0, 0], [2, 2]]);
+    expect(D.PIP_LAYOUT[3]).toEqual([[0, 0], [1, 1], [2, 2]]);
+    expect(D.PIP_LAYOUT[6]).toEqual([[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]]);
+    // every face texture: pips symmetric, separated by ≥ 1 px, inside the bevel ring, round from 4 px up
+    for (const cell of D.ATLAS_CELLS) {
+      const E = D.atlasEdge(cell);
+      for (let f = 1; f <= 6; f++) {
+        const { d, pos } = D.pipGrid(E, f === 1);
+        expect(d).toBeGreaterThanOrEqual(2);
+        expect(pos[0] + pos[2]).toBe(E - d);
+        expect(pos[0]).toBeGreaterThanOrEqual(1);
+        if (f !== 1) expect(pos[1] - pos[0]).toBeGreaterThanOrEqual(d + 1);
+        const t = D.faceTexture(E, f);
+        for (let k = 0; k < E; k++) expect([t[k], t[k * E], t[(E - 1) * E + k], t[k * E + E - 1]]).toEqual([0, 0, 0, 0]);
+      }
+    }
+  });
+
   it('includes every rest pose (24 elements × yaw 0, ±15°) exactly', () => {
     const qs = D.atlasQuats();
     const g = D.cubeGroup();
@@ -130,14 +151,21 @@ describe('dice kit art', () => {
         };
         const seen = new Set();
         let clusters = 0;
+        const centres = [];
         for (let y = y0; y <= y1; y++)
           for (let x = x0; x <= x1; x++) {
             if (!dark(x, y) || seen.has(y * F + x)) continue;
             clusters++;
             const st = [[x, y]];
             seen.add(y * F + x);
+            let sx = 0;
+            let sy = 0;
+            let n = 0;
             while (st.length) {
               const [cx, cy] = st.pop();
+              sx += cx + 0.5;
+              sy += cy + 0.5;
+              n++;
               for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
                 const nx = cx + dx;
                 const ny = cy + dy;
@@ -146,8 +174,15 @@ describe('dice kit art', () => {
                 st.push([nx, ny]);
               }
             }
+            centres.push([sx / n, sy / n]);
           }
         expect(clusters, `cell ${cell} element ${gi}`).toBe(face);
+        // layout: every pip sits where the standard layout of that face (rotated with the die) puts it
+        const want = D.upPipCentres(cell, qs[i]);
+        for (const [wx, wy] of want) {
+          const d = Math.min(...centres.map(([cx, cy]) => Math.hypot(cx - wx, cy - wy)));
+          expect(d, `cell ${cell} element ${gi} pip at ${wx},${wy}`).toBeLessThan(1.01);
+        }
         // the die is exactly cell px wide at rest (ink outline included)
         let minX = F;
         let maxX = -1;

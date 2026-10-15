@@ -109,3 +109,28 @@ duel lane needs several seeded attempts) measures p99 ≈ 0.1–1.3 ms. `DiceRol
 ## Requests
 None blocking. CM: build the craps tray with `DiceTray` records as in `DiceFixtures.crapsBig`; DCb: `DuelTimeline` should
 time die 1's pour from `roll.releaseMs(1)` (140–200 ms after die 0).
+
+## Visual rework after the coordinator review (2026-10-15)
+Review points (shots of the first pass in `.burmaldaholic-tools/shots/DCa/before/`) and fixes (`after/`):
+1. Inconsistent square/round pips → pips are pixel-designed in the face texture (`faceTexture(E, face)`): one size per
+   cell (2 px at 14, 4 px at 18/22, 6 px at 30/32; red 1 bigger), rounded from 4 px, a dark inner-shadow arc on the
+   top-left, symmetric and centred, ≥ 1 px apart (the 6 pulls its rows outward or shrinks its pips to keep the gap).
+2. Garbled squashed pips on the front band → the atlas uses an OBLIQUE projection (`u = x, v = y − κz`, κ = 0.22): a
+   resting top face is mapped texel for texel (identical pips on every face); faces seen flatter than |cos| 0.45 show
+   bevelled bone without pips (no dashes).
+3. Flat tall tile → lower band (κ 0.22: 7 px at 32), lit bevel ring (normal tilted toward each edge), rounded 1-px
+   silhouette corners (cells ≥ 18), Lambert from the top-left front; runtime contact shadow peeks out down-right and is
+   darker at rest; stronger height lift (0.9 half-edge per u) so airborne dice separate from their shadows.
+4. 14 px: 2 × 2 pips, clear bevel and outline; the red 1 is a 4 × 4 rounded pip.
+5. Standard faces: opposite faces sum to 7, standard layouts (2 and 3 diagonal, 6 in two columns). New tests in
+   `dice-atlas.test.mjs`: layouts / symmetry / gaps / bevel ring per cell, and on every rest frame of every cell the
+   pip clusters' count AND centres (≤ 1 px from the predicted rotated layout).
+In-world: `DiceWorldDraw` now uses a generated `textures/entity/core/dice_world.png` (16-px faces with the same pips)
+instead of the 8-px `dice_display` item texture. `DieAtlasTable.PITCH_DEG` became `KAPPA` (oblique); `DiceDraw.stage`
+maps tray y 1:1.
+
+Re-verified (test only what changed): tools `check:assets` OK, `npm test` 63/63; `compileJava compileClientJava
+compileGametestJava` + `test --tests '*core.anim.dice*' '*RawInputGuardTest' '*PresentationCoreTest'
+'*CoreAnimVectorsTest'` on 26.2 and the dice + guard tests on `-Pmc=26.3`: BUILD SUCCESSFUL, 0 failures. DK client run on
+26.3 (with p2/mk @3bbdbbab merged): all probes pass; shots `after/0000…0002` (427/480/960) and
+`after/0003_p2b_dca_dice_world_en_960.png` (+ `world_zoom.png`).
