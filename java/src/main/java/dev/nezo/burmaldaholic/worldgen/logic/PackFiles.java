@@ -44,7 +44,7 @@ public final class PackFiles {
 	public static final int MAX_DISTANCE = 48;
 	public static final int MAX_HEIGHT_RANGE = 12;
 	/** Pools every standalone casino must contain (D5: complete or absent). */
-	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "bar");
+	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "rear", "bar"); // "bar" last: WorldgenGameTests appends to it
 	/** Pool path segment of annex pieces; never a style. */
 	public static final String ANNEX = "annex";
 
@@ -200,9 +200,10 @@ public final class PackFiles {
 			+ "  \"start_pool\": " + q(stylePoolId(style, "entrance")) + ",\n"
 			+ "  \"size\": " + SIZE + ",\n"
 			+ "  \"start_height\": { \"absolute\": " + START_HEIGHT + " },\n"
-			+ "  \"project_start_to_heightmap\": \"WORLD_SURFACE_WG\",\n"
 			+ "  \"max_distance_from_center\": " + MAX_DISTANCE + ",\n"
 			+ "  \"use_expansion_hack\": false,\n"
+			// field of JigsawStructure on 26.2 and 26.3: casino blocks placed where water was are not waterlogged
+			+ "  \"liquid_settings\": \"ignore_waterlogging\",\n"
 			+ "  \"max_height_range\": " + MAX_HEIGHT_RANGE + ",\n"
 			+ "  \"required_pieces\": [" + required + "]\n"
 			+ "}\n";

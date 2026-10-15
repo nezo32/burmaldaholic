@@ -94,6 +94,88 @@ public class WorldgenSpawnSurvey {
 		helper.succeed();
 	}
 
+	/**
+	 * Accuracy + cost of {@link dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe} against vanilla's exact
+	 * columns on the default preset (R-CB M6a): random land/shore columns, guess = the exact surface 24 blocks away
+	 * (like the projected start). Diagnostic; off unless {@code -Dburmaldaholic.worldgenSurvey=true}.
+	 */
+	@GameTest(maxTicks = 20)
+	public void terrainProbeAccuracy(GameTestHelper helper) {
+		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
+			helper.succeed();
+			return;
+		}
+		RegistryAccess reg = helper.getLevel().getServer().registryAccess();
+		for (long seed : SEEDS) {
+			World w = world(reg, seed, LevelStem.OVERWORLD);
+			var probe = dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.of(w.gen(), w.randomState(), w.height());
+			java.util.Random r = new java.util.Random(seed);
+			int n = 0;
+			int within1 = 0;
+			int within2 = 0;
+			int floorWithin1 = 0;
+			int maxErr = 0;
+			long exactNs = 0;
+			long columnNs = 0;
+			long fastNs = 0;
+			List<String> worst = new ArrayList<>();
+			int columnN = 0;
+			for (int walk = 0; walk < 40; walk++) {
+				int x0 = r.nextInt(8000) - 4000;
+				int z0 = r.nextInt(8000) - 4000;
+				int guess = dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.NO_GUESS;
+				for (int i = 0; i < 8; i++) {
+					// a footprint edge: probes 4 blocks apart, each guessing from the previous one (as the fit does)
+					int x = x0 + 4 * i;
+					int z = z0;
+					long a = System.nanoTime();
+					int[] ex = probe.exact(x, z);
+					long b = System.nanoTime();
+					if (i == 0) {
+						w.gen().getBaseColumn(x, z, w.height(), w.randomState());
+						columnNs += System.nanoTime() - b;
+						columnN++;
+					}
+					long d = System.nanoTime();
+					int[] f = probe.heights(x, z, guess);
+					long e = System.nanoTime();
+					guess = f[0];
+					if (walk < 3) {
+						continue; // warm-up
+					}
+					n++;
+					exactNs += b - a;
+					fastNs += e - d;
+					int err = Math.abs(f[0] - ex[0]);
+					maxErr = Math.max(maxErr, err);
+					within1 += err <= 1 ? 1 : 0;
+					within2 += err <= 2 ? 1 : 0;
+					floorWithin1 += Math.abs(f[1] - ex[1]) <= 1 ? 1 : 0;
+					if (err > 2 && worst.size() < 8) {
+						worst.add(x + "," + z + ": exact " + ex[0] + "/" + ex[1] + " fast " + f[0] + "/" + f[1]);
+					}
+				}
+			}
+			StringBuilder grid = new StringBuilder();
+			for (int[] g : new int[][] {{1, 1}, {1, 12}, {4, 12}, {8, 12}, {16, 12}, {28, 12}}) {
+				probe.benchGrid(100, 40, 100, g[0], g[1]); // warm the code, then fresh positions (the samplers cache columns)
+				long ns = 0;
+				for (int rep = 0; rep < 3; rep++) {
+					ns += probe.benchGrid(r.nextInt(8000) - 4000, 40, r.nextInt(8000) - 4000, g[0], g[1]);
+				}
+				ns /= 3;
+				grid.append(g[0]).append('x').append(g[1]).append('x').append(g[0]).append('=').append(String.format(java.util.Locale.ROOT, "%.2f", ns / 1e6)).append("ms ");
+			}
+			Burmaldaholic.LOGGER.info("[survey] PROBE grid (26.3 volume path) {}", grid);
+			Burmaldaholic.LOGGER.info("[survey] PROBE seed={} fast={} n={} surface within 1: {}% within 2: {}% max err {} | floor within 1: {}% | "
+					+ "ms/column exact(getBaseHeight) {} getBaseColumn {} fast {} | worst {}",
+				seed, probe.fast(), n, 100 * within1 / n, 100 * within2 / n, maxErr, 100 * floorWithin1 / n,
+				String.format(java.util.Locale.ROOT, "%.3f", exactNs / 1e6 / n), String.format(java.util.Locale.ROOT, "%.3f", columnNs / 1e6 / Math.max(1, columnN)),
+				String.format(java.util.Locale.ROOT, "%.3f", fastNs / 1e6 / n), worst);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(maxTicks = 20)
 	public void survey(GameTestHelper helper) {
 		if (!Boolean.getBoolean("burmaldaholic.worldgenSurvey")) {
@@ -106,26 +188,46 @@ public class WorldgenSpawnSurvey {
 		boolean standalone = reg.lookupOrThrow(Registries.STRUCTURE_SET)
 			.get(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.parse(PackFiles.SET))).isPresent();
 		if (standalone) {
-			// configurations: "legacy-like" (no biome pre-check, one candidate) vs the shipped defaults; same seeds
+			// configurations {biome pre-check, candidates, prefit, height range (-1 = the structure's), fast probe}; same seeds.
+			// -Dburmaldaholic.worldgenSurvey.sweep=true compares the knobs (R-CB M13 tuning).
 			boolean sweep = Boolean.getBoolean("burmaldaholic.worldgenSurvey.sweep");
-			Object[][] configs = sweep ? new Object[][] {{false, 1}, {true, 1}, {true, CasinoStructure.candidates}, {true, 9}}
-				: new Object[][] {{CasinoStructure.biomePrecheck, CasinoStructure.candidates}};
+			Object[][] configs = sweep
+				? new Object[][] {{true, 13, false, -1, true, 4}, {true, 9, false, -1, true, 4}, {true, 13, true, -1, true, 4}, {true, 13, false, -1, true, 8},
+					{true, 13, false, 8, true, 4}, {true, 13, false, 10, true, 4}, {true, 13, false, 14, true, 4}, {true, 13, false, 16, true, 4}}
+				: new Object[][] {{CasinoStructure.biomePrecheck, CasinoStructure.candidates, CasinoStructure.prefit, CasinoStructure.heightRangeOverride,
+					dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled, CasinoStructure.fineSpacing}};
 			boolean pre0 = CasinoStructure.biomePrecheck;
 			int cand0 = CasinoStructure.candidates;
+			boolean prefit0 = CasinoStructure.prefit;
+			int range0 = CasinoStructure.heightRangeOverride;
+			boolean fast0 = dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled;
+			int fine0 = CasinoStructure.fineSpacing;
+			boolean stats0 = CasinoStructure.STATS.enabled;
+			CasinoStructure.STATS.enabled = true;
 			try {
 				for (Object[] cfg : configs) {
 					CasinoStructure.biomePrecheck = (Boolean) cfg[0];
 					CasinoStructure.candidates = (Integer) cfg[1];
+					CasinoStructure.prefit = (Boolean) cfg[2];
+					CasinoStructure.heightRangeOverride = (Integer) cfg[3];
+					dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled = (Boolean) cfg[4];
+					CasinoStructure.fineSpacing = (Integer) cfg[5];
 					CasinoStructure.clearCaches();
 					List<String> summary = new ArrayList<>();
 					for (long seed : SEEDS) {
 						summary.add(casinos(reg, templates, seed));
 					}
-					Burmaldaholic.LOGGER.info("[survey] CASINO SUMMARY precheck={} candidates={} (radius {}): {}", cfg[0], cfg[1], CASINO_RADIUS, summary);
+					Burmaldaholic.LOGGER.info("[survey] CASINO SUMMARY precheck={} candidates={} prefit={} range={} fastProbe={} fineSpacing={} (radius {}): {}", cfg[0], cfg[1],
+						cfg[2], cfg[3], cfg[4], cfg[5], CASINO_RADIUS, summary);
 				}
 			} finally {
 				CasinoStructure.biomePrecheck = pre0;
 				CasinoStructure.candidates = cand0;
+				CasinoStructure.prefit = prefit0;
+				CasinoStructure.heightRangeOverride = range0;
+				dev.nezo.burmaldaholic.worldgen.structure.TerrainProbe.enabled = fast0;
+				CasinoStructure.fineSpacing = fine0;
+				CasinoStructure.STATS.enabled = stats0;
 				CasinoStructure.clearCaches();
 			}
 		} else {
@@ -312,11 +414,11 @@ public class WorldgenSpawnSurvey {
 			String.format(java.util.Locale.ROOT, "%.3f", p), predicted);
 		Burmaldaholic.LOGGER.info("[survey] CASINOS seed={} r={}: cells={} excludedByVillages/placement={} biomeValid={} rejected={} ({}%) casinos={} "
 				+ "({} per km², mean spacing ≈ {} blocks, median nearest-neighbour {}) perStructure={} | within {}: {} casinos, distances from spawn {} "
-				+ "| unrecognisedStarts={} | gen median {} ms p99 {} ms over {} attempts | stats {} | {} ms",
+				+ "| unrecognisedStarts={} | gen median {} ms p99 {} ms over {} attempts | stats {} | per biome OK/FLAT/FLOOD/INCOMPLETE/BIOME {} | {} ms",
 			seed, CASINO_SPACING_RADIUS, cells, excluded, biomeValid, rejected, rejectPct, found.size(),
 			String.format(java.util.Locale.ROOT, "%.2f", found.size() / areaKm2), meanSpacing, nn.isEmpty() ? -1 : nn.get(nn.size() / 2), fmt(perStructure),
 			CASINO_RADIUS, inner, fromSpawn, unrecognised, String.format(java.util.Locale.ROOT, "%.2f", medianMs),
-			String.format(java.util.Locale.ROOT, "%.2f", p99Ms), ns.length, CasinoStructure.STATS, ms);
+			String.format(java.util.Locale.ROOT, "%.2f", p99Ms), ns.length, CasinoStructure.STATS, CasinoStructure.STATS.perBiome(), ms);
 		return "seed " + seed + ": " + inner + " within " + CASINO_RADIUS + ", nearest " + (fromSpawn.isEmpty() ? "-" : fromSpawn.getFirst())
 			+ ", spacing≈" + meanSpacing + ", NN median " + (nn.isEmpty() ? -1 : nn.get(nn.size() / 2)) + ", rejected " + rejectPct + "%"
 			+ ", p=" + String.format(java.util.Locale.ROOT, "%.3f", p) + " (" + predicted + ")"
@@ -335,7 +437,7 @@ public class WorldgenSpawnSurvey {
 		return true;
 	}
 
-	private static Count run(RegistryAccess reg, StructureTemplateManager templates, long seed, boolean forced,
+	static Count run(RegistryAccess reg, StructureTemplateManager templates, long seed, boolean forced,
 			ResourceKey<LevelStem> stemKey, ResourceKey<Level> levelKey, String setId, int radius) {
 		World w = world(reg, seed, stemKey);
 		StructureSet set = w.sets().getOrThrow(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.parse(setId))).value();

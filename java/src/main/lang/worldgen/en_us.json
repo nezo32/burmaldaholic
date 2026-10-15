@@ -51,6 +51,7 @@
 	"config.burmaldaholic.worldgen.villageCasino.chance": "Village casino chance",
 	"config.burmaldaholic.worldgen.piglinParlor.chance": "Piglin Parlor chance",
 	"config.burmaldaholic.worldgen.highRoller.chance": "High Roller Lounge chance",
+	"config.burmaldaholic.worldgen.standalone.enabled": "Standalone casinos",
 	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Loan Shark respawn (ticks)",
 	"config.burmaldaholic.worldgen.locateCooldownSeconds": "/casino locate cooldown (seconds)",
 	"pack.burmaldaholic.casinos": "Burmaldaholic Casinos",

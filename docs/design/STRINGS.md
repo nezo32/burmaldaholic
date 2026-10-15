@@ -3638,6 +3638,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.worldgen.villageCasino.chance` | Village casino chance | Шанс казино в деревне |
 | `config.burmaldaholic.worldgen.piglinParlor.chance` | Piglin Parlor chance | Шанс пиглинского салона |
 | `config.burmaldaholic.worldgen.highRoller.chance` | High Roller Lounge chance | Шанс лаунжа хайроллеров |
+| `config.burmaldaholic.worldgen.standalone.enabled` | Standalone casinos | Отдельные казино |
 | `config.burmaldaholic.worldgen.loanSharkRespawnTicks` | Loan Shark respawn (ticks) | Возрождение ростовщика (тики) |
 | `config.burmaldaholic.worldgen.locateCooldownSeconds` | /casino locate cooldown (seconds) | Перезарядка /casino locate (секунды) |
 | `config.burmaldaholic.ownership.enabled` | Player casinos | Казино игроков |

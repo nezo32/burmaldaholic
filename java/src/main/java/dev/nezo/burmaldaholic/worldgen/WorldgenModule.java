@@ -71,9 +71,24 @@ public final class WorldgenModule implements CasinoModule {
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> CasinoAttract.forget(handler.getPlayer().getUUID()));
 		CoreServices.setTablePresets(new WorldgenPresets());
 
-		ServerLifecycleEvents.SERVER_STARTING.register(WorldgenRuntime::setServer);
+		ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+			WorldgenRuntime.setServer(server);
+			// prewarm (R-CB M6f): the piece registry and the layout index are built here, not on a worldgen thread
+			dev.nezo.burmaldaholic.worldgen.logic.CasinoPack.pieces();
+			dev.nezo.burmaldaholic.worldgen.logic.Layouts.all();
+		});
+		// worldgen gate snapshot (R-CB M5): recomputed on the server thread only, read by worldgen threads
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents.LOAD.register((server, level) -> {
+			if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD) {
+				WorldgenRuntime.refresh();
+			}
+		});
+		dev.nezo.burmaldaholic.core.mode.CasinoMode.onChange((server, enabled) -> WorldgenRuntime.refresh());
+		dev.nezo.burmaldaholic.core.config.ConfigManager.get().addListener(WorldgenRuntime::configChanged);
+		ServerTickEvents.END_SERVER_TICK.register(WorldgenRuntime::tick);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			WorldgenRuntime.setServer(null);
+			dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.clearCaches();
 			CasinoTracker.clear();
 			CasinoLocator.clear();
 		});

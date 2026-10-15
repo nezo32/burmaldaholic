@@ -74,5 +74,8 @@
 	},
 	"depends": {
 		"burmaldaholic": "*"
-	}
+	},
+	"mixins": [
+		"burmaldaholic-gametest.mixins.json"
+	]
 }
