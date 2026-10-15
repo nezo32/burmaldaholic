@@ -407,3 +407,11 @@ export function bowl3d(theme, dollyFrame) {
     }
   return img;
 }
+
+/** An upright pocket number (small font, pocket-colour shadow) in a 12 × 7 cell: frame n = number n (RO 208 head). */
+export function digitTag(n) {
+  const img = image(12, 7);
+  const str = String(n);
+  textC(img, str, 6 - 0.5 + (textWidth(str, 'small') % 2 ? 0 : 0.5), 3, '#F4ECF8', { font: 'small', shadow: POCKET[pocketColour(n)][3] });
+  return img;
+}

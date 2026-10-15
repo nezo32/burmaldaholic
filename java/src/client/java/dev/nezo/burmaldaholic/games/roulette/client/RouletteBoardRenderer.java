@@ -547,7 +547,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 	 */
 	private static void wheel3d(State s, PoseStack pose, SubmitNodeCollector out, CameraRenderState camera, int light) {
 		float rw = s.rw;
-		float k = rw / 0.40f;
+		float k = s.bowlFull ? 1f : RouletteWorld.COMPACT_HEIGHT;
 		Identifier bowl = BOWL[s.theme];
 		float yRotor = RouletteWorld.Y_ROTOR * k;
 		float yFoot = RouletteWorld.Y_CONE_FOOT * k;
@@ -574,7 +574,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 			for (int d = 0; d < 8; d++) {
 				double a = Math.toRadians(RouletteSpin.DIAMOND0 + d * RouletteSpin.DIAMOND_PITCH);
 				float r = (float) (RouletteSpin.R_DIAMOND * rw);
-				float y = RouletteWorld.surfaceY(RouletteSpin.R_DIAMOND, rw) + 0.004f * k;
+				float y = RouletteWorld.surfaceY(RouletteSpin.R_DIAMOND, rw, k) + 0.004f * k;
 				boolean lit = d == diamond;
 				int argb = lit ? (dAge < 0.5f ? 0xFFFFFFFF : 0xFFFFE080) : 0xFFFFFFFF;
 				int dl = lit ? WorldQuads.FULL_BRIGHT : light;
@@ -604,7 +604,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 		double a = Math.toRadians(s.ballAngle);
 		float bx = (float) (s.ballR * rw * Math.sin(a));
 		float bz = (float) (-s.ballR * rw * Math.cos(a));
-		float ground = RouletteWorld.surfaceY(s.ballR, rw);
+		float ground = RouletteWorld.surfaceY(s.ballR, rw, k);
 		float lift = (float) (s.ballZ * RouletteWorld.ART_PX * rw);
 		float size = RouletteWorld.BALL_D * rw;
 		int sa = (int) (Math.max(0, 0.75 * (1 - s.ballZ / 8)) * s.ballAlpha * 255);
@@ -614,7 +614,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 			double ta = Math.toRadians(s.trail[3 * i]);
 			float tr = (float) (s.trail[3 * i + 1] * rw);
 			float tx = (float) (tr * Math.sin(ta)), tz = (float) (-tr * Math.cos(ta));
-			float ty = RouletteWorld.surfaceY(s.trail[3 * i + 1], rw) + (float) (s.trail[3 * i + 2] * RouletteWorld.ART_PX * rw) + size / 2;
+			float ty = RouletteWorld.surfaceY(s.trail[3 * i + 1], rw, k) + (float) (s.trail[3 * i + 2] * RouletteWorld.ART_PX * rw) + size / 2;
 			int ta8 = (int) ((i == 0 ? 0.4 : 0.2) * s.ballAlpha * 255) << 24 | 0xFFFFFF;
 			pose.pushPose();
 			pose.translate(tx, ty, tz);

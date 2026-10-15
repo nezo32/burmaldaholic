@@ -82,6 +82,8 @@
 	"gui.burmaldaholic.roulette.v2.status.add_or_spin": "Ещё фишки или спин",
 	"gui.burmaldaholic.roulette.v2.status.spin_in": "Спин через %1$s с",
 	"gui.burmaldaholic.roulette.v2.status.ball_spinning": "Шарик катится…",
+	"gui.burmaldaholic.roulette.v2.status.result_shown": "Выплата · затем ставки",
+	"msg.burmaldaholic.roulette.closed_refund": "Казино закрыло стол. Ваши ставки (%1$s) возвращены.",
 	"gui.burmaldaholic.roulette.v2.hover": "%1$s · %2$s · выплата %3$s : 1",
 	"gui.burmaldaholic.roulette.v2.hover_empty": "%1$s · выплата %2$s : 1",
 	"gui.burmaldaholic.roulette.v2.call_hover": "%1$s · %2$s за фишку · всего %3$s",

@@ -239,17 +239,13 @@ final class RouletteChipFx {
 		landing.entrySet().removeIf(e -> now - e.getValue() > 2000);
 	}
 
+	/** A kit disc (the same look as the stacks) centred on a float point, snapped to the physical grid. */
 	private static void disc(GuiGraphicsExtractor g, long denom, double cx, double cy, int chip, double alpha, int k) {
-		String sprite = "core/stack/chip_" + denomSprite(denom);
-		SnapDraw.blitF(g, TableGfx.sprite(sprite), cx - chip / 2.0, cy - chip / 2.0, chip, chip - 1, TableGfx.fade(alpha), k);
-	}
-
-	/** The chip sprite of a denomination (the kit's set; unknown → the nearest lower one). */
-	private static long denomSprite(long denom) {
-		long[] set = {1, 5, 25, 100, 500, 1000, 5000};
-		long best = 1;
-		for (long d : set) if (d <= denom) best = d;
-		return best;
+		if (alpha <= 0.02) return;
+		g.pose().pushMatrix();
+		g.pose().translate(PixelSnap.snapF(cx - chip / 2.0, k), PixelSnap.snapF(cy - chip / 2.0, k));
+		ChipStack.disc(g, 0, 0, chip, Math.max(1, denom), (float) alpha);
+		g.pose().popMatrix();
 	}
 
 	// ---- result beats ------------------------------------------------------------------------------------------------

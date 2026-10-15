@@ -252,12 +252,19 @@ public class RouletteAnimClientGameTests implements FabricClientGameTest {
 		f.waitServer(table, RouletteTableBlockEntity.class, be -> "spin".equals(be.roundPhase()), "spin", 200);
 		c.waitTicks(3);
 		world.getServer().runCommand("tick freeze");
+		world.getServer().runCommand("gamemode spectator @a"); // free camera for the views (no falling, no hand)
 		c.waitTicks(3);
 		RouletteSync sync = c.computeOnClient(mc -> mc.level.getBlockEntity(table) instanceof RouletteTableBlockEntity be ? be.clientSync() : null);
 		if (sync == null || sync.result() != RESULT) throw new AssertionError("client sync " + sync);
 		RouletteSpin sp = sync.spin(sync.lastResult());
 		double launchMs = sync.launchTick() * 50.0;
 		double mid = (sp.dropMs() + sp.contactMs()) / 2; // the ball on the stator: moving, before rest
+		freeze(c, launchMs + (sp.dropMs() - 600));
+		standHigh(c, world, table);
+		c.takeScreenshot("p2b_ro_world_orbit_high");
+		freeze(c, launchMs + sp.contactMs() + 150);
+		standHigh(c, world, table);
+		c.takeScreenshot("p2b_ro_world_rattle_high");
 		for (float d : new float[] {3f, 5f, 12f, 24f}) {
 			freeze(c, launchMs + (d == 3f ? sp.contactMs() + 200 : mid));
 			stand(c, world, table, d);
@@ -291,40 +298,43 @@ public class RouletteAnimClientGameTests implements FabricClientGameTest {
 		c.waitTicks(16);
 		c.takeScreenshot("p2b_ro_world_result_rake_3m");
 		RouletteBoardRenderer.testProbe = false;
+		world.getServer().runCommand("gamemode survival @a");
 	}
 
 	private static void freeze(ClientGameTestContext c, double levelMs) {
 		c.runOnClient(mc -> AnimClock.freezeForTest(levelMs));
 	}
 
-	/** Stands {@code d} blocks north of the table's bowl, looking at it. */
+	/** World x / z of the wheel bowl's centre (FeltFrame wheel centre of the north-facing table). */
+	private static double[] bowl(BlockPos table) {
+		var f = dev.nezo.burmaldaholic.core.table.parts.FeltFrame.of(dev.nezo.burmaldaholic.core.table.parts.TableGame.ROULETTE,
+			dev.nezo.burmaldaholic.core.table.parts.TablePart.MAIN);
+		double[] w = dev.nezo.burmaldaholic.core.table.parts.TableFootprint.toWorld(f.wheelCx(), f.wheelCz(), Direction.NORTH.getStepX(),
+			Direction.NORTH.getStepZ());
+		return new double[] {table.getX() + w[0], table.getZ() + w[1]};
+	}
+
+	/** Stands {@code d} blocks north of the wheel bowl (the players' side), eyes at standing height, looking at it. */
 	private static void stand(ClientGameTestContext c, TestSingleplayerContext world, BlockPos table, float d) {
+		look(c, world, table, d, 0);
+	}
+
+	/** A raised close view into the bowl (about 1.2 blocks above it, 1.1 blocks away). */
+	private static void standHigh(ClientGameTestContext c, TestSingleplayerContext world, BlockPos table) {
+		look(c, world, table, 1.1f, 0.9f);
+	}
+
+	private static void look(ClientGameTestContext c, TestSingleplayerContext world, BlockPos table, float d, float up) {
+		double[] b = bowl(table);
 		double eye = 1.62;
-		// the bowl is column r-1 of the north-facing table: one block west (−x) of the main block
-		double x = table.getX() - 0.5 + 1.0;
-		double z = table.getZ() + 0.5 - d;
-		world.getServer().runCommand("tp @p " + x + " " + table.getY() + " " + z);
-		float pitch = (float) Math.toDegrees(Math.atan2(eye - 0.85, d));
+		double feet = table.getY() + up;
+		world.getServer().runCommand("tp @p " + b[0] + " " + feet + " " + (b[1] - d));
+		float pitch = (float) Math.toDegrees(Math.atan2(feet + eye - (table.getY() + 0.95), d));
 		for (int i = 0; i < 3; i++) {
 			c.runOnClient(mc -> {
 				if (mc.player != null) {
 					mc.player.setYRot(0f);
 					mc.player.setXRot(pitch);
-					mc.player.setYHeadRot(0f);
-				}
-			});
-			c.waitTicks(2);
-		}
-		c.waitTicks(4);
-	}
-
-	private static void standHigh(ClientGameTestContext c, TestSingleplayerContext world, BlockPos table) {
-		world.getServer().runCommand("tp @p " + (table.getX() + 0.5) + " " + (table.getY() + 1.5) + " " + (table.getZ() - 1.2));
-		for (int i = 0; i < 3; i++) {
-			c.runOnClient(mc -> {
-				if (mc.player != null) {
-					mc.player.setYRot(0f);
-					mc.player.setXRot(62f);
 					mc.player.setYHeadRot(0f);
 				}
 			});

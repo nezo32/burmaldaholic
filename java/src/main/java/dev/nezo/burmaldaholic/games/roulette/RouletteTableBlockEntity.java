@@ -487,7 +487,15 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				}
 			}
 			if (round.hasBets() || round.phase() != RouletteRound.Phase.BETTING) {
-				round.abort().keySet().forEach(this::refund);
+				// T-C2 V9: the stakes go back with a casino-closed line (not core's "the server restarted mid-round")
+				round.abort().forEach((id, bets) -> {
+					refund(id, true);
+					ServerPlayer online = level.getServer().getPlayerList().getPlayer(id);
+					long amount = Bets.totalStaked(bets);
+					if (online != null && amount > 0) {
+						online.sendSystemMessage(Component.translatable("msg.burmaldaholic.roulette.closed_refund", Texts.chipsAcc(amount)));
+					}
+				});
 				outcomes.clear();
 				setPhase(round.phase().id());
 				syncViewers();

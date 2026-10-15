@@ -67,7 +67,8 @@ public final class RouletteLayout {
 			case T3 -> 22;
 		};
 		int callGap = tier == Tier.T1 ? 6 : 8;
-		int top = play.y() + (tier == Tier.T1 ? 8 : 10);
+		int top0 = play.y() + (tier == Tier.T1 ? 8 : 10);
+		int top = top0;
 		boolean roomy = g.roomy();
 		int colW = (int) Math.round(w * (tier == Tier.T3 ? 0.26 : 0.25));
 		// ROOMY: the cells grow with the felt instead of stopping at 40 px (C2 → RO: no empty felt at 1067×600)
@@ -96,6 +97,11 @@ public final class RouletteLayout {
 		this.chip = tier.feltChip - pick[2];
 		int e = Math.max(3, cw / 5);
 		this.cells = new LayoutGrid(cw, cw, ch, cw, oh, oh, 0, e);
+		if (roomy) {
+			// T-C2 V5: on a ROOMY felt the layout block (numbers, outside rows, call bets) sits in the middle of the felt
+			int block = cells.height() + callGap + oh;
+			top += Math.max(0, (ph - (top0 - play.y()) - block - 10) / 2);
+		}
 		// the layout is centred in the space right of the wheel column
 		int free = w - m - lx;
 		this.gx = lx + Math.max(0, (free - cells.width()) / 2);
@@ -205,7 +211,10 @@ public final class RouletteLayout {
 		int bottom = grid.play.bottom() - 2;
 		int evenTop = gy + cells.evenY();
 		int outsideTop = gy + cells.dozenY();
-		List<Box> out = new ArrayList<>(4);
+		List<Box> out = new ArrayList<>(5);
+		// T-C2 V6: first the felt under the call-bet row (ROOMY sizes have room there), then the bands over the rows
+		int callsBottom = calls.get(0).bottom() + 3;
+		out.add(new Box(layout.x(), callsBottom, layout.w(), Math.max(0, bottom - callsBottom)));
 		out.add(new Box(layout.x(), evenTop, layout.w(), Math.max(0, bottom - evenTop)));
 		out.add(new Box(layout.x(), outsideTop, layout.w(), Math.max(0, bottom - outsideTop)));
 		out.add(new Box(column.x(), wheel.y(), column.w(), Math.max(0, bottom - wheel.y())));
@@ -224,6 +233,8 @@ public final class RouletteLayout {
 		out.add(wheel);
 		out.add(historyLabel);
 		out.addAll(pills);
+		// T-C2 V6: the call bets stay readable (Orphelins / Voisins were hidden), with a 2 px gap
+		for (Box c : calls) out.add(new Box(c.x(), c.y() - 2, c.w(), c.h() + 4));
 		return out;
 	}
 
@@ -275,12 +286,33 @@ public final class RouletteLayout {
 				Box o = outside(s);
 				yield new int[] {o.cx(), lowY(o)};
 			}
-			case RED, BLACK -> new int[] {outside(s).cx(), outside(s).cy()};
 			default -> {
 				Box o = outside(s);
 				yield new int[] {o.right() - chip / 2 - 3, o.cy()};
 			}
 		};
+	}
+
+	/**
+	 * Where an outside bet's printed label (dozen, even-money word, red / black diamond) goes: its box left of the stack
+	 * column at the right end, so chips and value pills never cover the label (T-C2 V2). Columns and inside bets: the box
+	 * itself.
+	 */
+	public Box labelArea(Spot s) {
+		if (s.type().inside() || s.type() == BetType.COLUMN) return area(s);
+		Box o = outside(s);
+		int right = anchor(s)[0] - chip / 2 - 2;
+		int h = Math.min(o.h(), GLYPH_H + 2); // the printed word / diamond is centred: its own height, not the whole box
+		return new Box(o.x() + 1, o.cy() - h / 2, Math.max(4, right - o.x() - 1), h);
+	}
+
+	/** Every outside label area (dozens and the even-money row): obstacles for value pills. */
+	public List<Box> labelAreas() {
+		List<Box> out = new ArrayList<>();
+		for (BetType t : List.of(BetType.DOZEN, BetType.LOW, BetType.EVEN, BetType.RED, BetType.BLACK, BetType.ODD, BetType.HIGH)) {
+			for (Spot sp : Spot.all(t)) out.add(labelArea(sp));
+		}
+		return out;
 	}
 
 	/** Disc box of a stack of {@code discs} discs on a spot (the bottom disc at the anchor, each one {@link #DISC_RISE} up). */
@@ -353,6 +385,9 @@ public final class RouletteLayout {
 			hard.add(rect(g));
 		}
 		for (Box a : avoid) {
+			hard.add(rect(a));
+		}
+		for (Box a : labelAreas()) {
 			hard.add(rect(a));
 		}
 		Box b = grid.play;

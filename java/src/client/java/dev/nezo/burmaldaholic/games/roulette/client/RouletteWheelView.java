@@ -96,6 +96,14 @@ final class RouletteWheelView {
 		return x;
 	}
 
+	/** Radius (208 art px) of the upright pocket numbers on the 208 head. */
+	static final double DIGIT_R = 68.6;
+
+	/** Pocket number {@code n} upright, centred on (x, y), at {@code scale}. */
+	static void digit(GuiGraphicsExtractor g, int n, double x, double y, double scale, int argb, int k) {
+		SnapDraw.frameF(g, "roulette/wheel_digits", 12, 7, 37, n, x - 6 * scale, y - 3.5 * scale, argb, scale, k);
+	}
+
 	/** Pocket colours for the result badge. */
 	static int pocketColor(int n) {
 		return switch (dev.nezo.burmaldaholic.games.roulette.logic.Wheel.color(n)) {
@@ -184,6 +192,14 @@ final class RouletteWheelView {
 			g.pose().scale((float) w.scale, (float) w.scale);
 			TableGfx.region(g, HEAD_208, 152, 152, 0, 0, 152, 152, -76, -76, fade);
 			g.pose().popMatrix();
+			// the numbers stay upright (as on the pre-rendered frames), riding the turning number ring
+			for (int i = 0; i < 37; i++) {
+				int n = dev.nezo.burmaldaholic.games.roulette.logic.Wheel.ORDER.get(i);
+				double a = Math.toRadians(rot + i * RouletteSpin.STEP);
+				double x = w.cx + w.scale * DIGIT_R * Math.sin(a);
+				double y = w.cy - w.scale * DIGIT_R * Math.cos(a);
+				digit(g, n, x, y, w.scale, fade, w.k);
+			}
 			return;
 		}
 		if (w.art < 100) {

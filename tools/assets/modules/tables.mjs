@@ -205,7 +205,9 @@ export default function generate() {
     sprite(`roulette/pocket_glow_m${tag}`, vstrip(W.pocketGlowSized(tag === '104' ? 12 : 16, headG)));
   }
   // RO (ROULETTE-ANIM-SPEC §5): the 208 focus head (rotated by the pose), motion sprites, in-world bowl + rotor
-  gui('roulette/wheel_head_208', W.head(W.HEAD_BIG, 0));
+  // digitless: the pose turns it; the numbers are drawn upright per frame from roulette/wheel_digits (one per pocket)
+  gui('roulette/wheel_head_208', W.head({ ...W.HEAD_BIG, digits: 0 }, 0));
+  sprite('roulette/wheel_digits', vstrip(Array.from({ length: 37 }, (_, n) => W.digitTag(n))));
   sprite('roulette/diamond_flash_208', vstrip(W.diamondFlash(9, W.BOWL_BIG.deflectorR)));
   sprite('roulette/ball_shadow', W.ballShadow());
   sprite('roulette/loupe', W.loupe());

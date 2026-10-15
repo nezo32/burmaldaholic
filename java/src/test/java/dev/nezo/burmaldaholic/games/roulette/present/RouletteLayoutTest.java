@@ -137,7 +137,27 @@ class RouletteLayoutTest {
 		for (Spot sp : RouletteLayout.allSpots()) {
 			if (l.tag(sp, 1, 23, 11, List.of()).isPresent()) found++;
 		}
-		assertTrue(found > 140, "tags placed " + found);
+		// the outside labels are obstacles too (T-C2 V2): a few tags near them give way to the status readout
+		assertTrue(found > 120, "tags placed " + found);
+	}
+
+	/** T-C2 V2: no chip stack (up to the full height) and no value tag ever covers a printed outside label, at every size. */
+	@Test
+	void stacksAndTagsNeverCoverOutsideLabels() {
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			List<Box> labels = l.labelAreas();
+			if (s[0] < 400) continue; // below the smallest real size (427×240) the rows are too short for both
+			for (Spot sp : RouletteLayout.allSpots()) {
+				Box st = l.stack(sp, RouletteLayout.MAX_DISCS);
+				// street / six-line chips sit ON the grid's bottom line by convention; only outside stacks are checked here
+				if (sp.type().inside()) continue;
+				for (Box la : labels) assertFalse(st.intersects(la), s[0] + "x" + s[1] + " " + sp.key() + " stack over label " + la);
+				l.tag(sp, 2, 23, 11, List.of()).ifPresent(t -> {
+					for (Box la : labels) assertFalse(t.intersects(la), s[0] + "x" + s[1] + " " + sp.key() + " tag over label");
+				});
+			}
+		}
 	}
 
 	@Test

@@ -82,6 +82,8 @@
 	"gui.burmaldaholic.roulette.v2.status.add_or_spin": "Add chips or spin",
 	"gui.burmaldaholic.roulette.v2.status.spin_in": "Spin in %1$s s",
 	"gui.burmaldaholic.roulette.v2.status.ball_spinning": "The ball is spinning…",
+	"gui.burmaldaholic.roulette.v2.status.result_shown": "Paying out · bets open next",
+	"msg.burmaldaholic.roulette.closed_refund": "The casino closed this table. Your bets of %1$s were returned.",
 	"gui.burmaldaholic.roulette.v2.hover": "%1$s · %2$s · pays %3$s : 1",
 	"gui.burmaldaholic.roulette.v2.hover_empty": "%1$s · pays %2$s : 1",
 	"gui.burmaldaholic.roulette.v2.call_hover": "%1$s · %2$s per chip · %3$s in all",

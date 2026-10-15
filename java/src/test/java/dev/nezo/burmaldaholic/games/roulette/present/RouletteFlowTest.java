@@ -110,6 +110,8 @@ class RouletteFlowTest {
 	@Test
 	void repeatIsLiveDuringTheResult() {
 		View result = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 500, 0, false, 55, false, false, 0, 0, 2);
+		// T-C2 V1: never "click the layout" while betting is closed
+		org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of("gui.burmaldaholic.roulette.v2.status.result_shown"), RouletteFlow.hintKey(result));
 		Gate g = RouletteFlow.primary(result);
 		assertEquals("rebet", g.action());
 		assertTrue(g.enabled(), "Repeat enabled during the result");

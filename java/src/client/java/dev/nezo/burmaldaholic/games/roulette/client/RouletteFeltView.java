@@ -119,7 +119,7 @@ final class RouletteFeltView {
 			Box b = l.outside(s);
 			g.fill(b.x(), b.y(), b.x() + 1, b.bottom(), line);
 			if (s.equals(litOutside)) rect(g, b.inset(1), 0x40FFD640);
-			centred(g, font, Texts.raw(dozen[i - 1]), b, line | 0xFF000000, true);
+			label(g, font, Texts.raw(dozen[i - 1]), b, l.labelArea(s), line | 0xFF000000);
 		}
 		g.fill(gx + zw + 12 * cw, dozenY, gx + zw + 12 * cw + 1, bottom, line);
 		// even-money row
@@ -128,12 +128,13 @@ final class RouletteFeltView {
 			Box b = l.outside(s);
 			g.fill(b.x(), b.y(), b.x() + 1, b.bottom(), line);
 			if (s.equals(litOutside)) rect(g, b.inset(1), 0x40FFD640);
+			Box la = l.labelArea(s);
 			switch (t) {
-				case RED, BLACK -> diamond(g, b, t == BetType.RED ? RED : BLACK, line);
-				case LOW -> centred(g, font, Texts.raw("1–18"), b, line | 0xFF000000, true);
-				case HIGH -> centred(g, font, Texts.raw("19–36"), b, line | 0xFF000000, true);
-				case EVEN -> centred(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.even"), b, line | 0xFF000000, true);
-				default -> centred(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.odd"), b, line | 0xFF000000, true);
+				case RED, BLACK -> diamond(g, la, t == BetType.RED ? RED : BLACK, line);
+				case LOW -> label(g, font, Texts.raw("1–18"), b, la, line | 0xFF000000);
+				case HIGH -> label(g, font, Texts.raw("19–36"), b, la, line | 0xFF000000);
+				case EVEN -> label(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.even"), b, la, line | 0xFF000000);
+				default -> label(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.odd"), b, la, line | 0xFF000000);
 			}
 		}
 		if (dim > 0) rect(g, all, TableGfx.alpha(0xFF0A0612, 0.25 * dim));
@@ -141,6 +142,13 @@ final class RouletteFeltView {
 			Box c = l.cell(win);
 			outline(g, new Box(c.x() - 1, c.y() - 1, c.w() + 3, c.h() + 3), 2, GOLD);
 		}
+	}
+
+	/** An outside label centred in its label area (left of the stack column); a long word keeps its right edge there. */
+	private static void label(GuiGraphicsExtractor g, Font font, Component text, Box box, Box area, int color) {
+		int w = font.width(text);
+		int x = w <= area.w() ? area.x() + (area.w() - w) / 2 : Math.max(box.x() + 1, area.right() - w);
+		g.text(font, text, x, box.cy() - 4, color, true);
 	}
 
 	private static void tileBox(GuiGraphicsExtractor g, Box b, int[] pc, boolean lit) {

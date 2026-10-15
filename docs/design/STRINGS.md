@@ -1498,6 +1498,8 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Ещё фишки или спин |
 | `gui.burmaldaholic.roulette.v2.status.spin_in` | Spin in %1$s s | Спин через %1$s с |
 | `gui.burmaldaholic.roulette.v2.status.ball_spinning` | The ball is spinning… | Шарик катится… |
+| `gui.burmaldaholic.roulette.v2.status.result_shown` | Paying out · bets open next | Выплата · затем ставки |
+| `msg.burmaldaholic.roulette.closed_refund` | The casino closed this table. Your bets of %1$s were returned. | Казино закрыло стол. Ваши ставки (%1$s) возвращены. |
 | `gui.burmaldaholic.roulette.v2.hover` | %1$s · %2$s · pays %3$s : 1 | %1$s · %2$s · выплата %3$s : 1 |
 | `gui.burmaldaholic.roulette.v2.hover_empty` | %1$s · pays %2$s : 1 | %1$s · выплата %2$s : 1 |
 | `gui.burmaldaholic.roulette.v2.call_hover` | %1$s · %2$s per chip · %3$s in all | %1$s · %2$s за фишку · всего %3$s |

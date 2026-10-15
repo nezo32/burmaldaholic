@@ -444,6 +444,22 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		double dim = spinView ? 1 : "result".equals(ph) ? 1 - Math.min(1, rMs / RouletteChipFx.RETURN_END) : 0;
 		RouletteFeltView.layout(g, font, l, dim, lit, litOutside, win);
 		RouletteFeltView.calls(g, font, l, hoverCall, betting);
+		if (dim > 0) {
+			// bets are closed: the layout dims under the spin (lighter once the gold cell may show)
+			double k = dim * (win >= 0 ? 0.3 : 0.5);
+			Box d = l.layout;
+			Box last = l.calls.get(l.calls.size() - 1);
+			g.fill(d.x() - 2, d.y() - 2, d.right() + 2, Math.max(d.bottom(), last.bottom()) + 2, TableGfx.alpha(0xFF0A0614, k));
+
+			if (win >= 0) {
+				Box c = l.cell(win); // the gold cell stays bright over the dim
+				int gold = 0xFFFFD640;
+				g.fill(c.x() - 1, c.y() - 1, c.right() + 1, c.y() + 1, gold);
+				g.fill(c.x() - 1, c.bottom() - 1, c.right() + 1, c.bottom() + 1, gold);
+				g.fill(c.x() - 1, c.y() - 1, c.x() + 1, c.bottom() + 1, gold);
+				g.fill(c.right() - 1, c.y() - 1, c.right() + 1, c.bottom() + 1, gold);
+			}
+		}
 		// the wheel column
 		int[] hist = history();
 		boolean newShown = !"result".equals(ph) || rMs >= RouletteChipFx.HISTORY_AT;
@@ -620,8 +636,9 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	}
 
 	/**
-	 * The loupe (§3.3): a brass magnifier on the felt side of the focus wheel showing the 208 head (with its baked digits)
-	 * centred on the result pocket at a native integer magnification, the ball in it, following the pocket as it rides.
+	 * The loupe (§3.3): a brass magnifier on the felt side of the focus wheel showing the result pocket upright (the 208
+	 * head turned so the pocket is on top), its number and neighbours above it and the ball in it, at the focus wheel's
+	 * integer scale (1.44× / 2× of the 144 / 104 focus wheels).
 	 * Pops with {@code outBack} at rest, shrinks into the badge in the first 400 ms of RESULT ({@code size} 1 → 0).
 	 */
 	private void loupe(GuiGraphicsExtractor g, RouletteWheelView.Wheel w, RouletteSpin sp, double t, double size) {
@@ -636,23 +653,31 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		double ly = w.cy - rad * 0.45 * pop;
 		lx = PixelSnap.snap(lx, k);
 		ly = PixelSnap.snap(ly, k);
-		double mag = (w.art >= 208 ? 2 : 1) * ls; // layout px per 208-art px (native: 2× on 104, 1.44× on 144, 2× on 208)
-		double rot = RouletteWheelView.drawnRotor(208, w.rotor);
-		double pa = Math.toRadians(rot + RouletteSpin.pocketAngle(sp.result));
-		double rp = RouletteSpin.R_POCKET * RouletteWheelView.RW_BIG;
+		// the pocket upright under the glass, its number above it (native scale: 1.44× / 2× on the 144 / 104 focus wheel)
+		double mag = ls;
+		int n = sp.result;
+		double rc = (RouletteSpin.R_POCKET * RouletteWheelView.RW_BIG + RouletteWheelView.DIGIT_R) / 2;
 		double half = 14 * ls * pop;
 		g.enableScissor((int) Math.ceil(lx - half), (int) Math.ceil(ly - half), (int) Math.floor(lx + half), (int) Math.floor(ly + half));
 		g.fill((int) (lx - half), (int) (ly - half), (int) (lx + half) + 1, (int) (ly + half) + 1, 0xFF0C0A10);
+		double s = mag * pop;
 		g.pose().pushMatrix();
-		g.pose().translate((float) lx, (float) ly);
-		g.pose().scale((float) (mag * pop), (float) (mag * pop));
-		g.pose().translate((float) (-rp * Math.sin(pa)), (float) (rp * Math.cos(pa)));
-		g.pose().rotate((float) Math.toRadians(rot));
+		g.pose().translate((float) lx, (float) (ly + rc * s));
+		g.pose().scale((float) s, (float) s);
+		g.pose().rotate((float) Math.toRadians(-RouletteSpin.pocketAngle(n)));
 		TableGfx.region(g, RouletteWheelView.HEAD_208, 152, 152, 0, 0, 152, 152, -76, -76, 0xFFFFFFFF);
 		g.pose().popMatrix();
-		// the ball resting in the pocket, at the loupe's magnification
-		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.frameF(g, "roulette/ball", 7, 7, 3, RouletteSpin.FRAME_POCKET, lx - 3.5 * mag * pop,
-			ly - 3.5 * mag * pop, 0xFFFFFFFF, mag * pop, k);
+		int idx = dev.nezo.burmaldaholic.games.roulette.logic.Wheel.wheelIndex(n);
+		for (int j = -2; j <= 2; j++) {
+			int m = dev.nezo.burmaldaholic.games.roulette.logic.Wheel.ORDER.get(Math.floorMod(idx + j, 37));
+			double a = Math.toRadians(j * RouletteSpin.STEP);
+			double dx = s * RouletteWheelView.DIGIT_R * Math.sin(a);
+			double dy = s * (rc - RouletteWheelView.DIGIT_R * Math.cos(a));
+			RouletteWheelView.digit(g, m, lx + dx, ly + dy, s, 0xFFFFFFFF, k);
+		}
+		double by = ly + (rc - RouletteSpin.R_POCKET * RouletteWheelView.RW_BIG) * s;
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.frameF(g, "roulette/ball", 7, 7, 3, RouletteSpin.FRAME_POCKET, lx - 3.5 * s, by - 3.5 * s, 0xFFFFFFFF, s,
+			k);
 		g.disableScissor();
 		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.blitF(g, TableGfx.sprite("roulette/loupe"), lx - 20 * ls * pop, ly - 20 * ls * pop, 40, 40,
 			0xFFFFFFFF, ls * pop, k);
@@ -895,8 +920,14 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 
 	/** "17 RED", "0 ZERO": the banner word of a spin for a viewer without a bet. */
 	public static Component numberWord(int n) {
-		return Component.translatable("gui.burmaldaholic.roulette.v2.result", Texts.number(n),
-			Component.translatable("gui.burmaldaholic.roulette.v2.board.color." + Wheel.color(n).id()));
+		// T-C2 V7: the number and its colour word in the pocket's colour (red / white for black / green), never slate
+		net.minecraft.ChatFormatting c = switch (Wheel.color(n)) {
+			case RED -> net.minecraft.ChatFormatting.RED;
+			case BLACK -> net.minecraft.ChatFormatting.WHITE;
+			case GREEN -> net.minecraft.ChatFormatting.GREEN;
+		};
+		return Component.translatable("gui.burmaldaholic.roulette.v2.result", Texts.number(n).withStyle(c),
+			Component.translatable("gui.burmaldaholic.roulette.v2.board.color." + Wheel.color(n).id()).withStyle(c));
 	}
 
 	/** "Split 17-20", "2nd dozen (13–24)", "Red (1:1)". */

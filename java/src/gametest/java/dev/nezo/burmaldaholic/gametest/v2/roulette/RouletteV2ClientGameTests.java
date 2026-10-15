@@ -57,6 +57,7 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 			world.getServer().runCommand("time set noon");
 			world.getServer().runCommand("gamerule doDaylightCycle false");
 			world.getServer().runOnServer(server -> CasinoConfig.chaos().enabled = false);
+			world.getServer().runOnServer(server -> CasinoConfig.contracts().enabled = false); // T-C2 T1: no contract reward in the settle check
 			RealFlow f = new RealFlow(context, world);
 			// PHASE2 C2 / PHASE2B §0.7: a FRESH player places every bet type by clicking, at the real players' sizes
 			step("en 480", () -> round(f, "en_us", 1920, 1080, 4, "480"));
@@ -185,9 +186,14 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 		report.add(tag + ": result " + result + ", staked " + staked + ", returned " + ret + ", balance " + before + " -> " + after);
 		if (after - before != ret) throw new AssertionError("balance moved " + (after - before) + " but the settle returns " + ret + " (result " + result + ")");
 		// 4. Repeat during the result: enabled, queued, the slip is back when betting opens
+		// T-C2 T2: a NICE+ celebration takes the first click to skip itself; press until the Repeat is queued
 		boolean stillResult = f.server(server -> be(server, pos).roundPhase().equals("result"));
-		f.click("primary");
-		boolean queued = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc && sc.rebetQueued());
+		boolean queued = false;
+		for (int tries = 0; tries < 3 && !queued && f.server(server -> be(server, pos).roundPhase().equals("result")); tries++) {
+			for (int wt = 0; wt < 100 && f.client(mc -> dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable()); wt++) f.context().waitTicks(1);
+			f.click("primary");
+			queued = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc && sc.rebetQueued());
+		}
 		report.add(tag + ": Repeat pressed during the result: " + stillResult + ", queued " + queued);
 		if (stillResult && !queued) throw new AssertionError("Repeat during the result did not queue");
 		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.roundPhase().equals("betting") && Bets.totalStaked(be.betsOf(owner(be))) == staked,

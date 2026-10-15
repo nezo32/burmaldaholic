@@ -211,7 +211,8 @@ public final class RouletteFlow implements Flow<RouletteView> {
 		return switch (v.phase()) {
 			case BETTING -> v.total() > 0 ? Optional.of(v.secondsLeft() >= 0 ? K + "status.spin_in" : K + "status.add_or_spin") : Optional.empty();
 			case NO_MORE_BETS, SPIN -> Optional.of(K + "status.ball_spinning");
-			case RESULT -> Optional.empty();
+			// T-C2 V1: betting is closed during the result: say when the next round opens (never "click the layout")
+			case RESULT -> Optional.of(K + "status.result_shown");
 		};
 	}
 }

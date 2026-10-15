@@ -54,7 +54,8 @@ class RouletteWorldTest {
 		assertTrue(rw <= opening && rw > opening * 0.95, "track wall just inside the bowl opening: " + rw + " / " + opening);
 		assertEquals(13.5 / 16, RouletteWorld.BOWL_FLOOR_Y, 1e-6);
 		assertTrue(RouletteWorld.surfaceY(RouletteSpin.R_POCKET, rw) > 0, "the rotor stands above the floor (no z-fight with the static art)");
-		assertTrue(RouletteWorld.surfaceY(1, rw) + RouletteWorld.BOWL_FLOOR_Y < f.top() + 0.08, "the track stays inside the housing");
+		assertTrue(RouletteWorld.surfaceY(RouletteSpin.R_POCKET, rw) + RouletteWorld.BOWL_FLOOR_Y >= f.top(), "the rotor is at least at the felt (seen over the rim)");
+		assertTrue(RouletteWorld.BOWL_FLOOR_Y + RouletteWorld.Y_WALL < 17 / 16.0, "the track wall stays under the furniture's rim top (17/16)");
 		for (double r = 0; r <= 1; r += 0.01) assertTrue(RouletteWorld.surfaceY(r, rw) >= RouletteWorld.surfaceY(r - 0.01, rw) - 1e-6, "rises outward");
 		assertEquals(RouletteWorld.Lod.A, RouletteWorld.Lod.of(5));
 		assertEquals(RouletteWorld.Lod.B, RouletteWorld.Lod.of(12));
