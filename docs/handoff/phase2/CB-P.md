@@ -90,3 +90,21 @@ GameTests ran as `rm -rf build/run/gameTest/world; with-heavy-lock.sh ./gradlew 
   - The long synchronous survey tests (fit test: 8 seeds, several seconds) block the server thread in the same batch. The second build failed this way after the toggle was gone.
 
   Unresolved. For integration it is either a batch-isolation item for the casino survey tests (e.g. its own GameTest environment/batch) or a tolerance item for the bot tests' "safe point" timing.
+
+## Follow-up (coordinator decisions, 2026-10-15)
+
+1. **Median nearest over 8 seeds:** accepted.
+2. **26.3 cost:** done on 26.3 only. `CasinoStructure.fineSpacing263 = 8`, and row-volume sampling is implemented (`TerrainProbe.line`, `FitSite.lines`, `Cell.prefetch`). Survey on 26.3 (`-Pmc=26.3 -Dburmaldaholic.worldgenSurvey=true .casinosOnly=true`):
+   - row prefetch on: median 93–99 ms, so it is left **off** (`-Dburmaldaholic.casinoRows=true` turns it on to compare). Each row fetches every side for every shift and loses the early exit.
+   - row prefetch off, fine spacing 8: median **17.6–21.6 ms**, p99 67–115 ms, 27–35 % rejected. That is under the ~30 ms ceiling. 26.2 is unchanged: median 11.5 ms, p99 25.9 ms, 33 %. The numbers are in contract §9.5.
+
+   `FitSiteTest.rowsCoverEveryOutlineColumn` is added.
+3. **CasinoLocator:** `hosts()` and `standaloneHost()` leave out the standalone casino while `standaloneActive()` is false. New GameTest `locate_game_tests_standalone_disabled_drops_the_standalone_host` (`*locate*`: 8/8).
+4. **Floating Tudor columns:** found by inspecting the client world's region file (seed 42, column -1733,1659). The column lies in the empty corner of the L-shaped assembly's union box, outside every piece, so it is not building at all. It is natural grass/dirt/stone with a 3-high natural cave at y 64–66. The start's NBT does hold both `casino_ground` pieces. So this was a QA false positive, not a skirt gap: `CasinoQa.terrainProblems` now skips natural-ground base blocks. Nothing in the skirt or fit needed changing. The client run that found it (client4) passed 3/4 casinos with this column as the only problem; there has been no client run since the fix.
+5. **Bot tests in full builds:** every `CasinoBuildingGameTests`, `WorldgenSpawnSurvey` and `OtherworldFitSurvey` test now runs in environment `burmaldaholic:casino_worldgen` (`CasinoQa.ENV`, data file `test_environment/casino_worldgen.json`). The log shows it running as its own batch (12 tests). A full build was not run, per the test-only-what-changed policy.
+
+Gates (26.2 unless noted):
+- compile 26.2 and 26.3: pass.
+- unit tests `dev.nezo.burmaldaholic.worldgen.*` + RawInputGuardTest: pass.
+- `*locate*` 8/8, `*worldgen*` 20/20.
+- `*casino*` 35/36; the only failure is the snowy annex, which goes to CR.
