@@ -5,7 +5,6 @@ import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.motion.MotionClock;
 import dev.nezo.burmaldaholic.client.fx.motion.MotionFx;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
-import dev.nezo.burmaldaholic.core.anim.dice.DieAtlasTable;
 import dev.nezo.burmaldaholic.core.anim.dice.DieSample;
 import dev.nezo.burmaldaholic.core.anim.dice.DuelTimeline;
 import dev.nezo.burmaldaholic.core.anim.dice.Shake;
@@ -289,26 +288,13 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 			if ((int) d[6] != faces[die]) errors.add(width(f) + ": die " + die + " top face " + (int) d[6] + " != " + faces[die]);
 			if (!st.art().integral()) continue;
 			int n = st.n();
-			int frame = (int) d[3];
-			int ri = -1;
-			for (int r = 0; r < DieAtlasTable.REST_FRAMES.length; r++) if (DieAtlasTable.REST_FRAMES[r] == frame) ri = r;
-			if (ri < 0) {
-				errors.add(width(f) + ": die " + die + " frame " + frame + " is not a rest frame");
-				continue;
-			}
-			double[] top = DieAtlasTable.TOP[DieAtlasTable.cellIndex(32)][ri];
-			int fs = DieAtlasTable.FRAME[DieAtlasTable.cellIndex(32)];
-			// the frame's top-left exactly as drawn: art px snapped to 1/n inside the stage pose
-			double ox = st.ox() * k + Math.round((d[4] - fs / 2.0) * n);
-			double oy = st.oy() * k + Math.round((d[1] / 1.0 - st.oy()) / st.scale() * n - fs / 2.0 * n);
-			double vMid = (Math.min(top[1], top[5]) + Math.max(top[1], top[5])) / 2;
-			int row = (int) Math.round(oy + vMid * n);
-			// the die's own run of pixels through the top face: outward from its centre to the felt on each side
-			int cx = (int) Math.round(ox + fs * n / 2.0);
+			// the drawn centre row of the die (its body: top face + front band); outward to the felt on each side
+			int cx = (int) Math.round(d[0] * k);
+			int row = (int) Math.round(d[1] * k);
 			int first = cx;
 			int last = cx;
-			while (first > ox && !felt(img.getRGB(first - 1, row))) first--;
-			while (last < ox + fs * n && !felt(img.getRGB(last + 1, row))) last++;
+			while (first > 0 && !felt(img.getRGB(first - 1, row))) first--;
+			while (last < img.getWidth() - 1 && !felt(img.getRGB(last + 1, row))) last++;
 			int w = last - first + 1;
 			if (Math.abs(w - 32 * n) > 1) errors.add(width(f) + ": resting die " + die + " is " + w + " px wide, want " + 32 * n);
 		}

@@ -836,8 +836,9 @@ final class DiceArena {
 		Component text = Component.translatable("gui.burmaldaholic.extras.dice.fx.tie_reroll", Texts.number(round + 2), Texts.number(rounds));
 		// on the front rail between the two plaques: never over a die
 		int room = plaqueX(1) - (plaqueX(0) + PLAQUE_W) - 6;
-		int w = Math.min(room, f.font().width(text) + 16);
-		Box b = new Box(180 - w / 2, PLAQUE_Y + 3, w, 18);
+		int w = f.font().width(text) + 16;
+		// a long line (RU at 1 art px per GUI px) sits right above the plaques at its full width instead
+		Box b = w <= room ? new Box(180 - w / 2, PLAQUE_Y + 3, w, 18) : new Box(180 - w / 2, PLAQUE_Y - 21, w, 18);
 		double in = f.reduced() ? 1 : Ease.OUT_BACK.apply(Math.min(1, since / 180));
 		g.pose().pushMatrix();
 		g.pose().translate(0, (float) Math.round(6 * (1 - in)));

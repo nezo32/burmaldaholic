@@ -34,13 +34,27 @@ Branch `p2/dcb` (from `feature/v020-table-ui` @292cbe5; merged `p2-e2-freeze` 69
   (A's dice on A's and B's screens: rest + air positions mirror exactly), reduced motion (0 effects pass the gate), in-world
   at 3 blocks with a frozen AnimClock (LOD full, no item-display entities on the modded client). See "Client runs" below.
 
-## Client runs
-FILLED IN BELOW AFTER THE FINAL RUN.
+## Client runs (CGT=DD, 26.3, `with-client-lock.sh` + `with-heavy-lock.sh`, `BURMALDAHOLIC_CGT=DD`)
+1. Run A: failed at `compileClientJava` -Pmc=26.3 (`PoseStack.mulPose(Quaternionf)` missing on 26.3) → `rotateAround`.
+2. Run B: all 15 steps ok; the only failure was the rest-width probe for die 1 (the scan reached the vs-badge outline).
+   Visual review → fixes: stale kit banner over the new throw, square win glint, tie banner over dice, heavy after-image.
+3. Run C (after merging DCa's oblique atlas and porting its pip geometry): the Gradle daemon was killed by the host
+   (memory) during the RU language reload, after the five house sizes; retried once per the brief.
+4. Run D (retry): all 16 steps ok (real flow; house at 427/480/640/960/1280-framed; RU 640/480; PvP tie RU; house tie;
+   PvP tie; PvP mirror; reduced; house tie 960; PvP tie 960; in-world). The only failure was again the die-1 width probe.
+   Checked on the run-D screenshots with a script: every resting die is exactly 32·n physical px wide (128 at n 4, 160
+   at n 5) and every measured run is a multiple of n. The probe now scans from the drawn centre (compiled, not re-run).
+   Shots: `.burmaldaholic-tools/shots/DCb/` (94 PNGs, run D). Looked at: crisp oblique dice, gold pip count-up exactly on
+   the atlas pips, winner lane glow + gold pips, loser dim + crack, stamp slam, tie banner, sweep, reduced-motion fade-in,
+   mirror A/B, in-world air/landed/rest at 3 blocks.
+   After run D: the RU tie banner (wider than the 120-px slot between the plaques at 1 art px per GUI px) now moves just
+   above the plaques at full width. Compiled; not re-shot (no client run left).
 
 ## Not verified / open
 - Two real clients (true two-player PvP) not run: the mirror test renders one duel as side A then side B on one client
   and compares the drawn positions + shots.
 - 26.2 client run not done (compile only).
+- The corrected width probe and the RU tie-banner fallback were compiled after the last client run but not re-run.
 - Sounds verified by code path only (no audio capture).
 - In-world totals billboard timing (server TextDisplay) checked by unit test only.
 
