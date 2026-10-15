@@ -69,15 +69,36 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
   lounge BJ HR (4,5) roulette HR (10,5) baccarat HR (4,11) UTH HR (10,11). Templates regenerated (TemplateExportTest).
   `MultiBlockLayoutsTest` = clearance R1–R6 on every layout (CB-C contract below).
 
+### Visual passes 1–2 (owner bar "perfect", coordinator + VQA round 1 `findings/VQA-INWORLD.md` §MT)
+- Tables (`tables/table_geom.mjs`): rounded rails, aprons and the brass band are **rotated segments** (6 per quarter arc;
+  26.x model elements accept any `axis`/`angle`, identical format on 26.2 and 26.3 — checked in `CuboidRotation`), so the
+  curves are smooth (no 1-px sawtooth); straight runs are axis boxes; hidden fills stay as columns. Rail section: outer drop
+  (y 12.5–13.5, 1 px past the footprint), cushion (13.5–15), bevelled cap (15–15.5 → **FeltFrame.RAIL_TOP = 15.5/16**),
+  brass lip on the felt side; proud lit brass band (light_emission 6); deep apron with dark kick band; 4-segment turned legs
+  with brass ferrules; poker on twin pedestals with splayed feet; dealer tray = brass rim + 7 chip columns; lit table-limit
+  placard (dealer side); roulette: lit tote board on a brass pole, raised bowl rim (y 13–17) with a lit brass band, bowl
+  floor at y 13–13.5 with a static wheel that the RO rotor (Ø ≥ bowl opening, drawn at FELT_Y) covers whenever it renders
+  (no second wheel; no hook needed). Palettes per VQA: standard leather #5A2E16, HR felt #4A2C86/#5A38A0/#3E2470 with black
+  leather + gold stitching, player-banked felt #5E1A2A + oxblood leather; 3-tone wood with seams; leather with tufts and
+  stitching.
+- Machines (`tables/machines.mjs`, `machine_art.mjs`): complete without any renderer and lit at night (light_emission).
+  Slots: tier cabinet panels, chrome edges, lit side strips, belly art, coin tray, lit button deck, lever (chrome + red
+  ball), reel window aligned with the slot renderer's reels (y 19–28) behind a proud chrome bezel, lit topper. Wheel:
+  bevelled plinth with lit bulbs, rear A-frame, brass rim ring (24 segments rotated about Z, 3.5 px deep) round the
+  renderer's disc, hub cap, flapper. Plinko: the cabinet FRAMES `BoardFrame.of(PLINKO, MAIN)` (no baked face any more):
+  base with coin slot + bin-tray lip, lit bulb pillars, lit crown marquee (sign art, no words), night-purple backing behind
+  the board. Cashier: quartz counter 15/16 with brass edge and kick, three raised panels, money tray, two banker's lamps
+  (lit green shades), glass partition in a brass frame with an arched brass grille window, lit dark-red sign plate with
+  the localized word drawn by `client/table/CashierSignRenderer` (registered in CoreClientModule); Nether booth uses
+  polished blackstone, gilded blackstone, crimson glass and soul-cyan lamps.
+
 ### MT-3 — upright machines (coordinator scope addition; API announced @9a26b4f)
 - Sizes (width × height, one deep, main = bottom centre; widths odd so mirror() only swaps LEFT/RIGHT): SLOT 1×2,
   WHEEL 3×3, PLINKO 3×3 (4:3 board 2.75 × 2.0625 = 272×204 art px, bottom at 0.5), CASHIER 3×2 booth (3 wide, not 2,
   for the mirror rule). `MachineKind`, `BoardFrame.of(kind, part)` (FeltFrame equivalent for faces, compact = v0.1
   geometry the renderers draw today), `BoardFrame.scaleCompactToFull`, `MachineShapes`, per-kind part properties
   (`TableParts.SLOT_PART/UPRIGHT_PART/BOOTH_PART`), `MultiBlockTableBlock.machine(...)`.
-- `machines.mjs`: blockstates, models (slot upper cabinet under the renderer's cabinet, wheel plinth + post, Plinko
-  cabinet with the v0.1 face stretched over the board square + gold side frames + marquee, cashier counter + panelled
-  wall + brass-framed iron-bar window), loot. `TableFrames.toFullFace` maps the v0.1 wheel / Plinko renderer content
+- `machines.mjs`: blockstates, per-part models (see visual passes), part-aware loot. `TableFrames.toFullFace` maps the v0.1 wheel / Plinko renderer content
   onto the full face. Layouts: machines stamped full (village wheel moved to x13..15).
 
 ## Verified (commands and results)
@@ -92,7 +113,11 @@ See the "Gates" section below (filled at the end).
   tables (against the back wall, x5..7 z5..6) stay COMPACT.
 - No per-whole-table outline (per-part outlines like beds).
 - W2: replace `TableFrames` with `FeltFrame`/`BoardFrame` geometry in `client/board`; delete overhang code.
-- PL: draw the 272×204 board on `BoardFrame.of(PLINKO, MAIN)`; my model shows the v0.1 face stretched as a stopgap.
+- PL: draw the 272×204 board on `BoardFrame.of(PLINKO, MAIN)` (x −0.875..1.875, y 0.5..2.5625, face z 15.5/16) — the
+  cabinet frames exactly that opening (pillars x −1..−0.875 and 1.875..2, bin lip under it, marquee above). On p2/mt alone
+  the opening shows a night-purple backing (+ the v0.1 ball/lamps scaled by `TableFrames.toFullFace`).
+- RO: draw the rotor opaque at `FeltFrame.FELT_Y` centred on `wheelCx/wheelCz` with radius ≥ 6.75 px so it covers the
+  static wheel in the bowl floor; idle ball resting in a pocket is RO's.
 - Games' own distance checks (poker `PokerTableBlockEntity:733`, uth `:1270`, baccarat/blackjack spectator radius)
   still measure from the main block centre (≤1.6 blocks off at the far corner) — owners may switch to
   `TableParts.inRange`.
