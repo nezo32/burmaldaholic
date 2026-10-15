@@ -105,6 +105,12 @@ public final class CasinoStructure extends Structure {
 	public static volatile int fineSpacing = FitSite.SPACING;
 	/** The same on 26.3 (row-volume sampler; coordinator decision 2026-10-14: 8, coarser to bound the cost). */
 	public static volatile int fineSpacing263 = 8;
+	/**
+	 * 26.3: fetch outline sides as row volumes before the per-column checks. OFF: measured slower (survey median
+	 * 93-99 ms with rows vs 17.6-21.6 ms without; a row fetches every side of every shift, losing the early exit).
+	 * Kept as a survey knob ({@code -Dburmaldaholic.casinoRows=true}).
+	 */
+	public static volatile boolean rowPrefetch = Boolean.getBoolean("burmaldaholic.casinoRows");
 	/** Overrides {@code max_height_range} when ≥ 0 (surveys). */
 	public static volatile int heightRangeOverride = Integer.getInteger("burmaldaholic.casinoHeightRange", -1);
 
@@ -578,10 +584,11 @@ public final class CasinoStructure extends Structure {
 	 * the middle of the (trimmed) span. The base spot's reason is reported when no candidate fits.
 	 */
 	static Fit site(Cell cell, List<FitSite.Box> boxes, List<int[]> throat, int range, int ref) {
-		// 26.3 (volume sampler): lone samples are ~5x dearer than on 26.2, so the exact pass uses a coarser outline and
-		// every outline side is fetched as one row volume before the per-column checks
-		boolean rows = cell.probe.lines();
-		int fineStep = rows ? fineSpacing263 : fineSpacing;
+		// 26.3 (volume sampler): lone samples are ~5x dearer than on 26.2, so the exact pass uses a coarser outline
+		// (row prefetch is a knob, off: measured slower)
+		boolean slowSamples = cell.probe.lines();
+		boolean rows = slowSamples && rowPrefetch;
+		int fineStep = slowSamples ? fineSpacing263 : fineSpacing;
 		List<int[]> fine = FitSite.points(boxes, throat, fineStep);
 		List<int[]> coarse = FitSite.points(boxes, throat, COARSE_SPACING);
 		List<FitSite.Line> fineRows = rows ? FitSite.lines(boxes, fineStep) : List.of();

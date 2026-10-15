@@ -430,6 +430,9 @@ public class WorldgenSpawnSurvey {
 	/** Every piece of a standalone start is one of our layouts (the pack and {@code Layouts.byId} agree). */
 	private static boolean recognised(StructureStart start) {
 		for (StructurePiece piece : start.getPieces()) {
+			if (piece instanceof dev.nezo.burmaldaholic.worldgen.structure.CasinoGroundPiece) {
+				continue; // carve / skirt
+			}
 			if (!(piece instanceof PoolElementStructurePiece p) || CasinoElements.layoutOf(p.getElement()).isEmpty()) {
 				return false;
 			}

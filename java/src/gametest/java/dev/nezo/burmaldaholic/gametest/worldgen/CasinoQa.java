@@ -563,7 +563,9 @@ public final class CasinoQa {
 					continue;
 				}
 				BlockPos base = new BlockPos(x, b.minY(), z);
-				if (level.getBlockState(base).getCollisionShape(level, base).isEmpty()) {
+				// natural ground is not a foundation: the union box of an L-shaped assembly has empty corners, where a
+				// cave under the hillside read as "floating" (tudor@seed 42: stone over a 3-high cave, outside every piece)
+				if (level.getBlockState(base).getCollisionShape(level, base).isEmpty() || ground(level.getBlockState(base))) {
 					continue;
 				}
 				boolean grounded = false;

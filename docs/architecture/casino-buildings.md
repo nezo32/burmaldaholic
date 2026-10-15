@@ -686,6 +686,11 @@ hotfix lanes. This proves "every game block in the building is functional" end t
   columns × ~0.1 ms (2.8 density samples each); a casino accepted at the first shift needs ~70 (current 5-piece
   assemblies; ~54 for a 41×41 single piece). The contract numbers are only expected on an idle machine: the
   default gate stays 30× (`-Dburmaldaholic.requireCasinoV2=true` applies 5/25 ms and fails under this load).
+  *Final (2026-10-15, coordinator decision: ≤ ~30 ms per start attempt on worldgen threads is acceptable — it never
+  blocks the server tick):* 26.2 (fine outline 4) `casinoFitRateAndGenerationTime` median 10.5–12.8 ms, p99 30–32 ms,
+  33 % rejected; 26.3 (fine outline 8, `CasinoStructure.fineSpacing263`; lone density samples cost ~0.2 ms there)
+  survey median 17.6–21.6 ms, p99 67–115 ms, 27–35 % rejected. Row-volume prefetch on 26.3 measured slower (median
+  93–99 ms) and stays off (`-Dburmaldaholic.casinoRows=true` to compare).
 - Chunk generation: in the terrain test, time to FULL-generate the 9×9 chunks around a casino vs. a casino-free
   control area of the same seed — ≤ 1.5×.
 - Content budget per standalone casino: ≤ 6 NPCs, ≤ 2 chests, ≤ 40 game blocks, no entities in templates,
