@@ -568,6 +568,8 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 				ring(p, vc, a0, a1, rFoot, yFoot, rTrack, yTrack, u0, u1, 0 / 64f, 8 / 64f, 0xFFFFFFFF, light, 0.6f);
 				ring(p, vc, a0, a1, rTrack, yTrack, rw, yTrack, u0, u1, 8 / 64f, 16 / 64f, 0xFFFFFFFF, light, 1f);
 				wall(p, vc, a0, a1, rw, yTrack, yWall, u0, u1, 16 / 64f, 24 / 64f, light);
+				// the wall's top lip, tucked under the furniture's rim (no sliver of the bowl floor shows between them)
+				ring(p, vc, a0, a1, rw, yWall, rw * 1.04f, yWall, u0, u1, 16 / 64f, 17 / 64f, 0xFFFFFFFF, light, 0.8f);
 			}
 			for (int d = 0; d < 8; d++) {
 				double a = Math.toRadians(RouletteSpin.DIAMOND0 + d * RouletteSpin.DIAMOND_PITCH);
