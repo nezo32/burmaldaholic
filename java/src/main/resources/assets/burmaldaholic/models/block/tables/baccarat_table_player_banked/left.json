@@ -8,7 +8,8 @@
     "trim": "burmaldaholic:block/core/tables/player_banked/trim",
     "tray": "burmaldaholic:block/core/tables/player_banked/tray",
     "bowl": "burmaldaholic:block/core/tables/player_banked/bowl",
-    "placard": "burmaldaholic:block/core/tables/player_banked/placard",
+    "placard": "burmaldaholic:block/core/tables/placard_spade",
+    "track": "burmaldaholic:block/core/tables/track",
     "tote": "burmaldaholic:block/core/tables/player_banked/tote"
   },
   "elements": [
@@ -4411,7 +4412,6 @@
         "axis": "y",
         "angle": -82.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4489,7 +4489,6 @@
         "axis": "y",
         "angle": -67.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4567,7 +4566,6 @@
         "axis": "y",
         "angle": -52.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4645,7 +4643,6 @@
         "axis": "y",
         "angle": -37.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4723,7 +4720,6 @@
         "axis": "y",
         "angle": -22.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4801,7 +4797,6 @@
         "axis": "y",
         "angle": -7.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [

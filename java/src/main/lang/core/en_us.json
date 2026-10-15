@@ -257,6 +257,7 @@
 	"msg.burmaldaholic.table.compact_hint": "Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it",
 	"msg.burmaldaholic.table.unfolded": "Unfolded to full size",
 	"msg.burmaldaholic.table.unfold_busy": "Someone is standing where it unfolds — step aside and try again",
+	"sign.burmaldaholic.cashier": "CASHIER",
 	"gui.burmaldaholic.menu.title": "Casino Menu",
 	"gui.burmaldaholic.menu.wallet": "Wallet",
 	"gui.burmaldaholic.menu.contracts": "Contracts",

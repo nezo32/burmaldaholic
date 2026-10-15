@@ -24,18 +24,19 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
- * MT-3: the localized word on the sign board of a full (3 × 2) cashier booth — "Cashier" / "Касса" in gold, full
- * bright (the board itself is a baked model; no word is ever baked into a texture). Compact v0.1 cashiers draw nothing.
+ * MT-3: the localized word on the sign plate of a full (3 × 2) cashier booth — "CASHIER" / "КАССА" in gold with a dark
+ * shadow, full bright (the plate is a baked model; no word is ever baked into a texture). Compact cashiers draw nothing.
  */
 public final class CashierSignRenderer implements BlockEntityRenderer<CashierBlockEntity, CashierSignRenderer.State> {
 	private static final int FULL_BRIGHT = 0xF000F0;
 	private static final double RANGE_SQ = 48 * 48;
-	/** Sign plate centre in footprint-local coordinates (machines.mjs: x −6..22 px, y 29.25..31.75 px, front z 11.5 px). */
+	/** Sign plate centre in footprint-local coordinates (machines.mjs: x −6..22 px, y 28.5..32 px, front z 11.5 px). */
 	private static final double SIGN_X = 0.5;
-	private static final double SIGN_Y = 30.5 / 16;
+	private static final double SIGN_Y = 30.25 / 16;
 	private static final double SIGN_Z = 11.5 / 16 + 0.004;
 	private static final double MAX_W = 1.6;
-	private static final double MAX_H = 2.0 / 16;
+	/** Glyph cap height: ≥ 65 % of the 3.5 px plate (VQA r2). */
+	private static final double MAX_H = 2.35 / 16;
 
 	public static final class State extends BlockEntityRenderState {
 		boolean show;
@@ -67,7 +68,9 @@ public final class CashierSignRenderer implements BlockEntityRenderer<CashierBlo
 		BlockState bs = be.getBlockState();
 		state.show = TableParts.partOf(bs) == TablePart.MAIN && cameraPos.distanceToSqr(Vec3.atCenterOf(be.getBlockPos())) <= RANGE_SQ;
 		state.facing = bs.hasProperty(CasinoTableBlock.FACING) ? bs.getValue(CasinoTableBlock.FACING) : Direction.NORTH;
-		state.text = state.show ? Component.translatable("block.burmaldaholic.cashier").getVisualOrderText() : null;
+		state.text = state.show
+			? Component.translatable("sign.burmaldaholic.cashier").getVisualOrderText()
+			: null;
 	}
 
 	@Override
@@ -82,7 +85,7 @@ public final class CashierSignRenderer implements BlockEntityRenderer<CashierBlo
 		pose.translate((float) at[0], (float) SIGN_Y, (float) at[1]);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f);
 		pose.scale(scale, -scale, scale);
-		out.submitText(pose, -w / 2f, -3.5f, s.text, false, Font.DisplayMode.POLYGON_OFFSET, FULL_BRIGHT, 0xFFFFD640, 0, 0xFF3A2208);
+		out.submitText(pose, -w / 2f, -3.5f, s.text, true, Font.DisplayMode.POLYGON_OFFSET, FULL_BRIGHT, 0xFFFFD640, 0, 0); // gold + 1-px shadow, no outline
 		pose.popPose();
 	}
 
