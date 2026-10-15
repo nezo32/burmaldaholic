@@ -47,6 +47,12 @@ public record CrapsView(boolean seated, boolean seatFree, long balance, long min
 			canUndo, allowed, other, rolling, seats, settling);
 	}
 
+	/** This view with another point (the screen shows the point before the throw while the dice fly: no spoiler). */
+	public CrapsView withPoint(int p) {
+		return new CrapsView(seated, seatFree, balance, min, max, enabled, p, youShoot, canRoll, needLine, window, windowSeconds, rollSeconds, shooter,
+			canUndo, allowed, bets, rolling, seats, settling);
+	}
+
 	/** A view without the settling beat (the felt and Roll share the throw gate). */
 	public CrapsView(boolean seated, boolean seatFree, long balance, long min, long max, boolean enabled, int point, boolean youShoot, boolean canRoll,
 			boolean needLine, boolean window, long windowSeconds, long rollSeconds, String shooter, boolean canUndo, List<String> allowed, List<BetPub> bets,

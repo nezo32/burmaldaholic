@@ -144,11 +144,14 @@ public final class CrapsBoardGeometry {
 		return new double[] {a.x() + a.w() * fx, a.y() + a.h() * fy};
 	}
 
-	/** Puck centre (print px): ON on the point box's top-right corner, OFF in the Don't Come box. */
+	/**
+	 * Puck centre (print px): ON sits on the point's number (as on a real table: VQA round 1), OFF in the Don't Come
+	 * box's top-right corner.
+	 */
 	public static double[] puck(int point) {
-		if (point == 0) return new double[] {DONT_COME.right() - 10, DONT_COME.y() + 10};
+		if (point == 0) return new double[] {DONT_COME.right() - 11, DONT_COME.y() + 11};
 		Box b = point(point);
-		return new double[] {b.right() - 9, b.y() + 9};
+		return new double[] {b.cx(), b.y() + 12};
 	}
 
 	/** The house bank on the print (top centre, at the wall): where the take goes and the payouts come from. */

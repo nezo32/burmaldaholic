@@ -161,7 +161,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	protected CrapsView view(CompoundTag s) {
 		CrapsView v = CrapsView.read(s, secondsLeft(s, "window"), secondsLeft(s, "roll"), rolling(), settling());
 		// T-D2 V6: while the throw is shown the felt (and the Dock's "on table") show the bets as they were before it
-		return rolling() ? v.withBets(prevBets()) : v;
+		return rolling() ? v.withBets(prevBets()).withPoint(s.getIntOr("point_before", v.point())) : v;
 	}
 
 	@Override
@@ -677,12 +677,24 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			int di = (int) Math.floor((gx - w.x()) / 4.0);
 			int dx = w.x() + Math.max(0, Math.min((w.w() - 4) / 4, di)) * 4;
 			boolean flashes = FxSettings.flashes();
+			double a = reduced ? 1 : 1 - (since - (flashes ? HIT_MS : 0)) / HOT_MS;
+			if (!flashes) a *= 0.5;
+			a = Math.max(0, Math.min(1, a));
+			// the glow spreads over the neighbouring pyramids so it shows around a die that covers the hit one
+			for (int nb = -2; nb <= 2; nb++) {
+				if (nb == 0) continue;
+				int nx = dx + nb * 4;
+				if (nx < w.x() || nx + 4 > w.right()) continue;
+				double na = a * (Math.abs(nb) == 1 ? 0.55 : 0.25);
+				TableGfx.region(g, tex, TILE, 3 * h, 0, 2 * h, 4, h, nx, w.y(), TableGfx.alpha(0xFFFFFFFF, na));
+			}
 			if (!reduced && since < HIT_MS && flashes) {
 				TableGfx.region(g, tex, TILE, 3 * h, 0, h, 4, h, dx, w.y(), 0xFFFFFFFF);
+				for (int nb : new int[] {-1, 1}) {
+					int nx = dx + nb * 4;
+					if (nx >= w.x() && nx + 4 <= w.right()) TableGfx.region(g, tex, TILE, 3 * h, 0, h, 4, h, nx, w.y(), 0x80FFFFFF);
+				}
 			} else {
-				double a = reduced ? 1 : 1 - (since - (flashes ? HIT_MS : 0)) / HOT_MS;
-				if (!flashes) a *= 0.5;
-				a = Math.max(0, Math.min(1, a));
 				TableGfx.region(g, tex, TILE, 3 * h, 0, 2 * h, 4, h, dx, w.y(), TableGfx.alpha(0xFFFFFFFF, a));
 			}
 		}
@@ -918,7 +930,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			Component word = Component.translatable(frame == CrapsBeats.FRAME_ON ? "gui.burmaldaholic.common.on" : "gui.burmaldaholic.common.off");
 			int w = font.width(word);
 			int c = V2Draw.alpha(frame == CrapsBeats.FRAME_ON ? 0xFF26202C : CasinoPalette.V2_TEXT, (float) alpha);
-			if (w <= sheet - 4) {
+			if (w <= sheet * 0.62) {
 				g.text(font, word, (sheet - w) / 2, (sheet - 7) / 2, c, false);
 			} else {
 				// T-D2 V4: the word always fits inside the disc (the face is ~60 % of the puck); the scale keeps whole
@@ -1019,6 +1031,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	 */
 	private void chips(GuiGraphicsExtractor g, CrapsLayout l, CrapsView v, double t, boolean reduced) {
 		List<Box> tags = new ArrayList<>();
+		netPlaced.clear();
 		if (roll != null && t < beats.CHIPS) {
 			drawBets(g, prevBets(), 1f, null, t, tags);
 		} else if (roll != null && t < beats.IDLE) {
@@ -1076,7 +1089,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	/** Your collect flights to the balance (over the Dock and the TopBar). */
 	private void collectFlights(GuiGraphicsExtractor g, double t) {
-		if (roll == null || t < beats.COLLECT || t >= beats.IDLE + 400 || FxSettings.reduceMotion() || chipPlan == null) return;
+		if (roll == null || t < beats.CHIPS || t >= beats.IDLE + 400 || FxSettings.reduceMotion() || chipPlan == null) return;
 		for (CrapsChipBeats.Flight f : chipPlan.flights()) {
 			if (f.kind() == CrapsChipBeats.Kind.COLLECT) drawFlight(g, f, t);
 		}
@@ -1118,12 +1131,12 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		ValuePill.draw(g, font, tag, n, ValuePill.Style.YOU);
 	}
 
+	private final List<Box> netPlaced = new ArrayList<>();
+
 	private void netPill(GuiGraphicsExtractor g, Box stack, long net, float alpha) {
 		if (alpha <= 0.05f) return;
 		Component n = V2Draw.net(net);
-		int w = ValuePill.width(font, n);
-		Box tag = new Box(stack.cx() - w / 2, stack.y() - 12, w, 11);
-		if (tag.y() < layout.felt.y() + 1) tag = tag.offset(0, layout.felt.y() + 1 - tag.y());
+		Box tag = layout.valueTag(stack, 1, ValuePill.width(font, n), netPlaced);
 		ValuePill.draw(g, font, tag, n, ValuePill.ofNet(net));
 	}
 

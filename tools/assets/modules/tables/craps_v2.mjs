@@ -422,3 +422,47 @@ export function puckTexture() {
       }
   return img;
 }
+
+// ---- in-world die (CM): 16-px faces so the pips read on a 0.1-block cube -------------------------------------------
+/**
+ * `entity/craps/die_world.png` 64 × 32: face k (1–6) at (16·((k − 1) mod 4), 16·⌊(k − 1)/4⌋) — the same cell order as
+ * `item/extras/dice_display` (×2), so the model labels match `CubeGroup`. Bone face lit top-left with a soft bevel, round
+ * 3-px pips (the 1 is a larger red pip), every face a little darker toward its edges so the cube's silhouette reads.
+ */
+export function dieWorld() {
+  const img = image(64, 32);
+  const PIPC = '#2A1A3C';
+  const at = { l: 3, c: 7, r: 11 }; // pip top-left (3 × 3), 16-px face: 1-px gaps on every line
+  const PATS = {
+    1: [['c', 'c']],
+    2: [['r', 'l'], ['l', 'r']],
+    3: [['r', 'l'], ['c', 'c'], ['l', 'r']],
+    4: [['l', 'l'], ['r', 'l'], ['l', 'r'], ['r', 'r']],
+    5: [['l', 'l'], ['r', 'l'], ['c', 'c'], ['l', 'r'], ['r', 'r']],
+    6: [['l', 'l'], ['r', 'l'], ['l', 'c'], ['r', 'c'], ['l', 'r'], ['r', 'r']],
+  };
+  for (let k = 1; k <= 6; k++) {
+    const ox = 16 * ((k - 1) % 4);
+    const oy = 16 * Math.floor((k - 1) / 4);
+    R(img, ox, oy, 16, 16, '#B8A8CC');
+    R(img, ox + 1, oy + 1, 14, 14, '#E4DAEC');
+    R(img, ox + 1, oy + 1, 13, 13, '#F4ECF8');
+    R(img, ox + 1, oy + 1, 13, 1, '#FFFFFF');
+    R(img, ox + 1, oy + 1, 1, 13, '#FFFFFF');
+    for (const [u, v] of PATS[k]) {
+      const x = ox + at[u];
+      const y = oy + at[v];
+      if (k === 1) {
+        // the ace: a larger red pip
+        R(img, x - 1, y, 5, 3, '#D83440');
+        R(img, x, y - 1, 3, 5, '#D83440');
+        P(img, x, y, '#FF6E6A');
+        continue;
+      }
+      R(img, x, y, 3, 3, PIPC);
+      P(img, x, y, '#4A3A5C');
+      P(img, x + 2, y + 2, '#120A1C');
+    }
+  }
+  return img;
+}

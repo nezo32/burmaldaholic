@@ -64,11 +64,18 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 	private static final Identifier PRINT = Burmaldaholic.id("textures/entity/craps/board_print.png");
 	private static final Identifier WALL = Burmaldaholic.id("textures/entity/craps/wall.png");
 	private static final Identifier PUCK = Burmaldaholic.id("textures/entity/craps/puck.png");
+	/** 16-px faces (generator {@code craps_v2.mjs dieWorld()}), the {@code dice_display} cell order ×2. */
+	private static final Identifier DIE_TEX = Burmaldaholic.id("textures/entity/craps/die_world.png");
+	private static final int[][] DIE_UV = {cell(1), cell(6), cell(2), cell(5), cell(3), cell(4)};
+
+	private static int[] cell(int k) {
+		return new int[] {16 * ((k - 1) % 4), 16 * ((k - 1) / 4), 16};
+	}
 	private static final double AUDIO_RANGE_SQ = 16 * 16;
 	/** Half edge of a world die (design blocks) = one tray unit. */
 	private static final float H = CrapsBoardGeometry.DIE / 2;
 	/** Puck radius (design blocks). */
-	private static final float PUCK_R = 0.046f;
+	private static final float PUCK_R = 0.066f;
 	/** LOD distances (blocks): A full, B moving, C rest only. */
 	public static final double LOD_A = 8, LOD_B = 16;
 
@@ -166,8 +173,10 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		// board lines
 		int point = sync == null ? 0 : sync.point();
 		s.line(BoardState.TITLE, 1, () -> Component.translatable("gui.burmaldaholic.craps.title"), BoardState.GOLD);
-		s.line(BoardState.STATE, 31L * point + 7, () -> point == 0 ? Component.translatable(CrapsFlow.K + "board.come_out")
-			: Component.translatable(CrapsFlow.K + "board.point", Texts.number(point)), BoardState.WHITE);
+		// the state line follows the puck: the point before the throw until the puck lands (no spoiler while the dice fly)
+		int shownPoint = sync == null ? 0 : c.catchUp || t >= c.beats.PUCK + CrapsBeats.puckTouchdown() || t < 0 ? point : sync.pointBefore();
+		s.line(BoardState.STATE, 31L * shownPoint + 7, () -> shownPoint == 0 ? Component.translatable(CrapsFlow.K + "board.come_out")
+			: Component.translatable(CrapsFlow.K + "board.point", Texts.number(shownPoint)), BoardState.WHITE);
 		if (sync != null && sync.d1() > 0) {
 			boolean shown = t >= c.beats.BADGE || t < 0 || t > 60_000 || c.catchUp;
 			int color = switch (eventOf(sync)) {
@@ -500,7 +509,8 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		float y = BoardGeometry.TOP + BoardGeometry.LAYER;
 		float x0 = CrapsBoardGeometry.x(0), z0 = CrapsBoardGeometry.z(0);
 		float x1 = CrapsBoardGeometry.x(CrapsBoardGeometry.PRINT_W), z1 = CrapsBoardGeometry.z(CrapsBoardGeometry.PRINT_H);
-		out.submitCustomGeometry(pose, RenderTypes.entityCutout(PRINT), (p, vc) -> WorldQuads.topRect(p, vc, x0, z0, x1, z1, y, 0, 0,
+		// translucent: the print has soft shadows and a tinted Don't Pass band (cutout would turn them black)
+		out.submitCustomGeometry(pose, RenderTypes.entityTranslucent(PRINT), (p, vc) -> WorldQuads.topRect(p, vc, x0, z0, x1, z1, y, 0, 0,
 			CrapsBoardGeometry.PRINT_W, CrapsBoardGeometry.PRINT_H, CrapsBoardGeometry.PRINT_W, CrapsBoardGeometry.PRINT_H, 0xFFFFFFFF, felt));
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(WALL), (p, vc) -> wall(p, vc, y, light));
 		if (s.flashA[0] > 0 || s.flashA[1] > 0) {
@@ -527,13 +537,27 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		if (s.dice) {
 			for (int d = 0; d < 2; d++) {
 				if (s.shadows) DiceWorldDraw.shadow(pose, out, s.die[d], H, y, light);
-				DiceWorldDraw.die(pose, out, s.die[d], H, y, light);
+				cube(pose, out, s.die[d], y, light);
 			}
 		}
 		if (s.stick) {
 			float sx = s.stickX, sz = s.stickZ;
 			out.submitCustomGeometry(pose, RenderTypes.entityCutout(WALL), (p, vc) -> dowel(p, vc, 0.5f, y + 0.32f, z0 - 0.35f, sx, y + 0.012f, sz, 0.007f, light));
 		}
+		pose.popPose();
+	}
+
+	private static final double[] MC = new double[4];
+
+	/** One die: the 16-px face cube by its model quaternion, centred at its support height (no corner in the felt). */
+	private static void cube(PoseStack pose, SubmitNodeCollector out, DieSample s, float surfaceY, int light) {
+		if (s.phase == DieSample.HELD) return;
+		Quat.trayToMc(s.q, MC);
+		org.joml.Quaternionf rot = new org.joml.Quaternionf((float) MC[1], (float) MC[2], (float) MC[3], (float) MC[0]);
+		pose.pushPose();
+		pose.translate((float) (s.x * H), (float) (surfaceY + s.zc * H), (float) (s.y * H));
+		pose.rotateAround(rot, 0f, 0f, 0f);
+		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEX), (p, vc) -> WorldQuads.cube(p, vc, H, DIE_UV, 64, 32, light));
 		pose.popPose();
 	}
 

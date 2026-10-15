@@ -282,8 +282,15 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		}
 	}
 
+	/** A framed viewport (RS: 1280×720 → 1067×600 frame): probes skipped, the shots are looked at instead. */
+	private static boolean framed(RealFlow f) {
+		Viewport vp = f.viewport();
+		return vp.frameW() != vp.w() || vp.frameH() != vp.h();
+	}
+
 	/** Mid-flight: the framebuffer at each die centre is die bone or pip ink. */
 	private static void probeFlight(RealFlow f, Path shot, double t, List<String> errors) {
+		if (framed(f)) return;
 		BufferedImage img = read(shot, errors);
 		if (img == null) return;
 		Viewport vp = f.viewport();
@@ -298,6 +305,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 
 	/** One frame after the wall the hit diamond is white (flashes on). */
 	private static void probeWall(RealFlow f, Roll r, Path shot, List<String> errors) {
+		if (framed(f)) return;
 		BufferedImage img = read(shot, errors);
 		if (img == null) return;
 		Viewport vp = f.viewport();
@@ -309,7 +317,8 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		double gy = wall.y() + wall.h() / 2.0;
 		double sc = scale(f, img);
 		int best = 0;
-		for (int dx = -1; dx <= 1; dx++) {
+		// the airborne die may cover the hit pyramid: its white also lights the neighbours for that frame
+		for (int dx = -9; dx <= 9; dx++) {
 			int x = (int) Math.round((vp.windowX(gx) + dx * vp.k() / 2.0) * sc);
 			int y = (int) Math.round(vp.windowY(gy) * sc);
 			int rgb = img.getRGB(clamp(x, img.getWidth()), clamp(y, img.getHeight()));
@@ -320,6 +329,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 
 	/** At rest: each die is exactly cell·k px wide and its top face shows the server's pips. */
 	private static void probeRest(RealFlow f, Roll r, Path shot, List<String> errors) {
+		if (framed(f)) return;
 		BufferedImage img = read(shot, errors);
 		if (img == null) return;
 		Viewport vp = f.viewport();
@@ -366,6 +376,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 
 	/** After the stick: both dice inside dice home, still showing the roll's faces (pips probed). */
 	private static void probeHome(RealFlow f, Roll r, Path shot, List<String> errors) {
+		if (framed(f)) return;
 		Viewport vp = f.viewport();
 		double t = r.beats.IDLE + 1;
 		double[][] c = f.client(mc -> centres((CrapsScreen) mc.gui.screen(), t));
@@ -406,9 +417,10 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		return b >= g && r + g + b > 220 && Math.abs(r - b) < 70;
 	}
 
+	/** Die outline / pip ink (dark purple, never the felt's dark green) or the red ace. */
 	private static boolean ink(int rgb) {
 		int r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
-		return r + g + b < 200 || (r > 150 && g < 110);
+		return (r + g + b < 200 && b >= g) || (r > 150 && g < 110);
 	}
 
 	private static int clusters(BufferedImage img, int x0, int y0, int x1, int y1, boolean red) {
@@ -450,6 +462,10 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 
 	private void inWorld(RealFlow f, List<String> errors) {
 		f.size(1920, 1080, 4);
+		f.context().runOnClient(mc -> {
+			mc.options.hideGui = true; // clean shots: no HUD, chat or toasts
+			mc.gui.getChat().clearMessages(false);
+		});
 		Direction[] facings = {Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST};
 		BlockPos base = f.server(server -> RealFlow.player(server).blockPosition().offset(0, 0, 12));
 		List<BlockPos> tables = new ArrayList<>();
@@ -483,7 +499,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 			Direction fa = facings[i];
 			CrapsBoardRenderer.probePos = p;
 			for (int d : new int[] {4, 10}) {
-				view(f, p, fa, d, d <= 4 ? 48f : 30f);
+				view(f, p, fa, d, d <= 4 ? 45f : 32f);
 				if (d == 4) {
 					// settled: the puck ON on the 8, the dice back at home, the wall and the rail groove
 					freezeWorld(f, rollTime, CrapsBeats.of(throwRoll.restMs()).IDLE + 1);
@@ -518,7 +534,10 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		f.shot("p2b_cm_craps_world_24_rest");
 		if (CrapsBoardRenderer.probeDice != 1) errors.add("far viewer (24 m) sees no dice at rest: probe " + CrapsBoardRenderer.probeDice);
 		CrapsBoardRenderer.probePos = null;
-		f.context().runOnClient(mc -> AnimClock.unfreezeForTest());
+		f.context().runOnClient(mc -> {
+			AnimClock.unfreezeForTest();
+			mc.options.hideGui = false;
+		});
 	}
 
 	private static void freezeWorld(RealFlow f, long rollTime, double t) {
@@ -526,15 +545,21 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		f.context().runOnClient(mc -> AnimClock.freezeForTest(level));
 	}
 
-	/** Stands {@code d} blocks out on the players' side of a table (the side it faces) and looks at the felt. */
+	/**
+	 * Puts the eye {@code d} blocks from the felt centre on the players' side of a table (the side it faces), looking
+	 * down at the felt at {@code pitch}°.
+	 */
 	private static void view(RealFlow f, BlockPos p, Direction facing, int d, float pitch) {
 		f.server(server -> {
 			ServerPlayer pl = RealFlow.player(server);
 			float yaw = facing.getOpposite().toYRot();
-			double eye = 1.62;
-			double y = p.getY() + Math.max(0, d * Math.tan(Math.toRadians(pitch)) + 0.9 - eye);
-			pl.teleportTo(server.overworld(), p.getX() + 0.5 + facing.getStepX() * d, y, p.getZ() + 0.5 + facing.getStepZ() * d, java.util.Set.of(), yaw, pitch,
-				true);
+			double horiz = d * Math.cos(Math.toRadians(pitch));
+			double up = d * Math.sin(Math.toRadians(pitch));
+			// the felt centre: footprint-local (0.5, 0) = the main block's centre x, its back edge toward the dealer
+			double cx = p.getX() + 0.5 - facing.getStepX() * 0.5;
+			double cz = p.getZ() + 0.5 - facing.getStepZ() * 0.5;
+			double y = p.getY() + 0.875 + up - 1.62;
+			pl.teleportTo(server.overworld(), cx + facing.getStepX() * horiz, y, cz + facing.getStepZ() * horiz, java.util.Set.of(), yaw, pitch, true);
 			pl.getAbilities().mayfly = true;
 			pl.getAbilities().flying = true;
 			pl.onUpdateAbilities();

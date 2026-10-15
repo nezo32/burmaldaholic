@@ -31,7 +31,7 @@ public final class CrapsFeltFractions {
 	public static final double HOME = 0.09;
 
 	/** Back wall strip height in GUI px per tier (T1 4, T2 6, T3 8, ROOMY 10) and on the in-world print (art px). */
-	public static final int WALL_T1 = 4, WALL_T2 = 6, WALL_T3 = 8, WALL_ROOMY = 10, WALL_PRINT = 6;
+	public static final int WALL_T1 = 6, WALL_T2 = 6, WALL_T3 = 10, WALL_ROOMY = 10, WALL_PRINT = 6;
 
 	/** Top (fraction of the playing area) of each row: place, come, field, don't pass, pass, bottom. */
 	public static double rowTop(int row) {
