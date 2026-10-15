@@ -43,7 +43,18 @@ public final class StatusLine {
 	/** The primary's state: its reason shows on line 1 while it is disabled. */
 	public void reason(Gate primary) {
 		this.reason = V2Draw.reason(primary);
+		this.phaseReason = !primary.enabled() && PHASE_REASONS.contains(primary.reasonKey());
 	}
+
+	/**
+	 * Reasons that only name the phase ("Spinning…", "Round in progress", "Bets closed"): when the game has its own hint
+	 * for that phase ("The ball is spinning…"), the hint replaces it on line 1 instead of saying the same thing twice
+	 * (review T-C2 V8).
+	 */
+	private static final java.util.Set<String> PHASE_REASONS = java.util.Set.of(dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_SPINNING,
+		dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_ROUND_IN_PROGRESS, dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_BETS_CLOSED,
+		dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_ROLLING, dev.nezo.burmaldaholic.core.ui.v2.V2Keys.REASON_DEALING);
+	private boolean phaseReason;
 
 	/** A click on a disabled target: its reason, for {@link #FLASH_MS}. */
 	public void flash(Component reason) {
@@ -105,12 +116,14 @@ public final class StatusLine {
 		if (watchdog != null && now - watchdogAt < WATCHDOG_MS) return watchdog;
 		if (error != null && now - errorAt < FLASH_MS) return error;
 		if (flash != null && now - flashAt < FLASH_MS) return flash;
+		if (reason != null && phaseReason && line2 == null && hint != null) return hint;
 		if (reason != null) return reason;
 		return line1;
 	}
 
 	public @Nullable Component line2() {
 		if (line2 != null) return line2;
+		if (hint != null && line1() == hint) return null; // the hint took line 1 (a phase reason)
 		return hint;
 	}
 
@@ -132,8 +145,7 @@ public final class StatusLine {
 			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(l1) + 8), strip.h());
 			V2Draw.fill(g, band, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
 			V2Draw.left(g, font, l1, band.inset(1), 3, 1, line1Color(), true);
-			timer.draw(g, new Box(box.x(), box.y() + Math.max(0, (box.h() - 3) / 2), Math.min(box.w(), 120), 3));
-			return;
+			return; // no orphan timer underline in an empty status column (T-C2 V8)
 		}
 		if (l2 != null && !strip.isEmpty()) { // line 2 above the Dock, on a dark strip; the Dock keeps line 1
 			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(l2) + 8), strip.h());
@@ -163,6 +175,6 @@ public final class StatusLine {
 			V2Draw.left(g, font, l2, new Box(box.x(), y, box.w(), lh), 0, 1, CasinoPalette.V2_MUTED, true);
 			y += lh;
 		}
-		timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3));
+		if (total > 0) timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3)); // no orphan underline
 	}
 }

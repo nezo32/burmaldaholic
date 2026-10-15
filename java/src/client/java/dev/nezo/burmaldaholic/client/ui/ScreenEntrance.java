@@ -25,9 +25,39 @@ public final class ScreenEntrance {
 		this.panel = panel;
 	}
 
-	/** Installs the entrance on {@code screen}; {@code panel} gives the panel rectangle (GUI coordinates). */
+	/** Drawn after the screen, OUTSIDE its fit / frame pose (real GUI coordinates), e.g. a celebration over a v2 screen. */
+	public interface OverFrame {
+		void extractOverFrame(net.minecraft.client.gui.GuiGraphicsExtractor g);
+	}
+
+	private static final java.util.Map<Screen, ScreenEntrance> INSTALLED = new java.util.WeakHashMap<>();
+	private static boolean listening;
+	/** The event object this entrance last hooked (Fabric recreates a screen's events on every init / resize). */
+	private Object hookedOn;
+
+	/**
+	 * Installs the entrance on {@code screen}; {@code panel} gives the panel rectangle (GUI coordinates). Call from
+	 * {@code init()} (any number of times: the entrance is kept, and it re-hooks itself after every re-init or resize —
+	 * Fabric recreates a screen's events then, which used to drop the fit / frame pose after a resize).
+	 */
 	public static ScreenEntrance install(Screen screen, Supplier<UiLayout.Rect> panel) {
-		ScreenEntrance e = new ScreenEntrance(panel);
+		if (!listening) {
+			listening = true;
+			ScreenEvents.AFTER_INIT.register((client, s, w, h) -> {
+				ScreenEntrance e = INSTALLED.get(s);
+				if (e != null) e.hook(s);
+			});
+		}
+		ScreenEntrance e = INSTALLED.computeIfAbsent(screen, k -> new ScreenEntrance(panel));
+		e.hook(screen);
+		return e;
+	}
+
+	private void hook(Screen screen) {
+		Object ev = ScreenEvents.beforeExtract(screen);
+		if (ev == hookedOn) return;
+		hookedOn = ev;
+		ScreenEntrance e = this;
 		ScreenEvents.beforeExtract(screen).register((s, g, mx, my, pt) -> {
 			long ms = Util.getMillis() - e.openedAt;
 			e.pushed = false;
@@ -61,7 +91,7 @@ public final class ScreenEntrance {
 			g.pose().popMatrix();
 			e.pushed = false;
 		});
-		return e;
+		if (screen instanceof OverFrame o) ScreenEvents.afterExtract(screen).register((s, g, mx, my, pt) -> o.extractOverFrame(g));
 	}
 
 	/** Milliseconds since the screen opened. */

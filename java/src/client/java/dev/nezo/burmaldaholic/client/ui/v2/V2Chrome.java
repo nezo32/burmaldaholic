@@ -356,7 +356,25 @@ public final class V2Chrome {
 		return press(t.get().id(), t.get().enabled(), p);
 	}
 
-	/** A key press (the raw event key code, resolved by {@link V2Input}); true when consumed. */
+	/** Whether a click at (x, y) lands on an enabled kit or play target (it then acts even while a celebration plays). */
+	public boolean hitsEnabled(double x, double y) {
+		return hits.at(x, y).map(HitMap.Target::enabled).orElse(false);
+	}
+
+	/** Whether a key press reaches an enabled target (a bound kit key or the stepper's). */
+	public boolean keyHitsEnabled(int code) {
+		String name = V2Input.keyName(code);
+		if (name == null) return false;
+		String step = stepper.idForKey(name);
+		if (step != null) {
+			Gate g = stepper.gate(step);
+			return g != null && g.enabled();
+		}
+		Optional<String> id = keys.idFor(name);
+		return id.isPresent() && hits.targets().stream().anyMatch(t -> t.id().equals(id.get()) && t.enabled());
+	}
+
+		/** A key press (the raw event key code, resolved by {@link V2Input}); true when consumed. */
 	public boolean key(int code) {
 		return key(V2Input.keyName(code));
 	}

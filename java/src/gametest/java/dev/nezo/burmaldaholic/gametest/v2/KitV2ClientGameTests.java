@@ -256,6 +256,34 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 			f.context().waitTicks(4);
 			long again = f.client(mc -> s.chrome().bet.view().myTotal());
 			if (again != start + 2 * chip) throw new AssertionError("press after release: bet " + again + ", want " + (start + 2 * chip));
+			// T-C2 V3: a big-win celebration does not swallow a click on an enabled kit target; a click elsewhere only skips
+			playCelebration(f);
+			if (!f.client(mc -> dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable())) throw new AssertionError("no skippable celebration");
+			f.click("chip.0");
+			long during = f.client(mc -> s.chrome().bet.view().myTotal());
+			boolean skipped = f.client(mc -> !dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable());
+			report.add("K2 click on chip.0 during a celebration: bet " + again + " → " + during + ", skipped " + skipped);
+			if (during != again + chip || !skipped) throw new AssertionError("a chip click during a celebration: bet " + during + " (want " + (again + chip)
+				+ "), skipped " + skipped);
+			playCelebration(f);
+			double[] empty = f.client(mc -> {
+				var c = s.chrome();
+				var p = c.grid().play;
+				for (int y = p.y() + 4; y < p.bottom(); y += 3) {
+					for (int x = p.x() + 4; x < p.right(); x += 7) if (c.hits().at(x + 0.5, y + 0.5).isEmpty()) return new double[] {c.viewport().windowX(x + 0.5), c.viewport().windowY(y + 0.5)};
+				}
+				return null;
+			});
+			if (empty == null) throw new AssertionError("no empty felt point");
+			f.context().getInput().setCursorPos(empty[0], empty[1]);
+			f.context().waitTick();
+			f.context().getInput().pressMouse(dev.nezo.burmaldaholic.client.input.Inputs.MOUSE_LEFT);
+			f.context().waitTicks(2);
+			long after = f.client(mc -> s.chrome().bet.view().myTotal());
+			boolean skipped2 = f.client(mc -> !dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable());
+			report.add("K2 click on the empty felt during a celebration: bet " + after + ", skipped " + skipped2);
+			if (after != during || !skipped2) throw new AssertionError("an empty-felt click during a celebration: bet " + after + ", skipped " + skipped2);
+			f.context().waitTicks(20);
 			// B1: key plates
 			String h = f.client(mc -> dev.nezo.burmaldaholic.client.ui.v2.V2Button.keyName(KeyMap.H).getString());
 			if (h.length() != 1) throw new AssertionError("keyName(H) = '" + h + "'");
@@ -282,7 +310,7 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == 0, "the dropped bet never reached the table");
 			f.waitChrome(c -> c.primary.gate().enabled() && !c.watchdog().pending(), "Deal enabled again");
 			f.click(KeyMap.Ids.PRIMARY);
-			long want = start + 2 * chip;
+			long want = start + 3 * chip; // two held-key chips + the one clicked during the celebration
 			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == want
 				|| t.writeClientState(RealFlow.player(t.getLevel().getServer())).getLongOr("last_bet", 0) == want, "the bet after the drop went through");
 			// DES 6: a vanilla toast waits
@@ -293,12 +321,12 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 				return null;
 			});
 			f.context().waitTicks(10);
-			int during = f.client(mc -> visibleToasts(mc));
+			int toastDuring = f.client(mc -> visibleToasts(mc));
 			f.close();
 			f.context().waitTicks(10);
-			int after = f.client(mc -> visibleToasts(mc));
-			report.add("K2 toast: visible during the screen " + during + ", after closing " + after);
-			if (during != 0 || after == 0) throw new AssertionError("toast visible during " + during + ", after " + after);
+			int toastAfter = f.client(mc -> visibleToasts(mc));
+			report.add("K2 toast: visible during the screen " + toastDuring + ", after closing " + toastAfter);
+			if (toastDuring != 0 || toastAfter == 0) throw new AssertionError("toast visible during " + toastDuring + ", after " + toastAfter);
 		} catch (AssertionError | RuntimeException e) {
 			failures.add("k2 real table: " + e.getMessage());
 			report.add("  FAILED k2: " + e);
@@ -309,7 +337,16 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 		}
 	}
 
-	private static int visibleToasts(Minecraft mc) {
+	private static void playCelebration(RealFlow f) {
+		f.client(mc -> {
+			dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().play(dev.nezo.burmaldaholic.client.fx.CelebrationRequest.core(
+				dev.nezo.burmaldaholic.core.anim.WinTier.BIG, 500, 10, 7));
+			return null;
+		});
+		f.context().waitTicks(4);
+	}
+
+		private static int visibleToasts(Minecraft mc) {
 		try {
 			var field = net.minecraft.client.gui.components.toasts.ToastManager.class.getDeclaredField("visibleToasts");
 			field.setAccessible(true);
