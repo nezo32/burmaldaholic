@@ -161,7 +161,7 @@
 	"gui.burmaldaholic.uth.v2.reason.waiting_for": "Waiting for %1$s",
 	"gui.burmaldaholic.uth.v2.reason.showdown": "Showdown",
 	"gui.burmaldaholic.uth.v2.reason.dealing": "Dealing…",
-	"gui.burmaldaholic.uth.v2.reason.press_change_bet": "Bet placed – press Change bet to edit it",
+	"gui.burmaldaholic.uth.v2.reason.press_change_bet": "Press Change bet first",
 	"gui.burmaldaholic.uth.v2.status.chips_to": "Chips → %1$s",
 	"gui.burmaldaholic.uth.v2.status.cost": "Ante %1$s + Blind %1$s + Trips %2$s = %3$s",
 	"gui.burmaldaholic.uth.v2.status.right_click": "Right click: −1 chip",

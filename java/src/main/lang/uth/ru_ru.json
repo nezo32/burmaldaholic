@@ -161,7 +161,7 @@
 	"gui.burmaldaholic.uth.v2.reason.waiting_for": "Ждём: %1$s",
 	"gui.burmaldaholic.uth.v2.reason.showdown": "Вскрытие",
 	"gui.burmaldaholic.uth.v2.reason.dealing": "Раздача…",
-	"gui.burmaldaholic.uth.v2.reason.press_change_bet": "Ставка сделана – нажмите «Изменить ставку»",
+	"gui.burmaldaholic.uth.v2.reason.press_change_bet": "Сначала «Изменить ставку»",
 	"gui.burmaldaholic.uth.v2.status.chips_to": "Фишки → %1$s",
 	"gui.burmaldaholic.uth.v2.status.cost": "Анте %1$s + блайнд %1$s + трипс %2$s = %3$s",
 	"gui.burmaldaholic.uth.v2.status.right_click": "ПКМ: −1 фишка",
