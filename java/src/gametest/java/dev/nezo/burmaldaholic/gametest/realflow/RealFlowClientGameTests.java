@@ -141,7 +141,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		ctx.waitTicks(20); // the entrance and the first state
 		long before = balance(world);
 		int from = PLAYS.size();
-		click(ctx, "gui.burmaldaholic.slots.spin");
+		clickV2When(ctx, "primary"); // v2 kit (owner B6, SLT): Spin is the Dock primary
 		awaitPlay(ctx, "slot", from);
 		report.add("  slots " + tier + ": balance " + before + " -> " + balance(world));
 		closeScreen(ctx, world);
@@ -161,27 +161,24 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 			useBlock(ctx, pos);
 			awaitScreen(ctx, dev.nezo.burmaldaholic.games.slots.client.SlotMachineV2Screen.class, 60);
 			ctx.waitTicks(20);
-			WidgetRef spin = widget(ctx, w -> w instanceof dev.nezo.burmaldaholic.games.slots.client.panels.SlotButton b
-				&& b.getMessage() != null && (keyPrefix(b.getMessage(), "gui.burmaldaholic.slots.spin") || keyPrefix(b.getMessage(), "gui.burmaldaholic.slots.vip_lock")));
-			if (spin == null) throw new AssertionError("no SPIN button: " + describe(ctx));
-			if (spin.active()) throw new AssertionError("SPIN is active on a machine above the player's VIP tier");
+			// v2 kit (owner B6, SLT): SPIN is the Dock primary; disabled, its reason is the VIP lock
+			String gate = ctx.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+				? (h.chrome().primary.gate().enabled() ? "enabled" : String.valueOf(h.chrome().primary.gate().reasonKey())) : "no v2 screen");
+			if (!"gui.burmaldaholic.slots.vip_lock".equals(gate)) throw new AssertionError("SPIN on a machine above the player's VIP tier: " + gate);
 			String reason = ctx.computeOnClient(mc -> {
 				Object model = readField(mc.gui.screen(), "model");
 				Object r = model == null ? null : readField(model, "lockReason");
 				return r instanceof net.minecraft.network.chat.Component c && keyPrefix(c, "gui.burmaldaholic.slots.vip_lock") ? c.getString() : null;
 			});
 			if (reason == null) throw new AssertionError("SPIN is disabled (VIP tier too low) but the screen gives no reason");
-			boolean onSpin = ctx.computeOnClient(mc -> {
-				for (var w : widgets(mc.gui.screen())) {
-					if (keyPrefix(w.getMessage(), "gui.burmaldaholic.slots.vip_lock")) return true;
-				}
-				return false;
-			});
-			if (!onSpin) throw new AssertionError("the locked SPIN does not carry the reason (message / tooltip)");
 			report.add("  slots VIP lock: " + reason);
-			// clicking the locked SPIN plays nothing
+			// clicking the locked SPIN plays nothing (its reason flashes in the status line)
 			int from = PLAYS.size();
-			clickWindow(ctx, spin.windowX(), spin.windowY());
+			double[] at = ctx.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+				? h.chrome().hits().box("primary").map(b -> new double[] {h.chrome().viewport().toWindow(b.x() + b.w() / 2.0),
+					h.chrome().viewport().toWindow(b.y() + b.h() / 2.0)}).orElse(null) : null);
+			if (at == null) throw new AssertionError("no SPIN target: " + describe(ctx));
+			clickWindow(ctx, at[0], at[1]);
 			ctx.waitTicks(10);
 			if (PLAYS.size() != from) throw new AssertionError("a locked machine played: " + PLAYS.subList(from, PLAYS.size()));
 			if (SCREENS) ctx.takeScreenshot("realflow_slots_vip_lock");

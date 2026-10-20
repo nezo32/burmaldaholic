@@ -69,6 +69,23 @@ public final class ReelView {
 		return preRollStart >= 0 || rejectStart >= 0;
 	}
 
+	/**
+	 * S1 wait-loop pose at {@code now} (the result arrived): per reel the pre-roll's top index and speed, plus the ms the
+	 * pre-roll has run; {@code null} when no pre-roll runs (autoplay, reject). Same motion as {@link #drawMovingBeforeTape}.
+	 */
+	public double[][] preRollPose(long now) {
+		if (preRollStart < 0) return null;
+		double[] top = new double[5];
+		double[] vel = new double[5];
+		for (int r = 0; r < 5; r++) {
+			ReelMotion probe = preProbe[r];
+			double t = now - preRollStart - 30.0 * r;
+			top[r] = probe == null ? 0 : probe.top(t);
+			vel[r] = probe == null ? 0 : Math.max(0, probe.cruiseVel(t));
+		}
+		return new double[][] {top, vel, {now - preRollStart}};
+	}
+
 	public void reject(long now) {
 		if (preRollStart < 0) return;
 		double t = now - preRollStart;

@@ -45,6 +45,11 @@ public class SlotGeometry {
 	public static final int TEXT_H = 9;
 
 	public final boolean compact;
+	/**
+	 * v2 kit (owner B6): the cabinet lives in the {@code TableGrid} PlayArea and the controls in the kit's Dock, so there is
+	 * no control band (bet / flow / spin / balance boxes are empty).
+	 */
+	public final boolean docked;
 	public final int left;
 	public final int top;
 	public final int width;
@@ -87,8 +92,72 @@ public class SlotGeometry {
 	public final int captionY;
 	public final int balanceY;
 
+	/** Non-compact cabinet height above the cells (meters + header) and below them (gap + result line). */
+	public static final int HEAD = 42, HEAD_COMPACT = 38, FOOT = 16, FOOT_COMPACT = 15;
+	/** Side room of the cabinet beyond the 5 cells (both panels, their inset and the gap to the reels). */
+	public static final int SIDES = 180, SIDES_COMPACT = 160;
+	/** The four meters' row (4 × 94 + 3 × 4) plus air. */
+	public static final int METER_ROW = 4 * 94 + 3 * 4 + 4;
+
+	/**
+	 * The cabinet inside a v2 PlayArea box (owner B6, {@code TableGrid.play}): the largest cell ≤ 44 px that fits
+	 * {@code HEAD + 3c + FOOT} high and {@code 5c + SIDES} wide (non-compact needs c ≥ 40), else the compact cabinet
+	 * (c ≤ 32); centred in the box. No control band: the controls are in the kit Dock.
+	 */
+	protected SlotGeometry(int px, int py, int pw, int ph) {
+		int c = Math.min(44, Math.min((ph - HEAD - FOOT) / 3, (pw - SIDES) / 5));
+		boolean small = c < 40 || pw < METER_ROW;
+		if (small) c = Math.max(16, Math.min(32, Math.min((ph - HEAD_COMPACT - FOOT_COMPACT) / 3, (pw - SIDES_COMPACT) / 5)));
+		this.compact = small;
+		this.docked = true;
+		this.cell = c;
+		int w = small ? 5 * c + SIDES_COMPACT : Math.max(5 * c + SIDES, METER_ROW);
+		int h = (small ? HEAD_COMPACT + FOOT_COMPACT : HEAD + FOOT) + 3 * c;
+		this.width = w;
+		this.height = h;
+		this.left = px + (pw - w) / 2;
+		this.top = py + Math.max(0, (ph - h) / 2);
+		this.wx = left + (width - 5 * cell) / 2;
+		this.wy = top + (small ? HEAD_COMPACT : HEAD);
+		this.meterY = top + 2;
+		this.meterTiers = small ? new int[] {4, 3} : new int[] {1, 2, 3, 4};
+		this.meterW = small ? Math.min(150, (w - 8) / 2) : 94;
+		this.border = small ? 5 : 6;
+		this.marquee = small ? 12 : 14;
+		this.titleY = wy - border - marquee;
+		this.titleH = marquee + 2;
+		this.niceH = small ? 16 : 20;
+		this.niceY = niceY(wy, small);
+		this.panelW = small ? 58 : 72;
+		this.leftPanelX = left + 4;
+		this.rightPanelX = left + width - 4 - panelW;
+		this.panelY = wy;
+		this.panelH = 3 * cell;
+		this.labelY = wy + 3 * cell + (small ? 5 : 6);
+		// no control band in the PlayArea: empty boxes at the cabinet's bottom edge (regions() leaves them out)
+		int bottom = top + h;
+		this.controlsY = bottom;
+		this.rowH = 0;
+		this.betButton = 0;
+		this.betLabelY = bottom;
+		this.betRowY = bottom;
+		this.betMinusX = left;
+		this.betPlateW = 0;
+		this.betPlateX = left;
+		this.betPlusX = left;
+		this.spinW = 0;
+		this.spinH = 0;
+		this.spinX = left + width;
+		this.spinY = bottom;
+		this.captionY = bottom;
+		this.flowX = left;
+		this.flowW = 0;
+		this.balanceY = bottom;
+	}
+
 	protected SlotGeometry(boolean compact, int screenW, int screenH) {
 		this.compact = compact;
+		this.docked = false;
 		this.width = compact ? 320 : 400;
 		this.height = compact ? 220 : 240;
 		this.left = (screenW - width) / 2;
@@ -133,6 +202,11 @@ public class SlotGeometry {
 	/** Top of the Nice tier plate: it sits in the header, ending 1 px above the reel window (never over a cell). */
 	public static int niceY(int wy, boolean compact) {
 		return wy - (compact ? 16 : 20) - 1;
+	}
+
+	/** The cabinet in a v2 PlayArea (owner B6). */
+	public static SlotGeometry docked(int px, int py, int pw, int ph) {
+		return new SlotGeometry(px, py, pw, ph);
 	}
 
 	public static SlotGeometry of(int screenW, int screenH) {
@@ -262,6 +336,7 @@ public class SlotGeometry {
 		m.put("leftPanel", new Rect(leftPanelX, panelY, panelW, panelH));
 		m.put("rightPanel", new Rect(rightPanelX, panelY, panelW, panelH));
 		m.put("label", label());
+		if (docked) return m;
 		m.put("bet", betGroup());
 		m.put("flow", flowArea());
 		m.put("spin", spin());

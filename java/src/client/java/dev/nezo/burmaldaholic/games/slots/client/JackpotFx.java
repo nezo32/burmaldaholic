@@ -47,6 +47,12 @@ public final class JackpotFx {
 	}
 
 	public void cue(SlotStage s, Beat b) {
+		if (b.kind().equals(SlotTimeline.JACKPOT_GEM)) {
+			// SLOTS.md §5.4: the base-game jackpot gem lands in the centre of the reels (its award plays after the total)
+			SlotSounds.bonusLand(s.machine(), 1.2f);
+			s.particles().burst(ScreenParticles.SPARKLE, s.wx() + s.windowW() / 2f, s.wy() + s.windowH() / 2f, 14, 0.08f, 0, 700, s.now());
+			return;
+		}
 		if (!b.kind().equals(SlotTimeline.JACKPOT)) return;
 		int tier = b.arg(0);
 		CelebrationPlan.Jackpot p = CelebrationPlan.jackpot(tier);
@@ -79,7 +85,26 @@ public final class JackpotFx {
 		}
 	}
 
+	/** The jackpot gem beat (SLOTS.md §5.4): a gem of the tier's colour pops in the reel centre with "JACKPOT GEM!". */
+	private static void drawGem(SlotStage s, GuiGraphicsExtractor g) {
+		Beat b = s.script() == null ? null : s.script().active(SlotTimeline.JACKPOT_GEM, s.t());
+		if (b == null) return;
+		double ms = s.t() - b.at();
+		int tier = Math.max(1, Math.min(4, b.arg(0)));
+		int color = SymbolStyle.JACKPOT_COLORS[tier - 1];
+		double pop = s.reduceMotion() ? 1 : Ease.OUT_BACK.apply(Math.min(1, ms / 300.0));
+		float cx = s.wx() + s.windowW() / 2f;
+		float cy = s.wy() + s.windowH() / 2f;
+		if (!s.reduceMotion()) SlotDraw.rays(g, cx, cy, 70, 10, ms / 1000.0, SlotDraw.withAlpha(color, 0.45));
+		SlotDraw.gem(g, (int) cx, (int) cy, (int) Math.round(s.cell() * 0.35 * pop), color);
+		Component tierWord = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + TIER_KEYS[tier - 1]);
+		Component word = Component.translatable("gui.burmaldaholic.slots.fx.jackpot_gem").append(Texts.raw(" ")).append(tierWord); // literal-ok: separator
+		int scale = SlotDraw.fitScale(s.font(), word, 2, s.windowW() - 8);
+		SlotDraw.outlined(g, s.font(), word, cx, s.wy() + 10, (float) (scale * pop), color, 0xFF180A28);
+	}
+
 	public void draw(SlotStage s, GuiGraphicsExtractor g, int sw, int sh) {
+		drawGem(s, g);
 		Beat b = active(s);
 		if (b == null) return;
 		double ms = s.t() - b.at();

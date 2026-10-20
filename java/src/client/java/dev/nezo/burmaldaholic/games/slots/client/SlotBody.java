@@ -138,6 +138,25 @@ public final class SlotBody implements StageHost {
 		extraButtons.addAll(extra);
 	}
 
+	private boolean docked;
+
+	/**
+	 * v2 kit (owner B6): the cabinet in the {@code TableGrid} PlayArea, the controls in the kit Dock (no widgets here; the
+	 * screen maps the Dock gates to {@link #changeBet}, {@link #spinPressed}, {@link #openBuy}, {@link #autoPressed},
+	 * {@link #toggleTurbo}, {@link #openPaytable}).
+	 */
+	public void initDocked(SlotLayout l) {
+		docked = true;
+		layout = l;
+		stage.layout(l.wx, l.wy, l.cell);
+		buttons.clear();
+		iconic.clear();
+	}
+
+	public boolean docked() {
+		return docked;
+	}
+
 	/** (Re)builds the layout and the control widgets for a screen of {@code w × h}. */
 	public void init(int w, int h, Font font, Consumer<AbstractWidget> add) {
 		layout = SlotLayout.of(w, h);
@@ -289,10 +308,10 @@ public final class SlotBody implements StageHost {
 
 	// ---- actions ----------------------------------------------------------------------------------------------
 
-	private void changeBet(int dir) {
+	public void changeBet(int dir) {
 		int next = model.betIndex + dir;
 		if (next < 0 || next >= model.bets.length) {
-			(dir < 0 ? betDown : betUp).shake();
+			if (betDown != null && !docked) (dir < 0 ? betDown : betUp).shake();
 			return;
 		}
 		model.betIndex = next;
@@ -314,7 +333,7 @@ public final class SlotBody implements StageHost {
 		}
 		if (!model.playable) {
 			if (model.lockReason != null) {
-				spin.shake(); // the lock reason is already on the line under the reels
+				if (spin != null && !docked) spin.shake(); // the lock reason is already on the line under the reels
 				return;
 			}
 			invalid("gui.burmaldaholic.error.disabled");
@@ -337,19 +356,26 @@ public final class SlotBody implements StageHost {
 	}
 
 	private void invalid(String key) {
-		spin.shake();
+		if (spin != null && !docked) spin.shake();
 		model.errorKey = key;
 		model.errorAt = Util.getMillis();
 	}
 
-	private void openBuy() {
+	/** The paytable / help panel (the v2 TopBar {@code ?}). */
+	public void openPaytable() {
+		if (stage.spinning()) return;
+		SlotSounds.click();
+		overlays.open(Overlays.Mode.PAYTABLE, Util.getMillis());
+	}
+
+	public void openBuy() {
 		if (stage.spinning()) return;
 		overlays.open(Overlays.Mode.BUY, Util.getMillis());
 	}
 
 	private Component autoTip;
 
-	private void autoPressed() {
+	public void autoPressed() {
 		if (model.autoLeft >= 0) {
 			controls.stopAuto();
 			return;
@@ -357,7 +383,7 @@ public final class SlotBody implements StageHost {
 		overlays.open(Overlays.Mode.AUTO, Util.getMillis());
 	}
 
-	private void toggleTurbo() {
+	public void toggleTurbo() {
 		model.turbo = !model.turbo;
 		controls.turbo(model.turbo);
 		SlotSounds.click();
@@ -406,8 +432,21 @@ public final class SlotBody implements StageHost {
 		stage.drawWindow(g, mouseX, mouseY);
 		CabinetArt.glass(g, l);
 		SidePanels.label(g, l, stage, model);
-		SidePanels.balance(g, l, stage, model);
-		drawBet(g, l);
+		if (!docked) {
+			SidePanels.balance(g, l, stage, model); // v2: the TopBar balance pill and the Dock stepper show these
+			drawBet(g, l);
+		}
+		int tipTier = meterAt(l, mouseX, mouseY);
+		if (tipTier > 0) {
+			// built once per (tier, pool amount): no per-frame allocation while the mouse rests on a meter
+			long pool = model.pools[tipTier - 1];
+			if (tipLines == null || tipLinesTier != tipTier || tipLinesPool != pool) {
+				tipLines = stage.font().split(Component.literal(meterTipText(tipTier)), 220); // literal-ok: translated text
+				tipLinesTier = tipTier;
+				tipLinesPool = pool;
+			}
+			g.setTooltipForNextFrame(tipLines, mouseX, mouseY);
+		}
 		if (!l.compact) {
 			Rect pay = SidePanels.paytableArea(l);
 			boolean hot = pay != null && mouseX >= pay.x() && mouseX < pay.right() && mouseY >= pay.y() && mouseY < pay.bottom();
@@ -415,12 +454,52 @@ public final class SlotBody implements StageHost {
 		}
 	}
 
+	/** The jackpot meter under the mouse: "TIER amount: where it comes from" (owner R3, jackpot clarity), or null. */
+	public String meterTip(SlotLayout l, int mx, int my) {
+		int tier = meterAt(l, mx, my);
+		return tier > 0 ? meterTipText(tier) : null;
+	}
+
+	private static final String[] METER_KEYS = {"mini", "minor", "major", "grand"};
+	private List<net.minecraft.util.FormattedCharSequence> tipLines;
+	private int tipLinesTier;
+	private long tipLinesPool;
+
+	/** The jackpot tier (1..4) whose meter is under the mouse, or 0. Allocation-free (runs every frame). */
+	private int meterAt(SlotLayout l, int mx, int my) {
+		if (overlays.mode() != Overlays.Mode.NONE || model.def == null || model.pools == null) return 0;
+		for (int i = 0; i < l.meterTiers.length; i++) {
+			int tier = l.meterTiers[i];
+			int x = l.meterX(i);
+			if (mx < x || mx >= x + l.meterW || my < l.meterY || my >= l.meterY + 16 || model.pools[tier - 1] <= 0) continue;
+			return tier;
+		}
+		return 0;
+	}
+
+	private String meterTipText(int tier) {
+		Component word = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + METER_KEYS[tier - 1]);
+		return Component.translatable("gui.burmaldaholic.slots.jackpots.row", word, Texts.number(model.pools[tier - 1]),
+			Overlays.jackpotSource(model.def, tier)).getString();
+	}
+
+	/**
+	 * Owner R3: the label over the bet plate reads "Coin 5 × 4" (coin value × multiplier; the plate keeps the total, which
+	 * every pay multiplies), or "BET" when the bet is not a whole number of coins.
+	 */
+	public static Component betLabel(SlotModel model) {
+		long coin = model.coinValue();
+		long mult = dev.nezo.burmaldaholic.games.slots.v2.present.BetSplit.multiplier(model.bet(), coin);
+		return mult > 0 ? Component.translatable("gui.burmaldaholic.slots.bet_coin", Texts.number(coin), Texts.number(mult))
+			: Component.translatable("gui.burmaldaholic.slots.bet_label");
+	}
+
 	/** The bet group: "BET" label, the value plate with a chip glyph (the number flips on a change, 120 ms). */
 	private void drawBet(GuiGraphicsExtractor g, SlotLayout l) {
 		Font font = stage.font();
 		int px = l.betPlateX;
 		int pw = l.betPlateW;
-		SlotDraw.centeredFit(g, font, Component.translatable("gui.burmaldaholic.slots.bet_label"), px + pw / 2, l.betLabelY, pw + 2 * l.betButton, 0xFFD6C6F0);
+		SlotDraw.centeredFit(g, font, betLabel(model), px + pw / 2, l.betLabelY, pw + 2 * l.betButton, 0xFFD6C6F0);
 		int py = l.betRowY;
 		int ph = l.betButton;
 		if (CabinetArt.ART) SlotSprites.blit(g, SlotSprites.VALUE_PLATE, px, py, pw, ph);

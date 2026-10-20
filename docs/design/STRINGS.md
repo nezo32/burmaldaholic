@@ -1410,6 +1410,34 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.max_win` | MAX WIN! | МАКСИМАЛЬНЫЙ ВЫИГРЫШ! |
 | `gui.burmaldaholic.slots.jackpot.won` | %1$s JACKPOT! | ДЖЕКПОТ %1$s! |
 
+### Slots R3 (SLT, owner playtest E1: jackpot ladder, jackpot gem, coin × multiplier; `SLOTS.md` §5.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.bet_coin` | Coin %1$s × %2$s | Жетон %1$s × %2$s |
+| `gui.burmaldaholic.slots.jackpots.title` | Jackpot ladder | Лестница джекпотов |
+| `gui.burmaldaholic.slots.jackpots.share` | Amounts are for a bet of %1$s or more; a smaller bet wins its share (bet ÷ %1$s). | Суммы указаны для ставки от %1$s; меньшая ставка получает свою долю (ставка ÷ %1$s). |
+| `gui.burmaldaholic.slots.jackpots.row` | %1$s %2$s: %3$s | %1$s %2$s: %3$s |
+| `gui.burmaldaholic.slots.jackpots.gem` | or a jackpot gem on any paid spin, 1 in %1$s | или камень джекпота в любом платном спине, 1 из %1$s |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.mini` | a Mini gem in a Treasure Hunt chest | камень «Мини» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.minor` | a Minor gem in a Treasure Hunt chest | камень «Минор» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.major` | a Major gem in a Treasure Hunt chest | камень «Мажор» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.grand` | a Grand gem in a Treasure Hunt chest | камень «Гранд» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.nether.mini` | a MINI coin in Piglin's Hoard | монета «Мини» в кладе пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.nether.minor` | a MINOR coin in Piglin's Hoard | монета «Минор» в кладе пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.nether.major` | a MAJOR coin in Piglin's Hoard | монета «Мажор» в кладе пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.nether.grand` | fill all 15 cells in Piglin's Hoard | все 15 ячеек клада пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.end.mini` | MINI on the Dragon Wheel's outer ring | «Мини» на внешнем кольце колеса дракона |
+| `gui.burmaldaholic.slots.jackpots.src.end.minor` | MINOR on the Dragon Wheel's middle ring | «Минор» на среднем кольце колеса дракона |
+| `gui.burmaldaholic.slots.jackpots.src.end.major` | MAJOR in the Dragon Core | «Мажор» в сердце дракона |
+| `gui.burmaldaholic.slots.jackpots.src.end.grand` | GRAND in the Dragon Core | «Гранд» в сердце дракона |
+| `gui.burmaldaholic.slots.fx.jackpot_gem` | JACKPOT GEM! | КАМЕНЬ ДЖЕКПОТА! |
+| `gui.burmaldaholic.slots.turbo_on` | Turbo: on | Турбо: вкл |
+| `config.burmaldaholic.slots.coinValue` | %1$s: coin value (0 = automatic) | %1$s: стоимость жетона (0 = автоматически) |
+| `config.burmaldaholic.slots.jackpot.gem` | %1$s: jackpot gem chance per spin | %1$s: шанс камня джекпота за спин |
+| `gui.burmaldaholic.slots.stop_autoplay` | Stop Auto | Стоп авто |
+| `gui.burmaldaholic.slots.more` | More | Ещё |
+
 ## roulette
 
 | Key | EN | RU |

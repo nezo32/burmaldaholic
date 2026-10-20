@@ -110,9 +110,7 @@ public final class ConfigManager {
 	/** (Re)loads global + per-world files, applies them and rewrites the normalised global file. */
 	public synchronized List<ConfigIssue> load() {
 		JsonObject global = file == null ? new JsonObject() : read(file);
-		if (schemaVersion(global) < SCHEMA_VERSION) {
-			upgradeRetiredDefaults(global);
-		}
+		upgradeRetiredDefaults(global, schemaVersion(global));
 		global.remove(SCHEMA_KEY);
 		if (worldFile != null) {
 			worldOverrides = read(worldFile);
@@ -298,9 +296,9 @@ public final class ConfigManager {
 	 * Schema version of the global file, written as the top-level {@code configVersion} on every save.
 	 * A file without it (v0.1.1) or older than this is upgraded once ({@link #upgradeRetiredDefaults});
 	 * after that an admin may set an old default again on purpose and it is kept.
-	 * 2 = v0.1.2 (worldgen attach chances).
+	 * 2 = v0.1.2 (worldgen attach chances). 3 = v0.2.0 (slots RTP ~98 %, SLOTS.md §7.1).
 	 */
-	static final int SCHEMA_VERSION = 2;
+	static final int SCHEMA_VERSION = 3;
 	static final String SCHEMA_KEY = "configVersion";
 
 	/** The file's {@code configVersion}; 1 when absent (every file written before v0.1.2). */
@@ -318,8 +316,36 @@ public final class ConfigManager {
 		"worldgen.piglinParlor.chance", 0.3,
 		"worldgen.highRoller.chance", 0.2);
 
-	static void upgradeRetiredDefaults(JsonObject global) {
-		for (Map.Entry<String, Double> e : RETIRED_DEFAULTS.entrySet()) {
+	/** Retired non-numeric (or array) defaults: key -> the old default as JSON (exact match, see {@link #RETIRED_DEFAULTS}). */
+	static final Map<String, String> RETIRED_JSON = Map.of(
+		// v0.1.x slots v2 RTP levers (v0.2.0: 10/12/19, 14/17/23, buy 20.8 / 107.2, outer ring 12…100; SLOTS.md §7.1)
+		"slots.overworld.freeSpins.awards", "[8,10,15]",
+		"slots.nether.freeSpins.awards", "[12,15,20]",
+		"slots.nether.buy.price", "18.4",
+		"slots.end.buy.price", "109.0",
+		"slots.end.wheel.outer", "[\"10\",\"UP\",\"12\",\"15\",\"MINI\",\"10\",\"20\",\"12\",\"25\",\"10\",\"40\",\"15\",\"UP\",\"12\",\"20\",\"MINI\",\"15\",\"10\",\"75\",\"25\"]");
+
+	/**
+	 * Runs each retirement step only for files written below the schema version that retired it: {@link #RETIRED_DEFAULTS}
+	 * (v1 -> v2) for {@code fileVersion < 2}, {@link #RETIRED_JSON} (v2 -> v3) for {@code fileVersion < 3}. A value an admin
+	 * wrote under a later schema is deliberate and is kept.
+	 */
+	static void upgradeRetiredDefaults(JsonObject global, int fileVersion) {
+		if (fileVersion < 3) for (Map.Entry<String, String> e : RETIRED_JSON.entrySet()) {
+			JsonElement v = at(global, e.getKey());
+			JsonElement old = JsonParser.parseString(e.getValue());
+			boolean same = v != null && (v.equals(old) || v.isJsonPrimitive() && old.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()
+				&& old.getAsJsonPrimitive().isNumber() && v.getAsDouble() == old.getAsDouble());
+			if (!same) continue;
+			String key = e.getKey();
+			int dot = key.lastIndexOf('.');
+			JsonElement parent = at(global, key.substring(0, dot));
+			if (parent != null && parent.isJsonObject()) {
+				parent.getAsJsonObject().remove(key.substring(dot + 1));
+				LOG.info("Config: {} was the old default; using the new default", key);
+			}
+		}
+		if (fileVersion < 2) for (Map.Entry<String, Double> e : RETIRED_DEFAULTS.entrySet()) {
 			JsonElement v = at(global, e.getKey());
 			if (v != null && v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()
 					&& v.getAsDouble() == e.getValue()) {

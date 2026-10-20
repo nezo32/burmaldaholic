@@ -30,11 +30,11 @@ public final class SlotMachinesV2 {
 	/** Bumped by {@link #invalidate()}: a validation that started on an older config must not publish its reports. */
 	private static final java.util.concurrent.atomic.AtomicInteger GENERATION = new java.util.concurrent.atomic.AtomicInteger();
 
-	/** SLOTS.md §7.1 (default machines; verified by {@code SlotRtpV2Test}). */
-	static final double[] DEFAULT_RTP = {0.950735093002, 0.953943832565, 0.965344189995};
-	static final double[] DEFAULT_OWNED_RTP = {0.940483002869, 0.938091430577, 0.937566412217};
+	/** SLOTS.md §7.1 (default machines, v0.2.0 ~98 % incl. the jackpot gem; verified by {@code SlotRtpV2Test}). */
+	static final double[] DEFAULT_RTP = {0.983721576917, 0.984195981131, 0.984060856661};
+	static final double[] DEFAULT_OWNED_RTP = {0.973469486784, 0.968343579143, 0.956283078883};
 	/** Mean free-spin win of a 3-scatter trigger (× bet): what a buy gets (SLOTS.md §6.3). */
-	static final double[] DEFAULT_FS3 = {12.858949740342, 17.198135247722, 102.466891985663};
+	static final double[] DEFAULT_FS3 = {16.073673755427, 20.064491121818, 102.466891985663};
 	static final double[] DEFAULT_CONTRIBUTION = {0.010, 0.015, 0.025};
 
 	private SlotMachinesV2() {}
@@ -132,6 +132,9 @@ public final class SlotMachinesV2 {
 		int[] seeds = new int[4];
 		int[] ppm = new int[4];
 		int[] owned = new int[4];
+		int[] gem = new int[2];
+		for (int t = 0; t < 2; t++) gem[t] = (int) Math.round(j.gem.getOrDefault(SlotDefaults.TIER_KEYS[t], 0.0) * 1_000_000);
+		if (gem[0] + gem[1] > 10_000) throw new IllegalArgumentException("jackpot.gem: total chance above 1 %");
 		for (int t = 0; t < 4; t++) {
 			String key = SlotDefaults.TIER_KEYS[t];
 			seeds[t] = j.seed.getOrDefault(key, 0);
@@ -139,7 +142,7 @@ public final class SlotMachinesV2 {
 			owned[t] = j.owned.getOrDefault(key, 0);
 		}
 		MachineDef.Features nf = new MachineDef.Features(board, f.pickValues(), pickW, holdTrigger, holdRespins, holdPpm, f.holdValues(), holdW, rings,
-			j.refBet, seeds, ppm, owned);
+			j.refBet, seeds, ppm, owned, gem);
 		return new MachineDef(m, codes, d.roles(), strips, pays, scat, d.bonusReelsMask(), fs.awards.clone(), fs.retrigger, fs.cap,
 			m == Machine.OVERWORLD ? fs.multiplier : 1, ladder, ladderFree, c.maxWinMultiple, buy, nf);
 	}
@@ -187,7 +190,7 @@ public final class SlotMachinesV2 {
 		MachineDef.Features f = d.features();
 		MachineDef.Features sf = s.features();
 		MachineDef.Features nf = new MachineDef.Features(f.pickBoard(), f.pickValues(), f.pickWeights(), f.holdTrigger(), f.holdRespins(),
-			f.holdCoinPpm(), f.holdValues(), f.holdWeights(), f.wheelRings(), f.jackpotRef(), f.jackpotSeedMult(), sf.contributionPpm(), f.ownedMult());
+			f.holdCoinPpm(), f.holdValues(), f.holdWeights(), f.wheelRings(), f.jackpotRef(), f.jackpotSeedMult(), sf.contributionPpm(), f.ownedMult(), f.gemPpm());
 		MachineDef n = new MachineDef(d.machine(), d.codes(), d.roles(), d.strips(), d.paysFifths(), d.scatterFifths(), d.bonusReelsMask(),
 			d.freeSpins(), d.retrigger(), d.fsCap(), d.fsMultiplier(), d.ladder(), d.ladderFree(), d.capMultiple(), s.buyPriceFifths(), nf);
 		return n.equals(s);

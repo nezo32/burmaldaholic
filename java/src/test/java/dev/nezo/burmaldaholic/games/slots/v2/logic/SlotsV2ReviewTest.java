@@ -110,6 +110,11 @@ class SlotsV2ReviewTest {
 			int sc = SpinEval.of(d, t.stops(), false, 0).scatters();
 			assertTrue(sc < 3 || run.capped, "a trigger without free spins");
 		}
+		// jackpot gem (SLOTS.md §5.4): drawn last, never on a bought feature, never after the cap
+		if (t.gem() > 0) {
+			assertFalse(t.bought() || run.capped, "gem on a bought / capped spin");
+			prize.accept(-t.gem());
+		}
 		return tiers;
 	}
 

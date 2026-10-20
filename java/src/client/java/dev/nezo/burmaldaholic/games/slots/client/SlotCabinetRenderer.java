@@ -180,7 +180,9 @@ public final class SlotCabinetRenderer extends SpectatorBlockEntityRenderer<Slot
 				c.lastT = Double.NaN;
 			}
 		}
-		double t = state.levelMs - sync.startTick() * 50.0;
+		// S1: shared time from the swappable source (SY SmoothClock later), never backwards within a spin (a server time
+		// packet moving the level clock back would replay the reels)
+		double t = cabinetT(SpinClock.timeSource().levelMs(partialTick), sync.startTick(), c.lastT);
 		if (Double.isNaN(c.firstSeen)) {
 			c.firstSeen = t;
 			c.catchUp = t > 0 && TimelineSeed.showSettled(t, sync.gateMs());
@@ -201,6 +203,12 @@ public final class SlotCabinetRenderer extends SpectatorBlockEntityRenderer<Slot
 		state.tierAmount = c.tierAmount;
 		state.tierColor = c.tierColor;
 		state.mult = c.frame.multAlpha > 0 ? multText(c, c.frame.multValue) : null;
+	}
+
+	/** Cabinet time of a spin: {@code levelMs − startTick·50}, monotonic per spin ({@code lastT} NaN = first frame). */
+	static double cabinetT(double levelMs, long startTick, double lastT) {
+		double t = levelMs - startTick * 50.0;
+		return Double.isNaN(lastT) ? t : Math.max(lastT, t);
 	}
 
 	/** The acting player hears the screen's sounds, not the cabinet's. */

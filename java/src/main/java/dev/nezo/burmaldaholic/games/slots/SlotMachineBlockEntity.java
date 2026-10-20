@@ -76,6 +76,8 @@ import org.jspecify.annotations.Nullable;
 public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 	static final String TIMER_V2 = "v2";
 	static final String TIMER_V2_AUTO = "v2_auto";
+	/** Server lead on a spin's {@code startTick} (SY-SPEC §4: slots 4; {@code SyncLead} once p2/sy lands). */
+	public static final int START_LEAD_TICKS = 4;
 	static final String ROUND_KEY = "burmaldaholic_slots_v2";
 	private static final String CABINET_KEY = "cabinet";
 
@@ -483,7 +485,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		r.bought = buy;
 		r.owned = owned;
 		r.tape = tape;
-		r.startTick = gameTime();
+		// S1 / SY-SPEC §4: start LEAD ticks in the future so viewers receive the result before beat 0 (no catch-up)
+		r.startTick = gameTime() + START_LEAD_TICKS;
 		r.seq = ++seq;
 		r.speedPct = CasinoConfig.slots().turboAllowed && turboV2.getOrDefault(player.getUUID(), false) ? 200 : 100;
 		r.seed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), r.seq);
@@ -591,7 +594,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		Timeline tl = r.timeline(SlotMachinesV2.def(r.machine));
-		long elapsed = (gameTime() - r.startTick) * 50;
+		long real = (gameTime() - r.startTick) * 50;
+		// a skip inside the START_LEAD (real < 0, the first ~200 ms) counts as a skip at 0: it ends the first beat group
+		long elapsed = Math.max(0, real);
 		int gate = tl.sharedEndMs();
 		int g = tl.groupAt(elapsed);
 		if (g < 0 || elapsed >= gate) {
@@ -601,7 +606,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (huntLeft(r) > 0) {
 			target = Math.min(target, SlotTimeline.huntPauseMs(tl));
 		}
-		long shift = (target - elapsed) / 50;
+		long shift = (target - real) / 50;
 		if (shift <= 0) {
 			return;
 		}
@@ -935,6 +940,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putBoolean("owned", owned);
 		List<Long> offered = offeredBets(viewer);
 		t.putLongArray("bets", offered.stream().mapToLong(Long::longValue).toArray());
+		// R3: coin × multiplier front-end over the full configured ladder (stable whatever the VIP filter offers)
+		t.putLong("coin", dev.nezo.burmaldaholic.games.slots.v2.present.BetSplit.coin(cfg.bets, cfg.coinValue));
 		long bet = betsV2.getOrDefault(viewer.getUUID(), (long) cfg.defaultBet);
 		if (!offered.isEmpty() && !offered.contains(bet)) {
 			bet = offered.getFirst();
@@ -979,6 +986,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putInt("hunt_board", def.features().pickBoard());
 		t.putInt("hold_trigger", def.features().holdTrigger());
 		t.putInt("hold_respins", def.features().holdRespins());
+		t.putIntArray("gem", def.features().gemPpm());
 		t.putLong("jackpot_ref", def.features().jackpotRef());
 		long[] meters = new long[4];
 		JackpotPoolsV2 pools = JackpotPoolsV2.get(server);

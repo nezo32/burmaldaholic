@@ -127,7 +127,7 @@ public class SlotsGameTests {
 		withPlayer(helper, 10_000, player -> {
 			nether.onAction(player, "buy", bet(20));
 			helper.assertTrue(nether.spinning(), "bought");
-			helper.assertTrue(Economies.get().balance(player) == 10_000 - 368, "18.4 x 20 = 368 taken");
+			helper.assertTrue(Economies.get().balance(player) == 10_000 - 416, "20.8 x 20 = 416 taken (R3 buy price, SLOTS.md §6.3)");
 			SpinTape tape = nether.roundTape();
 			helper.assertTrue(tape.bought() && tape.freeSpins() != null, "free spins without a base spin");
 			nether.leave(player.getUUID(), SlotMachineBlockEntity.LeaveReason.DISCONNECT);
@@ -275,6 +275,24 @@ public class SlotsGameTests {
 			helper.assertFalse(machine.spinning(), "autoplay needs a configured loss limit");
 			helper.assertTrue(Economies.get().balance(owner) == 4_980 + tape.payoutChips(), "only the first stake was taken");
 		}));
+		helper.succeed();
+	}
+
+	/** T-SLT: a skip in the start lead (the first ~200 ms, before the shared clock reaches 0) is honoured, not ignored. */
+	@GameTest
+	public void v2SkipInTheStartLeadIsHonoured(GameTestHelper helper) {
+		SlotMachineBlockEntity machine = placeV2(helper, Tier.COPPER, new BlockPos(1, 1, 1));
+		withPlayer(helper, 5_000, player -> {
+			machine.onAction(player, "spin", bet(10));
+			helper.assertTrue(machine.spinning(), "round started");
+			SpinTape tape = machine.roundTape();
+			long before = machine.writeClientState(player).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin").getLongOr("start_tick", -1);
+			machine.onAction(player, "skip", new CompoundTag()); // same tick: still inside START_LEAD_TICKS
+			long after = machine.writeClientState(player).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin").getLongOr("start_tick", -1);
+			helper.assertTrue(after < before, "the early skip moved the shared clock (" + before + " -> " + after + ")");
+			helper.assertTrue(tape.equals(machine.roundTape()), "skip never changes the tape");
+			machine.finishV2(false);
+		});
 		helper.succeed();
 	}
 

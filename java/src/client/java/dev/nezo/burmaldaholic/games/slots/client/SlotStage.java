@@ -17,6 +17,7 @@ import dev.nezo.burmaldaholic.games.slots.client.reels.ReelView;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.MachineDef;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
+import dev.nezo.burmaldaholic.games.slots.v2.present.ReelHandoff;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SlotFrames;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SlotScript;
 import java.util.List;
@@ -106,12 +107,33 @@ public final class SlotStage {
 	 * timeline time. The previous spin (if any) finishes first (overrun rule).
 	 */
 	public void play(SpinTape tape, Timeline timeline, SpinClock clock, int seed) {
+		play(tape, timeline, clock, seed, null);
+	}
+
+	/**
+	 * The spinning player's spin (S1, SY-SPEC §2–§3): the clock is anchored at {@code arrivalWallMs}; when the
+	 * outcome-free pre-roll is running its reels hand off from their current position and speed onto the server's
+	 * stops ({@link ReelHandoff}) — no jump back, no snap, whatever the latency.
+	 *
+	 * @return the actor's timeline time at arrival ({@code tH}, ≤ 0 when the pre-roll extends into the spin)
+	 */
+	public double playActor(SpinTape tape, Timeline timeline, int seed, long arrivalWallMs) {
+		double[][] pose = reels.preRollPose(arrivalWallMs);
+		ReelHandoff.Plan plan = null;
+		if (pose != null) plan = ReelHandoff.plan(new SlotScript(timeline, def, restStops, restCells), pose[0], pose[1], pose[2][0]);
+		double tH = plan == null ? 0 : plan.tH();
+		play(tape, timeline, SpinClock.actor(timeline, arrivalWallMs, tH), seed, plan);
+		return tH;
+	}
+
+	private void play(SpinTape tape, Timeline timeline, SpinClock clock, int seed, ReelHandoff.Plan handoff) {
 		if (script != null && !finished) finishNow();
 		this.tape = tape;
 		this.seed = seed;
 		this.local = FxSettings.localProfile();
 		this.script = new SlotScript(timeline, def, restStops, restCells);
 		this.frames = new SlotFrames.Sampler(script);
+		this.frames.handoff(handoff);
 		this.clock = clock;
 		this.lastT = -1;
 		this.finished = false;
@@ -145,8 +167,10 @@ public final class SlotStage {
 	public void retape(SpinTape tape, Timeline timeline) {
 		if (script == null || finished) return;
 		this.tape = tape;
+		ReelHandoff.Plan handoff = frames == null ? null : frames.handoff();
 		this.script = new SlotScript(timeline, def, playRestStops, playRestCells);
 		this.frames = new SlotFrames.Sampler(script);
+		this.frames.handoff(handoff); // the shared part (and its first reel phase) is unchanged
 		this.clock.retarget(timeline);
 		frames.sample(t);
 		jackpots.reset();

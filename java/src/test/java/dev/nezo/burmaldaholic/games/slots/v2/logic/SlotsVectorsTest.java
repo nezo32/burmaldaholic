@@ -100,6 +100,12 @@ class SlotsVectorsTest {
 	void seededDrawsAndCodec() throws IOException {
 		JsonArray ds = load("slots_engine.json").getAsJsonArray("draws");
 		int featured = 0;
+		int gems = 0;
+		// FX_DUMP_VECTORS=1 rewrites the expected tapes (inputs unchanged) after a deliberate math change (R3: RTP ~98 %)
+		boolean dump = "1".equals(System.getenv("FX_DUMP_VECTORS"));
+		Path file = Path.of(System.getProperty("burmaldaholic.projectDir", "."), "src/test/resources/fx/vectors", "slots_engine.json");
+		String text = dump ? Files.readString(file) : "";
+		int cursor = text.indexOf("\"draws\"");
 		for (JsonElement el : ds) {
 			JsonObject v = el.getAsJsonObject();
 			MachineDef d = def(v.get("machine").getAsString());
@@ -108,12 +114,26 @@ class SlotsVectorsTest {
 			SpinTape t = SlotDraw.draw(new SlotDraw.Request(d, v.get("bet").getAsLong(), v.get("buy").getAsBoolean(), owned,
 				owned || pools.length == 0 ? null : pools), SlotRng.seeded(v.get("seed").getAsInt()));
 			String tape = v.get("tape").getAsString();
+			if (dump) {
+				String from = "\"tape\": \"" + tape + "\"";
+				String to = "\"tape\": \"" + TapeCodec.encode(t) + "\"";
+				int at = text.indexOf(from, cursor);
+				text = text.substring(0, at) + to + text.substring(at + from.length());
+				cursor = at + to.length();
+				continue;
+			}
+			if (t.gem() > 0) gems++;
 			assertEquals(tape, TapeCodec.encode(t), v.toString());
 			assertEquals(tape, TapeCodec.encode(TapeCodec.decode(tape)));
 			assertEquals(t, TapeCodec.decode(tape));
 			if (t.featureTriggered()) featured++;
 		}
+		if (dump) {
+			Files.writeString(file, text);
+			return;
+		}
 		assertTrue(featured >= 36);
+		assertTrue(gems >= 2, "a Mini and a Minor jackpot-gem draw (SLOTS.md §5.4)");
 	}
 
 	/**
