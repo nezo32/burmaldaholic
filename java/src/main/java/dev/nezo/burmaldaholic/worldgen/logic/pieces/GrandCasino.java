@@ -28,15 +28,15 @@ import java.util.List;
  *   z 0..6    bar      the bar under the VIP gallery (VIP games upstairs)                 pool bar
  *   z 7..21   floor    the double-height hall: two table pits, colonnades, side galleries,  pool floor
  *                      twin stairs, slot banks, the dome above
- *   z 22..40  entrance lobby (cashier, wheel, plinko), loggia + balcony, crown sign,     pool entrance (start)
+ *   z 22..42  entrance lobby (cashier, wheel, plinko), loggia + balcony, crown sign,     pool entrance (start)
  *                      two pavilions (duel pit, gold slots), forecourt with fountains
  * </pre>
  * Rows: foundation y 0..1, floor blocks y {@value #FLOOR_Y}, floor row {@value #ROW}; gallery / VIP floor y
  * {@value #MEZZ_Y} (row {@value #ROW2}); hall ceiling y {@value #CEIL_Y}; dome crown near the top.
  *
  * <p>Games (32): 8 hall tables, 3 VIP tables + 2 netherite slots, 6 copper + 10 gold slots, cashier, wheel, plinko. Every
- * table is a full 3 × 2 multi-block table obeying MT-DESIGN §6 R1–R6; light ≥ 10 over every game comes from glowing
- * floor tiles ({@link Blueprint#uplightGames()}). NPCs: Croupier, Baccarat Dealer, Loan Shark; one loot chest.
+ * table is a full 3 × 2 multi-block table obeying MT-DESIGN §6 R1–R6; every felt cell is lit ≥ 12 by the lanterns of
+ * the table chandelier straight above it (plus floor uplights, {@link Blueprint#uplightGames()}); machines ≥ 10. NPCs: Croupier, Baccarat Dealer, Loan Shark; one loot chest.
  */
 public final class GrandCasino {
 	private GrandCasino() {}
@@ -123,14 +123,9 @@ public final class GrandCasino {
 			return palette;
 		}
 
-		/** Variants that generate in the world (have a structure slot). */
-		public static List<Variant> active() {
-			return List.of(RIVIERA, OASIS, SAFARI, ALPINE, ICE_PALACE, CHERRY);
-		}
-
-		/** The layout-id style segment: the slot, or {@code grand_<name>} for a variant without one. */
+		/** The layout-id style segment: the variant's structure slot (every variant has one). */
 		public String style() {
-			return slot != null ? slot : "grand_" + name().toLowerCase(java.util.Locale.ROOT);
+			return slot;
 		}
 	}
 
@@ -261,9 +256,15 @@ public final class GrandCasino {
 		b.set(cx, FLOOR_Y, cz, b.palette().block(Role.UPLIGHT));
 	}
 
-	/** The deep-red casino carpet field and its gold borders (palette-independent: green felt reads on red). */
-	static final BlockSpec FIELD = BlockSpec.mc("red_carpet");
-	static final BlockSpec GOLD = BlockSpec.mc("yellow_carpet");
+	/** The casino carpet field (palette CARPET: deep red in every variant, green felt reads on red, VQA r2). */
+	static BlockSpec field(Blueprint b) {
+		return b.palette().block(Role.CARPET);
+	}
+
+	/** The 1-wide borders round every table zone and the runner's edges (palette CARPET_PATTERN: the variant's accent). */
+	static BlockSpec border(Blueprint b) {
+		return b.palette().block(Role.CARPET_PATTERN);
+	}
 
 	/** Hall tables {x, z, players' side: +1 south / -1 north} (the kits place them in games()). */
 	static final int[][] HALL_TABLES = {{11, 11, 1}, {16, 11, 1}, {11, 17, -1}, {16, 17, -1}, {24, 11, 1}, {29, 11, 1}, {24, 17, -1},
@@ -271,12 +272,13 @@ public final class GrandCasino {
 
 	/**
 	 * Table chandelier over a table whose floor row is {@code y}: a chain from the ceiling to a 3 x 3 gilt ring of top slabs
-	 * at y + 5 with lit candles on its edges and lanterns hanging under the centre and the four corners at y + {@link #PENDANT_DY}
+	 * at y + 5 with lit candles on its edges and a lantern hanging under each of its 9 cells at y + {@link #PENDANT_DY}
 	 * (just above the board / headroom volume). Under a low ceiling the lanterns hang from the ceiling itself.
 	 */
 	static void tableChandelier(Blueprint b, int x, int y, int z) {
 		int lampY = y + PENDANT_DY, ringY = lampY + 1;
-		int[][] spots = {{0, 0}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+		// a lantern under every ring cell: each felt cell (r -1..1, f -1..0) has one straight above it, 3 rows up (light 12)
+		int[][] spots = {{0, 0}, {-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}};
 		if (ringY >= CEIL_Y) {
 			for (int[] d : spots) {
 				b.set(x + d[0], CEIL_Y - 1, z + d[1], lantern(b, true));
@@ -367,8 +369,8 @@ public final class GrandCasino {
 	// hall: floor patterns, colonnades, rear arcade, ceiling with oculus, chandelier, stairs, slot banks
 
 	static void hall(Blueprint b) {
-		BlockSpec red = FIELD;
-		BlockSpec gold = GOLD;
+		BlockSpec red = field(b);
+		BlockSpec gold = border(b);
 		// the gaming floor: one deep-red field (whatever the palette: green felt reads on red), a 1-wide gold border round
 		// every table's zone (footprint + walkway), the dealer cell left bare
 		b.fill(X_COLONNADE + 1, ROW, Z_HALL0, SX - 2 - X_COLONNADE, ROW, Z_HALL1, red);
@@ -474,8 +476,8 @@ public final class GrandCasino {
 	// front block: lobby, loggia, balcony, crown sign
 
 	static void front(Blueprint b) {
-		BlockSpec red = FIELD;
-		BlockSpec gold = GOLD;
+		BlockSpec red = field(b);
+		BlockSpec gold = border(b);
 		// lobby floor: checker marble with the runner
 		Ornament.checker(b, X_COLONNADE + 1, Z_INNER + 1, SX - 2 - X_COLONNADE, Z_FRONT - 1, FLOOR_Y, b.palette().block(Role.FLOOR),
 			b.palette().block(Role.FLOOR_ACCENT));
@@ -794,7 +796,7 @@ public final class GrandCasino {
 		Ornament.sunburst(b, CX, Z_PAVILION, FLOOR_Y, 7, 2, 6.5, -60, 60, b.palette().block(Role.FLOOR_ACCENT));
 		for (int z = z0; z < SZ; z++) {
 			for (int x = 19; x <= 21; x++) {
-				b.set(x, ROW, z, FIELD);
+				b.set(x, ROW, z, field(b));
 			}
 		}
 		b.mirrorX(AX2, m -> {

@@ -196,15 +196,6 @@ class OrnamentTest {
 		assertTrue(reach[1][7][2], "top landing reachable on foot");
 	}
 
-	@Test
-	void twinFlightIsMirrored() {
-		Blueprint b = bp(11, 8, 4);
-		Ornament.twinFlight(b, 10, 1, 1, 1, Facing.EAST, Facing.SOUTH, 2, 3, Role.FLOOR, 1);
-		assertEquals("east", b.at(1, 1, 1).properties().get("facing"));
-		assertEquals("west", b.at(9, 1, 1).properties().get("facing"));
-		assertEquals(name(b, 3, 3, 2), name(b, 7, 3, 2));
-	}
-
 	// ---- circles and domes ---------------------------------------------------------------------------------------
 
 	@Test
@@ -277,38 +268,6 @@ class OrnamentTest {
 			sum += h;
 		}
 		assertEquals(0.5, sum / 4000, 0.03);
-	}
-
-	@Test
-	void gradientFadesAlongTheAxisDeterministically() {
-		Blueprint b = bp(20, 21, 20);
-		b.fill(0, 0, 0, 19, 20, 19, Role.WALL);
-		Ornament.gradient(b, new Geometry.Box(0, 0, 0, 19, 20, 19), Role.WALL, Role.WALL_ALT, 'y', 0, 1, 7);
-		int bottom = 0, top = 0;
-		for (int x = 0; x < 20; x++) {
-			for (int z = 0; z < 20; z++) {
-				bottom += b.at(x, 0, z).equals(P.block(Role.WALL_ALT)) ? 1 : 0;
-				top += b.at(x, 20, z).equals(P.block(Role.WALL_ALT)) ? 1 : 0;
-			}
-		}
-		assertEquals(0, bottom, "p0 = 0 at the low end");
-		assertEquals(400, top, "p1 = 1 at the high end");
-		Blueprint c = bp(20, 21, 20);
-		c.fill(0, 0, 0, 19, 20, 19, Role.WALL);
-		Ornament.gradient(c, new Geometry.Box(0, 0, 0, 19, 20, 19), Role.WALL, Role.WALL_ALT, 'y', 0, 1, 7);
-		for (int y = 0; y < 21; y++) {
-			assertEquals(b.at(5, y, 5), c.at(5, y, 5), "deterministic");
-		}
-		Blueprint d = bp(30, 1, 30);
-		d.fill(0, 0, 0, 29, 0, 29, Role.WALL);
-		Ornament.blend(d, new Geometry.Box(0, 0, 0, 29, 0, 29), P.block(Role.WALL), 0.25, 3, P.block(Role.WALL_ALT));
-		int alt = 0;
-		for (int x = 0; x < 30; x++) {
-			for (int z = 0; z < 30; z++) {
-				alt += d.at(x, 0, z).equals(P.block(Role.WALL_ALT)) ? 1 : 0;
-			}
-		}
-		assertEquals(225, alt, 60, "speckle near p");
 	}
 
 	@Test

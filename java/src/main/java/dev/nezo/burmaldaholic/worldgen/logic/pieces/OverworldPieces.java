@@ -25,7 +25,7 @@ public final class OverworldPieces {
 	public static synchronized List<Piece> all() {
 		if (cache == null) {
 			List<Piece> out = new ArrayList<>();
-			for (GrandCasino.Variant v : GrandCasino.Variant.active()) {
+			for (GrandCasino.Variant v : GrandCasino.Variant.values()) {
 				out.addAll(GrandCasino.pieces(v));
 			}
 			cache = Collections.unmodifiableList(out);

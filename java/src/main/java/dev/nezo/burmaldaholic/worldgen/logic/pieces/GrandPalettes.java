@@ -25,14 +25,14 @@ public final class GrandPalettes {
 	/** Lit copper bulb: light 15, stays lit without redstone (no neighbour signal toggles it). */
 	static final Material BULB = m("waxed_copper_bulb[lit=true,powered=false]");
 
-	/** Riviera (plains, forest, meadow, beach): the default Monte-Carlo look. */
+	/** Riviera (plains, forest, meadow): the default Monte-Carlo look. */
 	public static final Palette RIVIERA = Palette.builder("grand_riviera")
 		.put(Role.FOUNDATION, m("polished_deepslate", "polished_deepslate_stairs", "polished_deepslate_slab"))
 		.put(Role.FLOOR, m("smooth_quartz", "smooth_quartz_stairs", "smooth_quartz_slab"))
 		.put(Role.FLOOR_ACCENT, m("polished_deepslate", "polished_deepslate_stairs", "polished_deepslate_slab"))
 		.put(Role.CARPET, m("red_carpet"))
 		.put(Role.CARPET_ACCENT, m("red_carpet"))
-		.put(Role.CARPET_PATTERN, m("brown_carpet"))
+		.put(Role.CARPET_PATTERN, m("yellow_carpet")) // gold table-zone borders
 		.put(Role.WALL, m("smooth_sandstone", "smooth_sandstone_stairs", "smooth_sandstone_slab"))
 		.put(Role.WALL_ALT, m("cut_sandstone", "sandstone_stairs", "cut_sandstone_slab"))
 		.put(Role.WALL_BASE, m("deepslate_tiles", "deepslate_tile_stairs", "deepslate_tile_slab"))
@@ -175,13 +175,12 @@ public final class GrandPalettes {
 		.put(Role.FRAME, m("stripped_spruce_log"))
 		.put(Role.COUNTER, m("spruce_planks", "spruce_stairs", "spruce_slab"))
 		.put(Role.STOOL, m("warped_planks", "warped_stairs", "warped_slab"))
-		.put(Role.CARPET, m("blue_carpet"))
-		.put(Role.CARPET_PATTERN, m("cyan_carpet"))
+		.put(Role.CARPET_PATTERN, m("light_blue_carpet")) // ice borders; the field stays deep red (VQA r2)
 		.put(Role.PLANTER, m("potted_spruce_sapling"))
 		.put(Role.PATH, m("polished_diorite", "polished_diorite_stairs", "polished_diorite_slab"))
 		.build();
 
-	/** Cherry Pavilion (cherry grove; optional sixth look, no structure slot yet — see CR-1 handoff). */
+	/** Cherry Pavilion (cherry grove; structure slot {@code casino_cherry}). */
 	public static final Palette CHERRY = RIVIERA.derive("grand_cherry")
 		.put(Role.WALL, m("smooth_quartz", "smooth_quartz_stairs", "smooth_quartz_slab"))
 		.put(Role.WALL_ALT, m("cherry_planks", "cherry_stairs", "cherry_slab"))
@@ -194,8 +193,7 @@ public final class GrandPalettes {
 		.put(Role.BALUSTER, m("diorite_wall"))
 		.put(Role.STOOL, m("cherry_planks", "cherry_stairs", "cherry_slab"))
 		.put(Role.COUNTER, m("cherry_planks", "cherry_stairs", "cherry_slab"))
-		.put(Role.CARPET, m("pink_carpet"))
-		.put(Role.CARPET_PATTERN, m("magenta_carpet"))
+		.put(Role.CARPET_PATTERN, m("pink_carpet")) // blossom borders; the field stays deep red (VQA r2)
 		.put(Role.PLANTER, m("potted_cherry_sapling"))
 		.build();
 

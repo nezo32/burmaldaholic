@@ -148,6 +148,28 @@ class GrandCasinoTest {
 		}
 	}
 
+	/** The carpet is palette-driven: a deep-red CARPET field in every variant, borders in the variant's CARPET_PATTERN. */
+	@Test
+	void carpetBordersFollowTheVariantPalette() {
+		for (GrandCasino.Variant v : GrandCasino.Variant.values()) {
+			Grid g = whole(v).layout().grid();
+			BlockSpec field = v.palette().block(dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role.CARPET);
+			BlockSpec border = v.palette().block(dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role.CARPET_PATTERN);
+			assertEquals("minecraft:red_carpet", field.name(), v + " field");
+			int[] n = new int[2];
+			for (int x = 0; x < g.size().x(); x++) {
+				for (int z = 0; z < g.size().z(); z++) {
+					BlockSpec b = g.get(x, GrandCasino.ROW, z);
+					n[0] += field.equals(b) ? 1 : 0;
+					n[1] += border.equals(b) ? 1 : 0;
+				}
+			}
+			assertTrue(n[0] > 100 && n[1] > 50, v + ": field " + n[0] + ", borders " + n[1]);
+		}
+		assertEquals("minecraft:light_blue_carpet", GrandPalettes.ICE_PALACE.block(dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role.CARPET_PATTERN).name());
+		assertEquals("minecraft:pink_carpet", GrandPalettes.CHERRY.block(dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role.CARPET_PATTERN).name());
+	}
+
 	@Test
 	void npcsChestAndAnchorWithinTheBudget() {
 		Piece p = whole(GrandCasino.Variant.RIVIERA);

@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.worldgen.logic.blueprint;
 
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
-import dev.nezo.burmaldaholic.worldgen.logic.Geometry;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +9,7 @@ import java.util.List;
 /**
  * Architectural verbs of the blueprint DSL (casino redesign CR-1, findings/CASINO-REDESIGN.md §2.2 / §5): columns with
  * bases and capitals, arches, cornices and entablatures, balustrades, straight and twin staircases, discs and rings,
- * ribbed domes on drums, gradient / speckle palette blending, floor patterns, coffered ceilings and neon signage.
+ * ribbed domes on drums, deterministic hashing, floor patterns, coffered ceilings and neon signage.
  *
  * <p>Every verb draws only through public {@link Blueprint} verbs, so it resolves {@link Role}s through the palette (a
  * biome swap is free) and works inside {@link Blueprint#mirrorX} (symmetry). Coordinates are template-local and
@@ -27,12 +26,6 @@ public final class Ornament {
 	public static BlockSpec upright(Blueprint b, Role role) {
 		BlockSpec s = b.palette().block(role);
 		return Shapes.hasAxis(s.name()) ? BlockSpec.of(s.name(), "axis", "y") : s;
-	}
-
-	/** Same, with the axis along x ({@code alongX}) or z. */
-	public static BlockSpec lying(Blueprint b, Role role, boolean alongX) {
-		BlockSpec s = b.palette().block(role);
-		return Shapes.hasAxis(s.name()) ? BlockSpec.of(s.name(), "axis", alongX ? "x" : "z") : s;
 	}
 
 	private static boolean free(Blueprint b, int x, int y, int z) {
@@ -187,7 +180,10 @@ public final class Ornament {
 		}
 	}
 
-	/** Heights (opening top, in half blocks above the spring line) of an arch {@code w} wide, for tests and planning. */
+	/**
+	 * Heights (opening top, in half blocks above the spring line) of an arch {@code w} wide. Kept public as the oracle
+	 * {@code OrnamentTest} checks {@link #arch} against (not called by the pieces).
+	 */
 	public static int[] archProfile(int w, double rise) {
 		double r = rise > 0 ? rise : w / 2.0;
 		int[] k = new int[w];
@@ -316,23 +312,6 @@ public final class Ornament {
 			}
 		}
 		return new int[] {x + steps * up.dx(), y + steps, z + steps * up.dz()};
-	}
-
-	/**
-	 * Twin (imperial) staircase: two {@link #flight}s mirrored about x = {@code axis2} / 2, the left one starting at
-	 * ({@code x}, {@code y}, {@code z}) and climbing toward {@code up}.
-	 */
-	public static Blueprint twinFlight(Blueprint b, int axis2, int x, int y, int z, Facing up, Facing across, int width, int steps, Role role,
-			int baseY) {
-		flight(b, x, y, z, up, across, width, steps, role, baseY);
-		Facing mu = up == Facing.EAST || up == Facing.WEST ? up.opposite() : up;
-		Facing ma = across == Facing.EAST || across == Facing.WEST ? across.opposite() : across;
-		return flightAt(b, axis2 - x, y, z, mu, ma, width, steps, role, baseY);
-	}
-
-	private static Blueprint flightAt(Blueprint b, int x, int y, int z, Facing up, Facing across, int width, int steps, Role role, int baseY) {
-		flight(b, x, y, z, up, across, width, steps, role, baseY);
-		return b;
 	}
 
 	// ---- circles -------------------------------------------------------------------------------------------------
@@ -495,52 +474,6 @@ public final class Ornament {
 		return y + 3;
 	}
 
-	// ---- gradients and blending ----------------------------------------------------------------------------------
-
-	/**
-	 * Gradient between two roles over a box: each cell holding {@code from}'s block becomes {@code to}'s block with a
-	 * probability rising linearly along {@code axis} ('x', 'y' or 'z') from {@code p0} at the low end to {@code p1} at
-	 * the high end (deterministic: {@link #hash} with {@code seed}). Base-to-top fades and weathering.
-	 */
-	public static Blueprint gradient(Blueprint b, Geometry.Box box, Role from, Role to, char axis, double p0, double p1, long seed) {
-		BlockSpec a = b.palette().block(from), c = b.palette().block(to);
-		int lo = axis == 'x' ? box.minX() : axis == 'y' ? box.minY() : box.minZ();
-		int hi = axis == 'x' ? box.maxX() : axis == 'y' ? box.maxY() : box.maxZ();
-		for (int x = box.minX(); x <= box.maxX(); x++) {
-			for (int y = box.minY(); y <= box.maxY(); y++) {
-				for (int z = box.minZ(); z <= box.maxZ(); z++) {
-					if (!b.inside(x, y, z) || !a.equals(b.at(x, y, z))) {
-						continue;
-					}
-					int v = axis == 'x' ? x : axis == 'y' ? y : z;
-					double t = hi == lo ? 1 : (v - lo) / (double) (hi - lo);
-					if (hash(x, y, z, seed) < p0 + (p1 - p0) * t) {
-						b.set(x, y, z, c);
-					}
-				}
-			}
-		}
-		return b;
-	}
-
-	/** Speckle: cells holding {@code from} become one of {@code variants} with probability {@code p} (deterministic). */
-	public static Blueprint blend(Blueprint b, Geometry.Box box, BlockSpec from, double p, long seed, BlockSpec... variants) {
-		for (int x = box.minX(); x <= box.maxX(); x++) {
-			for (int y = box.minY(); y <= box.maxY(); y++) {
-				for (int z = box.minZ(); z <= box.maxZ(); z++) {
-					if (!b.inside(x, y, z) || !from.equals(b.at(x, y, z))) {
-						continue;
-					}
-					double h = hash(x, y, z, seed);
-					if (h < p) {
-						b.set(x, y, z, variants[(int) (h / p * variants.length) % variants.length]);
-					}
-				}
-			}
-		}
-		return b;
-	}
-
 	// ---- floor patterns and ceilings -----------------------------------------------------------------------------
 
 	/** Checkerboard of {@code a} / {@code c} on row {@code y} over {@code x0..x1 × z0..z1} ((x + z) even = a). */
@@ -616,6 +549,7 @@ public final class Ornament {
 	// ---- neon signage --------------------------------------------------------------------------------------------
 
 	/**
+	 * Kept for CR-2 (HighRollerLounge, PiglinParlor draw their signs with it); the Grand Casino draws its own marquee.
 	 * Neon marquee: a SIGN_BACK board on the wall plane {@code plane} of {@code side}, {@code plan.height() + 2} rows from
 	 * {@code bottomY}, {@code pad} cells wider than the text each side; the letters are made of the light-emitting
 	 * NEON_A / NEON_B roles (alternating per letter) standing one cell proud of the board when {@code raised}; a
