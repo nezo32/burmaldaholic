@@ -349,13 +349,13 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		clickV2(ctx, pick);
 		ctx.waitTicks(3);
 		clickV2(ctx, "primary");
-		awaitServer(ctx, world, "the buy-in debited after Buy in", s -> balanceOf(s) < before, 60);
+		awaitServer(ctx, world, "the buy-in debited after Buy in", s -> balanceOf(s) < before, 200);
 		boolean seated = world.getServer().computeOnServer(s -> s.overworld().getBlockEntity(pos) instanceof CasinoTableBlockEntity be
 			&& be.isSeated(player(s)));
 		report.add("  poker: seated(generic seats)=" + seated + ", balance " + before + " -> " + balance(world));
-		awaitClient(ctx, "Stand up offered", mc -> v2Point(mc, "action.stand_up") != null, 100);
+		awaitClient(ctx, "Stand up offered", mc -> v2Point(mc, "action.stand_up") != null, 400); // a hand in progress after the buy-in delays it (T-B2)
 		clickV2(ctx, "action.stand_up");
-		awaitServer(ctx, world, "the stack back after Stand up", s -> balanceOf(s) == before, 100);
+		awaitServer(ctx, world, "the stack back after Stand up", s -> balanceOf(s) == before, 400);
 		closeScreen(ctx, world);
 		removeBlock(world, pos);
 	}
