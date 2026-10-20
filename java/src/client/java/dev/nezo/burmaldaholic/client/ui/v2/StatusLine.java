@@ -13,12 +13,20 @@ import org.jspecify.annotations.Nullable;
  * The two status lines of the Dock (1× gold / 1× muted, ellipsised). Line 1 priority (docs/architecture/ui-v2.md §4.2):
  * watchdog > error > flashed reason (a click on a disabled target) > the primary's reason > the game's line 1. Line 2:
  * the game's line 2 > the hint > the timer text. A {@link TimerBar} sits under the lines.
+ *
+ * <p>Layout (money bug T-B2 M1): the Dock is laid out ONLY from the <b>stable</b> lines ({@link #stableLine1()} /
+ * {@link #stableLine2()}: the game's lines, its hint and the primary's reason, which change with the state). The
+ * <b>transient</b> lines (watchdog, error, flash; "the buttons moved, click again" is one) never feed {@link #measure}:
+ * they are drawn into the status box the stable lines got, and what does not fit there goes into an overlay band just
+ * above the Dock ({@link #place(Box, Box, Box)}), drawn over the felt without moving any control. A refused click's own
+ * message therefore can never move the button the player is told to click again.
  */
 public final class StatusLine {
 	public static final int FLASH_MS = 3000, WATCHDOG_MS = 4000;
 
 	private Box box = Box.EMPTY;
 	private Box strip = Box.EMPTY;
+	private Box overlay = Box.EMPTY;
 	private @Nullable Component line1, line2, hint;
 	private @Nullable Component watchdog, error, flash, reason;
 	private long watchdogAt, errorAt, flashAt;
@@ -87,8 +95,33 @@ public final class StatusLine {
 
 	/** The Dock status box and the hint strip above the Dock (empty = both lines in the Dock; review R-KW B2). */
 	void place(Box box, Box strip) {
+		place(box, strip, Box.EMPTY);
+	}
+
+	/**
+	 * As {@link #place(Box, Box)}, plus {@code overlay}: where a transient line that does not fit the box is drawn when the
+	 * layout opened no strip (the Dock-wide band just above the Dock, over the felt; never a hit target).
+	 */
+	void place(Box box, Box strip, Box overlay) {
 		this.box = box;
 		this.strip = strip;
+		this.overlay = overlay;
+	}
+
+	/** Drops every transient line (watchdog, error, flash); tests use it between probes. */
+	public void clearTransient() {
+		watchdog = null;
+		error = null;
+		flash = null;
+	}
+
+	/** The transient line showing now (watchdog > error > flash), or null. */
+	public @Nullable Component transientLine() {
+		long now = Util.getMillis();
+		if (watchdog != null && now - watchdogAt < WATCHDOG_MS) return watchdog;
+		if (error != null && now - errorAt < FLASH_MS) return error;
+		if (flash != null && now - flashAt < FLASH_MS) return flash;
+		return null;
 	}
 
 	/** The hint strip of the last layout (empty = none). */
@@ -96,14 +129,22 @@ public final class StatusLine {
 		return strip;
 	}
 
-	/** The column width at which both lines fit the Dock ({@link dev.nezo.burmaldaholic.core.ui.v2.StatusPlan#want}, uncapped). */
+	/**
+	 * The column width at which both STABLE lines fit the Dock ({@link dev.nezo.burmaldaholic.core.ui.v2.StatusPlan#want},
+	 * uncapped). Transient lines are never measured (T-B2 M1): they must not move the controls.
+	 */
 	public int measure(Font font) {
-		Component l1 = line1();
-		Component l2 = line2();
+		return measure(font::width);
+	}
+
+	/** {@link #measure(Font)} with a width function (unit tests). */
+	public int measure(java.util.function.ToIntFunction<String> width) {
+		Component l1 = stableLine1();
+		Component l2 = stableLine2();
 		if (l1 != measuredL1 || l2 != measuredL2 || measured < 0) { // cached by line identity (the chrome asks every frame)
 			measuredL1 = l1;
 			measuredL2 = l2;
-			measured = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.want(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), font::width);
+			measured = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.want(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), width);
 		}
 		return measured;
 	}
@@ -115,23 +156,41 @@ public final class StatusLine {
 		return box;
 	}
 
-	/** What line 1 shows now (tests read it). */
+	/** What line 1 shows now (tests read it): a transient line, else the stable one. */
 	public @Nullable Component line1() {
-		long now = Util.getMillis();
-		if (watchdog != null && now - watchdogAt < WATCHDOG_MS) return watchdog;
-		if (error != null && now - errorAt < FLASH_MS) return error;
-		if (flash != null && now - flashAt < FLASH_MS) return flash;
+		Component t = transientLine();
+		return t != null ? t : stableLine1();
+	}
+
+	/** Line 1 without transient lines: the primary's reason (or the phase hint) or the game's line 1. Lays the Dock out. */
+	public @Nullable Component stableLine1() {
 		if (reason != null && phaseReason && line2 == null && hint != null) return hint;
 		if (reason != null) return reason;
 		return line1;
 	}
 
 	public @Nullable Component line2() {
+		return line2After(line1());
+	}
+
+	/** Line 2 beside {@link #stableLine1()} (lays the Dock out). */
+	public @Nullable Component stableLine2() {
+		return line2After(stableLine1());
+	}
+
+	private @Nullable Component line2After(@Nullable Component l1) {
 		Component l2 = line2 != null ? line2 : hint;
 		if (l2 == null) return null;
-		Component l1 = line1();
 		if (l1 == l2 || (l1 != null && l1.getString().equals(l2.getString()))) return null; // said once (a phase reason; T-K2 D2)
 		return l2;
+	}
+
+	/**
+	 * The strip the plan may use now: the layout's strip, or (while a transient line shows and the layout opened none) the
+	 * overlay band above the Dock.
+	 */
+	private Box drawStrip() {
+		return strip.isEmpty() && transientLine() != null ? overlay : strip;
 	}
 
 	private int line1Color() {
@@ -151,34 +210,54 @@ public final class StatusLine {
 	 * changes (no per-frame wrapping, T-K2 D7). Tests read it to prove no word is lost.
 	 */
 	public dev.nezo.burmaldaholic.core.ui.v2.StatusPlan plan(Font font) {
+		return plan(font::width);
+	}
+
+	/** {@link #plan(Font)} with a width function (unit tests). */
+	public dev.nezo.burmaldaholic.core.ui.v2.StatusPlan plan(java.util.function.ToIntFunction<String> width) {
 		Component l1 = line1();
 		Component l2 = line2();
+		Box strip = drawStrip();
 		if (l1 != planL1 || l2 != planL2 || !box.equals(planBox) || !strip.equals(planStrip)) {
 			planL1 = l1;
 			planL2 = l2;
 			planBox = box;
 			planStrip = strip;
 			plan = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.of(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), box.w(), box.h(),
-				strip.isEmpty() ? 0 : strip.w(), font::width);
+				strip.isEmpty() ? 0 : strip.w(), width);
 		}
 		return plan;
 	}
 
-	/** The strip area the status uses now (one or two rows; empty = none): the banner keeps clear of it. */
+	/**
+	 * The strip area the STABLE lines use (one or two rows; empty = none): the banner keeps clear of it. A transient line's
+	 * overlay is no obstacle (it must not move anything either).
+	 */
 	public Box stripUsed(Font font) {
-		dev.nezo.burmaldaholic.core.ui.v2.StatusPlan p = plan(font);
-		if (strip.isEmpty() || p.stripText() == null) return Box.EMPTY;
+		if (strip.isEmpty()) return Box.EMPTY;
+		Component l1 = stableLine1();
+		Component l2 = stableLine2();
+		dev.nezo.burmaldaholic.core.ui.v2.StatusPlan p = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.of(l1 == null ? null : l1.getString(),
+			l2 == null ? null : l2.getString(), box.w(), box.h(), strip.w(), font::width);
+		if (p.stripText() == null) return Box.EMPTY;
 		return p.stripRows() == 2 ? new Box(strip.x(), strip.y() - strip.h(), strip.w(), 2 * strip.h()) : strip;
 	}
 
 	/** What the plan would cut ("" = every word readable). */
 	public String lost(Font font) {
+		return lost(font::width);
+	}
+
+	/** {@link #lost(Font)} with a width function (unit tests). */
+	public String lost(java.util.function.ToIntFunction<String> width) {
 		Component l1 = line1();
 		Component l2 = line2();
-		return plan(font).lost(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), box.w(), strip.isEmpty() ? 0 : strip.w(), font::width);
+		Box strip = drawStrip();
+		return plan(width).lost(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), box.w(), strip.isEmpty() ? 0 : strip.w(), width);
 	}
 
 	public void draw(GuiGraphicsExtractor g, Font font) {
+		Box strip = drawStrip();
 		if (box.isEmpty() && strip.isEmpty()) return;
 		dev.nezo.burmaldaholic.core.ui.v2.StatusPlan p = plan(font);
 		String st = p.stripText();

@@ -245,7 +245,9 @@ public final class V2Chrome {
 			spec = DockLayout.Spec.actions(actions.measure(font), actions.measureCompact(font), stepper.measure(font, grid.tier), pw, pc);
 		}
 		// the status asks for the column width at which it fits the Dock; a narrower column opens the hint strip above the
-		// Dock, which takes what does not fit (StatusPlan; review R-KW B2, DES 3, T-K2 D1)
+		// Dock, which takes what does not fit (StatusPlan; review R-KW B2, DES 3, T-K2 D1). Only the STABLE lines are
+		// measured: a flash / error / watchdog line never moves a control (T-B2 M1: the "click again" flash re-laid the
+		// decision Dock out and the second click pressed Bet x3)
 		laidStatusW = status.measure(font);
 		spec = spec.withStatus(laidStatusW);
 		dock = DockLayout.layout(grid, spec, bet.selectedIndex());
@@ -262,7 +264,9 @@ public final class V2Chrome {
 		if (secondary != null) hits.add(KeyMap.Ids.SECONDARY, secondaryBox, secondary.enabled());
 		primary.place(dock.primary(), dock.compactPrimary());
 		hits.add(KeyMap.Ids.PRIMARY, dock.primary(), primary.gate().enabled());
-		status.place(dock.status(), dock.hintStrip());
+		int m = grid.tier.margin;
+		status.place(dock.status(), dock.hintStrip(),
+			new Box(m, grid.dock.y() - DockLayout.HINT_STRIP_H, grid.dock.w() - 2 * m, DockLayout.HINT_STRIP_H)); // transient overlay
 		top.layout(grid, font, hits);
 		narrateKit();
 		banner.tier(grid.tier);
@@ -270,7 +274,9 @@ public final class V2Chrome {
 		banner.kitObstacles(dock.hintStrip().isEmpty() ? List.of() : List.of(used.isEmpty() ? dock.hintStrip() : used));
 		toasts.place(grid.play);
 		host.layoutOverlay(dock, hits);
-		guard.layout(hits.targets(), this::identity, Util.getMillis());
+		// a layout change drops the Tab focus: it is an index into the targets, and Enter must never press whatever moved
+		// into that slot (T-B2 m1)
+		if (guard.layout(hits.targets(), this::identity, Util.getMillis())) focus = -1;
 	}
 
 	/** The status width the last layout used: a game that sets its lines after {@link #apply} gets a relayout (B2 request). */
@@ -454,7 +460,12 @@ public final class V2Chrome {
 		}
 		if (name.equals(KeyMap.ENTER) && focus >= 0) {
 			List<HitMap.Target> ts = focusable();
-			if (focus < ts.size()) return press(ts.get(focus).id(), ts.get(focus).enabled(), Press.LEFT);
+			if (focus < ts.size()) {
+				HitMap.Target t = ts.get(focus);
+				if (once(t.id()) && !held.add(name)) return true; // auto-repeat of a held Enter: swallowed (R-KW M5)
+				if (!guard.allowsKey(t.id(), Util.getMillis())) return refuseMoved(); // the same guard as a click (T-B2 m1)
+				return press(t.id(), t.enabled(), Press.LEFT);
+			}
 		}
 		String step = stepper.idForKey(name);
 		if (step != null) return !held.add(name) || press(step, true, Press.LEFT);

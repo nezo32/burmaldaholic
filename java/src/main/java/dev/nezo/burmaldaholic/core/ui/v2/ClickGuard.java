@@ -42,15 +42,17 @@ public final class ClickGuard {
 
 	/**
 	 * After every relayout: the targets (topmost last, as in {@link HitMap}) and each one's identity
-	 * ({@code identity.apply(id)}; e.g. {@code "primary|bet_4x|7"}).
+	 * ({@code identity.apply(id)}; e.g. {@code "primary|bet_4x|7"}). Returns whether the layout changed (a box, a target
+	 * or an identity): the chrome then drops its Tab focus.
 	 */
-	public void layout(List<HitMap.Target> targets, Function<String, String> identity, long now) {
+	public boolean layout(List<HitMap.Target> targets, Function<String, String> identity, long now) {
 		List<Entry> next = new ArrayList<>(targets.size());
 		for (HitMap.Target t : targets) next.add(new Entry(t.id(), t.box(), identity.apply(t.id())));
-		if (next.equals(current)) return;
+		if (next.equals(current)) return false;
 		if (now - changedAt >= settleMs) settled = current; // the layout being replaced stayed long enough to be seen
 		current = List.copyOf(next);
 		changedAt = now;
+		return true;
 	}
 
 	/** A frame was drawn with the current layout. */
@@ -71,7 +73,7 @@ public final class ClickGuard {
 		return settled(now) || cur.equals(at(settled, x, y));
 	}
 
-	/** Whether a key press of target {@code id} may act now (the primary's Space / Enter, decision letters). */
+	/** Whether a key press of target {@code id} may act now (the primary's Space, decision letters, Enter on a Tab focus). */
 	public boolean allowsKey(String id, long now) {
 		if (settled(now)) return true;
 		String cur = byId(current, id);

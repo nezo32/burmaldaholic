@@ -4,6 +4,7 @@ import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
 import dev.nezo.burmaldaholic.core.ui.v2.ViewportPolicy;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackModule;
@@ -19,6 +20,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 
 /**
  * Lane RS (K2c, PHASE2B §2.3): the every-resolution policy on real windows. The kit gallery at 1280 × 720 Auto
@@ -48,8 +50,9 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			cell(f, "en_us", 1920, 1080, 2);
 			cell(f, "en_us", 2560, 1440, 2);
 			framedRealTable(f, 2560, 1440, 2);
-			everyGame(f); // owner playtest B6
+			everyGame(f, "en_us"); // owner playtest B6; T-B2 M1 transient lines
 			f.language("ru_ru");
+			everyGame(f, "ru_ru");
 			cell(f, "ru_ru", 3840, 2160, 0);
 			ownerTable(f, "ru_ru");
 			cell(f, "ru_ru", 1920, 1080, 2);
@@ -207,7 +210,7 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 	 * are the shared TableGrid rows of that frame (identical for every game), and the game's felt targets stay in the
 	 * PlayArea.
 	 */
-	private void everyGame(RealFlow f) {
+	private void everyGame(RealFlow f, String lang) {
 		java.util.Map<String, java.util.function.Supplier<Object>> games = new java.util.LinkedHashMap<>();
 		var tables = new java.util.LinkedHashMap<String, dev.nezo.burmaldaholic.core.table.TableType<?>>();
 		tables.put("blackjack", BlackjackModule.TABLE);
@@ -220,32 +223,32 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 		tables.put("wheel", dev.nezo.burmaldaholic.games.extras.ExtrasModule.WHEEL);
 		java.util.Map<String, java.util.Map<String, String>> rowsBySize = new java.util.TreeMap<>();
 		for (var t : tables.entrySet()) {
-			gameCells(f, t.getKey(), rowsBySize, () -> f.use(f.place(t.getValue())));
+			gameCells(f, lang, t.getKey(), rowsBySize, () -> f.use(f.place(t.getValue())));
 		}
-		gameCells(f, "coin", rowsBySize, () -> f.server(server -> {
+		gameCells(f, lang, "coin", rowsBySize, () -> f.server(server -> {
 			dev.nezo.burmaldaholic.games.extras.server.CoinFlipGame.open(RealFlow.player(server));
 			return null;
 		}));
-		gameCells(f, "dice", rowsBySize, () -> f.server(server -> {
+		gameCells(f, lang, "dice", rowsBySize, () -> f.server(server -> {
 			dev.nezo.burmaldaholic.games.extras.server.DiceGame.open(RealFlow.player(server), null);
 			return null;
 		}));
-		gameCells(f, "scratch", rowsBySize, () -> f.server(server -> {
+		gameCells(f, lang, "scratch", rowsBySize, () -> f.server(server -> {
 			dev.nezo.burmaldaholic.games.extras.server.ScratchGame.use(RealFlow.player(server), net.minecraft.world.item.ItemStack.EMPTY,
 				dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.BASIC);
 			return null;
 		}));
 		for (var e : rowsBySize.entrySet()) {
 			java.util.Set<String> distinct = new java.util.TreeSet<>(e.getValue().values());
-			report.add("B6 " + e.getKey() + ": " + e.getValue().size() + " games, rows " + distinct);
-			if (e.getValue().size() != 11) failures.add("B6 " + e.getKey() + ": only " + e.getValue().keySet() + " opened");
-			if (distinct.size() != 1) failures.add("B6 " + e.getKey() + ": play-field rows differ " + e.getValue());
+			report.add("B6 " + lang + " " + e.getKey() + ": " + e.getValue().size() + " games, rows " + distinct);
+			if (e.getValue().size() != 11) failures.add("B6 " + lang + " " + e.getKey() + ": only " + e.getValue().keySet() + " opened");
+			if (distinct.size() != 1) failures.add("B6 " + lang + " " + e.getKey() + ": play-field rows differ " + e.getValue());
 		}
 		f.size(1280, 720, 0);
 	}
 
-	private void gameCells(RealFlow f, String game, java.util.Map<String, java.util.Map<String, String>> rowsBySize, Runnable open) {
-		String tag = "B6 " + game;
+	private void gameCells(RealFlow f, String lang, String game, java.util.Map<String, java.util.Map<String, String>> rowsBySize, Runnable open) {
+		String tag = "B6 " + lang + " " + game;
 		try {
 			f.size(GAME_SIZES[0][0], GAME_SIZES[0][1], GAME_SIZES[0][2]);
 			open.run();
@@ -273,6 +276,26 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 						if (!t.box().inside(g.screen)) bad.add(t.id() + " outside the frame " + t.box());
 						else if (t.id().startsWith("felt.") && !t.box().inside(g.play)) bad.add(t.id() + " outside the PlayArea " + t.box());
 					}
+					// T-B2 M1: a flash, a server error and the watchdog line (each the longest of its kind) must not move any
+					// target: the Dock is laid out from the game's stable lines only
+					String rects = rects(c);
+					String[][] transients = {{"flash", V2Keys.REASON_MOVED}, {"flash", "gui.burmaldaholic.craps.v2.reason.point_box_come_out"},
+						{"error", "gui.burmaldaholic.error.not_your_turn"}, {"error", "gui.burmaldaholic.poker.v2.reason.no_top_up"},
+						{"watchdog", V2Keys.REASON_NO_ANSWER}};
+					for (String[] tr : transients) {
+						Component text = Component.translatable(tr[1]);
+						switch (tr[0]) {
+							case "flash" -> c.status.flash(text);
+							case "error" -> c.status.error(text);
+							default -> c.status.watchdog(text);
+						}
+						c.relayout();
+						String during = rects(c);
+						if (!during.equals(rects)) bad.add(tr[0] + " '" + text.getString() + "' moved targets: " + rects + " -> " + during);
+						c.status.clearTransient();
+						c.relayout();
+					}
+					if (!rects(c).equals(rects)) bad.add("targets differ after the transient lines cleared");
 					String size = String.format("%04dx%d", vp.frameW(), vp.frameH());
 					return new String[] {size, g.topBar + " " + g.play + " " + g.dock, String.join("; ", bad)};
 				});
@@ -287,6 +310,13 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 		} finally {
 			f.close();
 		}
+	}
+
+	/** Every hit target's id and rect, in order. */
+	private static String rects(V2Chrome c) {
+		StringBuilder sb = new StringBuilder();
+		for (HitMap.Target t : c.hits().targets()) sb.append(t.id()).append('@').append(t.box()).append(t.enabled() ? "" : "(off)").append(' ');
+		return sb.toString();
 	}
 
 	/** On a framed window: Sit down on a real blackjack table, clicked at its window pixel → the server seats the player. */

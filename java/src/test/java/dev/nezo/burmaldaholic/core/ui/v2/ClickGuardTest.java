@@ -46,7 +46,7 @@ class ClickGuardTest {
 		layout(g, dock(190, 70, 361), Map.of("primary", "bet_4x"), 2000);
 		g.rendered();
 		assertFalse(g.allowsClick(400, 240, 2050));
-		assertFalse(g.allowsKey("primary", 2050), "Space / Enter on a primary that just changed its action does nothing");
+		assertFalse(g.allowsKey("primary", 2050), "Space on a primary that just changed its action does nothing");
 		assertTrue(g.allowsKey("action.check", 2050), "an unchanged control keeps its key");
 		assertTrue(g.allowsClick(400, 240, 2000 + ClickGuard.SETTLE_MS));
 		assertTrue(g.allowsKey("primary", 2000 + ClickGuard.SETTLE_MS));
@@ -63,5 +63,14 @@ class ClickGuardTest {
 		g.rendered();
 		// the player last saw A settled (Check at 200): neither B's nor C's primary takes the click yet
 		assertFalse(g.allowsClick(200, 240, 1100));
+	}
+
+	@Test
+	void layoutReportsAChangeSoTheChromeDropsItsTabFocus() {
+		ClickGuard g = new ClickGuard();
+		assertTrue(g.layout(dock(192, 70, 361).targets(), id -> id, 0), "the first layout is a change");
+		assertFalse(g.layout(dock(192, 70, 361).targets(), id -> id, 100), "the same layout again (a periodic refresh) keeps the focus");
+		assertTrue(g.layout(dock(120, 45, 180).targets(), id -> id, 200), "moved boxes: the focus index no longer means the same control");
+		assertTrue(g.layout(dock(120, 45, 180).targets(), id -> id + "|bet_4x", 300), "a changed action is a change too");
 	}
 }
