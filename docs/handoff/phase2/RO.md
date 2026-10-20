@@ -78,6 +78,42 @@ Merged: `p2/c2` @79cde259, `feature/v020-table-ui` @292cbe5a (motion kit, lane g
   number + colour word in the pocket colour. V9: casino-mode-off refund line "The casino closed this table…" (not
   "server restarted"). T1/T2: lane C test disables contracts and presses Repeat until it queues after a celebration.
 
+## R3 (2026-10-20): T-C2 defects + S1 sync
+
+Merged `p2/k2` @3573b8db (kit: a click / kit key on an enabled target acts THROUGH a celebration = T-C2 V3/T2 product
+fix; status dedupe = V8). STRINGS.md conflict was CRLF-only; resolved to LF + K2's one RU row.
+
+### S1 (bad connection), per SY-SPEC §3 Roulette row
+- `RouletteSpin.build(..., joinMs)`: when the result arrives at ta > tS the stage-B DecaySolver is solved from
+  `stageA(ta)`, `ω(ta)` (the ball's drawn orbit pose + speed) instead of from spin_start. On-time joins (ta ≤ tS, or NaN)
+  are bit-identical to the shared spin. Late joins: stage B ≥ 500 ms, no wide-scatter pass; if the window no longer fits,
+  the rest slips past `spinEnd − 300` in 50 ms steps (`overrunMs()`, ≤ 6 s) and the screen holds the RESULT beats
+  until the ball rests. Drop speed capped at 0.9·ω(ta) for very late joins.
+- Handoff lead (SY-SPEC §4, client-side, server timing untouched): stage B starts `HANDOFF_LEAD_MS` = 300 ms after the
+  draw for spins ≥ 100 ticks, so a result up to 300 ms late still builds the shared spin.
+- `RouletteTime` (pure): monotonic, ±10 % slew, snap only > 500 ms ahead, 0.5× when far behind, re-anchors per launch —
+  RO's stand-in for SY's SmoothClock. Swap point: `RouletteScreen.rawClock` (feed SmoothClock, then reduce/drop
+  RouletteTime). In-world renderer joins at its last drawn t (`Cache.cursorAt`); it still reads raw level time (SY).
+- Tests: `RouletteLateResultTest` (60 fps client sim, result 0/300/800 ms late × 6 spin lengths × 24 seeds: join gap
+  ≤ 1 art px, ω continuous at the join ≤ 2 %, no frame > the fastest ball's per-frame travel, rests in the drawn pocket,
+  no overrun for ≥ 100-tick spins; 2/4 s late also smooth; control: the old path jumps > 5 px at 800 ms),
+  `RouletteTimeTest` (±200 ms packet jitter: monotonic, ≤ 1.1 frame per frame; catch-up; snap; epoch).
+
+### T-C2
+- V1 result hint, V2 labels, V6 banner gap, V7 colour, V9 refund line: fixed in 418f3ae4; now asserted —
+  `RouletteFlowTest` (V1), `RouletteLayoutTest.stacksAndTagsNeverCoverOutsideLabels` (V2),
+  `theBannerNeverTouchesTheCallBets` (V6), client spectator check asserts the number colour (V7). V9: code only.
+- V4: `RouletteScreen.extractOverFrame` draws the winning cell (tile, number, gold frame = `RouletteLayout.winCellPunch`)
+  over the running celebration in the frame pose; unit test (punch covers cell + glyph at every size) + client check
+  (`winCellOverCelebration()` grows while a celebration runs).
+- V5: `roomyAndFramedFeltsAreFilled` (2560×1440 GUI2, 1920×1080 GUI2, 4K GUI3/4: block ≥ 60 % felt height, centred ±24 px,
+  wheel ≥ 144, layout ≥ 60 % width).
+- V10: mini-wheel ball gets an ink ring; client check at every size: hub badge = result, ball drawn inside the wheel box.
+- T1: contracts off in the test (kept). T2: Repeat is pressed ONCE (no waiting for the celebration) and must queue.
+
+### Verified (R3)
+See the "R3 commands" lines at the end of this file.
+
 ## Verified (exact commands, JDK 25.0.4.1, in `java/`)
 - `./gradlew --no-daemon --max-workers=4 -Dorg.gradle.jvmargs=-Xmx3g compileJava compileClientJava compileGametestJava`
   (26.2) and the same with `-Pmc=26.3`: OK.
@@ -114,3 +150,25 @@ Merged: `p2/c2` @79cde259, `feature/v020-table-ui` @292cbe5a (motion kit, lane g
 ## Risks
 - `/tick freeze` is used by the client test to hold the server mid-SPIN; the screen's test clocks then pick each beat.
 - Loupe uses a scissor in pose space (works in the run; if a future kit changes GUI pose handling, recheck).
+
+### R3 commands (JDK 25.0.4.1, in `java/`; 26.3 only after the owner dropped 26.2)
+- `compileJava compileClientJava compileGametestJava` (26.2, before the drop) and `-Pmc=26.3`: OK.
+- `test --tests 'dev.nezo.burmaldaholic.games.roulette.*' --tests '*RawInputGuardTest'`: BUILD SUCCESSFUL, 13 suites,
+  0 failures (new: RouletteLateResultTest 4, RouletteTimeTest 2, RouletteLayoutTest +3).
+- Full sweep `JAVA_TOOL_OPTIONS=-Droulette.fullSweep=true test --tests '*RouletteSpinTest'` (with the 300 ms lead): OK,
+  68 s. NOTE: `-Droulette.fullSweep` on the gradle command line is NOT forwarded to the test JVM; use JAVA_TOOL_OPTIONS.
+- Client 26.3, entrypoints temporarily = RouletteAnim + RouletteV2 (restored), `BURMALDAHOLIC_CGT=C,RO`: run 1 died
+  (malloc, machine memory); run 2 failed en 480 / en 640 with "Timed out waiting for predicate" before the screen opened
+  (load; the other 4 sizes passed every new check); run 3: BUILD SUCCESSFUL, both reports 0 FAIL — every size EN/RU +
+  framed 1280: hub badge = result and ball in the wheel (V10), spectator number colour (V7), Repeat queued on ONE click
+  (T2), banner off the winning cell, balance = settle.
+- Not exercised in the client: V4 (no NICE+ win was rolled in run 3; covered by the unit test + the conditional check).
+- Not run: server GameTests (no server code changed in R3), full build.
+
+### R3 open / requests
+- SY: when p2/sy lands, feed `RouletteScreen.rawClock` from SmoothClock and switch the RO anim client test to
+  `SmoothClock.Test.freezeLevelMs`; the in-world renderer still samples raw level ms (SmoothClock delegation fixes it).
+- K2/MK: a `CelebrationRequest` anchor/obstacle API would still be cleaner than RO's punch-through redraw (V4).
+- V9 in-world "closed" board state: still needs a closed pub phase (C2 pub + W2 board).
+- A late result past the SPIN end (only spins < 100 ticks with > ~0.8 s lag) shows the kit's result banner while the ball
+  still rolls; the RO beats wait for the rest.
