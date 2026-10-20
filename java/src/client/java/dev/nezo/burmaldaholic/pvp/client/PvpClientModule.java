@@ -45,7 +45,10 @@ public final class PvpClientModule implements CasinoClientModule {
 			}
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> ClientPvp.tick());
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> ClientPvp.setStateForTests(null, "clear"));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> {
+			ClientPvp.setStateForTests(null, "clear");
+			ClientPvp.forgetClosedResults();
+		});
 		HudElementRegistry.attachElementAfter(VanillaHudElements.BOSS_BAR, Burmaldaholic.id("pvp_ticker"), PvpClientModule::ticker);
 		// the shared overlay (grudge clash, countdown digits, Final Reveal) on every mode screen, Slot Showdown included
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {

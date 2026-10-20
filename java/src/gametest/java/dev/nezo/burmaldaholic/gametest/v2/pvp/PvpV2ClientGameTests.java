@@ -23,7 +23,7 @@ import net.minecraft.nbt.CompoundTag;
  * Flip Duel landing, Wheel Party bets and spin, Plinko Battle, Scratch Showdown grudge + Final Reveal), the lobby, the
  * result window and the Dice Duel invite card, at 480 × 270 (1920 × 1080 @4) and 640 × 360 (1920 × 1080 @3), English and
  * Russian. Asserts the v2 frame: every visible button inside the window, the main buttons in the Dock band, nothing
- * between the content and the TopBar. Screenshots {@code v2p_<lang>_<size>_<view>}. The real PvP flows (two players,
+ * between the content and the TopBar. Screenshots {@code p2b_e2_pvp_<view>_<lang>_<w>}. The real PvP flows (two players,
  * every mode played to the settle through these screens) are {@code gametest/pvp/PvpRealFlowClientGameTests}.
  */
 public class PvpV2ClientGameTests implements FabricClientGameTest {
@@ -36,12 +36,16 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			RealFlow f = new RealFlow(context, world);
 			context.waitTicks(20);
-			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}};
+			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}, {"ru_ru", "1920", "1080", "3"},
+				{"en_us", "1280", "720", "3"},
+				// tester T-E2: the kit-port sizes (ROOMY 960 × 540; framed 1280 × 720 → a 1067 × 600 frame with an offset)
+				{"en_us", "1920", "1080", "2"}, {"ru_ru", "2560", "1440", "2"}};
 			for (String[] r : runs) {
 				if (!r[0].equals(f.client(mc -> mc.options.languageCode))) f.language(r[0]);
 				f.size(Integer.parseInt(r[1]), Integer.parseInt(r[2]), Integer.parseInt(r[3]));
 				String tag = r[0] + "_" + f.client(mc -> mc.getWindow().getGuiScaledWidth() + "x" + mc.getWindow().getGuiScaledHeight());
 				captures(f, tag);
+				if (Integer.parseInt(r[3]) == 2) realClicks(f, tag);
 			}
 			f.language("en_us");
 			f.size(854, 480, 0);
@@ -93,18 +97,88 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 			new ExtrasScreenPayload("duel_invite", true, invite))));
 		context.waitFor(mc -> mc.gui.screen() != null && mc.gui.screen().getClass().getSimpleName().equals("DuelInviteScreen"), RealFlow.TIMEOUT);
 		context.waitTicks(10);
-		f.shot("v2p_" + tag + "_invite");
+		f.shot(shotName(tag, "invite"));
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		context.waitTicks(3);
 	}
 
+	// ---- tester T-E2: real clicks on the kit-ported PvP screens at ROOMY / framed sizes ----------------------------
+
+	/** Clicks the visible, active widget labelled {@code key} at its real window pixel (viewport scale + frame offset). */
+	private boolean clickWidget(RealFlow f, String key) {
+		String label = net.minecraft.network.chat.Component.translatable(key).getString();
+		double[] at = f.client(mc -> {
+			Screen s = mc.gui.screen();
+			if (s == null) return null;
+			for (var c : s.children()) {
+				if (c instanceof AbstractWidget w && w.visible && w.isActive() && w.getMessage().getString().equals(label)) {
+					if (s instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h) {
+						var vp = h.chrome().viewport();
+						return new double[] {vp.windowX(w.getX() + w.getWidth() / 2.0), vp.windowY(w.getY() + w.getHeight() / 2.0)};
+					}
+					double k = mc.getWindow().getGuiScale();
+					return new double[] {(w.getX() + w.getWidth() / 2.0) * k, (w.getY() + w.getHeight() / 2.0) * k};
+				}
+			}
+			return null;
+		});
+		if (at == null) return false;
+		f.context().getInput().setCursorPos(at[0], at[1]);
+		f.context().waitTicks(1);
+		f.context().getInput().pressMouse(dev.nezo.burmaldaholic.client.input.Inputs.MOUSE_LEFT);
+		f.context().waitTicks(3);
+		return true;
+	}
+
+	private int widgetCount(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() == null ? -1 : (int) mc.gui.screen().children().stream().filter(c -> c instanceof AbstractWidget).count());
+	}
+
+	private void closeByClick(RealFlow f, String tag, String view) {
+		String before = f.screenName();
+		if (!clickWidget(f, "gui.burmaldaholic.common.close")) {
+			problems.add(tag + " " + view + ": no Close button on " + before);
+		} else if (!f.screenName().equals("no screen")) {
+			problems.add(tag + " " + view + ": the real click on Close missed (" + before + " still open: " + f.screenName() + ")");
+		}
+	}
+
+	private void realClicks(RealFlow f, String tag) {
+		ClientGameTestContext context = f.context();
+		// Scratch Showdown (PvpModeScreen): Taunt opens the taunt row, ? toggles the rules, Close closes
+		payload(context, "match", scratchMatch(false), 30);
+		int before = widgetCount(f);
+		if (!clickWidget(f, "gui.burmaldaholic.pvp.taunt.button")) problems.add(tag + " scratch: no active Taunt button");
+		int after = widgetCount(f);
+		if (after <= before) problems.add(tag + " scratch: the real click on Taunt did nothing (" + before + " -> " + after + " widgets)");
+		closeByClick(f, tag, "scratch");
+		// Plinko Battle (PvpModeScreen)
+		payload(context, "match", plinkoMatch(), 22);
+		closeByClick(f, tag, "plinko");
+		// Coin Flip Duel (PvpPanel)
+		payload(context, "match", coinMatch(true), 30);
+		closeByClick(f, tag, "coin");
+		// Wheel Party (PvpPanel)
+		payload(context, "match", wheelMatch(false), 10);
+		closeByClick(f, tag, "wheel");
+		context.runOnClient(mc -> ClientPvp.setStateForTests(null, "clear"));
+		context.waitTicks(3);
+	}
+
+	/** 2b standard name {@code p2b_e2_pvp_<view>_<lang>_<w>} from the run tag {@code <lang>_<w>x<h>}. */
+	private static String shotName(String tag, String view) {
+		String lang = tag.substring(0, 2);
+		String w = tag.substring(tag.indexOf('_', 3) + 1).split("x")[0];
+		return "p2b_e2_pvp_" + view + "_" + lang + "_" + w;
+	}
+
 	/** Screenshot + the frame checks: buttons inside the window, the Dock row in the Dock band. */
 	private void check(RealFlow f, String tag, String view) {
-		f.shot("v2p_" + tag + "_" + view);
+		f.shot(shotName(tag, view));
 		String p = f.client(mc -> {
 			Screen s = mc.gui.screen();
 			if (s == null) return "no screen";
-			PvpFrame.Layout l = PvpFrame.layout(s.width, s.height);
+			PvpFrame.Layout l = s instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h ? PvpFrame.layout(h.chrome().grid()) : PvpFrame.layout(s.width, s.height);
 			List<String> out = new ArrayList<>();
 			for (var c : s.children()) {
 				if (!(c instanceof AbstractWidget w) || !w.visible) continue;
@@ -115,6 +189,18 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 				boolean inDock = w.getY() >= l.dock().y();
 				boolean inPlay = w.getY() + w.getHeight() <= l.dock().y();
 				if (!inDock && !inPlay) out.add("'" + w.getMessage().getString() + "' straddles the Dock edge");
+			}
+			// R-CDE M7: a PvP panel grows for wrapped (RU) lines: the panel holds the content, the content ends above the Dock
+			if (s instanceof dev.nezo.burmaldaholic.games.extras.client.pvp.coin.PvpPanel panel) {
+				if (panel.panelHeight() < panel.contentBottom() - panel.panelTop()) {
+					out.add("panel " + panel.panelHeight() + " shorter than its content " + (panel.contentBottom() - panel.panelTop()));
+				}
+				if (panel.contentBottom() > l.dock().y()) out.add("content bottom " + panel.contentBottom() + " below the Dock " + l.dock().y());
+				if (panel.panelTop() + PvpFrame.CONTENT_TOP < l.top().bottom()) out.add("content under the TopBar");
+			}
+			if (s instanceof dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyScreen wheel) {
+				if (wheel.wheelBottom() > l.dock().y()) out.add("wheel bottom " + wheel.wheelBottom() + " under the Dock " + l.dock().y());
+				if (wheel.wheelTop() < l.play().y()) out.add("wheel top " + wheel.wheelTop() + " under the TopBar");
 			}
 			return String.join("; ", out);
 		});

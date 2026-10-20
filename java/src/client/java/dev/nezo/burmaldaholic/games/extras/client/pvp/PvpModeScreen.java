@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
  * ({@code press}, {@code taunt}); it never decides anything. The countdown, the clash and the Final Reveal are the
  * shared overlay of the pvp client module.
  */
-public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen implements PvpScreens.ModeScreen {
+public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.v2.V2SceneScreen<Object> implements PvpScreens.ModeScreen {
 	protected static final int W = Scene.W;
 	protected static final int H = Scene.H;
 	protected static final int TEXT = Kit.BONE;
@@ -58,7 +58,7 @@ public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.Cas
 	protected final long openedAt = Util.getMillis();
 
 	protected PvpModeScreen(Component title, String pressKey, List<String> rulesKeys, JsonObject first) {
-		super(title, Scene.W, Scene.H);
+		super(title);
 		this.pressKey = pressKey;
 		this.rulesKeys = rulesKeys;
 		view.update(first, 0);
@@ -145,16 +145,33 @@ public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.Cas
 		return false;
 	}
 
-	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	// ---- the v2 kit viewport (owner B6): the kit's viewport and rows, the PvP widgets and bars ----------------------
+
 	@Override
-	protected boolean fitToScreen() {
-		return true;
+	protected dev.nezo.burmaldaholic.core.ui.v2.Flow<Object> flow() {
+		return PvpKitScreens.NO_FLOW;
+	}
+
+	@Override
+	protected void layoutPlay(dev.nezo.burmaldaholic.core.ui.v2.TableGrid grid, Object v, dev.nezo.burmaldaholic.core.ui.v2.HitMap hits) {}
+
+	@Override
+	protected void renderPlay(GuiGraphicsExtractor g, dev.nezo.burmaldaholic.core.ui.v2.TableGrid grid, Object v, int mouseX, int mouseY, float a) {}
+
+	@Override
+	public void sendRaw(String action, CompoundTag args) {}
+
+	/** A click on an enabled PvP widget acts through a skippable celebration (the kit rule for its own targets). */
+	@Override
+	protected boolean actsThroughCelebration(double x, double y) {
+		return PvpKitScreens.widgetAt(this, x, y);
 	}
 
 	@Override
 	protected void init() {
 		super.init();
-		frame = dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.layout(width, height);
+		PvpKitScreens.adopt(chrome);
+		frame = dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.layout(chrome.grid());
 		left = frame.panelLeft();
 		top = frame.panelTop();
 		boolean side = sideControls();
@@ -228,18 +245,16 @@ public abstract class PvpModeScreen extends dev.nezo.burmaldaholic.client.ui.Cas
 		return view.grudge() ? Scene.PVP_GRUDGE : Scene.PVP;
 	}
 
-	@Override
-	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.background(g, frame, view.grudge());
-		extractPlayArea(g, mouseX, mouseY);
-	}
-
 	/** Objects on the backdrop under the frame. */
 	protected void extractPlayArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		partial = a;
+		// under the kit's frame pose (a framed window draws here, not in extractScene): the dim, the arena, the backdrop
+		chrome.renderBackground(g, theme());
+		dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.background(g, frame, view.grudge());
+		extractPlayArea(g, mouseX, mouseY);
 		List<Component> bar = topBar();
 		Component right = bar.size() > 1 ? bar.get(1) : null;
 		if (view.grudge() && !MatchOverlay.clashPlaying(RevealState.current())) {

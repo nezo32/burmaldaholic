@@ -167,10 +167,18 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 		var fx = dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get();
 		if (fx.skippable()) {
 			fx.skip();
-			if (!chrome.hitsEnabled(event.x(), event.y())) return true;
+			if (!actsThroughCelebration(event.x(), event.y())) return true;
 		}
 		if (chrome.click(event.x(), event.y(), event.button())) return true;
 		return super.mouseClicked(event, doubleClick);
+	}
+
+	/**
+	 * Whether a click at (x, y) during a skippable celebration also acts (default: an enabled kit target). Screens with their
+	 * own widgets (the PvP match screens) add an enabled widget under the cursor (T-E2 #3).
+	 */
+	protected boolean actsThroughCelebration(double x, double y) {
+		return chrome.hitsEnabled(x, y);
 	}
 
 	@Override
