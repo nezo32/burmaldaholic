@@ -168,7 +168,14 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 			default -> BetView.Phase.SETTLING;
 		};
 		boolean open = closed(v, "chip", V2 + "bet") == null;
-		BetView.Builder b = BetView.builder().seated(v.seated()).canSit(v.canSit()).phase(ph).bettingOpen(open).limits(v.min(), v.max())
+		// chemmy punting: the bank only covers {@code open} more, so the tray must offer chips that fit it (a 20-chip bot
+		// bank under a 25 / 100 / 500 … tray could never be punted, T-A2 lane A)
+		long max = v.max();
+		if (v.chemmy() && v.puntOpen()) {
+			long cover = v.open() + v.myPunt();
+			max = max > 0 ? Math.min(max, cover) : cover;
+		}
+		BetView.Builder b = BetView.builder().seated(v.seated()).canSit(v.canSit()).phase(ph).bettingOpen(open).limits(v.min(), max)
 			.balance(v.balance()).secondsLeft(v.secondsLeft());
 		if (v.chemmy()) {
 			b.myTotal(v.draft() + v.myPunt()).canUndo(v.draft() > 0).canClear(v.draft() > 0 || v.myPunt() > 0).canDouble(v.draft() > 0);

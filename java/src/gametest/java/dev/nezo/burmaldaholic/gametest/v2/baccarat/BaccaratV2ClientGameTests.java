@@ -266,7 +266,10 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 						t.onAction(pl, "bet", b);
 						t.onAction(pl, "deal", new net.minecraft.nbt.CompoundTag());
 					}
-					t.fastForwardForTests();
+					// a bot deciding on the bank must decide itself: skipping the offer timer makes its offer time out as a pass
+					boolean botDeciding = "bank_offer".equals(t.phase())
+						&& !t.writeClientState(pl).getCompoundOrEmpty("chemmy").getStringOr("candidate_bot", "").isEmpty();
+					if (!botDeciding) t.fastForwardForTests();
 					return null;
 				});
 			}

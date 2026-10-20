@@ -138,4 +138,21 @@ class BaccaratPresentTest {
 			}
 		}
 	}
+	/** T-A2 lane A: a small bot bank (20) under a big balance: the tray offers chips that fit the bank and one is enabled. */
+	@org.junit.jupiter.api.Test
+	void chemmyTrayFitsASmallBotBank() {
+		for (long open : new long[] {20, 7, 60, 3_000}) {
+			BaccaratView v = new BaccaratView(true, true, true, "betting", 1, 5_000, 0, 100_000, new long[0], false, false, true, 20, false, 0, false,
+				false, false, true, open, 0, false, 20, "Bot", false);
+			java.util.List<Long> chips = v.chips();
+			org.junit.jupiter.api.Assertions.assertFalse(chips.isEmpty(), "open " + open + ": a tray");
+			org.junit.jupiter.api.Assertions.assertTrue(chips.stream().allMatch(c -> c <= open), "open " + open + ": every chip fits the bank " + chips);
+			org.junit.jupiter.api.Assertions.assertTrue(chips.stream().anyMatch(c -> BaccaratFlow.INSTANCE.chip(c, v).enabled()),
+				"open " + open + ": a chip is enabled " + chips);
+		}
+		// a house table keeps its tray
+		BaccaratView house = new BaccaratView(true, true, false, "betting", 25, 5_000, 0, 100_000, new long[0], false, false, true, 20, false, 0,
+			false, false, false, false, 0, 0, false, 20, "", false);
+		org.junit.jupiter.api.Assertions.assertTrue(house.chips().contains(5_000L), "house tray unchanged " + house.chips());
+	}
 }
