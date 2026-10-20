@@ -837,7 +837,31 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	}
 
 	public void sendStateTo(ServerPlayer player) {
-		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, writeClientState(player)));
+		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, syncedState(player)));
+	}
+
+	/** SY-SPEC §4: +1 on every state write (per block entity; the client drops a packet whose seq is not newer). */
+	private long syncSeq;
+	/** SY-SPEC §4: random per block-entity load, so a reloaded or replaced table resets the client's gate. */
+	private int syncEpoch = java.util.concurrent.ThreadLocalRandom.current().nextInt();
+
+	/**
+	 * The state packet's tag for {@code viewer}: {@link #writeClientState} plus {@code sync_seq} (+1 per write),
+	 * {@code sync_epoch} and {@code game_time} (when the game did not write it), SY-SPEC §4.
+	 */
+	public CompoundTag syncedState(ServerPlayer viewer) {
+		CompoundTag tag = writeClientState(viewer);
+		tag.putLong(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.SEQ, ++syncSeq);
+		tag.putInt(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.EPOCH, syncEpoch);
+		if (!tag.contains(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.GAME_TIME)) {
+			tag.putLong(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.GAME_TIME, gameTime());
+		}
+		return tag;
+	}
+
+	/** The current {@code sync_epoch} (tests). */
+	public int syncEpoch() {
+		return syncEpoch;
 	}
 
 	/** Shows {@code message} as the error line of the player's table screen (and in the action bar). */
@@ -987,6 +1011,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
+		syncEpoch = java.util.concurrent.ThreadLocalRandom.current().nextInt(); // SY-SPEC §4: a new epoch per load
 		openStakes.clear();
 		input.read(STAKES_KEY, OpenStake.CODEC.listOf()).ifPresent(list -> list.forEach(s -> openStakes.put(s.key(), s)));
 		refundPending = !openStakes.isEmpty();
