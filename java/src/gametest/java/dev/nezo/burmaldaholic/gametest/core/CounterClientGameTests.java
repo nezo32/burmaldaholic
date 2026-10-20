@@ -22,7 +22,8 @@ import net.minecraft.world.item.Items;
  * Lane EC (EC-1, EC-SPEC Tests "client"): the cashier counter opened by USING the block, driven with real input at real
  * window pixels — Shift+click on a quantity button sends ×64, and the keyboard path (← / → direction, Enter ×1,
  * Shift+Enter ×64, Ctrl+Enter All, A deposit all, 2 store tab, / search, Enter buy) — asserting SERVER state. Sizes:
- * 1920 × 1080 GUI 4 (480 × 270) and 1280 × 720 GUI 3 (427 × 240, the narrow store), EN and RU.
+ * 1920 × 1080 GUI 4 (480 × 270) and 1280 × 720 GUI 3 (427 × 240, the narrow store), EN and RU; layout asserts also at
+ * 1920 × 1080 GUI 3 (640 × 360) and GUI 2 (960 × 540).
  */
 public class CounterClientGameTests implements FabricClientGameTest {
 	private final List<String> failures = new ArrayList<>();
@@ -38,9 +39,13 @@ public class CounterClientGameTests implements FabricClientGameTest {
 			BlockPos pos = f.place(CoreContent.CASHIER.block());
 			run(f, pos, "en_us", 1920, 1080, 4);
 			run(f, pos, "en_us", 1280, 720, 3);
+			fitsOnly(f, pos, "en_us", 1920, 1080, 3); // 640 x 360
+			fitsOnly(f, pos, "en_us", 1920, 1080, 2); // 960 x 540
 			f.language("ru_ru");
 			run(f, pos, "ru_ru", 1920, 1080, 4);
 			run(f, pos, "ru_ru", 1280, 720, 3); // T-EC1: RU at 427 x 240
+			fitsOnly(f, pos, "ru_ru", 1920, 1080, 3);
+			fitsOnly(f, pos, "ru_ru", 1920, 1080, 2);
 			f.language("en_us");
 			f.close();
 		} finally {
@@ -135,6 +140,37 @@ public class CounterClientGameTests implements FabricClientGameTest {
 		ctx.getInput().pressKey(Inputs.KEY_ESCAPE);
 		ctx.waitTicks(5);
 		check(f.client(mc -> mc.gui.screen() == null), at + " Esc closes the counter");
+	}
+
+	/** Layout asserts only (T-EC1 D4: every label fits at 640 x 360 and 960 x 540 too), plus the focus-loss reset (D5). */
+	private void fitsOnly(RealFlow f, BlockPos pos, String lang, int w, int h, int gs) {
+		String at = lang + " " + w + "x" + h + "@" + gs;
+		ClientGameTestContext ctx = f.context();
+		f.close();
+		f.size(w, h, gs);
+		f.world().getServer().runCommand("casino balance set @p 1000000");
+		ctx.waitTicks(5);
+		f.open(pos, CounterScreen.class);
+		CounterFlow.awaitEnabled(ctx, "exchange.row.emerald.out.1");
+		fits(f, at + " exchange");
+		check(f.client(mc -> {
+			if (!(mc.gui.screen() instanceof CounterShell.Holder hh)) return false;
+			CounterShell sh = hh.shell();
+			sh.trackKey(Inputs.KEY_LSHIFT, true);
+			boolean held = Inputs.shift(sh.mods(0));
+			sh.focusChanged(false); // window lost focus while Shift was down: the release never arrives
+			boolean reset = sh.mods(0) == 0;
+			sh.focusChanged(mc.isWindowActive());
+			return held && reset;
+		}), at + " focus loss resets the tracked Shift (D5)");
+		int v = f.client(mc -> ClientStore.version());
+		CounterFlow.key(ctx, Inputs.KEY_2, false, false);
+		ctx.waitFor(mc -> ClientStore.version() > v, RealFlow.TIMEOUT);
+		CounterFlow.awaitEnabled(ctx, "store.tile.bread");
+		CounterFlow.hover(ctx, "store.tile.bread");
+		fits(f, at + " store");
+		ctx.getInput().pressKey(Inputs.KEY_ESCAPE);
+		ctx.waitTicks(5);
 	}
 
 	private static StoreTab store(net.minecraft.client.Minecraft mc) {

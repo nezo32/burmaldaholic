@@ -63,9 +63,15 @@ public final class CounterLayout {
 
 	// ---- Exchange tab ----------------------------------------------------------------------------------------------
 
+	/** {@code RATE_W} is the minimum rate cell; the tab passes the widest rate text it draws ({@link #row(Box, int)}). */
 	public static final int ROW_H = 22, BTN_H = 16, RATE_W = 16, X1_W = 16, X64_W = 22, ALL_W = 30, GAP = 1, ICON = 16;
-	/** One direction group: rate label + ×1 + ×64 + All/Max. */
-	public static final int GROUP_W = RATE_W + X1_W + X64_W + ALL_W + 3 * GAP;
+	/** One direction group with the minimum rate cell: rate label + ×1 + ×64 + All/Max. */
+	public static final int GROUP_W = groupW(RATE_W);
+
+	/** One direction group's width for a rate cell of {@code rateW} px. */
+	public static int groupW(int rateW) {
+		return Math.max(RATE_W, rateW) + X1_W + X64_W + ALL_W + 3 * GAP;
+	}
 
 	/**
 	 * Exchange tab: {@code money} = deposit / withdraw block, {@code rows} = the row column. Wide: money left
@@ -103,18 +109,25 @@ public final class CounterLayout {
 	}
 
 	public static RowBoxes row(Box row) {
+		return row(row, RATE_W);
+	}
+
+	/** Row boxes with rate cells of {@code rateW} px (at least {@link #RATE_W}): the widest "→N" / "←N" text of the tab (T-EC1 D4a). */
+	public static RowBoxes row(Box row, int rateW) {
+		int rw = Math.max(RATE_W, rateW);
+		int gw = groupW(rw);
 		int by = row.y() + (ROW_H - BTN_H) / 2;
-		int outX = row.right() - GROUP_W;
-		int inX = outX - 4 - GROUP_W;
+		int outX = row.right() - gw;
+		int inX = outX - 4 - gw;
 		Box icon = new Box(row.x() + 2, row.y() + (ROW_H - ICON) / 2, ICON, ICON);
 		Box have = new Box(icon.right() + 3, row.y(), Math.max(0, inX - 3 - icon.right() - 3), ROW_H);
-		Box[] in = group(inX, by);
-		Box[] out = group(outX, by);
+		Box[] in = group(inX, by, rw);
+		Box[] out = group(outX, by, rw);
 		return new RowBoxes(icon, have, in[0], in[1], in[2], in[3], out[0], out[1], out[2], out[3]);
 	}
 
-	private static Box[] group(int x, int y) {
-		Box rate = new Box(x, y, RATE_W, BTN_H);
+	private static Box[] group(int x, int y, int rateW) {
+		Box rate = new Box(x, y, rateW, BTN_H);
 		Box b1 = new Box(rate.right() + GAP, y, X1_W, BTN_H);
 		Box b64 = new Box(b1.right() + GAP, y, X64_W, BTN_H);
 		Box all = new Box(b64.right() + GAP, y, ALL_W, BTN_H);
@@ -184,7 +197,18 @@ public final class CounterLayout {
 	/** The detail panel / strip: name, price + limit lines, qty buttons (×1 ×16 ×64 Max), total, Buy. */
 	public record Detail(Box icon, Box name, Box line2, Box line3, List<Box> qty, Box total, Box buy) {}
 
+	/** Narrow strip's minimum Buy width; the tab passes its widest Buy / "Confirm N?" label ({@link #detail(Store, int)}). */
+	public static final int BUY_W = 56;
+
 	public static Detail detail(Store s) {
+		return detail(s, BUY_W);
+	}
+
+	/**
+	 * @param buyW the narrow strip's Buy button width (clamped to {@link #BUY_W}…⅓ of the strip); the wide panel's Buy
+	 *             always spans the panel (T-EC1 D4b)
+	 */
+	public static Detail detail(Store s, int buyW) {
 		Box d = s.detail();
 		if (!s.strip()) {
 			Box icon = new Box(d.x() + 4, d.y() + 4, ICON, ICON);
@@ -199,7 +223,7 @@ public final class CounterLayout {
 			return new Detail(icon, name, l2, l3, List.copyOf(q), total, buy);
 		}
 		Box icon = new Box(d.x() + 2, d.y() + (d.h() - ICON) / 2, ICON, ICON);
-		int buyW = 56;
+		buyW = Math.max(BUY_W, Math.min(buyW, d.w() / 3));
 		int qw = 28;
 		int qx = d.right() - buyW - 4 - 4 * qw - 3 * 2;
 		Box buy = new Box(d.right() - buyW, d.y() + 10, buyW, 20);

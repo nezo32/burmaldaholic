@@ -66,6 +66,12 @@ class CounterLayoutTest {
 			noOverlap(rb.all(), at + " row");
 			for (Box b : rb.all()) assertTrue(b.inside(row), at + " row box " + b);
 			assertTrue(rb.have().w() >= 30, at + " have text room " + rb.have());
+			// T-EC1 D4a: the widest default rate ("←160", 26 px) still fits with no overlap
+			CounterLayout.RowBoxes wide = CounterLayout.row(row, 26);
+			noOverlap(wide.all(), at + " row rate 26");
+			for (Box b : wide.all()) assertTrue(b.inside(row), at + " row(26) box " + b);
+			assertEquals(26, wide.inRate().w(), at);
+			assertEquals(26, wide.outRate().w(), at);
 		}
 		// store
 		CounterLayout.Store st = CounterLayout.store(sh.body(), 8);
@@ -81,7 +87,8 @@ class CounterLayoutTest {
 		for (Box b : store) assertTrue(b.inside(sh.body()), at + " store box " + b);
 		for (int i = 0; i < st.cols() * st.rows(); i++) assertTrue(st.tile(i).inside(st.grid()), at);
 		assertFalse(st.detail().intersects(sh.result()), at + " detail clear of the result line");
-		CounterLayout.Detail d = CounterLayout.detail(st);
+		CounterLayout.Detail d = CounterLayout.detail(st, 96); // T-EC1 D4b: "Confirm 999,999?" + padding
+		if (st.strip()) assertEquals(96, d.buy().w(), at + " strip Buy sized from its label");
 		List<Box> det = new ArrayList<>(d.qty());
 		det.addAll(List.of(d.icon(), d.name(), d.line2(), d.total(), d.buy()));
 		if (!d.line3().isEmpty()) det.add(d.line3());

@@ -59,9 +59,7 @@ public final class StoreCatalog {
 
 	/** R3–R6 over a store and economy config (pure). */
 	public static List<EconomyGuards.Violation> violations(StoreConfig store, EconomyConfig economy, Map<String, Integer> appraisal) {
-		EconomyConfig.ExchangeRow em = economy.exchange.get("emerald");
-		int v = EconomyGuards.villagerValue(em == null ? 0 : em.toChips, economy.trade.perTradeBase, economy.trade.perEmerald);
-		return EconomyGuards.offers(guardOffers(store), appraisal, economy.guardRows(), v);
+		return EconomyGuards.offers(guardOffers(store), appraisal, economy.guardRows(), economy.villagerValue());
 	}
 
 	private static Set<String> lastLogged = Set.of();

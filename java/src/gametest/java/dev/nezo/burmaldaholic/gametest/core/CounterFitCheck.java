@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.gametest.core;
 
 import dev.nezo.burmaldaholic.client.cashier.CounterShell;
+import dev.nezo.burmaldaholic.client.cashier.ExchangeTab;
 import dev.nezo.burmaldaholic.client.cashier.StoreTab;
 import dev.nezo.burmaldaholic.core.cashier.counter.CounterLayout;
 import dev.nezo.burmaldaholic.core.store.net.StoreSyncPayload.OfferView;
@@ -46,6 +47,9 @@ final class CounterFitCheck {
 		fit(bad, font, "readout", Component.translatable("gui.burmaldaholic.cashier.readout", Texts.number(1_000_000), Texts.number(1_000_000)), l.readout(), 0);
 		String active = shell.activeTab() == null ? "" : shell.activeTab().id();
 		if (active.equals("exchange")) {
+			ExchangeTab ex = (ExchangeTab) shell.activeTab();
+			java.util.Map<String, net.minecraft.nbt.CompoundTag> rowsById = new java.util.HashMap<>();
+			for (net.minecraft.nbt.CompoundTag r : ex.rows()) rowsById.put(r.getStringOr("id", ""), r);
 			label(bad, font, shell, "exchange.deposit_all", "gui.burmaldaholic.cashier.deposit_all");
 			label(bad, font, shell, "exchange.deposit_held", "gui.burmaldaholic.cashier.deposit_held");
 			label(bad, font, shell, "exchange.max", "gui.burmaldaholic.common.max");
@@ -57,17 +61,21 @@ final class CounterFitCheck {
 				String key = id.endsWith(".1") ? "gui.burmaldaholic.cashier.qty.x1" : id.endsWith(".64") ? "gui.burmaldaholic.cashier.qty.x64"
 					: id.endsWith(".all") ? "gui.burmaldaholic.cashier.exchange.all" : "gui.burmaldaholic.cashier.exchange.max";
 				fit(bad, font, id, Component.translatable(key), t.box(), 2);
-				if (id.endsWith(".in.1") || id.endsWith(".out.1")) { // the rate cell left of x1
-					Box rate = new Box(t.box().x() - CounterLayout.GAP - CounterLayout.RATE_W, t.box().y(), CounterLayout.RATE_W, t.box().h());
-					String k = id.endsWith(".in.1") ? "gui.burmaldaholic.cashier.exchange.in" : "gui.burmaldaholic.cashier.exchange.out";
-					fit(bad, font, id + " rate", Component.translatable(k, Texts.number(99)), rate, 0);
+				if (id.endsWith(".in.1") || id.endsWith(".out.1")) { // the rate cell left of x1, with the row's real rate
+					int rw = ex.rateWidth();
+					Box rate = new Box(t.box().x() - CounterLayout.GAP - rw, t.box().y(), rw, t.box().h());
+					boolean in = id.endsWith(".in.1");
+					String rowId = id.substring("exchange.row.".length(), id.length() - (in ? ".in.1" : ".out.1").length());
+					net.minecraft.nbt.CompoundTag row = rowsById.get(rowId);
+					int chips = row == null ? 99 : row.getIntOr(in ? "to" : "from", 0);
+					fit(bad, font, id + " rate", ExchangeTab.rateText(in, chips), rate, 0);
 				}
 			}
 		} else if (active.equals("store")) {
 			StoreTab st = (StoreTab) shell.activeTab();
 			int cats = (int) ts.stream().filter(t -> t.id().startsWith("store.cat.")).count();
 			CounterLayout.Store sl = CounterLayout.store(l.body(), cats);
-			CounterLayout.Detail d = CounterLayout.detail(sl);
+			CounterLayout.Detail d = st.detailLayout() != null ? st.detailLayout() : CounterLayout.detail(sl);
 			for (HitMap.Target t : ts) {
 				if (t.id().startsWith("store.cat.")) {
 					String c = t.id().substring("store.cat.".length());
@@ -80,7 +88,8 @@ final class CounterFitCheck {
 			for (int i = 0; i < 4; i++) label(bad, font, shell, "store.qty." + q[i], "gui.burmaldaholic.cashier." + qk[i]);
 			label(bad, font, shell, "store.buy", "gui.burmaldaholic.cashier.store.buy");
 			Optional<Box> buy = shell.hits().box("store.buy");
-			buy.ifPresent(b -> fit(bad, font, "confirm 99,999", Component.translatable("gui.burmaldaholic.cashier.store.confirm", Texts.number(99_999)), b, 2));
+			buy.ifPresent(b -> fit(bad, font, "confirm 999,999", Component.translatable("gui.burmaldaholic.cashier.store.confirm",
+				Texts.number(StoreTab.CONFIRM_SIZED_FOR)), b, 2));
 			OfferView o = st.selectedOffer();
 			if (o != null) {
 				fit(bad, font, "price line", Component.translatable("gui.burmaldaholic.cashier.store.price", Texts.chips(o.price())), d.line2(), 0);

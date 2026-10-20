@@ -9,15 +9,18 @@ import java.util.Set;
 
 /**
  * Pure arbitrage guards of the cashier exchange and the chip store (EC-SPEC §2). Run by {@code EconomyConfig.validate}
- * (R1, R2) and on store catalog load (R3–R6); a violation disables the row's way out / the offer and is logged.
+ * (R1, R2, R4 on rows) and on store catalog load (R3–R6); a violation disables the row's way out / the offer and is
+ * logged.
  *
  * <ul>
  *   <li>R1: {@code toChips < fromChips} for every row with a way out.</li>
- *   <li>R2: craft equivalences ({@code A = k × B}): {@code in(A) ≤ k·out(B)} and {@code k·in(B) ≤ out(A)}.</li>
+ *   <li>R2: craft equivalences ({@code A = k × B}), transitively ({@link #CHAINS}: block ↔ ingot ↔ nugget = 81):
+ *   {@code in(A) ≤ k·out(B)} and {@code k·in(B) ≤ out(A)}.</li>
  *   <li>R3: store price per item ≥ 1.25 × pawn appraisal.</li>
- *   <li>R4: villager floor: for an item (or its residue) villagers buy {@code n} per emerald, {@code price × n ≥ V}.</li>
+ *   <li>R4: villager floor: for an item (or its residue, or what it uncrafts into) villagers buy {@code n} per
+ *   emerald, {@code price × n ≥ V}; for store offers and for exchange rows' way out.</li>
  *   <li>R5: store price per item &gt; that item's exchange {@code toChips}.</li>
- *   <li>R6: no forbidden item in the catalog.</li>
+ *   <li>R6: no forbidden item in the catalog (incl. everything that smelts into iron / gold nuggets).</li>
  * </ul>
  */
 public final class EconomyGuards {
@@ -47,6 +50,30 @@ public final class EconomyGuards {
 		new Equivalence("minecraft:gold_block", 9, "minecraft:gold_ingot"),
 		new Equivalence("minecraft:gold_ingot", 9, "minecraft:gold_nugget"),
 		new Equivalence("minecraft:netherite_block", 9, "minecraft:netherite_ingot"));
+
+	/** {@link #EQUIVALENCES} closed transitively: every {@code big = k × small} reachable by crafting (k multiplied). */
+	public static final List<Equivalence> CHAINS = closure(EQUIVALENCES);
+
+	private static List<Equivalence> closure(List<Equivalence> base) {
+		Map<String, Map<String, Integer>> down = new HashMap<>(); // big -> small -> k
+		for (Equivalence e : base) down.computeIfAbsent(e.big(), x -> new HashMap<>()).put(e.small(), e.k());
+		boolean changed = true;
+		while (changed) {
+			changed = false;
+			for (Map<String, Integer> smalls : down.values()) {
+				for (Map.Entry<String, Integer> m : List.copyOf(smalls.entrySet())) {
+					Map<String, Integer> next = down.get(m.getKey());
+					if (next == null) continue;
+					for (Map.Entry<String, Integer> n : next.entrySet()) {
+						if (smalls.putIfAbsent(n.getKey(), m.getValue() * n.getValue()) == null) changed = true;
+					}
+				}
+			}
+		}
+		List<Equivalence> out = new ArrayList<>();
+		down.forEach((big, smalls) -> smalls.forEach((small, k) -> out.add(new Equivalence(big, k, small))));
+		return List.copyOf(out);
+	}
 
 	/** Items villagers buy from players: items per emerald (vanilla's most generous trade). */
 	public static final Map<String, Integer> VILLAGER_BUYS = Map.ofEntries(
@@ -87,13 +114,57 @@ public final class EconomyGuards {
 		"minecraft:spawner", "minecraft:trial_spawner", "minecraft:enchanted_golden_apple", "minecraft:nether_star", "minecraft:beacon",
 		"minecraft:shulker_box", "minecraft:dragon_egg");
 
-	/** True when {@code item} may never be sold (R6): the list, every spawn egg and every (coloured) shulker box. */
+	/** Gear that smelts into iron / gold nuggets ({@code <material>_<piece>}, R6). */
+	private static final List<String> SMELT_MATERIALS = List.of("iron_", "golden_", "chainmail_");
+	private static final List<String> SMELT_PIECES = List.of("helmet", "chestplate", "leggings", "boots", "horse_armor",
+		"nautilus_armor", "sword", "pickaxe", "axe", "shovel", "hoe", "spear");
+
+	/**
+	 * True when {@code item} may never be sold (R6): the list, every spawn egg, every (coloured) shulker box and every
+	 * iron / gold / chainmail tool, weapon or armour piece (they smelt into nuggets).
+	 */
 	public static boolean forbidden(String item) {
-		return FORBIDDEN.contains(item) || item.endsWith("_spawn_egg") || item.endsWith("shulker_box");
+		if (FORBIDDEN.contains(item) || item.endsWith("_spawn_egg") || item.endsWith("shulker_box")) return true;
+		if (!item.startsWith("minecraft:")) return false;
+		String path = item.substring("minecraft:".length());
+		for (String m : SMELT_MATERIALS) {
+			if (path.startsWith(m) && SMELT_PIECES.contains(path.substring(m.length()))) return true;
+		}
+		return false;
 	}
 
-	/** R1 + R2 over the exchange rows (rows with {@code fromChips = 0} are sell-only and never broken by R1). */
+	/**
+	 * How many {@code item}s make one emerald through villagers: the item itself, what it leaves behind
+	 * ({@link #RESIDUE}) or what one item uncrafts into ({@link #CHAINS}); the most generous route. {@code null} when
+	 * villagers buy none of them.
+	 */
+	static Double itemsPerEmerald(String item) {
+		Double best = null;
+		Integer n = VILLAGER_BUYS.get(item);
+		if (n != null) best = (double) n;
+		String residue = RESIDUE.get(item);
+		if (residue != null && VILLAGER_BUYS.containsKey(residue)) best = min(best, VILLAGER_BUYS.get(residue));
+		for (Equivalence e : CHAINS) {
+			if (e.big().equals(item) && VILLAGER_BUYS.containsKey(e.small())) best = min(best, VILLAGER_BUYS.get(e.small()) / (double) e.k());
+		}
+		return best;
+	}
+
+	private static Double min(Double a, double b) {
+		return a == null ? b : Math.min(a, b);
+	}
+
+	/** R1 + R2 over the exchange rows, without the villager floor (see {@link #rows(Collection, int)}). */
 	public static List<Violation> rows(Collection<Row> rows) {
+		return rows(rows, 0);
+	}
+
+	/**
+	 * R1 + R2 + R4 over the exchange rows (rows with {@code fromChips = 0} are sell-only and never broken).
+	 *
+	 * @param villagerValue {@code V} of R4 ({@link #villagerValue}); 0 skips R4
+	 */
+	public static List<Violation> rows(Collection<Row> rows, int villagerValue) {
 		List<Violation> out = new ArrayList<>();
 		Map<String, Row> byItem = new HashMap<>();
 		for (Row r : rows) {
@@ -102,8 +173,12 @@ public final class EconomyGuards {
 			if (r.fromChips() > 0 && r.toChips() >= r.fromChips()) {
 				out.add(new Violation("R1", r.id(), r.toChips() + " >= " + r.fromChips()));
 			}
+			Double per = r.fromChips() > 0 && villagerValue > 0 ? itemsPerEmerald(r.item()) : null;
+			if (per != null && r.fromChips() * per < villagerValue - 1e-9) {
+				out.add(new Violation("R4", r.id(), r.fromChips() + "*" + per + " < " + villagerValue));
+			}
 		}
-		for (Equivalence e : EQUIVALENCES) {
+		for (Equivalence e : CHAINS) {
 			Row a = byItem.get(e.big());
 			Row b = byItem.get(e.small());
 			if (a == null || b == null) continue;
@@ -134,8 +209,7 @@ public final class EconomyGuards {
 			}
 			Integer ap = appraisal.get(o.item());
 			if (ap != null && ap > 0 && unit < 1.25 * ap) out.add(new Violation("R3", o.id(), unit + " < 1.25*" + ap));
-			String buyer = VILLAGER_BUYS.containsKey(o.item()) ? o.item() : RESIDUE.get(o.item());
-			Integer n = buyer == null ? null : VILLAGER_BUYS.get(buyer);
+			Double n = itemsPerEmerald(o.item());
 			if (n != null && unit * n < villagerValue) out.add(new Violation("R4", o.id(), unit + "*" + n + " < " + villagerValue));
 			Row r = byItem.get(o.item());
 			if (r != null && r.toChips() > 0 && unit <= r.toChips()) out.add(new Violation("R5", o.id(), unit + " <= " + r.toChips()));

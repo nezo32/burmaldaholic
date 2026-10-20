@@ -34,8 +34,9 @@ import net.minecraft.world.level.block.state.BlockState;
  * dimension of the cashier (emerald, diamond, gold ingot, …). Server-driven screen via the generic table framework.
  *
  * <p>Client actions: {@code deposit_all}, {@code deposit_held}, {@code withdraw {amount, denom}},
- * {@code exchange {row, dir: "in" | "out", qty, all}} (the server computes "all"; never drops items at the feet),
- * {@code shop_buy {id}} (v0.1 shop; the store tab uses {@code StoreActionPayload}).
+ * {@code exchange {row, dir: "in" | "out", qty, all}} (the server computes "all"; never drops items at the feet).
+ * The store tab (scratch cards included) goes through {@code StoreService} / {@code StoreActionPayload}; the v0.1
+ * {@code shop_buy} action was removed (T-EC1 D2).
  */
 public class CashierBlockEntity extends CasinoTableBlockEntity {
 	public static final String GAME_ID = "core";
@@ -113,42 +114,11 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			case "withdraw" -> withdraw(player, args.getLongOr("amount", 0), args.getIntOr("denom", 0));
 			case "exchange" -> exchange(player, args.getStringOr("row", ""), "out".equals(args.getStringOr("dir", "in")),
 				args.getLongOr("qty", 1), args.getBooleanOr("all", false));
-			case "shop_buy" -> shopBuy(player, args.getStringOr("id", ""));
 			default -> {
 				return;
 			}
 		}
 		syncViewers();
-	}
-
-	/** Shop tab: buys one item of offer {@code id} (VIP tier + funds checked). */
-	public boolean shopBuy(ServerPlayer player, String id) {
-		CashierShop.Offer offer = CashierShop.byId(id);
-		if (offer == null) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
-			return false;
-		}
-		int tier = CoreServices.vip().tier(server(player), player.getUUID());
-		if (tier < offer.minTier()) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(offer.minTier())));
-			return false;
-		}
-		long price = Math.max(0, offer.price().getAsLong());
-		ItemStack item = offer.item().get();
-		if (item.isEmpty()) {
-			return false;
-		}
-		if (!Economies.get().tryWithdraw(player, price, new Transaction(GAME_ID, "shop_" + id, Transaction.Kind.OTHER))) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(Economies.get().balance(player))));
-			return false;
-		}
-		recordMove(player, MoveKind.PAID, price, null);
-		Component name = item.getHoverName();
-		if (Inventories.giveOrDrop(player, item)) {
-			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.inventory_full"));
-		}
-		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.bought_chips", name, Texts.chipsAcc(price)));
-		return true;
 	}
 
 	/** Room left under {@code economy.maxBalance} (review m2: never take items whose value would be capped away). */
@@ -463,16 +433,6 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		tag.putLong("held_chips", ChipItem.valueOf(viewer.getItemInHand(InteractionHand.MAIN_HAND)));
 		int tier = CoreServices.vip().tier(server, viewer.getUUID());
 		tag.putInt("vip", tier);
-		net.minecraft.nbt.ListTag shop = new net.minecraft.nbt.ListTag();
-		for (CashierShop.Offer o : CashierShop.offers()) {
-			CompoundTag t = new CompoundTag();
-			t.putString("id", o.id());
-			t.putString("name", o.item().get().getItem().getDescriptionId());
-			t.putLong("price", o.price().getAsLong());
-			t.putInt("min_tier", o.minTier());
-			shop.add(t);
-		}
-		tag.put("shop", shop);
 		Move move = lastMove(viewer);
 		if (move != null) {
 			CompoundTag tray = new CompoundTag();

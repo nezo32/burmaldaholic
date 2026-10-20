@@ -121,7 +121,7 @@ public final class StoreTab implements CounterTab {
 		List<String> cats = categories();
 		CounterLayout.Store l = CounterLayout.store(body, cats.size());
 		layout = l;
-		detail = CounterLayout.detail(l);
+		detail = CounterLayout.detail(l, buyWidth(shell.font()));
 		int maxScroll = Math.max(0, (shown.size() + l.cols() - 1) / l.cols() - l.rows());
 		if (selected >= 0 && follow) {
 			int row = selected / l.cols();
@@ -357,6 +357,21 @@ public final class StoreTab implements CounterTab {
 			CounterDraw.button(g, font, d.buy(), buy, true, can, mouseX, mouseY, false);
 		}
 		if (hover != null) g.setTooltipForNextFrame(font, hover.stack(), mouseX, mouseY);
+	}
+
+	/** Total the Buy button's "Confirm N?" is sized for (T-EC1 D4b); larger totals are rare (a Max over 999,999 chips). */
+	public static final long CONFIRM_SIZED_FOR = 999_999;
+
+	/** The narrow strip's Buy width: the wider of "Buy" and "Confirm 999,999?" plus the button padding. */
+	public static int buyWidth(Font font) {
+		int w = Math.max(font.width(Component.translatable("gui.burmaldaholic.cashier.store.buy")),
+			font.width(Component.translatable("gui.burmaldaholic.cashier.store.confirm", Texts.number(CONFIRM_SIZED_FOR))));
+		return w + 6;
+	}
+
+	/** The detail layout in use (tests). */
+	public CounterLayout.@Nullable Detail detailLayout() {
+		return detail;
 	}
 
 	private static @Nullable Component lockLine(OfferView o) {

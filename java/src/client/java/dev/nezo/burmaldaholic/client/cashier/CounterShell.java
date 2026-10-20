@@ -73,6 +73,8 @@ public final class CounterShell {
 	private String lastPressed = "";
 	private boolean shiftHeld;
 	private boolean ctrlHeld;
+	/** Window focus seen at the last tick (T-EC1 D5: a release while unfocused never reaches the screen). */
+	private boolean windowActive = Minecraft.getInstance().isWindowActive();
 
 	public CounterShell(Host host) {
 		this.host = host;
@@ -175,6 +177,8 @@ public final class CounterShell {
 	}
 
 	public void tick() {
+		boolean nowActive = Minecraft.getInstance().isWindowActive();
+		if (nowActive != windowActive) focusChanged(nowActive);
 		for (CounterTab t : tabs) t.tick();
 		if (resultTicks > 0 && --resultTicks == 0) result = null;
 	}
@@ -201,6 +205,16 @@ public final class CounterShell {
 	public void trackKey(int keyCode, boolean down) {
 		if (keyCode == Inputs.KEY_LSHIFT || keyCode == Inputs.KEY_RSHIFT) shiftHeld = down;
 		if (keyCode == Inputs.KEY_LCONTROL || keyCode == Inputs.KEY_RCONTROL) ctrlHeld = down;
+	}
+
+	/**
+	 * The window gained or lost focus: forget the tracked Shift / Control (T-EC1 D5). A key released while another window
+	 * had focus never reaches the screen, so without this clicks would keep sending ×64 until Shift is pressed again.
+	 */
+	public void focusChanged(boolean active) {
+		windowActive = active;
+		shiftHeld = false;
+		ctrlHeld = false;
 	}
 
 	/** The event's modifiers plus the Shift / Control the shell saw held. */

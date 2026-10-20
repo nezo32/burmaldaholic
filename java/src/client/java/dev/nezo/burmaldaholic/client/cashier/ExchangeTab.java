@@ -41,6 +41,8 @@ public final class ExchangeTab implements CounterTab {
 	private CounterLayout.Money money;
 	private final List<CompoundTag> rows = new ArrayList<>();
 	private int[] denoms = new int[0];
+	/** Rate cell width: the widest "→N" / "←N" of the rows (T-EC1 D4a). */
+	private int rateW = CounterLayout.RATE_W;
 
 	private final CounterTray tray = new CounterTray();
 
@@ -101,6 +103,11 @@ public final class ExchangeTab implements CounterTab {
 		for (int i = 0; i < list.size(); i++) rows.add(list.getCompoundOrEmpty(i));
 		selRow = Math.max(0, Math.min(selRow, rows.size() - 1));
 		denoms = Arrays.stream(ChipMath.DENOMINATIONS).sorted().toArray();
+		rateW = CounterLayout.RATE_W;
+		for (CompoundTag r : rows) {
+			rateW = Math.max(rateW, shell.font().width(rateText(true, r.getIntOr("to", 0))));
+			if (r.getIntOr("from", 0) > 0) rateW = Math.max(rateW, shell.font().width(rateText(false, r.getIntOr("from", 0))));
+		}
 		layout = CounterLayout.exchange(body, rows.size());
 		money = CounterLayout.money(layout.money(), denoms.length);
 		boolean inDefault = s().getBooleanOr("in_default", false);
@@ -114,7 +121,7 @@ public final class ExchangeTab implements CounterTab {
 		int visible = CounterLayout.visibleRows(layout);
 		for (int i = 0; i < rows.size() && i < visible; i++) {
 			CompoundTag r = rows.get(i);
-			CounterLayout.RowBoxes b = CounterLayout.row(rowBox(i));
+			CounterLayout.RowBoxes b = rowBoxes(rowBox(i));
 			String p = "exchange.row." + r.getStringOr("id", "") + ".";
 			boolean canIn = r.getIntOr("to", 0) > 0 && r.getLongOr("max_in", 0) > 0;
 			boolean canOut = r.getIntOr("from", 0) > 0 && r.getLongOr("max_out", 0) > 0 && tier() >= r.getIntOr("gate", 0) && !inDefault;
@@ -127,6 +134,31 @@ public final class ExchangeTab implements CounterTab {
 				hits.add(p + "out.max", b.outMax(), canOut);
 			}
 		}
+	}
+
+	/** "→N" (in) / "←N" (out): the rate cell text. */
+	public static Component rateText(boolean in, int chips) {
+		return Component.translatable(in ? "gui.burmaldaholic.cashier.exchange.in" : "gui.burmaldaholic.cashier.exchange.out", Texts.number(chips));
+	}
+
+	/** The rate cell width in use (tests). */
+	public int rateWidth() {
+		return rateW;
+	}
+
+	/** One row's boxes with the measured rate cells. */
+	public CounterLayout.RowBoxes rowBoxes(Box row) {
+		return CounterLayout.row(row, rateW);
+	}
+
+	/** "You have N" when it fits, else "×N", else "×2k+", else nothing (the tooltip still tells). */
+	public static Component haveText(Font font, Component full, long have, int w) {
+		if (font.width(full) <= w) return full;
+		Component plain = Texts.raw("×" + Numbers.format(have)); // literal-ok: count
+		if (font.width(plain) <= w) return plain;
+		String k = have < 1000 ? Numbers.format(have) : Numbers.format(have / 1000) + (have % 1000 == 0 ? "k" : "k+"); // literal-ok: number suffix
+		Component compact = Texts.raw("×" + k); // literal-ok: count
+		return font.width(compact) <= w ? compact : Component.empty();
 	}
 
 	private int tier() {
@@ -261,22 +293,22 @@ public final class ExchangeTab implements CounterTab {
 			Box rb = rowBox(i);
 			if (i % 2 == 0) V2Draw.fill(g, rb, 0x30FFFFFF);
 			if (i == selRow) V2Draw.outline(g, rb, CasinoPalette.V2_GOLD);
-			CounterLayout.RowBoxes b = CounterLayout.row(rb);
+			CounterLayout.RowBoxes b = rowBoxes(rb);
 			ItemStack stack = stack(r.getStringOr("item", ""));
 			g.fakeItem(stack, b.icon().x(), b.icon().y());
 			long have = r.getLongOr("have", 0);
 			Component full = Component.translatable("gui.burmaldaholic.cashier.exchange.have", Texts.number(have));
-			Component haveText = font.width(full) <= b.have().w() ? full : Texts.raw("×" + Numbers.format(have)); // literal-ok: count
+			Component haveText = haveText(font, full, have, b.have().w());
 			V2Draw.left(g, font, haveText, b.have(), 0, 1, have > 0 ? CasinoPalette.V2_TEXT : CasinoPalette.V2_MUTED, false);
 			String p = "exchange.row." + r.getStringOr("id", "") + ".";
-			V2Draw.centred(g, font, Component.translatable("gui.burmaldaholic.cashier.exchange.in", Texts.number(r.getIntOr("to", 0))), b.inRate(), 1,
+			V2Draw.centred(g, font, rateText(true, r.getIntOr("to", 0)), b.inRate(), 1,
 				CasinoPalette.V2_WIN, false);
 			btn(g, font, b.in1(), Component.translatable("gui.burmaldaholic.cashier.qty.x1"), p + "in.1", false, mouseX, mouseY, i == selRow && !selOut);
 			btn(g, font, b.in64(), Component.translatable("gui.burmaldaholic.cashier.qty.x64"), p + "in.64", false, mouseX, mouseY);
 			btn(g, font, b.inAll(), Component.translatable("gui.burmaldaholic.cashier.exchange.all"), p + "in.all", false, mouseX, mouseY);
 			int from = r.getIntOr("from", 0);
 			if (from > 0) {
-				V2Draw.centred(g, font, Component.translatable("gui.burmaldaholic.cashier.exchange.out", Texts.number(from)), b.outRate(), 1,
+				V2Draw.centred(g, font, rateText(false, from), b.outRate(), 1,
 					CasinoPalette.V2_GOLD, false);
 				btn(g, font, b.out1(), Component.translatable("gui.burmaldaholic.cashier.qty.x1"), p + "out.1", false, mouseX, mouseY, i == selRow && selOut);
 				btn(g, font, b.out64(), Component.translatable("gui.burmaldaholic.cashier.qty.x64"), p + "out.64", false, mouseX, mouseY);

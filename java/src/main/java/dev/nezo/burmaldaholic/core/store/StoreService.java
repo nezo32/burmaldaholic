@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic.core.store;
 
 import com.mojang.brigadier.Command;
 import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.core.cashier.CashierBlockEntity;
 import dev.nezo.burmaldaholic.core.cashier.ExchangeMath;
 import dev.nezo.burmaldaholic.core.cashier.ExchangeRows;
 import dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions;
@@ -29,7 +30,7 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Chip store server (EC-SPEC §3): {@code StoreActionPayload} sync / buy, the per-player daily limits
  * ({@code burmaldaholic:store_limits}), {@code /casino store} (op) and the merchant NPC role ({@link MerchantRole}).
- * Buys follow the exchange rule: {@code n = min(qty | ∞, balance / price, fit, dailyLeft)}, items only into free
+ * Buys follow the exchange-out rule: refused in default, {@code n = min(qty | ∞, (balance − debt) / price, fit, dailyLeft)}, items only into free
  * main-inventory room, the shared 4-tick counter cooldown.
  */
 public final class StoreService {
@@ -77,7 +78,7 @@ public final class StoreService {
 		MinecraftServer server = player.level().getServer();
 		int tier = CoreServices.vip().tier(server, player.getUUID());
 		long day = today(server);
-		long balance = Economies.get().balance(player);
+		long balance = CashierBlockEntity.withdrawable(player); // owed chips are not spendable (T-EC1 D1)
 		StoreLimits.Data data = limits(player);
 		List<StoreSyncPayload.OfferView> out = new ArrayList<>();
 		for (StoreCatalog.Entry e : StoreCatalog.entries(server.registryAccess(), s.dim())) {
@@ -132,7 +133,11 @@ public final class StoreService {
 		ItemStack one = e.stack().copyWithCount(1);
 		int per = e.stack().getCount();
 		long fit = ExchangeRows.fit(player.getInventory(), one);
-		long balance = Economies.get().balance(player);
+		if (CoreServices.debt().inDefault(server, player.getUUID())) { // same rule as exchange "out" (T-EC1 D1)
+			fail(player, s, Component.translatable("gui.burmaldaholic.cashier.withdraw_blocked"));
+			return 0;
+		}
+		long balance = CashierBlockEntity.withdrawable(player); // balance − debt: owed chips buy nothing
 		long n = ExchangeMath.countBuy(qty, all, balance, e.price(), fit, per, left);
 		if (n <= 0) {
 			Component why = left == 0 ? Component.translatable("gui.burmaldaholic.cashier.store.limit_reached")

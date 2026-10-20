@@ -22,7 +22,7 @@ public final class EconomyConfig implements Validatable, Migrates {
 	 * Cashier exchange rows (EC-SPEC §2), by row id: {@code item} ↔ chips. {@code toChips} = chips for one item handed in,
 	 * {@code fromChips} = chips for one item taken out (0 = sell-only), {@code dims} = dimension letters where the row is
 	 * offered ({@code O} overworld, {@code N} nether, {@code E} end; empty = everywhere), {@code buyMinTier} = VIP tier
-	 * needed to take the item out. {@code core.economy.EconomyGuards} rules R1/R2 are enforced in {@link #validate}: a
+	 * needed to take the item out. {@code core.economy.EconomyGuards} rules R1, R2 (transitive) and R4 are enforced in {@link #validate}: a
 	 * violating row loses its {@code fromChips} (no arbitrage path is left).
 	 */
 	public static final class ExchangeRow {
@@ -151,7 +151,7 @@ public final class EconomyConfig implements Validatable, Migrates {
 
 	@Override
 	public void validate(Issues issues) {
-		List<EconomyGuards.Violation> bad = EconomyGuards.rows(guardRows());
+		List<EconomyGuards.Violation> bad = rowViolations();
 		for (EconomyGuards.Violation v : bad) {
 			ExchangeRow r = exchange.get(v.id());
 			if (r != null && r.fromChips != 0) {
@@ -163,6 +163,17 @@ public final class EconomyConfig implements Validatable, Migrates {
 			issues.clamped("mob.reducedRewardKills", mob.reducedRewardKills, mob.fullRewardKills);
 			mob.reducedRewardKills = mob.fullRewardKills;
 		}
+	}
+
+	/** R1, R2 (transitive) and R4 (villager floor) over {@link #exchange} (T-EC1 D3). */
+	public List<EconomyGuards.Violation> rowViolations() {
+		return EconomyGuards.rows(guardRows(), villagerValue());
+	}
+
+	/** {@code V} of R4: chips one emerald brings through a villager trade (emerald row in + trade rewards). */
+	public int villagerValue() {
+		ExchangeRow em = exchange.get("emerald");
+		return EconomyGuards.villagerValue(em == null ? 0 : em.toChips, trade.perTradeBase, trade.perEmerald);
 	}
 
 	/** The rows as {@link EconomyGuards} data. */

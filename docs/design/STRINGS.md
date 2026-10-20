@@ -478,7 +478,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 |-----|----|----|
 | `gui.burmaldaholic.cashier.title` | Cashier | Касса |
 | `gui.burmaldaholic.cashier.deposit_all` | Deposit all chips | Внести все фишки |
-| `gui.burmaldaholic.cashier.deposit_held` | Deposit held stack | Внести фишки из руки |
+| `gui.burmaldaholic.cashier.deposit_held` | Deposit held stack | Внести из руки |
 | `gui.burmaldaholic.cashier.withdraw` | Withdraw | Снять |
 | `gui.burmaldaholic.cashier.withdrawable` | Withdrawable: %1$s | Доступно к снятию: %1$s |
 | `gui.burmaldaholic.cashier.withdrawable_loan` | Withdrawable: %1$s (loan %2$s) | Доступно к снятию: %1$s (займ %2$s) |
@@ -523,7 +523,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.cashier.store.total` | Total: %1$s | Итого: %1$s |
 | `gui.burmaldaholic.cashier.store.buy` | Buy | Купить |
 | `gui.burmaldaholic.cashier.store.confirm` | Confirm %1$s? | Точно %1$s? |
-| `gui.burmaldaholic.cashier.store.limit_day` | %1$s of %2$s left today | Сегодня осталось %1$s из %2$s |
+| `gui.burmaldaholic.cashier.store.limit_day` | %1$s of %2$s left today | Сегодня ещё %1$s из %2$s |
 | `gui.burmaldaholic.cashier.store.limit_days` | Once every %1$s days | Раз в %1$s дн. |
 | `gui.burmaldaholic.cashier.store.limit_reached` | Daily limit reached | Лимит на сегодня исчерпан |
 | `gui.burmaldaholic.cashier.store.away` | You are too far from the counter | Вы слишком далеко от прилавка |

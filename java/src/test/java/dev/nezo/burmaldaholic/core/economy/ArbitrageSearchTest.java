@@ -35,7 +35,7 @@ class ArbitrageSearchTest {
 	static Market market(EconomyConfig eco, StoreConfig store, Map<String, Integer> appraisal, boolean applyGuards) {
 		List<EconomyGuards.Row> rows = new ArrayList<>(eco.guardRows());
 		Set<String> noOut = new HashSet<>();
-		if (applyGuards) for (EconomyGuards.Violation v : EconomyGuards.rows(rows)) noOut.add(v.id());
+		if (applyGuards) for (EconomyGuards.Violation v : eco.rowViolations()) noOut.add(v.id());
 		Map<String, Double> in = new HashMap<>(), out = new HashMap<>(), st = new HashMap<>();
 		for (EconomyGuards.Row r : rows) {
 			if (r.toChips() > 0) in.merge(r.item(), (double) r.toChips(), Math::max);
@@ -139,39 +139,49 @@ class ArbitrageSearchTest {
 			StoreConfig store = new StoreConfig();
 			store.offers.clear();
 			Market m = market(eco, store, Map.of(), true);
-			// villagers excluded: R1/R2 do not cover exchange rows vs villager buys (see exchangeRowsSkipVillagerFloor)
-			String r = findArbitrage(new Market(m.in(), m.out(), m.store(), m.appraisal(), 0));
+			// villagers included: R4 now covers exchange rows too (T-EC1 D3)
+			String r = findArbitrage(m);
 			assertEquals(null, r, "trial " + t + " rows " + describe(eco));
 		}
 	}
 
 	/**
-	 * DEFECT (T-EC1 D3, config-only): R2 checks direct pairs only. Rows two crafting steps apart (block ↔ nugget) are not
-	 * compared, so a custom config passes the guards and leaks chips. Enabled = documents the gap.
+	 * Fixed T-EC1 D3: R2 is transitive. Rows two crafting steps apart (block ↔ nugget, 81) are compared, so the block's
+	 * way out is disabled and the config no longer leaks chips.
 	 */
 	@Test
-	void r2IsNotTransitive() {
+	void r2IsTransitive() {
 		EconomyConfig eco = new EconomyConfig();
 		eco.exchange.clear();
 		row(eco, "minecraft:iron_block", 16, 27);
 		row(eco, "minecraft:iron_nugget", 1, 2);
-		assertEquals(List.of(), EconomyGuards.rows(eco.guardRows()), "guards accept the config");
-		String r = findArbitrage(market(eco, new StoreConfig(), Map.of(), true));
-		assertTrue(r != null, "...but buying a block (27) and selling 81 nuggets (81) profits: " + r);
+		List<EconomyGuards.Violation> v = eco.rowViolations();
+		assertTrue(v.stream().anyMatch(x -> x.rule().equals("R2")), "R2 catches block -> 81 nuggets: " + v);
+		assertEquals(null, findArbitrage(market(eco, new StoreConfig(), Map.of(), true)), "no loop after the guards");
 	}
 
-	/**
-	 * DEFECT (T-EC1 D3b, config-only): R4 (villager floor) is applied to store offers only. An exchange row whose
-	 * {@code fromChips × n} is below an emerald's villager value passes every guard.
-	 */
+	/** Fixed T-EC1 D3b: R4 (villager floor) also applies to exchange rows' way out. */
 	@Test
-	void exchangeRowsSkipVillagerFloor() {
+	void exchangeRowsKeepVillagerFloor() {
 		EconomyConfig eco = new EconomyConfig();
 		eco.exchange.get("gold_ingot").fromChips = 3; // 3 ingots (9 chips) -> 1 emerald (9 + 2 trade bonus)
 		eco.exchange.get("gold_ingot").toChips = 2;
-		assertEquals(List.of(), EconomyGuards.rows(eco.guardRows()), "guards accept the config");
-		String r = findArbitrage(market(eco, new StoreConfig(), Map.of(), true));
-		assertTrue(r != null, "gold ingots bought at 3 sell to a cleric for 11 per 3: " + r);
+		List<EconomyGuards.Violation> v = eco.rowViolations();
+		assertTrue(v.stream().anyMatch(x -> x.rule().equals("R4") && x.id().equals("gold_ingot")), "R4 catches the row: " + v);
+		assertEquals(null, findArbitrage(market(eco, new StoreConfig(), Map.of(), true)), "no loop after the guards");
+	}
+
+	/** Fixed T-EC1 D3c: R6 forbids gear that smelts into iron / gold nuggets. */
+	@Test
+	void smeltableGearIsForbidden() {
+		for (String id : List.of("minecraft:iron_helmet", "minecraft:iron_chestplate", "minecraft:iron_leggings", "minecraft:iron_boots",
+			"minecraft:golden_helmet", "minecraft:golden_boots", "minecraft:chainmail_chestplate", "minecraft:iron_horse_armor",
+			"minecraft:golden_horse_armor", "minecraft:iron_sword", "minecraft:golden_axe")) {
+			assertTrue(EconomyGuards.forbidden(id), id);
+		}
+		for (String id : List.of("minecraft:golden_apple", "minecraft:golden_carrot", "minecraft:diamond_sword", "minecraft:leather_helmet")) {
+			assertTrue(!EconomyGuards.forbidden(id), id);
+		}
 	}
 
 	private static int seq;

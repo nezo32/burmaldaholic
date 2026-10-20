@@ -20,7 +20,7 @@ class EconomyGuardsTest {
 	@Test
 	void defaultsPass() {
 		EconomyConfig e = new EconomyConfig();
-		assertEquals(List.of(), EconomyGuards.rows(e.guardRows()));
+		assertEquals(List.of(), e.rowViolations());
 		assertEquals(List.of(), StoreCatalog.violations(new StoreConfig(), e, new WagerConfig().appraisal));
 		EconomyConfig.ExchangeRow em = e.exchange.get("emerald");
 		assertEquals(V, EconomyGuards.villagerValue(em.toChips, e.trade.perTradeBase, e.trade.perEmerald), "V = 9 + 1 + 1");
