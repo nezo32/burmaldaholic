@@ -151,6 +151,30 @@ class CrapsCmTesterTest {
 			"side change: spectator jump " + spectatorJump + " u in one frame, shooter settle step " + worst + " u/ms (limit " + maxPos + ")");
 	}
 
+	/**
+	 * The first roll of a fresh table (no previous roll: the clock and the screen default to RIGHT) by a lone player in
+	 * seat 0 (sideOfSeat(0, 6) = LEFT): the hand rattles at the right end, then the dice cross the felt in the settle.
+	 */
+	@Test
+	void theFirstRollOfAFreshTableStartsWhereTheHandIs() {
+		assertEquals(CrapsThrow.LEFT, CrapsThrow.sideOfSeat(0, 6), "a lone player in seat 0 throws from the left");
+		DiceRoll first = CrapsThrow.solve(CrapsThrow.LEFT, 99, 4, 3, 0);
+		double maxPos = Math.max(naturalStep(first)[0] * 1.25, 0.05);
+		double[] now = {0};
+		CrapsRollClock c = new CrapsRollClock(() -> now[0]);
+		c.press();
+		DieSample a = new DieSample(), b = new DieSample();
+		double worst = 0;
+		for (int ms = 0; ms < 900; ms++) {
+			now[0] = ms;
+			if (ms == 250) c.onRoll(1, 0, first, CrapsThrow.LEFT);
+			c.pose(0, Math.min(c.t(), first.restMs()), b);
+			if (ms > 0) worst = Math.max(worst, dist(a, b));
+			a.set(b);
+		}
+		assertTrue(worst <= maxPos, "first roll of a fresh table: the hand moves " + worst + " u/ms (limit " + maxPos + ")");
+	}
+
 	/** The stick drags the dice home without overlap and leaves them exactly at the release points (next hand = no jump). */
 	@Test
 	void theStickKeepsTheDiceApartAndLeavesThemAtTheHand() {

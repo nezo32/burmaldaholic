@@ -271,7 +271,9 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 			context.waitTicks(20);
 		}
 		if (stake(world, pos) > 0) failures.add(name + ": the pass line never resolved by rolling");
-		// the next come-out: a new Pass Line bet goes through
+		// the next come-out: a new Pass Line bet goes through once the throw is no longer shown (CM: the felt stays closed
+		// until the chips move, ~2 s after the roll; a click before that is answered with reason.rolling, nothing sent)
+		context.waitFor(mc -> !(mc.gui.screen() instanceof CrapsScreen s) || !s.throwShown(), TIMEOUT);
 		context.waitTicks(10);
 		if (clickTarget(context, CrapsLayout.PASS)) {
 			serverWait(context, world, pos, name + ": next Pass Line bet accepted", (t, p) -> t.stakeOf(p.getUUID()) > 0);
