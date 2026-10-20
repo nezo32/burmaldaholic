@@ -454,7 +454,7 @@ export const PIP_LAYOUT = {
   5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
   6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
 };
-// texel codes: 0 bone, 1 pip, 2 pip shade (top-left, the hollow's inner shadow), 3 pip light (bottom-right), 4–6 red
+// texel codes: 0 bone, 1 pip, 2 pip shade (top-left, the hollow's inner shadow), 4 red pip, 5 red shade
 const nearestParity = (x, parity) => {
   const a = Math.floor(x);
   const c = [a - 1, a, a + 1, a + 2].filter((v) => v >= 2 && ((v & 1) === parity));
@@ -636,7 +636,7 @@ export function dieFrame(cell, q, { sub = 3 } = {}) {
       if (ring > 0 && facing >= PIP_MIN_FACING) {
         const code = faceTexture(E, face)[tj * E + ti];
         const dim = sh >= 4;
-        if (code >= 1 && code <= 3) hex = code === 2 && !dim ? PIP_C[1] : PIP_C[0];
+        if (code === 1 || code === 2) hex = code === 2 && !dim ? PIP_C[1] : PIP_C[0];
         else if (code >= 4) hex = code === 5 && !dim ? RED_C[1] : RED_C[0];
       }
       P(inner, x, y, hex);
@@ -728,9 +728,9 @@ export function diceWorldTexture() {
       if (ring === 0) return '#A898C4';
       if (ring === 1) return x <= 1 || y <= 1 ? '#FFFFFF' : '#D2C6E6';
       const code = t[(y - 2) * E + (x - 2)];
-      if (code === 1 || code === 3) return PIP_C[0];
+      if (code === 1) return PIP_C[0];
       if (code === 2) return PIP_C[1];
-      if (code === 4 || code === 6) return RED_C[0];
+      if (code === 4) return RED_C[0];
       if (code === 5) return RED_C[1];
       return '#F4ECF8';
     };

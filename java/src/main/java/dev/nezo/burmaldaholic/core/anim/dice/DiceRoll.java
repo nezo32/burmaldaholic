@@ -26,6 +26,7 @@ public final class DiceRoll {
 	final double[] wallT;
 	final double[][] rest;
 	final MotionEvent[] events;
+	private final java.util.List<MotionEvent> eventList;
 	final double g;
 	final int attempt;
 	final boolean fallback;
@@ -41,6 +42,7 @@ public final class DiceRoll {
 		this.wallT = wallT;
 		this.rest = rest;
 		this.events = events;
+		this.eventList = java.util.Collections.unmodifiableList(java.util.Arrays.asList(events));
 		this.g = g;
 		this.attempt = attempt;
 		this.fallback = fallback;
@@ -89,9 +91,14 @@ public final class DiceRoll {
 		return faces.clone();
 	}
 
-	/** All events of all dice sorted by time; the first is a RELEASE. Shared array: do not modify. */
+	/** All events of all dice sorted by time; the first is a RELEASE. A copy: call once (per cursor), not per frame. */
 	public MotionEvent[] events() {
-		return events;
+		return events.clone();
+	}
+
+	/** The same events as an unmodifiable view (no copy; fine per frame). */
+	public java.util.List<MotionEvent> eventList() {
+		return eventList;
 	}
 
 	/** Gravity of the tray this roll was solved on, u/s². */

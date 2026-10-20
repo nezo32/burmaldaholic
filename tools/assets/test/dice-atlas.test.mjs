@@ -222,6 +222,7 @@ describe('dice kit art', () => {
     const hex = (x, y) => '#' + px(x, y).slice(0, 3).map((v) => v.toString(16).padStart(2, '0').toUpperCase()).join('');
     const BONE_IN = '#F4ECF8';
     const PIPS_OK = new Set(['#2A1A3C', '#160C22', '#D83440', '#8C1834']);
+    const pipMasks = new Set();
     for (let k = 1; k <= 8; k++) {
       const ox = CELL * ((k - 1) % 4);
       const oy = CELL * Math.floor((k - 1) / 4);
@@ -236,13 +237,25 @@ describe('dice kit art', () => {
         expect(hex(ox + 1 + i, oy)).toBe(hex(ox + 1 + i, oy + 1));
         expect(hex(ox + 1 + i, oy + F + 1)).toBe(hex(ox + 1 + i, oy + F));
       }
+      // gutter corners repeat the face corners
+      expect(hex(ox, oy)).toBe(hex(ox + 1, oy + 1));
+      expect(hex(ox + F + 1, oy)).toBe(hex(ox + F, oy + 1));
+      expect(hex(ox, oy + F + 1)).toBe(hex(ox + 1, oy + F));
+      expect(hex(ox + F + 1, oy + F + 1)).toBe(hex(ox + F, oy + F));
+      for (const [gx, gy] of [[0, 0], [F + 1, 0], [0, F + 1], [F + 1, F + 1]]) expect(px(ox + gx, oy + gy)[3]).toBe(255);
       // face interior (inside the 2-px bevel): bone or a pip colour, all opaque
       const dark = new Set();
       for (let y = 0; y < F; y++)
         for (let x = 0; x < F; x++) {
           expect(px(ox + 1 + x, oy + 1 + y)[3]).toBe(255);
-          if (Math.min(x, y, F - 1 - x, F - 1 - y) < 2) {
-            expect(PIPS_OK.has(hex(ox + 1 + x, oy + 1 + y))).toBe(false);
+          const ring = Math.min(x, y, F - 1 - x, F - 1 - y);
+          // bevel palette, exact: dark outer ring; inner ring lit top-left, shaded bottom-right
+          if (ring === 0) {
+            expect(hex(ox + 1 + x, oy + 1 + y), `face ${k} outer bevel (${x},${y})`).toBe('#A898C4');
+            continue;
+          }
+          if (ring === 1) {
+            expect(hex(ox + 1 + x, oy + 1 + y), `face ${k} inner bevel (${x},${y})`).toBe(x <= 1 || y <= 1 ? '#FFFFFF' : '#D2C6E6');
             continue;
           }
           const col = hex(ox + 1 + x, oy + 1 + y);
@@ -306,7 +319,33 @@ describe('dice kit art', () => {
         expect(widths[0]).toBeGreaterThanOrEqual(d / 2);
       }
       expect(sizes.size, `face ${k}: one pip size`).toBe(1);
+      // exact pip centres = the standard layout (face-local px; grid columns/rows at 8.5, 15.5, 22.5, symmetric about
+      // the face centre 15.5); 2 and 3 run top-left → bottom-right, 6 in two columns
+      const G = [8.5, 15.5, 22.5];
+      const STD = {
+        1: [[1, 1]],
+        2: [[0, 0], [2, 2]],
+        3: [[0, 0], [1, 1], [2, 2]],
+        4: [[0, 0], [2, 0], [0, 2], [2, 2]],
+        5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
+        6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
+      };
+      const key = ([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`;
+      const got = comps.map((comp) => key([comp.reduce((a, q) => a + q[0], 0) / comp.length, comp.reduce((a, q) => a + q[1], 0) / comp.length])).sort();
+      const want = STD[k].map(([c, r]) => key([G[c], G[r]])).sort();
+      expect(got, `face ${k} pip centres`).toEqual(want);
+      // every pip has the same mask (shape and shade), and pips of faces 2–6 share one mask
+      const masks = new Set(
+        comps.map((comp) => {
+          const x0 = Math.min(...comp.map((q) => q[0]));
+          const y0 = Math.min(...comp.map((q) => q[1]));
+          return comp.map(([x, y]) => `${x - x0},${y - y0},${hex(ox + 1 + x, oy + 1 + y)}`).sort().join(';');
+        }),
+      );
+      expect(masks.size, `face ${k}: identical pips`).toBe(1);
+      if (k > 1) pipMasks.add([...masks][0]);
     }
+    expect(pipMasks.size, 'one pip mask on faces 2–6').toBe(1);
     // the committed PNG is this output (check:assets also guards staleness)
     expect(fs.readFileSync(path.resolve('..', 'java', png.path)).equals(png.bytes)).toBe(true);
   });
