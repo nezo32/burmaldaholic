@@ -92,7 +92,7 @@ final class CounterFitCheck {
 			}
 			for (HitMap.Target t : ts) {
 				if (!t.id().startsWith("store.tile.")) continue;
-				fit(bad, font, t.id() + " badge", Component.translatable("gui.burmaldaholic.cashier.store.limit_day", Texts.number(16), Texts.number(16)),
+				fit(bad, font, t.id() + " badge", Texts.raw("16/16"),
 					new Box(t.box().x() + 1, t.box().y(), t.box().w() - 2, 8), 0);
 				break; // same width for every tile
 			}
