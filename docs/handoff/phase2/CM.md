@@ -71,6 +71,32 @@ PHASE2B §4 CM. Owns all D2 craps files (T-D2 fixes are in this branch too).
 `craps_puck_lift`, `craps_stick` (SoundCatalog, `sounds/craps/sounds.json`, `core_anim.json` id list), STRINGS `craps › motion
 sounds`; 9 craps status strings shortened (StatusFitTest list emptied of craps); `reason.min_raised`.
 
+### R3 / S1: craps on a bad connection (owner playtest 1)
+- **`CrapsRollClock`** (pure, `games/craps/present`): one clock per table on this client, shared by the screen and the in-world
+  board through `client/CrapsRollClocks` (registry by BlockPos). Roll pressed → the hand rattles with NO time cap until the
+  result (or a refusal: `showError`, or the Roll's ack answered without a new roll). The throw's t = 0 is fixed ONCE per roll
+  counter on the local clock; bunched packets / TableClock re-syncs never move it. Spectators start the throw from home on
+  arrival (late = delayed, never jumped into); only a first sight (screen opened / table came into view) or a roll older than
+  6 s takes the server's age. Clock source is a `Source` (`CrapsRollClocks.source(...)`) for SY's SmoothClock.
+- **`CrapsHand`** (pure), owner's Dice house-mode pattern: the rattle loop passes through ONE release pose every 120 ms cycle;
+  when the result is in, the hand keeps rattling to the first exit ≥ max(arrival + 40 ms, 240 ms) (≤ one cycle + 40 ms) while
+  easing into the plain solver's pose at t = 0, so the exit pose IS the solver start pose (C0) and the normal deterministic
+  `CrapsThrow.solve` throw follows (no flight blend; DCa's `Initial[]` overload is NOT used, per owner/coordinator).
+- `CrapsThrow.HAND_GAP = 2.4`: the dice sit 2.4 u apart in the hand (the kit's 1.8 u is less than a die edge: squared-up dice at
+  home overlapped by 0.2 u). This changes the solved paths (server + clients use the same code, so rest times stay identical).
+- Screen: `rollPressedAt` / the 900 ms cap and `stale()` are gone; storyboard t = the shared clock; the board's result line no
+  longer shows while t < 0 (that is now "hand still settling", not clock skew).
+- Under a client GameTest frozen clock the origin is pinned to `roll_time · 50` (`CrapsRollClocks.pinUnderTest`), so the
+  storyboard frames of `CrapsAnimClientGameTests` stay deterministic.
+
+### R3 / T-D2 proofs (tests, no screenshots)
+V1 `CrapsLayoutTest.valuePillsStayOffThePrint`; V2 + 9 frozen strings `StatusFitTest` (craps list empty); V4
+`CrapsLayout.puckWordScale` + `puckWordFitsTheFace` (also fixed: tiny puck at low k overflowed, now the exact fitting scale);
+V5 `feltEndsAboveTheHintStrip`; V6 `CrapsFlowTest.theDockKeepsTheStakeWhileTheThrowIsShown`; P-1 `CrapsFlow.minRaised` +
+`aChipUnderTheMinimumNamesTheMinimum`; V8 server GameTest `vipPresetRefusesTheSeatBelowTheTier`; G1 natural roll in
+`botBetsOnTheBoardOnTheirSeats`. V3 (COME word hidden while the banner is up) and V7 (ring follows the puck) are screen-state
+code with no pure seam; not separately asserted.
+
 ## Verified
 (see the run log section below)
 

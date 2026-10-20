@@ -10,11 +10,12 @@ import org.jspecify.annotations.Nullable;
  * always agree.
  *
  * <ul>
- *   <li><b>Roll pressed</b> ({@link #press}): the hand shakes at dice home with NO time cap until the result arrives
+ *   <li><b>Roll pressed</b> ({@link #press}): the hand rattles at dice home with NO time cap until the result arrives
  *       ({@link #onRoll}) or the server answers without a roll ({@link #cancel}).</li>
- *   <li><b>Result in</b>: the throw's t = 0 is fixed ONCE, on the local clock, at the hand's next stroke end
- *       ({@link CrapsHand#releaseAt}); later state packets for the same roll (bunched, re-synced server time) never
- *       move it. The solved path is handed off from the hand pose ({@link CrapsHand#handoff}).</li>
+ *   <li><b>Result in</b>: the throw's t = 0 is fixed ONCE, on the local clock, at the rattle loop's next release pose
+ *       ({@link CrapsHand#releaseAt}); until then the hand settles into the solver's start pose, so the plain
+ *       deterministic throw starts exactly where the hand is. Later state packets for the same roll (bunched,
+ *       re-synced server time) never move the origin.</li>
  *   <li><b>Spectator</b> (no press): the throw starts from dice home when its result arrives (t = 0 then), so a late
  *       packet delays the throw instead of jumping into it. Only the FIRST roll this client sees (the screen opened /
  *       the table came into view) and a roll older than {@link #STALE_MS} take the server's age: they show the throw
@@ -41,14 +42,15 @@ public final class CrapsRollClock {
 	private boolean firstSight;
 	private @Nullable DiceRoll roll;
 	private int side = CrapsThrow.RIGHT;
-	// what the hand held when it threw (the previous roll at its home) and when (shake ms); NaN = no hand-off
+	// what the hand held when the result came (the previous roll at its home), when (shake ms) and the release (shake ms)
 	private @Nullable DiceRoll handRoll;
 	private int handSide;
+	private double handReady = Double.NaN;
 	private double handRelease = Double.NaN;
 	private double handStart = Double.NaN;
 	private final int[] fallbackFaces = {4, 2};
 	private final int[] handFaces = {4, 2};
-	private final DieSample base = new DieSample(), hand = new DieSample(), at0 = new DieSample();
+	private final DieSample base = new DieSample(), start = new DieSample();
 
 	public CrapsRollClock(Source source) {
 		this.source = source;
@@ -67,7 +69,7 @@ public final class CrapsRollClock {
 		return source.nowMs();
 	}
 
-	/** Roll pressed on this client: the hand starts shaking (a second press while it shakes changes nothing). */
+	/** Roll pressed on this client: the hand starts rattling (a second press while it rattles changes nothing). */
 	public void press() {
 		if (Double.isNaN(pressAt)) pressAt = now();
 	}
@@ -83,9 +85,9 @@ public final class CrapsRollClock {
 	}
 
 	/**
-	 * A state carrying roll counter {@code rolls} arrived. Only a NEW counter does anything: it fixes the throw's
-	 * origin and keeps it. {@code serverAgeMs} = the server clock's estimate of ms since the roll (only the first sight
-	 * and a stale roll use it). Returns true for a new roll.
+	 * A state carrying roll counter {@code rolls} with the throw {@code r} (the plain deterministic solve) arrived.
+	 * Only a NEW counter does anything: it fixes the throw's origin and keeps it. {@code serverAgeMs} = the server
+	 * clock's estimate of ms since the roll (only the first sight and a stale roll use it). Returns true for a new roll.
 	 */
 	public boolean onRoll(int rolls, double serverAgeMs, @Nullable DiceRoll r, int side) {
 		if (rolls == this.rolls) return false;
@@ -99,14 +101,14 @@ public final class CrapsRollClock {
 		firstSight = false;
 		handRelease = Double.NaN;
 		if (!Double.isNaN(pressAt) && r != null) {
-			double release = CrapsHand.releaseAt(now - pressAt);
+			handReady = now - pressAt;
+			handRelease = CrapsHand.releaseAt(handReady);
 			handStart = pressAt;
-			handRelease = release;
 			handRoll = prev;
 			handSide = prevSide;
 			handFaces[0] = fallbackFaces[0];
 			handFaces[1] = fallbackFaces[1];
-			origin = pressAt + release;
+			origin = pressAt + handRelease;
 			pressAt = Double.NaN;
 		} else {
 			pressAt = Double.NaN;
@@ -126,7 +128,7 @@ public final class CrapsRollClock {
 		return true;
 	}
 
-	/** Test hook: the throw's origin pinned to {@code originMs} on this clock's timeline (no hand-off). */
+	/** Test hook: the throw's origin pinned to {@code originMs} on this clock's timeline (no hand). */
 	public void pin(double originMs) {
 		origin = originMs;
 		pressAt = Double.NaN;
@@ -150,50 +152,53 @@ public final class CrapsRollClock {
 		return firstSight;
 	}
 
-	/** ms into the current throw (negative while the hand still shakes before the release; +∞ without a roll). */
+	/** The current throw left this client's hand (the shooter pressed Roll here; tests). */
+	public boolean fromHand() {
+		return !Double.isNaN(handRelease);
+	}
+
+	/** Shake ms the result came in and of the release (tests; NaN when the throw did not leave this client's hand). */
+	public double[] handTimes() {
+		return new double[] {handReady, handRelease};
+	}
+
+	/** ms into the current throw (negative while the hand still settles before the release; +∞ without a roll). */
 	public double t() {
 		return Double.isNaN(origin) ? Double.POSITIVE_INFINITY : now() - origin;
 	}
 
-	/** Shake ms of the hand now, or NaN when the hand is not shaking. */
+	/** Shake ms of the hand now, or NaN when the hand is not rattling. */
 	public double handMs() {
 		if (!Double.isNaN(pressAt)) return now() - pressAt;
 		if (!Double.isNaN(handRelease) && t() < 0) return now() - handStart;
 		return Double.NaN;
 	}
 
-	/** The current throw left this client's hand (the shooter pressed Roll here; tests). */
-	public boolean fromHand() {
-		return !Double.isNaN(handRelease);
-	}
-
-	/** True while a throw from this client's hand is being handed off (the first {@link CrapsHand#BLEND_MS}). */
-	public boolean handingOff() {
-		return !Double.isNaN(handRelease) && t() < CrapsHand.BLEND_MS;
-	}
-
 	/**
-	 * The pose of die {@code die} in tray units for the hand and the throw phases: the shaking hand (the dice of the
-	 * roll in the hand at its home), else the solved throw at {@code t} (handed off from the hand). Returns false when
-	 * there is no roll and no hand (the caller draws nothing / its own rest).
+	 * The pose of die {@code die} in tray units for the hand and the throw phases: the rattling hand (settling into the
+	 * throw's start once the result is in), else the solved throw at {@code t}. Returns false when there is no roll and
+	 * no hand (the caller draws its own rest).
 	 */
 	public boolean pose(int die, double t, DieSample out) {
 		double h = handMs();
 		if (!Double.isNaN(h)) {
-			boolean beforeResult = !Double.isNaN(pressAt);
-			CrapsHand.home(beforeResult ? side : handSide, beforeResult ? roll : handRoll, beforeResult ? fallbackFaces : handFaces, die, base);
+			if (!Double.isNaN(pressAt)) {
+				CrapsHand.home(side, roll, fallbackFaces, die, base);
+				CrapsHand.shake(base, die, h, out);
+				return true;
+			}
+			CrapsHand.home(handSide, handRoll, handFaces, die, base);
 			CrapsHand.shake(base, die, h, out);
+			DiceRoll r = roll;
+			if (r != null) {
+				r.sample(die, 0, start);
+				CrapsHand.settle(out, start, (h - handReady) / (handRelease - handReady), out);
+			}
 			return true;
 		}
 		DiceRoll r = roll;
 		if (r == null) return false;
 		r.sample(die, t, out);
-		if (!Double.isNaN(handRelease) && t < CrapsHand.BLEND_MS) {
-			CrapsHand.home(handSide, handRoll, handFaces, die, base);
-			CrapsHand.shake(base, die, handRelease, hand);
-			r.sample(die, 0, at0);
-			CrapsHand.handoff(hand, at0, t, out);
-		}
 		return true;
 	}
 }

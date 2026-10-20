@@ -90,6 +90,9 @@ public final class CrapsThrow {
 		return new DiceTray(G, floor, walls, List.of(), List.of(zone), keep, Optional.empty(), 2.4);
 	}
 
+	/** Centre distance of the two dice in the shooter's hand, u (a die edge is 2 u; the rattle turns them ±8°). */
+	public static final double HAND_GAP = 2.4;
+
 	/** Release centre of die 0 from the outer end of the Pass line: inboard so die 1 (released outboard) clears the rail. */
 	static final double RELEASE_INSET = 3.6;
 
@@ -97,7 +100,11 @@ public final class CrapsThrow {
 	public static ThrowSpec spec(int side) {
 		double y = v(CrapsFeltFractions.rowTop(4) + CrapsFeltFractions.PASS / 2);
 		double x = side == LEFT ? RELEASE_INSET : ARENA_W - RELEASE_INSET;
-		return ThrowSpec.hand(side == LEFT ? 1 : 0, x, y);
+		ThrowSpec h = ThrowSpec.hand(side == LEFT ? 1 : 0, x, y);
+		// S1: the two dice sit HAND_GAP apart in the hand (the kit's 1.8 u is less than a die edge: two squared-up dice
+		// at home and the rattle overlapped by 0.2 u)
+		return new ThrowSpec(h.x(), h.y(), h.z0(), h.dir(), h.coneMin(), h.coneMax(), h.speedMin(), h.speedMax(), h.vzMin(), h.vzMax(), h.spinMin(),
+			h.spinMax(), Math.copySign(HAND_GAP, h.side()), h.delayMin(), h.delayMax());
 	}
 
 	/** Release centre {x, y} (tray units) of {@code die} for {@code side}: where the stick leaves it and the throw starts. */

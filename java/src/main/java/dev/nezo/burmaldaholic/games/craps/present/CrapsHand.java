@@ -7,38 +7,40 @@ import dev.nezo.burmaldaholic.core.anim.dice.Quat;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The shooter's hand (S1, owner playtest 1): the dice rattle at dice home from the Roll press until the server's result
- * is in, with no time cap, and the throw leaves the hand from the pose the hand shows at that instant. Pure; every
- * query is a closed function of the shake ms (0 = Roll pressed) or the roll ms (0 = die 0 leaves the hand).
+ * The shooter's hand (S1, owner playtest 1; the Dice house-mode pattern): the dice rattle at dice home from the Roll
+ * press until the server's result is in, with no time cap, and the throw starts at the loop's next RELEASE POSE with
+ * the plain deterministic {@code DiceSolver} throw — no flight blend, so the solved flight (and its rest) is the same
+ * on every client and the dice never pass through each other. Pure; every query is a closed function of the shake ms
+ * (0 = Roll pressed).
  *
  * <pre>
- *   shake    the dice lift 0.4 u over 100 ms; each die rocks ±8° yaw and ±0.12 u along x on a 120 ms cycle (the two in
- *            counter-phase); every 60 ms stroke ends at a zero crossing (yaw 0, x on home)
- *   release  the first stroke end at or after max(result in, {@link #SHAKE_MIN}) (the Dice house-mode rule: the
- *            flick waits for a reversal)
- *   hand-off for {@link #BLEND_MS} after the release the solved path is drawn offset by (hand − path(0)) and turned
- *            by (hand · path(0)⁻¹), both fading to nothing: t = 0 shows the hand pose exactly, the rest is the solve
+ *   loop     the dice lift 0.4 u over 100 ms; the hand moves ±0.12 u along x and each die rocks ±8° yaw (counter-phase) on a
+ *            {@link #CYCLE} ms cycle; at every whole cycle the loop passes through ONE pose (yaw 0, x on home): the exit
+ *   wait     the result arrives at shake ms a: the throw's t = 0 is the first exit at or after max(a + {@link #SETTLE},
+ *            {@link #SHAKE_MIN}), so the hand waits at most one cycle + SETTLE
+ *   settle   from a to the exit the hand closes on the throw's start: the loop pose eases (smoothstep) into the solver's
+ *            pose at t = 0 (position and turn), so the exit pose IS the solver's start pose (C0), with no jump
  * </pre>
  */
 public final class CrapsHand {
 	/** The hand shakes at least this long (two full rattles) before it can throw. */
 	public static final int SHAKE_MIN = 240;
-	/** One rattle stroke, ms (a full cycle is two). */
-	public static final double STROKE = 60;
+	/** One full rattle; the loop passes through the release pose once per cycle. */
+	public static final double CYCLE = 120;
+	/** The shortest settle into the throw's start pose after the result is in. */
+	public static final double SETTLE = 40;
 	public static final double YAW_DEG = 8;
 	public static final double JIT_U = 0.12;
 	public static final double LIFT_U = 0.4;
 	public static final double LIFT_MS = 100;
 	public static final double RAMP_MS = 120;
-	/** The hand-off from the hand pose to the solved path, ms (well before the dice reach the wall). */
-	public static final double BLEND_MS = 220;
 
 	private CrapsHand() {}
 
-	/** Shake ms of the release when the result reached the client {@code readyMs} after the press. */
+	/** Shake ms of the release (the throw's t = 0) when the result reached the client {@code readyMs} after the press. */
 	public static double releaseAt(double readyMs) {
-		double m = Math.max(Math.max(0, readyMs), SHAKE_MIN);
-		return Math.ceil(m / STROKE - 1e-9) * STROKE;
+		double m = Math.max(Math.max(0, readyMs) + SETTLE, SHAKE_MIN);
+		return Math.ceil(m / CYCLE - 1e-9) * CYCLE;
 	}
 
 	/**
@@ -66,7 +68,7 @@ public final class CrapsHand {
 		out.y = p[1];
 	}
 
-	/** {@code out} = the home pose {@code base} of die {@code die} rattled at shake ms {@code ms} ({@code out} may be {@code base}). */
+	/** {@code out} = the home pose {@code base} of die {@code die} on the rattle loop at shake ms {@code ms}. */
 	public static void shake(DieSample base, int die, double ms, DieSample out) {
 		if (out != base) out.set(base);
 		if (ms <= 0) return;
@@ -74,27 +76,27 @@ public final class CrapsHand {
 		double lift = LIFT_U * (1 - (1 - p) * (1 - p) * (1 - p));
 		out.zc += lift;
 		out.zLow += lift;
-		double s = StrictMath.sin(Math.PI * ms / STROKE) * (die == 0 ? 1 : -1) * Math.min(1, ms / RAMP_MS);
+		double s = StrictMath.sin(2 * Math.PI * ms / CYCLE) * Math.min(1, ms / RAMP_MS);
+		// the hand moves both dice together along x; they rock in counter-phase (never toward each other)
 		out.x += JIT_U * s;
-		double[] r = Quat.axisAngle(0, 0, 1, Math.toRadians(YAW_DEG * s), new double[4]);
+		double[] r = Quat.axisAngle(0, 0, 1, Math.toRadians(YAW_DEG * s * (die == 0 ? 1 : -1)), new double[4]);
 		Quat.mul(r, out.q, out.q);
 		out.phase = DieSample.HELD;
 	}
 
 	/**
-	 * The solved path {@code io} (sampled at roll ms {@code t}) handed off from the {@code hand} pose; {@code at0} is the
-	 * same path at t = 0. From {@link #BLEND_MS} on {@code io} is left exactly as solved (the server's faces at rest).
+	 * The settle: {@code loop} (the rattle pose now) eased into {@code start} (the solver's pose at t = 0) by
+	 * {@code u} ∈ [0, 1] (0 = the result just arrived, 1 = the exit); {@code out} may be {@code loop}.
 	 */
-	public static void handoff(DieSample hand, DieSample at0, double t, DieSample io) {
-		if (t >= BLEND_MS) return;
-		double u = Math.max(0, t / BLEND_MS);
-		double w = 1 - u * u * (3 - 2 * u);
-		io.x += (hand.x - at0.x) * w;
-		io.y += (hand.y - at0.y) * w;
-		io.zc += (hand.zc - at0.zc) * w;
-		io.zLow = Math.max(0, io.zLow + (hand.zLow - at0.zLow) * w);
-		double[] c = Quat.mul(hand.q, Quat.conj(at0.q, new double[4]), new double[4]);
-		double[] k = Quat.slerp(Quat.identity(), c, w, new double[4]);
-		Quat.mul(k, io.q, io.q);
+	public static void settle(DieSample loop, DieSample start, double u, DieSample out) {
+		double c = Math.max(0, Math.min(1, u));
+		double w = c * c * (3 - 2 * c);
+		if (out != loop) out.set(loop);
+		out.x += (start.x - loop.x) * w;
+		out.y += (start.y - loop.y) * w;
+		out.zc += (start.zc - loop.zc) * w;
+		out.zLow += (start.zLow - loop.zLow) * w;
+		Quat.slerp(loop.q, start.q, w, out.q);
+		if (w >= 1) out.set(start);
 	}
 }

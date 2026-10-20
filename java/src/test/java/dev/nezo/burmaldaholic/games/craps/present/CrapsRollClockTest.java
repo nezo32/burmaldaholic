@@ -75,7 +75,8 @@ class CrapsRollClockTest {
 					assertEquals(origin, ms - c.t(), 1e-9, late + ": a later packet moved the origin");
 				}
 				double t = c.t();
-				if (ms > late) assertTrue(origin >= late && origin - late <= CrapsHand.STROKE + CrapsHand.SHAKE_MIN, late + ": released on the next stroke " + origin);
+				if (ms > late) assertTrue(origin >= late + CrapsHand.SETTLE && origin - Math.max(late, CrapsHand.SHAKE_MIN) <= CrapsHand.CYCLE + CrapsHand.SETTLE,
+					late + ": released on the next pass through the release pose " + origin);
 				for (int d = 0; d < 2; d++) {
 					assertTrue(c.pose(d, Math.min(t, NEXT.restMs() + 100), cur));
 					if (ms > 0) {
@@ -86,6 +87,8 @@ class CrapsRollClockTest {
 					}
 					last[d].set(cur);
 				}
+				double pen = penetration(last[0], last[1]);
+				assertTrue(pen <= 0.02, late + " ms late: the dice overlap by " + pen + " u at " + ms + " ms (t " + t + ")");
 				if (t >= 0) started = true;
 			}
 			assertTrue(started, late + ": thrown");
@@ -124,26 +127,114 @@ class CrapsRollClockTest {
 		assertTrue(Double.isNaN(clock.handMs()));
 	}
 
+	/** The loop's pose at the release IS the solver's start pose (C0): the plain throw starts where the hand is. */
 	@Test
-	void theThrowStartsFromTheHandPoseExactly() {
+	void theReleasePoseIsTheSolversStartPose() {
 		settledPrevious();
 		clock.press();
 		now[0] = 333;
 		clock.onRoll(2, 0, NEXT, CrapsThrow.RIGHT);
-		double release = CrapsHand.releaseAt(333);
-		assertEquals(360, release, 1e-9);
-		DieSample base = new DieSample(), hand = new DieSample(), thrown = new DieSample();
+		double release = clock.handTimes()[1];
+		assertEquals(480, release, 1e-9);
+		DieSample before = new DieSample(), at = new DieSample(), start = new DieSample();
 		for (int d = 0; d < 2; d++) {
-			CrapsHand.home(CrapsThrow.RIGHT, PREV, new int[] {3, 4}, d, base);
-			CrapsHand.shake(base, d, release, hand);
+			NEXT.sample(d, 0, start);
+			now[0] = release - 1e-6;
+			assertTrue(clock.t() < 0 && !Double.isNaN(clock.handMs()), "still in the hand");
+			clock.pose(d, clock.t(), before);
 			now[0] = release;
-			clock.pose(d, clock.t(), thrown);
-			assertEquals(0, clock.t(), 1e-9);
-			assertEquals(hand.x, thrown.x, 1e-9);
-			assertEquals(hand.y, thrown.y, 1e-9);
-			assertEquals(hand.zc, thrown.zc, 1e-9);
-			assertEquals(0, Quat.angleTo(hand.q, thrown.q), 1e-6);
+			clock.pose(d, clock.t(), at);
+			for (DieSample x : new DieSample[] {before, at}) {
+				assertEquals(start.x, x.x, 1e-6);
+				assertEquals(start.y, x.y, 1e-6);
+				assertEquals(start.zc, x.zc, 1e-6);
+				assertEquals(0, Quat.angleTo(start.q, x.q), 1e-5);
+			}
 		}
+		// before the result the loop passes through ONE pose every cycle (yaw 0, x on home)
+		DieSample base = new DieSample(), a = new DieSample(), b = new DieSample();
+		CrapsHand.home(CrapsThrow.RIGHT, PREV, new int[] {3, 4}, 0, base);
+		CrapsHand.shake(base, 0, 2 * CrapsHand.CYCLE, a);
+		for (int k = 3; k < 40; k++) {
+			CrapsHand.shake(base, 0, k * CrapsHand.CYCLE, b);
+			assertEquals(a.x, b.x, 1e-9);
+			assertEquals(0, Quat.angleTo(a.q, b.q), 1e-9);
+		}
+	}
+
+	/** The result arriving at any phase of the loop waits for the next release pose: at most one cycle (+ the settle). */
+	@Test
+	void anyArrivalPhaseWaitsAtMostOneCycle() {
+		for (double ready = 0; ready <= 2000; ready += 0.5) {
+			double rel = CrapsHand.releaseAt(ready);
+			assertEquals(0, rel % CrapsHand.CYCLE, 1e-9, "on a whole cycle: " + rel);
+			assertTrue(rel >= Math.max(ready + CrapsHand.SETTLE, CrapsHand.SHAKE_MIN) - 1e-9, "after the settle: " + ready + " -> " + rel);
+			assertTrue(rel - Math.max(ready, CrapsHand.SHAKE_MIN) <= CrapsHand.CYCLE + CrapsHand.SETTLE + 1e-9, "waits at most one cycle: " + ready + " -> " + rel);
+		}
+	}
+
+	/** The dice never overlap: rattle, settle and the throw to rest, over many seeds, faces, sides and arrival phases. */
+	@Test
+	void theDiceNeverOverlap() {
+		DieSample a = new DieSample(), b = new DieSample();
+		for (int seed = 1; seed <= 24; seed++) {
+			int side = seed % 2 == 0 ? CrapsThrow.LEFT : CrapsThrow.RIGHT;
+			int d1 = 1 + seed % 6, d2 = 1 + (seed * 5 + 2) % 6;
+			DiceRoll r = CrapsThrow.solve(side, seed * 7919, d1, d2, seed % 3 == 0 ? 6 : 0);
+			now[0] = -20_000;
+			CrapsRollClock c = new CrapsRollClock(() -> now[0]);
+			c.onRoll(1, 9000, PREV, side);
+			now[0] = 0;
+			c.press();
+			int late = (seed * 37) % 400;
+			for (int ms = 0; ms <= late + 400 + r.restMs(); ms++) {
+				now[0] = ms;
+				if (ms == late) c.onRoll(2, 0, r, side);
+				double t = c.t();
+				c.pose(0, Math.min(t, r.restMs() + 50), a);
+				c.pose(1, Math.min(t, r.restMs() + 50), b);
+				double pen = penetration(a, b);
+				assertTrue(pen <= 0.02, "seed " + seed + " side " + side + ": the dice overlap by " + pen + " u at " + ms + " ms (t " + t + ")");
+			}
+		}
+	}
+
+	/** Deepest overlap of two dice (cubes of half-edge 1, tray units) by the separating-axis test; 0 = apart. */
+	static double penetration(DieSample a, DieSample b) {
+		double[][] ax = axes(a.q), bx = axes(b.q);
+		double[] d = {b.x - a.x, b.y - a.y, b.zc - a.zc};
+		double min = Double.POSITIVE_INFINITY;
+		java.util.List<double[]> tests = new java.util.ArrayList<>();
+		for (double[] v : ax) tests.add(v);
+		for (double[] v : bx) tests.add(v);
+		for (double[] u : ax) {
+			for (double[] v : bx) {
+				double[] c = {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]};
+				double n = Math.sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]);
+				if (n > 1e-6) tests.add(new double[] {c[0] / n, c[1] / n, c[2] / n});
+			}
+		}
+		for (double[] l : tests) {
+			double ra = 0, rb = 0;
+			for (double[] u : ax) ra += Math.abs(dot(u, l));
+			for (double[] v : bx) rb += Math.abs(dot(v, l));
+			double over = ra + rb - Math.abs(dot(d, l));
+			if (over <= 0) return 0;
+			min = Math.min(min, over);
+		}
+		return min;
+	}
+
+	private static double[][] axes(double[] q) {
+		double[][] out = new double[3][3];
+		Quat.rotate(q, 1, 0, 0, out[0], 0);
+		Quat.rotate(q, 0, 1, 0, out[1], 0);
+		Quat.rotate(q, 0, 0, 1, out[2], 0);
+		return out;
+	}
+
+	private static double dot(double[] a, double[] b) {
+		return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 	}
 
 	@Test
