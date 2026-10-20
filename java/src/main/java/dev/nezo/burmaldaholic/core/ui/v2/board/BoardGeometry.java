@@ -89,10 +89,14 @@ public final class BoardGeometry {
 			return new float[] {0.5f + (i - 2) * pitch, BOARD_Z};
 		}
 
-		/** Seat spot of table seat {@code seat} of {@code n} at radius {@code r}: {x, z, yaw}; seat 0 at the front. */
+		/**
+		 * Seat spot of table seat {@code seat} of {@code n} at radius {@code r}: {x, z, yaw}. The seats go all the way
+		 * round MINUS the dealer slot at the back, in the directions of MT's {@code TableFootprint.seatPoint} (OVAL), so a
+		 * seat's cards lie where its player stands and never on the dealer's chip tray.
+		 */
 		public static float[] seat(int seat, int n, float r) {
 			int m = Math.max(2, n);
-			double a = 2 * Math.PI * Math.floorMod(seat, m) / m;
+			double a = 2 * Math.PI * (Math.floorMod(seat, m) + 1) / (m + 1) - Math.PI;
 			return new float[] {0.5f + r * (float) Math.sin(a), 0.5f + r * (float) Math.cos(a), (float) -Math.toDegrees(a)};
 		}
 
