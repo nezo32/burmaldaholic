@@ -46,6 +46,22 @@ Branch `p2/slt` (from `feature/v020-table-ui`). Owner findings: E1 (slots feel r
 - Cabinet BER: `cabinetT` is monotonic per spin and reads the swappable source.
 - Server: `startTick = gameTime() + START_LEAD_TICKS (4)`.
 
+### 5. B6: slot screen on the v2 kit (K2 request; p2/k2 @48b2f766 merged)
+- `SlotMachineV2Screen` now extends `V2TableScreen<SlotView>`, so its viewport hooks are the kit's final ones.
+- Layout follows the `ViewportPolicy` and `TableGrid` rows:
+  - **TopBar:** title, balance, `?` = paytable and jackpot ladder.
+  - **PlayArea:** the cabinet and reels, from `SlotGeometry.docked(play)`. Cells are 42–44 px at 427×240…960×540. A 320-wide window gets a compact 32 px cabinet.
+  - **Dock:** from the pure `SlotFlow`:
+    - Bet stepper `− bet +`, with "Coin c × m" in the hint.
+    - Buy / Autoplay / Turbo / Slot Showdown entry.
+    - Primary: Spin / Stop / Stop autoplay.
+  - Every disabled control has a reason (`FlowCheck`). Keys: Space, A, T.
+- The reels, `SlotStage`, the sync handoff and the overlays are unchanged. `SlotBody` gains a docked mode (no widgets). The preview screen keeps the old layout.
+- `V2ScreenUnityTest`: the slots exception is removed. `SlotV2KitTest` checks the four sizes plus 320×240: no overlaps, everything inside the PlayArea, cells ≥ 40, and the flow. `PlayFieldUnityTest` passes.
+- Other owners' client tests that clicked the old slot widgets were updated:
+  - `RealFlowClientGameTests` slots / VIP lock now go through the primary target and its reason.
+  - `PvpRealFlowClientGameTests` slotsJoin now clicks `action.showdown`.
+
 ## Verified (commands run in `java/`, JDK 25)
 - `compileJava compileClientJava compileGametestJava` on 26.2 and `-Pmc=26.3`: **BUILD SUCCESSFUL**.
 - `test --tests 'dev.nezo.burmaldaholic.games.slots.*' --tests '*SlotsSpecTest' --tests '*RawInputGuardTest' --tests '*SlotsRetiredDefaultsTest' --tests '*ConfigManagerTest'`: **pass**. This ran after the sync commit, before the UI commit.
@@ -56,7 +72,11 @@ Branch `p2/slt` (from `feature/v020-table-ui`). Owner findings: E1 (slots feel r
   - The spectator clock stays monotonic under jumps and bunching.
   - Cabinet time stays monotonic.
 - `JackpotGemTest`, `BetSplitTest`, `ConfigSpecCoverageTest`, `ConfigBinderTest`: pass. `gen_lang.py --check`: OK.
-- Server GameTests (`runGameTest -Dfabric-api.gametest.filter=slots`) and the client run (`BURMALDAHOLIC_CGT=SlotsSyncClientGameTests`): see the "Run log" below.
+- Server GameTests `runGameTest -Dfabric-api.gametest.filter=slots`: **All 14 required tests passed**. This ran on 26.2, before the owner dropped 26.2 and before the B6 port.
+- After the B6 port (26.3 only):
+  - `-Pmc=26.3 compileJava compileClientJava compileGametestJava`: OK.
+  - `-Pmc=26.3 test` over the slots packages + V2ScreenUnityTest + PlayFieldUnityTest + KitContractTest + RawInputGuardTest + the config tests: **181 tests**. All pass after one fix (a raw `pressMouse(0)` in my test).
+- Client run `-Pmc=26.3 runClientGameTest`, `BURMALDAHOLIC_CGT=SlotsSyncClientGameTests` (entrypoint swap reverted): **NOT RUN**. It was queued behind other packages for about 1 h, then cancelled at the coordinator's wrap-up rule. **Tester: please run `BURMALDAHOLIC_CGT=SlotsSyncClientGameTests` and the slot parts of `RealFlowClientGameTests` / `PvpRealFlowClientGameTests` on 26.3.** These are the real-click proofs of the Dock SPIN, the handoff, the coin label and the meter tooltip. No screen of the ported slot UI has been seen in a real client yet.
 
 ## Not verified / risks
 - The actor's reels now stop ≈ 0.7–1 s later than the server's settle (the handoff window), so the HUD balance hold is extended to cover it. The server settles at its own clock. Autoplay has no pre-roll, so it has no handoff and no extra lag.
