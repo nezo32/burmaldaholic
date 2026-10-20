@@ -29,7 +29,8 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSeriali
  *   <li>outside the first {@code keep} steps (those inside the building) the floor is polished blackstone bricks,
  *       a step between two heights is a stair;</li>
  *   <li>the shell (walls, ceiling, under the floor, the far end) is sealed where it holds a fluid, where a fluid
- *       touches it from outside, or where it would fall (gravel): blackstone, lava at eye level behind glass;</li>
+ *       touches it from outside, or where it would fall (gravel): polished blackstone bricks (not spring-valid), lava
+ *       at eye level behind glass;</li>
  *   <li>a shroomlight in the ceiling every {@link #LIGHT_EVERY} steps where the ceiling is rock.</li>
  * </ul>
  */
@@ -124,7 +125,7 @@ public final class CasinoTunnelPiece extends StructurePiece {
 					boolean falls = ceiling && state.getBlock() instanceof FallingBlock;
 					if (fluid || falls || (!state.isCollisionShapeFullBlock(level, p) && touchesFluid(level, x, y, z))) {
 						boolean glass = fluid && !ceiling && !end && Math.abs(l) == 2 && (y == f + 1 || y == f + 2);
-						level.setBlock(p, glass ? Blocks.GLASS.defaultBlockState() : Blocks.BLACKSTONE.defaultBlockState(), 2);
+						level.setBlock(p, glass ? Blocks.GLASS.defaultBlockState() : Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), 2);
 					} else if (ceiling && l == 0 && !end && i % LIGHT_EVERY == 2 && state.isCollisionShapeFullBlock(level, p)) {
 						level.setBlock(p, Blocks.SHROOMLIGHT.defaultBlockState(), 2);
 					}

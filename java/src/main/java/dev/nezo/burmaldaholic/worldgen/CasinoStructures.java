@@ -14,6 +14,7 @@ import dev.nezo.burmaldaholic.worldgen.logic.site.EndSite;
 import dev.nezo.burmaldaholic.worldgen.logic.site.NetherSite;
 import dev.nezo.burmaldaholic.worldgen.mixin.SinglePoolElementAccessor;
 import dev.nezo.burmaldaholic.worldgen.structure.CasinoGroundPiece;
+import dev.nezo.burmaldaholic.worldgen.structure.CasinoLavaGuardPiece;
 import dev.nezo.burmaldaholic.worldgen.structure.FitSite;
 import dev.nezo.burmaldaholic.worldgen.logic.pieces.HighRollerLounge;
 import dev.nezo.burmaldaholic.worldgen.logic.pieces.PiglinParlor;
@@ -144,9 +145,14 @@ public final class CasinoStructures {
 			return;
 		}
 		builder.addPiece(new CasinoTunnelPiece(p.front(), 0));
+		List<BoundingBox> walks = new ArrayList<>();
+		walks.add(bb(p.front().walkBox(0, p.front().length() - 1)));
 		if (p.back() != null) {
 			builder.addPiece(new CasinoTunnelPiece(p.back(), 0));
+			walks.add(bb(p.back().walkBox(0, p.back().length() - 1)));
 		}
+		// last: no lava next to walkable air, no spring-valid rock facing it (springs come after structures)
+		builder.addPiece(new CasinoLavaGuardPiece(bb(p.placement().box()), walks));
 	}
 
 	/**
@@ -303,6 +309,10 @@ public final class CasinoStructures {
 			}
 			return out;
 		}
+	}
+
+	static BoundingBox bb(Geometry.Box b) {
+		return new BoundingBox(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ());
 	}
 
 	static Geometry.Box box(BoundingBox bb) {

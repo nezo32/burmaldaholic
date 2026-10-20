@@ -28,6 +28,14 @@ Branch `p2/wg` (from `p2/cr-2`, CR-2 `f53e1095` merged). Owns placement: `Casino
     piece's own skirt);
   - the ground at `STAIR_FOOT` must be between one block below the foot and the plate;
   - a `CasinoGroundPiece` SKIRT continues the skirt down to the ground wherever the probe was off.
+- **Lava guard** (`CasinoLavaGuardPiece`, `burmaldaholic:casino_lava_guard`): the last piece of the bastion start.
+  It covers the envelope and the tunnel walk boxes plus a 2-block margin:
+  - lava (source or flowing) next to their air is replaced;
+  - outside the envelope, spring-valid blocks facing that air are re-lined: smooth basalt around the pocket,
+    polished blackstone bricks around the tunnels. Vanilla Nether springs are placed after structures and only into
+    netherrack, soul sand, gravel, magma or blackstone, so plain blackstone is not used;
+  - a neighbour in a chunk that is not placed yet counts as air, so chunk borders are safe;
+  - the tunnel seal block is now polished blackstone bricks.
 - Non-noise generators (flat test worlds) and the v0.1 layouts keep the v0.1 placement.
 - `/casino locate` and `CasinoIndex` are unchanged: the Lounge and the Parlor are still pieces of their host start,
   and the tunnel and skirt pieces are not casino pieces.
@@ -38,6 +46,10 @@ Branch `p2/wg` (from `p2/cr-2`, CR-2 `f53e1095` merged). Owns placement: `Casino
   `EndSiteTest`, `TunnelTest` and CR-2's `CasinoSiteContractTest`.
 - `-Pmc=26.3 runGameTest` with filter `worldgen_game_tests`: 11/11 passed; with filter `locate_game_tests`: 7/7 passed
   (`/casino locate` predicted path).
+- `-Pmc=26.3 runGameTest` with filter `casino_site`: 4/4 passed. This includes `parlorLavaGuardSealsPlantedLava`: a
+  Parlor and both tunnels are built in netherrack with 3107 lava sources plus gravel and soul sand sown around them,
+  tunnels and guard run chunk by chunk, and afterwards no lava and no spring-valid block touches walkable air. Both
+  tunnels are still walkable.
 - `-Pmc=26.3 runClientGameTest`, only `CasinoSiteClientGameTests` (`BURMALDAHOLIC_CGT=WG`, temporary entrypoint swap,
   reverted), in a real default world, seed 12345:
   - **Nether: 3/3 Parlors reachable** on foot to open air, and each back tunnel opens into the bastion.
@@ -58,6 +70,8 @@ Branch `p2/wg` (from `p2/cr-2`, CR-2 `f53e1095` merged). Owns placement: `Casino
 
 ## Not verified
 - No full suites (TEST ONLY WHAT CHANGED); no screenshots (owner rule).
+- The client run predates the lava guard. `checkNether` now also asserts the lava invariant in the real world, but
+  that client run (about 24 min) has not been repeated; left to the tester (client lane).
 - The real-world client check covers one seed (3 bastions, 1 End City). The 8-seed numbers come from the terrain model.
 
 ## Requests / notes to other packages
@@ -68,8 +82,7 @@ Branch `p2/wg` (from `p2/cr-2`, CR-2 `f53e1095` merged). Owns placement: `Casino
   two new test classes; `WorldgenGameTests.endCityGetsHighRollerLounge` now allows "no site on the main island".
 
 ## Risks
-- The terrain model has no carvers or features. A carver cave or lava spring can still change the real terrain. The
-  tunnel piece seals fluids around the corridor, but not along the Parlor envelope's open faces. A Nether lava spring
-  could pour into the forecourt pocket; vanilla has the same risk for fortresses.
+- The terrain model has no carvers or features. Springs are blocked by the lava guard, but a later basalt-delta
+  feature could still place lava on the surface near an exit. The guard cannot act after the feature steps.
 - About 10 % of bastions and 9 % of End Cities get no casino (no reachable site). This is by design: no buried casinos.
 - Worldgen cost: the probe is per structure start, and the survey averaged about 100 ms per start on a loaded machine.

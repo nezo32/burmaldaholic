@@ -8,6 +8,12 @@ import dev.nezo.burmaldaholic.worldgen.CasinoIndex;
 import dev.nezo.burmaldaholic.worldgen.CasinoPlacement;
 import dev.nezo.burmaldaholic.worldgen.CasinoStructures;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
+import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
+import dev.nezo.burmaldaholic.worldgen.logic.Facing;
+import dev.nezo.burmaldaholic.worldgen.logic.pieces.PiglinParlor;
+import dev.nezo.burmaldaholic.worldgen.structure.CasinoLavaGuardPiece;
+import java.util.Arrays;
+import net.minecraft.world.level.block.Rotation;
 import dev.nezo.burmaldaholic.worldgen.logic.Geometry;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import dev.nezo.burmaldaholic.worldgen.logic.Vec;
@@ -129,7 +135,7 @@ public class CasinoSiteGameTests {
 				for (StructurePiece p : start.getPieces()) {
 					if (p instanceof CasinoTunnelPiece t) {
 						tunnels.add(t);
-					} else if (p != parlor) {
+					} else if (p != parlor && !(p instanceof CasinoLavaGuardPiece)) {
 						host.add(p.getBoundingBox());
 					}
 				}
@@ -146,6 +152,12 @@ public class CasinoSiteGameTests {
 				check(walk.goal != null, "Parlor at " + env + ": no lava-free walk from the entry " + entry + " to open air "
 					+ NetherSite.GOAL + " blocks out (" + walk.visited.size() + " cells reached; tunnels " + tunnelInfo + ")");
 				reached++;
+				for (StructurePiece g : start.getPieces()) {
+					if (g instanceof CasinoLavaGuardPiece guard) {
+						String bad = lavaTouchingWalkable(nether, guard);
+						check(bad == null, "Parlor at " + env + ": " + bad);
+					}
+				}
 				if (tunnels.size() > 1) {
 					// the back tunnel: the walk reaches the cell past its end (a bastion room or the air beside it)
 					Tunnel back = tunnels.get(1).tunnel();
@@ -248,6 +260,145 @@ public class CasinoSiteGameTests {
 		check(walk.visited.stream().map(BlockPos::of).anyMatch(b -> b.getX() == foot.getX() && b.getZ() == foot.getZ()
 			&& b.getY() >= foot.getY()), "the walk leaves by the front stair's column");
 		return "Lounge " + box + " reached from end stone at " + walk.goal;
+	}
+
+	// ---- lava guard ---------------------------------------------------------------------------------------------
+
+	/**
+	 * Lava guard (owner R3 follow-up): a Parlor with both tunnels is built inside netherrack sown with lava sources,
+	 * gravel and soul sand one and two blocks around the envelope and the tunnels; tunnels and guard run chunk by chunk
+	 * like worldgen. Afterwards no lava touches an air cell of the envelope or a tunnel, and no spring-valid block
+	 * (vanilla Nether springs come after structures) faces one. Runs in any test level: it builds directly.
+	 */
+	@GameTest(maxTicks = 400)
+	public void parlorLavaGuardSealsPlantedLava(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Layout layout = CasinoPack.parlor().orElse(null);
+		if (layout == null || !layout.id().equals(PiglinParlor.ID)) {
+			helper.succeed(); // the v0.2 Parlor is not in this build
+			return;
+		}
+		BlockPos origin = helper.absolutePos(BlockPos.ZERO).offset(600, 70, 600);
+		Vec o = vec(origin);
+		Geometry.Box env = Geometry.templateBox(o, layout.size(), 0);
+		NetherSite.Doors doors = CasinoStructures.parlorDoors(layout);
+		Vec front = Geometry.toWorld(o, new Vec(doors.front().x(), doors.front().y(), layout.size().z()), 0);
+		Vec back = Geometry.toWorld(o, doors.back(), 0);
+		Tunnel ft = new Tunnel(front.x(), front.z(), Facing.SOUTH, flat(front.y(), 8));
+		Tunnel bt = new Tunnel(back.x(), back.z(), Facing.NORTH, flat(back.y(), 6));
+		List<BoundingBox> walks = List.of(bb(ft.walkBox(0, ft.length() - 1)), bb(bt.walkBox(0, bt.length() - 1)));
+		CasinoLavaGuardPiece guard = new CasinoLavaGuardPiece(bb(env), walks);
+		BoundingBox all = guard.getBoundingBox().inflatedBy(3);
+		// rock everywhere, then lava, gravel and soul sand sown in the two layers around the inner volumes
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int planted = 0;
+		for (int x = all.minX(); x <= all.maxX(); x++) {
+			for (int z = all.minZ(); z <= all.maxZ(); z++) {
+				for (int y = all.minY(); y <= all.maxY(); y++) {
+					p.set(x, y, z);
+					int d = distance(p, bb(env), walks);
+					BlockState s = Blocks.NETHERRACK.defaultBlockState();
+					if (d >= 1 && d <= 2) {
+						int k = Math.floorMod(x * 7 + y * 13 + z * 5, 6);
+						if (k <= 1) {
+							s = Blocks.LAVA.defaultBlockState();
+							planted++;
+						} else if (k == 2) {
+							s = Blocks.GRAVEL.defaultBlockState();
+						} else if (k == 3) {
+							s = Blocks.SOUL_SAND.defaultBlockState();
+						}
+					}
+					level.setBlock(p, s, 2);
+				}
+			}
+		}
+		CasinoBuilder.build(level, layout, origin, Rotation.NONE).orElseThrow();
+		ChunkGenerator gen = level.getChunkSource().getGenerator();
+		CasinoTunnelPiece[] tunnels = {new CasinoTunnelPiece(ft, 0), new CasinoTunnelPiece(bt, 0)};
+		for (int cx = all.minX() >> 4; cx <= all.maxX() >> 4; cx++) {
+			for (int cz = all.minZ() >> 4; cz <= all.maxZ() >> 4; cz++) {
+				ChunkPos c = new ChunkPos(cx, cz);
+				BoundingBox area = new BoundingBox(c.getMinBlockX(), level.getMinY(), c.getMinBlockZ(), c.getMaxBlockX(), level.getMaxY() - 1,
+					c.getMaxBlockZ());
+				for (CasinoTunnelPiece t : tunnels) {
+					t.postProcess(level, level.structureManager(), gen, level.getRandom(), area, c, BlockPos.ZERO);
+				}
+				guard.postProcess(level, level.structureManager(), gen, level.getRandom(), area, c, BlockPos.ZERO);
+			}
+		}
+		String bad = lavaTouchingWalkable(level, guard);
+		helper.assertTrue(planted > 100, "lava planted: " + planted);
+		helper.assertTrue(bad == null, "after the guard: " + bad);
+		// the doors still lead out: the entry walks to the end of both tunnels
+		BlockPos entry = pos(Geometry.toWorld(o, doors.front(), 0));
+		BlockPos frontEnd = new BlockPos(ft.cx(ft.length() - 1), ft.feet(0), ft.cz(ft.length() - 1));
+		BlockPos backEnd = new BlockPos(bt.cx(bt.length() - 1), bt.feet(0), bt.cz(bt.length() - 1));
+		helper.assertTrue(walk(level, entry, q -> q.equals(frontEnd), all, 3, 200_000).goal() != null, "front tunnel walkable");
+		helper.assertTrue(walk(level, entry, q -> q.equals(backEnd), all, 3, 200_000).goal() != null, "back door and tunnel walkable");
+		Burmaldaholic.LOGGER.info("[site test] lava guard: {} lava sources planted around the Parlor, none touches walkable air", planted);
+		helper.succeed();
+	}
+
+	/**
+	 * Null when no lava touches an air cell of the guard's envelope or tunnels and no spring-valid block outside them
+	 * faces such a cell; else the first offending cell.
+	 */
+	static String lavaTouchingWalkable(ServerLevel level, CasinoLavaGuardPiece guard) {
+		BoundingBox box = guard.getBoundingBox();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int x = box.minX(); x <= box.maxX(); x++) {
+			for (int z = box.minZ(); z <= box.maxZ(); z++) {
+				for (int y = box.minY(); y <= box.maxY(); y++) {
+					p.set(x, y, z);
+					if (!inner(guard, p) || !level.getBlockState(p).isAir()) {
+						continue;
+					}
+					for (Direction d : Direction.values()) {
+						BlockPos q = p.relative(d);
+						BlockState s = level.getBlockState(q);
+						if (s.getFluidState().is(FluidTags.LAVA)) {
+							return "lava at " + q.toShortString() + " next to walkable air " + p.toShortString();
+						}
+						if (!inner(guard, q) && (s.is(Blocks.NETHERRACK) || s.is(Blocks.SOUL_SAND) || s.is(Blocks.GRAVEL)
+							|| s.is(Blocks.MAGMA_BLOCK) || s.is(Blocks.BLACKSTONE))) {
+							return "spring-valid " + s.getBlock() + " at " + q.toShortString() + " faces walkable air " + p.toShortString();
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	private static boolean inner(CasinoLavaGuardPiece guard, BlockPos p) {
+		return guard.envelope().isInside(p) || guard.tunnels().stream().anyMatch(t -> t.isInside(p));
+	}
+
+	private static int[] flat(int feet, int n) {
+		int[] f = new int[n];
+		Arrays.fill(f, feet);
+		return f;
+	}
+
+	private static BoundingBox bb(Geometry.Box b) {
+		return new BoundingBox(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ());
+	}
+
+	/** Chebyshev distance from the nearest inner box (0 inside). */
+	private static int distance(BlockPos p, BoundingBox env, List<BoundingBox> walks) {
+		int best = dist(p, env);
+		for (BoundingBox w : walks) {
+			best = Math.min(best, dist(p, w));
+		}
+		return best;
+	}
+
+	private static int dist(BlockPos p, BoundingBox b) {
+		int dx = Math.max(0, Math.max(b.minX() - p.getX(), p.getX() - b.maxX()));
+		int dy = Math.max(0, Math.max(b.minY() - p.getY(), p.getY() - b.maxY()));
+		int dz = Math.max(0, Math.max(b.minZ() - p.getZ(), p.getZ() - b.maxZ()));
+		return Math.max(dx, Math.max(dy, dz));
 	}
 
 	// ---- survey -------------------------------------------------------------------------------------------------
