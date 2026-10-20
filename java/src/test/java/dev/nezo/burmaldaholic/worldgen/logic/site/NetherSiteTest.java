@@ -17,7 +17,7 @@ class NetherSiteTest {
 	static final int LAVA = 32;
 	static final Geometry.Box HOST = new Geometry.Box(0, 30, 0, 40, 60, 40);
 	static final Vec SIZE = new Vec(27, 20, 28);
-	static final NetherSite.Doors DOORS = new NetherSite.Doors(new Vec(13, 3, 27), new Vec(18, 4, 1));
+	static final NetherSite.Doors DOORS = new NetherSite.Doors(new Vec(13, 3, 27), new Vec(18, 4, -1));
 	/** Bastion rooms: template air at x 30..40, y 36..45 inside the host box. */
 	static final NetherSite.Host BASTION = (x, y, z) -> !HOST.contains(x, y, z) ? NetherSite.Host.OUTSIDE
 		: x >= 30 && y >= 36 && y <= 45 ? NetherSite.Host.AIR : NetherSite.Host.SOLID;

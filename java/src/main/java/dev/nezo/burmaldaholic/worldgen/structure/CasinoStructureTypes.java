@@ -22,11 +22,6 @@ public final class CasinoStructureTypes {
 		BuiltInRegistries.STRUCTURE_PIECE, Burmaldaholic.id("casino_tunnel"),
 		(net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType) CasinoTunnelPiece::new);
 
-	/** Carve / skirt + steps of the High Roller Lounge on an End island (lane WG, {@link CasinoFootingPiece}). */
-	public static final net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType FOOTING = Registry.register(
-		BuiltInRegistries.STRUCTURE_PIECE, Burmaldaholic.id("casino_footing"),
-		(net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType) CasinoFootingPiece::new);
-
 	/** Called once from {@code WorldgenModule.register} (mod init, before registries freeze). */
 	public static void init() {
 		// class loading registers the type

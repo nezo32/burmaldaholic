@@ -192,8 +192,8 @@ public final class NetherSite {
 		Facing s = d.rotate(1);
 		Vec c0 = Geometry.toWorld(p.origin(), back, p.quarterTurns());
 		int f0 = c0.y();
-		int inside = back.z() + 1; // steps 0..back.z lie inside the envelope (wall, platform)
-		for (int k = Math.max(1, inside); k <= MAX_BACK; k++) {
+		int inside = Math.max(1, back.z() + 1); // steps before this lie inside the envelope / the threshold step
+		for (int k = inside; k <= MAX_BACK; k++) {
 			int cx = c0.x() + d.dx() * k;
 			int cz = c0.z() + d.dz() * k;
 			int rmax = Math.min(k - inside, MAX_RAMP);

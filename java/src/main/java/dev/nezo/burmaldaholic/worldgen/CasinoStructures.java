@@ -9,12 +9,14 @@ import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import dev.nezo.burmaldaholic.worldgen.logic.Vec;
 import dev.nezo.burmaldaholic.worldgen.mixin.TemplateStructurePieceAccessor;
-import dev.nezo.burmaldaholic.worldgen.logic.Grid;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Piece;
 import dev.nezo.burmaldaholic.worldgen.logic.site.EndSite;
 import dev.nezo.burmaldaholic.worldgen.logic.site.NetherSite;
 import dev.nezo.burmaldaholic.worldgen.mixin.SinglePoolElementAccessor;
-import dev.nezo.burmaldaholic.worldgen.structure.CasinoFootingPiece;
+import dev.nezo.burmaldaholic.worldgen.structure.CasinoGroundPiece;
+import dev.nezo.burmaldaholic.worldgen.structure.FitSite;
+import dev.nezo.burmaldaholic.worldgen.logic.pieces.HighRollerLounge;
+import dev.nezo.burmaldaholic.worldgen.logic.pieces.PiglinParlor;
 import dev.nezo.burmaldaholic.worldgen.structure.CasinoTunnelPiece;
 import dev.nezo.burmaldaholic.worldgen.structure.DensityField;
 import java.util.HashMap;
@@ -57,8 +59,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
  *       the Parlor beside the bastion at a probed site ({@link NetherSite}): above the lava sea, a front tunnel to
  *       open air, a back tunnel into the bastion ({@link CasinoTunnelPiece}).</li>
  *   <li><b>High Roller Lounge</b> (§16.3, owner playtest W2): {@code worldgen.highRoller.chance} of End Cities get the
- *       Lounge standing on the island beside the city ({@link EndSite}, at least 24 blocks from every city piece)
- *       with a skirt and front steps ({@link CasinoFootingPiece}).</li>
+ *       Lounge standing on the island beside the city ({@link EndSite}, at least 24 blocks from every city piece),
+ *       its own skirt continued to the ground ({@link CasinoGroundPiece}).</li>
  * </ul>
  * The room is a regular pool-element piece of the host structure (saved with it, placed chunk by
  * chunk). Gates hash the world seed + structure chunk, so generation is reproducible per seed.
@@ -115,7 +117,7 @@ public final class CasinoStructures {
 		StructurePoolElement element = choice.get().element();
 		Geometry.Box host = box(builder.getBoundingBox());
 		int first = (int) (Gates.unit(seed, chunk.x(), chunk.z(), Gates.SALT_PARLOR ^ 0x51DE) * 4);
-		if (!(generator instanceof NoiseBasedChunkGenerator)) {
+		if (!(generator instanceof NoiseBasedChunkGenerator) || !layout.id().equals(PiglinParlor.ID)) {
 			for (int i = 0; i < 4; i++) {
 				Facing side = Facing.values()[(first + i) % 4];
 				if (tryAdd(templates, element, Geometry.beside(host, layout.size(), side, 0), chunk, builder)) {
@@ -143,18 +145,14 @@ public final class CasinoStructures {
 		}
 		builder.addPiece(new CasinoTunnelPiece(p.front(), 0));
 		if (p.back() != null) {
-			builder.addPiece(new CasinoTunnelPiece(p.back(), doors.back().z() + 1));
+			builder.addPiece(new CasinoTunnelPiece(p.back(), 0));
 		}
 	}
 
-	static final String PARLOR_V2 = "casino/parlor";
-	/** The v0.2 manor's back wall cell behind the free part of the back wing (feet row 4). */
-	static final Vec FALLBACK_BACK = new Vec(18, 4, 1);
-
 	/**
-	 * Door cells of the Parlor template: the front entry (+z face) and the back door. The back door is the piece's
-	 * entry on the back face when it has one; else the v0.2 manor's back-wing wall at x 17..19 (the back tunnel cuts
-	 * rows 4..7 there), as long as the wing behind it is free.
+	 * Door cells of the Parlor template for the tunnels: the front entry on the +z face, and the first cell of the back
+	 * passage, one step outside the back entry on the -z face (CR-2 contract: {@code PiglinParlor.FRONT_ENTRY},
+	 * {@code BACK_ENTRY}). A layout without a back entry has no back tunnel.
 	 */
 	public static NetherSite.Doors parlorDoors(Layout layout) {
 		Vec size = layout.size();
@@ -165,34 +163,18 @@ public final class CasinoStructures {
 			for (Vec e : piece.get().entries()) {
 				if (e.z() == size.z() - 1) {
 					front = e;
-				} else if (e.z() <= 2 && (back == null || e.z() < back.z())) {
-					back = e;
+				} else if (e.z() == 0) {
+					back = new Vec(e.x(), e.y(), -1);
 				}
-			}
-			if (back == null && layout.id().equals(PARLOR_V2) && freeBehind(layout, FALLBACK_BACK)) {
-				back = FALLBACK_BACK;
 			}
 		}
 		return new NetherSite.Doors(front, back);
 	}
 
-	private static boolean freeBehind(Layout layout, Vec door) {
-		Grid g = layout.grid();
-		for (int x = door.x() - 1; x <= door.x() + 1; x++) {
-			for (int y = door.y(); y <= door.y() + 2; y++) {
-				int z = door.z() + 1;
-				if (!g.inside(x, y, z) || g.get(x, y, z) == null || !g.get(x, y, z).is("minecraft:air")) {
-					return false;
-				}
-			}
-		}
-		return true;
-	}
-
 	/**
 	 * High Roller Lounge (owner playtest W2): standalone on the island surface beside the End City ({@link EndSite}),
-	 * at least 24 blocks from every city piece, with a carve piece before and a skirt + front steps piece after it.
-	 * Other generators keep the v0.1 tower-top placement.
+	 * at least 24 blocks from every city piece; a skirt piece after it reaches the ground where the probe was off.
+	 * Other generators (and the v0.1 layout) keep the v0.1 tower-top placement.
 	 */
 	private static void appendLounge(RegistryAccess registries, StructureTemplateManager templates, long seed, ChunkPos chunk,
 			StructurePiecesBuilder builder, ChunkGenerator generator, RandomState randomState, LevelHeightAccessor height) {
@@ -208,13 +190,16 @@ public final class CasinoStructures {
 			legacyLounge(templates, element, layout, seed, chunk, builder, cityPieces);
 			return;
 		}
+		if (!layout.id().equals(HighRollerLounge.ID)) {
+			legacyLounge(templates, element, layout, seed, chunk, builder, cityPieces);
+			return;
+		}
 		List<Geometry.Box> city = new ArrayList<>();
 		int low = Integer.MAX_VALUE;
 		for (StructurePiece p : cityPieces) {
 			city.add(box(p.getBoundingBox()));
 			low = Math.min(low, p.getBoundingBox().minY());
 		}
-		Vec entry = loungeEntry(layout);
 		DensityField field = DensityField.of(generator, randomState, height, 8, 4);
 		int scanLow = Math.max(height.getMinY() + 1, low - 40);
 		int scanHigh = Math.min(height.getMaxY() - 1, low + 40);
@@ -222,45 +207,24 @@ public final class CasinoStructures {
 			int t = field.top(x, z, scanLow, scanHigh);
 			return t == Integer.MIN_VALUE ? EndSite.Surface.VOID : t;
 		};
-		Optional<EndSite.Plan> plan = EndSite.plan(city, layout.size(), entry, entry.y() - 1, surface, scanLow + 1, chunk.x(), chunk.z());
+		Optional<EndSite.Plan> plan = EndSite.plan(city, LOUNGE_SHAPE, surface, scanLow + 1, chunk.x(), chunk.z());
 		if (plan.isEmpty()) {
 			Burmaldaholic.LOGGER.debug("[worldgen] no High Roller Lounge site beside the End City in {}", chunk);
 			return;
 		}
-		EndSite.Plan p = plan.get();
-		Geometry.Placement placement = p.placement();
-		if (Geometry.chunkReach(placement.box(), chunk.x(), chunk.z()) > MAX_CHUNK_REACH) {
+		Geometry.Placement placement = plan.get().placement();
+		if (!tryAdd(templates, element, placement, chunk, builder)) {
 			return;
 		}
-		Vec o = placement.origin();
-		BlockPos origin = new BlockPos(o.x(), o.y(), o.z());
-		Rotation rotation = rotation(placement.quarterTurns());
-		BoundingBox bb = element.getBoundingBox(templates, origin, rotation);
-		if (builder.findCollisionPiece(bb) != null) {
-			return;
-		}
-		Vec out = Geometry.toWorld(o, new Vec(entry.x(), 0, layout.size().z()), placement.quarterTurns());
+		// the piece's own skirt is SKIRT rows deep; where the probe was a block off, the skirt continues to the ground
 		Geometry.Box fp = placement.box();
-		builder.addPiece(new CasinoFootingPiece(CasinoFootingPiece.Mode.CARVE, fp.minX(), fp.minZ(), fp.maxX(), fp.maxZ(), p.plateY(), p.door(),
-			out.x(), out.z(), p.steps()));
-		builder.addPiece(new PoolElementStructurePiece(templates, element, origin, 0, rotation, bb, LiquidSettings.IGNORE_WATERLOGGING));
-		builder.addPiece(new CasinoFootingPiece(CasinoFootingPiece.Mode.FILL, fp.minX(), fp.minZ(), fp.maxX(), fp.maxZ(), p.plateY(), p.door(),
-			out.x(), out.z(), p.steps()));
+		builder.addPiece(new CasinoGroundPiece(CasinoGroundPiece.Mode.SKIRT, List.of(new FitSite.Box(fp.minX(), fp.minZ(), fp.maxX(), fp.maxZ())),
+			fp.minY() + 3, fp.maxY()));
 	}
 
-	/** The Lounge's front entry (feet row; the plate is the row below), from its piece or the template's front centre. */
-	public static Vec loungeEntry(Layout layout) {
-		Vec size = layout.size();
-		Optional<Piece> piece = CasinoPack.piece(layout.id());
-		if (piece.isPresent()) {
-			for (Vec e : piece.get().entries()) {
-				if (e.z() == size.z() - 1) {
-					return e;
-				}
-			}
-		}
-		return new Vec(size.x() / 2, 1, size.z() - 1);
-	}
+	/** The v0.2 Lounge's shape (CR-2 contract): plate rows z 0..PZ on row FLOOR, front stair foot. */
+	public static final EndSite.Shape LOUNGE_SHAPE = new EndSite.Shape(new Vec(HighRollerLounge.SX, HighRollerLounge.SY, HighRollerLounge.SZ),
+		HighRollerLounge.PZ, HighRollerLounge.FLOOR, HighRollerLounge.STAIR_FOOT);
 
 	private static void legacyLounge(StructureTemplateManager templates, StructurePoolElement element, Layout layout, long seed, ChunkPos chunk,
 			StructurePiecesBuilder builder, List<StructurePiece> cityPieces) {
