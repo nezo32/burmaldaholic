@@ -12,6 +12,8 @@ public final class SlotModel {
 	/** Bet levels allowed for this player (VIP-gated, multiples of 5). */
 	public long[] bets = {5, 10, 25, 50, 100};
 	public int betIndex = 3;
+	/** Coin value of the "coin × multiplier" bet display (owner R3); 0 = derived from {@link #bets}. */
+	public long coin;
 	public long balance;
 	/** Jackpot pools Mini … Grand (chips; 0 = not shown, e.g. owned machines with fixed prizes). */
 	public long[] pools = new long[4];
@@ -37,6 +39,11 @@ public final class SlotModel {
 
 	public long bet() {
 		return bets[Math.max(0, Math.min(bets.length - 1, betIndex))];
+	}
+
+	/** The coin value shown: the server's, else the ladder's gcd ({@code BetSplit}). */
+	public long coinValue() {
+		return coin > 0 ? coin : dev.nezo.burmaldaholic.games.slots.v2.present.BetSplit.coin(bets, 0);
 	}
 
 	public long buyPrice() {

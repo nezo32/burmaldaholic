@@ -122,6 +122,7 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		if (!body.stage().spinning()) model.balance = latestBalance;
 		long[] bets = s.getLongArray("bets").orElse(new long[0]);
 		if (bets.length > 0) model.bets = bets;
+		model.coin = s.getLongOr("coin", 0);
 		if (!body.stage().spinning()) {
 			long bet = s.getLongOr("bet", model.bet());
 			for (int i = 0; i < model.bets.length; i++) if (model.bets[i] == bet) model.betIndex = i;
@@ -273,7 +274,8 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		}
 		MachineDef.Features features = new MachineDef.Features(d.getIntOr("hunt_board", f.pickBoard()), f.pickValues(), f.pickWeights(),
 			d.getIntOr("hold_trigger", f.holdTrigger()), d.getIntOr("hold_respins", f.holdRespins()), f.holdCoinPpm(), f.holdValues(),
-			f.holdWeights(), rings, d.getLongOr("jackpot_ref", f.jackpotRef()), f.jackpotSeedMult(), f.contributionPpm(), f.ownedMult());
+			f.holdWeights(), rings, d.getLongOr("jackpot_ref", f.jackpotRef()), f.jackpotSeedMult(), f.contributionPpm(), f.ownedMult(),
+			d.getIntArray("gem").filter(a -> a.length == 2).orElse(f.gemPpm()));
 		return new MachineDef(m, base.codes(), base.roles(), strips, pays, d.getIntArray("scatter_pays").orElse(base.scatterFifths()),
 			d.getIntOr("bonus_mask", base.bonusReelsMask()), d.getIntArray("free_spins").orElse(base.freeSpins()), d.getIntOr("retrigger", base.retrigger()),
 			d.getIntOr("fs_cap", base.fsCap()), d.getIntOr("fs_mult", base.fsMultiplier()), d.getIntArray("ladder").orElse(base.ladder()),

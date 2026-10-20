@@ -408,6 +408,8 @@ public final class SlotBody implements StageHost {
 		SidePanels.label(g, l, stage, model);
 		SidePanels.balance(g, l, stage, model);
 		drawBet(g, l);
+		String tip = meterTip(l, mouseX, mouseY);
+		if (tip != null) g.setTooltipForNextFrame(stage.font().split(Component.literal(tip), 220), mouseX, mouseY); // literal-ok: translated text
 		if (!l.compact) {
 			Rect pay = SidePanels.paytableArea(l);
 			boolean hot = pay != null && mouseX >= pay.x() && mouseX < pay.right() && mouseY >= pay.y() && mouseY < pay.bottom();
@@ -415,12 +417,38 @@ public final class SlotBody implements StageHost {
 		}
 	}
 
+	/** The jackpot meter under the mouse: "TIER amount: where it comes from" (owner R3, jackpot clarity), or null. */
+	String meterTip(SlotLayout l, int mx, int my) {
+		if (overlays.mode() != Overlays.Mode.NONE || model.def == null || model.pools == null) return null;
+		String[] keys = {"mini", "minor", "major", "grand"};
+		for (int i = 0; i < l.meterTiers.length; i++) {
+			int tier = l.meterTiers[i];
+			int x = l.meterX(i);
+			if (mx < x || mx >= x + l.meterW || my < l.meterY || my >= l.meterY + 16 || model.pools[tier - 1] <= 0) continue;
+			Component word = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + keys[tier - 1]);
+			return Component.translatable("gui.burmaldaholic.slots.jackpots.row", word, Texts.number(model.pools[tier - 1]),
+				Overlays.jackpotSource(model.def, tier)).getString();
+		}
+		return null;
+	}
+
+	/**
+	 * Owner R3: the label over the bet plate reads "Coin 5 × 4" (coin value × multiplier; the plate keeps the total, which
+	 * every pay multiplies), or "BET" when the bet is not a whole number of coins.
+	 */
+	public static Component betLabel(SlotModel model) {
+		long coin = model.coinValue();
+		long mult = dev.nezo.burmaldaholic.games.slots.v2.present.BetSplit.multiplier(model.bet(), coin);
+		return mult > 0 ? Component.translatable("gui.burmaldaholic.slots.bet_coin", Texts.number(coin), Texts.number(mult))
+			: Component.translatable("gui.burmaldaholic.slots.bet_label");
+	}
+
 	/** The bet group: "BET" label, the value plate with a chip glyph (the number flips on a change, 120 ms). */
 	private void drawBet(GuiGraphicsExtractor g, SlotLayout l) {
 		Font font = stage.font();
 		int px = l.betPlateX;
 		int pw = l.betPlateW;
-		SlotDraw.centeredFit(g, font, Component.translatable("gui.burmaldaholic.slots.bet_label"), px + pw / 2, l.betLabelY, pw + 2 * l.betButton, 0xFFD6C6F0);
+		SlotDraw.centeredFit(g, font, betLabel(model), px + pw / 2, l.betLabelY, pw + 2 * l.betButton, 0xFFD6C6F0);
 		int py = l.betRowY;
 		int ph = l.betButton;
 		if (CabinetArt.ART) SlotSprites.blit(g, SlotSprites.VALUE_PLATE, px, py, pw, ph);

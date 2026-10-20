@@ -938,6 +938,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putBoolean("owned", owned);
 		List<Long> offered = offeredBets(viewer);
 		t.putLongArray("bets", offered.stream().mapToLong(Long::longValue).toArray());
+		// R3: coin × multiplier front-end over the full configured ladder (stable whatever the VIP filter offers)
+		t.putLong("coin", dev.nezo.burmaldaholic.games.slots.v2.present.BetSplit.coin(cfg.bets, cfg.coinValue));
 		long bet = betsV2.getOrDefault(viewer.getUUID(), (long) cfg.defaultBet);
 		if (!offered.isEmpty() && !offered.contains(bet)) {
 			bet = offered.getFirst();
@@ -982,6 +984,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putInt("hunt_board", def.features().pickBoard());
 		t.putInt("hold_trigger", def.features().holdTrigger());
 		t.putInt("hold_respins", def.features().holdRespins());
+		t.putIntArray("gem", def.features().gemPpm());
 		t.putLong("jackpot_ref", def.features().jackpotRef());
 		long[] meters = new long[4];
 		JackpotPoolsV2 pools = JackpotPoolsV2.get(server);

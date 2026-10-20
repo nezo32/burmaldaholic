@@ -25,6 +25,8 @@ public final class SlotsV2Config {
 		@Range(min = 5, max = 1000000) @Size(min = 1, max = 8) public int[] bets;
 		@Range(min = 5, max = 1000000) public int defaultBet;
 		@Range(min = 0, max = 5) public int minVipTier;
+	/** Bet shown as coin × multiplier (owner R3): the coin value; 0 or one that does not divide the ladder = automatic (gcd). */
+	@Range(min = 0, max = 1000000) public int coinValue = 0;
 		/** Max-win cap and owned reservation (× bet). */
 		@Range(min = 50, max = 100000) public int maxWinMultiple;
 		/** Advanced: 5 strings of symbol codes (Appendix A). */

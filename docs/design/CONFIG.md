@@ -239,8 +239,8 @@ the spin awards in `slots.<m>.freeSpins.awards`.
 | `slots.nether.hold.respins` | int | 3 | 1–10 | |
 | `slots.nether.hold.coinChance` | double | 0.04 | 0.0–0.5 | Per empty cell per respin. |
 | `slots.nether.hold.coinWeights` | map<string,int> | x1 4000, x2 2500, x3 1500, x5 1000, x10 500, x25 120, mini 80, minor 20, major 3 | each 0–10000000 | ×10 of `SLOTS.md` §3.2. |
-| `slots.nether.buy.price` | double | 18.4 | 1–10000 | × bet, multiples of 0.2. |
-| `slots.end.buy.price` | double | 109 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.nether.buy.price` | double | 20.8 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.end.buy.price` | double | 107.2 | 1–10000 | × bet, multiples of 0.2. |
 
 Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 
@@ -261,6 +261,8 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | slots.<m>.jackpot.seed | map<tier,int> | §5.1 | each 0–100 000 | Multiples of `refBet`. |
 | slots.<m>.jackpot.contribution | map<tier,double> | §5.1 | each 0.0–0.05 | Fraction of every stake. |
 | slots.<m>.jackpot.owned | map<tier,int> | §5.2 | each 0–100 000 | Fixed × bet at owned machines. |
+| slots.<m>.jackpot.gem | map<tier,double> | SLOTS.md §5.4 (mini / minor) | each 0–0.01, sum ≤ 0.01 | Base-game jackpot gem chance per paid spin (v0.2.0). |
+| slots.<m>.coinValue | int | 0 | 0–1 000 000 | Bet shown as coin × multiplier; 0 or a value that does not divide every bet = the ladder's gcd (v0.2.0). |
 | pvp.slots.hazardWeights | list<int> | [94,2,2,2] | 4 entries, each 0–1 000 | Slot Showdown v2 (S-B8 / S-J8): none / KABOOM / SWAP / TIME WARP. |
 | pvp.race.target | enum(feature, jackpot, five_top) | feature | — | Jackpot Race (NICE). |
 

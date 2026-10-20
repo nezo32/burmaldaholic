@@ -138,12 +138,45 @@ public final class Overlays {
 				cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.help.wheel", name(m, bonus)), tx, cy, tw, 0xFFF4ECF8) + 4;
 			}
 		}
+		cy = jackpotLadder(g, font, def, model, tx, cy, tw);
 		cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.help.anticipation"), tx, cy, tw, 0xFFC0B0DC) + 4;
 		if (model.rtpBasisPoints > 0) cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.paytable.rtp", percent(model.rtpBasisPoints)), tx, cy, tw, 0xFFF4ECF8) + 2;
 		cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.paytable.max_win", Texts.number(def.capMultiple())), tx, cy, tw, 0xFFF4ECF8) + 2;
 		g.disableScissor();
 		maxScroll = Math.max(0, cy + scroll - bottom);
 		hits.add(new int[] {x + w - 14, y + 3, 11, 11, Action.CLOSE.ordinal()});
+	}
+
+	/**
+	 * Owner R3 (E1): the jackpot ladder, Grand at the top: each tier's current amount and EXACTLY where it comes from
+	 * (its bonus game, and for Mini / Minor the base-game jackpot gem with its odds, SLOTS.md §5.4).
+	 */
+	static int jackpotLadder(GuiGraphicsExtractor g, Font font, MachineDef def, SlotModel model, int tx, int cy, int tw) {
+		cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.jackpots.title"), tx, cy, tw, 0xFFFFD640) + 2;
+		String[] keys = {"mini", "minor", "major", "grand"};
+		for (int tier = 4; tier >= 1; tier--) {
+			Component rows = jackpotSource(def, tier);
+			long amount = model.pools == null ? 0 : model.pools[tier - 1];
+			Component word = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + keys[tier - 1]);
+			Component row = Component.translatable("gui.burmaldaholic.slots.jackpots.row", word, amount > 0 ? Texts.number(amount) : Component.empty(), rows);
+			SlotDraw.gem(g, tx + 4, cy + 4, 4, SymbolStyle.JACKPOT_COLORS[tier - 1]);
+			cy = para(g, font, row, tx + 12, cy, tw - 12, 0xFFFFFFFF) + 3;
+		}
+		cy = para(g, font, Component.translatable("gui.burmaldaholic.slots.jackpots.share", Texts.number(def.features().jackpotRef())), tx, cy, tw,
+			0xFFC0B0DC) + 4;
+		return cy;
+	}
+
+	/** Where a tier comes from on this machine: its bonus-game source, plus the jackpot gem for Mini / Minor. */
+	public static Component jackpotSource(MachineDef def, int tier) {
+		String[] keys = {"mini", "minor", "major", "grand"};
+		MutableComponent c = Component.translatable("gui.burmaldaholic.slots.jackpots.src." + def.machine().id + "." + keys[tier - 1]);
+		int ppm = def.features().gemPpm(tier);
+		if (ppm > 0) {
+			c.append(Texts.raw(", ")); // literal-ok: separator
+			c.append(Component.translatable("gui.burmaldaholic.slots.jackpots.gem", Texts.number(Math.round(1_000_000.0 / ppm))));
+		}
+		return c;
 	}
 
 	private static MutableComponent ladder(int[] ladder) {
