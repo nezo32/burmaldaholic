@@ -37,8 +37,8 @@ public final class DockLayout {
 	 * @param primaryW     measured primary content (label + key hint + padding); the tier minimum applies
 	 * @param primaryCompactW the primary without its key-hint plate (last resort, 320-wide windows)
 	 * @param stepperW     ACTIONS: the {@code − value +} stepper left of the action buttons (0 = none)
-	 * @param statusW      the width the status wants: {@code min(cap, max(w(line1), w(line2)))} (0 = only the minimum); when
-	 *                     the status cannot get it, actions go compact first, then line 2 moves to {@link Dock#hintStrip}
+	 * @param statusW      the width the status wants ({@link StatusPlan#want}, uncapped; 0 = only the minimum): when the
+	 *                     status column is narrower, {@link Dock#hintStrip} opens and takes what does not fit ({@link StatusPlan})
 	 */
 	public record Spec(Mode mode, int chips, int tools, int readoutW, int readoutCompactW, int[] actionW, int[] actionCompactW, int secondaryW,
 			int primaryW, int primaryCompactW, int stepperW, int statusW) {
@@ -121,14 +121,15 @@ public final class DockLayout {
 			right = secondary.x() - 4;
 		}
 		int minStatus = minStatus(t);
-		int wantStatus = Math.max(minStatus, s.statusW());
 		if (s.mode() == Mode.ACTIONS) {
 			int n = s.actionW().length;
 			int stepperW = Math.max(0, s.stepperW());
 			int stepperGap = stepperW > 0 && n > 0 ? 6 : 0;
 			boolean compact = false;
 			int total = sum(s.actionW(), t.actionW, 4) + stepperW + stepperGap;
-			if (m + wantStatus + 6 + total > right && !(g.roomy() && m + minStatus + 6 + total <= right)) { // ROOMY keeps the key plates
+			// the key plates stay whenever they fit beside the minimum status column (DES 1, T-K2 P2-a): a status that then
+			// does not fit the column goes into the hint strip (StatusPlan), so no text is lost and no plate either
+			if (m + minStatus + 6 + total > right) {
 				compact = true;
 				total = sum(s.actionCompactW(), 0, 4) + stepperW + stepperGap;
 			}
@@ -197,8 +198,9 @@ public final class DockLayout {
 	private static Box hintStrip(TableGrid g, Box status, int statusW) {
 		if (statusW <= 0 || status.w() >= statusW) return Box.EMPTY;
 		int m = g.tier.margin;
-		int w = Math.min(g.dock.w() - 2 * m, statusW + 8);
-		return new Box(m, g.dock.y() - HINT_STRIP_H, w, HINT_STRIP_H);
+		// the whole Dock width: it may carry line 2, or a lone line 1 too long for two lines of the column (the status
+		// fills only behind its text)
+		return new Box(m, g.dock.y() - HINT_STRIP_H, g.dock.w() - 2 * m, HINT_STRIP_H);
 	}
 
 	private static int sum(int[] ws, int min, int gap) {

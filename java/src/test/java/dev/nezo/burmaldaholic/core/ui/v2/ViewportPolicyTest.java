@@ -41,7 +41,7 @@ class ViewportPolicyTest {
 		// odd windows
 		new Cell(1366, 768, 2, 683, 384, 2, 683, 384, Room.NORMAL, Tier.T3),
 		new Cell(1366, 768, 3, 456, 256, 3, 456, 256, Room.NORMAL, Tier.T2),
-		new Cell(1280, 1024, 4, 320, 256, 4, 320, 256, Room.NORMAL, Tier.T1),
+		new Cell(1280, 1024, 4, 427, 342, 3, 427, 342, Room.NORMAL, Tier.T2), // 5:4 at GUI Auto: steps down to 400+ wide (T-K2 D5)
 		new Cell(1280, 1024, 3, 427, 342, 3, 427, 342, Room.NORMAL, Tier.T2),
 		new Cell(854, 480, 2, 427, 240, 2, 427, 240, Room.NORMAL, Tier.T1),
 		new Cell(2560, 1080, 4, 640, 270, 4, 480, 270, Room.NORMAL, Tier.T2), // ultrawide: 16:9 frame
@@ -70,7 +70,7 @@ class ViewportPolicyTest {
 					int gw = (fw + gs - 1) / gs;
 					Viewport v = ViewportPolicy.of(fw, fh, gs);
 					String where = fw + "x" + fh + "@" + gs + " -> " + v;
-					if (gh >= 240 && gh <= 720 && gw >= 320) assertEquals(gs, v.k(), where);
+					if (gh >= 240 && gh <= 720 && gw >= ViewportPolicy.MIN_W) assertEquals(gs, v.k(), where);
 					if (gh > 720 && v.w() >= 2 * ViewportPolicy.MIN_W) { // (a portrait window may keep a taller GUI)
 						assertTrue(v.h() <= 720 && v.k() % gs == 0, where);
 						int prev = v.k() - gs; // the next smaller whole step leaves the GUI above 720

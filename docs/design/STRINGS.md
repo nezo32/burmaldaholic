@@ -640,6 +640,7 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.reason.round_in_progress` | Round in progress | Идёт раунд |
 | `gui.burmaldaholic.core.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
 | `gui.burmaldaholic.core.v2.reason.no_answer` | The table did not answer — try again | Стол не ответил — попробуйте ещё раз |
+| `gui.burmaldaholic.core.v2.reason.moved` | The buttons moved — click again | Кнопки сдвинулись — ещё раз |
 | `gui.burmaldaholic.core.v2.reason.spinning` | Spinning… | Вращение… |
 | `gui.burmaldaholic.core.v2.reason.rolling` | Rolling… | Бросок… |
 | `gui.burmaldaholic.core.v2.reason.dealing` | Dealing… | Раздача… |
@@ -647,7 +648,7 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.reason.nothing_to_clear` | No bets to clear | Нет ставок |
 | `gui.burmaldaholic.core.v2.reason.no_rebet` | No previous bet | Нет прошлой ставки |
 | `gui.burmaldaholic.core.v2.reason.cannot_double` | You can't double now | Удвоить сейчас нельзя |
-| `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место или нажмите Пробел |
+| `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место (Пробел) |
 | `gui.burmaldaholic.core.v2.status.click_layout` | Click the layout to bet | Кликните поле |
 | `gui.burmaldaholic.core.v2.status.chips_add` | Chips add to your bet | Фишки → ставка |
 | `gui.burmaldaholic.core.v2.status.next_round_in` | Next round in %1$s s | Новый раунд через %1$s с |

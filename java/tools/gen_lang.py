@@ -227,7 +227,7 @@ def main() -> int:
                 stale.append(str(path.relative_to(REPO)))
                 if not args.check:
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(text, encoding="utf-8")
+                    path.write_text(text, encoding="utf-8", newline="\n")  # LF on Windows too (T-K2 D6)
         total += len(entries)
 
     if args.check:

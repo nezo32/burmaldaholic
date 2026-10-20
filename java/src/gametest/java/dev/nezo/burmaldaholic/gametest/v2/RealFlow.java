@@ -70,8 +70,9 @@ public final class RealFlow {
 	/** True when the lane's tests should run ({@code BURMALDAHOLIC_CGT} unset, or listing the lane / its class). */
 	public static boolean enabled(String lane) {
 		String f = System.getenv("BURMALDAHOLIC_CGT");
-		if (f == null || f.isBlank()) return true;
-		return Arrays.stream(f.split(",")).map(String::trim).anyMatch(s -> s.equalsIgnoreCase(lane));
+		boolean on = f == null || f.isBlank() || Arrays.stream(f.split(",")).map(String::trim).anyMatch(s -> s.equalsIgnoreCase(lane));
+		if (on) System.out.println("[CGT] lane " + lane + " runs (BURMALDAHOLIC_CGT=" + f + ")");
+		return on;
 	}
 
 	// ---- window, GUI scale, language ------------------------------------------------------------------------------
@@ -225,7 +226,16 @@ public final class RealFlow {
 		clickButton(id, Inputs.MOUSE_RIGHT);
 	}
 
+	/**
+	 * Waits until the layout has been on screen for one reaction time ({@code V2Chrome.clickSettled}, the kit's
+	 * ClickGuard): a player never clicks a control in the same instant it appears, and the guard refuses such a click.
+	 */
+	public void settle() {
+		context.waitFor(mc -> !(mc.gui.screen() instanceof V2Chrome.Holder h) || h.chrome().clickSettled(), TIMEOUT);
+	}
+
 	private void clickButton(String id, int button) {
+		settle();
 		double[] p = windowPoint(id);
 		context.getInput().setCursorPos(p[0], p[1]);
 		context.waitTick();
@@ -244,6 +254,7 @@ public final class RealFlow {
 
 	/** Presses a key by its {@link dev.nezo.burmaldaholic.core.ui.v2.KeyMap} name (e.g. {@code KeyMap.SPACE}), as the running version's key code. */
 	public void key(String name) {
+		settle();
 		context.getInput().pressKey(V2Input.keyCode(name));
 		context.waitTicks(2);
 	}

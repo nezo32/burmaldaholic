@@ -405,7 +405,7 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		for (var t : chrome.hits().targets()) {
 			if (!t.id().equals(id) || !t.enabled()) continue;
 			var vp = chrome.viewport();
-			return new double[] {vp.toWindow(t.box().x() + t.box().w() / 2.0), vp.toWindow(t.box().y() + t.box().h() / 2.0)};
+			return new double[] {vp.windowX(t.box().x() + t.box().w() / 2.0), vp.windowY(t.box().y() + t.box().h() / 2.0)};
 		}
 		return null;
 	}
