@@ -76,6 +76,8 @@ import org.jspecify.annotations.Nullable;
 public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 	static final String TIMER_V2 = "v2";
 	static final String TIMER_V2_AUTO = "v2_auto";
+	/** Server lead on a spin's {@code startTick} (SY-SPEC §4: slots 4; {@code SyncLead} once p2/sy lands). */
+	public static final int START_LEAD_TICKS = 4;
 	static final String ROUND_KEY = "burmaldaholic_slots_v2";
 	private static final String CABINET_KEY = "cabinet";
 
@@ -483,7 +485,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		r.bought = buy;
 		r.owned = owned;
 		r.tape = tape;
-		r.startTick = gameTime();
+		// S1 / SY-SPEC §4: start LEAD ticks in the future so viewers receive the result before beat 0 (no catch-up)
+		r.startTick = gameTime() + START_LEAD_TICKS;
 		r.seq = ++seq;
 		r.speedPct = CasinoConfig.slots().turboAllowed && turboV2.getOrDefault(player.getUUID(), false) ? 200 : 100;
 		r.seed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), r.seq);

@@ -143,6 +143,11 @@ public final class ReelMotion {
 		return landDistance;
 	}
 
+	/** Speed (cells/ms) at the start of the landing: {@code landDistance × outBack'(0) / landDur}, outBack'(0) = s + 3. */
+	public double landStartSpeed() {
+		return landDistance * (s + 3) / landDur;
+	}
+
 	/** Largest overshoot (cells past the stop) of this landing. */
 	public double maxOvershoot() {
 		double m = 0;

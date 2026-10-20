@@ -28,6 +28,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -175,6 +176,9 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		return key == null ? line : Component.translatable(key).append(Texts.raw(" · ")).append(line); // literal-ok: separator
 	}
 
+	/** A result of the player's own spin newer than this (shared ms) is played from its arrival (autoplay, slow links). */
+	static final int ACTOR_FRESH_MS = 2000;
+
 	private Timeline timeline(SpinTape tape) {
 		return SlotTimeline.build(tape, model.def, TimingProfile.SHARED.withSpeed(speedPct), FxSettings.localProfile(), seed, anticipation,
 			bigWinTiers);
@@ -211,10 +215,19 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		boolean mine = spin.getBooleanOr("mine", false);
 		body.interactive(mine);
 		body.stage().rest(restStops, restCells);
-		body.stage().play(tape, tl, SpinClock.server(tl, ts, () -> mc.getDeltaTracker().getGameTimeDeltaPartialTick(false)), seed);
+		double sharedNow = SpinClock.timeSource().sharedMs(ts, 0);
+		// S1 (SY-SPEC §2): the player who pressed is anchored at the ARRIVAL on local time (the pre-roll hands off into
+		// the reels); a reopened screen mid-spin or a spectator follows the shared clock
+		boolean actor = mine && holdMs < 0 && (body.stage().preRolling() || sharedNow < ACTOR_FRESH_MS);
+		double elapsed;
+		if (actor) {
+			elapsed = body.stage().playActor(tape, tl, seed, Util.getMillis());
+		} else {
+			body.stage().play(tape, tl, SpinClock.server(tl, ts, () -> mc.getDeltaTracker().getGameTimeDeltaPartialTick(false)), seed);
+			elapsed = sharedNow;
+		}
 		if (mine) {
 			// F6: the HUD balance delta waits for the reels and the roll-up
-			double elapsed = mc.level == null ? 0 : ts.elapsedMs(mc.level.getGameTime(), 0);
 			ClientFx.balanceHold.accept((int) Math.max(0, Math.min(120_000, tl.endMs() - elapsed)));
 		}
 	}

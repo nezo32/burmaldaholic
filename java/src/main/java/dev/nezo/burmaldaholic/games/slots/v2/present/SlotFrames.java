@@ -105,9 +105,23 @@ public final class SlotFrames implements FrameModel<SlotFrames.Outcome, SlotFram
 			return t;
 		}
 
+		/** The actor's arrival handoff (S1, {@link ReelHandoff}); {@code null} = the plain phase motion. */
+		public void handoff(ReelHandoff.Plan plan) {
+			this.handoff = plan;
+		}
+
+		public ReelHandoff.Plan handoff() {
+			return handoff;
+		}
+
+		private ReelHandoff.Plan handoff;
+
 		public void sample(double tMs) {
 			this.t = tMs;
 			phase = script.phaseIndexAt(tMs);
+			if (handoff != null && phase < 0 && tMs >= handoff.tH() && !script.phases().isEmpty() && tMs < script.phase(0).spinUpAt) {
+				phase = 0; // the wait loop hands off into the first reel phase (it may start before τ = 0)
+			}
 			stickyMask = script.stickyMaskAt(tMs);
 			fall = null;
 			if (phase < 0) {
@@ -141,6 +155,16 @@ public final class SlotFrames implements FrameModel<SlotFrames.Outcome, SlotFram
 					moving[r] = false;
 					sinceStop[r] = -1;
 					for (int y = 0; y < 3; y++) cells[r * 3 + y] = p.landed[r * 3 + y];
+					continue;
+				}
+				ReelHandoff h = phase == 0 && handoff != null ? handoff.active(r, tMs, p.spinUpAt, m) : null;
+				if (h != null) {
+					top[r] = h.top(local);
+					blur[r] = h.speed(local) > ReelMotion.BLUR_SPEED;
+					moving[r] = true;
+					sinceStop[r] = -1;
+					int base = (int) Math.floor(top[r]);
+					for (int y = 0; y < 3; y++) cells[r * 3 + y] = cellAt(p, r, base + y, true);
 					continue;
 				}
 				top[r] = m.top(local);
