@@ -126,11 +126,11 @@ class PackFilesTest {
 			  "start_pool": "burmaldaholic:worldgen/casino/tudor/entrance",
 			  "size": 3,
 			  "start_height": { "absolute": -2 },
-			  "project_start_to_heightmap": "WORLD_SURFACE_WG",
 			  "max_distance_from_center": 48,
 			  "use_expansion_hack": false,
+			  "liquid_settings": "ignore_waterlogging",
 			  "max_height_range": 12,
-			  "required_pieces": ["entrance", "floor", "bar"]
+			  "required_pieces": ["entrance", "floor", "rear", "bar"]
 			}
 			""", PackFiles.structureJson("tudor"));
 		assertEquals("""

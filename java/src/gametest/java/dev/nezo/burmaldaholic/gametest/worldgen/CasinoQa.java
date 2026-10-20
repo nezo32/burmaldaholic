@@ -71,6 +71,13 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * {@code -Dburmaldaholic.requireCasinoV2=true} turns "v0.2 content missing" into a failure (integration gate).
  */
 public final class CasinoQa {
+	/**
+	 * GameTest environment of the long casino / survey tests (CasinoBuildingGameTests, WorldgenSpawnSurvey,
+	 * OtherworldFitSurvey): their own batch, so seconds of synchronous survey work on the server thread never run in
+	 * the same batch as the tick-timed bot tests (a full build lost 3-5 bot tests to that).
+	 */
+	public static final String ENV = "burmaldaholic:casino_worldgen";
+
 	public static final List<String> STYLES = List.of("tudor", "oasis", "safari", "alpine", "ice_palace");
 	public static final Identifier SET = Identifier.parse("burmaldaholic:casinos");
 	public static final Identifier TAG = Identifier.parse("burmaldaholic:casino");
@@ -348,13 +355,34 @@ public final class CasinoQa {
 
 	// ---- static checks on placed buildings ------------------------------------------------------------------------
 
+	/** Highest feet-cell collision a player stands on (3 snow layers 0.25, a slab 0.5): walking steps up 0.6. */
+	static final double MAX_FEET_SHAPE = 0.5;
+	/** Above this the head reaches into the second cell up (1.8-block player). */
+	static final double HEAD_IN_SECOND_CELL = 0.2;
+	/** Walking climbs 0.6 without jumping; a jump reaches 1.25. */
+	static final double STEP_UP = 0.6;
+	static final double JUMP_UP = 1.25;
+
+	/**
+	 * A player fits with the feet in this cell: its collision top ≤ {@link #MAX_FEET_SHAPE} (carpet, snow layers, a
+	 * bottom slab), the cell above free, and — for shapes higher than {@link #HEAD_IN_SECOND_CELL} — the next one too.
+	 */
 	static boolean walkable(ServerLevel level, BlockPos feet) {
-		return lowShape(level, feet) && level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty();
+		double h = feetHeight(level, feet);
+		if (h > MAX_FEET_SHAPE || !free(level, feet.above())) {
+			return false;
+		}
+		return h <= HEAD_IN_SECOND_CELL || free(level, feet.above(2));
 	}
 
-	private static boolean lowShape(ServerLevel level, BlockPos p) {
+	private static boolean free(ServerLevel level, BlockPos p) {
+		return level.getBlockState(p).getCollisionShape(level, p).isEmpty();
+	}
+
+	/** Collision top of the feet cell (0 = empty). */
+	static double feetHeight(ServerLevel level, BlockPos p) {
 		VoxelShape s = level.getBlockState(p).getCollisionShape(level, p);
-		return s.isEmpty() || s.max(Direction.Axis.Y) <= 0.1875;
+		return s.isEmpty() ? 0 : s.max(Direction.Axis.Y);
 	}
 
 	/** Placement problems of one building (empty = fine): facings, support, player cells, families, clearance. */
@@ -465,7 +493,7 @@ public final class CasinoQa {
 	/** Feet cell passable, head free, something solid to stand on. */
 	public static boolean stand(ServerLevel level, BlockPos p) {
 		BlockState below = level.getBlockState(p.below());
-		return walkable(level, p) && !below.getCollisionShape(level, p.below()).isEmpty()
+		return walkable(level, p) && (feetHeight(level, p) > 0 || !below.getCollisionShape(level, p.below()).isEmpty())
 			&& gameOf(below) == null; // nobody walks across the tables
 	}
 
@@ -475,6 +503,11 @@ public final class CasinoQa {
 			|| s.is(net.minecraft.tags.BlockTags.SAND) || s.is(net.minecraft.tags.BlockTags.LEAVES) || s.is(net.minecraft.tags.BlockTags.LOGS)
 			|| s.is(net.minecraft.world.level.block.Blocks.GRAVEL) || !s.getFluidState().isEmpty() && !s.hasProperty(
 				net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED);
+	}
+
+	/** Natural ground (no vegetation): {@link #terrain} without logs and leaves. */
+	public static boolean ground(BlockState s) {
+		return terrain(s) && !s.is(net.minecraft.tags.BlockTags.LOGS) && !s.is(net.minecraft.tags.BlockTags.LEAVES);
 	}
 
 	/** Every walkable cell reachable on foot from outside the building (multi-source walk from the ring around it). */
@@ -503,8 +536,9 @@ public final class CasinoQa {
 					if (!area.isInside(n) || seen.contains(n) || !stand(level, n)) {
 						continue;
 					}
-					if (dy == 1 && !level.getBlockState(c.above(2)).getCollisionShape(level, c.above(2)).isEmpty()) {
-						continue;
+					double rise = dy + feetHeight(level, n) - feetHeight(level, c);
+					if (rise > JUMP_UP || rise > STEP_UP && !free(level, c.above(2))) {
+						continue; // too high, or a jump under a low ceiling
 					}
 					seen.add(n);
 					queue.add(n);
@@ -529,7 +563,9 @@ public final class CasinoQa {
 					continue;
 				}
 				BlockPos base = new BlockPos(x, b.minY(), z);
-				if (level.getBlockState(base).getCollisionShape(level, base).isEmpty()) {
+				// natural ground is not a foundation: the union box of an L-shaped assembly has empty corners, where a
+				// cave under the hillside read as "floating" (tudor@seed 42: stone over a 3-high cave, outside every piece)
+				if (level.getBlockState(base).getCollisionShape(level, base).isEmpty() || ground(level.getBlockState(base))) {
 					continue;
 				}
 				boolean grounded = false;
@@ -539,7 +575,7 @@ public final class CasinoQa {
 				}
 				if (!grounded) {
 					floating++;
-					firstFloat = firstFloat == null ? base.toShortString() : firstFloat;
+					firstFloat = firstFloat == null ? base.toShortString() + " " + level.getBlockState(base).getBlock() : firstFloat;
 				}
 			}
 		}
@@ -568,9 +604,11 @@ public final class CasinoQa {
 			while (c.getY() < b.maxY() && level.getBlockState(c).getCollisionShape(level, c).isEmpty()) {
 				c.move(Direction.UP);
 			}
-			if (terrain(level.getBlockState(c)) || terrain(level.getBlockState(p))) {
+			// ground over a room: stone, dirt, sand, gravel, water — not logs / leaves, which the templates use as beams
+			// and hedges (Tudor's dark-oak ceiling beams were counted as 107 "cut" cells)
+			if (ground(level.getBlockState(c)) || ground(level.getBlockState(p))) {
 				cut++;
-				firstCut = firstCut == null ? c.toShortString() : firstCut;
+				firstCut = firstCut == null ? c.toShortString() + " " + level.getBlockState(c).getBlock() : firstCut;
 			}
 		}
 		if (cut > 0) {

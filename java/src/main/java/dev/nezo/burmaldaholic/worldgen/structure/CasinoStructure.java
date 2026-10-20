@@ -12,26 +12,32 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongArray;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.QuartPos;
-import net.minecraft.world.level.NoiseColumn;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.Structure;
@@ -43,20 +49,28 @@ import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
 
 /**
  * Structure type {@code burmaldaholic:casino} (architecture doc casino-buildings.md §6.1): a vanilla jigsaw
- * structure (every jigsaw field inlined, parsed by vanilla's own codec) plus
- * <ul>
- *   <li>the casino-mode gate ({@link WorldgenRuntime#active()}, like the annexes);</li>
- *   <li>a cheap biome pre-check before vanilla's jigsaw (which projects the start to the heightmap — one noise
- *       column — BEFORE its own biome check, for every style of the set in every cell);</li>
- *   <li>D5 "complete or absent": the assembly must contain a piece of every {@code required_pieces} pool;</li>
- *   <li>a terrain fit ({@link #fit}): a few noise-column probes on the footprint, trying a handful of horizontal
- *       offsets within the cell; the accepted footprint is moved there and vertically to the middle of its
- *       ground span.</li>
- * </ul>
- * The jigsaw assembles <b>once</b> (inside the vanilla stub's consumer, with the context's random); the built
- * pieces are re-wrapped as {@code Either.right} so {@code Structure.generate} never runs it a second time with
- * a different layout. Verdicts are cached per (world, chunk, structure): {@code /locate}, structure checks and the
- * real chunk generation never repeat the terrain work.
+ * structure (every jigsaw field inlined, parsed by vanilla's own codec) plus, in this order (cheapest first):
+ * <ol>
+ *   <li>the gate: {@link WorldgenRuntime#standaloneActive()} — casino mode, {@code worldgen.enabled},
+ *       {@code worldgen.standalone.enabled}; a volatile snapshot, never the server's saved data (R-CB M5);</li>
+ *   <li>a biome pre-check on climate noise only (the four possible start centres × a few heights);</li>
+ *   <li><b>prefit</b> (R-CB M6b): the start piece's rotation and element are the first two draws of the context's
+ *       random ({@code JigsawPlacement.addPieces}), so they are predicted from {@code (seed, chunk)} and the start
+ *       piece's footprint + door throat are fitted to the terrain BEFORE the jigsaw runs. (A rotation-independent
+ *       prefit is useless: the four rotations of a template about the chunk corner only share that corner.)</li>
+ *   <li>the jigsaw, once (inside the stub's consumer, with the context's random); the built pieces are re-wrapped
+ *       as {@code Either.right} so {@code Structure.generate} never runs it again with another layout;</li>
+ *   <li>D5 "complete or absent": a piece of every {@code required_pieces} pool;</li>
+ *   <li>the exact fit on the real piece boxes ({@link FitSite}: corners, door throat, outline ≤ 4 blocks, piece
+ *       centres), trying a few horizontal shifts; the accepted footprint is moved there and vertically to the
+ *       middle of its ground span;</li>
+ *   <li>vanilla's biome check at the final start position (also re-run by {@code findValidGenerationPoint}).</li>
+ * </ol>
+ * Heights come from {@link TerrainProbe} (density samples, ~0.1 ms a column instead of a 2–4 ms noise column),
+ * cached per placement cell and shared by every style of the set tried there. The pack writes no
+ * {@code project_start_to_heightmap}, so the jigsaw itself samples no column; the fit sets the height.
+ * Rejections are cached per (structure, world noise, chunk) in a weak map ({@code /locate} and structure checks
+ * repeat the same cells), cleared when the server stops.
  */
 public final class CasinoStructure extends Structure {
 	public static final MapCodec<CasinoStructure> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
@@ -65,81 +79,141 @@ public final class CasinoStructure extends Structure {
 			Codec.STRING.listOf().optionalFieldOf("required_pieces", List.of()).forGetter(s -> s.required))
 		.apply(i, CasinoStructure::new));
 
-	/** Water deeper than this at any probe = lake / river / ocean. */
+	/** Water deeper than this at a probe counts as deep (lake, river, ocean). */
 	static final int MAX_WATER_DEPTH = 2;
-	/** More shallow-water probes than this = marsh / lake shore. */
+	/** Wet probes allowed: this many, or one in {@link #WET_SHARE} of the probes (lake shore, river bank). */
 	static final int MAX_WET_PROBES = 2;
-	/** Corner probes sit this far inside the footprint. */
-	static final int CORNER_INSET = 2;
-	/** Probes snap to this lattice, so the candidate offsets below share most of their columns. */
-	static final int PROBE_GRID = 8;
-	/** Horizontal offsets tried in order (the first that fits wins); multiples of {@link #PROBE_GRID}. */
-	static final int[][] OFFSETS = {{0, 0}, {16, 0}, {-16, 0}, {0, 16}, {0, -16}, {16, 16}, {-16, -16}, {16, -16}, {-16, 16}};
-	/** Diagnostic knobs (surveys compare configurations); production uses the defaults: the vanilla spot + 4 axis shifts (the diagonals add ~25 % of the extra fits for ~2× the probes). */
-	public static volatile int candidates = 5;
+	static final int WET_SHARE = 8;
+	/** Probes with water deeper than {@link #MAX_WATER_DEPTH} allowed: one in this many. */
+	static final int DEEP_SHARE = 16;
+	/** A water bed may lie this much deeper than the height range below the highest dry ground. */
+	static final int BED_SLACK = 4;
+	/** The FLAT test ignores one in this many probes at each end of the height span. */
+	static final int TRIM_SHARE = 24;
+	/** Ground above the floor (feet level at the door) the carve piece may cut out of the rooms. */
+	static final int CUT_MAX = 8;
+	/** Outline spacing of the coarse pass that screens each candidate shift. */
+	static final int COARSE_SPACING = 16;
+	/** Horizontal shifts of the whole casino tried in order (the first that fits wins); multiples of {@link FitSite#SPACING}. */
+	static final int[][] OFFSETS = {{0, 0}, {16, 0}, {-16, 0}, {0, 16}, {0, -16}, {16, 16}, {-16, -16}, {16, -16}, {-16, 16},
+		{32, 0}, {-32, 0}, {0, 32}, {0, -32}};
+	/** Diagnostic knobs (surveys compare configurations); production uses the defaults. */
+	public static volatile int candidates = OFFSETS.length;
 	public static volatile boolean biomePrecheck = true;
+	public static volatile boolean prefit = false;
+	/** Outline spacing of the exact pass (contract: ≤ 4); surveys compare coarser ones. */
+	public static volatile int fineSpacing = FitSite.SPACING;
+	/** The same on 26.3 (row-volume sampler; coordinator decision 2026-10-14: 8, coarser to bound the cost). */
+	public static volatile int fineSpacing263 = 8;
+	/**
+	 * 26.3: fetch outline sides as row volumes before the per-column checks. OFF: measured slower (survey median
+	 * 93-99 ms with rows vs 17.6-21.6 ms without; a row fetches every side of every shift, losing the early exit).
+	 * Kept as a survey knob ({@code -Dburmaldaholic.casinoRows=true}).
+	 */
+	public static volatile boolean rowPrefetch = Boolean.getBoolean("burmaldaholic.casinoRows");
+	/** Overrides {@code max_height_range} when ≥ 0 (surveys). */
+	public static volatile int heightRangeOverride = Integer.getInteger("burmaldaholic.casinoHeightRange", -1);
+
+	/** Why a cell has no casino (survey reasons, R-CB M13). */
+	public enum Reason { OK, FLAT, FLOOD, INCOMPLETE, BIOME }
 
 	private final JigsawStructure jigsaw;
 	private final int maxHeightRange;
 	private final List<String> required;
 	/** Rotated start-piece centres relative to the chunk's min corner (lazy; for the biome pre-check). */
 	private volatile int[][] startCentres;
+	/** Cached rejections: world noise → chunk → reason. Weak keys: a stopped world's noise is collected. */
+	private final Map<RandomState, Map<Long, Reason>> verdicts = Collections.synchronizedMap(new WeakHashMap<>());
+
+	private static final Set<CasinoStructure> INSTANCES = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
 
 	public CasinoStructure(JigsawStructure jigsaw, int maxHeightRange, List<String> required) {
 		super(new Structure.StructureSettings(jigsaw.biomes(), jigsaw.spawnOverrides(), jigsaw.step(), jigsaw.terrainAdaptation()));
 		this.jigsaw = jigsaw;
 		this.maxHeightRange = maxHeightRange;
 		this.required = List.copyOf(required);
+		INSTANCES.add(this);
 	}
 
 	@Override
 	protected Optional<GenerationStub> findGenerationPoint(GenerationContext ctx) {
-		STATS.attempts.incrementAndGet();
-		if (!WorldgenRuntime.active()) {
-			STATS.gated.incrementAndGet();
+		boolean stats = STATS.enabled;
+		if (stats) {
+			STATS.attempts.incrementAndGet();
+		}
+		if (!WorldgenRuntime.standaloneActive()) {
+			if (stats) {
+				STATS.gated.incrementAndGet();
+			}
 			return Optional.empty();
 		}
-		long t0 = System.nanoTime();
+		long t0 = stats ? System.nanoTime() : 0;
 		boolean evaluated = false;
 		try {
 			if (biomePrecheck && !couldBeValidBiome(ctx)) {
-				STATS.precheckRejected.incrementAndGet();
+				if (stats) {
+					STATS.precheckRejected.incrementAndGet();
+				}
 				return Optional.empty();
 			}
-			Key key = new Key(System.identityHashCode(ctx.randomState()), ctx.seed(), ctx.chunkPos().pack(), System.identityHashCode(this));
-			Fit cached = VERDICTS.get(key);
-			if (cached != null && cached.terrain() != Terrain.OK) {
-				STATS.cacheHits.incrementAndGet();
-				count(cached.terrain());
+			long chunk = ctx.chunkPos().pack();
+			Map<Long, Reason> cache = verdicts.computeIfAbsent(ctx.randomState(), k -> new ConcurrentHashMap<>());
+			Reason cached = cache.get(chunk);
+			if (cached != null) {
+				if (stats) {
+					STATS.cacheHits.incrementAndGet();
+					STATS.count(cached, null);
+				}
 				return Optional.empty();
-			}
-			Optional<GenerationStub> stub = jigsaw.findValidGenerationPoint(ctx); // start piece projection + biome check
-			if (stub.isEmpty()) {
-				STATS.noStart.incrementAndGet();
-				return stub;
 			}
 			evaluated = true;
-			long t1 = System.nanoTime();
+			Cell cell = Cell.of(ctx);
+			int range = heightRangeOverride >= 0 ? heightRangeOverride : maxHeightRange;
+			// 1. prefit: the predicted start piece + door throat
+			if (prefit) {
+				Fit pre = prefit(ctx, cell, range);
+				if (pre != null && pre.reason() != Reason.OK) {
+					remember(cache, chunk, pre.reason());
+					if (stats) {
+						STATS.prefitRejected.incrementAndGet();
+						STATS.count(pre.reason(), biomeName(ctx, cell));
+					}
+					return Optional.empty();
+				}
+			}
+			// 2. the jigsaw, once
+			long t1 = stats ? System.nanoTime() : 0;
+			Optional<GenerationStub> stub = jigsaw.findGenerationPoint(ctx);
+			if (stub.isEmpty()) {
+				if (stats) {
+					STATS.noStart.incrementAndGet();
+				}
+				return stub;
+			}
 			StructurePiecesBuilder built = stub.get().getPiecesBuilder(); // the jigsaw assembles here, ONCE
 			List<StructurePiece> pieces = built.build().pieces();
-			long t2 = System.nanoTime();
-			STATS.stubNanos.addAndGet(t1 - t0);
-			STATS.assembleNanos.addAndGet(t2 - t1);
+			long t2 = stats ? System.nanoTime() : 0;
+			if (stats) {
+				STATS.stubNanos.addAndGet(t1 - t0);
+				STATS.assembleNanos.addAndGet(t2 - t1);
+			}
 			if (!hasRequired(pieces)) {
-				STATS.incomplete.incrementAndGet();
+				remember(cache, chunk, Reason.INCOMPLETE);
+				if (stats) {
+					STATS.count(Reason.INCOMPLETE, biomeName(ctx, cell));
+				}
 				return Optional.empty();
 			}
-			Fit fit;
-			if (cached != null) {
-				fit = cached;
-				STATS.cacheHits.incrementAndGet();
-			} else {
-				fit = fit(ctx, pieces);
-				remember(key, fit);
+			// 3. exact fit on the piece boxes
+			Fit fit = fit(ctx, cell, pieces, range);
+			if (stats) {
+				STATS.terrainNanos.addAndGet(System.nanoTime() - t2);
 			}
-			STATS.terrainNanos.addAndGet(System.nanoTime() - t2);
-			count(fit.terrain());
-			if (fit.terrain() != Terrain.OK) {
+			if (fit.reason() != Reason.OK) {
+				remember(cache, chunk, fit.reason());
+				if (stats) {
+					STATS.count(fit.reason(), biomeName(ctx, cell));
+				}
 				return Optional.empty();
 			}
 			if (fit.dx() != 0 || fit.dy() != 0 || fit.dz() != 0) {
@@ -147,18 +221,71 @@ public final class CasinoStructure extends Structure {
 					p.move(fit.dx(), fit.dy(), fit.dz());
 				}
 			}
-			return Optional.of(new GenerationStub(stub.get().position().offset(fit.dx(), fit.dy(), fit.dz()), Either.right(built)));
+			BlockPos at = stub.get().position().offset(fit.dx(), fit.dy(), fit.dz());
+			StructurePiecesBuilder out = withGround(pieces);
+			// 4. vanilla's biome check at the final start (findValidGenerationPoint repeats it)
+			Holder<Biome> biome = BiomeLookup.at(ctx, QuartPos.fromBlock(at.getX()), QuartPos.fromBlock(at.getY()), QuartPos.fromBlock(at.getZ()));
+			if (biome != null && !ctx.validBiome().test(biome)) {
+				remember(cache, chunk, Reason.BIOME);
+				if (stats) {
+					STATS.count(Reason.BIOME, name(biome));
+				}
+				return Optional.empty();
+			}
+			if (stats) {
+				STATS.count(Reason.OK, biome == null ? "?" : name(biome));
+				STATS.candidateUsed.incrementAndGet(Math.min(fit.candidate(), STATS.candidateUsed.length() - 1));
+			}
+			return Optional.of(new GenerationStub(at, Either.right(out)));
 		} finally {
-			long ns = System.nanoTime() - t0;
-			STATS.recordAll(ns);
-			if (evaluated) {
-				STATS.record(ns);
+			if (stats) {
+				long ns = System.nanoTime() - t0;
+				STATS.recordAll(ns);
+				if (evaluated) {
+					STATS.record(ns);
+				}
 			}
 		}
 	}
 
-	private static void count(Terrain t) {
-		(t == Terrain.OK ? STATS.accepted : t == Terrain.STEEP ? STATS.steep : STATS.flooded).incrementAndGet();
+	/**
+	 * The start's final piece list: {@link CasinoGroundPiece} CARVE first (clears the rooms' volume above the floor
+	 * before any template is placed), the template pieces, then the SKIRT (foundation continued down to the ground).
+	 */
+	static StructurePiecesBuilder withGround(List<StructurePiece> pieces) {
+		List<FitSite.Box> boxes = new ArrayList<>(pieces.size());
+		int top = Integer.MIN_VALUE;
+		for (StructurePiece p : pieces) {
+			BoundingBox b = p.getBoundingBox();
+			boxes.add(new FitSite.Box(b.minX(), b.minZ(), b.maxX(), b.maxZ()));
+			top = Math.max(top, b.maxY());
+		}
+		// floor block row = template y 3 of the start piece (every piece shares it)
+		int floorY = pieces.getFirst().getBoundingBox().minY() + CasinoGroundPiece.FOUNDATION_ROWS;
+		StructurePiecesBuilder out = new StructurePiecesBuilder();
+		out.addPiece(new CasinoGroundPiece(CasinoGroundPiece.Mode.CARVE, boxes, floorY, top));
+		pieces.forEach(out::addPiece);
+		out.addPiece(new CasinoGroundPiece(CasinoGroundPiece.Mode.SKIRT, boxes, floorY, top));
+		return out;
+	}
+
+	private static void remember(Map<Long, Reason> cache, long chunk, Reason reason) {
+		if (cache.size() >= MAX_VERDICTS) {
+			cache.clear();
+		}
+		cache.put(chunk, reason);
+	}
+
+	private static final int MAX_VERDICTS = 4096;
+
+	/** Forget cached verdicts and cells (server stop; surveys switching configurations). */
+	public static void clearCaches() {
+		synchronized (INSTANCES) {
+			for (CasinoStructure s : INSTANCES) {
+				s.verdicts.clear();
+			}
+		}
+		Cell.clear();
 	}
 
 	/** D5: every required pool contributed a piece. */
@@ -178,7 +305,7 @@ public final class CasinoStructure extends Structure {
 
 	// ---- biome pre-check ----------------------------------------------------------------------------------
 
-	/** Surface heights the pre-check samples the biome at (vanilla checks one quart at the projected start). */
+	/** Surface heights the pre-check samples the biome at (vanilla checks one quart at the start). */
 	private static final int[] PRECHECK_Y = {64, 76, 92, 112, 140};
 
 	/**
@@ -223,6 +350,19 @@ public final class CasinoStructure extends Structure {
 			startCentres = c;
 		}
 		return c;
+	}
+
+	/** Survey label: the biome at the start chunk's centre, on the surface. */
+	private static String biomeName(GenerationContext ctx, Cell cell) {
+		int x = ctx.chunkPos().getMiddleBlockX();
+		int z = ctx.chunkPos().getMiddleBlockZ();
+		int y = cell.heights(x, z)[0];
+		Holder<Biome> b = BiomeLookup.at(ctx, QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z));
+		return b == null ? "?" : name(b);
+	}
+
+	private static String name(Holder<Biome> b) {
+		return b.unwrapKey().map(k -> k.identifier().getPath()).orElse("?");
 	}
 
 	/**
@@ -287,125 +427,263 @@ public final class CasinoStructure extends Structure {
 
 	// ---- terrain fit ----------------------------------------------------------------------------------------
 
-	enum Terrain { OK, STEEP, FLOODED }
-
 	/** Verdict + the move that fits the footprint: horizontal candidate offset, vertical mid-span shift. */
-	record Fit(Terrain terrain, int dx, int dy, int dz) {}
+	record Fit(Reason reason, int dx, int dy, int dz, int candidate) {}
 
-	private record Key(int randomState, long seed, long chunk, int structure) {}
+	/**
+	 * Per placement cell (thread, world noise, chunk): the height probe and its column cache, shared by every style
+	 * of the set tried in this cell (vanilla tries them one after another on the same thread) and by both fit stages.
+	 */
+	static final class Cell {
+		private static final ThreadLocal<Cell> CURRENT = new ThreadLocal<>();
+		private static volatile int epoch;
 
-	private static final Map<Key, Fit> VERDICTS = new ConcurrentHashMap<>();
-	private static final int MAX_VERDICTS = 4096;
+		final RandomState randomState;
+		final long seed;
+		final long chunk;
+		final int epochAt;
+		final TerrainProbe probe;
+		final Map<Long, int[]> columns = new HashMap<>();
+		int lastSurface = TerrainProbe.NO_GUESS;
 
-	private static void remember(Key key, Fit fit) {
-		if (VERDICTS.size() >= MAX_VERDICTS) {
-			VERDICTS.clear();
+		private Cell(GenerationContext ctx) {
+			randomState = ctx.randomState();
+			seed = ctx.seed();
+			chunk = ctx.chunkPos().pack();
+			epochAt = epoch;
+			probe = TerrainProbe.of(ctx.chunkGenerator(), ctx.randomState(), ctx.heightAccessor());
 		}
-		VERDICTS.put(key, fit);
-	}
 
-	/** Forget cached verdicts (surveys switching configurations). */
-	public static void clearCaches() {
-		VERDICTS.clear();
-	}
+		static Cell of(GenerationContext ctx) {
+			Cell c = CURRENT.get();
+			if (c == null || c.randomState != ctx.randomState() || c.seed != ctx.seed() || c.chunk != ctx.chunkPos().pack() || c.epochAt != epoch) {
+				c = new Cell(ctx);
+				CURRENT.set(c);
+			}
+			return c;
+		}
 
-	/** Probe columns of a footprint shifted by {@code dx, dz}: the four corners (inset) first, then every piece centre. */
-	static List<int[]> probes(List<StructurePiece> pieces, int dx, int dz) {
-		List<int[]> out = new ArrayList<>();
-		BoundingBox union = pieces.getFirst().getBoundingBox();
-		for (StructurePiece p : pieces) {
-			BoundingBox b = p.getBoundingBox();
-			union = new BoundingBox(Math.min(union.minX(), b.minX()), Math.min(union.minY(), b.minY()), Math.min(union.minZ(), b.minZ()),
-				Math.max(union.maxX(), b.maxX()), Math.max(union.maxY(), b.maxY()), Math.max(union.maxZ(), b.maxZ()));
+		/** Invalidates every thread's cell (their next use rebuilds it). */
+		static void clear() {
+			epoch++;
+			CURRENT.remove();
 		}
-		int i = CORNER_INSET;
-		out.add(new int[] {union.minX() + i + dx, union.minZ() + i + dz});
-		out.add(new int[] {union.maxX() - i + dx, union.maxZ() - i + dz});
-		out.add(new int[] {union.maxX() - i + dx, union.minZ() + i + dz});
-		out.add(new int[] {union.minX() + i + dx, union.maxZ() - i + dz});
-		for (StructurePiece p : pieces) {
-			BlockPos c = p.getBoundingBox().getCenter();
-			out.add(new int[] {c.getX() + dx, c.getZ() + dz});
+
+		/**
+		 * 26.3: fetches the outline rows (shifted by {@code dx, dz}) into the cache, one volume call per row; the
+		 * guess comes from the {@code anchor} column (a box corner), sampled first. Columns a row window cannot
+		 * bracket stay uncached and are sampled on their own later. No-op without the row sampler.
+		 */
+		void prefetch(List<FitSite.Line> rows, int dx, int dz, int[] anchor) {
+			if (rows.isEmpty()) {
+				return;
+			}
+			int guess = heights(anchor[0] + dx, anchor[1] + dz)[0];
+			for (FitSite.Line r : rows) {
+				int x0 = r.x0() + dx;
+				int z0 = r.z0() + dz;
+				// skip rows whose columns are all cached already (shifts reuse the lattice)
+				boolean missing = false;
+				for (int i = 0; i < r.n() && !missing; i++) {
+					missing = !columns.containsKey(BlockPos.asLong(r.alongX() ? x0 + i * r.spacing() : x0, 0, r.alongX() ? z0 : z0 + i * r.spacing()));
+				}
+				if (!missing) {
+					continue;
+				}
+				int d0 = probe.densityCalls;
+				int[][] got = probe.line(x0, z0, r.alongX(), r.spacing(), r.n(), guess);
+				if (got == null) {
+					return;
+				}
+				for (int i = 0; i < got.length; i++) {
+					if (got[i] != null) {
+						int x = r.alongX() ? x0 + i * r.spacing() : x0;
+						int z = r.alongX() ? z0 : z0 + i * r.spacing();
+						if (columns.putIfAbsent(BlockPos.asLong(x, 0, z), got[i]) == null && STATS.enabled) {
+							STATS.sampleColumns.incrementAndGet();
+						}
+					}
+				}
+				if (STATS.enabled) {
+					STATS.densitySamples.addAndGet(probe.densityCalls - d0);
+				}
+			}
 		}
-		for (int[] s : out) {
-			s[0] = Math.round(s[0] / (float) PROBE_GRID) * PROBE_GRID;
-			s[1] = Math.round(s[1] / (float) PROBE_GRID) * PROBE_GRID;
+
+		/** {surface, floor} of a column ({@link TerrainProbe#heights}), cached. */
+		int[] heights(int x, int z) {
+			long key = BlockPos.asLong(x, 0, z);
+			int[] h = columns.get(key);
+			if (h == null) {
+				int d0 = probe.densityCalls;
+				int e0 = probe.exactCalls;
+				h = probe.heights(x, z, lastSurface);
+				columns.put(key, h);
+				if (STATS.enabled) {
+					STATS.sampleColumns.incrementAndGet();
+					STATS.densitySamples.addAndGet(probe.densityCalls - d0);
+					STATS.exactColumns.addAndGet(probe.exactCalls - e0);
+				}
+			}
+			lastSurface = h[0];
+			return h;
 		}
-		return out;
 	}
 
 	/**
-	 * Fits the footprint to the terrain (noise columns only, no chunk is generated): for each candidate offset, water
-	 * deeper than {@link #MAX_WATER_DEPTH} at any probe or shallow water at more than {@link #MAX_WET_PROBES} rejects
-	 * it, so does dry ground spanning more than {@code max_height_range}; the first fitting candidate wins and the
-	 * floor moves to the middle of its span (at most half the range is filled under the low side by the foundation +
-	 * {@code beard_thin}, or cut on the high side). Columns are shared between candidates (probe lattice).
+	 * Prefit: the start piece's footprint + door throat, with the rotation and element the jigsaw will draw first
+	 * from the context random ({@code Rotation.getRandom}, then {@code startPool.getRandomTemplate}); null when it
+	 * cannot be predicted. The start piece is part of every assembly, so a site it does not fit is rejected for all.
 	 */
-	Fit fit(GenerationContext ctx, List<StructurePiece> pieces) {
-		// vanilla projected the start's ground level (min y + ground delta 1) to the start centre's surface + start_height
-		int ref = pieces.getFirst().getBoundingBox().minY() + 1 - PackFiles.START_HEIGHT;
-		Map<Long, int[]> columns = new HashMap<>();
-		Fit worst = null;
-		int n = Math.max(1, Math.min(candidates, OFFSETS.length));
-		for (int k = 0; k < n; k++) {
-			int dx = OFFSETS[k][0];
-			int dz = OFFSETS[k][1];
-			int lo = Integer.MAX_VALUE;
-			int hi = Integer.MIN_VALUE;
-			int wet = 0;
-			Terrain verdict = Terrain.OK;
-			for (int[] s : probes(pieces, dx, dz)) {
-				int[] h = columns.computeIfAbsent(BlockPos.asLong(s[0], 0, s[1]), key -> {
-					STATS.sampleColumns.incrementAndGet();
-					return heights(ctx, s[0], s[1]);
-				});
-				int depth = h[0] - h[1];
-				if (depth > 0) {
-					wet++;
-					if (depth > MAX_WATER_DEPTH || wet > MAX_WET_PROBES) {
-						verdict = Terrain.FLOODED;
-						break;
-					}
-				} else {
-					lo = Math.min(lo, h[0]);
-					hi = Math.max(hi, h[0]);
-					if (hi - lo > maxHeightRange) {
-						verdict = Terrain.STEEP;
-						break;
-					}
-				}
-			}
-			if (verdict == Terrain.OK && hi == Integer.MIN_VALUE) {
-				verdict = Terrain.FLOODED;
-			}
-			if (verdict == Terrain.OK) {
-				STATS.candidateUsed.incrementAndGet(Math.min(k, STATS.candidateUsed.length() - 1));
-				return new Fit(Terrain.OK, dx, Math.floorDiv(lo + hi, 2) - ref, dz);
-			}
-			if (worst == null) {
-				worst = new Fit(verdict, 0, 0, 0); // report the base spot's reason
-			}
+	Fit prefit(GenerationContext ctx, Cell cell, int range) {
+		ChunkPos cp = ctx.chunkPos();
+		WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(0L));
+		random.setLargeFeatureSeed(ctx.seed(), cp.x(), cp.z());
+		Rotation rotation = Rotation.getRandom(random);
+		StructurePoolElement start = jigsaw.getStartPool().value().getRandomTemplate(random);
+		Vec3i size = start.getSize(ctx.structureTemplateManager(), Rotation.NONE);
+		if (size.getX() <= 0 || size.getZ() <= 0) {
+			return null;
 		}
-		return worst;
+		int turns = rotation.ordinal();
+		int ox = cp.getMinBlockX();
+		int oz = cp.getMinBlockZ();
+		FitSite.Box box = FitSite.templateBox(ox, oz, size.getX(), size.getZ(), turns);
+		return site(cell, List.of(box), FitSite.throat(ox, oz, size.getX(), size.getZ(), turns), range, 0);
 	}
 
-	/** {surface, floor}: first free y above any non-air block, and above any motion-blocking block (WG heightmaps). */
-	private static int[] heights(GenerationContext ctx, int x, int z) {
-		NoiseColumn column = ctx.chunkGenerator().getBaseColumn(x, z, ctx.heightAccessor(), ctx.randomState());
-		int min = ctx.heightAccessor().getMinY();
-		int surface = min;
-		int floor = min;
-		for (int y = ctx.heightAccessor().getMaxY(); y >= min; y--) {
-			BlockState s = column.getBlock(y);
-			if (surface == min && Heightmap.Types.WORLD_SURFACE_WG.isOpaque().test(s)) {
-				surface = y + 1;
+	/** Exact fit on the assembled pieces (+ the start piece's door throat). */
+	Fit fit(GenerationContext ctx, Cell cell, List<StructurePiece> pieces, int range) {
+		// the start piece's ground level (min y + ground delta 1) sits at the fit's floor height + start_height
+		int ref = pieces.getFirst().getBoundingBox().minY() + 1 - PackFiles.START_HEIGHT;
+		List<FitSite.Box> boxes = new ArrayList<>(pieces.size());
+		for (StructurePiece p : pieces) {
+			BoundingBox b = p.getBoundingBox();
+			boxes.add(new FitSite.Box(b.minX(), b.minZ(), b.maxX(), b.maxZ()));
+		}
+		List<int[]> throat = List.of();
+		if (pieces.getFirst() instanceof PoolElementStructurePiece s) {
+			Vec3i size = s.getElement().getSize(ctx.structureTemplateManager(), Rotation.NONE);
+			throat = FitSite.throat(s.getPosition().getX(), s.getPosition().getZ(), size.getX(), size.getZ(), s.getRotation().ordinal());
+		}
+		return site(cell, boxes, throat, range, ref);
+	}
+
+	/**
+	 * Fits a site to the terrain. For each candidate shift (the first that fits wins):
+	 * <ul>
+	 *   <li>FLOOD: water at any door-throat column; water deeper than {@link #MAX_WATER_DEPTH} at more than one in
+	 *       {@link #DEEP_SHARE} probes; any water at more than one in {@link #WET_SHARE}; or a wet column whose bed
+	 *       lies more than {@code range + }{@link #BED_SLACK} below the highest dry ground (the foundation +
+	 *       {@code beard_thin} fill under the boxes cannot reach it);</li>
+	 *   <li>FLAT: the dry ground spans more than {@code range}, ignoring the {@code n / }{@link #TRIM_SHARE} highest and
+	 *       lowest probes (a lone bump or dip at the outline is cut / filled by the beard; this also absorbs the
+	 *       rare few-block error of {@link TerrainProbe}).</li>
+	 * </ul>
+	 * Both tests only grow as probes are added, so a candidate is dropped as soon as it fails. The floor moves to
+	 * the middle of the (trimmed) span. The base spot's reason is reported when no candidate fits.
+	 */
+	static Fit site(Cell cell, List<FitSite.Box> boxes, List<int[]> throat, int range, int ref) {
+		// 26.3 (volume sampler): lone samples are ~5x dearer than on 26.2, so the exact pass uses a coarser outline
+		// (row prefetch is a knob, off: measured slower)
+		boolean slowSamples = cell.probe.lines();
+		boolean rows = slowSamples && rowPrefetch;
+		int fineStep = slowSamples ? fineSpacing263 : fineSpacing;
+		List<int[]> fine = FitSite.points(boxes, throat, fineStep);
+		List<int[]> coarse = FitSite.points(boxes, throat, COARSE_SPACING);
+		List<FitSite.Line> fineRows = rows ? FitSite.lines(boxes, fineStep) : List.of();
+		List<FitSite.Line> coarseRows = rows ? FitSite.lines(boxes, COARSE_SPACING) : List.of();
+		Set<Long> throatKeys = new java.util.HashSet<>();
+		for (int[] t : throat) {
+			throatKeys.add(BlockPos.asLong(t[0], 0, t[1]));
+		}
+		int[] span = new int[2];
+		Reason first = null;
+		int tries = Math.max(1, Math.min(candidates, OFFSETS.length));
+		for (int k = 0; k < tries; k++) {
+			int dx = OFFSETS[k][0];
+			int dz = OFFSETS[k][1];
+			// coarse pass first (cheap rejection of a bad shift), then every outline column of the survivor
+			cell.prefetch(coarseRows, dx, dz, coarse.getFirst());
+			Reason verdict = check(cell, coarse, throatKeys, dx, dz, range, span);
+			if (verdict == Reason.OK) {
+				cell.prefetch(fineRows, dx, dz, coarse.getFirst());
+				verdict = check(cell, fine, throatKeys, dx, dz, range, span);
 			}
-			if (Heightmap.Types.OCEAN_FLOOR_WG.isOpaque().test(s)) {
-				floor = y + 1;
-				break;
+			if (verdict == Reason.OK) {
+				// the floor goes to the door's ground (the throat median), inside the trimmed span; terrain higher than
+				// CUT_MAX above it would be a hillside carved out of the rooms: try the next shift
+				int floor = throatLevel(cell, throat, dx, dz, Math.floorDiv(span[0] + span[1], 2));
+				floor = Math.clamp(floor, span[0], span[1]);
+				if (span[1] - floor <= CUT_MAX) {
+					return new Fit(Reason.OK, dx, floor - 1 - ref, dz, k);
+				}
+				verdict = Reason.FLAT;
+			}
+			if (first == null) {
+				first = verdict;
 			}
 		}
-		return new int[] {Math.max(surface, floor), floor};
+		return new Fit(first, 0, 0, 0, -1);
+	}
+
+	/** Median ground (feet) height of the door throat, {@code fallback} without a dry throat column. */
+	private static int throatLevel(Cell cell, List<int[]> throat, int dx, int dz, int fallback) {
+		int[] h = new int[throat.size()];
+		int n = 0;
+		for (int[] t : throat) {
+			int[] c = cell.heights(t[0] + dx, t[1] + dz);
+			if (c[0] == c[1]) {
+				h[n++] = c[0];
+			}
+		}
+		if (n == 0) {
+			return fallback;
+		}
+		java.util.Arrays.sort(h, 0, n);
+		return h[n / 2];
+	}
+
+	/** One candidate shift against one probe set (see {@link #site}); {@code span} receives the trimmed {lo, hi}. */
+	private static Reason check(Cell cell, List<int[]> points, Set<Long> throatKeys, int dx, int dz, int range, int[] span) {
+		int n = points.size();
+		int trim = n / TRIM_SHARE;
+		int maxDeep = n / DEEP_SHARE;
+		int maxWet = Math.max(MAX_WET_PROBES, n / WET_SHARE);
+		int[] dry = new int[n];
+		int dryN = 0;
+		int wet = 0;
+		int deep = 0;
+		int bed = Integer.MAX_VALUE;
+		for (int[] s : points) {
+			int[] h = cell.heights(s[0] + dx, s[1] + dz);
+			int depth = h[0] - h[1];
+			if (depth > 0) {
+				bed = Math.min(bed, h[1]);
+				if (throatKeys.contains(BlockPos.asLong(s[0], 0, s[1])) || ++wet > maxWet || depth > MAX_WATER_DEPTH && ++deep > maxDeep) {
+					return Reason.FLOOD;
+				}
+				continue;
+			}
+			int i = dryN++; // insertion into the sorted dry heights
+			while (i > 0 && dry[i - 1] > h[0]) {
+				dry[i] = dry[i - 1];
+				i--;
+			}
+			dry[i] = h[0];
+			if (dryN > 2 * trim && dry[dryN - 1 - trim] - dry[trim] > range) {
+				return Reason.FLAT;
+			}
+		}
+		if (dryN <= 2 * trim) {
+			return Reason.FLOOD;
+		}
+		span[0] = dry[trim];
+		span[1] = dry[dryN - 1 - trim];
+		if (bed != Integer.MAX_VALUE && span[1] - bed > range + BED_SLACK) {
+			return Reason.FLOOD;
+		}
+		return Reason.OK;
 	}
 
 	@Override
@@ -421,32 +699,58 @@ public final class CasinoStructure extends Structure {
 		return required;
 	}
 
-	// ---- diagnostics (read by WorldgenSpawnSurvey) --------------------------------------------------------
+	// ---- diagnostics (WorldgenSpawnSurvey; -Dburmaldaholic.worldgenStats=true) -----------------------------------
 
 	public static final Stats STATS = new Stats();
 
-	/** Outcome counters + generation timings of {@link #findGenerationPoint} since the last {@link #reset}. */
+	/**
+	 * Outcome counters + generation timings of {@link #findGenerationPoint} since the last {@link #reset}. Off unless
+	 * {@code -Dburmaldaholic.worldgenStats=true} or a survey sets {@link #enabled} (R-CB M6d: no shared counters or
+	 * locks on worldgen threads in production).
+	 */
 	public static final class Stats {
+		public volatile boolean enabled = Boolean.getBoolean("burmaldaholic.worldgenStats");
 		public final AtomicLong attempts = new AtomicLong();
 		public final AtomicLong gated = new AtomicLong();
 		public final AtomicLong precheckRejected = new AtomicLong();
+		public final AtomicLong prefitRejected = new AtomicLong();
 		public final AtomicLong cacheHits = new AtomicLong();
 		public final AtomicLong noStart = new AtomicLong();
 		public final AtomicLong incomplete = new AtomicLong();
 		public final AtomicLong steep = new AtomicLong();
 		public final AtomicLong flooded = new AtomicLong();
+		public final AtomicLong biome = new AtomicLong();
 		public final AtomicLong accepted = new AtomicLong();
 		public final AtomicLong stubNanos = new AtomicLong();
 		public final AtomicLong assembleNanos = new AtomicLong();
 		public final AtomicLong terrainNanos = new AtomicLong();
 		public final AtomicLong sampleColumns = new AtomicLong();
+		public final AtomicLong densitySamples = new AtomicLong();
+		public final AtomicLong exactColumns = new AtomicLong();
 		public final AtomicLong allNanos = new AtomicLong();
 		/** Index of the candidate offset that fitted (0 = the vanilla spot). */
-		public final java.util.concurrent.atomic.AtomicLongArray candidateUsed = new java.util.concurrent.atomic.AtomicLongArray(OFFSETS.length);
+		public final AtomicLongArray candidateUsed = new AtomicLongArray(OFFSETS.length);
+		/** Biome (at the start chunk centre) → outcome counts by {@link Reason} ordinal. */
+		private final Map<String, long[]> perBiome = new TreeMap<>();
 		private final long[] nanos = new long[16384];
 		private int count;
 		private final long[] allSamples = new long[65536];
 		private int allCount;
+
+		void count(Reason r, String biomeName) {
+			(switch (r) {
+				case OK -> accepted;
+				case FLAT -> steep;
+				case FLOOD -> flooded;
+				case INCOMPLETE -> incomplete;
+				case BIOME -> biome;
+			}).incrementAndGet();
+			if (biomeName != null) {
+				synchronized (this) {
+					perBiome.computeIfAbsent(biomeName, k -> new long[Reason.values().length])[r.ordinal()]++;
+				}
+			}
+		}
 
 		synchronized void record(long ns) {
 			nanos[count % nanos.length] = ns;
@@ -460,18 +764,19 @@ public final class CasinoStructure extends Structure {
 		}
 
 		public synchronized void reset() {
-			for (AtomicLong a : List.of(attempts, gated, precheckRejected, cacheHits, noStart, incomplete, steep, flooded, accepted, stubNanos,
-					assembleNanos, terrainNanos, sampleColumns, allNanos)) {
+			for (AtomicLong a : List.of(attempts, gated, precheckRejected, prefitRejected, cacheHits, noStart, incomplete, steep, flooded, biome,
+					accepted, stubNanos, assembleNanos, terrainNanos, sampleColumns, densitySamples, exactColumns, allNanos)) {
 				a.set(0);
 			}
 			for (int i = 0; i < candidateUsed.length(); i++) {
 				candidateUsed.set(i, 0);
 			}
+			perBiome.clear();
 			count = 0;
 			allCount = 0;
 		}
 
-		/** Durations (ns) of the attempts that assembled a casino (passed the biome checks), sorted. */
+		/** Durations (ns) of the attempts that reached the terrain work (passed the gate, pre-check and cache), sorted. */
 		public synchronized long[] sortedNanos() {
 			long[] out = java.util.Arrays.copyOf(nanos, Math.min(count, nanos.length));
 			java.util.Arrays.sort(out);
@@ -485,20 +790,34 @@ public final class CasinoStructure extends Structure {
 			return out;
 		}
 
+		/** Per-biome outcomes: {@code biome=OK/FLAT/FLOOD/INCOMPLETE/BIOME}, most-evaluated first. */
+		public synchronized String perBiome() {
+			List<Map.Entry<String, long[]>> rows = new ArrayList<>(perBiome.entrySet());
+			rows.sort((a, b) -> Long.compare(java.util.Arrays.stream(b.getValue()).sum(), java.util.Arrays.stream(a.getValue()).sum()));
+			StringBuilder sb = new StringBuilder();
+			for (var e : rows) {
+				long[] v = e.getValue();
+				sb.append(e.getKey()).append('=').append(v[0]).append('/').append(v[1]).append('/').append(v[2]).append('/').append(v[3])
+					.append('/').append(v[4]).append(' ');
+			}
+			return sb.toString().trim();
+		}
+
 		@Override
 		public String toString() {
-			long evaluated = Math.max(1, accepted.get() + steep.get() + flooded.get() + incomplete.get());
+			long evaluated = Math.max(1, accepted.get() + steep.get() + flooded.get() + incomplete.get() + biome.get());
 			StringBuilder used = new StringBuilder();
 			for (int i = 0; i < candidateUsed.length(); i++) {
 				used.append(i == 0 ? "" : "/").append(candidateUsed.get(i));
 			}
-			return "attempts=" + attempts + " gated=" + gated + " precheckRejected=" + precheckRejected + " noStart(biome/jigsaw)=" + noStart
-				+ " cacheHits=" + cacheHits + " incomplete=" + incomplete + " steep=" + steep + " flooded=" + flooded + " accepted=" + accepted
-				+ " (by candidate " + used + ")"
+			return "attempts=" + attempts + " gated=" + gated + " precheckRejected=" + precheckRejected + " noStart=" + noStart
+				+ " cacheHits=" + cacheHits + " prefitRejected=" + prefitRejected + " incomplete=" + incomplete + " flat=" + steep + " flood=" + flooded
+				+ " biome=" + biome + " accepted=" + accepted + " (by candidate " + used + ")"
 				+ " | avg ms/evaluated: stub " + String.format(java.util.Locale.ROOT, "%.2f", stubNanos.get() / 1e6 / evaluated)
 				+ " assemble " + String.format(java.util.Locale.ROOT, "%.2f", assembleNanos.get() / 1e6 / evaluated)
 				+ " terrain " + String.format(java.util.Locale.ROOT, "%.2f", terrainNanos.get() / 1e6 / evaluated)
-				+ " (" + sampleColumns.get() / evaluated + " columns)";
+				+ " (" + sampleColumns.get() / evaluated + " columns, " + String.format(java.util.Locale.ROOT, "%.1f", densitySamples.get() / (double) Math.max(1, sampleColumns.get()))
+				+ " density samples each, " + exactColumns + " exact columns)";
 		}
 	}
 }

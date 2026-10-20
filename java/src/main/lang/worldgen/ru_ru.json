@@ -51,6 +51,7 @@
 	"config.burmaldaholic.worldgen.villageCasino.chance": "Шанс казино в деревне",
 	"config.burmaldaholic.worldgen.piglinParlor.chance": "Шанс пиглинского салона",
 	"config.burmaldaholic.worldgen.highRoller.chance": "Шанс лаунжа хайроллеров",
+	"config.burmaldaholic.worldgen.standalone.enabled": "Отдельные казино",
 	"config.burmaldaholic.worldgen.loanSharkRespawnTicks": "Возрождение ростовщика (тики)",
 	"config.burmaldaholic.worldgen.locateCooldownSeconds": "Перезарядка /casino locate (секунды)",
 	"pack.burmaldaholic.casinos": "Казино Burmaldaholic",

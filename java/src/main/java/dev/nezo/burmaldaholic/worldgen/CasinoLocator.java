@@ -332,7 +332,9 @@ public final class CasinoLocator {
 		// v0.2 standalone casinos: their own set (burmaldaholic:casinos), every style listed in the structure tag
 		List<Holder<Structure>> standalone = new ArrayList<>();
 		structures.get(TagKey.create(Registries.STRUCTURE, Identifier.parse(PackFiles.TAG))).ifPresent(set -> set.forEach(standalone::add));
-		addHost(out, state, CasinoKind.CASINO, 1.0, standalone);
+		if (WorldgenRuntime.standaloneActive()) { // worldgen.standalone.enabled off: no new standalone casino can exist
+			addHost(out, state, CasinoKind.CASINO, 1.0, standalone);
+		}
 		structures.get(BuiltinStructures.BASTION_REMNANT).ifPresent(h ->
 			addHost(out, state, CasinoKind.PIGLIN_PARLOR, WorldgenRuntime.parlorChance(), List.of(h)));
 		structures.get(BuiltinStructures.END_CITY).ifPresent(h ->
@@ -342,9 +344,13 @@ public final class CasinoLocator {
 
 	/**
 	 * The standalone casino host straight from the {@code burmaldaholic:casinos} structure set, whether or not this
-	 * level's generator places it (empty when the pack has no such set).
+	 * level's generator places it (empty when the pack has no such set, or while {@code worldgen.standalone.enabled}
+	 * is off).
 	 */
 	public static Optional<Host> standaloneHost(ServerLevel level) {
+		if (!WorldgenRuntime.standaloneActive()) {
+			return Optional.empty(); // worldgen.standalone.enabled off: nothing unexplored to predict
+		}
 		return level.registryAccess().lookupOrThrow(Registries.STRUCTURE_SET)
 			.getValue(Identifier.parse(PackFiles.SET)) instanceof net.minecraft.world.level.levelgen.structure.StructureSet set
 			&& set.placement() instanceof RandomSpreadStructurePlacement spread

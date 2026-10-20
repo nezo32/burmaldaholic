@@ -64,13 +64,14 @@ import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
  */
 public class CasinoBuildingGameTests {
 	private static final long[] SEEDS = {12345L, 42L, -4172144997902289642L, 8675309L};
+	private static final long[] EXTRA_SEEDS = {1L, 2024L, -77L, 31415926L};
 
 	private static BlockPos region(int test, int index) {
 		return new BlockPos(8000 + test * 2400, 0, 8000 + index * 224);
 	}
 
 	/** 1. Registry: the five structures, the set, the tag and every pool load (both MC versions run this). */
-	@GameTest
+	@GameTest(environment = CasinoQa.ENV)
 	public void casinoRegistryLoads(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		RegistryAccess reg = server.registryAccess();
@@ -106,7 +107,7 @@ public class CasinoBuildingGameTests {
 	 * 2. Every block id and property in every casino template resolves: an unknown id loads as AIR silently
 	 * (a typo = a missing table), an unknown property is dropped (a wrong facing = an unusable table).
 	 */
-	@GameTest
+	@GameTest(environment = CasinoQa.ENV)
 	public void templatePalettesResolve(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		Map<Identifier, Resource> files = server.getResourceManager().listResources("structure",
@@ -157,7 +158,7 @@ public class CasinoBuildingGameTests {
 	 * rotations worldgen picks): game blocks present (all ten families in a full casino), facing = a free player
 	 * cell, standing on a floor; v0.2 also keeps the board clearance free and is lit (≥ 10 over games, no dark floor).
 	 */
-	@GameTest(maxTicks = 600)
+	@GameTest(maxTicks = 600, environment = CasinoQa.ENV)
 	public void placesEveryCasinoInEveryRotation(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
@@ -204,7 +205,7 @@ public class CasinoBuildingGameTests {
 	 * C2S {@code table_action} receiver and moves money. The cashier sells chips for an emerald, the Croupier (if the
 	 * building has one) sells a scratch card through its shop page.
 	 */
-	@GameTest(maxTicks = 200)
+	@GameTest(maxTicks = 200, environment = CasinoQa.ENV)
 	public void everyGameOpensFromTheBuilding(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
@@ -268,7 +269,7 @@ public class CasinoBuildingGameTests {
 	 * 5. One casino per placement (D6): exactly one record intersects the building and its box holds every game
 	 * block; a full casino records the Croupier home, v0.2 standalone casinos also the Loan Shark and Baccarat Dealer.
 	 */
-	@GameTest(maxTicks = 100)
+	@GameTest(maxTicks = 100, environment = CasinoQa.ENV)
 	public void oneCasinoRecordPerStart(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		Map<String, List<String>> problems = CasinoQa.problems();
@@ -307,7 +308,7 @@ public class CasinoBuildingGameTests {
 	 * 6. Complete or absent (D5): the casino structure re-decoded with a jigsaw depth of 1 (entrance + floor only, the
 	 * bar never attaches) must never produce a start, while the real one does on the same flat chunks.
 	 */
-	@GameTest(maxTicks = 40)
+	@GameTest(maxTicks = 40, environment = CasinoQa.ENV)
 	public void incompleteAssemblyRejected(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		MinecraftServer server = level.getServer();
@@ -371,7 +372,7 @@ public class CasinoBuildingGameTests {
 	 * start generation ≤ 5 ms and p99 ≤ 25 ms. No chunk is generated (like WorldgenSpawnSurvey). Before the v0.2
 	 * structures exist the same survey runs on {@code minecraft:villages} (one seed) as a harness self-check.
 	 */
-	@GameTest(maxTicks = 40)
+	@GameTest(maxTicks = 40, environment = CasinoQa.ENV)
 	public void casinoFitRateAndGenerationTime(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
 		if (CasinoQa.standalone(server).isEmpty()) {
@@ -382,12 +383,28 @@ public class CasinoBuildingGameTests {
 			helper.succeed();
 			return;
 		}
-		Survey s = survey(server, CasinoQa.SET, SEEDS, 2000);
+		var stats = dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.STATS;
+		boolean stats0 = stats.enabled;
+		stats.enabled = true; // reject reasons of the cells near spawn (cheap counters; timings are measured here, not by STATS)
+		Survey s;
+		try {
+			s = survey(server, CasinoQa.SET, SEEDS, 2000);
+		} finally {
+			stats.enabled = stats0;
+		}
 		CasinoQa.log("fit: {}", s);
 		// the spread numbers are for the full set of five styles (fewer styles = fewer biomes); fit and cost always count
 		boolean allStyles = CasinoQa.standalone(server).size() == CasinoQa.STYLES.size() || CasinoQa.requireV2();
 		helper.assertTrue(s.placed() >= 8 || !allStyles, "≥ 8 casinos within 2000 blocks over 4 seeds: " + s);
-		helper.assertTrue(s.medianNearest() <= 700 || !allStyles, "median nearest casino ≤ 700 blocks: " + s);
+		// median nearest from spawn: 4 seeds give an upper median of 2 samples (one coastal seed swings it by 500 blocks),
+		// so the spread is judged over 8 seeds (the 4 above + 4 more; placement only, their timings are not gated)
+		Survey extra = survey(server, CasinoQa.SET, EXTRA_SEEDS, 2000);
+		List<Integer> all8 = new ArrayList<>(s.nearest());
+		all8.addAll(extra.nearest());
+		all8.sort(Integer::compare);
+		int median8 = all8.isEmpty() ? Integer.MAX_VALUE : (all8.get((all8.size() - 1) / 2) + all8.get(all8.size() / 2)) / 2;
+		CasinoQa.log("fit: spread over 8 seeds: nearest {} -> median {} (4-seed upper median {}); extra seeds {}", all8, median8, s.medianNearest(), extra);
+		helper.assertTrue(median8 <= 700 || !allStyles, "median nearest casino ≤ 700 blocks over 8 seeds: " + all8 + " -> " + median8);
 		helper.assertTrue(s.rejected() <= 0.40, "≤ 40 % of biome-valid cells rejected: " + s);
 		// contract §9.5: median ≤ 5 ms, p99 ≤ 25 ms (cold noise, warm JIT). The shared CI box is ~10× slower under load,
 		// so the hard gate is 30× that budget; -Dburmaldaholic.requireCasinoV2=true applies the contract numbers.
@@ -396,7 +413,92 @@ public class CasinoBuildingGameTests {
 		helper.succeed();
 	}
 
-	record Survey(int placed, int biomeValid, double medianMs, double p99Ms, int medianNearest, String perSeed) {
+	/**
+	 * 9. The worldgen gate is a snapshot (R-CB M5): worker threads read volatile fields, recomputed on the server
+	 * thread. Casino mode is NOT toggled here: its change listeners reset the bot tables of tests running in the same
+	 * batch (a full build lost 5 bot tests to that); the mode path is {@code CasinoMode.onChange → refresh}. The config
+	 * path is exercised in one tick and restored.
+	 */
+	@GameTest(environment = CasinoQa.ENV)
+	public void worldgenRuntimeSnapshotTracksMode(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
+		boolean standalone0 = cfg.standalone.enabled;
+		try {
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			boolean truth = cfg.enabled && dev.nezo.burmaldaholic.core.mode.CasinoMode.isEnabled(server);
+			helper.assertTrue(WorldgenRuntimeView.active() == truth, "snapshot == casino mode && worldgen.enabled");
+			helper.assertTrue(WorldgenRuntimeView.standalone() == (truth && cfg.standalone.enabled), "standalone snapshot");
+			// a worker thread sees the same answer without touching the server's saved data
+			boolean[] seen = new boolean[] {!truth};
+			Thread t = new Thread(() -> seen[0] = WorldgenRuntimeView.active());
+			t.start();
+			t.join();
+			helper.assertTrue(seen[0] == truth, "worker thread reads the snapshot");
+			cfg.standalone.enabled = false;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			helper.assertTrue(WorldgenRuntimeView.active() == truth && !WorldgenRuntimeView.standalone(), "standalone off: annexes keep their gate");
+		} catch (InterruptedException e) {
+			throw new IllegalStateException(e);
+		} finally {
+			cfg.standalone.enabled = standalone0;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * 10. {@code worldgen.standalone.enabled = false}: the standalone set makes no start anywhere (default preset, real
+	 * structure-start generation, no chunk generated), village annexes still attach. One tick, restored after.
+	 */
+	@GameTest(maxTicks = 40, environment = CasinoQa.ENV)
+	public void standaloneDisabledKeepsAnnexes(GameTestHelper helper) {
+		MinecraftServer server = helper.getLevel().getServer();
+		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
+		boolean standalone0 = cfg.standalone.enabled;
+		double village0 = cfg.villageCasino.chance;
+		Survey off;
+		WorldgenSpawnSurvey.Count villages;
+		try {
+			cfg.standalone.enabled = false;
+			cfg.villageCasino.chance = 1;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.clearCaches();
+			off = CasinoQa.standalone(server).isEmpty() ? null : survey(server, CasinoQa.SET, new long[] {SEEDS[0]}, 1500);
+			villages = WorldgenSpawnSurvey.run(server.registryAccess(), dev.nezo.burmaldaholic.worldgen.CasinoBuilder.templates(server), SEEDS[0], true,
+				LevelStem.OVERWORLD, Level.OVERWORLD, "minecraft:villages", 1500);
+		} finally {
+			cfg.standalone.enabled = standalone0;
+			cfg.villageCasino.chance = village0;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.clearCaches();
+		}
+		CasinoQa.log("standalone off: {} | villages {}", off, villages);
+		helper.assertTrue(off == null || off.placed() == 0, "standalone casinos started while disabled: " + off);
+		helper.assertTrue(off == null || off.biomeValid() > 0, "harness: no biome-valid cell surveyed");
+		helper.assertTrue(villages.casinos() > 0 && villages.casinos() >= 0.5 * villages.starts(), "village annexes must still attach (chance 1): " + villages);
+		helper.succeed();
+	}
+
+	/** 11. The test world is written without DSYNC ({@code GameTestServerMixin}): the shutdown save no longer takes ~30 min. */
+	@GameTest(environment = CasinoQa.ENV)
+	public void gameTestServerSkipsSyncWrites(GameTestHelper helper) {
+		helper.assertFalse(helper.getLevel().getServer().forceSynchronousWrites(), "GameTest server still forces synchronous chunk writes");
+		helper.succeed();
+	}
+
+	/** Read-only view of the worldgen gate for the tests above. */
+	private static final class WorldgenRuntimeView {
+		static boolean active() {
+			return dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.active();
+		}
+
+		static boolean standalone() {
+			return dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.standaloneActive();
+		}
+	}
+
+	record Survey(int placed, int biomeValid, double medianMs, double p99Ms, int medianNearest, String perSeed, List<Integer> nearest) {
 		double rejected() {
 			return biomeValid == 0 ? 1 : 1 - placed / (double) biomeValid;
 		}
@@ -423,6 +525,7 @@ public class CasinoBuildingGameTests {
 		List<Double> millis = new ArrayList<>();
 		List<Integer> nearest = new ArrayList<>();
 		StringBuilder perSeed = new StringBuilder();
+		StringBuilder near = new StringBuilder(); // rejected biome-valid cells near spawn (tuning)
 		for (long seed : seeds) {
 			RandomState rs = CasinoQa.randomState(((NoiseBasedChunkGenerator) gen).generatorSettings().value(), reg.lookupOrThrow(Registries.NOISE), seed);
 			ChunkGeneratorStructureState state = gen.createState(sets, rs, seed);
@@ -448,6 +551,8 @@ public class CasinoBuildingGameTests {
 						continue;
 					}
 					biomeValid++;
+					var st = dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure.STATS;
+					long f0 = st.steep.get(), w0 = st.flooded.get(), b0 = st.biome.get(), i0 = st.incomplete.get();
 					long t0 = System.nanoTime();
 					boolean ok = startAt(set, seed, chunk, reg, gen, rs, server, height);
 					millis.add((System.nanoTime() - t0) / 1e6);
@@ -455,6 +560,9 @@ public class CasinoBuildingGameTests {
 						placed++;
 						seedPlaced++;
 						best = Math.min(best, (int) Math.hypot(bx, bz));
+					} else if (Math.hypot(bx, bz) < 1000) {
+						near.append(seed).append("@").append(bx).append(",").append(bz).append(" flat ").append(st.steep.get() - f0).append(" flood ")
+							.append(st.flooded.get() - w0).append(" biome ").append(st.biome.get() - b0).append(" incomplete ").append(st.incomplete.get() - i0).append("; ");
 					}
 				}
 			}
@@ -464,8 +572,11 @@ public class CasinoBuildingGameTests {
 			perSeed.append(seed).append(": ").append(seedPlaced).append(" (nearest ").append(best == Integer.MAX_VALUE ? "-" : best).append(") ");
 		}
 		nearest.sort(Integer::compare);
+		if (!near.isEmpty()) {
+			CasinoQa.log("fit: rejected biome-valid cells within 1000 of spawn: {}", near);
+		}
 		return new Survey(placed, biomeValid, CasinoQa.quantile(millis, 0.5), CasinoQa.quantile(millis, 0.99),
-			nearest.isEmpty() ? Integer.MAX_VALUE : nearest.get(nearest.size() / 2), perSeed.toString().trim());
+			nearest.isEmpty() ? Integer.MAX_VALUE : nearest.get(nearest.size() / 2), perSeed.toString().trim(), List.copyOf(nearest));
 	}
 
 	/** Same weighted pick as ChunkGenerator.createStructures; true when one of the set's casinos starts here. */
@@ -502,7 +613,7 @@ public class CasinoBuildingGameTests {
 	 * 8. Idle tick budget (§9.5): the casino's own server cost per tick — every game block entity's ticker plus every
 	 * NPC's tick — stays ≤ 1 ms (measured directly, so other tests running in parallel do not add noise).
 	 */
-	@GameTest(maxTicks = 100)
+	@GameTest(maxTicks = 100, environment = CasinoQa.ENV)
 	public void idleTickBudget(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		List<Target> targets = new ArrayList<>(CasinoQa.standalone(level.getServer()));
