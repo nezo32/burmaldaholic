@@ -553,7 +553,7 @@ public final class GrandCasino {
 	/**
 	 * The CASINO board: one line of the LARGE font (7 rows, solid 1-block strokes of the light-emitting NEON_A role, a
 	 * one-column letter gap, the N's diagonal touching its stems only at the ends) on a solid SIGN_BACK board that
-	 * fills the 27 columns between the towers (x7..33), recessed one block on the loggia front under a projecting
+	 * fills the 25 visible columns between the towers (x8..32; the towers' walls stand on x7 and x33), recessed one block on the loggia front under a projecting
 	 * stair cornice and over a cornice sill; a bulb chase (BULB / LIGHT) only on the board's top and bottom rows.
 	 */
 	static void marquee(Blueprint b) {
