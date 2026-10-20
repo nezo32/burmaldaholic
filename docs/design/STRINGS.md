@@ -1409,6 +1409,7 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.jackpots.src.end.major` | MAJOR in the Dragon Core | «Мажор» в сердце дракона |
 | `gui.burmaldaholic.slots.jackpots.src.end.grand` | GRAND in the Dragon Core | «Гранд» в сердце дракона |
 | `gui.burmaldaholic.slots.fx.jackpot_gem` | JACKPOT GEM! | КАМЕНЬ ДЖЕКПОТА! |
+| `gui.burmaldaholic.slots.turbo_on` | Turbo: on | Турбо: вкл |
 | `config.burmaldaholic.slots.coinValue` | %1$s: coin value (0 = automatic) | %1$s: стоимость жетона (0 = автоматически) |
 | `config.burmaldaholic.slots.jackpot.gem` | %1$s: jackpot gem chance per spin | %1$s: шанс камня джекпота за спин |
 

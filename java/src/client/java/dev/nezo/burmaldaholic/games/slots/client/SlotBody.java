@@ -138,6 +138,25 @@ public final class SlotBody implements StageHost {
 		extraButtons.addAll(extra);
 	}
 
+	private boolean docked;
+
+	/**
+	 * v2 kit (owner B6): the cabinet in the {@code TableGrid} PlayArea, the controls in the kit Dock (no widgets here; the
+	 * screen maps the Dock gates to {@link #changeBet}, {@link #spinPressed}, {@link #openBuy}, {@link #autoPressed},
+	 * {@link #toggleTurbo}, {@link #openPaytable}).
+	 */
+	public void initDocked(SlotLayout l) {
+		docked = true;
+		layout = l;
+		stage.layout(l.wx, l.wy, l.cell);
+		buttons.clear();
+		iconic.clear();
+	}
+
+	public boolean docked() {
+		return docked;
+	}
+
 	/** (Re)builds the layout and the control widgets for a screen of {@code w × h}. */
 	public void init(int w, int h, Font font, Consumer<AbstractWidget> add) {
 		layout = SlotLayout.of(w, h);
@@ -289,10 +308,10 @@ public final class SlotBody implements StageHost {
 
 	// ---- actions ----------------------------------------------------------------------------------------------
 
-	private void changeBet(int dir) {
+	public void changeBet(int dir) {
 		int next = model.betIndex + dir;
 		if (next < 0 || next >= model.bets.length) {
-			(dir < 0 ? betDown : betUp).shake();
+			if (betDown != null && !docked) (dir < 0 ? betDown : betUp).shake();
 			return;
 		}
 		model.betIndex = next;
@@ -314,7 +333,7 @@ public final class SlotBody implements StageHost {
 		}
 		if (!model.playable) {
 			if (model.lockReason != null) {
-				spin.shake(); // the lock reason is already on the line under the reels
+				if (spin != null && !docked) spin.shake(); // the lock reason is already on the line under the reels
 				return;
 			}
 			invalid("gui.burmaldaholic.error.disabled");
@@ -337,19 +356,26 @@ public final class SlotBody implements StageHost {
 	}
 
 	private void invalid(String key) {
-		spin.shake();
+		if (spin != null && !docked) spin.shake();
 		model.errorKey = key;
 		model.errorAt = Util.getMillis();
 	}
 
-	private void openBuy() {
+	/** The paytable / help panel (the v2 TopBar {@code ?}). */
+	public void openPaytable() {
+		if (stage.spinning()) return;
+		SlotSounds.click();
+		overlays.open(Overlays.Mode.PAYTABLE, Util.getMillis());
+	}
+
+	public void openBuy() {
 		if (stage.spinning()) return;
 		overlays.open(Overlays.Mode.BUY, Util.getMillis());
 	}
 
 	private Component autoTip;
 
-	private void autoPressed() {
+	public void autoPressed() {
 		if (model.autoLeft >= 0) {
 			controls.stopAuto();
 			return;
@@ -357,7 +383,7 @@ public final class SlotBody implements StageHost {
 		overlays.open(Overlays.Mode.AUTO, Util.getMillis());
 	}
 
-	private void toggleTurbo() {
+	public void toggleTurbo() {
 		model.turbo = !model.turbo;
 		controls.turbo(model.turbo);
 		SlotSounds.click();
@@ -406,8 +432,10 @@ public final class SlotBody implements StageHost {
 		stage.drawWindow(g, mouseX, mouseY);
 		CabinetArt.glass(g, l);
 		SidePanels.label(g, l, stage, model);
-		SidePanels.balance(g, l, stage, model);
-		drawBet(g, l);
+		if (!docked) {
+			SidePanels.balance(g, l, stage, model); // v2: the TopBar balance pill and the Dock stepper show these
+			drawBet(g, l);
+		}
 		String tip = meterTip(l, mouseX, mouseY);
 		if (tip != null) g.setTooltipForNextFrame(stage.font().split(Component.literal(tip), 220), mouseX, mouseY); // literal-ok: translated text
 		if (!l.compact) {

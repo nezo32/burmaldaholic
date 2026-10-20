@@ -235,6 +235,7 @@
 	"gui.burmaldaholic.slots.jackpots.src.end.major": "MAJOR in the Dragon Core",
 	"gui.burmaldaholic.slots.jackpots.src.end.grand": "GRAND in the Dragon Core",
 	"gui.burmaldaholic.slots.fx.jackpot_gem": "JACKPOT GEM!",
+	"gui.burmaldaholic.slots.turbo_on": "Turbo: on",
 	"config.burmaldaholic.slots.coinValue": "%1$s: coin value (0 = automatic)",
 	"config.burmaldaholic.slots.jackpot.gem": "%1$s: jackpot gem chance per spin",
 	"advancement.burmaldaholic.jackpot.title": "Jackpot!",

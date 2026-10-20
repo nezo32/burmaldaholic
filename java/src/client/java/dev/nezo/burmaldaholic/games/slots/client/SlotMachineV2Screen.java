@@ -2,13 +2,21 @@ package dev.nezo.burmaldaholic.games.slots.client;
 
 import dev.nezo.burmaldaholic.client.fx.ClientFx;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
-import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
+import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
+import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
 import dev.nezo.burmaldaholic.core.anim.Timeline;
 import dev.nezo.burmaldaholic.core.anim.TimelineSeed;
 import dev.nezo.burmaldaholic.core.anim.TimingProfile;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
-import dev.nezo.burmaldaholic.games.slots.client.panels.SlotButton;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
+import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
+import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
+import dev.nezo.burmaldaholic.games.slots.client.panels.Overlays;
+import dev.nezo.burmaldaholic.games.slots.client.panels.SlotLayout;
 import dev.nezo.burmaldaholic.games.slots.client.panels.SlotModel;
 import dev.nezo.burmaldaholic.games.slots.client.pvp.ShowdownPanel;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.Machine;
@@ -17,9 +25,9 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDefaults;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.TapeCodec;
-import java.util.ArrayList;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotFlow;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotView;
 import java.util.Arrays;
-import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -50,20 +58,22 @@ import net.minecraft.world.entity.player.Inventory;
  * swapped in without moving the clock. Actions: {@code spin{bet}}, {@code skip}, {@code pick{chest}}, {@code buy{bet}},
  * {@code auto{count, loss_limit, stop_feature, bet}}, {@code stop_auto}, {@code turbo{on}}. Rejections arrive as the base
  * {@code sendError}: the reels decelerate back to the previous window (F1).
+ *
+ * <p>Owner B6 (v0.2.0): on the v2 kit like every other game. {@link V2TableScreen} sizes it by {@code ViewportPolicy}
+ * and lays it out in the shared {@link TableGrid} rows: TopBar (title, balance, {@code ?} = paytable and jackpot ladder),
+ * the cabinet and reels in the PlayArea ({@link SlotLayout#docked}), and the Dock from {@link SlotFlow}: the bet stepper
+ * ({@code - bet +}, coin x multiplier in the hint), Buy / Autoplay / Turbo / Slot Showdown, and the primary Spin / Stop.
+ * Keys: Space = primary, A = autoplay, T = turbo.
  */
-public class SlotMachineV2Screen extends CasinoTableScreen {
-	/** Slot Showdown panel layout while open (GUI-relative): rules column left, controls column right. */
-	private static final int SD_TEXT_X = 8;
-	private static final int SD_TEXT_Y = 24;
+public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
+	/** Slot Showdown panel column width (inside the PlayArea while open). */
 	private static final int SD_PANEL_W = 140;
-	private static final int SD_PANEL_X = 400 - 8 - SD_PANEL_W;
-	private static final int SD_TEXT_W = SD_PANEL_X - SD_TEXT_X - 8;
 	private final SlotModel model = new SlotModel();
-	/** Slot Showdown (PvP) entry + panel; the entry button joins the body's control flow. */
+	/** Slot Showdown (PvP) entry (a Dock action) + panel (widgets in the PlayArea while open). */
 	private final ShowdownPanel showdown = new ShowdownPanel(new ShowdownHost());
-	/** Collects the entry button while the body's widgets are built (the panel is closed). */
-	private List<SlotButton> entryCollector;
 	private CompoundTag lastPvp = new CompoundTag();
+	private Box play = Box.EMPTY;
+	private String[] lockArgs = new String[0];
 	private SlotBody body;
 	private Machine machine;
 	private int playedSeq = -1;
@@ -76,9 +86,8 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 	private boolean anticipation = true;
 
 	public SlotMachineV2Screen(CasinoTableMenu menu, Inventory inventory, Component title) {
-		super(menu, inventory, title, 400, 240);
+		super(menu, inventory, title);
 		this.inventoryLabelY = -10_000;
-		this.titleLabelY = -10_000;
 	}
 
 	/** The body (GameTests: the pure present model behind the screen). */
@@ -95,26 +104,121 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		body = new SlotBody(model, new ServerControls(), Component.translatable("gui.burmaldaholic.slots.machine." + m.id));
 		body.serverPaced(true);
 		playedSeq = -1;
-		if (minecraft != null) rebuildWidgets();
+		if (!play.equals(Box.EMPTY)) body.initDocked(SlotLayout.docked(play));
+	}
+
+	// ---- v2 kit ------------------------------------------------------------------------------------------------------
+
+	@Override
+	protected void init() {
+		super.init();
+		rebuildShowdown();
+	}
+
+	/** The Slot Showdown panel's widgets while it is open (inside the PlayArea). */
+	private void rebuildShowdown() {
+		clearWidgets();
+		if (!showdown.open() || play.equals(Box.EMPTY)) return;
+		int px = play.x() + play.w() - 8 - SD_PANEL_W;
+		showdown.buildWidgets(px, SD_PANEL_W, play.x() + 8, px - play.x() - 16, play.y() + play.h() - 6);
 	}
 
 	@Override
-	protected void rebuildWidgets() {
-		clearWidgets();
+	protected Flow<SlotView> flow() {
+		return SlotFlow.INSTANCE;
+	}
+
+	@Override
+	protected @org.jspecify.annotations.Nullable BetPort betPort() {
+		return null; // the bet is the Dock stepper over the machine's ladder
+	}
+
+	/** The Dock's view of the machine now (server state + the running stage). */
+	private SlotView snapshot() {
+		boolean busy = body != null && (body.stage().spinning() || body.stage().preRolling());
+		Gate sd = showdown.open() ? null : showdown.entryGate();
+		return new SlotView(model.playable, model.lockReason != null, model.lockReason == null ? new String[0] : lockArgs, busy, model.autoLeft >= 0,
+			model.bet(), model.betIndex, model.bets.length, model.balance, model.coinValue(), model.canBuy(), model.buyPrice(), model.autoplayAllowed,
+			model.turboAllowed, model.turbo, sd);
+	}
+
+	@Override
+	protected void refresh() {
+		if (view == null || font == null) return;
+		KeyMap k = KeyMap.standard();
+		k.bind(KeyMap.A, KeyMap.Ids.action(SlotFlow.AUTO));
+		k.bind(KeyMap.T, KeyMap.Ids.action(SlotFlow.TURBO));
+		chrome.keys(k);
+		chrome.stepper.set(SlotFlow.betDown(view), SlotFlow.betUp(view), Texts.chips(view.bet()), null, null);
+		super.refresh();
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (body != null && !body.stage().spinning()) model.balance = latestBalance;
+		SlotView now = snapshot();
+		if (view != null && !now.equals(view)) {
+			view = now;
+			refresh();
+		}
+	}
+
+	@Override
+	protected void layoutPlay(TableGrid grid, SlotView v, HitMap hits) {
+		if (!grid.play.equals(play)) {
+			play = grid.play;
+			if (body != null) body.initDocked(SlotLayout.docked(play));
+			rebuildShowdown();
+		}
+	}
+
+	@Override
+	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, SlotView v, int mouseX, int mouseY, float partial) {
 		if (showdown.open()) {
-			showdown.buildWidgets(SD_PANEL_X, SD_PANEL_W, SD_TEXT_X, SD_TEXT_W, imageHeight - 30);
+			int px = play.x() + play.w() - 8 - SD_PANEL_W;
+			showdown.drawBackground(g, play.x() + 8, play.y() + 4, px - play.x() - 16, play.y() + play.h() - 6);
 			return;
 		}
-		if (body == null) return;
-		entryCollector = new ArrayList<>();
-		showdown.entryButton(0, 0, 0);
-		body.extraButtons(entryCollector);
-		entryCollector = null;
-		body.init(width, height, font, this::addRenderableWidget);
+		if (body != null && body.layout() != null) body.drawBackground(g, mouseX, mouseY);
 	}
 
 	@Override
-	protected void onStateChanged(CompoundTag state) {
+	protected void renderOverlay(GuiGraphicsExtractor g, TableGrid grid, SlotView v, int mouseX, int mouseY, float partial) {
+		if (showdown.open()) {
+			int px = play.x() + play.w() - 8 - SD_PANEL_W;
+			showdown.drawLabels(g, px, play.x() + 8, play.y() + 4, px - play.x() - 16, play.y() + play.h() - 6);
+			return;
+		}
+		if (bodyShown()) body.drawOverlays(g, width, height, mouseX, mouseY);
+	}
+
+	@Override
+	protected void openRules() {
+		if (bodyShown()) body.openPaytable();
+	}
+
+	@Override
+	public void onGate(String id, Gate gate) {
+		if (body == null) return;
+		switch (gate.action()) {
+			case SlotFlow.SPIN, SlotFlow.SKIP -> body.spinPressed();
+			case SlotFlow.STOP_AUTO, SlotFlow.AUTO -> body.autoPressed();
+			case SlotFlow.BUY -> body.openBuy();
+			case SlotFlow.TURBO -> body.toggleTurbo();
+			case SlotFlow.BET_DOWN -> body.changeBet(-1);
+			case SlotFlow.BET_UP -> body.changeBet(1);
+			case SlotFlow.SHOWDOWN -> showdown.openPanel();
+			default -> {
+				return;
+			}
+		}
+		view = snapshot();
+		refresh();
+	}
+
+	@Override
+	protected SlotView view(CompoundTag state) {
 		CompoundTag s = state.getCompoundOrEmpty("v2");
 		ensureBody(s);
 		latestBalance = state.getLongOr("balance", latestBalance);
@@ -132,8 +236,10 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		boolean vipOk = s.getBooleanOr("vip_ok", true);
 		model.playable = s.getBooleanOr("enabled", true) && vipOk && bets.length > 0;
 		// a machine above the player's VIP tier: a lock state with its reason, not just a greyed-out SPIN
-		model.lockReason = vipOk ? null : Component.translatable("gui.burmaldaholic.slots.vip_lock",
-			dev.nezo.burmaldaholic.core.service.VipTiers.name(s.getIntOr("min_vip", 0)), dev.nezo.burmaldaholic.core.service.VipTiers.name(s.getIntOr("vip", 0)));
+		Component minTier = dev.nezo.burmaldaholic.core.service.VipTiers.name(s.getIntOr("min_vip", 0));
+		Component myTier = dev.nezo.burmaldaholic.core.service.VipTiers.name(s.getIntOr("vip", 0));
+		model.lockReason = vipOk ? null : Component.translatable("gui.burmaldaholic.slots.vip_lock", minTier, myTier);
+		lockArgs = new String[] {minTier.getString(), myTier.getString()};
 		model.turboAllowed = s.getBooleanOr("turbo_allowed", true);
 		model.turbo = model.turboAllowed && s.getBooleanOr("turbo", model.turbo);
 		model.buyAllowed = s.getBooleanOr("buy_enabled", false);
@@ -152,12 +258,14 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 			playSpin(s.getCompoundOrEmpty("spin"), rest, restCells);
 		} else if (!body.stage().active()) {
 			body.stage().rest(rest, restCells);
-		}		// Slot Showdown: relabel the entry / refresh the open panel when the PvP part of the state changes
+		}
+		// Slot Showdown: refresh the open panel when the PvP part of the state changes (the Dock entry follows the view)
 		CompoundTag pvp = state.getCompoundOrEmpty("pvp");
 		if (!pvp.equals(lastPvp)) {
 			lastPvp = pvp.copy();
-			if (showdown.open() || !body.stage().spinning()) rebuildWidgets();
+			if (showdown.open() && minecraft != null) rebuildShowdown();
 		}
+		return snapshot();
 	}
 
 	/** "Autoplay stopped: …" and "Spins N: bet X, won Y" (SLOTS.md §6.4). */
@@ -247,12 +355,6 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 		}
 	}
 
-	@Override
-	protected void containerTick() {
-		super.containerTick();
-		if (body != null && !body.stage().spinning()) model.balance = latestBalance;
-	}
-
 	/** Machine definition from the state, or the SLOTS.md defaults for anything omitted. */
 	static MachineDef readDef(Machine m, CompoundTag d) {
 		MachineDef base = SlotDefaults.def(m);
@@ -291,38 +393,15 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 
 	/** Whether the machine body is shown (not the Slot Showdown panel). */
 	private boolean bodyShown() {
-		return body != null && !showdown.open();
-	}
-
-	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		if (!bodyShown()) {
-			super.extractBackground(g, mouseX, mouseY, a);
-			if (showdown.open()) {
-				showdown.drawBackground(g, leftPos + SD_TEXT_X, topPos + SD_TEXT_Y, SD_TEXT_W, topPos + imageHeight - 24);
-			}
-			return;
-		}
-		body.drawBackground(g, mouseX, mouseY);
-	}
-
-	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		super.extractRenderState(g, mouseX, mouseY, a);
-		if (bodyShown()) body.drawOverlays(g, width, height, mouseX, mouseY);
-	}
-
-	@Override
-	protected void extractLabels(GuiGraphicsExtractor g, int xm, int ym) {
-		// the body draws its own labels; the base error line stays
-		super.extractLabels(g, xm, ym);
-		if (showdown.open()) showdown.drawLabels(g, SD_PANEL_X, SD_TEXT_X, SD_TEXT_Y, SD_TEXT_W, imageHeight - 24);
+		return body != null && body.layout() != null && !showdown.open();
 	}
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (bodyShown() && body.mouseClicked(event.x(), event.y())) return true;
-		return super.mouseClicked(event, doubleClick);
+		// a slot panel (paytable, buy, autoplay) is modal over the PlayArea and the Dock
+		if (bodyShown() && body.overlays().mode() != Overlays.Mode.NONE) return body.mouseClicked(event.x(), event.y());
+		if (super.mouseClicked(event, doubleClick)) return true;
+		return bodyShown() && body.mouseClicked(event.x(), event.y());
 	}
 
 	@Override
@@ -332,7 +411,8 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (bodyShown() && body.keyPressed(event.key())) return true;
+		// Esc closes an open slot panel first; Space / A / T are kit keys (primary, autoplay, turbo)
+		if (bodyShown() && body.overlays().mode() != Overlays.Mode.NONE && body.keyPressed(event.key())) return true;
 		return super.keyPressed(event);
 	}
 
@@ -346,11 +426,7 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 	private final class ShowdownHost implements ShowdownPanel.Host {
 		@Override
 		public Button button(Component label, int x, int y, int minWidth, Button.OnPress onPress) {
-			if (entryCollector == null) return SlotMachineV2Screen.this.button(label, x, y, minWidth, onPress);
-			// the entry button joins the machine's control flow (SlotBody places it)
-			Button proxy = Button.builder(label, onPress).build();
-			entryCollector.add(new SlotButton(0, 0, 0, 18, label, SlotButton.Style.GOLD, b -> onPress.onPress(proxy)));
-			return proxy;
+			return SlotMachineV2Screen.this.button(label, x, y, minWidth, onPress);
 		}
 
 		@Override
@@ -365,7 +441,9 @@ public class SlotMachineV2Screen extends CasinoTableScreen {
 
 		@Override
 		public void rebuild() {
-			rebuildWidgets();
+			rebuildShowdown();
+			view = snapshot();
+			refresh();
 		}
 
 		@Override

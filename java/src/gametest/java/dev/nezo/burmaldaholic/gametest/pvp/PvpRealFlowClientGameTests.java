@@ -557,7 +557,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.player.openMenu((net.minecraft.world.MenuProvider) rival.player.level().getBlockEntity(pos));
 			rival.send(new TableActionPayload(pos, "pvp_open", MockClient.args("entry", 10L, "spins", 3, "policy", "humans_only", "size", 2)));
 		}, () -> {
-			click(context, labelled("gui.burmaldaholic.pvp.slots.join"), "the Join Showdown button");
+			clickV2(context, "action.showdown", "the Slot Showdown entry in the Dock (v2 kit, SLT)");
 			click(context, labelled("gui.burmaldaholic.pvp.slots.join"), "Join Showdown");
 		}, "SlotShowdownScreen", "gui.burmaldaholic.pvp.slots.spin_now");
 	}

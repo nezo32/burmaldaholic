@@ -1,6 +1,5 @@
 package dev.nezo.burmaldaholic.gametest.slots;
 
-import dev.nezo.burmaldaholic.client.ui.FitScaled;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.games.slots.SlotMachineBlockEntity;
@@ -91,16 +90,16 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 			return null;
 		});
 		if (problem != null) failures.add(problem);
-		// the real SPIN button at its window pixel
+		// the real SPIN (the v2 Dock primary) at its window pixel
 		double[] p = context.computeOnClient(mc -> {
 			SlotMachineV2Screen s = (SlotMachineV2Screen) mc.gui.screen();
-			SlotLayout l = s.body().layout();
-			double f = mc.getWindow().getGuiScale() * (s instanceof FitScaled fs ? fs.fitScale() : 1f);
-			return new double[] {(l.spinX + l.spinW / 2.0) * f, (l.spinY + l.spinH / 2.0) * f};
+			var vp = s.chrome().viewport();
+			return s.chrome().hits().box("primary").map(b -> new double[] {vp.toWindow(b.x() + b.w() / 2.0), vp.toWindow(b.y() + b.h() / 2.0)})
+				.orElseThrow(() -> new AssertionError("no primary target"));
 		});
 		context.getInput().setCursorPos(p[0], p[1]);
 		context.waitTick();
-		context.getInput().pressMouse(0);
+		context.getInput().pressMouse(dev.nezo.burmaldaholic.client.input.Inputs.MOUSE_LEFT);
 		boolean sawPreRoll = false;
 		boolean sawHandoff = false;
 		double[] prev = null;

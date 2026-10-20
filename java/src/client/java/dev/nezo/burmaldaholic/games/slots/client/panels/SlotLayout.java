@@ -11,6 +11,15 @@ public final class SlotLayout extends SlotGeometry {
 		super(compact, screenW, screenH);
 	}
 
+	private SlotLayout(int px, int py, int pw, int ph) {
+		super(px, py, pw, ph);
+	}
+
+	/** The cabinet in the v2 PlayArea {@code play} (owner B6; the controls are in the kit Dock). */
+	public static SlotLayout docked(dev.nezo.burmaldaholic.core.ui.v2.Box play) {
+		return new SlotLayout(play.x(), play.y(), play.w(), play.h());
+	}
+
 	public static SlotLayout of(int screenW, int screenH) {
 		return new SlotLayout(isCompact(screenW, screenH), screenW, screenH);
 	}

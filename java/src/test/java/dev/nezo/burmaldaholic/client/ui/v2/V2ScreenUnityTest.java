@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 class V2ScreenUnityTest {
 	/** Not on the v2 kit yet: owner package and why. A NEW non-v2 game screen fails. */
 	static final Set<String> PENDING = Set.of(
-		"dev.nezo.burmaldaholic.games.slots.client.SlotMachineV2Screen", // slots: legacy 400 × 240 body (request to SLT, K2 handoff)
 		"dev.nezo.burmaldaholic.games.extras.client.DuelInviteScreen", // a small invite pop-up, not a game screen
 		// PvP match screens: legacy 400 × 240 FitScaled scenes (request to E2 / PvP owner, K2 handoff)
 		"dev.nezo.burmaldaholic.games.extras.client.pvp.coin.CoinDuelScreen",
