@@ -92,15 +92,15 @@ jobs:
       - name: Inlined script copy is up to date
         run: bash scripts/check-inlined-script.sh
 
-  # One jar supports every version of supported_mc_range (java/gradle.properties): build + test + gametests
-  # against each of them. Override the list with the repo var JAVA_MC_VERSIONS (JSON array).
+  # Build + test + gametests against every version of supported_mc_versions (java/gradle.properties): 26.3 only
+  # since v0.2.0. Override the list with the repo var JAVA_MC_VERSIONS (JSON array).
   mod:
     needs: changes
     if: needs.changes.outputs.java == 'true'
     strategy:
       fail-fast: false
       matrix:
-        mc: ${{ fromJSON(vars.JAVA_MC_VERSIONS || '["26.2","26.3"]') }}
+        mc: ${{ fromJSON(vars.JAVA_MC_VERSIONS || '["26.3"]') }}
     uses: ./.github/workflows/reusable-build-gradle.yml
     with:
       working-directory: java

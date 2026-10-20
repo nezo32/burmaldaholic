@@ -39,7 +39,7 @@ on:
         type: string
         default: ""
       game-versions:
-        description: Comma/newline separated Modrinth game versions, e.g. "26.2,26.3".
+        description: Comma/newline separated Modrinth game versions, e.g. "26.3".
         type: string
         required: true
       loaders:

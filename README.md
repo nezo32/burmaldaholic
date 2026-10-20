@@ -9,7 +9,7 @@ or on PvP duels against other players. Bots can fill the empty seats. If you run
 will lend you some, and his Debt Collectors will come for you if you don't pay him back. On top of
 that, chaos events rain diamonds or mobs on you, and Last Chance lets you flip a coin with Death.
 
-It is a Fabric mod for Minecraft Java Edition 26.2–26.3 (`burmaldaholic-<version>.jar`, sources in
+It is a Fabric mod for Minecraft Java Edition 26.3 (`burmaldaholic-<version>.jar`, sources in
 [`java/`](java/)), fully localized in English and Russian.
 
 > **No real money.** Chips exist only inside your Minecraft world. You can't buy them, sell them
@@ -256,10 +256,10 @@ real advancements, in their own "Burmaldaholic" tab.
 
 | Component | Version |
 |---|---|
-| Minecraft | **26.2 – 26.3**. One jar covers both (`>=26.2 <26.4`). |
+| Minecraft | **26.3** (`~26.3`: 26.3 and its 26.3.x patches). 26.2 is no longer supported. |
 | Fabric Loader | **0.19.5** or newer |
-| Fabric API | **0.161.0+26.2** / **0.161.0+26.3** (required) |
-| Mod Menu | Optional: 20.0.2 (26.2) / 21.0.0-beta.1 (26.3). Adds the config screen. |
+| Fabric API | **0.161.0+26.3** (required) |
+| Mod Menu | Optional: 21.0.0-beta.1. Adds the config screen. |
 | Java | 25 (required by Minecraft 26.x) |
 
 The mod must be installed on **both the server and every client**, because it adds blocks,
@@ -271,7 +271,7 @@ screens and items.
 
 ### Java (Fabric)
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.5+ for Minecraft 26.2 or 26.3.
+1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.5+ for Minecraft 26.3.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) for your Minecraft version in the
    `mods` folder.
 3. Put `burmaldaholic-<version>.jar` in the `mods` folder.
@@ -383,7 +383,6 @@ own language.
 Useful extras:
 
 ```bash
-./gradlew build -Pmc=26.3            # compile + test against 26.3 instead of 26.2
 ./gradlew runClient [-PwithModMenu]  # dev client (run/<mc>/client)
 ./gradlew runServer                  # dev server
 ./gradlew build -Pmod_version=1.2.3  # set the version (also read from $MOD_VERSION)
@@ -405,13 +404,13 @@ The architecture notes are in [`docs/architecture/java.md`](docs/architecture/ja
 
 | Command | What it runs |
 |---|---|
-| `./gradlew build` | Compile, unit tests (including the golden-vector tests), server GameTests, lang/asset checks, and a linkage check against 26.3 |
+| `./gradlew build` | Compile, unit tests (including the golden-vector tests), server GameTests, lang/asset checks |
 | `./gradlew test` | Fast JUnit unit tests: game math, RTP, hand evaluators |
 | `./gradlew runGameTest` | Headless server GameTests |
 | `xvfb-run -a ./gradlew runClientGameTest` | Real-client tests. These need a display and are not part of `build`. |
 | `cd tools && npm run check:assets && npm test` | Generated textures are up to date; asset generator tests |
 
-CI runs the build for both 26.2 and 26.3 on every pull request, and the asset check when the generator or the
+CI runs the build for Minecraft 26.3 on every pull request, and the asset check when the generator or the
 textures change.
 
 ## Releases

@@ -297,7 +297,7 @@ Burmaldaholic's own [`release.yml`](../../.github/workflows/release.yml) builds 
     uses: nezo32/enchantaholic/.github/workflows/reusable-build-gradle.yml@<sha>
 ```
 See Burmaldaholic's [`ci.yml`](../../.github/workflows/ci.yml): it runs the Gradle build in a matrix
-(`-Pmc=26.2` / `-Pmc=26.3`), skips editions a PR does not touch with path filters, and aggregates all jobs into one
+over the supported Minecraft versions (`-Pmc=26.3`; 26.3 only since v0.2.0), skips editions a PR does not touch with path filters, and aggregates all jobs into one
 `ci-ok` job, the only required status check (a required check skipped by a path filter would block the PR).
 
 ## 6. Finding CurseForge version names

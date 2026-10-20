@@ -10,13 +10,13 @@ parallel without stepping on each other.
 
 | Thing | Version | Notes / source |
 |---|---|---|
-| Minecraft | **26.2** and **26.3** (one jar, `"minecraft": ">=26.2 <26.4"`) | `meta.fabricmc.net/v2/versions/game` |
+| Minecraft | **26.3 only** (`"minecraft": "~26.3"`; 26.2 support dropped 2026-10-20 for v0.2.0) | `meta.fabricmc.net/v2/versions/game` |
 | JDK | **25** (Temurin 25.0.4 used locally) | Minecraft 26.x and Loom 1.18 require Java 25. JDK 21 **cannot** even configure the build (Loom is compiled for Java 25). |
 | Gradle | **9.7.1** (wrapper committed, SHA-256 pinned) | Loom 1.18 declares `org.gradle.plugin.api-version=9.7.0`; Gradle 9.5 fails to resolve it. |
 | Fabric Loom | **1.18.2**, plugin id **`net.fabricmc.fabric-loom`** | Since MC 26.1 the game is **unobfuscated**: the new plugin id has no remapping step and **no mappings** (`mappings` line is gone). Classes use Mojang names (`net.minecraft.world.level.block.Block`, `Identifier` — formerly `ResourceLocation`). The old id `fabric-loom` is for legacy obfuscated versions. |
 | Fabric Loader | **0.19.5** | |
-| Fabric API | `0.161.0+26.2` / `0.161.0+26.3` | maven `net.fabricmc.fabric-api:fabric-api`. Note the renamed modules: `fabric-menu-api-v1` (was screen-handler), `fabric-creative-tab-api-v1` (was item-group), payload registries are `PayloadTypeRegistry.serverboundPlay()/clientboundPlay()`. |
-| Mod Menu (optional) | `20.0.2` (26.2) / `21.0.0-beta.1` (26.3) | `https://maven.terraformersmc.com/releases/`, `com.terraformersmc:modmenu`. Compile-only; not required at runtime. |
+| Fabric API | `0.161.0+26.3` | maven `net.fabricmc.fabric-api:fabric-api`. Note the renamed modules: `fabric-menu-api-v1` (was screen-handler), `fabric-creative-tab-api-v1` (was item-group), payload registries are `PayloadTypeRegistry.serverboundPlay()/clientboundPlay()`. |
+| Mod Menu (optional) | `21.0.0-beta.1` | `https://maven.terraformersmc.com/releases/`, `com.terraformersmc:modmenu`. Compile-only; not required at runtime. |
 | JUnit | Jupiter 5.14.4 | pure-logic unit tests |
 | Mixin / MixinExtras | bundled with Loader (MixinExtras 0.5.5) | `compatibilityLevel: JAVA_25` |
 
@@ -45,7 +45,7 @@ Reference template: <https://github.com/FabricMC/fabric-example-mod> (branch for
 - `SavedDataType(id, ctor, codec, null)` works (Fabric patches the null data-fix type); `server.getDataStorage()`
   is the world-global storage.
 - 26.3's client uses SDL3; under plain `xvfb-run` it fails with "Couldn't find matching GLX visual".
-  Client game tests therefore run locally only on 26.2 so far (see §6).
+  Client game tests therefore run on a real desktop (26.3 only since v0.2.0; see §6).
 
 ---
 
@@ -54,14 +54,13 @@ Reference template: <https://github.com/FabricMC/fabric-example-mod> (branch for
 All from `java/`, with `JAVA_HOME` pointing at a JDK 25.
 
 ```bash
-./gradlew build                     # compile vs 26.2, all checks, unit tests, server GameTests, checkLinkage vs 26.3
-./gradlew build -Pmc=26.3           # compile + test against 26.3 (CI matrix)
+./gradlew build                     # compile vs 26.3, all checks, unit tests, server GameTests (checkLinkage: no-op, one version)
 ./gradlew build -Pmod_version=1.2.3 # release version (CI contract, docs/ci/RELEASING.md); $MOD_VERSION also honoured
 ./gradlew test                      # JUnit only (fast)
 ./gradlew runGameTest               # headless server GameTests (also part of `check`)
 xvfb-run -a ./gradlew runClientGameTest   # real client tests (needs a display; NOT part of `check`)
-./gradlew runClient [-Pmc=26.3] [-PwithModMenu]   # dev client, run dir run/<mc>/client
-./gradlew runServer [-Pmc=26.3]                   # dev server,  run dir run/<mc>/server
+./gradlew runClient [-PwithModMenu]              # dev client, run dir run/<mc>/client
+./gradlew runServer                                # dev server,  run dir run/<mc>/server
 ./gradlew mergeLang checkNoLiterals checkAssetOwnership checkLinkage   # individual checks
 ```
 
@@ -72,8 +71,12 @@ Local JDK: this environment had only JDK 21; Temurin 25 was unpacked to `~/jdk-2
 and used via `JAVA_HOME`. CI uses `actions/setup-java` with 25.
 
 ### Multi-version strategy
-One source tree, **one release jar compiled against the lowest supported version (26.2)**, declared
-for `>=26.2 <26.4`. Three safety nets:
+**Since 2026-10-20 (v0.2.0) only Minecraft 26.3 is supported**: `mc=26.3`, `supported_mc_versions=26.3`,
+`supported_mc_range=~26.3`, CI matrix `["26.3"]`. The 26.2 shims in the source (see the gotchas above) are
+dead code awaiting a cleanup package. The machinery below is kept for when a second version is added again.
+
+One source tree, **one release jar compiled against the lowest supported version**, declared for the whole
+`supported_mc_range`. Three safety nets (as used while 26.2 + 26.3 were supported):
 1. `checkLinkage` (in `check`, `gradle/linkage-check.gradle`): downloads Mojang's official
    unobfuscated 26.3 client jar + Fabric API 26.3 and verifies with ASM that every class/method/field
    our bytecode references exists there (including inherited calls and newly-abstract methods).
@@ -326,8 +329,8 @@ Access wideners/class tweakers are a shared file — request from core.
   (dev server has `online-mode` handled by Loom's dev launch; accept the EULA in `run/<mc>/server/eula.txt`).
 - Worlds/configs live in `java/run/<mc>/{client,server}` (git-ignored). Config file:
   `run/<mc>/client/config/burmaldaholic.json`.
-- Client game tests: `xvfb-run -a ./gradlew runClientGameTest` (26.2 verified here; 26.3's SDL3
-  window needs a GLX-capable virtual display — open item for CI/testers).
+- Client game tests: `xvfb-run -a ./gradlew runClientGameTest` (26.3's SDL3 window needs a
+  GLX-capable virtual display under xvfb — open item for CI; run locally on a real desktop).
 
 ---
 

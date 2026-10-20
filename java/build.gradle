@@ -3,8 +3,8 @@ plugins {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Target Minecraft version. Default = lowest supported (see gradle.properties). Override with
-//   ./gradlew build -Pmc=26.3
+// Target Minecraft version. Default = `mc` in gradle.properties (26.3, the only supported version).
+// Override with `./gradlew build -Pmc=<version>` (needs fabric_api_/modmenu_ entries for that version).
 // ---------------------------------------------------------------------------------------------
 def mcVersion = project.property('mc').toString()
 def mcKey = mcVersion.replace('.', '_')
@@ -44,7 +44,7 @@ loom {
 	}
 
 	runs {
-		// Dev runs use per-version run dirs so 26.2 and 26.3 worlds never mix.
+		// Dev runs use per-version run dirs so worlds of different Minecraft versions never mix.
 		client { runDir = "run/${mcVersion}/client" }
 		server { runDir = "run/${mcVersion}/server" }
 	}
