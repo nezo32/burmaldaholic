@@ -41,7 +41,7 @@ Branch `p2/dl` (from p2/cr-2; merged p2/mt (twice, last @616f71ea) and p2/cr-2 f
 - `-Pmc=26.3 compileJava compileClientJava compileGametestJava`: OK. (Before the owner's 26.3-only decision, 26.2 compiled too.)
 - `-Pmc=26.3 test --tests 'dev.nezo.burmaldaholic.worldgen.*' '*DealerCuesTest' '*DealerMotionTest' '*CardMotionTest' '*CardKitReviewTest' '*RawInputGuardTest'`:
   343 run; the only failure is MultiBlockLayoutsTest (see Risks), and DealerCellClearanceTest was fixed and re-run green.
-- `-Pmc=26.3 runGameTest -Dfabric-api.gametest.filter=house_dealer` (after the MT merge, branch head): **All 11 passed**.
+- `-Pmc=26.3 runGameTest -Dfabric-api.gametest.filter=house_dealer` on a wiped `build/run/gameTest`, after merging p2/cr-2 @a2d77bf5 and p2/mt @89c15f71: **All 11 passed**; MultiBlockLayoutsTest + worldgen.* unit tests green.
 - `-Pmc=26.3 runGameTest -Dfabric-api.gametest.filter=worldgen_npc`: **All 5 passed**.
 - Fixed a test-harness bug: the casino tests used to un-force chunks the GameTest framework had forced, which froze neighbouring tests. Now they only un-force their own chunks. Covered:
   annex, grand (riviera via /place), Nether parlor, End lounge (one dealer per table, bound, species, End head room, no
@@ -53,7 +53,7 @@ Branch `p2/dl` (from p2/cr-2; merged p2/mt (twice, last @616f71ea) and p2/cr-2 f
 - "Unload/reload" is simulated by a save/load round trip of the entity, not a real chunk unload.
 
 ## Requests to other packages
-- **MT/CR-2:** after the MT @616f71ea merge, `MultiBlockLayoutsTest.everyLayoutTableIsAFullFootprintWithClearance` fails
+- (resolved) the annex dealer-cell reach issue: CR-2 fixed it in a2d77bf5.
   with "casino/annex/plains blackjack @3,3 R4 dealer Cell[3,1] not reachable from the walkway". That is MT's new reachability rule
   against CR-2's annex; DL changed no blocks there. CR-2 or MT should fix it.
 - **SY:** if RouletteSync, CrapsSync or PokerPub timing changes, update the three `*DealerCues` mappers and their tests.

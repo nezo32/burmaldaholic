@@ -384,7 +384,7 @@ public class HouseDealerGameTests {
 			d.use(p, level);
 			helper.assertTrue(p.containerMenu instanceof CasinoTableMenu m && m.pos().equals(main), "click opened the table: " + p.containerMenu);
 			p.closeContainer();
-			for (BlockPos c : TableFootprint.positions(main, Direction.SOUTH, dev.nezo.burmaldaholic.core.table.parts.TableGame.BLACKJACK)) {
+			for (BlockPos c : TableParts.cellPositions(main, level.getBlockState(main))) {
 				level.setBlock(c, Blocks.AIR.defaultBlockState(), 3);
 			}
 			d.use(p, level);
