@@ -44,6 +44,7 @@
 	"gui.burmaldaholic.worldgen.dir.sw": "south-west",
 	"gui.burmaldaholic.worldgen.dir.w": "west",
 	"gui.burmaldaholic.worldgen.dir.nw": "north-west",
+	"msg.burmaldaholic.worldgen.house_table_protected": "This game belongs to the house and stays in the casino",
 	"advancement.burmaldaholic.piglin_parlor.title": "Snouts and Ladders",
 	"advancement.burmaldaholic.piglin_parlor.description": "Enter a Piglin Parlor",
 	"config.burmaldaholic.worldgen.enabled": "Generate casinos",

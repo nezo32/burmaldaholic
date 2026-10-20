@@ -6,6 +6,7 @@
 // Y∈[0,16]), Z toward the players (main block Z∈[0,16]); mapped per cell for facing=north (players on the north side).
 // Every machine is complete without its renderer (slot cabinets, wheel stand + rim, Plinko frame, cashier booth); the
 // renderers draw the moving parts (reels, wheel disc, Plinko board / balls). Lit parts use light_emission. Pure.
+import { controllerLoot } from './loot.mjs';
 import { JAVA_ASSETS, json, png } from '../../lib/emit.mjs';
 import * as A from './machine_art.mjs';
 import * as H from './art_hd.mjs';
@@ -170,7 +171,7 @@ export function machineGeometry(kind) {
     }
     box('wood', 3, 12, 4, 13, 13.5, 6);
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-      for (const seg of ringZ(hub.x, hub.y, 22.5, 21, sx, sy, 7, 10.5, 'trim', { emit: 10 })) S.push(seg);
+      for (const seg of ringZ(hub.x, hub.y, 22.5, 21, sx, sy, 7, 10.5, 'bulbs', { emit: 15 })) S.push(seg);
     }
     box('trim', 6, 24, 10, 10, 28, 12);
     box('trim', 7, 46, 7, 9, 48, 11);
@@ -373,24 +374,7 @@ export function machineBlockstate(m) {
 }
 
 export function machineLoot(m) {
-  const id = `burmaldaholic:${m.name}`;
-  return {
-    type: 'minecraft:block',
-    pools: [
-      {
-        rolls: 1.0,
-        conditions: [
-          { condition: 'minecraft:survives_explosion' },
-          {
-            condition: 'minecraft:any_of',
-            terms: ['main', 'single'].map((part) => ({ condition: 'minecraft:block_state_property', block: id, properties: { part } })),
-          },
-        ],
-        entries: [{ type: 'minecraft:item', name: id }],
-      },
-    ],
-    random_sequence: `burmaldaholic:blocks/${m.name}`,
-  };
+  return controllerLoot(m.name);
 }
 
 export function machineOutputs() {
