@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
 import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import dev.nezo.burmaldaholic.worldgen.logic.Markers;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Checks;
@@ -13,40 +14,39 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 /**
- * Runs {@link Checks} on every generated v0.2 piece (architecture doc §9.1). Lane CB-1 widens the source to
- * {@code CasinoPack.all()} once the registry exists; until then it covers every Overworld piece.
+ * Runs {@link Checks} on every generated v0.2 piece (architecture doc §9.1): the design checks and the valuables scan
+ * over {@link CasinoPack#pieces()} (Overworld styles, village annexes, Parlor, Lounge); pieces listed in
+ * {@link Checks#PENDING_CLEARANCE} skip only the side-clearance rule, those in {@link Checks#PENDING_VALUABLES} skip
+ * only the valuables scan, until their owners delete the entries.
  */
 class PieceChecksTest {
 	static List<Piece> pieces() {
 		return OverworldPieces.all();
 	}
 
+	static List<Piece> allPieces() {
+		return CasinoPack.pieces();
+	}
+
 	@TestFactory
 	List<DynamicTest> everyPiecePassesChecks() {
-		return pieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
+		return allPieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
 			List<String> problems = Checks.run(p);
 			assertEquals(List.of(), problems, p.id());
 		})).toList();
 	}
 
-	/** Blocks players would strip a casino for (resource farming). Copper / iron decor (chains, bars) is fine. */
-	private static final List<String> VALUABLE = List.of("gold_block", "iron_block", "diamond", "emerald", "netherite",
-		"raw_gold", "raw_iron", "lapis_block", "redstone_block", "ancient_debris", "beacon", "weighted_pressure_plate");
-
+	/** {@link Checks#FORBIDDEN} storage blocks (also part of {@link Checks#run}; kept separate for a clear report). */
 	@TestFactory
 	List<DynamicTest> noValuableBlocks() {
-		return pieces().stream().map(p -> DynamicTest.dynamicTest(p.id(), () -> {
+		return allPieces().stream().filter(p -> !Checks.PENDING_VALUABLES.contains(p.id())).map(p -> DynamicTest.dynamicTest(p.id(), () -> {
 			var g = p.layout().grid();
 			var s = g.size();
 			for (int x = 0; x < s.x(); x++) {
 				for (int y = 0; y < s.y(); y++) {
 					for (int z = 0; z < s.z(); z++) {
 						var b = g.get(x, y, z);
-						if (b != null && b.name().startsWith("minecraft:")) {
-							for (String v : VALUABLE) {
-								assertFalse(b.name().contains(v), p.id() + " holds " + b + " at " + x + "," + y + "," + z);
-							}
-						}
+						assertFalse(Checks.forbidden(b), p.id() + " holds " + b + " at " + x + "," + y + "," + z);
 					}
 				}
 			}

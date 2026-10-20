@@ -92,8 +92,10 @@ class KitsTest {
 			assertEquals(f.id(), p.layout().grid().get(C, ROW, C).properties().get("facing"));
 			Markers.Npc npc = (Markers.Npc) p.layout().markers().getFirst().marker();
 			assertEquals(f, npc.facing());
-			assertEquals(C - f.dx(), p.layout().markers().getFirst().pos().x());
-			assertEquals(C - f.dz(), p.layout().markers().getFirst().pos().z());
+			// full 3 × 2 table: the dealer stands behind its back row (f −2)
+			assertEquals(C - 2 * f.dx(), p.layout().markers().getFirst().pos().x());
+			assertEquals(C - 2 * f.dz(), p.layout().markers().getFirst().pos().z());
+			assertEquals("main", p.layout().grid().get(C, ROW, C).properties().get("part"));
 		}
 	}
 
@@ -111,9 +113,9 @@ class KitsTest {
 	void kitsStayInsideTheirFootprints() {
 		// r × f half extents and rows per kit (see the kit javadocs)
 		Map<String, int[]> fp = Map.of(
-			"tablePod", new int[] {-2, 2, -1, 1, 0, 3},
+			"tablePod", new int[] {-2, 2, -2, 1, 0, 3},
 			"cashierCage", new int[] {-2, 2, -1, 0, 0, 3},
-			"machineAlcove", new int[] {-1, 1, 0, 1, 0, 4},
+			"machineAlcove", new int[] {-2, 2, 0, 1, 0, 5},
 			"planter", new int[] {-1, 1, -1, 1, 0, 1},
 			"chipStacks", new int[] {0, 0, 0, 0, 0, 1},
 			"duelPit", new int[] {-2, 2, -2, 2, -2, 1});

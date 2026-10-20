@@ -64,8 +64,9 @@ class BlueprintSkeletonTest {
 		b.fill(0, 0, 0, 6, 0, 6, Role.FLOOR).clear(0, 1, 0, 6, 5, 6);
 		b.kit(Kits.tablePod(Game.BACCARAT, NpcRole.BACCARAT_DEALER), 3, 1, 3, Facing.EAST);
 		Piece p = b.build();
-		assertEquals(BlockSpec.of(Game.BACCARAT.blockId(), "facing", "east"), p.layout().grid().get(3, 1, 3));
-		assertEquals(2, p.layout().markers().getFirst().pos().x()); // dealer west of a table facing east
+		assertEquals(BlockSpec.of(Game.BACCARAT.blockId(), "facing", "east", "part", "main"), p.layout().grid().get(3, 1, 3));
+		assertEquals(BlockSpec.of(Game.BACCARAT.blockId(), "facing", "east", "part", "back"), p.layout().grid().get(2, 1, 3));
+		assertEquals(1, p.layout().markers().getFirst().pos().x()); // dealer west of the table's back row (facing east)
 		assertFalse(p.keepClear().isEmpty());
 	}
 

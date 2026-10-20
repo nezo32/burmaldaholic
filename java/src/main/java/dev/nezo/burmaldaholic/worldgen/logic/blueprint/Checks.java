@@ -28,11 +28,56 @@ import java.util.Set;
  *   <li>light: ≥ 10 above every game block, ≥ 1 on every interior cell a mob could spawn on;</li>
  *   <li>every game's player cell is reachable on foot from an entry (door / jigsaw doorway);</li>
  *   <li>markers inside the piece, NPC feet and chest cells free, decor physically supported
- *       (hanging lanterns, carpets, candles, pots, wall banners) — nothing floats.</li>
+ *       (hanging lanterns, carpets, candles, pots, wall banners) — nothing floats;</li>
+ *   <li>clearance of game blocks ({@link TableClearance}): multi-block table rules R1–R6 (integrity, support,
+ *       walkway, dealer, spacing, headroom) and the machine side / head cells;</li>
+ *   <li>no {@link #FORBIDDEN} (valuable storage) blocks.</li>
  * </ol>
  */
 public final class Checks {
 	private Checks() {}
+
+	/**
+	 * Pieces that still break the clearance rule R1–R6 ({@link TableClearance}) and skip it (only it) until they are
+	 * rebuilt: the v0.2 Overworld styles, annexes, Parlor and Lounge predate multi-block tables and are replaced by the
+	 * casino redesign (CR). Owners DELETE entries as their pieces pass — never add one.
+	 */
+	public static final Set<String> PENDING_CLEARANCE = pendingClearance();
+
+	/**
+	 * Pieces that still hold {@link #FORBIDDEN} blocks and skip that check until rebuilt (CR / Parlor + Lounge
+	 * palettes). Owners DELETE entries — never add one.
+	 */
+	public static final Set<String> PENDING_VALUABLES = Set.of("casino/parlor", "casino/lounge");
+
+	/**
+	 * Storage / trophy blocks players would strip a casino for (resource farming). Waxed copper, chains and bars are
+	 * decor and allowed. Exact ids, plus every shulker box ({@link #forbidden}).
+	 */
+	public static final Set<String> FORBIDDEN = Set.of("minecraft:gold_block", "minecraft:raw_gold_block",
+		"minecraft:iron_block", "minecraft:raw_iron_block", "minecraft:diamond_block", "minecraft:emerald_block",
+		"minecraft:netherite_block", "minecraft:lapis_block", "minecraft:redstone_block", "minecraft:beacon",
+		"minecraft:ancient_debris", "minecraft:dragon_head", "minecraft:dragon_wall_head", "minecraft:dragon_egg",
+		"minecraft:light_weighted_pressure_plate", "minecraft:heavy_weighted_pressure_plate");
+
+	public static boolean forbidden(BlockSpec b) {
+		return b != null && (FORBIDDEN.contains(b.name()) || b.name().startsWith("minecraft:") && b.name().endsWith("shulker_box"));
+	}
+
+	private static Set<String> pendingClearance() {
+		Set<String> s = new java.util.LinkedHashSet<>();
+		for (String style : new String[] {"tudor", "oasis", "safari", "alpine", "ice_palace"}) {
+			for (String part : new String[] {"entrance", "floor_a", "floor_b", "bar", "office", "vip"}) {
+				s.add("casino/" + style + "/" + part);
+			}
+		}
+		for (String v : new String[] {"plains", "desert", "savanna", "taiga", "snowy"}) {
+			s.add("casino/annex/" + v);
+		}
+		s.add("casino/parlor");
+		s.add("casino/lounge");
+		return java.util.Collections.unmodifiableSet(s);
+	}
 
 	/** Block light emitted by blocks the palettes use (vanilla values). Unknown blocks emit 0. */
 	static final Map<String, Integer> EMISSION = Map.ofEntries(
@@ -125,6 +170,16 @@ public final class Checks {
 			if (light[v.x()][y][v.z()] < 10) {
 				out.add(spot.game() + " at " + v + " is lit " + light[v.x()][y][v.z()] + " (< 10 above the table)");
 			}
+		}
+		if (!PENDING_CLEARANCE.contains(p.id())) {
+			TableClearance.check(p, out);
+		}
+		if (!PENDING_VALUABLES.contains(p.id())) {
+			forEach(new Geometry.Box(0, 0, 0, s.x() - 1, s.y() - 1, s.z() - 1), (x, y, z) -> {
+				if (forbidden(g.get(x, y, z))) {
+					out.add("forbidden block " + g.get(x, y, z) + " at " + x + "," + y + "," + z);
+				}
+			});
 		}
 		if (!p.entries().isEmpty()) {
 			boolean[][][] reach = reachable(g, p.entries());
@@ -247,8 +302,12 @@ public final class Checks {
 
 	private static boolean isGame(Piece p, int x, int y, int z) {
 		for (Piece.GameSpot spot : p.games()) {
-			if (spot.pos().x() == x && spot.pos().y() == y && spot.pos().z() == z) {
-				return true;
+			if (spot.pos().y() == y) {
+				for (int[] c : TableClearance.footprint(spot)) {
+					if (c[0] == x && c[1] == z) {
+						return true;
+					}
+				}
 			}
 		}
 		return false;

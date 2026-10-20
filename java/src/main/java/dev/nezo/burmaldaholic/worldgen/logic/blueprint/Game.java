@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.worldgen.logic.blueprint;
 
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import java.util.EnumSet;
 import java.util.Set;
@@ -58,6 +59,11 @@ public enum Game {
 			case BLACKJACK, ROULETTE, CRAPS, BACCARAT, UTH, POKER -> true;
 			default -> false;
 		};
+	}
+
+	/** Multi-block footprint kind of a table (MT-DESIGN §1), null for 1 × 1 machines and cashiers. */
+	public TableGame tableGame() {
+		return TableGame.ofBlockName(blockId.substring(blockId.indexOf(':') + 1));
 	}
 
 	public static Game byBlockId(String id) {
