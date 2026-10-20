@@ -27,12 +27,39 @@ import net.minecraft.world.level.chunk.LevelChunk;
  * </ul>
  *
  * Only a crash (no clean stop) still leaves open stakes on disk; those are refunded on load (§4.1).
+ *
+ * <p>Vanilla fires {@code FULL_CHUNK_STATUS_CHANGE} from inside {@code DistanceManager.runAllUpdates}; a play-out that
+ * touches a chunk there re-entered it and crashed the server (T-HR round 2). So during a distance-manager update
+ * ({@code ServerChunkCacheMixin}) the unloading chunk is only queued, and played out when the outermost update returns:
+ * still before {@code ChunkMap.processUnloads} saves it.
  */
 public final class TableLifecycle {
 	/** Loaded tables (identity set; entries vanish with their block entity). Server thread only. */
 	private static final Set<CasinoTableBlockEntity> LOADED = Collections.newSetFromMap(new WeakHashMap<>());
 
+	/** Unloading chunks seen during a distance-manager update, played out when it returns. Server thread only. */
+	private static final List<LevelChunk> PENDING_UNLOADS = new ArrayList<>();
+	private static int chunkUpdateDepth;
+
 	private TableLifecycle() {}
+
+	/** {@code ServerChunkCache.runDistanceManagerUpdates} starts (it may nest). */
+	public static void enterChunkUpdates() {
+		chunkUpdateDepth++;
+	}
+
+	/** {@code ServerChunkCache.runDistanceManagerUpdates} returned: the outermost one plays out what unloaded meanwhile. */
+	public static void exitChunkUpdates() {
+		if (--chunkUpdateDepth > 0) {
+			return;
+		}
+		chunkUpdateDepth = 0;
+		while (!PENDING_UNLOADS.isEmpty()) {
+			List<LevelChunk> chunks = new ArrayList<>(PENDING_UNLOADS);
+			PENDING_UNLOADS.clear();
+			chunks.forEach(TableLifecycle::playOutChunk);
+		}
+	}
 
 	public static void register() {
 		ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((be, level) -> {
@@ -51,7 +78,11 @@ public final class TableLifecycle {
 			}
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(TableLifecycle::onServerStopping);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> LOADED.clear());
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			LOADED.clear();
+			PENDING_UNLOADS.clear();
+			chunkUpdateDepth = 0;
+		});
 	}
 
 	/** Whether core knows the table as loaded (it will be played out on server stop). */
@@ -59,8 +90,16 @@ public final class TableLifecycle {
 		return LOADED.contains(table);
 	}
 
-	/** The chunk is about to be saved and unloaded: play out every table in it. */
+	/** The chunk is about to be saved and unloaded: play out every table in it (after the distance-manager update). */
 	static void onChunkUnloading(LevelChunk chunk) {
+		if (chunkUpdateDepth > 0) {
+			PENDING_UNLOADS.add(chunk);
+			return;
+		}
+		playOutChunk(chunk);
+	}
+
+	private static void playOutChunk(LevelChunk chunk) {
 		boolean changed = false;
 		for (BlockEntity be : new ArrayList<>(chunk.getBlockEntities().values())) {
 			if (be instanceof CasinoTableBlockEntity table && !table.isRemoved()) {

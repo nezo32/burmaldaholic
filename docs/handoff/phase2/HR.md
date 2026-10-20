@@ -95,7 +95,16 @@ bet-entry controls (`BetAmount`, client `BetEntry`).
   restored): roulette, craps, baccarat, **UTH (typed Ante, VIP-bound Max == server, balance-bound Max 1 000 → Deal stake 2 000)**,
   Plinko → BUILD SUCCESSFUL (log `.burmaldaholic-tools/hr-r3-client263.log`). Not run: full build, other lanes.
 
-### Risk / request (core, TableLifecycle owner)
-- Product-side the same path exists: a busy table whose chunk unloads is played out inside the chunk-status callback. If the play-out
-  touches chunk loading (e.g. `setChanged`/neighbour access), a real server could hit the same NPE. Suggest deferring the play-out
-  (`server.execute`) or collecting tables and settling them after `runAllUpdates`. Not changed here (not HR's file).
+### Core fix: busy tables at chunk unload / server stop (coordinator request, release blocker)
+- Root cause, reproduced in-process: vanilla fires `FULL_CHUNK_STATUS_CHANGE` inside `DistanceManager.runAllUpdates`; the play-out of
+  a busy table re-entered chunk loading there, which modified the set being iterated (vanilla NPE, server crash). Real servers too.
+- Fix (core, minimal): `core/mixin/ServerChunkCacheMixin` (HEAD/RETURN of `ServerChunkCache.runDistanceManagerUpdates`, registered
+  in `burmaldaholic.core.mixins.json`) brackets the update; `TableLifecycle.onChunkUnloading` only queues the chunk while inside it
+  and plays it out when the outermost update returns (still before `ChunkMap.processUnloads` saves the chunk, so the saved table
+  carries no stakes). Outside an update it plays out at once, as before. Queue/depth reset on SERVER_STOPPED.
+- `TableUnloadGameTests` (new, registered in gametest `fabric.mod.json`): busy blackjack, roulette, baccarat, craps, UTH and poker
+  tables (seat + stake / buy-in) in a far force-loaded chunk; the ticket is dropped so vanilla unloads it for real. Asserts the
+  server lives, every balance is the start (refund) or a legal played-out result (blackjack −100/0/+100/+150, craps ±50, UTH fold −20),
+  the tables reloaded carry no stake and no seat, and a second play-out pays nothing. A second test does the SERVER_STOPPING play-out.
+  Before the fix the unload test crashed the server with the exact NPE; after: green twice.
+- Full `runGameTest -Pmc=26.3`: "All 240 required tests passed", BUILD SUCCESSFUL.

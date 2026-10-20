@@ -12,6 +12,7 @@
 			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.RealFlowTableGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.HighRollerGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.TableUnloadGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.RealFlowMultiplayerGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.JavaReviewGameTests",
