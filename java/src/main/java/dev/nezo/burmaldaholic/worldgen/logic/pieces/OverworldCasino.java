@@ -141,7 +141,8 @@ public final class OverworldCasino {
 	// =====================================================================================================
 
 	private static Blueprint start(Style s, Part part, int sx, int sy, int sz) {
-		return Blueprint.of(layoutId(s, part), kind(), sx, sy, sz, s.palette());
+		// retired pre-redesign pieces: compact 1 × 1 tables (their ids are reused by the Grand Casino, so not PENDING)
+		return Blueprint.of(layoutId(s, part), kind(), sx, sy, sz, s.palette()).compactTables(true);
 	}
 
 	/**

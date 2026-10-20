@@ -95,7 +95,7 @@ public final class Kits {
 	 * Table pod (MT-DESIGN §6) — the full 3 × 2 table with its main block at the anchor (footprint r −1..1 × f −1..0),
 	 * the players' walkway of CARPET_ACCENT at f +1 (r −1..1), stools at r ±2 f +1, the dealer at the table's dealer
 	 * cell ({@code TableFootprint.dealerCell}: f −2, r 0 or r −1 for roulette) — an NPC of role {@code dealer}, or a
-	 * dealer station (a lectern) when {@code dealer} is null — and a keep-clear volume over footprint ∪ walkway for
+	 * dealer cell left as two blocks of air when {@code dealer} is null (the MT contract test: a bot dealer stands there) — and a keep-clear volume over footprint ∪ walkway for
 	 * y + 1..y + 3 (the in-world board). Footprint r −2..2 × f −2..+1; {@link TableClearance} checks it.
 	 */
 	public static Kit tablePod(Game game, NpcRole dealer) {
@@ -105,14 +105,11 @@ public final class Kits {
 				return;
 			}
 			b.game(game, x, y, z, front);
-			Material stool = b.palette().get(Role.STOOL);
 			for (int r = -1; r <= 1; r++) {
 				put(b, x, y, z, front, r, 1, Role.CARPET_ACCENT);
 				put(b, x, y + 1, z, front, r, 1, Blueprint.AIR);
 			}
-			for (int r : new int[] {-2, 2}) {
-				put(b, x, y, z, front, r, 1, stool.slab("bottom"));
-			}
+			// the player row stays clear (no stools: the full table's seats are drawn on its rail)
 			TableGame tg = game.tableGame();
 			int dr = tg == null ? 0 : tg.dealerR(), df = tg == null ? -1 : tg.dealerF();
 			int dx = lx(x, front, dr, df), dz = lz(z, front, dr, df);
@@ -121,7 +118,7 @@ public final class Kits {
 				b.set(dx, y, dz, Blueprint.AIR);
 				b.npc(dealer, dx, y, dz, front);
 			} else {
-				b.set(dx, y, dz, BlockSpec.mc("lectern", "facing", front.id(), "has_book", "false", "powered", "false"));
+				b.set(dx, y, dz, Blueprint.AIR); // MT contract: the dealer cell is two blocks of air (an NPC or a bot dealer)
 			}
 			int f0 = tg == null ? 0 : -1;
 			b.keepClear(lx(x, front, -1, f0), y + 1, lz(z, front, -1, f0), lx(x, front, 1, 1), y + BOARD_CLEARANCE, lz(z, front, 1, 1));
@@ -167,9 +164,11 @@ public final class Kits {
 				b.game(slots, sx, y, sz, front);
 				b.set(sx, y + 2, sz, Role.NEON_A);
 				b.set(sx, y + 3, sz, i % 2 == 0 ? Role.LIGHT : Role.SIGN_BACK);
-				b.set(sx, y + 1, sz, Blueprint.AIR);
 				b.keepClear(sx + front.dx(), y, sz + front.dz(), sx + front.dx(), y + 1, sz + front.dz());
-				b.keepClear(sx, y + 1, sz, sx, y + 1, sz);
+				if (b.compactTables()) { // a full slot (MT-3) is 2 tall: its topper fills y + 1
+					b.set(sx, y + 1, sz, Blueprint.AIR);
+					b.keepClear(sx, y + 1, sz, sx, y + 1, sz);
+				}
 			}
 		};
 	}
@@ -184,7 +183,8 @@ public final class Kits {
 			b.game(cashier, x, y, z, front);
 			BlockSpec bars = BlockSpec.mc("iron_bars");
 			Material counter = b.palette().get(Role.COUNTER);
-			for (int r : new int[] {-2, -1, 1, 2}) {
+			boolean booth = !b.compactTables() && cashier.machineKind() != null; // MT-3: the cashier is a 3 × 2 booth
+			for (int r : booth ? new int[] {-2, 2} : new int[] {-2, -1, 1, 2}) {
 				put(b, x, y, z, front, r, 0, counter.slab("double"));
 				put(b, x, y + 1, z, front, r, 0, bars);
 			}
@@ -202,7 +202,9 @@ public final class Kits {
 				put(b, x, y + 2, z, front, r, 0, counter.slab("top"));
 				put(b, x, y + 3, z, front, r, 0, Math.abs(r) == 2 ? b.palette().block(Role.LIGHT) : b.palette().block(Role.TRIM));
 			}
-			put(b, x, y + 1, z, front, 0, 0, lantern(b, true));
+			if (!booth) {
+				put(b, x, y + 1, z, front, 0, 0, lantern(b, true));
+			}
 			b.npc(NpcRole.CROUPIER, lx(x, front, 0, -1), y, lz(z, front, 0, -1), front);
 			b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
 		};
@@ -224,8 +226,9 @@ public final class Kits {
 				}
 				put(b, x, y + 3, z, front, r, 0, Role.BULB);
 			}
+			int machineRows = b.compactTables() || game.machineKind() == null ? 1 : game.machineKind().height();
 			for (int r = -1; r <= 1; r++) {
-				for (int dy = r == 0 ? 1 : 0; dy <= 3; dy++) {
+				for (int dy = r == 0 || !b.compactTables() ? machineRows : 0; dy <= 3; dy++) {
 					put(b, x, y + dy, z, front, r, 0, Blueprint.AIR);
 				}
 			}
@@ -234,7 +237,9 @@ public final class Kits {
 			}
 			put(b, x, y + 5, z, front, 0, 0, Role.BULB);
 			put(b, x, y, z, front, 0, 1, Role.CARPET_ACCENT);
-			b.keepClear(x, y + 1, z, x, y + 3, z);
+			if (b.compactTables()) {
+				b.keepClear(x, y + 1, z, x, y + 3, z);
+			}
 			b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
 		};
 	}

@@ -16,12 +16,15 @@ import net.minecraft.core.BlockPos;
  * the building's box and entrance side (front 28 blocks out, 45° aerial, door looking in, back of the floor looking at
  * the door, the bar side) plus the facade at midnight — 1920×1080 each, {@code jcasino_<casino>_<view>.png} in
  * {@code run/clientGameTest/screenshots/}. Default: the tudor casino (or the v0.1 plains casino before v0.2 is merged);
- * {@code -Dburmaldaholic.casinoPhotos=all} shoots every casino (styles, annexes, Parlor, Lounge).
+ * {@code -Dburmaldaholic.casinoPhotos=all} shoots every casino (styles, annexes, Parlor, Lounge), {@code =standalone} every
+ * standalone structure (each Grand Casino variant).
  */
 public class CasinoPhotoClientGameTests implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		boolean all = "all".equals(System.getProperty("burmaldaholic.casinoPhotos", ""));
+		String mode = System.getProperty("burmaldaholic.casinoPhotos", "");
+		boolean all = "all".equals(mode);
+		boolean standalone = "standalone".equals(mode); // every standalone structure (each Grand Casino variant)
 		int fov = context.computeOnClient(mc -> mc.options.fov().get());
 		int distance = context.computeOnClient(mc -> mc.options.renderDistance().get());
 		context.runOnClient(mc -> mc.gui.setScreen(null));
@@ -39,8 +42,11 @@ public class CasinoPhotoClientGameTests implements FabricClientGameTest {
 			world.getServer().runCommand("gamemode spectator @p");
 			world.getServer().runCommand("weather clear");
 			List<Target> targets = world.getServer().computeOnServer(server -> {
+				if (standalone && !CasinoQa.standalone(server).isEmpty()) {
+					return CasinoQa.standalone(server);
+				}
 				if (!all) {
-					return List.of(CasinoClientQa.defaultTarget(server, "tudor"));
+					return List.of(CasinoClientQa.defaultTarget(server, "riviera"));
 				}
 				List<Target> out = new ArrayList<>(CasinoQa.standalone(server));
 				out.addAll(CasinoQa.v2Singles());

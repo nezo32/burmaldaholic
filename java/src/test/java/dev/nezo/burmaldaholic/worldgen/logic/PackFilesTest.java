@@ -130,7 +130,7 @@ class PackFilesTest {
 			  "use_expansion_hack": false,
 			  "liquid_settings": "ignore_waterlogging",
 			  "max_height_range": 12,
-			  "required_pieces": ["entrance", "floor", "rear", "bar"]
+			  "required_pieces": ["entrance", "floor", "bar"]
 			}
 			""", PackFiles.structureJson("tudor"));
 		assertEquals("""

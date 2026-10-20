@@ -10,7 +10,8 @@ import java.util.Map;
  * readable in game at a distance:
  * <ul>
  *   <li>always one blank column between letters (letters never touch);</li>
- *   <li>I is a serif I (top and bottom bars), N / M / W are wider than the round letters so the diagonal shows;</li>
+ *   <li>I is a single 1-wide stroke (a serif I reads as a T or a box at a distance); N, M and W are 5 wide so the
+ *       diagonal is a true diagonal from stem to stem (a 3-wide N reads as "n" or H — the v0.2 "CASIO" bug);</li>
  *   <li>{@link #LARGE} (7 rows) is used when the word fits, else {@link #SMALL} (5 rows) on one line, else
  *       SMALL on two lines (the compact fallback for narrow fronts such as the 17-wide village annex).</li>
  * </ul>
@@ -18,7 +19,7 @@ import java.util.Map;
  * {@link Facades#marquee} draw a plan.
  */
 public enum SignFont {
-	/** 3 × 5 base glyphs; N, M, W are 4–5 wide; I is a 3-wide serif I. */
+	/** 3 × 5 base glyphs; N, M, W are 5 wide; I is 1 wide ("CASINO" = 23 columns, odd, so it centres on an axis). */
 	SMALL(5, Map.ofEntries(
 		Map.entry('A', new String[] {"###", "#.#", "###", "#.#", "#.#"}),
 		Map.entry('B', new String[] {"##.", "#.#", "##.", "#.#", "##."}),
@@ -28,12 +29,12 @@ public enum SignFont {
 		Map.entry('F', new String[] {"###", "#..", "##.", "#..", "#.."}),
 		Map.entry('G', new String[] {"###", "#..", "#.#", "#.#", "###"}),
 		Map.entry('H', new String[] {"#.#", "#.#", "###", "#.#", "#.#"}),
-		Map.entry('I', new String[] {"###", ".#.", ".#.", ".#.", "###"}),
+		Map.entry('I', new String[] {"#", "#", "#", "#", "#"}),
 		Map.entry('J', new String[] {"..#", "..#", "..#", "#.#", "###"}),
 		Map.entry('K', new String[] {"#.#", "#.#", "##.", "#.#", "#.#"}),
 		Map.entry('L', new String[] {"#..", "#..", "#..", "#..", "###"}),
 		Map.entry('M', new String[] {"#...#", "##.##", "#.#.#", "#...#", "#...#"}),
-		Map.entry('N', new String[] {"#..#", "##.#", "#.##", "#..#", "#..#"}),
+		Map.entry('N', new String[] {"#...#", "##..#", "#.#.#", "#..##", "#...#"}),
 		Map.entry('O', new String[] {"###", "#.#", "#.#", "#.#", "###"}),
 		Map.entry('P', new String[] {"###", "#.#", "###", "#..", "#.."}),
 		Map.entry('Q', new String[] {"###", "#.#", "#.#", "###", "..#"}),
@@ -58,16 +59,20 @@ public enum SignFont {
 		Map.entry('9', new String[] {"###", "#.#", "###", "..#", "###"}),
 		Map.entry('!', new String[] {"#", "#", "#", ".", "#"}),
 		Map.entry(' ', new String[] {".", ".", ".", ".", "."}))),
-	/** 4 × 7 glyphs (I 3 wide, N / M / W 5 wide); covers the letters of the casino words, else falls back to SMALL. */
+	/**
+	 * 4 × 7 glyphs (A and C 3 wide, I 1 wide, N / M / W 5 wide; "CASINO" = 25 columns, odd, the 25 visible columns
+	 * between the Grand Casino's towers); covers the letters of the casino words, else falls back to SMALL. D has cut
+	 * corners so it never reads as O.
+	 */
 	LARGE(7, Map.ofEntries(
-		Map.entry('A', new String[] {".##.", "#..#", "#..#", "####", "#..#", "#..#", "#..#"}),
+		Map.entry('A', new String[] {".#.", "#.#", "#.#", "###", "#.#", "#.#", "#.#"}),
 		Map.entry('B', new String[] {"###.", "#..#", "#..#", "###.", "#..#", "#..#", "###."}),
-		Map.entry('C', new String[] {".###", "#...", "#...", "#...", "#...", "#...", ".###"}),
-		Map.entry('D', new String[] {"###.", "#..#", "#..#", "#..#", "#..#", "#..#", "###."}),
+		Map.entry('C', new String[] {".##", "#..", "#..", "#..", "#..", "#..", ".##"}),
+		Map.entry('D', new String[] {"##..", "#.#.", "#..#", "#..#", "#..#", "#.#.", "##.."}),
 		Map.entry('E', new String[] {"####", "#...", "#...", "###.", "#...", "#...", "####"}),
 		Map.entry('G', new String[] {".###", "#...", "#...", "#.##", "#..#", "#..#", ".###"}),
 		Map.entry('H', new String[] {"#..#", "#..#", "#..#", "####", "#..#", "#..#", "#..#"}),
-		Map.entry('I', new String[] {"###", ".#.", ".#.", ".#.", ".#.", ".#.", "###"}),
+		Map.entry('I', new String[] {"#", "#", "#", "#", "#", "#", "#"}),
 		Map.entry('K', new String[] {"#..#", "#..#", "#.#.", "##..", "#.#.", "#..#", "#..#"}),
 		Map.entry('L', new String[] {"#...", "#...", "#...", "#...", "#...", "#...", "####"}),
 		Map.entry('M', new String[] {"#...#", "##.##", "#.#.#", "#...#", "#...#", "#...#", "#...#"}),

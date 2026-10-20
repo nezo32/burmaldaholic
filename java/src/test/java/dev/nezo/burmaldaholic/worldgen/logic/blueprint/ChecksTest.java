@@ -206,7 +206,7 @@ class ChecksTest {
 		Blueprint r = hall();
 		r.kit(Kits.tablePod(Game.ROULETTE, null), 8, 1, 5, Facing.SOUTH); // dealer at r −1
 		assertEquals(List.of(), problems(r));
-		assertEquals("lectern", r.build().layout().grid().get(7, 1, 3).name().substring(10));
+		assertEquals("air", r.build().layout().grid().get(7, 1, 3).name().substring(10), "dealer cell: two blocks of air (MT)");
 	}
 
 	@Test
@@ -305,18 +305,41 @@ class ChecksTest {
 
 	@Test
 	void machineSideCells() {
-		Blueprint bank = hall();
+		// compact (1 × 1) machines of legacy pieces keep the side-cell rule
+		Blueprint bank = hall().compactTables(true);
 		bank.kit(Kits.slotBank(Game.SLOTS_COPPER, 4), 3, 1, 1, Facing.SOUTH);
 		assertEquals(List.of(), clearance(bank)); // cabinets side by side: a bank
-		Blueprint pot = hall();
+		Blueprint pot = hall().compactTables(true);
 		pot.kit(Kits.slotBank(Game.SLOTS_GOLD, 2), 3, 1, 1, Facing.SOUTH).kit(Kits.pottedPlant(), 5, 1, 1, Facing.SOUTH);
 		assertRule(pot, "side cell 5,1,1");
-		Blueprint jamb = hall();
+		Blueprint jamb = hall().compactTables(true);
 		jamb.game(Game.WHEEL, 8, 1, 1, Facing.SOUTH).set(7, 2, 1, Role.ACCENT); // a jamb at r ±1, y + 1
 		assertRule(jamb, "side cell 7,2,1");
+		Blueprint alcove = hall(8).compactTables(true);
+		alcove.kit(Kits.machineAlcove(Game.WHEEL), 8, 1, 1, Facing.SOUTH);
+		assertEquals(List.of(), clearance(alcove));
+	}
+
+	/** MT-3 upright machines: integrity of every cell, support, a walkable front walkway across the width. */
+	@Test
+	void uprightMachines() {
 		Blueprint alcove = hall(8);
 		alcove.kit(Kits.machineAlcove(Game.WHEEL), 8, 1, 1, Facing.SOUTH);
 		assertEquals(List.of(), clearance(alcove));
+		assertEquals("upper_left", alcove.build().layout().grid().get(7, 2, 1).properties().get("part"));
+		Blueprint blocked = hall(8);
+		blocked.kit(Kits.machineAlcove(Game.PLINKO), 8, 1, 1, Facing.SOUTH).set(9, 1, 2, Role.ACCENT);
+		assertRule(blocked, "front walkway cell 9,1,2");
+		Blueprint broken = hall(8);
+		broken.kit(Kits.machineAlcove(Game.WHEEL), 8, 1, 1, Facing.SOUTH).set(9, 3, 1, Role.ACCENT);
+		assertRule(broken, "machine cell 9,3,1");
+		Blueprint booth = hall();
+		booth.kit(Kits.cashierCage(Game.CASHIER), 8, 1, 2, Facing.SOUTH);
+		assertEquals(List.of(), clearance(booth));
+		Blueprint bank = hall();
+		bank.kit(Kits.slotBank(Game.SLOTS_COPPER, 4), 3, 1, 1, Facing.SOUTH);
+		assertEquals(List.of(), clearance(bank));
+		assertEquals("upper", bank.build().layout().grid().get(3, 2, 1).properties().get("part"));
 	}
 
 	@Test

@@ -64,7 +64,7 @@ class OverworldCasinoTest {
 			assertEquals(footprints[p.ordinal()][1], size.z(), p.name());
 			assertTrue(size.y() <= 32, p.name());
 		}
-		assertEquals(OverworldPieces.all().size(), OverworldStyles.all().size() * OverworldCasino.Part.values().length);
+		assertEquals(OverworldPieces.legacy().size(), OverworldStyles.all().size() * OverworldCasino.Part.values().length);
 		assertEquals(6, OverworldPieces.forStyle(S).size());
 	}
 

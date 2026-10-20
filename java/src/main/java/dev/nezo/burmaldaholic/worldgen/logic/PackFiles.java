@@ -44,7 +44,7 @@ public final class PackFiles {
 	public static final int MAX_DISTANCE = 48;
 	public static final int MAX_HEIGHT_RANGE = 12;
 	/** Pools every standalone casino must contain (D5: complete or absent). */
-	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "rear", "bar"); // "bar" last: WorldgenGameTests appends to it
+	public static final List<String> REQUIRED_POOLS = List.of("entrance", "floor", "bar"); // the Grand Casino's three pieces (CR-1); "bar" last: WorldgenGameTests appends to it
 	/** Pool path segment of annex pieces; never a style. */
 	public static final String ANNEX = "annex";
 
@@ -55,14 +55,16 @@ public final class PackFiles {
 		Map<String, List<String>> m = new LinkedHashMap<>();
 		// §4.1 table + the open land biomes the survey found uncovered (sunflower plains, old-growth birch / pine,
 		// sparse jungle, eroded badlands); dense-canopy, swamp and mountain biomes stay out on purpose.
-		m.put("tudor", List.of("#minecraft:has_structure/village_plains", "minecraft:meadow", "minecraft:forest", "minecraft:birch_forest",
+		m.put("riviera", List.of("#minecraft:has_structure/village_plains", "minecraft:meadow", "minecraft:forest", "minecraft:birch_forest",
 			"minecraft:flower_forest", "minecraft:sunflower_plains", "minecraft:old_growth_birch_forest"));
 		m.put("oasis", List.of("#minecraft:has_structure/village_desert", "minecraft:badlands", "minecraft:wooded_badlands",
 			"minecraft:eroded_badlands"));
 		m.put("safari", List.of("#minecraft:has_structure/village_savanna", "minecraft:savanna_plateau", "minecraft:sparse_jungle"));
-		m.put("alpine", List.of("#minecraft:has_structure/village_taiga", "minecraft:cherry_grove", "minecraft:old_growth_spruce_taiga",
+		m.put("alpine", List.of("#minecraft:has_structure/village_taiga", "minecraft:old_growth_spruce_taiga",
 			"minecraft:old_growth_pine_taiga"));
 		m.put("ice_palace", List.of("#minecraft:has_structure/village_snowy", "minecraft:snowy_taiga", "minecraft:ice_spikes"));
+		// CR-1: the Grand Casino's sixth look (cherry groves were in the alpine list)
+		m.put("cherry", List.of("minecraft:cherry_grove"));
 		STYLE_BIOMES = java.util.Collections.unmodifiableMap(m);
 	}
 

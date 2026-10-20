@@ -65,7 +65,7 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 				Economies.get().setBalance(server, p.getUUID(), 1_000_000, QA);
 				dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false;
 			});
-			Target t = world.getServer().computeOnServer(server -> CasinoClientQa.defaultTarget(server, "tudor"));
+			Target t = world.getServer().computeOnServer(server -> CasinoClientQa.defaultTarget(server, "riviera"));
 			Placed placed = CasinoClientQa.place(world, t, new BlockPos(0, 0, 40), 2);
 			report.add("casino " + t + " box " + placed.box() + ", " + placed.spots().size() + " game blocks");
 			BlockPos start = world.getServer().computeOnServer(server -> CasinoClientQa.outside(server.overworld(), placed.box(),

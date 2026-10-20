@@ -89,7 +89,7 @@ public class CasinoBuildingGameTests {
 			helper.assertTrue(tag.isPresent() && tag.get().size() == standalone.size(), "#" + CasinoQa.TAG + " lists every casino structure");
 			HolderLookup.RegistryLookup<StructureTemplatePool> pools = reg.lookupOrThrow(Registries.TEMPLATE_POOL);
 			for (String s : standalone.stream().map(t -> t.name().substring("casino_".length())).toList()) {
-				for (String pool : List.of("entrance", "floor", "bar", "rear")) {
+				for (String pool : dev.nezo.burmaldaholic.worldgen.logic.PackFiles.REQUIRED_POOLS) { // the Grand Casino has no rear pool
 					Identifier id = Identifier.parse("burmaldaholic:worldgen/casino/" + s + "/" + pool);
 					var p = pools.get(ResourceKey.create(Registries.TEMPLATE_POOL, id));
 					helper.assertTrue(p.isPresent() && !p.get().value().getTemplates().isEmpty(), "pool " + id + " present and non-empty");

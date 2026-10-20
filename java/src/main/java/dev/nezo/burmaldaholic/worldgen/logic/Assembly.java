@@ -214,7 +214,8 @@ public final class Assembly {
 						BlockSpec b = p.layout().grid().get(x, y, z);
 						if (b != null) {
 							cells++;
-							if (Game.byBlockId(b.name()) != null) {
+							// one game per block entity: a multi-block table counts once, by its main cell (MT-DESIGN §6)
+							if (Game.byBlockId(b.name()) != null && "main".equals(b.properties().getOrDefault("part", "main"))) {
 								games++;
 							}
 						}

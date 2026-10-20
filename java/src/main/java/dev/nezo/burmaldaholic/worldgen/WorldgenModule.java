@@ -117,11 +117,14 @@ public final class WorldgenModule implements CasinoModule {
 		});
 	}
 
-	/** Style matching the biome at a position (plains → tudor, desert → oasis, …). */
+	/** Style matching the biome at a position (plains → riviera, desert → oasis, cherry grove → cherry, …). */
 	static String styleFor(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos at) {
 		String biome = level.getBiome(at).unwrapKey().map(k -> k.identifier().toString()).orElse("minecraft:plains");
+		if (biome.contains("cherry")) {
+			return "cherry"; // before the village style: cherry_grove would match "grove" -> TAIGA -> alpine
+		}
 		return switch (VillageStyle.forBiome(biome)) {
-			case PLAINS -> "tudor";
+			case PLAINS -> "riviera";
 			case DESERT -> "oasis";
 			case SAVANNA -> "safari";
 			case TAIGA -> "alpine";

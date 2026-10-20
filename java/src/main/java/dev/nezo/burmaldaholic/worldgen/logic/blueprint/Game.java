@@ -66,6 +66,11 @@ public enum Game {
 		return TableGame.ofBlockName(blockId.substring(blockId.indexOf(':') + 1));
 	}
 
+	/** Upright multi-block machine kind (MT-3: slot 1 × 2, wheel / Plinko 3 × 3, cashier 3 × 2), null for tables. */
+	public dev.nezo.burmaldaholic.core.table.parts.MachineKind machineKind() {
+		return dev.nezo.burmaldaholic.core.table.parts.MachineKind.ofBlockName(blockId.substring(blockId.indexOf(':') + 1));
+	}
+
 	public static Game byBlockId(String id) {
 		for (Game g : values()) {
 			if (g.blockId.equals(id)) {

@@ -6,9 +6,10 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Role → material table of one style variant (§5 of the architecture doc). Every {@link Role} must be
+ * Role → material table of one style variant (§5 of the architecture doc). Every base {@link Role} must be
  * mapped; {@link #check()} is called by the builder so a forgotten role fails at generation time, not
- * in the world.
+ * in the world. Optional architectural roles ({@link Role#fallback()} non-null) resolve to their fallback
+ * when unmapped. {@link #derive} makes a per-biome swap of an existing palette (CR-1 palette roles).
  */
 public record Palette(String id, Map<Role, Material> materials) {
 	public Palette {
@@ -17,10 +18,20 @@ public record Palette(String id, Map<Role, Material> materials) {
 
 	public Material get(Role role) {
 		Material m = materials.get(role);
+		Role r = role;
+		while (m == null && r.fallback() != null) {
+			r = r.fallback();
+			m = materials.get(r);
+		}
 		if (m == null) {
 			throw new IllegalStateException("palette " + id + " has no " + role);
 		}
 		return m;
+	}
+
+	/** True when the role is mapped explicitly (not through a fallback). */
+	public boolean maps(Role role) {
+		return materials.containsKey(role);
 	}
 
 	public BlockSpec block(Role role) {
@@ -36,6 +47,13 @@ public record Palette(String id, Map<Role, Material> materials) {
 
 	public static Builder builder(String id) {
 		return new Builder(id);
+	}
+
+	/** A new palette {@code id} starting from every mapping of this one (a biome swap overrides a few roles). */
+	public Builder derive(String newId) {
+		Builder b = new Builder(newId);
+		b.map.putAll(materials);
+		return b;
 	}
 
 	public static final class Builder {
