@@ -27,7 +27,7 @@ import java.util.List;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -277,7 +277,7 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 	/** The acting player hears the screen's sounds, not the table's. */
 	private static boolean viewingOwnScreen(RouletteTableBlockEntity be) {
 		Minecraft mc = Minecraft.getInstance();
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> sc && sc.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
+		return mc.gui.screen() instanceof MenuAccess<?> sc && sc.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
 	}
 
 	private static void cues(RouletteTableBlockEntity be, Cache c, RouletteBallPath p, double t) {

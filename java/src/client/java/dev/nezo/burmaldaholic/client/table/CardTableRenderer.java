@@ -11,7 +11,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry.Felt;
 import dev.nezo.burmaldaholic.games.poker.PokerTableBlockEntity;
 import dev.nezo.burmaldaholic.games.poker.present.TableWorld;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.FormattedCharSequence;
@@ -68,7 +68,7 @@ public abstract class CardTableRenderer<T extends BlockEntity, S extends CardTab
 	/** The local player has this table's screen open (it plays its own sounds). */
 	protected static boolean viewingOwnScreen(BlockPos pos) {
 		Minecraft mc = Minecraft.getInstance();
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> s && s.getMenu() instanceof CasinoTableMenu m && m.pos().equals(pos);
+		return mc.gui.screen() instanceof MenuAccess<?> s && s.getMenu() instanceof CasinoTableMenu m && m.pos().equals(pos);
 	}
 
 	/** Plays a table sound at the table top for a spectator (never for a viewer of the screen, never far away). */

@@ -22,7 +22,7 @@ import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -275,7 +275,7 @@ public final class PlinkoMachineRenderer extends SpectatorBlockEntityRenderer<Pl
 
 	private static boolean viewingOwnScreen(PlinkoBlockEntity be) {
 		Minecraft mc = Minecraft.getInstance();
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> scr && scr.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
+		return mc.gui.screen() instanceof MenuAccess<?> scr && scr.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
 	}
 
 	/** One positional click per row contact, the column pitch of the screen (left low, right high). */
