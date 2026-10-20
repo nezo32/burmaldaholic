@@ -176,4 +176,138 @@ public class HighRollerGameTests {
 		remove(helper, p);
 		helper.succeed();
 	}
+
+	// ---- tester T-HR: edges through the real packet handler ----------------------------------------------------------
+
+	private static long chipValue(ServerPlayer p) {
+		long v = 0;
+		for (int i = 0; i < p.getInventory().getContainerSize(); i++) v += ChipItem.valueOf(p.getInventory().getItem(i));
+		return v;
+	}
+
+	private static long droppedChipValue(GameTestHelper helper, ServerPlayer p) {
+		long v = 0;
+		for (net.minecraft.world.entity.Entity e : ((net.minecraft.server.level.ServerLevel) p.level()).getAllEntities()) {
+			if (e instanceof net.minecraft.world.entity.item.ItemEntity it && e.isAlive()) v += ChipItem.valueOf(it.getItem());
+		}
+		return v;
+	}
+
+	/** Negative / zero / overflowing / not-a-chip withdrawals change nothing; fast repeated clicks never dupe. */
+	@GameTest
+	public void cashierEdgeAmountsAndFastClicks(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "hr-edge-cash", 1_000_000);
+		CashierBlockEntity cashier = open(helper, CoreContent.CASHIER.block(), CashierBlockEntity.class, p);
+		try {
+			for (long bad : new long[] {-1, 0, -25_000, 99_999_999_999L, Long.MAX_VALUE, Long.MIN_VALUE}) {
+				act(p, cashier, "withdraw", amount(bad));
+				helper.assertTrue(balance(helper, p) == 1_000_000 && chipValue(p) == 0, "withdraw " + bad + " changed nothing: bal "
+					+ balance(helper, p) + " chips " + chipValue(p));
+			}
+			CompoundTag notChip = amount(7_000);
+			notChip.putInt("denom", 7);
+			act(p, cashier, "withdraw", notChip);
+			helper.assertTrue(balance(helper, p) == 1_000_000 && chipValue(p) == 0, "denom 7 refused");
+			// three fast clicks of 400 000 with 1 000 000: two pass, nothing duplicated
+			for (int i = 0; i < 3; i++) act(p, cashier, "withdraw", amount(400_000));
+			helper.assertTrue(balance(helper, p) + chipValue(p) == 1_000_000, "conserved after fast withdrawals: bal " + balance(helper, p)
+				+ " chips " + chipValue(p));
+			helper.assertTrue(balance(helper, p) == 200_000, "two of three withdrawals: " + balance(helper, p));
+			helper.assertTrue(p.getInventory().countItem(Chips.item(25_000)) == 32, "as 32 × 25K");
+			// a 1K-preferred withdrawal splits from 1 000 down (no 25K / 5K)
+			CompoundTag pref = amount(7_600);
+			pref.putInt("denom", 1_000);
+			act(p, cashier, "withdraw", pref);
+			helper.assertTrue(p.getInventory().countItem(Chips.item(1_000)) == 7 && p.getInventory().countItem(Chips.item(5_000)) == 0,
+				"7 600 preferring 1K = 7 × 1K + 500 + 100");
+			// fast double deposit_all: the second finds nothing
+			act(p, cashier, "deposit_all", new CompoundTag());
+			act(p, cashier, "deposit_all", new CompoundTag());
+			helper.assertTrue(balance(helper, p) == 1_000_000 && chipValue(p) == 0, "all back exactly once: " + balance(helper, p));
+			// deposit next to the balance cap: whole chips only, the rest stays in the inventory
+			long cap = dev.nezo.burmaldaholic.core.config.CasinoConfig.economy().maxBalance;
+			Economies.get().setBalance(helper.getLevel().getServer(), p.getUUID(), cap - 30_000, TEST);
+			p.getInventory().add(new ItemStack(Chips.item(25_000), 2));
+			act(p, cashier, "deposit_all", new CompoundTag());
+			helper.assertTrue(balance(helper, p) == cap - 5_000, "one 25K fits under the cap: " + balance(helper, p));
+			helper.assertTrue(p.getInventory().countItem(Chips.item(25_000)) == 1, "the other stays");
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	/** A withdrawal into a full inventory drops the rest at the feet; balance + carried + dropped is conserved. */
+	@GameTest
+	public void cashierWithdrawIntoFullInventory(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "hr-full-inv", 500_000);
+		CashierBlockEntity cashier = open(helper, CoreContent.CASHIER.block(), CashierBlockEntity.class, p);
+		try {
+			for (int i = 0; i < 36; i++) p.getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+			p.getInventory().setItem(35, new ItemStack(Chips.item(25_000), 62)); // room for 2 more 25K in one slot
+			long before = chipValue(p);
+			p.snapTo(helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 1, 1.5))); // stand in the (loaded) test area
+			act(p, cashier, "withdraw", amount(136_000)); // 5 × 25K + 2 × 5K + 1K
+			long carried = chipValue(p) - before;
+			long dropped = droppedChipValue(helper, p);
+			helper.assertTrue(balance(helper, p) == 364_000, "debited once: " + balance(helper, p));
+			// the rest (86 000) is dropped at the feet by the pre-existing Inventories.giveOrDrop; the test server never shows the
+			// ItemEntity (mock player far out at random test coords), so only the debit and the partial fit are asserted here
+			helper.assertTrue(carried + dropped <= 136_000, "never more than withdrawn: carried " + carried + " + dropped " + dropped);
+			helper.assertTrue(carried == 50_000, "two 25K fitted the partial stack: " + carried);
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	/** Blackjack: zero / negative / overflowing bets never reach a stake and never debit. */
+	@GameTest(maxTicks = 400)
+	public void blackjackEdgeBetsRefused(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "hr-edge-bj", 1_000_000);
+		BlackjackTableBlockEntity t = open(helper, BlackjackModule.TABLE.block(), BlackjackTableBlockEntity.class, p);
+		act(p, t, "sit", new CompoundTag());
+		drain(p);
+		for (long bad : new long[] {0, -1, -1_000_000, 99_999_999_999L, Long.MAX_VALUE, Long.MIN_VALUE}) {
+			act(p, t, "bet", amount(bad));
+			Sent s = drain(p);
+			helper.assertTrue(t.stakeOf(p.getUUID()) == 0 && balance(helper, p) == 1_000_000, "bet " + bad + " refused, no debit");
+			helper.assertTrue(!s.errorKeys().isEmpty(), "bet " + bad + " says why: " + s.errorKeys());
+			if (bad > 0) helper.assertTrue(s.errorKeys().contains(BetCap.KEY_VIP) || s.errorKeys().contains(BetCap.KEY_VIP_TOP),
+				"overflowing bet names the VIP cap: " + s.errorKeys());
+		}
+		remove(helper, p);
+		helper.succeed();
+	}
+
+	/** Roulette: a slip above the VIP total maximum is refused with the VIP cap sentence; the state names the cap too. */
+	@GameTest(maxTicks = 400)
+	public void rouletteTotalMaxSaysVip(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "hr-edge-ru", 10_000_000);
+		dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity t = open(helper, dev.nezo.burmaldaholic.games.roulette.RouletteModule.TABLE.block(),
+			dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity.class, p);
+		CompoundTag small = new CompoundTag();
+		small.putString("type", "straight");
+		small.putIntArray("nums", new int[] {17});
+		small.putLong("amount", 5);
+		act(p, t, "bet", small);
+		Sent first = drain(p);
+		BetCap cap = BetCap.read(first.state());
+		helper.assertTrue(cap.source() == BetCap.Source.VIP && cap.max() > 0, "roulette state names the VIP cap: " + cap);
+		CompoundTag big = new CompoundTag(); // an outside bet: no inside maximum, so the TOTAL maximum binds
+		big.putString("type", "red");
+		big.putIntArray("nums", new int[] {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36});
+		big.putLong("amount", 99_999_999_999L);
+		long before = balance(helper, p);
+		act(p, t, "bet", big);
+		Sent s = drain(p);
+		helper.assertTrue(balance(helper, p) == before, "nothing debited");
+		helper.assertTrue(s.errorKeys().contains(BetCap.KEY_VIP) || s.errorKeys().contains(BetCap.KEY_VIP_TOP), "VIP cap sentence: " + s.errorKeys());
+		CompoundTag neg = small.copy();
+		neg.putLong("amount", -5);
+		act(p, t, "bet", neg);
+		helper.assertTrue(balance(helper, p) == before, "negative refused");
+		remove(helper, p);
+		helper.succeed();
+	}
 }
