@@ -418,7 +418,7 @@ public final class SlotBody implements StageHost {
 	}
 
 	/** The jackpot meter under the mouse: "TIER amount: where it comes from" (owner R3, jackpot clarity), or null. */
-	String meterTip(SlotLayout l, int mx, int my) {
+	public String meterTip(SlotLayout l, int mx, int my) {
 		if (overlays.mode() != Overlays.Mode.NONE || model.def == null || model.pools == null) return null;
 		String[] keys = {"mini", "minor", "major", "grand"};
 		for (int i = 0; i < l.meterTiers.length; i++) {
