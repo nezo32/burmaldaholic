@@ -403,6 +403,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.table.compact_hint` | Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it | Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить |
 | `msg.burmaldaholic.table.unfolded` | Unfolded to full size | Разложено в полный размер |
 | `msg.burmaldaholic.table.unfold_busy` | Someone is standing where it unfolds — step aside and try again | Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова |
+| `sign.burmaldaholic.cashier` | CASHIER | КАССА |
 
 ### Casino Menu
 

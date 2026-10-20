@@ -257,6 +257,7 @@
 	"msg.burmaldaholic.table.compact_hint": "Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить",
 	"msg.burmaldaholic.table.unfolded": "Разложено в полный размер",
 	"msg.burmaldaholic.table.unfold_busy": "Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова",
+	"sign.burmaldaholic.cashier": "КАССА",
 	"gui.burmaldaholic.menu.title": "Меню казино",
 	"gui.burmaldaholic.menu.wallet": "Кошелёк",
 	"gui.burmaldaholic.menu.contracts": "Заказы",

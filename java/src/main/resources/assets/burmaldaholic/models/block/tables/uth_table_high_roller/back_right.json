@@ -8,7 +8,8 @@
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
     "tray": "burmaldaholic:block/core/tables/high_roller/tray",
     "bowl": "burmaldaholic:block/core/tables/high_roller/bowl",
-    "placard": "burmaldaholic:block/core/tables/high_roller/placard",
+    "placard": "burmaldaholic:block/core/tables/placard_spade",
+    "track": "burmaldaholic:block/core/tables/track",
     "tote": "burmaldaholic:block/core/tables/high_roller/tote"
   },
   "elements": [
@@ -363,7 +364,7 @@
         12.5,
         16.5
       ],
-      "light_emission": 6,
+      "light_emission": 12,
       "faces": {
         "up": {
           "uv": [
@@ -1385,7 +1386,7 @@
         12.5,
         16.5
       ],
-      "light_emission": 6,
+      "light_emission": 12,
       "faces": {
         "up": {
           "uv": [

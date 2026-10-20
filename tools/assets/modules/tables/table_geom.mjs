@@ -229,16 +229,21 @@ function tray(shape) {
 
 /** Lit props: table-limit placard (dealer side) or the roulette tote board on a brass pole. */
 function props(shape) {
+  // table-limit placard: brass stanchion 1 × 7 px with a 6 × 4 px white enamel plate facing the players (lit; the
+  // limits text is W2's); roulette's sits at the back-right, beside the tote board
+  const px = shape === 'roulette' ? 20 : -11;
+  const plate = (x) => [
+    { mat: 'trim', x0: x - 0.5, x1: x + 0.5, z0: -13.75, z1: -12.75, y0: 14, y1: 21 },
+    { mat: 'placard', x0: x - 3, x1: x + 3, z0: -13.5, z1: -13, y0: 19, y1: 23, emit: 10, faceUv: [0, 2.67, 16, 13.33] },
+  ];
   if (shape === 'roulette') {
     return [
+      ...plate(px),
       { mat: 'trim', x0: 28.5, x1: 29.5, z0: -13.5, z1: -12.5, y0: 15.5, y1: 26 },
       { mat: 'tote', x0: 26, x1: 31.5, z0: -14, z1: -12, y0: 25, y1: 32, emit: 12 },
     ];
   }
-  return [
-    { mat: 'trim', x0: -12, x1: -11, z0: -14, z1: -13, y0: 14, y1: 16 },
-    { mat: 'placard', x0: -13.5, x1: -9.5, z0: -14.25, z1: -12.75, y0: 15.5, y1: 19.5, emit: 10 },
-  ];
+  return plate(px);
 }
 
 /** The whole table: {boxes, segs} in local px. */
@@ -257,7 +262,7 @@ export function tableGeometry(shape) {
   add(ring(shape, { inO: 1.25, inI: 2, y0: 6, y1: 6.75, mat: 'rail' }));
   add(ring(shape, { inO: 1, inI: 2, y0: 6.75, y1: 10.5, mat: 'wood' }));
   add(ring(shape, { inO: 0, inI: 2, y0: 10.5, y1: 11.5, mat: 'wood' }));
-  add(ring(shape, { inO: -0.5, inI: 1, y0: 11.5, y1: 12.5, mat: 'trim', emit: 6 }));
+  add(ring(shape, { inO: -0.5, inI: 1, y0: 11.5, y1: 12.5, mat: 'trim', emit: 'band' }));
   // padded rail: outer drop, cushion, bevelled cap, brass lip on the felt side
   add(ring(shape, { inO: -1, inI: 0, y0: 12.5, y1: 13.5, mat: 'rail', sides: railSides }));
   add(ring(shape, { inO: -1, inI: 2, y0: 13.5, y1: top - 0.5, mat: 'rail', sides: railSides }));
@@ -283,8 +288,11 @@ export function tableGeometry(shape) {
       { mat: 'wood', y0: 13, y1: 14.5, inset: 1.5, clip: (xm, zs) => minus(minus(zs, layout(xm)), circleSpan(xm, BOWL.r - 0.5)) },
       { mat: 'bowl', y0: 13, y1: 13.5, inset: 1.5, clip: (xm, zs) => inter(zs, circleSpan(xm, BOWL.r - 1.25)) },
     ]));
-    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r, BOWL.r - 1.5, 13, 17, 'wood'));
-    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r + 0.25, BOWL.r - 1.75, 17, 17.5, 'trim', { emit: 5 }));
+    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r, BOWL.r - 1, 13, 15, 'wood'));
+    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r - 0.5, BOWL.r - 1.25, 15, 16, 'wood'));
+    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r - 1, BOWL.r - 1.5, 16, 16.75, 'trim', { emit: 6 }));
+    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r - 1.25, BOWL.r - 2, 13.5, 16, 'rail'));
+    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r - 2, BOWL.r - 2.75, 15.25, 15.5, 'track'));
   }
   if (shape === 'oval') add(pedestals());
   else boxes.push(...legs(shape));
