@@ -110,8 +110,6 @@ theoretical loss.
   `CompsLayoutTest`.
 - Blackjack, wheel, plinko and slots token paths are covered only by compiling and by `TokenSettleTest`. No
   table-level GameTest exists for them yet.
-- The blackjack split approximation: when the token hand and a chip hand net to exactly the total stake, the round
-  counts as a push and the token comes back.
 - Rentals and suite night have no GameTest. They need a generated casino or real entities.
 - `gui.burmaldaholic.vip.perk.emerald_rate` is now unused but was left in STRINGS (`--prune` is not allowed here).
 - GAME_DESIGN §3.2 rates are left to EC-1, which owns the rate change.
@@ -125,3 +123,35 @@ theoretical loss.
 - **DL / HR:** no changes to your files.
 - **Roulette, baccarat, craps, UTH (v0.2.1):** to accept tokens, add the game id to `FreeBetTokens.GAMES` and call
   `tokenOffer` / `placeTokenBet` for the main bet.
+
+## Round 2: T-EC2 fixes (`findings/T-EC2.md`)
+- Cherry-picked the tester's tests: `test/ec2` @17787797, now `1277d569`. Merged the final `p2/ec1` @ `6bc2b58a`.
+  The fabric.mod.json conflict was resolved by keeping both client classes.
+- **D1 (money):** the token now belongs only to the original blackjack hand.
+  - `TokenSettle.settleHand(totalReturn, handStake, handReturn, covered, fullWin)`: other split hands and insurance
+    get their full return.
+  - If the token hand pushes, the token comes back plus `stake₀ − T`; otherwise the hand pays `max(0, r₀ − T)`.
+  - `CasinoTableBlockEntity.settle(player, payout, tokenHandStake, tokenHandReturn, detail)`.
+  - Blackjack passes `hands[0].bet` and `hands[0].ret`.
+- **L1:** a settled round (including autoplay) and comps `sync` no longer count as activity. A new core hook,
+  `core/events/PlayerActivity`, is called from `TableNetworking.receive`; it counts table actions sent by the player
+  and skips refresh/sync.
+- **L2:** `placeTokenBet(player, min, max, fullWin)` refuses a token outside the player's limits and the player keeps
+  it (`comps.token_under_min` / `token_over_max`).
+  - Blackjack uses `limitsFor`, wheel its min and `maxFor`, plinko `minBetFor` and `maxFor`.
+- **L3:** a token spin no longer overwrites the player's chosen slot bet (`betsV2`).
+- **L4:** a slot token must equal a ladder bet the player may use here; otherwise it is refused and kept
+  (`comps.token_no_bet`). No value is wasted.
+- **L5:** the rental stick records its rental end (`burmaldaholic_rental_until`). Every 5 s it is swept from the
+  inventory, the ender chest and the open container once it has expired.
+- **Dedupe:** `core/economy/RebateCaps` (cashback ≤ 0.5, comp + cashback ≤ 0.35) is the only clamp. `VipRules`,
+  `CompsRules`, `CompsService` and `VipConfig` all use it, and a unit test checks that they agree.
+- **Tester test adapted:** `plinkoTokenRounds` now first asserts that a 50 token is refused at the Bronze plinko max
+  (20). It then raises `extras.plinko.maxBetFraction` to 1.0 for the 24 rounds and restores it afterwards.
+- **Verified on 26.3:**
+  - compile of main, client and gametest succeeds;
+  - unit tests (comps, core.wager, vip, RawInputGuardTest): 52 tests, 0 failures;
+  - `runGameTest -Dfabric-api.gametest.filter=comps`: all 24 passed.
+  - `runClientGameTest` with only `CompsClientGameTests`, using both locks and a temporary entrypoint swap that was
+    reverted afterwards: BUILD SUCCESSFUL. The test opens the cashier block, clicks the Comps tab, redeems a
+    `token_10` and claims the daily bonus at 3840×2160 with GUI auto; it asserts server state.
