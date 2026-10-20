@@ -104,6 +104,10 @@ Owner decision: 26.3 only. Every run used `-Pmc=26.3`, except the first compile 
   Before pruning, I grepped every `p2/*` branch and `feature/v020-table-ui`. The only references were the pre-EC-1
   copies of files this branch rewrites (CashierScreen, CashierBlockEntity, EconomyConfig and their tests).
 
+- **Verified (26.3):**
+  - `compileClientJava compileGametestJava` plus the unit tests (`core.cashier.*` including CounterLayoutTest with the tray box, and RawInputGuardTest): BUILD SUCCESSFUL.
+  - EC client lane: BUILD SUCCESSFUL in 3 runs (EN 480×270, EN 427×240, RU), now also covering the tray replaying a deposit and click-to-skip, plus wheel down 1 row and wheel up back.
+
 ## Not done / requests
 - **DL:** please expose `HouseNpcRoles.register(String, BiConsumer<ServerPlayer, Entity>)` and call `MerchantRole.install(HouseNpcRoles::register)`, or put the class at one of the names in `MerchantRole.CANDIDATES`. Also add `entity.burmaldaholic.merchant`; the string already exists.
 - **EC-2:** owns the VipRules perk swap (`perk.emerald_rate` → `perk.store_gold_shelf`) and GAME_DESIGN §12.
