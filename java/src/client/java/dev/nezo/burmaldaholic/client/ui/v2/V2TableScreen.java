@@ -29,7 +29,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Sending: use {@link #sendTracked} (watchdog) for every player action; {@link #sendAction} only for silent ones.
  */
-public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Chrome.Host, V2Chrome.Holder {
+public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Chrome.Host, V2Chrome.Holder, dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.Host,
+		dev.nezo.burmaldaholic.client.ui.ScreenEntrance.OverFrame {
 	protected final V2Chrome chrome = new V2Chrome(this);
 	private Viewport viewport = new Viewport(480, 270, 1, 1f);
 	protected @Nullable V view;
@@ -93,18 +94,18 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
-	protected float applyFit(int[] memo) {
+	protected final float applyFit(int[] memo) { // final: every v2 game sizes by ViewportPolicy (owner B6)
 		viewport = FitScaled.applyViewport(this, memo);
 		return viewport.factor();
 	}
 
 	@Override
-	public float offsetX() {
+	public final float offsetX() {
 		return viewport.guiOx();
 	}
 
 	@Override
-	public float offsetY() {
+	public final float offsetY() {
 		return viewport.guiOy();
 	}
 
@@ -118,7 +119,7 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
-	protected dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
+	protected final dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
 		return new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(0, 0, width, height);
 	}
 
@@ -278,12 +279,24 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		// a celebration running over the screen: a click skips it; a click on an enabled kit target ALSO does what it
+		// says (the gold Rebet after a big win used to need two clicks; review T-C2 V3)
+		var fx = dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get();
+		if (fx.skippable()) {
+			fx.skip();
+			if (!chrome.hitsEnabled(event.x(), event.y())) return true;
+		}
 		if (chrome.click(event.x(), event.y(), event.button())) return true;
 		return super.mouseClicked(event, doubleClick);
 	}
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		var fx = dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get();
+		if (fx.skippable()) { // the same for keys: a kit key (Space = the primary, 1–5 chips, …) skips AND acts
+			if (!chrome.keyHitsEnabled(event.key())) return fx.onKey(event) || super.keyPressed(event);
+			fx.skip();
+		}
 		if (chrome.key(event.key())) return true;
 		return super.keyPressed(event);
 	}
@@ -299,5 +312,11 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	public boolean mouseScrolled(double x, double y, double dx, double dy) {
 		if (chrome.scroll(x, y, dy)) return true;
 		return super.mouseScrolled(x, y, dx, dy);
+	}
+
+	/** The shared celebration, over the screen and outside its frame (this screen is its {@code Host}). */
+	@Override
+	public void extractOverFrame(GuiGraphicsExtractor g) {
+		dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().extract(g, false);
 	}
 }

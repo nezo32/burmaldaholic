@@ -42,11 +42,16 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			world.getServer().runCommand("casino balance set @p 12500");
 			RealFlow f = new RealFlow(context, world);
 			f.language("en_us");
+			cell(f, "en_us", 3840, 2160, 0); // the owner's setup: 4K, GUI Auto → 427 × 240 k9
+			ownerTable(f, "en_us");
 			cell(f, "en_us", 1280, 720, 0);
 			cell(f, "en_us", 1920, 1080, 2);
 			cell(f, "en_us", 2560, 1440, 2);
 			framedRealTable(f, 2560, 1440, 2);
+			everyGame(f); // owner playtest B6
 			f.language("ru_ru");
+			cell(f, "ru_ru", 3840, 2160, 0);
+			ownerTable(f, "ru_ru");
 			cell(f, "ru_ru", 1920, 1080, 2);
 			cell(f, "ru_ru", 2560, 1440, 2);
 			f.language("en_us");
@@ -95,7 +100,8 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			report.add("  audit " + tag + ": " + (problems.isEmpty() ? "ok" : problems));
 			// the gallery is played by real clicks at the frame's window pixels
 			f.click("chip.2");
-			f.shot("p2b_rs_kit_betting_" + tag);
+			Path shot = f.shot("p2b_rs_kit_betting_" + tag);
+			framedPixels(f, shot, tag); // the gallery is a V2SceneScreen: its felt and dim must follow the frame too
 			f.click(KeyMap.Ids.PRIMARY);
 			f.context().waitTicks(4);
 			f.shot("p2b_rs_kit_acting_" + tag);
@@ -110,6 +116,176 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 				return null;
 			});
 			f.context().waitTicks(3);
+		}
+	}
+
+	/**
+	 * The owner's setup (3840 × 2160, GUI Auto → 427 × 240 k9) on a real blackjack table: watching (the status must
+	 * show its whole text, two lines or the hint strip, T-K2 D1), then seated with a chip (the hint by phase), then
+	 * the Dock's action plates are recorded.
+	 */
+	private void ownerTable(RealFlow f, String lang) {
+		String tag = "owner_4k_auto_" + lang;
+		try {
+			f.size(3840, 2160, 0);
+			BlockPos pos = f.place(BlackjackModule.TABLE.block(), lang.equals("en_us") ? -2 : 3);
+			f.open(pos, dev.nezo.burmaldaholic.games.blackjack.client.BlackjackScreen.class);
+			f.waitChrome(c -> "sit".equals(c.primary.gate().action()), "Sit down");
+			String watch = f.client(mc -> statusText(((V2Chrome.Holder) mc.gui.screen()).chrome()));
+			report.add(tag + ": " + f.viewport() + " watching status '" + watch + "'");
+			f.shot("p2b_rs_blackjack_watching_" + lang + "_427_k9");
+			if (watch.isBlank()) throw new AssertionError("blank status while watching");
+			UUID me = f.server(server -> RealFlow.player(server).getUUID());
+			f.click(KeyMap.Ids.PRIMARY);
+			f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated");
+			f.waitChrome(c -> c.bet.visible() && c.bet.chipGate(0).enabled(), "chips");
+			String seated = f.client(mc -> statusText(((V2Chrome.Holder) mc.gui.screen()).chrome()));
+			report.add("  seated status '" + seated + "'");
+			f.click("chip.0");
+			f.shot("p2b_rs_blackjack_betting_" + lang + "_427_k9");
+			if (seated.isBlank()) throw new AssertionError("blank status when seated with no bet");
+		} catch (AssertionError | RuntimeException e) {
+			failures.add(tag + ": " + e.getMessage());
+			report.add("  FAILED " + tag + ": " + e);
+			f.shot("p2b_rs_failed_" + tag);
+		} finally {
+			f.close();
+		}
+	}
+
+	/** Everything the status shows: line 1, line 2 (where the strip is used, it carries one of them). */
+	private static String statusText(V2Chrome c) {
+		var l1 = c.status.line1();
+		var l2 = c.status.line2();
+		return (l1 == null ? "" : l1.getString()) + (l2 == null ? "" : " | " + l2.getString()) + (c.status.strip().isEmpty() ? "" : " [strip]");
+	}
+
+	/**
+	 * On a framed screen, the drawn pixels follow the frame (PL report: a scene screen drew its felt at the top-left):
+	 * the felt shows inside the frame's PlayArea and the band left of the frame is the dim, never felt. Deterministic
+	 * pixel samples of the shot (agents never look at it).
+	 */
+	private void framedPixels(RealFlow f, Path shot, String tag) {
+		Viewport vp = f.viewport();
+		if (!vp.framed()) return;
+		Box play = f.client(mc -> ((V2Chrome.Holder) mc.gui.screen()).chrome().grid().play);
+		try {
+			java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+			int k = vp.k();
+			int y = play.y() + play.h() / 2;
+			int feltIn = 0, feltOut = 0, samples = 9;
+			for (int i = 0; i < samples; i++) {
+				int x = play.x() + 2 + i * (play.w() - 4) / (samples - 1);
+				if (greenish(px(img, vp.windowX(x), vp.windowY(y)))) feltIn++;
+				int oy = play.y() + i * play.h() / samples; // the band left of the frame, top to bottom
+				if (greenish(px(img, vp.ox() * k / 2.0, vp.windowY(oy)))) feltOut++;
+			}
+			report.add("  pixels " + tag + ": felt samples in the PlayArea " + feltIn + "/" + samples + ", left of the frame " + feltOut + "/" + samples);
+			if (feltIn == 0) throw new AssertionError("no felt inside the frame's PlayArea");
+			if (feltOut > 0) throw new AssertionError("felt drawn left of the frame (the frame offset is not applied): " + feltOut + " samples");
+		} catch (java.io.IOException e) {
+			throw new AssertionError("reading " + shot + ": " + e);
+		}
+	}
+
+	private static int px(java.awt.image.BufferedImage img, double x, double y) {
+		return img.getRGB(Math.max(0, Math.min(img.getWidth() - 1, (int) x)), Math.max(0, Math.min(img.getHeight() - 1, (int) y)));
+	}
+
+	private static boolean greenish(int rgb) {
+		int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+		return g > r + 15 && g > b + 15 && g > 50;
+	}
+
+	/** The four layout sizes of owner playtest B6: window, GUI scale (0 = Auto) → 427×240, 480×270, 640×360, 960×540. */
+	private static final int[][] GAME_SIZES = {{1280, 720, 0}, {960, 540, 2}, {1280, 720, 2}, {1920, 1080, 2}};
+
+	/**
+	 * Owner playtest B6 ("some games are fullscreen, some widget-like, play-field heights differ"): every v2 game opened
+	 * like a player (the block used, or the server's open for the scene games), at every size of {@link #GAME_SIZES}:
+	 * the viewport is the policy's, the pose factor / frame offset are the viewport's, the TopBar / PlayArea / Dock rows
+	 * are the shared TableGrid rows of that frame (identical for every game), and the game's felt targets stay in the
+	 * PlayArea.
+	 */
+	private void everyGame(RealFlow f) {
+		java.util.Map<String, java.util.function.Supplier<Object>> games = new java.util.LinkedHashMap<>();
+		var tables = new java.util.LinkedHashMap<String, dev.nezo.burmaldaholic.core.table.TableType<?>>();
+		tables.put("blackjack", BlackjackModule.TABLE);
+		tables.put("baccarat", dev.nezo.burmaldaholic.games.baccarat.BaccaratModule.TABLE);
+		tables.put("poker", dev.nezo.burmaldaholic.games.poker.PokerModule.TABLE);
+		tables.put("uth", dev.nezo.burmaldaholic.games.uth.UthModule.TABLE);
+		tables.put("roulette", dev.nezo.burmaldaholic.games.roulette.RouletteModule.TABLE);
+		tables.put("craps", dev.nezo.burmaldaholic.games.craps.CrapsModule.TABLE);
+		tables.put("plinko", dev.nezo.burmaldaholic.games.extras.ExtrasModule.PLINKO);
+		tables.put("wheel", dev.nezo.burmaldaholic.games.extras.ExtrasModule.WHEEL);
+		java.util.Map<String, java.util.Map<String, String>> rowsBySize = new java.util.TreeMap<>();
+		for (var t : tables.entrySet()) {
+			gameCells(f, t.getKey(), rowsBySize, () -> f.use(f.place(t.getValue())));
+		}
+		gameCells(f, "coin", rowsBySize, () -> f.server(server -> {
+			dev.nezo.burmaldaholic.games.extras.server.CoinFlipGame.open(RealFlow.player(server));
+			return null;
+		}));
+		gameCells(f, "dice", rowsBySize, () -> f.server(server -> {
+			dev.nezo.burmaldaholic.games.extras.server.DiceGame.open(RealFlow.player(server), null);
+			return null;
+		}));
+		gameCells(f, "scratch", rowsBySize, () -> f.server(server -> {
+			dev.nezo.burmaldaholic.games.extras.server.ScratchGame.use(RealFlow.player(server), net.minecraft.world.item.ItemStack.EMPTY,
+				dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.BASIC);
+			return null;
+		}));
+		for (var e : rowsBySize.entrySet()) {
+			java.util.Set<String> distinct = new java.util.TreeSet<>(e.getValue().values());
+			report.add("B6 " + e.getKey() + ": " + e.getValue().size() + " games, rows " + distinct);
+			if (e.getValue().size() != 11) failures.add("B6 " + e.getKey() + ": only " + e.getValue().keySet() + " opened");
+			if (distinct.size() != 1) failures.add("B6 " + e.getKey() + ": play-field rows differ " + e.getValue());
+		}
+		f.size(1280, 720, 0);
+	}
+
+	private void gameCells(RealFlow f, String game, java.util.Map<String, java.util.Map<String, String>> rowsBySize, Runnable open) {
+		String tag = "B6 " + game;
+		try {
+			f.size(GAME_SIZES[0][0], GAME_SIZES[0][1], GAME_SIZES[0][2]);
+			open.run();
+			f.context().waitFor(mc -> mc.gui.screen() instanceof V2Chrome.Holder, RealFlow.TIMEOUT);
+			f.context().waitTicks(5);
+			for (int[] sz : GAME_SIZES) {
+				f.size(sz[0], sz[1], sz[2]);
+				f.context().waitTicks(3);
+				String[] out = f.client(mc -> {
+					var s = mc.gui.screen();
+					if (!(s instanceof V2Chrome.Holder h) || !(s instanceof dev.nezo.burmaldaholic.client.ui.FitScaled fit)) return new String[] {"?", "not a v2 screen: " + s};
+					V2Chrome c = h.chrome();
+					Viewport vp = c.viewport();
+					Viewport want = ViewportPolicy.of(mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getWindow().getGuiScale());
+					var g = c.grid();
+					var ref = new dev.nezo.burmaldaholic.core.ui.v2.TableGrid(want);
+					List<String> bad = new ArrayList<>();
+					if (!vp.equals(want)) bad.add("viewport " + vp + " != policy " + want);
+					if (g.room != want.room()) bad.add("room " + g.room);
+					if (!g.topBar.equals(ref.topBar) || !g.play.equals(ref.play) || !g.dock.equals(ref.dock)) bad.add("rows " + g.topBar + g.play + g.dock + " != " + ref.topBar + ref.play + ref.dock);
+					if (Math.abs(fit.fitScale() - vp.factor()) > 1e-4) bad.add("pose factor " + fit.fitScale() + " != " + vp.factor());
+					if (Math.abs(fit.offsetX() - vp.guiOx()) > 1e-4 || Math.abs(fit.offsetY() - vp.guiOy()) > 1e-4) bad.add("offset not the frame's");
+					if (s.width != vp.frameW() || s.height != vp.frameH()) bad.add("screen " + s.width + "x" + s.height + " is not the frame");
+					for (HitMap.Target t : c.hits().targets()) {
+						if (!t.box().inside(g.screen)) bad.add(t.id() + " outside the frame " + t.box());
+						else if (t.id().startsWith("felt.") && !t.box().inside(g.play)) bad.add(t.id() + " outside the PlayArea " + t.box());
+					}
+					String size = String.format("%04dx%d", vp.frameW(), vp.frameH());
+					return new String[] {size, g.topBar + " " + g.play + " " + g.dock, String.join("; ", bad)};
+				});
+				if (out.length == 2) throw new AssertionError(out[1]);
+				rowsBySize.computeIfAbsent(out[0], k -> new java.util.TreeMap<>()).put(game, out[1]);
+				report.add("  " + tag + " " + out[0] + ": " + (out[2].isEmpty() ? "ok" : out[2]));
+				if (!out[2].isEmpty()) failures.add(tag + " " + out[0] + ": " + out[2]);
+			}
+		} catch (AssertionError | RuntimeException e) {
+			failures.add(tag + ": " + e.getMessage());
+			report.add("  FAILED " + tag + ": " + e);
+		} finally {
+			f.close();
 		}
 	}
 

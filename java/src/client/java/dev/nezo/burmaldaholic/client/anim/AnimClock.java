@@ -33,6 +33,17 @@ public final class AnimClock {
 		frozenLevelMs = Double.NaN;
 	}
 
+	/**
+	 * The ONE test clock every client clock reads (AnimClock, {@code MotionClock}, {@code TableClock}): the frozen level
+	 * time of {@link #freezeForTest}, else {@code MotionClock.testOverride}, else NaN (production: live clocks).
+	 */
+	public static double testLevelMs() {
+		double frozen = frozenLevelMs;
+		if (!Double.isNaN(frozen)) return frozen;
+		java.util.function.LongSupplier o = dev.nezo.burmaldaholic.client.fx.motion.MotionClock.testOverride;
+		return o != null ? o.getAsLong() : Double.NaN;
+	}
+
 	/** True while a test froze the clock. */
 	public static boolean frozen() {
 		return !Double.isNaN(frozenLevelMs);
@@ -40,7 +51,7 @@ public final class AnimClock {
 
 	/** Milliseconds since beat 0 of {@code seed} at the current frame; 0 when no level is loaded. */
 	public static double sharedMs(TimelineSeed seed, float partialTick) {
-		double frozen = frozenLevelMs;
+		double frozen = testLevelMs();
 		if (!Double.isNaN(frozen)) {
 			long tick = (long) Math.floor(frozen / 50.0);
 			return seed.elapsedMs(tick, (float) ((frozen - tick * 50.0) / 50.0));
@@ -52,7 +63,7 @@ public final class AnimClock {
 
 	/** Game time + partial tick in ms (for BERs that sample several seeds per frame). */
 	public static double levelMs(float partialTick) {
-		double frozen = frozenLevelMs;
+		double frozen = testLevelMs();
 		if (!Double.isNaN(frozen)) return frozen;
 		Minecraft mc = Minecraft.getInstance();
 		return mc.level == null ? 0 : (mc.level.getGameTime() + (double) partialTick) * 50.0;

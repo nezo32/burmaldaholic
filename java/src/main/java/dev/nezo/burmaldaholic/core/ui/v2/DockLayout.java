@@ -197,8 +197,9 @@ public final class DockLayout {
 	private static Box hintStrip(TableGrid g, Box status, int statusW) {
 		if (statusW <= 0 || status.w() >= statusW) return Box.EMPTY;
 		int m = g.tier.margin;
-		int w = Math.min(g.dock.w() - 2 * m, statusW + 8);
-		return new Box(m, g.dock.y() - HINT_STRIP_H, w, HINT_STRIP_H);
+		// the whole Dock width: it may carry line 2, or a lone line 1 too long for two lines of the column (the status
+		// fills only behind its text)
+		return new Box(m, g.dock.y() - HINT_STRIP_H, g.dock.w() - 2 * m, HINT_STRIP_H);
 	}
 
 	private static int sum(int[] ws, int min, int gap) {

@@ -70,8 +70,9 @@ public final class RealFlow {
 	/** True when the lane's tests should run ({@code BURMALDAHOLIC_CGT} unset, or listing the lane / its class). */
 	public static boolean enabled(String lane) {
 		String f = System.getenv("BURMALDAHOLIC_CGT");
-		if (f == null || f.isBlank()) return true;
-		return Arrays.stream(f.split(",")).map(String::trim).anyMatch(s -> s.equalsIgnoreCase(lane));
+		boolean on = f == null || f.isBlank() || Arrays.stream(f.split(",")).map(String::trim).anyMatch(s -> s.equalsIgnoreCase(lane));
+		if (on) System.out.println("[CGT] lane " + lane + " runs (BURMALDAHOLIC_CGT=" + f + ")");
+		return on;
 	}
 
 	// ---- window, GUI scale, language ------------------------------------------------------------------------------

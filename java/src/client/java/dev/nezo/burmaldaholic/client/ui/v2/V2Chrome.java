@@ -197,9 +197,25 @@ public final class V2Chrome {
 		}
 		status.reason(p);
 		Optional<String> hint = flow.hintKey(view);
-		status.hint(hint.map(k -> V2Draw.tr(k, flow.hintArgs(view))).orElse(showBet && bet.isMultiSpot() && bet.armed()
-			? V2Draw.tr(V2Keys.STATUS_CLICK_LAYOUT, bet.selected()) : null));
+		status.hint(hint.map(k -> V2Draw.tr(k, flow.hintArgs(view))).orElse(fallbackHint(showBet ? b : null)));
 		relayout();
+	}
+
+	/**
+	 * The kit's line-2 hint when the game gives none, by phase (never a betting hint outside betting — C2: "Click the
+	 * layout" showed on the roulette result): bets open and seated → how chips work (multi-spot: click the layout;
+	 * single: chips add to the bet); a countdown to the next round → "Next round in N s"; else nothing (the primary's
+	 * reason or the game's line 1 speaks).
+	 */
+	private @Nullable Component fallbackHint(@Nullable BetView b) {
+		if (b == null) return null;
+		if (b.seated() && b.bettingOpen()) {
+			return bet.isMultiSpot() ? V2Draw.tr(V2Keys.STATUS_CLICK_LAYOUT, Math.max(0, bet.selected())) : V2Draw.tr(V2Keys.STATUS_CHIPS_ADD);
+		}
+		if (!b.bettingOpen() && b.secondsLeft() >= 0 && (b.phase() == BetView.Phase.BETTING || b.phase() == BetView.Phase.IDLE)) {
+			return V2Draw.tr(V2Keys.STATUS_NEXT_ROUND_IN, b.secondsLeft());
+		}
+		return null;
 	}
 
 	/** Rebuilds the hit map: the host's play targets, the Dock, the TopBar (z-order = registration order). */
@@ -340,7 +356,25 @@ public final class V2Chrome {
 		return press(t.get().id(), t.get().enabled(), p);
 	}
 
-	/** A key press (the raw event key code, resolved by {@link V2Input}); true when consumed. */
+	/** Whether a click at (x, y) lands on an enabled kit or play target (it then acts even while a celebration plays). */
+	public boolean hitsEnabled(double x, double y) {
+		return hits.at(x, y).map(HitMap.Target::enabled).orElse(false);
+	}
+
+	/** Whether a key press reaches an enabled target (a bound kit key or the stepper's). */
+	public boolean keyHitsEnabled(int code) {
+		String name = V2Input.keyName(code);
+		if (name == null) return false;
+		String step = stepper.idForKey(name);
+		if (step != null) {
+			Gate g = stepper.gate(step);
+			return g != null && g.enabled();
+		}
+		Optional<String> id = keys.idFor(name);
+		return id.isPresent() && hits.targets().stream().anyMatch(t -> t.id().equals(id.get()) && t.enabled());
+	}
+
+		/** A key press (the raw event key code, resolved by {@link V2Input}); true when consumed. */
 	public boolean key(int code) {
 		return key(V2Input.keyName(code));
 	}
