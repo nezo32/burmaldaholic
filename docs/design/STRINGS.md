@@ -636,7 +636,7 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.reason.not_enough_min` | Not enough chips for the minimum %1$s | Не хватает фишек на минимум %1$s |
 | `gui.burmaldaholic.core.v2.reason.table_full` | Table full | Мест нет |
 | `gui.burmaldaholic.core.v2.reason.bets_closed` | No more bets | Ставки закрыты |
-| `gui.burmaldaholic.core.v2.reason.bets_open_in` | Bets open in %1$s s | Ставки через %1$s с |
+| `gui.burmaldaholic.core.v2.reason.bets_open_in` | Bets open in %1$s s | Ставки: %1$s с |
 | `gui.burmaldaholic.core.v2.reason.round_in_progress` | Round in progress | Идёт раунд |
 | `gui.burmaldaholic.core.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
 | `gui.burmaldaholic.core.v2.reason.no_answer` | The table did not answer — try again | Стол не ответил — попробуйте ещё раз |
@@ -648,8 +648,8 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.reason.no_rebet` | No previous bet | Нет прошлой ставки |
 | `gui.burmaldaholic.core.v2.reason.cannot_double` | You can't double now | Удвоить сейчас нельзя |
 | `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место или нажмите Пробел |
-| `gui.burmaldaholic.core.v2.status.click_layout` | Click the layout to place %1$s | Нажмите на поле, чтобы поставить %1$s |
-| `gui.burmaldaholic.core.v2.status.chips_add` | Chips add to your bet | Фишки добавляются к ставке |
+| `gui.burmaldaholic.core.v2.status.click_layout` | Click the layout to bet | Кликните поле |
+| `gui.burmaldaholic.core.v2.status.chips_add` | Chips add to your bet | Фишки → ставка |
 | `gui.burmaldaholic.core.v2.status.next_round_in` | Next round in %1$s s | Новый раунд через %1$s с |
 | `gui.burmaldaholic.core.v2.status.pending` | Sending… | Отправка… |
 | `gui.burmaldaholic.core.v2.stamp.win` | WIN | ВЫИГРЫШ |
@@ -2193,6 +2193,12 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.extras.dice.fx.victory` | Victory! | Победа! |
 | `gui.burmaldaholic.extras.dice.fx.defeat` | Defeat | Поражение |
 | `gui.burmaldaholic.extras.dice.fx.shake` | Shake the cup… | Трясём стакан… |
+
+### extras › dice motion (DCb, DICE-ANIM-SPEC §3–§9)
+
+| Key | EN | RU |
+|---|---|---|
+| `gui.burmaldaholic.extras.dice.motion.total` | Total: %1$s | Сумма: %1$s |
 
 ### Presentation (animation wave, `animation/extras-pvp.md` §15; `anim.*` keys are shared by extras and PvP)
 

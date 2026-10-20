@@ -84,7 +84,13 @@
 			"dev.nezo.burmaldaholic.gametest.v2.extras.ExtrasV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.pvp.PvpV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.RealInputClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.v2.dice.DiceKitClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.v2.ResolutionMatrixClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.dice.DiceKitClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.extras.PlinkoAnimClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.roulette.RouletteAnimClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.extras.dice.DiceAnimClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.craps.CrapsAnimClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.MultiBlockTableClientGameTests"
 		]
 	},
 	"depends": {

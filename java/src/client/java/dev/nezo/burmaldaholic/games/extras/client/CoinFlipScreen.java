@@ -25,6 +25,7 @@ import dev.nezo.burmaldaholic.games.extras.present.ExtrasKeys;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasLayout;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasView;
 import dev.nezo.burmaldaholic.games.extras.present.LocalBet;
+import dev.nezo.burmaldaholic.games.extras.present.LocalBets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -55,7 +56,8 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 	private static final Identifier HEAT = Kit.sheet("extras/coin_heat");
 	private static final Identifier PIPS = Kit.sheet("extras/chain_pips");
 	private static final Identifier MINI = Kit.sheet("extras/coin_mini");
-	private static final LocalBet BET = new LocalBet(0);
+	/** This machine's bet in the client session (per position, R-CDE m5). */
+	private final LocalBet bet;
 	private static final BetControl PAWN = new BetControl(true, 1);
 	private static CoinFlip.Side call = CoinFlip.Side.HEADS;
 	/** Last flips of this session: {heads 0/1, won 0/1}, oldest first. */
@@ -80,8 +82,9 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 
 	CoinFlipScreen(CompoundTag state) {
 		super("coin", Component.translatable("gui.burmaldaholic.extras.coin.title"), state);
+		this.bet = LocalBets.of("coin", LocalBets.HAND);
 		shownSeq = state.getCompoundOrEmpty("result").getIntOr("seq", -1);
-		if (BET.amount() <= 0) BET.add(Math.max(1, state.getLongOr("min", 1)), state.getLongOr("max", 0), state.getLongOr("balance", 0));
+		if (bet.amount() <= 0) bet.add(Math.max(1, state.getLongOr("min", 1)), state.getLongOr("max", 0), state.getLongOr("balance", 0));
 		chrome.keys(KeyMap.standard().bind(KeyMap.H, KeyMap.Ids.felt("heads")).bind(KeyMap.T, KeyMap.Ids.felt("tails")));
 	}
 
@@ -99,10 +102,10 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 		if (!chips()) {
 			return ExtrasView.pawn(busy, block, PAWN.kind().equals(BetControl.ITEM) ? s.getLongOr("held_value", 0) : PAWN.amount(), PAWN.max(s));
 		}
-		BET.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
+		bet.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
 		double payout = s.getDoubleOr("payout", CoinFlip.DEFAULT_PAYOUT);
-		long upTo = BET.amount() + Payouts.floorPay(BET.amount(), payout);
-		return ExtrasView.chips(BET.view(s.getLongOr("min", 1), s.getLongOr("max", 0), shownBalance(), busy), busy, block, upTo);
+		long upTo = bet.amount() + Payouts.floorPay(bet.amount(), payout);
+		return ExtrasView.chips(bet.view(s.getLongOr("min", 1), s.getLongOr("max", 0), shownBalance(), busy), busy, block, upTo);
 	}
 
 	@Override
@@ -121,13 +124,13 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 		return new BetPort() {
 			@Override
 			public void add(long denom) {
-				BET.add(denom, state().getLongOr("max", 0), shownBalance());
+				bet.add(denom, state().getLongOr("max", 0), shownBalance());
 				local();
 			}
 
 			@Override
 			public void remove(long denom) {
-				BET.undo();
+				bet.undo();
 				local();
 			}
 
@@ -136,10 +139,10 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 				long max = state().getLongOr("max", 0);
 				long bal = shownBalance();
 				switch (id) {
-					case BetGates.UNDO -> BET.undo();
-					case BetGates.CLEAR -> BET.clear();
-					case BetGates.REBET -> BET.rebet(max, bal);
-					case BetGates.DOUBLE -> BET.dbl(max, bal);
+					case BetGates.UNDO -> bet.undo();
+					case BetGates.CLEAR -> bet.clear();
+					case BetGates.REBET -> bet.rebet(max, bal);
+					case BetGates.DOUBLE -> bet.dbl(max, bal);
 					default -> {}
 				}
 				local();
@@ -155,8 +158,8 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 				if (chips()) {
 					args = new CompoundTag();
 					args.putString("stake", "chips");
-					args.putLong("amount", BET.amount());
-					BET.played();
+					args.putLong("amount", bet.amount());
+					bet.sent();
 				} else {
 					args = PAWN.args();
 				}
@@ -183,6 +186,7 @@ final class CoinFlipScreen extends ExtrasSceneScreen<ExtrasView> implements dev.
 		int seq = r.getIntOr("seq", -1);
 		if (seq != shownSeq && seq >= 0) {
 			shownSeq = seq;
+			bet.ack(); // the server played the amount: it becomes Rebet
 			if (!landedDone) finishToss(false);
 			animStart = Util.getMillis();
 			landedDone = false;

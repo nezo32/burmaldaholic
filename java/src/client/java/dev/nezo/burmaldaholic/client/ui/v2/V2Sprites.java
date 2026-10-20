@@ -23,6 +23,8 @@ public final class V2Sprites {
 	public static final Identifier KEY_HINT = v2("key_hint");
 	public static final Identifier CHIP_ICON = v2("chip_icon");
 	public static final Identifier BALANCE = v2("balance_pill");
+	/** Nine-slice around a framed screen (ui-v2.md §3.7): 8-px shadow outside, then the rail and gold rims. */
+	public static final Identifier FRAME_EDGE = v2("frame_edge");
 	public static final Identifier TITLE_PILL = v2("title_pill");
 	public static final Identifier INFO_PILL = v2("info_pill");
 	public static final Identifier TOTAL_PILL = v2("total_pill");

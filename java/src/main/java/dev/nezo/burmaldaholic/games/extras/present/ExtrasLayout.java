@@ -73,6 +73,33 @@ public final class ExtrasLayout {
 		return scene(g, PLINKO_W, PLINKO_H, 9, false);
 	}
 
+	/** Height of Plinko's "Top prize" block (caption + the 2× number), of the "Last balls" caption, the gap after the pills. */
+	public static final int TOP_PRIZE_H = 30, CAPTION_H = 12, PILLS_GAP = 6;
+
+	/**
+	 * Plinko's options column under the three Risk toggles (DES Plinko P1, mockup {@code v2_plinko_480.png}), y offsets from
+	 * {@code side.y()}: {@code {historyRows, historyCaptionY, pillsY, topPrizeY}}. An empty history shows nothing (no
+	 * caption, -1); the Top prize always shows when the column holds it (it never gives way to the history: a short column
+	 * drops pill rows first), else -1.
+	 *
+	 * @param balls  landed balls of the session (0…4, two pills a row)
+	 * @param bottom the column's usable bottom from {@code side.y()} (above the Battle toggle when it shows)
+	 */
+	public static int[] plinkoSide(Scene s, int balls, int bottom) {
+		int lastTop = plinkoLastTop(s);
+		int want = (Math.min(4, Math.max(0, balls)) + 1) / 2;
+		int fit = (bottom - lastTop - CAPTION_H - PILLS_GAP - TOP_PRIZE_H) / (s.row() + 2);
+		int rows = Math.max(0, Math.min(want, fit));
+		int top = rows > 0 ? lastTop + CAPTION_H + rows * (s.row() + 2) + PILLS_GAP : lastTop;
+		if (top + TOP_PRIZE_H > bottom) top = -1;
+		return new int[] {rows, rows > 0 ? lastTop : -1, rows > 0 ? lastTop + CAPTION_H : -1, top};
+	}
+
+	/** y offset (from {@code side.y()}) of the first thing under Plinko's Risk caption + three toggles. */
+	public static int plinkoLastTop(Scene s) {
+		return 14 + 3 * (s.row() + 2) + 8;
+	}
+
 	public static Scene wheel(TableGrid g) {
 		return scene(g, WHEEL, WHEEL, 7, false);
 	}

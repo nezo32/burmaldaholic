@@ -115,6 +115,8 @@ public final class ExtrasModule implements CasinoModule {
 		});
 		ExtrasScreenPayload.TYPE = ctx.payloads().clientbound("extras_screen", ExtrasScreenPayload.CODEC);
 		ExtrasErrorPayload.TYPE = ctx.payloads().clientbound("extras_error", ExtrasErrorPayload.CODEC);
+		dev.nezo.burmaldaholic.games.extras.net.DuelStageSync.TYPE = ctx.payloads().clientbound("extras_duel_stage",
+			dev.nezo.burmaldaholic.games.extras.net.DuelStageSync.CODEC); // DCb: the in-world duel for modded viewers (DI §6)
 
 		ServerTickEvents.END_SERVER_TICK.register(DiceGame::tick);
 		ServerTickEvents.END_SERVER_TICK.register(dev.nezo.burmaldaholic.games.extras.server.CoinToss::tick); // in-world toss (extras-pvp §1.3)

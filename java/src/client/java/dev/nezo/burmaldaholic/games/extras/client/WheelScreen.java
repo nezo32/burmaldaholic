@@ -27,6 +27,7 @@ import dev.nezo.burmaldaholic.games.extras.present.ExtrasKeys;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasLayout;
 import dev.nezo.burmaldaholic.games.extras.present.ExtrasView;
 import dev.nezo.burmaldaholic.games.extras.present.LocalBet;
+import dev.nezo.burmaldaholic.games.extras.present.LocalBets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +52,8 @@ import net.minecraft.world.entity.player.Inventory;
  */
 final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.burmaldaholic.client.fx.ClientFx.CelebrationGate {
 	private static final int STOP_MS = 600;
-	private static final LocalBet BET = new LocalBet(0);
+	/** This machine's bet in the client session (per position, R-CDE m5). */
+	private final LocalBet bet;
 	private static final BetControl PAWN = new BetControl(true, 1);
 
 	private int shownSeq = -1;
@@ -73,6 +75,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 
 	WheelScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable("gui.burmaldaholic.extras.wheel.title"));
+		this.bet = LocalBets.of("wheel", menu.pos().asLong());
 	}
 
 	// ---- the pure parts ------------------------------------------------------------------------------------------------
@@ -90,11 +93,11 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 			return ExtrasView.pawn(busy, null, PAWN.kind().equals(BetControl.ITEM) ? s.getLongOr("held_value", 0) : PAWN.amount(), max);
 		}
 		long bal = shownBalance();
-		BET.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
+		bet.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
 		double top = 0;
 		CompoundTag mult = s.getCompoundOrEmpty("multipliers");
 		for (String k : mult.keySet()) top = Math.max(top, mult.getDoubleOr(k, 0));
-		return ExtrasView.chips(BET.view(s.getLongOr("min", 1), s.getLongOr("max", 0), bal, busy), busy, null, (long) Math.floor(BET.amount() * top));
+		return ExtrasView.chips(bet.view(s.getLongOr("min", 1), s.getLongOr("max", 0), bal, busy), busy, null, (long) Math.floor(bet.amount() * top));
 	}
 
 	@Override
@@ -118,13 +121,13 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		return new BetPort() {
 			@Override
 			public void add(long denom) {
-				BET.add(denom, state().getLongOr("max", 0), shownBalance());
+				bet.add(denom, state().getLongOr("max", 0), shownBalance());
 				local();
 			}
 
 			@Override
 			public void remove(long denom) {
-				BET.undo();
+				bet.undo();
 				local();
 			}
 
@@ -133,10 +136,10 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 				long max = state().getLongOr("max", 0);
 				long bal = shownBalance();
 				switch (id) {
-					case BetGates.UNDO -> BET.undo();
-					case BetGates.CLEAR -> BET.clear();
-					case BetGates.REBET -> BET.rebet(max, bal);
-					case BetGates.DOUBLE -> BET.dbl(max, bal);
+					case BetGates.UNDO -> bet.undo();
+					case BetGates.CLEAR -> bet.clear();
+					case BetGates.REBET -> bet.rebet(max, bal);
+					case BetGates.DOUBLE -> bet.dbl(max, bal);
 					default -> {}
 				}
 				local();
@@ -152,8 +155,8 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 				if (chips()) {
 					args = new CompoundTag();
 					args.putString("stake", "chips");
-					args.putLong("amount", BET.amount());
-					BET.played();
+					args.putLong("amount", bet.amount());
+					bet.sent();
 				} else {
 					args = PAWN.args();
 				}
@@ -205,7 +208,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		if (!seenState) {
 			if (!newState.isEmpty()) {
 				seenState = true;
-				if (BET.amount() <= 0) BET.add(Math.max(1, newState.getLongOr("min", 1)), newState.getLongOr("max", 0), newState.getLongOr("balance", 0));
+				if (bet.amount() <= 0) bet.add(Math.max(1, newState.getLongOr("min", 1)), newState.getLongOr("max", 0), newState.getLongOr("balance", 0));
 				if (seq >= 0) {
 					shownSeq = seq;
 					angle = WheelAnim.restAngle(r.getIntOr("index", 0), n, SeedMix.mix(SeedMix.hash("wheel"), seq));
@@ -216,6 +219,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 			if (seq >= 0 && seq != shownSeq) {
 				if (spinning()) finish(false);
 				shownSeq = seq;
+				bet.ack(); // the server played the amount: it becomes Rebet
 				int index = r.getIntOr("index", 0);
 				from = angle;
 				rest = WheelAnim.restAngle(index, n, SeedMix.mix(SeedMix.hash("wheel"), seq));

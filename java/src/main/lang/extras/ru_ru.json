@@ -103,6 +103,7 @@
 	"gui.burmaldaholic.extras.dice.fx.victory": "Победа!",
 	"gui.burmaldaholic.extras.dice.fx.defeat": "Поражение",
 	"gui.burmaldaholic.extras.dice.fx.shake": "Трясём стакан…",
+	"gui.burmaldaholic.extras.dice.motion.total": "Сумма: %1$s",
 	"gui.burmaldaholic.extras.coin.your_call": "Ваш выбор",
 	"gui.burmaldaholic.extras.coin.history": "Последние броски",
 	"gui.burmaldaholic.extras.coin.tally": "Орёл %1$s · Решка %2$s",
