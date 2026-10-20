@@ -399,7 +399,7 @@ public final class DiceGame {
 	}
 
 	/** Test hook: every PvP result sent (player, result tag). No-op in production. */
-	public static java.util.function.BiConsumer<ServerPlayer, CompoundTag> PVP_RESULT_SINK = (p, r) -> {};
+	public static volatile java.util.function.BiConsumer<ServerPlayer, CompoundTag> PVP_RESULT_SINK = (p, r) -> {};
 
 	/** Location theme of the duel screen (visual/tables.md §2.1): Nether → Piglin Parlor, End → lounge, else village. */
 	static int theme(ServerPlayer player) {

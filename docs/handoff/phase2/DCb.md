@@ -73,3 +73,16 @@ Branch `p2/dcb` (from `feature/v020-table-ui` @292cbe5; merged `p2-e2-freeze` 69
   (without the payload) correctly falls back to entities.
 - PvP screen clock uses the client level time; a client far behind the server tick shows the first frame late (beats
   still aligned to the chat ticks).
+
+## R-DCb review fixes
+- LOW caps: `DuelStageSync` writes at most `MAX_ROUNDS`=16 / `MAX_DUELLISTS`=4 (same constants as the reader); the
+  reader now rejects over-cap counts instead of clamping (clamping desynced the stream).
+- LOW dimension: the sync carries the level's dimension id; `DuelStageRenderer` neither draws nor plays a stage from
+  another dimension (it expires on its own clock). Wire format changed (pre-release; no compat concern).
+- LOW role: a sync that arrives before `mc.player` exists keeps the role unknown (silent) and resolves it on the first
+  frame with a player.
+- NITs: `DiceArena.sounds` lost the redundant `waitingFor` (always == `show`); `PVP_RESULT_SINK` is volatile; the
+  renderer's per-frame contact lambdas are now made once per stage and `DiceArena` reuses its `Cup[]`; the javadoc no
+  longer claims "allocation-free". Not done: the on-receipt solve hitch NIT.
+- Verified: `DuelStageSyncTest` (4: round trip, write caps, read rejects, dimension filter), extras/dice/RawInputGuard
+  unit tests 157/157, compile 26.2 + `-Pmc=26.3`, `runGameTest -Dfabric-api.gametest.filter=duel`.

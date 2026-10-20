@@ -22,15 +22,24 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param rounds    per round {@code [side][die]} faces (side 0 = A)
  * @param winner    0 = A, 1 = B, −1 = refund
  * @param duellists the two players (they hear their screens, not the stage)
+ * @param dimension the duel's dimension id (e.g. {@code minecraft:overworld}); other dimensions don't draw it
  */
 public record DuelStageSync(int id, int seed, long start, DuelStagePlan.Point chestA, DuelStagePlan.Point chestB, double groundY, List<int[][]> rounds,
-		int winner, List<UUID> duellists) implements CustomPacketPayload {
+		int winner, List<UUID> duellists, String dimension) implements CustomPacketPayload {
 	public static CustomPacketPayload.Type<DuelStageSync> TYPE;
+	/** Wire caps, enforced on both sides so the stream never desyncs (a PvP duel has 3 rounds and 2 duellists). */
+	public static final int MAX_ROUNDS = 16, MAX_DUELLISTS = 4, MAX_DIMENSION = 256;
 	public static final StreamCodec<RegistryFriendlyByteBuf, DuelStageSync> CODEC = StreamCodec.of(DuelStageSync::write, DuelStageSync::read);
 
 	public DuelStageSync {
 		rounds = List.copyOf(rounds);
 		duellists = List.copyOf(duellists);
+		dimension = dimension == null ? "" : dimension;
+	}
+
+	/** True when this duel is in the dimension {@code dim} (the viewer's level); other dimensions never draw it. */
+	public boolean inDimension(String dim) {
+		return dimension.equals(dim);
 	}
 
 	private static void write(RegistryFriendlyByteBuf buf, DuelStageSync s) {
@@ -40,13 +49,16 @@ public record DuelStageSync(int id, int seed, long start, DuelStagePlan.Point ch
 		point(buf, s.chestA);
 		point(buf, s.chestB);
 		buf.writeDouble(s.groundY);
-		buf.writeVarInt(s.rounds.size());
-		for (int[][] r : s.rounds) {
+		int n = Math.min(MAX_ROUNDS, s.rounds.size());
+		buf.writeVarInt(n);
+		for (int[][] r : s.rounds.subList(0, n)) {
 			for (int side = 0; side < 2; side++) for (int d = 0; d < 2; d++) buf.writeByte(r[side][d]);
 		}
 		buf.writeByte(s.winner);
-		buf.writeVarInt(s.duellists.size());
-		for (UUID u : s.duellists) buf.writeUUID(u);
+		int m = Math.min(MAX_DUELLISTS, s.duellists.size());
+		buf.writeVarInt(m);
+		for (UUID u : s.duellists.subList(0, m)) buf.writeUUID(u);
+		buf.writeUtf(s.dimension, MAX_DIMENSION);
 	}
 
 	private static DuelStageSync read(RegistryFriendlyByteBuf buf) {
@@ -56,7 +68,8 @@ public record DuelStageSync(int id, int seed, long start, DuelStagePlan.Point ch
 		DuelStagePlan.Point a = point(buf);
 		DuelStagePlan.Point b = point(buf);
 		double ground = buf.readDouble();
-		int n = Math.min(16, buf.readVarInt());
+		int n = buf.readVarInt();
+		if (n < 0 || n > MAX_ROUNDS) throw new io.netty.handler.codec.DecoderException("DuelStageSync: " + n + " rounds");
 		List<int[][]> rounds = new ArrayList<>(n);
 		for (int i = 0; i < n; i++) {
 			int[][] r = new int[2][2];
@@ -64,10 +77,12 @@ public record DuelStageSync(int id, int seed, long start, DuelStagePlan.Point ch
 			rounds.add(r);
 		}
 		int winner = buf.readByte();
-		int m = Math.min(4, buf.readVarInt());
+		int m = buf.readVarInt();
+		if (m < 0 || m > MAX_DUELLISTS) throw new io.netty.handler.codec.DecoderException("DuelStageSync: " + m + " duellists");
 		List<UUID> who = new ArrayList<>(m);
 		for (int i = 0; i < m; i++) who.add(buf.readUUID());
-		return new DuelStageSync(id, seed, start, a, b, ground, rounds, winner, who);
+		String dim = buf.readUtf(MAX_DIMENSION);
+		return new DuelStageSync(id, seed, start, a, b, ground, rounds, winner, who, dim);
 	}
 
 	private static void point(RegistryFriendlyByteBuf buf, DuelStagePlan.Point p) {

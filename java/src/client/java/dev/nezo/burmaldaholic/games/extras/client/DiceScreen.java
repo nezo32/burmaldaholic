@@ -486,7 +486,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 		arena.draw(g, new DiceArena.Frame(stage, font, reduced, MotionClock.localMs()), show, t, wait, prev, sweep, theme.id);
 		g.pose().popMatrix();
 		plates(g, t, reduced);
-		arena.sounds(show, t, wait, show, reduced);
+		arena.sounds(show, t, wait, reduced);
 		strip(g, state(), v, mouseX, mouseY);
 	}
 

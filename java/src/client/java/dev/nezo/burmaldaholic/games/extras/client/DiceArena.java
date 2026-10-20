@@ -84,6 +84,8 @@ final class DiceArena {
 	private final DiceRollCache cache = new DiceRollCache(16);
 	private final DiceDraw.Scratch scratch = new DiceDraw.Scratch();
 	private final DieSample s = new DieSample();
+	/** Per-frame scratch: this round's cup per order (null: the idle cup). */
+	private final DuelTimeline.Cup[] cups = new DuelTimeline.Cup[2];
 	private final DieSample t = new DieSample();
 	private final double[] vq = new double[4];
 	private final double[] yawQ = new double[4];
@@ -229,8 +231,9 @@ final class DiceArena {
 
 		// cups and the dice: shake clock of this round
 		double shakeMs = show == null || Double.isNaN(show.offset) ? waitShakeMs : rt + show.offset;
-		DuelTimeline.Cup[] cups = new DuelTimeline.Cup[2];
+		DuelTimeline.Cup[] cups = this.cups;
 		for (int order = 0; order < 2; order++) {
+			cups[order] = null;
 			if (show != null && !Double.isNaN(show.offset)) cups[order] = show.cup(round, order);
 		}
 		// shadows first (all dice)
@@ -877,10 +880,10 @@ final class DiceArena {
 	 * contacts (roll clock), the beats (drumroll, count-up ticks, hop, stamp, outcome). A jump (skip, a late open, a
 	 * hitch) fires the passed events silently.
 	 */
-	void sounds(Show show, double t, double waitShakeMs, Show waitingFor, boolean reduced) {
+	void sounds(Show show, double t, double waitShakeMs, boolean reduced) {
 		if (show == null || Double.isNaN(show.offset)) {
 			// waiting for the house result: both cups rattle (looping shake)
-			if (!Double.isNaN(waitShakeMs) && !reduced) waitingRattle(waitingFor, waitShakeMs);
+			if (!Double.isNaN(waitShakeMs) && !reduced) waitingRattle(show, waitShakeMs); // show: null, or the result whose house roll is pending
 			return;
 		}
 		int round = DuelTimeline.roundAt(t, show.roundCount());

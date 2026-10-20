@@ -11,6 +11,7 @@ import dev.nezo.burmaldaholic.core.anim.dice.DiceRoll;
 import dev.nezo.burmaldaholic.core.anim.dice.DiceTray;
 import dev.nezo.burmaldaholic.core.anim.dice.DieSample;
 import dev.nezo.burmaldaholic.core.anim.motion.EventCursor;
+import dev.nezo.burmaldaholic.core.anim.motion.MotionEvent;
 import dev.nezo.burmaldaholic.games.extras.logic.DuelStagePlan;
 import dev.nezo.burmaldaholic.games.extras.net.DuelStageSync;
 import java.util.ArrayList;
@@ -38,8 +39,9 @@ import org.joml.Quaternionf;
  *   <li>24–48: each pair appears at its rest pose when it rests (never before: no spoiler, no cost);</li>
  *   <li>&gt; 48: culled.</li>
  * </ul>
- * The duellists hear their screens, so the stage is silent for them. Render thread only; allocation-free per frame
- * after the first frame of a stage.
+ * The duellists hear their screens, so the stage is silent for them (resolved lazily: a sync that arrives before the
+ * local player exists stays silent until it does). A stage draws only in its own dimension. Render thread only; the
+ * rolls are solved once per stage (on receipt) and frames only sample the plan.
  */
 public final class DuelStageRenderer {
 	public static final double LOD_FULL = 8, LOD_MOTION = 24, LOD_REST = 48, HEAR_FAR = 16;
@@ -47,6 +49,9 @@ public final class DuelStageRenderer {
 	private static final DuelStagePlan.Sample S = new DuelStagePlan.Sample();
 	private static final DieSample REST = new DieSample();
 	private static final Quaternionf YAW = new Quaternionf();
+	/** The level the cached dimension id belongs to. */
+	private static Object dimLevel;
+	private static String dim = "";
 
 	private DuelStageRenderer() {}
 
@@ -54,18 +59,33 @@ public final class DuelStageRenderer {
 	static final class Live {
 		final DuelStageSync sync;
 		final DuelStagePlan plan;
-		final boolean duellist;
+		/** 1 = the local player is a duellist, 0 = a bystander, −1 = not known yet (no local player when it arrived). */
+		int duellist;
 		final DiceAudio[] audio = new DiceAudio[2];
 		final EventCursor[] cursors = new EventCursor[2];
+		/** Per-side contact listeners, made once (they read {@link #near} / {@link #lod} / {@link #round}). */
+		final EventCursor.Listener[] listeners = new EventCursor.Listener[2];
 		int cursorRound = -1;
 		/** Last LOD drawn (tests). */
 		int lod = -1;
+		boolean near;
+		int round;
 
-		Live(DuelStageSync sync, boolean duellist) {
+		Live(DuelStageSync sync, int duellist) {
 			this.sync = sync;
 			this.plan = sync.plan();
 			this.duellist = duellist;
-			for (int s = 0; s < 2; s++) audio[s] = DiceAudio.world();
+			for (int s = 0; s < 2; s++) {
+				audio[s] = DiceAudio.world();
+				final int side = s;
+				listeners[s] = (e, silent) -> contact(this, side, e, silent);
+			}
+		}
+
+		/** Resolves the duellist role once the local player exists; true while it is (or may be) a duellist. */
+		boolean silent(Minecraft mc) {
+			if (duellist < 0 && mc.player != null) duellist = sync.duellists().contains(mc.player.getUUID()) ? 1 : 0;
+			return duellist != 0;
 		}
 	}
 
@@ -79,8 +99,12 @@ public final class DuelStageRenderer {
 	public static void accept(DuelStageSync sync) {
 		for (Live l : STAGES) if (l.sync.id() == sync.id() && l.sync.start() == sync.start()) return;
 		Minecraft mc = Minecraft.getInstance();
-		boolean me = mc.player != null && sync.duellists().contains(mc.player.getUUID());
-		STAGES.add(new Live(sync, me));
+		STAGES.add(new Live(sync, mc.player == null ? -1 : sync.duellists().contains(mc.player.getUUID()) ? 1 : 0));
+	}
+
+	/** Whether the newest stage treats the local player as a duellist (1), a bystander (0) or not yet known (−1) (tests). */
+	public static int newestRole() {
+		return STAGES.isEmpty() ? -2 : STAGES.get(STAGES.size() - 1).duellist;
 	}
 
 	/** Staged duels on this client (tests). */
@@ -109,6 +133,10 @@ public final class DuelStageRenderer {
 			STAGES.clear();
 			return;
 		}
+		if (mc.level != dimLevel) {
+			dimLevel = mc.level;
+			dim = mc.level.dimension().identifier().toString();
+		}
 		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		double levelMs = MotionClock.levelMs(partial);
 		Vec3 cam = ctx.levelState().cameraRenderState.pos;
@@ -118,6 +146,11 @@ public final class DuelStageRenderer {
 			double t = levelMs - l.sync.start() * 50.0;
 			if (t > l.plan.endMs() + 100) {
 				STAGES.remove(i);
+				continue;
+			}
+			if (!l.sync.inDimension(dim)) {
+				// another dimension's duel (we changed dimension mid-duel): not drawn, not heard; it expires on its clock
+				l.lod = 3;
 				continue;
 			}
 			DuelStagePlan.Point a = l.sync.chestA();
@@ -182,31 +215,35 @@ public final class DuelStageRenderer {
 			}
 			l.cursorRound = round;
 		}
+		boolean quiet = l.silent(mc);
+		l.near = !quiet && lod == 1 && dist <= HEAR_FAR;
+		l.round = round;
 		for (int s = 0; s < 2; s++) {
-			final int side = s;
 			double rollMs = t - l.plan.throwAt(round, s);
 			DuelStagePlan.Point c = l.plan.restCentre(round, s);
-			boolean full = !l.duellist && lod == 0;
-			boolean near = !l.duellist && lod == 1 && dist <= HEAR_FAR;
 			l.audio[s].at(c.x(), c.y() + 0.1, c.z());
-			l.audio[s].muted(!full);
-			l.audio[s].advance(l.cursors[s], rollMs, 0, (e, silent) -> {
-				if (silent) return;
-				if (near && (e.kind() == DiceEvent.REST || e.kind() == DiceEvent.CLACK)) {
-					// 8–24 blocks: only the settle and the clacks, and only within 16
-					FxSounds.playAt(e.kind() == DiceEvent.REST ? "dice_settle" : "dice_clack", c.x(), c.y() + 0.1, c.z(), 0.6f,
-						e.kind() == DiceEvent.REST ? 1.4f : 1.8f);
-				}
-				if (lod == 0 && e.kind() == DiceEvent.FLOOR && MotionFx.particles("duel_world_dust", 3) && mc.level != null) {
-					double wx = l.plan.worldX(side, e.x(), e.y());
-					double wz = l.plan.worldZ(side, e.x(), e.y());
-					for (int k = 0; k < 3; k++) {
-						double ox = ((k * 37 + e.aux() * 11) % 7 - 3) * 0.02;
-						double oz = ((k * 53 + e.aux() * 5) % 7 - 3) * 0.02;
-						mc.level.addParticle(ParticleTypes.WHITE_ASH, wx + ox, l.plan.groundY() + 0.03, wz + oz, ox * 0.5, 0.02, oz * 0.5);
-					}
-				}
-			});
+			l.audio[s].muted(quiet || lod != 0);
+			l.audio[s].advance(l.cursors[s], rollMs, 0, l.listeners[s]);
+		}
+	}
+
+	private static void contact(Live l, int side, MotionEvent e, boolean silent) {
+		if (silent) return;
+		if (l.near && (e.kind() == DiceEvent.REST || e.kind() == DiceEvent.CLACK)) {
+			// 8–24 blocks: only the settle and the clacks, and only within 16
+			DuelStagePlan.Point c = l.plan.restCentre(l.round, side);
+			FxSounds.playAt(e.kind() == DiceEvent.REST ? "dice_settle" : "dice_clack", c.x(), c.y() + 0.1, c.z(), 0.6f,
+				e.kind() == DiceEvent.REST ? 1.4f : 1.8f);
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (l.lod == 0 && e.kind() == DiceEvent.FLOOR && MotionFx.particles("duel_world_dust", 3) && mc.level != null) {
+			double wx = l.plan.worldX(side, e.x(), e.y());
+			double wz = l.plan.worldZ(side, e.x(), e.y());
+			for (int k = 0; k < 3; k++) {
+				double ox = ((k * 37 + e.aux() * 11) % 7 - 3) * 0.02;
+				double oz = ((k * 53 + e.aux() * 5) % 7 - 3) * 0.02;
+				mc.level.addParticle(ParticleTypes.WHITE_ASH, wx + ox, l.plan.groundY() + 0.03, wz + oz, ox * 0.5, 0.02, oz * 0.5);
+			}
 		}
 	}
 }

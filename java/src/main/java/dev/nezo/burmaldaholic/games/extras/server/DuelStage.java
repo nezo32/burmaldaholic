@@ -175,7 +175,8 @@ public final class DuelStage {
 		DuelStagePlan.Point pa = new DuelStagePlan.Point(chestA.x, chestA.y, chestA.z);
 		DuelStagePlan.Point pb = new DuelStagePlan.Point(chestB.x, chestB.y, chestB.z);
 		DuelStagePlan plan = new DuelStagePlan(seed, rounds, pa, pb, groundY);
-		DuelStageSync sync = new DuelStageSync(nextId++, seed, start, pa, pb, groundY, rounds, winner, List.copyOf(duellists));
+		DuelStageSync sync = new DuelStageSync(nextId++, seed, start, pa, pb, groundY, rounds, winner, List.copyOf(duellists),
+			level.dimension().identifier().toString());
 		Stage s = new Stage(level, start, plan, sync, duellists, winner);
 		STAGES.add(s);
 		syncNearby(s);
