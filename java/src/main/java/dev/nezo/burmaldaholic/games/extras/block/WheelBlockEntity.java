@@ -115,7 +115,15 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		long amount = args.getLongOr("amount", 0);
 		Stake pawn = null;
 		long value;
-		if (kind.equals("chips")) {
+		long token = kind.equals("chips") || kind.equals("token") ? tokenOffer(player) : 0;
+		if (token > 0) {
+			// EC-2: a free-bet token in the main hand is the stake (settled by the table: winnings only, push = token back)
+			Result<Long> bet = placeTokenBet(player, token, false);
+			if (!bet.isOk()) {
+				return;
+			}
+			value = bet.value();
+		} else if (kind.equals("chips")) {
 			Result<Long> bet = placeBet(player, amount, wheel.minBet(), max, Payouts.floorPay(amount, wheel.maxMultiplier()), true);
 			if (!bet.isOk()) {
 				return;

@@ -482,7 +482,8 @@ public class CasinoMenuScreen extends CasinoScreen {
 		VipSyncPayload d = data();
 		var cfg = CasinoConfig.vip();
 		VipRules.PerkParams params = new VipRules.PerkParams(CasinoConfig.loan().products, cfg.contractBonus.silver, cfg.contractBonus.gold,
-			CasinoConfig.contracts().slots, new double[] {cfg.cashback.gold, cfg.cashback.platinum, cfg.cashback.diamond, cfg.cashback.netherite});
+			CasinoConfig.contracts().slots, new double[] {cfg.cashback.gold, cfg.cashback.platinum, cfg.cashback.diamond, cfg.cashback.netherite},
+			cfg.compRate.toArray());
 		long[] th = VipClientModule.thresholds();
 		contentH = 50; // badge plates
 		int kind = 0;

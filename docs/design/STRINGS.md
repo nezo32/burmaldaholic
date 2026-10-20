@@ -3409,6 +3409,109 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.bots.error.debt` | While you owe the Loan Shark you can only play against the house's own bots | Пока вы должны Ростовщику, можно играть только с ботами заведения |
 | `gui.burmaldaholic.bots.error.no_table` | Sit at a table or look at one first | Сначала сядьте за стол или посмотрите на него |
 
+## comps
+
+Package EC-2 (`EC-SPEC.md` §4–5): comp points, redemptions, free-bet tokens, daily bonus, visible cashback. Keys under
+`comps`, `free_bet_token`, `daily` and `rental` belong to the comps module; the `vip.*` rows below go to the vip fragment.
+
+### Comps tab
+
+| Key | English | Russian |
+|---|---|---|
+| `gui.burmaldaholic.comps.title` | Comps | Комплименты |
+| `gui.burmaldaholic.comps.points` | Comp points: %1$s | Бонусные очки: %1$s |
+| `gui.burmaldaholic.comps.rate` | You earn %1$s%% of expected losses as points | Начисляется %1$s %% от ожидаемого проигрыша |
+| `gui.burmaldaholic.comps.theo_today` | Expected loss today: %1$s | Ожидаемый проигрыш сегодня: %1$s |
+| `gui.burmaldaholic.comps.cashback_estimate` | Cashback at day end: %1$s | Кешбэк в конце дня: %1$s |
+| `gui.burmaldaholic.comps.rewards` | Rewards | Награды |
+| `gui.burmaldaholic.comps.redeem` | Redeem | Получить |
+| `gui.burmaldaholic.comps.cost` | %1$s pts | %1$s оч. |
+| `gui.burmaldaholic.comps.free` | Free | Бесплатно |
+| `gui.burmaldaholic.comps.limit` | %1$s/%2$s today | %1$s/%2$s сегодня |
+| `gui.burmaldaholic.comps.busy` | One moment… | Секунду… |
+| `gui.burmaldaholic.comps.token_invalid` | That free-bet token can't be used | Эту фишку бесплатной ставки нельзя использовать |
+| `gui.burmaldaholic.comps.daily.title` | Daily bonus | Ежедневный бонус |
+| `gui.burmaldaholic.comps.daily.claim` | Claim %1$s | Забрать %1$s |
+| `gui.burmaldaholic.comps.daily.wait` | Claimed · next in %1$s | Получен · следующий через %1$s |
+| `gui.burmaldaholic.comps.daily.locked_wager` | Unlocks after %1$s wagered in total | Откроется после ставок на %1$s |
+| `gui.burmaldaholic.comps.daily.locked_active` | Play %1$s more today to unlock | Играйте ещё %1$s сегодня |
+| `gui.burmaldaholic.comps.daily.locked_ip` | Already claimed from this connection today | С этого подключения сегодня уже получен |
+| `gui.burmaldaholic.comps.lock.tier` | VIP tier too low | Нужен VIP-статус выше |
+| `gui.burmaldaholic.comps.lock.points` | Not enough comp points | Не хватает бонусных очков |
+| `gui.burmaldaholic.comps.lock.limit` | Daily limit reached | Дневной лимит исчерпан |
+| `gui.burmaldaholic.comps.lock.dimension` | Not available in this dimension | Недоступно в этом измерении |
+| `gui.burmaldaholic.comps.lock.unavailable` | Can't do that here right now | Сейчас здесь это невозможно |
+| `gui.burmaldaholic.comps.lock.disabled` | Comps are turned off | Комплименты отключены |
+
+### Rewards
+
+| Key | English | Russian |
+|---|---|---|
+| `gui.burmaldaholic.comps.reward.snack` | Snack plate | Закуска |
+| `gui.burmaldaholic.comps.reward.snack.desc` | 8 steaks, 4 bread | 8 стейков, 4 хлеба |
+| `gui.burmaldaholic.comps.reward.chef` | Chef's plate | Блюдо от шефа |
+| `gui.burmaldaholic.comps.reward.chef.desc` | 8 golden carrots, cake, 4 pies | 8 золотых морковок, торт, 4 пирога |
+| `gui.burmaldaholic.comps.reward.feast` | High-roller feast | Пир хайроллера |
+| `gui.burmaldaholic.comps.reward.feast.desc` | 2 golden apples, 16 golden carrots, cake | 2 золотых яблока, 16 золотых морковок, торт |
+| `gui.burmaldaholic.comps.reward.suite` | Suite night | Ночь в люксе |
+| `gui.burmaldaholic.comps.reward.suite.desc` | Sleep in any casino bed today: respawn there, regeneration | Сон в любой кровати казино сегодня: точка возрождения, регенерация |
+| `gui.burmaldaholic.comps.reward.token_10` | Free bet: 10 | Бесплатная ставка: 10 |
+| `gui.burmaldaholic.comps.reward.token_50` | Free bet: 50 | Бесплатная ставка: 50 |
+| `gui.burmaldaholic.comps.reward.token_250` | Free bet: 250 | Бесплатная ставка: 250 |
+| `gui.burmaldaholic.comps.reward.token.desc` | Token for blackjack, slots, coin flip, wheel, plinko | Фишка для блэкджека, слотов, монетки, колеса, плинко |
+| `gui.burmaldaholic.comps.reward.rockets` | Fireworks | Фейерверки |
+| `gui.burmaldaholic.comps.reward.rockets.desc` | 16 rockets, flight 2 | 16 ракет, полёт 2 |
+| `gui.burmaldaholic.comps.reward.horse` | Horse rental | Аренда лошади |
+| `gui.burmaldaholic.comps.reward.horse.desc` | Saddled horse for 10 minutes (Overworld) | Лошадь с седлом на 10 минут (Верхний мир) |
+| `gui.burmaldaholic.comps.reward.strider` | Strider rental | Аренда лавомерки |
+| `gui.burmaldaholic.comps.reward.strider.desc` | Strider and rod for 10 minutes (Nether) | Лавомерка с удочкой на 10 минут (Незер) |
+
+### Messages, item, toast
+
+| Key | English | Russian |
+|---|---|---|
+| `msg.burmaldaholic.comps.redeemed` | Redeemed: %1$s ×%2$s | Получено: %1$s ×%2$s |
+| `msg.burmaldaholic.comps.suite_checked_in` | Checked in to your suite. Sweet dreams! | Вы заселились в люкс. Приятных снов! |
+| `msg.burmaldaholic.comps.suite_needed` | Casino beds need a suite night (Comps) | Для кровати казино нужна «Ночь в люксе» (Комплименты) |
+| `msg.burmaldaholic.comps.rental_expired` | Your rental ride was returned | Арендованный транспорт возвращён |
+| `msg.burmaldaholic.comps.token_used` | Free bet: %1$s | Бесплатная ставка: %1$s |
+| `msg.burmaldaholic.comps.token_expired` | A free-bet token expired | Срок фишки бесплатной ставки истёк |
+| `msg.burmaldaholic.comps.token_returned` | Push: your free bet of %1$s is back | Ничья: бесплатная ставка %1$s возвращена |
+| `item.burmaldaholic.free_bet_token` | Free-Bet Token | Фишка бесплатной ставки |
+| `item.burmaldaholic.free_bet_token.tooltip` | Free bet of %1$s: hold it and bet at blackjack, slots, coin flip, wheel or plinko | Бесплатная ставка %1$s: держите в руке и ставьте в блэкджеке, слотах, монетке, колесе или плинко |
+| `item.burmaldaholic.free_bet_token.bound` | Only its owner can use it · expires 7 days after issue | Только для владельца · действует 7 дней |
+| `toast.burmaldaholic.daily.title` | Daily bonus | Ежедневный бонус |
+| `toast.burmaldaholic.daily.body` | %1$s credited | Начислено: %1$s |
+
+### VIP perks (vip fragment)
+
+| Key | English | Russian |
+|---|---|---|
+| `gui.burmaldaholic.vip.perk.store_gold_shelf` | Gold shelf in the chip store | Золотая полка в магазине фишек |
+| `gui.burmaldaholic.vip.perk.comps` | %1$s%% of expected losses as comp points | %1$s %% от ожидаемого проигрыша в бонусных очках |
+
+### Config
+
+| Key | English | Russian |
+|---|---|---|
+| `config.burmaldaholic.comps.enabled` | Comps enabled | Комплименты включены |
+| `config.burmaldaholic.comps.daily.bronze` | Daily bonus: Bronze | Бонус: «Бронза» |
+| `config.burmaldaholic.comps.daily.silver` | Daily bonus: Silver | Бонус: «Серебро» |
+| `config.burmaldaholic.comps.daily.gold` | Daily bonus: Gold | Бонус: «Золото» |
+| `config.burmaldaholic.comps.daily.platinum` | Daily bonus: Platinum | Бонус: «Платина» |
+| `config.burmaldaholic.comps.daily.diamond` | Daily bonus: Diamond | Бонус: «Алмаз» |
+| `config.burmaldaholic.comps.daily.netherite` | Daily bonus: Netherite | Бонус: «Незерит» |
+| `config.burmaldaholic.comps.daily.minLifetimeWager` | Lifetime wager to unlock | Ставок всего для открытия |
+| `config.burmaldaholic.comps.daily.minActiveMinutes` | Active minutes needed | Нужно активных минут |
+| `config.burmaldaholic.comps.daily.onePerIp` | One claim per IP per day | Один бонус на IP в день |
+| `config.burmaldaholic.comps.rentalMinutes` | Ride rental minutes | Минут аренды транспорта |
+| `config.burmaldaholic.vip.compRate.bronze` | Comp rate: Bronze | Очки: «Бронза» |
+| `config.burmaldaholic.vip.compRate.silver` | Comp rate: Silver | Очки: «Серебро» |
+| `config.burmaldaholic.vip.compRate.gold` | Comp rate: Gold | Очки: «Золото» |
+| `config.burmaldaholic.vip.compRate.platinum` | Comp rate: Platinum | Очки: «Платина» |
+| `config.burmaldaholic.vip.compRate.diamond` | Comp rate: Diamond | Очки: «Алмаз» |
+| `config.burmaldaholic.vip.compRate.netherite` | Comp rate: Netherite | Очки: «Незерит» |
+
 ## advancements
 
 Shown in the advancement tab. Titles are short (≤ 24 chars RU where possible).

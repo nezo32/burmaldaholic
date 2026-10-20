@@ -2,6 +2,7 @@ package dev.nezo.burmaldaholic;
 
 import dev.nezo.burmaldaholic.bots.BotsModule;
 import dev.nezo.burmaldaholic.chaos.ChaosModule;
+import dev.nezo.burmaldaholic.comps.CompsModule;
 import dev.nezo.burmaldaholic.core.CoreModule;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
 import dev.nezo.burmaldaholic.games.baccarat.BaccaratModule;
@@ -45,7 +46,8 @@ public final class ModuleList {
 			new BaccaratModule(),
 			new UthModule(),
 			new PvpModule(),
-			new BotsModule()
+			new BotsModule(),
+			new CompsModule()
 		);
 	}
 }

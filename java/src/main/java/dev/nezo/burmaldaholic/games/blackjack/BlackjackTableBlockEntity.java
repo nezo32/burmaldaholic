@@ -346,7 +346,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		}
 		long worstCase = BlackjackRules.worstCasePayout(amount);
 		Result<Long> r;
-		if (isHighRoller()) {
+		long token = tokenOffer(player); // EC-2: a free-bet token in the main hand is the main bet (doubles/splits in chips)
+		if (token > 0) {
+			r = placeTokenBet(player, token, false);
+		} else if (isHighRoller()) {
 			long[] lim = limitsFor(player);
 			long balance = Economies.get().balance(player);
 			int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
@@ -363,8 +366,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		if (!r.isOk()) {
 			return;
 		}
-		mainBets.put(player.getUUID(), amount);
-		lastBet.put(player.getUUID(), amount);
+		mainBets.put(player.getUUID(), r.value());
+		if (token <= 0) {
+			lastBet.put(player.getUUID(), amount);
+		}
 		if (allSeatedHaveBet()) {
 			startRound();
 		} else if (ticksLeft("bet") < 0) {

@@ -21,6 +21,9 @@ import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Result;
 import dev.nezo.burmaldaholic.core.wager.BetLimits;
+import dev.nezo.burmaldaholic.core.wager.FreeBetTokens;
+import dev.nezo.burmaldaholic.core.wager.Stake;
+import dev.nezo.burmaldaholic.core.wager.TokenSettle;
 import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.wager.Wagers;
@@ -84,14 +87,19 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 * stake per player ({@code bet = ""}); games whose bets resolve one by one (craps) key them by
 	 * {@code bet} (see {@link #placeBet(ServerPlayer, String, long, long, long, long, boolean)}).
 	 */
-	public record OpenStake(UUID player, String bet, long amount, long reserved, String bankroll) {
+	public record OpenStake(UUID player, String bet, long amount, long reserved, String bankroll, @Nullable Token token) {
 		public static final Codec<OpenStake> CODEC = RecordCodecBuilder.create(i -> i.group(
 			UUIDUtil.CODEC.fieldOf("player").forGetter(OpenStake::player),
 			Codec.STRING.optionalFieldOf("bet", "").forGetter(OpenStake::bet),
 			Codec.LONG.fieldOf("amount").forGetter(OpenStake::amount),
 			Codec.LONG.fieldOf("reserved").forGetter(OpenStake::reserved),
-			Codec.STRING.fieldOf("bankroll").forGetter(OpenStake::bankroll)
-		).apply(i, OpenStake::new));
+			Codec.STRING.fieldOf("bankroll").forGetter(OpenStake::bankroll),
+			Token.CODEC.optionalFieldOf("token").forGetter(s -> Optional.ofNullable(s.token()))
+		).apply(i, (p, b, a, r, br, t) -> new OpenStake(p, b, a, r, br, t.orElse(null))));
+
+		public OpenStake(UUID player, String bet, long amount, long reserved, String bankroll) {
+			this(player, bet, amount, reserved, bankroll, null);
+		}
 
 		boolean house() {
 			return bankroll.isEmpty();
@@ -103,6 +111,23 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	}
 
 	record StakeKey(UUID player, String bet) {}
+
+	/**
+	 * EC-2 free-bet token behind an open stake (EC-SPEC §4.3): {@code covered} chips of the stake were never debited.
+	 * Settled by {@link TokenSettle}; {@code fullWin} = slots (the whole spin win is credited).
+	 */
+	public record Token(long value, long covered, long expires, boolean fullWin) {
+		public static final Codec<Token> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.LONG.fieldOf("value").forGetter(Token::value),
+			Codec.LONG.fieldOf("covered").forGetter(Token::covered),
+			Codec.LONG.fieldOf("expires").forGetter(Token::expires),
+			Codec.BOOL.optionalFieldOf("full_win", false).forGetter(Token::fullWin)
+		).apply(i, Token::new));
+
+		FreeBetTokens.Held held() {
+			return new FreeBetTokens.Held(value, expires);
+		}
+	}
 
 	public enum LeaveReason {
 		/** Pressed "Leave". */
@@ -379,7 +404,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		StakeKey key = new StakeKey(player.getUUID(), bet);
 		OpenStake prev = openStakes.get(key);
 		OpenStake next = prev == null ? new OpenStake(player.getUUID(), bet, amount, reserve, bankroll)
-			: new OpenStake(player.getUUID(), bet, prev.amount() + amount, prev.reserved() + reserve, bankroll);
+			: new OpenStake(player.getUUID(), bet, prev.amount() + amount, prev.reserved() + reserve, bankroll, prev.token());
 		openStakes.put(key, next);
 		setChanged();
 		if (preset().filter(p -> p.id().startsWith("high_roller")).isPresent()) {
@@ -471,7 +496,8 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 				Economies.get().bankrolls(sl.getServer()).release(s.bankroll(), s.reserved());
 			}
 		}
-		pay(new OpenStake(player, "", amount, reserved, first.bankroll()), payout, detail);
+		Token token = mine.stream().map(OpenStake::token).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+		pay(new OpenStake(player, "", amount, reserved, first.bankroll(), token), payout, detail);
 	}
 
 	/** Settles one bet of {@link #placeBet(ServerPlayer, String, long, long, long, long, boolean)}. */
@@ -492,7 +518,9 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (!s.house()) {
 			eco.bankrolls(server).release(s.bankroll(), s.reserved());
 		}
-		if (payout > 0) {
+		if (s.token() != null) {
+			payToken(server, s, payout);
+		} else if (payout > 0) {
 			AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());
 			// Review m8: the returned stake is the player's own money (never garnished); only the winnings are a
 			// garnishable PAYOUT.
@@ -508,10 +536,71 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (detail != null) {
 			result = detail.apply(result);
 		}
+		if (s.token() != null) {
+			result = result.withKind(Stake.Kind.TOKEN); // EC-2: no VIP credit, comps, cashback, contracts or streak
+		}
 		PlayResults.fire(server, player, result);
 		if (CasinoConfig.debug().logRounds) {
 			Burmaldaholic.LOGGER.info("[round] {} at {}: player {} staked {} payout {}", gameId(), worldPosition, player, s.amount(), payout);
 		}
+	}
+
+	/** EC-2: a token round (house tables only): the token part is never paid back as chips (EC-SPEC §4.3). */
+	private void payToken(MinecraftServer server, OpenStake s, long payout) {
+		Token t = s.token();
+		TokenSettle.Settlement r = TokenSettle.settle(s.amount(), t.covered(), payout, t.fullWin());
+		long chipsBack = Math.min(r.credit(), Math.max(0, s.amount() - t.covered()));
+		credit(server, AccountId.HOUSE, s.player(), chipsBack, new Transaction(gameId(), "stake_return", Transaction.Kind.TRANSFER), s);
+		credit(server, AccountId.HOUSE, s.player(), r.credit() - chipsBack, Transaction.payout(gameId()), s);
+		if (r.returnToken()) {
+			FreeBetTokens.giveBack(server, s.player(), t.held());
+		}
+	}
+
+	/**
+	 * EC-2: face value of a free-bet token this player holds in the main hand that this table may take (0 = none):
+	 * house tables of {@link FreeBetTokens#GAMES} only.
+	 */
+	protected long tokenOffer(ServerPlayer player) {
+		if (ownership().isPresent()) {
+			return 0;
+		}
+		FreeBetTokens.Held h = FreeBetTokens.peek(player, gameId());
+		return h == null ? 0 : h.value();
+	}
+
+	/**
+	 * EC-2: opens the player's main stake ({@code bet = ""}) with the token in the main hand instead of chips. The
+	 * stake is {@code min(amount, token value)}; nothing is debited. Later raises (doubles, splits, insurance) go
+	 * through {@code placeBet} in chips and keep the token on the stake. Never at an owned table.
+	 *
+	 * @param fullWin slots: the whole win is credited (no push rule)
+	 * @return the open stake, or the translated error (already sent to the player's screen)
+	 */
+	protected Result<Long> placeTokenBet(ServerPlayer player, long amount, boolean fullWin) {
+		if (ownership().isPresent()) {
+			return fail(player, Component.translatable("gui.burmaldaholic.error.pawn_owned_table"));
+		}
+		if (hasStake(player.getUUID())) {
+			return fail(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
+		}
+		Component err = Wagers.check(player, new WagerVeto.Context(gameId(), Stake.Kind.TOKEN, worldPosition, false));
+		if (err != null) {
+			return fail(player, err);
+		}
+		FreeBetTokens.Held h = FreeBetTokens.take(player, gameId());
+		if (h == null || h.value() <= 0) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_invalid"));
+		}
+		long stake = Math.max(1, Math.min(amount, h.value()));
+		OpenStake open = new OpenStake(player.getUUID(), "", stake, 0, "", new Token(h.value(), stake, h.expires(), fullWin));
+		openStakes.put(open.key(), open);
+		setChanged();
+		player.sendOverlayMessage(Component.translatable("msg.burmaldaholic.comps.token_used", Texts.chips(h.value())));
+		if (CoreSounds.CHIP_PLACE != null && level != null) {
+			level.playSound(null, worldPosition, CoreSounds.CHIP_PLACE, net.minecraft.sounds.SoundSource.BLOCKS, 0.6f, 1.2f);
+		}
+		return Result.ok(stake);
 	}
 
 	private void credit(MinecraftServer server, AccountId bank, UUID player, long amount, Transaction why, OpenStake s) {
@@ -581,6 +670,9 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 		MinecraftServer server = serverLevel.getServer();
 		long freed = Math.max(0, Math.min(release, s.reserved()));
+		if (s.token() != null) {
+			return false; // EC-2: a token stake is never split
+		}
 		OpenStake part = new OpenStake(player, bet, amount, freed, s.bankroll());
 		openStakes.put(key, new OpenStake(player, bet, s.amount() - amount, s.reserved() - freed, s.bankroll()));
 		refundStake(server, part, true);
@@ -589,6 +681,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	}
 
 	private void refundStake(MinecraftServer server, OpenStake s, boolean quiet) {
+		if (s.token() != null) {
+			// EC-2: the token goes back; only the chips added on top of it are refunded
+			long chips = Math.max(0, s.amount() - s.token().covered());
+			if (chips > 0) {
+				Economies.get().transfer(server, AccountId.HOUSE, AccountId.player(s.player()), chips, Transaction.refund(gameId()));
+			}
+			FreeBetTokens.giveBack(server, s.player(), s.token().held());
+			return;
+		}
 		Economy eco = Economies.get();
 		AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());
 		if (!s.house()) {

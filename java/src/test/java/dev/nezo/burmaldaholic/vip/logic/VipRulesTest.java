@@ -74,6 +74,22 @@ class VipRulesTest {
 	}
 
 	@Test
+	void goldShelfReplacesEmeraldRateAndCompsLineFollowsTheTier() {
+		List<String> gold = VipRules.perksAt(2, PARAMS).stream().map(VipRules.Perk::key).toList();
+		assertTrue(gold.contains("gui.burmaldaholic.vip.perk.store_gold_shelf"));
+		assertFalse(gold.contains("gui.burmaldaholic.vip.perk.emerald_rate"), "EC-SPEC §2");
+		assertFalse(gold.stream().anyMatch(k -> k.endsWith(".comps")), "no comps line without comp rates");
+		VipRules.PerkParams withComps = new VipRules.PerkParams(LOANS, 0.05, 0.10, 3, new double[] {0.02, 0.03, 0.04, 0.05},
+			VipRules.DEFAULT_COMP_RATES);
+		for (int t = 0; t <= 5; t++) {
+			VipRules.Perk p = VipRules.perksAt(t, withComps).stream().filter(x -> x.key().endsWith(".comps")).findFirst().orElseThrow();
+			assertEquals(Math.round(VipRules.DEFAULT_COMP_RATES[t] * 1000), p.value(), "tier " + t);
+		}
+		// comp + cashback <= 0.35: 0.33 comps next to 5 % cashback is shown as 30 %
+		assertEquals(0.30, VipRules.compRate(5, new double[] {0, 0, 0, 0, 0, 0.33}, new double[] {0.02, 0.03, 0.04, 0.05}), 1e-12);
+	}
+
+	@Test
 	void perksMatchTheSpecTable() {
 		List<String> gold = VipRules.perksAt(2, PARAMS).stream().map(VipRules.Perk::key).toList();
 		assertTrue(gold.contains("gui.burmaldaholic.vip.perk.netherite_slots"));

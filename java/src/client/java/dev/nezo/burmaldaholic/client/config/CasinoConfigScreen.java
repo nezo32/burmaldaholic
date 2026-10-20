@@ -26,7 +26,7 @@ public final class CasinoConfigScreen extends Screen {
 	/** Pages: label key suffix → config sections shown on that page. */
 	static final List<Page> PAGES = List.of(
 		new Page("core", List.of("core")), new Page("economy", List.of("economy")), new Page("contracts", List.of("contracts")),
-		new Page("wager", List.of("wager")), new Page("vip", List.of("vip")), new Page("blackjack", List.of("blackjack")),
+		new Page("wager", List.of("wager")), new Page("vip", List.of("vip", "comps")), new Page("blackjack", List.of("blackjack")),
 		new Page("poker", List.of("poker")), new Page("slots", List.of("slots")), new Page("roulette", List.of("roulette")),
 		new Page("craps", List.of("craps")), new Page("extras", List.of("extras")), new Page("loan", List.of("loan")),
 		new Page("chaos", List.of("chaos")), new Page("streak", List.of("streak")), new Page("lastchance", List.of("lastChance")),
