@@ -339,7 +339,7 @@ public final class Checks {
 	 * Floor-row cells a player can walk to from the entries: stand where the cell and the one above are
 	 * passable and the block below is solid; step to a neighbour on the same row or one up / down.
 	 */
-	static boolean[][][] reachable(Grid g, List<Vec> entries) {
+	public static boolean[][][] reachable(Grid g, List<Vec> entries) {
 		Vec s = g.size();
 		boolean[][][] seen = new boolean[s.x()][s.y()][s.z()];
 		ArrayDeque<int[]> q = new ArrayDeque<>();

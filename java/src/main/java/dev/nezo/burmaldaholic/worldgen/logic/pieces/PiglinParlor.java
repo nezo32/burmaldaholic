@@ -5,6 +5,7 @@ import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoLoot;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
+import dev.nezo.burmaldaholic.worldgen.logic.Vec;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Blueprint;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Kits;
@@ -32,7 +33,16 @@ import dev.nezo.burmaldaholic.worldgen.logic.blueprint.TableClearance;
  * <p>Games: two rows of three full multi-block tables (blackjack, roulette, baccarat + Piglin Dealer; craps, poker +
  * Piglin Dealer, UTH) in the hall; the nether cashier (Piglin Dealer teller) in the back wing, the Piglin Moneylender's
  * barred vault beside it; Wheel, Plinko and four gold slots in the front lobby. Every felt is lit ≥ 12 (lantern
- * chandeliers from the roof + floor uplights). No valuable blocks (no gold, no gilded blackstone).
+ * chandeliers from the roof + floor uplights). No valuable blocks (no gold, no gilded blackstone). Every table's dealer
+ * cell is two blocks of air (house dealers: package DL).
+ *
+ * <p>Site contract for placement (package WG; template coordinates before rotation, front = +z): the building assumes
+ * nothing about the rock around it — the whole envelope is carved, rows 0..1 are a solid foundation under the full
+ * footprint, every lava cell is sealed inside the piece. Two doors: the {@link #FRONT_ENTRY} at the forecourt's outer
+ * edge (standing row {@value #FLOOR}, facing +z; the gate, the forecourt and the entrance stair lead from it to the
+ * front door), and the {@link #BACK_ENTRY} on the back edge (standing row {@value #FR}, facing −z) outside a 2-wide back
+ * door through the back wing. Both cells have solid floor under them and two rows of air; a tunnel or a bastion
+ * passage can join either.
  */
 public final class PiglinParlor {
 	public static final String ID = "casino/parlor";
@@ -52,6 +62,12 @@ public final class PiglinParlor {
 	static final int SIGN_Y = 9;
 	/** Plane of the gate board. */
 	static final int GATE_Z = 25;
+	/** West column of the 2-wide back door (x BACK_X..BACK_X+1, z 1), off the axis beside the cashier booth. */
+	static final int BACK_X = 8;
+	/** Standing cell at the forecourt's outer edge on the axis (front door side, +z). */
+	public static final Vec FRONT_ENTRY = new Vec(CX, FLOOR, SZ - 1);
+	/** Standing cell on the back edge outside the back door (−z). */
+	public static final Vec BACK_ENTRY = new Vec(BACK_X, FR, 0);
 
 	private PiglinParlor() {}
 
@@ -68,10 +84,12 @@ public final class PiglinParlor {
 		b.uplightGames();
 		exterior(b, p);
 		gate(b, p);
+		backDoor(b, p);
 		b.interior(2, FR, 2, SX - 3, WING_CEIL - 1, 4);
 		b.interior(2, FR, 14, SX - 3, WING_CEIL - 1, 16);
 		b.interior(5, FR, 5, 21, 12, 13);
-		b.entry(CX, FLOOR, SZ - 1);
+		b.entry(FRONT_ENTRY.x(), FRONT_ENTRY.y(), FRONT_ENTRY.z());
+		b.entry(BACK_ENTRY.x(), BACK_ENTRY.y(), BACK_ENTRY.z());
 		b.anchor(CX, 7, 15);
 		return b.build();
 	}
@@ -99,6 +117,17 @@ public final class PiglinParlor {
 			}
 			return s;
 		});
+		// no reliance on surrounding rock: the manor template leaves air in its base rows at the veranda edges
+		for (int x = 0; x < SX; x++) {
+			for (int z = 0; z < SZ; z++) {
+				for (int y = 0; y <= 1; y++) {
+					BlockSpec at = b.at(x, y, z);
+					if (at == null || at.is("minecraft:air")) {
+						b.set(x, y, z, Role.FOUNDATION);
+					}
+				}
+			}
+		}
 		// the forecourt: paved terrace on row 2, air above (whatever the manor template had there is replaced)
 		b.clear(0, FLOOR, FZ + 1, SX - 1, SY - 1, SZ - 1);
 		b.fill(0, 0, FZ + 1, SX - 1, 1, SZ - 1, Role.FOUNDATION);
@@ -353,6 +382,44 @@ public final class PiglinParlor {
 		for (int z = FZ + 2; z <= SZ - 1; z++) {
 			for (int x = CX - 2; x <= CX + 2; x++) {
 				b.set(x, FLOOR, z, Math.abs(x - CX) == 2 ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
+			}
+		}
+	}
+
+	// ---- the back door ----------------------------------------------------------------------------------------------
+
+	/**
+	 * A 2-wide, 3-high back door through the back wall (z 1) into the back wing, between basalt jambs under a lintel,
+	 * with a blackstone step outside (z 0) and soul lanterns hanging from a slab hood. The wing behind it stays clear.
+	 */
+	static void backDoor(Blueprint b, Palette p) {
+		int x0 = BACK_X, x1 = BACK_X + 1;
+		for (int z = 0; z <= 1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				b.set(x, FLOOR, z, z == 0 ? p.block(Role.PATH) : p.block(Role.FLOOR));
+				b.fill(x, 0, z, x, FLOOR - 1, z, Role.FOUNDATION);
+				for (int y = FR; y <= FR + 2; y++) {
+					b.set(x, y, z, Blueprint.AIR);
+				}
+			}
+		}
+		for (int y = FR; y <= FR + 2; y++) {
+			b.set(x0 - 1, y, 1, Ornament.upright(b, Role.COLUMN));
+			b.set(x1 + 1, y, 1, Ornament.upright(b, Role.COLUMN));
+		}
+		for (int x = x0 - 1; x <= x1 + 1; x++) {
+			b.set(x, FR + 3, 1, Role.CAPITAL);
+			b.set(x, FR + 3, 0, p.get(Role.WALL).slab("top"));
+			b.set(x, FLOOR, 0, x == x0 - 1 || x == x1 + 1 ? p.block(Role.FOUNDATION) : p.block(Role.PATH));
+		}
+		b.set(x0 - 1, FR + 2, 0, lantern("soul_lantern", true));
+		b.set(x1 + 1, FR + 2, 0, lantern("soul_lantern", true));
+		// the wing floor behind the door stays clear for two cells
+		for (int z = 2; z <= 3; z++) {
+			for (int x = x0; x <= x1; x++) {
+				for (int y = FR; y <= FR + 1; y++) {
+					b.set(x, y, z, Blueprint.AIR);
+				}
 			}
 		}
 	}

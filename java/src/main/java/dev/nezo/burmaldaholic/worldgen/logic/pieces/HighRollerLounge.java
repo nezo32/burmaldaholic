@@ -1,12 +1,11 @@
 package dev.nezo.burmaldaholic.worldgen.logic.pieces;
 
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.endRodDown;
-
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoLoot;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
+import dev.nezo.burmaldaholic.worldgen.logic.Vec;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Blueprint;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Kits;
@@ -19,34 +18,59 @@ import dev.nezo.burmaldaholic.worldgen.logic.blueprint.SignFont;
 
 /**
  * High Roller Lounge "Void Penthouse" (casino redesign CR-2, findings/CASINO-REDESIGN.md §4.3): a glass-curtain
- * penthouse on the highest End City tower top ({@code CasinoStructures.appendLounge}), crowned like the Chrysler
+ * pavilion standing on the End island surface beside an End City (placement: package WG), crowned like the Chrysler
  * Building. Envelope {@value #SX} × {@value #SY} × {@value #SZ}, axis x = {@value #CX}, front = +z.
  *
- * <p>Rows: 0..2 the purpur goblet stem seating the plate on the tower roof, {@value #FLOOR} the floor plate, floor row
- * {@value #FR}, hall ceiling {@value #CEIL} (seven free rows), the roof deck above it. On the deck: the neon "CASINO"
- * attic over the front, and behind it the crown — a glazed shaft and five receding scalloped tiers, each face an arch
- * outlined in glowing froglight over magenta sunburst windows, topped by an end-rod needle.
+ * <p>Rows: 0..{@value #SKIRT_TOP} the skirt — a solid purpur plinth under the whole plate (x 0..{@value #SX}-1,
+ * z 0..{@value #PZ}) that fills the ground down to {@value #SKIRT} rows below the plate, so terrain with up to
+ * {@value #SKIRT} blocks of spread under the footprint never leaves a gap; {@value #FLOOR} the floor plate, floor row
+ * {@value #FR}, hall ceiling {@value #CEIL} (seven free rows), the roof deck above it. In front of the terrace
+ * (z {@value #PZ}+1..{@value #SZ}-1) a 3-wide flight of {@value #SKIRT} steps runs down to the lowest ground the skirt
+ * allows; the cells above the steps are structure void, so where the ground is higher the steps simply sink into it.
+ * On the deck: the neon "CASINO" attic over the front, and behind it the crown — a glazed shaft and five receding
+ * scalloped tiers, each face an arch outlined in glowing froglight over magenta sunburst windows, topped by an end-rod
+ * needle.
  *
  * <p>Hall (x 1..23, z 1..19): the bar on the back wall; two rows of three full multi-block tables (high-roller
- * blackjack / roulette / baccarat + Baccarat Dealer; high-roller UTH, craps, poker); the cashier booth with the Shulker
- * Croupier on the west wall; Plinko, the Wheel of Fortune and four netherite slots along the front wall either side of
- * the door. Terrace (z 21..24): two lit amethyst fountains, a balustrade, the landing gap on the axis.
+ * blackjack / roulette / baccarat; high-roller UTH, craps, poker), every dealer cell two blocks of air (house dealers:
+ * package DL); the cashier booth with the Shulker Croupier on the west wall; Plinko, the Wheel of Fortune and four
+ * netherite slots along the front wall either side of the door. Terrace (z 21..{@value #PZ}): two lit amethyst
+ * fountains, a balustrade, the stair on the axis.
+ *
+ * <p>Site contract for placement (template coordinates, before rotation; front = +z): put row {@link #FLOOR} on the
+ * HIGHEST ground block under the plate footprint (x 0..{@value #SX}-1, z 0..{@value #PZ}); the ground under it may be
+ * up to {@value #SKIRT} rows lower. Everything over the plate from row {@link #FR} up is carved to air. Walk-in cells:
+ * {@link #DOOR} (the hall door), {@link #TERRACE_EDGE} (top of the stair) and {@link #STAIR_FOOT} (the lowest step,
+ * standing row 1).
  */
 public final class HighRollerLounge {
 	public static final String ID = "casino/lounge";
 	public static final int SX = 25;
-	public static final int SY = 42;
-	public static final int SZ = 25;
-	static final int FLOOR = 3;
-	static final int FR = 4;
-	static final int CEIL = 11;
-	/** Front wall of the hall; the terrace is z 21..24. */
+	/** Rows of skirt under the plate (the terrain spread the base tolerates). */
+	public static final int SKIRT = 4;
+	static final int SKIRT_TOP = SKIRT - 1;
+	/** Floor plate row: goes on the highest ground block of the footprint. */
+	public static final int FLOOR = SKIRT;
+	/** Floor row (first air row over the plate). */
+	public static final int FR = FLOOR + 1;
+	static final int CEIL = FR + 7;
+	public static final int SY = CEIL + 31;
+	/** Last z row of the plate (terrace edge); the stair is z PZ+1..SZ-1. */
+	public static final int PZ = 24;
+	public static final int SZ = PZ + 1 + SKIRT;
+	/** Front wall of the hall; the terrace is z 21..PZ. */
 	static final int FZ = 20;
-	static final int CX = 12;
+	public static final int CX = 12;
 	static final int AX2 = 2 * CX;
 	/** Crown tower centre (z) and the shaft's half width. */
 	static final int TZ = 9;
 	static final int SHAFT = 6;
+	/** Standing cell in the hall door. */
+	public static final Vec DOOR = new Vec(CX, FR, FZ);
+	/** Standing cell on the terrace at the top of the stair. */
+	public static final Vec TERRACE_EDGE = new Vec(CX, FR, PZ);
+	/** Standing cell on the lowest step (row 0 holds the step). */
+	public static final Vec STAIR_FOOT = new Vec(CX, 1, SZ - 1);
 
 	private HighRollerLounge() {}
 
@@ -56,9 +80,10 @@ public final class HighRollerLounge {
 
 	static Piece build(Palette p) {
 		Blueprint b = Blueprint.of(ID, CasinoKind.HIGH_ROLLER, SX, SY, SZ, p).compactTables(false);
-		stem(b, p);
+		skirt(b, p);
 		hall(b, p);
 		terrace(b, p);
+		stair(b, p);
 		games(b);
 		interior(b, p);
 		b.uplightGames();
@@ -66,8 +91,8 @@ public final class HighRollerLounge {
 		sign(b, p);
 		crown(b, p);
 		b.interior(1, FR, 1, SX - 2, CEIL - 1, FZ - 1);
-		b.entry(CX, FR, SZ - 1);
-		b.anchor(CX, 8, 16);
+		b.entry(TERRACE_EDGE.x(), TERRACE_EDGE.y(), TERRACE_EDGE.z());
+		b.anchor(CX, FR + 4, 16);
 		return b.build();
 	}
 
@@ -77,49 +102,62 @@ public final class HighRollerLounge {
 		return BlockSpec.of(b.palette().get(Role.LIGHT_HANGING).full(), "hanging", Boolean.toString(hanging), "waterlogged", "false");
 	}
 
-	// ---- stem and plate -----------------------------------------------------------------------------------------
+	// ---- skirt and plate --------------------------------------------------------------------------------------------
 
-	/** Inverted stepped pyramid of purpur under the plate: 9×9 on the tower roof, 13×13, 17×17, the plate 25×25. */
-	private static void stem(Blueprint b, Palette p) {
-		Material f = p.get(Role.FOUNDATION);
-		b.fill(8, 0, 8, 16, 2, 16, Role.FOUNDATION);
-		for (int[] c : new int[][] {{8, 8}, {16, 8}, {8, 16}, {16, 16}}) {
-			b.fill(c[0], 0, c[1], c[0], 2, c[1], Ornament.upright(b, Role.COLUMN));
+	/**
+	 * The ground-standing base: a solid plinth {@value #SKIRT} rows deep under the whole plate (no air anywhere under
+	 * the floor), dressed where it shows above low ground — end-stone-brick courses between purpur pilasters every
+	 * six cells and a purpur band under the plate's edge.
+	 */
+	private static void skirt(Blueprint b, Palette p) {
+		b.fill(0, 0, 0, SX - 1, SKIRT_TOP, PZ, Role.FOUNDATION);
+		for (int y = 0; y <= SKIRT_TOP; y++) {
+			for (int t = 0; t < SX; t++) {
+				face(b, p, t, y, 0, t);
+				face(b, p, t, y, PZ, t);
+			}
+			for (int t = 0; t <= PZ; t++) {
+				face(b, p, 0, y, t, t);
+				face(b, p, SX - 1, y, t, t);
+			}
 		}
-		ring(b, 6, 1, 6, 18, 18, f, true);
-		ring(b, 4, 2, 4, 20, 20, f, true);
-		b.fill(5, 2, 5, 19, 2, 19, Role.FOUNDATION);
-		b.fill(7, 1, 7, 17, 1, 17, Role.FOUNDATION);
-		for (int x = 0; x < SX; x++) {
-			b.set(x, 2, 0, f.slab("top"));
-			b.set(x, 2, SZ - 1, f.slab("top"));
-		}
-		for (int z = 1; z < SZ - 1; z++) {
-			b.set(0, 2, z, f.slab("top"));
-			b.set(SX - 1, 2, z, f.slab("top"));
-		}
-		for (int[] c : new int[][] {{0, 0}, {24, 0}, {0, 24}, {24, 24}, {12, 0}, {0, 12}, {24, 12}, {12, 24}}) {
-			b.set(c[0], 2, c[1], endRodDown());
-		}
-		for (int i = 0; i < 4; i++) {
-			b.set(i, 2, CX, BlockSpec.mc("purpur_pillar", "axis", "x"));
-			b.set(SX - 1 - i, 2, CX, BlockSpec.mc("purpur_pillar", "axis", "x"));
-			b.set(CX, 2, i, BlockSpec.mc("purpur_pillar", "axis", "z"));
-			b.set(CX, 2, SZ - 1 - i, BlockSpec.mc("purpur_pillar", "axis", "z"));
-		}
-		b.fill(0, FLOOR, 0, SX - 1, FLOOR, SZ - 1, Role.FOUNDATION);
+		b.fill(0, FLOOR, 0, SX - 1, FLOOR, PZ, Role.FOUNDATION);
 		b.fill(1, FLOOR, 1, SX - 2, FLOOR, FZ - 1, Role.FLOOR);
 	}
 
-	/** Ring of upside-down stairs, high side outwards (corbels under an overhang). */
-	private static void ring(Blueprint b, int x0, int y, int z0, int x1, int z1, Material m, boolean top) {
-		for (int x = x0; x <= x1; x++) {
-			b.set(x, y, z0, m.stairs(Facing.NORTH, top));
-			b.set(x, y, z1, m.stairs(Facing.SOUTH, top));
+	/** One outer cell of the skirt, {@code t} along its face. */
+	private static void face(Blueprint b, Palette p, int x, int y, int z, int t) {
+		boolean corner = (x == 0 || x == SX - 1) && (z == 0 || z == PZ);
+		if (corner || Math.floorMod(t, 6) == 0) {
+			b.set(x, y, z, Ornament.upright(b, Role.COLUMN));
+		} else if (y == SKIRT_TOP) {
+			b.set(x, y, z, Role.WALL_BASE);
+		} else {
+			b.set(x, y, z, Role.COFFER);
 		}
-		for (int z = z0 + 1; z < z1; z++) {
-			b.set(x0, y, z, m.stairs(Facing.WEST, top));
-			b.set(x1, y, z, m.stairs(Facing.EAST, top));
+	}
+
+	/**
+	 * The front stair: {@value #SKIRT} steps of end-stone-brick stairs (3 wide on the axis) from the terrace down to
+	 * standing row 1, solid underneath, between purpur cheek walls that step down with it. Cells above the steps are
+	 * left as structure void: on low ground the flight stands free, on higher ground its lower steps sink into it.
+	 */
+	private static void stair(Blueprint b, Palette p) {
+		Material path = p.get(Role.PATH);
+		for (int i = 0; i < SKIRT; i++) {
+			int z = PZ + 1 + i, top = SKIRT_TOP - i;
+			for (int x = CX - 1; x <= CX + 1; x++) {
+				for (int y = 0; y < top; y++) {
+					b.set(x, y, z, Role.FOUNDATION);
+				}
+				b.set(x, top, z, path.stairs(Facing.NORTH, false));
+			}
+			for (int x : new int[] {CX - 2, CX + 2}) {
+				for (int y = 0; y <= top; y++) {
+					b.set(x, y, z, Ornament.upright(b, Role.COLUMN));
+				}
+				b.set(x, top + 1, z, path.slab("bottom"));
+			}
 		}
 	}
 
@@ -137,7 +175,7 @@ public final class HighRollerLounge {
 	}
 
 	private static void hall(Blueprint b, Palette p) {
-		b.clear(0, FR, 0, SX - 1, SY - 1, SZ - 1);
+		b.clear(0, FR, 0, SX - 1, SY - 1, PZ);
 		for (int y = FR; y < CEIL; y++) {
 			for (int x = 0; x < SX; x++) {
 				b.set(x, y, 0, curtain(b, x, y));
@@ -174,15 +212,15 @@ public final class HighRollerLounge {
 
 	private static void terrace(Blueprint b, Palette p) {
 		for (int x = 0; x < SX; x++) {
-			for (int z = FZ + 1; z < SZ; z++) {
+			for (int z = FZ + 1; z <= PZ; z++) {
 				b.set(x, FLOOR, z, Math.floorMod(x + z, 2) == 0 ? p.block(Role.PATH) : p.block(Role.FLOOR));
 			}
 		}
 		b.mirrorX(AX2, m -> {
-			Ornament.balustrade(m, 0, SZ - 1, CX - 2, SZ - 1, FR, 4);
-			Ornament.balustrade(m, 0, FZ + 1, 0, SZ - 1, FR, 0);
-			m.set(CX - 2, FR + 2, SZ - 1, ROD_UP);
-			m.set(0, FR + 2, SZ - 1, ROD_UP);
+			Ornament.balustrade(m, 0, PZ, CX - 2, PZ, FR, 4);
+			Ornament.balustrade(m, 0, FZ + 1, 0, PZ, FR, 0);
+			m.set(CX - 2, FR + 2, PZ, ROD_UP);
+			m.set(0, FR + 2, PZ, ROD_UP);
 			// a lit amethyst fountain either side of the runner
 			int fx = 6, fz = 22;
 			for (int dx = -1; dx <= 1; dx++) {
@@ -198,7 +236,7 @@ public final class HighRollerLounge {
 				m.set(fx + c[0], FR + 1, fz + c[1], BlockSpec.mc("amethyst_cluster", "facing", "up", "waterlogged", "false"));
 			}
 		});
-		for (int z = FZ + 1; z < SZ; z++) {
+		for (int z = FZ + 1; z <= PZ; z++) {
 			for (int x = CX - 1; x <= CX + 1; x++) {
 				b.set(x, FR, z, x == CX ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
 			}

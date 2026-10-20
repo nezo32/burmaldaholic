@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.worldgen.logic.pieces;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
@@ -133,18 +132,6 @@ class OtherworldTest {
 		try (var in = OtherworldTest.class.getResourceAsStream("/META-INF/licenses/bygone-nether-MIT.txt")) {
 			assertTrue(in != null && new String(in.readAllBytes()).contains("Copyright (c) 2022 izofar"));
 		}
-	}
-
-	/** Rows 0..2 of the lounge sit on the tower roof: solid stem / corbels only, never air (the tower top is kept). */
-	@Test
-	void loungeStemNeverCarvesTheTower() {
-		Grid g = OtherworldPieces.lounge().layout().grid();
-		forEach(g, (x, y, z, b) -> {
-			if (y < HighRollerLounge.FLOOR) {
-				assertNotEquals("minecraft:air", b.name(), "air at " + x + "," + y + "," + z);
-			}
-		});
-		assertTrue(g.get(12, 0, 12) != null, "stem centre");
 	}
 
 	@Test
