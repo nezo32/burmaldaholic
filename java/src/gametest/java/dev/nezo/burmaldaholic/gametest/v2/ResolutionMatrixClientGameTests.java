@@ -99,7 +99,8 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			report.add("  audit " + tag + ": " + (problems.isEmpty() ? "ok" : problems));
 			// the gallery is played by real clicks at the frame's window pixels
 			f.click("chip.2");
-			f.shot("p2b_rs_kit_betting_" + tag);
+			Path shot = f.shot("p2b_rs_kit_betting_" + tag);
+			framedPixels(f, shot, tag); // the gallery is a V2SceneScreen: its felt and dim must follow the frame too
 			f.click(KeyMap.Ids.PRIMARY);
 			f.context().waitTicks(4);
 			f.shot("p2b_rs_kit_acting_" + tag);
@@ -156,6 +157,43 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 		var l1 = c.status.line1();
 		var l2 = c.status.line2();
 		return (l1 == null ? "" : l1.getString()) + (l2 == null ? "" : " | " + l2.getString()) + (c.status.strip().isEmpty() ? "" : " [strip]");
+	}
+
+	/**
+	 * On a framed screen, the drawn pixels follow the frame (PL report: a scene screen drew its felt at the top-left):
+	 * the felt shows inside the frame's PlayArea and the band left of the frame is the dim, never felt. Deterministic
+	 * pixel samples of the shot (agents never look at it).
+	 */
+	private void framedPixels(RealFlow f, Path shot, String tag) {
+		Viewport vp = f.viewport();
+		if (!vp.framed()) return;
+		Box play = f.client(mc -> ((V2Chrome.Holder) mc.gui.screen()).chrome().grid().play);
+		try {
+			java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+			int k = vp.k();
+			int y = play.y() + play.h() / 2;
+			int feltIn = 0, feltOut = 0, samples = 9;
+			for (int i = 0; i < samples; i++) {
+				int x = play.x() + 2 + i * (play.w() - 4) / (samples - 1);
+				if (greenish(px(img, vp.windowX(x), vp.windowY(y)))) feltIn++;
+				int oy = play.y() + i * play.h() / samples; // the band left of the frame, top to bottom
+				if (greenish(px(img, vp.ox() * k / 2.0, vp.windowY(oy)))) feltOut++;
+			}
+			report.add("  pixels " + tag + ": felt samples in the PlayArea " + feltIn + "/" + samples + ", left of the frame " + feltOut + "/" + samples);
+			if (feltIn == 0) throw new AssertionError("no felt inside the frame's PlayArea");
+			if (feltOut > 0) throw new AssertionError("felt drawn left of the frame (the frame offset is not applied): " + feltOut + " samples");
+		} catch (java.io.IOException e) {
+			throw new AssertionError("reading " + shot + ": " + e);
+		}
+	}
+
+	private static int px(java.awt.image.BufferedImage img, double x, double y) {
+		return img.getRGB(Math.max(0, Math.min(img.getWidth() - 1, (int) x)), Math.max(0, Math.min(img.getHeight() - 1, (int) y)));
+	}
+
+	private static boolean greenish(int rgb) {
+		int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+		return g > r + 15 && g > b + 15 && g > 50;
 	}
 
 	/** On a framed window: Sit down on a real blackjack table, clicked at its window pixel → the server seats the player. */

@@ -144,11 +144,13 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 
 	@Override
 	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		chrome.renderBackground(g, theme());
+		// nothing here: a plain Screen extracts its background OUTSIDE the entrance's fit / frame pose, so the felt and the
+		// outside-frame dim drew at the top-left corner of a framed screen (PL report); they draw in extractPanel instead
 	}
 
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		chrome.renderBackground(g, theme()); // under the pose: felt in the frame, the dim around it
 		if (view != null) renderPlay(g, chrome.grid(), view, mouseX, mouseY, a);
 	}
 
