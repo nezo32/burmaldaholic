@@ -132,7 +132,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 
 			@Override
 			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
-				BET.set(amount, state().getLongOr("max", 0), shownBalance());
+				bet.set(amount, state().getLongOr("max", 0), shownBalance());
 				local();
 				return true;
 			}
