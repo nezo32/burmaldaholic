@@ -81,18 +81,18 @@ public abstract class V2SceneScreen<V> extends CasinoScreen implements V2Chrome.
 	}
 
 	@Override
-	protected float applyFit(int[] memo) {
+	protected final float applyFit(int[] memo) { // final: every v2 game sizes by ViewportPolicy (owner B6)
 		viewport = FitScaled.applyViewport(this, memo);
 		return viewport.factor();
 	}
 
 	@Override
-	public float offsetX() {
+	public final float offsetX() {
 		return viewport.guiOx();
 	}
 
 	@Override
-	public float offsetY() {
+	public final float offsetY() {
 		return viewport.guiOy();
 	}
 

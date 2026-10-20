@@ -94,18 +94,18 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
-	protected float applyFit(int[] memo) {
+	protected final float applyFit(int[] memo) { // final: every v2 game sizes by ViewportPolicy (owner B6)
 		viewport = FitScaled.applyViewport(this, memo);
 		return viewport.factor();
 	}
 
 	@Override
-	public float offsetX() {
+	public final float offsetX() {
 		return viewport.guiOx();
 	}
 
 	@Override
-	public float offsetY() {
+	public final float offsetY() {
 		return viewport.guiOy();
 	}
 
@@ -119,7 +119,7 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
-	protected dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
+	protected final dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
 		return new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(0, 0, width, height);
 	}
 
