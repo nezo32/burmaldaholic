@@ -92,7 +92,7 @@ public final class CasinoMarkers {
 			case Markers.Npc npc -> {
 				BlockPos stand = pos.below();
 				float yaw = npc.facing().rotate(turns).yaw();
-				Entity entity = CasinoNpcs.spawn(level, npc.role(), stand, yaw);
+				Entity entity = CasinoNpcs.spawn(level, npc.role(), stand, yaw, casinoId);
 				UUID uuid = entity == null ? null : entity.getUUID();
 				Vec home = new Vec(stand.getX(), stand.getY(), stand.getZ());
 				server.execute(() -> CasinoIndex.get(server).addNpc(casinoId, dimension, npc.role(), home, yaw, uuid));

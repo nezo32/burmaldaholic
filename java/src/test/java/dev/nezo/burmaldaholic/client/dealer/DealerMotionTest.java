@@ -51,4 +51,32 @@ class DealerMotionTest {
 		assertEquals(50, c.ageMs(), 1e-9);
 		assertNull(DealerCueSource.latest(tl, 5000, b -> b.kind().equals(UthBeats.DEALER_FLIP) ? DealerGesture.FLIP : null, b -> 0f));
 	}
+
+	@Test
+	void houseDealerGesturesAreBoundedAndHalvedByReduceMotion() {
+		for (DealerGesture g : new DealerGesture[] {DealerGesture.SPIN, DealerGesture.STICK_PULL, DealerGesture.STICK_PUSH, DealerGesture.POT_PUSH}) {
+			float peak = 0, peakReduced = 0;
+			for (int t = 0; t <= g.ms; t += 5) {
+				Pose p = DealerMotion.pose(g, t, 1f, false, 0);
+				Pose r = DealerMotion.pose(g, t, 1f, true, 0);
+				for (float v : new float[] {p.rightX(), p.rightY(), p.rightZ(), p.leftX(), p.leftY(), p.leftZ(), p.headX()}) {
+					assertTrue(Math.abs(v) <= 1.6f, g + " bounded at " + t + "ms: " + p);
+				}
+				peak = Math.max(peak, Math.abs(p.rightX() - DealerMotion.REST_X));
+				peakReduced = Math.max(peakReduced, Math.abs(r.rightX() - DealerMotion.REST_X));
+			}
+			assertTrue(peak > 0.3f, g + " visibly moves");
+			assertEquals(peak / 2, peakReduced, 0.02, g + " reduce motion halves the arm");
+		}
+	}
+
+	@Test
+	void enderPoseRestsOnTheFelt() {
+		Pose rest = DealerMotion.ender(Pose.REST);
+		assertEquals(DealerMotion.REST_X + DealerMotion.ENDER_ARM_OFFSET, rest.rightX(), 1e-6);
+		Pose deal = DealerMotion.pose(DealerGesture.DEAL, 150, 1f, false, 0);
+		Pose ender = DealerMotion.ender(deal);
+		assertEquals((deal.rightX() - DealerMotion.REST_X) * DealerMotion.ENDER_AMPLITUDE, ender.rightX() - rest.rightX(), 1e-5);
+		assertEquals(deal.rightY() * 0.7f, ender.rightY(), 1e-6);
+	}
 }

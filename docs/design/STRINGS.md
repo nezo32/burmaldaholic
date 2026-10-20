@@ -2672,6 +2672,28 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.dir.w` | west | запад |
 | `gui.burmaldaholic.worldgen.dir.nw` | north-west | северо-запад |
 
+### worldgen: house dealers and staff (DL)
+
+| Key | EN | RU |
+|-----|----|----|
+| `entity.burmaldaholic.house_dealer` | Dealer | Дилер |
+| `entity.burmaldaholic.piglin_house_dealer` | Piglin Croupier | Пиглин-крупье |
+| `entity.burmaldaholic.ender_house_dealer` | Ender Dealer | Эндер-дилер |
+| `entity.burmaldaholic.ender_croupier` | Ender Croupier | Эндер-крупье |
+| `entity.burmaldaholic.pit_boss` | Pit Boss | Пит-босс |
+| `entity.burmaldaholic.merchant` | Casino Merchant | Торговец казино |
+| `entity.burmaldaholic.piglin_merchant` | Piglin Merchant | Пиглин-торговец |
+| `entity.burmaldaholic.ender_merchant` | Ender Merchant | Эндер-торговец |
+| `item.burmaldaholic.house_dealer_spawn_egg` | Dealer Spawn Egg | Яйцо призыва дилера |
+| `msg.burmaldaholic.worldgen.dealer.no_table` | This dealer has no table to run | Этому дилеру некуда сдавать: стола нет |
+| `msg.burmaldaholic.worldgen.merchant.closed` | The store is closed today | Лавка сегодня закрыта |
+| `dialog.burmaldaholic.ender_croupier.greeting.1` | (The enderman straightens its bow tie and does not look you in the eye. Politely.) | (Эндермен поправляет бабочку и вежливо не смотрит вам в глаза.) |
+| `dialog.burmaldaholic.ender_croupier.greeting.2` | High stakes, quiet voices. Please don't stare. | Ставки высокие, голоса тихие. Только не пялитесь. |
+| `dialog.burmaldaholic.pit_boss.greeting.1` | Snort. I watch the tables. The tables watch you. | Хрю. Я смотрю за столами. Столы смотрят за тобой. |
+| `dialog.burmaldaholic.pit_boss.greeting.2` | Play nice, pay up, and nobody gets bartered. | Играй честно, плати вовремя — и никого не обменяют. |
+| `dialog.burmaldaholic.merchant.greeting.1` | Chips burning a hole in your pocket? Have a look. | Фишки жгут карман? Загляните на прилавок. |
+| `dialog.burmaldaholic.merchant.greeting.2` | Everything here is paid in chips. Even the smile. | Здесь всё за фишки. Даже улыбка. |
+
 ---
 
 ## multiplayer

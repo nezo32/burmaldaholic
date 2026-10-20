@@ -224,7 +224,8 @@ public final class HighRollerLounge {
 		}
 		b.set(1, FR, 9, counter.slab("double"));
 		b.set(1, FR, 11, counter.slab("double"));
-		b.npc(NpcRole.SHULKER_CROUPIER, 1, FR, 10, Facing.EAST);
+		b.npc(NpcRole.ENDER_CROUPIER, 1, FR, 10, Facing.EAST);
+		b.npc(NpcRole.MERCHANT, 3, FR, 12, Facing.EAST); // DL/EC: the merchant beside the cashier
 		for (int z = 8; z <= 12; z++) {
 			b.set(2, FR + 2, z, counter.slab("top"));
 			b.set(1, FR + 2, z, counter.slab("top"));

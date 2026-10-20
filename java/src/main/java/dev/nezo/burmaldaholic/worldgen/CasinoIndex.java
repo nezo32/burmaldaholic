@@ -88,6 +88,7 @@ public final class CasinoIndex extends SavedData {
 				npcs.add(n);
 			}
 			t.put("npcs", npcs);
+			t.putInt("dealers_version", r.dealersVersion);
 			list.add(t);
 		}
 		CompoundTag root = new CompoundTag();
@@ -105,6 +106,7 @@ public final class CasinoIndex extends SavedData {
 				continue;
 			}
 			CasinoRecord r = data.recordFor(id, t.getStringOr("dimension", ""));
+			r.dealersVersion = t.getIntOr("dealers_version", 0);
 			int[] b = t.getIntArray("box").orElse(new int[0]);
 			try {
 				if (b.length == 6) {

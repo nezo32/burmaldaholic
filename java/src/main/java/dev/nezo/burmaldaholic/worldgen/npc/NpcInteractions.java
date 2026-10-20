@@ -68,6 +68,13 @@ public final class NpcInteractions {
 		}
 		NpcRole role = npc.role();
 		String greeting = NpcShop.greetingKey(role, 1 + npc.getRandom().nextInt(Math.max(1, NpcShop.greetings(role))));
+		var handler = HouseNpcRoles.handler(role.id());
+		if (handler.isPresent() || role == NpcRole.MERCHANT) { // DL/EC: the merchant's store comes from EC
+			say(player, npc, greeting);
+			handler.ifPresentOrElse(h -> h.accept(player, npc),
+				() -> player.sendOverlayMessage(Component.translatable("msg.burmaldaholic.worldgen.merchant.closed")));
+			return;
+		}
 		if (role == NpcRole.PIGLIN_DEALER) {
 			say(player, npc, greeting);
 			nearestTable((ServerLevel) npc.level(), npc.blockPosition()).ifPresent(table -> openTable(player, table));

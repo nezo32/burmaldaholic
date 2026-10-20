@@ -98,7 +98,8 @@ public final class Kits {
 	 * dealer cell left as two blocks of air when {@code dealer} is null (the MT contract test: a bot dealer stands there) — and a keep-clear volume over footprint ∪ walkway for
 	 * y + 1..y + 3 (the in-world board). Footprint r −2..2 × f −2..+1; {@link TableClearance} checks it.
 	 */
-	public static Kit tablePod(Game game, NpcRole dealer) {
+	public static Kit tablePod(Game game, NpcRole requested) {
+		NpcRole dealer = houseDealer(requested); // DL: every pod gets a house dealer
 		return (b, x, y, z, front) -> {
 			if (b.compactTables()) {
 				legacyPod(b, game, dealer, x, y, z, front);
@@ -133,6 +134,11 @@ public final class Kits {
 	 * The pre-multi-block pod of legacy pieces ({@link Blueprint#compactTables()}): compact table at the anchor, player
 	 * row of CARPET_ACCENT at f +1, stools at r ±2 f +1, dealer (NPC or lectern) at f −1, 3 × 3 × 3 keep-clear above.
 	 */
+	/** DL-SPEC §2: no dealer, the v0.1 baccarat dealer and the piglin dealer all become the dimension's house dealer. */
+	public static NpcRole houseDealer(NpcRole dealer) {
+		return dealer == null || dealer == NpcRole.BACCARAT_DEALER || dealer == NpcRole.PIGLIN_DEALER ? NpcRole.HOUSE_DEALER : dealer;
+	}
+
 	private static void legacyPod(Blueprint b, Game game, NpcRole dealer, int x, int y, int z, Facing front) {
 		b.game(game, x, y, z, front);
 		Material stool = b.palette().get(Role.STOOL);
@@ -209,6 +215,7 @@ public final class Kits {
 				put(b, x, y + 1, z, front, 0, 0, lantern(b, true));
 			}
 			b.npc(NpcRole.CROUPIER, lx(x, front, 0, -1), y, lz(z, front, 0, -1), front);
+			b.npc(NpcRole.MERCHANT, lx(x, front, 2, 1), y, lz(z, front, 2, 1), front); // DL/EC: the merchant beside the window
 			b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
 		};
 	}
