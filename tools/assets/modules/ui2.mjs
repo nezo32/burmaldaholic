@@ -19,6 +19,7 @@ import {
   disc,
   felt,
   focusRing,
+  frameEdge,
   glyph,
   iconButton,
   keyHint,
@@ -82,6 +83,7 @@ export default function generate() {
   sprite('banner', banner(), nine(48, 28, 5));
   sprite('toast', toast(), nine(32, 15, 2));
   sprite('focus_ring', focusRing(), nine(16, 16, 2));
+  sprite('frame_edge', frameEdge(), nine(24, 24, 8));
   sprite('felt_vignette', vignette(), nine(64, 64, 16));
   let seed = 7;
   for (const [theme, base] of Object.entries(FELTS)) {

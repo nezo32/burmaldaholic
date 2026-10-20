@@ -213,9 +213,13 @@ class KitContractTest {
 		assertEquals(KeyMap.KEY_3, KeyMap.digit(3));
 		assertThrows(IllegalArgumentException.class, () -> k.bind("f13", "x"), "only named keys (letters, digits, Space, Enter, ...) bind");
 		assertEquals("key.keyboard.space", KeyMap.vanillaNameKey(KeyMap.SPACE));
-		assertEquals("key.keyboard.h", KeyMap.vanillaNameKey(KeyMap.H));
-		assertEquals("key.keyboard.1", KeyMap.vanillaNameKey(KeyMap.KEY_1));
 		assertEquals("key.keyboard.backspace", KeyMap.vanillaNameKey(KeyMap.BACKSPACE));
+		// letters and digits are not translatable (vanilla has no key.keyboard.h): the plate shows the key cap
+		assertEquals(null, KeyMap.vanillaNameKey(KeyMap.H));
+		assertEquals(null, KeyMap.vanillaNameKey(KeyMap.KEY_1));
+		assertEquals("H", KeyMap.plateChar(KeyMap.H));
+		assertEquals("1", KeyMap.plateChar(KeyMap.KEY_1));
+		assertEquals(null, KeyMap.plateChar(KeyMap.SPACE));
 	}
 
 	@Test
@@ -228,6 +232,23 @@ class KitContractTest {
 		assertEquals(0, Stamps.scaleOf(1, false));
 		assertEquals(Stamps.Kind.GOLD, Stamps.Outcome.BLACKJACK.kind);
 		assertEquals(Stamps.Outcome.LOSE, Stamps.Outcome.ofNet(-5));
+	}
+
+	/** Every named key's plate key is a vanilla key name (en_us of the Minecraft jar on the test classpath, or ours). */
+	@Test
+	void everyNamedKeyHasALangKey() throws Exception {
+		String vanilla;
+		try (var in = KitContractTest.class.getResourceAsStream("/assets/minecraft/lang/en_us.json")) {
+			vanilla = in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
+		}
+		String ours = Files.readString(Path.of(System.getProperty("burmaldaholic.projectDir", "."), "src/main/lang/core/en_us.json"), StandardCharsets.UTF_8);
+		for (String k : KeyMap.NAMED) {
+			String key = KeyMap.vanillaNameKey(k);
+			assertTrue(key != null && (vanilla.contains("\"" + key + "\"") || ours.contains("\"" + key + "\"")), "no lang key for " + k + ": " + key
+				+ (vanilla.isEmpty() ? " (vanilla en_us.json not on the test classpath)" : ""));
+		}
+		for (char c = 'a'; c <= 'z'; c++) assertEquals(null, KeyMap.vanillaNameKey(String.valueOf(c)));
+		for (int d = 0; d <= 9; d++) assertEquals(null, KeyMap.vanillaNameKey(KeyMap.digit(d)));
 	}
 
 	@Test
