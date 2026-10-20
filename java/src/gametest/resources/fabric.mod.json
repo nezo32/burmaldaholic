@@ -35,6 +35,7 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.LocateGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.CasinoModeDefaultGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoBuildingGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoSiteGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratGameTests",
 			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests",
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpGameTests",
@@ -69,6 +70,7 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoPlayClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoPhotoClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoTerrainClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoSiteClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.RealInputClientGameTests"
 		]
 	},

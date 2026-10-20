@@ -166,7 +166,7 @@ public class WorldgenGameTests {
 		helper.succeed();
 	}
 
-	/** Real worldgen path: an End City placed on the main End island gets the lounge on a tower. */
+	/** Real worldgen path: an End City placed on the main End island gets at most one Lounge (beside it, lane WG). */
 	@GameTest(maxTicks = 400)
 	public void endCityGetsHighRollerLounge(GameTestHelper helper) {
 		ServerLevel end = helper.getLevel().getServer().getLevel(net.minecraft.world.level.Level.END);
@@ -197,9 +197,12 @@ public class WorldgenGameTests {
 		} finally {
 			cfg.chance = before;
 		}
-		if (placed > 0) {
-			helper.assertTrue(lounges.getAsLong() == lengthBefore + 1, "a High Roller Lounge was added to the End City and registered");
-		}
+		// v0.2 (lane WG): the Lounge stands on the island beside the city, at least 24 blocks from every piece; the main
+		// island may have no such site, so a placed city has at most one Lounge here. The real-terrain placement, the
+		// clearance and the walk to the door are asserted by CasinoSiteGameTests.endLoungeStandsBesideTheCity.
+		long added = lounges.getAsLong() - lengthBefore;
+		dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.info("[worldgen test] end city placed: {}, lounges added: {}", placed, added);
+		helper.assertTrue(added == 0 || placed > 0 && added == 1, "at most one Lounge per End City, only when it was placed: " + added);
 		helper.succeed();
 	}
 
