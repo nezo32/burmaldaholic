@@ -143,8 +143,9 @@ final class DiceArena {
 					DiceTray.Side lane = !pvp && order == 1 ? DiceTray.Side.RIGHT : DiceTray.Side.LEFT;
 					int rs = DuelTimeline.rollSeed(seed, i, sideAB);
 					int[] faces = {clamp(rd[order][0]), clamp(rd[order][1])};
-					long key = DiceRollCache.key(seq * 4 + i, lane.ordinal() * 2 + sideAB, rs ^ (faces[0] * 7 + faces[1]));
-					rolls[i][order] = cache.get(key, () -> DiceSolver.solve(DiceTray.duelLane(lane), ThrowSpec.cup(lane), rs, faces, DuelTimeline.T_DUEL));
+					DiceTray tray = DiceTray.duelLane(lane);
+					long key = DiceRollCache.key(seq * 4 + i, lane.ordinal() * 2 + sideAB, rs, faces, DuelTimeline.T_DUEL, tray);
+					rolls[i][order] = cache.get(key, () -> DiceSolver.solve(tray, ThrowSpec.cup(lane), rs, faces, DuelTimeline.T_DUEL));
 					emerge[i][order][0] = Double.NaN;
 					emerge[i][order][1] = Double.NaN;
 				}

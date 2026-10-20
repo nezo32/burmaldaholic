@@ -81,6 +81,7 @@ Branch `p2/dcb` (from `feature/v020-table-ui` @292cbe5; merged `p2-e2-freeze` 69
   another dimension (it expires on its own clock). Wire format changed (pre-release; no compat concern).
 - LOW role: a sync that arrives before `mc.player` exists keeps the role unknown (silent) and resolves it on the first
   frame with a player.
+- Merged p2/dca @e54a9129; `DiceArena` uses the full `DiceRollCache.key(seq, side, seed, faces, T_DUEL, tray)`.
 - NITs: `DiceArena.sounds` lost the redundant `waitingFor` (always == `show`); `PVP_RESULT_SINK` is volatile; the
   renderer's per-frame contact lambdas are now made once per stage and `DiceArena` reuses its `Cup[]`; the javadoc no
   longer claims "allocation-free". Not done: the on-receipt solve hitch NIT.
