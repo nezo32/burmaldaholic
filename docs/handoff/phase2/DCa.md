@@ -149,18 +149,13 @@ Fixed in the generator only (`tools/assets/modules/tables/dice.mjs` `diceWorldTe
   stray texel both fail it.
 Not re-run: client run (no screenshots per owner rule; texture change is UV-only on the Java side).
 
-### R3 extra: DiceSolver hand-off overload (for CM, SY-SPEC §3 Craps row) — additive
-```java
-public record DiceSolver.Initial(double x, double y, double zLow, double vx, double vy, double vz, double[] q, double wx, double wy, double wz)
-public static DiceRoll DiceSolver.solve(DiceTray tray, ThrowSpec spec, int seed, int[] faces, int targetMs, Initial[] initial)
-public static final double DiceSolver.BLEND_MS = 120
-```
-Tray frame/units; `zLow`/`vz` of the lowest point (as `DieSample`); `q` = MODEL orientation (as `DiceRoll.sample`);
-ω world-frame rad/s. Roll time 0 = hand-off (the rattle's exit when the result arrives; sample the rattle there).
-Same contacts/events/rest times/rest points/faces as the 5-arg solve; each die starts in `initial[i]` at 0 and blends
-(new `Seg.BLEND` AIR sub-kind: constant-rate extrapolations of hand and flight mixed by 3s²−2s³, non-flipping slerp) into
-its solved flight by `releaseMs(i) + min(120, 0.6·first flight)` ms; HELD in the initial pose before 0. Existing
-signatures/behaviour unchanged. Test `DiceHandoffTest` (all fixtures × 12 seeds, random hand states): C0 at 0 and
-before, C1 at 0 (finite diff vs hand v/ω), C0+C1 at the blend end, identical to the plain roll after the blend, exact
-faces at rest, no per-ms pops; mutation (linear h) fails C1. Not covered: die–die separation during the blend (the
-blend is short, before the first floor contact).
+### R3 extra: DiceSolver hand-off overload — REMOVED
+`solve(..., Initial[])` (@57432747) was removed again (no users on any branch): T-DICE DCa-1 found the dice overlap during
+the blend. Per the owner, Craps instead waits for the shake loop to pass through the canonical release pose and starts the
+normal solved throw from it (as Dice house mode, `DuelTimeline.shakeOffset`). The 5-arg `solve` is unchanged.
+
+### T-DICE DCa-2: texture check gaps closed
+`dice-atlas.test.mjs` "in-world die texture" now also pins the exact bevel palette (outer ring, lit/shaded inner ring),
+the 4 gutter corners, the exact pip centres per face against the standard layout (grid 8.5/15.5/22.5; 2 and 3 top-left →
+bottom-right), and one identical pip mask (shape + shade colours) on faces 2–6. Mutation-checked: inner-bevel magenta
+texel, gutter corner, face 2 mirrored, face 6 shifted 1 px, a face-4 pip moved 4 px — all 5 now fail.
