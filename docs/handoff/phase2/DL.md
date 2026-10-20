@@ -48,9 +48,41 @@ Branch `p2/dl` (from p2/cr-2; merged p2/mt (twice, last @616f71ea) and p2/cr-2 f
   old dealer NPC, one merchant, ensure ×3 idempotent), owned table, /kill respawn with the same look ≤ 340 t,
   save/load plus adopt, legacy replaced, damage/TNT/push, click/break/re-place, blackjack gesture.
 
+## Fix round after T-DL (findings/T-DL.md, D0–D7)
+Cherry-picked the tester's `test/dl` @2c17351e (HouseDealerTesterGameTests, client lane `DL`, render probe).
+- **D0** `HouseDealerRenderers`: the craps stick `ItemStack` is created on first use (no static ItemStack at client init).
+- **D1** `HouseDealers.standable` accepts a low block (carpet ≤ 3/16) in the cell; the dealer stands on its top
+  (`floorHeight`). The legacy baccarat / piglin dealer is discarded only after its replacement spawned, and its slot is
+  dropped by position and by entity UUID (it may have been moved by an unfold). v0.1.3 village casino 4/4 and Lounge 4/4 dealers.
+- **D2** `HouseDealer.followTable` (each rebind and every 20 t before the home snap): re-resolves the bound table's
+  `TableParts.dealerSpot`; when the cell moved (unfold f−1→f−2, fold back) and the home was the old cell or is now
+  covered, the dealer re-homes there (if standable). Egg-placed dealers elsewhere keep their spot.
+- **D3** a dealer click runs `level.mayInteract` (spawn protection) then `player.gameMode.useItemOn(…, ItemStack.EMPTY,
+  MAIN_HAND, hit on the main block's top)`: the same chain as a real empty-hand block use (UseBlockCallback → Ownership
+  refusals, bot ask-to-join, then the block).
+- **D4** `HouseDealer.bindable`: binding (candidates and the 3-block fallback) skips player-placed (`HouseGames.isPlayerPlaced`) and owned tables.
+- **D5** `DealerGestureSink.boundTable()` + static `gestureAt(level, table, radius, g)`: the dealer bound to the table
+  wins; a dealer bound elsewhere never answers; unbound legacy dealers by distance. Blackjack/Baccarat BEs call it (hook shrank).
+- **D6** EOL restored to the base (a2d77bf5) style in NpcRenderers, Assembly, CasinoIndex, WorldgenModule,
+  MultiBlockLayoutsTest, OverworldCasinoTest, DealerMotionTest, gametest mixins.json, and the tester/NpcLook tests (LF).
+  STRINGS.md, Kits.java, GrandCasinoTest already matched. (TableCulling is CRLF from p2/mt itself.)
+- **D7** renderer: no `boolean[]` / `Cue` per frame; the pose is written straight into the render state (`Posed`).
+- Tester test adjustments: `dealerClickHasTheTableClicksChecks` resets its counter before the table click (the earlier
+  dealer clicks now correctly fire the callback too); `HouseDealerRenderProbeMixin` takes the dealer via MixinExtras
+  `@Local(argsOnly)` (the pose signature changed).
+
+### Verified (26.3 only, `build/run/gameTest` wiped before each GameTest run)
+- `compileJava compileClientJava compileGametestJava -Pmc=26.3`: OK.
+- `runGameTest -Dfabric-api.gametest.filter=house_dealer`: **All 24 passed** (DL 11 + tester 13).
+- `runGameTest -Dfabric-api.gametest.filter=worldgen_npc`: **All 5 passed**.
+- `test --tests '*MultiBlockLayoutsTest' 'dev.nezo.burmaldaholic.worldgen.*' '*DealerMotionTest' '*DealerCuesTest' '*RawInputGuardTest'`: 331 run, 0 failed.
+- Client lane DL (`BURMALDAHOLIC_CGT=DL`, only `HouseDealerClientGameTests` entrypoint, swap reverted): **PASS**, no client
+  crash, no render exceptions; 11 server dealers placed (riviera), client sees 13 bound; probe: house_dealer 667,
+  piglin 325, ender 325 pose extractions.
+
 ## Not verified
-- No client run and no screenshots (per brief). Renderer poses, the stick and the ender eyes layer are compile-checked only.
-- "Unload/reload" is simulated by a save/load round trip of the entity, not a real chunk unload.
+- No screenshots (per brief). Poses, the stick and the ender eyes are proven only by the client run above (extraction, no exceptions).
+- Real chunk unload/reload is covered by the tester test `realChunkUnloadReloadKeepsOneDealer`.
 
 ## Requests to other packages
 - (resolved) the annex dealer-cell reach issue: CR-2 fixed it in a2d77bf5.

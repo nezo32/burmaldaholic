@@ -36,6 +36,7 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renderers of the three house dealer types (DL-SPEC §1/§3): human on the player model, piglin on the adult piglin
@@ -45,7 +46,8 @@ import net.minecraft.world.level.Level;
  * dealer holds a stick (render-only, never equipment).
  */
 final class HouseDealerRenderers {
-	private static final ItemStack STICK = new ItemStack(Items.STICK);
+	/** The craps stick, created on first use: item stacks cannot be built before data components bind (client init). */
+	private static @Nullable ItemStack stick;
 
 	private HouseDealerRenderers() {}
 
@@ -75,25 +77,28 @@ final class HouseDealerRenderers {
 		return pool[Math.floorMod(look, pool.length)];
 	}
 
-	/** This frame's pose of {@code dealer}; {@code out[0]} = a gesture is playing. */
-	static DealerMotion.Pose pose(HouseDealer dealer, float partialTicks, boolean[] gesturing) {
+	/** A render state that takes the dealer's pose (no per-frame holder allocations). */
+	interface Posed {
+		void pose(DealerMotion.Pose pose, boolean gesturing);
+	}
+
+	/** Writes this frame's pose of {@code dealer} into {@code out}: its synced gesture, else its table's cue, else idle. */
+	static void pose(HouseDealer dealer, float partialTicks, Posed out) {
 		Level level = dealer.level();
-		DealerCueSource.Cue cue = null;
+		double idle = AnimClock.levelMs(partialTicks) + dealer.getId() * 731.0;
 		DealerGesture g = dealer.dealerGesture();
 		if (g != DealerGesture.NONE) {
 			double age = (level.getGameTime() - dealer.dealerGestureTick() + partialTicks) * 50.0;
 			if (age >= 0 && age < g.ms) {
-				cue = new DealerCueSource.Cue(g, age, dealer.dealerGestureSeat());
+				out.pose(DealerMotion.pose(g, age, dealer.dealerGestureSeat(), FxSettings.reduceMotion(), idle), true);
+				return;
 			}
 		}
 		BlockPos table = dealer.table();
-		if (cue == null && table != null && level.getBlockEntity(table) instanceof DealerCueSource source) {
-			cue = source.dealerCue(level.getGameTime(), partialTicks);
-		}
-		double idle = AnimClock.levelMs(partialTicks) + dealer.getId() * 731.0;
-		gesturing[0] = cue != null;
-		return cue == null ? DealerMotion.pose(DealerGesture.NONE, 0, 0, false, idle)
-			: DealerMotion.pose(cue.gesture(), cue.ageMs(), cue.towardSeat(), FxSettings.reduceMotion(), idle);
+		DealerCueSource.Cue cue = table != null && level.getBlockEntity(table) instanceof DealerCueSource source
+			? source.dealerCue(level.getGameTime(), partialTicks) : null;
+		out.pose(cue == null ? DealerMotion.pose(DealerGesture.NONE, 0, 0, false, idle)
+			: DealerMotion.pose(cue.gesture(), cue.ageMs(), cue.towardSeat(), FxSettings.reduceMotion(), idle), cue != null);
 	}
 
 	/** True when the dealer works a craps table (holds the stick). */
@@ -104,8 +109,11 @@ final class HouseDealerRenderers {
 
 	static void stick(HouseDealer dealer, ArmedEntityRenderState state, ItemModelResolver items) {
 		if (stickman(dealer)) {
-			items.updateForLiving(state.rightHandItemState, STICK, ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, dealer);
-			state.rightHandItemStack = STICK;
+			if (stick == null) {
+				stick = new ItemStack(Items.STICK);
+			}
+			items.updateForLiving(state.rightHandItemState, stick, ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, dealer);
+			state.rightHandItemStack = stick;
 		}
 	}
 
@@ -129,26 +137,36 @@ final class HouseDealerRenderers {
 		@Override
 		public void extractRenderState(HouseDealer entity, DealerRenderState state, float partialTicks) {
 			super.extractRenderState(entity, state, partialTicks);
-			boolean[] g = new boolean[1];
-			state.pose = pose(entity, partialTicks, g);
-			state.gesturing = g[0];
 			if (state instanceof HumanState s) {
+				pose(entity, partialTicks, s);
 				s.look = entity.look();
 			}
 			stick(entity, state, itemModelResolver);
 		}
 	}
 
-	static final class HumanState extends DealerRenderState {
+	static final class HumanState extends DealerRenderState implements Posed {
 		int look;
+
+		@Override
+		public void pose(DealerMotion.Pose pose, boolean gesturing) {
+			this.pose = pose;
+			this.gesturing = gesturing;
+		}
 	}
 
 	// ---- piglin ------------------------------------------------------------------------------------------------
 
-	static final class PiglinState extends PiglinRenderState {
+	static final class PiglinState extends PiglinRenderState implements Posed {
 		DealerMotion.Pose pose = DealerMotion.Pose.REST;
 		boolean gesturing;
 		int look;
+
+		@Override
+		public void pose(DealerMotion.Pose pose, boolean gesturing) {
+			this.pose = pose;
+			this.gesturing = gesturing;
+		}
 	}
 
 	/** The adult piglin with the dealer's arm pose. */
@@ -200,9 +218,7 @@ final class HouseDealerRenderers {
 			state.armPose = PiglinArmPose.DEFAULT;
 			state.isBrute = false;
 			if (state instanceof PiglinState s) {
-				boolean[] g = new boolean[1];
-				s.pose = pose(entity, partialTicks, g);
-				s.gesturing = g[0];
+				pose(entity, partialTicks, s);
 				s.look = entity.look();
 			}
 			stick(entity, state, itemModelResolver);
@@ -211,10 +227,16 @@ final class HouseDealerRenderers {
 
 	// ---- ender -------------------------------------------------------------------------------------------------
 
-	static final class EnderState extends EndermanRenderState {
+	static final class EnderState extends EndermanRenderState implements Posed {
 		DealerMotion.Pose pose = DealerMotion.Pose.REST;
 		boolean gesturing;
 		int look;
+
+		@Override
+		public void pose(DealerMotion.Pose pose, boolean gesturing) {
+			this.pose = pose;
+			this.gesturing = gesturing;
+		}
 	}
 
 	/** The enderman with the dealer's arm pose at 0.7× amplitude, tilted so its hands rest on the felt. */
@@ -263,9 +285,7 @@ final class HouseDealerRenderers {
 			net.minecraft.client.renderer.entity.HumanoidMobRenderer.extractHumanoidRenderState(entity, state, partialTicks, itemModelResolver);
 			state.isCreepy = false;
 			if (state instanceof EnderState s) {
-				boolean[] g = new boolean[1];
-				s.pose = pose(entity, partialTicks, g);
-				s.gesturing = g[0];
+				pose(entity, partialTicks, s);
 				s.look = entity.look();
 			}
 			stick(entity, state, itemModelResolver);

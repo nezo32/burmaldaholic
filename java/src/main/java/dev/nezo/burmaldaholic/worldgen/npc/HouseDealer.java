@@ -6,9 +6,11 @@ import dev.nezo.burmaldaholic.core.anim.cards.DealerGesture;
 import dev.nezo.burmaldaholic.core.cashier.CashierBlockEntity;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
+import dev.nezo.burmaldaholic.core.table.parts.DealerSpot;
 import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
 import dev.nezo.burmaldaholic.core.table.parts.TableParts;
+import dev.nezo.burmaldaholic.worldgen.HouseGames;
 import dev.nezo.burmaldaholic.worldgen.logic.DealerBinding;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcLook;
 import java.util.Optional;
@@ -34,8 +36,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
@@ -50,8 +54,9 @@ import org.jspecify.annotations.Nullable;
  * (look at players, head ±75° around the table's facing) and gestures with its table on the client.
  *
  * <p>Binding: the synced {@link #TABLE} holds the main block of its table, found lazily on the first server tick and
- * re-checked every 100 ticks ({@link DealerBinding} candidates, else the nearest table within 3 blocks). Clicking the
- * dealer uses the table exactly like clicking its main block. Gestures: blackjack / baccarat push them through
+ * re-checked every 100 ticks ({@link DealerBinding} candidates, else the nearest table within 3 blocks; never a
+ * player-placed or owned table); the home follows the table's dealer cell when the table unfolds or folds. Clicking
+ * the dealer uses the table exactly like clicking its main block (same callback chain). Gestures: blackjack / baccarat push them through
  * {@link DealerGestureSink} (synced GESTURE + GESTURE_TICK); the other games are read by the renderer from the table's
  * {@code DealerCueSource}.
  */
@@ -72,6 +77,8 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 	private @Nullable BlockPos home;
 	private float homeYaw;
 	private boolean boundOnce;
+	/** The bound table's dealer cell at the last check (transient): an unfold / fold moves it, the dealer follows. */
+	private @Nullable BlockPos lastSpot;
 
 	public HouseDealer(EntityType<? extends HouseDealer> type, Level level) {
 		super(type, level);
@@ -136,9 +143,19 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 	public void setHome(BlockPos stand, float yaw) {
 		home = stand.immutable();
 		homeYaw = yaw;
-		snapTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, yaw, 0f);
+		snapTo(stand.getX() + 0.5, feetY(stand), stand.getZ() + 0.5, yaw, 0f);
 		setYHeadRot(yaw);
 		setYBodyRot(yaw);
+	}
+
+	/** Feet height in {@code stand}: on top of a carpet (v0.1.3 dealer cells), else the block's floor. */
+	private double feetY(BlockPos stand) {
+		return stand.getY() + Math.max(0, HouseDealers.floorHeight(level(), stand));
+	}
+
+	@Override
+	public @Nullable BlockPos boundTable() {
+		return table();
 	}
 
 	// ---- gestures ---------------------------------------------------------------------------------------------
@@ -180,8 +197,12 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 				boundOnce = true;
 				rebind(sl);
 			}
-			if (tickCount % HOME_CHECK_TICKS == 0 && position().distanceToSqr(Vec3.atBottomCenterOf(home)) > 0.3 * 0.3) {
-				snapTo(home.getX() + 0.5, home.getY(), home.getZ() + 0.5, yaw, getXRot());
+			if (tickCount % HOME_CHECK_TICKS == 0) {
+				followTable(sl);
+				Vec3 feet = new Vec3(home.getX() + 0.5, feetY(home), home.getZ() + 0.5);
+				if (position().distanceToSqr(feet) > 0.3 * 0.3) {
+					snapTo(feet.x, feet.y, feet.z, facingYaw(), getXRot());
+				}
 			}
 		}
 	}
@@ -210,6 +231,30 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 		if (!java.util.Objects.equals(found, table())) {
 			entityData.set(TABLE, Optional.ofNullable(found));
 		}
+		followTable(level);
+	}
+
+	/**
+	 * Keeps the dealer on its bound table's dealer cell ({@link TableParts#dealerSpot}) when the table changes shape:
+	 * a compact table that unfolds (sneak-click, legacy first tick) moves the cell from f − 1 to f − 2, a fold moves it
+	 * back. The dealer follows when its home was the previous cell or is now covered by the table, and the new cell is
+	 * standable; an egg-placed dealer elsewhere keeps its spot.
+	 */
+	private void followTable(ServerLevel level) {
+		BlockPos t = table();
+		if (t == null || home == null) {
+			lastSpot = null;
+			return;
+		}
+		DealerSpot spot = TableParts.dealerSpot(level, t);
+		if (spot == null || !spot.main().equals(t)) {
+			return;
+		}
+		BlockPos cell = spot.cell();
+		if (!cell.equals(home) && (home.equals(lastSpot) || !HouseDealers.standable(level, home)) && HouseDealers.standable(level, cell)) {
+			setHome(cell, spot.yaw());
+		}
+		lastSpot = cell.immutable();
 	}
 
 	/** The table a dealer standing in {@code stand} and facing {@code facing} serves, or null. */
@@ -225,10 +270,10 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 
 	/** True if {@code main} is the main block of a game table of kind {@code game} ({@code null} = compact) facing {@code facing}. */
 	static boolean isTable(Level level, BlockPos main, @Nullable TableGame game, Direction facing) {
-		if (!(level.getBlockEntity(main) instanceof CasinoTableBlockEntity be) || be instanceof CashierBlockEntity) {
+		if (!bindable(level.getBlockEntity(main))) {
 			return false;
 		}
-		dev.nezo.burmaldaholic.core.table.parts.DealerSpot spot = TableParts.dealerSpot(level, main); // MT's dealer API: the cell this table's dealer stands on
+		DealerSpot spot = TableParts.dealerSpot(level, main); // MT's dealer API: the cell this table's dealer stands on
 		if (spot == null || !spot.main().equals(main)) {
 			return false;
 		}
@@ -251,7 +296,7 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 				continue;
 			}
 			BlockPos main = TableParts.mainPos(pos, s);
-			if (!(level.getBlockEntity(main) instanceof CasinoTableBlockEntity be) || be instanceof CashierBlockEntity) {
+			if (!bindable(level.getBlockEntity(main))) {
 				continue;
 			}
 			double d = pos.distSqr(center);
@@ -261,6 +306,12 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 			}
 		}
 		return best;
+	}
+
+	/** A table a house dealer may serve: a game table no player placed or owns (never a cashier). */
+	static boolean bindable(@Nullable BlockEntity be) {
+		return be instanceof CasinoTableBlockEntity table && !(be instanceof CashierBlockEntity) && !HouseGames.isPlayerPlaced(be)
+			&& table.ownership().isEmpty();
 	}
 
 	// ---- interaction ------------------------------------------------------------------------------------------
@@ -276,7 +327,10 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 		return InteractionResult.SUCCESS;
 	}
 
-	/** Uses the bound table as if the player clicked the top of its main block. */
+	/**
+	 * Uses the bound table as if the player clicked the top of its main block with an empty hand: the same chain as a
+	 * real block use (spawn protection, {@code UseBlockCallback} — Ownership refusals, bot ask-to-join — then the block).
+	 */
 	public void use(ServerPlayer player, ServerLevel level) {
 		if (!CasinoMode.isEnabled(player)) {
 			player.sendOverlayMessage(Component.translatable("gui.burmaldaholic.error.casino_off"));
@@ -288,9 +342,11 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 			player.sendOverlayMessage(Component.translatable("msg.burmaldaholic.worldgen.dealer.no_table"));
 			return;
 		}
-		BlockState state = level.getBlockState(t);
+		if (!level.mayInteract(player, t)) {
+			return; // spawn protection, as ServerGamePacketListenerImpl.handleUseItemOn
+		}
 		Vec3 top = Vec3.atBottomCenterOf(t).add(0, 1, 0);
-		state.useWithoutItem(level, player, new BlockHitResult(top, Direction.UP, t, false));
+		player.gameMode.useItemOn(player, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND, new BlockHitResult(top, Direction.UP, t, false));
 	}
 
 	// ---- protection -------------------------------------------------------------------------------------------

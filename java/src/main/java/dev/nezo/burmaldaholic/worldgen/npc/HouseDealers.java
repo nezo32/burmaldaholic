@@ -23,11 +23,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -77,7 +79,7 @@ public final class HouseDealers {
 			BlockPos cell = dealerCell(main, state);
 			HouseDealer dealer = existing(level, main, cell);
 			if (dealer == null) {
-				discardLegacy(level, casino, cell, facing);
+				// the legacy dealer goes only once its replacement stands (a casino never ends up dealer-less)
 				if (dealers >= MAX_PER_CASINO) {
 					continue;
 				}
@@ -91,6 +93,7 @@ public final class HouseDealers {
 				}
 				dealer = spawned;
 				dealers++;
+				discardLegacy(level, casino, cell, facing);
 			}
 			BlockPos home = dealer.home() != null ? dealer.home() : cell;
 			Vec v = new Vec(home.getX(), home.getY(), home.getZ());
@@ -182,6 +185,7 @@ public final class HouseDealers {
 				Burmaldaholic.LOGGER.info("[worldgen] replacing the legacy dealer {} at {} with a house dealer", e.getType(), at);
 				e.discard();
 				casino.removeNpc(new Vec(at.getX(), at.getY(), at.getZ()));
+				casino.npcs().removeIf(s -> s.role() != NpcRole.HOUSE_DEALER && e.getUUID().equals(s.entity)); // moved by an unfold
 			}
 		}
 	}
@@ -190,10 +194,33 @@ public final class HouseDealers {
 		return e.entityTags().contains(CasinoNpcs.NPC_TAG) && LEGACY_DEALERS.contains(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString());
 	}
 
-	/** Two blocks of air over a solid floor. */
+	/**
+	 * Room for a dealer: the cell is air or a low block such as carpet ({@link #floorHeight}; v0.1.3 village casinos and
+	 * Lounges carpet their dealer cells), nothing solid above it, and a solid floor under it.
+	 */
 	static boolean standable(ServerLevel level, BlockPos cell) {
-		return level.getBlockState(cell).isAir() && level.getBlockState(cell.above()).isAir()
+		return floorHeight(level, cell) >= 0 && level.getBlockState(cell.above()).getCollisionShape(level, cell.above()).isEmpty()
 			&& level.getBlockState(cell.below()).isFaceSturdy(level, cell.below(), Direction.UP);
+	}
+
+	/** Max height of a block a dealer can stand on inside its cell (carpet 1/16, a thin snow layer). */
+	private static final double LOW_BLOCK = 0.1875;
+
+	/**
+	 * Height the dealer's feet stand at inside {@code cell}: 0 for air or a block without collision, the top of a low
+	 * block (carpet), or −1 when the cell is blocked.
+	 */
+	public static double floorHeight(BlockGetter level, BlockPos cell) {
+		BlockState s = level.getBlockState(cell);
+		if (s.isAir()) {
+			return 0;
+		}
+		VoxelShape shape = s.getCollisionShape(level, cell);
+		if (shape.isEmpty()) {
+			return s.getFluidState().isEmpty() ? 0 : -1;
+		}
+		double top = shape.max(Direction.Axis.Y);
+		return top <= LOW_BLOCK ? top : -1;
 	}
 
 	private static @Nullable ServerLevel level(MinecraftServer server, String dimension) {

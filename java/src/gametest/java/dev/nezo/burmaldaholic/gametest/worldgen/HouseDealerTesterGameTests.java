@@ -481,6 +481,7 @@ public class HouseDealerTesterGameTests {
 			}
 			// the table click fires UseBlockCallback (Ownership.onUseBlock refusals, BotInteractions); the dealer click must too
 			BlockHitResult hit = new BlockHitResult(Vec3.atBottomCenterOf(main).add(0, 1, 0), Direction.UP, main, false);
+			seen.set(0); // the dealer clicks above already went through the callback (DL D3 fix)
 			p.gameMode.useItemOn(p, level, ItemStack.EMPTY, InteractionHand.MAIN_HAND, hit);
 			int viaTable = seen.get();
 			p.closeContainer();
