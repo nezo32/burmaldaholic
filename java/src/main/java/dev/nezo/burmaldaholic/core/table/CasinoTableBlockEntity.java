@@ -282,9 +282,16 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		return level instanceof ServerLevel serverLevel ? CoreServices.tableOwnership().owner(serverLevel, worldPosition) : Optional.empty();
 	}
 
-	/** The generated-casino preset of this table (worldgen, §16), if any. */
+	/**
+	 * The generated-casino preset of this table (worldgen, §16), if any. Empty while the table's chunk is not loaded
+	 * (unload, removed block entity): the lookup reads the block state, which must never load a chunk or run on a
+	 * chunk being unloaded (BOT request, same family as the baccarat / blackjack preset crash).
+	 */
 	public Optional<TablePresetProvider.TablePreset> preset() {
-		return level instanceof ServerLevel serverLevel ? CoreServices.tablePresets().preset(serverLevel, worldPosition) : Optional.empty();
+		if (!(level instanceof ServerLevel serverLevel) || isRemoved() || !serverLevel.hasChunkAt(worldPosition)) {
+			return Optional.empty();
+		}
+		return CoreServices.tablePresets().preset(serverLevel, worldPosition);
 	}
 
 	/** Effective limits for a player: [min, max] after table, owner settings and VIP tier. */

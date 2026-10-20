@@ -404,6 +404,45 @@ public class MultiBlockTableGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * BOT request: {@code CasinoTableBlockEntity.preset()} never asks the preset provider (which reads the block state)
+	 * for a table whose chunk is not loaded, so it can't load a chunk or crash during unload; a loaded table still asks.
+	 */
+	@GameTest(maxTicks = 20)
+	public void presetLookupNeverLoadsAChunk(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		dev.nezo.burmaldaholic.core.service.TablePresetProvider previous = dev.nezo.burmaldaholic.core.service.CoreServices.tablePresets();
+		int[] calls = {0};
+		dev.nezo.burmaldaholic.core.service.CoreServices.setTablePresets((l, pos) -> {
+			calls[0]++;
+			return previous.preset(l, pos);
+		});
+		try {
+			Block block = BlackjackModule.TABLE.block();
+			BlockPos far = new BlockPos(29_000_000 - 4096, 64, 29_000_000 - 4096);
+			helper.assertFalse(level.hasChunkAt(far), "test position starts unloaded");
+			CasinoTableBlockEntity farBe = (CasinoTableBlockEntity) ((net.minecraft.world.level.block.EntityBlock) block)
+				.newBlockEntity(far, block.defaultBlockState());
+			farBe.setLevel(level);
+			helper.assertTrue(farBe.preset().isEmpty(), "unloaded table: no preset");
+			helper.assertTrue(calls[0] == 0, "unloaded table: the provider is not asked");
+			helper.assertFalse(level.hasChunkAt(far), "the lookup loaded no chunk");
+			farBe.setRemoved();
+			helper.assertTrue(farBe.preset().isEmpty() && calls[0] == 0, "removed block entity: no lookup");
+
+			floor(helper);
+			clearArea(helper);
+			BlockPos main = abs(helper, MAIN);
+			level.setBlockAndUpdate(main, block.defaultBlockState());
+			CasinoTableBlockEntity be = (CasinoTableBlockEntity) level.getBlockEntity(main);
+			be.preset();
+			helper.assertTrue(calls[0] == 1, "loaded table: the provider is asked once");
+		} finally {
+			dev.nezo.burmaldaholic.core.service.CoreServices.setTablePresets(previous);
+		}
+		helper.succeed();
+	}
+
 	/** A piston can't push a part; water (source and flow) doesn't wash parts away; rotate/mirror keep a valid table. */
 	@GameTest(maxTicks = 200)
 	public void pistonsWaterRotateMirror(GameTestHelper helper) {

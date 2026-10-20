@@ -133,6 +133,15 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
   marked, the player breaks a part → table gone, exactly 1 item; TNT destroys a player's table (≤ 1 item).
   Merging p2/cb-g later: HouseGames.java conflicts in 2 lines (take MT's), CasinoIndex/STRINGS identical hunks.
 
+- **Preset guard (BOT request):** `CasinoTableBlockEntity.preset()` returns empty without asking the provider when
+  the BE is removed or its chunk isn't loaded (`hasChunkAt`), so a preset lookup never loads a chunk or reads state
+  during unload. GameTest `presetLookupNeverLoadsAChunk`.
+- **R3 verification (2026-10-20, 26.3 only from the owner's decision on):** tools `npm run gen:assets && check:assets
+  && npm test` → 75/75; `compileJava compileClientJava compileGametestJava -Pmc=26.3` OK (26.2 compiled OK before the
+  decision); `test --tests core.table.parts.* RawInputGuardTest worldgen.logic* BotsLogicTest` → 103 tests, 0
+  failures; `runGameTest -Dfabric-api.gametest.filter=multi_block -Pmc=26.3` → all 15 passed (the first 14 also passed
+  on 26.2); `-Dfabric-api.gametest.filter=worldgen -Pmc=26.3` → all 15 passed. Client lane not run (no client changes).
+
 ## Requests (R3)
 - CB-C1 / CR: `TableClearance` R4 and `Kits.tablePod` still allow a lectern in the dealer cell — with real dealers it
   must be two blocks of air on a floor, reachable from the walkway (see `MultiBlockLayoutsTest.reachable`). Kits Javadoc
