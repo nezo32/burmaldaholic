@@ -37,6 +37,9 @@ public final class DieSample {
 	public double speed;
 	/** One of {@link #HELD} … {@link #REST}. */
 	public int phase;
+	/** Scratch quaternions of the hand-off blend ({@link Seg#BLEND}); keeps sampling allocation-free. */
+	final double[] tmpA = new double[4];
+	final double[] tmpB = new double[4];
 
 	/** Copies {@code o} into this sample. */
 	public DieSample set(DieSample o) {

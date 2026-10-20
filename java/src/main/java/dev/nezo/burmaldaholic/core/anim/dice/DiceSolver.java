@@ -101,6 +101,110 @@ public final class DiceSolver {
 		throw new IllegalStateException("no dice plan for seed " + seed + " target " + targetMs);
 	}
 
+	/** Longest hand-off blend into the solved flight (ms after the die's release); at most 60 % of its first flight. */
+	public static final double BLEND_MS = 120;
+
+	/**
+	 * A die's state in the hand at the hand-off (roll time 0), in the roll's tray frame and units: centre {@code x, y},
+	 * lowest point {@code zLow} above the floor, their velocities (u/s; {@code vz} of the lowest point, as
+	 * {@link DieSample#vz}), the MODEL orientation {@code q} (w, x, y, z; as {@link DiceRoll#sample} returns it) and the
+	 * world-frame angular velocity (rad/s; {@code dq/dt = ½·ω·q}).
+	 */
+	public record Initial(double x, double y, double zLow, double vx, double vy, double vz, double[] q, double wx, double wy, double wz) {
+		public Initial {
+			if (q == null || q.length != 4) throw new IllegalArgumentException("q");
+			double n = Quat.norm(q);
+			if (!(Math.abs(n - 1) < 1e-6)) throw new IllegalArgumentException("q not unit: " + n);
+			q = q.clone();
+		}
+	}
+
+	/**
+	 * Solves a throw that starts from the hand: the same roll as {@link #solve(DiceTray, ThrowSpec, int, int[], int)}
+	 * (identical contacts, events, rest times, rest points and faces), except that each die starts at roll time 0 in
+	 * {@code initial[i]} and blends ({@link Seg#BLEND}) into its solved flight by {@code releaseMs(i) + min(}{@link
+	 * #BLEND_MS}{@code , 0.6 × first flight)}. Position, orientation and their rates are continuous (C0 and C1) at 0 and at
+	 * the end of the blend; before 0 the die is HELD in the initial pose. Use roll time 0 = the moment the result arrives
+	 * (the hand loop's exit), sampling the loop's pose and velocity there.
+	 *
+	 * @param initial one state per die (same length as {@code faces})
+	 */
+	public static DiceRoll solve(DiceTray tray, ThrowSpec spec, int seed, int[] faces, int targetMs, Initial[] initial) {
+		if (initial == null || initial.length != faces.length) throw new IllegalArgumentException("initial");
+		DiceRoll base = solve(tray, spec, seed, faces, targetMs);
+		Seg[][] segs = new Seg[faces.length][];
+		for (int i = 0; i < faces.length; i++) segs[i] = handoff(base.segs[i], base.label[i], initial[i], base.g);
+		return new DiceRoll(segs, base.label, base.faces, base.restT, base.releaseT, base.wallT, base.rest, base.events, base.g, base.attempt, base.fallback,
+			base.teeter);
+	}
+
+	/** HELD (initial) → BLEND [0, t1] → the first flight trimmed to start at t1 → the rest unchanged. */
+	static Seg[] handoff(Seg[] s, double[] label, Initial in, double g) {
+		Seg air = s[1];
+		if (s[0].kind != DieSample.HELD || air.kind != DieSample.AIR) throw new IllegalStateException("roll shape");
+		double tRel = s[0].t1;
+		double tb = Math.min(BLEND_MS, 0.6 * (air.t1 - air.t0));
+		double t1 = tRel + tb;
+		double tau = tb / 1000.0;
+		// B: the solved flight at t1
+		double bx = air.x0 + air.vx * tau;
+		double by = air.y0 + air.vy * tau;
+		double bz = air.z0 + air.vz * tau - 0.5 * g * tau * tau;
+		double bvz = air.vz - g * tau;
+		double[] qb = Quat.expMap(air.wx, air.wy, air.wz, tau, new double[4]);
+		Quat.mul(qb, air.q0, qb);
+		Quat.normalize(qb, qb);
+		Seg rest = DiceSolver.air(t1, (air.t1 - t1) / 1000.0, bx, by, air.vx, air.vy, bz, bvz, qb, air.wx, air.wy, air.wz);
+		rest.t1 = air.t1;
+		// A: the hand, as a CANONICAL orientation (M = Q·L ⇒ Q = M·L⁻¹; the world ω is unchanged)
+		double[] qa = Quat.mul(in.q(), Quat.conj(label, new double[4]), new double[4]);
+		Quat.normalize(qa, qa);
+		Seg held = new Seg();
+		held.kind = DieSample.HELD;
+		held.t0 = Double.NEGATIVE_INFINITY;
+		held.t1 = 0;
+		held.x0 = in.x();
+		held.y0 = in.y();
+		held.z0 = in.zLow();
+		Quat.copy(qa, held.q0);
+		Seg b = new Seg();
+		b.kind = DieSample.AIR;
+		b.sub = Seg.BLEND;
+		b.t0 = 0;
+		b.t1 = t1;
+		b.x0 = in.x();
+		b.y0 = in.y();
+		b.z0 = in.zLow();
+		b.vx = in.vx();
+		b.vy = in.vy();
+		b.vz = in.vz();
+		Quat.copy(qa, b.q0);
+		b.wx = in.wx();
+		b.wy = in.wy();
+		b.wz = in.wz();
+		b.bx = bx;
+		b.by = by;
+		b.bz = bz;
+		b.bvx = air.vx;
+		b.bvy = air.vy;
+		b.bvz = bvz;
+		b.bwx = air.wx;
+		b.bwy = air.wy;
+		b.bwz = air.wz;
+		// sign of B: the shorter arc at mid-blend (the blend never flips arcs, see Seg.slerpNoFlip)
+		double tm = t1 / 2000.0;
+		double[] am = Quat.mul(Quat.expMap(in.wx(), in.wy(), in.wz(), tm, new double[4]), qa, new double[4]);
+		double[] bm = Quat.mul(Quat.expMap(air.wx, air.wy, air.wz, tm - t1 / 1000.0, new double[4]), qb, new double[4]);
+		double sign = Quat.dot(am, bm) < 0 ? -1 : 1;
+		for (int k = 0; k < 4; k++) b.q1[k] = sign * qb[k];
+		Seg[] out = new Seg[s.length + 1];
+		out[0] = held;
+		out[1] = b;
+		out[2] = rest;
+		System.arraycopy(s, 2, out, 3, s.length - 2);
+		return out;
+	}
+
 	/** Seeded attempts per pass (strict, relaxed, very relaxed): {@link #ATTEMPTS} in all. */
 	static final int[] PASS_ATTEMPTS = {5, 6, 5};
 	/** Deterministic natural-pace fallback attempts after the capped ones. */
