@@ -159,6 +159,9 @@ public class LocateGameTests {
 	 * GameTest server itself never generates structures). The locator must then report the nearest of those casinos as
 	 * unexplored: found through the grid, the gate, the vanilla structure check and the real structure start.
 	 */
+	/** Wall-clock budget of the prediction searches (60 s): far above {@link CasinoLocator#BUDGET_NANOS}. */
+	private static final long PREDICT_BUDGET_NANOS = 60_000_000_000L;
+
 	@GameTest(maxTicks = 600)
 	public void predictsUnexploredCasinoForEveryHost(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
@@ -227,8 +230,10 @@ public class LocateGameTests {
 			BoundingBox first = prepared.getFirst();
 			fromX = (first.minX() + first.maxX()) / 2.0 + 100;
 			fromZ = (first.minZ() + first.maxZ()) / 2.0;
+			// This test checks the predicted path, not the wall-clock budget (cutShortAndBusyAnswersSaySo does): a loaded CI or
+			// dev machine must not cut the search short (INTEGRATION-1 flake), so the budget is generous here.
 			outcome = CasinoLocator.search(level, fromX, fromZ, () -> {},
-				new CasinoLocator.Limits(true, () -> true, CasinoLocator.BUDGET_NANOS));
+				new CasinoLocator.Limits(true, () -> true, PREDICT_BUDGET_NANOS));
 		} finally {
 			setChance(host.kind(), before);
 		}
