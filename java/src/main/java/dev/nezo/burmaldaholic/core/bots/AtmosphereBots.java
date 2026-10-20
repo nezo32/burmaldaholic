@@ -167,7 +167,12 @@ public final class AtmosphereBots implements BotTable {
 	/** The table's TableBots (created on first use once the block entity is in a level), for the bots UI. */
 	@Override
 	public @Nullable TableBots tableBots() {
-		return tb != null || be.getLevel() == null ? tb : table();
+		return tb != null || be.getLevel() == null ? tb : loadedHere() ? table() : null;
+	}
+
+	/** The table's chunk is loaded (a lookup of a table in an unloaded chunk must never load it). */
+	private boolean loadedHere() {
+		return be.getLevel() != null && be.getLevel().isLoaded(be.getBlockPos());
 	}
 
 	private List<VirtualSeats.HumanSeat> humanSeats() {
@@ -184,7 +189,7 @@ public final class AtmosphereBots implements BotTable {
 	public TableBots table() {
 		if (tb == null) {
 			// generated tables: the worldgen preset's defaults (J-G6); name theme / level mix in the hooks above
-			boolean generated = be.getLevel() != null && be.preset().isPresent();
+			boolean generated = loadedHere() && be.preset().isPresent(); // preset() reads the level: loaded chunks only
 			tb = new TableBots(this, BotPresets.defaults(be, gameId, generated), OwnerControls.unowned(Math.max(1, seats.seats())));
 			if (loaded != null) {
 				tb.load(loaded);

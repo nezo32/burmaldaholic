@@ -151,7 +151,8 @@ public final class BotTables {
 	}
 
 	private static Optional<Found> of(ServerLevel level, @Nullable BlockEntity be) {
-		if (be instanceof BotTable t && !be.isRemoved()) {
+		// loaded chunks only: tableBots() may create the bot state, which reads the level (worldgen presets)
+		if (be instanceof BotTable t && !be.isRemoved() && level.isLoaded(be.getBlockPos())) {
 			TableBots bots = t.tableBots();
 			if (bots != null) {
 				Found f = new Found(level, be.getBlockPos().immutable(), be, t, bots);
