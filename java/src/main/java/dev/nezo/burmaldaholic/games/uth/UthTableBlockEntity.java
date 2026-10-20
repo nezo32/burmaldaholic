@@ -188,6 +188,8 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	 * ({@code epoch}); a decision made on an older window (a click delivered after the street moved on) is refused.
 	 */
 	private int decisionEpoch;
+	private @Nullable UthRound epochRound;
+	private UthRound.@Nullable Street epochStreet;
 	private int stageKind;
 	private long stageStart;
 	/** Last published public tag (block updates only on change) and, client side, the last one received. */
@@ -702,7 +704,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		if (r == null) {
 			return;
 		}
-		decisionEpoch++;
+		bumpEpoch(r);
 		for (UthRound.Seat s : r.pendingSeats()) {
 			if (s.bot) {
 				continue; // table bots think below, inside the street's decision window
@@ -854,12 +856,25 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		setChanged();
 	}
 
+	/**
+	 * A new decision window when the round or its street changed (once per street: openDecisions also runs after the deal
+	 * segment, and a street's seats are pending — and get {@code legal} — from {@link #advanceStreet} on, during the reveal).
+	 */
+	private void bumpEpoch(UthRound r) {
+		if (r != epochRound || r.street() != epochStreet) {
+			decisionEpoch++;
+			epochRound = r;
+			epochStreet = r.street();
+		}
+	}
+
 	private void advanceStreet() {
 		UthRound r = round;
 		if (r == null || r.settled()) {
 			return;
 		}
 		r.advance(pays());
+		bumpEpoch(r);
 		switch (r.street()) {
 			case FLOP -> setPhase(FLOP);
 			case RIVER -> setPhase(RIVER);
