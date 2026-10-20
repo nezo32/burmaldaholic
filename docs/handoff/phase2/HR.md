@@ -108,3 +108,6 @@ bet-entry controls (`BetAmount`, client `BetEntry`).
   the tables reloaded carry no stake and no seat, and a second play-out pays nothing. A second test does the SERVER_STOPPING play-out.
   Before the fix the unload test crashed the server with the exact NPE; after: green twice.
 - Full `runGameTest -Pmc=26.3`: "All 240 required tests passed", BUILD SUCCESSFUL.
+- Hardening (after T-HR PASS @e82e7858): the queue is `core/table/DeferredUnloads` (pure); `START_SERVER_TICK` resets a depth left
+  by an update that threw and plays out what waited (warn logged). `DeferredUnloadsTest` (nesting, re-entrant play-out, stuck depth,
+  clear) green; `TableUnloadGameTests` green on 26.3.

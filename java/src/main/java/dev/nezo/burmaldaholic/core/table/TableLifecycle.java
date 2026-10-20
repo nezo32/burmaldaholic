@@ -9,6 +9,7 @@ import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -38,27 +39,18 @@ public final class TableLifecycle {
 	private static final Set<CasinoTableBlockEntity> LOADED = Collections.newSetFromMap(new WeakHashMap<>());
 
 	/** Unloading chunks seen during a distance-manager update, played out when it returns. Server thread only. */
-	private static final List<LevelChunk> PENDING_UNLOADS = new ArrayList<>();
-	private static int chunkUpdateDepth;
+	private static final DeferredUnloads<LevelChunk> UNLOADS = new DeferredUnloads<>(TableLifecycle::playOutChunk);
 
 	private TableLifecycle() {}
 
 	/** {@code ServerChunkCache.runDistanceManagerUpdates} starts (it may nest). */
 	public static void enterChunkUpdates() {
-		chunkUpdateDepth++;
+		UNLOADS.enter();
 	}
 
 	/** {@code ServerChunkCache.runDistanceManagerUpdates} returned: the outermost one plays out what unloaded meanwhile. */
 	public static void exitChunkUpdates() {
-		if (--chunkUpdateDepth > 0) {
-			return;
-		}
-		chunkUpdateDepth = 0;
-		while (!PENDING_UNLOADS.isEmpty()) {
-			List<LevelChunk> chunks = new ArrayList<>(PENDING_UNLOADS);
-			PENDING_UNLOADS.clear();
-			chunks.forEach(TableLifecycle::playOutChunk);
-		}
+		UNLOADS.exit();
 	}
 
 	public static void register() {
@@ -78,10 +70,15 @@ public final class TableLifecycle {
 			}
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(TableLifecycle::onServerStopping);
+		// a distance-manager update that threw never reached its exit: never let unloading tables wait until server stop
+		ServerTickEvents.START_SERVER_TICK.register(server -> {
+			if (UNLOADS.tickStart()) {
+				Burmaldaholic.LOGGER.warn("Table lifecycle: a chunk update did not finish; played out the tables of unloaded chunks now");
+			}
+		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			LOADED.clear();
-			PENDING_UNLOADS.clear();
-			chunkUpdateDepth = 0;
+			UNLOADS.clear();
 		});
 	}
 
@@ -92,11 +89,7 @@ public final class TableLifecycle {
 
 	/** The chunk is about to be saved and unloaded: play out every table in it (after the distance-manager update). */
 	static void onChunkUnloading(LevelChunk chunk) {
-		if (chunkUpdateDepth > 0) {
-			PENDING_UNLOADS.add(chunk);
-			return;
-		}
-		playOutChunk(chunk);
+		UNLOADS.offer(chunk);
 	}
 
 	private static void playOutChunk(LevelChunk chunk) {
