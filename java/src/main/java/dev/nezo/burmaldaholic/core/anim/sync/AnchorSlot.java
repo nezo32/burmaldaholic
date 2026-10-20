@@ -11,7 +11,11 @@ public final class AnchorSlot {
 	private long resultSeq;
 	private ResultAnchor anchor;
 
-	/** The anchor of key {@code (epoch, resultSeq)}, created by {@code create} only when the key changed. */
+	/**
+	 * The anchor of key {@code (epoch, resultSeq)}, created by {@code create} only when the key changed. Pass the TABLE's
+	 * {@code sync_epoch} (from the state packet) as {@code epoch} and the game's result counter as {@code resultSeq};
+	 * {@code SmoothClock.epoch()} goes into the anchor itself ({@link ResultAnchor#epoch()}) to detect a clock reset.
+	 */
 	public ResultAnchor obtain(int epoch, long resultSeq, Supplier<ResultAnchor> create) {
 		if (anchor == null || epoch != this.epoch || resultSeq != this.resultSeq) {
 			anchor = create.get();

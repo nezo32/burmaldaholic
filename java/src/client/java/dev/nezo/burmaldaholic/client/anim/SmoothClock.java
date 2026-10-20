@@ -27,6 +27,8 @@ public final class SmoothClock {
 	private static boolean registered;
 	/** Server tick offset added to every observation by {@link Test#jump} (ms → applied in ticks with fraction). */
 	private static double jumpMs;
+	/** Wall nanos of the last core advance (per-frame cache, T-SY m2). */
+	private static long lastAdvance = Long.MIN_VALUE;
 
 	private SmoothClock() {}
 
@@ -53,8 +55,21 @@ public final class SmoothClock {
 			}
 			return;
 		}
+		// T-SY D2: advance (or account the pause) every tick too, so a pause with no reader never counts as running time
+		advanceNow(mc, true);
 		Long t = src != null ? src.serverTick() : level == null ? null : Long.valueOf(level.getGameTime());
 		if (t != null) CORE.observe(shift(t), wall());
+	}
+
+	/** Advances the core to now; {@code force} = always (the tick), else skipped within 1 ms of the last advance (m2). */
+	private static void advanceNow(Minecraft mc, boolean force) {
+		long now = wall();
+		if (!force && lastAdvance != Long.MIN_VALUE && now >= lastAdvance && now - lastAdvance < 1_000_000L) return;
+		lastAdvance = now;
+		double msPerTick = mc.level != null ? mc.level.tickRateManager().millisecondsPerTick() : 50.0;
+		TimeSource src = Test.source;
+		boolean paused = src != null ? src.paused() : mc.isPaused() || (mc.level != null && !mc.level.tickRateManager().runsNormally());
+		CORE.advance(now, msPerTick, paused);
 	}
 
 	/** A server game time observed outside the tick (a table state packet's {@code game_time}). */
@@ -71,10 +86,7 @@ public final class SmoothClock {
 		if (!CORE.started()) {
 			return mc.level == null ? 0 : (mc.level.getGameTime() + (double) partialTick) * 50.0;
 		}
-		double msPerTick = mc.level != null ? mc.level.tickRateManager().millisecondsPerTick() : 50.0;
-		TimeSource src = Test.source;
-		boolean paused = src != null ? src.paused() : mc.isPaused() || (mc.level != null && !mc.level.tickRateManager().runsNormally());
-		CORE.advance(wall(), msPerTick, paused);
+		advanceNow(mc, false);
 		return CORE.nowMs();
 	}
 
@@ -154,6 +166,7 @@ public final class SmoothClock {
 		public static void reset() {
 			synchronized (SmoothClock.class) {
 				jumpMs = 0;
+				lastAdvance = Long.MIN_VALUE;
 				lastLevel = null;
 				CORE.clear();
 				tick();

@@ -49,7 +49,7 @@ class SmoothClockCoreTest {
 			if (c.lastSnap()) {
 				snaps++;
 				if (c.lastTarget() - before <= SmoothClockCore.SNAP_MS) snapOk = false;
-			} else if (c.lastRate() == SmoothClockCore.AHEAD_RATE) {
+			} else if (c.lastRate() < 1 - SmoothClockCore.SLEW - 1e-9) {
 				ahead++;
 			} else if (w > settleAfterMs) {
 				maxDev = Math.max(maxDev, Math.abs(c.lastRate() - 1));

@@ -28,7 +28,7 @@ public final class ClientTableCache {
 	public static void register() {
 		SmoothClock.register();
 		ClientPlayNetworking.registerGlobalReceiver(TableSyncPayload.TYPE, (payload, context) -> {
-			if (NetLagHook.intercept(() -> receive(payload))) return;
+			if (NetLagHook.hook != null && NetLagHook.intercept(() -> receive(payload))) return;
 			receive(payload);
 		});
 	}

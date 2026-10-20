@@ -35,44 +35,71 @@ public class SyncClientGameTests implements FabricClientGameTest {
 			long seq = context.computeOnClient(mc -> ClientTableCache.lastSeq(pos));
 			check(seq > 0, "the state packet carried sync_seq through the gate: " + seq);
 			check(context.computeOnClient(mc -> SmoothClock.started()), "the clock observed the server");
-			int epoch = context.computeOnClient(mc -> SmoothClock.epoch());
 
 			double[] last = {Double.NEGATIVE_INFINITY};
-			// 1) live: tracks the level time, monotonic, every reader agrees
-			sample(context, last, 60, 300, "live");
+			// 1) live wall clock (client GameTests run client and server lock-step, NOT paced by wall time, so only
+			//    relative checks here): monotonic, moving, every reader agrees
+			double l0 = context.computeOnClient(mc -> SmoothClock.nowMs());
+			sample(context, last, 60, Double.NaN, "live");
+			check(last[0] > l0, "the live clock moves: " + l0 + " -> " + last[0]);
 			context.runOnClient(mc -> {
 				double a = AnimClock.levelMs(0f);
 				double m = MotionClock.levelMs(0f);
 				check(Math.abs(a - m) < 60, "AnimClock and MotionClock read the same clock: " + a + " vs " + m);
 			});
 
-			// 2) delayed, jittered, bunched packets
+			// 2) delayed, jittered, bunched packets on the live clock: never steps back
 			context.runOnClient(mc -> NetLag.install(300, 150, 1000));
-			sample(context, last, 100, 1300, "netlag");
+			sample(context, last, 100, Double.NaN, "netlag");
 			check(context.computeOnClient(mc -> NetLag.deferredCount()) > 0, "the hook delayed real packets");
+			context.runOnClient(mc -> NetLag.clear());
 
-			// 3) +1 s jump: snaps forward (never back)
+			// 3) tick-locked wall (1 tick = 50 ms of wall): absolute tracking of the level time, then jumps
+			context.runOnClient(mc -> {
+				SmoothClock.Test.source(new SmoothClock.TimeSource() {
+					@Override
+					public long wallNanos() {
+						return mc.level == null ? 0 : mc.level.getGameTime() * 50_000_000L;
+					}
+
+					@Override
+					public Long serverTick() {
+						return mc.level == null ? null : mc.level.getGameTime();
+					}
+
+					@Override
+					public boolean paused() {
+						return false;
+					}
+				});
+				SmoothClock.Test.reset();
+			});
+			int epoch = context.computeOnClient(mc -> SmoothClock.epoch());
+			last[0] = Double.NEGATIVE_INFINITY;
+			sample(context, last, 60, 120, "tick-locked");
 			double before = context.computeOnClient(mc -> SmoothClock.nowMs());
 			context.runOnClient(mc -> NetLag.jumpTime(1000));
-			context.runOnClient(mc -> NetLag.clear());
 			context.waitTicks(10);
 			double after = context.computeOnClient(mc -> SmoothClock.nowMs());
-			check(after - before >= 1000, "jumped forward: " + before + " -> " + after);
+			check(after - before >= 1000, "+1 s jump snaps forward: " + before + " -> " + after);
 			last[0] = Math.max(last[0], after);
 			sample(context, last, 20, Double.NaN, "after +1 s");
-
-			// 4) −1 s back: never steps back, runs slow then converges
 			context.runOnClient(mc -> NetLag.jumpTime(-1000));
-			sample(context, last, 160, Double.NaN, "after -1 s");
+			sample(context, last, 240, Double.NaN, "after -1 s");
 			double err = context.computeOnClient(mc -> SmoothClock.nowMs() - mc.level.getGameTime() * 50.0);
 			check(Math.abs(err) < 400, "converging again after -1 s: " + err);
 			check(context.computeOnClient(mc -> SmoothClock.epoch()) == epoch, "no epoch change without a new level");
+			context.runOnClient(mc -> {
+				SmoothClock.Test.source(null);
+				SmoothClock.Test.reset();
+			});
 
 			f.close();
 			context.waitTicks(5);
 		} finally {
 			context.runOnClient(mc -> {
 				NetLag.clear();
+				SmoothClock.Test.source(null);
 				SmoothClock.Test.reset();
 			});
 			context.getInput().resizeWindow(1280, 720);

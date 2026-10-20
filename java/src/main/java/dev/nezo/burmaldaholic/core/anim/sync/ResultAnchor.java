@@ -17,14 +17,14 @@ package dev.nezo.burmaldaholic.core.anim.sync;
  */
 public final class ResultAnchor {
 	private final long startTick;
-	private final long arrivalWallMs;
+	private final double arrivalWallMs;
 	private final double sharedAtArrivalMs;
 	private final boolean actor;
 	private final int epoch;
 	private final double handoffT;
 	private double lastT = Double.NEGATIVE_INFINITY;
 
-	public ResultAnchor(long startTick, long arrivalWallMs, double sharedAtArrivalMs, boolean actor, int epoch, double handoffT) {
+	public ResultAnchor(long startTick, double arrivalWallMs, double sharedAtArrivalMs, boolean actor, int epoch, double handoffT) {
 		this.startTick = startTick;
 		this.arrivalWallMs = arrivalWallMs;
 		this.sharedAtArrivalMs = sharedAtArrivalMs;
@@ -34,12 +34,12 @@ public final class ResultAnchor {
 	}
 
 	/** A spectator anchor whose shared time at arrival is unknown (no late-join detection). */
-	public static ResultAnchor of(long serverStartTick, long arrivalWallMs) {
+	public static ResultAnchor of(long serverStartTick, double arrivalWallMs) {
 		return new ResultAnchor(serverStartTick, arrivalWallMs, Double.NaN, false, 0, 0);
 	}
 
 	/** A spectator anchor; {@code sharedAtArrivalMs} is {@code SmoothClock.nowMs()} when the result arrived. */
-	public static ResultAnchor of(long serverStartTick, long arrivalWallMs, double sharedAtArrivalMs, int epoch) {
+	public static ResultAnchor of(long serverStartTick, double arrivalWallMs, double sharedAtArrivalMs, int epoch) {
 		return new ResultAnchor(serverStartTick, arrivalWallMs, sharedAtArrivalMs, false, epoch, 0);
 	}
 
@@ -69,7 +69,7 @@ public final class ResultAnchor {
 		return startTick;
 	}
 
-	public long arrivalWallMs() {
+	public double arrivalWallMs() {
 		return arrivalWallMs;
 	}
 
