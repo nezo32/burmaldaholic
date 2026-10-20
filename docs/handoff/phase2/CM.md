@@ -147,3 +147,15 @@ Tester commits cherry-picked first (`30f1b489`, `43e34f31`, `64994879` from `tes
   `home(RIGHT)` vs the LEFT throw statically, unfixable by design); it now asserts the synced home move (no jump, ≥ 2 u, ends at
   the throw's start). Shooter half unchanged (passes via the fallback). New: `CrapsCmFixTest` (5), `CrapsSyncTest` v2 case,
   GameTest `nextSideFollowsTheNextShooter`.
+- Under a frozen client-test clock `CrapsRollClocks.pinUnderTest` also ends a dice-home move (`finishHomeMove`), else the
+  move never progresses (client run 1 failed `probeHome` on that; product behaviour unchanged).
+
+### Verified (26.3 only)
+- `test --tests 'dev.nezo.burmaldaholic.games.craps.*' --tests '...core.anim.dice.*' --tests '*StatusFitTest' --tests '*RawInputGuardTest'
+  --tests '*CrapsSpecTest'` → 159/159 green, including all 8 `CrapsCmTesterTest` (M1, M1b, M2 now pass) and the 5 `CrapsCmFixTest` tests.
+- `runGameTest -Dfabric-api.gametest.filter=craps` → "All 20 required tests passed" (19 + `nextSideFollowsTheNextShooter`).
+- Client `BURMALDAHOLIC_CGT=D,CM runClientGameTest` (2 runs; logs `.burmaldaholic-tools/CM-fix-client{,2}.log`). Run 1: lane D
+  all green (M5 fixed), CM `probeHome` failed (the frozen clock, above). Run 2 @027955cc → **BUILD SUCCESSFUL**, both lanes green:
+  V7 ring gold 76/76 when on, 0/76 after the seven-out; late result ready 2505 ms → release 2640 ms, fromHand.
+- **Not verified:** V3 passed without testing anything. The probe logs "V3 not exercised: no banner at the seven-out shot", so the
+  COME-under-banner check never actually ran. The probe needs a frame where the banner is up.
