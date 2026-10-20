@@ -149,6 +149,13 @@ class BaccaratPresentTest {
 			org.junit.jupiter.api.Assertions.assertTrue(chips.stream().allMatch(c -> c <= open), "open " + open + ": every chip fits the bank " + chips);
 			org.junit.jupiter.api.Assertions.assertTrue(chips.stream().anyMatch(c -> BaccaratFlow.INSTANCE.chip(c, v).enabled()),
 				"open " + open + ": a chip is enabled " + chips);
+			// no action row while punting (it would hide the chip tray); Banco is the primary until chips are drafted
+			org.junit.jupiter.api.Assertions.assertTrue(BaccaratFlow.INSTANCE.actions(v).isEmpty(), "no action row while punting");
+			org.junit.jupiter.api.Assertions.assertEquals("banco", BaccaratFlow.INSTANCE.primary(v).action());
+			org.junit.jupiter.api.Assertions.assertTrue(BaccaratFlow.INSTANCE.primary(v).enabled(), "Banco enabled");
+			BaccaratView drafted = new BaccaratView(true, true, true, "betting", 1, 5_000, 0, 100_000, new long[0], false, false, true, 20, false,
+				Math.min(5, open), false, false, false, true, open, 0, false, 20, "Bot", false);
+			org.junit.jupiter.api.Assertions.assertEquals("punt", BaccaratFlow.INSTANCE.primary(drafted).action(), "chips drafted: the primary punts");
 		}
 		// a house table keeps its tray
 		BaccaratView house = new BaccaratView(true, true, false, "betting", 25, 5_000, 0, 100_000, new long[0], false, false, true, 20, false, 0,

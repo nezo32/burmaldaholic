@@ -2093,6 +2093,19 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 	}
 
 	/** GameTests: runs the current phase's pending timer now. */
+	/**
+	 * GameTests: the bot the bank is offered to takes it now ({@code amount}, as its own decision would), instead of its
+	 * random choice after the think delay. False when the bank is not on offer to a bot.
+	 */
+	public boolean botTakesBankForTests(long amount) {
+		if (!P_BANK_OFFER.equals(phase) || candidate == null || !bots.isBot(candidate)) return false;
+		cancelTimer(T_BOT);
+		botBankDecision = null;
+		decideBank(candidate, new SeatDecider.BankDecision(SeatDecider.BankChoice.TAKE, amount));
+		syncViewers();
+		return true;
+	}
+
 	public void fastForwardForTests() {
 		for (String t : List.of(T_BET, T_IDLE, T_OFFER, T_PHASE)) {
 			if (ticksLeft(t) >= 0) {

@@ -70,6 +70,11 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 				if (v.myPunt() > 0 && v.draft() == 0) {
 					return v.ready() ? Gate.off("deal", V2 + "primary.deal", BAC2 + "reason.ready_waiting") : Gate.on("deal", V2 + "primary.deal");
 				}
+				// nothing drafted: the primary is Banco (the whole open bank) when affordable — Banco lives on the primary, not in
+				// an action row, because an action row hides the chip tray and a punter could then never punt part of the bank
+				if (v.draft() == 0 && v.myPunt() == 0 && v.open() > 0 && v.open() <= v.balance()) {
+					return Gate.on("banco", BAC2 + "banco", v.open());
+				}
 				if (v.draft() == 0) return Gate.off("punt", BAC2 + "punt", V2 + "reason.place_bet");
 				if (v.draft() < v.min()) return Gate.off("punt", BAC2 + "punt", V2 + "reason.below_min", v.min());
 				if (v.draft() > v.open()) return Gate.off("punt", BAC2 + "punt", BAC2 + "reason.bank_covers", v.open());
@@ -95,11 +100,8 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 		if (!v.seated() || v.pending() || !v.chemmy()) return out;
 		if ("bank_offer".equals(v.phase()) && v.offerYou()) {
 			out.add(Gate.on("pass", BAC2 + "pass"));
-		} else if ("betting".equals(v.phase()) && !v.youBank()) {
-			out.add(v.puntOpen() && v.open() > 0 && v.open() <= v.balance() + v.myPunt() ? Gate.on("banco", BAC2 + "banco", v.open())
-				: Gate.off("banco", BAC2 + "banco", v.bancoTaken() ? BAC2 + "reason.banco_called"
-					: v.open() > v.balance() + v.myPunt() ? V2 + "reason.not_enough" : V2 + "reason.round_in_progress", v.open()));
 		}
+		// betting: no action row (it would hide the chip tray); Banco is the primary while nothing is drafted (see chemmy())
 		return out;
 	}
 

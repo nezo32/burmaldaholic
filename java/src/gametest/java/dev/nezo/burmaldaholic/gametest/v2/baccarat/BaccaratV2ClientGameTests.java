@@ -217,7 +217,7 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated at chemin de fer (punter)");
 		boolean punted = false;
 		boolean passed = false;
-		for (int i = 0; i < 80 && !punted; i++) {
+		for (int i = 0; i < 400 && !punted; i++) { // bots may pass the bank several times (house coups between); an overloaded server is slow
 			if (f.enabledTarget(KeyMap.Ids.action("pass"))) {
 				f.shot("v2a_bac_en_us_chemmy_pass");
 				f.click(KeyMap.Ids.action("pass"));
@@ -269,7 +269,10 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 					// a bot deciding on the bank must decide itself: skipping the offer timer makes its offer time out as a pass
 					boolean botDeciding = "bank_offer".equals(t.phase())
 						&& !t.writeClientState(pl).getCompoundOrEmpty("chemmy").getStringOr("candidate_bot", "").isEmpty();
-					if (!botDeciding) t.fastForwardForTests();
+					// the bot the bank is offered to takes 50 (its own choice is random: NORMAL bots often pass); what this test
+					// proves is the player's punt by clicks against a bot bank, not the bot's appetite
+					if (botDeciding) t.botTakesBankForTests(50);
+					else t.fastForwardForTests();
 					return null;
 				});
 			}
