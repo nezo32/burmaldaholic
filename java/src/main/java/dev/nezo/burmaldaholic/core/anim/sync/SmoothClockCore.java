@@ -77,7 +77,8 @@ public final class SmoothClockCore {
 		long active = wallNanos - pausedNanos;
 		double target = target(active, speed);
 		lastTarget = target;
-		double e = target - display;
+		// the error against where the display would be now at the nominal rate (not against last frame's value)
+		double e = target - (display + dw * speed);
 		if (e > SNAP_MS) {
 			display = target;
 			lastSnap = true;
