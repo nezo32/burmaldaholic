@@ -36,7 +36,7 @@ import java.util.List;
 public record BaccaratView(boolean seated, boolean canSit, boolean chemmy, String phase, long min, long max, long minTotal, long balance, long[] bets,
 		boolean ready, boolean canRebet, boolean pairs, int secondsLeft, boolean waitingNext, long draft, boolean offerYou, boolean offerKeep,
 		boolean youBank, boolean bankHeld, long open, long myPunt, boolean bancoTaken, long minBank, String banker, boolean pending) {
-	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1_000, 5_000};
+	public static final long[] DENOMS = dev.nezo.burmaldaholic.core.chips.ChipMath.ascending();
 
 	public BaccaratView {
 		bets = java.util.Arrays.copyOf(bets, BaccaratPub.BOXES);

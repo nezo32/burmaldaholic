@@ -164,7 +164,7 @@ public class KitGalleryScreen extends CasinoScreen {
 		ChipStackView.label(g, font, x + 10, by, 235, CasinoPalette.BONE, 1);
 		ChipStackView.stack(g, x + 40, by, 10_000, 5, ChipStackView.seatTint(2), false, 1);
 		ChipStackView.stack(g, x + 70, by, 55, 5, 0, true, 1);
-		int[] denoms = {1, 5, 25, 100, 500};
+		int[] denoms = java.util.Arrays.copyOf(dev.nezo.burmaldaholic.core.anim.dice.ChipStacks.DENOMS, 5);
 		for (int i = 0; i < denoms.length; i++) ChipStackView.big(g, denoms[i], x + 96 + i * 26, by - 22, i == 2, false, i != 4);
 		ActionTag.draw(g, font, Component.translatable("gui.burmaldaholic.blackjack.double"), x + 260, by - 20, 1);
 		ActionTag.badge(g, font, Component.translatable("gui.burmaldaholic.blackjack.stand"), x + 300, by - 20, false, 1);

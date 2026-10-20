@@ -5,7 +5,7 @@
 // stay crisp when Java renders the sheet at height 8 (one texel per GUI pixel).
 // The pre-wave glyphs (chip, cards, suits, dice, flame, cloud, VIP badges) are ported unchanged from the old
 // tools/gen-glyphs.mjs.
-import { DYES, CHIPS } from '../../lib/palette.mjs';
+import { DYES, CHIPS, CHIP_DENOMS } from '../../lib/palette.mjs';
 import { glyphPage } from '../../lib/font.mjs';
 import { drawGrid, ellipse, frame, image, line, rect, setPx } from '../../lib/grid.mjs';
 import { outline, rotate } from '../../lib/transforms.mjs';
@@ -268,7 +268,8 @@ function waveGlyphs(page) {
     for (let i = 0; i < 3; i++) rect(c.img, 2 + i * 5, 10, 3 + i * 5, 11, i < n ? '#F4ECF8' : '#6A5A80');
     c.commit();
   }
-  [1, 5, 25, 100, 500].forEach((d, i) => {
+  // U+E194–E198 are fixed code points: the five house chips (the high-roller chips have no chat glyph)
+  CHIP_DENOMS.filter((d) => d <= 500).forEach((d, i) => {
     const m = miniChip(d);
     page.put(0xe194 + i, outlineGrid(m.rows, m.legend));
   });

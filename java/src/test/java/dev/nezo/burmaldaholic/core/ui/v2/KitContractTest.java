@@ -30,7 +30,7 @@ class KitContractTest {
 		assertArrayEquals(new long[] {1, 5, 25}, base().balance(30).build().chips());
 		assertArrayEquals(new long[] {1, 5, 25, 100}, base().limits(1, 100).build().chips());
 		assertArrayEquals(new long[] {1, 5, 25, 100, 500}, base().limits(1, 0).balance(100_000).build().chips());
-		assertArrayEquals(new long[] {25, 100, 500, 1000, 5000}, base().limits(100, 0).balance(100_000).build().chips());
+		assertArrayEquals(new long[] {100, 500, 1000, 5000, 25000}, base().limits(100, 0).balance(100_000).build().chips());
 		assertArrayEquals(new long[0], base().balance(0).build().chips());
 	}
 

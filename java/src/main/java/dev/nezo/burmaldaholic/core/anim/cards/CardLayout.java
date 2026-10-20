@@ -233,12 +233,12 @@ public final class CardLayout {
 
 	// ---- chips (§5.2) ---------------------------------------------------------------------------------------------
 
-	/** Denominations largest first. */
-	public static final int[] DENOMS = {500, 100, 25, 5, 1};
+	/** Denominations largest first ({@link dev.nezo.burmaldaholic.core.chips.ChipMath#DENOMINATIONS}). */
+	public static final int[] DENOMS = dev.nezo.burmaldaholic.core.chips.ChipMath.DENOMINATIONS;
 
 	/**
 	 * Discs of a stack for {@code amount}, largest at the bottom (index 0), at most {@code max} discs chosen greedily
-	 * from 500 down. Stack size is decoration: the exact amount is a runtime label.
+	 * from the largest chip down. Stack size is decoration: the exact amount is a runtime label.
 	 */
 	public static int[] discs(long amount, int max) {
 		int[] tmp = new int[Math.max(1, max)];

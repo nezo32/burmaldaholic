@@ -351,7 +351,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			long balance = Economies.get().balance(player);
 			int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
 			BetLimits.Violation v = BetLimits.check(amount, lim[0], lim[1], lim[1], balance);
-			Component err = BetLimits.message(v, lim[0], lim[1], lim[1], tier, balance);
+			Component err = BetLimits.refusal(v, capFor(player, lim[1], lim[0]), balance); // whose cap (lane HR)
 			if (err != null) {
 				sendError(player, err);
 				return;

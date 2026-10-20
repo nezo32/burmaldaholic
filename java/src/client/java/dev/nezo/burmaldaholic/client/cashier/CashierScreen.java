@@ -52,8 +52,8 @@ public class CashierScreen extends CasinoTableScreen {
 	private static final int CX = 24;
 	private static final int TRAY_Y = 36;
 	private static final int TRAY_H = 44;
-	/** Tray columns (small denominations on the left, like the wallet's pocket), 40 px each, right-aligned. */
-	private static final int TRAY_COL_W = 40;
+	/** Tray columns (small denominations on the left, like the wallet's pocket), right-aligned; at most 40 px, all fit in 240. */
+	private static final int TRAY_COL_W = Math.min(40, 240 / ChipColumns.DENOMS.length);
 	private static final Identifier[] CHIP = new Identifier[ChipColumns.DENOMS.length];
 	private static final Identifier[] CHIP_SIDE = new Identifier[ChipColumns.DENOMS.length];
 	private static final String[] DENOM_LABEL = new String[ChipColumns.DENOMS.length];
@@ -62,7 +62,7 @@ public class CashierScreen extends CasinoTableScreen {
 		for (int i = 0; i < ChipColumns.DENOMS.length; i++) {
 			CHIP[i] = UiSprites.sprite("fx/chip_" + ChipColumns.DENOMS[i]);
 			CHIP_SIDE[i] = UiSprites.sprite("fx/chip_side_" + ChipColumns.DENOMS[i]);
-			DENOM_LABEL[i] = Integer.toString(ChipColumns.DENOMS[i]); // literal-ok: denomination
+			DENOM_LABEL[i] = ChipMath.label(ChipColumns.DENOMS[i]);
 		}
 	}
 	private EditBox amount;
@@ -196,13 +196,16 @@ public class CashierScreen extends CasinoTableScreen {
 		amount.setValue(amountText);
 		addRenderableWidget(amount);
 		flowX += 68;
-		for (int d : ChipMath.DENOMINATIONS) {
-			flow(Texts.number(d), b -> add(d), true, 22, null).icon(CasinoButton.Icon.sprite(UiSprites.sprite("fx/chip_" + d), 8, 8));
-		}
 		flow(Component.translatable("gui.burmaldaholic.common.max"), b -> amount.setValue(Long.toString(s.getLongOr("withdrawable", 0))), true, 30, null);
 		CasinoButton wd = flow(Component.translatable("gui.burmaldaholic.cashier.withdraw"), b -> withdraw(), !s.getBooleanOr("in_default", false), 40,
 			CasinoButton.Style.PRIMARY);
 		if (s.getBooleanOr("in_default", false)) wd.enabled(false, Component.translatable("gui.burmaldaholic.cashier.withdraw_blocked"));
+		newRow();
+		// one quick-add chip per denomination on its own row (eight with the high-roller chips; labels as on the chips)
+		for (int i = ChipMath.DENOMINATIONS.length - 1; i >= 0; i--) {
+			int d = ChipMath.DENOMINATIONS[i];
+			flow(Texts.raw(ChipMath.label(d)), b -> add(d), true, 22, null).icon(CasinoButton.Icon.sprite(UiSprites.sprite("fx/chip_" + d), 8, 8));
+		}
 		newRow();
 		withdrawLineY = flowY - 3;
 		flowY += 10;

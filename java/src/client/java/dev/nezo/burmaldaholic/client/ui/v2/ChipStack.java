@@ -19,6 +19,7 @@ public final class ChipStack {
 
 	/** Edge / face colours per denomination (the flat fallback and the tray chips' fallback). */
 	public static int color(long denom) {
+		if (denom >= 25000) return 0xFF1FA8A0;
 		if (denom >= 5000) return 0xFFE07A1C;
 		if (denom >= 1000) return 0xFFE8C030;
 		if (denom >= 500) return 0xFF6A2CA8;
@@ -29,6 +30,8 @@ public final class ChipStack {
 	}
 
 	public static int stripe(long denom) {
+		if (denom >= 25000) return 0xFFE8FFF8;
+		if (denom >= 5000) return 0xFFFFF4B0;
 		if (denom >= 1000) return 0xFF3A2010;
 		if (denom >= 500) return 0xFFFFD640;
 		if (denom == 1) return 0xFF3C78D8;
@@ -37,15 +40,10 @@ public final class ChipStack {
 
 	/** The greedy denominations of {@code amount}, largest first, at most {@link #MAX_DISCS} (the top ones dropped). */
 	public static List<Long> discs(long amount) {
-		List<Long> out = new ArrayList<>();
-		long left = amount;
-		long[] d = BetView.DENOMS;
-		for (int i = d.length - 1; i >= 0 && out.size() < MAX_DISCS; i--) {
-			while (left >= d[i] && out.size() < MAX_DISCS) {
-				out.add(d[i]);
-				left -= d[i];
-			}
-		}
+		int[] d = new int[MAX_DISCS];
+		int n = dev.nezo.burmaldaholic.core.chips.ChipMath.discs(amount, d);
+		List<Long> out = new ArrayList<>(n);
+		for (int i = 0; i < n; i++) out.add((long) d[i]);
 		return out;
 	}
 

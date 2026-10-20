@@ -44,14 +44,26 @@ export const PALETTE = {
   ember: '#FF6020',
 };
 
-/** Chip denominations (GAME_DESIGN §3.1; same base/stripe as the existing chip item textures). */
+/**
+ * THE chip values of the mod (GAME_DESIGN §3.1), smallest first: the Java twin is `ChipMath.DENOMINATIONS`. Every module
+ * that draws one sprite per chip iterates this list (`DenominationSourceTest` on the Java side fails on a second list).
+ */
+export const CHIP_DENOMS = [1, 5, 25, 100, 500, 1000, 5000, 25000];
+
+/** Chip colours by value: base, stripe (edge inserts) and the colour of printed digits. 1000+ are the high-roller chips. */
 export const CHIPS = {
-  1: { base: '#ECECEC', stripe: '#3A6FD8' },
-  5: { base: '#C62828', stripe: '#F5F5F5' },
-  25: { base: '#2E7D32', stripe: '#F5F5F5' },
-  100: { base: '#262626', stripe: '#F5F5F5' },
-  500: { base: '#6A1B9A', stripe: '#F3D34A' },
+  1: { base: '#ECECEC', stripe: '#3A6FD8', digit: '#2A2A3A' },
+  5: { base: '#C62828', stripe: '#F5F5F5', digit: '#FFFFFF' },
+  25: { base: '#2E7D32', stripe: '#F5F5F5', digit: '#FFFFFF' },
+  100: { base: '#262626', stripe: '#F5F5F5', digit: '#FFFFFF' },
+  500: { base: '#6A1B9A', stripe: '#F3D34A', digit: '#FFFFFF' },
+  1000: { base: '#E8C030', stripe: '#3A2010', digit: '#3A2010' },
+  5000: { base: '#E07A1C', stripe: '#FFF4B0', digit: '#2A1408' },
+  25000: { base: '#1FA8A0', stripe: '#E8FFF8', digit: '#0A2A2A' },
 };
+
+/** The label printed on chip art: `500`, `1K`, `25K` (Java `ChipMath.label`). */
+export const chipLabel = (d) => (d >= 1000 ? `${d / 1000}K` : String(d));
 
 /** The 16 vanilla dye colours in `DyeColor` order (Wheel Party swatches, `WheelArt.COLORS` order). */
 export const DYES = [

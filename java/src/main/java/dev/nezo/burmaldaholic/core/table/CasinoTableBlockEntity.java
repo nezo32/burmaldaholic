@@ -20,6 +20,7 @@ import dev.nezo.burmaldaholic.core.service.TableOwnershipProvider.OwnedTable;
 import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Result;
+import dev.nezo.burmaldaholic.core.wager.BetCap;
 import dev.nezo.burmaldaholic.core.wager.BetLimits;
 import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
@@ -303,6 +304,37 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		return new long[] {min, BetLimits.maxBet(player, tableMax)};
 	}
 
+	/**
+	 * Whose limits bind {@code player} here (lane HR, owner playtest B5): the {@link #limitsFor} maximum attributed to the
+	 * table owner, the table or the VIP tier. Sent in every state ({@code cap_source}, …) and used for refusals.
+	 */
+	public BetCap capFor(ServerPlayer player) {
+		long[] l = limitsFor(player);
+		return capFor(player, l[1], l[0]);
+	}
+
+	/** {@link #capFor(ServerPlayer)} for a game's own maximum / minimum (e.g. a state that publishes its own {@code max}). */
+	public BetCap capFor(ServerPlayer player, long max, long min) {
+		Optional<OwnedTable> o = ownership();
+		return BetLimits.cap(player, max, min, tableMaxBet(), o.map(OwnedTable::maxBet).orElse(0L), o.map(OwnedTable::minBet).orElse(0L));
+	}
+
+	/**
+	 * The state the client receives: the game's {@link #writeClientState} plus the bet cap of its final {@code min} /
+	 * {@code max} ({@link BetCap#write}). Every send goes through here.
+	 */
+	public final CompoundTag clientState(ServerPlayer viewer) {
+		CompoundTag tag = writeClientState(viewer);
+		if (tag.contains("max") && !tag.contains("cap_source")) {
+			try {
+				capFor(viewer, tag.getLongOr("max", 0), tag.getLongOr("min", 1)).write(tag);
+			} catch (RuntimeException e) {
+				// a cap is a courtesy: never lose a state over it (mock players in tests without a server)
+			}
+		}
+		return tag;
+	}
+
 	/** Same as {@link #placeBet(ServerPlayer, long, long, long, long, boolean)} with the table's own limits. */
 	protected Result<Long> placeBet(ServerPlayer player, long amount, long worstCasePayout) {
 		return placeBet(player, amount, minBet(), tableMaxBet(), worstCasePayout, true);
@@ -330,20 +362,30 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 */
 	protected Result<Long> placeBet(ServerPlayer player, String bet, long amount, long min, long tableMax, long worstCasePayout, boolean checkLimits) {
 		Optional<OwnedTable> owned = ownership();
+		long ownerMax = 0;
+		long ownerMin = 0;
 		if (owned.isPresent()) {
 			OwnedTable o = owned.get();
 			if (o.minBet() > 0) {
 				min = Math.max(min, o.minBet());
+				ownerMin = o.minBet();
 			}
 			if (o.maxBet() > 0) {
 				tableMax = tableMax > 0 ? Math.min(tableMax, o.maxBet()) : o.maxBet();
+				ownerMax = o.maxBet();
 			}
 		}
 		boolean raising = openStakes.containsKey(new StakeKey(player.getUUID(), bet));
 		WagerVeto.Context ctx = WagerVeto.Context.at(gameId(), worldPosition);
 		Component err;
 		if (checkLimits) {
-			err = BetLimits.validate(player, amount, min, tableMax, ctx);
+			err = Wagers.check(player, ctx);
+			if (err == null) { // the limits in the client's words: whose cap it is (lane HR, B5)
+				long effective = BetLimits.maxBet(player, tableMax);
+				long balance = Economies.get().balance(player);
+				BetLimits.Violation v = BetLimits.check(amount, min, effective, effective, balance);
+				err = BetLimits.refusal(v, BetLimits.cap(player, effective, min, tableMaxBet(), ownerMax, ownerMin), balance);
+			}
 		} else {
 			err = raising ? null : Wagers.check(player, ctx);
 			if (err == null) {
@@ -847,7 +889,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			stateDeferred = true; // the action being handled answers with ONE state at its end (review R-KW B4)
 			return;
 		}
-		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, writeClientState(player)));
+		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, clientState(player)));
 	}
 
 	/** Whether {@code player} has this table's screen open. */

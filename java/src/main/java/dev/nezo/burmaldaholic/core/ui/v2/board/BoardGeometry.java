@@ -36,7 +36,7 @@ public final class BoardGeometry {
 	public static final float CHIP_R = 0.085f, CHIP_H = 0.03f;
 	public static final int CHIP_MAX = 6;
 	/** Chip denominations of {@code chips_w.png}, left to right. */
-	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1000, 5000};
+	public static final long[] DENOMS = dev.nezo.burmaldaholic.core.chips.ChipMath.ascending();
 
 	/** Seat plate anchor: outside the felt edge by this much, raised this much above the felt. */
 	public static final float PLATE_OUT = 0.12f, PLATE_UP = 0.35f;
