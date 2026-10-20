@@ -157,6 +157,7 @@
 	"gui.burmaldaholic.baccarat.v2.punt_n": "Ставка %1$s",
 	"gui.burmaldaholic.baccarat.v2.pass": "Пас",
 	"gui.burmaldaholic.baccarat.v2.banco": "Банко %1$s",
+	"gui.burmaldaholic.baccarat.v2.banco_confirm": "Точно банко %1$s?",
 	"gui.burmaldaholic.baccarat.v2.reason.ready_waiting": "Готово — ждём остальных",
 	"gui.burmaldaholic.baccarat.v2.reason.next_coup_in": "Следующая раздача через %1$s с",
 	"gui.burmaldaholic.baccarat.v2.reason.shuffling": "Перемешиваем шуз",

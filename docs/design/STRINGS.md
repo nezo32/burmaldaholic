@@ -1840,6 +1840,7 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.v2.punt_n` | Bet %1$s | Ставка %1$s |
 | `gui.burmaldaholic.baccarat.v2.pass` | Pass | Пас |
 | `gui.burmaldaholic.baccarat.v2.banco` | Banco %1$s | Банко %1$s |
+| `gui.burmaldaholic.baccarat.v2.banco_confirm` | Confirm Banco %1$s? | Точно банко %1$s? |
 | `gui.burmaldaholic.baccarat.v2.reason.ready_waiting` | Ready — waiting for the others | Готово — ждём остальных |
 | `gui.burmaldaholic.baccarat.v2.reason.next_coup_in` | Next coup in %1$s s | Следующая раздача через %1$s с |
 | `gui.burmaldaholic.baccarat.v2.reason.shuffling` | Shuffling the shoe | Перемешиваем шуз |

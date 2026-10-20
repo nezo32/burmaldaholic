@@ -33,6 +33,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratRules;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Card;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratFlow;
+import dev.nezo.burmaldaholic.games.baccarat.present.BancoConfirm;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratLayout;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratPub;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratView;
@@ -69,6 +70,8 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 	private final Map<Long, Long> flipSeen = new HashMap<>();
 	private long lastCoup = -1;
 	private long bannerCoup = -1, celebratedCoup = -1, resultAt = -1;
+	/** A big Banco asks for a second press within 3 s (T-A2 R4). */
+	private final BancoConfirm banco = new BancoConfirm(BaccaratFlow.INSTANCE, Util::getMillis);
 
 	public BaccaratScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable(menu.tableType().name().endsWith("player_banked") ? "gui.burmaldaholic.baccarat.title_chemmy"
@@ -143,7 +146,13 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 
 	@Override
 	protected Flow<BaccaratView> flow() {
-		return BaccaratFlow.INSTANCE;
+		return banco;
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (banco.expired()) refresh();
 	}
 
 	@Override
@@ -344,6 +353,11 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 
 	@Override
 	public void onGate(String id, Gate gate) {
+		if (!banco.press(gate, balance())) {
+			// first press of a big Banco: the primary now reads "Confirm Banco N?" until a second press or 3 s pass
+			refresh();
+			return;
+		}
 		switch (gate.action()) {
 			case "deal" -> sendTracked("ready");
 			case "punt" -> {
