@@ -109,3 +109,66 @@ duel lane needs several seeded attempts) measures p99 ≈ 0.1–1.3 ms. `DiceRol
 ## Requests
 None blocking. CM: build the craps tray with `DiceTray` records as in `DiceFixtures.crapsBig`; DCb: `DuelTimeline` should
 time die 1's pour from `roll.releaseMs(1)` (140–200 ms after die 0).
+
+## Visual rework after the coordinator review (2026-10-15)
+Review points (shots of the first pass in `.burmaldaholic-tools/shots/DCa/before/`) and fixes (`after/`):
+1. Inconsistent square/round pips → pips are pixel-designed in the face texture (`faceTexture(E, face)`): one size per
+   cell (2 px at 14, 4 px at 18/22, 6 px at 30/32; red 1 bigger), rounded from 4 px, a dark inner-shadow arc on the
+   top-left, symmetric and centred, ≥ 1 px apart (the 6 pulls its rows outward or shrinks its pips to keep the gap).
+2. Garbled squashed pips on the front band → the atlas uses an OBLIQUE projection (`u = x, v = y − κz`, κ = 0.22): a
+   resting top face is mapped texel for texel (identical pips on every face); faces seen flatter than |cos| 0.45 show
+   bevelled bone without pips (no dashes).
+3. Flat tall tile → lower band (κ 0.22: 7 px at 32), lit bevel ring (normal tilted toward each edge), rounded 1-px
+   silhouette corners (cells ≥ 18), Lambert from the top-left front; runtime contact shadow peeks out down-right and is
+   darker at rest; stronger height lift (0.9 half-edge per u) so airborne dice separate from their shadows.
+4. 14 px: 2 × 2 pips, clear bevel and outline; the red 1 is a 4 × 4 rounded pip.
+5. Standard faces: opposite faces sum to 7, standard layouts (2 and 3 diagonal, 6 in two columns). New tests in
+   `dice-atlas.test.mjs`: layouts / symmetry / gaps / bevel ring per cell, and on every rest frame of every cell the
+   pip clusters' count AND centres (≤ 1 px from the predicted rotated layout).
+In-world: `DiceWorldDraw` now uses a generated `textures/entity/core/dice_world.png` (16-px faces with the same pips)
+instead of the 8-px `dice_display` item texture. `DieAtlasTable.PITCH_DEG` became `KAPPA` (oblique); `DiceDraw.stage`
+maps tray y 1:1.
+
+Re-verified (test only what changed): tools `check:assets` OK, `npm test` 63/63; `compileJava compileClientJava
+compileGametestJava` + `test --tests '*core.anim.dice*' '*RawInputGuardTest' '*PresentationCoreTest'
+'*CoreAnimVectorsTest'` on 26.2 and the dice + guard tests on `-Pmc=26.3`: BUILD SUCCESSFUL, 0 failures. DK client run on
+26.3 (with p2/mk @3bbdbbab merged): all probes pass; shots `after/0000…0002` (427/480/960) and
+`after/0003_p2b_dca_dice_world_en_960.png` (+ `world_zoom.png`).
+
+### R3 world-texture nits (coordinator review of @4da2b48)
+Fixed in the generator only (`tools/assets/modules/tables/dice.mjs` `diceWorldTexture`):
+- '+'-shaped pips: faces are now 32 px (28-px pip area inside a 2-px rounded bevel), so the atlas pips are 6-px discs
+  (corners cut, inner-shadow arc) and the red 1 is a 10-px disc — the same pip code as the screen dice.
+- Stray glyph on a side face: faces sit in 34-px cells with a 1-px gutter that repeats the face edge (no texel of a
+  neighbouring face can be sampled at the cube edges); texture 136 × 68, cells 7–8 fully transparent.
+  `DiceWorldDraw.cell/texture size` updated to match (u = 34·((k−1) mod 4)+1, v = 34·⌊(k−1)/4⌋+1, 32).
+- New pixel check `dice-atlas.test.mjs` "in-world die texture": decodes the PNG; per face asserts only bone/pip colours
+  inside the bevel, exactly k 8-connected pip components (no stray texel), each pip a square-bounded disc ≥ 6 px with
+  cut corners, 78–93 % fill, single-run symmetric convex rows/columns (rejects '+' and squares), one pip size per face,
+  gutters = edge, unused cells transparent, committed PNG == generator output. Mutation-tested: '+' pips and a single
+  stray texel both fail it.
+Not re-run: client run (no screenshots per owner rule; texture change is UV-only on the Java side).
+
+### R3 extra: DiceSolver hand-off overload — REMOVED
+`solve(..., Initial[])` (@57432747) was removed again (no users on any branch): T-DICE DCa-1 found the dice overlap during
+the blend. Per the owner, Craps instead waits for the shake loop to pass through the canonical release pose and starts the
+normal solved throw from it (as Dice house mode, `DuelTimeline.shakeOffset`). The 5-arg `solve` is unchanged.
+
+### T-DICE DCa-2: texture check gaps closed
+`dice-atlas.test.mjs` "in-world die texture" now also pins the exact bevel palette (outer ring, lit/shaded inner ring),
+the 4 gutter corners, the exact pip centres per face against the standard layout (grid 8.5/15.5/22.5; 2 and 3 top-left →
+bottom-right), and one identical pip mask (shape + shade colours) on faces 2–6. Mutation-checked: inner-bevel magenta
+texel, gutter corner, face 2 mirrored, face 6 shifted 1 px, a face-4 pip moved 4 px — all 5 now fail.
+
+### R-DCa review nits (fixed)
+1. `DiceSolver.solve` never throws for valid input: after the fallbacks a scripted drop (`scripted`) holds each die above
+   a fixed rest spot (≥ DIE_GAP apart; zone grid, else a line right of the earlier spots), drops it straight down with no
+   spin and RESTs it as an exact CubeGroup element relabelled to its face; the last die rests at the target. Pass 3 now
+   accepts only brushes (d ≥ CLACK_MIN), never a penetration. `DiceFallbackTest`: scripted drop on all fixtures × n 1–4 ×
+   targets; adversarial trays (tiny zone, zone kept out, 8×6 tray) + fixtures × 24 seeds × NATURAL/target: no throw, no
+   penetration, exact faces, scripted path reached.
+2. `DiceRollCache.key(seq, side, seed, faces, targetMs, tray)` (new); the 3-arg key is @Deprecated.
+   REQUEST CM (CrapsBoardRenderer:240, CrapsScreen:231) and DCb (DiceArena:144): switch to the 6-arg key.
+3. `DiceWorldDraw`: no per-frame lambda (unit geometry cached per light / per (argb, light); size in the pose).
+   Generator: dead pip codes 3/6 removed. `DiceRoll.events()` returns a copy; `eventList()` is a no-copy unmodifiable
+   view — REQUEST CM (CrapsScreen:1480) / DCb (DiceArena:300, :685): use `eventList()` on per-frame paths.

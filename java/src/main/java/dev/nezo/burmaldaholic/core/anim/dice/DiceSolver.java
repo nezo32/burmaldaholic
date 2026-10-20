@@ -98,7 +98,104 @@ public final class DiceSolver {
 			}
 			return build(ctx, plans, seed, faces, a, true);
 		}
-		throw new IllegalStateException("no dice plan for seed " + seed + " target " + targetMs);
+		return scripted(ctx, spec, seed, faces, targetMs, a);
+	}
+
+	/** Release stagger (ms) and landing spacing before the target (ms) of the scripted drop. */
+	static final double DROP_STAGGER = 40;
+	static final double DROP_SPACING = 120;
+
+	/**
+	 * The last plan, which cannot fail: each die is HELD above a fixed, separated rest spot, drops straight down with no
+	 * spin and RESTs there as an exact {@link CubeGroup} element (relabelled to its face). The spots are ≥
+	 * {@link #DIE_GAP} apart and the motion is vertical, so the dice never overlap; the last die rests exactly at
+	 * {@code targetMs}.
+	 */
+	static DiceRoll scripted(Ctx ctx, ThrowSpec spec, int seed, int[] faces, int targetMs, int attempt) {
+		int n = faces.length;
+		double g = ctx.tray.g();
+		double h = Math.max(1, spec.z0());
+		double dropMs = StrictMath.sqrt(2 * h / g) * 1000;
+		DiePlan[] placed = new DiePlan[n];
+		double[][] spot = new double[n][];
+		for (int i = 0; i < n; i++) {
+			spot[i] = restSpot(ctx, i, placed, spot);
+			DiePlan p = new DiePlan();
+			p.die = i;
+			p.rx = spot[i][0];
+			p.ry = spot[i][1];
+			placed[i] = p;
+		}
+		Seg[][] segs = new Seg[n][];
+		double[][] label = new double[n][];
+		double[] restT = new double[n];
+		double[] relT = new double[n];
+		double[] wallT = new double[n];
+		boolean[] teeter = new boolean[n];
+		List<MotionEvent> ev = new ArrayList<>();
+		for (int i = 0; i < n; i++) {
+			double land = targetMs == NATURAL ? DROP_STAGGER * i + dropMs : Math.max(DROP_STAGGER * i + dropMs, targetMs - DROP_SPACING * (n - 1 - i));
+			if (targetMs != NATURAL && i == n - 1) land = Math.max(land, targetMs);
+			double rel = land - dropMs;
+			MotionRng r = MotionRng.of(seed, "DFALL", i);
+			double[] q = CubeGroup.element(r.nextInt(24)).clone();
+			double x = spot[i][0];
+			double y = spot[i][1];
+			Seg held = new Seg();
+			held.kind = DieSample.HELD;
+			held.t0 = Double.NEGATIVE_INFINITY;
+			held.t1 = rel;
+			held.x0 = x;
+			held.y0 = y;
+			held.z0 = h;
+			Quat.copy(q, held.q0);
+			Seg fall = air(rel, dropMs / 1000.0, x, y, 0, 0, h, 0, q, 0, 0, 0);
+			fall.t1 = land;
+			Seg rest = new Seg();
+			rest.kind = DieSample.REST;
+			rest.t0 = land;
+			rest.t1 = Double.POSITIVE_INFINITY;
+			rest.x0 = x;
+			rest.y0 = y;
+			Quat.copy(q, rest.q0);
+			segs[i] = new Seg[] {held, fall, rest};
+			restT[i] = land;
+			relT[i] = rel;
+			wallT[i] = -1;
+			ev.add(new MotionEvent(rel, DiceEvent.RELEASE, i, 0.5f, x, y, 0));
+			ev.add(new MotionEvent(land, DiceEvent.FLOOR, i, strength(StrictMath.sqrt(2 * g * h)), x, y, 1));
+			ev.add(new MotionEvent(land, DiceEvent.REST, i, 0.3f, x, y, 0));
+			int k = MotionRng.of(seed, "DLABEL", i).nextInt(4);
+			label[i] = CubeGroup.element(CubeGroup.relabel(CubeGroup.faceUp(q), faces[i], k)).clone();
+		}
+		double[][] rest = new double[n][];
+		for (int i = 0; i < n; i++) rest[i] = spot[i].clone();
+		MotionEvent[] arr = MotionEvent.sort(ev.toArray(new MotionEvent[0]));
+		return new DiceRoll(segs, label, faces.clone(), restT, relT, wallT, rest, arr, g, attempt, true, teeter);
+	}
+
+	/**
+	 * A rest spot for die {@code i}: the first point of a fixed grid over its rest zone (nearest the zone centre first)
+	 * that passes {@link #restOk} and is ≥ {@link #DIE_GAP} + 0.1 from every earlier spot; failing that, on the zone's
+	 * centre line {@code DIE_GAP + 0.5} right of every earlier spot.
+	 */
+	static double[] restSpot(Ctx ctx, int i, DiePlan[] placed, double[][] spot) {
+		DiceTray.Box z = ctx.tray.restZone(i);
+		double cx = 0.5 * (z.x0() + z.x1());
+		double cy = 0.5 * (z.y0() + z.y1());
+		List<double[]> grid = new ArrayList<>();
+		for (int u = 0; u <= 8; u++)
+			for (int v = 0; v <= 4; v++) grid.add(new double[] {z.x0() + z.width() * u / 8.0, z.y0() + z.height() * v / 4.0});
+		grid.sort((p, q) -> Double.compare(StrictMath.hypot(p[0] - cx, p[1] - cy), StrictMath.hypot(q[0] - cx, q[1] - cy)));
+		for (double[] c : grid) {
+			if (!restOk(ctx, c[0], c[1], placed, i)) continue;
+			boolean far = true;
+			for (int j = 0; j < i; j++) far &= StrictMath.hypot(c[0] - spot[j][0], c[1] - spot[j][1]) >= DIE_GAP + 0.1;
+			if (far) return c;
+		}
+		double x = cx;
+		for (int j = 0; j < i; j++) x = Math.max(x, spot[j][0] + DIE_GAP + 0.5);
+		return new double[] {x, cy};
 	}
 
 	/** Seeded attempts per pass (strict, relaxed, very relaxed): {@link #ATTEMPTS} in all. */
@@ -289,8 +386,8 @@ public final class DiceSolver {
 				p.wz = az / sn * spin;
 				if (!timing(ctx, spec, p, tipPref, pass)) continue;
 				p.segs = buildSegs(ctx, p, null);
-				// the last-resort pass accepts a brush between the dice rather than no roll at all
-				if (clearOf(ctx, p, placed) || pass == 3) return true;
+				// the last-resort pass accepts a longer or repeated brush between the dice, never a penetration
+				if (clearOf(ctx, p, placed, pass == 3)) return true;
 			}
 		}
 		return false;
@@ -1013,6 +1110,11 @@ public final class DiceSolver {
 	 * CLACK event.
 	 */
 	static boolean clearOf(Ctx ctx, DiePlan p, DiePlan[] placed) {
+		return clearOf(ctx, p, placed, false);
+	}
+
+	/** {@code lenient}: only a penetration (d < {@link #CLACK_MIN}) fails; brush runs and lengths are not limited. */
+	static boolean clearOf(Ctx ctx, DiePlan p, DiePlan[] placed, boolean lenient) {
 		p.clackT = -1;
 		if (p.die == 0) return true;
 		double g = ctx.tray.g();
@@ -1036,12 +1138,12 @@ public final class DiceSolver {
 					if (b[2] < NEAR_FLOOR + 0.25) d = StrictMath.hypot(a[0] - b[0], a[1] - b[1]);
 				}
 				if (d < DIE_GAP + 0.12) {
-					if (d < CLACK_MIN + 0.12) return false;
+					if (d < (lenient ? CLACK_MIN : CLACK_MIN + 0.12)) return false;
 					if (runStart < 0) {
 						runStart = t;
-						if (++runs > 1) return false;
+						if (++runs > 1 && !lenient) return false;
 					}
-					if (t - runStart > CLACK_MS - 4) return false;
+					if (t - runStart > CLACK_MS - 4 && !lenient) return false;
 					if (d < best) {
 						best = d;
 						p.clackT = t;

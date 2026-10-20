@@ -3,6 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { Buffer } from 'node:buffer';
 import zlib from 'node:zlib';
+import fs from 'node:fs';
+import path from 'node:path';
 import generate, { ATLAS_JAVA } from '../modules/dicekit.mjs';
 import * as D from '../modules/tables/dice.mjs';
 
@@ -206,5 +208,145 @@ describe('dice kit art', () => {
     const nums = q.split(',').map((s) => Number(s.trim()));
     expect(nums.length).toBe(384 * 4);
     data.frames.forEach((f, i) => f.q.forEach((v, k) => expect(nums[4 * i + k]).toBe(v + 0)));
+  });
+
+  // In-world die texture (DiceWorldDraw): read the PNG pixels and prove the faces are clean, i.e. no stray glyph
+  // (every dark texel inside a face belongs to a pip, exactly k pips on face k) and round pips (no '+' or square).
+  it('in-world die texture: k round pips per face, no stray pixels, gutters repeat the edge', () => {
+    const png = byPath.get(`${T}/entity/core/dice_world.png`);
+    const { w, h, data } = decode(png.bytes);
+    const F = D.WORLD_FACE;
+    const CELL = D.WORLD_CELL;
+    expect([w, h]).toEqual([CELL * 4, CELL * 2]);
+    const px = (x, y) => Array.from(data.subarray((y * w + x) * 4, (y * w + x) * 4 + 4));
+    const hex = (x, y) => '#' + px(x, y).slice(0, 3).map((v) => v.toString(16).padStart(2, '0').toUpperCase()).join('');
+    const BONE_IN = '#F4ECF8';
+    const PIPS_OK = new Set(['#2A1A3C', '#160C22', '#D83440', '#8C1834']);
+    const pipMasks = new Set();
+    for (let k = 1; k <= 8; k++) {
+      const ox = CELL * ((k - 1) % 4);
+      const oy = CELL * Math.floor((k - 1) / 4);
+      if (k > 6) {
+        for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) expect(px(ox + x, oy + y)[3]).toBe(0);
+        continue;
+      }
+      // gutters: the 1-px border repeats the face edge (no neighbouring-face texel can bleed in)
+      for (let i = 0; i < F; i++) {
+        expect(hex(ox, oy + 1 + i)).toBe(hex(ox + 1, oy + 1 + i));
+        expect(hex(ox + F + 1, oy + 1 + i)).toBe(hex(ox + F, oy + 1 + i));
+        expect(hex(ox + 1 + i, oy)).toBe(hex(ox + 1 + i, oy + 1));
+        expect(hex(ox + 1 + i, oy + F + 1)).toBe(hex(ox + 1 + i, oy + F));
+      }
+      // gutter corners repeat the face corners
+      expect(hex(ox, oy)).toBe(hex(ox + 1, oy + 1));
+      expect(hex(ox + F + 1, oy)).toBe(hex(ox + F, oy + 1));
+      expect(hex(ox, oy + F + 1)).toBe(hex(ox + 1, oy + F));
+      expect(hex(ox + F + 1, oy + F + 1)).toBe(hex(ox + F, oy + F));
+      for (const [gx, gy] of [[0, 0], [F + 1, 0], [0, F + 1], [F + 1, F + 1]]) expect(px(ox + gx, oy + gy)[3]).toBe(255);
+      // face interior (inside the 2-px bevel): bone or a pip colour, all opaque
+      const dark = new Set();
+      for (let y = 0; y < F; y++)
+        for (let x = 0; x < F; x++) {
+          expect(px(ox + 1 + x, oy + 1 + y)[3]).toBe(255);
+          const ring = Math.min(x, y, F - 1 - x, F - 1 - y);
+          // bevel palette, exact: dark outer ring; inner ring lit top-left, shaded bottom-right
+          if (ring === 0) {
+            expect(hex(ox + 1 + x, oy + 1 + y), `face ${k} outer bevel (${x},${y})`).toBe('#A898C4');
+            continue;
+          }
+          if (ring === 1) {
+            expect(hex(ox + 1 + x, oy + 1 + y), `face ${k} inner bevel (${x},${y})`).toBe(x <= 1 || y <= 1 ? '#FFFFFF' : '#D2C6E6');
+            continue;
+          }
+          const col = hex(ox + 1 + x, oy + 1 + y);
+          if (col === BONE_IN) continue;
+          expect(PIPS_OK.has(col), `face ${k} (${x},${y}) ${col}`).toBe(true);
+          dark.add(y * F + x);
+        }
+      // 8-connected components of pip texels
+      const comps = [];
+      const seen = new Set();
+      for (const s0 of dark) {
+        if (seen.has(s0)) continue;
+        const comp = [];
+        const stack = [s0];
+        seen.add(s0);
+        while (stack.length) {
+          const s = stack.pop();
+          comp.push([s % F, Math.floor(s / F)]);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const n = s + dy * F + dx;
+              if (dark.has(n) && !seen.has(n) && Math.abs((n % F) - (s % F)) <= 1) {
+                seen.add(n);
+                stack.push(n);
+              }
+            }
+        }
+        comps.push(comp);
+      }
+      expect(comps.length, `face ${k} pip count`).toBe(k);
+      const sizes = new Set();
+      for (const comp of comps) {
+        const xs = comp.map((q) => q[0]);
+        const ys = comp.map((q) => q[1]);
+        const x0 = Math.min(...xs);
+        const y0 = Math.min(...ys);
+        const d = Math.max(...xs) - x0 + 1;
+        sizes.add(d);
+        expect(Math.max(...ys) - y0 + 1, `face ${k} pip is square-bounded`).toBe(d);
+        expect(d, `face ${k} pip size`).toBeGreaterThanOrEqual(6);
+        const on = new Set(comp.map(([x, y]) => (y - y0) * d + (x - x0)));
+        // round: the 4 bbox corners are cut ('+' and square shapes fail below), the disc fills 80–92 % of its box
+        for (const [cx, cy] of [[0, 0], [d - 1, 0], [0, d - 1], [d - 1, d - 1]]) expect(on.has(cy * d + cx), `face ${k} corner`).toBe(false);
+        const fill = comp.length / (d * d);
+        expect(fill, `face ${k} fill`).toBeGreaterThan(0.78);
+        expect(fill).toBeLessThan(0.93);
+        // each row and column is one run, symmetric about the centre and widest in the middle (convex disc, not '+')
+        const widths = [];
+        for (let r = 0; r < d; r++) {
+          const row = [...Array(d).keys()].filter((c2) => on.has(r * d + c2));
+          expect(row.length).toBeGreaterThan(0);
+          expect(row[row.length - 1] - row[0] + 1).toBe(row.length);
+          expect(row[0]).toBe(d - 1 - row[row.length - 1]);
+          widths.push(row.length);
+          const colRun = [...Array(d).keys()].filter((r2) => on.has(r2 * d + r));
+          expect(colRun[colRun.length - 1] - colRun[0] + 1).toBe(colRun.length);
+        }
+        for (let r = 0; r < d; r++) expect(widths[r]).toBe(widths[d - 1 - r]);
+        for (let r = 1; r < d / 2; r++) expect(widths[r]).toBeGreaterThanOrEqual(widths[r - 1]);
+        expect(widths[0]).toBeLessThan(d);
+        expect(widths[0]).toBeGreaterThanOrEqual(d / 2);
+      }
+      expect(sizes.size, `face ${k}: one pip size`).toBe(1);
+      // exact pip centres = the standard layout (face-local px; grid columns/rows at 8.5, 15.5, 22.5, symmetric about
+      // the face centre 15.5); 2 and 3 run top-left → bottom-right, 6 in two columns
+      const G = [8.5, 15.5, 22.5];
+      const STD = {
+        1: [[1, 1]],
+        2: [[0, 0], [2, 2]],
+        3: [[0, 0], [1, 1], [2, 2]],
+        4: [[0, 0], [2, 0], [0, 2], [2, 2]],
+        5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
+        6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
+      };
+      const key = ([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`;
+      const got = comps.map((comp) => key([comp.reduce((a, q) => a + q[0], 0) / comp.length, comp.reduce((a, q) => a + q[1], 0) / comp.length])).sort();
+      const want = STD[k].map(([c, r]) => key([G[c], G[r]])).sort();
+      expect(got, `face ${k} pip centres`).toEqual(want);
+      // every pip has the same mask (shape and shade), and pips of faces 2–6 share one mask
+      const masks = new Set(
+        comps.map((comp) => {
+          const x0 = Math.min(...comp.map((q) => q[0]));
+          const y0 = Math.min(...comp.map((q) => q[1]));
+          return comp.map(([x, y]) => `${x - x0},${y - y0},${hex(ox + 1 + x, oy + 1 + y)}`).sort().join(';');
+        }),
+      );
+      expect(masks.size, `face ${k}: identical pips`).toBe(1);
+      if (k > 1) pipMasks.add([...masks][0]);
+    }
+    expect(pipMasks.size, 'one pip mask on faces 2–6').toBe(1);
+    // the committed PNG is this output (check:assets also guards staleness)
+    expect(fs.readFileSync(path.resolve('..', 'java', png.path)).equals(png.bytes)).toBe(true);
   });
 });

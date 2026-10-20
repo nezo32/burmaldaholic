@@ -454,7 +454,7 @@ export const PIP_LAYOUT = {
   5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
   6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
 };
-// texel codes: 0 bone, 1 pip, 2 pip shade (top-left, the hollow's inner shadow), 3 pip light (bottom-right), 4–6 red
+// texel codes: 0 bone, 1 pip, 2 pip shade (top-left, the hollow's inner shadow), 4 red pip, 5 red shade
 const nearestParity = (x, parity) => {
   const a = Math.floor(x);
   const c = [a - 1, a, a + 1, a + 2].filter((v) => v >= 2 && ((v & 1) === parity));
@@ -636,7 +636,7 @@ export function dieFrame(cell, q, { sub = 3 } = {}) {
       if (ring > 0 && facing >= PIP_MIN_FACING) {
         const code = faceTexture(E, face)[tj * E + ti];
         const dim = sh >= 4;
-        if (code >= 1 && code <= 3) hex = code === 2 && !dim ? PIP_C[1] : PIP_C[0];
+        if (code === 1 || code === 2) hex = code === 2 && !dim ? PIP_C[1] : PIP_C[0];
         else if (code >= 4) hex = code === 5 && !dim ? RED_C[1] : RED_C[0];
       }
       P(inner, x, y, hex);
@@ -704,27 +704,41 @@ export function upPipCentres(cell, q) {
   });
 }
 
+/** In-world die texture layout: 32-px faces in 34-px cells (a 1-px gutter that repeats the edge, so no texel of a
+ * neighbouring face can bleed in), 4 × 2 cells. */
+export const WORLD_FACE = 32;
+export const WORLD_CELL = 34;
+
 /**
- * In-world die texture (DiceWorldDraw): 64 × 32, face k as a 16 × 16 cell at (16·((k − 1) mod 4), 16·⌊(k − 1)/4⌋): the
- * same pixel-designed pips as the atlas on bone, with a 1-px bevel ring (the cube's vertex shading lights the faces).
+ * In-world die texture (DiceWorldDraw): 136 × 68, face k at (34·((k − 1) mod 4) + 1, 34·⌊(k − 1)/4⌋ + 1), 32 × 32: a
+ * rounded bevel (dark outer ring, a lit inner ring top-left and a shaded one bottom-right) around bone, and the atlas
+ * pips of a 28-px face (6-px round pips with the inner-shadow arc; the red 1 at 10 px). The cube's vertex shading lights
+ * the faces.
  */
 export function diceWorldTexture() {
-  const E = 16;
-  const img = image(64, 32);
+  const F = WORLD_FACE;
+  const E = F - 4;
+  const img = image(WORLD_CELL * 4, WORLD_CELL * 2);
   for (let f = 1; f <= 6; f++) {
-    const x0 = 16 * ((f - 1) % 4);
-    const y0 = 16 * Math.floor((f - 1) / 4);
+    const cx = WORLD_CELL * ((f - 1) % 4);
+    const cy = WORLD_CELL * Math.floor((f - 1) / 4);
     const t = faceTexture(E, f);
-    for (let y = 0; y < E; y++)
-      for (let x = 0; x < E; x++) {
-        const ring = Math.min(x, y, E - 1 - x, E - 1 - y);
-        const code = t[y * E + x];
-        let hex = ring === 0 ? (x === 0 || y === 0 ? '#FFFFFF' : '#C8BADC') : '#F4ECF8';
-        if (code === 1 || code === 3) hex = PIP_C[0];
-        else if (code === 2) hex = PIP_C[1];
-        else if (code === 4 || code === 6) hex = RED_C[0];
-        else if (code === 5) hex = RED_C[1];
-        P(img, x0 + x, y0 + y, hex);
+    const colour = (x, y) => {
+      const ring = Math.min(x, y, F - 1 - x, F - 1 - y);
+      if (ring === 0) return '#A898C4';
+      if (ring === 1) return x <= 1 || y <= 1 ? '#FFFFFF' : '#D2C6E6';
+      const code = t[(y - 2) * E + (x - 2)];
+      if (code === 1) return PIP_C[0];
+      if (code === 2) return PIP_C[1];
+      if (code === 4) return RED_C[0];
+      if (code === 5) return RED_C[1];
+      return '#F4ECF8';
+    };
+    for (let y = -1; y <= F; y++)
+      for (let x = -1; x <= F; x++) {
+        const sx = Math.min(F - 1, Math.max(0, x));
+        const sy = Math.min(F - 1, Math.max(0, y));
+        P(img, cx + 1 + x, cy + 1 + y, colour(sx, sy));
       }
   }
   return img;
