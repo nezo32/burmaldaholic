@@ -48,6 +48,7 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 			cell(f, "en_us", 1920, 1080, 2);
 			cell(f, "en_us", 2560, 1440, 2);
 			framedRealTable(f, 2560, 1440, 2);
+			everyGame(f); // owner playtest B6
 			f.language("ru_ru");
 			cell(f, "ru_ru", 3840, 2160, 0);
 			ownerTable(f, "ru_ru");
@@ -194,6 +195,98 @@ public class ResolutionMatrixClientGameTests implements FabricClientGameTest {
 	private static boolean greenish(int rgb) {
 		int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
 		return g > r + 15 && g > b + 15 && g > 50;
+	}
+
+	/** The four layout sizes of owner playtest B6: window, GUI scale (0 = Auto) → 427×240, 480×270, 640×360, 960×540. */
+	private static final int[][] GAME_SIZES = {{1280, 720, 0}, {960, 540, 2}, {1280, 720, 2}, {1920, 1080, 2}};
+
+	/**
+	 * Owner playtest B6 ("some games are fullscreen, some widget-like, play-field heights differ"): every v2 game opened
+	 * like a player (the block used, or the server's open for the scene games), at every size of {@link #GAME_SIZES}:
+	 * the viewport is the policy's, the pose factor / frame offset are the viewport's, the TopBar / PlayArea / Dock rows
+	 * are the shared TableGrid rows of that frame (identical for every game), and the game's felt targets stay in the
+	 * PlayArea.
+	 */
+	private void everyGame(RealFlow f) {
+		java.util.Map<String, java.util.function.Supplier<Object>> games = new java.util.LinkedHashMap<>();
+		var tables = new java.util.LinkedHashMap<String, dev.nezo.burmaldaholic.core.table.TableType<?>>();
+		tables.put("blackjack", BlackjackModule.TABLE);
+		tables.put("baccarat", dev.nezo.burmaldaholic.games.baccarat.BaccaratModule.TABLE);
+		tables.put("poker", dev.nezo.burmaldaholic.games.poker.PokerModule.TABLE);
+		tables.put("uth", dev.nezo.burmaldaholic.games.uth.UthModule.TABLE);
+		tables.put("roulette", dev.nezo.burmaldaholic.games.roulette.RouletteModule.TABLE);
+		tables.put("craps", dev.nezo.burmaldaholic.games.craps.CrapsModule.TABLE);
+		tables.put("plinko", dev.nezo.burmaldaholic.games.extras.ExtrasModule.PLINKO);
+		tables.put("wheel", dev.nezo.burmaldaholic.games.extras.ExtrasModule.WHEEL);
+		java.util.Map<String, java.util.Map<String, String>> rowsBySize = new java.util.TreeMap<>();
+		for (var t : tables.entrySet()) {
+			gameCells(f, t.getKey(), rowsBySize, () -> f.use(f.place(t.getValue())));
+		}
+		gameCells(f, "coin", rowsBySize, () -> f.server(server -> {
+			dev.nezo.burmaldaholic.games.extras.server.CoinFlipGame.open(RealFlow.player(server));
+			return null;
+		}));
+		gameCells(f, "dice", rowsBySize, () -> f.server(server -> {
+			dev.nezo.burmaldaholic.games.extras.server.DiceGame.open(RealFlow.player(server), null);
+			return null;
+		}));
+		gameCells(f, "scratch", rowsBySize, () -> f.server(server -> {
+			dev.nezo.burmaldaholic.games.extras.server.ScratchGame.use(RealFlow.player(server), net.minecraft.world.item.ItemStack.EMPTY,
+				dev.nezo.burmaldaholic.games.extras.logic.Scratch.Kind.BASIC);
+			return null;
+		}));
+		for (var e : rowsBySize.entrySet()) {
+			java.util.Set<String> distinct = new java.util.TreeSet<>(e.getValue().values());
+			report.add("B6 " + e.getKey() + ": " + e.getValue().size() + " games, rows " + distinct);
+			if (e.getValue().size() != 11) failures.add("B6 " + e.getKey() + ": only " + e.getValue().keySet() + " opened");
+			if (distinct.size() != 1) failures.add("B6 " + e.getKey() + ": play-field rows differ " + e.getValue());
+		}
+		f.size(1280, 720, 0);
+	}
+
+	private void gameCells(RealFlow f, String game, java.util.Map<String, java.util.Map<String, String>> rowsBySize, Runnable open) {
+		String tag = "B6 " + game;
+		try {
+			f.size(GAME_SIZES[0][0], GAME_SIZES[0][1], GAME_SIZES[0][2]);
+			open.run();
+			f.context().waitFor(mc -> mc.gui.screen() instanceof V2Chrome.Holder, RealFlow.TIMEOUT);
+			f.context().waitTicks(5);
+			for (int[] sz : GAME_SIZES) {
+				f.size(sz[0], sz[1], sz[2]);
+				f.context().waitTicks(3);
+				String[] out = f.client(mc -> {
+					var s = mc.gui.screen();
+					if (!(s instanceof V2Chrome.Holder h) || !(s instanceof dev.nezo.burmaldaholic.client.ui.FitScaled fit)) return new String[] {"?", "not a v2 screen: " + s};
+					V2Chrome c = h.chrome();
+					Viewport vp = c.viewport();
+					Viewport want = ViewportPolicy.of(mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getWindow().getGuiScale());
+					var g = c.grid();
+					var ref = new dev.nezo.burmaldaholic.core.ui.v2.TableGrid(want);
+					List<String> bad = new ArrayList<>();
+					if (!vp.equals(want)) bad.add("viewport " + vp + " != policy " + want);
+					if (g.room != want.room()) bad.add("room " + g.room);
+					if (!g.topBar.equals(ref.topBar) || !g.play.equals(ref.play) || !g.dock.equals(ref.dock)) bad.add("rows " + g.topBar + g.play + g.dock + " != " + ref.topBar + ref.play + ref.dock);
+					if (Math.abs(fit.fitScale() - vp.factor()) > 1e-4) bad.add("pose factor " + fit.fitScale() + " != " + vp.factor());
+					if (Math.abs(fit.offsetX() - vp.guiOx()) > 1e-4 || Math.abs(fit.offsetY() - vp.guiOy()) > 1e-4) bad.add("offset not the frame's");
+					if (s.width != vp.frameW() || s.height != vp.frameH()) bad.add("screen " + s.width + "x" + s.height + " is not the frame");
+					for (HitMap.Target t : c.hits().targets()) {
+						if (!t.box().inside(g.screen)) bad.add(t.id() + " outside the frame " + t.box());
+						else if (t.id().startsWith("felt.") && !t.box().inside(g.play)) bad.add(t.id() + " outside the PlayArea " + t.box());
+					}
+					String size = String.format("%04dx%d", vp.frameW(), vp.frameH());
+					return new String[] {size, g.topBar + " " + g.play + " " + g.dock, String.join("; ", bad)};
+				});
+				if (out.length == 2) throw new AssertionError(out[1]);
+				rowsBySize.computeIfAbsent(out[0], k -> new java.util.TreeMap<>()).put(game, out[1]);
+				report.add("  " + tag + " " + out[0] + ": " + (out[2].isEmpty() ? "ok" : out[2]));
+				if (!out[2].isEmpty()) failures.add(tag + " " + out[0] + ": " + out[2]);
+			}
+		} catch (AssertionError | RuntimeException e) {
+			failures.add(tag + ": " + e.getMessage());
+			report.add("  FAILED " + tag + ": " + e);
+		} finally {
+			f.close();
+		}
 	}
 
 	/** On a framed window: Sit down on a real blackjack table, clicked at its window pixel → the server seats the player. */

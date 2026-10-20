@@ -309,7 +309,11 @@ public class KitV2ClientGameTests implements FabricClientGameTest {
 			f.shot("v2_kit_k2_bj_480_dropped");
 			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == 0, "the dropped bet never reached the table");
 			f.waitChrome(c -> c.primary.gate().enabled() && !c.watchdog().pending(), "Deal enabled again");
+			// T-C2 V3, the Dock primary: Deal clicked once during a big-win celebration deals (no swallowed first click)
+			playCelebration(f);
+			if (!f.client(mc -> dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable())) throw new AssertionError("no skippable celebration for the primary");
 			f.click(KeyMap.Ids.PRIMARY);
+			report.add("K2 primary clicked once during a celebration");
 			long want = start + 3 * chip; // two held-key chips + the one clicked during the celebration
 			f.waitServer(pos, dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == want
 				|| t.writeClientState(RealFlow.player(t.getLevel().getServer())).getLongOr("last_bet", 0) == want, "the bet after the drop went through");
