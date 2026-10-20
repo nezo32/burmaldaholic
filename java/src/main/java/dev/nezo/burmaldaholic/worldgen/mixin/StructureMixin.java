@@ -7,6 +7,9 @@ import dev.nezo.burmaldaholic.worldgen.CasinoStructures;
 import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilder;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
@@ -25,9 +28,10 @@ public abstract class StructureMixin {
 	private StructurePiecesBuilder burmaldaholic$appendCasino(Structure.GenerationStub stub, Operation<StructurePiecesBuilder> original,
 			@Local(argsOnly = true) Holder<Structure> selected, @Local(argsOnly = true) RegistryAccess registries,
 			@Local(argsOnly = true) StructureTemplateManager templates, @Local(argsOnly = true) long seed,
-			@Local(argsOnly = true) ChunkPos chunk) {
+			@Local(argsOnly = true) ChunkPos chunk, @Local(argsOnly = true) ChunkGenerator generator,
+			@Local(argsOnly = true) RandomState randomState, @Local(argsOnly = true) LevelHeightAccessor height) {
 		StructurePiecesBuilder builder = original.call(stub);
-		CasinoStructures.append(selected, registries, templates, seed, chunk, builder);
+		CasinoStructures.append(selected, registries, templates, seed, chunk, builder, generator, randomState, height);
 		return builder;
 	}
 }

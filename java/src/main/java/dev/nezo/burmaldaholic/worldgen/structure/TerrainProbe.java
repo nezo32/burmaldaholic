@@ -200,6 +200,21 @@ public final class TerrainProbe {
 		return seaLevel;
 	}
 
+	/**
+	 * The final density at one block (positive = solid), or {@code NaN} without the fast sampler (lane WG: the Nether
+	 * site probe interpolates these between noise-cell corners, {@code DensityField}).
+	 */
+	public double densityAt(int x, int y, int z) {
+		if (density == null) {
+			return Double.NaN;
+		}
+		try {
+			return density(x, y, z);
+		} catch (Throwable t) {
+			return Double.NaN;
+		}
+	}
+
 	private double density(int x, int y, int z) throws Throwable {
 		densityCalls++;
 		if (ROUTER_262 != null) {
