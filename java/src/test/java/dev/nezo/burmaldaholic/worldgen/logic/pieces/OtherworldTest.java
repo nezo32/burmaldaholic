@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.worldgen.logic.pieces;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
@@ -38,11 +37,11 @@ class OtherworldTest {
 		assertEquals(2, all.size());
 		Piece parlor = OtherworldPieces.parlor();
 		assertEquals("casino/parlor", parlor.id());
-		assertEquals(new Vec(33, 16, 33), parlor.layout().size());
+		assertEquals(new Vec(PiglinParlor.SX, PiglinParlor.SY, PiglinParlor.SZ), parlor.layout().size());
 		assertEquals(CasinoKind.PIGLIN_PARLOR, parlor.layout().kind());
 		Piece lounge = OtherworldPieces.lounge();
 		assertEquals("casino/lounge", lounge.id());
-		assertEquals(new Vec(25, 14, 25), lounge.layout().size());
+		assertEquals(new Vec(HighRollerLounge.SX, HighRollerLounge.SY, HighRollerLounge.SZ), lounge.layout().size());
 		assertEquals(CasinoKind.HIGH_ROLLER, lounge.layout().kind());
 		assertTrue(parlor.layout().jigsaws().isEmpty() && lounge.layout().jigsaws().isEmpty(), "annexes are single templates");
 	}
@@ -121,30 +120,18 @@ class OtherworldTest {
 					"lava at " + x + "," + y + "," + z + " touches " + n);
 			}
 		});
-		assertTrue(lava[0] >= 49, "lava pit present");
+		assertTrue(lava[0] >= 12, "lava falls and channels present");
 	}
 
-	/** Rows 13..15 keep the Nether rock above the hall: nothing there is carved to air, except over the forecourt. */
+	/** The Parlor is built on the MIT Piglin Manor shell: its towers and roof are there, and the licence ships in the jar. */
 	@Test
-	void parlorNeverCarvesTheRockAbove() {
+	void parlorStandsOnTheManorShellWithItsLicence() throws Exception {
 		Grid g = OtherworldPieces.parlor().layout().grid();
-		forEach(g, (x, y, z, b) -> {
-			if (y >= 13 && z <= PiglinParlor.FZ) {
-				assertNotEquals("minecraft:air", b.name(), "air at " + x + "," + y + "," + z);
-			}
-		});
-	}
-
-	/** Rows 0..2 of the lounge sit on the tower roof: solid stem / corbels only, never air (the tower top is kept). */
-	@Test
-	void loungeStemNeverCarvesTheTower() {
-		Grid g = OtherworldPieces.lounge().layout().grid();
-		forEach(g, (x, y, z, b) -> {
-			if (y < HighRollerLounge.FLOOR) {
-				assertNotEquals("minecraft:air", b.name(), "air at " + x + "," + y + "," + z);
-			}
-		});
-		assertTrue(g.get(12, 0, 12) != null, "stem centre");
+		assertEquals("minecraft:polished_basalt", PiglinManorShell.at(1, 4, 1).name(), "a tower corner");
+		assertEquals(PiglinManorShell.at(1, 10, 1), g.get(1, 10, 1), "tower wall kept");
+		try (var in = OtherworldTest.class.getResourceAsStream("/META-INF/licenses/bygone-nether-MIT.txt")) {
+			assertTrue(in != null && new String(in.readAllBytes()).contains("Copyright (c) 2022 izofar"));
+		}
 	}
 
 	@Test

@@ -90,7 +90,9 @@ public class WorldgenSpawnSurvey {
 		helper.assertTrue(end.casinos() >= 4, "too few High Roller Lounges within 3000 blocks: " + end);
 		// ≈ chance × street-end fit; v0.1.1's 0.35 / 0.20 would fall below these bounds
 		helper.assertTrue(village.casinos() >= 0.3 * village.starts(), "village casino rate below 0.3: " + village);
-		helper.assertTrue(end.casinos() >= 0.35 * end.starts(), "End City lounge rate below 0.35: " + end);
+		// v0.2 (WG): the Lounge stands beside the city only where the island has room (~90 % of cities at chance 1;
+		// 34 % measured at the default 0.5 chance), so the floor is 0.25
+		helper.assertTrue(end.casinos() >= 0.25 * end.starts(), "End City lounge rate below 0.25: " + end);
 		helper.succeed();
 	}
 

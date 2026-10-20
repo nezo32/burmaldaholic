@@ -287,7 +287,10 @@ public final class CasinoQa {
 			return new Placed(t, box, spots(level, box), rec, -1);
 		}
 		Layout l = t.layout().orElseThrow();
-		int floorBlocks = t.v2() ? 2 : 0; // v0.2 pieces: foundation rows 0..2 sink in, floor row y = 3 (§4.1)
+		// v0.2 pieces: foundation rows 0..2 sink in, floor row y = 3 (§4.1); a village annex hangs on the street: its street
+		// jigsaw row is the floor block row at street (= ground) level (CR-2: the old fixed 2 sank annexes 2 below ground)
+		int floorBlocks = l.jigsaws().stream().filter(j -> j.name().equals("minecraft:street")).mapToInt(j -> j.pos().y()).findFirst()
+			.orElse(t.v2() ? 2 : 0);
 		BlockPos origin = new BlockPos(at.getX(), groundY(level, at.getX(), at.getZ()) - floorBlocks, at.getZ());
 		box = CasinoBuilder.build(level, l, origin, CasinoStructures.rotation(turns))
 			.orElseThrow(() -> new AssertionError(t + ": pool element missing or placement failed"));

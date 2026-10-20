@@ -289,15 +289,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 * The generated-casino preset of this table (worldgen, §16), if any. While the table is being removed (chunk
 	 * unload, break, server stop) the last looked-up preset is returned without touching the world: the play-out
 	 * runs inside the chunk system's unload callback, where a block / block-entity lookup re-enters the distance
-	 * manager mid-update and crashes the server tick. Empty while the table's chunk is not loaded (removed block
-	 * entity): the lookup reads the block state, which must never load a chunk (BOT request).
+	 * manager mid-update and crashes the server tick. Outside removal the lookup never loads a chunk (empty while the
+	 * table's chunk is not loaded or the block entity is removed).
 	 */
 	public Optional<TablePresetProvider.TablePreset> preset() {
 		if (removing) {
 			return lastPreset;
 		}
 		if (!(level instanceof ServerLevel serverLevel) || isRemoved() || !serverLevel.hasChunkAt(worldPosition)) {
-			return Optional.empty();
+			return lastPreset;
 		}
 		lastPreset = CoreServices.tablePresets().preset(serverLevel, worldPosition);
 		return lastPreset;

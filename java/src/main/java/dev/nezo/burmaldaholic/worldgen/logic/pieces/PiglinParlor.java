@@ -1,56 +1,73 @@
 package dev.nezo.burmaldaholic.worldgen.logic.pieces;
 
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.bars;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.campfire;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.candles;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.facing;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.hanging;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.log;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.pendant;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.standing;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.wallBanner;
-
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoLoot;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
+import dev.nezo.burmaldaholic.worldgen.logic.Vec;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Blueprint;
-import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Facades;
-import dev.nezo.burmaldaholic.worldgen.logic.blueprint.SignFont;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Kits;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Material;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Ornament;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Palette;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Piece;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.SignFont;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.TableClearance;
 
 /**
- * Piglin Parlor v2 "Gold Vault" — 33 × 16 × 33 (architecture doc §4.3 / §7.3), placed beside a bastion by
- * {@code CasinoStructures.appendParlor}: the main gate (+z) faces away from the bastion, the back door (−z)
- * faces it.
+ * Piglin Parlor "Bastion Baroque" (casino redesign CR-2, findings/CASINO-REDESIGN.md §4.2), placed beside a bastion by
+ * {@code CasinoStructures.appendParlor}. The building is the MIT-licensed "Piglin Manor" from Bygone Nether by izofar
+ * ({@link PiglinManorShell}: rotated so its entrance stair faces +z, widened by two wall bays per side); this class
+ * guts its interior and fits the casino into it. Envelope {@value #SX} × {@value #SY} × {@value #SZ}, axis x =
+ * {@value #CX}, front = +z.
  *
- * <p>Rows: 0..1 blackstone foundation (row 1 holds the sealed lava pool under the glass pit), 2 floor,
- * 3 floor row, hall walls 3..9, stepped crimson vault ceiling at 10 / 11 / 12. Rows 13..15 stay structure
- * void (the Nether rock above is kept) except the front crown: the gold "CASINO" marquee and the two gate
- * towers with their braziers. The forecourt (z 31..32) is carved free so the facade shows even when the
- * parlor is buried in netherrack.
+ * <p>Rows: 0..1 blackstone foundation, 2 the manor platform / forecourt paving, 3 floor blocks, floor row {@value #FR}.
+ * The manor: four crenellated corner towers (each crowned by a soul-fire brazier), a back and a front wing (lobby,
+ * ceiling row 9) and between them the double-height central hall under the crimson roof (x 5..21, z 5..13) with the
+ * tables; open verandas along both sides. In front: the entrance stair between two glass-cased lava falls, the paved
+ * forecourt, and the gate — two polished-basalt obelisks with soul fires carrying the "CASINO" board.
  *
- * <p>Every game family (§3.5): nether cashier (Piglin Dealer teller), blackjack, roulette, craps, baccarat
- * (+ Piglin Dealer), Ultimate Texas Hold'em, poker (+ Piglin Dealer), gold slots ×8, wheel, plinko; plus the
- * Piglin Moneylender's office, a barred gold vault with the loot chest and a crimson bar.
+ * <p>Games: two rows of three full multi-block tables (blackjack, roulette, baccarat + Piglin Dealer; craps, poker +
+ * Piglin Dealer, UTH) in the hall; the nether cashier (Piglin Dealer teller) in the back wing, the Piglin Moneylender's
+ * barred vault beside it; Wheel, Plinko and four gold slots in the front lobby. Every felt is lit ≥ 12 (lantern
+ * chandeliers from the roof + floor uplights). No valuable blocks (no gold, no gilded blackstone). Every table's dealer
+ * cell is two blocks of air (house dealers: package DL).
+ *
+ * <p>Site contract for placement (package WG; template coordinates before rotation, front = +z): the building assumes
+ * nothing about the rock around it — the whole envelope is carved, rows 0..1 are a solid foundation under the full
+ * footprint, every lava cell is sealed inside the piece. Two doors: the {@link #FRONT_ENTRY} at the forecourt's outer
+ * edge (standing row {@value #FLOOR}, facing +z; the gate, the forecourt and the entrance stair lead from it to the
+ * front door), and the {@link #BACK_ENTRY} on the back edge (standing row {@value #FR}, facing −z) outside a 2-wide back
+ * door through the back wing. Both cells have solid floor under them and two rows of air; a tunnel or a bastion
+ * passage can join either.
  */
 public final class PiglinParlor {
 	public static final String ID = "casino/parlor";
-	public static final int SX = 33;
-	public static final int SY = 16;
-	public static final int SZ = 33;
+	public static final int SX = PiglinManorShell.SX;
+	public static final int SY = PiglinManorShell.SY;
+	public static final int SZ = PiglinManorShell.SZ;
 	/** Floor block row and floor row (first air row). */
-	static final int FLOOR = 2;
-	static final int FR = 3;
-	/** Front wall of the hall; the forecourt is z 31..32. */
-	static final int FZ = 30;
-	static final int CX = 16;
+	static final int FLOOR = 3;
+	static final int FR = 4;
+	/** Front wall of the manor; the forecourt is z 18..27. */
+	static final int FZ = 17;
+	static final int CX = 13;
+	static final int AX2 = 2 * CX;
+	/** Lobby / wing ceiling row. */
+	static final int WING_CEIL = 9;
+	/** Row of the gate board's bottom (chaser) row. */
+	static final int SIGN_Y = 9;
+	/** Plane of the gate board. */
+	static final int GATE_Z = 25;
+	/** West column of the 2-wide back door (x BACK_X..BACK_X+1, z 1), off the axis beside the cashier booth. */
+	static final int BACK_X = 8;
+	/** Standing cell at the forecourt's outer edge on the axis (front door side, +z). */
+	public static final Vec FRONT_ENTRY = new Vec(CX, FLOOR, SZ - 1);
+	/** Standing cell on the back edge outside the back door (−z). */
+	public static final Vec BACK_ENTRY = new Vec(BACK_X, FR, 0);
 
 	private PiglinParlor() {}
 
@@ -59,469 +76,350 @@ public final class PiglinParlor {
 	}
 
 	static Piece build(Palette p) {
-		Blueprint b = Blueprint.of(ID, CasinoKind.PIGLIN_PARLOR, SX, SY, SZ, p);
+		Blueprint b = Blueprint.of(ID, CasinoKind.PIGLIN_PARLOR, SX, SY, SZ, p).compactTables(false);
 		shell(b, p);
-		vaultCeiling(b, p);
-		roofline(b, p);
-		windows(b, p);
-		floor(b);
-		facade(b, p);
-		games(b, p);
-		backRooms(b, p);
-		foyer(b, p);
-		decor(b, p);
-		lights(b, p);
-		b.anchor(CX, 6, 25);
+		gut(b, p);
+		games(b);
+		interior(b, p);
+		b.uplightGames();
+		exterior(b, p);
+		gate(b, p);
+		backDoor(b, p);
+		b.interior(2, FR, 2, SX - 3, WING_CEIL - 1, 4);
+		b.interior(2, FR, 14, SX - 3, WING_CEIL - 1, 16);
+		b.interior(5, FR, 5, 21, 12, 13);
+		b.entry(FRONT_ENTRY.x(), FRONT_ENTRY.y(), FRONT_ENTRY.z());
+		b.entry(BACK_ENTRY.x(), BACK_ENTRY.y(), BACK_ENTRY.z());
+		b.anchor(CX, 7, 15);
 		return b.build();
 	}
 
-	// ---- shell -------------------------------------------------------------------------------------
+	static final BlockSpec ROD_UP = BlockSpec.mc("end_rod", "facing", "up");
 
-	private static void shell(Blueprint b, Palette p) {
-		b.foundation(0, 0, SX - 1, SZ - 1, 1);
-		// sealed lava pool under the glass pit (solid on every side, glass on top: it can neither flow nor ignite)
-		b.fill(13, 1, 12, 19, 1, 18, BlockSpec.mc("lava", "level", "0"));
-		// roof mass above the ceiling; the stepped vault is carved out of it below
-		b.fill(0, 11, 0, SX - 1, 12, FZ, Role.ROOF);
-		b.room(0, FLOOR, 0, SX - 1, 10, FZ)
-			.frame(4)
-			.door(Facing.SOUTH, CX, 5, 5)
-			.door(Facing.NORTH, CX, 3, 3);
-		// wall articulation: gilded band on row 8 between the pilasters, gold capitals on row 9
+	static BlockSpec lantern(String id, boolean hanging) {
+		return BlockSpec.mc(id, "hanging", Boolean.toString(hanging), "waterlogged", "false");
+	}
+
+	static BlockSpec chain() {
+		return BlockSpec.mc("iron_chain", "axis", "y", "waterlogged", "false");
+	}
+
+	// ---- the manor shell --------------------------------------------------------------------------------------------
+
+	/** Carves the envelope (the Nether rock around the manor), lays the foundation and stamps the manor. */
+	static void shell(Blueprint b, Palette p) {
+		b.clear(0, 0, 0, SX - 1, SY - 1, SZ - 1);
+		b.fill(0, 0, 0, SX - 1, 1, SZ - 1, Role.FOUNDATION);
+		PiglinManorShell.stamp(b, 0, 0, 0, s -> {
+			String n = s.name();
+			if (n.equals("minecraft:netherrack") || n.equals("minecraft:crimson_nylium")) {
+				return p.block(Role.FOUNDATION);
+			}
+			return s;
+		});
+		// no reliance on surrounding rock: the manor template leaves air in its base rows at the veranda edges
 		for (int x = 0; x < SX; x++) {
-			for (int z : new int[] {0, FZ}) {
-				articulate(b, x, z);
-			}
-		}
-		for (int z = 1; z < FZ; z++) {
-			for (int x : new int[] {0, SX - 1}) {
-				articulate(b, x, z);
-			}
-		}
-		// gate arch: rounded top corners
-		Material wall = b.palette().get(Role.WALL);
-		b.set(CX - 2, 7, FZ, wall.stairs(Facing.EAST, true));
-		b.set(CX + 2, 7, FZ, wall.stairs(Facing.WEST, true));
-		b.set(CX - 1, 5, 0, wall.stairs(Facing.EAST, true));
-		b.set(CX + 1, 5, 0, wall.stairs(Facing.WEST, true));
-	}
-
-	private static void articulate(Blueprint b, int x, int z) {
-		BlockSpec at = b.at(x, 5, z);
-		if (at == null || at.is("minecraft:air")) {
-			return;
-		}
-		if (at.equals(b.palette().block(Role.FRAME))) {
-			b.set(x, 9, z, Role.TRIM);
-			b.set(x, FR, z, Role.TRIM);
-		} else {
-			b.set(x, 8, z, Role.ACCENT);
-		}
-	}
-
-	/** Stepped vault: ring A at y 10 near the walls, B at y 11, C at y 12 over the lava pit. */
-	private static void vaultCeiling(Blueprint b, Palette p) {
-		Material ceil = p.get(Role.CEILING);
-		b.clear(4, 10, 4, 28, 10, 26);
-		b.fill(4, 11, 4, 28, 11, 26, Role.CEILING);
-		b.clear(9, 10, 9, 23, 11, 21);
-		b.fill(9, 12, 9, 23, 12, 21, Role.CEILING);
-		stepRing(b, ceil, 4, 10, 4, 28, 26);
-		stepRing(b, ceil, 9, 11, 9, 23, 21);
-		// crimson beams across the vault (B level) and a gilded frame around the oculus (C level)
-		for (int x = 8; x <= 24; x += 8) {
-			for (int z = 5; z <= 25; z++) {
-				if (z < 9 || z > 21) {
-					b.set(x, 10, z, log("minecraft:crimson_stem", "z"));
+			for (int z = 0; z < SZ; z++) {
+				for (int y = 0; y <= 1; y++) {
+					BlockSpec at = b.at(x, y, z);
+					if (at == null || at.is("minecraft:air")) {
+						b.set(x, y, z, Role.FOUNDATION);
+					}
 				}
 			}
 		}
-		for (int z = 7; z <= 23; z += 8) {
-			for (int x = 5; x <= 27; x++) {
-				if (x < 9 || x > 23) {
-					b.set(x, 10, z, log("minecraft:crimson_stem", "x"));
-				}
+		// the forecourt: paved terrace on row 2, air above (whatever the manor template had there is replaced)
+		b.clear(0, FLOOR, FZ + 1, SX - 1, SY - 1, SZ - 1);
+		b.fill(0, 0, FZ + 1, SX - 1, 1, SZ - 1, Role.FOUNDATION);
+		b.fill(0, 2, FZ + 1, SX - 1, 2, SZ - 1, Role.PATH);
+		for (int y = 0; y <= 2; y++) { // the manor's platform corners outside the towers
+			b.set(0, y, 0, Role.FOUNDATION);
+			b.set(SX - 1, y, 0, Role.FOUNDATION);
+		}
+	}
+
+	/** Strips the manor's furnishing: the hall is opened to the roof, wings and towers get a coffered ceiling. */
+	static void gut(Blueprint b, Palette p) {
+		// ground storey of both wings and the hall, inner partitions included
+		b.clear(2, FR, 2, SX - 3, WING_CEIL - 1, 4);
+		b.clear(2, FR, 14, SX - 3, WING_CEIL - 1, 16);
+		b.clear(5, FR, 5, 21, 12, 13);
+		// the hall's side walls stay; the stem columns at mid-length become the bay's slender columns
+		for (int x : new int[] {4, SX - 5}) {
+			for (int y = FR; y <= 12; y++) {
+				b.set(x, y, 9, Ornament.upright(b, Role.BEAM));
 			}
 		}
-	}
-
-	/**
-	 * Exterior massing above the hall: battlemented outer ring (top 11 + merlons on 12), raised middle deck
-	 * (top 12, sloped edge) and a stepped blackstone ziggurat with a gold ridge over the oculus (13..15).
-	 * Solid blocks only above row 12, so a buried parlor never carves the rock above it.
-	 */
-	private static void roofline(Blueprint b, Palette p) {
-		Material roof = p.get(Role.ROOF);
-		for (int x = 0; x < SX; x++) {
-			for (int z = 0; z <= FZ; z++) {
-				if (x < 4 || x > 28 || z < 4 || z > 26) {
-					b.set(x, 12, z, Blueprint.AIR);
-				}
+		// the four tower-corner columns of the hall stand on the floor (polished basalt)
+		for (int[] c : new int[][] {{5, 5}, {21, 5}, {5, 13}, {21, 13}}) {
+			for (int y = FR; y <= WING_CEIL - 1; y++) {
+				b.set(c[0], y, c[1], Ornament.upright(b, Role.COLUMN));
 			}
+			b.set(c[0], WING_CEIL - 1, c[1], Role.CAPITAL);
 		}
-		for (int x = 0; x < SX; x++) {
-			merlon(b, x, 0);
-			merlon(b, x, FZ);
-		}
-		for (int z = 1; z < FZ; z++) {
-			merlon(b, 0, z);
-			merlon(b, SX - 1, z);
-		}
-		b.fill(5, 12, 5, 27, 12, 25, Role.ROOF_TRIM);
-		ring(b, roof, 4, 12, 4, 28, 26, false);
-		for (int[] c : new int[][] {{6, 6}, {26, 6}, {6, 24}, {26, 24}}) {
-			b.set(c[0], 12, c[1], Role.TRIM);
-			b.set(c[0], 13, c[1], campfire(Facing.SOUTH));
-		}
-		int[][] steps = {{9, 13, 9, 23, 21}, {11, 14, 11, 21, 19}, {13, 15, 13, 19, 17}};
-		for (int[] st : steps) {
-			b.fill(st[0] + 1, st[1], st[2] + 1, st[3] - 1, st[1], st[4] - 1, Role.ROOF);
-			ring(b, roof, st[0], st[1], st[2], st[3], st[4], false);
-		}
-		b.fill(14, 15, 14, 18, 15, 16, Role.TRIM);
-		for (int[] c : new int[][] {{9, 9}, {23, 9}, {9, 21}, {23, 21}, {11, 11}, {21, 11}, {11, 19}, {21, 19}}) {
-			b.set(c[0], c[0] == 9 || c[0] == 23 ? 13 : 14, c[1], Role.TRIM);
-		}
-		b.set(CX, 15, 15, Role.LIGHT);
-	}
-
-	private static void merlon(Blueprint b, int x, int z) {
-		if ((x + z) % 2 == 0) {
-			b.set(x, 12, z, (x % 8 == 0 && (z == 0 || z == FZ)) || (z % 8 == 0 && (x == 0 || x == SX - 1)) ? b.palette().block(Role.TRIM)
-				: b.palette().block(Role.ROOF));
+		// floors
+		b.fill(2, FLOOR, 2, SX - 3, FLOOR, 4, Role.FLOOR);
+		b.fill(2, FLOOR, 14, SX - 3, FLOOR, 16, Role.FLOOR);
+		b.fill(5, FLOOR, 5, 21, FLOOR, 13, Role.FLOOR);
+		b.fill(CX - 1, FLOOR, FZ, CX + 1, FLOOR, FZ, Role.FLOOR); // the threshold, flush with the floor
+		// coffered wing ceilings (they close the tower shafts too)
+		Ornament.coffers(b, 2, 2, SX - 3, 4, WING_CEIL, 3, p.block(Role.LIGHT));
+		Ornament.coffers(b, 2, 14, SX - 3, 16, WING_CEIL, 3, p.block(Role.LIGHT));
+		for (int[] c : new int[][] {{5, 5}, {21, 5}, {5, 13}, {21, 13}}) {
+			b.set(c[0], WING_CEIL, c[1], Role.CEILING);
 		}
 	}
 
-	/** Stairs ring, high side towards the centre (a sloped edge); {@code top} = upside down. */
-	private static void ring(Blueprint b, Material m, int x0, int y, int z0, int x1, int z1, boolean top) {
-		for (int x = x0; x <= x1; x++) {
-			b.set(x, y, z0, m.stairs(Facing.SOUTH, top));
-			b.set(x, y, z1, m.stairs(Facing.NORTH, top));
-		}
-		for (int z = z0 + 1; z < z1; z++) {
-			b.set(x0, y, z, m.stairs(Facing.EAST, top));
-			b.set(x1, y, z, m.stairs(Facing.WEST, top));
-		}
-	}
+	// ---- games --------------------------------------------------------------------------------------------------
 
-	/** Orange-glass slit windows in the bays of the side and back walls (gold sills). */
-	private static void windows(Blueprint b, Palette p) {
-		for (int t = 2; t < SZ; t += 4) {
-			if (t <= 26 && t != 14) {
-				for (int x : new int[] {0, SX - 1}) {
-					b.fill(x, 5, t, x, 7, t, Role.GLASS);
-					b.set(x, 4, t, Role.TRIM);
-				}
-			}
-			if (t != 14 && t != 18) {
-				b.fill(t, 5, 0, t, 7, 0, Role.GLASS);
-				b.set(t, 4, 0, Role.TRIM);
-			}
+	static void games(Blueprint b) {
+		Kits.tablePod(Game.BLACKJACK, null).apply(b, 8, FR, 7, Facing.SOUTH);
+		Kits.tablePod(Game.ROULETTE, null).apply(b, CX, FR, 7, Facing.SOUTH);
+		Kits.tablePod(Game.BACCARAT, NpcRole.PIGLIN_DEALER).apply(b, 18, FR, 7, Facing.SOUTH);
+		Kits.tablePod(Game.CRAPS, null).apply(b, 8, FR, 11, Facing.SOUTH);
+		Kits.tablePod(Game.POKER, NpcRole.PIGLIN_DEALER).apply(b, CX, FR, 11, Facing.SOUTH);
+		Kits.tablePod(Game.UTH, null).apply(b, 18, FR, 11, Facing.SOUTH);
+		// the nether cashier in the back wing: a teller's booth with grilles, the Piglin Dealer behind the window
+		b.game(Game.NETHER_CASHIER, CX, FR, 3, Facing.SOUTH);
+		Material counter = b.palette().get(Role.COUNTER);
+		for (int x : new int[] {CX - 2, CX + 2}) {
+			b.set(x, FR, 3, counter.slab("double"));
+			b.set(x, FR, 2, counter.slab("double"));
+			b.set(x, FR + 1, 3, BlockSpec.mc("iron_bars"));
 		}
-	}
-
-	/** Upside-down stairs around the inside edge of a raised ceiling step (high side towards the walls). */
-	private static void stepRing(Blueprint b, Material m, int x0, int y, int z0, int x1, int z1) {
-		for (int x = x0; x <= x1; x++) {
-			b.set(x, y, z0, m.stairs(Facing.NORTH, true));
-			b.set(x, y, z1, m.stairs(Facing.SOUTH, true));
+		b.npc(NpcRole.PIGLIN_DEALER, CX, FR, 2, Facing.SOUTH);
+		for (int x = CX - 2; x <= CX + 2; x++) {
+			b.set(x, FR + 2, 3, counter.slab("top"));
+			b.set(x, FR + 2, 2, counter.slab("top"));
+			b.set(x, FR + 3, 3, x == CX ? b.palette().block(Role.NEON_A) : b.palette().block(Role.TRIM));
 		}
-		for (int z = z0 + 1; z < z1; z++) {
-			b.set(x0, y, z, m.stairs(Facing.WEST, true));
-			b.set(x1, y, z, m.stairs(Facing.EAST, true));
-		}
-	}
-
-	// ---- floor -------------------------------------------------------------------------------------
-
-	private static void floor(Blueprint b) {
-		// gold-rimmed glass pit over the lava pool
-		b.fill(12, FLOOR, 11, 20, FLOOR, 19, Role.TRIM);
-		b.fill(13, FLOOR, 12, 19, FLOOR, 18, Role.GLASS);
-		// gilded inlay border of the gaming floor
-		for (int x = 3; x <= 29; x++) {
-			b.set(x, FLOOR, 7, Role.FLOOR_ACCENT);
-			b.set(x, FLOOR, 23, Role.FLOOR_ACCENT);
-		}
-		for (int z = 7; z <= 23; z++) {
-			b.set(3, FLOOR, z, Role.FLOOR_ACCENT);
-			b.set(29, FLOOR, z, Role.FLOOR_ACCENT);
-		}
-		// red runner gate → pit and pit → back door, gilded edges
-		for (int[] run : new int[][] {{20, FZ}, {0, 10}}) {
-			b.fill(CX - 1, FR, run[0], CX + 1, FR, run[1], Role.CARPET);
-			for (int z = run[0]; z <= run[1]; z++) {
-				b.set(CX - 2, FLOOR, z, Role.FLOOR_ACCENT);
-				b.set(CX + 2, FLOOR, z, Role.FLOOR_ACCENT);
-			}
-		}
-	}
-
-	// ---- facade ------------------------------------------------------------------------------------
-
-	private static void facade(Blueprint b, Palette p) {
-		Material wall = p.get(Role.WALL);
-		// forecourt carved out of the rock in front of the gate
-		b.fill(0, FLOOR, FZ + 1, SX - 1, FLOOR, SZ - 1, Role.PATH);
-		b.clear(5, FR, FZ + 1, SX - 6, 15, SZ - 1);
-		b.fill(CX - 2, FLOOR, FZ + 1, CX + 2, FLOOR, SZ - 1, Role.FLOOR_ACCENT);
-		b.fill(CX - 1, FR, FZ, CX + 1, FR, FZ, Role.CARPET);
-		// gate towers with sealed lava windows and brazier tops
-		for (int x0 : new int[] {0, SX - 5}) {
-			int x1 = x0 + 4;
-			b.fill(x0, FLOOR, FZ, x1, 13, SZ - 1, Role.WALL);
-			b.fill(x0, FR, FZ, x1, FR, SZ - 1, Role.WALL_BASE);
-			for (int x : new int[] {x0, x1}) {
-				b.fill(x, FR, SZ - 1, x, 13, SZ - 1, Role.FRAME);
-				b.set(x, 9, SZ - 1, Role.TRIM);
-			}
-			b.fill(x0, 8, SZ - 1, x1, 8, SZ - 1, Role.ACCENT);
-			b.fill(x0 + 1, 8, SZ - 1, x1 - 1, 8, SZ - 1, Role.ACCENT);
-			int mx = x0 + 2;
-			b.fill(mx, 4, SZ - 2, mx, 7, SZ - 2, BlockSpec.mc("lava", "level", "0"));
-			b.fill(mx, 4, SZ - 1, mx, 7, SZ - 1, Role.GLASS);
-			b.set(mx, 9, SZ - 1, facing("minecraft:piglin_wall_head", Facing.SOUTH));
-			b.set(mx, 10, SZ - 1, Role.FRAME);
-			// crenellated cap + brazier
-			b.fill(x0, 14, FZ, x1, 14, SZ - 1, Role.ROOF);
-			b.fill(x0, 14, SZ - 1, x1, 14, SZ - 1, Role.ACCENT);
-			b.fill(x0, 12, SZ - 1, x1, 12, SZ - 1, Role.ACCENT);
-			for (int x = x0; x <= x1; x += 2) {
-				b.set(x, 15, SZ - 1, Role.FOUNDATION);
-				b.set(x, 15, FZ, Role.FOUNDATION);
-			}
-			b.set(x0, 15, FZ + 1, Role.FOUNDATION);
-			b.set(x1, 15, FZ + 1, Role.FOUNDATION);
-			b.set(mx, 15, FZ + 1, campfire(Facing.SOUTH));
-		}
-		// portal: chiseled columns, gold capitals, corbelled lintel under the marquee
-		for (int x : new int[] {CX - 3, CX + 3}) {
-			b.fill(x, FR, FZ + 1, x, 7, FZ + 1, Role.FRAME);
-			b.set(x, 8, FZ + 1, Role.TRIM);
-			b.set(x, FR, FZ + 1, Role.TRIM);
-		}
-		for (int x = 7; x <= SX - 8; x++) {
-			if (x != CX - 3 && x != CX + 3) {
-				b.set(x, 8, FZ + 1, p.get(Role.ROOF_TRIM).stairs(Facing.NORTH, true));
-			}
-		}
-		// CB-3 SignFont (readable: gapped letters, serif I, diagonal N), 24 wide: no padding, no side bulbs so it
-		// fits the 23-wide forecourt between the gate towers (one column tucks into the east tower), rows 9..15
-		Facades.marquee(b, SignFont.SMALL.line("CASINO"), Facing.SOUTH, CX, 9, FZ + 1, 0, false);
-		// banners flanking the portal (plain dyes; patterns come with the DSL banner verb)
-		for (int x : new int[] {CX - 5, CX + 5}) {
-			b.set(x, 7, FZ + 1, wallBanner("red", Facing.SOUTH));
-		}
-		for (int x : new int[] {CX - 7, CX + 7}) {
-			b.set(x, 7, FZ + 1, wallBanner("black", Facing.SOUTH));
-		}
-		// gold braziers on the forecourt
-		for (int x : new int[] {CX - 7, CX + 7}) {
-			b.set(x, FR, SZ - 1, Role.FRAME);
-			b.set(x, FR + 1, SZ - 1, Role.TRIM);
-			b.set(x, FR + 2, SZ - 1, campfire(Facing.SOUTH));
-		}
-		b.set(CX - 2, 6, FZ + 1, wall.stairs(Facing.EAST, true));
-		b.set(CX + 2, 6, FZ + 1, wall.stairs(Facing.WEST, true));
-	}
-
-	// ---- games -------------------------------------------------------------------------------------
-
-	private static void games(Blueprint b, Palette p) {
-		pod(b, p, Game.BLACKJACK, null, 9, 9, Facing.SOUTH);
-		pod(b, p, Game.ROULETTE, null, 23, 9, Facing.SOUTH);
-		pod(b, p, Game.CRAPS, null, 6, 15, Facing.EAST);
-		pod(b, p, Game.BACCARAT, NpcRole.PIGLIN_DEALER, 26, 15, Facing.WEST);
-		pod(b, p, Game.POKER, NpcRole.PIGLIN_DEALER, 9, 21, Facing.NORTH);
-		pod(b, p, Game.UTH, null, 23, 21, Facing.NORTH);
-		b.kit(Kits.slotBank(Game.SLOTS_GOLD, 4), 1, FR, 16, Facing.EAST);
-		b.kit(Kits.slotBank(Game.SLOTS_GOLD, 4), SX - 2, FR, 13, Facing.WEST);
-		machineAlcove(b, Game.WHEEL, 11);
-		machineAlcove(b, Game.PLINKO, 21);
-	}
-
-	/** Table pod + a pendant lantern above the board clearance + a dealer seat when no dealer NPC stands there. */
-	private static void pod(Blueprint b, Palette p, Game g, NpcRole dealer, int x, int z, Facing front) {
-		b.kit(Kits.tablePod(g, dealer), x, FR, z, front);
-		if (dealer == null) {
-			b.set(x - front.dx(), FR, z - front.dz(), p.get(Role.COUNTER).stairs(front.opposite(), false));
-		}
-		pendant(b, x, FR + Kits.BOARD_CLEARANCE + 1, z, hanging(p.block(Role.LIGHT_HANGING).name()));
-	}
-
-	/** Machine against the front wall facing the hall: chiseled jambs, gold lintel, shroomlight above. */
-	private static void machineAlcove(Blueprint b, Game g, int x) {
-		int z = FZ - 1;
-		b.game(g, x, FR, z, Facing.NORTH);
-		b.keepClear(x, FR, z - 1, x, FR + 1, z - 1);
-		b.keepClear(x, FR + 1, z, x, FR + 2, z);
-		for (int jx : new int[] {x - 1, x + 1}) {
-			b.fill(jx, FR, z, jx, 6, z, Role.FRAME);
-		}
-		b.fill(x - 1, 7, z, x + 1, 7, z, Role.TRIM);
-		b.set(x, 6, z, Role.LIGHT);
-		b.set(x - 1, FLOOR, z - 1, Role.TRIM);
-		b.set(x + 1, FLOOR, z - 1, Role.TRIM);
-		b.set(x, FLOOR, z - 1, Role.TRIM);
-	}
-
-	// ---- back rooms: gold vault (left), crimson bar (right), back lobby -------------------------------
-
-	private static void backRooms(Blueprint b, Palette p) {
-		// vault x 1..8, z 1..4 behind iron bars, gilded roof, loot chest among the gold
-		b.fill(9, FR, 1, 9, 6, 5, Role.WALL);
-		b.set(9, FR, 5, Role.FRAME);
-		b.fill(1, 7, 1, 9, 7, 5, Role.ACCENT);
-		for (int x = 1; x <= 8; x++) {
-			b.fill(x, FR, 5, x, 6, 5, (x == 1 || x == 5) ? p.block(Role.FRAME) : bars(true));
-		}
-		b.fill(1, FLOOR, 1, 8, FLOOR, 4, Role.FLOOR_ACCENT);
-		int[][] gold = {{1, 1}, {2, 1}, {1, 2}, {3, 1}, {7, 1}, {8, 1}, {8, 2}, {6, 1}, {1, 3}, {8, 3}};
-		for (int[] g : gold) {
-			b.set(g[0], FR, g[1], Role.TRIM);
-		}
-		b.set(1, FR + 1, 1, Role.TRIM);
-		b.set(2, FR + 1, 1, BlockSpec.mc("raw_gold_block"));
-		b.set(8, FR + 1, 1, Role.TRIM);
-		b.set(7, FR + 1, 1, BlockSpec.mc("raw_gold_block"));
-		b.set(1, FR + 2, 1, BlockSpec.mc("raw_gold_block"));
-		b.set(3, FR, 2, BlockSpec.mc("raw_gold_block"));
-		b.chest(CasinoLoot.Table.PIGLIN_PARLOR, 5, FR, 2, Facing.SOUTH);
-		b.set(4, 6, 2, hanging("lantern"));
-		b.set(4, FR, 1, BlockSpec.mc("gold_block"));
-
-		// crimson bar x 24..30: counter on z 4, barrel shelf on the back wall, warped stools on z 5
-		Material counter = p.get(Role.COUNTER);
-		for (int x = 24; x <= 30; x++) {
-			b.set(x, FR, 4, counter.slab("double"));
-			b.set(x, FR, 1, facing("minecraft:barrel", Facing.SOUTH));
-			b.set(x, FR + 1, 1, x % 2 == 0 ? facing("minecraft:barrel", Facing.SOUTH) : p.block(Role.LIGHT));
-			b.set(x, FR + 2, 1, counter.slab("bottom"));
-		}
-		b.set(23, FR, 4, counter.stairs(Facing.EAST, false));
-		b.set(25, FR + 1, 4, BlockSpec.mc("brewing_stand", "has_bottle_0", "true", "has_bottle_1", "false", "has_bottle_2", "true"));
-		b.set(27, FR + 1, 4, candles("minecraft:red_candle", 3));
-		b.set(29, FR + 1, 4, BlockSpec.mc("brewing_stand", "has_bottle_0", "true", "has_bottle_1", "true", "has_bottle_2", "false"));
-		b.set(30, FR + 1, 4, Role.PLANTER);
-		for (int x = 25; x <= 29; x += 2) {
-			b.set(x, FR, 5, p.get(Role.STOOL).slab("bottom"));
-		}
-		// back lobby: piglin statues on gold plinths beside the back door, banners
-		for (int x : new int[] {CX - 3, CX + 3}) {
-			b.set(x, FR, 1, Role.FRAME);
-			b.set(x, FR + 1, 1, Role.TRIM);
-			b.set(x, FR + 2, 1, BlockSpec.mc("piglin_head", "rotation", "0", "powered", "false"));
-		}
-		for (int x : new int[] {CX - 5, CX + 5}) {
-			b.set(x, 7, 1, wallBanner("red", Facing.SOUTH));
-		}
-	}
-
-	// ---- foyer: moneylender's office (left), cashier booth (right) ---------------------------------
-
-	private static void foyer(Blueprint b, Palette p) {
-		Material counter = p.get(Role.COUNTER);
-		// cashier booth x 26..31, z 24..29 (wall on z 23), teller behind the window
-		b.fill(26, FR, 23, 31, 6, 23, Role.WALL);
-		b.set(26, FR, 23, Role.FRAME);
-		b.fill(26, 7, 23, 31, 7, 29, Role.ACCENT);
-		for (int z = 24; z <= 29; z++) {
-			if (z == 26) {
+		// front lobby: Wheel and Plinko in the tower bays, four gold slots flanking the door
+		b.game(Game.WHEEL, 4, FR, 16, Facing.NORTH);
+		b.game(Game.PLINKO, SX - 5, FR, 16, Facing.NORTH);
+		Kits.slotBank(Game.SLOTS_GOLD, 2).apply(b, 9, FR, 16, Facing.NORTH);
+		Kits.slotBank(Game.SLOTS_GOLD, 2).apply(b, 18, FR, 16, Facing.NORTH);
+		// a lantern chandelier over every table, hanging from the roof (felt lit ≥ 12)
+		for (var s : b.games()) {
+			if (s.game().tableGame() == null) {
 				continue;
 			}
-			b.set(26, FR, z, counter.slab("double"));
-			b.set(26, FR + 1, z, bars(false));
-			b.set(26, FR + 2, z, bars(false));
-		}
-		b.fill(26, 6, 24, 26, 6, 29, Role.TRIM);
-		b.game(Game.NETHER_CASHIER, 26, FR, 26, Facing.WEST);
-		b.keepClear(25, FR, 26, 25, FR + 1, 26);
-		b.set(26, FR + 2, 26, hanging("lantern"));
-		b.npc(NpcRole.PIGLIN_DEALER, 27, FR, 26, Facing.WEST);
-		for (int z = 24; z <= 29; z++) {
-			b.set(31, FR, z, z % 2 == 0 ? p.block(Role.TRIM) : BlockSpec.mc("barrel", "facing", "west", "open", "false"));
-		}
-		b.set(29, 7, 26, Role.LIGHT);
-
-		// moneylender's office x 1..6, z 24..29: crimson desk on x 6, the Moneylender behind it
-		b.fill(1, FR, 23, 6, 6, 23, Role.WALL);
-		b.set(6, FR, 23, Role.FRAME);
-		b.fill(1, 7, 23, 6, 7, 29, Role.ACCENT);
-		b.fill(6, 6, 24, 6, 6, 29, Role.TRIM);
-		for (int z = 24; z <= 29; z++) {
-			b.set(6, FR, z, z == 26 ? counter.stairs(Facing.WEST, false) : counter.slab("double"));
-		}
-		b.set(6, FR + 1, 24, standing("lantern"));
-		b.set(6, FR + 1, 28, candles("minecraft:yellow_candle", 4));
-		b.set(6, FR + 1, 25, BlockSpec.mc("gold_block"));
-		b.npc(NpcRole.PIGLIN_MONEYLENDER, 4, FR, 26, Facing.EAST);
-		for (int z = 24; z <= 29; z++) {
-			b.set(1, FR, z, z % 2 == 0 ? p.block(Role.TRIM) : BlockSpec.mc("chiseled_bookshelf", "facing", "east"));
-			b.set(1, FR + 1, z, z % 2 == 0 ? BlockSpec.mc("barrel", "facing", "east", "open", "false") : p.block(Role.TRIM));
-		}
-		b.set(3, 7, 26, Role.LIGHT);
-	}
-
-	// ---- decor and lights --------------------------------------------------------------------------
-
-	private static void decor(Blueprint b, Palette p) {
-		// four columns at the pit corners carry the raised oculus: gold base + capital, crimson core
-		for (int[] c : new int[][] {{12, 11}, {20, 11}, {12, 19}, {20, 19}}) {
-			b.set(c[0], FR, c[1], Role.TRIM);
-			b.fill(c[0], FR + 1, c[1], c[0], 10, c[1], log("minecraft:crimson_stem", "y"));
-			b.set(c[0], 7, c[1], Role.ACCENT);
-			b.set(c[0], 11, c[1], Role.TRIM);
-		}
-		// planters with crimson / warped fungi at the floor corners
-		for (int[] c : new int[][] {{2, 8}, {30, 8}, {2, 22}, {30, 22}}) {
-			b.set(c[0], FR, c[1], Role.PLANTER);
-		}
-		b.set(12, FR, 8, BlockSpec.mc("potted_warped_fungus"));
-		b.set(20, FR, 8, BlockSpec.mc("potted_warped_fungus"));
-		b.set(12, FR, 22, BlockSpec.mc("potted_warped_fungus"));
-		b.set(20, FR, 22, BlockSpec.mc("potted_warped_fungus"));
-		// side-wall banners between pilasters
-		for (int z : new int[] {4, 8, 20, 24}) {
-			b.set(1, 7, z, wallBanner(z % 4 == 0 ? "black" : "red", Facing.EAST));
-			b.set(SX - 2, 7, z, wallBanner(z % 4 == 0 ? "black" : "red", Facing.WEST));
-		}
-	}
-
-	private static void lights(Blueprint b, Palette p) {
-		// chandelier over the lava pit: gold cross + shroomlight heart on a chain, four lanterns below
-		pendant(b, CX, 8, 15, p.block(Role.LIGHT));
-		for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
-			b.set(CX + d[0], 8, 15 + d[1], Role.TRIM);
-			b.set(CX + d[0], 7, 15 + d[1], hanging("lantern"));
-		}
-		// shroomlight coffers in every vault level
-		for (int x = 6; x <= 26; x += 4) {
-			for (int z : new int[] {6, 24}) {
-				b.set(x, 11, z, Role.LIGHT);
+			int x = s.pos().x(), z = s.pos().z();
+			int top = 13;
+			while (top < SY - 1 && (b.at(x, top + 1, z) == null || b.at(x, top + 1, z).is("minecraft:air"))) {
+				top++;
+			}
+			for (int y = FR + 5; y <= top; y++) {
+				b.set(x, y, z, chain());
+			}
+			b.set(x, FR + 4, z, lantern("lantern", true));
+			for (Facing f : Facing.values()) {
+				b.set(x + f.dx(), FR + 5, z + f.dz(), BlockSpec.mc("crimson_trapdoor", "facing", f.id(), "half", "top", "open",
+					"true", "powered", "false", "waterlogged", "false"));
 			}
 		}
-		for (int z = 10; z <= 20; z += 4) {
-			b.set(6, 11, z, Role.LIGHT);
-			b.set(26, 11, z, Role.LIGHT);
-		}
-		for (int x = 11; x <= 21; x += 5) {
-			for (int z = 11; z <= 19; z += 4) {
-				if (!(x == CX && z == 15)) {
-					b.set(x, 12, z, Role.LIGHT);
+	}
+
+	// ---- interior -------------------------------------------------------------------------------------------------
+
+	static void interior(Blueprint b, Palette p) {
+		// one deep red field over the hall with a gilt border; the dealer cells stay bare floor
+		for (int x = 5; x <= 21; x++) {
+			for (int z = 5; z <= 13; z++) {
+				BlockSpec at = b.at(x, FR, z);
+				if (at != null && !at.is("minecraft:air") || dealerCell(b, x, z)) {
+					continue;
+				}
+				boolean border = x == 6 || x == 20 || z == 13;
+				if (x >= 6 && x <= 20) {
+					b.set(x, FR, z, border ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
 				}
 			}
 		}
-		for (int x = 2; x <= 30; x += 4) {
-			b.set(x, 10, 2, Role.LIGHT);
-			b.set(x, 10, FZ - 2, Role.LIGHT);
+		// lobby runner from the door, flanked by sealed lava channels under glass
+		for (int z = 13; z <= FZ; z++) {
+			for (int x = CX - 1; x <= CX + 1; x++) {
+				b.set(x, FR, z, x == CX ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
+			}
 		}
-		for (int z = 6; z <= 22; z += 4) {
-			b.set(2, 10, z, Role.LIGHT);
-			b.set(SX - 3, 10, z, Role.LIGHT);
+		for (int x : new int[] {CX - 3, CX + 3}) {
+			for (int z = 14; z <= 16; z++) {
+				b.set(x, FLOOR - 1, z, BlockSpec.mc("lava", "level", "0"));
+				b.set(x, FLOOR, z, BlockSpec.mc("orange_stained_glass"));
+			}
 		}
-		// soul lanterns over the aisles
-		for (int[] c : new int[][] {{CX, 4}, {CX, 26}, {4, 12}, {28, 12}, {4, 18}, {28, 18}}) {
-			pendant(b, c[0], 7, c[1], hanging("soul_lantern"));
+		// the Moneylender's barred vault (back-left tower bay): barrels, the loot chest, copper "ingots"
+		Material gilt = p.get(Role.GILT);
+		b.npc(NpcRole.PIGLIN_MONEYLENDER, 6, FR, 3, Facing.EAST);
+		b.chest(CasinoLoot.Table.PIGLIN_PARLOR, 2, FR, 2, Facing.EAST);
+		b.set(2, FR, 3, BlockSpec.mc("barrel", "facing", "up", "open", "false"));
+		b.set(2, FR + 1, 3, gilt.slab("bottom"));
+		b.set(3, FR, 2, BlockSpec.mc("barrel", "facing", "up", "open", "false"));
+		b.set(3, FR + 1, 2, gilt.slab("bottom"));
+		b.set(2, FR, 4, BlockSpec.mc("barrel", "facing", "east", "open", "false"));
+		for (int z = 2; z <= 4; z++) {
+			b.set(4, FR + 1, z, BlockSpec.mc("iron_bars"));
+		}
+		b.set(4, FR, 2, counter(p));
+		b.set(4, FR, 4, counter(p));
+		b.set(4, FR, 3, p.get(Role.COUNTER).slab("top")); // the lending desk
+		b.set(4, FR + 1, 3, BlockSpec.mc("candle", "candles", "2", "lit", "true", "waterlogged", "false"));
+		// a crimson bar in the back-right tower bay
+		for (int z = 2; z <= 4; z++) {
+			b.set(SX - 5, FR, z, p.get(Role.COUNTER).stairs(Facing.WEST, true));
+			b.set(SX - 3, FR, z, BlockSpec.mc("barrel", "facing", "west", "open", "false"));
+			b.set(SX - 3, FR + 1, z, z == 3 ? p.block(Role.LIGHT) : BlockSpec.mc("brewing_stand", "has_bottle_0", "true",
+				"has_bottle_1", "true", "has_bottle_2", "false"));
+		}
+		b.set(SX - 5, FR + 1, 3, BlockSpec.mc("candle", "candles", "3", "lit", "true", "waterlogged", "false"));
+		// planters (crimson fungus) by the slot banks
+		for (int x : new int[] {6, SX - 7}) {
+			Kits.pottedPlant().apply(b, x, FR, 16, Facing.NORTH);
+		}
+	}
+
+	static BlockSpec counter(Palette p) {
+		return p.get(Role.COUNTER).slab("double");
+	}
+
+	private static boolean dealerCell(Blueprint b, int x, int z) {
+		for (var s : b.games()) {
+			int[] d = TableClearance.dealer(s);
+			if (d != null && d[0] == x && d[1] == z) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ---- exterior: entrance stair, lava falls, tower braziers, lights -----------------------------------------------
+
+	static void exterior(Blueprint b, Palette p) {
+		Material wall = p.get(Role.WALL);
+		// entrance stair from the forecourt
+		for (int x = CX - 1; x <= CX + 1; x++) {
+			b.set(x, FLOOR, FZ + 1, wall.stairs(Facing.NORTH, false));
+		}
+		b.mirrorX(AX2, m -> {
+			// a glass-cased lava fall either side of the gate (sealed: glass, the wall behind, a cap and a sill)
+			int fx = CX - 4;
+			for (int y = FLOOR; y <= 10; y++) {
+				boolean end = y == FLOOR || y == 10;
+				m.set(fx, y, FZ + 1, end ? p.block(Role.CAPITAL) : BlockSpec.mc("lava", "level", "0"));
+				m.set(fx - 1, y, FZ + 1, end ? p.block(Role.CAPITAL) : BlockSpec.mc("orange_stained_glass"));
+				m.set(fx + 1, y, FZ + 1, end ? p.block(Role.CAPITAL) : BlockSpec.mc("orange_stained_glass"));
+				m.set(fx, y, FZ + 2, end ? p.block(Role.CAPITAL) : BlockSpec.mc("orange_stained_glass"));
+				m.set(fx, y, FZ, end ? m.at(fx, y, FZ) : p.block(Role.WALL));
+			}
+			m.set(fx, 11, FZ + 1, BlockSpec.mc("soul_campfire", "facing", "south", "lit", "true", "signal_fire", "false", "waterlogged",
+				"false"));
+			// soul-fire braziers on both towers of this side
+			for (int z : new int[] {3, 15}) {
+				m.fill(2, 15, z - 1, 4, 15, z + 1, Role.FOUNDATION);
+				m.set(3, 16, z, BlockSpec.mc("soul_campfire", "facing", "south", "lit", "true", "signal_fire", "false", "waterlogged",
+					"false"));
+			}
+			// soul lanterns hanging along the veranda and at the tower feet
+			for (int z : new int[] {6, 12}) {
+				m.set(2, 7, z, lantern("soul_lantern", true));
+			}
+			m.set(2, FLOOR, 9, p.block(Role.UPLIGHT));
+		});
+	}
+
+	// ---- the gate: obelisks with soul fires carrying the CASINO board ------------------------------------------------
+
+	static void gate(Blueprint b, Palette p) {
+		SignFont.Plan plan = SignFont.SMALL.line("CASINO");
+		var box = Ornament.neon(b, plan, Facing.SOUTH, CX, SIGN_Y, GATE_Z, (SX - 2 - plan.width()) / 2, false);
+		for (int x = box.alongFrom(); x <= box.alongTo(); x++) {
+			for (int y = box.y0(); y <= box.y1(); y++) {
+				b.set(x, y, GATE_Z - 1, Role.WALL); // the board's back
+			}
+			b.set(x, box.y1() + 1, GATE_Z, p.get(Role.WALL).slab("bottom"));
+			b.set(x, box.y1() + 1, GATE_Z - 1, p.get(Role.WALL).slab("bottom"));
+			b.set(x, box.y0() - 1, GATE_Z, p.get(Role.WALL).stairs(Facing.NORTH, true)); // a moulded soffit
+		}
+		b.mirrorX(AX2, m -> {
+			int x = 0;
+			m.set(x, FLOOR, GATE_Z, Role.CAPITAL);
+			m.set(x, FLOOR, GATE_Z - 1, Role.CAPITAL);
+			for (int y = FLOOR + 1; y <= box.y1() + 1; y++) {
+				m.set(x, y, GATE_Z, Ornament.upright(m, Role.COLUMN));
+				m.set(x, y, GATE_Z - 1, Ornament.upright(m, Role.COLUMN));
+			}
+			m.set(x, box.y1() + 2, GATE_Z, Role.CAPITAL);
+			m.set(x, box.y1() + 2, GATE_Z - 1, Role.CAPITAL);
+			m.set(x, box.y1() + 3, GATE_Z, BlockSpec.mc("soul_campfire", "facing", "south", "lit", "true", "signal_fire", "false",
+				"waterlogged", "false"));
+			// lamp bollards along the runner
+			for (int z : new int[] {20, 23}) {
+				m.set(9, FLOOR, z, p.block(Role.BALUSTER));
+				m.set(9, FLOOR + 1, z, lantern("soul_lantern", false));
+			}
+			// a glowing crimson fungus "tree" in a blackstone planter on each side of the forecourt
+			int tx = 4, tz = 21;
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					m.set(tx + dx, FLOOR, tz + dz, dx == 0 && dz == 0 ? BlockSpec.mc("crimson_nylium")
+						: p.get(Role.WALL).slab("bottom"));
+				}
+			}
+			for (int y = FLOOR + 1; y <= FLOOR + 3; y++) {
+				m.set(tx, y, tz, BlockSpec.mc("crimson_stem", "axis", "y"));
+			}
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					m.set(tx + dx, FLOOR + 4, tz + dz, dx == 0 && dz == 0 ? BlockSpec.mc("shroomlight") : BlockSpec.mc("nether_wart_block"));
+				}
+			}
+			m.set(tx, FLOOR + 5, tz, BlockSpec.mc("nether_wart_block"));
+			m.set(tx - 1, FLOOR + 3, tz, BlockSpec.mc("weeping_vines_plant"));
+			m.set(tx + 1, FLOOR + 3, tz + 1, BlockSpec.mc("weeping_vines", "age", "20"));
+		});
+		// paving: a checker of polished blackstone and bricks, a red runner with gilt edges from the gate to the stair
+		Ornament.checker(b, 1, FZ + 1, SX - 2, SZ - 1, 2, p.block(Role.FLOOR), p.block(Role.PATH));
+		for (int z = FZ + 2; z <= SZ - 1; z++) {
+			for (int x = CX - 2; x <= CX + 2; x++) {
+				b.set(x, FLOOR, z, Math.abs(x - CX) == 2 ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
+			}
+		}
+	}
+
+	// ---- the back door ----------------------------------------------------------------------------------------------
+
+	/**
+	 * A 2-wide, 3-high back door through the back wall (z 1) into the back wing, between basalt jambs under a lintel,
+	 * with a blackstone step outside (z 0) and soul lanterns hanging from a slab hood. The wing behind it stays clear.
+	 */
+	static void backDoor(Blueprint b, Palette p) {
+		int x0 = BACK_X, x1 = BACK_X + 1;
+		for (int z = 0; z <= 1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				b.set(x, FLOOR, z, z == 0 ? p.block(Role.PATH) : p.block(Role.FLOOR));
+				b.fill(x, 0, z, x, FLOOR - 1, z, Role.FOUNDATION);
+				for (int y = FR; y <= FR + 2; y++) {
+					b.set(x, y, z, Blueprint.AIR);
+				}
+			}
+		}
+		for (int y = FR; y <= FR + 2; y++) {
+			b.set(x0 - 1, y, 1, Ornament.upright(b, Role.COLUMN));
+			b.set(x1 + 1, y, 1, Ornament.upright(b, Role.COLUMN));
+		}
+		for (int x = x0 - 1; x <= x1 + 1; x++) {
+			b.set(x, FR + 3, 1, Role.CAPITAL);
+			b.set(x, FR + 3, 0, p.get(Role.WALL).slab("top"));
+			b.set(x, FLOOR, 0, x == x0 - 1 || x == x1 + 1 ? p.block(Role.FOUNDATION) : p.block(Role.PATH));
+		}
+		b.set(x0 - 1, FR + 2, 0, lantern("soul_lantern", true));
+		b.set(x1 + 1, FR + 2, 0, lantern("soul_lantern", true));
+		// the wing floor behind the door stays clear for two cells
+		for (int z = 2; z <= 3; z++) {
+			for (int x = x0; x <= x1; x++) {
+				for (int y = FR; y <= FR + 1; y++) {
+					b.set(x, y, z, Blueprint.AIR);
+				}
+			}
 		}
 	}
 }

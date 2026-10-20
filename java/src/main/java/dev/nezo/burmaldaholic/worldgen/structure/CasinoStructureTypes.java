@@ -17,6 +17,16 @@ public final class CasinoStructureTypes {
 		BuiltInRegistries.STRUCTURE_PIECE, Burmaldaholic.id("casino_ground"),
 		(net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType) CasinoGroundPiece::new);
 
+	/** Walk tunnels of the Piglin Parlor (lane WG, {@link CasinoTunnelPiece}); saved with the bastion start. */
+	public static final net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType TUNNEL = Registry.register(
+		BuiltInRegistries.STRUCTURE_PIECE, Burmaldaholic.id("casino_tunnel"),
+		(net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType) CasinoTunnelPiece::new);
+
+	/** Lava guard of the Piglin Parlor (lane WG, {@link CasinoLavaGuardPiece}); the last piece of the bastion start. */
+	public static final net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType LAVA_GUARD = Registry.register(
+		BuiltInRegistries.STRUCTURE_PIECE, Burmaldaholic.id("casino_lava_guard"),
+		(net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType) CasinoLavaGuardPiece::new);
+
 	/** Called once from {@code WorldgenModule.register} (mod init, before registries freeze). */
 	public static void init() {
 		// class loading registers the type

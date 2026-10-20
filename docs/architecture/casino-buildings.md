@@ -331,13 +331,22 @@ taiga→alpine, snowy→ice_palace).
 
 ### 4.3 Piglin Parlor v2 (CB-4)
 
-Single template `casino/parlor`, **33×16×33**, placed by `CasinoStructures.appendParlor` (unchanged logic;
-CB-1 swaps the layout). Rows 13..15 stay structure void (Nether rock above is kept). The survey must show fit
+Single template `casino/parlor`, placed by `CasinoStructures.appendParlor`. *R3 (lane WG, owner playtest W1):* the
+site comes from `logic/site/NetherSite` on the noise terrain (`structure/DensityField`, corner-interpolated final
+density): 4 sides × 7 floor heights × 3 shifts; floor ≥ the lava sea (y 32), ≥ 60 % solid ground, a front
+`CasinoTunnelPiece` (3 × 4, stairs, fluids sealed with blackstone / glass) to ≥ 3-high open air from which the model
+walks ≥ 8 blocks out, and a back tunnel from `BACK_ENTRY` into a bastion room (template air) or the air beside it.
+No front route = no Parlor. Non-noise generators keep the v0.1 placement. Rows 13..15 stay structure void (Nether rock above is kept). The survey must show fit
 ≥ 90 % of bastions (v0.1: 30/30 at 21×21).
 
 ### 4.4 High Roller Lounge v2 (CB-4)
 
-Single template `casino/lounge`, **25×14×25**, on the highest End City tower top (unchanged logic). Cantilevered
+Single template `casino/lounge`. *R3 (lane WG, owner playtest W2):* no longer on a tower top. `logic/site/EndSite`
+puts it on the island surface beside the city: the whole template box ≥ 24 blocks (XZ, full height) from every city
+piece, door facing the city, plate row on the highest of the plate samples with ≤ 4 blocks of spread (the piece's own
+skirt), ground at the stair foot between one below it and the plate; the closest fitting site wins. A
+`CasinoGroundPiece` SKIRT continues the skirt to the ground where the probe was off. Non-noise generators keep the v0.1
+tower-top placement. Cantilevered
 penthouse: the floor overhangs the tower top, purpur struts under the overhang. Fit ≥ 90 % (v0.1: 117/117 at
 15×15); if not, shrink to 23×23.
 

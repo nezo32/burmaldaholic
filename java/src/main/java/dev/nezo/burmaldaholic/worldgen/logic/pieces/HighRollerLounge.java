@@ -1,52 +1,76 @@
 package dev.nezo.burmaldaholic.worldgen.logic.pieces;
 
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.bars;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.candles;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.endRod;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.endRodDown;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.endRodUp;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.facing;
-import static dev.nezo.burmaldaholic.worldgen.logic.pieces.OtherworldPieces.pendant;
-
 import dev.nezo.burmaldaholic.worldgen.logic.BlockSpec;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoLoot;
 import dev.nezo.burmaldaholic.worldgen.logic.Facing;
 import dev.nezo.burmaldaholic.worldgen.logic.NpcRole;
+import dev.nezo.burmaldaholic.worldgen.logic.Vec;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Blueprint;
-import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Facades;
-import dev.nezo.burmaldaholic.worldgen.logic.blueprint.SignFont;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Kits;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Material;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Ornament;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Palette;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Piece;
 import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.SignFont;
 
 /**
- * High Roller Lounge v2 "Void Penthouse" — 25 × 14 × 25 (architecture doc §4.4 / §7.4), placed centred on
- * the highest End City tower top by {@code CasinoStructures.appendLounge}, entrance towards a random side.
+ * High Roller Lounge "Void Penthouse" (casino redesign CR-2, findings/CASINO-REDESIGN.md §4.3): a glass-curtain
+ * pavilion standing on the End island surface beside an End City (placement: package WG), crowned like the Chrysler
+ * Building. Envelope {@value #SX} × {@value #SY} × {@value #SZ}, axis x = {@value #CX}, front = +z.
  *
- * <p>Rows: 0..2 the purpur "goblet" stem that seats the floor plate on the tower roof (stepped corbels, the
- * plate overhangs the tower), 3 floor plate, 4 floor row, hall walls 4..10 (starry black-glass curtain walls
- * between purpur pillars), 11 roof with a starry skylight, 12..13 crying-obsidian crown with end rods. The
- * front (+z) is a 3-deep terrace with an end-rod railing under a magenta "CASINO" marquee.
+ * <p>Rows: 0..{@value #SKIRT_TOP} the skirt — a solid purpur plinth under the whole plate (x 0..{@value #SX}-1,
+ * z 0..{@value #PZ}) that fills the ground down to {@value #SKIRT} rows below the plate, so terrain with up to
+ * {@value #SKIRT} blocks of spread under the footprint never leaves a gap; {@value #FLOOR} the floor plate, floor row
+ * {@value #FR}, hall ceiling {@value #CEIL} (seven free rows), the roof deck above it. In front of the terrace
+ * (z {@value #PZ}+1..{@value #SZ}-1) a 3-wide flight of {@value #SKIRT} steps runs down to the lowest ground the skirt
+ * allows; the cells above the steps are structure void, so where the ground is higher the steps simply sink into it.
+ * On the deck: the neon "CASINO" attic over the front, and behind it the crown — a glazed shaft and five receding
+ * scalloped tiers, each face an arch outlined in glowing froglight over magenta sunburst windows, topped by an end-rod
+ * needle.
  *
- * <p>Every game family (§3.5): cashier (+ Shulker Croupier), High-Roller blackjack / roulette / baccarat
- * (+ Baccarat Dealer) / UTH, craps, poker, netherite slots ×2, wheel, plinko; plus a shulker-box bar, an
- * amethyst fountain under the skylight and purpur sofas.
+ * <p>Hall (x 1..23, z 1..19): the bar on the back wall; two rows of three full multi-block tables (high-roller
+ * blackjack / roulette / baccarat; high-roller UTH, craps, poker), every dealer cell two blocks of air (house dealers:
+ * package DL); the cashier booth with the Shulker Croupier on the west wall; Plinko, the Wheel of Fortune and four
+ * netherite slots along the front wall either side of the door. Terrace (z 21..{@value #PZ}): two lit amethyst
+ * fountains, a balustrade, the stair on the axis.
+ *
+ * <p>Site contract for placement (template coordinates, before rotation; front = +z): put row {@link #FLOOR} on the
+ * HIGHEST ground block under the plate footprint (x 0..{@value #SX}-1, z 0..{@value #PZ}); the ground under it may be
+ * up to {@value #SKIRT} rows lower. Everything over the plate from row {@link #FR} up is carved to air. Walk-in cells:
+ * {@link #DOOR} (the hall door), {@link #TERRACE_EDGE} (top of the stair) and {@link #STAIR_FOOT} (the lowest step,
+ * standing row 1).
  */
 public final class HighRollerLounge {
 	public static final String ID = "casino/lounge";
 	public static final int SX = 25;
-	public static final int SY = 14;
-	public static final int SZ = 25;
-	static final int FLOOR = 3;
-	static final int FR = 4;
-	static final int CEIL = 11;
-	/** Front wall of the hall; the terrace is z 21..24. */
+	/** Rows of skirt under the plate (the terrain spread the base tolerates). */
+	public static final int SKIRT = 4;
+	static final int SKIRT_TOP = SKIRT - 1;
+	/** Floor plate row: goes on the highest ground block of the footprint. */
+	public static final int FLOOR = SKIRT;
+	/** Floor row (first air row over the plate). */
+	public static final int FR = FLOOR + 1;
+	static final int CEIL = FR + 7;
+	public static final int SY = CEIL + 31;
+	/** Last z row of the plate (terrace edge); the stair is z PZ+1..SZ-1. */
+	public static final int PZ = 24;
+	public static final int SZ = PZ + 1 + SKIRT;
+	/** Front wall of the hall; the terrace is z 21..PZ. */
 	static final int FZ = 20;
-	static final int CX = 12;
+	public static final int CX = 12;
+	static final int AX2 = 2 * CX;
+	/** Crown tower centre (z) and the shaft's half width. */
+	static final int TZ = 9;
+	static final int SHAFT = 6;
+	/** Standing cell in the hall door. */
+	public static final Vec DOOR = new Vec(CX, FR, FZ);
+	/** Standing cell on the terrace at the top of the stair. */
+	public static final Vec TERRACE_EDGE = new Vec(CX, FR, PZ);
+	/** Standing cell on the lowest step (row 0 holds the step). */
+	public static final Vec STAIR_FOOT = new Vec(CX, 1, SZ - 1);
 
 	private HighRollerLounge() {}
 
@@ -55,304 +79,386 @@ public final class HighRollerLounge {
 	}
 
 	static Piece build(Palette p) {
-		Blueprint b = Blueprint.of(ID, CasinoKind.HIGH_ROLLER, SX, SY, SZ, p);
-		stem(b, p);
+		Blueprint b = Blueprint.of(ID, CasinoKind.HIGH_ROLLER, SX, SY, SZ, p).compactTables(false);
+		skirt(b, p);
 		hall(b, p);
-		roof(b, p);
 		terrace(b, p);
-		games(b, p);
+		stair(b, p);
+		games(b);
 		interior(b, p);
-		b.anchor(CX, 7, 16);
+		b.uplightGames();
+		roof(b, p);
+		sign(b, p);
+		crown(b, p);
+		b.interior(1, FR, 1, SX - 2, CEIL - 1, FZ - 1);
+		b.entry(TERRACE_EDGE.x(), TERRACE_EDGE.y(), TERRACE_EDGE.z());
+		b.anchor(CX, FR + 4, 16);
 		return b.build();
 	}
 
-	// ---- structure ---------------------------------------------------------------------------------
+	static final BlockSpec ROD_UP = BlockSpec.mc("end_rod", "facing", "up");
 
-	/** Inverted stepped pyramid of purpur under the plate: 9×9 on the tower roof, 13×13, 17×17, plate 25×25. */
-	private static void stem(Blueprint b, Palette p) {
-		Material f = p.get(Role.FOUNDATION);
-		b.fill(8, 0, 8, 16, 2, 16, Role.FOUNDATION);
-		for (int[] c : new int[][] {{8, 8}, {16, 8}, {8, 16}, {16, 16}}) {
-			b.fill(c[0], 0, c[1], c[0], 2, c[1], Role.FRAME);
-		}
-		ring(b, 6, 1, 6, 18, 18, f, true);
-		ring(b, 4, 2, 4, 20, 20, f, true);
-		b.fill(5, 2, 5, 19, 2, 19, Role.FOUNDATION);
-		b.fill(7, 1, 7, 17, 1, 17, Role.FOUNDATION);
-		// thin under-rim of the overhang and hanging end rods at the plate corners and mid sides
-		for (int x = 0; x < SX; x++) {
-			b.set(x, 2, 0, f.slab("top"));
-			b.set(x, 2, SZ - 1, f.slab("top"));
-		}
-		for (int z = 1; z < SZ - 1; z++) {
-			b.set(0, 2, z, f.slab("top"));
-			b.set(SX - 1, 2, z, f.slab("top"));
-		}
-		for (int[] c : new int[][] {{0, 0}, {24, 0}, {0, 24}, {24, 24}, {12, 0}, {0, 12}, {24, 12}, {12, 24}}) {
-			b.set(c[0], 2, c[1], endRodDown());
-		}
-		// purpur ribs from the stem out to the rim along both axes
-		for (int i = 0; i < 4; i++) {
-			b.set(i, 2, CX, OtherworldPieces.log("minecraft:purpur_pillar", "x"));
-			b.set(SX - 1 - i, 2, CX, OtherworldPieces.log("minecraft:purpur_pillar", "x"));
-			b.set(CX, 2, i, OtherworldPieces.log("minecraft:purpur_pillar", "z"));
-			b.set(CX, 2, SZ - 1 - i, OtherworldPieces.log("minecraft:purpur_pillar", "z"));
-		}
-		b.fill(0, FLOOR, 0, SX - 1, FLOOR, SZ - 1, Role.FOUNDATION);
+	static BlockSpec lantern(Blueprint b, boolean hanging) {
+		return BlockSpec.of(b.palette().get(Role.LIGHT_HANGING).full(), "hanging", Boolean.toString(hanging), "waterlogged", "false");
 	}
 
-	/** Ring of upside-down stairs, high side outwards (corbels under an overhang). */
-	private static void ring(Blueprint b, int x0, int y, int z0, int x1, int z1, Material m, boolean top) {
-		for (int x = x0; x <= x1; x++) {
-			b.set(x, y, z0, m.stairs(Facing.NORTH, top));
-			b.set(x, y, z1, m.stairs(Facing.SOUTH, top));
+	// ---- skirt and plate --------------------------------------------------------------------------------------------
+
+	/**
+	 * The ground-standing base: a solid plinth {@value #SKIRT} rows deep under the whole plate (no air anywhere under
+	 * the floor), dressed where it shows above low ground — end-stone-brick courses between purpur pilasters every
+	 * six cells and a purpur band under the plate's edge.
+	 */
+	private static void skirt(Blueprint b, Palette p) {
+		b.fill(0, 0, 0, SX - 1, SKIRT_TOP, PZ, Role.FOUNDATION);
+		for (int y = 0; y <= SKIRT_TOP; y++) {
+			for (int t = 0; t < SX; t++) {
+				face(b, p, t, y, 0, t);
+				face(b, p, t, y, PZ, t);
+			}
+			for (int t = 0; t <= PZ; t++) {
+				face(b, p, 0, y, t, t);
+				face(b, p, SX - 1, y, t, t);
+			}
 		}
-		for (int z = z0 + 1; z < z1; z++) {
-			b.set(x0, y, z, m.stairs(Facing.WEST, top));
-			b.set(x1, y, z, m.stairs(Facing.EAST, top));
+		b.fill(0, FLOOR, 0, SX - 1, FLOOR, PZ, Role.FOUNDATION);
+		b.fill(1, FLOOR, 1, SX - 2, FLOOR, FZ - 1, Role.FLOOR);
+	}
+
+	/** One outer cell of the skirt, {@code t} along its face. */
+	private static void face(Blueprint b, Palette p, int x, int y, int z, int t) {
+		boolean corner = (x == 0 || x == SX - 1) && (z == 0 || z == PZ);
+		if (corner || Math.floorMod(t, 6) == 0) {
+			b.set(x, y, z, Ornament.upright(b, Role.COLUMN));
+		} else if (y == SKIRT_TOP) {
+			b.set(x, y, z, Role.WALL_BASE);
+		} else {
+			b.set(x, y, z, Role.COFFER);
 		}
+	}
+
+	/**
+	 * The front stair: {@value #SKIRT} steps of end-stone-brick stairs (3 wide on the axis) from the terrace down to
+	 * standing row 1, solid underneath, between purpur cheek walls that step down with it. Cells above the steps are
+	 * left as structure void: on low ground the flight stands free, on higher ground its lower steps sink into it.
+	 */
+	private static void stair(Blueprint b, Palette p) {
+		Material path = p.get(Role.PATH);
+		for (int i = 0; i < SKIRT; i++) {
+			int z = PZ + 1 + i, top = SKIRT_TOP - i;
+			for (int x = CX - 1; x <= CX + 1; x++) {
+				for (int y = 0; y < top; y++) {
+					b.set(x, y, z, Role.FOUNDATION);
+				}
+				b.set(x, top, z, path.stairs(Facing.NORTH, false));
+			}
+			for (int x : new int[] {CX - 2, CX + 2}) {
+				for (int y = 0; y <= top; y++) {
+					b.set(x, y, z, Ornament.upright(b, Role.COLUMN));
+				}
+				b.set(x, top + 1, z, path.slab("bottom"));
+			}
+		}
+	}
+
+	// ---- hall: glass curtain walls ----------------------------------------------------------------------------------
+
+	/** One curtain-wall cell of row {@code y}, {@code t} along the wall: a pillar every 6, an end-rod mullion every 3. */
+	private static BlockSpec curtain(Blueprint b, int t, int y) {
+		if (Math.floorMod(t, 6) == 0) {
+			return Ornament.upright(b, Role.FRAME);
+		}
+		if (y == FR) {
+			return b.palette().block(Role.WALL_BASE);
+		}
+		return Math.floorMod(t, 3) == 0 ? ROD_UP : b.palette().block(Role.GLASS);
 	}
 
 	private static void hall(Blueprint b, Palette p) {
-		b.room(0, FLOOR, 0, SX - 1, CEIL, FZ).frame(4).door(Facing.SOUTH, CX, 3, 3);
-		// starry curtain walls between the pillars: black glass with white / magenta "stars"
-		for (int y = FR + 1; y <= 9; y++) {
-			for (int x = 1; x < SX - 1; x++) {
-				for (int z : new int[] {0, FZ}) {
-					curtain(b, x, y, z);
-				}
+		b.clear(0, FR, 0, SX - 1, SY - 1, PZ);
+		for (int y = FR; y < CEIL; y++) {
+			for (int x = 0; x < SX; x++) {
+				b.set(x, y, 0, curtain(b, x, y));
+				b.set(x, y, FZ, curtain(b, x, y));
 			}
-			for (int z = 1; z < FZ; z++) {
-				for (int x : new int[] {0, SX - 1}) {
-					curtain(b, x, y, z);
-				}
+			for (int z = 0; z <= FZ; z++) {
+				b.set(0, y, z, curtain(b, z, y));
+				b.set(SX - 1, y, z, curtain(b, z, y));
 			}
 		}
-		// TRIM band under the roof, end-rod sconces on the inside of every pillar
+		// door: a 3-wide opening under a purpur lintel, purpur jambs
+		b.clear(CX - 1, FR, FZ, CX + 1, FR + 2, FZ);
+		for (int y = FR; y <= FR + 2; y++) {
+			b.set(CX - 2, y, FZ, Ornament.upright(b, Role.COLUMN));
+			b.set(CX + 2, y, FZ, Ornament.upright(b, Role.COLUMN));
+		}
+		for (int x = CX - 2; x <= CX + 2; x++) {
+			b.set(x, FR + 3, FZ, Role.TRIM);
+		}
+		// the ceiling band, the roof plate with a cornice of stairs all round
+		Material roof = p.get(Role.ROOF);
 		for (int x = 0; x < SX; x++) {
-			b.set(x, 10, 0, Role.TRIM);
-			b.set(x, 10, FZ, Role.TRIM);
-		}
-		for (int z = 0; z <= FZ; z++) {
-			b.set(0, 10, z, Role.TRIM);
-			b.set(SX - 1, 10, z, Role.TRIM);
-		}
-		// solid purpur behind the cashier
-		b.fill(9, FR + 1, 0, 15, 9, 0, Role.WALL);
-		b.fill(CX - 1, FR + 2, 0, CX + 1, FR + 4, 0, Role.ACCENT);
-	}
-
-	private static void curtain(Blueprint b, int x, int y, int z) {
-		BlockSpec at = b.at(x, y, z);
-		if (at == null || !at.equals(b.palette().block(Role.WALL))) {
-			return; // pillars, openings
-		}
-		b.set(x, y, z, star(x, y, z, b.palette()));
-	}
-
-	private static void roof(Blueprint b, Palette p) {
-		// raised starry-glass pavilion over the fountain: the hall rises to row 12 there
-		b.clear(8, CEIL, 6, 16, CEIL + 1, 15);
-		for (int x = 7; x <= 17; x++) {
-			for (int z = 5; z <= 16; z++) {
-				boolean edge = x == 7 || x == 17 || z == 5 || z == 16;
-				if (edge) {
-					b.set(x, CEIL, z, Role.TRIM);
-					boolean post = (x - 7) % 5 == 0 && (z - 5) % 11 == 0 || (x == 7 || x == 17) && (z - 5) % 4 == 0
-						|| (z == 5 || z == 16) && (x - 7) % 5 == 0;
-					b.set(x, CEIL + 1, z, post ? p.block(Role.FRAME) : star(x, CEIL + 1, z, p));
-					b.set(x, CEIL + 2, z, p.get(Role.ROOF_TRIM).slab("bottom"));
-				} else {
-					b.set(x, CEIL + 2, z, star(x, CEIL + 2, z, p));
-				}
+			for (int z = 0; z <= FZ; z++) {
+				b.set(x, CEIL, z, Role.ROOF);
 			}
 		}
-		for (int[] c : new int[][] {{7, 5}, {17, 5}, {7, 16}, {17, 16}}) {
-			b.set(c[0], CEIL + 2, c[1], endRodUp());
-		}
-		// crying-obsidian crown along the roof edge, end rods on every other merlon, pillar spires at the corners
 		for (int x = 0; x < SX; x++) {
-			crown(b, x, 0);
-			crown(b, x, FZ);
+			b.set(x, CEIL, FZ + 1, roof.stairs(Facing.NORTH, true));
 		}
-		for (int z = 1; z < FZ; z++) {
-			crown(b, 0, z);
-			crown(b, SX - 1, z);
-		}
-		for (int[] c : new int[][] {{0, 0}, {SX - 1, 0}, {0, FZ}, {SX - 1, FZ}}) {
-			b.set(c[0], CEIL + 1, c[1], Role.FRAME);
-			b.set(c[0], CEIL + 2, c[1], endRodUp());
-		}
+		Ornament.coffers(b, 1, 1, SX - 2, FZ - 1, CEIL, 4, p.block(Role.LIGHT));
 	}
 
-	private static BlockSpec star(int x, int y, int z, Palette p) {
-		int h = Math.floorMod(x * 7 + y * 13 + z * 5, 17);
-		return h == 0 ? BlockSpec.mc("white_stained_glass") : h == 9 ? BlockSpec.mc("magenta_stained_glass") : p.block(Role.GLASS);
-	}
-
-	private static void crown(Blueprint b, int x, int z) {
-		boolean even = (x + z) % 2 == 0;
-		b.set(x, CEIL + 1, z, even ? BlockSpec.mc("crying_obsidian") : BlockSpec.mc("obsidian"));
-		if (even) {
-			b.set(x, CEIL + 2, z, endRodUp());
-		}
-	}
+	// ---- terrace --------------------------------------------------------------------------------------------------
 
 	private static void terrace(Blueprint b, Palette p) {
-		b.fill(1, FLOOR, FZ + 1, SX - 2, FLOOR, SZ - 2, Role.PATH);
-		b.fill(CX - 1, FLOOR, FZ + 1, CX + 1, FLOOR, SZ - 1, Role.FLOOR_ACCENT);
-		b.clear(0, FR, FZ + 1, SX - 1, 13, SZ - 1);
-		// railing: purpur posts every 3, horizontal end rods between them; open landing in the middle
 		for (int x = 0; x < SX; x++) {
-			if (Math.abs(x - CX) <= 1) {
+			for (int z = FZ + 1; z <= PZ; z++) {
+				b.set(x, FLOOR, z, Math.floorMod(x + z, 2) == 0 ? p.block(Role.PATH) : p.block(Role.FLOOR));
+			}
+		}
+		b.mirrorX(AX2, m -> {
+			Ornament.balustrade(m, 0, PZ, CX - 2, PZ, FR, 4);
+			Ornament.balustrade(m, 0, FZ + 1, 0, PZ, FR, 0);
+			m.set(CX - 2, FR + 2, PZ, ROD_UP);
+			m.set(0, FR + 2, PZ, ROD_UP);
+			// a lit amethyst fountain either side of the runner
+			int fx = 6, fz = 22;
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					if (dx != 0 || dz != 0) {
+						m.set(fx + dx, FR, fz + dz, Role.ACCENT);
+					}
+				}
+			}
+			m.set(fx, FR, fz, BlockSpec.mc("water", "level", "0"));
+			m.set(fx, FLOOR, fz, BlockSpec.mc("sea_lantern"));
+			for (int[] c : new int[][] {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}}) {
+				m.set(fx + c[0], FR + 1, fz + c[1], BlockSpec.mc("amethyst_cluster", "facing", "up", "waterlogged", "false"));
+			}
+		});
+		for (int z = FZ + 1; z <= PZ; z++) {
+			for (int x = CX - 1; x <= CX + 1; x++) {
+				b.set(x, FR, z, x == CX ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
+			}
+		}
+	}
+
+	// ---- games ------------------------------------------------------------------------------------------------------
+
+	static void games(Blueprint b) {
+		Kits.tablePod(Game.BLACKJACK_HIGH_ROLLER, null).apply(b, 6, FR, 7, Facing.SOUTH);
+		Kits.tablePod(Game.ROULETTE_HIGH_ROLLER, null).apply(b, CX, FR, 7, Facing.SOUTH);
+		Kits.tablePod(Game.BACCARAT_HIGH_ROLLER, NpcRole.BACCARAT_DEALER).apply(b, 18, FR, 7, Facing.SOUTH);
+		Kits.tablePod(Game.UTH_HIGH_ROLLER, null).apply(b, 6, FR, 13, Facing.SOUTH);
+		Kits.tablePod(Game.CRAPS, null).apply(b, CX, FR, 13, Facing.SOUTH);
+		Kits.tablePod(Game.POKER, null).apply(b, 18, FR, 13, Facing.SOUTH);
+		// cashier booth on the west wall: the Shulker Croupier behind the window between two counters with grilles
+		b.game(Game.CASHIER, 2, FR, 10, Facing.EAST);
+		Material counter = b.palette().get(Role.COUNTER);
+		for (int z : new int[] {8, 12}) {
+			b.set(2, FR, z, counter.slab("double"));
+			b.set(1, FR, z, counter.slab("double"));
+			b.set(2, FR + 1, z, BlockSpec.mc("iron_bars"));
+		}
+		b.set(1, FR, 9, counter.slab("double"));
+		b.set(1, FR, 11, counter.slab("double"));
+		b.npc(NpcRole.SHULKER_CROUPIER, 1, FR, 10, Facing.EAST);
+		for (int z = 8; z <= 12; z++) {
+			b.set(2, FR + 2, z, counter.slab("top"));
+			b.set(1, FR + 2, z, counter.slab("top"));
+			b.set(1, FR + 3, z, z == 10 ? b.palette().block(Role.NEON_A) : b.palette().block(Role.TRIM));
+		}
+		b.keepClear(3, FR, 9, 3, FR + 1, 11);
+		// front wall: Plinko and the Wheel in lit alcoves, netherite slots either side of the door
+		Kits.machineAlcove(Game.PLINKO).apply(b, 4, FR, FZ - 1, Facing.NORTH);
+		Kits.machineAlcove(Game.WHEEL).apply(b, SX - 5, FR, FZ - 1, Facing.NORTH);
+		Kits.slotBank(Game.SLOTS_NETHERITE, 2).apply(b, 8, FR, FZ - 1, Facing.NORTH);
+		Kits.slotBank(Game.SLOTS_NETHERITE, 2).apply(b, 17, FR, FZ - 1, Facing.NORTH);
+		// a starburst chandelier over every table: chain, a lantern one row over the board volume, four end-rod rays
+		for (var s : b.games()) {
+			if (s.game().tableGame() == null) {
 				continue;
 			}
-			b.set(x, FR, SZ - 1, x % 3 == 0 ? p.block(Role.FRAME) : endRod(Facing.EAST));
-		}
-		for (int z = FZ + 1; z < SZ; z++) {
-			for (int x : new int[] {0, SX - 1}) {
-				b.set(x, FR, z, (z - FZ) % 3 == 0 || z == SZ - 1 ? p.block(Role.FRAME) : endRod(Facing.NORTH));
+			int x = s.pos().x(), z = s.pos().z();
+			for (int y = CEIL - 1; y > FR + 4; y--) {
+				b.set(x, y, z, BlockSpec.mc("iron_chain", "axis", "y", "waterlogged", "false"));
+			}
+			b.set(x, FR + 4, z, lantern(b, true));
+			for (Facing f : Facing.values()) {
+				b.set(x + f.dx(), FR + 5, z + f.dz(), BlockSpec.mc("end_rod", "facing", f.id()));
 			}
 		}
-		for (int x : new int[] {CX - 2, CX + 2}) {
-			b.set(x, FR, SZ - 1, Role.FRAME);
-			b.set(x, FR + 1, SZ - 1, endRodUp());
-		}
-		b.set(0, FR + 1, SZ - 1, endRodUp());
-		b.set(SX - 1, FR + 1, SZ - 1, endRodUp());
-		// marquee over the door, hung from the facade
-		// CB-3 SignFont, 24 wide on the 25-wide facade (no padding, no side bulbs), rows 7..13
-		Facades.marquee(b, SignFont.SMALL.line("CASINO"), Facing.SOUTH, CX, 7, FZ + 1, 0, false);
-		// door surround: amethyst jambs, planters
-		for (int x : new int[] {CX - 2, CX + 2}) {
-			b.fill(x, FR, FZ, x, FR + 2, FZ, Role.ACCENT);
-			b.set(x + (x < CX ? -1 : 1), FR, FZ + 1, Role.PLANTER);
-		}
 	}
 
-	// ---- games -------------------------------------------------------------------------------------
+	// ---- interior ---------------------------------------------------------------------------------------------------
 
-	private static void games(Blueprint b, Palette p) {
-		pod(b, Game.BLACKJACK_HIGH_ROLLER, null, 6, 5, Facing.SOUTH);
-		pod(b, Game.ROULETTE_HIGH_ROLLER, null, 18, 5, Facing.SOUTH);
-		pod(b, Game.CRAPS, null, 4, 11, Facing.EAST);
-		pod(b, Game.UTH_HIGH_ROLLER, null, 20, 11, Facing.WEST);
-		pod(b, Game.BACCARAT_HIGH_ROLLER, NpcRole.BACCARAT_DEALER, 6, 17, Facing.NORTH);
-		pod(b, Game.POKER, null, 18, 17, Facing.NORTH);
-		b.kit(Kits.slotBank(Game.SLOTS_NETHERITE, 2), 2, FR, 1, Facing.SOUTH);
-		alcove(b, Game.WHEEL, 7);
-		alcove(b, Game.PLINKO, 17);
-		// cashier window in the back wall, Shulker Croupier behind it
-		Material counter = p.get(Role.COUNTER);
-		for (int x = CX - 2; x <= CX + 2; x++) {
-			if (x == CX) {
-				continue;
-			}
-			b.set(x, FR, 2, counter.slab("double"));
-			b.set(x, FR + 1, 2, bars(true));
-			b.set(x, FR + 2, 2, bars(true));
-		}
-		b.fill(CX - 2, FR + 3, 2, CX + 2, FR + 3, 2, Role.TRIM);
-		b.set(CX, FR + 3, 2, Role.LIGHT);
-		b.game(Game.CASHIER, CX, FR, 2, Facing.SOUTH);
-		b.keepClear(CX, FR, 3, CX, FR + 1, 3);
-		b.npc(NpcRole.SHULKER_CROUPIER, CX, FR, 1, Facing.SOUTH);
-	}
-
-	private static void pod(Blueprint b, Game g, NpcRole dealer, int x, int z, Facing front) {
-		b.kit(Kits.tablePod(g, dealer), x, FR, z, front);
-		if (dealer == null) {
-			b.set(x - front.dx(), FR, z - front.dz(), b.palette().get(Role.STOOL).stairs(front.opposite(), false));
-		}
-		pendant(b, x, FR + Kits.BOARD_CLEARANCE + 1, z, endRodDown());
-	}
-
-	private static void alcove(Blueprint b, Game g, int x) {
-		int z = 1;
-		b.game(g, x, FR, z, Facing.SOUTH);
-		b.keepClear(x, FR, z + 1, x, FR + 1, z + 1);
-		b.keepClear(x, FR + 1, z, x, FR + 2, z);
-		for (int jx : new int[] {x - 1, x + 1}) {
-			b.fill(jx, FR, z, jx, FR + 3, z, Role.ACCENT);
-		}
-		b.fill(x - 1, FR + 4, z, x + 1, FR + 4, z, Role.TRIM);
-		b.set(x, FR + 3, z, Role.LIGHT);
-	}
-
-	// ---- interior ----------------------------------------------------------------------------------
-
-	private static void interior(Blueprint b, Palette p) {
-		// purple runner door → fountain → cashier, purpur inlay border
-		b.fill(CX - 1, FR, 13, CX + 1, FR, FZ - 1, Role.CARPET);
-		b.fill(CX - 1, FR, 3, CX + 1, FR, 8, Role.CARPET);
-		for (int x = 1; x < SX - 1; x++) {
-			b.set(x, FLOOR, 8, Role.WALL);
-			b.set(x, FLOOR, 14, Role.WALL);
-		}
-		// amethyst fountain under the skylight: purpur basin, amethyst heart, buds, end-rod corner posts
-		Material wall = p.get(Role.WALL);
-		int fx0 = CX - 2, fz0 = 9, fx1 = CX + 2, fz1 = 13;
-		for (int x = fx0; x <= fx1; x++) {
-			for (int z = fz0; z <= fz1; z++) {
-				boolean edge = x == fx0 || x == fx1 || z == fz0 || z == fz1;
-				b.set(x, FLOOR, z, edge ? p.block(Role.FOUNDATION) : p.block(Role.FLOOR_ACCENT));
-				if (edge) {
-					b.set(x, FR, z, wall.slab("bottom"));
+	static void interior(Blueprint b, Palette p) {
+		// one deep field over the gaming floor with a gilt border (no pattern next to the felt)
+		for (int x = 1; x <= SX - 2; x++) {
+			for (int z = 5; z <= 17; z++) {
+				BlockSpec at = b.at(x, FR, z);
+				if (at != null && !at.is("minecraft:air") || dealerCell(b, x, z)) {
+					continue;
+				}
+				boolean border = x == 4 || x == SX - 5 || z == 5 || z == 17;
+				boolean inField = x >= 4 && x <= SX - 5;
+				if (inField) {
+					b.set(x, FR, z, border ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
 				}
 			}
 		}
-		for (int[] c : new int[][] {{fx0, fz0}, {fx1, fz0}, {fx0, fz1}, {fx1, fz1}}) {
-			b.set(c[0], FR, c[1], Role.FRAME);
-			b.set(c[0], FR + 1, c[1], endRodUp());
-		}
-		b.fill(CX, FR, 11, CX, FR + 1, 11, Role.ACCENT);
-		b.set(CX, FR + 2, 11, BlockSpec.mc("amethyst_cluster", "facing", "up", "waterlogged", "false"));
-		for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
-			b.set(CX + d[0], FR, 11 + d[1], BlockSpec.mc("large_amethyst_bud", "facing", "up", "waterlogged", "false"));
-		}
-		for (int[] d : new int[][] {{1, 1}, {-1, 1}, {1, -1}, {-1, -1}}) {
-			b.set(CX + d[0], FR, 11 + d[1], BlockSpec.mc("small_amethyst_bud", "facing", "up", "waterlogged", "false"));
-		}
-		// starburst chandelier hanging from the skylight
-		pendant(b, CX, 8, 11, p.block(Role.LIGHT));
-		b.set(CX - 1, 8, 11, endRod(Facing.WEST));
-		b.set(CX + 1, 8, 11, endRod(Facing.EAST));
-		b.set(CX, 8, 10, endRod(Facing.NORTH));
-		b.set(CX, 8, 12, endRod(Facing.SOUTH));
-		b.set(CX, 7, 11, endRodDown());
-
-		// shulker-box bar in the back-right corner: shelf on z 1, counter on z 3, chest behind it
-		Material counter = p.get(Role.COUNTER);
-		String[] boxes = {"purple_shulker_box", "magenta_shulker_box", "white_shulker_box", "purple_shulker_box"};
-		for (int x = 20; x <= 23; x++) {
-			b.set(x, FR, 1, facing("minecraft:" + boxes[x - 20], Facing.SOUTH));
-			b.set(x, FR + 1, 1, facing("minecraft:" + boxes[(x - 19) % 4], Facing.SOUTH));
-			b.set(x, FR + 2, 1, counter.slab("bottom"));
-			b.set(x, FR, 3, counter.slab("double"));
-		}
-		b.set(20, FR + 1, 3, BlockSpec.mc("brewing_stand", "has_bottle_0", "true", "has_bottle_1", "true", "has_bottle_2", "false"));
-		b.set(22, FR + 1, 3, candles("minecraft:purple_candle", 3));
-		b.set(23, FR + 1, 3, BlockSpec.mc("dragon_head", "rotation", "0", "powered", "false"));
-		b.chest(CasinoLoot.Table.HIGH_ROLLER, 23, FR, 2, Facing.WEST);
-		for (int x = 21; x <= 23; x += 2) {
-			b.set(x, FR, 4, p.get(Role.STOOL).slab("bottom"));
-		}
-
-		// purpur sofas with shulker-box side tables in the front corners
-		for (int x : new int[] {1, SX - 2}) {
-			Facing back = x == 1 ? Facing.WEST : Facing.EAST;
-			for (int z = 17; z <= 19; z++) {
-				b.set(x, FR, z, p.get(Role.STOOL).stairs(back, false));
+		// runner from the door to the bar
+		for (int z = 15; z <= FZ; z++) {
+			for (int x = CX - 1; x <= CX + 1; x++) {
+				b.set(x, FR, z, x == CX ? p.block(Role.CARPET_PATTERN) : p.block(Role.CARPET));
 			}
-			b.set(x, FR, 16, BlockSpec.mc("magenta_shulker_box", "facing", "up"));
 		}
-		// ceiling coffers and wall sconces
-		for (int x = 2; x <= 22; x += 4) {
-			for (int z = 2; z <= 18; z += 4) {
-				if (b.at(x, CEIL, z) != null && b.at(x, CEIL, z).equals(p.block(Role.CEILING))) {
-					b.set(x, CEIL, z, Role.LIGHT);
+		// bar on the back wall, VIP sofas in the corners, the chest by the bar
+		Kits.bar(9).apply(b, 8, FR, 3, Facing.SOUTH);
+		b.mirrorX(AX2, m -> {
+			Kits.vipSofa(3).apply(m, 2, FR, 1, Facing.SOUTH);
+			Kits.pottedPlant().apply(m, 1, FR, 4, Facing.SOUTH);
+		});
+		b.chest(CasinoLoot.Table.HIGH_ROLLER, 18, FR, 2, Facing.SOUTH);
+		// a purpur side table with glazed top by the cashier and the wheel
+		b.set(SX - 2, FR, 10, Ornament.upright(b, Role.COLUMN));
+		b.set(SX - 2, FR + 1, 10, BlockSpec.mc("magenta_glazed_terracotta", "facing", "west"));
+		b.set(SX - 2, FR, 14, Ornament.upright(b, Role.COLUMN));
+		b.set(SX - 2, FR + 1, 14, BlockSpec.mc("magenta_glazed_terracotta", "facing", "west"));
+	}
+
+	private static boolean dealerCell(Blueprint b, int x, int z) {
+		for (var s : b.games()) {
+			int[] d = dev.nezo.burmaldaholic.worldgen.logic.blueprint.TableClearance.dealer(s);
+			if (d != null && d[0] == x && d[1] == z) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ---- roof, sign, crown ------------------------------------------------------------------------------------------
+
+	private static void roof(Blueprint b, Palette p) {
+		int deck = CEIL + 1;
+		Material rail = p.get(Role.RAIL);
+		for (int x = 0; x < SX; x++) {
+			b.set(x, deck, 0, Role.WALL);
+			b.set(x, deck + 1, 0, rail.slab("bottom"));
+		}
+		for (int z = 0; z <= FZ; z++) {
+			b.set(0, deck, z, Role.WALL);
+			b.set(0, deck + 1, z, rail.slab("bottom"));
+			b.set(SX - 1, deck, z, Role.WALL);
+			b.set(SX - 1, deck + 1, z, rail.slab("bottom"));
+		}
+		for (int[] c : new int[][] {{0, 0}, {SX - 1, 0}}) {
+			b.set(c[0], deck + 1, c[1], ROD_UP);
+		}
+	}
+
+	/** The neon attic over the front: pearlescent froglight letters on obsidian with a froglight chaser. */
+	private static void sign(Blueprint b, Palette p) {
+		int bottom = CEIL + 1;
+		SignFont.Plan plan = SignFont.SMALL.line("CASINO");
+		var box = Ornament.neon(b, plan, Facing.SOUTH, CX, bottom, FZ, (SX - plan.width()) / 2, false);
+		for (int x = box.alongFrom(); x <= box.alongTo(); x++) {
+			for (int y = box.y0(); y <= box.y1(); y++) {
+				b.set(x, y, FZ - 1, Role.WALL); // thickness: the board never shows its back
+			}
+			b.set(x, box.y1() + 1, FZ, p.get(Role.TRIM).slab("bottom"));
+			b.set(x, box.y1() + 1, FZ - 1, p.get(Role.TRIM).slab("bottom"));
+		}
+		b.set(CX, box.y1() + 2, FZ, ROD_UP);
+	}
+
+	/** Height of a scallop (semicircular arch) over column {@code d} cells from the centre of a face {@code half} wide. */
+	static int arc(int d, int half) {
+		return (int) Math.floor(Math.sqrt(Math.max(0, half * half - d * d)));
+	}
+
+	/**
+	 * Chrysler crown: a glazed shaft, then receding scalloped tiers — on each face an arch (a semicircle the full width of
+	 * the tier) outlined in glowing froglight, magenta sunburst windows under it, the corners stepping down — each lit
+	 * inside so the windows glow at night, then a needle of end rods.
+	 */
+	private static void crown(Blueprint b, Palette p) {
+		int base = CEIL + 1;
+		// shaft: 13 × 13, rows 12..19 (it clears the sign attic), purpur pillars at corners, black glass with end-rod mullions
+		int x0 = CX - SHAFT, x1 = CX + SHAFT, z0 = TZ - SHAFT, z1 = TZ + SHAFT, top = base + 7;
+		for (int y = base; y <= top; y++) {
+			for (int x = x0; x <= x1; x++) {
+				for (int z = z0; z <= z1; z++) {
+					boolean edgeX = x == x0 || x == x1, edgeZ = z == z0 || z == z1;
+					if (!edgeX && !edgeZ) {
+						continue;
+					}
+					int t = edgeZ ? x - CX : z - TZ;
+					BlockSpec s = edgeX && edgeZ ? Ornament.upright(b, Role.FRAME) : y == top ? p.block(Role.TRIM)
+						: Math.floorMod(t, 3) == 0 ? ROD_UP : p.block(Role.GLASS);
+					b.set(x, y, z, s);
 				}
 			}
 		}
+		b.set(CX, base + 1, TZ, Role.LIGHT);
+		int[][] tiers = {{6, top + 1}, {5, top + 5}, {4, top + 9}, {3, top + 12}, {2, top + 15}};
+		int crownTop = 0;
+		for (int[] t : tiers) {
+			crownTop = Math.max(crownTop, tier(b, p, t[0], t[1]));
+		}
+		// the needle
+		int y = crownTop + 1;
+		b.set(CX, y, TZ, Role.CAPITAL);
+		for (int i = 1; y + i < SY; i++) {
+			b.set(CX, y + i, TZ, ROD_UP);
+		}
+	}
+
+	/**
+	 * Sunburst window cell of an arch face: on one of the seven rays fanning from the springing point at the face centre
+	 * (the Chrysler crown's triangular windows); the rays alternate glass / purpur by angle.
+	 */
+	static boolean sunray(int along, int up, int half) {
+		double ang = Math.atan2(up - 0.5, along); // 0 .. pi across the face
+		int sector = (int) Math.floor(ang / (Math.PI / 9));
+		return sector % 2 == 1 && Math.hypot(along, up) >= 1.5;
+	}
+
+	/** One scalloped tier {@code 2 * half + 1} wide from row {@code y0}; returns its apex row. */
+	private static int tier(Blueprint b, Palette p, int half, int y0) {
+		int apex = y0;
+		for (int x = CX - half; x <= CX + half; x++) {
+			for (int z = TZ - half; z <= TZ + half; z++) {
+				int dx = x - CX, dz = z - TZ;
+				int h = Math.min(arc(dx, half), arc(dz, half));
+				boolean edgeX = Math.abs(dx) == half, edgeZ = Math.abs(dz) == half;
+				for (int y = y0; y <= y0 + h; y++) {
+					BlockSpec s;
+					if (edgeX || edgeZ) {
+						int along = edgeZ ? dx : dz; // position along the face this cell belongs to
+						boolean rim = y == y0 + h;
+						boolean corner = edgeX && edgeZ;
+						if (corner) {
+							s = Ornament.upright(b, Role.FRAME);
+						} else if (rim) {
+							s = p.block(Role.NEON_A);
+						} else if (y > y0 && sunray(along, y - y0, half)) {
+							s = BlockSpec.mc("magenta_stained_glass");
+						} else {
+							s = p.block(Role.WALL);
+						}
+					} else if (y == y0 + h) {
+						s = p.block(Role.DOME);
+					} else if (y == y0 && dx == 0 && dz == 0) {
+						s = p.block(Role.LIGHT);
+					} else {
+						s = Blueprint.AIR;
+					}
+					b.set(x, y, z, s);
+				}
+				apex = Math.max(apex, y0 + h);
+			}
+		}
+		return apex;
 	}
 }

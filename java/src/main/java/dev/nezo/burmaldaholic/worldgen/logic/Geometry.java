@@ -95,6 +95,14 @@ public final class Geometry {
 	 * the host's lowest level, entrance facing away from the host (the back faces it).
 	 */
 	public static Placement beside(Box host, Vec size, Facing side, int gap) {
+		return beside(host, size, side, gap, host.minY(), 0);
+	}
+
+	/**
+	 * {@link #beside(Box, Vec, Facing, int)} with the template's bottom row at {@code minY} and the template moved
+	 * {@code along} blocks along the host's side (towards +x / +z).
+	 */
+	public static Placement beside(Box host, Vec size, Facing side, int gap, int minY, int along) {
 		int turns = turnsToFace(side);
 		boolean swap = turns % 2 == 1;
 		int fx = swap ? size.z() : size.x();
@@ -119,9 +127,28 @@ public final class Geometry {
 				minZ = host.minZ() - gap - fz;
 			}
 		}
-		Vec min = new Vec(minX, host.minY(), minZ);
+		if (side == Facing.EAST || side == Facing.WEST) {
+			minZ += along;
+		} else {
+			minX += along;
+		}
+		Vec min = new Vec(minX, minY, minZ);
 		Vec origin = originForMin(min, size, turns);
 		return new Placement(origin, turns, templateBox(origin, size, turns));
+	}
+
+	/** Placement whose rotated template box starts at {@code min}, entrance facing {@code outward}. */
+	public static Placement atMin(Vec min, Vec size, Facing outward) {
+		int turns = turnsToFace(outward);
+		Vec origin = originForMin(min, size, turns);
+		return new Placement(origin, turns, templateBox(origin, size, turns));
+	}
+
+	/** Blocks strictly between two boxes along x and z (negative = overlapping on that axis); the larger of the two. */
+	public static int gapXZ(Box a, Box b) {
+		int gx = Math.max(a.minX() - b.maxX(), b.minX() - a.maxX()) - 1;
+		int gz = Math.max(a.minZ() - b.maxZ(), b.minZ() - a.maxZ()) - 1;
+		return Math.max(gx, gz);
 	}
 
 	/** Places a template centred on top of {@code base} (floor one block above it), entrance {@code facing}. */

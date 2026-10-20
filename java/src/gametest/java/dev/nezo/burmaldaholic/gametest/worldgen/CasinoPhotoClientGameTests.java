@@ -17,7 +17,7 @@ import net.minecraft.core.BlockPos;
  * the door, the bar side) plus the facade at midnight — 1920×1080 each, {@code jcasino_<casino>_<view>.png} in
  * {@code run/clientGameTest/screenshots/}. Default: the tudor casino (or the v0.1 plains casino before v0.2 is merged);
  * {@code -Dburmaldaholic.casinoPhotos=all} shoots every casino (styles, annexes, Parlor, Lounge), {@code =standalone} every
- * standalone structure (each Grand Casino variant).
+ * standalone structure (each Grand Casino variant), {@code =singles} every annex, the Parlor and the Lounge.
  */
 public class CasinoPhotoClientGameTests implements FabricClientGameTest {
 	@Override
@@ -25,6 +25,7 @@ public class CasinoPhotoClientGameTests implements FabricClientGameTest {
 		String mode = System.getProperty("burmaldaholic.casinoPhotos", "");
 		boolean all = "all".equals(mode);
 		boolean standalone = "standalone".equals(mode); // every standalone structure (each Grand Casino variant)
+		boolean singles = "singles".equals(mode); // every single-template casino: village annexes, Parlor, Lounge (CR-2)
 		int fov = context.computeOnClient(mc -> mc.options.fov().get());
 		int distance = context.computeOnClient(mc -> mc.options.renderDistance().get());
 		context.runOnClient(mc -> mc.gui.setScreen(null));
@@ -44,6 +45,9 @@ public class CasinoPhotoClientGameTests implements FabricClientGameTest {
 			List<Target> targets = world.getServer().computeOnServer(server -> {
 				if (standalone && !CasinoQa.standalone(server).isEmpty()) {
 					return CasinoQa.standalone(server);
+				}
+				if (singles) {
+					return CasinoQa.v2Singles();
 				}
 				if (!all) {
 					return List.of(CasinoClientQa.defaultTarget(server, "riviera"));
