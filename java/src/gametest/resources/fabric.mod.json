@@ -14,6 +14,7 @@
 			"dev.nezo.burmaldaholic.gametest.tables.RealFlowMultiplayerGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.CounterGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.CounterEdgeGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.JavaReviewGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.BotsGameTests",
 			"dev.nezo.burmaldaholic.gametest.lastchance.LastChanceGameTests",

@@ -40,6 +40,7 @@ public class CounterClientGameTests implements FabricClientGameTest {
 			run(f, pos, "en_us", 1280, 720, 3);
 			f.language("ru_ru");
 			run(f, pos, "ru_ru", 1920, 1080, 4);
+			run(f, pos, "ru_ru", 1280, 720, 3); // T-EC1: RU at 427 x 240
 			f.language("en_us");
 			f.close();
 		} finally {
@@ -65,6 +66,7 @@ public class CounterClientGameTests implements FabricClientGameTest {
 		ctx.waitTicks(5);
 		f.open(pos, CounterScreen.class);
 		CounterFlow.awaitEnabled(ctx, "exchange.row.emerald.out.1");
+		fits(f, at + " exchange");
 		// Shift+click on x1 = x64
 		CounterFlow.click(ctx, "exchange.row.emerald.out.1", true);
 		awaitCount(f, Items.EMERALD, 64, at + " Shift+click x1 sends x64");
@@ -103,6 +105,7 @@ public class CounterClientGameTests implements FabricClientGameTest {
 		ctx.waitFor(mc -> ClientStore.version() > v, RealFlow.TIMEOUT);
 		CounterFlow.awaitEnabled(ctx, "store.tile.bread");
 		CounterFlow.hover(ctx, "store.tile.bread");
+		fits(f, at + " store");
 		ctx.getInput().scroll(-1);
 		ctx.waitTicks(3);
 		check(f.client(mc -> store(mc) != null && store(mc).scrollRow() == 1), at + " mouse wheel scrolls the grid one row");
@@ -136,6 +139,11 @@ public class CounterClientGameTests implements FabricClientGameTest {
 
 	private static StoreTab store(net.minecraft.client.Minecraft mc) {
 		return mc.gui.screen() instanceof CounterShell.Holder h ? h.shell().tab("store").map(t -> (StoreTab) t).orElse(null) : null;
+	}
+
+	private void fits(RealFlow f, String at) {
+		List<String> bad = f.client(mc -> mc.gui.screen() instanceof CounterShell.Holder hh ? CounterFitCheck.check(mc, hh.shell()) : List.of("no counter"));
+		for (String b : bad) failures.add(at + " layout: " + b);
 	}
 
 	private void check(boolean ok, String what) {
