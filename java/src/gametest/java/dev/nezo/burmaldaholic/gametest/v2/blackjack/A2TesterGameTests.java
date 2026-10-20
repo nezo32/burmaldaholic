@@ -168,6 +168,8 @@ public class A2TesterGameTests {
 					BlockPos rel2 = new BlockPos(4, 1, 1);
 					helper.setBlock(rel2, BlackjackModule.TABLE.block());
 					BlackjackTableBlockEntity copy = helper.getBlockEntity(rel2, BlackjackTableBlockEntity.class);
+					// as if this table were reloaded: the saved shoe names its own table (a copy elsewhere starts fresh)
+					saved.getCompoundOrEmpty(BlackjackTableBlockEntity.SHOE_KEY).putLong("table", copy.getBlockPos().asLong());
 					copy.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved));
 					Shoe loaded = copy.shoeForTests();
 					helper.assertTrue(loaded != null && loaded.refilled() && loaded.dealt() == shoe.dealt() && loaded.discards() == shoe.discards()

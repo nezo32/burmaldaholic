@@ -194,4 +194,54 @@ public class BaccaratV2GameTests {
 		}
 		helper.succeed();
 	}
+	/**
+	 * T-A2 client item (chemmy "never punted"): a player CAN punt against a bot banker. Through the packet handler only: the
+	 * player passes the bank offered to them, a bot takes it, and the player's punt is held (escrowed) by the table. The
+	 * table is driven by its own tick, never by skipping timers (a skipped idle timer passes the bot's bank).
+	 */
+	@GameTest(maxTicks = 2400)
+	public void playerPuntsAgainstABotBanker(GameTestHelper helper) {
+		BlockPos rel = new BlockPos(1, 1, 1);
+		helper.setBlock(rel, BaccaratModule.CHEMMY_TABLE.block());
+		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
+		t.bots().setDefaults(new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
+			dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.INSTANT));
+		ServerPlayer p = opened(helper, rel);
+		act(p, t, "sit", "", 0);
+		helper.assertTrue(t.isSeated(p), "seated through the packet");
+		UUID me = p.getUUID();
+		boolean[] punted = {false};
+		String[] failure = {null};
+		// the table runs on its own ticker (timers are game time): every tick, pass a bank offered to the player; once a bot
+		// holds the bank with punting open, punt the minimum through the handler and check it is held and escrowed
+		helper.succeedWhen(() -> {
+			if (failure[0] != null) helper.assertTrue(false, failure[0]); // sticky: the test times out failing with this message
+			if (punted[0]) return;
+			CompoundTag state = t.writeClientState(p);
+			CompoundTag ch = state.getCompoundOrEmpty("chemmy");
+			if (ch.getBooleanOr("offer_you", false)) act(p, t, "pass", "", 0);
+			// every seat passed: a house coup waits for a bet; play it (Banker minimum + Deal) so the bank rotates again
+			if (state.getBooleanOr("house_coup", false) && "betting".equals(t.phase()) && t.betsOf(me).isEmpty()) {
+				act(p, t, "bet", "banker", Math.max(1, state.getLongOr("bet_min", 1)));
+				act(p, t, "deal", "", 0);
+			}
+			helper.assertTrue("betting".equals(t.phase()) && t.bank().held() && !me.equals(t.bank().banker()) && t.bank().banco() == null,
+				"waiting for a bot bank with punting open (phase " + t.phase() + ")");
+			long min = Math.max(1, state.getLongOr("bet_min", 1));
+			long open = ch.getLongOr("open", 0);
+			helper.assertTrue(ch.getBooleanOr("held", false) && !ch.getBooleanOr("you_bank", true) && open >= min,
+				"the client sees an open bot bank covering the minimum: " + ch);
+			long before = balance(helper, p);
+			act(p, t, "punt", "", min);
+			punted[0] = true;
+			long held = t.bank().punts().getOrDefault(me, 0L);
+			long after = balance(helper, p);
+			long seen = t.writeClientState(p).getCompoundOrEmpty("chemmy").getLongOr("my_punt", 0);
+			helper.getLevel().getServer().getPlayerList().remove(p);
+			if (held != min) failure[0] = "the punt is not held by the table: " + held + " of " + min;
+			else if (after != before - min) failure[0] = "the punt is not escrowed: balance " + before + " -> " + after;
+			else if (seen != min) failure[0] = "the client does not see its punt: " + seen;
+			if (failure[0] != null) helper.assertTrue(false, failure[0]);
+		});
+	}
 }

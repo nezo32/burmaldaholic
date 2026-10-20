@@ -98,14 +98,17 @@ public class BlackjackShoeGameTests {
 			act(p, t, "sit", new CompoundTag());
 			// betting: a fresh shoe is public before the first round
 			CompoundTag s0 = shoe(t, p);
-			Shoe shoe = t.shoeForTests();
-			helper.assertTrue(shoe != null && s0.getIntOr("size", 0) == shoe.size() && shoe.size() % 52 == 0, "size sent: " + s0);
-			helper.assertTrue(s0.getIntOr("dealt", -1) == 0 && s0.getIntOr("left", -1) == shoe.size() && s0.getIntOr("discard", -1) == 0,
+			int size0 = s0.getIntOr("size", 0);
+			helper.assertTrue(t.shoeForTests() == null, "writing the client state makes no shoe (no side effects)");
+			helper.assertTrue(size0 > 0 && size0 % 52 == 0, "size sent: " + s0);
+			helper.assertTrue(s0.getIntOr("dealt", -1) == 0 && s0.getIntOr("left", -1) == size0 && s0.getIntOr("discard", -1) == 0,
 				"fresh shoe: " + s0);
 			int cut = s0.getIntOr("cut", -1);
-			helper.assertTrue(cut > 0 && cut < shoe.size(), "cut card sent: " + cut);
+			helper.assertTrue(cut > 0 && cut < size0, "cut card sent: " + cut);
 			act(p, t, "bet", amount(10));
 			helper.assertTrue(t.round() != null, "the bet dealt a round");
+			Shoe shoe = t.shoeForTests();
+			helper.assertTrue(shoe != null && shoe.size() == size0, "the shoe made between rounds matches what was shown");
 			// mid-deal: only cards on the felt count (one per beat), never what the round has drawn ahead
 			CompoundTag s1 = shoe(t, p);
 			helper.assertTrue(s1.getIntOr("dealt", -1) < shoe.dealt(), "undealt cards are not counted: " + s1 + " drawn " + shoe.dealt());
@@ -139,6 +142,11 @@ public class BlackjackShoeGameTests {
 			BlockPos rel2 = new BlockPos(3, 1, 1);
 			helper.setBlock(rel2, BlackjackModule.TABLE.block());
 			BlackjackTableBlockEntity copy = helper.getBlockEntity(rel2, BlackjackTableBlockEntity.class);
+			// a copy of the data at ANOTHER table (creative pick-block with data) must not carry the known order
+			copy.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved));
+			helper.assertTrue(copy.shoeForTests() == null, "a shoe saved for another table is not restored");
+			// the same table reloaded: the saved shoe names this table
+			saved.getCompoundOrEmpty(BlackjackTableBlockEntity.SHOE_KEY).putLong("table", copy.getBlockPos().asLong());
 			copy.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved));
 			Shoe loaded = copy.shoeForTests();
 			helper.assertTrue(loaded != null && loaded.dealt() == 37 && loaded.discards() == 37 && Arrays.equals(loaded.codes(), shoe.codes()),

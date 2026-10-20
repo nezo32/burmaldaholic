@@ -547,7 +547,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 
 	/** The round's cards are collected; once the cut card has come out the shoe is reshuffled now, between rounds (E5). */
 	private void collectAndMaybeShuffle() {
-		if (shoe == null) return;
+		if (shoe == null || shoe.decks() != rules().decks()) {
+			ensureShoe(rules()); // between rounds: a new shoe (or a changed deck count) is made and announced here
+			return;
+		}
 		shoe.endRound();
 		if (shoe.needsShuffle(rules().penetration())) {
 			shoe.shuffle();
@@ -979,17 +982,21 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			t.putInt("pos", shoe.dealt());
 			t.putInt("round_start", round == null ? shoe.dealt() : shoe.discards());
 			t.putBoolean("refilled", shoe.refilled());
+			// the table it belongs to: a copy of this data elsewhere (creative pick-block with data) starts a fresh shoe
+			t.putLong("table", worldPosition.asLong());
 			output.store(SHOE_KEY, CompoundTag.CODEC, t);
 		}
 	}
 
-	static final String SHOE_KEY = "burmaldaholic_blackjack_shoe";
+	public static final String SHOE_KEY = "burmaldaholic_blackjack_shoe";
 
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
 		bots.load(input);
 		input.read(SHOE_KEY, CompoundTag.CODEC).ifPresent(t -> {
+			// saved for another table (a copied block entity): a known order must not travel, so this table shuffles anew
+			if (t.getLongOr("table", worldPosition.asLong()) != worldPosition.asLong()) return;
 			Shoe s = Shoe.restore(shoeRng(), t.getIntOr("decks", 0), t.getIntArray("cards").orElse(new int[0]), t.getIntOr("pos", 0),
 				t.getIntOr("round_start", 0), t.getBooleanOr("refilled", false));
 			if (s != null) shoe = s;
@@ -1180,8 +1187,19 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	private void writeShoeState(CompoundTag tag) {
 		if (!(level instanceof ServerLevel) || removing()) return;
 		BlackjackRules rules = rules();
-		if (round == null) ensureShoe(rules); // never swap the shoe under a round that draws from it
-		if (shoe == null) return;
+		if (shoe == null || shoe.decks() != rules.decks()) {
+			// no shoe yet (or the deck count changed): show the fresh shoe the next round will shuffle — writing the state
+			// has no side effects (T-A2 minor 1); the shoe itself is made between rounds (startRound / toBetting)
+			int size = rules.decks() * 52;
+			CompoundTag t = new CompoundTag();
+			t.putInt("size", size);
+			t.putInt("dealt", 0);
+			t.putInt("left", size);
+			t.putInt("cut", (int) Math.ceil(size * rules.penetration() - 1e-9));
+			t.putInt("discard", 0);
+			tag.put("shoe", t);
+			return;
+		}
 		int dealt = shoe.dealt();
 		if (round != null && beats != null) dealt = Math.min(dealt, shoe.discards() + beats.publishedCount(gameTime()));
 		CompoundTag t = new CompoundTag();
