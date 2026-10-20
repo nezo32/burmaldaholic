@@ -10,6 +10,14 @@ final class Seg {
 	static final int SETTLE = 0;
 	/** {@link #sub} of a ROLL segment: a quarter-roll over the leading edge. */
 	static final int TIP = 1;
+	/**
+	 * {@link #sub} of an AIR segment: the hand-off blend of {@link DiceSolver#solve(DiceTray, ThrowSpec, int, int[], int,
+	 * DiceSolver.Initial[])} from the hand state A (x0, y0, z0, vx, vy, vz, q0, wx, wy, wz) into the solved flight state B
+	 * (bx, by, bz, bvx, bvy, bvz, q1, bwx, bwy, bwz) at t1: each side is extrapolated at constant velocity / angular
+	 * velocity and the two are mixed with {@code h = 3s² − 2s³} ({@code h' = 0} at both ends), so the motion is C0 and C1
+	 * at t0 (= A) and at t1 (= B).
+	 */
+	static final int BLEND = 1;
 	/** Mid-roll slowdown of the quarter-roll profile (speed ratio middle/ends = (1−A)/(1+A)). */
 	static final double TIP_A = 0.35;
 	/** Teeter: hold angle below 45° (radians) and wobble amplitude. */
@@ -36,6 +44,8 @@ final class Seg {
 	// profile parameters: SETTLE p0 = angle; TIP —; TEETER p0 rise ms, p1 hold ms, p2 fall ms, sub ±1; ROCK p0 amplitude;
 	// SLIDE p0 = yaw change (radians)
 	double p0, p1, p2;
+	// BLEND end state (see BLEND)
+	double bx, by, bz, bvx, bvy, bvz, bwx, bwy, bwz;
 
 	double dur() {
 		return (t1 - t0) / 1000.0;
@@ -107,6 +117,10 @@ final class Seg {
 				o.speed = 0;
 			}
 			case DieSample.AIR -> {
+				if (sub == BLEND) {
+					blend(local, o);
+					return;
+				}
 				o.x = x0 + vx * tau;
 				o.y = y0 + vy * tau;
 				o.zLow = Math.max(0, z0 + vz * tau - 0.5 * g * tau * tau);
@@ -163,6 +177,54 @@ final class Seg {
 				o.speed = 0;
 			}
 		}
+	}
+
+	private void blend(double local, DieSample o) {
+		double T = dur();
+		double ta = local / 1000.0;
+		double tb = ta - T;
+		double s = T > 0 ? Math.min(1, ta / T) : 1;
+		double h = s * s * (3 - 2 * s);
+		double hd = T > 0 ? 6 * s * (1 - s) / T : 0;
+		double ax = x0 + vx * ta, ay = y0 + vy * ta, az = z0 + vz * ta;
+		double cx = bx + bvx * tb, cy = by + bvy * tb, cz = bz + bvz * tb;
+		o.x = ax + h * (cx - ax);
+		o.y = ay + h * (cy - ay);
+		double z = az + h * (cz - az);
+		o.zLow = Math.max(0, z);
+		o.vz = vz + h * (bvz - vz) + hd * (cz - az);
+		double sx = vx + h * (bvx - vx) + hd * (cx - ax);
+		double sy = vy + h * (bvy - vy) + hd * (cy - ay);
+		o.speed = Math.sqrt(sx * sx + sy * sy);
+		Quat.expMapFast(wx, wy, wz, ta, o.tmpA);
+		Quat.mul(o.tmpA, q0, o.tmpA);
+		Quat.expMapFast(bwx, bwy, bwz, tb, o.tmpB);
+		Quat.mul(o.tmpB, q1, o.tmpB);
+		slerpNoFlip(o.tmpA, o.tmpB, h, o.q);
+		o.zc = o.zLow + Quat.support(o.q);
+		double mx = wx + h * (bwx - wx), my = wy + h * (bwy - wy), mz = wz + h * (bwz - wz);
+		o.omega = Math.sqrt(mx * mx + my * my + mz * mz);
+	}
+
+	/**
+	 * Slerp along the arc through the given signs (no hemisphere flip: the solver picks the sign of q1 once, so the path
+	 * never jumps between arcs while A and B move).
+	 */
+	static void slerpNoFlip(double[] a, double[] b, double u, double[] out) {
+		double d = Math.max(-1, Math.min(1, Quat.dot(a, b)));
+		double ka;
+		double kb;
+		double th = Math.acos(d);
+		double sn = Math.sin(th);
+		if (sn < 1e-6) {
+			ka = 1 - u;
+			kb = u;
+		} else {
+			ka = Math.sin((1 - u) * th) / sn;
+			kb = Math.sin(u * th) / sn;
+		}
+		Quat.set(out, ka * a[0] + kb * b[0], ka * a[1] + kb * b[1], ka * a[2] + kb * b[2], ka * a[3] + kb * b[3]);
+		Quat.normalize(out, out);
 	}
 
 	private void pivot(double local, DieSample o) {
