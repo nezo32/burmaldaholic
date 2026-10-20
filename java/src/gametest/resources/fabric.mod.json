@@ -31,6 +31,7 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.HouseDealerGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.HouseDealerTesterGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenSpawnSurvey",
 			"dev.nezo.burmaldaholic.gametest.worldgen.OtherworldFitSurvey",
 			"dev.nezo.burmaldaholic.gametest.worldgen.LocateGameTests",
@@ -71,7 +72,8 @@
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoPlayClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoPhotoClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoTerrainClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.tables.RealInputClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.tables.RealInputClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.HouseDealerClientGameTests"
 		]
 	},
 	"depends": {
