@@ -45,7 +45,11 @@ public record StatusPlan(List<String> dock, List<Boolean> dockGold, @Nullable St
 	public static StatusPlan of(@Nullable String l1, @Nullable String l2, int boxW, int boxH, int stripW, ToIntFunction<String> width) {
 		if (l1 != null && l1.isEmpty()) l1 = null;
 		if (l2 != null && l2.isEmpty()) l2 = null;
-		if (l1 == null && l2 == null || boxW <= 0) return EMPTY;
+		if (l1 == null && l2 == null) return EMPTY;
+		if (boxW <= 0) { // an overflowing Dock left no column (T-K2 D4): the strip carries the text
+			if (stripW <= 0) return EMPTY;
+			return new StatusPlan(List.of(), List.of(), l1, l2, l1 != null && l2 != null && width.applyAsInt(l1 + JOIN + l2) + 8 > stripW ? 2 : 1);
+		}
 		boolean twoRows = boxH >= 2 * ROW_H + 2;
 		List<String> rows = new ArrayList<>(2);
 		List<Boolean> gold = new ArrayList<>(2);

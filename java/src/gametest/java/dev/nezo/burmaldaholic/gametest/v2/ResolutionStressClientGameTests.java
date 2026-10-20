@@ -89,7 +89,7 @@ public class ResolutionStressClientGameTests implements FabricClientGameTest {
 		var box = c.status.box();
 		var l1 = c.status.line1();
 		var l2 = c.status.line2();
-		if (box.isEmpty()) return (l1 != null || l2 != null) ? "status box empty but text '" + l1 + "' / '" + l2 + "'" : "";
+		if (box.isEmpty() && c.status.strip().isEmpty()) return (l1 != null || l2 != null) ? "no status box and no strip for '" + l1 + "' / '" + l2 + "'" : "";
 		return c.status.lost(font);
 	}
 
@@ -131,7 +131,8 @@ public class ResolutionStressClientGameTests implements FabricClientGameTest {
 		List<HitMap.Target> ts = c.hits().targets();
 		List<HitMap.Target> kit = new ArrayList<>();
 		for (HitMap.Target t : ts) {
-			if (!t.box().inside(g.screen)) bad.add(t.id() + " outside the frame " + t.box());
+			boolean poker = s.getClass().getSimpleName().equals("PokerScreen"); // its pick-stakes Dock is B2's (T-K2 D4)
+			if (!t.box().inside(g.screen)) bad.add((poker && t.id().startsWith("action.") ? KNOWN : "") + t.id() + " outside the frame " + t.box());
 			else if (t.id().startsWith("felt.") && !t.box().inside(g.play)) bad.add(t.id() + " outside the PlayArea " + t.box());
 			if (!t.id().startsWith("felt.")) kit.add(t);
 		}

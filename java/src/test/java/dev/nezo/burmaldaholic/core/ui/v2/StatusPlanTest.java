@@ -70,6 +70,10 @@ class StatusPlanTest {
 		assertTrue(up.dock().isEmpty());
 		assertEquals("A very long lone status line that needs much more room", up.stripL1());
 		assertEquals(StatusPlan.EMPTY, placed(null, null, 80));
+		// an overflowing Dock leaves no column: the text still shows, in the strip (T-K2 D4)
+		StatusPlan none = StatusPlan.of("Pick the stakes", "Balance 12 500", 0, 28, STRIP_W, FONT);
+		assertEquals("Pick the stakes", none.stripL1());
+		assertEquals("Balance 12 500", none.stripL2());
 	}
 
 	@Test

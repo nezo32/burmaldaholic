@@ -179,7 +179,7 @@ public final class StatusLine {
 	}
 
 	public void draw(GuiGraphicsExtractor g, Font font) {
-		if (box.isEmpty()) return;
+		if (box.isEmpty() && strip.isEmpty()) return;
 		dev.nezo.burmaldaholic.core.ui.v2.StatusPlan p = plan(font);
 		String st = p.stripText();
 		if (st != null && !strip.isEmpty() && p.stripRows() == 2) { // two long lines: line 1 on a row above line 2
