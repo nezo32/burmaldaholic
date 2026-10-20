@@ -321,7 +321,7 @@ in `CasinoTableScreen` / `CasinoScreen` / `FitScaled` / `MouseHandlerFitMixin`, 
 |---|---|
 | `BoardRenderer<T, S extends BoardState>` | extends `SpectatorBlockEntityRenderer`; replaces the generic parts of `client/table/CardTableRenderer` (which becomes a thin subclass kept for poker/UTH until lane B ports them). Computes facing, overhang fallback flag, distance, `HoloScale.Lod` with hysteresis; calls `fill(be, state)`; submits felt → cards → chips → holo (board + plates) in that order. |
 | `BoardState` | pooled arrays: cards (≤ 32), stacks (≤ 12), texts (board ≤ 3 lines, plates ≤ 8 × 2 lines), plate anchors, content top; `FormattedCharSequence` cache keyed by `(seq, lang)` — rebuilt only when the public data changes. |
-| `FeltPainter` | felt top 2.25 × 1.25 (crescent) / 2.0 × 1.4 (roulette, craps) / 2.0 × 2.0 (poker oval) + rail lip, render-only overhang along `FACING`; 1 × 1 fallback when blocked (flag cached in the BE on neighbour update). |
+| `FeltPainter` | full 3×2 table: the felt print decal over `FeltFrame` (1/128 above the baked 14/16 felt); compact table: the 1 × 1 block-top felt with its printed rail. |
 | `CardPainter` | cards 1.5 × real (0.22 × 0.30 block) from `faces_w2.png`, lift 1/32, tilt 20° toward their owner; flip via `dealt(...)` (moved from `CardTableRenderer`). |
 | `ChipPainter` | disc stacks (≤ 6 discs, top quad + 8-quad band) from `entity/core/board/chips_w.png`. |
 | `HoloBoard` | the table board: yaw-only billboard, text px from `HoloScale`, backing quad (`holo_backing`), lines title / state / turn / result. |
@@ -343,18 +343,33 @@ anchors per table type, card / chip sizes in blocks).
   per-seat net) — lane-owned, no new packets.
 
 ### 7.3 Size and legibility
-- Board text px = `HoloScale.textPx(1/80, d, fov, screenH)`; plates `1/100` base. Reads `options.fov()` and the
-  window height; glyph ≥ 13 px from 3 to 8 blocks (tested). Full-bright, depth-tested, polygon offset, no shadow,
-  backing `ink` 70 %.
-- LOD (`HoloScale.lod` + 0.5 block hysteresis): ≤ 8 everything + tweens; 8–16 board state/result lines + cards +
+- Text px = `HoloScale.readablePx(base, d, fov, screenH)` (board base 1/48, plates 1/60): the CAP height on screen is
+  ≥ 18 px up to 5 blocks, falling to ≥ 13 px at 8 (1920 × 1080). `fov` is the camera's EFFECTIVE FOV
+  (`HoloScale.effectiveFov(camera.getFov(), option)`, R-KW m14); `d` is camera → felt centre of the (full) table.
+  Full-bright, depth-tested, polygon offset, drop shadow; panel = `HoloScale.PANEL` (ink 90 %) with a 1-px accent
+  frame; the muted ink keeps ≥ 4.5:1 on it over any background (unit-tested).
+- LOD (`HoloScale.lod` + **1 block** hysteresis): ≤ 8 everything + tweens; 8–16 board state/result lines + cards +
   chips, settled; 16–32 felt + cards + chips, no text; > 32 block model.
 
 ### 7.4 Plates
-Anchor per seat at the rail edge outside the felt, 0.35 block up. Each frame (≤ 8 blocks): project anchors and the
-content's top (max over cards / stacks / wheel of their projected top) into the camera plane; `PlateLayout.place`
-with priority viewer → acting → nearest; draw at the resolved positions; leader line when displaced > 0.18 block.
-Plates replace the `[BOT] name` tags of seated bots (bots keep tags away from tables — `bots/client` gets a one-line
-"seated at a table with a board" check, W lane).
+Anchor per seat: a full table's plate stands past the padded rail where the seat's player stands (ray from the dealer /
+felt centre through the seat's spot, past the rail + 0.12, y 1.30 — `BoardRenderer.fullPlateAnchor`, applied in
+`BoardState.plate`); a compact table keeps the design anchor (rail edge, `PLATE_UP` 0.28). Each frame (≤ 8 blocks):
+anchors and obstacles are projected ALONG THE VIEW RAY into the camera plane through the felt centre (perspective, so
+far content lands where the screen shows it). Obstacles: cards, stacks, `content(...)`, the dealer / community card
+area (`BoardRenderer.dealerRect`, `BoardGeometry.dealerRect`; plates never cover the dealer cards) and the table top's
+NEAR edge (the part in front of the plane: a plate never sinks behind the felt edge). `PlateLayout.place` with
+priority viewer → acting → nearest; leader line when displaced > 0.18 block.
+
+Across tables (`PlateFrame`, R-KW M7): each table registers its plates' screen rectangles (camera tangents) and its
+board; at the next frame `PlateLayout.resolveGlobal` ranks tables (seated → looked-at, any part via
+`TableParts.mainOf` → by distance) and fades out (150 ms) a plate that overlaps a better table's plate or board; a hidden
+plate needs a 0.01 margin to come back. Shown plates of all tables are pairwise disjoint (property-tested, asserted in
+the 20-table client scene).
+
+Bot tags: `bots/mixin/client/TextDisplayRendererMixin` (TAIL of `TextDisplayRenderer.extractRenderState`, same
+signature on 26.2 and 26.3) hides a `[BOT]` text display only when it is a bot plate, floats over a table with a board
+and the camera is within `READ_RANGE` (8); every other text display is untouched (no renderer override).
 
 ### 7.5 Budget (per table, per frame)
 ≤ 32 card quads, ≤ 96 chip quads, ≤ 2 backings + 8 plates, ≤ 19 text lines, 1 wheel head + 1 ball; text sequences
@@ -388,9 +403,14 @@ public final class BlackjackBoardRenderer extends BoardRenderer<BlackjackTableBl
 }
 // register (game client module, after core): BlockEntityRendererRegistry.register(type, BlackjackBoardRenderer::new)
 ```
-- Coordinates are table-local (`BoardGeometry`: x right, z toward the players, felt at `TOP`); the kit rotates by
-  FACING, shrinks everything onto the 1 × 1 fallback felt when the overhang is blocked (`contentScale`), and computes
-  LOD / text px. `s.content(x, y, z, r)` declares a wheel / dice the plates must clear; `s.cache(Cache::new)` keeps a
+- Coordinates are DESIGN coordinates (`BoardGeometry`: x right, z toward the players, the design felt centred on
+  (0.5, 0.5) at `TOP`). Multi-block tables (MT-DESIGN §2): on a full 3×2 table (`part ≠ SINGLE`) the kit maps the design
+  felt uniformly onto the footprint-local `FeltFrame` (`BoardGeometry.fullScale`: crescent 1.22, rect 1.25, oval 0.875;
+  centre → felt centre (0.5, 0), `TOP` → felt 14/16 + 1/64; roulette: the whole interior) and paints the hi-res felt print
+  decal (`felt_print_<shape>_<furniture>`) over the baked furniture felt; a compact table (`SINGLE`) draws the 1 × 1
+  block-top felt and shrinks the content onto it (`contentScale`). The mapping is `BoardState.contentScale` +
+  `originX/Y/Z` (`footX/designX` helpers). A game drawing extra geometry itself (wheel, print, dice) pushes the pose and
+  calls `BoardRenderer.feltPose(pose, s)` (FACING + mapping). There is no overhang and no blocked check any more. `s.content(x, y, z, r)` declares a wheel / dice the plates must clear; `s.cache(Cache::new)` keeps a
   per-table game cache (timelines). Interim boards for blackjack / baccarat (`SeatsBoardRenderer`, names only) are
   registered by `BoardKit` from the core client module; a game's own registration (later) overrides them.
 - Seat names: `CasinoTableBlockEntity#writePublic` writes `TablePublic` into the default update tag. **A game that
@@ -398,10 +418,10 @@ public final class BlackjackBoardRenderer extends BoardRenderer<BlackjackTableBl
   names. Bot avatars (`[BOT] …` text displays) are hidden client-side near a table with a board.
 - Sprites: `textures/entity/core/board/` from `tools/assets/modules/board.mjs` — `faces_w2.png` cells are 37 × 49
   (a dedicated in-world face: 2× index, big pip), not 32 × 44.
-- Spacing (worldgen / casino buildings): the overhang reaches 0.625 block left/right and 0.125 front/back
-  (crescent), 0.5 / 0.2 (rect), 0.5 all round (oval). A table needs the blocks beside it at table level (left / right, and
-  front / back: even 0.125 counts) free of colliding blocks — one free block on each long side is the rule; two tables side by side need **2 free blocks between them**
-  (centre pitch ≥ 3), else both fall back to the 1 × 1 top.
+- Spacing (worldgen / casino buildings): the board draws within the table's own footprint (plates and the board float
+  above it); clearance is MT's footprint rule (MT-DESIGN §6, `MultiBlockLayoutsTest`), not a board rule.
+- Debug: `BoardStats` is off unless `-Dburmaldaholic.boardStats=true` (or a test enables it); it and `PlateFrame` clear
+  on disconnect.
 
 ---
 

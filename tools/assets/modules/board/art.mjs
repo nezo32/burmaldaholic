@@ -232,3 +232,122 @@ export function holoBacking() {
   R(img, 0, 0, 4, 4, '#FFFFFF');
   return img;
 }
+
+// ---- full multi-block tables (MT-DESIGN §2): the hi-res felt print decal ------------------------------------------
+
+/**
+ * Felt of a full 3×2 table inside the rail — MUST match java core/table/parts/FeltFrame.of(game, MAIN): w × d in blocks,
+ * corner radius at the front (toward the players) and at the back. Roulette: the betting layout beside the wheel bowl.
+ */
+export const PRINT_FELTS = {
+  crescent: { w: 2.75, d: 1.75, frontR: 0.875, backR: 0 },
+  oval: { w: 2.75, d: 1.75, frontR: 0.875, backR: 0.875 },
+  rect: { w: 2.75, d: 1.75, frontR: 0, backR: 0 },
+  roulette: { w: 1.875, d: 1.75, frontR: 0, backR: 0 },
+};
+
+/** Furniture felt palettes — MUST match tools/assets/modules/tables/furniture.mjs THEMES (felt) + their print colour. */
+export const PRINT_THEMES = {
+  standard: { felt: ['#1E6A3E', '#1A5E37', '#22744A', '#175331'], deep: '#0C2A18', line: '#EDE2C4' },
+  high_roller: { felt: ['#3A1E5E', '#331A54', '#43246A', '#2B1648'], deep: '#140A24', line: '#FFE070' },
+  player_banked: { felt: ['#8A1C22', '#7A181E', '#9A2228', '#68141A'], deep: '#300808', line: '#E0B860' },
+};
+
+/** Signed distance (blocks) to a felt centred on (0, 0) with separate front (z > 0) and back corner radii. */
+function printSdf(f, x, z) {
+  const r = z > 0 ? f.frontR : f.backR;
+  const qx = Math.abs(x) - (f.w / 2 - r);
+  const qz = Math.abs(z) - (f.d / 2 - r);
+  return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - r;
+}
+
+/**
+ * The felt print of a full table (64 texels per block, u → players' right, v → toward the players): woven baize in the
+ * furniture's felt colours at 4 × the block felt's resolution, a soft shade toward the rail, an inner border line and
+ * the game's printed marks (crescent: the players' arc round the dealer; oval: the racetrack line). Transparent
+ * outside the rounded felt (cutout).
+ */
+export function feltPrint(shape, theme) {
+  const f = PRINT_FELTS[shape];
+  const t = PRINT_THEMES[theme];
+  const w = Math.round(f.w * FELT_PX);
+  const h = Math.round(f.d * FELT_PX);
+  const img = image(w, h);
+  const at = (i, j) => [-f.w / 2 + (i + 0.5) / FELT_PX, -f.d / 2 + (j + 0.5) / FELT_PX];
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      let cover = 0;
+      for (const [sx, sy] of SAMPLES) if (printSdf(f, -f.w / 2 + (i + sx) / FELT_PX, -f.d / 2 + (j + sy) / FELT_PX) <= 0) cover++;
+      if (cover < 2) continue;
+      const [x, z] = at(i, j);
+      const d = -printSdf(f, x, z);
+      const n = noise(i, j, 11);
+      // woven baize: a 2-px twill of the base tones, a faint nap
+      let c = (i + j) % 4 < 2 ? t.felt[0] : t.felt[1];
+      if (n < 0.12) c = t.felt[3];
+      else if (n > 0.9) c = t.felt[2];
+      const edge = Math.max(0, 1 - d / 0.16);
+      c = mixHex(c, t.deep, 0.5 * edge * edge);
+      P(img, i, j, c);
+    }
+  const line = (sdf, k) => {
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++) {
+        if (img.data[(j * w + i) * 4 + 3] === 0) continue;
+        const [x, z] = at(i, j);
+        const s = sdf(x, z);
+        const a = Math.max(0, 1 - Math.abs(s) * FELT_PX); // ≈ 1-px anti-aliased line
+        if (a > 0) B(img, i, j, t.line, k * a);
+      }
+  };
+  // inner border: a fine line 0.06 inside the rail and a second, fainter one 0.03 further in (a printed double rule)
+  for (const [inset, k] of [
+    [0.06, 0.5],
+    [0.09, 0.28],
+  ]) {
+    const g = { w: f.w - 2 * inset, d: f.d - 2 * inset, frontR: Math.max(0, f.frontR - inset), backR: Math.max(0, f.backR - inset) };
+    line((x, z) => printSdf(g, x, z), k);
+  }
+  // the casino's emblem: the four suits in a row, printed in the line colour (crescent: just in front of the dealer
+  // row; oval: the centre of the racetrack); roulette and craps print their own layouts over the felt
+  const suitsEmblem = (cz) => {
+    const size = 9;
+    const gap = 4;
+    const total = 4 * size + 3 * gap;
+    const x0 = Math.round(w / 2 - total / 2);
+    const y0 = Math.round((cz + f.d / 2) * FELT_PX - size / 2);
+    SUIT_ORDER.forEach((suit, k) => {
+      const ink = { base: t.line, light: t.line, dark: t.line };
+      over(img, pip(suit, size, ink, { flat: true }), x0 + k * (size + gap), y0, 0.42);
+    });
+  };
+  if (shape === 'crescent') {
+    // the players' arc round the dealer: the design arc (dealer (0.5, 0.10), radii 0.60 × 0.48, ±62°) on the full felt
+    // (design → full scale 1.2222, design centre (0.5, 0.5) → (0, 0))
+    const k = 1.75 / 1.25 < 2.75 / 2.25 ? 1.75 / 1.25 : 2.75 / 2.25;
+    const cz = (0.1 - 0.5) * k;
+    const rx = 0.6 * k;
+    const rz = 0.48 * k;
+    line((x, z) => {
+      if (z < cz) return 9;
+      const a = Math.atan2(x / rx, (z - cz) / rz);
+      if (Math.abs(a) > (62 * Math.PI) / 180) return 9;
+      return (Math.hypot(x / rx, (z - cz) / rz) - 1) * Math.min(rx, rz);
+    }, 0.55);
+    // a second arc just outside it (the printed band players bet behind) and the emblem behind the arc
+    line((x, z) => {
+      if (z < cz) return 9;
+      const a = Math.atan2(x / (rx + 0.06), (z - cz) / (rz + 0.06));
+      if (Math.abs(a) > (62 * Math.PI) / 180) return 9;
+      return (Math.hypot(x / (rx + 0.06), (z - cz) / (rz + 0.06)) - 1) * Math.min(rx, rz);
+    }, 0.3);
+    suitsEmblem(cz + rz * 0.45);
+  } else if (shape === 'oval') {
+    const r = { w: f.w - 0.7, d: f.d - 0.7, frontR: f.frontR - 0.35, backR: f.backR - 0.35 };
+    line((x, z) => printSdf(r, x, z), 0.35);
+    const r2 = { w: f.w - 0.78, d: f.d - 0.78, frontR: f.frontR - 0.39, backR: f.backR - 0.39 };
+    line((x, z) => printSdf(r2, x, z), 0.2);
+    suitsEmblem(0.18);
+  }
+  return img;
+}

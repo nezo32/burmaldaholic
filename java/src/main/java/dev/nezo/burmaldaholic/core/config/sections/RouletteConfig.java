@@ -13,7 +13,7 @@ public final class RouletteConfig {
 	@Range(min = 1, max = 1000000) public int highRollerMinTotal = 100;
 	@Range(min = 1, max = 10) public double highRollerMaxMultiplier = 2.0;
 	@Range(min = 100, max = 2400) public int betTimerTicks = 500;
-	@Range(min = 40, max = 300) public int spinTicks = 100;
+	@Range(min = 40, max = 300) public int spinTicks = 140;
 	@Range(min = 1, max = 16) public int maxBettors = 8;
 	@Range(min = 0, max = 50) public int historyLength = 12;
 }

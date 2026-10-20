@@ -13,7 +13,7 @@
 // Helpers live in ./tables/ (not loaded as modules by the driver). Deterministic; `--check` keeps them honest.
 import { JAVA_ASSETS, json, mcmeta, png } from '../lib/emit.mjs';
 import { THEME_ORDER } from './tables/theme.mjs';
-import { P, R, blend, c, disc, hstrip, image, over, put, star, vstrip } from './tables/draw.mjs';
+import { P, R, blend, c, crop, disc, hstrip, image, over, put, star, vstrip } from './tables/draw.mjs';
 import * as K from './tables/kit.mjs';
 import * as W from './tables/wheel.mjs';
 import * as Ro from './tables/roulette.mjs';
@@ -29,6 +29,13 @@ const SPR = `${T}/gui/sprites/tables`;
 export const HEAD_FRAMES = 74;
 export const HEAD_COLS = 10;
 export const HEAD_BLUR_FRAMES = 4;
+/**
+ * RO head rotation set (ROULETTE-ANIM-SPEC §3.2, PHASE2B D8): 222 frames (6 per pocket, 1.62°) for the 104 / 144 column
+ * and focus wheels, 20-column sheets; frame f = head angle f·360/222, frame 0 = pocket 0 at the top, the same pitch for
+ * every size so a focus swap is seamless. The 208 head is ONE frame rotated by the pose (D8 VRAM budget).
+ */
+export const RO_HEAD_FRAMES = 222;
+export const RO_HEAD_COLS = 20;
 
 function sheet(frames, cols) {
   const w = frames[0].w;
@@ -189,9 +196,26 @@ export default function generate() {
     sprite(`roulette/pill_${col}_new`, Ro.pill(col, true));
   }
   // v2 wheel column (lane C): medium bowls per theme + 74 head frames per size, "Last numbers" pills
+  const roPitch = 360 / RO_HEAD_FRAMES;
   for (const [tag, bowlG, headG] of [['104', W.BOWL_M2, W.HEAD_M2], ['144', W.BOWL_M3, W.HEAD_M3]]) {
-    gui(`roulette/wheel_head_m${tag}`, sheet(Array.from({ length: HEAD_FRAMES }, (_, i) => W.head(headG, i * pitch)), HEAD_COLS));
+    gui(`roulette/wheel_head_m${tag}`, sheet(Array.from({ length: RO_HEAD_FRAMES }, (_, i) => W.head(headG, i * roPitch)), RO_HEAD_COLS));
     for (const t of THEME_ORDER) gui(`roulette/wheel_bowl_m${tag}_${t}`, W.bowl(bowlG, t));
+    gui(`roulette/wheel_shadow_m${tag}`, Ro.wheelShadowSized(tag === '104' ? 112 : 152));
+    sprite(`roulette/diamond_flash_m${tag}`, vstrip(W.diamondFlash(tag === '104' ? 5 : 7, bowlG.deflectorR)));
+    sprite(`roulette/pocket_glow_m${tag}`, vstrip(W.pocketGlowSized(tag === '104' ? 12 : 16, headG)));
+  }
+  // RO (ROULETTE-ANIM-SPEC §5): the 208 focus head (rotated by the pose), motion sprites, in-world bowl + rotor
+  // digitless: the pose turns it; the numbers are drawn upright per frame from roulette/wheel_digits (one per pocket)
+  gui('roulette/wheel_head_208', W.head({ ...W.HEAD_BIG, digits: 0 }, 0));
+  sprite('roulette/wheel_digits', vstrip(Array.from({ length: 37 }, (_, n) => W.digitTag(n))));
+  sprite('roulette/diamond_flash_208', vstrip(W.diamondFlash(9, W.BOWL_BIG.deflectorR)));
+  sprite('roulette/ball_shadow', W.ballShadow());
+  sprite('roulette/loupe', W.loupe());
+  sprite('roulette/rake', Ro.rake(), { nineSlice: { width: 24, height: 6, border: { left: 4, top: 2, right: 4, bottom: 2 } } });
+  const dollyFrame = crop(Ro.dolly(), 0, 0, 12, 14);
+  for (const t of THEME_ORDER) {
+    out.push(png(`${T}/entity/roulette/rotor_${t}.png`, W.head(W.HEAD_BIG, 0, { theme: t })));
+    out.push(png(`${T}/entity/roulette/bowl3d_${t}.png`, W.bowl3d(t, dollyFrame)));
   }
   for (const col of ['red', 'black', 'green']) {
     sprite(`roulette/history_pill_${col}`, Ro.historyPill(col));

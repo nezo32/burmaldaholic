@@ -414,6 +414,18 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.auto_completed` | You left mid-round. The dealer finished it for you: %1$s | Вы ушли посреди раунда. Дилер доиграл за вас: %1$s |
 | `msg.burmaldaholic.core.card_given` | You received a Casino Card | Вы получили клубную карту |
 
+### Multi-block tables and machines (MT, v0.2: 3×2 tables, upright machines, compact legacy blocks)
+
+| Key | EN | RU |
+|-----|----|----|
+| `msg.burmaldaholic.table.no_room.p1` | No room: %1$s cell of its footprint is blocked or has no floor | Не хватает места: %1$s клетка под него занята или без пола |
+| `msg.burmaldaholic.table.no_room.p21` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клетка под него занята или без пола |
+| `msg.burmaldaholic.table.no_room.p2` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клетки под него заняты или без пола |
+| `msg.burmaldaholic.table.no_room.p5` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клеток под него заняты или без пола |
+| `msg.burmaldaholic.table.compact_hint` | Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it | Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить |
+| `msg.burmaldaholic.table.unfolded` | Unfolded to full size | Разложено в полный размер |
+| `msg.burmaldaholic.table.unfold_busy` | Someone is standing where it unfolds — step aside and try again | Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова |
+
 ### Casino Menu
 
 | Key | EN | RU |
@@ -1490,12 +1502,15 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.v2.bet` | Bet | Ставка |
 | `gui.burmaldaholic.roulette.v2.last_numbers` | Last numbers | Последние числа |
 | `gui.burmaldaholic.roulette.v2.primary.spinning` | Spinning | Крутится |
-| `gui.burmaldaholic.roulette.v2.reason.waiting_ready` | Ready: %1$s of %2$s — waiting for the others | Готовы %1$s из %2$s — ждём остальных |
+| `gui.burmaldaholic.roulette.v2.reason.waiting_ready` | Ready: %1$s of %2$s — waiting for the others | Готовы %1$s из %2$s — ждём других |
 | `gui.burmaldaholic.roulette.v2.reason.ready_locked` | You are ready — wait for the spin | Вы готовы — ждём спина |
 | `gui.burmaldaholic.roulette.v2.reason.no_last_bets` | No bets from the last spin | Нет ставок с прошлого спина |
-| `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Добавьте фишки или крутите |
+| `gui.burmaldaholic.roulette.v2.reason.rebet_queued` | Repeat goes on when bets open | Повтор — с началом ставок |
+| `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Ещё фишки или спин |
 | `gui.burmaldaholic.roulette.v2.status.spin_in` | Spin in %1$s s | Спин через %1$s с |
 | `gui.burmaldaholic.roulette.v2.status.ball_spinning` | The ball is spinning… | Шарик катится… |
+| `gui.burmaldaholic.roulette.v2.status.result_shown` | Paying out · bets open next | Выплата · затем ставки |
+| `msg.burmaldaholic.roulette.closed_refund` | The casino closed this table. Your bets of %1$s were returned. | Казино закрыло стол. Ваши ставки (%1$s) возвращены. |
 | `gui.burmaldaholic.roulette.v2.hover` | %1$s · %2$s · pays %3$s : 1 | %1$s · %2$s · выплата %3$s : 1 |
 | `gui.burmaldaholic.roulette.v2.hover_empty` | %1$s · pays %2$s : 1 | %1$s · выплата %2$s : 1 |
 | `gui.burmaldaholic.roulette.v2.call_hover` | %1$s · %2$s per chip · %3$s in all | %1$s · %2$s за фишку · всего %3$s |
@@ -1517,6 +1532,16 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.v2.board.color.red` | RED | КРАСНОЕ |
 | `gui.burmaldaholic.roulette.v2.board.color.black` | BLACK | ЧЁРНОЕ |
 | `gui.burmaldaholic.roulette.v2.board.color.green` | ZERO | ЗЕРО |
+
+### Motion sounds (RO, `ROULETTE-ANIM-SPEC.md` §6)
+
+| Key | EN | RU |
+|-----|----|----|
+| `subtitles.burmaldaholic.roulette_rotor_push` | Croupier spins the wheel | Крупье раскручивает колесо |
+| `subtitles.burmaldaholic.roulette_roll` | Ball whirs round the wheel | Шарик кружит по колесу |
+| `subtitles.burmaldaholic.roulette_deflector` | Ball strikes a diamond | Шарик бьётся о ромб |
+| `subtitles.burmaldaholic.roulette_floor` | Ball knocks in a pocket | Шарик стучит в лунке |
+| `subtitles.burmaldaholic.roulette_rake` | Croupier rakes the chips | Крупье сгребает фишки |
 
 ---
 

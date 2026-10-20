@@ -1,18 +1,108 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,part=single": {
       "model": "burmaldaholic:block/baccarat/table"
     },
-    "facing=east": {
+    "facing=north,part=main": {
+      "model": "burmaldaholic:block/tables/baccarat_table/main"
+    },
+    "facing=north,part=left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/left"
+    },
+    "facing=north,part=right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/right"
+    },
+    "facing=north,part=back_left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_left"
+    },
+    "facing=north,part=back": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back"
+    },
+    "facing=north,part=back_right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_right"
+    },
+    "facing=east,part=single": {
       "model": "burmaldaholic:block/baccarat/table",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,part=main": {
+      "model": "burmaldaholic:block/tables/baccarat_table/main",
+      "y": 90
+    },
+    "facing=east,part=left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/left",
+      "y": 90
+    },
+    "facing=east,part=right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/right",
+      "y": 90
+    },
+    "facing=east,part=back_left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_left",
+      "y": 90
+    },
+    "facing=east,part=back": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back",
+      "y": 90
+    },
+    "facing=east,part=back_right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_right",
+      "y": 90
+    },
+    "facing=south,part=single": {
       "model": "burmaldaholic:block/baccarat/table",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,part=main": {
+      "model": "burmaldaholic:block/tables/baccarat_table/main",
+      "y": 180
+    },
+    "facing=south,part=left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/left",
+      "y": 180
+    },
+    "facing=south,part=right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/right",
+      "y": 180
+    },
+    "facing=south,part=back_left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_left",
+      "y": 180
+    },
+    "facing=south,part=back": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back",
+      "y": 180
+    },
+    "facing=south,part=back_right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_right",
+      "y": 180
+    },
+    "facing=west,part=single": {
       "model": "burmaldaholic:block/baccarat/table",
+      "y": 270
+    },
+    "facing=west,part=main": {
+      "model": "burmaldaholic:block/tables/baccarat_table/main",
+      "y": 270
+    },
+    "facing=west,part=left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/left",
+      "y": 270
+    },
+    "facing=west,part=right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/right",
+      "y": 270
+    },
+    "facing=west,part=back_left": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_left",
+      "y": 270
+    },
+    "facing=west,part=back": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back",
+      "y": 270
+    },
+    "facing=west,part=back_right": {
+      "model": "burmaldaholic:block/tables/baccarat_table/back_right",
       "y": 270
     }
   }

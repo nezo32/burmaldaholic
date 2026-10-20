@@ -1,0 +1,157 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "burmaldaholic:block/extras/plinko_machine_side",
+    "side": "burmaldaholic:block/extras/plinko_machine_side",
+    "front": "burmaldaholic:block/extras/plinko_machine_front",
+    "wood": "burmaldaholic:block/core/tables/high_roller/wood",
+    "trim": "burmaldaholic:block/core/tables/high_roller/trim",
+    "dark": "burmaldaholic:block/core/tables/high_roller/rail",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "chrome": "burmaldaholic:block/core/machines/chrome",
+    "board": "burmaldaholic:block/core/machines/plinko_board_back",
+    "marquee": "burmaldaholic:block/core/machines/plinko_marquee",
+    "pbase": "burmaldaholic:block/core/machines/plinko_base"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        1
+      ],
+      "to": [
+        16,
+        16,
+        12
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            1,
+            16,
+            12
+          ],
+          "texture": "#board"
+        },
+        "down": {
+          "uv": [
+            2,
+            1,
+            16,
+            12
+          ],
+          "texture": "#board",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            14,
+            16
+          ],
+          "texture": "#board"
+        },
+        "south": {
+          "uv": [
+            2,
+            0,
+            16,
+            16
+          ],
+          "texture": "#board"
+        },
+        "west": {
+          "uv": [
+            1,
+            0,
+            12,
+            16
+          ],
+          "texture": "#board"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            15,
+            16
+          ],
+          "texture": "#board"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        2,
+        16,
+        12
+      ],
+      "light_emission": 12,
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            0,
+            2,
+            12
+          ],
+          "texture": "#wood"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            2,
+            12
+          ],
+          "texture": "#wood",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            14,
+            0,
+            16,
+            16
+          ],
+          "texture": "#bulbs"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            2,
+            16
+          ],
+          "texture": "#wood"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            12,
+            16
+          ],
+          "texture": "#wood"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wood"
+        }
+      }
+    }
+  ]
+}

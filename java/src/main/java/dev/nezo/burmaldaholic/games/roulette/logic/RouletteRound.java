@@ -39,7 +39,7 @@ public final class RouletteRound<K> {
 	}
 
 	public record Timings(int betTicks, int noMoreBetsTicks, int spinTicks, int resultTicks) {
-		public static final Timings DEFAULT = new Timings(500, 20, 100, 60);
+		public static final Timings DEFAULT = new Timings(500, 20, 140, 60);
 	}
 
 	/** What {@link #update} did (at most one transition per call). */

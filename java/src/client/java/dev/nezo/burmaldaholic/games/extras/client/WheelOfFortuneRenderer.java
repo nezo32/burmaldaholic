@@ -254,6 +254,7 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 		int light = s.lightCoords;
 		int lit = FULL_BRIGHT; // the wheel is lit by its own bulbs: the face reads at dusk and in dark casinos
 		pose.pushPose();
+		dev.nezo.burmaldaholic.client.table.TableFrames.toFullFace(pose, s.tablePart, s.machineKind, s.facing); // MT-3: 3 × 3 wheel
 		pose.translate(0.5f, 0f, 0.5f);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f); // mulPose(Quaternionfc) is gone in 26.3
 		out.submitCustomGeometry(pose, RenderTypes.entityCutout(WHITE_TEX), (p, vc) -> stand(p, vc, light));

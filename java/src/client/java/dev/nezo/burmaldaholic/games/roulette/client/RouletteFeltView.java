@@ -119,7 +119,7 @@ final class RouletteFeltView {
 			Box b = l.outside(s);
 			g.fill(b.x(), b.y(), b.x() + 1, b.bottom(), line);
 			if (s.equals(litOutside)) rect(g, b.inset(1), 0x40FFD640);
-			centred(g, font, Texts.raw(dozen[i - 1]), b, line | 0xFF000000, true);
+			label(g, font, Texts.raw(dozen[i - 1]), b, l.labelArea(s), line | 0xFF000000);
 		}
 		g.fill(gx + zw + 12 * cw, dozenY, gx + zw + 12 * cw + 1, bottom, line);
 		// even-money row
@@ -128,12 +128,13 @@ final class RouletteFeltView {
 			Box b = l.outside(s);
 			g.fill(b.x(), b.y(), b.x() + 1, b.bottom(), line);
 			if (s.equals(litOutside)) rect(g, b.inset(1), 0x40FFD640);
+			Box la = l.labelArea(s);
 			switch (t) {
-				case RED, BLACK -> diamond(g, b, t == BetType.RED ? RED : BLACK, line);
-				case LOW -> centred(g, font, Texts.raw("1–18"), b, line | 0xFF000000, true);
-				case HIGH -> centred(g, font, Texts.raw("19–36"), b, line | 0xFF000000, true);
-				case EVEN -> centred(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.even"), b, line | 0xFF000000, true);
-				default -> centred(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.odd"), b, line | 0xFF000000, true);
+				case RED, BLACK -> diamond(g, new Box(la.x(), b.y(), la.w(), b.h()), t == BetType.RED ? RED : BLACK, line);
+				case LOW -> label(g, font, Texts.raw("1–18"), b, la, line | 0xFF000000);
+				case HIGH -> label(g, font, Texts.raw("19–36"), b, la, line | 0xFF000000);
+				case EVEN -> label(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.even"), b, la, line | 0xFF000000);
+				default -> label(g, font, Component.translatable("gui.burmaldaholic.roulette.layout.odd"), b, la, line | 0xFF000000);
 			}
 		}
 		if (dim > 0) rect(g, all, TableGfx.alpha(0xFF0A0612, 0.25 * dim));
@@ -141,6 +142,29 @@ final class RouletteFeltView {
 			Box c = l.cell(win);
 			outline(g, new Box(c.x() - 1, c.y() - 1, c.w() + 3, c.h() + 3), 2, GOLD);
 		}
+	}
+
+	/**
+	 * T-C2 V4: the winning cell alone (its tile, number and gold frame), drawn again OVER a celebration so a big win never
+	 * hides the number it is about. The box drawn is {@link RouletteLayout#winCellPunch}.
+	 */
+	static void winCell(GuiGraphicsExtractor g, Font font, RouletteLayout l, int win) {
+		Box c = l.cell(win);
+		rect(g, l.winCellPunch(win), FELT_SHADE);
+		tileBox(g, c.inset(2), tile(win), false);
+		if (win == 0) centred(g, font, Texts.number(0), c, BONE, true);
+		else {
+			Box gl = l.glyph(win);
+			g.text(font, Texts.number(win), gl.x(), gl.y(), BONE, true);
+		}
+		outline(g, l.winCellPunch(win), 2, GOLD);
+	}
+
+	/** An outside label centred in its label area (left of the stack column); a long word keeps its right edge there. */
+	private static void label(GuiGraphicsExtractor g, Font font, Component text, Box box, Box area, int color) {
+		int w = font.width(text);
+		int x = w <= area.w() ? area.x() + (area.w() - w) / 2 : Math.max(box.x() + 1, area.right() - w);
+		g.text(font, text, x, box.cy() - 4, color, true);
 	}
 
 	private static void tileBox(GuiGraphicsExtractor g, Box b, int[] pc, boolean lit) {
@@ -181,6 +205,19 @@ final class RouletteFeltView {
 			int c = tint != 0 ? mul(tint, argb) : argb;
 			TableGfx.blit(g, sprite, b.x(), y, l.chip, l.chip - 1, c);
 		}
+	}
+
+	/** {@link #stack} at a float offset (drops, the rake), snapped to the physical grid. */
+	static void stackAt(GuiGraphicsExtractor g, RouletteLayout l, Spot s, long amount, int tint, double alpha, double dx, double dy) {
+		if (dx == 0 && dy == 0) {
+			stack(g, l, s, amount, tint, alpha);
+			return;
+		}
+		int k = Math.max(1, l.grid.viewport.k());
+		g.pose().pushMatrix();
+		g.pose().translate(dev.nezo.burmaldaholic.core.anim.motion.PixelSnap.snapF(dx, k), dev.nezo.burmaldaholic.core.anim.motion.PixelSnap.snapF(dy, k));
+		stack(g, l, s, amount, tint, alpha);
+		g.pose().popMatrix();
 	}
 
 	/** One disc of a denomination centred on a point (flights, the ghost chip on hover). */

@@ -28,6 +28,8 @@ import java.util.Optional;
 public final class RouletteLayout {
 	/** Wheel sprite diameters (generated: the mini wheel 72, {@code wheel_bowl_m} 104 / 144). */
 	public static final int[] WHEELS = {72, 104, 144};
+	/** ROOMY (ui-v2 §3.7, PHASE2B §2.2.5): the column may hold the big 208 wheel. */
+	public static final int[] WHEELS_ROOMY = {72, 104, 144, 208};
 	public static final int PILL_W = 23, PILL_H = 13, PILL_PITCH_X = 26, PILL_PITCH_Y = 15;
 	/** Glyph height of the 1× vanilla font (digits). */
 	public static final int GLYPH_H = 8;
@@ -49,8 +51,8 @@ public final class RouletteLayout {
 	public final List<Box> calls;
 	/** Felt chip disc size (px), the px each disc of a stack rises and the gap under a cell's stack. */
 	public final int chip, rise, pad;
-	/** Where the ResultBanner may go (over the wheel column). */
-	public final Box bannerRegion;
+	/** The 37 number cells (zero + 12 × 3): never under the ResultBanner (the winning cell stays visible). */
+	public final Box numbers;
 
 	private RouletteLayout(TableGrid g) {
 		this.grid = g;
@@ -65,13 +67,16 @@ public final class RouletteLayout {
 			case T3 -> 22;
 		};
 		int callGap = tier == Tier.T1 ? 6 : 8;
-		int top = play.y() + (tier == Tier.T1 ? 8 : 10);
+		int top0 = play.y() + (tier == Tier.T1 ? 8 : 10);
+		int top = top0;
+		boolean roomy = g.roomy();
 		int colW = (int) Math.round(w * (tier == Tier.T3 ? 0.26 : 0.25));
+		// ROOMY: the cells grow with the felt instead of stopping at 40 px (C2 → RO: no empty felt at 1067×600)
 		int cap = Math.max(switch (tier) {
 			case T1 -> 21;
 			case T2 -> 23;
 			case T3 -> 30;
-		}, Math.min(40, (int) (ph * 0.11)));
+		}, Math.min(roomy ? 54 : 40, (int) (ph * (roomy ? 0.10 : 0.11))));
 		int lx = m + colW + 6;
 		int cw = Math.max(8, Math.min(cap, (w - m - lx - 4) / 14));
 		int chMax = (ph - (top - play.y()) - 2 * oh - (oh + callGap) - 8) / 3;
@@ -92,6 +97,11 @@ public final class RouletteLayout {
 		this.chip = tier.feltChip - pick[2];
 		int e = Math.max(3, cw / 5);
 		this.cells = new LayoutGrid(cw, cw, ch, cw, oh, oh, 0, e);
+		if (roomy) {
+			// T-C2 V5: on a ROOMY felt the layout block (numbers, outside rows, call bets) sits in the middle of the felt
+			int block = cells.height() + callGap + oh;
+			top += Math.max(0, (ph - (top0 - play.y()) - block - 10) / 2);
+		}
 		// the layout is centred in the space right of the wheel column
 		int free = w - m - lx;
 		this.gx = lx + Math.max(0, (free - cells.width()) / 2);
@@ -112,7 +122,7 @@ public final class RouletteLayout {
 		this.column = new Box(m, play.y(), colW, ph);
 		int maxD = Math.min(colW - 8, ph - 64);
 		int d = WHEELS[0];
-		for (int s : WHEELS) {
+		for (int s : roomy ? WHEELS_ROOMY : WHEELS) {
 			if (s <= maxD) d = s;
 		}
 		this.wheelD = d;
@@ -124,7 +134,9 @@ public final class RouletteLayout {
 		this.historyLabel = new Box(px, ly, pillsW, 9);
 		List<Box> p = new ArrayList<>();
 		int py = ly + 12;
-		for (int row = 0; row < 2; row++) {
+		// ROOMY (ui-v2 §3.7, PHASE2B §2.2.5): up to 5 rows (20 pills) where the column has the height
+		int rows = g.roomy() ? 5 : 2;
+		for (int row = 0; row < rows; row++) {
 			int y = py + row * PILL_PITCH_Y;
 			if (y + PILL_H > play.bottom() - 2) break;
 			for (int i = 0; i < perRow; i++) {
@@ -132,7 +144,7 @@ public final class RouletteLayout {
 			}
 		}
 		this.pills = List.copyOf(p);
-		this.bannerRegion = new Box(column.x(), wheel.y(), column.w(), Math.max(0, Math.min(play.bottom() - 2, layout.bottom()) - wheel.y()));
+		this.numbers = new Box(gx, gy, cells.gridRight(), cells.gridBottom());
 	}
 
 	public static RouletteLayout of(TableGrid g) {
@@ -186,6 +198,53 @@ public final class RouletteLayout {
 	}
 
 	/** Every number glyph box (0..36). */
+	public List<Box> glyphBoxes() {
+		return glyphs();
+	}
+
+	/**
+	 * Where the ResultBanner may go, in preference order (R-CDE M4, DES roulette P1): over the call-bet row and the
+	 * even-money row (the band from the even-money row to the felt's bottom), then the whole outside-bet band under the
+	 * numbers, then the wheel column, then anywhere on the felt clear of {@link #bannerObstacles}.
+	 */
+	public List<Box> bannerRegions() {
+		int bottom = grid.play.bottom() - 2;
+		int evenTop = gy + cells.evenY();
+		int outsideTop = gy + cells.dozenY();
+		List<Box> out = new ArrayList<>(5);
+		// T-C2 V6: first the felt under the call-bet row (ROOMY sizes have room there), then the bands over the rows
+		int callsBottom = calls.get(0).bottom() + 3;
+		out.add(new Box(layout.x(), callsBottom, layout.w(), Math.max(0, bottom - callsBottom)));
+		out.add(new Box(layout.x(), evenTop, layout.w(), Math.max(0, bottom - evenTop)));
+		out.add(new Box(layout.x(), outsideTop, layout.w(), Math.max(0, bottom - outsideTop)));
+		out.add(new Box(column.x(), wheel.y(), column.w(), Math.max(0, bottom - wheel.y())));
+		out.add(grid.play);
+		return out;
+	}
+
+	/**
+	 * What the ResultBanner must never cover: the 37 number cells (so the winning cell is always visible), every printed
+	 * number glyph, the wheel and the "Last numbers" caption + history pills.
+	 */
+	public List<Box> bannerObstacles() {
+		List<Box> out = new ArrayList<>(48);
+		out.add(numbers);
+		out.addAll(glyphs());
+		out.add(wheel);
+		out.add(historyLabel);
+		out.addAll(pills);
+		// T-C2 V6: the call bets stay readable (Orphelins / Voisins were hidden), with a 2 px gap
+		for (Box c : calls) out.add(new Box(c.x(), c.y() - 2, c.w(), c.h() + 4));
+		return out;
+	}
+
+	/** T-C2 V4: the winning cell with its 2 px gold frame (what is drawn again over a celebration). */
+	public Box winCellPunch(int n) {
+		Box c = cell(n);
+		return new Box(c.x() - 1, c.y() - 1, c.w() + 3, c.h() + 3);
+	}
+
+	/** Every number glyph box (0..36). */
 	public List<Box> glyphs() {
 		List<Box> out = new ArrayList<>(37);
 		for (int n = 0; n <= 36; n++) {
@@ -233,12 +292,33 @@ public final class RouletteLayout {
 				Box o = outside(s);
 				yield new int[] {o.cx(), lowY(o)};
 			}
-			case RED, BLACK -> new int[] {outside(s).cx(), outside(s).cy()};
 			default -> {
 				Box o = outside(s);
 				yield new int[] {o.right() - chip / 2 - 3, o.cy()};
 			}
 		};
+	}
+
+	/**
+	 * Where an outside bet's printed label (dozen, even-money word, red / black diamond) goes: its box left of the stack
+	 * column at the right end, so chips and value pills never cover the label (T-C2 V2). Columns and inside bets: the box
+	 * itself.
+	 */
+	public Box labelArea(Spot s) {
+		if (s.type().inside() || s.type() == BetType.COLUMN) return area(s);
+		Box o = outside(s);
+		int right = anchor(s)[0] - chip / 2 - 2;
+		int h = Math.min(o.h(), GLYPH_H + 2); // the printed word / diamond is centred: its own height, not the whole box
+		return new Box(o.x() + 1, o.cy() - h / 2, Math.max(4, right - o.x() - 1), h);
+	}
+
+	/** Every outside label area (dozens and the even-money row): obstacles for value pills. */
+	public List<Box> labelAreas() {
+		List<Box> out = new ArrayList<>();
+		for (BetType t : List.of(BetType.DOZEN, BetType.LOW, BetType.EVEN, BetType.RED, BetType.BLACK, BetType.ODD, BetType.HIGH)) {
+			for (Spot sp : Spot.all(t)) out.add(labelArea(sp));
+		}
+		return out;
 	}
 
 	/** Disc box of a stack of {@code discs} discs on a spot (the bottom disc at the anchor, each one {@link #DISC_RISE} up). */
@@ -311,6 +391,9 @@ public final class RouletteLayout {
 			hard.add(rect(g));
 		}
 		for (Box a : avoid) {
+			hard.add(rect(a));
+		}
+		for (Box a : labelAreas()) {
 			hard.add(rect(a));
 		}
 		Box b = grid.play;

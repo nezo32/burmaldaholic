@@ -7,8 +7,8 @@ import net.minecraft.core.BlockPos;
 /**
  * Debug counters of the in-world board kit (docs/architecture/ui-v2.md §7.1, §7.5): per table, what the last frame
  * submitted (quads, text lines, plates) and how long extract + submit + the geometry callbacks took on the render
- * thread. Read by the perf GameTest (counts asserted, times reported) and {@code /casino debug board}. Render thread
- * only; a few HashMap writes per table per frame.
+ * thread. Read by the perf GameTest (counts asserted, times reported). Off by default ({@code -Dburmaldaholic.boardStats=true}
+ * or {@link #setEnabled}); cleared on disconnect. Render thread only; a few HashMap writes per table per frame when on.
  */
 public final class BoardStats {
 	/** The last frame of one table. */
@@ -19,6 +19,12 @@ public final class BoardStats {
 		/** Screen-space rectangles of the plates drawn last frame (x0, y0, x1, y1 in plane blocks), for the overlap test. */
 		public final float[] plateRects = new float[4 * 16];
 		public int plateRectCount;
+		/** The dealer card area in the plate plane last frame (u0, u1, top v; NaN = none), for the plates ∩ dealer test. */
+		public float dealerU0 = Float.NaN, dealerU1 = Float.NaN, dealerTop = Float.NaN;
+		/** Text px (blocks) of the plates / board, the felt distance, and whether the table drew as a full 3×2 table. */
+		public float platePx, boardPx;
+		public double dist;
+		public boolean full;
 		/** LOD drawn last frame (null = not drawn). */
 		public dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.@org.jspecify.annotations.Nullable Lod lod;
 
@@ -26,18 +32,23 @@ public final class BoardStats {
 			lod = null;
 			cardQuads = chipQuads = feltQuads = backings = lines = plates = leaders = 0;
 			plateRectCount = 0;
+			dealerU0 = dealerU1 = dealerTop = Float.NaN;
 			nanos = 0;
 			this.frame = frame;
 		}
 	}
 
 	private static final Map<Long, Table> TABLES = new HashMap<>();
-	private static boolean enabled = true;
+	/** Where the counters go while stats are off (written, never read: no map entry per table, finding R-KW m12). */
+	private static final Table SINK = new Table();
+	/** Off unless {@code -Dburmaldaholic.boardStats=true} or a test turns it on ({@link #setEnabled}). */
+	private static boolean enabled = Boolean.getBoolean("burmaldaholic.boardStats");
 
 	private BoardStats() {}
 
-	/** The stats of the table at {@code pos} (created on first use). */
+	/** The stats of the table at {@code pos} (created on first use); a shared sink while stats are off. */
 	public static Table of(BlockPos pos) {
+		if (!enabled) return SINK;
 		return TABLES.computeIfAbsent(pos.asLong(), k -> new Table());
 	}
 
@@ -63,6 +74,7 @@ public final class BoardStats {
 
 	public static void setEnabled(boolean on) {
 		enabled = on;
+		if (!on) TABLES.clear();
 	}
 
 }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.FreeSlot;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.LayoutAudit;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
@@ -136,7 +137,27 @@ class RouletteLayoutTest {
 		for (Spot sp : RouletteLayout.allSpots()) {
 			if (l.tag(sp, 1, 23, 11, List.of()).isPresent()) found++;
 		}
-		assertTrue(found > 140, "tags placed " + found);
+		// the outside labels are obstacles too (T-C2 V2): a few tags near them give way to the status readout
+		assertTrue(found > 120, "tags placed " + found);
+	}
+
+	/** T-C2 V2: no chip stack (up to the full height) and no value tag ever covers a printed outside label, at every size. */
+	@Test
+	void stacksAndTagsNeverCoverOutsideLabels() {
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			List<Box> labels = l.labelAreas();
+			if (s[0] < 400) continue; // below the smallest real size (427×240) the rows are too short for both
+			for (Spot sp : RouletteLayout.allSpots()) {
+				Box st = l.stack(sp, RouletteLayout.MAX_DISCS);
+				// street / six-line chips sit ON the grid's bottom line by convention; only outside stacks are checked here
+				if (sp.type().inside()) continue;
+				for (Box la : labels) assertFalse(st.intersects(la), s[0] + "x" + s[1] + " " + sp.key() + " stack over label " + la);
+				l.tag(sp, 2, 23, 11, List.of()).ifPresent(t -> {
+					for (Box la : labels) assertFalse(t.intersects(la), s[0] + "x" + s[1] + " " + sp.key() + " tag over label");
+				});
+			}
+		}
 	}
 
 	@Test
@@ -151,6 +172,106 @@ class RouletteLayoutTest {
 						int w = lang[sec.ordinal()].length() * 6;
 						assertTrue(w + 4 <= b.w(), s[0] + "x" + s[1] + " " + lang[sec.ordinal()] + " in " + b.w());
 					}
+				}
+			}
+		}
+	}
+
+	/** Banner sizes the kit uses by tier (ResultBanner: T1 160×18, T2 232×28, T3 300×36) and K2a's compact 200×20. */
+	private static int[][] bannerSizes(Tier t) {
+		return switch (t) {
+			case T1 -> new int[][] {{160, 18}, {200, 20}};
+			case T2 -> new int[][] {{232, 28}, {200, 20}};
+			case T3 -> new int[][] {{300, 36}, {200, 20}};
+		};
+	}
+
+	/**
+	 * R-CDE M4: wherever the ResultBanner lands it never covers the winning cell — for each of the 37 numbers at every
+	 * size — nor the wheel and the history; at the standard sizes it is placed (not skipped) under the numbers.
+	 */
+	@Test
+	void bannerNeverCoversTheWinningCell() {
+		int placed = 0;
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			for (int[] b : bannerSizes(l.tier)) {
+				Optional<Box> at = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles());
+				if (at.isEmpty()) continue;
+				placed++;
+				Box box = at.get();
+				String where = s[0] + "x" + s[1] + " banner " + box;
+				assertTrue(box.inside(l.grid.play), where + " outside the felt");
+				for (int n = 0; n <= 36; n++) {
+					assertFalse(box.intersects(l.cell(n)), where + " covers the winning cell " + n + " " + l.cell(n));
+					assertFalse(box.intersects(l.glyph(n)), where + " covers the number " + n);
+				}
+				assertFalse(box.intersects(l.wheel), where + " covers the wheel");
+				for (Box p : l.pills) assertFalse(box.intersects(p), where + " covers a history pill");
+			}
+		}
+		assertTrue(placed > sizes().size(), "banners placed " + placed);
+		for (int[] s : List.of(new int[] {480, 270}, new int[] {640, 360}, new int[] {427, 240})) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			int[] b = bannerSizes(l.tier)[0];
+			Box box = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles()).orElse(null);
+			if (box == null) {
+				b = bannerSizes(l.tier)[1];
+				box = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles()).orElse(null);
+			}
+			assertTrue(box != null, s[0] + "x" + s[1] + " no place for the banner");
+			assertTrue(box.y() >= l.numbers.bottom(), s[0] + "x" + s[1] + " banner " + box + " not under the numbers " + l.numbers);
+		}
+	}
+
+	/** T-C2 V5: the framed / ROOMY felts (owner 2560×1440 GUI 2, 1920×1080 GUI 2, 4K) are filled, not just their top 45 %. */
+	@Test
+	void roomyAndFramedFeltsAreFilled() {
+		int[][] cases = {{2560, 1440, 2}, {1920, 1080, 2}, {3840, 2160, 4}, {3840, 2160, 3}};
+		int roomy = 0;
+		for (int[] c : cases) {
+			dev.nezo.burmaldaholic.core.ui.v2.Viewport vp = dev.nezo.burmaldaholic.core.ui.v2.Viewport.of(c[0], c[1], c[2]);
+			RouletteLayout l = RouletteLayout.of(new dev.nezo.burmaldaholic.core.ui.v2.TableGrid(vp));
+			String at = c[0] + "x" + c[1] + " gui " + c[2] + " frame " + vp.frameW() + "x" + vp.frameH();
+			if (!l.grid.roomy()) continue;
+			roomy++;
+			Box play = l.grid.play;
+			int top = l.layout.y();
+			int bottom = l.calls.get(0).bottom();
+			assertTrue(bottom - top >= 0.6 * play.h(), at + ": layout block " + (bottom - top) + " of felt " + play.h());
+			int above = top - play.y();
+			int below = play.bottom() - bottom;
+			assertTrue(Math.abs(above - below) <= 24, at + ": not centred, " + above + " above / " + below + " below");
+			assertTrue(l.wheelD >= 144, at + ": wheel " + l.wheelD);
+			assertTrue(l.layout.w() >= 0.6 * play.w(), at + ": layout width " + l.layout.w() + " of " + play.w());
+		}
+		assertTrue(roomy >= 2, "ROOMY cases checked " + roomy);
+	}
+
+	/** T-C2 V4: the cell drawn over a celebration covers the whole winning cell and its number, inside the felt. */
+	@Test
+	void theWinningCellOverTheCelebrationCoversCellAndNumber() {
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			for (int n = 0; n <= 36; n++) {
+				Box p = l.winCellPunch(n);
+				assertTrue(l.cell(n).inside(p) && l.glyph(n).inside(p), s[0] + "x" + s[1] + " " + n);
+				assertTrue(p.inside(l.grid.play), s[0] + "x" + s[1] + " " + n + " punch outside the felt");
+			}
+		}
+	}
+
+	/** T-C2 V6: the banner keeps a 2 px gap to every call bet (Orphelins / Voisins stay readable). */
+	@Test
+	void theBannerNeverTouchesTheCallBets() {
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			for (int[] b : bannerSizes(l.tier)) {
+				Optional<Box> at = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles());
+				if (at.isEmpty()) continue;
+				for (Box c : l.calls) {
+					Box grown = new Box(c.x(), c.y() - 2, c.w(), c.h() + 4);
+					assertFalse(at.get().intersects(grown), s[0] + "x" + s[1] + " banner " + at.get() + " touches call " + c);
 				}
 			}
 		}

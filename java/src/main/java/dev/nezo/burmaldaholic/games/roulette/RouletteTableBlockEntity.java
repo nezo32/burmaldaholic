@@ -23,6 +23,7 @@ import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
 import dev.nezo.burmaldaholic.games.roulette.logic.Bets;
 import dev.nezo.burmaldaholic.games.roulette.logic.Bets.Bet;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteBettor;
+import dev.nezo.burmaldaholic.games.roulette.logic.RouletteDealer;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteRound;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteRound.Transition;
 import dev.nezo.burmaldaholic.games.roulette.logic.SlipLimits;
@@ -127,6 +128,12 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 	/** spin counter (cosmetic seed input) */
 	private int spinSeq;
 	private int spinSeed;
+	/**
+	 * RO (ROULETTE-ANIM-SPEC §2.2, §2.5): the launch bookkeeping. At NO_MORE_BETS the dealer takes the rotor where its
+	 * model has it (never a reset), pushes it the other way than last time and launches the ball with the seed; the
+	 * result is still drawn at NO_MORE_BETS → SPIN by the round with the same single fair call. Cosmetic only.
+	 */
+	private final RouletteDealer dealer;
 	/** 0 village, 1 bastion, 2 end (-1 = not resolved yet) */
 	private int theme = -1;
 	/** per-bet total returns of the last settled slip (aligned with {@link #lastSlips}) */
@@ -150,6 +157,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		super(type, pos, state);
 		this.highRoller = RouletteModule.HIGH_ROLLER_NAME.equals(type.name());
 		this.round = new RouletteRound<>(RouletteRound.Timings.DEFAULT, 12);
+		this.dealer = new RouletteDealer(SeedMix.mixLong(pos.asLong()));
 	}
 
 	private static RouletteConfig cfg() {
@@ -479,10 +487,35 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				}
 			}
 			if (round.hasBets() || round.phase() != RouletteRound.Phase.BETTING) {
-				round.abort().keySet().forEach(this::refund);
+				// T-C2 V9: the stakes go back with a casino-closed line (not core's "the server restarted mid-round")
+				round.abort().forEach((id, bets) -> {
+					refund(id, true);
+					ServerPlayer online = level.getServer().getPlayerList().getPlayer(id);
+					long amount = Bets.totalStaked(bets);
+					if (online != null && amount > 0) {
+						online.sendSystemMessage(Component.translatable("msg.burmaldaholic.roulette.closed_refund", Texts.chipsAcc(amount)));
+					}
+				});
 				outcomes.clear();
 				setPhase(round.phase().id());
 				syncViewers();
+			}
+			// R-CDE m4: the in-world board goes idle too (no stale stacks / spin): the atmosphere bots' virtual slips are
+			// dropped (no money) and the idle public board is published before returning
+			boolean botBets = false;
+			for (BotSlip b : botSlips.values()) {
+				if (!b.bets.isEmpty()) {
+					b.bets = List.of();
+					b.betAt = -1;
+					botBets = true;
+				}
+			}
+			if (botBets || !botResults.isEmpty()) {
+				botResults.clear();
+				pubDirty = true;
+			}
+			if (pubDirty) {
+				publishSync();
 			}
 			return;
 		}
@@ -502,13 +535,15 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			case Transition.NoMoreBets<UUID> n -> {
 				placeBotBets(true); // bots are always ready: whoever has not bet yet bets now
 				refundDropped(level, n.dropped());
+				// RO: seed + launch at NO_MORE_BETS (cosmetic; no RNG / money involved — the result is drawn at SPIN)
+				RouletteDealer.Launch l = dealer.launch(gameTime(), SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), dealer.seq() + 1));
+				spinSeq = l.seq();
+				spinSeed = l.seed();
 			}
 			case Transition.Abandoned<UUID> a -> refundDropped(level, a.dropped());
 			case Transition.Spin<UUID> s -> {
-				// the spin whoosh and the ball are played by every client from the shared path (tables.md §0.8)
+				// the ball and its sounds are played by every client from the shared RouletteSpin (seeded at the launch)
 				spinStart = gameTime();
-				spinSeq++;
-				spinSeed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), spinSeq);
 				addLog.clear();
 			}
 			case Transition.Result<UUID> r -> {
@@ -859,6 +894,12 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		t.putLong("spin_start", spinStart);
 		t.putInt("seed", spinSeed);
 		t.putInt("spin_seq", spinSeq);
+		// RO: the launch (NO_MORE_BETS start) and the rotor model every client samples (RouletteSync v2 fields)
+		t.putLong("launch_tick", dealer.launchTick());
+		t.putInt("rotor_a", dealer.rotorCentiAngle());
+		t.putInt("rotor_w", dealer.rotorCentiOmega());
+		t.putInt("dir", dealer.model().dir());
+		t.putBoolean("pushed", dealer.model().push());
 		t.putString("theme", new String[] {"village", "bastion", "end"}[theme()]); // J-L2 kit: CasinoTableScreen#theme()
 		if (level instanceof ServerLevel sl) {
 			ListTag names = new ListTag();
@@ -898,7 +939,13 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			last = hist.size() > 1 ? hist.get(1) : -1; // the history already holds this spin's number
 		}
 		return new RouletteSync(RouletteSync.phaseOf(round.phase().id()), phaseStart, spinStart, round.timings().spinTicks(),
-			drawn ? round.result() : -1, spinSeed, last, theme(), spinSeq);
+			drawn ? round.result() : -1, spinSeed, last, theme(), spinSeq, dealer.launchTick(), dealer.rotorCentiAngle(), dealer.rotorCentiOmega(),
+			dealer.model().dir(), dealer.model().push());
+	}
+
+	/** GameTests: game time of the last public-board update tag sent to the watchers. */
+	public long pubSentAtForTesting() {
+		return pubSentAt;
 	}
 
 	/** GameTests / previews: forces the location theme (0 village, 1 bastion, 2 end). */

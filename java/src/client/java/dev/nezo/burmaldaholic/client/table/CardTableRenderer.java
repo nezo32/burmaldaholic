@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.client.board.BoardTextures;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
+import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry;
 import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry.Felt;
 import dev.nezo.burmaldaholic.games.poker.PokerTableBlockEntity;
 import dev.nezo.burmaldaholic.games.poker.present.TableWorld;
@@ -50,6 +51,28 @@ public abstract class CardTableRenderer<T extends BlockEntity, S extends CardTab
 
 	protected CardTableRenderer(BlockEntityRendererProvider.Context ctx) {
 		super(ctx);
+	}
+
+	/** Five community cards at {@code CARD_W + 0.03} pitch (Hold'em row at z 0.40, UTH at 0.50), plus the felt's dealer row. */
+	private static final float[] HOLDEM_CARDS = communityRect(Felt.OVAL, 0.40f), UTH_CARDS = communityRect(Felt.CRESCENT, 0.50f);
+
+	private static float[] communityRect(Felt felt, float rowZ) {
+		float[] r = BoardGeometry.dealerRect(felt);
+		float half = 2 * (BoardGeometry.CARD_W + 0.03f) + BoardGeometry.CARD_W / 2;
+		float dz = BoardGeometry.CARD_H / 2 + 0.02f;
+		if (r == null) return new float[] {0.5f - half, rowZ - dz, 0.5f + half, rowZ + dz, BoardGeometry.TOP + 0.2f};
+		return new float[] {Math.min(r[0], 0.5f - half), Math.min(r[1], rowZ - dz), Math.max(r[2], 0.5f + half), Math.max(r[3], rowZ + dz), r[4]};
+	}
+
+	/**
+	 * The card area the seat plates keep clear of (design audit W P1: plates covered the dealer cards): Hold'em and UTH
+	 * add their community row to the felt's dealer row; blackjack / baccarat keep the kit's dealer row.
+	 */
+	@Override
+	protected float @Nullable [] dealerRect(T be) {
+		if (be instanceof PokerTableBlockEntity) return HOLDEM_CARDS;
+		if (be instanceof dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity) return UTH_CARDS;
+		return super.dealerRect(be);
 	}
 
 	/** Hold'em plays on the oval, UTH on the crescent. */

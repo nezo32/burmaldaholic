@@ -148,4 +148,59 @@ class RouletteRoundTest {
 		round.update(0, List.of("a"), () -> 37, 0);
 		assertThrows(IllegalStateException.class, () -> round.update(100, List.of("a"), () -> 37, 0));
 	}
+
+	/**
+	 * RO (ROULETTE-ANIM-SPEC §2.5, §9.1-8): driven exactly as {@code RouletteTableBlockEntity.serverTick} drives it — the
+	 * dealer seeds and launches at the NO_MORE_BETS transition (before any draw), the result is drawn ONCE at
+	 * NO_MORE_BETS → SPIN, the ball rests at least 300 ms before the SPIN ends, and the settle (overlay + chat line) happens
+	 * at the RESULT transition = the end of SPIN, for every supported spin length.
+	 */
+	@Test
+	void launchAtNoMoreBetsDrawOnceAtSpinSettleAtSpinEnd() {
+		for (int spinTicks : new int[] {40, 60, 100, 140, 200, 300}) {
+			RouletteRound<String> round = new RouletteRound<>(new Timings(500, 20, spinTicks, 60), 12);
+			RouletteDealer dealer = new RouletteDealer(77);
+			int[] draws = {0};
+			java.util.function.IntSupplier fair = () -> {
+				draws[0]++;
+				return (draws[0] * 11) % 37;
+			};
+			long launchAt = -1, spinStart = -1;
+			int seedAtLaunch = 0;
+			int spins = 0;
+			int last = -1;
+			for (long now = 0; now < 4000; now++) {
+				if (round.canBet() && !round.hasBets()) {
+					round.addBets("a", List.of(RED10));
+					round.setReady("a", true);
+				}
+				int before = draws[0];
+				Transition<String> t = round.update(now, List.of("a"), fair, 0);
+				if (t instanceof Transition.NoMoreBets<String>) {
+					assertEquals(before, draws[0], "no draw at NO_MORE_BETS");
+					RouletteDealer.Launch l = dealer.launch(now, 1000 + spins);
+					launchAt = now;
+					seedAtLaunch = l.seed();
+					assertEquals(now, dealer.launchTick());
+				} else if (t instanceof Transition.Spin<String> sp) {
+					assertEquals(before + 1, draws[0], "exactly one draw, at the SPIN start");
+					assertEquals(launchAt + 20, now);
+					assertEquals(seedAtLaunch, dealer.seed(), "the seed was fixed at the launch, before the draw");
+					spinStart = now;
+					RouletteSpin spin = RouletteSpin.build(sp.result(), dealer.seed(), last, dealer.launchTick(), spinStart, spinTicks, dealer.model());
+					assertTrue(spin.restMs() <= spin.spinEndMs() - 300, "rest ≤ end − 300 at " + spinTicks);
+					assertEquals((spinStart + spinTicks - launchAt) * 50.0, spin.spinEndMs(), 1e-9);
+					last = sp.result();
+				} else if (t instanceof Transition.Result<String> r) {
+					assertEquals(spinStart + spinTicks, now, "settle (overlay + chat) at the end of SPIN");
+					assertEquals(last, r.result());
+					spins++;
+				} else {
+					assertEquals(before, draws[0], "no draw elsewhere");
+				}
+			}
+			assertTrue(spins >= 5);
+			assertEquals(spins, draws[0] - (round.phase() == Phase.SPIN || round.phase() == Phase.RESULT ? 1 : 0), "one draw per spin");
+		}
+	}
 }

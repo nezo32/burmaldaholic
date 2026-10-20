@@ -42,8 +42,51 @@ public class BoardState extends SpectatorRenderState {
 	public BoardGeometry.Felt felt = BoardGeometry.Felt.CRESCENT;
 	/** The felt actually drawn. */
 	public BoardGeometry.Felt drawnFelt = BoardGeometry.Felt.CRESCENT;
-	/** Content scale around the felt centre (1, or < 1 on the fallback felt). */
+	/**
+	 * Design → drawn mapping (MT-DESIGN §2): a design point p is drawn at {@code origin + contentScale · (p − (0.5,
+	 * TOP, 0.5))} in footprint-local coordinates (before the FACING rotation). Compact tables: origin = the design
+	 * pivot, scale ≤ 1 (the fallback felt). Full tables: origin = the felt centre at the felt height, scale
+	 * {@link BoardGeometry#fullScale}.
+	 */
 	public float contentScale = 1f;
+	public float originX = 0.5f, originY = BoardGeometry.TOP, originZ = 0.5f;
+	/** A full multi-block table (part ≠ SINGLE): the furniture model is baked, the board draws the felt print decal. */
+	public boolean full;
+	/** The footprint-local felt of a full table (null on a compact one). */
+	public dev.nezo.burmaldaholic.core.table.parts.@Nullable FeltFrame frame;
+	/**
+	 * The world light at the table, unclamped: the felt print decal of a full table uses it so it darkens with the baked
+	 * furniture felt at night (cards and chips keep the readable minimum in {@code lightCoords}).
+	 */
+	public int feltLight = net.minecraft.util.LightCoordsUtil.pack(15, 15);
+	/** Furniture theme of a full table (print decal): 0 standard, 1 high roller, 2 player-banked. */
+	public int furniture;
+
+	/** Footprint-local x / y / z of design coordinates. */
+	public float footX(float x) {
+		return originX + contentScale * (x - 0.5f);
+	}
+
+	public float footY(float y) {
+		return originY + contentScale * (y - BoardGeometry.TOP);
+	}
+
+	public float footZ(float z) {
+		return originZ + contentScale * (z - 0.5f);
+	}
+
+	/** Design coordinates of footprint-local x / y / z (inverse of {@link #footX} …). */
+	public float designX(float fx) {
+		return 0.5f + (fx - originX) / contentScale;
+	}
+
+	public float designY(float fy) {
+		return BoardGeometry.TOP + (fy - originY) / contentScale;
+	}
+
+	public float designZ(float fz) {
+		return 0.5f + (fz - originZ) / contentScale;
+	}
 	/** Felt theme: 0 village, 1 bastion, 2 end. */
 	public int theme;
 	/** Card back row of {@code faces_w2.png} (0 navy … 5 end; see {@link BoardTextures}). */
@@ -56,6 +99,8 @@ public class BoardState extends SpectatorRenderState {
 	public float boardPx = HoloScale.BOARD_BASE, platePx = HoloScale.PLATE_BASE;
 	/** The local player's UUID (plates mark "you" in cyan). */
 	public java.util.@Nullable UUID viewer;
+	/** The viewer sits at this table / looks at it (its plates win against a neighbour's, {@link PlateFrame}). */
+	boolean seated, lookedAt;
 
 	@Nullable BoardModel model;
 	@Nullable Font font;
@@ -176,6 +221,14 @@ public class BoardState extends SpectatorRenderState {
 				}
 			}
 		}
+		var f = frame;
+		if (full && f != null) {
+			// a full 3×2 table: the plate stands past the padded rail, where the seat's player stands (MT-DESIGN §2)
+			float[] a = BoardRenderer.fullPlateAnchor(this, f, ax, az);
+			ax = a[0];
+			ay = a[1];
+			az = a[2];
+		}
 		m.plateCount++;
 		p.seat = seat;
 		p.ax = ax;
@@ -187,7 +240,8 @@ public class BoardState extends SpectatorRenderState {
 		p.name.on = false;
 		p.detail.on = false;
 		p.cardCount = 0;
-		return new PlateRef(this, p);
+		p.ref.state = this;
+		return p.ref;
 	}
 
 	/** A small free label (legacy billboard text, e.g. a pot amount) within 8 blocks. */
@@ -216,17 +270,18 @@ public class BoardState extends SpectatorRenderState {
 
 	/** Handle of one plate being filled. */
 	public static final class PlateRef {
-		private final BoardState state;
+		/** Set by {@link BoardState#plate} before the handle is handed out. */
+		@Nullable BoardState state;
 		private final BoardModel.Plate plate;
 
-		PlateRef(BoardState state, BoardModel.Plate plate) {
-			this.state = state;
+		PlateRef(BoardModel.Plate plate) {
 			this.plate = plate;
 		}
 
 		/** The name line (cached by {@code key}); cyan for the viewer, white for others unless {@code color} ≠ 0. */
 		public PlateRef name(long key, Supplier<? extends @Nullable Component> text, int color) {
-			if (state.font != null) plate.name.set(state.font, key, state.lang, text, color);
+			BoardState st = state;
+			if (st != null && st.font != null) plate.name.set(st.font, key, st.lang, text, color);
 			return this;
 		}
 
@@ -237,8 +292,9 @@ public class BoardState extends SpectatorRenderState {
 
 		/** The detail line at {@code scale} × (2 = prominent: the acting seat's total, a result). */
 		public PlateRef detail(long key, Supplier<? extends @Nullable Component> text, int color, float scale) {
-			if (state.font != null) {
-				plate.detail.set(state.font, key, state.lang, text, color);
+			BoardState st = state;
+			if (st != null && st.font != null) {
+				plate.detail.set(st.font, key, st.lang, text, color);
 				plate.detail.scale = scale;
 			}
 			return this;

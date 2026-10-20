@@ -105,4 +105,26 @@ class RouletteFlowTest {
 		assertTrue(RouletteFlow.tool("undo", v).enabled());
 		assertFalse(RouletteFlow.tool("undo", betting(true, 1000, 0)).enabled());
 	}
+
+	/** DES roulette P1: during the result the primary is Repeat N, enabled (gold); once pressed it says it is queued. */
+	@Test
+	void repeatIsLiveDuringTheResult() {
+		View result = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 500, 0, false, 55, false, false, 0, 0, 2);
+		// T-C2 V1: never "click the layout" while betting is closed
+		org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of("gui.burmaldaholic.roulette.v2.status.result_shown"), RouletteFlow.hintKey(result));
+		Gate g = RouletteFlow.primary(result);
+		assertEquals("rebet", g.action());
+		assertTrue(g.enabled(), "Repeat enabled during the result");
+		assertEquals(55L, g.labelArgs()[0]);
+		View queued = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 500, 0, false, 55, false, false, 0, 0, 2, true);
+		Gate q = RouletteFlow.primary(queued);
+		assertFalse(q.enabled());
+		assertEquals(RouletteFlow.K + "reason.rebet_queued", q.reasonKey());
+		assertEquals(55L, q.labelArgs()[0]);
+		View poor = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 20, 0, false, 55, false, false, 0, 0, 2);
+		assertFalse(RouletteFlow.primary(poor).enabled());
+		assertEquals(RouletteFlow.CORE + "reason.bets_open_in", RouletteFlow.primary(poor).reasonKey());
+		View none = new View(true, false, true, Phase.RESULT, MIN, MAX, 0, 500, 0, false, 0, false, false, 0, 0, 2);
+		assertFalse(RouletteFlow.primary(none).enabled());
+	}
 }

@@ -54,9 +54,16 @@ public final class RouletteFlow implements Flow<RouletteView> {
 	 * @param readyCount   bettors ready
 	 * @param bettors      bettors this spin
 	 * @param secondsLeft  seconds of the current phase (-1 = no timer)
+	 * @param rebetQueued  the viewer pressed Repeat during the result: the slip goes back on when betting opens
 	 */
 	public record View(boolean seated, boolean tableFull, boolean enabled, Phase phase, long min, long max, long minTotal, long balance, long total,
-			boolean canRebet, long rebetAmount, boolean ready, boolean multiplayer, int readyCount, int bettors, int secondsLeft) {
+			boolean canRebet, long rebetAmount, boolean ready, boolean multiplayer, int readyCount, int bettors, int secondsLeft, boolean rebetQueued) {
+		public View(boolean seated, boolean tableFull, boolean enabled, Phase phase, long min, long max, long minTotal, long balance, long total,
+				boolean canRebet, long rebetAmount, boolean ready, boolean multiplayer, int readyCount, int bettors, int secondsLeft) {
+			this(seated, tableFull, enabled, phase, min, max, minTotal, balance, total, canRebet, rebetAmount, ready, multiplayer, readyCount, bettors,
+				secondsLeft, false);
+		}
+
 		public boolean bettingOpen() {
 			return enabled && phase == Phase.BETTING;
 		}
@@ -133,7 +140,13 @@ public final class RouletteFlow implements Flow<RouletteView> {
 			case RESULT -> {
 				String reason = v.secondsLeft() >= 0 ? V2Keys.REASON_BETS_OPEN_IN : V2Keys.REASON_ROUND_IN_PROGRESS;
 				Object[] args = v.secondsLeft() >= 0 ? new Object[] {v.secondsLeft()} : null;
-				if (v.rebetAmount() > 0) return new Gate(BetGates.REBET, V2Keys.PRIMARY_REBET, new Object[] {v.rebetAmount()}, false, reason, args);
+				if (v.rebetAmount() > 0) {
+					// DES roulette P1: Repeat stays live (gold) through the result; a press queues the slip for the next spin
+					Object[] amount = {v.rebetAmount()};
+					if (v.rebetQueued()) return new Gate(BetGates.REBET, V2Keys.PRIMARY_REBET, amount, false, K + "reason.rebet_queued", null);
+					if (v.rebetAmount() > v.balance()) return new Gate(BetGates.REBET, V2Keys.PRIMARY_REBET, amount, false, reason, args); // wait: the chip rack may refill
+					return Gate.on(BetGates.REBET, V2Keys.PRIMARY_REBET, v.rebetAmount());
+				}
 				return new Gate(SPIN, label, null, false, reason, args);
 			}
 			default -> { }
@@ -198,7 +211,8 @@ public final class RouletteFlow implements Flow<RouletteView> {
 		return switch (v.phase()) {
 			case BETTING -> v.total() > 0 ? Optional.of(v.secondsLeft() >= 0 ? K + "status.spin_in" : K + "status.add_or_spin") : Optional.empty();
 			case NO_MORE_BETS, SPIN -> Optional.of(K + "status.ball_spinning");
-			case RESULT -> Optional.empty();
+			// T-C2 V1: betting is closed during the result: say when the next round opens (never "click the layout")
+			case RESULT -> Optional.of(K + "status.result_shown");
 		};
 	}
 }

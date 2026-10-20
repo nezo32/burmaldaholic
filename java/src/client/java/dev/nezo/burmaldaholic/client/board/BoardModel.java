@@ -51,6 +51,12 @@ final class BoardModel {
 		/** Visible cards of this seat shown on the plate (−1 = a back), within {@link BoardState#FAN_RANGE}. */
 		final int[] cards = new int[MAX_FAN];
 		int cardCount;
+		/** Fade of the plate (0 … 1) toward its frame-level visibility ({@link PlateFrame}); a new plate fades in. */
+		float alpha;
+		/** The {@link PlateFrame} frame this plate was last laid out in (a gap restarts the fade-in). */
+		long seenFrame = Long.MIN_VALUE;
+		/** The handle {@link BoardState#plate} returns (pooled: no allocation per plate and frame). */
+		final BoardState.PlateRef ref = new BoardState.PlateRef(this);
 	}
 
 	/** A free label (legacy billboard text, e.g. the poker pot). */
@@ -77,13 +83,12 @@ final class BoardModel {
 	/** Extra content obstacles (wheels, dice): x, y, z, radius. */
 	final float[] content = new float[MAX_CONTENT * 4];
 	int contentCount;
+	/** The dealer / community card area (table-local x0, z0, x1, z1, yTop), an obstacle for the plates; see {@link BoardRenderer#dealerRect}. */
+	final float[] dealer = new float[5];
+	boolean hasDealer;
 
 	// ---- per-table memory across frames ----
 	HoloScale.@Nullable Lod lod;
-	/** Overhang blocked (cached; re-checked every {@link BoardRenderer#BLOCK_CHECK_TICKS}). */
-	boolean blocked;
-	long blockedCheckedAt;
-	boolean blockedChecked;
 	/** PlateLayout's 1-frame memory per plate slot. */
 	final int[] plateShift = new int[MAX_PLATES];
 	/** Game-side cache owned by the renderer subclass (timelines, keys). */
@@ -104,6 +109,7 @@ final class BoardModel {
 		labelCount = 0;
 		contentCount = 0;
 		boardCardCount = 0;
+		hasDealer = false;
 		for (Line l : lines) l.on = false;
 	}
 }

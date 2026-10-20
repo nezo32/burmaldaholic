@@ -27,12 +27,19 @@ final class RouletteChips {
 	private RouletteChips() {}
 
 	static void stack(PoseStack.Pose p, VertexConsumer vc, float x, float z, long amount, int tint, float alpha, int[] d, int light) {
+		stack(p, vc, x, z, amount, tint, alpha, d, light, 0);
+	}
+
+	/** A stack lifted by {@code dy} (a drop) and faded to {@code alpha} (needs a translucent render type below 1). */
+	static void stack(PoseStack.Pose p, VertexConsumer vc, float x, float z, long amount, int tint, float alpha, int[] d, int light, float dy) {
 		int n = Math.min(RouletteWorld.discs(amount), BoardGeometry.discs(amount, d));
-		if (n == 0) return;
+		if (n == 0 || alpha <= 0.01f) return;
 		float r = RouletteWorld.CHIP_D / 2;
 		float h = RouletteWorld.CHIP_H;
-		float y0 = BoardGeometry.TOP + 0.004f;
-		int shade = alpha < 1 ? 0xFF808080 : 0xFFFFFFFF;
+		float y0 = BoardGeometry.TOP + 0.004f + dy;
+		int a8 = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+		int shade = a8 << 24 | 0xFFFFFF;
+		tint = (tint & 0xFFFFFF) | a8 << 24;
 		int i = 0;
 		while (i < n) {
 			int k = i;
@@ -60,7 +67,7 @@ final class RouletteChips {
 		float v1 = 16f / BoardTextures.CHIPS_H;
 		// the owner's colour: a rim one size larger just under the top disc, then the top disc
 		float rr = r * 1.25f;
-		int rim = alpha < 1 ? mul(tint, 0.5f) : tint;
+		int rim = tint;
 		v(p, vc, x - rr, yt - 0.001f, z + rr, u0 + 0.5f / BoardTextures.CHIPS_W, 0.5f / BoardTextures.CHIPS_H, rim, light, 0, 1, 0);
 		v(p, vc, x + rr, yt - 0.001f, z + rr, u0 + 0.5f / BoardTextures.CHIPS_W, 0.5f / BoardTextures.CHIPS_H, rim, light, 0, 1, 0);
 		v(p, vc, x + rr, yt - 0.001f, z - rr, u0 + 0.5f / BoardTextures.CHIPS_W, 0.5f / BoardTextures.CHIPS_H, rim, light, 0, 1, 0);
@@ -69,11 +76,6 @@ final class RouletteChips {
 		v(p, vc, x + r, yt, z + r, u1, v1, shade, light, 0, 1, 0);
 		v(p, vc, x + r, yt, z - r, u1, 0, shade, light, 0, 1, 0);
 		v(p, vc, x - r, yt, z - r, u0, 0, shade, light, 0, 1, 0);
-	}
-
-	private static int mul(int argb, float k) {
-		int r = (int) (((argb >> 16) & 0xFF) * k), g = (int) (((argb >> 8) & 0xFF) * k), b = (int) ((argb & 0xFF) * k);
-		return (argb & 0xFF000000) | r << 16 | g << 8 | b;
 	}
 
 	private static void v(PoseStack.Pose p, VertexConsumer vc, float x, float y, float z, float u, float vv, int argb, int light, float nx, float ny, float nz) {
