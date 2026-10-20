@@ -1,6 +1,5 @@
 package dev.nezo.burmaldaholic.client.ui.v2;
 
-import dev.nezo.burmaldaholic.client.config.CasinoConfigScreen;
 import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
 import dev.nezo.burmaldaholic.client.ui.FitScaled;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
@@ -30,7 +29,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Sending: use {@link #sendTracked} (watchdog) for every player action; {@link #sendAction} only for silent ones.
  */
-public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Chrome.Host, V2Chrome.Holder {
+public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Chrome.Host, V2Chrome.Holder, dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.Host,
+		dev.nezo.burmaldaholic.client.ui.ScreenEntrance.OverFrame {
 	protected final V2Chrome chrome = new V2Chrome(this);
 	private Viewport viewport = new Viewport(480, 270, 1, 1f);
 	protected @Nullable V view;
@@ -94,9 +94,19 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
-	protected float applyFit(int[] memo) {
+	protected final float applyFit(int[] memo) { // final: every v2 game sizes by ViewportPolicy (owner B6)
 		viewport = FitScaled.applyViewport(this, memo);
 		return viewport.factor();
+	}
+
+	@Override
+	public final float offsetX() {
+		return viewport.guiOx();
+	}
+
+	@Override
+	public final float offsetY() {
+		return viewport.guiOy();
 	}
 
 	@Override
@@ -109,7 +119,7 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 	}
 
 	@Override
-	protected dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
+	protected final dev.nezo.burmaldaholic.core.ui.UiLayout.Rect entranceRect() {
 		return new dev.nezo.burmaldaholic.core.ui.UiLayout.Rect(0, 0, width, height);
 	}
 
@@ -126,6 +136,7 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 		int seated = 0;
 		for (String n : seatNames()) if (!n.isEmpty()) seated++;
 		chrome.top.set(tableTitle(), minBet(), maxBet(), seated, state().getIntOr("seat_count", 0));
+		chrome.top.icons(true, hasSettings(), true);
 		chrome.top.balance.target(balance());
 		chrome.apply(flow(), view, betPort());
 	}
@@ -168,11 +179,48 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 		sendTracked(gate.action());
 	}
 
+	/** A settings screen for some tables (TopBar gear, {@link #registerSettings}). */
+	public record SettingsProvider(java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity> applies,
+			java.util.function.Consumer<net.minecraft.core.BlockPos> open) {}
+
+	private static final java.util.List<SettingsProvider> SETTINGS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
 	/**
-	 * The TopBar gear's owner when another module claims it (bots: a bot table's gear opens its Table settings, v0.1.2
-	 * hotfix A9); returns true when it handled the click. Default: nobody, the gear opens the casino settings.
+	 * Registers the owner of the TopBar gear for the tables {@code applies} accepts (bots: a bot table's gear opens its
+	 * Table settings, v0.1.2 hotfix A9 / review R-AB M6). The gear ({@code top.settings}) shows only at a table some
+	 * provider applies to; a click opens the first one's {@code open(pos)}. Call once at client init.
 	 */
-	public static java.util.function.Predicate<V2TableScreen<?>> topSettingsHook = s -> false;
+	public static void registerSettings(java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity> applies,
+			java.util.function.Consumer<net.minecraft.core.BlockPos> open) {
+		SETTINGS.add(new SettingsProvider(applies, open));
+	}
+
+	private static final java.util.function.Predicate<V2TableScreen<?>> NO_HOOK = s -> false;
+
+	/**
+	 * @deprecated the integrator's bridge for the bots gear; use {@link #registerSettings}. While a module still sets it,
+	 *             it is a settings provider for {@link dev.nezo.burmaldaholic.core.bots.BotTable bot tables} (what the
+	 *             one user checks); removed once that module moved (phase 3 cleanup).
+	 */
+	@Deprecated
+	public static java.util.function.Predicate<V2TableScreen<?>> topSettingsHook = NO_HOOK;
+
+	/** The settings provider of this table, or null (no gear). */
+	protected @Nullable SettingsProvider settingsProvider() {
+		if (minecraft == null || minecraft.level == null) return null;
+		net.minecraft.world.level.block.entity.BlockEntity be = minecraft.level.getBlockEntity(getMenu().pos());
+		if (be == null) return null;
+		for (SettingsProvider p : SETTINGS) if (p.applies().test(be)) return p;
+		if (topSettingsHook != NO_HOOK && be instanceof dev.nezo.burmaldaholic.core.bots.BotTable) {
+			return new SettingsProvider(b -> true, pos -> topSettingsHook.test(this));
+		}
+		return null;
+	}
+
+	/** Whether the TopBar shows the gear (default: a {@link #registerSettings settings provider} applies to this table). */
+	protected boolean hasSettings() {
+		return settingsProvider() != null;
+	}
 
 	@Override
 	public void onTopIcon(String id) {
@@ -182,8 +230,8 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 				onClose();
 			}
 			case KeyMap.Ids.TOP_SETTINGS -> {
-				if (topSettingsHook.test(this)) return;
-				if (minecraft != null) minecraft.gui.setScreen(new CasinoConfigScreen(this));
+				SettingsProvider p = settingsProvider();
+				if (p != null) p.open().accept(getMenu().pos());
 			}
 			case KeyMap.Ids.TOP_RULES -> openRules();
 			default -> {}
@@ -231,19 +279,44 @@ public abstract class V2TableScreen<V> extends CasinoTableScreen implements V2Ch
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		// a celebration running over the screen: a click skips it; a click on an enabled kit target ALSO does what it
+		// says (the gold Rebet after a big win used to need two clicks; review T-C2 V3)
+		var fx = dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get();
+		if (fx.skippable()) {
+			fx.skip();
+			if (!chrome.hitsEnabled(event.x(), event.y())) return true;
+		}
 		if (chrome.click(event.x(), event.y(), event.button())) return true;
 		return super.mouseClicked(event, doubleClick);
 	}
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
+		var fx = dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get();
+		if (fx.skippable()) { // the same for keys: a kit key (Space = the primary, 1–5 chips, …) skips AND acts
+			if (!chrome.keyHitsEnabled(event.key())) return fx.onKey(event) || super.keyPressed(event);
+			fx.skip();
+		}
 		if (chrome.key(event.key())) return true;
 		return super.keyPressed(event);
+	}
+
+	/** Ends a held key (the chrome swallows its auto-repeat until then; review R-KW M5). */
+	@Override
+	public boolean keyReleased(KeyEvent event) {
+		chrome.keyReleased(event.key());
+		return super.keyReleased(event);
 	}
 
 	@Override
 	public boolean mouseScrolled(double x, double y, double dx, double dy) {
 		if (chrome.scroll(x, y, dy)) return true;
 		return super.mouseScrolled(x, y, dx, dy);
+	}
+
+	/** The shared celebration, over the screen and outside its frame (this screen is its {@code Host}). */
+	@Override
+	public void extractOverFrame(GuiGraphicsExtractor g) {
+		dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().extract(g, false);
 	}
 }

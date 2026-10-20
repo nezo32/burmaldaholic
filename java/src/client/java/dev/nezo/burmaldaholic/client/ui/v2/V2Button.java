@@ -21,7 +21,9 @@ public final class V2Button {
 	/** The display name of a {@link dev.nezo.burmaldaholic.core.ui.v2.KeyMap} key ("Space" / "Пробел", "H"), or null for none. */
 	public static @Nullable Component keyName(@Nullable String key) {
 		String k = dev.nezo.burmaldaholic.core.ui.v2.KeyMap.vanillaNameKey(key);
-		return k == null ? null : Component.translatable(k);
+		if (k != null) return Component.translatable(k);
+		String c = V2Input.keyCap(key); // the player's layout (AZERTY / QWERTZ), else the US name
+		return c == null ? null : dev.nezo.burmaldaholic.core.text.Texts.raw(c); // a key cap letter: language-neutral
 	}
 
 	/** Width a button needs for {@code label} and the optional key hint. */
@@ -53,15 +55,26 @@ public final class V2Button {
 		if (focused) V2Draw.outline(g, box.inset(-1), CasinoPalette.V2_GOLD);
 	}
 
-	/** The key hint plate. */
+	/** Ink of the key plate on the gold primary (review DES 2: dark plate, gold text; the mockup's #3a2a0a). */
+	public static final int PRIMARY_PLATE = 0xFF3A2A0A;
+
+	/**
+	 * The key hint plate. On the gold primary a dark ink plate with gold text (yellow on dark-gold had no contrast, DES 2),
+	 * dimmed with the button when disabled; elsewhere the kit's plate sprite or its flat fallback.
+	 */
 	public static void keyHint(GuiGraphicsExtractor g, Font font, Box hb, Component hint, V2Sprites.ButtonStyle style, boolean enabled) {
-		boolean gold = style == V2Sprites.ButtonStyle.PRIMARY;
-		if (!V2Draw.sprite(g, V2Sprites.KEY_HINT, hb, enabled ? 0xFFFFFFFF : 0x80FFFFFF)) {
-			int fill = gold ? 0xFF8A6A10 : V2Draw.darker(base(style), 0.55f);
-			V2Draw.fill(g, hb, enabled ? fill : V2Draw.alpha(fill, 0.5f));
-			V2Draw.outline(g, hb, gold ? 0xFF5A4008 : CasinoPalette.V2_INK);
+		if (style == V2Sprites.ButtonStyle.PRIMARY) {
+			V2Draw.fill(g, hb, enabled ? PRIMARY_PLATE : V2Draw.alpha(PRIMARY_PLATE, 0.45f));
+			V2Draw.outline(g, hb, enabled ? 0xFF1E1404 : V2Draw.alpha(0xFF1E1404, 0.45f));
+			V2Draw.centred(g, font, hint, hb, 1, enabled ? CasinoPalette.V2_GOLD : 0xFF9AA6BC, false);
+			return;
 		}
-		V2Draw.centred(g, font, hint, hb, 1, gold ? 0xFFFFE89A : enabled ? CasinoPalette.V2_TEXT : CasinoPalette.V2_MUTED, !gold);
+		if (!V2Draw.sprite(g, V2Sprites.KEY_HINT, hb, enabled ? 0xFFFFFFFF : 0x80FFFFFF)) {
+			int fill = V2Draw.darker(base(style), 0.55f);
+			V2Draw.fill(g, hb, enabled ? fill : V2Draw.alpha(fill, 0.5f));
+			V2Draw.outline(g, hb, CasinoPalette.V2_INK);
+		}
+		V2Draw.centred(g, font, hint, hb, 1, enabled ? CasinoPalette.V2_TEXT : CasinoPalette.V2_MUTED, true);
 	}
 
 	static int base(V2Sprites.ButtonStyle s) {
@@ -73,7 +86,7 @@ public final class V2Button {
 	}
 
 	static int textColor(V2Sprites.ButtonStyle s, boolean enabled) {
-		if (!enabled) return s == V2Sprites.ButtonStyle.PRIMARY ? 0xFF8A7A50 : 0xFF8A7A9C;
+		if (!enabled) return s == V2Sprites.ButtonStyle.PRIMARY ? 0xFF9AA6BC : 0xFF8A7A9C; // primary: the one slate disabled style (DES roulette P2)
 		return s == V2Sprites.ButtonStyle.PRIMARY ? CasinoPalette.V2_INK : CasinoPalette.V2_TEXT;
 	}
 
@@ -82,7 +95,7 @@ public final class V2Button {
 		int base = base(s);
 		if (hover && enabled) base = s == V2Sprites.ButtonStyle.PRIMARY ? 0xFFFFE070 : s == V2Sprites.ButtonStyle.DANGER ? CasinoPalette.V2_DANGER_HI
 			: CasinoPalette.V2_BTN_HI;
-		if (!enabled) base = s == V2Sprites.ButtonStyle.PRIMARY ? 0xFF5A4E2A : 0xFF2C2038;
+		if (!enabled) base = s == V2Sprites.ButtonStyle.PRIMARY ? 0xFF3A4256 : 0xFF2C2038;
 		V2Draw.fill(g, b, CasinoPalette.V2_INK);
 		Box in = b.inset(1);
 		V2Draw.fill(g, in, base);

@@ -70,8 +70,9 @@ public final class RealFlow {
 	/** True when the lane's tests should run ({@code BURMALDAHOLIC_CGT} unset, or listing the lane / its class). */
 	public static boolean enabled(String lane) {
 		String f = System.getenv("BURMALDAHOLIC_CGT");
-		if (f == null || f.isBlank()) return true;
-		return Arrays.stream(f.split(",")).map(String::trim).anyMatch(s -> s.equalsIgnoreCase(lane));
+		boolean on = f == null || f.isBlank() || Arrays.stream(f.split(",")).map(String::trim).anyMatch(s -> s.equalsIgnoreCase(lane));
+		if (on) System.out.println("[CGT] lane " + lane + " runs (BURMALDAHOLIC_CGT=" + f + ")");
+		return on;
 	}
 
 	// ---- window, GUI scale, language ------------------------------------------------------------------------------
@@ -212,7 +213,7 @@ public final class RealFlow {
 	public double[] windowPoint(String id) {
 		Box b = box(id).orElseThrow(() -> new AssertionError("no target '" + id + "' on " + screenName()));
 		Viewport vp = viewport();
-		return new double[] {vp.toWindow(b.x() + b.w() / 2.0), vp.toWindow(b.y() + b.h() / 2.0)};
+		return new double[] {vp.windowX(b.x() + b.w() / 2.0), vp.windowY(b.y() + b.h() / 2.0)}; // frame-relative → window (§3.7)
 	}
 
 	/** Left click on the centre of target {@code id} (real cursor + button, through the mouse mixin and the HitMap). */

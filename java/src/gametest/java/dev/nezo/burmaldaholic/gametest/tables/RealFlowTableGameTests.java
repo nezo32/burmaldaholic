@@ -347,4 +347,114 @@ public class RealFlowTableGameTests {
 			finish(helper, p);
 		});
 	}
+
+	// ---- kit K2: one state per action, ack epochs, ack pruning (reviews R-KW B4, M8, R-CDE m6) -------------------------
+
+	/** Every table state the server sent {@code player} for {@code table} since the last drain. */
+	private static List<CompoundTag> syncs(ServerPlayer player, CasinoTableBlockEntity table) {
+		EmbeddedChannel ch = CHANNELS.get(player.getUUID());
+		List<CompoundTag> out = new ArrayList<>();
+		while (ch != null) {
+			Object o = ch.readOutbound();
+			if (o == null) break;
+			List<Object> packets = new ArrayList<>();
+			if (o instanceof ClientboundBundlePacket b) b.subPackets().forEach(packets::add);
+			else packets.add(o);
+			for (Object pk : packets) {
+				if (pk instanceof ClientboundCustomPayloadPacket c && c.payload() instanceof TableSyncPayload sync && sync.pos().equals(table.getBlockPos())) {
+					out.add(sync.state());
+				}
+			}
+		}
+		return out;
+	}
+
+	/** {@code action} answers its sender with exactly one state whose ack is one higher; returns how many the other viewer got. */
+	private static int oneState(GameTestHelper helper, ServerPlayer p, @Nullable ServerPlayer other, CasinoTableBlockEntity t, String action,
+			CompoundTag args) {
+		syncs(p, t);
+		if (other != null) syncs(other, t);
+		long before = t.writeClientState(p).getLongOr("ack", -1);
+		act(p, t, action, args);
+		List<CompoundTag> got = syncs(p, t);
+		helper.assertTrue(got.size() == 1, action + " at " + t.gameId() + ": the sender got " + got.size() + " states, want exactly 1");
+		helper.assertTrue(got.get(0).getLongOr("ack", -1) == before + 1, action + ": ack " + before + " → " + got.get(0).getLongOr("ack", -1));
+		helper.assertTrue(got.get(0).getIntOr("ack_epoch", 0) != 0, action + ": the state carries a non-zero ack_epoch");
+		return other == null ? 0 : syncs(other, t).size();
+	}
+
+	@GameTest(maxTicks = 200)
+	public void one_state_per_action(GameTestHelper helper) {
+		ServerPlayer p = survivalPlayer(helper, "k2-one");
+		ServerPlayer q = survivalPlayer(helper, "k2-watch");
+		BlackjackTableBlockEntity bj = open(helper, BlackjackModule.TABLE, BlackjackTableBlockEntity.class, p);
+		helper.useBlock(new BlockPos(1, 1, 1), q);
+		int seen = oneState(helper, p, q, bj, "sit", new CompoundTag());
+		helper.assertTrue(seen >= 1, "the other viewer is synced after a sit (got " + seen + ")");
+		oneState(helper, p, q, bj, "bet", tag("amount", 10L));
+		oneState(helper, p, q, bj, "resync", new CompoundTag());
+		oneState(helper, p, q, bj, "leave", new CompoundTag());
+		// baccarat sit (its sit opens betting after core's sync) and a roulette bet, on fresh tables
+		helper.setBlock(new BlockPos(1, 1, 1), net.minecraft.world.level.block.Blocks.AIR);
+		BaccaratTableBlockEntity bac = open(helper, BaccaratModule.TABLE, BaccaratTableBlockEntity.class, p);
+		oneState(helper, p, null, bac, "sit", new CompoundTag());
+		helper.setBlock(new BlockPos(1, 1, 1), net.minecraft.world.level.block.Blocks.AIR);
+		RouletteTableBlockEntity ru = open(helper, RouletteModule.TABLE, RouletteTableBlockEntity.class, p);
+		CompoundTag bet = tag("type", "red");
+		bet.putIntArray("nums", new int[] {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36});
+		bet.putLong("amount", 5);
+		oneState(helper, p, null, ru, "bet", bet);
+		oneState(helper, p, null, ru, "resync", new CompoundTag());
+		quit(helper, q);
+		quit(helper, p);
+		helper.succeed();
+	}
+
+	@GameTest(maxTicks = 200)
+	public void ack_epoch_changes_on_reload(GameTestHelper helper) {
+		ServerPlayer p = survivalPlayer(helper, "k2-epoch");
+		BlackjackTableBlockEntity t = open(helper, BlackjackModule.TABLE, BlackjackTableBlockEntity.class, p);
+		act(p, t, "resync");
+		act(p, t, "resync");
+		CompoundTag before = t.writeClientState(p);
+		helper.assertTrue(before.getLongOr("ack", -1) == 2, "two actions counted (ack " + before.getLongOr("ack", -1) + ")");
+		helper.assertTrue(before.getIntOr("ack_epoch", 0) == t.writeClientState(p).getIntOr("ack_epoch", 0), "the epoch is stable");
+		// the table goes and comes back (broken and placed again; a chunk reload is the same: a new block entity)
+		helper.setBlock(new BlockPos(1, 1, 1), net.minecraft.world.level.block.Blocks.AIR);
+		BlackjackTableBlockEntity again = open(helper, BlackjackModule.TABLE, BlackjackTableBlockEntity.class, p);
+		CompoundTag after = again.writeClientState(p);
+		helper.assertTrue(after.getIntOr("ack_epoch", 0) != 0 && after.getIntOr("ack_epoch", 0) != before.getIntOr("ack_epoch", 0),
+			"a new table has a new ack epoch (" + before.getIntOr("ack_epoch", 0) + " → " + after.getIntOr("ack_epoch", 0) + ")");
+		helper.assertTrue(after.getLongOr("ack", -1) == 0, "and a new counter");
+		quit(helper, p);
+		helper.succeed();
+	}
+
+	@GameTest(maxTicks = 900)
+	public void acks_pruned_after_leave(GameTestHelper helper) {
+		ServerPlayer seated = survivalPlayer(helper, "k2-seated");
+		ServerPlayer watcher = survivalPlayer(helper, "k2-watcher");
+		BlackjackTableBlockEntity t = open(helper, BlackjackModule.TABLE, BlackjackTableBlockEntity.class, seated);
+		helper.useBlock(new BlockPos(1, 1, 1), watcher);
+		act(seated, t, "sit");
+		act(watcher, t, "resync");
+		helper.assertTrue(t.ackEntries() == 2, "an entry per player who acted (" + t.ackEntries() + ")");
+		// the seated player walks away from the screen, then leaves the seat: the entry goes with the seat
+		seated.closeContainer();
+		t.leave(seated.getUUID(), CasinoTableBlockEntity.LeaveReason.LEFT);
+		helper.assertTrue(t.ackEntries() == 1, "the leaver's entry is pruned on leave (" + t.ackEntries() + ")");
+		// a watcher closes the screen: the sweep drops the entry
+		watcher.closeContainer();
+		helper.succeedWhen(() -> {
+			helper.assertTrue(t.ackEntries() == 0, "the sweep prunes a watcher who closed the screen (" + t.ackEntries() + ")");
+			quit(helper, seated);
+			quit(helper, watcher);
+		});
+	}
+
+	private static void quit(GameTestHelper helper, ServerPlayer p) {
+		p.closeContainer();
+		helper.getLevel().getServer().getPlayerList().remove(p);
+		CHANNELS.remove(p.getUUID());
+	}
 }

@@ -45,6 +45,7 @@ public final class BetBar {
 	private Box readout = Box.EMPTY;
 	private boolean compactReadout;
 	private Tier tier = Tier.T2;
+	java.util.function.ToIntFunction<String> shake = id -> 0;
 
 	/** Binds the bet model and the port (call on every state change). */
 	public void bind(BetView view, BetPort port) {
@@ -122,18 +123,12 @@ public final class BetBar {
 
 	/** The chip a felt click places: the armed one, else the last used, else the smallest affordable (§5.2-4); -1 = none. */
 	public long armOrDefault() {
-		if (selected > 0 && selected <= view.balance()) {
+		long c = BetGates.armDefault(chips, view.min(), view.balance(), selected);
+		if (c > 0) {
+			selected = c;
 			armed = true;
-			return selected;
 		}
-		for (long c : chips) {
-			if (c <= view.balance()) {
-				selected = c;
-				armed = true;
-				return c;
-			}
-		}
-		return -1;
+		return c;
 	}
 
 	/** Index of the selected chip among {@link #chips()} (for the Dock's visible window), or 0. */
@@ -161,8 +156,8 @@ public final class BetBar {
 	}
 
 	private Component caption() {
-		if (multiSpot && !view.spots().isEmpty()) return Texts.plural(V2Keys.SPOTS, view.spots().size());
-		return Component.translatable(V2Keys.BET);
+		// multi-spot: "On table" (not "15 spots", which read as the label of the value; DES roulette P2)
+		return Component.translatable(multiSpot && !view.spots().isEmpty() ? V2Keys.ON_TABLE : V2Keys.BET);
 	}
 
 	void place(Tier tier, List<Box> chipBoxes, int firstChip, List<Box> toolBoxes, Box readout, boolean compactReadout) {
@@ -208,7 +203,7 @@ public final class BetBar {
 		for (int i = 0; i < chipBoxes.size(); i++) {
 			int d = firstChip + i;
 			if (d >= chips.length) break;
-			Box b = chipBoxes.get(i);
+			Box b = chipBoxes.get(i).offset(shake.applyAsInt(KeyMap.Ids.chip(d)), 0);
 			long denom = chips[d];
 			boolean on = chipGate(d).enabled();
 			boolean sel = denom == selected;
@@ -225,7 +220,7 @@ public final class BetBar {
 			if (KeyMap.Ids.chip(d).equals(focusedId)) V2Draw.outline(g, b.inset(-3), CasinoPalette.V2_GOLD);
 		}
 		for (int i = 0; i < toolBoxes.size() && i < tools.length; i++) {
-			Box b = toolBoxes.get(i);
+			Box b = toolBoxes.get(i).offset(shake.applyAsInt(KeyMap.Ids.tool(tools[i])), 0);
 			boolean on = toolGate(tools[i]).enabled();
 			boolean hover = b.contains(mx, my);
 			if (!V2Draw.sprite(g, V2Sprites.ButtonStyle.ICON.sprite(on, hover, false), b, 0xFFFFFFFF)) {

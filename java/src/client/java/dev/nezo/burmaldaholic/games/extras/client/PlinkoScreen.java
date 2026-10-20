@@ -326,6 +326,9 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		chrome.relayout();
 	}
 
+	/** The Plinko Battle toggle's label key (the mode's short name). */
+	static final String BATTLE_TOGGLE = "gui.burmaldaholic.pvp.plinko.title";
+
 	private Box battleBox() {
 		Box side = scene.side();
 		return new Box(side.x(), side.bottom() - scene.row(), side.w(), scene.row());
@@ -446,7 +449,9 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 			SceneKit.big(g, font, Texts.raw("×" + MachinePub.compact(topNow)), side.x(), ty + 11, side.w(), CasinoPalette.V2_GOLD);
 		}
 		if (pvp) {
-			SceneKit.toggle(g, font, battleBox(), Component.translatable("gui.burmaldaholic.pvp.plinko.host"), battle, true, mx, my);
+			// the short name: "Start a Plinko Battle" was cut to "Start a Plinko Ba…" in the 98-px column at 427 × 240 (PL report);
+			// the expanded card keeps the long "Start a Plinko Battle" entry (PlayFieldUnityTest checks the fit, EN and RU)
+			SceneKit.toggle(g, font, battleBox(), Component.translatable(BATTLE_TOGGLE), battle, true, mx, my);
 		}
 	}
 }
