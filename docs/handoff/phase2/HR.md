@@ -66,3 +66,36 @@ bet-entry controls (`BetAmount`, client `BetEntry`).
   real survival (`setGameMode`). Real survival players drop correctly.
 - Verified: unit (chips, ui.v2, wager, Denomination, RawInputGuard) green; `runGameTest high_roller` "All 9 required tests passed";
   client HR + THR (blackjack typed/Max, roulette, craps, punto banco, Plinko, **UTH** Ante/cost/Max, cashier head fit) BUILD SUCCESSFUL.
+
+## Fix round 2 after T-HR round 2 (FAIL @21055623, D5), all 26.3
+- **D5:** UTH Max/clamp now uses the server's own rule. `UthLimits.maxAnte(maxW, trips, balance)` = min((maxW − Trips) / 6,
+  (balance − Trips) / 3), `maxTrips(maxW, ante, balance)`, `balanceNeeded` (3 × Ante + Trips; `check` uses it). `BetAmount.Cost`
+  now carries separate multiples for the stake shown (2 × Ante + Trips), the maximum (6 × Ante + Trips) and the balance
+  (3 × Ante + Trips); `UthFlow.entryCost(draft)` builds it from the `UthLimits` constants and `UthScreen` uses it (Ante and Trips spots).
+  `BetAmountTest`: corrected numbers ((300 − 10) / 6 = 48, (1000 − 10) / 3 = 330, Trips 60 / 80) and a 20 000-case randomized test
+  (random VIP max, table max, balance, min, Trips): client Max == `UthLimits.maxAnte/maxTrips`, `check(Max) == NONE`, `check(Max + 1)`
+  refused, and Max's reason names the balance exactly when the server would refuse for funds.
+- **Shutdown NPE:** cause = a busy table (seated player / open stake) left in the test area was played out by
+  `TableLifecycle`'s `FULL_CHUNK_STATUS_CHANGE` hook while the area's chunk unloaded at shutdown, i.e. inside
+  `DistanceManager.runAllUpdates` (the set it iterates was modified → NPE). `HighRollerGameTests.remove` now breaks the table/cashier
+  at (1,1,1) while the chunk is loaded (normal `preRemoveSideEffects` play-out), then removes the player (finally). The drop test counts
+  and discards the drops and removes the player in the same tick in a finally (no polled lambda).
+- **Roulette inside max:** `RouletteTableBlockEntity.message(v, player)` answers `INSIDE_MAX` with the bet-cap sentence
+  (`capFor(total max).withMax(inside max)`); `rouletteTotalMaxSaysVip` asserts a straight bet of inside_max + 1 is refused with `reason.cap.vip*`.
+- **Client (THR):** the UTH step now checks Max with the VIP max binding (== server `maxAnte`, accepted, +1 = WORST_CASE_MAX), then sets
+  the balance to 3 000 server-side + `syncViewers` (the tester's `casino balance set` never resynced the screen), Max = 1 000, Deal →
+  server stake 2 000, 1 000 left.
+
+### Verified (26.3)
+- `compileJava compileClientJava compileGametestJava` + `test --tests core.chips.* core.ui.v2.* core.wager.* *DenominationSourceTest
+  *RawInputGuardTest *LocalBet* *UthRoundTest *Roulette*` → green.
+- `runGameTest -Dfabric-api.gametest.filter=high_roller` twice → "All 9 required tests passed", **BUILD SUCCESSFUL** both times (before
+  the fix the same run crashed after the passes). `high_roller_game_tests` alone and `end_city_gets_high_roller` alone also green.
+- Client `runClientGameTest -Pmc=26.3`, `BURMALDAHOLIC_CGT=THR`, only `HighRollerEntryClientGameTests` (temporary entrypoint swap,
+  restored): roulette, craps, baccarat, **UTH (typed Ante, VIP-bound Max == server, balance-bound Max 1 000 → Deal stake 2 000)**,
+  Plinko → BUILD SUCCESSFUL (log `.burmaldaholic-tools/hr-r3-client263.log`). Not run: full build, other lanes.
+
+### Risk / request (core, TableLifecycle owner)
+- Product-side the same path exists: a busy table whose chunk unloads is played out inside the chunk-status callback. If the play-out
+  touches chunk loading (e.g. `setChanged`/neighbour access), a real server could hit the same NPE. Suggest deferring the play-out
+  (`server.execute`) or collecting tables and settling them after `runAllUpdates`. Not changed here (not HR's file).
