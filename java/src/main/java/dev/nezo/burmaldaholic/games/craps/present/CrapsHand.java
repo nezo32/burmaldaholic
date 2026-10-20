@@ -28,12 +28,15 @@ public final class CrapsHand {
 	/** One full rattle; the loop passes through the release pose once per cycle. */
 	public static final double CYCLE = 120;
 	/** The shortest settle into the throw's start pose after the result is in. */
-	public static final double SETTLE = 40;
+	public static final double SETTLE = 80;
 	public static final double YAW_DEG = 8;
 	public static final double JIT_U = 0.12;
 	public static final double LIFT_U = 0.4;
 	public static final double LIFT_MS = 100;
 	public static final double RAMP_MS = 120;
+
+	/** How far each die spreads out in the middle of the settle, u. */
+	public static final double APART = 0.6;
 
 	private CrapsHand() {}
 
@@ -86,17 +89,26 @@ public final class CrapsHand {
 
 	/**
 	 * The settle: {@code loop} (the rattle pose now) eased into {@code start} (the solver's pose at t = 0) by
-	 * {@code u} ∈ [0, 1] (0 = the result just arrived, 1 = the exit); {@code out} may be {@code loop}.
+	 * {@code u} ∈ [0, 1] (0 = the result just arrived, 1 = the exit). The turn is ONE fixed rotation
+	 * {@code start · exit⁻¹} ({@code exit} = the loop's pose at the release) applied by a growing share on top of the
+	 * rattle, so it never flips arcs; the die is pushed {@link #APART} u along the unit vector {@code (ax, ay)} in the
+	 * middle of the settle (0 at both ends) so a turning pair never touches. {@code out} may be {@code loop}.
 	 */
-	public static void settle(DieSample loop, DieSample start, double u, DieSample out) {
+	public static void settle(DieSample loop, DieSample exit, DieSample start, double u, double ax, double ay, DieSample out) {
 		double c = Math.max(0, Math.min(1, u));
+		if (c >= 1) {
+			out.set(start);
+			return;
+		}
 		double w = c * c * (3 - 2 * c);
+		double push = APART * StrictMath.sin(Math.PI * c);
 		if (out != loop) out.set(loop);
-		out.x += (start.x - loop.x) * w;
-		out.y += (start.y - loop.y) * w;
-		out.zc += (start.zc - loop.zc) * w;
-		out.zLow += (start.zLow - loop.zLow) * w;
-		Quat.slerp(loop.q, start.q, w, out.q);
-		if (w >= 1) out.set(start);
+		out.x += (start.x - exit.x) * w + ax * push;
+		out.y += (start.y - exit.y) * w + ay * push;
+		out.zc += (start.zc - exit.zc) * w;
+		out.zLow = Math.max(0, out.zLow + (start.zLow - exit.zLow) * w);
+		double[] turn = Quat.mul(start.q, Quat.conj(exit.q, new double[4]), new double[4]);
+		double[] part = Quat.slerp(Quat.identity(), turn, w, new double[4]);
+		Quat.mul(part, out.q, out.q);
 	}
 }

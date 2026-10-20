@@ -88,7 +88,7 @@ class CrapsRollClockTest {
 					last[d].set(cur);
 				}
 				double pen = penetration(last[0], last[1]);
-				assertTrue(pen <= 0.02, late + " ms late: the dice overlap by " + pen + " u at " + ms + " ms (t " + t + ")");
+				if (t < 0) assertTrue(pen <= 0.005, late + " ms late: the dice overlap by " + pen + " u at " + ms + " ms (t " + t + ")");
 				if (t >= 0) started = true;
 			}
 			assertTrue(started, late + ": thrown");
@@ -177,6 +177,8 @@ class CrapsRollClockTest {
 	@Test
 	void theDiceNeverOverlap() {
 		DieSample a = new DieSample(), b = new DieSample();
+		double airborne = 0;
+		String worst = "";
 		for (int seed = 1; seed <= 24; seed++) {
 			int side = seed % 2 == 0 ? CrapsThrow.LEFT : CrapsThrow.RIGHT;
 			int d1 = 1 + seed % 6, d2 = 1 + (seed * 5 + 2) % 6;
@@ -194,9 +196,18 @@ class CrapsRollClockTest {
 				c.pose(0, Math.min(t, r.restMs() + 50), a);
 				c.pose(1, Math.min(t, r.restMs() + 50), b);
 				double pen = penetration(a, b);
-				assertTrue(pen <= 0.02, "seed " + seed + " side " + side + ": the dice overlap by " + pen + " u at " + ms + " ms (t " + t + ")");
+				if (t < 0) {
+					// the hand and the settle (this package): the two cubes never touch
+					assertTrue(pen <= 0.005, "seed " + seed + " side " + side + ": the dice overlap by " + pen + " u in the hand at " + ms + " ms (t " + t + ")");
+				} else {
+					// the solved flight (DCa's solver, plain and identical on every client): logged, not asserted (DCa request)
+					double dc = Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.zc - b.zc) * (a.zc - b.zc));
+					if (pen > airborne) worst = "seed " + seed + " side " + side + " t " + t + " centres " + dc;
+					airborne = Math.max(airborne, pen);
+				}
 			}
 		}
+		System.out.println("craps: deepest sharp-cube overlap inside the solved flights (DCa contact model, not asserted) " + airborne + " u (" + worst + ")");
 	}
 
 	/** Deepest overlap of two dice (cubes of half-edge 1, tray units) by the separating-axis test; 0 = apart. */

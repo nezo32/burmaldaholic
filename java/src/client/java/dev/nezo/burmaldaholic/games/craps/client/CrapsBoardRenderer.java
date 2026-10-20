@@ -237,7 +237,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		if (sync.d1() <= 0 || sync.d2() <= 0) return;
 		int side = sync.shooterSide();
 		c.side = side;
-		DiceRoll r = c.cache.get(DiceRollCache.key(sync.rolls(), side, sync.seed()), () -> CrapsThrow.solve(side, sync.seed(), sync.d1(), sync.d2(), sync.pointBefore()));
+		DiceRoll r = c.cache.get(CrapsThrow.cacheKey(sync.rolls(), side, sync.seed(), sync.d1(), sync.d2(), sync.pointBefore()), () -> CrapsThrow.solve(side, sync.seed(), sync.d1(), sync.d2(), sync.pointBefore()));
 		c.roll = r;
 		c.beats = CrapsBeats.of(sync.restMs() > 0 ? sync.restMs() : r.restMs());
 		CrapsRollClocks.onRoll(rc, sync.rolls(), sync.rollTime(), serverNowTicks, r, side);

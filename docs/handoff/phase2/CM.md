@@ -79,11 +79,16 @@ sounds`; 9 craps status strings shortened (StatusFitTest list emptied of craps);
   arrival (late = delayed, never jumped into); only a first sight (screen opened / table came into view) or a roll older than
   6 s takes the server's age. Clock source is a `Source` (`CrapsRollClocks.source(...)`) for SY's SmoothClock.
 - **`CrapsHand`** (pure), owner's Dice house-mode pattern: the rattle loop passes through ONE release pose every 120 ms cycle;
-  when the result is in, the hand keeps rattling to the first exit ≥ max(arrival + 40 ms, 240 ms) (≤ one cycle + 40 ms) while
-  easing into the plain solver's pose at t = 0, so the exit pose IS the solver start pose (C0) and the normal deterministic
-  `CrapsThrow.solve` throw follows (no flight blend; DCa's `Initial[]` overload is NOT used, per owner/coordinator).
-- `CrapsThrow.HAND_GAP = 2.4`: the dice sit 2.4 u apart in the hand (the kit's 1.8 u is less than a die edge: squared-up dice at
-  home overlapped by 0.2 u). This changes the solved paths (server + clients use the same code, so rest times stay identical).
+  when the result is in, the hand keeps rattling to the first exit ≥ max(arrival + 80 ms, 240 ms) (wait ≤ one cycle + 80 ms)
+  while it settles into the plain solver's pose at t = 0 (one fixed turn `start·exit⁻¹` applied by a growing share, the pair
+  spread 0.6 u apart mid-settle so turning corners never touch), so the exit pose IS the solver start pose (C0) and the normal
+  deterministic `CrapsThrow.solve` throw follows, identical on every client. No flight blend (DCa's `Initial[]` overload was
+  removed on p2/dca @e54a9129, merged here).
+- `CrapsThrow.HAND_GAP = 3.5` u, `RELEASE_INSET = 4.8` u, `CrapsLayout` dice home `ceil(2.75·die)+2` wide: a die in any pose
+  reaches √3 u from its centre, so the kit's 1.8 u let the two dice overlap in the hand (0.2 u even squared up). This changes the
+  solved paths (server and clients use the same code, so rest times still agree); golden `dice_roll.json` regenerated on this
+  branch (its crapsCm fixtures are CM's).
+- `DiceRollCache` keys → `CrapsThrow.cacheKey(...)` (DCa's full key: faces, target, tray).
 - Screen: `rollPressedAt` / the 900 ms cap and `stale()` are gone; storyboard t = the shared clock; the board's result line no
   longer shows while t < 0 (that is now "hand still settling", not clock skew).
 - Under a client GameTest frozen clock the origin is pinned to `roll_time · 50` (`CrapsRollClocks.pinUnderTest`), so the
@@ -97,9 +102,24 @@ V5 `feltEndsAboveTheHintStrip`; V6 `CrapsFlowTest.theDockKeepsTheStakeWhileTheTh
 `botBetsOnTheBoardOnTheirSeats`. V3 (COME word hidden while the banner is up) and V7 (ring follows the puck) are screen-state
 code with no pure seam; not separately asserted.
 
-## Verified
-(see the run log section below)
+## Verified (26.3 only, per owner)
+- `./gradlew --no-daemon -Pmc=26.3 test --tests 'dev.nezo.burmaldaholic.games.craps.*' --tests 'dev.nezo.burmaldaholic.core.anim.dice.*'
+  --tests '*StatusFitTest' --tests '*RawInputGuardTest'` → all green (craps 125 incl. `CrapsRollClockTest` 7: result 0/300/800/1500 ms
+  late + bunched/re-synced packets → origin fixed, per-ms motion within the throw's own, exact solve + server faces at rest;
+  release pose = solver start pose (C0); any arrival phase waits ≤ cycle + settle; no overlap in hand/settle over 24 seeds ×
+  arrival phases (SAT on the cubes); no time cap (9 s); refusal cancels; clock-source swap keeps the throw).
+- `-Pmc=26.3 compileJava compileClientJava compileGametestJava runGameTest -Dfabric-api.gametest.filter=craps` → BUILD SUCCESSFUL,
+  "All 16 required tests passed" (incl. the new V8 `vipPresetRefusesTheSeatBelowTheTier` and G1).
 
 ## Not verified / open
+- Client lane (CM / D) NOT run this round (machine load; tester to run `BURMALDAHOLIC_CGT=D,CM`). New client assert in
+  `CrapsV2ClientGameTests.rollOnce`: the throw leaves this client's hand on the shared clock (screen == board clock), not snapped.
+- No lag-injection client test yet (SY's NetLag hook is not on this branch).
+- V3 / V7 have no pure seam (screen state); not separately asserted.
 
 ## Requests
+- **DCa**: the plain `DiceSolver.solve` flight lets the two craps dice pass through each other mid-air: `CrapsThrow.solve(RIGHT,
+  13*7919, 2, 2, 0)` has centres 1.03 u apart at t 179 ms (sharp-cube overlap 1.73 u); the separation rule only runs near the
+  floor (`NEAR_FLOOR`). `CrapsRollClockTest.theDiceNeverOverlap` logs the deepest flight overlap (not asserted: DCa's code).
+- **SY**: swap the clock with `CrapsRollClocks.source(SmoothClock::nowMs)`; the server lead (5 ticks) is not added here
+  (`CrapsTableBlockEntity` roll_time), spectators could then use the SY anchor instead of "start on arrival".

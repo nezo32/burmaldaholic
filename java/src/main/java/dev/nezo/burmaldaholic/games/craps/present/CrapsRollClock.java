@@ -50,7 +50,7 @@ public final class CrapsRollClock {
 	private double handStart = Double.NaN;
 	private final int[] fallbackFaces = {4, 2};
 	private final int[] handFaces = {4, 2};
-	private final DieSample base = new DieSample(), start = new DieSample();
+	private final DieSample base = new DieSample(), start = new DieSample(), exit = new DieSample();
 
 	public CrapsRollClock(Source source) {
 		this.source = source;
@@ -192,7 +192,11 @@ public final class CrapsRollClock {
 			DiceRoll r = roll;
 			if (r != null) {
 				r.sample(die, 0, start);
-				CrapsHand.settle(out, start, (h - handReady) / (handRelease - handReady), out);
+				// spread the pair along the line between the two dice while they turn into the throw's start pose
+				double[] p0 = CrapsThrow.release(side, 0), p1 = CrapsThrow.release(side, 1);
+				double dx = p1[0] - p0[0], dy = p1[1] - p0[1], n = Math.max(1e-9, Math.hypot(dx, dy)), sg = die == 0 ? -1 : 1;
+				CrapsHand.shake(base, die, handRelease, exit);
+				CrapsHand.settle(out, exit, start, (h - handReady) / (handRelease - handReady), sg * dx / n, sg * dy / n, out);
 			}
 			return true;
 		}

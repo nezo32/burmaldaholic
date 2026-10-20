@@ -163,7 +163,7 @@ public final class CrapsLayout {
 		passWord = new Box(pass.cx() - w * 8 / 100, pass.cy() - 4, w * 16 / 100, 8);
 		int ox = pass.x() + w * 70 / 100;
 		passOdds = new Box(ox, pass.y(), pass.right() - ox, pass.h());
-		int homeW = 2 * die + 2;
+		int homeW = (int) Math.ceil(die * 2.75) + 2; // the two dice CrapsThrow.HAND_GAP apart in the hand
 		int ow = Math.min(passOdds.w() - w * 9 / 100 - 4, w * 12 / 100);
 		ow = Math.min(ow, pass.right() - 2 - homeW - 2 - (passOdds.x() + w * 9 / 100));
 		oddsWord = new Box(passOdds.x() + w * 9 / 100, pass.cy() - 4, Math.max(1, ow), 8);

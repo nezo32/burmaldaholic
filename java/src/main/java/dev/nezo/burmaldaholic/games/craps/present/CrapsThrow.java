@@ -90,11 +90,11 @@ public final class CrapsThrow {
 		return new DiceTray(G, floor, walls, List.of(), List.of(zone), keep, Optional.empty(), 2.4);
 	}
 
-	/** Centre distance of the two dice in the shooter's hand, u (a die edge is 2 u; the rattle turns them ±8°). */
-	public static final double HAND_GAP = 2.4;
+	/** Centre distance of the two dice in the shooter's hand, u (a die edge is 2 u and a die in any pose reaches √3 u from its centre: the pair never touches, whatever pose the throw starts in). */
+	public static final double HAND_GAP = 3.5;
 
 	/** Release centre of die 0 from the outer end of the Pass line: inboard so die 1 (released outboard) clears the rail. */
-	static final double RELEASE_INSET = 3.6;
+	static final double RELEASE_INSET = 4.8;
 
 	/** The hand's spec of {@code side}: die 0 leaves at dice home, die 1 beside it (outboard), toward the back wall. */
 	public static ThrowSpec spec(int side) {
@@ -142,6 +142,11 @@ public final class CrapsThrow {
 			if (maxSpeed(r) <= MAX_SPEED && k == RESEEDS - 1) return r;
 		}
 		return first;
+	}
+
+	/** The {@link dev.nezo.burmaldaholic.core.anim.dice.DiceRollCache} key of {@link #solve} (everything it reads). */
+	public static long cacheKey(int rolls, int side, int seed, int d1, int d2, int pointBefore) {
+		return dev.nezo.burmaldaholic.core.anim.dice.DiceRollCache.key(rolls, side, seed, new int[] {d1, d2}, targetMs(seed), tray(pointBefore));
 	}
 
 	/** Re-solve attempts (first seed + derived ones). */
