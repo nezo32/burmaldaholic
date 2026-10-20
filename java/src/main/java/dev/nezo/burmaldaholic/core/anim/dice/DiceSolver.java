@@ -104,6 +104,8 @@ public final class DiceSolver {
 	/** Release stagger (ms) and landing spacing before the target (ms) of the scripted drop. */
 	static final double DROP_STAGGER = 40;
 	static final double DROP_SPACING = 120;
+	/** Rest time of the last die of a scripted drop without a target (a plausible throw length). */
+	static final int SCRIPTED_NATURAL_MS = 1000;
 
 	/**
 	 * The last plan, which cannot fail: each die is HELD above a fixed, separated rest spot, drops straight down with no
@@ -134,8 +136,9 @@ public final class DiceSolver {
 		boolean[] teeter = new boolean[n];
 		List<MotionEvent> ev = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
-			double land = targetMs == NATURAL ? DROP_STAGGER * i + dropMs : Math.max(DROP_STAGGER * i + dropMs, targetMs - DROP_SPACING * (n - 1 - i));
-			if (targetMs != NATURAL && i == n - 1) land = Math.max(land, targetMs);
+			int target = targetMs == NATURAL ? SCRIPTED_NATURAL_MS : targetMs;
+			double land = Math.max(DROP_STAGGER * i + dropMs, target - DROP_SPACING * (n - 1 - i));
+			if (i == n - 1) land = Math.max(land, target);
 			double rel = land - dropMs;
 			MotionRng r = MotionRng.of(seed, "DFALL", i);
 			double[] q = CubeGroup.element(r.nextInt(24)).clone();
@@ -386,7 +389,7 @@ public final class DiceSolver {
 				p.wz = az / sn * spin;
 				if (!timing(ctx, spec, p, tipPref, pass)) continue;
 				p.segs = buildSegs(ctx, p, null);
-				// the last-resort pass accepts a longer or repeated brush between the dice, never a penetration
+				// the last-resort pass accepts a closer brush between the dice, never a penetration
 				if (clearOf(ctx, p, placed, pass == 3)) return true;
 			}
 		}
@@ -1113,11 +1116,12 @@ public final class DiceSolver {
 		return clearOf(ctx, p, placed, false);
 	}
 
-	/** {@code lenient}: only a penetration (d < {@link #CLACK_MIN}) fails; brush runs and lengths are not limited. */
+	/** {@code lenient}: the brush may come down to {@link #CLACK_MIN} (no margin); still one short brush, never a penetration. */
 	static boolean clearOf(Ctx ctx, DiePlan p, DiePlan[] placed, boolean lenient) {
 		p.clackT = -1;
 		if (p.die == 0) return true;
 		double g = ctx.tray.g();
+		if (!apart(ctx, p, placed)) return false;
 		double[] a = new double[3];
 		double[] b = new double[3];
 		int[] hint = new int[2];
@@ -1141,9 +1145,9 @@ public final class DiceSolver {
 					if (d < (lenient ? CLACK_MIN : CLACK_MIN + 0.12)) return false;
 					if (runStart < 0) {
 						runStart = t;
-						if (++runs > 1 && !lenient) return false;
+						if (++runs > 1) return false;
 					}
-					if (t - runStart > CLACK_MS - 4 && !lenient) return false;
+					if (t - runStart > CLACK_MS - 4) return false;
 					if (d < best) {
 						best = d;
 						p.clackT = t;
@@ -1153,6 +1157,42 @@ public final class DiceSolver {
 				} else {
 					runStart = -1;
 				}
+			}
+		}
+		return true;
+	}
+
+	/** Smallest centre distance of two released dice at any time, in every pass (no pass-through in the air either). */
+	public static final double MIN_CENTRE = 2.0;
+	/** Margin over {@link #MIN_CENTRE} for the 1-ms sampling of {@link #apart}. */
+	static final double APART_MARGIN = 0.05;
+	/** Spread of the centre height above the lowest point: support(q) − 1 ∈ [0, √3 − 1]. */
+	static final double SUPPORT_SPREAD = 0.7320508075688772;
+
+	/**
+	 * Whole-flight separation: from the later release to both rests, every 1 ms, the smallest possible centre distance
+	 * (xy exact; z from the lowest points, less the support spread, so no orientation and no non-strict maths) stays ≥
+	 * {@link #MIN_CENTRE} + {@link #APART_MARGIN}.
+	 */
+	static boolean apart(Ctx ctx, DiePlan p, DiePlan[] placed) {
+		double g = ctx.tray.g();
+		double[] a = new double[3];
+		double[] b = new double[3];
+		int[] hint = new int[2];
+		double endP = p.segs[p.segs.length - 1].t0;
+		double min2 = (MIN_CENTRE + APART_MARGIN) * (MIN_CENTRE + APART_MARGIN);
+		for (int j = 0; j < p.die; j++) {
+			DiePlan o = placed[j];
+			double end = Math.max(endP, o.segs[o.segs.length - 1].t0);
+			hint[0] = 0;
+			hint[1] = 0;
+			for (double t = Math.max(p.tRel, o.tRel); t <= end + 1e-9; t += 1) {
+				pos(p.segs, t, a, hint, 0, g);
+				pos(o.segs, t, b, hint, 1, g);
+				double dx = a[0] - b[0];
+				double dy = a[1] - b[1];
+				double dz = Math.max(0, Math.abs(Math.max(0, a[2]) - Math.max(0, b[2])) - SUPPORT_SPREAD);
+				if (dx * dx + dy * dy + dz * dz < min2) return false;
 			}
 		}
 		return true;

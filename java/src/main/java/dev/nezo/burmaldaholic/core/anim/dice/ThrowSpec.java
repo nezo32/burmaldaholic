@@ -50,11 +50,12 @@ public record ThrowSpec(double x, double y, double z0, double dir, double coneMi
 	/**
 	 * Craps shooter's hand (CS §2.3 step 2): the dice leave the hand at {@code (x, y)} (dice home on the shooter's
 	 * rail), lowest point 1.2 u up, thrown toward {@code −y} (the back wall) and angled toward the table centre:
-	 * {@code side} 0 = the shooter stands at the right end (aims left), 1 = at the left end (aims right). Spread ±4–14°.
+	 * {@code side} 0 = the shooter stands at the right end (aims left), 1 = at the left end (aims right). Spread ±4–14°;
+	 * the second die leaves 3.5 u toward the table centre (whole-flight separation, as CM's hand).
 	 */
 	public static ThrowSpec hand(int side, double x, double y) {
 		double base = -Math.PI / 2 + (side == 0 ? -1 : 1) * Math.toRadians(14);
-		return new ThrowSpec(x, y, 1.2, base, 0, Math.toRadians(14), 14, 60, 18, 25, 12, 22, side == 0 ? 1.8 : -1.8, 15, 35);
+		return new ThrowSpec(x, y, 1.2, base, 0, Math.toRadians(14), 14, 60, 18, 25, 12, 22, side == 0 ? -3.5 : 3.5, 15, 35);
 	}
 
 	/**
@@ -63,7 +64,7 @@ public record ThrowSpec(double x, double y, double z0, double dir, double coneMi
 	 */
 	public static ThrowSpec chest(double heightBlocks) {
 		double z0 = heightBlocks / DiceTray.WORLD_BLOCKS_PER_U;
-		return new ThrowSpec(0, 0, z0, 0, 0, Math.toRadians(8), 6, 70, 0, 6, 10, 20, 1.6, 30, 60);
+		return new ThrowSpec(0, 0, z0, 0, 0, Math.toRadians(8), 6, 70, 0, 6, 10, 20, 3.0, 30, 60);
 	}
 
 	/** {@link #chest(double)} at 1.0 block (the hand in front of the chest). */
