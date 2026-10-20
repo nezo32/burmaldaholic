@@ -238,6 +238,8 @@
 	"gui.burmaldaholic.slots.turbo_on": "Турбо: вкл",
 	"config.burmaldaholic.slots.coinValue": "%1$s: стоимость жетона (0 = автоматически)",
 	"config.burmaldaholic.slots.jackpot.gem": "%1$s: шанс камня джекпота за спин",
+	"gui.burmaldaholic.slots.stop_autoplay": "Стоп авто",
+	"gui.burmaldaholic.slots.more": "Ещё",
 	"advancement.burmaldaholic.jackpot.title": "Джекпот!",
 	"advancement.burmaldaholic.jackpot.description": "Выиграйте джекпот «Мажор» или «Гранд»",
 	"config.burmaldaholic.slots.pays": "%1$s: выплаты",

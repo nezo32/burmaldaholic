@@ -594,7 +594,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		Timeline tl = r.timeline(SlotMachinesV2.def(r.machine));
-		long elapsed = (gameTime() - r.startTick) * 50;
+		long real = (gameTime() - r.startTick) * 50;
+		// a skip inside the START_LEAD (real < 0, the first ~200 ms) counts as a skip at 0: it ends the first beat group
+		long elapsed = Math.max(0, real);
 		int gate = tl.sharedEndMs();
 		int g = tl.groupAt(elapsed);
 		if (g < 0 || elapsed >= gate) {
@@ -604,7 +606,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (huntLeft(r) > 0) {
 			target = Math.min(target, SlotTimeline.huntPauseMs(tl));
 		}
-		long shift = (target - elapsed) / 50;
+		long shift = (target - real) / 50;
 		if (shift <= 0) {
 			return;
 		}

@@ -105,10 +105,18 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 					if (overlap(ts.get(i).box(), ts.get(j).box())) out.add(ts.get(i).id() + " overlaps " + ts.get(j).id());
 				}
 			}
-			for (String id : new String[] {KeyMap.Ids.PRIMARY, Stepper.MINUS, Stepper.PLUS, KeyMap.Ids.action(SlotFlow.BUY), KeyMap.Ids.action(SlotFlow.AUTO),
-				KeyMap.Ids.action(SlotFlow.TURBO), KeyMap.Ids.action(SlotFlow.SHOWDOWN)}) {
+			for (String id : new String[] {KeyMap.Ids.PRIMARY, Stepper.MINUS, Stepper.PLUS}) {
 				if (c.hits().box(id).isEmpty()) out.add("no target " + id);
 			}
+			// D3: the full ActionRow, or (narrow frames) More with the four actions in its menu
+			boolean more = sc.dockMore();
+			report.add(tag + ": dock " + (more ? "compact (More)" : "full"));
+			for (String a : SECONDARY) {
+				if (more ? c.hits().box(KeyMap.Ids.action(a)).isPresent() : c.hits().box(KeyMap.Ids.action(a)).isEmpty()) {
+					out.add((more ? "folded action still in the Dock: " : "no target ") + KeyMap.Ids.action(a));
+				}
+			}
+			if (more && c.hits().box(KeyMap.Ids.action(SlotFlow.MORE)).isEmpty()) out.add("compact Dock without More");
 			SlotLayout l = sc.body().layout();
 			Box cab = new Box(l.wx, l.wy, l.windowW(), l.windowH());
 			if (!cab.inside(c.grid().play)) out.add("reel window " + cab + " outside the PlayArea " + c.grid().play);
@@ -119,6 +127,7 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 			return out;
 		});
 		lay.forEach(p -> failures.add(tag + " layout: " + p));
+		if (f.client(mc -> ((SlotMachineV2Screen) mc.gui.screen()).dockMore())) menuLayout(f, tag);
 		UUID me = f.server(server -> RealFlow.player(server).getUUID());
 		// ---- bet stepper ----
 		int i0 = f.client(mc -> body(mc).model().betIndex);
@@ -140,28 +149,27 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 		// ---- spin + Stop ----
 		spin(f, pos, tag, bet, true);
 		// ---- turbo ----
-		f.click(KeyMap.Ids.action(SlotFlow.TURBO));
+		act(f, SlotFlow.TURBO);
 		f.waitServer(pos, SlotMachineBlockEntity.class, be -> Boolean.TRUE.equals(this.<Map<UUID, Boolean>>field(be, "turboV2").get(me)), tag + " turbo on");
-		f.click(KeyMap.Ids.action(SlotFlow.TURBO));
+		act(f, SlotFlow.TURBO);
 		f.waitServer(pos, SlotMachineBlockEntity.class, be -> !Boolean.TRUE.equals(this.<Map<UUID, Boolean>>field(be, "turboV2").get(me)), tag + " turbo off");
 		// ---- autoplay: Dock Auto → overlay (loss limit, Start) → server autoplay; primary Stop autoplay → ended ----
-		f.click(KeyMap.Ids.action(SlotFlow.AUTO));
+		act(f, SlotFlow.AUTO);
 		ctx.waitTicks(3);
 		if (f.client(mc -> body(mc).overlays().mode()) != Overlays.Mode.AUTO) failures.add(tag + ": Auto did not open the autoplay panel");
 		else {
 			clickOverlay(f, h -> h[4] >= 200 && h[4] < 300, tag + " loss limit");
 			clickOverlay(f, h -> h[4] == Overlays.Action.AUTO_START.ordinal(), tag + " auto start");
 			f.waitServer(pos, SlotMachineBlockEntity.class, be -> this.field(be, "autoV2") != null, tag + " server autoplay started");
-			// during an autoplay spin the primary is Stop (skip); Stop autoplay is the ActionRow entry
-			String stopAuto = KeyMap.Ids.action(SlotFlow.STOP_AUTO);
-			f.waitChrome(c -> c.hits().box(stopAuto).isPresent(), tag + " Stop autoplay in the Dock");
-			f.click(stopAuto);
+			// during autoplay the primary is Stop Auto, and Space (the primary's key) stops the autoplay (review T-SLT)
+			f.waitChrome(c -> SlotFlow.STOP_AUTO.equals(primaryAction(c)), tag + " primary Stop Auto during autoplay");
+			f.key(KeyMap.SPACE);
 			f.waitServer(pos, SlotMachineBlockEntity.class, be -> this.field(be, "autoV2") == null && !be.spinning(), tag + " server autoplay ended", 1200);
 			ctx.waitFor(mc -> body(mc) != null && !body(mc).stage().spinning(), RealFlow.TIMEOUT);
 			ctx.waitTicks(10);
 		}
 		// ---- buy: Dock Buy → overlay confirm → bought server round ----
-		f.click(KeyMap.Ids.action(SlotFlow.BUY));
+		act(f, SlotFlow.BUY);
 		ctx.waitTicks(3);
 		if (f.client(mc -> body(mc).overlays().mode()) != Overlays.Mode.BUY) failures.add(tag + ": Buy did not open the buy panel");
 		else if (buy) {
@@ -192,8 +200,10 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 			ctx.waitTicks(2);
 		}
 		// ---- Slot Showdown entry ----
-		if (f.enabledTarget(KeyMap.Ids.action(SlotFlow.SHOWDOWN))) {
-			f.click(KeyMap.Ids.action(SlotFlow.SHOWDOWN));
+		boolean sdEnabled = f.client(mc -> mc.gui.screen() instanceof SlotMachineV2Screen sc && sc.currentView() != null
+			&& SlotFlow.secondary(sc.currentView()).stream().anyMatch(g -> g.action().equals(SlotFlow.SHOWDOWN) && g.enabled()));
+		if (sdEnabled) {
+			act(f, SlotFlow.SHOWDOWN);
 			ctx.waitTicks(3);
 			boolean open = f.client(mc -> this.<ShowdownPanel>field(mc.gui.screen(), "showdown").open());
 			if (!open) failures.add(tag + ": Showdown did not open its panel");
@@ -201,6 +211,57 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 			failures.add(tag + ": Showdown entry disabled while idle");
 		}
 		report.add(tag + ": dock ok");
+	}
+
+	private static final String[] SECONDARY = {SlotFlow.BUY, SlotFlow.AUTO, SlotFlow.TURBO, SlotFlow.SHOWDOWN};
+
+	/** Presses a secondary action like a player: its ActionRow button, or (compact Dock) More, then its menu entry. */
+	private void act(RealFlow f, String action) {
+		String id = KeyMap.Ids.action(action);
+		if (f.box(id).isPresent()) {
+			f.click(id);
+			return;
+		}
+		f.click(KeyMap.Ids.action(SlotFlow.MORE));
+		f.context().waitTicks(2);
+		String entry = SlotMachineV2Screen.moreId(action);
+		if (f.box(entry).isEmpty()) throw new AssertionError("More menu without " + entry);
+		f.click(entry);
+		f.context().waitTicks(2);
+		if (f.client(mc -> ((SlotMachineV2Screen) mc.gui.screen()).moreOpen())) failures.add("More menu stayed open after " + entry);
+	}
+
+	/** D3: More opens a menu of the four actions, inside the frame, clear of each other and of the Dock controls; More closes it. */
+	private void menuLayout(RealFlow f, String tag) {
+		f.click(KeyMap.Ids.action(SlotFlow.MORE));
+		f.context().waitTicks(2);
+		List<String> out = f.client(mc -> {
+			List<String> o = new ArrayList<>();
+			SlotMachineV2Screen sc = (SlotMachineV2Screen) mc.gui.screen();
+			V2Chrome c = sc.chrome();
+			if (!sc.moreOpen()) o.add("More did not open its menu");
+			Box screen = c.grid().screen;
+			List<HitMap.Target> ts = c.hits().targets();
+			for (String a : SECONDARY) {
+				Box b = c.hits().box(SlotMachineV2Screen.moreId(a)).orElse(null);
+				if (b == null) {
+					o.add("menu without " + a);
+					continue;
+				}
+				if (!b.inside(screen)) o.add("more." + a + " " + b + " outside the frame");
+				if (b.y() + b.h() > c.grid().dock.y()) o.add("more." + a + " reaches into the Dock");
+				for (HitMap.Target t : ts) {
+					if (t.id().equals(SlotMachineV2Screen.moreId(a))) continue;
+					boolean dockOrMenu = t.id().startsWith("more.") || t.id().startsWith("action.") || t.id().startsWith("stepper.") || t.id().equals(KeyMap.Ids.PRIMARY);
+					if (dockOrMenu && overlap(b, t.box())) o.add("more." + a + " overlaps " + t.id());
+				}
+			}
+			return o;
+		});
+		out.forEach(p -> failures.add(tag + " menu: " + p));
+		f.click(KeyMap.Ids.action(SlotFlow.MORE));
+		f.context().waitTicks(2);
+		if (f.client(mc -> ((SlotMachineV2Screen) mc.gui.screen()).moreOpen())) failures.add(tag + ": More did not close its menu");
 	}
 
 	/** One spin through the real primary; asserts the server bet, the balance hold, the final window. */

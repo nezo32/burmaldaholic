@@ -14,17 +14,28 @@ import java.util.Optional;
  * {@code ?}. Pure.
  */
 public final class SlotFlow implements Flow<SlotView> {
-	public static final SlotFlow INSTANCE = new SlotFlow();
+	/** The full Dock: every action in the ActionRow. */
+	public static final SlotFlow INSTANCE = new SlotFlow(false);
+	/** The compact Dock of narrow frames (T-SLT D3, {@link SlotDock}): Buy / Auto / Turbo / Showdown fold into More. */
+	public static final SlotFlow COMPACT = new SlotFlow(true);
 	public static final String SPIN = "spin", SKIP = "skip", STOP_AUTO = "stop_auto", BUY = "buy", AUTO = "auto", TURBO = "turbo",
-		SHOWDOWN = "showdown", BET_DOWN = "bet_down", BET_UP = "bet_up";
+		SHOWDOWN = "showdown", BET_DOWN = "bet_down", BET_UP = "bet_up", MORE = "more";
 	private static final String K = "gui.burmaldaholic.slots.";
+	private final boolean compact;
 
-	private SlotFlow() {}
+	private SlotFlow(boolean compact) {
+		this.compact = compact;
+	}
+
+	public boolean compact() {
+		return compact;
+	}
 
 	@Override
 	public Gate primary(SlotView v) {
+		// autoplay first: Space / the primary stop the autoplay (review T-SLT), a plain spin's Stop skips
+		if (v.autoRunning()) return Gate.on(STOP_AUTO, K + "stop_autoplay");
 		if (v.busy()) return Gate.on(SKIP, K + "stop");
-		if (v.autoRunning()) return Gate.on(STOP_AUTO, K + "stop_auto");
 		if (v.locked()) return new Gate(SPIN, K + "locked", null, false, K + "vip_lock", v.lockArgs());
 		if (!v.playable()) return new Gate(SPIN, K + "spin", new Object[] {v.bet()}, false, "gui.burmaldaholic.error.disabled", null);
 		if (v.balance() < v.bet()) return new Gate(SPIN, K + "spin", new Object[] {v.bet()}, false, V2Keys.REASON_NOT_ENOUGH, null);
@@ -47,6 +58,15 @@ public final class SlotFlow implements Flow<SlotView> {
 
 	@Override
 	public List<Gate> actions(SlotView v) {
+		List<Gate> all = secondary(v);
+		if (!compact || all.size() <= 1) return all;
+		List<Gate> out = new ArrayList<>(1);
+		out.add(Gate.on(MORE, K + "more"));
+		return out;
+	}
+
+	/** Buy / Autoplay (Stop autoplay) / Turbo / Slot Showdown: the ActionRow of the full Dock, the More menu of the compact one. */
+	public static List<Gate> secondary(SlotView v) {
 		List<Gate> out = new ArrayList<>();
 		boolean idle = !v.busy() && !v.autoRunning();
 		if (v.buyAllowed()) {
@@ -56,7 +76,7 @@ public final class SlotFlow implements Flow<SlotView> {
 			else out.add(Gate.on(BUY, K + "buy.button", v.buyPrice()));
 		}
 		if (v.autoplayAllowed()) {
-			if (v.autoRunning()) out.add(Gate.on(STOP_AUTO, K + "stop_auto"));
+			if (v.autoRunning()) out.add(Gate.on(STOP_AUTO, K + "stop_autoplay"));
 			else if (v.busy()) out.add(Gate.off(AUTO, K + "auto", V2Keys.REASON_ROUND_IN_PROGRESS));
 			else if (!v.playable()) out.add(Gate.off(AUTO, K + "auto", "gui.burmaldaholic.error.disabled"));
 			else out.add(Gate.on(AUTO, K + "auto"));

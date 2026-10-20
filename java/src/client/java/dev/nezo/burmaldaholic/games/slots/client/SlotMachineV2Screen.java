@@ -9,7 +9,13 @@ import dev.nezo.burmaldaholic.core.anim.TimelineSeed;
 import dev.nezo.burmaldaholic.core.anim.TimingProfile;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Button;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Input;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Sprites;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.DockLayout;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
@@ -25,9 +31,14 @@ import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotDefaults;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SlotTimeline;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.SpinTape;
 import dev.nezo.burmaldaholic.games.slots.v2.logic.TapeCodec;
+import dev.nezo.burmaldaholic.games.slots.v2.present.SlotDock;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SlotFlow;
 import dev.nezo.burmaldaholic.games.slots.v2.present.SlotView;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -64,6 +75,10 @@ import net.minecraft.world.entity.player.Inventory;
  * the cabinet and reels in the PlayArea ({@link SlotLayout#docked}), and the Dock from {@link SlotFlow}: the bet stepper
  * ({@code - bet +}, coin x multiplier in the hint), Buy / Autoplay / Turbo / Slot Showdown, and the primary Spin / Stop.
  * Keys: Space = primary, A = autoplay, T = turbo.
+ *
+ * <p>T-SLT D3: when the full Dock does not fit the frame ({@link SlotDock#collapse}; 427 × 240 and 480 × 270), Buy /
+ * Autoplay / Turbo / Showdown fold into a More button ({@link SlotFlow#COMPACT}) that opens them as a column just above
+ * the Dock (targets {@code more.<action>}); A / T keep working.
  */
 public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 	/** Slot Showdown panel column width (inside the PlayArea while open). */
@@ -84,6 +99,13 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 	private int speedPct = 100;
 	private int seed;
 	private boolean anticipation = true;
+	/** D3: the Dock is the compact one (More), the More menu is open, its gates and boxes (registration order). */
+	private boolean dockMore;
+	private boolean moreOpen;
+	private List<Gate> moreGates = List.of();
+	private List<Box> moreBoxes = List.of();
+	/** A / T held down in the compact Dock (the OS auto-repeat must not toggle Turbo per repeat). */
+	private final Set<String> heldMore = new HashSet<>();
 
 	public SlotMachineV2Screen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, title);
@@ -125,7 +147,22 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 
 	@Override
 	protected Flow<SlotView> flow() {
-		return SlotFlow.INSTANCE;
+		return dockMore ? SlotFlow.COMPACT : SlotFlow.INSTANCE;
+	}
+
+	/** Test hook: whether the Dock is the compact one (More). */
+	public boolean dockMore() {
+		return dockMore;
+	}
+
+	/** Test hook: whether the More menu is open. */
+	public boolean moreOpen() {
+		return moreOpen;
+	}
+
+	/** Hit id of a More-menu entry. */
+	public static String moreId(String action) {
+		return "more." + action;
 	}
 
 	@Override
@@ -150,7 +187,15 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 		k.bind(KeyMap.T, KeyMap.Ids.action(SlotFlow.TURBO));
 		chrome.keys(k);
 		chrome.stepper.set(SlotFlow.betDown(view), SlotFlow.betUp(view), Texts.chips(view.bet()), null, null);
+		// D3: the full Dock first; when it does not fit the frame, the compact one (the same pure decision as SlotDockFitTest)
+		boolean wasMore = dockMore;
+		dockMore = false;
 		super.refresh();
+		if (SlotDock.collapse(chrome.grid(), chrome.dock())) {
+			dockMore = true;
+			super.refresh();
+		}
+		if (!dockMore || wasMore != dockMore) moreOpen = false;
 	}
 
 	@Override
@@ -173,6 +218,56 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 		}
 	}
 
+	/** The More menu's targets, on top of everything (registered last). */
+	@Override
+	public void layoutOverlay(DockLayout.Dock dock, HitMap hits) {
+		moreGates = List.of();
+		moreBoxes = List.of();
+		if (!dockMore || !moreOpen || view == null || font == null) return;
+		Box anchor = hits.box(KeyMap.Ids.action(SlotFlow.MORE)).orElse(null);
+		if (anchor == null) return;
+		List<Gate> gates = SlotFlow.secondary(view);
+		int[] w = new int[gates.size()];
+		for (int i = 0; i < w.length; i++) w[i] = V2Button.width(font, V2Draw.label(gates.get(i)), null);
+		List<Box> boxes = SlotDock.menu(chrome.grid(), anchor, w);
+		for (int i = 0; i < gates.size(); i++) hits.add(moreId(gates.get(i).action()), boxes.get(i), gates.get(i).enabled());
+		moreGates = gates;
+		moreBoxes = boxes;
+	}
+
+	@Override
+	public boolean onTarget(String id, boolean enabled, Press press) {
+		if (!id.startsWith("more.")) return false;
+		for (Gate g : moreGates) {
+			if (!moreId(g.action()).equals(id)) continue;
+			moreOpen = false;
+			if (!g.enabled()) {
+				chrome.refuse(g);
+				refresh();
+			} else {
+				onGate(id, g);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	/** A / T in the compact Dock: the folded Autoplay (or Stop autoplay) / Turbo gate. */
+	private boolean moreKey(String name) {
+		String action = KeyMap.A.equals(name) ? SlotFlow.AUTO : KeyMap.T.equals(name) ? SlotFlow.TURBO : null;
+		if (action == null || view == null) return false;
+		if (!heldMore.add(name)) return true; // auto-repeat of a held key
+		for (Gate g : SlotFlow.secondary(view)) {
+			boolean match = g.action().equals(action) || action.equals(SlotFlow.AUTO) && g.action().equals(SlotFlow.STOP_AUTO);
+			if (!match) continue;
+			moreOpen = false;
+			if (g.enabled()) onGate(moreId(g.action()), g);
+			else chrome.refuse(g);
+			return true;
+		}
+		return false;
+	}
+
 	@Override
 	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, SlotView v, int mouseX, int mouseY, float partial) {
 		if (showdown.open()) {
@@ -191,6 +286,12 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 			return;
 		}
 		if (bodyShown()) body.drawOverlays(g, width, height, mouseX, mouseY);
+		for (int i = 0; i < Math.min(moreGates.size(), moreBoxes.size()); i++) {
+			Gate gate = moreGates.get(i);
+			Box b = moreBoxes.get(i);
+			V2Draw.fill(g, b.inset(-1), 0xC0000000);
+			V2Button.draw(g, font, b, V2Draw.label(gate), null, V2Sprites.ButtonStyle.NORMAL, gate.enabled(), b.contains(mouseX, mouseY), false, false);
+		}
 	}
 
 	@Override
@@ -209,6 +310,7 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 			case SlotFlow.BET_DOWN -> body.changeBet(-1);
 			case SlotFlow.BET_UP -> body.changeBet(1);
 			case SlotFlow.SHOWDOWN -> showdown.openPanel();
+			case SlotFlow.MORE -> moreOpen = !moreOpen;
 			default -> {
 				return;
 			}
@@ -400,6 +502,13 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		// a slot panel (paytable, buy, autoplay) is modal over the PlayArea and the Dock
 		if (bodyShown() && body.overlays().mode() != Overlays.Mode.NONE) return body.mouseClicked(event.x(), event.y());
+		if (moreOpen) { // a click anywhere but More and its entries closes the menu (and still acts)
+			String id = chrome.hits().at(event.x(), event.y()).map(HitMap.Target::id).orElse("");
+			if (!id.startsWith("more.") && !id.equals(KeyMap.Ids.action(SlotFlow.MORE))) {
+				moreOpen = false;
+				refresh();
+			}
+		}
 		if (super.mouseClicked(event, doubleClick)) return true;
 		return bodyShown() && body.mouseClicked(event.x(), event.y());
 	}
@@ -413,7 +522,21 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 	public boolean keyPressed(KeyEvent event) {
 		// Esc closes an open slot panel first; Space / A / T are kit keys (primary, autoplay, turbo)
 		if (bodyShown() && body.overlays().mode() != Overlays.Mode.NONE && body.keyPressed(event.key())) return true;
+		String name = V2Input.keyName(event.key());
+		if (moreOpen && KeyMap.ESCAPE.equals(name)) {
+			moreOpen = false;
+			refresh();
+			return true;
+		}
+		if (dockMore && moreKey(name)) return true;
 		return super.keyPressed(event);
+	}
+
+	@Override
+	public boolean keyReleased(KeyEvent event) {
+		String name = V2Input.keyName(event.key());
+		if (name != null) heldMore.remove(name);
+		return super.keyReleased(event);
 	}
 
 	@Override

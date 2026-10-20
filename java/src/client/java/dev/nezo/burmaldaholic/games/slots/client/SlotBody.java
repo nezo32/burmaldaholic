@@ -436,8 +436,17 @@ public final class SlotBody implements StageHost {
 			SidePanels.balance(g, l, stage, model); // v2: the TopBar balance pill and the Dock stepper show these
 			drawBet(g, l);
 		}
-		String tip = meterTip(l, mouseX, mouseY);
-		if (tip != null) g.setTooltipForNextFrame(stage.font().split(Component.literal(tip), 220), mouseX, mouseY); // literal-ok: translated text
+		int tipTier = meterAt(l, mouseX, mouseY);
+		if (tipTier > 0) {
+			// built once per (tier, pool amount): no per-frame allocation while the mouse rests on a meter
+			long pool = model.pools[tipTier - 1];
+			if (tipLines == null || tipLinesTier != tipTier || tipLinesPool != pool) {
+				tipLines = stage.font().split(Component.literal(meterTipText(tipTier)), 220); // literal-ok: translated text
+				tipLinesTier = tipTier;
+				tipLinesPool = pool;
+			}
+			g.setTooltipForNextFrame(tipLines, mouseX, mouseY);
+		}
 		if (!l.compact) {
 			Rect pay = SidePanels.paytableArea(l);
 			boolean hot = pay != null && mouseX >= pay.x() && mouseX < pay.right() && mouseY >= pay.y() && mouseY < pay.bottom();
@@ -447,17 +456,31 @@ public final class SlotBody implements StageHost {
 
 	/** The jackpot meter under the mouse: "TIER amount: where it comes from" (owner R3, jackpot clarity), or null. */
 	public String meterTip(SlotLayout l, int mx, int my) {
-		if (overlays.mode() != Overlays.Mode.NONE || model.def == null || model.pools == null) return null;
-		String[] keys = {"mini", "minor", "major", "grand"};
+		int tier = meterAt(l, mx, my);
+		return tier > 0 ? meterTipText(tier) : null;
+	}
+
+	private static final String[] METER_KEYS = {"mini", "minor", "major", "grand"};
+	private List<net.minecraft.util.FormattedCharSequence> tipLines;
+	private int tipLinesTier;
+	private long tipLinesPool;
+
+	/** The jackpot tier (1..4) whose meter is under the mouse, or 0. Allocation-free (runs every frame). */
+	private int meterAt(SlotLayout l, int mx, int my) {
+		if (overlays.mode() != Overlays.Mode.NONE || model.def == null || model.pools == null) return 0;
 		for (int i = 0; i < l.meterTiers.length; i++) {
 			int tier = l.meterTiers[i];
 			int x = l.meterX(i);
 			if (mx < x || mx >= x + l.meterW || my < l.meterY || my >= l.meterY + 16 || model.pools[tier - 1] <= 0) continue;
-			Component word = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + keys[tier - 1]);
-			return Component.translatable("gui.burmaldaholic.slots.jackpots.row", word, Texts.number(model.pools[tier - 1]),
-				Overlays.jackpotSource(model.def, tier)).getString();
+			return tier;
 		}
-		return null;
+		return 0;
+	}
+
+	private String meterTipText(int tier) {
+		Component word = Component.translatable("gui.burmaldaholic.slots.jackpot.tier." + METER_KEYS[tier - 1]);
+		return Component.translatable("gui.burmaldaholic.slots.jackpots.row", word, Texts.number(model.pools[tier - 1]),
+			Overlays.jackpotSource(model.def, tier)).getString();
 	}
 
 	/**

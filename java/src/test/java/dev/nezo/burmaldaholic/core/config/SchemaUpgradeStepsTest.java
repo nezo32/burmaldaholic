@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import dev.nezo.burmaldaholic.core.config.sections.SlotsConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,7 +16,6 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class SchemaUpgradeStepsTest {
 	@Test
-	@Disabled("T-SLT D1: ConfigManager.upgradeRetiredDefaults re-runs the v1->v2 worldgen step on a v2 file; enable after the fix")
 	void v2FileKeepsDeliberateWorldgenValueOnTheSlotsUpgrade(@TempDir Path dir) throws Exception {
 		Path file = dir.resolve("burmaldaholic.json");
 		Files.writeString(file, "{\"configVersion\":2,\"worldgen\":{\"piglinParlor\":{\"chance\":0.3}}}");

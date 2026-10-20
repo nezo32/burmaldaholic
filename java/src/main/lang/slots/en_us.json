@@ -238,6 +238,8 @@
 	"gui.burmaldaholic.slots.turbo_on": "Turbo: on",
 	"config.burmaldaholic.slots.coinValue": "%1$s: coin value (0 = automatic)",
 	"config.burmaldaholic.slots.jackpot.gem": "%1$s: jackpot gem chance per spin",
+	"gui.burmaldaholic.slots.stop_autoplay": "Stop Auto",
+	"gui.burmaldaholic.slots.more": "More",
 	"advancement.burmaldaholic.jackpot.title": "Jackpot!",
 	"advancement.burmaldaholic.jackpot.description": "Win a Major or Grand slot jackpot",
 	"config.burmaldaholic.slots.pays": "%1$s: payouts",

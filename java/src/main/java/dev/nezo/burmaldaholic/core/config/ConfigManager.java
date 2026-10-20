@@ -110,9 +110,7 @@ public final class ConfigManager {
 	/** (Re)loads global + per-world files, applies them and rewrites the normalised global file. */
 	public synchronized List<ConfigIssue> load() {
 		JsonObject global = file == null ? new JsonObject() : read(file);
-		if (schemaVersion(global) < SCHEMA_VERSION) {
-			upgradeRetiredDefaults(global);
-		}
+		upgradeRetiredDefaults(global, schemaVersion(global));
 		global.remove(SCHEMA_KEY);
 		if (worldFile != null) {
 			worldOverrides = read(worldFile);
@@ -327,8 +325,13 @@ public final class ConfigManager {
 		"slots.end.buy.price", "109.0",
 		"slots.end.wheel.outer", "[\"10\",\"UP\",\"12\",\"15\",\"MINI\",\"10\",\"20\",\"12\",\"25\",\"10\",\"40\",\"15\",\"UP\",\"12\",\"20\",\"MINI\",\"15\",\"10\",\"75\",\"25\"]");
 
-	static void upgradeRetiredDefaults(JsonObject global) {
-		for (Map.Entry<String, String> e : RETIRED_JSON.entrySet()) {
+	/**
+	 * Runs each retirement step only for files written below the schema version that retired it: {@link #RETIRED_DEFAULTS}
+	 * (v1 -> v2) for {@code fileVersion < 2}, {@link #RETIRED_JSON} (v2 -> v3) for {@code fileVersion < 3}. A value an admin
+	 * wrote under a later schema is deliberate and is kept.
+	 */
+	static void upgradeRetiredDefaults(JsonObject global, int fileVersion) {
+		if (fileVersion < 3) for (Map.Entry<String, String> e : RETIRED_JSON.entrySet()) {
 			JsonElement v = at(global, e.getKey());
 			JsonElement old = JsonParser.parseString(e.getValue());
 			boolean same = v != null && (v.equals(old) || v.isJsonPrimitive() && old.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()
@@ -342,7 +345,7 @@ public final class ConfigManager {
 				LOG.info("Config: {} was the old default; using the new default", key);
 			}
 		}
-		for (Map.Entry<String, Double> e : RETIRED_DEFAULTS.entrySet()) {
+		if (fileVersion < 2) for (Map.Entry<String, Double> e : RETIRED_DEFAULTS.entrySet()) {
 			JsonElement v = at(global, e.getKey());
 			if (v != null && v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()
 					&& v.getAsDouble() == e.getValue()) {

@@ -246,6 +246,15 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 	 * Clicks a target of a table UI v2 screen (the machine screens, lane E) by its HitMap id at the real window pixel —
 	 * the v2 machine screens draw their felt toggles (Plinko Battle, Wheel Party) by box, not as vanilla widgets.
 	 */
+	/** The Slot Showdown entry: in the Dock, or (compact Dock of narrow frames, T-SLT D3) behind More. */
+	private static void clickSlotShowdown(ClientGameTestContext context) {
+		context.waitTicks(2);
+		boolean inDock = context.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+			&& h.chrome().hits().box("action.showdown").isPresent());
+		if (!inDock) clickV2(context, "action.more", "the More button of the compact slot Dock (SLT D3)");
+		clickV2(context, inDock ? "action.showdown" : "more.showdown", "the Slot Showdown entry (v2 kit, SLT)");
+	}
+
 	private static void clickV2(ClientGameTestContext context, String id, String what) {
 		double[] pos = null;
 		for (int waited = 0; waited < TIMEOUT && pos == null; waited += 2) {
@@ -557,7 +566,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.player.openMenu((net.minecraft.world.MenuProvider) rival.player.level().getBlockEntity(pos));
 			rival.send(new TableActionPayload(pos, "pvp_open", MockClient.args("entry", 10L, "spins", 3, "policy", "humans_only", "size", 2)));
 		}, () -> {
-			clickV2(context, "action.showdown", "the Slot Showdown entry in the Dock (v2 kit, SLT)");
+			clickSlotShowdown(context);
 			click(context, labelled("gui.burmaldaholic.pvp.slots.join"), "Join Showdown");
 		}, "SlotShowdownScreen", "gui.burmaldaholic.pvp.slots.spin_now");
 	}
@@ -625,7 +634,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, SlotsModule.MACHINES.get(Tier.COPPER).block());
 		waitForScreen(context, named("SlotMachineV2Screen"), "the slot machine screen opens");
-		clickV2(context, "action.showdown", "the Slot Showdown entry in the Dock (v2 kit, SLT)");
+		clickSlotShowdown(context);
 		click(context, labelled("gui.burmaldaholic.pvp.lobby.open"), "Open lobby");
 		context.waitTicks(15);
 		String id = match(world, me).map(x -> x.id).orElseThrow(() -> new AssertionError("no showdown lobby on the server: "

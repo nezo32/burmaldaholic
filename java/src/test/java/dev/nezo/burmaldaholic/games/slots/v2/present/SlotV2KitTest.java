@@ -87,6 +87,9 @@ class SlotV2KitTest {
 		assertEquals(SlotFlow.SPIN, SlotFlow.INSTANCE.primary(idle).action());
 		assertTrue(SlotFlow.INSTANCE.primary(idle).enabled());
 		assertEquals(SlotFlow.SKIP, SlotFlow.INSTANCE.primary(view(true, false, false, true, 10_000, 2, false, null)).action(), "Stop while spinning");
+		Gate autoSpin = SlotFlow.INSTANCE.primary(view(true, true, false, true, 10_000, 2, false, null));
+		assertEquals(SlotFlow.STOP_AUTO, autoSpin.action(), "T-SLT: during an autoplay spin Space / the primary stops the autoplay");
+		assertEquals("gui.burmaldaholic.slots.stop_autoplay", autoSpin.labelKey(), "the primary says Stop Auto");
 		assertEquals("gui.burmaldaholic.slots.vip_lock", SlotFlow.INSTANCE.primary(view(false, false, true, false, 10_000, 2, false, null)).reasonKey());
 		assertEquals("gui.burmaldaholic.slots.bet_coin", SlotFlow.INSTANCE.hintKey(idle).orElseThrow(), "coin × multiplier hint");
 		assertEquals(4L, SlotFlow.INSTANCE.hintArgs(idle)[1]);
