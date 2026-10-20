@@ -358,6 +358,17 @@ public class CrapsV2ClientGameTests implements FabricClientGameTest {
 		if (space) f.key(KeyMap.SPACE);
 		else f.click("primary");
 		f.waitServer(pos, CrapsTableBlockEntity.class, be -> be.table().rollCount() == n + 1, "the roll after pressing " + (space ? "Space" : "Roll"));
+		// S1: the throw leaves this client's hand on the shared table clock (the in-world board's), and is played, not snapped
+		f.context().waitFor(mc -> mc.gui.screen() instanceof CrapsScreen sc && sc.shownRolls() == n + 1, RealFlow.TIMEOUT);
+		String hand = f.client(mc -> {
+			CrapsScreen sc = (CrapsScreen) mc.gui.screen();
+			var clock = sc.throwClock();
+			if (clock != dev.nezo.burmaldaholic.games.craps.client.CrapsRollClocks.of(pos)) return "the screen and the board read different clocks";
+			if (clock.rolls() != n + 1 || !clock.fromHand() || clock.firstSight()) return "rolls " + clock.rolls() + ", from hand " + clock.fromHand() + ", first sight " + clock.firstSight();
+			if (!(clock.t() < sc.beats().IDLE)) return "the throw was snapped to the end: t " + clock.t();
+			return "";
+		});
+		if (!hand.isEmpty()) throw new AssertionError("roll " + (n + 1) + ": " + hand);
 		long ret = lastReturns(f, pos);
 		long after = balance(f);
 		if (after != before + ret) throw new AssertionError("roll " + (n + 1) + ": balance " + before + " -> " + after + ", server returns " + ret);

@@ -27,6 +27,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry;
 import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry.Felt;
 import dev.nezo.burmaldaholic.games.craps.CrapsModule;
 import dev.nezo.burmaldaholic.games.craps.CrapsTableBlockEntity;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsRollClock;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsBeats;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsSync;
 import dev.nezo.burmaldaholic.games.craps.logic.RollEvent;
@@ -157,8 +158,14 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		groove(s);
 		if (!s.print) return;
 		Client c = s.cache(Client::new);
-		double t = sync == null ? 1e9 : s.levelMs - sync.rollTime() * 50.0;
-		if (sync != null) newRoll(c, sync, t);
+		// S1: the table's shared clock (the screen reads the same one): origin fixed once per roll on local time
+		CrapsRollClock rc = CrapsRollClocks.of(be.getBlockPos());
+		if (sync != null) newRoll(c, rc, sync, s.levelMs / 50.0);
+		double t = 1e9;
+		if (sync != null && c.roll != null && rc.rolls() == c.rolls) {
+			CrapsRollClocks.pinUnderTest(rc, sync.rollTime());
+			t = rc.t();
+		}
 		boolean lodA = s.dist <= LOD_A;
 		boolean lodB = s.dist <= LOD_B;
 		boolean reduced = FxSettings.reduceMotion();
@@ -167,11 +174,11 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		int point = sync == null ? 0 : sync.point();
 		s.line(BoardState.TITLE, 1, () -> Component.translatable("gui.burmaldaholic.craps.title"), BoardState.GOLD);
 		// the state line follows the puck: the point before the throw until the puck lands (no spoiler while the dice fly)
-		int shownPoint = sync == null ? 0 : c.catchUp || t >= c.beats.PUCK + CrapsBeats.puckTouchdown() || t < 0 ? point : sync.pointBefore();
+		int shownPoint = sync == null ? 0 : c.catchUp || t >= c.beats.PUCK + CrapsBeats.puckTouchdown() ? point : sync.pointBefore();
 		s.line(BoardState.STATE, 31L * shownPoint + 7, () -> shownPoint == 0 ? Component.translatable(CrapsFlow.K + "board.come_out")
 			: Component.translatable(CrapsFlow.K + "board.point", Texts.number(shownPoint)), BoardState.WHITE);
 		if (sync != null && sync.d1() > 0) {
-			boolean shown = t >= c.beats.BADGE || t < 0 || t > 60_000 || c.catchUp;
+			boolean shown = t >= c.beats.BADGE || c.catchUp;
 			int color = switch (eventOf(sync)) {
 				case NATURAL, POINT_MADE -> BoardState.GREEN;
 				case CRAPS, SEVEN_OUT -> BoardState.RED;
@@ -192,7 +199,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 			int color = net == null || net == 0 ? BoardState.MUTED : net > 0 ? BoardState.GREEN : BoardState.RED;
 			plate.detail(pubSeq * 17 + seat * 2 + (netsShown ? 1 : 0), () -> detail(on, net), color);
 		});
-		dice(be, s, c, sync, t, lodA, lodB, reduced);
+		dice(be, s, c, rc, sync, t, lodA, lodB, reduced);
 		puck(s, c, sync, t, lodA, lodB, reduced);
 		c.lastPub = pub;
 		if (probePos != null) probe(be, s);
@@ -219,7 +226,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 	}
 
 	/** Solves a new throw once (the same solve as every screen) and snapshots the stacks as they were before it. */
-	private static void newRoll(Client c, CrapsSync sync, double t) {
+	private static void newRoll(Client c, CrapsRollClock rc, CrapsSync sync, double serverNowTicks) {
 		if (c.rolls == sync.rolls()) return;
 		boolean first = c.rolls < 0;
 		c.rolls = sync.rolls();
@@ -233,7 +240,10 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		DiceRoll r = c.cache.get(DiceRollCache.key(sync.rolls(), side, sync.seed()), () -> CrapsThrow.solve(side, sync.seed(), sync.d1(), sync.d2(), sync.pointBefore()));
 		c.roll = r;
 		c.beats = CrapsBeats.of(sync.restMs() > 0 ? sync.restMs() : r.restMs());
-		c.catchUp = first && t > c.beats.CHIPS;
+		CrapsRollClocks.onRoll(rc, sync.rolls(), sync.rollTime(), serverNowTicks, r, side);
+		double t = rc.t();
+		// only a throw first seen mid-way (the table came into view) or a stale one is shown settled
+		c.catchUp = rc.firstSight() && t > c.beats.CHIPS;
 		c.cursor = DiceAudio.cursor(r.events());
 		if (t > 0) c.cursor.reset(t, true);
 	}
@@ -251,7 +261,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 	private final double[] home = new double[4];
 	private final double[] qq = new double[4];
 
-	private void dice(CrapsTableBlockEntity be, State s, Client c, @Nullable CrapsSync sync, double t, boolean lodA, boolean lodB, boolean reduced) {
+	private void dice(CrapsTableBlockEntity be, State s, Client c, CrapsRollClock rc, @Nullable CrapsSync sync, double t, boolean lodA, boolean lodB, boolean reduced) {
 		DiceRoll r = c.roll;
 		if (sync == null || r == null) return;
 		// D12 / CS §6 C: beyond the animate range no dice are drawn before the throw rests (no spoiler at distance)
@@ -260,7 +270,14 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		double tt = c.catchUp ? 1e9 : t;
 		s.dice = true;
 		s.shadows = lodA;
-		if (tt >= c.beats.STICK && !reduced) {
+		boolean own = rc.rolls() == c.rolls && !c.catchUp;
+		if (own && !reduced && lodB && !Double.isNaN(rc.handMs())) {
+			// the shooter's hand rattling at dice home until the result is in (the same pose as the screen)
+			for (int d = 0; d < 2; d++) {
+				rc.pose(d, tt, tmp);
+				toDesign(tmp, s.die[d]);
+			}
+		} else if (tt >= c.beats.STICK && !reduced) {
 			// the stickman's return (print px), the dice keeping their faces
 			for (int d = 0; d < 2; d++) {
 				r.sample(d, 1e9, tmp);
@@ -288,7 +305,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		} else {
 			double st = reduced || !lodB ? 1e9 : tt;
 			for (int d = 0; d < 2; d++) {
-				r.sample(d, st, tmp);
+				if (!own || st != tt || !rc.pose(d, st, tmp)) r.sample(d, st, tmp);
 				toDesign(tmp, s.die[d]);
 			}
 		}

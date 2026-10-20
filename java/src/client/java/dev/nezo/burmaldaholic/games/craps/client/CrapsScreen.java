@@ -46,6 +46,7 @@ import dev.nezo.burmaldaholic.games.craps.present.CrapsChipBeats;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsFlow;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsLayout;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsLayout.Layer;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsRollClock;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsStick;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsThrow;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsView;
@@ -112,7 +113,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	private CrapsBeats beats = CrapsBeats.of(1700);
 	private boolean lateRoll;
 	private boolean skipped;
-	private long rollPressedAt = -1;
+	/** The Roll action's ack (-1 = none pending): answered without a roll = refused, the hand puts the dice down. */
+	private long rollAck = -1;
 	private int settledFor = -1;
 	private boolean rollingShown;
 	private boolean settlingShown;
@@ -180,15 +182,18 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 				prevTotalColor = totalColor(lastEvent);
 			}
 			shownRolls = rolls;
-			rollPressedAt = -1;
 			roll = null;
 			chipPlan = null;
 			cues = 0;
 			int d1 = s.getIntOr("d1", 0);
 			int d2 = s.getIntOr("d2", 0);
 			if (d1 > 0 && d2 > 0) {
-				newThrow(s, d1, d2);
-				lateRoll = first || rollMs(s) >= beats.CHIPS + 0.85 * (beats.IDLE - beats.CHIPS);
+				boolean fresh = newThrow(s, d1, d2);
+				// S1: a throw first seen mid-way (screen opened / table came into view) may be shown settled; a throw this
+				// client follows from its hand or from home on arrival never is
+				double lateAfter = beats.CHIPS + 0.85 * (beats.IDLE - beats.CHIPS);
+				CrapsRollClock rc = rollClock();
+				lateRoll = first ? fresh || rc.t() >= lateAfter : rc.firstSight() && rc.t() >= lateAfter;
 			}
 			skipped = false;
 			if (lateRoll) settledFor = rolls;
@@ -197,6 +202,10 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			lastPuckTo = s.getIntOr("point", 0);
 		}
 		super.onStateChanged(s);
+		// the server answered the Roll without a roll (refused): stop the shake
+		CrapsRollClock rc = rollClock();
+		if (rc.waiting() && rollAck >= 0 && chrome.watchdog().lastAck() >= rollAck) rc.cancel();
+		if (!rc.waiting()) rollAck = -1;
 		rollingShown = rolling();
 		settlingShown = settling();
 		statusLines();
@@ -204,8 +213,16 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	private String lastEvent = "";
 
-	/** Solves the throw once (cache by roll counter, side and seed) and rewinds the event cursor. */
-	private void newThrow(CompoundTag s, int d1, int d2) {
+	/** This table's shared throw clock (the in-world board reads the same one). */
+	private CrapsRollClock rollClock() {
+		return CrapsRollClocks.of(menu.pos());
+	}
+
+	/**
+	 * Solves the throw once (cache by roll counter, side and seed), fixes its origin on the shared clock (S1: once per
+	 * roll, never moved by later packets) and rewinds the event cursor. True when this client had not seen the roll.
+	 */
+	private boolean newThrow(CompoundTag s, int d1, int d2) {
 		int seed = s.getIntOr("seed", 0);
 		side = s.contains("shooter_side") ? s.getIntOr("shooter_side", 0) : (s.getIntOr("shooter_dir", 0) == 1 ? CrapsThrow.LEFT : CrapsThrow.RIGHT);
 		int sd = side;
@@ -223,11 +240,13 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			rest = serverRest;
 		}
 		beats = CrapsBeats.of(rest, FxSettings.speed().pct / 100.0);
+		boolean fresh = CrapsRollClocks.onRoll(rollClock(), s.getIntOr("rolls", 0), s.getLongOr("roll_time", 0), clock.nowTicks(partial), roll, sd);
 		cursor = DiceAudio.cursor(roll.events());
-		double t = rollMs(s);
+		double t = rollMs();
 		if (t > 0) cursor.reset(t, true);
 		fxNext = 0;
 		java.util.Arrays.fill(fxT, Double.NEGATIVE_INFINITY);
+		return fresh;
 	}
 
 	private static boolean restMismatchLogged;
@@ -284,7 +303,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		sendTracked(c.action(), args, id, c.amount());
 		startPlacing(id, c.action(), c.amount(), chip);
 		// T-D2 P-1: a chip under the table minimum bets the minimum: say so
-		if (c.action().equals("bet") && chip < view.min()) chrome.status.flash(V2Draw.tr(K2 + "reason.min_raised", Texts.number(view.min())));
+		CrapsFlow.Line raised = CrapsFlow.minRaised(view, c, chip);
+		if (raised != null) chrome.status.flash(V2Draw.tr(raised.key(), Texts.number(view.min())));
 		return true;
 	}
 
@@ -333,10 +353,20 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	@Override
 	public void onGate(String id, Gate gate) {
 		if ("roll".equals(gate.action())) {
-			rollPressedAt = Util.getMillis();
+			rollClock().press();
 			if (!FxSettings.reduceMotion()) FxSounds.play("dice_cup", 0.8f, 1.8f);
+			super.onGate(id, gate);
+			rollAck = chrome.watchdog().expected();
+			return;
 		}
 		super.onGate(id, gate);
+	}
+
+	@Override
+	public void showError(Component message) {
+		rollClock().cancel(); // an error answers the Roll too
+		rollAck = -1;
+		super.showError(message);
 	}
 
 	@Override
@@ -353,14 +383,17 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		return (long) Math.max(0, Math.ceil((ticks - elapsed) / 20.0));
 	}
 
-	private double rollMs(CompoundTag s) {
-		return clock.msSince(s.getLongOr("roll_time", 0), partial);
+	/** ms into the shown throw on the shared table clock (S1: local, origin fixed once per roll; TableClock re-syncs never move it). */
+	private double rollMs() {
+		CrapsRollClock rc = rollClock();
+		CrapsRollClocks.pinUnderTest(rc, state().getLongOr("roll_time", 0));
+		return rc.rolls() == shownRolls ? rc.t() : Double.POSITIVE_INFINITY;
 	}
 
 	/** ms into the roll storyboard (IDLE and beyond = settled). */
 	private double t() {
 		if (roll == null || lateRoll) return beats.IDLE + 1;
-		double t = rollMs(state());
+		double t = rollMs();
 		if (skipped && t >= beats.BADGE) return Math.max(t, beats.IDLE + 1);
 		return t;
 	}
@@ -452,7 +485,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	/** Space / a click while the chips resolve: jump to the settled table (dice at home). */
 	private boolean skipBeats() {
 		if (roll == null || skipped || lateRoll) return false;
-		double t = rollMs(state());
+		double t = rollMs();
 		if (t >= beats.BADGE && t < beats.IDLE) {
 			skipped = true;
 			view = view(state());
@@ -720,26 +753,18 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		airFlags[0] = airFlags[1] = false;
 		StageMap map = map();
 		int cell = l.die;
-		long now = Util.getMillis();
 		DiceRoll r = roll;
-		boolean rattling = rollPressedAt >= 0 && now - rollPressedAt < 900 && (r == null || rollMs(s) < 0 || stale());
+		CrapsRollClock rc = rollClock();
+		// S1: the hand rattles from the Roll press until the result is in (no time cap), then throws from that pose
+		boolean rattling = !Double.isNaN(rc.handMs());
 		if (r == null || rattling) {
 			// no throw shown: the dice wait at home (the last faces), rattling in the hand while Roll is pressed
-			homeSamples(side, r);
-			for (int d = 0; d < 2; d++) {
-				DieSample x = ds[d];
-				if (rattling && !reduced) {
-					double p = Math.min(1, (now - rollPressedAt) / 100.0);
-					x.zc += 0.4 * Ease.OUT_CUBIC.apply(p) / map.sy() * map.sy();
-					int step = (int) ((now - rollPressedAt) / 60);
-					double yaw = Math.toRadians(((step + d) % 2 == 0 ? 8 : -8));
-					Quat.axisAngle(0, 0, 1, yaw, qTmp);
-					Quat.mul(qTmp, x.q, x.q);
-					double jit = ((step * 7 + d * 3) % 3 - 1) / (double) k;
-					x.x += jit / map.sx();
-				}
-				DiceDraw.shadow(g, x, map, cell, k, 1);
+			if (rattling && !reduced) {
+				for (int d = 0; d < 2; d++) rc.pose(d, t, ds[d]);
+			} else {
+				homeSamples(side, r);
 			}
+			for (int d = 0; d < 2; d++) DiceDraw.shadow(g, ds[d], map, cell, k, 1);
 			for (int d = 0; d < 2; d++) DiceDraw.die(g, ds[d], map, cell, k, 0xFFFFFFFF, scratch);
 			return diceState;
 		}
@@ -780,9 +805,9 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			for (int d = 0; d < 2; d++) DiceDraw.die(g, ds[d], map, cell, k, 0xFFFFFFFF, scratch);
 			return diceState;
 		}
-		// the throw
+		// the throw (handed off from the hand pose on the shooter's client)
 		for (int d = 0; d < 2; d++) {
-			r.sample(d, t, ds[d]);
+			if (rc.rolls() != shownRolls || !rc.pose(d, t, ds[d])) r.sample(d, t, ds[d]);
 			airFlags[d] = ds[d].zLow >= 0.3;
 		}
 		for (int d = 0; d < 2; d++) if (!airFlags[d]) DiceDraw.shadow(g, ds[d], map, cell, k, 1);
@@ -799,7 +824,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	private void drawDie(GuiGraphicsExtractor g, DiceRoll r, int d, double t, StageMap map, int cell) {
 		DieSample x = ds[d];
 		if (x.omega > DiceDraw.AFTER_OMEGA && MotionFx.streak("dice_after_image")) {
-			r.sample(d, t - DiceDraw.AFTER_MS, after);
+			CrapsRollClock rc = rollClock();
+			if (rc.rolls() != shownRolls || !rc.pose(d, t - DiceDraw.AFTER_MS, after)) r.sample(d, t - DiceDraw.AFTER_MS, after);
 			DiceDraw.die(g, after, map, cell, k, ((int) Math.round(255 * DiceDraw.AFTER_ALPHA) << 24) | 0xFFFFFF, scratch);
 		}
 		DiceDraw.die(g, x, map, cell, k, 0xFFFFFFFF, scratch);
@@ -850,10 +876,6 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			homeXY[2 * d] = map.x(p[0]);
 			homeXY[2 * d + 1] = map.y(p[1]);
 		}
-	}
-
-	private boolean stale() {
-		return state().getIntOr("rolls", 0) == shownRolls && rollMs(state()) > beats.IDLE;
 	}
 
 	// ---- the stick ---------------------------------------------------------------------------------------------------
@@ -930,14 +952,11 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			Component word = Component.translatable(frame == CrapsBeats.FRAME_ON ? "gui.burmaldaholic.common.on" : "gui.burmaldaholic.common.off");
 			int w = font.width(word);
 			int c = V2Draw.alpha(frame == CrapsBeats.FRAME_ON ? 0xFF26202C : CasinoPalette.V2_TEXT, (float) alpha);
-			if (w <= sheet * 0.62) {
+			double sc = CrapsLayout.puckWordScale(sheet, w, k);
+			if (sc >= 1) {
 				g.text(font, word, (sheet - w) / 2, (sheet - 7) / 2, c, false);
 			} else {
-				// T-D2 V4: the word always fits inside the disc (the face is ~60 % of the puck); the scale keeps whole
-				// physical px per glyph px
-				double room = sheet * 0.62;
-				double sc = Math.floor(room / w * k) / k;
-				if (sc <= 0) sc = 1.0 / k;
+				// T-D2 V4: the word always fits inside the disc (CrapsLayout.puckWordScale)
 				g.pose().translate(sheet / 2f, sheet / 2f);
 				g.pose().scale((float) sc, (float) sc);
 				g.text(font, word, -w / 2, -4, c, false);
@@ -1434,6 +1453,11 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	/** Roll counter of the shown state (tests). */
 	public int shownRolls() {
 		return shownRolls;
+	}
+
+	/** This table's shared throw clock (tests: the in-world board reads the same instance). */
+	public CrapsRollClock throwClock() {
+		return rollClock();
 	}
 
 	/** Storyboard time now (tests). */

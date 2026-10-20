@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsView.BetPub;
 
 /**
@@ -199,6 +200,15 @@ public final class CrapsFlow {
 			if (b.kind().equals(kind) && b.point() == 0) return b;
 		}
 		return null;
+	}
+
+	/**
+	 * T-D2 P-1: the line flashed with a flat bet sent for a chip under the table minimum (the bet goes down at the
+	 * minimum: say so); null for any other click.
+	 */
+	public static @Nullable Line minRaised(CrapsView v, Click c, long chip) {
+		if (!c.sends() || !"bet".equals(c.action()) || chip >= v.min()) return null;
+		return new Line(K + "reason.min_raised", v.min());
 	}
 
 	/** Hover readout for a spot (status line while hovering): the bet's name and what it pays. */

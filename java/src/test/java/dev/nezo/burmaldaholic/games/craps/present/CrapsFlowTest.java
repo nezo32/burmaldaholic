@@ -202,6 +202,30 @@ class CrapsFlowTest {
 		assertEquals("roll", primary.action());
 	}
 
+	/** T-D2 P-1: a chip under the table minimum bets the minimum and says so; at or above it, nothing is flashed. */
+	@Test
+	void aChipUnderTheMinimumNamesTheMinimum() {
+		CrapsView v = view(true, true, 1000, 0, 1, false, false, false, false); // min 10
+		Click low = CrapsFlow.click(v, "felt.pass", 5);
+		assertTrue(low.sends() && low.amount() == 10, "the 5 chip bets the minimum 10: " + low);
+		CrapsFlow.Line l = CrapsFlow.minRaised(v, low, 5);
+		assertNotNull(l);
+		assertEquals(CrapsFlow.K + "reason.min_raised", l.key());
+		assertEquals(10L, l.args()[0]);
+		KEYS.add(l.key());
+		assertEquals(null, CrapsFlow.minRaised(v, CrapsFlow.click(v, "felt.pass", 25), 25));
+		assertEquals(null, CrapsFlow.minRaised(v, CrapsFlow.click(v, "felt.pass", 10), 10));
+	}
+
+	/** T-D2 V6: while the throw is shown the Dock's "on table" is the bets as they were before it (never "Bet 0"). */
+	@Test
+	void theDockKeepsTheStakeWhileTheThrowIsShown() {
+		CrapsView after = view(true, true, 1000, 0, 1, false, false, true, false); // the Pass resolved: only others' bets left
+		assertEquals(0, CrapsFlow.FLOW.bet(after).myTotal());
+		List<BetPub> before = List.of(new BetPub(1, "pass", 25, 50, 8, true, 2, 0, 0, false), new BetPub(-1, "field", 5, 0, 0, false, 1, 0, 0, false));
+		assertEquals(75, CrapsFlow.FLOW.bet(after.withBets(before)).myTotal());
+	}
+
 	@Test
 	void everyKeyExistsInEnglishAndRussian() throws Exception {
 		neverStuck();

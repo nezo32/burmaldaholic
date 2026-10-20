@@ -196,6 +196,34 @@ class CrapsLayoutTest {
 		}
 	}
 
+	/** T-D2 V4: ON / OFF / ВКЛ / ВЫКЛ always fit inside the puck's face, at every puck size and GUI scale. */
+	@Test
+	void puckWordFitsTheFace() {
+		for (String word : new String[] {"ON", "OFF", "ВКЛ", "ВЫКЛ"}) {
+			int w = FONT.applyAsInt(word);
+			for (int sheet : new int[] {10, 12, 16, 20, 26}) {
+				for (int k = 1; k <= 9; k++) {
+					double sc = CrapsLayout.puckWordScale(sheet, w, k);
+					assertTrue(sc > 0 && sc <= 1 && w * sc <= sheet * CrapsLayout.PUCK_FACE + 1e-9, word + " on " + sheet + " px at k " + k + ": " + w * sc);
+					if (sc >= 1.0 / k && sc < 1) assertEquals(Math.round(sc * k), sc * k, 1e-9, "whole physical px " + sc);
+				}
+			}
+		}
+	}
+
+	/** T-D2 V5: the felt ends above the Dock's hint strip (it never runs under the flashed status line). */
+	@Test
+	void feltEndsAboveTheHintStrip() {
+		for (int[] s : sizes()) {
+			TableGrid g = TableGrid.of(s[0], s[1]);
+			for (int strip : new int[] {0, 9, 11, 14}) {
+				CrapsLayout l = CrapsLayout.of(g, strip);
+				assertTrue(l.felt.bottom() <= g.play.bottom() - strip, s[0] + "x" + s[1] + " strip " + strip + ": felt " + l.felt + " play " + g.play);
+				assertTrue(l.felt.inside(g.play), s[0] + "x" + s[1] + " felt in play");
+			}
+		}
+	}
+
 	@Test
 	void spotIdsRoundTrip() {
 		assertEquals("point", CrapsLayout.kindOf(CrapsLayout.pointId(8)));

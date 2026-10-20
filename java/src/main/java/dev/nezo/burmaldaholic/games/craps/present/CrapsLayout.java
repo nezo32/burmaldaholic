@@ -202,6 +202,22 @@ public final class CrapsLayout {
 		return new CrapsLayout(g, 0);
 	}
 
+	/** Share of the puck sheet the ON / OFF word may cover (the printed face is ~60 % of the disc). */
+	public static final double PUCK_FACE = 0.62;
+
+	/**
+	 * T-D2 V4: the scale of the puck word ({@code textW} GUI px wide) on a {@code sheet}-px puck at {@code k} physical px
+	 * per GUI px: 1 when it fits, else the largest whole-physical-px scale that fits, else (a tiny puck at a low GUI
+	 * scale) the exact fitting scale. The scaled word never leaves the face.
+	 */
+	public static double puckWordScale(int sheet, int textW, int k) {
+		double room = sheet * PUCK_FACE;
+		if (textW <= room) return 1;
+		int kk = Math.max(1, k);
+		double sc = Math.floor(room / textW * kk) / kk;
+		return sc > 0 ? sc : room / textW;
+	}
+
 	/** The layout with {@code reserveBottom} px kept free above the Dock (the Dock's hint strip). */
 	public static CrapsLayout of(TableGrid g, int reserveBottom) {
 		return new CrapsLayout(g, Math.max(0, reserveBottom));

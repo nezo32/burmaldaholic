@@ -390,4 +390,45 @@ public class CrapsV2GameTests {
 		}
 		finish(helper, p);
 	}
+
+	/**
+	 * T-D2 V8: a VIP preset table refuses a player below its tier AT THE SEAT (like High-Roller blackjack): through the
+	 * packet, "sit" and a Pass click leave them unseated, with no bet and the balance unchanged, and name the tier.
+	 */
+	@GameTest(maxTicks = 200)
+	public void vipPresetRefusesTheSeatBelowTheTier(GameTestHelper helper) {
+		BlockPos abs = helper.absolutePos(new BlockPos(1, 1, 1));
+		TablePresetProvider old = CoreServices.tablePresets();
+		TablePresetProvider.TablePreset vip = new TablePresetProvider.TablePreset("high_roller_craps", "", -1, 100, 2,
+			dev.nezo.burmaldaholic.core.service.VipTiers.NETHERITE, List.of());
+		CoreServices.setTablePresets(new TablePresetProvider() {
+			@Override
+			public java.util.Optional<TablePreset> preset(net.minecraft.server.level.ServerLevel level, BlockPos pos) {
+				return pos.equals(abs) ? java.util.Optional.of(vip) : old.preset(level, pos);
+			}
+
+			@Override
+			public java.util.Optional<BotPreset> botDefaults(net.minecraft.server.level.ServerLevel level, BlockPos pos, String gameId) {
+				return old.botDefaults(level, pos, gameId);
+			}
+		});
+		ServerPlayer p = player(helper, "cr2-vip", 5000);
+		try {
+			MinecraftServer server = helper.getLevel().getServer();
+			helper.assertTrue(CoreServices.vip().tier(server, p.getUUID()) < dev.nezo.burmaldaholic.core.service.VipTiers.NETHERITE, "a fresh player is below Netherite");
+			CrapsTableBlockEntity t = open(helper, p);
+			drain(p, t);
+			act(p, t, "sit", new CompoundTag());
+			Sent sit = drain(p, t);
+			helper.assertTrue(!t.isSeated(p), "a below-tier player is not seated");
+			helper.assertTrue(sit.errors().contains("gui.burmaldaholic.error.vip_required"), "the seat names the tier: " + sit.errors());
+			act(p, t, "bet", flat("pass", 100));
+			Sent bet = drain(p, t);
+			helper.assertTrue(!t.isSeated(p) && bet(t, p, BetKind.PASS) == null && balance(helper, p) == 5000,
+				"a Pass click neither seats nor bets: seated " + t.isSeated(p) + ", errors " + bet.errors());
+		} finally {
+			CoreServices.setTablePresets(old);
+		}
+		finish(helper, p);
+	}
 }
