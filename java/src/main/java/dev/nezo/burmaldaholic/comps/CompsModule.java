@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.comps;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import dev.nezo.burmaldaholic.comps.net.CompsActionPayload;
 import dev.nezo.burmaldaholic.comps.net.CompsSyncPayload;
+import dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions;
 import dev.nezo.burmaldaholic.core.command.CasinoCommands;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
@@ -15,7 +16,6 @@ import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
@@ -44,6 +44,7 @@ public final class CompsModule implements CasinoModule {
 		Rentals.register();
 		SuiteNight.register();
 		CasinoEvents.PLAY_RESOLVED.register(CompsService::onPlayResolved);
+		CounterSessions.registerTab(CounterSessions.TAB_COMPS, 20, s -> true); // cashier and merchant
 
 		CompsSyncPayload.TYPE = ctx.payloads().clientbound("comps_sync", CompsSyncPayload.CODEC);
 		CompsActionPayload.TYPE = ctx.payloads().serverbound("comps_action", CompsActionPayload.CODEC,
@@ -89,13 +90,26 @@ public final class CompsModule implements CasinoModule {
 	public static void handle(ServerPlayer player, CompsActionPayload payload) {
 		CompsService.interacted(player);
 		CompsService.watch(player);
-		Component err = switch (payload.action()) {
-			case CompsActionPayload.REDEEM -> CompsService.redeem(player, payload.id(), payload.qty());
-			case CompsActionPayload.CLAIM_DAILY -> CompsService.claimDaily(player);
-			default -> null;
-		};
-		if (err != null) {
-			player.sendOverlayMessage(err.copy().withStyle(ChatFormatting.RED));
+		boolean act = CompsActionPayload.REDEEM.equals(payload.action()) || CompsActionPayload.CLAIM_DAILY.equals(payload.action());
+		if (act) {
+			// EC-SPEC §3: every store / comps action needs a live counter session (cashier or merchant in range, or the
+			// op command) and passes the shared 4-tick cooldown; a second action in the same tick does nothing
+			if (CounterSessions.validate(player) == null) {
+				CounterSessions.result(player, false, Component.translatable("gui.burmaldaholic.comps.lock.unavailable"));
+				return;
+			}
+			if (!CounterSessions.tryAct(player)) {
+				return;
+			}
+			Component err = CompsActionPayload.REDEEM.equals(payload.action()) ? CompsService.redeem(player, payload.id(), payload.qty())
+				: CompsService.claimDaily(player);
+			if (err != null) {
+				CounterSessions.result(player, false, err);
+			} else {
+				CounterSessions.result(player, true, CompsActionPayload.REDEEM.equals(payload.action())
+					? Component.translatable("gui.burmaldaholic.comps.reward." + payload.id())
+					: Component.translatable("toast.burmaldaholic.daily.title"));
+			}
 		}
 		CompsService.send(player);
 	}

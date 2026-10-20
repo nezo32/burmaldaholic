@@ -3479,7 +3479,8 @@ Package EC-2 (`EC-SPEC.md` §4–5): comp points, redemptions, free-bet tokens, 
 | `msg.burmaldaholic.comps.token_returned` | Push: your free bet of %1$s is back | Ничья: бесплатная ставка %1$s возвращена |
 | `item.burmaldaholic.free_bet_token` | Free-Bet Token | Фишка бесплатной ставки |
 | `item.burmaldaholic.free_bet_token.tooltip` | Free bet of %1$s: hold it and bet at blackjack, slots, coin flip, wheel or plinko | Бесплатная ставка %1$s: держите в руке и ставьте в блэкджеке, слотах, монетке, колесе или плинко |
-| `item.burmaldaholic.free_bet_token.bound` | Only its owner can use it · expires 7 days after issue | Только для владельца · действует 7 дней |
+| `item.burmaldaholic.free_bet_token.bound` | Only its owner can use it | Использовать может только владелец |
+| `item.burmaldaholic.free_bet_token.expires` | Expires in %1$s | Истекает через %1$s |
 | `toast.burmaldaholic.daily.title` | Daily bonus | Ежедневный бонус |
 | `toast.burmaldaholic.daily.body` | %1$s credited | Начислено: %1$s |
 

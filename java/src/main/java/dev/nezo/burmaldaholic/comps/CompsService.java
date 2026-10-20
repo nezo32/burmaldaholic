@@ -45,8 +45,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class CompsService {
 	public static final String ID = CompsModule.ID;
-	/** Per-player cooldown on redeem / claim actions (EC-SPEC §1: a second action in the same tick does nothing). */
-	static final int COOLDOWN_TICKS = 4;
 
 	static final Codec<CompsRules.State> STATE_CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.LONG.optionalFieldOf("points_milli", 0L).forGetter(CompsRules.State::pointsMilli),
@@ -62,7 +60,6 @@ public final class CompsService {
 	static AttachmentType<CompsRules.State> TYPE;
 	static @Nullable ConfigHandle<CompsConfig> config;
 
-	private static final Map<UUID, Long> LAST_ACTION = new HashMap<>();
 	private static final Map<UUID, Long> LAST_ACTIVITY = new HashMap<>();
 	private static final Map<UUID, double[]> LAST_POS = new HashMap<>();
 
@@ -95,7 +92,7 @@ public final class CompsService {
 		return s.roll(today);
 	}
 
-	static void put(ServerPlayer player, CompsRules.State s) {
+	public static void put(ServerPlayer player, CompsRules.State s) {
 		player.setAttached(TYPE, s);
 	}
 
@@ -170,21 +167,9 @@ public final class CompsService {
 	}
 
 	static void forget(UUID id) {
-		LAST_ACTION.remove(id);
 		LAST_ACTIVITY.remove(id);
 		LAST_POS.remove(id);
 		DIRTY.remove(id);
-	}
-
-	/** True (and stamps the cooldown) if the player may act now. */
-	static boolean cooldown(ServerPlayer player) {
-		long now = player.level().getServer().getTickCount();
-		Long last = LAST_ACTION.get(player.getUUID());
-		if (last != null && now - last < COOLDOWN_TICKS) {
-			return false;
-		}
-		LAST_ACTION.put(player.getUUID(), now);
-		return true;
 	}
 
 	// ---- daily bonus ------------------------------------------------------------------------
@@ -218,9 +203,6 @@ public final class CompsService {
 	public static @Nullable Component claimDaily(ServerPlayer player) {
 		if (!enabled() || !CasinoMode.isEnabled(player)) {
 			return Component.translatable("gui.burmaldaholic.error.disabled");
-		}
-		if (!cooldown(player)) {
-			return Component.translatable("gui.burmaldaholic.comps.busy");
 		}
 		CompsRules.Daily d = dailyState(player);
 		if (d != CompsRules.Daily.CLAIMABLE) {
@@ -279,9 +261,6 @@ public final class CompsService {
 		CompsRules.Reward r = CompsRules.REWARDS.get(id);
 		if (r == null) {
 			return Component.translatable("gui.burmaldaholic.error.invalid_amount");
-		}
-		if (!cooldown(player)) {
-			return Component.translatable("gui.burmaldaholic.comps.busy");
 		}
 		int n = Math.max(1, Math.min(64, qty));
 		int done = 0;
@@ -396,7 +375,7 @@ public final class CompsService {
 		}
 		return new CompsSyncPayload(s.pointsMilli(), (int) Math.round(rate(tier) * 1000), cb[0], cb[1], dailyState(player).name(),
 			CompsRules.dailyAmount(tier, cfg().daily.amounts()), CompsRules.ticksToNextDay(server.overworld().getGameTime()), s.activeTicksToday(),
-			minActiveTicks(), List.copyOf(rows));
+			minActiveTicks(), cfg().daily.minLifetimeWager, List.copyOf(rows));
 	}
 
 	public static void send(ServerPlayer player) {

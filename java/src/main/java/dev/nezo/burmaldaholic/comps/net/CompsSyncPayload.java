@@ -20,10 +20,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * @param ticksToNextDay  ticks until the next in-game day
  * @param activeTicks     active ticks today
  * @param minActiveTicks  active ticks the daily bonus needs
+ * @param minWager        lifetime wager the daily bonus needs
  * @param rewards         redemption rows
  */
 public record CompsSyncPayload(long pointsMilli, int rateTenths, long theoTodayMilli, long cbEstimate, String daily, long dailyAmount,
-	long ticksToNextDay, long activeTicks, long minActiveTicks, List<RewardView> rewards) implements CustomPacketPayload {
+	long ticksToNextDay, long activeTicks, long minActiveTicks, long minWager, List<RewardView> rewards) implements CustomPacketPayload {
 
 	/**
 	 * @param lock "" = redeemable, else the reason ({@code tier}, {@code points}, {@code limit}, {@code dimension}, {@code disabled})
@@ -32,7 +33,7 @@ public record CompsSyncPayload(long pointsMilli, int rateTenths, long theoTodayM
 
 	public static CustomPacketPayload.Type<CompsSyncPayload> TYPE;
 
-	public static final CompsSyncPayload EMPTY = new CompsSyncPayload(0, 0, 0, 0, "LOCKED_WAGER", 0, 0, 0, 0, List.of());
+	public static final CompsSyncPayload EMPTY = new CompsSyncPayload(0, 0, 0, 0, "LOCKED_WAGER", 0, 0, 0, 0, 0, List.of());
 
 	private static final int MAX_ROWS = 32;
 
@@ -48,13 +49,14 @@ public record CompsSyncPayload(long pointsMilli, int rateTenths, long theoTodayM
 			long next = ByteBufCodecs.VAR_LONG.decode(buf);
 			long active = ByteBufCodecs.VAR_LONG.decode(buf);
 			long minActive = ByteBufCodecs.VAR_LONG.decode(buf);
+			long minWager = ByteBufCodecs.VAR_LONG.decode(buf);
 			int n = Math.min(MAX_ROWS, ByteBufCodecs.VAR_INT.decode(buf));
 			List<RewardView> rows = new ArrayList<>(n);
 			for (int i = 0; i < n; i++) {
 				rows.add(new RewardView(ByteBufCodecs.stringUtf8(32).decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
 					ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.stringUtf8(32).decode(buf)));
 			}
-			return new CompsSyncPayload(points, rate, theo, cb, daily, amount, next, active, minActive, List.copyOf(rows));
+			return new CompsSyncPayload(points, rate, theo, cb, daily, amount, next, active, minActive, minWager, List.copyOf(rows));
 		}
 
 		@Override
@@ -68,6 +70,7 @@ public record CompsSyncPayload(long pointsMilli, int rateTenths, long theoTodayM
 			ByteBufCodecs.VAR_LONG.encode(buf, p.ticksToNextDay);
 			ByteBufCodecs.VAR_LONG.encode(buf, p.activeTicks);
 			ByteBufCodecs.VAR_LONG.encode(buf, p.minActiveTicks);
+			ByteBufCodecs.VAR_LONG.encode(buf, p.minWager);
 			int n = Math.min(MAX_ROWS, p.rewards.size());
 			ByteBufCodecs.VAR_INT.encode(buf, n);
 			for (int i = 0; i < n; i++) {
