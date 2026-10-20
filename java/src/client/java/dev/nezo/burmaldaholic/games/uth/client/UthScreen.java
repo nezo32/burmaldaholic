@@ -13,6 +13,7 @@ import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
 import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
 import dev.nezo.burmaldaholic.client.ui.v2.FeltPrint;
 import dev.nezo.burmaldaholic.client.ui.v2.SeatPlate;
+import dev.nezo.burmaldaholic.client.ui.v2.Stepper;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Draw;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Felt;
 import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
@@ -28,6 +29,7 @@ import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
 import dev.nezo.burmaldaholic.core.ui.v2.BetView;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.DockLayout;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
@@ -37,6 +39,8 @@ import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.poker.client.V2Cards;
 import dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity;
+import dev.nezo.burmaldaholic.games.poker.present.ClickGuard;
+import dev.nezo.burmaldaholic.games.uth.logic.Decision;
 import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBeats;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBotPolicy;
@@ -68,16 +72,17 @@ import org.jspecify.annotations.Nullable;
  * <p>Betting (the v0.1.1 report "I could not change my UTH bet"): the BetBar edits a local {@link UthBetDraft} — a chip
  * adds to the armed spot (Ante, or Trips after clicking the Trips spot), right click takes one off, Undo / Clear /
  * Rebet / ×2 work, the readout and the status line show the cost (Ante + Blind + Trips), and the gold primary
- * <b>Deal · 30</b> sends {@code bet {ante, trips}}. While others still bet, the primary is <b>Change bet</b> and any
- * chip or tool changes it too: {@code clear} is sent (the server refunds) and the draft keeps the amounts to edit.
+ * <b>Deal · 30</b> sends {@code bet {ante, trips}}. A chip over the limit / balance clamps to the largest allowed amount
+ * and says why (R-AB M5). While others still bet, the primary is <b>Change bet</b>: only it sends {@code clear} (the
+ * server refunds) and the draft keeps the amounts to edit; until then chips and tools are locked (R-AB M4).
  * Decisions: ActionRow {@code Check · Bet ×3} + primary {@code Bet ×4} pre-flop, {@code Check} + {@code Bet ×2} on the
  * flop, {@code Fold} + {@code Bet ×1} on the river. Player bank: {@code take_bank {amount}} (stepper),
  * {@code leave_bank}. Bot settings and the paytable live behind the TopBar icons.
  */
 public class UthScreen extends V2TableScreen<UthView> {
 	private static final int[] NO_CARDS = new int[0];
-	private static final String STEPPER = "~stepper";
-	public static final String STEP_MINUS = "stepper.minus", STEP_PLUS = "stepper.plus";
+	/** The kit stepper's HitMap ids (bank amount; R-AB M3: laid out by the Dock, they survive every relayout). */
+	public static final String STEP_MINUS = Stepper.MINUS, STEP_PLUS = Stepper.PLUS;
 
 	private final CardAnimator cards = new CardAnimator();
 	private UthBetDraft draft = UthBetDraft.empty();
@@ -89,6 +94,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 	private int stateTick;
 	private @Nullable String previewBet;
 	private UthTableLayout.@Nullable Layout layout;
+	/** Clicks act only on what the player saw under the cursor (the Check → Bet ×4 report, R3). */
+	private final ClickGuard guard = new ClickGuard();
+	private @Nullable Gate shownSecondary;
 
 	private int fxSeq = -1;
 	private int fxKind;
@@ -107,7 +115,6 @@ public class UthScreen extends V2TableScreen<UthView> {
 		public List<Gate> actions(UthView v) {
 			List<Gate> out = new ArrayList<>();
 			if (v.deciding() || (v.bank() != null && v.bank().form() && v.betting())) out.addAll(UthFlow.actions(v));
-			UthFlow.stepper(v).ifPresent(s -> out.add(new Gate(STEPPER, "gui.burmaldaholic.poker.v2.stepper", new Object[] {s.value()}, true, null, null)));
 			return out;
 		}
 
@@ -127,7 +134,7 @@ public class UthScreen extends V2TableScreen<UthView> {
 
 		@Override
 		public Gate chip(long denom, UthView v) {
-			Gate c = UthFlow.chips(v);
+			Gate c = UthFlow.chip(denom, v);
 			return c.enabled() ? Gate.on(BetGates.CHIP, c.labelKey()) : Gate.off(BetGates.CHIP, c.labelKey(), c.reasonKey(), c.reasonArgs());
 		}
 	};
@@ -161,6 +168,16 @@ public class UthScreen extends V2TableScreen<UthView> {
 
 	public UthTableLayout.@Nullable Layout layout() {
 		return layout;
+	}
+
+	/** Whether the layout has been on screen long enough to take a click ({@link ClickGuard#SETTLE_MS}; tests wait for it). */
+	public boolean clickSettled() {
+		return guard.settled(net.minecraft.util.Util.getMillis());
+	}
+
+	/** The decision window of the state on screen (sent with every decision; the server refuses another one). */
+	public int decisionEpoch() {
+		return s().getIntOr("decision_epoch", 0);
 	}
 
 	// ---- state ------------------------------------------------------------------------------------------------------
@@ -334,7 +351,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 		return new BetPort() {
 			@Override
 			public void add(long denom) {
-				edit(draft.add(draft.spot(), denom));
+				UthView v = view;
+				if (v != null) edit(UthFlow.add(v, draft.spot(), denom));
 			}
 
 			@Override
@@ -347,8 +365,12 @@ public class UthScreen extends V2TableScreen<UthView> {
 				switch (toolId) {
 					case BetGates.UNDO -> edit(draft.undo());
 					case BetGates.CLEAR -> edit(draft.clear());
-					case BetGates.REBET -> edit(draft.load(s().getLongOr("last_ante", 0), s().getLongOr("last_trips", 0)));
-					case BetGates.DOUBLE -> edit(draft.doubled());
+					case BetGates.REBET -> {
+						if (view != null) edit(UthFlow.rebet(view));
+					}
+					case BetGates.DOUBLE -> {
+						if (view != null) edit(UthFlow.doubled(view));
+					}
 					default -> {
 					}
 				}
@@ -356,16 +378,23 @@ public class UthScreen extends V2TableScreen<UthView> {
 		};
 	}
 
+	/** A clamped chip edit: applied, and its reason flashed when the amount was capped (R-AB M5). */
+	private void edit(UthFlow.Edit e) {
+		if (e.refusal() != null) chrome.refuse(e.refusal());
+		else chrome.status.clearFlash(); // an edit that applied as asked makes an old "why not" stale
+		edit(e.draft());
+	}
+
 	/**
-	 * A draft edit from the BetBar or a felt spot. When the bet was already confirmed this IS the change: the server
-	 * refunds it ({@code clear}) and the edited draft waits for Deal again.
+	 * A draft edit from the BetBar or a felt spot. A confirmed bet is never touched from here (R-AB M4): the BetBar is
+	 * locked until Change bet ({@code ~change}) sent {@code clear} and the server's refund reached the screen.
 	 */
 	private void edit(UthBetDraft next) {
 		UthView v = view;
 		if (v == null || !v.betting() || !v.seated() || v.banker()) return;
 		if (v.confirmed() != null) {
-			sendTracked("clear", new CompoundTag(), "", 0);
-			if (draft.isEmpty()) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
+			chrome.refuse(UthFlow.chips(v));
+			return;
 		}
 		if (next.ante() != draft.ante() || next.trips() != draft.trips()) FxSounds.play("chip_place", 0.6f, 1.1f);
 		draft = next;
@@ -384,10 +413,16 @@ public class UthScreen extends V2TableScreen<UthView> {
 		chrome.keys(k);
 		chrome.actions.danger("fold", "leave_bank");
 		chrome.bet.multiSpot(false);
-		chrome.secondary(secondary(view));
-		super.refresh();
+		shownSecondary = secondary(view);
+		chrome.secondary(shownSecondary);
+		Optional<UthFlow.Stepper> st = UthFlow.stepper(view);
+		if (st.isPresent()) chrome.stepper.set(UthFlow.stepMinus(st.get()), UthFlow.stepPlus(st.get()), Texts.number(st.get().value()), null, null);
+		else chrome.stepper.clear();
+		// the status before the layout: the Dock sizes its action row by the status width, so laying out with the last
+		// state's status made the row jump to its compact form a few ticks after a street opened (R3, Check → Bet ×4)
 		status(view);
-		stepperHits();
+		super.refresh();
+		status(view); // again: the kit's apply resets the timer bar
 	}
 
 	/** Player-bank controls while betting sit in the Dock's secondary slot (the BetBar keeps the row). */
@@ -395,17 +430,6 @@ public class UthScreen extends V2TableScreen<UthView> {
 		if (!v.betting() || v.bank() == null || v.bank().form()) return null;
 		List<Gate> a = UthFlow.actions(v);
 		return a.isEmpty() ? null : a.get(0);
-	}
-
-	private void stepperHits() {
-		Optional<Box> b = chrome.hits().box(KeyMap.Ids.action(STEPPER));
-		if (b.isEmpty() || view == null) return;
-		UthFlow.Stepper s = UthFlow.stepper(view).orElse(null);
-		if (s == null) return;
-		Box box = b.get();
-		int third = Math.max(10, box.w() / 3);
-		chrome.hits().add(STEP_MINUS, new Box(box.x(), box.y(), third, box.h()), s.value() > s.min());
-		chrome.hits().add(STEP_PLUS, new Box(box.right() - third, box.y(), third, box.h()), s.value() < s.max());
 	}
 
 	private void status(UthView v) {
@@ -449,7 +473,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 		} else if (v.betting()) {
 			Component spot = Component.translatable(draft.spot() == UthBetDraft.Spot.TRIPS ? "gui.burmaldaholic.uth.trips" : "gui.burmaldaholic.uth.ante");
 			l1 = Component.translatable(UthFlow.V2 + "status.chips_to", spot);
-			l2 = Component.translatable(UthFlow.V2 + "status.right_click");
+			// the hotfix's "max Ante" hint: what the Ante can grow to with the Trips on the felt (R-AB M5)
+			l2 = Component.translatable(UthFlow.V2 + "status.right_click").append(Texts.raw(" · "))
+				.append(Component.translatable(UthFlow.V2 + "status.max_ante", Texts.number(UthFlow.maxAnte(v, draft.trips()))));
 		} else if (me != null && me.getIntOr("play", 0) > 0) {
 			l1 = Component.translatable("gui.burmaldaholic.uth.waiting_showdown",
 				Component.translatable("gui.burmaldaholic.uth.play_multiple", Texts.number(me.getIntOr("play", 0))));
@@ -515,7 +541,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 				sendTracked("bet", args, "ante", draft.ante());
 			}
 			case UthFlow.LOCAL + "change" -> {
-				if (v.confirmed() != null && draft.isEmpty()) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
+				// the confirmed bet becomes the draft (the next state, without it, unlocks the BetBar to edit it)
+				if (v.confirmed() != null) draft = draft.load(v.confirmed()[0], v.confirmed()[1]);
 				sendTracked("clear", new CompoundTag(), "", 0);
 			}
 			case UthFlow.LOCAL + "bank_form" -> {
@@ -532,34 +559,33 @@ public class UthScreen extends V2TableScreen<UthView> {
 				bankForm = false;
 				sendTracked("take_bank", args, "", 0);
 			}
-			case STEPPER -> {
-				UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
-				if (s != null) {
-					bankAmount = s.value() >= s.max() ? s.min() : s.max();
-					local();
+			case UthFlow.STEP_MINUS -> stepBank(v, -1);
+			case UthFlow.STEP_PLUS -> stepBank(v, 1);
+			default -> {
+				if (Decision.byId(a) != null) {
+					// the decision names the window it was made in: the server refuses it once the street moved on
+					CompoundTag args = new CompoundTag();
+					args.putInt("epoch", decisionEpoch());
+					sendTracked(a, args, "", 0);
+				} else if (!a.isEmpty() && !a.startsWith(UthFlow.LOCAL)) {
+					sendTracked(a);
 				}
 			}
-			default -> {
-				if (!a.isEmpty() && !a.startsWith(UthFlow.LOCAL)) sendTracked(a);
-			}
 		}
+	}
+
+	private void stepBank(UthView v, int dir) {
+		UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
+		if (s == null) return;
+		bankAmount = Math.max(s.min(), Math.min(s.max(), s.value() + dir * s.step()));
+		FxSounds.play("chip_count", 0.5f, 1f);
+		local();
 	}
 
 	@Override
 	public boolean onTarget(String id, boolean enabled, Press button) {
 		UthView v = view;
 		if (v == null) return false;
-		if (id.equals(STEP_MINUS) || id.equals(STEP_PLUS) || id.equals(KeyMap.Ids.action(STEPPER))) {
-			UthFlow.Stepper s = UthFlow.stepper(v).orElse(null);
-			if (s == null) return true;
-			int dir = button.scroll() != 0 ? button.scroll() : !button.left() ? 0 : id.equals(STEP_PLUS) ? 1 : id.equals(STEP_MINUS) ? -1 : 0;
-			if (dir != 0) {
-				bankAmount = Math.max(s.min(), Math.min(s.max(), s.value() + dir * s.step()));
-				FxSounds.play("chip_count", 0.5f, 1f);
-				local();
-			}
-			return true;
-		}
 		for (String spot : new String[] {"ante", "trips"}) {
 			if (!id.equals(KeyMap.Ids.felt(spot))) continue;
 			Gate g = UthFlow.spot(spot, v);
@@ -569,10 +595,8 @@ public class UthScreen extends V2TableScreen<UthView> {
 			}
 			UthBetDraft.Spot sp = spot.equals("trips") ? UthBetDraft.Spot.TRIPS : UthBetDraft.Spot.ANTE;
 			long chip = chrome.bet.armOrDefault();
-			if (button.right()) edit(draft.arm(sp).remove(sp, chip));
-			else if (button == Press.SCROLL_UP) edit(draft.add(sp, chip));
-			else if (button == Press.SCROLL_DOWN) edit(draft.arm(sp).remove(sp, chip));
-			else edit(draft.add(sp, chip));
+			if (button.right() || button == Press.SCROLL_DOWN) edit(draft.arm(sp).remove(sp, chip));
+			else edit(UthFlow.add(v, sp, chip));
 			return true;
 		}
 		return false;
@@ -598,6 +622,10 @@ public class UthScreen extends V2TableScreen<UthView> {
 			rulesOpen = false;
 			return true;
 		}
+		if (!guard.allowsClick(event.x(), event.y(), net.minecraft.util.Util.getMillis())) {
+			moved();
+			return true;
+		}
 		return super.mouseClicked(event, doubleClick);
 	}
 
@@ -607,7 +635,39 @@ public class UthScreen extends V2TableScreen<UthView> {
 			rulesOpen = false;
 			return true;
 		}
+		String name = dev.nezo.burmaldaholic.client.ui.v2.V2Input.keyName(event.key());
+		Optional<String> target = name == null ? Optional.empty() : chrome.keys().idFor(name);
+		if (target.isPresent() && !guard.allowsKey(target.get(), net.minecraft.util.Util.getMillis())) {
+			moved();
+			return true;
+		}
 		return super.keyPressed(event);
+	}
+
+	/** A click / key refused by the {@link ClickGuard}: nothing happens, and the status says why. */
+	private void moved() {
+		chrome.status.flash(Component.translatable("gui.burmaldaholic.poker.v2.reason.moved"));
+	}
+
+	/** Every relayout ends here (registered last): the guard learns the layout the player is about to see. */
+	@Override
+	public void layoutOverlay(DockLayout.Dock dock, HitMap hits) {
+		guard.layout(hits.targets(), this::identity, net.minecraft.util.Util.getMillis());
+	}
+
+	/** What a target does now: the primary / secondary by their action, decisions also by their window. */
+	private String identity(String id) {
+		int epoch = s().getIntOr("decision_epoch", 0);
+		if (id.equals(KeyMap.Ids.PRIMARY)) return id + "|" + chrome.primary.gate().action() + "|" + epoch;
+		if (id.equals(KeyMap.Ids.SECONDARY)) return id + "|" + (shownSecondary == null ? "" : shownSecondary.action());
+		if (id.startsWith("action.")) return id + "|" + epoch;
+		return id;
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		super.extractRenderState(g, mouseX, mouseY, a);
+		guard.rendered();
 	}
 
 	// ---- layout -----------------------------------------------------------------------------------------------------

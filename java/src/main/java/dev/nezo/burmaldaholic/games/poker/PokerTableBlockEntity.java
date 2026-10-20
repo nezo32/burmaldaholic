@@ -665,7 +665,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			return;
 		}
 		if (args.getIntOr("seq", h.seq()) != h.seq()) {
-			return; // stale click
+			// a click made on an older state of the hand (the table moved on before it arrived): refused, and said so
+			sendError(player, Component.translatable("gui.burmaldaholic.poker.v2.reason.stale_action"));
+			return;
 		}
 		Hand.Action a = switch (args.getStringOr("kind", "")) {
 			case "fold" -> Hand.Action.fold();

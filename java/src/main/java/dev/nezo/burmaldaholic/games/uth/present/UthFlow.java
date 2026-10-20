@@ -6,6 +6,7 @@ import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The UTH v2 Dock as pure gates (docs/architecture/ui-v2.md §5, REDESIGN.md §7.4): the BetBar (chips, tools, the
@@ -14,8 +15,15 @@ import java.util.Optional;
  *
  * <p>Changing the bet is always one obvious click (the v0.1.1 report "I couldn't change my UTH bet"): before Deal the
  * draft is edited freely (chips add to the armed spot, right click removes one, Undo / Clear / Rebet / ×2); after Deal
- * while others are still betting the primary is <b>Change bet</b> and any chip or tool click changes it too — the
- * screen sends {@code clear} (the server refunds) and keeps the amounts in the draft.
+ * while others are still betting the primary is <b>Change bet</b> — only it sends {@code clear} (the server refunds and
+ * the draft keeps the amounts); chips, tools and spots are locked with the reason "press Change bet" until then (R-AB M4:
+ * a stray chip click must never withdraw a confirmed bet).
+ *
+ * <p>Limits (R-AB M5, the v0.1.2 hotfix behaviour): a chip that would take the armed spot over its cap is clamped to the
+ * cap ({@link #add}) and the reason is shown; the Ante cap is {@code min((maxW − Trips) / 6, (balance − Trips) / 3)}
+ * (6 × Ante + Trips ≤ max; Ante + Blind + a river bet + Trips ≤ balance), the Trips cap
+ * {@code min(maxW − 6 × Ante, balance − 3 × Ante)}. Chips grey out when the armed spot is at its cap; Rebet clamps the
+ * same way.
  *
  * <p>Gate actions: table actions as is ({@code bet}, {@code sit}, decisions, {@code take_bank}, {@code leave_bank});
  * local ones start with {@link #LOCAL} ({@code ~change}, {@code ~bank_form}, {@code ~back}, tools {@code ~undo …}).
@@ -32,15 +40,122 @@ public final class UthFlow {
 
 	public record Stepper(String id, long value, long min, long max, long step) {}
 
+	/** Locked BetBar while a confirmed bet waits for the deal: press Change bet first (R-AB M4). */
+	public static final String REASON_PRESS_CHANGE = V2 + "reason.press_change_bet";
+
+	/**
+	 * A draft edit and, when the amount was clamped (or nothing could be added), the refused gate carrying the reason to
+	 * flash ({@code null} = applied as asked).
+	 */
+	public record Edit(UthBetDraft draft, @Nullable Gate refusal) {}
+
 	/** Why the BetBar (chips, tools, spots) is locked, or null when it is live. */
 	public static String betLock(UthView v) {
 		if (v.banker()) return V2 + "reason.you_bank";
 		if (!v.seated()) return V2 + "reason.sit_to_bet";
 		if (!v.betting()) return "gui.burmaldaholic.error.round_in_progress";
+		if (v.confirmed() != null) return REASON_PRESS_CHANGE;
 		return null;
 	}
 
-	/** The chip tray (one gate for all chips). */
+	// ---- limits (R-AB M5; re-derived from the v0.1.2 hotfix UthScreen) ---------------------------------------------
+
+	/** Largest Ante with {@code trips} on Trips: the worst-case limit and the balance (Ante + Blind + river bet + Trips). */
+	public static long maxAnte(UthView v, long trips) {
+		long t = Math.max(0, trips);
+		return Math.max(0, Math.min(UthLimits.maxAnte(v.maxW(), t), (v.balance() - t) / 3));
+	}
+
+	/** Largest Trips with Ante {@code ante}. */
+	public static long maxTrips(UthView v, long ante) {
+		long a = Math.max(0, ante);
+		return Math.max(0, Math.min(v.maxW() - 6 * a, v.balance() - 3 * a));
+	}
+
+	private static boolean toTrips(UthView v, UthBetDraft.Spot s) {
+		return s == UthBetDraft.Spot.TRIPS && v.tripsOn();
+	}
+
+	/** The cap of spot {@code s} given the other spot of {@code d}. */
+	public static long cap(UthView v, UthBetDraft d, UthBetDraft.Spot s) {
+		return toTrips(v, s) ? maxTrips(v, d.ante()) : maxAnte(v, d.trips());
+	}
+
+	/** The reason a spot is capped at {@code cap} (the hotfix's {@code uth.error.max_ante*} / {@code max_trips}). */
+	public static Gate limitGate(String action, String label, UthView v, UthBetDraft d, UthBetDraft.Spot s, long cap) {
+		if (toTrips(v, s)) return Gate.off(action, label, U + "error.max_trips", cap);
+		long t = d.trips();
+		boolean byBalance = Math.max(0, (v.balance() - t) / 3) < UthLimits.maxAnte(v.maxW(), t);
+		return byBalance ? Gate.off(action, label, U + "error.max_ante_balance", cap) : Gate.off(action, label, U + "error.max_ante", cap, v.maxW());
+	}
+
+	/** A tray chip of {@code denom}: live while the armed spot is under its cap (it then clamps), grey with the reason. */
+	public static Gate chip(long denom, UthView v) {
+		String lock = betLock(v);
+		String label = V2 + "chips";
+		if (lock != null) return Gate.off(LOCAL + "chip", label, lock);
+		UthBetDraft d = v.draft();
+		UthBetDraft.Spot s = toTrips(v, d.spot()) ? UthBetDraft.Spot.TRIPS : UthBetDraft.Spot.ANTE;
+		long cur = s == UthBetDraft.Spot.TRIPS ? d.trips() : d.ante();
+		long cap = cap(v, d, s);
+		if (cap <= cur) return limitGate(LOCAL + "chip", label, v, d, s, cap);
+		return new Gate(LOCAL + "chip", label, new Object[] {denom}, true, null, null);
+	}
+
+	/**
+	 * One chip of {@code chip} onto spot {@code s} (arming it), clamped to the spot's cap: over the cap the amount
+	 * becomes the cap and {@link Edit#refusal} says why; at the cap nothing is added.
+	 */
+	public static Edit add(UthView v, UthBetDraft.Spot s, long chip) {
+		UthBetDraft d = v.draft();
+		if (chip <= 0) return new Edit(d.arm(s), null);
+		long cur = s == UthBetDraft.Spot.TRIPS ? d.trips() : d.ante();
+		long cap = cap(v, d, s);
+		long want = cur + chip;
+		Gate refusal = null;
+		if (want > cap) {
+			refusal = limitGate(LOCAL + "chip", V2 + "chips", v, d, s, cap);
+			if (cap <= cur) return new Edit(d.arm(s), refusal);
+			want = cap;
+		}
+		return new Edit(d.add(s, want - cur), refusal);
+	}
+
+	/** Rebet: the last round's bet, clamped to today's limits / balance (Trips first, then the Ante under it). */
+	public static Edit rebet(UthView v) {
+		long trips = v.tripsOn() ? Math.min(v.lastTrips(), maxTrips(v, 0)) : 0;
+		long cap = maxAnte(v, trips);
+		long ante = v.lastAnte();
+		Gate refusal = null;
+		if (ante > cap) {
+			UthBetDraft probe = new UthBetDraft(ante, trips, UthBetDraft.Spot.ANTE, java.util.List.of());
+			refusal = limitGate(LOCAL + "rebet", V2Keys.TOOL_REBET, v, probe, UthBetDraft.Spot.ANTE, cap);
+			ante = cap;
+		}
+		return new Edit(v.draft().load(ante, Math.max(0, trips)), refusal);
+	}
+
+	/**
+	 * ×2: doubles the Ante and the Trips, clamped like a chip (R3: it used to grey out over the limit). The Ante comes
+	 * first (up to its cap with today's Trips), then the Trips under it; a clamp says why. At the caps nothing changes and
+	 * the refusal says why.
+	 */
+	public static Edit doubled(UthView v) {
+		UthBetDraft d = v.draft();
+		if (d.isEmpty()) return new Edit(d, Gate.off(LOCAL + "double", V2Keys.TOOL_DOUBLE, V2 + "reason.no_bet"));
+		long anteCap = maxAnte(v, d.trips());
+		long ante = Math.max(d.ante(), Math.min(d.ante() * 2, anteCap));
+		long trips = v.tripsOn() ? Math.max(d.trips(), Math.min(d.trips() * 2, maxTrips(v, ante))) : d.trips();
+		Gate refusal = null;
+		if (ante < d.ante() * 2) {
+			refusal = limitGate(LOCAL + "double", V2Keys.TOOL_DOUBLE, v, d, UthBetDraft.Spot.ANTE, anteCap);
+		} else if (trips < d.trips() * 2) {
+			refusal = limitGate(LOCAL + "double", V2Keys.TOOL_DOUBLE, v, d.load(ante, d.trips()), UthBetDraft.Spot.TRIPS, maxTrips(v, ante));
+		}
+		return new Edit(d.load(ante, trips), refusal);
+	}
+
+	/** The chip tray as a whole (live = chips may be put down now; per-denomination caps: {@link #chip}). */
 	public static Gate chips(UthView v) {
 		String lock = betLock(v);
 		return lock == null ? Gate.on(LOCAL + "chip", V2 + "chips") : Gate.off(LOCAL + "chip", V2 + "chips", lock);
@@ -71,10 +186,11 @@ public final class UthFlow {
 			case "rebet" -> v.lastAnte() <= 0 ? Gate.off(LOCAL + id, label, V2 + "reason.no_last_bet")
 				: d.equalsBet(v.lastAnte(), v.lastTrips()) ? Gate.off(LOCAL + id, label, V2 + "reason.same_as_last")
 				: Gate.on(LOCAL + id, label);
-			case "double" -> d.isEmpty() ? Gate.off(LOCAL + id, label, V2 + "reason.no_bet")
-				: problem(v, d.ante() * 2, d.trips() * 2) == UthLimits.Problem.WORST_CASE_MAX
-					? Gate.off(LOCAL + id, label, U + "error.worst_case_max", v.maxW())
-					: Gate.on(LOCAL + id, label);
+			case "double" -> {
+				// live while doubling adds anything (it clamps to the caps and says why); grey with the reason at the caps
+				Edit e = doubled(v);
+				yield e.draft().equalsBet(d.ante(), d.trips()) && e.refusal() != null ? e.refusal() : Gate.on(LOCAL + id, label);
+			}
 			default -> throw new IllegalArgumentException(id);
 		};
 	}
@@ -147,6 +263,18 @@ public final class UthFlow {
 			out.add(Gate.on(LOCAL + "bank_form", U + "pvp.take_seat"));
 		}
 		return out;
+	}
+
+	/** Gate actions of the kit stepper's − / + on the bank amount (R-AB M3; labels shared with poker's stepper). */
+	public static final String STEP_MINUS = LOCAL + "step_minus", STEP_PLUS = LOCAL + "step_plus";
+	private static final String PV2 = "gui.burmaldaholic.poker.v2.";
+
+	public static Gate stepMinus(Stepper s) {
+		return s.value() > s.min() ? Gate.on(STEP_MINUS, PV2 + "step_minus") : Gate.off(STEP_MINUS, PV2 + "step_minus", PV2 + "reason.stepper_min", s.min());
+	}
+
+	public static Gate stepPlus(Stepper s) {
+		return s.value() < s.max() ? Gate.on(STEP_PLUS, PV2 + "step_plus") : Gate.off(STEP_PLUS, PV2 + "step_plus", PV2 + "reason.stepper_max", s.max());
 	}
 
 	/** The bank amount stepper while the take-the-bank form is open. */
