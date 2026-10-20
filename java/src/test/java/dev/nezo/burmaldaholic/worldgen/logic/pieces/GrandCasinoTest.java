@@ -81,6 +81,73 @@ class GrandCasinoTest {
 		}
 	}
 
+	/**
+	 * The CASINO board as built in every variant: each cell of the 7 text rows is the light-emitting NEON_A block
+	 * exactly where the expected letter mask has a stroke, and the solid SIGN_BACK board everywhere else (no bulbs
+	 * inside strokes), so it cannot read as CASIRO / CASIND.
+	 */
+	@Test
+	void theMarqueeSpellsCasinoInSolidStrokes() {
+		StringBuilder[] want = new StringBuilder[7];
+		for (int r = 0; r < 7; r++) {
+			want[r] = new StringBuilder();
+			for (char c : "CASINO".toCharArray()) {
+				if (want[r].length() > 0) {
+					want[r].append('.');
+				}
+				want[r].append(dev.nezo.burmaldaholic.worldgen.logic.blueprint.SignFontTest.CASINO_LARGE.get(c)[r]);
+			}
+		}
+		int width = want[0].length();
+		assertEquals(25, width, "fits the 25 visible columns between the towers (x8..32)");
+		int x0 = GrandCasino.CX - width / 2;
+		int top = GrandCasino.ROW2 + 1 + 7; // the text row under the top bulb row
+		for (GrandCasino.Variant v : GrandCasino.Variant.values()) {
+			Grid g = whole(v).layout().grid();
+			BlockSpec neon = v.palette().block(dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role.NEON_A);
+			BlockSpec back = v.palette().block(dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role.SIGN_BACK);
+			assertFalse(neon.equals(back), v + ": letters contrast with the board");
+			StringBuilder got = new StringBuilder();
+			for (int r = 0; r < 7; r++) {
+				for (int c = 0; c < width; c++) {
+					BlockSpec b = g.get(x0 + c, top - r, GrandCasino.Z_SIGN);
+					got.append(neon.equals(b) ? '#' : back.equals(b) ? '.' : '?');
+				}
+				got.append('\n');
+			}
+			assertEquals(String.join("\n", (CharSequence[]) want) + "\n", got.toString(), v + " marquee");
+		}
+	}
+
+	/**
+	 * Package DL: every table's dealer cell ({@code TableFootprint.dealerCell}) is two blocks of air (no lectern, carpet
+	 * or decor), so the house dealer NPC can stand there; in the whole building and in each jigsaw slice.
+	 */
+	@Test
+	void everyTableDealerCellIsTwoBlocksOfAir() {
+		for (GrandCasino.Variant v : GrandCasino.Variant.values()) {
+			List<Piece> all = new ArrayList<>(GrandCasino.pieces(v));
+			all.add(whole(v));
+			int tables = 0;
+			for (Piece p : all) {
+				Grid g = p.layout().grid();
+				for (Piece.GameSpot s : p.games()) {
+					if (s.game().tableGame() == null) {
+						continue;
+					}
+					int[] d = dev.nezo.burmaldaholic.worldgen.logic.blueprint.TableClearance.dealer(s);
+					int y = s.pos().y();
+					for (int dy = 0; dy <= 1; dy++) {
+						BlockSpec b = g.get(d[0], y + dy, d[1]);
+						assertTrue(b != null && b.is("minecraft:air"), v + " " + p.id() + " " + s + ": dealer cell +" + dy + " holds " + b);
+					}
+					tables++;
+				}
+			}
+			assertEquals(22, tables, v + ": 11 tables in the whole building + 11 across the slices");
+		}
+	}
+
 	@Test
 	void npcsChestAndAnchorWithinTheBudget() {
 		Piece p = whole(GrandCasino.Variant.RIVIERA);
@@ -155,8 +222,8 @@ class GrandCasinoTest {
 	void theDomeAndTowersCrownTheSkyline() {
 		Grid g = whole(GrandCasino.Variant.RIVIERA).layout().grid();
 		int dome = top(g, GrandCasino.CX, GrandCasino.DOME_Z);
-		int tower = top(g, 4, 31);
-		int crown = top(g, GrandCasino.CX, GrandCasino.Z_LOGGIA);
+		int tower = top(g, 4, GrandCasino.Z_TOWER + 3);
+		int crown = top(g, GrandCasino.CX, GrandCasino.Z_SIGN);
 		int cornice = GrandCasino.CEIL_Y + 2;
 		assertTrue(dome >= cornice + 12, "dome lantern " + dome);
 		assertTrue(tower >= cornice + 10, "tower finial " + tower);

@@ -174,6 +174,7 @@ export function machineGeometry(kind) {
     // Plinko renderer): base with coin slot + bin-tray lip, lit bulb pillars, crown marquee (sign art, lit)
     box('dark', -16, 0, 0, 32, 1, 16);
     box('wood', -16, 1, 0, 32, 8, 15, { frontTex: 'pbase' });
+    box('pbase', -14, 2, 15, 30, 6, 15.25, { emit: 11 }); // lit bin lights + coin plate (day and night)
     box('trim', -14, 7.5, 15, 30, 8.5, 16.5);
     box('board', -14, 8, 4, 30, 41, 15);
     box('wood', -16, 8, 4, -14, 41, 16, { frontTex: 'bulbs', emit: 12 });

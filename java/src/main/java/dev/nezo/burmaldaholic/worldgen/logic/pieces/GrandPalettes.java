@@ -31,7 +31,7 @@ public final class GrandPalettes {
 		.put(Role.FLOOR, m("smooth_quartz", "smooth_quartz_stairs", "smooth_quartz_slab"))
 		.put(Role.FLOOR_ACCENT, m("polished_deepslate", "polished_deepslate_stairs", "polished_deepslate_slab"))
 		.put(Role.CARPET, m("red_carpet"))
-		.put(Role.CARPET_ACCENT, m("black_carpet"))
+		.put(Role.CARPET_ACCENT, m("red_carpet"))
 		.put(Role.CARPET_PATTERN, m("brown_carpet"))
 		.put(Role.WALL, m("smooth_sandstone", "smooth_sandstone_stairs", "smooth_sandstone_slab"))
 		.put(Role.WALL_ALT, m("cut_sandstone", "sandstone_stairs", "cut_sandstone_slab"))
