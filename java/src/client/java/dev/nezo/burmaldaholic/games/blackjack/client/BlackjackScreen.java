@@ -38,6 +38,7 @@ import dev.nezo.burmaldaholic.games.blackjack.logic.Hands;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackFlow;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackLayout;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackView;
+import dev.nezo.burmaldaholic.games.blackjack.present.ShoeView;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -109,6 +110,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		int seatCount = 5;
 		int mySeat = -1;
 		int occupied;
+		/** E5: the countable shoe (dealt / left / cut card / discard tray); NONE until the server sent it. */
+		ShoeView shoe = ShoeView.NONE;
 	}
 
 	private Model m = new Model();
@@ -160,6 +163,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		n.seatCount = Math.max(1, s.getIntOr("seat_count", 5));
 		n.mySeat = s.getIntOr("seat", -1);
 		n.occupied = s.getListOrEmpty("seats").size();
+		CompoundTag sh = s.getCompoundOrEmpty("shoe");
+		n.shoe = new ShoeView(sh.getIntOr("size", 0), sh.getIntOr("dealt", 0), sh.getIntOr("cut", 0), sh.getIntOr("discard", 0));
 		ListTag players = s.getListOrEmpty("players");
 		for (int i = 0; i < players.size(); i++) {
 			CompoundTag p = players.getCompoundOrEmpty(i);
@@ -297,8 +302,11 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			chrome.status.color(CasinoPalette.V2_GOLD);
 		}
 		boolean mine = view.myTurn() || me != null && me.settled() && !m.busy;
-		// DES blackjack P2 (A-0021): "Shuffling the shoe…" as line 2 was noise; other notices stay
-		if (!m.notice.isEmpty() && !mine && view.phase() != BlackjackView.Phase.BETTING && !m.notice.endsWith(".shuffling")) {
+		// DES blackjack P2 (A-0021): the old "Shuffling the shoe…" second line was noise; E5: a new shoe is shuffled only
+		// between rounds now (cut card out), and that is worth one clear line in any phase
+		if (m.notice.endsWith(".shuffling") && !mine) {
+			l2 = Component.translatable("gui.burmaldaholic.blackjack.v2.status.shuffling");
+		} else if (!m.notice.isEmpty() && !mine && view.phase() != BlackjackView.Phase.BETTING && !m.notice.endsWith(".shuffling")) {
 			l2 = Component.translatable(m.notice);
 		}
 		chrome.status.set(l1, l2);
@@ -594,6 +602,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		drawShoe(g, l.shoe(), back);
 		V2Draw.fill(g, l.discard(), 0xFF2A1A10);
 		V2Draw.outline(g, l.discard(), V2Felt.rail(theme));
+		drawShoeCount(g, l, m.shoe);
 		// felt prints (decor; only where nothing is)
 		List<Box> content = new ArrayList<>();
 		content.add(l.dealer());
@@ -851,6 +860,33 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			g.fill(x + 1, r.y() + 2, x + cw - 1, r.bottom() - 2, ChipStack.color(d[i]));
 			for (int yy = r.y() + 3; yy < r.bottom() - 2; yy += 2) g.fill(x + 1, yy, x + cw - 1, yy + 1, ChipStack.stripe(d[i]));
 		}
+	}
+
+	/**
+	 * E5, a countable shoe: the depth bar under the shoe (cards left, shrinking to the left; turns red once the cut card is
+	 * out) with the 1-px cut-card marker, the discard tray filled to scale and its card count. No running count.
+	 */
+	private void drawShoeCount(GuiGraphicsExtractor g, BlackjackLayout l, ShoeView sv) {
+		if (!sv.known()) return;
+		Box bar = l.shoeBar();
+		g.fill(bar.x() - 1, bar.y() - 1, bar.right() + 1, bar.bottom() + 1, 0xFF1A0E06); // a dark well on the shoe's face
+		V2Draw.fill(g, bar, CasinoPalette.V2_RAIL_DARK);
+		int fw = sv.fillW(bar.w());
+		if (fw > 0) g.fill(bar.x(), bar.y(), bar.x() + fw, bar.bottom(), sv.cutOut() ? CasinoPalette.V2_LOSE : CasinoPalette.V2_GOLD);
+		int cx = bar.x() + sv.cutX(bar.w());
+		g.fill(cx, bar.y(), cx + 1, bar.bottom(), 0xFFE0303A);
+		Box tray = l.discard().inset(2);
+		int th = sv.trayH(tray.h());
+		if (th > 0) {
+			g.fill(tray.x(), tray.bottom() - th, tray.right(), tray.bottom(), 0xFF8A2030);
+			g.fill(tray.x(), tray.bottom() - th, tray.right(), tray.bottom() - th + 1, CasinoPalette.V2_TEXT);
+		}
+		V2Draw.centred(g, font, Texts.raw(Integer.toString(sv.discard())), l.discardCount(), 1, CasinoPalette.V2_TEXT, true);
+	}
+
+	/** The parsed shoe (client tests). */
+	public ShoeView shoeView() {
+		return m.shoe;
 	}
 
 	private void drawShoe(GuiGraphicsExtractor g, Box s, int back) {

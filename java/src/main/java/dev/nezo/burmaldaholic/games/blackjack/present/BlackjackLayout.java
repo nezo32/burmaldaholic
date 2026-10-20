@@ -16,6 +16,8 @@ import dev.nezo.burmaldaholic.core.ui.v2.Tier;
  * @param rack        the dealer's chip rack on the rail
  * @param shoe        the shoe (top right)
  * @param discard     the discard tray (top left)
+ * @param shoeBar     the shoe-depth bar on the shoe's face: cards left, with the cut-card marker (E5, {@link ShoeView})
+ * @param discardCount the discard tray's card count, centred on the tray (E5; 1× text, ≤ 3 digits)
  * @param dealer      the dealer's cards
  * @param dealerTotal the dealer's 2× total pill, left of the cards
  * @param dealerNote  "Dealer stands on 17" (decor, may be empty)
@@ -29,7 +31,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Tier;
  * @param hero        slot of the viewer (-1 = watching)
  * @param slotOfSeat  server seat index → slot
  */
-public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dealer, Box dealerTotal, Box dealerNote, Box[] prints, Box banner,
+public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box shoeBar, Box discardCount, Box dealer, Box dealerTotal, Box dealerNote, Box[] prints, Box banner,
 		Box resultBanner, SeatColumn[] columns, Box[] spots, int[] levels, int hero, int[] slotOfSeat) {
 	/**
 	 * One seat as the screen sees it.
@@ -46,6 +48,9 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			return n + (cards.length - 1) * handGap;
 		}
 	}
+
+	/** The discard count's box: three digits of the vanilla font (≤ 416 cards) and its line height. */
+	public static final int COUNT_W = 18, COUNT_H = 9;
 
 	/** Gap between split hands, in card steps (a split hand starts ~1 card further). */
 	public static final int HAND_GAP = 1;
@@ -71,6 +76,11 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 		int shoeH = shoeW * 2 / 3;
 		Box shoe = new Box(play.right() - m - shoeW - (t == Tier.T1 ? 0 : 6), rail.bottom() + 4, shoeW, shoeH);
 		Box discard = new Box(m + (t == Tier.T1 ? 0 : 6), rail.bottom() + 4, shoeW * 3 / 4, shoeH);
+		// E5: the shoe-depth bar along the bottom of the shoe's face, the tray's count centred on the tray: both live inside
+		// their own box, so they fit wherever the shoe and the tray fit (under them the outer seats' pills can reach up)
+		int barH = t == Tier.T1 ? 3 : 4;
+		Box shoeBar = new Box(shoe.x() + 2, shoe.bottom() - 2 - barH, shoe.w() - 4, barH);
+		Box discardCount = Box.centredAt(discard.cx(), discard.cy(), Math.min(discard.w(), Math.max(COUNT_W, discard.w() - 4)), COUNT_H);
 		// dealer fan: hero-size cards (seat size at T1), centred
 		int cw = t == Tier.T1 ? t.seatW : t.heroW;
 		int ch = t == Tier.T1 ? t.seatH : t.heroH;
@@ -157,7 +167,7 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			}
 			prints[k] = ok ? p : Box.EMPTY;
 		}
-		return new BlackjackLayout(rail, rack, shoe, discard, dealer, dealerTotal, dealerNote, prints, banner, resultBanner, cols, spots, levels, heroSlot, slotOfSeat);
+		return new BlackjackLayout(rail, rack, shoe, discard, shoeBar, discardCount, dealer, dealerTotal, dealerNote, prints, banner, resultBanner, cols, spots, levels, heroSlot, slotOfSeat);
 	}
 
 	/**

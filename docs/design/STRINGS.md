@@ -885,6 +885,7 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.status.seconds_left` | %1$s s left | Осталось %1$s с |
 | `gui.burmaldaholic.blackjack.v2.status.deal_in` | Deal in %1$s s | Раздача через %1$s с |
 | `gui.burmaldaholic.blackjack.v2.status.dealer_plays` | The dealer plays | Ход дилера |
+| `gui.burmaldaholic.blackjack.v2.status.shuffling` | Shuffling a new shoe | Тасуем новый шуз |
 | `gui.burmaldaholic.blackjack.v2.total_soft` | %1$s/%2$s | %1$s/%2$s |
 | `gui.burmaldaholic.blackjack.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
 | `gui.burmaldaholic.blackjack.v2.stamp.bj` | BJ | БД |

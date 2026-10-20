@@ -86,6 +86,21 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		UUID me = f.server(server -> RealFlow.player(server).getUUID());
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated by the Sit primary");
 		if (negatives) {
+			// E5: the countable shoe reaches the open screen (size, cut card, dealt = discard tray between rounds)
+			int[] srv = f.server(server -> {
+				BlackjackTableBlockEntity t = table(server, pos);
+				t.burnShoeForTests(100);
+				t.syncViewersForTests();
+				var sh = t.shoeForTests();
+				return new int[] {sh.size(), sh.dealt(), sh.cut(0.75)};
+			});
+			for (int i = 0; i < 40 && f.client(mc -> ((BlackjackScreen) mc.gui.screen()).shoeView().dealt()) != srv[1]; i++) f.context().waitTicks(2);
+			var sv = f.client(mc -> ((BlackjackScreen) mc.gui.screen()).shoeView());
+			if (sv.size() != srv[0] || sv.dealt() != srv[1] || sv.discard() != srv[1] || sv.left() != srv[0] - srv[1] || sv.cut() <= 0 || sv.cutOut()) {
+				throw new AssertionError("client shoe " + sv + " vs server size/dealt " + java.util.Arrays.toString(srv));
+			}
+		}
+		if (negatives) {
 			// Deal with no bet: the reason shows, nothing reaches the server
 			f.click(KeyMap.Ids.PRIMARY);
 			String want = f.client(mc -> Component.translatable(V2Keys.REASON_PLACE_BET).getString());

@@ -100,6 +100,7 @@
 	"gui.burmaldaholic.blackjack.v2.status.seconds_left": "%1$s s left",
 	"gui.burmaldaholic.blackjack.v2.status.deal_in": "Deal in %1$s s",
 	"gui.burmaldaholic.blackjack.v2.status.dealer_plays": "The dealer plays",
+	"gui.burmaldaholic.blackjack.v2.status.shuffling": "Shuffling a new shoe",
 	"gui.burmaldaholic.blackjack.v2.total_soft": "%1$s/%2$s",
 	"gui.burmaldaholic.blackjack.v2.stamp.blackjack": "BLACKJACK",
 	"gui.burmaldaholic.blackjack.v2.stamp.bj": "BJ",

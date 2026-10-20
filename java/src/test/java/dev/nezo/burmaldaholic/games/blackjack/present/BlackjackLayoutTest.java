@@ -49,7 +49,7 @@ class BlackjackLayoutTest {
 	private static void audit(TableGrid g, BlackjackLayout l, int[] size, int hero, int[] h, int occupied) {
 		LayoutAudit a = new LayoutAudit(g.play);
 		a.add("dealer", l.dealer()).add("dtotal", l.dealerTotal()).add("note", l.dealerNote()).add("shoe", l.shoe()).add("discard", l.discard())
-			.add("banner", l.banner());
+			.add("banner", l.banner()).add("e5bar", l.shoeBar()).add("e5count", l.discardCount()); // not "s…": allow("s", "s") would skip them
 		for (int i = 0; i < l.prints().length; i++) a.add("print" + i, l.prints()[i]);
 		for (int i = 0; i < l.columns().length; i++) {
 			SeatColumn c = l.columns()[i];
@@ -59,6 +59,8 @@ class BlackjackLayoutTest {
 		}
 		a.allow("s", "s"); // across columns checked below with the right message
 		a.allow("banner", "print"); // the banner covers decor only
+		a.allow("e5bar", "shoe"); // drawn on the shoe's face
+		a.allow("e5count", "discard"); // drawn on the tray
 		List<String> p = new ArrayList<>(a.problems());
 		for (int i = 0; i < l.columns().length; i++) {
 			for (int j = i + 1; j < l.columns().length; j++) {
@@ -69,6 +71,17 @@ class BlackjackLayoutTest {
 			}
 		}
 		String where = size[0] + "x" + size[1] + " hero " + hero + " hands " + java.util.Arrays.toString(h) + " occ " + occupied;
+		// E5: the shoe-depth bar and the discard count exist at every tier, inside the felt, right under their boxes
+		if (l.shoeBar().isEmpty() || !l.shoeBar().inside(g.felt())) p.add("shoe bar " + l.shoeBar() + " missing / off the felt");
+		if (l.discardCount().isEmpty() || !l.discardCount().inside(g.felt())) p.add("discard count " + l.discardCount() + " missing / off the felt");
+		if (l.shoeBar().w() < 20 || l.shoeBar().h() < 3) p.add("shoe bar too small " + l.shoeBar());
+		if (l.discardCount().w() < BlackjackLayout.COUNT_W) p.add("discard count too narrow " + l.discardCount());
+		if (!l.shoeBar().inside(l.shoe())) p.add("shoe bar " + l.shoeBar() + " off the shoe " + l.shoe());
+		if (!l.discardCount().inside(l.discard())) p.add("discard count " + l.discardCount() + " off the tray " + l.discard());
+		for (Box e5 : new Box[] {l.shoeBar(), l.discardCount()}) {
+			if (e5.intersects(l.resultBanner())) p.add(e5 + " under the result banner");
+			for (Box sp : l.spots()) if (e5.intersects(sp)) p.add(e5 + " over a betting box " + sp);
+		}
 		assertTrue(p.isEmpty(), () -> where + ": " + p);
 		if (hero >= 0) assertNotNull(l.columns()[l.hero()], where);
 	}

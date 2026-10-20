@@ -11,7 +11,6 @@ import dev.nezo.burmaldaholic.core.bots.logic.VirtualSeats.VirtualBot;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.config.sections.BlackjackConfig;
 import dev.nezo.burmaldaholic.core.economy.Economies;
-import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
@@ -469,13 +468,17 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			return;
 		}
 		BlackjackRules rules = rules();
-		if (shoe == null || shoe.decks() != rules.decks()) {
-			shoe = new Shoe(bound -> OddsService.get().fair().nextInt(bound), rules.decks());
-			notice("gui.burmaldaholic.blackjack.shuffling", SHUFFLE_NOTICE_TICKS);
-		} else if (shoe.needsShuffle(rules.penetration())) {
+		// normally the shoe was reshuffled when the last round was collected (toBetting); this catches a new shoe, a
+		// changed deck count or a lowered penetration (still between rounds)
+		Shoe before = shoe;
+		ensureShoe(rules);
+		boolean shuffledNow = shoe != before;
+		if (shoe.needsShuffle(rules.penetration())) {
 			shoe.shuffle();
-			notice("gui.burmaldaholic.blackjack.shuffling", SHUFFLE_NOTICE_TICKS);
+			notice(SHUFFLING, SHUFFLE_NOTICE_TICKS);
+			shuffledNow = true;
 		}
+		shoe.beginRound();
 		away.clear();
 		paid.clear();
 		lastTurnSeat = -1;
@@ -504,8 +507,9 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			all.add(new SeatBet(bot.seat(), VirtualSeats.botUuid(bot.key), mem.next()));
 		}
 		round = new BlackjackRound(rules, source, all);
-		boolean shuffling = noticeKey.equals("gui.burmaldaholic.blackjack.shuffling") && noticeUntil > gameTime();
-		if (level != null && shuffling && CoreSounds.CARD_SHUFFLE != null) {
+		boolean shuffling = noticeKey.equals(SHUFFLING) && noticeUntil > gameTime();
+		// the riffle sound / gesture once per shuffle (a shuffle at the collect already played it)
+		if (level != null && shuffledNow && CoreSounds.CARD_SHUFFLE != null) {
 			level.playSound(null, worldPosition, CoreSounds.CARD_SHUFFLE, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
 			dealerGesture(DealerGesture.SHUFFLE);
 		}
@@ -515,11 +519,71 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		lastPub = gameTime() - 1;
 		beats = new BlackjackBeats(round, gameTime() + (shuffling ? SHUFFLE_NOTICE_TICKS / 2 : 0), cfg);
 		nextPub = beats.nextChange(lastPub);
-		if (round.peeked() && round.phase() == Phase.TURNS && !noticeKey.equals("gui.burmaldaholic.blackjack.shuffling")) {
+		if (round.peeked() && round.phase() == Phase.TURNS && !noticeKey.equals(SHUFFLING)) {
 			notice(PEEK_NOTICE, PEEK_NOTICE_TICKS);
 		}
 		setChanged();
 		step();
+	}
+
+	static final String SHUFFLING = "gui.burmaldaholic.blackjack.shuffling";
+
+	/**
+	 * The shoe's RNG: the FAIR {@code OddsService} generator, used only to shuffle (E5). No player context, no odds
+	 * modifier and no streak re-draw ever reaches it, and a round only takes the next card of the shuffled order.
+	 */
+	static java.util.function.IntUnaryOperator shoeRng() {
+		return BlackjackShoeRng.fair();
+	}
+
+	/** A shoe for the configured deck count exists (a new one is shuffled and announced). */
+	private void ensureShoe(BlackjackRules rules) {
+		if (shoe == null || shoe.decks() != rules.decks()) {
+			shoe = new Shoe(shoeRng(), rules.decks());
+			notice(SHUFFLING, SHUFFLE_NOTICE_TICKS);
+			setChanged();
+		}
+	}
+
+	/** The round's cards are collected; once the cut card has come out the shoe is reshuffled now, between rounds (E5). */
+	private void collectAndMaybeShuffle() {
+		if (shoe == null) return;
+		shoe.endRound();
+		if (shoe.needsShuffle(rules().penetration())) {
+			shoe.shuffle();
+			notice(SHUFFLING, SHUFFLE_NOTICE_TICKS);
+			if (level != null && !removing() && CoreSounds.CARD_SHUFFLE != null) {
+				level.playSound(null, worldPosition, CoreSounds.CARD_SHUFFLE, net.minecraft.sounds.SoundSource.BLOCKS, 0.8f, 1.0f);
+				dealerGesture(DealerGesture.SHUFFLE);
+			}
+		}
+		setChanged();
+	}
+
+	/** GameTests: the shoe (null before the first round / view). */
+	public Shoe shoeForTests() {
+		return shoe;
+	}
+
+	/** GameTests: deal {@code n} cards out of the shoe between rounds (they go to the discard tray). */
+	public void burnShoeForTests(int n) {
+		ensureShoe(rules());
+		for (int i = 0; i < n; i++) shoe.draw();
+		shoe.endRound();
+	}
+
+	/** GameTests: push the state to the viewers now. */
+	public void syncViewersForTests() {
+		syncViewers();
+	}
+
+	/** GameTests: a finished round (RESULT) is collected now instead of after its result timer. */
+	public void collectForTests() {
+		if (round != null && RESULT.equals(phase())) {
+			cancelTimer("result");
+			toBetting();
+			syncViewers();
+		}
 	}
 
 	private void notice(String key, int ticks) {
@@ -762,6 +826,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 
 	private void toBetting() {
 		grantAtGate(true);
+		collectAndMaybeShuffle();
 		round = null;
 		beats = null;
 		nextPub = -1;
@@ -906,12 +971,29 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	protected void saveAdditional(ValueOutput output) {
 		super.saveAdditional(output);
 		bots.save(output);
+		if (shoe != null) {
+			// E5: the shoe survives a reload (order + position); saved data only, never in the update tag
+			CompoundTag t = new CompoundTag();
+			t.putInt("decks", shoe.decks());
+			t.putIntArray("cards", shoe.codes());
+			t.putInt("pos", shoe.dealt());
+			t.putInt("round_start", round == null ? shoe.dealt() : shoe.discards());
+			t.putBoolean("refilled", shoe.refilled());
+			output.store(SHOE_KEY, CompoundTag.CODEC, t);
+		}
 	}
+
+	static final String SHOE_KEY = "burmaldaholic_blackjack_shoe";
 
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
 		bots.load(input);
+		input.read(SHOE_KEY, CompoundTag.CODEC).ifPresent(t -> {
+			Shoe s = Shoe.restore(shoeRng(), t.getIntOr("decks", 0), t.getIntArray("cards").orElse(new int[0]), t.getIntOr("pos", 0),
+				t.getIntOr("round_start", 0), t.getBooleanOr("refilled", false));
+			if (s != null) shoe = s;
+		});
 		input.read(PUB_KEY, CompoundTag.CODEC).ifPresent(t -> {
 			clientPub = t;
 			clientPubDecoded = null;
@@ -983,6 +1065,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			});
 		}
 		tag.put("bets", betList);
+		writeShoeState(tag);
 		writeBotState(tag);
 		if (round == null) {
 			return tag;
@@ -1089,6 +1172,27 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 	 * Seats &amp; Bots sync: {@code bots_header} (component), {@code bot_seats} [{seat, name_c, amount?}] —
 	 * a bot's virtual bet shows once its bet moment has come — and {@code virtual} when bots play this round.
 	 */
+	/**
+	 * E5, a countable shoe: size, cards dealt / left, the cut card and the discard tray, counted from what is ON THE FELT
+	 * (published cards, the face-down hole card included) — a card the round drew but has not dealt yet is not counted.
+	 * No running count (players count themselves).
+	 */
+	private void writeShoeState(CompoundTag tag) {
+		if (!(level instanceof ServerLevel) || removing()) return;
+		BlackjackRules rules = rules();
+		if (round == null) ensureShoe(rules); // never swap the shoe under a round that draws from it
+		if (shoe == null) return;
+		int dealt = shoe.dealt();
+		if (round != null && beats != null) dealt = Math.min(dealt, shoe.discards() + beats.publishedCount(gameTime()));
+		CompoundTag t = new CompoundTag();
+		t.putInt("size", shoe.size());
+		t.putInt("dealt", dealt);
+		t.putInt("left", shoe.size() - dealt);
+		t.putInt("cut", shoe.cut(rules.penetration()));
+		t.putInt("discard", round == null ? shoe.dealt() : shoe.discards());
+		tag.put("shoe", t);
+	}
+
 	private void writeBotState(CompoundTag tag) {
 		if (!(level instanceof ServerLevel sl)) {
 			return;
