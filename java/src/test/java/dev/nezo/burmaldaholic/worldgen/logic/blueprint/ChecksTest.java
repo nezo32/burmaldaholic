@@ -367,7 +367,7 @@ class ChecksTest {
 		b.kit(Kits.tablePod(Game.BLACKJACK, null), 8, 1, 5, Facing.SOUTH);
 		Grid g = b.build().layout().grid();
 		assertEquals(BlockSpec.of(Game.BLACKJACK.blockId(), "facing", "south"), g.get(8, 1, 5));
-		assertEquals("minecraft:lectern", g.get(8, 1, 4).name()); // legacy dealer at f −1
+		assertEquals("minecraft:air", g.get(8, 1, 4).name()); // DL: the legacy dealer cell (f −1) holds a house dealer, not a lectern
 		assertFalse(Blueprint.of("casino/cr/hall", CasinoKind.VILLAGE_CASINO, 3, 3, 3, Palettes.TUDOR).compactTables());
 	}
 }

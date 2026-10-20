@@ -188,6 +188,7 @@ public final class PiglinParlor {
 			b.set(x, FR + 1, 3, BlockSpec.mc("iron_bars"));
 		}
 		b.npc(NpcRole.PIGLIN_DEALER, CX, FR, 2, Facing.SOUTH);
+		b.npc(NpcRole.MERCHANT, CX + 2, FR, 4, Facing.SOUTH); b.npc(NpcRole.PIT_BOSS, 5, FR, 10, Facing.EAST); // DL: merchant, pit boss
 		for (int x = CX - 2; x <= CX + 2; x++) {
 			b.set(x, FR + 2, 3, counter.slab("top"));
 			b.set(x, FR + 2, 2, counter.slab("top"));

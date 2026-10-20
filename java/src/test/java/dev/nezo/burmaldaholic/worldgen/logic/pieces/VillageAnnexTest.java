@@ -71,7 +71,7 @@ class VillageAnnexTest {
 				// markers become air (or the chest) after placement: never put one into a wall
 				assertTrue(at == null || at.is("minecraft:air") || at.name().endsWith("_carpet"), p.id() + " marker in " + at + " at " + m.pos());
 			}
-			assertEquals(EnumSet.of(NpcRole.CROUPIER, NpcRole.LOAN_SHARK, NpcRole.BACCARAT_DEALER), npcs, p.id());
+			assertEquals(EnumSet.of(NpcRole.CROUPIER, NpcRole.LOAN_SHARK, NpcRole.HOUSE_DEALER, NpcRole.MERCHANT), npcs, p.id());
 			assertEquals(1, anchors, p.id());
 			assertEquals(1, chests, p.id());
 			assertEquals(1, l.jigsaws().size(), p.id());

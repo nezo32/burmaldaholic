@@ -29,6 +29,8 @@ public final class Assembly {
 	/** Content budget per standalone casino (§9.5). */
 	public static final int MAX_FOOTPRINT = 47;
 	public static final int MAX_NPCS = 6;
+	/** DL: house dealers (one per table) have their own budget, outside {@link #MAX_NPCS}. */
+	public static final int MAX_HOUSE_DEALERS = 12;
 	public static final int MAX_CHESTS = 2;
 	public static final int MAX_GAME_BLOCKS = 40;
 	public static final int MAX_CELLS = 60_000;
@@ -195,6 +197,7 @@ public final class Assembly {
 			}
 		}
 		int npcs = 0;
+		int dealers = 0;
 		int chests = 0;
 		int games = 0;
 		int cells = 0;
@@ -202,7 +205,13 @@ public final class Assembly {
 		for (Placed p : r.pieces()) {
 			for (Layout.PlacedMarker m : p.layout().markers()) {
 				switch (m.marker()) {
-					case Markers.Npc n -> npcs++;
+					case Markers.Npc n -> {
+						if (n.role() == NpcRole.HOUSE_DEALER) {
+							dealers++;
+						} else {
+							npcs++;
+						}
+					}
 					case Markers.Chest c -> chests++;
 					case Markers.Anchor a -> anchors++;
 				}
@@ -228,6 +237,9 @@ public final class Assembly {
 		}
 		if (npcs > MAX_NPCS) {
 			out.add(npcs + " NPCs (max " + MAX_NPCS + ")");
+		}
+		if (dealers > MAX_HOUSE_DEALERS) {
+			out.add(dealers + " house dealers (max " + MAX_HOUSE_DEALERS + ")");
 		}
 		if (chests > MAX_CHESTS) {
 			out.add(chests + " chests (max " + MAX_CHESTS + ")");

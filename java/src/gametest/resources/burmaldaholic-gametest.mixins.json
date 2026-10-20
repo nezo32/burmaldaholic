@@ -5,6 +5,9 @@
 	"mixins": [
 		"GameTestServerMixin"
 	],
+	"client": [
+		"HouseDealerRenderProbeMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

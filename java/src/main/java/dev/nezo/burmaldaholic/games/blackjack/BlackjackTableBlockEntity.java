@@ -591,23 +591,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		syncViewers();
 	}
 
-	/** The nearest blackjack dealer NPC within {@link BlackjackDealer#TABLE_RADIUS} blocks plays {@code g}. */
+	/** The dealer of this table (DL: the bound house dealer, else the nearest blackjack dealer NPC within {@link BlackjackDealer#TABLE_RADIUS} blocks) plays {@code g}. */
 	private void dealerGesture(DealerGesture g) {
-		if (!(level instanceof ServerLevel sl)) {
-			return;
-		}
-		BlackjackDealer best = null;
-		double bestD = Double.MAX_VALUE;
-		net.minecraft.world.phys.Vec3 c = net.minecraft.world.phys.Vec3.atCenterOf(worldPosition);
-		for (BlackjackDealer d : sl.getEntitiesOfClass(BlackjackDealer.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(BlackjackDealer.TABLE_RADIUS))) {
-			double dist = d.distanceToSqr(c);
-			if (dist < bestD) {
-				bestD = dist;
-				best = d;
-			}
-		}
-		if (best != null) {
-			best.gesture(g);
+		if (level instanceof ServerLevel sl) {
+			dev.nezo.burmaldaholic.client.dealer.DealerGestureSink.gestureAt(sl, worldPosition, BlackjackDealer.TABLE_RADIUS, g);
 		}
 	}
 

@@ -22,8 +22,8 @@ public record NpcShop(String id, long price, int minTier) {
 	/** Offers of an NPC role (empty for roles without a shop). */
 	public static List<NpcShop> of(NpcRole role) {
 		return switch (role) {
-			case CROUPIER -> CROUPIER;
-			case SHULKER_CROUPIER -> SHULKER_CROUPIER;
+			case CROUPIER, PIT_BOSS -> CROUPIER;
+			case SHULKER_CROUPIER, ENDER_CROUPIER -> SHULKER_CROUPIER;
 			default -> List.of();
 		};
 	}
@@ -41,7 +41,7 @@ public record NpcShop(String id, long price, int minTier) {
 	public static int greetings(NpcRole role) {
 		return switch (role) {
 			case CROUPIER, PIGLIN_DEALER -> 3;
-			case SHULKER_CROUPIER -> 2;
+			case SHULKER_CROUPIER, ENDER_CROUPIER, PIT_BOSS, MERCHANT -> 2;
 			default -> 0;
 		};
 	}

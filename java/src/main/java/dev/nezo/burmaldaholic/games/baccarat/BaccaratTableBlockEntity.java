@@ -1449,23 +1449,10 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		}
 	}
 
-	/** The nearest baccarat dealer NPC within 3 blocks plays {@code g}. */
+	/** The dealer of this table (DL: the bound house dealer, else the nearest baccarat dealer NPC within 3 blocks) plays {@code g}. */
 	private void dealerGesture(DealerGesture g) {
-		if (!(level instanceof ServerLevel sl)) {
-			return;
-		}
-		BaccaratDealer best = null;
-		double bestD = Double.MAX_VALUE;
-		Vec3 c = Vec3.atCenterOf(worldPosition);
-		for (BaccaratDealer d : sl.getEntitiesOfClass(BaccaratDealer.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(3))) {
-			double dist = d.distanceToSqr(c);
-			if (dist < bestD) {
-				bestD = dist;
-				best = d;
-			}
-		}
-		if (best != null) {
-			best.gesture(g);
+		if (level instanceof ServerLevel sl) {
+			dev.nezo.burmaldaholic.client.dealer.DealerGestureSink.gestureAt(sl, worldPosition, 3, g);
 		}
 	}
 

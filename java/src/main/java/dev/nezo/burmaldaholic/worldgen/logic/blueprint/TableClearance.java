@@ -23,7 +23,7 @@ import java.util.List;
  *   <li><b>R2 support</b>: the block below every footprint cell is solid to stand on;</li>
  *   <li><b>R3 walkway</b>: cells r −1..1 at f +1, rows y and y + 1, are walkable (air / carpet / pressure plate) and,
  *       when the piece declares entries, reachable on foot;</li>
- *   <li><b>R4 dealer</b>: the dealer cell ({@code TableFootprint.dealerCell}) is air at y (an NPC) or a lectern, and air
+ *   <li><b>R4 dealer</b>: the dealer cell ({@code TableFootprint.dealerCell}) is air at y (the house dealer NPC; never a lectern), and air
  *       at y + 1;</li>
  *   <li><b>R5 spacing</b>: on one floor row the Chebyshev gap between any two game footprints (tables, machines,
  *       cashiers) is ≥ 2 — at least one free cell — except slot next to slot (a bank); the zones (footprint ∪ walkway)
@@ -232,7 +232,7 @@ public final class TableClearance {
 		int[] d = dealer(spot);
 		if (g.inside(d[0], y, d[1])) {
 			BlockSpec feet = g.get(d[0], y, d[1]);
-			if (!(Checks.air(feet) || feet != null && feet.is("minecraft:lectern"))) {
+			if (!Checks.air(feet)) { // DL: always two blocks of air for the house dealer (no lectern)
 				out.add(at(spot) + ": R4 dealer cell " + d[0] + "," + y + "," + d[1] + " holds " + feet);
 			}
 			if (g.inside(d[0], y + 1, d[1]) && !Checks.air(g.get(d[0], y + 1, d[1]))) {

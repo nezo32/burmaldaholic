@@ -32,7 +32,7 @@ import net.minecraft.world.level.ChunkPos;
  */
 public final class CasinoTracker {
 	static final int ENTER_INTERVAL = 20;
-	static final int RESPAWN_INTERVAL = 200;
+	static final int RESPAWN_INTERVAL = 100;
 
 	private static final Map<UUID, String> INSIDE = new HashMap<>();
 
@@ -53,6 +53,7 @@ public final class CasinoTracker {
 		}
 		if (now % RESPAWN_INTERVAL == 0) {
 			checkNpcs(server, server.overworld().getGameTime()); // persistent clock (survives restarts)
+			dev.nezo.burmaldaholic.worldgen.npc.HouseDealers.ensure(server); // DL: one house dealer per house table
 		}
 	}
 
@@ -130,11 +131,11 @@ public final class CasinoTracker {
 				}
 				Entity entity = slot.entity == null ? null : level.getEntity(slot.entity);
 				boolean present = entity != null && entity.isAlive();
-				RespawnRule.Decision d = RespawnRule.decide(present, slot.missingSince, now, respawnTicks);
+				RespawnRule.Decision d = RespawnRule.decide(present, slot.missingSince, now, slot.role().respawnTicks(respawnTicks));
 				boolean changed = d.missingSince() != slot.missingSince;
 				slot.missingSince = d.missingSince();
 				if (d.respawn()) {
-					Entity spawned = CasinoNpcs.spawn(level, slot.role(), home, slot.yaw());
+					Entity spawned = CasinoNpcs.respawn(level, slot, casino.id());
 					if (spawned != null) {
 						slot.entity = spawned.getUUID();
 					}
