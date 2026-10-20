@@ -153,6 +153,8 @@ class DiceKitTest {
 		for (int i = 0; i < 2000; i++) DiceSolver.solve(cases.get(i % cases.size()).tray(), cases.get(i % cases.size()).spec(), i, new int[] {1, 2}, cases.get(i % cases.size()).targetMs());
 		long worst = 0;
 		int worstAttempt = 0;
+		int scripted = 0;
+		int solves = 0;
 		for (DiceFixtures.Case c : cases)
 			for (int i = 0; i < 1500; i++) {
 				// best of 3 runs per seed: the machine is shared, this measures the solver, not the scheduler
@@ -165,9 +167,13 @@ class DiceKitTest {
 				}
 				if (dt > worst) worst = dt;
 				worstAttempt = Math.max(worstAttempt, r.attempt());
-				assertTrue(r.attempt() < DiceSolver.ATTEMPTS + 2 * DiceSolver.FALLBACK_ATTEMPTS, "attempt cap");
+				assertTrue(r.attempt() <= DiceSolver.ATTEMPTS + 2 * DiceSolver.FALLBACK_ATTEMPTS, "attempt cap");
+				solves++;
+				if (r.attempt() == DiceSolver.ATTEMPTS + 2 * DiceSolver.FALLBACK_ATTEMPTS) scripted++;
 			}
-		System.out.printf("worst solve %.2f ms, max attempt index %d%n", worst / 1e6, worstAttempt);
+		System.out.printf("worst solve %.2f ms, max attempt index %d, scripted drops %d/%d%n", worst / 1e6, worstAttempt, scripted, solves);
+		// the scripted drop (never-fail path) stays rare
+		assertTrue(scripted * 200 <= solves, "scripted drops " + scripted + "/" + solves);
 		assertTrue(worst < 20_000_000L, "worst solve " + worst / 1e6 + " ms");
 	}
 

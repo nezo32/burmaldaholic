@@ -172,3 +172,12 @@ texel, gutter corner, face 2 mirrored, face 6 shifted 1 px, a face-4 pip moved 4
 3. `DiceWorldDraw`: no per-frame lambda (unit geometry cached per light / per (argb, light); size in the pose).
    Generator: dead pip codes 3/6 removed. `DiceRoll.events()` returns a copy; `eventList()` is a no-copy unmodifiable
    view — REQUEST CM (CrapsScreen:1480) / DCb (DiceArena:300, :685): use `eventList()` on per-frame paths.
+
+### CM report: dice passed through each other mid-air (fixed)
+`DiceSolver.apart`: from the later release to both rests, every 1 ms, the smallest possible centre distance (xy exact; z
+from the lowest points minus the support spread √3−1; strict-safe, no orientation) must be ≥ `MIN_CENTRE` 2.0 + 0.05,
+in every pass; a failing plan is rejected and the next seed variant tried; the scripted drop still guarantees a result.
+`ThrowSpec.hand` spaces the dice 3.5 u toward the table centre (as CM's hand), `ThrowSpec.chest` 3.0 u. Pass 3 keeps
+the one-short-brush rule (only the margin is dropped). Golden `dice_roll.json` regenerated (intended change).
+`DiceSeparationTest`: craps + duel trays × 160 seeds × target/natural, 3D centre distance ≥ 2 at every 0.5 ms while both
+are out of the hand; faces exact. Solve-time test: worst 5.3 ms, scripted drops 2/10500 (asserted ≤ 0.5 %).

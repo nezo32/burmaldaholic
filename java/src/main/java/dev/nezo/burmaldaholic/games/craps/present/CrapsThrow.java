@@ -90,21 +90,17 @@ public final class CrapsThrow {
 		return new DiceTray(G, floor, walls, List.of(), List.of(zone), keep, Optional.empty(), 2.4);
 	}
 
-	/** Centre distance of the two dice in the shooter's hand, u (a die edge is 2 u and a die in any pose reaches √3 u from its centre: the pair never touches, whatever pose the throw starts in). */
-	public static final double HAND_GAP = 3.5;
+	/** Release centre of die 0 (the outboard die) from the outer end of the Pass line: clear of the rail while it turns in the hand. */
+	static final double RELEASE_INSET = 1.8;
 
-	/** Release centre of die 0 from the outer end of the Pass line: inboard so die 1 (released outboard) clears the rail. */
-	static final double RELEASE_INSET = 4.8;
-
-	/** The hand's spec of {@code side}: die 0 leaves at dice home, die 1 beside it (outboard), toward the back wall. */
+	/**
+	 * The hand's spec of {@code side}: die 0 leaves at dice home, die 1 beside it (toward the table centre and slightly
+	 * toward the shooter: DCa's 3.5 u spacing), toward the back wall; die 1 stays {@code R_PLANE} off the shooter's rail.
+	 */
 	public static ThrowSpec spec(int side) {
-		double y = v(CrapsFeltFractions.rowTop(4) + CrapsFeltFractions.PASS / 2);
+		double y = Math.min(v(CrapsFeltFractions.rowTop(4) + CrapsFeltFractions.PASS / 2), ARENA_H - 2.4);
 		double x = side == LEFT ? RELEASE_INSET : ARENA_W - RELEASE_INSET;
-		ThrowSpec h = ThrowSpec.hand(side == LEFT ? 1 : 0, x, y);
-		// S1: the two dice sit HAND_GAP apart in the hand (the kit's 1.8 u is less than a die edge: two squared-up dice
-		// at home and the rattle overlapped by 0.2 u)
-		return new ThrowSpec(h.x(), h.y(), h.z0(), h.dir(), h.coneMin(), h.coneMax(), h.speedMin(), h.speedMax(), h.vzMin(), h.vzMax(), h.spinMin(),
-			h.spinMax(), Math.copySign(HAND_GAP, h.side()), h.delayMin(), h.delayMax());
+		return ThrowSpec.hand(side == LEFT ? 1 : 0, x, y); // DCa: the dice 3.5 u apart, die 1 toward the table centre
 	}
 
 	/** Release centre {x, y} (tray units) of {@code die} for {@code side}: where the stick leaves it and the throw starts. */

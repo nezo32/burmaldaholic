@@ -177,8 +177,6 @@ class CrapsRollClockTest {
 	@Test
 	void theDiceNeverOverlap() {
 		DieSample a = new DieSample(), b = new DieSample();
-		double airborne = 0;
-		String worst = "";
 		for (int seed = 1; seed <= 24; seed++) {
 			int side = seed % 2 == 0 ? CrapsThrow.LEFT : CrapsThrow.RIGHT;
 			int d1 = 1 + seed % 6, d2 = 1 + (seed * 5 + 2) % 6;
@@ -200,14 +198,12 @@ class CrapsRollClockTest {
 					// the hand and the settle (this package): the two cubes never touch
 					assertTrue(pen <= 0.005, "seed " + seed + " side " + side + ": the dice overlap by " + pen + " u in the hand at " + ms + " ms (t " + t + ")");
 				} else {
-					// the solved flight (DCa's solver, plain and identical on every client): logged, not asserted (DCa request)
+					// the solved flight: the dice centres stay >= 2 u apart over the whole throw (DCa whole-flight separation)
 					double dc = Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.zc - b.zc) * (a.zc - b.zc));
-					if (pen > airborne) worst = "seed " + seed + " side " + side + " t " + t + " centres " + dc;
-					airborne = Math.max(airborne, pen);
+					assertTrue(dc >= 2 - 1e-9, "seed " + seed + " side " + side + ": centres " + dc + " u apart at t " + t);
 				}
 			}
 		}
-		System.out.println("craps: deepest sharp-cube overlap inside the solved flights (DCa contact model, not asserted) " + airborne + " u (" + worst + ")");
 	}
 
 	/** Deepest overlap of two dice (cubes of half-edge 1, tray units) by the separating-axis test; 0 = apart. */
