@@ -112,7 +112,7 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 		String p = f.client(mc -> {
 			Screen s = mc.gui.screen();
 			if (s == null) return "no screen";
-			PvpFrame.Layout l = PvpFrame.layout(s.width, s.height);
+			PvpFrame.Layout l = s instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h ? PvpFrame.layout(h.chrome().grid()) : PvpFrame.layout(s.width, s.height);
 			List<String> out = new ArrayList<>();
 			for (var c : s.children()) {
 				if (!(c instanceof AbstractWidget w) || !w.visible) continue;

@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.games.extras.client.pvp.coin;
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
 import dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame;
+import dev.nezo.burmaldaholic.games.extras.client.pvp.PvpKitScreens;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.function.Consumer;
@@ -20,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  * bands, the screen's main buttons in the Dock ({@link #dockY}), the error line above the Dock.
  * Server-driven: subclasses render state they were sent and send actions; they never decide.
  */
-public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
+public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.v2.V2SceneScreen<Object> {
 	public static final int TEXT = Kit.BONE;
 	public static final int MUTED = Kit.BONE_SHADE;
 	public static final int GOLD = Kit.GOLD;
@@ -39,7 +40,7 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 	protected final long openedAt = Util.getMillis();
 
 	protected PvpPanel(Component title, int width, int height) {
-		super(title, Scene.W, Scene.H);
+		super(title);
 		this.panelWidth = Scene.W;
 		this.panelHeight = Scene.H;
 	}
@@ -74,18 +75,29 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 		return null;
 	}
 
-	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	// ---- the v2 kit viewport (owner B6): the kit's viewport and rows, the PvP widgets and bars ----------------------
+
 	@Override
-	protected boolean fitToScreen() {
-		return true;
+	protected dev.nezo.burmaldaholic.core.ui.v2.Flow<Object> flow() {
+		return PvpKitScreens.NO_FLOW;
 	}
+
+	@Override
+	protected void layoutPlay(dev.nezo.burmaldaholic.core.ui.v2.TableGrid grid, Object view, dev.nezo.burmaldaholic.core.ui.v2.HitMap hits) {}
+
+	@Override
+	protected void renderPlay(GuiGraphicsExtractor g, dev.nezo.burmaldaholic.core.ui.v2.TableGrid grid, Object view, int mouseX, int mouseY, float partial) {}
+
+	@Override
+	public void sendRaw(String action, net.minecraft.nbt.CompoundTag args) {}
 
 	@Override
 	protected void init() {
 		super.init();
+		PvpKitScreens.adopt(chrome);
 		panelWidth = Scene.W;
 		panelHeight = Scene.H;
-		frame = PvpFrame.layout(width, height);
+		frame = PvpFrame.layout(chrome.grid());
 		left = frame.panelLeft();
 		top = frame.panelTop();
 		int bottom = layout();
@@ -144,18 +156,16 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 		ticks++;
 	}
 
-	@Override
-	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		PvpFrame.background(g, frame, grudge());
-		playArea(g, mouseX, mouseY);
-	}
-
 	/** Objects on the backdrop under the frame. */
 	protected void playArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		partial = a;
+		// under the kit's frame pose (a framed window draws here, not in extractScene): the dim, the arena, the backdrop
+		chrome.renderBackground(g, theme());
+		PvpFrame.background(g, frame, grudge());
+		playArea(g, mouseX, mouseY);
 		content(g, mouseX, mouseY);
 		PvpFrame.bars(g, font, frame, title, titleRight(), balance(), grudge());
 	}

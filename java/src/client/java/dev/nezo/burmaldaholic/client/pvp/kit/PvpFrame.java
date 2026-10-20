@@ -55,7 +55,12 @@ public final class PvpFrame {
 	}
 
 	public static Layout layout(int w, int h) {
-		TableGrid g = TableGrid.of(w, h);
+		return layout(TableGrid.of(w, h));
+	}
+
+	/** The frame on a kit grid (the PvP match screens: the {@code V2SceneScreen} viewport's rows, owner B6). */
+	public static Layout layout(TableGrid g) {
+		int w = g.screen.w();
 		int panelLeft = (w - Scene.W) / 2;
 		int panelTop = g.play.y() - CONTENT_TOP + Math.max(0, (g.play.h() - CONTENT_H) / 2);
 		int dockY = g.dock.y() + (g.dock.h() - 20) / 2;

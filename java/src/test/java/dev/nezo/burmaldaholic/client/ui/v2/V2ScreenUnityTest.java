@@ -28,15 +28,7 @@ class V2ScreenUnityTest {
 	/** Not on the v2 kit yet: owner package and why. A NEW non-v2 game screen fails. */
 	static final Set<String> PENDING = Set.of(
 		"dev.nezo.burmaldaholic.games.slots.client.SlotMachineV2Screen", // slots: legacy 400 × 240 body (request to SLT, K2 handoff)
-		"dev.nezo.burmaldaholic.games.extras.client.DuelInviteScreen", // a small invite pop-up, not a game screen
-		// PvP match screens: legacy 400 × 240 FitScaled scenes (request to E2 / PvP owner, K2 handoff)
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.coin.CoinDuelScreen",
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.coin.CoinDuelSetupScreen",
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.coin.TauntScreen",
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.plinko.PlinkoBattleScreen",
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.scratch.ScratchShowdownScreen",
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyPanel",
-		"dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyScreen");
+		"dev.nezo.burmaldaholic.games.extras.client.DuelInviteScreen"); // a small invite pop-up, not a game screen
 
 	/** The viewport hooks only the kit's bases define (final there; a re-declaration would change the rows). */
 	static final Set<String> HOOKS = Set.of("applyFit", "offsetX", "offsetY", "fitScale", "entranceRect", "fitToScreen");

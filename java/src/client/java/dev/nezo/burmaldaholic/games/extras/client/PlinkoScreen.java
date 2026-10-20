@@ -326,9 +326,6 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 			clearWidgets();
 			dev.nezo.burmaldaholic.games.extras.client.pvp.plinko.PlinkoBattleEntries.layout(font, this::addRenderableWidget, o.x() + 12, o.y() + 26,
 				o.w() - 24, state(), risk.id(), () -> Math.max(1, bet.amount()), this::sendAction, this::rebuildBattle, v.busy());
-	/** The Plinko Battle toggle's label key (the mode's short name). */
-	static final String BATTLE_TOGGLE = "gui.burmaldaholic.pvp.plinko.title";
-
 		} else {
 			clearWidgets();
 		}
@@ -337,6 +334,9 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	private void rebuildBattle() {
 		chrome.relayout();
 	}
+
+	/** The Plinko Battle toggle's label key (the mode's short name). */
+	static final String BATTLE_TOGGLE = "gui.burmaldaholic.pvp.plinko.title";
 
 	private Box battleBox() {
 		Box side = scene.side();
