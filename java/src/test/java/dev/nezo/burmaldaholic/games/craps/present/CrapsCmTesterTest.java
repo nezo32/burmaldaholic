@@ -207,6 +207,45 @@ class CrapsCmTesterTest {
 		assertTrue(worst <= maxPos, "first roll of a fresh table: the hand moves " + worst + " u/ms (limit " + maxPos + ")");
 	}
 
+	/**
+	 * T-CM re-test of M1 (review of the dev's rewrite, which only checks a roll arriving AFTER the 1.1 s home move): a
+	 * spectator gets the new shooter's side and that shooter's throw close together (a shooter left and the next one
+	 * rolled at once, or both states bunched on a bad connection: 0 / 150 / 600 ms apart). Each frame shows dice home
+	 * (homePose) until the roll, then the throw (pose); the step between consecutive frames must stay ≤ 1.25 × the
+	 * throw's own fastest per-ms step.
+	 */
+	@Test
+	void sideChangeBunchedWithTheRollDoesNotJump() {
+		DiceRoll next = CrapsThrow.solve(CrapsThrow.LEFT, 4242, 5, 2, 0);
+		double maxPos = Math.max(naturalStep(next)[0] * 1.25, 0.05);
+		StringBuilder bad = new StringBuilder();
+		for (int gap : new int[] {0, 150, 600}) {
+			double[] now = {-20_000};
+			CrapsRollClock c = new CrapsRollClock(() -> now[0]);
+			c.nextSide(CrapsThrow.RIGHT);
+			c.onRoll(1, 9000, PREV_R, CrapsThrow.RIGHT);
+			now[0] = 0;
+			DieSample a = new DieSample(), b = new DieSample();
+			c.homePose(0, a);
+			double worst = 0;
+			boolean rolled = false;
+			for (int ms = 0; ms <= 1500; ms++) {
+				now[0] = ms;
+				if (ms == 0) c.nextSide(CrapsThrow.LEFT);
+				if (ms == gap) {
+					c.onRoll(2, 0, next, CrapsThrow.LEFT);
+					rolled = true;
+				}
+				if (rolled) c.pose(0, Math.min(c.t(), next.restMs()), b);
+				else c.homePose(0, b);
+				worst = Math.max(worst, dist(a, b));
+				a.set(b);
+			}
+			if (worst > maxPos) bad.append("gap ").append(gap).append(" ms: ").append(worst).append(" u in one ms; ");
+		}
+		assertTrue(bad.length() == 0, "spectator side change + roll: " + bad + "(limit " + maxPos + ")");
+	}
+
 	/** The stick drags the dice home without overlap and leaves them exactly at the release points (next hand = no jump). */
 	@Test
 	void theStickKeepsTheDiceApartAndLeavesThemAtTheHand() {

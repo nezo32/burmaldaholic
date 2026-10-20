@@ -98,6 +98,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		Roll r = roll(f, pos, 5, 3);
 		strip(f, r, "point", errors);
 		// T-CM V7 / V3 positive controls: point 8 on and settled -> the ring is gold; no banner -> COME is printed
+		banner(f, false); // the control: no banner -> COME is printed
 		probeRingAndCome(f, shot(f, r, r.beats.IDLE + 1, "point", "tcm_ring_on"), 8, true, errors);
 		for (Size s : new Size[] {K4_AUTO, S427, S640, S960, FRAMED}) {
 			if (!resize(f, s, errors)) continue;
@@ -120,9 +121,11 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		shot(f, seven, seven.beats.BADGE + 120, "seven_out", "badge");
 		shot(f, seven, seven.beats.PUCK + 300, "seven_out", "puck_glide");
 		shot(f, seven, seven.beats.CHIPS + 150, "seven_out", "take_mid");
+		banner(f, true); // V3 deterministically: the result banner is up (60 s) whatever the real-time banner did
 		Path taken = shot(f, seven, seven.beats.TRAVEL + 400, "seven_out", "taken");
 		// T-CM V7: after the seven-out the puck is OFF -> no gold ring on 8; V3: while the banner is up COME is not printed
 		probeRingAndCome(f, taken, 8, false, errors);
+		banner(f, false);
 
 		// case 3: 1 + 1 on the come-out (craps): the Pass line is taken
 		settle(f, seven);
@@ -598,6 +601,16 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 	 * while the result banner is up the COME word's box outside the banner holds no felt-print ink (the word is hidden),
 	 * and with no banner it does (positive control).
 	 */
+	/** T-CM: forces the result banner up (60 s, a loss) or hides it, on the screen's own chrome. */
+	private static void banner(RealFlow f, boolean up) {
+		f.client(mc -> {
+			var b = ((CrapsScreen) mc.gui.screen()).chrome().banner;
+			if (up) b.show(net.minecraft.network.chat.Component.translatable(dev.nezo.burmaldaholic.core.ui.v2.V2Keys.BANNER_YOU_LOST), -50, 60_000);
+			else b.hide();
+			return Boolean.TRUE;
+		});
+	}
+
 	private static void probeRingAndCome(RealFlow f, Path shot, int point, boolean ringOn, List<String> errors) {
 		if (framed(f)) return;
 		BufferedImage img = read(shot, errors);
@@ -632,6 +645,6 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		System.out.println("[T-CM] " + vp.w() + " COME ink outside the banner: " + ink + " (banner " + banner + ")");
 		if (banner && ink > 0) errors.add("T-CM V3 " + vp.w() + ": COME word shows " + ink + " px beside the banner " + bb);
 		if (!banner && ink == 0) errors.add("T-CM V3 control " + vp.w() + ": no COME ink without a banner (probe broken)");
-		if (!ringOn && !banner) System.out.println("[T-CM] V3 not exercised: no banner at the seven-out shot");
+		if (!ringOn && !banner) errors.add("T-CM V3 " + vp.w() + ": the forced banner is not up at the seven-out shot (probe not exercised)");
 	}
 }
