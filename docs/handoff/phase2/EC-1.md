@@ -77,7 +77,19 @@ Branch `p2/ec1`, from `feature/v020-table-ui`. Spec: `.burmaldaholic-tools/findi
 - **Tests updated:** EconomyGameTests, JavaReviewGameTests m2, CoreClientGameTests and RealFlowClientGameTests (cashier and cashierShop now use the counter targets), ConfigBinderTest.
 
 ## Verified
-See the report for the exact results.
+Owner decision: 26.3 only. Every run used `-Pmc=26.3`, except the first compile and unit pass, which also ran on 26.2.
+- **Compile:** `compileJava compileClientJava compileGametestJava -Pmc=26.3`. It compiled as part of the test and GameTest runs below.
+  - Two standalone attempts died with JVM out-of-memory (machine-wide); the retries compiled.
+  - The 26.2 compile also passed earlier.
+- **Unit tests (26.3):** EconomyGuardsTest 6, ExchangeMathTest 5, StoreCatalogTest 6, CounterLayoutTest 2, ConfigBinderTest 5, ConfigSpecCoverageTest 2, InputsTest 5, RawInputGuardTest 1. All passed.
+- **Server GameTests (26.3, through `TableNetworking.receive` and `StoreService.receive`):**
+  - `counter_game_tests`: 8/8 passed. Covers exchange all with a near-full inventory and no drops, Max out with 3 free slots = 192, the balance cap, two "all" actions in the same tick, the state rows, golden apple ×64 → 8, elytra End-only at Platinum, merchant out of range.
+  - `economy_game_tests`: 6/6 passed.
+  - `java_review_game_tests_m2`: 2/2 passed.
+- **Client run (26.3, `BURMALDAHOLIC_CGT=EC`):** only `CounterClientGameTests`, via a temporary entrypoint swap that was restored afterwards. BUILD SUCCESSFUL.
+  - Ran at 1920×1080 GUI 4, 1280×720 GUI 3 (narrow) and RU 1920×1080.
+  - Covered: Shift+click ×1 → 64, → / Enter / Shift+Enter / ← / Ctrl+Enter, the chip button + Withdraw, A, key 2, `/` search (EN "bread", RU "хлеб"), Enter buys 1, Shift+click ×16 → 64, key 1, Esc. Every check asserts server state; the chat log confirms each step in EN and RU.
+- **Not run:** the full suites. `RealFlowClientGameTests` (cashier and cashierShop were rewritten for the counter) and `CoreClientGameTests` were not run; they belong to their lanes.
 
 ## Not done / requests
 - **The counting tray animation of the old CashierScreen was dropped.** The moves are still recorded (`tray` in the state), but nothing draws them yet.
