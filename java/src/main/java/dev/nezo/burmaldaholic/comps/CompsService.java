@@ -112,7 +112,7 @@ public final class CompsService {
 			case CompsRules.NETHERITE -> c.netherite;
 			default -> 0;
 		};
-		return Double.isFinite(r) ? Math.max(0, Math.min(0.5, r)) : 0;
+		return dev.nezo.burmaldaholic.core.economy.RebateCaps.cashback(r);
 	}
 
 	/** Comp rate of the player's tier, after the comp + cashback ≤ 0.35 clamp. */
@@ -130,9 +130,6 @@ public final class CompsService {
 	static void onPlayResolved(ServerPlayer player, CasinoEvents.PlayResult result) {
 		if (!enabled() || !CasinoMode.isEnabled(player)) {
 			return;
-		}
-		if (!result.deferred()) {
-			LAST_ACTIVITY.put(player.getUUID(), player.level().getServer().overworld().getGameTime());
 		}
 		if (!eligible(result)) {
 			return;
@@ -395,6 +392,7 @@ public final class CompsService {
 				sampleActivity(p, now);
 				if (server.getTickCount() % 100 == 0) {
 					FreeBets.sweepExpired(p);
+					Rentals.sweepSticks(p);
 				}
 			}
 			Rentals.tick(server);

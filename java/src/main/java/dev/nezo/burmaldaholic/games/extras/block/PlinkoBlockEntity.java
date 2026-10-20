@@ -140,7 +140,7 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		double[] table = table(risk);
 		long token = tokenOffer(player); // EC-2: a free-bet token in the main hand is the stake
 		long bet = token > 0 ? token : args.getLongOr("amount", 0);
-		Result<Long> placed = token > 0 ? placeTokenBet(player, token, false)
+		Result<Long> placed = token > 0 ? placeTokenBet(player, minBetFor(risk), maxFor(player), false)
 			: placeBet(player, bet, minBetFor(risk), maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
 		if (!placed.isOk()) {
 			return;

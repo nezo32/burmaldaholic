@@ -99,8 +99,7 @@ public final class VipRules {
 			return 0;
 		}
 		int i = Math.min(tier, MAX_TIER) - GOLD;
-		double r = i < rates.length ? rates[i] : 0;
-		return Double.isFinite(r) ? Math.max(0, Math.min(0.5, r)) : 0;
+		return dev.nezo.burmaldaholic.core.economy.RebateCaps.cashback(i < rates.length ? rates[i] : 0);
 	}
 
 	/** Contract reward bonus (fraction): Silver {@code silver}, Gold and above {@code gold}. */
@@ -160,7 +159,7 @@ public final class VipRules {
 	public static final double[] DEFAULT_COMP_RATES = {0.10, 0.12, 0.15, 0.18, 0.22, 0.25};
 
 	/** Combined cap of comp rate + cashback rate per tier (EC-SPEC §4.1: ≥ 65 % of the edge always stays). */
-	public static final double COMPS_PLUS_CASHBACK_CAP = 0.35;
+	public static final double COMPS_PLUS_CASHBACK_CAP = dev.nezo.burmaldaholic.core.economy.RebateCaps.MAX_COMP_PLUS_CASHBACK;
 
 	/**
 	 * EC-2: comp-point rate of a tier, clamped so {@code comp + cashback ≤ 0.35}. {@code rates} = Bronze..Netherite.
@@ -171,11 +170,7 @@ public final class VipRules {
 		}
 		int t = clamp(tier);
 		double r = t < rates.length ? rates[t] : rates[rates.length - 1];
-		if (!Double.isFinite(r) || r <= 0) {
-			return 0;
-		}
-		double room = Math.max(0, COMPS_PLUS_CASHBACK_CAP - cashbackRate(t, cashback));
-		return Math.min(r, room);
+		return dev.nezo.burmaldaholic.core.economy.RebateCaps.comp(r, cashbackRate(t, cashback));
 	}
 
 	private static final String P = "gui.burmaldaholic.vip.perk.";

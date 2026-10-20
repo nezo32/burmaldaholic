@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.comps.logic;
 
+import dev.nezo.burmaldaholic.core.economy.RebateCaps;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,7 +36,7 @@ public final class CompsRules {
 	}
 
 	/** Combined cap: comp rate + cashback rate ≤ 0.35, so at least 65 % of the edge always stays with the house. */
-	public static final double CAP_WITH_CASHBACK = 0.35;
+	public static final double CAP_WITH_CASHBACK = RebateCaps.MAX_COMP_PLUS_CASHBACK;
 
 	/** Comp rate of a tier ({@code rates} Bronze..Netherite), clamped to {@code 0.35 − cashbackRate}. */
 	public static double rate(int tier, double[] rates, double cashbackRate) {
@@ -43,12 +44,7 @@ public final class CompsRules {
 			return 0;
 		}
 		int t = Math.max(0, Math.min(tier, rates.length - 1));
-		double r = rates[t];
-		if (!Double.isFinite(r) || r <= 0) {
-			return 0;
-		}
-		double cb = Double.isFinite(cashbackRate) ? Math.max(0, cashbackRate) : 0;
-		return Math.min(r, Math.max(0, CAP_WITH_CASHBACK - cb));
+		return RebateCaps.comp(rates[t], cashbackRate);
 	}
 
 	/** {@code balance + add}, never above {@link #CAP_MILLI}, never negative. */

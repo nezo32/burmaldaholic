@@ -49,6 +49,7 @@ public final class Rentals {
 
 	static AttachmentType<Rental> TYPE;
 	private static final String STICK_TAG = "burmaldaholic_rental";
+	private static final String STICK_UNTIL = "burmaldaholic_rental_until";
 	/** Loaded rental entities: entity UUID → dimension. */
 	private static final Map<UUID, ResourceKey<Level>> LIVE = new HashMap<>();
 
@@ -110,7 +111,8 @@ public final class Rentals {
 		if (mob instanceof AbstractHorse horse) {
 			horse.tameWithName(player);
 		}
-		mob.setAttached(TYPE, new Rental(player.getUUID(), level.getServer().overworld().getGameTime() + ticks));
+		long until = level.getServer().overworld().getGameTime() + ticks;
+		mob.setAttached(TYPE, new Rental(player.getUUID(), until));
 		if (!level.addFreshEntity(mob)) {
 			return false;
 		}
@@ -119,6 +121,7 @@ public final class Rentals {
 			ItemStack stick = new ItemStack(Items.WARPED_FUNGUS_ON_A_STICK);
 			CompoundTag tag = new CompoundTag();
 			tag.putBoolean(STICK_TAG, true);
+			tag.putLong(STICK_UNTIL, until); // swept wherever a player carries it after this (T-EC2 L5)
 			stick.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
 			Inventories.giveOrDrop(player, stick);
 		}
@@ -177,12 +180,41 @@ public final class Rentals {
 	}
 
 	private static void removeSticks(ServerPlayer player) {
-		var inv = player.getInventory();
-		for (int i = 0; i < inv.getContainerSize(); i++) {
-			ItemStack s = inv.getItem(i);
-			CustomData d = s.isEmpty() ? null : s.get(DataComponents.CUSTOM_DATA);
-			if (d != null && s.is(Items.WARPED_FUNGUS_ON_A_STICK) && d.copyTag().getBooleanOr(STICK_TAG, false)) {
-				inv.setItem(i, ItemStack.EMPTY);
+		removeSticks(player.getInventory(), Long.MAX_VALUE);
+		removeSticks(player.getEnderChestInventory(), Long.MAX_VALUE);
+	}
+
+	/** Removes rental sticks from {@code c}: all of them ({@code now = MAX}), or those whose rental ended by {@code now}. */
+	static int removeSticks(net.minecraft.world.Container c, long now) {
+		int n = 0;
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack s = c.getItem(i);
+			CustomData d = s.isEmpty() || !s.is(Items.WARPED_FUNGUS_ON_A_STICK) ? null : s.get(DataComponents.CUSTOM_DATA);
+			if (d == null) {
+				continue;
+			}
+			CompoundTag tag = d.copyTag();
+			if (tag.getBooleanOr(STICK_TAG, false) && (now == Long.MAX_VALUE || tag.getLongOr(STICK_UNTIL, 0) <= now)) {
+				c.setItem(i, ItemStack.EMPTY);
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Every few seconds: rental sticks past their rental, wherever a player has them (inventory, ender chest, the open
+	 * container — e.g. one taken back out of a chest), are removed (T-EC2 L5).
+	 */
+	static void sweepSticks(ServerPlayer player) {
+		long now = player.level().getServer().overworld().getGameTime();
+		removeSticks(player.getInventory(), now);
+		removeSticks(player.getEnderChestInventory(), now);
+		for (net.minecraft.world.inventory.Slot slot : player.containerMenu.slots) {
+			ItemStack s = slot.getItem();
+			CustomData d = s.isEmpty() || !s.is(Items.WARPED_FUNGUS_ON_A_STICK) ? null : s.get(DataComponents.CUSTOM_DATA);
+			if (d != null && d.copyTag().getBooleanOr(STICK_TAG, false) && d.copyTag().getLongOr(STICK_UNTIL, 0) <= now && slot.mayPickup(player)) {
+				slot.set(ItemStack.EMPTY);
 			}
 		}
 	}

@@ -28,6 +28,7 @@ public final class TableNetworking {
 			return;
 		}
 		if (player.level().getBlockEntity(payload.pos()) instanceof CasinoTableBlockEntity table) {
+			dev.nezo.burmaldaholic.core.events.PlayerActivity.touch(player, payload.action()); // EC-2 activity gate
 			try {
 				table.handleAction(player, payload.action(), payload.args());
 			} catch (RuntimeException e) {

@@ -3476,6 +3476,9 @@ Package EC-2 (`EC-SPEC.md` §4–5): comp points, redemptions, free-bet tokens, 
 | `gui.burmaldaholic.comps.limit` | %1$s/%2$s today | %1$s/%2$s сегодня |
 | `gui.burmaldaholic.comps.busy` | One moment… | Секунду… |
 | `gui.burmaldaholic.comps.token_invalid` | That free-bet token can't be used | Эту фишку бесплатной ставки нельзя использовать |
+| `gui.burmaldaholic.comps.token_under_min` | A %1$s free bet is below this table's minimum (%2$s) | Бесплатная ставка %1$s меньше минимума стола (%2$s) |
+| `gui.burmaldaholic.comps.token_over_max` | A %1$s free bet is above your maximum here (%2$s) | Бесплатная ставка %1$s больше вашего максимума здесь (%2$s) |
+| `gui.burmaldaholic.comps.token_no_bet` | This machine has no %1$s bet for you | На этом автомате нет ставки %1$s для вас |
 | `gui.burmaldaholic.comps.daily.title` | Daily bonus | Ежедневный бонус |
 | `gui.burmaldaholic.comps.daily.claim` | Claim %1$s | Забрать %1$s |
 | `gui.burmaldaholic.comps.daily.wait` | Claimed · next in %1$s | Получен · следующий через %1$s |

@@ -473,6 +473,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 
 	/** Same; {@code detail} enriches the reported {@link PlayResult} (tags, the bet's own edge). */
 	public void settle(UUID player, long payout, @Nullable UnaryOperator<PlayResult> detail) {
+		settle(player, payout, -1, -1, detail);
+	}
+
+	/**
+	 * Same, naming the free-bet token's own hand (T-EC2 D1, blackjack): a token stake is settled against that hand's
+	 * stake / return only; split hands and insurance are plain chips. {@code tokenHandStake < 0} = the whole round
+	 * is the token's hand. Ignored for chip stakes.
+	 */
+	public void settle(UUID player, long payout, long tokenHandStake, long tokenHandReturn, @Nullable UnaryOperator<PlayResult> detail) {
 		List<OpenStake> mine = new ArrayList<>();
 		openStakes.values().removeIf(s -> {
 			if (s.player().equals(player)) {
@@ -497,18 +506,18 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			}
 		}
 		Token token = mine.stream().map(OpenStake::token).filter(java.util.Objects::nonNull).findFirst().orElse(null);
-		pay(new OpenStake(player, "", amount, reserved, first.bankroll(), token), payout, detail);
+		pay(new OpenStake(player, "", amount, reserved, first.bankroll(), token), payout, tokenHandStake, tokenHandReturn, detail);
 	}
 
 	/** Settles one bet of {@link #placeBet(ServerPlayer, String, long, long, long, long, boolean)}. */
 	public void settleBet(UUID player, String bet, long payout, @Nullable UnaryOperator<PlayResult> detail) {
 		OpenStake s = openStakes.remove(new StakeKey(player, bet));
 		if (s != null) {
-			pay(s, payout, detail);
+			pay(s, payout, -1, -1, detail);
 		}
 	}
 
-	private void pay(OpenStake s, long payout, @Nullable UnaryOperator<PlayResult> detail) {
+	private void pay(OpenStake s, long payout, long tokenHandStake, long tokenHandReturn, @Nullable UnaryOperator<PlayResult> detail) {
 		if (!(level instanceof ServerLevel serverLevel)) {
 			return;
 		}
@@ -519,7 +528,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			eco.bankrolls(server).release(s.bankroll(), s.reserved());
 		}
 		if (s.token() != null) {
-			payToken(server, s, payout);
+			payToken(server, s, payout, tokenHandStake, tokenHandReturn);
 		} else if (payout > 0) {
 			AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());
 			// Review m8: the returned stake is the player's own money (never garnished); only the winnings are a
@@ -546,9 +555,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	}
 
 	/** EC-2: a token round (house tables only): the token part is never paid back as chips (EC-SPEC §4.3). */
-	private void payToken(MinecraftServer server, OpenStake s, long payout) {
+	private void payToken(MinecraftServer server, OpenStake s, long payout, long handStake, long handReturn) {
 		Token t = s.token();
-		TokenSettle.Settlement r = TokenSettle.settle(s.amount(), t.covered(), payout, t.fullWin());
+		TokenSettle.Settlement r = handStake < 0 ? TokenSettle.settle(s.amount(), t.covered(), payout, t.fullWin())
+			: TokenSettle.settleHand(payout, handStake, handReturn, t.covered(), t.fullWin());
 		long chipsBack = Math.min(r.credit(), Math.max(0, s.amount() - t.covered()));
 		credit(server, AccountId.HOUSE, s.player(), chipsBack, new Transaction(gameId(), "stake_return", Transaction.Kind.TRANSFER), s);
 		credit(server, AccountId.HOUSE, s.player(), r.credit() - chipsBack, Transaction.payout(gameId()), s);
@@ -571,13 +581,16 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 
 	/**
 	 * EC-2: opens the player's main stake ({@code bet = ""}) with the token in the main hand instead of chips. The
-	 * stake is {@code min(amount, token value)}; nothing is debited. Later raises (doubles, splits, insurance) go
-	 * through {@code placeBet} in chips and keep the token on the stake. Never at an owned table.
+	 * stake is the token's whole value; nothing is debited. Later raises (doubles, splits, insurance) go through
+	 * {@code placeBet} in chips and keep the token on the stake. Never at an owned table. The token must fit the
+	 * player's limits here ({@code min ≤ value ≤ max}, T-EC2 L2), else it is refused and kept.
 	 *
+	 * @param min     the player's minimum bet here
+	 * @param max     the player's maximum bet here (table, owner and VIP tier)
 	 * @param fullWin slots: the whole win is credited (no push rule)
 	 * @return the open stake, or the translated error (already sent to the player's screen)
 	 */
-	protected Result<Long> placeTokenBet(ServerPlayer player, long amount, boolean fullWin) {
+	protected Result<Long> placeTokenBet(ServerPlayer player, long min, long max, boolean fullWin) {
 		if (ownership().isPresent()) {
 			return fail(player, Component.translatable("gui.burmaldaholic.error.pawn_owned_table"));
 		}
@@ -588,11 +601,21 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (err != null) {
 			return fail(player, err);
 		}
-		FreeBetTokens.Held h = FreeBetTokens.take(player, gameId());
-		if (h == null || h.value() <= 0) {
+		FreeBetTokens.Held peek = FreeBetTokens.peek(player, gameId());
+		if (peek == null || peek.value() <= 0) {
 			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_invalid"));
 		}
-		long stake = Math.max(1, Math.min(amount, h.value()));
+		if (peek.value() < min) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_under_min", Texts.chips(peek.value()), Texts.chips(min)));
+		}
+		if (max > 0 && peek.value() > max) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_over_max", Texts.chips(peek.value()), Texts.chips(max)));
+		}
+		FreeBetTokens.Held h = FreeBetTokens.take(player, gameId());
+		if (h == null) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_invalid"));
+		}
+		long stake = h.value();
 		OpenStake open = new OpenStake(player.getUUID(), "", stake, 0, "", new Token(h.value(), stake, h.expires(), fullWin));
 		openStakes.put(open.key(), open);
 		setChanged();

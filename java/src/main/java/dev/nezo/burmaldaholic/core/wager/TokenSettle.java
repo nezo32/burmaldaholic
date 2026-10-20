@@ -17,21 +17,35 @@ public final class TokenSettle {
 	public record Settlement(long credit, boolean returnToken) {}
 
 	/**
-	 * @param totalStake  everything at risk in the round (token part + chips added later)
-	 * @param covered     the part of {@code totalStake} the token stood for (no chips were debited for it)
-	 * @param totalReturn the game's total return for the round (stake included)
-	 * @param fullWin     slots: the whole return is credited, no push rule
+	 * One-hand rounds (wheel, plinko, slots, a blackjack seat that never split or insured): the whole round is the
+	 * token's hand. Same as {@link #settleHand} with the hand = the round.
 	 */
 	public static Settlement settle(long totalStake, long covered, long totalReturn, boolean fullWin) {
+		return settleHand(totalReturn, totalStake, totalReturn, covered, fullWin);
+	}
+
+	/**
+	 * The token belongs to ONE hand only (T-EC2 D1): blackjack's original hand. Other split hands and insurance are
+	 * plain chips and get their full return.
+	 *
+	 * @param totalReturn everything the round returns (all hands + insurance)
+	 * @param handStake   the token hand's stake (token + chips its double added)
+	 * @param handReturn  the token hand's return
+	 * @param covered     the token's part of {@code handStake} (no chips were debited for it)
+	 * @param fullWin     slots: the whole return is credited, no push rule
+	 */
+	public static Settlement settleHand(long totalReturn, long handStake, long handReturn, long covered, boolean fullWin) {
 		long ret = Math.max(0, totalReturn);
-		long cov = Math.max(0, Math.min(covered, Math.max(0, totalStake)));
 		if (fullWin) {
 			return new Settlement(ret, false);
 		}
-		if (ret > 0 && ret == totalStake) {
-			return new Settlement(Math.max(0, totalStake - cov), true);
+		long hRet = Math.max(0, Math.min(handReturn, ret));
+		long others = ret - hRet;
+		long cov = Math.max(0, Math.min(covered, Math.max(0, handStake)));
+		if (handStake > 0 && hRet == handStake) {
+			return new Settlement(others + Math.max(0, handStake - cov), true);
 		}
-		return new Settlement(Math.max(0, ret - cov), false);
+		return new Settlement(others + Math.max(0, hRet - cov), false);
 	}
 
 	/** One-bet games ({@link Stakes#settle}): {@code winnings} = chips on top of the stake. */

@@ -50,7 +50,8 @@ public final class CompsModule implements CasinoModule {
 		CompsActionPayload.TYPE = ctx.payloads().serverbound("comps_action", CompsActionPayload.CODEC,
 			(payload, context) -> handle(context.player(), payload));
 
-		// activity gate (EC-SPEC §4.4): any interaction counts
+		// activity gate (EC-SPEC §4.4): any interaction counts, incl. table actions sent by the player
+		dev.nezo.burmaldaholic.core.events.PlayerActivity.register(CompsService::interacted);
 		UseBlockCallback.EVENT.register((p, l, h, hit) -> touch(p));
 		UseItemCallback.EVENT.register((p, l, h) -> touch(p));
 		UseEntityCallback.EVENT.register((p, l, h, e, hit) -> touch(p));
@@ -88,10 +89,10 @@ public final class CompsModule implements CasinoModule {
 
 	/** The payload receiver (also called directly by GameTests). */
 	public static void handle(ServerPlayer player, CompsActionPayload payload) {
-		CompsService.interacted(player);
 		CompsService.watch(player);
 		boolean act = CompsActionPayload.REDEEM.equals(payload.action()) || CompsActionPayload.CLAIM_DAILY.equals(payload.action());
 		if (act) {
+			CompsService.interacted(player); // a sync (screen open / refresh) is not activity (T-EC2 L1)
 			// EC-SPEC §3: every store / comps action needs a live counter session (cashier or merchant in range, or the
 			// op command) and passes the shared 4-tick cooldown; a second action in the same tick does nothing
 			if (CounterSessions.validate(player) == null) {

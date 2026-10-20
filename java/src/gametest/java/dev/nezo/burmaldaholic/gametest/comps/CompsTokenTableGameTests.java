@@ -351,6 +351,23 @@ public class CompsTokenTableGameTests {
 		quiet(() -> {
 			helper.setBlock(AT, ExtrasModule.PLINKO.block());
 			PlinkoBlockEntity plinko = helper.getBlockEntity(AT, PlinkoBlockEntity.class);
+			var pcfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.extras().plinko;
+			double fraction = pcfg.maxBetFraction;
+			// T-EC2 L2: a token above the player's plinko max (Bronze: 100 / 5 = 20) is refused and kept
+			ServerPlayer low = player(helper, 0);
+			try {
+				low.openMenu(plinko);
+				hold(low, T, 1);
+				CompoundTag a = amount(T);
+				a.putString("risk", "low");
+				act(low, plinko, "drop", a);
+				helper.assertTrue(tokens(low) == 1 && plinko.stakeOf(low.getUUID()) == 0 && last(low) == null,
+					"a token above the plinko max is refused and kept");
+			} finally {
+				remove(helper, low);
+			}
+			pcfg.maxBetFraction = 1.0; // the rounds below: max = tier max (100) so the 50 token fits
+			try {
 			for (int i = 0; i < 24; i++) {
 				ServerPlayer p = player(helper, 0);
 				try {
@@ -365,6 +382,9 @@ public class CompsTokenTableGameTests {
 				} finally {
 					remove(helper, p);
 				}
+			}
+			} finally {
+				pcfg.maxBetFraction = fraction;
 			}
 		});
 		helper.succeed();

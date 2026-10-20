@@ -78,7 +78,7 @@ public final class VipConfig implements Validatable {
 		double[] cr = compRate.toArray();
 		String[] tiers = {"bronze", "silver", "gold", "platinum", "diamond", "netherite"};
 		for (int i = 0; i < cr.length; i++) {
-			double max = Math.max(0, 0.35 - cb[i]);
+			double max = Math.max(0, dev.nezo.burmaldaholic.core.economy.RebateCaps.MAX_COMP_PLUS_CASHBACK - cb[i]);
 			if (cr[i] > max + 1e-9) {
 				issues.clamped("compRate." + tiers[i], cr[i], max);
 				cr[i] = max;

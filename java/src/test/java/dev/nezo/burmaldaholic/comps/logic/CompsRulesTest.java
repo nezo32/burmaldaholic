@@ -44,6 +44,18 @@ class CompsRulesTest {
 	}
 
 	@Test
+	void oneClampForVipPerksAndComps() {
+		double[] cashbackGoldUp = {0.02, 0.03, 0.04, 0.10};
+		double[] comps = {0.3, 0.3, 0.3, 0.3, 0.3, 0.3};
+		for (int t = 0; t <= 5; t++) {
+			double cb = dev.nezo.burmaldaholic.vip.logic.VipRules.cashbackRate(t, cashbackGoldUp);
+			assertEquals(dev.nezo.burmaldaholic.vip.logic.VipRules.compRate(t, comps, cashbackGoldUp), CompsRules.rate(t, comps, cb), 1e-12,
+				"VIP perk line and comps runtime agree at tier " + t);
+		}
+		assertEquals(0.5, dev.nezo.burmaldaholic.core.economy.RebateCaps.cashback(0.9), 1e-12);
+	}
+
+	@Test
 	void balanceIsCappedAtTenMillion() {
 		long nearCap = CompsRules.CAP_MILLI - 5;
 		assertEquals(CompsRules.CAP_MILLI, CompsRules.addCapped(nearCap, 10));
