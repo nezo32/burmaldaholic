@@ -5,6 +5,8 @@ import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.client.table.fx.WorldQuads;
 import dev.nezo.burmaldaholic.core.anim.dice.DieSample;
 import dev.nezo.burmaldaholic.core.anim.dice.Quat;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
@@ -51,8 +53,35 @@ public final class DiceWorldDraw {
 		pose.pushPose();
 		pose.translate(s.x * h, surfaceY + s.zc * h, s.y * h);
 		pose.rotateAround(ROT, 0f, 0f, 0f);
-		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEXTURE), (p, vc) -> WorldQuads.cube(p, vc, h, UV, 136, 68, light));
+		pose.scale(h, h, h);
+		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEXTURE), cube(light));
 		pose.popPose();
+	}
+
+	/** Unit-cube geometry per packed light (no per-frame lambda; the size is in the pose). Render thread only. */
+	private static final Int2ObjectOpenHashMap<SubmitNodeCollector.CustomGeometryRenderer> CUBES = new Int2ObjectOpenHashMap<>();
+	/** Unit shadow quad per (argb, light). Render thread only. */
+	private static final Long2ObjectOpenHashMap<SubmitNodeCollector.CustomGeometryRenderer> SHADOWS = new Long2ObjectOpenHashMap<>();
+
+	private static SubmitNodeCollector.CustomGeometryRenderer cube(int light) {
+		SubmitNodeCollector.CustomGeometryRenderer r = CUBES.get(light);
+		if (r == null) {
+			if (CUBES.size() > 1024) CUBES.clear();
+			r = (p, vc) -> WorldQuads.cube(p, vc, 1f, UV, 136, 68, light);
+			CUBES.put(light, r);
+		}
+		return r;
+	}
+
+	private static SubmitNodeCollector.CustomGeometryRenderer shadowQuad(int argb, int light) {
+		long k = ((long) argb << 32) | (light & 0xFFFFFFFFL);
+		SubmitNodeCollector.CustomGeometryRenderer r = SHADOWS.get(k);
+		if (r == null) {
+			if (SHADOWS.size() > 4096) SHADOWS.clear();
+			r = (p, vc) -> WorldQuads.topRect(p, vc, -1, -1, 1, 1, 0, 0, 0, 32, 13, 32, 13, argb, light);
+			SHADOWS.put(k, r);
+		}
+		return r;
 	}
 
 	/**
@@ -70,7 +99,10 @@ public final class DiceWorldDraw {
 		float hw = (float) (1.25 * size * h);
 		float hd = (float) (0.9 * size * h);
 		int argb = ((int) Math.round(alpha * 255) << 24) | 0xFFFFFF;
-		out.submitCustomGeometry(pose, RenderTypes.entityTranslucent(SHADOW_TEXTURE),
-			(p, vc) -> WorldQuads.topRect(p, vc, cx - hw, cz - hd, cx + hw, cz + hd, surfaceY + 0.001f, 0, 0, 32, 13, 32, 13, argb, light));
+		pose.pushPose();
+		pose.translate(cx, surfaceY + 0.001f, cz);
+		pose.scale(hw, 1f, hd);
+		out.submitCustomGeometry(pose, RenderTypes.entityTranslucent(SHADOW_TEXTURE), shadowQuad(argb, light));
+		pose.popPose();
 	}
 }

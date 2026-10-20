@@ -159,3 +159,16 @@ normal solved throw from it (as Dice house mode, `DuelTimeline.shakeOffset`). Th
 the 4 gutter corners, the exact pip centres per face against the standard layout (grid 8.5/15.5/22.5; 2 and 3 top-left →
 bottom-right), and one identical pip mask (shape + shade colours) on faces 2–6. Mutation-checked: inner-bevel magenta
 texel, gutter corner, face 2 mirrored, face 6 shifted 1 px, a face-4 pip moved 4 px — all 5 now fail.
+
+### R-DCa review nits (fixed)
+1. `DiceSolver.solve` never throws for valid input: after the fallbacks a scripted drop (`scripted`) holds each die above
+   a fixed rest spot (≥ DIE_GAP apart; zone grid, else a line right of the earlier spots), drops it straight down with no
+   spin and RESTs it as an exact CubeGroup element relabelled to its face; the last die rests at the target. Pass 3 now
+   accepts only brushes (d ≥ CLACK_MIN), never a penetration. `DiceFallbackTest`: scripted drop on all fixtures × n 1–4 ×
+   targets; adversarial trays (tiny zone, zone kept out, 8×6 tray) + fixtures × 24 seeds × NATURAL/target: no throw, no
+   penetration, exact faces, scripted path reached.
+2. `DiceRollCache.key(seq, side, seed, faces, targetMs, tray)` (new); the 3-arg key is @Deprecated.
+   REQUEST CM (CrapsBoardRenderer:240, CrapsScreen:231) and DCb (DiceArena:144): switch to the 6-arg key.
+3. `DiceWorldDraw`: no per-frame lambda (unit geometry cached per light / per (argb, light); size in the pose).
+   Generator: dead pip codes 3/6 removed. `DiceRoll.events()` returns a copy; `eventList()` is a no-copy unmodifiable
+   view — REQUEST CM (CrapsScreen:1480) / DCb (DiceArena:300, :685): use `eventList()` on per-frame paths.
