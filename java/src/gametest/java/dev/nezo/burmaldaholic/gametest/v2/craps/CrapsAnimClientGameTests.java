@@ -97,6 +97,8 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		// case 1: 5 + 3 sets the point (the puck flips over to 8); the full beat strip at 480, the key beats everywhere
 		Roll r = roll(f, pos, 5, 3);
 		strip(f, r, "point", errors);
+		// T-CM V7 / V3 positive controls: point 8 on and settled -> the ring is gold; no banner -> COME is printed
+		probeRingAndCome(f, shot(f, r, r.beats.IDLE + 1, "point", "tcm_ring_on"), 8, true, errors);
 		for (Size s : new Size[] {K4_AUTO, S427, S640, S960, FRAMED}) {
 			if (!resize(f, s, errors)) continue;
 			sized(f, r, "point", errors);
@@ -118,7 +120,9 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		shot(f, seven, seven.beats.BADGE + 120, "seven_out", "badge");
 		shot(f, seven, seven.beats.PUCK + 300, "seven_out", "puck_glide");
 		shot(f, seven, seven.beats.CHIPS + 150, "seven_out", "take_mid");
-		shot(f, seven, seven.beats.TRAVEL + 400, "seven_out", "taken");
+		Path taken = shot(f, seven, seven.beats.TRAVEL + 400, "seven_out", "taken");
+		// T-CM V7: after the seven-out the puck is OFF -> no gold ring on 8; V3: while the banner is up COME is not printed
+		probeRingAndCome(f, taken, 8, false, errors);
 
 		// case 3: 1 + 1 on the come-out (craps): the Pass line is taken
 		settle(f, seven);
@@ -147,8 +151,29 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		resize(f, S480, errors);
 		f.language("en_us");
 
-		// reduced motion: no arcs, the dice fade in at rest, the wall shows a static HOT
+		// T-CM S1 on the real screen: the result arrives 2.5 s after the press; the hand shakes the whole time (no cap),
+		// the throw leaves on a release pose 80..200 ms after the result, and the board shares the screen's clock
 		settle(f, natural);
+		f.context().runOnClient(mc -> AnimClock.unfreezeForTest());
+		f.client(mc -> {
+			((CrapsScreen) mc.gui.screen()).throwClock().press();
+			return Boolean.TRUE;
+		});
+		f.context().waitTicks(50);
+		double shook = f.client(mc -> ((CrapsScreen) mc.gui.screen()).throwClock().handMs());
+		boolean waiting = f.client(mc -> ((CrapsScreen) mc.gui.screen()).throwClock().waiting());
+		if (!(shook >= 2000) || !waiting) errors.add("T-CM late result: the hand stopped shaking (" + shook + " ms, waiting " + waiting + ")");
+		boolean shared = f.client(mc -> dev.nezo.burmaldaholic.games.craps.client.CrapsRollClocks.of(pos) == ((CrapsScreen) mc.gui.screen()).throwClock());
+		if (!shared) errors.add("T-CM: the screen and the in-world board use different clocks");
+		Roll lag = roll(f, pos, 5, 6);
+		double[] ht = f.client(mc -> ((CrapsScreen) mc.gui.screen()).throwClock().handTimes());
+		boolean fromHand = f.client(mc -> ((CrapsScreen) mc.gui.screen()).throwClock().fromHand());
+		double wait = ht[1] - ht[0];
+		System.out.println("[T-CM] late result: ready " + ht[0] + " ms, release " + ht[1] + " ms, fromHand " + fromHand);
+		if (!fromHand || !(ht[0] >= 2000) || wait < 80 - 1e-6 || wait > 200 + 1e-6 || Math.abs(ht[1] % 120) > 1e-6)
+			errors.add("T-CM late result: ready " + ht[0] + " release " + ht[1] + " fromHand " + fromHand);
+		settle(f, lag);
+		// reduced motion: no arcs, the dice fade in at rest, the wall shows a static HOT
 		FxSettings.update(d -> d.reduceMotion = true);
 		f.click(CrapsLayout.PASS);
 		f.waitServer(pos, CrapsTableBlockEntity.class, be -> be.table().bets().stream().anyMatch(b -> b.kind() == BetKind.PASS), "Pass (reduced)");
@@ -566,5 +591,47 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 			return null;
 		});
 		f.context().waitTicks(20);
+	}
+
+	/**
+	 * T-CM V7 / V3 pixel probes on the shot: the point box's left edge (outline rows) is gold iff {@code ringOn};
+	 * while the result banner is up the COME word's box outside the banner holds no felt-print ink (the word is hidden),
+	 * and with no banner it does (positive control).
+	 */
+	private static void probeRingAndCome(RealFlow f, Path shot, int point, boolean ringOn, List<String> errors) {
+		if (framed(f)) return;
+		BufferedImage img = read(shot, errors);
+		if (img == null) return;
+		Viewport vp = f.viewport();
+		double sc = scale(f, img);
+		Box pb = f.client(mc -> ((CrapsScreen) mc.gui.screen()).layout().point(point));
+		Box cw = f.client(mc -> ((CrapsScreen) mc.gui.screen()).layout().comeWord);
+		boolean banner = f.client(mc -> ((CrapsScreen) mc.gui.screen()).chrome().banner.active());
+		Box bb = f.client(mc -> ((CrapsScreen) mc.gui.screen()).chrome().banner.box());
+		int gold = 0, n = 0;
+		for (int gy = pb.y() + 3; gy < pb.bottom() - 3; gy++) {
+			for (int gx = pb.x(); gx <= pb.x() + 1; gx++) {
+				int rgb = img.getRGB(clamp((int) Math.floor(vp.windowX(gx + 0.5) * sc), img.getWidth()), clamp((int) Math.floor(vp.windowY(gy + 0.5) * sc), img.getHeight()));
+				int r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
+				if (r > 200 && g > 170 && b < 120) gold++;
+				n++;
+			}
+		}
+		boolean isGold = gold * 2 > n;
+		System.out.println("[T-CM] " + vp.w() + " ring on " + point + ": gold " + gold + "/" + n + " (want " + (ringOn ? "on" : "off") + "), banner " + banner + " " + bb + ", come " + cw);
+		if (isGold != ringOn) errors.add("T-CM V7 " + vp.w() + ": ring on " + point + " gold " + gold + "/" + n + ", want " + (ringOn ? "on" : "off"));
+		int ink = 0;
+		for (int gy = cw.y(); gy < cw.bottom(); gy++) {
+			for (int gx = cw.x(); gx < cw.right(); gx++) {
+				if (banner && gx >= bb.x() - 1 && gx < bb.right() + 1 && gy >= bb.y() - 1 && gy < bb.bottom() + 1) continue;
+				int rgb = img.getRGB(clamp((int) Math.floor(vp.windowX(gx + 0.5) * sc), img.getWidth()), clamp((int) Math.floor(vp.windowY(gy + 0.5) * sc), img.getHeight()));
+				int r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
+				if (r > 170 && g > 160 && b > 100 && b < 200) ink++;
+			}
+		}
+		System.out.println("[T-CM] " + vp.w() + " COME ink outside the banner: " + ink + " (banner " + banner + ")");
+		if (banner && ink > 0) errors.add("T-CM V3 " + vp.w() + ": COME word shows " + ink + " px beside the banner " + bb);
+		if (!banner && ink == 0) errors.add("T-CM V3 control " + vp.w() + ": no COME ink without a banner (probe broken)");
+		if (!ringOn && !banner) System.out.println("[T-CM] V3 not exercised: no banner at the seven-out shot");
 	}
 }

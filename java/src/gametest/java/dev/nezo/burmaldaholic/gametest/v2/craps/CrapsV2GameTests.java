@@ -431,4 +431,107 @@ public class CrapsV2GameTests {
 		}
 		finish(helper, p);
 	}
+
+	// ---- T-CM (independent tester): money through the packet handler, bunched packets, shooter rotation -------------
+
+	private static void expect(GameTestHelper helper, ServerPlayer p, CrapsTableBlockEntity t, long bal, String step) {
+		helper.assertTrue(balance(helper, p) == bal, "T-CM " + step + ": balance " + balance(helper, p) + ", expected " + bal + " (errors " + drain(p, t).errors() + ")");
+	}
+
+	/**
+	 * Every bet kind by packet with a hand-computed oracle (true odds 6:5 / 2:1 take, 5:6 / 1:2 lay, field 1:1, come odds
+	 * off on the come-out): Pass, Don't Pass, Field (lose then win), take odds on Pass and Come, lay odds on Don't Pass and
+	 * Don't Come, Come / Don't Come travel. A repeated (bunched) Pass / Field packet is refused and costs nothing; Undo
+	 * after a roll takes nothing back. Ends at exactly 10 010 with nothing in escrow.
+	 */
+	@GameTest(maxTicks = 200)
+	public void testerEveryBetKindPaysExactlyOnceByPacket(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "tcm-money", 10_000);
+		CrapsTableBlockEntity t = open(helper, p);
+		act(p, t, "bet", flat("pass", 10));
+		act(p, t, "bet", flat("dont_pass", 10));
+		act(p, t, "bet", flat("field", 10));
+		expect(helper, p, t, 9970, "line + field");
+		act(p, t, "bet", flat("field", 10)); // bunched duplicate
+		act(p, t, "bet", flat("pass", 10));
+		expect(helper, p, t, 9970, "duplicates refused");
+		helper.assertTrue(t.table().betsOf(p.getUUID()).size() == 3, "three bets, no duplicate");
+		t.roll(4, 4); // 8: field loses, point 8
+		expect(helper, p, t, 9970, "point 8 (field lost)");
+		act(p, t, "undo", new CompoundTag());
+		expect(helper, p, t, 9970, "undo after the roll moves nothing");
+		act(p, t, "odds", odds(bet(t, p, BetKind.PASS).id(), 20));
+		act(p, t, "odds", odds(bet(t, p, BetKind.DONT_PASS).id(), 24));
+		act(p, t, "bet", flat("come", 10));
+		act(p, t, "bet", flat("dont_come", 10));
+		act(p, t, "bet", flat("field", 10));
+		expect(helper, p, t, 9896, "odds / come / don't come / field");
+		t.roll(5, 5); // 10: field wins 1:1 (20 back), come and don't come travel to 10
+		expect(helper, p, t, 9916, "field won");
+		Bet come = bet(t, p, BetKind.COME);
+		Bet dc = bet(t, p, BetKind.DONT_COME);
+		helper.assertTrue(come != null && come.point() == 10 && dc != null && dc.point() == 10, "come / don't come travelled to 10");
+		act(p, t, "odds", odds(come.id(), 10));
+		act(p, t, "odds", odds(dc.id(), 20));
+		expect(helper, p, t, 9886, "come take 10, don't come lay 20");
+		t.roll(4, 4); // point made: pass 20 + odds 20 + 24 = 64; don't pass and its lay lost; come / dc on 10 stay
+		expect(helper, p, t, 9950, "point made");
+		helper.assertTrue(t.table().point() == 0, "come-out again");
+		t.roll(3, 4); // come-out 7: come@10 loses its flat, odds off -> 10 back; don't come@10 wins 20 + 20 + 10 = 50
+		expect(helper, p, t, 10_010, "come-out seven");
+		helper.assertTrue(t.table().betsOf(p.getUUID()).isEmpty(), "no bet left: " + t.table().betsOf(p.getUUID()));
+		helper.assertTrue(t.escrowed() == 0, "nothing in escrow: " + t.escrowed());
+		t.roll(3, 4); // nothing on the table: nothing paid twice
+		expect(helper, p, t, 10_010, "a further roll pays nothing");
+		finish(helper, p);
+	}
+
+	/** Two Roll packets in one tick (bunched / double click) roll once; the second is refused and changes nothing. */
+	@GameTest(maxTicks = 200)
+	public void testerBunchedRollPacketsRollOnce(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "tcm-roll", 1000);
+		CrapsTableBlockEntity t = open(helper, p);
+		act(p, t, "bet", flat("pass", 10));
+		helper.assertTrue(p.getUUID().equals(t.table().shooter()), "the lone player shoots");
+		int before = t.table().rollCount();
+		drain(p, t);
+		act(p, t, "roll", new CompoundTag());
+		long afterFirst = balance(helper, p);
+		long escrow = t.escrowed();
+		act(p, t, "roll", new CompoundTag());
+		act(p, t, "roll", new CompoundTag());
+		helper.assertTrue(t.table().rollCount() == before + 1, "rolled once: " + (t.table().rollCount() - before));
+		helper.assertTrue(balance(helper, p) == afterFirst && t.escrowed() == escrow, "the extra Roll packets moved no money");
+		Sent s = drain(p, t);
+		helper.assertTrue(!s.errors().isEmpty(), "the extra Roll packets are answered with a reason");
+		helper.assertTrue(s.state() != null && s.state().getIntOr("rest_ms", 0) == t.restMs(), "the state carries the server's rest time");
+		finish(helper, p);
+	}
+
+	/** Shooter rotation: a seven-out passes the dice to the next seated player; the old shooter's Roll is refused. */
+	@GameTest(maxTicks = 200)
+	public void testerSevenOutPassesTheDice(GameTestHelper helper) {
+		ServerPlayer a = player(helper, "tcm-a", 1000);
+		CrapsTableBlockEntity t = open(helper, a);
+		ServerPlayer b = player(helper, "tcm-b", 1000);
+		helper.useBlock(new BlockPos(1, 1, 1), b);
+		act(a, t, "bet", flat("pass", 10));
+		act(b, t, "bet", flat("pass", 10));
+		helper.assertTrue(t.isSeated(a) && t.isSeated(b), "both seated");
+		UUID first = t.table().shooter();
+		helper.assertTrue(first != null, "a shooter");
+		t.roll(3, 3); // point 6
+		t.roll(5, 2); // seven-out
+		UUID next = t.table().shooter();
+		helper.assertTrue(next != null && !next.equals(first), "the dice pass on a seven-out: " + first + " -> " + next);
+		ServerPlayer old = a.getUUID().equals(first) ? a : b;
+		act(a, t, "bet", flat("pass", 10));
+		act(b, t, "bet", flat("pass", 10));
+		drain(old, t);
+		int rc = t.table().rollCount();
+		act(old, t, "roll", new CompoundTag());
+		helper.assertTrue(t.table().rollCount() == rc && drain(old, t).errors().contains("gui.burmaldaholic.error.not_your_turn"), "the old shooter cannot roll");
+		helper.assertTrue(balance(helper, a) == 980 && balance(helper, b) == 980, "two lost Pass bets + two new ones: " + balance(helper, a) + " / " + balance(helper, b));
+		finish(helper, a, b);
+	}
 }
