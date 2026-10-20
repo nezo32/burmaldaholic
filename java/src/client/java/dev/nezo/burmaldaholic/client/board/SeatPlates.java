@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.client.board;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.nezo.burmaldaholic.core.table.parts.FeltFrame;
 import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry;
+import dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale;
 import dev.nezo.burmaldaholic.core.ui.v2.board.PlateLayout;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -23,7 +24,7 @@ final class SeatPlates {
 	private static final int RAIL_SAMPLES = 8;
 	static final int MAX_OBS = BoardModel.MAX_CARDS + BoardModel.MAX_STACKS + BoardModel.MAX_CONTENT + 1 + 4 * RAIL_SAMPLES;
 	/** Below this fade a plate is not drawn at all (vanilla text treats alpha < 4/255 as opaque). */
-	static final float MIN_ALPHA = 0.04f;
+	static final float MIN_ALPHA = HoloScale.MIN_ALPHA;
 
 	// scratch (render thread only)
 	private static final int MP = BoardModel.MAX_PLATES;
@@ -97,7 +98,6 @@ final class SeatPlates {
 		PlateLayout.place(AU, AV, W, H, ORDER, n, O0, O1, OT, obs, GAP, m.plateShift, OU, OV, LEADER, LAYOUT);
 		long key = s.blockPos.asLong();
 		PlateLayout.TablePlates frame = PlateFrame.table(key, PlateFrame.rank(s));
-		float step = PlateFrame.dtNs() / (float) PlateFrame.FADE_NS;
 		float top = contentTop;
 		for (int a = 0; a < n; a++) {
 			int i = ORDER[a];
@@ -108,10 +108,10 @@ final class SeatPlates {
 			frame.add(id, x0, y0, x1, y1, want);
 			if (p.seenFrame != PlateFrame.previous()) p.alpha = 0; // not drawn last frame: fade in
 			p.seenFrame = PlateFrame.current();
-			p.alpha = want ? Math.min(1, p.alpha + step) : Math.max(0, p.alpha - step);
+			p.alpha = HoloScale.plateFade(p.alpha, want, PlateFrame.dtNs());
 			top = Math.max(top, OV[i] + H[i]);
 			PlateFrame.drawn(x0, y0, x1, y1, p.alpha >= 0.5f);
-			if (p.alpha < MIN_ALPHA) continue;
+			if (!HoloScale.drawn(p.alpha)) continue;
 			// every plate lives in the camera plane through the table centre: one depth, so the plane layout (disjoint
 			// rectangles) is exactly what the screen shows — no perspective overlap between near and far seats
 			f.onPlane(OU[i], OV[i] + px, B);

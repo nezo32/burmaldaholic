@@ -41,6 +41,80 @@ public final class BoardGeometry {
 	/** Layer step between overlapping cards (no z-fighting). */
 	public static final float LAYER = 0.0015f;
 
+	/**
+	 * Flat layers above {@link #TOP} (design units; a full table scales them by its content scale ≥ 0.875), bottom to
+	 * top: the runtime felt marks, the felt texts, card shadows, chip shadows, the chip / deck base. Cards lie at
+	 * {@link #CARD_LIFT}. Each layer clears the one below by ≥ {@link #MIN_LAYER_GAP} (no z-fighting; see
+	 * BoardLayersTest), and the shadows fall ON the print, never under it.
+	 */
+	public static final float MARK_Y = 0.0010f, TEXT_Y = 0.0018f, SHADOW_Y = 0.0026f, CHIP_SHADOW_Y = 0.0034f, CHIP_BASE_Y = 0.0045f;
+	/** Smallest gap between two flat layers (design units). */
+	public static final float MIN_LAYER_GAP = 0.0008f;
+
+	/**
+	 * The deck: a squared stack of cards (visual QA round 2: the Hold'em deck read as a solid red slab). Full height of
+	 * 52 cards (≈ 1/25 of a block, a real deck at the in-world card scale); each card edge is a cream line on the sides.
+	 */
+	public static final int DECK_CARDS = 52;
+	public static final float DECK_H = 0.04f;
+
+	/** Height of a deck of {@code cards} cards (at least a few card edges while any card is left). */
+	public static float deckHeight(int cards) {
+		if (cards <= 0) return 0f;
+		return Math.max(3, Math.min(DECK_CARDS, cards)) * (DECK_H / DECK_CARDS);
+	}
+
+	/** Cream / shadow edge lines on a deck's sides: one pair per ~1 texel at 64 texels per block (≥ 2). */
+	public static int deckEdgeLines(int cards) {
+		return Math.max(2, Math.round(deckHeight(cards) * 64 * 2));
+	}
+
+	/**
+	 * Hold'em on the oval (design coordinates): the board row, the seat ring, the bets, the pot and the deck. The deck
+	 * lies at the right end of the oval, outside the seat ring (every seat count 2…10 keeps clear of it) and on the full
+	 * table's stadium felt (BoardLayersTest).
+	 */
+	public static final class Holdem {
+		private Holdem() {}
+
+		/** Seat cards are a little smaller than the board's (they sit on the rail side of the oval). */
+		public static final float SEAT_W = CARD_W * 0.78f, SEAT_H = CARD_H * 0.78f;
+		public static final float BOARD_Z = 0.40f, SEAT_R = 0.80f, BET_R = 0.50f, POT_Z = 0.74f;
+		/** The deck (centre x, z, yaw°): long side along z, past the seat ring at the right end. */
+		public static final float DECK_X = 1.65f, DECK_Z = 0.5f, DECK_YAW = 90f;
+
+		/** Board slot {@code i} (centre x, z). */
+		public static float[] board(int i) {
+			float pitch = CARD_W + 0.03f;
+			return new float[] {0.5f + (i - 2) * pitch, BOARD_Z};
+		}
+
+		/** Seat spot of table seat {@code seat} of {@code n} at radius {@code r}: {x, z, yaw}; seat 0 at the front. */
+		public static float[] seat(int seat, int n, float r) {
+			int m = Math.max(2, n);
+			double a = 2 * Math.PI * Math.floorMod(seat, m) / m;
+			return new float[] {0.5f + r * (float) Math.sin(a), 0.5f + r * (float) Math.cos(a), (float) -Math.toDegrees(a)};
+		}
+
+		/** A seat's bet: toward the centre, kept off the board row. */
+		public static float[] bet(int seat, int n) {
+			float[] b = seat(seat, n, BET_R);
+			float half = 2.5f * (CARD_W + 0.03f) + CHIP_R;
+			if (Math.abs(b[0] - 0.5f) < half && Math.abs(b[1] - BOARD_Z) < CARD_H / 2 + CHIP_R) {
+				b[1] = b[1] < BOARD_Z ? BOARD_Z - CARD_H / 2 - CHIP_R - 0.02f : BOARD_Z + CARD_H / 2 + CHIP_R + 0.02f;
+			}
+			return b;
+		}
+
+		/** Centre {x, z, yaw} of hole card {@code j} (0, 1) of seat {@code seat} of {@code n}. */
+		public static float[] holeCard(int seat, int n, int j) {
+			float[] a = seat(seat, n, SEAT_R - SEAT_H * 0.5f);
+			float off = (j - 0.5f) * SEAT_W * 0.62f;
+			double ang = Math.toRadians(a[2]);
+			return new float[] {a[0] + off * (float) Math.cos(ang), a[1] + off * (float) Math.sin(ang), a[2] + (j - 0.5f) * 8f};
+		}
+	}
+
 	/** Chip disc radius / height; an amount shows ≤ {@link #CHIP_MAX} discs, in piles of ≤ {@link #CHIP_PILE}. */
 	public static final float CHIP_R = 0.085f, CHIP_H = 0.03f;
 	public static final int CHIP_MAX = 10, CHIP_PILE = 5;

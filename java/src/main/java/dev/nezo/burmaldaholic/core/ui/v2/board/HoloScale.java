@@ -151,4 +151,40 @@ public final class HoloScale {
 	public static double glyphPx(float textPx, double distance, double fovYDeg, int screenH) {
 		return GLYPH * textPx * pxPerBlock(distance, fovYDeg, screenH);
 	}
+
+	// ---- fades (visual QA round 1 #4 ghost plates, #5 the board from above / near) -----------------------------------
+
+	/** Camera pitch (degrees, + = looking down) where the board starts fading; it is gone {@link #FADE_PITCH_SPAN}° later. */
+	public static final float FADE_PITCH = 55f, FADE_PITCH_SPAN = 10f;
+	/** Camera → board distance (blocks) where the board starts fading, and where it is gone. */
+	public static final float FADE_NEAR = 1.8f, GONE_NEAR = 1.2f;
+	/** Below this alpha a plate or the board is not drawn at all (vanilla text treats alpha < 4/255 as opaque). */
+	public static final float MIN_ALPHA = 0.04f;
+	/** A plate that loses (or wins) its place fades over this long. */
+	public static final long PLATE_FADE_NS = 150_000_000L;
+
+	/**
+	 * Alpha of the upright board for a camera pitch and the camera's distance to the board: an upright board seen from
+	 * steeply above or from right next to it is a huge trapezoid, so it fades out past 55° (gone at 65°) and inside
+	 * 1.8 blocks (gone at 1.2).
+	 */
+	public static float boardFade(float pitchDeg, float dist) {
+		float byPitch = 1f - Math.max(0f, Math.min(1f, (pitchDeg - FADE_PITCH) / FADE_PITCH_SPAN));
+		float byNear = Math.max(0f, Math.min(1f, (dist - GONE_NEAR) / (FADE_NEAR - GONE_NEAR)));
+		return Math.min(byPitch, byNear);
+	}
+
+	/**
+	 * One frame of a plate's fade toward shown ({@code want}) or hidden, {@code dtNs} after the last frame; reaches
+	 * exactly 0 / 1 (no partial "ghost" alpha is ever kept).
+	 */
+	public static float plateFade(float alpha, boolean want, long dtNs) {
+		float step = dtNs / (float) PLATE_FADE_NS;
+		return want ? Math.min(1f, alpha + step) : Math.max(0f, alpha - step);
+	}
+
+	/** Whether something at {@code alpha} is drawn. */
+	public static boolean drawn(float alpha) {
+		return alpha >= MIN_ALPHA;
+	}
 }

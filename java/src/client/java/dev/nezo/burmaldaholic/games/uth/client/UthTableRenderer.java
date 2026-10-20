@@ -100,7 +100,8 @@ public final class UthTableRenderer extends CardTableRenderer<UthTableBlockEntit
 		boolean dealing = kind == UthPub.DEAL && tl != null;
 		boolean showdown = kind == UthPub.SHOWDOWN;
 		float[] deck = deck();
-		if (kind != 0) s.card(deck[0], deck[1], 0, SEAT_W, SEAT_H, -1);
+		// the deck: a squared card stack (visual QA round 2), not a single card lying there
+		if (kind != 0) s.deck(deck[0], deck[1], 0, SEAT_W, SEAT_H, BoardGeometry.DECK_CARDS - 7 - 2 * n);
 		boolean gathered = kind == UthPub.RESULT && tl != null && beat(tl, UthBeats.GATHER, -1, t) >= 1;
 		if (kind == 0 || gathered) {
 			sounds(be, s, c, tl, t);

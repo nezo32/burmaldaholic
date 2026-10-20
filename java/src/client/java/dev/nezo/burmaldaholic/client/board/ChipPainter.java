@@ -78,7 +78,7 @@ public final class ChipPainter {
 	/** A soft octagonal shadow on the felt, offset a little away from the light (toward +x, +z). */
 	private static void shadow(PoseStack.Pose p, VertexConsumer vc, float x, float z, int light) {
 		float r = BoardGeometry.CHIP_R * SHADOW_R;
-		float y = BoardGeometry.TOP + 0.0012f;
+		float y = BoardGeometry.TOP + BoardGeometry.CHIP_SHADOW_Y;
 		float cx = x + 0.012f, cz = z + 0.016f;
 		for (int s = 0; s < SIDES; s++) {
 			Quads.v(p, vc, cx, y, cz, 0.5f, 0.5f, SHADOW, light, 0, 1, 0);
@@ -94,7 +94,7 @@ public final class ChipPainter {
 		if (n <= 0) return;
 		float r = BoardGeometry.CHIP_R;
 		float h = BoardGeometry.CHIP_H;
-		float y0 = BoardGeometry.TOP + 0.002f;
+		float y0 = BoardGeometry.TOP + BoardGeometry.CHIP_BASE_Y;
 		int i = 0;
 		while (i < n) {
 			int k = i;

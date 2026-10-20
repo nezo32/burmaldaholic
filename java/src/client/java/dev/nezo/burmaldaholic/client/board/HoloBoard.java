@@ -24,15 +24,9 @@ final class HoloBoard {
 
 	private HoloBoard() {}
 
-	/** Pitch (degrees) above which the board fades out (gone 10° later), and the near distance (blocks, gone at 1.2). */
-	static final float FADE_PITCH = 55f, FADE_NEAR = 1.8f, GONE_NEAR = 1.2f;
-
 	/** Visual QA round 1: hide the board when the camera looks down steeply (> 55°) or stands within 1.2 blocks of it. */
 	static float fade(HoloFrame f, Vector3f bottom) {
-		float byPitch = 1f - Math.max(0f, Math.min(1f, (f.pitch - FADE_PITCH) / 10f));
-		float d = f.dist(bottom);
-		float byNear = Math.max(0f, Math.min(1f, (d - GONE_NEAR) / (FADE_NEAR - GONE_NEAR)));
-		return Math.min(byPitch, byNear);
+		return HoloScale.boardFade(f.pitch, f.dist(bottom));
 	}
 
 	/** Registers the board's screen rectangle as a fixed occupant other tables' plates keep clear of ({@link PlateFrame}). */
@@ -78,7 +72,7 @@ final class HoloBoard {
 			if (v < need && f.up.y > 0.2f) P.y += (need - v) / f.up.y;
 			// an upright board seen from steeply above or from right next to it is a huge trapezoid: fade it out
 			sp.alpha = fade(f, P);
-			if (sp.alpha >= SeatPlates.MIN_ALPHA) {
+			if (HoloScale.drawn(sp.alpha)) {
 				st.backings += HoloText.panel(pose, out, font, P, f.yawOnly, s.boardPx, sp);
 				st.lines += n;
 				occupy(s, f, P, sp.width() * s.boardPx / 2, sp.height() * s.boardPx);

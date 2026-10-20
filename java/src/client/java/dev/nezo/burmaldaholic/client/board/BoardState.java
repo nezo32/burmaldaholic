@@ -54,6 +54,8 @@ public class BoardState extends SpectatorRenderState {
 	public boolean full;
 	/** The footprint-local felt of a full table (null on a compact one). */
 	public dev.nezo.burmaldaholic.core.table.parts.@Nullable FeltFrame frame;
+	/** The design → footprint mapping of a full table (null on a compact one); {@link #contentScale} / origin mirror it. */
+	public dev.nezo.burmaldaholic.core.ui.v2.board.@Nullable FullTableMap map;
 	/**
 	 * The world light at the table, unclamped: the felt print decal of a full table uses it so it darkens with the baked
 	 * furniture felt at night (cards and chips keep the readable minimum in {@code lightCoords}).
@@ -141,6 +143,24 @@ public class BoardState extends SpectatorRenderState {
 		BoardCard c = m.cards[m.cardCount++];
 		c.set(x, z, yaw, w, h, face);
 		return c;
+	}
+
+	/**
+	 * The deck at (x, z), {@code yaw}°: a squared stack of {@code cards} face-down cards of size w × h (cream edge lines
+	 * on the sides, the table's card back on top; visual QA round 2). It is an obstacle the plates stay above. One per
+	 * table; a later call replaces it.
+	 */
+	public void deck(float x, float z, float yaw, float w, float h, int cards) {
+		BoardModel m = model;
+		if (m == null || cards <= 0) return;
+		m.hasDeck = true;
+		m.deckX = x;
+		m.deckZ = z;
+		m.deckYaw = yaw;
+		m.deckW = w;
+		m.deckH = h;
+		m.deckCards = cards;
+		content(x, BoardGeometry.TOP + BoardGeometry.CHIP_BASE_Y + BoardGeometry.deckHeight(cards), z, (float) Math.sqrt(w * w + h * h) / 2);
 	}
 
 	/** A chip stack of {@code amount} chips at (x, z). */

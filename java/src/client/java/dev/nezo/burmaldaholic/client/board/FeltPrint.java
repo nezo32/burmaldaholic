@@ -29,7 +29,7 @@ final class FeltPrint {
 	/** Print inks: gold lines / spots, cream text (the generator's INK). */
 	static final int GOLD = 0xFFD8B860, CREAM = 0xE6EFE6C8;
 	/** Text lift above the felt (under the cards' 1/64). */
-	private static final float TEXT_Y = BoardGeometry.TOP + 1 / 160f, MARK_Y = BoardGeometry.TOP + 1 / 200f;
+	private static final float TEXT_Y = BoardGeometry.TOP + BoardGeometry.TEXT_Y, MARK_Y = BoardGeometry.TOP + BoardGeometry.MARK_Y;
 	/** Dealer centre of the crescent arcs (design). */
 	private static final float AX = 0.5f, AZ = 0.10f;
 

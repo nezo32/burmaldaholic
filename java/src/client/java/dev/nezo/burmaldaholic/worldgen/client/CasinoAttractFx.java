@@ -179,8 +179,9 @@ final class CasinoAttractFx {
 			type = CoreParticles.get("sparkle");
 			y = pos.getY() + 2.15;
 		} else if (path.contains("table")) {
-			type = CoreParticles.get("chip_glint");
-			y = pos.getY() + 1.1;
+			// no glint over a table: on a 3×2 table (felt at 14/16) it hung as a yellow "+" sprite over the felt print
+			// (visual QA round 1 #7, W2); the lit placard and the board already draw the eye
+			return;
 		} else {
 			type = CoreParticles.get("golden_mote");
 			y = pos.getY() + 1.2;
