@@ -40,38 +40,73 @@ public final class BetAmount {
 
 	/**
 	 * What a field amount costs on the table: {@code per × amount + extra}. Most games: the amount IS the stake
-	 * ({@link #ONE}). Ultimate Texas Hold'em: the field is the Ante, the stake is Ante + Blind (= 2 × Ante) + Trips
-	 * ({@code new Cost(2, trips)}; T-HR D1). Limits and the balance are checked against the cost, the field shows the amount.
+	 * ({@link #ONE}). A game may check its maximum and the balance against other multiples of the amount than the stake
+	 * it debits: Ultimate Texas Hold'em debits Ante + Blind + Trips ({@code 2 × Ante + Trips}), but its maximum holds the
+	 * worst case {@code 6 × Ante + Trips} and the balance must keep the river's Play bet ({@code 3 × Ante + Trips}; T-HR D5,
+	 * built by {@code UthFlow.entryCost} from {@code UthLimits}, the server's own rule). The field shows the amount.
+	 *
+	 * @param per          stake per amount (shown as "Total stake")
+	 * @param extra        stake already on the table besides the field
+	 * @param maxPer       per amount, as counted against the maximum
+	 * @param maxExtra     extra, as counted against the maximum
+	 * @param balancePer   per amount, as the balance must hold it
+	 * @param balanceExtra extra, as the balance must hold it
 	 */
-	public record Cost(long per, long extra) {
+	public record Cost(long per, long extra, long maxPer, long maxExtra, long balancePer, long balanceExtra) {
 		public Cost {
 			per = Math.max(1, per);
 			extra = Math.max(0, extra);
+			maxPer = Math.max(1, maxPer);
+			maxExtra = Math.max(0, maxExtra);
+			balancePer = Math.max(1, balancePer);
+			balanceExtra = Math.max(0, balanceExtra);
+		}
+
+		/** The stake, the maximum and the balance all count {@code per × amount + extra}. */
+		public Cost(long per, long extra) {
+			this(per, extra, per, extra, per, extra);
 		}
 
 		/** The stake of a field amount (saturating). */
 		public long of(long amount) {
-			if (amount <= 0) return extra;
-			return amount > (Long.MAX_VALUE - extra) / per ? Long.MAX_VALUE : amount * per + extra;
+			return times(amount, per, extra);
 		}
 
 		/** The largest field amount whose stake is at most {@code stake} (0 when even {@code extra} does not fit). */
 		public long amountFor(long stake) {
-			return stake <= extra ? 0 : (stake - extra) / per;
+			return fit(stake, per, extra);
+		}
+
+		/** The largest field amount the maximum {@code max} allows. */
+		public long amountUnderMax(long max) {
+			return fit(max, maxPer, maxExtra);
+		}
+
+		/** The largest field amount the balance {@code balance} allows. */
+		public long amountForBalance(long balance) {
+			return fit(balance, balancePer, balanceExtra);
 		}
 
 		public boolean identity() {
-			return per == 1 && extra == 0;
+			return per == 1 && extra == 0 && maxPer == 1 && maxExtra == 0 && balancePer == 1 && balanceExtra == 0;
+		}
+
+		private static long times(long amount, long per, long extra) {
+			if (amount <= 0) return extra;
+			return amount > (Long.MAX_VALUE - extra) / per ? Long.MAX_VALUE : amount * per + extra;
+		}
+
+		private static long fit(long budget, long per, long extra) {
+			return budget <= extra ? 0 : (budget - extra) / per;
 		}
 	}
 
 	/** The amount is the stake. */
 	public static final Cost ONE = new Cost(1, 0);
 
-	/** The largest stake allowed now: {@code min(max or room under it, balance)}; 0 = nothing. */
-	private static long stakeLimit(BetView v, Mode mode) {
-		long cap = v.max() <= 0 ? Long.MAX_VALUE : mode == Mode.UNIT ? v.roomUnderMax() : v.max();
-		return Math.max(0, Math.min(cap, v.balance()));
+	/** The maximum the amount counts against now: the max, or the room under it (UNIT); {@code Long.MAX_VALUE} = none. */
+	private static long capOf(BetView v, Mode mode) {
+		return v.max() <= 0 ? Long.MAX_VALUE : mode == Mode.UNIT ? Math.max(0, v.roomUnderMax()) : v.max();
 	}
 
 	/** The largest amount allowed now: {@code min(max or room under it, balance)}; 0 = nothing. */
@@ -79,15 +114,19 @@ public final class BetAmount {
 		return limit(v, mode, ONE);
 	}
 
-	/** The largest field amount whose {@link Cost stake} fits {@code min(max, balance)}. */
+	/** The largest field amount whose {@link Cost} fits both the maximum and the balance. */
 	public static long limit(BetView v, Mode mode, Cost cost) {
-		return cost.amountFor(stakeLimit(v, mode));
+		return Math.max(0, Math.min(cost.amountUnderMax(capOf(v, mode)), cost.amountForBalance(Math.max(0, v.balance()))));
 	}
 
 	/** Whether the balance (not a maximum) is what {@link #limit} stops at. */
 	public static boolean balanceBinds(BetView v, Mode mode) {
-		long cap = v.max() <= 0 ? Long.MAX_VALUE : mode == Mode.UNIT ? v.roomUnderMax() : v.max();
-		return v.balance() < cap;
+		return balanceBinds(v, mode, ONE);
+	}
+
+	/** {@link #balanceBinds(BetView, Mode)} for a field whose maximum and balance count different multiples. */
+	public static boolean balanceBinds(BetView v, Mode mode, Cost cost) {
+		return cost.amountForBalance(Math.max(0, v.balance())) < cost.amountUnderMax(capOf(v, mode));
 	}
 
 	/** Clamps {@code value} into {@code [min, limit]} (BET mode) or {@code [1, limit]} (UNIT), saying which bound did it. */
@@ -100,7 +139,7 @@ public final class BetAmount {
 		long lim = limit(v, mode, cost);
 		long low = mode == Mode.BET ? v.min() : 1;
 		if (value > lim) {
-			Gate why = balanceBinds(v, mode) ? BetGates.overBalance("", V2Keys.BET, v) : BetGates.aboveMax("", V2Keys.BET, v);
+			Gate why = balanceBinds(v, mode, cost) ? BetGates.overBalance("", V2Keys.BET, v) : BetGates.aboveMax("", V2Keys.BET, v);
 			return new Clamp(lim, why.reasonKey(), why.reasonArgs());
 		}
 		if (value < low) {
@@ -119,7 +158,7 @@ public final class BetAmount {
 	/** Max for a field whose stake is {@code cost.of(value)}: the largest amount whose whole stake fits. */
 	public static Clamp max(BetView v, Mode mode, Cost cost) {
 		long lim = limit(v, mode, cost);
-		Gate why = balanceBinds(v, mode) ? BetGates.overBalance("", V2Keys.BET, v) : BetGates.aboveMax("", V2Keys.BET, v);
+		Gate why = balanceBinds(v, mode, cost) ? BetGates.overBalance("", V2Keys.BET, v) : BetGates.aboveMax("", V2Keys.BET, v);
 		return new Clamp(lim, why.reasonKey(), why.reasonArgs());
 	}
 

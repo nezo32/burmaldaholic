@@ -371,9 +371,16 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		return false;
 	}
 
-	/** {@link #message(SlipLimits.Violation)}, the total maximum in the bet-cap words (whose cap: VIP / owner; lane HR). */
+	/**
+	 * {@link #message(SlipLimits.Violation)}, the maxima in the bet-cap words (whose cap: VIP / owner; lane HR). The inside
+	 * maximum is a fraction of the total one, so it names the same cap at that fraction (T-HR D3: a typed unit above it).
+	 */
 	Component message(SlipLimits.Violation v, ServerPlayer player) {
 		if (v.code() == SlipLimits.Code.TOTAL_MAX) return capFor(player, v.value(), limitsFor(player)[0]).reason();
+		if (v.code() == SlipLimits.Code.INSIDE_MAX) {
+			SlipLimits l = limits(player);
+			return capFor(player, l.totalMax(), l.minBet()).withMax(v.value()).reason();
+		}
 		return message(v);
 	}
 

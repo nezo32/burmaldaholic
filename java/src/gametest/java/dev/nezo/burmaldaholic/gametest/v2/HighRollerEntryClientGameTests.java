@@ -3,6 +3,8 @@ package dev.nezo.burmaldaholic.gametest.v2;
 import dev.nezo.burmaldaholic.client.ui.v2.BetEntry;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
+import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
 import dev.nezo.burmaldaholic.games.baccarat.BaccaratModule;
 import dev.nezo.burmaldaholic.games.baccarat.BaccaratTableBlockEntity;
@@ -23,6 +25,7 @@ import dev.nezo.burmaldaholic.games.roulette.present.RouletteLayout;
 import dev.nezo.burmaldaholic.games.uth.UthModule;
 import dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity;
 import dev.nezo.burmaldaholic.games.uth.client.UthScreen;
+import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import java.util.ArrayList;
 import java.util.List;
@@ -241,23 +244,41 @@ public class HighRollerEntryClientGameTests implements FabricClientGameTest {
 		f.waitChrome(c -> !c.entry.isOpen(), "Enter");
 		long after = chrome(f, c -> c.bet.view().myTotal());
 		check(after == 80, "uth: open + Enter without typing must not change the bet (cost 80), got " + after);
-		// Max: the Ante the player can afford with the Blind (cost <= balance)
+		// Max (T-HR D5): exactly the largest Ante the SERVER's own rule (UthLimits.check, limitsFor) accepts. Balance 1 000 000:
+		// the VIP max binds (6 × Ante under it, not 2 × Ante)
+		long vipAnte = uthMax(f);
+		long[] lim = f.server(server -> ((UthTableBlockEntity) server.overworld().getBlockEntity(pos)).limitsFor(RealFlow.player(server)));
+		long bal = chrome(f, c -> c.bet.view().balance());
+		check(vipAnte == UthLimits.maxAnte(lim[1], 0, bal) && vipAnte > 0, "uth: VIP-bound Max Ante " + vipAnte + " != server max " + UthLimits.maxAnte(lim[1], 0, bal)
+			+ " (maxW " + lim[1] + ", balance " + bal + ")");
+		check(UthLimits.check(vipAnte, 0, lim[0], lim[1], true, 1, bal) == UthLimits.Problem.NONE, "uth: the server accepts the VIP-bound Max " + vipAnte);
+		check(UthLimits.check(vipAnte + 1, 0, lim[0], lim[1], true, 1, bal) == UthLimits.Problem.WORST_CASE_MAX, "uth: Max + 1 is over the VIP max");
+		// now the BALANCE binds: 3 000 → Max Ante = 3 000 / 3 = 1 000 (the river's Play bet stays covered), stake 2 000
+		f.server(server -> {
+			Economies.get().setBalance(server, RealFlow.player(server).getUUID(), 3_000, Transaction.of("tables", "gametest"));
+			((UthTableBlockEntity) server.overworld().getBlockEntity(pos)).syncViewers();
+			return null;
+		});
+		f.waitChrome(c -> c.bet.view().balance() == 3_000, "the screen shows the new balance 3 000");
+		long balAnte = uthMax(f);
+		String status = f.status();
+		check(balAnte == 1_000 && balAnte == UthLimits.maxAnte(lim[1], 0, 3_000), "uth: balance-bound Max Ante should be 1 000, got " + balAnte);
+		check(UthLimits.check(balAnte + 1, 0, lim[0], lim[1], true, 1, 3_000) == UthLimits.Problem.KEEP_FOR_RIVER, "uth: Max + 1 leaves no river bet");
+		f.click(KeyMap.Ids.PRIMARY); // Deal
+		f.waitServer(pos, UthTableBlockEntity.class, t -> t.stakeOf(me) == 2_000, "server took the balance-bound Max: Ante 1 000 + Blind 1 000");
+		long left = f.server(server -> Economies.get().balance(server, RealFlow.player(server).getUUID()));
+		check(left == 1_000, "uth: 1 000 left for the Play bet, balance " + left + " (status was: " + status + ")");
+		f.close();
+	}
+
+	/** E, Max, OK: the Ante the entry's Max set (trips 0, so the draft's cost / 2). */
+	private static long uthMax(RealFlow f) {
 		f.key(KeyMap.E);
 		f.waitChrome(c -> c.entry.isOpen() && f.box(BetEntry.MAX).isPresent(), "E opens for Max");
 		f.click(BetEntry.MAX);
 		f.click(BetEntry.OK);
-		long maxCost = chrome(f, c -> c.bet.view().myTotal());
-		long bal = chrome(f, c -> c.bet.view().balance());
-		check(maxCost <= bal, "uth: Max must leave an affordable cost; cost " + maxCost + " > balance " + bal);
-		f.key(KeyMap.E);
-		for (int i = 0; i < 12; i++) f.key(KeyMap.BACKSPACE);
-		f.key("4");
-		f.key("0");
-		f.key(KeyMap.ENTER);
-		f.waitChrome(c -> !c.entry.isOpen(), "Enter");
-		f.click(KeyMap.Ids.PRIMARY); // Deal
-		f.waitServer(pos, UthTableBlockEntity.class, t -> t.stakeOf(me) == 80, "server took Ante 40 + Blind 40");
-		f.close();
+		f.waitChrome(c -> !c.entry.isOpen(), "OK closes the entry");
+		return chrome(f, c -> c.bet.view().myTotal()) / 2;
 	}
 
 	// ---- Plinko (extras): the amount is the bet ------------------------------------------------------------------------

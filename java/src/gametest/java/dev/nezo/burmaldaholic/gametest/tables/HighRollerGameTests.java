@@ -65,10 +65,21 @@ public class HighRollerGameTests {
 		return player;
 	}
 
+	/**
+	 * Cleanup: the table (or cashier) at {@code (1, 1, 1)} is broken while its chunk is loaded, so it is played out now
+	 * (seats left, stakes returned) and not when the test area's chunk unloads at server shutdown: that play-out runs
+	 * inside the distance manager's update ({@code FULL_CHUNK_STATUS_CHANGE}) and crashed the server with a vanilla
+	 * {@code DistanceManager.runAllUpdates} NPE after "All tests passed" (T-HR round 2). Then the player leaves.
+	 */
 	private static void remove(GameTestHelper helper, ServerPlayer p) {
-		p.closeContainer();
-		helper.getLevel().getServer().getPlayerList().remove(p);
-		CHANNELS.remove(p.getUUID());
+		try {
+			p.closeContainer();
+			BlockPos rel = new BlockPos(1, 1, 1);
+			if (helper.getLevel().getBlockEntity(helper.absolutePos(rel)) != null) helper.setBlock(rel, net.minecraft.world.level.block.Blocks.AIR);
+		} finally {
+			helper.getLevel().getServer().getPlayerList().remove(p);
+			CHANNELS.remove(p.getUUID());
+		}
 	}
 
 	private static <T extends CasinoTableBlockEntity> T open(GameTestHelper helper, net.minecraft.world.level.block.Block block, Class<T> cls,
@@ -244,35 +255,43 @@ public class HighRollerGameTests {
 	@GameTest
 	public void cashierWithdrawDropsChipsWhenInventoryFull(GameTestHelper helper) {
 		ServerPlayer p = player(helper, "hr-drop", 500_000);
-		CashierBlockEntity cashier = open(helper, CoreContent.CASHIER.block(), CashierBlockEntity.class, p);
-		for (int i = 0; i < 36; i++) p.getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
-		p.getInventory().setItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
-		// the test server's players are creative under the gameMode() override: a creative inventory swallows what does not fit
-		// (Inventory.add + hasInfiniteMaterials), so make this one a REAL survival player, like the owner's
-		p.setGameMode(GameType.SURVIVAL);
-		helper.assertTrue(!p.hasInfiniteMaterials(), "survival player");
-		act(p, cashier, "withdraw", amount(56_000)); // 2 × 25K + 5K + 1K: three stacks, none fits
-		long carried = 0;
-		for (int i = 0; i < p.getInventory().getContainerSize(); i++) carried += ChipItem.valueOf(p.getInventory().getItem(i));
-		helper.assertTrue(balance(helper, p) == 444_000, "debited once: " + balance(helper, p));
-		helper.assertTrue(carried == 0, "nothing fitted the full inventory: " + carried);
-		long[] dropped = new long[2];
-		helper.succeedWhen(() -> {
-			dropped[0] = 0;
-			dropped[1] = 0;
-			for (net.minecraft.world.entity.Entity e : helper.getLevel().getAllEntities()) {
-				if (e instanceof net.minecraft.world.entity.item.ItemEntity it && e.isAlive() && it.getItem().getItem() instanceof ChipItem) {
-					dropped[0]++;
-					dropped[1] += ChipItem.valueOf(it.getItem());
-				}
+		// counted and cleaned up in the same tick, in a finally (not inside a polled succeedWhen lambda: a player removed there,
+		// or left behind when it times out, risked a vanilla DistanceManager NPE at server shutdown; T-HR round 2)
+		try {
+			CashierBlockEntity cashier = open(helper, CoreContent.CASHIER.block(), CashierBlockEntity.class, p);
+			for (int i = 0; i < 36; i++) p.getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+			p.getInventory().setItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+			// the test server's players are creative under the gameMode() override: a creative inventory swallows what does not fit
+			// (Inventory.add + hasInfiniteMaterials), so make this one a REAL survival player, like the owner's
+			p.setGameMode(GameType.SURVIVAL);
+			helper.assertTrue(!p.hasInfiniteMaterials(), "survival player");
+			act(p, cashier, "withdraw", amount(56_000)); // 2 × 25K + 5K + 1K: three stacks, none fits
+			long carried = 0;
+			for (int i = 0; i < p.getInventory().getContainerSize(); i++) carried += ChipItem.valueOf(p.getInventory().getItem(i));
+			helper.assertTrue(balance(helper, p) == 444_000, "debited once: " + balance(helper, p));
+			helper.assertTrue(carried == 0, "nothing fitted the full inventory: " + carried);
+			long entities = 0;
+			long value = 0;
+			for (net.minecraft.world.entity.Entity e : chipDrops(helper)) {
+				entities++;
+				value += ChipItem.valueOf(((net.minecraft.world.entity.item.ItemEntity) e).getItem());
 			}
-			helper.assertTrue(dropped[0] == 3 && dropped[1] == 56_000, "three chip stacks at the feet worth 56 000: " + dropped[0] + " entities, "
-				+ dropped[1] + " (player at " + p.blockPosition() + ")");
-			for (net.minecraft.world.entity.Entity e : helper.getLevel().getAllEntities()) {
-				if (e instanceof net.minecraft.world.entity.item.ItemEntity it && it.getItem().getItem() instanceof ChipItem) e.discard();
-			}
+			helper.assertTrue(entities == 3 && value == 56_000, "three chip stacks at the feet worth 56 000: " + entities + " entities, " + value
+				+ " (player at " + p.blockPosition() + ")");
+		} finally {
+			chipDrops(helper).forEach(net.minecraft.world.entity.Entity::discard);
 			remove(helper, p);
-		});
+		}
+		helper.succeed();
+	}
+
+	/** The live chip ItemEntities in the test level (a copied list: safe to discard from). */
+	private static List<net.minecraft.world.entity.Entity> chipDrops(GameTestHelper helper) {
+		List<net.minecraft.world.entity.Entity> out = new ArrayList<>();
+		for (net.minecraft.world.entity.Entity e : helper.getLevel().getAllEntities()) {
+			if (e instanceof net.minecraft.world.entity.item.ItemEntity it && e.isAlive() && it.getItem().getItem() instanceof ChipItem) out.add(e);
+		}
+		return out;
 	}
 
 	/** A withdrawal into a full inventory drops the rest at the feet; balance + carried + dropped is conserved. */
@@ -341,6 +360,17 @@ public class HighRollerGameTests {
 		Sent s = drain(p);
 		helper.assertTrue(balance(helper, p) == before, "nothing debited");
 		helper.assertTrue(s.errorKeys().contains(BetCap.KEY_VIP) || s.errorKeys().contains(BetCap.KEY_VIP_TOP), "VIP cap sentence: " + s.errorKeys());
+		// T-HR D3: a straight bet above the inside maximum (a typed unit) names the cap too, not roulette's own sentence
+		long insideMax = first.state().getLongOr("inside_max", 0);
+		helper.assertTrue(insideMax > 0, "state carries inside_max");
+		CompoundTag inside = small.copy();
+		inside.putIntArray("nums", new int[] {23});
+		inside.putLong("amount", insideMax + 1);
+		act(p, t, "bet", inside);
+		Sent in = drain(p);
+		helper.assertTrue(balance(helper, p) == before, "inside bet above the inside max: nothing debited");
+		helper.assertTrue(in.errorKeys().contains(BetCap.KEY_VIP) || in.errorKeys().contains(BetCap.KEY_VIP_TOP),
+			"inside max names the VIP cap: " + in.errorKeys());
 		CompoundTag neg = small.copy();
 		neg.putLong("amount", -5);
 		act(p, t, "bet", neg);

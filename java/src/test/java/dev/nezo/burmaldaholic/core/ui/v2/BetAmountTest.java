@@ -2,11 +2,18 @@ package dev.nezo.burmaldaholic.core.ui.v2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nezo.burmaldaholic.core.ui.v2.BetAmount.Mode;
 import dev.nezo.burmaldaholic.core.wager.BetCap;
+import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
+import dev.nezo.burmaldaholic.games.uth.logic.UthLimits.Problem;
+import dev.nezo.burmaldaholic.games.uth.present.UthBetDraft;
+import dev.nezo.burmaldaholic.games.uth.present.UthFlow;
+import java.util.List;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 /** Lane HR: the bet-entry maths (typed amount, Max, ×2, ½, wheel) and whose cap a clamp reports (owner playtest E4 / B5). */
@@ -85,19 +92,69 @@ class BetAmountTest {
 		assertEquals(0, BetAmount.clamp(500, broke, Mode.BET).value());
 	}
 
-	/** T-HR D1: UTH's field is the Ante; the stake is Ante + Blind + Trips; Max = the largest Ante whose whole stake fits. */
+	/**
+	 * T-HR D1 + D5: UTH's field is the Ante; the stake shown is Ante + Blind + Trips, but the maximum holds the worst case
+	 * 6 × Ante + Trips and the balance must hold 3 × Ante + Trips (the server's {@link UthLimits#check}).
+	 */
 	@Test
-	void anteFieldCostsAnteBlindAndTrips() {
-		BetAmount.Cost uth = new BetAmount.Cost(2, 10); // Ante + Blind, Trips 10 on the table
+	void anteFieldUsesTheServersUthLimits() {
+		BetAmount.Cost uth = UthFlow.entryCost(new UthBetDraft(40, 10, UthBetDraft.Spot.ANTE, List.of()));
 		BetView v = base().limits(5, 0).balance(1000).myTotal(uth.of(40)).build();
+		assertEquals(90, uth.of(40), "Total stake: 2 × 40 + 10");
 		assertEquals(40, BetAmount.initial(v, Mode.BET, 0, uth), "reopens with the Ante, not the cost");
-		assertEquals(495, BetAmount.max(v, Mode.BET, uth).value(), "Max: (1000 - 10) / 2");
+		assertEquals(330, BetAmount.max(v, Mode.BET, uth).value(), "balance: (1000 - 10) / 3 (keep the river's Play bet)");
 		assertEquals(BetCap.KEY_BALANCE, BetAmount.max(v, Mode.BET, uth).reasonKey());
-		assertEquals(495, BetAmount.clamp(600, v, Mode.BET, uth).value());
+		assertEquals(330, BetAmount.clamp(600, v, Mode.BET, uth).value());
 		BetView capped = base().limits(5, 300).balance(100_000).cap(vip(300)).build();
-		assertEquals(145, BetAmount.max(capped, Mode.BET, uth).value(), "the VIP max holds the whole stake: (300 - 10) / 2");
+		assertEquals(48, BetAmount.max(capped, Mode.BET, uth).value(), "the VIP max holds the worst case: (300 - 10) / 6");
 		assertEquals(BetCap.KEY_VIP, BetAmount.max(capped, Mode.BET, uth).reasonKey());
-		assertEquals(90, uth.of(40));
+		BetAmount.Cost trips = UthFlow.entryCost(new UthBetDraft(40, 0, UthBetDraft.Spot.TRIPS, List.of()));
+		assertEquals(60, BetAmount.max(capped, Mode.BET, trips).value(), "Trips under the VIP max: 300 - 6 × 40");
+		BetView poor = base().limits(5, 0).balance(200).build();
+		assertEquals(80, BetAmount.max(poor, Mode.BET, trips).value(), "Trips the balance holds: 200 - 3 × 40");
+	}
+
+	/**
+	 * T-HR D5: for random balances, VIP caps, table maxima and Trips, the entry's Max is exactly what the server accepts:
+	 * {@code UthLimits.check(Max) == NONE} and {@code check(Max + 1)} is refused (the same for the Trips spot).
+	 */
+	@Test
+	void uthMaxIsAlwaysAcceptedAndMaxPlusOneRefused() {
+		Random rnd = new Random(0x5EED_D5L);
+		long[] scales = {100, 10_000, 1_000_000, 100_000_000_000L};
+		for (int i = 0; i < 20_000; i++) {
+			long vipMax = 1 + (long) (rnd.nextDouble() * scales[rnd.nextInt(scales.length)]);
+			long tableMax = 1 + (long) (rnd.nextDouble() * scales[rnd.nextInt(scales.length)]);
+			long balance = (long) (rnd.nextDouble() * scales[rnd.nextInt(scales.length)]);
+			long minAnte = 1 + rnd.nextInt(50);
+			long maxW = Math.min(vipMax, tableMax); // limitsFor: min(table max, tier max)
+			BetCap cap = BetCap.infer(maxW, minAnte, tableMax, 0, 0, vipMax, 1, vipMax * 4);
+			BetView v = BetView.builder().seated(true).phase(BetView.Phase.BETTING).bettingOpen(true).limits(minAnte, maxW).balance(balance).cap(cap)
+				.build();
+			long trips = rnd.nextInt(3) == 0 ? 0 : minAnte + rnd.nextInt(500);
+			String ctx = "vip " + vipMax + " table " + tableMax + " balance " + balance + " min " + minAnte + " trips " + trips;
+
+			BetAmount.Clamp ante = BetAmount.max(v, Mode.BET, UthFlow.entryCost(new UthBetDraft(1, trips, UthBetDraft.Spot.ANTE, List.of())));
+			assertEquals(UthLimits.maxAnte(maxW, trips, balance), ante.value(), ctx);
+			if (ante.value() >= minAnte) {
+				assertEquals(Problem.NONE, UthLimits.check(ante.value(), trips, minAnte, maxW, true, minAnte, balance), "Max accepted: " + ctx);
+			}
+			assertNotEquals(Problem.NONE, UthLimits.check(ante.value() + 1, trips, minAnte, maxW, true, minAnte, balance), "Max + 1 refused: " + ctx);
+			Problem over = UthLimits.check(ante.value() + 1, trips, minAnte, maxW, true, minAnte, balance);
+			if (ante.value() + 1 >= minAnte && over != Problem.INVALID) {
+				if (over == Problem.WORST_CASE_MAX) assertNotEquals(BetCap.KEY_BALANCE, ante.reasonKey(), "Max names the max: " + ctx);
+				if (over == Problem.INSUFFICIENT_FUNDS || over == Problem.KEEP_FOR_RIVER) assertEquals(BetCap.KEY_BALANCE, ante.reasonKey(), ctx);
+			}
+
+			long a = minAnte + rnd.nextInt(1000);
+			BetAmount.Clamp t = BetAmount.max(v, Mode.BET, UthFlow.entryCost(new UthBetDraft(a, 0, UthBetDraft.Spot.TRIPS, List.of())));
+			assertEquals(UthLimits.maxTrips(maxW, a, balance), t.value(), ctx + " ante " + a);
+			if (t.value() >= minAnte) {
+				assertEquals(Problem.NONE, UthLimits.check(a, t.value(), minAnte, maxW, true, minAnte, balance), "Trips Max accepted: " + ctx + " ante " + a);
+			}
+			assertNotEquals(Problem.NONE, UthLimits.check(a, t.value() + 1, minAnte, maxW, true, minAnte, balance),
+				"Trips Max + 1 refused: " + ctx + " ante " + a);
+		}
 	}
 
 	@Test
