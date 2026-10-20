@@ -91,15 +91,25 @@ Owner decision: 26.3 only. Every run used `-Pmc=26.3`, except the first compile 
   - Covered: Shift+click ×1 → 64, → / Enter / Shift+Enter / ← / Ctrl+Enter, the chip button + Withdraw, A, key 2, `/` search (EN "bread", RU "хлеб"), Enter buys 1, Shift+click ×16 → 64, key 1, Esc. Every check asserts server state; the chat log confirms each step in EN and RU.
 - **Not run:** the full suites. `RealFlowClientGameTests` (cashier and cashierShop were rewritten for the counter) and `CoreClientGameTests` were not run; they belong to their lanes.
 
+## Follow-up (coordinator, round 2)
+- **Counting tray:** `CounterTray` replays every server move under the deposit block, in the Exchange tab's wide layout
+  (`CounterLayout.Exchange.tray`). Chips fly from the inventory for deposits and credits, and from the balance readout
+  for withdrawals and payments. A click skips the flights; reduce-motion shows the final stacks at once. Narrow layouts
+  have no room for it; those moves are told in chat.
+- **Store grid:** the mouse wheel scrolls the grid one row at a time (`CounterTab.scroll`, `CounterShell.scroll`, and
+  `mouseScrolled` on both hosts). A scrollbar is drawn, and moving the selection makes the grid follow it again.
+- **Pruned strings:** `gui.burmaldaholic.cashier.{buy,sell,buy_gold,sell_gold,times,emeralds_slider,shop,shop.buy_item,
+  denomination,denomination.auto,exchanged,dropped}` and `config.burmaldaholic.economy.{emeraldBuyRate,
+  emeraldBuyRateGoldVip,emeraldSellRate,goldBuyRate,goldSellRate}`, from STRINGS.md and the core lang JSON (LF).
+  Before pruning, I grepped every `p2/*` branch and `feature/v020-table-ui`. The only references were the pre-EC-1
+  copies of files this branch rewrites (CashierScreen, CashierBlockEntity, EconomyConfig and their tests).
+
 ## Not done / requests
-- **The counting tray animation of the old CashierScreen was dropped.** The moves are still recorded (`tray` in the state), but nothing draws them yet.
 - **DL:** please expose `HouseNpcRoles.register(String, BiConsumer<ServerPlayer, Entity>)` and call `MerchantRole.install(HouseNpcRoles::register)`, or put the class at one of the names in `MerchantRole.CANDIDATES`. Also add `entity.burmaldaholic.merchant`; the string already exists.
 - **EC-2:** owns the VipRules perk swap (`perk.emerald_rate` → `perk.store_gold_shelf`) and GAME_DESIGN §12.
   - I left the old `emeraldBuyRateGoldVip` text in the §12 tier table for you.
   - The `gui.burmaldaholic.cashier.tab.comps` string already exists.
 - **HR:** none. `ChipMath.DENOMINATIONS` is read dynamically, so the chip buttons follow new denominations automatically.
-- **Unused strings:** the old `gui.burmaldaholic.cashier.{buy,sell,buy_gold,sell_gold,shop.buy_item,times}` rows and the five `config.burmaldaholic.economy.*Rate*` rows are still in STRINGS.md but nothing uses them. Prune them at integration.
 
 ## Risks
-- The store tab has no mouse-wheel scroll; arrow keys scroll the grid. With "All" selected only 24 of 40 tiles are visible, so use the categories or the search.
 - A config row or offer with an unknown item, potion or enchantment id is skipped silently.

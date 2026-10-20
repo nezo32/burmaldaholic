@@ -245,6 +245,12 @@ public final class CounterShell {
 		return false;
 	}
 
+	/** Mouse wheel at layout px; the active tab decides. */
+	public boolean scroll(double x, double y, double dy) {
+		CounterTab tab = activeTab();
+		return tab != null && dy != 0 && tab.scroll(x, y, dy);
+	}
+
 	public boolean charTyped(int codePoint) {
 		CounterTab tab = activeTab();
 		return tab != null && tab.charTyped(codePoint);

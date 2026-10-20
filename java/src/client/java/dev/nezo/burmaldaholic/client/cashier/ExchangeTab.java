@@ -42,8 +42,25 @@ public final class ExchangeTab implements CounterTab {
 	private final List<CompoundTag> rows = new ArrayList<>();
 	private int[] denoms = new int[0];
 
+	private final CounterTray tray = new CounterTray();
+
 	public ExchangeTab(CounterShell shell) {
 		this.shell = shell;
+		tray.accept(shell.host().state()); // the move present on open is not replayed
+	}
+
+	@Override
+	public void stateChanged() {
+		tray.accept(s());
+	}
+
+	/** The counting tray (tests). */
+	public boolean trayCounting() {
+		return tray.counting();
+	}
+
+	public boolean trayHasMove() {
+		return tray.current() != null;
 	}
 
 	@Override
@@ -87,6 +104,7 @@ public final class ExchangeTab implements CounterTab {
 		layout = CounterLayout.exchange(body, rows.size());
 		money = CounterLayout.money(layout.money(), denoms.length);
 		boolean inDefault = s().getBooleanOr("in_default", false);
+		hits.add("exchange.tray", layout.tray(), true);
 		hits.add("exchange.deposit_all", money.depositAll(), s().getLongOr("carried_chips", 0) > 0);
 		hits.add("exchange.deposit_held", money.depositHeld(), s().getLongOr("held_chips", 0) > 0);
 		for (int i = 0; i < denoms.length; i++) hits.add("exchange.chip." + denoms[i], money.chips().get(i), !inDefault);
@@ -127,6 +145,10 @@ public final class ExchangeTab implements CounterTab {
 			return true;
 		}
 		switch (id) {
+			case "exchange.tray" -> {
+				tray.skip();
+				return true;
+			}
 			case "exchange.deposit_all" -> shell.host().sendTable("deposit_all", new CompoundTag());
 			case "exchange.deposit_held" -> shell.host().sendTable("deposit_held", new CompoundTag());
 			case "exchange.max" -> amount = s().getLongOr("withdraw_fit", 0);
@@ -211,6 +233,7 @@ public final class ExchangeTab implements CounterTab {
 		CompoundTag s = s();
 		boolean inDefault = s.getBooleanOr("in_default", false);
 		CounterDraw.panel(g, layout.money().inset(-3));
+		tray.render(g, font, layout.tray(), shell.layout().readout(), shell.layout().panel().bottom());
 		btn(g, font, money.depositAll(), Component.translatable("gui.burmaldaholic.cashier.deposit_all"), "exchange.deposit_all", true, mouseX, mouseY);
 		btn(g, font, money.depositHeld(), Component.translatable("gui.burmaldaholic.cashier.deposit_held"), "exchange.deposit_held", false, mouseX, mouseY);
 		Component amountLine = Component.translatable("gui.burmaldaholic.cashier.withdraw_amount", Texts.number(amount));

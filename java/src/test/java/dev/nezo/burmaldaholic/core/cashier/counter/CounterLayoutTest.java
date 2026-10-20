@@ -49,6 +49,11 @@ class CounterLayoutTest {
 		assertFalse(ex.money().intersects(ex.rows()), at);
 		assertEquals(4, CounterLayout.visibleRows(ex), at + " all 4 rows visible");
 		assertFalse(ex.rows().intersects(sh.result()), at + " rows clear of the result line");
+		if (w >= CounterLayout.DESIGN_W) {
+			assertFalse(ex.tray().isEmpty(), at + " wide layouts show the counting tray");
+			assertTrue(ex.tray().inside(sh.body()) && !ex.tray().intersects(ex.money()) && !ex.tray().intersects(ex.rows())
+				&& !ex.tray().intersects(sh.result()), at + " tray placement " + ex.tray());
+		}
 		CounterLayout.Money m = CounterLayout.money(ex.money(), 8); // 8 denominations once HR adds 1000/5000/25000
 		List<Box> money = new ArrayList<>(m.chips());
 		money.addAll(List.of(m.depositAll(), m.depositHeld(), m.max(), m.clear(), m.withdraw(), m.amount(), m.info()));

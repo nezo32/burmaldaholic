@@ -69,22 +69,25 @@ public final class CounterLayout {
 
 	/**
 	 * Exchange tab: {@code money} = deposit / withdraw block, {@code rows} = the row column. Wide: money left
-	 * (x 8–232), rows right (x 240–472). Narrow: money on top, rows below, both full width.
+	 * (x 8–232) with the counting tray under it, rows right (x 240–472). Narrow: money on top, rows below, both full
+	 * width, no tray.
 	 */
-	public record Exchange(Box money, Box rows, boolean stacked) {}
+	public record Exchange(Box money, Box rows, boolean stacked, Box tray) {}
 
-	public static final int MONEY_H = 90;
+	public static final int MONEY_H = 90, TRAY_H = 50;
 
 	public static Exchange exchange(Box body, int rowCount) {
 		int inner = body.h() - 14; // leave the result line
 		if (body.w() >= DESIGN_W) {
 			Box money = new Box(body.x() + PAD, body.y() + 4, 224, Math.min(MONEY_H, inner - 4));
 			Box rows = new Box(body.x() + 240, body.y() + 4, body.w() - 240 - PAD, Math.min(rowCount * ROW_H, inner - 4));
-			return new Exchange(money, rows, false);
+			Box tray = new Box(money.x(), money.bottom() + 8, money.w(), TRAY_H);
+			if (tray.bottom() > body.bottom() - 14) tray = Box.EMPTY;
+			return new Exchange(money, rows, false, tray);
 		}
 		Box money = new Box(body.x() + PAD, body.y() + 4, body.w() - 2 * PAD, MONEY_H);
 		Box rows = new Box(body.x() + PAD, money.bottom() + 4, body.w() - 2 * PAD, Math.min(rowCount * ROW_H, Math.max(0, body.bottom() - 14 - money.bottom() - 4)));
-		return new Exchange(money, rows, true);
+		return new Exchange(money, rows, true, Box.EMPTY); // narrow: no room for the counting tray (moves are told in chat)
 	}
 
 	/** Rows that fit in {@code rows} (the rest scrolls). */

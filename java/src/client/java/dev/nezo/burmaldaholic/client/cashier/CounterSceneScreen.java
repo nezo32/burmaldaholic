@@ -144,6 +144,12 @@ public class CounterSceneScreen extends CasinoScreen implements CounterShell.Hos
 	}
 
 	@Override
+	public boolean mouseScrolled(double x, double y, double dx, double dy) {
+		if (shell.scroll(x, y, dy)) return true;
+		return super.mouseScrolled(x, y, dx, dy);
+	}
+
+	@Override
 	public boolean keyReleased(KeyEvent event) {
 		shell.trackKey(event.key(), false);
 		return super.keyReleased(event);

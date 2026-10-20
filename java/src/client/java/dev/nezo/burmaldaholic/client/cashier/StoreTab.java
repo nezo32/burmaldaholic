@@ -45,6 +45,8 @@ public final class StoreTab implements CounterTab {
 	private boolean searchFocused;
 	private int selected;
 	private int scrollRow;
+	/** Keep the selected tile visible on the next layout (selection moved); false after a wheel scroll. */
+	private boolean follow = true;
 	private int qtyIdx;
 	private long confirmUntil;
 	private CounterLayout.@Nullable Store layout;
@@ -120,13 +122,15 @@ public final class StoreTab implements CounterTab {
 		CounterLayout.Store l = CounterLayout.store(body, cats.size());
 		layout = l;
 		detail = CounterLayout.detail(l);
-		if (selected >= 0) {
+		int maxScroll = Math.max(0, (shown.size() + l.cols() - 1) / l.cols() - l.rows());
+		if (selected >= 0 && follow) {
 			int row = selected / l.cols();
 			if (row < scrollRow) scrollRow = row;
 			if (row >= scrollRow + l.rows()) scrollRow = row - l.rows() + 1;
-		} else {
+		} else if (selected < 0) {
 			scrollRow = 0;
 		}
+		scrollRow = Math.max(0, Math.min(scrollRow, maxScroll));
 		hits.add("store.search", l.search(), true);
 		for (int i = 0; i < l.categories().size() && i < cats.size(); i++) hits.add("store.cat." + cats.get(i), l.categories().get(i), true);
 		int first = scrollRow * l.cols();
@@ -152,6 +156,7 @@ public final class StoreTab implements CounterTab {
 		if (id.startsWith("store.cat.")) {
 			category = id.substring("store.cat.".length());
 			selected = 0;
+			follow = true;
 			scrollRow = 0;
 		} else if (id.startsWith("store.tile.")) {
 			String oid = id.substring("store.tile.".length());
@@ -204,6 +209,25 @@ public final class StoreTab implements CounterTab {
 		return n * o.price();
 	}
 
+	/** The first visible grid row (tests). */
+	public int scrollRow() {
+		return scrollRow;
+	}
+
+	@Override
+	public boolean scroll(double x, double y, double dy) {
+		CounterLayout.Store l = layout;
+		if (l == null || !l.grid().inset(-4).contains(x, y)) return false;
+		int maxScroll = Math.max(0, (shown.size() + l.cols() - 1) / l.cols() - l.rows());
+		int next = Math.max(0, Math.min(maxScroll, scrollRow + (dy > 0 ? -1 : 1)));
+		if (next != scrollRow) {
+			scrollRow = next;
+			follow = false;
+			shell.relayout();
+		}
+		return true;
+	}
+
 	@Override
 	public boolean key(int keyCode, int mods) {
 		if (searchFocused) {
@@ -227,6 +251,7 @@ public final class StoreTab implements CounterTab {
 		int move = keyCode == Inputs.KEY_LEFT ? -1 : keyCode == Inputs.KEY_RIGHT ? 1 : keyCode == Inputs.KEY_UP ? -cols : keyCode == Inputs.KEY_DOWN ? cols : 0;
 		if (move != 0) {
 			if (!shown.isEmpty()) selected = Math.max(0, Math.min(shown.size() - 1, selected + move));
+			follow = true;
 			confirmUntil = 0;
 			shell.relayout();
 			return true;
@@ -253,6 +278,7 @@ public final class StoreTab implements CounterTab {
 		if (!searchFocused || Character.isISOControl(codePoint) || search.length() >= 24) return searchFocused;
 		search += new String(Character.toChars(codePoint));
 		selected = 0;
+		follow = true;
 		shell.relayout();
 		return true;
 	}
@@ -300,6 +326,14 @@ public final class StoreTab implements CounterTab {
 				V2Draw.left(g, font, badge, new Box(t.x() + 1, t.y() + 18, t.w() - 2, 8), 0, 1, CasinoPalette.V2_MUTED, false);
 			}
 			if (t.contains(mouseX, mouseY)) hover = o;
+		}
+		int totalRows = (shown.size() + l.cols() - 1) / l.cols();
+		if (totalRows > l.rows()) { // scrollbar: thumb = visible rows / all rows
+			Box track = new Box(l.grid().right() + 2, l.grid().y(), 2, l.grid().h());
+			V2Draw.fill(g, track, 0x40FFFFFF);
+			int th = Math.max(6, track.h() * l.rows() / totalRows);
+			int ty = track.y() + (track.h() - th) * scrollRow / Math.max(1, totalRows - l.rows());
+			V2Draw.fill(g, new Box(track.x(), ty, 2, th), CasinoPalette.V2_GOLD);
 		}
 		if (shown.isEmpty()) V2Draw.centred(g, font, Component.translatable("gui.burmaldaholic.cashier.store.empty"), l.grid(), 1, CasinoPalette.V2_MUTED, false);
 		// detail

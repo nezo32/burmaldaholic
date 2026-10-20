@@ -37,6 +37,11 @@ public interface CounterTab {
 		return false;
 	}
 
+	/** Mouse wheel over the body ({@code dy} > 0 = up). Return true when handled. */
+	default boolean scroll(double x, double y, double dy) {
+		return false;
+	}
+
 	/** Typed character (search box). */
 	default boolean charTyped(int codePoint) {
 		return false;

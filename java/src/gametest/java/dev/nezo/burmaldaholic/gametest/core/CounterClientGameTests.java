@@ -91,11 +91,25 @@ public class CounterClientGameTests implements FabricClientGameTest {
 		ctx.waitTicks(6);
 		CounterFlow.key(ctx, Inputs.KEY_A, false, false);
 		awaitChips(f, false, at + " A deposits all");
+		ctx.waitTicks(4);
+		boolean wide = f.client(mc -> mc.gui.screen() instanceof CounterShell.Holder hh && !hh.shell().layout().narrow());
+		check(!wide || f.client(mc -> mc.gui.screen() instanceof CounterShell.Holder hh
+			&& hh.shell().tab("exchange").map(t -> ((ExchangeTab) t).trayHasMove()).orElse(false)), at + " the counting tray replays the deposit");
+		if (wide) CounterFlow.click(ctx, "exchange.tray"); // click skips the flights
 		// 2 = Store tab; / search "bread"; Enter buys x1; Shift+click x16 buys x64
 		int v = f.client(mc -> ClientStore.version());
 		CounterFlow.key(ctx, Inputs.KEY_2, false, false);
 		check(CounterFlow.lastPressed(ctx).equals("tab.store"), at + " key 2 selects the store tab");
 		ctx.waitFor(mc -> ClientStore.version() > v, RealFlow.TIMEOUT);
+		CounterFlow.awaitEnabled(ctx, "store.tile.bread");
+		CounterFlow.hover(ctx, "store.tile.bread");
+		ctx.getInput().scroll(-1);
+		ctx.waitTicks(3);
+		check(f.client(mc -> store(mc) != null && store(mc).scrollRow() == 1), at + " mouse wheel scrolls the grid one row");
+		check(CounterFlow.box(ctx, "store.tile.bread").isEmpty(), at + " the first row scrolled out of the grid");
+		ctx.getInput().scroll(1);
+		ctx.waitTicks(3);
+		check(f.client(mc -> store(mc) != null && store(mc).scrollRow() == 0), at + " wheel up scrolls back");
 		CounterFlow.key(ctx, Inputs.KEY_SLASH, false, false);
 		check(f.client(mc -> store(mc) != null && store(mc).searchFocused()), at + " / focuses the search");
 		String query = lang.equals("ru_ru") ? "хлеб" : "bread";

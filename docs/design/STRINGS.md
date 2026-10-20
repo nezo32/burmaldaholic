@@ -482,22 +482,10 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.cashier.withdraw` | Withdraw | Снять |
 | `gui.burmaldaholic.cashier.withdrawable` | Withdrawable: %1$s | Доступно к снятию: %1$s |
 | `gui.burmaldaholic.cashier.withdrawable_loan` | Withdrawable: %1$s (loan %2$s) | Доступно к снятию: %1$s (займ %2$s) |
-| `gui.burmaldaholic.cashier.denomination` | Denomination | Номинал |
-| `gui.burmaldaholic.cashier.denomination.auto` | Auto | Авто |
-| `gui.burmaldaholic.cashier.buy` | Buy %1$s for 1 emerald | Купить %1$s за 1 изумруд |
-| `gui.burmaldaholic.cashier.sell` | Sell %1$s for 1 emerald | Продать %1$s за 1 изумруд |
-| `gui.burmaldaholic.cashier.buy_gold` | Buy %1$s for 1 gold ingot | Купить %1$s за 1 золотой слиток |
-| `gui.burmaldaholic.cashier.sell_gold` | Sell %1$s for 1 gold ingot | Продать %1$s за 1 золотой слиток |
-| `gui.burmaldaholic.cashier.times` | ×%1$s | ×%1$s |
-| `gui.burmaldaholic.cashier.emeralds_slider` | Emeralds: %1$s | Изумруды: %1$s |
-| `gui.burmaldaholic.cashier.shop` | Shop | Лавка |
-| `gui.burmaldaholic.cashier.shop.buy_item` | Buy %1$s — %2$s | Купить «%1$s» — %2$s |
 | `gui.burmaldaholic.cashier.withdraw_blocked` | Withdrawals are frozen while your loan is overdue | Пока займ просрочен, снятие заморожено |
 | `gui.burmaldaholic.cashier.counting` | Counting… | Считаем… |
 | `gui.burmaldaholic.cashier.deposited` | Deposited %1$s | Внесено: %1$s |
 | `gui.burmaldaholic.cashier.withdrawn` | Withdrawn %1$s | Выдано: %1$s |
-| `gui.burmaldaholic.cashier.dropped` | (%1$s dropped at your feet) | (%1$s — у ваших ног) |
-| `gui.burmaldaholic.cashier.exchanged` | Exchanged: %1$s | Обмен: %1$s |
 
 ### Counter: exchange, chip store, merchant (EC-1, v0.2.0; EC-SPEC §1–3)
 
@@ -3697,11 +3685,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.core.roundTimeoutRefund` | Refund rounds after restart | Возвращать ставки после перезапуска |
 | `config.burmaldaholic.economy.maxBalance` | Maximum balance | Максимальный баланс |
 | `config.burmaldaholic.economy.startingBalance` | Starting balance | Стартовый баланс |
-| `config.burmaldaholic.economy.emeraldBuyRate` | Chips per emerald (buy) | Фишек за изумруд (покупка) |
-| `config.burmaldaholic.economy.emeraldBuyRateGoldVip` | Chips per emerald (buy, Gold VIP) | Фишек за изумруд (покупка, ВИП «Золото») |
-| `config.burmaldaholic.economy.emeraldSellRate` | Chips per emerald (sell) | Фишек за изумруд (продажа) |
-| `config.burmaldaholic.economy.goldBuyRate` | Chips per gold ingot (buy) | Фишек за золотой слиток (покупка) |
-| `config.burmaldaholic.economy.goldSellRate` | Chips per gold ingot (sell) | Фишек за золотой слиток (продажа) |
 | `config.burmaldaholic.economy.ore.coal` | Coal ore reward | Награда: угольная руда |
 | `config.burmaldaholic.economy.ore.copper` | Copper ore reward | Награда: медная руда |
 | `config.burmaldaholic.economy.ore.iron` | Iron ore reward | Награда: железная руда |

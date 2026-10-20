@@ -54,6 +54,14 @@ public final class CounterFlow {
 		if (!pressed.equals(id)) throw new AssertionError("clicked '" + id + "' but the counter pressed '" + pressed + "'");
 	}
 
+	/** Moves the cursor over target {@code id} without clicking. */
+	public static void hover(ClientGameTestContext ctx, String id) {
+		Box b = box(ctx, id).orElseThrow(() -> new AssertionError("no counter target '" + id + "'"));
+		Viewport vp = ctx.computeOnClient(mc -> ((CounterShell.Holder) mc.gui.screen()).shell().viewport());
+		ctx.getInput().setCursorPos(vp.toWindow(b.x() + b.w() / 2.0), vp.toWindow(b.y() + b.h() / 2.0));
+		ctx.waitTick();
+	}
+
 	public static void click(ClientGameTestContext ctx, String id) {
 		click(ctx, id, false);
 	}
