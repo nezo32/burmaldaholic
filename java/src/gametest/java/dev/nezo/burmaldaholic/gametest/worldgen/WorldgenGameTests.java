@@ -3,7 +3,29 @@ package dev.nezo.burmaldaholic.gametest.worldgen;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.core.bots.BotTable;
+import dev.nezo.burmaldaholic.core.bots.TableBots;
+import dev.nezo.burmaldaholic.core.bots.logic.BotSettings;
+import dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy;
+import dev.nezo.burmaldaholic.core.service.CoreServices;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlock;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.worldgen.CasinoBuilder;
+import dev.nezo.burmaldaholic.worldgen.HouseGames;
+import dev.nezo.burmaldaholic.worldgen.logic.TablePresets;
+import dev.nezo.burmaldaholic.worldgen.logic.WorldgenBotPresets;
+import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game;
+import java.util.ArrayList;
+import java.util.Map;
+import net.minecraft.commands.Commands;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.phys.AABB;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoPack;
 import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
 import dev.nezo.burmaldaholic.worldgen.structure.CasinoStructure;
@@ -414,6 +436,248 @@ public class WorldgenGameTests {
 				|| id.equals("minecraft:netherite_scrap");
 		}
 		helper.assertTrue(gold, "parlor loot rolled");
+		helper.succeed();
+	}
+
+	// ---- House games (CB-G, R-CB M9 / M10 / M11) ------------------------------------------------------------------------
+
+	private static ServerPlayer housePlayer(GameTestHelper helper, GameType mode, boolean op) {
+		ServerPlayer p = CasinoQa.player(helper, 0);
+		var list = helper.getLevel().getServer().getPlayerList();
+		if (op) {
+			list.op(p.nameAndId(), Optional.of(net.minecraft.server.permissions.LevelBasedPermissionSet.GAMEMASTER), Optional.of(false));
+		} else {
+			list.deop(p.nameAndId());
+		}
+		p.setGameMode(mode);
+		CasinoQa.drainMessages(p);
+		return p;
+	}
+
+	private static void dropPlayers(GameTestHelper helper, List<ServerPlayer> players) {
+		var list = helper.getLevel().getServer().getPlayerList();
+		for (ServerPlayer p : players) {
+			list.deop(p.nameAndId());
+			list.remove(p);
+		}
+	}
+
+	private static long itemsNear(ServerLevel level, BlockPos pos, Item item) {
+		return level.getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(3), e -> e.getItem().is(item)).size();
+	}
+
+	private static void clearItems(ServerLevel level, BlockPos pos) {
+		level.getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(4)).forEach(e -> e.discard());
+	}
+
+	private static boolean isTable(ServerLevel level, BlockPos pos) {
+		return level.getBlockState(pos).getBlock() instanceof CasinoTableBlock;
+	}
+
+	/**
+	 * M9 on a synthetic casino record (a CASINO box around part of the test area): non-operators in Survival and in
+	 * Creative cannot break a house table (refused with the message), an operator can and gets no item, explosions
+	 * (TNT, mob) leave it standing, a table a player placed inside the box and a table outside any casino break and
+	 * drop normally.
+	 */
+	@GameTest(maxTicks = 40)
+	public void houseTablesCannotBeLooted(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		String dim = level.dimension().identifier().toString();
+		BlockPos a = helper.absolutePos(new BlockPos(0, 0, 0));
+		BlockPos b = helper.absolutePos(new BlockPos(4, 5, 4));
+		String id = "gametest|house|" + a.getX() + "|" + a.getY() + "|" + a.getZ();
+		CasinoIndex index = CasinoIndex.get(level.getServer());
+		index.removeIf(r -> r.id().equals(id));
+		index.setAnchor(id, dim, "gametest/house", CasinoKind.CASINO, Geometry.Box.corners(vec(a), vec(b)));
+		var table = dev.nezo.burmaldaholic.games.blackjack.BlackjackModule.TABLE;
+		BlockPos house = helper.absolutePos(new BlockPos(1, 1, 1));
+		BlockPos house2 = helper.absolutePos(new BlockPos(3, 1, 3));
+		BlockPos outside = helper.absolutePos(new BlockPos(7, 1, 7));
+		BlockPos mine = helper.absolutePos(new BlockPos(3, 1, 1));
+		List<ServerPlayer> players = new ArrayList<>();
+		try {
+			for (BlockPos p : List.of(house, house2, outside)) {
+				level.setBlockAndUpdate(p, table.block().defaultBlockState());
+			}
+			ServerPlayer survivor = housePlayer(helper, GameType.SURVIVAL, false);
+			ServerPlayer builder = housePlayer(helper, GameType.CREATIVE, false);
+			ServerPlayer op = housePlayer(helper, GameType.SURVIVAL, true);
+			players.addAll(List.of(survivor, builder, op));
+			helper.assertFalse(Commands.LEVEL_GAMEMASTERS.check(survivor.permissions()), "survival test player is not an operator");
+			helper.assertTrue(Commands.LEVEL_GAMEMASTERS.check(op.permissions()), "op test player is an operator");
+
+			// non-op Survival: refused with the message, nothing drops
+			helper.assertFalse(survivor.gameMode.destroyBlock(house), "non-op survival break refused");
+			helper.assertTrue(isTable(level, house), "house table still there after a non-op survival break");
+			helper.assertTrue(CasinoQa.drainMessages(survivor).contains(HouseGames.PROTECTED_KEY), "player told why");
+			helper.assertTrue(itemsNear(level, house, table.item()) == 0, "no table item after a refused break");
+			// non-op Creative: refused too
+			helper.assertFalse(builder.gameMode.destroyBlock(house), "non-op creative break refused");
+			helper.assertTrue(isTable(level, house), "house table still there after a non-op creative break");
+			helper.assertTrue(CasinoQa.drainMessages(builder).contains(HouseGames.PROTECTED_KEY), "creative player told why");
+
+			// explosions / drops: the decisions MT's table block applies (end-to-end in MultiBlockTableGameTests)
+			BlockEntity houseBe = level.getBlockEntity(house2);
+			helper.assertTrue(HouseGames.explosionProof(level, house2, houseBe), "explosions leave a house table standing");
+			helper.assertFalse(HouseGames.dropsAllowed(level, house2, houseBe, null), "a house table never drops an item");
+			helper.assertFalse(HouseGames.breakAllowed(level, house2, houseBe, survivor), "non-op may not break a house table");
+			helper.assertTrue(HouseGames.breakAllowed(level, house2, houseBe, op), "operator may break a house table");
+			helper.assertFalse(HouseGames.explosionProof(level, outside, level.getBlockEntity(outside)), "tables outside casinos are not explosion-proof");
+			helper.assertTrue(HouseGames.dropsAllowed(level, outside, level.getBlockEntity(outside), null), "tables outside casinos drop");
+
+			// a player's own table inside the casino (marked by the placing block, MT contract) stays theirs
+			level.setBlockAndUpdate(mine, table.block().defaultBlockState());
+			HouseGames.markPlayerPlaced(level.getBlockEntity(mine));
+			helper.assertTrue(HouseGames.isPlayerPlaced(level.getBlockEntity(mine)), "placement marked on the block entity");
+			helper.assertTrue(HouseGames.dropsAllowed(level, mine, level.getBlockEntity(mine), survivor), "own table may drop");
+			clearItems(level, mine);
+			helper.assertTrue(survivor.gameMode.destroyBlock(mine), "owner breaks their own table inside the casino");
+			helper.assertTrue(!isTable(level, mine) && itemsNear(level, mine, table.item()) == 1, "own table drops itself");
+
+			// outside every casino: ordinary table, ordinary drop
+			clearItems(level, outside);
+			helper.assertTrue(survivor.gameMode.destroyBlock(outside), "non-op breaks a table outside casinos");
+			helper.assertTrue(!isTable(level, outside) && itemsNear(level, outside, table.item()) == 1, "table outside casinos drops itself");
+
+			// operator in Survival: removed, but the house keeps its table (no item)
+			clearItems(level, house);
+			op.gameMode.destroyBlock(house);
+			helper.assertTrue(!isTable(level, house), "operator removed the house table");
+			helper.assertTrue(itemsNear(level, house, table.item()) == 0, "operator break of a house table drops nothing");
+		} finally {
+			dropPlayers(helper, players);
+			index.removeIf(r -> r.id().equals(id));
+		}
+		helper.succeed();
+	}
+
+	/** Pistons cannot push or pull game blocks out of a casino: table blocks carry block entities (vanilla: immovable). */
+	@GameTest(maxTicks = 40)
+	public void pistonsDoNotMoveTables(GameTestHelper helper) {
+		var table = dev.nezo.burmaldaholic.games.blackjack.BlackjackModule.TABLE;
+		BlockPos tablePos = new BlockPos(2, 1, 1);
+		BlockPos stonePos = new BlockPos(2, 1, 4);
+		BlockPos pulledPos = new BlockPos(3, 1, 6);
+		helper.setBlock(new BlockPos(1, 1, 1), Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.EAST));
+		helper.setBlock(tablePos, table.block().defaultBlockState());
+		// control: an identical piston pushing stone proves the pistons fire
+		helper.setBlock(new BlockPos(1, 1, 4), Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.EAST));
+		helper.setBlock(stonePos, Blocks.STONE);
+		// sticky piston extended by power, then a table at its head: retracting must not pull it
+		helper.setBlock(new BlockPos(1, 1, 6), Blocks.STICKY_PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.EAST));
+		helper.setBlock(new BlockPos(0, 1, 6), Blocks.REDSTONE_BLOCK);
+		helper.runAfterDelay(4, () -> {
+			helper.setBlock(pulledPos, table.block().defaultBlockState());
+			helper.setBlock(new BlockPos(0, 1, 1), Blocks.REDSTONE_BLOCK);
+			helper.setBlock(new BlockPos(0, 1, 4), Blocks.REDSTONE_BLOCK);
+			helper.setBlock(new BlockPos(0, 1, 6), Blocks.AIR);
+		});
+		helper.runAfterDelay(12, () -> {
+			helper.assertBlockPresent(Blocks.STONE, stonePos.east());
+			helper.assertTrue(helper.getBlockState(tablePos).is(table.block()), "pushed table did not move");
+			helper.assertTrue(helper.getBlockState(tablePos.east()).isAir(), "nothing pushed past the table");
+			helper.assertTrue(helper.getBlockState(pulledPos).is(table.block()), "sticky piston did not pull the table");
+			helper.assertTrue(!helper.getBlockState(pulledPos.west()).is(table.block()), "table not pulled toward the piston");
+			helper.succeed();
+		});
+	}
+
+	/**
+	 * Real Tudor casino (v0.2 standalone, {@code /place structure}): a non-op survival player cannot break its blackjack
+	 * table (message), an operator removes it without an item, TNT leaves its roulette standing; M10: the VIP room's
+	 * player-banked baccarat and UTH tables get the worldgen bot defaults (bots seat next to a solo player).
+	 */
+	@GameTest(maxTicks = 400)
+	public void tudorHouseGames(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Optional<CasinoQa.Target> tudor = CasinoQa.standalone(level.getServer()).stream().filter(t -> t.name().equals("casino_tudor")).findFirst();
+		helper.assertTrue(tudor.isPresent(), "casino_tudor structure registered");
+		CasinoQa.Placed placed = CasinoQa.place(level, tudor.get(), new BlockPos(-12000, 0, 8000), 1);
+		helper.assertTrue(placed.record().isPresent(), "Tudor registered a casino record");
+		List<CasinoQa.Spot> spots = placed.spots();
+		CasinoQa.Spot blackjack = spots.stream().filter(s -> s.game() == Game.BLACKJACK).findFirst()
+			.orElseThrow(() -> new AssertionError("no blackjack in Tudor"));
+		CasinoQa.Spot roulette = spots.stream().filter(s -> s.game() == Game.ROULETTE).findFirst()
+			.orElseThrow(() -> new AssertionError("no roulette in Tudor"));
+		List<ServerPlayer> players = new ArrayList<>();
+		try {
+			ServerPlayer survivor = housePlayer(helper, GameType.SURVIVAL, false);
+			ServerPlayer op = housePlayer(helper, GameType.SURVIVAL, true);
+			players.addAll(List.of(survivor, op));
+			Item item = level.getBlockState(blackjack.pos()).getBlock().asItem();
+			clearItems(level, blackjack.pos());
+			helper.assertFalse(survivor.gameMode.destroyBlock(blackjack.pos()), "non-op break of the Tudor blackjack refused");
+			helper.assertTrue(isTable(level, blackjack.pos()), "Tudor blackjack still present");
+			helper.assertTrue(CasinoQa.drainMessages(survivor).contains(HouseGames.PROTECTED_KEY), "non-op told the table is the house's");
+			op.gameMode.destroyBlock(blackjack.pos());
+			helper.assertTrue(!isTable(level, blackjack.pos()) && itemsNear(level, blackjack.pos(), item) == 0,
+				"operator removed it and no blackjack_table item dropped within 3 blocks");
+
+			BlockEntity rouletteBe = level.getBlockEntity(roulette.pos());
+			helper.assertTrue(HouseGames.explosionProof(level, roulette.pos(), rouletteBe), "Tudor roulette is explosion-proof (MT applies it)");
+			helper.assertFalse(HouseGames.dropsAllowed(level, roulette.pos(), rouletteBe, null), "Tudor roulette never drops (MT applies it)");
+
+			// the VIP room is an optional rear piece of the jigsaw: build the Tudor VIP piece itself, registered as a casino
+			Layout vipLayout = Layouts.byId("casino/tudor/vip").orElseThrow(() -> new AssertionError("casino/tudor/vip layout missing"));
+			BlockPos vipAt = new BlockPos(-12000, 0, 8400);
+			CasinoQa.loadChunks(level, vipAt, 2);
+			CasinoQa.reset(level, vipAt, 24, 30);
+			vipAt = vipAt.atY(CasinoQa.groundY(level, vipAt.getX(), vipAt.getZ()) - 2);
+			var template = CasinoBuilder.templates(level.getServer()).get(Burmaldaholic.id(vipLayout.templatePath()))
+				.orElseThrow(() -> new AssertionError(vipLayout.templatePath() + " template missing"));
+			var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings();
+			template.placeInWorld(level, vipAt, vipAt, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+			BoundingBox vipBox = template.getBoundingBox(settings, vipAt);
+			CasinoQa.Placed vipRoom = new CasinoQa.Placed(new CasinoQa.Target(vipLayout.id(), false, true, Optional.empty(), Optional.of(vipLayout)),
+				vipBox, CasinoQa.spots(level, vipBox), Optional.empty(), 0);
+			BoundingBox vb = vipRoom.box();
+			String dim = level.dimension().identifier().toString();
+			String vipId = CasinoRecord.idFor(dim, vb.minX(), vb.minY(), vb.minZ());
+			CasinoIndex.get(level.getServer()).setAnchor(vipId, dim, vipLayout.id(), CasinoKind.CASINO,
+				new Geometry.Box(vb.minX(), vb.minY(), vb.minZ(), vb.maxX(), vb.maxY(), vb.maxZ()));
+			for (Game g : List.of(Game.BACCARAT_PLAYER_BANKED, Game.UTH_PLAYER_BANKED)) {
+				CasinoQa.Spot vip = vipRoom.spots().stream().filter(s -> s.game() == g).findFirst()
+					.orElseThrow(() -> new AssertionError("no " + g + " in Tudor"));
+				BlockEntity be = level.getBlockEntity(vip.pos());
+				helper.assertTrue(be instanceof BotTable bt && bt.tableBots() != null, g + " has Seats & Bots");
+				TableBots bots = ((BotTable) be).tableBots();
+				String family = WorldgenBotPresets.gameOf(g.blockId()).orElseThrow(() -> new AssertionError(g + " not in GAME_OF"));
+				BotSettings want = WorldgenBotPresets.apply(TableBots.defaultsFor(family, true),
+					WorldgenBotPresets.presetFor(CasinoKind.CASINO, g.blockId()));
+				helper.assertTrue(bots.defaults().equals(want), g + " uses the worldgen bot defaults " + want + ", got " + bots.defaults());
+				helper.assertTrue(want.policy() != SeatPolicy.HUMANS_ONLY && want.count() > 0,
+					g + ": worldgen defaults seat bots next to a solo player (" + want + ")");
+			}
+		} finally {
+			dropPlayers(helper, players);
+		}
+		helper.succeed();
+	}
+
+	/** M11: the v2 Parlor's baccarat gets parlor_baccarat directly; the v2 Lounge's craps / poker get High-Roller presets. */
+	@GameTest(maxTicks = 100)
+	public void parlorAndLoungePresets(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Map<String, Map<Game, String>> want = Map.of(
+			"casino/parlor", Map.of(Game.BACCARAT, TablePresets.PARLOR_BACCARAT, Game.POKER, TablePresets.PARLOR_POKER),
+			"casino/lounge", Map.of(Game.CRAPS, TablePresets.HIGH_ROLLER_CRAPS, Game.POKER, TablePresets.HIGH_ROLLER_POKER,
+				Game.BACCARAT_HIGH_ROLLER, TablePresets.HIGH_ROLLER_BACCARAT, Game.BLACKJACK_HIGH_ROLLER, TablePresets.HIGH_ROLLER_BLACKJACK));
+		int i = 0;
+		for (var e : want.entrySet()) {
+			Layout l = Layouts.byId(e.getKey()).orElseThrow(() -> new AssertionError(e.getKey() + " layout missing"));
+			BlockPos at = new BlockPos(-12000 + 160 * ++i, 0, 9000);
+			CasinoQa.Placed p = CasinoQa.place(level, new CasinoQa.Target(l.id(), true, true, Optional.empty(), Optional.of(l)), at, 0);
+			for (var g : e.getValue().entrySet()) {
+				CasinoQa.Spot s = p.spots().stream().filter(x -> x.game() == g.getKey()).findFirst()
+					.orElseThrow(() -> new AssertionError(g.getKey() + " missing in " + l.id()));
+				var preset = CoreServices.tablePresets().preset(level, s.pos());
+				helper.assertTrue(preset.map(x -> x.id()).orElse("").equals(g.getValue()),
+					l.id() + " " + g.getKey() + " preset " + g.getValue() + ", got " + preset.map(x -> x.id()).orElse("none"));
+				helper.assertTrue(level.getBlockEntity(s.pos()) instanceof CasinoTableBlockEntity t && t.preset().isPresent(),
+					l.id() + " " + g.getKey() + ": the table itself reads its preset");
+			}
+		}
 		helper.succeed();
 	}
 

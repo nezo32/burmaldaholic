@@ -35,17 +35,23 @@ public final class WorldgenBotPresets {
 		CasinoKind.CASINO, BotRoster.Theme.ANY);
 
 	/** Bot table block ids → game family ({@code bots.table.<game>}) of the tables worldgen places. */
-	private static final Map<String, String> GAME_OF = Map.of(
-		Layouts.POKER, "poker",
-		Layouts.BLACKJACK, "blackjack",
-		Layouts.BLACKJACK_HIGH_ROLLER, "blackjack",
-		Layouts.ROULETTE, "roulette",
-		Layouts.ROULETTE_HIGH_ROLLER, "roulette",
-		Layouts.CRAPS, "craps",
-		Layouts.BACCARAT, "baccarat",
-		Layouts.BACCARAT_HIGH_ROLLER, "baccarat",
-		Layouts.UTH, "uth",
-		Layouts.UTH_HIGH_ROLLER, "uth");
+	/** Player-banked (VIP) variants the v0.2 casinos place (R-CB M10; e.g. the Tudor VIP room). */
+	public static final String BACCARAT_PLAYER_BANKED = "burmaldaholic:baccarat_table_player_banked";
+	public static final String UTH_PLAYER_BANKED = "burmaldaholic:uth_table_player_banked";
+
+	private static final Map<String, String> GAME_OF = Map.ofEntries(
+		Map.entry(Layouts.POKER, "poker"),
+		Map.entry(Layouts.BLACKJACK, "blackjack"),
+		Map.entry(Layouts.BLACKJACK_HIGH_ROLLER, "blackjack"),
+		Map.entry(Layouts.ROULETTE, "roulette"),
+		Map.entry(Layouts.ROULETTE_HIGH_ROLLER, "roulette"),
+		Map.entry(Layouts.CRAPS, "craps"),
+		Map.entry(Layouts.BACCARAT, "baccarat"),
+		Map.entry(Layouts.BACCARAT_HIGH_ROLLER, "baccarat"),
+		Map.entry(BACCARAT_PLAYER_BANKED, "baccarat"),
+		Map.entry(Layouts.UTH, "uth"),
+		Map.entry(Layouts.UTH_HIGH_ROLLER, "uth"),
+		Map.entry(UTH_PLAYER_BANKED, "uth"));
 
 	/**
 	 * What a worldgen table adds to / overrides in the configured {@code worldgen*} table defaults.

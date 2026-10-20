@@ -170,6 +170,22 @@ class WorldgenBotPresetsTest {
 		assertEquals(Optional.empty(), WorldgenBotPresets.gameOf(Layouts.SLOTS_GOLD));
 		assertEquals(Optional.empty(), WorldgenBotPresets.gameOf(Layouts.CASHIER));
 		assertEquals(Optional.empty(), WorldgenBotPresets.gameOf(null));
+		// R-CB M10: the player-banked VIP tables (Tudor VIP room) were missing from the old Map.of
+		assertEquals(Optional.of("baccarat"), WorldgenBotPresets.gameOf("burmaldaholic:baccarat_table_player_banked"));
+		assertEquals(Optional.of("uth"), WorldgenBotPresets.gameOf("burmaldaholic:uth_table_player_banked"));
+	}
+
+	/** R-CB M10: every table-family game block a casino can place has bot seats; machines and cashiers have none. */
+	@Test
+	void everyBotCapableGameIsMapped() {
+		for (dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game g : dev.nezo.burmaldaholic.worldgen.logic.blueprint.Game.values()) {
+			Optional<String> family = WorldgenBotPresets.gameOf(g.blockId());
+			if (g.isTable()) {
+				assertEquals(Optional.of(g.family().name().toLowerCase(java.util.Locale.ROOT)), family, g.name());
+			} else {
+				assertEquals(Optional.empty(), family, g.name());
+			}
+		}
 	}
 
 	@Test

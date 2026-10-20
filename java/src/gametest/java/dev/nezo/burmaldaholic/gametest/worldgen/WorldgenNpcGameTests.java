@@ -156,7 +156,9 @@ public class WorldgenNpcGameTests {
 			helper.assertTrue(bj.preset().map(TablePreset::minTier).orElse(0) == dev.nezo.burmaldaholic.core.service.VipTiers.GOLD
 				&& bj.isHighRoller(), "Lounge blackjack is a High-Roller table (Gold VIP)");
 			helper.assertTrue(rt.isHighRoller() && rt.preset().map(TablePreset::minBet).orElse(0L) == 100, "Lounge roulette: min 100");
-			helper.assertTrue(pokerTable.preset().isEmpty(), "no poker preset in the Lounge");
+			// R-CB M11: the Lounge poker plays fixed Mid stakes (Gold VIP)
+			helper.assertTrue(pokerTable.preset().map(p -> p.id().equals("high_roller_poker") && p.pokerStakes().equals("mid")).orElse(false),
+				"Lounge poker: high_roller_poker, Mid stakes");
 		} finally {
 			forget(helper, lounge);
 		}
