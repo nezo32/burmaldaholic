@@ -682,6 +682,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		MinecraftServer server = level.getServer();
 		if (!mtChecked) {
 			mtChecked = true;
+			if (mtLegacy) {
+				// before the migration rewrites the save: house table (generated) or a player's (CB-G, coordinator D2)
+				dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().legacyTableLoaded(level, worldPosition, this);
+			}
 			if (dev.nezo.burmaldaholic.core.table.parts.TableParts.firstTick(level, this, mtLegacy)) {
 				mtLegacy = false;
 				setChanged();

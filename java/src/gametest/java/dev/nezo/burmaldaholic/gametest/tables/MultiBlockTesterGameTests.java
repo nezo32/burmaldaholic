@@ -89,7 +89,8 @@ public class MultiBlockTesterGameTests {
 
 	private static List<BlockPos> cells(GameTestHelper helper, MultiBlockTableBlock b, Direction facing) {
 		List<BlockPos> out = new ArrayList<>();
-		for (int[] o : b.offsets(facing)) {
+		for (dev.nezo.burmaldaholic.core.table.parts.LocalCell c : b.cells()) {
+			int[] o = c.offset(facing.getStepX(), facing.getStepZ());
 			out.add(helper.absolutePos(MAIN).offset(o[0], o[1], o[2]));
 		}
 		return out;

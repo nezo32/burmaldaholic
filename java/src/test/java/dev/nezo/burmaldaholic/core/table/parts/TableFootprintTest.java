@@ -221,7 +221,8 @@ class TableFootprintTest {
 				net.minecraft.core.BlockPos d = TableFootprint.dealerCell(main, facing, g);
 				assertEquals(d, TableFootprint.dealerPos(main, facing, g));
 				assertEquals(main.getY(), d.getY());
-				List<net.minecraft.core.BlockPos> cells = TableFootprint.positions(main, facing, g);
+				List<net.minecraft.core.BlockPos> cells = new java.util.ArrayList<>();
+				for (TableFootprint.Cell c : TableFootprint.cells(g, facing.getStepX(), facing.getStepZ())) cells.add(main.offset(c.dx(), 0, c.dz()));
 				assertFalse(cells.contains(d), g + " " + facing + " dealer inside the footprint");
 				for (int r = -1; r <= 1; r++) assertFalse(d.equals(TableFootprint.cellPos(main, facing, r, 1)), g + " " + facing + " dealer in the walkway");
 				net.minecraft.core.Direction look = TableFootprint.dealerFacing(facing);

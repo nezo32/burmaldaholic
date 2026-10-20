@@ -68,9 +68,20 @@ public final class CashierSignRenderer implements BlockEntityRenderer<CashierBlo
 		BlockState bs = be.getBlockState();
 		state.show = TableParts.partOf(bs) == TablePart.MAIN && cameraPos.distanceToSqr(Vec3.atCenterOf(be.getBlockPos())) <= RANGE_SQ;
 		state.facing = bs.hasProperty(CasinoTableBlock.FACING) ? bs.getValue(CasinoTableBlock.FACING) : Direction.NORTH;
-		state.text = state.show
-			? Component.translatable("sign.burmaldaholic.cashier").getVisualOrderText()
-			: null;
+		state.text = state.show ? signText() : null;
+	}
+
+	private static String cachedLanguage;
+	private static net.minecraft.util.@Nullable FormattedCharSequence cachedText;
+
+	/** The localized sign word, built once per language (not every frame). */
+	private static net.minecraft.util.FormattedCharSequence signText() {
+		String lang = net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected();
+		if (cachedText == null || !lang.equals(cachedLanguage)) {
+			cachedText = Component.translatable("sign.burmaldaholic.cashier").getVisualOrderText();
+			cachedLanguage = lang;
+		}
+		return cachedText;
 	}
 
 	@Override
@@ -92,5 +103,10 @@ public final class CashierSignRenderer implements BlockEntityRenderer<CashierBlo
 	@Override
 	public boolean shouldRenderOffScreen() {
 		return true;
+	}
+
+	@Override
+	public boolean shouldRender(CashierBlockEntity be, Vec3 cameraPos) {
+		return BlockEntityRenderer.super.shouldRender(be, cameraPos) && TableCulling.visible(be);
 	}
 }

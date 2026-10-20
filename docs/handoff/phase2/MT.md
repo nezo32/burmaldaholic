@@ -142,6 +142,19 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
   failures; `runGameTest -Dfabric-api.gametest.filter=multi_block -Pmc=26.3` → all 15 passed (the first 14 also passed
   on 26.2); `-Dfabric-api.gametest.filter=worldgen -Pmc=26.3` → all 15 passed. Client lane not run (no client changes).
 
+- **T-MT fixes (@616f71ea FAIL → fixed):** D1 `MultiBlockTableBlock.getDrops` asks
+  `TableProtection.dropsAllowed(level, main, blockEntity)` (ORIGIN + BLOCK_ENTITY loot params) — covers every removal
+  path (player, explosion, part cascade, wither, `/setblock destroy`, mods); the `noLootPart` trick is gone. D2
+  (coordinator decision): new `TableProtection.legacyTableLoaded` hook on a pre-v0.2 BE's first tick;
+  `HouseTableProtection` marks it player-placed unless it stands on a v0.1 generated table position of its casino
+  (`worldgen/logic/LegacyHouseTables`, union of v0.1.0–v0.1.3 layouts, origin + rotation from the record id/box;
+  `LegacyHouseTablesTest`, GameTest `legacyTablesInsideCasinosHouseOnlyAtGeneratedPositions`). Perf: spectator / cashier
+  renderers keep `shouldRenderOffScreen` (content spans sections) but `shouldRender` now culls by the camera frustum
+  against the footprint box +1 (`client/table/TableCulling`); cashier sign text cached per language; `TableFrames`
+  transforms cached per game × part × facing (no per-frame records). Dead code removed: `TableFootprint.positions`,
+  `MultiBlockTableBlock.offsets`, `noLootPart`; HouseGames.mainOf Javadoc. Tester probes (`MultiBlockTesterGameTests`,
+  test/mt @86e32006) cherry-picked. 26.3: `runGameTest multi_block` → all 21 passed.
+
 ## Requests (R3)
 - CB-C1 / CR: `TableClearance` R4 and `Kits.tablePod` still allow a lectern in the dealer cell — with real dealers it
   must be two blocks of air on a floor, reachable from the walkway (see `MultiBlockLayoutsTest.reachable`). Kits Javadoc
