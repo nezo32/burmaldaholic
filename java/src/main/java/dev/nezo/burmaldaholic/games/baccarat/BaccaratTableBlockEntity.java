@@ -1454,10 +1454,10 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		if (!(level instanceof ServerLevel sl)) {
 			return;
 		}
-		BaccaratDealer best = null;
+		net.minecraft.world.entity.Mob best = null; // DL: any dealer that takes gestures (house dealers, old baccarat dealers)
 		double bestD = Double.MAX_VALUE;
 		Vec3 c = Vec3.atCenterOf(worldPosition);
-		for (BaccaratDealer d : sl.getEntitiesOfClass(BaccaratDealer.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(3))) {
+		for (net.minecraft.world.entity.Mob d : sl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(3), m -> m instanceof dev.nezo.burmaldaholic.client.dealer.DealerGestureSink)) {
 			double dist = d.distanceToSqr(c);
 			if (dist < bestD) {
 				bestD = dist;
@@ -1465,7 +1465,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 			}
 		}
 		if (best != null) {
-			best.gesture(g);
+			((dev.nezo.burmaldaholic.client.dealer.DealerGestureSink) best).gesture(g);
 		}
 	}
 

@@ -596,10 +596,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		if (!(level instanceof ServerLevel sl)) {
 			return;
 		}
-		BlackjackDealer best = null;
+		net.minecraft.world.entity.Mob best = null; // DL: any dealer that takes gestures (house dealers, old blackjack dealers)
 		double bestD = Double.MAX_VALUE;
 		net.minecraft.world.phys.Vec3 c = net.minecraft.world.phys.Vec3.atCenterOf(worldPosition);
-		for (BlackjackDealer d : sl.getEntitiesOfClass(BlackjackDealer.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(BlackjackDealer.TABLE_RADIUS))) {
+		for (net.minecraft.world.entity.Mob d : sl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(worldPosition).inflate(BlackjackDealer.TABLE_RADIUS), m -> m instanceof dev.nezo.burmaldaholic.client.dealer.DealerGestureSink)) {
 			double dist = d.distanceToSqr(c);
 			if (dist < bestD) {
 				bestD = dist;
@@ -607,7 +607,7 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			}
 		}
 		if (best != null) {
-			best.gesture(g);
+			((dev.nezo.burmaldaholic.client.dealer.DealerGestureSink) best).gesture(g);
 		}
 	}
 
