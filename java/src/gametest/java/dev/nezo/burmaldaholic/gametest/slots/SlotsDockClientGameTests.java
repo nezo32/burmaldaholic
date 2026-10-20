@@ -99,7 +99,7 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 			if (vp.frameW() != s[3] || vp.frameH() != s[4]) out.add("frame " + vp.frameW() + "x" + vp.frameH() + " (window clamped?)");
 			Box screen = c.grid().screen;
 			List<HitMap.Target> ts = c.hits().targets();
-			for (HitMap.Target t : ts) if (!t.box().inside(screen)) out.add(t.id() + " outside the frame");
+			for (HitMap.Target t : ts) if (!t.box().inside(screen)) out.add(t.id() + " " + t.box() + " outside the frame " + screen);
 			for (int i = 0; i < ts.size(); i++) {
 				for (int j = i + 1; j < ts.size(); j++) {
 					if (overlap(ts.get(i).box(), ts.get(j).box())) out.add(ts.get(i).id() + " overlaps " + ts.get(j).id());
@@ -152,8 +152,10 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 			clickOverlay(f, h -> h[4] >= 200 && h[4] < 300, tag + " loss limit");
 			clickOverlay(f, h -> h[4] == Overlays.Action.AUTO_START.ordinal(), tag + " auto start");
 			f.waitServer(pos, SlotMachineBlockEntity.class, be -> this.field(be, "autoV2") != null, tag + " server autoplay started");
-			f.waitChrome(c -> c.hits().box(KeyMap.Ids.PRIMARY).isPresent() && SlotFlow.STOP_AUTO.equals(primaryAction(c)), tag + " primary = Stop autoplay");
-			f.click(KeyMap.Ids.PRIMARY);
+			// during an autoplay spin the primary is Stop (skip); Stop autoplay is the ActionRow entry
+			String stopAuto = KeyMap.Ids.action(SlotFlow.STOP_AUTO);
+			f.waitChrome(c -> c.hits().box(stopAuto).isPresent(), tag + " Stop autoplay in the Dock");
+			f.click(stopAuto);
 			f.waitServer(pos, SlotMachineBlockEntity.class, be -> this.field(be, "autoV2") == null && !be.spinning(), tag + " server autoplay ended", 1200);
 			ctx.waitFor(mc -> body(mc) != null && !body(mc).stage().spinning(), RealFlow.TIMEOUT);
 			ctx.waitTicks(10);
@@ -211,6 +213,7 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 		long serverBet = f.server(server -> server.overworld().getBlockEntity(pos) instanceof SlotMachineBlockEntity be && be.roundTape() != null ? (Long) be.roundTape().bet() : (Long) (-1L));
 		if (serverBet != -1 && serverBet != bet) failures.add(tag + ": server spun " + serverBet + " but the stepper shows " + bet);
 		boolean stopped = false;
+		boolean began = false;
 		int ticks = 0;
 		for (; ticks < 1200; ticks++) {
 			Object[] s = f.client(mc -> {
@@ -224,13 +227,14 @@ public class SlotsDockClientGameTests implements FabricClientGameTest {
 				return;
 			}
 			boolean spinning = (boolean) s[0];
+			began |= spinning;
 			long shown = (long) s[2];
 			if (spinning && shown != shown0 && shown != shown0 - bet) failures.add(tag + ": balance " + shown + " shown while the reels spin (start " + shown0 + ")");
 			if (stop && !stopped && spinning && SlotFlow.SKIP.equals(s[3]) && ticks > 4) {
 				f.click(KeyMap.Ids.PRIMARY);
 				stopped = true;
 			}
-			if ((boolean) s[1] && !spinning) break;
+			if (began && (boolean) s[1] && !spinning) break; // finished is also true while idle before the click lands
 			ctx.waitTick();
 		}
 		f.waitServer(pos, SlotMachineBlockEntity.class, be -> !be.spinning(), tag + " server settled", 600);

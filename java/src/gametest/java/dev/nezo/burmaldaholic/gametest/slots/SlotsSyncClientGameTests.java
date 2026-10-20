@@ -70,10 +70,12 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 			server.overworld().setBlockAndUpdate(pos, SlotsModule.MACHINES.get(Tier.COPPER).block().defaultBlockState());
 			if (server.overworld().getBlockEntity(pos) instanceof SlotMachineBlockEntity be) {
 				SlotMachinesV2.cfg(be.machineV2()).minVipTier = 0;
-				player.openMenu(be);
 				start[0] = Economies.get().balance(player);
 			}
 		});
+		// T-SLT: open it like a player (use the block), not a server-side openMenu
+		BlockPos at = world.getServer().computeOnServer(server -> server.getPlayerList().getPlayers().getFirst().blockPosition().offset(2, 0, 0));
+		new dev.nezo.burmaldaholic.gametest.v2.RealFlow(context, world).use(at);
 		context.waitFor(mc -> mc.gui.screen() instanceof SlotMachineV2Screen s && s.body() != null && s.body().model().def != null, 200);
 		context.waitTicks(10);
 		// E1: coin × multiplier label and the Mini meter's source tooltip
@@ -104,6 +106,7 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 		boolean sawPreRoll = false;
 		boolean sawHandoff = false;
 		double[] prev = null;
+		long prevMs = 0;
 		double maxStep = 3.5 * ReelMotion.V * 50 * 2; // per tick (≥ 50 ms; 2× for a slow frame)
 		for (int tick = 0; tick < 600; tick++) {
 			context.waitTick();
@@ -120,7 +123,7 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 				}
 				int[] len = new int[5];
 				for (int r = 0; r < 5; r++) len[r] = st.def().stripLength(r);
-				return new Object[] {st.preRolling(), handoff, top, phase, st.finished(), len};
+				return new Object[] {st.preRolling(), handoff, top, phase, st.finished(), len, net.minecraft.util.Util.getMillis()};
 			});
 			if (snap == null) break;
 			sawPreRoll |= (boolean) snap[0];
@@ -131,11 +134,14 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 					int len = ((int[]) snap[5])[r];
 					double d = prev[r] - top[r];
 					d -= len * Math.floor(d / len + 0.5); // whole strip turns are invisible (same cells)
-					if (d < -0.2 || d > maxStep) failures.add("reel " + r + " jumped " + d + " cells in one tick");
+					// bound by the real wall time between samples (an overloaded machine stretches ticks), 3.5 V plus slack
+					double bound = Math.max(maxStep, 3.5 * ReelMotion.V * ((long) snap[6] - prevMs) * 1.25);
+					if (d < -0.2 || d > bound) failures.add("reel " + r + " jumped " + d + " cells in " + ((long) snap[6] - prevMs) + " ms");
 				}
 			}
 			prev = (int) snap[3] == 0 ? top : null;
-			if ((boolean) snap[4]) break;
+			prevMs = (long) snap[6];
+			if ((boolean) snap[4] && (sawPreRoll || sawHandoff)) break; // finished is also true while idle before the click lands
 		}
 		if (!sawHandoff) failures.add("the result did not hand off from the pre-roll (pre-roll seen: " + sawPreRoll + ", clicked at " + p[0] + "," + p[1] + "; "
 			+ context.computeOnClient(mc -> mc.gui.screen() instanceof SlotMachineV2Screen s ? "pressed '" + s.chrome().lastPressed() + "' primary " + s.chrome().primary.gate()
