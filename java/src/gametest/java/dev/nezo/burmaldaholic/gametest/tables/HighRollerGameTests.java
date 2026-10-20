@@ -106,6 +106,7 @@ public class HighRollerGameTests {
 				if (pk instanceof ClientboundCustomPayloadPacket c && c.payload() instanceof TableSyncPayload sync) last = sync.state();
 				if (pk instanceof ClientboundCustomPayloadPacket c && c.payload() instanceof TableErrorPayload err) keys.add(key(err.message()));
 				if (pk instanceof ClientboundSetActionBarTextPacket bar) keys.add(key(bar.text()));
+				if (pk instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket chat) keys.add(key(chat.content()));
 			}
 		}
 		return new Sent(last == null ? new CompoundTag() : last, keys);
