@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.client.table;
 
+import dev.nezo.burmaldaholic.core.table.parts.MachineKind;
+import dev.nezo.burmaldaholic.core.table.parts.RenderExtent;
 import dev.nezo.burmaldaholic.core.table.parts.TableParts;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -20,7 +22,12 @@ public final class TableCulling {
 	/** Render box of the table or machine whose main / compact block entity is {@code be}. */
 	public static AABB renderBox(BlockEntity be) {
 		BlockState state = be.getBlockState();
-		return TableParts.footprintBox(be.getBlockPos(), state).inflate(1.0);
+		AABB box = TableParts.footprintBox(be.getBlockPos(), state).inflate(RenderExtent.CONTENT_ABOVE);
+		if (TableParts.machineOf(state) == MachineKind.SLOT) {
+			// floating tier word and bonus wheel stand above the cabinet (T-MT D3): y + 4 for compact and full
+			box = box.setMaxY(Math.max(box.maxY, be.getBlockPos().getY() + RenderExtent.SLOT_TOP));
+		}
+		return box;
 	}
 
 	/** Whether {@code be}'s render box is in the camera's culling frustum (true when no frustum is set up yet). */
