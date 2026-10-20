@@ -21,6 +21,11 @@ import java.util.List;
  * </pre>
  * No-wall mode (Dice Duel, T = 900 ms): a short arc (apex 14 px) to a floor contact at 45 %, one bounce (apex 5 px)
  * to 80 %, a skid to rest; real faces from 82 %. Rest points are ≥ 18 px apart (the second die is pushed away).
+ *
+ * <p><b>Deprecated (PHASE2B §3.3, DCa):</b> kept unchanged as an adapter for the v0.1 call sites until craps (CM) and the
+ * duel (DCb) move to {@link DiceSolver} / {@link DiceRoll} (build a {@link DiceTray} + {@link ThrowSpec} and sample
+ * {@link DieSample}s instead of {@link Sample}s); Q deletes it. Do not add new uses.
+ * (No {@code @Deprecated} annotation: it would flood the 26 call sites with lint warnings until they migrate.)
  */
 public final class DiceThrowPath {
 	/** Share of the throw after which the real faces show. */
