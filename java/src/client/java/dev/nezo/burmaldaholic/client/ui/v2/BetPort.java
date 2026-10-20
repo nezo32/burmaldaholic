@@ -16,4 +16,29 @@ public interface BetPort {
 
 	/** A bet tool ({@code undo}, {@code clear}, {@code rebet}, {@code double}). */
 	void tool(String toolId);
+
+	/**
+	 * Whether {@link #amount} sets the bet (single-spot games). False (default): the bet-entry control's amount becomes
+	 * the unit a felt click places instead ({@link BetBar#unit}).
+	 */
+	default boolean setsAmount() {
+		return false;
+	}
+
+	/**
+	 * The bet-entry control's OK (lane HR): the bet becomes {@code amount} (already clamped to the limits and the
+	 * balance; the server still validates). Returns false when the game cannot set an amount.
+	 */
+	default boolean amount(long amount) {
+		return false;
+	}
+
+	/**
+	 * What an {@link #amount} costs on the table (T-HR D1): {@link dev.nezo.burmaldaholic.core.ui.v2.BetAmount#ONE} when the
+	 * amount is the stake; Ultimate Texas Hold'em's field is the Ante, its stake Ante + Blind + Trips. The entry opens with
+	 * the amount, clamps the whole stake to the limits and shows the total.
+	 */
+	default dev.nezo.burmaldaholic.core.ui.v2.BetAmount.Cost entryCost() {
+		return dev.nezo.burmaldaholic.core.ui.v2.BetAmount.ONE;
+	}
 }

@@ -1,5 +1,7 @@
 package dev.nezo.burmaldaholic.core.ui.v2;
 
+import dev.nezo.burmaldaholic.core.wager.BetCap;
+
 /**
  * The shared gates of the bet flow (docs/architecture/ui-v2.md §5): chips, the four bet tools, Sit down and the generic
  * "place your bet, then press the primary" button. Every game's {@code <G>Flow} starts from these so the reasons are the
@@ -39,7 +41,7 @@ public final class BetGates {
 		Gate closed = closedReason(CHIP, V2Keys.CHIP, v);
 		if (closed != null) return closed;
 		if (denom > v.balance()) return Gate.off(CHIP, V2Keys.CHIP, V2Keys.REASON_NOT_ENOUGH);
-		if (denom > v.roomUnderMax()) return Gate.off(CHIP, V2Keys.CHIP, V2Keys.REASON_ABOVE_MAX, v.max());
+		if (denom > v.roomUnderMax()) return aboveMax(CHIP, V2Keys.CHIP, v);
 		return new Gate(CHIP, V2Keys.CHIP, new Object[] {denom}, true, null, null);
 	}
 
@@ -61,9 +63,30 @@ public final class BetGates {
 				: v.rebetAmount() > v.balance() ? Gate.off(id, label, V2Keys.REASON_NOT_ENOUGH) : Gate.on(id, label, v.rebetAmount());
 			default -> !v.canDouble() || v.myTotal() <= 0 ? Gate.off(id, label, V2Keys.REASON_CANNOT_DOUBLE)
 				: v.myTotal() > v.balance() ? Gate.off(id, label, V2Keys.REASON_NOT_ENOUGH)
-				: v.myTotal() * 2 > (v.max() <= 0 ? Long.MAX_VALUE : v.max()) ? Gate.off(id, label, V2Keys.REASON_ABOVE_MAX, v.max())
+				: v.myTotal() * 2 > (v.max() <= 0 ? Long.MAX_VALUE : v.max()) ? aboveMax(id, label, v)
 				: Gate.on(id, label);
 		};
+	}
+
+	/**
+	 * "Not more than the maximum", in the words of WHOSE maximum it is (owner playtest B5): the VIP tier and the tier that
+	 * allows more, the table, the table's owner ({@link BetView#cap}); the plain "The maximum bet is N" when unknown.
+	 */
+	public static Gate aboveMax(String action, String labelKey, BetView v) {
+		BetCap c = v.cap();
+		if (c.source() == BetCap.Source.NONE) return Gate.off(action, labelKey, V2Keys.REASON_ABOVE_MAX, v.max());
+		BetCap at = c.max() == v.max() || v.max() <= 0 ? c : c.withMax(v.max());
+		return Gate.off(action, labelKey, at.reasonKey(), at.reasonArgs());
+	}
+
+	/** "Not less than the minimum": the table owner's minimum when it is theirs. */
+	public static Gate belowMin(String action, String labelKey, BetView v) {
+		return Gate.off(action, labelKey, v.cap().ownerMin() ? BetCap.KEY_OWNER_MIN : V2Keys.REASON_BELOW_MIN, v.min());
+	}
+
+	/** "Not more than you have": the balance. */
+	public static Gate overBalance(String action, String labelKey, BetView v) {
+		return Gate.off(action, labelKey, BetCap.KEY_BALANCE, Math.max(0, v.balance()));
 	}
 
 	/** The Sit down primary (viewer not seated, ui-v2.md §2.3). */
@@ -84,8 +107,8 @@ public final class BetGates {
 			return v.affordsMin() ? Gate.off(action, labelKey, V2Keys.REASON_PLACE_BET)
 				: Gate.off(action, labelKey, V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
 		}
-		if (v.myTotal() < v.min()) return Gate.off(action, labelKey, V2Keys.REASON_BELOW_MIN, v.min());
-		if (v.max() > 0 && v.myTotal() > v.max()) return Gate.off(action, labelKey, V2Keys.REASON_ABOVE_MAX, v.max());
+		if (v.myTotal() < v.min()) return belowMin(action, labelKey, v);
+		if (v.max() > 0 && v.myTotal() > v.max()) return aboveMax(action, labelKey, v);
 		return Gate.on(action, labelKey);
 	}
 

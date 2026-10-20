@@ -41,7 +41,7 @@ public record BlackjackView(boolean seated, boolean canSit, Phase phase, boolean
 	}
 
 	/** Chip denominations of the tray (REDESIGN §10), filtered per table. */
-	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1_000, 5_000};
+	public static final long[] DENOMS = dev.nezo.burmaldaholic.core.chips.ChipMath.ascending();
 
 	public BlackjackView {
 		legal = Set.copyOf(legal);

@@ -35,7 +35,7 @@ public final class KeyMap {
 		return String.valueOf((char) ('0' + d));
 	}
 
-	/** The kit's standard keys: Space = primary, 1–5 = chips, Backspace = undo, Delete = clear, R = rebet, X = ×2. */
+	/** The kit's standard keys: Space = primary, 1–5 = chips, Backspace = undo, Delete = clear, R = rebet, X = ×2, E = type an amount. */
 	public static KeyMap standard() {
 		KeyMap k = new KeyMap();
 		k.bind(SPACE, Ids.PRIMARY);
@@ -44,6 +44,7 @@ public final class KeyMap {
 		k.bind(DELETE, Ids.tool(BetGates.CLEAR));
 		k.bind(R, Ids.tool(BetGates.REBET));
 		k.bind(X, Ids.tool(BetGates.DOUBLE));
+		k.bind(E, Ids.ENTRY);
 		return k;
 	}
 
@@ -110,6 +111,8 @@ public final class KeyMap {
 		public static final String PRIMARY = "primary";
 		public static final String SECONDARY = "secondary";
 		public static final String READOUT = "readout";
+		/** Opens the bet-entry strip (typed amount, Max, ×2, ½; lane HR). */
+		public static final String ENTRY = "entry.open";
 		public static final String TOP_RULES = "top.rules", TOP_SETTINGS = "top.settings", TOP_LEAVE = "top.leave";
 
 		public static String chip(int index) {

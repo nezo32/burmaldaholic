@@ -1,6 +1,7 @@
 // Table UI v2 kit art (lane K; docs/architecture/ui-v2.md §9, docs/design/visual/v2/REDESIGN.md §5, §10): chips with
 // language-neutral value digits, felt discs, pills, plates, stamps, buttons, key plates, icon buttons and glyphs, the
 // TopBar / Dock bars, banner, toast, felt tiles and vignette. Tokens of REDESIGN §5. Pure functions → images.
+import { CHIP_DENOMS, CHIPS as PALETTE_CHIPS, chipLabel } from '../../lib/palette.mjs';
 import { ellipse, image, rect, setPx } from '../../lib/grid.mjs';
 import { alpha, mix, shade } from '../../lib/palette.mjs';
 
@@ -40,10 +41,12 @@ export const CHIP = {
   25: { base: '#2E7D32', stripe: '#F5F5F5', digit: '#FFFFFF' },
   100: { base: '#262626', stripe: '#F5F5F5', digit: '#FFFFFF' },
   500: { base: '#6A1B9A', stripe: '#F3D34A', digit: '#FFFFFF' },
-  1000: { base: '#E8C030', stripe: '#3A2010', digit: '#3A2010' },
-  5000: { base: '#E07A1C', stripe: '#FFF4B0', digit: '#2A1408' },
+  // the high-roller chips share the palette's colours (one look on items, trays and the in-world stacks)
+  1000: PALETTE_CHIPS[1000],
+  5000: PALETTE_CHIPS[5000],
+  25000: PALETTE_CHIPS[25000],
 };
-export const DENOMS = [1, 5, 25, 100, 500, 1000, 5000];
+export const DENOMS = CHIP_DENOMS;
 
 // ---- digits (language-neutral numerals and the K suffix; no words) ---------------------------------------------------
 
@@ -61,7 +64,7 @@ const D57 = {
   5: ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
   K: ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
 };
-export const chipLabel = (d) => (d >= 1000 ? `${d / 1000}K` : String(d));
+export { chipLabel };
 
 function glyphs(img, text, cx, cy, font, colour, shadow) {
   const gw = font[0][0].length;

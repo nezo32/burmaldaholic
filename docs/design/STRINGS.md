@@ -676,6 +676,27 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.banner.you_lost` | LOST | ПРОИГРЫШ |
 | `gui.burmaldaholic.core.v2.banner.push` | PUSH | НИЧЬЯ |
 
+### High-roller chips, bet caps and bet entry (lane HR; owner playtest E4 / B5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `item.burmaldaholic.chip_1000` | Yellow Chip | Жёлтая фишка |
+| `item.burmaldaholic.chip_5000` | Orange Chip | Оранжевая фишка |
+| `item.burmaldaholic.chip_25000` | Turquoise Chip | Бирюзовая фишка |
+| `gui.burmaldaholic.core.v2.reason.cap.vip` | %2$s VIP max: %1$s (%3$s: %4$s) | Макс. VIP «%2$s»: %1$s («%3$s»: %4$s) |
+| `gui.burmaldaholic.core.v2.reason.cap.vip_top` | %2$s VIP max: %1$s | Макс. VIP «%2$s»: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.table` | Table max: %1$s | Макс. стола: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.owner` | Owner's table max: %1$s | Макс. владельца стола: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.owner_min` | Owner's table min: %1$s | Мин. владельца стола: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.balance` | Balance: only %1$s | На балансе только %1$s |
+| `gui.burmaldaholic.core.v2.entry.open` | Type amount | Ввести сумму |
+| `gui.burmaldaholic.core.v2.entry.hint` | Type an amount, Enter to set | Введите сумму, Enter — готово |
+| `gui.burmaldaholic.core.v2.entry.ok` | OK | ОК |
+| `gui.burmaldaholic.core.v2.entry.half` | ½ | ½ |
+| `gui.burmaldaholic.core.v2.entry.double` | ×2 | ×2 |
+| `gui.burmaldaholic.core.v2.entry.unit` | Each click places %1$s | Клик ставит %1$s |
+| `gui.burmaldaholic.core.v2.entry.cost` | Total stake: %1$s | Всего на столе: %1$s |
+
 ---
 
 ## streak

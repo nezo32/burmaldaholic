@@ -344,6 +344,22 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			}
 
 			@Override
+			public boolean setsAmount() {
+				return true;
+			}
+
+			@Override
+			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
+				if (view == null || amount <= 0) return false;
+				draft = amount;
+				history.clear();
+				history.push(amount);
+				FxSounds.play("chip_place", 1f);
+				refresh();
+				return true;
+			}
+
+			@Override
 			public void remove(long denom) {
 				if (history.isEmpty()) return;
 				// remove the last chip of that value (or the last chip)
@@ -715,12 +731,17 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		CardsV2.card(g, font, code, back, new Box(x, y, b.w(), b.h()), flip, argb);
 	}
 
+	/** The dealer rack's six wells: the five house chips largest first, then the smallest again (the rack art's order). */
+	private static final long[] RACK = java.util.stream.LongStream.concat(
+		java.util.Arrays.stream(dev.nezo.burmaldaholic.core.chips.ChipMath.DENOMINATIONS).filter(v -> v <= 500).asLongStream(),
+		java.util.stream.LongStream.of(dev.nezo.burmaldaholic.core.chips.ChipMath.largestAtMost(1))).toArray();
+
 	private void drawRack(GuiGraphicsExtractor g, Box r) {
 		V2Draw.fill(g, r, 0xFF2A1A10);
 		V2Draw.outline(g, r, CasinoPalette.V2_GOLD_SHADE);
 		int cols = 6;
 		int cw = Math.max(2, (r.w() - 4) / cols);
-		long[] d = {500, 100, 25, 5, 1, 1};
+		long[] d = RACK;
 		for (int i = 0; i < cols; i++) {
 			int x = r.x() + 2 + i * cw;
 			g.fill(x + 1, r.y() + 2, x + cw - 1, r.bottom() - 2, ChipStack.color(d[i]));

@@ -19,13 +19,13 @@ public final class ChipStackView {
 	public static final int DISC_W = 13, DISC_H = 8, STEP = 2;
 	/** Seat tints (tables.md §0.4 seat colours). */
 	public static final int[] SEAT_TINTS = {0xFFFFB74D, 0xFFBA68C8, 0xFF4FC3F7, 0xFF81C784, 0xFFF06292, 0xFFFFF176, 0xFF90A4AE};
-	private static final int[] DENOMS = {1, 5, 25, 100, 500};
+	private static final int[] DENOMS = dev.nezo.burmaldaholic.core.anim.dice.ChipStacks.DENOMS;
 	private static final Identifier[] DISC = new Identifier[DENOMS.length];
 	private static final Identifier[] BIG = new Identifier[DENOMS.length];
 	private static final Identifier DISC_TINT = FxSprites.sprite("cards/chip/disc_tint");
 	private static final Identifier DISC_HATCH = FxSprites.sprite("cards/chip/disc_hatch");
 	private static final Identifier SELECT = FxSprites.sprite("cards/chip/select");
-	private static final int[] FALLBACK = {0xFFF4ECF8, 0xFFD83440, 0xFF3CB44B, 0xFF222222, 0xFF783CBE};
+	private static final int[] FALLBACK = java.util.Arrays.stream(DENOMS).map(d -> dev.nezo.burmaldaholic.client.ui.v2.ChipStack.color(d)).toArray();
 
 	static {
 		for (int i = 0; i < DENOMS.length; i++) {

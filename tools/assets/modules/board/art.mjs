@@ -1,5 +1,6 @@
 // In-world board kit art (docs/architecture/ui-v2.md §7, §9; lane W): the felt overhang tops, the apron wood, the
 // card faces at in-world size, chip discs and bands, the holo backing. Pure pixel maths; no text is baked in.
+import { CHIP_DENOMS, CHIPS } from '../../lib/palette.mjs';
 import { BACK_ORDER, RANKS, back, cardBody, drawIndex, emblem } from '../cards/faces.mjs';
 import { B, P, R, image, mixHex, noise, over, scaleUp } from '../cards/px.mjs';
 import { pip } from '../cards/suits.mjs';
@@ -178,17 +179,9 @@ export function facesW2() {
   return img;
 }
 
-/** Chip colours by denomination (1 … 500 as the chip items; 1000 / 5000 for high-roller stacks). */
-export const DENOMS = [1, 5, 25, 100, 500, 1000, 5000];
-const CHIP_COLOURS = {
-  1: { base: '#ECECEC', stripe: '#3A6FD8' },
-  5: { base: '#C62828', stripe: '#F5F5F5' },
-  25: { base: '#2E7D32', stripe: '#F5F5F5' },
-  100: { base: '#262626', stripe: '#F5F5F5' },
-  500: { base: '#6A1B9A', stripe: '#F3D34A' },
-  1000: { base: '#E07A1E', stripe: '#1E1E1E' },
-  5000: { base: '#D4AF37', stripe: '#6A1B9A' },
-};
+/** Chip values left to right (the palette's one list; 128 px = 8 columns) and their colours. */
+export const DENOMS = CHIP_DENOMS;
+const CHIP_COLOURS = CHIPS;
 
 /** Chip atlas 128 × 64: per denomination column (16 px) the top disc (16²) and a 6-disc side band (16 × 24). */
 export function chipsW() {

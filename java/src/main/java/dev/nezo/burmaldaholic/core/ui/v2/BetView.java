@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.core.ui.v2;
 
+import dev.nezo.burmaldaholic.core.wager.BetCap;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -25,12 +26,14 @@ import java.util.Map;
  * @param canDouble   the current bet can be doubled now (×2 tool)
  * @param waitingFor  name of the player the table waits for, or ""
  * @param secondsLeft seconds left on the current timer, or -1
+ * @param cap         whose maximum / minimum {@code max} / {@code min} are (the state's {@code cap_source}, lane HR); {@link BetCap#NONE}
+ *                    = unknown (the reasons then just say "the maximum bet is N")
  */
 public record BetView(boolean seated, boolean canSit, Phase phase, boolean bettingOpen, long min, long max, long balance, long myTotal,
 		Map<String, Long> spots, boolean canUndo, boolean canClear, boolean canRebet, long rebetAmount, boolean canDouble, String waitingFor,
-		int secondsLeft) {
+		int secondsLeft, BetCap cap) {
 	/** The chip denominations of the casino (chip sprites {@code core/v2/chip_<d>}). */
-	public static final long[] DENOMS = {1, 5, 25, 100, 500, 1000, 5000};
+	public static final long[] DENOMS = dev.nezo.burmaldaholic.core.chips.ChipMath.ascending();
 	/** At most this many chips in the tray. */
 	public static final int MAX_CHIPS = 5;
 
@@ -52,6 +55,7 @@ public record BetView(boolean seated, boolean canSit, Phase phase, boolean betti
 		spots = spots == null ? Map.of() : java.util.Collections.unmodifiableMap(new LinkedHashMap<>(spots));
 		waitingFor = waitingFor == null ? "" : waitingFor;
 		min = Math.max(1, min);
+		cap = cap == null ? BetCap.NONE : cap;
 	}
 
 	/** The viewer can afford the minimum. */
@@ -118,6 +122,7 @@ public record BetView(boolean seated, boolean canSit, Phase phase, boolean betti
 		b.canDouble = canDouble;
 		b.waitingFor = waitingFor;
 		b.secondsLeft = secondsLeft;
+		b.cap = cap;
 		return b;
 	}
 
@@ -129,6 +134,7 @@ public record BetView(boolean seated, boolean canSit, Phase phase, boolean betti
 		private Map<String, Long> spots = new LinkedHashMap<>();
 		private String waitingFor = "";
 		private int secondsLeft = -1;
+		private BetCap cap = BetCap.NONE;
 
 		public Builder seated(boolean v) { seated = v; return this; }
 		public Builder canSit(boolean v) { canSit = v; return this; }
@@ -145,10 +151,11 @@ public record BetView(boolean seated, boolean canSit, Phase phase, boolean betti
 		public Builder canDouble(boolean v) { canDouble = v; return this; }
 		public Builder waitingFor(String v) { waitingFor = v; return this; }
 		public Builder secondsLeft(int v) { secondsLeft = v; return this; }
+		public Builder cap(BetCap v) { cap = v; return this; }
 
 		public BetView build() {
 			return new BetView(seated, canSit, phase, bettingOpen, min, max, balance, myTotal, spots, canUndo, canClear, canRebet, rebetAmount,
-				canDouble, waitingFor, secondsLeft);
+				canDouble, waitingFor, secondsLeft, cap);
 		}
 	}
 }

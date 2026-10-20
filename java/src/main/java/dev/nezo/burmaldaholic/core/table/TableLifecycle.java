@@ -9,6 +9,7 @@ import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -27,15 +28,30 @@ import net.minecraft.world.level.chunk.LevelChunk;
  * </ul>
  *
  * Only a crash (no clean stop) still leaves open stakes on disk; those are refunded on load (§4.1).
+ *
+ * <p>Vanilla fires {@code FULL_CHUNK_STATUS_CHANGE} from inside {@code DistanceManager.runAllUpdates}; a play-out that
+ * touches a chunk there re-entered it and crashed the server (T-HR round 2). So during a distance-manager update
+ * ({@code ServerChunkCacheMixin}) the unloading chunk is only queued, and played out when the outermost update returns:
+ * still before {@code ChunkMap.processUnloads} saves it.
  */
 public final class TableLifecycle {
 	/** Loaded tables (identity set; entries vanish with their block entity). Server thread only. */
 	private static final Set<CasinoTableBlockEntity> LOADED = Collections.newSetFromMap(new WeakHashMap<>());
 
-	/** Chunks with tables that went INACCESSIBLE during the running distance-manager update. Server thread only. */
-	private static final Set<LevelChunk> UNLOADING = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+	/** Unloading chunks seen during a distance-manager update, played out when it returns. Server thread only. */
+	private static final DeferredUnloads<LevelChunk> UNLOADS = new DeferredUnloads<>(TableLifecycle::playOutChunk);
 
 	private TableLifecycle() {}
+
+	/** {@code ServerChunkCache.runDistanceManagerUpdates} starts (it may nest). */
+	public static void enterChunkUpdates() {
+		UNLOADS.enter();
+	}
+
+	/** {@code ServerChunkCache.runDistanceManagerUpdates} returned: the outermost one plays out what unloaded meanwhile. */
+	public static void exitChunkUpdates() {
+		UNLOADS.exit();
+	}
 
 	public static void register() {
 		ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((be, level) -> {
@@ -50,7 +66,7 @@ public final class TableLifecycle {
 		});
 		ServerChunkEvents.FULL_CHUNK_STATUS_CHANGE.register((level, chunk, from, to) -> {
 			if (to == FullChunkStatus.INACCESSIBLE) {
-				deferUnloading(chunk);
+				onChunkUnloading(chunk);
 			}
 		});
 		// MT / CB-G: house protection decides for the whole table, whichever part is hit
@@ -59,9 +75,15 @@ public final class TableLifecycle {
 				|| dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().breakAllowed(sl,
 					dev.nezo.burmaldaholic.core.table.parts.TableParts.mainPos(pos, state), player));
 		ServerLifecycleEvents.SERVER_STOPPING.register(TableLifecycle::onServerStopping);
+		// a distance-manager update that threw never reached its exit: never let unloading tables wait until server stop
+		ServerTickEvents.START_SERVER_TICK.register(server -> {
+			if (UNLOADS.tickStart()) {
+				Burmaldaholic.LOGGER.warn("Table lifecycle: a chunk update did not finish; played out the tables of unloaded chunks now");
+			}
+		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			LOADED.clear();
-			UNLOADING.clear();
+			UNLOADS.clear();
 			dev.nezo.burmaldaholic.core.table.parts.TableParts.clearSession();
 		});
 	}
@@ -71,36 +93,12 @@ public final class TableLifecycle {
 		return LOADED.contains(table);
 	}
 
-	/**
-	 * {@code FULL_CHUNK_STATUS_CHANGE} runs inside {@code DistanceManager.runAllUpdates} while it iterates the chunk
-	 * holders to update. A play-out touches the level (a seat leaves, a block updates, a multi-block part is looked
-	 * up), and a lookup of a chunk that is not loaded right now re-enters {@code runAllUpdates}, which clears the set
-	 * under the outer iterator: vanilla then crashes with an NPE in {@code DistanceManager.runAllUpdates} (the flaky
-	 * GameTest crash at batch changes, INTEGRATION-1). So the chunk is only queued here and played out by
-	 * {@link #drainUnloading} right after the distance-manager update returns, still before the chunk is saved.
-	 */
-	static void deferUnloading(LevelChunk chunk) {
-		for (BlockEntity be : chunk.getBlockEntities().values()) {
-			if (be instanceof CasinoTableBlockEntity) {
-				UNLOADING.add(chunk);
-				return;
-			}
-		}
-	}
-
-	/** Plays out the tables of chunks queued by {@link #deferUnloading} (ServerChunkCacheMixin, server thread). */
-	public static void drainUnloading() {
-		for (int round = 0; round < 4 && !UNLOADING.isEmpty(); round++) { // bounded: a play-out only re-queues by unloading again
-			List<LevelChunk> chunks = new ArrayList<>(UNLOADING);
-			UNLOADING.clear(); // a play-out may run the distance manager again (nested drain): take a snapshot first
-			for (LevelChunk chunk : chunks) {
-				onChunkUnloading(chunk);
-			}
-		}
-	}
-
-	/** The chunk is about to be saved and unloaded: play out every table in it. */
+	/** The chunk is about to be saved and unloaded: play out every table in it (after the distance-manager update). */
 	static void onChunkUnloading(LevelChunk chunk) {
+		UNLOADS.offer(chunk);
+	}
+
+	private static void playOutChunk(LevelChunk chunk) {
 		boolean changed = false;
 		for (BlockEntity be : new ArrayList<>(chunk.getBlockEntities().values())) {
 			if (be instanceof CasinoTableBlockEntity table && !table.isRemoved()) {

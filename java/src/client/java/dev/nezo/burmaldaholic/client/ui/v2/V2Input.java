@@ -29,6 +29,7 @@ public final class V2Input {
 		for (char c = '0'; c <= '9'; c++) put(String.valueOf(c), field("KEY_" + c));
 		for (char c = 'a'; c <= 'z'; c++) put(String.valueOf(c), field("KEY_" + Character.toUpperCase(c)));
 		NAME_BY_CODE.putIfAbsent(Inputs.KEY_NUMPADENTER, KeyMap.ENTER); // keypad Enter acts as Enter (not shown on plates)
+		for (char c = '0'; c <= '9'; c++) NAME_BY_CODE.putIfAbsent(field("KEY_NUMPAD" + c), String.valueOf(c)); // keypad digits = digits
 	}
 
 	private static void put(String name, int code) {

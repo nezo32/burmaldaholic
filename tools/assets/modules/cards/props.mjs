@@ -1,12 +1,12 @@
 // Table props (visual/cards.md §4, §5): chips, felt prints, spot glows, the shoe, the discard tray, the deck, the dealer
 // rack, the dealer button, baccarat beads. Prints are WHITE (the screen tints them with the theme's print colour);
 // everything else is fully coloured.
-import { CHIPS } from '../../lib/palette.mjs';
+import { CHIPS, CHIP_DENOMS } from '../../lib/palette.mjs';
 import { B, P, R, bayer, box, disc, fromRows, image, mixHex, over, ring, C } from './px.mjs';
 import { THEMES } from './theme.mjs';
 import { back } from './faces.mjs';
 
-export const DENOMS = [1, 5, 25, 100, 500];
+export const DENOMS = CHIP_DENOMS;
 const INK = '#180A28';
 
 // ---- chips --------------------------------------------------------------------------------------------------------
@@ -292,7 +292,7 @@ export function deck(design = 'navy') {
   over(img, back(design, 'm'), 0, 0);
   return img;
 }
-/** Dealer rack 80 × 14: 6 wells of chips (500, 100, 25, 5, 1, 1) seen edge-on, in a themed frame. */
+/** Dealer rack 80 × 14: 6 wells of chips (the five house chips 500 … 1, then 1 again) seen edge-on, in a themed frame. */
 export function rack(theme) {
   const t = THEMES[theme];
   const img = image(80, 14);
@@ -300,7 +300,7 @@ export function rack(theme) {
   R(img, 1, 1, 78, 12, t.wood);
   R(img, 1, 1, 78, 1, t.woodLight);
   R(img, 1, 12, 78, 1, t.trimShade);
-  const cols = [500, 100, 25, 5, 1, 1];
+  const cols = [...CHIP_DENOMS.filter((d) => d <= 500).reverse(), CHIP_DENOMS[0]];
   cols.forEach((d, i) => {
     const x = 3 + i * 13;
     R(img, x, 3, 11, 8, '#0A0412');

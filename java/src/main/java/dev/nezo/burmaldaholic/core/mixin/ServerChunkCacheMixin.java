@@ -8,16 +8,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Plays out tables of unloading chunks once the distance manager has finished its update (INTEGRATION-1).
- * {@code FULL_CHUNK_STATUS_CHANGE} fires while {@code DistanceManager.runAllUpdates} iterates
- * {@code chunksToUpdateFutures}; touching the level there (any chunk lookup that is not "now") re-enters
- * {@code runAllUpdates}, which clears that set under the outer iterator: the vanilla NPE in
- * {@code ReferenceOpenHashSet$SetIterator.next} ← {@code DistanceManager.runAllUpdates:88}.
+ * Brackets the distance-manager update, during which vanilla fires {@code FULL_CHUNK_STATUS_CHANGE}: a busy table's
+ * chunk-unload play-out waits until the update has returned (still before the chunk is saved), so its chunk access cannot
+ * re-enter {@code DistanceManager.runAllUpdates} mid-iteration (vanilla NPE, T-HR round 2).
  */
 @Mixin(ServerChunkCache.class)
 abstract class ServerChunkCacheMixin {
+	@Inject(method = "runDistanceManagerUpdates", at = @At("HEAD"))
+	private void burmaldaholic$enterChunkUpdates(CallbackInfoReturnable<Boolean> cir) {
+		TableLifecycle.enterChunkUpdates();
+	}
+
 	@Inject(method = "runDistanceManagerUpdates", at = @At("RETURN"))
-	private void burmaldaholic$playOutUnloadedTables(CallbackInfoReturnable<Boolean> cir) {
-		TableLifecycle.drainUnloading();
+	private void burmaldaholic$exitChunkUpdates(CallbackInfoReturnable<Boolean> cir) {
+		TableLifecycle.exitChunkUpdates();
 	}
 }

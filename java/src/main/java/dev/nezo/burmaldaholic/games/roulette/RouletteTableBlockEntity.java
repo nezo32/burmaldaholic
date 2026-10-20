@@ -282,7 +282,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				}
 				Optional<SlipLimits.Violation> v = limits(player).checkSpin(mine);
 				if (v.isPresent()) {
-					sendError(player, message(v.get()));
+					sendError(player, message(v.get(), player));
 					return;
 				}
 				round.setReady(player.getUUID(), true);
@@ -361,7 +361,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		List<Bet> current = round.bets(id);
 		Optional<SlipLimits.Violation> v = limits(player).checkAdd(current, bets);
 		if (v.isPresent()) {
-			sendError(player, message(v.get()));
+			sendError(player, message(v.get(), player));
 			return false;
 		}
 		long amount = Bets.totalStaked(bets);
@@ -377,6 +377,19 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * {@link #message(SlipLimits.Violation)}, the maxima in the bet-cap words (whose cap: VIP / owner; lane HR). The inside
+	 * maximum is a fraction of the total one, so it names the same cap at that fraction (T-HR D3: a typed unit above it).
+	 */
+	Component message(SlipLimits.Violation v, ServerPlayer player) {
+		if (v.code() == SlipLimits.Code.TOTAL_MAX) return capFor(player, v.value(), limitsFor(player)[0]).reason();
+		if (v.code() == SlipLimits.Code.INSIDE_MAX) {
+			SlipLimits l = limits(player);
+			return capFor(player, l.totalMax(), l.minBet()).withMax(v.value()).reason();
+		}
+		return message(v);
 	}
 
 	static Component message(SlipLimits.Violation v) {

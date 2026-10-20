@@ -1,7 +1,7 @@
 // Chip stack item textures (global.md §4.4): `chip_<d>_few` (2 chips offset), `_stack` (short stack),
 // `_tower` (tall stack + one leaning chip); 16², denomination palette, 1 px ink outline, top ellipse + side
 // stripes with bone edge inserts. Java item models (`range_dispatch` on count) are lane J-L2's.
-import { CHIPS, shade } from '../../lib/palette.mjs';
+import { CHIPS, rgba, shade } from '../../lib/palette.mjs';
 import { ellipse, image, setPx } from '../../lib/grid.mjs';
 import { outline, rotate } from '../../lib/transforms.mjs';
 
@@ -41,5 +41,33 @@ export function chipStack(d, kind) {
   return img;
 }
 
-export const CHIP_DENOMS = [1, 5, 25, 100, 500];
+export { CHIP_DENOMS } from '../../lib/palette.mjs';
+
+/**
+ * The single-chip item texture `item/core/chip_<d>` (16², count 1): a round chip seen slightly from above, rim with 16
+ * edge spots, an inner ring and a centre inlay in the stripe colour. Port of the old `gen_core_assets.py` chip (same
+ * geometry); the colours are the palette's, so the item matches the tray and the stacks.
+ */
+export function chipItem(d) {
+  const { base, stripe } = CHIPS[d];
+  const img = image(16, 16);
+  const put = (x, y, hex, f) => {
+    const [r, g, b] = rgba(hex);
+    const k = (v) => Math.max(0, Math.min(255, Math.trunc(v * f)));
+    img.data.set([k(r), k(g), k(b), 255], (y * 16 + x) * 4);
+  };
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) {
+      const dx = x - 7.5;
+      const dy = y - 7.5;
+      const r = Math.hypot(dx, dy);
+      if (r > 7.6) continue;
+      const ang = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+      if (r > 6.2) put(x, y, Math.floor(ang / 22.5) % 2 === 0 ? stripe : base, dy > 3 ? 0.8 : 1.0);
+      else if (r > 5.2) put(x, y, base, 0.7);
+      else if (r > 3.0) put(x, y, base, 1.05 - 0.04 * dy);
+      else put(x, y, stripe, 0.95 - 0.03 * dy);
+    }
+  return img;
+}
 export const STACK_KINDS = ['few', 'stack', 'tower'];

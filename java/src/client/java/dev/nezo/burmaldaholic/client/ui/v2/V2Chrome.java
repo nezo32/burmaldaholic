@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.client.ui.v2;
 import dev.nezo.burmaldaholic.client.fx.CasinoPalette;
 import dev.nezo.burmaldaholic.client.ui.CasinoUi;
 import dev.nezo.burmaldaholic.core.ui.v2.AckWatchdog;
+import dev.nezo.burmaldaholic.core.ui.v2.BetAmount;
 import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
 import dev.nezo.burmaldaholic.core.ui.v2.BetView;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
@@ -105,6 +106,10 @@ public final class V2Chrome {
 	public final StatusLine status = new StatusLine();
 	public final ResultBanner banner = new ResultBanner();
 	public final V2Toast toasts = new V2Toast();
+	/** The typed-amount strip of the betting Dock (lane HR). */
+	public final BetEntry entry = new BetEntry();
+	/** Whose limits bind the viewer (the state's {@code cap_source}; lane HR). */
+	private dev.nezo.burmaldaholic.core.wager.BetCap cap = dev.nezo.burmaldaholic.core.wager.BetCap.NONE;
 	private final AckWatchdog watchdog = new AckWatchdog();
 	private @Nullable Gate secondary;
 	private Box secondaryBox = Box.EMPTY;
@@ -185,9 +190,11 @@ public final class V2Chrome {
 	 * status reason and hint. {@code port} may be null for games without a bet bar.
 	 */
 	public <V> void apply(Flow<V> flow, V view, @Nullable BetPort port) {
-		Gate p = flow.primary(view);
+		BetView bv = flow.bet(view);
+		Gate p = explain(flow.primary(view), bv);
 		primary.set(p, keys.keyOf(KeyMap.Ids.PRIMARY));
-		List<Gate> acts = flow.actions(view);
+		List<Gate> acts = new ArrayList<>();
+		for (Gate a : flow.actions(view)) acts.add(explain(a, bv));
 		actions.set(acts, keys);
 		BetView b = flow.bet(view);
 		boolean showBet = b != null && acts.isEmpty() && port != null;
@@ -196,19 +203,154 @@ public final class V2Chrome {
 			bet.bind(b, port);
 			long[] chips = bet.chips();
 			Gate[] cg = new Gate[chips.length];
-			for (int i = 0; i < chips.length; i++) cg[i] = flow.chip(chips[i], view);
+			for (int i = 0; i < chips.length; i++) cg[i] = explain(flow.chip(chips[i], view), b);
 			String[] tools = bet.toolIds();
 			Gate[] tg = new Gate[tools.length];
-			for (int i = 0; i < tools.length; i++) tg[i] = flow.tool(tools[i], view);
+			for (int i = 0; i < tools.length; i++) tg[i] = explain(flow.tool(tools[i], view), b);
 			bet.gates(cg, tg);
 			status.timer.auto(b.secondsLeft());
 		} else {
 			status.timer.clear(); // games without a bet model this phase set their own timer after apply
 		}
+		if (!showBet || !b.canBet()) entry.close();
 		status.reason(p);
 		Optional<String> hint = flow.hintKey(view);
-		status.hint(hint.map(k -> V2Draw.tr(k, flow.hintArgs(view))).orElse(fallbackHint(showBet ? b : null)));
+		status.hint(entry.isOpen() ? V2Draw.tr(BetEntry.KEY_HINT)
+			: hint.map(k -> V2Draw.tr(k, flow.hintArgs(view))).orElse(fallbackHint(showBet ? b : null)));
 		relayout();
+	}
+
+	/** The cap the last state carried (lane HR). */
+	public dev.nezo.burmaldaholic.core.wager.BetCap cap() {
+		return cap;
+	}
+
+	/**
+	 * A disabled gate's reason in the words of WHOSE limit it is (owner playtest B5): the generic "The maximum bet is N" of
+	 * any game's flow becomes the VIP tier / table / owner sentence of the state's {@code cap_source}, and "Not enough
+	 * chips" says the balance. Enabled gates and other reasons pass unchanged.
+	 */
+	public Gate explain(Gate g, @Nullable BetView v) {
+		if (g.enabled() || g.reasonKey() == null) return g;
+		dev.nezo.burmaldaholic.core.wager.BetCap c = v != null && v.cap().source() != dev.nezo.burmaldaholic.core.wager.BetCap.Source.NONE ? v.cap() : cap;
+		if (g.reasonKey().equals(V2Keys.REASON_ABOVE_MAX) && c.source() != dev.nezo.burmaldaholic.core.wager.BetCap.Source.NONE) {
+			Object[] a = g.reasonArgs();
+			dev.nezo.burmaldaholic.core.wager.BetCap at = a.length > 0 && a[0] instanceof Number n && n.longValue() > 0 ? c.withMax(n.longValue()) : c;
+			return new Gate(g.action(), g.labelKey(), g.labelArgs(), false, at.reasonKey(), at.reasonArgs());
+		}
+		if (g.reasonKey().equals(V2Keys.REASON_BELOW_MIN) && c.ownerMin()) {
+			return new Gate(g.action(), g.labelKey(), g.labelArgs(), false, dev.nezo.burmaldaholic.core.wager.BetCap.KEY_OWNER_MIN, g.reasonArgs());
+		}
+		if (g.reasonKey().equals(V2Keys.REASON_NOT_ENOUGH) && v != null) {
+			return new Gate(g.action(), g.labelKey(), g.labelArgs(), false, dev.nezo.burmaldaholic.core.wager.BetCap.KEY_BALANCE,
+				new Object[] {Math.max(0, v.balance())});
+		}
+		return g;
+	}
+
+	/** The bet view the entry clamps with: the flow's, with the state's cap when the flow did not set one. */
+	private BetView entryView() {
+		BetView v = bet.view();
+		return v.cap().source() == dev.nezo.burmaldaholic.core.wager.BetCap.Source.NONE && cap.source() != dev.nezo.burmaldaholic.core.wager.BetCap.Source.NONE
+			? v.toBuilder().cap(cap).build() : v;
+	}
+
+	/** Opens the bet-entry strip (readout click, E); when bets are closed, says why. */
+	private boolean openEntry() {
+		if (!bet.visible()) return false;
+		if (entry.isOpen()) {
+			entry.close();
+			relayout();
+			return true;
+		}
+		BetView v = entryView();
+		Gate closed = BetGates.closedReason(BetGates.CHIP, V2Keys.CHIP, v);
+		if (closed != null) {
+			refuse(explain(closed, v));
+			return true;
+		}
+		BetPort port = bet.port();
+		BetAmount.Mode mode = bet.isMultiSpot() || port == null || !port.setsAmount() ? BetAmount.Mode.UNIT : BetAmount.Mode.BET;
+		BetAmount.Cost cost = mode == BetAmount.Mode.BET ? port.entryCost() : BetAmount.ONE;
+		entry.open(mode, cost, BetAmount.initial(v, mode, Math.max(0, bet.selected()), cost));
+		entryHint();
+		relayout();
+		return true;
+	}
+
+	/** A press on the open strip (½, ×2, Max, OK, the field). */
+	private boolean pressEntry(String id) {
+		if (!entry.isOpen()) return id.equals(KeyMap.Ids.ENTRY) && openEntry();
+		BetView v = entryView();
+		BetAmount.Mode mode = entry.mode();
+		BetAmount.Clamp c = switch (id) {
+			case BetEntry.HALF -> BetAmount.halved(entry.value(), v, mode, entry.cost());
+			case BetEntry.DOUBLE -> BetAmount.doubled(entry.value(), v, mode, entry.cost());
+			case BetEntry.MAX -> BetAmount.max(v, mode, entry.cost());
+			default -> null;
+		};
+		if (id.equals(BetEntry.OK)) {
+			entry.pressed(id);
+			commitEntry();
+			return true;
+		}
+		if (id.equals(KeyMap.Ids.ENTRY)) return openEntry();
+		if (c == null) return true;
+		entry.pressed(id);
+		entry.set(c.value());
+		entryHint();
+		if (c.clamped()) flash(id, c.reasonKey(), c.reasonArgs());
+		relayout();
+		return true;
+	}
+
+	/** Line 2 while the strip is open: how to type, or the whole stake when the amount is only part of it (UTH: Ante). */
+	private void entryHint() {
+		BetAmount.Cost cost = entry.cost();
+		status.hint(cost.identity() || entry.value() <= 0 ? V2Draw.tr(BetEntry.KEY_HINT) : V2Draw.tr(BetEntry.KEY_COST, cost.of(entry.value())));
+	}
+
+	/** OK / Enter: the amount (clamped, whose cap said) becomes the bet, or the felt unit. */
+	private void commitEntry() {
+		BetView v = entryView();
+		long raw = entry.value();
+		BetAmount.Mode mode = entry.mode();
+		BetAmount.Cost cost = entry.cost();
+		entry.close();
+		if (raw > 0) {
+			BetAmount.Clamp c = BetAmount.clamp(raw, v, mode, cost);
+			if (c.clamped()) flash(BetEntry.OK, c.reasonKey(), c.reasonArgs());
+			BetPort port = bet.port();
+			if (c.value() > 0 && port != null) {
+				if (mode == BetAmount.Mode.BET && port.amount(c.value())) {
+					bet.unit(0);
+				} else {
+					bet.unit(c.value());
+					status.hint(V2Draw.tr(BetEntry.KEY_UNIT, c.value()));
+				}
+			}
+		}
+		relayout();
+	}
+
+	/** A key while the strip is open: digits / k / m type, Backspace deletes, Enter = OK, Esc closes; every key is taken. */
+	private boolean keyEntry(String name) {
+		switch (name) {
+			case KeyMap.ESCAPE -> entry.close();
+			case KeyMap.ENTER -> commitEntry();
+			case KeyMap.BACKSPACE, KeyMap.DELETE -> entry.backspace();
+			default -> {
+				if (name.length() == 1) entry.type(name.charAt(0));
+			}
+		}
+		if (entry.isOpen()) entryHint();
+		relayout();
+		return true;
+	}
+
+	/** Test hook: the entry types {@code text} as keys would. */
+	public void typeEntry(String text) {
+		for (char c : text.toCharArray()) keyEntry(String.valueOf(c));
 	}
 
 	/**
@@ -274,6 +416,11 @@ public final class V2Chrome {
 		banner.kitObstacles(dock.hintStrip().isEmpty() ? List.of() : List.of(used.isEmpty() ? dock.hintStrip() : used));
 		toasts.place(grid.play);
 		host.layoutOverlay(dock, hits);
+		if (entry.isOpen()) { // the typed-amount strip sits on top of everything (lane HR)
+			int anchor = !dock.readout().isEmpty() ? dock.readout().x() : !dock.chips().isEmpty() ? dock.chips().get(0).x() : grid.dock.x();
+			entry.layout(grid, font, anchor);
+			entry.hits(hits);
+		}
 		// a layout change drops the Tab focus: it is an index into the targets, and Enter must never press whatever moved
 		// into that slot (T-B2 m1)
 		if (guard.layout(hits.targets(), this::identity, Util.getMillis())) focus = -1;
@@ -333,6 +480,12 @@ public final class V2Chrome {
 			});
 		}
 		for (String t : bet.toolIds()) narration.put(KeyMap.Ids.tool(t), () -> say.apply(bet.toolGate(t)));
+		narration.put(KeyMap.Ids.READOUT, () -> Component.translatable(BetEntry.KEY_OPEN));
+		narration.put(BetEntry.HALF, () -> Component.translatable(BetEntry.KEY_HALF));
+		narration.put(BetEntry.DOUBLE, () -> Component.translatable(BetEntry.KEY_DOUBLE));
+		narration.put(BetEntry.MAX, () -> Component.translatable(BetEntry.KEY_MAX));
+		narration.put(BetEntry.OK, () -> Component.translatable(BetEntry.KEY_OK));
+		narration.put(BetEntry.FIELD, () -> entry.text().isEmpty() ? Component.translatable(BetEntry.KEY_OPEN) : V2Draw.tr(V2Keys.BET, entry.value()));
 		narration.put(KeyMap.Ids.TOP_RULES, () -> Component.translatable(V2Keys.TOP_RULES));
 		narration.put(KeyMap.Ids.TOP_SETTINGS, () -> Component.translatable(V2Keys.TOP_SETTINGS));
 		narration.put(KeyMap.Ids.TOP_LEAVE, () -> Component.translatable(V2Keys.TOP_LEAVE));
@@ -358,6 +511,7 @@ public final class V2Chrome {
 
 	/** A new state arrived (reads the server's {@code ack}). */
 	public void acceptState(CompoundTag state) {
+		cap = dev.nezo.burmaldaholic.core.wager.BetCap.read(state);
 		long before = watchdog.lastAck();
 		long ack = state.getLongOr("ack", -1);
 		watchdog.state(state.getIntOr("ack_epoch", 0), ack);
@@ -400,6 +554,11 @@ public final class V2Chrome {
 		Press p = V2Input.press(button);
 		if (p == null) return false;
 		Optional<HitMap.Target> t = hits.at(x, y);
+		if (entry.isOpen() && (t.isEmpty() || !BetEntry.owns(t.get().id()) && !t.get().id().equals(KeyMap.Ids.READOUT))) {
+			entry.close(); // a click elsewhere closes the strip (and still does what it says)
+			relayout();
+			t = hits.at(x, y);
+		}
 		if (t.isEmpty()) return false;
 		focus = -1;
 		if (!guard.allowsClick(x, y, Util.getMillis())) return refuseMoved();
@@ -415,6 +574,7 @@ public final class V2Chrome {
 	public boolean keyHitsEnabled(int code) {
 		String name = V2Input.keyName(code);
 		if (name == null) return false;
+		if (entry.isOpen()) return true;
 		String step = stepper.idForKey(name);
 		if (step != null) {
 			Gate g = stepper.gate(step);
@@ -450,6 +610,7 @@ public final class V2Chrome {
 	/** A key press by {@link KeyMap} name (null = unnamed key); true when consumed. Tab walks the targets, Enter presses the focused one. */
 	public boolean key(@Nullable String name) {
 		if (name == null) return false;
+		if (entry.isOpen()) return keyEntry(name);
 		if (name.equals(KeyMap.TAB)) {
 			List<HitMap.Target> ts = focusable();
 			if (ts.isEmpty()) return false;
@@ -481,6 +642,16 @@ public final class V2Chrome {
 	public boolean scroll(double x, double y, double dy) {
 		if (dy == 0) return false;
 		Optional<HitMap.Target> t = hits.at(x, y);
+		if (t.isPresent() && bet.visible() && (t.get().id().equals(KeyMap.Ids.READOUT) || t.get().id().equals(BetEntry.FIELD))) {
+			if (!entry.isOpen() && !openEntry()) return false;
+			if (!entry.isOpen()) return true; // bets closed: the reason flashed
+			BetAmount.Clamp c = BetAmount.wheel(entry.value(), dy > 0, entryView(), entry.mode(), entry.cost());
+			entry.set(c.value());
+			entryHint();
+			if (c.clamped()) flash(BetEntry.FIELD, c.reasonKey(), c.reasonArgs());
+			relayout();
+			return true;
+		}
 		if (t.isPresent() && t.get().id().equals(Stepper.VALUE)) {
 			String id = dy > 0 ? Stepper.PLUS : Stepper.MINUS;
 			Gate g = stepper.gate(id);
@@ -589,7 +760,8 @@ public final class V2Chrome {
 			host.onTopIcon(id);
 			return true;
 		}
-		if (id.equals(KeyMap.Ids.READOUT)) return true;
+		if (id.equals(KeyMap.Ids.READOUT)) return openEntry() || true;
+		if (BetEntry.owns(id)) return pressEntry(id);
 		return host.onTarget(id, hitEnabled, button);
 	}
 
@@ -686,6 +858,7 @@ public final class V2Chrome {
 				secondaryBox.contains(mx, my), false, KeyMap.Ids.SECONDARY.equals(f));
 		}
 		primary.draw(g, font, mx, my, KeyMap.Ids.PRIMARY.equals(f));
+		entry.draw(g, font, mx, my, bet.view());
 		banner.draw(g, font);
 		toasts.draw(g, font);
 		frameEdge(g);

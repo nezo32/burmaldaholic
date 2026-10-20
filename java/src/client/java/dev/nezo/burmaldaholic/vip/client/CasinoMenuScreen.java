@@ -443,13 +443,15 @@ public class CasinoMenuScreen extends CasinoScreen {
 				CasinoPalette.INK);
 			return;
 		}
-		int n = counts.length;
-		int colW = (w - 12) / n;
+		// only the denominations in the pocket get a column (eight would not fit), at least five column widths
+		int[] shown = java.util.stream.IntStream.range(0, counts.length).map(k -> counts.length - 1 - k).filter(di -> counts[di] > 0).toArray();
+		int n = shown.length;
+		int colW = (w - 12) / Math.max(5, n);
 		int base = y + h - 20;
 		int maxDiscs = Math.min(ChipColumns.MAX_VISIBLE * 3, (base - (y + 22)) / ChipColumns.PITCH - 4);
 		// small denominations on the left, like the mockup
 		for (int k = 0; k < n; k++) {
-			int di = n - 1 - k;
+			int di = shown[k];
 			int denom = ChipColumns.DENOMS[di];
 			int cx = x + 6 + k * colW + colW / 2;
 			int discs = (int) Math.min(counts[di], maxDiscs);
@@ -457,7 +459,7 @@ public class CasinoMenuScreen extends CasinoScreen {
 				CasinoUi.sprite(g, UiSprites.sprite("fx/chip_side_" + denom), cx - 6, base - 3 - j * ChipColumns.PITCH, 12, 3);
 			}
 			if (discs > 0) CasinoUi.sprite(g, UiSprites.sprite("fx/chip_" + denom), cx - 4, base - 3 - discs * ChipColumns.PITCH - 6, 8, 8);
-			String label = Numbers.format(denom);
+			String label = dev.nezo.burmaldaholic.core.chips.ChipMath.label(denom);
 			g.text(font, label, cx - font.width(label) / 2, base + 4, BONE, true);
 			if (counts[di] > maxDiscs) {
 				String more = "×" + Numbers.format(counts[di]); // literal-ok: count

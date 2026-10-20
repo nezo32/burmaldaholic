@@ -1,5 +1,6 @@
 package dev.nezo.burmaldaholic.games.uth.present;
 
+import dev.nezo.burmaldaholic.core.ui.v2.BetAmount;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import dev.nezo.burmaldaholic.games.uth.logic.UthLimits;
@@ -37,6 +38,21 @@ public final class UthFlow {
 	private static final List<String> BETS = List.of("bet_4x", "bet_2x", "bet_1x");
 
 	private UthFlow() {}
+
+	/**
+	 * What the bet-entry field costs (T-HR D5), in the server's own rule ({@link UthLimits#check}): the field is the armed
+	 * spot's amount; the stake shown is the confirm cost (2 × Ante + Trips), the maximum holds the worst case
+	 * (6 × Ante + Trips), the balance must hold 3 × Ante + Trips. So the entry's Max is exactly the largest amount the
+	 * server accepts ({@link UthLimits#maxAnte(long, long, long)} / {@link UthLimits#maxTrips}).
+	 */
+	public static BetAmount.Cost entryCost(UthBetDraft draft) {
+		if (draft.spot() == UthBetDraft.Spot.TRIPS) {
+			long a = draft.ante();
+			return new BetAmount.Cost(1, UthLimits.confirmCost(a, 0), 1, UthLimits.worstCaseTotal(a, 0), 1, UthLimits.balanceNeeded(a, 0));
+		}
+		long t = draft.trips();
+		return new BetAmount.Cost(UthLimits.CONFIRM_ANTES, t, UthLimits.WORST_CASE_ANTES, t, UthLimits.BALANCE_ANTES, t);
+	}
 
 	public record Stepper(String id, long value, long min, long max, long step) {}
 

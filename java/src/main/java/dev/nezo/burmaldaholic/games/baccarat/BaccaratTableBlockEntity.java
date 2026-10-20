@@ -490,7 +490,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		Optional<Slips.Violation> v = l.checkAdd(slip, kind, amount);
 		if (v.isPresent()) {
 			dropIfEmpty(id);
-			sendError(player, message(v.get()));
+			sendError(player, message(v.get(), player));
 			return false;
 		}
 		EnumMap<BetKind, Long> next = Slips.copy(slip);
@@ -596,7 +596,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 			}
 			Optional<Slips.Violation> v = limits(player).checkSlip(slip);
 			if (v.isPresent()) {
-				sendError(player, message(v.get()));
+				sendError(player, message(v.get(), player));
 				return;
 			}
 			ready.add(id);
@@ -636,6 +636,12 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 			}
 		}
 		return out;
+	}
+
+	/** {@link #message(Slips.Violation)}, the total maximum in the bet-cap words (whose cap: VIP / owner; lane HR). */
+	Component message(Slips.Violation v, ServerPlayer player) {
+		if (v.code() == Slips.Code.TOTAL_MAX) return capFor(player, v.value(), limitsFor(player)[0]).reason();
+		return message(v);
 	}
 
 	static Component message(Slips.Violation v) {
@@ -1116,7 +1122,7 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 				case INVALID -> Component.translatable("gui.burmaldaholic.error.invalid_amount");
 				case TOO_LOW -> Component.translatable("gui.burmaldaholic.error.bet_too_low", Texts.number(p.limit()));
 				case COVERAGE -> Component.translatable("gui.burmaldaholic.baccarat.chemmy.error.coverage", Texts.number(p.limit()));
-				case OVER_MAX -> Component.translatable("gui.burmaldaholic.baccarat.error.total_max", Texts.number(p.limit()));
+				case OVER_MAX -> capFor(player, p.limit(), min).reason();
 				case BANCO_CALLED, IS_BANKER -> Component.translatable("gui.burmaldaholic.baccarat.no_more_bets");
 			});
 			return;
