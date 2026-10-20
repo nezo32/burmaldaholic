@@ -281,6 +281,168 @@ public class MultiBlockTableGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * The loot JSON itself (not {@code getDrops}, which also filters parts in code) on THIS version: 26.3 reads
+	 * {@code condition}/{@code match_block}, 26.2 {@code conditions}/{@code block_state_property}; every table and
+	 * machine table carries both (tools/assets/modules/tables/loot.mjs). Main / single drop one item, every other part
+	 * nothing, and a huge blast (survival 1 / radius) never lets the item through.
+	 */
+	@GameTest(maxTicks = 20)
+	public void lootTablesWorkOnThisVersion(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Vec3 at = Vec3.atCenterOf(abs(helper, MAIN));
+		int checked = 0;
+		for (MultiBlockTableBlock b : tableBlocks()) {
+			net.minecraft.resources.Identifier id = BuiltInRegistries.BLOCK.getKey(b);
+			net.minecraft.world.level.storage.loot.LootTable table = level.getServer().reloadableRegistries().getLootTable(
+				net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, id.withPrefix("blocks/")));
+			helper.assertTrue(table != net.minecraft.world.level.storage.loot.LootTable.EMPTY, id + " has a loot table");
+			for (TablePart part : b.partProperty().getPossibleValues()) {
+				BlockState state = b.defaultBlockState().setValue(b.partProperty(), part);
+				int calm = 0;
+				int blast = 0;
+				for (int i = 0; i < 20; i++) {
+					calm += count(table.getRandomItems(lootParams(level, at, state, null)), b);
+					blast += count(table.getRandomItems(lootParams(level, at, state, 1.0e6f)), b);
+				}
+				helper.assertTrue(calm == (part.isController() ? 20 : 0), id + " part=" + part + ": " + calm + " items in 20 plain breaks");
+				helper.assertTrue(blast == 0, id + " part=" + part + ": survives_explosion ignored (" + blast + " items in 20 huge blasts)");
+				checked++;
+			}
+		}
+		helper.assertTrue(checked > 60, "checked every part of every table / machine (" + checked + ")");
+		helper.succeed();
+	}
+
+	private static net.minecraft.world.level.storage.loot.LootParams lootParams(ServerLevel level, Vec3 at, BlockState state, Float radius) {
+		net.minecraft.world.level.storage.loot.LootParams.Builder p = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+			.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, at)
+			.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.TOOL, ItemStack.EMPTY)
+			.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state);
+		if (radius != null) {
+			p.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.EXPLOSION_RADIUS, radius);
+		}
+		return p.create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.BLOCK);
+	}
+
+	private static int count(List<ItemStack> stacks, Block b) {
+		int n = 0;
+		for (ItemStack s : stacks) {
+			if (s.is(b.asItem())) {
+				n += s.getCount();
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * T-CB D4 / D5 end to end with CB-G's HouseGames installed as the TableProtection (worldgen/HouseTableProtection):
+	 * inside a casino record's box a generated (unmarked) table survives a real TNT blast and a creeper blast at a part
+	 * and never drops; a non-op can't break it. A table a survival player places there by item use carries the
+	 * player-placed mark, the player breaks it (a part) and gets exactly one item; TNT destroys a player's table.
+	 */
+	@GameTest(maxTicks = 300)
+	public void houseTablesInsideCasinosAndPlayerTables(GameTestHelper helper) {
+		floor(helper);
+		clearArea(helper);
+		ServerLevel level = helper.getLevel();
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		BlockPos a = abs(helper, BlockPos.ZERO);
+		BlockPos z = abs(helper, new BlockPos(7, 7, 7));
+		String id = "gametest|mt_house|" + a.getX() + "|" + a.getY() + "|" + a.getZ();
+		dev.nezo.burmaldaholic.worldgen.CasinoIndex index = dev.nezo.burmaldaholic.worldgen.CasinoIndex.get(level.getServer());
+		index.removeIf(r -> r.id().equals(id));
+		index.setAnchor(id, level.dimension().identifier().toString(), "gametest/mt_house", dev.nezo.burmaldaholic.worldgen.logic.CasinoKind.VILLAGE_CASINO,
+			dev.nezo.burmaldaholic.worldgen.logic.Geometry.Box.corners(new dev.nezo.burmaldaholic.worldgen.logic.Vec(a.getX(), a.getY(), a.getZ()),
+				new dev.nezo.burmaldaholic.worldgen.logic.Vec(z.getX(), z.getY(), z.getZ())));
+		ServerPlayer p = player(helper, "mt_house", GameType.SURVIVAL);
+		BlockPos main = abs(helper, MAIN);
+		try {
+			// D4: house table (worldgen-placed, no mark) vs TNT and a creeper, blast centred on a part
+			for (boolean creeper : new boolean[] {false, true}) {
+				clearArea(helper);
+				TableParts.placeFull(level, main, b, Direction.NORTH);
+				helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, main, level.getBlockEntity(main)), "generated table is a house table");
+				BlockPos part = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK_RIGHT));
+				net.minecraft.world.entity.Entity source = null;
+				if (creeper) {
+					source = net.minecraft.world.entity.EntityTypes.CREEPER.create(level, net.minecraft.world.entity.EntitySpawnReason.TRIGGERED);
+					source.snapTo(part.getX() + 0.5, part.getY() + 1, part.getZ() + 0.5, 0, 0);
+				}
+				level.explode(source, part.getX() + 0.5, part.getY() + 1.0, part.getZ() + 0.5, creeper ? 3.0f : 2.5f,
+					creeper ? Level.ExplosionInteraction.MOB : Level.ExplosionInteraction.TNT);
+				assertFull(helper, b, Direction.NORTH, (creeper ? "creeper" : "TNT") + " next to a house table");
+				helper.assertTrue(drops(helper, b) == 0, (creeper ? "creeper" : "TNT") + ": no table item from a house table");
+			}
+			// non-op survival break of a house table part: refused, intact, no item
+			BlockPos housePart = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.LEFT));
+			helper.assertFalse(p.gameMode.destroyBlock(housePart), "non-op break of a house table refused");
+			assertFull(helper, b, Direction.NORTH, "house table after a refused break");
+			helper.assertTrue(drops(helper, b) == 0, "refused break: no item");
+
+			// D5: the player places a table inside the casino by item use → marked, breaks it, gets it back
+			clearArea(helper);
+			helper.assertTrue(place(helper, p, b, Direction.NORTH).consumesAction(), "player places a table inside the casino");
+			assertFull(helper, b, Direction.NORTH, "player's table");
+			helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isPlayerPlaced(level.getBlockEntity(main)), "placement marked player-placed on the main block entity");
+			helper.assertFalse(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, main, level.getBlockEntity(main)), "a player's table is not the house's");
+			BlockPos minePart = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK_LEFT));
+			helper.assertTrue(p.gameMode.destroyBlock(minePart), "player breaks their own table (a part) inside the casino");
+			assertGone(helper, b, Direction.NORTH, "player's table broken");
+			helper.assertTrue(drops(helper, b) == 1, "player's table drops exactly one item, got " + drops(helper, b));
+
+			// a player's table inside the casino is not explosion-proof
+			clearArea(helper);
+			helper.assertTrue(place(helper, p, b, Direction.NORTH).consumesAction(), "player places a second table");
+			BlockPos part = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK));
+			level.explode(null, part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5, 2.5f, Level.ExplosionInteraction.TNT);
+			helper.assertTrue(level.getBlockState(main).isAir() && drops(helper, b) <= 1, "TNT destroys a player's table, at most one item");
+		} finally {
+			remove(helper, p);
+			index.removeIf(r -> r.id().equals(id));
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * BOT request: {@code CasinoTableBlockEntity.preset()} never asks the preset provider (which reads the block state)
+	 * for a table whose chunk is not loaded, so it can't load a chunk or crash during unload; a loaded table still asks.
+	 */
+	@GameTest(maxTicks = 20)
+	public void presetLookupNeverLoadsAChunk(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		dev.nezo.burmaldaholic.core.service.TablePresetProvider previous = dev.nezo.burmaldaholic.core.service.CoreServices.tablePresets();
+		int[] calls = {0};
+		dev.nezo.burmaldaholic.core.service.CoreServices.setTablePresets((l, pos) -> {
+			calls[0]++;
+			return previous.preset(l, pos);
+		});
+		try {
+			Block block = BlackjackModule.TABLE.block();
+			BlockPos far = new BlockPos(29_000_000 - 4096, 64, 29_000_000 - 4096);
+			helper.assertFalse(level.hasChunkAt(far), "test position starts unloaded");
+			CasinoTableBlockEntity farBe = (CasinoTableBlockEntity) ((net.minecraft.world.level.block.EntityBlock) block)
+				.newBlockEntity(far, block.defaultBlockState());
+			farBe.setLevel(level);
+			helper.assertTrue(farBe.preset().isEmpty(), "unloaded table: no preset");
+			helper.assertTrue(calls[0] == 0, "unloaded table: the provider is not asked");
+			helper.assertFalse(level.hasChunkAt(far), "the lookup loaded no chunk");
+			farBe.setRemoved();
+			helper.assertTrue(farBe.preset().isEmpty() && calls[0] == 0, "removed block entity: no lookup");
+
+			floor(helper);
+			clearArea(helper);
+			BlockPos main = abs(helper, MAIN);
+			level.setBlockAndUpdate(main, block.defaultBlockState());
+			CasinoTableBlockEntity be = (CasinoTableBlockEntity) level.getBlockEntity(main);
+			be.preset();
+			helper.assertTrue(calls[0] == 1, "loaded table: the provider is asked once");
+		} finally {
+			dev.nezo.burmaldaholic.core.service.CoreServices.setTablePresets(previous);
+		}
+		helper.succeed();
+	}
+
 	/** A piston can't push a part; water (source and flow) doesn't wash parts away; rotate/mirror keep a valid table. */
 	@GameTest(maxTicks = 200)
 	public void pistonsWaterRotateMirror(GameTestHelper helper) {

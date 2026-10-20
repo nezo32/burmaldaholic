@@ -101,6 +101,53 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
 - `machines.mjs`: blockstates, per-part models (see visual passes), part-aware loot. `TableFrames.toFullFace` maps the v0.1 wheel / Plinko renderer content
   onto the full face. Layouts: machines stamped full (village wheel moved to x13..15).
 
+### R3 (2026-10-20) — VQA r2 closed by tests, real dealers, 26.3 loot
+- VQA r2 specs 1–7 (`findings/VQA-INWORLD.md` round 2): d88cdf1f covered placard, slot topper/reels/lever, cashier plate +
+  cash wall, Plinko panels + bulbs, HR band, leather. Finished here: **roulette rim** re-laid (d88's rim sat at 16.75,
+  BELOW RO's rotor wall top ~16.9, and its inner wall / track ring were inside RO's wheel at r 6.0–6.75): outer face
+  stepped 8 → 7.5 → 7.25 px, lit brass top band, dark inner wall r 6.75, cream ball-track lip r 6.5–6.75 at y 17–17.5,
+  top `RIM.top` = 17.5 (2 px above the rail); **wheel-of-fortune rim** now bulbs2 (two colours) at light 15. The Plinko
+  marquee emblem stays out: PL draws the localized title on MT's crown. No screenshots: every item is a deterministic
+  contract in `tools/assets/modules/tables/vqa-r2.test.mjs` (geometry + pixel asserts, 15 tests).
+- **Dealer API (for DL):** `TableFootprint.dealerCell(main, facing, game)` (= dealerPos; f −2, roulette r −1 behind the
+  wheel), `dealerFacing(facing)` (= FACING, toward the table), `dealerYaw(facing)`; level-aware
+  `TableParts.dealerSpot(level, anyCellPos)` → `DealerSpot(main, cell, facing, game, compact)` with `feet()` / `yaw()`
+  (compact tables: the block directly behind), null for machines; check `TableParts.standable` before spawning.
+  `TableFootprintTest.dealerCellBehindTheTableFacingIt` (every game × facing: outside footprint and walkway, one step
+  ahead is BACK / roulette BACK_LEFT). `MultiBlockLayoutsTest` R4 now also asserts the dealer cell is reachable on foot
+  from the table's walkway (flood fill) on every v0.1 layout.
+- **26.3 loot (mod-wide):** all 19 `survives_explosion` tables are MT's (tables + machines). New `tables/loot.mjs`
+  writes BOTH formats in every pool / entry (`conditions` + `block_state_property` for 26.2, `condition` + `match_block`
+  for 26.3; each version ignores the other's keys). GameTest `lootTablesWorkOnThisVersion` evaluates the JSON directly
+  (controller 1 item, parts 0, huge blast 0). `casino_charter` has no conditions (unaffected). Legacy
+  `java/tools/gen_core_assets.py` still writes 26.2-only cashier loot: never rerun it for loot (MT's generator owns it).
+
+- **T-CB D4 / D5 (CB-G HouseGames wired):** brought CB-G's `worldgen/HouseGames.java` (p2/cb-g @5f053bad, verbatim
+  except `mainOf` → `TableParts.mainPos` and one `HouseTableProtection.install()` line in `register()`),
+  `CasinoIndex.recordAt` (same hunk as CB-G), `HouseGames.register()` in WorldgenModule and the
+  `house_table_protected` STRINGS row. New `worldgen/HouseTableProtection` implements MT's `TableProtection`:
+  dropsAllowed / explosionProof from HouseGames, `playerPlaced` sets the persistent player-placed attachment on the
+  MAIN block entity when the placer is a player; break permission stays with HouseGames' own break event. GameTest
+  `houseTablesInsideCasinosAndPlayerTables`: real TNT and creeper (MOB) blasts at a part of a house table → whole
+  table stays, 0 items; non-op break of a part refused; a survival player's item-use placement inside the casino is
+  marked, the player breaks a part → table gone, exactly 1 item; TNT destroys a player's table (≤ 1 item).
+  Merging p2/cb-g later: HouseGames.java conflicts in 2 lines (take MT's), CasinoIndex/STRINGS identical hunks.
+
+- **Preset guard (BOT request):** `CasinoTableBlockEntity.preset()` returns empty without asking the provider when
+  the BE is removed or its chunk isn't loaded (`hasChunkAt`), so a preset lookup never loads a chunk or reads state
+  during unload. GameTest `presetLookupNeverLoadsAChunk`.
+- **R3 verification (2026-10-20, 26.3 only from the owner's decision on):** tools `npm run gen:assets && check:assets
+  && npm test` → 75/75; `compileJava compileClientJava compileGametestJava -Pmc=26.3` OK (26.2 compiled OK before the
+  decision); `test --tests core.table.parts.* RawInputGuardTest worldgen.logic* BotsLogicTest` → 103 tests, 0
+  failures; `runGameTest -Dfabric-api.gametest.filter=multi_block -Pmc=26.3` → all 15 passed (the first 14 also passed
+  on 26.2); `-Dfabric-api.gametest.filter=worldgen -Pmc=26.3` → all 15 passed. Client lane not run (no client changes).
+
+## Requests (R3)
+- CB-C1 / CR: `TableClearance` R4 and `Kits.tablePod` still allow a lectern in the dealer cell — with real dealers it
+  must be two blocks of air on a floor, reachable from the walkway (see `MultiBlockLayoutsTest.reachable`). Kits Javadoc
+  line "dealer (NPC or lectern) at f −1" is stale (f −1 is the table's back row).
+- RO: rim top is 17.5/16 again (≥ your Y_WALL), opening r 6.5 px, nothing of MT's inside r 6.75 below y 17.
+
 ## Verified (commands and results)
 All in `java/` with JDK 25, heavy runs via `with-heavy-lock.sh`, client runs nested in `with-client-lock.sh`.
 - Final (2026-10-15, after visual pass 2, policy "test only what changed"): `compileJava compileClientJava

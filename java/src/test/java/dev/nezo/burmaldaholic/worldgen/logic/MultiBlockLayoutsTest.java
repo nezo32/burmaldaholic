@@ -88,6 +88,31 @@ class MultiBlockLayoutsTest {
 		return b != null && !b.is("minecraft:air") && !b.name().endsWith("_carpet") && !b.name().contains("glass_pane");
 	}
 
+	/** A standing spot: two blocks of air (carpet / plate count as air) on a solid floor. */
+	private static boolean walkable(Grid g, int x, int y, int z) {
+		return air(g, x, y, z) && air(g, x, y + 1, z) && solid(g, x, y - 1, z);
+	}
+
+	/** Flood fill over standing spots at floor level y (4-connected) from {@code from} to any of {@code targets}. */
+	private static boolean reachable(Grid g, int y, Cell from, Set<Cell> targets) {
+		java.util.ArrayDeque<Cell> queue = new java.util.ArrayDeque<>();
+		Set<Cell> seen = new HashSet<>();
+		queue.add(from);
+		seen.add(from);
+		while (!queue.isEmpty()) {
+			Cell c = queue.poll();
+			if (targets.contains(c)) return true;
+			for (int[] o : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+				Cell n = new Cell(c.x() + o[0], c.z() + o[1]);
+				if (!seen.contains(n) && g.inside(n.x(), y, n.z()) && walkable(g, n.x(), y, n.z())) {
+					seen.add(n);
+					queue.add(n);
+				}
+			}
+		}
+		return false;
+	}
+
 	private static int gap(List<Cell> a, List<Cell> b) {
 		int best = Integer.MAX_VALUE;
 		for (Cell p : a) for (Cell q : b) best = Math.min(best, Math.max(Math.abs(p.x() - q.x()), Math.abs(p.z() - q.z())));
@@ -130,6 +155,8 @@ class MultiBlockLayoutsTest {
 				// R4 dealer cell: two blocks of air on a floor
 				Cell d = t.dealer();
 				assertTrue(air(g, d.x(), t.y(), d.z()) && air(g, d.x(), t.y() + 1, d.z()) && solid(g, d.x(), t.y() - 1, d.z()), w + " R4 dealer " + d);
+				// R4 (R3 real dealers): the dealer cell is reachable on foot from the table's player walkway
+				assertTrue(reachable(g, t.y(), d, new HashSet<>(t.walkway())), w + " R4 dealer " + d + " not reachable from the walkway");
 			}
 			// R5 spacing between every pair of game spots (slot/machine pairs exempt), disjoint zones, dealer outside zones
 			for (int i = 0; i < spots.size(); i++)

@@ -45,6 +45,7 @@
 	"gui.burmaldaholic.worldgen.dir.sw": "юго-запад",
 	"gui.burmaldaholic.worldgen.dir.w": "запад",
 	"gui.burmaldaholic.worldgen.dir.nw": "северо-запад",
+	"msg.burmaldaholic.worldgen.house_table_protected": "Эта игра принадлежит заведению и останется в казино",
 	"entity.burmaldaholic.house_dealer": "Дилер",
 	"entity.burmaldaholic.piglin_house_dealer": "Пиглин-крупье",
 	"entity.burmaldaholic.ender_house_dealer": "Эндер-дилер",

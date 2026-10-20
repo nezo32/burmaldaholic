@@ -132,7 +132,7 @@ public final class Kits {
 
 	/**
 	 * The pre-multi-block pod of legacy pieces ({@link Blueprint#compactTables()}): compact table at the anchor, player
-	 * row of CARPET_ACCENT at f +1, stools at r ±2 f +1, dealer (NPC or lectern) at f −1, 3 × 3 × 3 keep-clear above.
+	 * row of CARPET_ACCENT at f +1, stools at r ±2 f +1, the house dealer at f −1, 3 × 3 × 3 keep-clear above.
 	 */
 	/** DL-SPEC §2: no dealer, the v0.1 baccarat dealer and the piglin dealer all become the dimension's house dealer. */
 	public static NpcRole houseDealer(NpcRole dealer) {
@@ -149,12 +149,9 @@ public final class Kits {
 			put(b, x, y, z, front, r, 1, stool.slab("bottom"));
 		}
 		int dx = lx(x, front, 0, -1), dz = lz(z, front, 0, -1);
-		if (dealer != null) {
-			b.set(dx, y, dz, Blueprint.AIR);
-			b.npc(dealer, dx, y, dz, front);
-		} else {
-			b.set(dx, y, dz, BlockSpec.mc("lectern", "facing", front.id(), "has_book", "false", "powered", "false"));
-		}
+		b.set(dx, y, dz, Blueprint.AIR); // DL: the dealer cell is always two blocks of air with a house dealer, never a lectern
+		b.set(dx, y + 1, dz, Blueprint.AIR);
+		b.npc(houseDealer(dealer), dx, y, dz, front);
 		b.keepClear(x - 1, y + 1, z - 1, x + 1, y + BOARD_CLEARANCE, z + 1);
 		b.keepClear(x + front.dx(), y, z + front.dz(), x + front.dx(), y + 1, z + front.dz());
 	}

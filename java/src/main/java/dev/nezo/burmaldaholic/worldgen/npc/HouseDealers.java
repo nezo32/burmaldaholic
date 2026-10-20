@@ -146,7 +146,8 @@ public final class HouseDealers {
 
 	/** Fallback of CB-G's {@code HouseGames.isHouseTable}: a table inside a generated casino that no player owns. */
 	static boolean isHouseTable(CasinoTableBlockEntity table) {
-		return table.ownership().isEmpty();
+		return table.getLevel() instanceof ServerLevel sl && dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(sl, table.getBlockPos(), table)
+			&& table.ownership().isEmpty();
 	}
 
 	/** The dealer cell of the table whose main block is {@code main}: the footprint's dealer cell, f − 1 for compact tables. */

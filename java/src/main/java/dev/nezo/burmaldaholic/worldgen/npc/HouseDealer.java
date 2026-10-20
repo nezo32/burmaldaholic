@@ -228,6 +228,10 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 		if (!(level.getBlockEntity(main) instanceof CasinoTableBlockEntity be) || be instanceof CashierBlockEntity) {
 			return false;
 		}
+		dev.nezo.burmaldaholic.core.table.parts.DealerSpot spot = TableParts.dealerSpot(level, main); // MT's dealer API: the cell this table's dealer stands on
+		if (spot == null || !spot.main().equals(main)) {
+			return false;
+		}
 		BlockState s = level.getBlockState(main);
 		TableGame g = TableParts.gameOf(s);
 		if (g == null || TableParts.facingOf(s) != facing) {

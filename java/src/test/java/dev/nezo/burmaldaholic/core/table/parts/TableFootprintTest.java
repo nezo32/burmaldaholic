@@ -206,4 +206,34 @@ class TableFootprintTest {
 		double ox = Math.max(px, 0), oz = Math.max(pz, 0);
 		return Math.hypot(ox, oz) + Math.min(Math.max(px, pz), 0) - rc;
 	}
+
+	/**
+	 * R3 dealers: for every game and facing the dealer cell is outside the footprint and outside the player walkway,
+	 * directly behind the back row, and one step along the dealer's facing lands on the table (roulette: the wheel
+	 * column BACK_LEFT, card tables / craps / poker: BACK); the yaw is the facing's.
+	 */
+	@Test
+	void dealerCellBehindTheTableFacingIt() {
+		net.minecraft.core.BlockPos main = new net.minecraft.core.BlockPos(10, 64, -7);
+		for (TableGame g : TableGame.values())
+			for (net.minecraft.core.Direction facing : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH,
+				net.minecraft.core.Direction.EAST, net.minecraft.core.Direction.SOUTH, net.minecraft.core.Direction.WEST}) {
+				net.minecraft.core.BlockPos d = TableFootprint.dealerCell(main, facing, g);
+				assertEquals(d, TableFootprint.dealerPos(main, facing, g));
+				assertEquals(main.getY(), d.getY());
+				List<net.minecraft.core.BlockPos> cells = TableFootprint.positions(main, facing, g);
+				assertFalse(cells.contains(d), g + " " + facing + " dealer inside the footprint");
+				for (int r = -1; r <= 1; r++) assertFalse(d.equals(TableFootprint.cellPos(main, facing, r, 1)), g + " " + facing + " dealer in the walkway");
+				net.minecraft.core.Direction look = TableFootprint.dealerFacing(facing);
+				assertEquals(facing, look);
+				net.minecraft.core.BlockPos ahead = d.relative(look);
+				TablePart expected = g == TableGame.ROULETTE ? TablePart.BACK_LEFT : TablePart.BACK;
+				assertEquals(TableFootprint.partPos(main, facing, expected), ahead, g + " " + facing + " dealer faces the table");
+				assertEquals(facing.toYRot(), TableFootprint.dealerYaw(facing), 1e-6);
+				// roulette: the dealer stands behind the wheel bowl (footprint-local x centre -0.5)
+				double[] local = TableFootprint.toLocal(d.getX() - main.getX() + 0.5, d.getZ() - main.getZ() + 0.5, facing.getStepX(), facing.getStepZ());
+				assertEquals(g == TableGame.ROULETTE ? -0.5 : 0.5, local[0], 1e-9);
+				assertEquals(-1.5, local[1], 1e-9);
+			}
+	}
 }

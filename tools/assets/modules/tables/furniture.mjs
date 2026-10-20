@@ -12,6 +12,7 @@
 // that cell's block for facing=north (players on the north side: local +X → block −x, local +Z → block −z);
 // the blockstate rotates the model for the other facings. Felt top = 14 px (FeltFrame.FELT_Y), rail top 15 px.
 // Pure + deterministic.
+import { controllerLoot } from './loot.mjs';
 import { JAVA_ASSETS, json, png } from '../../lib/emit.mjs';
 import { R, P, c, image, put, rng } from './draw.mjs';
 import { machineOutputs } from './machines.mjs';
@@ -421,24 +422,7 @@ export function blockstate(table) {
 }
 
 export function lootTable(table) {
-  const id = `burmaldaholic:${table.name}`;
-  return {
-    type: 'minecraft:block',
-    pools: [
-      {
-        rolls: 1.0,
-        conditions: [
-          { condition: 'minecraft:survives_explosion' },
-          {
-            condition: 'minecraft:any_of',
-            terms: ['main', 'single'].map((part) => ({ condition: 'minecraft:block_state_property', block: id, properties: { part } })),
-          },
-        ],
-        entries: [{ type: 'minecraft:item', name: id }],
-      },
-    ],
-    random_sequence: `burmaldaholic:blocks/${table.name}`,
-  };
+  return controllerLoot(table.name);
 }
 
 export default function generate() {

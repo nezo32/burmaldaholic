@@ -2671,6 +2671,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.dir.sw` | south-west | юго-запад |
 | `gui.burmaldaholic.worldgen.dir.w` | west | запад |
 | `gui.burmaldaholic.worldgen.dir.nw` | north-west | северо-запад |
+| `msg.burmaldaholic.worldgen.house_table_protected` | This game belongs to the house and stays in the casino | Эта игра принадлежит заведению и останется в казино |
 
 ### worldgen: house dealers and staff (DL)
 

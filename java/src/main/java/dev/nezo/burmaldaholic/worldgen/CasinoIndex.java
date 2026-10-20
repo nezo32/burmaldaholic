@@ -35,6 +35,19 @@ public final class CasinoIndex extends SavedData {
 		return casinos.values();
 	}
 
+	/**
+	 * The complete casino (anchor placed) whose box holds the block {@code pos} in {@code dimension}, or null. Any kind:
+	 * standalone casinos, v0.2 and v0.1 annexes, Parlors, Lounges ({@code HouseGames} protection, R-CB M9).
+	 */
+	public @org.jspecify.annotations.Nullable CasinoRecord recordAt(String dimension, net.minecraft.core.BlockPos pos) {
+		for (CasinoRecord r : casinos.values()) {
+			if (r.box() != null && r.kind() != null && r.dimension().equals(dimension) && r.box().contains(pos.getX(), pos.getY(), pos.getZ())) {
+				return r;
+			}
+		}
+		return null;
+	}
+
 	public CasinoRecord recordFor(String id, String dimension) {
 		return casinos.computeIfAbsent(id, k -> new CasinoRecord(id, dimension));
 	}

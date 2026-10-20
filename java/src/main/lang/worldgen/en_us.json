@@ -45,6 +45,7 @@
 	"gui.burmaldaholic.worldgen.dir.sw": "south-west",
 	"gui.burmaldaholic.worldgen.dir.w": "west",
 	"gui.burmaldaholic.worldgen.dir.nw": "north-west",
+	"msg.burmaldaholic.worldgen.house_table_protected": "This game belongs to the house and stays in the casino",
 	"entity.burmaldaholic.house_dealer": "Dealer",
 	"entity.burmaldaholic.piglin_house_dealer": "Piglin Croupier",
 	"entity.burmaldaholic.ender_house_dealer": "Ender Dealer",
