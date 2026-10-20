@@ -1,5 +1,10 @@
 package dev.nezo.burmaldaholic.core.ui.v2.board;
 
+import dev.nezo.burmaldaholic.core.table.parts.FeltFrame;
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
+import dev.nezo.burmaldaholic.core.table.parts.TablePart;
+
 /**
  * Geometry of the in-world table board (docs/architecture/ui-v2.md §7.1, REDESIGN.md §9.1), in BLOCK-LOCAL table
  * coordinates: x → right, z → toward the front (the side the block faces, where the players stand: z = 1), y up; the
@@ -45,11 +50,12 @@ public final class BoardGeometry {
 	 * Flat layers above {@link #TOP} (design units; a full table scales them by its content scale ≥ 0.875), bottom to
 	 * top: the runtime felt marks, the felt texts, card shadows, chip shadows, the chip / deck base. Cards lie at
 	 * {@link #CARD_LIFT}. Each layer clears the one below by ≥ {@link #MIN_LAYER_GAP} (no z-fighting; see
-	 * BoardLayersTest), and the shadows fall ON the print, never under it.
+	 * BoardLayersTest), and the shadows fall ON the print, never under it. The gaps hold ≥ 1/2048 block in the world even
+	 * on a compact 1×1 table, whose content scale is as small as 0.40 (T-W2 D3).
 	 */
-	public static final float MARK_Y = 0.0010f, TEXT_Y = 0.0018f, SHADOW_Y = 0.0026f, CHIP_SHADOW_Y = 0.0034f, CHIP_BASE_Y = 0.0045f;
+	public static final float MARK_Y = 0.0015f, TEXT_Y = 0.0030f, SHADOW_Y = 0.0045f, CHIP_SHADOW_Y = 0.0060f, CHIP_BASE_Y = 0.0075f;
 	/** Smallest gap between two flat layers (design units). */
-	public static final float MIN_LAYER_GAP = 0.0008f;
+	public static final float MIN_LAYER_GAP = 0.0015f;
 
 	/**
 	 * The deck: a squared stack of cards (visual QA round 2: the Hold'em deck read as a solid red slab). Full height of
@@ -95,7 +101,7 @@ public final class BoardGeometry {
 		 * seat's cards lie where its player stands and never on the dealer's chip tray.
 		 */
 		public static float[] seat(int seat, int n, float r) {
-			int m = Math.max(2, n);
+			int m = Math.max(1, n);
 			double a = 2 * Math.PI * (Math.floorMod(seat, m) + 1) / (m + 1) - Math.PI;
 			return new float[] {0.5f + r * (float) Math.sin(a), 0.5f + r * (float) Math.cos(a), (float) -Math.toDegrees(a)};
 		}
@@ -274,18 +280,70 @@ public final class BoardGeometry {
 	}
 
 	/**
-	 * Crescent seat {@code seat} of {@code seats} (0 = the players' left end, seen from the front): the betting spot
-	 * on an arc around the dealer. Returns {x, z, yaw°}: yaw turns a card's top edge toward the dealer.
+	 * Crescent seat {@code seat} of {@code seats} (0 = the players' left end, seen from the front): the betting spot on
+	 * an arc around the dealer (0.5, 0.10), in the direction of the player's stand point (MT
+	 * {@code TableFootprint.seatPoint} of a full table, mapped into design coordinates), so the spot, its cards and its
+	 * plate sit in front of the player for any seat count (T-W2 D5: a fixed ±62° spread put 2–4 seats up to 1.1 blocks
+	 * off). Returns {x, z, yaw°}: yaw turns a card's top edge toward the dealer.
 	 */
 	public static float[] crescentSeat(int seat, int seats) {
 		int n = Math.max(1, seats);
-		float u = n == 1 ? 0.5f : seat / (float) (n - 1);
-		double a = Math.toRadians((u - 0.5) * 2 * 62); // −62° … 62°
+		int i = Math.max(0, Math.min(seat, n - 1));
+		if (n < CRESCENT_SEATS.length) {
+			float[][] row = CRESCENT_SEATS[n];
+			if (row == null) {
+				row = new float[n][];
+				for (int j = 0; j < n; j++) row[j] = crescentSeatOf(j, n);
+				CRESCENT_SEATS[n] = row;
+			}
+			return row[i].clone();
+		}
+		return crescentSeatOf(i, n);
+	}
+
+	/** Memo of {@link #crescentSeat} per seat count (render-thread and server reads; a race only recomputes a row). */
+	private static final float[][][] CRESCENT_SEATS = new float[17][][];
+
+	private static float[] crescentSeatOf(int i, int n) {
+		FeltFrame f = FeltFrame.of(TableGame.BLACKJACK, TablePart.MAIN);
+		double k = fullScale(Felt.CRESCENT, f.w(), f.d());
+		double[] p = TableFootprint.seatPoint(TableGame.BLACKJACK, TablePart.MAIN, i, n);
+		double px = 0.5 + (p[0] - f.cx()) / k, pz = 0.5 + (p[1] - f.cz()) / k;
+		double a = Math.atan2(px - 0.5, pz - 0.10);
 		float x = 0.5f + 0.86f * (float) Math.sin(a);
 		float z = 0.10f + 0.66f * (float) Math.cos(a);
 		// the seat looks at the dealer (0.5, 0.10): yaw 0 = card top toward −z
-		float yaw = (float) Math.toDegrees(a);
-		return new float[] {x, z, -yaw};
+		return new float[] {x, z, (float) -Math.toDegrees(a)};
+	}
+
+	/** UTH spot group size: ante / blind half a step either side, trips behind, play in front (design units). */
+	private static final float UTH_DX = 0.08f, UTH_TRIPS = 0.11f, UTH_PLAY = 0.09f, UTH_R = 0.055f, UTH_PLAY_R = 0.045f;
+
+	/**
+	 * The UTH betting spots of seat {@code seat} of {@code seats} (between the seat's cards and the dealer), as
+	 * {x, z, half size} × 4 into {@code out}: ante, blind, trips, play. When neighbouring seats crowd the arc the group
+	 * shrinks so no two groups' squares touch (T-W2 D4: they overlapped at the default 6 seats).
+	 */
+	public static void uthSpots(int seat, int seats, float[] out) {
+		int n = Math.max(1, seats);
+		float[] c = uthCentre(seat, n);
+		float k = 1f;
+		float w = 2 * (UTH_DX + UTH_R) + 0.01f, h = UTH_TRIPS + UTH_R + UTH_PLAY + UTH_PLAY_R + 0.01f;
+		for (int j = seat - 1; j <= seat + 1; j += 2) {
+			if (j < 0 || j >= n) continue;
+			float[] o = uthCentre(j, n);
+			k = Math.min(k, Math.max(Math.abs(o[0] - c[0]) / w, Math.abs(o[1] - c[1]) / h));
+		}
+		k = Math.max(0.5f, Math.min(1f, k));
+		float[] g = {c[0] - UTH_DX * k, c[1], UTH_R * k, c[0] + UTH_DX * k, c[1], UTH_R * k, c[0], c[1] - UTH_TRIPS * k, UTH_R * k, c[0],
+			c[1] + UTH_PLAY * k, UTH_PLAY_R * k};
+		System.arraycopy(g, 0, out, 0, 12);
+	}
+
+	private static float[] uthCentre(int seat, int n) {
+		float[] a = crescentSeat(seat, n);
+		float seatH = CARD_H * 0.78f;
+		return new float[] {a[0] + (0.5f - a[0]) * 0.22f, a[1] + (0.10f - a[1]) * 0.22f - seatH * 0.5f};
 	}
 
 	/** Oval seat {@code seat} of {@code seats} around the centre (0 at the front), {x, z, yaw°}. */

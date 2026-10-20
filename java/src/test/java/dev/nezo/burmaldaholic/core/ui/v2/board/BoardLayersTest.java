@@ -81,9 +81,18 @@ class BoardLayersTest {
 			assertTrue(m.scale() * BoardGeometry.LAYER >= MIN_WORLD_GAP, g + " card layer step");
 			assertTrue(y[y.length - 1] < FeltFrame.RAIL_TOP, g + " cards below the rail top");
 		}
-		// compact table: the block-top felt quad is at TOP itself
-		assertTrue(BoardGeometry.MARK_Y >= MIN_WORLD_GAP);
-		assertTrue(BoardGeometry.MIN_LAYER_GAP * 0.875f >= MIN_WORLD_GAP);
+		// compact 1x1 tables (T-W2 D3): the block-top felt quad is at TOP itself and the content shrinks to as little as
+		// 0.40 of the design size; the layers must still clear 1/2048 block in the world
+		float[] y = {0, BoardGeometry.MARK_Y, BoardGeometry.TEXT_Y, BoardGeometry.SHADOW_Y, BoardGeometry.CHIP_SHADOW_Y, BoardGeometry.CHIP_BASE_Y,
+			BoardGeometry.CARD_LIFT};
+		for (Felt w : new Felt[] {Felt.CRESCENT, Felt.RECT, Felt.OVAL, Felt.FALLBACK}) {
+			float k = BoardGeometry.contentScale(w, Felt.FALLBACK);
+			assertTrue(k * BoardGeometry.LAYER >= MIN_WORLD_GAP, "compact " + w + " card layer step");
+			for (int i = 1; i < y.length; i++) {
+				assertTrue((y[i] - y[i - 1]) * k >= MIN_WORLD_GAP, "compact " + w + " scale " + k + " layer " + i);
+				assertTrue(y[i] - y[i - 1] >= BoardGeometry.MIN_LAYER_GAP - 1e-6, "layer " + i + " >= MIN_LAYER_GAP");
+			}
+		}
 	}
 
 	/** A model element in footprint px (x right, z toward the players; main block = 0..16). */

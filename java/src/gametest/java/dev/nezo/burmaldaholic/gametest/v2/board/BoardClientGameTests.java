@@ -443,9 +443,9 @@ public class BoardClientGameTests implements FabricClientGameTest {
 					throw new AssertionError(name + ": plate " + i + " covers the dealer cards");
 				}
 			}
-			double want = d <= 5 ? HoloScale.CAP_NEAR_PX : HoloScale.CAP_FAR_PX;
+			double want = HoloScale.capTarget(t.dist()); // the real camera → felt distance (a raised eye is farther than d)
 			if (plateCap < want - 0.5 || boardCap < want - 0.5) {
-				throw new AssertionError(String.format(Locale.ROOT, "%s: cap height plate %.1f / board %.1f px < %.0f", name, plateCap, boardCap, want));
+				throw new AssertionError(String.format(Locale.ROOT, "%s: cap height plate %.1f / board %.1f px < %.1f", name, plateCap, boardCap, want));
 			}
 		} else {
 			if (t.plates() != 0) throw new AssertionError(name + ": plates beyond 8 blocks");

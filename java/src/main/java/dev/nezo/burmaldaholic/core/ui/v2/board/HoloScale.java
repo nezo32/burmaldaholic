@@ -97,7 +97,10 @@ public final class HoloScale {
 	 */
 	public static final float BOARD_READ = 1 / 60f, PLATE_READ = 1 / 75f;
 
-	/** Target cap height in screen px at {@code distance} (18 up to 5 blocks, falling linearly to 13 at 8). */
+	/**
+	 * Target cap height in screen px of a 1080-px-high window at {@code distance} (18 up to 5 blocks, falling linearly
+	 * to 13 at 8); other window heights scale it ({@link #capTarget(double, int)}), like {@link #capMax}.
+	 */
 	public static double capTarget(double distance) {
 		if (distance <= NEAR) return CAP_NEAR_PX;
 		double d = Math.min(distance, READ_RANGE);
@@ -105,15 +108,24 @@ public final class HoloScale {
 	}
 
 	/**
-	 * Text px (block size of one font px) so the CAP height on screen meets {@link #capTarget} at {@code distance}
-	 * (1920 × 1080, the player's FOV), never below {@code base}; constant past {@link #READ_RANGE}.
+	 * {@link #capTarget(double)} for a framebuffer height: the same share of the screen at every resolution (T-W2 D2:
+	 * a fixed px floor made 8-block text at 4K a third smaller relative to the screen than at 1080p).
+	 */
+	public static double capTarget(double distance, int screenH) {
+		return capTarget(distance) * screenH / 1080.0;
+	}
+
+	/**
+	 * Text px (block size of one font px) so the CAP height on screen meets {@link #capTarget(double, int)} at
+	 * {@code distance} (scaled with the window height, the player's FOV), never below {@code base}; constant past
+	 * {@link #READ_RANGE}.
 	 */
 	public static float readablePx(float base, double distance, double fovYDeg, int screenH) {
 		double d = Math.min(Math.max(distance, 0.5), READ_RANGE);
-		double need = capTarget(d) / (CAP * pxPerBlock(d, fovYDeg, screenH));
+		double need = capTarget(d, screenH) / (CAP * pxPerBlock(d, fovYDeg, screenH));
 		double px = Math.max(base, need);
-		// never larger on screen than CAP_MAX_PX (scaled with the window height; ≥ the 18 px target, so the minimum
-		// still holds): up close the base would dominate the scene
+		// never larger on screen than CAP_MAX_PX (both scale with the window height and 22 > 18, so the target always
+		// fits under the cap): up close the base would dominate the scene
 		double max = capMax(screenH) / (CAP * pxPerBlock(Math.max(distance, 0.5), fovYDeg, screenH));
 		return (float) Math.min(px, max);
 	}

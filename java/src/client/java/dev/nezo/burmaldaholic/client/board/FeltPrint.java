@@ -33,9 +33,10 @@ final class FeltPrint {
 	/** Dealer centre of the crescent arcs (design). */
 	private static final float AX = 0.5f, AZ = 0.10f;
 
-	/** One felt text split into glyph sequences (cached per key + language). */
+	/** One felt text split into glyph sequences (cached per key + language + payload: the config numbers in it). */
 	private static final class Prepared {
 		final String lang;
+		long payload;
 		final FormattedCharSequence[] chars;
 		final float[] widths;
 		final float total;
@@ -68,10 +69,15 @@ final class FeltPrint {
 		CACHE.clear();
 	}
 
-	private static Prepared text(Font font, String lang, String key, Component c) {
+	/**
+	 * The cached glyphs of felt text {@code key}; rebuilt when the language or {@code payload} (a hash of the numbers the
+	 * text shows: payout ratio, tie odds, limits) changes, so a config change shows without a reconnect.
+	 */
+	private static Prepared text(Font font, String lang, String key, long payload, Component c) {
 		Prepared p = CACHE.get(key);
-		if (p == null || !p.lang.equals(lang)) {
+		if (p == null || !p.lang.equals(lang) || p.payload != payload) {
 			p = new Prepared(lang, font, c.getString());
+			p.payload = payload;
 			CACHE.put(key, p);
 		}
 		return p;
@@ -93,12 +99,12 @@ final class FeltPrint {
 				if (text) {
 					var c = CasinoConfig.blackjack();
 					int[] r = ratio(c.blackjackPayout);
-					arc(pose, out, font, s, "bj_pays", Component.translatable("gui.burmaldaholic.core.board.felt.bj_pays", r[0], r[1]), 0.42f, 0.325f, 0.0072f,
+					arc(pose, out, font, s, "bj_pays", r[0] * 1000L + r[1], Component.translatable("gui.burmaldaholic.core.board.felt.bj_pays", r[0], r[1]), 0.42f, 0.325f, 0.0072f,
 						light);
 					if (c.insurance) {
-						arc(pose, out, font, s, "insurance", Component.translatable("gui.burmaldaholic.core.board.felt.insurance"), 0.55f, 0.445f, 0.0068f, light);
+						arc(pose, out, font, s, "insurance", 0, Component.translatable("gui.burmaldaholic.core.board.felt.insurance"), 0.55f, 0.445f, 0.0068f, light);
 					}
-					arc(pose, out, font, s, c.dealerHitsSoft17 ? "bj_h17" : "bj_s17", Component.translatable(
+					arc(pose, out, font, s, c.dealerHitsSoft17 ? "bj_h17" : "bj_s17", 0, Component.translatable(
 						c.dealerHitsSoft17 ? "gui.burmaldaholic.core.board.felt.bj_dealer_h17" : "gui.burmaldaholic.core.board.felt.bj_dealer"), 0.33f, 0.25f, 0.0052f,
 						light);
 				}
@@ -106,33 +112,31 @@ final class FeltPrint {
 			case BACCARAT -> {
 				if (text) {
 					var c = CasinoConfig.baccarat();
-					straight(pose, out, font, s, "player", Component.translatable("gui.burmaldaholic.core.board.felt.player"), 0.10f, 0.62f, 0.40f, 0.0075f, light);
-					straight(pose, out, font, s, "banker", Component.translatable("gui.burmaldaholic.core.board.felt.banker"), 0.90f, 0.62f, 0.40f, 0.0075f, light);
-					straight(pose, out, font, s, "tie", Component.translatable("gui.burmaldaholic.core.board.felt.tie", c.tiePays), 0.50f, 0.70f, 0.26f, 0.006f,
+					straight(pose, out, font, s, "player", 0, Component.translatable("gui.burmaldaholic.core.board.felt.player"), 0.10f, 0.62f, 0.40f, 0.0075f, light);
+					straight(pose, out, font, s, "banker", 0, Component.translatable("gui.burmaldaholic.core.board.felt.banker"), 0.90f, 0.62f, 0.40f, 0.0075f, light);
+					straight(pose, out, font, s, "tie", c.tiePays, Component.translatable("gui.burmaldaholic.core.board.felt.tie", c.tiePays), 0.50f, 0.70f, 0.26f, 0.006f,
 						light);
 					Component pair = Component.translatable("gui.burmaldaholic.core.board.felt.pair");
-					straight(pose, out, font, s, "pair", pair, -0.32f, 0.52f, 0.26f, 0.006f, light);
-					straight(pose, out, font, s, "pair", pair, 1.32f, 0.52f, 0.26f, 0.006f, light);
+					straight(pose, out, font, s, "pair", 0, pair, -0.32f, 0.52f, 0.26f, 0.006f, light);
+					straight(pose, out, font, s, "pair", 0, pair, 1.32f, 0.52f, 0.26f, 0.006f, light);
 				}
 			}
 			case UTH -> {
 				int n = Math.max(1, seats);
-				float seatH = BoardGeometry.CARD_H * 0.78f;
+				float[] sp = new float[12];
 				for (int i = 0; i < n; i++) {
-					float[] a = BoardGeometry.crescentSeat(i, n);
-					float sx = a[0] + (0.5f - a[0]) * 0.22f;
-					float sz = a[1] + (0.10f - a[1]) * 0.22f - seatH * 0.5f;
-					mark(pose, out, 1, sx - 0.08f, sz, 0.11f, GOLD, light); // ante
-					mark(pose, out, 1, sx + 0.08f, sz, 0.11f, GOLD, light); // blind
-					mark(pose, out, 3, sx, sz - 0.11f, 0.11f, GOLD, light); // trips
-					mark(pose, out, 2, sx, sz + 0.09f, 0.09f, 0xFFEFE6C8, light); // play
+					BoardGeometry.uthSpots(i, n, sp);
+					mark(pose, out, 1, sp[0], sp[1], sp[2] * 2, GOLD, light); // ante
+					mark(pose, out, 1, sp[3], sp[4], sp[5] * 2, GOLD, light); // blind
+					mark(pose, out, 3, sp[6], sp[7], sp[8] * 2, GOLD, light); // trips
+					mark(pose, out, 2, sp[9], sp[10], sp[11] * 2, 0xFFEFE6C8, light); // play
 				}
 				if (text) {
-					arc(pose, out, font, s, "uth_q", Component.translatable("gui.burmaldaholic.core.board.felt.uth_qualifies"), 0.53f, 0.245f, 0.0058f, light);
+					arc(pose, out, font, s, "uth_q", 0, Component.translatable("gui.burmaldaholic.core.board.felt.uth_qualifies"), 0.53f, 0.245f, 0.0058f, light);
 				}
 			}
 			case POKER -> {
-				if (text) straight(pose, out, font, s, "pot", Component.translatable("gui.burmaldaholic.core.board.felt.pot"), 0.5f, 0.59f, 0.3f, 0.0065f, light);
+				if (text) straight(pose, out, font, s, "pot", 0, Component.translatable("gui.burmaldaholic.core.board.felt.pot"), 0.5f, 0.59f, 0.3f, 0.0065f, light);
 			}
 			default -> {
 			}
@@ -157,7 +161,7 @@ final class FeltPrint {
 		var f = s.frame;
 		if (!s.full || f == null || f.hasWheel() || m.limitMin <= 0 || !s.showsPlates()) return;
 		long min = m.limitMin, max = m.limitMax;
-		Prepared t = text(font, s.lang, "limits" + min + "_" + max, max > 0
+		Prepared t = text(font, s.lang, "limits", min * 1_000_003L ^ max, max > 0
 			? Component.translatable("gui.burmaldaholic.core.board.limits", dev.nezo.burmaldaholic.core.text.Texts.number(min),
 				dev.nezo.burmaldaholic.core.text.Texts.number(max))
 			: dev.nezo.burmaldaholic.core.text.Texts.number(min));
@@ -195,8 +199,9 @@ final class FeltPrint {
 	 * Text laid flat on the felt along the front of an ellipse round the dealer (radii rx, rz, design), centred on the
 	 * players' axis, glyph tops toward the dealer (upright for the players); shrinks to fit ±70° of the arc.
 	 */
-	private static void arc(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, String key, Component c, float rx, float rz, float px, int light) {
-		Prepared t = text(font, s.lang, key, c);
+	private static void arc(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, String key, long payload, Component c, float rx, float rz, float px,
+			int light) {
+		Prepared t = text(font, s.lang, key, payload, c);
 		if (t.total <= 0) return;
 		// arc length of ±70° (numeric): fit the text into 85 % of it
 		double len = 0;
@@ -236,9 +241,9 @@ final class FeltPrint {
 	}
 
 	/** A straight line of text centred on design (x, z), fitted into {@code maxW} blocks. */
-	private static void straight(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, String key, Component c, float x, float z, float maxW, float px,
+	private static void straight(PoseStack pose, SubmitNodeCollector out, Font font, BoardState s, String key, long payload, Component c, float x, float z, float maxW, float px,
 			int light) {
-		Prepared t = text(font, s.lang, key, c);
+		Prepared t = text(font, s.lang, key, payload, c);
 		if (t.total <= 0) return;
 		float scale = Math.min(px, maxW / t.total);
 		float cx = x - t.total * scale / 2;

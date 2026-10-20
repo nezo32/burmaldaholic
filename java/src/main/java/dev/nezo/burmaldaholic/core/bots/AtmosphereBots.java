@@ -188,8 +188,15 @@ public final class AtmosphereBots implements BotTable {
 	/** The core TableBots (created on first use, with the craftable or worldgen defaults of the game). */
 	public TableBots table() {
 		if (tb == null) {
+			if (!loadedHere()) {
+				// no level / an unloaded chunk: the preset cannot be read, so these defaults are a stand-in that must not
+				// be remembered (T-W2 nit: a generated table kept craftable defaults for good)
+				TableBots temp = new TableBots(this, BotPresets.defaults(be, gameId, false), OwnerControls.unowned(Math.max(1, seats.seats())));
+				if (loaded != null) temp.load(loaded);
+				return temp;
+			}
 			// generated tables: the worldgen preset's defaults (J-G6); name theme / level mix in the hooks above
-			boolean generated = loadedHere() && be.preset().isPresent(); // preset() reads the level: loaded chunks only
+			boolean generated = be.preset().isPresent(); // preset() reads the level: loaded chunks only
 			tb = new TableBots(this, BotPresets.defaults(be, gameId, generated), OwnerControls.unowned(Math.max(1, seats.seats())));
 			if (loaded != null) {
 				tb.load(loaded);
