@@ -33,11 +33,12 @@ public final class BetEntry {
 	/** Translation keys (STRINGS.md core › lane HR). */
 	public static final String K = "gui.burmaldaholic.core.v2.entry.";
 	public static final String KEY_OPEN = K + "open", KEY_HINT = K + "hint", KEY_OK = K + "ok", KEY_HALF = K + "half", KEY_DOUBLE = K + "double",
-		KEY_UNIT = K + "unit", KEY_MAX = "gui.burmaldaholic.common.max";
+		KEY_UNIT = K + "unit", KEY_COST = K + "cost", KEY_MAX = "gui.burmaldaholic.common.max";
 
 	private boolean open;
 	private String text = "";
 	private BetAmount.Mode mode = BetAmount.Mode.BET;
+	private BetAmount.Cost cost = BetAmount.ONE;
 	private Box panel = Box.EMPTY, half = Box.EMPTY, field = Box.EMPTY, dbl = Box.EMPTY, max = Box.EMPTY, ok = Box.EMPTY;
 	private String pressedId = "";
 	private long pressedAt = -1;
@@ -61,10 +62,16 @@ public final class BetEntry {
 		return mode;
 	}
 
+	/** What the field's amount costs on the table ({@link BetPort#entryCost}). */
+	public BetAmount.Cost cost() {
+		return cost;
+	}
+
 	/** Opens with {@code initial} in the field (typing replaces it until the first edit). */
-	void open(BetAmount.Mode mode, long initial) {
+	void open(BetAmount.Mode mode, BetAmount.Cost cost, long initial) {
 		this.open = true;
 		this.mode = mode;
+		this.cost = cost;
 		this.text = initial > 0 ? Long.toString(initial) : "";
 		this.fresh = true;
 		this.openedAt = Util.getMillis();

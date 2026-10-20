@@ -52,8 +52,16 @@ public class CashierScreen extends CasinoTableScreen {
 	private static final int CX = 24;
 	private static final int TRAY_Y = 36;
 	private static final int TRAY_H = 44;
-	/** Tray columns (small denominations on the left, like the wallet's pocket), right-aligned; at most 40 px, all fit in 240. */
-	private static final int TRAY_COL_W = Math.min(40, 240 / ChipColumns.DENOMS.length);
+	/**
+	 * Tray columns (small denominations on the left, like the wallet's pocket), right-aligned; at most 40 px, all eight fit
+	 * in 208 so the head keeps room for "Зачислено: 57 600 000" (the largest one-move amount; T-HR D4, {@link #trayHeadWidth}).
+	 */
+	private static final int TRAY_COL_W = Math.min(40, 208 / ChipColumns.DENOMS.length);
+
+	/** Width of the tray head ("Withdrawn 100 000" / "Counting…") left of the chip columns (layout test hook). */
+	public static int trayHeadWidth() {
+		return (W - 2 * CX) - 6 - ChipColumns.DENOMS.length * TRAY_COL_W - 12;
+	}
 	private static final Identifier[] CHIP = new Identifier[ChipColumns.DENOMS.length];
 	private static final Identifier[] CHIP_SIDE = new Identifier[ChipColumns.DENOMS.length];
 	private static final String[] DENOM_LABEL = new String[ChipColumns.DENOMS.length];

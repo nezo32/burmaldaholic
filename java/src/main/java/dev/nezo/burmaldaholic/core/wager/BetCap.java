@@ -151,8 +151,21 @@ public record BetCap(long max, Source source, int tier, int nextTier, long nextM
 			tag.getIntOr("cap_next", -1), tag.getLongOr("cap_next_max", 0), tag.getLongOr("cap_min", 1), tag.getBooleanOr("cap_owner_min", false));
 	}
 
-	/** The same cap for a different maximum (a game publishes its own "max" after the base state). */
+	/**
+	 * The same cap for a different maximum (a game publishes its own "max", e.g. Plinko's fraction of the VIP max): the
+	 * next tier's maximum scales by the same ratio (T-HR D3: it used to keep the base maximum's next value).
+	 */
 	public BetCap withMax(long newMax) {
-		return new BetCap(newMax, source, tier, nextTier, nextMax, min, ownerMin);
+		if (newMax == max) return this;
+		int next = nextTier;
+		long nm = 0;
+		if (source == Source.VIP && nextTier >= 0 && max > 0 && newMax > 0) {
+			nm = (long) Math.floor(newMax * ((double) nextMax / max));
+			if (nm <= newMax) next = -1;
+		} else {
+			next = source == Source.VIP ? nextTier : -1;
+			nm = next >= 0 ? nextMax : 0;
+		}
+		return new BetCap(newMax, source, tier, nm > 0 ? next : -1, nm > 0 && next >= 0 ? nm : 0, min, ownerMin);
 	}
 }

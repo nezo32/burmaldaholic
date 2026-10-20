@@ -32,4 +32,13 @@ public interface BetPort {
 	default boolean amount(long amount) {
 		return false;
 	}
+
+	/**
+	 * What an {@link #amount} costs on the table (T-HR D1): {@link dev.nezo.burmaldaholic.core.ui.v2.BetAmount#ONE} when the
+	 * amount is the stake; Ultimate Texas Hold'em's field is the Ante, its stake Ante + Blind + Trips. The entry opens with
+	 * the amount, clamps the whole stake to the limits and shows the total.
+	 */
+	default dev.nezo.burmaldaholic.core.ui.v2.BetAmount.Cost entryCost() {
+		return dev.nezo.burmaldaholic.core.ui.v2.BetAmount.ONE;
+	}
 }

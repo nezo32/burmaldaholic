@@ -261,8 +261,9 @@ public final class V2Chrome {
 		}
 		BetPort port = bet.port();
 		BetAmount.Mode mode = bet.isMultiSpot() || port == null || !port.setsAmount() ? BetAmount.Mode.UNIT : BetAmount.Mode.BET;
-		entry.open(mode, BetAmount.initial(v, mode, Math.max(0, bet.selected())));
-		status.hint(V2Draw.tr(BetEntry.KEY_HINT));
+		BetAmount.Cost cost = mode == BetAmount.Mode.BET ? port.entryCost() : BetAmount.ONE;
+		entry.open(mode, cost, BetAmount.initial(v, mode, Math.max(0, bet.selected()), cost));
+		entryHint();
 		relayout();
 		return true;
 	}
@@ -273,9 +274,9 @@ public final class V2Chrome {
 		BetView v = entryView();
 		BetAmount.Mode mode = entry.mode();
 		BetAmount.Clamp c = switch (id) {
-			case BetEntry.HALF -> BetAmount.halved(entry.value(), v, mode);
-			case BetEntry.DOUBLE -> BetAmount.doubled(entry.value(), v, mode);
-			case BetEntry.MAX -> BetAmount.max(v, mode);
+			case BetEntry.HALF -> BetAmount.halved(entry.value(), v, mode, entry.cost());
+			case BetEntry.DOUBLE -> BetAmount.doubled(entry.value(), v, mode, entry.cost());
+			case BetEntry.MAX -> BetAmount.max(v, mode, entry.cost());
 			default -> null;
 		};
 		if (id.equals(BetEntry.OK)) {
@@ -287,9 +288,16 @@ public final class V2Chrome {
 		if (c == null) return true;
 		entry.pressed(id);
 		entry.set(c.value());
+		entryHint();
 		if (c.clamped()) flash(id, c.reasonKey(), c.reasonArgs());
 		relayout();
 		return true;
+	}
+
+	/** Line 2 while the strip is open: how to type, or the whole stake when the amount is only part of it (UTH: Ante). */
+	private void entryHint() {
+		BetAmount.Cost cost = entry.cost();
+		status.hint(cost.identity() || entry.value() <= 0 ? V2Draw.tr(BetEntry.KEY_HINT) : V2Draw.tr(BetEntry.KEY_COST, cost.of(entry.value())));
 	}
 
 	/** OK / Enter: the amount (clamped, whose cap said) becomes the bet, or the felt unit. */
@@ -297,9 +305,10 @@ public final class V2Chrome {
 		BetView v = entryView();
 		long raw = entry.value();
 		BetAmount.Mode mode = entry.mode();
+		BetAmount.Cost cost = entry.cost();
 		entry.close();
 		if (raw > 0) {
-			BetAmount.Clamp c = BetAmount.clamp(raw, v, mode);
+			BetAmount.Clamp c = BetAmount.clamp(raw, v, mode, cost);
 			if (c.clamped()) flash(BetEntry.OK, c.reasonKey(), c.reasonArgs());
 			BetPort port = bet.port();
 			if (c.value() > 0 && port != null) {
@@ -324,6 +333,7 @@ public final class V2Chrome {
 				if (name.length() == 1) entry.type(name.charAt(0));
 			}
 		}
+		if (entry.isOpen()) entryHint();
 		relayout();
 		return true;
 	}
@@ -579,8 +589,9 @@ public final class V2Chrome {
 		if (t.isPresent() && bet.visible() && (t.get().id().equals(KeyMap.Ids.READOUT) || t.get().id().equals(BetEntry.FIELD))) {
 			if (!entry.isOpen() && !openEntry()) return false;
 			if (!entry.isOpen()) return true; // bets closed: the reason flashed
-			BetAmount.Clamp c = BetAmount.wheel(entry.value(), dy > 0, entryView(), entry.mode());
+			BetAmount.Clamp c = BetAmount.wheel(entry.value(), dy > 0, entryView(), entry.mode(), entry.cost());
 			entry.set(c.value());
+			entryHint();
 			if (c.clamped()) flash(BetEntry.FIELD, c.reasonKey(), c.reasonArgs());
 			relayout();
 			return true;

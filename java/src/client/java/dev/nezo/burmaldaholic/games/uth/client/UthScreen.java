@@ -343,6 +343,12 @@ public class UthScreen extends V2TableScreen<UthView> {
 			}
 
 			@Override
+			public dev.nezo.burmaldaholic.core.ui.v2.BetAmount.Cost entryCost() { // the field is the armed spot's amount (T-HR D1)
+				return draft.spot() == UthBetDraft.Spot.TRIPS ? new dev.nezo.burmaldaholic.core.ui.v2.BetAmount.Cost(1, 2 * draft.ante())
+					: new dev.nezo.burmaldaholic.core.ui.v2.BetAmount.Cost(2, draft.trips());
+			}
+
+			@Override
 			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
 				long cur = draft.spot() == UthBetDraft.Spot.TRIPS ? draft.trips() : draft.ante();
 				if (amount <= 0 || amount == cur) return amount > 0;

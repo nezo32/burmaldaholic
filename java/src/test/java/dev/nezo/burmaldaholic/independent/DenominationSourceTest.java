@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -64,7 +65,6 @@ class DenominationSourceTest {
 	void chipValuesAreListedOnlyInChipMathAndThePalette() throws IOException {
 		Path java = Path.of(System.getProperty("burmaldaholic.projectDir", ".")).toAbsolutePath().normalize();
 		Path repo = java.getParent();
-		Pattern p = triples();
 		List<String> hits = new ArrayList<>();
 		Set<String> used = new HashSet<>();
 		List<Path> files = new ArrayList<>();
@@ -75,14 +75,10 @@ class DenominationSourceTest {
 			String rel = repo.relativize(f).toString().replace('\\', '/');
 			if (rel.equals("java/" + SOURCE) || rel.equals(JS_SOURCE) || rel.endsWith(".test.mjs")) continue;
 			List<String> lines = Files.readAllLines(f, StandardCharsets.UTF_8);
-			for (int i = 0; i < lines.size(); i++) {
-				String line = lines.get(i);
-				String code = line.replaceAll("//.*$", "");
-				if (code.trim().startsWith("*")) continue; // javadoc prose
-				if (!p.matcher(code).find()) continue;
-				String key = rel + " | " + line.trim();
+			for (Hit h : scan(lines)) {
+				String key = rel + " | " + lines.get(h.line() - 1).trim();
 				if (ALLOWED.containsKey(key)) used.add(key);
-				else hits.add(rel + ":" + (i + 1) + "  " + line.trim());
+				else hits.add(rel + ":" + h.line() + "  [" + h.what() + "]  " + lines.get(h.line() - 1).trim());
 			}
 		}
 		assertTrue(hits.isEmpty(), hits.size() + " hard-coded chip denomination list(s); read ChipMath.DENOMINATIONS / ascending() (Java) or"
@@ -94,14 +90,120 @@ class DenominationSourceTest {
 
 	@Test
 	void theScanCatchesTheOldLists() {
-		Pattern p = triples();
 		for (String bad : List.of("int[] DENOMS = {1, 5, 25, 100, 500};", "{500, 100, 25, 5, 1}", "[1, 5, 25, 100, 500, 1000, 5000]",
-			"{1_000, 5_000, 25_000}", "long[] d = {500L, 100L, 25L};")) {
-			assertTrue(p.matcher(bad).find(), bad);
+			"{1_000, 5_000, 25_000}", "long[] d = {500L, 100L, 25L};", "List.of(1L, 5L, 25L)", "{100, 1, 25}", "{1000, 5000}",
+			"{0, 500, 100, 25, 5, 1}", "int[] d = {\n  500,\n  100,\n  25\n};",
+			"return amount >= 500 ? 500 : amount >= 100 ? 100 : 1;", "a >= 5000\n ? 5000\n : a >= 1000 ? 1000 : 1;")) {
+			assertTrue(!scan(List.of(bad.split("\n"))).isEmpty(), "not caught: " + bad);
 		}
-		for (String ok : List.of("{10, 25, 100, 250}", "new int[] {4000, 3000, 2000, 1000}", "x = 1.5, 25, 100", "{2, 5, 25}")) {
-			assertTrue(!p.matcher(ok).find(), ok);
+		for (String ok : List.of("{10, 25, 100, 250}", "new int[] {4000, 3000, 2000, 1000}", "x = 1.5, 25, 100", "{2, 5, 25}", "{1, 5}", "t >= 500 ? 500 : t", "// {1, 5, 25, 100}", "{25, 100, 7}")) {
+			assertTrue(scan(List.of(ok.split("\n"))).isEmpty(), "false positive: " + ok);
 		}
+	}
+
+	record Hit(int line, String what) {}
+
+	private static final Pattern LIST = Pattern.compile("[\\[{(]([-\\d_lL,\\s]+)[\\]})]");
+	private static final Pattern TERNARY = Pattern.compile(">=?\\s*(\\d[\\d_]*)[lL]?\\s*\\?\\s*(\\d[\\d_]*)[lL]?\\b");
+
+	/**
+	 * The hits of one file (comments stripped, lines joined so a list split over lines is one list): any written list of
+	 * three or more distinct chip values in any order (a {@code 0} may join them), two high chips ({@code {1000, 5000}}),
+	 * the ordered triple inside a longer list ({@link #triples()}), and a ternary ladder over two or more chip values
+	 * ({@code a >= 500 ? 500 : a >= 100 ? 100 : 1}, what BetControl had).
+	 */
+	static List<Hit> scan(List<String> lines) {
+		StringBuilder text = new StringBuilder();
+		int[] lineOf;
+		boolean block = false;
+		List<Integer> starts = new ArrayList<>();
+		for (String raw : lines) {
+			starts.add(text.length());
+			StringBuilder code = new StringBuilder();
+			int i = 0;
+			while (i < raw.length()) {
+				if (block) {
+					int end = raw.indexOf("*/", i);
+					if (end < 0) break;
+					block = false;
+					i = end + 2;
+					continue;
+				}
+				if (raw.startsWith("//", i)) break;
+				if (raw.startsWith("/*", i)) {
+					block = true;
+					i += 2;
+					continue;
+				}
+				code.append(raw.charAt(i++));
+			}
+			String c = code.toString();
+			if (c.trim().startsWith("*")) c = ""; // javadoc prose
+			text.append(c).append('\n');
+		}
+		lineOf = starts.stream().mapToInt(Integer::intValue).toArray();
+		String all = text.toString();
+		Set<Long> denoms = new HashSet<>();
+		for (int d : ChipMath.DENOMINATIONS) denoms.add((long) d);
+		List<Hit> out = new ArrayList<>();
+		Set<Integer> seen = new HashSet<>();
+		java.util.function.BiConsumer<Integer, String> add = (off, what) -> {
+			int ln = line(lineOf, off);
+			if (seen.add(ln)) out.add(new Hit(ln, what));
+		};
+		Matcher m = LIST.matcher(all);
+		while (m.find()) {
+			String[] parts = m.group(1).split(",");
+			Set<Long> chips = new HashSet<>();
+			boolean onlyChips = parts.length >= 2;
+			for (String part : parts) {
+				String n = part.trim().replace("_", "").replaceAll("[lL]$", "");
+				if (n.isEmpty()) continue;
+				long v;
+				try {
+					v = Long.parseLong(n);
+				} catch (NumberFormatException e) {
+					onlyChips = false;
+					break;
+				}
+				if (denoms.contains(v)) chips.add(v);
+				else if (v != 0) onlyChips = false;
+			}
+			if (!onlyChips) continue;
+			boolean highPair = chips.size() == 2 && chips.stream().allMatch(v -> v >= 1000);
+			if (chips.size() >= 3 || highPair) add.accept(m.start(), "list of chip values");
+		}
+		Matcher t = triples().matcher(all);
+		while (t.find()) add.accept(t.start(), "chip values in order");
+		for (String stmt : splitKeep(all)) {
+			Matcher q = TERNARY.matcher(stmt);
+			Set<Long> ladder = new HashSet<>();
+			int first = -1;
+			while (q.find()) {
+				long x = Long.parseLong(q.group(1).replace("_", ""));
+				if (x == Long.parseLong(q.group(2).replace("_", "")) && denoms.contains(x)) {
+					ladder.add(x);
+					if (first < 0) first = q.start();
+				}
+			}
+			if (ladder.size() >= 2) add.accept(stmtStart(all, stmt) + first, "ternary ladder of chip values");
+		}
+		out.sort(java.util.Comparator.comparingInt(Hit::line));
+		return out;
+	}
+
+	private static List<String> splitKeep(String all) {
+		return List.of(all.split("(?<=;)"));
+	}
+
+	private static int stmtStart(String all, String stmt) {
+		return Math.max(0, all.indexOf(stmt));
+	}
+
+	private static int line(int[] starts, int offset) {
+		int ln = 1;
+		for (int i = 0; i < starts.length; i++) if (starts[i] <= offset) ln = i + 1;
+		return ln;
 	}
 
 	private static void collect(Path dir, String ext, List<Path> out) throws IOException {

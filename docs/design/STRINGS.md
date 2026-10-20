@@ -682,6 +682,7 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.entry.half` | ½ | ½ |
 | `gui.burmaldaholic.core.v2.entry.double` | ×2 | ×2 |
 | `gui.burmaldaholic.core.v2.entry.unit` | Each click places %1$s | Клик ставит %1$s |
+| `gui.burmaldaholic.core.v2.entry.cost` | Total stake: %1$s | Всего на столе: %1$s |
 
 ---
 

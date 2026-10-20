@@ -30,6 +30,17 @@ class BetCapTest {
 		assertTrue(BetCap.infer(500, 50, 0, 0, 50, 500, 1, 0).ownerMin());
 	}
 
+	/** T-HR D3: a game's own maximum (Plinko: a fifth of the VIP max) scales the next tier's number too. */
+	@Test
+	void withMaxScalesTheNextTier() {
+		BetCap c = BetCap.infer(1000, 1, 0, 0, 0, 1000, 1, 4000);
+		BetCap fifth = c.withMax(200);
+		assertEquals(200, fifth.max());
+		assertEquals(800, fifth.nextMax());
+		assertEquals(2, fifth.nextTier());
+		assertEquals(c, c.withMax(1000));
+	}
+
 	@Test
 	void stateRoundTrip() {
 		BetCap c = BetCap.infer(500, 25, 0, 0, 0, 500, 1, 2000);

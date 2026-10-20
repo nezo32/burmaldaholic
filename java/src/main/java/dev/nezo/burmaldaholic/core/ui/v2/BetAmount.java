@@ -38,10 +38,50 @@ public final class BetAmount {
 		}
 	}
 
-	/** The largest amount allowed now: {@code min(max or room under it, balance)}; 0 = nothing. */
-	public static long limit(BetView v, Mode mode) {
+	/**
+	 * What a field amount costs on the table: {@code per × amount + extra}. Most games: the amount IS the stake
+	 * ({@link #ONE}). Ultimate Texas Hold'em: the field is the Ante, the stake is Ante + Blind (= 2 × Ante) + Trips
+	 * ({@code new Cost(2, trips)}; T-HR D1). Limits and the balance are checked against the cost, the field shows the amount.
+	 */
+	public record Cost(long per, long extra) {
+		public Cost {
+			per = Math.max(1, per);
+			extra = Math.max(0, extra);
+		}
+
+		/** The stake of a field amount (saturating). */
+		public long of(long amount) {
+			if (amount <= 0) return extra;
+			return amount > (Long.MAX_VALUE - extra) / per ? Long.MAX_VALUE : amount * per + extra;
+		}
+
+		/** The largest field amount whose stake is at most {@code stake} (0 when even {@code extra} does not fit). */
+		public long amountFor(long stake) {
+			return stake <= extra ? 0 : (stake - extra) / per;
+		}
+
+		public boolean identity() {
+			return per == 1 && extra == 0;
+		}
+	}
+
+	/** The amount is the stake. */
+	public static final Cost ONE = new Cost(1, 0);
+
+	/** The largest stake allowed now: {@code min(max or room under it, balance)}; 0 = nothing. */
+	private static long stakeLimit(BetView v, Mode mode) {
 		long cap = v.max() <= 0 ? Long.MAX_VALUE : mode == Mode.UNIT ? v.roomUnderMax() : v.max();
 		return Math.max(0, Math.min(cap, v.balance()));
+	}
+
+	/** The largest amount allowed now: {@code min(max or room under it, balance)}; 0 = nothing. */
+	public static long limit(BetView v, Mode mode) {
+		return limit(v, mode, ONE);
+	}
+
+	/** The largest field amount whose {@link Cost stake} fits {@code min(max, balance)}. */
+	public static long limit(BetView v, Mode mode, Cost cost) {
+		return cost.amountFor(stakeLimit(v, mode));
 	}
 
 	/** Whether the balance (not a maximum) is what {@link #limit} stops at. */
@@ -52,7 +92,12 @@ public final class BetAmount {
 
 	/** Clamps {@code value} into {@code [min, limit]} (BET mode) or {@code [1, limit]} (UNIT), saying which bound did it. */
 	public static Clamp clamp(long value, BetView v, Mode mode) {
-		long lim = limit(v, mode);
+		return clamp(value, v, mode, ONE);
+	}
+
+	/** {@link #clamp(long, BetView, Mode)} for a field whose stake is {@code cost.of(value)}. */
+	public static Clamp clamp(long value, BetView v, Mode mode, Cost cost) {
+		long lim = limit(v, mode, cost);
 		long low = mode == Mode.BET ? v.min() : 1;
 		if (value > lim) {
 			Gate why = balanceBinds(v, mode) ? BetGates.overBalance("", V2Keys.BET, v) : BetGates.aboveMax("", V2Keys.BET, v);
@@ -68,26 +113,43 @@ public final class BetAmount {
 
 	/** Max: the {@link #limit}, and the sentence of whose limit it is (the reason is always given, so Max says why). */
 	public static Clamp max(BetView v, Mode mode) {
-		long lim = limit(v, mode);
+		return max(v, mode, ONE);
+	}
+
+	/** Max for a field whose stake is {@code cost.of(value)}: the largest amount whose whole stake fits. */
+	public static Clamp max(BetView v, Mode mode, Cost cost) {
+		long lim = limit(v, mode, cost);
 		Gate why = balanceBinds(v, mode) ? BetGates.overBalance("", V2Keys.BET, v) : BetGates.aboveMax("", V2Keys.BET, v);
 		return new Clamp(lim, why.reasonKey(), why.reasonArgs());
 	}
 
 	/** ×2 (saturating), clamped. */
 	public static Clamp doubled(long value, BetView v, Mode mode) {
-		return clamp(value > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : Math.max(1, value) * 2, v, mode);
+		return doubled(value, v, mode, ONE);
+	}
+
+	public static Clamp doubled(long value, BetView v, Mode mode, Cost cost) {
+		return clamp(value > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : Math.max(1, value) * 2, v, mode, cost);
 	}
 
 	/** ½ (rounded down), clamped. */
 	public static Clamp halved(long value, BetView v, Mode mode) {
-		return clamp(Math.max(1, value / 2), v, mode);
+		return halved(value, v, mode, ONE);
+	}
+
+	public static Clamp halved(long value, BetView v, Mode mode, Cost cost) {
+		return clamp(Math.max(1, value / 2), v, mode, cost);
 	}
 
 	/** One mouse-wheel notch up ({@code up}) or down from {@code value}: by {@link #step}, clamped. */
 	public static Clamp wheel(long value, boolean up, BetView v, Mode mode) {
+		return wheel(value, up, v, mode, ONE);
+	}
+
+	public static Clamp wheel(long value, boolean up, BetView v, Mode mode, Cost cost) {
 		long s = up ? step(value) : step(Math.max(1, value - 1));
 		long next = up ? (value > Long.MAX_VALUE - s ? Long.MAX_VALUE : value + s) : value - s;
-		return clamp(Math.max(up ? next : Math.min(next, value - 1), 0), v, mode);
+		return clamp(Math.max(up ? next : Math.min(next, value - 1), 0), v, mode, cost);
 	}
 
 	/**
@@ -111,8 +173,9 @@ public final class BetAmount {
 			return t.length() >= MAX_DIGITS ? text : t + ch;
 		}
 		char c = Character.toLowerCase(ch);
-		if ((c == 'k' || c == 'к') && !text.isEmpty() && text.length() + 3 <= MAX_DIGITS) return text + "000"; // literal-ok: ×1000
-		if ((c == 'm' || c == 'м') && !text.isEmpty() && text.length() + 6 <= MAX_DIGITS) return text + "000000"; // literal-ok: ×1 000 000
+		if (text.isEmpty() || text.equals("0")) return text; // "0k" would print 0000 (T-HR D4)
+		if ((c == 'k' || c == 'к') && text.length() + 3 <= MAX_DIGITS) return text + "000"; // literal-ok: ×1000
+		if ((c == 'm' || c == 'м') && text.length() + 6 <= MAX_DIGITS) return text + "000000"; // literal-ok: ×1 000 000
 		return text;
 	}
 
@@ -133,8 +196,16 @@ public final class BetAmount {
 
 	/** The amount the control starts from: the current bet (BET) or the armed chip (UNIT), else the minimum, clamped. */
 	public static long initial(BetView v, Mode mode, long armed) {
-		long start = mode == Mode.BET ? v.myTotal() : armed;
+		return initial(v, mode, armed, ONE);
+	}
+
+	/**
+	 * {@link #initial(BetView, Mode, long)} for a field whose stake is {@code cost.of(value)}: the field starts from the
+	 * AMOUNT of the current stake ({@code (myTotal - extra) / per}; T-HR D1: UTH reopened with the cost, and Enter doubled it).
+	 */
+	public static long initial(BetView v, Mode mode, long armed, Cost cost) {
+		long start = mode == Mode.BET ? cost.amountFor(v.myTotal()) : armed;
 		if (start <= 0) start = Math.max(v.min(), armed);
-		return clamp(start, v, mode).value();
+		return clamp(start, v, mode, cost).value();
 	}
 }

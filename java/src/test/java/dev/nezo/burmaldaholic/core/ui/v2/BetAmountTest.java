@@ -85,6 +85,27 @@ class BetAmountTest {
 		assertEquals(0, BetAmount.clamp(500, broke, Mode.BET).value());
 	}
 
+	/** T-HR D1: UTH's field is the Ante; the stake is Ante + Blind + Trips; Max = the largest Ante whose whole stake fits. */
+	@Test
+	void anteFieldCostsAnteBlindAndTrips() {
+		BetAmount.Cost uth = new BetAmount.Cost(2, 10); // Ante + Blind, Trips 10 on the table
+		BetView v = base().limits(5, 0).balance(1000).myTotal(uth.of(40)).build();
+		assertEquals(40, BetAmount.initial(v, Mode.BET, 0, uth), "reopens with the Ante, not the cost");
+		assertEquals(495, BetAmount.max(v, Mode.BET, uth).value(), "Max: (1000 - 10) / 2");
+		assertEquals(BetCap.KEY_BALANCE, BetAmount.max(v, Mode.BET, uth).reasonKey());
+		assertEquals(495, BetAmount.clamp(600, v, Mode.BET, uth).value());
+		BetView capped = base().limits(5, 300).balance(100_000).cap(vip(300)).build();
+		assertEquals(145, BetAmount.max(capped, Mode.BET, uth).value(), "the VIP max holds the whole stake: (300 - 10) / 2");
+		assertEquals(BetCap.KEY_VIP, BetAmount.max(capped, Mode.BET, uth).reasonKey());
+		assertEquals(90, uth.of(40));
+	}
+
+	@Test
+	void zeroThousandIsNotTyped() {
+		assertEquals("0", BetAmount.type("0", 'k'), "T-HR D4: 0k stays 0");
+		assertEquals("", BetAmount.type("", 'm'));
+	}
+
 	@Test
 	void initialValue() {
 		BetView v = base().myTotal(300).cap(vip(2000)).build();

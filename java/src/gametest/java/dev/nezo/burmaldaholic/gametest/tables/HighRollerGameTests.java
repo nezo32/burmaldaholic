@@ -237,6 +237,34 @@ public class HighRollerGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * T-HR follow-up: a withdrawal into a FULL inventory drops every chip at the player's feet as ItemEntities, counted
+	 * one by one (value = what was debited; nothing duplicated, nothing lost).
+	 */
+	@GameTest
+	public void cashierWithdrawDropsChipsWhenInventoryFull(GameTestHelper helper) {
+		ServerPlayer p = player(helper, "hr-drop", 500_000);
+		CashierBlockEntity cashier = open(helper, CoreContent.CASHIER.block(), CashierBlockEntity.class, p);
+		try {
+			for (int i = 0; i < p.getInventory().getContainerSize(); i++) p.getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+			net.minecraft.world.phys.AABB around = p.getBoundingBox().inflate(8);
+			int itemsBefore = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around).size();
+			act(p, cashier, "withdraw", amount(56_000)); // 2 × 25K + 5K + 1K: three stacks, none fits
+			java.util.List<net.minecraft.world.entity.item.ItemEntity> drops = helper.getLevel().getEntitiesOfClass(
+				net.minecraft.world.entity.item.ItemEntity.class, around, e -> e.getItem().getItem() instanceof ChipItem);
+			long dropped = 0;
+			for (var e : drops) dropped += ChipItem.valueOf(e.getItem());
+			helper.assertTrue(balance(helper, p) == 444_000, "debited once: " + balance(helper, p));
+			helper.assertTrue(drops.size() == 3 && dropped == 56_000, "three chip stacks at the feet worth 56 000: " + drops.size() + " entities, "
+				+ dropped + " (items before " + itemsBefore + ", player at " + p.blockPosition() + " in " + p.level().dimension()
+				+ ", test level " + helper.getLevel().dimension() + ", same=" + (p.level() == helper.getLevel()) + ")");
+			for (var e : drops) e.discard();
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
 	/** A withdrawal into a full inventory drops the rest at the feet; balance + carried + dropped is conserved. */
 	@GameTest
 	public void cashierWithdrawIntoFullInventory(GameTestHelper helper) {

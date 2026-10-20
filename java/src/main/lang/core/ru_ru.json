@@ -486,6 +486,7 @@
 	"gui.burmaldaholic.core.v2.entry.half": "½",
 	"gui.burmaldaholic.core.v2.entry.double": "×2",
 	"gui.burmaldaholic.core.v2.entry.unit": "Клик ставит %1$s",
+	"gui.burmaldaholic.core.v2.entry.cost": "Всего на столе: %1$s",
 	"gui.burmaldaholic.card.hidden": "Закрытая карта",
 	"gui.burmaldaholic.card.rank.a": "Т",
 	"gui.burmaldaholic.card.rank.k": "К",
