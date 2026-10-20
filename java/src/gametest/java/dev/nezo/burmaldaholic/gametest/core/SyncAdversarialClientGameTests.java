@@ -93,7 +93,8 @@ public class SyncAdversarialClientGameTests implements FabricClientGameTest {
 			context.runOnClient(mc -> SmoothClock.Test.reset());
 			context.waitTicks(10);
 
-			// 7) repeated -1 s jumps every 2 s: never visibly frozen (each tick advances >= 20 ms), never back
+			// 7) repeated -1 s jumps every 2 s: never visibly frozen (>= 0.45x wall time, frame gaps > MAX_STEP_MS excluded: the
+			//    clock deliberately holds for one frame after a hitch while ahead), never back
 			double prev = now(context);
 			double prevWall = context.computeOnClient(mc -> SmoothClock.wallMs());
 			double minRatio = Double.POSITIVE_INFINITY;
@@ -104,7 +105,7 @@ public class SyncAdversarialClientGameTests implements FabricClientGameTest {
 					double v = now(context);
 					double w = context.computeOnClient(mc -> SmoothClock.wallMs());
 					check(v >= prev, "-1 s jumps: stepped back " + prev + " -> " + v);
-					if (w - prevWall > 5) minRatio = Math.min(minRatio, (v - prev) / (w - prevWall));
+					if (w - prevWall > 5 && w - prevWall <= dev.nezo.burmaldaholic.core.anim.sync.SmoothClockCore.MAX_STEP_MS) minRatio = Math.min(minRatio, (v - prev) / (w - prevWall));
 					prev = v;
 					prevWall = w;
 				}
