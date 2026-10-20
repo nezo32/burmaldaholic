@@ -78,6 +78,30 @@ Branch `p2/slt` (from `feature/v020-table-ui`). Owner findings: E1 (slots feel r
   - `-Pmc=26.3 test` over the slots packages + V2ScreenUnityTest + PlayFieldUnityTest + KitContractTest + RawInputGuardTest + the config tests: **181 tests**. All pass after one fix (a raw `pressMouse(0)` in my test).
 - Client run `-Pmc=26.3 runClientGameTest`, `BURMALDAHOLIC_CGT=SlotsSyncClientGameTests` (entrypoint swap reverted): **NOT RUN**. It was queued behind other packages for about 1 h, then cancelled at the coordinator's wrap-up rule. **Tester: please run `BURMALDAHOLIC_CGT=SlotsSyncClientGameTests` and the slot parts of `RealFlowClientGameTests` / `PvpRealFlowClientGameTests` on 26.3.** These are the real-click proofs of the Dock SPIN, the handoff, the coin label and the meter tooltip. No screen of the ported slot UI has been seen in a real client yet.
 
+## Round 2 (after T-SLT FAIL @5077eef6)
+The tester's 4 commits from `test/slt` @9b15e288 are cherry-picked (money cross-checks, schema step tests, `SlotsDockClientGameTests`, Pvp/sync test fixes).
+- **D3 fixed (Dock overflow ≤480).** New pure `SlotDock`: `collapse(grid, dock)` is true when DockLayout reports overflow or a box lands outside the frame. The screen lays out the full Dock first, and if it collapses it switches to `SlotFlow.COMPACT`. Buy / Auto(Stop Auto) / Turbo / Showdown then fold into a **More** button (`action.more`). More opens a column of `more.<action>` targets just above the Dock, right-aligned, clamped in the frame. Esc or an outside click closes it. A/T still work (held-key repeat swallowed). This is slots-local: no V2Chrome change. Compact at 427, 480 and (in the real client) 640; full at 960. New strings: `slots.more` (More/Ещё) and `slots.stop_autoplay` (Stop Auto/Стоп авто).
+- **`SlotDockFitTest`:** 427/480/640/960 × EN/RU × idle/autoplay × Showdown title/Join. The stepper, actions/More, primary and status are inside the frame and the Dock and don't overlap. Menu entries are inside the frame, above the Dock, non-overlapping and wide enough.
+- **D1 fixed.** `upgradeRetiredDefaults(global, fileVersion)`: `RETIRED_DEFAULTS` only for files below v2, `RETIRED_JSON` only below v3. `SchemaUpgradeStepsTest.v2FileKeeps…` is enabled.
+- **Minor:**
+  - During autoplay the primary is Stop Auto, so Space stops autoplay.
+  - A skip within `START_LEAD` is honoured (elapsed clamped to 0, shift from the real elapsed). New GameTest: `v2SkipInTheStartLeadIsHonoured`.
+  - The `SlotBody` meter tooltip is allocation-free per frame (lines cached per tier and pool).
+- **Tests adapted:**
+  - `SlotsDockClientGameTests` goes through More on compact Docks. It also checks the menu layout and stops autoplay with a real Space press.
+  - `PvpRealFlowClientGameTests` uses a `clickSlotShowdown` helper (More → `more.showdown` when compact).
+- **D4 not fixed here** (stale `PvpResultScreen` over a reopened machine): the owner's B1, fixed on p2/e2. It resolves at integration.
+
+### Round 2 verified (26.3 only)
+- `-Pmc=26.3 compileJava compileClientJava compileGametestJava`: OK.
+- `-Pmc=26.3 test`: slots.* + SlotsSpec, RawInputGuard, SlotsRetiredDefaults, ConfigManager, SchemaUpgradeSteps, V2ScreenUnity, PlayFieldUnity, KitContract, ConfigSpecCoverage, ConfigBinder, SlotsV2ConfigReview, StatusFit. **195/195 pass.**
+- `-Pmc=26.3 runGameTest filter=slots`: **All 17 required tests passed.**
+- `-Pmc=26.3 runClientGameTest`, `BURMALDAHOLIC_CGT=SLOTS,SLOTSB6`, entrypoints swapped to SlotsSync + SlotsDock and then reverted: **BUILD SUCCESSFUL**.
+  - Dock: compact at 427, 480 and 640, full at 960.
+  - Every control was clicked with the server effect checked: bet ±, Spin, Stop, Turbo, Auto + Space stop, Buy, Showdown.
+  - Balance hold and final window are OK at all 4 sizes.
+- Not run: RealFlowClientGameTests (RF lane) and PvpRealFlowClientGameTests (E lane). Tester: please run the E lane `slots_machine` with the new helper.
+
 ## Not verified / risks
 - The actor's reels now stop ≈ 0.7–1 s later than the server's settle (the handoff window), so the HUD balance hold is extended to cover it. The server settles at its own clock. Autoplay has no pre-roll, so it has no handoff and no extra lag.
 - The handoff runs at up to 3.4 × cruise speed (blur frames) when the stop is nearly a whole turn away.
