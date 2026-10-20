@@ -6,7 +6,11 @@ import dev.nezo.burmaldaholic.core.anim.dice.DiceRoll;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsRollClock;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -15,18 +19,42 @@ import org.jspecify.annotations.Nullable;
  * monotonic ms; package SY swaps in its SmoothClock with {@link #source}).
  */
 public final class CrapsRollClocks {
+	/** A table on this client: its dimension and position (another world / dimension at the same pos is another table). */
+	private record Key(@Nullable ResourceKey<Level> dim, BlockPos pos) {}
+
 	private static CrapsRollClock.Source source = () -> MotionClock.localMs();
-	private static final Map<BlockPos, CrapsRollClock> CLOCKS = new LinkedHashMap<>(16, 0.75f, true) {
+	private static final Map<Key, CrapsRollClock> CLOCKS = new LinkedHashMap<>(16, 0.75f, true) {
 		@Override
-		protected boolean removeEldestEntry(Map.Entry<BlockPos, CrapsRollClock> e) {
+		protected boolean removeEldestEntry(Map.Entry<Key, CrapsRollClock> e) {
 			return size() > 64;
 		}
 	};
 
+	static {
+		// a world left / a server changed: every table is gone (T-CM M4)
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clear());
+	}
+
 	private CrapsRollClocks() {}
 
+	/** The clock of the table at {@code pos} in {@code level}'s dimension. */
+	public static CrapsRollClock of(@Nullable Level level, BlockPos pos) {
+		return CLOCKS.computeIfAbsent(new Key(level == null ? null : level.dimension(), pos.immutable()), k -> new CrapsRollClock(source));
+	}
+
+	/** The clock of the table at {@code pos} in the client's current level. */
 	public static CrapsRollClock of(BlockPos pos) {
-		return CLOCKS.computeIfAbsent(pos.immutable(), p -> new CrapsRollClock(source));
+		return of(Minecraft.getInstance().level, pos);
+	}
+
+	/** Drops every clock (disconnect; tests). */
+	public static void clear() {
+		CLOCKS.clear();
+	}
+
+	/** Clocks held (tests). */
+	public static int size() {
+		return CLOCKS.size();
 	}
 
 	/** Replaces the clock source of every table (SY SmoothClock); running throws keep their place. */
@@ -34,7 +62,6 @@ public final class CrapsRollClocks {
 		source = s;
 		for (CrapsRollClock c : CLOCKS.values()) c.source(s);
 	}
-
 	/**
 	 * Feeds a state's roll to the table's clock ({@code rollTick} = the server tick of the roll, {@code serverNowTicks}
 	 * = the viewer's estimate of server time now; only a NEW roll counter does anything). Under a client GameTest's

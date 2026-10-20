@@ -68,7 +68,7 @@ class CrapsFeltTest {
 
 	@Test
 	void syncRoundTrips() {
-		CrapsSync c = new CrapsSync(12, 123_456_789_012L, 3, 4, -99, 0, 7, 2, 5, 1, 1, 1734, 2);
+		CrapsSync c = new CrapsSync(12, 123_456_789_012L, 3, 4, -99, 0, 7, 2, 5, 1, 1, 1734, 2, 0);
 		assertEquals(c, CrapsSync.decode(c.encode()));
 		RouletteSync r = new RouletteSync(2, 1L << 40, (1L << 40) + 20, 100, 17, 42, 5, 2, 9);
 		assertEquals(r, RouletteSync.decode(r.encode()));

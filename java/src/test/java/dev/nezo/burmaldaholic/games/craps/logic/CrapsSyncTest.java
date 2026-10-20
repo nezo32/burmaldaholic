@@ -9,10 +9,18 @@ import org.junit.jupiter.api.Test;
 class CrapsSyncTest {
 	@Test
 	void v2RoundTrip() {
-		CrapsSync s = new CrapsSync(42, 9_876_543_210L, 6, 1, -77, 8, 0, 3, 4, 2, 1, 1811, CrapsSync.ANIM_V);
+		CrapsSync s = new CrapsSync(42, 9_876_543_210L, 6, 1, -77, 8, 0, 3, 4, 2, 1, 1811, CrapsSync.ANIM_V, 0);
 		int[] a = s.encode();
 		assertEquals(CrapsSync.VERSION, a[0]);
 		assertEquals(s, CrapsSync.decode(a));
+	}
+
+	@Test
+	void v2IsAcceptedWithTheLastShooterAsNext() {
+		CrapsSync s = CrapsSync.decode(new int[] {2, 5, 0, 1234, 3, 4, 99, 0, 7, 1, 2, 0, 1, 1700, 2});
+		assertEquals(1, s.shooterSide());
+		assertEquals(1, s.nextSide(), "v2 has no next side: the dice stay at the last shooter's end");
+		assertEquals(1700, s.restMs());
 	}
 
 	@Test

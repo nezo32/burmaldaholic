@@ -105,10 +105,25 @@ public final class CrapsThrow {
 
 	/** Release centre {x, y} (tray units) of {@code die} for {@code side}: where the stick leaves it and the throw starts. */
 	public static double[] release(int side, int die) {
+		return release(side, die, new double[2]);
+	}
+
+	/** {@link #release(int, int)} into {@code out} (allocation-free: the four points are computed once). */
+	public static double[] release(int side, int die, double[] out) {
+		double[] r = REL[side == LEFT ? 1 : 0];
+		out[0] = r[2 * die];
+		out[1] = r[2 * die + 1];
+		return out;
+	}
+
+	/** Release points {x0, y0, x1, y1} per side (RIGHT, LEFT). */
+	private static final double[][] REL = {releasePair(RIGHT), releasePair(LEFT)};
+
+	private static double[] releasePair(int side) {
 		ThrowSpec s = spec(side);
 		double px = -StrictMath.sin(s.dir());
 		double py = StrictMath.cos(s.dir());
-		return new double[] {s.x() + px * s.side() * die, s.y() + py * s.side() * die};
+		return new double[] {s.x(), s.y(), s.x() + px * s.side(), s.y() + py * s.side()};
 	}
 
 	/** Dice home centre {x, y} of {@code side}: between the two release points. */

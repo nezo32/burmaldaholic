@@ -53,7 +53,6 @@ import dev.nezo.burmaldaholic.games.craps.present.CrapsView;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsView.BetPub;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -139,6 +138,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	private final double[] qTmp2 = new double[4];
 	private final double[] restXY = new double[4];
 	private final double[] homeXY = new double[4];
+	private final double[] homeTray = new double[4];
 	// fx ring: kind (0 dust, 1 spark, 2 wall hit), time, x, y (arena units), aux
 	private final int[] fxKind = new int[MAX_FX];
 	private final double[] fxT = new double[MAX_FX], fxX = new double[MAX_FX], fxY = new double[MAX_FX];
@@ -161,7 +161,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	@Override
 	protected CrapsView view(CompoundTag s) {
-		CrapsView v = CrapsView.read(s, secondsLeft(s, "window"), secondsLeft(s, "roll"), rolling(), settling());
+		CrapsView v = CrapsView.read(s, secondsLeft(s, "window"), secondsLeft(s, "roll"), feltClosed(), settling());
 		// T-D2 V6: while the throw is shown the felt (and the Dock's "on table") show the bets as they were before it
 		return rolling() ? v.withBets(prevBets()).withPoint(s.getIntOr("point_before", v.point())) : v;
 	}
@@ -174,6 +174,8 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	@Override
 	protected void onStateChanged(CompoundTag s) {
 		clock.sync(s.getLongOr("game_time", 0));
+		// T-CM M1: dice home is the NEXT shooter's end (the stick drags the dice there, the hand picks them up there)
+		if (s.contains("next_side")) rollClock().nextSide(s.getIntOr("next_side", 0));
 		int rolls = s.getIntOr("rolls", 0);
 		if (rolls != shownRolls) {
 			boolean first = shownRolls < 0;
@@ -206,7 +208,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		CrapsRollClock rc = rollClock();
 		if (rc.waiting() && rollAck >= 0 && chrome.watchdog().lastAck() >= rollAck) rc.cancel();
 		if (!rc.waiting()) rollAck = -1;
-		rollingShown = rolling();
+		rollingShown = feltClosed();
 		settlingShown = settling();
 		statusLines();
 	}
@@ -215,8 +217,12 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 
 	/** This table's shared throw clock (the in-world board reads the same one). */
 	private CrapsRollClock rollClock() {
-		return CrapsRollClocks.of(menu.pos());
+		CrapsRollClock c = clockRef;
+		if (c == null) clockRef = c = CrapsRollClocks.of(menu.pos());
+		return c;
 	}
+
+	private @Nullable CrapsRollClock clockRef;
 
 	/**
 	 * Solves the throw once (cache by roll counter, side and seed), fixes its origin on the shared clock (S1: once per
@@ -357,6 +363,12 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			if (!FxSettings.reduceMotion()) FxSounds.play("dice_cup", 0.8f, 1.8f);
 			super.onGate(id, gate);
 			rollAck = chrome.watchdog().expected();
+			// T-CM M3: from the press the felt is closed ("dice are rolling") until the chips move: a bet clicked while
+			// the hand waits for the result would land on the NEXT roll
+			rollingShown = feltClosed();
+			view = view(state());
+			refresh();
+			statusLines();
 			return;
 		}
 		super.onGate(id, gate);
@@ -403,14 +415,30 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		return roll != null && !lateRoll && t() < beats.CHIPS;
 	}
 
+	/**
+	 * T-CM M3: the felt is closed while the throw is shown AND from this client's Roll press until the result's throw
+	 * leaves the hand (a bet then would ride the NEXT roll): clicks flash "dice are rolling".
+	 */
+	private boolean feltClosed() {
+		return rolling() || !Double.isNaN(rollClock().handMs());
+	}
+
 	/** The roll is still being settled on the felt: Roll waits for the stick and the idle beat (D5). */
 	private boolean settling() {
 		return roll != null && !lateRoll && t() < beats.IDLE;
 	}
 
+	private @Nullable CompoundTag prevBetsOf;
+	private List<BetPub> prevBetsCache = List.of();
+
+	/** The bets as they were before the roll (parsed once per state, not per frame). */
 	private List<BetPub> prevBets() {
+		CompoundTag st = state();
+		if (st == prevBetsOf) return prevBetsCache;
 		List<BetPub> out = new ArrayList<>();
-		ListTag list = state().getListOrEmpty("prev_bets");
+		prevBetsOf = st;
+		prevBetsCache = out;
+		ListTag list = st.getListOrEmpty("prev_bets");
 		for (int i = 0; i < list.size(); i++) {
 			CompoundTag t = list.getCompoundOrEmpty(i);
 			out.add(new BetPub(-1, t.getStringOr("kind", ""), t.getLongOr("flat", 0), t.getLongOr("odds", 0), t.getIntOr("point", 0),
@@ -447,7 +475,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	@Override
 	protected void containerTick() {
 		super.containerTick();
-		boolean r = rolling();
+		boolean r = feltClosed();
 		boolean st = settling();
 		long sec = Util.getMillis() / 1000;
 		if (r != rollingShown || st != settlingShown || sec != lastSecond) {
@@ -468,7 +496,11 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			showRules = false;
 			return true;
 		}
-		if (skipBeats()) return true;
+		// T-CM M5 (the K2 rule): a click during the chip beats skips them; on an enabled target (a bet spot, a chip, a
+		// button) it ALSO acts, on the settled table
+		Optional<HitMap.Target> tgt = chrome.hits().at(event.x(), event.y());
+		boolean acts = tgt.isPresent() && tgt.get().enabled();
+		if (skipBeats() && !acts) return true;
 		return super.mouseClicked(event, doubleClick);
 	}
 
@@ -762,7 +794,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			if (rattling && !reduced) {
 				for (int d = 0; d < 2; d++) rc.pose(d, t, ds[d]);
 			} else {
-				homeSamples(side, r);
+				for (int d = 0; d < 2; d++) rc.homePose(d, ds[d]);
 			}
 			for (int d = 0; d < 2; d++) DiceDraw.shadow(g, ds[d], map, cell, k, 1);
 			for (int d = 0; d < 2; d++) DiceDraw.die(g, ds[d], map, cell, k, 0xFFFFFFFF, scratch);
@@ -775,7 +807,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 			if (t >= beats.STICK) {
 				double k2 = Math.min(1, (t - beats.STICK) / 150.0);
 				drawPair(g, map, cell, 1 - k2, false);
-				homeSamples(side, r);
+				for (int d = 0; d < 2; d++) rc.homePose(d, ds[d]);
 				drawPair(g, map, cell, k2, true);
 			} else {
 				drawPair(g, map, cell, a, false);
@@ -790,7 +822,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 				restXY[2 * d] = map.x(ds[d].x);
 				restXY[2 * d + 1] = map.y(ds[d].y);
 			}
-			homeXY(side);
+			homeXY();
 			CrapsStick.sample(t, beats, restXY, homeXY, l.felt.y() - 2, cell, stick);
 			for (int d = 0; d < 2; d++) {
 				DieSample x = ds[d];
@@ -847,34 +879,13 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		for (int d = 0; d < 2; d++) DiceDraw.die(g, ds[d], map, cell, k, (a << 24) | 0xFFFFFF, scratch);
 	}
 
-	/** The dice resting at the shooter's dice home: the last roll's faces (squared up), else 4 and 2. */
-	private void homeSamples(int sd, @Nullable DiceRoll r) {
-		for (int d = 0; d < 2; d++) {
-			DieSample x = ds[d];
-			if (r != null) {
-				r.sample(d, 1e9, x);
-				CubeGroup.element(CubeGroup.nearest(x.q), qTmp);
-				Quat.copy(qTmp, x.q);
-			} else {
-				CubeGroup.element(CubeGroup.index(faces[d], d), qTmp);
-				Quat.copy(qTmp, x.q);
-				x.zLow = 0;
-				x.zc = 1;
-				x.phase = DieSample.REST;
-				x.omega = 0;
-			}
-			double[] p = CrapsThrow.release(sd, d);
-			x.x = p[0];
-			x.y = p[1];
-		}
-	}
-
-	private void homeXY(int sd) {
+	/** Dice home now (layout px), the next shooter's end of the Pass line (moving when it changed sides). */
+	private void homeXY() {
 		StageMap map = map();
+		rollClock().home(homeTray);
 		for (int d = 0; d < 2; d++) {
-			double[] p = CrapsThrow.release(sd, d);
-			homeXY[2 * d] = map.x(p[0]);
-			homeXY[2 * d + 1] = map.y(p[1]);
+			homeXY[2 * d] = map.x(homeTray[2 * d]);
+			homeXY[2 * d + 1] = map.y(homeTray[2 * d + 1]);
 		}
 	}
 
@@ -1048,8 +1059,10 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 	 * Bets on the felt: before the chips move, the bets as they were (the throw is in the air); from {@link CrapsBeats#CHIPS}
 	 * the current bets (travelled come bets once they land) plus the take / pay / push flights and your net pills.
 	 */
+	private final List<Box> tags = new ArrayList<>();
+
 	private void chips(GuiGraphicsExtractor g, CrapsLayout l, CrapsView v, double t, boolean reduced) {
-		List<Box> tags = new ArrayList<>();
+		tags.clear();
 		netPlaced.clear();
 		if (roll != null && t < beats.CHIPS) {
 			drawBets(g, prevBets(), 1f, null, t, tags);
@@ -1114,17 +1127,35 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		}
 	}
 
+	private String[] othersKind = new String[16];
+	private int[] othersPoint = new int[16];
+	private long[] othersSum = new long[16];
+	private int othersN;
+
 	private void drawBets(GuiGraphicsExtractor g, List<BetPub> bets, float alpha, CrapsChipBeats.@Nullable Plan plan, double t, List<Box> tags) {
-		Map<String, Long> others = new LinkedHashMap<>();
+		// the others' stakes summed per stack (in first-seen order; no per-frame map / string keys)
+		othersN = 0;
 		for (BetPub b : bets) {
 			if (b.mine()) continue;
 			if (plan != null && t < plan.travelLanding(b.kind(), b.point(), false)) continue;
-			String k2 = (b.point() != 0 && (b.kind().equals("come") || b.kind().equals("dont_come")) ? "come" : b.kind()) + "@" + b.point();
-			others.merge(k2, b.staked(), Long::sum);
+			String kind = b.point() != 0 && (b.kind().equals("come") || b.kind().equals("dont_come")) ? "come" : b.kind();
+			int i = 0;
+			while (i < othersN && !(othersPoint[i] == b.point() && othersKind[i].equals(kind))) i++;
+			if (i == othersN) {
+				if (othersN == othersSum.length) {
+					othersKind = java.util.Arrays.copyOf(othersKind, othersN * 2);
+					othersPoint = java.util.Arrays.copyOf(othersPoint, othersN * 2);
+					othersSum = java.util.Arrays.copyOf(othersSum, othersN * 2);
+				}
+				othersKind[i] = kind;
+				othersPoint[i] = b.point();
+				othersSum[i] = 0;
+				othersN++;
+			}
+			othersSum[i] += b.staked();
 		}
-		for (Map.Entry<String, Long> e : others.entrySet()) {
-			String[] kp = e.getKey().split("@");
-			ChipStack.draw(g, stackBox(kp[0], Integer.parseInt(kp[1]), false, false), e.getValue(), alpha * 0.85f);
+		for (int i = 0; i < othersN; i++) {
+			ChipStack.draw(g, stackBox(othersKind[i], othersPoint[i], false, false), othersSum[i], alpha * 0.85f);
 		}
 		for (BetPub b : bets) {
 			if (!b.mine()) continue;
@@ -1487,7 +1518,7 @@ public class CrapsScreen extends V2TableScreen<CrapsView> {
 		double[] out = new double[2];
 		if (r == null) return out;
 		if (t >= beats.STICK) {
-			homeXY(side);
+			homeXY();
 			for (int i = 0; i < 2; i++) {
 				r.sample(i, 1e9, tmp);
 				restXY[2 * i] = map().x(tmp.x);

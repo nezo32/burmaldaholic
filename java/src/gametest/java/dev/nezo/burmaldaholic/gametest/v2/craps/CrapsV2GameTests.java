@@ -534,4 +534,31 @@ public class CrapsV2GameTests {
 		helper.assertTrue(balance(helper, a) == 980 && balance(helper, b) == 980, "two lost Pass bets + two new ones: " + balance(helper, a) + " / " + balance(helper, b));
 		finish(helper, a, b);
 	}
+
+	/**
+	 * CM fix (T-CM M1): the state and the in-world sync carry the NEXT shooter's side (dice home), from the sit on and
+	 * after a seven-out passes the dice; the throw's own side stays the old shooter's.
+	 */
+	@GameTest(maxTicks = 200)
+	public void nextSideFollowsTheNextShooter(GameTestHelper helper) {
+		ServerPlayer a = player(helper, "cmn-a", 1000);
+		CrapsTableBlockEntity t = open(helper, a);
+		act(a, t, "bet", flat("pass", 10));
+		int seats = t.seats().size();
+		int sideA = dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.sideOfSeat(t.seats().seatOf(a.getUUID()).orElse(-1), seats);
+		helper.assertTrue(t.nextSide() == sideA && t.sync().nextSide() == sideA, "a lone player's side before the first roll: " + t.nextSide() + " vs " + sideA);
+		Sent st = drain(a, t);
+		helper.assertTrue(st.state() == null || st.state().getIntOr("next_side", -1) == sideA, "the state carries next_side");
+		ServerPlayer b = player(helper, "cmn-b", 1000);
+		helper.useBlock(new BlockPos(1, 1, 1), b);
+		act(b, t, "bet", flat("pass", 10));
+		t.roll(3, 3); // point 6
+		t.roll(5, 2); // seven-out: the dice pass
+		UUID next = t.table().shooter();
+		int want = dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.sideOfSeat(t.seats().seatOf(next).orElse(-1), seats);
+		var sync = dev.nezo.burmaldaholic.games.craps.logic.CrapsSync.decode(t.sync().encode());
+		helper.assertTrue(sync.nextSide() == want, "after the seven-out the sync's next side is the new shooter's: " + sync.nextSide() + " vs " + want);
+		helper.assertTrue(sync.shooterSide() == sideA, "the seven-out throw itself came from the old shooter's end");
+		finish(helper, a, b);
+	}
 }

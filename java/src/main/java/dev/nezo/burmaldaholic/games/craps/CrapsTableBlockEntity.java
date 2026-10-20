@@ -726,7 +726,18 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	public CrapsSync sync() {
 		RollEvent ev = table.lastEvent();
 		return new CrapsSync(table.rollCount(), lastRollTime < 0 ? 0 : lastRollTime, table.lastD1(), table.lastD2(), rollSeed, pointBefore, table.point(),
-			shooterDir, ev == null ? -1 : ev.kind().ordinal(), theme(), shooterSide, restMs, CrapsSync.ANIM_V);
+			shooterDir, ev == null ? -1 : ev.kind().ordinal(), theme(), shooterSide, restMs, CrapsSync.ANIM_V, nextSide());
+	}
+
+	/**
+	 * T-CM M1: the NEXT shooter's end of the Pass line (dice home, where the stick drags the dice and the hand picks them
+	 * up): the current shooter's human seat; with no shooter the dice stay where the last throw left them.
+	 */
+	public int nextSide() {
+		UUID next = table.shooter();
+		if (next == null) return shooterSide;
+		int seat = seats().seatOf(next).orElse(-1);
+		return seat < 0 ? shooterSide : CrapsThrow.sideOfSeat(seat, seats().size());
 	}
 
 	/** GameTests / previews: forces the location theme (0 village, 1 bastion, 2 end). */
@@ -1002,6 +1013,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		tag.putInt("seed", rollSeed);
 		tag.putInt("shooter_dir", shooterDir);
 		tag.putInt("shooter_side", shooterSide);
+		tag.putInt("next_side", nextSide());
 		tag.putInt("rest_ms", restMs);
 		tag.putInt("anim_v", CrapsSync.ANIM_V);
 		tag.putInt("points_in_row", pointsInRow);

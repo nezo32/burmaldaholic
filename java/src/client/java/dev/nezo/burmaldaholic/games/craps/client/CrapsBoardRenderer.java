@@ -36,7 +36,6 @@ import dev.nezo.burmaldaholic.games.craps.present.CrapsFlow;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsPub;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsStick;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsThrow;
-import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.minecraft.client.Minecraft;
@@ -88,13 +87,34 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		int rolls = -1;
 		@Nullable DiceRoll roll;
 		CrapsBeats beats = CrapsBeats.of(1700);
-		int side;
 		boolean catchUp;
+		@Nullable CrapsRollClock clock;
 		@Nullable EventCursor cursor;
 		final DiceAudio audio = DiceAudio.world();
 		@Nullable CrapsPub before;
 		CrapsPub lastPub = CrapsPub.EMPTY;
 		boolean stickCue;
+		// stacks travelling to their number this frame (reused: no per-frame list / records)
+		int[] arrivingSeat = new int[8], arrivingPoint = new int[8];
+		String[] arrivingKind = new String[8];
+		int arrivingN;
+		final double[] railPx = new double[2], col = new double[2];
+
+		void arriving(int seat, String kind, int point) {
+			if (arrivingN == arrivingSeat.length) {
+				arrivingSeat = java.util.Arrays.copyOf(arrivingSeat, arrivingN * 2);
+				arrivingPoint = java.util.Arrays.copyOf(arrivingPoint, arrivingN * 2);
+				arrivingKind = java.util.Arrays.copyOf(arrivingKind, arrivingN * 2);
+			}
+			arrivingSeat[arrivingN] = seat;
+			arrivingPoint[arrivingN] = point;
+			arrivingKind[arrivingN++] = kind;
+		}
+
+		boolean isArriving(int seat, String kind, int point) {
+			for (int i = 0; i < arrivingN; i++) if (arrivingSeat[i] == seat && arrivingPoint[i] == point && arrivingKind[i].equals(kind)) return true;
+			return false;
+		}
 		// wall hits (arena x) and their times
 		final double[] wallT = {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
 		final double[] wallX = new double[2];
@@ -159,8 +179,12 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		if (!s.print) return;
 		Client c = s.cache(Client::new);
 		// S1: the table's shared clock (the screen reads the same one): origin fixed once per roll on local time
-		CrapsRollClock rc = CrapsRollClocks.of(be.getBlockPos());
-		if (sync != null) newRoll(c, rc, sync, s.levelMs / 50.0);
+		CrapsRollClock rc = c.clock;
+		if (rc == null) c.clock = rc = CrapsRollClocks.of(be.getLevel(), be.getBlockPos());
+		if (sync != null) {
+			rc.nextSide(sync.nextSide()); // T-CM M1: dice home = the next shooter's end (a first sight takes it as is)
+			newRoll(c, rc, sync, s.levelMs / 50.0);
+		}
 		double t = 1e9;
 		if (sync != null && c.roll != null && rc.rolls() == c.rolls) {
 			CrapsRollClocks.pinUnderTest(rc, sync.rollTime());
@@ -236,7 +260,6 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		c.wallT[0] = c.wallT[1] = Double.NEGATIVE_INFINITY;
 		if (sync.d1() <= 0 || sync.d2() <= 0) return;
 		int side = sync.shooterSide();
-		c.side = side;
 		DiceRoll r = c.cache.get(CrapsThrow.cacheKey(sync.rolls(), side, sync.seed(), sync.d1(), sync.d2(), sync.pointBefore()), () -> CrapsThrow.solve(side, sync.seed(), sync.d1(), sync.d2(), sync.pointBefore()));
 		c.roll = r;
 		c.beats = CrapsBeats.of(sync.restMs() > 0 ? sync.restMs() : r.restMs());
@@ -259,6 +282,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 	private final DieSample tmp = new DieSample();
 	private final double[] rest = new double[4];
 	private final double[] home = new double[4];
+	private final double[] homeTray = new double[4];
 	private final double[] qq = new double[4];
 
 	private void dice(CrapsTableBlockEntity be, State s, Client c, CrapsRollClock rc, @Nullable CrapsSync sync, double t, boolean lodA, boolean lodB, boolean reduced) {
@@ -279,13 +303,13 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 			}
 		} else if (tt >= c.beats.STICK && !reduced) {
 			// the stickman's return (print px), the dice keeping their faces
+			rc.home(homeTray); // the next shooter's dice home (shared with the screen; moves when the side changes)
 			for (int d = 0; d < 2; d++) {
 				r.sample(d, 1e9, tmp);
 				rest[2 * d] = CrapsBoardGeometry.px(tmp.x);
 				rest[2 * d + 1] = CrapsBoardGeometry.py(tmp.y);
-				double[] h = CrapsThrow.release(c.side, d);
-				home[2 * d] = CrapsBoardGeometry.px(h[0]);
-				home[2 * d + 1] = CrapsBoardGeometry.py(h[1]);
+				home[2 * d] = CrapsBoardGeometry.px(homeTray[2 * d]);
+				home[2 * d + 1] = CrapsBoardGeometry.py(homeTray[2 * d + 1]);
 			}
 			CrapsStick.sample(tt, c.beats, rest, home, -24, CrapsBoardGeometry.dieHalfPx() * 2, stick);
 			for (int d = 0; d < 2; d++) {
@@ -405,7 +429,6 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 		}
 	}
 
-	private record Spot(int seat, String kind, int point) {}
 
 	/**
 	 * The stacks: before the chips move, the layout as it was before the roll; then the losers slide to the bank (one
@@ -424,7 +447,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 			return;
 		}
 		int total = sync.d1() + sync.d2();
-		List<Spot> arriving = new ArrayList<>();
+		c.arrivingN = 0;
 		double[] bank = CrapsBoardGeometry.bank();
 		int wave = 0;
 		for (CrapsPub.Stack st : before.stacks()) {
@@ -432,7 +455,9 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 			int o = outcome(st.kind(), st.point(), sync.pointBefore(), total);
 			double[] at = CrapsBoardGeometry.stack(st.kind(), st.point(), false, st.seat());
 			float[] seat = seatSpot(st.seat(), 8);
-			double[] railPx = {(seat[0] - (0.5 - CrapsBoardGeometry.W / 2)) / CrapsBoardGeometry.SCALE, CrapsBoardGeometry.PRINT_H + 8};
+			double[] railPx = c.railPx;
+			railPx[0] = (seat[0] - (0.5 - CrapsBoardGeometry.W / 2)) / CrapsBoardGeometry.SCALE;
+			railPx[1] = CrapsBoardGeometry.PRINT_H + 8;
 			long amount = st.flat() + st.odds();
 			switch (o) {
 				case -1 -> slide(s, at, bank, amount, t, b.CHIPS + (wave++) * 40 * b.f, 260 * b.f, true);
@@ -444,11 +469,13 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 						double e = Ease.IN_OUT_CUBIC.apply(p);
 						s.stack(CrapsBoardGeometry.x(at[0] + (to[0] - at[0]) * e), CrapsBoardGeometry.z(at[1] + (to[1] - at[1]) * e), amount);
 					}
-					arriving.add(new Spot(st.seat(), st.kind(), total));
+					c.arriving(st.seat(), st.kind(), total);
 				}
 				case 1 -> {
 					// a payout stack from the bank beside the bet, then both go to the player's rail
-					double[] col = {at[0] + 6, at[1]};
+					double[] col = c.col;
+					col[0] = at[0] + 6;
+					col[1] = at[1];
 					if (t < b.COLLECT) {
 						s.stack(CrapsBoardGeometry.x(at[0]), CrapsBoardGeometry.z(at[1]), amount);
 						if (t >= b.TRAVEL) slide(s, bank, col, st.flat(), t, b.TRAVEL, 220 * b.f, false);
@@ -460,12 +487,12 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 				default -> slide(s, at, railPx, amount, t, b.TRAVEL, 300 * b.f, true);
 			}
 		}
-		drawStatic(s, pub.stacks(), arriving.isEmpty() || t >= b.TRAVEL + 400 * b.f ? null : arriving);
+		drawStatic(s, pub.stacks(), c.arrivingN == 0 || t >= b.TRAVEL + 400 * b.f ? null : c);
 	}
 
-	private static void drawStatic(State s, List<CrapsPub.Stack> stacks, @Nullable List<Spot> skip) {
+	private static void drawStatic(State s, List<CrapsPub.Stack> stacks, @Nullable Client skip) {
 		for (CrapsPub.Stack st : stacks) {
-			if (skip != null && skip.contains(new Spot(st.seat(), st.kind(), st.point()))) continue;
+			if (skip != null && skip.isArriving(st.seat(), st.kind(), st.point())) continue;
 			double[] p = CrapsBoardGeometry.stack(st.kind(), st.point(), false, st.seat());
 			s.stack(CrapsBoardGeometry.x(p[0]), CrapsBoardGeometry.z(p[1]), st.flat());
 			if (st.odds() > 0) {

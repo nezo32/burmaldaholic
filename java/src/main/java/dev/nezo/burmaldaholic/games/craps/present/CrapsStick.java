@@ -5,10 +5,11 @@ import dev.nezo.burmaldaholic.games.craps.logic.CrapsBeats;
 
 /**
  * The stickman's return of the dice (CS §4.7): at {@link CrapsBeats#STICK} the stick reaches in from beyond the back
- * wall to just behind the dice (160 ms, out-cubic), hooks them — the far die is pulled in first, then both sit side by
- * side (60 ms) — drags the pair to the shooter's dice home (420 ms, in-out-cubic; the dice slide and keep their top
- * faces) and withdraws (140 ms). Positions are in the caller's space (layout px or print px); y grows toward the
- * shooter. Pure and allocation-free.
+ * wall to just behind the dice (160 ms, out-cubic), hooks them — both slide into a line-up side by side, in the order
+ * they rest in (60 ms) — drags the pair to the next shooter's dice home (420 ms, in-out-cubic; the dice slide and keep
+ * their top faces) and withdraws (140 ms). When the home order differs from the rest order the pair swaps during the
+ * drag on non-crossing paths ({@link CrapsPair}): the centres never come closer than a die (T-CM M2). Positions are in
+ * the caller's space (layout px or print px); y grows toward the shooter. Pure and allocation-free.
  */
 public final class CrapsStick {
 	private CrapsStick() {}
@@ -27,6 +28,7 @@ public final class CrapsStick {
 		public final double[] x = new double[2], y = new double[2];
 		/** 0..1 progress of the drag (the yaw squares up at its middle). */
 		public double drag;
+		private final CrapsPair.Push push = new CrapsPair.Push();
 	}
 
 	/**
@@ -42,8 +44,8 @@ public final class CrapsStick {
 		double drag = b.stickDrag();
 		double out = b.stickOut();
 		double gone = b.stickGone();
-		// the pair's line-up: the dice keep the left / right order they have at home
-		boolean d0Left = home[0] <= home[2];
+		// the pair's line-up: the dice keep the left / right order they REST in (no crossing while they are hooked)
+		boolean d0Left = rest[0] <= rest[2];
 		double midX = (rest[0] + rest[2]) / 2;
 		double pairY = Math.max(rest[1], rest[3]);
 		double half = die / 2 + 1;
@@ -53,6 +55,7 @@ public final class CrapsStick {
 		double hookY0 = Math.min(behind, pairY - die / 2 - 1);
 		double homeMidX = (home[0] + home[2]) / 2;
 		double homeY = (home[1] + home[3]) / 2;
+		double gap = die * 1.1;
 		o.drag = 0;
 		if (t < b.STICK) {
 			o.phase = BEFORE;
@@ -74,13 +77,11 @@ public final class CrapsStick {
 		if (t < drag) {
 			o.phase = HOOK;
 			o.visible = true;
-			double p = (t - hook) / (drag - hook);
-			// the far die (larger distance to its pair spot) moves over the whole hook; the near one in its second half
-			double d0 = Math.hypot(rest[0] - p0x, rest[1] - pairY);
-			double d1 = Math.hypot(rest[2] - p1x, rest[3] - pairY);
-			double e0 = Ease.OUT_CUBIC.apply(d0 >= d1 ? p : Math.max(0, p * 2 - 1));
-			double e1 = Ease.OUT_CUBIC.apply(d1 > d0 ? p : Math.max(0, p * 2 - 1));
-			set(o, rest[0] + (p0x - rest[0]) * e0, rest[1] + (pairY - rest[1]) * e0, rest[2] + (p1x - rest[2]) * e1, rest[3] + (pairY - rest[3]) * e1);
+			// both dice slide into the line-up together (one ease), pushed apart when their paths come close
+			double e = Ease.OUT_CUBIC.apply((t - hook) / (drag - hook));
+			set(o, rest[0] + (p0x - rest[0]) * e, rest[1] + (pairY - rest[1]) * e, rest[2] + (p1x - rest[2]) * e, rest[3] + (pairY - rest[3]) * e);
+			CrapsPair.plan(rest[0], rest[1], rest[2], rest[3], p0x, pairY, p1x, pairY, gap, o.push);
+			CrapsPair.apply(o.push, e, o.x, o.y);
 			o.hookX = midX;
 			o.hookY = hookY0;
 			return;
@@ -91,8 +92,11 @@ public final class CrapsStick {
 			double p = (t - drag) / (out - drag);
 			double e = Ease.IN_OUT_CUBIC.apply(p);
 			o.drag = p;
-			// the pair slides from its line-up to home: each die eases from its pair spot to its home spot
+			// the pair slides from its line-up to home: each die eases from its pair spot to its home spot; a swap of the
+			// order passes one die behind the other
 			set(o, p0x + (home[0] - p0x) * e, pairY + (home[1] - pairY) * e, p1x + (home[2] - p1x) * e, pairY + (home[3] - pairY) * e);
+			CrapsPair.plan(p0x, pairY, p1x, pairY, home[0], home[1], home[2], home[3], gap, o.push);
+			CrapsPair.apply(o.push, e, o.x, o.y);
 			o.hookX = midX + (homeMidX - midX) * e;
 			o.hookY = hookY0 + (homeY - half - hookY0) * e;
 			return;

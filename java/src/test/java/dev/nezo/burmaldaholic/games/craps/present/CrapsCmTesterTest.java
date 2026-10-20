@@ -121,17 +121,49 @@ class CrapsCmTesterTest {
 	 * Shooter rotation to the other end of the Pass line (seat in the other half, e.g. two humans on seats 1 and 4):
 	 * the dice sit at the LAST roll's dice home (the stick dragged them there), but the new throw starts at the new
 	 * shooter's home. The hand of the new shooter settles across the felt in ≤ 200 ms and a spectator's dice teleport.
+	 * (After the CM fix the spectator part runs through the synced next side; the shooter part, with no next side
+	 * synced, exercises the clock's long crossing settle.)
 	 */
 	@Test
 	void shooterOnTheOtherSideDoesNotJump() {
 		DiceRoll next = CrapsThrow.solve(CrapsThrow.LEFT, 4242, 5, 2, 0);
 		double[] nat = naturalStep(next);
 		double maxPos = Math.max(nat[0] * 1.25, 0.05);
-		// spectator: dice home of the previous (right) roll vs the left throw's start
-		DieSample home = new DieSample(), start = new DieSample();
-		CrapsHand.home(CrapsThrow.RIGHT, PREV_R, new int[] {3, 4}, 0, home);
-		next.sample(0, 0, start);
-		double spectatorJump = Math.hypot(home.x - start.x, home.y - start.y);
+		// spectator (CM fix: the state syncs the NEXT shooter's side): the dice sit at the right home after the last roll;
+		// the next shooter is on the left, so dice home moves there (no jump, never through each other) and the left
+		// throw then starts where the dice are. Was: home(RIGHT) vs the left throw's start = a 48 u teleport.
+		double spectatorJump = 0;
+		{
+			double[] t0 = {-20_000};
+			CrapsRollClock sc = new CrapsRollClock(() -> t0[0]);
+			sc.nextSide(CrapsThrow.RIGHT);
+			sc.onRoll(1, 9000, PREV_R, CrapsThrow.RIGHT);
+			t0[0] = 0;
+			sc.nextSide(CrapsThrow.LEFT);
+			DieSample p = new DieSample(), q = new DieSample();
+			for (int d = 0; d < 2; d++) {
+				sc.homePose(d, p);
+				for (int ms = 1; ms <= 2000; ms++) {
+					t0[0] = ms;
+					sc.homePose(d, q);
+					spectatorJump = Math.max(spectatorJump, dist(p, q));
+					p.set(q);
+				}
+				t0[0] = 0;
+			}
+			for (int ms = 0; ms <= 2000; ms++) {
+				t0[0] = ms;
+				double[] h = sc.home(new double[4]);
+				assertTrue(Math.hypot(h[0] - h[2], h[1] - h[3]) >= 2, "dice home moving: centres apart at " + ms + " ms");
+			}
+			DieSample start = new DieSample();
+			for (int d = 0; d < 2; d++) {
+				sc.homePose(d, p);
+				next.sample(d, 0, start);
+				spectatorJump = Math.max(spectatorJump, Math.hypot(p.x - start.x, p.y - start.y));
+			}
+			sc.onRoll(2, 0, next, CrapsThrow.LEFT);
+		}
 		// shooter: the settle from the right home to the left release
 		double[] now = {-20_000};
 		CrapsRollClock c = new CrapsRollClock(() -> now[0]);
