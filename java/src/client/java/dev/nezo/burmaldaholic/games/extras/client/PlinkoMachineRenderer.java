@@ -160,6 +160,7 @@ public final class PlinkoMachineRenderer extends SpectatorBlockEntityRenderer<Pl
 		for (byte l : s.lamps) anyLamp |= l != 0;
 		if (!s.ball && !anyLamp) return;
 		pose.pushPose();
+		dev.nezo.burmaldaholic.client.table.TableFrames.toFullFace(pose, s.tablePart, s.machineKind, s.facing); // MT-3: 3 × 3 board
 		pose.translate(0.5f, 0f, 0.5f);
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0f, 0f, 0f);
 		if (anyLamp) out.submitCustomGeometry(pose, RenderTypes.entityTranslucentEmissive(LAMP), (p, vc) -> lamps(p, vc, s));

@@ -1,7 +1,9 @@
 package dev.nezo.burmaldaholic.bots;
 
 import dev.nezo.burmaldaholic.bots.logic.PlateAnim;
-import dev.nezo.burmaldaholic.bots.logic.SeatPoints;
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
+import dev.nezo.burmaldaholic.core.table.parts.TableParts;
 import dev.nezo.burmaldaholic.bots.mixin.DisplayAccessor;
 import dev.nezo.burmaldaholic.bots.mixin.TextDisplayAccessor;
 import dev.nezo.burmaldaholic.core.bots.TableBots;
@@ -29,6 +31,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
@@ -114,8 +117,7 @@ final class BotAvatars {
 			}
 			String key = bot.key();
 			present.add(key);
-			double[] off = SeatPoints.offset(i, seats, facing.getStepX(), facing.getStepZ());
-			Vec3 at = new Vec3(f.pos().getX() + 0.5 + off[0], f.pos().getY() + SeatPoints.HEIGHT, f.pos().getZ() + 0.5 + off[1]);
+			Vec3 at = seatPoint(f, i, seats, facing);
 			boolean thinking = key.equals(f.table().botThinking());
 			long stack = stackOf(f.bots(), bot);
 			Component text = plateText(f.bots(), bot, thinking, f.level().getServer().getTickCount());
@@ -288,11 +290,24 @@ final class BotAvatars {
 		}
 	}
 
-	/** Two blocks of air (no collision) at the plate and below it (BOTS.md §7.2). */
+	/**
+	 * Plate position of seat {@code i} of {@code seats}: MT {@link TableFootprint#seatOffset} (compact tables keep the
+	 * v0.1 half circle, full tables sit 0.35 outside the rail), {@link TableFootprint#SEAT_HEIGHT} above the table.
+	 */
+	static Vec3 seatPoint(BotTables.Found f, int i, int seats, Direction facing) {
+		BlockState state = f.blockEntity().getBlockState();
+		TableGame game = TableParts.gameOf(state);
+		double[] off = TableFootprint.seatOffset(game == null ? TableGame.BLACKJACK : game, TableParts.partOf(state), i, seats,
+			facing.getStepX(), facing.getStepZ());
+		return new Vec3(f.pos().getX() + off[0], f.pos().getY() + TableFootprint.SEAT_HEIGHT, f.pos().getZ() + off[1]);
+	}
+
+	/** Two blocks of air (no collision) at the plate and below it (BOTS.md §7.2); a table part below is fine (MT). */
 	private static boolean clear(ServerLevel level, Vec3 at) {
 		BlockPos p = BlockPos.containing(at);
+		BlockState below = level.getBlockState(p.below());
 		return level.getBlockState(p).getCollisionShape(level, p).isEmpty()
-			&& level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty();
+			&& (below.getCollisionShape(level, p.below()).isEmpty() || below.getBlock() instanceof dev.nezo.burmaldaholic.core.table.CasinoTableBlock);
 	}
 
 	private static Display.@Nullable TextDisplay spawn(ServerLevel level, Vec3 at, Component text) {

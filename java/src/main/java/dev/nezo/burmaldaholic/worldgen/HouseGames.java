@@ -55,6 +55,7 @@ public final class HouseGames {
 	public static void register() {
 		playerPlaced = AttachmentRegistry.createPersistent(Burmaldaholic.id("player_placed_table"), Codec.BOOL);
 		PlayerBlockBreakEvents.BEFORE.register(HouseGames::beforeBreak);
+		HouseTableProtection.install(); // MT: core tables / machines ask these decisions (drops, explosions, placement)
 	}
 
 	// ---- decisions (MT contract) ----------------------------------------------------------------------------------------
@@ -102,11 +103,11 @@ public final class HouseGames {
 	// ---- break event ----------------------------------------------------------------------------------------------------
 
 	/**
-	 * The main block of the table at {@code pos}. Single-block tables: the block itself. When MT-1 lands (3×2 tables)
-	 * this resolves a part to its main block with {@code TableParts.mainOf} (MT-DESIGN §4).
+	 * The main block of the table at {@code pos}: a part resolves to its main block (MT-DESIGN §4); compact tables and
+	 * other blocks are their own main.
 	 */
 	static BlockPos mainOf(ServerLevel level, BlockPos pos, BlockState state) {
-		return pos;
+		return dev.nezo.burmaldaholic.core.table.parts.TableParts.mainPos(pos, state); // MT: part → main
 	}
 
 	/** PlayerBlockBreakEvents.BEFORE: non-operators may not break a house table; operators remove it without an item. */

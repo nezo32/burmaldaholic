@@ -2,16 +2,59 @@
   "type": "minecraft:block",
   "pools": [
     {
-      "rolls": 1.0,
+      "rolls": 1,
       "conditions": [
         {
           "condition": "minecraft:survives_explosion"
         }
       ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "burmaldaholic:uth_table"
+          "name": "burmaldaholic:uth_table",
+          "conditions": [
+            {
+              "condition": "minecraft:any_of",
+              "terms": [
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:uth_table",
+                  "properties": {
+                    "part": "main"
+                  }
+                },
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:uth_table",
+                  "properties": {
+                    "part": "single"
+                  }
+                }
+              ]
+            }
+          ],
+          "condition": {
+            "type": "minecraft:any_of",
+            "terms": [
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:uth_table",
+                "state": {
+                  "part": "main"
+                }
+              },
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:uth_table",
+                "state": {
+                  "part": "single"
+                }
+              }
+            ]
+          }
         }
       ]
     }

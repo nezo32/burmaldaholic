@@ -14,6 +14,12 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class LayoutsTest {
+	/** MT: a multi-block table counts once (its main block); the other cells carry part=left/right/back…. */
+	private static boolean isPart(BlockSpec b) {
+		String part = b.properties().get("part");
+		return part != null && !part.equals("main") && !part.equals("single");
+	}
+
 	private static long count(Layout l, String block) {
 		long n = 0;
 		Vec s = l.size();
@@ -21,7 +27,7 @@ class LayoutsTest {
 			for (int y = 0; y < s.y(); y++) {
 				for (int z = 0; z < s.z(); z++) {
 					BlockSpec b = l.grid().get(x, y, z);
-					if (b != null && b.is(block)) {
+					if (b != null && b.is(block) && !isPart(b)) {
 						n++;
 					}
 				}
@@ -137,7 +143,12 @@ class LayoutsTest {
 					for (int z = 0; z < s.z(); z++) {
 						BlockSpec b = l.grid().get(x, y, z);
 						if (b != null && b.name().startsWith("burmaldaholic:")) {
-							assertEquals(1, y, l.id() + " table off the floor row: " + b);
+							// MT-3: upper cells of upright machines stand above the floor row; the main block is on it
+							if (isPart(b)) {
+								assertTrue(y >= 1, l.id() + " part below the floor row: " + b);
+							} else {
+								assertEquals(1, y, l.id() + " table off the floor row: " + b);
+							}
 							assertTrue(b.properties().containsKey("facing"), b.toString());
 						}
 					}

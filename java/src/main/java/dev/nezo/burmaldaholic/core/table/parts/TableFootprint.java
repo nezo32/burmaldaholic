@@ -83,6 +83,16 @@ public final class TableFootprint {
 		return out;
 	}
 
+	/** Local cells of a full table (main first, then {@link #PART_ORDER}); all at u = 0. */
+	public static List<LocalCell> localCells(TableGame game) {
+		List<LocalCell> out = new ArrayList<>(game.width() * game.depth());
+		out.add(new LocalCell(0, 0, 0, TablePart.MAIN));
+		for (TablePart p : PART_ORDER) {
+			out.add(new LocalCell(p.r(), 0, p.f(), p));
+		}
+		return out;
+	}
+
 	/** World offset {dx, dz} from a part's block to its main block (inverse of the part's cell offset). */
 	public static int[] mainOffset(TablePart part, int fx, int fz) {
 		int[] o = cellOffset(part.r(), part.f(), fx, fz);
@@ -186,12 +196,23 @@ public final class TableFootprint {
 		return cellPos(main, facing, game.dealerR(), game.dealerF());
 	}
 
-	/** Every cell position of a full table at {@code main}. */
-	public static List<BlockPos> positions(BlockPos main, Direction facing, TableGame game) {
-		List<BlockPos> out = new ArrayList<>();
-		for (Cell c : cells(game, facing.getStepX(), facing.getStepZ())) {
-			out.add(main.offset(c.dx(), 0, c.dz()));
-		}
-		return out;
+	/**
+	 * Dealer NPC cell (R3 owner decision: a real dealer stands at every house table): the block the dealer's FEET
+	 * occupy, two rows behind the main block ({@code f = -2}; {@code r = -1} behind the wheel for roulette). House
+	 * layouts keep it two blocks of air on a floor, reachable from the table's player walkway
+	 * ({@code MultiBlockLayoutsTest}, {@code TableClearance} R4). Same as {@link #dealerPos}.
+	 */
+	public static BlockPos dealerCell(BlockPos main, Direction facing, TableGame game) {
+		return dealerPos(main, facing, game);
+	}
+
+	/** Direction a dealer at {@link #dealerCell} faces: toward the table and the players, i.e. the table's FACING. */
+	public static Direction dealerFacing(Direction facing) {
+		return facing;
+	}
+
+	/** Entity yaw (degrees, {@code Entity.setYRot / setYHeadRot / yBodyRot}) of a dealer at {@link #dealerCell}. */
+	public static float dealerYaw(Direction facing) {
+		return dealerFacing(facing).toYRot();
 	}
 }

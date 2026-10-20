@@ -78,6 +78,7 @@ import org.jspecify.annotations.Nullable;
  */
 public abstract class CasinoTableBlockEntity extends BlockEntity implements ExtendedMenuProvider<BlockPos> {
 	private static final String STAKES_KEY = "burmaldaholic_open_stakes";
+	private static final String MT_KEY = "mt";
 
 	/**
 	 * A confirmed, not yet settled bet of one player at this table. Most games keep one aggregate
@@ -121,6 +122,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	private final Map<String, Long> timers = new HashMap<>();
 	private String phase = "idle";
 	private boolean refundPending;
+	/** MT §5: loaded from a save without the {@code mt} tag (pre-v0.2) — a SINGLE table then tries to unfold once. */
+	private boolean mtLegacy;
+	/** MT: first-tick integrity / migration check done (runtime only). */
+	private boolean mtChecked;
 	private boolean removing;
 	/** Net result per player of rounds played out by {@link #playOutNow} at a server stop (for the notice). */
 	private @Nullable Map<UUID, Long> playedOut;
@@ -284,13 +289,17 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 * The generated-casino preset of this table (worldgen, §16), if any. While the table is being removed (chunk
 	 * unload, break, server stop) the last looked-up preset is returned without touching the world: the play-out
 	 * runs inside the chunk system's unload callback, where a block / block-entity lookup re-enters the distance
-	 * manager mid-update and crashes the server tick.
+	 * manager mid-update and crashes the server tick. Empty while the table's chunk is not loaded (removed block
+	 * entity): the lookup reads the block state, which must never load a chunk (BOT request).
 	 */
 	public Optional<TablePresetProvider.TablePreset> preset() {
 		if (removing) {
 			return lastPreset;
 		}
-		lastPreset = level instanceof ServerLevel serverLevel ? CoreServices.tablePresets().preset(serverLevel, worldPosition) : Optional.empty();
+		if (!(level instanceof ServerLevel serverLevel) || isRemoved() || !serverLevel.hasChunkAt(worldPosition)) {
+			return Optional.empty();
+		}
+		lastPreset = CoreServices.tablePresets().preset(serverLevel, worldPosition);
 		return lastPreset;
 	}
 
@@ -680,6 +689,20 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	/** Called by {@link CasinoTableBlock}'s ticker on the server. */
 	public final void tick(ServerLevel level) {
 		MinecraftServer server = level.getServer();
+		if (!mtChecked) {
+			mtChecked = true;
+			if (mtLegacy) {
+				// before the migration rewrites the save: house table (generated) or a player's (CB-G, coordinator D2)
+				dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().legacyTableLoaded(level, worldPosition, this);
+			}
+			if (dev.nezo.burmaldaholic.core.table.parts.TableParts.firstTick(level, this, mtLegacy)) {
+				mtLegacy = false;
+				setChanged();
+			}
+			if (isRemoved()) {
+				return;
+			}
+		}
 		if (refundPending) {
 			refundPending = false;
 			try {
@@ -711,7 +734,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 				ServerPlayer p = server.getPlayerList().getPlayer(seat.player());
 				if (p == null || p.isRemoved()) {
 					leave(seat.player(), LeaveReason.DISCONNECT);
-				} else if ((p.level() != level || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(worldPosition)) > max * max) && canLeaveNow(seat.player())) {
+				} else if ((p.level() != level || !dev.nezo.burmaldaholic.core.table.parts.TableParts.inRange(p.position(), level, worldPosition, max)) && canLeaveNow(seat.player())) {
 					leave(seat.player(), LeaveReason.TOO_FAR);
 				}
 			}
@@ -904,6 +927,9 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	@Override
 	protected void saveAdditional(ValueOutput output) {
 		super.saveAdditional(output);
+		if (!mtLegacy) {
+			output.putInt(MT_KEY, 1);
+		}
 		if (!openStakes.isEmpty()) {
 			output.store(STAKES_KEY, OpenStake.CODEC.listOf(), List.copyOf(openStakes.values()));
 		}
@@ -912,6 +938,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
+		mtLegacy = input.getIntOr(MT_KEY, 0) == 0;
 		openStakes.clear();
 		input.read(STAKES_KEY, OpenStake.CODEC.listOf()).ifPresent(list -> list.forEach(s -> openStakes.put(s.key(), s)));
 		refundPending = !openStakes.isEmpty();

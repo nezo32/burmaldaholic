@@ -2,16 +2,59 @@
   "type": "minecraft:block",
   "pools": [
     {
-      "rolls": 1.0,
+      "rolls": 1,
       "conditions": [
         {
           "condition": "minecraft:survives_explosion"
         }
       ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "burmaldaholic:slot_machine_netherite"
+          "name": "burmaldaholic:slot_machine_netherite",
+          "conditions": [
+            {
+              "condition": "minecraft:any_of",
+              "terms": [
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:slot_machine_netherite",
+                  "properties": {
+                    "part": "main"
+                  }
+                },
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:slot_machine_netherite",
+                  "properties": {
+                    "part": "single"
+                  }
+                }
+              ]
+            }
+          ],
+          "condition": {
+            "type": "minecraft:any_of",
+            "terms": [
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:slot_machine_netherite",
+                "state": {
+                  "part": "main"
+                }
+              },
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:slot_machine_netherite",
+                "state": {
+                  "part": "single"
+                }
+              }
+            ]
+          }
         }
       ]
     }

@@ -392,6 +392,19 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.auto_completed` | You left mid-round. The dealer finished it for you: %1$s | Вы ушли посреди раунда. Дилер доиграл за вас: %1$s |
 | `msg.burmaldaholic.core.card_given` | You received a Casino Card | Вы получили клубную карту |
 
+### Multi-block tables and machines (MT, v0.2: 3×2 tables, upright machines, compact legacy blocks)
+
+| Key | EN | RU |
+|-----|----|----|
+| `msg.burmaldaholic.table.no_room.p1` | No room: %1$s cell of its footprint is blocked or has no floor | Не хватает места: %1$s клетка под него занята или без пола |
+| `msg.burmaldaholic.table.no_room.p21` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клетка под него занята или без пола |
+| `msg.burmaldaholic.table.no_room.p2` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клетки под него заняты или без пола |
+| `msg.burmaldaholic.table.no_room.p5` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клеток под него заняты или без пола |
+| `msg.burmaldaholic.table.compact_hint` | Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it | Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить |
+| `msg.burmaldaholic.table.unfolded` | Unfolded to full size | Разложено в полный размер |
+| `msg.burmaldaholic.table.unfold_busy` | Someone is standing where it unfolds — step aside and try again | Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова |
+| `sign.burmaldaholic.cashier` | CASHIER | КАССА |
+
 ### Casino Menu
 
 | Key | EN | RU |

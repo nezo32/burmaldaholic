@@ -2,16 +2,59 @@
   "type": "minecraft:block",
   "pools": [
     {
-      "rolls": 1.0,
+      "rolls": 1,
       "conditions": [
         {
           "condition": "minecraft:survives_explosion"
         }
       ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "burmaldaholic:wheel_of_fortune"
+          "name": "burmaldaholic:wheel_of_fortune",
+          "conditions": [
+            {
+              "condition": "minecraft:any_of",
+              "terms": [
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:wheel_of_fortune",
+                  "properties": {
+                    "part": "main"
+                  }
+                },
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:wheel_of_fortune",
+                  "properties": {
+                    "part": "single"
+                  }
+                }
+              ]
+            }
+          ],
+          "condition": {
+            "type": "minecraft:any_of",
+            "terms": [
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:wheel_of_fortune",
+                "state": {
+                  "part": "main"
+                }
+              },
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:wheel_of_fortune",
+                "state": {
+                  "part": "single"
+                }
+              }
+            ]
+          }
         }
       ]
     }

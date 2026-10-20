@@ -1,18 +1,48 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_gold"
     },
-    "facing=east": {
+    "facing=north,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/main"
+    },
+    "facing=north,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/upper"
+    },
+    "facing=east,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_gold",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/main",
+      "y": 90
+    },
+    "facing=east,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/upper",
+      "y": 90
+    },
+    "facing=south,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_gold",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/main",
+      "y": 180
+    },
+    "facing=south,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/upper",
+      "y": 180
+    },
+    "facing=west,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_gold",
+      "y": 270
+    },
+    "facing=west,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/main",
+      "y": 270
+    },
+    "facing=west,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_gold/upper",
       "y": 270
     }
   }

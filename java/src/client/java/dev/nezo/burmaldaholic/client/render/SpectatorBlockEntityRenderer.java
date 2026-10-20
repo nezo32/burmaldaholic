@@ -42,11 +42,29 @@ public abstract class SpectatorBlockEntityRenderer<T extends BlockEntity, S exte
 		return 32;
 	}
 
+	/**
+	 * MT: content of a multi-block table/machine reaches beyond the main block, so it must not depend on the main
+	 * block's chunk section being visible; {@link #shouldRender} culls it by the whole footprint instead.
+	 */
+	@Override
+	public boolean shouldRenderOffScreen() {
+		return true;
+	}
+
+	/** View distance, then the camera frustum against the footprint box ({@code TableCulling}). */
+	@Override
+	public boolean shouldRender(T be, Vec3 cameraPos) {
+		return BlockEntityRenderer.super.shouldRender(be, cameraPos) && dev.nezo.burmaldaholic.client.table.TableCulling.visible(be);
+	}
+
 	@Override
 	public void extractRenderState(T be, S state, float partialTick, Vec3 cameraPos,
 			ModelFeatureRenderer.@Nullable CrumblingOverlay crumbling) {
 		BlockEntityRenderState.extractBase(be, state, crumbling);
 		state.levelMs = AnimClock.levelMs(partialTick);
+		state.tablePart = dev.nezo.burmaldaholic.core.table.parts.TableParts.partOf(be.getBlockState());
+		state.tableGame = dev.nezo.burmaldaholic.core.table.parts.TableParts.gameOf(be.getBlockState());
+		state.machineKind = dev.nezo.burmaldaholic.core.table.parts.TableParts.machineOf(be.getBlockState());
 		state.distSq = cameraPos.distanceToSqr(Vec3.atCenterOf(be.getBlockPos()));
 		int r = animateRadius();
 		int view = getViewDistance();
