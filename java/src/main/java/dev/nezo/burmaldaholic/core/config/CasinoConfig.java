@@ -19,6 +19,7 @@ import dev.nezo.burmaldaholic.core.config.sections.PokerConfig;
 import dev.nezo.burmaldaholic.core.config.sections.PvpConfig;
 import dev.nezo.burmaldaholic.core.config.sections.RouletteConfig;
 import dev.nezo.burmaldaholic.core.config.sections.SlotsConfig;
+import dev.nezo.burmaldaholic.core.config.sections.StoreConfig;
 import dev.nezo.burmaldaholic.core.config.sections.StreakConfig;
 import dev.nezo.burmaldaholic.core.config.sections.UthConfig;
 import dev.nezo.burmaldaholic.core.config.sections.VipConfig;
@@ -42,6 +43,7 @@ import java.util.function.Supplier;
 public final class CasinoConfig {
 	private static ConfigHandle<CoreConfig> core;
 	private static ConfigHandle<EconomyConfig> economy;
+	private static ConfigHandle<StoreConfig> store;
 	private static ConfigHandle<ContractsConfig> contracts;
 	private static ConfigHandle<WagerConfig> wager;
 	private static ConfigHandle<VipConfig> vip;
@@ -71,6 +73,7 @@ public final class CasinoConfig {
 	public static void registerAll(ConfigManager m) {
 		core = m.register("core", CoreConfig.class, CoreConfig::new);
 		economy = m.register("economy", EconomyConfig.class, EconomyConfig::new);
+		store = m.register("store", StoreConfig.class, StoreConfig::new);
 		contracts = m.register("contracts", ContractsConfig.class, ContractsConfig::new);
 		wager = m.register("wager", WagerConfig.class, WagerConfig::new);
 		vip = m.register("vip", VipConfig.class, VipConfig::new);
@@ -105,6 +108,11 @@ public final class CasinoConfig {
 
 	public static EconomyConfig economy() {
 		return get(economy, EconomyConfig::new);
+	}
+
+	/** The chip store catalog (EC-SPEC §3). */
+	public static StoreConfig store() {
+		return get(store, StoreConfig::new);
 	}
 
 	public static ContractsConfig contracts() {

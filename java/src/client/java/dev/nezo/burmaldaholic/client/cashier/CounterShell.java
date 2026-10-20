@@ -71,6 +71,8 @@ public final class CounterShell {
 	private boolean resultOk = true;
 	private int resultTicks;
 	private String lastPressed = "";
+	private boolean shiftHeld;
+	private boolean ctrlHeld;
 
 	public CounterShell(Host host) {
 		this.host = host;
@@ -192,8 +194,23 @@ public final class CounterShell {
 
 	// ---- input -----------------------------------------------------------------------------------------------------
 
+	/**
+	 * Tracks Shift / Control from key presses and releases: an event's modifier bits can be 0 for a click that follows a
+	 * held Shift (simulated input, some platforms), so the shell ORs in what it saw ({@link #mods}).
+	 */
+	public void trackKey(int keyCode, boolean down) {
+		if (keyCode == Inputs.KEY_LSHIFT || keyCode == Inputs.KEY_RSHIFT) shiftHeld = down;
+		if (keyCode == Inputs.KEY_LCONTROL || keyCode == Inputs.KEY_RCONTROL) ctrlHeld = down;
+	}
+
+	/** The event's modifiers plus the Shift / Control the shell saw held. */
+	public int mods(int eventMods) {
+		return eventMods | (shiftHeld ? Inputs.MOD_SHIFT : 0) | (ctrlHeld ? Inputs.MOD_CONTROL : 0);
+	}
+
 	/** A mouse press at layout px; true when consumed. */
-	public boolean click(double x, double y, int button, int mods) {
+	public boolean click(double x, double y, int button, int eventMods) {
+		int mods = mods(eventMods);
 		Press press = V2Input.press(button);
 		if (press == null) return false;
 		Optional<HitMap.Target> t = hits.at(x, y);
@@ -214,7 +231,9 @@ public final class CounterShell {
 	}
 
 	/** A key press; true when consumed (Esc is left to the host). */
-	public boolean key(int keyCode, int mods) {
+	public boolean key(int keyCode, int eventMods) {
+		trackKey(keyCode, true);
+		int mods = mods(eventMods);
 		CounterTab tab = activeTab();
 		if (tab != null && tab.key(keyCode, mods)) return true; // a focused search box eats digits first
 		int idx = keyCode == Inputs.KEY_1 ? 0 : keyCode == Inputs.KEY_2 ? 1 : keyCode == Inputs.KEY_3 ? 2 : -1;

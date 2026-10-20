@@ -10,6 +10,9 @@ public final class CounterClient {
 	private CounterClient() {}
 
 	public static void register() {
+		CounterTabs.register(ExchangeTab.ID, ExchangeTab::new);
+		CounterTabs.register(StoreTab.ID, StoreTab::new);
+		ClientStore.register();
 		ClientPlayNetworking.registerGlobalReceiver(CounterOpenPayload.TYPE, (payload, context) ->
 			Minecraft.getInstance().gui.setScreen(new CounterSceneScreen(payload.source(), payload.tabs(), payload.dimension())));
 		ClientPlayNetworking.registerGlobalReceiver(CounterResultPayload.TYPE, (payload, context) ->

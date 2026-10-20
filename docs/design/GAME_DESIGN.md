@@ -172,11 +172,36 @@ the Cashier screen (UI.md §4). Functions:
 | Action | Rule |
 |--------|------|
 | **Deposit** | Takes all chip items from the player's inventory (or only the selected stack, player's choice) and adds their value to the balance. |
-| **Withdraw** | Player enters an amount A ≤ withdrawable (below). Converted greedily into the largest denominations (500, 100, 25, 5, 1). If inventory is full, the rest drops at the player's feet. |
-| **Buy chips** | 1 emerald → `economy.emeraldBuyRate` chips (default 8; Gold VIP+ 9). |
-| **Sell chips** | `economy.emeraldSellRate` chips (default 10) → 1 emerald. Only whole emeralds. |
+| **Withdraw** | Player builds an amount A ≤ withdrawable (below) with the chip buttons; "Max" = the most that fits the inventory. Converted greedily into the largest denominations. At most 36 stacks per click; only an overflow beyond the inventory drops at the player's feet. |
+| **Exchange** (v0.2.0) | Rows of `economy.exchange` for the cashier's dimension: hand items in for chips (`toChips`) or buy them with chips (`fromChips`), ×1 / ×64 / All (in) / Max (out); Shift+click = ×64. The server computes "All"/"Max" (balance cap, withdrawable, free inventory room); exchanged items never drop at the feet — a smaller count is used and the player is told. 4-tick cooldown per player. |
+| **Store** (v0.2.0) | The chip store tab (`store.offers`, §3.2.1). |
 | **Contracts** | Opens the contracts tab (§3.5). |
 | **Loan status** | Read-only; paying is done at the Loan Shark or via the Casino Card. |
+
+Default exchange rows (chips per item; there is no Gold VIP bonus — the spread must stay ≥ 1):
+
+| Row | Dimensions | → chips | chips → | Buy gate |
+|---|---|---|---|---|
+| Emerald | Overworld, Nether, End | 9 | 10 | – |
+| Emerald block | Overworld, End | 81 | 90 | – |
+| Diamond | Overworld, Nether, End | 40 | 55 | – |
+| Iron block | Overworld | 16 | 27 | – |
+| Gold ingot | Nether | 6 | 8 | – |
+| Netherite scrap | Nether | 60 | 160 | Diamond VIP |
+
+Economy guards (`core.economy.EconomyGuards`) keep every round trip losing: R1 `toChips < fromChips`; R2 craft
+equivalences (9 emeralds = 1 block, …); store R3 price ≥ 1.25 × pawn appraisal, R4 villager floor, R5 above the
+exchange rate, R6 no exchange items / precursors / netherite / spawn eggs / spawners / god apple / nether star /
+beacon / shulker box / dragon egg. A violating row loses its way out; a violating offer is left out (logged).
+
+#### 3.2.1 Chip store (v0.2.0)
+
+Cashier tab "Store" and the casino merchant NPC (one per casino, beside the cashier): a data-driven catalog
+(`store.offers`) of food, potions, enchanted books, tools, decor and rares, plus the scratch cards (Games). Prices
+anchor on 1 emerald ≈ 10 chips: commons at about villager price, books 2–4× the librarian average, rares ≥ 3× their
+pawn appraisal (catalog in CONFIG.md `store`). Per-player limits per in-game day (`limitPerDay`), the elytra once
+every 7 days; End-only offers (elytra, shulker shell) appear only at an End counter. Buying follows the exchange rule
+(`n = min(qty, balance / price, room, left today)`); a Max over 5 000 chips asks for a second click.
 
 `withdrawable = max(0, balance − outstandingDebt)` — you cannot turn borrowed money into items
 (anti-abuse, §5.8). While a loan is **in default**, withdraw is completely disabled.

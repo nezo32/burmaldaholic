@@ -4,7 +4,7 @@ import dev.nezo.burmaldaholic.core.chips.ChipItem;
 import dev.nezo.burmaldaholic.core.chips.ChipMath;
 import dev.nezo.burmaldaholic.core.chips.Chips;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
-import dev.nezo.burmaldaholic.core.config.sections.EconomyConfig;
+import dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
@@ -29,16 +29,16 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Cashier (GAME_DESIGN.md §3.2, UI.md §3): deposit chip items, withdraw chips (greedy denominations,
- * limited to {@code balance − debt}, frozen in default), buy/sell chips for emeralds; the Nether
- * cashier also trades gold ingots. Server-driven screen via the generic table framework.
+ * Cashier (GAME_DESIGN.md §3.2, UI.md §3, EC-SPEC §1): deposit chip items, withdraw chips (greedy denominations,
+ * limited to {@code balance − debt}, frozen in default) and the exchange rows of {@code economy.exchange} for the
+ * dimension of the cashier (emerald, diamond, gold ingot, …). Server-driven screen via the generic table framework.
  *
  * <p>Client actions: {@code deposit_all}, {@code deposit_held}, {@code withdraw {amount, denom}},
- * {@code buy {count}}, {@code sell {count}}, {@code buy_gold {count}}, {@code sell_gold {count}}.
+ * {@code exchange {row, dir: "in" | "out", qty, all}} (the server computes "all"; never drops items at the feet),
+ * {@code shop_buy {id}} (v0.1 shop; the store tab uses {@code StoreActionPayload}).
  */
 public class CashierBlockEntity extends CasinoTableBlockEntity {
 	public static final String GAME_ID = "core";
-	private static final int MAX_BATCH = 64;
 	/**
 	 * Review M3: one withdrawal hands out at most this many item stacks (one inventory's worth), inventory first;
 	 * only the rest drops at the player's feet. Larger amounts take several clicks.
@@ -100,9 +100,9 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			CoreServices.debt().owed(server, player.getUUID()), CoreServices.debt().inDefault(server, player.getUUID()));
 	}
 
-	public static int emeraldBuyRate(ServerPlayer player) {
-		EconomyConfig c = CasinoConfig.economy();
-		return CoreServices.vip().tier(server(player), player.getUUID()) >= VipTiers.GOLD ? c.emeraldBuyRateGoldVip : c.emeraldBuyRate;
+	/** Dimension code of this cashier's level ({@code O/N/E/?}): filters the exchange rows. */
+	public String dim() {
+		return level == null ? "O" : CounterSessions.dimCode(level.dimension());
 	}
 
 	@Override
@@ -111,18 +111,8 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 			case "deposit_all" -> depositAll(player);
 			case "deposit_held" -> depositHeld(player);
 			case "withdraw" -> withdraw(player, args.getLongOr("amount", 0), args.getIntOr("denom", 0));
-			case "buy" -> buy(player, Items.EMERALD, clampCount(args), emeraldBuyRate(player), "buy_emerald", "unit.burmaldaholic.emerald");
-			case "sell" -> sell(player, Items.EMERALD, clampCount(args), CasinoConfig.economy().emeraldSellRate, "sell_emerald", "unit.burmaldaholic.emerald");
-			case "buy_gold" -> {
-				if (isNether()) {
-					buy(player, Items.GOLD_INGOT, clampCount(args), CasinoConfig.economy().goldBuyRate, "buy_gold", "unit.burmaldaholic.gold_ingot");
-				}
-			}
-			case "sell_gold" -> {
-				if (isNether()) {
-					sell(player, Items.GOLD_INGOT, clampCount(args), CasinoConfig.economy().goldSellRate, "sell_gold", "unit.burmaldaholic.gold_ingot");
-				}
-			}
+			case "exchange" -> exchange(player, args.getStringOr("row", ""), "out".equals(args.getStringOr("dir", "in")),
+				args.getLongOr("qty", 1), args.getBooleanOr("all", false));
 			case "shop_buy" -> shopBuy(player, args.getStringOr("id", ""));
 			default -> {
 				return;
@@ -159,10 +149,6 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		}
 		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.bought_chips", name, Texts.chipsAcc(price)));
 		return true;
-	}
-
-	private static int clampCount(CompoundTag args) {
-		return Math.max(1, Math.min(MAX_BATCH, args.getIntOr("count", 1)));
 	}
 
 	/** Room left under {@code economy.maxBalance} (review m2: never take items whose value would be capped away). */
@@ -310,57 +296,122 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 		return true;
 	}
 
-	private void buy(ServerPlayer player, Item currency, int count, int rate, String detail, String unitKey) {
+	/**
+	 * One exchange (EC-SPEC §1): {@code out = false} hands items in for chips, {@code out = true} buys items with chips.
+	 * The count is computed here ({@link ExchangeMath}); items only go into free main-inventory room (a smaller count +
+	 * {@code msg…exchange.partial} instead of drops). Gated by the shared 4-tick counter cooldown. Returns the item
+	 * count moved.
+	 */
+	public long exchange(ServerPlayer player, String rowId, boolean out, long qty, boolean all) {
+		if (!CounterSessions.tryAct(player)) return 0;
+		ExchangeRows.Row row = ExchangeRows.row(dim(), rowId).orElse(null);
+		if (row == null) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
+			return 0;
+		}
 		Inventory inv = player.getInventory();
-		if (inv.countItem(currency) < count) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.plural(unitKey, inv.countItem(currency))));
-			return;
+		ItemStack proto = new ItemStack(row.item());
+		Component name = proto.getHoverName();
+		if (!out) {
+			long have = ExchangeRows.count(inv, row.item());
+			if (row.toChips() <= 0 || have <= 0) {
+				sendError(player, Component.translatable("gui.burmaldaholic.cashier.exchange.none", name));
+				return 0;
+			}
+			long n = ExchangeMath.countIn(qty, all, have, room(player), row.toChips());
+			if (n <= 0) {
+				sendError(player, Component.translatable("gui.burmaldaholic.error.balance_full"));
+				return 0;
+			}
+			long removed = ExchangeRows.remove(inv, row.item(), n); // credit only what was really taken (stale-count dupe)
+			long chips = removed * row.toChips();
+			Economies.get().deposit(player, chips, tx("exchange_in_" + row.id()));
+			recordMove(player, MoveKind.CREDIT, chips, null);
+			long wanted = all ? have : Math.min(qty, have);
+			report(player, Component.translatable("msg.burmaldaholic.core.exchange.in", Texts.number(removed), name, Texts.chips(chips)), removed, wanted);
+			return removed;
 		}
-		// Review m2: only take the emeralds / gold whose chips fit under economy.maxBalance.
-		long fits = rate <= 0 ? count : room(player) / rate;
-		if (fits <= 0) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.balance_full"));
-			return;
-		}
-		if (fits < count) {
-			count = (int) fits;
-			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.balance_full"));
-		}
-		remove(inv, currency, count);
-		long chips = (long) count * rate;
-		Economies.get().deposit(player, chips, tx(detail));
-		recordMove(player, MoveKind.CREDIT, chips, null);
-		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.bought_chips", Texts.chipsAcc(chips), Texts.plural(unitKey, count)));
-	}
-
-	private void sell(ServerPlayer player, Item currency, int count, int rate, String detail, String unitKey) {
 		MinecraftServer server = server(player);
 		if (CoreServices.debt().inDefault(server, player.getUUID())) {
 			sendError(player, Component.translatable("gui.burmaldaholic.cashier.withdraw_blocked"));
-			return;
+			return 0;
 		}
-		long chips = (long) count * rate;
-		if (withdrawable(player) < chips || !Economies.get().tryWithdraw(player, chips, tx(detail))) {
-			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(withdrawable(player))));
-			return;
+		if (row.fromChips() <= 0) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.disabled"));
+			return 0;
 		}
-		recordMove(player, MoveKind.PAID, chips, null);
-		if (give(player, currency, count)) {
-			player.sendSystemMessage(Component.translatable("gui.burmaldaholic.error.inventory_full"));
+		if (CoreServices.vip().tier(server, player.getUUID()) < row.buyMinTier()) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", VipTiers.name(row.buyMinTier())));
+			return 0;
 		}
-		player.sendSystemMessage(Component.translatable("msg.burmaldaholic.core.sold_chips", Texts.chipsAcc(chips), Texts.plural(unitKey, count)));
+		long fit = ExchangeRows.fit(inv, proto);
+		long wd = withdrawable(player);
+		long n = ExchangeMath.countOut(qty, all, wd, row.fromChips(), fit);
+		if (n <= 0) {
+			sendError(player, fit <= 0 ? Component.translatable("gui.burmaldaholic.error.inventory_full")
+				: Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(wd)));
+			return 0;
+		}
+		long cost = n * row.fromChips();
+		if (!Economies.get().tryWithdraw(player, cost, tx("exchange_out_" + row.id()))) {
+			sendError(player, Component.translatable("gui.burmaldaholic.error.insufficient_funds", Texts.number(Economies.get().balance(player))));
+			return 0;
+		}
+		long inserted = ExchangeRows.insert(inv, proto, n);
+		if (inserted < n) {
+			Economies.get().deposit(player, (n - inserted) * row.fromChips(), tx("exchange_refund_" + row.id()));
+		}
+		long paid = inserted * row.fromChips();
+		recordMove(player, MoveKind.PAID, paid, null);
+		long wanted = all ? Math.min(ExchangeMath.MAX_UNITS, wd / row.fromChips()) : qty;
+		report(player, Component.translatable("msg.burmaldaholic.core.exchange.out", Texts.number(inserted), name, Texts.chips(paid)), inserted, wanted);
+		return inserted;
 	}
 
-	private static void remove(Inventory inv, Item item, int count) {
-		int left = count;
-		for (int i = 0; i < inv.getContainerSize() && left > 0; i++) {
-			ItemStack s = inv.getItem(i);
-			if (s.is(item)) {
-				int take = Math.min(left, s.getCount());
-				s.shrink(take);
-				left -= take;
-			}
+	/** Chat + the counter's result line; adds the "only N fit" line when fewer than wanted moved. */
+	private static void report(ServerPlayer player, Component line, long moved, long wanted) {
+		player.sendSystemMessage(line);
+		if (moved < wanted) {
+			Component partial = Component.translatable("msg.burmaldaholic.core.exchange.partial", Texts.number(moved), Texts.number(wanted));
+			player.sendSystemMessage(partial);
+			CounterSessions.result(player, true, partial);
+		} else {
+			CounterSessions.result(player, true, line);
 		}
+	}
+
+	/** Largest amount ≤ withdrawable whose greedy chip split fits the main inventory (the Withdraw "Max" button). */
+	public static long withdrawFit(ServerPlayer player) {
+		long max = withdrawable(player);
+		int stackSize = new ItemStack(Chips.item(ChipMath.DENOMINATIONS[0])).getMaxStackSize();
+		max = Math.min(max, ChipMath.capToStacks(max, 0, MAX_WITHDRAW_STACKS, stackSize));
+		Inventory inv = player.getInventory();
+		long lo = 0, hi = max;
+		while (lo < hi) {
+			long mid = lo + (hi - lo + 1) / 2;
+			if (splitFits(inv, mid)) lo = mid;
+			else hi = mid - 1;
+		}
+		return lo;
+	}
+
+	private static boolean splitFits(Inventory inv, long amount) {
+		long[] counts = ChipMath.split(amount);
+		int empty = 0;
+		for (int i = 0; i < ExchangeRows.MAIN_SLOTS; i++) if (inv.getItem(i).isEmpty()) empty++;
+		long slotsNeeded = 0;
+		for (int i = 0; i < counts.length; i++) {
+			if (counts[i] <= 0) continue;
+			ItemStack proto = new ItemStack(Chips.item(ChipMath.DENOMINATIONS[i]));
+			long partial = 0;
+			for (int j = 0; j < ExchangeRows.MAIN_SLOTS; j++) {
+				ItemStack s = inv.getItem(j);
+				if (!s.isEmpty() && ItemStack.isSameItemSameComponents(s, proto)) partial += Math.max(0, s.getMaxStackSize() - s.getCount());
+			}
+			long rest = Math.max(0, counts[i] - partial);
+			slotsNeeded += (rest + proto.getMaxStackSize() - 1) / proto.getMaxStackSize();
+		}
+		return slotsNeeded <= empty;
 	}
 
 	/** Gives {@code count} items (stacks of max size); returns true if something was dropped at the feet. */
@@ -380,15 +431,29 @@ public class CashierBlockEntity extends CasinoTableBlockEntity {
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
 		MinecraftServer server = server(viewer);
-		EconomyConfig c = CasinoConfig.economy();
 		tag.putLong("withdrawable", withdrawable(viewer));
 		tag.putLong("debt", CoreServices.debt().owed(server, viewer.getUUID()));
 		tag.putBoolean("in_default", CoreServices.debt().inDefault(server, viewer.getUUID()));
-		tag.putInt("buy_rate", emeraldBuyRate(viewer));
-		tag.putInt("sell_rate", c.emeraldSellRate);
-		tag.putBoolean("nether", isNether());
-		tag.putInt("gold_buy_rate", c.goldBuyRate);
-		tag.putInt("gold_sell_rate", c.goldSellRate);
+		tag.putLong("withdraw_fit", withdrawFit(viewer));
+		tag.putString("dim", dim());
+		net.minecraft.nbt.ListTag rows = new net.minecraft.nbt.ListTag();
+		Inventory vinv = viewer.getInventory();
+		long wd = withdrawable(viewer);
+		long room = room(viewer);
+		for (ExchangeRows.Row r : ExchangeRows.rows(dim())) {
+			CompoundTag t = new CompoundTag();
+			t.putString("id", r.id());
+			t.putString("item", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(r.item()).toString());
+			t.putInt("to", r.toChips());
+			t.putInt("from", r.fromChips());
+			long have = ExchangeRows.count(vinv, r.item());
+			t.putLong("have", have);
+			t.putInt("gate", r.buyMinTier());
+			t.putLong("max_in", ExchangeMath.countIn(0, true, have, room, r.toChips()));
+			t.putLong("max_out", ExchangeMath.countOut(0, true, wd, r.fromChips(), ExchangeRows.fit(vinv, new ItemStack(r.item()))));
+			rows.add(t);
+		}
+		tag.put("rows", rows);
 		long carried = 0;
 		Inventory inv = viewer.getInventory();
 		for (int i = 0; i < inv.getContainerSize(); i++) {
