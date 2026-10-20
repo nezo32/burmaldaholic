@@ -587,15 +587,16 @@ public class WorldgenGameTests {
 	}
 
 	/**
-	 * Real Tudor casino (v0.2 standalone, {@code /place structure}): a non-op survival player cannot break its blackjack
+	 * Real standalone casino (integration: retargeted from the retired Tudor to CR-1's riviera Grand Casino, whose floor
+	 * piece holds the player-banked tables; {@code /place structure}): a non-op survival player cannot break its blackjack
 	 * table (message), an operator removes it without an item, TNT leaves its roulette standing; M10: the VIP room's
 	 * player-banked baccarat and UTH tables get the worldgen bot defaults (bots seat next to a solo player).
 	 */
 	@GameTest(maxTicks = 400)
 	public void tudorHouseGames(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
-		Optional<CasinoQa.Target> tudor = CasinoQa.standalone(level.getServer()).stream().filter(t -> t.name().equals("casino_tudor")).findFirst();
-		helper.assertTrue(tudor.isPresent(), "casino_tudor structure registered");
+		Optional<CasinoQa.Target> tudor = CasinoQa.standalone(level.getServer()).stream().filter(t -> t.name().equals("casino_riviera")).findFirst();
+		helper.assertTrue(tudor.isPresent(), "casino_riviera structure registered");
 		CasinoQa.Placed placed = CasinoQa.place(level, tudor.get(), new BlockPos(-12000, 0, 8000), 1);
 		helper.assertTrue(placed.record().isPresent(), "Tudor registered a casino record");
 		List<CasinoQa.Spot> spots = placed.spots();
@@ -621,24 +622,8 @@ public class WorldgenGameTests {
 			helper.assertTrue(HouseGames.explosionProof(level, roulette.pos(), rouletteBe), "Tudor roulette is explosion-proof (MT applies it)");
 			helper.assertFalse(HouseGames.dropsAllowed(level, roulette.pos(), rouletteBe, null), "Tudor roulette never drops (MT applies it)");
 
-			// the VIP room is an optional rear piece of the jigsaw: build the Tudor VIP piece itself, registered as a casino
-			Layout vipLayout = Layouts.byId("casino/tudor/vip").orElseThrow(() -> new AssertionError("casino/tudor/vip layout missing"));
-			BlockPos vipAt = new BlockPos(-12000, 0, 8400);
-			CasinoQa.loadChunks(level, vipAt, 2);
-			CasinoQa.reset(level, vipAt, 24, 30);
-			vipAt = vipAt.atY(CasinoQa.groundY(level, vipAt.getX(), vipAt.getZ()) - 2);
-			var template = CasinoBuilder.templates(level.getServer()).get(Burmaldaholic.id(vipLayout.templatePath()))
-				.orElseThrow(() -> new AssertionError(vipLayout.templatePath() + " template missing"));
-			var settings = new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings();
-			template.placeInWorld(level, vipAt, vipAt, settings, level.getRandom(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-			BoundingBox vipBox = template.getBoundingBox(settings, vipAt);
-			CasinoQa.Placed vipRoom = new CasinoQa.Placed(new CasinoQa.Target(vipLayout.id(), false, true, Optional.empty(), Optional.of(vipLayout)),
-				vipBox, CasinoQa.spots(level, vipBox), Optional.empty(), 0);
-			BoundingBox vb = vipRoom.box();
-			String dim = level.dimension().identifier().toString();
-			String vipId = CasinoRecord.idFor(dim, vb.minX(), vb.minY(), vb.minZ());
-			CasinoIndex.get(level.getServer()).setAnchor(vipId, dim, vipLayout.id(), CasinoKind.CASINO,
-				new Geometry.Box(vb.minX(), vb.minY(), vb.minZ(), vb.maxX(), vb.maxY(), vb.maxZ()));
+			// CR-1 Grand Casino: the player-banked baccarat / UTH sit in the main floor piece (no separate VIP room)
+			CasinoQa.Placed vipRoom = placed;
 			for (Game g : List.of(Game.BACCARAT_PLAYER_BANKED, Game.UTH_PLAYER_BANKED)) {
 				CasinoQa.Spot vip = vipRoom.spots().stream().filter(s -> s.game() == g).findFirst()
 					.orElseThrow(() -> new AssertionError("no " + g + " in Tudor"));

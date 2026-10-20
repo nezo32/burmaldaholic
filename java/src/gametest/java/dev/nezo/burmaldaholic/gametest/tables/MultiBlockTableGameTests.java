@@ -865,22 +865,46 @@ public class MultiBlockTableGameTests {
 		return mains;
 	}
 
+	/** Main-part table cells the layout's grid declares. */
+	private static int declaredMains(dev.nezo.burmaldaholic.worldgen.logic.Layout l) {
+		var g = l.grid();
+		var size = g.size();
+		int n = 0;
+		for (int x = 0; x < size.x(); x++) for (int y = 0; y < size.y(); y++) for (int z = 0; z < size.z(); z++) {
+			var b = g.get(x, y, z);
+			if (b != null && "main".equals(b.properties().get("part"))) n++;
+		}
+		return n;
+	}
+
 	/** The regenerated v0.1 templates (all kinds, all rotations) place full tables that survive the first ticks. */
 	@GameTest(maxTicks = 200)
 	public void regeneratedTemplatesPlaceFullTables(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		BlockPos origin = helper.absolutePos(BlockPos.ZERO).above(190);
 		List<Runnable> checks = new ArrayList<>();
-		int i = 0;
+		// stack layouts by their real height and wrap into a new column below the build limit: CR-1's Grand Casino
+		// pieces are 41 x 37 x 43, so the old fixed 26 / 14 spacing overlapped them and ran past y 320. A rotated template
+		// grows from its origin towards -x / -z too, so slots are 100 apart (> 2 x the largest footprint)
+		int y = 0;
+		int column = 0;
 		for (dev.nezo.burmaldaholic.worldgen.logic.Layout l : dev.nezo.burmaldaholic.worldgen.logic.Layouts.all().values()) {
+			var size = l.size();
+			if (origin.getY() + y + size.y() > level.getMaxY() - 2) {
+				y = 0;
+				column++;
+			}
+			int baseY = y;
+			y += size.y() + 2;
 			for (int turns = 0; turns < 4; turns++) {
-				BlockPos at = origin.offset((i % 4) * 26, (i / 4) * 14, 0);
-				i++;
+				BlockPos at = origin.offset(turns * 100, baseY, -column * 100);
 				var rotation = dev.nezo.burmaldaholic.worldgen.CasinoStructures.rotation(turns);
 				var box = dev.nezo.burmaldaholic.worldgen.CasinoBuilder.build(level, l, at, rotation).orElseThrow();
 				String what = l.id() + " rotated " + turns;
 				int n = assertTablesWhole(helper, level, box, what + " (placed)");
-				helper.assertTrue(n >= 3, what + ": tables placed (" + n + ")");
+				// 3+ placed mains, or every declared main for a layout with fewer
+				int declared = declaredMains(l);
+				helper.assertTrue(n >= Math.min(3, declared), what + ": tables placed (" + n + " of " + declared + " declared)");
 				checks.add(() -> assertTablesWhole(helper, level, box, what + " (after 5 ticks)"));
 			}
 		}
