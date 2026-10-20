@@ -89,11 +89,11 @@ class OverworldCasinoTest {
 			for (Game t : List.of(Game.BLACKJACK, Game.ROULETTE, Game.CRAPS, Game.BACCARAT, Game.UTH, Game.POKER)) {
 				assertEquals(1L, g.get(t), floor + " " + t);
 			}
-			assertEquals(List.of(NpcRole.BACCARAT_DEALER), npcs(m.get(floor)));
+			assertEquals(java.util.Collections.nCopies(6, NpcRole.HOUSE_DEALER), npcs(m.get(floor))); // DL: one per table
 		}
 		Map<Game, Long> entrance = games(m.get(OverworldCasino.Part.ENTRANCE));
 		assertEquals(Map.of(Game.CASHIER, 1L, Game.WHEEL, 1L, Game.PLINKO, 1L), entrance);
-		assertEquals(List.of(NpcRole.CROUPIER), npcs(m.get(OverworldCasino.Part.ENTRANCE)));
+		assertEquals(List.of(NpcRole.CROUPIER, NpcRole.MERCHANT), npcs(m.get(OverworldCasino.Part.ENTRANCE)));
 		assertEquals(Map.of(Game.SLOTS_GOLD, 3L), games(m.get(OverworldCasino.Part.BAR)));
 		assertEquals(List.of(NpcRole.LOAN_SHARK), npcs(m.get(OverworldCasino.Part.BAR)));
 		assertEquals(Map.of(Game.SLOTS_NETHERITE, 2L, Game.POKER, 1L, Game.BACCARAT_PLAYER_BANKED, 1L, Game.UTH_PLAYER_BANKED, 1L),
@@ -203,7 +203,7 @@ class OverworldCasinoTest {
 			List<Piece> pieces = a.stream().map(Placed::piece).toList();
 			assertEquals(Game.Family.REQUIRED, Checks.families(pieces), name);
 			int gamesCount = pieces.stream().mapToInt(p -> p.games().size()).sum();
-			long npcCount = pieces.stream().mapToLong(p -> npcs(p).size()).sum();
+			long npcCount = pieces.stream().mapToLong(p -> npcs(p).stream().filter(x -> x != NpcRole.HOUSE_DEALER).count()).sum();
 			long chests = pieces.stream().flatMap(p -> p.layout().markers().stream()).filter(x -> x.marker() instanceof Markers.Chest).count();
 			assertTrue(gamesCount <= 40, name + " games " + gamesCount);
 			assertTrue(npcCount <= 6, name + " npcs " + npcCount);

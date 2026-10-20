@@ -42,4 +42,32 @@ class NpcRoleDlTest {
 		assertEquals(NpcShop.CROUPIER, NpcShop.of(NpcRole.PIT_BOSS));
 		assertEquals("dialog.burmaldaholic.merchant.greeting.2", NpcShop.greetingKey(NpcRole.MERCHANT, 5));
 	}
+
+	/** CR-2/DL: v0.2 pieces carry one house-dealer marker per dealer cell and no old table-dealer markers. */
+	@Test
+	void v2LayoutsHaveOneHouseDealerPerCellAndNoOldDealers() {
+		int dealers = 0;
+		for (Layout l : Layouts.all().values()) {
+			if (!l.id().startsWith("casino/")) {
+				continue;
+			}
+			java.util.Set<Vec> cells = new java.util.HashSet<>();
+			java.util.Set<Vec> houseCells = new java.util.HashSet<>();
+			int merchants = 0;
+			for (Layout.PlacedMarker m : l.markers()) {
+				if (!(m.marker() instanceof Markers.Npc npc)) {
+					continue;
+				}
+				org.junit.jupiter.api.Assertions.assertNotEquals(NpcRole.BACCARAT_DEALER, npc.role(), l.id() + ": old baccarat dealer marker at " + m.pos());
+				org.junit.jupiter.api.Assertions.assertTrue(cells.add(m.pos()), l.id() + ": two NPC markers at " + m.pos());
+				if (npc.role() == NpcRole.HOUSE_DEALER) {
+					houseCells.add(m.pos());
+					dealers++;
+				}
+				merchants += npc.role() == NpcRole.MERCHANT ? 1 : 0;
+			}
+			org.junit.jupiter.api.Assertions.assertTrue(merchants <= 1, l.id() + ": at most one merchant per piece");
+		}
+		org.junit.jupiter.api.Assertions.assertTrue(dealers > 0, "house dealers placed");
+	}
 }

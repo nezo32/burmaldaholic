@@ -80,12 +80,16 @@ class OtherworldTest {
 	void markers() {
 		Layout parlor = OtherworldPieces.parlor().layout();
 		assertEquals(1, count(parlor, Markers.Anchor.class));
-		assertEquals(List.of(NpcRole.PIGLIN_DEALER, NpcRole.PIGLIN_DEALER, NpcRole.PIGLIN_DEALER, NpcRole.PIGLIN_MONEYLENDER),
-			npcs(parlor));
+		// DL: one house dealer per table (6), the nether cashier, the merchant, the moneylender and the pit boss
+		assertEquals(6, npcs(parlor).stream().filter(r -> r == NpcRole.HOUSE_DEALER).count());
+		assertEquals(List.of(NpcRole.PIGLIN_MONEYLENDER, NpcRole.PIGLIN_DEALER, NpcRole.PIT_BOSS, NpcRole.MERCHANT),
+			npcs(parlor).stream().filter(r -> r != NpcRole.HOUSE_DEALER).sorted().toList());
 		assertEquals(List.of(CasinoLoot.Table.PIGLIN_PARLOR), chests(parlor));
 		Layout lounge = OtherworldPieces.lounge().layout();
 		assertEquals(1, count(lounge, Markers.Anchor.class));
-		assertEquals(List.of(NpcRole.BACCARAT_DEALER, NpcRole.SHULKER_CROUPIER), npcs(lounge));
+		assertEquals(6, npcs(lounge).stream().filter(r -> r == NpcRole.HOUSE_DEALER).count());
+		assertEquals(List.of(NpcRole.ENDER_CROUPIER, NpcRole.MERCHANT),
+			npcs(lounge).stream().filter(r -> r != NpcRole.HOUSE_DEALER).sorted().toList());
 		assertEquals(List.of(CasinoLoot.Table.HIGH_ROLLER), chests(lounge));
 		for (Layout l : List.of(parlor, lounge)) {
 			for (Layout.PlacedMarker m : l.markers()) {
@@ -167,7 +171,7 @@ class OtherworldTest {
 	void contentBudget() {
 		for (Piece p : OtherworldPieces.all()) {
 			assertTrue(p.games().size() <= 40, p.id());
-			assertTrue(npcs(p.layout()).size() <= 6, p.id());
+			assertTrue(npcs(p.layout()).stream().filter(r -> r != NpcRole.HOUSE_DEALER).count() <= 6, p.id());
 			int[] cells = {0};
 			forEach(p.layout().grid(), (x, y, z, b) -> cells[0]++);
 			assertTrue(cells[0] <= 60_000, p.id() + " " + cells[0]);

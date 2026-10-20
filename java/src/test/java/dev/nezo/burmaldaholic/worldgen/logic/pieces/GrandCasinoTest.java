@@ -94,8 +94,9 @@ class GrandCasinoTest {
 				case Markers.Anchor a -> anchors++;
 			}
 		}
-		assertTrue(npcs.containsAll(List.of(NpcRole.CROUPIER, NpcRole.LOAN_SHARK, NpcRole.BACCARAT_DEALER)), npcs.toString());
-		assertTrue(npcs.size() <= Assembly.MAX_NPCS);
+		assertTrue(npcs.containsAll(List.of(NpcRole.CROUPIER, NpcRole.LOAN_SHARK, NpcRole.HOUSE_DEALER, NpcRole.MERCHANT)), npcs.toString());
+		assertTrue(npcs.stream().filter(r -> r != NpcRole.HOUSE_DEALER).count() <= Assembly.MAX_NPCS);
+		assertTrue(npcs.stream().filter(r -> r == NpcRole.HOUSE_DEALER).count() <= Assembly.MAX_HOUSE_DEALERS);
 		assertEquals(1, chests);
 		assertEquals(1, anchors);
 	}
