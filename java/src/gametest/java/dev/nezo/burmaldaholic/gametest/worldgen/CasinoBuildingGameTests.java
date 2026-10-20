@@ -292,6 +292,10 @@ public class CasinoBuildingGameTests {
 			r.npcs().forEach(n -> roles.add(n.role()));
 			if (t.structure().isPresent()) {
 				helper.assertTrue(r.kind() != null && r.kind().id().equals("casino"), t + ": record kind CASINO, got " + r.kind());
+				// DL-SPEC §2: a table pod's baccarat dealer is the dimension's house dealer (CR-1's Grand Casino seats it via tablePod)
+				if (roles.contains(NpcRole.HOUSE_DEALER)) {
+					roles.add(NpcRole.BACCARAT_DEALER);
+				}
 				for (NpcRole need : List.of(NpcRole.CROUPIER, NpcRole.LOAN_SHARK, NpcRole.BACCARAT_DEALER)) {
 					if (!roles.contains(need)) {
 						bad.add("NPC home missing: " + need);
