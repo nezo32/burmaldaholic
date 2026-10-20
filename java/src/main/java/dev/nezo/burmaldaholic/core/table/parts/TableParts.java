@@ -117,6 +117,25 @@ public final class TableParts {
 		return mainPos(pos, level.getBlockState(pos));
 	}
 
+	/**
+	 * Dealer spot of the table any block of which is at {@code pos} (main or part): the dealer cell
+	 * ({@link TableFootprint#dealerCell}) and the facing toward the table; a compact table's dealer stands directly
+	 * behind it. Null for blocks that are not multi-block tables (machines, cashiers, other blocks). Reads only the
+	 * block state at {@code pos}; check {@link #standable} before spawning or teleporting.
+	 */
+	public static @Nullable DealerSpot dealerSpot(BlockGetter level, BlockPos pos) {
+		BlockState state = level.getBlockState(pos);
+		MultiBlockTableBlock b = blockOf(state);
+		if (b == null || b.game() == null) {
+			return null;
+		}
+		Direction facing = facingOf(state);
+		BlockPos main = mainPos(pos, state);
+		boolean compact = partOf(state) == TablePart.SINGLE;
+		BlockPos cell = compact ? TableFootprint.cellPos(main, facing, 0, -1) : TableFootprint.dealerCell(main, facing, b.game());
+		return new DealerSpot(main, cell, TableFootprint.dealerFacing(facing), b.game(), compact);
+	}
+
 	/** World positions of every cell of the table whose main block is {@code main} (state = main's state). */
 	public static List<BlockPos> cellPositions(BlockPos main, BlockState mainState) {
 		MultiBlockTableBlock b = blockOf(mainState);

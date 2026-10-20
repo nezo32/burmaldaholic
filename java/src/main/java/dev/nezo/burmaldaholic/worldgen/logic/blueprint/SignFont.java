@@ -59,12 +59,16 @@ public enum SignFont {
 		Map.entry('9', new String[] {"###", "#.#", "###", "..#", "###"}),
 		Map.entry('!', new String[] {"#", "#", "#", ".", "#"}),
 		Map.entry(' ', new String[] {".", ".", ".", ".", "."}))),
-	/** 4 × 7 glyphs (I 1 wide, N / M / W 5 wide); covers the letters of the casino words, else falls back to SMALL. */
+	/**
+	 * 4 × 7 glyphs (A and C 3 wide, I 1 wide, N / M / W 5 wide; "CASINO" = 25 columns, odd, the 25 visible columns
+	 * between the Grand Casino's towers); covers the letters of the casino words, else falls back to SMALL. D has cut
+	 * corners so it never reads as O.
+	 */
 	LARGE(7, Map.ofEntries(
-		Map.entry('A', new String[] {".##.", "#..#", "#..#", "####", "#..#", "#..#", "#..#"}),
+		Map.entry('A', new String[] {".#.", "#.#", "#.#", "###", "#.#", "#.#", "#.#"}),
 		Map.entry('B', new String[] {"###.", "#..#", "#..#", "###.", "#..#", "#..#", "###."}),
-		Map.entry('C', new String[] {".###", "#...", "#...", "#...", "#...", "#...", ".###"}),
-		Map.entry('D', new String[] {"###.", "#..#", "#..#", "#..#", "#..#", "#..#", "###."}),
+		Map.entry('C', new String[] {".##", "#..", "#..", "#..", "#..", "#..", ".##"}),
+		Map.entry('D', new String[] {"##..", "#.#.", "#..#", "#..#", "#..#", "#.#.", "##.."}),
 		Map.entry('E', new String[] {"####", "#...", "#...", "###.", "#...", "#...", "####"}),
 		Map.entry('G', new String[] {".###", "#...", "#...", "#.##", "#..#", "#..#", ".###"}),
 		Map.entry('H', new String[] {"#..#", "#..#", "#..#", "####", "#..#", "#..#", "#..#"}),

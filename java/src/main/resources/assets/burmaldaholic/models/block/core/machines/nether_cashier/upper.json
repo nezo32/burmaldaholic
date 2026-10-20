@@ -7,11 +7,13 @@
     "wood": "burmaldaholic:block/core/tables/player_banked/wood",
     "trim": "minecraft:block/gilded_blackstone",
     "dark": "burmaldaholic:block/core/tables/player_banked/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs2",
+    "ppanel": "burmaldaholic:block/core/machines/plinko_side",
+    "safe": "burmaldaholic:block/core/machines/cashier_safe",
     "chrome": "burmaldaholic:block/core/machines/chrome",
     "panel": "burmaldaholic:block/core/machines/nether_cashier_panel",
-    "shelves": "burmaldaholic:block/core/machines/nether_cashier_shelves",
     "lamp": "burmaldaholic:block/core/machines/nether_cashier_lamp",
+    "shelves": "burmaldaholic:block/core/machines/cashier_wall",
     "marble": "minecraft:block/polished_blackstone",
     "glass": "minecraft:block/red_stained_glass",
     "grille": "burmaldaholic:block/core/machines/cashier_grille",
@@ -912,12 +914,12 @@
     {
       "from": [
         0,
-        13.25,
+        12.5,
         4.5
       ],
       "to": [
         16,
-        15.75,
+        16,
         5
       ],
       "light_emission": 12,
@@ -943,38 +945,176 @@
         "north": {
           "uv": [
             0,
-            0.25,
+            0,
             16,
-            2.75
+            16
           ],
           "texture": "#sign"
         },
         "south": {
           "uv": [
             0,
-            0.25,
+            0,
             16,
-            2.75
+            3.5
           ],
           "texture": "#sign"
         },
         "west": {
           "uv": [
             4.5,
-            0.25,
+            0,
             5,
-            2.75
+            3.5
           ],
           "texture": "#sign"
         },
         "east": {
           "uv": [
             11,
-            0.25,
+            0,
             11.5,
-            2.75
+            3.5
           ],
           "texture": "#sign"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        0,
+        9
+      ],
+      "to": [
+        12,
+        5,
+        13.5
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            4,
+            9,
+            12,
+            13.5
+          ],
+          "texture": "#dark"
+        },
+        "down": {
+          "uv": [
+            4,
+            9,
+            12,
+            13.5
+          ],
+          "texture": "#dark",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            4,
+            11,
+            12,
+            16
+          ],
+          "texture": "#dark"
+        },
+        "south": {
+          "uv": [
+            4,
+            11,
+            12,
+            16
+          ],
+          "texture": "#dark"
+        },
+        "west": {
+          "uv": [
+            9,
+            11,
+            13.5,
+            16
+          ],
+          "texture": "#dark"
+        },
+        "east": {
+          "uv": [
+            2.5,
+            11,
+            7,
+            16
+          ],
+          "texture": "#dark"
+        }
+      }
+    },
+    {
+      "from": [
+        4.5,
+        0,
+        8.75
+      ],
+      "to": [
+        11.5,
+        4.5,
+        9
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            4.5,
+            8.75,
+            11.5,
+            9
+          ],
+          "texture": "#safe"
+        },
+        "down": {
+          "uv": [
+            4.5,
+            8.75,
+            11.5,
+            9
+          ],
+          "texture": "#safe",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#safe"
+        },
+        "south": {
+          "uv": [
+            4.5,
+            11.5,
+            11.5,
+            16
+          ],
+          "texture": "#safe"
+        },
+        "west": {
+          "uv": [
+            8.75,
+            11.5,
+            9,
+            16
+          ],
+          "texture": "#safe"
+        },
+        "east": {
+          "uv": [
+            7,
+            11.5,
+            7.25,
+            16
+          ],
+          "texture": "#safe"
         }
       }
     }

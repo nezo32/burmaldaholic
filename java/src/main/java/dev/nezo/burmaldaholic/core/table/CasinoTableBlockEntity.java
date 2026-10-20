@@ -289,13 +289,17 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 * The generated-casino preset of this table (worldgen, §16), if any. While the table is being removed (chunk
 	 * unload, break, server stop) the last looked-up preset is returned without touching the world: the play-out
 	 * runs inside the chunk system's unload callback, where a block / block-entity lookup re-enters the distance
-	 * manager mid-update and crashes the server tick.
+	 * manager mid-update and crashes the server tick. Outside removal the lookup never loads a chunk (empty while the
+	 * table's chunk is not loaded or the block entity is removed).
 	 */
 	public Optional<TablePresetProvider.TablePreset> preset() {
 		if (removing) {
 			return lastPreset;
 		}
-		lastPreset = level instanceof ServerLevel serverLevel ? CoreServices.tablePresets().preset(serverLevel, worldPosition) : Optional.empty();
+		if (!(level instanceof ServerLevel serverLevel) || isRemoved() || !serverLevel.hasChunkAt(worldPosition)) {
+			return lastPreset;
+		}
+		lastPreset = CoreServices.tablePresets().preset(serverLevel, worldPosition);
 		return lastPreset;
 	}
 
@@ -687,6 +691,10 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		MinecraftServer server = level.getServer();
 		if (!mtChecked) {
 			mtChecked = true;
+			if (mtLegacy) {
+				// before the migration rewrites the save: house table (generated) or a player's (CB-G, coordinator D2)
+				dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().legacyTableLoaded(level, worldPosition, this);
+			}
 			if (dev.nezo.burmaldaholic.core.table.parts.TableParts.firstTick(level, this, mtLegacy)) {
 				mtLegacy = false;
 				setChanged();

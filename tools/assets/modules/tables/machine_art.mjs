@@ -256,20 +256,20 @@ export function boardBack() {
   return img;
 }
 
-/** Plinko crown marquee art (no words): a lit triangle of pegs over a falling ball between chevrons. */
+/**
+ * Plinko crown marquee (the model shows rows 0–7): gold rails with two rows of warm bulbs on a dark field and NO centre
+ * emblem — the Plinko renderer draws its title over the middle. Tiles per block, so it reads as one long bulb marquee.
+ */
 export function plinkoMarquee() {
   const img = image(16, 16);
   R(img, 0, 0, 16, 16, '#2A0E3A');
+  R(img, 0, 0, 16, 1, '#E8B830');
+  R(img, 0, 7, 16, 1, '#B88A18');
   for (let x = 0; x < 16; x += 2) {
-    P(img, x, 0, '#FFE07A');
-    P(img, x + 1, 15, '#FFE07A');
-  }
-  for (let row = 0; row < 4; row++) for (let i = 0; i <= row; i++) P(img, 8 - row + i * 2, 4 + row * 2, '#F4EEE0');
-  R(img, 7, 2, 2, 2, '#FF4A5A');
-  for (const x of [2, 13]) {
-    P(img, x, 6, '#FFD640');
-    P(img, x, 8, '#FFD640');
-    P(img, x, 10, '#FFD640');
+    R(img, x, 1, 1, 1, '#FFF4B0');
+    P(img, x + 1, 1, '#C88A20');
+    R(img, x + 1, 6, 1, 1, '#FFF4B0');
+    P(img, x, 6, '#C88A20');
   }
   return img;
 }

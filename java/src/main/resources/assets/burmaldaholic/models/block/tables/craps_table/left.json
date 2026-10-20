@@ -8,7 +8,8 @@
     "trim": "burmaldaholic:block/core/tables/standard/trim",
     "tray": "burmaldaholic:block/core/tables/standard/tray",
     "bowl": "burmaldaholic:block/core/tables/standard/bowl",
-    "placard": "burmaldaholic:block/core/tables/standard/placard",
+    "placard": "burmaldaholic:block/core/tables/placard_die",
+    "track": "burmaldaholic:block/core/tables/track",
     "tote": "burmaldaholic:block/core/tables/standard/tote"
   },
   "elements": [
@@ -159,7 +160,6 @@
         12.5,
         16
       ],
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -568,7 +568,6 @@
         12.5,
         1
       ],
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [

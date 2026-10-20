@@ -7,7 +7,9 @@
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
     "dark": "burmaldaholic:block/core/tables/high_roller/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs2",
+    "ppanel": "burmaldaholic:block/core/machines/plinko_side",
+    "safe": "burmaldaholic:block/core/machines/cashier_safe",
     "chrome": "burmaldaholic:block/core/machines/chrome",
     "cab": "burmaldaholic:block/core/machines/slot_copper_cab",
     "reels": "burmaldaholic:block/core/machines/slot_copper_reels",
@@ -20,21 +22,30 @@
   "elements": [
     {
       "from": [
-        0,
+        -0.5,
         0,
         7
       ],
       "to": [
-        0.75,
-        5,
+        0.5,
+        6,
         8
       ],
+      "rotation": {
+        "origin": [
+          0,
+          -1,
+          7.5
+        ],
+        "axis": "x",
+        "angle": 15
+      },
       "faces": {
         "up": {
           "uv": [
             0,
             7,
-            0.75,
+            0.5,
             8
           ],
           "texture": "#chrome"
@@ -43,7 +54,7 @@
           "uv": [
             0,
             7,
-            0.75,
+            0.5,
             8
           ],
           "texture": "#chrome",
@@ -51,8 +62,8 @@
         },
         "north": {
           "uv": [
-            15.25,
-            11,
+            15.5,
+            10,
             16,
             16
           ],
@@ -61,8 +72,8 @@
         "south": {
           "uv": [
             0,
-            11,
-            0.75,
+            10,
+            0.5,
             16
           ],
           "texture": "#chrome"
@@ -70,7 +81,7 @@
         "west": {
           "uv": [
             7,
-            11,
+            10,
             8,
             16
           ],
@@ -79,7 +90,7 @@
         "east": {
           "uv": [
             8,
-            11,
+            10,
             9,
             16
           ],
@@ -89,21 +100,30 @@
     },
     {
       "from": [
-        -0.75,
-        5,
+        -1,
+        6,
         6.5
       ],
       "to": [
-        1.25,
-        7,
+        1,
+        8,
         8.5
       ],
+      "rotation": {
+        "origin": [
+          0,
+          -1,
+          7.5
+        ],
+        "axis": "x",
+        "angle": 15
+      },
       "faces": {
         "up": {
           "uv": [
             0,
             6.5,
-            1.25,
+            1,
             8.5
           ],
           "texture": "#ball"
@@ -112,44 +132,44 @@
           "uv": [
             0,
             6.5,
-            1.25,
+            1,
             8.5
           ],
           "texture": "#ball"
         },
         "north": {
           "uv": [
-            14.75,
-            9,
+            15,
+            8,
             16,
-            11
+            10
           ],
           "texture": "#ball"
         },
         "south": {
           "uv": [
             0,
-            9,
-            1.25,
-            11
+            8,
+            1,
+            10
           ],
           "texture": "#ball"
         },
         "west": {
           "uv": [
             6.5,
-            9,
+            8,
             8.5,
-            11
+            10
           ],
           "texture": "#ball"
         },
         "east": {
           "uv": [
             7.5,
-            9,
+            8,
             9.5,
-            11
+            10
           ],
           "texture": "#ball"
         }
@@ -877,9 +897,9 @@
         "north": {
           "uv": [
             1.5,
-            0,
+            5,
             14.5,
-            3
+            10
           ],
           "texture": "#topper"
         },

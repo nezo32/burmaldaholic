@@ -7,7 +7,9 @@
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
     "dark": "burmaldaholic:block/core/tables/high_roller/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs2",
+    "ppanel": "burmaldaholic:block/core/machines/plinko_side",
+    "safe": "burmaldaholic:block/core/machines/cashier_safe",
     "chrome": "burmaldaholic:block/core/machines/chrome",
     "board": "burmaldaholic:block/core/machines/plinko_board_back",
     "marquee": "burmaldaholic:block/core/machines/plinko_marquee",
@@ -138,7 +140,7 @@
             16,
             15
           ],
-          "texture": "#wood"
+          "texture": "#ppanel"
         },
         "east": {
           "uv": [
@@ -147,7 +149,76 @@
             15,
             15
           ],
-          "texture": "#wood"
+          "texture": "#ppanel"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        2,
+        0.75
+      ],
+      "to": [
+        16,
+        6,
+        1
+      ],
+      "light_emission": 11,
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            0.75,
+            16,
+            1
+          ],
+          "texture": "#pbase"
+        },
+        "down": {
+          "uv": [
+            0,
+            0.75,
+            16,
+            1
+          ],
+          "texture": "#pbase"
+        },
+        "north": {
+          "uv": [
+            0,
+            10,
+            16,
+            14
+          ],
+          "texture": "#pbase"
+        },
+        "south": {
+          "uv": [
+            0,
+            10,
+            16,
+            14
+          ],
+          "texture": "#pbase"
+        },
+        "west": {
+          "uv": [
+            0.75,
+            10,
+            1,
+            14
+          ],
+          "texture": "#pbase"
+        },
+        "east": {
+          "uv": [
+            15,
+            10,
+            15.25,
+            14
+          ],
+          "texture": "#pbase"
         }
       }
     },

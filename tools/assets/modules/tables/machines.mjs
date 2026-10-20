@@ -6,8 +6,10 @@
 // Y∈[0,16]), Z toward the players (main block Z∈[0,16]); mapped per cell for facing=north (players on the north side).
 // Every machine is complete without its renderer (slot cabinets, wheel stand + rim, Plinko frame, cashier booth); the
 // renderers draw the moving parts (reels, wheel disc, Plinko board / balls). Lit parts use light_emission. Pure.
+import { controllerLoot } from './loot.mjs';
 import { JAVA_ASSETS, json, png } from '../../lib/emit.mjs';
 import * as A from './machine_art.mjs';
+import * as H from './art_hd.mjs';
 
 const M = `${JAVA_ASSETS}/models/block/core/machines`;
 const DATA = 'src/main/resources/data/burmaldaholic';
@@ -61,7 +63,9 @@ function textures(m) {
     wood: `${t}/wood`,
     trim: `${t}/trim`,
     dark: `${t}/rail`,
-    bulbs: `${MT}/bulbs`,
+    bulbs: `${MT}/bulbs2`,
+    ppanel: `${MT}/plinko_side`,
+    safe: `${MT}/cashier_safe`,
     chrome: `${MT}/chrome`,
   };
   if (m.kind === 'slot') {
@@ -73,7 +77,8 @@ function textures(m) {
   if (m.kind === 'cashier') {
     const nether = m.name === 'nether_cashier';
     const v = nether ? 'nether_' : '';
-    for (const k of ['panel', 'shelves', 'lamp']) out[k] = `${MT}/${v}cashier_${k}`;
+    for (const k of ['panel', 'lamp']) out[k] = `${MT}/${v}cashier_${k}`;
+    out.shelves = `${MT}/cashier_wall`;
     out.marble = nether ? 'minecraft:block/polished_blackstone' : 'minecraft:block/quartz_block_top';
     out.trim = nether ? 'minecraft:block/gilded_blackstone' : out.trim;
     out.glass = nether ? 'minecraft:block/red_stained_glass' : 'minecraft:block/white_stained_glass';
@@ -92,11 +97,13 @@ function textures(m) {
 
 /** Machine textures written by this module (16 × 16 each). */
 export function machineTextures() {
-  const list = [['bulbs', A.bulbs()], ['chrome', A.chrome()], ['lever_ball', A.ball()], ['cashier_grille', A.grille()],
-    ['cashier_sign', A.signRed()], ['plinko_board_back', A.boardBack()], ['plinko_marquee', A.plinkoMarquee()],
+  const list = [['bulbs', A.bulbs()], ['bulbs2', H.bulbs2()], ['plinko_side', H.cabinetSide(['#5A3A7A', '#3A1E50', '#2A1440'])],
+    ['cashier_wall', H.cashWallHd()], ['cashier_safe', H.safeHd()], ['chrome', A.chrome()], ['lever_ball', A.ball()], ['cashier_grille', A.grille()],
+    ['cashier_sign', H.cashierPlateHd()], ['plinko_board_back', A.boardBack()], ['plinko_marquee', A.plinkoMarquee()],
     ['plinko_base', A.plinkoBase()], ['red_leather', A.redLeather()]];
   for (const tier of Object.keys(A.SLOT_TIERS)) {
-    list.push([`slot_${tier}_cab`, A.slotSide(tier)], [`slot_${tier}_reels`, A.slotReels(tier)], [`slot_${tier}_topper`, A.slotTopper(tier)],
+    list.push([`slot_${tier}_cab`, A.slotSide(tier)], [`slot_${tier}_reels`, H.slotReelsHd(tier, A.SLOT_TIERS[tier].accent)],
+      [`slot_${tier}_topper`, H.slotTopperHd(tier, A.SLOT_TIERS[tier])],
       [`slot_${tier}_base`, A.slotBase(tier)], [`slot_${tier}_deck`, A.slotDeck(tier)], [`slot_${tier}_glow`, A.glow(tier)]);
   }
   const oak = ['#B07A44', '#9C6A3A', '#865A30', '#6E4826'];
@@ -129,9 +136,10 @@ export function machineGeometry(kind) {
     box('chrome', 3, 2, 14, 13, 3, 15.75);
     box('dark', 3.5, 2.75, 14.25, 12.5, 3.05, 15.5);
     box('cab', 1, 11, 14, 15, 12.5, 16.25, { upTex: 'deck', emit: 8 });
-    box('chrome', 15, 11, 7, 16, 14, 10);
-    box('chrome', 15.25, 14, 8, 16, 21, 9);
-    box('ball', 14.75, 21, 7.5, 16.75, 23, 9.5);
+    box('chrome', 15, 12, 7.5, 17, 15, 9.5);
+    const lever = { axis: 'x', angle: -15, origin: [16, 15, 8.5] };
+    box('chrome', 15.5, 15, 8, 16.5, 22, 9, { rot: lever });
+    box('ball', 15, 22, 7.5, 17, 24, 9.5, { rot: lever });
     // upper cabinet (the slot renderer's animated cabinet sits just outside when synced): body, chrome edges, lit
     // strips, reel window (aligned with the renderer's reels, y 19..28) behind a proud chrome bezel, lit topper
     box('cab', 1.1, 16, 2.1, 14.9, 29, 13.6);
@@ -139,12 +147,12 @@ export function machineGeometry(kind) {
     box('chrome', 14.4, 16, 13.6, 14.9, 29, 14.1);
     box('glow', 0.85, 16, 10.5, 1.1, 28, 13.5, { emit: 12 });
     box('glow', 14.9, 16, 10.5, 15.15, 28, 13.5, { emit: 12 });
-    box('reels', 2, 19, 13.6, 14, 28, 13.85, { emit: 9 });
+    box('reels', 2, 19, 13.6, 14, 28, 13.85, { emit: 9, frontUv: [2, 4, 14, 13] });
     box('chrome', 1.75, 18.25, 13.6, 14.25, 19, 14.35);
     box('chrome', 1.75, 28, 13.6, 14.25, 28.75, 14.35);
     box('chrome', 1.75, 19, 13.6, 2, 28, 14.35);
     box('chrome', 14, 19, 13.6, 14.25, 28, 14.35);
-    box('topper', 1.5, 29, 3, 14.5, 34, 13, { emit: 14 });
+    box('topper', 1.5, 29, 3, 14.5, 34, 13, { emit: 14, frontUv: [1.5, 5, 14.5, 10] });
     box('chrome', 1.75, 34, 3.5, 14.25, 34.5, 12.5);
   }
   if (kind === 'wheel') {
@@ -152,7 +160,7 @@ export function machineGeometry(kind) {
     // renderer's disc (Ø 2.625 at y 1.625, plane z 9), hub cap and a flapper mount at 12 o'clock
     box('dark', -14, 0, 3, 30, 3, 13);
     box('trim', -13.5, 3, 3.5, 29.5, 4, 12.5);
-    box('bulbs', -12, 1, 13, 28, 2.5, 13.5, { emit: 12 });
+    box('bulbs', -12, 1, 13, 28, 2.5, 13.5, { emit: 15 });
     const hub = { x: 8, y: 26 };
     for (const sx of [-1, 1]) {
       const fx = hub.x + sx * 8;
@@ -163,7 +171,7 @@ export function machineGeometry(kind) {
     }
     box('wood', 3, 12, 4, 13, 13.5, 6);
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-      for (const seg of ringZ(hub.x, hub.y, 22.5, 21, sx, sy, 7, 10.5, 'trim', { emit: 3 })) S.push(seg);
+      for (const seg of ringZ(hub.x, hub.y, 22.5, 21, sx, sy, 7, 10.5, 'bulbs', { emit: 15 })) S.push(seg);
     }
     box('trim', 6, 24, 10, 10, 28, 12);
     box('trim', 7, 46, 7, 9, 48, 11);
@@ -173,13 +181,16 @@ export function machineGeometry(kind) {
     // cabinet FRAMES the Plinko board (BoardFrame.of(PLINKO, MAIN): x −14..30, y 8..41, face z 15.5, drawn by the
     // Plinko renderer): base with coin slot + bin-tray lip, lit bulb pillars, crown marquee (sign art, lit)
     box('dark', -16, 0, 0, 32, 1, 16);
-    box('wood', -16, 1, 0, 32, 8, 15, { frontTex: 'pbase' });
+    box('wood', -16, 1, 0, 32, 8, 15, { frontTex: 'pbase', sideTex: 'ppanel' });
+    box('pbase', -14, 2, 15, 30, 6, 15.25, { emit: 11 }); // lit bin lights + coin plate (day and night)
     box('trim', -14, 7.5, 15, 30, 8.5, 16.5);
     box('board', -14, 8, 4, 30, 41, 15);
-    box('wood', -16, 8, 4, -14, 41, 16, { frontTex: 'bulbs', emit: 12 });
-    box('wood', 30, 8, 4, 32, 41, 16, { frontTex: 'bulbs', emit: 12 });
+    box('wood', -16, 8, 4, -14, 41, 16, { sideTex: 'ppanel' });
+    box('bulbs', -16, 8, 15.75, -14, 41, 16.25, { emit: 15 });
+    box('wood', 30, 8, 4, 32, 41, 16, { sideTex: 'ppanel' });
+    box('bulbs', 30, 8, 15.75, 32, 41, 16.25, { emit: 15 });
     box('trim', -14, 40.5, 15, 30, 41, 16);
-    box('dark', -16, 41, 4, 32, 47.5, 16, { frontTex: 'marquee', emit: 12 });
+    box('dark', -16, 41, 4, 32, 47.5, 16, { frontTex: 'marquee', sideTex: 'ppanel', emit: 15 });
     box('trim', -16, 47.5, 4, 32, 48, 16);
   }
   if (kind === 'cashier') {
@@ -209,7 +220,9 @@ export function machineGeometry(kind) {
     box('trim', 5, 28, 8.75, 11, 29, 9.75);
     for (const x of [-16, 0.5, 15, 31]) box('trim', x, 15, 8.5, x + 1, 29, 10);
     box('dark', -16, 29, 0, 32, 32, 11);
-    box('sign', -6, 29.25, 11, 22, 31.75, 11.5, { emit: 12 });
+    box('sign', -6, 28.5, 11, 22, 32, 11.5, { emit: 12, frontUv: [0, 0, 16, 16] });
+    box('dark', 4, 15, 2.5, 12, 21, 7);
+    box('safe', 4.5, 15.5, 7, 11.5, 20.5, 7.25, { frontUv: [0, 0, 16, 16] });
   }
   return { boxes: B, segs: S };
 }
@@ -281,13 +294,22 @@ function element(b, r, u) {
   };
   if (b.frontTex) faces.north = { ...faces.north, texture: `#${b.frontTex}` };
   if (b.upTex) faces.up = { ...faces.up, texture: `#${b.upTex}` };
+  if (b.frontUv) faces.north = { ...faces.north, uv: b.frontUv };
+  if (b.sideTex) {
+    faces.east = { ...faces.east, texture: `#${b.sideTex}` };
+    faces.west = { ...faces.west, texture: `#${b.sideTex}` };
+  }
   if (b.front) {
     const f = b.front;
     const U = (x) => ((x - f.X0) / (f.X1 - f.X0)) * 16;
     const V = (y) => ((f.Y1 - y) / (f.Y1 - f.Y0)) * 16;
     faces.north = { uv: [r2(U(b.x0)), r2(V(b.y1)), r2(U(b.x1)), r2(V(b.y0))], texture: `#${f.tex}` };
   }
-  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), ...(b.emit ? { light_emission: b.emit } : {}), faces };
+  // a local rotation (axis x or z) flips sign under the north mapping's 180° turn about Y; the origin maps like a point
+  const rotation = b.rot
+    ? { origin: [r2(16 - (b.rot.origin[0] - 16 * r)), r2(b.rot.origin[1] - 16 * u), r2(16 - b.rot.origin[2])], axis: b.rot.axis, angle: -b.rot.angle }
+    : undefined;
+  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), ...(rotation ? { rotation } : {}), ...(b.emit ? { light_emission: b.emit } : {}), faces };
 }
 
 /**
@@ -352,24 +374,7 @@ export function machineBlockstate(m) {
 }
 
 export function machineLoot(m) {
-  const id = `burmaldaholic:${m.name}`;
-  return {
-    type: 'minecraft:block',
-    pools: [
-      {
-        rolls: 1.0,
-        conditions: [
-          { condition: 'minecraft:survives_explosion' },
-          {
-            condition: 'minecraft:any_of',
-            terms: ['main', 'single'].map((part) => ({ condition: 'minecraft:block_state_property', block: id, properties: { part } })),
-          },
-        ],
-        entries: [{ type: 'minecraft:item', name: id }],
-      },
-    ],
-    random_sequence: `burmaldaholic:blocks/${m.name}`,
-  };
+  return controllerLoot(m.name);
 }
 
 export function machineOutputs() {

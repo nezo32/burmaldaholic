@@ -33,18 +33,32 @@ public final class TableFrames {
 	 * bowl instead and keeps the scale (the bowl is one block wide).
 	 */
 	public static void toFullFelt(PoseStack pose, TablePart part, @Nullable TableGame game, Direction facing, float legacyTop, boolean atWheel) {
-		if (!full(part, game)) {
+		if (!full(part, game) || facing.getAxis().isVertical()) {
 			return;
 		}
-		FeltFrame f = FeltFrame.of(game, part);
-		double lx = atWheel && f.hasWheel() ? f.wheelCx() : f.cx();
-		double lz = atWheel && f.hasWheel() ? f.wheelCz() : f.cz();
-		double[] w = TableFootprint.toWorld(lx, lz, facing.getStepX(), facing.getStepZ());
-		float s = atWheel ? 1f : FULL_SCALE;
-		float top = (float) (atWheel ? f.top() : f.top() + FeltFrame.CONTENT_LIFT);
-		pose.translate((float) w[0], top, (float) w[1]);
-		pose.scale(s, s, s);
+		float[] t = feltTransform(game, part, facing, atWheel);
+		pose.translate(t[0], t[1], t[2]);
+		pose.scale(t[3], t[3], t[3]);
 		pose.translate(-0.5f, -legacyTop, -0.5f);
+	}
+
+	/** Cached per game × part × facing × wheel: {tx, top, tz, scale} (frames are constants; no per-frame records). */
+	private static final float[][][][][] FELT = new float[TableGame.values().length][TablePart.values().length][4][2][];
+
+	private static float[] feltTransform(TableGame game, TablePart part, Direction facing, boolean atWheel) {
+		float[][] slot = FELT[game.ordinal()][part.ordinal()][facing.get2DDataValue()];
+		int w = atWheel ? 1 : 0;
+		float[] t = slot[w];
+		if (t == null) {
+			FeltFrame f = FeltFrame.of(game, part);
+			double lx = atWheel && f.hasWheel() ? f.wheelCx() : f.cx();
+			double lz = atWheel && f.hasWheel() ? f.wheelCz() : f.cz();
+			double[] at = TableFootprint.toWorld(lx, lz, facing.getStepX(), facing.getStepZ());
+			float top = (float) (atWheel ? f.top() : f.top() + FeltFrame.CONTENT_LIFT);
+			t = new float[] {(float) at[0], top, (float) at[1], atWheel ? 1f : FULL_SCALE};
+			slot[w] = t;
+		}
+		return t;
 	}
 
 	/**
@@ -53,16 +67,29 @@ public final class TableFrames {
 	 * {@link BoardFrame#scaleCompactToFull}. Compact machines and slots (s = 1, same centre) are untouched.
 	 */
 	public static void toFullFace(PoseStack pose, TablePart part, @Nullable MachineKind kind, Direction facing) {
-		if (kind == null || !part.isMultiBlock()) {
+		if (kind == null || !part.isMultiBlock() || facing.getAxis().isVertical()) {
 			return;
 		}
-		BoardFrame c = BoardFrame.of(kind, TablePart.SINGLE);
-		BoardFrame f = BoardFrame.of(kind, TablePart.MAIN);
-		float s = (float) BoardFrame.scaleCompactToFull(kind);
-		double[] cw = TableFootprint.toWorld(c.cx(), c.faceZ(), facing.getStepX(), facing.getStepZ());
-		double[] fw = TableFootprint.toWorld(f.cx(), f.faceZ(), facing.getStepX(), facing.getStepZ());
-		pose.translate((float) fw[0], (float) f.cy(), (float) fw[1]);
-		pose.scale(s, s, s);
-		pose.translate((float) -cw[0], (float) -c.cy(), (float) -cw[1]);
+		float[] t = faceTransform(kind, facing);
+		pose.translate(t[0], t[1], t[2]);
+		pose.scale(t[3], t[3], t[3]);
+		pose.translate(t[4], t[5], t[6]);
+	}
+
+	/** Cached per machine kind × facing: {full x, y, z, scale, −compact x, y, z}. */
+	private static final float[][][] FACE = new float[MachineKind.values().length][4][];
+
+	private static float[] faceTransform(MachineKind kind, Direction facing) {
+		float[] t = FACE[kind.ordinal()][facing.get2DDataValue()];
+		if (t == null) {
+			BoardFrame c = BoardFrame.of(kind, TablePart.SINGLE);
+			BoardFrame f = BoardFrame.of(kind, TablePart.MAIN);
+			float s = (float) BoardFrame.scaleCompactToFull(kind);
+			double[] cw = TableFootprint.toWorld(c.cx(), c.faceZ(), facing.getStepX(), facing.getStepZ());
+			double[] fw = TableFootprint.toWorld(f.cx(), f.faceZ(), facing.getStepX(), facing.getStepZ());
+			t = new float[] {(float) fw[0], (float) f.cy(), (float) fw[1], s, (float) -cw[0], (float) -c.cy(), (float) -cw[1]};
+			FACE[kind.ordinal()][facing.get2DDataValue()] = t;
+		}
+		return t;
 	}
 }
