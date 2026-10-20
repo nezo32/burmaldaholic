@@ -17,12 +17,12 @@ import org.joml.Quaternionf;
  *
  * <p>The caller's pose is the TRAY origin on the playing surface with tray x along model X and tray y along model Z
  * (apply the block's FACING rotation first); {@code blocksPerU} converts tray units (die half-edges) to blocks. The
- * cube uses the generated {@code entity/core/dice_world} texture (faces 1–6 as 16 × 16 cells with the atlas pips), whose
+ * cube uses the generated {@code entity/core/dice_world} texture (faces 1–6 as 32 × 32 with gutters, the atlas pips and a rounded bevel), whose
  * model labels are the
  * canonical {@code CubeGroup} labels (1 up, 2 north, 5 south, 3 east, 4 west). Render thread only.
  */
 public final class DiceWorldDraw {
-	/** Dice texture (generated, dicekit): 64 × 32, face k as a 16-px cell at (16·((k − 1) mod 4), 16·⌊(k − 1)/4⌋). */
+	/** Dice texture (generated, dicekit): 136 × 68, face k as 32 × 32 at (34·((k − 1) mod 4) + 1, 34·⌊(k − 1)/4⌋ + 1), 1-px gutters. */
 	public static final Identifier DIE_TEXTURE = Burmaldaholic.id("textures/entity/core/dice_world.png");
 	/** Blob shadow texture (the 32-px die shadow, INK, alpha at runtime). */
 	public static final Identifier SHADOW_TEXTURE = Burmaldaholic.id("textures/gui/sprites/tables/core/dice/shadow_32_0.png");
@@ -34,7 +34,7 @@ public final class DiceWorldDraw {
 
 	/** {u, v, size} of label k on {@link #DIE_TEXTURE}. */
 	private static int[] cell(int k) {
-		return new int[] {16 * ((k - 1) % 4), 16 * ((k - 1) / 4), 16};
+		return new int[] {34 * ((k - 1) % 4) + 1, 34 * ((k - 1) / 4) + 1, 32};
 	}
 
 	/** WorldQuads.cube face order: top, bottom, north (−Z), south (+Z), east (+X), west (−X) = labels 1, 6, 2, 5, 3, 4. */
@@ -51,7 +51,7 @@ public final class DiceWorldDraw {
 		pose.pushPose();
 		pose.translate(s.x * h, surfaceY + s.zc * h, s.y * h);
 		pose.rotateAround(ROT, 0f, 0f, 0f);
-		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEXTURE), (p, vc) -> WorldQuads.cube(p, vc, h, UV, 64, 32, light));
+		out.submitCustomGeometry(pose, RenderTypes.entityCutout(DIE_TEXTURE), (p, vc) -> WorldQuads.cube(p, vc, h, UV, 136, 68, light));
 		pose.popPose();
 	}
 

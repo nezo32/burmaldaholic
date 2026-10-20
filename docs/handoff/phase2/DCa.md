@@ -134,3 +134,17 @@ compileGametestJava` + `test --tests '*core.anim.dice*' '*RawInputGuardTest' '*P
 '*CoreAnimVectorsTest'` on 26.2 and the dice + guard tests on `-Pmc=26.3`: BUILD SUCCESSFUL, 0 failures. DK client run on
 26.3 (with p2/mk @3bbdbbab merged): all probes pass; shots `after/0000…0002` (427/480/960) and
 `after/0003_p2b_dca_dice_world_en_960.png` (+ `world_zoom.png`).
+
+### R3 world-texture nits (coordinator review of @4da2b48)
+Fixed in the generator only (`tools/assets/modules/tables/dice.mjs` `diceWorldTexture`):
+- '+'-shaped pips: faces are now 32 px (28-px pip area inside a 2-px rounded bevel), so the atlas pips are 6-px discs
+  (corners cut, inner-shadow arc) and the red 1 is a 10-px disc — the same pip code as the screen dice.
+- Stray glyph on a side face: faces sit in 34-px cells with a 1-px gutter that repeats the face edge (no texel of a
+  neighbouring face can be sampled at the cube edges); texture 136 × 68, cells 7–8 fully transparent.
+  `DiceWorldDraw.cell/texture size` updated to match (u = 34·((k−1) mod 4)+1, v = 34·⌊(k−1)/4⌋+1, 32).
+- New pixel check `dice-atlas.test.mjs` "in-world die texture": decodes the PNG; per face asserts only bone/pip colours
+  inside the bevel, exactly k 8-connected pip components (no stray texel), each pip a square-bounded disc ≥ 6 px with
+  cut corners, 78–93 % fill, single-run symmetric convex rows/columns (rejects '+' and squares), one pip size per face,
+  gutters = edge, unused cells transparent, committed PNG == generator output. Mutation-tested: '+' pips and a single
+  stray texel both fail it.
+Not re-run: client run (no screenshots per owner rule; texture change is UV-only on the Java side).
