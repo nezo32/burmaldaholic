@@ -659,7 +659,7 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.reason.nothing_to_clear` | No bets to clear | Нет ставок |
 | `gui.burmaldaholic.core.v2.reason.no_rebet` | No previous bet | Нет прошлой ставки |
 | `gui.burmaldaholic.core.v2.reason.cannot_double` | You can't double now | Удвоить сейчас нельзя |
-| `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место или нажмите Пробел |
+| `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место (Пробел) |
 | `gui.burmaldaholic.core.v2.status.click_layout` | Click the layout to bet | Кликните поле |
 | `gui.burmaldaholic.core.v2.status.chips_add` | Chips add to your bet | Фишки → ставка |
 | `gui.burmaldaholic.core.v2.status.next_round_in` | Next round in %1$s s | Новый раунд через %1$s с |
