@@ -137,8 +137,12 @@ public class HouseDealerGameTests {
 		List<long[]> forced = new ArrayList<>();
 		for (int x = cx - 1; x <= cx + span; x++) {
 			for (int z = cz - 1; z <= cz + span; z++) {
-				level.setChunkForced(x, z, true);
-				forced.add(new long[] {x, z});
+				// only chunks nobody forces yet: the GameTest framework forces the test areas, and un-forcing one of
+				// those later would freeze every test standing in it
+				if (!level.getForceLoadedChunks().contains(net.minecraft.world.level.ChunkPos.pack(x, z))) {
+					level.setChunkForced(x, z, true);
+					forced.add(new long[] {x, z});
+				}
 			}
 		}
 		return forced;
