@@ -47,6 +47,7 @@
 			"dev.nezo.burmaldaholic.gametest.v2.board.BoardGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.blackjack.BlackjackV2GameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.blackjack.BlackjackShoeGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.blackjack.A2TesterGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.baccarat.BaccaratV2GameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.poker.PokerV2GameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.uth.UthV2GameTests",
