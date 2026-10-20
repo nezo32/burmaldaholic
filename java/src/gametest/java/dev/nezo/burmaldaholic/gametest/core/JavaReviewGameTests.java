@@ -215,11 +215,10 @@ public class JavaReviewGameTests {
 			p.getInventory().add(new ItemStack(Chips.item(100), 2));
 			helper.assertTrue(cashier.depositAll(p) == 100, "one 100 chip fits");
 			helper.assertTrue(balance(p) == max - 50 && p.getInventory().countItem(Chips.item(100)) == 1, "the other stays in the inventory");
-			int rate = CashierBlockEntity.emeraldBuyRate(p);
+			int rate = CasinoConfig.economy().exchange.get("emerald").toChips;
 			p.getInventory().add(new ItemStack(Items.EMERALD, 64));
-			CompoundTag buy = new CompoundTag();
-			buy.putInt("count", 64);
-			cashier.onAction(p, "buy", buy);
+			dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.resetCooldown(p);
+			cashier.exchange(p, "emerald", false, 0, true);
 			long bought = 50 / rate;
 			helper.assertTrue(p.getInventory().countItem(Items.EMERALD) == 64 - bought, "only " + bought + " emeralds taken");
 			helper.assertTrue(balance(p) == max - 50 + bought * rate, "nothing lost to the cap");

@@ -60,4 +60,152 @@ public final class CounterLayout {
 		Box result = new Box(body.x() + PAD, body.bottom() - 12, body.w() - 2 * PAD, 10);
 		return new Shell(p, top, List.copyOf(tabs), readout, close, body, result);
 	}
+
+	// ---- Exchange tab ----------------------------------------------------------------------------------------------
+
+	public static final int ROW_H = 22, BTN_H = 16, RATE_W = 16, X1_W = 16, X64_W = 22, ALL_W = 30, GAP = 1, ICON = 16;
+	/** One direction group: rate label + ×1 + ×64 + All/Max. */
+	public static final int GROUP_W = RATE_W + X1_W + X64_W + ALL_W + 3 * GAP;
+
+	/**
+	 * Exchange tab: {@code money} = deposit / withdraw block, {@code rows} = the row column. Wide: money left
+	 * (x 8–232), rows right (x 240–472). Narrow: money on top, rows below, both full width.
+	 */
+	public record Exchange(Box money, Box rows, boolean stacked) {}
+
+	public static final int MONEY_H = 90;
+
+	public static Exchange exchange(Box body, int rowCount) {
+		int inner = body.h() - 14; // leave the result line
+		if (body.w() >= DESIGN_W) {
+			Box money = new Box(body.x() + PAD, body.y() + 4, 224, Math.min(MONEY_H, inner - 4));
+			Box rows = new Box(body.x() + 240, body.y() + 4, body.w() - 240 - PAD, Math.min(rowCount * ROW_H, inner - 4));
+			return new Exchange(money, rows, false);
+		}
+		Box money = new Box(body.x() + PAD, body.y() + 4, body.w() - 2 * PAD, MONEY_H);
+		Box rows = new Box(body.x() + PAD, money.bottom() + 4, body.w() - 2 * PAD, Math.min(rowCount * ROW_H, Math.max(0, body.bottom() - 14 - money.bottom() - 4)));
+		return new Exchange(money, rows, true);
+	}
+
+	/** Rows that fit in {@code rows} (the rest scrolls). */
+	public static int visibleRows(Exchange e) {
+		return Math.max(0, e.rows().h() / ROW_H);
+	}
+
+	/** Boxes of one exchange row: icon, "You have N", then the in group (→ chips) and the out group (← item). */
+	public record RowBoxes(Box icon, Box have, Box inRate, Box in1, Box in64, Box inAll, Box outRate, Box out1, Box out64, Box outMax) {
+		public List<Box> all() {
+			return List.of(icon, have, inRate, in1, in64, inAll, outRate, out1, out64, outMax);
+		}
+	}
+
+	public static RowBoxes row(Box row) {
+		int by = row.y() + (ROW_H - BTN_H) / 2;
+		int outX = row.right() - GROUP_W;
+		int inX = outX - 4 - GROUP_W;
+		Box icon = new Box(row.x() + 2, row.y() + (ROW_H - ICON) / 2, ICON, ICON);
+		Box have = new Box(icon.right() + 3, row.y(), Math.max(0, inX - 3 - icon.right() - 3), ROW_H);
+		Box[] in = group(inX, by);
+		Box[] out = group(outX, by);
+		return new RowBoxes(icon, have, in[0], in[1], in[2], in[3], out[0], out[1], out[2], out[3]);
+	}
+
+	private static Box[] group(int x, int y) {
+		Box rate = new Box(x, y, RATE_W, BTN_H);
+		Box b1 = new Box(rate.right() + GAP, y, X1_W, BTN_H);
+		Box b64 = new Box(b1.right() + GAP, y, X64_W, BTN_H);
+		Box all = new Box(b64.right() + GAP, y, ALL_W, BTN_H);
+		return new Box[] {rate, b1, b64, all};
+	}
+
+	/** The deposit / withdraw block: deposit buttons, amount line, chip "+" buttons + Max, Clear + Withdraw, withdrawable line. */
+	public record Money(Box depositAll, Box depositHeld, Box amount, List<Box> chips, Box max, Box clear, Box withdraw, Box info) {}
+
+	public static Money money(Box m, int chipCount) {
+		int half = (m.w() - 4) / 2;
+		Box depAll = new Box(m.x(), m.y(), half, 18);
+		Box depHeld = new Box(m.x() + half + 4, m.y(), m.w() - half - 4, 18);
+		Box amount = new Box(m.x(), m.y() + 22, m.w(), 12);
+		int maxW = 30;
+		int n = Math.max(0, chipCount);
+		int cw = n == 0 ? 0 : Math.min(32, (m.w() - maxW - 2 * n) / n);
+		List<Box> chips = new ArrayList<>();
+		int x = m.x();
+		for (int i = 0; i < n; i++) {
+			chips.add(new Box(x, m.y() + 36, cw, 16));
+			x += cw + 2;
+		}
+		Box max = new Box(x, m.y() + 36, Math.max(0, m.right() - x), 16);
+		Box clear = new Box(m.x(), m.y() + 56, 50, 18);
+		Box withdraw = new Box(m.x() + 54, m.y() + 56, m.w() - 54, 18);
+		Box info = new Box(m.x(), m.y() + 78, m.w(), 10);
+		return new Money(depAll, depHeld, amount, List.copyOf(chips), max, clear, withdraw, info);
+	}
+
+	// ---- Store tab -------------------------------------------------------------------------------------------------
+
+	public static final int TILE = 36, TILE_GAP = 3, RAIL_W = 80, CAT_H = 15, SEARCH_H = 14, STRIP_H = 40;
+
+	/**
+	 * Store tab: category rail (search on top), the tile grid, and the detail panel (wide: right column x 338–472;
+	 * narrow: a 40 px strip under the grid). {@code cols × rows} tiles are visible; more scroll.
+	 */
+	public record Store(Box rail, Box search, List<Box> categories, Box grid, int cols, int rows, Box detail, boolean strip) {
+		public Box tile(int visibleIndex) {
+			int c = visibleIndex % cols;
+			int r = visibleIndex / cols;
+			return new Box(grid.x() + c * (TILE + TILE_GAP), grid.y() + r * (TILE + TILE_GAP), TILE, TILE);
+		}
+	}
+
+	public static Store store(Box body, int categoryCount) {
+		boolean narrow = body.w() < DESIGN_W;
+		int bottom = body.bottom() - 14;
+		Box rail = new Box(body.x() + PAD, body.y() + 4, RAIL_W, bottom - body.y() - 4 - (narrow ? STRIP_H + 4 : 0));
+		Box search = new Box(rail.x(), rail.y(), rail.w(), SEARCH_H);
+		List<Box> cats = new ArrayList<>();
+		for (int i = 0; i < categoryCount; i++) {
+			Box b = new Box(rail.x(), search.bottom() + 3 + i * (CAT_H + 1), rail.w(), CAT_H);
+			if (b.bottom() <= rail.bottom()) cats.add(b);
+		}
+		int cols = narrow ? 4 : 6;
+		int gridX = rail.right() + PAD;
+		int gridH = rail.h();
+		int rows = Math.max(1, Math.min(4, (gridH + TILE_GAP) / (TILE + TILE_GAP)));
+		Box grid = new Box(gridX, rail.y(), cols * TILE + (cols - 1) * TILE_GAP, rows * TILE + (rows - 1) * TILE_GAP);
+		Box detail = narrow ? new Box(body.x() + PAD, bottom - STRIP_H, body.w() - 2 * PAD, STRIP_H)
+			: new Box(body.x() + 338, rail.y(), body.right() - PAD - (body.x() + 338), rail.h());
+		return new Store(rail, search, List.copyOf(cats), grid, cols, rows, detail, narrow);
+	}
+
+	/** The detail panel / strip: name, price + limit lines, qty buttons (×1 ×16 ×64 Max), total, Buy. */
+	public record Detail(Box icon, Box name, Box line2, Box line3, List<Box> qty, Box total, Box buy) {}
+
+	public static Detail detail(Store s) {
+		Box d = s.detail();
+		if (!s.strip()) {
+			Box icon = new Box(d.x() + 4, d.y() + 4, ICON, ICON);
+			Box name = new Box(icon.right() + 4, d.y() + 4, d.right() - 4 - icon.right() - 4, 10);
+			Box l2 = new Box(icon.right() + 4, d.y() + 15, name.w(), 10);
+			Box l3 = new Box(d.x() + 4, d.y() + 28, d.w() - 8, 10);
+			int qw = (d.w() - 8 - 3 * 2) / 4;
+			List<Box> q = new ArrayList<>();
+			for (int i = 0; i < 4; i++) q.add(new Box(d.x() + 4 + i * (qw + 2), d.y() + 42, qw, BTN_H));
+			Box total = new Box(d.x() + 4, d.y() + 62, d.w() - 8, 10);
+			Box buy = new Box(d.x() + 4, d.y() + 76, d.w() - 8, 20);
+			return new Detail(icon, name, l2, l3, List.copyOf(q), total, buy);
+		}
+		Box icon = new Box(d.x() + 2, d.y() + (d.h() - ICON) / 2, ICON, ICON);
+		int buyW = 56;
+		int qw = 28;
+		int qx = d.right() - buyW - 4 - 4 * qw - 3 * 2;
+		Box buy = new Box(d.right() - buyW, d.y() + 10, buyW, 20);
+		List<Box> q = new ArrayList<>();
+		for (int i = 0; i < 4; i++) q.add(new Box(qx + i * (qw + 2), d.y() + 12, qw, BTN_H));
+		int tw = Math.max(0, qx - 4 - icon.right() - 4);
+		Box name = new Box(icon.right() + 4, d.y() + 4, tw, 10);
+		Box l2 = new Box(icon.right() + 4, d.y() + 15, tw, 10);
+		Box total = new Box(icon.right() + 4, d.y() + 26, tw, 10);
+		return new Detail(icon, name, l2, Box.EMPTY, List.copyOf(q), total, buy);
+	}
 }

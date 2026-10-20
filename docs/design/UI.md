@@ -98,17 +98,30 @@ Java: tabbed screen 256 × 200; Bedrock: ActionForm hub.
 
 ---
 
-## 3. Cashier
+## 3. Cashier — the counter screen (v0.2.0, EC-1)
 
-Java layout (256 × 180):
+One v2 shell (`client.cashier.CounterShell`, pure layout `core.cashier.counter.CounterLayout`, 480 × 270 design in
+the stepped `Viewport`) for the cashier block (tabs Exchange / Store / Comps) and the casino merchant (Store / Comps):
 ```
-[ Cashier ]                                     [Balance ⛁ 12 500]
- Deposit:  [Deposit all chips]  [Deposit held stack]
- Withdraw: [ amount field ][500][100][25][5][1][Max]  [Withdraw]
-           "Withdrawable: 11 900 (loan 600)"
- Exchange: [Buy 8 chips for 1 emerald]  [×10]   [Sell 10 chips for 1 emerald] [×10]
- Tabs: [Cashier] [Contracts] [Shop]  (Shop: scratch cards, lucky coin)
+[Exchange][Store][Comps]        Balance 12 500 · Withdrawable 11 900   [×]
+ ┌ deposit / withdraw (x 8–232) ┐  ┌ rows, 22 px each (x 240–472) ─────────────────────┐
+ [Deposit all chips][Deposit held]  [◆] You have 30   →9 [×1][×64][All]  ←10 [×1][×64][Max]
+ To withdraw: 250                   [◆] You have 0    →40 [×1][×64][All] ←55 [×1][×64][Max]
+ [+1][+5][+25][+100][+500][Max]
+ [Clear][Withdraw]
+ Withdrawable: 11 900 (loan 600)
+ result line (green = done, red = refused)
 ```
+- Narrow GUIs (< 480 wide): the deposit block sits above the rows, both full width.
+- Shift+click on any quantity button = ×64. Keys: 1 / 2 / 3 tabs, ↑ / ↓ row, ← / → direction (in / out), Enter ×1,
+  Shift+Enter ×64, Ctrl+Enter All / Max, A deposit all, Esc close.
+
+## 3a. Store tab
+
+Category rail (search on top, x 8–88), a 6 × 4 grid of 36 px tiles (x 96–330; price, lock badge, "n/day" badge) and
+the detail panel (x 338–472: item, price, limit, ×1 ×16 ×64 Max, total, Buy). Below 480 wide: 4 columns and the
+detail panel as a 40 px strip under the grid. Max over 5 000 chips: the Buy button reads "Confirm N?" for 3 s.
+Keys: arrows move the selection, Enter ×1, Shift+Enter ×64, Ctrl+Enter Max, / search.
 
 ---
 

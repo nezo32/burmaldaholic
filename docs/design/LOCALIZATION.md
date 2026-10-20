@@ -166,6 +166,9 @@ casino/poker-room form** (what players hear in Russian poker rooms and streams),
 |----|----|-------|
 | Chip / chips | фишка / фишки | «фишек» (gen. pl.) |
 | Balance | баланс | «Баланс: 12 500» |
+| Exchange (cashier tab) | обмен | |
+| Store (chip store) | магазин | «Магазин казино»; the merchant NPC = «торговец казино» |
+| Withdrawable | к снятию | |
 | Bet / stake (noun) | ставка | |
 | to bet | ставить / поставить | |
 | Wager (lifetime) | оборот ставок | "wagered" → «поставлено» |

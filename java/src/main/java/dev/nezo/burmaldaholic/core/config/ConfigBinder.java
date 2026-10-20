@@ -71,6 +71,9 @@ public final class ConfigBinder {
 	}
 
 	private void bindObject(Object target, JsonObject json, String path, List<ConfigIssue> issues) {
+		if (target instanceof Migrates m) {
+			m.migrate(json);
+		}
 		Set<String> known = new HashSet<>();
 		for (Field f : fields(target.getClass())) {
 			known.add(keyOf(f));

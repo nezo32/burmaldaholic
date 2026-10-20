@@ -138,8 +138,15 @@ public class CounterSceneScreen extends CasinoScreen implements CounterShell.Hos
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (!event.isEscape() && shell.key(event.key(), event.modifiers())) return true;
+		if (event.isEscape()) shell.trackKey(event.key(), true);
+		else if (shell.key(event.key(), event.modifiers())) return true;
 		return super.keyPressed(event);
+	}
+
+	@Override
+	public boolean keyReleased(KeyEvent event) {
+		shell.trackKey(event.key(), false);
+		return super.keyReleased(event);
 	}
 
 	@Override
