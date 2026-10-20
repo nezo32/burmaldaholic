@@ -116,17 +116,17 @@ public class PvpHistoryGameTests {
 		long[] firstClosed = {-1};
 		helper.succeedWhen(() -> {
 			play(a, b);
-			helper.assertTrue(first.state() == MatchState.SETTLED, "first duel settled: " + first.state());
 			if (second[0] == null) {
+				helper.assertTrue(first.state() == MatchState.SETTLED, "first duel settled: " + first.state());
 				// right after the first result (still in its rematch window): the next duel
 				a.closeScreen();
 				b.closeScreen();
 				second[0] = duel(helper, a, b);
 				helper.assertTrue(second[0] != first, "a new match");
 			}
-			helper.assertTrue(second[0].state() == MatchState.SETTLED && "result".equals(a.screen) && "result".equals(b.screen),
-				"second duel settled, result window open: a=" + a + " b=" + b);
 			if (mark[0] < 0) {
+				helper.assertTrue(second[0].state() == MatchState.SETTLED && "result".equals(a.screen) && "result".equals(b.screen),
+					"second duel settled, result window open: a=" + a + " b=" + b);
 				// both players close the result window
 				a.closeScreen();
 				b.closeScreen();
@@ -160,8 +160,8 @@ public class PvpHistoryGameTests {
 		int[] mark = {-1, -1};
 		helper.succeedWhen(() -> {
 			play(a, b);
-			helper.assertTrue(duel.state() == MatchState.SETTLED && "result".equals(a.screen), "duel settled, result open: " + a);
 			if (c[0] == null) {
+				helper.assertTrue(duel.state() == MatchState.SETTLED && "result".equals(a.screen), "duel settled, result open: " + a);
 				a.closeScreen();
 				b.closeScreen();
 				mark[0] = a.inbox.size();
