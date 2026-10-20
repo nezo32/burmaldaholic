@@ -99,6 +99,20 @@ public final class PokerFlow {
 
 	/** The action row, left to right (the primary is not part of it). */
 	public static List<Gate> actions(PokerView v) {
+		return actions(v, false);
+	}
+
+	/** Whether the Dock offers the stake levels to pick (the widest action row of the table). */
+	public static boolean pickingStakes(PokerView v) {
+		return v.enabled() && v.seat() == PokerView.Seat.NONE && v.level() == null;
+	}
+
+	/**
+	 * The action row; {@code shortStakes}: the stake buttons say only the level ("Micro"), for a Dock too narrow for
+	 * "Micro (1/2)" × 4 (T-K2 D4: at 427 × 240 RU the row ran off the left edge). The screen lays out the full labels
+	 * first and falls back to the short ones when the Dock reports an overflow.
+	 */
+	public static List<Gate> actions(PokerView v, boolean shortStakes) {
 		List<Gate> out = new ArrayList<>();
 		if (!v.enabled()) return out;
 		switch (v.seat()) {
@@ -107,10 +121,11 @@ public final class PokerFlow {
 				if (v.level() == null) {
 					for (PokerView.Level l : v.levels()) {
 						Object[] args = {l.sb(), l.bb()};
-						if (!l.vipOk()) out.add(new Gate(LOCAL + "pick:" + l.id(), P + "stakes." + l.id(), args, false, V2 + "reason.vip_stakes", null));
-						else if (!l.affordable()) out.add(new Gate(LOCAL + "pick:" + l.id(), P + "stakes." + l.id(), args, false, V2 + "reason.buy_in_min",
+						String label = shortStakes ? V2 + "stakes_short." + l.id() : P + "stakes." + l.id();
+						if (!l.vipOk()) out.add(new Gate(LOCAL + "pick:" + l.id(), label, args, false, V2 + "reason.vip_stakes", null));
+						else if (!l.affordable()) out.add(new Gate(LOCAL + "pick:" + l.id(), label, args, false, V2 + "reason.buy_in_min",
 							new Object[] {Math.max(l.buyMin(), l.bb())}));
-						else out.add(new Gate(LOCAL + "pick:" + l.id(), P + "stakes." + l.id(), args, true, null, null));
+						else out.add(new Gate(LOCAL + "pick:" + l.id(), label, args, true, null, null));
 					}
 				} else if (!v.fixedStake()) {
 					out.add(Gate.on(LOCAL + "back", "gui.burmaldaholic.common.back"));

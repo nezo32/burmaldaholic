@@ -88,9 +88,12 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 
 		@Override
 		public List<Gate> actions(PokerView v) {
-			return PokerFlow.actions(v);
+			return PokerFlow.actions(v, shortStakes);
 		}
 	};
+
+	/** The stake buttons show only the level (the Dock overflowed with "Micro (1/2)" × 4; T-K2 D4). */
+	private boolean shortStakes;
 
 	// ---- local choices --------------------------------------------------------------------------------------------
 	private @Nullable String pickedLevel;
@@ -453,6 +456,17 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	@Override
 	protected void refresh() {
 		if (view == null || font == null) return;
+		shortStakes = false;
+		refreshOnce();
+		// the four stake buttons with their blinds do not fit a narrow Dock (427 × 240 RU ran off the left edge): short labels
+		DockLayout.Dock d = chrome.dock();
+		if (d != null && d.overflow() > 0 && PokerFlow.pickingStakes(view)) {
+			shortStakes = true;
+			refreshOnce();
+		}
+	}
+
+	private void refreshOnce() {
 		chrome.keys(keyMap(view));
 		chrome.actions.danger("fold", "stand_up");
 		Optional<PokerFlow.Stepper> st = PokerFlow.stepper(view);

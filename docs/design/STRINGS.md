@@ -1110,6 +1110,10 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.v2.step_plus` | More | Больше |
 | `gui.burmaldaholic.poker.v2.reason.stepper_min` | Already the minimum, %1$s | Уже минимум: %1$s |
 | `gui.burmaldaholic.poker.v2.reason.stepper_max` | Already the maximum, %1$s | Уже максимум: %1$s |
+| `gui.burmaldaholic.poker.v2.stakes_short.micro` | Micro | Микро |
+| `gui.burmaldaholic.poker.v2.stakes_short.low` | Low | Низкие |
+| `gui.burmaldaholic.poker.v2.stakes_short.mid` | Mid | Средние |
+| `gui.burmaldaholic.poker.v2.stakes_short.high` | High | Высокие |
 | `gui.burmaldaholic.poker.v2.reason.stale_action` | The table moved on, look again | Стол уже изменился |
 | `gui.burmaldaholic.poker.v2.reason.moved` | The buttons moved, click again | Кнопки сдвинулись, ещё раз |
 | `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
