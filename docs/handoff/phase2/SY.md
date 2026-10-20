@@ -54,12 +54,16 @@ Branch `p2/sy` (from feature/v020-table-ui @581d74cb). It is the kit only: no ga
   - `install(delayMs, jitterMs, bunchEveryMs)`, `jumpTime(ms)`, `clear()`, `deferredCount()`.
   - It delays both table state packets and time packets. Time packets go through `SetTimeNetLagMixin` (`ClientPacketListener.handleSetTime`, HEAD), and through the `NetLagHook` field, which is null in production.
 
-## Verified
-- `compileJava compileClientJava compileGametestJava`: passed on 26.2 (before the owner dropped 26.2) and on `-Pmc=26.3`.
-- `test --tests 'dev.nezo.burmaldaholic.core.anim.sync.*' --tests '*RawInputGuardTest'`: 15 tests, 0 failures.
-  - SmoothClockCoreTest scenarios: steady, ±150 ms jitter, an 800 ms stall then a bunch, 15 TPS, a +2 s jump (exactly 1 snap), −1 s, epoch reset, pause.
-- Server GameTests, `runGameTest -Dfabric-api.gametest.filter=sync_game_tests`: the 2 SyncGameTests (blackjack and roulette state carry seq, epoch and game_time; a replaced table gets a new epoch) passed on 26.2. The 26.3 result is in the report.
-- Client lane `BURMALDAHOLIC_CGT=SY` (SyncClientGameTests): see the report.
+## Verified (26.3 only, per the owner's 2026-10-20 decision)
+- `compileJava compileClientJava compileGametestJava -Pmc=26.3`: OK. It also passed on 26.2 before 26.2 support was dropped.
+- `-Pmc=26.3 test --tests 'dev.nezo.burmaldaholic.core.anim.sync.*' --tests '*RawInputGuardTest'`: 15 tests, 0 failures.
+  - SmoothClockCoreTest (6): steady, ±150 ms jitter, an 800 ms stall then a bunch, 15 TPS, a +2 s jump (exactly 1 snap), a −1 s jump (slows down, never rewinds, converges).
+  - HandoffToyTest (8): C0 and C1 at tH, the harness bound ≤ 1.15·v·frame under late and bunched arrivals, exact final pose, no rebuilds, anchors, the seq gate, the leads.
+- `-Pmc=26.3 runGameTest -Dfabric-api.gametest.filter=sync_game_tests`: "All 2 required tests passed". Blackjack and roulette states carry seq/epoch/game_time, every original state key is kept, and a replaced table gets a new epoch.
+
+## Not verified
+- **Client lane `BURMALDAHOLIC_CGT=SY`** (`gametest/core/SyncClientGameTests`, registered): not run. The coordinator's speed-up rule hands the client lane to the tester, and the client slots were saturated. It covers opening a roulette table by using it, the seq gate, the clock staying monotonic and close to level time, NetLag 300/150/1000, ±1 s jumps, and the AnimClock/MotionClock readers agreeing.
+- **Server `real_flow_multiplayer` regression**: not run (it was cut by the switch to 26.3).
 
 ## Notes and risks
 - SpinClock, CrapsScreen, RouletteScreen and the other game files are unchanged. Each owner wires their game per SY-SPEC §3.
