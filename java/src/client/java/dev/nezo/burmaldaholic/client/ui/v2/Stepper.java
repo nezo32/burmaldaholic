@@ -21,6 +21,9 @@ import org.jspecify.annotations.Nullable;
  * the value is − / +. Keys: the two logical key names ({@code KeyMap}) given to {@link #set} (null = none).
  */
 public final class Stepper {
+	/** Built once, not per frame (T-K2 D7). */
+	private static final net.minecraft.network.chat.Component MINUS_GLYPH = Texts.raw("−"), PLUS_GLYPH = Texts.raw("+"), WIDEST = Texts.raw("888 888");
+
 	public static final String MINUS = "stepper.minus", VALUE = "stepper.value", PLUS = "stepper.plus";
 	/** Gap between the − / value / + parts. */
 	public static final int GAP = 2;
@@ -89,7 +92,7 @@ public final class Stepper {
 	}
 
 	private int valueW(Font font) {
-		return Math.max(font.width(value), font.width(Texts.raw("888 888"))) + 8;
+		return Math.max(font.width(value), font.width(WIDEST)) + 8;
 	}
 
 	public Box box() {
@@ -123,8 +126,8 @@ public final class Stepper {
 	public void draw(GuiGraphicsExtractor g, Font font, int mx, int my, String focusedId) {
 		if (!visible() || box.isEmpty()) return;
 		long now = Util.getMillis();
-		drawButton(g, font, MINUS, minusBox, minus, Texts.raw("−"), mx, my, now, focusedId);
-		drawButton(g, font, PLUS, plusBox, plus, Texts.raw("+"), mx, my, now, focusedId);
+		drawButton(g, font, MINUS, minusBox, minus, MINUS_GLYPH, mx, my, now, focusedId);
+		drawButton(g, font, PLUS, plusBox, plus, PLUS_GLYPH, mx, my, now, focusedId);
 		Box v = valueBox.offset(shake.applyAsInt(VALUE), 0);
 		V2Draw.pill(g, v, CasinoPalette.V2_INK, CasinoPalette.V2_PANEL_HI);
 		V2Draw.centred(g, font, value, v, 1, CasinoPalette.V2_GOLD, true);

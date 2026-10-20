@@ -226,7 +226,16 @@ public final class RealFlow {
 		clickButton(id, Inputs.MOUSE_RIGHT);
 	}
 
+	/**
+	 * Waits until the layout has been on screen for one reaction time ({@code V2Chrome.clickSettled}, the kit's
+	 * ClickGuard): a player never clicks a control in the same instant it appears, and the guard refuses such a click.
+	 */
+	public void settle() {
+		context.waitFor(mc -> !(mc.gui.screen() instanceof V2Chrome.Holder h) || h.chrome().clickSettled(), TIMEOUT);
+	}
+
 	private void clickButton(String id, int button) {
+		settle();
 		double[] p = windowPoint(id);
 		context.getInput().setCursorPos(p[0], p[1]);
 		context.waitTick();
@@ -245,6 +254,7 @@ public final class RealFlow {
 
 	/** Presses a key by its {@link dev.nezo.burmaldaholic.core.ui.v2.KeyMap} name (e.g. {@code KeyMap.SPACE}), as the running version's key code. */
 	public void key(String name) {
+		settle();
 		context.getInput().pressKey(V2Input.keyCode(name));
 		context.waitTicks(2);
 	}

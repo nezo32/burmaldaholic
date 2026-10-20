@@ -449,6 +449,7 @@
 	"gui.burmaldaholic.core.v2.reason.round_in_progress": "Round in progress",
 	"gui.burmaldaholic.core.v2.reason.waiting_for": "Waiting for %1$s",
 	"gui.burmaldaholic.core.v2.reason.no_answer": "The table did not answer — try again",
+	"gui.burmaldaholic.core.v2.reason.moved": "The buttons moved — click again",
 	"gui.burmaldaholic.core.v2.reason.spinning": "Spinning…",
 	"gui.burmaldaholic.core.v2.reason.rolling": "Rolling…",
 	"gui.burmaldaholic.core.v2.reason.dealing": "Dealing…",

@@ -42,6 +42,17 @@ public interface FitScaled {
 		return s instanceof FitScaled f ? f.fitScale() : 1f;
 	}
 
+	/** The frame offset x of the open screen in real GUI px (0 for any other screen; no allocation, the mouse asks often). */
+	static float currentOffsetX() {
+		Screen s = Minecraft.getInstance().gui.screen();
+		return s instanceof FitScaled f ? f.offsetX() : 0f;
+	}
+
+	static float currentOffsetY() {
+		Screen s = Minecraft.getInstance().gui.screen();
+		return s instanceof FitScaled f ? f.offsetY() : 0f;
+	}
+
 	/** The frame offset of the open screen in real GUI px ({0, 0} for any other screen). */
 	static float[] currentOffset() {
 		Screen s = Minecraft.getInstance().gui.screen();

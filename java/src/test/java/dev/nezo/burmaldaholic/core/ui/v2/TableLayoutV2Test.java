@@ -53,8 +53,8 @@ class TableLayoutV2Test {
 					assertTrue(v.frameH() <= Frame.CAP_H && v.frameW() * 9 <= v.frameH() * 16 + 9, fw + "x" + fh + "@" + gs + " frame " + v);
 					int gh = (fh + gs - 1) / gs;
 					int gw = (fw + gs - 1) / gs;
-					if (gh >= 240 && gh <= 720 && gw >= 320) assertEquals(gs, v.k(), fw + "x" + fh + "@" + gs + ": the player's scale is kept");
-					if (fw >= 320 && fh >= 240) {
+					if (gh >= 240 && gh <= 720 && gw >= ViewportPolicy.MIN_W) assertEquals(gs, v.k(), fw + "x" + fh + "@" + gs + ": the player's scale is kept");
+					if (fw >= Viewport.MIN_W && fh >= Viewport.MIN_H) {
 						assertTrue(v.w() >= Viewport.MIN_W && v.h() >= Viewport.MIN_H, fw + "x" + fh + "@" + gs + " -> " + v);
 					}
 				}

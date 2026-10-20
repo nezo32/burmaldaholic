@@ -640,6 +640,7 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `gui.burmaldaholic.core.v2.reason.round_in_progress` | Round in progress | Идёт раунд |
 | `gui.burmaldaholic.core.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
 | `gui.burmaldaholic.core.v2.reason.no_answer` | The table did not answer — try again | Стол не ответил — попробуйте ещё раз |
+| `gui.burmaldaholic.core.v2.reason.moved` | The buttons moved — click again | Кнопки сдвинулись — ещё раз |
 | `gui.burmaldaholic.core.v2.reason.spinning` | Spinning… | Вращение… |
 | `gui.burmaldaholic.core.v2.reason.rolling` | Rolling… | Бросок… |
 | `gui.burmaldaholic.core.v2.reason.dealing` | Dealing… | Раздача… |

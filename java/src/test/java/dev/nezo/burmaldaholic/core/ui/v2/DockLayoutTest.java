@@ -54,7 +54,9 @@ class DockLayoutTest {
 	}
 
 	@Test
-	void statusWidthMakesActionsCompactThenUsesTheHintStrip() {
+	void aWiderStatusKeepsTheKeyPlatesAndUsesTheHintStrip() {
+		// T-K2 R3 P2-a: the key plates stay whenever they fit beside the minimum status column; text that does not fit the
+		// column goes into the hint strip (StatusPlan), never at the cost of the plates
 		TableGrid g = TableGrid.of(480, 270);
 		int[] full = {90, 90, 90};
 		int[] compact = {50, 50, 50};
@@ -63,15 +65,17 @@ class DockLayoutTest {
 		assertFalse(plain.compactActions());
 		assertTrue(plain.hintStrip().isEmpty());
 		DockLayout.Dock wants = DockLayout.layout(g, s.withStatus(plain.status().w() + 20));
-		assertTrue(wants.compactActions(), "a wider status makes the actions drop their key plates first");
-		assertTrue(wants.hintStrip().isEmpty());
-		assertTrue(wants.status().w() >= plain.status().w() + 20);
-		DockLayout.Dock strip = DockLayout.layout(g, s.withStatus(400));
-		assertTrue(strip.compactActions());
-		assertFalse(strip.hintStrip().isEmpty(), "still no room: line 2 goes to the strip");
-		assertEquals(g.dock.y(), strip.hintStrip().bottom());
-		assertTrue(strip.hintStrip().inside(g.play));
-		assertEquals(DockLayout.HINT_STRIP_H, strip.hintStrip().h());
+		assertFalse(wants.compactActions(), "the plates stay");
+		assertEquals(plain.actions(), wants.actions(), "the action row does not move for the status");
+		assertFalse(wants.hintStrip().isEmpty(), "the status that does not fit goes to the strip");
+		assertEquals(g.dock.y(), wants.hintStrip().bottom());
+		assertTrue(wants.hintStrip().inside(g.play));
+		assertEquals(DockLayout.HINT_STRIP_H, wants.hintStrip().h());
+		DockLayout.Dock fits = DockLayout.layout(g, s.withStatus(plain.status().w()));
+		assertTrue(fits.hintStrip().isEmpty(), "a status that fits its column opens no strip");
+		// the plates go only when they do not fit beside the minimum column
+		DockLayout.Dock tight = DockLayout.layout(g, DockLayout.Spec.actions(new int[] {120, 120, 120}, compact, 70, 50));
+		assertTrue(tight.compactActions());
 	}
 
 	@Test

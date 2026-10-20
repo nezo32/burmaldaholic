@@ -449,6 +449,7 @@
 	"gui.burmaldaholic.core.v2.reason.round_in_progress": "Идёт раунд",
 	"gui.burmaldaholic.core.v2.reason.waiting_for": "Ждём: %1$s",
 	"gui.burmaldaholic.core.v2.reason.no_answer": "Стол не ответил — попробуйте ещё раз",
+	"gui.burmaldaholic.core.v2.reason.moved": "Кнопки сдвинулись — ещё раз",
 	"gui.burmaldaholic.core.v2.reason.spinning": "Вращение…",
 	"gui.burmaldaholic.core.v2.reason.rolling": "Бросок…",
 	"gui.burmaldaholic.core.v2.reason.dealing": "Раздача…",

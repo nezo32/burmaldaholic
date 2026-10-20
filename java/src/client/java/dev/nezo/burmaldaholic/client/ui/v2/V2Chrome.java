@@ -13,7 +13,9 @@ import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
 import dev.nezo.burmaldaholic.core.ui.v2.KeyMap;
 import dev.nezo.burmaldaholic.core.ui.v2.Press;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
+import dev.nezo.burmaldaholic.core.ui.v2.ClickGuard;
 import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
+import net.minecraft.util.Util;
 import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,6 +70,14 @@ public final class V2Chrome {
 		 * ({@code chrome().banner.obstacles(..)}). Default nothing.
 		 */
 		default void layoutOverlay(DockLayout.Dock dock, HitMap hits) {}
+
+		/**
+		 * Extra identity of a target for the {@link ClickGuard} (e.g. the decision window a UTH / poker action belongs to):
+		 * a target whose identity changed does not take a click for one reaction time. Default "".
+		 */
+		default String clickIdentity(String id) {
+			return "";
+		}
 	}
 
 	/** Implemented by v2 screens: what client GameTests ({@code RealFlow}) and the gallery reach. */
@@ -234,9 +244,10 @@ public final class V2Chrome {
 		} else {
 			spec = DockLayout.Spec.actions(actions.measure(font), actions.measureCompact(font), stepper.measure(font, grid.tier), pw, pc);
 		}
-		// the status asks for the width of its longer line (capped at 40 % of the Dock): actions go compact first, then line 2
-		// moves to the hint strip above the Dock (review R-KW B2, DES 3)
-		spec = spec.withStatus(Math.min(grid.dock.w() * 2 / 5, status.measure(font)));
+		// the status asks for the column width at which it fits the Dock; a narrower column opens the hint strip above the
+		// Dock, which takes what does not fit (StatusPlan; review R-KW B2, DES 3, T-K2 D1)
+		laidStatusW = status.measure(font);
+		spec = spec.withStatus(laidStatusW);
 		dock = DockLayout.layout(grid, spec, bet.selectedIndex());
 		bet.place(grid.tier, dock.chips(), dock.firstChip(), dock.tools(), dock.readout(), dock.compactReadout());
 		if (bet.visible()) bet.hits(hits);
@@ -255,9 +266,41 @@ public final class V2Chrome {
 		top.layout(grid, font, hits);
 		narrateKit();
 		banner.tier(grid.tier);
-		banner.kitObstacles(dock.hintStrip().isEmpty() ? List.of() : List.of(dock.hintStrip()));
+		Box used = status.stripUsed(font); // one row, or two when two long lines share it
+		banner.kitObstacles(dock.hintStrip().isEmpty() ? List.of() : List.of(used.isEmpty() ? dock.hintStrip() : used));
 		toasts.place(grid.play);
 		host.layoutOverlay(dock, hits);
+		guard.layout(hits.targets(), this::identity, Util.getMillis());
+	}
+
+	/** The status width the last layout used: a game that sets its lines after {@link #apply} gets a relayout (B2 request). */
+	private int laidStatusW = -1;
+
+	/**
+	 * A click / kit key acts only on the control the player saw there (B2's R3 money bug, now for every v2 screen): see
+	 * {@link ClickGuard}. Tests wait for {@link #clickSettled()} before clicking a control that just changed.
+	 */
+	public final ClickGuard guard = new ClickGuard();
+
+	/** Whether the layout has been on screen long enough to take a click on a changed control. */
+	public boolean clickSettled() {
+		return guard.settled(Util.getMillis());
+	}
+
+	/** A target's identity for the guard: its id, what it does now, and the host's decision window. */
+	private String identity(String id) {
+		String what = switch (id) {
+			case KeyMap.Ids.PRIMARY -> primary.gate().action();
+			case KeyMap.Ids.SECONDARY -> secondary == null ? "" : secondary.action();
+			default -> "";
+		};
+		return id + "|" + what + "|" + host.clickIdentity(id);
+	}
+
+	/** A click or key the guard refused: nothing happens, the status says the buttons moved. */
+	private boolean refuseMoved() {
+		status.flash(V2Draw.tr(V2Keys.REASON_MOVED));
+		return true;
 	}
 
 	/** Narrations of the kit's own targets (Tab focus): label, and the reason when disabled. */
@@ -353,6 +396,7 @@ public final class V2Chrome {
 		Optional<HitMap.Target> t = hits.at(x, y);
 		if (t.isEmpty()) return false;
 		focus = -1;
+		if (!guard.allowsClick(x, y, Util.getMillis())) return refuseMoved();
 		return press(t.get().id(), t.get().enabled(), p);
 	}
 
@@ -417,6 +461,7 @@ public final class V2Chrome {
 		Optional<String> id = keys.idFor(name);
 		if (id.isEmpty()) return false;
 		if (once(id.get()) && !held.add(name)) return true; // an auto-repeat of a held key: swallowed
+		if (!guard.allowsKey(id.get(), Util.getMillis())) return refuseMoved();
 		Optional<HitMap.Target> t = hits.targets().stream().filter(x -> x.id().equals(id.get())).findFirst();
 		return press(id.get(), t.map(HitMap.Target::enabled).orElse(true), Press.LEFT);
 	}
@@ -607,7 +652,9 @@ public final class V2Chrome {
 	public void renderChrome(GuiGraphicsExtractor g, int mx, int my) {
 		Font font = host.font();
 		boolean delta = top.balance.deltaVisible();
-		if (delta != deltaShown) { // the TopBar makes room for the delta pill while it shows
+		if (delta != deltaShown || status.measure(font) != laidStatusW) {
+			// the TopBar makes room for the delta pill while it shows; a status set after apply (or a flash that came or
+			// went) is laid out before it is drawn, so it never draws into a column sized for other text
 			deltaShown = delta;
 			relayout();
 		}
@@ -644,6 +691,7 @@ public final class V2Chrome {
 		if (debugOverlay) {
 			for (HitMap.Target t : hits.targets()) V2Draw.outline(g, t.box(), t.enabled() ? 0x8000FFFF : 0x80FF4040);
 		}
+		guard.rendered();
 	}
 
 	/** The label of an icon-only button on hover: a pill above it (below it for TopBar icons), kept on screen. */

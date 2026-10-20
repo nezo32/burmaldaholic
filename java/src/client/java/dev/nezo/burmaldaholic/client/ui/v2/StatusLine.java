@@ -96,15 +96,20 @@ public final class StatusLine {
 		return strip;
 	}
 
-	/** The width the two lines want ({@code max(w(line1), w(line2))}, capped by the caller). */
+	/** The column width at which both lines fit the Dock ({@link dev.nezo.burmaldaholic.core.ui.v2.StatusPlan#want}, uncapped). */
 	public int measure(Font font) {
 		Component l1 = line1();
 		Component l2 = line2();
-		if (l1 != null && l2 == null) { // a lone line 1 may wrap onto the second line: it needs about half its width
-			return dev.nezo.burmaldaholic.core.ui.v2.TextFit.twoLineWidth(l1.getString(), font::width) + 2;
+		if (l1 != measuredL1 || l2 != measuredL2 || measured < 0) { // cached by line identity (the chrome asks every frame)
+			measuredL1 = l1;
+			measuredL2 = l2;
+			measured = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.want(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), font::width);
 		}
-		return Math.max(l1 == null ? 0 : font.width(l1), l2 == null ? 0 : font.width(l2)) + 2;
+		return measured;
 	}
+
+	private @Nullable Component measuredL1, measuredL2;
+	private int measured = -1;
 
 	public Box box() {
 		return box;
@@ -122,9 +127,11 @@ public final class StatusLine {
 	}
 
 	public @Nullable Component line2() {
-		if (line2 != null) return line2;
-		if (hint != null && line1() == hint) return null; // the hint took line 1 (a phase reason)
-		return hint;
+		Component l2 = line2 != null ? line2 : hint;
+		if (l2 == null) return null;
+		Component l1 = line1();
+		if (l1 == l2 || (l1 != null && l1.getString().equals(l2.getString()))) return null; // said once (a phase reason; T-K2 D2)
+		return l2;
 	}
 
 	private int line1Color() {
@@ -135,46 +142,79 @@ public final class StatusLine {
 		return line1Color;
 	}
 
-	public void draw(GuiGraphicsExtractor g, Font font) {
-		if (box.isEmpty()) return;
+	private dev.nezo.burmaldaholic.core.ui.v2.StatusPlan plan = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.EMPTY;
+	private @Nullable Component planL1, planL2;
+	private Box planBox = Box.EMPTY, planStrip = Box.EMPTY;
+
+	/**
+	 * Where the lines go now ({@link dev.nezo.burmaldaholic.core.ui.v2.StatusPlan}); recomputed only when a line or a box
+	 * changes (no per-frame wrapping, T-K2 D7). Tests read it to prove no word is lost.
+	 */
+	public dev.nezo.burmaldaholic.core.ui.v2.StatusPlan plan(Font font) {
 		Component l1 = line1();
 		Component l2 = line2();
-		if (l2 == null && l1 != null && !strip.isEmpty()
-			&& !dev.nezo.burmaldaholic.core.ui.v2.TextFit.fitsTwoLines(l1.getString(), box.w(), font::width)) {
-			// a lone line 1 too long even for two lines of the Dock's status column: it goes whole into the hint strip
-			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(l1) + 8), strip.h());
-			V2Draw.fill(g, band, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
-			V2Draw.left(g, font, l1, band.inset(1), 3, 1, line1Color(), true);
-			return; // no orphan timer underline in an empty status column (T-C2 V8)
+		if (l1 != planL1 || l2 != planL2 || !box.equals(planBox) || !strip.equals(planStrip)) {
+			planL1 = l1;
+			planL2 = l2;
+			planBox = box;
+			planStrip = strip;
+			plan = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.of(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), box.w(), box.h(),
+				strip.isEmpty() ? 0 : strip.w(), font::width);
 		}
-		if (l2 != null && !strip.isEmpty()) { // line 2 above the Dock, on a dark strip; the Dock keeps line 1
-			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(l2) + 8), strip.h());
+		return plan;
+	}
+
+	/** The strip area the status uses now (one or two rows; empty = none): the banner keeps clear of it. */
+	public Box stripUsed(Font font) {
+		dev.nezo.burmaldaholic.core.ui.v2.StatusPlan p = plan(font);
+		if (strip.isEmpty() || p.stripText() == null) return Box.EMPTY;
+		return p.stripRows() == 2 ? new Box(strip.x(), strip.y() - strip.h(), strip.w(), 2 * strip.h()) : strip;
+	}
+
+	/** What the plan would cut ("" = every word readable). */
+	public String lost(Font font) {
+		Component l1 = line1();
+		Component l2 = line2();
+		return plan(font).lost(l1 == null ? null : l1.getString(), l2 == null ? null : l2.getString(), box.w(), strip.isEmpty() ? 0 : strip.w(), font::width);
+	}
+
+	public void draw(GuiGraphicsExtractor g, Font font) {
+		if (box.isEmpty()) return;
+		dev.nezo.burmaldaholic.core.ui.v2.StatusPlan p = plan(font);
+		String st = p.stripText();
+		if (st != null && !strip.isEmpty() && p.stripRows() == 2) { // two long lines: line 1 on a row above line 2
+			int w = Math.min(strip.w(), Math.max(font.width(p.stripL1()), font.width(p.stripL2())) + 8);
+			Box band = new Box(strip.x(), strip.y() - strip.h(), w, 2 * strip.h());
 			V2Draw.fill(g, band, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
-			V2Draw.left(g, font, l2, band.inset(1), 3, 1, CasinoPalette.V2_MUTED, true);
-			l2 = null;
-		}
-		int lh = 11;
-		if (l1 != null && l2 == null && font.width(l1) > box.w() && box.h() >= 2 * lh + 4) {
-			// one long line 1 and the second line free: two 1× lines (DES 3); an overflow ends line 2 with "…" (T-K2 D1)
-			String[] two = dev.nezo.burmaldaholic.core.ui.v2.TextFit.wrap2(l1.getString(), box.w(), font::width);
-			int y = box.y() + Math.max(0, (box.h() - two.length * lh - 4) / 2);
-			for (String part : two) {
-				V2Draw.text(g, font, dev.nezo.burmaldaholic.core.text.Texts.raw(part), box.x(), y + (lh - 8) / 2 + 1, 1, line1Color(), true);
-				y += lh;
+			V2Draw.text(g, font, raw(p.stripL1()), band.x() + 4, band.y() + (strip.h() - 8) / 2 + 1, 1, line1Color(), true);
+			V2Draw.text(g, font, raw(p.stripL2()), band.x() + 4, strip.y() + (strip.h() - 8) / 2 + 1, 1, CasinoPalette.V2_MUTED, true);
+		} else if (st != null && !strip.isEmpty()) { // the hint strip above the Dock, on a dark band behind its text only
+			Box band = new Box(strip.x(), strip.y(), Math.min(strip.w(), font.width(st) + 8), strip.h());
+			V2Draw.fill(g, band, V2Draw.alpha(CasinoPalette.V2_INK, 0.85f));
+			int x = band.x() + 4, ty = band.y() + (band.h() - 8) / 2 + 1;
+			if (p.stripL1() != null) {
+				V2Draw.text(g, font, raw(p.stripL1()), x, ty, 1, line1Color(), true);
+				x += font.width(p.stripL1());
+				if (p.stripL2() != null) x += font.width(dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.JOIN);
 			}
-			timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3));
-			return;
+			if (p.stripL2() != null) V2Draw.text(g, font, raw(p.stripL2()), x, ty, 1, CasinoPalette.V2_MUTED, true);
 		}
-		int total = (l1 != null ? lh : 0) + (l2 != null ? lh : 0);
-		int y = box.y() + Math.max(0, (box.h() - total - 4) / 2);
-		if (l1 != null) {
-			V2Draw.left(g, font, l1, new Box(box.x(), y, box.w(), lh), 0, 1, line1Color(), true);
+		int lh = dev.nezo.burmaldaholic.core.ui.v2.StatusPlan.ROW_H;
+		int n = p.dock().size();
+		if (n == 0) return; // no orphan timer underline in an empty status column (T-C2 V8)
+		int y = box.y() + Math.max(0, (box.h() - n * lh - 4) / 2);
+		for (int i = 0; i < n; i++) {
+			V2Draw.text(g, font, raw(p.dock().get(i)), box.x(), y + (lh - 8) / 2 + 1, 1, p.dockGold().get(i) ? line1Color() : CasinoPalette.V2_MUTED, true);
 			y += lh;
 		}
-		if (l2 != null) {
-			V2Draw.left(g, font, l2, new Box(box.x(), y, box.w(), lh), 0, 1, CasinoPalette.V2_MUTED, true);
-			y += lh;
-		}
-		if (total > 0) timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3)); // no orphan underline
+		timer.draw(g, new Box(box.x(), Math.min(box.bottom() - 3, y + 1), Math.min(box.w(), 120), 3));
+	}
+
+	private final java.util.Map<String, Component> raws = new java.util.HashMap<>();
+
+	/** A literal component per drawn string, kept while the plan lives (no per-frame allocation). */
+	private Component raw(String s) {
+		if (raws.size() > 16) raws.clear();
+		return raws.computeIfAbsent(s, dev.nezo.burmaldaholic.core.text.Texts::raw);
 	}
 }
