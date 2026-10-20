@@ -171,6 +171,19 @@ public class CompsGameTests {
 
 	@GameTest
 	public void dailyBonusPaysOnceAndNeedsASession(GameTestHelper helper) {
+		// mock players share one address and the test world keeps CompsWorldData between runs: the per-IP gate is
+		// covered by DailyBonusRulesTest; here it is off so the claim itself is tested
+		boolean onePerIp = CompsService.cfg().daily.onePerIp;
+		CompsService.cfg().daily.onePerIp = false;
+		try {
+			dailyBonusBody(helper);
+		} finally {
+			CompsService.cfg().daily.onePerIp = onePerIp;
+		}
+		helper.succeed();
+	}
+
+	private static void dailyBonusBody(GameTestHelper helper) {
 		withPlayer(helper, player -> {
 			MinecraftServer server = helper.getLevel().getServer();
 			VipService.setWagered(player, 1000);
@@ -184,13 +197,14 @@ public class CompsGameTests {
 			CompsModule.handle(player, claim);
 			CompsModule.handle(player, claim); // same tick: dropped by the shared cooldown
 			long tierAmount = CompsRules.dailyAmount(CompsRules.BRONZE, CompsService.cfg().daily.amounts());
-			helper.assertTrue(Economies.get().balance(player) == tierAmount, "paid once: " + Economies.get().balance(player));
+			helper.assertTrue(Economies.get().balance(player) == tierAmount, "paid once: " + Economies.get().balance(player) + " daily="
+				+ CompsService.dailyState(player) + " session=" + (CounterSessions.validate(player) != null) + " active="
+				+ CompsService.state(player).activeTicksToday() + " wagered=" + VipService.wagered(server, player.getUUID()));
 			CounterSessions.resetCooldown(player);
 			CompsModule.handle(player, claim);
 			helper.assertTrue(Economies.get().balance(player) == tierAmount, "a second claim the same day pays nothing");
 			helper.assertTrue(CompsService.state(player).dailyClaimDay() == today(server), "claim day stored");
 		});
-		helper.succeed();
 	}
 
 	@GameTest
