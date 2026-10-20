@@ -127,7 +127,7 @@ public class SlotsGameTests {
 		withPlayer(helper, 10_000, player -> {
 			nether.onAction(player, "buy", bet(20));
 			helper.assertTrue(nether.spinning(), "bought");
-			helper.assertTrue(Economies.get().balance(player) == 10_000 - 368, "18.4 x 20 = 368 taken");
+			helper.assertTrue(Economies.get().balance(player) == 10_000 - 416, "20.8 x 20 = 416 taken (R3 buy price, SLOTS.md §6.3)");
 			SpinTape tape = nether.roundTape();
 			helper.assertTrue(tape.bought() && tape.freeSpins() != null, "free spins without a base spin");
 			nether.leave(player.getUUID(), SlotMachineBlockEntity.LeaveReason.DISCONNECT);
