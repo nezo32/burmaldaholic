@@ -106,14 +106,11 @@ public final class Kits {
 				return;
 			}
 			b.game(game, x, y, z, front);
-			Material stool = b.palette().get(Role.STOOL);
 			for (int r = -1; r <= 1; r++) {
 				put(b, x, y, z, front, r, 1, Role.CARPET_ACCENT);
 				put(b, x, y + 1, z, front, r, 1, Blueprint.AIR);
 			}
-			for (int r : new int[] {-2, 2}) {
-				put(b, x, y, z, front, r, 1, stool.slab("bottom"));
-			}
+			// the player row stays clear (no stools: the full table's seats are drawn on its rail)
 			TableGame tg = game.tableGame();
 			int dr = tg == null ? 0 : tg.dealerR(), df = tg == null ? -1 : tg.dealerF();
 			int dx = lx(x, front, dr, df), dz = lz(z, front, dr, df);

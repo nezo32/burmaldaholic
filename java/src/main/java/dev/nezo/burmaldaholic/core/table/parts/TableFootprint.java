@@ -215,13 +215,4 @@ public final class TableFootprint {
 	public static float dealerYaw(Direction facing) {
 		return dealerFacing(facing).toYRot();
 	}
-
-	/** Every cell position of a full table at {@code main}. */
-	public static List<BlockPos> positions(BlockPos main, Direction facing, TableGame game) {
-		List<BlockPos> out = new ArrayList<>();
-		for (Cell c : cells(game, facing.getStepX(), facing.getStepZ())) {
-			out.add(main.offset(c.dx(), 0, c.dz()));
-		}
-		return out;
-	}
 }

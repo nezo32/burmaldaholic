@@ -25,9 +25,17 @@ Branch `p2/cr-2` (from `p2/cr-1`). Pieces only. Placement (`CasinoStructures`, `
 - `test --tests 'dev.nezo.burmaldaholic.worldgen.logic.*'`: 298 tests; the only failure was the new Parlor foundation assertion. That gap is now fixed.
 - After the fix: `test --tests '*CasinoSiteContractTest' '*OtherworldTest' '*VillageAnnexTest' '*PieceChecksTest' '*TemplateExport*'` passes.
 - New `CasinoSiteContractTest` covers: dealer cells, each Parlor door's reachability, the Parlor foundation, the Lounge skirt, the Lounge stair, and the Lounge entries.
+- Server GameTests at f53e1095: `-Dfabric-api.gametest.filter=casino` 36/36 pass, including `places_every_casino_in_every_rotation`, so the snowy annex (T-CB's Oct 15 finding) is reachable on foot. `worldgen` 20/20 pass; the 2 Lounge tower-top tests still pass under the old placement, and WG now owns them.
+- Merged p2/cr-1 @aed00f66 with no conflicts. Only the LARGE SignFont changed; the Parlor and Lounge use SMALL and the annex uses BannerFont, so no sign moved. After the merge, compile plus `CasinoSiteContractTest`, `OtherworldTest`, `VillageAnnexTest`, `PieceChecksTest`, `SignFontTest` and `GrandCasinoTest` pass.
 - `compileJava compileClientJava compileGametestJava` on 26.2 and `-Pmc=26.3`: both OK (deprecation warnings only).
 
 ## Not verified / risks
-- No server or client GameTests were run in R3. `WorldgenGameTests.endCityGetsHighRollerLounge` and `loungeBuildsRotated...` still assume the tower-top placement; WG updates them.
+- No client GameTests were run. `WorldgenGameTests.endCityGetsHighRollerLounge` and `loungeBuildsRotated...` still assume the tower-top placement (they pass today); WG updates them.
 - Owner rule: no screenshots or renders. Visuals are proven only by the structural checks.
 - The Lounge is now 1 row taller (SY 43) and 4 deeper (SZ 29). WG's End City clearance must use these sizes.
+
+## R3 round 2 (2026-10-21): p2/mt @f8ac2b1d merged, annex dealer corridor
+- Merge conflicts were whole-file line-ending conflicts. I merged them as text with line endings ignored. `CasinoTableBlockEntity.preset()` keeps both crash fixes: the cached preset while the table is being removed, and MT's unloaded-chunk guard. Worldgen lang regenerated.
+- Annex, all 5 styles: removed the back-bar counters at x 5,6 / 10,11 on the dealer row (z 1). That row is now a free service corridor, so every dealer cell is 2 blocks of air, has no lectern, and is reachable from its table's walkway. `CasinoSiteContractTest` now also checks that every dealer cell is reachable on foot.
+- Verified: `MultiBlockLayoutsTest` and `CasinoSiteContractTest` pass on 26.3. Server GameTests on a fresh world: `casino` 38/38 on 26.2 and on 26.3; `worldgen` 20/20 on 26.3.
+- **Gotcha (whoever runs GameTests):** `build/run/gameTest/world` persists between runs. A world written by the other MC version loads with empty chunks, and then every casino in `places_every_casino` fails as "not reachable" (611 false failures). Delete the world dir when switching between 26.2 and 26.3.

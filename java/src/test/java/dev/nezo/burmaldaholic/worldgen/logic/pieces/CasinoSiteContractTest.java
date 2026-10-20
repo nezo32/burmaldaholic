@@ -29,11 +29,12 @@ class CasinoSiteContractTest {
 		return all;
 	}
 
-	/** DL spawns a dealer NPC on every table's dealer cell: feet and head rows are plain air (no lectern). */
+	/** DL spawns a dealer NPC on every table's dealer cell: plain air at feet and head (no lectern), reachable on foot. */
 	@Test
 	void everyDealerCellIsTwoBlocksOfAir() {
 		for (Piece p : cr2Pieces()) {
 			Grid g = p.layout().grid();
+			boolean[][][] reach = Checks.reachable(g, p.entries());
 			int tables = 0;
 			for (Piece.GameSpot s : p.games()) {
 				if (s.game().tableGame() == null) {
@@ -49,6 +50,8 @@ class CasinoSiteContractTest {
 				}
 				BlockSpec floor = g.get(d[0], s.pos().y() - 1, d[1]);
 				assertTrue(floor != null && !Shapes.passable(floor), p.id() + " " + s.game() + ": dealer stands on " + floor);
+				assertTrue(reach[d[0]][s.pos().y()][d[1]], p.id() + " " + s.game() + ": dealer cell " + d[0] + "," + d[1]
+					+ " not reachable on foot");
 			}
 			assertTrue(tables >= 5, p.id() + " has its house tables");
 		}

@@ -43,7 +43,7 @@ public final class GrandCasino {
 
 	public static final int SX = 41;
 	public static final int SY = 37;
-	public static final int SZ = 41;
+	public static final int SZ = 43;
 	/** The symmetry axis x and twice it (for {@link Blueprint#mirrorX}). */
 	public static final int CX = 20;
 	public static final int AX2 = 2 * CX;
@@ -70,8 +70,10 @@ public final class GrandCasino {
 	static final int Z_INNER = 22;
 	static final int Z_FRONT = 29;
 	static final int Z_LOGGIA = 33;
-	static final int Z_PAVILION = 34;
-	static final int Z_TOWER = 28;
+	static final int Z_PAVILION = 36;
+	static final int Z_TOWER = 30;
+	/** Plane of the CASINO board: one block behind the tower faces, a marquee over the loggia arcade. */
+	static final int Z_SIGN = 35;
 	// x bands
 	static final int X_WALL = 1;
 	static final int X_COLONNADE = 7;
@@ -84,7 +86,7 @@ public final class GrandCasino {
 	public static final int FLOOR_Z0 = 7;
 	public static final int FLOOR_Z1 = 21;
 	public static final int ENTRANCE_Z0 = 22;
-	public static final int ENTRANCE_Z1 = 40;
+	public static final int ENTRANCE_Z1 = 42;
 
 	/** Jigsaw names. */
 	public static final String J_ENTRANCE_BACK = "burmaldaholic:grand/entrance_back";
@@ -173,7 +175,7 @@ public final class GrandCasino {
 		forecourt(b);
 		facades(b);
 		games(b);
-		b.uplightGames();
+		b.uplightGames(true); // glowing tiles under the carpet: light passes, the floor stays one calm field
 		registerSpaces(b);
 		b.anchor(CX, 10, 26);
 		return b;
@@ -259,6 +261,47 @@ public final class GrandCasino {
 		b.set(cx, FLOOR_Y, cz, b.palette().block(Role.UPLIGHT));
 	}
 
+	/** The deep-red casino carpet field and its gold borders (palette-independent: green felt reads on red). */
+	static final BlockSpec FIELD = BlockSpec.mc("red_carpet");
+	static final BlockSpec GOLD = BlockSpec.mc("yellow_carpet");
+
+	/** Hall tables {x, z, players' side: +1 south / -1 north} (the kits place them in games()). */
+	static final int[][] HALL_TABLES = {{11, 11, 1}, {16, 11, 1}, {11, 17, -1}, {16, 17, -1}, {24, 11, 1}, {29, 11, 1}, {24, 17, -1},
+		{29, 17, -1}};
+
+	/**
+	 * Table chandelier over a table whose floor row is {@code y}: a chain from the ceiling to a 3 x 3 gilt ring of top slabs
+	 * at y + 5 with lit candles on its edges and lanterns hanging under the centre and the four corners at y + {@link #PENDANT_DY}
+	 * (just above the board / headroom volume). Under a low ceiling the lanterns hang from the ceiling itself.
+	 */
+	static void tableChandelier(Blueprint b, int x, int y, int z) {
+		int lampY = y + PENDANT_DY, ringY = lampY + 1;
+		int[][] spots = {{0, 0}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+		if (ringY >= CEIL_Y) {
+			for (int[] d : spots) {
+				b.set(x + d[0], CEIL_Y - 1, z + d[1], lantern(b, true));
+			}
+			return;
+		}
+		for (int yy = ringY; yy < CEIL_Y; yy++) {
+			b.set(x, yy, z, chain());
+		}
+		Material gilt = b.palette().get(Role.GILT);
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				if (dx != 0 || dz != 0) {
+					b.set(x + dx, ringY, z + dz, gilt.slab("top"));
+					if (dx == 0 || dz == 0) {
+						b.set(x + dx, ringY + 1, z + dz, BlockSpec.mc("candle", "candles", "3", "lit", "true", "waterlogged", "false"));
+					}
+				}
+			}
+		}
+		for (int[] d : spots) {
+			b.set(x + d[0], lampY, z + d[1], lantern(b, true));
+		}
+	}
+
 	static BlockSpec lantern(Blueprint b, boolean hanging) {
 		return BlockSpec.of(b.palette().get(Role.LIGHT_HANGING).full(), "hanging", Boolean.toString(hanging), "waterlogged", "false");
 	}
@@ -276,7 +319,7 @@ public final class GrandCasino {
 		b.fill(X_WALL, FLOOR_Y, Z_BACK, SX - 1 - X_WALL, FLOOR_Y, Z_PAVILION, Role.FLOOR);
 		// open air around the building (apron, forecourt, the loggia front): no terrain or trees stand there
 		b.clear(0, ROW, Z_PAVILION + 1, SX - 1, SY - 1, SZ - 1);
-		b.clear(X_COLONNADE + 1, ROW, Z_PAVILION, SX - 2 - X_COLONNADE, SY - 1, Z_PAVILION);
+		b.clear(X_COLONNADE + 1, ROW, Z_LOGGIA + 1, SX - 2 - X_COLONNADE, SY - 1, Z_PAVILION);
 		b.clear(0, ROW, 0, 0, SY - 1, Z_PAVILION);
 		b.clear(SX - 1, ROW, 0, SX - 1, SY - 1, Z_PAVILION);
 		b.clear(0, ROW, 0, SX - 1, SY - 1, 0);
@@ -324,68 +367,48 @@ public final class GrandCasino {
 	// hall: floor patterns, colonnades, rear arcade, ceiling with oculus, chandelier, stairs, slot banks
 
 	static void hall(Blueprint b) {
-		BlockSpec floorAccent = b.palette().block(Role.FLOOR_ACCENT);
-		BlockSpec red = b.palette().block(Role.CARPET);
-		BlockSpec gold = BlockSpec.mc("yellow_carpet");
-		// the pits (both sides): a calm casino carpet, the deep CARPET colour with a subtle CARPET_PATTERN diamond lattice
-		// and border; the tables' dark walkways (CARPET_ACCENT) frame every table. Bright gilt only on the runner.
-		BlockSpec pattern = b.palette().block(Role.CARPET_PATTERN);
-		b.mirrorX(AX2, m -> {
-			for (int x = 9; x <= 17; x++) {
-				for (int z = 9; z <= 20; z++) {
-					boolean border = x == 9 || x == 17 || z == 9 || z == 20;
-					boolean lattice = Math.floorMod(x + z, 4) == 0 || Math.floorMod(x - z, 4) == 0;
-					m.set(x, ROW, z, border || lattice ? pattern : red);
+		BlockSpec red = FIELD;
+		BlockSpec gold = GOLD;
+		// the gaming floor: one deep-red field (whatever the palette: green felt reads on red), a 1-wide gold border round
+		// every table's zone (footprint + walkway), the dealer cell left bare
+		b.fill(X_COLONNADE + 1, ROW, Z_HALL0, SX - 2 - X_COLONNADE, ROW, Z_HALL1, red);
+		for (int[] t : HALL_TABLES) {
+			int x = t[0], z = t[1], fz = t[2]; // fz: +1 = players south, -1 = players north
+			for (int dx = -2; dx <= 2; dx++) {
+				for (int dz = -2; dz <= 2; dz++) {
+					// the frame stays open behind the dealer (the dealer cell must stay bare)
+					if (Math.max(Math.abs(dx), Math.abs(dz)) == 2 && !(dz == -2 * fz && Math.abs(dx) <= 1)) {
+						b.set(x + dx, ROW, z + dz, gold);
+					}
 				}
 			}
+		}
+		b.mirrorX(AX2, m -> {
 			// planters on pedestals at the pit corners
-			for (int[] c : new int[][] {{9, 9}, {17, 9}, {17, 20}}) {
+			for (int[] c : new int[][] {{8, 9}, {8, 20}, {17, 20}}) {
 				Kits.pottedPlant().apply(m, c[0], ROW, c[1], Facing.SOUTH);
 			}
-			// a chandelier over the middle of each pit, high above the tables' board volume
-			for (int y = CEIL_Y - 1; y >= MEZZ_Y + 2; y--) {
-				m.set(13, y, DOME_Z, chain());
-			}
-			Kits.grandChandelier(1).apply(m, 13, MEZZ_Y + 2, DOME_Z, Facing.SOUTH);
 		});
-		// runner with gilt edges from the lobby arch to the rear arcade, broken by the medallion under the dome
+		// the red runner with gilt edges from the lobby arch to the bar, straight through under the dome
 		for (int z = Z_HALL0; z <= Z_HALL1; z++) {
 			b.set(18, ROW, z, gold);
 			b.set(22, ROW, z, gold);
-			for (int x = 19; x <= 21; x++) {
-				b.set(x, ROW, z, red);
-			}
 		}
-		// medallion under the dome: a deepslate diamond ring with a glowing core
-		for (int dx = -4; dx <= 4; dx++) {
-			for (int dz = -4; dz <= 4; dz++) {
-				int md = Math.abs(dx) + Math.abs(dz);
-				if (md <= 4) {
-					b.set(CX + dx, ROW, DOME_Z + dz, Blueprint.AIR);
-				}
-			}
-		}
-		Ornament.diamond(b, CX, DOME_Z, 4, FLOOR_Y, floorAccent, true);
-		Ornament.diamond(b, CX, DOME_Z, 3, FLOOR_Y, b.palette().block(Role.FLOOR), false);
-		Ornament.diamond(b, CX, DOME_Z, 1, FLOOR_Y, b.palette().block(Role.UPLIGHT), false);
-		Ornament.diamond(b, CX, DOME_Z, 2, FLOOR_Y, b.palette().block(Role.GILT), true);
-		// colonnades (x7, x33): columns every 4, an architrave carrying the gallery floor
+		// colonnades (x7, x33): slim 1 x 1 columns with a base and a capital at pitch 8, an architrave carrying the gallery
 		b.mirrorX(AX2, m -> {
-			for (int z = 9; z <= Z_HALL1; z += 4) {
-				Ornament.column(m, X_COLONNADE, z, ROW, MEZZ_Y - 1, Flare.NONE);
+			for (int z = 10; z <= Z_HALL1; z += 8) {
+				Ornament.column(m, X_COLONNADE, z, ROW, MEZZ_Y - 2, Flare.BASE);
 			}
-			m.fill(X_COLONNADE, MEZZ_Y, Z_HALL0 - 1, X_COLONNADE, MEZZ_Y, Z_HALL1, Role.BAND);
+			m.fill(X_COLONNADE, MEZZ_Y - 1, Z_HALL0 - 1, X_COLONNADE, MEZZ_Y, Z_HALL1, Role.BAND);
 		});
-		// rear arcade z7 under the VIP gallery: five arches
-		for (int y = ROW; y <= MEZZ_Y - 1; y++) {
-			for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
-				b.set(x, y, Z_REAR_ARCADE, Role.WALL);
-			}
-		}
+		// the rear opening under the VIP gallery: the same slim columns at pitch 8 under an architrave, so the bar is in
+		// view from the whole hall
+		b.clear(X_COLONNADE + 1, ROW, Z_REAR_ARCADE, SX - 2 - X_COLONNADE, MEZZ_Y - 2, Z_REAR_ARCADE);
+		b.fill(X_COLONNADE + 1, MEZZ_Y - 1, Z_REAR_ARCADE, SX - 2 - X_COLONNADE, MEZZ_Y - 1, Z_REAR_ARCADE, Role.BAND);
 		b.mirrorX(AX2, m -> {
-			Ornament.arch(m, true, 9, 11, Z_REAR_ARCADE, Z_REAR_ARCADE, ROW, ROW + 3, 1.5, Role.WALL);
-			Ornament.arch(m, true, 13, 15, Z_REAR_ARCADE, Z_REAR_ARCADE, ROW, ROW + 3, 1.5, Role.WALL);
-			Ornament.arch(m, true, 18, 22, Z_REAR_ARCADE, Z_REAR_ARCADE, ROW, ROW + 3, 2, Role.WALL);
+			for (int x : new int[] {8, 16}) {
+				Ornament.column(m, x, Z_REAR_ARCADE, ROW, MEZZ_Y - 2, Flare.BASE);
+			}
 		});
 		// coffered ceiling with the oculus under the drum
 		Ornament.coffers(b, X_WALL + 1, Z_BACK + 1, SX - 2 - X_WALL, Z_HALL1, CEIL_Y, 4, b.palette().block(Role.LIGHT));
@@ -451,8 +474,8 @@ public final class GrandCasino {
 	// front block: lobby, loggia, balcony, crown sign
 
 	static void front(Blueprint b) {
-		BlockSpec red = b.palette().block(Role.CARPET);
-		BlockSpec gold = BlockSpec.mc("yellow_carpet");
+		BlockSpec red = FIELD;
+		BlockSpec gold = GOLD;
 		// lobby floor: checker marble with the runner
 		Ornament.checker(b, X_COLONNADE + 1, Z_INNER + 1, SX - 2 - X_COLONNADE, Z_FRONT - 1, FLOOR_Y, b.palette().block(Role.FLOOR),
 			b.palette().block(Role.FLOOR_ACCENT));
@@ -463,12 +486,20 @@ public final class GrandCasino {
 				b.set(x, ROW, z, red);
 			}
 		}
+		// the lobby medallion on the runner: a gilt diamond on deep red
+		Ornament.diamond(b, CX, Z_INNER + 4, 2, ROW, gold, true);
+		Ornament.diamond(b, CX, Z_INNER + 4, 1, ROW, red, false);
 		// lobby ceiling: coffers with lights (they also light the closed attic above)
 		Ornament.coffers(b, X_COLONNADE + 1, Z_INNER + 1, SX - 2 - X_COLONNADE, Z_FRONT - 1, MEZZ_Y, 3, b.palette().block(Role.LIGHT));
 		// inner arcade z22: centre arch 5 wide, side arches 3 wide
 		b.mirrorX(AX2, m -> {
 			Ornament.arch(m, true, 18, 22, Z_INNER, Z_INNER, ROW, ROW + 3, 2, Role.WALL);
-			Ornament.arch(m, true, 12, 14, Z_INNER, Z_INNER, ROW, ROW + 3, 1.5, Role.WALL);
+			// pilasters with capitals on the lobby walls, sconces between the front windows
+			for (int z : new int[] {Z_INNER + 1, Z_FRONT - 1}) {
+				Ornament.pilaster(m, 16, z, ROW, MEZZ_Y - 1);
+			}
+			m.set(13, ROW + 2, Z_FRONT - 1, m.palette().get(Role.CORNICE).slab("top"));
+			m.set(13, ROW + 3, Z_FRONT - 1, lantern(m, false));
 			// the hall side of the inner wall above the arcade: a blind arcade of gilt panels
 			for (int x = 10; x <= 16; x += 3) {
 				m.fill(x, MEZZ_Y + 2, Z_INNER, x + 1, MEZZ_Y + 4, Z_INNER, Role.WALL_ALT);
@@ -480,12 +511,13 @@ public final class GrandCasino {
 			archWindow(m, true, 10, 12, Z_FRONT, ROW + 1, ROW + 3, 1.5);
 			archWindow(m, true, 14, 15, Z_FRONT, ROW + 1, ROW + 3, 1);
 		});
-		// loggia z30..33: marble floor, coffered ceiling (balcony deck above), arcade of paired columns on z33
+		// loggia z30..33: marble floor, coffered ceiling (the deck above), an arcade of round arches on 1 x 1 columns with
+		// a base and a capital on z33
 		Ornament.checker(b, X_COLONNADE + 1, Z_FRONT + 1, SX - 2 - X_COLONNADE, Z_LOGGIA, FLOOR_Y, b.palette().block(Role.FLOOR),
 			b.palette().block(Role.FLOOR_ACCENT));
 		b.clear(X_COLONNADE + 1, ROW, Z_FRONT + 1, SX - 2 - X_COLONNADE, ROW2 - 1, Z_LOGGIA);
 		b.mirrorX(AX2, m -> {
-			for (int z = Z_FRONT; z <= Z_LOGGIA; z++) {
+			for (int z = Z_FRONT; z <= Z_PAVILION; z++) {
 				m.set(18, ROW, z, gold);
 				for (int x = 19; x <= 20; x++) {
 					m.set(x, ROW, z, red);
@@ -497,87 +529,94 @@ public final class GrandCasino {
 		b.fill(X_COLONNADE + 1, ROW2 - 1, Z_LOGGIA, SX - 2 - X_COLONNADE, ROW2 - 1, Z_LOGGIA, Role.WALL);
 		b.mirrorX(AX2, m -> {
 			for (int x : new int[] {8, 12, 16, 17}) {
-				Ornament.column(m, x, Z_LOGGIA, ROW, ROW + 3, Flare.NONE);
+				Ornament.column(m, x, Z_LOGGIA, ROW, ROW + 2, Flare.BASE);
 			}
-			Ornament.arch(m, true, 9, 11, Z_LOGGIA, Z_LOGGIA, ROW, ROW + 4, 1.5, Role.WALL);
-			Ornament.arch(m, true, 13, 15, Z_LOGGIA, Z_LOGGIA, ROW, ROW + 4, 1.5, Role.WALL);
-			Ornament.arch(m, true, 18, 22, Z_LOGGIA, Z_LOGGIA, ROW, ROW + 4, 2, Role.WALL);
-			// a lantern pair hanging in every bay
+			Ornament.arch(m, true, 9, 11, Z_LOGGIA, Z_LOGGIA, ROW, ROW + 3, 1.5, Role.WALL);
+			Ornament.arch(m, true, 13, 15, Z_LOGGIA, Z_LOGGIA, ROW, ROW + 3, 1.5, Role.WALL);
+			Ornament.arch(m, true, 18, 22, Z_LOGGIA, Z_LOGGIA, ROW, ROW + 3, 2.5, Role.WALL);
+			// a lantern hanging in every bay
 			for (int x : new int[] {10, 14, 19}) {
 				m.set(x, ROW2 - 1, Z_LOGGIA - 2, lantern(m, true));
 			}
 		});
-		// the marquee façade over the loggia (the sign reads from the diagonals too: only one block behind the towers):
-		// a solid attic behind it, a gilt entablature on the arcade, the CASINO board in neon froglight with a bulb chaser
-		b.fill(X_COLONNADE + 1, ROW2, Z_FRONT, SX - 2 - X_COLONNADE, ROW2 + 7, Z_LOGGIA - 1, Role.WALL);
-		for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
-			b.set(x, ROW2, Z_LOGGIA, Role.BAND);
-			b.set(x, ROW2, Z_LOGGIA + 1, b.palette().get(Role.CORNICE).stairs(Facing.NORTH, true));
+		marquee(b);
+		parapet(b);
+		// a bulb-lit canopy over the main arch: the sill deck runs on one block past the towers, a fascia of bulbs and
+		// lights on its edge, lanterns hanging under it
+		for (int x = 17; x <= 23; x++) {
+			b.set(x, ROW2, Z_PAVILION + 1, x % 2 == 0 ? b.palette().block(Role.BULB) : b.palette().block(Role.LIGHT));
 		}
-		SignFont.Plan plan = SignFont.SMALL.line("CASINO");
-		Facades.SignBox sign = Ornament.neon(b, plan, Facing.SOUTH, CX, ROW2 + 1, Z_LOGGIA, 1, false);
-		BlockSpec back = b.palette().block(Role.SIGN_BACK), light = b.palette().block(Role.LIGHT);
-		for (int x = sign.alongFrom(); x <= sign.alongTo(); x++) {
-			for (int y : new int[] {sign.y0(), sign.y1()}) {
-				if (back.equals(b.at(x, y, Z_LOGGIA))) {
-					b.set(x, y, Z_LOGGIA, light); // marquee chase: bulb, light, bulb, light …
-				}
-			}
-		}
-		for (int y = sign.y0(); y <= sign.y1(); y++) {
-			for (int x : new int[] {sign.alongFrom(), sign.alongTo()}) {
-				if (back.equals(b.at(x, y, Z_LOGGIA))) {
-					b.set(x, y, Z_LOGGIA, light);
-				}
-			}
-		}
-		// a proud gilt frame round the board: a hood of upside-down stairs on top, gilt jambs at both ends
-		for (int x = X_COLONNADE + 1; x <= SX - 2 - X_COLONNADE; x++) {
-			b.set(x, ROW2 + 8, Z_LOGGIA + 1, b.palette().get(Role.GILT).stairs(Facing.NORTH, true));
-		}
-		for (int y = ROW2 + 1; y <= ROW2 + 7; y++) {
-			b.set(X_COLONNADE + 1, y, Z_LOGGIA + 1, b.palette().get(Role.GILT).block());
-			b.set(SX - 2 - X_COLONNADE, y, Z_LOGGIA + 1, b.palette().get(Role.GILT).block());
-		}
-		crown(b);
+		b.set(18, ROW2 - 1, Z_PAVILION, lantern(b, true));
+		b.set(22, ROW2 - 1, Z_PAVILION, lantern(b, true));
 	}
 
 	/**
-	 * Art-deco stepped crown above the sign (two blocks thick): four receding tiers of WALL fluted with vertical GILT
-	 * strips on the axis rhythm, cornice-slab treads, a BULB on every step corner, a CAPITAL keystone fin with end-rod
-	 * rays on the top.
+	 * The CASINO board: one line of the LARGE font (7 rows, solid 1-block strokes of the light-emitting NEON_A role, a
+	 * one-column letter gap, the N's diagonal touching its stems only at the ends) on a solid SIGN_BACK board that
+	 * fills the 25 visible columns between the towers (x8..32; the towers' walls stand on x7 and x33), recessed one block on the loggia front under a projecting
+	 * stair cornice and over a cornice sill; a bulb chase (BULB / LIGHT) only on the board's top and bottom rows.
 	 */
-	static void crown(Blueprint b) {
-		int y = ROW2 + 8; // first row above the sign board
-		int[][] tiers = {{9, 2}, {12, 2}, {15, 2}, {18, 1}}; // {x0, rows} per tier, symmetric about CX
-		Material gilt = b.palette().get(Role.GILT);
+	static void marquee(Blueprint b) {
+		SignFont.Plan plan = SignFont.LARGE.line("CASINO");
+		int x0 = CX - plan.width() / 2, x1 = x0 + plan.width() - 1;
+		int y0 = ROW2 + 1, y1 = y0 + plan.height() + 1; // bulb row, 7 text rows, bulb row
+		// the solid attic behind the board, from the front wall to the board
+		b.fill(X_COLONNADE + 1, ROW2 + 1, Z_FRONT, SX - 2 - X_COLONNADE, y1, Z_SIGN - 1, Role.WALL);
+		for (int x = x0; x <= x1; x++) {
+			for (int y = y0; y <= y1; y++) {
+				b.set(x, y, Z_SIGN, Role.SIGN_BACK);
+			}
+			BlockSpec chase = Math.floorMod(x - CX, 2) == 0 ? b.palette().block(Role.BULB) : b.palette().block(Role.LIGHT);
+			b.set(x, y0, Z_SIGN, chase);
+			b.set(x, y1, Z_SIGN, chase);
+			b.set(x, ROW2, Z_LOGGIA, Role.BAND);
+			for (int z = Z_LOGGIA + 1; z <= Z_PAVILION; z++) {
+				b.set(x, ROW2, z, b.palette().get(Role.CORNICE).slab("top")); // the sill: a deck over the arcade front
+			}
+			b.set(x, y1 + 1, Z_SIGN, Role.CORNICE);
+			b.set(x, y1 + 1, Z_PAVILION, b.palette().get(Role.CORNICE).stairs(Facing.NORTH, true)); // projecting cornice
+		}
+		for (dev.nezo.burmaldaholic.worldgen.logic.Layouts.SignPixel px : plan.pixels()) {
+			b.set(x0 + px.col(), y1 - 1 - px.row(), Z_SIGN, Role.NEON_A);
+		}
+	}
+
+	/** Board top row + 1 (the cornice row) above which the parapet stands. */
+	static int marqueeTop() {
+		return ROW2 + 1 + SignFont.LARGE.rows() + 2;
+	}
+
+	/**
+	 * A low art-deco parapet over the sign (at most 4 rows): three receding tiers of WALL fluted with GILT on the axis
+	 * rhythm, cornice-slab treads, a bulb at every step end and a CAPITAL keystone with end-rod rays. The sign below
+	 * stays the focal point.
+	 */
+	static void parapet(Blueprint b) {
+		final int Z_LOGGIA = Z_SIGN; // the parapet stands on the board's plane
+		int y = marqueeTop();
+		int[][] tiers = {{11, 2}, {15, 1}, {18, 1}}; // {x0, rows} per tier, symmetric about CX
+		Material cornice = b.palette().get(Role.CORNICE);
 		for (int[] t : tiers) {
 			int x0 = t[0], x1 = AX2 - t[0];
 			for (int r = 0; r < t[1]; r++, y++) {
 				for (int x = x0; x <= x1; x++) {
-					boolean edge = x == x0 || x == x1;
-					boolean flute = Math.floorMod(x - CX, 3) == 0;
-					BlockSpec face = edge ? (y % 2 == 0 ? b.palette().block(Role.BULB) : b.palette().block(Role.LIGHT))
-						: flute ? b.palette().block(Role.NEON_A) : b.palette().block(Role.SIGN_BACK);
-					b.set(x, y, Z_LOGGIA, face);
-					b.set(x, y, Z_LOGGIA - 1, face); // double-faced: the crown glows toward the back too
+					boolean flute = Math.floorMod(x - CX, 3) == 0 && x != x0 && x != x1;
+					b.set(x, y, Z_LOGGIA, flute ? Role.GILT : Role.WALL);
+					b.set(x, y, Z_LOGGIA - 1, Role.WALL);
 				}
 			}
 			for (int x = x0; x <= x1; x++) {
-				b.set(x, y, Z_LOGGIA, gilt.slab("bottom"));
-				b.set(x, y, Z_LOGGIA - 1, gilt.slab("bottom"));
+				if (b.at(x, y, Z_LOGGIA) == null || b.at(x, y, Z_LOGGIA).is("minecraft:air")) {
+					b.set(x, y, Z_LOGGIA, cornice.slab("bottom"));
+					b.set(x, y, Z_LOGGIA - 1, cornice.slab("bottom"));
+				}
 			}
-			b.set(x0, y, Z_LOGGIA, b.palette().block(Role.BULB));
-			b.set(x1, y, Z_LOGGIA, b.palette().block(Role.BULB));
+			b.set(x0, y - 1, Z_LOGGIA, b.palette().block(Role.BULB));
+			b.set(x1, y - 1, Z_LOGGIA, b.palette().block(Role.BULB));
 		}
-		// keystone fin and rays
-		b.set(CX, y, Z_LOGGIA, Role.CAPITAL);
-		b.set(CX, y, Z_LOGGIA - 1, Role.WALL);
+		b.set(CX, y - 1, Z_LOGGIA, Role.CAPITAL);
+		b.set(CX, y, Z_LOGGIA, ROD_UP);
 		b.set(CX, y + 1, Z_LOGGIA, ROD_UP);
-		b.set(CX, y + 2, Z_LOGGIA, ROD_UP);
-		for (int s : new int[] {-1, 1}) {
-			b.set(CX + 2 * s, y, Z_LOGGIA, ROD_UP);
-		}
 	}
 
 	// =====================================================================================================
@@ -615,7 +654,7 @@ public final class GrandCasino {
 			m.clear(x0 + 1, CEIL_Y + 1, Z_TOWER + 1, x1 - 1, towerTop, z1 - 1);
 			m.fill(x0 + 1, CEIL_Y + 1, Z_TOWER + 1, x1 - 1, CEIL_Y + 1, z1 - 1, Role.CEILING);
 			m.fill(x0 + 1, towerTop, Z_TOWER + 1, x1 - 1, towerTop, z1 - 1, Role.CEILING);
-			m.set(4, towerTop - 1, 31, lantern(m, true));
+			m.set(4, towerTop - 1, Z_TOWER + 3, lantern(m, true));
 			// door from the lobby
 			m.clear(x1, ROW, Z_TOWER, x1, ROW + 2, Z_TOWER);
 			m.set(x1, ROW + 3, Z_TOWER, Role.CAPITAL);
@@ -630,13 +669,13 @@ public final class GrandCasino {
 				}
 			}
 			// side window (outer wall) and back windows
-			archWindow(m, false, 30, 32, x0, ROW + 2, ROW + 5, 1.5);
+			archWindow(m, false, Z_TOWER + 2, Z_TOWER + 4, x0, ROW + 2, ROW + 5, 1.5);
 			archWindow(m, false, 24, 26, x0, ROW + 2, ROW + 5, 1.5);
 			// upper storey: an arched window on the front and the outer side, the ♦ medallion between the storeys
 			archWindow(m, true, 3, 5, z1, CEIL_Y + 3, CEIL_Y + 5, 1.5);
-			archWindow(m, false, 30, 32, x0, CEIL_Y + 3, CEIL_Y + 5, 1.5);
+			archWindow(m, false, Z_TOWER + 2, Z_TOWER + 4, x0, CEIL_Y + 3, CEIL_Y + 5, 1.5);
 			archWindow(m, true, 3, 5, Z_TOWER, CEIL_Y + 3, CEIL_Y + 5, 1.5);
-			archWindow(m, false, 30, 32, x1, CEIL_Y + 3, CEIL_Y + 5, 1.5);
+			archWindow(m, false, Z_TOWER + 2, Z_TOWER + 4, x1, CEIL_Y + 3, CEIL_Y + 5, 1.5);
 			Ornament.stringCourse(m, x0, z1, x1, z1, CEIL_Y + 1, Facing.SOUTH, Role.CORNICE, true);
 			// cornice ring round the tower, a steep copper roof with fresh-copper hips, glazed belvedere, finial
 			Ornament.cornice(m, x0, Z_TOWER, x1, z1, towerTop + 1);
@@ -654,23 +693,23 @@ public final class GrandCasino {
 			m.fill(x0 + 2, ry + 2, Z_TOWER + 2, x1 - 2, ry + 2, z1 - 2, dome.block());
 			int by = ry + 3;
 			for (int x = 3; x <= 5; x++) {
-				for (int z = 30; z <= 32; z++) {
-					boolean corner = (x == 3 || x == 5) && (z == 30 || z == 32);
+				for (int z = Z_TOWER + 2; z <= Z_TOWER + 4; z++) {
+					boolean corner = (x == 3 || x == 5) && (z == Z_TOWER + 2 || z == Z_TOWER + 4);
 					for (int yy = by; yy <= by + 1; yy++) {
 						m.set(x, yy, z, corner ? Ornament.upright(m, Role.COLUMN) : m.palette().block(Role.GLASS));
 					}
 					m.set(x, by + 2, z, corner ? rib.slab("bottom") : dome.slab("bottom"));
 				}
 			}
-			m.set(4, by, 31, m.palette().block(Role.LIGHT));
-			m.set(4, by + 1, 31, m.palette().block(Role.GLASS));
-			m.set(4, by + 2, 31, rib.block());
-			m.set(4, by + 3, 31, BlockSpec.mc("lightning_rod", "facing", "up", "powered", "false", "waterlogged", "false"));
+			m.set(4, by, Z_TOWER + 3, m.palette().block(Role.LIGHT));
+			m.set(4, by + 1, Z_TOWER + 3, m.palette().block(Role.GLASS));
+			m.set(4, by + 2, Z_TOWER + 3, rib.block());
+			m.set(4, by + 3, Z_TOWER + 3, BlockSpec.mc("lightning_rod", "facing", "up", "powered", "false", "waterlogged", "false"));
 			// back part (z22..27): cornice at the hall's height
 			Ornament.corniceRun(m, x0, z0, x0, Z_TOWER - 1, CEIL_Y + 2, Facing.WEST);
 		});
 		// west pavilion: the duel pit; east pavilion: the gold slot bank (games() places the games)
-		Kits.duelPit().apply(b, 4, ROW, 30, Facing.SOUTH);
+		Kits.duelPit().apply(b, 4, ROW, 31, Facing.SOUTH);
 	}
 
 	// =====================================================================================================
@@ -755,12 +794,12 @@ public final class GrandCasino {
 		Ornament.sunburst(b, CX, Z_PAVILION, FLOOR_Y, 7, 2, 6.5, -60, 60, b.palette().block(Role.FLOOR_ACCENT));
 		for (int z = z0; z < SZ; z++) {
 			for (int x = 19; x <= 21; x++) {
-				b.set(x, ROW, z, b.palette().block(Role.CARPET));
+				b.set(x, ROW, z, FIELD);
 			}
 		}
 		b.mirrorX(AX2, m -> {
 			// fountain: quartz rim, still water lit from below, a column with a lantern in the middle
-			double fx = 5, fz = 37.5;
+			double fx = 5, fz = Z_PAVILION + 3.5;
 			for (int[] c : Ornament.discCells(fx, fz, 2)) {
 				m.set(c[0], FLOOR_Y - 1, c[1], m.palette().block(Role.WATER_BASIN));
 			}
@@ -772,21 +811,28 @@ public final class GrandCasino {
 				m.set(c[0], FLOOR_Y, c[1], BlockSpec.mc("water", "level", "0"));
 				m.set(c[0], FLOOR_Y - 1, c[1], BlockSpec.mc("sea_lantern"));
 			}
-			Ornament.column(m, 5, 37, FLOOR_Y, ROW + 1, Flare.NONE);
-			m.set(5, ROW + 2, 37, lantern(m, false));
+			Ornament.column(m, 5, Z_PAVILION + 3, FLOOR_Y, ROW + 1, Flare.NONE);
+			m.set(5, ROW + 2, Z_PAVILION + 3, lantern(m, false));
 			// lamp post allée, planters at the pavilion feet
-			Kits.lampPost(4).apply(m, 11, ROW, 37, Facing.SOUTH);
+			Kits.lampPost(4).apply(m, 11, ROW, Z_PAVILION + 3, Facing.SOUTH);
+			// flag mast flanking the runner: a pole, a capital with the house banner, a lantern on top
+			for (int y = ROW; y < ROW + 6; y++) {
+				m.set(14, y, SZ - 2, BlockSpec.mc("spruce_fence"));
+			}
+			m.set(14, ROW + 6, SZ - 2, Role.CAPITAL);
+			m.set(14, ROW + 7, SZ - 2, lantern(m, false));
+			m.banner(14, ROW + 6, SZ - 1, Facing.SOUTH, "red", Blueprint.layer("rhombus", "yellow"), Blueprint.layer("border", "yellow"));
 			Kits.planter().apply(m, 9, ROW, z0 + 1, Facing.SOUTH);
-			m.set(16, ROW, 39, BlockSpec.mc("polished_deepslate_wall"));
-			m.set(16, ROW + 1, 39, lantern(m, false));
+			m.set(16, ROW, SZ - 2, BlockSpec.mc("polished_deepslate_wall"));
+			m.set(16, ROW + 1, SZ - 2, lantern(m, false));
 			// clipped hedges along the forecourt sides, topiary on posts flanking the runner
 			BlockSpec hedge = BlockSpec.mc("azalea_leaves", "distance", "1", "persistent", "true", "waterlogged", "false");
 			for (int z = Z_PAVILION + 1; z < SZ - 1; z++) {
 				m.set(0, ROW, z, hedge);
 			}
-			m.set(14, ROW, 36, BlockSpec.mc("spruce_fence"));
-			m.set(14, ROW + 1, 36, BlockSpec.mc("flowering_azalea_leaves", "distance", "1", "persistent", "true", "waterlogged", "false"));
-			m.set(14, ROW + 2, 36, hedge);
+			m.set(14, ROW, Z_PAVILION + 2, BlockSpec.mc("spruce_fence"));
+			m.set(14, ROW + 1, Z_PAVILION + 2, BlockSpec.mc("flowering_azalea_leaves", "distance", "1", "persistent", "true", "waterlogged", "false"));
+			m.set(14, ROW + 2, Z_PAVILION + 2, hedge);
 			// the terrace edge steps down to the terrain
 			for (int x = 0; x <= CX; x++) {
 				m.set(x, FLOOR_Y, SZ - 1, m.palette().get(Role.PLINTH).stairs(Facing.NORTH, false));
@@ -839,7 +885,7 @@ public final class GrandCasino {
 				m.set(x, FLOOR_Y, Z_PAVILION + 1, m.palette().block(Role.UPLIGHT)); // floodlights washing the tower front
 			}
 			for (int x : new int[] {9, 11, 13, 15}) {
-				m.set(x, FLOOR_Y, Z_PAVILION, m.palette().block(Role.UPLIGHT)); // the loggia arcade lit from below
+				m.set(x, FLOOR_Y, Z_LOGGIA + 1, m.palette().block(Role.UPLIGHT)); // the loggia arcade lit from below
 			}
 		});
 		// a service door in the back wall (closed, decorative)
@@ -876,18 +922,18 @@ public final class GrandCasino {
 		Kits.tablePod(Game.BACCARAT_PLAYER_BANKED, null).apply(b, SX - 1 - 13, ROW2, 4, Facing.SOUTH);
 		// lobby: the cashier's booth (west, 3 wide x 2 tall) with the Croupier behind its grille, facing the Wheel of
 		// Fortune (east, 3 x 3 upright) in its lit alcove; Plinko (3 x 3) stands in the west pavilion by the duel pit
-		Kits.cashierCage(Game.CASHIER).apply(b, 9, ROW, 25, Facing.EAST);
-		Kits.machineAlcove(Game.WHEEL).apply(b, 31, ROW, 25, Facing.WEST);
+		Kits.cashierCage(Game.CASHIER).apply(b, 12, ROW, Z_INNER + 2, Facing.SOUTH);
+		Kits.machineAlcove(Game.WHEEL).apply(b, AX2 - 12, ROW, Z_INNER + 2, Facing.SOUTH);
 		Kits.machineAlcove(Game.PLINKO).apply(b, 2, ROW, 25, Facing.EAST);
 		// hall front wall (z21): a gold bank in each pit, clear of the arcade openings
 		Kits.slotBank(Game.SLOTS_GOLD, 3).apply(b, 11, ROW, Z_HALL1, Facing.NORTH);
 		Kits.slotBank(Game.SLOTS_GOLD, 3).apply(b, SX - 1 - 9, ROW, Z_HALL1, Facing.NORTH);
 		// east pavilion: the gold slot bank against the outer wall
 		Kits.slotBank(Game.SLOTS_GOLD, 4).apply(b, SX - 3, ROW, 26, Facing.WEST);
-		// a shaded pendant lamp over every table, one row above its board volume: the felt is lit >= 12
+		// a chandelier over every table, its lanterns one row above the board volume: the felt is lit >= 12
 		for (Piece.GameSpot s : b.games()) {
 			if (s.game().tableGame() != null) {
-				Kits.pendantLamp(CEIL_Y - (s.pos().y() + PENDANT_DY)).apply(b, s.pos().x(), CEIL_Y, s.pos().z(), Facing.SOUTH);
+				tableChandelier(b, s.pos().x(), s.pos().y(), s.pos().z());
 			}
 		}
 	}

@@ -12,6 +12,7 @@ import dev.nezo.burmaldaholic.core.table.parts.MigrationDecision;
 import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
 import dev.nezo.burmaldaholic.core.table.parts.TableParts;
+import dev.nezo.burmaldaholic.core.table.parts.TableProtection;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackModule;
 import dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity;
 import io.netty.channel.embedded.EmbeddedChannel;
@@ -136,7 +137,8 @@ public class MultiBlockTableGameTests {
 
 	private static List<BlockPos> cells(GameTestHelper helper, MultiBlockTableBlock b, Direction facing) {
 		List<BlockPos> out = new ArrayList<>();
-		for (int[] o : b.offsets(facing)) {
+		for (dev.nezo.burmaldaholic.core.table.parts.LocalCell c : b.cells()) {
+			int[] o = c.offset(facing.getStepX(), facing.getStepZ());
 			out.add(abs(helper, MAIN).offset(o[0], o[1], o[2]));
 		}
 		return out;
@@ -443,6 +445,49 @@ public class MultiBlockTableGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * T-MT D2 (coordinator decision): a table saved before v0.2 (no player-placed mark) inside a v0.1 casino is the
+	 * house's only on one of the layout's generated table positions; a legacy table elsewhere in the box is marked as a
+	 * player's on load. The casino record (layout + rotated box + origin id) exists only inside this synchronous block,
+	 * because a 17×17 village box reaches past this test's area.
+	 */
+	@GameTest(maxTicks = 20)
+	public void legacyTablesInsideCasinosHouseOnlyAtGeneratedPositions(GameTestHelper helper) {
+		floor(helper);
+		clearArea(helper);
+		ServerLevel level = helper.getLevel();
+		Block block = BlackjackModule.TABLE.block();
+		BlockPos generated = abs(helper, new BlockPos(4, 1, 2)); // village v0.1 blackjack (4, 1, 10) with origin z −8
+		BlockPos elsewhere = abs(helper, new BlockPos(6, 1, 6)); // village local (6, 1, 14): no v0.1 game there
+		level.setBlockAndUpdate(generated, block.defaultBlockState());
+		level.setBlockAndUpdate(elsewhere, block.defaultBlockState());
+		BlockPos o = abs(helper, new BlockPos(0, 0, -8));
+		String dim = level.dimension().identifier().toString();
+		String id = dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord.idFor(dim, o.getX(), o.getY(), o.getZ());
+		dev.nezo.burmaldaholic.worldgen.CasinoIndex index = dev.nezo.burmaldaholic.worldgen.CasinoIndex.get(level.getServer());
+		dev.nezo.burmaldaholic.worldgen.logic.Vec origin = new dev.nezo.burmaldaholic.worldgen.logic.Vec(o.getX(), o.getY(), o.getZ());
+		index.setAnchor(id, dim, "village_casino_plains", dev.nezo.burmaldaholic.worldgen.logic.CasinoKind.VILLAGE_CASINO,
+			dev.nezo.burmaldaholic.worldgen.logic.Geometry.templateBox(origin, new dev.nezo.burmaldaholic.worldgen.logic.Vec(17, 10, 17), 0));
+		try {
+			for (BlockPos p : List.of(generated, elsewhere)) {
+				dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().legacyTableLoaded(level, p, level.getBlockEntity(p));
+			}
+			helper.assertFalse(dev.nezo.burmaldaholic.worldgen.HouseGames.isPlayerPlaced(level.getBlockEntity(generated)),
+				"legacy table at a generated position stays unmarked");
+			helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, generated, level.getBlockEntity(generated)),
+				"legacy table at a generated position is the house's");
+			helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isPlayerPlaced(level.getBlockEntity(elsewhere)),
+				"legacy table elsewhere in the casino is marked as a player's");
+			helper.assertFalse(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, elsewhere, level.getBlockEntity(elsewhere)),
+				"legacy table elsewhere is not the house's");
+			helper.assertTrue(TableProtection.get().dropsAllowed(level, elsewhere, level.getBlockEntity(elsewhere)), "the player's legacy table drops");
+			helper.assertFalse(TableProtection.get().dropsAllowed(level, generated, level.getBlockEntity(generated)), "the house's never drops");
+		} finally {
+			index.removeIf(r -> r.id().equals(id));
+		}
+		helper.succeed();
+	}
+
 	/** A piston can't push a part; water (source and flow) doesn't wash parts away; rotate/mirror keep a valid table. */
 	@GameTest(maxTicks = 200)
 	public void pistonsWaterRotateMirror(GameTestHelper helper) {
@@ -559,7 +604,10 @@ public class MultiBlockTableGameTests {
 		Direction facing = Direction.SOUTH;
 		BlockPos mainAbs = base.offset(MAIN);
 		List<BlockPos> cells = new ArrayList<>();
-		for (int[] o : b.offsets(facing)) cells.add(mainAbs.offset(o[0], o[1], o[2]));
+		for (dev.nezo.burmaldaholic.core.table.parts.LocalCell c : b.cells()) {
+			int[] o = c.offset(facing.getStepX(), facing.getStepZ());
+			cells.add(mainAbs.offset(o[0], o[1], o[2]));
+		}
 		AABB area = new AABB(base).minmax(new AABB(base.offset(7, 7, 7)));
 		try {
 			for (int x = 0; x < 8; x++) for (int z = 0; z < 8; z++) {
@@ -584,7 +632,7 @@ public class MultiBlockTableGameTests {
 			helper.assertTrue(r.consumesAction(), "owner placed the table (" + r + ")");
 			helper.assertTrue(TableParts.intact(level, mainAbs, level.getBlockState(mainAbs)), "full table placed");
 			helper.assertTrue(dev.nezo.burmaldaholic.multiplayer.Ownership.owner(level, mainAbs).isPresent(), "the owner's table linked (via the main block)");
-			BlockPos part = mainAbs.offset(b.offsets(facing).get(4)[0], 0, b.offsets(facing).get(4)[2]); // BACK_LEFT
+			BlockPos part = TableFootprint.partPos(mainAbs, facing, TablePart.BACK_LEFT);
 			other.gameMode.destroyBlock(part);
 			helper.assertTrue(TableParts.intact(level, mainAbs, level.getBlockState(mainAbs)), "non-owner break of a part refused");
 			level.explode(null, part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5, 2.5f, Level.ExplosionInteraction.TNT);

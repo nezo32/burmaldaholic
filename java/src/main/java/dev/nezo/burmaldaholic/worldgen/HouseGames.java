@@ -103,8 +103,8 @@ public final class HouseGames {
 	// ---- break event ----------------------------------------------------------------------------------------------------
 
 	/**
-	 * The main block of the table at {@code pos}. Single-block tables: the block itself. When MT-1 lands (3×2 tables)
-	 * this resolves a part to its main block with {@code TableParts.mainOf} (MT-DESIGN §4).
+	 * The main block of the table at {@code pos}: a part resolves to its main block (MT-DESIGN §4); compact tables and
+	 * other blocks are their own main.
 	 */
 	static BlockPos mainOf(ServerLevel level, BlockPos pos, BlockState state) {
 		return dev.nezo.burmaldaholic.core.table.parts.TableParts.mainPos(pos, state); // MT: part → main
