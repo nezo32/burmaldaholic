@@ -71,12 +71,12 @@ class SlotMachinesV2Test {
 			assertEquals(SlotMachinesV2.DEFAULT_RTP[m.ordinal()], r.total(), 1e-11);
 			assertEquals(SlotMachinesV2.DEFAULT_OWNED_RTP[m.ordinal()], r.totalOwned(), 1e-11);
 		}
-		assertEquals(0.94968, SlotRtpV2Test.report(Machine.NETHER).buyRtp(), 5e-6);
-		assertEquals(0.96506, SlotRtpV2Test.report(Machine.END).buyRtp(), 5e-6);
+		assertEquals(0.979639, SlotRtpV2Test.report(Machine.NETHER).buyRtp(), 5e-6);
+		assertEquals(0.980848, SlotRtpV2Test.report(Machine.END).buyRtp(), 5e-6);
 		// an underpriced Nether buy (15 × bet) is flagged: buy RTP above the machine RTP
 		double buy = SlotMachinesV2.DEFAULT_FS3[1] / 15 + 0.015;
 		SlotRtpV2.Report n = SlotRtpV2Test.report(Machine.NETHER);
-		SlotRtpV2.Report cheap = new SlotRtpV2.Report(n.machine(), n.baseWays(), n.scatterPay(), n.freeSpins(), n.bonus(), n.jackpotSeed(),
+		SlotRtpV2.Report cheap = new SlotRtpV2.Report(n.machine(), n.baseWays(), n.scatterPay(), n.freeSpins(), n.bonus(), n.jackpotSeed(), n.jackpotGem(),
 			n.jackpotContribution(), n.total(), n.totalOwned(), n.hitPay(), n.hitAny(), n.pFreeSpins(), n.pBonus(), n.fsPerTrigger(),
 			n.fsExpectedSpins(), n.bonusPerTrigger(), n.jackpotHits(), buy);
 		assertTrue(buy > n.total());

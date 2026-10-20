@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * <p>Grammar (numbers in lower-case base 36, negative with a leading {@code -}; fields separated by {@code ;}):
  * <pre>
  *   2;&lt;m&gt;;&lt;bet&gt;;&lt;flags&gt;;&lt;total&gt;;&lt;stops&gt;;&lt;fs&gt;;&lt;hunt&gt;;&lt;hoard&gt;;&lt;wheel&gt;;&lt;jackpots&gt;
- *   m        o | n | e                         flags   'b' bought, 'c' cap hit (in that order), or empty
+ *   m        o | n | e                         flags   'b' bought, 'c' cap hit, 'g1'/'g2' jackpot gem (in that order), or empty
  *   stops    s.s.s.s.s  (empty when bought)
  *   fs       &lt;awarded&gt;:&lt;spin&gt;/&lt;spin&gt;…           spin    s.s.s.s.s,&lt;stickyMaskAfter&gt;,&lt;retrigger 0|1&gt;,&lt;pay&gt;
  *   hunt     &lt;entry&gt;.&lt;entry&gt;…:&lt;opened&gt;
@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  */
 public final class TapeCodec {
 	private static final Pattern NUMBER = Pattern.compile("-?[0-9a-z]+");
-	private static final Pattern FLAGS = Pattern.compile("b?c?");
+	private static final Pattern FLAGS = Pattern.compile("b?c?(g[12])?");
 
 	private TapeCodec() {}
 
@@ -68,7 +68,7 @@ public final class TapeCodec {
 	}
 
 	public static String encode(SpinTape t) {
-		String flags = (t.bought() ? "b" : "") + (t.capHit() ? "c" : "");
+		String flags = (t.bought() ? "b" : "") + (t.capHit() ? "c" : "") + (t.gem() > 0 ? "g" + t.gem() : "");
 		StringBuilder fs = new StringBuilder();
 		if (t.freeSpins() != null) {
 			fs.append(n(t.freeSpins().awarded())).append(':');
@@ -167,7 +167,9 @@ public final class TapeCodec {
 					jps.add(new SpinTape.JackpotAward(tier, p(a[1]), a[2].equals("1")));
 				}
 			}
-			return new SpinTape(m, bet, bought, stops, fs, hunt, hoard, wheel, jps, total, f[3].contains("c"));
+			int gem = f[3].contains("g") ? f[3].charAt(f[3].indexOf('g') + 1) - '0' : 0;
+			if (gem > 0 && (bought || jps.isEmpty() || jps.getLast().tier() != gem)) throw new IllegalArgumentException("tape: gem without its award");
+			return new SpinTape(m, bet, bought, stops, fs, hunt, hoard, wheel, jps, total, f[3].contains("c"), gem);
 		} catch (IllegalArgumentException e) {
 			throw e;
 		} catch (RuntimeException e) {

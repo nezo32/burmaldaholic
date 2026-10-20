@@ -504,6 +504,22 @@
    "reduceMotion": false,
    "seed": 101870,
    "timeline": "{\"v\":1,\"game\":\"slots.end\",\"seed\":101870,\"beats\":[{\"at\":0,\"dur\":120,\"kind\":\"slots.spin_up\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":250,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,6,0]},{\"at\":400,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,35,0]},{\"at\":550,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":2,\"group\":0,\"clock\":\"S\",\"args\":[0,29,0]},{\"at\":750,\"dur\":220,\"kind\":\"slots.symbol_land\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,0,2,0]},{\"at\":900,\"dur\":220,\"kind\":\"slots.symbol_land\",\"lane\":2,\"group\":0,\"clock\":\"S\",\"args\":[0,1,2,1]},{\"at\":900,\"dur\":1000,\"kind\":\"slots.anticipate\",\"lane\":3,\"group\":0,\"clock\":\"S\",\"args\":[0,2]},{\"at\":1300,\"dur\":600,\"kind\":\"slots.reel_land\",\"lane\":3,\"group\":0,\"clock\":\"S\",\"args\":[0,24,1]},{\"at\":1700,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":4,\"group\":0,\"clock\":\"S\",\"args\":[0,28,0]},{\"at\":1900,\"dur\":220,\"kind\":\"slots.symbol_land\",\"lane\":3,\"group\":0,\"clock\":\"S\",\"args\":[0,0,2,2]},{\"at\":2200,\"dur\":900,\"kind\":\"slots.win_show\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0,0,340,2000,1]},{\"at\":3100,\"dur\":700,\"kind\":\"slots.bonus_intro\",\"lane\":-1,\"group\":1,\"clock\":\"S\",\"args\":[4,648]},{\"at\":4600,\"dur\":4500,\"kind\":\"slots.wheel_spin\",\"lane\":0,\"group\":2,\"clock\":\"S\",\"args\":[15]},{\"at\":9100,\"dur\":1000,\"kind\":\"slots.bonus_end\",\"lane\":-1,\"group\":2,\"clock\":\"S\",\"args\":[4]},{\"at\":10100,\"dur\":800,\"kind\":\"slots.rollup\",\"lane\":-1,\"group\":3,\"clock\":\"L\",\"args\":[2000,1,5000]},{\"at\":10900,\"dur\":2000,\"kind\":\"slots.jackpot\",\"lane\":0,\"group\":4,\"clock\":\"L\",\"args\":[1,75000]},{\"at\":12900,\"dur\":0,\"kind\":\"slots.end\",\"lane\":-1,\"group\":5,\"clock\":\"L\",\"args\":[]}]}"
+  },
+  {
+   "tape": "2;o;k;g1;0;n.g.t.9.0;;;;;1.5k.0",
+   "sharedPct": 100,
+   "localPct": 100,
+   "reduceMotion": false,
+   "seed": 1980,
+   "timeline": "{\"v\":1,\"game\":\"slots.overworld\",\"seed\":1980,\"beats\":[{\"at\":0,\"dur\":120,\"kind\":\"slots.spin_up\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":250,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,23,0]},{\"at\":400,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,16,0]},{\"at\":550,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":2,\"group\":0,\"clock\":\"S\",\"args\":[0,29,0]},{\"at\":700,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":3,\"group\":0,\"clock\":\"S\",\"args\":[0,9,0]},{\"at\":850,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":4,\"group\":0,\"clock\":\"S\",\"args\":[0,0,0]},{\"at\":1350,\"dur\":1200,\"kind\":\"slots.jackpot_gem\",\"lane\":-1,\"group\":1,\"clock\":\"S\",\"args\":[1]},{\"at\":2550,\"dur\":2000,\"kind\":\"slots.jackpot\",\"lane\":0,\"group\":2,\"clock\":\"L\",\"args\":[1,200]},{\"at\":4550,\"dur\":0,\"kind\":\"slots.end\",\"lane\":-1,\"group\":3,\"clock\":\"L\",\"args\":[]}]}"
+  },
+  {
+   "tape": "2;e;2s;g2;0;11.x.9.7.1;;;;;2.3uw.0",
+   "sharedPct": 100,
+   "localPct": 100,
+   "reduceMotion": false,
+   "seed": 68037,
+   "timeline": "{\"v\":1,\"game\":\"slots.end\",\"seed\":68037,\"beats\":[{\"at\":0,\"dur\":120,\"kind\":\"slots.spin_up\",\"lane\":-1,\"group\":0,\"clock\":\"S\",\"args\":[0]},{\"at\":250,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":0,\"group\":0,\"clock\":\"S\",\"args\":[0,37,0]},{\"at\":400,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,33,0]},{\"at\":550,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":2,\"group\":0,\"clock\":\"S\",\"args\":[0,9,0]},{\"at\":700,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":3,\"group\":0,\"clock\":\"S\",\"args\":[0,7,0]},{\"at\":750,\"dur\":220,\"kind\":\"slots.symbol_land\",\"lane\":1,\"group\":0,\"clock\":\"S\",\"args\":[0,2,2,0]},{\"at\":850,\"dur\":350,\"kind\":\"slots.reel_land\",\"lane\":4,\"group\":0,\"clock\":\"S\",\"args\":[0,1,0]},{\"at\":1350,\"dur\":1200,\"kind\":\"slots.jackpot_gem\",\"lane\":-1,\"group\":1,\"clock\":\"S\",\"args\":[2]},{\"at\":2550,\"dur\":2500,\"kind\":\"slots.jackpot\",\"lane\":0,\"group\":2,\"clock\":\"L\",\"args\":[2,5000]},{\"at\":5050,\"dur\":0,\"kind\":\"slots.end\",\"lane\":-1,\"group\":3,\"clock\":\"L\",\"args\":[]}]}"
   }
  ]
 }

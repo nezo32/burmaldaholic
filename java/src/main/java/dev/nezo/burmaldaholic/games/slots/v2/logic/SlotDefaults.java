@@ -93,12 +93,12 @@ public final class SlotDefaults {
 		String[] s = strips(m);
 		for (int r = 0; r < 5; r++) strips[r] = parseStrip(codes, s[r]);
 		return switch (m) {
-			case OVERWORLD -> new MachineDef(m, codes, roles(m), strips, pays(m), new int[] {5, 50, 250}, 0b10101, new int[] {8, 10, 15}, 8, 50, 2,
+			case OVERWORLD -> new MachineDef(m, codes, roles(m), strips, pays(m), new int[] {5, 50, 250}, 0b10101, new int[] {10, 12, 19}, 8, 50, 2,
 				new int[0], new int[0], 500, 0, overworldFeatures());
-			case NETHER -> new MachineDef(m, codes, roles(m), strips, pays(m), new int[] {0, 0, 0}, 0, new int[] {12, 15, 20}, 5, 60, 1,
-				new int[] {1, 2, 3, 5}, new int[] {2, 4, 6, 10}, 2000, 92, netherFeatures());
+			case NETHER -> new MachineDef(m, codes, roles(m), strips, pays(m), new int[] {0, 0, 0}, 0, new int[] {14, 17, 23}, 5, 60, 1,
+				new int[] {1, 2, 3, 5}, new int[] {2, 4, 6, 10}, 2000, 104, netherFeatures());
 			case END -> new MachineDef(m, codes, roles(m), strips, pays(m), new int[] {10, 50, 250}, 0b01110, new int[] {9, 11, 14}, 4, 40, 1,
-				new int[0], new int[0], 5000, 545, endFeatures());
+				new int[0], new int[0], 5000, 536, endFeatures());
 		};
 	}
 
@@ -112,26 +112,31 @@ public final class SlotDefaults {
 	public static final int[] HOLD_WEIGHTS = {4000, 2500, 1500, 1000, 500, 120, 80, 20, 3};
 	/** Jackpot tier keys (config maps), index = tier − 1. */
 	public static final String[] TIER_KEYS = {"mini", "minor", "major", "grand"};
+	/**
+	 * Base-game jackpot gem per paid base spin, ppm (Mini, Minor; SLOTS.md §5.4): Overworld 1 in 4 000 / 1 in 20 000, Nether
+	 * 1 in 5 000 / 1 in 40 000, End 1 in 6 667 (150 ppm) / 1 in 50 000. Funded inside the 98.5 % budget (SlotRtpV2Test).
+	 */
+	public static final int[][] GEM_PPM = {{250, 50}, {200, 25}, {150, 20}};
 
 	/** Wedge orders of SLOTS.md §3.3 (tokens: integer multiples, MINI MINOR MAJOR GRAND, UP). */
-	public static final String[] WHEEL_OUTER = "10 UP 12 15 MINI 10 20 12 25 10 40 15 UP 12 20 MINI 15 10 75 25".split(" ");
+	public static final String[] WHEEL_OUTER = "12 UP 15 20 MINI 12 25 15 30 12 50 20 UP 15 25 MINI 20 12 100 30".split(" ");
 	public static final String[] WHEEL_MIDDLE = "30 50 MINOR 75 30 100 50 UP 30 75 MINOR 50 100 30 75 50".split(" ");
 	public static final String[] WHEEL_CORE = "150 MAJOR 250 150 GRAND 250 MAJOR 150 500 250 MAJOR 150".split(" ");
 
 	private static MachineDef.Features overworldFeatures() {
 		return new MachineDef.Features(15, PICK_VALUES.clone(), PICK_WEIGHTS.clone(), 0, 0, 0, new int[0], new int[0], new int[0][],
-			100, new int[] {10, 25, 100, 500}, new int[] {4000, 3000, 2000, 1000}, new int[] {10, 25, 100, 250});
+			100, new int[] {10, 25, 100, 500}, new int[] {4000, 3000, 2000, 1000}, new int[] {10, 25, 100, 250}, GEM_PPM[0].clone());
 	}
 
 	private static MachineDef.Features netherFeatures() {
 		return new MachineDef.Features(0, new int[0], new int[0], 6, 3, 40000, HOLD_VALUES.clone(), HOLD_WEIGHTS.clone(), new int[0][],
-			500, new int[] {10, 30, 150, 1000}, new int[] {5000, 4000, 3500, 2500}, new int[] {10, 30, 150, 500});
+			500, new int[] {10, 30, 150, 1000}, new int[] {5000, 4000, 3500, 2500}, new int[] {10, 30, 150, 500}, GEM_PPM[1].clone());
 	}
 
 	private static MachineDef.Features endFeatures() {
 		int[][] rings = {wheelTokens(WHEEL_OUTER), wheelTokens(WHEEL_MIDDLE), wheelTokens(WHEEL_CORE)};
 		return new MachineDef.Features(0, new int[0], new int[0], 0, 0, 0, new int[0], new int[0], rings,
-			5000, new int[] {15, 50, 250, 2500}, new int[] {5000, 5000, 6000, 9000}, new int[] {15, 50, 250, 1000});
+			5000, new int[] {15, 50, 250, 2500}, new int[] {5000, 5000, 6000, 9000}, new int[] {15, 50, 250, 1000}, GEM_PPM[2].clone());
 	}
 
 	/** Wheel tokens → value codes (multiple, -tier, 0 = UP). Throws on an unknown token. */

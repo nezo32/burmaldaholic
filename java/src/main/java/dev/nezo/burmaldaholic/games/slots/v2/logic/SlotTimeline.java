@@ -36,7 +36,9 @@ import java.util.function.IntUnaryOperator;
  *           HOARD_COLLECT 120 × coins + 300; Dragon Wheel BONUS_INTRO 700 + 800 ready, WHEEL_SPIN 4 500 / 4 000 /
  *           5 000 + 600 glow, WHEEL_UP 800 between rings, BONUS_END 1 000 (glow + exit);</li>
  *       <li>free spins: FS_INTRO 2 000; FS_SPIN spans each free spin (+ 250 between spins); FS_RETRIGGER 1 200; FS_OUTRO
- *           roll-up of the feature total + 1 500; MAX_WIN 500 when the cap ended the spin.</li>
+ *           roll-up of the feature total + 1 500; MAX_WIN 500 when the cap ended the spin;</li>
+ *       <li>jackpot gem (SLOTS.md §5.4): JACKPOT_GEM 1 200 at the very end of the shared part (args: tier), so the part a
+ *           client sees during a Treasure Hunt is always a prefix of the final timeline.</li>
  *     </ul></li>
  *   <li>LOCAL (clock L, after the gate): ROLLUP (roll-up + 800 hold; 0 roll-up for "Returned", ≤ 300 with reduce
  *       motion) with the WAY_CYCLE entries next to it (700 each; base game only, no feature), then the JACKPOT
@@ -70,6 +72,7 @@ public final class SlotTimeline {
 	public static final String WHEEL_SPIN = "slots.wheel_spin";
 	public static final String WHEEL_UP = "slots.wheel_up";
 	public static final String JACKPOT = "slots.jackpot";
+	public static final String JACKPOT_GEM = "slots.jackpot_gem";
 	public static final String ROLLUP = "slots.rollup";
 	public static final String MAX_WIN = "slots.max_win";
 	public static final String END = "slots.end";
@@ -111,6 +114,7 @@ public final class SlotTimeline {
 	public static final int T_WHEEL_GLOW = 600;
 	public static final int T_WHEEL_EXIT = 400;
 	public static final int T_MAX_WIN = 500;
+	public static final int T_GEM = 1200;
 	public static final int T_ROLLUP_HOLD = 800;
 	public static final int T_REDUCED_ROLLUP = 300;
 	public static final int[] T_JACKPOT = {0, 2000, 2500, 3000, 4000};
@@ -390,6 +394,10 @@ public final class SlotTimeline {
 		if (tape.capHit()) {
 			p.next();
 			t = p.add(t, T_MAX_WIN, MAX_WIN, -1);
+		}
+		if (tape.gem() > 0) {
+			p.next();
+			t = p.add(t, T_GEM, JACKPOT_GEM, -1, tape.gem());
 		}
 
 		// ---- scale the shared part ----

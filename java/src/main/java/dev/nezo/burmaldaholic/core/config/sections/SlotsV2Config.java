@@ -113,14 +113,17 @@ public final class SlotsV2Config {
 		@Range(min = 0, max = 0.05) public Map<String, Double> contribution = Maps.of("mini", 0.004, "minor", 0.003, "major", 0.002, "grand", 0.001);
 		/** Fixed × bet at owned machines. */
 		@Range(min = 0, max = 100000) public Map<String, Integer> owned = Maps.of("mini", 10, "minor", 25, "major", 100, "grand", 250);
+		/** Base-game jackpot gem: chance per paid base spin (Mini, Minor; SLOTS.md §5.4). */
+		@Range(min = 0, max = 0.01) public Map<String, Double> gem = Maps.of("mini", 0.00025, "minor", 0.00005);
 
 		public Jackpot() {}
 
-		Jackpot(int refBet, int[] seed, double[] contribution, int[] owned) {
+		Jackpot(int refBet, int[] seed, double[] contribution, int[] owned, double[] gem) {
 			this.refBet = refBet;
 			this.seed = Maps.of("mini", seed[0], "minor", seed[1], "major", seed[2], "grand", seed[3]);
 			this.contribution = Maps.of("mini", contribution[0], "minor", contribution[1], "major", contribution[2], "grand", contribution[3]);
 			this.owned = Maps.of("mini", owned[0], "minor", owned[1], "major", owned[2], "grand", owned[3]);
+			this.gem = Maps.of("mini", gem[0], "minor", gem[1]);
 		}
 	}
 
@@ -145,8 +148,9 @@ public final class SlotsV2Config {
 					new double[][] {{0.8, 2, 4}, {0.6, 1.2, 2.4}, {0.4, 0.8, 1.6}, {0.4, 0.8, 1.6}, {0.2, 0.4, 0.8}, {0.2, 0.4, 0.8}, {0.2, 0.4, 0.8},
 						{0.2, 0.4, 0.8}}),
 				new double[] {1, 10, 50});
-			freeSpins = new FreeSpins(new int[] {8, 10, 15}, 8, 50, 2);
-			jackpot = new Jackpot(100, new int[] {10, 25, 100, 500}, new double[] {0.004, 0.003, 0.002, 0.001}, new int[] {10, 25, 100, 250});
+			freeSpins = new FreeSpins(new int[] {10, 12, 19}, 8, 50, 2);
+			jackpot = new Jackpot(100, new int[] {10, 25, 100, 500}, new double[] {0.004, 0.003, 0.002, 0.001}, new int[] {10, 25, 100, 250},
+				new double[] {0.00025, 0.00005});
 		}
 	}
 
@@ -161,7 +165,7 @@ public final class SlotsV2Config {
 	public static final class Nether extends Machine {
 		public Tumble tumble = new Tumble();
 		public Hold hold = new Hold();
-		public Buy buy = new Buy(18.4);
+		public Buy buy = new Buy(20.8);
 
 		public Nether() {
 			super(new int[] {10, 20, 50, 100, 250, 500}, 20, 0, 2000, new String[] {
@@ -174,8 +178,9 @@ public final class SlotsV2Config {
 					new double[][] {{0.8, 2, 8}, {0.6, 1.2, 4}, {0.4, 0.8, 2}, {0.4, 0.8, 1.6}, {0.2, 0.4, 0.6}, {0.2, 0.4, 0.6}, {0.2, 0.2, 0.6},
 						{0.2, 0.2, 0.6}}),
 				new double[] {0, 0, 0});
-			freeSpins = new FreeSpins(new int[] {12, 15, 20}, 5, 60, 1);
-			jackpot = new Jackpot(500, new int[] {10, 30, 150, 1000}, new double[] {0.005, 0.004, 0.0035, 0.0025}, new int[] {10, 30, 150, 500});
+			freeSpins = new FreeSpins(new int[] {14, 17, 23}, 5, 60, 1);
+			jackpot = new Jackpot(500, new int[] {10, 30, 150, 1000}, new double[] {0.005, 0.004, 0.0035, 0.0025}, new int[] {10, 30, 150, 500},
+				new double[] {0.0002, 0.000025});
 		}
 
 		@Override
@@ -214,7 +219,7 @@ public final class SlotsV2Config {
 	/** {@code slots.end} — End Void. */
 	public static final class End extends Machine {
 		public Wheel wheel = new Wheel();
-		public Buy buy = new Buy(109);
+		public Buy buy = new Buy(107.2);
 
 		public End() {
 			super(new int[] {50, 100, 250, 500, 1000, 2500, 5000}, 100, 2, 5000, new String[] {
@@ -227,7 +232,8 @@ public final class SlotsV2Config {
 					new double[][] {{2, 8, 30}, {1, 4, 12}, {0.8, 2, 6}, {0.6, 1.6, 5}, {0.4, 0.6, 2}, {0.4, 0.6, 2}, {0.2, 0.6, 1.2}, {0.2, 0.6, 1.2}}),
 				new double[] {2, 10, 50});
 			freeSpins = new FreeSpins(new int[] {9, 11, 14}, 4, 40, 1);
-			jackpot = new Jackpot(5000, new int[] {15, 50, 250, 2500}, new double[] {0.005, 0.005, 0.006, 0.009}, new int[] {15, 50, 250, 1000});
+			jackpot = new Jackpot(5000, new int[] {15, 50, 250, 2500}, new double[] {0.005, 0.005, 0.006, 0.009}, new int[] {15, 50, 250, 1000},
+				new double[] {0.00015, 0.00002});
 		}
 
 		@Override
@@ -238,7 +244,7 @@ public final class SlotsV2Config {
 
 	public static final class Wheel {
 		/** Tokens: integer multiples, MINI MINOR MAJOR GRAND, UP (not in core). */
-		@Size(min = 4, max = 32) public String[] outer = "10 UP 12 15 MINI 10 20 12 25 10 40 15 UP 12 20 MINI 15 10 75 25".split(" ");
+		@Size(min = 4, max = 32) public String[] outer = "12 UP 15 20 MINI 12 25 15 30 12 50 20 UP 15 25 MINI 20 12 100 30".split(" ");
 		@Size(min = 4, max = 32) public String[] middle = "30 50 MINOR 75 30 100 50 UP 30 75 MINOR 50 100 30 75 50".split(" ");
 		@Size(min = 4, max = 32) public String[] core = "150 MAJOR 250 150 GRAND 250 MAJOR 150 500 250 MAJOR 150".split(" ");
 	}
