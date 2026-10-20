@@ -85,5 +85,5 @@ Branch `p2/dcb` (from `feature/v020-table-ui` @292cbe5; merged `p2-e2-freeze` 69
 - NITs: `DiceArena.sounds` lost the redundant `waitingFor` (always == `show`); `PVP_RESULT_SINK` is volatile; the
   renderer's per-frame contact lambdas are now made once per stage and `DiceArena` reuses its `Cup[]`; the javadoc no
   longer claims "allocation-free". Not done: the on-receipt solve hitch NIT.
-- Verified: `DuelStageSyncTest` (4: round trip, write caps, read rejects, dimension filter), extras/dice/RawInputGuard
-  unit tests 157/157, compile 26.2 + `-Pmc=26.3`, `runGameTest -Dfabric-api.gametest.filter=duel`.
+- Verified (26.3 only, after the DCa merge): `DuelStageSyncTest` (4: round trip, write caps, read rejects, dimension filter),
+  extras + Dice + RawInputGuard unit tests 160/160, compile -Pmc=26.3, `runGameTest -Pmc=26.3 filter=duel` 11/11.
