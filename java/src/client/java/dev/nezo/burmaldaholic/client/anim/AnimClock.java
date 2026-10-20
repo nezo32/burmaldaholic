@@ -1,72 +1,63 @@
 package dev.nezo.burmaldaholic.client.anim;
 
 import dev.nezo.burmaldaholic.core.anim.TimelineSeed;
-import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
 
 /**
  * Frame-rate independent time sources for the client animation runtime (docs/architecture/animation.md §2.1).
  *
  * <ul>
- *   <li><b>Shared time</b>: server game ticks + partial tick, so the screen, the BER and other viewers agree
- *       ({@link #sharedMs}). Pauses with the game (singleplayer pause freezes the reels too).</li>
+ *   <li><b>Shared time</b>: the smoothed server level time of {@link SmoothClock} (SY-SPEC §1), so the screen, the BER
+ *       and other viewers agree and time packets never make it jump ({@link #sharedMs}). Pauses with the game.</li>
  *   <li><b>Local time</b>: wall-clock milliseconds ({@link #localMs}) for decoration that respects
  *       {@code anim.speed} and skip.</li>
  * </ul>
  */
 public final class AnimClock {
-	/** Test freeze hook (PHASE2B §3.2): when not NaN, the level time in ms that every reader sees. */
-	private static volatile double frozenLevelMs = Double.NaN;
-
 	private AnimClock() {}
 
 	/**
-	 * Freezes the shared clock at level time {@code levelMs} (game ticks · 50, partial tick included) for client
-	 * GameTests: in-world renderers then draw a deterministic mid-motion frame. Undo with {@link #unfreezeForTest()}.
+	 * Freezes the shared clock at level time {@code levelMs} for client GameTests.
+	 *
+	 * @deprecated forwards to {@link SmoothClock.Test#freezeLevelMs}; kept through v0.2.0 for the game owners' anim
+	 *     tests, removed in v0.2.1.
 	 */
+	@Deprecated
 	public static void freezeForTest(double levelMs) {
-		frozenLevelMs = levelMs;
-	}
-
-	/** Releases {@link #freezeForTest}. */
-	public static void unfreezeForTest() {
-		frozenLevelMs = Double.NaN;
+		SmoothClock.Test.freezeLevelMs(levelMs);
 	}
 
 	/**
-	 * The ONE test clock every client clock reads (AnimClock, {@code MotionClock}, {@code TableClock}): the frozen level
-	 * time of {@link #freezeForTest}, else {@code MotionClock.testOverride}, else NaN (production: live clocks).
+	 * Releases {@link #freezeForTest}.
+	 *
+	 * @deprecated use {@code SmoothClock.Test.freezeLevelMs(Double.NaN)}.
 	 */
+	@Deprecated
+	public static void unfreezeForTest() {
+		SmoothClock.Test.freezeLevelMs(Double.NaN);
+	}
+
+	/** The test level time every client clock reads ({@link SmoothClock.Test#frozenLevelMs}), else NaN. */
 	public static double testLevelMs() {
-		double frozen = frozenLevelMs;
-		if (!Double.isNaN(frozen)) return frozen;
-		java.util.function.LongSupplier o = dev.nezo.burmaldaholic.client.fx.motion.MotionClock.testOverride;
-		return o != null ? o.getAsLong() : Double.NaN;
+		return SmoothClock.Test.frozenLevelMs();
 	}
 
 	/** True while a test froze the clock. */
 	public static boolean frozen() {
-		return !Double.isNaN(frozenLevelMs);
+		return !Double.isNaN(testLevelMs());
 	}
 
 	/** Milliseconds since beat 0 of {@code seed} at the current frame; 0 when no level is loaded. */
 	public static double sharedMs(TimelineSeed seed, float partialTick) {
-		double frozen = testLevelMs();
-		if (!Double.isNaN(frozen)) {
-			long tick = (long) Math.floor(frozen / 50.0);
-			return seed.elapsedMs(tick, (float) ((frozen - tick * 50.0) / 50.0));
-		}
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null) return 0;
-		return seed.elapsedMs(mc.level.getGameTime(), partialTick);
+		if (!frozen() && !SmoothClock.started() && net.minecraft.client.Minecraft.getInstance().level == null) return 0;
+		double ms = levelMs(partialTick);
+		long tick = (long) Math.floor(ms / 50.0);
+		return seed.elapsedMs(tick, (float) ((ms - tick * 50.0) / 50.0));
 	}
 
-	/** Game time + partial tick in ms (for BERs that sample several seeds per frame). */
+	/** The shared level time in ms ({@link SmoothClock#nowMs}); the partial tick matters only before the first sync. */
 	public static double levelMs(float partialTick) {
-		double frozen = testLevelMs();
-		if (!Double.isNaN(frozen)) return frozen;
-		Minecraft mc = Minecraft.getInstance();
-		return mc.level == null ? 0 : (mc.level.getGameTime() + (double) partialTick) * 50.0;
+		return SmoothClock.nowMs(partialTick);
 	}
 
 	/** Wall-clock milliseconds for local-time beats. */

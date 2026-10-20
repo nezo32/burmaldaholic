@@ -16,6 +16,7 @@
 		"client.CreateWorldScreenMixin",
 		"client.HudV2Mixin",
 		"client.MouseHandlerFitMixin",
+		"client.SetTimeNetLagMixin",
 		"client.ToastManagerV2Mixin",
 		"client.WorldCreationUiStateMixin"
 	],
