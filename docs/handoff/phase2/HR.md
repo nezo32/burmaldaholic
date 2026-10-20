@@ -52,3 +52,17 @@ bet-entry controls (`BetAmount`, client `BetEntry`).
 - Poker (stepper buy-in/raise) has no bet entry; tooltip for the readout opener is narration only.
 - Board `chips_w.png` 1000/5000 colours changed to the UI's (yellow/orange); item textures of 1–500 now use palette colours (100's stripe white).
 - Plinko/Wheel publish a fraction of the VIP max: reported as VIP (the next tier scales it).
+
+## Fix round after T-HR (FAIL @e7845a94), all 26.3
+- Cherry-picked the tester's tests (`test/hr` @92f9d442: BetAmountEdgeTest, 4 server tests, HighRollerEntryClientGameTests, lane THR).
+- D1: `BetPort.entryCost()` / `BetAmount.Cost` (UTH: field = Ante, stake = 2 × Ante + Trips; Trips spot: Trips + 2 × Ante). The strip opens
+  with the Ante, Max = largest Ante whose whole stake fits min(table, VIP, balance), the status shows "Total stake: N".
+- D2: DenominationSourceTest scans comment-stripped, line-joined text: any-order lists of ≥3 chips (a 0 may join), high pairs
+  (≥1000), ordered triples, ternary ladders; self-test covers the tester's misses.
+- D3: `BetCap.withMax` scales the next tier's max. Roulette inside max still refused with its own key (not a cap; noted).
+- D4: "0k" ignored; cashier tray columns ≤ 208 px → head 126 px; client assert: EN/RU withdrawn/deposited/credited/paid 57 600 000 fit.
+- Full-inventory withdraw: new GameTest counts the dropped ItemEntities (3 stacks = 56 000). The tester's "no ItemEntity" was a test
+  artefact: the mock player was creative under the `gameMode()` override, and a creative `Inventory.add` voids the stack; the test sets
+  real survival (`setGameMode`). Real survival players drop correctly.
+- Verified: unit (chips, ui.v2, wager, Denomination, RawInputGuard) green; `runGameTest high_roller` "All 9 required tests passed";
+  client HR + THR (blackjack typed/Max, roulette, craps, punto banco, Plinko, **UTH** Ante/cost/Max, cashier head fit) BUILD SUCCESSFUL.

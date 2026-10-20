@@ -245,24 +245,34 @@ public class HighRollerGameTests {
 	public void cashierWithdrawDropsChipsWhenInventoryFull(GameTestHelper helper) {
 		ServerPlayer p = player(helper, "hr-drop", 500_000);
 		CashierBlockEntity cashier = open(helper, CoreContent.CASHIER.block(), CashierBlockEntity.class, p);
-		try {
-			for (int i = 0; i < p.getInventory().getContainerSize(); i++) p.getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
-			net.minecraft.world.phys.AABB around = p.getBoundingBox().inflate(8);
-			int itemsBefore = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around).size();
-			act(p, cashier, "withdraw", amount(56_000)); // 2 × 25K + 5K + 1K: three stacks, none fits
-			java.util.List<net.minecraft.world.entity.item.ItemEntity> drops = helper.getLevel().getEntitiesOfClass(
-				net.minecraft.world.entity.item.ItemEntity.class, around, e -> e.getItem().getItem() instanceof ChipItem);
-			long dropped = 0;
-			for (var e : drops) dropped += ChipItem.valueOf(e.getItem());
-			helper.assertTrue(balance(helper, p) == 444_000, "debited once: " + balance(helper, p));
-			helper.assertTrue(drops.size() == 3 && dropped == 56_000, "three chip stacks at the feet worth 56 000: " + drops.size() + " entities, "
-				+ dropped + " (items before " + itemsBefore + ", player at " + p.blockPosition() + " in " + p.level().dimension()
-				+ ", test level " + helper.getLevel().dimension() + ", same=" + (p.level() == helper.getLevel()) + ")");
-			for (var e : drops) e.discard();
-		} finally {
+		for (int i = 0; i < 36; i++) p.getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+		p.getInventory().setItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+		// the test server's players are creative under the gameMode() override: a creative inventory swallows what does not fit
+		// (Inventory.add + hasInfiniteMaterials), so make this one a REAL survival player, like the owner's
+		p.setGameMode(GameType.SURVIVAL);
+		helper.assertTrue(!p.hasInfiniteMaterials(), "survival player");
+		act(p, cashier, "withdraw", amount(56_000)); // 2 × 25K + 5K + 1K: three stacks, none fits
+		long carried = 0;
+		for (int i = 0; i < p.getInventory().getContainerSize(); i++) carried += ChipItem.valueOf(p.getInventory().getItem(i));
+		helper.assertTrue(balance(helper, p) == 444_000, "debited once: " + balance(helper, p));
+		helper.assertTrue(carried == 0, "nothing fitted the full inventory: " + carried);
+		long[] dropped = new long[2];
+		helper.succeedWhen(() -> {
+			dropped[0] = 0;
+			dropped[1] = 0;
+			for (net.minecraft.world.entity.Entity e : helper.getLevel().getAllEntities()) {
+				if (e instanceof net.minecraft.world.entity.item.ItemEntity it && e.isAlive() && it.getItem().getItem() instanceof ChipItem) {
+					dropped[0]++;
+					dropped[1] += ChipItem.valueOf(it.getItem());
+				}
+			}
+			helper.assertTrue(dropped[0] == 3 && dropped[1] == 56_000, "three chip stacks at the feet worth 56 000: " + dropped[0] + " entities, "
+				+ dropped[1] + " (player at " + p.blockPosition() + ")");
+			for (net.minecraft.world.entity.Entity e : helper.getLevel().getAllEntities()) {
+				if (e instanceof net.minecraft.world.entity.item.ItemEntity it && it.getItem().getItem() instanceof ChipItem) e.discard();
+			}
 			remove(helper, p);
-		}
-		helper.succeed();
+		});
 	}
 
 	/** A withdrawal into a full inventory drops the rest at the feet; balance + carried + dropped is conserved. */
