@@ -344,6 +344,22 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			}
 
 			@Override
+			public boolean setsAmount() {
+				return true;
+			}
+
+			@Override
+			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
+				if (view == null || amount <= 0) return false;
+				draft = amount;
+				history.clear();
+				history.push(amount);
+				FxSounds.play("chip_place", 1f);
+				refresh();
+				return true;
+			}
+
+			@Override
 			public void remove(long denom) {
 				if (history.isEmpty()) return;
 				// remove the last chip of that value (or the last chip)

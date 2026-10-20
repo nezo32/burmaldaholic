@@ -126,6 +126,18 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 			}
 
 			@Override
+			public boolean setsAmount() {
+				return true;
+			}
+
+			@Override
+			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
+				BET.set(amount, state().getLongOr("max", 0), shownBalance());
+				local();
+				return true;
+			}
+
+			@Override
 			public void remove(long denom) {
 				BET.undo();
 				local();

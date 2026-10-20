@@ -16,4 +16,20 @@ public interface BetPort {
 
 	/** A bet tool ({@code undo}, {@code clear}, {@code rebet}, {@code double}). */
 	void tool(String toolId);
+
+	/**
+	 * Whether {@link #amount} sets the bet (single-spot games). False (default): the bet-entry control's amount becomes
+	 * the unit a felt click places instead ({@link BetBar#unit}).
+	 */
+	default boolean setsAmount() {
+		return false;
+	}
+
+	/**
+	 * The bet-entry control's OK (lane HR): the bet becomes {@code amount} (already clamped to the limits and the
+	 * balance; the server still validates). Returns false when the game cannot set an amount.
+	 */
+	default boolean amount(long amount) {
+		return false;
+	}
 }

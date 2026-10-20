@@ -36,6 +36,8 @@ public final class BetBar {
 	private Gate[] chipGates = new Gate[0];
 	private Gate[] toolGates = new Gate[0];
 	private long selected = -1;
+	/** A typed amount a felt click places (bet-entry control, multi-spot games; 0 = the selected chip). */
+	private long unit;
 	private boolean armed;
 	private boolean visible;
 	// layout
@@ -104,8 +106,9 @@ public final class BetBar {
 		return chips.clone();
 	}
 
+	/** What a felt click places: the typed {@link #unit} when set, else the selected chip. */
 	public long selected() {
-		return selected;
+		return unit > 0 ? unit : selected;
 	}
 
 	public boolean armed() {
@@ -114,7 +117,19 @@ public final class BetBar {
 
 	public void select(long denom, boolean arm) {
 		selected = denom;
+		unit = 0;
 		armed = arm;
+	}
+
+	/** Sets the typed unit a felt click places (0 = back to the chips); arms it in multi-spot games. */
+	public void unit(long amount) {
+		unit = Math.max(0, amount);
+		if (unit > 0) armed = true;
+	}
+
+	/** The typed unit (0 = none). */
+	public long unit() {
+		return unit;
 	}
 
 	public void disarm() {
@@ -123,6 +138,10 @@ public final class BetBar {
 
 	/** The chip a felt click places: the armed one, else the last used, else the smallest affordable (§5.2-4); -1 = none. */
 	public long armOrDefault() {
+		if (unit > 0 && unit <= view.balance()) {
+			armed = true;
+			return unit;
+		}
 		long c = BetGates.armDefault(chips, view.min(), view.balance(), selected);
 		if (c > 0) {
 			selected = c;

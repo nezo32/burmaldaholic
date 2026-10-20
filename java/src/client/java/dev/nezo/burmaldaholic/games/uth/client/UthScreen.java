@@ -338,6 +338,19 @@ public class UthScreen extends V2TableScreen<UthView> {
 			}
 
 			@Override
+			public boolean setsAmount() {
+				return true;
+			}
+
+			@Override
+			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
+				long cur = draft.spot() == UthBetDraft.Spot.TRIPS ? draft.trips() : draft.ante();
+				if (amount <= 0 || amount == cur) return amount > 0;
+				edit(amount > cur ? draft.add(draft.spot(), amount - cur) : draft.remove(draft.spot(), cur - amount));
+				return true;
+			}
+
+			@Override
 			public void remove(long denom) {
 				edit(draft.remove(draft.spot(), denom));
 			}

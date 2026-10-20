@@ -51,6 +51,15 @@ public final class LocalBet {
 		return true;
 	}
 
+	/** Sets the amount (the bet-entry control, lane HR), clamped to the cap; false when nothing can be bet. */
+	public boolean set(long value, long max, long balance) {
+		long v = Math.min(Math.max(0, value), cap(max, balance));
+		chips.clear();
+		amount = v;
+		if (v > 0) chips.push(v);
+		return v > 0;
+	}
+
 	/** Removes the last chip added (or one chip of {@code denom} worth when the history is empty). */
 	public boolean undo() {
 		if (!chips.isEmpty()) {

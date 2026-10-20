@@ -266,6 +266,22 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 			}
 
 			@Override
+			public boolean setsAmount() {
+				return view != null && view.chemmy();
+			}
+
+			@Override
+			public boolean amount(long amount) { // the bet-entry control's OK (lane HR)
+				if (view == null || !view.chemmy() || amount <= 0) return false; // punto banco: the amount is the felt unit
+				draft = amount;
+				history.clear();
+				history.push(amount);
+				FxSounds.play("chip_place", 1f);
+				refresh();
+				return true;
+			}
+
+			@Override
 			public void remove(long denom) {
 				tool(BetGates.UNDO);
 			}

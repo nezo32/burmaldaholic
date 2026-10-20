@@ -11,6 +11,7 @@
 		"fabric-gametest": [
 			"dev.nezo.burmaldaholic.gametest.CoreGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.RealFlowTableGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.HighRollerGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.RealFlowMultiplayerGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.EconomyGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.JavaReviewGameTests",
@@ -76,6 +77,7 @@
 			"dev.nezo.burmaldaholic.gametest.v2.KitV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.board.BoardClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.blackjack.BlackjackV2ClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.v2.HighRollerClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.baccarat.BaccaratV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.poker.PokerV2ClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.v2.uth.UthV2ClientGameTests",
