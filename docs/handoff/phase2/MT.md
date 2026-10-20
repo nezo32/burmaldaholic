@@ -153,7 +153,7 @@ craps/roulette, ★3 felt 14/16) + coordinator scope addition MT-3 (upright mach
   against the footprint box +1 (`client/table/TableCulling`); cashier sign text cached per language; `TableFrames`
   transforms cached per game × part × facing (no per-frame records). Dead code removed: `TableFootprint.positions`,
   `MultiBlockTableBlock.offsets`, `noLootPart`; HouseGames.mainOf Javadoc. Tester probes (`MultiBlockTesterGameTests`,
-  test/mt @86e32006) cherry-picked. 26.3: `runGameTest multi_block` → all 21 passed.
+  test/mt @86e32006) cherry-picked. 26.3: `runGameTest multi_block` → all 21 passed; `worldgen` → all 15 passed (retried once after an out-of-memory JVM crash); unit tests OK.
 
 ## Requests (R3)
 - CB-C1 / CR: `TableClearance` R4 and `Kits.tablePod` still allow a lectern in the dealer cell — with real dealers it
