@@ -71,17 +71,22 @@ final class MockClient {
 	final List<Component> errors = new ArrayList<>();
 
 	private MockClient(net.minecraft.server.level.ServerLevel level, Vec3 abs, long balance) {
-		player = newPlayer(level);
+		this(newPlayer(level, java.util.UUID.randomUUID()), abs, balance, true);
+	}
+
+	private MockClient(ServerPlayer p, Vec3 abs, long balance, boolean setBalance) {
+		player = p;
 		player.setPos(abs.x, abs.y, abs.z);
-		Economies.get().setBalance(level.getServer(), player.getUUID(), balance, TEST);
+		if (setBalance) {
+			Economies.get().setBalance(p.level().getServer(), player.getUUID(), balance, TEST);
+		}
 		channel = channelOf(connectionOf(player));
 		declareChannels();
 		drain();
 	}
 
 	/** Like {@code GameTestHelper.makeMockServerPlayerInLevel}, but with a unique name (commands target players by name). */
-	private static ServerPlayer newPlayer(net.minecraft.server.level.ServerLevel level) {
-		java.util.UUID id = java.util.UUID.randomUUID();
+	private static ServerPlayer newPlayer(net.minecraft.server.level.ServerLevel level, java.util.UUID id) {
 		com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(id, "rf" + id.toString().substring(0, 8));
 		net.minecraft.server.network.CommonListenerCookie cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(profile, false);
 		ServerPlayer p = new ServerPlayer(level.getServer(), level, cookie.gameProfile(), cookie.clientInformation());
@@ -99,6 +104,11 @@ final class MockClient {
 	/** A second player on any server (client GameTests: the rival of the real client player), at absolute {@code at}. */
 	static MockClient spawn(net.minecraft.server.level.ServerLevel level, Vec3 at, long balance) {
 		return new MockClient(level, at, balance);
+	}
+
+	/** The same player (UUID, name) joining again after a disconnect (tester T-E2); the balance is kept. */
+	static MockClient rejoin(GameTestHelper helper, java.util.UUID id, Vec3 at) {
+		return new MockClient(newPlayer(helper.getLevel(), id), helper.absoluteVec(at), 0, false);
 	}
 
 	/** Disconnects the test player. */

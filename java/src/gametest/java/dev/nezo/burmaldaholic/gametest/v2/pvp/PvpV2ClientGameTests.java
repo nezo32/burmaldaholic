@@ -37,12 +37,15 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 			RealFlow f = new RealFlow(context, world);
 			context.waitTicks(20);
 			String[][] runs = {{"en_us", "1920", "1080", "4"}, {"ru_ru", "1920", "1080", "4"}, {"en_us", "1920", "1080", "3"}, {"ru_ru", "1920", "1080", "3"},
-				{"en_us", "1280", "720", "3"}};
+				{"en_us", "1280", "720", "3"},
+				// tester T-E2: the kit-port sizes (ROOMY 960 × 540; framed 1280 × 720 → a 1067 × 600 frame with an offset)
+				{"en_us", "1920", "1080", "2"}, {"ru_ru", "2560", "1440", "2"}};
 			for (String[] r : runs) {
 				if (!r[0].equals(f.client(mc -> mc.options.languageCode))) f.language(r[0]);
 				f.size(Integer.parseInt(r[1]), Integer.parseInt(r[2]), Integer.parseInt(r[3]));
 				String tag = r[0] + "_" + f.client(mc -> mc.getWindow().getGuiScaledWidth() + "x" + mc.getWindow().getGuiScaledHeight());
 				captures(f, tag);
+				if (Integer.parseInt(r[3]) == 2) realClicks(f, tag);
 			}
 			f.language("en_us");
 			f.size(854, 480, 0);
@@ -96,6 +99,69 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 		context.waitTicks(10);
 		f.shot(shotName(tag, "invite"));
 		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(3);
+	}
+
+	// ---- tester T-E2: real clicks on the kit-ported PvP screens at ROOMY / framed sizes ----------------------------
+
+	/** Clicks the visible, active widget labelled {@code key} at its real window pixel (viewport scale + frame offset). */
+	private boolean clickWidget(RealFlow f, String key) {
+		String label = net.minecraft.network.chat.Component.translatable(key).getString();
+		double[] at = f.client(mc -> {
+			Screen s = mc.gui.screen();
+			if (s == null) return null;
+			for (var c : s.children()) {
+				if (c instanceof AbstractWidget w && w.visible && w.isActive() && w.getMessage().getString().equals(label)) {
+					if (s instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h) {
+						var vp = h.chrome().viewport();
+						return new double[] {vp.windowX(w.getX() + w.getWidth() / 2.0), vp.windowY(w.getY() + w.getHeight() / 2.0)};
+					}
+					double k = mc.getWindow().getGuiScale();
+					return new double[] {(w.getX() + w.getWidth() / 2.0) * k, (w.getY() + w.getHeight() / 2.0) * k};
+				}
+			}
+			return null;
+		});
+		if (at == null) return false;
+		f.context().getInput().setCursorPos(at[0], at[1]);
+		f.context().waitTicks(1);
+		f.context().getInput().pressMouse(dev.nezo.burmaldaholic.client.input.Inputs.MOUSE_LEFT);
+		f.context().waitTicks(3);
+		return true;
+	}
+
+	private int widgetCount(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() == null ? -1 : (int) mc.gui.screen().children().stream().filter(c -> c instanceof AbstractWidget).count());
+	}
+
+	private void closeByClick(RealFlow f, String tag, String view) {
+		String before = f.screenName();
+		if (!clickWidget(f, "gui.burmaldaholic.common.close")) {
+			problems.add(tag + " " + view + ": no Close button on " + before);
+		} else if (!f.screenName().equals("no screen")) {
+			problems.add(tag + " " + view + ": the real click on Close missed (" + before + " still open: " + f.screenName() + ")");
+		}
+	}
+
+	private void realClicks(RealFlow f, String tag) {
+		ClientGameTestContext context = f.context();
+		// Scratch Showdown (PvpModeScreen): Taunt opens the taunt row, ? toggles the rules, Close closes
+		payload(context, "match", scratchMatch(false), 30);
+		int before = widgetCount(f);
+		if (!clickWidget(f, "gui.burmaldaholic.pvp.taunt.button")) problems.add(tag + " scratch: no active Taunt button");
+		int after = widgetCount(f);
+		if (after <= before) problems.add(tag + " scratch: the real click on Taunt did nothing (" + before + " -> " + after + " widgets)");
+		closeByClick(f, tag, "scratch");
+		// Plinko Battle (PvpModeScreen)
+		payload(context, "match", plinkoMatch(), 22);
+		closeByClick(f, tag, "plinko");
+		// Coin Flip Duel (PvpPanel)
+		payload(context, "match", coinMatch(true), 30);
+		closeByClick(f, tag, "coin");
+		// Wheel Party (PvpPanel)
+		payload(context, "match", wheelMatch(false), 10);
+		closeByClick(f, tag, "wheel");
+		context.runOnClient(mc -> ClientPvp.setStateForTests(null, "clear"));
 		context.waitTicks(3);
 	}
 
