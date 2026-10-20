@@ -438,6 +438,8 @@ public class HouseDealerTesterGameTests {
 	// ---- 5. click parity with the table -----------------------------------------------------------------------------
 
 	private static final Map<BlockPos, AtomicInteger> USE_BLOCK_SEEN = new HashMap<>();
+	/** Table positions whose UseBlockCallback refuses (stands in for Ownership.onUseBlock's closed / broke refusal). */
+	private static final Set<BlockPos> REFUSE = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private static boolean listening;
 
 	private static synchronized void listen() {
@@ -450,7 +452,7 @@ public class HouseDealerTesterGameTests {
 						n.incrementAndGet();
 					}
 				}
-				return InteractionResult.PASS;
+				return REFUSE.contains(hit.getBlockPos()) ? InteractionResult.FAIL : InteractionResult.PASS;
 			});
 		}
 	}
@@ -502,6 +504,30 @@ public class HouseDealerTesterGameTests {
 	}
 
 	// ---- 6. player-placed table next to an idle house dealer -----------------------------------------------------
+
+	/** D3 re-check: a UseBlockCallback refusal (what Ownership.onUseBlock returns for a closed owned table) also stops the dealer click. */
+	@GameTest
+	public void useBlockRefusalStopsTheDealerClick(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos main = fullTable(helper, BlackjackModule.TABLE.block(), new BlockPos(3, 1, 4));
+		HouseDealer d = dealerFor(level, main);
+		ServerPlayer p = player(helper, 100, new BlockPos(3, 1, 6));
+		listen();
+		REFUSE.add(main.immutable());
+		try {
+			p.interactOn(d, InteractionHand.MAIN_HAND, d.position().add(0, 1, 0));
+			helper.assertTrue(!(p.containerMenu instanceof CasinoTableMenu), "refused table: the dealer click must not open it");
+			REFUSE.remove(main);
+			p.interactOn(d, InteractionHand.MAIN_HAND, d.position().add(0, 1, 0));
+			helper.assertTrue(p.containerMenu instanceof CasinoTableMenu m && m.pos().equals(main), "not refused: opens");
+			p.closeContainer();
+		} finally {
+			REFUSE.remove(main);
+			remove(helper, p);
+			d.discard();
+		}
+		helper.succeed();
+	}
 
 	@GameTest
 	public void idleHouseDealerDoesNotAdoptAPlayersTable(GameTestHelper helper) {
