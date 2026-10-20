@@ -223,4 +223,57 @@ class RouletteLayoutTest {
 			assertTrue(box.y() >= l.numbers.bottom(), s[0] + "x" + s[1] + " banner " + box + " not under the numbers " + l.numbers);
 		}
 	}
+
+	/** T-C2 V5: the framed / ROOMY felts (owner 2560×1440 GUI 2, 1920×1080 GUI 2, 4K) are filled, not just their top 45 %. */
+	@Test
+	void roomyAndFramedFeltsAreFilled() {
+		int[][] cases = {{2560, 1440, 2}, {1920, 1080, 2}, {3840, 2160, 4}, {3840, 2160, 3}};
+		int roomy = 0;
+		for (int[] c : cases) {
+			dev.nezo.burmaldaholic.core.ui.v2.Viewport vp = dev.nezo.burmaldaholic.core.ui.v2.Viewport.of(c[0], c[1], c[2]);
+			RouletteLayout l = RouletteLayout.of(new dev.nezo.burmaldaholic.core.ui.v2.TableGrid(vp));
+			String at = c[0] + "x" + c[1] + " gui " + c[2] + " frame " + vp.frameW() + "x" + vp.frameH();
+			if (!l.grid.roomy()) continue;
+			roomy++;
+			Box play = l.grid.play;
+			int top = l.layout.y();
+			int bottom = l.calls.get(0).bottom();
+			assertTrue(bottom - top >= 0.6 * play.h(), at + ": layout block " + (bottom - top) + " of felt " + play.h());
+			int above = top - play.y();
+			int below = play.bottom() - bottom;
+			assertTrue(Math.abs(above - below) <= 24, at + ": not centred, " + above + " above / " + below + " below");
+			assertTrue(l.wheelD >= 144, at + ": wheel " + l.wheelD);
+			assertTrue(l.layout.w() >= 0.6 * play.w(), at + ": layout width " + l.layout.w() + " of " + play.w());
+		}
+		assertTrue(roomy >= 2, "ROOMY cases checked " + roomy);
+	}
+
+	/** T-C2 V4: the cell drawn over a celebration covers the whole winning cell and its number, inside the felt. */
+	@Test
+	void theWinningCellOverTheCelebrationCoversCellAndNumber() {
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			for (int n = 0; n <= 36; n++) {
+				Box p = l.winCellPunch(n);
+				assertTrue(l.cell(n).inside(p) && l.glyph(n).inside(p), s[0] + "x" + s[1] + " " + n);
+				assertTrue(p.inside(l.grid.play), s[0] + "x" + s[1] + " " + n + " punch outside the felt");
+			}
+		}
+	}
+
+	/** T-C2 V6: the banner keeps a 2 px gap to every call bet (Orphelins / Voisins stay readable). */
+	@Test
+	void theBannerNeverTouchesTheCallBets() {
+		for (int[] s : sizes()) {
+			RouletteLayout l = RouletteLayout.of(s[0], s[1]);
+			for (int[] b : bannerSizes(l.tier)) {
+				Optional<Box> at = FreeSlot.first(l.bannerRegions(), b[0], b[1], l.bannerObstacles());
+				if (at.isEmpty()) continue;
+				for (Box c : l.calls) {
+					Box grown = new Box(c.x(), c.y() - 2, c.w(), c.h() + 4);
+					assertFalse(at.get().intersects(grown), s[0] + "x" + s[1] + " banner " + at.get() + " touches call " + c);
+				}
+			}
+		}
+	}
 }

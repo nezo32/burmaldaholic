@@ -186,16 +186,21 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 		report.add(tag + ": result " + result + ", staked " + staked + ", returned " + ret + ", balance " + before + " -> " + after);
 		if (after - before != ret) throw new AssertionError("balance moved " + (after - before) + " but the settle returns " + ret + " (result " + result + ")");
 		// 4. Repeat during the result: enabled, queued, the slip is back when betting opens
-		// T-C2 T2: a NICE+ celebration takes the first click to skip itself; press until the Repeat is queued
+		// T-C2 T2 / V3: ONE click on Repeat queues it, even while a NICE+ celebration runs (the kit skips AND acts)
 		boolean stillResult = f.server(server -> be(server, pos).roundPhase().equals("result"));
-		boolean queued = false;
-		for (int tries = 0; tries < 3 && !queued && f.server(server -> be(server, pos).roundPhase().equals("result")); tries++) {
-			for (int wt = 0; wt < 100 && f.client(mc -> dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable()); wt++) f.context().waitTicks(1);
-			f.click("primary");
-			queued = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc && sc.rebetQueued());
+		boolean celebrating = f.client(mc -> dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().skippable());
+		if (celebrating) {
+			// T-C2 V4: the winning cell is drawn over the celebration
+			int cellsBefore = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc ? sc.winCellOverCelebration() : 0);
+			f.context().waitTicks(2);
+			int cellsAfter = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc ? sc.winCellOverCelebration() : 0);
+			report.add(tag + ": celebration running, winning cell redrawn over it in " + (cellsAfter - cellsBefore) + " frames");
+			if (cellsAfter <= cellsBefore) throw new AssertionError("the winning cell was not drawn over the celebration");
 		}
-		report.add(tag + ": Repeat pressed during the result: " + stillResult + ", queued " + queued);
-		if (stillResult && !queued) throw new AssertionError("Repeat during the result did not queue");
+		f.click("primary");
+		boolean queued = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc && sc.rebetQueued());
+		report.add(tag + ": Repeat pressed once during the result: " + stillResult + ", celebration " + celebrating + ", queued " + queued);
+		if (stillResult && !queued) throw new AssertionError("Repeat during the result did not queue on the first click (celebration " + celebrating + ")");
 		f.waitServer(pos, RouletteTableBlockEntity.class, be -> be.roundPhase().equals("betting") && Bets.totalStaked(be.betsOf(owner(be))) == staked,
 			"Repeat " + staked + " placed when betting opened", 200);
 		f.context().waitTicks(4);
@@ -223,9 +228,28 @@ public class RouletteV2ClientGameTests implements FabricClientGameTest {
 		report.add(tag + (spectator ? " spectator" : "") + ": banner '" + got[2] + "' at " + box + ((Boolean) got[5] ? " compact" : "") + ", winning cell " + cell
 			+ ", primary " + got[3] + " enabled " + got[4]);
 		if (box.intersects(cell)) throw new AssertionError("the banner " + box + " covers the winning cell " + result + " " + cell);
+		// T-C2 V10: at every size the hub shows the number and the ball is drawn in the column wheel once it rests
+		double[] probe = f.client(mc -> mc.gui.screen() instanceof RouletteScreen sc ? sc.wheelProbe() : null);
+		var wheelBox = f.client(mc -> RouletteLayout.of(((RouletteScreen) mc.gui.screen()).chrome().grid()).wheel);
+		report.add(tag + ": hub badge " + (int) probe[0] + ", ball " + (probe[1] > 0) + " at " + (int) probe[2] + "," + (int) probe[3] + " in " + wheelBox);
+		if ((int) probe[0] != result) throw new AssertionError("the hub shows " + (int) probe[0] + ", expected " + result);
+		if (probe[1] <= 0 || !wheelBox.contains(probe[2], probe[3])) throw new AssertionError("the ball is not drawn in the wheel at the result");
 		if (spectator) {
 			String want = f.client(mc -> RouletteScreen.numberWord(result).getString());
 			if (!want.equals(got[2])) throw new AssertionError("spectator banner '" + got[2] + "', expected '" + want + "'");
+			// T-C2 V7: the number is in its pocket colour, never slate
+			Integer color = f.client(mc -> {
+				var c = RouletteScreen.numberWord(result).getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+					&& tc.getArgs().length > 0 && tc.getArgs()[0] instanceof net.minecraft.network.chat.Component n && n.getStyle().getColor() != null
+					? n.getStyle().getColor().getValue() : null;
+				return c;
+			});
+			int expect = switch (dev.nezo.burmaldaholic.games.roulette.logic.Wheel.color(result)) {
+				case RED -> 0xFF5555;
+				case BLACK -> 0xFFFFFF;
+				case GREEN -> 0x55FF55;
+			};
+			if (color == null || color != expect) throw new AssertionError("spectator number colour " + color + ", expected " + Integer.toHexString(expect));
 		} else if (!"rebet".equals(got[3]) || !(Boolean) got[4]) {
 			throw new AssertionError("at the result the primary is " + got[3] + " enabled " + got[4] + ", expected Repeat enabled");
 		}

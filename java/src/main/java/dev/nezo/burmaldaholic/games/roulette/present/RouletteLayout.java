@@ -238,6 +238,12 @@ public final class RouletteLayout {
 		return out;
 	}
 
+	/** T-C2 V4: the winning cell with its 2 px gold frame (what is drawn again over a celebration). */
+	public Box winCellPunch(int n) {
+		Box c = cell(n);
+		return new Box(c.x() - 1, c.y() - 1, c.w() + 3, c.h() + 3);
+	}
+
 	/** Every number glyph box (0..36). */
 	public List<Box> glyphs() {
 		List<Box> out = new ArrayList<>(37);

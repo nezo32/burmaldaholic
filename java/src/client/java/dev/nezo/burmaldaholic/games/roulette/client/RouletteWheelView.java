@@ -265,6 +265,8 @@ final class RouletteWheelView {
 		double bx = gx + HS.dx;
 		double by = gy + HS.dy;
 		if (mini) {
+			// T-C2 V10: an ink ring around the 2 px ball keeps it visible on the ivory / red / black pockets of the mini wheel
+			dot(g, bx - 2, by - 2, 4, TableGfx.alpha(TableChrome.INK, 0.85 * w.ballAlpha * w.alpha), w.k);
 			dot(g, bx - 1, by - 1, 2, TableGfx.alpha(IVORY, w.ballAlpha * w.alpha), w.k);
 			return;
 		}

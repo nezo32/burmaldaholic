@@ -227,7 +227,9 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 		if (c.spin == null || c.seq != sync.seq() || c.result != result) {
 			boolean newSeq = c.seq != sync.seq();
 			long spinStart = result >= 0 ? sync.spinStart() : sync.launchTick() + RouletteSpin.NMB_TICKS;
-			c.spin = RouletteSpin.build(result, sync.seed(), sync.lastResult(), sync.launchTick(), spinStart, sync.spinTicks(), model);
+			// S1: a result that reaches this client late continues from where the drawn orbit is (no jump back)
+			double join = !newSeq && c.spin != null && !c.spin.solved() ? c.cursorAt : Double.NaN;
+			c.spin = RouletteSpin.build(result, sync.seed(), sync.lastResult(), sync.launchTick(), spinStart, sync.spinTicks(), model, join);
 			c.seq = sync.seq();
 			c.result = result;
 			c.cursor.bind(c.spin.events());

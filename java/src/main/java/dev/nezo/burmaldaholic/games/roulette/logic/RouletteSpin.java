@@ -50,10 +50,16 @@ public final class RouletteSpin {
 	public static final int END_MARGIN_MS = 300;
 	/** Shortest stage-B orbit. */
 	public static final int MIN_STAGE_B_MS = 60;
+	/** Shortest stage B after a late join (S1): the orbit slows over at least this long. */
+	public static final int LATE_MIN_STAGE_B_MS = 500;
 	/** Stage-B drop-time search: ± this around the natural drop, in steps of {@link #TD_STEP}. */
 	public static final int TD_JITTER_MS = 150, TD_STEP = 10;
 	/** Default NO_MORE_BETS length (ticks) when only a v1 sync is known. */
 	public static final int NMB_TICKS = 20;
+	/** Client-side lead between the draw (SPIN start) and the start of stage B (ms): 6 ticks (SY-SPEC §4). */
+	public static final int HANDOFF_LEAD_MS = 300;
+	/** Spins shorter than this (ticks) keep every ms for the solve: no lead. */
+	public static final int LEAD_MIN_TICKS = 100;
 	// ball speeds (deg/s) and decay
 	public static final double OMEGA_LAUNCH = 756, OMEGA_DROP = 306, TAU_BALL_MS = 4200;
 	public static final double K_MIN = 0.2, K_MAX = 6;
@@ -113,6 +119,14 @@ public final class RouletteSpin {
 	private final double tauB;
 	private final double tS;
 	private final double tEnd;
+	/**
+	 * S1 join: where stage B starts (at least {@link #tS}). A viewer whose result arrives late keeps orbiting on the
+	 * result-free stage A, and the solved path starts at THAT viewer's current orbit position and speed (no jump back to
+	 * the SPIN start).
+	 */
+	private final double tJ;
+	/** Ms the rest had to move past {@code tEnd - END_MARGIN_MS} for a very late result (0 when on time). */
+	private final double overrun;
 	// stage B + tail (result builds only)
 	private final boolean solved;
 	private final boolean fallback;
@@ -146,7 +160,7 @@ public final class RouletteSpin {
 	private final double[] hitTimes;
 	private final double[] scratch = new double[4];
 
-	private RouletteSpin(int result, int seed, int lastResult, long launchTick, long spinStart, int spinTicks, RotorModel rotor) {
+	private RouletteSpin(int result, int seed, int lastResult, long launchTick, long spinStart, int spinTicks, RotorModel rotor, double joinMs) {
 		if (result != -1 && !Wheel.isPocket(result)) throw new IllegalArgumentException("not a pocket: " + result);
 		this.result = result;
 		this.seed = seed;
@@ -161,9 +175,14 @@ public final class RouletteSpin {
 		this.phiL = ln.range(-20, 20);
 		this.omegaB0 = OMEGA_LAUNCH * (1 + ln.range(-0.06, 0.06));
 		this.tauB = TAU_BALL_MS * (1 + ln.range(-0.08, 0.08));
-		this.tS = Math.max(LAUNCH_MS + 50, (spinStart - launchTick) * 50.0);
-		this.tEnd = tS + this.spinTicks * 50.0;
-		this.thetaS = stageA(tS);
+		// S1 / SY-SPEC §4 lead: stage B starts HANDOFF_LEAD_MS after the draw, so a result up to that late still builds the
+		// shared on-time spin (the orbit before it is result-free); the server timing is unchanged
+		double draw = Math.max(LAUNCH_MS + 50, (spinStart - launchTick) * 50.0);
+		this.tS = draw + (this.spinTicks >= LEAD_MIN_TICKS ? HANDOFF_LEAD_MS : 0);
+		this.tEnd = draw + this.spinTicks * 50.0;
+		// a join at or before the SPIN start (or none) is the on-time spin: bit-identical for every viewer
+		this.tJ = result >= 0 && Double.isFinite(joinMs) && joinMs > tS ? joinMs : tS;
+		this.thetaS = stageA(tJ);
 		this.ballS = phiL + sigma * thetaS;
 		List<MotionEvent> ev = new ArrayList<>();
 		ev.add(new MotionEvent(0, EV_PUSH, 0, 1f, 0, 0, dir));
@@ -172,6 +191,7 @@ public final class RouletteSpin {
 		if (result < 0) {
 			solved = false;
 			fallback = false;
+			overrun = 0;
 			omegaD = OMEGA_DROP;
 			tD = tH = tC = tR = rest = Double.POSITIVE_INFINITY;
 			tsp = SPIRAL_MS;
@@ -192,48 +212,35 @@ public final class RouletteSpin {
 		this.solved = true;
 		// ---- seeded tail shape (result-free draws) --------------------------------------------------------------------
 		MotionRng tail = MotionRng.of(seed, "RO_TAIL", 0);
-		this.omegaD = OMEGA_DROP * (1 + tail.range(-0.05, 0.05));
+		double omegaDrop = OMEGA_DROP * (1 + tail.range(-0.05, 0.05));
+		// a very late join finds the ball already slower than the drop speed: it drops a little slower (never speeds up)
+		this.omegaD = Math.min(omegaDrop, 0.9 * stageASpeed(tJ));
 		int sLo = tail.rangeInt(SCATTER_LO_MIN, SCATTER_LO_MAX);
 		double sPref = tail.range(sLo + 0.5, sLo + SCATTER_W - 0.5);
-		double avail = tEnd - END_MARGIN_MS - tS - SPIRAL_MS;
-		double c0 = Math.max(0.5, Math.min(1, avail / 2400));
-		double tdMin = tS + MIN_STAGE_B_MS;
-		// ---- solve: try drop times nearest the natural one first ---------------------------------------------------
-		// pass 0: the natural window; 1: any drop time whose actual rattle still rests in time (the rattle is often
-		// shorter than its bound); 2–3: a tighter tail (the shortest spins); 4: a wider scatter (the fallback, never
-		// needed in the tested sweep)
+		boolean late = tJ > tS;
+		// a late join keeps a stage B long enough to slow down gently (else the ball brakes hard in one frame)
+		double tdMin = tJ + (late ? LATE_MIN_STAGE_B_MS : MIN_STAGE_B_MS);
+		// on time the search window ends at tEnd - END_MARGIN_MS; a late join that no longer fits lets the rest slip past
+		// it in 50 ms steps (the screen holds its result beats until the ball rests)
 		Plan plan = null;
-		double[] scales = {c0, c0, c0 * 0.85, c0 * 0.72, c0};
-		for (int pass = 0; pass < scales.length && plan == null; pass++) {
-			double cc = scales[pass];
-			boolean wide = pass == scales.length - 1;
-			double ts = SPIRAL_MS * cc;
-			BounceChain.Params params = BounceChain.Params.roulette().withTimeScale(cc);
-			double chainMax = chainUpperBound(MotionRng.of(seed, "RO_RATTLE", 0), params);
-			double tailMax = ts + chainMax + SETTLE_MS;
-			double tdMax = Math.max(tdMin, tEnd - END_MARGIN_MS - tailMax);
-			double tdNat = Math.max(tdMin, tdMax - TD_JITTER_MS);
-			double hi = pass == 0 ? tdMax : Math.max(tdMax, tEnd - END_MARGIN_MS - ts - SETTLE_MS - 0.25 * chainMax);
-			int nSteps = (int) Math.ceil(Math.max(Math.max(hi - tdNat, tdNat - tdMin), 0) / TD_STEP) + 1;
-			for (int i = 0; i <= 2 * nSteps && plan == null; i++) {
-				double off = (i + 1) / 2 * TD_STEP * (i % 2 == 0 ? 1 : -1);
-				double td = tdNat + off;
-				if (td < tdMin - 1e-9 || td > hi + 1e-9) continue;
-				plan = tryPlan(td, sLo, sPref, wide, params, cc);
-			}
+		double over = 0;
+		while (true) {
+			// a late join never takes the wide scatter (a whole extra lap in the rattle); it overruns instead
+			plan = solve(tEnd + over, tdMin, sLo, sPref, !late || over >= MAX_OVERRUN_MS);
+			if (plan != null || over >= MAX_OVERRUN_MS) break;
+			over += 50;
 		}
 		if (plan == null) {
-			// unreachable in practice (RouletteSpinTest sweeps every result × seed × spin length); last resort: the
-			// shortest stage B, any scatter
-			plan = tryPlan(tdMin, sLo, sPref, true, BounceChain.Params.roulette().withTimeScale(c0), c0);
+			plan = tryPlan(tdMin, sLo, sPref, true, BounceChain.Params.roulette().withTimeScale(0.5), 0.5, Double.POSITIVE_INFINITY);
 			if (plan == null) throw new IllegalStateException("roulette spin unsolvable: result " + result + " seed " + seed);
 		}
+		this.overrun = over;
 		this.c = plan.c;
 		this.tailScale = c;
 		this.tsp = SPIRAL_MS * c;
 		this.fallback = plan.wide;
 		this.tD = plan.td;
-		this.tH = Math.max(tS, tD - HUNT_MS);
+		this.tH = Math.max(tJ, tD - HUNT_MS);
 		this.tC = tD + tsp;
 		this.stageB = plan.sol;
 		this.chain = plan.chain;
@@ -242,7 +249,7 @@ public final class RouletteSpin {
 		this.scatter = Math.abs(pT - pC);
 		this.tR = tC + chain.endMs();
 		this.rest = tR + SETTLE_MS;
-		this.orbit = Track.builder().start(tS, 0).seg(plan.sol.T() * 1000.0).decay(0, plan.sol).done().build();
+		this.orbit = Track.builder().start(tJ, 0).seg(plan.sol.T() * 1000.0).decay(0, plan.sol).done().build();
 		this.ballD = ballS + sigma * orbit.sample(tD, 0);
 		this.rD = huntR(tD);
 		// ---- deflector (decoration, drawn after the solve) ----------------------------------------------------------
@@ -333,18 +340,64 @@ public final class RouletteSpin {
 	 * @param rotor      the rotor model launched at {@code launchTick} (its {@code dir} is this spin's direction)
 	 */
 	public static RouletteSpin build(int result, int seed, int lastResult, long launchTick, long spinStart, int spinTicks, RotorModel rotor) {
-		return new RouletteSpin(result, seed, lastResult, launchTick, spinStart, spinTicks, rotor);
+		return new RouletteSpin(result, seed, lastResult, launchTick, spinStart, spinTicks, rotor, Double.NaN);
+	}
+
+	/**
+	 * Builds the spin for a viewer whose result arrived at {@code joinMs} (ms since the launch, on the viewer's clock;
+	 * owner playtest S1). Until then the viewer drew the result-free orbit (stage A, identical in every build), so the
+	 * solved path starts from the ball's position AND speed at {@code joinMs}: no jump on a slow connection. A join at or
+	 * before the SPIN start (or NaN) gives exactly {@link #build(int, int, int, long, long, int, RotorModel)}. Late viewers
+	 * still rest in the drawn pocket; only the path between the join and the rest differs per viewer.
+	 */
+	public static RouletteSpin build(int result, int seed, int lastResult, long launchTick, long spinStart, int spinTicks, RotorModel rotor, double joinMs) {
+		return new RouletteSpin(result, seed, lastResult, launchTick, spinStart, spinTicks, rotor, joinMs);
 	}
 
 	// ---- planning -------------------------------------------------------------------------------------------------------
 
+	/** Longest a very late result may push the rest past the SPIN end (ms). */
+	public static final int MAX_OVERRUN_MS = 6000;
+
+	/**
+	 * The drop-time search inside a window ending at {@code tLimit - END_MARGIN_MS}: pass 0 the natural window; 1 any drop
+	 * time whose actual rattle still rests in time (the rattle is often shorter than its bound); 2-3 a tighter tail (the
+	 * shortest spins); 4 a wider scatter (the fallback, never needed in the tested on-time sweep).
+	 */
+	private @org.jspecify.annotations.Nullable Plan solve(double tLimit, double tdMin, int sLo, double sPref, boolean allowWide) {
+		double avail = tLimit - END_MARGIN_MS - tJ - SPIRAL_MS;
+		double c0 = Math.max(0.5, Math.min(1, avail / 2400));
+		Plan plan = null;
+		double[] scales = {c0, c0, c0 * 0.85, c0 * 0.72, c0};
+		for (int pass = 0; pass < scales.length && plan == null; pass++) {
+			double cc = scales[pass];
+			boolean wide = pass == scales.length - 1;
+			if (wide && !allowWide) break;
+			double ts = SPIRAL_MS * cc;
+			BounceChain.Params params = BounceChain.Params.roulette().withTimeScale(cc);
+			double chainMax = chainUpperBound(MotionRng.of(seed, "RO_RATTLE", 0), params);
+			double tailMax = ts + chainMax + SETTLE_MS;
+			double tdMax = Math.max(tdMin, tLimit - END_MARGIN_MS - tailMax);
+			double tdNat = Math.max(tdMin, tdMax - TD_JITTER_MS);
+			double hi = pass == 0 ? tdMax : Math.max(tdMax, tLimit - END_MARGIN_MS - ts - SETTLE_MS - 0.25 * chainMax);
+			int nSteps = (int) Math.ceil(Math.max(Math.max(hi - tdNat, tdNat - tdMin), 0) / TD_STEP) + 1;
+			for (int i = 0; i <= 2 * nSteps && plan == null; i++) {
+				double off = (i + 1) / 2 * TD_STEP * (i % 2 == 0 ? 1 : -1);
+				double td = tdNat + off;
+				if (td < tdMin - 1e-9 || td > hi + 1e-9) continue;
+				plan = tryPlan(td, sLo, sPref, wide, params, cc, tLimit);
+			}
+		}
+		return plan;
+	}
+
 	private record Plan(double td, DecaySolver.Solution sol, BounceChain chain, double pC, double pT, boolean wide, double c) {}
 
-	private @org.jspecify.annotations.Nullable Plan tryPlan(double td, int sLo, double sPref, boolean wide, BounceChain.Params params, double cc) {
+	private @org.jspecify.annotations.Nullable Plan tryPlan(double td, int sLo, double sPref, boolean wide, BounceChain.Params params, double cc, double tLimit) {
 		double tsp = SPIRAL_MS * cc;
-		double T = (td - tS) / 1000.0;
+		double T = (td - tJ) / 1000.0;
 		if (!(T > 0)) return null;
-		double omegaS = omegaB0 * StrictMath.exp(-(tS - LAUNCH_MS) / tauB);
+		double omegaS = stageASpeed(tJ);
 		double decelS = omegaS / (tauB / 1000.0);
 		double kNat = DecaySolver.kForDecel(omegaS, omegaD, T, decelS, K_MIN, K_MAX);
 		double thNat = DecaySolver.theta(kNat, omegaS, omegaD, T);
@@ -400,7 +453,7 @@ public final class RouletteSpin {
 		double relSpeed = (ballSpeed + Math.abs(rotor.omega(tc))) * CONTACT_KEEP / STEP;
 		BounceChain ch = BounceChain.plan(pc, sigma * relSpeed, pt, BounceChain.Lattice.pockets(), params, MotionRng.of(seed, "RO_RATTLE", 0));
 		double restAt = tc + ch.endMs() + SETTLE_MS;
-		if (restAt > tEnd - END_MARGIN_MS + 1e-6) return null;
+		if (restAt > tLimit - END_MARGIN_MS + 1e-6) return null;
 		return new Plan(td, sol, ch, pc, pt, wide, cc);
 	}
 
@@ -528,7 +581,7 @@ public final class RouletteSpin {
 		}
 		if (!solved || t < tD) {
 			// stage A is the same closed form in every build (bit-identical before the SPIN start); stage B on its Track
-			if (orbit != null && t >= tS) {
+			if (orbit != null && t >= tJ) {
 				double tt = Math.min(t, tD);
 				out.abs = ballS + sigma * orbit.sample(tt, 0);
 				out.omega = Math.abs(orbit.velocity(tt, 0));
@@ -658,6 +711,16 @@ public final class RouletteSpin {
 
 	public double spinEndMs() {
 		return tEnd;
+	}
+
+	/** Where the solved stage B starts: the SPIN start, or a late viewer's join (S1). */
+	public double joinMs() {
+		return tJ;
+	}
+
+	/** How far a very late join pushed the rest past {@code spinEnd - END_MARGIN_MS} (0 on time). */
+	public double overrunMs() {
+		return overrun;
 	}
 
 	public double huntMs() {

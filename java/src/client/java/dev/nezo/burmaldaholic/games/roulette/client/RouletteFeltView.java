@@ -144,6 +144,22 @@ final class RouletteFeltView {
 		}
 	}
 
+	/**
+	 * T-C2 V4: the winning cell alone (its tile, number and gold frame), drawn again OVER a celebration so a big win never
+	 * hides the number it is about. The box drawn is {@link RouletteLayout#winCellPunch}.
+	 */
+	static void winCell(GuiGraphicsExtractor g, Font font, RouletteLayout l, int win) {
+		Box c = l.cell(win);
+		rect(g, l.winCellPunch(win), FELT_SHADE);
+		tileBox(g, c.inset(2), tile(win), false);
+		if (win == 0) centred(g, font, Texts.number(0), c, BONE, true);
+		else {
+			Box gl = l.glyph(win);
+			g.text(font, Texts.number(win), gl.x(), gl.y(), BONE, true);
+		}
+		outline(g, l.winCellPunch(win), 2, GOLD);
+	}
+
 	/** An outside label centred in its label area (left of the stack column); a long word keeps its right edge there. */
 	private static void label(GuiGraphicsExtractor g, Font font, Component text, Box box, Box area, int color) {
 		int w = font.width(text);

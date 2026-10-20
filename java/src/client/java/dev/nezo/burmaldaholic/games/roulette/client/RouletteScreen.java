@@ -76,6 +76,13 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	static final String FELT_ALL = "felt.layout";
 
 	private final TableClock clock = new TableClock();
+	/** S1: the smoothed spin time (monotonic, slewed; SY's SmoothClock replaces the raw source later). */
+	private final dev.nezo.burmaldaholic.games.roulette.present.RouletteTime spinTime = new dev.nezo.burmaldaholic.games.roulette.present.RouletteTime();
+	/**
+	 * The raw shared clock: ms since a server tick (the seam for SY's SmoothClock). Default: this screen's
+	 * {@link TableClock}.
+	 */
+	private final java.util.function.LongToDoubleFunction rawClock = tick -> clock.msSince(tick, this.partial);
 	private TableTheme theme = TableTheme.VILLAGE;
 	private @Nullable RouletteLayout layout;
 	private float partial;
@@ -310,6 +317,50 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		return i >= 0 && i < boxes.size() ? boxes.get(i) : boxes.isEmpty() ? null : boxes.get(0);
 	}
 
+	/** The column wheel as last drawn (T-C2 V10; real-flow tests): badge number, ball shown, ball x / y (layout px). */
+	private int probeBadge = -1;
+	private boolean probeBall;
+	private double probeBallX, probeBallY;
+
+	private void probeWheel(RouletteWheelView.Wheel w) {
+		probeBadge = w.badgeMs >= 250 ? w.badge : -1;
+		probeBall = w.ball && w.ballAlpha > 0.5;
+		double a = RouletteWheelView.drawnRotor(w.art, w.rotor) + w.ballRel;
+		probeBallX = RouletteWheelView.px(w, a, w.ballR);
+		probeBallY = RouletteWheelView.py(w, a, w.ballR);
+	}
+
+	/** {badge (-1 = none), ball shown 0/1, ball x, ball y} of the column wheel's last frame. */
+	public double[] wheelProbe() {
+		return new double[] {probeBadge, probeBall ? 1 : 0, probeBallX, probeBallY};
+	}
+
+	/** Frames in which the winning cell was drawn over a running celebration (T-C2 V4; real-flow tests). */
+	private int winCellOverCelebration;
+
+	public int winCellOverCelebration() {
+		return winCellOverCelebration;
+	}
+
+	/**
+	 * T-C2 V4: the shared celebration draws over the whole screen (BIG WIN text at a third of the height covered the
+	 * winning cell); the winning cell is drawn again on top of it, in the frame's pose.
+	 */
+	@Override
+	public void extractOverFrame(GuiGraphicsExtractor g) {
+		super.extractOverFrame(g);
+		RouletteLayout l = layout;
+		int win = result();
+		if (l == null || win < 0 || !"result".equals(phase()) || !dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().isActive()) return;
+		g.nextStratum();
+		g.pose().pushMatrix();
+		g.pose().translate(offsetX(), offsetY());
+		g.pose().scale(fitScale(), fitScale());
+		RouletteFeltView.winCell(g, font, l, win);
+		g.pose().popMatrix();
+		winCellOverCelebration++;
+	}
+
 	/** Own stacks that carried a value pill in the last frame (real-flow tests). */
 	public int valuePillsDrawn() {
 		return valuePills;
@@ -338,7 +389,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	double spinT() {
 		DoubleSupplier test = testClock;
 		if (test != null) return test.getAsDouble();
-		return clock.msSince(launchTick, partial);
+		return spinTime.advance(launchTick, rawClock.applyAsDouble(launchTick), System.nanoTime() / 1e6);
 	}
 
 	/** The newest settled number before the current launch: the ball being picked up / riding at idle. */
@@ -367,7 +418,11 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		long spinStart = result >= 0 ? s.getLongOr("spin_start", launchTick + RouletteSpin.NMB_TICKS) : launchTick + RouletteSpin.NMB_TICKS;
 		int ticks = Math.max(1, s.getIntOr("spin_ticks", 140));
 		double prev = cursorAt;
-		spin = RouletteSpin.build(result, s.getIntOr("seed", 0), spinLast, launchTick, spinStart, ticks, rotorModel);
+		// S1: the result of the spin already on screen continues from the ball's drawn orbit position and speed (a late
+		// packet used to rebuild the path from the SPIN start and the ball jumped); tests on a pinned clock stay exact
+		RouletteSpin pre = spin;
+		double join = !newSeq && pre != null && !pre.solved() && testClock == null ? spinTime.shown() : Double.NaN;
+		spin = RouletteSpin.build(result, s.getIntOr("seed", 0), spinLast, launchTick, spinStart, ticks, rotorModel, join);
 		spinSeqBuilt = seq;
 		spinResultBuilt = result;
 		cursor.bind(spin.events());
@@ -383,6 +438,14 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		DoubleSupplier test = testResultClock;
 		if (test != null) return test.getAsDouble();
 		long start = state().getLongOr("phase_start", 0);
+		RouletteSpin sp = spin;
+		if (sp != null && sp.solved() && !sp.settled(spinT())) {
+			// S1: a very late result still rolls past the SPIN end; the beats (rake, payout) wait for the ball to rest
+			if (localStartFor != start) resultSkipped = false;
+			localStartFor = start;
+			resultLocalStart = Util.getMillis();
+			return 0;
+		}
 		double shared = phaseMs();
 		if (localStartFor != start) {
 			localStartFor = start;
@@ -584,6 +647,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			w.scale = 1;
 			w.cx = l.wheel.x() + l.wheelD / 2.0;
 			w.cy = l.wheel.y() + l.wheelD / 2.0;
+			probeWheel(w);
 			lastHeadFrame = RouletteWheelView.headFrame(w.rotor, RouletteWheelView.HEAD_FRAMES);
 			RouletteWheelView.draw(g, font, theme, w);
 			return;
