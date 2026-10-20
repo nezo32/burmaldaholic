@@ -158,6 +158,38 @@ class UthFlowTest {
 		assertEquals(null, ok.refusal());
 	}
 
+	@Test
+	void doubleClampsToTheCapAndSaysWhy() {
+		// 6 × Ante + Trips ≤ 100: Ante 10 → ×2 = 20 > cap 16 → clamped to 16, the tool stays live and says why
+		UthView v = limits(UthBetDraft.empty().add(UthBetDraft.Spot.ANTE, 10), 100, 1000, 0, 0);
+		assertTrue(UthFlow.tool("double", v).enabled(), "×2 clamps instead of greying out");
+		UthFlow.Edit e = UthFlow.doubled(v);
+		assertEquals(16, e.draft().ante());
+		assertEquals("gui.burmaldaholic.uth.error.max_ante", e.refusal().reasonKey());
+		assertEquals(List.of(16L, 100L), List.of(e.refusal().reasonArgs()));
+		assertTrue(e.draft().canUndo(), "a clamped ×2 is undoable like any edit");
+		// at the cap: grey, with the same reason
+		UthView full = limits(e.draft(), 100, 1000, 0, 0);
+		assertFalse(UthFlow.tool("double", full).enabled());
+		assertEquals("gui.burmaldaholic.uth.error.max_ante", UthFlow.tool("double", full).reasonKey());
+		assertEquals(16, UthFlow.doubled(full).draft().ante());
+		// under the cap: plain ×2, no reason
+		UthFlow.Edit ok = UthFlow.doubled(limits(UthBetDraft.empty().add(UthBetDraft.Spot.ANTE, 5).add(UthBetDraft.Spot.TRIPS, 2), 100, 1000, 0, 0));
+		assertEquals(10, ok.draft().ante());
+		assertEquals(4, ok.draft().trips());
+		assertEquals(null, ok.refusal());
+		// the Ante doubles first, the Trips clamp under it: 6 × 14 = 84, Trips cap 16, 2 × 10 = 20 → 16
+		UthFlow.Edit t = UthFlow.doubled(limits(UthBetDraft.empty().add(UthBetDraft.Spot.ANTE, 7).add(UthBetDraft.Spot.TRIPS, 10), 100, 1000, 0, 0));
+		assertEquals(14, t.draft().ante());
+		assertEquals(16, t.draft().trips());
+		assertEquals("gui.burmaldaholic.uth.error.max_trips", t.refusal().reasonKey());
+		// by balance: Ante 10, balance 40 → cap 13
+		UthFlow.Edit p = UthFlow.doubled(limits(UthBetDraft.empty().add(UthBetDraft.Spot.ANTE, 10), 3000, 40, 0, 0));
+		assertEquals(13, p.draft().ante());
+		assertEquals("gui.burmaldaholic.uth.error.max_ante_balance", p.refusal().reasonKey());
+		assertEquals(UthLimits.Problem.NONE, UthLimits.check(13, 0, 5, 3000, true, 5, 40), "the clamped ×2 deals");
+	}
+
 	private static UthView limits(UthBetDraft d, long maxW, long balance, long lastAnte, long lastTrips) {
 		return new UthView(true, false, UthView.Phase.BETTING, null, d, 5, maxW, true, 1, balance, lastAnte, lastTrips, List.of(), 0, false, "", 10, null);
 	}

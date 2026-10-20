@@ -1110,6 +1110,8 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.poker.v2.step_plus` | More | Больше |
 | `gui.burmaldaholic.poker.v2.reason.stepper_min` | Already the minimum, %1$s | Уже минимум: %1$s |
 | `gui.burmaldaholic.poker.v2.reason.stepper_max` | Already the maximum, %1$s | Уже максимум: %1$s |
+| `gui.burmaldaholic.poker.v2.reason.stale_action` | The table moved on, look again | Стол уже изменился |
+| `gui.burmaldaholic.poker.v2.reason.moved` | The buttons moved, click again | Кнопки сдвинулись, ещё раз |
 | `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
 | `gui.burmaldaholic.poker.v2.reason.vip_stakes` | These stakes need a higher VIP tier | Для этого лимита нужен ВИП-статус выше |
 | `gui.burmaldaholic.poker.v2.reason.buy_in_min` | Not enough chips for the minimum buy-in %1$s | Мало фишек: бай-ин от %1$s |
@@ -2066,6 +2068,7 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.v2.reason.showdown` | Showdown | Вскрытие |
 | `gui.burmaldaholic.uth.v2.reason.dealing` | Dealing… | Раздача… |
 | `gui.burmaldaholic.uth.v2.reason.press_change_bet` | Press Change bet first | Сначала «Изменить ставку» |
+| `gui.burmaldaholic.uth.v2.reason.stale_decision` | The table moved on, look again | Стол уже изменился |
 | `gui.burmaldaholic.uth.v2.status.chips_to` | Chips → %1$s | Фишки → %1$s |
 | `gui.burmaldaholic.uth.v2.status.cost` | Ante %1$s + Blind %1$s + Trips %2$s = %3$s | Анте %1$s + блайнд %1$s + трипс %2$s = %3$s |
 | `gui.burmaldaholic.uth.v2.status.right_click` | Right click: −1 chip | ПКМ: −1 фишка |

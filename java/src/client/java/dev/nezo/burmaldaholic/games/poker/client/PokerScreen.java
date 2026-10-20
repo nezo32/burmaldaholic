@@ -38,6 +38,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.poker.PokerText;
 import dev.nezo.burmaldaholic.games.poker.logic.PokerBeats;
+import dev.nezo.burmaldaholic.games.poker.present.ClickGuard;
 import dev.nezo.burmaldaholic.games.poker.present.PokerFlow;
 import dev.nezo.burmaldaholic.games.poker.present.PokerLayout;
 import dev.nezo.burmaldaholic.games.poker.present.PokerView;
@@ -457,6 +458,7 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 		Optional<PokerFlow.Stepper> st = PokerFlow.stepper(view);
 		if (st.isPresent()) chrome.stepper.set(PokerFlow.stepMinus(st.get()), PokerFlow.stepPlus(st.get()), Texts.number(st.get().value()), null, null);
 		else chrome.stepper.clear();
+		status(view); // before the layout: the Dock measures this state's status, not the last one's (no jump a tick later)
 		super.refresh();
 		// TopBar: the blinds are in the title; the pills show the buy-in range and the seats taken
 		PokerView.Level lv = view.level();
@@ -481,8 +483,35 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	/** The preset target over the stepper's value (registered last: topmost; the kit's − / + keep their boxes). */
 	@Override
 	public void layoutOverlay(DockLayout.Dock dock, HitMap hits) {
-		if (!chrome.stepper.visible()) return;
-		hits.box(Stepper.VALUE).ifPresent(b -> hits.add(PRESET, b, true));
+		if (chrome.stepper.visible()) hits.box(Stepper.VALUE).ifPresent(b -> hits.add(PRESET, b, true));
+		guard.layout(hits.targets(), this::identity, net.minecraft.util.Util.getMillis());
+	}
+
+	/** Clicks act only on what the player saw under the cursor (R3, the Check → Bet ×4 report; same Dock as UTH). */
+	private final ClickGuard guard = new ClickGuard();
+
+	/** Whether the layout has been on screen long enough to take a click ({@link ClickGuard#SETTLE_MS}; tests wait for it). */
+	public boolean clickSettled() {
+		return guard.settled(net.minecraft.util.Util.getMillis());
+	}
+
+	/** What a target does now: the primary by its action, turn actions also by the hand's action counter. */
+	private String identity(String id) {
+		CompoundTag l = legal();
+		int seq = l == null ? -1 : l.getIntOr("seq", -1);
+		if (id.equals(KeyMap.Ids.PRIMARY)) return id + "|" + chrome.primary.gate().action() + "|" + seq;
+		if (id.startsWith("action.")) return id + "|" + seq;
+		return id;
+	}
+
+	private void moved() {
+		chrome.status.flash(Component.translatable("gui.burmaldaholic.poker.v2.reason.moved"));
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		super.extractRenderState(g, mouseX, mouseY, a);
+		guard.rendered();
 	}
 
 	private void status(PokerView v) {
@@ -629,6 +658,13 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	public boolean keyPressed(KeyEvent event) {
 		if (rulesOpen && (event.isEscape() || event.isConfirmation())) {
 			rulesOpen = false;
+			return true;
+		}
+		String keyName = dev.nezo.burmaldaholic.client.ui.v2.V2Input.keyName(event.key());
+		Optional<String> keyTarget = event.key() == Inputs.KEY_SPACE && chrome.keys().idFor(KeyMap.SPACE).isEmpty() ? Optional.of(KeyMap.Ids.PRIMARY)
+			: keyName == null ? Optional.empty() : chrome.keys().idFor(keyName);
+		if (keyTarget.isPresent() && !guard.allowsKey(keyTarget.get(), net.minecraft.util.Util.getMillis())) {
+			moved();
 			return true;
 		}
 		if (event.key() == Inputs.KEY_SPACE && chrome.keys().idFor(KeyMap.SPACE).isEmpty()) {
@@ -951,6 +987,10 @@ public class PokerScreen extends V2TableScreen<PokerView> {
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		if (rulesOpen) {
 			rulesOpen = false;
+			return true;
+		}
+		if (!guard.allowsClick(event.x(), event.y(), net.minecraft.util.Util.getMillis())) {
+			moved();
 			return true;
 		}
 		return super.mouseClicked(event, doubleClick);

@@ -8,6 +8,9 @@ import dev.nezo.burmaldaholic.games.uth.client.UthScreen;
 import dev.nezo.burmaldaholic.games.uth.logic.UthRound;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import dev.nezo.burmaldaholic.gametest.v2.RealFlow;
+import dev.nezo.burmaldaholic.games.poker.present.ClickGuard;
+import dev.nezo.burmaldaholic.client.input.Inputs;
+import net.minecraft.network.chat.Component;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -54,23 +57,53 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 
 			// Sit down (a real click on the primary button)
 			waitTarget(f, "primary");
-			f.click("primary");
+			click(f, "primary");
 			waitServer(context, world, "seated", s -> table(s, pos).seats().seatOf(player(s).getUUID()).isPresent());
 			context.waitTicks(5);
 			context.takeScreenshot("uth_flow_s4_seated");
 
 			// Round 1: an Ante of 10 (two 5 chips), then Deal
-			f.click(chip(f, 5));
-			f.click(chip(f, 5));
+			click(f, chip(f, 5));
+			click(f, chip(f, 5));
 			context.waitTicks(3);
 			check(draft(f)[0] == 10 && draft(f)[1] == 0, "two 5 chips make an Ante of 10, draft " + draft(f)[0] + "/" + draft(f)[1]);
 			context.takeScreenshot("uth_flow_s4_ante10");
 			long before = balance(world);
-			f.click("primary");
-			waitServer(context, world, "round 1 dealt", s -> mySeat(s, pos) != null);
-			long[] dealt = dealt(world, pos);
-			check(dealt[0] == 10 && dealt[1] == 0, "round 1: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", clicked 10/0");
-			check(balance(world) == before - 20, "round 1: Ante + Blind debited (" + before + " -> " + balance(world) + ")");
+			click(f, "primary");
+			// R3 money bug (a Check click registered as Bet ×4): the settle time is stretched for this step so "a click right
+			// after the Dock changed" does not depend on the machine's tick speed
+			ClickGuard.settleMs = 5000;
+			long[] dealt;
+			try {
+				waitServer(context, world, "round 1 dealt", s -> mySeat(s, pos) != null);
+				dealt = dealt(world, pos);
+				check(dealt[0] == 10 && dealt[1] == 0, "round 1: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", clicked 10/0");
+				check(balance(world) == before - 20, "round 1: Ante + Blind debited (" + before + " -> " + balance(world) + ")");
+				context.waitFor(mc -> mc.gui.screen() instanceof UthScreen s && s.currentView() != null && s.currentView().deciding()
+					&& "bet_4x".equals(s.chrome().primary.gate().action()), TIMEOUT);
+				// the root cause: the Dock was laid out with the last state's status and jumped to its compact row a few ticks
+				// after the street opened. Now the decision Dock stays put.
+				String first = decisionDock(f);
+				for (int t = 1; t <= 15; t++) {
+					context.waitTick();
+					String now = decisionDock(f);
+					check(now.equals(first), "the pre-flop Dock moved with no input at t+" + t + ": " + first + " -> " + now);
+				}
+				// a click at the real pixel of the primary that just turned into Bet ×4 (Deal / wait → Bet ×4 under the cursor):
+				// refused on the client, nothing reaches the server, the status says why
+				double[] p = f.windowPoint("primary");
+				context.getInput().setCursorPos(p[0], p[1]);
+				context.waitTick();
+				context.getInput().pressMouse(Inputs.MOUSE_LEFT);
+				context.waitTicks(6);
+				UthRound.Seat seat = world.getServer().computeOnServer(s -> mySeat(s, pos));
+				check(seat != null && !seat.decided && seat.playMultiple == 0, "a click on a primary that just became Bet ×4 placed the bet");
+				check(balance(world) == before - 20, "a refused click took chips: " + before + " -> " + balance(world));
+				String moved = f.client(mc -> Component.translatable("gui.burmaldaholic.poker.v2.reason.moved").getString());
+				check(f.status().equals(moved), "the refused click says why: '" + f.status() + "'");
+			} finally {
+				ClickGuard.settleMs = ClickGuard.SETTLE_MS;
+			}
 			playToPayout(f, world, pos, before, "round1");
 
 			// Round 2: the bet is changed. The 25 chip would take the Ante over the bronze limit (6 x Ante <= 100): it is clamped
@@ -80,7 +113,7 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			context.takeScreenshot("uth_flow_s4_round2_betting");
 			check(draft(f)[0] == 10, "round 2 starts from the last Ante (10), draft " + draft(f)[0]);
 			long beforeLimit = balance(world);
-			f.click(chip(f, 25));
+			click(f, chip(f, 25));
 			context.waitTicks(2);
 			check(draft(f)[0] == 16, "the 25 chip clamps the Ante to the largest allowed (16), draft " + draft(f)[0]);
 			check(f.status().contains("16"), "the clamp says why (max Ante 16): '" + f.status() + "'");
@@ -88,11 +121,11 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(!f.enabledTarget(chip(f, 1)), "the chips grey out at the cap");
 			check(balance(world) == beforeLimit, "nothing was debited by the clamp");
 			context.takeScreenshot("uth_flow_s4_limit_clamped");
-			f.click("tool.undo");
+			click(f, "tool.undo");
 			check(draft(f)[0] == 10, "Undo takes the clamped chip back, draft " + draft(f)[0]);
-			f.click(chip(f, 5));
-			f.click(chip(f, 1));
-			f.click("felt.trips"); // the Trips spot takes the selected chip (1)
+			click(f, chip(f, 5));
+			click(f, chip(f, 1));
+			click(f, "felt.trips"); // the Trips spot takes the selected chip (1)
 			context.waitTicks(3);
 			long[] d2 = draft(f);
 			check(d2[0] == 16 && d2[1] == 1, "Ante 16 / Trips 1 built, draft " + d2[0] + "/" + d2[1]);
@@ -108,12 +141,12 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			context.waitTicks(4);
 			check(world.getServer().computeOnServer(s -> table(s, pos).seatedHumans().size() == 2), "the second player is seated");
 			before = balance(world);
-			f.click("primary");
+			click(f, "primary");
 			waitServer(context, world, "round 2 bet confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
 			long[] conf = world.getServer().computeOnServer(s -> table(s, pos).confirmedBet(player(s).getUUID()).orElseThrow());
 			check(conf[0] == 16 && conf[1] == 1, "the server holds 16/1, got " + conf[0] + "/" + conf[1]);
 			context.waitTicks(4);
-			f.click(chip(f, 5)); // locked: changes nothing, says "press Change bet"
+			click(f, chip(f, 5)); // locked: changes nothing, says "press Change bet"
 			context.waitTicks(4);
 			long[] still = world.getServer().computeOnServer(s -> table(s, pos).confirmedBet(player(s).getUUID()).orElse(new long[] {-1, -1}));
 			check(still[0] == 16 && still[1] == 1, "a chip click on a confirmed bet leaves the server bet alone, got " + still[0] + "/" + still[1]);
@@ -121,12 +154,12 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			check(draft(f)[0] == 16 && draft(f)[1] == 1, "the draft is unchanged, draft " + draft(f)[0] + "/" + draft(f)[1]);
 			check(!f.status().isEmpty(), "the locked chip says why: '" + f.status() + "'");
 			context.takeScreenshot("uth_flow_s4_confirmed_locked");
-			f.click("primary"); // Change bet: refund, the amounts stay in the draft
+			click(f, "primary"); // Change bet: refund, the amounts stay in the draft
 			waitServer(context, world, "Change bet refunded", s -> table(s, pos).confirmedBet(player(s).getUUID()).isEmpty());
 			check(balance(world) == before, "Change bet refunded the bet");
 			context.waitTicks(4);
 			check(draft(f)[0] == 16 && draft(f)[1] == 1, "Change bet keeps 16/1 in the draft, draft " + draft(f)[0] + "/" + draft(f)[1]);
-			f.click("primary"); // Deal again
+			click(f, "primary"); // Deal again
 			waitServer(context, world, "round 2 bet re-confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
 			world.getServer().runOnServer(s -> {
 				ServerPlayer p = s.getPlayerList().getPlayer(other);
@@ -141,14 +174,14 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 			f.size(1920, 1080, 3);
 			context.waitTicks(5);
 			waitTarget(f, "tool.clear");
-			f.click("tool.clear");
+			click(f, "tool.clear");
 			check(draft(f)[0] == 0 && draft(f)[1] == 0, "Clear empties the draft, draft " + draft(f)[0]);
-			f.click("tool.rebet");
+			click(f, "tool.rebet");
 			context.waitTicks(3);
 			check(draft(f)[0] == d2[0] && draft(f)[1] == d2[1], "Rebet restores the last bet, draft " + draft(f)[0] + "/" + draft(f)[1]);
 			context.takeScreenshot("uth_flow_s3_rebet");
 			before = balance(world);
-			f.click("primary");
+			click(f, "primary");
 			waitServer(context, world, "round 3 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == d2[0]);
 			dealt = dealt(world, pos);
 			check(dealt[0] == d2[0] && dealt[1] == d2[1], "round 3 (rebet): dealt Ante/Trips " + dealt[0] + "/" + dealt[1]);
@@ -241,7 +274,7 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 				String target = f.enabledTarget("action." + id) ? "action." + id : "primary";
 				String layout = targets(f);
 				try {
-					f.click(target);
+					click(f, target);
 				} catch (AssertionError e) {
 					// a decision click that lands on another target is a money risk: keep the evidence, finish the flow, fail at the end
 					context.takeScreenshot("uth_flow_" + name + "_misclick");
@@ -270,6 +303,19 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 
 	/** Decision clicks that pressed another target (reported at the end of the run). */
 	private static final java.util.List<String> MISCLICKS = new java.util.ArrayList<>();
+
+	/** A real click once the open screen's layout has settled (a control is clickable after one reaction time, R3). */
+	private static void click(RealFlow f, String id) {
+		f.context().waitFor(mc -> !(mc.gui.screen() instanceof UthScreen s) || s.clickSettled(), TIMEOUT);
+		f.click(id);
+	}
+
+	/** The decision Dock (actions + primary, boxes only). */
+	private static String decisionDock(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+			? h.chrome().hits().targets().stream().filter(t -> t.id().startsWith("action.") || t.id().equals("primary"))
+				.map(t -> t.id() + "@" + t.box()).collect(java.util.stream.Collectors.joining(",")) : "-");
+	}
 
 	/** The open screen's targets: id@box (diagnostics). */
 	private static String targets(RealFlow f) {

@@ -117,6 +117,90 @@ public class UthV2GameTests {
 	}
 
 	/**
+	 * R3: the per-viewer screen state of a seated viewer ({@code writeClientState}) never carries another seat's folded
+	 * hand (cards, hand name, best-five mask), not even at the showdown; B's own cards are always there. True when this
+	 * call checked a settled round with A folded.
+	 */
+	private static boolean foldedHiddenFromSeatedViewer(GameTestHelper helper, UthTableBlockEntity table, UthRound r, ServerPlayer a, ServerPlayer b) {
+		CompoundTag st = table.writeClientState(b);
+		boolean aFolded = r.seat(a.getUUID()).folded;
+		net.minecraft.nbt.ListTag ps = st.getListOrEmpty("players");
+		for (int i = 0; i < ps.size(); i++) {
+			CompoundTag p = ps.getCompoundOrEmpty(i);
+			if (p.getBooleanOr("you", false)) {
+				helper.assertTrue(p.getIntArray("cards").isPresent(), "B always sees B's own cards");
+				continue;
+			}
+			if (p.getIntOr("seat", -1) != r.seat(a.getUUID()).seat) continue;
+			if (aFolded) {
+				helper.assertFalse(p.contains("cards"), "B's state carries A's folded cards");
+				helper.assertFalse(p.contains("hand") || p.contains("best"), "B's state names A's folded hand");
+			} else if (!r.settled()) {
+				helper.assertFalse(p.contains("cards"), "B's state carries A's cards before the showdown");
+			}
+		}
+		return aFolded && r.settled();
+	}
+
+	/**
+	 * R3 money bug (a Check click registered as Bet ×4): a decision carries the decision window it was made in
+	 * ({@code epoch}); one from another window is refused with a reason and costs nothing, through the real receiver.
+	 */
+	@GameTest(maxTicks = 400)
+	public void decisionFromAnotherWindowIsRefused(GameTestHelper helper) {
+		BlockPos rel = new BlockPos(1, 1, 1);
+		helper.setBlock(rel, UthModule.TABLE.block());
+		UthTableBlockEntity table = helper.getBlockEntity(rel, UthTableBlockEntity.class);
+		MinecraftServer server = helper.getLevel().getServer();
+		List<EmbeddedChannel> channels = new ArrayList<>();
+		ServerPlayer a = survivalPlayer(helper, "uth_epoch_a", channels);
+		ServerPlayer b = survivalPlayer(helper, "uth_epoch_b", channels);
+		try {
+			for (ServerPlayer p : List.of(a, b)) {
+				helper.useBlock(rel, p);
+				send(p, table, "sit", new CompoundTag());
+			}
+			send(a, table, "bet", bet(10, 0));
+			send(b, table, "bet", bet(10, 0));
+			UthRound r = table.round();
+			helper.assertTrue(r != null, "dealt when both confirmed");
+			UthRound.Seat sa = r.seat(a.getUUID());
+			long before = Economies.get().balance(server, a.getUUID());
+			int pre = table.decisionEpoch();
+			helper.assertTrue(table.writeClientState(a).getIntOr("decision_epoch", -1) == pre, "the screen state names the window");
+			// a Bet ×4 sent for another window: refused, nothing collected, still pending
+			send(a, table, "bet_4x", epoch(pre - 1));
+			helper.assertTrue(r.pending(sa) && sa.playMultiple == 0, "a stale Bet ×4 was applied");
+			helper.assertTrue(Economies.get().balance(server, a.getUUID()) == before, "a stale Bet ×4 took chips");
+			// the decision for this window goes through
+			send(a, table, "check", epoch(pre));
+			helper.assertFalse(r.pending(sa), "the current window's Check was refused");
+			send(b, table, "check", epoch(pre));
+			for (int i = 0; i < 40 && !r.pending(sa); i++) table.fastForwardForTests(1);
+			helper.assertTrue(r.pending(sa) && table.decisionEpoch() == pre + 1, "the flop opened a new window");
+			// the pre-flop window's Bet ×4 arriving on the flop: refused (it is not legal there either), and so is a flop
+			// Bet ×2 that names the old window
+			send(a, table, "bet_4x", epoch(pre));
+			send(a, table, "bet_2x", epoch(pre));
+			helper.assertTrue(r.pending(sa) && sa.playMultiple == 0, "a decision of the closed window was applied on the flop");
+			helper.assertTrue(Economies.get().balance(server, a.getUUID()) == before, "a stale decision took chips on the flop");
+			send(a, table, "bet_2x", epoch(pre + 1));
+			helper.assertTrue(sa.playMultiple == 2, "the flop's Bet ×2 with its window is applied");
+			helper.assertTrue(Economies.get().balance(server, a.getUUID()) == before - 20, "Bet ×2 collected 2 × Ante");
+		} finally {
+			server.getPlayerList().remove(a);
+			server.getPlayerList().remove(b);
+		}
+		helper.succeed();
+	}
+
+	private static CompoundTag epoch(int e) {
+		CompoundTag t = new CompoundTag();
+		t.putInt("epoch", e);
+		return t;
+	}
+
+	/**
 	 * R-AB m10: the public tag (in-world board, dealer NPC, everyone near the table) never carries a hole card before the
 	 * SHOWDOWN segment and never a folded hand. Two players open the table by using it and play through the
 	 * {@code table_action} receiver: A checks to the river and folds, B checks and plays ×1.
@@ -144,7 +228,9 @@ public class UthV2GameTests {
 			UthRound r = table.round();
 			boolean sawShowdown = false;
 			boolean sawB = false;
+			boolean sawFoldedHidden = false;
 			for (int guard = 0; guard < 60 && table.round() == r; guard++) {
+				sawFoldedHidden |= foldedHiddenFromSeatedViewer(helper, table, r, a, b);
 				UthPub pub = table.buildPub();
 				List<UthRound.Seat> seats = r.seats();
 				boolean showdownSegment = pub.kind() == UthPub.SHOWDOWN || pub.kind() == UthPub.RESULT;
@@ -173,6 +259,7 @@ public class UthV2GameTests {
 			}
 			helper.assertTrue(r.seat(a.getUUID()).folded, "A folded at the river");
 			helper.assertTrue(sawShowdown && sawB, "the showdown segment was published with B's cards");
+			helper.assertTrue(sawFoldedHidden, "B's own screen state was checked at the showdown with A folded");
 		} finally {
 			server.getPlayerList().remove(a);
 			server.getPlayerList().remove(b);

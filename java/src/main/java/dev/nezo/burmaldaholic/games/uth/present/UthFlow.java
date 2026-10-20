@@ -135,6 +135,26 @@ public final class UthFlow {
 		return new Edit(v.draft().load(ante, Math.max(0, trips)), refusal);
 	}
 
+	/**
+	 * ×2: doubles the Ante and the Trips, clamped like a chip (R3: it used to grey out over the limit). The Ante comes
+	 * first (up to its cap with today's Trips), then the Trips under it; a clamp says why. At the caps nothing changes and
+	 * the refusal says why.
+	 */
+	public static Edit doubled(UthView v) {
+		UthBetDraft d = v.draft();
+		if (d.isEmpty()) return new Edit(d, Gate.off(LOCAL + "double", V2Keys.TOOL_DOUBLE, V2 + "reason.no_bet"));
+		long anteCap = maxAnte(v, d.trips());
+		long ante = Math.max(d.ante(), Math.min(d.ante() * 2, anteCap));
+		long trips = v.tripsOn() ? Math.max(d.trips(), Math.min(d.trips() * 2, maxTrips(v, ante))) : d.trips();
+		Gate refusal = null;
+		if (ante < d.ante() * 2) {
+			refusal = limitGate(LOCAL + "double", V2Keys.TOOL_DOUBLE, v, d, UthBetDraft.Spot.ANTE, anteCap);
+		} else if (trips < d.trips() * 2) {
+			refusal = limitGate(LOCAL + "double", V2Keys.TOOL_DOUBLE, v, d.load(ante, d.trips()), UthBetDraft.Spot.TRIPS, maxTrips(v, ante));
+		}
+		return new Edit(d.load(ante, trips), refusal);
+	}
+
 	/** The chip tray as a whole (live = chips may be put down now; per-denomination caps: {@link #chip}). */
 	public static Gate chips(UthView v) {
 		String lock = betLock(v);
@@ -166,10 +186,11 @@ public final class UthFlow {
 			case "rebet" -> v.lastAnte() <= 0 ? Gate.off(LOCAL + id, label, V2 + "reason.no_last_bet")
 				: d.equalsBet(v.lastAnte(), v.lastTrips()) ? Gate.off(LOCAL + id, label, V2 + "reason.same_as_last")
 				: Gate.on(LOCAL + id, label);
-			case "double" -> d.isEmpty() ? Gate.off(LOCAL + id, label, V2 + "reason.no_bet")
-				: problem(v, d.ante() * 2, d.trips() * 2) == UthLimits.Problem.WORST_CASE_MAX
-					? Gate.off(LOCAL + id, label, U + "error.worst_case_max", v.maxW())
-					: Gate.on(LOCAL + id, label);
+			case "double" -> {
+				// live while doubling adds anything (it clamps to the caps and says why); grey with the reason at the caps
+				Edit e = doubled(v);
+				yield e.draft().equalsBet(d.ante(), d.trips()) && e.refusal() != null ? e.refusal() : Gate.on(LOCAL + id, label);
+			}
 			default -> throw new IllegalArgumentException(id);
 		};
 	}

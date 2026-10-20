@@ -95,18 +95,18 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_poker_en_480_join");
 		// the primary says why it is disabled until the stakes are picked
 		if (f.box("action.~pick:micro").isPresent()) {
-			f.click("primary");
+			click(f, "primary");
 			check(!f.status().isEmpty(), "a click on the disabled Buy in shows a reason");
-			f.click("action.~pick:micro");
+			click(f, "action.~pick:micro");
 		}
 		check(f.enabledTarget("primary"), "Buy in enabled after picking the stakes");
 		long before = buyInShown(f);
-		f.click(PokerScreen.STEP_MINUS);
+		click(f, PokerScreen.STEP_MINUS);
 		long after = buyInShown(f);
 		check(after < before, "the stepper lowered the buy-in: " + before + " → " + after);
 		f.shot("v2_poker_en_480_buyin");
 		long bal0 = balance(f);
-		f.click("primary");
+		click(f, "primary");
 		f.waitServer(pos, PokerTableBlockEntity.class, t -> state(t).getBooleanOr("seated", false), "seated after Buy in");
 		long bal1 = balance(f);
 		check(bal0 - bal1 == after, "the buy-in left the balance: " + (bal0 - bal1) + " vs " + after);
@@ -136,29 +136,31 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 				// survive the relayout; the old hand-made halves vanished and the click hit the preset instead)
 				var s0 = stepperShown(f);
 				long expect = new dev.nezo.burmaldaholic.games.poker.present.PokerFlow.Stepper(s0.id(), s0.next(1, 1), s0.min(), s0.max(), s0.step()).next(1, 1);
-				f.click(PokerScreen.STEP_PLUS);
+				click(f, PokerScreen.STEP_PLUS);
 				f.size(1920, 1080, 3);
 				f.size(1920, 1080, 4);
 				if (f.enabledTarget(PokerScreen.STEP_PLUS)) {
-					f.click(PokerScreen.STEP_PLUS);
+					click(f, PokerScreen.STEP_PLUS);
+					System.out.println("B2: poker stepper +, resize, + : " + s0.value() + " -> " + stepperShown(f).value() + " (expected " + expect + ")");
 					check(stepperShown(f).value() == expect, "+, resize, + = two steps: " + s0.value() + " → " + stepperShown(f).value() + ", expected " + expect);
 				}
 				f.shot("v2_poker_en_480_stepper");
 				// then a preset (click on the value): the server's bet = the value shown
-				f.click(PokerScreen.PRESET);
+				click(f, PokerScreen.PRESET);
 				long to = stepperShown(f).value();
-				f.click("primary");
+				click(f, "primary");
 				raised = true;
 				final long raiseTo = to;
 				final int sq = seq;
 				f.waitServer(pos, PokerTableBlockEntity.class, t -> state(t).getCompoundOrEmpty("legal").getIntOr("seq", -1) != sq, "the raise was taken", 200);
 				long bet = myBet(f, pos);
+				System.out.println("B2: poker stepper raise: shown " + raiseTo + ", server bet " + bet);
 				if (bet > 0 && bet != raiseTo) failures.add("poker: raised to " + raiseTo + " on the stepper, the server bet is " + bet);
 				continue;
 			} else if (f.enabledTarget("action.call")) {
-				f.click("action.call");
+				click(f, "action.call");
 			} else {
-				f.click("primary");
+				click(f, "primary");
 			}
 			final int s0 = seq;
 			f.waitServer(pos, PokerTableBlockEntity.class, t -> state(t).getCompoundOrEmpty("legal").getIntOr("seq", -1) != s0, "the action was taken",
@@ -237,34 +239,34 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 		f.shot("v2_uth_en_480_open");
 		// a chip before sitting down says why
 		if (f.box("chip.0").isPresent()) {
-			f.click("chip.0");
+			click(f, "chip.0");
 			check(!f.status().isEmpty(), "a chip click while standing shows a reason");
 		}
-		f.click("primary"); // Sit down
+		click(f, "primary"); // Sit down
 		f.waitServer(pos, UthTableBlockEntity.class, t -> t.seatedHumans().size() == 1, "seated after Sit down");
 		// a second (absent) player keeps the betting phase open, so the bet can be changed after Deal
 		UUID other = UUID.randomUUID();
 		f.server(server -> server.overworld().getBlockEntity(pos) instanceof UthTableBlockEntity t && t.seats().sit(other, "Alex").isPresent());
 		f.context().waitTicks(4);
-		f.click("chip.1");
-		f.click("chip.1");
+		click(f, "chip.1");
+		click(f, "chip.1");
 		long ante = draft(f)[0];
 		check(ante > 0, "chips went to the Ante: " + ante);
-		f.click("felt.trips"); // arms Trips and adds the selected chip
+		click(f, "felt.trips"); // arms Trips and adds the selected chip
 		long[] d = draft(f);
 		check(d[1] > 0, "the Trips spot took a chip: " + d[1]);
 		f.rightClick("felt.trips");
 		long afterRight = draft(f)[1];
 		check(afterRight < d[1], "right click took a chip off the Trips");
-		f.click("felt.trips");
+		click(f, "felt.trips");
 		check(draft(f)[1] == d[1], "a click on the spot put it back");
-		f.click("tool.undo");
+		click(f, "tool.undo");
 		check(draft(f)[1] == afterRight, "Undo took the last chip back: " + draft(f)[1]);
-		f.click("felt.ante");
+		click(f, "felt.ante");
 		d = draft(f);
 		f.shot("v2_uth_en_480_bet");
 		long bal0 = balance(f);
-		f.click("primary"); // Deal · cost
+		click(f, "primary"); // Deal · cost
 		long[] myBet = d;
 		try {
 			// alone at the table the round deals at once; with the absent second seat the bet waits (and can be changed)
@@ -280,13 +282,13 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 			f.context().waitTicks(4);
 			f.shot("v2_uth_en_480_confirmed");
 			// CHANGE the bet: the primary says so; a click refunds and keeps the amounts in the draft
-			f.click("primary");
+			click(f, "primary");
 			f.waitServer(pos, UthTableBlockEntity.class, t -> confirmed(t) == null, "Change bet refunded the bet");
 			check(balance(f) == bal0, "refund after Change bet");
-			f.click("chip.0"); // +1: 6 × Ante + Trips stays under the VIP-0 maximum
+			click(f, "chip.0"); // +1: 6 × Ante + Trips stays under the VIP-0 maximum
 			long[] bigger = draft(f);
 			check(bigger[0] > d[0], "the changed bet is bigger: " + bigger[0]);
-			f.click("primary");
+			click(f, "primary");
 			f.waitServer(pos, UthTableBlockEntity.class, t -> confirmed(t) != null && confirmed(t)[0] == bigger[0], "the changed bet was confirmed");
 			myBet = bigger;
 			changeBetClicked = true;
@@ -326,7 +328,7 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 					f.context().waitTicks(6);
 					f.shot("v2_uth_en_480_decision");
 				}
-				f.click("primary");
+				click(f, "primary");
 				decided = true;
 				f.context().waitTicks(6);
 				continue;
@@ -369,6 +371,13 @@ public class PokerV2ClientGameTests implements FabricClientGameTest {
 	}
 
 	/** A left click on target {@code id} that closes the screen (TopBar Leave). */
+	/** A real click once the open screen's layout has settled (R3 ClickGuard: a control takes clicks after one reaction time). */
+	private static void click(RealFlow f, String id) {
+		f.context().waitFor(mc -> mc.gui.screen() instanceof PokerScreen p ? p.clickSettled()
+			: !(mc.gui.screen() instanceof dev.nezo.burmaldaholic.games.uth.client.UthScreen u) || u.clickSettled(), 200);
+		f.click(id);
+	}
+
 	private static void clickClosing(RealFlow f, String id) {
 		double[] p = f.windowPoint(id);
 		f.context().getInput().setCursorPos(p[0], p[1]);

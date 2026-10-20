@@ -29,6 +29,7 @@ import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
 import dev.nezo.burmaldaholic.core.ui.v2.BetView;
 import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.DockLayout;
 import dev.nezo.burmaldaholic.core.ui.v2.Flow;
 import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
@@ -38,6 +39,8 @@ import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.poker.client.V2Cards;
 import dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity;
+import dev.nezo.burmaldaholic.games.poker.present.ClickGuard;
+import dev.nezo.burmaldaholic.games.uth.logic.Decision;
 import dev.nezo.burmaldaholic.games.uth.logic.PayHand;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBeats;
 import dev.nezo.burmaldaholic.games.uth.logic.UthBotPolicy;
@@ -91,6 +94,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 	private int stateTick;
 	private @Nullable String previewBet;
 	private UthTableLayout.@Nullable Layout layout;
+	/** Clicks act only on what the player saw under the cursor (the Check → Bet ×4 report, R3). */
+	private final ClickGuard guard = new ClickGuard();
+	private @Nullable Gate shownSecondary;
 
 	private int fxSeq = -1;
 	private int fxKind;
@@ -162,6 +168,16 @@ public class UthScreen extends V2TableScreen<UthView> {
 
 	public UthTableLayout.@Nullable Layout layout() {
 		return layout;
+	}
+
+	/** Whether the layout has been on screen long enough to take a click ({@link ClickGuard#SETTLE_MS}; tests wait for it). */
+	public boolean clickSettled() {
+		return guard.settled(net.minecraft.util.Util.getMillis());
+	}
+
+	/** The decision window of the state on screen (sent with every decision; the server refuses another one). */
+	public int decisionEpoch() {
+		return s().getIntOr("decision_epoch", 0);
 	}
 
 	// ---- state ------------------------------------------------------------------------------------------------------
@@ -352,7 +368,9 @@ public class UthScreen extends V2TableScreen<UthView> {
 					case BetGates.REBET -> {
 						if (view != null) edit(UthFlow.rebet(view));
 					}
-					case BetGates.DOUBLE -> edit(draft.doubled());
+					case BetGates.DOUBLE -> {
+						if (view != null) edit(UthFlow.doubled(view));
+					}
 					default -> {
 					}
 				}
@@ -395,12 +413,16 @@ public class UthScreen extends V2TableScreen<UthView> {
 		chrome.keys(k);
 		chrome.actions.danger("fold", "leave_bank");
 		chrome.bet.multiSpot(false);
-		chrome.secondary(secondary(view));
+		shownSecondary = secondary(view);
+		chrome.secondary(shownSecondary);
 		Optional<UthFlow.Stepper> st = UthFlow.stepper(view);
 		if (st.isPresent()) chrome.stepper.set(UthFlow.stepMinus(st.get()), UthFlow.stepPlus(st.get()), Texts.number(st.get().value()), null, null);
 		else chrome.stepper.clear();
-		super.refresh();
+		// the status before the layout: the Dock sizes its action row by the status width, so laying out with the last
+		// state's status made the row jump to its compact form a few ticks after a street opened (R3, Check → Bet ×4)
 		status(view);
+		super.refresh();
+		status(view); // again: the kit's apply resets the timer bar
 	}
 
 	/** Player-bank controls while betting sit in the Dock's secondary slot (the BetBar keeps the row). */
@@ -540,7 +562,14 @@ public class UthScreen extends V2TableScreen<UthView> {
 			case UthFlow.STEP_MINUS -> stepBank(v, -1);
 			case UthFlow.STEP_PLUS -> stepBank(v, 1);
 			default -> {
-				if (!a.isEmpty() && !a.startsWith(UthFlow.LOCAL)) sendTracked(a);
+				if (Decision.byId(a) != null) {
+					// the decision names the window it was made in: the server refuses it once the street moved on
+					CompoundTag args = new CompoundTag();
+					args.putInt("epoch", decisionEpoch());
+					sendTracked(a, args, "", 0);
+				} else if (!a.isEmpty() && !a.startsWith(UthFlow.LOCAL)) {
+					sendTracked(a);
+				}
 			}
 		}
 	}
@@ -593,6 +622,10 @@ public class UthScreen extends V2TableScreen<UthView> {
 			rulesOpen = false;
 			return true;
 		}
+		if (!guard.allowsClick(event.x(), event.y(), net.minecraft.util.Util.getMillis())) {
+			moved();
+			return true;
+		}
 		return super.mouseClicked(event, doubleClick);
 	}
 
@@ -602,7 +635,39 @@ public class UthScreen extends V2TableScreen<UthView> {
 			rulesOpen = false;
 			return true;
 		}
+		String name = dev.nezo.burmaldaholic.client.ui.v2.V2Input.keyName(event.key());
+		Optional<String> target = name == null ? Optional.empty() : chrome.keys().idFor(name);
+		if (target.isPresent() && !guard.allowsKey(target.get(), net.minecraft.util.Util.getMillis())) {
+			moved();
+			return true;
+		}
 		return super.keyPressed(event);
+	}
+
+	/** A click / key refused by the {@link ClickGuard}: nothing happens, and the status says why. */
+	private void moved() {
+		chrome.status.flash(Component.translatable("gui.burmaldaholic.poker.v2.reason.moved"));
+	}
+
+	/** Every relayout ends here (registered last): the guard learns the layout the player is about to see. */
+	@Override
+	public void layoutOverlay(DockLayout.Dock dock, HitMap hits) {
+		guard.layout(hits.targets(), this::identity, net.minecraft.util.Util.getMillis());
+	}
+
+	/** What a target does now: the primary / secondary by their action, decisions also by their window. */
+	private String identity(String id) {
+		int epoch = s().getIntOr("decision_epoch", 0);
+		if (id.equals(KeyMap.Ids.PRIMARY)) return id + "|" + chrome.primary.gate().action() + "|" + epoch;
+		if (id.equals(KeyMap.Ids.SECONDARY)) return id + "|" + (shownSecondary == null ? "" : shownSecondary.action());
+		if (id.startsWith("action.")) return id + "|" + epoch;
+		return id;
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		super.extractRenderState(g, mouseX, mouseY, a);
+		guard.rendered();
 	}
 
 	// ---- layout -----------------------------------------------------------------------------------------------------
