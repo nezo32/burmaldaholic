@@ -132,6 +132,10 @@ public class PvpV2ClientGameTests implements FabricClientGameTest {
 				if (panel.contentBottom() > l.dock().y()) out.add("content bottom " + panel.contentBottom() + " below the Dock " + l.dock().y());
 				if (panel.panelTop() + PvpFrame.CONTENT_TOP < l.top().bottom()) out.add("content under the TopBar");
 			}
+			if (s instanceof dev.nezo.burmaldaholic.games.extras.client.pvp.wheel.WheelPartyScreen wheel) {
+				if (wheel.wheelBottom() > l.dock().y()) out.add("wheel bottom " + wheel.wheelBottom() + " under the Dock " + l.dock().y());
+				if (wheel.wheelTop() < l.play().y()) out.add("wheel top " + wheel.wheelTop() + " under the TopBar");
+			}
 			return String.join("; ", out);
 		});
 		if (!p.isEmpty()) problems.add(tag + " " + view + ": " + p);

@@ -60,6 +60,11 @@ public final class PvpUi {
 	private static final Map<UUID, Sent> SENT = new ConcurrentHashMap<>();
 	/** What a player was last sent of their OWN match (spectator ticker pushes of other matches do not count). */
 	private static final Map<UUID, Sent> OWN = new ConcurrentHashMap<>();
+	/**
+	 * B1 (owner playtest 1): the views ({@code <match id>/<state>}) each player was already sent with {@code open = true}.
+	 * The scan never opens one of them again (an explicit "show" still does).
+	 */
+	private static final Map<UUID, Set<String>> OPENED = new ConcurrentHashMap<>();
 	private static final Map<String, List<JsonObject>> STEPS = new ConcurrentHashMap<>();
 	private static final Map<String, long[]> PAYOUTS = new ConcurrentHashMap<>();
 	private static final Map<String, Integer> FINAL = new ConcurrentHashMap<>();
@@ -131,6 +136,7 @@ public final class PvpUi {
 	static void clearAll() {
 		SENT.clear();
 		OWN.clear();
+		OPENED.clear();
 		STEPS.clear();
 		PAYOUTS.clear();
 		FINAL.clear();
@@ -164,22 +170,67 @@ public final class PvpUi {
 		return PvpSyncPayload.TYPE != null && !p.hasDisconnected() && ServerPlayNetworking.canSend(p, PvpSyncPayload.TYPE);
 	}
 
-	/** Sends the viewer's state of {@code m}; {@code open} makes the client open the matching screen. */
+	/**
+	 * Sends the viewer's state of {@code m}; {@code open} makes the client open the matching screen.
+	 *
+	 * <p>B1 (owner playtest 1: a duel's result window re-opened on both players every ~2 minutes): a closed / cancelled
+	 * match clears only the views of THAT match ({@link #closed}), and a participant is never sent a match that is not
+	 * their current one ({@code matchOf}), e.g. an older duel leaving its rematch window while a newer one is shown.
+	 */
 	public static void push(ServerPlayer p, PvpMatch m, boolean open) {
 		String kind = kindOf(m.state());
 		if (kind.equals("clear")) {
-			clear(p);
+			closed(p, m.id);
 			return;
 		}
-		JsonObject view = PvpMatchView.build(p.level().getServer(), p, m);
 		boolean spectator = PvpMatchView.indexOf(m, p.getUUID()) < 0;
+		if (!spectator) {
+			Optional<PvpMatch> current = Pvp.service().matchOf(p.getUUID()).filter(x -> x.state() != MatchState.INVITED);
+			if (current.isPresent() && !current.get().id.equals(m.id)) {
+				return;
+			}
+		}
+		JsonObject view = PvpMatchView.build(p.level().getServer(), p, m);
 		Sent sent = new Sent(m.id, m.state(), signature(m), spectator);
 		SENT.put(p.getUUID(), sent);
 		if (!spectator) {
 			OWN.put(p.getUUID(), sent);
 		}
+		if (open) {
+			OPENED.computeIfAbsent(p.getUUID(), k -> ConcurrentHashMap.newKeySet()).add(viewKey(m));
+		}
 		if (canSend(p)) {
 			ServerPlayNetworking.send(p, new PvpSyncPayload(kind, open, view.toString()));
+		}
+	}
+
+	private static String viewKey(PvpMatch m) {
+		return m.id + "/" + m.state().name();
+	}
+
+	/** This view of {@code m} was already opened for the player (B1: the scan never opens it again). */
+	static boolean opened(UUID player, PvpMatch m) {
+		Set<String> s = OPENED.get(player);
+		return s != null && s.contains(viewKey(m));
+	}
+
+	/**
+	 * Match {@code matchId} closed / was cancelled: forgets what the player was sent of THAT match only, and clears the
+	 * client's PvP state only when it holds that match (B1: an expiring older duel or invite wiped the bookkeeping of the
+	 * newer match, so the scan re-opened its result).
+	 */
+	static void closed(ServerPlayer p, String matchId) {
+		UUID id = p.getUUID();
+		Sent own = OWN.get(id);
+		if (own != null && own.id().equals(matchId)) {
+			OWN.remove(id);
+		}
+		Sent sent = SENT.get(id);
+		if (sent != null && sent.id().equals(matchId)) {
+			SENT.remove(id);
+			if (canSend(p)) {
+				ServerPlayNetworking.send(p, new PvpSyncPayload("clear", false, "{}"));
+			}
 		}
 	}
 
@@ -271,8 +322,10 @@ public final class PvpUi {
 					// revealing nearby must not re-open a result the player already closed (v0.1.2)
 					Sent own = OWN.get(p.getUUID());
 					boolean newView = own == null || !own.id().equals(m.id) || own.state() != m.state();
-					// a lobby, a match or a result the player has not seen yet opens its screen
-					push(p, m, newView);
+					// a lobby, a match or a result the player has not seen yet opens its screen; never one already opened
+					// and never a match in its history (B1: after the rematch window nothing pops up by itself)
+					boolean open = newView && !opened(p.getUUID(), m) && !"history".equals(m.phase()) && !"closed".equals(m.phase());
+					push(p, m, open);
 				}
 			} else if (prev != null) {
 				Optional<PvpMatch> watched = pvp.get(prev.id());
@@ -293,6 +346,8 @@ public final class PvpUi {
 			STEPS.keySet().retainAll(live);
 			FINAL.keySet().retainAll(live);
 			PAYOUTS.keySet().retainAll(live);
+			OPENED.values().forEach(s -> s.removeIf(k -> !live.contains(k.substring(0, k.indexOf('/')))));
+			OPENED.values().removeIf(Set::isEmpty);
 		}
 	}
 

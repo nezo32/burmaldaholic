@@ -148,7 +148,24 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 		}
 		addRenderableWidget(KitButton.of(left + 106, dockY(), 86, Component.translatable("gui.burmaldaholic.common.close"), KitButton.Style.SECONDARY,
 			b -> onClose()));
-		return top + 232;
+		// the content ends with the right column: the legend, pot, status and "by a hair" lines (content()), or the
+		// top-up row in the lobby; the Dock row is not content
+		int ly = top + 30 + Math.min(8, view.seats().size()) * 16 + 2;
+		int bottom = ly + 22 + font.lineHeight;
+		return view.lobby() && youIn() ? Math.max(bottom, top + 164 + 20) : bottom;
+	}
+
+	/**
+	 * y of the wheel's box (2 × {@link WheelDraw#C} high): panel y {@link #WY}, lifted at short GUIs (427 × 240) so the
+	 * face and rim end above the Dock band (the stand below may run under the Dock).
+	 */
+	public int wheelTop() {
+		return Math.max(frame.play().y(), Math.min(top + WY, frame.dock().y() - 2 * WheelDraw.C));
+	}
+
+	/** y below the wheel's face box (client GameTests: ends above the Dock). */
+	public int wheelBottom() {
+		return wheelTop() + 2 * WheelDraw.C;
 	}
 
 	// ---- angles ------------------------------------------------------------------------------------------------
@@ -226,7 +243,7 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 	@Override
 	protected void playArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		int wx = left + WX;
-		int wy = top + WY;
+		int wy = wheelTop();
 		long[] stakes = stakes();
 		long pot = PvpMath.pot(stakes);
 		double theta = rotation();
@@ -371,9 +388,9 @@ public final class WheelPartyScreen extends PvpPanel implements PvpScreens.ModeS
 				int wx = left + WX + WheelDraw.C;
 				Component nm = s.plateName();
 				int w = font.width(nm) + 22;
-				Kit.sprite(g, Kit.pvp("mode_banner"), wx - w / 2, top + WY + 26, w, 16);
-				Faces.draw(g, s.key(), s.bot(), s.name(), wx - w / 2 + 4, top + WY + 28, 12);
-				g.text(font, nm, wx - w / 2 + 18, top + WY + 30, WheelArt.color(owner) | 0xFF000000, true);
+				Kit.sprite(g, Kit.pvp("mode_banner"), wx - w / 2, wheelTop() + 26, w, 16);
+				Faces.draw(g, s.key(), s.bot(), s.name(), wx - w / 2 + 4, wheelTop() + 28, 12);
+				g.text(font, nm, wx - w / 2 + 18, wheelTop() + 30, WheelArt.color(owner) | 0xFF000000, true);
 			}
 		} else if (stopped()) {
 			int winner = winner();
