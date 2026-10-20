@@ -85,7 +85,8 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 			for (int i = 0; i < l.meterTiers.length; i++) {
 				if (l.meterTiers[i] != 1) continue;
 				String tip = body.meterTip(l, l.meterX(i) + 4, l.meterY + 4);
-				if (tip == null || !tip.contains("Treasure Hunt") || !tip.contains("jackpot gem")) return "Mini meter tooltip: " + tip;
+				if (tip == null || !tip.contains("Treasure Hunt") || !tip.contains("jackpot gem")) return "Mini meter tooltip: " + tip + " (overlay " + body.overlays().mode()
+					+ ", pools " + java.util.Arrays.toString(body.model().pools) + ", meter " + l.meterX(i) + "," + l.meterY + " w" + l.meterW + ")";
 			}
 			return null;
 		});
@@ -94,7 +95,7 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 		double[] p = context.computeOnClient(mc -> {
 			SlotMachineV2Screen s = (SlotMachineV2Screen) mc.gui.screen();
 			var vp = s.chrome().viewport();
-			return s.chrome().hits().box("primary").map(b -> new double[] {vp.toWindow(b.x() + b.w() / 2.0), vp.toWindow(b.y() + b.h() / 2.0)})
+			return s.chrome().hits().box("primary").map(b -> new double[] {vp.windowX(b.x() + b.w() / 2.0), vp.windowY(b.y() + b.h() / 2.0)})
 				.orElseThrow(() -> new AssertionError("no primary target"));
 		});
 		context.getInput().setCursorPos(p[0], p[1]);
@@ -136,7 +137,9 @@ public class SlotsSyncClientGameTests implements FabricClientGameTest {
 			prev = (int) snap[3] == 0 ? top : null;
 			if ((boolean) snap[4]) break;
 		}
-		if (!sawHandoff) failures.add("the result did not hand off from the pre-roll (pre-roll seen: " + sawPreRoll + ")");
+		if (!sawHandoff) failures.add("the result did not hand off from the pre-roll (pre-roll seen: " + sawPreRoll + ", clicked at " + p[0] + "," + p[1] + "; "
+			+ context.computeOnClient(mc -> mc.gui.screen() instanceof SlotMachineV2Screen s ? "pressed '" + s.chrome().lastPressed() + "' primary " + s.chrome().primary.gate()
+				+ " vp " + s.chrome().viewport() + " playable " + s.body().model().playable + " lock " + s.body().model().lockReason : "screen " + mc.gui.screen()) + ")");
 		context.waitTicks(10);
 		int[] rest = world.getServer().computeOnServer(server -> {
 			ServerPlayer player = server.getPlayerList().getPlayers().getFirst();

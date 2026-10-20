@@ -625,7 +625,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, SlotsModule.MACHINES.get(Tier.COPPER).block());
 		waitForScreen(context, named("SlotMachineV2Screen"), "the slot machine screen opens");
-		click(context, labelled("gui.burmaldaholic.pvp.slots.title"), "the Slot Showdown button");
+		clickV2(context, "action.showdown", "the Slot Showdown entry in the Dock (v2 kit, SLT)");
 		click(context, labelled("gui.burmaldaholic.pvp.lobby.open"), "Open lobby");
 		context.waitTicks(15);
 		String id = match(world, me).map(x -> x.id).orElseThrow(() -> new AssertionError("no showdown lobby on the server: "
