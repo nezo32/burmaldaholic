@@ -32,8 +32,12 @@ public final class TableClock {
 		return synced;
 	}
 
-	/** Estimated server time in ticks (with the partial tick). */
+	/** Estimated server time in ticks (with the partial tick); a test hook ({@code AnimClock.testLevelMs()}) wins when set. */
 	public double nowTicks(float partialTick) {
+		double test = dev.nezo.burmaldaholic.client.anim.AnimClock.testLevelMs();
+		if (!Double.isNaN(test)) {
+			return test / 50.0;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level != null) {
 			return mc.level.getGameTime() + (double) partialTick + offsetTicks;
