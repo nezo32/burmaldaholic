@@ -26,7 +26,7 @@ import dev.nezo.burmaldaholic.games.craps.present.CrapsFlow;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsPub;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -235,7 +235,7 @@ public final class CrapsBoardRenderer extends BoardRenderer<CrapsTableBlockEntit
 
 	private static boolean viewingOwnScreen(CrapsTableBlockEntity be) {
 		Minecraft mc = Minecraft.getInstance();
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> sc && sc.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
+		return mc.gui.screen() instanceof MenuAccess<?> sc && sc.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
 	}
 
 	private static void cues(CrapsTableBlockEntity be, Client c, DiceThrowPath p, double t) {
