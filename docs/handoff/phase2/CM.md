@@ -120,3 +120,30 @@ code with no pure seam; not separately asserted.
 ## Requests
 - **SY**: swap the clock with `CrapsRollClocks.source(SmoothClock::nowMs)`; the server lead (5 ticks) is not added here
   (`CrapsTableBlockEntity` roll_time), spectators could then use the SY anchor instead of "start on arrival".
+
+## Fix round after T-CM (FAIL → this round)
+Tester commits cherry-picked first (`30f1b489`, `43e34f31`, `64994879` from `test/cm`).
+- **M1 / M1b (P1)** the NEXT shooter's side is synced: `CrapsTableBlockEntity.nextSide()` (the current shooter's human seat →
+  `sideOfSeat`; no shooter = stay) in the state (`next_side`) and in `CrapsSync` **v3** (16 ints; v2 decodes next = shooter side).
+  `CrapsRollClock.nextSide(side)` owns dice home: the first value is taken as is, a change moves home along ONE fixed
+  non-crossing path over 1100 ms (smoothstep, ≤ 0.07 u/ms; reversals continue from where it is). Screen, board and the hand all
+  read `rc.home(...)` / `rc.homePose(...)`; the stick drags to it. The hand's home is frozen at the result. Desync fallback
+  (a throw from the other end than the hand, e.g. a fresh table with no side known): the settle lasts `dist·1.5/0.045` ms and one
+  die passes behind the other (`CrapsPair`), so no jump and ≥ 2 u.
+- **M2 (P1)** `CrapsStick`: line-up in REST order; hook and drag move both dice on one ease with a `CrapsPair` push (the smallest
+  sideways push, toward the back wall, keeping centres ≥ min(1.1 die, end gaps)). Tester: 0/40 overlap, closest 2.21 u; mine:
+  600 cases (3 scales × 200 seeds, home at either end) ≥ 2 u every ms, closest 2.13 u.
+- **M5 (P1)** `CrapsScreen.mouseClicked`: a click in the chip beats skips them and, on an ENABLED hit target (felt spot, chip,
+  button), also acts on the settled table (K2 rule). Lane D "Pass again" no longer needs a wait.
+- **M3 (P2)** chosen: DISABLE with a reason. `feltClosed()` = throw shown OR this client's hand busy (Roll pressed → throw
+  leaves the hand): the view is `rolling`, so felt clicks flash `reason.rolling` and the status says the dice are rolling; refreshed
+  right at the press.
+- **M4 / P3** `CrapsRollClocks` keyed by (dimension, pos), cleared on disconnect; a roll counter going backwards = a new table
+  (first sight). Screen / board cache their clock ref (no per-frame key). Allocations removed: `CrapsHand.home/shake/settle`
+  (thread-local scratch), `CrapsThrow.release` (precomputed, `release(side, die, out)`), `CrapsScreen.chips` tags list,
+  `drawBets` (arrays instead of map + string keys), `prevBets()` (parsed once per state), `CrapsBoardRenderer.stacks` (no list /
+  `Spot` records / rail arrays).
+- Tester test change: `CrapsCmTesterTest.shooterOnTheOtherSideDoesNotJump` spectator half rewritten to the new API (it computed
+  `home(RIGHT)` vs the LEFT throw statically, unfixable by design); it now asserts the synced home move (no jump, ≥ 2 u, ends at
+  the throw's start). Shooter half unchanged (passes via the fallback). New: `CrapsCmFixTest` (5), `CrapsSyncTest` v2 case,
+  GameTest `nextSideFollowsTheNextShooter`.

@@ -75,6 +75,9 @@ public final class CrapsRollClocks {
 
 	/** Test hook: with a frozen test clock the throw's t = test level ms − roll tick · 50. */
 	public static void pinUnderTest(CrapsRollClock c, long rollTick) {
-		if (!Double.isNaN(AnimClock.testLevelMs())) c.pin(rollTick * 50.0);
+		if (!Double.isNaN(AnimClock.testLevelMs())) {
+			c.pin(rollTick * 50.0);
+			c.finishHomeMove(); // a frozen clock never moves dice home: it is at the next shooter's end
+		}
 	}
 }

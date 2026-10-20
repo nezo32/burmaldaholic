@@ -191,6 +191,12 @@ public final class CrapsRollClock {
 		return homeS1 >= 0.5 ? CrapsThrow.LEFT : CrapsThrow.RIGHT;
 	}
 
+	/** Ends a running move of dice home now (test hook: under a frozen clock a move would never progress). */
+	public void finishHomeMove() {
+		homeS0 = homeS1;
+		homeAt = Double.NaN;
+	}
+
 	/** True while dice home moves to the other end. */
 	public boolean homeMoving() {
 		return homeS() != homeS1;
