@@ -7,11 +7,13 @@
     "wood": "burmaldaholic:block/core/tables/player_banked/wood",
     "trim": "minecraft:block/gilded_blackstone",
     "dark": "burmaldaholic:block/core/tables/player_banked/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs2",
+    "ppanel": "burmaldaholic:block/core/machines/plinko_side",
+    "safe": "burmaldaholic:block/core/machines/cashier_safe",
     "chrome": "burmaldaholic:block/core/machines/chrome",
     "panel": "burmaldaholic:block/core/machines/nether_cashier_panel",
-    "shelves": "burmaldaholic:block/core/machines/nether_cashier_shelves",
     "lamp": "burmaldaholic:block/core/machines/nether_cashier_lamp",
+    "shelves": "burmaldaholic:block/core/machines/cashier_wall",
     "marble": "minecraft:block/polished_blackstone",
     "glass": "minecraft:block/red_stained_glass",
     "grille": "burmaldaholic:block/core/machines/cashier_grille",
@@ -572,12 +574,12 @@
     {
       "from": [
         0,
-        13.25,
+        12.5,
         4.5
       ],
       "to": [
         6,
-        15.75,
+        16,
         5
       ],
       "light_emission": 12,
@@ -602,37 +604,37 @@
         },
         "north": {
           "uv": [
-            10,
-            0.25,
+            0,
+            0,
             16,
-            2.75
+            16
           ],
           "texture": "#sign"
         },
         "south": {
           "uv": [
             0,
-            0.25,
+            0,
             6,
-            2.75
+            3.5
           ],
           "texture": "#sign"
         },
         "west": {
           "uv": [
             4.5,
-            0.25,
+            0,
             5,
-            2.75
+            3.5
           ],
           "texture": "#sign"
         },
         "east": {
           "uv": [
             11,
-            0.25,
+            0,
             11.5,
-            2.75
+            3.5
           ],
           "texture": "#sign"
         }

@@ -403,6 +403,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.table.compact_hint` | Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it | Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить |
 | `msg.burmaldaholic.table.unfolded` | Unfolded to full size | Разложено в полный размер |
 | `msg.burmaldaholic.table.unfold_busy` | Someone is standing where it unfolds — step aside and try again | Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова |
+| `sign.burmaldaholic.cashier` | CASHIER | КАССА |
 
 ### Casino Menu
 
@@ -2670,6 +2671,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.dir.sw` | south-west | юго-запад |
 | `gui.burmaldaholic.worldgen.dir.w` | west | запад |
 | `gui.burmaldaholic.worldgen.dir.nw` | north-west | северо-запад |
+| `msg.burmaldaholic.worldgen.house_table_protected` | This game belongs to the house and stays in the casino | Эта игра принадлежит заведению и останется в казино |
 
 ---
 

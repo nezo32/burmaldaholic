@@ -6,31 +6,55 @@
       "conditions": [
         {
           "condition": "minecraft:survives_explosion"
-        },
-        {
-          "condition": "minecraft:any_of",
-          "terms": [
-            {
-              "condition": "minecraft:block_state_property",
-              "block": "burmaldaholic:blackjack_table",
-              "properties": {
-                "part": "main"
-              }
-            },
-            {
-              "condition": "minecraft:block_state_property",
-              "block": "burmaldaholic:blackjack_table",
-              "properties": {
-                "part": "single"
-              }
-            }
-          ]
         }
       ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "burmaldaholic:blackjack_table"
+          "name": "burmaldaholic:blackjack_table",
+          "conditions": [
+            {
+              "condition": "minecraft:any_of",
+              "terms": [
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:blackjack_table",
+                  "properties": {
+                    "part": "main"
+                  }
+                },
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:blackjack_table",
+                  "properties": {
+                    "part": "single"
+                  }
+                }
+              ]
+            }
+          ],
+          "condition": {
+            "type": "minecraft:any_of",
+            "terms": [
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:blackjack_table",
+                "state": {
+                  "part": "main"
+                }
+              },
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:blackjack_table",
+                "state": {
+                  "part": "single"
+                }
+              }
+            ]
+          }
         }
       ]
     }

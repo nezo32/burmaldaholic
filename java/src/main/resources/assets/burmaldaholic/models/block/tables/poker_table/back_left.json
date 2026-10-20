@@ -8,7 +8,8 @@
     "trim": "burmaldaholic:block/core/tables/standard/trim",
     "tray": "burmaldaholic:block/core/tables/standard/tray",
     "bowl": "burmaldaholic:block/core/tables/standard/bowl",
-    "placard": "burmaldaholic:block/core/tables/standard/placard",
+    "placard": "burmaldaholic:block/core/tables/placard_spade",
+    "track": "burmaldaholic:block/core/tables/track",
     "tote": "burmaldaholic:block/core/tables/standard/tote"
   },
   "elements": [
@@ -218,68 +219,68 @@
     },
     {
       "from": [
-        9.5,
-        15.5,
-        12.75
+        8,
+        19,
+        13
       ],
       "to": [
-        13.5,
-        19.5,
-        14.25
+        14,
+        23,
+        13.5
       ],
       "light_emission": 10,
       "faces": {
         "up": {
           "uv": [
-            9.5,
-            12.75,
-            13.5,
-            14.25
+            8,
+            13,
+            14,
+            13.5
           ],
           "texture": "#placard"
         },
         "down": {
           "uv": [
-            9.5,
-            12.75,
-            13.5,
-            14.25
+            8,
+            13,
+            14,
+            13.5
           ],
           "texture": "#placard"
         },
         "north": {
           "uv": [
-            2.5,
-            0.5,
-            6.5,
-            12.5
+            0,
+            2.67,
+            16,
+            13.33
           ],
           "texture": "#placard"
         },
         "south": {
           "uv": [
-            9.5,
-            0.5,
-            13.5,
-            12.5
+            0,
+            2.67,
+            16,
+            13.33
           ],
           "texture": "#placard"
         },
         "west": {
           "uv": [
-            12.75,
-            0.5,
-            14.25,
-            12.5
+            13,
+            9,
+            13.5,
+            13
           ],
           "texture": "#placard"
         },
         "east": {
           "uv": [
-            1.75,
-            0.5,
-            3.25,
-            12.5
+            2.5,
+            9,
+            3,
+            13
           ],
           "texture": "#placard"
         }
@@ -695,67 +696,67 @@
     },
     {
       "from": [
-        11,
+        10.5,
         14,
-        13
+        12.75
       ],
       "to": [
-        12,
-        16,
-        14
+        11.5,
+        21,
+        13.75
       ],
       "faces": {
         "up": {
           "uv": [
-            11,
-            13,
-            12,
-            14
+            10.5,
+            12.75,
+            11.5,
+            13.75
           ],
           "texture": "#trim"
         },
         "down": {
           "uv": [
-            11,
-            13,
-            12,
-            14
+            10.5,
+            12.75,
+            11.5,
+            13.75
           ],
           "texture": "#trim"
         },
         "north": {
           "uv": [
-            4,
-            0,
-            5,
-            2
+            4.5,
+            2,
+            5.5,
+            11
           ],
           "texture": "#trim"
         },
         "south": {
           "uv": [
-            11,
-            0,
-            12,
-            2
+            10.5,
+            2,
+            11.5,
+            11
           ],
           "texture": "#trim"
         },
         "west": {
           "uv": [
-            13,
-            0,
-            14,
-            2
+            12.75,
+            2,
+            13.75,
+            11
           ],
           "texture": "#trim"
         },
         "east": {
           "uv": [
+            2.25,
             2,
-            0,
-            3,
-            2
+            3.25,
+            11
           ],
           "texture": "#trim"
         }
@@ -4412,7 +4413,6 @@
         "axis": "y",
         "angle": 82.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4490,7 +4490,6 @@
         "axis": "y",
         "angle": 67.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4568,7 +4567,6 @@
         "axis": "y",
         "angle": 52.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4646,7 +4644,6 @@
         "axis": "y",
         "angle": 37.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4724,7 +4721,6 @@
         "axis": "y",
         "angle": 22.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [
@@ -4802,7 +4798,6 @@
         "axis": "y",
         "angle": 7.5
       },
-      "light_emission": 6,
       "faces": {
         "up": {
           "uv": [

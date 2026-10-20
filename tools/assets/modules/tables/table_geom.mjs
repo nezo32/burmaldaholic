@@ -171,6 +171,24 @@ const circleSpan = (x, r) => {
   return [[q(BOWL.cz - h), q(BOWL.cz + h)]];
 };
 
+/**
+ * Roulette bowl rim (VQA r2 item 2), radii in px from the bowl centre: outer face stepped in three rings (8 → 7.5 →
+ * 7.25), lit brass top band, dark inner wall, cream ball-track lip on the inner top edge. Top RIM_TOP = 17.5 (2 px
+ * above the rail). RO contract (RouletteWorld): nothing inside r 6.5 anywhere, nothing inside r 6.75 below y 17 (the
+ * rotor's track wall stands at r 6.4 with its lip to r 6.66 up to y ≈ 16.9, tucked under the cream lip).
+ */
+export const RIM = { top: 17.5, open: 6.5, wallR: 6.75, lipY: 17 };
+export function bowlRim() {
+  const { cx, cz } = BOWL;
+  return [
+    ...circle(cx, cz, 8, 7, 13, 15.5, 'wood'),
+    ...circle(cx, cz, 7.5, 7, 15.5, 16.5, 'wood'),
+    ...circle(cx, cz, 7.25, RIM.wallR, 16.5, RIM.top, 'trim', { emit: 10 }),
+    ...circle(cx, cz, 7, RIM.wallR, 13, 16.5, 'rail'),
+    ...circle(cx, cz, RIM.wallR, RIM.open, RIM.lipY, RIM.top, 'track'),
+  ];
+}
+
 /** Turned leg at (x, z): collar, taper, bulb, brass ferrule, dark foot. */
 function leg(x, z) {
   const b = (h, mat, y0, y1) => ({ mat, x0: x - h, x1: x + h, z0: z - h, z1: z + h, y0, y1 });
@@ -229,16 +247,21 @@ function tray(shape) {
 
 /** Lit props: table-limit placard (dealer side) or the roulette tote board on a brass pole. */
 function props(shape) {
+  // table-limit placard: brass stanchion 1 × 7 px with a 6 × 4 px white enamel plate facing the players (lit; the
+  // limits text is W2's); roulette's sits at the back-right, beside the tote board
+  const px = shape === 'roulette' ? 20 : -11;
+  const plate = (x) => [
+    { mat: 'trim', x0: x - 0.5, x1: x + 0.5, z0: -13.75, z1: -12.75, y0: 14, y1: 21 },
+    { mat: 'placard', x0: x - 3, x1: x + 3, z0: -13.5, z1: -13, y0: 19, y1: 23, emit: 10, faceUv: [0, 2.67, 16, 13.33] },
+  ];
   if (shape === 'roulette') {
     return [
+      ...plate(px),
       { mat: 'trim', x0: 28.5, x1: 29.5, z0: -13.5, z1: -12.5, y0: 15.5, y1: 26 },
       { mat: 'tote', x0: 26, x1: 31.5, z0: -14, z1: -12, y0: 25, y1: 32, emit: 12 },
     ];
   }
-  return [
-    { mat: 'trim', x0: -12, x1: -11, z0: -14, z1: -13, y0: 14, y1: 16 },
-    { mat: 'placard', x0: -13.5, x1: -9.5, z0: -14.25, z1: -12.75, y0: 15.5, y1: 19.5, emit: 10 },
-  ];
+  return plate(px);
 }
 
 /** The whole table: {boxes, segs} in local px. */
@@ -257,7 +280,7 @@ export function tableGeometry(shape) {
   add(ring(shape, { inO: 1.25, inI: 2, y0: 6, y1: 6.75, mat: 'rail' }));
   add(ring(shape, { inO: 1, inI: 2, y0: 6.75, y1: 10.5, mat: 'wood' }));
   add(ring(shape, { inO: 0, inI: 2, y0: 10.5, y1: 11.5, mat: 'wood' }));
-  add(ring(shape, { inO: -0.5, inI: 1, y0: 11.5, y1: 12.5, mat: 'trim', emit: 6 }));
+  add(ring(shape, { inO: -0.5, inI: 1, y0: 11.5, y1: 12.5, mat: 'trim', emit: 'band' }));
   // padded rail: outer drop, cushion, bevelled cap, brass lip on the felt side
   add(ring(shape, { inO: -1, inI: 0, y0: 12.5, y1: 13.5, mat: 'rail', sides: railSides }));
   add(ring(shape, { inO: -1, inI: 2, y0: 13.5, y1: top - 0.5, mat: 'rail', sides: railSides }));
@@ -283,8 +306,7 @@ export function tableGeometry(shape) {
       { mat: 'wood', y0: 13, y1: 14.5, inset: 1.5, clip: (xm, zs) => minus(minus(zs, layout(xm)), circleSpan(xm, BOWL.r - 0.5)) },
       { mat: 'bowl', y0: 13, y1: 13.5, inset: 1.5, clip: (xm, zs) => inter(zs, circleSpan(xm, BOWL.r - 1.25)) },
     ]));
-    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r, BOWL.r - 1.5, 13, 17, 'wood'));
-    segs.push(...circle(BOWL.cx, BOWL.cz, BOWL.r + 0.25, BOWL.r - 1.75, 17, 17.5, 'trim', { emit: 5 }));
+    segs.push(...bowlRim());
   }
   if (shape === 'oval') add(pedestals());
   else boxes.push(...legs(shape));

@@ -7,7 +7,9 @@
     "wood": "burmaldaholic:block/core/tables/standard/wood",
     "trim": "burmaldaholic:block/core/tables/standard/trim",
     "dark": "burmaldaholic:block/core/tables/standard/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs2",
+    "ppanel": "burmaldaholic:block/core/machines/plinko_side",
+    "safe": "burmaldaholic:block/core/machines/cashier_safe",
     "chrome": "burmaldaholic:block/core/machines/chrome",
     "red": "burmaldaholic:block/core/machines/red_leather"
   },
@@ -160,7 +162,7 @@
         2.5,
         3
       ],
-      "light_emission": 12,
+      "light_emission": 15,
       "faces": {
         "up": {
           "uv": [
@@ -238,7 +240,7 @@
         "axis": "z",
         "angle": -52.5
       },
-      "light_emission": 3,
+      "light_emission": 15,
       "faces": {
         "north": {
           "uv": [
@@ -247,7 +249,7 @@
             6.161,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "south": {
           "uv": [
@@ -256,7 +258,7 @@
             6.161,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "up": {
           "uv": [
@@ -265,7 +267,7 @@
             6.161,
             3.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "down": {
           "uv": [
@@ -274,7 +276,7 @@
             6.161,
             3.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "west": {
           "uv": [
@@ -283,7 +285,7 @@
             3.5,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "east": {
           "uv": [
@@ -292,7 +294,7 @@
             3.5,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         }
       }
     },
@@ -316,7 +318,7 @@
         "axis": "z",
         "angle": -37.5
       },
-      "light_emission": 3,
+      "light_emission": 15,
       "faces": {
         "north": {
           "uv": [
@@ -325,7 +327,7 @@
             6.161,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "south": {
           "uv": [
@@ -334,7 +336,7 @@
             6.161,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "up": {
           "uv": [
@@ -343,7 +345,7 @@
             6.161,
             3.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "down": {
           "uv": [
@@ -352,7 +354,7 @@
             6.161,
             3.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "west": {
           "uv": [
@@ -361,7 +363,7 @@
             3.5,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "east": {
           "uv": [
@@ -370,7 +372,7 @@
             3.5,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         }
       }
     },
@@ -394,7 +396,7 @@
         "axis": "z",
         "angle": -22.5
       },
-      "light_emission": 3,
+      "light_emission": 15,
       "faces": {
         "north": {
           "uv": [
@@ -403,7 +405,7 @@
             6.161,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "south": {
           "uv": [
@@ -412,7 +414,7 @@
             6.161,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "up": {
           "uv": [
@@ -421,7 +423,7 @@
             6.161,
             3.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "down": {
           "uv": [
@@ -430,7 +432,7 @@
             6.161,
             3.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "west": {
           "uv": [
@@ -439,7 +441,7 @@
             3.5,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         },
         "east": {
           "uv": [
@@ -448,7 +450,7 @@
             3.5,
             1.5
           ],
-          "texture": "#trim"
+          "texture": "#bulbs"
         }
       }
     }

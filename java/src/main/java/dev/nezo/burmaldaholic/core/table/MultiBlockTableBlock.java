@@ -9,7 +9,6 @@ import dev.nezo.burmaldaholic.core.table.parts.TableGame;
 import dev.nezo.burmaldaholic.core.table.parts.TablePart;
 import dev.nezo.burmaldaholic.core.table.parts.TableParts;
 import dev.nezo.burmaldaholic.core.table.parts.TableProtection;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -270,32 +269,26 @@ public class MultiBlockTableBlock extends CasinoTableBlock {
 			// breaking any part breaks the table from its main block: one item (none in creative), stakes settled
 			TableParts.breakFromPart(level, pos, state, player);
 		}
-		BlockState result = super.playerWillDestroy(level, pos, state, player);
-		if (level instanceof ServerLevel sl && part.isController() && !TableProtection.get().dropsAllowed(sl, pos)) {
-			// house game (CB-G): the vanilla break drops the returned state's loot — a part state has none
-			return result.setValue(partProperty(), noLootPart());
-		}
-		return result;
+		return super.playerWillDestroy(level, pos, state, player);
 	}
 
 	/**
-	 * Only the main (or compact) block ever drops the item. Done in code, not only in the loot table: 26.3 replaced the
-	 * loot predicate format ({@code conditions}/{@code block_state_property} → {@code condition}/{@code match_block}) and
-	 * silently ignores the 26.2 form, so a JSON-only part check would drop one item per cell there.
+	 * Only the main (or compact) block ever drops the item, and never a house table's (CB-G {@link TableProtection}).
+	 * Done here because every removal path reaches it — player breaks, explosions, the part cascade, withers,
+	 * {@code /setblock … destroy}, other mods. The part rule is also in code (not only the loot table): a JSON-only
+	 * check depends on the loot predicate format, which 26.3 changed.
 	 */
 	@Override
 	protected List<ItemStack> getDrops(BlockState state, net.minecraft.world.level.storage.loot.LootParams.Builder params) {
-		return state.getValue(partProperty()).isController() ? super.getDrops(state, params) : List.of();
-	}
-
-	/** A part value whose loot table drops nothing (any non-controller part of this block). */
-	protected TablePart noLootPart() {
-		for (TablePart p : partProperty().getPossibleValues()) {
-			if (!p.isController()) {
-				return p;
-			}
+		if (!state.getValue(partProperty()).isController()) {
+			return List.of();
 		}
-		return TablePart.BACK;
+		net.minecraft.world.phys.Vec3 origin = params.getOptionalParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN);
+		if (origin != null && !TableProtection.get().dropsAllowed(params.getLevel(), BlockPos.containing(origin),
+			params.getOptionalParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY))) {
+			return List.of();
+		}
+		return super.getDrops(state, params);
 	}
 
 	@Override
@@ -366,14 +359,5 @@ public class MultiBlockTableBlock extends CasinoTableBlock {
 		} else {
 			player.sendOverlayMessage(TableParts.noRoomMessage(Math.max(1, TableParts.blockedForUnfold(level, pos))));
 		}
-	}
-
-	/** Cells of the full table for {@code facing} (world offsets from the main block). */
-	public List<int[]> offsets(Direction facing) {
-		List<int[]> out = new ArrayList<>();
-		for (LocalCell c : cells) {
-			out.add(c.offset(facing.getStepX(), facing.getStepZ()));
-		}
-		return out;
 	}
 }

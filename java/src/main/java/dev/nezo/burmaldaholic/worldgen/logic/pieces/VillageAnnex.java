@@ -32,7 +32,7 @@ import dev.nezo.burmaldaholic.worldgen.logic.blueprint.Role;
  * letter board, and a stepped deco parapet with glowing flutes up to row 14. Plan at the floor row:
  * <pre>
  *  z 0    back wall
- *  z 1    dealers                      (chest, back-bar counters between them)
+ *  z 1    dealers' service corridor    (corner counter, chest)
  *  z 2,3  [BJ]   [BA + dealer]   [RO]  row 1, players south
  *  z 4    walkways
  *  z 5    dealers
@@ -363,14 +363,9 @@ public final class VillageAnnex {
 			}
 		}
 		b.set(CX, 0, FRONT, Role.FLOOR);
-		// back bar between the dealers: counters with candles and plants, a gilt mirror strip on the wall
+		// the dealers' row (z 1) is a free service corridor: house dealers (package DL) walk to their cells from the
+		// channels between the tables, so only the corner keeps a counter with a planter
 		Material counter = p.get(Role.COUNTER);
-		b.mirrorX(AX2, m -> {
-			m.set(5, Y, 1, counter.slab("double"));
-			m.set(6, Y, 1, counter.slab("double"));
-			m.set(5, Y + 1, 1, BlockSpec.mc("candle", "candles", "3", "lit", "true", "waterlogged", "false"));
-			m.set(6, Y + 1, 1, Role.PLANTER);
-		});
 		b.set(WEST + 1, Y, 1, counter.slab("double"));
 		b.set(WEST + 1, Y + 1, 1, Role.PLANTER);
 		b.chest(CasinoLoot.Table.VILLAGE_CASINO, EAST - 1, Y, 1, Facing.SOUTH);
