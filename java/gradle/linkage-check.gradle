@@ -1,12 +1,16 @@
 // =============================================================================================
-// checkLinkage — proves the ONE release jar (compiled against the lowest supported Minecraft, see
-// gradle.properties `mc`) also LINKS against every other supported version.
+// checkLinkage — proves the ONE release jar (compiled against gradle.properties `mc`) also LINKS
+// against every OTHER version in `supported_mc_versions`.
 //
-// Minecraft 26.x is unobfuscated and Fabric no longer remaps, so a jar compiled against 26.2 runs
-// on 26.3 exactly as long as every Minecraft / Fabric API class, method and field it references
-// still exists with the same descriptor, and no newly-abstract method is left unimplemented.
-// `./gradlew build -Pmc=26.3` only proves SOURCE compatibility; this task proves BINARY
-// compatibility of the bytes we actually ship.
+// Since 2026-10-20 the mod supports Minecraft 26.3 only (`mc=26.3`, `supported_mc_versions=26.3`),
+// so there is no other version and the task is skipped (onlyIf). It is kept for when a second
+// version (e.g. 26.4) is added to the supported list again.
+//
+// Minecraft 26.x is unobfuscated and Fabric no longer remaps, so a jar compiled against one 26.x
+// runs on another exactly as long as every Minecraft / Fabric API class, method and field it
+// references still exists with the same descriptor, and no newly-abstract method is left
+// unimplemented. Compiling with `-Pmc=<other>` only proves SOURCE compatibility; this task proves
+// BINARY compatibility of the bytes we actually ship.
 //
 // For each other version V in `supported_mc_versions`:
 //   * downloads the official (unobfuscated) client jar of V from Mojang (cached in ~/.gradle),

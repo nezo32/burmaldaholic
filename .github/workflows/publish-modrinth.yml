@@ -1,0 +1,81 @@
+# Publish an EXISTING release to Modrinth only, without rebuilding: downloads the jar attached to the GitHub release
+# of `tag` (byte-identical to the one on GitHub / CurseForge) and uploads it with reusable-publish-modrinth.yml.
+# Does not touch the tag, the GitHub release or CurseForge. A version_number already on Modrinth is skipped.
+# Actions -> Publish to Modrinth -> Run workflow (dry-run first), or:
+#   gh workflow run publish-modrinth.yml -f tag=v0.1.3 -f dry-run=true
+# Config: as the modrinth-mod job of release.yml (secret MODRINTH_TOKEN; vars MODRINTH_ENVIRONMENT,
+# MODRINTH_PROJECT_ID, MODRINTH_GAME_VERSIONS). Maintainer runbook: docs/ci/RELEASING.md.
+name: Publish to Modrinth
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, e.g. v0.1.3
+        required: true
+      dry-run:
+        description: Resolve the Modrinth project, versions and dependencies and print the metadata without uploading
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    uses: ./.github/workflows/reusable-version.yml
+    with:
+      tag: ${{ inputs.tag }}
+      release-branch: main
+
+  release-jar:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download the released jar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          jar="burmaldaholic-${VERSION}.jar"
+          mkdir dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$jar" --dir dist \
+            || { echo "::error::GitHub release $TAG has no asset $jar"; exit 1; }
+          want="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq ".assets[] | select(.name == \"$jar\") | .digest")"
+          got="sha256:$(sha256sum "dist/$jar" | cut -d' ' -f1)"
+          echo "$jar: $got (GitHub asset digest: ${want:-n/a})"
+          [[ -z "$want" || "$want" == "$got" ]] || { echo "::error::digest mismatch for $jar"; exit 1; }
+          echo "### $TAG: \`$jar\` $got" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: java-mod
+          path: dist/*.jar
+          if-no-files-found: error
+          retention-days: 1
+
+  modrinth-mod:
+    needs: [version, release-jar]
+    uses: ./.github/workflows/reusable-publish-modrinth.yml
+    with:
+      project-id: burmaldaholic
+      project-id-var: MODRINTH_PROJECT_ID
+      environment: ${{ vars.MODRINTH_ENVIRONMENT || vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
+      artifact-pattern: java-mod
+      primary-file: "burmaldaholic-!(*-sources).jar"
+      version-number: ${{ needs.version.outputs.version }}
+      name: Burmaldaholic ${{ needs.version.outputs.version }}
+      game-versions: ${{ vars.MODRINTH_GAME_VERSIONS || '26.3' }}
+      loaders: fabric
+      release-type: ${{ needs.version.outputs.release-type }}
+      dependencies: fabric-api:required
+      tag: ${{ needs.version.outputs.tag }}
+      dry-run: ${{ inputs.dry-run }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}

@@ -1,5 +1,5 @@
 # Burmaldaholic release: push tag vX.Y.Z[-pre] (on a commit of main) ->
-#   version -> build-mod -> github-release -> curseforge-mod
+#   version -> build-mod -> github-release -> curseforge-mod + modrinth-mod (in parallel)
 # Or: Actions -> Release -> Run workflow on main with a new tag: the tag is created on main's tip.
 # Everything runs in ONE workflow run: releases created with GITHUB_TOKEN never trigger other workflows.
 # The reusable-*.yml workflows are shared with nezo32/enchantaholic (identical files; see
@@ -8,6 +8,11 @@
 # Config (repository level or in the Environment named by var CURSEFORGE_ENVIRONMENT, default Burmaldaholic):
 # secret CURSEFORGE_TOKEN; var CURSEFORGE_PROJECT_ID (unset = CurseForge skipped with a warning);
 # optional var CURSEFORGE_GAME_VERSIONS.
+# Modrinth (repository level or in the Environment named by var MODRINTH_ENVIRONMENT, default = the CurseForge one):
+# secret MODRINTH_TOKEN (unset = Modrinth skipped with a warning); optional vars MODRINTH_PROJECT_ID (id or slug,
+# default burmaldaholic) and MODRINTH_GAME_VERSIONS (default 26.3).
+# Re-running an existing tag REBUILDS the jar (not byte-identical) and replaces the GitHub release asset: to publish
+# an already released jar to Modrinth only, use publish-modrinth.yml instead.
 name: Release
 
 on:
@@ -24,6 +29,14 @@ on:
         default: false
       curseforge-dry-run:
         description: Resolve CurseForge versions and print the upload metadata without uploading
+        type: boolean
+        default: false
+      skip-modrinth:
+        description: Do not upload to Modrinth
+        type: boolean
+        default: false
+      modrinth-dry-run:
+        description: Resolve the Modrinth project, versions and dependencies and print the metadata without uploading
         type: boolean
         default: false
 
@@ -68,8 +81,8 @@ jobs:
       tag: ${{ inputs.tag }}
       release-branch: main
 
-  # One jar for the whole supported range: compiled against the lowest version (mc in gradle.properties);
-  # `build` runs the unit tests, gametests and checkLinkage against the other supported versions.
+  # One jar for Minecraft 26.3 (mc / supported_mc_range in java/gradle.properties);
+  # `build` runs the unit tests and gametests (checkLinkage is a no-op while only one version is supported).
   build-mod:
     needs: version
     if: ${{ !cancelled() && !failure() }}
@@ -104,8 +117,8 @@ jobs:
       environment: ${{ vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
       artifact-pattern: java-mod
       primary-file: "burmaldaholic-!(*-sources).jar"
-      # When a 26.2.x / 26.3.x patch ships, add it to the repo var; no code change needed.
-      game-versions: ${{ vars.CURSEFORGE_GAME_VERSIONS || '26.2,26.3,Fabric,Java 25,Client,Server' }}
+      # Minecraft 26.3 only. When a 26.3.x patch ships, add it to the repo var; no code change needed.
+      game-versions: ${{ vars.CURSEFORGE_GAME_VERSIONS || '26.3,Fabric,Java 25,Client,Server' }}
       release-type: ${{ needs.version.outputs.release-type }}
       display-name: Burmaldaholic ${{ needs.version.outputs.version }} (Fabric)
       relations: fabric-api:requiredDependency
@@ -113,3 +126,25 @@ jobs:
       dry-run: ${{ inputs.curseforge-dry-run == true }}
     secrets:
       CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+
+  modrinth-mod:
+    needs: [version, github-release]
+    if: ${{ !cancelled() && !failure() && !inputs.skip-modrinth }}
+    uses: ./.github/workflows/reusable-publish-modrinth.yml
+    with:
+      # MODRINTH_PROJECT_ID (repository or Environment variable) overrides the slug.
+      project-id: burmaldaholic
+      project-id-var: MODRINTH_PROJECT_ID
+      environment: ${{ vars.MODRINTH_ENVIRONMENT || vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
+      artifact-pattern: java-mod
+      primary-file: "burmaldaholic-!(*-sources).jar"
+      version-number: ${{ needs.version.outputs.version }}
+      name: Burmaldaholic ${{ needs.version.outputs.version }}
+      game-versions: ${{ vars.MODRINTH_GAME_VERSIONS || '26.3' }}
+      loaders: fabric
+      release-type: ${{ needs.version.outputs.release-type }}
+      dependencies: fabric-api:required
+      tag: ${{ needs.version.outputs.tag }}
+      dry-run: ${{ inputs.modrinth-dry-run == true }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}

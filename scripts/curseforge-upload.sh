@@ -9,7 +9,7 @@
 #   CF_TOKEN            (required) API token (Authors portal -> API tokens). Sent as X-Api-Token.
 #   CF_PROJECT_ID       (required) numeric project id.
 #   CF_API_BASE         default https://minecraft.curseforge.com  (per-game host; Bedrock: https://minecraft-bedrock.curseforge.com)
-#   CF_GAME_VERSIONS    names, comma/newline separated, e.g. "26.2,26.3,Fabric,Java 25,Client,Server"
+#   CF_GAME_VERSIONS    names, comma/newline separated, e.g. "26.3,Fabric,Java 25,Client,Server"
 #   CF_TYPE_PREFIXES    comma list of version-type slug prefixes to search in.
 #                       default "minecraft,modloader,java,environment"; set to "" to search all types
 #                       (required for Bedrock, whose /game/version-types returns no list; types are then not fetched).

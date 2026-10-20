@@ -16,8 +16,8 @@ main ──●──────────●───────────
 ### `main` is protected
 
 - Changes land only through a pull request.
-- The `ci-ok` check must pass. It aggregates every CI job (branch name, actionlint, scripts, the builds for
-  Minecraft 26.2 and 26.3, the asset generator check); path-filtered jobs a PR does not touch are skipped and count
+- The `ci-ok` check must pass. It aggregates every CI job (branch name, actionlint, scripts, the build for
+  Minecraft 26.3, the asset generator check); path-filtered jobs a PR does not touch are skipped and count
   as passed.
 - PRs are **squash-merged**, so history stays linear: one commit per PR.
 - No force-pushes to `main`.
@@ -62,7 +62,7 @@ Details: [docs/ci/RELEASING.md](docs/ci/RELEASING.md).
 Run the same checks as CI:
 
 ```bash
-(cd java && ./gradlew build -Pmc=26.2 && ./gradlew build -Pmc=26.3)      # JDK 25; compiles, tests, gametests, builds the jar
+(cd java && ./gradlew build)      # Minecraft 26.3, JDK 25; compiles, tests, gametests, builds the jar
 ```
 
 If you changed art, the asset generator or the Java textures (Node 22):

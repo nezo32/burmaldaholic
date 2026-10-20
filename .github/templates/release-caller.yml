@@ -10,7 +10,7 @@
 #   4. Configure the repo (Settings -> Secrets and variables -> Actions):
 #        secret CURSEFORGE_TOKEN          CurseForge Upload API token        (only if publishing to CurseForge)
 #        var    CURSEFORGE_PROJECT_ID     numeric project id; EMPTY = CurseForge job is skipped
-#        var    CURSEFORGE_GAME_VERSIONS  CF version names, e.g. "26.2,26.3,Fabric,Java 25,Client,Server"
+#        var    CURSEFORGE_GAME_VERSIONS  CF version names, e.g. "26.3,Fabric,Java 25,Client,Server"
 #        var    CURSEFORGE_RELATIONS      optional, e.g. "fabric-api:requiredDependency"
 #   5. Push a tag vX.Y.Z[-pre] on a commit of the default branch. Build contract: -Pmod_version=<version>
 #      for Gradle, env VERSION for Node; the version comes only from the tag.
