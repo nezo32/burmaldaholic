@@ -91,6 +91,12 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.v2.V2Sce
 	@Override
 	public void sendRaw(String action, net.minecraft.nbt.CompoundTag args) {}
 
+	/** A click on an enabled PvP widget acts through a skippable celebration (the kit rule for its own targets). */
+	@Override
+	protected boolean actsThroughCelebration(double x, double y) {
+		return PvpKitScreens.widgetAt(this, x, y);
+	}
+
 	@Override
 	protected void init() {
 		super.init();

@@ -42,8 +42,11 @@ public final class ScratchData extends SavedData {
 		setDirty();
 	}
 
+	/** Forgets a card: its face and every player's pointer to it (the card may have changed hands, T-E2 #2). */
 	public void remove(String id) {
-		if (faces.remove(id) != null) {
+		boolean changed = faces.remove(id) != null;
+		changed |= active.values().removeIf(id::equals);
+		if (changed) {
 			setDirty();
 		}
 	}

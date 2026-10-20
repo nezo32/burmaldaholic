@@ -44,6 +44,12 @@ import org.jspecify.annotations.Nullable;
 public final class ScratchGame {
 	public static final String SCREEN = "scratch";
 	public static final String DATA_KEY = "burmaldaholic_scratch";
+	/**
+	 * T-E2 #2: the stack a started card belongs to carries the card's id (only the id: never the face, review m1), so the
+	 * outcome is bound to the CARD, not the player: whoever holds the stack (or any part split off it) resumes the same
+	 * card; handing it to another player never re-draws. Removed from the rest of the stack when the card is finished.
+	 */
+	public static final String LIVE_KEY = "burmaldaholic_scratch_live";
 
 	private ScratchGame() {}
 
@@ -110,9 +116,63 @@ public final class ScratchGame {
 		}
 		CompoundTag data = card(player, stack);
 		if (data == null) {
-			data = active(player, kind);
+			int slot = liveSlot(player, kind, liveId(stack));
+			data = slot < 0 ? null : liveCard(player, kind, player.getInventory().getItem(slot));
 		}
 		ExtrasGames.send(player, SCREEN, true, state(player, kind, data));
+	}
+
+	/** The started card's id carried by {@code stack} ({@link #LIVE_KEY}), or "". */
+	public static String liveId(ItemStack stack) {
+		CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
+		return custom == null ? "" : custom.copyTag().getStringOr(LIVE_KEY, "");
+	}
+
+	private static void tagLive(ItemStack stack, String id) {
+		CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putString(LIVE_KEY, id));
+	}
+
+	private static void untagLive(ItemStack stack) {
+		if (stack.isEmpty() || liveId(stack).isEmpty()) return;
+		CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.remove(LIVE_KEY));
+		CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
+		if (custom != null && custom.isEmpty()) stack.remove(DataComponents.CUSTOM_DATA);
+	}
+
+	/** The card of a stack carrying a started card whose face is known (the player becomes its scratcher), or null. */
+	private static @Nullable CompoundTag liveCard(ServerPlayer player, Scratch.Kind kind, ItemStack stack) {
+		String id = liveId(stack);
+		if (id.isEmpty()) return null;
+		ScratchData store = ScratchData.get(player.level().getServer());
+		CompoundTag card = store.face(id);
+		if (card == null || !card.contains("cells")) return null;
+		card.putString("id", id);
+		card.putString("kind", kind.id());
+		if (!id.equals(store.active(player.getUUID(), kind.id()))) store.setActive(player.getUUID(), kind.id(), id);
+		return card;
+	}
+
+	/**
+	 * Slot of a stack of {@code kind} in the inventory carrying a started card with a known face: {@code prefer}'s card
+	 * first, then the selected slot, then any. Stale tags (card already finished) are removed on the way. -1 if none.
+	 */
+	private static int liveSlot(ServerPlayer player, Scratch.Kind kind, String prefer) {
+		Inventory inv = player.getInventory();
+		ScratchData store = ScratchData.get(player.level().getServer());
+		int best = -1;
+		for (int i = 0; i < inv.getContainerSize(); i++) {
+			ItemStack s = inv.getItem(i);
+			if (!isFresh(s, kind)) continue;
+			String id = liveId(s);
+			if (id.isEmpty()) continue;
+			if (store.face(id) == null) {
+				untagLive(s);
+				continue;
+			}
+			if (!prefer.isEmpty() && id.equals(prefer)) return i;
+			if (best < 0 || i == inv.getSelectedSlot()) best = i;
+		}
+		return best;
 	}
 
 	/** The player's in-progress card of {@code kind} (B4: held server-side, its stack untouched), or null. */
@@ -250,25 +310,32 @@ public final class ScratchGame {
 		return -1;
 	}
 
+	/** A fresh stack of {@code kind} that carries no started card (a new card starts there): the held one first. */
 	private static int findFreshSlot(ServerPlayer player, Scratch.Kind kind) {
 		Inventory inv = player.getInventory();
-		if (isFresh(inv.getItem(inv.getSelectedSlot()), kind)) {
+		if (startable(inv.getItem(inv.getSelectedSlot()), kind)) {
 			return inv.getSelectedSlot();
 		}
 		for (int i = 0; i < inv.getContainerSize(); i++) {
-			if (isFresh(inv.getItem(i), kind)) {
+			if (startable(inv.getItem(i), kind)) {
 				return i;
 			}
 		}
 		return -1;
 	}
 
+	private static boolean startable(ItemStack s, Scratch.Kind kind) {
+		return isFresh(s, kind) && liveId(s).isEmpty();
+	}
+
 	/**
-	 * First scratch of a fresh card: draw the outcome and keep the whole card server-side as the player's active card
-	 * of {@code kind} (B4: the stack is not touched until the card is finished). Null without a fresh card.
+	 * First scratch of a fresh card: draw the outcome, keep the whole card server-side and tag its stack with the card's
+	 * id (B4: the stack stays in its slot, no card leaves it until the finish; T-E2 #2: the outcome follows the stack).
+	 * Null without a fresh card.
 	 */
 	private static @Nullable CompoundTag start(ServerPlayer player, Scratch.Kind kind) {
-		if (findFreshSlot(player, kind) < 0) {
+		int slot = findFreshSlot(player, kind);
+		if (slot < 0) {
 			return null;
 		}
 		long price = price(kind);
@@ -292,6 +359,7 @@ public final class ScratchGame {
 		ScratchData store = ScratchData.get(player.level().getServer());
 		store.put(id, card);
 		store.setActive(player.getUUID(), kind.id(), id);
+		tagLive(player.getInventory().getItem(slot), id);
 		return card;
 	}
 
@@ -305,21 +373,24 @@ public final class ScratchGame {
 	private static void scratch(ServerPlayer player, Scratch.Kind kind, String id, int cell) {
 		ExtrasGames.playSound(player, dev.nezo.burmaldaholic.core.CoreSounds.SCRATCH, 1.0f);
 		Inventory inv = player.getInventory();
-		// the active card (B4) is resumed whatever the screen sent as its id: an unfinished card is never re-drawn
-		CompoundTag card = active(player, kind);
-		int legacySlot = -1;
-		if (card == null || !id.isEmpty() && !id.equals(card.getStringOr("id", ""))) {
-			if (id.isEmpty()) {
+		// a card started before v0.2.0 (id + mask on a split-off single)
+		int legacySlot = id.isEmpty() ? -1 : findSlot(inv, id);
+		CompoundTag card = legacySlot < 0 ? null : card(player, inv.getItem(legacySlot));
+		int liveSlot = -1;
+		if (card == null) {
+			// a stack carrying a started card is resumed whatever the screen sent as its id (never re-drawn, whoever holds
+			// it; T-E2 #2); a new card starts only on a stack without one
+			liveSlot = liveSlot(player, kind, id);
+			card = liveSlot < 0 ? null : liveCard(player, kind, inv.getItem(liveSlot));
+			if (card == null) {
 				card = start(player, kind);
-			} else {
-				legacySlot = findSlot(inv, id); // a card started before v0.2.0 (id + mask on a split-off single)
-				card = legacySlot < 0 ? null : card(player, inv.getItem(legacySlot));
+				liveSlot = card == null ? -1 : liveSlot(player, kind, card.getStringOr("id", ""));
 			}
 		}
-		if (card == null || legacySlot < 0 && findFreshSlot(player, kind) < 0) {
-			// no such card, or the active card's stack left the inventory: nothing is revealed until it is back
+		if (card == null || legacySlot < 0 && liveSlot < 0) {
+			// no card here (the started card's stack is not in this inventory): nothing is revealed
 			ExtrasGames.sendError(player, ExtrasGames.error("invalid_bet_position"));
-			ExtrasGames.send(player, SCREEN, false, state(player, kind, card));
+			ExtrasGames.send(player, SCREEN, false, state(player, kind, card == null ? active(player, kind) : card));
 			return;
 		}
 		int mask = card.getIntOr("mask", 0);
@@ -338,29 +409,32 @@ public final class ScratchGame {
 			ExtrasGames.send(player, SCREEN, false, state(player, kind, card));
 			return;
 		}
-		finish(player, legacySlot, kind, card);
+		finish(player, legacySlot >= 0 ? legacySlot : liveSlot, legacySlot >= 0, kind, card);
 	}
 
 	/**
-	 * The ninth cell: one card leaves the inventory (the legacy single in {@code legacySlot}, else one fresh card of
-	 * {@code kind}: the held stack first), the card is forgotten, then the prize is paid and a used card is given
+	 * The ninth cell: one card leaves its stack in {@code slot} (the legacy single, or the stack carrying the card, whose
+	 * rest becomes plain fresh cards again), the card is forgotten, then the prize is paid and a used card is given
 	 * ({@code giveOrDrop}, so used cards stack; B4).
 	 */
-	private static void finish(ServerPlayer player, int legacySlot, Scratch.Kind kind, CompoundTag card) {
+	private static void finish(ServerPlayer player, int slot, boolean legacy, Scratch.Kind kind, CompoundTag card) {
 		long price = card.getLongOr("price", price(kind));
 		long prize = card.getLongOr("prize", 0);
 		boolean creeper = card.getBooleanOr("creeper", false);
 		boolean top = card.getBooleanOr("top", false);
 		Inventory inv = player.getInventory();
-		int slot = legacySlot >= 0 ? legacySlot : findFreshSlot(player, kind);
 		if (slot < 0) {
 			return; // checked by scratch(): never pay without taking the card
 		}
-		inv.getItem(slot).shrink(1);
+		ItemStack stack = inv.getItem(slot);
+		stack.shrink(1);
+		if (!legacy) {
+			untagLive(stack);
+		}
 		inv.setChanged();
 		ScratchData store = ScratchData.get(player.level().getServer());
 		store.remove(card.getStringOr("id", ""));
-		if (legacySlot < 0) {
+		if (!legacy) {
 			store.clearActive(player.getUUID(), kind.id());
 		}
 		Inventories.giveOrDrop(player, new ItemStack(ExtrasModule.SCRATCH_CARD_USED));

@@ -357,7 +357,11 @@ public class JavaReviewGameTests {
 			ScratchGame.action(p, "scratch", first);
 			for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
 				ItemStack card = p.getInventory().getItem(i);
-				helper.assertTrue(card.get(DataComponents.CUSTOM_DATA) == null, "nothing on the item: " + card);
+				CompoundTag onItem = card.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+				helper.assertFalse(onItem.contains(ScratchGame.DATA_KEY), "no card state on the item: " + onItem);
+				for (String secret : List.of("cells", "prize", "creeper", "top", "mask")) {
+					helper.assertFalse(onItem.toString().contains(secret), "'" + secret + "' is not on the item: " + onItem);
+				}
 			}
 			String id = ScratchData.get(server).active(p.getUUID(), "basic");
 			helper.assertTrue(id != null && ScratchData.get(server).face(id) != null && ScratchData.get(server).face(id).getIntOr("mask", 0) == 1,

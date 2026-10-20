@@ -18,6 +18,14 @@ public final class PvpKitScreens {
 	/** No kit flow: the PvP screens never set a view on the kit (their state is the PvP sync). */
 	public static final Flow<Object> NO_FLOW = v -> Gate.off("", "", "");
 
+	/** An active, visible widget of {@code screen} under (x, y): a click there acts through a celebration (T-E2 #3). */
+	public static boolean widgetAt(net.minecraft.client.gui.screens.Screen screen, double x, double y) {
+		for (var c : screen.children()) {
+			if (c instanceof net.minecraft.client.gui.components.AbstractWidget w && w.visible && w.active && w.isMouseOver(x, y)) return true;
+		}
+		return false;
+	}
+
 	/** Makes the kit chrome idle for a PvP screen (after {@code super.init()}). */
 	public static void adopt(V2Chrome chrome) {
 		chrome.keys(new KeyMap());

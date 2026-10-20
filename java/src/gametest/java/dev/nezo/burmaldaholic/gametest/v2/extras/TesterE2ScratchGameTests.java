@@ -182,9 +182,9 @@ public class TesterE2ScratchGameTests {
 	}
 
 	/**
-	 * Re-draw check: the stack is handed to another player mid-card. The first player's card stays parked (outcome
-	 * bound to the player, not the item); the second player scratches a NEW card. Money stays consistent: each card
-	 * finished pays exactly its own face; total cards taken = cards finished.
+	 * Re-draw check (T-E2 #2, fixed): the stack is handed to another player mid-card. The outcome follows the stack: the
+	 * second player resumes the SAME card (same id, the first player's mask), its own prize is paid once to whoever
+	 * finishes it, one card leaves the stack and the rest are plain fresh cards again; the first player's pointer is gone.
 	 */
 	@GameTest(maxTicks = 100)
 	public void stackHandedToAnotherPlayerMidCard(GameTestHelper helper) {
@@ -197,11 +197,20 @@ public class TesterE2ScratchGameTests {
 		ScratchGame.use(b, b.getInventory().getItem(0), Scratch.Kind.BASIC);
 		scratch(b, "scratch", "", 0);
 		String idB = store(helper).active(b.getUUID(), "basic");
-		helper.assertTrue(idB != null && !idB.equals(id), "b got a new card (a's draw is parked on a): " + idB);
-		long prizeB = store(helper).face(idB).getLongOr("prize", -1);
-		scratch(b, "all", idB, -1);
-		helper.assertTrue(balance(b) == prizeB && fresh(b) == 2 && used(b) == 1, "b's card paid its own prize");
-		helper.assertTrue(id.equals(store(helper).active(a.getUUID(), "basic")) && balance(a) == 0, "a's card still parked, unpaid");
+		helper.assertTrue(id.equals(idB), "b resumes a's card, no re-draw: " + idB + " vs " + id);
+		helper.assertTrue(store(helper).face(id).getIntOr("mask", 0) == 0xFF, "a's eight cells kept: " + store(helper).face(id));
+		long prize = store(helper).face(id).getLongOr("prize", -1);
+		scratch(b, "all", id, -1);
+		helper.assertTrue(balance(b) == prize && fresh(b) == 2 && used(b) == 1, "the card paid its own prize once: " + balance(b) + " vs " + prize);
+		helper.assertTrue(ScratchGame.liveId(b.getInventory().getItem(0)).isEmpty(), "the rest of the stack is plain fresh cards again");
+		helper.assertTrue(store(helper).active(a.getUUID(), "basic") == null && balance(a) == 0, "a has no parked card, unpaid");
+		// a split-off half carries the same card: it never starts a new one while the card is open
+		String id2 = start(helper, b, 0, 2, 0);
+		ItemStack half = b.getInventory().getItem(0).split(1);
+		a.getInventory().setItem(3, half);
+		a.getInventory().setSelectedSlot(3);
+		scratch(a, "scratch", "", 1);
+		helper.assertTrue(id2.equals(store(helper).active(a.getUUID(), "basic")), "the split half resumes the same card");
 		helper.getLevel().getServer().getPlayerList().remove(a);
 		helper.getLevel().getServer().getPlayerList().remove(b);
 		helper.succeed();

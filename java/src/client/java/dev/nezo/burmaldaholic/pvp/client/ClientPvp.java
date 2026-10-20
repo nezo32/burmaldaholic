@@ -112,9 +112,10 @@ public final class ClientPvp {
 					r.acceptState(s);
 				} else if (modeScreen != null && modeScreenMatch.equals(id) && cur == modeScreen.screen() && !p.open()) {
 					modeScreen.update(s); // the mode screen shows the settle; the result window opens with open = true
-				} else if (mayOpen && !CLOSED_RESULTS.contains(id)) {
-					// a result window the player closed never re-opens by itself (E2: the settled match of an earlier duel
-					// popped up over the Dice screen when the scan re-sent it after its rival left)
+				} else if (mayOpen && (p.open() || !CLOSED_RESULTS.contains(id))) {
+					// a result window the player closed never re-opens by itself from a passive update over another PvP
+					// screen; an open = true always opens: the server sends it once per view (B1, PvpUi.OPENED) or for an
+					// explicit Show (hub "Your match → Show", T-E2 #1)
 					mc.gui.setScreen(new PvpResultScreen(s));
 				}
 			}
