@@ -247,7 +247,7 @@ public class CasinoSiteGameTests {
 		// on ground as high as the plate the stair is buried and the walk crosses its column above the foot
 		check(walk.visited.stream().map(BlockPos::of).anyMatch(b -> b.getX() == foot.getX() && b.getZ() == foot.getZ()
 			&& b.getY() >= foot.getY()), "the walk leaves by the front stair's column");
-		helper.succeed();
+		return "Lounge " + box + " reached from end stone at " + walk.goal;
 	}
 
 	// ---- survey -------------------------------------------------------------------------------------------------
