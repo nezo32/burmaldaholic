@@ -68,3 +68,17 @@ Branch `p2/sy` (from feature/v020-table-ui @581d74cb). It is the kit only: no ga
 ## Notes and risks
 - SpinClock, CrapsScreen, RouletteScreen and the other game files are unchanged. Each owner wires their game per SY-SPEC §3.
 - On a −1 s server jump, the clock stays ahead for up to 2 s (the observation window), then runs at 0.5×, then slews at 10 %. Converging fully takes about 6–8 s. This is by spec: the clock never goes back.
+
+## T-SY round 2 (D1-D4 + m1-m4 fixed)
+- **D1:** `SyncClientGameTests` does only relative checks on the live wall clock (monotonic, moving, readers agree, NetLag). The absolute tracking and the ±1 s jumps run under a tick-locked `SmoothClock.Test.source`, because client GameTests run lock-step.
+- **D2:** `SmoothClock.tick()` advances (or accounts the pause) every client tick.
+- **D3:** a change of `msPerTick` re-anchors the window on the newest observation and takes the new nominal speed.
+- **D4:** the speed is measured by a least-squares slope over the window when the fit is good (RMS ≤ 120 ms, span ≥ 1 s, ±5 % deadband to nominal), and low-pass filtered (τ 500 ms). The "ahead" slowdown is now a continuous ramp from 0.9 to 0.5 between 500 and 1000 ms ahead. A single step longer than 250 ms never passes the target.
+- **m1:** null pre-check before the NetLag lambda.
+- **m2:** per-frame advance cache (1 ms).
+- **m3:** `ResultAnchor.arrivalWallMs` is a double.
+- **m4:** the AnchorSlot epoch is documented.
+
+Verified (26.3):
+- **Unit tests:** sync.* plus RawInputGuardTest, 24/24, including the tester's 9 SmoothClockAdversarialTest tests.
+- **Client lane** `BURMALDAHOLIC_CGT=SY` (SyncClientGameTests + SyncAdversarialClientGameTests): BUILD SUCCESSFUL, "all adversarial client checks passed".
