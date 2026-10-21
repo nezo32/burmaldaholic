@@ -207,6 +207,8 @@ public class BaccaratV2GameTests {
 		var botsCfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.bots();
 		int capBefore = botsCfg.maxActiveTables;
 		botsCfg.maxActiveTables = Math.max(capBefore, dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + 2);
+		int activeBefore = botsCfg.maxActive;
+		botsCfg.maxActive = Math.max(activeBefore, dev.nezo.burmaldaholic.core.bots.Bots.active() + 4); // the world bot budget too
 		helper.setBlock(rel, BaccaratModule.CHEMMY_TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
 		t.bots().setDefaults(new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
@@ -231,7 +233,8 @@ public class BaccaratV2GameTests {
 				act(p, t, "deal", "", 0);
 			}
 			helper.assertTrue("betting".equals(t.phase()) && t.bank().held() && !me.equals(t.bank().banker()) && t.bank().banco() == null,
-				"waiting for a bot bank with punting open (phase " + t.phase() + ")");
+				"waiting for a bot bank with punting open (phase " + t.phase() + ", bots " + dev.nezo.burmaldaholic.core.bots.Bots.active()
+					+ " on " + dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + " tables)");
 			long min = Math.max(1, state.getLongOr("bet_min", 1));
 			long open = ch.getLongOr("open", 0);
 			helper.assertTrue(ch.getBooleanOr("held", false) && !ch.getBooleanOr("you_bank", true) && open >= min,
@@ -240,6 +243,7 @@ public class BaccaratV2GameTests {
 			act(p, t, "punt", "", min);
 			punted[0] = true;
 			botsCfg.maxActiveTables = capBefore;
+			botsCfg.maxActive = activeBefore;
 			long held = t.bank().punts().getOrDefault(me, 0L);
 			long after = balance(helper, p);
 			long seen = t.writeClientState(p).getCompoundOrEmpty("chemmy").getLongOr("my_punt", 0);
