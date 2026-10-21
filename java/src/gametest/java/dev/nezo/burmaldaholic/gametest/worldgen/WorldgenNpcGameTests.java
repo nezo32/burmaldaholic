@@ -156,7 +156,9 @@ public class WorldgenNpcGameTests {
 			helper.assertTrue(bj.preset().map(TablePreset::minTier).orElse(0) == dev.nezo.burmaldaholic.core.service.VipTiers.GOLD
 				&& bj.isHighRoller(), "Lounge blackjack is a High-Roller table (Gold VIP)");
 			helper.assertTrue(rt.isHighRoller() && rt.preset().map(TablePreset::minBet).orElse(0L) == 100, "Lounge roulette: min 100");
-			helper.assertTrue(pokerTable.preset().isEmpty(), "no poker preset in the Lounge");
+			// R-CB M11: the Lounge poker plays fixed Mid stakes (Gold VIP)
+			helper.assertTrue(pokerTable.preset().map(p -> p.id().equals("high_roller_poker") && p.pokerStakes().equals("mid")).orElse(false),
+				"Lounge poker: high_roller_poker, Mid stakes");
 		} finally {
 			forget(helper, lounge);
 		}
@@ -175,5 +177,29 @@ public class WorldgenNpcGameTests {
 			forget(helper, parlor);
 			helper.getLevel().getServer().getPlayerList().remove(player);
 		});
+	}
+
+	/** INT-X: DL's merchant click goes through HouseNpcRoles to EC-1's MerchantRole and opens the Store/Comps counter. */
+	@GameTest
+	public void merchantClickOpensStoreCounter(GameTestHelper helper) {
+		helper.assertTrue(dev.nezo.burmaldaholic.core.store.MerchantRole.installed(), "MerchantRole installed at init");
+		helper.assertTrue(dev.nezo.burmaldaholic.worldgen.npc.HouseNpcRoles.handler(NpcRole.MERCHANT.id()).isPresent(),
+			"merchant role has EC's handler");
+		CasinoNpcEntity merchant = helper.spawn(NpcContent.MERCHANT, new BlockPos(2, 1, 2));
+		withPlayer(helper, 1000, new BlockPos(3, 1, 3), player -> {
+			NpcInteractions.interact(player, merchant);
+			var session = dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.validate(player);
+			helper.assertTrue(session != null && session.source().kind() == dev.nezo.burmaldaholic.core.cashier.counter.CounterSource.Kind.MERCHANT
+				&& session.source().entityId() == merchant.getId(), "merchant counter session: " + session);
+			var tabs = dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.tabsFor(session.source());
+			helper.assertTrue(tabs.contains(dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.TAB_STORE)
+				&& tabs.contains(dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.TAB_COMPS), "store + comps tabs: " + tabs);
+			dev.nezo.burmaldaholic.core.store.StoreService.receive(player,
+				dev.nezo.burmaldaholic.core.store.net.StoreActionPayload.buy("bread", 1, false));
+			helper.assertTrue(player.getInventory().countItem(net.minecraft.world.item.Items.BREAD) == 1
+				&& Economies.get().balance(player) < 1000, "bought through the merchant's store, balance " + Economies.get().balance(player));
+		});
+		merchant.discard();
+		helper.succeed();
 	}
 }

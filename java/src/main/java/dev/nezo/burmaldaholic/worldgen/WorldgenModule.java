@@ -67,6 +67,8 @@ public final class WorldgenModule implements CasinoModule {
 
 		NpcContent.register(ctx);
 		NpcInteractions.register();
+		// INT-X: DL's merchant opens EC-1's Store/Comps counter (EC-SPEC §3) through EC-1's adapter
+		dev.nezo.burmaldaholic.core.store.MerchantRole.install(dev.nezo.burmaldaholic.worldgen.npc.HouseNpcRoles::register);
 		// EC-2 (comps suite night): "is this block inside a generated casino?" for other modules
 		FabricLoader.getInstance().getObjectShare().put("burmaldaholic:worldgen/casino_at",
 			(java.util.function.BiFunction<net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, Boolean>) (level, pos) ->

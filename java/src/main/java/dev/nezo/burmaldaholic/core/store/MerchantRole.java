@@ -44,6 +44,9 @@ public final class MerchantRole {
 
 	/** Looks for DL's role registry; logs (debug) and waits for {@link #install} when it is not there yet. */
 	static void register() {
+		if (installed) {
+			return; // WorldgenModule installed it directly
+		}
 		for (String name : CANDIDATES) {
 			try {
 				Class<?> c = Class.forName(name);
