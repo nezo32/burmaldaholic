@@ -759,6 +759,7 @@ public class CasinoBuildingGameTests {
 		int i = 0;
 		int parts = 0;
 		int dealers = 0;
+		int merchants = 0;
 		try {
 			for (Target t : CasinoQa.all(level.getServer())) {
 				BlockPos at = region(5, i++);
@@ -790,6 +791,7 @@ public class CasinoBuildingGameTests {
 				}
 				for (var d : level.getEntitiesOfClass(dev.nezo.burmaldaholic.worldgen.npc.HouseDealer.class,
 						net.minecraft.world.phys.AABB.of(p.box()).inflate(2))) {
+					d.rebind(level);
 					BlockPos table = d.table();
 					if (table == null || !byMain.containsKey(table)) {
 						continue;
@@ -802,15 +804,27 @@ public class CasinoBuildingGameTests {
 					}
 					player.closeContainer();
 				}
+				// DL merchant -> EC-1 Store/Comps counter (HouseNpcRoles "merchant" -> MerchantRole)
+				for (CasinoNpcEntity m : level.getEntitiesOfClass(CasinoNpcEntity.class, net.minecraft.world.phys.AABB.of(p.box()).inflate(2),
+						e -> e.role() == NpcRole.MERCHANT)) {
+					merchants++;
+					player.snapTo(m.getX() + 1, m.getY(), m.getZ());
+					dev.nezo.burmaldaholic.worldgen.npc.NpcInteractions.interact(player, m);
+					var session = dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.validate(player);
+					if (session == null || session.source().kind() != dev.nezo.burmaldaholic.core.cashier.counter.CounterSource.Kind.MERCHANT) {
+						bad.add("merchant at " + m.blockPosition().toShortString() + " did not open the store counter: " + session);
+					}
+					dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.close(player);
+				}
 			}
 		} finally {
 			players.forEach(pl -> level.getServer().getPlayerList().remove(pl));
 			built.forEach(e -> CasinoQa.reset(level, e.getValue(), e.getKey().structure().isPresent() ? 56 : 36, 40));
 		}
 		String report = CasinoQa.report(problems);
-		helper.assertTrue(report.isEmpty(), "part / dealer clicks:" + report);
+		helper.assertTrue(report.isEmpty(), "part / dealer / merchant clicks:" + report);
 		helper.assertTrue(parts > 0 && dealers > 0, "covered " + parts + " part cells and " + dealers + " house dealers");
-		CasinoQa.log("everyPartAndHouseDealerOpensItsTable: {} casinos, {} part cells, {} house dealers", i, parts, dealers);
+		CasinoQa.log("everyPartAndHouseDealerOpensItsTable: {} casinos, {} part cells, {} house dealers, {} merchants", i, parts, dealers, merchants);
 		helper.succeed();
 	}
 }

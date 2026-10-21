@@ -892,9 +892,12 @@ public final class CasinoQa {
 				a.putLong("amount", amount);
 				out.add(Map.entry("drop", a));
 			}
-			case CASHIER -> {
-				a.putInt("count", 1);
-				out.add(Map.entry("buy", a));
+			case CASHIER -> { // EC-1 counter: one emerald in for chips (the v0.1 "buy" action is gone)
+				a.putString("row", "emerald");
+				a.putString("dir", "in");
+				a.putLong("qty", 1);
+				a.putBoolean("all", false);
+				out.add(Map.entry("exchange", a));
 			}
 		}
 		return out;

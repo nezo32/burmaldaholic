@@ -8,13 +8,13 @@ import org.junit.jupiter.api.Test;
 
 class CrapsDealerCuesTest {
 	private static CrapsSync roll(long time, RollEvent.Kind kind) {
-		return new CrapsSync(3, time, 3, 4, 9, 6, 0, 0, kind.ordinal(), 0);
+		return new CrapsSync(3, time, 3, 4, 9, 6, 0, 0, kind.ordinal(), 0, 0, 0, CrapsSync.ANIM_V, 0);
 	}
 
 	@Test
 	void stickmanFollowsTheThrow() {
 		assertNull(CrapsDealerCues.cue(null, 10, 0));
-		assertNull(CrapsDealerCues.cue(new CrapsSync(0, 0, 0, 0, 0, 0, 0, 0, -1, 0), 10, 0), "no roll yet");
+		assertNull(CrapsDealerCues.cue(new CrapsSync(0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, CrapsSync.ANIM_V, 0), 10, 0), "no roll yet");
 		CrapsSync seven = roll(1000, RollEvent.Kind.SEVEN_OUT);
 		assertNull(CrapsDealerCues.cue(seven, 1020, 0), "dice still flying");
 		assertEquals(DealerGesture.STICK_PULL, CrapsDealerCues.cue(seven, 1000 + CrapsDealerCues.PULL + 1, 0).gesture());
