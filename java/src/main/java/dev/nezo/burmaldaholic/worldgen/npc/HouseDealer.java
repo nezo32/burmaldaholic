@@ -21,6 +21,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.DamageTypeTags;
@@ -139,18 +140,27 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 		return home;
 	}
 
-	/** Pins the dealer to {@code stand}, facing {@code yaw} (worldgen spawn / respawn). */
+	/** Pins the dealer to {@code stand}, facing {@code yaw} (respawn / table follow; server thread). */
 	public void setHome(BlockPos stand, float yaw) {
+		setHome(level(), stand, yaw);
+	}
+
+	/**
+	 * Pins the dealer to {@code stand}, reading the floor from {@code world}. Worldgen passes its WorldGenRegion here:
+	 * structure pieces are placed on worker threads, and reading the live ServerLevel from there deadlocks against a
+	 * main-thread {@code getChunk} (INTEGRATION-CB P1).
+	 */
+	public void setHome(BlockGetter world, BlockPos stand, float yaw) {
 		home = stand.immutable();
 		homeYaw = yaw;
-		snapTo(stand.getX() + 0.5, feetY(stand), stand.getZ() + 0.5, yaw, 0f);
+		snapTo(stand.getX() + 0.5, feetY(world, stand), stand.getZ() + 0.5, yaw, 0f);
 		setYHeadRot(yaw);
 		setYBodyRot(yaw);
 	}
 
 	/** Feet height in {@code stand}: on top of a carpet (v0.1.3 dealer cells), else the block's floor. */
-	private double feetY(BlockPos stand) {
-		return stand.getY() + Math.max(0, HouseDealers.floorHeight(level(), stand));
+	private static double feetY(BlockGetter world, BlockPos stand) {
+		return stand.getY() + Math.max(0, HouseDealers.floorHeight(world, stand));
 	}
 
 	@Override
@@ -199,7 +209,7 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 			}
 			if (tickCount % HOME_CHECK_TICKS == 0) {
 				followTable(sl);
-				Vec3 feet = new Vec3(home.getX() + 0.5, feetY(home), home.getZ() + 0.5);
+				Vec3 feet = new Vec3(home.getX() + 0.5, feetY(sl, home), home.getZ() + 0.5);
 				if (position().distanceToSqr(feet) > 0.3 * 0.3) {
 					snapTo(feet.x, feet.y, feet.z, facingYaw(), getXRot());
 				}

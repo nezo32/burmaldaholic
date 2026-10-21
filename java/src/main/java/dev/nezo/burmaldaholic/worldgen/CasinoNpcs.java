@@ -74,7 +74,7 @@ public final class CasinoNpcs {
 			look.setLook(NpcLook.pick(look.lookPool(), casinoId, stand.getX(), stand.getY(), stand.getZ()));
 		}
 		if (entity instanceof HouseDealer dealer) {
-			dealer.setHome(stand, yaw);
+			dealer.setHome(level, stand, yaw); // the region on worldgen threads, never the live level
 		}
 		level.addFreshEntityWithPassengers(entity);
 		return entity;

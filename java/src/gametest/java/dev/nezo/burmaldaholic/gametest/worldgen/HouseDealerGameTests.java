@@ -258,6 +258,35 @@ public class HouseDealerGameTests {
 		helper.succeed();
 	}
 
+	// ---- thread safety (INTEGRATION-CB P1) ------------------------------------------------------------------------
+
+	/**
+	 * A live-level floor read off the server thread (what worldgen did via {@code setHome → floorHeight(level())}) must
+	 * fail fast instead of blocking on a main-thread chunk future; on the server thread it works.
+	 */
+	@GameTest
+	public void floorHeightRefusesLiveLevelOffThread(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos cell = helper.absolutePos(new BlockPos(1, 1, 1));
+		helper.assertTrue(HouseDealers.floorHeight(level, cell) >= 0, "server thread read works");
+		java.util.concurrent.CompletableFuture<Throwable> off = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+			try {
+				HouseDealers.floorHeight(level, cell);
+				return null;
+			} catch (Throwable t) {
+				return t;
+			}
+		});
+		Throwable t;
+		try {
+			t = off.get(5, java.util.concurrent.TimeUnit.SECONDS);
+		} catch (Exception e) {
+			throw helper.assertionException("off-thread live read blocked instead of failing fast: %s", e);
+		}
+		helper.assertTrue(t instanceof IllegalStateException, "off-thread live read throws IllegalStateException, got " + t);
+		helper.succeed();
+	}
+
 	// ---- respawn, idempotence, legacy --------------------------------------------------------------------------
 
 	@GameTest(maxTicks = 340)

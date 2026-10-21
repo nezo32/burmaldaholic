@@ -211,6 +211,7 @@ public final class HouseDealers {
 	 * block (carpet), or −1 when the cell is blocked.
 	 */
 	public static double floorHeight(BlockGetter level, BlockPos cell) {
+		requireOwnerThread(level);
 		BlockState s = level.getBlockState(cell);
 		if (s.isAir()) {
 			return 0;
@@ -221,6 +222,17 @@ public final class HouseDealers {
 		}
 		double top = shape.max(Direction.Axis.Y);
 		return top <= LOW_BLOCK ? top : -1;
+	}
+
+	/**
+	 * Guard: a live {@link ServerLevel} may only be read on its server thread. Off-thread reads (worldgen workers)
+	 * block on a main-thread chunk future and can deadlock; worldgen must pass its WorldGenRegion instead.
+	 */
+	static void requireOwnerThread(BlockGetter level) {
+		if (level instanceof ServerLevel sl && !sl.getServer().isSameThread()) {
+			throw new IllegalStateException("live ServerLevel read off the server thread (" + Thread.currentThread().getName()
+				+ "); worldgen must use its WorldGenRegion");
+		}
 	}
 
 	private static @Nullable ServerLevel level(MinecraftServer server, String dimension) {
