@@ -210,7 +210,7 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 		}
 		List<String> seen = widgets(context).stream().map(w -> w.key() + (w.active() ? "" : "(off)")).toList();
 		// fallback: the very packet the screen sends for this game (real client→server networking)
-		for (long amount : new long[] {10, 25, 100, 500, 2500}) {
+		for (long amount : CasinoQa.LADDER) {
 			for (Map.Entry<String, CompoundTag> e : CasinoQa.betActions(s.game().family(), amount)) {
 				context.runOnClient(mc -> ClientPlayNetworking.send(new TableActionPayload(s.pos(), e.getKey(), e.getValue())));
 			}

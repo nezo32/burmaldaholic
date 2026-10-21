@@ -84,7 +84,7 @@ public final class CasinoQa {
 	/** Air kept above every table for the in-world board (mirrors {@code Kits.BOARD_CLEARANCE}). */
 	public static final int BOARD_CLEARANCE = 3;
 	private static final Transaction QA = Transaction.of("casino_qa", "gametest");
-	private static final long[] LADDER = {10, 25, 50, 100, 250, 500, 1000, 2500, 5000};
+	static final long[] LADDER = {10, 25, 50, 100, 250, 500, 1000, 2500, 5000};
 
 	private CasinoQa() {}
 

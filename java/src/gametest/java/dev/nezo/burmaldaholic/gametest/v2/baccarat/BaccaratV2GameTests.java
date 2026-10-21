@@ -202,6 +202,11 @@ public class BaccaratV2GameTests {
 	@GameTest(maxTicks = 2400)
 	public void playerPuntsAgainstABotBanker(GameTestHelper helper) {
 		BlockPos rel = new BlockPos(1, 1, 1);
+		// INT-X: house tables of casinos placed by earlier worldgen GameTests (same server) may hold the server-wide bot table
+		// budget; this test needs one slot of its own, so it lifts the cap past what is already live and restores it after.
+		var botsCfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.bots();
+		int capBefore = botsCfg.maxActiveTables;
+		botsCfg.maxActiveTables = Math.max(capBefore, dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + 2);
 		helper.setBlock(rel, BaccaratModule.CHEMMY_TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
 		t.bots().setDefaults(new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
@@ -234,6 +239,7 @@ public class BaccaratV2GameTests {
 			long before = balance(helper, p);
 			act(p, t, "punt", "", min);
 			punted[0] = true;
+			botsCfg.maxActiveTables = capBefore;
 			long held = t.bank().punts().getOrDefault(me, 0L);
 			long after = balance(helper, p);
 			long seen = t.writeClientState(p).getCompoundOrEmpty("chemmy").getLongOr("my_punt", 0);
