@@ -744,4 +744,73 @@ public class CasinoBuildingGameTests {
 		helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.AIR, new net.minecraft.core.BlockPos(4, 2, 0));
 		helper.succeed();
 	}
+
+	/**
+	 * INT-X cross-branch contract: in every casino, every cell of every multi-block table (not just the main block) and
+	 * the table's bound house dealer open THAT table's menu (the main block), whose menu type has a v2 screen on the
+	 * client (checked by CasinoPlayClientGameTests). Goes through the use-item packet handler and Player.interactOn.
+	 */
+	@GameTest(maxTicks = 400, environment = CasinoQa.ENV)
+	public void everyPartAndHouseDealerOpensItsTable(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Map<String, List<String>> problems = CasinoQa.problems();
+		List<ServerPlayer> players = new ArrayList<>();
+		List<Map.Entry<Target, BlockPos>> built = new ArrayList<>();
+		int i = 0;
+		int parts = 0;
+		int dealers = 0;
+		try {
+			for (Target t : CasinoQa.all(level.getServer())) {
+				BlockPos at = region(5, i++);
+				built.add(Map.entry(t, at));
+				Placed p = CasinoQa.place(level, t, at, 1);
+				List<String> bad = problems.computeIfAbsent(t.toString(), k -> new ArrayList<>());
+				ServerPlayer player = CasinoQa.player(helper, 1_000_000);
+				players.add(player);
+				Map<BlockPos, Spot> byMain = new java.util.HashMap<>();
+				for (Spot s : p.spots()) {
+					byMain.put(s.pos(), s);
+					for (BlockPos cell : dev.nezo.burmaldaholic.core.table.parts.TableParts.cellPositions(s.pos(), level.getBlockState(s.pos()))) {
+						if (cell.equals(s.pos())) {
+							continue;
+						}
+						player.closeContainer();
+						CasinoQa.standAt(player, s);
+						CasinoQa.use(player, cell, s.facing());
+						parts++;
+						if (!(player.containerMenu instanceof dev.nezo.burmaldaholic.core.table.CasinoTableMenu m && m.pos().equals(s.pos()))) {
+							bad.add(s + ": part " + cell.toShortString() + " did not open the table (open: " + player.containerMenu.getClass().getSimpleName() + ")");
+						}
+					}
+				}
+				player.closeContainer();
+				if (p.record().isPresent()) {
+					dev.nezo.burmaldaholic.worldgen.npc.HouseDealers.ensure(level, p.record().get());
+					dev.nezo.burmaldaholic.worldgen.npc.HouseDealers.ensure(level, p.record().get());
+				}
+				for (var d : level.getEntitiesOfClass(dev.nezo.burmaldaholic.worldgen.npc.HouseDealer.class,
+						net.minecraft.world.phys.AABB.of(p.box()).inflate(2))) {
+					BlockPos table = d.table();
+					if (table == null || !byMain.containsKey(table)) {
+						continue;
+					}
+					dealers++;
+					CasinoQa.standAt(player, byMain.get(table));
+					player.interactOn(d, net.minecraft.world.InteractionHand.MAIN_HAND, d.position().add(0, 1, 0));
+					if (!(player.containerMenu instanceof dev.nezo.burmaldaholic.core.table.CasinoTableMenu m && m.pos().equals(table))) {
+						bad.add("house dealer of " + byMain.get(table) + " did not open its table (open: " + player.containerMenu.getClass().getSimpleName() + ")");
+					}
+					player.closeContainer();
+				}
+			}
+		} finally {
+			players.forEach(pl -> level.getServer().getPlayerList().remove(pl));
+			built.forEach(e -> CasinoQa.reset(level, e.getValue(), e.getKey().structure().isPresent() ? 56 : 36, 40));
+		}
+		String report = CasinoQa.report(problems);
+		helper.assertTrue(report.isEmpty(), "part / dealer clicks:" + report);
+		helper.assertTrue(parts > 0 && dealers > 0, "covered " + parts + " part cells and " + dealers + " house dealers");
+		CasinoQa.log("everyPartAndHouseDealerOpensItsTable: {} casinos, {} part cells, {} house dealers", i, parts, dealers);
+		helper.succeed();
+	}
 }

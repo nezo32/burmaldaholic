@@ -52,6 +52,11 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 		int[] window = context.computeOnClient(mc -> new int[] {mc.getWindow().getWidth(), mc.getWindow().getHeight()});
 		int scaleBefore = context.computeOnClient(mc -> mc.options.guiScale().get());
 		context.runOnClient(mc -> mc.gui.setScreen(null));
+		// INT-X contract: every mod menu type (every table, cashier and machine a casino places) has a client screen
+		List<String> noScreen = context.computeOnClient(mc -> menusWithoutScreen());
+		if (!noScreen.isEmpty()) {
+			failures.add("menu types without a registered screen: " + noScreen);
+		}
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create(); var q = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
 			context.runOnClient(mc -> mc.gui.setScreen(null));
@@ -217,6 +222,24 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 			}
 		}
 		failures.add("gui " + scale + ": " + s + ": no bet registered on the server (clicked " + clicked + ", widgets " + seen + ")");
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<String> menusWithoutScreen() {
+		try {
+			java.lang.reflect.Field f = net.minecraft.client.gui.screens.MenuScreens.class.getDeclaredField("SCREENS");
+			f.setAccessible(true);
+			Map<net.minecraft.world.inventory.MenuType<?>, ?> screens = (Map<net.minecraft.world.inventory.MenuType<?>, ?>) f.get(null);
+			List<String> out = new ArrayList<>();
+			for (var e : net.minecraft.core.registries.BuiltInRegistries.MENU.entrySet()) {
+				if (e.getKey().identifier().getNamespace().equals("burmaldaholic") && !screens.containsKey(e.getValue())) {
+					out.add(e.getKey().identifier().toString());
+				}
+			}
+			return out;
+		} catch (ReflectiveOperationException e) {
+			return List.of("cannot read MenuScreens.SCREENS: " + e);
+		}
 	}
 
 	private void write() {
