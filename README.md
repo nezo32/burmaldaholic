@@ -46,10 +46,11 @@ numbers below are defaults, and most can be changed ([Configuration](#configurat
 - **Balance.** Every player has a chip account. It survives death, is shown on the HUD, and is
   where every bet comes from and every win goes to. New players start with 50 chips and a
   **Casino Card**, which opens the Casino Menu. On Java the menu is also bound to the `B` key.
-- **Chip items.** Physical chips worth 1, 5, 25, 100 and 500. You can trade, store, drop or steal
-  them. The **Cashier** block converts between chips and your balance and exchanges emeralds:
-  1 emerald buys 8 chips (9 at Gold VIP) and 10 chips sell for 1 emerald. The Nether cashier also
-  takes gold ingots.
+- **Chip items.** Physical chips worth 1, 5, 25, 100 and 500, plus high-roller chips worth 1 000,
+  5 000 and 25 000. You can trade, store, drop or steal them. The **Cashier** counter converts
+  between chips and your balance and exchanges items: 1 emerald buys 9 chips and 10 chips sell for
+  1 emerald, with rows for emerald blocks, diamonds and iron blocks. The Nether cashier also takes
+  gold ingots and netherite scrap (Diamond VIP). Exchange ×1, ×64 (Shift-click), All or Max.
 - **Ways to earn:**
   - ores, from 1 chip for coal up to 20 for diamond and 50 for ancient debris
   - hostile mobs, from 2 up to 1 000 for the first Ender Dragon, with diminishing returns so mob
@@ -58,6 +59,16 @@ numbers below are defaults, and most can be changed ([Configuration](#configurat
   - **daily contracts**: 3–5 tasks a day, such as "Mine 24 iron ore" or "Win 3 blackjack hands"
 - **Pawn stakes.** On coin flip, dice duel, the wheel and even-money roulette bets you can stake
   items, XP levels or even **temporary max hearts** instead of chips.
+- **Chip store.** 38 offers of food, potions, enchanted books (including Mending), tools, decor and
+  rare finds (a Totem of Undying, and elytra and shulker shells at End counters), with daily limits.
+  It is open at every cashier and at the **casino merchant** beside it.
+- **Comps, daily bonus and free bets.** Every house game earns comp points at every VIP tier: spend
+  them on food plates, a suite night (a casino bed sets your spawn and gives buffs), free-bet tokens,
+  fireworks, or a rented horse or strider. The cashier pays a daily bonus of 25 to 2 000 chips by
+  VIP tier, and a toast shows when cashback is paid.
+- **Bet entry.** Press **E** or click your bet to type an amount (`k` = thousand), halve it, double
+  it or set it to Max. A refused bet says whose limit it hit: your VIP tier, the table, the casino
+  owner or your balance.
 
 ### Games
 
@@ -65,7 +76,7 @@ numbers below are defaults, and most can be changed ([Configuration](#configurat
 |---|---|
 | **Blackjack** | 6 decks, dealer stands on soft 17, blackjack pays 3:2, double after split, re-split up to 4 hands, insurance and even money. Up to 5 seats. |
 | **Texas Hold'em** | No-Limit, 6-max cash game with side pots. Four stake levels (1/2 up to 100/200). Empty seats can be filled by **bots** at three skill tiers (Fish, Regular, Shark). The house takes a 5 % rake from pots with 2 or more human players, capped at 3 BB, and only if the hand saw a flop. |
-| **Slots** | Three themed 5×3 video slots with **243 ways** to win: **Overworld Riches** (low volatility, free spins, **Treasure Hunt** bonus), **Nether Inferno** (tumbling reels with a multiplier ladder, **Piglin's Hoard** hold-and-spin bonus) and **End Void** (Gold VIP; sticky expanding wilds, **Dragon Wheel** bonus). Each machine has four progressive jackpots (**Mini, Minor, Major, Grand**), won through its bonus game. Big outcomes start chaos events, and five scatters start Golden Hour. |
+| **Slots** | Three themed 5×3 video slots with **243 ways** to win: **Overworld Riches** (low volatility, free spins, **Treasure Hunt** bonus), **Nether Inferno** (tumbling reels with a multiplier ladder, **Piglin's Hoard** hold-and-spin bonus) and **End Void** (Gold VIP; sticky expanding wilds, **Dragon Wheel** bonus). Each machine has four progressive jackpots (**Mini, Minor, Major, Grand**): the **jackpot gem** can award a Mini or Minor on any paid base spin (a Mini comes about once in 2 000 spins), and Major and Grand are won in the bonus game. The paytable shows where each one comes from and its odds. Big outcomes start chaos events, and five scatters start Golden Hour. |
 | **Baccarat** | Punto Banco from an 8-deck shoe: Player 1:1, Banker 0.95:1, Tie 8:1, Player / Banker Pair 11:1. Up to 7 seats. A player-banked **Chemin de fer** table is also available. |
 | **Ultimate Texas Hold'em** | Each seat plays the dealer: Ante + Blind, then one Play bet (×4 preflop, ×2 on the flop, ×1 at the river) or a fold, plus an optional Trips bet. Up to 6 seats. |
 | **European roulette** | Single zero. All standard inside and outside bets, from straight up (35:1) to even money. |
@@ -83,7 +94,7 @@ numbers below are defaults, and most can be changed ([Configuration](#configurat
 | Blackjack (basic strategy) | 99.59 % | 0.41 % |
 | Blackjack insurance | 92.60 % | 7.40 % |
 | Poker vs players | — | rake ≤ 5 % of raked pots |
-| Slots: Overworld Riches / Nether Inferno / End Void | 95.07 / 95.39 / 96.53 % | 4.93 / 4.61 / 3.47 % |
+| Slots: Overworld Riches / Nether Inferno / End Void | 98.37 / 98.42 / 98.41 % (≈ 98.4 %) | 1.63 / 1.58 / 1.59 % |
 | Baccarat Banker / Player / Tie | 98.94 / 98.76 / 85.64 % | 1.06 / 1.24 / 14.36 % |
 | Ultimate Texas Hold'em (optimal play) / Trips | 97.82 % of the Ante / 98.10 % | 2.19 % of the Ante / 1.90 % |
 | Roulette (any bet) | 97.30 % | 2.70 % |
@@ -169,15 +180,28 @@ scar (−2 max HP) is a permanent `max_health` attribute modifier.
 
 Casino buildings are generated only in newly generated chunks.
 
-| Structure | Where | Contents |
+| Casino | Where | Highlights |
 |---|---|---|
-| **Lucky Villager** (village casino) | ≈ 1 in 2 villages. Five village styles. | Cashier, blackjack, roulette, 3 Overworld Riches slots, a Nether Inferno slot, Wheel of Fortune, Loan Shark, Croupier, loot chest |
-| **Piglin Parlor** | 60 % of bastions | Craps, poker (with bots), 2 Nether Inferno slots, Plinko, Nether cashier, Piglin Dealers, Piglin Moneylender, loot |
-| **High Roller Lounge** | 50 % of End Cities, on a tower's top floor | 2 End Void slots, high-roller blackjack and roulette, cashier, Shulker Croupier, loot |
+| **Grand Casino** | Overworld, a standalone building in six biome styles: Riviera, Oasis, Safari, Alpine, Ice Palace and Cherry | Art-deco palace with a neon CASINO marquee, a dome, galleries, a bar and a VIP floor. 32 games: 11 tables and 21 machines. |
+| **Village casino** | ≈ 1 in 2 villages, in all five village styles | A picture-palace annex with vertical CASINO banners, a marquee canopy, multi-block tables (baccarat too), the Loan Shark and a loot chest. |
+| **Piglin Parlor** | Beside 60 % of bastions | Craps, poker with bots, baccarat, slots and Plinko, the Piglin Moneylender. Dug into the terrain with a lit tunnel to open air and a back door into the bastion; nearby lava is sealed off. |
+| **High Roller Lounge** | Beside 50 % of End Cities | High-limit tables and End Void slots, on the island surface at least 24 blocks from the city. |
 
-Village casinos are built **inside** villages, as one of the village's houses; the Piglin Parlor and the High Roller
-Lounge are part of the bastion or End City. To turn them off, disable the built-in `burmaldaholic:casinos` data pack
-when creating the world, or set `worldgen.enabled`.
+To turn them off, disable the built-in `burmaldaholic:casinos` data pack when creating the world, or set
+`worldgen.enabled`.
+
+- **`/casino locate`** shows the nearest casino in your dimension (coordinates, distance and direction), also ones
+  nobody has visited yet.
+- **Multi-block tables.** Every table is a full 3×2 table with legs, padded rails and printed felt; slot machines are
+  tall cabinets, the Wheel of Fortune and Plinko are upright 3×3 machines, and the cashier is a counter. Use any part
+  to open it; breaking any part removes the whole table. Single-block tables in old worlds grow to full size when there
+  is room.
+- **House dealers** stand behind every house table and deal, collect, spin, push the craps stick and push the pot:
+  humans (six looks) in the Overworld, piglins and a brute pit boss in the Nether, endermen in tuxedos in the End.
+  Casinos from older versions get their dealers too.
+- **In-world games:** anyone nearby sees the live game on the table: cards on the felt, chips, the roulette ball,
+  dice, Plinko balls and spinning reels.
+- House tables can't be broken by other players or destroyed by explosions.
 
 Every table and machine can also be **crafted**, so you can build your own casino anywhere.
 
@@ -240,9 +264,19 @@ show while it decides.
 ### Animated screens
 
 Every game has a redesigned, animated screen: cards are dealt and flipped, chips stack and slide,
-reels spin and tumble, and wins are celebrated. The screens take on the look of the place where the
-table stands: the village casino, the Piglin Parlor or the End. The HUD chip counter, the Casino Menu
-ledger, the cashier and the Loan Shark screens use the same style.
+reels spin and tumble, and wins are celebrated. The screens take on the look of the casino where the
+table stands. The HUD chip counter, the Casino Menu ledger, the cashier and the Loan Shark screens
+use the same style.
+
+- **Every screen fits every resolution.** All games share one framework (a top bar, the play area and a
+  dock with your bet and actions). Each layout is checked from 320×240 up to 960×540 GUI pixels, which
+  covers 4K with GUI scale Auto, and big windows get a roomier layout instead of a zoomed-in copy. Every
+  disabled button says why.
+- **Smooth on a bad connection.** Slot reels, the roulette ball, craps dice and dealt cards keep moving
+  while the result travels, then settle on it without snapping or jumping back.
+- Realistic motion: the roulette ball rolls and bounces into its pocket, craps dice tumble off the back
+  wall, dice duels use 3D dice, and Plinko balls bounce off the pegs. Blackjack shows a shoe bar (dealt,
+  remaining, cut card), so you can count cards yourself.
 
 ### Achievements
 
@@ -416,6 +450,7 @@ textures change.
 ## Releases
 
 Pushing a SemVer tag builds and publishes the mod. The runbook is [`docs/ci/RELEASING.md`](docs/ci/RELEASING.md).
+What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ```bash
 git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
