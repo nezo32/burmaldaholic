@@ -37,6 +37,8 @@
 	"msg.burmaldaholic.vip.netherite_broadcast": "%1$s has reached Netherite VIP. Someone roll out the red carpet.",
 	"msg.burmaldaholic.vip.cashback": "VIP cashback for yesterday: +%1$s",
 	"msg.burmaldaholic.vip.chat_title": "[%1$s]",
+	"msg.burmaldaholic.vip.admin_set": "%1$s: VIP tier set to %2$s (lifetime wagered %3$s)",
+	"msg.burmaldaholic.vip.admin_unknown_tier": "Unknown VIP tier \"%1$s\". Use: %2$s",
 	"item.burmaldaholic.vip_diamond_casino_card": "Diamond Casino Card",
 	"key.category.burmaldaholic.vip": "Burmaldaholic",
 	"hud.burmaldaholic.vip.next": "Next: %1$s %2$s%%",

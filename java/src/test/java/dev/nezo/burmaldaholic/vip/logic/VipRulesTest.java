@@ -18,12 +18,12 @@ class VipRulesTest {
 	@Test
 	void tierBoundaries() {
 		assertEquals(0, VipRules.tierFor(0, TH));
-		assertEquals(0, VipRules.tierFor(4_999, TH));
-		assertEquals(1, VipRules.tierFor(5_000, TH));
-		assertEquals(2, VipRules.tierFor(25_000, TH));
-		assertEquals(3, VipRules.tierFor(100_000, TH));
-		assertEquals(4, VipRules.tierFor(499_999 + 1, TH));
-		assertEquals(5, VipRules.tierFor(2_500_000, TH));
+		assertEquals(0, VipRules.tierFor(24_999, TH));
+		assertEquals(1, VipRules.tierFor(25_000, TH));
+		assertEquals(2, VipRules.tierFor(250_000, TH));
+		assertEquals(3, VipRules.tierFor(1_500_000, TH));
+		assertEquals(4, VipRules.tierFor(9_999_999 + 1, TH));
+		assertEquals(5, VipRules.tierFor(50_000_000, TH));
 		assertEquals(5, VipRules.tierFor(Long.MAX_VALUE, TH));
 	}
 
@@ -36,12 +36,12 @@ class VipRulesTest {
 
 	@Test
 	void progressToNextTier() {
-		VipRules.Progress p = VipRules.progress(12_400, TH, 0);
+		VipRules.Progress p = VipRules.progress(60_000, TH, 0);
 		assertEquals(1, p.tier());
 		assertEquals(2, p.next());
-		assertEquals(25_000, p.target());
-		assertEquals((12_400 - 5_000) / 20_000.0, p.fraction(), 1e-9);
-		assertTrue(VipRules.progress(3_000_000, TH, 0).maxed());
+		assertEquals(250_000, p.target());
+		assertEquals((60_000 - 25_000) / 225_000.0, p.fraction(), 1e-9);
+		assertTrue(VipRules.progress(60_000_000, TH, 0).maxed());
 		// tiers are never lost: stored Gold stays Gold even if thresholds were raised
 		VipRules.Progress kept = VipRules.progress(10, TH, 2);
 		assertEquals(2, kept.tier());

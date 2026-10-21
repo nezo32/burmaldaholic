@@ -37,6 +37,8 @@
 	"msg.burmaldaholic.vip.netherite_broadcast": "Незеритовый ВИП-статус у игрока %1$s. Несите красную дорожку.",
 	"msg.burmaldaholic.vip.cashback": "ВИП-кешбэк за вчера: +%1$s",
 	"msg.burmaldaholic.vip.chat_title": "[%1$s]",
+	"msg.burmaldaholic.vip.admin_set": "%1$s: ВИП-статус теперь %2$s (поставлено за всё время: %3$s)",
+	"msg.burmaldaholic.vip.admin_unknown_tier": "Неизвестный ВИП-статус «%1$s». Доступно: %2$s",
 	"item.burmaldaholic.vip_diamond_casino_card": "Алмазная клубная карта",
 	"key.category.burmaldaholic.vip": "Burmaldaholic",
 	"hud.burmaldaholic.vip.next": "Далее: %1$s — %2$s %%",

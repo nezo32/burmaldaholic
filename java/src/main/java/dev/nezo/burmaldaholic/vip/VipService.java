@@ -85,12 +85,24 @@ public final class VipService {
 	}
 
 	/** Admin: sets lifetime wagered (tiers already reached are kept). */
+	/**
+	 * Admin: sets lifetime wagered and RESETS the kept-tier floor to the tier that amount earns under the current
+	 * thresholds (so a player can be moved down and replay the path). Already granted advancements stay.
+	 */
 	public static void setWagered(ServerPlayer player, long wagered) {
 		MinecraftServer server = player.level().getServer();
-		VipData.get(server).player(player.getUUID()).wagered = Math.max(0, wagered);
+		VipData.Record rec = VipData.get(server).player(player.getUUID());
+		rec.wagered = Math.max(0, wagered);
+		rec.tier = VipRules.tierFor(rec.wagered, thresholds());
 		VipData.get(server).setDirty();
 		checkPromotion(player);
+		PlayerSync.markDirty(player);
 		markSync(player);
+	}
+
+	/** Admin: sets the player to exactly {@code tier} (lifetime wagered = that tier's current threshold, floor cleared). */
+	public static void setTier(ServerPlayer player, int tier) {
+		setWagered(player, VipRules.thresholdOf(VipRules.clamp(tier), thresholds()));
 	}
 
 	// ---- settled wagers ----------------------------------------------------------------------

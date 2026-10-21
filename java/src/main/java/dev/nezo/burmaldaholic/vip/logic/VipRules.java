@@ -11,7 +11,9 @@ public final class VipRules {
 	public static final int BRONZE = 0, SILVER = 1, GOLD = 2, PLATINUM = 3, DIAMOND = 4, NETHERITE = 5;
 	public static final int MAX_TIER = NETHERITE;
 	/** Default Silver..Netherite thresholds. */
-	public static final long[] DEFAULT_THRESHOLDS = {5_000, 25_000, 100_000, 500_000, 2_500_000};
+	public static final long[] DEFAULT_THRESHOLDS = {25_000, 250_000, 1_500_000, 10_000_000, 50_000_000};
+	/** v0.1.x defaults (retired in v0.2.0); used once to grandfather players saved before the retune. */
+	public static final long[] LEGACY_THRESHOLDS = {5_000, 25_000, 100_000, 500_000, 2_500_000};
 
 	private VipRules() {}
 

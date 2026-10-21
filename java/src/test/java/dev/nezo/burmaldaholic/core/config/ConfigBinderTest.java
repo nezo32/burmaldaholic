@@ -52,7 +52,7 @@ class ConfigBinderTest {
 		assertEquals(0, c.exchange.get("emerald").fromChips, "R1: chips -> emerald cheaper than emerald -> chips disables the way out");
 		assertTrue(has(issues, "economy.exchange.emerald.fromChips", ConfigIssue.Kind.INVALID));
 		VipConfig v = binder.bind(new VipConfig(), json("{\"threshold\": {\"gold\": 100}}"), "vip", issues);
-		assertEquals(5001, v.threshold.gold, "thresholds must ascend");
+		assertEquals(25001, v.threshold.gold, "thresholds must ascend");
 		StreakConfig s = binder.bind(new StreakConfig(), json("{\"minHouseEdge\": 0.001}"), "streak", issues);
 		assertEquals(0.005, s.minHouseEdge, 1e-12, "hard floor 0.005");
 		ExtrasConfig e = binder.bind(new ExtrasConfig(), json("{\"plinko\": {\"low\": [1, 2]}}"), "extras", issues);
