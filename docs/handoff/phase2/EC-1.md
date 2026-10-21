@@ -133,6 +133,8 @@ Owner decision: 26.3 only. Every run used `-Pmc=26.3`, except the first compile 
   - Full flows: EN and RU at 480×270 and 427×240.
   - Layout asserts and the D5 check: EN and RU at 640×360 and 960×540.
 
+- **D6 (round 4, tester repro cherry-picked from `test/ec1` @b2681a97):** R2 now compares every ordered pair of rows for the same item (duplicates, per-dimension variants) or for items linked by a crafting chain (`EconomyGuards.itemsFrom`). R5 compares each store offer against every row of the same or a chain-linked item. `duplicateRowsOfOneItemAreCompared` and `randomizedMultiStepChainsAfterGuardsNeverProfit` pass. Unit tests on 26.3 (`core.economy.*`, `core.store.*`, `core.config.*`, `core.cashier.*`): BUILD SUCCESSFUL.
+
 ## Not done / requests
 - **DL:** please expose `HouseNpcRoles.register(String, BiConsumer<ServerPlayer, Entity>)` and call `MerchantRole.install(HouseNpcRoles::register)`, or put the class at one of the names in `MerchantRole.CANDIDATES`. Also add `entity.burmaldaholic.merchant`; the string already exists.
 - **EC-2:** owns the VipRules perk swap (`perk.emerald_rate` → `perk.store_gold_shelf`) and GAME_DESIGN §12.

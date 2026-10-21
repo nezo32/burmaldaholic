@@ -14,12 +14,13 @@ import java.util.Set;
  *
  * <ul>
  *   <li>R1: {@code toChips < fromChips} for every row with a way out.</li>
- *   <li>R2: craft equivalences ({@code A = k × B}), transitively ({@link #CHAINS}: block ↔ ingot ↔ nugget = 81):
+ *   <li>R2: every pair of rows of the same item (duplicates, per-dimension variants) and of craft equivalences ({@code A = k × B}), transitively ({@link #CHAINS}: block ↔ ingot ↔ nugget = 81):
  *   {@code in(A) ≤ k·out(B)} and {@code k·in(B) ≤ out(A)}.</li>
  *   <li>R3: store price per item ≥ 1.25 × pawn appraisal.</li>
  *   <li>R4: villager floor: for an item (or its residue, or what it uncrafts into) villagers buy {@code n} per
  *   emerald, {@code price × n ≥ V}; for store offers and for exchange rows' way out.</li>
- *   <li>R5: store price per item &gt; that item's exchange {@code toChips}.</li>
+ *   <li>R5: store price per item &gt; every exchange {@code toChips} of that item (or, through {@link #CHAINS}, what it
+ *   crafts into).</li>
  *   <li>R6: no forbidden item in the catalog (incl. everything that smelts into iron / gold nuggets).</li>
  * </ul>
  */
@@ -150,6 +151,19 @@ public final class EconomyGuards {
 		return best;
 	}
 
+	/**
+	 * How many {@code to} one {@code from} becomes by crafting for free: 1 for the same item, {@code k} when it uncrafts
+	 * into {@code k} of them, {@code 1/k} when {@code k} of it craft into one ({@link #CHAINS}); {@code null} = unrelated.
+	 */
+	static Double itemsFrom(String from, String to) {
+		if (from.equals(to)) return 1.0;
+		for (Equivalence e : CHAINS) {
+			if (e.big().equals(from) && e.small().equals(to)) return (double) e.k();
+			if (e.small().equals(from) && e.big().equals(to)) return 1.0 / e.k();
+		}
+		return null;
+	}
+
 	private static Double min(Double a, double b) {
 		return a == null ? b : Math.min(a, b);
 	}
@@ -166,10 +180,10 @@ public final class EconomyGuards {
 	 */
 	public static List<Violation> rows(Collection<Row> rows, int villagerValue) {
 		List<Violation> out = new ArrayList<>();
-		Map<String, Row> byItem = new HashMap<>();
+		List<Row> live = new ArrayList<>();
 		for (Row r : rows) {
 			if (r.toChips() <= 0 && r.fromChips() <= 0) continue;
-			byItem.put(r.item(), r);
+			live.add(r);
 			if (r.fromChips() > 0 && r.toChips() >= r.fromChips()) {
 				out.add(new Violation("R1", r.id(), r.toChips() + " >= " + r.fromChips()));
 			}
@@ -178,14 +192,18 @@ public final class EconomyGuards {
 				out.add(new Violation("R4", r.id(), r.fromChips() + "*" + per + " < " + villagerValue));
 			}
 		}
-		for (Equivalence e : CHAINS) {
-			Row a = byItem.get(e.big());
-			Row b = byItem.get(e.small());
-			if (a == null || b == null) continue;
-			// craft k × B into A: buy B out, hand A in
-			if (b.fromChips() > 0 && a.toChips() > (long) e.k() * b.fromChips()) out.add(new Violation("R2", b.id(), "in(" + a.id() + ") > k*out"));
-			// uncraft A into k × B: buy A out, hand B in
-			if (a.fromChips() > 0 && (long) e.k() * b.toChips() > a.fromChips()) out.add(new Violation("R2", a.id(), "k*in(" + b.id() + ") > out"));
+		// every ordered pair of distinct rows (same item, or related by a crafting chain): buy one Y out of row b, turn it
+		// into q × X for free and hand those in at row a; profitable when q·in(a) > out(b) -> b's way out is disabled
+		for (Row b : live) {
+			if (b.fromChips() <= 0) continue;
+			for (Row a : live) {
+				if (a == b || a.toChips() <= 0) continue;
+				Double q = itemsFrom(b.item(), a.item());
+				if (q != null && q * a.toChips() > b.fromChips() + 1e-9) {
+					out.add(new Violation("R2", b.id(), q + "*in(" + a.id() + ") > out"));
+					break;
+				}
+			}
 		}
 		return out;
 	}
@@ -199,8 +217,6 @@ public final class EconomyGuards {
 	 */
 	public static List<Violation> offers(Collection<Offer> offers, Map<String, Integer> appraisal, Collection<Row> rows, int villagerValue) {
 		List<Violation> out = new ArrayList<>();
-		Map<String, Row> byItem = new HashMap<>();
-		for (Row r : rows) byItem.put(r.item(), r);
 		for (Offer o : offers) {
 			double unit = o.perItem();
 			if (forbidden(o.item())) {
@@ -211,8 +227,13 @@ public final class EconomyGuards {
 			if (ap != null && ap > 0 && unit < 1.25 * ap) out.add(new Violation("R3", o.id(), unit + " < 1.25*" + ap));
 			Double n = itemsPerEmerald(o.item());
 			if (n != null && unit * n < villagerValue) out.add(new Violation("R4", o.id(), unit + "*" + n + " < " + villagerValue));
-			Row r = byItem.get(o.item());
-			if (r != null && r.toChips() > 0 && unit <= r.toChips()) out.add(new Violation("R5", o.id(), unit + " <= " + r.toChips()));
+			for (Row r : rows) { // every row of the same item or one it crafts into / uncrafts into (T-EC1 D6)
+				Double q = r.toChips() > 0 ? itemsFrom(o.item(), r.item()) : null;
+				if (q != null && unit <= q * r.toChips() + 1e-9) {
+					out.add(new Violation("R5", o.id(), unit + " <= " + q + "*" + r.toChips() + " (" + r.id() + ")"));
+					break;
+				}
+			}
 		}
 		return out;
 	}
