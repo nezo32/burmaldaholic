@@ -195,6 +195,11 @@ public final class SpinClock {
 		}
 	}
 
+	/** The newest time returned by {@link #t} (−∞ before the first frame; tests: monotonic). */
+	public double lastT() {
+		return lastT;
+	}
+
 	/** A spectator who arrived after the whole shared part (draw the settled state, no replayed cues). */
 	public boolean late() {
 		return late;

@@ -16,13 +16,16 @@ public final class DealAnchors {
 	public static final double STALE_MS = 3000;
 	private final Map<Long, Double> seen = new HashMap<>();
 	private long round = Long.MIN_VALUE;
-	/** True until the first frame that drew a card has passed (cards already landed then are settled). */
+	/**
+	 * True while this viewer still shows the table as it found it: until the first frame that drew a card, or the
+	 * first new round, has passed (cards that had already landed then are settled).
+	 */
 	private boolean fresh = true;
 	private boolean queried;
 
 	/** Call once per frame before the cards with the round's key (a deal start tick, a round seq). */
 	public void frame(long roundKey) {
-		if (queried) fresh = false;
+		if (queried || round != Long.MIN_VALUE && roundKey != round) fresh = false;
 		queried = false;
 		if (roundKey != round) {
 			round = roundKey;

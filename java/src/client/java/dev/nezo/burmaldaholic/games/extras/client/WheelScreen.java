@@ -253,9 +253,15 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		return from + WheelAnim.travel(from, rest, Kit.reduceMotion() ? 0 : WheelAnim.EXTRA_TURNS);
 	}
 
-	/** Tests (NetLag lane): {the angle the next frame draws, settled 0/1, the server's segment index}. */
+	/** Tests (NetLag lane): {the angle the next frame draws, settled 0/1, the server's segment index, ms into the spin}. */
 	public double[] poseProbe() {
-		return new double[] {currentAngle(), settledDone ? 1 : 0, result().getIntOr("index", -1)};
+		double ms = spinStart < 0 || settledDone ? -1 : AnimClock.localMs() - spinStart;
+		return new double[] {currentAngle(), settledDone ? 1 : 0, result().getIntOr("index", -1), ms, spinMs};
+	}
+
+	/** Tests: the spin curve's angle at {@code ms} into the current spin (the model the frames sample). */
+	public double angleAtProbe(double ms) {
+		return Kit.reduceMotion() ? WheelAnim.reduced(from, rest, ms) : WheelAnim.angle(from, rest, (int) spinMs, ms, room);
 	}
 
 	/** Tests: the angle the wheel rests at for the current result. */

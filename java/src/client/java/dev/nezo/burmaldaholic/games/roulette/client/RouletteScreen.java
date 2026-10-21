@@ -384,6 +384,29 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		return clock.msSince(state().getLongOr("phase_start", 0), partial);
 	}
 
+	/**
+	 * Tests (NetLag lane): {spin t, ball x, ball y (fractions of Rw), visible 0/1, solved 0/1, the pocket it rests in
+	 * (−1 unsolved), rest t} of the next frame; null without a running spin.
+	 */
+	public double @Nullable [] poseProbe() {
+		RouletteSpin sp = spin;
+		if (sp == null) return null;
+		double t = spinT();
+		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
+		double a = Math.toRadians(smp.abs);
+		return new double[] {t, smp.r * Math.sin(a), -smp.r * Math.cos(a), smp.visible ? 1 : 0, sp.solved() ? 1 : 0,
+			sp.solved() ? sp.pocketUnder(sp.restMs() + 100) : -1, sp.restMs()};
+	}
+
+	/** Tests: the ball {x, y} (fractions of Rw) of the current spin model at spin time {@code t}; null without a spin. */
+	public double @Nullable [] ballAtProbe(double t) {
+		RouletteSpin sp = spin;
+		if (sp == null) return null;
+		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
+		double a = Math.toRadians(smp.abs);
+		return new double[] {smp.r * Math.sin(a), -smp.r * Math.cos(a)};
+	}
+
 	/** Ms since the launch (the NO_MORE_BETS start) on the shared clock: the time every viewer samples the spin at. */
 	double spinT() {
 		DoubleSupplier test = testClock;
