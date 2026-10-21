@@ -255,7 +255,7 @@ public final class CasinoClientQa {
 		// the player's own close (sends the container-close packet); never ESC: a screen that already closed would
 		// turn the key into the pause menu, which pauses the integrated server (and deadlocks the world close)
 		context.runOnClient(mc -> {
-			if (mc.player != null && mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+			if (mc.player != null && mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.MenuAccess<?>) {
 				mc.player.closeContainer();
 			}
 			if (mc.gui.screen() != null) {

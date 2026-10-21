@@ -24,7 +24,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -140,7 +139,8 @@ public class CasinoPlayClientGameTests implements FabricClientGameTest {
 	}
 
 	private static boolean screenAt(net.minecraft.client.Minecraft mc, BlockPos pos) {
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> s && s.getMenu() instanceof CasinoTableMenu m && m.pos().equals(pos);
+		// v2 table screens are MenuAccess screens (CasinoTableScreen extends Screen), not AbstractContainerScreens
+		return mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.MenuAccess<?> s && s.getMenu() instanceof CasinoTableMenu m && m.pos().equals(pos);
 	}
 
 	private static boolean isOpen(ClientGameTestContext context, Spot s) {
