@@ -30,6 +30,24 @@ class BaccaratPresentTest {
 		assertEquals("result", p.phaseId());
 	}
 
+	/** Review R-AB m8: Undo / right-click take back exactly ONE chip, never the box. */
+	@Test
+	void undoIsOneChip() {
+		long[] bets = {50, 0, 0, 5, 0}; // PLAYER 25 + 25, P.PAIR 5
+		List<long[]> hist = List.of(new long[] {BaccaratPub.P, 25}, new long[] {BaccaratPub.P, 25}, new long[] {BaccaratPub.PP, 5});
+		BaccaratFlow.ChipBack u = BaccaratFlow.chipBack(hist, bets, -1);
+		assertEquals(new BaccaratFlow.ChipBack(BaccaratPub.P, 25, 0), u, "Undo = the newest chip (25 off PLAYER)");
+		BaccaratFlow.ChipBack r = BaccaratFlow.chipBack(hist, bets, BaccaratPub.PP);
+		assertEquals(new BaccaratFlow.ChipBack(BaccaratPub.PP, 5, 2), r, "right-click P.PAIR = its own last chip");
+		// a box the server emptied meanwhile is skipped; a chip never takes more than the box holds
+		BaccaratFlow.ChipBack s = BaccaratFlow.chipBack(hist, new long[] {10, 0, 0, 5, 0}, -1);
+		assertEquals(new BaccaratFlow.ChipBack(BaccaratPub.P, 10, 0), s);
+		// no history (reopened screen): the top disc of the last box with chips
+		assertEquals(new BaccaratFlow.ChipBack(BaccaratPub.B, 100, -1), BaccaratFlow.chipBack(List.of(), new long[] {25, 130, 0, 0, 0}, -1));
+		assertEquals(new BaccaratFlow.ChipBack(BaccaratPub.P, 25, -1), BaccaratFlow.chipBack(List.of(), new long[] {30, 130, 0, 0, 0}, BaccaratPub.P));
+		assertEquals(null, BaccaratFlow.chipBack(hist, new long[5], -1), "nothing on the felt: nothing to take back");
+	}
+
 	@Test
 	void neverStuck() {
 		String[] phases = {"idle", "betting", "no_more_bets", "shuffle", "reveal", "result", "bank_offer", "waiting"};
@@ -119,5 +137,29 @@ class BaccaratPresentTest {
 				}
 			}
 		}
+	}
+	/** T-A2 lane A: a small bot bank (20) under a big balance: the tray offers chips that fit the bank and one is enabled. */
+	@org.junit.jupiter.api.Test
+	void chemmyTrayFitsASmallBotBank() {
+		for (long open : new long[] {20, 7, 60, 3_000}) {
+			BaccaratView v = new BaccaratView(true, true, true, "betting", 1, 5_000, 0, 100_000, new long[0], false, false, true, 20, false, 0, false,
+				false, false, true, open, 0, false, 20, "Bot", false);
+			java.util.List<Long> chips = v.chips();
+			org.junit.jupiter.api.Assertions.assertFalse(chips.isEmpty(), "open " + open + ": a tray");
+			org.junit.jupiter.api.Assertions.assertTrue(chips.stream().allMatch(c -> c <= open), "open " + open + ": every chip fits the bank " + chips);
+			org.junit.jupiter.api.Assertions.assertTrue(chips.stream().anyMatch(c -> BaccaratFlow.INSTANCE.chip(c, v).enabled()),
+				"open " + open + ": a chip is enabled " + chips);
+			// no action row while punting (it would hide the chip tray); Banco is the primary until chips are drafted
+			org.junit.jupiter.api.Assertions.assertTrue(BaccaratFlow.INSTANCE.actions(v).isEmpty(), "no action row while punting");
+			org.junit.jupiter.api.Assertions.assertEquals("banco", BaccaratFlow.INSTANCE.primary(v).action());
+			org.junit.jupiter.api.Assertions.assertTrue(BaccaratFlow.INSTANCE.primary(v).enabled(), "Banco enabled");
+			BaccaratView drafted = new BaccaratView(true, true, true, "betting", 1, 5_000, 0, 100_000, new long[0], false, false, true, 20, false,
+				Math.min(5, open), false, false, false, true, open, 0, false, 20, "Bot", false);
+			org.junit.jupiter.api.Assertions.assertEquals("punt", BaccaratFlow.INSTANCE.primary(drafted).action(), "chips drafted: the primary punts");
+		}
+		// a house table keeps its tray
+		BaccaratView house = new BaccaratView(true, true, false, "betting", 25, 5_000, 0, 100_000, new long[0], false, false, true, 20, false, 0,
+			false, false, false, false, 0, 0, false, 20, "", false);
+		org.junit.jupiter.api.Assertions.assertTrue(house.chips().contains(5_000L), "house tray unchanged " + house.chips());
 	}
 }

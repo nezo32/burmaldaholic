@@ -48,15 +48,20 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 			for (String lang : List.of("en_us", "ru_ru")) {
 				f.language(lang);
 				round(f, lang, 1920, 1080, 4, dx += 3, lang.equals("en_us"));
+				round(f, lang, 1920, 1080, 3, dx += 3, false);
 				if (lang.equals("en_us")) {
-					round(f, lang, 2560, 1440, 4, dx += 3, false);
-					round(f, lang, 1920, 1080, 3, dx += 3, false);
-					round(f, lang, 1280, 720, 3, dx += 3, false);
+					round(f, lang, 1280, 720, 0, dx += 3, false); // Auto → 427 × 240
+					round(f, lang, 2560, 1440, 2, dx += 3, false); // 1280 × 720 framed (PHASE2B §0.7)
 				}
 			}
 			f.language("en_us");
 			f.size(1920, 1080, 4);
 			insuranceAndSplit(f, dx + 3);
+			rebetShort(f);
+			multiSeat(f, "en_us", 1920, 1080, 4);
+			f.language("ru_ru");
+			multiSeat(f, "ru_ru", 1920, 1080, 3);
+			f.language("en_us");
 			f.close();
 			CardBoards.run(context, world);
 		} finally {
@@ -81,6 +86,21 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		UUID me = f.server(server -> RealFlow.player(server).getUUID());
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated by the Sit primary");
 		if (negatives) {
+			// E5: the countable shoe reaches the open screen (size, cut card, dealt = discard tray between rounds)
+			int[] srv = f.server(server -> {
+				BlackjackTableBlockEntity t = table(server, pos);
+				t.burnShoeForTests(100);
+				t.syncViewersForTests();
+				var sh = t.shoeForTests();
+				return new int[] {sh.size(), sh.dealt(), sh.cut(0.75)};
+			});
+			for (int i = 0; i < 40 && f.client(mc -> ((BlackjackScreen) mc.gui.screen()).shoeView().dealt()) != srv[1]; i++) f.context().waitTicks(2);
+			var sv = f.client(mc -> ((BlackjackScreen) mc.gui.screen()).shoeView());
+			if (sv.size() != srv[0] || sv.dealt() != srv[1] || sv.discard() != srv[1] || sv.left() != srv[0] - srv[1] || sv.cut() <= 0 || sv.cutOut()) {
+				throw new AssertionError("client shoe " + sv + " vs server size/dealt " + java.util.Arrays.toString(srv));
+			}
+		}
+		if (negatives) {
 			// Deal with no bet: the reason shows, nothing reaches the server
 			f.click(KeyMap.Ids.PRIMARY);
 			String want = f.client(mc -> Component.translatable(V2Keys.REASON_PLACE_BET).getString());
@@ -96,6 +116,13 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		int chip25 = chipIndex(f, 25);
 		f.click(KeyMap.Ids.chip(chip25));
 		f.click(KeyMap.Ids.chip(chip25));
+		// DES blackjack P0 (A-0001): with 50 drafted and Deal enabled the status is the chips hint, never "Place a bet first"
+		String placeFirst = f.client(mc -> Component.translatable(V2Keys.REASON_PLACE_BET).getString());
+		String chipsAdd = f.client(mc -> Component.translatable(V2Keys.STATUS_CHIPS_ADD).getString());
+		f.waitChrome(c -> c.primary.gate().enabled(), "Deal enabled with 50 drafted");
+		if (f.status().equals(placeFirst) || !f.status().equals(chipsAdd)) {
+			throw new AssertionError("betting status '" + f.status() + "', expected '" + chipsAdd + "'");
+		}
 		f.shot(tag + "_bet");
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == 0, "chips build a local draft (nothing sent yet)");
 		long before = f.server(server -> Economies.get().balance(RealFlow.player(server)));
@@ -113,6 +140,11 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.round() != null && t.stakeOf(me) == 50, "bet 50 placed and dealt");
 		reveal(f, pos);
 		f.waitChrome(c -> c.hits().targets().stream().anyMatch(t -> t.id().equals(KeyMap.Ids.action("hit")) && t.enabled()), "Hit enabled");
+		// DES blackjack P0: the Dock says "Bet 50 · hand 1 of 1" (it said Bet 0)
+		String hand = f.client(mc -> Component.translatable("gui.burmaldaholic.blackjack.v2.status.hand", dev.nezo.burmaldaholic.core.text.Texts.number(50), 1, 1)
+			.getString());
+		String line2 = line2(f);
+		if (!line2.equals(hand)) throw new AssertionError("turn Dock line 2 '" + line2 + "', expected '" + hand + "'");
 		f.shot(tag + "_turn");
 		f.click(KeyMap.Ids.action("hit"));
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> mine(t, me) != null && mine(t, me).hands.getFirst().cards.size() == 3, "hit took a card");
@@ -120,6 +152,10 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("stand"), "Stand enabled");
 		f.click(KeyMap.Ids.PRIMARY); // Stand
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> "result".equals(t.phase()), "settled");
+		reveal(f, pos);
+		// DES cross-cutting 4 / R-AB m11: the result banner finds a place (the dealer <-> hero gap; compact at T2)
+		f.waitChrome(c -> c.banner.active() && !c.banner.box().isEmpty(), "result banner on screen");
+		f.shot(tag + "_banner");
 		long net = f.server(server -> {
 			BlackjackRound r = table(server, pos).round();
 			BlackjackRound.Seat s = mine(table(server, pos), me);
@@ -171,7 +207,12 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		reveal(f, pos);
 		f.waitChrome(c -> c.hits().targets().stream().anyMatch(t -> t.id().equals(KeyMap.Ids.action("no_insurance")) && t.enabled()), "No insurance");
 		f.shot("v2a_bj_en_us_insurance");
-		f.click(KeyMap.Ids.action("no_insurance"));
+		// take the insurance with the primary: the insurance bet then shows on the felt (DES blackjack P2, A-0021)
+		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("insurance"), "Insure offered");
+		f.click(KeyMap.Ids.PRIMARY);
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> mine(t, me) != null && mine(t, me).insurance > 0, "insurance taken");
+		f.context().waitTicks(6);
+		f.shot("v2a_bj_en_us_insured");
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.round() != null && t.round().phase() != BlackjackRound.Phase.INSURANCE, "declined");
 		reveal(f, pos);
 		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("stand"), "Stand after insurance");
@@ -200,6 +241,10 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> mine(t, me) != null && mine(t, me).hands.size() == 2, "split into two hands");
 		reveal(f, pos);
 		f.shot("v2a_bj_en_us_split");
+		String splitHand = f.client(mc -> Component.translatable("gui.burmaldaholic.blackjack.v2.status.hand", dev.nezo.burmaldaholic.core.text.Texts.number(50), 1, 2)
+			.getString());
+		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("stand"), "Stand hand 1");
+		if (!line2(f).equals(splitHand)) throw new AssertionError("split Dock line 2 '" + line2(f) + "', expected '" + splitHand + "'");
 		for (int h = 0; h < 2; h++) {
 			f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("stand"), "Stand hand " + (h + 1));
 			f.click(KeyMap.Ids.PRIMARY);
@@ -210,6 +255,111 @@ public class BlackjackV2ClientGameTests implements FabricClientGameTest {
 		reveal(f, pos);
 		f.context().waitTicks(20);
 		f.shot("v2a_bj_en_us_split_result");
+		f.close();
+	}
+
+	/** Line 2 of the Dock status ("" = none). */
+	static String line2(RealFlow f) {
+		return f.client(mc -> {
+			if (!(mc.gui.screen() instanceof V2Chrome.Holder h)) return "";
+			Component c = h.chrome().status.line2();
+			return c == null ? "" : c.getString();
+		});
+	}
+
+	/**
+	 * Review R-AB m9: Rebet pressed on the result is queued; when the next betting phase opens and the balance no longer
+	 * covers it, the screen flashes "Not enough chips" and sends nothing.
+	 */
+	private static void rebetShort(RealFlow f) {
+		BlockPos pos = fresh(f, BlackjackModule.TABLE.block());
+		f.open(pos, BlackjackScreen.class);
+		f.click(KeyMap.Ids.PRIMARY);
+		UUID me = f.server(server -> RealFlow.player(server).getUUID());
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated");
+		f.server(server -> {
+			table(server, pos).stackCardsForTests(List.of(Card.of(10), Card.of(10), Card.of(9), Card.of(8), Card.of(5)));
+			return null;
+		});
+		int chip = chipIndex(f, 25);
+		f.click(KeyMap.Ids.chip(chip));
+		f.click(KeyMap.Ids.chip(chip));
+		f.click(KeyMap.Ids.PRIMARY);
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.round() != null && mine(t, me) != null, "dealt");
+		reveal(f, pos);
+		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("stand"), "Stand");
+		f.click(KeyMap.Ids.PRIMARY);
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> "result".equals(t.phase()) && t.openStakes().isEmpty(), "settled");
+		reveal(f, pos);
+		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("rebet"), "Rebet on the result");
+		f.click(KeyMap.Ids.PRIMARY); // queued for the next round
+		f.world().getServer().runCommand("casino balance set @p 10");
+		f.context().waitTicks(10);
+		f.server(server -> {
+			table(server, pos).fastForwardForTests();
+			return null;
+		});
+		String notEnough = f.client(mc -> Component.translatable(V2Keys.REASON_NOT_ENOUGH).getString());
+		// the next betting phase opens; only the queued Rebet's flash says "Not enough chips" there (the betting primary's own
+		// reason with 10 chips and no draft is "Place a bet first")
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> "betting".equals(t.phase()) || t.round() == null, "the next betting phase", 600);
+		f.waitChrome(c -> c.status.line1() != null && c.status.line1().getString().equals(notEnough) && c.bet.visible(),
+			"the queued Rebet flashes Not enough chips in the betting phase");
+		f.shot("v2a_bj_en_us_rebet_short");
+		f.context().waitTicks(20);
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == 0 && t.round() == null || t.round() != null && mine(t, me) == null,
+			"nothing sent for the queued Rebet");
+		f.world().getServer().runCommand("casino balance set @p 100000");
+		f.close();
+	}
+
+	/** A table with two bots and the viewer (DES: multi-seat never captured): betting, a turn and the result. */
+	private static void multiSeat(RealFlow f, String lang, int fw, int fh, int scale) {
+		f.size(fw, fh, scale);
+		String tag = "v2a_bj_" + lang + "_" + f.viewport().w() + "x" + f.viewport().h() + "_multi";
+		BlockPos pos = fresh(f, BlackjackModule.TABLE.block());
+		f.open(pos, BlackjackScreen.class);
+		f.click(KeyMap.Ids.PRIMARY);
+		UUID me = f.server(server -> RealFlow.player(server).getUUID());
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated");
+		// two bots join once a player is seated (the bots settings ask for a seated actor), as CardBoards does
+		f.server(server -> {
+			var two = new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
+				dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.FAST);
+			table(server, pos).bots().table().requestChange(RealFlow.player(server), two, false);
+			table(server, pos).botSafePointForTests();
+			return null;
+		});
+		f.context().waitTicks(10);
+		int chip = chipIndex(f, 25);
+		f.click(KeyMap.Ids.chip(chip));
+		f.click(KeyMap.Ids.chip(chip));
+		f.context().waitTicks(20);
+		f.shot(tag + "_bet");
+		f.click(KeyMap.Ids.PRIMARY);
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.round() != null && mine(t, me) != null, "dealt with bots", 600);
+		for (int i = 0; i < 60; i++) {
+			if (f.enabledTarget(KeyMap.Ids.action("hit")) || f.enabledTarget(KeyMap.Ids.action("no_insurance"))) break;
+			boolean over = f.server(server -> "result".equals(table(server, pos).phase()));
+			if (over) break;
+			f.context().waitTicks(10);
+		}
+		reveal(f, pos);
+		f.shot(tag + "_turn");
+		for (int i = 0; i < 60; i++) {
+			boolean over = f.server(server -> "result".equals(table(server, pos).phase()));
+			if (over) break;
+			if (f.enabledTarget(KeyMap.Ids.action("no_insurance"))) f.click(KeyMap.Ids.action("no_insurance"));
+			else if (f.enabledTarget(KeyMap.Ids.PRIMARY) && f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+				&& h.chrome().primary.gate().action().equals("stand"))) f.click(KeyMap.Ids.PRIMARY);
+			f.context().waitTicks(10);
+		}
+		f.waitServer(pos, BlackjackTableBlockEntity.class, t -> "result".equals(t.phase()), "multi-seat round settled", 600);
+		reveal(f, pos);
+		f.context().waitTicks(10);
+		f.shot(tag + "_result");
+		f.context().waitTicks(30);
+		f.shot(tag + "_result_late");
 		f.close();
 	}
 

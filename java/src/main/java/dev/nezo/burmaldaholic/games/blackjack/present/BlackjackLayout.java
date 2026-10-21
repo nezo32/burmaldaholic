@@ -16,19 +16,23 @@ import dev.nezo.burmaldaholic.core.ui.v2.Tier;
  * @param rack        the dealer's chip rack on the rail
  * @param shoe        the shoe (top right)
  * @param discard     the discard tray (top left)
+ * @param shoeBar     the shoe-depth bar on the shoe's face: cards left, with the cut-card marker (E5, {@link ShoeView})
+ * @param discardCount the discard tray's card count, centred on the tray (E5; 1× text, ≤ 3 digits)
  * @param dealer      the dealer's cards
  * @param dealerTotal the dealer's 2× total pill, left of the cards
  * @param dealerNote  "Dealer stands on 17" (decor, may be empty)
  * @param prints      felt prints (decor, 0..2 lines; each empty when it would touch content)
  * @param banner      the free region for the round banner between the dealer and the seats (may be empty)
+ * @param resultBanner the region for the viewer's result banner: as {@code banner} but over the hero's outcome slot (its
+ *                    total pill hides under the banner for its ~1.5 s; the stamp on the cards carries the outcome)
  * @param columns     per slot: its seat column, or null for an empty slot
  * @param spots       per slot: the printed betting box (always; the empty seat's "Sit" target, the hero's bet spot)
  * @param levels      per slot: the outcome level chosen by {@link SeatColumn#table}
  * @param hero        slot of the viewer (-1 = watching)
  * @param slotOfSeat  server seat index → slot
  */
-public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dealer, Box dealerTotal, Box dealerNote, Box[] prints, Box banner,
-		SeatColumn[] columns, Box[] spots, int[] levels, int hero, int[] slotOfSeat) {
+public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box shoeBar, Box discardCount, Box dealer, Box dealerTotal, Box dealerNote, Box[] prints, Box banner,
+		Box resultBanner, SeatColumn[] columns, Box[] spots, int[] levels, int hero, int[] slotOfSeat) {
 	/**
 	 * One seat as the screen sees it.
 	 *
@@ -44,6 +48,9 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			return n + (cards.length - 1) * handGap;
 		}
 	}
+
+	/** The discard count's box: three digits of the vanilla font (≤ 416 cards) and its line height. */
+	public static final int COUNT_W = 18, COUNT_H = 9;
 
 	/** Gap between split hands, in card steps (a split hand starts ~1 card further). */
 	public static final int HAND_GAP = 1;
@@ -69,6 +76,11 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 		int shoeH = shoeW * 2 / 3;
 		Box shoe = new Box(play.right() - m - shoeW - (t == Tier.T1 ? 0 : 6), rail.bottom() + 4, shoeW, shoeH);
 		Box discard = new Box(m + (t == Tier.T1 ? 0 : 6), rail.bottom() + 4, shoeW * 3 / 4, shoeH);
+		// E5: the shoe-depth bar along the bottom of the shoe's face, the tray's count centred on the tray: both live inside
+		// their own box, so they fit wherever the shoe and the tray fit (under them the outer seats' pills can reach up)
+		int barH = t == Tier.T1 ? 3 : 4;
+		Box shoeBar = new Box(shoe.x() + 2, shoe.bottom() - 2 - barH, shoe.w() - 4, barH);
+		Box discardCount = Box.centredAt(discard.cx(), discard.cy(), Math.min(discard.w(), Math.max(COUNT_W, discard.w() - 4)), COUNT_H);
 		// dealer fan: hero-size cards (seat size at T1), centred
 		int cw = t == Tier.T1 ? t.seatW : t.heroW;
 		int ch = t == Tier.T1 ? t.seatH : t.heroH;
@@ -96,6 +108,7 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 		int[] cards = new int[slots];
 		int[][] outcomeW = new int[slots][];
 		int[] valueW = new int[slots];
+		boolean[] handless = new boolean[slots];
 		java.util.Arrays.fill(cards, -1);
 		for (int i = 0; i < slots; i++) outcomeW[i] = new int[0];
 		for (int s = 0; s < n; s++) {
@@ -103,6 +116,7 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			if (in == null) continue;
 			int slot = slotOfSeat[s];
 			cards[slot] = in.fanCards(HAND_GAP);
+			handless[slot] = in.cards().length == 0;
 			outcomeW[slot] = in.outcomeW();
 			valueW[slot] = Math.max(in.valueW(), 12);
 		}
@@ -130,6 +144,15 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			}
 		}
 		Box banner = bottom - top >= SeatColumn.PILL_1X + 4 ? new Box(x0, top, x1 - x0, bottom - top) : Box.EMPTY;
+		int rbottom = play.bottom();
+		for (int i = 0; i < slots; i++) {
+			if (cols[i] == null) continue;
+			for (Box b : cols[i].boxes()) {
+				if (i == heroSlot && b == cols[i].outcome()) continue;
+				if (!b.isEmpty() && b.right() > x0 && b.x() < x1) rbottom = Math.min(rbottom, b.y() - 3);
+			}
+		}
+		Box resultBanner = rbottom - top >= SeatColumn.PILL_1X + 4 ? new Box(x0, top, x1 - x0, rbottom - top) : Box.EMPTY;
 		// felt prints: centred under the dealer, kept only where they touch nothing
 		Box[] prints = new Box[printW.length];
 		int py = dealer.bottom() + 6;
@@ -137,12 +160,114 @@ public record BlackjackLayout(Box rail, Box rack, Box shoe, Box discard, Box dea
 			Box p = Box.centredAt(play.cx(), py + k * 11 + 5, printW[k], 9);
 			boolean ok = p.inside(felt) && !p.intersects(dealer) && !p.intersects(dealerTotal) && (t != Tier.T1 || k == 0) && !(t == Tier.T2 && k > 1);
 			for (int i = 0; ok && i < slots; i++) {
-				if (cols[i] != null) for (Box b : cols[i].boxes()) ok &= !p.intersects(b);
+				// the outcome slot of a seat without hands is only the reserved dot and draws nothing: the print may cross it (A-0001: the
+				// second line "INSURANCE PAYS 2 TO 1" was dropped at 480 x 270 by the hero's empty slot)
+				if (cols[i] != null) for (Box b : cols[i].boxes()) ok &= !p.intersects(b) || handless[i] && b == cols[i].outcome() && b.w() <= SeatColumn.DOT;
 				if (cols[i] == null || i == heroSlot) ok &= !p.intersects(spots[i]);
 			}
 			prints[k] = ok ? p : Box.EMPTY;
 		}
-		return new BlackjackLayout(rail, rack, shoe, discard, dealer, dealerTotal, dealerNote, prints, banner, cols, spots, levels, heroSlot, slotOfSeat);
+		return new BlackjackLayout(rail, rack, shoe, discard, shoeBar, discardCount, dealer, dealerTotal, dealerNote, prints, banner, resultBanner, cols, spots, levels, heroSlot, slotOfSeat);
+	}
+
+	/**
+	 * One hand of a seat (DES blackjack P1 split): its fan, the card size used, its own 1× total pill above the fan, its
+	 * own stack + value pill under it.
+	 */
+	public record HandBox(Box fan, int cw, int ch, int step, Box total, Box stack, Box value) {
+		public Box[] boxes() {
+			return new Box[] {fan, total, stack, value};
+		}
+	}
+
+	/** Gap between two split hands (px). */
+	public static final int SPLIT_GAP = 4;
+
+	/**
+	 * The hands of a seat side by side (DES blackjack P1, A-0022): one fan per hand {@link #SPLIT_GAP} px apart, centred on
+	 * the column, bottom-aligned in its card box; each with its own total pill (1×, above the fan) and its own stack + value
+	 * pill (under the fan, in the column's stack row). The hero's cards drop to seat size when two hero-size fans would
+	 * overlap their rank indices. A single hand is the column itself (its outcome slot shows the total).
+	 *
+	 * @param perHand cards per hand (≥ 1 each laid out)
+	 * @param totalW  measured width of each hand's 1× total pill (0 = none)
+	 * @param valueW  measured width of each hand's value pill
+	 */
+	public static HandBox[] hands(SeatColumn c, Tier t, boolean hero, int[] perHand, int[] totalW, int[] valueW) {
+		int n = Math.max(1, perHand.length);
+		int cw = hero ? t.heroW : t.seatW;
+		int ch = hero ? t.heroH : t.seatH;
+		HandBox[] out = new HandBox[n];
+		if (perHand.length <= 1) {
+			int cards = perHand.length == 0 ? 1 : Math.max(1, perHand[0]);
+			out[0] = new HandBox(c.cards(), cw, ch, step(c.cards(), cards, cw), Box.EMPTY, c.stack(), c.value());
+			return out;
+		}
+		int w = c.cards().w();
+		int extra = 0;
+		for (int k : perHand) extra += Math.max(1, k) - 1;
+		int step = splitStep(w, n, cw, extra);
+		if (hero && step < SeatColumn.MIN_STEP && extra > 0) {
+			cw = t.seatW;
+			ch = t.seatH;
+			step = splitStep(w, n, cw, extra);
+		}
+		step = Math.max(step, Math.min(SeatColumn.MIN_STEP, cw / 2 + 2));
+		int total = n * cw + (n - 1) * SPLIT_GAP + extra * step;
+		int x = c.cards().cx() - total / 2;
+		int y = c.cards().bottom() - ch;
+		int chip = t.feltChip;
+		int prevPill = Integer.MIN_VALUE;
+		for (int h = 0; h < n; h++) {
+			int k = Math.max(1, perHand[h]);
+			Box fan = new Box(x, y, cw + (k - 1) * step, ch);
+			Box pill = Box.EMPTY;
+			int tw = h < totalW.length ? totalW[h] : 0;
+			if (tw > 0) {
+				int px = Math.max(fan.cx() - tw / 2, prevPill + 2);
+				pill = new Box(px, fan.y() - Tier.GAP - SeatColumn.PILL_1X, tw, SeatColumn.PILL_1X);
+				prevPill = pill.right();
+			}
+			int vw = Math.max(12, h < valueW.length ? valueW[h] : 0);
+			Box stack;
+			Box value;
+			int row = c.stack().y();
+			int vy = c.value().isEmpty() ? row : c.value().y();
+			if (chip + Tier.GAP + vw <= fan.w()) {
+				int sx = fan.cx() - (chip + Tier.GAP + vw) / 2;
+				stack = new Box(sx, row, chip, chip + 4);
+				value = new Box(sx + chip + Tier.GAP, vy, vw, SeatColumn.PILL_1X);
+			} else {
+				value = new Box(fan.cx() - vw / 2, vy, vw, SeatColumn.PILL_1X);
+				stack = new Box(fan.cx(), vy, 0, 0);
+			}
+			out[h] = new HandBox(fan, cw, ch, step, pill, stack, value);
+			x = fan.right() + SPLIT_GAP;
+		}
+		return out;
+	}
+
+	private static int splitStep(int w, int hands, int cw, int extra) {
+		if (extra <= 0) return 0;
+		return Math.min(cw / 2 + 2, (w - hands * cw - (hands - 1) * SPLIT_GAP) / extra);
+	}
+
+	/**
+	 * The insurance bet on the felt (DES blackjack P2, A-0021): a stack + value pill left of the seat's own stack row,
+	 * empty when it does not fit inside {@code felt}.
+	 *
+	 * @return {stack, value}
+	 */
+	public static Box[] insurance(SeatColumn c, Tier t, int valueW, Box felt, Box[] avoid) {
+		int chip = t.feltChip;
+		int vw = Math.max(12, valueW);
+		int right = (c.stack().isEmpty() || c.stack().w() == 0 ? c.value().x() : c.stack().x()) - 2 * Tier.GAP - 2;
+		int y = c.stack().w() == 0 ? c.value().y() - (chip + 4 - SeatColumn.PILL_1X) / 2 : c.stack().y();
+		Box stack = new Box(right - vw - Tier.GAP - chip, y, chip, chip + 4);
+		Box value = new Box(stack.right() + Tier.GAP, y + (chip + 4 - SeatColumn.PILL_1X) / 2, vw, SeatColumn.PILL_1X);
+		boolean ok = stack.inside(felt) && value.inside(felt);
+		for (Box b : avoid) ok &= !b.intersects(stack) && !b.intersects(value);
+		return ok ? new Box[] {stack, value} : new Box[] {Box.EMPTY, Box.EMPTY};
 	}
 
 	/** Splits a column's card box into one fan box per hand (left to right), using the same step as the column. */

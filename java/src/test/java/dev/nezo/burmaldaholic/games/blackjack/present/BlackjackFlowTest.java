@@ -100,4 +100,20 @@ class BlackjackFlowTest {
 			0, 0, false);
 		assertEquals(List.of(25L, 100L, 500L, 1_000L, 5_000L), hr.chips());
 	}
+
+	/** A2: the Dock reads the round's stake on the turn; a disabled Rebet keeps its amount in the label. */
+	@Test
+	void stakeOnTheTurnAndRebetLabel() {
+		BlackjackView turn = new BlackjackView(true, true, Phase.TURNS, false, MIN, MAX, 1_000, 0, 50, 50, false, true, true, Set.of("hit", "stand"), "", 0,
+			"", 9, 1, 2, false);
+		BlackjackFlow.Line[] l = BlackjackFlow.status(turn);
+		assertEquals(BlackjackFlow.BJ2 + "status.hand", l[1].key());
+		assertEquals(50L, l[1].args()[0], "Bet 50, not Bet 0");
+		BlackjackView poor = new BlackjackView(true, true, Phase.RESULT, false, MIN, MAX, 10, 0, 50, 50, false, true, false, Set.of(), "", 0, "", 4, 0, 1,
+			false);
+		Gate g = BlackjackFlow.INSTANCE.primary(poor);
+		assertFalse(g.enabled());
+		assertEquals(1, g.labelArgs().length, "Rebet keeps its amount while disabled");
+		assertEquals(50L, g.labelArgs()[0]);
+	}
 }

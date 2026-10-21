@@ -64,4 +64,36 @@ public class BlackjackV2GameTests {
 		}
 		helper.succeed();
 	}
+
+	/**
+	 * T-D2 item 6: a table removed with a round in play (chunk unload, break) is played out WITHOUT a single preset world
+	 * read (a lookup there re-enters chunk loading mid-unload and crashed a 26.2 build); the round still pays out.
+	 */
+	@GameTest
+	@SuppressWarnings("removal")
+	public void removalPlayOutReadsNoPreset(GameTestHelper helper) {
+		BlockPos pos = new BlockPos(1, 1, 1);
+		helper.setBlock(pos, BlackjackModule.TABLE.block());
+		BlackjackTableBlockEntity table = helper.getBlockEntity(pos, BlackjackTableBlockEntity.class);
+		MinecraftServer server = helper.getLevel().getServer();
+		ServerPlayer a = helper.makeMockServerPlayerInLevel();
+		try (PresetReadCounter counter = new PresetReadCounter(helper.absolutePos(pos))) {
+			Economies.get().setBalance(server, a.getUUID(), 1000, TEST);
+			helper.assertTrue(table.sit(a), "seated");
+			table.bots().table().requestChange(a, new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
+				dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.FAST), false);
+			table.botSafePointForTests();
+			table.onAction(a, "bet", amount(10));
+			table.revealAllForTests();
+			helper.assertTrue(table.round() != null, "a round in play");
+			helper.assertTrue(counter.reads() > 0, "the live table did look its preset up (the counter works)");
+			counter.reset();
+			helper.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR);
+			helper.assertTrue(counter.reads() == 0, "preset world reads during the removal play-out: " + counter.reads());
+			helper.assertTrue(table.stakeOf(a.getUUID()) == 0, "the round was played out and settled on removal");
+		} finally {
+			server.getPlayerList().remove(a);
+		}
+		helper.succeed();
+	}
 }

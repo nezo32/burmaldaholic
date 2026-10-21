@@ -44,8 +44,6 @@ class StatusFitTest {
 
 	/** Game status / reason strings over two T1 lines today (lang file, key); the game packages shorten them. */
 	static final Set<String> GAME_OVERLONG = Set.of(
-		"blackjack/ru_ru gui.burmaldaholic.blackjack.v2.reason.cannot_double",
-		"blackjack/ru_ru gui.burmaldaholic.blackjack.v2.status.even_money",
 		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.need_line",
 		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.no_shooter",
 		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.point_box",

@@ -157,6 +157,7 @@
 	"gui.burmaldaholic.baccarat.v2.punt_n": "Bet %1$s",
 	"gui.burmaldaholic.baccarat.v2.pass": "Pass",
 	"gui.burmaldaholic.baccarat.v2.banco": "Banco %1$s",
+	"gui.burmaldaholic.baccarat.v2.banco_confirm": "Confirm Banco %1$s?",
 	"gui.burmaldaholic.baccarat.v2.reason.ready_waiting": "Ready — waiting for the others",
 	"gui.burmaldaholic.baccarat.v2.reason.next_coup_in": "Next coup in %1$s s",
 	"gui.burmaldaholic.baccarat.v2.reason.shuffling": "Shuffling the shoe",

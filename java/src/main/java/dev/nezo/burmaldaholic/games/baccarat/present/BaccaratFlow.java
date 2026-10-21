@@ -70,6 +70,11 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 				if (v.myPunt() > 0 && v.draft() == 0) {
 					return v.ready() ? Gate.off("deal", V2 + "primary.deal", BAC2 + "reason.ready_waiting") : Gate.on("deal", V2 + "primary.deal");
 				}
+				// nothing drafted: the primary is Banco (the whole open bank) when affordable — Banco lives on the primary, not in
+				// an action row, because an action row hides the chip tray and a punter could then never punt part of the bank
+				if (v.draft() == 0 && v.myPunt() == 0 && v.open() > 0 && v.open() <= v.balance()) {
+					return Gate.on("banco", BAC2 + "banco", v.open());
+				}
 				if (v.draft() == 0) return Gate.off("punt", BAC2 + "punt", V2 + "reason.place_bet");
 				if (v.draft() < v.min()) return Gate.off("punt", BAC2 + "punt", V2 + "reason.below_min", v.min());
 				if (v.draft() > v.open()) return Gate.off("punt", BAC2 + "punt", BAC2 + "reason.bank_covers", v.open());
@@ -95,11 +100,8 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 		if (!v.seated() || v.pending() || !v.chemmy()) return out;
 		if ("bank_offer".equals(v.phase()) && v.offerYou()) {
 			out.add(Gate.on("pass", BAC2 + "pass"));
-		} else if ("betting".equals(v.phase()) && !v.youBank()) {
-			out.add(v.puntOpen() && v.open() > 0 && v.open() <= v.balance() + v.myPunt() ? Gate.on("banco", BAC2 + "banco", v.open())
-				: Gate.off("banco", BAC2 + "banco", v.bancoTaken() ? BAC2 + "reason.banco_called"
-					: v.open() > v.balance() + v.myPunt() ? V2 + "reason.not_enough" : V2 + "reason.round_in_progress", v.open()));
 		}
+		// betting: no action row (it would hide the chip tray); Banco is the primary while nothing is drafted (see chemmy())
 		return out;
 	}
 
@@ -168,7 +170,14 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 			default -> BetView.Phase.SETTLING;
 		};
 		boolean open = closed(v, "chip", V2 + "bet") == null;
-		BetView.Builder b = BetView.builder().seated(v.seated()).canSit(v.canSit()).phase(ph).bettingOpen(open).limits(v.min(), v.max())
+		// chemmy punting: the bank only covers {@code open} more, so the tray must offer chips that fit it (a 20-chip bot
+		// bank under a 25 / 100 / 500 … tray could never be punted, T-A2 lane A)
+		long max = v.max();
+		if (v.chemmy() && v.puntOpen()) {
+			long cover = v.open() + v.myPunt();
+			max = max > 0 ? Math.min(max, cover) : cover;
+		}
+		BetView.Builder b = BetView.builder().seated(v.seated()).canSit(v.canSit()).phase(ph).bettingOpen(open).limits(v.min(), max)
 			.balance(v.balance()).secondsLeft(v.secondsLeft());
 		if (v.chemmy()) {
 			b.myTotal(v.draft() + v.myPunt()).canUndo(v.draft() > 0).canClear(v.draft() > 0 || v.myPunt() > 0).canDouble(v.draft() > 0);
@@ -178,6 +187,45 @@ public final class BaccaratFlow implements Flow<BaccaratView> {
 				.canDouble(v.total() > 0);
 		}
 		return b.build();
+	}
+
+	/**
+	 * One chip back (Undo, right-click on a box; review R-AB m8): what to send as {@code unbet_chip {box, amount}}.
+	 *
+	 * @param box         the box to take from, or {@code -1} for any (Undo)
+	 * @param amount      the chip's amount (never more than the box holds)
+	 * @param historyIndex index of the used entry of the chip history, {@code -1} when none was used
+	 */
+	public record ChipBack(int box, long amount, int historyIndex) {}
+
+	/**
+	 * The chip to take back: the newest chip of the local history (in {@code box}, or anywhere when {@code box < 0})
+	 * whose box still holds chips, capped at what the box holds; without history (reopened screen) the top disc of the
+	 * box's stack (the largest denomination it covers), Undo taking from the last box with chips. Null = nothing.
+	 *
+	 * @param history chips put down this coup, newest first: {@code {box, amount}}
+	 * @param bets    the server's slip per box ({@link BaccaratPub#BOX_IDS} order)
+	 */
+	public static @org.jspecify.annotations.Nullable ChipBack chipBack(List<long[]> history, long[] bets, int box) {
+		for (int i = 0; i < history.size(); i++) {
+			long[] h = history.get(i);
+			int b = (int) h[0];
+			if (b < 0 || b >= bets.length || bets[b] <= 0 || box >= 0 && b != box) continue;
+			return new ChipBack(b, Math.min(h[1], bets[b]), i);
+		}
+		int b = box;
+		if (b < 0) {
+			for (int k = bets.length - 1; k >= 0 && b < 0; k--) if (bets[k] > 0) b = k;
+		}
+		if (b < 0 || b >= bets.length || bets[b] <= 0) return null;
+		long chip = bets[b];
+		for (int d = BaccaratView.DENOMS.length - 1; d >= 0; d--) {
+			if (BaccaratView.DENOMS[d] <= bets[b]) {
+				chip = BaccaratView.DENOMS[d];
+				break;
+			}
+		}
+		return new ChipBack(b, chip, -1);
 	}
 
 	public static Line[] status(BaccaratView v) {

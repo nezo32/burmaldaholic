@@ -904,7 +904,7 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.reason.deal_in` | Deal in %1$s s | Раздача через %1$s с |
 | `gui.burmaldaholic.blackjack.v2.reason.others_betting` | Waiting for the other bets | Ждём остальные ставки |
 | `gui.burmaldaholic.blackjack.v2.reason.not_now` | Not possible now | Сейчас нельзя |
-| `gui.burmaldaholic.blackjack.v2.reason.cannot_double` | Double on the first two cards only | Удвоить можно только на двух первых картах |
+| `gui.burmaldaholic.blackjack.v2.reason.cannot_double` | Double on the first two cards only | Удвоение — только на 2 картах |
 | `gui.burmaldaholic.blackjack.v2.reason.cannot_split` | Split needs a pair | Разделить можно только пару |
 | `gui.burmaldaholic.blackjack.v2.reason.no_last_bet` | No last bet yet | Прошлой ставки пока нет |
 | `gui.burmaldaholic.blackjack.v2.reason.already_rebet` | That is your last bet already | Это уже прошлая ставка |
@@ -912,17 +912,18 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.status.rules` | Blackjack pays 3 to 2 | Блэкджек платит 3 к 2 |
 | `gui.burmaldaholic.blackjack.v2.status.bet_placed` | Your bet: %1$s | Ваша ставка: %1$s |
 | `gui.burmaldaholic.blackjack.v2.status.insurance` | Dealer shows an ace — insure for %1$s? | У дилера туз — страховка на %1$s? |
-| `gui.burmaldaholic.blackjack.v2.status.even_money` | Blackjack vs an ace — take 1:1 now? | Блэкджек против туза — забрать 1:1 сразу? |
+| `gui.burmaldaholic.blackjack.v2.status.even_money` | Blackjack vs an ace — take 1:1 now? | Туз у дилера — взять 1:1? |
 | `gui.burmaldaholic.blackjack.v2.status.insurance_others` | Insurance is offered | Предлагается страховка |
 | `gui.burmaldaholic.blackjack.v2.status.your_turn` | Your turn | Ваш ход |
 | `gui.burmaldaholic.blackjack.v2.status.hand` | Bet %1$s · hand %2$s of %3$s | Ставка %1$s · рука %2$s из %3$s |
 | `gui.burmaldaholic.blackjack.v2.status.seconds_left` | %1$s s left | Осталось %1$s с |
 | `gui.burmaldaholic.blackjack.v2.status.deal_in` | Deal in %1$s s | Раздача через %1$s с |
 | `gui.burmaldaholic.blackjack.v2.status.dealer_plays` | The dealer plays | Ход дилера |
+| `gui.burmaldaholic.blackjack.v2.status.shuffling` | Shuffling a new shoe | Тасуем новый шуз |
 | `gui.burmaldaholic.blackjack.v2.total_soft` | %1$s/%2$s | %1$s/%2$s |
 | `gui.burmaldaholic.blackjack.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
 | `gui.burmaldaholic.blackjack.v2.stamp.bj` | BJ | БД |
-| `gui.burmaldaholic.blackjack.v2.stamp.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.stamp.win` | WIN | ПОБЕДА |
 | `gui.burmaldaholic.blackjack.v2.stamp.push` | PUSH | НИЧЬЯ |
 | `gui.burmaldaholic.blackjack.v2.stamp.bust` | BUST | ПЕРЕБОР |
 | `gui.burmaldaholic.blackjack.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
@@ -940,6 +941,9 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.blackjack.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
 | `gui.burmaldaholic.blackjack.v2.plus` | +%1$s | +%1$s |
 | `gui.burmaldaholic.blackjack.v2.minus` | −%1$s | −%1$s |
+| `gui.burmaldaholic.blackjack.v2.stamp.with_net` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.blackjack.v2.open` | Open | Свободно |
+| `gui.burmaldaholic.blackjack.v2.insurance_pill` | Ins. %1$s | Страх. %1$s |
 
 ---
 
@@ -1921,6 +1925,7 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.v2.punt_n` | Bet %1$s | Ставка %1$s |
 | `gui.burmaldaholic.baccarat.v2.pass` | Pass | Пас |
 | `gui.burmaldaholic.baccarat.v2.banco` | Banco %1$s | Банко %1$s |
+| `gui.burmaldaholic.baccarat.v2.banco_confirm` | Confirm Banco %1$s? | Точно банко %1$s? |
 | `gui.burmaldaholic.baccarat.v2.reason.ready_waiting` | Ready — waiting for the others | Готово — ждём остальных |
 | `gui.burmaldaholic.baccarat.v2.reason.next_coup_in` | Next coup in %1$s s | Следующая раздача через %1$s с |
 | `gui.burmaldaholic.baccarat.v2.reason.shuffling` | Shuffling the shoe | Перемешиваем шуз |

@@ -43,16 +43,17 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			int dx = -12;
 			for (String lang : List.of("en_us", "ru_ru")) {
 				f.language(lang);
-				coup(f, lang, 1920, 1080, 4, dx += 3, lang.equals("en_us"));
+				coup(f, lang, 1920, 1080, 4, dx += 3, true);
+				coup(f, lang, 1920, 1080, 3, dx += 3, false);
 				if (lang.equals("en_us")) {
-					coup(f, lang, 2560, 1440, 4, dx += 3, false);
-					coup(f, lang, 1920, 1080, 3, dx += 3, false);
-					coup(f, lang, 1280, 720, 3, dx += 3, false);
+					coup(f, lang, 1280, 720, 0, dx += 3, false); // Auto → 427 × 240
+					coup(f, lang, 2560, 1440, 2, dx += 3, false); // 1280 × 720 framed
 				}
 			}
 			f.language("en_us");
 			f.size(1920, 1080, 4);
 			chemmy(f, dx + 3);
+			chemmyPunter(f);
 			f.close();
 		} finally {
 			V2Chrome.dropNextSends = 0;
@@ -78,20 +79,58 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 			String want = f.client(mc -> Component.translatable(V2Keys.REASON_PLACE_BET).getString());
 			if (!f.status().equals(want)) throw new AssertionError("no-bet Deal: status '" + f.status() + "', expected '" + want + "'");
 		}
-		int chip = chipIndex(f, 100);
-		f.click(KeyMap.Ids.chip(chip)); // arm 100
+		// Banker 25 (not 100: the table total max is 100 at VIP 0, so a 100 on Banker leaves no room for the Tie)
+		int chip = chipIndex(f, 25);
+		idle(f);
+		f.click(KeyMap.Ids.chip(chip)); // arm 25
+		idle(f);
 		f.click(KeyMap.Ids.felt("box.banker"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.BANKER, 0L) > 0, "banker bet placed by a box click");
 		int small = chipIndex(f, 5);
+		idle(f);
 		f.click(KeyMap.Ids.chip(small));
+		idle(f);
 		f.click(KeyMap.Ids.felt("box.tie"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.TIE, 0L) == 5, "tie 5 placed");
 		if (negatives) {
+			// PLAYER 25 + 25 and P.PAIR 5 too (the five boxes P.PAIR · P · T · B · B.PAIR in one shot)
+			int c25 = chipIndex(f, 25);
+			idle(f);
+			f.click(KeyMap.Ids.chip(c25));
+			idle(f);
+			f.click(KeyMap.Ids.felt("box.player"));
+			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER, 0L) == 25, "player 25");
+			idle(f);
+			f.click(KeyMap.Ids.felt("box.player"));
+			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER, 0L) == 50, "player 50");
+			idle(f);
+			f.click(KeyMap.Ids.chip(small));
+			idle(f);
+			f.click(KeyMap.Ids.felt("box.player_pair"));
+			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER_PAIR, 0L) == 5, "p.pair 5");
+			f.context().waitTicks(4);
+			f.shot(tag + "_five_boxes");
+			long bank = f.server(server -> table(server, pos).betsOf(me).getOrDefault(BetKind.BANKER, 0L));
+			long bal0 = f.server(server -> Economies.get().balance(RealFlow.player(server)));
+			// review R-AB m8: Undo takes back ONE chip (the newest: the 5 on P.PAIR), one packet
+			idle(f);
 			f.click(KeyMap.Ids.tool("undo"));
-			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> !t.betsOf(me).containsKey(BetKind.TIE) && t.betsOf(me).getOrDefault(BetKind.BANKER, 0L) > 0,
-				"undo removed the tie chip only");
-			f.click(KeyMap.Ids.felt("box.tie"));
-			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.TIE, 0L) == 5, "tie 5 again");
+			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> !t.betsOf(me).containsKey(BetKind.PLAYER_PAIR), "undo took the p.pair chip");
+			// right-click PLAYER: one 25 chip off it, not the box
+			idle(f);
+			f.rightClick(KeyMap.Ids.felt("box.player"));
+			f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).getOrDefault(BetKind.PLAYER, 0L) == 25, "right-click took one chip off PLAYER");
+			f.context().waitTicks(4);
+			long bal1 = f.server(server -> Economies.get().balance(RealFlow.player(server)));
+			if (bal1 - bal0 != 30) throw new AssertionError("undo + right-click returned " + (bal1 - bal0) + ", expected 5 + 25");
+			f.server(server -> {
+				var b = table(server, pos).betsOf(me);
+				if (b.getOrDefault(BetKind.BANKER, 0L) != bank || b.getOrDefault(BetKind.TIE, 0L) != 5) {
+					throw new AssertionError("the other boxes moved: " + b);
+				}
+				return null;
+			});
+			f.shot(tag + "_undo");
 		}
 		f.context().waitTicks(4);
 		f.shot(tag + "_bets");
@@ -99,6 +138,11 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		long before = f.server(server -> Economies.get().balance(RealFlow.player(server)));
 		f.click(KeyMap.Ids.PRIMARY); // Deal (ready)
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> !"betting".equals(t.phase()) && !"idle".equals(t.phase()), "the coup started");
+		if (negatives) {
+			for (int i = 0; i < 80 && !"reveal".equals(f.server(server -> table(server, pos).phase())); i++) f.context().waitTicks(2);
+			f.context().waitTicks(30);
+			f.shot(tag + "_squeeze");
+		}
 		for (int i = 0; i < 12; i++) {
 			boolean done = f.server(server -> "result".equals(table(server, pos).phase()));
 			if (done) break;
@@ -124,6 +168,7 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		f.waitChrome(c -> c.primary.gate().enabled() && c.primary.gate().action().equals("rebet"), "Rebet offered");
 		f.click(KeyMap.Ids.PRIMARY);
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).values().stream().mapToLong(Long::longValue).sum() == staked, "rebet placed");
+		idle(f);
 		f.click(KeyMap.Ids.tool("clear"));
 		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.betsOf(me).isEmpty(), "cleared");
 		f.close();
@@ -153,6 +198,95 @@ public class BaccaratV2ClientGameTests implements FabricClientGameTest {
 		f.context().waitTicks(10);
 		f.shot("v2a_bac_en_us_chemmy_bank");
 		f.close();
+	}
+
+	/**
+	 * Chemin de fer as a punter with two bots: the bank offered to the viewer is passed (action Pass), then the viewer punts
+	 * with chips + the primary, or calls Banco when that is the open action; the server holds the punt.
+	 */
+	private static void chemmyPunter(RealFlow f) {
+		BlockPos pos = fresh(f, BaccaratModule.CHEMMY_TABLE.block());
+		f.server(server -> {
+			table(server, pos).bots().setDefaults(new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED,
+				2, dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.FAST));
+			return null;
+		});
+		f.open(pos, BaccaratScreen.class);
+		f.click(KeyMap.Ids.PRIMARY);
+		UUID me = f.server(server -> RealFlow.player(server).getUUID());
+		f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.seats().seatOf(me).isPresent(), "seated at chemin de fer (punter)");
+		boolean punted = false;
+		boolean passed = false;
+		for (int i = 0; i < 400 && !punted; i++) { // bots may pass the bank several times (house coups between); an overloaded server is slow
+			if (f.enabledTarget(KeyMap.Ids.action("pass"))) {
+				f.shot("v2a_bac_en_us_chemmy_pass");
+				f.click(KeyMap.Ids.action("pass"));
+				passed = true;
+			} else if (f.server(server -> {
+				BaccaratTableBlockEntity t = table(server, pos);
+				return "betting".equals(t.phase()) && t.bank().banker() != null && !me.equals(t.bank().banker());
+			})) {
+				// a bot holds the bank: NEVER fast-forward here (that fires the idle timer and passes the bot's bank, T-A2);
+				// the real 30 s window is open, so wait for the client to show the chips (a sync behind on a busy machine)
+				boolean chips = false;
+				for (int w = 0; w < 100 && !chips; w++) {
+					chips = f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().bet.visible()
+						&& h.chrome().hits().targets().stream().anyMatch(t -> t.id().startsWith("chip.") && t.enabled()));
+					if (!chips) f.context().waitTicks(2);
+				}
+				if (!chips) {
+					boolean stillOpen = f.server(server -> {
+						BaccaratTableBlockEntity t = table(server, pos);
+						return "betting".equals(t.phase()) && t.bank().banker() != null && !me.equals(t.bank().banker()) && t.bank().punts().isEmpty();
+					});
+					if (stillOpen) throw new AssertionError("chemin de fer: a bot bank is open but the chips never enabled (status '" + f.status() + "')");
+					continue; // the bank moved on by itself (a bot coup): try the next one
+				}
+				// a bot holds the bank and punting is open: chips build the punt until it reaches the table minimum
+				int c = chipIndex(f, 25);
+				for (int k = 0; k < 4 && !f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().primary.gate().enabled()
+					&& h.chrome().primary.gate().action().equals("punt")); k++) {
+					idle(f);
+					f.click(KeyMap.Ids.chip(c));
+				}
+				f.waitChrome(x -> x.primary.gate().enabled() && x.primary.gate().action().equals("punt"), "Punt enabled");
+				f.shot("v2a_bac_en_us_chemmy_punt");
+				f.click(KeyMap.Ids.PRIMARY);
+				f.waitServer(pos, BaccaratTableBlockEntity.class, t -> t.bank().punts().containsKey(me), "the punt is held by the table");
+				punted = true;
+			} else {
+				f.server(server -> {
+					BaccaratTableBlockEntity t = table(server, pos);
+					var pl = RealFlow.player(server);
+					// every seat passed the bank: the house coup waits for a bet (no timer to skip); play it so the bank rotates
+					if ("betting".equals(t.phase()) && t.writeClientState(pl).getBooleanOr("house_coup", false) && t.betsOf(me).isEmpty()) {
+						net.minecraft.nbt.CompoundTag b = new net.minecraft.nbt.CompoundTag();
+						b.putString("box", "banker");
+						b.putLong("amount", Math.max(1, t.writeClientState(pl).getLongOr("bet_min", 1)));
+						t.onAction(pl, "bet", b);
+						t.onAction(pl, "deal", new net.minecraft.nbt.CompoundTag());
+					}
+					// a bot deciding on the bank must decide itself: skipping the offer timer makes its offer time out as a pass
+					boolean botDeciding = "bank_offer".equals(t.phase())
+						&& !t.writeClientState(pl).getCompoundOrEmpty("chemmy").getStringOr("candidate_bot", "").isEmpty();
+					// the bot the bank is offered to takes 50 (its own choice is random: NORMAL bots often pass); what this test
+					// proves is the player's punt by clicks against a bot bank, not the bot's appetite
+					if (botDeciding) t.botTakesBankForTests(50);
+					else t.fastForwardForTests();
+					return null;
+				});
+			}
+			f.context().waitTicks(10);
+		}
+		if (!punted) throw new AssertionError("chemin de fer: never punted (passed " + passed + ")");
+		f.context().waitTicks(10);
+		f.shot("v2a_bac_en_us_chemmy_punted");
+		f.close();
+	}
+
+	/** Waits until no action is pending (a click while the last one is unacknowledged is refused with "Waiting for the table"). */
+	private static void idle(RealFlow f) {
+		f.waitChrome(c -> c.pending() == null, "the table answered the last action");
 	}
 
 	private static BlockPos fresh(RealFlow f, net.minecraft.world.level.block.Block block) {

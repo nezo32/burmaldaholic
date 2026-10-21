@@ -32,11 +32,13 @@ import dev.nezo.burmaldaholic.core.ui.v2.SeatColumn;
 import dev.nezo.burmaldaholic.core.ui.v2.Stamps;
 import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.core.ui.v2.Tier;
+import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import dev.nezo.burmaldaholic.games.blackjack.logic.Card;
 import dev.nezo.burmaldaholic.games.blackjack.logic.Hands;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackFlow;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackLayout;
 import dev.nezo.burmaldaholic.games.blackjack.present.BlackjackView;
+import dev.nezo.burmaldaholic.games.blackjack.present.ShoeView;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -80,7 +82,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 
 	/** One seat of the round (or of the betting lobby). */
 	record Seat(int seat, String name, @Nullable Component nameC, boolean bot, boolean you, long bet, boolean settled, long net, long ret,
-			long staked, String tier, List<Hand> hands) {
+			long staked, String tier, List<Hand> hands, long insurance) {
 		Component display() {
 			return nameC != null ? nameC : Texts.raw(name);
 		}
@@ -108,6 +110,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		int seatCount = 5;
 		int mySeat = -1;
 		int occupied;
+		/** E5: the countable shoe (dealt / left / cut card / discard tray); NONE until the server sent it. */
+		ShoeView shoe = ShoeView.NONE;
 	}
 
 	private Model m = new Model();
@@ -159,6 +163,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		n.seatCount = Math.max(1, s.getIntOr("seat_count", 5));
 		n.mySeat = s.getIntOr("seat", -1);
 		n.occupied = s.getListOrEmpty("seats").size();
+		CompoundTag sh = s.getCompoundOrEmpty("shoe");
+		n.shoe = new ShoeView(sh.getIntOr("size", 0), sh.getIntOr("dealt", 0), sh.getIntOr("cut", 0), sh.getIntOr("discard", 0));
 		ListTag players = s.getListOrEmpty("players");
 		for (int i = 0; i < players.size(); i++) {
 			CompoundTag p = players.getCompoundOrEmpty(i);
@@ -173,7 +179,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			boolean bot = p.getBooleanOr("bot", false);
 			n.seats.add(new Seat(p.getIntOr("seat", -1), p.getStringOr("name", ""), bot ? decode(p.get("name_c")) : null, bot, p.getBooleanOr("you", false),
 				p.getLongOr("bet", 0), p.getBooleanOr("settled", false), p.getLongOr("net", 0), p.getLongOr("ret", 0), p.getLongOr("staked", 0),
-				p.getStringOr("tier", ""), hands));
+				p.getStringOr("tier", ""), hands, p.getLongOr("insurance", 0)));
 		}
 		Map<Integer, Long> bets = new HashMap<>();
 		ListTag bl = s.getListOrEmpty("bets");
@@ -186,14 +192,14 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 				CompoundTag st = seats.getCompoundOrEmpty(i);
 				int idx = st.getIntOr("index", -1);
 				n.seats.add(new Seat(idx, st.getStringOr("name", ""), null, false, st.getBooleanOr("you", false), bets.getOrDefault(idx, 0L), false, 0, 0, 0, "",
-					List.of()));
+					List.of(), 0));
 			}
 			ListTag bots = s.getListOrEmpty("bot_seats");
 			for (int i = 0; i < bots.size(); i++) {
 				CompoundTag bt = bots.getCompoundOrEmpty(i);
 				int idx = bt.getIntOr("seat", -1);
 				if (n.seats.stream().anyMatch(x -> x.seat() == idx)) continue;
-				n.seats.add(new Seat(idx, "", decode(bt.get("name_c")), true, false, bt.getLongOr("amount", 0), false, 0, 0, 0, "", List.of()));
+				n.seats.add(new Seat(idx, "", decode(bt.get("name_c")), true, false, bt.getLongOr("amount", 0), false, 0, 0, 0, "", List.of(), 0));
 			}
 		}
 		if (n.betPlaced && n.placedAmount <= 0) n.placedAmount = Math.max(1, n.lastBet);
@@ -229,6 +235,9 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 				CompoundTag args = new CompoundTag();
 				args.putLong("amount", m.lastBet);
 				sendTracked("bet", args, "spot", m.lastBet);
+			} else if (m.lastBet > 0) {
+				// review R-AB m9: the queued Rebet no longer fits the balance: say so (it was dropped silently)
+				chrome.flash(KeyMap.Ids.PRIMARY, V2Keys.REASON_NOT_ENOUGH, m.lastBet);
 			}
 		}
 		Seat me = me();
@@ -259,9 +268,16 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		}
 		int hands = me == null ? 0 : me.hands().size();
 		int hand = myTurn ? m.currentHand + 1 : 0;
+		// DES blackjack P0 (Dock "Bet 0 · hand 1 of 1" with 50 on the felt): outside betting the Dock shows this round's stake
+		long placed = phase == BlackjackView.Phase.BETTING ? (m.betPlaced ? m.placedAmount : 0) : me == null ? 0 : stake(me);
 		return new BlackjackView(mySeat() >= 0, m.occupied < m.seatCount, phase, m.busy, minBet(), maxBet(), balance(), draft,
-			m.betPlaced ? m.placedAmount : 0, m.lastBet, !history.isEmpty(), me != null && hands > 0, myTurn, m.legal, m.offer, m.insuranceMax, waiting, secs,
+			placed, m.lastBet, !history.isEmpty(), me != null && hands > 0, myTurn, m.legal, m.offer, m.insuranceMax, waiting, secs,
 			hand, hands, chrome.pending() != null);
+	}
+
+	/** A seat's stake in this round: its hands' bets (doubles and splits included), else its bet. */
+	private static long stake(Seat s) {
+		return s.hands().isEmpty() ? s.bet() : s.hands().stream().mapToLong(Hand::bet).sum();
 	}
 
 	@Override
@@ -286,7 +302,13 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			chrome.status.color(CasinoPalette.V2_GOLD);
 		}
 		boolean mine = view.myTurn() || me != null && me.settled() && !m.busy;
-		if (!m.notice.isEmpty() && !mine && view.phase() != BlackjackView.Phase.BETTING) l2 = Component.translatable(m.notice);
+		// DES blackjack P2 (A-0021): the old "Shuffling the shoe…" second line was noise; E5: a new shoe is shuffled only
+		// between rounds now (cut card out), and that is worth one clear line in any phase
+		if (m.notice.endsWith(".shuffling") && !mine) {
+			l2 = Component.translatable("gui.burmaldaholic.blackjack.v2.status.shuffling");
+		} else if (!m.notice.isEmpty() && !mine && view.phase() != BlackjackView.Phase.BETTING && !m.notice.endsWith(".shuffling")) {
+			l2 = Component.translatable(m.notice);
+		}
 		chrome.status.set(l1, l2);
 	}
 
@@ -339,6 +361,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 				if (view == null || !BlackjackFlow.INSTANCE.chip(denom, view).enabled()) return;
 				draft += denom;
 				history.push(denom);
+				chrome.status.clearFlash(); // DES blackjack P0 (A-0001): an old "Place a bet first" must not outlive the chip
 				FxSounds.play("chip_place", 1f);
 				refresh();
 			}
@@ -371,6 +394,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 				if (hit != null) history.removeFirstOccurrence(hit);
 				else hit = history.pop();
 				draft = Math.max(0, draft - hit);
+				chrome.status.clearFlash();
 				refresh();
 			}
 
@@ -395,6 +419,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 					}
 					default -> {}
 				}
+				chrome.status.clearFlash();
 				FxSounds.play("chip_place", 0.8f);
 				refresh();
 			}
@@ -494,10 +519,20 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		} else if (l.hero() >= 0 && v.bettingOpen()) {
 			hits.add(KeyMap.Ids.felt("spot"), heroSpot(l), true);
 		}
+		// the result banner (K2a: full, else the compact 200 x 20) goes into the dealer <-> hero gap; at T2 that gap only
+		// opens over the hero's outcome slot, whose total pill may hide under the banner (the stamp on the cards keeps the
+		// outcome visible): DES cross-cutting 4, review R-AB m11
 		List<Box> obstacles = new ArrayList<>();
 		obstacles.add(l.dealer());
-		for (SeatColumn c : l.columns()) if (c != null) obstacles.addAll(List.of(c.boxes()));
-		chrome.banner.regions(l.banner().isEmpty() ? List.of() : List.of(l.banner()), obstacles);
+		for (int i = 0; i < l.columns().length; i++) {
+			SeatColumn c = l.columns()[i];
+			if (c == null) continue;
+			for (Box b : c.boxes()) if (!(i == l.hero() && b == c.outcome())) obstacles.add(b);
+		}
+		List<Box> regions = new ArrayList<>();
+		if (!l.banner().isEmpty()) regions.add(l.banner());
+		if (!l.resultBanner().isEmpty()) regions.add(l.resultBanner());
+		chrome.banner.regions(regions, obstacles);
 	}
 
 	private Box heroSpot(BlackjackLayout l) {
@@ -515,15 +550,11 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 			boolean hero = hero(s.seat());
 			int[] cards = new int[s.hands().size()];
 			for (int h = 0; h < cards.length; h++) cards[h] = s.hands().get(h).codes().length;
-			int[] outW;
-			if (s.settled() && !m.busy) {
-				int ww = font.width(Stamp.word(stampOf(BlackjackBoardRenderer.word(outcomes(s)))));
-				outW = Stamps.levels(ww, hero);
-			} else {
-				Component tt = totalOf(s);
-				outW = tt == null ? new int[0] : hero ? new int[] {TotalPill.width(font, tt, 2), TotalPill.width(font, tt, 1)}
-					: new int[] {TotalPill.width(font, tt, 1)};
-			}
+			// the outcome slot keeps the total pill after settle (the stamp goes ON the cards, DES blackjack P1); a split seat
+			// draws one 1x total per hand above each fan instead
+			Component tt = cards.length > 1 ? null : totalOf(s);
+			int[] outW = tt == null ? new int[0] : hero ? new int[] {TotalPill.width(font, tt, 2), TotalPill.width(font, tt, 1)}
+				: new int[] {TotalPill.width(font, tt, 1)};
 			int valueW = ValuePill.width(font, valueText(s));
 			seats[s.seat()] = new BlackjackLayout.SeatIn(cards, outW, valueW);
 		}
@@ -587,10 +618,33 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		drawShoe(g, l.shoe(), back);
 		V2Draw.fill(g, l.discard(), 0xFF2A1A10);
 		V2Draw.outline(g, l.discard(), V2Felt.rail(theme));
+		drawShoeCount(g, l, m.shoe);
 		// felt prints (decor; only where nothing is)
 		List<Box> content = new ArrayList<>();
 		content.add(l.dealer());
-		for (SeatColumn c : l.columns()) if (c != null) content.addAll(List.of(c.boxes()));
+		for (int slot = 0; slot < l.columns().length; slot++) {
+			SeatColumn c = l.columns()[slot];
+			if (c == null) continue;
+			Seat st = null;
+			for (int q = 0; q < m.seatCount; q++) if (l.slotOfSeat()[q] == slot) st = seat(q);
+			boolean handless = st == null || st.hands().isEmpty();
+			for (Box b : c.boxes()) if (!(handless && b == c.outcome() && b.w() <= SeatColumn.DOT)) content.add(b); // a reserved dot draws nothing
+			// split hands: their own total pills and stacks sit outside the column's outcome slot
+			if (st != null && st.hands().size() > 1) {
+				int[] per = new int[st.hands().size()];
+				int[] tw = new int[per.length];
+				for (int h = 0; h < per.length; h++) {
+					per[h] = st.hands().get(h).codes().length;
+					tw[h] = 24;
+				}
+				for (BlackjackLayout.HandBox hb : BlackjackLayout.hands(c, t, slot == l.hero(), per, tw, tw)) content.addAll(List.of(hb.boxes()));
+			}
+		}
+		// the hero spot's "Your bet" tag (betting, no cards yet) is content too: the second print line yields to it
+		if (l.hero() >= 0 && v.bettingOpen()) {
+			Box spot = heroSpot(l);
+			content.add(new Box(spot.cx() - 50, spot.y() - 15, 100, 11));
+		}
 		int print = V2Felt.print(theme);
 		FeltPrint.draw(g, font, l.prints()[0], Component.translatable("gui.burmaldaholic.blackjack.print.pays"), 0.55f, content);
 		if (l.prints().length > 1) FeltPrint.draw(g, font, l.prints()[1], Component.translatable("gui.burmaldaholic.blackjack.print.insurance"), 0.55f, content);
@@ -624,6 +678,7 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 				// an empty seat: the printed box (gold ring + "Sit" on hover when the viewer can sit)
 				boolean hover = !v.seated() && l.spots()[slot].contains(mx, my) && v.canSit();
 				FeltPrint.seatBox(g, font, l.spots()[slot], hover);
+				if (!hover) openPrint(g, l, slot, content, grid);
 				continue;
 			}
 			drawSeat(g, t, l, slot, c, st, v, nowMs, back, mx, my);
@@ -631,55 +686,133 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		maybeResult(l);
 	}
 
+	/** "Open" / "Свободно" printed in an empty seat's box (DES blackjack P2), where it touches no content and no other box. */
+	private void openPrint(GuiGraphicsExtractor g, BlackjackLayout l, int slot, List<Box> content, TableGrid grid) {
+		Component word = Component.translatable("gui.burmaldaholic.blackjack.v2.open");
+		Box spot = l.spots()[slot];
+		Box t = Box.centredAt(spot.cx(), spot.cy(), font.width(word) + 2, font.lineHeight);
+		if (!t.inside(grid.felt())) return;
+		for (int i = 0; i < l.spots().length; i++) if (i != slot && l.spots()[i].intersects(t)) return;
+		FeltPrint.draw(g, font, t, word, 0.5f, content);
+	}
+
 	private void drawSeat(GuiGraphicsExtractor g, Tier t, BlackjackLayout l, int slot, SeatColumn c, @Nullable Seat st, BlackjackView v, double nowMs, int back,
 			int mx, int my) {
 		boolean hero = slot == l.hero();
-		int cw = hero ? t.heroW : t.seatW;
 		boolean settled = st != null && st.settled() && !m.busy;
 		boolean acting = st != null && st.seat() == m.currentSeat && !m.busy && "turns".equals(m.phase);
 		List<Hand> hands = st == null ? List.of() : st.hands();
+		boolean split = hands.size() > 1;
+		BlackjackLayout.HandBox[] hb = new BlackjackLayout.HandBox[0];
 		if (!hands.isEmpty()) {
-			int[] per = new int[hands.size()];
-			for (int h = 0; h < per.length; h++) per[h] = hands.get(h).codes().length;
-			Box[] fans = BlackjackLayout.handFans(c.cards(), per, cw);
-			for (int h = 0; h < hands.size(); h++) {
+			int n = hands.size();
+			int[] per = new int[n];
+			int[] tw = new int[n];
+			int[] vw = new int[n];
+			for (int h = 0; h < n; h++) {
 				Hand hand = hands.get(h);
-				Box fan = fans[h];
-				int n = hand.codes().length;
-				int step = BlackjackLayout.step(fan, n, cw);
+				per[h] = hand.codes().length;
+				if (split) {
+					tw[h] = hand.codes().length == 0 ? 0 : TotalPill.width(font, totalText(hand.codes()), 1);
+					vw[h] = ValuePill.width(font, handValue(hand, settled));
+				}
+			}
+			hb = BlackjackLayout.hands(c, t, hero, per, tw, vw);
+			for (int h = 0; h < n; h++) {
+				Hand hand = hands.get(h);
+				BlackjackLayout.HandBox box = hb[h];
+				int k = hand.codes().length;
 				boolean lost = !hand.outcome().isEmpty() && !m.busy && List.of("bust", "lose", "dealer_blackjack", "surrender").contains(hand.outcome());
 				int argb = lost ? 0xFFA0A0A0 : 0xFFFFFFFF;
-				for (int k = 0; k < n; k++) {
-					Box b = new Box(fan.x() + k * step, fan.y(), cw, fan.h());
-					drawCard(g, b, hand.codes()[k], k < hand.at().length ? hand.at()[k] : 0, nowMs, l.shoe(), back, 1000L * m.roundSeq + 100L * (st.seat() + 1) + 10L * h + k,
-						argb);
+				for (int q = 0; q < k; q++) {
+					Box b = new Box(box.fan().x() + q * box.step(), box.fan().y(), box.cw(), box.ch());
+					drawCard(g, b, hand.codes()[q], q < hand.at().length ? hand.at()[q] : 0, nowMs, l.shoe(), back,
+						1000L * m.roundSeq + 100L * (st.seat() + 1) + 10L * h + q, argb);
 				}
-				if (acting && h == m.currentHand && n > 0) CardsV2.glow(g, new Box(fan.x(), fan.y(), cw + (n - 1) * step, fan.h()), CasinoPalette.V2_GOLD);
+				// the acting hand glows (split: only the one being played)
+				if (acting && h == m.currentHand && k > 0) {
+					CardsV2.glow(g, new Box(box.fan().x(), box.fan().y(), box.cw() + (k - 1) * box.step(), box.ch()), CasinoPalette.V2_GOLD);
+				}
+				if (split) {
+					if (!box.total().isEmpty() && k > 0) TotalPill.draw(g, font, box.total(), totalText(hand.codes()), 1);
+					if (hand.bet() > 0) {
+						if (!box.stack().isEmpty()) ChipStack.draw(g, box.stack(), hand.bet());
+						long net = hand.ret() - hand.bet();
+						ValuePill.draw(g, font, box.value(), handValue(hand, settled), settled ? ValuePill.ofNet(net) : hero ? ValuePill.Style.YOU
+							: ValuePill.Style.OTHER);
+					}
+				}
 			}
 		} else if (hero && v.phase() == BlackjackView.Phase.BETTING) {
 			drawHeroSpot(g, l, v, mx, my);
 		}
-		// outcome slot: the total pill while playing, the stamp word on settle
-		if (st != null && settled) {
-			Stamps.Outcome o = stampOf(BlackjackBoardRenderer.word(outcomes(st)));
-			long age = Util.getMillis() - stampSeen.computeIfAbsent(st.seat(), k -> Util.getMillis());
-			Stamp.drawResolved(g, font, c.outcome(), o, l.levels()[slot], hero, age);
-		} else if (st != null && !c.outcome().isEmpty() && c.outcome().w() > SeatColumn.DOT) {
+		// outcome slot: the total pill, while playing and after settle (the stamp goes on the cards)
+		if (st != null && !split && !c.outcome().isEmpty() && c.outcome().w() > SeatColumn.DOT) {
 			Component tt = totalOf(st);
 			if (tt != null) TotalPill.draw(g, font, c.outcome(), tt, hero && l.levels()[slot] == 0 ? 2 : 1);
 		}
 		// stack + value pill (the bet; the net on settle)
-		long bet = st == null ? 0 : st.hands().isEmpty() ? st.bet() : st.hands().stream().mapToLong(Hand::bet).sum();
+		long bet = st == null ? 0 : stake(st);
 		if (hero && bet <= 0 && v.phase() == BlackjackView.Phase.BETTING) bet = v.placed() > 0 ? v.placed() : draft;
-		if (bet > 0 && !(hero && hands.isEmpty() && v.phase() == BlackjackView.Phase.BETTING)) {
+		if (!split && bet > 0 && !(hero && hands.isEmpty() && v.phase() == BlackjackView.Phase.BETTING)) {
 			if (!c.stack().isEmpty()) ChipStack.draw(g, c.stack(), bet);
 			Component vt = settled ? V2Draw.net(st.net()) : Texts.number(bet);
 			ValuePill.draw(g, font, c.value(), vt, settled ? ValuePill.ofNet(st.net()) : hero ? ValuePill.Style.YOU : ValuePill.Style.OTHER);
+		}
+		// the insurance bet on the felt, left of the seat's stack (DES blackjack P2, A-0021)
+		if (st != null && st.insurance() > 0 && !hands.isEmpty()) {
+			Component it = Component.translatable("gui.burmaldaholic.blackjack.v2.insurance_pill", Texts.number(st.insurance()));
+			List<Box> avoid = new ArrayList<>();
+			for (SeatColumn o : l.columns()) if (o != null) avoid.addAll(List.of(o.boxes()));
+			for (BlackjackLayout.HandBox h : hb) avoid.addAll(List.of(h.boxes()));
+			Box[] ib = BlackjackLayout.insurance(c, t, ValuePill.width(font, it), chrome.grid().felt(), avoid.toArray(Box[]::new));
+			if (!ib[1].isEmpty()) {
+				ChipStack.draw(g, ib[0], st.insurance());
+				ValuePill.draw(g, font, ib[1], it, ValuePill.Style.OTHER);
+			}
+		}
+		// the stamp ON the cards with the net (DES blackjack P1: "WIN +50"; the total pill stays)
+		if (settled) {
+			long age = Util.getMillis() - stampSeen.computeIfAbsent(st.seat(), k -> Util.getMillis());
+			for (int h = 0; h < hb.length && h < hands.size(); h++) {
+				Hand hand = hands.get(h);
+				String word = split ? BlackjackBoardRenderer.word(hand.outcome()) : BlackjackBoardRenderer.word(outcomes(st));
+				long net = split ? hand.ret() - hand.bet() : st.net();
+				stampOnCards(g, t, hb[h], word, net, hero, age);
+			}
 		}
 		// plate: the name only
 		Component name = st != null ? st.display() : Component.translatable("gui.burmaldaholic.blackjack.v2.your_bet");
 		if (hero && st == null && minecraft != null && minecraft.player != null) name = minecraft.player.getName();
 		SeatPlate.draw(g, font, c.plate(), name, hero ? SeatPlate.Kind.YOU : acting ? SeatPlate.Kind.ACTING : SeatPlate.Kind.OTHER, st != null && st.bot());
+	}
+
+	private Component handValue(Hand hand, boolean settled) {
+		return settled ? V2Draw.net(hand.ret() - hand.bet()) : Texts.number(hand.bet());
+	}
+
+	/**
+	 * The result stamp on a hand's cards: {@code WIN +50} (1×; 2× for the hero at T3 when it fits), else the word alone,
+	 * else the coloured dot. It sits on the lower part of the fan, so the rank indices at the top stay readable.
+	 */
+	private void stampOnCards(GuiGraphicsExtractor g, Tier t, BlackjackLayout.HandBox hand, String word, long net, boolean hero, long age) {
+		Box fan = hand.fan();
+		Stamps.Outcome o = stampOf(word);
+		Component w = Component.translatable("gui.burmaldaholic.blackjack.v2.stamp." + word);
+		Component full = net == 0 ? w : Component.translatable("gui.burmaldaholic.blackjack.v2.stamp.with_net", w, V2Draw.net(net));
+		int room = fan.w() + (hero ? 10 : 4);
+		int[] scales = hero && t == Tier.T3 ? new int[] {2, 1} : new int[] {1};
+		for (Component text : new Component[] {full, w}) {
+			for (int scale : scales) {
+				int sw = Stamp.width(font, text, scale);
+				if (sw > room) continue;
+				int sh = scale == 2 ? Stamps.H_2X : Stamps.H_1X;
+				int y = Math.min(fan.bottom() - sh - 3, fan.y() + fan.h() * 3 / 5 - sh / 2);
+				Stamp.draw(g, font, new Box(fan.cx() - sw / 2, y, sw, sh), text, o.kind, scale, age);
+				return;
+			}
+		}
+		Stamp.dot(g, Box.centredAt(fan.cx(), fan.y() + fan.h() * 3 / 5, SeatColumn.DOT, SeatColumn.DOT), o.kind);
 	}
 
 	/** The viewer's betting spot: the pulsing gold ring, "Your bet" above it, the draft (or the placed bet) inside. */
@@ -700,7 +833,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		long amount = v.placed() > 0 ? v.placed() : draft;
 		var pending = chrome.pending();
 		if (amount > 0) {
-			int chip = chrome.grid().tier.feltChip;
+			// DES blackjack P1 (A-0001): the bet on the spot is a stack of 16-px discs (12 at T1), not a 9-px square
+			int chip = chrome.grid().tier == Tier.T1 ? chrome.grid().tier.feltChip : 16;
 			Box st = Box.centredAt(spot.cx(), spot.cy(), chip, chip + 4);
 			ChipStack.draw(g, st, amount, pending != null ? 0.6f : 1f);
 			Component vt = Texts.number(amount);
@@ -749,6 +883,33 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		}
 	}
 
+	/**
+	 * E5, a countable shoe: the depth bar under the shoe (cards left, shrinking to the left; turns red once the cut card is
+	 * out) with the 1-px cut-card marker, the discard tray filled to scale and its card count. No running count.
+	 */
+	private void drawShoeCount(GuiGraphicsExtractor g, BlackjackLayout l, ShoeView sv) {
+		if (!sv.known()) return;
+		Box bar = l.shoeBar();
+		g.fill(bar.x() - 1, bar.y() - 1, bar.right() + 1, bar.bottom() + 1, 0xFF1A0E06); // a dark well on the shoe's face
+		V2Draw.fill(g, bar, CasinoPalette.V2_RAIL_DARK);
+		int fw = sv.fillW(bar.w());
+		if (fw > 0) g.fill(bar.x(), bar.y(), bar.x() + fw, bar.bottom(), sv.cutOut() ? CasinoPalette.V2_LOSE : CasinoPalette.V2_GOLD);
+		int cx = bar.x() + sv.cutX(bar.w());
+		g.fill(cx, bar.y(), cx + 1, bar.bottom(), 0xFFE0303A);
+		Box tray = l.discard().inset(2);
+		int th = sv.trayH(tray.h());
+		if (th > 0) {
+			g.fill(tray.x(), tray.bottom() - th, tray.right(), tray.bottom(), 0xFF8A2030);
+			g.fill(tray.x(), tray.bottom() - th, tray.right(), tray.bottom() - th + 1, CasinoPalette.V2_TEXT);
+		}
+		V2Draw.centred(g, font, Texts.raw(Integer.toString(sv.discard())), l.discardCount(), 1, CasinoPalette.V2_TEXT, true);
+	}
+
+	/** The parsed shoe (client tests). */
+	public ShoeView shoeView() {
+		return m.shoe;
+	}
+
 	private void drawShoe(GuiGraphicsExtractor g, Box s, int back) {
 		V2Draw.fill(g, s, 0xFF4A2A14);
 		V2Draw.outline(g, s, CasinoPalette.V2_GOLD_SHADE);
@@ -763,7 +924,9 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		if (me == null || !me.settled() || m.busy || settledAt < 0) return;
 		if (bannerRound != m.roundSeq) {
 			bannerRound = m.roundSeq;
-			chrome.banner.show(me.net());
+			long net = me.net();
+			chrome.banner.show(Component.translatable("gui.burmaldaholic.blackjack.v2.banner." + (net > 0 ? "win" : net < 0 ? "lose" : "push")), net,
+				dev.nezo.burmaldaholic.client.ui.v2.ResultBanner.SHOW_MS);
 			ClientFx.balanceHold.accept(600);
 		}
 		if (celebratedRound != m.roundSeq && Util.getMillis() - settledAt > 1300) {

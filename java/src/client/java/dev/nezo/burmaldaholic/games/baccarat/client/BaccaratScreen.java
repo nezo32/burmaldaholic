@@ -33,6 +33,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Tier;
 import dev.nezo.burmaldaholic.games.baccarat.logic.BaccaratRules;
 import dev.nezo.burmaldaholic.games.baccarat.logic.Card;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratFlow;
+import dev.nezo.burmaldaholic.games.baccarat.present.BancoConfirm;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratLayout;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratPub;
 import dev.nezo.burmaldaholic.games.baccarat.present.BaccaratView;
@@ -64,11 +65,13 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 	private @Nullable BaccaratLayout layout;
 	private long draft;
 	private final Deque<Long> history = new ArrayDeque<>();
-	/** Chips put down this coup, newest first: box index and the box's amount before the chip (undo). */
+	/** Chips put down this coup, newest first: box index and the chip's amount (Undo / right-click take one back). */
 	private final Deque<long[]> placed = new ArrayDeque<>();
 	private final Map<Long, Long> flipSeen = new HashMap<>();
 	private long lastCoup = -1;
 	private long bannerCoup = -1, celebratedCoup = -1, resultAt = -1;
+	/** A big Banco asks for a second press within 3 s (T-A2 R4). */
+	private final BancoConfirm banco = new BancoConfirm(BaccaratFlow.INSTANCE, Util::getMillis);
 
 	public BaccaratScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable(menu.tableType().name().endsWith("player_banked") ? "gui.burmaldaholic.baccarat.title_chemmy"
@@ -143,7 +146,13 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 
 	@Override
 	protected Flow<BaccaratView> flow() {
-		return BaccaratFlow.INSTANCE;
+		return banco;
+	}
+
+	@Override
+	protected void containerTick() {
+		super.containerTick();
+		if (banco.expired()) refresh();
 	}
 
 	@Override
@@ -325,41 +334,32 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		};
 	}
 
-	/** Undo the last chip: the box is re-placed at its amount before that chip (the server's slip stays the truth). */
+	/** Undo = one {@code unbet_chip} of the newest chip (review R-AB m8: one packet, the server's slip stays the truth). */
 	private void undo() {
+		chipBack(-1);
+	}
+
+	/** Takes one chip back from {@code box} (-1 = the newest chip anywhere) with one {@code unbet_chip}. */
+	private void chipBack(int box) {
 		if (view == null) return;
-		long[] last = placed.poll();
-		int box;
-		long before;
-		if (last != null) {
-			box = (int) last[0];
-			before = last[1];
-		} else {
-			// no local history (reopened screen): remove the last box with chips entirely
-			box = -1;
-			for (int k = BaccaratPub.BOXES - 1; k >= 0; k--) if (view.bets()[k] > 0) {
-				box = k;
-				break;
-			}
-			if (box < 0) return;
-			before = 0;
+		List<long[]> hist = new ArrayList<>(placed);
+		BaccaratFlow.ChipBack back = BaccaratFlow.chipBack(hist, view.bets(), box);
+		if (back == null) return;
+		if (back.historyIndex() >= 0) {
+			hist.remove(back.historyIndex());
+			placed.clear();
+			placed.addAll(hist);
 		}
-		CompoundTag un = new CompoundTag();
-		un.putString("box", BaccaratPub.BOX_IDS[box]);
-		sendAction("unbet", un);
-		if (before > 0) {
-			CompoundTag args = new CompoundTag();
-			args.putString("box", BaccaratPub.BOX_IDS[box]);
-			args.putLong("amount", before);
-			sendTracked("bet", args, BaccaratPub.BOX_IDS[box], before);
-		} else {
-			sendTracked("resync", new CompoundTag(), "", 0);
-		}
+		CompoundTag args = new CompoundTag();
+		args.putString("box", BaccaratPub.BOX_IDS[back.box()]);
+		args.putLong("amount", back.amount());
+		sendTracked("unbet_chip", args, "", 0);
+		FxSounds.play("chip_place", 0.8f);
 	}
 
 	private void placeChip(int box, long amount) {
 		if (view == null) return;
-		placed.push(new long[] {box, view.bets()[box]});
+		placed.push(new long[] {box, amount});
 		CompoundTag args = new CompoundTag();
 		args.putString("box", BaccaratPub.BOX_IDS[box]);
 		args.putLong("amount", amount);
@@ -369,6 +369,11 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 
 	@Override
 	public void onGate(String id, Gate gate) {
+		if (!banco.press(gate, balance())) {
+			// first press of a big Banco: the primary now reads "Confirm Banco N?" until a second press or 3 s pass
+			refresh();
+			return;
+		}
 		switch (gate.action()) {
 			case "deal" -> sendTracked("ready");
 			case "punt" -> {
@@ -397,9 +402,8 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 			int box = boxIndex(id.substring("felt.box.".length()));
 			if (box < 0) return false;
 			if (button.right()) {
-				CompoundTag un = new CompoundTag();
-				un.putString("box", BaccaratPub.BOX_IDS[box]);
-				sendTracked("unbet", un, "", 0);
+				// right-click: one chip off this box (not the whole box)
+				if (enabled && view.bets()[box] > 0) chipBack(box);
 				return true;
 			}
 			long d = chrome.bet.armOrDefault();
@@ -449,8 +453,13 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		}
 		List<Box> obstacles = new ArrayList<>(List.of(l.player(), l.bankerCards(), l.playerCards()));
 		for (Box b : l.boxes()) obstacles.add(b);
-		chrome.banner.regions(List.of(new Box(l.player().x(), l.player().bottom() - 8, l.banker().right() - l.player().x(), 40)), List.of(l.playerCards(),
-			l.bankerCards()));
+		// the result banner (K2a: full, else the compact 200 x 20) may cover the hands' empty felt, never the cards, totals,
+		// labels or the bet boxes' names / payouts (run-4 shot: PLAYER WINS covered the PLAYER / TIE / BANKER headers)
+		List<Box> bannerObs = new ArrayList<>(List.of(l.playerCards(), l.bankerCards(), l.playerTotal(), l.bankerTotal(), l.playerLabel(), l.bankerLabel()));
+		for (Box b : l.boxName()) if (b != null && !b.isEmpty()) bannerObs.add(b);
+		for (Box b : l.boxPays()) if (b != null && !b.isEmpty()) bannerObs.add(b);
+		Box hands = new Box(l.player().x(), l.player().y(), l.banker().right() - l.player().x(), l.player().h());
+		chrome.banner.regions(List.of(new Box(l.player().x(), l.player().bottom() - 8, l.banker().right() - l.player().x(), 40), hands), bannerObs);
 	}
 
 	private @Nullable CompoundTag seatAt(int index) {

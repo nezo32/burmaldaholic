@@ -92,7 +92,8 @@ import org.jspecify.annotations.Nullable;
  * it only takes the rake) and saved with it; anything found open on load is returned. Nobody banks → a
  * house coup on the same shoe.
  *
- * <p>Client actions: house {@code bet {box, amount}}, {@code unbet {box}}, {@code clear}, {@code rebet},
+ * <p>Client actions: house {@code bet {box, amount}}, {@code unbet {box}}, {@code unbet_chip {box, amount}} (Undo / right-click:
+ * one chip back), {@code clear}, {@code rebet},
  * {@code ready}; chemin de fer {@code take_bank {amount}}, {@code keep_bank}, {@code pass}, {@code punt {amount}},
  * {@code banco}, {@code clear}, {@code ready}; core's {@code sit}/{@code leave}. Every seat decision can
  * also come from a {@link SeatDecider} (future bots) through the same code paths.
@@ -264,6 +265,27 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 
 	public boolean isChemmy() {
 		return variant == Variant.CHEMMY;
+	}
+
+	/** The last preset looked up while the table was live (T-D2 item 6; same as the core fix fb57e0f on the CB branch). */
+	private Optional<dev.nezo.burmaldaholic.core.service.TablePresetProvider.TablePreset> livePreset = Optional.empty();
+
+	/**
+	 * The generated-casino preset, cached: while the table is being removed (chunk unload, break, server stop) the last
+	 * live value is served without touching the world. A play-out runs inside the chunk system's unload callback, where
+	 * a preset lookup ({@code WorldgenPresets} / {@code BaccaratPresets} block reads) re-enters chunk loading and crashes
+	 * the server tick (T-D2 item 6; craps caches its preset the same way).
+	 */
+	@Override
+	public Optional<dev.nezo.burmaldaholic.core.service.TablePresetProvider.TablePreset> preset() {
+		if (removing()) return livePreset;
+		livePreset = super.preset();
+		return livePreset;
+	}
+
+	/** Bots: the table is being removed (no preset / world reads now). */
+	public boolean removingForBots() {
+		return removing();
 	}
 
 	public boolean isHighRoller() {
@@ -439,6 +461,8 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 				k -> houseBet(player, k, args.getLongOr("amount", 0), true),
 				() -> sendError(player, Component.translatable("gui.burmaldaholic.error.invalid_bet_position")));
 			case "unbet" -> BetKind.byId(args.getStringOr("box", "")).ifPresent(k -> unbet(player, k));
+			case "unbet_chip" -> BetKind.byId(args.getStringOr("box", "")).ifPresentOrElse(k -> unbetChip(player, k, args.getLongOr("amount", 0)),
+				() -> sendError(player, Component.translatable("gui.burmaldaholic.error.invalid_bet_position")));
 			case "clear" -> clear(player);
 			case "rebet" -> rebet(player);
 			case "ready", "deal" -> markReady(player);
@@ -532,6 +556,55 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 		rest.remove(kind);
 		clear(player);
 		placeSlip(player, rest);
+	}
+
+	/**
+	 * Undo / right-click of one chip (review R-AB m8): takes {@code amount} back from box {@code kind} while betting is open,
+	 * through core's partial take-back of the open stake ({@link #refundPart}, the same path as roulette's Undo): no
+	 * PLAY_RESOLVED, nothing re-debited, the rest of the slip untouched, the reservation released by exactly the worst case
+	 * that leaves. Refused (nothing moves) when betting is closed or the box holds less than {@code amount}. What stays on
+	 * Banker is snapped down to the step; when what would stay is no longer a valid bet (below the minimum) the whole box
+	 * comes back.
+	 */
+	private void unbetChip(ServerPlayer player, BetKind kind, long amount) {
+		if (!houseBetting()) {
+			sendError(player, Component.translatable("gui.burmaldaholic.baccarat.no_more_bets"));
+			return;
+		}
+		UUID id = player.getUUID();
+		EnumMap<BetKind, Long> slip = bets.get(id);
+		long current = slip == null ? 0 : slip.getOrDefault(kind, 0L);
+		if (amount <= 0 || current < amount) {
+			sendError(player, Component.translatable("gui.burmaldaholic.baccarat.no_bets"));
+			return;
+		}
+		Slips.Limits l = limits(player);
+		long left = current - amount;
+		if (left > 0 && kind == BetKind.BANKER) {
+			left = l.snapBanker(left); // a snapped Banker chip: what stays goes down to the step
+		}
+		if (left > 0 && l.checkAdd(Map.of(), kind, left).isPresent()) {
+			left = 0;
+		}
+		amount = current - left;
+		EnumMap<BetKind, Long> next = Slips.copy(slip);
+		if (left > 0) next.put(kind, left);
+		else next.remove(kind);
+		long release = pay().worstCase(slip) - pay().worstCase(next);
+		if (!refundPart(id, "", amount, release)) {
+			sendError(player, Component.translatable("gui.burmaldaholic.baccarat.no_bets"));
+			return;
+		}
+		if (left > 0) slip.put(kind, left);
+		else slip.remove(kind);
+		ready.remove(id);
+		if (slip.isEmpty()) {
+			bets.remove(id);
+			if (bets.isEmpty()) {
+				cancelTimer(T_BET);
+			}
+		}
+		setChanged();
 	}
 
 	private void placeSlip(ServerPlayer player, Map<BetKind, Long> slip) {
@@ -2026,6 +2099,19 @@ public class BaccaratTableBlockEntity extends CasinoTableBlockEntity implements 
 	}
 
 	/** GameTests: runs the current phase's pending timer now. */
+	/**
+	 * GameTests: the bot the bank is offered to takes it now ({@code amount}, as its own decision would), instead of its
+	 * random choice after the think delay. False when the bank is not on offer to a bot.
+	 */
+	public boolean botTakesBankForTests(long amount) {
+		if (!P_BANK_OFFER.equals(phase) || candidate == null || !bots.isBot(candidate)) return false;
+		cancelTimer(T_BOT);
+		botBankDecision = null;
+		decideBank(candidate, new SeatDecider.BankDecision(SeatDecider.BankChoice.TAKE, amount));
+		syncViewers();
+		return true;
+	}
+
 	public void fastForwardForTests() {
 		for (String t : List.of(T_BET, T_IDLE, T_OFFER, T_PHASE)) {
 			if (ticksLeft(t) >= 0) {
