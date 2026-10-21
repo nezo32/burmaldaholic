@@ -22,6 +22,8 @@ class ConfigSpecCoverageTest {
 	private static ConfigManager manager() {
 		ConfigManager m = new ConfigManager(null);
 		CasinoConfig.registerAll(m);
+		// module-owned sections (ModuleContext#config at init): EC-2 comps
+		m.register("comps", dev.nezo.burmaldaholic.comps.CompsConfig.class, dev.nezo.burmaldaholic.comps.CompsConfig::new);
 		return m;
 	}
 
