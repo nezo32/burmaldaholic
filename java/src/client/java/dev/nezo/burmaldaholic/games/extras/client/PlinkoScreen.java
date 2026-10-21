@@ -190,13 +190,38 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	}
 
 	/**
-	 * T-SYW D1: the server's round end ({@code busy_until}, its tick) gates the next press, so the button never
-	 * re-enables while the server still refuses. The client's level time trails the server's by the latency and can lead
-	 * it by at most the tick in flight, hence the strict compare (enabled from {@code busy_until + 1}).
+	 * T-SYW D1: the server's busy gate ({@code busy_until}, a server tick, with the {@code game_time} it was written at)
+	 * ends on the screen's own clock (the one its spin / drop runs on) {@code busy_until − game_time + 1} ticks after the
+	 * state's arrival. The state left the server before it arrived, so the press is never enabled while the server would
+	 * refuse it, whatever the latency or the client's level clock. The anchor is kept per {@code busy_until}: a cached
+	 * state handed again (a re-init) never pushes the end later.
 	 */
+	private double serverBusyEndMs = -1;
+	private long serverBusyUntil = -1;
+
 	private boolean serverBusy() {
-		long until = state().getLongOr("busy_until", -1);
-		return until >= 0 && minecraft != null && minecraft.level != null && minecraft.level.getGameTime() <= until;
+		return serverBusyEndMs >= 0 && AnimClock.localMs() < serverBusyEndMs;
+	}
+
+	/** Each tick: once the server's gate has passed, rebuild the view so the press re-enables (the view is not per frame). */
+	private void serverBusyTick() {
+		if (serverBusyEndMs >= 0 && !serverBusy()) {
+			serverBusyEndMs = -1; // serverBusyUntil stays: a re-handed copy of this state keeps it expired
+			local();
+		}
+	}
+
+	private void readServerBusy(CompoundTag s) {
+		long until = s.getLongOr("busy_until", -1);
+		if (until < 0) {
+			serverBusyUntil = -1;
+			serverBusyEndMs = -1;
+			return;
+		}
+		double msPerTick = minecraft != null && minecraft.level != null ? minecraft.level.tickRateManager().millisecondsPerTick() : 50.0;
+		double end = AnimClock.localMs() + (until - s.getLongOr("game_time", until) + 1) * msPerTick;
+		serverBusyEndMs = until == serverBusyUntil ? Math.min(serverBusyEndMs, end) : end;
+		serverBusyUntil = until;
 	}
 
 	private boolean dropping() {
@@ -258,6 +283,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				Kit.vanilla("block.wooden_button.click_on", 0.4f, 1f);
 			}
 		}
+		readServerBusy(newState);
 		super.onStateChanged(newState);
 	}
 
@@ -316,6 +342,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	@Override
 	protected void containerTick() {
 		super.containerTick();
+		serverBusyTick();
 		if (!dropping()) return;
 		double ms = dropMs();
 		int path = result().getIntOr("path", 0);

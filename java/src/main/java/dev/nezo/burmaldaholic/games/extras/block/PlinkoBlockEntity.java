@@ -273,9 +273,10 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
 		tag.putLong("max", Math.min(tag.getLongOr("max", 1), maxFor(viewer)));
-		// T-SYW D1: the busy gate's end (server tick), so the screen re-enables the press exactly when it is accepted
-		Long busy = busyUntil.get(viewer.getUUID());
-		if (busy != null && busy > gameTime()) tag.putLong("busy_until", busy);
+		// T-SYW D1: this viewer's busy gate end (syncedState stamps the game_time it was written at), so the screen never
+		// enables a press the server would refuse
+		long busy = busyUntil.getOrDefault(viewer.getUUID(), 0L);
+		if (busy > gameTime()) tag.putLong("busy_until", busy);
 		ListTag tables = new ListTag();
 		for (Plinko.Risk risk : Plinko.Risk.values()) {
 			CompoundTag rt = new CompoundTag();

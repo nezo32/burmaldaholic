@@ -311,12 +311,23 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 		return pos;
 	}
 
+	/** Presses like a player: waits (≤ 10 s) until the screen enables the primary (T-SYW D1: the server's busy gate). */
+	private void awaitPrimary(RealFlow f, String what) {
+		for (int t = 0; t < 200; t++) {
+			if (f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().primary.gate().enabled())) return;
+			f.context().waitTick();
+		}
+		String gate = f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h ? String.valueOf(h.chrome().primary.gate()) : String.valueOf(mc.gui.screen()));
+		fail(what + ": the primary never re-enabled before the press (gate " + gate + ", status '" + f.status() + "')");
+	}
+
 	private void plinko(RealFlow f) {
 		BlockPos pos = machine(f, ExtrasModule.PLINKO.block());
 		f.click(KeyMap.Ids.felt("risk.high"));
 		f.click(KeyMap.Ids.chip(1));
 		for (double jump : JUMPS) {
 			Track tr = new Track("plinko jump " + jump);
+			awaitPrimary(f, "plinko jump " + jump);
 			lag(f);
 			f.click(KeyMap.Ids.PRIMARY);
 			boolean started = false;
@@ -360,6 +371,7 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 		f.click(KeyMap.Ids.chip(2));
 		for (double jump : JUMPS) {
 			Track tr = new Track("wheel jump " + jump);
+			awaitPrimary(f, "wheel jump " + jump);
 			lag(f);
 			f.click(KeyMap.Ids.PRIMARY);
 			boolean jumped = false;

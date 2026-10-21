@@ -88,3 +88,26 @@ No money, payout or RNG change.
 - The plinko/wheel busy gate is now 200 ms longer, from the lead. `ExtrasRevealGameTests` waits `+ SyncLead.X`.
 - On a −1 s jump, shared-clock games run up to 2× slower for a few seconds, by SY's design. The lane resets the
   SmoothClock epoch before each run so jumps don't cancel out.
+
+## T-SYW fixes (D1–D3)
+- **D1:** the Plinko and Wheel states now carry `busy_until`, the end of the server's busy gate per viewer. `syncedState` stamps the `game_time` it was written at.
+  - The screen holds the press until `arrival + (busy_until − game_time + 1)` ticks on its own clock. A state always arrives after it is sent, so the press can never be enabled while the server would still refuse it.
+  - The anchor is kept per `busy_until`, so a cached state handed in again cannot push the end later.
+  - When the gate expires, `containerTick` rebuilds the view. The view is not recomputed every frame.
+- **D2:** the 32 branch-touched files are renormalized to LF. `git diff 1e886ef0 --stat` now shows only real changes.
+- **D3:** `DealAnchors` uses primitive arrays. The Blackjack `dealProbe` map is null until a test calls it.
+- **Tests:**
+  - The tester's commit 538b35bb is cherry-picked.
+  - SYWT presses on the first enabled tick and asserts the server accepted it (seq +1). It is registered and also runs under lane SYW.
+  - The SYW lane waits for the primary to enable before each press.
+
+### Verified (26.3)
+- Unit tests (core.anim, extras, blackjack, baccarat, RawInputGuard): 459, 0 failures.
+- `runGameTest` extras: 12 of 12.
+- Client run `BURMALDAHOLIC_CGT=SYW,E` (entrypoints swapped, then reverted): BUILD SUCCESSFUL.
+  - SYWT: 6 of 6 re-presses accepted, enabled 5–6 ticks after the landing.
+  - SYW: all 28 scenarios passed.
+  - Lane E: passed.
+- That was 5 client runs, over the cap of 3:
+  - 1 was aborted;
+  - 3 found D1 fix bugs: the client level clock drifted under NetLag, a re-handed cached state re-anchored the gate, and the view never refreshed when the gate expired.
