@@ -199,8 +199,14 @@ public class BaccaratV2GameTests {
 	}
 	/**
 	 * T-A2 client item (chemmy "never punted"): a player CAN punt against a bot banker. Through the packet handler only: the
-	 * player passes the bank offered to them, a bot takes it, and the player's punt is held (escrowed) by the table. The
-	 * table is driven by its own tick, never by skipping timers (a skipped idle timer passes the bot's bank).
+	 * player passes the bank offered to them, the bot offered it next takes the minimum bank, and the player's punt of the
+	 * table minimum is held (escrowed) by the table. The table is driven by its own tick, never by skipping timers (a
+	 * skipped idle timer passes the bot's bank).
+	 *
+	 * <p>Deterministic: bots on with room in the world budget (whatever earlier tests left live), two INSTANT bots, a fresh
+	 * player with 10 000, and the bot's bank decision forced through {@link BaccaratTableBlockEntity#botTakesBankForTests}.
+	 * Its own choice is random (ChemmyBotPolicy on the bot rng): when both bots passed, the old loop sat in a house coup it
+	 * could never leave (a Banker bet of {@code bet_min} 1 breaks the Banker step) and timed out "waiting for a bot bank" in CI.
 	 */
 	@GameTest(maxTicks = 2400)
 	public void playerPuntsAgainstABotBanker(GameTestHelper helper) {
@@ -208,10 +214,18 @@ public class BaccaratV2GameTests {
 		// INT-X: house tables of casinos placed by earlier worldgen GameTests (same server) may hold the server-wide bot table
 		// budget; this test needs one slot of its own, so it lifts the cap past what is already live and restores it after.
 		var botsCfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.bots();
+		boolean enabledBefore = botsCfg.enabled;
 		int capBefore = botsCfg.maxActiveTables;
-		botsCfg.maxActiveTables = Math.max(capBefore, dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + 2);
 		int activeBefore = botsCfg.maxActive;
+		Runnable restore = () -> {
+			botsCfg.enabled = enabledBefore;
+			botsCfg.maxActiveTables = capBefore;
+			botsCfg.maxActive = activeBefore;
+		};
+		botsCfg.enabled = true;
+		botsCfg.maxActiveTables = Math.max(capBefore, dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + 2);
 		botsCfg.maxActive = Math.max(activeBefore, dev.nezo.burmaldaholic.core.bots.Bots.active() + 4); // the world bot budget too
+		long minBank = dev.nezo.burmaldaholic.core.config.CasinoConfig.baccarat().chemmy.minBank;
 		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BaccaratModule.CHEMMY_TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
@@ -219,22 +233,26 @@ public class BaccaratV2GameTests {
 			dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.INSTANT));
 		ServerPlayer p = opened(helper, rel);
 		act(p, t, "sit", "", 0);
-		helper.assertTrue(t.isSeated(p), "seated through the packet");
+		helper.assertTrue(t.isSeated(p) && balance(helper, p) == 10_000, "seated through the packet with 10 000");
 		UUID me = p.getUUID();
 		boolean[] punted = {false};
 		String[] failure = {null};
-		// the table runs on its own ticker (timers are game time): every tick, pass a bank offered to the player; once a bot
-		// holds the bank with punting open, punt the minimum through the handler and check it is held and escrowed
 		helper.succeedWhen(() -> {
 			if (failure[0] != null) helper.assertTrue(false, failure[0]); // sticky: the test times out failing with this message
 			if (punted[0]) return;
-			CompoundTag state = t.writeClientState(p);
-			CompoundTag ch = state.getCompoundOrEmpty("chemmy");
+			CompoundTag ch = t.writeClientState(p).getCompoundOrEmpty("chemmy");
 			if (ch.getBooleanOr("offer_you", false)) act(p, t, "pass", "", 0);
-			// every seat passed: a house coup waits for a bet; play it (Banker minimum + Deal) so the bank rotates again
-			if (state.getBooleanOr("house_coup", false) && "betting".equals(t.phase()) && t.betsOf(me).isEmpty()) {
-				act(p, t, "bet", "banker", Math.max(1, state.getLongOr("bet_min", 1)));
-				act(p, t, "deal", "", 0);
+			// the bank is on offer to a bot: it takes the minimum bank now (instead of its random keep / pass)
+			if (BaccaratTableBlockEntity.P_BANK_OFFER.equals(t.phase()) && t.botTakesBankForTests(minBank)
+				&& !(t.bank().held() && minBank == t.bank().bank())) {
+				restore.run();
+				failure[0] = "the bot offered the bank could not take " + minBank + " (bank " + t.bank().bank() + ", phase " + t.phase() + ")";
+			}
+			CompoundTag state = t.writeClientState(p);
+			ch = state.getCompoundOrEmpty("chemmy");
+			if (state.getBooleanOr("house_coup", false) && t.bots().count() > 0) {
+				restore.run();
+				failure[0] = "a house coup although a bot was forced to bank: " + ch;
 			}
 			helper.assertTrue("betting".equals(t.phase()) && t.bank().held() && !me.equals(t.bank().banker()) && t.bank().banco() == null,
 				"waiting for a bot bank with punting open (phase " + t.phase() + ", bots " + dev.nezo.burmaldaholic.core.bots.Bots.active()
@@ -242,14 +260,14 @@ public class BaccaratV2GameTests {
 					+ state.getBooleanOr("house_coup", false) + ", buy-ins left " + dev.nezo.burmaldaholic.core.bots.BotLedger.buyInsLeft(
 						helper.getLevel().getServer(), t.botTableKey()) + ")");
 			long min = Math.max(1, state.getLongOr("bet_min", 1));
-			long open = ch.getLongOr("open", 0);
-			helper.assertTrue(ch.getBooleanOr("held", false) && !ch.getBooleanOr("you_bank", true) && open >= min,
+			helper.assertTrue(t.bots().count() == 2 && t.bank().bank() == minBank,
+				"a bot banks exactly the minimum " + minBank + " (bots " + t.bots().count() + ", bank " + t.bank().bank() + ")");
+			helper.assertTrue(ch.getBooleanOr("held", false) && !ch.getBooleanOr("you_bank", true) && ch.getLongOr("open", 0) >= min,
 				"the client sees an open bot bank covering the minimum: " + ch);
 			long before = balance(helper, p);
 			act(p, t, "punt", "", min);
 			punted[0] = true;
-			botsCfg.maxActiveTables = capBefore;
-			botsCfg.maxActive = activeBefore;
+			restore.run();
 			long held = t.bank().punts().getOrDefault(me, 0L);
 			long after = balance(helper, p);
 			long seen = t.writeClientState(p).getCompoundOrEmpty("chemmy").getLongOr("my_punt", 0);

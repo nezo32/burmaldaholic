@@ -138,13 +138,22 @@ public class A2TesterGameTests {
 		BlackjackTableBlockEntity t = helper.getBlockEntity(rel, BlackjackTableBlockEntity.class);
 		ServerPlayer p = opened(helper, rel, 10_000);
 		boolean sawDry = false;
+		// the two bots must be seatable whatever earlier tests left live on this server: bots on, room in the world budget
+		var botsCfg = CasinoConfig.bots();
+		boolean botsOn0 = botsCfg.enabled;
+		int capTables0 = botsCfg.maxActiveTables;
+		int capBots0 = botsCfg.maxActive;
 		try {
+			botsCfg.enabled = true;
+			botsCfg.maxActiveTables = Math.max(capTables0, dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + 2);
+			botsCfg.maxActive = Math.max(capBots0, dev.nezo.burmaldaholic.core.bots.Bots.active() + 4);
 			c.decks = 1;
 			c.penetration = 0.9;
 			act(p, t, "sit", new CompoundTag());
 			t.bots().table().requestChange(p, new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
 				dev.nezo.burmaldaholic.core.bots.logic.BotDifficulty.NORMAL, false, false, dev.nezo.burmaldaholic.core.bots.logic.BotSpeed.FAST), false);
 			t.botSafePointForTests();
+			helper.assertTrue(t.bots().bots().size() == 2, "two bots seated (" + t.bots().bots().size() + ")");
 			for (int attempt = 0; attempt < 6 && !sawDry; attempt++) {
 				t.burnShoeForTests(0);
 				Shoe shoe = t.shoeForTests();
@@ -190,12 +199,19 @@ public class A2TesterGameTests {
 		} finally {
 			c.decks = decks0;
 			c.penetration = pen0;
+			botsCfg.enabled = botsOn0;
+			botsCfg.maxActiveTables = capTables0;
+			botsCfg.maxActive = capBots0;
 			helper.getLevel().getServer().getPlayerList().remove(p);
 		}
 		helper.succeed();
 	}
 
-	/** Rebet / Deal above the balance through the handler: refused, nothing moves, no round. */
+	/**
+	 * Rebet / Deal above the balance through the handler: refused, nothing moves, no round. The all-in deal is stacked
+	 * (player 10 + 9, dealer 9 up / 8 hole): an unstacked shoe dealt the player a natural about 1 time in 21, which pays
+	 * 3:2 at once (balance 12, stake 0) and failed "all-in 5 deals" in CI.
+	 */
 	@GameTest
 	public void betAboveBalanceIsRefused(GameTestHelper helper) {
 		BlockPos rel = new BlockPos(1, 1, 1);
@@ -205,15 +221,29 @@ public class A2TesterGameTests {
 		ServerPlayer p = opened(helper, rel, 5);
 		try {
 			act(p, t, "sit", new CompoundTag());
+			helper.assertTrue(t.isSeated(p) && t.bots().bots().isEmpty(), "seated alone (craftable blackjack: humans only)");
 			act(p, t, "bet", amount(10));
 			helper.assertTrue(t.round() == null && balance(helper, p) == 5 && t.stakeOf(p.getUUID()) == 0, "bet above balance refused");
 			act(p, t, "bet", amount(-10));
 			act(p, t, "bet", amount(0));
 			helper.assertTrue(t.round() == null && balance(helper, p) == 5 && t.stakeOf(p.getUUID()) == 0, "bad amounts refused");
+			t.stackCardsForTests(List.of(Card.of(10, Card.SPADES), Card.of(9, Card.HEARTS), Card.of(9, Card.CLUBS), Card.of(8, Card.DIAMONDS)));
 			act(p, t, "bet", amount(5));
-			helper.assertTrue(t.round() != null && balance(helper, p) == 0, "all-in 5 deals");
+			helper.assertTrue(t.round() != null && t.round().phase() == BlackjackRound.Phase.TURNS && balance(helper, p) == 0
+				&& t.stakeOf(p.getUUID()) == 5, "all-in 5 deals (round " + (t.round() == null ? "none" : t.round().phase()) + ", balance "
+				+ balance(helper, p) + ", stake " + t.stakeOf(p.getUUID()) + ")");
 			act(p, t, "bet", amount(5));
 			helper.assertTrue(balance(helper, p) == 0 && t.stakeOf(p.getUUID()) == 5, "a second bet mid-round is refused");
+			t.revealAllForTests();
+			act(p, t, "stand", new CompoundTag());
+			for (int i = 0; i < 20 && t.round().phase() != BlackjackRound.Phase.DONE; i++) {
+				t.revealAllForTests();
+				t.fastForwardForTests();
+			}
+			t.revealAllForTests();
+			t.collectForTests();
+			helper.assertTrue(balance(helper, p) == 10 && t.stakeOf(p.getUUID()) == 0, "19 beats the dealer's 17: 5 back + 5 won, balance "
+				+ balance(helper, p) + ", stake " + t.stakeOf(p.getUUID()));
 		} finally {
 			helper.getLevel().getServer().getPlayerList().remove(p);
 		}
