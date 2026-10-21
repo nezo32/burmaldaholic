@@ -152,8 +152,8 @@ class UiKitTest {
 
 	@Test
 	void chipColumns() {
-		assertArrayEquals(new long[] {3, 4, 0, 2, 0}, ChipColumns.greedy(1910));
-		assertArrayEquals(new long[] {0, 0, 0, 0, 0}, ChipColumns.greedy(-5));
+		assertArrayEquals(new long[] {0, 0, 1, 1, 4, 0, 2, 0}, ChipColumns.greedy(1910)); // HR: 25k/5k/1k chips
+		assertArrayEquals(new long[ChipColumns.DENOMS.length], ChipColumns.greedy(-5));
 		assertEquals(12, ChipColumns.visible(40));
 		assertArrayEquals(new int[] {12, 3, 0, 1}, ChipColumns.scaled(new long[] {40, 10, 0, 1}, 12));
 		assertArrayEquals(new int[] {5, 2}, ChipColumns.scaled(new long[] {5, 2}, 12));

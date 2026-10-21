@@ -26,7 +26,7 @@ class SlotV2KitTest {
 		{480, 270, 960, 540, 2},
 		{640, 360, 1280, 720, 2},
 		{960, 540, 1920, 1080, 2},
-		{320, 240, 640, 480, 2},
+		{640, 480, 640, 480, 2}, // K2 T-K2 D5: below 400 wide the scale steps down (was 320 x 240)
 	};
 
 	private static Box rect(SlotGeometry.Rect r) {

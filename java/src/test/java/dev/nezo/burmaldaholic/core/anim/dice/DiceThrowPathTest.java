@@ -146,7 +146,7 @@ class DiceThrowPathTest {
 		assertEquals(2, ChipStacks.discs(30, out));
 		assertArrayEquals(new int[] {25, 5}, new int[] {out[0], out[1]});
 		assertEquals(5, ChipStacks.discs(1_000_000, out));
-		assertEquals(500, out[0]);
+		assertEquals(25_000, out[0]); // HR: 25k chip
 		assertEquals(4, ChipStacks.discs(4, out));
 		assertEquals(25, ChipStacks.denomOf(99));
 		assertEquals(1, ChipStacks.denomOf(0));

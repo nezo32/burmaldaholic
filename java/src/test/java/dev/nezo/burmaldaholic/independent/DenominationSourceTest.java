@@ -33,9 +33,9 @@ class DenominationSourceTest {
 
 	/** {@code <path relative to the repo> | <trimmed line>} → why it is not a chip list. */
 	private static final Map<String, String> ALLOWED = Map.of(
-		"java/src/main/java/dev/nezo/burmaldaholic/core/config/sections/SlotsV2Config.java | jackpot = new Jackpot(100, new int[] {10, 25, 100, 500}, new double[] {0.004, 0.003, 0.002, 0.001}, new int[] {10, 25, 100, 250});",
+		"java/src/main/java/dev/nezo/burmaldaholic/core/config/sections/SlotsV2Config.java | jackpot = new Jackpot(100, new int[] {10, 25, 100, 500}, new double[] {0.004, 0.003, 0.002, 0.001}, new int[] {10, 25, 100, 250},",
 		"slot jackpot seed multipliers",
-		"java/src/main/java/dev/nezo/burmaldaholic/games/slots/v2/logic/SlotDefaults.java | 100, new int[] {10, 25, 100, 500}, new int[] {4000, 3000, 2000, 1000}, new int[] {10, 25, 100, 250});",
+		"java/src/main/java/dev/nezo/burmaldaholic/games/slots/v2/logic/SlotDefaults.java | 100, new int[] {10, 25, 100, 500}, new int[] {4000, 3000, 2000, 1000}, new int[] {10, 25, 100, 250}, GEM_PPM[0].clone());",
 		"slot jackpot seed multipliers");
 
 	static Pattern triples() {

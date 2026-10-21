@@ -28,7 +28,7 @@ class MetaScreensTest {
 		// the cashier sends counts in ChipMath.DENOMINATIONS order; the tray indexes ChipColumns.DENOMS
 		assertArrayEquals(ChipMath.DENOMINATIONS, ChipColumns.DENOMS);
 		long[] counts = ChipMath.split(1910);
-		assertArrayEquals(new long[] {3, 4, 0, 2, 0}, counts);
+		assertArrayEquals(new long[] {0, 0, 1, 1, 4, 0, 2, 0}, counts); // HR: 25k/5k/1k chips
 		long sum = 0;
 		for (int i = 0; i < counts.length; i++) sum += counts[i] * ChipColumns.DENOMS[i];
 		assertEquals(1910, sum);
