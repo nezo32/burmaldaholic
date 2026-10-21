@@ -643,13 +643,19 @@ public class CasinoBuildingGameTests {
 				tables.forEach(be -> be.tick(level));
 				npcs.forEach(CasinoNpcEntity::tick);
 			}
-			int n = 200;
-			long t0 = System.nanoTime();
-			for (int k = 0; k < n; k++) {
-				tables.forEach(be -> be.tick(level));
-				npcs.forEach(CasinoNpcEntity::tick);
+			// Median of 5 batches: one GC pause or JIT burst on a shared CI runner must not fail the budget.
+			int n = 100;
+			double[] batches = new double[5];
+			for (int b = 0; b < batches.length; b++) {
+				long t0 = System.nanoTime();
+				for (int k = 0; k < n; k++) {
+					tables.forEach(be -> be.tick(level));
+					npcs.forEach(CasinoNpcEntity::tick);
+				}
+				batches[b] = (System.nanoTime() - t0) / 1e6 / n;
 			}
-			double perTickMs = (System.nanoTime() - t0) / 1e6 / n;
+			java.util.Arrays.sort(batches);
+			double perTickMs = batches[batches.length / 2];
 			log.append(t).append('=').append(String.format("%.3f", perTickMs)).append("ms(").append(tables.size()).append(" tables, ")
 				.append(npcs.size()).append(" npcs) ");
 			List<String> bad = problems.computeIfAbsent(t.toString(), k -> new ArrayList<>());
