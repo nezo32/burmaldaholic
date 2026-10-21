@@ -276,19 +276,18 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		BlockPos pos = place(world, CoreContent.CASHIER.block(), 0, 2);
 		ctx.waitTicks(3);
 		useBlock(ctx, pos);
-		awaitScreen(ctx, dev.nezo.burmaldaholic.client.cashier.CashierScreen.class, 60);
+		awaitScreen(ctx, dev.nezo.burmaldaholic.client.cashier.CounterScreen.class, 60);
 		ctx.waitTicks(15);
 		long before = balance(world);
-		// type an amount into the box the way a player does, then Withdraw
-		click(ctx, "amount box", w -> w instanceof net.minecraft.client.gui.components.EditBox);
-		ctx.getInput().typeChars("250");
-		ctx.waitTicks(2);
-		click(ctx, "gui.burmaldaholic.cashier.withdraw");
+		// EC-1 counter: chip "+" buttons build the amount (100 + 100 + 25 + 25), then Withdraw
+		for (String d : new String[] {"100", "100", "25", "25"}) dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "exchange.chip." + d);
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "exchange.withdraw");
 		awaitServer(ctx, world, "balance down by 250 after Withdraw (was " + before + ")", s -> balanceOf(s) == before - 250, 60);
 		long chips = world.getServer().computeOnServer(s -> carried(player(s)));
 		if (chips != 250) throw new AssertionError("carried chips after withdrawing 250: " + chips);
 		ctx.waitTicks(5);
-		click(ctx, "gui.burmaldaholic.cashier.deposit_all");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.awaitEnabled(ctx, "exchange.deposit_all");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "exchange.deposit_all");
 		awaitServer(ctx, world, "balance back after Deposit all", s -> balanceOf(s) == before, 60);
 		closeScreen(ctx, world);
 		removeBlock(world, pos);
@@ -300,12 +299,15 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 		BlockPos pos = place(world, CoreContent.CASHIER.block(), 0, 2);
 		ctx.waitTicks(3);
 		useBlock(ctx, pos);
-		awaitScreen(ctx, dev.nezo.burmaldaholic.client.cashier.CashierScreen.class, 60);
+		awaitScreen(ctx, dev.nezo.burmaldaholic.client.cashier.CounterScreen.class, 60);
 		ctx.waitTicks(15);
-		click(ctx, "gui.burmaldaholic.cashier.shop");
-		ctx.waitTicks(5);
-		click(ctx, "a scratch card offer", w -> hasKey(w.getMessage(), "gui.burmaldaholic.cashier.shop.buy_item")
-			&& hasKey(w.getMessage(), ExtrasModule.SCRATCH_CARD.getDescriptionId()));
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "tab.store");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.awaitEnabled(ctx, "store.cat.games");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "store.cat.games");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.awaitEnabled(ctx, "store.tile.shop.scratch_card");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "store.tile.shop.scratch_card");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.awaitEnabled(ctx, "store.buy");
+		dev.nezo.burmaldaholic.gametest.core.CounterFlow.click(ctx, "store.buy");
 		awaitServer(ctx, world, "a scratch card in the inventory", s -> player(s).getInventory().countItem(ExtrasModule.SCRATCH_CARD) > 0, 60);
 		closeScreen(ctx, world);
 		removeBlock(world, pos);

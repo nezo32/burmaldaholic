@@ -95,20 +95,16 @@ public class EconomyGameTests {
 			helper.assertFalse(cashier.withdraw(player, 1000, 0), "cannot withdraw more than the balance");
 
 			player.getInventory().add(new ItemStack(Items.EMERALD, 2));
-			cashier.onAction(player, "buy", countTag(2));
-			helper.assertTrue(Economies.get().balance(player) == 87 + 2 * 8, "bought 16 chips for 2 emeralds");
+			dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.resetCooldown(player);
+			cashier.exchange(player, "emerald", false, 2, false);
+			helper.assertTrue(Economies.get().balance(player) == 87 + 2 * 9, "bought 18 chips for 2 emeralds");
 			helper.assertTrue(player.getInventory().countItem(Items.EMERALD) == 0, "emeralds taken");
-			cashier.onAction(player, "sell", countTag(1));
-			helper.assertTrue(Economies.get().balance(player) == 103 - 10, "sold 10 chips");
+			dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.resetCooldown(player);
+			cashier.exchange(player, "emerald", true, 1, false);
+			helper.assertTrue(Economies.get().balance(player) == 105 - 10, "sold 10 chips");
 			helper.assertTrue(player.getInventory().countItem(Items.EMERALD) == 1, "got 1 emerald");
 		});
 		helper.succeed();
-	}
-
-	private static net.minecraft.nbt.CompoundTag countTag(int count) {
-		net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
-		tag.putInt("count", count);
-		return tag;
 	}
 
 	@GameTest

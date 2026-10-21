@@ -37,11 +37,22 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 |-----|------|---------|-------|-------------|
 | `economy.maxBalance` | long | 1000000000 | 1 000–9 007 199 254 740 991 | Balance cap. |
 | `economy.startingBalance` | int | 50 | 0–1 000 000 | Credited on first join. |
-| `economy.emeraldBuyRate` | int | 8 | 1–1000 | Chips per emerald when buying chips. |
-| `economy.emeraldBuyRateGoldVip` | int | 9 | 1–1000 | Same for Gold VIP+. |
-| `economy.emeraldSellRate` | int | 10 | 1–1000 | Chips per emerald when selling chips. Must be ≥ buy rate (else clamped). |
-| `economy.goldBuyRate` | int | 3 | 1–1000 | Nether cashier: chips per gold ingot. |
-| `economy.goldSellRate` | int | 12 | 1–1000 | Nether cashier: chips per gold ingot sold. |
+| `economy.exchange.<row>.item` | string | table below | item id | Item exchanged at the cashier (v0.2.0, EC-SPEC §2). The v0.1 keys `emeraldBuyRate`, `emeraldBuyRateGoldVip`, `emeraldSellRate`, `goldBuyRate`, `goldSellRate` are migrated: a value that differs from its v0.1 default moves into the `emerald` / `gold_ingot` row. |
+| `economy.exchange.<row>.toChips` | int | table below | 0–1 000 000 | Chips for one item handed in (0 = cannot hand in). |
+| `economy.exchange.<row>.fromChips` | int | table below | 0–1 000 000 | Chips for one item taken out (0 = sell-only). Must be > `toChips` (R1) and pass the craft rule R2, else set to 0 with a warning. |
+| `economy.exchange.<row>.dims` | string | table below | letters `O` `N` `E` | Dimensions of the cashier where the row is offered (empty = all). |
+| `economy.exchange.<row>.buyMinTier` | int | table below | 0–5 | VIP tier needed to take the item out. |
+
+Default rows (no Gold VIP bonus: the spread must stay ≥ 1):
+
+| Row | Item | toChips | fromChips | dims | buyMinTier |
+|---|---|---|---|---|---|
+| emerald | minecraft:emerald | 9 | 10 | ONE | 0 |
+| emerald_block | minecraft:emerald_block | 81 | 90 | OE | 0 |
+| diamond | minecraft:diamond | 40 | 55 | ONE | 0 |
+| iron_block | minecraft:iron_block | 16 | 27 | O | 0 |
+| gold_ingot | minecraft:gold_ingot | 6 | 8 | N | 0 |
+| netherite_scrap | minecraft:netherite_scrap | 60 | 160 | N | 4 (Diamond) |
 | `economy.ore.coal` | int | 1 | 0–1000 | |
 | `economy.ore.copper` | int | 1 | 0–1000 | |
 | `economy.ore.iron` | int | 2 | 0–1000 | |
@@ -88,6 +99,36 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `economy.trade.perEmerald` | int | 1 | 0–1000 | Plus chips per emerald in the trade. |
 | `economy.trade.perTradeCap` | int | 10 | 0–10 000 | |
 | `economy.trade.dailyCap` | int | 200 | 0–1 000 000 | Per player per MCD. |
+
+## store
+
+The chip store at the cashier (Store tab) and the casino merchant (EC-SPEC §3). Offers are checked by the economy guards
+R3–R6 when the catalog is built (price per item ≥ 1.25 × `wager.appraisal`, villager floor, above the exchange rate, no
+forbidden item); a violating offer is left out with a warning. Scratch cards come from the extras module (category Games).
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `store.enabled` | bool | true | — | Show the store. |
+| `store.offers.<id>.item` | string | catalog below | item id | Item sold. |
+| `store.offers.<id>.count` | int | 1 | 1–64 | Items per purchase. |
+| `store.offers.<id>.potion` | string | catalog below | potion id | Potion contents (potion items). |
+| `store.offers.<id>.enchant` | string | catalog below | enchantment id | Enchantment of an enchanted book. |
+| `store.offers.<id>.level` | int | catalog below | 0–10 | Enchantment level. |
+| `store.offers.<id>.flight` | int | 0 | 0–3 | Firework rocket flight duration (0 = none). |
+| `store.offers.<id>.category` | string | catalog below | food, potions, books, tools, decor, rare | Store category. |
+| `store.offers.<id>.price` | long | catalog below | 0–100 000 000 | Chips per purchase (0 = hidden). |
+| `store.offers.<id>.minTier` | int | catalog below | 0–5 | VIP tier needed. |
+| `store.offers.<id>.dims` | string | catalog below | letters `O` `N` `E` | Dimensions of the counter where it is sold (empty = all). |
+| `store.offers.<id>.limitPerDay` | int | catalog below | 0–10 000 | Purchases per player per in-game day (0 = no limit). |
+| `store.offers.<id>.limitEveryDays` | int | 1 | 1–365 | > 1: after a buy day nothing more until that many days have passed. |
+
+Default catalog (chips per item; L = per-player limit per in-game day): bread 2, cooked beef 3, cooked porkchop 3, cooked salmon 3,
+pumpkin pie 4, golden carrot 6, cake 15, golden apple 80 (L8); potions L16 each: night vision (long) 30, water breathing (long) 35,
+slow falling (long) 40, swiftness II 40, healing II 40, fire resistance (long) 50, regeneration (long) 60 (Silver), strength II 70 (Gold);
+books L1 each: unbreaking III 300, feather falling IV 300, silk touch 300, protection IV 400, sharpness V 400, efficiency V 400 (Silver),
+looting III 500 (Gold), fortune III 600 (Gold), mending 800 (Gold); fishing rod 10, spyglass 25, saddle 60, name tag 60, firework rocket
+(flight 2) 3, bottle o' enchanting 20 (L64), ender pearl 25 (L16), diamond pickaxe 180 (Silver, L2); glowstone 4, sea lantern 8; shulker
+shell 300 (End, Gold, L4), totem of undying 750 (Gold, L1), elytra 5000 (End, Platinum, 1 every 7 days).
 
 ## contracts
 

@@ -74,17 +74,8 @@ public class HighRollerClientGameTests implements FabricClientGameTest {
 			f.waitServer(pos, BlackjackTableBlockEntity.class, t -> t.stakeOf(me) == VIP_MAX, "the server took the Max bet of " + VIP_MAX);
 
 			f.close();
-			// T-HR D4: the cashier's counting-tray head fits the largest one-move amount in EN and RU (8 chip columns now)
-			for (String lang : java.util.List.of("en_us", "ru_ru")) {
-				f.language(lang);
-				for (String k : java.util.List.of("withdrawn", "deposited", "credited", "paid")) {
-					int w = f.client(mc -> mc.font.width(net.minecraft.network.chat.Component.translatable("gui.burmaldaholic.cashier." + k,
-						Texts.number(57_600_000L))));
-					int room = dev.nezo.burmaldaholic.client.cashier.CashierScreen.trayHeadWidth();
-					if (w > room) throw new AssertionError(lang + " cashier." + k + " head is " + w + " px, the tray leaves " + room);
-				}
-			}
-			f.language("en_us");
+			// T-HR D4 (cashier tray head width) went with the v0.1 CashierScreen: EC-1's counter tray (CounterTray) puts the head
+			// on its own full-width line.
 		} finally {
 			context.runOnClient(mc -> {
 				if (saved[0] > 0) CasinoConfig.vip().maxBet.bronze = saved[0];

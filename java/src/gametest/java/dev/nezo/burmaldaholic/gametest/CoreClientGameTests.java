@@ -3,7 +3,7 @@ package dev.nezo.burmaldaholic.gametest;
 import dev.nezo.burmaldaholic.client.CasinoModeCreationState;
 import dev.nezo.burmaldaholic.client.ClientCasinoState;
 import dev.nezo.burmaldaholic.client.CoreClientModule;
-import dev.nezo.burmaldaholic.client.cashier.CashierScreen;
+import dev.nezo.burmaldaholic.client.cashier.CounterScreen;
 import dev.nezo.burmaldaholic.client.config.CasinoConfigScreen;
 import dev.nezo.burmaldaholic.client.input.Inputs;
 import dev.nezo.burmaldaholic.core.CoreContent;
@@ -86,7 +86,7 @@ public class CoreClientGameTests implements FabricClientGameTest {
 					cashier.sendStateTo(player);
 				}
 			});
-			context.waitForScreen(CashierScreen.class);
+			context.waitForScreen(CounterScreen.class);
 			context.waitTicks(5);
 			context.takeScreenshot("burmaldaholic_cashier");
 			context.runOnClient(mc -> mc.gui.setScreen(null));

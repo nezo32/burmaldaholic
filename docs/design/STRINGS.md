@@ -501,26 +501,60 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 |-----|----|----|
 | `gui.burmaldaholic.cashier.title` | Cashier | Касса |
 | `gui.burmaldaholic.cashier.deposit_all` | Deposit all chips | Внести все фишки |
-| `gui.burmaldaholic.cashier.deposit_held` | Deposit held stack | Внести фишки из руки |
+| `gui.burmaldaholic.cashier.deposit_held` | Deposit held stack | Внести из руки |
 | `gui.burmaldaholic.cashier.withdraw` | Withdraw | Снять |
 | `gui.burmaldaholic.cashier.withdrawable` | Withdrawable: %1$s | Доступно к снятию: %1$s |
 | `gui.burmaldaholic.cashier.withdrawable_loan` | Withdrawable: %1$s (loan %2$s) | Доступно к снятию: %1$s (займ %2$s) |
-| `gui.burmaldaholic.cashier.denomination` | Denomination | Номинал |
-| `gui.burmaldaholic.cashier.denomination.auto` | Auto | Авто |
-| `gui.burmaldaholic.cashier.buy` | Buy %1$s for 1 emerald | Купить %1$s за 1 изумруд |
-| `gui.burmaldaholic.cashier.sell` | Sell %1$s for 1 emerald | Продать %1$s за 1 изумруд |
-| `gui.burmaldaholic.cashier.buy_gold` | Buy %1$s for 1 gold ingot | Купить %1$s за 1 золотой слиток |
-| `gui.burmaldaholic.cashier.sell_gold` | Sell %1$s for 1 gold ingot | Продать %1$s за 1 золотой слиток |
-| `gui.burmaldaholic.cashier.times` | ×%1$s | ×%1$s |
-| `gui.burmaldaholic.cashier.emeralds_slider` | Emeralds: %1$s | Изумруды: %1$s |
-| `gui.burmaldaholic.cashier.shop` | Shop | Лавка |
-| `gui.burmaldaholic.cashier.shop.buy_item` | Buy %1$s — %2$s | Купить «%1$s» — %2$s |
 | `gui.burmaldaholic.cashier.withdraw_blocked` | Withdrawals are frozen while your loan is overdue | Пока займ просрочен, снятие заморожено |
 | `gui.burmaldaholic.cashier.counting` | Counting… | Считаем… |
 | `gui.burmaldaholic.cashier.deposited` | Deposited %1$s | Внесено: %1$s |
 | `gui.burmaldaholic.cashier.withdrawn` | Withdrawn %1$s | Выдано: %1$s |
-| `gui.burmaldaholic.cashier.dropped` | (%1$s dropped at your feet) | (%1$s — у ваших ног) |
-| `gui.burmaldaholic.cashier.exchanged` | Exchanged: %1$s | Обмен: %1$s |
+
+### Counter: exchange, chip store, merchant (EC-1, v0.2.0; EC-SPEC §1–3)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.cashier.tab.exchange` | Exchange | Обмен |
+| `gui.burmaldaholic.cashier.tab.store` | Store | Магазин |
+| `gui.burmaldaholic.cashier.tab.comps` | Comps | Бонусы |
+| `gui.burmaldaholic.cashier.store_title` | Casino store | Магазин казино |
+| `gui.burmaldaholic.cashier.readout` | Balance %1$s · Withdrawable %2$s | Баланс %1$s · К снятию %2$s |
+| `gui.burmaldaholic.cashier.readout_balance` | Balance %1$s | Баланс %1$s |
+| `gui.burmaldaholic.cashier.withdraw_amount` | To withdraw: %1$s | К снятию: %1$s |
+| `gui.burmaldaholic.cashier.clear` | Clear | Сброс |
+| `gui.burmaldaholic.cashier.exchange.have` | You have %1$s | У вас %1$s |
+| `gui.burmaldaholic.cashier.exchange.in` | →%1$s | →%1$s |
+| `gui.burmaldaholic.cashier.exchange.out` | ←%1$s | ←%1$s |
+| `gui.burmaldaholic.cashier.exchange.all` | All | Все |
+| `gui.burmaldaholic.cashier.exchange.max` | Max | Макс |
+| `gui.burmaldaholic.cashier.exchange.empty` | Nothing to exchange at this cashier | Здесь нечего обменять |
+| `gui.burmaldaholic.cashier.exchange.none` | You have no %1$s | У вас нет: %1$s |
+| `gui.burmaldaholic.cashier.qty.x1` | ×1 | ×1 |
+| `gui.burmaldaholic.cashier.qty.x16` | ×16 | ×16 |
+| `gui.burmaldaholic.cashier.qty.x64` | ×64 | ×64 |
+| `gui.burmaldaholic.cashier.store.category.all` | All | Всё |
+| `gui.burmaldaholic.cashier.store.category.food` | Food | Еда |
+| `gui.burmaldaholic.cashier.store.category.potions` | Potions | Зелья |
+| `gui.burmaldaholic.cashier.store.category.books` | Books | Книги |
+| `gui.burmaldaholic.cashier.store.category.tools` | Tools | Снаряжение |
+| `gui.burmaldaholic.cashier.store.category.decor` | Decor | Декор |
+| `gui.burmaldaholic.cashier.store.category.rare` | Rare | Редкое |
+| `gui.burmaldaholic.cashier.store.category.games` | Games | Игры |
+| `gui.burmaldaholic.cashier.store.search` | Search… | Поиск… |
+| `gui.burmaldaholic.cashier.store.empty` | Nothing here | Здесь пусто |
+| `gui.burmaldaholic.cashier.store.price` | %1$s each | %1$s за штуку |
+| `gui.burmaldaholic.cashier.store.total` | Total: %1$s | Итого: %1$s |
+| `gui.burmaldaholic.cashier.store.buy` | Buy | Купить |
+| `gui.burmaldaholic.cashier.store.confirm` | Confirm %1$s? | Точно %1$s? |
+| `gui.burmaldaholic.cashier.store.limit_day` | %1$s of %2$s left today | Сегодня ещё %1$s из %2$s |
+| `gui.burmaldaholic.cashier.store.limit_days` | Once every %1$s days | Раз в %1$s дн. |
+| `gui.burmaldaholic.cashier.store.limit_reached` | Daily limit reached | Лимит на сегодня исчерпан |
+| `gui.burmaldaholic.cashier.store.away` | You are too far from the counter | Вы слишком далеко от прилавка |
+| `msg.burmaldaholic.core.exchange.in` | Handed in %1$s × %2$s for %3$s | Сдано %1$s × %2$s за %3$s |
+| `msg.burmaldaholic.core.exchange.out` | Bought %1$s × %2$s for %3$s | Куплено %1$s × %2$s за %3$s |
+| `msg.burmaldaholic.core.exchange.partial` | Only %1$s of %2$s fit; the rest stayed with you | Поместилось только %1$s из %2$s; остальное осталось у вас |
+| `msg.burmaldaholic.core.store.bought` | Bought %1$s × %2$s for %3$s | Куплено %1$s × %2$s за %3$s |
+| `entity.burmaldaholic.merchant` | Casino Merchant | Торговец казино |
 
 ### Contracts
 
@@ -3762,11 +3796,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.core.roundTimeoutRefund` | Refund rounds after restart | Возвращать ставки после перезапуска |
 | `config.burmaldaholic.economy.maxBalance` | Maximum balance | Максимальный баланс |
 | `config.burmaldaholic.economy.startingBalance` | Starting balance | Стартовый баланс |
-| `config.burmaldaholic.economy.emeraldBuyRate` | Chips per emerald (buy) | Фишек за изумруд (покупка) |
-| `config.burmaldaholic.economy.emeraldBuyRateGoldVip` | Chips per emerald (buy, Gold VIP) | Фишек за изумруд (покупка, ВИП «Золото») |
-| `config.burmaldaholic.economy.emeraldSellRate` | Chips per emerald (sell) | Фишек за изумруд (продажа) |
-| `config.burmaldaholic.economy.goldBuyRate` | Chips per gold ingot (buy) | Фишек за золотой слиток (покупка) |
-| `config.burmaldaholic.economy.goldSellRate` | Chips per gold ingot (sell) | Фишек за золотой слиток (продажа) |
 | `config.burmaldaholic.economy.ore.coal` | Coal ore reward | Награда: угольная руда |
 | `config.burmaldaholic.economy.ore.copper` | Copper ore reward | Награда: медная руда |
 | `config.burmaldaholic.economy.ore.iron` | Iron ore reward | Награда: железная руда |
@@ -4281,6 +4310,30 @@ The other v1 slot config labels were removed with the slots v2 cut-over (S-J5).
 | Key | EN | RU |
 |-----|----|----|
 | `config.burmaldaholic.pvp.slots.starPoints` | Slot Showdown: points for three stars | Битва автоматов: очки за три звезды |
+
+### EC-1: cashier exchange rows and the chip store
+
+| Key | EN | RU |
+|-----|----|----|
+| `config.burmaldaholic.section.store` | Chip store | Магазин за фишки |
+| `config.burmaldaholic.economy.exchange.item` | %1$s: item | %1$s: предмет |
+| `config.burmaldaholic.economy.exchange.toChips` | %1$s: chips per item handed in | %1$s: фишек за сданный предмет |
+| `config.burmaldaholic.economy.exchange.fromChips` | %1$s: chips per item bought | %1$s: фишек за купленный предмет |
+| `config.burmaldaholic.economy.exchange.dims` | %1$s: dimensions (O, N, E) | %1$s: измерения (O, N, E) |
+| `config.burmaldaholic.economy.exchange.buyMinTier` | %1$s: VIP tier to buy | %1$s: уровень ВИП для покупки |
+| `config.burmaldaholic.store.enabled` | Chip store | Магазин за фишки |
+| `config.burmaldaholic.store.offers.item` | %1$s: item | %1$s: предмет |
+| `config.burmaldaholic.store.offers.count` | %1$s: items per purchase | %1$s: штук за покупку |
+| `config.burmaldaholic.store.offers.potion` | %1$s: potion | %1$s: зелье |
+| `config.burmaldaholic.store.offers.enchant` | %1$s: enchantment | %1$s: чары |
+| `config.burmaldaholic.store.offers.level` | %1$s: enchantment level | %1$s: уровень чар |
+| `config.burmaldaholic.store.offers.flight` | %1$s: rocket flight | %1$s: длительность полёта |
+| `config.burmaldaholic.store.offers.category` | %1$s: category | %1$s: раздел |
+| `config.burmaldaholic.store.offers.price` | %1$s: price | %1$s: цена |
+| `config.burmaldaholic.store.offers.minTier` | %1$s: VIP tier | %1$s: уровень ВИП |
+| `config.burmaldaholic.store.offers.dims` | %1$s: dimensions (O, N, E) | %1$s: измерения (O, N, E) |
+| `config.burmaldaholic.store.offers.limitPerDay` | %1$s: limit per day | %1$s: лимит в день |
+| `config.burmaldaholic.store.offers.limitEveryDays` | %1$s: limit window (days) | %1$s: окно лимита (дней) |
 
 ## sounds (subtitles, core-owned)
 
