@@ -159,3 +159,17 @@ Tester commits cherry-picked first (`30f1b489`, `43e34f31`, `64994879` from `tes
   V7 ring gold 76/76 when on, 0/76 after the seven-out; late result ready 2505 ms → release 2640 ms, fromHand.
 - **Not verified:** V3 passed without testing anything. The probe logs "V3 not exercised: no banner at the seven-out shot", so the
   COME-under-banner check never actually ran. The probe needs a frame where the banner is up.
+
+## Re-test round 2 (T-CM M1c) — tester commit 624cb220 cherry-picked (CRLF normalised to LF)
+- **M1c** `CrapsRollClock.onRoll` spectator path (not a first sight, not stale): the dice glide from where they rest at dice
+  home NOW (also mid-slide, or with the side change bunched into the roll) into the throw's start pose, then the throw.
+  The glide takes `max(120, dist·1.5/0.045)` ms and uses a `CrapsPair` passing path when the order swaps. Dice home's slide
+  ends at that roll. This also fixes the old 1.6 u lift jump from rest to the hand pose at every spectator throw. `pin()`
+  (tests) drops the glide. Dev test `spectatorsStartFromHome…` now expects the ≥ 120 ms glide (t < 0 on arrival).
+  New `CrapsCmFixTest.aSpectatorRollDuringTheHomeSlideGlidesIn` (gaps 0–1200 ms: ≤ 0.14 u/ms, ≥ 2 u, exact faces).
+- **V3 at 480: left as intended.** `CrapsLayout.bannerRegion()` is the free band of the COME row left of the dice. By contract
+  (ui-v2 §2.1) it may cover the printed COME word and never a number, a stack or the dice, and the word is hidden while the
+  banner is up. Bet labels, point numbers and stacks stay readable.
+- Verified (26.3): unit set 161 tests green (`DiceKitTest` "worst solve" timing failed once under load, then passed when re-run
+  alone). Server craps: 20/20. Client D,CM @ the head (`CM-fix-client3.log`): BUILD SUCCESSFUL. V3 forced banner: COME ink 0 with
+  the banner, 252 without. V7: ring 76/76 gold when on, 0/76 after the seven-out. Late result: release 2640 ms.
