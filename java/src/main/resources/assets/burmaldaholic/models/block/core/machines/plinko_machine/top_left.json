@@ -7,7 +7,9 @@
     "wood": "burmaldaholic:block/core/tables/high_roller/wood",
     "trim": "burmaldaholic:block/core/tables/high_roller/trim",
     "dark": "burmaldaholic:block/core/tables/high_roller/rail",
-    "bulbs": "burmaldaholic:block/core/machines/bulbs",
+    "bulbs": "burmaldaholic:block/core/machines/bulbs2",
+    "ppanel": "burmaldaholic:block/core/machines/plinko_side",
+    "safe": "burmaldaholic:block/core/machines/cashier_safe",
     "chrome": "burmaldaholic:block/core/machines/chrome",
     "board": "burmaldaholic:block/core/machines/plinko_board_back",
     "marquee": "burmaldaholic:block/core/machines/plinko_marquee",
@@ -94,7 +96,6 @@
         9,
         12
       ],
-      "light_emission": 12,
       "faces": {
         "up": {
           "uv": [
@@ -122,7 +123,7 @@
             2,
             16
           ],
-          "texture": "#bulbs"
+          "texture": "#wood"
         },
         "south": {
           "uv": [
@@ -140,7 +141,7 @@
             12,
             16
           ],
-          "texture": "#wood"
+          "texture": "#ppanel"
         },
         "east": {
           "uv": [
@@ -149,7 +150,77 @@
             16,
             16
           ],
-          "texture": "#wood"
+          "texture": "#ppanel"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        0,
+        -0.25
+      ],
+      "to": [
+        16,
+        9,
+        0.25
+      ],
+      "light_emission": 15,
+      "faces": {
+        "up": {
+          "uv": [
+            14,
+            0,
+            16,
+            0.25
+          ],
+          "texture": "#bulbs"
+        },
+        "down": {
+          "uv": [
+            14,
+            0,
+            16,
+            0.25
+          ],
+          "texture": "#bulbs",
+          "cullface": "down"
+        },
+        "north": {
+          "uv": [
+            0,
+            7,
+            2,
+            16
+          ],
+          "texture": "#bulbs"
+        },
+        "south": {
+          "uv": [
+            14,
+            7,
+            16,
+            16
+          ],
+          "texture": "#bulbs"
+        },
+        "west": {
+          "uv": [
+            0,
+            7,
+            0.25,
+            16
+          ],
+          "texture": "#bulbs"
+        },
+        "east": {
+          "uv": [
+            15.75,
+            7,
+            16,
+            16
+          ],
+          "texture": "#bulbs"
         }
       }
     },
@@ -232,7 +303,7 @@
         15.5,
         12
       ],
-      "light_emission": 12,
+      "light_emission": 15,
       "faces": {
         "up": {
           "uv": [
@@ -277,7 +348,7 @@
             12,
             7
           ],
-          "texture": "#dark"
+          "texture": "#ppanel"
         },
         "east": {
           "uv": [
@@ -286,7 +357,7 @@
             16,
             7
           ],
-          "texture": "#dark"
+          "texture": "#ppanel"
         }
       }
     },

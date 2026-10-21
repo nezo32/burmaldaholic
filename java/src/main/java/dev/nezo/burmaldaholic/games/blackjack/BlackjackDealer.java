@@ -31,7 +31,7 @@ import net.minecraft.world.level.Level;
  * nearest blackjack table (normal or High Roller) within {@link #TABLE_RADIUS} blocks — the table block
  * holds the game state, the dealer is its face (Bedrock keys a table on the entity itself instead).
  */
-public class BlackjackDealer extends PathfinderMob implements GesturingDealer {
+public class BlackjackDealer extends PathfinderMob implements GesturingDealer, dev.nezo.burmaldaholic.client.dealer.DealerGestureSink {
 	/** Dealer gesture (docs/design/animation/cards.md §1.4): {@link DealerGesture} id, set by the table on its beats. */
 	private static final EntityDataAccessor<Byte> GESTURE = SynchedEntityData.defineId(BlackjackDealer.class, EntityDataSerializers.BYTE);
 	/** Game time the gesture started (the renderer's age = level time − this). */

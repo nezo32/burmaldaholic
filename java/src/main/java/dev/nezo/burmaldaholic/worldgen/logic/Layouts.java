@@ -312,10 +312,15 @@ public final class Layouts {
 
 	// ---- registry --------------------------------------------------------------------------------
 
-	private static Map<String, Layout> cache;
+	private static Map<String, Layout> legacy;
+	private static volatile Map<String, Layout> cache;
 
-	public static synchronized Map<String, Layout> all() {
-		if (cache == null) {
+	/**
+	 * The v0.1 layouts (village casinos, Piglin Parlor, High Roller Lounge). Their template ids, sizes and
+	 * bytes are FROZEN (old saves reference them; {@code TemplateExportTest} guards the committed files).
+	 */
+	public static synchronized Map<String, Layout> legacy() {
+		if (legacy == null) {
 			Map<String, Layout> m = new LinkedHashMap<>();
 			for (VillageStyle s : VillageStyle.values()) {
 				Layout l = villageCasino(s);
@@ -325,7 +330,30 @@ public final class Layouts {
 			m.put(parlor.id(), parlor);
 			Layout lounge = highRollerLounge();
 			m.put(lounge.id(), lounge);
-			cache = Collections.unmodifiableMap(m); // keeps insertion order
+			legacy = Collections.unmodifiableMap(m); // keeps insertion order
+		}
+		return legacy;
+	}
+
+	/**
+	 * Every layout the game knows: {@link #legacy()} ∪ the v0.2 pieces of {@link CasinoPack} (ids under
+	 * {@code casino/…}). Built lazily on first use; {@code CasinoPack} never reads this registry, so there is
+	 * no static-initialisation cycle.
+	 */
+	public static Map<String, Layout> all() {
+		Map<String, Layout> c = cache; // lock-free fast path: worldgen threads call this for every jigsaw piece
+		return c != null ? c : build();
+	}
+
+	private static synchronized Map<String, Layout> build() {
+		if (cache == null) {
+			Map<String, Layout> m = new LinkedHashMap<>(legacy());
+			for (Layout l : CasinoPack.layouts()) {
+				if (m.putIfAbsent(l.id(), l) != null) {
+					throw new IllegalStateException("casino layout id " + l.id() + " is defined twice");
+				}
+			}
+			cache = Collections.unmodifiableMap(m);
 		}
 		return cache;
 	}
@@ -335,23 +363,27 @@ public final class Layouts {
 	}
 
 	public static Layout village(VillageStyle style) {
-		return all().get("village_casino_" + style.id());
+		return legacy().get("village_casino_" + style.id());
 	}
 
 	public static Layout piglinParlorLayout() {
-		return all().get("piglin_parlor");
+		return legacy().get("piglin_parlor");
 	}
 
 	public static Layout highRollerLayout() {
-		return all().get("high_roller_lounge");
+		return legacy().get("high_roller_lounge");
 	}
 
-	/** The layout used for a (non-village) kind. */
+	/**
+	 * The v0.1 layout of an annex kind (op build command). {@link CasinoKind#CASINO} is a multi-piece jigsaw
+	 * structure without a single layout: it is built with {@code place structure burmaldaholic:casino_<style>}.
+	 */
 	public static Layout forKind(CasinoKind kind, VillageStyle villageStyle) {
 		return switch (kind) {
 			case VILLAGE_CASINO -> village(villageStyle);
 			case PIGLIN_PARLOR -> piglinParlorLayout();
 			case HIGH_ROLLER -> highRollerLayout();
+			case CASINO -> throw new IllegalArgumentException("the standalone casino is a jigsaw structure, not one layout");
 		};
 	}
 }

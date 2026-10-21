@@ -8,7 +8,8 @@
     "trim": "burmaldaholic:block/core/tables/player_banked/trim",
     "tray": "burmaldaholic:block/core/tables/player_banked/tray",
     "bowl": "burmaldaholic:block/core/tables/player_banked/bowl",
-    "placard": "burmaldaholic:block/core/tables/player_banked/placard",
+    "placard": "burmaldaholic:block/core/tables/placard_spade",
+    "track": "burmaldaholic:block/core/tables/track",
     "tote": "burmaldaholic:block/core/tables/player_banked/tote"
   },
   "elements": [
@@ -1374,6 +1375,74 @@
     },
     {
       "from": [
+        13.333,
+        11.5,
+        12.333
+      ],
+      "to": [
+        15.333,
+        13.5,
+        12.5
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            8,
+            13,
+            14,
+            13.5
+          ],
+          "texture": "#placard"
+        },
+        "down": {
+          "uv": [
+            8,
+            13,
+            14,
+            13.5
+          ],
+          "texture": "#placard"
+        },
+        "north": {
+          "uv": [
+            0,
+            2.67,
+            16,
+            13.33
+          ],
+          "texture": "#placard"
+        },
+        "south": {
+          "uv": [
+            0,
+            2.67,
+            16,
+            13.33
+          ],
+          "texture": "#placard"
+        },
+        "west": {
+          "uv": [
+            13,
+            9,
+            13.5,
+            13
+          ],
+          "texture": "#placard"
+        },
+        "east": {
+          "uv": [
+            2.5,
+            9,
+            3,
+            13
+          ],
+          "texture": "#placard"
+        }
+      }
+    },
+    {
+      "from": [
         14.167,
         2.75,
         11.5
@@ -1505,74 +1574,6 @@
             11
           ],
           "texture": "#wood"
-        }
-      }
-    },
-    {
-      "from": [
-        13.833,
-        9.75,
-        12.25
-      ],
-      "to": [
-        15.167,
-        11.75,
-        12.75
-      ],
-      "faces": {
-        "up": {
-          "uv": [
-            9.5,
-            12.75,
-            13.5,
-            14.25
-          ],
-          "texture": "#placard"
-        },
-        "down": {
-          "uv": [
-            9.5,
-            12.75,
-            13.5,
-            14.25
-          ],
-          "texture": "#placard"
-        },
-        "north": {
-          "uv": [
-            2.5,
-            0.5,
-            6.5,
-            12.5
-          ],
-          "texture": "#placard"
-        },
-        "south": {
-          "uv": [
-            9.5,
-            0.5,
-            13.5,
-            12.5
-          ],
-          "texture": "#placard"
-        },
-        "west": {
-          "uv": [
-            12.75,
-            0.5,
-            14.25,
-            12.5
-          ],
-          "texture": "#placard"
-        },
-        "east": {
-          "uv": [
-            1.75,
-            0.5,
-            3.25,
-            12.5
-          ],
-          "texture": "#placard"
         }
       }
     },
@@ -2190,67 +2191,67 @@
     },
     {
       "from": [
-        14.333,
+        14.167,
         9,
-        12.333
+        12.25
       ],
       "to": [
-        14.667,
-        10,
-        12.667
+        14.5,
+        12.5,
+        12.583
       ],
       "faces": {
         "up": {
           "uv": [
-            11,
-            13,
-            12,
-            14
+            10.5,
+            12.75,
+            11.5,
+            13.75
           ],
           "texture": "#trim"
         },
         "down": {
           "uv": [
-            11,
-            13,
-            12,
-            14
+            10.5,
+            12.75,
+            11.5,
+            13.75
           ],
           "texture": "#trim"
         },
         "north": {
           "uv": [
-            4,
-            0,
-            5,
-            2
+            4.5,
+            2,
+            5.5,
+            11
           ],
           "texture": "#trim"
         },
         "south": {
           "uv": [
-            11,
-            0,
-            12,
-            2
+            10.5,
+            2,
+            11.5,
+            11
           ],
           "texture": "#trim"
         },
         "west": {
           "uv": [
-            13,
-            0,
-            14,
-            2
+            12.75,
+            2,
+            13.75,
+            11
           ],
           "texture": "#trim"
         },
         "east": {
           "uv": [
+            2.25,
             2,
-            0,
-            3,
-            2
+            3.25,
+            11
           ],
           "texture": "#trim"
         }

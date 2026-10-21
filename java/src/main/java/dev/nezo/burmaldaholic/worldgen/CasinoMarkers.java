@@ -79,17 +79,20 @@ public final class CasinoMarkers {
 		ServerLevel serverLevel = level.getLevel();
 		MinecraftServer server = serverLevel.getServer();
 		String dimension = serverLevel.dimension().identifier().toString();
-		String casinoId = CasinoRecord.idFor(dimension, origin.getX(), origin.getY(), origin.getZ());
+		// D6: inside a structure start every casino piece shares the start's casino (id + union box).
+		CasinoPlacement.Context ctx = CasinoPlacement.current();
+		String casinoId = ctx != null ? ctx.casinoId() : CasinoRecord.idFor(dimension, origin.getX(), origin.getY(), origin.getZ());
 		switch (marker) {
 			case Markers.Anchor anchor -> {
 				Layout l = Layouts.byId(anchor.layoutId()).orElse(layout);
-				Geometry.Box box = Geometry.templateBox(new Vec(origin.getX(), origin.getY(), origin.getZ()), l.size(), turns);
+				Geometry.Box box = ctx != null ? ctx.box()
+					: Geometry.templateBox(new Vec(origin.getX(), origin.getY(), origin.getZ()), l.size(), turns);
 				server.execute(() -> CasinoIndex.get(server).setAnchor(casinoId, dimension, l.id(), l.kind(), box));
 			}
 			case Markers.Npc npc -> {
 				BlockPos stand = pos.below();
 				float yaw = npc.facing().rotate(turns).yaw();
-				Entity entity = CasinoNpcs.spawn(level, npc.role(), stand, yaw);
+				Entity entity = CasinoNpcs.spawn(level, npc.role(), stand, yaw, casinoId);
 				UUID uuid = entity == null ? null : entity.getUUID();
 				Vec home = new Vec(stand.getX(), stand.getY(), stand.getZ());
 				server.execute(() -> CasinoIndex.get(server).addNpc(casinoId, dimension, npc.role(), home, yaw, uuid));

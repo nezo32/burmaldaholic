@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,6 +33,21 @@ public interface TableProtection {
 	default boolean dropsAllowed(ServerLevel level, BlockPos main) {
 		return true;
 	}
+
+	/**
+	 * Whether removing the table at {@code main} may drop its item, given its (possibly already detached) main block
+	 * entity — the loot-time check every removal path reaches ({@code getDrops}: player, explosion, wither,
+	 * {@code /setblock … destroy}, other mods). Default: {@link #dropsAllowed(ServerLevel, BlockPos)}.
+	 */
+	default boolean dropsAllowed(ServerLevel level, BlockPos main, @Nullable BlockEntity mainBe) {
+		return dropsAllowed(level, main);
+	}
+
+	/**
+	 * A table saved before v0.2 (no {@code mt} tag) loaded for the first time: lets the house protection decide once
+	 * whether it is a generated table or a player's (and mark it), before the migration rewrites the save.
+	 */
+	default void legacyTableLoaded(ServerLevel level, BlockPos main, BlockEntity mainBe) {}
 
 	/** Whether the table at {@code main} (every part with it) survives explosions. */
 	default boolean explosionProof(ServerLevel level, BlockPos main) {

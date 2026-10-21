@@ -1,0 +1,2 @@
+# Frozen v0.1 casino pack: TemplateExportTest compares bytes, keep LF on every platform
+java/src/main/resources/resourcepacks/** text=auto eol=lf

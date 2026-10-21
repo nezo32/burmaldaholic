@@ -6,31 +6,55 @@
       "conditions": [
         {
           "condition": "minecraft:survives_explosion"
-        },
-        {
-          "condition": "minecraft:any_of",
-          "terms": [
-            {
-              "condition": "minecraft:block_state_property",
-              "block": "burmaldaholic:roulette_table",
-              "properties": {
-                "part": "main"
-              }
-            },
-            {
-              "condition": "minecraft:block_state_property",
-              "block": "burmaldaholic:roulette_table",
-              "properties": {
-                "part": "single"
-              }
-            }
-          ]
         }
       ],
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "burmaldaholic:roulette_table"
+          "name": "burmaldaholic:roulette_table",
+          "conditions": [
+            {
+              "condition": "minecraft:any_of",
+              "terms": [
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:roulette_table",
+                  "properties": {
+                    "part": "main"
+                  }
+                },
+                {
+                  "condition": "minecraft:block_state_property",
+                  "block": "burmaldaholic:roulette_table",
+                  "properties": {
+                    "part": "single"
+                  }
+                }
+              ]
+            }
+          ],
+          "condition": {
+            "type": "minecraft:any_of",
+            "terms": [
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:roulette_table",
+                "state": {
+                  "part": "main"
+                }
+              },
+              {
+                "type": "minecraft:match_block",
+                "blocks": "burmaldaholic:roulette_table",
+                "state": {
+                  "part": "single"
+                }
+              }
+            ]
+          }
         }
       ]
     }

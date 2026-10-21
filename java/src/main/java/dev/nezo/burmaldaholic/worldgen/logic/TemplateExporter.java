@@ -41,6 +41,7 @@ public final class TemplateExporter {
 		Grid grid = layout.grid();
 		Map<String, BlockSpec> overrides = new LinkedHashMap<>();
 		Map<String, Map<String, Object>> blockNbt = new LinkedHashMap<>();
+		layout.blockNbt().forEach((pos, nbt) -> blockNbt.put(key(pos), nbt));
 		for (Layout.PlacedMarker m : layout.markers()) {
 			String key = key(m.pos());
 			overrides.put(key, BlockSpec.mc("structure_block", "mode", "data"));

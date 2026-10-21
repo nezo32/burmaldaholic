@@ -37,9 +37,14 @@
 			"dev.nezo.burmaldaholic.gametest.independent.IndependentGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenNpcGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.HouseDealerGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.HouseDealerTesterGameTests",
 			"dev.nezo.burmaldaholic.gametest.worldgen.WorldgenSpawnSurvey",
+			"dev.nezo.burmaldaholic.gametest.worldgen.OtherworldFitSurvey",
 			"dev.nezo.burmaldaholic.gametest.worldgen.LocateGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.CasinoModeDefaultGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoBuildingGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoSiteGameTests",
 			"dev.nezo.burmaldaholic.gametest.baccarat.BaccaratGameTests",
 			"dev.nezo.burmaldaholic.gametest.uth.UthGameTests",
 			"dev.nezo.burmaldaholic.gametest.pvp.PvpGameTests",
@@ -67,7 +72,8 @@
 			"dev.nezo.burmaldaholic.gametest.v2.pvp.PvpV2GameTests",
 			"dev.nezo.burmaldaholic.gametest.core.SyncGameTests",
 			"dev.nezo.burmaldaholic.gametest.tables.MultiBlockTableGameTests",
-			"dev.nezo.burmaldaholic.gametest.bots.BotAvatarGameTests"
+			"dev.nezo.burmaldaholic.gametest.bots.BotAvatarGameTests",
+			"dev.nezo.burmaldaholic.gametest.tables.MultiBlockTesterGameTests"
 		],
 		"fabric-client-gametest": [
 			"dev.nezo.burmaldaholic.gametest.tables.TablesClientGameTests",
@@ -115,10 +121,18 @@
 			"dev.nezo.burmaldaholic.gametest.core.SyncClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.SyncAdversarialClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.comps.CompsClientGameTests",
-			"dev.nezo.burmaldaholic.gametest.core.CounterClientGameTests"
+			"dev.nezo.burmaldaholic.gametest.core.CounterClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoPlayClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoPhotoClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoTerrainClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.CasinoSiteClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.worldgen.HouseDealerClientGameTests"
 		]
 	},
 	"depends": {
 		"burmaldaholic": "*"
-	}
+	},
+	"mixins": [
+		"burmaldaholic-gametest.mixins.json"
+	]
 }

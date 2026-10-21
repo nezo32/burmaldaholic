@@ -34,6 +34,23 @@ public final class CasinoElements {
 		});
 	}
 
+	/** An element with the layout it places. */
+	public record Choice(Layout layout, StructurePoolElement element) {}
+
+	/**
+	 * The v0.2 annex layout's element when that piece exists and its pool is loaded, else the frozen v0.1 layout's
+	 * (old saves keep their v0.1 pieces either way; new annexes switch to v0.2 as soon as a lane delivers it).
+	 */
+	public static Optional<Choice> preferV2(HolderGetter<StructureTemplatePool> pools, Optional<Layout> v2, Layout legacy) {
+		if (v2.isPresent()) {
+			Optional<StructurePoolElement> e = element(pools, v2.get());
+			if (e.isPresent()) {
+				return Optional.of(new Choice(v2.get(), e.get()));
+			}
+		}
+		return element(pools, legacy).map(e -> new Choice(legacy, e));
+	}
+
 	/** The casino layout an element places, if it is one of ours. */
 	public static Optional<Layout> layoutOf(StructurePoolElement element) {
 		if (!(element instanceof SinglePoolElement single)) {

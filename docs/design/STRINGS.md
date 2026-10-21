@@ -436,6 +436,7 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.table.compact_hint` | Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it | Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить |
 | `msg.burmaldaholic.table.unfolded` | Unfolded to full size | Разложено в полный размер |
 | `msg.burmaldaholic.table.unfold_busy` | Someone is standing where it unfolds — step aside and try again | Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова |
+| `sign.burmaldaholic.cashier` | CASHIER | КАССА |
 
 ### Casino Menu
 
@@ -554,7 +555,6 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.exchange.out` | Bought %1$s × %2$s for %3$s | Куплено %1$s × %2$s за %3$s |
 | `msg.burmaldaholic.core.exchange.partial` | Only %1$s of %2$s fit; the rest stayed with you | Поместилось только %1$s из %2$s; остальное осталось у вас |
 | `msg.burmaldaholic.core.store.bought` | Bought %1$s × %2$s for %3$s | Куплено %1$s × %2$s за %3$s |
-| `entity.burmaldaholic.merchant` | Casino Merchant | Торговец казино |
 
 ### Contracts
 
@@ -3153,6 +3153,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.village_casino` | Lucky Villager Casino | Казино «Счастливый житель» |
 | `gui.burmaldaholic.worldgen.piglin_parlor` | Piglin Parlor | Пиглинский салон |
 | `gui.burmaldaholic.worldgen.high_roller` | High Roller Lounge | Лаунж хайроллеров |
+| `gui.burmaldaholic.worldgen.casino` | Grand Casino | Гранд-казино |
 | `msg.burmaldaholic.worldgen.entered` | Welcome to %1$s | Добро пожаловать в %1$s |
 | `msg.burmaldaholic.worldgen.entered_subtitle` | Please gamble responsibly. Or at least entertainingly. | Играйте ответственно. Ну или хотя бы зрелищно. |
 | `gui.burmaldaholic.croupier.title` | Croupier | Крупье |
@@ -3189,6 +3190,29 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.dir.sw` | south-west | юго-запад |
 | `gui.burmaldaholic.worldgen.dir.w` | west | запад |
 | `gui.burmaldaholic.worldgen.dir.nw` | north-west | северо-запад |
+| `msg.burmaldaholic.worldgen.house_table_protected` | This game belongs to the house and stays in the casino | Эта игра принадлежит заведению и останется в казино |
+
+### worldgen: house dealers and staff (DL)
+
+| Key | EN | RU |
+|-----|----|----|
+| `entity.burmaldaholic.house_dealer` | Dealer | Дилер |
+| `entity.burmaldaholic.piglin_house_dealer` | Piglin Croupier | Пиглин-крупье |
+| `entity.burmaldaholic.ender_house_dealer` | Ender Dealer | Эндер-дилер |
+| `entity.burmaldaholic.ender_croupier` | Ender Croupier | Эндер-крупье |
+| `entity.burmaldaholic.pit_boss` | Pit Boss | Пит-босс |
+| `entity.burmaldaholic.merchant` | Casino Merchant | Торговец казино |
+| `entity.burmaldaholic.piglin_merchant` | Piglin Merchant | Пиглин-торговец |
+| `entity.burmaldaholic.ender_merchant` | Ender Merchant | Эндер-торговец |
+| `item.burmaldaholic.house_dealer_spawn_egg` | Dealer Spawn Egg | Яйцо призыва дилера |
+| `msg.burmaldaholic.worldgen.dealer.no_table` | This dealer has no table to run | Этому дилеру некуда сдавать: стола нет |
+| `msg.burmaldaholic.worldgen.merchant.closed` | The store is closed today | Лавка сегодня закрыта |
+| `dialog.burmaldaholic.ender_croupier.greeting.1` | (The enderman straightens its bow tie and does not look you in the eye. Politely.) | (Эндермен поправляет бабочку и вежливо не смотрит вам в глаза.) |
+| `dialog.burmaldaholic.ender_croupier.greeting.2` | High stakes, quiet voices. Please don't stare. | Ставки высокие, голоса тихие. Только не пялитесь. |
+| `dialog.burmaldaholic.pit_boss.greeting.1` | Snort. I watch the tables. The tables watch you. | Хрю. Я смотрю за столами. Столы смотрят за тобой. |
+| `dialog.burmaldaholic.pit_boss.greeting.2` | Play nice, pay up, and nobody gets bartered. | Играй честно, плати вовремя — и никого не обменяют. |
+| `dialog.burmaldaholic.merchant.greeting.1` | Chips burning a hole in your pocket? Have a look. | Фишки жгут карман? Загляните на прилавок. |
+| `dialog.burmaldaholic.merchant.greeting.2` | Everything here is paid in chips. Even the smile. | Здесь всё за фишки. Даже улыбка. |
 
 ---
 
@@ -4259,6 +4283,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.worldgen.villageCasino.chance` | Village casino chance | Шанс казино в деревне |
 | `config.burmaldaholic.worldgen.piglinParlor.chance` | Piglin Parlor chance | Шанс пиглинского салона |
 | `config.burmaldaholic.worldgen.highRoller.chance` | High Roller Lounge chance | Шанс лаунжа хайроллеров |
+| `config.burmaldaholic.worldgen.standalone.enabled` | Standalone casinos | Отдельные казино |
 | `config.burmaldaholic.worldgen.loanSharkRespawnTicks` | Loan Shark respawn (ticks) | Возрождение ростовщика (тики) |
 | `config.burmaldaholic.worldgen.locateCooldownSeconds` | /casino locate cooldown (seconds) | Перезарядка /casino locate (секунды) |
 | `config.burmaldaholic.ownership.enabled` | Player casinos | Казино игроков |

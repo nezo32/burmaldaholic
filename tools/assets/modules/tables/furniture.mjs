@@ -12,10 +12,12 @@
 // that cell's block for facing=north (players on the north side: local +X → block −x, local +Z → block −z);
 // the blockstate rotates the model for the other facings. Felt top = 14 px (FeltFrame.FELT_Y), rail top 15 px.
 // Pure + deterministic.
+import { controllerLoot } from './loot.mjs';
 import { JAVA_ASSETS, json, png } from '../../lib/emit.mjs';
 import { R, P, c, image, put, rng } from './draw.mjs';
 import { machineOutputs } from './machines.mjs';
 import * as G from './table_geom.mjs';
+import * as H from './art_hd.mjs';
 
 const T = `${JAVA_ASSETS}/textures/block/core/tables`;
 const M = `${JAVA_ASSETS}/models/block/tables`;
@@ -119,6 +121,8 @@ export function woodTexture(theme) {
  * stitch dots every 4 px along both edges (gold on the high-roller rail).
  */
 export function railTexture(theme) {
+  const t0 = THEMES[theme];
+  if (t0) return H.leatherFine(t0.rail[1], t0.stitch, 0x1ea7 + theme.length);
   const t = THEMES[theme];
   const img = image(16, 16);
   for (let y = 0; y < 16; y++)
@@ -269,7 +273,10 @@ export function tableSegs(shape) {
 }
 
 /** Local box in cell (r, f) → block element for facing=north (x' = 16 − (X − 16r), z' = 16 − (Z − 16f)). */
-function element(b, r, f, scale) {
+/** light_emission of a box / segment for a theme: the brass band under the rail is lit on the high-roller theme only. */
+const emitOf = (b, theme) => (b.emit === 'band' ? (theme === 'high_roller' ? 12 : 0) : b.emit || 0);
+
+function element(b, r, f, scale, theme) {
   let x0 = 16 - (b.x1 - 16 * r);
   let x1 = 16 - (b.x0 - 16 * r);
   let z0 = 16 - (b.z1 - 16 * f);
@@ -298,7 +305,12 @@ function element(b, r, f, scale) {
     west: side(uvTop[1], uvTop[3]),
     east: side(16 - uvTop[3], 16 - uvTop[1]),
   };
-  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), ...(b.emit && !scale ? { light_emission: b.emit } : {}), faces };
+  if (b.faceUv) {
+    faces.north = { ...faces.north, uv: b.faceUv };
+    faces.south = { ...faces.south, uv: b.faceUv };
+  }
+  const emit = emitOf(b, theme);
+  return { from: [x0, y0, z0].map(r2), to: [x1, y1, z1].map(r2), ...(emit && !scale ? { light_emission: emit } : {}), faces };
 }
 
 /**
@@ -306,7 +318,7 @@ function element(b, r, f, scale) {
  * the north mapping keeps rotation angles; JOML rotation about +Y turns +X toward −Z, so the box's +X follows the
  * tangent with angle = atan2(−tz, tx) (folded into [−90°, 90°)).
  */
-function segElement(sg, r, f, scale) {
+function segElement(sg, r, f, scale, theme) {
   let cx = 16 - (sg.cx - 16 * r);
   let cz = 16 - (sg.cz - 16 * f);
   let y0 = sg.y0;
@@ -341,12 +353,14 @@ function segElement(sg, r, f, scale) {
     from: [cx - len / 2, y0, cz - thick / 2].map(r2),
     to: [cx + len / 2, y1, cz + thick / 2].map(r2),
     rotation: { origin: [r2(cx), r2((y0 + y1) / 2), r2(cz)], axis: 'y', angle: r2(ang) },
-    ...(sg.emit && !scale ? { light_emission: sg.emit } : {}),
+    ...(emitOf(sg, theme) && !scale ? { light_emission: emitOf(sg, theme) } : {}),
     faces,
   };
 }
 
-function textures(theme) {
+const ICON = { blackjack: 'spade', baccarat: 'spade', uth: 'spade', poker: 'spade', roulette: 'ball', craps: 'die' };
+
+function textures(theme, game) {
   const base = `burmaldaholic:block/core/tables/${theme}`;
   return {
     particle: `${base}/wood`,
@@ -356,7 +370,8 @@ function textures(theme) {
     trim: `${base}/trim`,
     tray: `${base}/tray`,
     bowl: `${base}/bowl`,
-    placard: `${base}/placard`,
+    placard: `burmaldaholic:block/core/tables/placard_${ICON[game] ?? 'spade'}`,
+    track: 'burmaldaholic:block/core/tables/track',
     tote: `${base}/tote`,
   };
 }
@@ -369,9 +384,9 @@ export function partModel(table, part) {
       const [cr, cf] = cellOf(b);
       return cr === r && cf === f;
     })
-    .map((b) => element(b, r, f, false));
-  for (const sg of tableSegs(table.shape)) if (colOf(sg.cx) === r && rowOf(sg.cz) === f) elements.push(segElement(sg, r, f, false));
-  return { parent: 'minecraft:block/block', textures: textures(table.theme), elements };
+    .map((b) => element(b, r, f, false, table.theme));
+  for (const sg of tableSegs(table.shape)) if (colOf(sg.cx) === r && rowOf(sg.cz) === f) elements.push(segElement(sg, r, f, false, table.theme));
+  return { parent: 'minecraft:block/block', textures: textures(table.theme, table.game), elements };
 }
 
 /** Item miniature (whole table, scaled into the item cube). */
@@ -383,7 +398,7 @@ export function itemModel(table) {
   for (const sg of tableSegs(table.shape)) elements.push(segElement(sg, 0, 0, true));
   return {
     parent: 'minecraft:block/block',
-    textures: textures(table.theme),
+    textures: textures(table.theme, table.game),
     elements,
     display: {
       gui: { rotation: [30, 225, 0], translation: [0, 1, 0], scale: [0.8, 0.8, 0.8] },
@@ -407,24 +422,7 @@ export function blockstate(table) {
 }
 
 export function lootTable(table) {
-  const id = `burmaldaholic:${table.name}`;
-  return {
-    type: 'minecraft:block',
-    pools: [
-      {
-        rolls: 1.0,
-        conditions: [
-          { condition: 'minecraft:survives_explosion' },
-          {
-            condition: 'minecraft:any_of',
-            terms: ['main', 'single'].map((part) => ({ condition: 'minecraft:block_state_property', block: id, properties: { part } })),
-          },
-        ],
-        entries: [{ type: 'minecraft:item', name: id }],
-      },
-    ],
-    random_sequence: `burmaldaholic:blocks/${table.name}`,
-  };
+  return controllerLoot(table.name);
 }
 
 export default function generate() {
@@ -436,8 +434,14 @@ export default function generate() {
     out.push(png(`${T}/${theme}/trim.png`, trimTexture(theme)));
     out.push(png(`${T}/${theme}/tray.png`, trayTexture(theme)));
     out.push(png(`${T}/${theme}/bowl.png`, bowlTexture(theme)));
-    out.push(png(`${T}/${theme}/placard.png`, placardTexture(theme)));
     out.push(png(`${T}/${theme}/tote.png`, toteTexture(theme)));
+  }
+  for (const icon of ['spade', 'ball', 'die']) out.push(png(`${T}/placard_${icon}.png`, H.placardHd(icon)));
+  {
+    const track = image(16, 16);
+    R(track, 0, 0, 16, 16, '#E6D2A6');
+    for (let x = 0; x < 16; x += 4) R(track, x, 0, 1, 16, '#D2BC8A');
+    out.push(png(`${T}/track.png`, track));
   }
   for (const table of TABLES) {
     out.push(json(`${JAVA_ASSETS}/blockstates/${table.name}.json`, blockstate(table)));

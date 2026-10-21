@@ -103,6 +103,10 @@ class TableAssetContractTest {
 			String loot = Files.readString(RES.resolve("data/burmaldaholic/loot_table/blocks/" + t + ".json"));
 			assertTrue(loot.contains("\"minecraft:survives_explosion\""), t);
 			assertTrue(loot.contains("\"minecraft:block_state_property\""), t);
+			// both loot formats (26.2 conditions/block_state_property, 26.3 condition/match_block): each version ignores the other's
+			assertTrue(loot.contains("\"conditions\"") && loot.contains("\"condition\": {"), t + " carries the 26.2 and 26.3 predicate keys");
+			assertTrue(loot.contains("\"minecraft:match_block\""), t);
+			assertTrue(loot.contains("\"type\": \"minecraft:survives_explosion\""), t);
 			assertTrue(loot.contains("\"part\": \"main\"") && loot.contains("\"part\": \"single\""), t);
 			assertTrue(!loot.contains("\"part\": \"left\""), t);
 		}

@@ -15,6 +15,8 @@ public final class CasinoRecord {
 	private CasinoKind kind;
 	private Geometry.Box box;
 	private final List<NpcSlot> npcs = new ArrayList<>();
+	/** DL house-dealer migration pass that completed for this casino (0 = none yet; {@code HouseDealers.ensure}). */
+	public int dealersVersion;
 
 	public CasinoRecord(String id, String dimension) {
 		this.id = id;
@@ -69,6 +71,11 @@ public final class CasinoRecord {
 		slot.entity = entity;
 		npcs.add(slot);
 		return slot;
+	}
+
+	/** Drops the NPC slot whose home is {@code home} (a legacy dealer replaced by a house dealer). */
+	public boolean removeNpc(Vec home) {
+		return npcs.removeIf(s -> s.home().equals(home));
 	}
 
 	/** True if the casino is complete and contains the (entity) position in this dimension. */

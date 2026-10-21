@@ -87,7 +87,12 @@ import org.jspecify.annotations.Nullable;
  * Bots NEVER shoot (the rotation only sees human seats) and never delay a roll. Safe point: the start of
  * each betting window (join, leave, after every roll).
  */
-public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
+public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating, dev.nezo.burmaldaholic.client.dealer.DealerCueSource {
+	@Override // DL: the house dealer gestures with this table (client, from the public sync)
+	public dev.nezo.burmaldaholic.client.dealer.DealerCueSource.@org.jspecify.annotations.Nullable Cue dealerCue(long gameTime, float partialTick) {
+		return dev.nezo.burmaldaholic.games.craps.logic.CrapsDealerCues.cue(clientSync(), gameTime, partialTick);
+	}
+
 	static final String TIMER_WINDOW = "window";
 	static final String TIMER_ROLL = "roll";
 	private static final String K = "gui.burmaldaholic.craps.";

@@ -236,7 +236,7 @@ public class BotAvatarGameTests {
 		Direction facing = TableParts.facingOf(state);
 		List<SeatOccupant> occupants = table.occupants();
 		int seats = Math.max(occupants.size(), table.botSeatCount());
-		List<BlockPos> cells = compact ? List.of(main) : TableFootprint.positions(main, facing, game);
+		List<BlockPos> cells = TableParts.cellPositions(main, state); // MT 89c15f71: positions() moved to TableParts
 		List<Display.TextDisplay> plates = level.getEntitiesOfClass(Display.TextDisplay.class, new AABB(main).inflate(4),
 			d -> d.entityTags().contains(TAG));
 		int bots = 0;

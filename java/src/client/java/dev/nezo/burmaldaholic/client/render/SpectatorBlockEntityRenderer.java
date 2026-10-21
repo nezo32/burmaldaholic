@@ -42,10 +42,19 @@ public abstract class SpectatorBlockEntityRenderer<T extends BlockEntity, S exte
 		return 32;
 	}
 
-	/** MT: content of a multi-block table/machine reaches beyond the main block; never cull it by that block's box. */
+	/**
+	 * MT: content of a multi-block table/machine reaches beyond the main block, so it must not depend on the main
+	 * block's chunk section being visible; {@link #shouldRender} culls it by the whole footprint instead.
+	 */
 	@Override
 	public boolean shouldRenderOffScreen() {
 		return true;
+	}
+
+	/** View distance, then the camera frustum against the footprint box ({@code TableCulling}). */
+	@Override
+	public boolean shouldRender(T be, Vec3 cameraPos) {
+		return BlockEntityRenderer.super.shouldRender(be, cameraPos) && dev.nezo.burmaldaholic.client.table.TableCulling.visible(be);
 	}
 
 	@Override

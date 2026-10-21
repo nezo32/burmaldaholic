@@ -83,7 +83,12 @@ import org.jspecify.annotations.Nullable;
  * BETTING, are always ready (never delay the spin) and their slips are settled against the same number
  * for display only. Safe point: start of / any time during BETTING.
  */
-public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
+public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating, dev.nezo.burmaldaholic.client.dealer.DealerCueSource {
+	@Override // DL: the house dealer gestures with this table (client, from the public sync)
+	public dev.nezo.burmaldaholic.client.dealer.DealerCueSource.@org.jspecify.annotations.Nullable Cue dealerCue(long gameTime, float partialTick) {
+		return dev.nezo.burmaldaholic.games.roulette.logic.RouletteDealerCues.cue(clientSync(), gameTime, partialTick);
+	}
+
 	private static final String HISTORY_KEY = "roulette_history";
 	private static final int NO_MORE_BETS_TICKS = 20;
 	private static final int RESULT_TICKS = 60;
