@@ -39,7 +39,8 @@ public class CasinoTerrainClientGameTests implements FabricClientGameTest {
 	/**
 	 * Worldgen cost bar (INT-X, owner: worldgen only needs to be "roughly fine"). The control area is casino-free but not
 	 * like-for-like: at seed 12345 the ice palace site also holds a snowy village (its record is casino/annex/snowy) and
-	 * ice-spikes terrain, and measures ~2.1× (5115 vs 2363 ms; riviera sites 0.96–1.2×). 3× + 250 ms still catches a
+	 * ice-spikes terrain. The old ~2× (and a 7.2× riviera outlier) was the timed area paying for the player's queued
+	 * view-distance chunks (GENPERF); with {@link #drain} first, every site measures 0.8–1.25×. 3× + 250 ms still catches a
 	 * pathological regression (a per-block loop, a chunk-load storm) without failing on village/biome noise or a busy
 	 * machine.
 	 */
@@ -111,12 +112,21 @@ public class CasinoTerrainClientGameTests implements FabricClientGameTest {
 
 	private void visit(ClientGameTestContext context, TestSingleplayerContext world, long seed, Found f) {
 		String tag = "seed " + seed + " " + f.name() + "@" + f.pos().toShortString();
-		// generation cost: 9×9 chunks around the casino vs. a casino-free control area of the same world
+		// generation cost: 9×9 chunks around the casino vs. casino-free control areas of the same world (GENPERF).
+		// The worker pool must be idle first: the previous photo's teleport queues the player's whole view distance,
+		// and whichever area was timed first used to pay for that backlog (17 s for a casino-free area, 15.8 s for a
+		// riviera site). A control is timed before AND after the casino; the bar uses the cheaper one, so any backlog
+		// left over lands on the first control and never makes the casino look better than it is.
+		drain(context, world);
 		double[] ms = world.getServer().computeOnServer(server -> {
 			ServerLevel level = server.overworld();
-			return new double[] {generate(level, f.pos()), generate(level, f.pos().offset(1100, 0, 300))};
+			double before = generate(level, f.pos().offset(-1100, 0, -300));
+			double casino = generate(level, f.pos());
+			double after = generate(level, f.pos().offset(1100, 0, 300));
+			return new double[] {casino, Math.min(before, after), before, after};
 		});
-		CasinoQa.log("terrain {}: 9x9 chunk generation {} ms vs control {} ms", tag, Math.round(ms[0]), Math.round(ms[1]));
+		CasinoQa.log("terrain {}: 9x9 chunk generation {} ms vs control {} ms (before {} ms, after {} ms)", tag, Math.round(ms[0]),
+			Math.round(ms[1]), Math.round(ms[2]), Math.round(ms[3]));
 		if (f.v2() && ms[0] > COST_RATIO * ms[1] + COST_SLACK_MS) {
 			failures.add(tag + ": generating around the casino costs " + Math.round(ms[0]) + " ms vs " + Math.round(ms[1]) + " ms (> "
 				+ COST_RATIO + "x + " + COST_SLACK_MS + " ms)");
@@ -184,6 +194,32 @@ public class CasinoTerrainClientGameTests implements FabricClientGameTest {
 		long t0 = System.nanoTime();
 		CasinoQa.loadChunks(level, at, 4);
 		return (System.nanoTime() - t0) / 1e6;
+	}
+
+	/**
+	 * Waits (bounded) until every chunk in the player's view distance is FULL, so no queued generation competes with the
+	 * timed areas. Then a few quiet ticks for lighting and saving to settle.
+	 */
+	private static void drain(ClientGameTestContext context, TestSingleplayerContext world) {
+		try {
+			world.getServer().waitFor(server -> {
+				var player = server.getPlayerList().getPlayers().getFirst();
+				return loaded(server.overworld(), player.blockPosition(), server.getPlayerList().getViewDistance());
+			}, CHUNK_WAIT);
+		} catch (Throwable e) {
+			CasinoQa.log("terrain: view-distance chunks still generating after {} ticks; timing anyway", CHUNK_WAIT);
+		}
+		// then until the chunk holder count stops changing (unloads/saves of the area the player left also queue work)
+		int last = -1;
+		for (int i = 0; i < 30; i++) {
+			context.waitTicks(20);
+			int now = world.getServer().computeOnServer(server -> server.overworld().getChunkSource().getLoadedChunksCount());
+			if (now == last) {
+				return;
+			}
+			last = now;
+		}
+		CasinoQa.log("terrain: chunk count still changing after 600 ticks; timing anyway");
 	}
 
 	private static boolean loaded(ServerLevel level, BlockPos at, int r) {

@@ -297,13 +297,19 @@ public final class CasinoQa {
 		return new Placed(t, box, spots(level, box), recordNear(level, at, 64), turns);
 	}
 
-	/** The newest casino record whose box is around {@code at}. */
+	/**
+	 * The casino record whose box centre is nearest to {@code at} (within {@code radius}); on a tie the newest. Nearest,
+	 * not "last listed": a village annex 140 blocks off must not stand in for the casino at {@code at} (GENPERF run 3).
+	 */
 	public static Optional<CasinoRecord> recordNear(ServerLevel level, BlockPos at, int radius) {
 		String dim = level.dimension().identifier().toString();
 		CasinoRecord found = null;
+		long best = Long.MAX_VALUE;
 		for (CasinoRecord r : CasinoIndex.get(level.getServer()).casinos()) {
-			if (r.dimension().equals(dim) && r.box() != null && Math.abs(r.box().centerX() - at.getX()) < radius
-				&& Math.abs(r.box().centerZ() - at.getZ()) < radius) {
+			long dx = r.box() == null ? 0 : r.box().centerX() - at.getX();
+			long dz = r.box() == null ? 0 : r.box().centerZ() - at.getZ();
+			if (r.dimension().equals(dim) && r.box() != null && Math.abs(dx) < radius && Math.abs(dz) < radius && dx * dx + dz * dz <= best) {
+				best = dx * dx + dz * dz;
 				found = r;
 			}
 		}
