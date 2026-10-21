@@ -1,8 +1,7 @@
 package dev.nezo.burmaldaholic.gametest.v2.extras.dice;
 
-import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
-import dev.nezo.burmaldaholic.client.fx.motion.MotionClock;
 import dev.nezo.burmaldaholic.client.fx.motion.MotionFx;
 import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
 import dev.nezo.burmaldaholic.core.anim.dice.DieSample;
@@ -60,6 +59,19 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 	private static final int[][] SIZES = {{1280, 720, 3}, {1920, 1080, 4}, {1920, 1080, 3}, {1920, 1080, 2}, {2560, 1440, 2}};
 	private final List<String> errors = new ArrayList<>();
 	private final long[] clock = {0};
+	/** True while the screen steps run on {@link #clock} (frozen through {@link SmoothClock.Test#freezeLevelMs}). */
+	private volatile boolean frozen;
+
+	/** Sets the frozen test clock (applied while {@link #frozen}). */
+	private void setClock(long ms) {
+		clock[0] = ms;
+		if (frozen) SmoothClock.Test.freezeLevelMs(ms);
+	}
+
+	private void unfreeze() {
+		frozen = false;
+		SmoothClock.Test.freezeLevelMs(Double.NaN);
+	}
 	private int seq = 9000;
 
 	@Override
@@ -73,7 +85,8 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 			try {
 				f.size(1920, 1080, 4);
 				step("real flow", () -> realFlow(f));
-				MotionClock.testOverride = () -> clock[0];
+				frozen = true;
+				SmoothClock.Test.freezeLevelMs(clock[0]);
 				for (int[] sz : SIZES) {
 					f.size(sz[0], sz[1], sz[2]);
 					step("house " + sz[0] + "x" + sz[1] + "@" + sz[2], () -> house(f));
@@ -93,13 +106,12 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 				step("house tie 960", () -> houseTie(f));
 				step("pvp tie 960", () -> pvpTie(f));
 				f.size(1920, 1080, 4);
-				MotionClock.testOverride = null;
+				unfreeze();
 				f.close();
 				step("in-world", () -> inWorld(f));
 			} finally {
-				MotionClock.testOverride = null;
+				unfreeze();
 				MotionFx.recorder = null;
-				AnimClock.unfreezeForTest();
 				FxSettings.update(d -> d.reduceMotion = false);
 				context.runOnClient(mc -> {
 					mc.options.guiScale().set(0);
@@ -208,7 +220,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 
 	/** Shows the screen's result at duel ms {@code t} (house: the clock is offset by the cup alignment). */
 	private void at(RealFlow f, double t, double offset) {
-		clock[0] = Math.round(t + offset);
+		setClock(Math.round(t + offset));
 		f.context().waitTicks(2);
 	}
 
@@ -225,7 +237,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 
 	private void house(RealFlow f) {
 		ensureScreen(f);
-		clock[0] = 0;
+		setClock(0);
 		f.context().runOnClient(mc -> DiceScreenProbe.houseResult(mc.gui.screen(), house(5, 4, 6, 2, "win", 10)));
 		f.context().waitTicks(2);
 		double off = f.client(mc -> DiceScreenProbe.offset(mc.gui.screen()));
@@ -335,7 +347,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 
 	private void houseTie(RealFlow f) {
 		ensureScreen(f);
-		clock[0] = 0;
+		setClock(0);
 		f.context().runOnClient(mc -> DiceScreenProbe.houseResult(mc.gui.screen(), house(3, 4, 4, 3, "house_tie", -10)));
 		f.context().waitTicks(2);
 		double off = f.client(mc -> DiceScreenProbe.offset(mc.gui.screen()));
@@ -350,7 +362,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 	private void pvpTie(RealFlow f) {
 		ensureScreen(f);
 		int[][][] rounds = {{{3, 3}, {4, 2}}, {{6, 5}, {1, 2}}};
-		clock[0] = 0;
+		setClock(0);
 		f.context().runOnClient(mc -> DiceScreenProbe.deliver(mc.gui.screen(), pvp("a", 0x5EED, rounds, "win", 18)));
 		f.context().waitTicks(2);
 		double[] ts = {DuelTimeline.THROW + 150, DuelTimeline.THEM_LAND + 100, DuelTimeline.COMPARE + 200, DuelTimeline.SWEEP_AT + 150,
@@ -371,7 +383,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 		int[][][] asB = {{{5, 1}, {2, 6}}};
 		double t = DuelTimeline.COMPARE - 40;
 		double tAir = DuelTimeline.THROW + 220;
-		clock[0] = 0;
+		setClock(0);
 		f.context().runOnClient(mc -> DiceScreenProbe.deliver(mc.gui.screen(), pvp("a", 0xA11CE, asA, "win", 18)));
 		at(f, tAir, 0);
 		shot(f, "mirror_A_air");
@@ -384,7 +396,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 		}
 		at(f, t, 0);
 		shot(f, "mirror_A");
-		clock[0] = 0;
+		setClock(0);
 		f.context().runOnClient(mc -> DiceScreenProbe.deliver(mc.gui.screen(), pvp("b", 0xA11CE, asB, "lose", -10)));
 		// on B's screen A throws second (+350 ms): the same moment of A's roll is 350 ms later
 		at(f, tAir + DuelTimeline.THEM_DELAY, 0);
@@ -408,7 +420,7 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 		FxSettings.update(d -> d.reduceMotion = true);
 		FxGate.Counter counter = new FxGate.Counter();
 		try {
-			clock[0] = 0;
+			setClock(0);
 			f.context().runOnClient(mc -> DiceScreenProbe.houseResult(mc.gui.screen(), house(5, 4, 6, 2, "win", 10)));
 			f.context().waitTicks(2);
 			double off = f.client(mc -> DiceScreenProbe.offset(mc.gui.screen()));
@@ -448,13 +460,13 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 		double[] times = {DuelTimeline.THROW + 260, DuelTimeline.THEM_LAND + 40, DuelTimeline.COMPARE + 400};
 		String[] names = {"world_air", "world_landed", "world_rest"};
 		for (int i = 0; i < times.length; i++) {
-			AnimClock.freezeForTest(start * 50.0 + times[i]);
+			SmoothClock.Test.freezeLevelMs(start * 50.0 + times[i]);
 			f.context().waitTicks(2);
 			f.shot("p2b_dcb_dice_" + names[i] + "_en_480");
 			int lod = f.client(mc -> DuelStageRenderer.lastLod());
 			if (lod != 0) errors.add("in-world LOD at 3 blocks is " + lod);
 		}
-		AnimClock.unfreezeForTest();
+		SmoothClock.Test.freezeLevelMs(Double.NaN);
 		long displays = f.client(mc -> {
 			long n = 0;
 			for (var e : mc.level.entitiesForRendering()) if (e instanceof Display.ItemDisplay) n++;

@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.client.anim;
 
 import dev.nezo.burmaldaholic.client.fx.motion.MotionClock;
 import dev.nezo.burmaldaholic.core.anim.sync.SmoothClockCore;
-import java.util.function.LongSupplier;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -173,16 +172,9 @@ public final class SmoothClock {
 			}
 		}
 
-		/**
-		 * The frozen level time every reader sees, or NaN: {@link #freezeLevelMs}, else the deprecated
-		 * {@code MotionClock.testOverride} (kept through v0.2.0 for the game owners' anim tests).
-		 */
-		@SuppressWarnings("deprecation")
+		/** The frozen level time every reader sees ({@link #freezeLevelMs}), or NaN. */
 		public static double frozenLevelMs() {
-			double f = frozenLevelMs;
-			if (!Double.isNaN(f)) return f;
-			LongSupplier o = MotionClock.testOverride;
-			return o != null ? o.getAsLong() : Double.NaN;
+			return frozenLevelMs;
 		}
 	}
 }

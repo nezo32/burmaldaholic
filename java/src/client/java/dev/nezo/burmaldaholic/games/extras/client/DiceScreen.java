@@ -280,7 +280,7 @@ final class DiceScreen extends ExtrasSceneScreen<ExtrasView> {
 
 	/** PvP: ms since the duel's start tick on the shared clock. */
 	private double duelMs(float partial) {
-		return show == null ? 0 : MotionClock.levelMs(partial) - show.start * 50.0;
+		return show == null ? 0 : dev.nezo.burmaldaholic.client.anim.SmoothClock.nowMs(partial) - show.start * 50.0; // SYW: the ONE shared SmoothClock
 	}
 
 	/** Duel ms of the shown result ({@code +∞}-like end when skipped / settled; NaN without a result). */

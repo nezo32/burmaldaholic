@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.games.craps.client;
 
 import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.client.fx.motion.MotionClock;
 import dev.nezo.burmaldaholic.core.anim.dice.DiceRoll;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsRollClock;
@@ -15,14 +16,17 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One {@link CrapsRollClock} per craps table on this client (S1): the screen and the in-world board share it, so both
- * show the same hand shake and the same throw at the same instant. The clock source is local
- * monotonic ms; package SY swaps in its SmoothClock with {@link #source}).
+ * show the same hand shake and the same throw at the same instant. The clock source is LOCAL monotonic ms
+ * ({@link MotionClock#localMs}: {@link SmoothClock#wallMs}, frozen under {@link SmoothClock.Test#freezeLevelMs}),
+ * because every throw is anchored on this client (SY-SPEC §2: the roller at the press, a spectator at the arrival), so
+ * a server time jump never moves a throw; only a first sight reads the shared clock's age. Tests may swap it
+ * ({@link #source}).
  */
 public final class CrapsRollClocks {
 	/** A table on this client: its dimension and position (another world / dimension at the same pos is another table). */
 	private record Key(@Nullable ResourceKey<Level> dim, BlockPos pos) {}
 
-	private static CrapsRollClock.Source source = () -> MotionClock.localMs();
+	private static CrapsRollClock.Source source = MotionClock::localMs;
 	private static final Map<Key, CrapsRollClock> CLOCKS = new LinkedHashMap<>(16, 0.75f, true) {
 		@Override
 		protected boolean removeEldestEntry(Map.Entry<Key, CrapsRollClock> e) {

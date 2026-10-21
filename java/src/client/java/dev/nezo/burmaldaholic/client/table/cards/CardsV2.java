@@ -97,6 +97,15 @@ public final class CardsV2 {
 		return (float) Math.max(0, Math.min(1, t));
 	}
 
+	/**
+	 * Slide progress of deal index {@code key} on {@code anchors} (SY-SPEC §3: waits in the shoe until first seen; a late
+	 * card still flies, ≥ 120 ms); 0/1 with reduced motion.
+	 */
+	public static float deal(DealAnchors anchors, long key, double nowMs, double dealMs) {
+		if (FxSettings.reduceMotion()) return nowMs >= dealMs ? 1 : 0;
+		return anchors.u(key, nowMs, dealMs, DEAL_MS);
+	}
+
 	/** outCubic. */
 	public static float ease(float u) {
 		float k = 1 - u;

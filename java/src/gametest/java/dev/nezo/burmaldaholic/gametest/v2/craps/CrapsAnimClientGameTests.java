@@ -1,6 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.v2.craps;
 
-import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.core.anim.dice.DiceRoll;
 import dev.nezo.burmaldaholic.core.anim.dice.DieAtlasTable;
@@ -38,7 +38,7 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <p>Screen: the player opens a table by using it and bets with real clicks; the rolls are forced on the server
  * ({@code be.roll(d1, d2)}: 5+3 point set, 3+3 come travel, 4+3 seven-out with a come point, 1+1 craps on the come-out,
- * 6+5 natural) and the shared clock is frozen at storyboard beats ({@link AnimClock#freezeForTest}). Shots
+ * 6+5 natural) and the shared clock is frozen at storyboard beats ({@link SmoothClock.Test#freezeLevelMs}). Shots
  * {@code p2b_cm_craps_<case>_<beat>_<lang>_<w>} at 427 / 480 / 640 / 960 (+ framed 1280×720 when the desktop allows
  * 2560×1440) and RU. Probes on the real framebuffer: a die mid-flight sits on bone or pip ink, the resting dice are
  * exactly {@code cell·k} px wide and show the server's pips, the hit diamond is white one frame after the wall, the
@@ -66,7 +66,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 				screen(f, errors);
 				inWorld(f, errors);
 			} finally {
-				context.runOnClient(mc -> AnimClock.unfreezeForTest());
+				context.runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 				CrapsBoardRenderer.probePos = null;
 				FxSettings.update(d -> d.reduceMotion = false);
 				f.close();
@@ -157,7 +157,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		// T-CM S1 on the real screen: the result arrives 2.5 s after the press; the hand shakes the whole time (no cap),
 		// the throw leaves on a release pose 80..200 ms after the result, and the board shares the screen's clock
 		settle(f, natural);
-		f.context().runOnClient(mc -> AnimClock.unfreezeForTest());
+		f.context().runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 		f.client(mc -> {
 			((CrapsScreen) mc.gui.screen()).throwClock().press();
 			return Boolean.TRUE;
@@ -184,7 +184,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		shot(f, red, 100, "reduced", "100");
 		shot(f, red, 300, "reduced", "300");
 		FxSettings.update(d -> d.reduceMotion = false);
-		f.context().runOnClient(mc -> AnimClock.unfreezeForTest());
+		f.context().runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 		f.close();
 		f.server(server -> {
 			CrapsTableBlockEntity be = (CrapsTableBlockEntity) server.overworld().getBlockEntity(pos);
@@ -199,7 +199,7 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 	private record Roll(long rollTime, int rolls, CrapsBeats beats, int restMs, int[] wallMs, int side, int d1, int d2) {}
 
 	private static Roll roll(RealFlow f, BlockPos pos, int d1, int d2) {
-		f.context().runOnClient(mc -> AnimClock.unfreezeForTest());
+		f.context().runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 		int n = f.server(server -> {
 			CrapsTableBlockEntity be = (CrapsTableBlockEntity) server.overworld().getBlockEntity(pos);
 			be.roll(d1, d2);
@@ -221,14 +221,14 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 
 	/** Lets the roll play out (real clock) until Roll / the felt open again. */
 	private static void settle(RealFlow f, Roll r) {
-		f.context().runOnClient(mc -> AnimClock.unfreezeForTest());
+		f.context().runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 		f.context().waitFor(mc -> mc.gui.screen() instanceof CrapsScreen s && s.storyMs() > s.beats().IDLE, RealFlow.TIMEOUT);
 		f.context().waitTicks(2);
 	}
 
 	private static void freeze(RealFlow f, Roll r, double t) {
 		double level = r.rollTime * 50.0 + t;
-		f.context().runOnClient(mc -> AnimClock.freezeForTest(level));
+		f.context().runOnClient(mc -> SmoothClock.Test.freezeLevelMs(level));
 		f.context().waitTicks(3);
 	}
 
@@ -563,14 +563,14 @@ public class CrapsAnimClientGameTests implements FabricClientGameTest {
 		if (CrapsBoardRenderer.probeDice != 1) errors.add("far viewer (24 m) sees no dice at rest: probe " + CrapsBoardRenderer.probeDice);
 		CrapsBoardRenderer.probePos = null;
 		f.context().runOnClient(mc -> {
-			AnimClock.unfreezeForTest();
+			SmoothClock.Test.freezeLevelMs(Double.NaN);
 			if (mc.gui.hud.isHidden()) mc.gui.hud.toggle();
 		});
 	}
 
 	private static void freezeWorld(RealFlow f, long rollTime, double t) {
 		double level = rollTime * 50.0 + t;
-		f.context().runOnClient(mc -> AnimClock.freezeForTest(level));
+		f.context().runOnClient(mc -> SmoothClock.Test.freezeLevelMs(level));
 	}
 
 	/**

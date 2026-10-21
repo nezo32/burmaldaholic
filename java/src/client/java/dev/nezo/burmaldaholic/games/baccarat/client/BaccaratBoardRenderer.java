@@ -67,8 +67,11 @@ public final class BaccaratBoardRenderer extends CardTableRenderer<BaccaratTable
 		BoardCard sc = s.card(shoe[0], shoe[1], 90, BlackjackWorld.DEALER_W, BlackjackWorld.DEALER_H, -1);
 		sc.lift = 0.04f;
 		sc.tilt = 0;
-		hand(s, p, p.player(), p.playerDeal(), p.playerRev(), 0.5f - HAND_DX, shoe, now, p.winner() == 2);
-		hand(s, p, p.banker(), p.bankerDeal(), p.bankerRev(), 0.5f + HAND_DX, shoe, now, p.winner() == 1);
+		// S1: one first-seen anchor per deal index on this table (a late or bunched packet's card still flies)
+		dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals = s.cache(dev.nezo.burmaldaholic.client.table.cards.DealAnchors::new);
+		deals.frame(p.revStart());
+		hand(s, p, p.player(), p.playerDeal(), p.playerRev(), 0.5f - HAND_DX, shoe, now, p.winner() == 2, deals, 0);
+		hand(s, p, p.banker(), p.bankerDeal(), p.bankerRev(), 0.5f + HAND_DX, shoe, now, p.winner() == 1, deals, 10);
 		for (int k = 0; k < BaccaratPub.BOXES; k++) s.stack(BOX[k][0], BOX[k][1], p.boxes()[k]);
 		board(be, s, p, gameTime);
 		int seats = Math.max(7, be.clientSeats().length);
@@ -85,18 +88,24 @@ public final class BaccaratBoardRenderer extends CardTableRenderer<BaccaratTable
 		return BoardGeometry.crescentSeat(i, seats);
 	}
 
-	private void hand(State s, BaccaratPub p, int[] codes, int[] deal, int[] rev, float cx, float[] shoe, double now, boolean lost) {
+	private void hand(State s, BaccaratPub p, int[] codes, int[] deal, int[] rev, float cx, float[] shoe, double now, boolean lost,
+			dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals, int keyBase) {
 		int n = codes.length;
 		for (int i = 0; i < n; i++) {
 			boolean third = i == 2; // the third card lies sideways in front of the two (real-table habit)
 			float x = third ? cx : cx + (i - 0.5f) * STEP;
 			float z = third ? HAND_Z + BlackjackWorld.DEALER_H * 0.62f : HAND_Z;
-			double dealU = u(now, p.revStart(), deal[i], DEAL_MS);
+			double dealU = dealU(deals, keyBase + i, now, p.revStart(), deal[i], DEAL_MS);
 			double flipU = codes[i] >= 0 ? (rev[i] >= 0 ? u(now, p.revStart(), rev[i], FLIP_MS) : 1) : 0;
 			BoardCard card = dealt(s, shoe[0], shoe[1], x, z, third ? 90 : 0, BlackjackWorld.DEALER_W, BlackjackWorld.DEALER_H, BlackjackWorld.face(codes[i]),
 				dealU, flipU);
 			if (card != null && lost) card.dim = true;
 		}
+	}
+
+	/** The deal slide of a card on its first-seen anchor (S1: a late card still flies, ≥ 120 ms). */
+	private static double dealU(dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals, long key, double nowMs, long startTick, int at, double durMs) {
+		return deals.u(key, nowMs, (startTick + at) * 50.0, durMs);
 	}
 
 	private static double u(double nowMs, long startTick, int at, double durMs) {

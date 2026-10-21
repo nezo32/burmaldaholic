@@ -1,6 +1,6 @@
 package dev.nezo.burmaldaholic.gametest.v2.roulette;
 
-import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.table.MultiBlockTableBlock;
@@ -76,7 +76,7 @@ public class RouletteAnimClientGameTests implements FabricClientGameTest {
 			RouletteScreen.testClock = null;
 			RouletteScreen.testResultClock = null;
 			RouletteBoardRenderer.testProbe = false;
-			context.runOnClient(mc -> AnimClock.unfreezeForTest());
+			context.runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 			RouletteV2ClientGameTests.guiScale(context, 0);
 			write(context);
 		}
@@ -291,7 +291,7 @@ public class RouletteAnimClientGameTests implements FabricClientGameTest {
 		freeze(c, launchMs + sp.restMs() + 300);
 		standHigh(c, world, table);
 		c.takeScreenshot("p2b_ro_world_rest_high");
-		c.runOnClient(mc -> AnimClock.unfreezeForTest());
+		c.runOnClient(mc -> SmoothClock.Test.freezeLevelMs(Double.NaN));
 		world.getServer().runCommand("tick unfreeze");
 		f.waitServer(table, RouletteTableBlockEntity.class, be -> "result".equals(be.roundPhase()), "result", 400);
 		stand(c, world, table, 3f);
@@ -302,7 +302,7 @@ public class RouletteAnimClientGameTests implements FabricClientGameTest {
 	}
 
 	private static void freeze(ClientGameTestContext c, double levelMs) {
-		c.runOnClient(mc -> AnimClock.freezeForTest(levelMs));
+		c.runOnClient(mc -> SmoothClock.Test.freezeLevelMs(levelMs));
 	}
 
 	/** World x / z of the wheel bowl's centre (FeltFrame wheel centre of the north-facing table). */

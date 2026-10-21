@@ -36,6 +36,8 @@ public final class BlackjackBoardRenderer extends CardTableRenderer<BlackjackTab
 		int seq = -1;
 		double holeSeenMs = -1;
 		boolean holeWasHidden;
+		/** S1: one first-seen anchor per deal index (a late or bunched packet's card still flies). */
+		final dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals = new dev.nezo.burmaldaholic.client.table.cards.DealAnchors();
 	}
 
 	public BlackjackBoardRenderer(BlockEntityRendererProvider.Context ctx) {
@@ -74,6 +76,7 @@ public final class BlackjackBoardRenderer extends CardTableRenderer<BlackjackTab
 			mem.holeSeenMs = -1;
 			mem.holeWasHidden = false;
 		}
+		mem.deals.frame(p.startTick());
 		// shoe
 		float[] shoe = BlackjackWorld.shoe();
 		BoardCard sc = s.card(shoe[0], shoe[1], 90, BlackjackWorld.DEALER_W, BlackjackWorld.DEALER_H, -1);
@@ -83,7 +86,7 @@ public final class BlackjackBoardRenderer extends CardTableRenderer<BlackjackTab
 		int dn = p.dealer().length;
 		for (int i = 0; i < dn; i++) {
 			int code = p.dealer()[i];
-			double dealU = u(now, p.startTick(), p.dealerAt()[i], 0, DEAL_MS);
+			double dealU = dealU(mem, 1000 + i, now, p.startTick(), p.dealerAt()[i], DEAL_MS);
 			double flipU = u(now, p.startTick(), p.dealerAt()[i], 120, FLIP_MS);
 			if (i == 1) {
 				if (code < 0) mem.holeWasHidden = true;
@@ -106,7 +109,7 @@ public final class BlackjackBoardRenderer extends CardTableRenderer<BlackjackTab
 				int n = hp.cards().length;
 				for (int k = 0; k < n; k++) {
 					float[] pos = BlackjackWorld.seatCard(a, h, hands, k, n);
-					double dealU = u(now, p.startTick(), hp.at()[k], 0, DEAL_MS);
+					double dealU = dealU(mem, seat.seat() * 100L + h * 10L + k, now, p.startTick(), hp.at()[k], DEAL_MS);
 					double flipU = u(now, p.startTick(), hp.at()[k], 120, FLIP_MS);
 					BoardCard card = dealt(s, shoe[0], shoe[1], pos[0], pos[1], a[2], BlackjackWorld.SEAT_W, BlackjackWorld.SEAT_H,
 						BlackjackWorld.face(hp.cards()[k]), dealU, flipU);
@@ -200,6 +203,11 @@ public final class BlackjackBoardRenderer extends CardTableRenderer<BlackjackTab
 
 	private static boolean lost(String outcome) {
 		return outcome.equals("bust") || outcome.equals("lose") || outcome.equals("dealer_blackjack") || outcome.equals("surrender");
+	}
+
+	/** The deal slide of a card on the table's first-seen anchor (S1: a late card still flies, ≥ 120 ms). */
+	private static double dealU(Mem mem, long key, double nowMs, long startTick, int at, double durMs) {
+		return mem.deals.u(key, nowMs, (startTick + at) * 50.0, durMs);
 	}
 
 	/** Progress 0..1 of a card's beat that starts {@code delayMs} after its deal tick. */

@@ -102,6 +102,9 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 		/** stack key → level ms it first appeared (drop) */
 		final Map<String, Double> seen = new HashMap<>();
 		double resultStart = Double.NaN;
+		/** S1 / T-RO S2: the launch {@link #lastT} belongs to, and the newest spin time drawn for it. */
+		long tLaunch = Long.MIN_VALUE;
+		double lastT = Double.NEGATIVE_INFINITY;
 	}
 
 	public static final class State extends BoardState {
@@ -192,10 +195,24 @@ public final class RouletteBoardRenderer extends BoardRenderer<RouletteTableBloc
 		plates(be, s, pub);
 	}
 
+	/** The spin time {@code t} of launch {@code launch}, never below the newest one drawn for it (pure; tests). */
+	static double monotonic(Cache c, long launch, double t) {
+		if (c.tLaunch != launch) {
+			c.tLaunch = launch;
+			c.lastT = t;
+			return t;
+		}
+		if (t < c.lastT) return c.lastT;
+		c.lastT = t;
+		return t;
+	}
+
 	/** The rotor / ball / effects of this frame; returns the number the board may name (the ball has come to rest), else -1. */
 	private static int wheel(RouletteTableBlockEntity be, State s, RouletteSync sync, Cache c) {
 		RotorModel model = sync.rotorModel();
-		double t = s.levelMs - sync.launchTick() * 50.0;
+		// S1 / T-RO S2: s.levelMs is the ONE smoothed SmoothClock (SpectatorBlockEntityRenderer), so state / time packets
+		// never re-sync the board; per launch the spin time additionally never steps back
+		double t = monotonic(c, sync.launchTick(), s.levelMs - sync.launchTick() * 50.0);
 		double dist = Math.sqrt(s.distSq);
 		RouletteWorld.Lod lod = RouletteWorld.Lod.of(dist);
 		boolean reduce = FxSettings.reduceMotion();

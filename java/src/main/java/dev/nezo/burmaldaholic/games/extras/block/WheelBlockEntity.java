@@ -168,12 +168,14 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		t.putLong("stake", value); // the celebration's tier base (extras-pvp.md §0.4)
 		t.putBoolean("pawn", pawn != null);
 		lastSpin.put(player.getUUID(), t);
-		busyUntil.put(player.getUUID(), now + SPIN_TICKS);
+		// SY-SPEC §4: the spin starts SyncLead.WHEEL ticks ahead, so the packet reaches viewers before the wheel turns
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(now, dev.nezo.burmaldaholic.core.anim.sync.SyncLead.WHEEL);
+		busyUntil.put(player.getUUID(), start + SPIN_TICKS);
 		Component segment = Component.translatable(Wheel.segmentKey(spin.code()));
-		pending.add(new Pending(player.getUUID(), now + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)),
+		pending.add(new Pending(player.getUUID(), start + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)),
 			spin.creeper(), value, ret, pawn == null));
 		lastName = dev.nezo.burmaldaholic.games.extras.present.MachinePub.wheel(player.getGameProfile().name()).name();
-		publish(new WheelSync(seq, now, spin.index(), sync == null ? -1 : sync.index(), sync == null ? -1 : sync.seq(), SPIN_TICKS,
+		publish(new WheelSync(seq, start, spin.index(), sync == null ? -1 : sync.index(), sync == null ? -1 : sync.seq(), SPIN_TICKS,
 			String.join("", wheel.segments())));
 		syncViewers();
 	}
@@ -281,6 +283,10 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
 		tag.putLong("max", Math.min(tag.getLongOr("max", 1), maxFor(viewer)));
+		// T-SYW D1: this viewer's busy gate end (syncedState stamps the game_time it was written at), so the screen never
+		// enables a press the server would refuse
+		long busy = busyUntil.getOrDefault(viewer.getUUID(), 0L);
+		if (busy > gameTime()) tag.putLong("busy_until", busy);
 		Wheel wheel = wheel();
 		ListTag segs = new ListTag();
 		wheel.segments().forEach(s -> segs.add(StringTag.valueOf(s)));

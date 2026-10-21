@@ -4,6 +4,8 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.client.table.fx.TableClock;
 import dev.nezo.burmaldaholic.client.table.fx.TableGfx;
 import dev.nezo.burmaldaholic.client.table.fx.TableKit;
@@ -76,13 +78,10 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	static final String FELT_ALL = "felt.layout";
 
 	private final TableClock clock = new TableClock();
-	/** S1: the smoothed spin time (monotonic, slewed; SY's SmoothClock replaces the raw source later). */
+	/** S1: the spin time's per-launch monotonic guard over the shared {@link SmoothClock} (a pass-through while it is smooth). */
 	private final dev.nezo.burmaldaholic.games.roulette.present.RouletteTime spinTime = new dev.nezo.burmaldaholic.games.roulette.present.RouletteTime();
-	/**
-	 * The raw shared clock: ms since a server tick (the seam for SY's SmoothClock). Default: this screen's
-	 * {@link TableClock}.
-	 */
-	private final java.util.function.LongToDoubleFunction rawClock = tick -> clock.msSince(tick, this.partial);
+	/** The shared clock: ms since a server tick on the ONE {@link SmoothClock} (SY-SPEC §1; the in-world board reads it too). */
+	private final java.util.function.LongToDoubleFunction rawClock = tick -> SmoothClock.nowMs(this.partial) - tick * 50.0;
 	private TableTheme theme = TableTheme.VILLAGE;
 	private @Nullable RouletteLayout layout;
 	private float partial;
@@ -385,11 +384,34 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		return clock.msSince(state().getLongOr("phase_start", 0), partial);
 	}
 
+	/**
+	 * Tests (NetLag lane): {spin t, ball x, ball y (fractions of Rw), visible 0/1, solved 0/1, the pocket it rests in
+	 * (−1 unsolved), rest t, spin seq} of the next frame; null without a running spin.
+	 */
+	public double @Nullable [] poseProbe() {
+		RouletteSpin sp = spin;
+		if (sp == null) return null;
+		double t = spinT();
+		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
+		double a = Math.toRadians(smp.abs);
+		return new double[] {t, smp.r * Math.sin(a), -smp.r * Math.cos(a), smp.visible ? 1 : 0, sp.solved() ? 1 : 0,
+			sp.solved() ? sp.pocketUnder(sp.restMs() + 100) : -1, sp.restMs(), spinSeqBuilt};
+	}
+
+	/** Tests: the ball {x, y} (fractions of Rw) of the current spin model at spin time {@code t}; null without a spin. */
+	public double @Nullable [] ballAtProbe(double t) {
+		RouletteSpin sp = spin;
+		if (sp == null) return null;
+		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
+		double a = Math.toRadians(smp.abs);
+		return new double[] {smp.r * Math.sin(a), -smp.r * Math.cos(a)};
+	}
+
 	/** Ms since the launch (the NO_MORE_BETS start) on the shared clock: the time every viewer samples the spin at. */
 	double spinT() {
 		DoubleSupplier test = testClock;
 		if (test != null) return test.getAsDouble();
-		return spinTime.advance(launchTick, rawClock.applyAsDouble(launchTick), System.nanoTime() / 1e6);
+		return spinTime.advance(launchTick, rawClock.applyAsDouble(launchTick), SmoothClock.wallMs());
 	}
 
 	/** The newest settled number before the current launch: the ball being picked up / riding at idle. */
@@ -443,17 +465,17 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			// S1: a very late result still rolls past the SPIN end; the beats (rake, payout) wait for the ball to rest
 			if (localStartFor != start) resultSkipped = false;
 			localStartFor = start;
-			resultLocalStart = Util.getMillis();
+			resultLocalStart = AnimClock.localMs();
 			return 0;
 		}
 		double shared = phaseMs();
 		if (localStartFor != start) {
 			localStartFor = start;
 			resultSkipped = shared >= 0.85 * RESULT_MS;
-			resultLocalStart = Util.getMillis() - (long) Math.max(0, shared);
+			resultLocalStart = AnimClock.localMs() - (long) Math.max(0, shared);
 		}
 		if (resultSkipped) return RESULT_MS * 2;
-		return (Util.getMillis() - resultLocalStart) * (FxSettings.speed().pct / 100.0);
+		return (AnimClock.localMs() - resultLocalStart) * (FxSettings.speed().pct / 100.0);
 	}
 
 	private Map<Spot, Long> spots(String key) {

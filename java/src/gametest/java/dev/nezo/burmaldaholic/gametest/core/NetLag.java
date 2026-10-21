@@ -12,7 +12,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
  * Latency injection for client GameTests (SY-SPEC §5): installs {@link NetLagHook}, so table state packets
  * ({@code ClientTableCache}) and the server's time packets ({@code SetTimeNetLagMixin}) are delivered late: a fixed
  * delay, ± jitter (which may reorder them, exercising the seq gate) and, optionally, held back and released in bunches
- * every {@code bunchEveryMs}. Released on the client thread at END_CLIENT_TICK.
+ * every {@code bunchEveryMs}. Released on the client thread at END_CLIENT_TICK. Delays run on {@link SmoothClock#wallMs}
+ * (live nano time, or a test's {@code SmoothClock.Test.source}).
  *
  * <pre>{@code
  * NetLag.install(300, 150, 1000);   // 300 ms delay, ±150 ms jitter, bunched every second
@@ -65,7 +66,7 @@ public final class NetLag {
 	}
 
 	private static synchronized void defer(Runnable deliver) {
-		double now = System.nanoTime() / 1e6;
+		double now = SmoothClock.wallMs(); // SYW: the clock's wall (a tick-locked test source drives the delays too)
 		double due = now + Math.max(0, delayMs + (RANDOM.nextDouble() * 2 - 1) * jitterMs);
 		if (bunchEveryMs > 0) due = Math.ceil(due / bunchEveryMs) * bunchEveryMs;
 		QUEUE.add(new Item(due, order++, deliver));
@@ -73,7 +74,7 @@ public final class NetLag {
 	}
 
 	private static void pump(boolean all) {
-		double now = System.nanoTime() / 1e6;
+		double now = SmoothClock.wallMs(); // SYW: the clock's wall (a tick-locked test source drives the delays too)
 		List<Runnable> due = new ArrayList<>();
 		synchronized (NetLag.class) {
 			while (!QUEUE.isEmpty() && (all || QUEUE.peek().dueMs <= now)) due.add(QUEUE.poll().deliver);

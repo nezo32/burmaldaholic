@@ -36,7 +36,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -87,7 +87,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 	@Override
 	protected ExtrasView view(CompoundTag s) {
 		PAWN.validate(s);
-		boolean busy = spinning();
+		boolean busy = spinning() || serverBusy();
 		if (!chips()) {
 			long max = PAWN.max(s);
 			return ExtrasView.pawn(busy, null, PAWN.kind().equals(BetControl.ITEM) ? s.getLongOr("held_value", 0) : PAWN.amount(), max);
@@ -199,6 +199,41 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		return state().getCompoundOrEmpty("result");
 	}
 
+	/**
+	 * T-SYW D1: the server's busy gate ({@code busy_until}, a server tick, with the {@code game_time} it was written at)
+	 * ends on the screen's own clock (the one its spin / drop runs on) {@code busy_until − game_time + 1} ticks after the
+	 * state's arrival. The state left the server before it arrived, so the press is never enabled while the server would
+	 * refuse it, whatever the latency or the client's level clock. The anchor is kept per {@code busy_until}: a cached
+	 * state handed again (a re-init) never pushes the end later.
+	 */
+	private double serverBusyEndMs = -1;
+	private long serverBusyUntil = -1;
+
+	private boolean serverBusy() {
+		return serverBusyEndMs >= 0 && AnimClock.localMs() < serverBusyEndMs;
+	}
+
+	/** Each tick: once the server's gate has passed, rebuild the view so the press re-enables (the view is not per frame). */
+	private void serverBusyTick() {
+		if (serverBusyEndMs >= 0 && !serverBusy()) {
+			serverBusyEndMs = -1; // serverBusyUntil stays: a re-handed copy of this state keeps it expired
+			local();
+		}
+	}
+
+	private void readServerBusy(CompoundTag s) {
+		long until = s.getLongOr("busy_until", -1);
+		if (until < 0) {
+			serverBusyUntil = -1;
+			serverBusyEndMs = -1;
+			return;
+		}
+		double msPerTick = minecraft != null && minecraft.level != null ? minecraft.level.tickRateManager().millisecondsPerTick() : 50.0;
+		double end = AnimClock.localMs() + (until - s.getLongOr("game_time", until) + 1) * msPerTick;
+		serverBusyEndMs = until == serverBusyUntil ? Math.min(serverBusyEndMs, end) : end;
+		serverBusyUntil = until;
+	}
+
 	private boolean spinning() {
 		return spinStart >= 0 && !settledDone;
 	}
@@ -236,7 +271,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 				from = angle;
 				rest = WheelAnim.restAngle(index, n, SeedMix.mix(SeedMix.hash("wheel"), seq));
 				room = WheelAnim.settleRoom(rest, index, n);
-				spinStart = Util.getMillis();
+				spinStart = AnimClock.localMs();
 				spinMs = Kit.reduceMotion() ? WheelAnim.REDUCED_MS : newState.getIntOr("spin_ticks", 80) * 50.0 * 100 / Kit.speedPct();
 				skipAt = -1;
 				stopAt = -1;
@@ -246,6 +281,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 				ClientCasinoState.holdBalanceDelta((int) spinMs + STOP_MS);
 			}
 		}
+		readServerBusy(newState);
 		super.onStateChanged(newState);
 	}
 
@@ -253,9 +289,25 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		return from + WheelAnim.travel(from, rest, Kit.reduceMotion() ? 0 : WheelAnim.EXTRA_TURNS);
 	}
 
+	/** Tests (NetLag lane): {the angle the next frame draws, settled 0/1, the server's segment index, ms into the spin}. */
+	public double[] poseProbe() {
+		double ms = spinStart < 0 || settledDone ? -1 : AnimClock.localMs() - spinStart;
+		return new double[] {currentAngle(), settledDone ? 1 : 0, result().getIntOr("index", -1), ms, spinMs};
+	}
+
+	/** Tests: the spin curve's angle at {@code ms} into the current spin (the model the frames sample). */
+	public double angleAtProbe(double ms) {
+		return Kit.reduceMotion() ? WheelAnim.reduced(from, rest, ms) : WheelAnim.angle(from, rest, (int) spinMs, ms, room);
+	}
+
+	/** Tests: the angle the wheel rests at for the current result. */
+	public double endAngleProbe() {
+		return endAngle();
+	}
+
 	private double currentAngle() {
 		if (spinStart < 0 || settledDone) return angle;
-		long now = Util.getMillis();
+		long now = AnimClock.localMs();
 		if (skipAt >= 0) {
 			double a = WheelAnim.skip(skipFrom, endAngle(), now - skipAt);
 			if (now - skipAt >= WheelAnim.SKIP_MS) finish(true);
@@ -275,7 +327,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 	private boolean skip() {
 		if (!spinning() || skipAt >= 0) return false;
 		skipFrom = currentAngle();
-		skipAt = Util.getMillis();
+		skipAt = AnimClock.localMs();
 		return true;
 	}
 
@@ -283,7 +335,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		if (settledDone) return;
 		settledDone = true;
 		angle = endAngle();
-		stopAt = Util.getMillis();
+		stopAt = AnimClock.localMs();
 		heldBalance = -1;
 		CompoundTag r = result();
 		String code = r.getStringOr("code", "B");
@@ -305,7 +357,8 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 	@Override
 	protected void containerTick() {
 		super.containerTick();
-		if (stopAt >= 0 && Wheel.CREEPER.equals(result().getStringOr("code", "")) && Util.getMillis() - stopAt > 1000 && minecraft != null) {
+		serverBusyTick();
+		if (stopAt >= 0 && Wheel.CREEPER.equals(result().getStringOr("code", "")) && AnimClock.localMs() - stopAt > 1000 && minecraft != null) {
 			stopAt = -1;
 			onClose(); // the chaos mob wave starts (server)
 		}
@@ -408,7 +461,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		int wy = 0;
 		WheelDraw.stand(g, wx, wy);
 		WheelDraw.face(g, wx, wy, segs, theta);
-		double beat = stopAt >= 0 ? Util.getMillis() - stopAt : settledDone && spinStart >= 0 ? STOP_MS : -1;
+		double beat = stopAt >= 0 ? AnimClock.localMs() - stopAt : settledDone && spinStart >= 0 ? STOP_MS : -1;
 		CompoundTag r = result();
 		boolean shown = r.getIntOr("seq", -1) >= 0 && settledDone;
 		if (shown) {
@@ -441,7 +494,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 			g.pose().popMatrix();
 		}
 		WheelDraw.rim(g, wx, wy);
-		long now = Util.getMillis();
+		long now = AnimClock.localMs();
 		boolean still = Kit.reduceMotion();
 		WheelDraw.bulbs(g, wx, wy, i -> {
 			if (spinning() && !still) return (i + (int) Math.floor(theta / 15)) % 3 == 0 ? 1 : 0;
@@ -479,7 +532,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		if (!spinning()) return;
 		long peg = WheelAnim.pegCount(theta, pitch);
 		if (peg == lastPeg) return;
-		long now = Util.getMillis();
+		long now = AnimClock.localMs();
 		long passed = Math.abs(peg - lastPeg);
 		lastPeg = peg;
 		if (now - lastTickMs < 50) return;

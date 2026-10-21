@@ -33,7 +33,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -106,7 +106,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	protected ExtrasView view(CompoundTag s) {
 		long bal = shownBalance();
 		bet.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
-		boolean busy = dropping();
+		boolean busy = dropping() || serverBusy();
 		double top = top(table(risk));
 		return ExtrasView.chips(bet.view(minFor(s, risk), s.getLongOr("max", 0), bal, busy), busy, null, (long) Math.floor(bet.amount() * top));
 	}
@@ -189,6 +189,41 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		return state().getCompoundOrEmpty("result");
 	}
 
+	/**
+	 * T-SYW D1: the server's busy gate ({@code busy_until}, a server tick, with the {@code game_time} it was written at)
+	 * ends on the screen's own clock (the one its spin / drop runs on) {@code busy_until − game_time + 1} ticks after the
+	 * state's arrival. The state left the server before it arrived, so the press is never enabled while the server would
+	 * refuse it, whatever the latency or the client's level clock. The anchor is kept per {@code busy_until}: a cached
+	 * state handed again (a re-init) never pushes the end later.
+	 */
+	private double serverBusyEndMs = -1;
+	private long serverBusyUntil = -1;
+
+	private boolean serverBusy() {
+		return serverBusyEndMs >= 0 && AnimClock.localMs() < serverBusyEndMs;
+	}
+
+	/** Each tick: once the server's gate has passed, rebuild the view so the press re-enables (the view is not per frame). */
+	private void serverBusyTick() {
+		if (serverBusyEndMs >= 0 && !serverBusy()) {
+			serverBusyEndMs = -1; // serverBusyUntil stays: a re-handed copy of this state keeps it expired
+			local();
+		}
+	}
+
+	private void readServerBusy(CompoundTag s) {
+		long until = s.getLongOr("busy_until", -1);
+		if (until < 0) {
+			serverBusyUntil = -1;
+			serverBusyEndMs = -1;
+			return;
+		}
+		double msPerTick = minecraft != null && minecraft.level != null ? minecraft.level.tickRateManager().millisecondsPerTick() : 50.0;
+		double end = AnimClock.localMs() + (until - s.getLongOr("game_time", until) + 1) * msPerTick;
+		serverBusyEndMs = until == serverBusyUntil ? Math.min(serverBusyEndMs, end) : end;
+		serverBusyUntil = until;
+	}
+
 	private boolean dropping() {
 		return dropStart >= 0 && !landed;
 	}
@@ -238,7 +273,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				if (dropping()) land(false);
 				shownSeq = seq;
 				bet.ack(); // the server played the amount: it becomes Rebet
-				dropStart = Util.getMillis();
+				dropStart = AnimClock.localMs();
 				landed = false;
 				landedAt = -1;
 				skipAt = -1;
@@ -248,7 +283,20 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				Kit.vanilla("block.wooden_button.click_on", 0.4f, 1f);
 			}
 		}
+		readServerBusy(newState);
 		super.onStateChanged(newState);
+	}
+
+	/**
+	 * Tests (NetLag lane): {ms since the drop on this screen's clock, ball x, ball y, landed 0/1, server bin} — the ball
+	 * pose the next frame draws ({@code -1} ms = no drop running).
+	 */
+	public double[] poseProbe() {
+		CompoundTag r = result();
+		int path = r.getIntOr("path", 0);
+		double ms = dropping() ? dropMs() : -1;
+		PlinkoAnim.Ball b = ms < 0 || Kit.reduceMotion() ? null : PlinkoAnim.sample(path, rowMs(), ms);
+		return new double[] {ms, b == null ? Double.NaN : b.x(), b == null ? Double.NaN : b.y(), landed ? 1 : 0, r.getIntOr("bin", -1), path, rowMs()};
 	}
 
 	private double durationMs() {
@@ -257,7 +305,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 
 	private double dropMs() {
 		if (dropStart < 0) return -1;
-		double ms = Util.getMillis() - dropStart;
+		double ms = AnimClock.localMs() - dropStart;
 		return Kit.reduceMotion() ? ms : ms * Kit.speedPct() / 100.0;
 	}
 
@@ -268,7 +316,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 
 	private boolean skip() {
 		if (!dropping()) return false;
-		skipAt = Util.getMillis();
+		skipAt = AnimClock.localMs();
 		land(true);
 		return true;
 	}
@@ -277,7 +325,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	private void land(boolean viaSkip) {
 		if (landed) return;
 		landed = true;
-		landedAt = Util.getMillis();
+		landedAt = AnimClock.localMs();
 		heldBalance = -1;
 		double mult = result().getDoubleOr("mult", 0);
 		last.add(mult);
@@ -294,6 +342,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	@Override
 	protected void containerTick() {
 		super.containerTick();
+		serverBusyTick();
 		if (!dropping()) return;
 		double ms = dropMs();
 		int path = result().getIntOr("path", 0);
@@ -414,7 +463,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		double press = 0;
 		double pop = -1;
 		if (landed && landedAt >= 0) {
-			double since = Util.getMillis() - landedAt;
+			double since = AnimClock.localMs() - landedAt;
 			press = rm || since > 80 ? 0 : Math.sin(Math.PI * since / 80);
 			pop = rm ? -1 : Math.min(1, since / 300.0);
 		}
@@ -431,7 +480,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				PlinkoAnim.Ball b = PlinkoAnim.sample(path, rowMs, ms);
 				PlinkoDraw.ball(g, 0, 0, b.x(), b.y(), b.roll(), b.sx(), b.sy(), false, 1);
 			}
-		} else if (skipAt >= 0 && Util.getMillis() - skipAt < 150) {
+		} else if (skipAt >= 0 && AnimClock.localMs() - skipAt < 150) {
 			PlinkoDraw.dottedPath(g, 0, 0, path, PlinkoAnim.ROWS, 0xFFFFE680);
 		}
 		PlinkoDraw.bins(g, font, 0, 0, table, lit, press, pop, false);

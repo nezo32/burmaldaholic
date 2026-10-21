@@ -98,7 +98,9 @@ public class DuelGameTests {
 			to.add(p);
 			results.add(r.copy());
 		};
-		long start = helper.getLevel().getServer().overworld().getGameTime();
+		// SY-SPEC §4: the duel starts SyncLead.PVP_DICE ticks after the decision
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(helper.getLevel().getServer().overworld().getGameTime(),
+			dev.nezo.burmaldaholic.core.anim.sync.SyncLead.PVP_DICE);
 		try {
 			DiceGame.resolvePvpForTesting(a, b, 10);
 		} finally {
