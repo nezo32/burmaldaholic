@@ -32,6 +32,11 @@ public final class CasinoFoliage {
 		DONE.clear();
 	}
 
+	/** True once the foliage pass ran for this casino in this session (tests wait for it). */
+	public static boolean swept(String casinoId) {
+		return DONE.contains(casinoId);
+	}
+
 	static void tick(MinecraftServer server) {
 		if (server.getTickCount() % INTERVAL != 0) {
 			return;

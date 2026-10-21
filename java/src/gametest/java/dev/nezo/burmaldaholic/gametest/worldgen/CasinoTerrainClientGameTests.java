@@ -139,6 +139,12 @@ public class CasinoTerrainClientGameTests implements FabricClientGameTest {
 			return;
 		}
 		Placed p = placed.get();
+		String casinoId = p.record().map(CasinoRecord::id).orElse("");
+		try { // O3: natural leaves are cleared once every chunk within one chunk of the casino is loaded
+			world.getServer().waitFor(server -> dev.nezo.burmaldaholic.worldgen.CasinoFoliage.swept(casinoId), CHUNK_WAIT);
+		} catch (Throwable e) {
+			failures.add(tag + ": the foliage pass did not run in " + CHUNK_WAIT + " ticks");
+		}
 		List<String> problems = world.getServer().computeOnServer(server -> CasinoQa.terrainProblems(server.overworld(), p));
 		CasinoQa.log("terrain {}: casino {} box {} with {} game blocks: {}", tag, p.target(), p.box(), p.spots().size(),
 			problems.isEmpty() ? "ok" : problems);

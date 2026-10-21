@@ -190,7 +190,8 @@ public final class CasinoClientQa {
 						context.getInput().pressKey(o -> o.keyJump);
 					}
 					if (++t > STEP_TIMEOUT) {
-						return "stuck before " + w.toShortString() + " (" + String.format("%.2f, %.2f", pos[0], pos[1]) + " away)";
+						return "stuck before " + w.toShortString() + " (" + String.format("%.2f, %.2f", pos[0], pos[1]) + " away; "
+							+ context.computeOnClient(mc -> blockersNear(mc, target)) + ")";
 					}
 					context.waitTick();
 				}
@@ -200,6 +201,28 @@ public final class CasinoClientQa {
 			context.getInput().releaseKey(o -> o.keyUp);
 			context.waitTicks(4);
 		}
+	}
+
+	/** What stops the player: its position and every block / entity whose collision touches its box nudged toward {@code target}. */
+	static String blockersNear(net.minecraft.client.Minecraft mc, Vec3 target) {
+		var p = mc.player;
+		Vec3 dir = new Vec3(target.x - p.getX(), 0, target.z - p.getZ());
+		dir = dir.lengthSqr() < 1e-6 ? Vec3.ZERO : dir.normalize().scale(0.15);
+		net.minecraft.world.phys.AABB box = p.getBoundingBox().move(dir).deflate(0, 0.01, 0).move(0, 0.01, 0);
+		List<String> out = new ArrayList<>();
+		for (BlockPos c : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY, box.minZ), BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
+			var st = mc.level.getBlockState(c);
+			var shape = st.getCollisionShape(mc.level, c);
+			if (!shape.isEmpty() && shape.move(c.getX(), c.getY(), c.getZ()).toAabbs().stream().anyMatch(box::intersects)) {
+				out.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath() + "@" + c.toShortString()
+					+ (st.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
+						? "/" + st.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING) : ""));
+			}
+		}
+		for (var e : mc.level.getEntities(p, box.inflate(0.3))) {
+			out.add("entity " + e.getType().toShortString() + "@" + String.format("%.2f,%.2f,%.2f", e.getX(), e.getY(), e.getZ()));
+		}
+		return String.format("player %.2f,%.2f,%.2f onGround %s; blockers %s", p.getX(), p.getY(), p.getZ(), p.onGround(), out);
 	}
 
 	/** Walks from wherever the player stands to {@code to} (path computed on the server around {@code box}). */
