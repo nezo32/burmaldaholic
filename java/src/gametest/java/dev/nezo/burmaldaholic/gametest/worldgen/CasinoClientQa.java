@@ -103,21 +103,33 @@ public final class CasinoClientQa {
 		return CasinoQa.stand(level, p);
 	}
 
+	/** Path cost of a level step, a step down and a climb: a player walks the aisles and climbs only where needed. */
+	private static final int COST_FLAT = 1, COST_DOWN = 3, COST_UP = 12;
+
 	/**
-	 * Shortest walk (4-neighbour, steps of ±1 block) from {@code from} to {@code to} inside {@code area}; empty if the
-	 * target cannot be reached on foot.
+	 * Cheapest walk (4-neighbour, steps of ±1 block) from {@code from} to {@code to} inside {@code area}; empty if the
+	 * target cannot be reached on foot. Like a player it keeps to the floor: climbs cost more than detours, and it never
+	 * stands on furniture tops (stools, end rods, trapdoors, walls), only on sturdy floors or low blocks in the cell
+	 * (O2: the old BFS took shortcuts over slot stools and lamp posts and the walker stuck there).
 	 */
 	public static Optional<List<BlockPos>> path(ServerLevel level, BlockPos from, BlockPos to, BoundingBox area) {
 		Map<BlockPos, BlockPos> prev = new HashMap<>();
-		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+		Map<BlockPos, Integer> cost = new HashMap<>();
+		java.util.PriorityQueue<Object[]> queue = new java.util.PriorityQueue<>(java.util.Comparator.comparingInt(o -> (Integer) o[1]));
 		BlockPos start = from;
 		if (!stand(level, start) && stand(level, start.above())) {
 			start = start.above();
 		}
 		prev.put(start, start);
-		queue.add(start);
+		cost.put(start, 0);
+		queue.add(new Object[] {start, 0});
 		while (!queue.isEmpty()) {
-			BlockPos c = queue.poll();
+			Object[] head = queue.poll();
+			BlockPos c = (BlockPos) head[0];
+			int cc = (Integer) head[1];
+			if (cc > cost.get(c)) {
+				continue;
+			}
 			if (c.equals(to)) {
 				List<BlockPos> out = new ArrayList<>();
 				for (BlockPos p = c; !p.equals(start); p = prev.get(p)) {
@@ -129,7 +141,7 @@ public final class CasinoClientQa {
 			for (Direction d : Direction.Plane.HORIZONTAL) {
 				for (int dy : new int[] {0, 1, -1}) {
 					BlockPos n = c.relative(d).above(dy);
-					if (!area.isInside(n) || prev.containsKey(n) || !stand(level, n)) {
+					if (!area.isInside(n) || !stand(level, n) || !floor(level, n) && !n.equals(to)) {
 						continue;
 					}
 					if (dy == 1 && !level.getBlockState(c.above(2)).getCollisionShape(level, c.above(2)).isEmpty()) {
@@ -138,13 +150,44 @@ public final class CasinoClientQa {
 					if (dy == -1 && !CasinoQa.walkable(level, c.relative(d))) {
 						continue; // the step down must be open at the current height
 					}
-					prev.put(n, c);
-					queue.add(n);
+					int nc = cc + (dy == 0 ? COST_FLAT : dy > 0 ? COST_UP : COST_DOWN);
+					if (nc < cost.getOrDefault(n, Integer.MAX_VALUE)) {
+						cost.put(n, nc);
+						prev.put(n, c);
+						queue.add(new Object[] {n, nc});
+					}
 					break;
 				}
 			}
 		}
 		return Optional.empty();
+	}
+
+	/** A floor a player walks on: a low block in the cell (carpet, slab), a sturdy full top, or stairs (a staircase). */
+	private static boolean floor(ServerLevel level, BlockPos p) {
+		if (CasinoQa.feetHeight(level, p) > 0) {
+			return true;
+		}
+		BlockPos b = p.below();
+		var below = level.getBlockState(b);
+		if (below.getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
+			// a staircase climbs on: the next stair up / landing is in the direction the stairs face
+			return below.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM
+				&& stairRun(level, b);
+		}
+		return below.isCollisionShapeFullBlock(level, b);
+	}
+
+	/**
+	 * True when the stair at {@code b} climbs on: one step up along its facing is another stair of the same facing or a
+	 * landing (full block with room above). A lone stool stair has neither.
+	 */
+	private static boolean stairRun(ServerLevel level, BlockPos b) {
+		Direction f = level.getBlockState(b).getValue(net.minecraft.world.level.block.StairBlock.FACING);
+		BlockPos n = b.relative(f).above();
+		var s = level.getBlockState(n);
+		return s.getBlock() instanceof net.minecraft.world.level.block.StairBlock && s.getValue(net.minecraft.world.level.block.StairBlock.FACING) == f
+			|| s.isCollisionShapeFullBlock(level, n) && CasinoQa.walkable(level, n.above());
 	}
 
 	/** A walkable cell outside the building, {@code distance} blocks in front of the cell nearest to {@code toward}. */
@@ -187,7 +230,9 @@ public final class CasinoClientQa {
 						break;
 					}
 					if (pos[2] > 0.6) {
-						context.getInput().pressKey(o -> o.keyJump);
+						context.getInput().holdKey(o -> o.keyJump); // held: a tap between ticks can be missed
+					} else {
+						context.getInput().releaseKey(o -> o.keyJump);
 					}
 					if (++t > STEP_TIMEOUT) {
 						return "stuck before " + w.toShortString() + " (" + String.format("%.2f, %.2f", pos[0], pos[1]) + " away; "
@@ -199,6 +244,7 @@ public final class CasinoClientQa {
 			return null;
 		} finally {
 			context.getInput().releaseKey(o -> o.keyUp);
+			context.getInput().releaseKey(o -> o.keyJump);
 			context.waitTicks(4);
 		}
 	}
