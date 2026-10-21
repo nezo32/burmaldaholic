@@ -81,7 +81,14 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 	private static final long TICK_NS = 50_000_000L;
 	private static final double FRAME_MS = 50;
 	private static final double SLACK = 1.15;
-	private static final double[] JUMPS = {1000, -1000};
+	/** T-SYW: an 800 ms packet spike for 1 s (scenario code, not a jump). */
+	private static final double SPIKE = 0.5;
+	/** T-SYW: the server paused ({@code /tick freeze}) for 1 s mid-animation (scenario code, not a jump). */
+	private static final double FREEZE = 0.25;
+	private static final double[] JUMPS = {1000, -1000, SPIKE, FREEZE};
+	/** T-SYW: client ticks until the spike / freeze ends (START_CLIENT_TICK countdown), or -1. */
+	private static volatile int restoreIn = -1;
+	private static volatile Runnable restore;
 	private static final AtomicLong WALL = new AtomicLong();
 	private static volatile boolean locked;
 	private static boolean registered;
@@ -147,6 +154,12 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 				registered = true;
 				ClientTickEvents.START_CLIENT_TICK.register(m -> {
 					if (locked) WALL.addAndGet(TICK_NS);
+					if (restoreIn > 0 && --restoreIn == 0) {
+						Runnable r = restore;
+						restore = null;
+						restoreIn = -1;
+						if (r != null) r.run();
+					}
 				});
 			}
 			WALL.set(System.nanoTime());
@@ -164,7 +177,8 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 
 				@Override
 				public boolean paused() {
-					return false;
+					// T-SYW: the production pause inputs (a /tick freeze mid-animation must pause the shared clock)
+					return mc.isPaused() || (mc.level != null && !mc.level.tickRateManager().runsNormally());
 				}
 			});
 			SmoothClock.Test.reset();
@@ -189,11 +203,35 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 	}
 
 	private static void unlag(RealFlow f) {
-		f.context().runOnClient(mc -> NetLag.clear());
+		f.context().runOnClient(mc -> {
+			Runnable r = restore;
+			restore = null;
+			restoreIn = -1;
+			if (r != null) r.run();
+			NetLag.clear();
+		});
 	}
 
 	private static void jump(RealFlow f, double ms) {
-		f.context().runOnClient(mc -> NetLag.jumpTime(ms));
+		if (ms == SPIKE) {
+			// an 800 ms (+-100) delay spike for 20 ticks, then back to the base lag
+			f.context().runOnClient(mc -> {
+				NetLag.install(800, 100, 0);
+				restore = () -> {
+					if (dev.nezo.burmaldaholic.client.anim.NetLagHook.hook != null) NetLag.install(300, 150, 1000);
+				};
+				restoreIn = 20;
+			});
+		} else if (ms == FREEZE) {
+			f.world().getServer().runCommand("tick freeze");
+			f.context().runOnClient(mc -> {
+				var server = mc.getSingleplayerServer();
+				restore = () -> server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "tick unfreeze"));
+				restoreIn = 20;
+			});
+		} else {
+			f.context().runOnClient(mc -> NetLag.jumpTime(ms));
+		}
 	}
 
 	// ---- the per-frame check ------------------------------------------------------------------------------------
