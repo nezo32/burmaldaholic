@@ -38,6 +38,8 @@ public final class CrapsRollClock {
 	public static final double HOME_MOVE_MS = 1100;
 	/** Fastest average speed of a settle into a throw that starts away from the hand (desync fallback), u/ms. */
 	public static final double SETTLE_SPEED = 0.045;
+	/** Shortest glide of a spectator's dice from rest at dice home into the throw's start pose. */
+	public static final double SPECTATOR_GLIDE_MS = 120;
 	/** The fixed swap path of dice home between the two ends (one die passes behind the other). */
 	private static final CrapsPair.Push HOME_PUSH;
 
@@ -59,6 +61,9 @@ public final class CrapsRollClock {
 	private double handReady = Double.NaN;
 	private double handRelease = Double.NaN;
 	private double handStart = Double.NaN;
+	// T-CM M1c: a spectator's roll that arrives while dice home is not at the throw's start (a home slide still under way,
+	// or the side and the roll bunched): the dice glide from where they are into the start pose, then the throw
+	private double specAt = Double.NaN;
 	private final int[] fallbackFaces = {4, 2};
 	private final int[] handFaces = {4, 2};
 	private final DieSample base = new DieSample(), start = new DieSample(), exit = new DieSample();
@@ -120,6 +125,7 @@ public final class CrapsRollClock {
 		this.side = side;
 		firstSight = false;
 		handRelease = Double.NaN;
+		specAt = Double.NaN;
 		if (!Double.isNaN(pressAt) && r != null) {
 			handReady = now - pressAt;
 			handStart = pressAt;
@@ -156,6 +162,27 @@ public final class CrapsRollClock {
 				origin = now - age;
 			} else {
 				origin = now;
+				if (r != null && homeKnown) {
+					// the dice are shown at rest at dice home now (maybe mid-slide); the throw starts lifted in the hand at its
+					// release points: they glide (≥ 120 ms, slower over a distance, passing apart) into that pose first
+					home(handHome);
+					handRoll = prev;
+					handFaces[0] = fallbackFaces[0];
+					handFaces[1] = fallbackFaces[1];
+					double far = 0;
+					for (int d = 0; d < 2; d++) {
+						CrapsHand.home(handHome[2 * d], handHome[2 * d + 1], prev, handFaces, d, base);
+						r.sample(d, 0, start);
+						far = Math.max(far, Math.sqrt((start.x - base.x) * (start.x - base.x) + (start.y - base.y) * (start.y - base.y)
+							+ (start.zc - base.zc) * (start.zc - base.zc)));
+					}
+					double[] a0 = CrapsThrow.release(side, 0, px2), a1 = CrapsThrow.release(side, 1, py2);
+					CrapsPair.plan(handHome[0], handHome[1], handHome[2], handHome[3], a0[0], a0[1], a1[0], a1[1], 2.2, handPush);
+					specAt = now;
+					origin = now + Math.max(SPECTATOR_GLIDE_MS, far * 1.5 / SETTLE_SPEED);
+					// the slide is over: dice home is where the throw starts (the next stick drags there anyway)
+					finishHomeMove();
+				}
 			}
 			if (!homeKnown) nextSide(side);
 		}
@@ -314,6 +341,19 @@ public final class CrapsRollClock {
 		}
 		DiceRoll r = roll;
 		if (r == null) return false;
+		if (!Double.isNaN(specAt) && t < 0) {
+			// a spectator's glide from where dice home was into the throw's start pose (no rattle)
+			CrapsHand.home(handHome[2 * die], handHome[2 * die + 1], handRoll, handFaces, die, base);
+			r.sample(die, 0, start);
+			double px = 0, py = 0;
+			if (handPush.p > 0 && handPush.die == die) {
+				px = handPush.nx * handPush.p;
+				py = handPush.ny * handPush.p;
+			}
+			double span = origin - specAt;
+			CrapsHand.settle(base, base, start, span <= 0 ? 1 : 1 + t / span, 0, 0, px, py, out);
+			return true;
+		}
 		r.sample(die, t, out);
 		return true;
 	}

@@ -249,7 +249,8 @@ class CrapsRollClockTest {
 		settledPrevious();
 		now[0] = 5000;
 		clock.onRoll(2, 800, NEXT, CrapsThrow.LEFT);
-		assertEquals(0, clock.t(), 1e-9, "a late packet delays the throw, never jumps into it");
+		// CM M1c: the dice glide from rest at home into the throw's start first (≥ 120 ms), the throw never jumps
+		assertTrue(clock.t() <= -CrapsRollClock.SPECTATOR_GLIDE_MS + 1e-9 && clock.t() > -600, "a late packet delays the throw, never jumps into it: " + clock.t());
 		assertFalse(clock.firstSight());
 		CrapsRollClock fresh = new CrapsRollClock(() -> now[0]);
 		fresh.onRoll(7, 800, NEXT, CrapsThrow.LEFT);

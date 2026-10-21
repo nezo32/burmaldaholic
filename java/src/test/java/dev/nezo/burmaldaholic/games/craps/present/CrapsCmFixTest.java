@@ -153,4 +153,41 @@ class CrapsCmFixTest {
 		assertTrue(c.firstSight());
 		assertEquals(300, c.t(), 1e-9);
 	}
+
+	/** M1c: a spectator roll during (or bunched with) the home slide glides both dice into the start: no jump, ≥ 2 u, exact start. */
+	@Test
+	void aSpectatorRollDuringTheHomeSlideGlidesIn() {
+		DiceRoll prev = CrapsThrow.solve(CrapsThrow.RIGHT, 11, 3, 4, 0);
+		DiceRoll next = CrapsThrow.solve(CrapsThrow.LEFT, 4242, 5, 2, 0);
+		for (int gap : new int[] {0, 40, 300, 700, 1050, 1200}) {
+			double[] now = {-20_000};
+			CrapsRollClock c = new CrapsRollClock(() -> now[0]);
+			c.nextSide(CrapsThrow.RIGHT);
+			c.onRoll(1, 9000, prev, CrapsThrow.RIGHT);
+			now[0] = 0;
+			c.nextSide(CrapsThrow.LEFT);
+			DieSample[] last = {new DieSample(), new DieSample()}, cur = {new DieSample(), new DieSample()};
+			boolean rolled = false;
+			for (int ms = 0; ms <= 4500; ms++) {
+				now[0] = ms;
+				if (ms == gap) {
+					c.onRoll(2, 0, next, CrapsThrow.LEFT);
+					rolled = true;
+				}
+				for (int d = 0; d < 2; d++) {
+					if (rolled) c.pose(d, Math.min(c.t(), next.restMs()), cur[d]);
+					else c.homePose(d, cur[d]);
+					if (ms > 0) assertTrue(dist(last[d], cur[d]) <= 0.14, "gap " + gap + " die " + d + " at " + ms + ": " + dist(last[d], cur[d]));
+					if (rolled && Math.abs(c.t()) < 0.5) {
+						DieSample s0 = new DieSample();
+						next.sample(d, 0, s0);
+						assertEquals(s0.x, cur[d].x, 0.06, "release pose");
+					}
+					last[d].set(cur[d]);
+				}
+				assertTrue(dist(cur[0], cur[1]) >= 2 - 1e-9, "gap " + gap + " apart at " + ms);
+			}
+			for (int d = 0; d < 2; d++) assertEquals(next.faces()[d], CubeGroup.faceUp(cur[d].q));
+		}
+	}
 }
