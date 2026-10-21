@@ -120,7 +120,7 @@ public final class SmoothClock {
 
 	private static long wall() {
 		TimeSource src = Test.source;
-		return src != null ? src.wallNanos() : System.nanoTime();
+		return src != null ? src.wallNanos() : net.minecraft.util.Util.getNanos(); // INT-X: the game's time source (= System.nanoTime in play; Fabric client GameTests swap it), so wallMs == Util.getMillis()
 	}
 
 	private static long shift(long tick) {
