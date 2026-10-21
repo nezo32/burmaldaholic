@@ -108,6 +108,31 @@ Owner decision: 26.3 only. Every run used `-Pmc=26.3`, except the first compile 
   - `compileClientJava compileGametestJava` plus the unit tests (`core.cashier.*` including CounterLayoutTest with the tray box, and RawInputGuardTest): BUILD SUCCESSFUL.
   - EC client lane: BUILD SUCCESSFUL in 3 runs (EN 480×270, EN 427×240, RU), now also covering the tray replaying a deposit and click-to-skip, plus wheel down 1 row and wheel up back.
 
+## Round 3: T-EC1 fixes (on top of the tester's tests, cherry-picked from `test/ec1` @d0f6565e)
+- **D1:** the store spends `CashierBlockEntity.withdrawable` (balance − debt) and refuses players in default, like exchange "out" (scratch cards included). The sync's "funds" lock uses the same number.
+- **D2:** the v0.1 `shop_buy` action and the cashier state's `shop` list are removed; the store tab (scratch cards too) goes through `StoreService`.
+- **D3:**
+  - R2 runs over `EconomyGuards.CHAINS`, the transitive closure of the crafting equivalences (block ↔ ingot ↔ nugget = 81).
+  - R4 now also applies to exchange rows' way out (`EconomyGuards.rows(rows, villagerValue)`, `EconomyConfig.rowViolations()` / `villagerValue()`), including what an item uncrafts into.
+  - R6 forbids every iron, golden and chainmail tool, weapon and armour piece, and horse and nautilus armour.
+  - The tester's gap tests are flipped to `r2IsTransitive`, `exchangeRowsKeepVillagerFloor` and `smeltableGearIsForbidden`.
+- **D4:**
+  - The rate cells are sized from the widest "→N" / "←N" text of the rows (`CounterLayout.row(row, rateW)`, `ExchangeTab.rateWidth()`). The "You have" text falls back to "×N", then "×2k+", then nothing (the tooltip keeps the exact count).
+  - The narrow strip's Buy button is sized from "Confirm 999,999?" (`CounterLayout.detail(store, buyW)`, `StoreTab.buyWidth`).
+  - Shorter RU strings: `deposit_held` is now "Внести из руки" and `store.limit_day` is now "Сегодня ещё %1$s из %2$s" (gen_lang, LF).
+  - `CounterFitCheck` checks the real rates and the real detail layout. The client test adds layout-only passes at 640×360 and 960×540 (EN and RU).
+- **D5:** `CounterShell.focusChanged` clears the tracked Shift and Ctrl when the window gains or loses focus (an edge detected in `tick`). It is asserted in the client test.
+
+**Verified (26.3 only):**
+- `compileJava compileClientJava compileGametestJava` plus unit tests `core.economy.*`, `core.store.*`, `core.config.*`, `core.cashier.*`, RawInputGuardTest and InputsTest: BUILD SUCCESSFUL.
+- Server GameTests:
+  - `counter`: 18/18 (EC-1's 8 plus the tester's 10).
+  - `economy_game_tests`: 6/6.
+  - `java_review_game_tests_m2`: 2/2.
+- EC client run (`BURMALDAHOLIC_CGT=EC`, only `CounterClientGameTests`, entrypoint swap restored): BUILD SUCCESSFUL, with no failures.
+  - Full flows: EN and RU at 480×270 and 427×240.
+  - Layout asserts and the D5 check: EN and RU at 640×360 and 960×540.
+
 ## Not done / requests
 - **DL:** please expose `HouseNpcRoles.register(String, BiConsumer<ServerPlayer, Entity>)` and call `MerchantRole.install(HouseNpcRoles::register)`, or put the class at one of the names in `MerchantRole.CANDIDATES`. Also add `entity.burmaldaholic.merchant`; the string already exists.
 - **EC-2:** owns the VipRules perk swap (`perk.emerald_rate` → `perk.store_gold_shelf`) and GAME_DESIGN §12.
