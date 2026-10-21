@@ -37,6 +37,7 @@ public class BaccaratV2GameTests {
 	@SuppressWarnings("removal")
 	public void publicTagFollowsTheReveal(GameTestHelper helper) {
 		BlockPos pos = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, pos);
 		helper.setBlock(pos, BaccaratModule.TABLE.block());
 		BaccaratTableBlockEntity table = helper.getBlockEntity(pos, BaccaratTableBlockEntity.class);
 		MinecraftServer server = helper.getLevel().getServer();
@@ -124,6 +125,7 @@ public class BaccaratV2GameTests {
 	public void unbetChipTakesBackExactlyOneChip(GameTestHelper helper) {
 		listen();
 		BlockPos rel = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BaccaratModule.TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
 		ServerPlayer p = opened(helper, rel);
@@ -169,6 +171,7 @@ public class BaccaratV2GameTests {
 	@SuppressWarnings("removal")
 	public void removalPlayOutReadsNoPreset(GameTestHelper helper) {
 		BlockPos rel = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BaccaratModule.TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
 		MinecraftServer server = helper.getLevel().getServer();
@@ -209,6 +212,7 @@ public class BaccaratV2GameTests {
 		botsCfg.maxActiveTables = Math.max(capBefore, dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + 2);
 		int activeBefore = botsCfg.maxActive;
 		botsCfg.maxActive = Math.max(activeBefore, dev.nezo.burmaldaholic.core.bots.Bots.active() + 4); // the world bot budget too
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BaccaratModule.CHEMMY_TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
 		t.bots().setDefaults(new dev.nezo.burmaldaholic.core.bots.logic.BotSettings(dev.nezo.burmaldaholic.core.bots.logic.SeatPolicy.MIXED, 2,
@@ -234,7 +238,9 @@ public class BaccaratV2GameTests {
 			}
 			helper.assertTrue("betting".equals(t.phase()) && t.bank().held() && !me.equals(t.bank().banker()) && t.bank().banco() == null,
 				"waiting for a bot bank with punting open (phase " + t.phase() + ", bots " + dev.nezo.burmaldaholic.core.bots.Bots.active()
-					+ " on " + dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + " tables)");
+					+ " on " + dev.nezo.burmaldaholic.core.bots.Bots.activeTables() + " tables, " + t.bots().count() + " here, house coup "
+					+ state.getBooleanOr("house_coup", false) + ", buy-ins left " + dev.nezo.burmaldaholic.core.bots.BotLedger.buyInsLeft(
+						helper.getLevel().getServer(), t.botTableKey()) + ")");
 			long min = Math.max(1, state.getLongOr("bet_min", 1));
 			long open = ch.getLongOr("open", 0);
 			helper.assertTrue(ch.getBooleanOr("held", false) && !ch.getBooleanOr("you_bank", true) && open >= min,

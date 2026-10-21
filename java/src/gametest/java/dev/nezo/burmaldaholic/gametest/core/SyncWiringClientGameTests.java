@@ -106,6 +106,9 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 			context.waitTicks(20);
 			world.getServer().runCommand("casino balance set @p 1000000");
 			world.getServer().runOnServer(server -> CasinoConfig.chaos().enabled = false);
+			// flake fix: the wheel's Creeper segment requests a chaos mob wave even with chaos off; its mobs closed the
+			// wheel screen mid-run ("no target 'primary' on no screen"). Peaceful removes them.
+			world.getServer().runCommand("difficulty peaceful");
 			RealFlow f = new RealFlow(context, world);
 			f.size(1920, 1080, 3);
 			lock(context);
@@ -162,7 +165,10 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 					}
 				});
 			}
-			WALL.set(System.nanoTime());
+			// flake fix: a whole-second wall phase (NetLag bunches on whole seconds) and a fresh NetLag (its jitter RNG was
+			// consumed by earlier classes), so the class sees the same inputs alone and in the full suite
+			WALL.set((System.nanoTime() / 1_000_000_000L + 1) * 1_000_000_000L);
+			NetLag.reset();
 			locked = true;
 			SmoothClock.Test.source(new SmoothClock.TimeSource() {
 				@Override

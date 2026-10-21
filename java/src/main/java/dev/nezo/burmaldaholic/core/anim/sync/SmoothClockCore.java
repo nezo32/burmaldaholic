@@ -11,9 +11,9 @@ import java.util.ArrayDeque;
  * {@code 50 / msPerTick}; a change of {@code msPerTick} (/tick rate) re-anchors the window on the newest observation and
  * takes the new nominal at once. While the observations of the last {@link #WINDOW_MS} fit a straight line (residual RMS
  * ≤ {@link #FIT_RMS_MS}, span ≥ {@link #FIT_SPAN_MS}), their least-squares slope is the MEASURED speed (a lagging server
- * at 12 TPS runs at 0.6, a stalled one at 0); within ±{@link #SPEED_DEADBAND} of nominal the nominal wins (no jitter
- * noise). A bad fit (a time jump, a bunch after a stall) falls back to nominal. The speed is low-pass filtered
- * ({@link #SPEED_TAU_MS}), never switched.
+ * at 12 TPS runs at 0.6, a stalled one at 0), capped at nominal (a server ahead is caught up by the rate and the snap);
+ * within {@link #SPEED_DEADBAND} of nominal the nominal wins (no jitter noise). A bad fit (a time jump, a bunch after a
+ * stall) falls back to nominal. The speed is low-pass filtered ({@link #SPEED_TAU_MS}), never switched.
  *
  * <p><b>Target.</b> Every window observation is projected to now at that speed; the target is the largest projection
  * (late or bunched packets project low and can never pull the clock back).
@@ -164,7 +164,10 @@ public final class SmoothClockCore {
 			ss += r * r;
 		}
 		if (Math.sqrt(ss / n) > FIT_RMS_MS) return nominal;
-		b = Math.max(0, Math.min(2 * nominal, b));
+		// SYW: never faster than nominal. Under late/bunched time packets a step in the client's lag reads as a slope of up to
+		// ~1.35 (a good fit), which ran the clock past its ±SLEW contract; a server ahead of us is caught up by the rate
+		// (+SLEW) and the snap instead.
+		b = Math.max(0, Math.min(nominal, b));
 		return Math.abs(b / nominal - 1) <= SPEED_DEADBAND ? nominal : b;
 	}
 

@@ -41,6 +41,13 @@ final class BaccaratPresets implements TablePresetProvider {
 		CoreServices.setTablePresets(new BaccaratPresets(CoreServices.tablePresets()));
 	}
 
+	/** GameTests: drops the cached answer for {@code pos} (a fresh table at a reused test position). */
+	static void forget(ServerLevel level, BlockPos pos) {
+		if (CoreServices.tablePresets() instanceof BaccaratPresets b) {
+			b.cache.remove(level.dimension().identifier() + "@" + pos.asLong());
+		}
+	}
+
 	static TablePreset highRoller() {
 		return new TablePreset(HIGH_ROLLER, "", -1, 100, 2, VipTiers.GOLD, List.of());
 	}

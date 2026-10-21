@@ -133,6 +133,7 @@ public class A2TesterGameTests {
 		int decks0 = c.decks;
 		double pen0 = c.penetration;
 		BlockPos rel = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BlackjackModule.TABLE.block());
 		BlackjackTableBlockEntity t = helper.getBlockEntity(rel, BlackjackTableBlockEntity.class);
 		ServerPlayer p = opened(helper, rel, 10_000);
@@ -166,6 +167,7 @@ public class A2TesterGameTests {
 					var registries = helper.getLevel().registryAccess();
 					CompoundTag saved = t.saveWithoutMetadata(registries);
 					BlockPos rel2 = new BlockPos(4, 1, 1);
+					dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel2);
 					helper.setBlock(rel2, BlackjackModule.TABLE.block());
 					BlackjackTableBlockEntity copy = helper.getBlockEntity(rel2, BlackjackTableBlockEntity.class);
 					// as if this table were reloaded: the saved shoe names its own table (a copy elsewhere starts fresh)
@@ -197,6 +199,7 @@ public class A2TesterGameTests {
 	@GameTest
 	public void betAboveBalanceIsRefused(GameTestHelper helper) {
 		BlockPos rel = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BlackjackModule.TABLE.block());
 		BlackjackTableBlockEntity t = helper.getBlockEntity(rel, BlackjackTableBlockEntity.class);
 		ServerPlayer p = opened(helper, rel, 5);
@@ -219,6 +222,7 @@ public class A2TesterGameTests {
 
 	private void insuranceCase(GameTestHelper helper, Card hole, long expectNet) {
 		BlockPos rel = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BlackjackModule.TABLE.block());
 		BlackjackTableBlockEntity t = helper.getBlockEntity(rel, BlackjackTableBlockEntity.class);
 		ServerPlayer p = opened(helper, rel, 1000);
@@ -282,6 +286,7 @@ public class A2TesterGameTests {
 		var cfg = BaccaratModule.config();
 		long min0 = cfg.minBet;
 		BlockPos rel = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, rel);
 		helper.setBlock(rel, BaccaratModule.TABLE.block());
 		BaccaratTableBlockEntity t = helper.getBlockEntity(rel, BaccaratTableBlockEntity.class);
 		ServerPlayer p = opened(helper, rel, 10_000);
@@ -330,9 +335,11 @@ public class A2TesterGameTests {
 	@SuppressWarnings("removal")
 	public void removalWithoutBotsReadsNoPreset(GameTestHelper helper) {
 		BlockPos pos = new BlockPos(1, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, pos);
 		helper.setBlock(pos, BaccaratModule.TABLE.block());
 		BaccaratTableBlockEntity bac = helper.getBlockEntity(pos, BaccaratTableBlockEntity.class);
 		BlockPos pos2 = new BlockPos(4, 1, 1);
+		dev.nezo.burmaldaholic.gametest.TableIsolation.fresh(helper, pos2);
 		helper.setBlock(pos2, BlackjackModule.TABLE.block());
 		BlackjackTableBlockEntity bj = helper.getBlockEntity(pos2, BlackjackTableBlockEntity.class);
 		MinecraftServer server = helper.getLevel().getServer();

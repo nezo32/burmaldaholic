@@ -202,6 +202,13 @@ public final class Ownership {
 		return Optional.of(new OwnedTable(c.owner, c.bankrollId(), t.min, t.max, t.open && !c.broke, t.bots, t.slotsBuy, t.slotsAutoplay));
 	}
 
+	/** GameTests: forgets an owned-table record an earlier test left at {@code pos} (a fresh table at a reused test position). */
+	public static void forgetTableForTests(ServerLevel level, BlockPos pos) {
+		if (book(level.getServer()).removeTable(key(level, pos)).isPresent()) {
+			data(level.getServer()).setDirty();
+		}
+	}
+
 	// ---- public claim lookups (see MultiplayerApi) ---------------------------------------------
 
 	static Optional<Casino> casinoAt(ServerLevel level, BlockPos pos) {

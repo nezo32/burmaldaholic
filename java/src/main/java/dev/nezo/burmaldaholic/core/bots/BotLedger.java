@@ -98,6 +98,15 @@ public final class BotLedger {
 		return BotEconomyMath.buyInsLeft(CasinoConfig.bots().tableBuyInsPerDay, BotLedgerData.get(server).buyInsToday(tableKey, day(server)));
 	}
 
+	/**
+	 * GameTests: a table placed where an earlier test's table stood starts clean. The per-table ledger is keyed by position,
+	 * so the earlier table's house buy-ins (10 a day) and bankroll escrows would otherwise carry over to it.
+	 */
+	public static void forgetTableForTests(MinecraftServer server, String tableKey) {
+		returnOrphans(server, tableKey);
+		BotLedgerData.get(server).forgetBuyIns(tableKey);
+	}
+
 	public static void countBuyIn(MinecraftServer server, String tableKey) {
 		BotLedgerData.get(server).countBuyIn(tableKey, day(server));
 	}

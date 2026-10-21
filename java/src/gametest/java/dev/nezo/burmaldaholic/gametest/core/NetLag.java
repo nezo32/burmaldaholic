@@ -26,7 +26,8 @@ public final class NetLag {
 
 	private static final PriorityQueue<Item> QUEUE = new PriorityQueue<>((a, b) -> a.dueMs != b.dueMs
 			? Double.compare(a.dueMs, b.dueMs) : Long.compare(a.order, b.order));
-	private static final Random RANDOM = new Random(20261020L);
+	private static final long SEED = 20261020L;
+	private static final Random RANDOM = new Random(SEED);
 	private static volatile double delayMs;
 	private static volatile double jitterMs;
 	private static volatile double bunchEveryMs;
@@ -48,6 +49,18 @@ public final class NetLag {
 			ClientTickEvents.END_CLIENT_TICK.register(mc -> pump(false));
 		}
 		NetLagHook.hook = NetLag::defer;
+	}
+
+	/**
+	 * Uninstalls the hook, drops whatever is pending and reseeds the jitter: a test class starts from the same NetLag state
+	 * whether it runs alone or after other classes that used it (call on the client thread).
+	 */
+	public static synchronized void reset() {
+		NetLagHook.hook = null;
+		QUEUE.clear();
+		RANDOM.setSeed(SEED);
+		order = 0;
+		deferred = 0;
 	}
 
 	/** Simulates a server time jump of {@code ms} (every later time observation is shifted). */
