@@ -137,7 +137,10 @@ public class TableUnloadGameTests {
 			List<Long> deltas = switch (pl.game().name()) {
 				case "blackjack" -> List.of(-100L, 0L, 100L, 150L);
 				case "craps" -> List.of(-50L, 0L, 50L); // the pending roll is played out: Pass loses or wins even money
-				case "uth" -> List.of(-20L, 0L); // dealt at once; played out with default decisions = fold at the river (§21.5)
+				// dealt at once; played out with default decisions (§21.5): fold at the river (-20), or with uth.autoPlayMadeHands
+				// (default on) a made hand plays 1x at showdown: Ante 10 / Blind 10 / Play 10 settle (lose -30, push 0, dealer not
+				// qualifying +10, win +20) plus the Blind pay table on a winning straight+; a second payout is caught by assertReloadedClean
+				case "uth" -> List.of(-30L, -20L, 0L, 10L, 20L, 20L, 25L, 40L, 110L, 510L, 5010L, 30L, 35L, 50L, 120L, 520L, 5020L);
 				default -> List.of(0L);
 			};
 			boolean ok = deltas.contains(b - START);
