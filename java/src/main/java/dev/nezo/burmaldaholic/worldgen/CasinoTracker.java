@@ -41,6 +41,7 @@ public final class CasinoTracker {
 	static void clear() {
 		INSIDE.clear();
 		CasinoAttract.clear();
+		CasinoFoliage.clear();
 	}
 
 	static void tick(MinecraftServer server) {
@@ -48,6 +49,7 @@ public final class CasinoTracker {
 			return;
 		}
 		long now = server.getTickCount();
+		CasinoFoliage.tick(server); // natural leaves that grew into a casino (INTEGRATION-CB O3)
 		if (now % ENTER_INTERVAL == 0) {
 			checkEntering(server);
 		}

@@ -684,4 +684,28 @@ public class CasinoBuildingGameTests {
 		}
 		forced.clear();
 	}
+
+	/** O3: natural leaves under a roof inside a casino box are cleared; persistent (template) and open-air leaves stay. */
+	@net.fabricmc.fabric.api.gametest.v1.GameTest
+	public void foliageSweepClearsTreeLeavesIndoors(net.minecraft.gametest.framework.GameTestHelper helper) {
+		var level = helper.getLevel();
+		var natural = net.minecraft.world.level.block.Blocks.OAK_LEAVES.defaultBlockState();
+		var persistent = natural.setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true);
+		for (int x = 0; x <= 2; x++) {
+			helper.setBlock(new net.minecraft.core.BlockPos(x, 5, 0), net.minecraft.world.level.block.Blocks.STONE_BRICKS); // roof
+		}
+		helper.setBlock(new net.minecraft.core.BlockPos(0, 2, 0), natural);
+		helper.setBlock(new net.minecraft.core.BlockPos(1, 2, 0), persistent);
+		helper.setBlock(new net.minecraft.core.BlockPos(4, 2, 0), natural); // no roof above
+		net.minecraft.core.BlockPos a = helper.absolutePos(new net.minecraft.core.BlockPos(0, 1, 0));
+		net.minecraft.core.BlockPos b = helper.absolutePos(new net.minecraft.core.BlockPos(4, 6, 0));
+		var box = new dev.nezo.burmaldaholic.worldgen.logic.Geometry.Box(Math.min(a.getX(), b.getX()), a.getY(), Math.min(a.getZ(), b.getZ()),
+			Math.max(a.getX(), b.getX()), b.getY(), Math.max(a.getZ(), b.getZ()));
+		int removed = dev.nezo.burmaldaholic.worldgen.CasinoFoliage.sweep(level, box);
+		helper.assertTrue(removed == 1, "one indoor tree leaf removed, got " + removed);
+		helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.AIR, new net.minecraft.core.BlockPos(0, 2, 0));
+		helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.OAK_LEAVES, new net.minecraft.core.BlockPos(1, 2, 0));
+		helper.assertBlockPresent(net.minecraft.world.level.block.Blocks.OAK_LEAVES, new net.minecraft.core.BlockPos(4, 2, 0));
+		helper.succeed();
+	}
 }
