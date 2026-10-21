@@ -24,6 +24,9 @@ public final class BotPresets {
 		if (be == null || !(be.getLevel() instanceof ServerLevel level)) {
 			return Optional.empty();
 		}
+		if (!level.isLoaded(be.getBlockPos())) {
+			return Optional.empty(); // the preset reads the block state: never load (or wait for) an unloaded chunk
+		}
 		try {
 			return CoreServices.tablePresets().botDefaults(level, be.getBlockPos(), gameId);
 		} catch (RuntimeException e) {

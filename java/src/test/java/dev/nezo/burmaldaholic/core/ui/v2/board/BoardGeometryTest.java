@@ -89,7 +89,7 @@ class BoardGeometryTest {
 	}
 
 	@Test
-	void chipsSplitGreedilyIntoAtMostSixDiscs() {
+	void chipsSplitGreedilyIntoAtMostTenDiscs() {
 		int[] d = new int[BoardGeometry.CHIP_MAX];
 		assertEquals(0, BoardGeometry.discs(0, d));
 		assertEquals(1, BoardGeometry.discs(1, d));
@@ -97,7 +97,7 @@ class BoardGeometryTest {
 		assertEquals(3, BoardGeometry.discs(130, d)); // 100 + 25 + 5
 		assertArrayEquals(new int[] {3, 2, 1}, new int[] {d[0], d[1], d[2]});
 		assertEquals(4, BoardGeometry.discs(4, d));
-		assertEquals(6, BoardGeometry.discs(1_000_000, d));
+		assertEquals(BoardGeometry.CHIP_MAX, BoardGeometry.discs(1_000_000, d));
 		assertEquals(BoardGeometry.DENOMS.length - 1, d[0]);
 	}
 
@@ -111,7 +111,15 @@ class BoardGeometryTest {
 			assertTrue(HoloScale.capPx(plate, d, 70, 1080) >= want - 1e-6, "plate at " + d);
 			assertTrue(HoloScale.capPx(board, d, 70, 1080) >= want - 1e-6, "board at " + d);
 		}
-		assertEquals(HoloScale.PLATE_READ, HoloScale.readablePx(HoloScale.PLATE_READ, 3, 70, 1080));
+		// visual QA round 1: never larger than 22 px cap at 1080p (44 px at 4K), at any distance up close
+		for (int h : new int[] {1080, 2160}) {
+			for (double d = 0.5; d <= 8; d += 0.25) {
+				for (float base : new float[] {HoloScale.PLATE_READ, HoloScale.BOARD_READ}) {
+					double cap = HoloScale.capPx(HoloScale.readablePx(base, d, 70, h), Math.max(d, 0.5), 70, h);
+					assertTrue(cap <= HoloScale.capMax(h) + 1e-3, "cap " + cap + " at " + d + " / " + h);
+				}
+			}
+		}
 	}
 
 	@Test

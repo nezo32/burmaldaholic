@@ -26,7 +26,7 @@ public final class FeltPainter {
 	private FeltPainter() {}
 
 	/** Lift of the print decal above the baked felt (no z-fighting, under the content lift of 1/64). */
-	public static final float DECAL_LIFT = 1 / 128f;
+	public static final float DECAL_LIFT = dev.nezo.burmaldaholic.core.ui.v2.board.FullTableMap.DECAL_LIFT;
 
 	/** Number of quads {@link #submit} draws for a felt (budget accounting). */
 	public static int quads(Felt f) {
@@ -39,12 +39,13 @@ public final class FeltPainter {
 
 	public static void submit(PoseStack pose, SubmitNodeCollector out, BoardState s, int light) {
 		var frame = s.frame;
-		if (s.full && frame != null) {
+		var game = s.tableGame;
+		if (s.full && frame != null && game != null) {
 			float x0 = (float) (frame.cx() - frame.w() / 2), x1 = (float) (frame.cx() + frame.w() / 2);
 			float z0 = (float) (frame.cz() - frame.d() / 2), z1 = (float) (frame.cz() + frame.d() / 2);
-			float y = (float) frame.top() + DECAL_LIFT;
+			float y = dev.nezo.burmaldaholic.core.ui.v2.board.FullTableMap.decalY(frame);
 			int fl = s.feltLight;
-			out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.print(frame.shape(), s.furniture)), (p, vc) -> {
+			out.submitCustomGeometry(pose, RenderTypes.entityCutout(BoardTextures.print(game, s.furniture)), (p, vc) -> {
 				int c = 0xFFFFFFFF;
 				Quads.v(p, vc, x0, y, z1, 0, 1, c, fl, 0, 1, 0);
 				Quads.v(p, vc, x1, y, z1, 1, 1, c, fl, 0, 1, 0);

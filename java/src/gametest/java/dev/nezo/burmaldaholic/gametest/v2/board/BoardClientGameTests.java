@@ -65,7 +65,7 @@ import net.minecraft.world.phys.AABB;
  *   <li>a full blackjack table with the viewer and atmosphere bots, then the concept's mid-round demo, shot from 3 / 5 /
  *       8 blocks at 0° and 30° and from a raised eye: LOD, board text, plates disjoint, plates never over the dealer
  *       cards; carpet in front of the table keeps the full felt; RU at 5 m;</li>
- *   <li>bot nameplates hidden at 4 blocks and shown at 20; a plain text display beside the table keeps rendering;</li>
+ *   <li>bot nameplates hidden at 4 and 20 blocks; a plain text display beside the table keeps rendering;</li>
  *   <li>baccarat, Hold'em, UTH, roulette, craps (full tables, two bots each) and the machines (slot, wheel, Plinko,
  *       cashier) at 3 / 5 / 8 blocks;</li>
  *   <li>20 full tables: across tables the shown plates are disjoint ({@link PlateFrame#lastRects}), LOD counts, time;</li>
@@ -166,6 +166,14 @@ public class BoardClientGameTests implements FabricClientGameTest {
 		shot(context, world, pos, "p2_w2_bj_5m_0_high", 5, 0, 1.6, true);
 		shot(context, world, pos, "p2_w2_bj_3m_30_high", 3, 30, 1.2, true);
 		shot(context, world, pos, "p2_w2_bj_12m_0", 12, 0, 0, false);
+		// straight down from above: the upright board fades out (visual QA round 1: a huge trapezoid)
+		look(context, world, pos, 0.6, 0, 3.2);
+		context.waitTicks(10);
+		context.takeScreenshot("p2_w2_bj_top");
+		// night (outdoor, no lamps): felt, print and cards darken with the furniture; plates and board stay readable
+		world.getServer().runCommand("time set midnight");
+		shot(context, world, pos, "p2_w2_bj_5m_30_night", 5, 30, 0, true);
+		world.getServer().runCommand("time set noon");
 		// carpet in the players' cells: the table still draws its full felt (no fallback)
 		world.getServer().runOnServer(server -> {
 			for (int dx = -1; dx <= 1; dx++) server.overworld().setBlockAndUpdate(pos.offset(dx, 0, -1), Blocks.MOSS_CARPET.defaultBlockState());
@@ -185,7 +193,7 @@ public class BoardClientGameTests implements FabricClientGameTest {
 		context.waitTicks(5);
 	}
 
-	/** Bot nameplates: hidden at 4 blocks (the plates show them), shown at 20; a plain text display is never touched. */
+	/** Bot nameplates: hidden at 4 and at 20 blocks (the board's plates are the one name system); plain text untouched. */
 	private void botTags(ClientGameTestContext context, TestSingleplayerContext world, BlockPos pos) {
 		double[] c = feltCentre(pos);
 		world.getServer().runCommand(String.format(Locale.ROOT, "summon minecraft:text_display %.2f %d %.2f {text:\"Welcome\",billboard:\"center\"}", c[0] - 2.2,
@@ -207,7 +215,7 @@ public class BoardClientGameTests implements FabricClientGameTest {
 			near[3], far[1], far[3]));
 		if (near[0] == 0) throw new AssertionError("no bot nameplate text displays near the table");
 		if (near[1] != near[0]) throw new AssertionError("bot tags not hidden at 4 m: " + near[1] + "/" + near[0]);
-		if (far[1] != 0) throw new AssertionError("bot tags hidden at 20 m: " + far[1]);
+		if (far[1] != far[0]) throw new AssertionError("bot tags shown at 20 m (one name system near tables): " + far[1] + "/" + far[0]);
 		world.getServer().runCommand("gamemode spectator @p");
 		if (near[2] == 0) throw new AssertionError("the plain text display is missing");
 		if (near[3] != 0 || far[3] != 0) throw new AssertionError("a plain text display beside the table was hidden");
@@ -334,6 +342,11 @@ public class BoardClientGameTests implements FabricClientGameTest {
 		float[] rects = context.computeOnClient(mc -> PlateFrame.lastRects());
 		int hidden = context.computeOnClient(mc -> PlateFrame.lastHidden());
 		context.takeScreenshot("p2_w2_perf_20");
+		// night: the furniture, the felt print and the cards darken with the world; boards and plates stay readable
+		world.getServer().runCommand("time set midnight");
+		context.waitTicks(20);
+		context.takeScreenshot("p2_w2_perf_20_night");
+		world.getServer().runCommand("time set noon");
 		double ms = sum / (double) samples / 1e6;
 		int overlaps = 0;
 		for (int a = 0; a < rects.length / 4; a++) {
@@ -437,9 +450,9 @@ public class BoardClientGameTests implements FabricClientGameTest {
 					throw new AssertionError(name + ": plate " + i + " covers the dealer cards");
 				}
 			}
-			double want = d <= 5 ? HoloScale.CAP_NEAR_PX : HoloScale.CAP_FAR_PX;
+			double want = HoloScale.capTarget(t.dist()); // the real camera → felt distance (a raised eye is farther than d)
 			if (plateCap < want - 0.5 || boardCap < want - 0.5) {
-				throw new AssertionError(String.format(Locale.ROOT, "%s: cap height plate %.1f / board %.1f px < %.0f", name, plateCap, boardCap, want));
+				throw new AssertionError(String.format(Locale.ROOT, "%s: cap height plate %.1f / board %.1f px < %.1f", name, plateCap, boardCap, want));
 			}
 		} else {
 			if (t.plates() != 0) throw new AssertionError(name + ": plates beyond 8 blocks");

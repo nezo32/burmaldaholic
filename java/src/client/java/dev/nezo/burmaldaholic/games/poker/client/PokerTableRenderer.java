@@ -32,8 +32,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockEntity, CardTableRenderer.State> {
 	/** Seat cards are a little smaller than the board's (they sit on the rail side of the oval). */
-	static final float SEAT_W = BoardGeometry.CARD_W * 0.78f, SEAT_H = BoardGeometry.CARD_H * 0.78f;
-	static final float BOARD_Z = 0.40f, SEAT_R = 0.80f, BET_R = 0.50f, POT_Z = 0.74f, DECK_X = 0.5f, DECK_Z = 0.5f;
+	static final float SEAT_W = BoardGeometry.Holdem.SEAT_W, SEAT_H = BoardGeometry.Holdem.SEAT_H;
+	static final float BOARD_Z = BoardGeometry.Holdem.BOARD_Z, SEAT_R = BoardGeometry.Holdem.SEAT_R, BET_R = BoardGeometry.Holdem.BET_R,
+		POT_Z = BoardGeometry.Holdem.POT_Z;
+	/** Cards are dealt from the deck (full table: the squared stack at the oval's right end; compact: the centre). */
+	static final float DECK_X = 0.5f, DECK_Z = 0.5f;
 	private static final Map<PokerTableBlockEntity, Cache> CACHE = new WeakHashMap<>();
 
 	private static final class Cache {
@@ -64,24 +67,17 @@ public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockE
 
 	/** Board slot {@code i} (centre x, z). */
 	static float[] board(int i) {
-		float pitch = BoardGeometry.CARD_W + 0.03f;
-		return new float[] {0.5f + (i - 2) * pitch, BOARD_Z};
+		return BoardGeometry.Holdem.board(i);
 	}
 
 	/** Seat spot of table seat {@code seat} of {@code n} on the oval: {x, z, yaw}; seat 0 at the front. */
 	static float[] seat(int seat, int n, float r) {
-		double a = 2 * Math.PI * Math.floorMod(seat, Math.max(2, n)) / Math.max(2, n);
-		return new float[] {0.5f + r * (float) Math.sin(a), 0.5f + r * (float) Math.cos(a), (float) -Math.toDegrees(a)};
+		return BoardGeometry.Holdem.seat(seat, n, r);
 	}
 
 	/** A seat's bet: toward the centre, kept off the board row. */
 	static float[] bet(int seat, int n) {
-		float[] b = seat(seat, n, BET_R);
-		float half = 2.5f * (BoardGeometry.CARD_W + 0.03f) + BoardGeometry.CHIP_R;
-		if (Math.abs(b[0] - 0.5f) < half && Math.abs(b[1] - BOARD_Z) < BoardGeometry.CARD_H / 2 + BoardGeometry.CHIP_R) {
-			b[1] = b[1] < BOARD_Z ? BOARD_Z - BoardGeometry.CARD_H / 2 - BoardGeometry.CHIP_R - 0.02f : BOARD_Z + BoardGeometry.CARD_H / 2 + BoardGeometry.CHIP_R + 0.02f;
-		}
-		return b;
+		return BoardGeometry.Holdem.bet(seat, n);
 	}
 
 	static @Nullable Timeline timeline(PokerPub p) {
@@ -111,6 +107,9 @@ public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockE
 		double t = s.levelMs - p.startTick() * 50.0;
 		String kind = PokerPub.kindName(p.kind());
 		lines(be, s, p);
+		// the deck: a squared card stack (visual QA round 2), only where the full table's felt has room for it
+		float dx = s.full ? BoardGeometry.Holdem.DECK_X : DECK_X, dz = s.full ? BoardGeometry.Holdem.DECK_Z : DECK_Z;
+		if (s.full) s.deck(dx, dz, BoardGeometry.Holdem.DECK_YAW, BoardGeometry.CARD_W, BoardGeometry.CARD_H, deckLeft(p, size));
 		// board
 		for (int i = 0; i < p.board().length; i++) {
 			float[] b = board(i);
@@ -122,7 +121,7 @@ public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockE
 				if (slide != null) dealU = slide.progress(t);
 				if (flip != null) flipU = flip.progress(t);
 			}
-			dealt(s, DECK_X, DECK_Z, b[0], b[1], 0, BoardGeometry.CARD_W, BoardGeometry.CARD_H, p.board()[i], dealU, flipU);
+			dealt(s, dx, dz, b[0], b[1], 0, BoardGeometry.CARD_W, BoardGeometry.CARD_H, p.board()[i], dealU, flipU);
 		}
 		// seats (hand index k = k-th dealt seat in seat order)
 		int k = 0;
@@ -147,7 +146,7 @@ public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockE
 					int face = p.card(seat, j);
 					double flipU = 1;
 					if (face >= 0 && tl != null && kind.equals("finish")) flipU = showFlip(tl, t);
-					BoardCard card = dealt(s, DECK_X, DECK_Z, cx, cz, a[2] + (j - 0.5f) * 8f, SEAT_W, SEAT_H, face, dealU, flipU);
+					BoardCard card = dealt(s, dx, dz, cx, cz, a[2] + (j - 0.5f) * 8f, SEAT_W, SEAT_H, face, dealU, flipU);
 					if (card != null && p.has(seat, PokerPub.WINNER)) card.lift += 0.01f;
 				}
 			}
@@ -179,6 +178,13 @@ public final class PokerTableRenderer extends CardTableRenderer<PokerTableBlockE
 	}
 
 	private static final Component DEALER = Texts.raw("D");
+
+	/** Cards left in the deck: 52 minus the board and two per dealt-in seat. */
+	static int deckLeft(PokerPub p, int size) {
+		int dealt = p.board().length;
+		for (int seat = 0; seat < size && seat < p.seatCount(); seat++) if (p.has(seat, PokerPub.DEALT)) dealt += 2;
+		return Math.max(1, BoardGeometry.DECK_CARDS - dealt);
+	}
 
 	/** Board lines: {@code Pot 120 · Turn}; {@code Alex to act} / the winner. */
 	private static void lines(PokerTableBlockEntity be, BoardState s, PokerPub p) {

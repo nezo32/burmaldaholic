@@ -83,6 +83,12 @@ final class BoardModel {
 	/** Extra content obstacles (wheels, dice): x, y, z, radius. */
 	final float[] content = new float[MAX_CONTENT * 4];
 	int contentCount;
+	/** The deck (≤ 1 per table): a squared card stack, see {@link BoardState#deck}. */
+	boolean hasDeck;
+	float deckX, deckZ, deckYaw, deckW, deckH;
+	int deckCards;
+	/** Table limits for the furniture's placard (−1 = not given this frame). */
+	long limitMin = -1, limitMax = -1;
 	/** The dealer / community card area (table-local x0, z0, x1, z1, yTop), an obstacle for the plates; see {@link BoardRenderer#dealerRect}. */
 	final float[] dealer = new float[5];
 	boolean hasDealer;
@@ -109,7 +115,9 @@ final class BoardModel {
 		labelCount = 0;
 		contentCount = 0;
 		boardCardCount = 0;
+		limitMin = limitMax = -1;
 		hasDealer = false;
+		hasDeck = false;
 		for (Line l : lines) l.on = false;
 	}
 }

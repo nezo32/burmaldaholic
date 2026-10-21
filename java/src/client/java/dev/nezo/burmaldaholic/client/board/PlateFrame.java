@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public final class PlateFrame {
 	/** Fade time of a plate whose visibility changed. */
-	public static final long FADE_NS = 150_000_000L;
+	public static final long FADE_NS = dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.PLATE_FADE_NS;
 	/** Hysteresis margin (camera tangent units: ≈ 8 px at 1080p, FOV 70) a hidden plate needs before it returns. */
 	public static final float MARGIN = 0.01f;
 	/** Rank bonuses: the table the viewer sits at, then the one under the crosshair, then by distance. */

@@ -24,6 +24,11 @@ final class HoloBoard {
 
 	private HoloBoard() {}
 
+	/** Visual QA round 1: hide the board when the camera looks down steeply (> 55°) or stands within 1.2 blocks of it. */
+	static float fade(HoloFrame f, Vector3f bottom) {
+		return HoloScale.boardFade(f.pitch, f.dist(bottom));
+	}
+
 	/** Registers the board's screen rectangle as a fixed occupant other tables' plates keep clear of ({@link PlateFrame}). */
 	private static void occupy(BoardState s, HoloFrame f, Vector3f bottom, float halfW, float h) {
 		float x0 = Float.POSITIVE_INFINITY, y0 = Float.POSITIVE_INFINITY, x1 = Float.NEGATIVE_INFINITY, y1 = Float.NEGATIVE_INFINITY;
@@ -65,9 +70,13 @@ final class HoloBoard {
 			float v = f.v(P);
 			float need = minV + 0.06f;
 			if (v < need && f.up.y > 0.2f) P.y += (need - v) / f.up.y;
-			st.backings += HoloText.panel(pose, out, font, P, f.yawOnly, s.boardPx, sp);
-			st.lines += n;
-			occupy(s, f, P, sp.width() * s.boardPx / 2, sp.height() * s.boardPx);
+			// an upright board seen from steeply above or from right next to it is a huge trapezoid: fade it out
+			sp.alpha = fade(f, P);
+			if (HoloScale.drawn(sp.alpha)) {
+				st.backings += HoloText.panel(pose, out, font, P, f.yawOnly, s.boardPx, sp);
+				st.lines += n;
+				occupy(s, f, P, sp.width() * s.boardPx / 2, sp.height() * s.boardPx);
+			}
 		}
 		// free labels: small full billboards (no backing), within 8 blocks
 		for (int i = 0; i < m.labelCount; i++) {

@@ -37,6 +37,7 @@ final class HoloFrame {
 		cam.set((float) (camera.pos.x - pos.getX()), (float) (camera.pos.y - pos.getY()), (float) (camera.pos.z - pos.getZ()));
 		facing.rotationY((float) Math.toRadians(-dir.toYRot()));
 		yawOnly.rotationY((float) (Math.PI - Math.toRadians(camera.yRot)));
+		pitch = camera.xRot;
 		footToBlock(ox, oy, oz, centre);
 		tmp.set(centre).sub(cam);
 		depth0 = Math.max(0.05f, tmp.dot(fwd));
@@ -44,6 +45,8 @@ final class HoloFrame {
 		cv0 = tmp.dot(up);
 	}
 
+	/** Camera pitch (degrees, + = looking down). */
+	float pitch;
 	/** Camera-space depth / right / up of the plane origin (the felt centre). */
 	float depth0 = 1, cu0, cv0;
 	/** Projection results of {@link #project}: plane u, v, the scale a size at that point gets in the plane, its depth. */

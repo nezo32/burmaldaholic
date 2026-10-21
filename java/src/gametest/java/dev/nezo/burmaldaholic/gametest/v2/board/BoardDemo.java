@@ -38,6 +38,7 @@ final class BoardDemo {
 		// the dealer's total is the prominent line (2×); the dealer's cards repeat on the board at a readable size
 		s.line(BoardState.STATE, 2, () -> Component.translatable("gui.burmaldaholic.core.board.dealer", Texts.number(10)), BoardState.WHITE, 2f);
 		s.boardCards(card(10, 0), -1);
+		s.limits(1, 100);
 		s.line(BoardState.RESULT, 3, () -> Component.translatable("gui.burmaldaholic.core.board.turn_seconds", Texts.raw(name(be, 2)), Texts.number(18)),
 			BoardState.MUTED);
 		// dealer: the 10 up, the hole card down; the shoe at the dealer's right

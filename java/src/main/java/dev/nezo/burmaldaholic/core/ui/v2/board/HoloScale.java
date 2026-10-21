@@ -97,7 +97,10 @@ public final class HoloScale {
 	 */
 	public static final float BOARD_READ = 1 / 60f, PLATE_READ = 1 / 75f;
 
-	/** Target cap height in screen px at {@code distance} (18 up to 5 blocks, falling linearly to 13 at 8). */
+	/**
+	 * Target cap height in screen px of a 1080-px-high window at {@code distance} (18 up to 5 blocks, falling linearly
+	 * to 13 at 8); other window heights scale it ({@link #capTarget(double, int)}), like {@link #capMax}.
+	 */
 	public static double capTarget(double distance) {
 		if (distance <= NEAR) return CAP_NEAR_PX;
 		double d = Math.min(distance, READ_RANGE);
@@ -105,13 +108,34 @@ public final class HoloScale {
 	}
 
 	/**
-	 * Text px (block size of one font px) so the CAP height on screen meets {@link #capTarget} at {@code distance}
-	 * (1920 × 1080, the player's FOV), never below {@code base}; constant past {@link #READ_RANGE}.
+	 * {@link #capTarget(double)} for a framebuffer height: the same share of the screen at every resolution (T-W2 D2:
+	 * a fixed px floor made 8-block text at 4K a third smaller relative to the screen than at 1080p).
+	 */
+	public static double capTarget(double distance, int screenH) {
+		return capTarget(distance) * screenH / 1080.0;
+	}
+
+	/**
+	 * Text px (block size of one font px) so the CAP height on screen meets {@link #capTarget(double, int)} at
+	 * {@code distance} (scaled with the window height, the player's FOV), never below {@code base}; constant past
+	 * {@link #READ_RANGE}.
 	 */
 	public static float readablePx(float base, double distance, double fovYDeg, int screenH) {
-		double d = Math.min(Math.max(distance, 1), READ_RANGE);
-		double need = capTarget(d) / (CAP * pxPerBlock(d, fovYDeg, screenH));
-		return (float) Math.max(base, need);
+		double d = Math.min(Math.max(distance, 0.5), READ_RANGE);
+		double need = capTarget(d, screenH) / (CAP * pxPerBlock(d, fovYDeg, screenH));
+		double px = Math.max(base, need);
+		// never larger on screen than CAP_MAX_PX (both scale with the window height and 22 > 18, so the target always
+		// fits under the cap): up close the base would dominate the scene
+		double max = capMax(screenH) / (CAP * pxPerBlock(Math.max(distance, 0.5), fovYDeg, screenH));
+		return (float) Math.min(px, max);
+	}
+
+	/** Largest cap height on screen at 1080 px (visual QA round 1: ≤ 22 px @ 1080p, ≤ 44 px @ 4K). */
+	public static final double CAP_MAX_PX = 22;
+
+	/** {@link #CAP_MAX_PX} for a framebuffer height. */
+	public static double capMax(int screenH) {
+		return CAP_MAX_PX * screenH / 1080.0;
 	}
 
 	/** Cap height in screen px of a text px at a distance. */
@@ -138,5 +162,41 @@ public final class HoloScale {
 	/** Glyph height in screen px for a text px size at a distance (what the tests assert). */
 	public static double glyphPx(float textPx, double distance, double fovYDeg, int screenH) {
 		return GLYPH * textPx * pxPerBlock(distance, fovYDeg, screenH);
+	}
+
+	// ---- fades (visual QA round 1 #4 ghost plates, #5 the board from above / near) -----------------------------------
+
+	/** Camera pitch (degrees, + = looking down) where the board starts fading; it is gone {@link #FADE_PITCH_SPAN}° later. */
+	public static final float FADE_PITCH = 55f, FADE_PITCH_SPAN = 10f;
+	/** Camera → board distance (blocks) where the board starts fading, and where it is gone. */
+	public static final float FADE_NEAR = 1.8f, GONE_NEAR = 1.2f;
+	/** Below this alpha a plate or the board is not drawn at all (vanilla text treats alpha < 4/255 as opaque). */
+	public static final float MIN_ALPHA = 0.04f;
+	/** A plate that loses (or wins) its place fades over this long. */
+	public static final long PLATE_FADE_NS = 150_000_000L;
+
+	/**
+	 * Alpha of the upright board for a camera pitch and the camera's distance to the board: an upright board seen from
+	 * steeply above or from right next to it is a huge trapezoid, so it fades out past 55° (gone at 65°) and inside
+	 * 1.8 blocks (gone at 1.2).
+	 */
+	public static float boardFade(float pitchDeg, float dist) {
+		float byPitch = 1f - Math.max(0f, Math.min(1f, (pitchDeg - FADE_PITCH) / FADE_PITCH_SPAN));
+		float byNear = Math.max(0f, Math.min(1f, (dist - GONE_NEAR) / (FADE_NEAR - GONE_NEAR)));
+		return Math.min(byPitch, byNear);
+	}
+
+	/**
+	 * One frame of a plate's fade toward shown ({@code want}) or hidden, {@code dtNs} after the last frame; reaches
+	 * exactly 0 / 1 (no partial "ghost" alpha is ever kept).
+	 */
+	public static float plateFade(float alpha, boolean want, long dtNs) {
+		float step = dtNs / (float) PLATE_FADE_NS;
+		return want ? Math.min(1f, alpha + step) : Math.max(0f, alpha - step);
+	}
+
+	/** Whether something at {@code alpha} is drawn. */
+	public static boolean drawn(float alpha) {
+		return alpha >= MIN_ALPHA;
 	}
 }

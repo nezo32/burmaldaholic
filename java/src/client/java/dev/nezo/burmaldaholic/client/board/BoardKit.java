@@ -29,6 +29,7 @@ public final class BoardKit {
 	public static void register() {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			PlateFrame.clear();
+			FeltPrint.clear();
 			BoardStats.clear();
 		});
 		for (Interim i : interim()) {

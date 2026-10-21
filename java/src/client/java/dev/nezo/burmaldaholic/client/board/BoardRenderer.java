@@ -8,6 +8,7 @@ import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TablePublic;
 import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry;
 import dev.nezo.burmaldaholic.core.ui.v2.board.BoardGeometry.Felt;
+import dev.nezo.burmaldaholic.core.ui.v2.board.FullTableMap;
 import dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale;
 import java.util.HashMap;
 import java.util.Map;
@@ -129,6 +130,7 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		s.platePx = HoloScale.readablePx(HoloScale.PLATE_READ, dist, fov, screenH);
 		s.viewer = mc.player == null ? null : mc.player.getUUID();
 		s.seated = false;
+		s.seatCount = be instanceof CasinoTableBlockEntity seatTable ? seatTable.clientSeats().length : 0;
 		if (s.viewer != null && be instanceof CasinoTableBlockEntity table) {
 			for (TablePublic.SeatPub pub : table.clientSeats()) {
 				if (pub != null && pub.is(s.viewer)) {
@@ -153,6 +155,15 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			BiConsumer<BlockEntity, BoardState> demo = DEMO.isEmpty() ? null : DEMO.get(be.getBlockPos().asLong());
 			if (demo != null) demo.accept(be, s);
 			else fill(be, s, partialTick);
+			if (s.full) {
+				// a 3-block table: cards at a believable scale (the design sizes were made for the 1-block-wide overhang)
+				for (int i = 0; i < m.cardCount; i++) {
+					m.cards[i].w *= BoardGeometry.FULL_CARD_SCALE;
+					m.cards[i].h *= BoardGeometry.FULL_CARD_SCALE;
+				}
+				m.deckW *= BoardGeometry.FULL_CARD_SCALE;
+				m.deckH *= BoardGeometry.FULL_CARD_SCALE;
+			}
 			float[] d = s.showsPlates() ? dealerRect(be) : null;
 			if (d != null) {
 				System.arraycopy(d, 0, m.dealer, 0, 5);
@@ -181,10 +192,12 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		pose.rotateAround(Axis.YP.rotationDegrees(-s.facing.toYRot()), 0.5f, 0f, 0.5f);
 		FeltPainter.submit(pose, out, s, light);
 		st.feltQuads += FeltPainter.quads(s);
+		if (s.font != null) FeltPrint.placard(pose, out, s.font, s, m);
 		mapDesign(pose, s);
-		if (m.cardCount > 0) {
+		if (s.font != null) FeltPrint.submit(pose, out, s.font, s, s.seatCount);
+		if (m.cardCount > 0 || m.hasDeck) {
 			CardPainter.submit(pose, out, s, m, light);
-			st.cardQuads += m.cardCount * CardPainter.QUADS_PER_CARD;
+			st.cardQuads += m.cardCount * CardPainter.QUADS_PER_CARD + (m.hasDeck ? CardPainter.deckQuads(m.deckCards) : 0);
 		}
 		if (m.stackCount > 0) {
 			ChipPainter.submit(pose, out, m, light);
@@ -219,24 +232,19 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 			s.full = true;
 			s.frame = f;
 			s.drawnFelt = wanted;
-			s.originY = (float) (f.top() + FeltFrame.CONTENT_LIFT);
-			if (f.hasWheel()) {
-				// roulette: the design wheel lands on the furniture's bowl (FeltFrame wheel centre, Ø1.0) and the layout
-				// to its right, on the betting felt: scale from the wheel radius (rotor just inside the bowl's rim)
-				float k = (float) (f.wheelDiameter() / 2 * 0.96 / RouletteWorld.WHEEL_R);
-				s.contentScale = k;
-				s.originX = (float) f.wheelCx() - k * RouletteWorld.WHEEL_X;
-				s.originZ = (float) f.wheelCz() - k * RouletteWorld.WHEEL_Z;
-			} else {
-				s.contentScale = BoardGeometry.fullScale(wanted, f.w(), f.d());
-				s.originX = (float) f.cx();
-				s.originZ = (float) f.cz();
-			}
+			// roulette: the design wheel lands on the furniture's bowl and the layout to its right, on the betting felt
+			FullTableMap map = FullTableMap.of(f, wanted, RouletteWorld.WHEEL_X, RouletteWorld.WHEEL_Z, RouletteWorld.WHEEL_R);
+			s.map = map;
+			s.contentScale = map.scale();
+			s.originX = map.originX();
+			s.originY = map.originY();
+			s.originZ = map.originZ();
 			String path = BuiltInRegistries.BLOCK.getKey(bs.getBlock()).getPath();
 			s.furniture = path.contains("high_roller") ? 1 : path.contains("player_banked") ? 2 : 0;
 		} else {
 			s.full = false;
 			s.frame = null;
+			s.map = null;
 			s.drawnFelt = BoardGeometry.fallback(wanted, true);
 			s.contentScale = BoardGeometry.contentScale(wanted, s.drawnFelt);
 			s.originX = 0.5f;
@@ -307,36 +315,20 @@ public abstract class BoardRenderer<T extends BlockEntity, S extends BoardState>
 		}
 	}
 
-	/** Height of a full table's plate anchors (footprint-local y): the seat rail edge, clear of the padded rail top. */
-	public static final float FULL_PLATE_Y = 1.30f;
+	/** Height of a full table's plate anchors (footprint-local y): just above the padded rail top (15.5/16). */
+	public static final float FULL_PLATE_Y = FullTableMap.PLATE_Y;
 
 	/**
 	 * A full table's plate anchor for the seat whose design spot is (sx, sz), in DESIGN coordinates: from the dealer
-	 * (crescent) or the felt centre through the seat's spot, out past the padded rail by {@link BoardGeometry#PLATE_OUT}
-	 * — where the seat's player (or bot, {@code TableFootprint.seatPoint}) stands, so the plate reads as theirs and never
-	 * sinks behind the felt edge (D2: at 3 blocks the plate hid behind the felt) — at {@link #FULL_PLATE_Y}.
+	 * (crescent) or the felt centre through the seat's spot, out to the middle of the padded rail — the seat point on the
+	 * rail, where the leader line ends — at {@link #FULL_PLATE_Y}. The plate itself floats above its content and the
+	 * near rail edge (never behind the felt edge, D2).
 	 */
 	static float[] fullPlateAnchor(BoardState s, FeltFrame f, float sx, float sz) {
-		double fx = s.footX(sx), fz = s.footZ(sz);
-		double ox = f.cx(), oz = s.felt == Felt.CRESCENT ? f.cz() - f.d() / 2 + 0.2 : f.cz();
-		if (f.hasWheel()) ox = 0.5;
-		double dx = fx - ox, dz = fz - oz;
-		double len = Math.sqrt(dx * dx + dz * dz);
-		if (len < 1e-4) {
-			dx = 0;
-			dz = 1;
-			len = 1;
-		}
-		dx /= len;
-		dz /= len;
-		double x = fx, z = fz;
-		for (int i = 0; i < 160 && (f.onFelt(x, z) || Math.abs(x - ox) < 1e-9 && Math.abs(z - oz) < 1e-9); i++) {
-			x += dx / 32;
-			z += dz / 32;
-		}
-		x += dx * (FeltFrame.RAIL + BoardGeometry.PLATE_OUT);
-		z += dz * (FeltFrame.RAIL + BoardGeometry.PLATE_OUT);
-		return new float[] {s.designX((float) x), s.designY(FULL_PLATE_Y), s.designZ((float) z)};
+		FullTableMap map = s.map;
+		if (map == null) map = new FullTableMap(s.contentScale, s.originX, s.originY, s.originZ);
+		float[] a = map.plateAnchor(f, s.felt, sx, sz);
+		return new float[] {map.designX(a[0]), map.designY(a[1]), map.designZ(a[2])};
 	}
 
 	/**
