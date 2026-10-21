@@ -15,7 +15,9 @@ import net.minecraft.world.item.ItemStack;
  */
 public record Stake(UUID player, String gameId, Kind kind, long value, ItemStack item, int xpLevels, int xpProgress, int hearts) {
 	public enum Kind {
-		CHIPS, ITEM, XP, HEARTS, SOUL
+		CHIPS, ITEM, XP, HEARTS, SOUL,
+		/** EC-2 free-bet token (comps): {@code item} holds the escrowed token; the stake is never returned as chips. */
+		TOKEN
 	}
 
 	public boolean isPawn() {

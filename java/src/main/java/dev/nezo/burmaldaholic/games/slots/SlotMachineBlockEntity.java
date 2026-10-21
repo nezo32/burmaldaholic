@@ -437,6 +437,16 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 				return false;
 			}
 		}
+		long token = buy || autoSpin ? 0 : tokenOffer(player);
+		if (token > 0) {
+			// EC-2: a token spin bets exactly the token's value (a ladder bet this player may use here, so no value is
+			// wasted, T-EC2 L4); the full win is credited (EC-SPEC §4.3)
+			if (!offered.contains(token)) {
+				sendError(player, Component.translatable("gui.burmaldaholic.comps.token_no_bet", Texts.chips(token)));
+				return false;
+			}
+			bet = token;
+		}
 		long stake = bet;
 		if (buy) {
 			if (!CasinoConfig.slots().buyFeature.enabled || def.buyPriceFifths() <= 0 || !ownerAllowsBuy()) {
@@ -453,9 +463,12 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (!claimSeat(player)) {
 			return false;
 		}
-		betsV2.put(player.getUUID(), bet);
+		if (token <= 0) {
+			betsV2.put(player.getUUID(), bet); // a token spin keeps the player's chosen chip bet (T-EC2 L3)
+		}
 		boolean owned = ownership().isPresent();
-		Result<Long> placed = placeBet(player, stake, buy ? stake : minBet(), buy ? 0 : tableMaxBet(), SlotDraw.reservation(def, bet), !buy);
+		Result<Long> placed = token > 0 ? placeTokenBet(player, 0, 0, true)
+			: placeBet(player, stake, buy ? stake : minBet(), buy ? 0 : tableMaxBet(), SlotDraw.reservation(def, bet), !buy);
 		if (!placed.isOk()) {
 			return false;
 		}

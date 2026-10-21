@@ -100,6 +100,10 @@ public final class ExtrasGames {
 	public static Result<Stake> takeStake(ServerPlayer player, String game, CompoundTag args, long minValue, long maxValue, boolean pawnAllowed) {
 		String kind = args.getStringOr("stake", "chips");
 		long amount = args.getLongOr("amount", 0);
+		// EC-2 (EC-SPEC §4.3): a free-bet token held in the main hand replaces the chip stake ("stake":"token" or chips)
+		if (kind.equals("token") || (kind.equals("chips") && dev.nezo.burmaldaholic.core.wager.FreeBetTokens.peek(player, game) != null)) {
+			return Stakes.token(player, game, null);
+		}
 		if (kind.equals("chips")) {
 			return Stakes.chips(player, game, amount, Math.max(1, minValue), maxValue);
 		}

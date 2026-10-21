@@ -982,7 +982,7 @@ Tier by **lifetime chips wagered** W (never decreases; tiers are never lost).
 |---|------|-----|---------|-------|
 | 0 | Bronze | 0 | 100 | Micro poker, Basic scratch cards, loans 100/500 |
 | 1 | Silver | 5 000 | 250 | Low poker, Gold scratch cards, loan 2 000, +5 % contract rewards, silver name tag on tables |
-| 2 | Gold | 25 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, emerald buy rate 9, +10 % contracts, 2 % cashback, gold win particles |
+| 2 | Gold | 25 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, gold shelf in the chip store (EC-SPEC §2; replaces the old emerald-rate perk), +10 % contracts, 2 % cashback, gold win particles |
 | 3 | Platinum | 100 000 | 2 500 | 4 contract slots, loan interest −2 %, 3 % cashback, "Platinum" chat title |
 | 4 | Diamond | 500 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
 | 5 | Netherite | 2 500 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
@@ -1008,6 +1008,41 @@ the day's actual result was.
 - Ledgers stored before the change (no theoretical loss) pay no cashback for that day.
 
 Promotion: title + sound + chat; cosmetics are client-side particle/name-color only.
+
+Cashback is visible: the day roll that pays it also sends a casino toast (`toast.burmaldaholic.cashback.*`), and the
+Comps tab (§12.1) shows today's theoretical loss and the cashback it would pay at the current tier.
+
+### 12.1 Comps [comps] (v0.2.0, package EC-2; `EC-SPEC.md` §4)
+
+**Comp points.** Each eligible settled round earns `round(1000 × stake × edge × compRate[tier])` milli-points.
+Eligible = exactly the cashback rule (house-banked, not an owned casino, chip stake) and not against money bots;
+free-bet token rounds never earn. `vip.compRate` = Bronze 10 %, Silver 12 %, Gold 15 %, Platinum 18 %, Diamond 22 %,
+Netherite 25 % of the theoretical loss; config validation keeps `compRate + cashback ≤ 0.35` per tier, so at least
+65 % of the house edge always stays. Points are never cashable; the balance is capped at 10 000 000.
+
+**Redemptions** (Comps tab of the cashier / merchant counter; L = per in-game day):
+
+| Reward | Points | Gate | Notes |
+|---|---|---|---|
+| Snack plate | 25 | – | 8 steak, 4 bread |
+| Chef's plate | 60 | – | 8 golden carrots, cake, 4 pumpkin pie |
+| High-roller feast | 200 | Gold | 2 golden apples, 16 golden carrots, cake |
+| Suite night | 50 (Gold+ 30, Diamond+ 1 free a day) | L1 | one credit for the day: the first bed used inside a casino (any dimension) sets a forced respawn there, Regeneration II 60 s, Saturation 5 s, Absorption I 120 s at Gold+; beds in casinos never explode in the Nether / End |
+| Free bet 10 / 50 / 250 | 15 / 70 / 325 | – / Silver / Platinum | L5 / L3 / L2 |
+| Fireworks | 30 | – | 16 rockets, flight 2 |
+| Horse rental | 40 | Overworld, L1 | tamed, saddled, 10 min, no inventory access or drops |
+| Strider rental | 40 | Nether, L1 | saddled strider + a tagged warped fungus on a stick, 10 min |
+
+**Free-bet tokens** (`free_bet_token`, stack 16): bound to one player, expire 7 in-game days after issue, cannot be
+deposited or pawned. Hold one in the main hand and bet at a supported house game: the stake becomes the token's value
+(the bet field is ignored). Win pays `max(0, total return − value)`; a push gives the token back; a loss keeps it.
+v0.2.0: coin flip, wheel, plinko, blackjack (main bet; doubles / splits / insurance in chips) and slots (largest ladder
+bet ≤ the token; the whole spin win is credited; never autoplay or bonus buy). Never PvP, poker or owned casinos.
+Token rounds give no VIP credit, comp points, cashback, contracts or streak.
+
+**Daily bonus** (chips, claimed on the Comps tab once per in-game day): Bronze 25, Silver 50, Gold 120, Platinum 300,
+Diamond 750, Netherite 2 000. Needs ≥ 1 000 chips wagered in total and ≥ 10 active minutes today (moved more than half a
+block or interacted within the last 60 s); dedicated servers allow one claim per IP per day (salted hash, cleared daily).
 
 ---
 

@@ -99,8 +99,7 @@ public final class VipRules {
 			return 0;
 		}
 		int i = Math.min(tier, MAX_TIER) - GOLD;
-		double r = i < rates.length ? rates[i] : 0;
-		return Double.isFinite(r) ? Math.max(0, Math.min(0.5, r)) : 0;
+		return dev.nezo.burmaldaholic.core.economy.RebateCaps.cashback(i < rates.length ? rates[i] : 0);
 	}
 
 	/** Contract reward bonus (fraction): Silver {@code silver}, Gold and above {@code gold}. */
@@ -148,7 +147,31 @@ public final class VipRules {
 	/** A perk line: translation key + one optional argument ({@code value}; percent in tenths of a percent). */
 	public record Perk(String key, ArgKind kind, long value) {}
 
-	public record PerkParams(int[][] loanProducts, double contractBonusSilver, double contractBonusGold, int baseSlots, double[] cashback) {}
+	/** @param comps comp-point rate per tier Bronze..Netherite (EC-2), null = no comps line */
+	public record PerkParams(int[][] loanProducts, double contractBonusSilver, double contractBonusGold, int baseSlots, double[] cashback,
+		double[] comps) {
+		public PerkParams(int[][] loanProducts, double contractBonusSilver, double contractBonusGold, int baseSlots, double[] cashback) {
+			this(loanProducts, contractBonusSilver, contractBonusGold, baseSlots, cashback, null);
+		}
+	}
+
+	/** EC-2 default comp-point rates (fraction of theoretical loss), Bronze..Netherite (EC-SPEC §4.1). */
+	public static final double[] DEFAULT_COMP_RATES = {0.10, 0.12, 0.15, 0.18, 0.22, 0.25};
+
+	/** Combined cap of comp rate + cashback rate per tier (EC-SPEC §4.1: ≥ 65 % of the edge always stays). */
+	public static final double COMPS_PLUS_CASHBACK_CAP = dev.nezo.burmaldaholic.core.economy.RebateCaps.MAX_COMP_PLUS_CASHBACK;
+
+	/**
+	 * EC-2: comp-point rate of a tier, clamped so {@code comp + cashback ≤ 0.35}. {@code rates} = Bronze..Netherite.
+	 */
+	public static double compRate(int tier, double[] rates, double[] cashback) {
+		if (rates == null || rates.length == 0) {
+			return 0;
+		}
+		int t = clamp(tier);
+		double r = t < rates.length ? rates[t] : rates[rates.length - 1];
+		return dev.nezo.burmaldaholic.core.economy.RebateCaps.comp(r, cashbackRate(t, cashback));
+	}
 
 	private static final String P = "gui.burmaldaholic.vip.perk.";
 	private static final String[] COSMETIC = {"", "cosmetic_name", "cosmetic_particles", "cosmetic_title", "cosmetic_card", "cosmetic_aura"};
@@ -171,7 +194,7 @@ public final class VipRules {
 				out.add(new Perk(P + "netherite_slots", ArgKind.NONE, 0));
 				out.add(new Perk(P + "high_roller", ArgKind.NONE, 0));
 				out.add(new Perk(P + "poker_mid", ArgKind.NONE, 0));
-				out.add(new Perk(P + "emerald_rate", ArgKind.NONE, 0));
+				out.add(new Perk(P + "store_gold_shelf", ArgKind.NONE, 0)); // EC-SPEC §2: replaces the emerald-rate perk
 			}
 			case PLATINUM -> out.add(new Perk(P + "loan_discount", ArgKind.NONE, 0));
 			case DIAMOND -> out.add(new Perk(P + "poker_high", ArgKind.NONE, 0));
@@ -193,6 +216,12 @@ public final class VipRules {
 		double cb = cashbackRate(tier, c.cashback());
 		if (cb > 0) {
 			out.add(new Perk(P + "cashback", ArgKind.PERCENT, tenthsOfPercent(cb)));
+		}
+		if (c.comps() != null) {
+			double comp = compRate(tier, c.comps(), c.cashback());
+			if (comp > 0 && (tier == BRONZE || comp != compRate(tier - 1, c.comps(), c.cashback()))) {
+				out.add(new Perk(P + "comps", ArgKind.PERCENT, tenthsOfPercent(comp)));
+			}
 		}
 		if (tier >= SILVER && tier <= MAX_TIER) {
 			out.add(new Perk(P + COSMETIC[tier], ArgKind.NONE, 0));

@@ -60,6 +60,11 @@ public final class WorldgenModule implements CasinoModule {
 
 		NpcContent.register(ctx);
 		NpcInteractions.register();
+		// EC-2 (comps suite night): "is this block inside a generated casino?" for other modules
+		FabricLoader.getInstance().getObjectShare().put("burmaldaholic:worldgen/casino_at",
+			(java.util.function.BiFunction<net.minecraft.server.level.ServerLevel, net.minecraft.core.BlockPos, Boolean>) (level, pos) ->
+				dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord.findAt(CasinoIndex.get(level.getServer()).casinos(),
+					level.dimension().identifier().toString(), pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) != null);
 		CasinoAttract.register(ctx);
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> CasinoAttract.forget(handler.getPlayer().getUUID()));
 		CoreServices.setTablePresets(new WorldgenPresets());

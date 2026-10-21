@@ -361,7 +361,11 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		}
 		long worstCase = BlackjackRules.worstCasePayout(amount);
 		Result<Long> r;
-		if (isHighRoller()) {
+		long token = tokenOffer(player); // EC-2: a free-bet token in the main hand is the main bet (doubles/splits in chips)
+		if (token > 0) {
+			long[] lim = limitsFor(player);
+			r = placeTokenBet(player, lim[0], lim[1], false);
+		} else if (isHighRoller()) {
 			long[] lim = limitsFor(player);
 			long balance = Economies.get().balance(player);
 			int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
@@ -378,8 +382,10 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 		if (!r.isOk()) {
 			return;
 		}
-		mainBets.put(player.getUUID(), amount);
-		lastBet.put(player.getUUID(), amount);
+		mainBets.put(player.getUUID(), r.value());
+		if (token <= 0) {
+			lastBet.put(player.getUUID(), amount);
+		}
 		if (allSeatedHaveBet()) {
 			startRound();
 		} else if (ticksLeft("bet") < 0) {
@@ -775,7 +781,9 @@ public class BlackjackTableBlockEntity extends CasinoTableBlockEntity implements
 			long net = ret - round.stakedOf(s.seat);
 			boolean natural = s.hands.stream().anyMatch(h -> h.outcome == Outcome.BLACKJACK || h.outcome == Outcome.EVEN_MONEY);
 			boolean splits = s.hands.size() > 1;
-			settle(s.player, ret, r -> r.withTags(natural ? "natural" : "", splits ? "split" : "", s.insurance > 0 ? "insurance" : ""));
+			// the free-bet token (if any) belongs to the original hand only (T-EC2 D1): split hands and insurance are chips
+			Hand first = s.hands.isEmpty() ? null : s.hands.getFirst();
+			settle(s.player, ret, first == null ? -1 : first.bet, first == null ? -1 : first.ret, r -> r.withTags(natural ? "natural" : "", splits ? "split" : "", s.insurance > 0 ? "insurance" : ""));
 			if (level instanceof ServerLevel sl) {
 				if (natural) {
 					naturalAtGate.add(s.player); // granted at the reveal gate (grantAtGate), like the other result effects

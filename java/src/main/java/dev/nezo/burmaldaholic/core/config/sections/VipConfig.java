@@ -27,7 +27,7 @@ public final class VipConfig implements Validatable {
 	public MaxBet maxBet = new MaxBet();
 
 	public static final class Cashback {
-		/** Fraction of daily net loss. */
+		/** Fraction of the day's theoretical loss (Σ stake × house edge). */
 		@Range(min = 0, max = 0.5) public double gold = 0.02;
 		@Range(min = 0, max = 0.5) public double platinum = 0.03;
 		@Range(min = 0, max = 0.5) public double diamond = 0.04;
@@ -41,6 +41,21 @@ public final class VipConfig implements Validatable {
 		@Range(min = 0, max = 5) public double gold = 0.1;
 	}
 	public ContractBonus contractBonus = new ContractBonus();
+
+	/** EC-2 comp points (EC-SPEC §4.1): fraction of the theoretical loss earned as points; comp + cashback ≤ 0.35 per tier. */
+	public static final class CompRate {
+		@Range(min = 0, max = 0.35) public double bronze = 0.10;
+		@Range(min = 0, max = 0.35) public double silver = 0.12;
+		@Range(min = 0, max = 0.35) public double gold = 0.15;
+		@Range(min = 0, max = 0.35) public double platinum = 0.18;
+		@Range(min = 0, max = 0.35) public double diamond = 0.22;
+		@Range(min = 0, max = 0.35) public double netherite = 0.25;
+
+		public double[] toArray() {
+			return new double[] {bronze, silver, gold, platinum, diamond, netherite};
+		}
+	}
+	public CompRate compRate = new CompRate();
 
 	public boolean announceNetherite = true;
 
@@ -58,5 +73,22 @@ public final class VipConfig implements Validatable {
 		threshold.platinum = t[2];
 		threshold.diamond = t[3];
 		threshold.netherite = t[4];
+		// EC-2: comp rate + cashback rate ≤ 0.35 for every tier (Gold+ have cashback)
+		double[] cb = {0, 0, cashback.gold, cashback.platinum, cashback.diamond, cashback.netherite};
+		double[] cr = compRate.toArray();
+		String[] tiers = {"bronze", "silver", "gold", "platinum", "diamond", "netherite"};
+		for (int i = 0; i < cr.length; i++) {
+			double max = Math.max(0, dev.nezo.burmaldaholic.core.economy.RebateCaps.MAX_COMP_PLUS_CASHBACK - cb[i]);
+			if (cr[i] > max + 1e-9) {
+				issues.clamped("compRate." + tiers[i], cr[i], max);
+				cr[i] = max;
+			}
+		}
+		compRate.bronze = cr[0];
+		compRate.silver = cr[1];
+		compRate.gold = cr[2];
+		compRate.platinum = cr[3];
+		compRate.diamond = cr[4];
+		compRate.netherite = cr[5];
 	}
 }

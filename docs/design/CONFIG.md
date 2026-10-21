@@ -182,6 +182,25 @@ shell 300 (End, Gold, L4), totem of undying 750 (Gold, L1), elytra 5000 (End, Pl
 | `vip.contractBonus.silver` | double | 0.05 | 0.0–5.0 | |
 | `vip.contractBonus.gold` | double | 0.10 | 0.0–5.0 | Applies to Gold and above. |
 | `vip.announceNetherite` | bool | true | — | |
+| `vip.compRate.bronze` | double | 0.10 | 0.0–0.35 | Comp points as a fraction of the theoretical loss (GAME_DESIGN §12.1). Validated: `compRate + cashback ≤ 0.35` per tier (clamped). |
+| `vip.compRate.silver` | double | 0.12 | 0.0–0.35 | |
+| `vip.compRate.gold` | double | 0.15 | 0.0–0.35 | |
+| `vip.compRate.platinum` | double | 0.18 | 0.0–0.35 | |
+| `vip.compRate.diamond` | double | 0.22 | 0.0–0.35 | |
+| `vip.compRate.netherite` | double | 0.25 | 0.0–0.35 | |
+
+## comps
+
+Module section (comps module, EC-2; GAME_DESIGN §12.1). Shown on the VIP page of the config screen.
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `comps.enabled` | bool | true | — | Comp points, redemptions, free-bet tokens and the daily bonus. |
+| `comps.daily.bronze` … `comps.daily.netherite` | long | 25 / 50 / 120 / 300 / 750 / 2000 | 0–10⁶ | Daily bonus chips per tier. |
+| `comps.daily.minLifetimeWager` | long | 1000 | 0–10⁹ | Lifetime chips wagered before the daily bonus unlocks. |
+| `comps.daily.minActiveMinutes` | int | 10 | 0–1200 | Active minutes today before the bonus can be claimed. |
+| `comps.daily.onePerIp` | bool | true | — | Dedicated servers: one claim per IP per in-game day. |
+| `comps.rentalMinutes` | int | 10 | 1–120 | Horse / strider rental duration. |
 
 ## blackjack
 
