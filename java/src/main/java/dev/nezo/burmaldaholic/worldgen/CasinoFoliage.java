@@ -18,9 +18,10 @@ import net.minecraft.world.level.block.state.BlockState;
  * Clears natural tree foliage that grew into a generated casino (INTEGRATION-CB O3). Casinos place at
  * {@code surface_structures}; trees of neighbouring chunks decorate later and their canopies fill any air cell in range,
  * also through walls. Once every chunk within one chunk of the casino box is loaded (so all features that can reach it
- * have run), a main-thread pass removes non-persistent leaves that stand under a roof (a solid, non-tree block above
- * them in the box). Template leaves (hedges, palms) are persistent and stay; open-air canopies outside stay.
- * Runs once per casino per server session; a re-run is harmless.
+ * have run), a main-thread pass removes every non-persistent leaf block inside the box: the box is the building plus
+ * its apron and forecourt, which the pieces keep free of trees by design. Template leaves (hedges, palms) are
+ * persistent and stay. A canopy that only reaches into the box is trimmed at the box face. Runs once per casino per
+ * server session; a re-run is harmless.
  */
 public final class CasinoFoliage {
 	static final int INTERVAL = 20;
@@ -65,26 +66,17 @@ public final class CasinoFoliage {
 		return true;
 	}
 
-	/** Removes natural leaves under a roof inside {@code b}; returns how many. */
+	/** Removes natural (non-persistent) leaves inside {@code b}; returns how many. */
 	public static int sweep(ServerLevel level, Geometry.Box b) {
 		int removed = 0;
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 		for (int x = b.minX(); x <= b.maxX(); x++) {
 			for (int z = b.minZ(); z <= b.maxZ(); z++) {
-				boolean roofed = false;
-				for (int y = b.maxY(); y >= b.minY(); y--) {
-					p.set(x, y, z);
-					BlockState s = level.getBlockState(p);
-					if (s.isAir()) {
-						continue;
-					}
-					if (s.is(BlockTags.LEAVES)) {
-						if (roofed && natural(s)) {
-							level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-							removed++;
-						}
-					} else if (!s.is(BlockTags.LOGS) && !s.getCollisionShape(level, p).isEmpty()) {
-						roofed = true;
+				for (int y = b.minY(); y <= b.maxY(); y++) {
+					BlockState s = level.getBlockState(p.set(x, y, z));
+					if (s.is(BlockTags.LEAVES) && natural(s)) {
+						level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+						removed++;
 					}
 				}
 			}
