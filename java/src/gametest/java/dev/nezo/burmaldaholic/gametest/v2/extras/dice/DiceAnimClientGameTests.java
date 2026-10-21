@@ -259,15 +259,16 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 		double[] d = f.client(mc -> DiceScreenProbe.die(mc.gui.screen(), 0, 0, t));
 		if ((int) d[2] != DieSample.AIR && (int) d[2] != DieSample.ROLL) return;
 		DiceStage st = f.client(mc -> DiceScreenProbe.stage(mc.gui.screen()));
-		int k = st.k();
+		// frame-relative layout px → screenshot px through the viewport (K2 frame: offset + scale, not scale alone)
+		var vp = f.viewport();
 		BufferedImage img = read(p);
 		// shadow centre: the floor point + the rest offset (DiceDraw.SHADOW_DX/DY half-edges) + height slope; probe its core
 		double fx = st.x(d[4]);
 		double fy = st.y(d[5]);
-		int sx = (int) Math.round(fx * k);
-		int sy = (int) Math.round((fy + 6 * st.scale()) * k);
-		int feltX = (int) Math.round(st.x(d[4] < 180 ? 120 : 240) * k);
-		int feltY = (int) Math.round(st.y(122 - 10) * k);
+		int sx = (int) Math.round(vp.windowX(fx));
+		int sy = (int) Math.round(vp.windowY(fy + 6 * st.scale()));
+		int feltX = (int) Math.round(vp.windowX(st.x(d[4] < 180 ? 120 : 240)));
+		int feltY = (int) Math.round(vp.windowY(st.y(122 - 10)));
 		int s = lumAround(img, sx, sy);
 		int felt = lumAround(img, feltX, feltY);
 		if (s > felt * 0.8 && s > 0) errors.add(width(f) + ": shadow lum " + s + " vs felt " + felt);
@@ -276,8 +277,8 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 	/** A resting die is exactly 32·n physical px wide on a whole pixel grid and shows the server's pip count. */
 	private void restProbe(RealFlow f, Path p, double t, int order, int[] faces) {
 		DiceStage st = f.client(mc -> DiceScreenProbe.stage(mc.gui.screen()));
+		var vp = f.viewport();
 		BufferedImage img = read(p);
-		int k = st.k();
 		for (int die = 0; die < 2; die++) {
 			final int dd = die;
 			double[] d = f.client(mc -> DiceScreenProbe.die(mc.gui.screen(), order, dd, t));
@@ -289,8 +290,8 @@ public class DiceAnimClientGameTests implements FabricClientGameTest {
 			if (!st.art().integral()) continue;
 			int n = st.n();
 			// the drawn centre row of the die (its body: top face + front band); outward to the felt on each side
-			int cx = (int) Math.round(d[0] * k);
-			int row = (int) Math.round(d[1] * k);
+			int cx = (int) Math.round(vp.windowX(d[0]));
+			int row = (int) Math.round(vp.windowY(d[1]));
 			int first = cx;
 			int last = cx;
 			while (first > 0 && !felt(img.getRGB(first - 1, row))) first--;

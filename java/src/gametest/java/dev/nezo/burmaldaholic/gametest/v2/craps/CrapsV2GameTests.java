@@ -373,13 +373,13 @@ public class CrapsV2GameTests {
 			act(p, t, "bet", flat("pass", 50));
 			Sent low = drain(p, t);
 			helper.assertTrue(bet(t, p, BetKind.PASS) == null && balance(helper, p) == start, "a 50 Pass under the preset minimum costs nothing");
-			helper.assertTrue(low.errors().contains("gui.burmaldaholic.error.bet_too_low"), "a 50 Pass names the minimum: " + low.errors());
+			helper.assertTrue(low.errors().contains("gui.burmaldaholic.error.bet_too_low") || low.errors().contains(dev.nezo.burmaldaholic.core.wager.BetCap.KEY_BELOW_MIN), /* HR: whose-cap reasons */ "a 50 Pass names the minimum: " + low.errors());
 			act(p, t, "bet", flat("pass", 100));
 			helper.assertTrue(bet(t, p, BetKind.PASS) != null && balance(helper, p) == start - 100, "a 100 Pass lands: " + drain(p, t).errors());
 			act(p, t, "bet", flat("field", 2 * tierMax + 1));
 			Sent high = drain(p, t);
 			helper.assertTrue(bet(t, p, BetKind.FIELD) == null && balance(helper, p) == start - 100, "above 2 x tier max is refused: " + high.errors());
-			helper.assertTrue((high.errors().contains("gui.burmaldaholic.error.table_max") || high.errors().contains("gui.burmaldaholic.error.bet_too_high")),
+			helper.assertTrue((high.errors().contains("gui.burmaldaholic.error.table_max") || high.errors().contains("gui.burmaldaholic.error.bet_too_high") || high.errors().stream().anyMatch(k -> k.equals(dev.nezo.burmaldaholic.core.wager.BetCap.KEY_ABOVE_MAX) || k.startsWith(dev.nezo.burmaldaholic.core.wager.BetCap.P)) /* HR: whose-cap reasons (a preset × tier max is the VIP cap) */),
 				"the refusal names the max: " + high.errors());
 			long big = tierMax + Math.max(1, tierMax / 2); // above the tier max, inside the preset's 2 x
 			act(p, t, "bet", flat("field", big));
