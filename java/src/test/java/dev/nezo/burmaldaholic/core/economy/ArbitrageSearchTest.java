@@ -184,6 +184,41 @@ class ArbitrageSearchTest {
 		}
 	}
 
+	/** T-EC1 re-test: random rows over whole crafting chains (block / ingot / nugget, 81x), villagers included. */
+	@Test
+	void randomizedMultiStepChainsAfterGuardsNeverProfit() {
+		Random rnd = new Random(11);
+		String[] items = {"minecraft:iron_block", "minecraft:iron_ingot", "minecraft:iron_nugget", "minecraft:gold_block", "minecraft:gold_ingot",
+			"minecraft:gold_nugget", "minecraft:emerald", "minecraft:emerald_block", "minecraft:diamond", "minecraft:diamond_block",
+			"minecraft:netherite_ingot", "minecraft:netherite_block"};
+		int[] scale = {200, 30, 4, 300, 30, 4, 30, 300, 80, 700, 400, 4000};
+		for (int t = 0; t < 20000; t++) {
+			EconomyConfig eco = new EconomyConfig();
+			eco.exchange.clear();
+			for (int i = 0; i < items.length; i++) {
+				if (rnd.nextInt(3) == 0) continue;
+				row(eco, items[i], 1 + rnd.nextInt(scale[i]), rnd.nextInt(2 * scale[i]));
+			}
+			StoreConfig store = new StoreConfig();
+			store.offers.clear();
+			String r = findArbitrage(market(eco, store, Map.of(), true));
+			assertEquals(null, r, "trial " + t + " rows " + describe(eco));
+		}
+	}
+
+	/**
+	 * DEFECT (T-EC1 D6, config-only): two rows for the same item (e.g. a per-dimension variant) are never compared, so
+	 * buying from one and selling to the other profits. Fixed when the guards disable one of them.
+	 */
+	@Test
+	void duplicateRowsOfOneItemAreCompared() {
+		EconomyConfig eco = new EconomyConfig();
+		eco.exchange.clear();
+		row(eco, "minecraft:emerald", 11, 16);
+		row(eco, "minecraft:emerald", 2, 3);
+		assertEquals(null, findArbitrage(market(eco, new StoreConfig(), Map.of(), true)), "buy at 3, sell at 11");
+	}
+
 	private static int seq;
 
 	private static void row(EconomyConfig eco, String item, int to, int from) {
