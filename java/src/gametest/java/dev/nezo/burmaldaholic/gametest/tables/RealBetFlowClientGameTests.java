@@ -597,6 +597,8 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	}
 
 	private static void click(ClientGameTestContext context, double wx, double wy) {
+		// the kit's ClickGuard (K2) refuses a click on a control that just appeared: wait one reaction time, like a player
+		context.waitFor(mc -> !(mc.gui.screen() instanceof V2Chrome.Holder h) || h.chrome().clickSettled(), 200);
 		context.getInput().setCursorPos(wx, wy);
 		context.waitTicks(1);
 		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
