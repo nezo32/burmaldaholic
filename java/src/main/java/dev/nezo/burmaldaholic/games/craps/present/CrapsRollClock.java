@@ -266,6 +266,7 @@ public final class CrapsRollClock {
 		origin = originMs;
 		pressAt = Double.NaN;
 		handRelease = Double.NaN;
+		specAt = Double.NaN;
 	}
 
 	public int rolls() {
