@@ -1,6 +1,7 @@
 package dev.nezo.burmaldaholic.vip;
 
 import com.mojang.brigadier.arguments.LongArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.nezo.burmaldaholic.core.command.CasinoCommands;
 import dev.nezo.burmaldaholic.core.events.CasinoEvents;
 import dev.nezo.burmaldaholic.core.module.CasinoModule;
@@ -15,6 +16,7 @@ import dev.nezo.burmaldaholic.vip.net.VipSyncPayload;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -88,6 +90,23 @@ public final class VipModule implements CasinoModule {
 					c.getSource().sendSuccess(() -> Component.translatable("gui.burmaldaholic.menu.admin.done",
 						Component.translatable("gui.burmaldaholic.vip.current", VipTiers.name(tier))), true);
 					return VipRules.clamp(tier);
-				}))))));
+				}))))
+			.then(Commands.literal("set").then(Commands.argument("player", EntityArgument.player())
+				.then(Commands.argument("tier", StringArgumentType.word())
+					.suggests((c, b) -> SharedSuggestionProvider.suggest(VipTiers.IDS, b))
+					.executes(c -> {
+						ServerPlayer p = EntityArgument.getPlayer(c, "player");
+						int tier = java.util.Arrays.asList(VipTiers.IDS).indexOf(StringArgumentType.getString(c, "tier").toLowerCase(java.util.Locale.ROOT));
+						if (tier < 0) {
+							c.getSource().sendFailure(Component.translatable("msg.burmaldaholic.vip.admin_unknown_tier",
+								StringArgumentType.getString(c, "tier"), String.join(", ", VipTiers.IDS)));
+							return 0;
+						}
+						VipService.setTier(p, tier);
+						long w = VipService.wagered(c.getSource().getServer(), p.getUUID());
+						c.getSource().sendSuccess(() -> Component.translatable("msg.burmaldaholic.vip.admin_set", p.getDisplayName(),
+							VipTiers.name(tier), Texts.chips(w)), true);
+						return tier;
+					}))))));
 	}
 }

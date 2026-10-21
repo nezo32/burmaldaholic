@@ -977,15 +977,17 @@ not the same player. Max 1 pending outgoing challenge per player.
 ## 12. VIP tiers [vip]
 
 Tier by **lifetime chips wagered** W (never decreases; tiers are never lost).
+v0.2.0 retune (steeper; was 5 000 / 25 000 / 100 000 / 500 000 / 2 500 000): the stored per-player tier is a floor, and
+records saved before v0.2.0 are floored once by the old thresholds on load, so nobody is demoted.
 
 | # | Tier | W ≥ | Max bet | Perks |
 |---|------|-----|---------|-------|
 | 0 | Bronze | 0 | 100 | Micro poker, Basic scratch cards, loans 100/500 |
-| 1 | Silver | 5 000 | 250 | Low poker, Gold scratch cards, loan 2 000, +5 % contract rewards, silver name tag on tables |
-| 2 | Gold | 25 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, gold shelf in the chip store (EC-SPEC §2; replaces the old emerald-rate perk), +10 % contracts, 2 % cashback, gold win particles |
-| 3 | Platinum | 100 000 | 2 500 | 4 contract slots, loan interest −2 %, 3 % cashback, "Platinum" chat title |
-| 4 | Diamond | 500 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
-| 5 | Netherite | 2 500 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
+| 1 | Silver | 25 000 | 250 | Low poker, Gold scratch cards, loan 2 000, +5 % contract rewards, silver name tag on tables |
+| 2 | Gold | 250 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, gold shelf in the chip store (EC-SPEC §2; replaces the old emerald-rate perk), +10 % contracts, 2 % cashback, gold win particles |
+| 3 | Platinum | 1 500 000 | 2 500 | 4 contract slots, loan interest −2 %, 3 % cashback, "Platinum" chat title |
+| 4 | Diamond | 10 000 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
+| 5 | Netherite | 50 000 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
 
 **Cashback** (⚠ **CHANGED 2026-09 — balance fix; Java must follow**): at each MCD boundary,
 `cashback = floor(rate × theoreticalLossToday)` where

@@ -164,11 +164,11 @@ shell 300 (End, Gold, L4), totem of undying 750 (Gold, L1), elytra 5000 (End, Pl
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `vip.threshold.silver` | long | 5000 | 1–10¹² | Lifetime wagered. Must be ascending across tiers (validated). |
-| `vip.threshold.gold` | long | 25000 | | |
-| `vip.threshold.platinum` | long | 100000 | | |
-| `vip.threshold.diamond` | long | 500000 | | |
-| `vip.threshold.netherite` | long | 2500000 | | |
+| `vip.threshold.silver` | long | 25000 | 1–10¹² | Lifetime wagered. Must be ascending across tiers (validated). v0.2.0 retune (was 5000/25000/100000/500000/2500000); config schema v4 replaces untouched old defaults. |
+| `vip.threshold.gold` | long | 250000 | | |
+| `vip.threshold.platinum` | long | 1500000 | | |
+| `vip.threshold.diamond` | long | 10000000 | | |
+| `vip.threshold.netherite` | long | 50000000 | | |
 | `vip.maxBet.bronze` | int | 100 | 1–10⁹ | Tier max bet. |
 | `vip.maxBet.silver` | int | 250 | | |
 | `vip.maxBet.gold` | int | 1000 | | |

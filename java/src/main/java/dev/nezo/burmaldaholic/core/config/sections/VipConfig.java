@@ -6,12 +6,12 @@ import dev.nezo.burmaldaholic.core.config.Validatable;
 /** Config section `vip` — keys, defaults and ranges from docs/design/CONFIG.md. */
 public final class VipConfig implements Validatable {
 	public static final class Threshold {
-		/** Lifetime wagered. Must be ascending across tiers (validated). */
-		@Range(min = 1, max = 1000000000000.0) public long silver = 5000L;
-		@Range(min = 1, max = 1000000000000.0) public long gold = 25000L;
-		@Range(min = 1, max = 1000000000000.0) public long platinum = 100000L;
-		@Range(min = 1, max = 1000000000000.0) public long diamond = 500000L;
-		@Range(min = 1, max = 1000000000000.0) public long netherite = 2500000L;
+		/** Lifetime wagered. Must be ascending across tiers (validated). v0.2.0 steeper curve (was 5k/25k/100k/500k/2.5M). */
+		@Range(min = 1, max = 1000000000000.0) public long silver = 25000L;
+		@Range(min = 1, max = 1000000000000.0) public long gold = 250000L;
+		@Range(min = 1, max = 1000000000000.0) public long platinum = 1500000L;
+		@Range(min = 1, max = 1000000000000.0) public long diamond = 10000000L;
+		@Range(min = 1, max = 1000000000000.0) public long netherite = 50000000L;
 	}
 	public Threshold threshold = new Threshold();
 

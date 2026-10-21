@@ -796,6 +796,8 @@ plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
 | `msg.burmaldaholic.vip.netherite_broadcast` | %1$s has reached Netherite VIP. Someone roll out the red carpet. | Незеритовый ВИП-статус у игрока %1$s. Несите красную дорожку. |
 | `msg.burmaldaholic.vip.cashback` | VIP cashback for yesterday: +%1$s | ВИП-кешбэк за вчера: +%1$s |
 | `msg.burmaldaholic.vip.chat_title` | [%1$s] | [%1$s] |
+| `msg.burmaldaholic.vip.admin_set` | %1$s: VIP tier set to %2$s (lifetime wagered %3$s) | %1$s: ВИП-статус теперь %2$s (поставлено за всё время: %3$s) |
+| `msg.burmaldaholic.vip.admin_unknown_tier` | Unknown VIP tier "%1$s". Use: %2$s | Неизвестный ВИП-статус «%1$s». Доступно: %2$s |
 | `item.burmaldaholic.vip_diamond_casino_card` | Diamond Casino Card | Алмазная клубная карта |
 | `key.category.burmaldaholic.vip` | Burmaldaholic | Burmaldaholic |
 | `hud.burmaldaholic.vip.next` | Next: %1$s %2$s%% | Далее: %1$s — %2$s %% |

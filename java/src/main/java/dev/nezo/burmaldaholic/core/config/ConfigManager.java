@@ -296,9 +296,9 @@ public final class ConfigManager {
 	 * Schema version of the global file, written as the top-level {@code configVersion} on every save.
 	 * A file without it (v0.1.1) or older than this is upgraded once ({@link #upgradeRetiredDefaults});
 	 * after that an admin may set an old default again on purpose and it is kept.
-	 * 2 = v0.1.2 (worldgen attach chances). 3 = v0.2.0 (slots RTP ~98 %, SLOTS.md §7.1).
+	 * 2 = v0.1.2 (worldgen attach chances). 3 = v0.2.0 (slots RTP ~98 %, SLOTS.md §7.1). 4 = v0.2.0 (steeper VIP thresholds).
 	 */
-	static final int SCHEMA_VERSION = 3;
+	static final int SCHEMA_VERSION = 4;
 	static final String SCHEMA_KEY = "configVersion";
 
 	/** The file's {@code configVersion}; 1 when absent (every file written before v0.1.2). */
@@ -325,12 +325,21 @@ public final class ConfigManager {
 		"slots.end.buy.price", "109.0",
 		"slots.end.wheel.outer", "[\"10\",\"UP\",\"12\",\"15\",\"MINI\",\"10\",\"20\",\"12\",\"25\",\"10\",\"40\",\"15\",\"UP\",\"12\",\"20\",\"MINI\",\"15\",\"10\",\"75\",\"25\"]");
 
+	/** v0.1.x VIP thresholds (v0.2.0: 25k / 250k / 1.5M / 10M / 50M, GAME_DESIGN.md §12); retired by schema v4. */
+	static final Map<String, Double> RETIRED_V4 = Map.of(
+		"vip.threshold.silver", 5000.0,
+		"vip.threshold.gold", 25000.0,
+		"vip.threshold.platinum", 100000.0,
+		"vip.threshold.diamond", 500000.0,
+		"vip.threshold.netherite", 2500000.0);
+
 	/**
 	 * Runs each retirement step only for files written below the schema version that retired it: {@link #RETIRED_DEFAULTS}
-	 * (v1 -> v2) for {@code fileVersion < 2}, {@link #RETIRED_JSON} (v2 -> v3) for {@code fileVersion < 3}. A value an admin
-	 * wrote under a later schema is deliberate and is kept.
+	 * (v1 -> v2) for {@code fileVersion < 2}, {@link #RETIRED_JSON} (v2 -> v3) for {@code fileVersion < 3}, {@link #RETIRED_V4}
+	 * (v3 -> v4) for {@code fileVersion < 4}. A value an admin wrote under a later schema is deliberate and is kept.
 	 */
 	static void upgradeRetiredDefaults(JsonObject global, int fileVersion) {
+		if (fileVersion < 4) dropRetiredNumbers(global, RETIRED_V4);
 		if (fileVersion < 3) for (Map.Entry<String, String> e : RETIRED_JSON.entrySet()) {
 			JsonElement v = at(global, e.getKey());
 			JsonElement old = JsonParser.parseString(e.getValue());
@@ -345,7 +354,12 @@ public final class ConfigManager {
 				LOG.info("Config: {} was the old default; using the new default", key);
 			}
 		}
-		if (fileVersion < 2) for (Map.Entry<String, Double> e : RETIRED_DEFAULTS.entrySet()) {
+		if (fileVersion < 2) dropRetiredNumbers(global, RETIRED_DEFAULTS);
+	}
+
+	/** Removes each numeric value that still equals its retired default, so the current default applies. */
+	private static void dropRetiredNumbers(JsonObject global, Map<String, Double> retired) {
+		for (Map.Entry<String, Double> e : retired.entrySet()) {
 			JsonElement v = at(global, e.getKey());
 			if (v != null && v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()
 					&& v.getAsDouble() == e.getValue()) {

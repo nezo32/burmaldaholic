@@ -188,11 +188,11 @@ Your VIP tier depends on the total amount you have ever wagered, and tiers are n
 | Tier | Wagered | Max bet | Highlights |
 |---|---|---|---|
 | Bronze | 0 | 100 | Micro poker, basic scratch cards, loans of 100 and 500 |
-| Silver | 5 000 | 250 | Low poker, gold scratch cards, 2 000 loan, +5 % contract rewards |
-| Gold | 25 000 | 1 000 | End Void slots, high-roller tables, Mid poker, 10 000 loan, 2 % cashback |
-| Platinum | 100 000 | 2 500 | 4 contract slots, −2 % loan interest, 3 % cashback |
-| Diamond | 500 000 | 10 000 | High poker, 50 000 loan, 5 contract slots, 4 % cashback |
-| Netherite | 2 500 000 | 50 000 | 5 % cashback, a win aura, a server-wide announcement when you reach it |
+| Silver | 25 000 | 250 | Low poker, gold scratch cards, 2 000 loan, +5 % contract rewards |
+| Gold | 250 000 | 1 000 | End Void slots, high-roller tables, Mid poker, 10 000 loan, 2 % cashback |
+| Platinum | 1 500 000 | 2 500 | 4 contract slots, −2 % loan interest, 3 % cashback |
+| Diamond | 10 000 000 | 10 000 | High poker, 50 000 loan, 5 contract slots, 4 % cashback |
+| Netherite | 50 000 000 | 50 000 | 5 % cashback, a win aura, a server-wide announcement when you reach it |
 
 Cashback is paid each Minecraft day as a share of the house edge you paid that day, not of your
 losses. So it can never make a game profitable for the player.
