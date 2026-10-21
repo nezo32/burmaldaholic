@@ -41,7 +41,8 @@ public final class ClientModuleList {
 			new BaccaratClientModule(),
 			new UthClientModule(),
 			new PvpClientModule(),
-			new BotsClientModule()
+			new BotsClientModule(),
+			new dev.nezo.burmaldaholic.client.comps.CompsClient()
 		);
 	}
 }

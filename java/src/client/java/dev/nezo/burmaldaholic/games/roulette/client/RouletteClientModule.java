@@ -15,6 +15,6 @@ public final class RouletteClientModule implements CasinoClientModule {
 	public void registerClient(ClientModuleContext ctx) {
 		ctx.tableScreen(RouletteModule.TABLE, RouletteScreen::new);
 		ctx.tableScreen(RouletteModule.HIGH_ROLLER_TABLE, RouletteScreen::new);
-		RouletteTableRenderer.register(); // the in-world wheel (tables.md §1.5)
+		RouletteBoardRenderer.register(); // the in-world board: felt, layout, wheel + ball, stacks, board, plates (ui-v2.md §7.6)
 	}
 }

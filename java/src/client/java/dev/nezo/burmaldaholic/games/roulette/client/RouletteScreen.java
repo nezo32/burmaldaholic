@@ -4,212 +4,373 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
-import dev.nezo.burmaldaholic.client.input.Inputs;
-import dev.nezo.burmaldaholic.client.table.CasinoTableScreen;
-import dev.nezo.burmaldaholic.client.table.fx.ChipButton;
-import dev.nezo.burmaldaholic.client.table.fx.TableButton;
-import dev.nezo.burmaldaholic.client.table.fx.TableChrome;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.client.table.fx.TableClock;
 import dev.nezo.burmaldaholic.client.table.fx.TableGfx;
 import dev.nezo.burmaldaholic.client.table.fx.TableKit;
 import dev.nezo.burmaldaholic.client.table.fx.TableTheme;
+import dev.nezo.burmaldaholic.client.ui.v2.BetPort;
+import dev.nezo.burmaldaholic.client.ui.v2.ChipStack;
+import dev.nezo.burmaldaholic.client.ui.v2.ResultBanner;
+import dev.nezo.burmaldaholic.client.ui.v2.V2TableScreen;
+import dev.nezo.burmaldaholic.client.ui.v2.ValuePill;
 import dev.nezo.burmaldaholic.core.anim.Ease;
 import dev.nezo.burmaldaholic.core.anim.WinTier;
-import dev.nezo.burmaldaholic.core.anim.dice.ChipStacks;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
 import dev.nezo.burmaldaholic.core.text.Texts;
+import dev.nezo.burmaldaholic.core.ui.v2.BetGates;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Flow;
+import dev.nezo.burmaldaholic.core.ui.v2.Gate;
+import dev.nezo.burmaldaholic.core.ui.v2.HitMap;
+import dev.nezo.burmaldaholic.core.ui.v2.Press;
+import dev.nezo.burmaldaholic.core.ui.v2.TableGrid;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
-import dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity;
 import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
-import dev.nezo.burmaldaholic.games.roulette.logic.Layout;
-import dev.nezo.burmaldaholic.games.roulette.logic.LayoutGrid;
 import dev.nezo.burmaldaholic.games.roulette.logic.Racetrack;
-import dev.nezo.burmaldaholic.games.roulette.logic.RouletteBallPath;
+import dev.nezo.burmaldaholic.core.anim.motion.EventCursor;
+import dev.nezo.burmaldaholic.core.anim.motion.FxGate;
+import dev.nezo.burmaldaholic.core.anim.motion.MotionEvent;
+import dev.nezo.burmaldaholic.core.anim.motion.PixelSnap;
+import dev.nezo.burmaldaholic.games.roulette.logic.RotorModel;
+import dev.nezo.burmaldaholic.games.roulette.logic.RouletteSpin;
 import dev.nezo.burmaldaholic.games.roulette.logic.Spot;
 import dev.nezo.burmaldaholic.games.roulette.logic.Wheel;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteFlow;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteFocus;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteFx;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteLayout;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteView;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import net.minecraft.client.Minecraft;
+import java.util.function.DoubleSupplier;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import org.jspecify.annotations.Nullable;
 
 /**
- * European roulette (UI.md §7; docs/design/visual/tables.md §3, §6; animation/tables.md §1.4). The themed table:
- * mini wheel on the last result + history pills, the felt layout and the racetrack (call bets), stacked chips with a
- * ghost chip on the exact edge / intersection, the chip tray, icon buttons and the big Spin chip. The spin: the layout
- * dims in place and the pre-rendered wheel rises over it; the ball follows the shared {@link RouletteBallPath} from
- * the server's {@code (result, seed, spin_start)} and settles in the drawn pocket for every viewer. The result: the
- * dolly on the winning stack, gold outlines, the sweep, payout discs with the server's per-bet returns, the banner
- * and the shared celebration (NICE and up).
+ * European roulette, table UI v2 (REDESIGN.md §7.5; docs/architecture/ui-v2.md; mockups {@code v2_roulette_*}). The
+ * felt fills the screen: the wheel column on the left (the wheel, the ball on the shared {@link RouletteSpin},
+ * "Last numbers"), the betting layout on the right with every inside bet reachable by precise hit-testing (cell =
+ * straight, line = split, outer edge = street / six line, intersection = corner, zero edges = trio / first four), the
+ * call bets (Tier / Orphelins / Voisins / Zero) under it; the kit's TopBar and Dock (chips, Undo / Clear / Rebet / ×2,
+ * the bet readout, the status, the gold primary: Sit down / Spin / Ready / Rebet). The spin keeps the layout on screen
+ * (dimmed) with every bet visible; the result frames the winning cell in gold, sweeps the losing stacks, pays the winning
+ * ones with the server's per-bet returns and shows the net in the banner + the TopBar delta.
  *
- * <p>Shared time (the spin) ignores speed / skip; the local result beats respect {@code anim.speed} and skip on click
- * or Space. Late joiners past 85 % see the settled state. Reduced motion: no flights, a slow wheel, the ball fades in
- * its pocket. Only renders server state and sends actions.
+ * <p>Only renders server state and sends actions ({@code bet}, {@code call}, {@code undo}, {@code clear}, {@code rebet},
+ * {@code double}, {@code spin}, {@code sit}); every action goes through the kit's acknowledgement watchdog.
  */
-public class RouletteScreen extends CasinoTableScreen {
-	private static final int[] CHIPS = ChipStacks.DENOMS;
-	private static final int NMB_MS = 1000;
+public class RouletteScreen extends V2TableScreen<RouletteView> {
 	private static final int RESULT_MS = 3000;
+	/** HitMap id of the whole betting layout. */
+	static final String FELT_ALL = "felt.layout";
 
-	private TableChrome.Frame frame = TableChrome.FULL;
-	private int ox;
-	private int oy;
-	private TableTheme theme = TableTheme.VILLAGE;
 	private final TableClock clock = new TableClock();
-	private int selectedChip = 25;
-	private boolean racetrackOn;
-	private boolean rulesOn;
+	/** S1: the spin time's per-launch monotonic guard over the shared {@link SmoothClock} (a pass-through while it is smooth). */
+	private final dev.nezo.burmaldaholic.games.roulette.present.RouletteTime spinTime = new dev.nezo.burmaldaholic.games.roulette.present.RouletteTime();
+	/** The shared clock: ms since a server tick on the ONE {@link SmoothClock} (SY-SPEC §1; the in-world board reads it too). */
+	private final java.util.function.LongToDoubleFunction rawClock = tick -> SmoothClock.nowMs(this.partial) - tick * 50.0;
+	private TableTheme theme = TableTheme.VILLAGE;
+	private @Nullable RouletteLayout layout;
 	private float partial;
-	// hover
-	private @Nullable Spot hover;
-	private int hoverNumber = -1;
-	private Racetrack.@Nullable Section hoverSection;
-	// animation state
-	private @Nullable RouletteBallPath path;
-	private int pathSeq = -1;
-	private int cueIndex;
+	// the spin (RO: RouletteSpin, sampled at ms since the launch = the NO_MORE_BETS start)
+	/** Tests: ms since the launch (overrides the shared clock; null in production). */
+	public static @Nullable DoubleSupplier testClock;
+	/** Tests: local RESULT ms (overrides the local result clock; null in production). */
+	public static @Nullable DoubleSupplier testResultClock;
+	/** Tests: records every decorative effect that passed the reduced-motion / flashes gate. */
+	public static FxGate.@Nullable Recorder recorder;
+	private @Nullable RouletteSpin spin;
+	private int spinSeqBuilt = Integer.MIN_VALUE;
+	private int spinResultBuilt = Integer.MIN_VALUE;
+	private int spinLast = -1;
+	private long launchTick;
+	private RotorModel rotorModel = RotorModel.idle(0);
+	private final RouletteSpin.Sample sample = new RouletteSpin.Sample();
+	private final RouletteFx.Frame fx = new RouletteFx.Frame();
+	private final RouletteWheelView.Wheel colWheel = new RouletteWheelView.Wheel();
+	private final RouletteWheelView.Wheel focusWheel = new RouletteWheelView.Wheel();
+	private @Nullable RouletteFocus focus;
+	private final EventCursor cursor = new EventCursor(new MotionEvent[0]);
+	private final EventCursor.Listener soundListener = this::onSpinEvent;
+	private FxSounds.Handle roll = FxSounds.Handle.NONE;
+	private double rollOmega;
+	private double rollVolume;
+	private boolean rollWanted;
+	private long lastFrameNs;
+	private double frameDt = 16.7;
+	/** the last drawn head frame index of the column wheel (tests: no snap at RESULT → BETTING) */
+	private int lastHeadFrame = -1;
 	private long bellFor = Long.MIN_VALUE;
 	private long resultFor = Long.MIN_VALUE;
-	private long dollyPlayed = Long.MIN_VALUE;
-	private long sweepPlayed = Long.MIN_VALUE;
-	private boolean resultSkipped;
-	private long resultLocalStart;
 	private long localStartFor = Long.MIN_VALUE;
-	private final List<Flight> flights = new ArrayList<>();
-	private @Nullable Spot invalidSpot;
-	private long invalidAt;
-	private @Nullable Spot lastClick;
-	private @Nullable Component error;
-	private int errorTicks;
-	private @Nullable TableButton spinButton;
-
-	/** A chip flying from the tray to its drop point (local, 180 ms). */
-	private record Flight(int denom, int x0, int y0, int x1, int y1, long start) {}
+	private long resultLocalStart;
+	private boolean resultSkipped;
+	private final RouletteChipFx chipFx = new RouletteChipFx();
+	// the bet just placed: its value tag shows for 1.5 s (§2.2)
+	private @Nullable Spot lastPlaced;
+	private long lastPlacedAt;
+	/** the layout point of the click being routed (precise hit-testing of the felt), null for keyboard presses */
+	private double @Nullable [] clickAt;
+	/** what the status hint currently describes (hover readout), "" = the flow's hint */
+	private String hoverShown = "";
+	/** Repeat pressed during the result (DES roulette P1): the last slip is sent the moment betting opens */
+	private boolean rebetQueued;
+	/** own stacks that carried a value pill in the last frame (real-flow tests) */
+	private int valuePills;
+	/** above this many own stacks the value pills show on hover only (DES roulette P1) */
+	static final int PILLS_ALWAYS_MAX = 8;
 
 	public RouletteScreen(CasinoTableMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, Component.translatable(menu.tableType() == RouletteModule.HIGH_ROLLER_TABLE
-			? "gui.burmaldaholic.roulette.title_high_roller" : "gui.burmaldaholic.roulette.title"), 427, 240);
-		this.titleLabelY = -10_000;
+			? "gui.burmaldaholic.roulette.title_high_roller" : "gui.burmaldaholic.roulette.title"));
+		chrome.bet.multiSpot(true);
 	}
 
-	// ---- geometry --------------------------------------------------------------------------------------------------
-
-	private boolean compact() {
-		return frame.compact();
-	}
-
-	private LayoutGrid grid() {
-		return compact() ? LayoutGrid.COMPACT : LayoutGrid.BIG;
-	}
-
-	private int layoutX() {
-		return ox + (compact() ? 64 : 110);
-	}
-
-	private int layoutY() {
-		return oy + (compact() ? 32 : 36);
-	}
-
-	private boolean showTrack() {
-		return !compact() || racetrackOn;
-	}
-
-	private boolean showLayout() {
-		return !compact() || !racetrackOn;
-	}
-
-	private int trackX() {
-		return ox + (compact() ? 3 : 110);
-	}
-
-	private int trackY() {
-		return oy + (compact() ? 50 : 142);
-	}
-
-	private int wheelCx() {
-		return ox + (compact() ? 142 : 213);
-	}
-
-	private int wheelCy() {
-		return oy + (compact() ? 75 : 124);
-	}
-
-	// ---- lifecycle -------------------------------------------------------------------------------------------------
+	// ---- the pure parts ------------------------------------------------------------------------------------------------
 
 	@Override
-	protected void init() {
-		frame = TableChrome.frameFor(width, height);
-		super.init();
-		ox = (width - frame.w()) / 2;
-		oy = (height - frame.h()) / 2;
-		leftPos = ox;
-		topPos = oy;
-		rebuild();
-	}
-
-	@Override
-	protected void onStateChanged(CompoundTag s) {
+	protected RouletteView view(CompoundTag s) {
 		clock.sync(s.getLongOr("game_time", 0));
 		theme = TableKit.theme(theme());
-		int seq = s.getIntOr("spin_seq", -1);
-		int result = s.getIntOr("result", -1);
-		if (result >= 0 && seq != pathSeq && ("spin".equals(phaseOf(s)) || "result".equals(phaseOf(s)))) {
-			path = RouletteBallPath.of(result, s.getIntOr("seed", 0), Math.max(1, s.getIntOr("spin_ticks", 100)) * 50);
-			pathSeq = seq;
-			cueIndex = 0;
-		}
-		if (minecraft != null) {
-			rebuild();
-		}
+		boolean seated = s.getIntOr("seat", -1) >= 0;
+		int occupied = s.getListOrEmpty("seats").size();
+		int seatCount = s.getIntOr("seat_count", 0);
+		RouletteFlow.Phase phase = RouletteFlow.Phase.of(s.getStringOr("phase", "betting"));
+		Map<Spot, Long> mine = mineOf(s);
+		long total = s.getLongOr("total", 0);
+		long rebet = rebetAmount(s);
+		long ticks = s.getLongOr("ticks_left", -1);
+		boolean multi = s.getIntOr("bettors", 0) > 1 || occupied > 1;
+		int secs = ticks < 0 || (phase == RouletteFlow.Phase.BETTING && !multi) ? -1 : (int) Math.ceil(ticks / 20.0);
+		RouletteFlow.View v = new RouletteFlow.View(seated, !seated && seatCount > 0 && occupied >= seatCount, s.getBooleanOr("enabled", true), phase,
+			s.getLongOr("min", 1), s.getLongOr("max", 0), s.getLongOr("min_total", 0), s.getLongOr("balance", 0), total,
+			s.getBooleanOr("can_rebet", false), rebet, s.getBooleanOr("ready", false), multi, s.getIntOr("ready_count", 0), s.getIntOr("bettors", 0), secs,
+			rebetQueued && phase == RouletteFlow.Phase.RESULT);
+		syncSpin(s, phase);
+		chipFx.state(s, phase == RouletteFlow.Phase.BETTING, Util.getMillis());
+		return RouletteView.of(v, mine);
 	}
 
-	private static String phaseOf(CompoundTag s) {
-		return s.getStringOr("phase", "betting");
+	private static Map<Spot, Long> mineOf(CompoundTag s) {
+		Map<Spot, Long> out = new LinkedHashMap<>();
+		ListTag list = s.getListOrEmpty("bets");
+		for (int i = 0; i < list.size(); i++) {
+			CompoundTag b = list.getCompoundOrEmpty(i);
+			Spot.parseKey(b.getStringOr("spot", "")).ifPresent(sp -> out.merge(sp, b.getLongOr("amount", 0), Long::sum));
+		}
+		return out;
+	}
+
+	/** The total of the server's last slip: what Rebet places. */
+	private static long rebetAmount(CompoundTag s) {
+		return s.getLongOr("rebet_total", 0);
 	}
 
 	@Override
-	public void showError(Component message) {
-		super.showError(message);
-		this.error = message;
-		this.errorTicks = 60;
-		if (lastClick != null && Util.getMillis() - invalidAt > 400) {
-			invalidSpot = lastClick;
-			invalidAt = Util.getMillis();
-			FxSounds.play("ui_deny", 1f);
+	protected Flow<RouletteView> flow() {
+		return RouletteFlow.FLOW;
+	}
+
+	@Override
+	protected @Nullable BetPort betPort() {
+		return new BetPort() {
+			@Override
+			public void add(long denom) {
+				// multi-spot: a chip only arms; placing happens on the felt (onTarget)
+			}
+
+			@Override
+			public void tool(String toolId) {
+				sendTracked(toolId, new CompoundTag(), "", 0);
+			}
+		};
+	}
+
+	// ---- layout + input -----------------------------------------------------------------------------------------------
+
+	@Override
+	protected void layoutPlay(TableGrid grid, RouletteView v, HitMap hits) {
+		RouletteLayout l = RouletteLayout.of(grid);
+		layout = l;
+		boolean open = RouletteFlow.betBlock(v.flow()).isEmpty();
+		// the whole layout first (a click anywhere is hit-tested precisely), then every spot's own box on top (keyboard,
+		// narration, real-flow tests: the centre of each box is that spot)
+		hits.add(FELT_ALL, l.layout, open);
+		for (Spot s : RouletteLayout.allSpots()) hits.add(RouletteLayout.spotId(s), l.target(s), open);
+		for (Racetrack.Section s : Racetrack.Section.values()) hits.add(RouletteLayout.callId(s), l.calls.get(s.ordinal()), open);
+		// the banner never covers a number cell (the winning one stays visible), the wheel or the history (R-CDE M4)
+		chrome.banner.regions(l.bannerRegions(), List.of());
+		chrome.banner.obstacles(l.bannerObstacles());
+	}
+
+	@Override
+	public boolean onTarget(String id, boolean enabled, Press button) {
+		RouletteView v = view;
+		RouletteLayout l = layout;
+		if (v == null || l == null || !id.startsWith("felt.")) return false;
+		if (button.left() && "result".equals(phase()) && !resultSkipped) {
+			resultSkipped = true; // a click skips the local result beats (never the shared spin)
 		}
+		Optional<Gate> block = RouletteFlow.betBlock(v.flow());
+		if (block.isPresent()) {
+			chrome.refuse(block.get());
+			return true;
+		}
+		if (!button.left()) return true;
+		long d = chrome.bet.armOrDefault();
+		if (d <= 0) {
+			chrome.refuse(Gate.off("chip", RouletteFlow.K + "bet", "gui.burmaldaholic.core.v2.reason.not_enough", v.flow().min()));
+			return true;
+		}
+		Gate chip = RouletteFlow.chip(v.flow(), d);
+		if (!chip.enabled()) {
+			chrome.refuse(chip);
+			return true;
+		}
+		String rest = id.substring(5);
+		if (rest.equals("layout") && (clickAt == null || l.hit(clickAt[0], clickAt[1]).isEmpty())) return true;
+		if (rest.startsWith("call.")) {
+			Optional<Racetrack.Section> sec = Racetrack.Section.byId(rest.substring(5));
+			if (sec.isEmpty()) return false;
+			CompoundTag args = new CompoundTag();
+			args.putString("section", sec.get().id());
+			args.putLong("amount", d);
+			sendTracked("call", args, "", d);
+			for (Spot cs : Racetrack.spots(sec.get())) chipFx.place(cs, d, armedChipBox(), l.anchor(cs), Util.getMillis(), FxSettings.reduceMotion());
+			return true;
+		}
+		double[] at = clickAt;
+		// a spot's own HitMap box already routed the click precisely (line bets lie on top); only the whole-layout box
+		// needs the point hit-tested (in framed / offset viewports the raw event point is not in layout px)
+		Optional<Spot> spot = !rest.equals("layout") ? Spot.parseKey(rest) : at != null ? l.hit(at[0], at[1]) : Optional.empty();
+		if (spot.isEmpty()) return rest.equals("layout");
+		CompoundTag args = new CompoundTag();
+		args.putString("type", spot.get().type().id());
+		args.putIntArray("nums", spot.get().numbers().stream().mapToInt(Integer::intValue).toArray());
+		args.putLong("amount", d);
+		sendTracked("bet", args, spot.get().key(), d);
+		lastPlaced = spot.get();
+		lastPlacedAt = Util.getMillis();
+		// §3.6: a chip flies from the armed Dock chip to the spot; chip_place plays on landing
+		chipFx.place(spot.get(), d, armedChipBox(), l.anchor(spot.get()), Util.getMillis(), FxSettings.reduceMotion());
+		return true;
+	}
+
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		clickAt = new double[] {event.x(), event.y()};
+		try {
+			return super.mouseClicked(event, doubleClick);
+		} finally {
+			clickAt = null;
+		}
+	}
+
+	@Override
+	public void onGate(String id, Gate gate) {
+		if ("spin".equals(gate.action())) {
+			sendTracked("spin");
+			return;
+		}
+		if (BetGates.REBET.equals(gate.action()) && "result".equals(phase())) {
+			// the server takes bets only while betting is open: queue the slip, skip the local result beats
+			rebetQueued = true;
+			resultSkipped = true;
+			if (view != null) view = view(state());
+			refresh();
+			return;
+		}
+		super.onGate(id, gate);
 	}
 
 	@Override
 	protected void containerTick() {
 		super.containerTick();
-		if (errorTicks > 0 && --errorTicks == 0) {
-			error = null;
+		if (!rebetQueued) return;
+		String ph = phase();
+		if ("betting".equals(ph)) {
+			rebetQueued = false;
+			if (state().getLongOr("total", 0) == 0 && state().getBooleanOr("can_rebet", false)) sendTracked(BetGates.REBET);
+		} else if (!"result".equals(ph)) {
+			rebetQueued = false;
 		}
 	}
 
-	// ---- state helpers ---------------------------------------------------------------------------------------------
-
-	private boolean betting() {
-		return "betting".equals(phase()) && state().getBooleanOr("enabled", true);
+	/** The armed Dock chip's box (the start of a placement flight), null when the Dock is not laid out. */
+	private @Nullable Box armedChipBox() {
+		List<Box> boxes = chrome.bet.chipBoxes();
+		int i = chrome.bet.selectedIndex();
+		return i >= 0 && i < boxes.size() ? boxes.get(i) : boxes.isEmpty() ? null : boxes.get(0);
 	}
 
-	private long total() {
-		return state().getLongOr("total", 0);
+	/** The column wheel as last drawn (T-C2 V10; real-flow tests): badge number, ball shown, ball x / y (layout px). */
+	private int probeBadge = -1;
+	private boolean probeBall;
+	private double probeBallX, probeBallY;
+
+	private void probeWheel(RouletteWheelView.Wheel w) {
+		probeBadge = w.badgeMs >= 250 ? w.badge : -1;
+		probeBall = w.ball && w.ballAlpha > 0.5;
+		double a = RouletteWheelView.drawnRotor(w.art, w.rotor) + w.ballRel;
+		probeBallX = RouletteWheelView.px(w, a, w.ballR);
+		probeBallY = RouletteWheelView.py(w, a, w.ballR);
 	}
+
+	/** {badge (-1 = none), ball shown 0/1, ball x, ball y} of the column wheel's last frame. */
+	public double[] wheelProbe() {
+		return new double[] {probeBadge, probeBall ? 1 : 0, probeBallX, probeBallY};
+	}
+
+	/** Frames in which the winning cell was drawn over a running celebration (T-C2 V4; real-flow tests). */
+	private int winCellOverCelebration;
+
+	public int winCellOverCelebration() {
+		return winCellOverCelebration;
+	}
+
+	/**
+	 * T-C2 V4: the shared celebration draws over the whole screen (BIG WIN text at a third of the height covered the
+	 * winning cell); the winning cell is drawn again on top of it, in the frame's pose.
+	 */
+	@Override
+	public void extractOverFrame(GuiGraphicsExtractor g) {
+		super.extractOverFrame(g);
+		RouletteLayout l = layout;
+		int win = result();
+		if (l == null || win < 0 || !"result".equals(phase()) || !dev.nezo.burmaldaholic.client.fx.CelebrationOverlay.get().isActive()) return;
+		g.nextStratum();
+		g.pose().pushMatrix();
+		g.pose().translate(offsetX(), offsetY());
+		g.pose().scale(fitScale(), fitScale());
+		RouletteFeltView.winCell(g, font, l, win);
+		g.pose().popMatrix();
+		winCellOverCelebration++;
+	}
+
+	/** Own stacks that carried a value pill in the last frame (real-flow tests). */
+	public int valuePillsDrawn() {
+		return valuePills;
+	}
+
+	/** Whether a Repeat pressed during the result waits for betting to open. */
+	public boolean rebetQueued() {
+		return rebetQueued;
+	}
+
+	// ---- state helpers -------------------------------------------------------------------------------------------------
 
 	private int result() {
 		return state().getIntOr("result", -1);
@@ -219,849 +380,656 @@ public class RouletteScreen extends CasinoTableScreen {
 		return state().getIntArray("history").orElse(new int[0]);
 	}
 
-	private boolean multiplayer() {
-		return state().getIntOr("bettors", 0) > 1 || state().getListOrEmpty("seats").size() > 1;
-	}
-
 	private double phaseMs() {
 		return clock.msSince(state().getLongOr("phase_start", 0), partial);
 	}
 
-	private double spinMs() {
-		return clock.msSince(state().getLongOr("spin_start", 0), partial);
+	/**
+	 * Tests (NetLag lane): {spin t, ball x, ball y (fractions of Rw), visible 0/1, solved 0/1, the pocket it rests in
+	 * (−1 unsolved), rest t, spin seq} of the next frame; null without a running spin.
+	 */
+	public double @Nullable [] poseProbe() {
+		RouletteSpin sp = spin;
+		if (sp == null) return null;
+		double t = spinT();
+		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
+		double a = Math.toRadians(smp.abs);
+		return new double[] {t, smp.r * Math.sin(a), -smp.r * Math.cos(a), smp.visible ? 1 : 0, sp.solved() ? 1 : 0,
+			sp.solved() ? sp.pocketUnder(sp.restMs() + 100) : -1, sp.restMs(), spinSeqBuilt};
 	}
 
-	/** Local time of the RESULT beats (anim.speed; skip jumps to the end). */
+	/** Tests: the ball {x, y} (fractions of Rw) of the current spin model at spin time {@code t}; null without a spin. */
+	public double @Nullable [] ballAtProbe(double t) {
+		RouletteSpin sp = spin;
+		if (sp == null) return null;
+		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
+		double a = Math.toRadians(smp.abs);
+		return new double[] {smp.r * Math.sin(a), -smp.r * Math.cos(a)};
+	}
+
+	/** Ms since the launch (the NO_MORE_BETS start) on the shared clock: the time every viewer samples the spin at. */
+	double spinT() {
+		DoubleSupplier test = testClock;
+		if (test != null) return test.getAsDouble();
+		return spinTime.advance(launchTick, rawClock.applyAsDouble(launchTick), SmoothClock.wallMs());
+	}
+
+	/** The newest settled number before the current launch: the ball being picked up / riding at idle. */
+	private int idleLast() {
+		int[] h = history();
+		return h.length > 0 ? h[0] : -1;
+	}
+
+	/** Rebuilds the spin for a new launch (pre-result) and again when the result arrives (same seed, same motion so far). */
+	private void syncSpin(CompoundTag s, RouletteFlow.Phase phase) {
+		int seq = s.getIntOr("spin_seq", 0);
+		int dir = s.getIntOr("dir", 1) < 0 ? -1 : 1;
+		boolean pushed = s.getBooleanOr("pushed", seq > 0);
+		rotorModel = new RotorModel(s.getIntOr("rotor_a", 0) / 100.0, s.getIntOr("rotor_w", (int) (RotorModel.OMEGA_IDLE * 100)) / 100.0, dir, pushed);
+		launchTick = s.getLongOr("launch_tick", 0);
+		boolean live = phase != RouletteFlow.Phase.BETTING && seq > 0;
+		if (!live) return; // BETTING: the rotor model turns, the last ball rides its pocket (drawn without a spin)
+		boolean drawn = phase == RouletteFlow.Phase.SPIN || phase == RouletteFlow.Phase.RESULT;
+		int result = drawn ? s.getIntOr("result", -1) : -1;
+		if (seq == spinSeqBuilt && result == spinResultBuilt) return;
+		boolean newSeq = seq != spinSeqBuilt;
+		if (newSeq) {
+			int[] h = s.getIntArray("history").orElse(new int[0]);
+			spinLast = phase == RouletteFlow.Phase.RESULT ? (h.length > 1 ? h[1] : -1) : (h.length > 0 ? h[0] : -1);
+		}
+		long spinStart = result >= 0 ? s.getLongOr("spin_start", launchTick + RouletteSpin.NMB_TICKS) : launchTick + RouletteSpin.NMB_TICKS;
+		int ticks = Math.max(1, s.getIntOr("spin_ticks", 140));
+		double prev = cursorAt;
+		// S1: the result of the spin already on screen continues from the ball's drawn orbit position and speed (a late
+		// packet used to rebuild the path from the SPIN start and the ball jumped); tests on a pinned clock stay exact
+		RouletteSpin pre = spin;
+		double join = !newSeq && pre != null && !pre.solved() && testClock == null ? spinTime.shown() : Double.NaN;
+		spin = RouletteSpin.build(result, s.getIntOr("seed", 0), spinLast, launchTick, spinStart, ticks, rotorModel, join);
+		spinSeqBuilt = seq;
+		spinResultBuilt = result;
+		cursor.bind(spin.events());
+		double t = spinT();
+		if (!newSeq) cursor.reset(prev, true); // the pre-result spin already voiced these (identical before the draw)
+		else if (t > EventCursor.LATE_MS) cursor.reset(t, true); // late join: the path is valid at any t; old events stay silent
+		cursorAt = newSeq ? -1 : prev;
+	}
+
+	private double cursorAt = -1;
+
 	private double resultMs() {
+		DoubleSupplier test = testResultClock;
+		if (test != null) return test.getAsDouble();
 		long start = state().getLongOr("phase_start", 0);
+		RouletteSpin sp = spin;
+		if (sp != null && sp.solved() && !sp.settled(spinT())) {
+			// S1: a very late result still rolls past the SPIN end; the beats (rake, payout) wait for the ball to rest
+			if (localStartFor != start) resultSkipped = false;
+			localStartFor = start;
+			resultLocalStart = AnimClock.localMs();
+			return 0;
+		}
 		double shared = phaseMs();
 		if (localStartFor != start) {
 			localStartFor = start;
-			resultSkipped = shared >= 0.85 * RESULT_MS; // late join: settled
-			resultLocalStart = Util.getMillis() - (long) Math.max(0, shared);
+			resultSkipped = shared >= 0.85 * RESULT_MS;
+			resultLocalStart = AnimClock.localMs() - (long) Math.max(0, shared);
 		}
-		if (resultSkipped) {
-			return RESULT_MS * 2;
-		}
-		double speed = FxSettings.speed().pct / 100.0;
-		return (Util.getMillis() - resultLocalStart) * speed;
-	}
-
-	private record Stack(Spot spot, long amount, long ret) {}
-
-	private List<Stack> myStacks() {
-		List<Stack> out = new ArrayList<>();
-		ListTag list = state().getListOrEmpty("bets");
-		long[] rets = state().getLongArray("bet_returns").orElse(null);
-		for (int i = 0; i < list.size(); i++) {
-			CompoundTag b = list.getCompoundOrEmpty(i);
-			int idx = i;
-			Spot.parseKey(b.getStringOr("spot", "")).ifPresent(s -> out.add(new Stack(s, b.getLongOr("amount", 0),
-				rets != null && idx < rets.length ? rets[idx] : -1)));
-		}
-		return out;
+		if (resultSkipped) return RESULT_MS * 2;
+		return (AnimClock.localMs() - resultLocalStart) * (FxSettings.speed().pct / 100.0);
 	}
 
 	private Map<Spot, Long> spots(String key) {
 		Map<Spot, Long> out = new LinkedHashMap<>();
 		CompoundTag t = state().getCompoundOrEmpty(key);
-		for (String k : t.keySet()) {
-			Spot.parseKey(k).ifPresent(s -> out.put(s, t.getLongOr(k, 0)));
-		}
+		for (String k : t.keySet()) Spot.parseKey(k).ifPresent(s -> out.put(s, t.getLongOr(k, 0)));
 		return out;
 	}
 
-	private static Component decode(@Nullable Tag tag) {
-		if (tag == null) {
-			return Component.empty();
-		}
-		var level = Minecraft.getInstance().level;
-		var ops = level != null ? level.registryAccess().createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
-		return ComponentSerialization.CODEC.parse(ops, tag).result().orElse(Component.empty());
+	private int lastBefore() {
+		int[] h = history();
+		if ("result".equals(phase())) return h.length > 1 ? h[1] : -1;
+		return h.length > 0 ? h[0] : -1;
 	}
 
-	private int otherTint() {
-		ListTag seats = state().getListOrEmpty("seats");
-		for (int i = 0; i < seats.size(); i++) {
-			CompoundTag s = seats.getCompoundOrEmpty(i);
-			if (!s.getBooleanOr("you", false)) {
-				return TableChrome.seatTint(s.getIntOr("index", 1));
-			}
-		}
-		return TableChrome.seatTint(1);
-	}
-
-	// ---- widgets ---------------------------------------------------------------------------------------------------
-
-	private void rebuild() {
-		clearWidgets();
-		long max = maxBet();
-		if (selectedChip < minBet() || (max > 0 && selectedChip > max)) {
-			for (int c : CHIPS) {
-				if (c >= minBet() && (max <= 0 || c <= max)) {
-					selectedChip = c;
-					break;
-				}
-			}
-		}
-		// v0.1.2: never leave a chip the player cannot afford selected (a fresh player has 50 chips; every click on the
-		// felt said "not enough chips"): the largest chip that fits the balance
-		long bal = balance();
-		if (selectedChip > bal && state().contains("balance")) {
-			for (int k = CHIPS.length - 1; k >= 0; k--) {
-				if (CHIPS[k] <= bal && CHIPS[k] >= minBet()) {
-					selectedChip = CHIPS[k];
-					break;
-				}
-			}
-		}
-		boolean bet = betting();
-		for (int i = 0; i < CHIPS.length; i++) {
-			int d = CHIPS[i];
-			int x = compact() ? ox + 4 + i * 25 : ox + 8 + i * 27;
-			int y = compact() ? oy + 136 : oy + 212;
-			ChipButton b = addRenderableWidget(new ChipButton(x, y, d, theme, !compact(), () -> selectedChip, v -> selectedChip = v));
-			b.active = d >= minBet() && (max <= 0 || d <= max);
-		}
-		int ix = compact() ? ox + 132 : ox + 146;
-		int iy = compact() ? oy + 138 : oy + 214;
-		addRenderableWidget(TableButton.icon(ix, iy, "undo", Component.translatable("gui.burmaldaholic.roulette.button.undo"), theme,
-			b -> sendAction("undo"))).active = bet && total() > 0;
-		ix += 22;
-		addRenderableWidget(TableButton.icon(ix, iy, "clear", Component.translatable("gui.burmaldaholic.roulette.clear_bets"), theme,
-			b -> sendAction("clear"))).active = bet && total() > 0;
-		ix += 22;
-		if (compact()) {
-			addRenderableWidget(TableButton.icon(ix, iy, "racetrack", Component.translatable("gui.burmaldaholic.roulette.racetrack.toggle"), theme,
-				b -> racetrackOn = !racetrackOn));
-		} else {
-			addRenderableWidget(TableButton.icon(ix, iy, "rebet", Component.translatable("gui.burmaldaholic.common.rebet"), theme,
-				b -> sendAction("rebet"))).active = bet && state().getBooleanOr("can_rebet", false);
-			ix += 22;
-			addRenderableWidget(TableButton.icon(ix, iy, "double", Component.translatable("gui.burmaldaholic.roulette.button.double"), theme,
-				b -> sendAction("double"))).active = bet && total() > 0;
-		}
-		// top bar: rules + leave, left of the balance plaque
-		int bw = TableChrome.balanceWidth(font, balance());
-		int tx = ox + frame.w() - (compact() ? 2 : 4) - bw - 46;
-		int ty = oy + (compact() ? -1 : 1);
-		if (!compact()) {
-			addRenderableWidget(TableButton.icon(tx, ty, "rules", Component.translatable("gui.burmaldaholic.common.rules"), theme, b -> rulesOn = !rulesOn));
-			addRenderableWidget(TableButton.icon(tx + 22, ty, "leave", Component.translatable("gui.burmaldaholic.common.leave"), theme, b -> {
-				sendAction("leave");
-				onClose();
-			})).active = mySeat() >= 0;
-		}
-		boolean ready = state().getBooleanOr("ready", false);
-		Component spinLabel = Component.translatable(multiplayer() ? "gui.burmaldaholic.common.ready" : "gui.burmaldaholic.common.spin");
-		int sx = compact() ? ox + 236 : ox + 373;
-		int sy = compact() ? oy + 112 : oy + 189;
-		spinButton = addRenderableWidget(TableButton.action(sx, sy, TableButton.Kind.SPIN, spinLabel, b -> sendAction("spin")));
-		spinButton.active = bet && total() > 0 && !ready;
-		spinButton.pulse(spinButton.active);
-	}
-
-	// ---- input -----------------------------------------------------------------------------------------------------
-
-	private Optional<Spot> spotAt(double mx, double my) {
-		if (!betting() || rulesOn || !showLayout()) {
-			return Optional.empty();
-		}
-		return grid().hit(mx - layoutX(), my - layoutY());
-	}
-
-	/** The click lands on the betting layout or the racetrack (whatever the phase). */
-	private boolean onFelt(double mx, double my) {
-		return showLayout() && grid().hit(mx - layoutX(), my - layoutY()).isPresent()
-			|| showTrack() && (Racetrack.numberAt(mx - trackX(), my - trackY()).isPresent() || Racetrack.sectionAt(mx - trackX(), my - trackY()).isPresent());
-	}
-
-	private void updateHover(double mx, double my) {
-		hover = spotAt(mx, my).orElse(null);
-		hoverNumber = -1;
-		hoverSection = null;
-		if (betting() && !rulesOn && showTrack()) {
-			hoverNumber = Racetrack.numberAt(mx - trackX(), my - trackY()).orElse(-1);
-			hoverSection = Racetrack.sectionAt(mx - trackX(), my - trackY()).orElse(null);
-		}
-	}
+	// ---- drawing -------------------------------------------------------------------------------------------------------
 
 	@Override
-	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (Inputs.isLeft(event.button())) {
-			if ("result".equals(phase()) && !resultSkipped && resultMs() < RESULT_MS) {
-				resultSkipped = true; // skip the local result beats (never the spin)
-			}
-			if (rulesOn && !super.mouseClicked(event, doubleClick)) {
-				rulesOn = false;
-				return true;
-			}
-			updateHover(event.x(), event.y());
-			if (hover != null) {
-				CompoundTag args = new CompoundTag();
-				args.putString("type", hover.type().id());
-				args.putIntArray("nums", hover.numbers().stream().mapToInt(Integer::intValue).toArray());
-				args.putLong("amount", selectedChip);
-				sendAction("bet", args);
-				launchFlight(hover);
-				return true;
-			}
-			if (hoverNumber >= 0) {
-				CompoundTag args = new CompoundTag();
-				args.putInt("n", hoverNumber);
-				args.putLong("amount", selectedChip);
-				sendAction("neighbours", args);
-				launchFlight(Spot.of(BetType.STRAIGHT, hoverNumber));
-				return true;
-			}
-			if (hoverSection != null) {
-				CompoundTag args = new CompoundTag();
-				args.putString("section", hoverSection.id());
-				args.putLong("amount", selectedChip);
-				sendAction("call", args);
-				FxSounds.play("chip_place", 1f, 1f);
-				return true;
-			}
-			if (!betting() && !rulesOn && onFelt(event.x(), event.y())) {
-				// v0.1.2: a chip put on the felt outside BETTING said nothing ("roulette won't let me bet"): tell why
-				showError(Component.translatable(state().getBooleanOr("enabled", true) ? "gui.burmaldaholic.roulette.no_more_bets"
-					: "gui.burmaldaholic.error.disabled"));
-				return true;
-			}
-		}
-		return super.mouseClicked(event, doubleClick);
-	}
-
-	@Override
-	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == Inputs.KEY_SPACE && "result".equals(phase())) {
-			resultSkipped = true;
-			return true;
-		}
-		return super.keyPressed(event);
-	}
-
-	private void launchFlight(Spot s) {
-		lastClick = s;
-		FxSounds.play("chip_place", 1f, (float) (0.9 + 0.1 * Math.log(selectedChip) / Math.log(5)));
-		if (FxSettings.reduceMotion()) {
-			return;
-		}
-		int[] c = grid().center(s);
-		int i = 0;
-		for (int k = 0; k < CHIPS.length; k++) {
-			if (CHIPS[k] == selectedChip) {
-				i = k;
-			}
-		}
-		int x0 = compact() ? ox + 4 + i * 25 + 12 : ox + 8 + i * 27 + 12;
-		int y0 = compact() ? oy + 146 : oy + 222;
-		flights.add(new Flight(selectedChip, x0, y0, layoutX() + c[0], layoutY() + c[1] + 5, Util.getMillis()));
-	}
-
-	// ---- rendering: background -------------------------------------------------------------------------------------
-
-	@Override
-	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	protected void renderPlay(GuiGraphicsExtractor g, TableGrid grid, RouletteView v, int mouseX, int mouseY, float a) {
 		partial = a;
-		updateHover(mouseX, mouseY);
-		super.extractRenderState(g, mouseX, mouseY, a);
-		overlays(g);
-		if (hover != null) {
-			g.setComponentTooltipForNextFrame(font, tooltip(hover), mouseX, mouseY);
-		} else if (hoverNumber >= 0) {
-			g.setComponentTooltipForNextFrame(font, List.of(Component.translatable("gui.burmaldaholic.roulette.racetrack.neighbours", Texts.number(hoverNumber)),
-				Component.translatable("gui.burmaldaholic.roulette.bet.straight").withColor(TableChrome.MUTED)), mouseX, mouseY);
-		} else if (hoverSection != null) {
-			g.setComponentTooltipForNextFrame(font, List.of(Component.translatable("gui.burmaldaholic.roulette.racetrack." + hoverSection.id())), mouseX,
-				mouseY);
+		long ns = System.nanoTime();
+		if (lastFrameNs != 0) frameDt = Math.max(1, Math.min(100, (ns - lastFrameNs) / 1e6));
+		lastFrameNs = ns;
+		RouletteLayout l = layout;
+		if (l == null || l.grid.play.w() != grid.play.w() || l.grid.play.h() != grid.play.h()) {
+			l = RouletteLayout.of(grid);
+			layout = l;
 		}
-	}
-
-	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		partial = a;
-		TableChrome.backdrop(g, theme, width, height);
-		TableChrome.table(g, theme, frame, ox, oy);
-		topBar(g);
+		if (focus == null || focus.colArt() != l.wheelD || focus.k() != Math.max(1, grid.viewport.k()) || focus.size() > grid.play.h() + 1) {
+			focus = RouletteFocus.of(l);
+		}
 		String ph = phase();
-		int[] hist = history();
+		boolean betting = RouletteFlow.betBlock(v.flow()).isEmpty();
 		double rMs = "result".equals(ph) ? resultMs() : RESULT_MS * 2;
-		boolean newResultShown = !"result".equals(ph) || rMs >= 400;
-		// mini wheel + history (the new result appears when the big wheel has sunk)
-		int[] shownHist = hist;
-		if ("result".equals(ph) && !newResultShown && hist.length > 0) {
-			shownHist = java.util.Arrays.copyOfRange(hist, 1, hist.length);
-		}
-		if (!compact()) {
-			RouletteWheelView.mini(g, theme, ox + 22, oy + 34, shownHist.length > 0 ? shownHist[0] : -1);
-		}
-		pills(g, shownHist, "result".equals(ph) ? rMs - 400 : 10_000);
-		if (showLayout()) {
-			TableGfx.region(g, TableGfx.sheet("roulette/layout" + (compact() ? "_compact_" : "_") + theme.id), grid().width(), grid().height(), 0, 0,
-				grid().width(), grid().height(), layoutX(), layoutY(), 0xFFFFFFFF);
-			layoutLabels(g);
-		}
-		if (showTrack()) {
-			TableGfx.region(g, TableGfx.sheet("roulette/racetrack_" + theme.id), Racetrack.W, Racetrack.H, 0, 0, Racetrack.W, Racetrack.H, trackX(),
-				trackY(), 0xFFFFFFFF);
-			for (Racetrack.Section s : Racetrack.Section.values()) {
-				Component l = Component.translatable("gui.burmaldaholic.roulette.racetrack." + s.id());
-				int w = font.width(l);
-				g.text(font, l, trackX() + s.labelX() - w / 2, trackY() + 18, theme.line, true);
-			}
-		}
-		highlights(g, ph, rMs);
-		chips(g, ph, rMs);
-		flights(g);
-		if ("result".equals(ph) && result() >= 0) {
-			dolly(g, rMs);
-			resultBanner(g, rMs);
-		}
-	}
-
-	private void topBar(GuiGraphicsExtractor g) {
-		int bx = TableChrome.balanceWidth(font, balance());
-		int right = frame.w() - (compact() ? 2 : 4) - bx - (compact() ? 4 : 50);
-		int x = TableChrome.title(g, font, theme, frame, ox, oy, title, compact() ? Math.min(140, right - 2) : 170); // 140: «Европейская рулетка» fits, never into the balance
-		if (!compact()) {
-			List<TableChrome.Seat> seats = new ArrayList<>();
-			ListTag list = state().getListOrEmpty("seats");
-			for (int i = 0; i < list.size(); i++) {
-				CompoundTag s = list.getCompoundOrEmpty(i);
-				int idx = s.getIntOr("index", i);
-				seats.add(new TableChrome.Seat(Texts.raw(s.getStringOr("name", "")), s.getBooleanOr("you", false) ? "you" : "other", TableChrome.seatTint(idx)));
-			}
-			ListTag bots = state().getListOrEmpty("bot_names");
-			for (int i = 0; i < bots.size(); i++) {
-				seats.add(new TableChrome.Seat(decode(bots.get(i)), "bot", 0));
-			}
-			TableChrome.seats(g, font, theme, ox, oy, x + 6, seats, right);
-		}
-		TableChrome.balance(g, font, theme, frame, ox, oy, balance());
-	}
-
-	private void pills(GuiGraphicsExtractor g, int[] hist, double insertMs) {
-		int n = compact() ? 6 : 8;
-		double slide = FxSettings.reduceMotion() ? 1 : Math.max(0, Math.min(1, insertMs / 250.0));
-		for (int i = 0; i < Math.min(n, hist.length); i++) {
-			int v = hist[i];
-			String col = Wheel.color(v).id();
-			int x = compact() ? ox + 20 : ox + 22 + (i % 2) * 26;
-			int y = compact() ? oy + 30 + i * 13 : oy + 112 + (i / 2) * 13;
-			int alpha = 0xFFFFFFFF;
-			if (i == 0 && slide < 1) {
-				x -= (int) Math.round((1 - Ease.OUT_CUBIC.apply(slide)) * 16);
-				alpha = TableGfx.fade(slide);
-			}
-			TableGfx.blit(g, "roulette/pill_" + col + (i == 0 ? "_new" : ""), x, y, 22, 11, alpha);
-			g.text(font, Texts.number(v), x + 10, y + 2, TableChrome.BONE, true);
-		}
-	}
-
-	private void layoutLabels(GuiGraphicsExtractor g) {
-		LayoutGrid gr = grid();
-		int y = layoutY() + gr.evenY() + (gr.outH() - 8) / 2 + 1;
-		Component even = Component.translatable("gui.burmaldaholic.roulette.layout.even");
-		Component odd = Component.translatable("gui.burmaldaholic.roulette.layout.odd");
-		int cw = 2 * gr.cw();
-		int ex = layoutX() + gr.zw() + cw + cw / 2;
-		int oddX = layoutX() + gr.zw() + 4 * cw + cw / 2;
-		g.text(font, TableChrome.fit(font, even, cw - 2), ex - Math.min(font.width(even), cw - 2) / 2, y, theme.line, true);
-		g.text(font, TableChrome.fit(font, odd, cw - 2), oddX - Math.min(font.width(odd), cw - 2) / 2, y, theme.line, true);
-	}
-
-	private void cellSprite(GuiGraphicsExtractor g, String sprite, Layout.Rect r, int argb) {
-		TableGfx.blit(g, sprite, layoutX() + r.x(), layoutY() + r.y(), r.w() + 1, r.h() + 1, argb);
-	}
-
-	private Layout.Rect boxOf(Spot s) {
-		return s.type().inside() ? grid().cell(s.numbers().get(0)) : grid().outsideBox(s);
-	}
-
-	private void highlights(GuiGraphicsExtractor g, String ph, double rMs) {
-		LayoutGrid gr = grid();
-		if (showLayout() && hover != null) {
-			if (hover.type().inside()) {
-				for (int n : hover.numbers()) {
-					cellSprite(g, "roulette/cell_hover", gr.cell(n), 0xFFFFFFFF);
-				}
-			} else {
-				cellSprite(g, "roulette/cell_hover", gr.outsideBox(hover), 0xFFFFFFFF);
-			}
-		}
-		Set<Integer> neighbour = hoverNumber >= 0 ? Set.copyOf(Racetrack.neighbours(hoverNumber, 2))
-			: hoverSection != null ? Racetrack.covered(hoverSection) : Set.of();
-		if (showLayout()) {
-			for (int n : neighbour) {
-				cellSprite(g, "roulette/cell_neighbour", gr.cell(n), 0xFFFFFFFF);
-			}
-		}
-		if ("result".equals(ph) && result() >= 0 && rMs >= 400 && showLayout()) {
-			int r = result();
-			int k = 0;
-			boolean flashes = FxSettings.flashes();
-			List<Layout.Rect> boxes = new ArrayList<>();
-			boxes.add(gr.cell(r));
-			if (r != 0) {
-				for (BetType t : List.of(BetType.DOZEN, BetType.COLUMN, BetType.RED, BetType.BLACK, BetType.EVEN, BetType.ODD, BetType.LOW, BetType.HIGH)) {
-					for (Spot s : Spot.all(t)) {
-						if (s.covers(r)) {
-							boxes.add(gr.outsideBox(s));
-						}
-					}
-				}
-			}
-			for (Layout.Rect b : boxes) {
-				if (rMs >= 400 + 60 * k++) {
-					if (flashes && !FxSettings.reduceMotion()) {
-						cellSprite(g, "roulette/cell_win", b, 0xFFFFFFFF);
-					} else {
-						g.fill(layoutX() + b.x(), layoutY() + b.y(), layoutX() + b.x() + b.w() + 1, layoutY() + b.y() + 2, TableChrome.GOLD);
-						g.fill(layoutX() + b.x(), layoutY() + b.y() + b.h() - 1, layoutX() + b.x() + b.w() + 1, layoutY() + b.y() + b.h() + 1, TableChrome.GOLD);
-						g.fill(layoutX() + b.x(), layoutY() + b.y(), layoutX() + b.x() + 2, layoutY() + b.y() + b.h() + 1, TableChrome.GOLD);
-						g.fill(layoutX() + b.x() + b.w() - 1, layoutY() + b.y(), layoutX() + b.x() + b.w() + 1, layoutY() + b.y() + b.h() + 1, TableChrome.GOLD);
-					}
-				}
-			}
-		}
-	}
-
-	/** Base point of a spot's stack in screen coordinates (the chip centre sits 5 px below the drop point). */
-	private int[] stackPoint(Spot s) {
-		int[] c = grid().center(s);
-		return new int[] {layoutX() + c[0], layoutY() + c[1] + 5};
-	}
-
-	private void chips(GuiGraphicsExtractor g, String ph, double rMs) {
-		if (!showLayout()) {
-			return;
-		}
-		boolean result = "result".equals(ph) && result() >= 0;
-		int r = result();
-		int feltTop = oy + frame.feltY();
-		// bots' virtual chips (steel, faded: never mistaken for real chips)
-		for (Map.Entry<Spot, Long> e : spots("bot_chips").entrySet()) {
-			int[] p = stackPoint(e.getKey());
-			TableChrome.stack(g, e.getValue(), p[0] - 5, p[1], 0xFF90A4AE, 0x99FFFFFF);
-		}
-		int tint = otherTint();
-		for (Map.Entry<Spot, Long> e : spots("others").entrySet()) {
-			int[] p = stackPoint(e.getKey());
-			double a = 1;
-			int dy = 0;
-			if (result && !e.getKey().covers(r)) {
-				double k = Math.max(0, Math.min(1, (rMs - 650) / 260.0));
-				dy = -(int) Math.round((p[1] - feltTop) * Ease.IN_CUBIC.apply(k));
-				a = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
-			}
-			if (a > 0.02) {
-				TableChrome.stack(g, e.getValue(), p[0] + 5, p[1] + dy, tint, TableGfx.fade(a));
-			}
-		}
-		// the viewer's chips; during RESULT: sweep the losers, pay the winners, fly them to the balance
-		int k = 0;
 		long now = Util.getMillis();
-		for (Stack s : myStacks()) {
-			int[] p = stackPoint(s.spot());
-			if (!result) {
-				int dx = 0;
-				TableChrome.stack(g, s.amount(), p[0] + dx, p[1], 0, 0xFFFFFFFF);
-				TableChrome.stackValue(g, font, s.amount(), p[0] + dx, p[1], 0xFFFFFFFF);
-				continue;
-			}
-			boolean win = s.ret() > 0 || (s.ret() < 0 && s.spot().covers(r));
-			if (!win) {
-				double start = 650 + 30 * Math.min(12, k++);
-				double kk = Math.max(0, Math.min(1, (rMs - start) / 260.0));
-				if (FxSettings.reduceMotion()) {
-					kk = rMs >= start ? Math.min(1, (rMs - start) / 120.0) * 1.0001 : 0;
-					if (kk < 1) {
-						TableChrome.stack(g, s.amount(), p[0], p[1], 0, TableGfx.fade(1 - kk));
-					}
-					continue;
-				}
-				int dy = -(int) Math.round((p[1] - feltTop) * Ease.IN_CUBIC.apply(kk));
-				double a = kk > 0.7 ? 1 - (kk - 0.7) / 0.3 : 1;
-				if (kk < 1) {
-					TableChrome.stack(g, s.amount(), p[0], p[1] + dy, 0, TableGfx.fade(a));
-				}
-				continue;
-			}
-			long ret = Math.max(0, s.ret());
-			long payout = Math.max(0, ret - s.amount());
-			double fly = Math.max(0, Math.min(1, (rMs - 1500) / 420.0));
-			int bx = ox + frame.w() - 30;
-			int by = oy + 10;
-			int x = p[0];
-			int y = p[1];
-			if (fly > 0 && !FxSettings.reduceMotion()) {
-				double e = Ease.IN_CUBIC.apply(fly);
-				x = (int) Math.round(x + (bx - x) * e);
-				y = (int) Math.round(y + (by - y) * e);
-			}
-			double a = fly >= 1 ? 0 : FxSettings.reduceMotion() && fly > 0 ? 1 - fly : 1;
-			if (a <= 0) {
-				continue;
-			}
-			TableChrome.stack(g, s.amount(), x, y, 0, TableGfx.fade(a));
-			// payout discs pop in beside the bet: 1 per 40 ms from 1000 ms
-			if (rMs >= 1000 && payout > 0) {
-				int shown = FxSettings.reduceMotion() ? 5 : (int) Math.min(5, Math.max(0, (rMs - 1000) / 40 + 1));
-				int[] discs = new int[ChipStacks.MAX_DISCS];
-				int n = Math.min(shown, ChipStacks.discs(payout, discs));
-				for (int d = 0; d < n; d++) {
-					TableChrome.disc(g, discs[d], x + 8, y - 3 * d, TableGfx.fade(a));
-				}
-				if (fly <= 0) {
-					double pop = FxSettings.reduceMotion() ? 1 : Math.min(1, (rMs - 1000) / 250.0);
-					int ly = y - TableChrome.stackHeight(Math.max(s.amount(), payout)) - 16 - (int) Math.round(4 * (1 - Ease.OUT_BACK.apply(pop)));
-					TableChrome.label(g, font, theme, Component.empty().append(Texts.raw("+")).append(Texts.number(payout)), x + 4, ly, pop);
-				}
+		double t = spinT();
+		RouletteSpin sp = "betting".equals(ph) ? null : spin;
+		boolean settled = sp != null && sp.settled(t);
+		// hover: the spot / call under the mouse lights its numbers
+		Spot hover = betting ? l.hit(mouseX, mouseY).orElse(null) : null;
+		Racetrack.Section hoverCall = betting ? l.callAt(mouseX, mouseY).orElse(null) : null;
+		Set<Integer> lit = new HashSet<>();
+		Spot litOutside = null;
+		if (hover != null) {
+			if (hover.type().inside()) lit.addAll(hover.numbers());
+			else litOutside = hover;
+		} else if (hoverCall != null) {
+			lit.addAll(Racetrack.covered(hoverCall));
+		}
+		boolean spinView = "no_more_bets".equals(ph) || "spin".equals(ph);
+		// nothing names the result before the ball rests (the gold cell shows from the rest on)
+		int win = "result".equals(ph) && rMs >= RouletteChipFx.RETURN_END ? result() : spinView && settled ? result() : -1;
+		double dim = spinView ? 1 : "result".equals(ph) ? 1 - Math.min(1, rMs / RouletteChipFx.RETURN_END) : 0;
+		RouletteFeltView.layout(g, font, l, dim, lit, litOutside, win);
+		RouletteFeltView.calls(g, font, l, hoverCall, betting);
+		if (dim > 0) {
+			// bets are closed: the layout dims under the spin (lighter once the gold cell may show)
+			double k = dim * (win >= 0 ? 0.3 : 0.5);
+			Box d = l.layout;
+			Box last = l.calls.get(l.calls.size() - 1);
+			g.fill(d.x() - 2, d.y() - 2, d.right() + 2, Math.max(d.bottom(), last.bottom()) + 2, TableGfx.alpha(0xFF0A0614, k));
+
+			if (win >= 0) {
+				Box c = l.cell(win); // the gold cell stays bright over the dim
+				int gold = 0xFFFFD640;
+				g.fill(c.x() - 1, c.y() - 1, c.right() + 1, c.y() + 1, gold);
+				g.fill(c.x() - 1, c.bottom() - 1, c.right() + 1, c.bottom() + 1, gold);
+				g.fill(c.x() - 1, c.y() - 1, c.x() + 1, c.bottom() + 1, gold);
+				g.fill(c.right() - 1, c.y() - 1, c.right() + 1, c.bottom() + 1, gold);
 			}
 		}
-		if (result && rMs >= 650 && sweepPlayed != state().getLongOr("phase_start", 0)) {
-			sweepPlayed = state().getLongOr("phase_start", 0);
-			if (!resultSkipped) {
-				FxSounds.play("chip_sweep", 1f);
+		// the wheel column
+		int[] hist = history();
+		boolean newShown = !"result".equals(ph) || rMs >= RouletteChipFx.HISTORY_AT;
+		int[] shownHist = "result".equals(ph) && !newShown && hist.length > 0 ? java.util.Arrays.copyOfRange(hist, 1, hist.length) : hist;
+		double newPill = "result".equals(ph) ? Math.max(0, Math.min(1, (rMs - RouletteChipFx.HISTORY_AT) / 250.0)) : 1;
+		RouletteFeltView.history(g, font, l, shownHist, newPill);
+		bell(ph);
+		double focusA = focusAmount(ph, t, rMs);
+		if (focusA <= 0) wheel(g, l, ph, t, rMs, 0);
+		stacks(g, l, v, ph, rMs, win, t);
+		chipFx.drawFlights(g, l, now, Math.max(1, grid.viewport.k()));
+		if (focusA > 0) wheel(g, l, ph, t, rMs, focusA);
+		// ghost chip + hover readout
+		String hoverKey = "";
+		if (hover != null) {
+			long d = chrome.bet.selected();
+			int[] p = l.anchor(hover);
+			if (d > 0) ChipStack.drawPending(g, new Box(p[0] - l.chip / 2, p[1] - l.chip / 2, l.chip, l.chip), d);
+			long on = v.mine().getOrDefault(hover, 0L);
+			hoverKey = hover.key() + "/" + on;
+			if (!hoverKey.equals(hoverShown)) {
+				Component desc = describe(hover);
+				chrome.status.hint(on > 0 ? Component.translatable("gui.burmaldaholic.roulette.v2.hover", desc, Texts.number(on),
+					Texts.number(hover.type().payout())) : Component.translatable("gui.burmaldaholic.roulette.v2.hover_empty", desc,
+					Texts.number(hover.type().payout())));
+			}
+		} else if (hoverCall != null) {
+			long d = Math.max(0, chrome.bet.selected());
+			hoverKey = "call/" + hoverCall.id() + "/" + d;
+			if (!hoverKey.equals(hoverShown)) {
+				long all = d * Racetrack.spots(hoverCall).size();
+				chrome.status.hint(Component.translatable("gui.burmaldaholic.roulette.v2.call_hover",
+					Component.translatable("gui.burmaldaholic.roulette.racetrack." + hoverCall.id()), Texts.number(d), Texts.number(all)));
 			}
 		}
-		// ghost chip on the exact drop point; the invalid shake
-		if (hover != null && betting()) {
-			int[] p = stackPoint(hover);
-			TableChrome.disc(g, ChipStacks.denomOf(selectedChip), p[0], p[1], 0x8CFFFFFF);
-		}
-		if (invalidSpot != null && now - invalidAt < 220) {
-			int[] p = stackPoint(invalidSpot);
-			int[] shake = {3, -3, 2, 0};
-			int dx = shake[(int) Math.min(3, (now - invalidAt) / 55)];
-			TableGfx.blit(g, "core/stack/chip_invalid", p[0] - 6 + dx, p[1] - 8, 12, 11);
+		if (hoverKey.isEmpty() && !hoverShown.isEmpty()) refresh(); // back to the flow's own hint
+		hoverShown = hoverKey;
+		hoverSpot = hover;
+		sounds(ph, t);
+		if ("result".equals(ph) && result() >= 0) resultBeats(rMs);
+	}
+
+	private void bell(String ph) {
+		if ("no_more_bets".equals(ph) && bellFor != state().getLongOr("phase_start", 0)) {
+			bellFor = state().getLongOr("phase_start", 0);
+			if (phaseMs() < 500) FxSounds.play("roulette_bell", 1f);
 		}
 	}
 
-	private void flights(GuiGraphicsExtractor g) {
-		long now = Util.getMillis();
-		flights.removeIf(f -> now - f.start() > 400);
-		for (Flight f : flights) {
-			double t = (now - f.start()) / 180.0;
-			if (t >= 1) {
-				continue; // landed: the state's stack takes over
-			}
-			double e = Ease.OUT_CUBIC.apply(t);
-			double mx = (f.x0() + f.x1()) / 2.0;
-			double my = (f.y0() + f.y1()) / 2.0 - 18;
-			double x = (1 - e) * (1 - e) * f.x0() + 2 * (1 - e) * e * mx + e * e * f.x1();
-			double y = (1 - e) * (1 - e) * f.y0() + 2 * (1 - e) * e * my + e * e * f.y1();
-			TableChrome.disc(g, ChipStacks.denomOf(f.denom()), (int) Math.round(x), (int) Math.round(y), 0xFFFFFFFF);
-		}
-	}
-
-	private void dolly(GuiGraphicsExtractor g, double rMs) {
-		if (!showLayout() || rMs < 400) {
-			return;
-		}
-		int r = result();
-		Layout.Rect c = grid().cell(r);
-		int cx = layoutX() + (r == 0 ? c.x() + 6 : c.cx());
-		int cy = layoutY() + c.cy();
-		double k = FxSettings.reduceMotion() ? 1 : Math.min(1, (rMs - 400) / 250.0);
-		int drop = (int) Math.round(24 * (1 - Ease.OUT_BOUNCE.apply(k)));
-		long ps = state().getLongOr("phase_start", 0);
-		if (dollyPlayed != ps) {
-			dollyPlayed = ps;
-			if (!resultSkipped) {
-				FxSounds.play("roulette_dolly", 1f);
-			}
-		}
-		TableGfx.blit(g, "roulette/dolly_shadow", cx - 9, cy + 3, 12, 4, TableGfx.fade(0.3 + 0.7 * k));
-		if (FxSettings.reduceMotion() || !FxSettings.flashes()) {
-			TableGfx.frame(g, "roulette/dolly", 12, 14, 4, 0, cx - 10, cy - 12 - drop, 0xFFFFFFFF);
-		} else {
-			TableGfx.blit(g, "roulette/dolly", cx - 10, cy - 12 - drop, 12, 14);
-		}
-	}
-
-	private void resultBanner(GuiGraphicsExtractor g, double rMs) {
-		if (rMs < 1000) {
-			return;
-		}
-		int r = result();
-		double k = FxSettings.reduceMotion() ? 1 : Math.min(1, (rMs - 1000) / 250.0);
-		long staked = state().getLongOr("out_staked", 0);
-		long ret = state().getLongOr("out_return", 0);
-		WinTier tier = WinTier.valueOf(state().getStringOr("tier", staked <= 0 ? "LOSS" : ret > staked ? "WIN" : ret > 0 ? "RETURN" : "LOSS"));
-		Component line1 = Component.translatable("gui.burmaldaholic.roulette.result", RouletteTableBlockEntity.pocket(r),
-			Component.translatable("gui.burmaldaholic.roulette.color." + Wheel.color(r).id()));
-		Component line2 = null;
-		int c2 = TableChrome.GOLD;
-		String sprite = "banner_" + theme.id;
-		if (staked > 0) {
-			if (ret > staked) {
-				boolean straight = false;
-				for (Stack s : myStacks()) {
-					straight |= s.spot().type() == BetType.STRAIGHT && s.ret() > 0;
-				}
-				line2 = straight ? Component.translatable("gui.burmaldaholic.roulette.fx.straight_up_win", Texts.number(ret - staked))
-					: Component.translatable("gui.burmaldaholic.common.result.win", Texts.number(ret - staked));
-				sprite = "banner_win";
-				c2 = tierColor(tier);
-			} else if (ret > 0) {
-				line2 = Component.translatable("gui.burmaldaholic.fx.returned", Texts.number(ret));
-				c2 = TableChrome.MUTED;
-			} else {
-				line2 = Component.translatable("gui.burmaldaholic.common.result.loss", Texts.number(staked));
-				sprite = "banner_lose";
-				c2 = 0xFFE08080;
-			}
-		}
-		int w = compact() ? 150 : 150;
-		int h = 26;
-		int x = compact() ? ox + 67 : ox + 184;
-		int y = compact() ? oy + 104 : oy + 148;
-		int dy = (int) Math.round(10 * (1 - Ease.OUT_BACK.apply(k)));
-		TableChrome.banner(g, font, sprite, x, y + dy, w, h, line1, TableChrome.BONE, line2, c2, k);
-		// the shared celebration once the payout reached the balance (NICE and up)
-		long ps = state().getLongOr("phase_start", 0);
-		if (rMs >= 1500 && resultFor != ps && staked > 0) {
-			resultFor = ps;
-			if (tier.ordinal() >= WinTier.NICE.ordinal() && FxSettings.celebrations() != FxSettings.Celebrations.OFF) {
-				CelebrationOverlay.get().play(CelebrationRequest.core(tier, ret, staked, state().getIntOr("seed", 0)));
-			} else if (ret > staked) {
-				FxSounds.play("win_small", 1f);
-			} else if (ret > 0) {
-				FxSounds.play("push", 1f);
-			} else {
-				FxSounds.play("lose", 1f);
-			}
-		}
-	}
-
-	private static int tierColor(WinTier t) {
-		return switch (t) {
-			case NICE -> 0xFF80FF40;
-			case BIG, MEGA, EPIC, JACKPOT -> 0xFFFFD640;
-			default -> 0xFFFFF1A0;
+	/** Focus amount 0 (column) … 1 (focus wheel): grows at the launch, shrinks back in the first 400 ms of RESULT. */
+	private double focusAmount(String ph, double t, double rMs) {
+		RouletteFocus f = focus;
+		if (f == null || !f.enabled() || FxSettings.reduceMotion() || spin == null) return 0;
+		if (!RouletteFx.motion("focus", false, recorder)) return 0;
+		return switch (ph) {
+			case "no_more_bets", "spin" -> RouletteFocus.inAmount(t);
+			case "result" -> RouletteFocus.outAmount(rMs);
+			default -> 0;
 		};
 	}
 
-	private List<Component> tooltip(Spot spot) {
-		List<Component> lines = new ArrayList<>();
-		Component desc = describe(spot);
-		Component payout = Component.translatable("gui.burmaldaholic.roulette.bet." + spot.type().id());
-		lines.add(desc);
-		if (!desc.getString().equals(payout.getString())) {
-			lines.add(payout.copy().withColor(TableChrome.MUTED));
-		}
-		for (Stack s : myStacks()) {
-			if (s.spot().equals(spot)) {
-				lines.add(Component.translatable("gui.burmaldaholic.common.bet_amount", Texts.chips(s.amount())).withColor(TableChrome.GOLD));
+	/**
+	 * The wheel: the column wheel (idle: the rotor model turns and the last ball rides its pocket; spinning: the shared
+	 * spin) or, while focused, the grown column wheel cross-fading into the native focus sprite, plus the loupe.
+	 */
+	private void wheel(GuiGraphicsExtractor g, RouletteLayout l, String ph, double t, double rMs, double focusA) {
+		RouletteFocus f = focus;
+		int k = Math.max(1, l.grid.viewport.k());
+		boolean reduce = FxSettings.reduceMotion();
+		RouletteSpin sp = "betting".equals(ph) ? null : spin;
+		RouletteWheelView.Wheel w = colWheel;
+		w.k = k;
+		w.t = t;
+		w.frameDt = frameDt;
+		w.streakSpin = null;
+		w.effects = null;
+		w.glow = -1;
+		w.badge = -1;
+		w.alpha = 1;
+		if (sp == null) {
+			// idle (BETTING / before the first spin): the rotor coasts on the last launch's model; the last ball rides
+			int last = idleLast();
+			w.rotor = reduce ? (last >= 0 ? -RouletteSpin.pocketAngle(last) : 0) : rotorModel.angle(Math.max(0, t));
+			w.ball = last >= 0;
+			w.ballAlpha = 1;
+			w.ballRel = last >= 0 ? RouletteSpin.pocketAngle(last) : 0;
+			w.ballR = RouletteSpin.R_POCKET;
+			w.ballZ = 0;
+			w.ballFrame = RouletteSpin.FRAME_POCKET;
+			double bettingMs = phaseMs();
+			if (last >= 0 && "betting".equals(ph) && bettingMs < 1500 && !reduce) {
+				w.glow = last;
+				w.glowAlpha = 1 - bettingMs / 1500;
+				w.glowMs = 2000;
+			}
+		} else {
+			sp.sample(t, sample);
+			RouletteFx.plan(sp, sample, t, spinLast, reduce, FxSettings.flashes(), recorder, fx);
+			w.rotor = fx.rotor;
+			w.ball = fx.ball;
+			w.ballAlpha = fx.ballAlpha;
+			w.ballRel = fx.ballAbs - fx.rotor;
+			w.ballR = reduce ? RouletteSpin.R_POCKET : sample.r;
+			w.ballZ = reduce ? 0 : sample.z;
+			w.ballFrame = reduce ? RouletteSpin.FRAME_POCKET : sample.frame;
+			w.streakSpin = fx.streak ? sp : null;
+			w.effects = reduce ? null : sp;
+			w.sparks = RouletteFx.spark("sparks", reduce, FxSettings.flashes(), recorder);
+			w.flash = RouletteFx.diamondFlash(reduce, FxSettings.flashes(), recorder);
+			if (sp.settled(t)) {
+				w.glow = sp.result;
+				w.glowAlpha = 1;
+				w.glowMs = t - sp.restMs();
+				w.badge = sp.result;
+				w.badgeMs = reduce ? 1000 : t - sp.restMs() - 150;
 			}
 		}
-		return lines;
+		if (focusA <= 0 || f == null) {
+			w.art = l.wheelD;
+			w.scale = 1;
+			w.cx = l.wheel.x() + l.wheelD / 2.0;
+			w.cy = l.wheel.y() + l.wheelD / 2.0;
+			probeWheel(w);
+			lastHeadFrame = RouletteWheelView.headFrame(w.rotor, RouletteWheelView.HEAD_FRAMES);
+			RouletteWheelView.draw(g, font, theme, w);
+			return;
+		}
+		// focused: the column sprite grows and slides; the native focus sprite fades in over it (same rotor angle)
+		boolean resultPh = "result".equals(ph);
+		double swap = resultPh ? (focusA >= 0.5 ? 1 : 0) : RouletteFocus.swapAlpha(t);
+		double cx = f.x(focusA);
+		double cy = f.y(focusA);
+		double d = f.diameter(focusA);
+		if (swap < 1) {
+			w.art = f.colArt();
+			w.scale = d / f.colArt();
+			w.cx = cx;
+			w.cy = cy;
+			RouletteWheelView.draw(g, font, theme, w);
+		}
+		if (swap > 0) {
+			RouletteWheelView.Wheel fw = focusWheel;
+			copy(w, fw);
+			fw.art = f.art();
+			fw.scale = resultPh ? d / f.art() : f.mult();
+			fw.cx = cx;
+			fw.cy = cy;
+			fw.alpha = swap;
+			RouletteWheelView.draw(g, font, theme, fw);
+			if (sp != null && sp.settled(t) && fx.loupe) loupe(g, fw, sp, t, resultPh ? 1 - Math.min(1, rMs / RouletteChipFx.RETURN_END) : 1);
+		}
+		lastHeadFrame = RouletteWheelView.headFrame(w.rotor, RouletteWheelView.HEAD_FRAMES);
+	}
+
+	private static void copy(RouletteWheelView.Wheel a, RouletteWheelView.Wheel b) {
+		b.k = a.k;
+		b.t = a.t;
+		b.frameDt = a.frameDt;
+		b.rotor = a.rotor;
+		b.ball = a.ball;
+		b.ballAlpha = a.ballAlpha;
+		b.ballRel = a.ballRel;
+		b.ballR = a.ballR;
+		b.ballZ = a.ballZ;
+		b.ballFrame = a.ballFrame;
+		b.streakSpin = a.streakSpin;
+		b.effects = a.effects;
+		b.sparks = a.sparks;
+		b.flash = a.flash;
+		b.glow = a.glow;
+		b.glowAlpha = a.glowAlpha;
+		b.glowMs = a.glowMs;
+		b.badge = a.badge;
+		b.badgeMs = a.badgeMs;
+	}
+
+	/**
+	 * The loupe (§3.3): a brass magnifier on the felt side of the focus wheel showing the result pocket upright (the 208
+	 * head turned so the pocket is on top), its number and neighbours above it and the ball in it, at the focus wheel's
+	 * integer scale (1.44× / 2× of the 144 / 104 focus wheels).
+	 * Pops with {@code outBack} at rest, shrinks into the badge in the first 400 ms of RESULT ({@code size} 1 → 0).
+	 */
+	private void loupe(GuiGraphicsExtractor g, RouletteWheelView.Wheel w, RouletteSpin sp, double t, double size) {
+		double age = t - sp.restMs();
+		double pop = Ease.OUT_BACK.apply(Math.max(0, Math.min(1, age / 200.0))) * size;
+		if (pop <= 0.05) return;
+		int k = w.k;
+		double ls = Math.max(1, Math.round(w.scale)); // the ring at the focus wheel's integer scale
+		double rad = w.art / 2.0 * w.scale;
+		// beside the wheel, toward the layout, in its upper half; shrinks toward the badge
+		double lx = w.cx + (rad + 4 + 20 * ls) * pop;
+		double ly = w.cy - rad * 0.45 * pop;
+		lx = PixelSnap.snap(lx, k);
+		ly = PixelSnap.snap(ly, k);
+		// the pocket upright under the glass, its number above it (native scale: 1.44× / 2× on the 144 / 104 focus wheel)
+		double mag = ls;
+		int n = sp.result;
+		double rc = (RouletteSpin.R_POCKET * RouletteWheelView.RW_BIG + RouletteWheelView.DIGIT_R) / 2;
+		double half = 14 * ls * pop;
+		g.enableScissor((int) Math.ceil(lx - half), (int) Math.ceil(ly - half), (int) Math.floor(lx + half), (int) Math.floor(ly + half));
+		g.fill((int) (lx - half), (int) (ly - half), (int) (lx + half) + 1, (int) (ly + half) + 1, 0xFF0C0A10);
+		double s = mag * pop;
+		g.pose().pushMatrix();
+		g.pose().translate((float) lx, (float) (ly + rc * s));
+		g.pose().scale((float) s, (float) s);
+		g.pose().rotate((float) Math.toRadians(-RouletteSpin.pocketAngle(n)));
+		TableGfx.region(g, RouletteWheelView.HEAD_208, 152, 152, 0, 0, 152, 152, -76, -76, 0xFFFFFFFF);
+		g.pose().popMatrix();
+		int idx = dev.nezo.burmaldaholic.games.roulette.logic.Wheel.wheelIndex(n);
+		for (int j = -2; j <= 2; j++) {
+			int m = dev.nezo.burmaldaholic.games.roulette.logic.Wheel.ORDER.get(Math.floorMod(idx + j, 37));
+			double a = Math.toRadians(j * RouletteSpin.STEP);
+			double dx = s * RouletteWheelView.DIGIT_R * Math.sin(a);
+			double dy = s * (rc - RouletteWheelView.DIGIT_R * Math.cos(a));
+			RouletteWheelView.digit(g, m, lx + dx, ly + dy, s, 0xFFFFFFFF, k);
+		}
+		double by = ly + (rc - RouletteSpin.R_POCKET * RouletteWheelView.RW_BIG) * s;
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.frameF(g, "roulette/ball", 7, 7, 3, RouletteSpin.FRAME_POCKET, lx - 3.5 * s, by - 3.5 * s, 0xFFFFFFFF, s,
+			k);
+		g.disableScissor();
+		dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.blitF(g, TableGfx.sprite("roulette/loupe"), lx - 20 * ls * pop, ly - 20 * ls * pop, 40, 40,
+			0xFFFFFFFF, ls * pop, k);
+	}
+
+	// ---- sounds (shared events, fired once at any frame rate; the hitch rule keeps late ones silent) -----------------
+
+	private void sounds(String ph, double t) {
+		RouletteSpin sp = "betting".equals(ph) ? null : spin;
+		if (sp != null) {
+			cursor.advance(t, soundListener);
+			cursorAt = t;
+		}
+		// the rolling ball: one tickable loop from the launch to the drop, pitch / volume from the ball's speed
+		boolean want = sp != null && t >= RouletteSpin.LAUNCH_MS && t < (sp.solved() ? sp.dropMs() + 120 : Double.MAX_VALUE) && ("spin".equals(ph) || "no_more_bets".equals(ph));
+		if (want) {
+			sp.sample(t, sample);
+			double v = sample.omega / RouletteSpin.OMEGA_LAUNCH;
+			double fadeOut = sp.solved() && t > sp.dropMs() ? Math.max(0, 1 - (t - sp.dropMs()) / 120) : 1;
+			double fadeIn = Math.min(1, (t - RouletteSpin.LAUNCH_MS) / 80);
+			rollOmega = 1.4 + 0.6 * v;
+			rollVolume = (0.05 + 0.13 * v) * fadeOut * fadeIn * (FxSettings.reduceMotion() ? 0.5 : 1);
+		}
+		rollWanted = want;
+		if (want && !roll.active()) {
+			roll = FxSounds.loop("roulette_roll", () -> rollOmega, () -> rollVolume, () -> rollWanted, FxSounds.LoopPriority.SCREEN);
+		} else if (!want && roll.active()) {
+			roll.release();
+		}
+	}
+
+	/** Voices a spin event (silent = late or skipped: nothing to hear; the visuals are pure in time). */
+	private void onSpinEvent(MotionEvent e, boolean silent) {
+		if (silent) return;
+		boolean reduce = FxSettings.reduceMotion();
+		float st = e.strength();
+		switch (e.kind()) {
+			case RouletteSpin.EV_PUSH -> {
+				if (!reduce) FxSounds.play("roulette_rotor_push", 1f, 1f);
+			}
+			case RouletteSpin.EV_LAUNCH -> FxSounds.play("roulette_spin", 1f, 1f);
+			case RouletteSpin.EV_ROLL -> {
+				if (!reduce) FxSounds.play("roulette_ball_roll", 0.5f + 0.5f * st, 1.75f + 0.25f * st);
+			}
+			case RouletteSpin.EV_DEFLECTOR -> {
+				if (!reduce) FxSounds.play("roulette_deflector", 1f, 1f);
+			}
+			case RouletteSpin.EV_CONTACT -> FxSounds.play("roulette_ball_drop", 1f, 1f);
+			case RouletteSpin.EV_FRET, RouletteSpin.EV_KICKBACK -> {
+				if (!reduce) {
+					RouletteSpin sp = spin;
+					int hops = sp != null && sp.rattle() != null ? sp.rattle().hops() : 6;
+					float pitch = 1.9f - 0.6f * e.aux() / Math.max(1, hops - 1);
+					FxSounds.play("roulette_ball_bounce", 0.25f + 0.75f * st, pitch);
+				}
+			}
+			case RouletteSpin.EV_FLOOR -> {
+				if (!reduce) FxSounds.play("roulette_floor", 0.3f + 0.7f * st, 1f);
+			}
+			case RouletteSpin.EV_SETTLE_CLICK -> {
+				if (!reduce) FxSounds.play("roulette_ball_settle", 0.4f * st + 0.2f, 1.25f);
+			}
+			case RouletteSpin.EV_REST -> FxSounds.play("roulette_ball_settle", 1f, 1f);
+			default -> { }
+		}
+	}
+
+	@Override
+	public void removed() {
+		roll.release();
+		RouletteTextures.releaseScreenSheets();
+		super.removed();
+	}
+
+	/** Head frame index the column wheel drew last (client GameTests: the rotor never snaps). */
+	public int lastHeadFrame() {
+		return lastHeadFrame;
+	}
+
+	/** The current spin (client GameTests); null while betting. */
+	public @Nullable RouletteSpin spin() {
+		return spin;
+	}
+
+	/** Everybody's chips: bots (steel, faded), other players (their seat colour), the viewer's (with value tags). */
+	private void stacks(GuiGraphicsExtractor g, RouletteLayout l, RouletteView v, String ph, double rMs, int win, double t) {
+		boolean result = "result".equals(ph) && result() >= 0;
+		boolean reduce = FxSettings.reduceMotion();
+		int r = result();
+		long now = Util.getMillis();
+		if (result) chipFx.beginResult(state().getLongOr("phase_start", 0), rMs);
+		if (result && !reduce && chipFx.cross(RouletteChipFx.RAKE_START)) {
+			FxSounds.play("chip_sweep", 0.8f, 1f);
+			FxSounds.play("roulette_rake", 1f, 1f);
+		}
+		for (Map.Entry<Spot, Long> e : spots("bot_chips").entrySet()) {
+			RouletteFeltView.stackAt(g, l, e.getKey(), e.getValue(), 0xFF90A4AE, 0.6, 0, chipFx.dropOffset(e.getKey(), now));
+		}
+		// the rake (RESULT 650–1070): a bar sweeps up from the layout's bottom to the house edge; losers ride it and fade
+		double rakeTop = l.layout.y() - 4;
+		double rakeBottom = l.layout.bottom() + 2;
+		double bar = result ? RouletteChipFx.rakeY(rMs, rakeBottom, rakeTop, reduce) : Double.NaN;
+		for (Map.Entry<Spot, Long> e : spots("others").entrySet()) {
+			Spot s = e.getKey();
+			if (result && !s.covers(r)) {
+				Box b = l.stack(s, 1);
+				double[] ride = RouletteChipFx.rake(rMs, bar, b.bottom(), rakeTop, reduce);
+				RouletteFeltView.stackAt(g, l, s, e.getValue(), 0xFFFFB74D, ride[1], 0, ride[0]);
+			} else {
+				RouletteFeltView.stackAt(g, l, s, e.getValue(), 0xFFFFB74D, 1, 0, result ? 0 : chipFx.dropOffset(s, now));
+			}
+		}
+		if (result && !Double.isNaN(bar) && rMs < RouletteChipFx.RAKE_END + RouletteChipFx.RAKE_FADE && !reduce) {
+			// the bar passes UNDER the winning stacks and the dolly (drawn before them)
+			int x0 = l.layout.x() - 2;
+			int w = l.layout.w() + 4;
+			double a = rMs > RouletteChipFx.RAKE_END ? 1 - (rMs - RouletteChipFx.RAKE_END) / RouletteChipFx.RAKE_FADE : 1;
+			dev.nezo.burmaldaholic.client.fx.motion.SnapDraw.blitF(g, TableGfx.sprite("roulette/rake"), x0, bar - 3, w, 6, TableGfx.fade(a),
+				Math.max(1, l.grid.viewport.k()));
+		}
+		ListTag list = state().getListOrEmpty("bets");
+		long[] rets = state().getLongArray("bet_returns").orElse(null);
+		List<Box> placedTags = new ArrayList<>();
+		var pending = chrome.pending();
+		// value pills on every own stack while betting (hover / just placed only when crowded)
+		boolean pillsAll = !result && list.size() <= PILLS_ALWAYS_MAX;
+		int pills = 0;
+		boolean spinning = "spin".equals(ph) || "no_more_bets".equals(ph);
+		int k = Math.max(1, l.grid.viewport.k());
+		Box balance = chrome.top.balance.box();
+		double[] fly = new double[3];
+		for (int i = 0; i < list.size(); i++) {
+			CompoundTag b = list.getCompoundOrEmpty(i);
+			Optional<Spot> sp = Spot.parseKey(b.getStringOr("spot", ""));
+			if (sp.isEmpty()) continue;
+			Spot s = sp.get();
+			long amount = b.getLongOr("amount", 0);
+			long ret = rets != null && i < rets.length ? rets[i] : -1;
+			int n = Math.min(RouletteLayout.MAX_DISCS, ChipStack.discs(amount).size());
+			Box box = l.stack(s, n);
+			Box disc = new Box(box.x(), box.y(), l.chip, box.h());
+			if (!result) {
+				if (chipFx.flying(s, now)) continue; // its placement flight lands it (then this stack replaces it in place)
+				// your chips shimmer during the spin (1 Hz, 1 px)
+				double dy = spinning && !reduce && RouletteFx.motion("shimmer", false, recorder) && Math.sin(t / 1000.0 * 2 * Math.PI) > 0.7 ? -1 : 0;
+				dy += chipFx.growOffset(s, now);
+				drawStack(g, disc, amount, 1, 0, dy, k);
+				boolean showTag = pillsAll || s.equals(lastPlaced) && Util.getMillis() - lastPlacedAt < 1500 || isHover(l, s);
+				if (showTag && tag(g, l, s, n, Texts.number(amount), ValuePill.Style.YOU, placedTags)) pills++;
+				continue;
+			}
+			boolean wins = ret > 0 || (ret < 0 && s.covers(r));
+			if (!wins) {
+				double[] ride = RouletteChipFx.rake(rMs, bar, disc.bottom(), rakeTop, reduce);
+				if (ride[1] > 0.02) drawStack(g, disc, amount, ride[1], 0, ride[0], k);
+				continue;
+			}
+			// winners: payout discs slide in beside the stack, then stack + payout fly to the balance
+			RouletteChipFx.flyToBalance(rMs, disc, balance, reduce, fly);
+			if (fly[2] <= 0.02) continue;
+			drawStack(g, disc, amount, fly[2], fly[0], fly[1], k);
+			long profit = ret > amount ? ret - amount : 0;
+			if (profit > 0) {
+				chipFx.payout(g, l, disc, profit, i, rMs, rakeTop, fly, reduce, k);
+				if (rMs >= RouletteChipFx.PILL_AT && rMs < RouletteChipFx.FLY_START + 60) {
+					tag(g, l, s, n, Texts.raw("+").append(Texts.number(profit)), ValuePill.Style.WIN, placedTags);
+				}
+			}
+		}
+		valuePills = pills;
+		if (pending != null && !pending.spot().isEmpty()) {
+			Spot.parseKey(pending.spot()).ifPresent(s -> {
+				if (!chipFx.flying(s, now)) ChipStack.drawPending(g, l.stack(s, 1), pending.amount());
+			});
+		}
+		// the dolly on the winning number (RESULT 400–650 drop, stays until betting)
+		if (result) chipFx.dolly(g, l, r, rMs, reduce, k);
+		else if ("betting".equals(ph) && phaseMs() < 300 && idleLast() >= 0) chipFx.dollyFade(g, l, idleLast(), phaseMs(), k);
+	}
+
+	/** An own stack (kit discs) at a float offset, snapped to the physical grid. */
+	private static void drawStack(GuiGraphicsExtractor g, Box disc, long amount, double alpha, double dx, double dy, int k) {
+		if (alpha <= 0.02) return;
+		boolean moved = dx != 0 || dy != 0;
+		if (moved) {
+			g.pose().pushMatrix();
+			g.pose().translate(PixelSnap.snapF(dx, k), PixelSnap.snapF(dy, k));
+		}
+		if (alpha >= 0.999) ChipStack.draw(g, disc, amount);
+		else ChipStack.draw(g, disc, amount, (float) alpha);
+		if (moved) g.pose().popMatrix();
+	}
+
+	private @Nullable Spot hoverSpot;
+
+	private boolean isHover(RouletteLayout l, Spot s) {
+		return s.equals(hoverSpot);
+	}
+
+	private boolean tag(GuiGraphicsExtractor g, RouletteLayout l, Spot s, int discs, Component text, ValuePill.Style style, List<Box> placed) {
+		int w = ValuePill.width(font, text);
+		Optional<Box> b = l.tag(s, discs, w, 11, placed);
+		if (b.isEmpty()) return false;
+		placed.add(b.get());
+		ValuePill.draw(g, font, b.get(), text, style);
+		return true;
+	}
+
+	/**
+	 * The result beats: the banner + TopBar delta + the celebration (NICE and up) once the payout landed; a viewer with
+	 * no bet on this spin sees the number ("17 RED") in the banner instead (R-CDE M4).
+	 */
+	private void resultBeats(double rMs) {
+		long ps = state().getLongOr("phase_start", 0);
+		long staked = state().getLongOr("out_staked", 0);
+		long ret = state().getLongOr("out_return", 0);
+		if (resultFor == ps) return;
+		if (staked <= 0) {
+			if (rMs < RouletteChipFx.RETURN_END) return;
+			resultFor = ps;
+			chrome.banner.show(numberWord(result()), 0, ResultBanner.SHOW_MS);
+			return;
+		}
+		if (rMs < (FxSettings.reduceMotion() ? RouletteChipFx.PAY_START : RouletteChipFx.BANNER_AT)) return;
+		resultFor = ps;
+		long net = ret - staked;
+		chrome.banner.show(net);
+		chrome.top.balance.delta(net);
+		WinTier tier = WinTier.valueOf(state().getStringOr("tier", net > 0 ? "WIN" : ret > 0 ? "RETURN" : "LOSS"));
+		if (tier.ordinal() >= WinTier.NICE.ordinal() && FxSettings.celebrations() != FxSettings.Celebrations.OFF) {
+			CelebrationOverlay.get().play(CelebrationRequest.core(tier, ret, staked, state().getIntOr("seed", 0)));
+		} else if (net > 0) {
+			FxSounds.play("win_small", 1f);
+		} else if (ret > 0) {
+			FxSounds.play("push", 1f);
+		} else {
+			FxSounds.play("lose", 1f);
+		}
+	}
+
+	/** "17 RED", "0 ZERO": the banner word of a spin for a viewer without a bet. */
+	public static Component numberWord(int n) {
+		// T-C2 V7: the number and its colour word in the pocket's colour (red / white for black / green), never slate
+		net.minecraft.ChatFormatting c = switch (Wheel.color(n)) {
+			case RED -> net.minecraft.ChatFormatting.RED;
+			case BLACK -> net.minecraft.ChatFormatting.WHITE;
+			case GREEN -> net.minecraft.ChatFormatting.GREEN;
+		};
+		return Component.translatable("gui.burmaldaholic.roulette.v2.result", Texts.number(n).withStyle(c),
+			Component.translatable("gui.burmaldaholic.roulette.v2.board.color." + Wheel.color(n).id()).withStyle(c));
 	}
 
 	/** "Split 17-20", "2nd dozen (13–24)", "Red (1:1)". */
 	static Component describe(Spot s) {
 		return switch (s.type()) {
-			case STRAIGHT, SPLIT, STREET, TRIO, CORNER, SIX_LINE ->
-				Component.translatable("gui.burmaldaholic.roulette.desc." + s.type().id(), Texts.raw(s.label()));
+			case FIRST_FOUR -> Component.translatable("gui.burmaldaholic.roulette.bet.first_four");
+			case STRAIGHT, SPLIT, STREET, TRIO, CORNER, SIX_LINE ->Component.translatable("gui.burmaldaholic.roulette.desc." + s.type().id(), Texts.raw(s.label()));
 			case DOZEN, COLUMN -> Component.translatable("gui.burmaldaholic.roulette.desc." + s.type().id() + "." + s.outsideIndex());
-			default -> Component.translatable("gui.burmaldaholic.roulette.bet." + s.type().id());
+			case RED -> Component.translatable("gui.burmaldaholic.roulette.color.red");
+			case BLACK -> Component.translatable("gui.burmaldaholic.roulette.color.black");
+			case ODD -> Component.translatable("gui.burmaldaholic.roulette.short.odd");
+			case EVEN -> Component.translatable("gui.burmaldaholic.roulette.short.even");
+			case LOW -> Texts.raw("1–18");
+			case HIGH -> Texts.raw("19–36");
 		};
-	}
-
-	// ---- rendering: over the widgets (the dim, the wheel, the banner, the status) ------------------------------------
-
-	private void overlays(GuiGraphicsExtractor g) {
-		String ph = phase();
-		double pm = phaseMs();
-		boolean spinView = "no_more_bets".equals(ph) || "spin".equals(ph) || ("result".equals(ph) && resultMs() < 400);
-		if (spinView) {
-			g.nextStratum();
-			double dim;
-			double wipe;
-			if ("no_more_bets".equals(ph)) {
-				wipe = FxSettings.reduceMotion() ? 1 : Math.min(1, pm / 400.0);
-				dim = 1;
-				if (bellFor != state().getLongOr("phase_start", 0)) {
-					bellFor = state().getLongOr("phase_start", 0);
-					if (pm < 500) {
-						FxSounds.play("roulette_bell", 1f);
-					}
-				}
-			} else if ("spin".equals(ph)) {
-				wipe = 1;
-				dim = 1;
-			} else {
-				wipe = 1;
-				dim = 1 - Ease.IN_OUT_CUBIC.apply(resultMs() / 400.0);
-			}
-			int fx = ox + frame.feltX();
-			int fw = (int) Math.round(frame.feltW() * wipe);
-			g.fill(fx, oy + frame.feltY(), fx + fw, oy + frame.feltY() + frame.feltH(), TableGfx.alpha(0x78080410, dim));
-			if (fw < frame.feltW() && fw > 0) {
-				for (int i = 0; i < 12 && fw + i < frame.feltW(); i++) {
-					g.fill(fx + fw + i, oy + frame.feltY(), fx + fw + i + 1, oy + frame.feltY() + frame.feltH(), TableGfx.alpha(0x78080410, dim * (1 - i / 12.0)));
-				}
-			}
-			g.fill(ox, oy + frame.barY() - 1, ox + frame.w(), oy + frame.h(), TableGfx.alpha(0x5A080410, dim));
-			// the wheel rises (600–1000 ms of NO_MORE_BETS) and sinks (0–400 ms of RESULT)
-			double rise;
-			if ("no_more_bets".equals(ph)) {
-				rise = FxSettings.reduceMotion() ? (pm >= 600 ? 1 : 0) : Ease.IN_OUT_CUBIC.apply((pm - 600) / 400.0);
-			} else if ("spin".equals(ph)) {
-				rise = 1;
-			} else {
-				rise = 1 - Ease.IN_OUT_CUBIC.apply(resultMs() / 400.0);
-			}
-			RouletteBallPath p = path;
-			if (p != null && rise > 0.01 && result() >= 0) {
-				double t = "no_more_bets".equals(ph) ? 0 : "spin".equals(ph) ? spinMs() : p.spinMs + 1;
-				if ("spin".equals(ph) && t >= 0.85 * p.spinMs && pathSeqJoinedLate()) {
-					t = Math.max(t, p.spinMs);
-				}
-				if ("spin".equals(ph)) {
-					cues(p, t);
-				}
-				if (compact()) {
-					RouletteWheelView.compact(g, font, theme, p, t, wheelCx(), wheelCy(), rise, lastBefore());
-				} else {
-					RouletteWheelView.big(g, font, theme, p, t, wheelCx(), wheelCy(), rise, (int) Math.round(8 * (1 - rise)), lastBefore());
-				}
-			} else if (rise > 0.01 && !compact()) {
-				// NO_MORE_BETS: the number is not drawn yet — the wheel rises at rest, the ball in the last pocket
-				RouletteWheelView.big(g, font, theme, null, 0, wheelCx(), wheelCy(), rise, (int) Math.round(8 * (1 - rise)), lastBefore());
-			}
-			// "No more bets" banner slides down from the top of the panel
-			double bk = "no_more_bets".equals(ph) ? (FxSettings.reduceMotion() ? 1 : Math.min(1, pm / 250.0)) : "spin".equals(ph) ? 1 : 1 - resultMs() / 400.0;
-			if (bk > 0.02) {
-				Component nmb = Component.translatable("gui.burmaldaholic.roulette.no_more_bets");
-				int bw = Math.max(100, font.width(nmb) + 24);
-				int by = oy + (compact() ? 14 : 24) - (int) Math.round(20 * (1 - Ease.OUT_BACK.apply(bk)));
-				TableChrome.banner(g, font, "banner_" + theme.id, wheelCx() - bw / 2, by, bw, 20, nmb, TableChrome.GOLD, null, 0, Math.min(1, bk));
-			}
-		}
-		status(g, ph);
-		if (rulesOn) {
-			rules(g);
-		}
-	}
-
-	/** The number the wheel rested on before this spin (the history's head until RESULT adds the new one). */
-	private int lastBefore() {
-		int[] h = history();
-		if ("result".equals(phase())) {
-			return h.length > 1 ? h[1] : -1;
-		}
-		return h.length > 0 ? h[0] : -1;
-	}
-
-	private boolean joinedLate;
-	private int lateFor = -2;
-
-	/** A viewer who opened the screen after 85 % of the spin sees the settled wheel (§0.1). */
-	private boolean pathSeqJoinedLate() {
-		if (lateFor != pathSeq) {
-			lateFor = pathSeq;
-			joinedLate = path != null && spinMs() >= 0.85 * path.spinMs;
-		}
-		return joinedLate;
-	}
-
-	/** Plays the spin's sound cues crossed since the last frame (own screen: personal playback). */
-	private void cues(RouletteBallPath p, double t) {
-		List<RouletteBallPath.Cue> cues = p.cues();
-		if (cueIndex == 0 && t > 400) {
-			// opened mid-spin: skip the cues already past
-			while (cueIndex < cues.size() && cues.get(cueIndex).atMs() < t - 100) {
-				cueIndex++;
-			}
-		}
-		while (cueIndex < cues.size() && cues.get(cueIndex).atMs() <= t) {
-			RouletteBallPath.Cue c = cues.get(cueIndex++);
-			FxSounds.play(c.sound(), 1f, c.pitch());
-		}
-	}
-
-	private void status(GuiGraphicsExtractor g, String ph) {
-		Component line1;
-		Component line2 = null;
-		int c1 = TableChrome.GOLD;
-		switch (ph) {
-			case "no_more_bets" -> line1 = Component.translatable("gui.burmaldaholic.roulette.no_more_bets");
-			case "spin" -> {
-				line1 = Component.translatable("gui.burmaldaholic.roulette.no_more_bets");
-				line2 = Component.translatable("msg.burmaldaholic.roulette.spinning");
-			}
-			case "result" -> {
-				line1 = null;
-			}
-			default -> {
-				if (!state().getBooleanOr("enabled", true)) {
-					line1 = Component.translatable("gui.burmaldaholic.error.disabled");
-					c1 = TableChrome.RED;
-				} else {
-					line1 = Component.translatable("gui.burmaldaholic.roulette.place_bets");
-				}
-				line2 = total() > 0 ? Component.translatable("gui.burmaldaholic.common.total_bet", Texts.number(total())) : limitsLine();
-				if (multiplayer() && state().getIntOr("bettors", 0) > 0 && total() > 0) {
-					line2 = Component.translatable("gui.burmaldaholic.roulette.ready_count", Texts.number(state().getIntOr("ready_count", 0)),
-						Texts.number(state().getIntOr("bettors", 0)));
-				}
-			}
-		}
-		if (error != null) {
-			line1 = error;
-			c1 = TableChrome.RED;
-		}
-		if (compact()) {
-			if (line1 != null && !"spin".equals(ph)) {
-				var seq = TableChrome.fit(font, line1, total() > 0 ? 150 : 250);
-				int cx = total() > 0 ? ox + 90 : ox + 142;
-				g.text(font, seq, cx - font.width(seq) / 2, oy + 112, c1, true);
-			}
-			if (total() > 0) {
-				// right end of the status row (the bottom bar is full: chips, icons, Spin)
-				Component bet = Component.translatable("gui.burmaldaholic.common.bet_amount", Texts.number(total()));
-				var seq = TableChrome.fit(font, bet, 80);
-				g.text(font, seq, ox + 226 - font.width(seq), oy + 112, TableChrome.GOLD, true);
-			}
-		} else {
-			TableChrome.status(g, font, ox + 296, oy + 211, 150, line1, line2, c1);
-			long left = state().getLongOr("ticks_left", -1);
-			if ("betting".equals(ph) && left >= 0 && multiplayer()) {
-				double leftSec = Math.max(0, left / 20.0 - clock.msSince(state().getLongOr("game_time", 0), partial) / 1000.0);
-				TableChrome.timer(g, ox + 352, oy + 213, leftSec, Math.max(1, state().getIntOr("phase_ticks", 500)) / 20.0, !FxSettings.reduceMotion());
-			}
-		}
-		// bots' virtual bets line, small, above the bottom bar
-		Tag line = state().get("bot_line");
-		if (line != null && !compact() && "betting".equals(ph)) {
-			var seq = TableChrome.fit(font, decode(line), 250);
-			g.text(font, seq, ox + 110, oy + 190, TableChrome.MUTED, true);
-		}
-	}
-
-	private void rules(GuiGraphicsExtractor g) {
-		g.nextStratum();
-		int x = ox + frame.feltX() + 20;
-		int y = oy + frame.feltY() + 12;
-		int w = frame.feltW() - 40;
-		TableGfx.blit(g, "core/plate_" + theme.id, x, y, w, 70);
-		int ty = y + 8;
-		for (int i = 1; i <= 2; i++) {
-			for (var seq : font.split(Component.translatable("gui.burmaldaholic.roulette.rules." + i), w - 16)) {
-				g.text(font, seq, x + 8, ty, TableChrome.BONE, true);
-				ty += 10;
-			}
-			ty += 4;
-		}
-		var seq = TableChrome.fit(font, limitsLine(), w - 16);
-		g.text(font, seq, x + 8, ty, TableChrome.GOLD, true);
-	}
-
-	@Override
-	protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
-		// the chrome draws the title, status and error line (CasinoTableScreen's plain labels are hidden)
 	}
 }

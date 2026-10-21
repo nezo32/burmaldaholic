@@ -199,17 +199,26 @@ public final class BaccaratBots implements BotTable {
 		return be.getLevel() == null ? tb : tb();
 	}
 
+	/** The last bot preset looked up while the table was live (T-D2 item 6: no world reads while it is removed). */
+	private java.util.Optional<dev.nezo.burmaldaholic.core.service.TablePresetProvider.BotPreset> liveBotPreset = java.util.Optional.empty();
+
+	private java.util.Optional<dev.nezo.burmaldaholic.core.service.TablePresetProvider.BotPreset> botPreset() {
+		if (be.removingForBots()) return liveBotPreset;
+		liveBotPreset = dev.nezo.burmaldaholic.core.bots.BotPresets.of(be, botGameId());
+		return liveBotPreset;
+	}
+
 	/** The worldgen preset's level mix when present (J-G6). */
 	@Override
 	public int[] botDifficultyMix() {
-		int[] mix = dev.nezo.burmaldaholic.core.bots.BotPresets.mix(be, botGameId());
+		int[] mix = botPreset().map(dev.nezo.burmaldaholic.core.service.TablePresetProvider.BotPreset::levelMix).orElse(null);
 		return mix != null ? mix : BotTable.super.botDifficultyMix();
 	}
 
 	/** The worldgen preset's name theme when present (J-G6). */
 	@Override
 	public dev.nezo.burmaldaholic.core.bots.logic.BotRoster.Theme botNameTheme() {
-		return dev.nezo.burmaldaholic.core.bots.BotPresets.theme(be, botGameId(), BotTable.super.botNameTheme());
+		return botPreset().map(dev.nezo.burmaldaholic.core.service.TablePresetProvider.BotPreset::nameTheme).orElse(BotTable.super.botNameTheme());
 	}
 
 	@Override

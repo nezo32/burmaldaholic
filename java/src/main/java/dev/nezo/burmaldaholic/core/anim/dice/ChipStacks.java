@@ -1,12 +1,13 @@
 package dev.nezo.burmaldaholic.core.anim.dice;
 
 /**
- * Chip stacks on table felts (tables.md §0.4): an amount becomes at most {@link #MAX_DISCS} discs, greedy by the tray
- * denominations 500 / 100 / 25 / 5 / 1, bottom to top. The disc count is visual only; the exact amount is always
+ * Chip stacks on table felts (tables.md §0.4): an amount becomes at most {@link #MAX_DISCS} discs, greedy by the chip
+ * denominations (largest first), bottom to top. The disc count is visual only; the exact amount is always
  * written (labels use the server's numbers). Pure; shared by the roulette, craps and Dice Duel screens.
  */
 public final class ChipStacks {
-	public static final int[] DENOMS = {1, 5, 25, 100, 500};
+	/** The chip values smallest first ({@link dev.nezo.burmaldaholic.core.chips.ChipMath#ascending()} as ints). */
+	public static final int[] DENOMS = java.util.Arrays.stream(dev.nezo.burmaldaholic.core.chips.ChipMath.ascending()).mapToInt(d -> (int) d).toArray();
 	public static final int MAX_DISCS = 5;
 	/** Each disc sits this many px above the one below it (visual/tables.md §2.2). */
 	public static final int DISC_STEP = 3;

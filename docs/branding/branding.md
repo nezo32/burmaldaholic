@@ -61,4 +61,4 @@ A casino game mode for survival: earn chips, play blackjack, poker, baccarat, sl
 - ⚖️ **Fair and configurable:** every game follows real rules with a small house edge (blackjack about 0.4 %, baccarat Banker 1.06 %, roulette 2.7 %). You can change odds, payouts, event frequency and debt rules in the config file or through Mod Menu.
 - 🇬🇧🇷🇺 **English and Russian:** follows your game language automatically.
 
-**Requirements:** Minecraft Java **26.2–26.3**, Fabric Loader 0.19.5+, Fabric API, Java 25. Mod Menu is optional (for the config screen). Install it on both the server and the clients.
+**Requirements:** Minecraft Java **26.3**, Fabric Loader 0.19.5+, Fabric API, Java 25. Mod Menu is optional (for the config screen). Install it on both the server and the clients.

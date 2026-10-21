@@ -30,7 +30,7 @@ public final class FxSprites {
 		return Burmaldaholic.id("core/" + path);
 	}
 
-	/** Chip sprite of a denomination (1, 5, 25, 100, 500). */
+	/** Chip sprite of a denomination (one of {@code ChipMath.DENOMINATIONS}). */
 	public static Identifier chip(int denom) {
 		return sprite("fx/chip_" + denom);
 	}

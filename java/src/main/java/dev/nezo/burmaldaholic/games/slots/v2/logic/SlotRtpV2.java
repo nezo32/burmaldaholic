@@ -21,11 +21,12 @@ public final class SlotRtpV2 {
 	 * @param fsPerTrigger   mean free-spin win per trigger with 3 / 4 / 5 scatters (× bet)
 	 * @param fsExpectedSpins expected spins played per trigger (3 / 4 / 5)
 	 * @param bonusPerTrigger mean bonus win per trigger (× bet, jackpots excluded)
-	 * @param jackpotHits    expected jackpot awards per spin (Mini … Grand)
+	 * @param jackpotGem     seed part of the base-game jackpot gem (SLOTS.md §5.4); {@code jackpotSeed} is the bonus games' part
+	 * @param jackpotHits    expected jackpot awards per spin (Mini … Grand), gem included
 	 * @param buyRtp         buy-feature RTP incl. contribution (NaN without a buy)
 	 */
 	public record Report(Machine machine, double baseWays, double scatterPay, double freeSpins, double bonus, double jackpotSeed,
-			double jackpotContribution, double total, double totalOwned, double hitPay, double hitAny, double pFreeSpins, double pBonus,
+			double jackpotGem, double jackpotContribution, double total, double totalOwned, double hitPay, double hitAny, double pFreeSpins, double pBonus,
 			double[] fsPerTrigger, double[] fsExpectedSpins, double bonusPerTrigger, double[] jackpotHits, double buyRtp) {
 		/** House edge for cashback (SLOTS.md §7.1: 1 − house RTP). */
 		public double houseEdge() {
@@ -146,11 +147,20 @@ public final class SlotRtpV2 {
 			contrib += f.contributionPpm()[t - 1] / 1_000_000.0;
 			owned += jp[t] * f.ownedMult()[t - 1];
 		}
+		// jackpot gem (SLOTS.md §5.4): an independent draw on every paid base spin, P = ppm / 10^6, paying the pool;
+		// per unit staked its seed part is P × seedMult (§5.2), the increment part is already in the contributions
+		double gemRtp = 0;
+		for (int t = 1; t <= 2; t++) {
+			double pg = f.gemPpm(t) / 1_000_000.0;
+			jp[t] += pg;
+			gemRtp += pg * f.jackpotSeedMult()[t - 1];
+			owned += pg * f.ownedMult()[t - 1];
+		}
 		double baseWays = baseRtp - scatterPay;
-		double total = baseWays + scatterPay + fsRtp + bonusRtp + seedRtp + contrib;
+		double total = baseWays + scatterPay + fsRtp + bonusRtp + seedRtp + gemRtp + contrib;
 		double totalOwned = baseWays + scatterPay + fsRtp + bonusRtp + owned;
 		double buy = def.buyPriceFifths() > 0 ? fsTrig[3] / (def.buyPriceFifths() / 5.0) + contrib : Double.NaN;
-		return new Report(def.machine(), baseWays, scatterPay, fsRtp, bonusRtp, seedRtp, contrib, total, totalOwned, base.hitPay() / n,
+		return new Report(def.machine(), baseWays, scatterPay, fsRtp, bonusRtp, seedRtp, gemRtp, contrib, total, totalOwned, base.hitPay() / n,
 			base.hitAny() / n, pFs, pBonus, new double[] {fsTrig[3], fsTrig[4], fsTrig[5]}, new double[] {fsSpins[3], fsSpins[4], fsSpins[5]},
 			bonusPerTrigger, new double[] {jp[1], jp[2], jp[3], jp[4]}, buy);
 	}

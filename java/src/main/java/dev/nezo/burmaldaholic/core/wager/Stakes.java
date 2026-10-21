@@ -187,6 +187,30 @@ public final class Stakes {
 		return Result.ok(new Stake(player.getUUID(), gameId, Stake.Kind.HEARTS, value, ItemStack.EMPTY, 0, 0, hearts));
 	}
 
+	/**
+	 * EC-2: takes the free-bet token held in the main hand (EC-SPEC §4.3). V = the token's face value; nothing is
+	 * debited. Settle: WIN pays the winnings only, PUSH gives the token back, LOSS keeps it. Supported games only
+	 * ({@link FreeBetTokens#GAMES}); never at an owned table (wager gate).
+	 */
+	public static Result<Stake> token(ServerPlayer player, String gameId, @Nullable BlockPos table) {
+		if (!CasinoMode.isEnabled(player)) {
+			return Result.fail(error("casino_off"));
+		}
+		if (FreeBetTokens.peek(player, gameId) == null) {
+			return Result.fail(Component.translatable("gui.burmaldaholic.comps.token_invalid"));
+		}
+		Component veto = gate(player, gameId, Stake.Kind.TOKEN, table);
+		if (veto != null) {
+			return Result.fail(veto);
+		}
+		FreeBetTokens.Held held = FreeBetTokens.take(player, gameId);
+		if (held == null || held.value() <= 0) {
+			return Result.fail(Component.translatable("gui.burmaldaholic.comps.token_invalid"));
+		}
+		ItemStack escrow = FreeBetTokens.stack(player.getUUID(), held);
+		return Result.ok(new Stake(player.getUUID(), gameId, Stake.Kind.TOKEN, held.value(), escrow, 0, 0, 0));
+	}
+
 	/** True if the Soul Wager may be offered to this player at all (Hardcore world + config). */
 	public static boolean soulWagerAvailable(ServerPlayer player) {
 		return CasinoMode.isEnabled(player) && server(player).isHardcore() && CasinoConfig.wager().hardcoreSoulWager;
@@ -267,6 +291,15 @@ public final class Stakes {
 					Economies.get().deposit(player, win, payout);
 				}
 			}
+			case TOKEN -> {
+				TokenSettle.Settlement t = TokenSettle.ofOutcome(outcome, win);
+				if (t.credit() > 0) {
+					Economies.get().deposit(player, t.credit(), payout);
+				}
+				if (t.returnToken()) {
+					giveBack(player, stake);
+				}
+			}
 			case SOUL -> {
 				MinecraftServer server = server(player);
 				PlayerRecord rec = CasinoWorldData.get(server).player(player.getUUID());
@@ -295,14 +328,14 @@ public final class Stakes {
 	public static void refund(ServerPlayer player, Stake stake) {
 		switch (stake.kind()) {
 			case CHIPS -> Economies.get().deposit(player, stake.value(), Transaction.refund(stake.gameId()));
-			case ITEM, XP -> giveBack(player, stake);
+			case ITEM, XP, TOKEN -> giveBack(player, stake);
 			case HEARTS, SOUL -> {
 			}
 		}
 	}
 
 	private static void giveBack(ServerPlayer player, Stake stake) {
-		if (stake.kind() == Stake.Kind.ITEM) {
+		if (stake.kind() == Stake.Kind.ITEM || stake.kind() == Stake.Kind.TOKEN) {
 			Inventories.giveOrDrop(player, stake.item().copy());
 		} else if (stake.kind() == Stake.Kind.XP) {
 			player.giveExperienceLevels(stake.xpLevels());

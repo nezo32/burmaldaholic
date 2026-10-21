@@ -45,10 +45,10 @@ public class VipGameTests {
 		withPlayer(helper, player -> {
 			MinecraftServer server = helper.getLevel().getServer();
 			helper.assertTrue(CoreServices.vip().tier(server, player.getUUID()) == 0, "starts Bronze");
-			play(player, "roulette", 4_999, 0);
-			helper.assertTrue(CoreServices.vip().tier(server, player.getUUID()) == 0, "still Bronze below 5 000");
+			play(player, "roulette", 24_999, 0);
+			helper.assertTrue(CoreServices.vip().tier(server, player.getUUID()) == 0, "still Bronze below 25 000");
 			play(player, "blackjack", 1, 2);
-			helper.assertTrue(CoreServices.vip().tier(server, player.getUUID()) == 1, "Silver at 5 000 wagered");
+			helper.assertTrue(CoreServices.vip().tier(server, player.getUUID()) == 1, "Silver at 25 000 wagered");
 			helper.assertTrue(CoreServices.vip().maxBet(server, player.getUUID()) == 250, "Silver max bet");
 			helper.assertTrue(VipData.get(server).player(player.getUUID()).tier == 1, "promotion stored (announced once)");
 		});
@@ -60,7 +60,7 @@ public class VipGameTests {
 		withPlayer(helper, player -> {
 			MinecraftServer server = helper.getLevel().getServer();
 			VipData.Record rec = VipData.get(server).player(player.getUUID());
-			rec.wagered = 25_000; // Gold: 2 %
+			rec.wagered = 250_000; // Gold: 2 %
 			rec.tier = 2;
 			// yesterday: 10 000 wagered at roulette (edge 2.7 %) -> theoretical loss 270 -> cashback floor(0.02 × 270) = 5
 			rec.ledger = new CashbackRules.DayLedger(today(server) - 1, 10_000, 20_000, 270);

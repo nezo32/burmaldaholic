@@ -35,11 +35,11 @@ class ConfigBinderTest {
 	void clampsWrongTypesAndUnknownKeysPerField() {
 		List<ConfigIssue> issues = new ArrayList<>();
 		EconomyConfig c = binder.bind(new EconomyConfig(), json("""
-			{"startingBalance": 5000000, "emeraldBuyRate": "lots", "ore": {"diamond": 25, "coal": 1.5, "mithril": 3}}"""), "economy", issues);
+			{"startingBalance": 5000000, "maxBalance": "lots", "ore": {"diamond": 25, "coal": 1.5, "mithril": 3}}"""), "economy", issues);
 		assertEquals(1_000_000, c.startingBalance, "clamped to the CONFIG.md max");
 		assertTrue(has(issues, "economy.startingBalance", ConfigIssue.Kind.CLAMPED));
-		assertEquals(8, c.emeraldBuyRate, "wrong type -> default, other fields unaffected");
-		assertTrue(has(issues, "economy.emeraldBuyRate", ConfigIssue.Kind.INVALID));
+		assertEquals(1000000000L, c.maxBalance, "wrong type -> default, other fields unaffected");
+		assertTrue(has(issues, "economy.maxBalance", ConfigIssue.Kind.INVALID));
 		assertEquals(25, c.ore.diamond);
 		assertEquals(1, c.ore.coal, "non-integral int -> default");
 		assertTrue(has(issues, "economy.ore.mithril", ConfigIssue.Kind.UNKNOWN));
@@ -48,14 +48,27 @@ class ConfigBinderTest {
 	@Test
 	void crossFieldValidation() {
 		List<ConfigIssue> issues = new ArrayList<>();
-		EconomyConfig c = binder.bind(new EconomyConfig(), json("{\"emeraldSellRate\": 5}"), "economy", issues);
-		assertEquals(9, c.emeraldSellRate, "sell rate must be ≥ buy rates");
+		EconomyConfig c = binder.bind(new EconomyConfig(), json("{\"exchange\": {\"emerald\": {\"fromChips\": 5}}}"), "economy", issues);
+		assertEquals(0, c.exchange.get("emerald").fromChips, "R1: chips -> emerald cheaper than emerald -> chips disables the way out");
+		assertTrue(has(issues, "economy.exchange.emerald.fromChips", ConfigIssue.Kind.INVALID));
 		VipConfig v = binder.bind(new VipConfig(), json("{\"threshold\": {\"gold\": 100}}"), "vip", issues);
-		assertEquals(5001, v.threshold.gold, "thresholds must ascend");
+		assertEquals(25001, v.threshold.gold, "thresholds must ascend");
 		StreakConfig s = binder.bind(new StreakConfig(), json("{\"minHouseEdge\": 0.001}"), "streak", issues);
 		assertEquals(0.005, s.minHouseEdge, 1e-12, "hard floor 0.005");
 		ExtrasConfig e = binder.bind(new ExtrasConfig(), json("{\"plinko\": {\"low\": [1, 2]}}"), "extras", issues);
 		assertEquals(13, e.plinko.low.length, "wrong list size -> default");
+	}
+
+	@Test
+	void legacyRatesMigrateIntoTheExchangeTable() {
+		List<ConfigIssue> issues = new ArrayList<>();
+		EconomyConfig c = binder.bind(new EconomyConfig(), json("""
+			{"emeraldBuyRate": 8, "emeraldBuyRateGoldVip": 9, "emeraldSellRate": 12, "goldBuyRate": 5, "goldSellRate": 12}"""), "economy", issues);
+		assertEquals(9, c.exchange.get("emerald").toChips, "an untouched v0.1 default takes the new default");
+		assertEquals(12, c.exchange.get("emerald").fromChips, "a customised value moves into the table");
+		assertEquals(5, c.exchange.get("gold_ingot").toChips);
+		assertEquals(8, c.exchange.get("gold_ingot").fromChips);
+		assertEquals(List.of(), issues, "legacy keys are not reported as unknown");
 	}
 
 	@Test

@@ -1,30 +1,22 @@
 package dev.nezo.burmaldaholic.client.table.fx;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.Util;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 
 /**
- * Shared clock of a table screen (docs/architecture/animation.md §3.2): server game time estimated from the last state
- * packet's {@code game_time} plus the client level's ticks since, so every viewer samples the spin / throw at the same
- * tick as the in-world renderer. Falls back to wall time when no level is loaded (previews, tests).
+ * A table screen's view of the ONE shared clock (SY-SPEC §1): a facade over {@link SmoothClock}. {@link #sync} only
+ * OBSERVES a state packet's {@code game_time} (it no longer resets an offset per packet, which made the clock jump on
+ * every bunched or late packet); {@link #nowTicks} is the smoothed server time. There is one clock per level, so every
+ * screen and the in-world renderer agree.
  */
 public final class TableClock {
-	private double offsetTicks;
 	private boolean synced;
-	private long wallAtSync;
-	private long serverAtSync;
 
-	/** The server's game time as carried by a state packet. */
+	/** The server's game time as carried by a state packet: one observation for the shared clock. */
 	public void sync(long serverGameTime) {
 		if (serverGameTime <= 0) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		serverAtSync = serverGameTime;
-		wallAtSync = Util.getMillis();
-		if (mc.level != null) {
-			offsetTicks = serverGameTime - mc.level.getGameTime();
-		}
+		SmoothClock.observe(serverGameTime);
 		synced = true;
 	}
 
@@ -32,13 +24,9 @@ public final class TableClock {
 		return synced;
 	}
 
-	/** Estimated server time in ticks (with the partial tick). */
+	/** Estimated server time in ticks ({@link SmoothClock#nowMs} / 50; a test freeze wins when set). */
 	public double nowTicks(float partialTick) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level != null) {
-			return mc.level.getGameTime() + (double) partialTick + offsetTicks;
-		}
-		return serverAtSync + (Util.getMillis() - wallAtSync) / 50.0;
+		return SmoothClock.nowMs(partialTick) / 50.0;
 	}
 
 	/** Milliseconds since server tick {@code tick}. */

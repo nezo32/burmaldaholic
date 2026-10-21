@@ -435,6 +435,16 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 				return false;
 			}
 		}
+		long token = buy || autoSpin ? 0 : tokenOffer(player);
+		if (token > 0) {
+			// EC-2: a token spin bets exactly the token's value (a ladder bet this player may use here, so no value is
+			// wasted, T-EC2 L4); the full win is credited (EC-SPEC §4.3)
+			if (!offered.contains(token)) {
+				sendError(player, Component.translatable("gui.burmaldaholic.comps.token_no_bet", Texts.chips(token)));
+				return false;
+			}
+			bet = token;
+		}
 		long stake = bet;
 		if (buy) {
 			if (!CasinoConfig.slots().buyFeature.enabled || def.buyPriceFifths() <= 0 || !ownerAllowsBuy()) {
@@ -451,9 +461,12 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (!claimSeat(player)) {
 			return false;
 		}
-		betsV2.put(player.getUUID(), bet);
+		if (token <= 0) {
+			betsV2.put(player.getUUID(), bet); // a token spin keeps the player's chosen chip bet (T-EC2 L3)
+		}
 		boolean owned = ownership().isPresent();
-		Result<Long> placed = placeBet(player, stake, buy ? stake : minBet(), buy ? 0 : tableMaxBet(), SlotDraw.reservation(def, bet), !buy);
+		Result<Long> placed = token > 0 ? placeTokenBet(player, 0, 0, true)
+			: placeBet(player, stake, buy ? stake : minBet(), buy ? 0 : tableMaxBet(), SlotDraw.reservation(def, bet), !buy);
 		if (!placed.isOk()) {
 			return false;
 		}
@@ -483,7 +496,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		r.bought = buy;
 		r.owned = owned;
 		r.tape = tape;
-		r.startTick = gameTime();
+		// S1 / SY-SPEC §4: start LEAD ticks in the future so viewers receive the result before beat 0 (no catch-up)
+		r.startTick = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(gameTime(), dev.nezo.burmaldaholic.core.anim.sync.SyncLead.SLOTS);
 		r.seq = ++seq;
 		r.speedPct = CasinoConfig.slots().turboAllowed && turboV2.getOrDefault(player.getUUID(), false) ? 200 : 100;
 		r.seed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), r.seq);
@@ -591,7 +605,9 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		Timeline tl = r.timeline(SlotMachinesV2.def(r.machine));
-		long elapsed = (gameTime() - r.startTick) * 50;
+		long real = (gameTime() - r.startTick) * 50;
+		// a skip inside the START_LEAD (real < 0, the first ~200 ms) counts as a skip at 0: it ends the first beat group
+		long elapsed = Math.max(0, real);
 		int gate = tl.sharedEndMs();
 		int g = tl.groupAt(elapsed);
 		if (g < 0 || elapsed >= gate) {
@@ -601,7 +617,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		if (huntLeft(r) > 0) {
 			target = Math.min(target, SlotTimeline.huntPauseMs(tl));
 		}
-		long shift = (target - elapsed) / 50;
+		long shift = (target - real) / 50;
 		if (shift <= 0) {
 			return;
 		}
@@ -935,6 +951,8 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putBoolean("owned", owned);
 		List<Long> offered = offeredBets(viewer);
 		t.putLongArray("bets", offered.stream().mapToLong(Long::longValue).toArray());
+		// R3: coin × multiplier front-end over the full configured ladder (stable whatever the VIP filter offers)
+		t.putLong("coin", dev.nezo.burmaldaholic.games.slots.v2.present.BetSplit.coin(cfg.bets, cfg.coinValue));
 		long bet = betsV2.getOrDefault(viewer.getUUID(), (long) cfg.defaultBet);
 		if (!offered.isEmpty() && !offered.contains(bet)) {
 			bet = offered.getFirst();
@@ -979,6 +997,7 @@ public class SlotMachineBlockEntity extends CasinoTableBlockEntity {
 		t.putInt("hunt_board", def.features().pickBoard());
 		t.putInt("hold_trigger", def.features().holdTrigger());
 		t.putInt("hold_respins", def.features().holdRespins());
+		t.putIntArray("gem", def.features().gemPpm());
 		t.putLong("jackpot_ref", def.features().jackpotRef());
 		long[] meters = new long[4];
 		JackpotPoolsV2 pools = JackpotPoolsV2.get(server);

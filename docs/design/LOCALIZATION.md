@@ -21,7 +21,7 @@ The master text lives in `STRINGS.md`; language files are generated from / check
 ```
 - lowercase ASCII, digits and `_` only in segments; segments separated by `.`.
 - `module` is the owning module (`core, blackjack, poker, slots, roulette, craps, baccarat, uth,
-  extras, loan, chaos, lastchance, worldgen, vip, multiplayer, streak, contracts, wager`) or a
+  extras, loan, chaos, lastchance, worldgen, vip, comps, multiplayer, streak, contracts, wager`) or a
   shared UI area (`common`, `error`, `card`, `menu`, `cashier`, `charter`, `croupier`, `achievements`). STRINGS.md
   lists which team owns each area.
 
@@ -166,6 +166,9 @@ casino/poker-room form** (what players hear in Russian poker rooms and streams),
 |----|----|-------|
 | Chip / chips | фишка / фишки | «фишек» (gen. pl.) |
 | Balance | баланс | «Баланс: 12 500» |
+| Exchange (cashier tab) | обмен | |
+| Store (chip store) | магазин | «Магазин казино»; the merchant NPC = «торговец казино» |
+| Withdrawable | к снятию | |
 | Bet / stake (noun) | ставка | |
 | to bet | ставить / поставить | |
 | Wager (lifetime) | оборот ставок | "wagered" → «поставлено» |

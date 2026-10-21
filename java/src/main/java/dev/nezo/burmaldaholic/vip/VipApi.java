@@ -29,6 +29,8 @@ import net.minecraft.server.level.ServerPlayer;
 public final class VipApi {
 	public static final String KEY_CONTRACT = "burmaldaholic:vip/contract";
 	public static final String KEY_WAGERED = "burmaldaholic:vip/wagered";
+	/** EC-2: {@code BiFunction<MinecraftServer, UUID, long[]>} → {today's theoretical loss × 1000, cashback estimate}. */
+	public static final String KEY_CASHBACK_ESTIMATE = "burmaldaholic:vip/cashback_estimate";
 
 	private VipApi() {}
 
@@ -59,5 +61,6 @@ public final class VipApi {
 		ObjectShare share = FabricLoader.getInstance().getObjectShare();
 		share.put(KEY_CONTRACT, (BiConsumer<ServerPlayer, String>) VipApi::contract);
 		share.put(KEY_WAGERED, (BiFunction<MinecraftServer, UUID, Long>) VipService::wagered);
+		share.put(KEY_CASHBACK_ESTIMATE, (BiFunction<MinecraftServer, UUID, long[]>) VipService::cashbackEstimate);
 	}
 }

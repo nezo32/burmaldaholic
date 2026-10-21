@@ -47,10 +47,33 @@ public record MachineDef(Machine machine, String[] codes, SymbolRole[] roles, in
 	 * @param jackpotSeedMult pool seeds (Mini … Grand) as multiples of {@code jackpotRef}
 	 * @param contributionPpm contribution per stake (Mini … Grand), parts per million
 	 * @param ownedMult       fixed jackpot multiples of the bet at owned machines (Mini … Grand)
+	 * @param gemPpm          base-game "jackpot gem" chance per paid base spin, parts per million (Mini, Minor; SLOTS.md §5.4)
 	 */
 	public record Features(int pickBoard, int[] pickValues, int[] pickWeights, int holdTrigger, int holdRespins, int holdCoinPpm,
 			int[] holdValues, int[] holdWeights, int[][] wheelRings, long jackpotRef, int[] jackpotSeedMult, int[] contributionPpm,
-			int[] ownedMult) {
+			int[] ownedMult, int[] gemPpm) {
+		public Features {
+			if (gemPpm == null || gemPpm.length != 2) throw new IllegalArgumentException("gemPpm: Mini and Minor expected");
+			if (gemPpm[0] < 0 || gemPpm[1] < 0 || gemPpm[0] + gemPpm[1] > 1_000_000) throw new IllegalArgumentException("gemPpm out of range");
+		}
+
+		/** Without a jackpot gem (pre-0.2 shape; tests and previews). */
+		public Features(int pickBoard, int[] pickValues, int[] pickWeights, int holdTrigger, int holdRespins, int holdCoinPpm, int[] holdValues,
+				int[] holdWeights, int[][] wheelRings, long jackpotRef, int[] jackpotSeedMult, int[] contributionPpm, int[] ownedMult) {
+			this(pickBoard, pickValues, pickWeights, holdTrigger, holdRespins, holdCoinPpm, holdValues, holdWeights, wheelRings, jackpotRef,
+				jackpotSeedMult, contributionPpm, ownedMult, new int[2]);
+		}
+
+		/** Jackpot gem chance of a tier (1 Mini, 2 Minor) per paid base spin, ppm; 0 for other tiers. */
+		public int gemPpm(int tier) {
+			return tier == 1 || tier == 2 ? gemPpm[tier - 1] : 0;
+		}
+
+		/** Any jackpot gem configured. */
+		public boolean hasGem() {
+			return gemPpm[0] + gemPpm[1] > 0;
+		}
+
 		/** Pool seed of a tier (1 Mini … 4 Grand) in chips. */
 		public long seedChips(int tier) {
 			return jackpotSeedMult[tier - 1] * jackpotRef;
@@ -62,14 +85,14 @@ public record MachineDef(Machine machine, String[] codes, SymbolRole[] roles, in
 				&& Arrays.equals(f.pickWeights, pickWeights) && f.holdTrigger == holdTrigger && f.holdRespins == holdRespins
 				&& f.holdCoinPpm == holdCoinPpm && Arrays.equals(f.holdValues, holdValues) && Arrays.equals(f.holdWeights, holdWeights)
 				&& Arrays.deepEquals(f.wheelRings, wheelRings) && f.jackpotRef == jackpotRef && Arrays.equals(f.jackpotSeedMult, jackpotSeedMult)
-				&& Arrays.equals(f.contributionPpm, contributionPpm) && Arrays.equals(f.ownedMult, ownedMult);
+				&& Arrays.equals(f.contributionPpm, contributionPpm) && Arrays.equals(f.ownedMult, ownedMult) && Arrays.equals(f.gemPpm, gemPpm);
 		}
 
 		@Override
 		public int hashCode() {
 			return Arrays.hashCode(new int[] {pickBoard, Arrays.hashCode(pickWeights), holdTrigger, holdCoinPpm, Arrays.hashCode(holdWeights),
 				Arrays.deepHashCode(wheelRings), Long.hashCode(jackpotRef), Arrays.hashCode(jackpotSeedMult), Arrays.hashCode(contributionPpm),
-				Arrays.hashCode(ownedMult)});
+				Arrays.hashCode(ownedMult), Arrays.hashCode(gemPpm)});
 		}
 	}
 

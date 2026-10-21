@@ -33,12 +33,13 @@ machine, name and model change:
 
 | Block id (unchanged) | New machine (`machine id`) | Volatility | RTP (house) | Hit freq | Signature features | VIP | Bets (chips) |
 |---|---|---|---|---|---|---|---|
-| `slot_machine_copper` | **Overworld Riches** (`overworld`) | low | **95.074 %** | 1 in 2.55 | stacked Totem wilds · Compass free spins (all wins ×2) · **Treasure Hunt** pick-me chests | — | 5 – 100 |
-| `slot_machine_gold` | **Nether Inferno** (`nether`) | medium | **95.394 %** | 1 in 2.68 | **Tumbling reels** with multiplier ladder ×1→×2→×3→×5 (free spins ×2→×4→×6→×10) · **Piglin's Hoard** Hold & Spin coins · buy feature | — | 10 – 500 |
-| `slot_machine_netherite` | **End Void** (`end`) | high | **96.534 %** | 1 in 2.79 | **Void Walker** free spins with **expanding sticky** Dragon-Egg wilds · **Dragon Wheel** 3-ring bonus wheel · buy feature | Gold | 50 – 5 000 |
+| `slot_machine_copper` | **Overworld Riches** (`overworld`) | low | **98.372 %** | 1 in 2.55 | stacked Totem wilds · Compass free spins (all wins ×2) · **Treasure Hunt** pick-me chests | — | 5 – 100 |
+| `slot_machine_gold` | **Nether Inferno** (`nether`) | medium | **98.420 %** | 1 in 2.68 | **Tumbling reels** with multiplier ladder ×1→×2→×3→×5 (free spins ×2→×4→×6→×10) · **Piglin's Hoard** Hold & Spin coins · buy feature | — | 10 – 500 |
+| `slot_machine_netherite` | **End Void** (`end`) | high | **98.406 %** | 1 in 2.79 | **Void Walker** free spins with **expanding sticky** Dragon-Egg wilds · **Dragon Wheel** 3-ring bonus wheel · buy feature | Gold | 50 – 5 000 |
 
 Every machine has four **progressive jackpots** (Mini · Minor · Major · Grand) funded by a share
-of every bet, awarded only through its bonus game. Every machine has a **max-win cap** per spin
+of every bet, awarded through its bonus game **and** (Mini / Minor only) through a small base-game
+**jackpot gem** (§5.4). Every machine has a **max-win cap** per spin
 (500× / 2 000× / 5 000× the bet), which is also the owned-casino reservation.
 
 Numbers developers test against are in §7 (exact enumeration totals, closed-form feature values,
@@ -208,7 +209,7 @@ Strips: 5 × 40 stops (Appendix A.1). Symbol counts per reel:
 | Compass (scatter, anywhere) | 1× | 10× | 50× |
 
 **Features**
-- **Free spins ("Night Watch")**: 3 / 4 / 5 Compasses → **8 / 10 / 15 free spins**, all wins **×2**
+- **Free spins ("Night Watch")**: 3 / 4 / 5 Compasses → **10 / 12 / 19 free spins**, all wins **×2**
   (incl. scatter pays). 3+ Compasses during free spins **retrigger +8**. At most 50 free spins
   awarded per feature (`fsCap`). Free spins use the base strips; chests are inert.
 - **Treasure Hunt** (pick-me): a Chest on each of reels 1, 3 and 5 → a board of 15 chests. The
@@ -271,7 +272,7 @@ Ghast Tears do not pay by themselves (they only trigger).
 Triggers are checked on the **final window** (when tumbling stops).
 
 **Features**
-- **Free spins ("Inferno Spins")**: 3 / 4 / ≥5 Ghast Tears → **12 / 15 / 20 free spins** with the
+- **Free spins ("Inferno Spins")**: 3 / 4 / ≥5 Ghast Tears → **14 / 17 / 23 free spins** with the
   free-spin ladder ×2/×4/×6/×10 (resets every free spin). 3+ Tears on a free spin's final window
   **retrigger +5**; cap 60 awarded. Coins are inert in free spins.
 - **Piglin's Hoard** (Hold & Spin): **6 or more Coins** on the final base window. Every Coin
@@ -296,7 +297,7 @@ Triggers are checked on the **final window** (when tumbling stops).
   full. Pays the sum of all coin values + jackpots; **filling all 15 cells also wins the Grand**.
   Coins that show on base spins without a trigger are decoration only (they are still real draws).
 - If both trigger on the same spin: Hoard first, then free spins.
-- **Buy feature**: pay **18.4 × bet** to start Inferno Spins with 12 spins (§6.3).
+- **Buy feature**: pay **20.8 × bet** to start Inferno Spins with 14 spins (§6.3).
 
 ### 3.3 End Void (`end`, block `slot_machine_netherite`) — high volatility, Gold VIP
 
@@ -332,15 +333,15 @@ Strips: 5 × 45 stops (Appendix A.3). Symbol counts per reel:
 
   | Ring | Segments (count) | Total |
   |---|---|---|
-  | Outer "End Stone" | 10× (4), 12× (3), 15× (3), 20× (2), 25× (2), 40× (1), 75× (1), **MINI** (2), **UP** (2) | 20 |
+  | Outer "End Stone" | 12× (4), 15× (3), 20× (3), 25× (2), 30× (2), 50× (1), 100× (1), **MINI** (2), **UP** (2) | 20 |
   | Middle "Purpur" | 30× (4), 50× (4), 75× (3), 100× (2), **MINOR** (2), **UP** (1) | 16 |
   | Core "Dragon" | 150× (4), 250× (3), 500× (1), **MAJOR** (3), **GRAND** (1) | 12 |
 
   Wedge order (clockwise from the pointer at rest; tests assert the counts):
-  outer `10 UP 12 15 MINI 10 20 12 25 10 40 15 UP 12 20 MINI 15 10 75 25`;
+  outer `12 UP 15 20 MINI 12 25 15 30 12 50 20 UP 15 25 MINI 20 12 100 30`;
   middle `30 50 MINOR 75 30 100 50 UP 30 75 MINOR 50 100 30 75 50`;
   core `150 MAJOR 250 150 GRAND 250 MAJOR 150 500 250 MAJOR 150`.
-- **Buy feature**: pay **109 × bet** to start Void Walker with 9 spins (§6.3).
+- **Buy feature**: pay **107.2 × bet** to start Void Walker with 9 spins (§6.3).
 
 ---
 
@@ -349,7 +350,7 @@ Strips: 5 × 45 stops (Appendix A.3). Symbol counts per reel:
 | | Overworld Riches | Nether Inferno | End Void |
 |---|---|---|---|
 | Free spins trigger (3 / 4 / 5 scatters), 1 in | 116.05 / 2 180 / 105 350 (any: **110.07**) | 109.89 / 2 079 / 105 850 (any: **104.29**) | 387.44 / 10 848 / 759 375 (any: **373.92**) |
-| Free spins awarded | 8 / 10 / 15, ×2, +8 retrigger | 12 / 15 / 20, ladder ×2–×10, +5 | 9 / 11 / 14, sticky expanding wilds, +4 |
+| Free spins awarded | 10 / 12 / 19, ×2, +8 retrigger | 14 / 17 / 23, ladder ×2–×10, +5 | 9 / 11 / 14, sticky expanding wilds, +4 |
 | Expected spins played per trigger (3 / 4 / 5) | 8.6270 / 10.7837 / 16.1754 | 12.6044 / 15.7555 / 21.0073 | 9.0400 / 11.0449 / 14.0506 |
 | Mean free-spin win per trigger (3 / 4 / 5), × bet | 12.8589 / 16.0737 / 24.1102 | 17.1981 / 21.4977 / 28.6636 | 102.4669 / 170.1760 / 311.7943 |
 | Retrigger chance per free spin | 0.908 5 % | 0.959 0 % | 0.164 % (all reels free) |
@@ -401,6 +402,23 @@ Strips: 5 × 45 stops (Appendix A.3). Symbol counts per reel:
   bet: Overworld 10 / 25 / 100 / 250, Nether 10 / 30 / 150 / 500, End 15 / 50 / 250 / 1 000
   (`slots.<m>.jackpot.owned`), inside the max-win cap, and no contribution is taken.
 
+### 5.4 Jackpot gem (base game, v0.2.0)
+
+Owner R3: "never saw even a Mini". Every **paid base spin** (not a bought feature, not a free spin) makes one more
+draw at the very END of the tape (`nextInt(1 000 000)`, so every earlier draw is unchanged): below the Mini ppm →
+**Mini**, below Mini + Minor ppm → **Minor** (`slots.<m>.jackpot.gem` = chance per spin):
+
+| Machine | Mini gem | Minor gem | Seed part of RTP |
+|---|---|---|---|
+| Overworld | 1 in 4 000 (250 ppm) | 1 in 20 000 (50 ppm) | 0.375 % |
+| Nether | 1 in 5 000 (200 ppm) | 1 in 40 000 (25 ppm) | 0.275 % |
+| End | 1 in 6 667 (150 ppm) | 1 in 50 000 (20 ppm) | 0.325 % |
+
+It pays exactly like any other hit (§5.2: `pool × min(bet, ref) / ref`; owned machines the fixed multiple, inside the
+cap; not after the cap). The tape records it as flag `g1` / `g2` (its award is the last jackpot), the timeline shows
+`slots.jackpot_gem` (1 200 ms) at the end of the shared part, then the usual JACKPOT celebration. Help and the
+machine screen's jackpot ladder say where every tier comes from (§13.5).
+
 ### 5.3 Migration from v1 pools
 
 On first load of v2: the old Golden Reels pool's increment (`pool − old seed`) is added to the
@@ -432,8 +450,8 @@ fun; the buy feature below covers the "I want the feature" wish with RTP parity.
 
 | Machine | Price | What you get | EV of what you get | Buy RTP (incl. contribution) | Machine RTP |
 |---|---|---|---|---|---|
-| Nether | **18.4 × bet** | Inferno Spins, 12 spins (as a 3-Tear trigger, no scatter pay) | 17.1981 × bet | **94.968 %** | 95.394 % |
-| End | **109 × bet** | Void Walker, 9 spins (as a 3-Eye trigger) | 102.4669 × bet | **96.506 %** | 96.534 % |
+| Nether | **20.8 × bet** | Inferno Spins, 14 spins (as a 3-Tear trigger, no scatter pay) | 20.0645 × bet | **97.964 %** | 98.420 % |
+| End | **107.2 × bet** | Void Walker, 9 spins (as a 3-Eye trigger) | 102.4669 × bet | **98.085 %** | 98.406 % |
 
 Rules: parity means the buy RTP must be ≤ the machine RTP and within 0.5 % of it (`slots.validateRtp`
 checks it). The price is one wager (`stake = price`): it must be ≤ `tier max × slots.buyFeature.tierMaxMultiple`
@@ -466,6 +484,12 @@ hides the button everywhere.
 
 ### 7.1 RTP by contribution (house machines, defaults)
 
+v0.2.0 (owner R3, 2026-10-20): RTP raised to ~98 % with three levers that keep the base game and hit frequency
+unchanged — Overworld free spins 8/10/15 → **10/12/19**, Nether 12/15/20 → **14/17/23** (buy 18.4 → **20.8×**),
+End outer wheel ring 10…75 → **12, 15, 20, 25, 30, 50, 100** (buy 109 → **107.2×**, parity) — plus the base-game
+jackpot gem (§5.4). Lever-only totals: 97.997 158 / 98.144 598 / 98.081 086 %. Budget: total ≤ 98.5 %
+(`SlotRtpV2Test.jackpotGemIsFundedInsideTheBudget`).
+
 All values are percent of the total amount staked. "Exact" = full enumeration or closed form
 (no sampling). The only non-exact item is the max-win cap effect (§7.4), which is below 0.003 %.
 
@@ -473,18 +497,25 @@ All values are percent of the total amount staked. "Exact" = full enumeration or
 |---|---|---|---|---|
 | Base game ways wins (incl. tumbles for Nether) | 73.159 400 | 68.222 821 | 56.211 147 | exact enumeration of all stops |
 | Scatter pays (base) | 1.367 930 | — | 0.614 979 | exact enumeration |
-| Free spins | 11.840 624 | 16.710 770 | 28.057 181 | enumeration of one free spin × Markov chain (§7.3) |
-| Bonus game (non-jackpot prizes) | 7.260 196 | 8.216 694 | 7.793 704 | closed form / Markov chain (§7.3) |
-| Jackpots — seed part (`Σ P(hit) × seedMult`) | 0.445 359 | 0.744 099 | 1.357 407 | closed form |
+| Free spins | 14.764 273 | 19.460 985 | 28.057 181 | enumeration of one free spin × Markov chain (§7.3) |
+| Bonus game (non-jackpot prizes) | 7.260 196 | 8.216 694 | 9.340 370 | closed form / Markov chain (§7.3) |
+| Jackpots — seed part, bonus games (`Σ P(hit) × seedMult`) | 0.445 359 | 0.744 099 | 1.357 407 | closed form |
+| Jackpot gem — seed part (§5.4, `Σ ppm/10⁶ × seedMult`) | 0.375 000 | 0.275 000 | 0.325 000 | closed form (independent draw) |
 | Jackpots — contributions (increment part) | 1.000 000 | 1.500 000 | 2.500 000 | conservation (§5.2) |
-| **Total RTP** | **95.073 509** | **95.394 383** | **96.534 419** | |
-| House edge | 4.926 % | 4.606 % | 3.466 % | |
-| Owned-casino RTP (fixed jackpots, no pools) | 94.048 300 | 93.809 143 | 93.756 641 | same, §5.2 fixed values |
-| Streak `r_cap = 0.99 / RTP − 1` (§8.2) | 0.041 300 | 0.037 797 | 0.025 541 | GAME_DESIGN §14 |
+| **Total RTP** | **98.372 158** | **98.419 598** | **98.406 086** | |
+| House edge | 1.628 % | 1.580 % | 1.594 % | |
+| Owned-casino RTP (fixed jackpots, no pools) | 97.346 949 | 96.834 358 | 95.628 308 | same, §5.2 fixed values |
+| Streak `r_cap = 0.99 / RTP − 1` (§8.2) | 0.006 382 | 0.005 897 | 0.006 035 | GAME_DESIGN §14 |
+| Mini / Minor, 1 in … spins (gem + bonus) | 2 214 / 9 958 | 2 232 / 11 493 | 1 978 / 15 517 | closed form |
 
 Replaces the three slot rows of GAME_DESIGN §17 and the per-tier `houseEdge` used by cashback
-(§12): cashback uses 1 − the house RTP above (4.926 % / 4.606 % / 3.466 %), and for a buy-feature
-purchase 1 − its buy RTP (5.032 % / 3.494 %).
+(§12): cashback uses 1 − the house RTP above, and for a buy-feature purchase 1 − its buy RTP
+(2.036 % / 1.915 %).
+
+Rows of §4 / §7.2 / §7.3 that depend on the free-spin counts or the outer ring (expected spins, mean feature win,
+volatility) are the v0.1 values unless restated here: Overworld 3/4/5 trigger = 16.0737 / 19.2883 / 30.5383 × bet
+(10.7837 / 12.9404 / 20.4880 spins); Nether 20.0645 / 24.3640 / 32.9631 × bet (14.7051 / 17.8562 / 24.1584 spins);
+Dragon Wheel 26.2698 × bet per trigger. `e` and `ρ` of §7.3 are unchanged.
 
 ### 7.2 Volatility profile (Monte-Carlo, 10⁹ spins per machine; End 2 × 10⁹)
 
@@ -542,8 +573,8 @@ Mean final coins 7.846 836; P(all 15) = 0.000 443 73 per trigger. Mean coin valu
 `Σ_{value coins} v·w / Σ_all w` = 2 650 / 972.3 = 2.725 496 bet (jackpot coins count 0 here). Value = mean final coins × that = **21.386 522** bet.
 
 **Dragon Wheel.** `EV = EV_outer + P(UP_o)·(EV_middle + P(UP_m)·EV_core)`
-= 16.3 + 0.1 × (46.5625 + 0.0625 × 154.1667) = **21.919 792** bet
-(outer 326/20, middle 745/16, core 1850/12 in bet units; jackpot segments count 0 here and are in the jackpot rows).
+= 20.65 + 0.1 × (46.5625 + 0.0625 × 154.1667) = **26.269 792** bet
+(outer 413/20, middle 745/16, core 1850/12 in bet units; jackpot segments count 0 here and are in the jackpot rows).
 
 ### 7.4 The max-win cap
 
@@ -930,7 +961,7 @@ the templates in §13.
 | `slots.<m>.jackpot.owned` | map<tier,int> | §5.2 | each 0–100 000 | Fixed × bet at owned machines. |
 | `slots.jackpot.announceMinTier` | enum(MINI, MINOR, MAJOR, GRAND) | MAJOR | — | Server-wide chat from this tier up. |
 | `slots.buyFeature.enabled` | bool | true | — | |
-| `slots.nether.buy.price` / `slots.end.buy.price` | double | 18.4 / 109 | 1–10 000, multiples of 0.2 | × bet. |
+| `slots.nether.buy.price` / `slots.end.buy.price` | double | 20.8 / 107.2 | 1–10 000, multiples of 0.2 | × bet. |
 | `slots.buyFeature.tierMaxMultiple` | int | 25 | 1–1 000 | Price ≤ tier max × this. |
 | `slots.autoplay.enabled` | bool | true | — | |
 | `slots.autoplay.counts` | list<int> | [10,25,50,100] | 1–1 000 each | |

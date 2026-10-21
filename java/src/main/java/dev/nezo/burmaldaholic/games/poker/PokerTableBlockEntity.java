@@ -114,7 +114,12 @@ import org.jspecify.annotations.Nullable;
  * go to {@link TableBots#setStack} (bankroll bots: the world ledger returns them on the next start), so a
  * crash mid-hand settles both sides at the same result (GAME_DESIGN §4.1).
  */
-public class PokerTableBlockEntity extends CasinoTableBlockEntity implements BotTable {
+public class PokerTableBlockEntity extends CasinoTableBlockEntity implements BotTable, dev.nezo.burmaldaholic.client.dealer.DealerCueSource {
+	@Override // DL: the house dealer gestures with this table (client, from the public sync)
+	public dev.nezo.burmaldaholic.client.dealer.DealerCueSource.@org.jspecify.annotations.Nullable Cue dealerCue(long gameTime, float partialTick) {
+		return dev.nezo.burmaldaholic.games.poker.present.PokerDealerCues.cue(clientPub(), gameTime, partialTick);
+	}
+
 	private static final String STAKE_KEY = "burmaldaholic_poker_stake";
 	private static final String REFUND_KEY = "burmaldaholic_poker_refunds";
 	private static final String BOTS_KEY = "burmaldaholic_poker_bots";
@@ -665,7 +670,9 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			return;
 		}
 		if (args.getIntOr("seq", h.seq()) != h.seq()) {
-			return; // stale click
+			// a click made on an older state of the hand (the table moved on before it arrived): refused, and said so
+			sendError(player, Component.translatable("gui.burmaldaholic.poker.v2.reason.stale_action"));
+			return;
 		}
 		Hand.Action a = switch (args.getStringOr("kind", "")) {
 			case "fold" -> Hand.Action.fold();
@@ -1823,6 +1830,7 @@ public class PokerTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		CompoundTag pub = new CompoundTag();
 		pub.putIntArray("d", buildPub().encode());
 		t.put(PUB_KEY, pub);
+		writePublic(t); // the seat header: names for the in-world seat plates (ui-v2.md §7.2)
 		return t;
 	}
 

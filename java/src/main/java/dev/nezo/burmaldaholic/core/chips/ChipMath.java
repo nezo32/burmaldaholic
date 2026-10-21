@@ -1,10 +1,70 @@
 package dev.nezo.burmaldaholic.core.chips;
 
-/** Pure chip arithmetic (unit-tested). Denominations of GAME_DESIGN.md §3.1, largest first. */
+/**
+ * Pure chip arithmetic (unit-tested). Denominations of GAME_DESIGN.md §3.1, largest first.
+ *
+ * <p>{@link #DENOMINATIONS} is THE list of chip values: the chip items, the cashier, the counting tray, the bet trays and
+ * every chip-stack renderer read it (or {@link #ascending()}); {@code DenominationSourceTest} fails when a list of chip
+ * values is written anywhere else (owner playtest E4: 1000 / 5000 / 25000 existed in the UI but not as items).
+ */
 public final class ChipMath {
-	public static final int[] DENOMINATIONS = {500, 100, 25, 5, 1};
+	/** Every chip value, largest first. Never modify (shared array, read by hot render paths). */
+	public static final int[] DENOMINATIONS = {25_000, 5_000, 1_000, 500, 100, 25, 5, 1};
+	private static final long[] ASCENDING;
+
+	static {
+		ASCENDING = new long[DENOMINATIONS.length];
+		for (int i = 0; i < DENOMINATIONS.length; i++) ASCENDING[i] = DENOMINATIONS[DENOMINATIONS.length - 1 - i];
+	}
 
 	private ChipMath() {}
+
+	/** The chip values smallest first (a copy). */
+	public static long[] ascending() {
+		return ASCENDING.clone();
+	}
+
+	/** Index of {@code denom} in {@link #DENOMINATIONS} (largest first), or -1. */
+	public static int indexOf(long denom) {
+		for (int i = 0; i < DENOMINATIONS.length; i++) {
+			if (DENOMINATIONS[i] == denom) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/** The largest chip worth at most {@code amount} (the smallest chip for anything smaller). */
+	public static int largestAtMost(long amount) {
+		for (int d : DENOMINATIONS) {
+			if (d <= amount) {
+				return d;
+			}
+		}
+		return DENOMINATIONS[DENOMINATIONS.length - 1];
+	}
+
+	/**
+	 * The discs of a decorative chip stack for {@code amount}: at most {@code out.length} chip values, largest first (the
+	 * bottom of a stack), greedy; a huge amount shows the top chips only. Returns the count (0 for amounts &le; 0).
+	 */
+	public static int discs(long amount, int[] out) {
+		int n = 0;
+		long left = amount;
+		for (int i = 0; i < DENOMINATIONS.length && n < out.length && left > 0; i++) {
+			int d = DENOMINATIONS[i];
+			while (left >= d && n < out.length) {
+				out[n++] = d;
+				left -= d;
+			}
+		}
+		return n;
+	}
+
+	/** A short label of a chip value as printed on the chip art: {@code 500}, {@code 1K}, {@code 25K}. */
+	public static String label(long denom) {
+		return denom >= 1000 && denom % 1000 == 0 ? denom / 1000 + "K" : Long.toString(denom); // literal-ok: thousands suffix
+	}
 
 	/**
 	 * Greedy split of {@code amount} into chip counts per denomination (same order as

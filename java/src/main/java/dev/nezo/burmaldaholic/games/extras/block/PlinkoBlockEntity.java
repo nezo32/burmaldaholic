@@ -54,6 +54,10 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 	public static final String SYNC_KEY = "extras_plinko";
 	/** The last published drop (client: from the update tag), or {@code null} before the first drop. */
 	private @Nullable PlinkoSync sync;
+	/** Who dropped last and the bins of that risk (the in-world board, ui-v2.md §7.6). */
+	private dev.nezo.burmaldaholic.games.extras.present.MachinePub pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.EMPTY;
+	public static final String PUB_KEY = "extras_plinko_pub";
+	public static final String PUB_NAME_KEY = "extras_plinko_name";
 
 	private final Map<UUID, CompoundTag> lastDrop = new HashMap<>();
 	private final Map<UUID, Long> busyUntil = new HashMap<>();
@@ -134,8 +138,10 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 			return;
 		}
 		double[] table = table(risk);
-		long bet = args.getLongOr("amount", 0);
-		Result<Long> placed = placeBet(player, bet, minBetFor(risk), maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
+		long token = tokenOffer(player); // EC-2: a free-bet token in the main hand is the stake
+		long bet = token > 0 ? token : args.getLongOr("amount", 0);
+		Result<Long> placed = token > 0 ? placeTokenBet(player, minBetFor(risk), maxFor(player), false)
+			: placeBet(player, bet, minBetFor(risk), maxFor(player), Payouts.floorPay(bet, Plinko.maxMultiplier(table)), true);
 		if (!placed.isOk()) {
 			return;
 		}
@@ -163,11 +169,14 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		t.putLong("net", net);
 		t.putLong("stake", bet); // the celebration's tier base (extras-pvp.md §0.4)
 		lastDrop.put(player.getUUID(), t);
-		busyUntil.put(player.getUUID(), now + DROP_TICKS);
+		// SY-SPEC §4: the drop starts SyncLead.PLINKO ticks ahead, so the packet reaches viewers before the ball leaves
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(now, dev.nezo.burmaldaholic.core.anim.sync.SyncLead.PLINKO);
+		busyUntil.put(player.getUUID(), start + DROP_TICKS);
 		boolean jackpot = ExtrasTiers.plinkoJackpot(risk, drop.bin(), table.length);
-		pending.add(new Pending(player.getUUID(), now + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
+		pending.add(new Pending(player.getUUID(), start + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
 			Texts.decimal(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net)), bet, ret, jackpot));
-		publish(new PlinkoSync(seq, now, Plinko.encode(drop.path()), STEP_TICKS, PlinkoAnim.tier(drop.multiplier()), jackpot));
+		pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.plinko(player.getGameProfile().name(), risk.ordinal(), table);
+		publish(new PlinkoSync(seq, start, Plinko.encode(drop.path()), STEP_TICKS, PlinkoAnim.tier(drop.multiplier()), jackpot));
 		syncViewers();
 	}
 
@@ -186,11 +195,18 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		return sync;
 	}
 
+	/** The machine's public face (client: the in-world board's bins and plate). */
+	public dev.nezo.burmaldaholic.games.extras.present.MachinePub machinePub() {
+		return pub;
+	}
+
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
 		if (sync != null) {
 			t.putIntArray(SYNC_KEY, sync.encode());
+			t.putIntArray(PUB_KEY, pub.encode());
+			t.putString(PUB_NAME_KEY, pub.name());
 		}
 		return t;
 	}
@@ -205,6 +221,8 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		super.loadAdditional(input);
 		if (level != null && level.isClientSide()) {
 			sync = input.getIntArray(SYNC_KEY).map(PlinkoBlockEntity::decode).orElse(sync);
+			int[] p = input.getIntArray(PUB_KEY).orElse(null);
+			if (p != null) pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.decode(input.getStringOr(PUB_NAME_KEY, ""), p);
 		}
 	}
 
@@ -255,6 +273,10 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
 		tag.putLong("max", Math.min(tag.getLongOr("max", 1), maxFor(viewer)));
+		// T-SYW D1: this viewer's busy gate end (syncedState stamps the game_time it was written at), so the screen never
+		// enables a press the server would refuse
+		long busy = busyUntil.getOrDefault(viewer.getUUID(), 0L);
+		if (busy > gameTime()) tag.putLong("busy_until", busy);
 		ListTag tables = new ListTag();
 		for (Plinko.Risk risk : Plinko.Risk.values()) {
 			CompoundTag rt = new CompoundTag();

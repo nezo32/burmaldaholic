@@ -16,9 +16,16 @@ import dev.nezo.burmaldaholic.games.blackjack.client.BlackjackScreen;
 import dev.nezo.burmaldaholic.games.craps.CrapsModule;
 import dev.nezo.burmaldaholic.games.craps.CrapsTableBlockEntity;
 import dev.nezo.burmaldaholic.games.craps.client.CrapsScreen;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsLayout;
 import dev.nezo.burmaldaholic.games.roulette.RouletteModule;
 import dev.nezo.burmaldaholic.games.roulette.RouletteTableBlockEntity;
 import dev.nezo.burmaldaholic.games.roulette.client.RouletteScreen;
+import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
+import dev.nezo.burmaldaholic.games.roulette.logic.Spot;
+import dev.nezo.burmaldaholic.games.roulette.present.RouletteLayout;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
+import dev.nezo.burmaldaholic.core.ui.v2.Box;
+import dev.nezo.burmaldaholic.core.ui.v2.Viewport;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -67,6 +74,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		{854, 480, 2, "default"},
 		{960, 540, 1, "1080p_gui2"},
 		{910, 512, 2, "1366x768_auto"}, // GUI 455 × 256 (laptops; lane A10)
+		{2560, 1440, 2, "1440p_gui2_framed"}, // GUI 1280 × 720, framed 1067 × 600 (RS §3.7: clicks through windowX/windowY)
 	};
 	private static final int TIMEOUT = 600;
 
@@ -76,6 +84,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("A") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("C") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("D") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("hotfix") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RealBetFlowClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		try {
 			try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create(); var q = ClientTestWorlds.quiet(context, world)) {
@@ -85,10 +94,11 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 				for (Object[] v : VIEWS) {
 					view(context, v);
 					String tag = (String) v[3];
-					blackjack(context, world.getServer(), tag);
-					roulette(context, world.getServer(), tag);
-					craps(context, world.getServer(), tag);
-					baccarat(context, world.getServer(), tag);
+					if (lane("A")) blackjack(context, world.getServer(), tag);
+					boolean framed = tag.endsWith("_framed"); // roulette / craps still click with vp.toWindow (unframed only): RO / CM
+					if (lane("C") && !framed) roulette(context, world.getServer(), tag);
+					if (lane("D") && !framed) craps(context, world.getServer(), tag);
+					if (lane("A")) baccarat(context, world.getServer(), tag);
 				}
 				view(context, VIEWS[0]);
 				freshPlayer(context, world.getServer());
@@ -104,10 +114,10 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 					context.runOnClient(mc -> mc.gui.setScreen(null));
 					prepare(context, server);
 					view(context, VIEWS[0]);
-					blackjack(context, server, "server");
-					roulette(context, server, "server");
-					craps(context, server, "server");
-					baccarat(context, server, "server");
+					if (lane("A")) blackjack(context, server, "server");
+					if (lane("C")) roulette(context, server, "server");
+					if (lane("D")) craps(context, server, "server");
+					if (lane("A")) baccarat(context, server, "server");
 					context.runOnClient(mc -> mc.gui.setScreen(null));
 					context.waitTicks(20);
 				}
@@ -123,11 +133,23 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		if (!failures.isEmpty()) throw new AssertionError("real bet flow: " + String.join("; ", failures));
 	}
 
+	/** Per-game lane gate: the game's lane letter, or the whole class (hotfix / class name) runs every game. */
+	private static boolean lane(String letter) {
+		String f = System.getenv("BURMALDAHOLIC_CGT");
+		if (f == null || f.isBlank()) return true;
+		return dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled(letter) || dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("hotfix")
+			|| dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("RealBetFlowClientGameTests");
+	}
+
 	/** A Survival player with chips, chaos events off (a mob wave would end the session). */
 	private static void prepare(ClientGameTestContext context, TestServerContext world) {
 		world.runCommand("gamemode survival @a");
 		world.runCommand("casino balance set @p 5000");
-		world.runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
+		world.runOnServer(server -> {
+			dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false;
+			// a completed contract (win_blackjack, wager, ...) pays its reward into the balance the payout checks read
+			dev.nezo.burmaldaholic.core.config.CasinoConfig.contracts().enabled = false;
+		});
 		context.waitTicks(5);
 	}
 
@@ -138,13 +160,13 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		BlockPos pos = placeAndOpen(context, world, BlackjackModule.TABLE, BlackjackScreen.class, name);
 		if (pos == null) return;
 		long before = balance(world);
-		if (!clickLabel(context, name, "gui.burmaldaholic.blackjack.sit")) return;
+		if (!clickV2(context, name, "primary")) return; // v2: the primary says Sit down
 		if (!serverWait(context, world, pos, name + ": seated after Sit", (t, p) -> t.isSeated(p))) return;
 		context.waitTicks(3);
 		// chips from the rack (25 + 25), then Deal: the real input path of a fresh player
-		if (!clickChip(context, name, 2) || !clickChip(context, name, 2)) return;
+		if (!clickV2Chip(context, name, 25) || !clickV2Chip(context, name, 25)) return;
 		shot(context, tag, "blackjack");
-		if (!clickLabel(context, name, "gui.burmaldaholic.common.deal")) return;
+		if (!clickV2(context, name, "primary")) return; // Deal
 		// accepted = the server took the 50 as this round's bet (a natural settles at once, so the stake alone may be gone)
 		if (!serverWait(context, world, pos, name + ": bet of 50 accepted",
 			(t, p) -> t.stakeOf(p.getUUID()) == 50 || t.writeClientState(p).getLongOr("last_bet", 0) == 50)) return;
@@ -152,8 +174,8 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		for (int i = 0; i < 40; i++) {
 			String phase = world.computeOnServer(server -> table(server, pos).phase());
 			if ("result".equals(phase) || "betting".equals(phase) && stake(world, pos) == 0) break;
-			if (!tryClick(context, "gui.burmaldaholic.blackjack.no_insurance") && !tryClick(context, "gui.burmaldaholic.blackjack.decline_even_money")) {
-				tryClick(context, "gui.burmaldaholic.blackjack.stand");
+			if (!tryV2(context, "action.no_insurance") && !tryV2(context, "action.no_even_money")) {
+				if (primaryIs(context, "stand")) tryV2(context, "primary");
 			}
 			context.waitTicks(10);
 		}
@@ -166,7 +188,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		// the next round: betting opens again and a second bet goes through the same buttons
 		if (!serverWait(context, world, pos, name + ": next round opens", (t, p) -> "betting".equals(phase(t, p)))) return;
 		context.waitTicks(5);
-		if (!clickChip(context, name, 1) || !clickLabel(context, name, "gui.burmaldaholic.common.deal")) return;
+		if (!clickV2Chip(context, name, 5) || !clickV2(context, name, "primary")) return;
 		serverWait(context, world, pos, name + ": second bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5 || t.writeClientState(p).getLongOr("last_bet", 0) == 5);
 		closeAndLeave(context, world, pos);
 	}
@@ -178,87 +200,110 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		BlockPos pos = placeAndOpen(context, world, RouletteModule.TABLE, RouletteScreen.class, name);
 		if (pos == null) return;
 		long before = balance(world);
-		// select the 5 chip, then put it on RED (found from the screen's own hit test) with a real click
-		if (!clickWidget(context, name, w -> w.getClass().getSimpleName().equals("ChipButton") && w.getMessage().getString().equals(Texts.chips(5).getString()))) {
-			failures.add(name + ": no 5 chip button");
+		// v2 screen (lane C): arm the smallest chip, put it on RED, both by real clicks on the screen's HitMap targets
+		long chip = context.computeOnClient(mc -> mc.gui.screen() instanceof RouletteScreen sc && sc.chrome().bet.chips().length > 0
+			? sc.chrome().bet.chips()[0] : -1L);
+		if (chip <= 0 || !clickTarget(context, name, "chip.0")) {
+			failures.add(name + ": no chip in the tray");
 			return;
 		}
-		double[] red = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
-			return spot.isPresent() && spot.get().toString().contains("RED");
-		}));
-		if (red == null) {
-			failures.add(name + ": no RED spot on screen");
-			return;
-		}
+		Spot red = Spot.of(BetType.RED, Spot.outsideNumbers(BetType.RED, 0));
 		shot(context, tag, "roulette");
-		click(context, red[0], red[1]);
-		if (!serverWait(context, world, pos, name + ": RED bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5)) return;
-		if (!clickWidget(context, name, w -> w.getMessage().getString().equals(Component.translatable("gui.burmaldaholic.common.spin").getString()))) {
-			failures.add(name + ": no Spin button");
-			return;
-		}
+		if (!clickTarget(context, name, RouletteLayout.spotId(red))) return;
+		if (!serverWait(context, world, pos, name + ": RED bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == chip)) return;
+		if (!clickTarget(context, name, "primary")) return; // Spin
 		if (!serverWait(context, world, pos, name + ": spin settled", (t, p) -> t.stakeOf(p.getUUID()) == 0)) return;
 		long after = balance(world);
 		log.add(name + ": balance " + before + " -> " + after);
-		if (after != before - 5 && after != before + 5 && after != before - 2 /* la partage */ && after != before - 3) {
-			failures.add(name + ": balance moved by " + (after - before) + " on a 5 even-money bet");
+		if (after != before - chip && after != before + chip && after != before - chip + chip / 2 /* la partage */) {
+			failures.add(name + ": balance moved by " + (after - before) + " on a " + chip + " even-money bet");
 		}
 		if (!serverWait(context, world, pos, name + ": next spin opens", (t, p) -> "betting".equals(phase(t, p)))) return;
 		context.waitTicks(5);
-		double[] again = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
-			return spot.isPresent() && spot.get().toString().contains("BLACK");
-		}));
-		if (again != null) {
-			click(context, again[0], again[1]);
-			serverWait(context, world, pos, name + ": second bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5);
+		Spot black = Spot.of(BetType.BLACK, Spot.outsideNumbers(BetType.BLACK, 0));
+		if (clickTarget(context, name, RouletteLayout.spotId(black))) {
+			serverWait(context, world, pos, name + ": second bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == chip);
 		}
 		closeAndLeave(context, world, pos);
+	}
+
+	/** Clicks the centre of a v2 screen's HitMap target (window px through the screen's viewport), like a player. */
+	private boolean clickTarget(ClientGameTestContext context, String name, String id) {
+		double[] at = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof V2Chrome.Holder h)) return null;
+			Optional<Box> b = h.chrome().hits().box(id);
+			if (b.isEmpty()) return null;
+			Viewport vp = h.chrome().viewport();
+			return new double[] {vp.windowX(b.get().x() + b.get().w() / 2.0), vp.windowY(b.get().y() + b.get().h() / 2.0)};
+		});
+		if (at == null) {
+			failures.add(name + ": no target " + id);
+			return false;
+		}
+		click(context, at[0], at[1]);
+		String pressed = context.computeOnClient(mc -> mc.gui.screen() instanceof V2Chrome.Holder h ? h.chrome().lastPressed() : "");
+		if (!id.equals(pressed)) {
+			failures.add(name + ": clicked " + id + " but the screen pressed " + pressed);
+			return false;
+		}
+		return true;
 	}
 
 	// ---- craps --------------------------------------------------------------------------------------------------------
 
 	private void craps(ClientGameTestContext context, TestServerContext world, String tag) {
+		// v2 screen (lane D): chips and felt spots are HitMap targets; clicked at the window pixel of their box
 		String name = tag + " craps";
 		BlockPos pos = placeAndOpen(context, world, CrapsModule.TABLE, CrapsScreen.class, name);
 		if (pos == null) return;
-		if (!clickWidget(context, name, w -> w.getClass().getSimpleName().equals("ChipButton") && w.getMessage().getString().equals(Texts.chips(5).getString()))) {
-			failures.add(name + ": no 5 chip button");
-			return;
-		}
-		double[] pass = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Object felt = call(s, "felt");
-			int lx = (int) call(s, "lx");
-			int ly = (int) call(s, "ly");
-			Optional<?> a = (Optional<?>) call(felt, "hit", x - lx, y - ly);
-			return a.isPresent() && a.get().toString().startsWith("Area[kind=pass,");
-		}));
-		if (pass == null) {
-			failures.add(name + ": no Pass Line on screen");
+		int five = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof CrapsScreen s)) return -1;
+			long[] chips = s.chrome().bet.chips();
+			for (int i = 0; i < chips.length; i++) if (chips[i] == 5) return i;
+			return -1;
+		});
+		if (five < 0 || !clickTarget(context, "chip." + five)) {
+			failures.add(name + ": no 5 chip in the tray");
 			return;
 		}
 		shot(context, tag, "craps");
-		click(context, pass[0], pass[1]);
+		if (!clickTarget(context, CrapsLayout.PASS)) {
+			failures.add(name + ": no Pass Line on screen");
+			return;
+		}
 		if (!serverWait(context, world, pos, name + ": Pass Line bet accepted", (t, p) -> t.stakeOf(p.getUUID()) == 5)) return;
-		// the shooter rolls until the pass line resolves (come-out decision or the point made / seven out)
+		// the shooter rolls (the primary) until the pass line resolves (come-out decision or the point made / seven out)
 		for (int i = 0; i < 60 && stake(world, pos) > 0; i++) {
-			if (!tryClick(context, "gui.burmaldaholic.craps.roll")) context.waitTicks(10);
+			boolean canRoll = context.computeOnClient(mc -> mc.gui.screen() instanceof CrapsScreen s && s.chrome().primary.gate().enabled()
+				&& "roll".equals(s.chrome().primary.gate().action()));
+			if (canRoll) clickTarget(context, "primary");
+			else context.waitTicks(10);
 			context.waitTicks(20);
 		}
 		if (stake(world, pos) > 0) failures.add(name + ": the pass line never resolved by rolling");
-		// the next come-out: a new Pass Line bet goes through
+		// the next come-out: a new Pass Line bet goes through once the throw is no longer shown (CM: the felt stays closed
+		// until the chips move, ~2 s after the roll; a click before that is answered with reason.rolling, nothing sent)
+		// T-CM D-lane: and past IDLE: a click between BADGE and IDLE is swallowed by skipBeats (CrapsScreen.mouseClicked)
+		context.waitFor(mc -> !(mc.gui.screen() instanceof CrapsScreen s) || (!s.throwShown() && s.storyMs() > s.beats().IDLE), TIMEOUT);
 		context.waitTicks(10);
-		double[] again = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Object felt = call(s, "felt");
-			Optional<?> a = (Optional<?>) call(felt, "hit", x - (int) call(s, "lx"), y - (int) call(s, "ly"));
-			return a.isPresent() && a.get().toString().startsWith("Area[kind=pass,");
-		}));
-		if (again != null) {
-			click(context, again[0], again[1]);
+		if (clickTarget(context, CrapsLayout.PASS)) {
 			serverWait(context, world, pos, name + ": next Pass Line bet accepted", (t, p) -> t.stakeOf(p.getUUID()) > 0);
 		}
 		closeAndLeave(context, world, pos);
+	}
+
+	/** Clicks the centre of a v2 screen's HitMap target (layout px → window px through the screen's viewport). */
+	private static boolean clickTarget(ClientGameTestContext context, String id) {
+		double[] at = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return null;
+			var b = h.chrome().hits().box(id);
+			if (b.isEmpty()) return null;
+			var vp = h.chrome().viewport();
+			return new double[] {vp.windowX(b.get().x() + b.get().w() / 2.0), vp.windowY(b.get().y() + b.get().h() / 2.0)};
+		});
+		if (at == null) return false;
+		click(context, at[0], at[1]);
+		return true;
 	}
 
 	// ---- baccarat -----------------------------------------------------------------------------------------------------
@@ -267,31 +312,16 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		String name = tag + " baccarat";
 		BlockPos pos = placeAndOpen(context, world, BaccaratModule.TABLE, BaccaratScreen.class, name);
 		if (pos == null) return;
-		if (!clickLabel(context, name, "gui.burmaldaholic.baccarat.sit")) return;
+		if (!clickV2(context, name, "primary")) return; // v2: the primary says Sit down
 		if (!serverWait(context, world, pos, name + ": seated after Sit", (t, p) -> t.isSeated(p))) return;
 		context.waitTicks(3);
-		clickChip(context, name, 2); // 25 (the default chip is used when the rack is hidden)
-		double[] box = context.computeOnClient(mc -> {
-			Screen s = mc.gui.screen();
-			if (!(s instanceof CardTableScreen)) return null;
-			Object kinds = call(s, "boxes");
-			for (Object k : (Iterable<?>) kinds) {
-				if (!k.toString().equals("PLAYER")) continue;
-				int[] r = (int[]) call(s, "boxRect", k);
-				return canvasToWindow(mc, s, r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
-			}
-			return null;
-		});
-		if (box == null) {
-			failures.add(name + ": no PLAYER box");
-			return;
-		}
-		click(context, box[0], box[1]);
+		if (!clickV2Chip(context, name, 25)) return; // arms the 25 (multi-spot)
+		if (!clickV2(context, name, "felt.box.player")) return;
 		if (!serverWait(context, world, pos, name + ": PLAYER bet accepted", (t, p) -> t.stakeOf(p.getUUID()) > 0)) return;
 		long staked = stake(world, pos);
 		long before = balance(world) + staked;
 		shot(context, tag, "baccarat");
-		if (!clickLabel(context, name, "gui.burmaldaholic.common.deal")) return;
+		if (!clickV2(context, name, "primary")) return; // Deal
 		if (!serverWait(context, world, pos, name + ": coup settled", (t, p) -> t.stakeOf(p.getUUID()) == 0)) return;
 		log.add(name + ": staked " + staked + ", balance " + before + " -> " + balance(world));
 		if (!serverWait(context, world, pos, name + ": next coup opens", (t, p) -> "betting".equals(phase(t, p)) || "idle".equals(phase(t, p)))) return;
@@ -310,14 +340,9 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		String name = "fresh roulette";
 		BlockPos pos = placeAndOpen(context, world, RouletteModule.TABLE, RouletteScreen.class, name, 20);
 		if (pos != null) {
-			double[] red = context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-				Optional<?> spot = (Optional<?>) call(s, "spotAt", x, y);
-				return spot.isPresent() && spot.get().toString().contains("RED");
-			}));
-			if (red == null) {
-				failures.add(name + ": no RED spot on screen");
-			} else {
-				click(context, red[0], red[1]);
+			// v2 (lane C): no chip picked; a click on RED places the kit's default chip (BetBar.armOrDefault: one that fits)
+			Spot red = Spot.of(BetType.RED, Spot.outsideNumbers(BetType.RED, 0));
+			if (clickV2(context, name, RouletteLayout.spotId(red))) {
 				serverWait(context, world, pos, name + ": RED bet with the default chip and 20 chips lands", (t, p) -> t.stakeOf(p.getUUID()) > 0);
 				log.add(name + ": staked " + stake(world, pos) + " of 20");
 			}
@@ -325,65 +350,45 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		}
 		name = "fresh blackjack";
 		pos = placeAndOpen(context, world, BlackjackModule.TABLE, BlackjackScreen.class, name, 50);
-		if (pos != null && clickLabel(context, name, "gui.burmaldaholic.blackjack.sit")
+		if (pos != null && clickV2(context, name, "primary") // v2: the primary says Sit down
 				&& serverWait(context, world, pos, name + ": seated after Sit", (t, p) -> t.isSeated(p))) {
 			context.waitTicks(3);
-			// the default chip (25) put on the player's own betting circle, then Deal
-			double[] spot = context.computeOnClient(mc -> {
-				Screen s = mc.gui.screen();
-				boolean compact = (boolean) field(s, "compact");
-				int x = (int) call(s, "tx", compact ? 140 : dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_X);
-				int y = (int) call(s, "ty", compact ? dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.C_STACK_Y
-					: dev.nezo.burmaldaholic.core.anim.cards.CardLayout.Blackjack.ME_SPOT_Y);
-				return canvasToWindow(mc, s, x, y);
-			});
-			click(context, spot[0], spot[1]);
-			if (clickLabel(context, name, "gui.burmaldaholic.common.deal")) {
-				serverWait(context, world, pos, name + ": the chip put on the circle is the bet",
-					(t, p) -> t.stakeOf(p.getUUID()) == 25 || t.writeClientState(p).getLongOr("last_bet", 0) == 25);
+			// the default chip put on the player's own betting circle (lane A10's circle click = v2 felt.spot), then Deal
+			if (clickV2(context, name, "felt.spot")) {
+				context.waitTicks(3);
+				long draft = context.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+					? h.chrome().bet.view().myTotal() : -1L);
+				if (draft <= 0) failures.add(name + ": a click on the betting circle put no chip down (draft " + draft + ")");
+				if (clickV2(context, name, "primary")) {
+					serverWait(context, world, pos, name + ": the chip put on the circle is the bet",
+						(t, p) -> t.stakeOf(p.getUUID()) > 0 || t.writeClientState(p).getLongOr("last_bet", 0) > 0);
+				}
 			}
 		}
 		if (pos != null) closeAndLeave(context, world, pos);
 		name = "fresh craps";
 		pos = placeAndOpen(context, world, CrapsModule.TABLE, CrapsScreen.class, name, 50);
 		if (pos == null) return;
-		feltClick(context, name, "Area[kind=come,", "gui.burmaldaholic.craps.come_needs_point");
-		feltClick(context, name, "Area[kind=point,", "gui.burmaldaholic.craps.numbers_come_out");
+		feltClick(context, name, CrapsLayout.COME, "gui.burmaldaholic.craps.v2.reason.come_needs_point");
+		feltClick(context, name, CrapsLayout.pointId(6), "gui.burmaldaholic.craps.v2.reason.point_box_come_out");
 		if (stake(world, pos) != 0) failures.add(name + ": COME / a number took a bet on the come-out");
-		double[] pass = feltPoint(context, "Area[kind=pass,");
-		if (pass == null) {
-			failures.add(name + ": no Pass Line");
-		} else {
-			click(context, pass[0], pass[1]);
+		if (clickV2(context, name, CrapsLayout.PASS)) {
 			serverWait(context, world, pos, name + ": Pass Line with the default chip lands", (t, p) -> t.stakeOf(p.getUUID()) > 0);
 		}
 		closeAndLeave(context, world, pos);
 	}
 
-	private static double[] feltPoint(ClientGameTestContext context, String area) {
-		return context.computeOnClient(mc -> find(mc.gui.screen(), (s, x, y) -> {
-			Object felt = call(s, "felt");
-			Optional<?> a = (Optional<?>) call(felt, "hit", x - (int) call(s, "lx"), y - (int) call(s, "ly"));
-			return a.isPresent() && a.get().toString().startsWith(area);
-		}));
-	}
-
-	/** Clicks a felt area and checks the screen's error line names the reason {@code key}. */
-	private void feltClick(ClientGameTestContext context, String name, String area, String key) {
-		double[] at = feltPoint(context, area);
-		if (at == null) {
-			failures.add(name + ": no " + area);
-			return;
-		}
-		click(context, at[0], at[1]);
-		context.waitTicks(5);
+	/** Clicks a v2 felt spot and checks the status line names the reason {@code key}. */
+	private void feltClick(ClientGameTestContext context, String name, String id, String key) {
+		if (!clickV2(context, name, id)) return;
+		context.waitTicks(3);
 		String shown = context.computeOnClient(mc -> {
-			Object e = field(mc.gui.screen(), "error");
-			return e instanceof Component c && c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey()
-				: String.valueOf(e);
+			if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return "no v2 screen";
+			Component c = h.chrome().status.line1();
+			return c != null && c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t ? t.getKey() : String.valueOf(c);
 		});
-		log.add(name + ": " + area + " -> " + shown);
-		if (!key.equals(shown)) failures.add(name + ": clicking " + area + " on the come-out shows " + shown + ", expected " + key);
+		log.add(name + ": " + id + " -> " + shown);
+		if (!key.equals(shown)) failures.add(name + ": clicking " + id + " on the come-out shows " + shown + ", expected " + key);
 	}
 
 	// ---- the real flow helpers ----------------------------------------------------------------------------------------
@@ -487,6 +492,58 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		});
 	}
 
+	// ---- table UI v2 (docs/architecture/ui-v2.md): clicks by HitMap id at the real window pixel -----------------------
+
+	private static double @org.jspecify.annotations.Nullable [] v2Point(Minecraft mc, String id, boolean enabledOnly) {
+		if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return null;
+		var chrome = h.chrome();
+		for (var t : chrome.hits().targets()) {
+			if (!t.id().equals(id) || enabledOnly && !t.enabled()) continue;
+			var vp = chrome.viewport();
+			return new double[] {vp.windowX(t.box().x() + t.box().w() / 2.0), vp.windowY(t.box().y() + t.box().h() / 2.0)}; // framed (RS §3.7)
+		}
+		return null;
+	}
+
+	/** Clicks v2 target {@code id} (enabled or not: a disabled one shows its reason); a failure when it is missing. */
+	private boolean clickV2(ClientGameTestContext context, String name, String id) {
+		double[] at = context.computeOnClient(mc -> v2Point(mc, id, false));
+		if (at == null) {
+			failures.add(name + ": no v2 target '" + id + "' (" + context.computeOnClient(mc -> String.valueOf(mc.gui.screen())) + ")");
+			return false;
+		}
+		click(context, at[0], at[1]);
+		return true;
+	}
+
+	private boolean tryV2(ClientGameTestContext context, String id) {
+		double[] at = context.computeOnClient(mc -> v2Point(mc, id, true));
+		if (at == null) return false;
+		click(context, at[0], at[1]);
+		return true;
+	}
+
+	private static boolean primaryIs(ClientGameTestContext context, String action) {
+		return context.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+			&& h.chrome().primary.gate().enabled() && h.chrome().primary.gate().action().equals(action));
+	}
+
+	/** Clicks the tray chip of {@code denom} (or the largest below it). */
+	private boolean clickV2Chip(ClientGameTestContext context, String name, long denom) {
+		int index = context.computeOnClient(mc -> {
+			if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return -1;
+			long[] chips = h.chrome().bet.chips();
+			int best = -1;
+			for (int i = 0; i < chips.length; i++) if (chips[i] <= denom) best = i;
+			return best;
+		});
+		if (index < 0) {
+			failures.add(name + ": no v2 chip tray");
+			return false;
+		}
+		return clickV2(context, name, "chip." + index);
+	}
+
 	/** Clicks the visible, active widget whose label is {@code key} (translated); records a failure when there is none. */
 	private boolean clickLabel(ClientGameTestContext context, String name, String key) {
 		if (clickWidget(context, name, w -> w.getMessage().getString().equals(Component.translatable(key).getString()))) return true;
@@ -540,6 +597,8 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	}
 
 	private static void click(ClientGameTestContext context, double wx, double wy) {
+		// the kit's ClickGuard (K2) refuses a click on a control that just appeared: wait one reaction time, like a player
+		context.waitFor(mc -> !(mc.gui.screen() instanceof V2Chrome.Holder h) || h.chrome().clickSettled(), 200);
 		context.getInput().setCursorPos(wx, wy);
 		context.waitTicks(1);
 		context.getInput().pressMouse(Inputs.MOUSE_LEFT);

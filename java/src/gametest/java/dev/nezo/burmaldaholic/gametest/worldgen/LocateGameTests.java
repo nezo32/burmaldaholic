@@ -4,14 +4,15 @@ import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.core.config.CasinoConfig;
 import dev.nezo.burmaldaholic.core.mode.CasinoMode;
 import dev.nezo.burmaldaholic.worldgen.CasinoBuilder;
-import dev.nezo.burmaldaholic.worldgen.CasinoElements;
 import dev.nezo.burmaldaholic.worldgen.CasinoIndex;
 import dev.nezo.burmaldaholic.worldgen.CasinoLocator;
+import dev.nezo.burmaldaholic.worldgen.CasinoPlacement;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord;
 import dev.nezo.burmaldaholic.worldgen.logic.Geometry;
 import dev.nezo.burmaldaholic.worldgen.logic.Layouts;
 import dev.nezo.burmaldaholic.worldgen.logic.LocateRules;
+import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -21,20 +22,20 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
-import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
-import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
-import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 
 /**
  * {@code /casino locate}: index path as a plain player, cooldown, server-wide limit, mode off, hosts per dimension,
- * predicted path per host type, cut-short / busy answers, gate parity.
+ * predicted path per host type (v0.1 / v0.2 village casinos, v0.2 standalone casinos, Parlor, Lounge), cut-short /
+ * busy answers, gate parity.
  */
 public class LocateGameTests {
 	/** A known casino right next to a non-operator mock player is found, by the API and by the real command. */
@@ -123,14 +124,27 @@ public class LocateGameTests {
 	}
 
 	/**
-	 * Villages host casinos in the Overworld, bastions in the Nether, End Cities in the End — nothing else. A dimension
-	 * whose biomes cannot hold its host has none (26.3's GameTest Nether is a flat level without bastion biomes).
+	 * Villages and the v0.2 standalone casinos ({@code #burmaldaholic:casino}) host casinos in the Overworld, bastions
+	 * in the Nether, End Cities in the End — nothing else. A dimension whose biomes cannot hold its host has none
+	 * (26.3's GameTest Nether is a flat level without bastion biomes).
 	 */
 	@GameTest
 	public void hostsFollowTheDimension(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
-		List<CasinoKind> overworld = kinds(server.getLevel(Level.OVERWORLD));
-		helper.assertTrue(overworld.equals(List.of(CasinoKind.VILLAGE_CASINO)), "overworld hosts " + overworld);
+		ServerLevel overworldLevel = server.getLevel(Level.OVERWORLD);
+		List<CasinoKind> overworld = kinds(overworldLevel);
+		// standalone casinos are a host wherever the level's generator places the burmaldaholic:casinos set: always on
+		// a noise Overworld; the GameTest superflat Overworld lists only villages on 26.2 but every set on 26.3
+		var tag = overworldLevel.registryAccess().lookupOrThrow(Registries.STRUCTURE)
+			.get(TagKey.create(Registries.STRUCTURE, Identifier.parse(PackFiles.TAG)));
+		var genState = overworldLevel.getChunkSource().getGeneratorState();
+		boolean standalone = tag.isPresent() && tag.get().stream().anyMatch(h -> !genState.getPlacementsForStructure(h).isEmpty());
+		if (overworldLevel.getChunkSource().getGenerator() instanceof net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator
+				&& tag.isPresent() && tag.get().size() > 0) {
+			helper.assertTrue(standalone, "a noise Overworld places the standalone casino set");
+		}
+		List<CasinoKind> expected = standalone ? List.of(CasinoKind.VILLAGE_CASINO, CasinoKind.CASINO) : List.of(CasinoKind.VILLAGE_CASINO);
+		helper.assertTrue(overworld.equals(expected), "overworld hosts " + overworld + ", expected " + expected);
 		check(helper, server.getLevel(Level.NETHER), CasinoKind.PIGLIN_PARLOR);
 		check(helper, server.getLevel(Level.END), CasinoKind.HIGH_ROLLER);
 		helper.succeed();
@@ -147,6 +161,41 @@ public class LocateGameTests {
 		}
 	}
 
+	/**
+	 * {@code worldgen.standalone.enabled = false}: the locator neither searches nor predicts standalone casinos (no new
+	 * one can start), the other hosts stay. One tick, restored after (the gate is a server-thread snapshot).
+	 */
+	@GameTest
+	public void standaloneDisabledDropsTheStandaloneHost(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel().getServer().getLevel(Level.OVERWORLD);
+		var cfg = dev.nezo.burmaldaholic.core.config.CasinoConfig.worldgen();
+		boolean standalone0 = cfg.standalone.enabled;
+		List<CasinoKind> on;
+		List<CasinoKind> off;
+		boolean hostOn;
+		boolean hostOff;
+		try {
+			cfg.standalone.enabled = true;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			on = kinds(level);
+			hostOn = CasinoLocator.standaloneHost(level).isPresent();
+			cfg.standalone.enabled = false;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+			off = kinds(level);
+			hostOff = CasinoLocator.standaloneHost(level).isPresent();
+		} finally {
+			cfg.standalone.enabled = standalone0;
+			dev.nezo.burmaldaholic.worldgen.WorldgenRuntime.refresh();
+		}
+		helper.assertFalse(off.contains(CasinoKind.CASINO) || hostOff, "standalone host while disabled: " + off + " / " + hostOff);
+		List<CasinoKind> others = new java.util.ArrayList<>(on);
+		others.remove(CasinoKind.CASINO);
+		helper.assertTrue(off.equals(others), "other hosts unchanged: on " + on + ", off " + off);
+		helper.assertTrue(hostOn || dev.nezo.burmaldaholic.gametest.worldgen.CasinoQa.standalone(level.getServer()).isEmpty(),
+			"control: the standalone host exists while enabled");
+		helper.succeed();
+	}
+
 	private static List<CasinoKind> kinds(ServerLevel level) {
 		return CasinoLocator.hosts(level).stream().map(CasinoLocator.Host::kind).toList();
 	}
@@ -159,6 +208,9 @@ public class LocateGameTests {
 	 * GameTest server itself never generates structures). The locator must then report the nearest of those casinos as
 	 * unexplored: found through the grid, the gate, the vanilla structure check and the real structure start.
 	 */
+	/** Wall-clock budget of the prediction searches (60 s): far above {@link CasinoLocator#BUDGET_NANOS}. */
+	private static final long PREDICT_BUDGET_NANOS = 60_000_000_000L;
+
 	@GameTest(maxTicks = 600)
 	public void predictsUnexploredCasinoForEveryHost(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
@@ -166,13 +218,21 @@ public class LocateGameTests {
 		int spot = 0;
 		for (ServerLevel level : server.getAllLevels()) {
 			for (CasinoLocator.Host host : CasinoLocator.hosts(level)) {
-				if (predict(helper, level, host, spot++)) {
-					verified.add(host.kind());
+				// standalone casinos skip unfit cells (biome, terrain): a few fresh spots until one holds casinos
+				int tries = host.kind() == CasinoKind.CASINO ? 3 : 1;
+				for (int t = 0; t < tries; t++) {
+					if (predict(helper, level, host, spot++)) {
+						verified.add(host.kind());
+						break;
+					}
 				}
 			}
 		}
 		Burmaldaholic.LOGGER.info("[locate test] predicted path verified for {}", verified);
 		helper.assertTrue(verified.contains(CasinoKind.VILLAGE_CASINO), "village casinos predicted: " + verified);
+		if (CasinoLocator.hosts(server.getLevel(Level.OVERWORLD)).stream().anyMatch(h -> h.kind() == CasinoKind.CASINO)) {
+			helper.assertTrue(verified.contains(CasinoKind.CASINO), "standalone casinos predicted: " + verified);
+		}
 		ServerLevel nether = server.getLevel(Level.NETHER);
 		if (nether != null && !CasinoLocator.hosts(nether).isEmpty()) {
 			helper.assertTrue(verified.contains(CasinoKind.PIGLIN_PARLOR), "Piglin Parlors predicted: " + verified);
@@ -181,8 +241,11 @@ public class LocateGameTests {
 	}
 
 	/**
-	 * One host: prepares the nine cells, searches from 100 blocks east of a prepared casino, checks the answer.
-	 * Returns false (nothing asserted) only for End Cities when none of the nine got a lounge (it needs a tower top).
+	 * One host: prepares the nine cells (25 for the sparser standalone casinos), searches from 100 blocks east of a
+	 * prepared casino, checks the answer. Each prepared casino is the union box of its start's casino pieces
+	 * ({@link CasinoPlacement#of}, what the index records; a standalone casino has several pieces). Returns false
+	 * (nothing asserted) only for End Cities when none of the cells got a lounge (it needs a tower top) and for
+	 * standalone casinos when none of the cells fits one (biome / terrain).
 	 */
 	private static boolean predict(GameTestHelper helper, ServerLevel level, CasinoLocator.Host host, int spot) {
 		double before = chance(host.kind());
@@ -190,7 +253,9 @@ public class LocateGameTests {
 		long salt = System.nanoTime();
 		double x = 40_000 + Math.floorMod(salt, 20_000L) + spot * 50_000;
 		double z = -40_000 - Math.floorMod(salt / 7, 20_000L);
-		List<BoundingBox> prepared = new ArrayList<>();
+		List<Geometry.Box> prepared = new ArrayList<>();
+		String dim = level.dimension().identifier().toString();
+		int rings = host.kind() == CasinoKind.CASINO ? 2 : 1;
 		CasinoLocator.Outcome outcome;
 		double fromX;
 		double fromZ;
@@ -202,33 +267,39 @@ public class LocateGameTests {
 			int spacing = placement.spacing();
 			int cellX = Math.floorDiv(((int) Math.floor(x)) >> 4, spacing);
 			int cellZ = Math.floorDiv(((int) Math.floor(z)) >> 4, spacing);
-			for (int r = 0; r <= 1; r++) {
+			for (int r = 0; r <= rings; r++) {
 				for (int[] cell : LocateRules.ringCells(r)) {
 					ChunkPos p = placement.getPotentialStructureChunk(state.getLevelSeed(), (cellX + cell[0]) * spacing, (cellZ + cell[1]) * spacing);
 					ChunkAccess chunk = level.getChunk(p.x(), p.z(), ChunkStatus.STRUCTURE_STARTS);
 					level.getChunkSource().getGenerator().createStructures(level.registryAccess(), state, level.structureManager(), chunk,
 						templates, level.dimension());
 					level.onStructureStartsAvailable(chunk);
-					for (StructureStart start : chunk.getAllStarts().values()) {
-						for (StructurePiece piece : start.getPieces()) {
-							if (piece instanceof PoolElementStructurePiece pool && CasinoElements.layoutOf(pool.getElement()).isPresent()) {
-								prepared.add(pool.getBoundingBox());
-							}
+					for (var holder : host.grids().get(placement)) {
+						StructureStart start = chunk.getStartForStructure(holder.value());
+						if (start == null || !start.isValid()) {
+							continue;
+						}
+						CasinoPlacement.Context casino = CasinoPlacement.of(dim, start.getPieces());
+						if (casino != null) {
+							helper.assertTrue(casino.kind() == host.kind(), host.kind().id() + " start holds a " + casino.kind() + " casino");
+							prepared.add(casino.box());
 						}
 					}
 				}
 			}
 			Burmaldaholic.LOGGER.info("[locate test] {} casinos created around {}, {}: {}", host.kind().id(), x, z, prepared.size());
-			if (prepared.isEmpty() && host.kind() == CasinoKind.HIGH_ROLLER) {
+			if (prepared.isEmpty() && (host.kind() == CasinoKind.HIGH_ROLLER || host.kind() == CasinoKind.CASINO)) {
 				return false;
 			}
 			helper.assertTrue(!prepared.isEmpty(), "no " + host.kind().id() + " host with a casino in the nine cells around " + x + ", " + z);
 			// Search from 100 blocks east of the first one: well inside every cap.
-			BoundingBox first = prepared.getFirst();
-			fromX = (first.minX() + first.maxX()) / 2.0 + 100;
-			fromZ = (first.minZ() + first.maxZ()) / 2.0;
+			Geometry.Box first = prepared.getFirst();
+			fromX = first.centerX() + 100;
+			fromZ = first.centerZ();
+			// This test checks the predicted path, not the wall-clock budget (cutShortAndBusyAnswersSaySo does): a loaded CI or
+			// dev machine must not cut the search short (INTEGRATION-1 flake), so the budget is generous here.
 			outcome = CasinoLocator.search(level, fromX, fromZ, () -> {},
-				new CasinoLocator.Limits(true, () -> true, CasinoLocator.BUDGET_NANOS));
+				new CasinoLocator.Limits(true, () -> true, PREDICT_BUDGET_NANOS));
 		} finally {
 			setChance(host.kind(), before);
 		}
@@ -237,15 +308,82 @@ public class LocateGameTests {
 			host.kind().id() + " predicted within the cap, not cut short: " + outcome);
 		LocateRules.Candidate hit = outcome.hit();
 		helper.assertTrue(hit.kind() == host.kind() && hit.predicted(), "predicted " + host.kind().id() + ": " + hit);
-		BlockPos at = new BlockPos(hit.x(), hit.y(), hit.z());
-		helper.assertTrue(prepared.stream().anyMatch(b -> b.isInside(at)), "the reported point lies in a real casino piece: " + at);
+		helper.assertTrue(prepared.stream().anyMatch(b -> b.contains(hit.x(), hit.y(), hit.z())),
+			"the reported point lies in a real casino: " + hit + " in " + prepared);
 		// Nearest of the prepared ones (none may be skipped).
 		double sx = fromX;
 		double sz = fromZ;
-		double best = prepared.stream().mapToDouble(b -> Math.hypot((b.minX() + b.maxX()) / 2.0 - sx, (b.minZ() + b.maxZ()) / 2.0 - sz))
+		double best = prepared.stream().mapToDouble(b -> Math.hypot(b.centerX() + 0.5 - sx, b.centerZ() + 0.5 - sz))
 			.min().orElseThrow();
 		helper.assertTrue(outcome.distance() <= best + 2, "nearest prepared casino: " + outcome.distance() + " vs " + best);
 		return true;
+	}
+
+	/**
+	 * Predicted path for the v0.2 standalone casino (structure set {@code burmaldaholic:casinos}). The GameTest
+	 * Overworld is superflat and never places that set, so the host comes from the set itself
+	 * ({@link CasinoLocator#standaloneHost}) and the starts of 25 grid cells are generated with the real
+	 * {@code CasinoStructure} (jigsaw + completeness + terrain fit) and stored like chunk generation does. The locator
+	 * must report the nearest one as an unexplored CASINO, confirmed in the real (multi-piece) start, with its standing
+	 * point inside the start's casino box.
+	 */
+	@GameTest(maxTicks = 600)
+	public void predictsUnexploredStandaloneCasino(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel().getServer().getLevel(Level.OVERWORLD);
+		var hostOpt = CasinoLocator.standaloneHost(level);
+		if (hostOpt.isEmpty()) {
+			Burmaldaholic.LOGGER.info("[locate test] no {} structure set in the pack: standalone path skipped", PackFiles.SET);
+			helper.succeed();
+			return;
+		}
+		CasinoLocator.Host host = hostOpt.get();
+		var entry = host.grids().entrySet().iterator().next();
+		RandomSpreadStructurePlacement placement = entry.getKey();
+		ChunkGeneratorStructureState state = level.getChunkSource().getGeneratorState();
+		long seed = state.getLevelSeed();
+		String dim = level.dimension().identifier().toString();
+		long salt = System.nanoTime();
+		double x = 240_000 + Math.floorMod(salt, 20_000L);
+		double z = 240_000 + Math.floorMod(salt / 7, 20_000L);
+		int spacing = placement.spacing();
+		int cellX = Math.floorDiv(((int) Math.floor(x)) >> 4, spacing);
+		int cellZ = Math.floorDiv(((int) Math.floor(z)) >> 4, spacing);
+		List<Geometry.Box> prepared = new ArrayList<>();
+		for (int r = 0; r <= 2; r++) {
+			for (int[] cell : LocateRules.ringCells(r)) {
+				ChunkPos p = placement.getPotentialStructureChunk(seed, (cellX + cell[0]) * spacing, (cellZ + cell[1]) * spacing);
+				ChunkAccess chunk = level.getChunk(p.x(), p.z(), ChunkStatus.STRUCTURE_STARTS);
+				for (var holder : entry.getValue()) {
+					var source = level.getChunkSource();
+					StructureStart start = StructureGen.generate(holder, level.dimension(), level.registryAccess(), source.getGenerator(),
+						source.randomState(), CasinoBuilder.templates(level.getServer()), seed, p, level, b -> true);
+					if (start == null || !start.isValid()) {
+						continue;
+					}
+					chunk.setStartForStructure(holder.value(), start);
+					CasinoPlacement.Context casino = CasinoPlacement.of(dim, start.getPieces());
+					helper.assertTrue(casino != null && casino.kind() == CasinoKind.CASINO, "standalone start holds a CASINO: " + casino);
+					prepared.add(casino.box());
+					break; // one structure per cell, like the set
+				}
+				level.onStructureStartsAvailable(chunk);
+			}
+		}
+		Burmaldaholic.LOGGER.info("[locate test] casino (standalone) starts created around {}, {}: {}", x, z, prepared.size());
+		helper.assertTrue(!prepared.isEmpty(), "no standalone casino fits any of the 25 superflat cells around " + x + ", " + z);
+		Geometry.Box first = prepared.getFirst();
+		double fromX = first.centerX() + 100;
+		double fromZ = first.centerZ();
+		CasinoLocator.Outcome outcome = CasinoLocator.search(level, fromX, fromZ, () -> {},
+			new CasinoLocator.Limits(true, () -> true, CasinoLocator.BUDGET_NANOS), List.of(host));
+		Burmaldaholic.LOGGER.info("[locate test] casino search from {}, {}: {}", fromX, fromZ, outcome);
+		helper.assertTrue(outcome.status() == CasinoLocator.Status.FOUND && !outcome.truncated(), "standalone predicted, not cut short: " + outcome);
+		LocateRules.Candidate hit = outcome.hit();
+		helper.assertTrue(hit.kind() == CasinoKind.CASINO && hit.predicted(), "predicted standalone casino: " + hit);
+		helper.assertTrue(prepared.stream().anyMatch(b -> b.contains(hit.x(), hit.y(), hit.z())), "the reported point lies in a real casino: " + hit);
+		double best = prepared.stream().mapToDouble(b -> Math.hypot(b.centerX() + 0.5 - fromX, b.centerZ() + 0.5 - fromZ)).min().orElseThrow();
+		helper.assertTrue(outcome.distance() <= best + 2, "nearest prepared standalone casino: " + outcome.distance() + " vs " + best);
+		helper.succeed();
 	}
 
 	/**
@@ -296,7 +434,8 @@ public class LocateGameTests {
 	/**
 	 * Gate parity in real structure starts (the locator's pre-filter must never hide a casino): with the chances at
 	 * 0.5, starts created like chunk generation does in fresh Overworld / Nether cells only ever hold a casino where
-	 * {@link LocateRules#gate} passes for that start chunk.
+	 * {@link LocateRules#gate} passes for that start chunk, and the casino is of the host's kind (village starts: v0.1
+	 * room or v0.2 annex; {@code burmaldaholic:casinos} starts: a standalone casino; bastions: Parlor v1 / v2).
 	 */
 	@GameTest(maxTicks = 600)
 	public void gatePreFilterMatchesRealGeneration(GameTestHelper helper) {
@@ -348,11 +487,11 @@ public class LocateGameTests {
 							counts[0]++;
 							boolean gate = LocateRules.gate(host.kind(), host.chance(), state.getLevelSeed(), p.x(), p.z());
 							counts[2] += gate ? 1 : 0;
-							boolean casino = start.getPieces().stream().anyMatch(piece -> piece instanceof PoolElementStructurePiece pool
-								&& CasinoElements.layoutOf(pool.getElement()).isPresent());
-							if (casino) {
+							CasinoPlacement.Context casino = CasinoPlacement.of(level.dimension().identifier().toString(), start.getPieces());
+							if (casino != null) {
 								counts[1]++;
 								helper.assertTrue(gate, host.kind().id() + " casino at start chunk " + p + " but the locator's gate says no");
+								helper.assertTrue(casino.kind() == host.kind(), host.kind().id() + " start at " + p + " holds a " + casino.kind());
 							}
 						}
 					}
@@ -367,6 +506,7 @@ public class LocateGameTests {
 			case VILLAGE_CASINO -> cfg.villageCasino.chance;
 			case PIGLIN_PARLOR -> cfg.piglinParlor.chance;
 			case HIGH_ROLLER -> cfg.highRoller.chance;
+			case CASINO -> 1.0; // no chance setting: its own structure set decides
 		};
 	}
 
@@ -376,6 +516,7 @@ public class LocateGameTests {
 			case VILLAGE_CASINO -> cfg.villageCasino.chance = value;
 			case PIGLIN_PARLOR -> cfg.piglinParlor.chance = value;
 			case HIGH_ROLLER -> cfg.highRoller.chance = value;
+			case CASINO -> { }
 		}
 	}
 }

@@ -7,13 +7,17 @@
 		"BlockItemMixin",
 		"LevelStorageAccessMixin",
 		"MinecraftServerStorageAccessor",
-		"MobMixin"
+		"MobMixin",
+		"ServerChunkCacheMixin"
 	],
 	"client": [
 		"client.BossHealthOverlayAccessor",
 		"client.CreateWorldGameTabMixin",
 		"client.CreateWorldScreenMixin",
+		"client.HudV2Mixin",
 		"client.MouseHandlerFitMixin",
+		"client.SetTimeNetLagMixin",
+		"client.ToastManagerV2Mixin",
 		"client.WorldCreationUiStateMixin"
 	],
 	"server": [],

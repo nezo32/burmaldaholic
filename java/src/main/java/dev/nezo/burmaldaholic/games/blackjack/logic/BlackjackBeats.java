@@ -223,6 +223,14 @@ public final class BlackjackBeats {
 	}
 
 	/** Dealer cards public at {@code now} (the hole card is a back, id kept, until the flip). */
+	/** Cards on the felt at {@code now} (every published card, the face-down hole card included): the shoe count the table shows (E5). */
+	public int publishedCount(long now) {
+		int n = 0;
+		for (Ev e : dealer) if (e.tick <= now) n++;
+		for (List<List<Ev>> seat : hands) for (List<Ev> h : seat) for (Ev e : h) if (e.tick <= now) n++;
+		return n;
+	}
+
 	public List<Ev> dealerAt(long now) {
 		List<Ev> out = new ArrayList<>();
 		for (int i = 0; i < dealer.size(); i++) {

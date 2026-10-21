@@ -127,8 +127,8 @@ final class BetControl {
 		return t;
 	}
 
-	/** Chip sprite of the well by amount (1, 5, 25, 100, 500). */
+	/** Chip sprite of the well by amount: the largest chip it covers. */
 	static int chipDenom(long amount) {
-		return amount >= 500 ? 500 : amount >= 100 ? 100 : amount >= 25 ? 25 : amount >= 5 ? 5 : 1;
+		return dev.nezo.burmaldaholic.core.chips.ChipMath.largestAtMost(amount);
 	}
 }

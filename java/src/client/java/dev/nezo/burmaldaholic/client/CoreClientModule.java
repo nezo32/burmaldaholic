@@ -2,7 +2,6 @@ package dev.nezo.burmaldaholic.client;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.nezo.burmaldaholic.client.cashier.CashierScreen;
 import dev.nezo.burmaldaholic.client.hud.CasinoHud;
 import dev.nezo.burmaldaholic.client.menu.ClientCasinoMenu;
 import dev.nezo.burmaldaholic.client.module.CasinoClientModule;
@@ -37,6 +36,7 @@ public final class CoreClientModule implements CasinoClientModule {
 
 	@Override
 	public void registerClient(ClientModuleContext ctx) {
+		dev.nezo.burmaldaholic.client.table.CashierSignRenderer.register(); // MT-3: the word on the cashier booth sign
 		CasinoMode.setClientLookup(CoreClientModule::casinoEnabled);
 		ClientPlayNetworking.registerGlobalReceiver(CasinoModeSyncPayload.TYPE, (payload, context) -> casinoEnabled = payload.enabled());
 		ClientPlayNetworking.registerGlobalReceiver(PlayerStatusPayload.TYPE, (payload, context) -> ClientCasinoState.accept(payload));
@@ -62,10 +62,12 @@ public final class CoreClientModule implements CasinoClientModule {
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ClientCasinoState.tick());
 		ClientTableCache.register();
+		dev.nezo.burmaldaholic.client.board.BoardKit.register(); // ui-v2.md §7: interim boards (lane W)
 		ClientCasinoMenu.register();
 		CasinoHud.init();
 		dev.nezo.burmaldaholic.client.fx.ClientFx.init(); // FX settings, celebration overlay, fx payload, particles (J-L1)
-		ctx.tableScreen(CoreContent.CASHIER, CashierScreen::new);
-		ctx.tableScreen(CoreContent.NETHER_CASHIER, CashierScreen::new);
+		dev.nezo.burmaldaholic.client.cashier.CounterClient.register(); // EC-1: counter payloads
+		ctx.tableScreen(CoreContent.CASHIER, dev.nezo.burmaldaholic.client.cashier.CounterScreen::new);
+		ctx.tableScreen(CoreContent.NETHER_CASHIER, dev.nezo.burmaldaholic.client.cashier.CounterScreen::new);
 	}
 }

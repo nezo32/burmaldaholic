@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "burmaldaholic:block/roulette/roulette_table"
+    "model": "burmaldaholic:block/tables/roulette_table/item"
   }
 }

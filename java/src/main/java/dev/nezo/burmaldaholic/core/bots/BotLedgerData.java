@@ -82,6 +82,13 @@ public final class BotLedgerData extends SavedData {
 		return d == null || d.day() != day ? 0 : d.value();
 	}
 
+	/** Forgets the buy-in count of {@code tableKey} (GameTests: a fresh table at a reused test position). */
+	public void forgetBuyIns(String tableKey) {
+		if (buyIns.remove(tableKey) != null) {
+			setDirty();
+		}
+	}
+
 	public void countBuyIn(String tableKey, long day) {
 		buyIns.put(tableKey, new DayCount(day, buyInsToday(tableKey, day) + 1));
 		setDirty();

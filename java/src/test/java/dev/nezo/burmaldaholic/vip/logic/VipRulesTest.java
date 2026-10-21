@@ -18,12 +18,12 @@ class VipRulesTest {
 	@Test
 	void tierBoundaries() {
 		assertEquals(0, VipRules.tierFor(0, TH));
-		assertEquals(0, VipRules.tierFor(4_999, TH));
-		assertEquals(1, VipRules.tierFor(5_000, TH));
-		assertEquals(2, VipRules.tierFor(25_000, TH));
-		assertEquals(3, VipRules.tierFor(100_000, TH));
-		assertEquals(4, VipRules.tierFor(499_999 + 1, TH));
-		assertEquals(5, VipRules.tierFor(2_500_000, TH));
+		assertEquals(0, VipRules.tierFor(24_999, TH));
+		assertEquals(1, VipRules.tierFor(25_000, TH));
+		assertEquals(2, VipRules.tierFor(250_000, TH));
+		assertEquals(3, VipRules.tierFor(1_500_000, TH));
+		assertEquals(4, VipRules.tierFor(9_999_999 + 1, TH));
+		assertEquals(5, VipRules.tierFor(50_000_000, TH));
 		assertEquals(5, VipRules.tierFor(Long.MAX_VALUE, TH));
 	}
 
@@ -36,12 +36,12 @@ class VipRulesTest {
 
 	@Test
 	void progressToNextTier() {
-		VipRules.Progress p = VipRules.progress(12_400, TH, 0);
+		VipRules.Progress p = VipRules.progress(60_000, TH, 0);
 		assertEquals(1, p.tier());
 		assertEquals(2, p.next());
-		assertEquals(25_000, p.target());
-		assertEquals((12_400 - 5_000) / 20_000.0, p.fraction(), 1e-9);
-		assertTrue(VipRules.progress(3_000_000, TH, 0).maxed());
+		assertEquals(250_000, p.target());
+		assertEquals((60_000 - 25_000) / 225_000.0, p.fraction(), 1e-9);
+		assertTrue(VipRules.progress(60_000_000, TH, 0).maxed());
 		// tiers are never lost: stored Gold stays Gold even if thresholds were raised
 		VipRules.Progress kept = VipRules.progress(10, TH, 2);
 		assertEquals(2, kept.tier());
@@ -71,6 +71,22 @@ class VipRulesTest {
 		assertEquals(10000, VipRules.maxLoanFor(3, LOANS));
 		assertEquals(0, VipRules.loanUnlockedAt(3, LOANS));
 		assertEquals(50000, VipRules.loanUnlockedAt(4, LOANS));
+	}
+
+	@Test
+	void goldShelfReplacesEmeraldRateAndCompsLineFollowsTheTier() {
+		List<String> gold = VipRules.perksAt(2, PARAMS).stream().map(VipRules.Perk::key).toList();
+		assertTrue(gold.contains("gui.burmaldaholic.vip.perk.store_gold_shelf"));
+		assertFalse(gold.contains("gui.burmaldaholic.vip.perk.emerald_rate"), "EC-SPEC §2");
+		assertFalse(gold.stream().anyMatch(k -> k.endsWith(".comps")), "no comps line without comp rates");
+		VipRules.PerkParams withComps = new VipRules.PerkParams(LOANS, 0.05, 0.10, 3, new double[] {0.02, 0.03, 0.04, 0.05},
+			VipRules.DEFAULT_COMP_RATES);
+		for (int t = 0; t <= 5; t++) {
+			VipRules.Perk p = VipRules.perksAt(t, withComps).stream().filter(x -> x.key().endsWith(".comps")).findFirst().orElseThrow();
+			assertEquals(Math.round(VipRules.DEFAULT_COMP_RATES[t] * 1000), p.value(), "tier " + t);
+		}
+		// comp + cashback <= 0.35: 0.33 comps next to 5 % cashback is shown as 30 %
+		assertEquals(0.30, VipRules.compRate(5, new double[] {0, 0, 0, 0, 0, 0.33}, new double[] {0.02, 0.03, 0.04, 0.05}), 1e-12);
 	}
 
 	@Test

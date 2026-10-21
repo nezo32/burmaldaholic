@@ -2,6 +2,8 @@ package dev.nezo.burmaldaholic.games.extras.client.pvp.coin;
 
 import dev.nezo.burmaldaholic.client.pvp.kit.Kit;
 import dev.nezo.burmaldaholic.client.pvp.kit.KitButton;
+import dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame;
+import dev.nezo.burmaldaholic.games.extras.client.pvp.PvpKitScreens;
 import dev.nezo.burmaldaholic.client.pvp.kit.Scene;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import java.util.function.Consumer;
@@ -13,12 +15,13 @@ import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Base of the extras PvP panels (Coin Flip Duel, Wheel Party, their set-ups; visual/extras.md §7): the arena scene
- * (the grudge variant when {@link #grudge} says so) as a 400 × 240 panel that grows downwards on a casino card only
- * when wrapped Russian lines need it, the title at the top left, casino buttons in a wrapping flow and the error line.
+ * Base of the extras PvP panels (Coin Flip Duel, Wheel Party, their set-ups; visual/extras.md §7) in the table UI v2
+ * frame ({@link PvpFrame}, REDESIGN.md §7.8): the arena fill (red-lit when {@link #grudge}), the TopBar with the title
+ * pill, the step on the right ({@link #titleRight}) and the balance, the 400-wide content panel centred between the
+ * bands, the screen's main buttons in the Dock ({@link #dockY}), the error line above the Dock.
  * Server-driven: subclasses render state they were sent and send actions; they never decide.
  */
-public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
+public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.v2.V2SceneScreen<Object> {
 	public static final int TEXT = Kit.BONE;
 	public static final int MUTED = Kit.BONE_SHADE;
 	public static final int GOLD = Kit.GOLD;
@@ -33,10 +36,11 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 	protected int top;
 	protected int ticks;
 	protected float partial;
+	protected PvpFrame.Layout frame = PvpFrame.layout(480, 270);
 	protected final long openedAt = Util.getMillis();
 
 	protected PvpPanel(Component title, int width, int height) {
-		super(title, Scene.W, Scene.H);
+		super(title);
 		this.panelWidth = Scene.W;
 		this.panelHeight = Scene.H;
 	}
@@ -58,30 +62,83 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 
 	@Override
 	protected int errorY() {
-		return top + Math.min(panelHeight, Scene.H) - 52;
+		return frame.dock().y() - 14;
 	}
 
-	/** The compact layout at small GUI sizes: the full 400 × 240 scene drawn at a lower whole GUI scale (FitScaled). */
+	/** y of the button row in the Dock (the screen's main buttons). */
+	protected int dockY() {
+		return frame.dockY();
+	}
+
+	/** Right side of the TopBar (step / timer), or null. */
+	protected @Nullable Component titleRight() {
+		return null;
+	}
+
+	// ---- the v2 kit viewport (owner B6): the kit's viewport and rows, the PvP widgets and bars ----------------------
+
 	@Override
-	protected boolean fitToScreen() {
-		return true;
+	protected dev.nezo.burmaldaholic.core.ui.v2.Flow<Object> flow() {
+		return PvpKitScreens.NO_FLOW;
+	}
+
+	@Override
+	protected void layoutPlay(dev.nezo.burmaldaholic.core.ui.v2.TableGrid grid, Object view, dev.nezo.burmaldaholic.core.ui.v2.HitMap hits) {}
+
+	@Override
+	protected void renderPlay(GuiGraphicsExtractor g, dev.nezo.burmaldaholic.core.ui.v2.TableGrid grid, Object view, int mouseX, int mouseY, float partial) {}
+
+	@Override
+	public void sendRaw(String action, net.minecraft.nbt.CompoundTag args) {}
+
+	/** A click on an enabled PvP widget acts through a skippable celebration (the kit rule for its own targets). */
+	@Override
+	protected boolean actsThroughCelebration(double x, double y) {
+		return PvpKitScreens.widgetAt(this, x, y);
 	}
 
 	@Override
 	protected void init() {
 		super.init();
+		PvpKitScreens.adopt(chrome);
 		panelWidth = Scene.W;
 		panelHeight = Scene.H;
-		left = Scene.left(width);
-		top = Scene.top(height);
+		frame = PvpFrame.layout(chrome.grid());
+		left = frame.panelLeft();
+		top = frame.panelTop();
 		int bottom = layout();
-		int needed = bottom - top + 14;
-		if (needed > panelHeight) {
-			panelHeight = needed;
-			clearWidgets();
-			top = Math.max(0, (height - panelHeight) / 2);
-			layout();
+		// R-M7: wrapped lines (RU) push the content down: the panel grows, moving up into the PlayArea's free band (never
+		// under the TopBar) so the content ends above the error line and the Dock
+		int limit = errorY() - 2;
+		if (bottom > limit) {
+			int room = top + PvpFrame.CONTENT_TOP - (frame.play().y() + 2);
+			int lift = Math.max(0, Math.min(bottom - limit, room));
+			if (lift > 0) {
+				clearWidgets();
+				top -= lift;
+				bottom = layout();
+			}
 		}
+		contentBottom = bottom;
+		panelHeight = Math.max(Scene.H, bottom - top + 14);
+	}
+
+	/** Absolute y below the content of the last layout (client GameTests: the panel holds every wrapped line). */
+	protected int contentBottom;
+
+	/** The content's bottom of the last layout. */
+	public int contentBottom() {
+		return contentBottom;
+	}
+
+	/** The panel's height after the regrow (≥ the content). */
+	public int panelHeight() {
+		return panelHeight;
+	}
+
+	/** The panel's top after the regrow. */
+	public int panelTop() {
+		return top;
 	}
 
 	/** Adds the widgets; returns the absolute y below the content. */
@@ -105,23 +162,18 @@ public abstract class PvpPanel extends dev.nezo.burmaldaholic.client.ui.CasinoSc
 		ticks++;
 	}
 
-	@Override
-	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		Scene sc = grudge() ? Scene.PVP_GRUDGE : Scene.PVP;
-		if (panelHeight > Scene.H) Scene.card(g, left + 6, top + Scene.H - 20, Scene.W - 12, panelHeight - Scene.H + 20);
-		sc.backdrop(g, left, top);
-		playArea(g, mouseX, mouseY);
-		sc.frame(g, font, left, top, null);
-	}
-
 	/** Objects on the backdrop under the frame. */
 	protected void playArea(GuiGraphicsExtractor g, int mouseX, int mouseY) {}
 
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		partial = a;
-		Kit.fit(g, font, title, left + PAD, top + 15, panelWidth - 2 * PAD - 120, GOLD, true);
+		// under the kit's frame pose (a framed window draws here, not in extractScene): the dim, the arena, the backdrop
+		chrome.renderBackground(g, theme());
+		PvpFrame.background(g, frame, grudge());
+		playArea(g, mouseX, mouseY);
 		content(g, mouseX, mouseY);
+		PvpFrame.bars(g, font, frame, title, titleRight(), balance(), grudge());
 	}
 
 	@Override

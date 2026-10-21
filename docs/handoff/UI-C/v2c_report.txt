@@ -1,0 +1,16 @@
+v2c_ru_ru_1920x1080@4: viewport Viewport[w=480, h=270, k=4, factor=1.0]
+v2c_ru_ru_1920x1080@4: primary without a bet: Сначала сделайте ставку
+v2c_ru_ru_1920x1080@4: result 25, staked 17, returned 20, balance 12483 -> 12503
+ru 1920@4: ok
+v2c_en_us_2560x1440@4: viewport Viewport[w=640, h=360, k=4, factor=1.0]
+v2c_en_us_2560x1440@4: primary without a bet: Place a bet first
+v2c_en_us_2560x1440@4: result 10, staked 17, returned 0, balance 12486 -> 12486
+en 2560@4: ok
+v2c_ru_ru_1920x1080@3: viewport Viewport[w=640, h=360, k=3, factor=1.0]
+v2c_ru_ru_1920x1080@3: primary without a bet: Сначала сделайте ставку
+ru 1920@3: ok
+world: server result -1, client sync -1, public stacks 0
+world: ok
+FAIL en 1920@4: Timed out waiting for predicate
+FAIL en 1280@3: Timed out waiting for predicate
+FAIL in-world stacks 0 < 5

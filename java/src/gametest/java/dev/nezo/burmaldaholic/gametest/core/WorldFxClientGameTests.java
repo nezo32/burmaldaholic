@@ -53,6 +53,7 @@ import net.minecraft.world.phys.Vec3;
 public class WorldFxClientGameTests implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("LEGACY") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("WorldFxClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create()) {
 			context.waitTicks(40);
 			BlockPos base = stage(world);

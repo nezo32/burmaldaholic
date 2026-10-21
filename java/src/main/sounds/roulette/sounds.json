@@ -3,14 +3,16 @@
     "subtitle": "subtitles.burmaldaholic.roulette_spin",
     "sounds": [
       {
-        "name": "minecraft:random/wood_click",
-        "pitch": 1.4,
-        "volume": 0.6
+        "name": "minecraft:entity.fishing_bobber.throw",
+        "type": "event",
+        "volume": 0.4,
+        "pitch": 1.6
       },
       {
-        "name": "minecraft:random/click",
-        "pitch": 1.8,
-        "volume": 0.4
+        "name": "minecraft:block.stone_button.click_on",
+        "type": "event",
+        "volume": 0.3,
+        "pitch": 2.0
       }
     ]
   },
@@ -40,10 +42,10 @@
     "subtitle": "subtitles.burmaldaholic.roulette_ball_bounce",
     "sounds": [
       {
-        "name": "minecraft:block.bamboo_wood_button.click_on",
+        "name": "minecraft:block.wooden_button.click_on",
         "type": "event",
         "volume": 0.6,
-        "pitch": 1.4
+        "pitch": 1.0
       }
     ]
   },
@@ -77,6 +79,67 @@
         "type": "event",
         "volume": 0.8,
         "pitch": 1.3
+      }
+    ]
+  },
+  "roulette_rotor_push": {
+    "subtitle": "subtitles.burmaldaholic.roulette_rotor_push",
+    "sounds": [
+      {
+        "name": "minecraft:block.grindstone.use",
+        "type": "event",
+        "volume": 0.2,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "roulette_roll": {
+    "subtitle": "subtitles.burmaldaholic.roulette_roll",
+    "sounds": [
+      {
+        "name": "minecraft:entity.minecart.riding",
+        "type": "event",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "roulette_deflector": {
+    "subtitle": "subtitles.burmaldaholic.roulette_deflector",
+    "sounds": [
+      {
+        "name": "minecraft:block.metal.hit",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block.bamboo_wood.hit",
+        "type": "event",
+        "volume": 0.4,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "roulette_floor": {
+    "subtitle": "subtitles.burmaldaholic.roulette_floor",
+    "sounds": [
+      {
+        "name": "minecraft:block.bamboo_wood_button.click_on",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "roulette_rake": {
+    "subtitle": "subtitles.burmaldaholic.roulette_rake",
+    "sounds": [
+      {
+        "name": "minecraft:item.brush.brushing.generic",
+        "type": "event",
+        "volume": 0.35,
+        "pitch": 1.2
       }
     ]
   }

@@ -41,6 +41,8 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 	protected int panelHeight = Scene.H;
 	protected int left;
 	protected int top;
+	/** The table UI v2 frame (REDESIGN.md §7.8): TopBar, arena fill, the 400-wide panel between the bands, the Dock. */
+	protected dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.Layout frame = dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.layout(480, 270);
 	protected int ticks;
 	/** Client tick when the state arrived (timers count down from it). */
 	protected int stateTick;
@@ -89,8 +91,9 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 	@Override
 	protected void init() {
 		super.init();
-		left = Scene.left(width);
-		top = Scene.top(height);
+		frame = dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.layout(width, height);
+		left = frame.panelLeft();
+		top = frame.panelTop();
 		layout();
 	}
 
@@ -106,7 +109,7 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 
 	@Override
 	protected int errorY() {
-		return top + 188;
+		return frame.dock().y() - 14;
 	}
 
 	/** Adds widgets (panel-local positions through {@link #button}). */
@@ -115,8 +118,9 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 	/** Content (absolute coordinates) over the scene, under the widgets. */
 	protected abstract void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float a);
 
+	/** A casino button at panel-local (x, y); the old bottom row (y ≥ 196) goes to the v2 Dock row. */
 	protected KitButton button(int x, int y, int w, Component label, KitButton.Style style, Consumer<KitButton> onPress) {
-		KitButton b = KitButton.of(left + x, top + y, w, label, style, onPress);
+		KitButton b = KitButton.of(left + x, y >= 196 ? frame.dockY() : top + y, w, label, style, onPress);
 		addRenderableWidget(b);
 		return b;
 	}
@@ -139,20 +143,14 @@ abstract class PvpScreen extends dev.nezo.burmaldaholic.client.ui.CasinoScreen {
 
 	@Override
 	protected void extractScene(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		Scene sc = scene();
-		sc.backdrop(g, left, top);
-		sc.frame(g, font, left, top, bannerTitle());
+		dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.background(g, frame, bool(state, "grudge"));
 	}
 
 	@Override
 	protected void extractPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-		if (bannerTitle() == null && titleLine()) {
-			Component right = titleRight();
-			int rw = right == null ? 0 : font.width(right);
-			Kit.fit(g, font, getTitle(), left + 16, top + 15, Scene.W - 32 - (rw > 0 ? rw + 12 : 0), GOLD, true);
-			if (right != null) g.text(font, right, left + Scene.W - 16 - rw, top + 15, GOLD, true);
-		}
 		extractContent(g, mouseX, mouseY, a);
+		Component t = bannerTitle() != null ? bannerTitle() : getTitle();
+		dev.nezo.burmaldaholic.client.pvp.kit.PvpFrame.bars(g, font, frame, t, titleRight(), balance(), bool(state, "grudge"));
 	}
 
 	/** Draw the title line at the top left (the result window's banner replaces it). */

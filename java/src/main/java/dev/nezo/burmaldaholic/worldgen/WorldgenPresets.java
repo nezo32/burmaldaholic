@@ -6,10 +6,14 @@ import dev.nezo.burmaldaholic.core.service.TablePresetProvider.TablePreset;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord;
 import dev.nezo.burmaldaholic.worldgen.logic.TablePresets;
 import dev.nezo.burmaldaholic.worldgen.logic.WorldgenBotPresets;
+import dev.nezo.burmaldaholic.core.service.VipTiers;
+import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -57,8 +61,18 @@ public final class WorldgenPresets implements TablePresetProvider {
 			pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 	}
 
+	/**
+	 * Block id at {@code pos} without loading or promoting a chunk: tables ask for their preset while their chunk
+	 * unloads (round play-out from the chunk-unload event), and {@code level.getBlockState} there re-enters the
+	 * distance manager mid-update and crashes the server tick. An unavailable chunk reads as air (no preset).
+	 */
 	private static String blockId(ServerLevel level, BlockPos pos) {
-		return BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
+		LevelChunk chunk = level.getChunkSource().getChunkNow(SectionPos.blockToSectionCoord(pos.getX()),
+			SectionPos.blockToSectionCoord(pos.getZ()));
+		if (chunk == null) {
+			return "minecraft:air";
+		}
+		return BuiltInRegistries.BLOCK.getKey(chunk.getBlockState(pos).getBlock()).toString();
 	}
 
 	static TablePreset of(String id) {
@@ -68,6 +82,12 @@ public final class WorldgenPresets implements TablePresetProvider {
 			case TablePresets.HIGH_ROLLER_ROULETTE -> TablePreset.highRollerRoulette();
 			case TablePresets.HIGH_ROLLER_BACCARAT -> TablePreset.highRollerBaccarat();
 			case TablePresets.HIGH_ROLLER_UTH -> TablePreset.highRollerUth();
+			// standard Parlor baccarat (§16.2): no limits, marks the table as generated (bots, theme)
+			case TablePresets.PARLOR_BACCARAT -> new TablePreset(id, "", -1, 0, 0, 0, List.of());
+			// Lounge craps: same limits as the Lounge blackjack (min 100, 2 × tier max, Gold VIP)
+			case TablePresets.HIGH_ROLLER_CRAPS -> new TablePreset(id, "", -1, 100, 2, VipTiers.GOLD, List.of());
+			// Lounge poker: fixed Mid stakes (Gold VIP to sit, the Lounge's tier)
+			case TablePresets.HIGH_ROLLER_POKER -> new TablePreset(id, "mid", -1, 0, 0, VipTiers.GOLD, List.of());
 			default -> throw new IllegalArgumentException(id);
 		};
 	}

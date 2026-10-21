@@ -1,0 +1,957 @@
+package dev.nezo.burmaldaholic.gametest.tables;
+
+import com.mojang.authlib.GameProfile;
+import dev.nezo.burmaldaholic.core.economy.Economies;
+import dev.nezo.burmaldaholic.core.economy.Economy.Transaction;
+import dev.nezo.burmaldaholic.core.network.TableActionPayload;
+import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
+import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
+import dev.nezo.burmaldaholic.core.table.MultiBlockTableBlock;
+import dev.nezo.burmaldaholic.core.table.TableNetworking;
+import dev.nezo.burmaldaholic.core.table.parts.MigrationDecision;
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TablePart;
+import dev.nezo.burmaldaholic.core.table.parts.TableParts;
+import dev.nezo.burmaldaholic.core.table.parts.TableProtection;
+import dev.nezo.burmaldaholic.games.blackjack.BlackjackModule;
+import dev.nezo.burmaldaholic.games.blackjack.BlackjackTableBlockEntity;
+import io.netty.channel.embedded.EmbeddedChannel;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * MT-1 (MT-DESIGN §8): multi-block casino tables in a real server world. Tables are placed with the REAL item use
+ * ({@code ServerPlayerGameMode.useItemOn}, the same path as the use-item packet) by a survival player and broken with
+ * {@code ServerPlayerGameMode.destroyBlock} (fires the break events: ownership, drops). Every table block × every facing.
+ */
+public class MultiBlockTableGameTests {
+	private static final Transaction TEST = Transaction.of("tables", "gametest");
+	/** Main block of the table under test (relative); the 8×8×8 test area has its own stone floor at y = 0. */
+	private static final BlockPos MAIN = new BlockPos(4, 1, 4);
+
+	// ---- helpers -------------------------------------------------------------------------------
+
+	private static List<MultiBlockTableBlock> tableBlocks() {
+		List<MultiBlockTableBlock> out = new ArrayList<>();
+		for (Block b : BuiltInRegistries.BLOCK) {
+			if (b instanceof MultiBlockTableBlock m) {
+				out.add(m);
+			}
+		}
+		return out;
+	}
+
+	private static ServerPlayer player(GameTestHelper helper, String name, GameType mode) {
+		MinecraftServer server = helper.getLevel().getServer();
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(new GameProfile(UUID.randomUUID(), name), false);
+		ServerPlayer player = new ServerPlayer(server, helper.getLevel(), cookie.gameProfile(), cookie.clientInformation()) {
+			@Override
+			public GameType gameMode() {
+				return mode;
+			}
+		};
+		Connection connection = new Connection(PacketFlow.SERVERBOUND);
+		new EmbeddedChannel(connection);
+		server.getPlayerList().placeNewPlayer(connection, player, cookie);
+		player.gameMode.changeGameModeForPlayer(mode);
+		Economies.get().setBalance(server, player.getUUID(), 5000, TEST);
+		park(helper, player, Direction.SOUTH);
+		return player;
+	}
+
+	private static void remove(GameTestHelper helper, ServerPlayer p) {
+		p.closeContainer();
+		helper.getLevel().getServer().getPlayerList().remove(p);
+	}
+
+	/** Puts the player 3 blocks in front of the table (the players' side), looking at it. */
+	private static void park(GameTestHelper helper, ServerPlayer p, Direction facing) {
+		BlockPos at = helper.absolutePos(MAIN.relative(facing, 3));
+		p.snapTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, facing.getOpposite().toYRot(), 20f);
+		p.setYRot(facing.getOpposite().toYRot());
+		p.setYHeadRot(facing.getOpposite().toYRot());
+	}
+
+	private static void floor(GameTestHelper helper) {
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+			}
+		}
+	}
+
+	private static void clearArea(GameTestHelper helper) {
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				for (int y = 1; y < 4; y++) {
+					helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+				}
+			}
+		}
+		helper.killAllEntitiesOfClass(ItemEntity.class);
+	}
+
+	/** Uses the table item on the floor under MAIN like a player (real item-use path); returns the result. */
+	private static InteractionResult place(GameTestHelper helper, ServerPlayer p, Block block, Direction facing) {
+		park(helper, p, facing);
+		ItemStack stack = new ItemStack(block.asItem(), 2);
+		p.setItemInHand(InteractionHand.MAIN_HAND, stack);
+		BlockPos floor = helper.absolutePos(MAIN.below());
+		BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(floor).add(0, 0.5, 0), Direction.UP, floor, false);
+		return p.gameMode.useItemOn(p, helper.getLevel(), stack, InteractionHand.MAIN_HAND, hit);
+	}
+
+	private static BlockPos abs(GameTestHelper helper, BlockPos rel) {
+		return helper.absolutePos(rel);
+	}
+
+	private static List<BlockPos> cells(GameTestHelper helper, MultiBlockTableBlock b, Direction facing) {
+		List<BlockPos> out = new ArrayList<>();
+		for (dev.nezo.burmaldaholic.core.table.parts.LocalCell c : b.cells()) {
+			int[] o = c.offset(facing.getStepX(), facing.getStepZ());
+			out.add(abs(helper, MAIN).offset(o[0], o[1], o[2]));
+		}
+		return out;
+	}
+
+	private static void assertFull(GameTestHelper helper, MultiBlockTableBlock b, Direction facing, String what) {
+		ServerLevel level = helper.getLevel();
+		BlockPos main = abs(helper, MAIN);
+		helper.assertTrue(TableParts.intact(level, main, level.getBlockState(main)) && TableParts.partOf(level.getBlockState(main)) == TablePart.MAIN
+			&& TableParts.facingOf(level.getBlockState(main)) == facing, what + ": six cells with the right parts and facing " + facing);
+	}
+
+	private static void assertGone(GameTestHelper helper, MultiBlockTableBlock b, Direction facing, String what) {
+		for (BlockPos c : cells(helper, b, facing)) {
+			helper.assertTrue(helper.getLevel().getBlockState(c).isAir(), what + ": cell " + c.toShortString() + " cleared (is "
+				+ helper.getLevel().getBlockState(c) + ")");
+		}
+	}
+
+	private static int drops(GameTestHelper helper, Block block) {
+		int n = 0;
+		AABB box = new AABB(abs(helper, BlockPos.ZERO)).minmax(new AABB(abs(helper, new BlockPos(7, 7, 7))));
+		for (ItemEntity e : helper.getLevel().getEntitiesOfClass(ItemEntity.class, box)) {
+			if (e.getItem().is(block.asItem())) {
+				n += e.getItem().getCount();
+			}
+		}
+		return n;
+	}
+
+	private static String name(Block b) {
+		return BuiltInRegistries.BLOCK.getKey(b).getPath();
+	}
+
+	// ---- placement + breaking: every table × every facing ---------------------------------------
+
+	/**
+	 * Real placement of every table block in every facing: 6 cells with the right part/facing, one item consumed;
+	 * then a survival player breaks a different part each time → exactly one item and six air cells.
+	 */
+	@GameTest(maxTicks = 400)
+	public void placeAndBreakEveryTableEveryFacing(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = player(helper, "mt-place", GameType.SURVIVAL);
+		try {
+			int k = 0;
+			for (MultiBlockTableBlock b : tableBlocks()) {
+				for (Direction facing : Direction.Plane.HORIZONTAL) {
+					clearArea(helper);
+					InteractionResult r = place(helper, p, b, facing);
+					String what = name(b) + " " + facing;
+					helper.assertTrue(r.consumesAction(), what + ": placed (" + r + ")");
+					helper.assertTrue(p.getMainHandItem().getCount() == 1, what + ": one item used, got " + p.getMainHandItem().getCount());
+					assertFull(helper, b, facing, what);
+					helper.assertTrue(helper.getLevel().getBlockEntity(abs(helper, MAIN)) instanceof CasinoTableBlockEntity, what + ": block entity on main");
+					List<BlockPos> cs = cells(helper, b, facing);
+					for (BlockPos c : cs.subList(1, cs.size())) {
+						helper.assertTrue(helper.getLevel().getBlockEntity(c) == null, what + ": no block entity on parts");
+					}
+					BlockPos victim = cs.get(k++ % cs.size());
+					helper.assertTrue(p.gameMode.destroyBlock(victim) || helper.getLevel().getBlockState(victim).isAir(), what + ": broke " + victim);
+					assertGone(helper, b, facing, what + " broken at " + TableParts.partOf(b.defaultBlockState()));
+					helper.assertTrue(drops(helper, b) == 1, what + ": exactly one item dropped, got " + drops(helper, b));
+				}
+			}
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	/** No room → refused with the message, nothing placed, the item is kept. Carpets pop (★1). Creative breaking drops nothing. */
+	@GameTest(maxTicks = 200)
+	public void blockedRefusedCarpetPopsCreativeNoDrop(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = player(helper, "mt-blocked", GameType.SURVIVAL);
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		try {
+			Direction facing = Direction.SOUTH;
+			BlockPos backLeft = TableFootprint.partPos(MAIN, facing, TablePart.BACK_LEFT);
+			helper.setBlock(backLeft, Blocks.OAK_PLANKS);
+			InteractionResult r = place(helper, p, b, facing);
+			helper.assertFalse(r.consumesAction() && helper.getLevel().getBlockState(abs(helper, MAIN)).is(b), "blocked: refused (" + r + ")");
+			helper.assertTrue(p.getMainHandItem().getCount() == 2, "blocked: the item is kept");
+			helper.assertTrue(helper.getBlockState(MAIN).isAir(), "blocked: nothing placed");
+			helper.assertTrue(helper.getBlockState(backLeft).is(Blocks.OAK_PLANKS), "blocked: foreign block untouched");
+			// floor missing under a cell → refused too
+			clearArea(helper);
+			helper.setBlock(TableFootprint.partPos(MAIN, facing, TablePart.RIGHT).below(), Blocks.AIR);
+			helper.assertFalse(place(helper, p, b, facing).consumesAction() && helper.getBlockState(MAIN).is(b), "no floor: refused");
+			floor(helper);
+			// carpet pops
+			clearArea(helper);
+			helper.setBlock(TableFootprint.partPos(MAIN, facing, TablePart.LEFT), Blocks.MOSS_CARPET);
+			helper.assertTrue(place(helper, p, b, facing).consumesAction(), "carpet: placed");
+			assertFull(helper, b, facing, "carpet");
+			int carpets = 0;
+			for (ItemEntity e : helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(abs(helper, BlockPos.ZERO)).minmax(new AABB(abs(helper, new BlockPos(7, 7, 7)))))) {
+				if (e.getItem().is(Blocks.MOSS_CARPET.asItem())) carpets += e.getItem().getCount();
+			}
+			helper.assertTrue(carpets == 1, "carpet popped as an item, got " + carpets);
+			// creative break of a part → no item, all gone
+			helper.killAllEntitiesOfClass(ItemEntity.class);
+			ServerPlayer c = player(helper, "mt-creative", GameType.CREATIVE);
+			try {
+				c.gameMode.destroyBlock(abs(helper, TableFootprint.partPos(MAIN, facing, TablePart.BACK_RIGHT)));
+				assertGone(helper, b, facing, "creative");
+				helper.assertTrue(drops(helper, b) == 0, "creative: no item, got " + drops(helper, b));
+			} finally {
+				remove(helper, c);
+			}
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	/** TNT at a part and at the main block: the table goes, at most one item (idempotent explosion drops). */
+	@GameTest(maxTicks = 200)
+	public void explosionsDropAtMostOneItem(GameTestHelper helper) {
+		floor(helper);
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		ServerLevel level = helper.getLevel();
+		for (TablePart at : new TablePart[] {TablePart.BACK_LEFT, TablePart.MAIN, TablePart.RIGHT}) {
+			for (int i = 0; i < 3; i++) {
+				clearArea(helper);
+				TableParts.placeFull(level, abs(helper, MAIN), b, Direction.NORTH);
+				BlockPos target = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, at));
+				level.explode(null, target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5, 2.5f, Level.ExplosionInteraction.TNT);
+				int n = drops(helper, b);
+				helper.assertTrue(n <= 1, "explosion at " + at + ": ≤ 1 item, got " + n);
+				for (BlockPos c : cells(helper, b, Direction.NORTH)) {
+					BlockState s = level.getBlockState(c);
+					helper.assertTrue(s.isAir() || (s.is(b) && TableParts.intact(level, abs(helper, MAIN), level.getBlockState(abs(helper, MAIN)))),
+						"explosion at " + at + ": no half table left (" + c.toShortString() + " = " + s + ")");
+				}
+				if (n == 1) {
+					helper.assertTrue(level.getBlockState(abs(helper, MAIN)).isAir(), "an item only when the table is gone");
+				}
+			}
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * The loot JSON itself (not {@code getDrops}, which also filters parts in code) on THIS version: 26.3 reads
+	 * {@code condition}/{@code match_block}, 26.2 {@code conditions}/{@code block_state_property}; every table and
+	 * machine table carries both (tools/assets/modules/tables/loot.mjs). Main / single drop one item, every other part
+	 * nothing, and a huge blast (survival 1 / radius) never lets the item through.
+	 */
+	@GameTest(maxTicks = 20)
+	public void lootTablesWorkOnThisVersion(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Vec3 at = Vec3.atCenterOf(abs(helper, MAIN));
+		int checked = 0;
+		for (MultiBlockTableBlock b : tableBlocks()) {
+			net.minecraft.resources.Identifier id = BuiltInRegistries.BLOCK.getKey(b);
+			net.minecraft.world.level.storage.loot.LootTable table = level.getServer().reloadableRegistries().getLootTable(
+				net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, id.withPrefix("blocks/")));
+			helper.assertTrue(table != net.minecraft.world.level.storage.loot.LootTable.EMPTY, id + " has a loot table");
+			for (TablePart part : b.partProperty().getPossibleValues()) {
+				BlockState state = b.defaultBlockState().setValue(b.partProperty(), part);
+				int calm = 0;
+				int blast = 0;
+				for (int i = 0; i < 20; i++) {
+					calm += count(table.getRandomItems(lootParams(level, at, state, null)), b);
+					blast += count(table.getRandomItems(lootParams(level, at, state, 1.0e6f)), b);
+				}
+				helper.assertTrue(calm == (part.isController() ? 20 : 0), id + " part=" + part + ": " + calm + " items in 20 plain breaks");
+				helper.assertTrue(blast == 0, id + " part=" + part + ": survives_explosion ignored (" + blast + " items in 20 huge blasts)");
+				checked++;
+			}
+		}
+		helper.assertTrue(checked > 60, "checked every part of every table / machine (" + checked + ")");
+		helper.succeed();
+	}
+
+	private static net.minecraft.world.level.storage.loot.LootParams lootParams(ServerLevel level, Vec3 at, BlockState state, Float radius) {
+		net.minecraft.world.level.storage.loot.LootParams.Builder p = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+			.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, at)
+			.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.TOOL, ItemStack.EMPTY)
+			.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state);
+		if (radius != null) {
+			p.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.EXPLOSION_RADIUS, radius);
+		}
+		return p.create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.BLOCK);
+	}
+
+	private static int count(List<ItemStack> stacks, Block b) {
+		int n = 0;
+		for (ItemStack s : stacks) {
+			if (s.is(b.asItem())) {
+				n += s.getCount();
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * T-CB D4 / D5 end to end with CB-G's HouseGames installed as the TableProtection (worldgen/HouseTableProtection):
+	 * inside a casino record's box a generated (unmarked) table survives a real TNT blast and a creeper blast at a part
+	 * and never drops; a non-op can't break it. A table a survival player places there by item use carries the
+	 * player-placed mark, the player breaks it (a part) and gets exactly one item; TNT destroys a player's table.
+	 */
+	@GameTest(maxTicks = 300)
+	public void houseTablesInsideCasinosAndPlayerTables(GameTestHelper helper) {
+		floor(helper);
+		clearArea(helper);
+		ServerLevel level = helper.getLevel();
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		BlockPos a = abs(helper, BlockPos.ZERO);
+		BlockPos z = abs(helper, new BlockPos(7, 7, 7));
+		String id = "gametest|mt_house|" + a.getX() + "|" + a.getY() + "|" + a.getZ();
+		dev.nezo.burmaldaholic.worldgen.CasinoIndex index = dev.nezo.burmaldaholic.worldgen.CasinoIndex.get(level.getServer());
+		index.removeIf(r -> r.id().equals(id));
+		index.setAnchor(id, level.dimension().identifier().toString(), "gametest/mt_house", dev.nezo.burmaldaholic.worldgen.logic.CasinoKind.VILLAGE_CASINO,
+			dev.nezo.burmaldaholic.worldgen.logic.Geometry.Box.corners(new dev.nezo.burmaldaholic.worldgen.logic.Vec(a.getX(), a.getY(), a.getZ()),
+				new dev.nezo.burmaldaholic.worldgen.logic.Vec(z.getX(), z.getY(), z.getZ())));
+		ServerPlayer p = player(helper, "mt_house", GameType.SURVIVAL);
+		BlockPos main = abs(helper, MAIN);
+		try {
+			// D4: house table (worldgen-placed, no mark) vs TNT and a creeper, blast centred on a part
+			for (boolean creeper : new boolean[] {false, true}) {
+				clearArea(helper);
+				TableParts.placeFull(level, main, b, Direction.NORTH);
+				helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, main, level.getBlockEntity(main)), "generated table is a house table");
+				BlockPos part = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK_RIGHT));
+				net.minecraft.world.entity.Entity source = null;
+				if (creeper) {
+					source = net.minecraft.world.entity.EntityTypes.CREEPER.create(level, net.minecraft.world.entity.EntitySpawnReason.TRIGGERED);
+					source.snapTo(part.getX() + 0.5, part.getY() + 1, part.getZ() + 0.5, 0, 0);
+				}
+				level.explode(source, part.getX() + 0.5, part.getY() + 1.0, part.getZ() + 0.5, creeper ? 3.0f : 2.5f,
+					creeper ? Level.ExplosionInteraction.MOB : Level.ExplosionInteraction.TNT);
+				assertFull(helper, b, Direction.NORTH, (creeper ? "creeper" : "TNT") + " next to a house table");
+				helper.assertTrue(drops(helper, b) == 0, (creeper ? "creeper" : "TNT") + ": no table item from a house table");
+			}
+			// non-op survival break of a house table part: refused, intact, no item
+			BlockPos housePart = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.LEFT));
+			helper.assertFalse(p.gameMode.destroyBlock(housePart), "non-op break of a house table refused");
+			assertFull(helper, b, Direction.NORTH, "house table after a refused break");
+			helper.assertTrue(drops(helper, b) == 0, "refused break: no item");
+
+			// D5: the player places a table inside the casino by item use → marked, breaks it, gets it back
+			clearArea(helper);
+			helper.assertTrue(place(helper, p, b, Direction.NORTH).consumesAction(), "player places a table inside the casino");
+			assertFull(helper, b, Direction.NORTH, "player's table");
+			helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isPlayerPlaced(level.getBlockEntity(main)), "placement marked player-placed on the main block entity");
+			helper.assertFalse(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, main, level.getBlockEntity(main)), "a player's table is not the house's");
+			BlockPos minePart = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK_LEFT));
+			helper.assertTrue(p.gameMode.destroyBlock(minePart), "player breaks their own table (a part) inside the casino");
+			assertGone(helper, b, Direction.NORTH, "player's table broken");
+			helper.assertTrue(drops(helper, b) == 1, "player's table drops exactly one item, got " + drops(helper, b));
+
+			// a player's table inside the casino is not explosion-proof
+			clearArea(helper);
+			helper.assertTrue(place(helper, p, b, Direction.NORTH).consumesAction(), "player places a second table");
+			BlockPos part = abs(helper, TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK));
+			level.explode(null, part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5, 2.5f, Level.ExplosionInteraction.TNT);
+			helper.assertTrue(level.getBlockState(main).isAir() && drops(helper, b) <= 1, "TNT destroys a player's table, at most one item");
+		} finally {
+			remove(helper, p);
+			index.removeIf(r -> r.id().equals(id));
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * BOT request: {@code CasinoTableBlockEntity.preset()} never asks the preset provider (which reads the block state)
+	 * for a table whose chunk is not loaded, so it can't load a chunk or crash during unload; a loaded table still asks.
+	 */
+	@GameTest(maxTicks = 20)
+	public void presetLookupNeverLoadsAChunk(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		dev.nezo.burmaldaholic.core.service.TablePresetProvider previous = dev.nezo.burmaldaholic.core.service.CoreServices.tablePresets();
+		int[] calls = {0};
+		dev.nezo.burmaldaholic.core.service.CoreServices.setTablePresets((l, pos) -> {
+			calls[0]++;
+			return previous.preset(l, pos);
+		});
+		try {
+			Block block = BlackjackModule.TABLE.block();
+			BlockPos far = new BlockPos(29_000_000 - 4096, 64, 29_000_000 - 4096);
+			helper.assertFalse(level.hasChunkAt(far), "test position starts unloaded");
+			CasinoTableBlockEntity farBe = (CasinoTableBlockEntity) ((net.minecraft.world.level.block.EntityBlock) block)
+				.newBlockEntity(far, block.defaultBlockState());
+			farBe.setLevel(level);
+			helper.assertTrue(farBe.preset().isEmpty(), "unloaded table: no preset");
+			helper.assertTrue(calls[0] == 0, "unloaded table: the provider is not asked");
+			helper.assertFalse(level.hasChunkAt(far), "the lookup loaded no chunk");
+			farBe.setRemoved();
+			helper.assertTrue(farBe.preset().isEmpty() && calls[0] == 0, "removed block entity: no lookup");
+
+			floor(helper);
+			clearArea(helper);
+			BlockPos main = abs(helper, MAIN);
+			level.setBlockAndUpdate(main, block.defaultBlockState());
+			CasinoTableBlockEntity be = (CasinoTableBlockEntity) level.getBlockEntity(main);
+			be.preset();
+			helper.assertTrue(calls[0] == 1, "loaded table: the provider is asked once");
+		} finally {
+			dev.nezo.burmaldaholic.core.service.CoreServices.setTablePresets(previous);
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * T-MT D2 (coordinator decision): a table saved before v0.2 (no player-placed mark) inside a v0.1 casino is the
+	 * house's only on one of the layout's generated table positions; a legacy table elsewhere in the box is marked as a
+	 * player's on load. The casino record (layout + rotated box + origin id) exists only inside this synchronous block,
+	 * because a 17×17 village box reaches past this test's area.
+	 */
+	@GameTest(maxTicks = 20)
+	public void legacyTablesInsideCasinosHouseOnlyAtGeneratedPositions(GameTestHelper helper) {
+		floor(helper);
+		clearArea(helper);
+		ServerLevel level = helper.getLevel();
+		Block block = BlackjackModule.TABLE.block();
+		BlockPos generated = abs(helper, new BlockPos(4, 1, 2)); // village v0.1 blackjack (4, 1, 10) with origin z −8
+		BlockPos elsewhere = abs(helper, new BlockPos(6, 1, 6)); // village local (6, 1, 14): no v0.1 game there
+		level.setBlockAndUpdate(generated, block.defaultBlockState());
+		level.setBlockAndUpdate(elsewhere, block.defaultBlockState());
+		BlockPos o = abs(helper, new BlockPos(0, 0, -8));
+		String dim = level.dimension().identifier().toString();
+		String id = dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord.idFor(dim, o.getX(), o.getY(), o.getZ());
+		dev.nezo.burmaldaholic.worldgen.CasinoIndex index = dev.nezo.burmaldaholic.worldgen.CasinoIndex.get(level.getServer());
+		dev.nezo.burmaldaholic.worldgen.logic.Vec origin = new dev.nezo.burmaldaholic.worldgen.logic.Vec(o.getX(), o.getY(), o.getZ());
+		index.setAnchor(id, dim, "village_casino_plains", dev.nezo.burmaldaholic.worldgen.logic.CasinoKind.VILLAGE_CASINO,
+			dev.nezo.burmaldaholic.worldgen.logic.Geometry.templateBox(origin, new dev.nezo.burmaldaholic.worldgen.logic.Vec(17, 10, 17), 0));
+		try {
+			for (BlockPos p : List.of(generated, elsewhere)) {
+				dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().legacyTableLoaded(level, p, level.getBlockEntity(p));
+			}
+			helper.assertFalse(dev.nezo.burmaldaholic.worldgen.HouseGames.isPlayerPlaced(level.getBlockEntity(generated)),
+				"legacy table at a generated position stays unmarked");
+			helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, generated, level.getBlockEntity(generated)),
+				"legacy table at a generated position is the house's");
+			helper.assertTrue(dev.nezo.burmaldaholic.worldgen.HouseGames.isPlayerPlaced(level.getBlockEntity(elsewhere)),
+				"legacy table elsewhere in the casino is marked as a player's");
+			helper.assertFalse(dev.nezo.burmaldaholic.worldgen.HouseGames.isHouseTable(level, elsewhere, level.getBlockEntity(elsewhere)),
+				"legacy table elsewhere is not the house's");
+			helper.assertTrue(TableProtection.get().dropsAllowed(level, elsewhere, level.getBlockEntity(elsewhere)), "the player's legacy table drops");
+			helper.assertFalse(TableProtection.get().dropsAllowed(level, generated, level.getBlockEntity(generated)), "the house's never drops");
+		} finally {
+			index.removeIf(r -> r.id().equals(id));
+		}
+		helper.succeed();
+	}
+
+	/** A piston can't push a part; water (source and flow) doesn't wash parts away; rotate/mirror keep a valid table. */
+	@GameTest(maxTicks = 200)
+	public void pistonsWaterRotateMirror(GameTestHelper helper) {
+		floor(helper);
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		ServerLevel level = helper.getLevel();
+		TableParts.placeFull(level, abs(helper, MAIN), b, Direction.NORTH);
+		// facing NORTH: RIGHT is at -x of... use the cell positions: push the BACK part (z+1 of main for NORTH) from behind
+		BlockPos back = TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.BACK);
+		BlockPos piston = back.relative(Direction.SOUTH);
+		helper.setBlock(piston, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.NORTH));
+		helper.setBlock(piston.relative(Direction.SOUTH), Blocks.REDSTONE_BLOCK);
+		// water: a source next to the LEFT part (the side away from the piston)
+		BlockPos left = TableFootprint.partPos(MAIN, Direction.NORTH, TablePart.LEFT);
+		BlockPos water = left.relative(Direction.EAST);
+		helper.setBlock(water, Blocks.WATER);
+		helper.runAfterDelay(40, () -> {
+			helper.assertTrue(TableParts.intact(level, abs(helper, MAIN), level.getBlockState(abs(helper, MAIN))), "piston + water: table intact");
+			helper.assertTrue(!level.getBlockState(abs(helper, piston)).getValue(PistonBaseBlock.EXTENDED), "piston could not extend into the table");
+			// rotate / mirror (structure placement path) keep the parts consistent with the footprint maths
+			BlockState main = level.getBlockState(abs(helper, MAIN));
+			for (Rotation rot : Rotation.values()) {
+				BlockState r = main.rotate(rot);
+				helper.assertTrue(TableParts.partOf(r) == TablePart.MAIN && TableParts.facingOf(r) == rot.rotate(Direction.NORTH), "rotate " + rot);
+			}
+			BlockState leftState = level.getBlockState(abs(helper, left));
+			helper.assertTrue(TableParts.partOf(leftState.mirror(Mirror.LEFT_RIGHT)) == TablePart.RIGHT, "mirror swaps LEFT → RIGHT");
+			helper.assertTrue(TableParts.partOf(leftState.mirror(Mirror.NONE)) == TablePart.LEFT, "no mirror keeps LEFT");
+			// /setblock air on the main block → every part goes, nothing drops
+			helper.killAllEntitiesOfClass(ItemEntity.class);
+			helper.setBlock(MAIN, Blocks.AIR);
+			assertGone(helper, b, Direction.NORTH, "setblock air on main");
+			helper.assertTrue(drops(helper, b) == 0, "no item from a /setblock");
+			helper.succeed();
+		});
+	}
+
+	/** Using ANY part opens the main block's menu; a blackjack bet through the packet path works; stillValid from 5 blocks off the far part. */
+	@GameTest(maxTicks = 400)
+	public void useAnyPartOpensMainAndBets(GameTestHelper helper) {
+		floor(helper);
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		ServerLevel level = helper.getLevel();
+		Direction facing = Direction.SOUTH;
+		TableParts.placeFull(level, abs(helper, MAIN), b, facing);
+		ServerPlayer p = player(helper, "mt-use", GameType.SURVIVAL);
+		try {
+			BlockPos mainAbs = abs(helper, MAIN);
+			for (TablePart part : List.of(TablePart.BACK_LEFT, TablePart.RIGHT, TablePart.BACK, TablePart.LEFT, TablePart.BACK_RIGHT, TablePart.MAIN)) {
+				p.closeContainer();
+				helper.useBlock(TableFootprint.partPos(MAIN, facing, part), p);
+				helper.assertTrue(p.containerMenu instanceof CasinoTableMenu m && m.pos().equals(mainAbs),
+					"use " + part + " opens the main block's table (got " + p.containerMenu + ")");
+			}
+			BlackjackTableBlockEntity t = (BlackjackTableBlockEntity) level.getBlockEntity(mainAbs);
+			List<dev.nezo.burmaldaholic.games.blackjack.logic.Card> deck = new ArrayList<>();
+			for (int v : new int[] {10, 10, 10, 7, 2, 2, 2, 2, 2, 2}) deck.add(dev.nezo.burmaldaholic.games.blackjack.logic.Card.of(v));
+			t.stackCardsForTests(deck); // no natural: the stake stays open
+			TableNetworking.receive(p, new TableActionPayload(mainAbs, "sit", new CompoundTag()));
+			helper.assertTrue(t.isSeated(p), "sit through the packet");
+			CompoundTag bet = new CompoundTag();
+			bet.putLong("amount", 10L);
+			TableNetworking.receive(p, new TableActionPayload(mainAbs, "bet", bet));
+			helper.assertTrue(t.stakeOf(p.getUUID()) == 10, "bet through the packet, stake " + t.stakeOf(p.getUUID()));
+			// stillValid: 5 blocks beyond the far (back-left) part is still in range of the footprint box
+			CasinoTableMenu menu = (CasinoTableMenu) p.containerMenu;
+			BlockPos far = abs(helper, TableFootprint.partPos(MAIN, facing, TablePart.BACK_LEFT));
+			double max = dev.nezo.burmaldaholic.core.config.CasinoConfig.multiplayer().tableLeaveDistance;
+			Vec3 at = Vec3.atBottomCenterOf(far).add(facing.getOpposite().getStepX() * (max - 0.6), 0, facing.getOpposite().getStepZ() * (max - 0.6));
+			p.snapTo(at.x, at.y, at.z);
+			helper.assertTrue(menu.stillValid(p), "still valid at " + (max - 0.6) + " blocks behind the far part");
+			p.snapTo(at.x + facing.getOpposite().getStepX() * 3, at.y, at.z + facing.getOpposite().getStepZ() * 3);
+			helper.assertFalse(menu.stillValid(p), "invalid when well beyond the footprint");
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	// ---- ownership (§4) --------------------------------------------------------------------------
+
+	/**
+	 * Ownership routes every part to the main block: the owner's placed table links; a non-owner can't break any part;
+	 * an explosion at a part leaves the linked table whole; the owner breaking a part removes the table and its record.
+	 */
+	@GameTest(maxTicks = 200)
+	public void ownershipRoutesPartsToMain(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		ServerPlayer owner = player(helper, "mt-owner", GameType.SURVIVAL);
+		ServerPlayer other = player(helper, "mt-other", GameType.SURVIVAL);
+		// claims keep 40 blocks from the world spawn, and the GameTest batch may sit right on it: when the test area is
+		// too close, the scenario runs 300 blocks away from the spawn (absolute coordinates, own floor)
+		BlockPos near = abs(helper, BlockPos.ZERO);
+		boolean relocated = dev.nezo.burmaldaholic.multiplayer.Ownership.claimError(owner, level, near.above()) != null;
+		BlockPos spawn = level.getServer().getRespawnData().pos();
+		BlockPos base = relocated ? new BlockPos(spawn.getX() + 300, near.getY(), spawn.getZ() + 300) : near;
+		if (relocated) {
+			// a fully loaded (entity-ticking) chunk for the drops: force it and give the ticket a second to apply
+			force(level, base, true);
+			helper.runAfterDelay(20, () -> ownershipScenario(helper, level, owner, other, base, true));
+		} else {
+			ownershipScenario(helper, level, owner, other, base, false);
+		}
+	}
+
+	private static void force(ServerLevel level, BlockPos base, boolean on) {
+		for (int cx = (base.getX() - 4) >> 4; cx <= (base.getX() + 11) >> 4; cx++)
+			for (int cz = (base.getZ() - 4) >> 4; cz <= (base.getZ() + 11) >> 4; cz++) level.setChunkForced(cx, cz, on);
+	}
+
+	private static void ownershipScenario(GameTestHelper helper, ServerLevel level, ServerPlayer owner, ServerPlayer other, BlockPos base,
+			boolean forced) {
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		Direction facing = Direction.SOUTH;
+		BlockPos mainAbs = base.offset(MAIN);
+		List<BlockPos> cells = new ArrayList<>();
+		for (dev.nezo.burmaldaholic.core.table.parts.LocalCell c : b.cells()) {
+			int[] o = c.offset(facing.getStepX(), facing.getStepZ());
+			cells.add(mainAbs.offset(o[0], o[1], o[2]));
+		}
+		AABB area = new AABB(base).minmax(new AABB(base.offset(7, 7, 7)));
+		try {
+			for (int x = 0; x < 8; x++) for (int z = 0; z < 8; z++) {
+				level.setBlock(base.offset(x, 0, z), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+				for (int y = 1; y < 4; y++) level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+			}
+			BlockPos charter = base.above();
+			level.setBlock(charter, dev.nezo.burmaldaholic.multiplayer.MultiplayerModule.CHARTER.defaultBlockState(), Block.UPDATE_ALL);
+			var why = dev.nezo.burmaldaholic.multiplayer.Ownership.claimError(owner, level, charter);
+			helper.assertTrue(why == null, "charter allowed at " + charter.toShortString() + ": " + (why == null ? "" : why.getString()));
+			dev.nezo.burmaldaholic.multiplayer.Ownership.claim(owner, level, charter);
+			helper.assertTrue(dev.nezo.burmaldaholic.multiplayer.MultiplayerApi.isInsideClaim(level, mainAbs), "casino claimed");
+			// real placement by the owner (item use on the floor under the main block, standing on the players' side)
+			BlockPos stand = mainAbs.relative(facing, 3);
+			owner.snapTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, facing.getOpposite().toYRot(), 20f);
+			owner.setYRot(facing.getOpposite().toYRot());
+			ItemStack stack = new ItemStack(b.asItem(), 2);
+			owner.setItemInHand(InteractionHand.MAIN_HAND, stack);
+			BlockPos floorPos = mainAbs.below();
+			InteractionResult r = owner.gameMode.useItemOn(owner, level, stack, InteractionHand.MAIN_HAND,
+				new BlockHitResult(Vec3.atCenterOf(floorPos).add(0, 0.5, 0), Direction.UP, floorPos, false));
+			helper.assertTrue(r.consumesAction(), "owner placed the table (" + r + ")");
+			helper.assertTrue(TableParts.intact(level, mainAbs, level.getBlockState(mainAbs)), "full table placed");
+			helper.assertTrue(dev.nezo.burmaldaholic.multiplayer.Ownership.owner(level, mainAbs).isPresent(), "the owner's table linked (via the main block)");
+			BlockPos part = TableFootprint.partPos(mainAbs, facing, TablePart.BACK_LEFT);
+			other.gameMode.destroyBlock(part);
+			helper.assertTrue(TableParts.intact(level, mainAbs, level.getBlockState(mainAbs)), "non-owner break of a part refused");
+			level.explode(null, part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5, 2.5f, Level.ExplosionInteraction.TNT);
+			helper.assertTrue(TableParts.intact(level, mainAbs, level.getBlockState(mainAbs)), "explosion-proof linked table survives a blast at a part");
+			level.getEntitiesOfClass(ItemEntity.class, area).forEach(net.minecraft.world.entity.Entity::discard);
+			owner.gameMode.destroyBlock(part);
+			for (BlockPos c : cells) helper.assertTrue(level.getBlockState(c).isAir(), "owner broke a part: " + c.toShortString() + " cleared");
+			int n = 0;
+			for (ItemEntity e : level.getEntitiesOfClass(ItemEntity.class, area)) if (e.getItem().is(b.asItem())) n += e.getItem().getCount();
+			helper.assertTrue(n == 1, "owner: one item, got " + n);
+			helper.assertTrue(dev.nezo.burmaldaholic.multiplayer.Ownership.owner(level, mainAbs).isEmpty(), "the table record is forgotten");
+			level.getEntitiesOfClass(ItemEntity.class, area).forEach(net.minecraft.world.entity.Entity::discard);
+			level.removeBlock(charter, false);
+		} finally {
+			remove(helper, owner);
+			remove(helper, other);
+			if (forced) force(level, base, false);
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * The CB-G house-protection hook ({@code TableProtection}) gets the MAIN position whichever part is hit: a house
+	 * table refuses a break at any part, survives a blast at a part, and drops no item once breaking is allowed.
+	 * (The test protection only touches this test's own table; other tests run in parallel.)
+	 */
+	@GameTest(maxTicks = 200)
+	public void houseProtectionHookSeesTheMainBlock(GameTestHelper helper) {
+		floor(helper);
+		ServerLevel level = helper.getLevel();
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		Direction facing = Direction.SOUTH;
+		BlockPos mainAbs = abs(helper, MAIN);
+		boolean[] mayBreak = {false};
+		List<BlockPos> seen = new ArrayList<>();
+		dev.nezo.burmaldaholic.core.table.parts.TableProtection previous = dev.nezo.burmaldaholic.core.table.parts.TableProtection.get();
+		dev.nezo.burmaldaholic.core.table.parts.TableProtection.install(new dev.nezo.burmaldaholic.core.table.parts.TableProtection() {
+			@Override
+			public boolean dropsAllowed(ServerLevel l, BlockPos main) {
+				if (main.equals(mainAbs)) seen.add(main);
+				return !main.equals(mainAbs) && previous.dropsAllowed(l, main);
+			}
+
+			@Override
+			public boolean explosionProof(ServerLevel l, BlockPos main) {
+				return main.equals(mainAbs) || previous.explosionProof(l, main);
+			}
+
+			@Override
+			public boolean breakAllowed(ServerLevel l, BlockPos main, net.minecraft.world.entity.player.Player p) {
+				return (!main.equals(mainAbs) || mayBreak[0]) && previous.breakAllowed(l, main, p);
+			}
+		});
+		ServerPlayer p = player(helper, "mt-house", GameType.SURVIVAL);
+		try {
+			TableParts.placeFull(level, mainAbs, b, facing);
+			BlockPos part = abs(helper, TableFootprint.partPos(MAIN, facing, TablePart.BACK_RIGHT));
+			p.gameMode.destroyBlock(part);
+			assertFull(helper, b, facing, "house table: break at a part refused");
+			level.explode(null, part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5, 2.5f, Level.ExplosionInteraction.TNT);
+			assertFull(helper, b, facing, "house table: explosion-proof as a whole");
+			mayBreak[0] = true;
+			helper.killAllEntitiesOfClass(ItemEntity.class);
+			p.gameMode.destroyBlock(part);
+			assertGone(helper, b, facing, "house table broken once allowed");
+			helper.assertTrue(drops(helper, b) == 0, "house table: no item, got " + drops(helper, b));
+			// the main block itself: no item either
+			TableParts.placeFull(level, mainAbs, b, facing);
+			p.gameMode.destroyBlock(mainAbs);
+			assertGone(helper, b, facing, "house table main broken");
+			helper.assertTrue(drops(helper, b) == 0, "house table main: no item, got " + drops(helper, b));
+			helper.assertTrue(!seen.isEmpty(), "the hook was asked with the main position");
+		} finally {
+			dev.nezo.burmaldaholic.core.table.parts.TableProtection.install(previous);
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	// ---- migration -------------------------------------------------------------------------------
+
+	/**
+	 * GROW keeps the block entity: a compact table with a round in play unfolds (SINGLE → MAIN on the same block) —
+	 * same block entity object, stake still open, the round not played out.
+	 */
+	@GameTest(maxTicks = 200)
+	public void unfoldKeepsBlockEntityAndStake(GameTestHelper helper) {
+		floor(helper);
+		ServerLevel level = helper.getLevel();
+		helper.setBlock(MAIN, BlackjackModule.TABLE.block().defaultBlockState().setValue(MultiBlockTableBlock.FACING, Direction.SOUTH));
+		BlackjackTableBlockEntity t = helper.getBlockEntity(MAIN, BlackjackTableBlockEntity.class);
+		// player 10,10 vs dealer 10 up, 7 hole: no natural, the round waits for the player
+		List<dev.nezo.burmaldaholic.games.blackjack.logic.Card> cards = new ArrayList<>(List.of(dev.nezo.burmaldaholic.games.blackjack.logic.Card.of(10), dev.nezo.burmaldaholic.games.blackjack.logic.Card.of(10),
+			dev.nezo.burmaldaholic.games.blackjack.logic.Card.of(10), dev.nezo.burmaldaholic.games.blackjack.logic.Card.of(7)));
+		for (int i = 0; i < 10; i++) cards.add(dev.nezo.burmaldaholic.games.blackjack.logic.Card.of(2));
+		t.stackCardsForTests(cards);
+		ServerPlayer p = player(helper, "mt-grow", GameType.SURVIVAL);
+		try {
+			t.sit(p);
+			CompoundTag bet = new CompoundTag();
+			bet.putLong("amount", 10L);
+			t.onAction(p, "bet", bet);
+			helper.assertTrue(t.stakeOf(p.getUUID()) == 10, "stake open before unfolding");
+			helper.assertTrue(TableParts.partOf(level.getBlockState(abs(helper, MAIN))) == TablePart.SINGLE, "compact before");
+			MigrationDecision.Outcome o = TableParts.tryUnfold(level, abs(helper, MAIN));
+			helper.assertTrue(o == MigrationDecision.Outcome.GROW, "free space → GROW, got " + o);
+			assertFull(helper, (MultiBlockTableBlock) BlackjackModule.TABLE.block(), Direction.SOUTH, "unfolded");
+			helper.assertTrue(level.getBlockEntity(abs(helper, MAIN)) == t, "the SAME block entity object");
+			helper.assertTrue(t.stakeOf(p.getUUID()) == 10 && !t.isRemoved(), "stake intact, round not played out");
+		} finally {
+			remove(helper, p);
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * Legacy detection: a table saved without the {@code mt} tag unfolds on its first tick when there is room; with a
+	 * foreign block in a cell it stays compact; a player in a cell → RETRY; sneak-use with an empty hand after clearing
+	 * the space unfolds it. A casino dealer NPC standing in a cell steps to the dealer cell.
+	 */
+	@GameTest(maxTicks = 300)
+	public void legacyMigration(GameTestHelper helper) {
+		floor(helper);
+		ServerLevel level = helper.getLevel();
+		Block block = BlackjackModule.TABLE.block();
+		Direction facing = Direction.SOUTH;
+		// 1. free → GROW on the first tick
+		legacy(helper, block, facing);
+		helper.runAfterDelay(3, () -> {
+			assertFull(helper, (MultiBlockTableBlock) block, facing, "legacy table with room");
+			// 2. blocked → stays compact; sneak-use after clearing grows
+			clearArea(helper);
+			BlockPos blocker = TableFootprint.partPos(MAIN, facing, TablePart.BACK);
+			helper.setBlock(blocker, Blocks.BOOKSHELF);
+			legacy(helper, block, facing);
+			helper.runAfterDelay(3, () -> {
+				helper.assertTrue(TableParts.partOf(helper.getBlockState(MAIN)) == TablePart.SINGLE, "blocked → COMPACT");
+				helper.assertTrue(helper.getBlockState(blocker).is(Blocks.BOOKSHELF), "never touches a foreign block");
+				ServerPlayer p = player(helper, "mt-sneak", GameType.SURVIVAL);
+				try {
+					p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+					p.setShiftKeyDown(true);
+					helper.useBlock(MAIN, p);
+					helper.assertTrue(TableParts.partOf(helper.getBlockState(MAIN)) == TablePart.SINGLE, "sneak-use while blocked: still compact");
+					helper.setBlock(blocker, Blocks.AIR);
+					helper.useBlock(MAIN, p);
+					assertFull(helper, (MultiBlockTableBlock) block, facing, "sneak-use after clearing");
+				} finally {
+					remove(helper, p);
+				}
+				// 3. a player in a cell → RETRY (stays compact this load)
+				clearArea(helper);
+				ServerPlayer stander = player(helper, "mt-stander", GameType.SURVIVAL);
+				BlockPos inCell = abs(helper, TableFootprint.partPos(MAIN, facing, TablePart.LEFT));
+				stander.snapTo(inCell.getX() + 0.5, inCell.getY(), inCell.getZ() + 0.5);
+				helper.assertTrue(TableParts.tryUnfold(level, setSingle(helper, block, facing)) == MigrationDecision.Outcome.RETRY, "player in a cell → RETRY");
+				remove(helper, stander);
+				// 4. a casino dealer NPC in a cell → GROW, the dealer moved to the dealer cell
+				clearArea(helper);
+				BlockPos mainAbs = setSingle(helper, block, facing);
+				var type = BuiltInRegistries.ENTITY_TYPE.getValue(net.minecraft.resources.Identifier.fromNamespaceAndPath("burmaldaholic", "croupier"));
+				net.minecraft.world.entity.Entity npc = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+				BlockPos npcCell = abs(helper, TableFootprint.partPos(MAIN, facing, TablePart.BACK));
+				npc.snapTo(npcCell.getX() + 0.5, npcCell.getY(), npcCell.getZ() + 0.5);
+				level.addFreshEntity(npc);
+				MigrationDecision.Outcome o = TableParts.tryUnfold(level, mainAbs);
+				helper.assertTrue(o == MigrationDecision.Outcome.GROW, "dealer in a cell → GROW (moved), got " + o);
+				BlockPos dealerCell = TableFootprint.dealerPos(mainAbs, facing, ((MultiBlockTableBlock) block).game());
+				helper.assertTrue(npc.blockPosition().equals(dealerCell), "dealer stepped to the dealer cell " + dealerCell.toShortString() + ", is at "
+					+ npc.blockPosition().toShortString());
+				npc.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	private static BlockPos setSingle(GameTestHelper helper, Block block, Direction facing) {
+		helper.setBlock(MAIN, block.defaultBlockState().setValue(MultiBlockTableBlock.FACING, facing));
+		return abs(helper, MAIN);
+	}
+
+	/** A compact table whose block entity was loaded from a v0.1 save (no {@code mt} tag). */
+	private static void legacy(GameTestHelper helper, Block block, Direction facing) {
+		BlockPos mainAbs = setSingle(helper, block, facing);
+		CasinoTableBlockEntity be = (CasinoTableBlockEntity) helper.getLevel().getBlockEntity(mainAbs);
+		CompoundTag tag = be.saveWithoutMetadata(helper.getLevel().registryAccess());
+		helper.assertTrue(tag.getIntOr("mt", 0) == 1, "new tables save the mt tag");
+		tag.remove("mt");
+		be.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, helper.getLevel().registryAccess(), tag));
+	}
+
+	/** Chunk guard: a part whose neighbour sits in an unloaded chunk never cascades (pure check of the guard path). */
+	@GameTest(maxTicks = 100)
+	public void integrityRepairsOrFoldsOnFirstTick(GameTestHelper helper) {
+		floor(helper);
+		ServerLevel level = helper.getLevel();
+		MultiBlockTableBlock b = (MultiBlockTableBlock) BlackjackModule.TABLE.block();
+		// a lone MAIN (as from /setblock or a partial structure copy) regrows its parts when the cells are free
+		helper.setBlock(MAIN, b.defaultBlockState().setValue(MultiBlockTableBlock.FACING, Direction.EAST).setValue(MultiBlockTableBlock.PART, TablePart.MAIN));
+		helper.runAfterDelay(3, () -> {
+			assertFull(helper, b, Direction.EAST, "lone main regrew its parts");
+			// a lone MAIN with a foreign block in a cell folds to a compact table
+			clearArea(helper);
+			helper.setBlock(TableFootprint.partPos(MAIN, Direction.EAST, TablePart.RIGHT), Blocks.STONE);
+			helper.setBlock(MAIN, b.defaultBlockState().setValue(MultiBlockTableBlock.FACING, Direction.EAST).setValue(MultiBlockTableBlock.PART, TablePart.MAIN));
+			helper.runAfterDelay(3, () -> {
+				helper.assertTrue(TableParts.partOf(helper.getBlockState(MAIN)) == TablePart.SINGLE, "lone main without room folds to compact");
+				helper.assertTrue(level.getBlockEntity(abs(helper, MAIN)) instanceof CasinoTableBlockEntity, "and keeps its block entity");
+				helper.succeed();
+			});
+		});
+	}
+	// ---- worldgen (§6) ---------------------------------------------------------------------------
+
+	/** Every MAIN in {@code box} has its whole footprint and every part has its main; returns the number of tables. */
+	private static int assertTablesWhole(GameTestHelper helper, ServerLevel level, net.minecraft.world.level.levelgen.structure.BoundingBox box, String what) {
+		int mains = 0;
+		for (BlockPos p : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
+			BlockState s = level.getBlockState(p);
+			if (!(s.getBlock() instanceof MultiBlockTableBlock)) continue;
+			TablePart part = TableParts.partOf(s);
+			helper.assertTrue(part != TablePart.SINGLE, what + ": no compact table in a v0.2 template at " + p.toShortString());
+			BlockPos main = TableParts.mainPos(p, s);
+			helper.assertTrue(TableParts.intact(level, main, level.getBlockState(main)), what + ": whole table around " + p.toShortString() + " (" + s + ")");
+			if (part == TablePart.MAIN) {
+				mains++;
+				helper.assertTrue(level.getBlockEntity(p) instanceof CasinoTableBlockEntity, what + ": block entity on the main block " + p.toShortString());
+			}
+		}
+		return mains;
+	}
+
+	/** Main-part table cells the layout's grid declares. */
+	private static int declaredMains(dev.nezo.burmaldaholic.worldgen.logic.Layout l) {
+		var g = l.grid();
+		var size = g.size();
+		int n = 0;
+		for (int x = 0; x < size.x(); x++) for (int y = 0; y < size.y(); y++) for (int z = 0; z < size.z(); z++) {
+			var b = g.get(x, y, z);
+			if (b != null && "main".equals(b.properties().get("part"))) n++;
+		}
+		return n;
+	}
+
+	/** The regenerated v0.1 templates (all kinds, all rotations) place full tables that survive the first ticks. */
+	@GameTest(maxTicks = 200)
+	public void regeneratedTemplatesPlaceFullTables(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos origin = helper.absolutePos(BlockPos.ZERO).above(190);
+		List<Runnable> checks = new ArrayList<>();
+		// stack layouts by their real height and wrap into a new column below the build limit: CR-1's Grand Casino
+		// pieces are 41 x 37 x 43, so the old fixed 26 / 14 spacing overlapped them and ran past y 320. A rotated template
+		// grows from its origin towards -x / -z too, so slots are 100 apart (> 2 x the largest footprint)
+		int y = 0;
+		int column = 0;
+		for (dev.nezo.burmaldaholic.worldgen.logic.Layout l : dev.nezo.burmaldaholic.worldgen.logic.Layouts.all().values()) {
+			var size = l.size();
+			if (origin.getY() + y + size.y() > level.getMaxY() - 2) {
+				y = 0;
+				column++;
+			}
+			int baseY = y;
+			y += size.y() + 2;
+			for (int turns = 0; turns < 4; turns++) {
+				BlockPos at = origin.offset(turns * 100, baseY, -column * 100);
+				var rotation = dev.nezo.burmaldaholic.worldgen.CasinoStructures.rotation(turns);
+				var box = dev.nezo.burmaldaholic.worldgen.CasinoBuilder.build(level, l, at, rotation).orElseThrow();
+				String what = l.id() + " rotated " + turns;
+				int n = assertTablesWhole(helper, level, box, what + " (placed)");
+				// 3+ placed mains, or every declared main for a layout with fewer
+				int declared = declaredMains(l);
+				helper.assertTrue(n >= Math.min(3, declared), what + ": tables placed (" + n + " of " + declared + " declared)");
+				checks.add(() -> assertTablesWhole(helper, level, box, what + " (after 5 ticks)"));
+			}
+		}
+		helper.runAfterDelay(5, () -> {
+			checks.forEach(Runnable::run);
+			helper.succeed();
+		});
+	}
+
+	/**
+	 * Old-template survey (§5): the committed v0.1 templates (kept as fixtures) place compact tables; for each one the
+	 * migration decides GROW / COMPACT / RETRY like it would on the first load of an old world. Reported in the log;
+	 * every table must at least stay a valid table (grown or compact).
+	 */
+	@GameTest(maxTicks = 200)
+	public void oldTemplateMigrationSurvey(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos origin = helper.absolutePos(BlockPos.ZERO).above(150);
+		var manager = dev.nezo.burmaldaholic.worldgen.CasinoBuilder.templates(level.getServer());
+		String[] ids = {"village_casino_plains", "village_casino_desert", "village_casino_savanna", "village_casino_snowy", "village_casino_taiga",
+			"piglin_parlor", "high_roller_lounge"};
+		StringBuilder report = new StringBuilder("[MT] old v0.1 template survey:");
+		int grown = 0;
+		int total = 0;
+		for (int i = 0; i < ids.length; i++) {
+			var template = manager.get(net.minecraft.resources.Identifier.fromNamespaceAndPath("burmaldaholic-gametest", "mt_v01/" + ids[i])).orElseThrow();
+			BlockPos at = origin.offset((i % 4) * 26, (i / 4) * 14, 0);
+			template.placeInWorld(level, at, at, new net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings(), level.getRandom(),
+				Block.UPDATE_CLIENTS);
+			var size = template.getSize();
+			report.append("\n  ").append(ids[i]).append(':');
+			for (BlockPos p : BlockPos.betweenClosed(at, at.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1))) {
+				BlockState s = level.getBlockState(p);
+				if (!(s.getBlock() instanceof MultiBlockTableBlock) || TableParts.partOf(s) != TablePart.SINGLE) continue;
+				BlockPos table = p.immutable();
+				total++;
+				MigrationDecision.Outcome o = TableParts.tryUnfold(level, table);
+				if (o == MigrationDecision.Outcome.GROW) grown++;
+				report.append(' ').append(name(s.getBlock())).append('@').append(table.subtract(at).toShortString()).append('=').append(o);
+				BlockState after = level.getBlockState(table);
+				helper.assertTrue(after.getBlock() instanceof MultiBlockTableBlock && (TableParts.partOf(after) == TablePart.SINGLE
+					|| TableParts.intact(level, table, after)), ids[i] + ": table at " + table.toShortString() + " valid after " + o);
+			}
+		}
+		report.append("\n  grown ").append(grown).append(" / ").append(total);
+		dev.nezo.burmaldaholic.Burmaldaholic.LOGGER.info(report.toString());
+		helper.assertTrue(total >= 20, "old templates hold the v0.1 tables (" + total + ")");
+		helper.succeed();
+	}
+}

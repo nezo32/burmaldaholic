@@ -8,7 +8,9 @@ import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
@@ -24,8 +26,17 @@ import org.jspecify.annotations.Nullable;
  * {@code CasinoTableBlockEntity#baseState} ({@link #balance()}, {@link #minBet()}, {@link #maxBet()},
  * {@link #mySeat()}, {@link #seatNames()}, {@link #timerSeconds}), and {@link #button} which sizes
  * buttons to their (translated, possibly Russian) label as UI.md §0.1 requires.
+ *
+ * <p>A plain {@link Screen} + {@link MenuAccess}, NOT an {@code AbstractContainerScreen} (owner playtest B3): JEI, REI
+ * and EMI attach their item-list overlays to every {@code AbstractContainerScreen} and drew over the tables. The
+ * table menu has no slots, so the container screen only contributed the bits re-implemented below: the centred
+ * image ({@link #leftPos}/{@link #topPos}/{@link #imageWidth}/{@link #imageHeight}), labels drawn in image space,
+ * {@link #containerTick} (closes the menu when the player dies), the inventory key closing the screen,
+ * {@code menu.removed} on close, no pause and in-game UI. Menu sync and close-on-distance are server-side
+ * ({@code CasinoTableMenu.stillValid}, the vanilla container-close packet) and do not depend on the screen class.
+ * {@code ScreenContractTest} guards this.
  */
-public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTableMenu> implements dev.nezo.burmaldaholic.client.ui.FitScaled {
+public abstract class CasinoTableScreen extends Screen implements MenuAccess<CasinoTableMenu>, dev.nezo.burmaldaholic.client.ui.FitScaled {
 	protected static final int FELT = 0xFF1E5E3A;
 	protected static final int FELT_BORDER = 0xFF0E2E1C;
 	protected static final int TEXT = 0xFFFFFFFF;
@@ -39,8 +50,88 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 	}
 
 	protected CasinoTableScreen(CasinoTableMenu menu, Inventory inventory, Component title, int width, int height) {
-		super(menu, inventory, title, width, height);
-		this.inventoryLabelY = -10_000; // slot-less menus: hide the "Inventory" label
+		super(title);
+		this.menu = menu;
+		this.imageWidth = width;
+		this.imageHeight = height;
+	}
+
+	// ---- the container-screen parts tables use (see the class comment) ------------------------
+
+	/** The table menu (synced by the server; {@link MenuAccess}). */
+	protected final CasinoTableMenu menu;
+	/** Size of the centred image (the old container-screen contract, used by every layout). */
+	protected final int imageWidth;
+	protected final int imageHeight;
+	/** Top-left of the centred image, set in {@link #init}. */
+	protected int leftPos;
+	protected int topPos;
+	/** Title position in image space. */
+	protected int titleLabelX = 8;
+	protected int titleLabelY = 6;
+	/** Kept for subclasses that still hide it; table screens never draw an inventory label. */
+	protected int inventoryLabelY = -10_000;
+
+	@Override
+	public CasinoTableMenu getMenu() {
+		return menu;
+	}
+
+	@Override
+	public final void tick() {
+		super.tick();
+		if (minecraft.player == null) return;
+		if (minecraft.player.isAlive() && !minecraft.player.isRemoved()) {
+			containerTick();
+		} else {
+			minecraft.player.closeContainer();
+		}
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+		super.extractRenderState(graphics, mouseX, mouseY, a);
+		graphics.pose().pushMatrix();
+		graphics.pose().translate(leftPos, topPos);
+		extractLabels(graphics, mouseX, mouseY);
+		graphics.pose().popMatrix();
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (super.keyPressed(event)) return true;
+		if (minecraft.options.keyInventory.matches(event)) {
+			onClose();
+			return true;
+		}
+		return false;
+	}
+
+	/** Container-screen parity: scrolls reach only what a screen routes itself (vanilla widgets never got them). */
+	@Override
+	public boolean mouseScrolled(double x, double y, double dx, double dy) {
+		return false;
+	}
+
+	@Override
+	public void onClose() {
+		if (minecraft.player != null) minecraft.player.closeContainer();
+		super.onClose();
+	}
+
+	@Override
+	public void removed() {
+		if (minecraft.player != null) menu.removed(minecraft.player);
+	}
+
+	@Override
+	public boolean isPauseScreen() {
+		return false;
+	}
+
+	@Override
+	public boolean isInGameUi() {
+		return true;
 	}
 
 	/** Opt in to the compact layout ({@link dev.nezo.burmaldaholic.client.ui.FitScaled}; the extras machines). Default false. */
@@ -58,12 +149,23 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 
 	@Override
 	protected void init() {
-		fit = dev.nezo.burmaldaholic.client.ui.FitScaled.apply(this, fitToScreen(), imageWidth + 8, imageHeight, fitMemo);
+		fit = applyFit(fitMemo);
 		super.init();
+		leftPos = (width - imageWidth) / 2;
+		topPos = (height - imageHeight) / 2;
 		if (entrance == null) {
 			entrance = dev.nezo.burmaldaholic.client.ui.ScreenEntrance.install(this, this::entranceRect);
 		}
 		acceptState(ClientTableCache.get(menu.pos()));
+	}
+
+	/**
+	 * Sizes the screen's GUI at the start of {@code init()} and returns the drawing factor (table UI v2 kit hook,
+	 * docs/architecture/ui-v2.md §5.4: {@code V2TableScreen} uses the stepped viewport and fills the GUI). Default: the
+	 * compact-layout rule of {@link dev.nezo.burmaldaholic.client.ui.FitScaled#apply}.
+	 */
+	protected float applyFit(int[] memo) {
+		return dev.nezo.burmaldaholic.client.ui.FitScaled.apply(this, fitToScreen(), imageWidth + 8, imageHeight, memo);
 	}
 
 	/** The panel the entrance scales and veils, in GUI coordinates (default: the container image; J-L2 kit hook). */
@@ -126,9 +228,8 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 		return error;
 	}
 
-	@Override
+	/** Per-tick update while the player is alive (the container-screen hook). */
 	protected void containerTick() {
-		super.containerTick();
 		Component pendingNarration = narration.poll(net.minecraft.util.Util.getMillis());
 		if (pendingNarration != null) dev.nezo.burmaldaholic.client.ui.CasinoUi.say(pendingNarration);
 		if (errorTicks > 0 && --errorTicks == 0) {
@@ -207,9 +308,15 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 
 	// ---- rendering ----------------------------------------------------------------------------
 
+	/** Draw the felt panel behind the image (table UI v2 kit hook: v2 screens paint their own full-bleed felt). */
+	protected boolean drawsPanel() {
+		return true;
+	}
+
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
+		if (!drawsPanel()) return;
 		// J-L2 kit: the felt nine-slice (global.md §2.2 panel/felt); flat felt when the art is missing
 		if (!dev.nezo.burmaldaholic.client.ui.CasinoUi.sprite(graphics, dev.nezo.burmaldaholic.client.ui.UiSprites.PANEL_FELT, leftPos, topPos, imageWidth,
 			imageHeight)) {
@@ -218,7 +325,7 @@ public abstract class CasinoTableScreen extends AbstractContainerScreen<CasinoTa
 		}
 	}
 
-	@Override
+	/** Labels in image space (translated by {@link #leftPos}, {@link #topPos}). */
 	protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
 		graphics.text(font, title, titleLabelX, titleLabelY, TEXT, true);
 		if (error != null) {

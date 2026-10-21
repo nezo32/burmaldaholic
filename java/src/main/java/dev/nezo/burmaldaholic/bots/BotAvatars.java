@@ -1,7 +1,9 @@
 package dev.nezo.burmaldaholic.bots;
 
 import dev.nezo.burmaldaholic.bots.logic.PlateAnim;
-import dev.nezo.burmaldaholic.bots.logic.SeatPoints;
+import dev.nezo.burmaldaholic.core.table.parts.TableFootprint;
+import dev.nezo.burmaldaholic.core.table.parts.TableGame;
+import dev.nezo.burmaldaholic.core.table.parts.TableParts;
 import dev.nezo.burmaldaholic.bots.mixin.DisplayAccessor;
 import dev.nezo.burmaldaholic.bots.mixin.TextDisplayAccessor;
 import dev.nezo.burmaldaholic.core.bots.TableBots;
@@ -29,6 +31,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
@@ -43,6 +46,8 @@ import org.jspecify.annotations.Nullable;
 final class BotAvatars {
 	static final String TAG = "burmaldaholic_bot_plate";
 	private static final int PERIOD = 20;
+	/** A block below the plate at most this high (carpet, slab) still leaves the seat free. */
+	static final double LOW_BLOCK = 0.5;
 
 	/** A live plate: entity, position, the text shown, and the state the text / pulse derive from. */
 	private record Plate(UUID entity, Vec3 pos, Component text, long stack, boolean thinking) {}
@@ -76,9 +81,7 @@ final class BotAvatars {
 		int radius = Math.max(1, CasinoConfig.multiplayer().spectatorRadius);
 		Map<String, BotTables.Found> active = new LinkedHashMap<>();
 		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-			if (p.isSpectator()) {
-				continue;
-			}
+			// spectators watch too (BOT: a spectator-mode viewer saw a table without plates; the client lane's camera is one)
 			for (BotTables.Found f : BotTables.near(p.level(), p.position(), radius)) {
 				if (f.botsSeated() > 0) {
 					active.putIfAbsent(f.key(), f);
@@ -114,8 +117,7 @@ final class BotAvatars {
 			}
 			String key = bot.key();
 			present.add(key);
-			double[] off = SeatPoints.offset(i, seats, facing.getStepX(), facing.getStepZ());
-			Vec3 at = new Vec3(f.pos().getX() + 0.5 + off[0], f.pos().getY() + SeatPoints.HEIGHT, f.pos().getZ() + 0.5 + off[1]);
+			Vec3 at = seatPoint(f, i, seats, facing);
 			boolean thinking = key.equals(f.table().botThinking());
 			long stack = stackOf(f.bots(), bot);
 			Component text = plateText(f.bots(), bot, thinking, f.level().getServer().getTickCount());
@@ -203,6 +205,9 @@ final class BotAvatars {
 	/** Every 10 t between syncs: advance the thinking dots of plates whose bot is deciding (≤ 1 text update / 10 t). */
 	private static void refreshThinking(MinecraftServer server) {
 		for (TablePlates t : TABLES.values()) {
+			if (!t.level().isLoaded(t.pos())) {
+				continue; // never load a chunk for a plate (the table list is pruned on the next sync)
+			}
 			if (!(t.level().getBlockEntity(t.pos()) instanceof dev.nezo.burmaldaholic.core.bots.BotTable table)) {
 				continue;
 			}
@@ -288,11 +293,37 @@ final class BotAvatars {
 		}
 	}
 
-	/** Two blocks of air (no collision) at the plate and below it (BOTS.md §7.2). */
-	private static boolean clear(ServerLevel level, Vec3 at) {
+	/**
+	 * Plate position of seat {@code i} of {@code seats}: MT {@link TableFootprint#seatOffset} (compact tables keep the
+	 * v0.1 half circle, full tables sit 0.35 outside the rail), {@link TableFootprint#SEAT_HEIGHT} above the table.
+	 */
+	static Vec3 seatPoint(BotTables.Found f, int i, int seats, Direction facing) {
+		BlockState state = f.blockEntity().getBlockState();
+		TableGame game = TableParts.gameOf(state);
+		double[] off = TableFootprint.seatOffset(game == null ? TableGame.BLACKJACK : game, TableParts.partOf(state), i, seats,
+			facing.getStepX(), facing.getStepZ());
+		return new Vec3(f.pos().getX() + off[0], f.pos().getY() + TableFootprint.SEAT_HEIGHT, f.pos().getZ() + off[1]);
+	}
+
+	/**
+	 * The plate is never inside a block (BOTS.md §7.2): no collision in the plate's block, and the block below it (the
+	 * seat column at table height) is free, low (carpet, slab) or a casino table. Generated casinos lay carpet on the
+	 * table level, so a strict "air below" left every seat of a carpeted floor without a plate (BOT root cause 2).
+	 */
+	static boolean clear(ServerLevel level, Vec3 at) {
 		BlockPos p = BlockPos.containing(at);
-		return level.getBlockState(p).getCollisionShape(level, p).isEmpty()
-			&& level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty();
+		if (!level.isLoaded(p) || !level.isLoaded(p.below())) {
+			return false;
+		}
+		if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) {
+			return false;
+		}
+		BlockState below = level.getBlockState(p.below());
+		if (below.getBlock() instanceof dev.nezo.burmaldaholic.core.table.CasinoTableBlock) {
+			return true;
+		}
+		var shape = below.getCollisionShape(level, p.below());
+		return shape.isEmpty() || shape.max(Direction.Axis.Y) <= LOW_BLOCK;
 	}
 
 	private static Display.@Nullable TextDisplay spawn(ServerLevel level, Vec3 at, Component text) {

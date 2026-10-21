@@ -33,7 +33,7 @@ public final class CelebrationOverlay {
 
 	private static final CelebrationOverlay INSTANCE = new CelebrationOverlay();
 	private static final int QUEUE_MAX = 4;
-	private static final int[] CHIP_DENOMS = {1, 5, 25, 100, 500};
+	private static final int[] CHIP_DENOMS = dev.nezo.burmaldaholic.core.anim.dice.ChipStacks.DENOMS;
 	private static final int[] CHIP_COLORS = {0xFFF4ECF8, 0xFFD83440, 0xFF3CB44B, 0xFF222222, 0xFF783CBE};
 	private static final int SPRITE_COIN = 5;
 	private static final int SPRITE_SPARKLE = 6;

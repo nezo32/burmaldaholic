@@ -37,11 +37,22 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 |-----|------|---------|-------|-------------|
 | `economy.maxBalance` | long | 1000000000 | 1 000–9 007 199 254 740 991 | Balance cap. |
 | `economy.startingBalance` | int | 50 | 0–1 000 000 | Credited on first join. |
-| `economy.emeraldBuyRate` | int | 8 | 1–1000 | Chips per emerald when buying chips. |
-| `economy.emeraldBuyRateGoldVip` | int | 9 | 1–1000 | Same for Gold VIP+. |
-| `economy.emeraldSellRate` | int | 10 | 1–1000 | Chips per emerald when selling chips. Must be ≥ buy rate (else clamped). |
-| `economy.goldBuyRate` | int | 3 | 1–1000 | Nether cashier: chips per gold ingot. |
-| `economy.goldSellRate` | int | 12 | 1–1000 | Nether cashier: chips per gold ingot sold. |
+| `economy.exchange.<row>.item` | string | table below | item id | Item exchanged at the cashier (v0.2.0, EC-SPEC §2). The v0.1 keys `emeraldBuyRate`, `emeraldBuyRateGoldVip`, `emeraldSellRate`, `goldBuyRate`, `goldSellRate` are migrated: a value that differs from its v0.1 default moves into the `emerald` / `gold_ingot` row. |
+| `economy.exchange.<row>.toChips` | int | table below | 0–1 000 000 | Chips for one item handed in (0 = cannot hand in). |
+| `economy.exchange.<row>.fromChips` | int | table below | 0–1 000 000 | Chips for one item taken out (0 = sell-only). Must be > `toChips` (R1) and pass the craft rule R2, else set to 0 with a warning. |
+| `economy.exchange.<row>.dims` | string | table below | letters `O` `N` `E` | Dimensions of the cashier where the row is offered (empty = all). |
+| `economy.exchange.<row>.buyMinTier` | int | table below | 0–5 | VIP tier needed to take the item out. |
+
+Default rows (no Gold VIP bonus: the spread must stay ≥ 1):
+
+| Row | Item | toChips | fromChips | dims | buyMinTier |
+|---|---|---|---|---|---|
+| emerald | minecraft:emerald | 9 | 10 | ONE | 0 |
+| emerald_block | minecraft:emerald_block | 81 | 90 | OE | 0 |
+| diamond | minecraft:diamond | 40 | 55 | ONE | 0 |
+| iron_block | minecraft:iron_block | 16 | 27 | O | 0 |
+| gold_ingot | minecraft:gold_ingot | 6 | 8 | N | 0 |
+| netherite_scrap | minecraft:netherite_scrap | 60 | 160 | N | 4 (Diamond) |
 | `economy.ore.coal` | int | 1 | 0–1000 | |
 | `economy.ore.copper` | int | 1 | 0–1000 | |
 | `economy.ore.iron` | int | 2 | 0–1000 | |
@@ -89,6 +100,36 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `economy.trade.perTradeCap` | int | 10 | 0–10 000 | |
 | `economy.trade.dailyCap` | int | 200 | 0–1 000 000 | Per player per MCD. |
 
+## store
+
+The chip store at the cashier (Store tab) and the casino merchant (EC-SPEC §3). Offers are checked by the economy guards
+R3–R6 when the catalog is built (price per item ≥ 1.25 × `wager.appraisal`, villager floor, above the exchange rate, no
+forbidden item); a violating offer is left out with a warning. Scratch cards come from the extras module (category Games).
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `store.enabled` | bool | true | — | Show the store. |
+| `store.offers.<id>.item` | string | catalog below | item id | Item sold. |
+| `store.offers.<id>.count` | int | 1 | 1–64 | Items per purchase. |
+| `store.offers.<id>.potion` | string | catalog below | potion id | Potion contents (potion items). |
+| `store.offers.<id>.enchant` | string | catalog below | enchantment id | Enchantment of an enchanted book. |
+| `store.offers.<id>.level` | int | catalog below | 0–10 | Enchantment level. |
+| `store.offers.<id>.flight` | int | 0 | 0–3 | Firework rocket flight duration (0 = none). |
+| `store.offers.<id>.category` | string | catalog below | food, potions, books, tools, decor, rare | Store category. |
+| `store.offers.<id>.price` | long | catalog below | 0–100 000 000 | Chips per purchase (0 = hidden). |
+| `store.offers.<id>.minTier` | int | catalog below | 0–5 | VIP tier needed. |
+| `store.offers.<id>.dims` | string | catalog below | letters `O` `N` `E` | Dimensions of the counter where it is sold (empty = all). |
+| `store.offers.<id>.limitPerDay` | int | catalog below | 0–10 000 | Purchases per player per in-game day (0 = no limit). |
+| `store.offers.<id>.limitEveryDays` | int | 1 | 1–365 | > 1: after a buy day nothing more until that many days have passed. |
+
+Default catalog (chips per item; L = per-player limit per in-game day): bread 2, cooked beef 3, cooked porkchop 3, cooked salmon 3,
+pumpkin pie 4, golden carrot 6, cake 15, golden apple 80 (L8); potions L16 each: night vision (long) 30, water breathing (long) 35,
+slow falling (long) 40, swiftness II 40, healing II 40, fire resistance (long) 50, regeneration (long) 60 (Silver), strength II 70 (Gold);
+books L1 each: unbreaking III 300, feather falling IV 300, silk touch 300, protection IV 400, sharpness V 400, efficiency V 400 (Silver),
+looting III 500 (Gold), fortune III 600 (Gold), mending 800 (Gold); fishing rod 10, spyglass 25, saddle 60, name tag 60, firework rocket
+(flight 2) 3, bottle o' enchanting 20 (L64), ender pearl 25 (L16), diamond pickaxe 180 (Silver, L2); glowstone 4, sea lantern 8; shulker
+shell 300 (End, Gold, L4), totem of undying 750 (Gold, L1), elytra 5000 (End, Platinum, 1 every 7 days).
+
 ## contracts
 
 | Key | Type | Default | Range | Description |
@@ -123,11 +164,11 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
-| `vip.threshold.silver` | long | 5000 | 1–10¹² | Lifetime wagered. Must be ascending across tiers (validated). |
-| `vip.threshold.gold` | long | 25000 | | |
-| `vip.threshold.platinum` | long | 100000 | | |
-| `vip.threshold.diamond` | long | 500000 | | |
-| `vip.threshold.netherite` | long | 2500000 | | |
+| `vip.threshold.silver` | long | 25000 | 1–10¹² | Lifetime wagered. Must be ascending across tiers (validated). v0.2.0 retune (was 5000/25000/100000/500000/2500000); config schema v4 replaces untouched old defaults. |
+| `vip.threshold.gold` | long | 250000 | | |
+| `vip.threshold.platinum` | long | 1500000 | | |
+| `vip.threshold.diamond` | long | 10000000 | | |
+| `vip.threshold.netherite` | long | 50000000 | | |
 | `vip.maxBet.bronze` | int | 100 | 1–10⁹ | Tier max bet. |
 | `vip.maxBet.silver` | int | 250 | | |
 | `vip.maxBet.gold` | int | 1000 | | |
@@ -141,6 +182,25 @@ Percent values are stored as **fractions** (`0.05` = 5 %) unless the key ends in
 | `vip.contractBonus.silver` | double | 0.05 | 0.0–5.0 | |
 | `vip.contractBonus.gold` | double | 0.10 | 0.0–5.0 | Applies to Gold and above. |
 | `vip.announceNetherite` | bool | true | — | |
+| `vip.compRate.bronze` | double | 0.10 | 0.0–0.35 | Comp points as a fraction of the theoretical loss (GAME_DESIGN §12.1). Validated: `compRate + cashback ≤ 0.35` per tier (clamped). |
+| `vip.compRate.silver` | double | 0.12 | 0.0–0.35 | |
+| `vip.compRate.gold` | double | 0.15 | 0.0–0.35 | |
+| `vip.compRate.platinum` | double | 0.18 | 0.0–0.35 | |
+| `vip.compRate.diamond` | double | 0.22 | 0.0–0.35 | |
+| `vip.compRate.netherite` | double | 0.25 | 0.0–0.35 | |
+
+## comps
+
+Module section (comps module, EC-2; GAME_DESIGN §12.1). Shown on the VIP page of the config screen.
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `comps.enabled` | bool | true | — | Comp points, redemptions, free-bet tokens and the daily bonus. |
+| `comps.daily.bronze` … `comps.daily.netherite` | long | 25 / 50 / 120 / 300 / 750 / 2000 | 0–10⁶ | Daily bonus chips per tier. |
+| `comps.daily.minLifetimeWager` | long | 1000 | 0–10⁹ | Lifetime chips wagered before the daily bonus unlocks. |
+| `comps.daily.minActiveMinutes` | int | 10 | 0–1200 | Active minutes today before the bonus can be claimed. |
+| `comps.daily.onePerIp` | bool | true | — | Dedicated servers: one claim per IP per in-game day. |
+| `comps.rentalMinutes` | int | 10 | 1–120 | Horse / strider rental duration. |
 
 ## blackjack
 
@@ -239,8 +299,8 @@ the spin awards in `slots.<m>.freeSpins.awards`.
 | `slots.nether.hold.respins` | int | 3 | 1–10 | |
 | `slots.nether.hold.coinChance` | double | 0.04 | 0.0–0.5 | Per empty cell per respin. |
 | `slots.nether.hold.coinWeights` | map<string,int> | x1 4000, x2 2500, x3 1500, x5 1000, x10 500, x25 120, mini 80, minor 20, major 3 | each 0–10000000 | ×10 of `SLOTS.md` §3.2. |
-| `slots.nether.buy.price` | double | 18.4 | 1–10000 | × bet, multiples of 0.2. |
-| `slots.end.buy.price` | double | 109 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.nether.buy.price` | double | 20.8 | 1–10000 | × bet, multiples of 0.2. |
+| `slots.end.buy.price` | double | 107.2 | 1–10000 | × bet, multiples of 0.2. |
 
 Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 
@@ -261,6 +321,8 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | slots.<m>.jackpot.seed | map<tier,int> | §5.1 | each 0–100 000 | Multiples of `refBet`. |
 | slots.<m>.jackpot.contribution | map<tier,double> | §5.1 | each 0.0–0.05 | Fraction of every stake. |
 | slots.<m>.jackpot.owned | map<tier,int> | §5.2 | each 0–100 000 | Fixed × bet at owned machines. |
+| slots.<m>.jackpot.gem | map<tier,double> | SLOTS.md §5.4 (mini / minor) | each 0–0.01, sum ≤ 0.01 | Base-game jackpot gem chance per paid spin (v0.2.0). |
+| slots.<m>.coinValue | int | 0 | 0–1 000 000 | Bet shown as coin × multiplier; 0 or a value that does not divide every bet = the ladder's gcd (v0.2.0). |
 | pvp.slots.hazardWeights | list<int> | [94,2,2,2] | 4 entries, each 0–1 000 | Slot Showdown v2 (S-B8 / S-J8): none / KABOOM / SWAP / TIME WARP. |
 | pvp.race.target | enum(feature, jackpot, five_top) | feature | — | Jackpot Race (NICE). |
 
@@ -280,7 +342,7 @@ Per-machine families and table-valued keys (defaults per `SLOTS.md`):
 | `roulette.highRollerMinTotal` | int | 100 | 1–10⁶ | |
 | `roulette.highRollerMaxMultiplier` | double | 2.0 | 1.0–10.0 | |
 | `roulette.betTimerTicks` | int | 500 | 100–2400 | |
-| `roulette.spinTicks` | int | 100 | 40–300 | |
+| `roulette.spinTicks` | int | 140 | 40–300 | RO (PHASE2B D2): 7 s spin, 8 s of ball |
 | `roulette.maxBettors` | int | 8 | 1–16 | |
 | `roulette.historyLength` | int | 12 | 0–50 | |
 
@@ -602,6 +664,7 @@ Validation: `pvp.slots.spinChoices` / `ballChoices` sorted and de-duplicated on 
 | `worldgen.villageCasino.chance` | double | 0.50 | 0.0–1.0 | Share of villages that get a casino (v0.1.1: 0.35). |
 | `worldgen.piglinParlor.chance` | double | 0.60 | 0.0–1.0 | Share of bastions with a Piglin Parlor (v0.1.1: 0.30). |
 | `worldgen.highRoller.chance` | double | 0.50 | 0.0–1.0 | Share of End Cities with a High Roller Lounge (v0.1.1: 0.20). A global config file still holding exactly a v0.1.1 default (0.35 / 0.30 / 0.20) is upgraded to the new default on load; any other value is kept. |
+| `worldgen.standalone.enabled` | bool | true | — | New chunks only. v0.2 standalone casinos (structure set `burmaldaholic:casinos`) may start; village annexes, the Piglin Parlor and the High Roller Lounge are not affected. While off (or while `worldgen.enabled` / casino mode are off) `/locate` reports no standalone casino and caches nothing. New in v0.2.0; old config files get the default (no schema bump). |
 | `worldgen.loanSharkRespawnTicks` | int | 24000 | 0–240 000 | |
 | `worldgen.locateCooldownSeconds` | int | 30 | 0–3 600 | `/casino locate`: seconds between two searches of the same non-operator player (in memory, reset on restart). Operators and the singleplayer host are exempt. New in v0.1.3; old config files simply get the default (no schema bump). |
 

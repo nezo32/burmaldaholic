@@ -30,7 +30,7 @@ import net.minecraft.world.level.Level;
  * (normal, High Roller or chemin de fer) within {@link #TABLE_RADIUS} blocks, else
  * {@code msg.burmaldaholic.baccarat.no_table}. The table deals itself; the dealer is only its face.
  */
-public class BaccaratDealer extends PathfinderMob implements GesturingDealer {
+public class BaccaratDealer extends PathfinderMob implements GesturingDealer, dev.nezo.burmaldaholic.client.dealer.DealerGestureSink {
 	/** Dealer gesture (docs/design/animation/cards.md §1.4): {@link DealerGesture} id, set by the table on its beats. */
 	private static final EntityDataAccessor<Byte> GESTURE = SynchedEntityData.defineId(BaccaratDealer.class, EntityDataSerializers.BYTE);
 	/** Game time the gesture started (the renderer's age = level time − this). */

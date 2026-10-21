@@ -13,7 +13,15 @@ public enum DealerGesture {
 	PAY(450),
 	SWEEP(500),
 	SHUFFLE(1600),
-	WAVE_OFF(300);
+	WAVE_OFF(300),
+	/** DL house dealers (append only: ids travel as bytes): roulette spin flick. */
+	SPIN(700),
+	/** Craps stickman pushes the dice back to the shooter. */
+	STICK_PUSH(600),
+	/** Craps stickman pulls the dice in. */
+	STICK_PULL(600),
+	/** Poker dealer pushes the pot to the winner. */
+	POT_PUSH(650);
 
 	/** Length in ms (the renderer returns to idle afterwards). */
 	public final int ms;

@@ -59,7 +59,7 @@ class CrapsFeltTest {
 		CrapsBeats.puck(on8, 8, off, 0, CrapsBeats.PUCK_TOTAL + 1, out);
 		assertEquals(CrapsBeats.FRAME_OFF, out.frame);
 		CrapsBeats.puck(off, 0, on8, 8, CrapsBeats.PUCK_RISE + CrapsBeats.PUCK_FLIP / 2.0, out);
-		assertEquals(2, out.frame, "the edge frame at the thin moment");
+		assertEquals(CrapsBeats.FRAME_EDGE, out.frame, "the edge frame at the thin moment");
 		for (double t = 0; t < CrapsBeats.PUCK_TOTAL; t += 5) {
 			CrapsBeats.puck(off, 0, on8, 8, t, out);
 			assertTrue(out.lift >= -1e-9);
@@ -68,7 +68,7 @@ class CrapsFeltTest {
 
 	@Test
 	void syncRoundTrips() {
-		CrapsSync c = new CrapsSync(12, 123_456_789_012L, 3, 4, -99, 0, 7, 2, 5, 1);
+		CrapsSync c = new CrapsSync(12, 123_456_789_012L, 3, 4, -99, 0, 7, 2, 5, 1, 1, 1734, 2, 0);
 		assertEquals(c, CrapsSync.decode(c.encode()));
 		RouletteSync r = new RouletteSync(2, 1L << 40, (1L << 40) + 20, 100, 17, 42, 5, 2, 9);
 		assertEquals(r, RouletteSync.decode(r.encode()));

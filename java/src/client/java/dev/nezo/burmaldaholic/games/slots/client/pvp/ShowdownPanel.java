@@ -66,6 +66,32 @@ public final class ShowdownPanel {
 		return "slots".equals(m.getStringOr("mode", "")) ? m : new CompoundTag();
 	}
 
+	/**
+	 * The entry as a v2 Dock gate (owner B6: the machine screen is on the v2 kit), or null when the mode is off: "Slot
+	 * Showdown", "Spin now" for a drawn match of mine, or "Join (entry, n/max)" for an open lobby.
+	 */
+	public dev.nezo.burmaldaholic.core.ui.v2.Gate entryGate() {
+		if (!enabled()) return null;
+		ListTag lobbies = pvp().getListOrEmpty("lobbies");
+		String a = dev.nezo.burmaldaholic.games.slots.v2.present.SlotFlow.SHOWDOWN;
+		if (!mine().isEmpty() && "DRAWN".equals(mine().getStringOr("state", ""))) {
+			return dev.nezo.burmaldaholic.core.ui.v2.Gate.on(a, "gui.burmaldaholic.pvp.slots.spin_now");
+		}
+		if (mine().isEmpty() && !lobbies.isEmpty()) {
+			CompoundTag l = lobbies.getCompoundOrEmpty(0);
+			return dev.nezo.burmaldaholic.core.ui.v2.Gate.on(a, "gui.burmaldaholic.pvp.slots.join", l.getLongOr("entry", 0), l.getIntOr("count", 0),
+				l.getIntOr("max", 0));
+		}
+		return dev.nezo.burmaldaholic.core.ui.v2.Gate.on(a, "gui.burmaldaholic.pvp.slots.title");
+	}
+
+	/** Opens the panel (the Dock entry was pressed). */
+	public void openPanel() {
+		if (!enabled()) return;
+		open = true;
+		host.rebuild();
+	}
+
 	/** The machine screen's entry button (hidden when the mode is off). */
 	public void entryButton(int x, int y, int width) {
 		if (!enabled()) {

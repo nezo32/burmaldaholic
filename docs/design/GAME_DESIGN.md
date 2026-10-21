@@ -172,11 +172,36 @@ the Cashier screen (UI.md §4). Functions:
 | Action | Rule |
 |--------|------|
 | **Deposit** | Takes all chip items from the player's inventory (or only the selected stack, player's choice) and adds their value to the balance. |
-| **Withdraw** | Player enters an amount A ≤ withdrawable (below). Converted greedily into the largest denominations (500, 100, 25, 5, 1). If inventory is full, the rest drops at the player's feet. |
-| **Buy chips** | 1 emerald → `economy.emeraldBuyRate` chips (default 8; Gold VIP+ 9). |
-| **Sell chips** | `economy.emeraldSellRate` chips (default 10) → 1 emerald. Only whole emeralds. |
+| **Withdraw** | Player builds an amount A ≤ withdrawable (below) with the chip buttons; "Max" = the most that fits the inventory. Converted greedily into the largest denominations. At most 36 stacks per click; only an overflow beyond the inventory drops at the player's feet. |
+| **Exchange** (v0.2.0) | Rows of `economy.exchange` for the cashier's dimension: hand items in for chips (`toChips`) or buy them with chips (`fromChips`), ×1 / ×64 / All (in) / Max (out); Shift+click = ×64. The server computes "All"/"Max" (balance cap, withdrawable, free inventory room); exchanged items never drop at the feet — a smaller count is used and the player is told. 4-tick cooldown per player. |
+| **Store** (v0.2.0) | The chip store tab (`store.offers`, §3.2.1). |
 | **Contracts** | Opens the contracts tab (§3.5). |
 | **Loan status** | Read-only; paying is done at the Loan Shark or via the Casino Card. |
+
+Default exchange rows (chips per item; there is no Gold VIP bonus — the spread must stay ≥ 1):
+
+| Row | Dimensions | → chips | chips → | Buy gate |
+|---|---|---|---|---|
+| Emerald | Overworld, Nether, End | 9 | 10 | – |
+| Emerald block | Overworld, End | 81 | 90 | – |
+| Diamond | Overworld, Nether, End | 40 | 55 | – |
+| Iron block | Overworld | 16 | 27 | – |
+| Gold ingot | Nether | 6 | 8 | – |
+| Netherite scrap | Nether | 60 | 160 | Diamond VIP |
+
+Economy guards (`core.economy.EconomyGuards`) keep every round trip losing: R1 `toChips < fromChips`; R2 craft
+equivalences (9 emeralds = 1 block, …); store R3 price ≥ 1.25 × pawn appraisal, R4 villager floor, R5 above the
+exchange rate, R6 no exchange items / precursors / netherite / spawn eggs / spawners / god apple / nether star /
+beacon / shulker box / dragon egg. A violating row loses its way out; a violating offer is left out (logged).
+
+#### 3.2.1 Chip store (v0.2.0)
+
+Cashier tab "Store" and the casino merchant NPC (one per casino, beside the cashier): a data-driven catalog
+(`store.offers`) of food, potions, enchanted books, tools, decor and rares, plus the scratch cards (Games). Prices
+anchor on 1 emerald ≈ 10 chips: commons at about villager price, books 2–4× the librarian average, rares ≥ 3× their
+pawn appraisal (catalog in CONFIG.md `store`). Per-player limits per in-game day (`limitPerDay`), the elytra once
+every 7 days; End-only offers (elytra, shulker shell) appear only at an End counter. Buying follows the exchange rule
+(`n = min(qty, balance / price, room, left today)`); a Max over 5 000 chips asks for a second click.
 
 `withdrawable = max(0, balance − outstandingDebt)` — you cannot turn borrowed money into items
 (anti-abuse, §5.8). While a loan is **in default**, withdraw is completely disabled.
@@ -952,15 +977,17 @@ not the same player. Max 1 pending outgoing challenge per player.
 ## 12. VIP tiers [vip]
 
 Tier by **lifetime chips wagered** W (never decreases; tiers are never lost).
+v0.2.0 retune (steeper; was 5 000 / 25 000 / 100 000 / 500 000 / 2 500 000): the stored per-player tier is a floor, and
+records saved before v0.2.0 are floored once by the old thresholds on load, so nobody is demoted.
 
 | # | Tier | W ≥ | Max bet | Perks |
 |---|------|-----|---------|-------|
 | 0 | Bronze | 0 | 100 | Micro poker, Basic scratch cards, loans 100/500 |
-| 1 | Silver | 5 000 | 250 | Low poker, Gold scratch cards, loan 2 000, +5 % contract rewards, silver name tag on tables |
-| 2 | Gold | 25 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, emerald buy rate 9, +10 % contracts, 2 % cashback, gold win particles |
-| 3 | Platinum | 100 000 | 2 500 | 4 contract slots, loan interest −2 %, 3 % cashback, "Platinum" chat title |
-| 4 | Diamond | 500 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
-| 5 | Netherite | 2 500 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
+| 1 | Silver | 25 000 | 250 | Low poker, Gold scratch cards, loan 2 000, +5 % contract rewards, silver name tag on tables |
+| 2 | Gold | 250 000 | 1 000 | Netherite slots, High-Roller tables, Mid poker, loan 10 000, gold shelf in the chip store (EC-SPEC §2; replaces the old emerald-rate perk), +10 % contracts, 2 % cashback, gold win particles |
+| 3 | Platinum | 1 500 000 | 2 500 | 4 contract slots, loan interest −2 %, 3 % cashback, "Platinum" chat title |
+| 4 | Diamond | 10 000 000 | 10 000 | High poker, loan 50 000, 5 contract slots, 4 % cashback, diamond Casino Card skin |
+| 5 | Netherite | 50 000 000 | 50 000 | 5 % cashback, Netherite aura particles on wins, server-wide announcement on promotion to Netherite |
 
 **Cashback** (⚠ **CHANGED 2026-09 — balance fix; Java must follow**): at each MCD boundary,
 `cashback = floor(rate × theoreticalLossToday)` where
@@ -983,6 +1010,41 @@ the day's actual result was.
 - Ledgers stored before the change (no theoretical loss) pay no cashback for that day.
 
 Promotion: title + sound + chat; cosmetics are client-side particle/name-color only.
+
+Cashback is visible: the day roll that pays it also sends a casino toast (`toast.burmaldaholic.cashback.*`), and the
+Comps tab (§12.1) shows today's theoretical loss and the cashback it would pay at the current tier.
+
+### 12.1 Comps [comps] (v0.2.0, package EC-2; `EC-SPEC.md` §4)
+
+**Comp points.** Each eligible settled round earns `round(1000 × stake × edge × compRate[tier])` milli-points.
+Eligible = exactly the cashback rule (house-banked, not an owned casino, chip stake) and not against money bots;
+free-bet token rounds never earn. `vip.compRate` = Bronze 10 %, Silver 12 %, Gold 15 %, Platinum 18 %, Diamond 22 %,
+Netherite 25 % of the theoretical loss; config validation keeps `compRate + cashback ≤ 0.35` per tier, so at least
+65 % of the house edge always stays. Points are never cashable; the balance is capped at 10 000 000.
+
+**Redemptions** (Comps tab of the cashier / merchant counter; L = per in-game day):
+
+| Reward | Points | Gate | Notes |
+|---|---|---|---|
+| Snack plate | 25 | – | 8 steak, 4 bread |
+| Chef's plate | 60 | – | 8 golden carrots, cake, 4 pumpkin pie |
+| High-roller feast | 200 | Gold | 2 golden apples, 16 golden carrots, cake |
+| Suite night | 50 (Gold+ 30, Diamond+ 1 free a day) | L1 | one credit for the day: the first bed used inside a casino (any dimension) sets a forced respawn there, Regeneration II 60 s, Saturation 5 s, Absorption I 120 s at Gold+; beds in casinos never explode in the Nether / End |
+| Free bet 10 / 50 / 250 | 15 / 70 / 325 | – / Silver / Platinum | L5 / L3 / L2 |
+| Fireworks | 30 | – | 16 rockets, flight 2 |
+| Horse rental | 40 | Overworld, L1 | tamed, saddled, 10 min, no inventory access or drops |
+| Strider rental | 40 | Nether, L1 | saddled strider + a tagged warped fungus on a stick, 10 min |
+
+**Free-bet tokens** (`free_bet_token`, stack 16): bound to one player, expire 7 in-game days after issue, cannot be
+deposited or pawned. Hold one in the main hand and bet at a supported house game: the stake becomes the token's value
+(the bet field is ignored). Win pays `max(0, total return − value)`; a push gives the token back; a loss keeps it.
+v0.2.0: coin flip, wheel, plinko, blackjack (main bet; doubles / splits / insurance in chips) and slots (largest ladder
+bet ≤ the token; the whole spin win is credited; never autoplay or bonus buy). Never PvP, poker or owned casinos.
+Token rounds give no VIP credit, comp points, cashback, contracts or streak.
+
+**Daily bonus** (chips, claimed on the Comps tab once per in-game day): Bronze 25, Silver 50, Gold 120, Platinum 300,
+Diamond 750, Netherite 2 000. Needs ≥ 1 000 chips wagered in total and ≥ 10 active minutes today (moved more than half a
+block or interacted within the last 60 s); dedicated servers allow one claim per IP per day (salted hash, cleared daily).
 
 ---
 

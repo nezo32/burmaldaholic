@@ -31,7 +31,7 @@ import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -180,7 +180,9 @@ public final class SlotCabinetRenderer extends SpectatorBlockEntityRenderer<Slot
 				c.lastT = Double.NaN;
 			}
 		}
-		double t = state.levelMs - sync.startTick() * 50.0;
+		// S1: shared time from the swappable source (SY SmoothClock later), never backwards within a spin (a server time
+		// packet moving the level clock back would replay the reels)
+		double t = cabinetT(SpinClock.timeSource().levelMs(partialTick), sync.startTick(), c.lastT);
 		if (Double.isNaN(c.firstSeen)) {
 			c.firstSeen = t;
 			c.catchUp = t > 0 && TimelineSeed.showSettled(t, sync.gateMs());
@@ -203,10 +205,16 @@ public final class SlotCabinetRenderer extends SpectatorBlockEntityRenderer<Slot
 		state.mult = c.frame.multAlpha > 0 ? multText(c, c.frame.multValue) : null;
 	}
 
+	/** Cabinet time of a spin: {@code levelMs − startTick·50}, monotonic per spin ({@code lastT} NaN = first frame). */
+	static double cabinetT(double levelMs, long startTick, double lastT) {
+		double t = levelMs - startTick * 50.0;
+		return Double.isNaN(lastT) ? t : Math.max(lastT, t);
+	}
+
 	/** The acting player hears the screen's sounds, not the cabinet's. */
 	private static boolean viewingOwnScreen(SlotMachineBlockEntity be) {
 		Minecraft mc = Minecraft.getInstance();
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> s && s.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
+		return mc.gui.screen() instanceof MenuAccess<?> s && s.getMenu() instanceof CasinoTableMenu m && m.pos().equals(be.getBlockPos());
 	}
 
 	// ---- positional cues (spectators; volume × anim.volume) -------------------------------------------

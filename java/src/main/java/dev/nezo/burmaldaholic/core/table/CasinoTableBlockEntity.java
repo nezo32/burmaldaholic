@@ -20,7 +20,11 @@ import dev.nezo.burmaldaholic.core.service.TableOwnershipProvider.OwnedTable;
 import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Result;
+import dev.nezo.burmaldaholic.core.wager.BetCap;
 import dev.nezo.burmaldaholic.core.wager.BetLimits;
+import dev.nezo.burmaldaholic.core.wager.FreeBetTokens;
+import dev.nezo.burmaldaholic.core.wager.Stake;
+import dev.nezo.burmaldaholic.core.wager.TokenSettle;
 import dev.nezo.burmaldaholic.core.wager.HouseEdges;
 import dev.nezo.burmaldaholic.core.wager.WagerVeto;
 import dev.nezo.burmaldaholic.core.wager.Wagers;
@@ -78,20 +82,26 @@ import org.jspecify.annotations.Nullable;
  */
 public abstract class CasinoTableBlockEntity extends BlockEntity implements ExtendedMenuProvider<BlockPos> {
 	private static final String STAKES_KEY = "burmaldaholic_open_stakes";
+	private static final String MT_KEY = "mt";
 
 	/**
 	 * A confirmed, not yet settled bet of one player at this table. Most games keep one aggregate
 	 * stake per player ({@code bet = ""}); games whose bets resolve one by one (craps) key them by
 	 * {@code bet} (see {@link #placeBet(ServerPlayer, String, long, long, long, long, boolean)}).
 	 */
-	public record OpenStake(UUID player, String bet, long amount, long reserved, String bankroll) {
+	public record OpenStake(UUID player, String bet, long amount, long reserved, String bankroll, @Nullable Token token) {
 		public static final Codec<OpenStake> CODEC = RecordCodecBuilder.create(i -> i.group(
 			UUIDUtil.CODEC.fieldOf("player").forGetter(OpenStake::player),
 			Codec.STRING.optionalFieldOf("bet", "").forGetter(OpenStake::bet),
 			Codec.LONG.fieldOf("amount").forGetter(OpenStake::amount),
 			Codec.LONG.fieldOf("reserved").forGetter(OpenStake::reserved),
-			Codec.STRING.fieldOf("bankroll").forGetter(OpenStake::bankroll)
-		).apply(i, OpenStake::new));
+			Codec.STRING.fieldOf("bankroll").forGetter(OpenStake::bankroll),
+			Token.CODEC.optionalFieldOf("token").forGetter(s -> Optional.ofNullable(s.token()))
+		).apply(i, (p, b, a, r, br, t) -> new OpenStake(p, b, a, r, br, t.orElse(null))));
+
+		public OpenStake(UUID player, String bet, long amount, long reserved, String bankroll) {
+			this(player, bet, amount, reserved, bankroll, null);
+		}
 
 		boolean house() {
 			return bankroll.isEmpty();
@@ -103,6 +113,23 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	}
 
 	record StakeKey(UUID player, String bet) {}
+
+	/**
+	 * EC-2 free-bet token behind an open stake (EC-SPEC §4.3): {@code covered} chips of the stake were never debited.
+	 * Settled by {@link TokenSettle}; {@code fullWin} = slots (the whole spin win is credited).
+	 */
+	public record Token(long value, long covered, long expires, boolean fullWin) {
+		public static final Codec<Token> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.LONG.fieldOf("value").forGetter(Token::value),
+			Codec.LONG.fieldOf("covered").forGetter(Token::covered),
+			Codec.LONG.fieldOf("expires").forGetter(Token::expires),
+			Codec.BOOL.optionalFieldOf("full_win", false).forGetter(Token::fullWin)
+		).apply(i, Token::new));
+
+		FreeBetTokens.Held held() {
+			return new FreeBetTokens.Held(value, expires);
+		}
+	}
 
 	public enum LeaveReason {
 		/** Pressed "Leave". */
@@ -121,9 +148,17 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	private final Map<String, Long> timers = new HashMap<>();
 	private String phase = "idle";
 	private boolean refundPending;
+	/** MT §5: loaded from a save without the {@code mt} tag (pre-v0.2) — a SINGLE table then tries to unfold once. */
+	private boolean mtLegacy;
+	/** MT: first-tick integrity / migration check done (runtime only). */
+	private boolean mtChecked;
 	private boolean removing;
 	/** Net result per player of rounds played out by {@link #playOutNow} at a server stop (for the notice). */
 	private @Nullable Map<UUID, Long> playedOut;
+	/** Server: the seat header last published (ui-v2.md §7.2); client: the last one received. */
+	private List<TablePublic.SeatPub> publishedSeats = List.of();
+	private TablePublic.@Nullable SeatPub[] clientSeats = new TablePublic.SeatPub[0];
+	private int clientSeatsSeq;
 
 	/** {@link #playOutNow} reason used when the server stops: players get {@code msg.burmaldaholic.core.round_played_out}. */
 	public static final String SERVER_STOPPING = "server stopping";
@@ -251,6 +286,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (seats().leave(player).isPresent()) {
 			onPlayerLeft(player, reason);
 			firePlayerLeft(player, reason);
+			if (!isViewer(player)) acks.remove(player); // gone: its ack counter goes too (review R-CDE m6)
 			syncViewers();
 		}
 	}
@@ -277,9 +313,25 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		return level instanceof ServerLevel serverLevel ? CoreServices.tableOwnership().owner(serverLevel, worldPosition) : Optional.empty();
 	}
 
-	/** The generated-casino preset of this table (worldgen, §16), if any. */
+	/** Last preset looked up while the table was live: served during {@link #playOutForRemoval}. */
+	private Optional<TablePresetProvider.TablePreset> lastPreset = Optional.empty();
+
+	/**
+	 * The generated-casino preset of this table (worldgen, §16), if any. While the table is being removed (chunk
+	 * unload, break, server stop) the last looked-up preset is returned without touching the world: the play-out
+	 * runs inside the chunk system's unload callback, where a block / block-entity lookup re-enters the distance
+	 * manager mid-update and crashes the server tick. Outside removal the lookup never loads a chunk (empty while the
+	 * table's chunk is not loaded or the block entity is removed).
+	 */
 	public Optional<TablePresetProvider.TablePreset> preset() {
-		return level instanceof ServerLevel serverLevel ? CoreServices.tablePresets().preset(serverLevel, worldPosition) : Optional.empty();
+		if (removing) {
+			return lastPreset;
+		}
+		if (!(level instanceof ServerLevel serverLevel) || isRemoved() || !serverLevel.hasChunkAt(worldPosition)) {
+			return lastPreset;
+		}
+		lastPreset = CoreServices.tablePresets().preset(serverLevel, worldPosition);
+		return lastPreset;
 	}
 
 	/** Effective limits for a player: [min, max] after table, owner settings and VIP tier. */
@@ -296,6 +348,37 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			}
 		}
 		return new long[] {min, BetLimits.maxBet(player, tableMax)};
+	}
+
+	/**
+	 * Whose limits bind {@code player} here (lane HR, owner playtest B5): the {@link #limitsFor} maximum attributed to the
+	 * table owner, the table or the VIP tier. Sent in every state ({@code cap_source}, …) and used for refusals.
+	 */
+	public BetCap capFor(ServerPlayer player) {
+		long[] l = limitsFor(player);
+		return capFor(player, l[1], l[0]);
+	}
+
+	/** {@link #capFor(ServerPlayer)} for a game's own maximum / minimum (e.g. a state that publishes its own {@code max}). */
+	public BetCap capFor(ServerPlayer player, long max, long min) {
+		Optional<OwnedTable> o = ownership();
+		return BetLimits.cap(player, max, min, tableMaxBet(), o.map(OwnedTable::maxBet).orElse(0L), o.map(OwnedTable::minBet).orElse(0L));
+	}
+
+	/**
+	 * The state the client receives: the game's {@link #writeClientState} plus the bet cap of its final {@code min} /
+	 * {@code max} ({@link BetCap#write}). Every send goes through here.
+	 */
+	public final CompoundTag clientState(ServerPlayer viewer) {
+		CompoundTag tag = writeClientState(viewer);
+		if (tag.contains("max") && !tag.contains("cap_source")) {
+			try {
+				capFor(viewer, tag.getLongOr("max", 0), tag.getLongOr("min", 1)).write(tag);
+			} catch (RuntimeException e) {
+				// a cap is a courtesy: never lose a state over it (mock players in tests without a server)
+			}
+		}
+		return tag;
 	}
 
 	/** Same as {@link #placeBet(ServerPlayer, long, long, long, long, boolean)} with the table's own limits. */
@@ -325,20 +408,30 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	 */
 	protected Result<Long> placeBet(ServerPlayer player, String bet, long amount, long min, long tableMax, long worstCasePayout, boolean checkLimits) {
 		Optional<OwnedTable> owned = ownership();
+		long ownerMax = 0;
+		long ownerMin = 0;
 		if (owned.isPresent()) {
 			OwnedTable o = owned.get();
 			if (o.minBet() > 0) {
 				min = Math.max(min, o.minBet());
+				ownerMin = o.minBet();
 			}
 			if (o.maxBet() > 0) {
 				tableMax = tableMax > 0 ? Math.min(tableMax, o.maxBet()) : o.maxBet();
+				ownerMax = o.maxBet();
 			}
 		}
 		boolean raising = openStakes.containsKey(new StakeKey(player.getUUID(), bet));
 		WagerVeto.Context ctx = WagerVeto.Context.at(gameId(), worldPosition);
 		Component err;
 		if (checkLimits) {
-			err = BetLimits.validate(player, amount, min, tableMax, ctx);
+			err = Wagers.check(player, ctx);
+			if (err == null) { // the limits in the client's words: whose cap it is (lane HR, B5)
+				long effective = BetLimits.maxBet(player, tableMax);
+				long balance = Economies.get().balance(player);
+				BetLimits.Violation v = BetLimits.check(amount, min, effective, effective, balance);
+				err = BetLimits.refusal(v, BetLimits.cap(player, effective, min, tableMaxBet(), ownerMax, ownerMin), balance);
+			}
 		} else {
 			err = raising ? null : Wagers.check(player, ctx);
 			if (err == null) {
@@ -375,7 +468,7 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		StakeKey key = new StakeKey(player.getUUID(), bet);
 		OpenStake prev = openStakes.get(key);
 		OpenStake next = prev == null ? new OpenStake(player.getUUID(), bet, amount, reserve, bankroll)
-			: new OpenStake(player.getUUID(), bet, prev.amount() + amount, prev.reserved() + reserve, bankroll);
+			: new OpenStake(player.getUUID(), bet, prev.amount() + amount, prev.reserved() + reserve, bankroll, prev.token());
 		openStakes.put(key, next);
 		setChanged();
 		if (preset().filter(p -> p.id().startsWith("high_roller")).isPresent()) {
@@ -444,6 +537,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 
 	/** Same; {@code detail} enriches the reported {@link PlayResult} (tags, the bet's own edge). */
 	public void settle(UUID player, long payout, @Nullable UnaryOperator<PlayResult> detail) {
+		settle(player, payout, -1, -1, detail);
+	}
+
+	/**
+	 * Same, naming the free-bet token's own hand (T-EC2 D1, blackjack): a token stake is settled against that hand's
+	 * stake / return only; split hands and insurance are plain chips. {@code tokenHandStake < 0} = the whole round
+	 * is the token's hand. Ignored for chip stakes.
+	 */
+	public void settle(UUID player, long payout, long tokenHandStake, long tokenHandReturn, @Nullable UnaryOperator<PlayResult> detail) {
 		List<OpenStake> mine = new ArrayList<>();
 		openStakes.values().removeIf(s -> {
 			if (s.player().equals(player)) {
@@ -467,18 +569,19 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 				Economies.get().bankrolls(sl.getServer()).release(s.bankroll(), s.reserved());
 			}
 		}
-		pay(new OpenStake(player, "", amount, reserved, first.bankroll()), payout, detail);
+		Token token = mine.stream().map(OpenStake::token).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+		pay(new OpenStake(player, "", amount, reserved, first.bankroll(), token), payout, tokenHandStake, tokenHandReturn, detail);
 	}
 
 	/** Settles one bet of {@link #placeBet(ServerPlayer, String, long, long, long, long, boolean)}. */
 	public void settleBet(UUID player, String bet, long payout, @Nullable UnaryOperator<PlayResult> detail) {
 		OpenStake s = openStakes.remove(new StakeKey(player, bet));
 		if (s != null) {
-			pay(s, payout, detail);
+			pay(s, payout, -1, -1, detail);
 		}
 	}
 
-	private void pay(OpenStake s, long payout, @Nullable UnaryOperator<PlayResult> detail) {
+	private void pay(OpenStake s, long payout, long tokenHandStake, long tokenHandReturn, @Nullable UnaryOperator<PlayResult> detail) {
 		if (!(level instanceof ServerLevel serverLevel)) {
 			return;
 		}
@@ -488,7 +591,9 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (!s.house()) {
 			eco.bankrolls(server).release(s.bankroll(), s.reserved());
 		}
-		if (payout > 0) {
+		if (s.token() != null) {
+			payToken(server, s, payout, tokenHandStake, tokenHandReturn);
+		} else if (payout > 0) {
 			AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());
 			// Review m8: the returned stake is the player's own money (never garnished); only the winnings are a
 			// garnishable PAYOUT.
@@ -504,10 +609,85 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		if (detail != null) {
 			result = detail.apply(result);
 		}
+		if (s.token() != null) {
+			result = result.withKind(Stake.Kind.TOKEN); // EC-2: no VIP credit, comps, cashback, contracts or streak
+		}
 		PlayResults.fire(server, player, result);
 		if (CasinoConfig.debug().logRounds) {
 			Burmaldaholic.LOGGER.info("[round] {} at {}: player {} staked {} payout {}", gameId(), worldPosition, player, s.amount(), payout);
 		}
+	}
+
+	/** EC-2: a token round (house tables only): the token part is never paid back as chips (EC-SPEC §4.3). */
+	private void payToken(MinecraftServer server, OpenStake s, long payout, long handStake, long handReturn) {
+		Token t = s.token();
+		TokenSettle.Settlement r = handStake < 0 ? TokenSettle.settle(s.amount(), t.covered(), payout, t.fullWin())
+			: TokenSettle.settleHand(payout, handStake, handReturn, t.covered(), t.fullWin());
+		long chipsBack = Math.min(r.credit(), Math.max(0, s.amount() - t.covered()));
+		credit(server, AccountId.HOUSE, s.player(), chipsBack, new Transaction(gameId(), "stake_return", Transaction.Kind.TRANSFER), s);
+		credit(server, AccountId.HOUSE, s.player(), r.credit() - chipsBack, Transaction.payout(gameId()), s);
+		if (r.returnToken()) {
+			FreeBetTokens.giveBack(server, s.player(), t.held());
+		}
+	}
+
+	/**
+	 * EC-2: face value of a free-bet token this player holds in the main hand that this table may take (0 = none):
+	 * house tables of {@link FreeBetTokens#GAMES} only.
+	 */
+	protected long tokenOffer(ServerPlayer player) {
+		if (ownership().isPresent()) {
+			return 0;
+		}
+		FreeBetTokens.Held h = FreeBetTokens.peek(player, gameId());
+		return h == null ? 0 : h.value();
+	}
+
+	/**
+	 * EC-2: opens the player's main stake ({@code bet = ""}) with the token in the main hand instead of chips. The
+	 * stake is the token's whole value; nothing is debited. Later raises (doubles, splits, insurance) go through
+	 * {@code placeBet} in chips and keep the token on the stake. Never at an owned table. The token must fit the
+	 * player's limits here ({@code min ≤ value ≤ max}, T-EC2 L2), else it is refused and kept.
+	 *
+	 * @param min     the player's minimum bet here
+	 * @param max     the player's maximum bet here (table, owner and VIP tier)
+	 * @param fullWin slots: the whole win is credited (no push rule)
+	 * @return the open stake, or the translated error (already sent to the player's screen)
+	 */
+	protected Result<Long> placeTokenBet(ServerPlayer player, long min, long max, boolean fullWin) {
+		if (ownership().isPresent()) {
+			return fail(player, Component.translatable("gui.burmaldaholic.error.pawn_owned_table"));
+		}
+		if (hasStake(player.getUUID())) {
+			return fail(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
+		}
+		Component err = Wagers.check(player, new WagerVeto.Context(gameId(), Stake.Kind.TOKEN, worldPosition, false));
+		if (err != null) {
+			return fail(player, err);
+		}
+		FreeBetTokens.Held peek = FreeBetTokens.peek(player, gameId());
+		if (peek == null || peek.value() <= 0) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_invalid"));
+		}
+		if (peek.value() < min) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_under_min", Texts.chips(peek.value()), Texts.chips(min)));
+		}
+		if (max > 0 && peek.value() > max) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_over_max", Texts.chips(peek.value()), Texts.chips(max)));
+		}
+		FreeBetTokens.Held h = FreeBetTokens.take(player, gameId());
+		if (h == null) {
+			return fail(player, Component.translatable("gui.burmaldaholic.comps.token_invalid"));
+		}
+		long stake = h.value();
+		OpenStake open = new OpenStake(player.getUUID(), "", stake, 0, "", new Token(h.value(), stake, h.expires(), fullWin));
+		openStakes.put(open.key(), open);
+		setChanged();
+		player.sendOverlayMessage(Component.translatable("msg.burmaldaholic.comps.token_used", Texts.chips(h.value())));
+		if (CoreSounds.CHIP_PLACE != null && level != null) {
+			level.playSound(null, worldPosition, CoreSounds.CHIP_PLACE, net.minecraft.sounds.SoundSource.BLOCKS, 0.6f, 1.2f);
+		}
+		return Result.ok(stake);
 	}
 
 	private void credit(MinecraftServer server, AccountId bank, UUID player, long amount, Transaction why, OpenStake s) {
@@ -577,6 +757,9 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 		MinecraftServer server = serverLevel.getServer();
 		long freed = Math.max(0, Math.min(release, s.reserved()));
+		if (s.token() != null) {
+			return false; // EC-2: a token stake is never split
+		}
 		OpenStake part = new OpenStake(player, bet, amount, freed, s.bankroll());
 		openStakes.put(key, new OpenStake(player, bet, s.amount() - amount, s.reserved() - freed, s.bankroll()));
 		refundStake(server, part, true);
@@ -585,6 +768,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	}
 
 	private void refundStake(MinecraftServer server, OpenStake s, boolean quiet) {
+		if (s.token() != null) {
+			// EC-2: the token goes back; only the chips added on top of it are refunded
+			long chips = Math.max(0, s.amount() - s.token().covered());
+			if (chips > 0) {
+				Economies.get().transfer(server, AccountId.HOUSE, AccountId.player(s.player()), chips, Transaction.refund(gameId()));
+			}
+			FreeBetTokens.giveBack(server, s.player(), s.token().held());
+			return;
+		}
 		Economy eco = Economies.get();
 		AccountId bank = s.house() ? AccountId.HOUSE : AccountId.bankroll(s.bankroll());
 		if (!s.house()) {
@@ -668,6 +860,20 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	/** Called by {@link CasinoTableBlock}'s ticker on the server. */
 	public final void tick(ServerLevel level) {
 		MinecraftServer server = level.getServer();
+		if (!mtChecked) {
+			mtChecked = true;
+			if (mtLegacy) {
+				// before the migration rewrites the save: house table (generated) or a player's (CB-G, coordinator D2)
+				dev.nezo.burmaldaholic.core.table.parts.TableProtection.get().legacyTableLoaded(level, worldPosition, this);
+			}
+			if (dev.nezo.burmaldaholic.core.table.parts.TableParts.firstTick(level, this, mtLegacy)) {
+				mtLegacy = false;
+				setChanged();
+			}
+			if (isRemoved()) {
+				return;
+			}
+		}
 		if (refundPending) {
 			refundPending = false;
 			try {
@@ -699,11 +905,15 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 				ServerPlayer p = server.getPlayerList().getPlayer(seat.player());
 				if (p == null || p.isRemoved()) {
 					leave(seat.player(), LeaveReason.DISCONNECT);
-				} else if ((p.level() != level || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(worldPosition)) > max * max) && canLeaveNow(seat.player())) {
+				} else if ((p.level() != level || !dev.nezo.burmaldaholic.core.table.parts.TableParts.inRange(p.position(), level, worldPosition, max)) && canLeaveNow(seat.player())) {
 					leave(seat.player(), LeaveReason.TOO_FAR);
 				}
 			}
 		}
+		if ((server.getTickCount() + Math.floorMod(worldPosition.hashCode(), PUBLIC_PERIOD)) % PUBLIC_PERIOD == 0 && publicSeats()) {
+			publishSeats(level); // offset by position: a casino's tables do not all publish on the same tick (review R-KW m15)
+		}
+		if ((server.getTickCount() + Math.floorMod(worldPosition.hashCode(), ACK_SWEEP_TICKS)) % ACK_SWEEP_TICKS == 0) pruneAcks(level);
 		serverTick(level);
 	}
 
@@ -827,11 +1037,49 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		long[] limits = limitsFor(viewer);
 		tag.putLong("min", limits[0]);
 		tag.putLong("max", limits[1]);
+		long[] ack = ackEntry(viewer.getUUID());
+		tag.putInt("ack_epoch", (int) ack[0]);
+		tag.putLong("ack", ack[1]);
 		return tag;
 	}
 
 	public void sendStateTo(ServerPlayer player) {
-		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, writeClientState(player)));
+		if (player.getUUID().equals(dispatchingFor)) {
+			stateDeferred = true; // the action being handled answers with ONE state at its end (review R-KW B4)
+			return;
+		}
+		ServerPlayNetworking.send(player, new TableSyncPayload(worldPosition, syncedState(player)));
+	}
+
+	/** SY-SPEC §4: +1 on every state write (per block entity; the client drops a packet whose seq is not newer). */
+	private long syncSeq;
+	/** SY-SPEC §4: random per block-entity load, so a reloaded or replaced table resets the client's gate. */
+	private int syncEpoch = java.util.concurrent.ThreadLocalRandom.current().nextInt();
+
+	/**
+	 * The state packet's tag for {@code viewer}: {@link #clientState} plus {@code sync_seq} (+1 per write),
+	 * {@code sync_epoch} and {@code game_time} (when the game did not write it), SY-SPEC §4.
+	 */
+	public CompoundTag syncedState(ServerPlayer viewer) {
+		CompoundTag tag = clientState(viewer); // HR: + the bet cap
+		tag.putLong(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.SEQ, ++syncSeq);
+		tag.putInt(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.EPOCH, syncEpoch);
+		if (!tag.contains(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.GAME_TIME)) {
+			tag.putLong(dev.nezo.burmaldaholic.core.anim.sync.SeqGate.GAME_TIME, gameTime());
+		}
+		return tag;
+	}
+
+	/** The current {@code sync_epoch} (tests). */
+	public int syncEpoch() {
+		return syncEpoch;
+	}
+
+	/** Whether {@code player} has this table's screen open. */
+	protected boolean isViewer(UUID player) {
+		if (!(level instanceof ServerLevel serverLevel)) return false;
+		ServerPlayer p = serverLevel.getServer().getPlayerList().getPlayer(player);
+		return p != null && !p.isRemoved() && p.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition);
 	}
 
 	/** Shows {@code message} as the error line of the player's table screen (and in the action bar). */
@@ -854,16 +1102,61 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 		}
 	}
 
-	/** Re-sends state to one player if they have this table's screen open. */
-	private void syncIfViewing(ServerPlayer player) {
-		if (player.containerMenu instanceof CasinoTableMenu menu && menu.pos().equals(worldPosition)) {
-			sendStateTo(player);
+	/**
+	 * Per player: {@code {epoch, actions handled}} (the v2 ack watchdog's echo, docs/architecture/ui-v2.md §5.2; not
+	 * persisted). The epoch is a random non-zero id of the entry's life: a reloaded table or a re-created entry starts a
+	 * new counter, and the client re-bases on it instead of waiting for the old count (review R-KW M8). Entries of
+	 * players who neither sit nor watch are pruned (leave, and a sweep every {@link #ACK_SWEEP_TICKS}; review R-CDE m6).
+	 */
+	private final Map<UUID, long[]> acks = new HashMap<>();
+	/** Ticks between sweeps of the ack entries of players who left (30 s). */
+	static final int ACK_SWEEP_TICKS = 600;
+	/** The player whose action is being handled: their states are deferred to one at its end (review R-KW B4). */
+	private @Nullable UUID dispatchingFor;
+	private boolean stateDeferred;
+
+	private long[] ackEntry(UUID player) {
+		return acks.computeIfAbsent(player, p -> {
+			int epoch = 0;
+			while (epoch == 0) epoch = java.util.concurrent.ThreadLocalRandom.current().nextInt(); // cosmetic id, not game RNG
+			return new long[] {epoch, 0};
+		});
+	}
+
+	/** The ack entries this table keeps (tests). */
+	public int ackEntries() {
+		return acks.size();
+	}
+
+	/** Drops the ack entries of players who are neither seated nor watching. */
+	void pruneAcks(ServerLevel level) {
+		acks.keySet().removeIf(p -> !seats().isSeated(p) && !isViewer(p));
+	}
+
+	/**
+	 * Generic actions handled by core before {@link #onAction}. Every action is answered by exactly ONE state to the
+	 * sender, with a higher {@code ack}, after everything the action changed (review R-KW B4: a sit used to send two):
+	 * while it runs, {@link #sendStateTo} for the sender is deferred; other viewers are synced at once; an error message
+	 * goes out before that state.
+	 */
+	void handleAction(ServerPlayer player, String action, CompoundTag args) {
+		ackEntry(player.getUUID())[1]++;
+		UUID outer = dispatchingFor;
+		boolean outerDeferred = stateDeferred;
+		dispatchingFor = player.getUUID();
+		stateDeferred = false;
+		try {
+			dispatchAction(player, action, args);
+		} finally {
+			dispatchingFor = outer;
+			stateDeferred = outerDeferred;
+			sendStateTo(player); // v2 kit: every action is answered by a state with a higher "ack": no click is silently lost
 		}
 	}
 
-	/** Generic actions handled by core before {@link #onAction}. */
-	void handleAction(ServerPlayer player, String action, CompoundTag args) {
+	private void dispatchAction(ServerPlayer player, String action, CompoundTag args) {
 		switch (action) {
+			case "resync" -> {} // v2 kit: the answer is the state sent by handleAction
 			case "sit" -> {
 				sit(player);
 				// v0.1.2 hotfix: a game's sit() may change more after core's sync (baccarat opens betting after
@@ -873,18 +1166,103 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 			}
 			case "leave" -> {
 				// only a leave that frees a seat resyncs every viewer (leave() does); a refused or empty one refreshes the
-				// sender's own screen only — a client spamming "leave" must not make the server resync the whole table
+				// sender's own screen only (handleAction's answer) — a client spamming "leave" must not make the server
+				// resync the whole table
 				if (!canLeaveNow(player.getUUID())) {
 					sendError(player, Component.translatable("gui.burmaldaholic.error.round_in_progress"));
-					syncIfViewing(player);
 				} else if (seats().isSeated(player.getUUID())) {
 					leave(player.getUUID(), LeaveReason.LEFT);
-				} else {
-					syncIfViewing(player);
 				}
 			}
 			default -> onAction(player, action, args);
 		}
+	}
+
+	// ---- public header (in-world board, docs/architecture/ui-v2.md §7.2) --------------------------
+
+	/** Ticks between seat-header checks (≤ 4 block updates per second). */
+	private static final int PUBLIC_PERIOD = 5;
+
+	/**
+	 * Does this table publish a seat header for the in-world seat plates? Default: multi-seat tables and bot tables.
+	 * Single-player machines (slots, Plinko, Wheel) show their player another way.
+	 */
+	protected boolean publicSeats() {
+		return seatCount() > 1 || this instanceof dev.nezo.burmaldaholic.core.bots.BotTable;
+	}
+
+	/** The seat header now: the bot-aware seat model when the table has one, else the base seats. */
+	protected List<TablePublic.SeatPub> publicSeatList() {
+		if (this instanceof dev.nezo.burmaldaholic.core.bots.BotTable t) {
+			try {
+				return TablePublic.ofOccupants(t.occupants());
+			} catch (RuntimeException e) {
+				logOnce(e); // a table whose bots are not ready yet (no level): the base seats
+			}
+		}
+		return TablePublic.of(seats());
+	}
+
+	private static final java.util.Set<Class<?>> LOGGED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+	/** A swallowed failure of the public header: logged once per table class (review R-KW m15). */
+	private void logOnce(RuntimeException e) {
+		if (LOGGED.add(getClass())) {
+			Burmaldaholic.LOGGER.warn("Table {} at {}: the bot-aware seat header failed, using the base seats (logged once per table type)", gameId(),
+				worldPosition, e);
+		}
+	}
+
+	/** Seat count of the header (the bot-aware model may have more seats than the base one). */
+	protected int publicSeatCount() {
+		if (this instanceof dev.nezo.burmaldaholic.core.bots.BotTable t) {
+			try {
+				return Math.max(seats().size(), t.botSeatCount());
+			} catch (RuntimeException e) {
+				logOnce(e); // fall through
+			}
+		}
+		return seats().size();
+	}
+
+	/**
+	 * Writes the PUBLIC part every passer-by may see into an update tag: the seat header ({@link TablePublic}). The
+	 * default {@link #getUpdateTag} calls it; a game that overrides {@code getUpdateTag} calls
+	 * {@code writePublic(tag)} in its override (one line) so its seat plates get names.
+	 */
+	protected void writePublic(CompoundTag tag) {
+		if (publicSeats()) TablePublic.writeSeats(tag, publicSeatCount(), publicSeatList());
+	}
+
+	@Override
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		CompoundTag t = new CompoundTag();
+		writePublic(t);
+		return t;
+	}
+
+	@Override
+	public net.minecraft.network.protocol.@Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+		return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+	}
+
+	/** Sends a block update when the seat header changed (checked every {@link #PUBLIC_PERIOD} ticks). */
+	private void publishSeats(ServerLevel level) {
+		List<TablePublic.SeatPub> now = publicSeatList();
+		if (now.equals(publishedSeats)) return;
+		publishedSeats = List.copyOf(now);
+		BlockState st = getBlockState();
+		level.sendBlockUpdated(worldPosition, st, st, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+	}
+
+	/** Client: the seat header of the last update (indexed by seat, null = empty; empty array before the first). */
+	public TablePublic.@Nullable SeatPub[] clientSeats() {
+		return clientSeats;
+	}
+
+	/** Client: bumps whenever {@link #clientSeats} changes (render caches key on it). */
+	public int clientSeatsSeq() {
+		return clientSeatsSeq;
 	}
 
 	// ---- persistence --------------------------------------------------------------------------
@@ -892,6 +1270,9 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	@Override
 	protected void saveAdditional(ValueOutput output) {
 		super.saveAdditional(output);
+		if (!mtLegacy) {
+			output.putInt(MT_KEY, 1);
+		}
 		if (!openStakes.isEmpty()) {
 			output.store(STAKES_KEY, OpenStake.CODEC.listOf(), List.copyOf(openStakes.values()));
 		}
@@ -900,9 +1281,20 @@ public abstract class CasinoTableBlockEntity extends BlockEntity implements Exte
 	@Override
 	protected void loadAdditional(ValueInput input) {
 		super.loadAdditional(input);
+		syncEpoch = java.util.concurrent.ThreadLocalRandom.current().nextInt(); // SY-SPEC §4: a new epoch per load
+		mtLegacy = input.getIntOr(MT_KEY, 0) == 0;
 		openStakes.clear();
 		input.read(STAKES_KEY, OpenStake.CODEC.listOf()).ifPresent(list -> list.forEach(s -> openStakes.put(s.key(), s)));
 		refundPending = !openStakes.isEmpty();
+		input.read(TablePublic.KEY, CompoundTag.CODEC).ifPresent(t -> {
+			CompoundTag wrap = new CompoundTag();
+			wrap.put(TablePublic.KEY, t);
+			TablePublic.SeatPub[] read = TablePublic.readSeats(wrap);
+			if (!java.util.Arrays.equals(read, clientSeats)) {
+				clientSeats = read;
+				clientSeatsSeq++;
+			}
+		});
 	}
 
 	// ---- menu ---------------------------------------------------------------------------------

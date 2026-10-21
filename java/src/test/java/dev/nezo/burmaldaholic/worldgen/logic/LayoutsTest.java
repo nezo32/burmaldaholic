@@ -14,6 +14,12 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class LayoutsTest {
+	/** MT: a multi-block table counts once (its main block); the other cells carry part=left/right/back…. */
+	private static boolean isPart(BlockSpec b) {
+		String part = b.properties().get("part");
+		return part != null && !part.equals("main") && !part.equals("single");
+	}
+
 	private static long count(Layout l, String block) {
 		long n = 0;
 		Vec s = l.size();
@@ -21,7 +27,7 @@ class LayoutsTest {
 			for (int y = 0; y < s.y(); y++) {
 				for (int z = 0; z < s.z(); z++) {
 					BlockSpec b = l.grid().get(x, y, z);
-					if (b != null && b.is(block)) {
+					if (b != null && b.is(block) && !isPart(b)) {
 						n++;
 					}
 				}
@@ -36,7 +42,7 @@ class LayoutsTest {
 
 	@Test
 	void sevenLayoutsWithSpecSizes() {
-		assertEquals(7, Layouts.all().size());
+		assertEquals(7, Layouts.legacy().size());
 		for (VillageStyle s : VillageStyle.values()) {
 			assertEquals(new Vec(17, 10, 17), Layouts.village(s).size(), s.id());
 			assertEquals(CasinoKind.VILLAGE_CASINO, Layouts.village(s).kind());
@@ -108,7 +114,7 @@ class LayoutsTest {
 
 	@Test
 	void markersSitInClearCellsInsideAndEveryLayoutHasOneAnchor() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			long anchors = l.markers().stream().filter(m -> m.marker() instanceof Markers.Anchor a && a.layoutId().equals(l.id())).count();
 			assertEquals(1, anchors, l.id());
 			Set<Vec> seen = new HashSet<>();
@@ -130,14 +136,19 @@ class LayoutsTest {
 
 	@Test
 	void tablesFaceSomewhereAndAreOnTheFloorRow() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			Vec s = l.size();
 			for (int x = 0; x < s.x(); x++) {
 				for (int y = 0; y < s.y(); y++) {
 					for (int z = 0; z < s.z(); z++) {
 						BlockSpec b = l.grid().get(x, y, z);
 						if (b != null && b.name().startsWith("burmaldaholic:")) {
-							assertEquals(1, y, l.id() + " table off the floor row: " + b);
+							// MT-3: upper cells of upright machines stand above the floor row; the main block is on it
+							if (isPart(b)) {
+								assertTrue(y >= 1, l.id() + " part below the floor row: " + b);
+							} else {
+								assertEquals(1, y, l.id() + " table off the floor row: " + b);
+							}
 							assertTrue(b.properties().containsKey("facing"), b.toString());
 						}
 					}
@@ -148,7 +159,7 @@ class LayoutsTest {
 
 	@Test
 	void entranceIsOpenOnPlusZ() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			int midX = l.size().x() / 2;
 			int z = l.size().z() - 1;
 			assertTrue(l.grid().get(midX, 1, z).is("minecraft:air") && l.grid().get(midX, 2, z).is("minecraft:air"), l.id());
@@ -171,7 +182,7 @@ class LayoutsTest {
 
 	@Test
 	void templateNbtHasPaletteBlocksAndMarkers() {
-		for (Layout l : Layouts.all().values()) {
+		for (Layout l : Layouts.legacy().values()) {
 			Map<String, Object> root = TemplateExporter.template(l);
 			assertEquals(TemplateExporter.DATA_VERSION, root.get("DataVersion"));
 			Nbt.TagList blocks = (Nbt.TagList) root.get("blocks");

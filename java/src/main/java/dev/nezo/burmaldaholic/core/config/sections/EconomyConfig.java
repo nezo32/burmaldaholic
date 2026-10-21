@@ -1,24 +1,62 @@
 package dev.nezo.burmaldaholic.core.config.sections;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import dev.nezo.burmaldaholic.core.config.Family;
+import dev.nezo.burmaldaholic.core.config.Migrates;
 import dev.nezo.burmaldaholic.core.config.Range;
 import dev.nezo.burmaldaholic.core.config.Validatable;
+import dev.nezo.burmaldaholic.core.economy.EconomyGuards;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Config section `economy` — keys, defaults and ranges from docs/design/CONFIG.md. */
-public final class EconomyConfig implements Validatable {
+public final class EconomyConfig implements Validatable, Migrates {
 	/** Balance cap. */
 	@Range(min = 1000, max = 9007199254740991.0) public long maxBalance = 1000000000L;
 	/** Credited on first join. */
 	@Range(min = 0, max = 1000000) public int startingBalance = 50;
-	/** Chips per emerald when buying chips. */
-	@Range(min = 1, max = 1000) public int emeraldBuyRate = 8;
-	/** Same for Gold VIP+. */
-	@Range(min = 1, max = 1000) public int emeraldBuyRateGoldVip = 9;
-	/** Chips per emerald when selling chips. Must be ≥ buy rate (else clamped). */
-	@Range(min = 1, max = 1000) public int emeraldSellRate = 10;
-	/** Nether cashier: chips per gold ingot. */
-	@Range(min = 1, max = 1000) public int goldBuyRate = 3;
-	/** Nether cashier: chips per gold ingot sold. */
-	@Range(min = 1, max = 1000) public int goldSellRate = 12;
+	/**
+	 * Cashier exchange rows (EC-SPEC §2), by row id: {@code item} ↔ chips. {@code toChips} = chips for one item handed in,
+	 * {@code fromChips} = chips for one item taken out (0 = sell-only), {@code dims} = dimension letters where the row is
+	 * offered ({@code O} overworld, {@code N} nether, {@code E} end; empty = everywhere), {@code buyMinTier} = VIP tier
+	 * needed to take the item out. {@code core.economy.EconomyGuards} rules R1, R2 (transitive) and R4 are enforced in {@link #validate}: a
+	 * violating row loses its {@code fromChips} (no arbitrage path is left).
+	 */
+	public static final class ExchangeRow {
+		public String item = "";
+		@Range(min = 0, max = 1000000) public int toChips = 0;
+		@Range(min = 0, max = 1000000) public int fromChips = 0;
+		public String dims = "";
+		@Range(min = 0, max = 5) public int buyMinTier = 0;
+
+		public ExchangeRow() {}
+
+		ExchangeRow(String item, int toChips, int fromChips, String dims, int buyMinTier) {
+			this.item = item;
+			this.toChips = toChips;
+			this.fromChips = fromChips;
+			this.dims = dims;
+			this.buyMinTier = buyMinTier;
+		}
+	}
+
+	@Family(open = true)
+	public Map<String, ExchangeRow> exchange = exchangeDefaults();
+
+	private static Map<String, ExchangeRow> exchangeDefaults() {
+		Map<String, ExchangeRow> m = new LinkedHashMap<>();
+		m.put("emerald", new ExchangeRow("minecraft:emerald", 9, 10, "ONE", 0));
+		m.put("emerald_block", new ExchangeRow("minecraft:emerald_block", 81, 90, "OE", 0));
+		m.put("diamond", new ExchangeRow("minecraft:diamond", 40, 55, "ONE", 0));
+		m.put("iron_block", new ExchangeRow("minecraft:iron_block", 16, 27, "O", 0));
+		m.put("gold_ingot", new ExchangeRow("minecraft:gold_ingot", 6, 8, "N", 0));
+		m.put("netherite_scrap", new ExchangeRow("minecraft:netherite_scrap", 60, 160, "N", 4));
+		return m;
+	}
+
 	public static final class Ore {
 		@Range(min = 0, max = 1000) public int coal = 1;
 		@Range(min = 0, max = 1000) public int copper = 1;
@@ -91,20 +129,57 @@ public final class EconomyConfig implements Validatable {
 	public Trade trade = new Trade();
 
 
+	/** v0.1 keys (and their v0.1 defaults): a value that differs from the old default moves into {@link #exchange}. */
+	@Override
+	public void migrate(JsonObject json) {
+		move(json, "emeraldBuyRate", 8, "emerald", "toChips");
+		move(json, "emeraldSellRate", 10, "emerald", "fromChips");
+		move(json, "goldBuyRate", 3, "gold_ingot", "toChips");
+		move(json, "goldSellRate", 12, "gold_ingot", "fromChips");
+		json.remove("emeraldBuyRateGoldVip");
+	}
+
+	private static void move(JsonObject json, String legacy, int legacyDefault, String row, String field) {
+		JsonElement v = json.remove(legacy);
+		if (v == null || !v.isJsonPrimitive() || !v.getAsJsonPrimitive().isNumber() || v.getAsInt() == legacyDefault) return;
+		JsonObject ex = json.has("exchange") && json.get("exchange").isJsonObject() ? json.getAsJsonObject("exchange") : new JsonObject();
+		json.add("exchange", ex);
+		JsonObject r = ex.has(row) && ex.get(row).isJsonObject() ? ex.getAsJsonObject(row) : new JsonObject();
+		ex.add(row, r);
+		if (!r.has(field)) r.addProperty(field, v.getAsInt());
+	}
+
 	@Override
 	public void validate(Issues issues) {
-		int maxBuy = Math.max(emeraldBuyRate, emeraldBuyRateGoldVip);
-		if (emeraldSellRate < maxBuy) {
-			issues.clamped("emeraldSellRate", emeraldSellRate, maxBuy);
-			emeraldSellRate = maxBuy;
-		}
-		if (goldSellRate < goldBuyRate) {
-			issues.clamped("goldSellRate", goldSellRate, goldBuyRate);
-			goldSellRate = goldBuyRate;
+		List<EconomyGuards.Violation> bad = rowViolations();
+		for (EconomyGuards.Violation v : bad) {
+			ExchangeRow r = exchange.get(v.id());
+			if (r != null && r.fromChips != 0) {
+				issues.invalid("exchange." + v.id() + ".fromChips", r.fromChips + " (" + v.rule() + ")", 0);
+				r.fromChips = 0;
+			}
 		}
 		if (mob.reducedRewardKills < mob.fullRewardKills) {
 			issues.clamped("mob.reducedRewardKills", mob.reducedRewardKills, mob.fullRewardKills);
 			mob.reducedRewardKills = mob.fullRewardKills;
 		}
+	}
+
+	/** R1, R2 (transitive) and R4 (villager floor) over {@link #exchange} (T-EC1 D3). */
+	public List<EconomyGuards.Violation> rowViolations() {
+		return EconomyGuards.rows(guardRows(), villagerValue());
+	}
+
+	/** {@code V} of R4: chips one emerald brings through a villager trade (emerald row in + trade rewards). */
+	public int villagerValue() {
+		ExchangeRow em = exchange.get("emerald");
+		return EconomyGuards.villagerValue(em == null ? 0 : em.toChips, trade.perTradeBase, trade.perEmerald);
+	}
+
+	/** The rows as {@link EconomyGuards} data. */
+	public List<EconomyGuards.Row> guardRows() {
+		List<EconomyGuards.Row> out = new ArrayList<>();
+		exchange.forEach((id, r) -> out.add(new EconomyGuards.Row(id, r.item, r.toChips, r.fromChips)));
+		return out;
 	}
 }

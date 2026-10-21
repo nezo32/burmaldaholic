@@ -6,6 +6,8 @@ import { P, R, blend, c, disc, grid, image, inked, polygon, ring, rrect, shine, 
 
 /** Cell geometry. Numbers: col 0–11 (1–3, 4–6 …), row 0 = top (3, 6, …, 36). */
 export const LAYOUT_BIG = { cellW: 20, cellH: 22, zeroW: 18, colW: 20, dozenH: 16, outsideH: 16, font: 'bold', inset: 2 };
+/** In-world print (lane C, `RouletteWorld.PRINT`, 144 px per block): numbers only, outside boxes by colour and dots. */
+export const LAYOUT_WORLD = { cellW: 10, cellH: 12, zeroW: 10, colW: 10, dozenH: 8, outsideH: 8, font: 'small', inset: 1, world: true };
 export const LAYOUT_COMPACT = { cellW: 14, cellH: 15, zeroW: 12, colW: 14, dozenH: 11, outsideH: 11, font: 'small', inset: 1 };
 export const layoutSize = (g) => ({ w: g.zeroW + 12 * g.cellW + g.colW, h: 3 * g.cellH + g.dozenH + g.outsideH });
 
@@ -25,6 +27,7 @@ export function layout(theme, g) {
   const x0 = g.zeroW;
   const x12 = g.zeroW + 12 * g.cellW;
   // soft felt darkening under the printed area
+  if (g.world) R(img, 0, 0, w, h, t.feltDark);
   R(img, 0, 0, w, gridH + 1, '#000000', 0.12);
   R(img, x0, gridH + 1, x12 - x0 + 1, h - gridH - 1, '#000000', 0.12);
   // number plates
@@ -55,6 +58,17 @@ export function layout(theme, g) {
   hl(h - 1, x0, x12);
   for (let k = 0; k <= 3; k++) vl(x0 + k * 4 * g.cellW, gridH, gridH + g.dozenH);
   for (let k = 0; k <= 6; k++) vl(x0 + k * 2 * g.cellW, gridH + g.dozenH, h - 1);
+  if (g.world) {
+    // world print: 2:1 / dozens / 1-18 / 19-36 as dots (the words are unreadable at this size), the colour diamonds
+    for (let r = 0; r < 3; r++) R(img, x12 + g.colW / 2 - 1, r * g.cellH + g.cellH / 2 - 1, 2, 2, L);
+    for (let k = 0; k < 3; k++) for (let d = 0; d <= k; d++) R(img, x0 + (k * 4 + 2) * g.cellW - k * 2 + d * 4, gridH + g.dozenH / 2 - 1, 2, 2, L);
+    const oyw = gridH + g.dozenH + g.outsideH / 2;
+    for (const [k, col] of [[2, 'red'], [3, 'black']]) {
+      const cx = x0 + (k + 0.5) * 2 * g.cellW;
+      polygon(img, [[cx - 7, oyw], [cx, oyw - 3], [cx + 7, oyw], [cx, oyw + 3]], POCKET[col][1]);
+    }
+    return img;
+  }
   // column bets: 2:1
   for (let r = 0; r < 3; r++) textC(img, '2:1', x12 + g.colW / 2 + 0.5, r * g.cellH + g.cellH / 2 - 0.5, L, { font: 'small', shadow: t.feltDeep });
   // dozens
@@ -223,6 +237,24 @@ export function pill(colour, newest = false) {
   return img;
 }
 
+/**
+ * "Last numbers" pill of the v2 wheel column (23 × 13, lane C): pocket colour with an ink edge (gold for the newest),
+ * the shape marker on the left (red = disc, black = ring, zero = diamond: never colour alone); the number is drawn by
+ * the screen in the vanilla font right of the marker.
+ */
+export function historyPill(colour, newest = false) {
+  const img = image(23, 13);
+  const pc = POCKET[colour];
+  rrect(img, 0, 0, 23, 13, newest ? GOLD[1] : INK, 2);
+  rrect(img, 1, 1, 21, 11, pc[1], 1);
+  R(img, 2, 1, 19, 1, pc[0]);
+  R(img, 2, 11, 19, 1, pc[3]);
+  if (colour === 'red') disc(img, 5, 6.5, 2.2, c(BONE));
+  else if (colour === 'black') ring(img, 5, 6.5, 2.4, 1, c(BONE));
+  else polygon(img, [[5, 3.5], [8, 6.5], [5, 9.5], [2, 6.5]], BONE);
+  return img;
+}
+
 /** Spark: 7 × 7, 4 frames (deflector kick, dice wall hit). */
 export function spark() {
   return vstrip([0, 1, 2, 3].map((f) => {
@@ -247,3 +279,39 @@ export function wheelShadow() {
   return img;
 }
 
+
+/** Wheel shadow scaled to another bowl size (RO §5: 112² for the 104 bowl, 152² for the 144 bowl); same look as 216². */
+export function wheelShadowSized(size) {
+  const k = size / 216;
+  const img = image(size, size);
+  const cx = 110 * k;
+  const cy = 112 * k;
+  const r0 = 100 * k;
+  const f = Math.max(2, 8 * k);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+      if (d < r0 + f) blend(img, x, y, c(INK), d < r0 ? 0.55 : 0.55 * (1 - (d - r0) / f));
+    }
+  return img;
+}
+
+/**
+ * Dealer rake bar 24 × 6 (nine-slice, 4 px end caps; RO §3.7): 1-px teeth along the top edge, a dark polished wood bar
+ * with a highlight line, brass end caps, an ink bottom edge.
+ */
+export function rake() {
+  const img = image(24, 6);
+  const wood = ['#7E4A26', '#5E381C', '#442612', '#2E180A'];
+  for (let x = 0; x < 24; x++) {
+    const cap = x < 3 || x > 20;
+    if (!cap && x % 2 === 0) P(img, x, 0, wood[2]); // teeth
+    P(img, x, 1, cap ? GOLD[0] : wood[0]);
+    P(img, x, 2, cap ? GOLD[1] : wood[1]);
+    P(img, x, 3, cap ? GOLD[2] : wood[2]);
+    P(img, x, 4, cap ? GOLD[3] : wood[3]);
+    P(img, x, 5, INK);
+  }
+  for (const x of [3, 20]) for (let y = 1; y < 5; y++) P(img, x, y, INK);
+  return img;
+}

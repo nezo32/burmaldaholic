@@ -17,5 +17,6 @@ public final class BlackjackClientModule implements CasinoClientModule {
 		ctx.tableScreen(BlackjackModule.TABLE, BlackjackScreen::new);
 		ctx.tableScreen(BlackjackModule.HIGH_ROLLER_TABLE, BlackjackScreen::new);
 		EntityRenderers.register(BlackjackModule.DEALER, BlackjackDealerRenderer::new);
+		BlackjackBoardRenderer.register(); // ui-v2.md §7: the table in the world
 	}
 }

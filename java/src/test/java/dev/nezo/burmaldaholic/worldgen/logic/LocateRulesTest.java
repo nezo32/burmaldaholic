@@ -78,6 +78,10 @@ class LocateRulesTest {
 		assertEquals(64, LocateRules.capChunks(CasinoKind.VILLAGE_CASINO));
 		assertEquals(48, LocateRules.capChunks(CasinoKind.PIGLIN_PARLOR));
 		assertEquals(96, LocateRules.capChunks(CasinoKind.HIGH_ROLLER));
+		assertEquals(96, LocateRules.capChunks(CasinoKind.CASINO));
+		for (CasinoKind kind : CasinoKind.values()) {
+			assertTrue(LocateRules.capChunks(kind) > 0, kind + " has a cap");
+		}
 		assertEquals(3, LocateRules.maxRing(64, 34), "villages: 2 cells + the offset ring");
 		assertEquals(0, LocateRules.maxRing(0, 34));
 		assertTrue(LocateRules.ringMayBeat(0, 34, 0));
@@ -113,6 +117,10 @@ class LocateRulesTest {
 		// Bounds: chance 0 never, 1 always.
 		assertFalse(LocateRules.gate(CasinoKind.HIGH_ROLLER, 0, -4242, 5, 5));
 		assertTrue(LocateRules.gate(CasinoKind.VILLAGE_CASINO, 1, 0, 1, 1));
+		// v0.2 standalone casino: no hash gate (its own grid; biome / terrain / village exclusion decide)
+		assertTrue(LocateRules.gate(CasinoKind.CASINO, 1, -4242, 5, 5));
+		assertTrue(LocateRules.gate(CasinoKind.CASINO, 1, 77L, -123, 456));
+		assertFalse(LocateRules.gate(CasinoKind.CASINO, 0, 77L, 1, 1));
 		for (int i = -50; i < 50; i++) {
 			int cx = i * 7 - 3;
 			int cz = i * -13 + 1;

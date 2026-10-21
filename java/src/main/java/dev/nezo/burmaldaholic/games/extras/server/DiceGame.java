@@ -247,6 +247,7 @@ public final class DiceGame {
 		CompoundTag invite = new CompoundTag();
 		invite.putInt("id", created.challenge().id());
 		invite.putString("name", player.getName().getString());
+		invite.putString("uuid", player.getUUID().toString()); // the challenger's face on the v2 invite card
 		invite.putLong("stake", stake);
 		invite.putLong("ticks", cfg().challengeTimeoutTicks);
 		ExtrasGames.send(target, INVITE_SCREEN, true, invite);
@@ -310,8 +311,11 @@ public final class DiceGame {
 		DiceDuel.PvpDuel duel = DiceDuel.duelPvp(OddsService.get().fair(), DiceDuel.PVP_MAX_ROLLS);
 		DiceDuel.PvpRound last = duel.rounds().get(duel.rounds().size() - 1);
 		// text trails the dice (tables.md §3.6): each round's lines at its reveal on the screens; the money settles now
-		long start = now(server);
-		int seed = SeedMix.mix(SeedMix.hash(a.getUUID().toString()), SeedMix.hash(b.getUUID().toString()), (int) start);
+		long decided = now(server);
+		// SY-SPEC §4: the shared duel starts SyncLead.PVP_DICE ticks ahead (on top of the cup's SHAKE_LEAD), so the
+		// stage packet reaches both screens before the first beat; the cosmetic seed stays keyed on the decision tick
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(decided, dev.nezo.burmaldaholic.core.anim.sync.SyncLead.PVP_DICE);
+		int seed = SeedMix.mix(SeedMix.hash(a.getUUID().toString()), SeedMix.hash(b.getUUID().toString()), (int) decided);
 		for (int i = 0; i < duel.rounds().size(); i++) {
 			DiceDuel.PvpRound round = duel.rounds().get(i);
 			long at = start + DuelTimeline.revealTick(i);
@@ -327,8 +331,8 @@ public final class DiceGame {
 			Component msg = Component.translatable("msg.burmaldaholic.extras.dice.pvp_refund").withStyle(ChatFormatting.GRAY);
 			later(end, a, msg);
 			later(end, b, msg);
-			sendPvpResult(a, duel, true, 0, b, seed);
-			sendPvpResult(b, duel, false, 0, a, seed);
+			sendPvpResult(a, duel, true, 0, b, seed, start);
+			sendPvpResult(b, duel, false, 0, a, seed, start);
 			return;
 		}
 		ServerPlayer winner = duel.result() == DiceDuel.PvpResult.A ? a : b;
@@ -342,8 +346,8 @@ public final class DiceGame {
 		// PvP: no house edge, no Golden Hour, no cashback (§12/§13.3).
 		PlayResults.fire(winner, CasinoEvents.PlayResult.of(ExtrasGames.DICE_PVP, stake, pay.winnerGets()).pvp());
 		PlayResults.fire(loser, CasinoEvents.PlayResult.of(ExtrasGames.DICE_PVP, stake, 0).pvp());
-		sendPvpResult(a, duel, true, winner == a ? pay.winnerGets() - stake : -stake, b, seed);
-		sendPvpResult(b, duel, false, winner == b ? pay.winnerGets() - stake : -stake, a, seed);
+		sendPvpResult(a, duel, true, winner == a ? pay.winnerGets() - stake : -stake, b, seed, start);
+		sendPvpResult(b, duel, false, winner == b ? pay.winnerGets() - stake : -stake, a, seed, start);
 	}
 
 	private static void later(long at, ServerPlayer player, Component message) {
@@ -359,15 +363,18 @@ public final class DiceGame {
 
 	/**
 	 * The PvP result for one side: every round (tables.md §3.6 {@code rounds}), so the screen shows each tie and its
-	 * re-roll; {@code you} / {@code them} keep the last round for older readers.
+	 * re-roll; {@code you} / {@code them} keep the last round for older readers. DI §3.4: {@code side} ("a" / "b") keys
+	 * the rolls by PLAYER side (A's dice move alike on both screens and in the world) and {@code start} (the duel's
+	 * game tick, the in-world stage's and the chat lines' origin) is the shared clock of both screens.
 	 */
-	private static void sendPvpResult(ServerPlayer p, DiceDuel.PvpDuel duel, boolean sideA, long net, ServerPlayer other, int seed) {
-		int seq = SEQ.merge(p.getUUID(), 1, Integer::sum);
+	static CompoundTag pvpResult(int seq, DiceDuel.PvpDuel duel, boolean sideA, long net, String opponent, int seed, long start) {
 		CompoundTag r = new CompoundTag();
 		r.putInt("seq", seq);
 		r.putInt("seed", seed);
 		r.putString("mode", "pvp");
-		r.putString("opponent", other.getName().getString());
+		r.putString("side", sideA ? "a" : "b");
+		r.putLong("start", start);
+		r.putString("opponent", opponent);
 		ListTag rounds = new ListTag();
 		DiceDuel.Roll mine = null;
 		DiceDuel.Roll theirs = null;
@@ -384,8 +391,18 @@ public final class DiceGame {
 		r.put("them", new IntArrayTag(new int[] {theirs.a(), theirs.b()}));
 		r.putString("outcome", net > 0 ? "win" : net < 0 ? "lose" : "refund");
 		r.putLong("net", net);
+		return r;
+	}
+
+	private static void sendPvpResult(ServerPlayer p, DiceDuel.PvpDuel duel, boolean sideA, long net, ServerPlayer other, int seed, long start) {
+		int seq = SEQ.merge(p.getUUID(), 1, Integer::sum);
+		CompoundTag r = pvpResult(seq, duel, sideA, net, other.getName().getString(), seed, start);
+		PVP_RESULT_SINK.accept(p, r);
 		ExtrasGames.send(p, SCREEN, false, state(p, r));
 	}
+
+	/** Test hook: every PvP result sent (player, result tag). No-op in production. */
+	public static volatile java.util.function.BiConsumer<ServerPlayer, CompoundTag> PVP_RESULT_SINK = (p, r) -> {};
 
 	/** Location theme of the duel screen (visual/tables.md §2.1): Nether → Piglin Parlor, End → lounge, else village. */
 	static int theme(ServerPlayer player) {
@@ -438,6 +455,13 @@ public final class DiceGame {
 			return true;
 		});
 		due.forEach(m -> OfflineMail.line(server, m.player(), m.message()));
+	}
+
+	/** Due ticks of the held-back duel lines of {@code player}, in posting order (tests: == start + revealTick(round)). */
+	public static List<Long> pendingTicks(UUID player) {
+		List<Long> out = new ArrayList<>();
+		for (Pending m : PENDING) if (m.player().equals(player)) out.add(m.at());
+		return out;
 	}
 
 	/** Held-back duel lines not posted yet (tests). */

@@ -3,6 +3,7 @@ package dev.nezo.burmaldaholic.vip;
 import dev.nezo.burmaldaholic.Burmaldaholic;
 import dev.nezo.burmaldaholic.vip.logic.CashbackRules;
 import dev.nezo.burmaldaholic.vip.logic.ContractRules;
+import dev.nezo.burmaldaholic.vip.logic.VipRules;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,7 +28,7 @@ public final class VipData extends SavedData {
 	public static final class Record {
 		/** Lifetime chips wagered W (never decreases). */
 		public long wagered;
-		/** Highest tier granted/announced (tiers are never lost). */
+		/** Highest tier granted/announced (tiers are never lost): the floor of the effective tier. */
 		public int tier;
 		public CashbackRules.DayLedger ledger;
 		public ContractRules.State contracts;
@@ -35,6 +36,10 @@ public final class VipData extends SavedData {
 		public long biggestWin;
 		public String biggestWinGame = "";
 	}
+
+	/** Record field: VIP threshold curve the record was saved under (absent = v0.1.x, 2 = v0.2.0 retune). */
+	static final String THRESHOLDS_KEY = "thresholds_v";
+	static final int THRESHOLDS_VERSION = 2;
 
 	private final Map<UUID, Record> players = new HashMap<>();
 
@@ -62,6 +67,7 @@ public final class VipData extends SavedData {
 		CompoundTag t = new CompoundTag();
 		t.putLong("wagered", r.wagered);
 		t.putInt("tier", r.tier);
+		t.putInt(THRESHOLDS_KEY, THRESHOLDS_VERSION);
 		if (r.biggestWin > 0) {
 			t.putLong("biggest_win", r.biggestWin);
 			t.putString("biggest_win_game", r.biggestWinGame);
@@ -113,6 +119,10 @@ public final class VipData extends SavedData {
 		Record r = new Record();
 		r.wagered = Math.max(0, t.getLongOr("wagered", 0));
 		r.tier = Math.max(0, Math.min(5, t.getIntOr("tier", 0)));
+		if (t.getIntOr(THRESHOLDS_KEY, 1) < THRESHOLDS_VERSION) {
+			// saved before the v0.2.0 VIP retune: floor the kept tier by the old thresholds, so nobody is demoted
+			r.tier = Math.max(r.tier, VipRules.tierFor(r.wagered, VipRules.LEGACY_THRESHOLDS));
+		}
 		r.biggestWin = Math.max(0, t.getLongOr("biggest_win", 0));
 		r.biggestWinGame = t.getStringOr("biggest_win_game", "");
 		if (t.contains("ledger")) {

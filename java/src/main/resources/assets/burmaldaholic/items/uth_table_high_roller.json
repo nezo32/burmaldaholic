@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "burmaldaholic:block/uth/table_high_roller"
+    "model": "burmaldaholic:block/tables/uth_table_high_roller/item"
   }
 }

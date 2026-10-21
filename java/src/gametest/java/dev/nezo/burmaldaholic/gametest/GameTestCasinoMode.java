@@ -18,6 +18,11 @@ public class GameTestCasinoMode implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			if (server instanceof GameTestServer) {
 				CasinoMode.set(server, true);
+				// INT-X: with 416 tests the run crosses the world's first sunset (~10 min); a sunset-rolled Golden Hour
+				// (x2 winnings for 3 min) then broke every payout assert that ran during it. Chaos tests start events
+				// themselves ("admin"), so the random sunset and ambient rolls are off on the headless GameTest server.
+				dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().goldenHour.sunsetChance = 0;
+				dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().ambientChance = 0; // same for ambient rolls
 			}
 		});
 	}

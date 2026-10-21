@@ -136,7 +136,7 @@ class CardMotionTest {
 	void chipDiscsAreGreedyLargestFirst() {
 		assertArrayEquals(new int[] {100, 100, 25, 5, 5}, CardLayout.discs(235, 5));
 		assertArrayEquals(new int[] {25, 25}, CardLayout.discs(50, 5));
-		assertArrayEquals(new int[] {500, 500, 500, 500, 500}, CardLayout.discs(10_000, 5));
+		assertArrayEquals(new int[] {5_000, 5_000}, CardLayout.discs(10_000, 5)); // HR: 5k chip
 		assertArrayEquals(new int[0], CardLayout.discs(0, 5));
 		assertArrayEquals(new int[] {1}, CardLayout.discs(1, 5));
 	}

@@ -121,6 +121,8 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	static final int REVEAL_TICKS = 20;
 	static final int RESULT_TICKS = 80;
 	private static final String ESCROW_KEY = "burmaldaholic_uth_escrow";
+	/** A decision made on a window that has closed (or one no longer legal): look again. */
+	public static final String STALE_DECISION = "gui.burmaldaholic.uth.v2.reason.stale_decision";
 
 	public enum Variant {
 		STANDARD, HIGH_ROLLER, PLAYER_BANKED
@@ -181,6 +183,13 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 	// ---- presentation (animation/cards.md §3.2, task J-C3) -----------------------------------------------------
 	/** Segment counter / kind ({@link UthPub#DEAL} …) / start tick of the running segment. */
 	private int stageSeq;
+	/**
+	 * The decision window counter: +1 each time a street's decisions open. The client sends it with a decision
+	 * ({@code epoch}); a decision made on an older window (a click delivered after the street moved on) is refused.
+	 */
+	private int decisionEpoch;
+	private @Nullable UthRound epochRound;
+	private UthRound.@Nullable Street epochStreet;
 	private int stageKind;
 	private long stageStart;
 	/** Last published public tag (block updates only on change) and, client side, the last one received. */
@@ -522,7 +531,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			default -> {
 				Decision d = Decision.byId(action);
 				if (d != null) {
-					decide(player, d);
+					decide(player, d, args);
 				}
 			}
 		}
@@ -695,6 +704,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		if (r == null) {
 			return;
 		}
+		bumpEpoch(r);
 		for (UthRound.Seat s : r.pendingSeats()) {
 			if (s.bot) {
 				continue; // table bots think below, inside the street's decision window
@@ -733,14 +743,26 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		return new SeatDecider.Context(cfg().allow3x, cfg().autoPlayMadeHands, seat.bot ? BOT_BALANCE : balanceOf(seat.player));
 	}
 
-	private void decide(ServerPlayer player, Decision d) {
+	/** The decision window a client decision must name ({@code epoch}); GameTests read it. */
+	public int decisionEpoch() {
+		return decisionEpoch;
+	}
+
+	private void decide(ServerPlayer player, Decision d, CompoundTag args) {
 		UthRound r = round;
 		UthRound.Seat seat = r == null ? null : r.seat(player.getUUID());
 		if (seat == null || away.contains(player.getUUID()) || !r.pending(seat)) {
 			sendError(player, Component.translatable("gui.burmaldaholic.error.not_your_turn"));
 			return;
 		}
+		// the screen sends the window it decided in: a click that reaches us after the street moved on is refused,
+		// never applied to the new street's decisions (the Check → Bet ×4 report)
+		if (args.contains("epoch") && args.getIntOr("epoch", -1) != decisionEpoch) {
+			sendError(player, Component.translatable(STALE_DECISION));
+			return;
+		}
 		if (!r.legal(seat, cfg().allow3x).contains(d)) {
+			sendError(player, Component.translatable(STALE_DECISION));
 			return;
 		}
 		if (d.isBet() && !collectPlay(seat, d.multiple() * seat.ante, player)) {
@@ -834,12 +856,25 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		setChanged();
 	}
 
+	/**
+	 * A new decision window when the round or its street changed (once per street: openDecisions also runs after the deal
+	 * segment, and a street's seats are pending — and get {@code legal} — from {@link #advanceStreet} on, during the reveal).
+	 */
+	private void bumpEpoch(UthRound r) {
+		if (r != epochRound || r.street() != epochStreet) {
+			decisionEpoch++;
+			epochRound = r;
+			epochStreet = r.street();
+		}
+	}
+
 	private void advanceStreet() {
 		UthRound r = round;
 		if (r == null || r.settled()) {
 			return;
 		}
 		r.advance(pays());
+		bumpEpoch(r);
 		switch (r.street()) {
 			case FLOP -> setPhase(FLOP);
 			case RIVER -> setPhase(RIVER);
@@ -2025,13 +2060,17 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 			if (r.pending(s)) {
 				deciding++;
 			}
-			if (you || showdown) {
+			// a folded hand is never shown to the room, not even at the showdown (R-AB m10 for the per-viewer state)
+			boolean open = you || (showdown && !s.folded);
+			if (open) {
 				p.put("cards", new IntArrayTag(s.hole.clone()));
 			}
 			Settlement.Result res = s.result;
 			if (showdown && res != null) {
-				p.putString("hand", UthCards.handName(res.playerValue()));
-				p.putInt("best", BestFive.mask(s.hole, r.board()));
+				if (open) {
+					p.putString("hand", UthCards.handName(res.playerValue()));
+					p.putInt("best", BestFive.mask(s.hole, r.board()));
+				}
 				// per-circle nets (Trips, Ante, Blind, Play): public with the cards, they drive the settle beats' chips
 				p.putLongArray("circles", new long[] {res.tripsNet(), res.anteNet(), res.blindNet(), res.playNet()});
 				if (settledNow) {
@@ -2042,6 +2081,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		}
 		tag.put("players", players);
 		tag.putInt("deciding", deciding);
+		tag.putInt("decision_epoch", decisionEpoch);
 		UthRound.Seat my = r.seat(me);
 		if (my != null) {
 			tag.putBoolean("in_round", true);
@@ -2105,7 +2145,10 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 
 	private static final String PUB_KEY = "burmaldaholic_uth_pub";
 
-	/** Public state: the board face up, the dealer's cards from the showdown on, seats' cards only at the showdown. */
+	/**
+	 * Public state: the board face up, the dealer's cards from the showdown on, seats' cards only from the SHOWDOWN
+	 * segment on and never a folded hand (R-AB m10: a fold is not shown to the room).
+	 */
 	public UthPub buildPub() {
 		UthRound r = round;
 		if (r == null || stageKind == 0) {
@@ -2118,14 +2161,14 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		long[] bets = new long[n];
 		int[] cards = new int[n * 2];
 		java.util.Arrays.fill(cards, -1);
-		boolean showdown = r.settled();
+		boolean showdown = r.settled() && (stageKind == UthPub.SHOWDOWN || stageKind == UthPub.RESULT);
 		for (int i = 0; i < n; i++) {
 			UthRound.Seat s = list.get(i);
 			seatIdx[i] = s.seat;
 			boolean won = RESULT.equals(phase()) && s.result != null && s.result.net() > 0;
 			flags[i] = UthPub.flags(s.bot, s.folded, won, s.playMultiple);
 			bets[i] = s.ante * 2 + s.trips + s.play();
-			if (showdown) {
+			if (showdown && !s.folded) {
 				cards[i * 2] = s.hole[0];
 				cards[i * 2 + 1] = s.hole[1];
 			}
@@ -2171,6 +2214,7 @@ public class UthTableBlockEntity extends CasinoTableBlockEntity implements BotTa
 		CompoundTag pub = new CompoundTag();
 		pub.putIntArray("d", buildPub().encode());
 		t.put(PUB_KEY, pub);
+		writePublic(t); // the seat header: names for the in-world seat plates (ui-v2.md §7.2)
 		return t;
 	}
 

@@ -54,6 +54,9 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 	public static final String SYNC_KEY = "extras_wheel";
 	/** The last published spin (client: from the update tag), or {@code null} before the first spin. */
 	private @Nullable WheelSync sync;
+	/** Who spun last (the in-world plate, ui-v2.md §7.6). */
+	private String lastName = "";
+	public static final String NAME_KEY = "extras_wheel_name";
 
 	private final Map<UUID, CompoundTag> lastSpin = new HashMap<>();
 	private final Map<UUID, Long> busyUntil = new HashMap<>();
@@ -112,7 +115,15 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		long amount = args.getLongOr("amount", 0);
 		Stake pawn = null;
 		long value;
-		if (kind.equals("chips")) {
+		long token = kind.equals("chips") || kind.equals("token") ? tokenOffer(player) : 0;
+		if (token > 0) {
+			// EC-2: a free-bet token in the main hand is the stake (settled by the table: winnings only, push = token back)
+			Result<Long> bet = placeTokenBet(player, wheel.minBet(), max, false);
+			if (!bet.isOk()) {
+				return;
+			}
+			value = bet.value();
+		} else if (kind.equals("chips")) {
 			Result<Long> bet = placeBet(player, amount, wheel.minBet(), max, Payouts.floorPay(amount, wheel.maxMultiplier()), true);
 			if (!bet.isOk()) {
 				return;
@@ -157,11 +168,14 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		t.putLong("stake", value); // the celebration's tier base (extras-pvp.md §0.4)
 		t.putBoolean("pawn", pawn != null);
 		lastSpin.put(player.getUUID(), t);
-		busyUntil.put(player.getUUID(), now + SPIN_TICKS);
+		// SY-SPEC §4: the spin starts SyncLead.WHEEL ticks ahead, so the packet reaches viewers before the wheel turns
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(now, dev.nezo.burmaldaholic.core.anim.sync.SyncLead.WHEEL);
+		busyUntil.put(player.getUUID(), start + SPIN_TICKS);
 		Component segment = Component.translatable(Wheel.segmentKey(spin.code()));
-		pending.add(new Pending(player.getUUID(), now + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)),
+		pending.add(new Pending(player.getUUID(), start + SPIN_TICKS, Component.translatable("gui.burmaldaholic.extras.wheel.result", segment, ExtrasGames.resultLine(net)),
 			spin.creeper(), value, ret, pawn == null));
-		publish(new WheelSync(seq, now, spin.index(), sync == null ? -1 : sync.index(), sync == null ? -1 : sync.seq(), SPIN_TICKS,
+		lastName = dev.nezo.burmaldaholic.games.extras.present.MachinePub.wheel(player.getGameProfile().name()).name();
+		publish(new WheelSync(seq, start, spin.index(), sync == null ? -1 : sync.index(), sync == null ? -1 : sync.seq(), SPIN_TICKS,
 			String.join("", wheel.segments())));
 		syncViewers();
 	}
@@ -181,11 +195,17 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		return sync;
 	}
 
+	/** The player who spun last (client: the in-world plate), "" before the first spin. */
+	public String lastPlayerName() {
+		return lastName;
+	}
+
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
 		if (sync != null) {
 			t.putIntArray(SYNC_KEY, sync.encode());
+			t.putString(NAME_KEY, lastName);
 		}
 		return t;
 	}
@@ -200,6 +220,7 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 		super.loadAdditional(input);
 		if (level != null && level.isClientSide()) {
 			sync = input.getIntArray(SYNC_KEY).map(WheelBlockEntity::decode).orElse(sync);
+			lastName = input.getStringOr(NAME_KEY, lastName);
 		}
 	}
 
@@ -262,6 +283,10 @@ public class WheelBlockEntity extends CasinoTableBlockEntity {
 	public CompoundTag writeClientState(ServerPlayer viewer) {
 		CompoundTag tag = baseState(viewer);
 		tag.putLong("max", Math.min(tag.getLongOr("max", 1), maxFor(viewer)));
+		// T-SYW D1: this viewer's busy gate end (syncedState stamps the game_time it was written at), so the screen never
+		// enables a press the server would refuse
+		long busy = busyUntil.getOrDefault(viewer.getUUID(), 0L);
+		if (busy > gameTime()) tag.putLong("busy_until", busy);
 		Wheel wheel = wheel();
 		ListTag segs = new ListTag();
 		wheel.segments().forEach(s -> segs.add(StringTag.valueOf(s)));

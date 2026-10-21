@@ -443,13 +443,15 @@ public class CasinoMenuScreen extends CasinoScreen {
 				CasinoPalette.INK);
 			return;
 		}
-		int n = counts.length;
-		int colW = (w - 12) / n;
+		// only the denominations in the pocket get a column (eight would not fit), at least five column widths
+		int[] shown = java.util.stream.IntStream.range(0, counts.length).map(k -> counts.length - 1 - k).filter(di -> counts[di] > 0).toArray();
+		int n = shown.length;
+		int colW = (w - 12) / Math.max(5, n);
 		int base = y + h - 20;
 		int maxDiscs = Math.min(ChipColumns.MAX_VISIBLE * 3, (base - (y + 22)) / ChipColumns.PITCH - 4);
 		// small denominations on the left, like the mockup
 		for (int k = 0; k < n; k++) {
-			int di = n - 1 - k;
+			int di = shown[k];
 			int denom = ChipColumns.DENOMS[di];
 			int cx = x + 6 + k * colW + colW / 2;
 			int discs = (int) Math.min(counts[di], maxDiscs);
@@ -457,7 +459,7 @@ public class CasinoMenuScreen extends CasinoScreen {
 				CasinoUi.sprite(g, UiSprites.sprite("fx/chip_side_" + denom), cx - 6, base - 3 - j * ChipColumns.PITCH, 12, 3);
 			}
 			if (discs > 0) CasinoUi.sprite(g, UiSprites.sprite("fx/chip_" + denom), cx - 4, base - 3 - discs * ChipColumns.PITCH - 6, 8, 8);
-			String label = Numbers.format(denom);
+			String label = dev.nezo.burmaldaholic.core.chips.ChipMath.label(denom);
 			g.text(font, label, cx - font.width(label) / 2, base + 4, BONE, true);
 			if (counts[di] > maxDiscs) {
 				String more = "×" + Numbers.format(counts[di]); // literal-ok: count
@@ -482,7 +484,8 @@ public class CasinoMenuScreen extends CasinoScreen {
 		VipSyncPayload d = data();
 		var cfg = CasinoConfig.vip();
 		VipRules.PerkParams params = new VipRules.PerkParams(CasinoConfig.loan().products, cfg.contractBonus.silver, cfg.contractBonus.gold,
-			CasinoConfig.contracts().slots, new double[] {cfg.cashback.gold, cfg.cashback.platinum, cfg.cashback.diamond, cfg.cashback.netherite});
+			CasinoConfig.contracts().slots, new double[] {cfg.cashback.gold, cfg.cashback.platinum, cfg.cashback.diamond, cfg.cashback.netherite},
+			cfg.compRate.toArray());
 		long[] th = VipClientModule.thresholds();
 		contentH = 50; // badge plates
 		int kind = 0;
@@ -686,8 +689,20 @@ public class CasinoMenuScreen extends CasinoScreen {
 		HubView.Hub h = HubView.parse(ClientCasinoMenu.lines(), ClientCasinoMenu.buttons());
 		hub = h;
 		boolean nemesis = h.nemesis() != null;
+		// Your match and pending invites come first (v0.1.2 open item, E2): below the 2 × 3 cards they were off the page at
+		// 480 × 270 (GUI 4) and the player had to scroll to find [Accept]; the cards move down under them.
+		int gridTop = dev.nezo.burmaldaholic.core.ui.HubLayout.gridTop(nemesis);
+		int shift = 0;
+		if (!h.status().isEmpty() || !h.statusButtons().isEmpty()) {
+			contentH = gridTop;
+			int kind = 0;
+			for (ClientCasinoMenu.Line l : h.status()) text(l.text(), 0xFF000000 | l.color(), 4, w, kind++ % 2);
+			placeButtons(h.statusButtons(), w);
+			shift = contentH + 2 - gridTop;
+		}
 		for (int i = 0; i < dev.nezo.burmaldaholic.core.ui.HubLayout.CARDS; i++) {
 			int[] r = dev.nezo.burmaldaholic.core.ui.HubLayout.card(i, w, nemesis);
+			r[1] += shift;
 			HubView.ModeCard card;
 			if (i < HubView.MODES.length) {
 				String mode = HubView.MODES[i];
@@ -701,10 +716,7 @@ public class CasinoMenuScreen extends CasinoScreen {
 			}
 			put(card, r[0], r[1]);
 		}
-		contentH = dev.nezo.burmaldaholic.core.ui.HubLayout.gridBottom(nemesis) + 6;
-		int kind = 0;
-		for (ClientCasinoMenu.Line l : h.status()) text(l.text(), 0xFF000000 | l.color(), 4, w, kind++ % 2);
-		placeButtons(h.statusButtons(), w);
+		contentH = dev.nezo.burmaldaholic.core.ui.HubLayout.gridBottom(nemesis) + shift + 6;
 		if (h.lobbiesHeader() != null) {
 			rows.add(new Row(contentH, 12, -1, CasinoUi.fit(font, h.lobbiesHeader(), w - 4), GOLD, null, 0, 0));
 			contentH += 13;

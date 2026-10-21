@@ -12,6 +12,7 @@ import dev.nezo.burmaldaholic.core.service.TableOwnershipProvider.OwnedTable;
 import dev.nezo.burmaldaholic.core.service.VipTiers;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.CasinoTableMenu;
+import dev.nezo.burmaldaholic.core.table.parts.TableParts;
 import dev.nezo.burmaldaholic.core.table.TableSeats;
 import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.core.util.Inventories;
@@ -199,6 +200,13 @@ public final class Ownership {
 		}
 		Casino c = casino.get();
 		return Optional.of(new OwnedTable(c.owner, c.bankrollId(), t.min, t.max, t.open && !c.broke, t.bots, t.slotsBuy, t.slotsAutoplay));
+	}
+
+	/** GameTests: forgets an owned-table record an earlier test left at {@code pos} (a fresh table at a reused test position). */
+	public static void forgetTableForTests(ServerLevel level, BlockPos pos) {
+		if (book(level.getServer()).removeTable(key(level, pos)).isPresent()) {
+			data(level.getServer()).setDirty();
+		}
 	}
 
 	// ---- public claim lookups (see MultiplayerApi) ---------------------------------------------
@@ -407,6 +415,12 @@ public final class Ownership {
 			}
 			return true;
 		}
+		// MT: a part of a multi-block table is protected like its main block
+		BlockPos main = TableParts.mainPos(pos, state);
+		if (!main.equals(pos)) {
+			be = level.getBlockEntity(main);
+			pos = main;
+		}
 		if (be instanceof CasinoTableBlockEntity) {
 			Optional<Casino> c = book.activeCasinoOf(key(level, pos));
 			if (c.isPresent() && !Claims.mayBreak(c.get().owner.equals(sp.getUUID()), isOperator(sp), CasinoConfig.ownership().protectTables, false)) {
@@ -429,6 +443,7 @@ public final class Ownership {
 				.ifPresent(c -> closeCasino(server, c, "charter broken by " + player.getName().getString()));
 			return;
 		}
+		pos = TableParts.mainPos(pos, state); // MT: a broken part forgets its table (pure maths, the blocks are gone)
 		Optional<TableRecord> removed = book.removeTable(key(level, pos));
 		if (removed.isPresent()) {
 			data(server).setDirty();
@@ -445,6 +460,10 @@ public final class Ownership {
 		if (book.tables().isEmpty() && book.casinos().isEmpty()) {
 			return false;
 		}
+		BlockPos main = TableParts.mainOf(level, pos); // MT: parts share their main block's protection
+		if (!main.equals(pos) && book.activeCasinoOf(key(level, main)).isPresent()) {
+			return true;
+		}
 		return book.activeCasinoOf(key(level, pos)).isPresent() || book.charterAt(dim(level), pos.getX(), pos.getY(), pos.getZ()).isPresent();
 	}
 
@@ -459,7 +478,7 @@ public final class Ownership {
 		if (player.isSecondaryUseActive() && !player.getItemInHand(hand).isEmpty()) {
 			return InteractionResult.PASS;
 		}
-		BlockPos pos = hit.getBlockPos();
+		BlockPos pos = TableParts.mainOf(level, hit.getBlockPos()); // MT: any part opens the main block
 		if (!(level.getBlockEntity(pos) instanceof CasinoTableBlockEntity table)) {
 			return InteractionResult.PASS;
 		}

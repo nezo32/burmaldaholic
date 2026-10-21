@@ -73,7 +73,7 @@ class SlotsV2ConfigReviewTest {
 		MachineDef d = SlotMachinesV2.build(Machine.NETHER, c.nether);
 		assertEquals(75, d.buyPriceFifths());
 		assertTrue(SlotRtpV2.warnings(SlotRtpV2.compute(d)).stream().anyMatch(SlotRtpV2.Warning::buy), "15 × bet pays more than the machine");
-		c.nether.buy.price = 18.4;
+		c.nether.buy.price = 20.8;
 		assertTrue(SlotRtpV2.warnings(SlotRtpV2.compute(SlotMachinesV2.build(Machine.NETHER, c.nether))).isEmpty(), "default price is fine");
 	}
 }

@@ -85,12 +85,24 @@ public final class VipService {
 	}
 
 	/** Admin: sets lifetime wagered (tiers already reached are kept). */
+	/**
+	 * Admin: sets lifetime wagered and RESETS the kept-tier floor to the tier that amount earns under the current
+	 * thresholds (so a player can be moved down and replay the path). Already granted advancements stay.
+	 */
 	public static void setWagered(ServerPlayer player, long wagered) {
 		MinecraftServer server = player.level().getServer();
-		VipData.get(server).player(player.getUUID()).wagered = Math.max(0, wagered);
+		VipData.Record rec = VipData.get(server).player(player.getUUID());
+		rec.wagered = Math.max(0, wagered);
+		rec.tier = VipRules.tierFor(rec.wagered, thresholds());
 		VipData.get(server).setDirty();
 		checkPromotion(player);
+		PlayerSync.markDirty(player);
 		markSync(player);
+	}
+
+	/** Admin: sets the player to exactly {@code tier} (lifetime wagered = that tier's current threshold, floor cleared). */
+	public static void setTier(ServerPlayer player, int tier) {
+		setWagered(player, VipRules.thresholdOf(VipRules.clamp(tier), thresholds()));
 	}
 
 	// ---- settled wagers ----------------------------------------------------------------------
@@ -129,7 +141,9 @@ public final class VipService {
 				progress.remove("wager");
 			}
 		}
-		progress.forEach((id, n) -> Contracts.progress(player, id, n));
+		if (result.stakeKind() != dev.nezo.burmaldaholic.core.wager.Stake.Kind.TOKEN) { // EC-2: no contracts from token rounds
+			progress.forEach((id, n) -> Contracts.progress(player, id, n));
+		}
 		markSync(player);
 	}
 
@@ -139,6 +153,9 @@ public final class VipService {
 	 * share of the counterparty money (BOTS.md §5.3).
 	 */
 	static long wagerCredit(CasinoEvents.PlayResult result, long bet) {
+		if (result.stakeKind() == dev.nezo.burmaldaholic.core.wager.Stake.Kind.TOKEN) {
+			return 0; // EC-2: free-bet token rounds give no VIP credit (EC-SPEC §4.3)
+		}
 		if ("pvp".equals(result.gameId()) && !CasinoConfig.pvp().countsTowardVip) {
 			return 0;
 		}
@@ -176,7 +193,23 @@ public final class VipService {
 		long got = Economies.get().deposit(player, amount, new Transaction(VipModule.ID, "cashback", Transaction.Kind.EARNING));
 		if (got > 0) {
 			player.sendSystemMessage(Component.translatable("msg.burmaldaholic.vip.cashback", Texts.chips(got)).withStyle(ChatFormatting.GREEN));
+			// EC-2 (EC-SPEC §4.4): the cashback is visible as a casino toast too
+			dev.nezo.burmaldaholic.core.fx.ServerFx.get().toast(player, "toast.burmaldaholic.cashback.title",
+				Component.translatable("toast.burmaldaholic.cashback.body", Texts.chips(got)), dev.nezo.burmaldaholic.core.fx.ServerFx.ToastIcon.CASHBACK);
 		}
+	}
+
+	/**
+	 * EC-2: today's theoretical loss (Σ stake × edge of the eligible rounds) and the cashback it would pay at the
+	 * next day roll at the current tier: {@code {theo × 1000, estimate}}. Published as {@code burmaldaholic:vip/cashback_estimate}.
+	 */
+	static long[] cashbackEstimate(MinecraftServer server, UUID id) {
+		VipData.Record r = VipData.get(server).peek(id);
+		if (r == null || r.ledger == null || r.ledger.day() != Contracts.today(server)) {
+			return new long[] {0, 0};
+		}
+		double rate = VipRules.cashbackRate(tier(server, id), cashbackRates());
+		return new long[] {Math.round(r.ledger.theo() * 1000), CashbackRules.amount(r.ledger.theo(), rate)};
 	}
 
 	// ---- promotion ---------------------------------------------------------------------------

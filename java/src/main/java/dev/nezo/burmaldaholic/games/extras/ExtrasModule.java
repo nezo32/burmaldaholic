@@ -101,7 +101,10 @@ public final class ExtrasModule implements CasinoModule {
 					}
 				}
 				case DiceGame.SCREEN -> {
-					if (ExtrasGames.mayAct(player, DiceGame.SCREEN, DICE)) {
+					boolean answer = payload.action().equals("accept") || payload.action().equals("decline");
+					// the server-opened invite card answers too (E2: its Accept / Decline / Esc were ignored unless the
+					// challenged player happened to hold Dice): only the answer, never a roll
+					if (ExtrasGames.mayAct(player, DiceGame.SCREEN, DICE) || answer && ExtrasGames.mayAct(player, DiceGame.INVITE_SCREEN, null)) {
 						DiceGame.action(player, payload.action(), payload.args());
 					}
 				}
@@ -115,6 +118,8 @@ public final class ExtrasModule implements CasinoModule {
 		});
 		ExtrasScreenPayload.TYPE = ctx.payloads().clientbound("extras_screen", ExtrasScreenPayload.CODEC);
 		ExtrasErrorPayload.TYPE = ctx.payloads().clientbound("extras_error", ExtrasErrorPayload.CODEC);
+		dev.nezo.burmaldaholic.games.extras.net.DuelStageSync.TYPE = ctx.payloads().clientbound("extras_duel_stage",
+			dev.nezo.burmaldaholic.games.extras.net.DuelStageSync.CODEC); // DCb: the in-world duel for modded viewers (DI §6)
 
 		ServerTickEvents.END_SERVER_TICK.register(DiceGame::tick);
 		ServerTickEvents.END_SERVER_TICK.register(dev.nezo.burmaldaholic.games.extras.server.CoinToss::tick); // in-world toss (extras-pvp §1.3)

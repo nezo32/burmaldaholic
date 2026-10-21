@@ -23,6 +23,7 @@ import dev.nezo.burmaldaholic.games.roulette.logic.BetType;
 import dev.nezo.burmaldaholic.games.roulette.logic.Bets;
 import dev.nezo.burmaldaholic.games.roulette.logic.Bets.Bet;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteBettor;
+import dev.nezo.burmaldaholic.games.roulette.logic.RouletteDealer;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteRound;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteRound.Transition;
 import dev.nezo.burmaldaholic.games.roulette.logic.SlipLimits;
@@ -33,6 +34,7 @@ import dev.nezo.burmaldaholic.core.anim.WinTier;
 import dev.nezo.burmaldaholic.core.anim.WinTierTable;
 import dev.nezo.burmaldaholic.core.bots.logic.BotRoster;
 import dev.nezo.burmaldaholic.games.roulette.logic.Racetrack;
+import dev.nezo.burmaldaholic.games.roulette.present.RoulettePub;
 import dev.nezo.burmaldaholic.games.roulette.logic.RouletteSync;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -81,7 +83,12 @@ import org.jspecify.annotations.Nullable;
  * BETTING, are always ready (never delay the spin) and their slips are settled against the same number
  * for display only. Safe point: start of / any time during BETTING.
  */
-public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating {
+public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements BotTable.Delegating, dev.nezo.burmaldaholic.client.dealer.DealerCueSource {
+	@Override // DL: the house dealer gestures with this table (client, from the public sync)
+	public dev.nezo.burmaldaholic.client.dealer.DealerCueSource.@org.jspecify.annotations.Nullable Cue dealerCue(long gameTime, float partialTick) {
+		return dev.nezo.burmaldaholic.games.roulette.logic.RouletteDealerCues.cue(clientSync(), gameTime, partialTick);
+	}
+
 	private static final String HISTORY_KEY = "roulette_history";
 	private static final int NO_MORE_BETS_TICKS = 20;
 	private static final int RESULT_TICKS = 60;
@@ -126,6 +133,12 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 	/** spin counter (cosmetic seed input) */
 	private int spinSeq;
 	private int spinSeed;
+	/**
+	 * RO (ROULETTE-ANIM-SPEC §2.2, §2.5): the launch bookkeeping. At NO_MORE_BETS the dealer takes the rotor where its
+	 * model has it (never a reset), pushes it the other way than last time and launches the ball with the seed; the
+	 * result is still drawn at NO_MORE_BETS → SPIN by the round with the same single fair call. Cosmetic only.
+	 */
+	private final RouletteDealer dealer;
 	/** 0 village, 1 bastion, 2 end (-1 = not resolved yet) */
 	private int theme = -1;
 	/** per-bet total returns of the last settled slip (aligned with {@link #lastSlips}) */
@@ -136,11 +149,20 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 	private final Map<UUID, Deque<List<Bet>>> addLog = new HashMap<>();
 	/** client side: the last update-tag sync (spectators, in-world wheel) */
 	private @Nullable RouletteSync clientSync;
+	// ---- public board (ui-v2.md §7.2, lane C): bettors, stacks, top win for the in-world board ----
+	private static final String PUB_KEY = "roulette_pub";
+	private static final String PUB_NAMES_KEY = "roulette_pub_names";
+	/** the public bets changed since the last update tag (sent at most 4 times a second) */
+	private boolean pubDirty;
+	private long pubSentAt = Long.MIN_VALUE;
+	/** client side: the last public board state */
+	private RoulettePub clientPub = RoulettePub.EMPTY;
 
 	public RouletteTableBlockEntity(TableType<RouletteTableBlockEntity> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
 		this.highRoller = RouletteModule.HIGH_ROLLER_NAME.equals(type.name());
 		this.round = new RouletteRound<>(RouletteRound.Timings.DEFAULT, 12);
+		this.dealer = new RouletteDealer(SeedMix.mixLong(pos.asLong()));
 	}
 
 	private static RouletteConfig cfg() {
@@ -265,7 +287,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				}
 				Optional<SlipLimits.Violation> v = limits(player).checkSpin(mine);
 				if (v.isPresent()) {
-					sendError(player, message(v.get()));
+					sendError(player, message(v.get(), player));
 					return;
 				}
 				round.setReady(player.getUUID(), true);
@@ -344,7 +366,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		List<Bet> current = round.bets(id);
 		Optional<SlipLimits.Violation> v = limits(player).checkAdd(current, bets);
 		if (v.isPresent()) {
-			sendError(player, message(v.get()));
+			sendError(player, message(v.get(), player));
 			return false;
 		}
 		long amount = Bets.totalStaked(bets);
@@ -360,6 +382,19 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * {@link #message(SlipLimits.Violation)}, the maxima in the bet-cap words (whose cap: VIP / owner; lane HR). The inside
+	 * maximum is a fraction of the total one, so it names the same cap at that fraction (T-HR D3: a typed unit above it).
+	 */
+	Component message(SlipLimits.Violation v, ServerPlayer player) {
+		if (v.code() == SlipLimits.Code.TOTAL_MAX) return capFor(player, v.value(), limitsFor(player)[0]).reason();
+		if (v.code() == SlipLimits.Code.INSIDE_MAX) {
+			SlipLimits l = limits(player);
+			return capFor(player, l.totalMax(), l.minBet()).withMax(v.value()).reason();
+		}
+		return message(v);
 	}
 
 	static Component message(SlipLimits.Violation v) {
@@ -470,16 +505,44 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				}
 			}
 			if (round.hasBets() || round.phase() != RouletteRound.Phase.BETTING) {
-				round.abort().keySet().forEach(this::refund);
+				// T-C2 V9: the stakes go back with a casino-closed line (not core's "the server restarted mid-round")
+				round.abort().forEach((id, bets) -> {
+					refund(id, true);
+					ServerPlayer online = level.getServer().getPlayerList().getPlayer(id);
+					long amount = Bets.totalStaked(bets);
+					if (online != null && amount > 0) {
+						online.sendSystemMessage(Component.translatable("msg.burmaldaholic.roulette.closed_refund", Texts.chipsAcc(amount)));
+					}
+				});
 				outcomes.clear();
 				setPhase(round.phase().id());
 				syncViewers();
+			}
+			// R-CDE m4: the in-world board goes idle too (no stale stacks / spin): the atmosphere bots' virtual slips are
+			// dropped (no money) and the idle public board is published before returning
+			boolean botBets = false;
+			for (BotSlip b : botSlips.values()) {
+				if (!b.bets.isEmpty()) {
+					b.bets = List.of();
+					b.betAt = -1;
+					botBets = true;
+				}
+			}
+			if (botBets || !botResults.isEmpty()) {
+				botResults.clear();
+				pubDirty = true;
+			}
+			if (pubDirty) {
+				publishSync();
 			}
 			return;
 		}
 		round.configure(timings(), cfg().historyLength);
 		if (round.canBet() && placeBotBets(false)) {
 			syncViewers();
+		}
+		if (pubDirty && gameTime() - pubSentAt >= 5) {
+			publishSync(); // the in-world board's stacks follow the bets (≤ 4 update tags a second)
 		}
 		List<UUID> seated = seats().occupied().stream().map(TableSeats.Seat::player).toList();
 		Transition<UUID> t = round.update(gameTime(), seated, () -> OddsService.get().fair().nextInt(Wheel.POCKETS), minTotal());
@@ -490,13 +553,15 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			case Transition.NoMoreBets<UUID> n -> {
 				placeBotBets(true); // bots are always ready: whoever has not bet yet bets now
 				refundDropped(level, n.dropped());
+				// RO: seed + launch at NO_MORE_BETS (cosmetic; no RNG / money involved — the result is drawn at SPIN)
+				RouletteDealer.Launch l = dealer.launch(gameTime(), SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), dealer.seq() + 1));
+				spinSeq = l.seq();
+				spinSeed = l.seed();
 			}
 			case Transition.Abandoned<UUID> a -> refundDropped(level, a.dropped());
 			case Transition.Spin<UUID> s -> {
-				// the spin whoosh and the ball are played by every client from the shared path (tables.md §0.8)
+				// the ball and its sounds are played by every client from the shared RouletteSpin (seeded at the launch)
 				spinStart = gameTime();
-				spinSeq++;
-				spinSeed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), spinSeq);
 				addLog.clear();
 			}
 			case Transition.Result<UUID> r -> {
@@ -777,6 +842,7 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		writePresentation(t);
 		t.putLong("total", Bets.totalStaked(mine));
 		t.putBoolean("can_rebet", round.canBet() && lastSlips.containsKey(id));
+		t.putLong("rebet_total", Bets.totalStaked(lastSlips.getOrDefault(id, List.of()))); // v2 primary "Rebet 55"
 		t.putBoolean("ready", round.isReady(id));
 		t.putInt("ready_count", round.readyCount());
 		t.putInt("bettors", round.bettors().size());
@@ -846,6 +912,12 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		t.putLong("spin_start", spinStart);
 		t.putInt("seed", spinSeed);
 		t.putInt("spin_seq", spinSeq);
+		// RO: the launch (NO_MORE_BETS start) and the rotor model every client samples (RouletteSync v2 fields)
+		t.putLong("launch_tick", dealer.launchTick());
+		t.putInt("rotor_a", dealer.rotorCentiAngle());
+		t.putInt("rotor_w", dealer.rotorCentiOmega());
+		t.putInt("dir", dealer.model().dir());
+		t.putBoolean("pushed", dealer.model().push());
 		t.putString("theme", new String[] {"village", "bastion", "end"}[theme()]); // J-L2 kit: CasinoTableScreen#theme()
 		if (level instanceof ServerLevel sl) {
 			ListTag names = new ListTag();
@@ -885,7 +957,13 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 			last = hist.size() > 1 ? hist.get(1) : -1; // the history already holds this spin's number
 		}
 		return new RouletteSync(RouletteSync.phaseOf(round.phase().id()), phaseStart, spinStart, round.timings().spinTicks(),
-			drawn ? round.result() : -1, spinSeed, last, theme(), spinSeq);
+			drawn ? round.result() : -1, spinSeed, last, theme(), spinSeq, dealer.launchTick(), dealer.rotorCentiAngle(), dealer.rotorCentiOmega(),
+			dealer.model().dir(), dealer.model().push());
+	}
+
+	/** GameTests: game time of the last public-board update tag sent to the watchers. */
+	public long pubSentAtForTesting() {
+		return pubSentAt;
 	}
 
 	/** GameTests / previews: forces the location theme (0 village, 1 bastion, 2 end). */
@@ -895,13 +973,32 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 		syncViewers();
 	}
 
+	/** The player's open bets this spin (real-flow GameTests read the server's stakes). */
+	public List<Bet> betsOf(UUID player) {
+		return round.bets(player);
+	}
+
+	/** The round's phase id ({@code betting}, {@code no_more_bets}, {@code spin}, {@code result}). */
+	public String roundPhase() {
+		return round.phase().id();
+	}
+
 	/** Client side: the last sync received in the update tag (null before the first). */
 	public @Nullable RouletteSync clientSync() {
 		return clientSync;
 	}
 
-	/** Sends the update tag to watchers (one packet per phase change, never per tick). */
+	/** Every change the screens see is a candidate for the public board (sent throttled from the tick). */
+	@Override
+	public void syncViewers() {
+		super.syncViewers();
+		pubDirty = true;
+	}
+
+	/** Sends the update tag to watchers (phase changes, and the public bets throttled to ≤ 4 a second). */
 	private void publishSync() {
+		pubDirty = false;
+		pubSentAt = gameTime();
 		if (level instanceof ServerLevel sl) {
 			BlockState st = getBlockState();
 			sl.sendBlockUpdated(worldPosition, st, st, Block.UPDATE_CLIENTS);
@@ -911,8 +1008,62 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 	@Override
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag t = new CompoundTag();
+		writePublic(t); // the seat header for the board's plates (ui-v2.md §7.2)
 		t.putIntArray(SYNC_KEY, sync().encode());
+		RoulettePub pub = pub();
+		t.putLongArray(PUB_KEY, pub.encode());
+		ListTag names = new ListTag();
+		pub.names().forEach(n -> names.add(net.minecraft.nbt.StringTag.valueOf(n)));
+		t.put(PUB_NAMES_KEY, names);
 		return t;
+	}
+
+	/**
+	 * The public board (ui-v2.md §7.6): each bettor's chips on the table (the settled slip and its net during RESULT),
+	 * players in seat order then the atmosphere bots' virtual slips, and the stacks on the layout.
+	 */
+	public RoulettePub pub() {
+		boolean result = round.phase() == RouletteRound.Phase.RESULT;
+		List<RoulettePub.Slip> slips = new ArrayList<>();
+		for (TableSeats.Seat seat : seats().occupied()) {
+			UUID id = seat.player();
+			List<Bet> bets = result ? (outcomes.containsKey(id) ? lastSlips.getOrDefault(id, List.of()) : List.of()) : round.bets(id);
+			long[] out = result ? outcomes.get(id) : null;
+			slips.add(new RoulettePub.Slip(seat.name(), seat.index(), false, spotMap(bets), out != null, out != null ? out[1] - out[0] : 0));
+		}
+		Map<String, Integer> botSeat = new HashMap<>();
+		for (VirtualBot vb : bots.bots()) {
+			botSeat.put(vb.key, vb.seat());
+		}
+		for (Map.Entry<String, BotSlip> be : botSlips.entrySet()) {
+			BotSlip b = be.getValue();
+			if (b.bets.isEmpty()) {
+				continue;
+			}
+			long net = 0;
+			boolean settled = false;
+			if (result) {
+				for (BotResult r : botResults) {
+					if (r.bot() == b.bot) {
+						net = r.returned() - r.staked();
+						settled = true;
+					}
+				}
+			}
+			slips.add(new RoulettePub.Slip(BotNames.display(b.bot).getString(), botSeat.getOrDefault(be.getKey(), -1), true, spotMap(b.bets), settled, net));
+		}
+		return RoulettePub.build(slips, round.history());
+	}
+
+	private static Map<Spot, Long> spotMap(List<Bet> bets) {
+		Map<Spot, Long> m = new LinkedHashMap<>();
+		bets.forEach(b -> m.merge(b.spot(), b.amount(), Long::sum));
+		return m;
+	}
+
+	/** Client side: the last public board state received in the update tag. */
+	public RoulettePub clientPub() {
+		return clientPub;
 	}
 
 	@Override
@@ -950,6 +1101,14 @@ public class RouletteTableBlockEntity extends CasinoTableBlockEntity implements 
 				clientSync = RouletteSync.decode(a);
 			} catch (IllegalArgumentException e) {
 				clientSync = null; // another format: the wheel waits for the next phase change
+			}
+		});
+		input.read(PUB_KEY, Codec.LONG_STREAM).map(java.util.stream.LongStream::toArray).ifPresent(a -> {
+			List<String> names = input.read(PUB_NAMES_KEY, Codec.STRING.listOf()).orElse(List.of());
+			try {
+				clientPub = RoulettePub.decode(a, names);
+			} catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+				clientPub = RoulettePub.EMPTY;
 			}
 		});
 		bots.load(input);

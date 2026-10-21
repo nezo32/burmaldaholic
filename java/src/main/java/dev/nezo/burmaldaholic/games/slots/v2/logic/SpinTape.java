@@ -22,15 +22,29 @@ import java.util.List;
  * @param totalFifths spin total EXCLUDING progressive awards, capped (fifths of the bet); owned-casino fixed
  *                    jackpots are INSIDE it (and inside the cap)
  * @param capHit      the max-win cap ended the spin (SLOTS.md §1.3)
+ * @param gem         base-game jackpot gem (SLOTS.md §5.4): 0 none, 1 Mini, 2 Minor; its award is the LAST entry of
+ *                    {@code jackpots}
  */
 public record SpinTape(Machine machine, long bet, boolean bought, int[] stops, FreeSpins freeSpins, Hunt hunt, Hoard hoard,
-		Wheel wheel, List<JackpotAward> jackpots, long totalFifths, boolean capHit) {
+		Wheel wheel, List<JackpotAward> jackpots, long totalFifths, boolean capHit, int gem) {
 	/** Tape format version (SLOTS.md §8.1 {@code v:2}). */
 	public static final int VERSION = 2;
 
 	public SpinTape {
 		jackpots = jackpots == null ? List.of() : List.copyOf(jackpots);
 		stops = stops == null ? new int[0] : stops.clone();
+		if (gem < 0 || gem > 2) throw new IllegalArgumentException("gem tier 0..2");
+	}
+
+	/** A tape without a jackpot gem. */
+	public SpinTape(Machine machine, long bet, boolean bought, int[] stops, FreeSpins freeSpins, Hunt hunt, Hoard hoard, Wheel wheel,
+			List<JackpotAward> jackpots, long totalFifths, boolean capHit) {
+		this(machine, bet, bought, stops, freeSpins, hunt, hoard, wheel, jackpots, totalFifths, capHit, 0);
+	}
+
+	/** The jackpot gem's award (the last jackpot), or {@code null}. */
+	public JackpotAward gemAward() {
+		return gem > 0 && !jackpots.isEmpty() ? jackpots.getLast() : null;
 	}
 
 	@Override
@@ -70,7 +84,7 @@ public record SpinTape(Machine machine, long bet, boolean bought, int[] stops, F
 	public SpinTape withHuntOpened(int opened) {
 		if (hunt == null) return this;
 		return new SpinTape(machine, bet, bought, stops, freeSpins, new Hunt(hunt.entries(), Math.max(0, Math.min(opened, hunt.entries().length))), hoard,
-			wheel, jackpots, totalFifths, capHit);
+			wheel, jackpots, totalFifths, capHit, gem);
 	}
 
 	/** One free spin: its stops, the sticky mask AFTER it (End), whether it added spins, its pay (multiplier applied). */
@@ -217,7 +231,7 @@ public record SpinTape(Machine machine, long bet, boolean bought, int[] stops, F
 	public boolean equals(Object o) {
 		return o instanceof SpinTape t && t.machine == machine && t.bet == bet && t.bought == bought && Arrays.equals(t.stops, stops)
 			&& java.util.Objects.equals(t.freeSpins, freeSpins) && java.util.Objects.equals(t.hunt, hunt) && java.util.Objects.equals(t.hoard, hoard)
-			&& java.util.Objects.equals(t.wheel, wheel) && t.jackpots.equals(jackpots) && t.totalFifths == totalFifths && t.capHit == capHit;
+			&& java.util.Objects.equals(t.wheel, wheel) && t.jackpots.equals(jackpots) && t.totalFifths == totalFifths && t.capHit == capHit && t.gem == gem;
 	}
 
 	@Override

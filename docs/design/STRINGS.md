@@ -361,6 +361,39 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.fx.skip` | Click to skip | Нажмите, чтобы пропустить |
 | `gui.burmaldaholic.fx.nearby_float` | %1$s +%2$s | %1$s +%2$s |
 
+### In-world board (ui-v2.md §7; lane W — shared lines of the table boards and seat plates)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.core.board.title_limits` | %1$s · %2$s–%3$s | %1$s · %2$s–%3$s |
+| `gui.burmaldaholic.core.board.dealer` | Dealer %1$s | Дилер %1$s |
+| `gui.burmaldaholic.core.board.dealer_draws` | Dealer draws | Дилер берёт карту |
+| `gui.burmaldaholic.core.board.turn` | %1$s's turn | Ход: %1$s |
+| `gui.burmaldaholic.core.board.turn_seconds` | %1$s's turn · %2$s s | Ход: %1$s · %2$s с |
+| `gui.burmaldaholic.core.board.seconds` | %1$s s | %1$s с |
+| `gui.burmaldaholic.core.board.place_bets` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.core.board.no_more_bets` | No more bets | Ставок больше нет |
+| `gui.burmaldaholic.core.board.waiting` | Waiting for players | Ждём игроков |
+| `gui.burmaldaholic.core.board.result_line` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.core.board.bet_total` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.core.board.on_bets.p1` | %1$s on %2$s bet | %1$s на %2$s ставке |
+| `gui.burmaldaholic.core.board.on_bets.p21` | %1$s on %2$s bets | %1$s на %2$s ставке |
+| `gui.burmaldaholic.core.board.on_bets.p2` | %1$s on %2$s bets | %1$s на %2$s ставках |
+| `gui.burmaldaholic.core.board.on_bets.p5` | %1$s on %2$s bets | %1$s на %2$s ставках |
+| `gui.burmaldaholic.core.board.lost` | lost | проигрыш |
+| `gui.burmaldaholic.core.board.push` | push | ничья |
+| `gui.burmaldaholic.core.board.felt.bj_pays` | BLACKJACK PAYS %1$s TO %2$s | БЛЭКДЖЕК ПЛАТИТ %1$s К %2$s |
+| `gui.burmaldaholic.core.board.felt.bj_dealer` | DEALER MUST STAND ON 17 AND DRAW TO 16 | ДИЛЕР БЕРЁТ ДО 16 И СТОИТ НА 17 |
+| `gui.burmaldaholic.core.board.felt.bj_dealer_h17` | DEALER HITS SOFT 17 | ДИЛЕР БЕРЁТ НА МЯГКИХ 17 |
+| `gui.burmaldaholic.core.board.felt.insurance` | INSURANCE PAYS 2 TO 1 | СТРАХОВКА ПЛАТИТ 2 К 1 |
+| `gui.burmaldaholic.core.board.felt.player` | PLAYER | ИГРОК |
+| `gui.burmaldaholic.core.board.felt.banker` | BANKER | БАНКИР |
+| `gui.burmaldaholic.core.board.felt.tie` | TIE %1$s TO 1 | НИЧЬЯ %1$s К 1 |
+| `gui.burmaldaholic.core.board.felt.pair` | PAIR | ПАРА |
+| `gui.burmaldaholic.core.board.felt.uth_qualifies` | DEALER QUALIFIES WITH A PAIR OR BETTER | ДИЛЕР В ИГРЕ С ПАРОЙ И ВЫШЕ |
+| `gui.burmaldaholic.core.board.felt.pot` | POT | БАНК |
+| `gui.burmaldaholic.core.board.limits` | %1$s–%2$s | %1$s–%2$s |
+
 ### Messages
 
 | Key | EN | RU |
@@ -391,6 +424,19 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.core.round_played_out` | The server restarted mid-round. Your %1$s round was already decided, so it was played out: %2$s | Сервер перезапустился посреди раунда. Исход раунда «%1$s» уже был определён, поэтому он доигран: %2$s |
 | `msg.burmaldaholic.core.auto_completed` | You left mid-round. The dealer finished it for you: %1$s | Вы ушли посреди раунда. Дилер доиграл за вас: %1$s |
 | `msg.burmaldaholic.core.card_given` | You received a Casino Card | Вы получили клубную карту |
+
+### Multi-block tables and machines (MT, v0.2: 3×2 tables, upright machines, compact legacy blocks)
+
+| Key | EN | RU |
+|-----|----|----|
+| `msg.burmaldaholic.table.no_room.p1` | No room: %1$s cell of its footprint is blocked or has no floor | Не хватает места: %1$s клетка под него занята или без пола |
+| `msg.burmaldaholic.table.no_room.p21` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клетка под него занята или без пола |
+| `msg.burmaldaholic.table.no_room.p2` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клетки под него заняты или без пола |
+| `msg.burmaldaholic.table.no_room.p5` | No room: %1$s cells of its footprint are blocked or have no floor | Не хватает места: %1$s клеток под него заняты или без пола |
+| `msg.burmaldaholic.table.compact_hint` | Compact version — clear the space it needs (3×2 for a table, more for a tall machine), then sneak-use it with an empty hand to unfold it | Компактная версия — освободите место (3×2 для стола, больше для высокого автомата) и используйте крадучись пустой рукой, чтобы разложить |
+| `msg.burmaldaholic.table.unfolded` | Unfolded to full size | Разложено в полный размер |
+| `msg.burmaldaholic.table.unfold_busy` | Someone is standing where it unfolds — step aside and try again | Кто-то стоит там, где оно раскладывается — отойдите и попробуйте снова |
+| `sign.burmaldaholic.cashier` | CASHIER | КАССА |
 
 ### Casino Menu
 
@@ -456,26 +502,59 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 |-----|----|----|
 | `gui.burmaldaholic.cashier.title` | Cashier | Касса |
 | `gui.burmaldaholic.cashier.deposit_all` | Deposit all chips | Внести все фишки |
-| `gui.burmaldaholic.cashier.deposit_held` | Deposit held stack | Внести фишки из руки |
+| `gui.burmaldaholic.cashier.deposit_held` | Deposit held stack | Внести из руки |
 | `gui.burmaldaholic.cashier.withdraw` | Withdraw | Снять |
 | `gui.burmaldaholic.cashier.withdrawable` | Withdrawable: %1$s | Доступно к снятию: %1$s |
 | `gui.burmaldaholic.cashier.withdrawable_loan` | Withdrawable: %1$s (loan %2$s) | Доступно к снятию: %1$s (займ %2$s) |
-| `gui.burmaldaholic.cashier.denomination` | Denomination | Номинал |
-| `gui.burmaldaholic.cashier.denomination.auto` | Auto | Авто |
-| `gui.burmaldaholic.cashier.buy` | Buy %1$s for 1 emerald | Купить %1$s за 1 изумруд |
-| `gui.burmaldaholic.cashier.sell` | Sell %1$s for 1 emerald | Продать %1$s за 1 изумруд |
-| `gui.burmaldaholic.cashier.buy_gold` | Buy %1$s for 1 gold ingot | Купить %1$s за 1 золотой слиток |
-| `gui.burmaldaholic.cashier.sell_gold` | Sell %1$s for 1 gold ingot | Продать %1$s за 1 золотой слиток |
-| `gui.burmaldaholic.cashier.times` | ×%1$s | ×%1$s |
-| `gui.burmaldaholic.cashier.emeralds_slider` | Emeralds: %1$s | Изумруды: %1$s |
-| `gui.burmaldaholic.cashier.shop` | Shop | Лавка |
-| `gui.burmaldaholic.cashier.shop.buy_item` | Buy %1$s — %2$s | Купить «%1$s» — %2$s |
 | `gui.burmaldaholic.cashier.withdraw_blocked` | Withdrawals are frozen while your loan is overdue | Пока займ просрочен, снятие заморожено |
 | `gui.burmaldaholic.cashier.counting` | Counting… | Считаем… |
 | `gui.burmaldaholic.cashier.deposited` | Deposited %1$s | Внесено: %1$s |
 | `gui.burmaldaholic.cashier.withdrawn` | Withdrawn %1$s | Выдано: %1$s |
-| `gui.burmaldaholic.cashier.dropped` | (%1$s dropped at your feet) | (%1$s — у ваших ног) |
-| `gui.burmaldaholic.cashier.exchanged` | Exchanged: %1$s | Обмен: %1$s |
+
+### Counter: exchange, chip store, merchant (EC-1, v0.2.0; EC-SPEC §1–3)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.cashier.tab.exchange` | Exchange | Обмен |
+| `gui.burmaldaholic.cashier.tab.store` | Store | Магазин |
+| `gui.burmaldaholic.cashier.tab.comps` | Comps | Бонусы |
+| `gui.burmaldaholic.cashier.store_title` | Casino store | Магазин казино |
+| `gui.burmaldaholic.cashier.readout` | Balance %1$s · Withdrawable %2$s | Баланс %1$s · К снятию %2$s |
+| `gui.burmaldaholic.cashier.readout_balance` | Balance %1$s | Баланс %1$s |
+| `gui.burmaldaholic.cashier.withdraw_amount` | To withdraw: %1$s | К снятию: %1$s |
+| `gui.burmaldaholic.cashier.clear` | Clear | Сброс |
+| `gui.burmaldaholic.cashier.exchange.have` | You have %1$s | У вас %1$s |
+| `gui.burmaldaholic.cashier.exchange.in` | →%1$s | →%1$s |
+| `gui.burmaldaholic.cashier.exchange.out` | ←%1$s | ←%1$s |
+| `gui.burmaldaholic.cashier.exchange.all` | All | Все |
+| `gui.burmaldaholic.cashier.exchange.max` | Max | Макс |
+| `gui.burmaldaholic.cashier.exchange.empty` | Nothing to exchange at this cashier | Здесь нечего обменять |
+| `gui.burmaldaholic.cashier.exchange.none` | You have no %1$s | У вас нет: %1$s |
+| `gui.burmaldaholic.cashier.qty.x1` | ×1 | ×1 |
+| `gui.burmaldaholic.cashier.qty.x16` | ×16 | ×16 |
+| `gui.burmaldaholic.cashier.qty.x64` | ×64 | ×64 |
+| `gui.burmaldaholic.cashier.store.category.all` | All | Всё |
+| `gui.burmaldaholic.cashier.store.category.food` | Food | Еда |
+| `gui.burmaldaholic.cashier.store.category.potions` | Potions | Зелья |
+| `gui.burmaldaholic.cashier.store.category.books` | Books | Книги |
+| `gui.burmaldaholic.cashier.store.category.tools` | Tools | Снаряжение |
+| `gui.burmaldaholic.cashier.store.category.decor` | Decor | Декор |
+| `gui.burmaldaholic.cashier.store.category.rare` | Rare | Редкое |
+| `gui.burmaldaholic.cashier.store.category.games` | Games | Игры |
+| `gui.burmaldaholic.cashier.store.search` | Search… | Поиск… |
+| `gui.burmaldaholic.cashier.store.empty` | Nothing here | Здесь пусто |
+| `gui.burmaldaholic.cashier.store.price` | %1$s each | %1$s за штуку |
+| `gui.burmaldaholic.cashier.store.total` | Total: %1$s | Итого: %1$s |
+| `gui.burmaldaholic.cashier.store.buy` | Buy | Купить |
+| `gui.burmaldaholic.cashier.store.confirm` | Confirm %1$s? | Точно %1$s? |
+| `gui.burmaldaholic.cashier.store.limit_day` | %1$s of %2$s left today | Сегодня ещё %1$s из %2$s |
+| `gui.burmaldaholic.cashier.store.limit_days` | Once every %1$s days | Раз в %1$s дн. |
+| `gui.burmaldaholic.cashier.store.limit_reached` | Daily limit reached | Лимит на сегодня исчерпан |
+| `gui.burmaldaholic.cashier.store.away` | You are too far from the counter | Вы слишком далеко от прилавка |
+| `msg.burmaldaholic.core.exchange.in` | Handed in %1$s × %2$s for %3$s | Сдано %1$s × %2$s за %3$s |
+| `msg.burmaldaholic.core.exchange.out` | Bought %1$s × %2$s for %3$s | Куплено %1$s × %2$s за %3$s |
+| `msg.burmaldaholic.core.exchange.partial` | Only %1$s of %2$s fit; the rest stayed with you | Поместилось только %1$s из %2$s; остальное осталось у вас |
+| `msg.burmaldaholic.core.store.bought` | Bought %1$s × %2$s for %3$s | Куплено %1$s × %2$s за %3$s |
 
 ### Contracts
 
@@ -574,6 +653,95 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `gui.burmaldaholic.menu.wallet.biggest_value` | %1$s (%2$s) | %1$s (%2$s) |
 | `gui.burmaldaholic.menu.wallet.biggest_none` | None yet | Пока нет |
 
+### Table UI v2 kit (`docs/architecture/ui-v2.md` §10; lane K)
+
+Shared by every v2 table screen: the Dock, the bet flow reasons (every disabled button says why), stamps and the
+result banner. Keys under `gui.burmaldaholic.core.v2.*` (constants in `core.ui.v2.V2Keys`). Key names on the key-hint
+plates are vanilla's (`key.keyboard.*`). `num` = a plain formatted number.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.core.v2.bet` | Bet | Ставка |
+| `gui.burmaldaholic.core.v2.on_table` | On table | На столе |
+| `gui.burmaldaholic.core.v2.spots.p1` | %1$s spot | %1$s поле |
+| `gui.burmaldaholic.core.v2.spots.p21` | %1$s spots | %1$s поле |
+| `gui.burmaldaholic.core.v2.spots.p2` | %1$s spots | %1$s поля |
+| `gui.burmaldaholic.core.v2.spots.p5` | %1$s spots | %1$s полей |
+| `gui.burmaldaholic.core.v2.limits` | %1$s – %2$s | %1$s – %2$s |
+| `gui.burmaldaholic.core.v2.seats` | %1$s/%2$s | %1$s/%2$s |
+| `gui.burmaldaholic.core.v2.net.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.core.v2.net.minus` | −%1$s | −%1$s |
+| `gui.burmaldaholic.core.v2.chip` | Chip %1$s | Фишка %1$s |
+| `gui.burmaldaholic.core.v2.sit` | Sit | Сесть |
+| `gui.burmaldaholic.core.v2.tool.undo` | Undo | Отменить |
+| `gui.burmaldaholic.core.v2.tool.clear` | Clear bets | Убрать ставки |
+| `gui.burmaldaholic.core.v2.tool.rebet` | Rebet | Повторить |
+| `gui.burmaldaholic.core.v2.tool.double` | Double the bet | Удвоить ставку |
+| `gui.burmaldaholic.core.v2.top.rules` | Rules | Правила |
+| `gui.burmaldaholic.core.v2.top.settings` | Settings | Настройки |
+| `gui.burmaldaholic.core.v2.top.leave` | Leave the table | Выйти из-за стола |
+| `gui.burmaldaholic.core.v2.primary.sit` | Sit down | Сесть |
+| `gui.burmaldaholic.core.v2.primary.deal` | Deal | Раздать |
+| `gui.burmaldaholic.core.v2.primary.rebet` | Rebet %1$s | Повтор %1$s |
+| `gui.burmaldaholic.core.v2.primary.leave` | Leave | Уйти |
+| `gui.burmaldaholic.core.v2.primary.wait` | Wait | Ждите |
+| `gui.burmaldaholic.core.v2.reason.place_bet` | Place a bet first | Сначала сделайте ставку |
+| `gui.burmaldaholic.core.v2.reason.sit_to_bet` | Sit down to bet | Сядьте, чтобы ставить |
+| `gui.burmaldaholic.core.v2.reason.below_min` | The minimum bet is %1$s | Минимальная ставка — %1$s |
+| `gui.burmaldaholic.core.v2.reason.above_max` | The maximum bet is %1$s | Максимальная ставка — %1$s |
+| `gui.burmaldaholic.core.v2.reason.not_enough` | Not enough chips | Не хватает фишек |
+| `gui.burmaldaholic.core.v2.reason.not_enough_min` | Not enough chips for the minimum %1$s | Не хватает фишек на минимум %1$s |
+| `gui.burmaldaholic.core.v2.reason.table_full` | Table full | Мест нет |
+| `gui.burmaldaholic.core.v2.reason.bets_closed` | No more bets | Ставки закрыты |
+| `gui.burmaldaholic.core.v2.reason.bets_open_in` | Bets open in %1$s s | Ставки: %1$s с |
+| `gui.burmaldaholic.core.v2.reason.round_in_progress` | Round in progress | Идёт раунд |
+| `gui.burmaldaholic.core.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
+| `gui.burmaldaholic.core.v2.reason.no_answer` | The table did not answer — try again | Стол не ответил — попробуйте ещё раз |
+| `gui.burmaldaholic.core.v2.reason.moved` | The buttons moved — click again | Кнопки сдвинулись — ещё раз |
+| `gui.burmaldaholic.core.v2.reason.spinning` | Spinning… | Вращение… |
+| `gui.burmaldaholic.core.v2.reason.rolling` | Rolling… | Бросок… |
+| `gui.burmaldaholic.core.v2.reason.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.core.v2.reason.nothing_to_undo` | Nothing to undo | Нечего отменять |
+| `gui.burmaldaholic.core.v2.reason.nothing_to_clear` | No bets to clear | Нет ставок |
+| `gui.burmaldaholic.core.v2.reason.no_rebet` | No previous bet | Нет прошлой ставки |
+| `gui.burmaldaholic.core.v2.reason.cannot_double` | You can't double now | Удвоить сейчас нельзя |
+| `gui.burmaldaholic.core.v2.status.pick_seat` | Pick a seat or press Space | Выберите место (Пробел) |
+| `gui.burmaldaholic.core.v2.status.click_layout` | Click the layout to bet | Кликните поле |
+| `gui.burmaldaholic.core.v2.status.chips_add` | Chips add to your bet | Фишки → ставка |
+| `gui.burmaldaholic.core.v2.status.next_round_in` | Next round in %1$s s | Новый раунд через %1$s с |
+| `gui.burmaldaholic.core.v2.status.pending` | Sending… | Отправка… |
+| `gui.burmaldaholic.core.v2.stamp.win` | WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.core.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
+| `gui.burmaldaholic.core.v2.stamp.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.core.v2.stamp.bust` | BUST | ПЕРЕБОР |
+| `gui.burmaldaholic.core.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
+| `gui.burmaldaholic.core.v2.stamp.natural` | NATURAL | НАТУРАЛЬНАЯ |
+| `gui.burmaldaholic.core.v2.stamp.surrender` | SURRENDER | СДАЧА |
+| `gui.burmaldaholic.core.v2.banner.you_win` | YOU WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.core.v2.banner.you_lost` | LOST | ПРОИГРЫШ |
+| `gui.burmaldaholic.core.v2.banner.push` | PUSH | НИЧЬЯ |
+
+### High-roller chips, bet caps and bet entry (lane HR; owner playtest E4 / B5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `item.burmaldaholic.chip_1000` | Yellow Chip | Жёлтая фишка |
+| `item.burmaldaholic.chip_5000` | Orange Chip | Оранжевая фишка |
+| `item.burmaldaholic.chip_25000` | Turquoise Chip | Бирюзовая фишка |
+| `gui.burmaldaholic.core.v2.reason.cap.vip` | %2$s VIP max: %1$s (%3$s: %4$s) | Макс. VIP «%2$s»: %1$s («%3$s»: %4$s) |
+| `gui.burmaldaholic.core.v2.reason.cap.vip_top` | %2$s VIP max: %1$s | Макс. VIP «%2$s»: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.table` | Table max: %1$s | Макс. стола: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.owner` | Owner's table max: %1$s | Макс. владельца стола: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.owner_min` | Owner's table min: %1$s | Мин. владельца стола: %1$s |
+| `gui.burmaldaholic.core.v2.reason.cap.balance` | Balance: only %1$s | На балансе только %1$s |
+| `gui.burmaldaholic.core.v2.entry.open` | Type amount | Ввести сумму |
+| `gui.burmaldaholic.core.v2.entry.hint` | Type an amount, Enter to set | Введите сумму, Enter — готово |
+| `gui.burmaldaholic.core.v2.entry.ok` | OK | ОК |
+| `gui.burmaldaholic.core.v2.entry.half` | ½ | ½ |
+| `gui.burmaldaholic.core.v2.entry.double` | ×2 | ×2 |
+| `gui.burmaldaholic.core.v2.entry.unit` | Each click places %1$s | Клик ставит %1$s |
+| `gui.burmaldaholic.core.v2.entry.cost` | Total stake: %1$s | Всего на столе: %1$s |
+
 ---
 
 ## streak
@@ -628,6 +796,8 @@ Casino mode lives in world saved data (no game rule); the create-world toggle us
 | `msg.burmaldaholic.vip.netherite_broadcast` | %1$s has reached Netherite VIP. Someone roll out the red carpet. | Незеритовый ВИП-статус у игрока %1$s. Несите красную дорожку. |
 | `msg.burmaldaholic.vip.cashback` | VIP cashback for yesterday: +%1$s | ВИП-кешбэк за вчера: +%1$s |
 | `msg.burmaldaholic.vip.chat_title` | [%1$s] | [%1$s] |
+| `msg.burmaldaholic.vip.admin_set` | %1$s: VIP tier set to %2$s (lifetime wagered %3$s) | %1$s: ВИП-статус теперь %2$s (поставлено за всё время: %3$s) |
+| `msg.burmaldaholic.vip.admin_unknown_tier` | Unknown VIP tier "%1$s". Use: %2$s | Неизвестный ВИП-статус «%1$s». Доступно: %2$s |
 | `item.burmaldaholic.vip_diamond_casino_card` | Diamond Casino Card | Алмазная клубная карта |
 | `key.category.burmaldaholic.vip` | Burmaldaholic | Burmaldaholic |
 | `hud.burmaldaholic.vip.next` | Next: %1$s %2$s%% | Далее: %1$s — %2$s %% |
@@ -768,6 +938,59 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | `gui.burmaldaholic.cards.level.easy.tooltip` | Easy bot (1 pip) | Лёгкий бот (1 точка) |
 | `gui.burmaldaholic.cards.level.normal.tooltip` | Normal bot (2 pips) | Обычный бот (2 точки) |
 | `gui.burmaldaholic.cards.level.hard.tooltip` | Hard bot (3 pips) | Сильный бот (3 точки) |
+
+### Table UI v2 (lane A, `docs/architecture/ui-v2.md`; screen, stamps, in-world board)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.blackjack.v2.insurance` | Insurance | Страховка |
+| `gui.burmaldaholic.blackjack.v2.your_bet` | Your bet | Ваша ставка |
+| `gui.burmaldaholic.blackjack.v2.note.dealer` | Dealer | Дилер |
+| `gui.burmaldaholic.blackjack.v2.note.s17` | stands on 17 | стоит на 17 |
+| `gui.burmaldaholic.blackjack.v2.note.h17` | hits soft 17 | берёт на мягких 17 |
+| `gui.burmaldaholic.blackjack.v2.reason.deal_in` | Deal in %1$s s | Раздача через %1$s с |
+| `gui.burmaldaholic.blackjack.v2.reason.others_betting` | Waiting for the other bets | Ждём остальные ставки |
+| `gui.burmaldaholic.blackjack.v2.reason.not_now` | Not possible now | Сейчас нельзя |
+| `gui.burmaldaholic.blackjack.v2.reason.cannot_double` | Double on the first two cards only | Удвоение — только на 2 картах |
+| `gui.burmaldaholic.blackjack.v2.reason.cannot_split` | Split needs a pair | Разделить можно только пару |
+| `gui.burmaldaholic.blackjack.v2.reason.no_last_bet` | No last bet yet | Прошлой ставки пока нет |
+| `gui.burmaldaholic.blackjack.v2.reason.already_rebet` | That is your last bet already | Это уже прошлая ставка |
+| `gui.burmaldaholic.blackjack.v2.reason.bet_placed` | Your bet of %1$s is in | Ставка %1$s принята |
+| `gui.burmaldaholic.blackjack.v2.status.rules` | Blackjack pays 3 to 2 | Блэкджек платит 3 к 2 |
+| `gui.burmaldaholic.blackjack.v2.status.bet_placed` | Your bet: %1$s | Ваша ставка: %1$s |
+| `gui.burmaldaholic.blackjack.v2.status.insurance` | Dealer shows an ace — insure for %1$s? | У дилера туз — страховка на %1$s? |
+| `gui.burmaldaholic.blackjack.v2.status.even_money` | Blackjack vs an ace — take 1:1 now? | Туз у дилера — взять 1:1? |
+| `gui.burmaldaholic.blackjack.v2.status.insurance_others` | Insurance is offered | Предлагается страховка |
+| `gui.burmaldaholic.blackjack.v2.status.your_turn` | Your turn | Ваш ход |
+| `gui.burmaldaholic.blackjack.v2.status.hand` | Bet %1$s · hand %2$s of %3$s | Ставка %1$s · рука %2$s из %3$s |
+| `gui.burmaldaholic.blackjack.v2.status.seconds_left` | %1$s s left | Осталось %1$s с |
+| `gui.burmaldaholic.blackjack.v2.status.deal_in` | Deal in %1$s s | Раздача через %1$s с |
+| `gui.burmaldaholic.blackjack.v2.status.dealer_plays` | The dealer plays | Ход дилера |
+| `gui.burmaldaholic.blackjack.v2.status.shuffling` | Shuffling a new shoe | Тасуем новый шуз |
+| `gui.burmaldaholic.blackjack.v2.total_soft` | %1$s/%2$s | %1$s/%2$s |
+| `gui.burmaldaholic.blackjack.v2.stamp.blackjack` | BLACKJACK | БЛЭКДЖЕК |
+| `gui.burmaldaholic.blackjack.v2.stamp.bj` | BJ | БД |
+| `gui.burmaldaholic.blackjack.v2.stamp.win` | WIN | ПОБЕДА |
+| `gui.burmaldaholic.blackjack.v2.stamp.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.blackjack.v2.stamp.bust` | BUST | ПЕРЕБОР |
+| `gui.burmaldaholic.blackjack.v2.stamp.lose` | LOSE | ПРОИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.stamp.surrender` | SURRENDER | СДАЧА |
+| `gui.burmaldaholic.blackjack.v2.stamp.even_money` | 1:1 | 1:1 |
+| `gui.burmaldaholic.blackjack.v2.banner.win` | YOU WIN | ВЫИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.banner.lose` | YOU LOSE | ПРОИГРЫШ |
+| `gui.burmaldaholic.blackjack.v2.banner.push` | PUSH | НИЧЬЯ |
+| `gui.burmaldaholic.blackjack.v2.board.dealer` | Dealer %1$s | Дилер %1$s |
+| `gui.burmaldaholic.blackjack.v2.board.turn` | %1$s · %2$s s | %1$s · %2$s с |
+| `gui.burmaldaholic.blackjack.v2.board.betting` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.blackjack.v2.board.betting_in` | Bets close in %1$s s | Ставки до конца: %1$s с |
+| `gui.burmaldaholic.blackjack.v2.board.dealer_draws` | The dealer draws | Дилер берёт карту |
+| `gui.burmaldaholic.blackjack.v2.board.result` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.blackjack.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.blackjack.v2.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.blackjack.v2.minus` | −%1$s | −%1$s |
+| `gui.burmaldaholic.blackjack.v2.stamp.with_net` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.blackjack.v2.open` | Open | Свободно |
+| `gui.burmaldaholic.blackjack.v2.insurance_pill` | Ins. %1$s | Страх. %1$s |
 
 ---
 
@@ -956,6 +1179,47 @@ deck on the texture; the `rank.*` letters are used only for text-only rendering 
 | Key | EN | RU |
 |-----|----|----|
 | `gui.burmaldaholic.poker.next_hand_in` | Next hand in %1$s s | Следующая раздача через %1$s с |
+
+### Table UI v2 (lane B; `docs/architecture/ui-v2.md`, REDESIGN.md §7.3)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.poker.v2.primary.wait` | Waiting | Ожидание |
+| `gui.burmaldaholic.poker.v2.primary.buy_in` | Buy in | Бай-ин |
+| `gui.burmaldaholic.poker.v2.primary.buy_in_amount` | Buy in %1$s | Бай-ин %1$s |
+| `gui.burmaldaholic.poker.v2.primary.top_up` | Top up %1$s | Докупить %1$s |
+| `gui.burmaldaholic.poker.v2.bet_to` | Bet %1$s | Бет %1$s |
+| `gui.burmaldaholic.poker.v2.stepper` | −   %1$s   + | −   %1$s   + |
+| `gui.burmaldaholic.poker.v2.leave_queue` | Cancel | Отмена |
+| `gui.burmaldaholic.poker.v2.step_minus` | Less | Меньше |
+| `gui.burmaldaholic.poker.v2.step_plus` | More | Больше |
+| `gui.burmaldaholic.poker.v2.reason.stepper_min` | Already the minimum, %1$s | Уже минимум: %1$s |
+| `gui.burmaldaholic.poker.v2.reason.stepper_max` | Already the maximum, %1$s | Уже максимум: %1$s |
+| `gui.burmaldaholic.poker.v2.stakes_short.micro` | Micro | Микро |
+| `gui.burmaldaholic.poker.v2.stakes_short.low` | Low | Низкие |
+| `gui.burmaldaholic.poker.v2.stakes_short.mid` | Mid | Средние |
+| `gui.burmaldaholic.poker.v2.stakes_short.high` | High | Высокие |
+| `gui.burmaldaholic.poker.v2.reason.stale_action` | The table moved on, look again | Стол уже изменился |
+| `gui.burmaldaholic.poker.v2.reason.moved` | The buttons moved, click again | Кнопки сдвинулись, ещё раз |
+| `gui.burmaldaholic.poker.v2.reason.pick_stakes` | Pick the stakes to sit down | Выберите лимит, чтобы сесть |
+| `gui.burmaldaholic.poker.v2.reason.vip_stakes` | These stakes need a higher VIP tier | Для этого лимита нужен ВИП-статус выше |
+| `gui.burmaldaholic.poker.v2.reason.buy_in_min` | Not enough chips for the minimum buy-in %1$s | Мало фишек: бай-ин от %1$s |
+| `gui.burmaldaholic.poker.v2.reason.no_top_up` | Top up only between hands | Докупка — между раздачами |
+| `gui.burmaldaholic.poker.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
+| `gui.burmaldaholic.poker.v2.status.to_call` | Your move – to call %1$s | Ваш ход – колл %1$s |
+| `gui.burmaldaholic.poker.v2.status.auto_fold` | Auto-fold in %1$s s | Автопас через %1$s с |
+| `gui.burmaldaholic.poker.v2.status.auto_check` | Auto-check in %1$s s | Авточек через %1$s с |
+| `gui.burmaldaholic.poker.v2.status.stepper` | Scroll or ±: amount · click: ½ pot, pot | Колесо или ±: сумма · клик: ½ банка |
+| `gui.burmaldaholic.poker.v2.status.buy_in` | Buy-in %1$s – %2$s · blinds %3$s/%4$s | Бай-ин %1$s – %2$s · блайнды %3$s/%4$s |
+| `gui.burmaldaholic.poker.v2.status.watching` | Watching · pick stakes to play | Вы зритель · выберите лимит |
+| `gui.burmaldaholic.poker.v2.status.top_up` | Top up to %1$s at most | Докупка — не больше %1$s |
+| `gui.burmaldaholic.poker.v2.status.seated` | Stack %1$s · you play the next hand | Стек %1$s · вы играете следующую раздачу |
+| `gui.burmaldaholic.poker.v2.pot` | Pot | Банк |
+| `gui.burmaldaholic.poker.v2.board.pot_street` | Pot %1$s · %2$s | Банк %1$s · %2$s |
+| `gui.burmaldaholic.poker.v2.board.acting` | %1$s to act | Ход: %1$s |
+| `gui.burmaldaholic.poker.v2.board.winner` | %1$s +%2$s | %1$s +%2$s |
+| `gui.burmaldaholic.poker.v2.board.waiting` | Waiting for players | Ждём игроков |
+| `gui.burmaldaholic.poker.v2.board.next_hand` | Next hand soon | Скоро новая раздача |
 
 ---
 
@@ -1218,6 +1482,34 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.slots.max_win` | MAX WIN! | МАКСИМАЛЬНЫЙ ВЫИГРЫШ! |
 | `gui.burmaldaholic.slots.jackpot.won` | %1$s JACKPOT! | ДЖЕКПОТ %1$s! |
 
+### Slots R3 (SLT, owner playtest E1: jackpot ladder, jackpot gem, coin × multiplier; `SLOTS.md` §5.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.slots.bet_coin` | Coin %1$s × %2$s | Жетон %1$s × %2$s |
+| `gui.burmaldaholic.slots.jackpots.title` | Jackpot ladder | Лестница джекпотов |
+| `gui.burmaldaholic.slots.jackpots.share` | Amounts are for a bet of %1$s or more; a smaller bet wins its share (bet ÷ %1$s). | Суммы указаны для ставки от %1$s; меньшая ставка получает свою долю (ставка ÷ %1$s). |
+| `gui.burmaldaholic.slots.jackpots.row` | %1$s %2$s: %3$s | %1$s %2$s: %3$s |
+| `gui.burmaldaholic.slots.jackpots.gem` | or a jackpot gem on any paid spin, 1 in %1$s | или камень джекпота в любом платном спине, 1 из %1$s |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.mini` | a Mini gem in a Treasure Hunt chest | камень «Мини» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.minor` | a Minor gem in a Treasure Hunt chest | камень «Минор» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.major` | a Major gem in a Treasure Hunt chest | камень «Мажор» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.overworld.grand` | a Grand gem in a Treasure Hunt chest | камень «Гранд» в сундуке охоты за сокровищами |
+| `gui.burmaldaholic.slots.jackpots.src.nether.mini` | a MINI coin in Piglin's Hoard | монета «Мини» в кладе пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.nether.minor` | a MINOR coin in Piglin's Hoard | монета «Минор» в кладе пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.nether.major` | a MAJOR coin in Piglin's Hoard | монета «Мажор» в кладе пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.nether.grand` | fill all 15 cells in Piglin's Hoard | все 15 ячеек клада пиглинов |
+| `gui.burmaldaholic.slots.jackpots.src.end.mini` | MINI on the Dragon Wheel's outer ring | «Мини» на внешнем кольце колеса дракона |
+| `gui.burmaldaholic.slots.jackpots.src.end.minor` | MINOR on the Dragon Wheel's middle ring | «Минор» на среднем кольце колеса дракона |
+| `gui.burmaldaholic.slots.jackpots.src.end.major` | MAJOR in the Dragon Core | «Мажор» в сердце дракона |
+| `gui.burmaldaholic.slots.jackpots.src.end.grand` | GRAND in the Dragon Core | «Гранд» в сердце дракона |
+| `gui.burmaldaholic.slots.fx.jackpot_gem` | JACKPOT GEM! | КАМЕНЬ ДЖЕКПОТА! |
+| `gui.burmaldaholic.slots.turbo_on` | Turbo: on | Турбо: вкл |
+| `config.burmaldaholic.slots.coinValue` | %1$s: coin value (0 = automatic) | %1$s: стоимость жетона (0 = автоматически) |
+| `config.burmaldaholic.slots.jackpot.gem` | %1$s: jackpot gem chance per spin | %1$s: шанс камня джекпота за спин |
+| `gui.burmaldaholic.slots.stop_autoplay` | Stop Auto | Стоп авто |
+| `gui.burmaldaholic.slots.more` | More | Ещё |
+
 ## roulette
 
 | Key | EN | RU |
@@ -1302,6 +1594,54 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.roulette.button.undo` | Undo last chip | Отменить фишку |
 | `gui.burmaldaholic.roulette.button.double` | Double all bets | Удвоить ставки |
 | `gui.burmaldaholic.roulette.fx.straight_up_win` | Straight up! +%1$s | Прямое попадание! +%1$s |
+
+### Table UI v2 (lane C, `docs/architecture/ui-v2.md` §7.6; `REDESIGN.md` §7.5)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.roulette.v2.bet` | Bet | Ставка |
+| `gui.burmaldaholic.roulette.v2.last_numbers` | Last numbers | Последние числа |
+| `gui.burmaldaholic.roulette.v2.primary.spinning` | Spinning | Крутится |
+| `gui.burmaldaholic.roulette.v2.reason.waiting_ready` | Ready: %1$s of %2$s — waiting for the others | Готовы %1$s из %2$s — ждём других |
+| `gui.burmaldaholic.roulette.v2.reason.ready_locked` | You are ready — wait for the spin | Вы готовы — ждём спина |
+| `gui.burmaldaholic.roulette.v2.reason.no_last_bets` | No bets from the last spin | Нет ставок с прошлого спина |
+| `gui.burmaldaholic.roulette.v2.reason.rebet_queued` | Repeat goes on when bets open | Повтор — с началом ставок |
+| `gui.burmaldaholic.roulette.v2.status.add_or_spin` | Add chips or spin | Ещё фишки или спин |
+| `gui.burmaldaholic.roulette.v2.status.spin_in` | Spin in %1$s s | Спин через %1$s с |
+| `gui.burmaldaholic.roulette.v2.status.ball_spinning` | The ball is spinning… | Шарик катится… |
+| `gui.burmaldaholic.roulette.v2.status.result_shown` | Paying out · bets open next | Выплата · затем ставки |
+| `msg.burmaldaholic.roulette.closed_refund` | The casino closed this table. Your bets of %1$s were returned. | Казино закрыло стол. Ваши ставки (%1$s) возвращены. |
+| `gui.burmaldaholic.roulette.v2.hover` | %1$s · %2$s · pays %3$s : 1 | %1$s · %2$s · выплата %3$s : 1 |
+| `gui.burmaldaholic.roulette.v2.hover_empty` | %1$s · pays %2$s : 1 | %1$s · выплата %2$s : 1 |
+| `gui.burmaldaholic.roulette.v2.call_hover` | %1$s · %2$s per chip · %3$s in all | %1$s · %2$s за фишку · всего %3$s |
+| `gui.burmaldaholic.roulette.v2.your_bets` | Your bets | Ваши ставки |
+| `gui.burmaldaholic.roulette.v2.result` | %1$s %2$s | %1$s, %2$s |
+| `gui.burmaldaholic.roulette.v2.won` | You win %1$s | Выигрыш %1$s |
+| `gui.burmaldaholic.roulette.v2.lost` | Lost %1$s | Проигрыш %1$s |
+| `gui.burmaldaholic.roulette.v2.returned` | Returned %1$s | Возврат %1$s |
+| `gui.burmaldaholic.roulette.v2.racetrack_hint` | Click a number for neighbours, a section for a call bet | Число — ставка на соседей, сектор — ставка по анонсу |
+| `gui.burmaldaholic.roulette.v2.board.title` | ROULETTE | РУЛЕТКА |
+| `gui.burmaldaholic.roulette.v2.board.title_high_roller` | HIGH ROLLER ROULETTE | РУЛЕТКА ХАЙРОЛЛЕРОВ |
+| `gui.burmaldaholic.roulette.v2.board.place_bets` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.roulette.v2.board.result` | %1$s %2$s | %1$s %2$s |
+| `gui.burmaldaholic.roulette.v2.board.top_win` | %1$s +%2$s | %1$s +%2$s |
+| `gui.burmaldaholic.roulette.v2.board.on_table` | %1$s on the table | %1$s на столе |
+| `gui.burmaldaholic.roulette.v2.board.net_win` | %1$s · +%2$s | %1$s · +%2$s |
+| `gui.burmaldaholic.roulette.v2.board.net_lost` | %1$s · lost | %1$s · проигрыш |
+| `gui.burmaldaholic.roulette.v2.board.net_even` | %1$s · even | %1$s · при своих |
+| `gui.burmaldaholic.roulette.v2.board.color.red` | RED | КРАСНОЕ |
+| `gui.burmaldaholic.roulette.v2.board.color.black` | BLACK | ЧЁРНОЕ |
+| `gui.burmaldaholic.roulette.v2.board.color.green` | ZERO | ЗЕРО |
+
+### Motion sounds (RO, `ROULETTE-ANIM-SPEC.md` §6)
+
+| Key | EN | RU |
+|-----|----|----|
+| `subtitles.burmaldaholic.roulette_rotor_push` | Croupier spins the wheel | Крупье раскручивает колесо |
+| `subtitles.burmaldaholic.roulette_roll` | Ball whirs round the wheel | Шарик кружит по колесу |
+| `subtitles.burmaldaholic.roulette_deflector` | Ball strikes a diamond | Шарик бьётся о ромб |
+| `subtitles.burmaldaholic.roulette_floor` | Ball knocks in a pocket | Шарик стучит в лунке |
+| `subtitles.burmaldaholic.roulette_rake` | Croupier rakes the chips | Крупье сгребает фишки |
 
 ---
 
@@ -1392,6 +1732,55 @@ Rows follow `SLOTS.md` §13 (slots v2). Argument notes: `machine` = nested `gui.
 | `gui.burmaldaholic.craps.button.undo` | Take back the last chip | Вернуть последнюю фишку |
 | `gui.burmaldaholic.craps.button.clear` | Take back all new bets | Вернуть все новые ставки |
 | `gui.burmaldaholic.craps.nothing_to_undo` | Nothing to take back: bets a roll has seen stay on the table | Нечего вернуть: ставки, сыгравшие в броске, остаются на столе |
+
+### Table UI v2 (lane D, `docs/architecture/ui-v2.md` §10; `REDESIGN.md` §7.6)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.craps.v2.primary.roll` | Roll | Бросок |
+| `gui.burmaldaholic.craps.v2.caption.point` | point | поинт |
+| `gui.burmaldaholic.craps.v2.caption.odds` | odds | одды |
+| `gui.burmaldaholic.craps.v2.field_mult` | x%1$s | x%1$s |
+| `gui.burmaldaholic.craps.v2.reason.disabled` | Craps is switched off on this server | Крэпс отключён на этом сервере |
+| `gui.burmaldaholic.craps.v2.reason.not_enough` | Not enough chips: %1$s needed | Не хватает фишек: нужно %1$s |
+| `gui.burmaldaholic.craps.v2.reason.need_line` | Bet Pass or Don't Pass to roll | Для броска нужна ставка на пасс |
+| `gui.burmaldaholic.craps.v2.reason.wait_roll` | Bets are open: roll in %1$s s | Идёт приём ставок: бросок через %1$s с |
+| `gui.burmaldaholic.craps.v2.reason.wait_settling` | The bets are being paid | Выплата ставок |
+| `gui.burmaldaholic.craps.v2.reason.no_shooter` | Bet the Pass Line to get the dice | Поставьте на пасс, чтобы бросать |
+| `gui.burmaldaholic.craps.v2.reason.waiting_for` | Waiting for %1$s to roll | Ждём броска: %1$s |
+| `gui.burmaldaholic.craps.v2.reason.no_tool` | Not at the craps table | Не для крэпса |
+| `gui.burmaldaholic.craps.v2.reason.all_down` | All your bets are down | Все ваши ставки сделаны |
+| `gui.burmaldaholic.craps.v2.reason.point_box` | Come bets travel here | Сюда переходят ставки кам |
+| `gui.burmaldaholic.craps.v2.reason.point_box_come_out` | Come bets move here on a point | Кам переходит сюда при поинте |
+| `gui.burmaldaholic.craps.v2.reason.odds_full` | Your odds are at the maximum | Коэффициент уже максимальный |
+| `gui.burmaldaholic.craps.v2.reason.odds_need_point` | Odds need a point first | Сначала нужен поинт |
+| `gui.burmaldaholic.craps.v2.reason.odds_need_pass` | Odds need a Pass Line bet | Нужна ставка на пасс |
+| `gui.burmaldaholic.craps.v2.reason.already_placed` | Bet is down: Undo to change it | Ставка уже стоит, её можно отменить |
+| `gui.burmaldaholic.craps.v2.reason.come_needs_point` | Come opens once a point is on | Кам открыт, когда есть поинт |
+| `gui.burmaldaholic.craps.v2.reason.min_raised` | Table minimum: %1$s | Минимум стола: %1$s |
+| `gui.burmaldaholic.craps.v2.status.come_out` | Come-out roll | Первый бросок |
+| `gui.burmaldaholic.craps.v2.status.point` | Point is %1$s | Поинт — %1$s |
+| `gui.burmaldaholic.craps.v2.status.sit_or_bet` | Sit down or click a bet | Сядьте или нажмите на ставку |
+| `gui.burmaldaholic.craps.v2.status.rolling` | %1$s throws… | Бросает %1$s… |
+| `gui.burmaldaholic.craps.v2.status.bets_close_in` | Bets close in %1$s s | Ставки закроются через %1$s с |
+| `gui.burmaldaholic.craps.v2.status.roll_in` | Roll in %1$s s | Бросок через %1$s с |
+| `gui.burmaldaholic.craps.v2.status.your_roll` | Your roll: press Space | Ваш бросок: нажмите пробел |
+| `gui.burmaldaholic.craps.v2.status.bet_pass` | Click the Pass Line to bet | Нажмите на пасс-лайн, чтобы поставить |
+| `gui.burmaldaholic.craps.v2.status.click_layout` | Click the layout to bet | Нажмите на поле, чтобы поставить |
+| `gui.burmaldaholic.craps.v2.hover.point` | %1$s: Come bets travel here, odds pay true odds | %1$s: сюда переходят кам-ставки, коэффициент по честным шансам |
+| `gui.burmaldaholic.craps.v2.hover.pass_odds` | Odds behind the Pass Line: true odds, no house edge | Коэффициент за пасс-лайн: честные шансы без преимущества заведения |
+| `gui.burmaldaholic.craps.v2.hover.pass` | Pass Line: 7 or 11 wins, then the point before 7 · 1:1 | Пасс-лайн: 7 или 11, затем поинт раньше семёрки · 1:1 |
+| `gui.burmaldaholic.craps.v2.hover.dont_pass` | Don't Pass: 2 or 3 wins, 12 pushes, 7 before the point · 1:1 | Не-пасс: 2 или 3, 12 — возврат, семёрка раньше поинта · 1:1 |
+| `gui.burmaldaholic.craps.v2.hover.come` | Come: like the Pass Line, on the next roll · 1:1 | Кам: как пасс-лайн, со следующего броска · 1:1 |
+| `gui.burmaldaholic.craps.v2.hover.dont_come` | Don't Come: like Don't Pass, on the next roll · 1:1 | Не-кам: как не-пасс, со следующего броска · 1:1 |
+| `gui.burmaldaholic.craps.v2.hover.field` | Field: one roll · 3 4 9 10 11 pay 1:1, 2 and 12 more | Филд: на один бросок · 3 4 9 10 11 — 1:1, 2 и 12 — больше |
+| `gui.burmaldaholic.craps.v2.board.title` | Craps %1$s–%2$s | Крэпс %1$s–%2$s |
+| `gui.burmaldaholic.craps.v2.board.point` | Point %1$s | Поинт %1$s |
+| `gui.burmaldaholic.craps.v2.board.come_out` | Come-out | Первый бросок |
+| `gui.burmaldaholic.craps.v2.board.roll` | %1$s + %2$s = %3$s | %1$s + %2$s = %3$s |
+| `gui.burmaldaholic.craps.v2.board.shooter` | Shooter: %1$s | Бросает: %1$s |
+| `gui.burmaldaholic.craps.v2.board.plate` | %1$s on table | На столе: %1$s |
+| `gui.burmaldaholic.craps.v2.board.net` | %1$s · %2$s | %1$s · %2$s |
 
 ---
 
@@ -1572,6 +1961,50 @@ strings (see LOCALIZATION.md §6.7). Advancement strings are in §advancements, 
 | `gui.burmaldaholic.baccarat.you_win` | You win %1$s | Ваш выигрыш: %1$s |
 | `gui.burmaldaholic.baccarat.next_coup` | Next coup in %1$s | Следующая раздача через %1$s |
 
+### Table UI v2 (lane A, `docs/architecture/ui-v2.md`; screen, stamps, in-world board)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.baccarat.v2.rebet` | Rebet | Повторить |
+| `gui.burmaldaholic.baccarat.v2.take_bank` | Take the bank | Взять банк |
+| `gui.burmaldaholic.baccarat.v2.take_bank_n` | Take bank %1$s | Взять банк %1$s |
+| `gui.burmaldaholic.baccarat.v2.keep_bank` | Keep the bank | Оставить банк |
+| `gui.burmaldaholic.baccarat.v2.punt` | Bet | Ставка |
+| `gui.burmaldaholic.baccarat.v2.punt_n` | Bet %1$s | Ставка %1$s |
+| `gui.burmaldaholic.baccarat.v2.pass` | Pass | Пас |
+| `gui.burmaldaholic.baccarat.v2.banco` | Banco %1$s | Банко %1$s |
+| `gui.burmaldaholic.baccarat.v2.banco_confirm` | Confirm Banco %1$s? | Точно банко %1$s? |
+| `gui.burmaldaholic.baccarat.v2.reason.ready_waiting` | Ready — waiting for the others | Готово — ждём остальных |
+| `gui.burmaldaholic.baccarat.v2.reason.next_coup_in` | Next coup in %1$s s | Следующая раздача через %1$s с |
+| `gui.burmaldaholic.baccarat.v2.reason.shuffling` | Shuffling the shoe | Перемешиваем шуз |
+| `gui.burmaldaholic.baccarat.v2.reason.bank_offered` | The bank is offered to %1$s | Банк предлагают: %1$s |
+| `gui.burmaldaholic.baccarat.v2.reason.you_bank` | You hold the bank | Банк у вас |
+| `gui.burmaldaholic.baccarat.v2.reason.banco_called` | Banco was called | Объявлено «Банко» |
+| `gui.burmaldaholic.baccarat.v2.reason.bank_covers` | The bank covers %1$s | Банк покрывает %1$s |
+| `gui.burmaldaholic.baccarat.v2.reason.waiting_players` | Waiting for more people at the table | Ждём, пока за стол сядут ещё |
+| `gui.burmaldaholic.baccarat.v2.reason.chemmy_boxes` | Chemin de fer: bets go on Player | Шмен-де-фер: ставки только на Игрока |
+| `gui.burmaldaholic.baccarat.v2.reason.no_pairs` | Pair bets are off at this table | Ставки на пары здесь отключены |
+| `gui.burmaldaholic.baccarat.v2.reason.no_last_bet` | No last bets yet | Прошлых ставок пока нет |
+| `gui.burmaldaholic.baccarat.v2.status.seconds_left` | %1$s s left | Осталось %1$s с |
+| `gui.burmaldaholic.baccarat.v2.status.bank_yours` | The bank is offered to you | Вам предлагают банк |
+| `gui.burmaldaholic.baccarat.v2.status.you_bank` | You hold the bank — the punters bet | Банк у вас — понтёры ставят |
+| `gui.burmaldaholic.baccarat.v2.status.punt` | The bank covers %1$s | Банк покрывает %1$s |
+| `gui.burmaldaholic.baccarat.v2.pays.odds` | %1$s : 1 | %1$s : 1 |
+| `gui.burmaldaholic.baccarat.v2.pays.banker` | 1 : 1 −%1$s%% | 1 : 1 −%1$s %% |
+| `gui.burmaldaholic.baccarat.v2.pays.bank` | Bank %1$s | Банк %1$s |
+| `gui.burmaldaholic.baccarat.v2.stamp.wins` | WINS | ВЫИГРЫШ |
+| `gui.burmaldaholic.baccarat.v2.stamp.tie` | TIE | НИЧЬЯ |
+| `gui.burmaldaholic.baccarat.v2.stamp.natural` | NATURAL | НАТУРАЛЬНАЯ |
+| `gui.burmaldaholic.baccarat.v2.banner.player` | PLAYER WINS | ВЫИГРАЛ ИГРОК |
+| `gui.burmaldaholic.baccarat.v2.banner.banker` | BANKER WINS | ВЫИГРАЛ БАНКИР |
+| `gui.burmaldaholic.baccarat.v2.banner.tie` | TIE | НИЧЬЯ |
+| `gui.burmaldaholic.baccarat.v2.board.betting` | Place your bets · %1$s s | Делайте ставки · %1$s с |
+| `gui.burmaldaholic.baccarat.v2.board.no_more_bets` | No more bets | Ставок больше нет |
+| `gui.burmaldaholic.baccarat.v2.board.bank` | Bank %1$s | Банк %1$s |
+| `gui.burmaldaholic.baccarat.v2.plate.line` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.baccarat.v2.plus` | +%1$s | +%1$s |
+| `gui.burmaldaholic.baccarat.v2.minus` | −%1$s | −%1$s |
+
 ---
 
 ## uth
@@ -1742,6 +2175,47 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.uth.seconds_short` | %1$s s | %1$s с |
 | `gui.burmaldaholic.uth.paytable.blind_short` | Blind pays | Блайнд платит |
 
+### Table UI v2 (lane B; `docs/architecture/ui-v2.md`, REDESIGN.md §7.4)
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.uth.v2.chips` | Chips | Фишки |
+| `gui.burmaldaholic.uth.v2.spot.ante` | Ante | Анте |
+| `gui.burmaldaholic.uth.v2.spot.trips` | Trips | Трипс |
+| `gui.burmaldaholic.uth.v2.primary.wait` | Waiting | Ожидание |
+| `gui.burmaldaholic.uth.v2.primary.sit` | Sit down | Сесть |
+| `gui.burmaldaholic.uth.v2.primary.deal` | Deal · %1$s | Раздать · %1$s |
+| `gui.burmaldaholic.uth.v2.primary.deal_plain` | Deal | Раздать |
+| `gui.burmaldaholic.uth.v2.primary.change` | Change bet | Изменить ставку |
+| `gui.burmaldaholic.uth.v2.primary.bank` | Take the bank | Взять банк |
+| `gui.burmaldaholic.uth.v2.primary.bank_amount` | Bank %1$s | Банк %1$s |
+| `gui.burmaldaholic.uth.v2.reason.you_bank` | You hold the bank | Банк за вами |
+| `gui.burmaldaholic.uth.v2.reason.sit_to_bet` | Sit down to bet | Сядьте, чтобы делать ставки |
+| `gui.burmaldaholic.uth.v2.reason.nothing_to_undo` | Nothing to undo | Нечего отменять |
+| `gui.burmaldaholic.uth.v2.reason.no_bet` | No chips on the table yet | На столе пока нет фишек |
+| `gui.burmaldaholic.uth.v2.reason.no_last_bet` | No previous bet to repeat | Нет прошлой ставки |
+| `gui.burmaldaholic.uth.v2.reason.same_as_last` | This already is your last bet | Это и есть прошлая ставка |
+| `gui.burmaldaholic.uth.v2.reason.place_ante` | Put chips on the Ante to deal | Поставьте фишки на анте, чтобы раздать |
+| `gui.burmaldaholic.uth.v2.reason.waiting_for` | Waiting for %1$s | Ждём: %1$s |
+| `gui.burmaldaholic.uth.v2.reason.showdown` | Showdown | Вскрытие |
+| `gui.burmaldaholic.uth.v2.reason.dealing` | Dealing… | Раздача… |
+| `gui.burmaldaholic.uth.v2.reason.press_change_bet` | Press Change bet first | Сначала «Изменить ставку» |
+| `gui.burmaldaholic.uth.v2.reason.stale_decision` | The table moved on, look again | Стол уже изменился |
+| `gui.burmaldaholic.uth.v2.status.chips_to` | Chips → %1$s | Фишки → %1$s |
+| `gui.burmaldaholic.uth.v2.status.cost` | Ante %1$s + Blind %1$s + Trips %2$s = %3$s | Анте %1$s + блайнд %1$s + трипс %2$s = %3$s |
+| `gui.burmaldaholic.uth.v2.status.right_click` | Right click: −1 chip | ПКМ: −1 фишка |
+| `gui.burmaldaholic.uth.v2.status.max_ante` | max Ante %1$s | анте до %1$s |
+| `gui.burmaldaholic.uth.v2.status.bet_placed` | Bet placed – change it until the deal | Ставка сделана – менять до раздачи |
+| `gui.burmaldaholic.uth.v2.status.starts_in` | Round starts in %1$s s | Раунд начнётся через %1$s с |
+| `gui.burmaldaholic.uth.v2.status.decide_in` | Decide in %1$s s | На решение %1$s с |
+| `gui.burmaldaholic.uth.v2.status.watching` | You are watching · sit down to play | Вы зритель · сядьте, чтобы играть |
+| `gui.burmaldaholic.uth.v2.status.bank_form` | Your bank covers this round | Ваш банк — на этот раунд |
+| `gui.burmaldaholic.uth.v2.dealer_no_open` | Dealer does not open – the Ante pushes | Дилер не открылся – анте возвращается |
+| `gui.burmaldaholic.uth.v2.board.bets_open` | Place your bets | Делайте ставки |
+| `gui.burmaldaholic.uth.v2.board.street` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.uth.v2.board.deciding` | %1$s to decide | Решает: %1$s |
+| `gui.burmaldaholic.uth.v2.board.result` | %1$s %2$s | %1$s %2$s |
+
 ---
 
 ## extras
@@ -1861,6 +2335,12 @@ in these values; running text in other modules that embeds the game name adds «
 | `gui.burmaldaholic.extras.dice.fx.defeat` | Defeat | Поражение |
 | `gui.burmaldaholic.extras.dice.fx.shake` | Shake the cup… | Трясём стакан… |
 
+### extras › dice motion (DCb, DICE-ANIM-SPEC §3–§9)
+
+| Key | EN | RU |
+|---|---|---|
+| `gui.burmaldaholic.extras.dice.motion.total` | Total: %1$s | Сумма: %1$s |
+
 ### Presentation (animation wave, `animation/extras-pvp.md` §15; `anim.*` keys are shared by extras and PvP)
 
 | Key | EN | RU |
@@ -1907,6 +2387,47 @@ Args: `coin.tally` %1$s num heads, %2$s num tails · `coin.pays` %1$s decimal mu
 | `gui.burmaldaholic.extras.scratch.kind.basic` | Basic | Обычный |
 | `gui.burmaldaholic.extras.scratch.kind.gold` | Golden | Золотой |
 | `gui.burmaldaholic.extras.scratch.new` | New (%1$s) | Новый (%1$s) |
+
+### Table UI v2 (lane E, `docs/architecture/ui-v2.md` §10; v2 screens of `games/extras/client` and the in-world boards)
+
+Args: `board.plinko_result` %1$s name, %2$s compact multiplier · `board.wheel_result` %1$s name, %2$s segment name.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.extras.v2.board.plinko_result` | %1$s · ×%2$s | %1$s · ×%2$s |
+| `gui.burmaldaholic.extras.v2.board.wheel_result` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.extras.v2.primary.drop` | Drop | Бросить |
+| `gui.burmaldaholic.extras.v2.primary.spin` | Spin | Крутить |
+| `gui.burmaldaholic.extras.v2.primary.flip` | Flip | Подбросить |
+| `gui.burmaldaholic.extras.v2.primary.roll` | Roll | Бросить |
+| `gui.burmaldaholic.extras.v2.primary.scratch_all` | Scratch all | Стереть всё |
+| `gui.burmaldaholic.extras.v2.primary.buy` | Buy %1$s | Купить %1$s |
+| `gui.burmaldaholic.extras.v2.primary.next_card` | Next card | Следующий |
+| `gui.burmaldaholic.extras.v2.reason.wait_drop` | The ball is dropping | Шарик падает |
+| `gui.burmaldaholic.extras.v2.reason.wait_flip` | The coin is in the air | Монета в воздухе |
+| `gui.burmaldaholic.extras.v2.reason.wait_scratch` | Revealing the ticket | Билет открывается |
+| `gui.burmaldaholic.extras.v2.reason.pick_side` | Pick heads or tails | Выберите орёл или решку |
+| `gui.burmaldaholic.extras.v2.reason.wait_item` | Hold an item to stake it | Возьмите предмет в руку |
+| `gui.burmaldaholic.extras.v2.reason.stake_min` | That is the smallest stake | Это минимальная ставка |
+| `gui.burmaldaholic.extras.v2.reason.stake_max` | That is the largest stake | Это максимальная ставка |
+| `gui.burmaldaholic.extras.v2.reason.ticket_current` | This ticket is on the counter | Этот билет уже на прилавке |
+| `gui.burmaldaholic.extras.v2.reason.soul` | Finish or cancel the Soul Wager | Завершите или отмените сделку души |
+| `gui.burmaldaholic.extras.v2.hint.chips` | Chips add to your bet | Фишки добавляются к ставке |
+| `gui.burmaldaholic.extras.v2.hint.win_up_to` | Win up to %1$s | Выигрыш до %1$s |
+| `gui.burmaldaholic.extras.v2.hint.scratch` | Drag over the cells to scratch | Проведите по клеткам, чтобы стереть |
+| `gui.burmaldaholic.extras.v2.hint.stake` | Stake: %1$s | Ставка: %1$s |
+| `gui.burmaldaholic.extras.v2.stake.minus` | − | − |
+| `gui.burmaldaholic.extras.v2.stake.plus` | + | + |
+| `gui.burmaldaholic.extras.v2.risk` | Risk | Риск |
+| `gui.burmaldaholic.extras.v2.last_balls` | Last balls | Последние шарики |
+| `gui.burmaldaholic.extras.v2.top_prize` | Top prize | Главный приз |
+| `gui.burmaldaholic.extras.v2.segments` | Segments | Сектора |
+| `gui.burmaldaholic.extras.v2.your_call` | Your call | Ваш выбор |
+| `gui.burmaldaholic.extras.v2.last_flips` | Last flips | Последние броски |
+| `gui.burmaldaholic.extras.v2.prizes` | Match 3 to win | Три одинаковых — выигрыш |
+| `gui.burmaldaholic.extras.v2.ticket` | Ticket | Билет |
+| `gui.burmaldaholic.extras.v2.stake` | Stake | Ставка |
+| `gui.burmaldaholic.extras.v2.challenge` | Challenge | Вызов |
 
 ---
 
@@ -2102,6 +2623,19 @@ Args: `record_chip` %1$s num wins, %2$s num losses · `match.step_of` %1$s num, 
 | `gui.burmaldaholic.pvp.grudge.title` | GRUDGE MATCH | ДЕЛО ПРИНЦИПА |
 | `gui.burmaldaholic.pvp.grudge.subtitle` | %1$s won the last %2$s | Последние %2$s — за игроком %1$s |
 | `msg.burmaldaholic.pvp.grudge.revenge` | Sweet revenge! %1$s finally beats %2$s | Сладкая месть! %1$s наконец обыгрывает соперника — %2$s |
+
+### Table UI v2 (lane E, `docs/architecture/ui-v2.md` §10; the v2 frame of the PvP screens, the invite card)
+
+Args: `v2.invite.from` %1$s name · `v2.invite.stake` %1$s game, %2$s chips.
+
+| Key | EN | RU |
+|-----|----|----|
+| `gui.burmaldaholic.pvp.v2.pill` | PvP | PvP |
+| `gui.burmaldaholic.pvp.v2.pill_grudge` | GRUDGE | ПРИНЦИП |
+| `gui.burmaldaholic.pvp.v2.invite.from` | %1$s challenges you | Вызов от игрока %1$s |
+| `gui.burmaldaholic.pvp.v2.invite.stake` | %1$s · %2$s | %1$s · %2$s |
+| `gui.burmaldaholic.pvp.v2.invite.accept` | Accept | Принять |
+| `gui.burmaldaholic.pvp.v2.invite.decline` | Decline | Отклонить |
 
 ### Taunts
 
@@ -2621,6 +3155,7 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.village_casino` | Lucky Villager Casino | Казино «Счастливый житель» |
 | `gui.burmaldaholic.worldgen.piglin_parlor` | Piglin Parlor | Пиглинский салон |
 | `gui.burmaldaholic.worldgen.high_roller` | High Roller Lounge | Лаунж хайроллеров |
+| `gui.burmaldaholic.worldgen.casino` | Grand Casino | Гранд-казино |
 | `msg.burmaldaholic.worldgen.entered` | Welcome to %1$s | Добро пожаловать в %1$s |
 | `msg.burmaldaholic.worldgen.entered_subtitle` | Please gamble responsibly. Or at least entertainingly. | Играйте ответственно. Ну или хотя бы зрелищно. |
 | `gui.burmaldaholic.croupier.title` | Croupier | Крупье |
@@ -2657,6 +3192,29 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.worldgen.dir.sw` | south-west | юго-запад |
 | `gui.burmaldaholic.worldgen.dir.w` | west | запад |
 | `gui.burmaldaholic.worldgen.dir.nw` | north-west | северо-запад |
+| `msg.burmaldaholic.worldgen.house_table_protected` | This game belongs to the house and stays in the casino | Эта игра принадлежит заведению и останется в казино |
+
+### worldgen: house dealers and staff (DL)
+
+| Key | EN | RU |
+|-----|----|----|
+| `entity.burmaldaholic.house_dealer` | Dealer | Дилер |
+| `entity.burmaldaholic.piglin_house_dealer` | Piglin Croupier | Пиглин-крупье |
+| `entity.burmaldaholic.ender_house_dealer` | Ender Dealer | Эндер-дилер |
+| `entity.burmaldaholic.ender_croupier` | Ender Croupier | Эндер-крупье |
+| `entity.burmaldaholic.pit_boss` | Pit Boss | Пит-босс |
+| `entity.burmaldaholic.merchant` | Casino Merchant | Торговец казино |
+| `entity.burmaldaholic.piglin_merchant` | Piglin Merchant | Пиглин-торговец |
+| `entity.burmaldaholic.ender_merchant` | Ender Merchant | Эндер-торговец |
+| `item.burmaldaholic.house_dealer_spawn_egg` | Dealer Spawn Egg | Яйцо призыва дилера |
+| `msg.burmaldaholic.worldgen.dealer.no_table` | This dealer has no table to run | Этому дилеру некуда сдавать: стола нет |
+| `msg.burmaldaholic.worldgen.merchant.closed` | The store is closed today | Лавка сегодня закрыта |
+| `dialog.burmaldaholic.ender_croupier.greeting.1` | (The enderman straightens its bow tie and does not look you in the eye. Politely.) | (Эндермен поправляет бабочку и вежливо не смотрит вам в глаза.) |
+| `dialog.burmaldaholic.ender_croupier.greeting.2` | High stakes, quiet voices. Please don't stare. | Ставки высокие, голоса тихие. Только не пялитесь. |
+| `dialog.burmaldaholic.pit_boss.greeting.1` | Snort. I watch the tables. The tables watch you. | Хрю. Я смотрю за столами. Столы смотрят за тобой. |
+| `dialog.burmaldaholic.pit_boss.greeting.2` | Play nice, pay up, and nobody gets bartered. | Играй честно, плати вовремя — и никого не обменяют. |
+| `dialog.burmaldaholic.merchant.greeting.1` | Chips burning a hole in your pocket? Have a look. | Фишки жгут карман? Загляните на прилавок. |
+| `dialog.burmaldaholic.merchant.greeting.2` | Everything here is paid in chips. Even the smile. | Здесь всё за фишки. Даже улыбка. |
 
 ---
 
@@ -3022,6 +3580,113 @@ All variants of one base receive the same arguments; a variant may ignore them.
 | `gui.burmaldaholic.bots.error.debt` | While you owe the Loan Shark you can only play against the house's own bots | Пока вы должны Ростовщику, можно играть только с ботами заведения |
 | `gui.burmaldaholic.bots.error.no_table` | Sit at a table or look at one first | Сначала сядьте за стол или посмотрите на него |
 
+## comps
+
+Package EC-2 (`EC-SPEC.md` §4–5): comp points, redemptions, free-bet tokens, daily bonus, visible cashback. Keys under
+`comps`, `free_bet_token`, `daily` and `rental` belong to the comps module; the `vip.*` rows below go to the vip fragment.
+
+### Comps tab
+
+| Key | English | Russian |
+|---|---|---|
+| `gui.burmaldaholic.comps.title` | Comps | Комплименты |
+| `gui.burmaldaholic.comps.points` | Comp points: %1$s | Бонусные очки: %1$s |
+| `gui.burmaldaholic.comps.rate` | You earn %1$s%% of expected losses as points | Начисляется %1$s %% от ожидаемого проигрыша |
+| `gui.burmaldaholic.comps.theo_today` | Expected loss today: %1$s | Ожидаемый проигрыш сегодня: %1$s |
+| `gui.burmaldaholic.comps.cashback_estimate` | Cashback at day end: %1$s | Кешбэк в конце дня: %1$s |
+| `gui.burmaldaholic.comps.rewards` | Rewards | Награды |
+| `gui.burmaldaholic.comps.redeem` | Redeem | Получить |
+| `gui.burmaldaholic.comps.cost` | %1$s pts | %1$s оч. |
+| `gui.burmaldaholic.comps.free` | Free | Бесплатно |
+| `gui.burmaldaholic.comps.limit` | %1$s/%2$s today | %1$s/%2$s сегодня |
+| `gui.burmaldaholic.comps.busy` | One moment… | Секунду… |
+| `gui.burmaldaholic.comps.token_invalid` | That free-bet token can't be used | Эту фишку бесплатной ставки нельзя использовать |
+| `gui.burmaldaholic.comps.token_under_min` | A %1$s free bet is below this table's minimum (%2$s) | Бесплатная ставка %1$s меньше минимума стола (%2$s) |
+| `gui.burmaldaholic.comps.token_over_max` | A %1$s free bet is above your maximum here (%2$s) | Бесплатная ставка %1$s больше вашего максимума здесь (%2$s) |
+| `gui.burmaldaholic.comps.token_no_bet` | This machine has no %1$s bet for you | На этом автомате нет ставки %1$s для вас |
+| `gui.burmaldaholic.comps.daily.title` | Daily bonus | Ежедневный бонус |
+| `gui.burmaldaholic.comps.daily.claim` | Claim %1$s | Забрать %1$s |
+| `gui.burmaldaholic.comps.daily.wait` | Claimed · next in %1$s | Получен · следующий через %1$s |
+| `gui.burmaldaholic.comps.daily.locked_wager` | Unlocks after %1$s wagered in total | Откроется после ставок на %1$s |
+| `gui.burmaldaholic.comps.daily.locked_active` | Play %1$s more today to unlock | Играйте ещё %1$s сегодня |
+| `gui.burmaldaholic.comps.daily.locked_ip` | Already claimed from this connection today | С этого подключения сегодня уже получен |
+| `gui.burmaldaholic.comps.lock.tier` | VIP tier too low | Нужен VIP-статус выше |
+| `gui.burmaldaholic.comps.lock.points` | Not enough comp points | Не хватает бонусных очков |
+| `gui.burmaldaholic.comps.lock.limit` | Daily limit reached | Дневной лимит исчерпан |
+| `gui.burmaldaholic.comps.lock.dimension` | Not available in this dimension | Недоступно в этом измерении |
+| `gui.burmaldaholic.comps.lock.unavailable` | Can't do that here right now | Сейчас здесь это невозможно |
+| `gui.burmaldaholic.comps.lock.disabled` | Comps are turned off | Комплименты отключены |
+
+### Rewards
+
+| Key | English | Russian |
+|---|---|---|
+| `gui.burmaldaholic.comps.reward.snack` | Snack plate | Закуска |
+| `gui.burmaldaholic.comps.reward.snack.desc` | 8 steaks, 4 bread | 8 стейков, 4 хлеба |
+| `gui.burmaldaholic.comps.reward.chef` | Chef's plate | Блюдо от шефа |
+| `gui.burmaldaholic.comps.reward.chef.desc` | 8 golden carrots, cake, 4 pies | 8 золотых морковок, торт, 4 пирога |
+| `gui.burmaldaholic.comps.reward.feast` | High-roller feast | Пир хайроллера |
+| `gui.burmaldaholic.comps.reward.feast.desc` | 2 golden apples, 16 golden carrots, cake | 2 золотых яблока, 16 золотых морковок, торт |
+| `gui.burmaldaholic.comps.reward.suite` | Suite night | Ночь в люксе |
+| `gui.burmaldaholic.comps.reward.suite.desc` | Sleep in any casino bed today: respawn there, regeneration | Сон в любой кровати казино сегодня: точка возрождения, регенерация |
+| `gui.burmaldaholic.comps.reward.token_10` | Free bet: 10 | Бесплатная ставка: 10 |
+| `gui.burmaldaholic.comps.reward.token_50` | Free bet: 50 | Бесплатная ставка: 50 |
+| `gui.burmaldaholic.comps.reward.token_250` | Free bet: 250 | Бесплатная ставка: 250 |
+| `gui.burmaldaholic.comps.reward.token.desc` | Token for blackjack, slots, coin flip, wheel, plinko | Фишка для блэкджека, слотов, монетки, колеса, плинко |
+| `gui.burmaldaholic.comps.reward.rockets` | Fireworks | Фейерверки |
+| `gui.burmaldaholic.comps.reward.rockets.desc` | 16 rockets, flight 2 | 16 ракет, полёт 2 |
+| `gui.burmaldaholic.comps.reward.horse` | Horse rental | Аренда лошади |
+| `gui.burmaldaholic.comps.reward.horse.desc` | Saddled horse for 10 minutes (Overworld) | Лошадь с седлом на 10 минут (Верхний мир) |
+| `gui.burmaldaholic.comps.reward.strider` | Strider rental | Аренда лавомерки |
+| `gui.burmaldaholic.comps.reward.strider.desc` | Strider and rod for 10 minutes (Nether) | Лавомерка с удочкой на 10 минут (Незер) |
+
+### Messages, item, toast
+
+| Key | English | Russian |
+|---|---|---|
+| `msg.burmaldaholic.comps.redeemed` | Redeemed: %1$s ×%2$s | Получено: %1$s ×%2$s |
+| `msg.burmaldaholic.comps.suite_checked_in` | Checked in to your suite. Sweet dreams! | Вы заселились в люкс. Приятных снов! |
+| `msg.burmaldaholic.comps.suite_needed` | Casino beds need a suite night (Comps) | Для кровати казино нужна «Ночь в люксе» (Комплименты) |
+| `msg.burmaldaholic.comps.rental_expired` | Your rental ride was returned | Арендованный транспорт возвращён |
+| `msg.burmaldaholic.comps.token_used` | Free bet: %1$s | Бесплатная ставка: %1$s |
+| `msg.burmaldaholic.comps.token_expired` | A free-bet token expired | Срок фишки бесплатной ставки истёк |
+| `msg.burmaldaholic.comps.token_returned` | Push: your free bet of %1$s is back | Ничья: бесплатная ставка %1$s возвращена |
+| `item.burmaldaholic.free_bet_token` | Free-Bet Token | Фишка бесплатной ставки |
+| `item.burmaldaholic.free_bet_token.tooltip` | Free bet of %1$s: hold it and bet at blackjack, slots, coin flip, wheel or plinko | Бесплатная ставка %1$s: держите в руке и ставьте в блэкджеке, слотах, монетке, колесе или плинко |
+| `item.burmaldaholic.free_bet_token.bound` | Only its owner can use it | Использовать может только владелец |
+| `item.burmaldaholic.free_bet_token.expires` | Expires in %1$s | Истекает через %1$s |
+| `toast.burmaldaholic.daily.title` | Daily bonus | Ежедневный бонус |
+| `toast.burmaldaholic.daily.body` | %1$s credited | Начислено: %1$s |
+
+### VIP perks (vip fragment)
+
+| Key | English | Russian |
+|---|---|---|
+| `gui.burmaldaholic.vip.perk.store_gold_shelf` | Gold shelf in the chip store | Золотая полка в магазине фишек |
+| `gui.burmaldaholic.vip.perk.comps` | %1$s%% of expected losses as comp points | %1$s %% от ожидаемого проигрыша в бонусных очках |
+
+### Config
+
+| Key | English | Russian |
+|---|---|---|
+| `config.burmaldaholic.comps.enabled` | Comps enabled | Комплименты включены |
+| `config.burmaldaholic.comps.daily.bronze` | Daily bonus: Bronze | Бонус: «Бронза» |
+| `config.burmaldaholic.comps.daily.silver` | Daily bonus: Silver | Бонус: «Серебро» |
+| `config.burmaldaholic.comps.daily.gold` | Daily bonus: Gold | Бонус: «Золото» |
+| `config.burmaldaholic.comps.daily.platinum` | Daily bonus: Platinum | Бонус: «Платина» |
+| `config.burmaldaholic.comps.daily.diamond` | Daily bonus: Diamond | Бонус: «Алмаз» |
+| `config.burmaldaholic.comps.daily.netherite` | Daily bonus: Netherite | Бонус: «Незерит» |
+| `config.burmaldaholic.comps.daily.minLifetimeWager` | Lifetime wager to unlock | Ставок всего для открытия |
+| `config.burmaldaholic.comps.daily.minActiveMinutes` | Active minutes needed | Нужно активных минут |
+| `config.burmaldaholic.comps.daily.onePerIp` | One claim per IP per day | Один бонус на IP в день |
+| `config.burmaldaholic.comps.rentalMinutes` | Ride rental minutes | Минут аренды транспорта |
+| `config.burmaldaholic.vip.compRate.bronze` | Comp rate: Bronze | Очки: «Бронза» |
+| `config.burmaldaholic.vip.compRate.silver` | Comp rate: Silver | Очки: «Серебро» |
+| `config.burmaldaholic.vip.compRate.gold` | Comp rate: Gold | Очки: «Золото» |
+| `config.burmaldaholic.vip.compRate.platinum` | Comp rate: Platinum | Очки: «Платина» |
+| `config.burmaldaholic.vip.compRate.diamond` | Comp rate: Diamond | Очки: «Алмаз» |
+| `config.burmaldaholic.vip.compRate.netherite` | Comp rate: Netherite | Очки: «Незерит» |
+
 ## advancements
 
 Shown in the advancement tab. Titles are short (≤ 24 chars RU where possible).
@@ -3264,11 +3929,6 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.core.roundTimeoutRefund` | Refund rounds after restart | Возвращать ставки после перезапуска |
 | `config.burmaldaholic.economy.maxBalance` | Maximum balance | Максимальный баланс |
 | `config.burmaldaholic.economy.startingBalance` | Starting balance | Стартовый баланс |
-| `config.burmaldaholic.economy.emeraldBuyRate` | Chips per emerald (buy) | Фишек за изумруд (покупка) |
-| `config.burmaldaholic.economy.emeraldBuyRateGoldVip` | Chips per emerald (buy, Gold VIP) | Фишек за изумруд (покупка, ВИП «Золото») |
-| `config.burmaldaholic.economy.emeraldSellRate` | Chips per emerald (sell) | Фишек за изумруд (продажа) |
-| `config.burmaldaholic.economy.goldBuyRate` | Chips per gold ingot (buy) | Фишек за золотой слиток (покупка) |
-| `config.burmaldaholic.economy.goldSellRate` | Chips per gold ingot (sell) | Фишек за золотой слиток (продажа) |
 | `config.burmaldaholic.economy.ore.coal` | Coal ore reward | Награда: угольная руда |
 | `config.burmaldaholic.economy.ore.copper` | Copper ore reward | Награда: медная руда |
 | `config.burmaldaholic.economy.ore.iron` | Iron ore reward | Награда: железная руда |
@@ -3625,6 +4285,7 @@ CONFIG.md) use one template key; the code passes the member's display name as `%
 | `config.burmaldaholic.worldgen.villageCasino.chance` | Village casino chance | Шанс казино в деревне |
 | `config.burmaldaholic.worldgen.piglinParlor.chance` | Piglin Parlor chance | Шанс пиглинского салона |
 | `config.burmaldaholic.worldgen.highRoller.chance` | High Roller Lounge chance | Шанс лаунжа хайроллеров |
+| `config.burmaldaholic.worldgen.standalone.enabled` | Standalone casinos | Отдельные казино |
 | `config.burmaldaholic.worldgen.loanSharkRespawnTicks` | Loan Shark respawn (ticks) | Возрождение ростовщика (тики) |
 | `config.burmaldaholic.worldgen.locateCooldownSeconds` | /casino locate cooldown (seconds) | Перезарядка /casino locate (секунды) |
 | `config.burmaldaholic.ownership.enabled` | Player casinos | Казино игроков |
@@ -3784,6 +4445,30 @@ The other v1 slot config labels were removed with the slots v2 cut-over (S-J5).
 |-----|----|----|
 | `config.burmaldaholic.pvp.slots.starPoints` | Slot Showdown: points for three stars | Битва автоматов: очки за три звезды |
 
+### EC-1: cashier exchange rows and the chip store
+
+| Key | EN | RU |
+|-----|----|----|
+| `config.burmaldaholic.section.store` | Chip store | Магазин за фишки |
+| `config.burmaldaholic.economy.exchange.item` | %1$s: item | %1$s: предмет |
+| `config.burmaldaholic.economy.exchange.toChips` | %1$s: chips per item handed in | %1$s: фишек за сданный предмет |
+| `config.burmaldaholic.economy.exchange.fromChips` | %1$s: chips per item bought | %1$s: фишек за купленный предмет |
+| `config.burmaldaholic.economy.exchange.dims` | %1$s: dimensions (O, N, E) | %1$s: измерения (O, N, E) |
+| `config.burmaldaholic.economy.exchange.buyMinTier` | %1$s: VIP tier to buy | %1$s: уровень ВИП для покупки |
+| `config.burmaldaholic.store.enabled` | Chip store | Магазин за фишки |
+| `config.burmaldaholic.store.offers.item` | %1$s: item | %1$s: предмет |
+| `config.burmaldaholic.store.offers.count` | %1$s: items per purchase | %1$s: штук за покупку |
+| `config.burmaldaholic.store.offers.potion` | %1$s: potion | %1$s: зелье |
+| `config.burmaldaholic.store.offers.enchant` | %1$s: enchantment | %1$s: чары |
+| `config.burmaldaholic.store.offers.level` | %1$s: enchantment level | %1$s: уровень чар |
+| `config.burmaldaholic.store.offers.flight` | %1$s: rocket flight | %1$s: длительность полёта |
+| `config.burmaldaholic.store.offers.category` | %1$s: category | %1$s: раздел |
+| `config.burmaldaholic.store.offers.price` | %1$s: price | %1$s: цена |
+| `config.burmaldaholic.store.offers.minTier` | %1$s: VIP tier | %1$s: уровень ВИП |
+| `config.burmaldaholic.store.offers.dims` | %1$s: dimensions (O, N, E) | %1$s: измерения (O, N, E) |
+| `config.burmaldaholic.store.offers.limitPerDay` | %1$s: limit per day | %1$s: лимит в день |
+| `config.burmaldaholic.store.offers.limitEveryDays` | %1$s: limit window (days) | %1$s: окно лимита (дней) |
+
 ## sounds (subtitles, core-owned)
 
 | Key | EN | RU |
@@ -3851,3 +4536,21 @@ The other v1 slot config labels were removed with the slots v2 cut-over (S-J5).
 | `subtitles.burmaldaholic.wheel_stop` | Wheel stops | Останавливается колесо |
 | `subtitles.burmaldaholic.plinko_bin` | Ball drops into a bin | Шарик падает в лунку |
 | `subtitles.burmaldaholic.burn` | Cell burns | Сгорает клетка |
+
+### core › dice kit sounds (DCa, DICE-ANIM-SPEC §7)
+
+| Key | EN | RU |
+|---|---|---|
+| `subtitles.burmaldaholic.dice_clack` | Dice knock together | Кости стукаются друг о друга |
+| `subtitles.burmaldaholic.dice_tip` | Die rolls over | Кость перекатывается |
+| `subtitles.burmaldaholic.dice_teeter` | Die teeters | Кость балансирует на ребре |
+| `subtitles.burmaldaholic.dice_settle` | Dice settle | Кости замирают |
+| `subtitles.burmaldaholic.dice_pip` | Pips counted | Считаются очки |
+| `subtitles.burmaldaholic.dice_stamp` | House stamp | Печать заведения |
+
+### craps › motion sounds (CM, CRAPS-ANIM-SPEC §7)
+
+| Key | EN | RU |
+|---|---|---|
+| `subtitles.burmaldaholic.craps_puck_lift` | Puck lifted | Поднимают шайбу |
+| `subtitles.burmaldaholic.craps_stick` | Stickman returns the dice | Крупье возвращает кости |

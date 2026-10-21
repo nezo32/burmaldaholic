@@ -37,6 +37,11 @@ public final class BaccaratModule implements CasinoModule {
 	public static final String HIGH_ROLLER_NAME = "baccarat_table_high_roller";
 	public static final String CHEMMY_NAME = "baccarat_table_player_banked";
 
+	/** GameTests: forgets the generated-casino preset cached for {@code pos} (a fresh table at a reused test position). */
+	public static void forgetPresetForTests(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos pos) {
+		BaccaratPresets.forget(level, pos);
+	}
+
 	public static TableType<BaccaratTableBlockEntity> TABLE;
 	public static TableType<BaccaratTableBlockEntity> HIGH_ROLLER_TABLE;
 	public static TableType<BaccaratTableBlockEntity> CHEMMY_TABLE;

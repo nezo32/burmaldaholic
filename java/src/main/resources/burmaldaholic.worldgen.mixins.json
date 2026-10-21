@@ -7,7 +7,9 @@
 		"MinecraftServerAccessor",
 		"SinglePoolElementAccessor",
 		"SinglePoolElementMixin",
+		"StructureCheckMixin",
 		"StructureMixin",
+		"StructureStartMixin",
 		"TemplateStructurePieceAccessor"
 	],
 	"client": [],

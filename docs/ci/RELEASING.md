@@ -18,16 +18,16 @@ Branch and PR rules: [CONTRIBUTING.md](../../CONTRIBUTING.md).
 A release is a tag. Pushing `vX.Y.Z` on a commit of `main` starts `.github/workflows/release.yml`, which in one run:
 
 1. `version`: parses the tag and checks that it is on `main`.
-2. `build-mod`: `./gradlew build -Pmod_version=X.Y.Z` in `java/` (JDK 25; unit tests, gametests and `checkLinkage`
-   included).
+2. `build-mod`: `./gradlew build -Pmod_version=X.Y.Z` in `java/` (JDK 25; unit tests and gametests included;
+   `checkLinkage` is a no-op while only one Minecraft version is supported).
 3. `github-release`: the release "Burmaldaholic X.Y.Z", with generated notes and the asset `burmaldaholic-X.Y.Z.jar`.
 4. `curseforge-mod` and `modrinth-mod` (in parallel): upload the same jar, using the release notes as the changelog.
-   Modrinth gets version `X.Y.Z` named "Burmaldaholic X.Y.Z", game versions `26.2`, `26.3`, loader `fabric`, a
+   Modrinth gets version `X.Y.Z` named "Burmaldaholic X.Y.Z", game version `26.3`, loader `fabric`, a
    required dependency on Fabric API, not featured.
 
-The jar is compiled against the lowest supported Minecraft version (`mc` in `java/gradle.properties`) and supports
-the whole `supported_mc_range`; PR CI builds and tests it against every version of the range (`-Pmc=26.2`,
-`-Pmc=26.3`).
+The mod supports **Minecraft 26.3 only** (26.2 was dropped for v0.2.0). The jar is compiled against `mc=26.3` in
+`java/gradle.properties` and declares `supported_mc_range` (`~26.3`, i.e. 26.3 and its 26.3.x patches); PR CI builds
+and tests it with `-Pmc=26.3`.
 
 Never edit `mod_version` in `java/gradle.properties` to release. It is a development default; the tag sets the real
 version (`-Pmod_version`).
@@ -108,12 +108,12 @@ There are no long-lived release branches. A tag on anything other than a commit 
 | `branch-name` | same-repo PRs | head branch must be `<type>/<name>` (or `dependabot/`, `renovate/`, `claude/`) |
 | `actionlint` | always | actionlint 1.7.12 (+ shellcheck of `run:` scripts) on the workflows and the caller template |
 | `scripts` | always | shellcheck, `scripts/test/curseforge-upload.test.sh`, `scripts/check-inlined-script.sh` |
-| `mod (26.2) / build`, `mod (26.3) / build` | `java/**` or `docs/design/CONFIG.md` changed | `./gradlew build -Pmc=<mc>` via `reusable-build-gradle.yml`; uploads the jar (7 days) |
+| `mod (26.3) / build` | `java/**` or `docs/design/CONFIG.md` changed | `./gradlew build -Pmc=<mc>` via `reusable-build-gradle.yml`; uploads the jar (7 days) |
 | `assets` | `tools/**`, Java textures or `docs/design/SLOTS.md` changed | `cd tools && npm ci && npm run check:assets && npm test`: the committed generated textures are byte-identical to the generator's output, and its tests pass |
 | **`ci-ok`** | always | fails if any job above failed or was cancelled; skipped jobs count as success |
 
 The Minecraft versions of the Java matrix come from the repo variable `JAVA_MC_VERSIONS` (JSON array, default
-`["26.2","26.3"]`); keep it in sync with `supported_mc_versions` in `java/gradle.properties`.
+`["26.3"]`); keep it in sync with `supported_mc_versions` in `java/gradle.properties`.
 
 ## One-time repository setup
 
@@ -183,12 +183,12 @@ warning and the Modrinth upload is skipped.
 |---|---|---|
 | secret | `CURSEFORGE_TOKEN` | CurseForge Authors portal → API tokens |
 | variable | `CURSEFORGE_PROJECT_ID` | numeric id of the Java project (sidebar of the project page). Empty = CurseForge skipped |
-| variable (optional) | `CURSEFORGE_GAME_VERSIONS` | default `26.2,26.3,Fabric,Java 25,Client,Server` |
+| variable (optional) | `CURSEFORGE_GAME_VERSIONS` | default `26.3,Fabric,Java 25,Client,Server` |
 | secret | `MODRINTH_TOKEN` | Modrinth → Settings → Personal access tokens, scopes **Create versions**, **Read projects**, **Read versions** (read is needed while the project is a draft / under review). Lives in the Environment `burmaldaholic` |
 | variable (optional) | `MODRINTH_PROJECT_ID` | Modrinth project id or slug, default `burmaldaholic` |
-| variable (optional) | `MODRINTH_GAME_VERSIONS` | default `26.2,26.3` (Modrinth game version tags) |
+| variable (optional) | `MODRINTH_GAME_VERSIONS` | default `26.3` (Modrinth game version tags) |
 | variable (optional) | `MODRINTH_ENVIRONMENT` | Environment of the Modrinth job, default = `CURSEFORGE_ENVIRONMENT` or `Burmaldaholic` |
-| variable (optional) | `JAVA_MC_VERSIONS` | PR CI matrix, JSON array, default `["26.2","26.3"]` |
+| variable (optional) | `JAVA_MC_VERSIONS` | PR CI matrix, JSON array, default `["26.3"]` |
 
 ```bash
 gh secret set CURSEFORGE_TOKEN
@@ -196,7 +196,7 @@ gh variable set CURSEFORGE_PROJECT_ID --body 123456
 ```
 
 The names are the same as in `nezo32/enchantaholic`. When a new patch of a supported Minecraft version ships (for
-example `26.2.1`), add it to `CURSEFORGE_GAME_VERSIONS` and `MODRINTH_GAME_VERSIONS`.
+example `26.3.1`), add it to `CURSEFORGE_GAME_VERSIONS` and `MODRINTH_GAME_VERSIONS`.
 
 ### Confirm the CurseForge names
 
@@ -212,7 +212,7 @@ curl -fsS -H "X-Api-Token: $T" https://minecraft.curseforge.com/api/game/version
 
 # the full check, without uploading:
 CF_TOKEN=$T CF_PROJECT_ID=<id> CF_DRY_RUN=true \
-CF_GAME_VERSIONS='26.2,26.3,Fabric,Java 25,Client,Server' CF_RELATIONS='fabric-api:requiredDependency' \
+CF_GAME_VERSIONS='26.3,Fabric,Java 25,Client,Server' CF_RELATIONS='fabric-api:requiredDependency' \
   bash scripts/curseforge-upload.sh LICENSE
 ```
 

@@ -70,8 +70,44 @@ public final class DealerMotion {
 					(float) (0.2 * amp * in));
 			}
 			case WAVE_OFF -> new Pose(REST_X, 0, 0, REST_X, 0, (float) (-0.4 * amp * (1 - Ease.OUT_QUAD.apply(u))), 0);
+			case SPIN -> {
+				// reach for the wheel, flick it across (right to left), back
+				double k = Math.sin(Math.PI * u);
+				float flick = (float) ((0.35 - 0.9 * Ease.IN_OUT_SINE.apply(u)) * amp * k);
+				yield new Pose(lerp(REST_X, REST_X + (-1.05f - REST_X) * amp, k), flick, 0, REST_X, 0, 0, (float) (0.15 * amp * k));
+			}
+			case STICK_PULL, STICK_PUSH -> {
+				// the stick hand reaches far out (push: toward the shooter's side) and comes back
+				double k = Math.sin(Math.PI * u);
+				double reach = g == DealerGesture.STICK_PULL ? Math.sin(Math.PI * Math.min(1, u * 1.6)) * k : k;
+				float yaw = g == DealerGesture.STICK_PUSH ? (float) (0.45 * seat * amp * k) : 0;
+				yield new Pose(lerp(REST_X, REST_X + (-1.3f - REST_X) * amp, reach), yaw, 0, lerp(REST_X, REST_X + (-0.6f - REST_X) * amp, k), 0, 0,
+					(float) (0.1 * amp * k));
+			}
+			case POT_PUSH -> {
+				// both hands slide the pot toward the winner
+				double k = Math.sin(Math.PI * u);
+				float x = lerp(REST_X, REST_X + (-1.0f - REST_X) * amp, k);
+				float yaw = (float) (0.5 * seat * amp * k);
+				yield new Pose(x, yaw, 0, x, yaw, 0, (float) (0.2 * amp * k));
+			}
 			default -> Pose.REST;
 		};
+	}
+
+	/** Extra forward tilt of the enderman's long arms so its hands rest on the felt (DL-SPEC §3 "Ender pose"). */
+	public static final float ENDER_ARM_OFFSET = -0.55f;
+	/** Amplitude scale of the enderman's gestures (its arms are almost twice as long). */
+	public static final float ENDER_AMPLITUDE = 0.7f;
+
+	/** The ender dealer's pose: {@code p} at 0.7× amplitude around the rest pose, tilted forward by 0.55 rad. */
+	public static Pose ender(Pose p) {
+		return new Pose(enderX(p.rightX()), p.rightY() * ENDER_AMPLITUDE, p.rightZ() * ENDER_AMPLITUDE, enderX(p.leftX()),
+			p.leftY() * ENDER_AMPLITUDE, p.leftZ() * ENDER_AMPLITUDE, p.headX() * ENDER_AMPLITUDE);
+	}
+
+	private static float enderX(float x) {
+		return REST_X + (x - REST_X) * ENDER_AMPLITUDE + ENDER_ARM_OFFSET;
 	}
 
 	private static double inQuad(double t) {

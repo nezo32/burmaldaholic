@@ -15,7 +15,10 @@ import java.util.Optional;
  *       vanilla village sits at the MIN corner of the structure's start chunk (JigsawStructure.findGenerationPoint
  *       uses {@code chunkPos.getMinBlockX/Z()}; villages have no {@code start_jigsaw_name} and the heightmap
  *       projection only moves the piece in Y);</li>
- *   <li>bastion / End City: {@code Gates.pass(chance, levelSeed, startChunk.x, startChunk.z, SALT_*)}.</li>
+ *   <li>bastion / End City: {@code Gates.pass(chance, levelSeed, startChunk.x, startChunk.z, SALT_*)};</li>
+ *   <li>v0.2 standalone casino ({@link CasinoKind#CASINO}, structure set {@code burmaldaholic:casinos}): no hash gate
+ *       — every cell of its own grid may hold one (biome, terrain fit and the village exclusion zone decide), so the
+ *       pre-filter always passes. The v0.2 annex / Parlor v2 / Lounge v2 reuse the v0.1 gates above unchanged.</li>
  * </ul>
  * A passed gate is only a pre-filter (the room may not fit); the locator always confirms the casino piece in the
  * real structure start.
@@ -25,6 +28,8 @@ public final class LocateRules {
 	public static final int CAP_VILLAGE_CHUNKS = 64;
 	public static final int CAP_PARLOR_CHUNKS = 48;
 	public static final int CAP_LOUNGE_CHUNKS = 96;
+	/** Standalone casinos: one per ~830 blocks (~52 chunks) on a 28-chunk grid. */
+	public static final int CAP_CASINO_CHUNKS = 96;
 
 	/** Compass ids, clockwise from north ({@code gui.burmaldaholic.worldgen.dir.<id>}). */
 	public static final List<String> DIRECTIONS = List.of("n", "ne", "e", "se", "s", "sw", "w", "nw");
@@ -37,6 +42,7 @@ public final class LocateRules {
 			case VILLAGE_CASINO -> CAP_VILLAGE_CHUNKS;
 			case PIGLIN_PARLOR -> CAP_PARLOR_CHUNKS;
 			case HIGH_ROLLER -> CAP_LOUNGE_CHUNKS;
+			case CASINO -> CAP_CASINO_CHUNKS;
 		};
 	}
 
@@ -49,6 +55,7 @@ public final class LocateRules {
 			case VILLAGE_CASINO -> Gates.pass(chance, 0L, chunkX << 4, chunkZ << 4, Gates.SALT_VILLAGE);
 			case PIGLIN_PARLOR -> Gates.pass(chance, levelSeed, chunkX, chunkZ, Gates.SALT_PARLOR);
 			case HIGH_ROLLER -> Gates.pass(chance, levelSeed, chunkX, chunkZ, Gates.SALT_LOUNGE);
+			case CASINO -> chance > 0;
 		};
 	}
 
@@ -80,7 +87,8 @@ public final class LocateRules {
 
 	/**
 	 * How far (chunks) a casino may lie from its host's start chunk: jigsaw villages reach 80 blocks from their
-	 * centre, appended rooms stay within 7 chunks ({@code CasinoStructures.MAX_CHUNK_REACH}).
+	 * centre, appended rooms stay within 7 chunks ({@code CasinoStructures.MAX_CHUNK_REACH}), a standalone casino
+	 * within {@code max_distance_from_center} (48) plus its terrain-fit shift (16) of the start.
 	 */
 	public static final int HOST_REACH_CHUNKS = 8;
 

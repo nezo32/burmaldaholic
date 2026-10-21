@@ -7,6 +7,9 @@ chip_5
 chip_25
 chip_100
 chip_500
+chip_1000
+chip_5000
+chip_25000
 casino_card
 cashier
 nether_cashier

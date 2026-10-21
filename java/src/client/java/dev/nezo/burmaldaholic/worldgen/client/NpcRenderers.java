@@ -1,9 +1,14 @@
 package dev.nezo.burmaldaholic.worldgen.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import dev.nezo.burmaldaholic.Burmaldaholic;
+import dev.nezo.burmaldaholic.worldgen.logic.NpcLook;
 import dev.nezo.burmaldaholic.worldgen.npc.CasinoNpcEntity;
 import dev.nezo.burmaldaholic.worldgen.npc.NpcContent;
 import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.model.monster.enderman.EndermanModel;
+import net.minecraft.client.renderer.entity.layers.EnderEyesLayer;
+import net.minecraft.client.renderer.entity.state.EndermanRenderState;
 import net.minecraft.client.model.monster.piglin.AdultPiglinModel;
 import net.minecraft.client.model.monster.piglin.PiglinModel;
 import net.minecraft.client.model.monster.shulker.ShulkerModel;
@@ -36,29 +41,99 @@ final class NpcRenderers {
 		EntityRenderers.register(NpcContent.CROUPIER, CroupierRenderer::new);
 		EntityRenderers.register(NpcContent.PIGLIN_DEALER, DealerRenderer::new);
 		EntityRenderers.register(NpcContent.SHULKER_CROUPIER, ShulkerCroupierRenderer::new);
+		// DL: new staff, every one wearing a skin of its pool (worldgen/logic/NpcLook)
+		EntityRenderers.register(NpcContent.MERCHANT, CroupierRenderer::new);
+		EntityRenderers.register(NpcContent.PIGLIN_MERCHANT, DealerRenderer::new);
+		EntityRenderers.register(NpcContent.PIT_BOSS, DealerRenderer::new);
+		EntityRenderers.register(NpcContent.ENDER_CROUPIER, EnderStaffRenderer::new);
+		EntityRenderers.register(NpcContent.ENDER_MERCHANT, EnderStaffRenderer::new);
+		HouseDealerRenderers.register();
+	}
+
+	static final Identifier[] VILLAGERS = pool("croupier/villager_", NpcLook.VILLAGER);
+	static final Identifier PIT_BOSS = texture("dealer/pit_boss");
+
+	private static Identifier[] pool(String prefix, int n) {
+		Identifier[] out = new Identifier[n];
+		for (int i = 0; i < n; i++) {
+			out[i] = texture(prefix + i);
+		}
+		return out;
+	}
+
+	/** Villager-model staff: the croupier and the overworld merchant. */
+	static final class StaffVillagerState extends VillagerRenderState {
+		int look;
+	}
+
+	/** Piglin-model staff: the nether cashier, the nether merchant and the pit boss (a brute). */
+	static final class StaffPiglinState extends PiglinRenderState {
+		int look;
+		boolean pitBoss;
+	}
+
+	/** Ender croupier / ender merchant: the enderman in casino dress at 0.9 scale, vanilla eyes, no carried block. */
+	static final class EnderStaffRenderer extends MobRenderer<CasinoNpcEntity, EndermanRenderState, EndermanModel<EndermanRenderState>> {
+		EnderStaffRenderer(EntityRendererProvider.Context context) {
+			super(context, new EndermanModel<>(context.bakeLayer(ModelLayers.ENDERMAN)), 0.45F);
+			addLayer(new EnderEyesLayer(this));
+		}
+
+		@Override
+		public EndermanRenderState createRenderState() {
+			return new StaffEnderState();
+		}
+
+		@Override
+		public Identifier getTextureLocation(EndermanRenderState state) {
+			return HouseDealerRenderers.pick(HouseDealerRenderers.ENDER, state instanceof StaffEnderState s ? s.look : 0);
+		}
+
+		@Override
+		protected void scale(EndermanRenderState state, PoseStack poseStack) {
+			poseStack.scale(0.9F, 0.9F, 0.9F);
+		}
+
+		@Override
+		public void extractRenderState(CasinoNpcEntity entity, EndermanRenderState state, float partialTicks) {
+			super.extractRenderState(entity, state, partialTicks);
+			HumanoidMobRenderer.extractHumanoidRenderState(entity, state, partialTicks, itemModelResolver);
+			state.isCreepy = false;
+			if (state instanceof StaffEnderState s) {
+				s.look = entity.look();
+			}
+		}
+	}
+
+	static final class StaffEnderState extends EndermanRenderState {
+		int look;
 	}
 
 	static final class CroupierRenderer extends MobRenderer<CasinoNpcEntity, VillagerRenderState, VillagerModel> {
-		private static final Identifier TEXTURE = texture("croupier");
-
 		CroupierRenderer(EntityRendererProvider.Context context) {
 			super(context, new VillagerModel(context.bakeLayer(ModelLayers.VILLAGER)), 0.5F);
 		}
 
 		@Override
 		public Identifier getTextureLocation(VillagerRenderState state) {
-			return TEXTURE;
+			return VILLAGERS[Math.floorMod(state instanceof StaffVillagerState s ? s.look : 0, VILLAGERS.length)];
 		}
 
 		@Override
 		public VillagerRenderState createRenderState() {
-			return new VillagerRenderState();
+			return new StaffVillagerState();
+		}
+
+		@Override
+		public void extractRenderState(CasinoNpcEntity entity, VillagerRenderState state, float partialTicks) {
+			super.extractRenderState(entity, state, partialTicks);
+			if (state instanceof StaffVillagerState s) {
+				s.look = entity.look();
+			}
 		}
 	}
 
 	static final class DealerRenderer extends HumanoidMobRenderer<CasinoNpcEntity, PiglinRenderState, PiglinModel> {
-		private static final Identifier TEXTURE = texture("piglin_dealer");
-
 		DealerRenderer(EntityRendererProvider.Context context) {
 			super(context, new AdultPiglinModel(context.bakeLayer(ModelLayers.PIGLIN)), new AdultPiglinModel(context.bakeLayer(ModelLayers.PIGLIN)),
 				0.5F, PiglinRenderer.PIGLIN_CUSTOM_HEAD_TRANSFORMS);
@@ -66,19 +141,27 @@ final class NpcRenderers {
 
 		@Override
 		public Identifier getTextureLocation(PiglinRenderState state) {
-			return TEXTURE;
+			if (state instanceof StaffPiglinState s) {
+				return s.pitBoss ? PIT_BOSS : HouseDealerRenderers.pick(HouseDealerRenderers.PIGLIN, s.look);
+			}
+			return HouseDealerRenderers.PIGLIN[0];
 		}
 
 		@Override
 		public PiglinRenderState createRenderState() {
-			return new PiglinRenderState();
+			return new StaffPiglinState();
 		}
 
 		@Override
 		public void extractRenderState(CasinoNpcEntity entity, PiglinRenderState state, float partialTicks) {
 			super.extractRenderState(entity, state, partialTicks);
 			state.armPose = PiglinArmPose.DEFAULT;
-			state.isBrute = false;
+			boolean pitBoss = entity.getType() == NpcContent.PIT_BOSS;
+			state.isBrute = pitBoss;
+			if (state instanceof StaffPiglinState s) {
+				s.look = entity.look();
+				s.pitBoss = pitBoss;
+			}
 		}
 	}
 

@@ -16,7 +16,7 @@ import { buildGlyphSheet } from './core/glyphs.mjs';
 import { button, hudBadgeShine, hudCloud, hudFlame, panelCasino, panelFelt, panelHud, panelInset, panelTab, stamp, toast } from './core/ui.mjs';
 import { chipSide, chipTop, coinSpinFrames, confettiSheet, rays, sparkle, vignette } from './core/fx.mjs';
 import { PARTICLE_SETS } from './core/particles.mjs';
-import { CHIP_DENOMS, STACK_KINDS, chipStack } from './core/items.mjs';
+import { CHIP_DENOMS, STACK_KINDS, chipItem, chipStack } from './core/items.mjs';
 import * as menu from './core/menu.mjs';
 
 const T = `${JAVA_ASSETS}/textures`;
@@ -69,8 +69,10 @@ export default function generate() {
     out.push(png(`${T}/gui/core/fx/vignette_${name}.png`, vignette(c)));
 
   // ---- chip stack items (global.md §4.4) ----
-  for (const d of CHIP_DENOMS)
+  for (const d of CHIP_DENOMS) {
+    out.push(png(`${T}/item/core/chip_${d}.png`, chipItem(d)));
     for (const k of STACK_KINDS) out.push(png(`${T}/item/core/chip_${d}_${k}.png`, chipStack(d, k)));
+  }
 
   // ---- particles: one Java file per frame ----
   for (const s of PARTICLE_SETS) s.frames.forEach((f, i) => out.push(png(`${T}/particle/core/${s.name}_${i}.png`, f)));

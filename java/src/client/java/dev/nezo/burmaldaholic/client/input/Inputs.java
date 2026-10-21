@@ -30,6 +30,20 @@ public final class Inputs {
 		return button == MOUSE_MIDDLE;
 	}
 
+	/** Modifier bits of the running version ({@code InputConstants.MOD_*}; GLFW on 26.2, SDL3 on 26.3). */
+	public static final int MOD_SHIFT = constant("MOD_SHIFT");
+	public static final int MOD_CONTROL = constant("MOD_CONTROL");
+
+	/** True when {@code mods} (a key / mouse event's modifiers) has Shift held. */
+	public static boolean shift(int mods) {
+		return (mods & MOD_SHIFT) != 0;
+	}
+
+	/** True when {@code mods} has Control held. */
+	public static boolean ctrl(int mods) {
+		return (mods & MOD_CONTROL) != 0;
+	}
+
 	public static final int KEY_0 = constant("KEY_0");
 	public static final int KEY_1 = constant("KEY_1");
 	public static final int KEY_2 = constant("KEY_2");

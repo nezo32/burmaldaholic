@@ -55,9 +55,13 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("E") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("hotfix") && !dev.nezo.burmaldaholic.gametest.v2.RealFlow.enabled("PvpRealFlowClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
+			// 1920 × 1080 at GUI 4 = the 480 × 270 virtual GUI (PHASE2 E2: the hub's invites and every PvP screen at 480)
+			dev.nezo.burmaldaholic.gametest.v2.RealFlow f = new dev.nezo.burmaldaholic.gametest.v2.RealFlow(context, world);
+			f.size(1920, 1080, 4);
 			run(context, world, "coin_hub", () -> hubDuel(context, world, "coin"));
 			run(context, world, "scratch_hub", () -> hubDuel(context, world, "scratch"));
 			run(context, world, "plinko_hub", () -> hubDuel(context, world, "plinko"));
@@ -73,6 +77,10 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			run(context, world, "plinko_join", () -> plinkoJoin(context, world));
 			run(context, world, "wheel_join", () -> wheelJoin(context, world));
 			run(context, world, "slots_join", () -> slotsJoin(context, world));
+			run(context, world, "dice_invite_esc", () -> diceInviteEsc(context, world));
+			run(context, world, "dice_invite_accept", () -> diceInviteAccept(context, world));
+			run(context, world, "dice_screen_challenge", () -> diceScreenChallenge(context, world));
+			f.size(854, 480, 0);
 		}
 		if (!problems.isEmpty()) {
 			throw new AssertionError("PvP real-flow problems:\n - " + String.join("\n - ", problems));
@@ -214,7 +222,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 				}
 				for (AbstractWidget w : widgets(s)) {
 					if (w.visible && w.isActive() && which.test(w)) {
-						double f = mc.getWindow().getGuiScale() * FitScaled.current();
+						double f = mc.getWindow().getGuiScale() * (s instanceof FitScaled fs ? fs.fitScale() : 1f);
 						return new double[] {(w.getX() + w.getWidth() / 2.0) * f, (w.getY() + w.getHeight() / 2.0) * f};
 					}
 				}
@@ -235,6 +243,39 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		if (pos == null) {
 			throw new AssertionError("no active '" + what + "' on " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
 		}
+		context.getInput().setCursorPos(pos[0], pos[1]);
+		context.waitTicks(1);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
+		context.waitTicks(3);
+	}
+
+	/**
+	 * Clicks a target of a table UI v2 screen (the machine screens, lane E) by its HitMap id at the real window pixel —
+	 * the v2 machine screens draw their felt toggles (Plinko Battle, Wheel Party) by box, not as vanilla widgets.
+	 */
+	/** The Slot Showdown entry: in the Dock, or (compact Dock of narrow frames, T-SLT D3) behind More. */
+	private static void clickSlotShowdown(ClientGameTestContext context) {
+		context.waitTicks(2);
+		boolean inDock = context.computeOnClient(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h
+			&& h.chrome().hits().box("action.showdown").isPresent());
+		if (!inDock) clickV2(context, "action.more", "the More button of the compact slot Dock (SLT D3)");
+		clickV2(context, inDock ? "action.showdown" : "more.showdown", "the Slot Showdown entry (v2 kit, SLT)");
+	}
+
+	private static void clickV2(ClientGameTestContext context, String id, String what) {
+		double[] pos = null;
+		for (int waited = 0; waited < TIMEOUT && pos == null; waited += 2) {
+			pos = context.computeOnClient(mc -> {
+				if (!(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h)) return null;
+				var vp = h.chrome().viewport();
+				// frame-relative → window (framed windows, ui-v2.md §3.7)
+				return h.chrome().hits().box(id).map(b -> new double[] {vp.windowX(b.x() + b.w() / 2.0), vp.windowY(b.y() + b.h() / 2.0)}).orElse(null);
+			});
+			if (pos == null) context.waitTicks(2);
+		}
+		if (pos == null) throw new AssertionError("no v2 target '" + id + "' (" + what + ") on " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
+		// the kit's ClickGuard (K2) refuses a click on a control that just appeared: wait one reaction time, like a player
+		context.waitFor(mc -> !(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h) || h.chrome().clickSettled(), TIMEOUT);
 		context.getInput().setCursorPos(pos[0], pos[1]);
 		context.waitTicks(1);
 		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
@@ -417,6 +458,23 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			throw new AssertionError("the rival's challenge did not reach the client: " + rival);
 		}
 		openHub(context);
+		// v0.1.2 open item: the pending invite is on the first page at 480 × 270 (above the mode cards), no scrolling
+		context.waitTicks(5);
+		context.takeScreenshot("p2b_e2_hub_invite_en_480");
+		String unseen = context.computeOnClient(mc -> {
+			Screen s = mc.gui.screen();
+			if (s == null) return "no screen";
+			for (AbstractWidget w : widgets(s)) {
+				if (!labelled("gui.burmaldaholic.pvp.hub.accept").test(w)) continue;
+				if (!w.visible) return "[Accept] is scrolled out of the page";
+				if (w.getY() + w.getHeight() > s.height || w.getY() < 0) return "[Accept] outside the window";
+				return "";
+			}
+			return "no [Accept] on the hub";
+		});
+		if (!unseen.isEmpty()) {
+			throw new AssertionError(unseen + " (" + context.computeOnClient(PvpRealFlowClientGameTests::describe) + ")");
+		}
 		click(context, labelled("gui.burmaldaholic.pvp.hub.accept"), "[Accept]");
 		playOut(context, world, "ScratchShowdownScreen", "gui.burmaldaholic.pvp.scratch.scratch_now", rival, before);
 	}
@@ -437,7 +495,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, ExtrasModule.PLINKO.block());
 		waitForScreen(context, named("PlinkoScreen"), "the Plinko screen opens");
-		click(context, labelled("gui.burmaldaholic.pvp.plinko.host"), "the Plinko Battle tab");
+		clickV2(context, "felt.battle", "the Plinko Battle tab");
 		click(context, w -> keyOf(w.getMessage()).equals("gui.burmaldaholic.pvp.plinko.host"), "Start a Plinko Battle");
 		if (!vsBots) {
 			// seats: humans only (the set-up cycles humans only → mixed → bots only)
@@ -513,7 +571,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.send(new TableActionPayload(pos, "pvp_host", MockClient.args("amount", 10L, "risk", "medium", "balls", 3, "policy", "humans_only",
 				"difficulty", "normal", "size", 2)));
 		}, () -> {
-			click(context, labelled("gui.burmaldaholic.pvp.plinko.host"), "the Plinko Battle tab");
+			clickV2(context, "felt.battle", "the Plinko Battle tab");
 			click(context, w -> keyOf(w.getMessage()).equals("gui.burmaldaholic.pvp.plinko.join"), "Join the battle");
 		}, "PlinkoBattleScreen", "gui.burmaldaholic.pvp.plinko.drop_now");
 	}
@@ -524,7 +582,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.send(new WheelPartyNet.Action("host", MockClient.args("cap", 50L, "stake", 20L, "policy", "humans_only", "difficulty", "normal",
 				"size", 2)));
 		}, () -> {
-			click(context, labelled("gui.burmaldaholic.pvp.wheel.join"), "the Join the party button");
+			clickV2(context, "felt.party", "the Join the party button");
 			waitForScreen(context, named("WheelPartyPanel"), "the party panel opens");
 			click(context, labelled("gui.burmaldaholic.pvp.wheel.join"), "Join the party");
 		}, "WheelPartyScreen", null);
@@ -535,7 +593,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			rival.player.openMenu((net.minecraft.world.MenuProvider) rival.player.level().getBlockEntity(pos));
 			rival.send(new TableActionPayload(pos, "pvp_open", MockClient.args("entry", 10L, "spins", 3, "policy", "humans_only", "size", 2)));
 		}, () -> {
-			click(context, labelled("gui.burmaldaholic.pvp.slots.join"), "the Join Showdown button");
+			clickSlotShowdown(context);
 			click(context, labelled("gui.burmaldaholic.pvp.slots.join"), "Join Showdown");
 		}, "SlotShowdownScreen", "gui.burmaldaholic.pvp.slots.spin_now");
 	}
@@ -572,7 +630,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, ExtrasModule.WHEEL.block());
 		waitForScreen(context, named("WheelScreen"), "the wheel screen opens");
-		click(context, labelled("gui.burmaldaholic.pvp.wheel.host"), "the Wheel Party button");
+		clickV2(context, "felt.party", "the Wheel Party button");
 		waitForScreen(context, named("WheelPartyPanel"), "the party panel opens");
 		click(context, labelled("gui.burmaldaholic.pvp.wheel.host"), "Start a Wheel Party");
 		context.waitTicks(15);
@@ -603,7 +661,7 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		long before = total(world, me, rival);
 		BlockPos pos = useMachine(context, world, SlotsModule.MACHINES.get(Tier.COPPER).block());
 		waitForScreen(context, named("SlotMachineV2Screen"), "the slot machine screen opens");
-		click(context, labelled("gui.burmaldaholic.pvp.slots.title"), "the Slot Showdown button");
+		clickSlotShowdown(context);
 		click(context, labelled("gui.burmaldaholic.pvp.lobby.open"), "Open lobby");
 		context.waitTicks(15);
 		String id = match(world, me).map(x -> x.id).orElseThrow(() -> new AssertionError("no showdown lobby on the server: "
@@ -618,5 +676,126 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 		context.waitTicks(15);
 		click(context, labelled("gui.burmaldaholic.pvp.lobby.start"), "Start");
 		playOut(context, world, "SlotShowdownScreen", "gui.burmaldaholic.pvp.slots.spin_now", rival, before);
+	}
+
+	// ---- Dice Duel (an item game; its PvP is the extras challenge book, not the PvP service) ----------------------
+
+	private static final long DICE_STAKE = 50;
+
+	/** The rival challenges the client to a Dice Duel (what its Dice screen's Challenge sends). */
+	private static void rivalDiceChallenge(TestSingleplayerContext world, MockClient rival, UUID me, long stake) {
+		world.getServer().runOnServer(s -> {
+			// the rival holds Dice (the server only takes dice actions from a player with the item or its screen)
+			rival.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(ExtrasModule.DICE));
+			rival.send(new dev.nezo.burmaldaholic.games.extras.net.ExtrasActionPayload("dice", "challenge",
+				MockClient.args("target", me.toString(), "amount", stake)));
+			if (dev.nezo.burmaldaholic.games.extras.server.DiceGame.outgoing(rival.player).isEmpty()) {
+				throw new AssertionError("the rival's dice challenge was refused: " + rival);
+			}
+		});
+	}
+
+	private static int incomingDice(TestSingleplayerContext world, UUID me) {
+		return world.getServer().computeOnServer(s -> dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(mePlayer(s, me)).size());
+	}
+
+	/** Both balances after a PvP dice duel of {@code stake}: unchanged (a refund) or less the rake (a winner). */
+	private static void diceConserved(TestSingleplayerContext world, UUID me, MockClient rival, long before, long stake) {
+		int pct = world.getServer().computeOnServer(s -> dev.nezo.burmaldaholic.core.config.CasinoConfig.extras().diceDuel.pvpRakePercent);
+		long rake = dev.nezo.burmaldaholic.games.extras.logic.DiceDuel.pvpPayout(stake, pct).rake();
+		long after = total(world, me, rival);
+		if (after != before && after != before - rake) {
+			throw new AssertionError("dice chips not conserved: " + after + " vs " + before + " (rake " + rake + ")");
+		}
+	}
+
+	/** R-CDE m5: Esc on the invite card declines on the server (the challenge leaves the book at once). */
+	private void diceInviteEsc(ClientGameTestContext context, TestSingleplayerContext world) {
+		MockClient rival = setUp(context, world, true);
+		UUID me = me(context);
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(3);
+		rivalDiceChallenge(world, rival, me, DICE_STAKE);
+		waitForScreen(context, named("DuelInviteScreen"), "the Dice Duel invite card opens");
+		context.waitTicks(10);
+		context.takeScreenshot("p2b_e2_dice_invite_en_480");
+		context.getInput().pressKey(Inputs.KEY_ESCAPE);
+		context.waitTicks(5);
+		if (context.computeOnClient(mc -> mc.gui.screen() != null)) {
+			throw new AssertionError("Esc did not close the invite card: " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
+		}
+		if (incomingDice(world, me) != 0) {
+			throw new AssertionError("Esc closed the card but the server still holds the challenge (not DECLINED)");
+		}
+		boolean rivalFree = world.getServer().computeOnServer(s -> dev.nezo.burmaldaholic.games.extras.server.DiceGame.outgoing(rival.player).isEmpty());
+		if (!rivalFree) throw new AssertionError("the challenger still waits on a declined challenge");
+	}
+
+	/** The invite card's Accept, clicked at its real window pixel, plays the duel; chips are conserved. */
+	private void diceInviteAccept(ClientGameTestContext context, TestSingleplayerContext world) {
+		MockClient rival = setUp(context, world, true);
+		UUID me = me(context);
+		long before = total(world, me, rival);
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		context.waitTicks(3);
+		rivalDiceChallenge(world, rival, me, DICE_STAKE);
+		waitForScreen(context, named("DuelInviteScreen"), "the Dice Duel invite card opens");
+		context.waitTicks(10);
+		double[] at = context.computeOnClient(mc -> {
+			Screen s = mc.gui.screen();
+			try {
+				Field hf = s.getClass().getDeclaredField("hits");
+				hf.setAccessible(true);
+				var hits = (dev.nezo.burmaldaholic.core.ui.v2.HitMap) hf.get(s);
+				var b = hits.box(dev.nezo.burmaldaholic.client.pvp.kit.InviteCard.ACCEPT).orElseThrow();
+				double k = mc.getWindow().getGuiScale() * (s instanceof FitScaled fs ? fs.fitScale() : 1f);
+				return new double[] {(b.x() + b.w() / 2.0) * k, (b.y() + b.h() / 2.0) * k};
+			} catch (ReflectiveOperationException e) {
+				throw new AssertionError(e);
+			}
+		});
+		context.getInput().setCursorPos(at[0], at[1]);
+		context.waitTicks(1);
+		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
+		context.waitTicks(10);
+		if (incomingDice(world, me) != 0) throw new AssertionError("the card's Accept did not reach the server");
+		diceConserved(world, me, rival, before, DICE_STAKE);
+		context.waitTicks(60);
+		context.takeScreenshot("p2b_e2_dice_duel_en_480");
+	}
+
+	/** Dice item → the v2 Dice screen → Challenge (felt.challenge) the rival; the rival accepts; the result reaches the screen. */
+	private void diceScreenChallenge(ClientGameTestContext context, TestSingleplayerContext world) {
+		MockClient rival = setUp(context, world, true);
+		UUID me = me(context);
+		long before = total(world, me, rival);
+		world.getServer().runOnServer(s -> mePlayer(s, me).getInventory().setItem(0, new net.minecraft.world.item.ItemStack(ExtrasModule.DICE, 1)));
+		context.waitTicks(4);
+		context.runOnClient(mc -> {
+			mc.gui.setScreen(null);
+			mc.player.getInventory().setSelectedSlot(0);
+			mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND);
+		});
+		waitForScreen(context, named("DiceScreen"), "the Dice screen opens");
+		context.waitTicks(10);
+		clickV2(context, "felt.challenge", "Challenge the rival");
+		context.waitTicks(5);
+		int id = world.getServer().computeOnServer(s -> dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(rival.player).stream()
+			.findFirst().map(c -> c.id()).orElse(-1));
+		if (id < 0) throw new AssertionError("no challenge reached the rival: " + rival);
+		long stake = world.getServer().computeOnServer(s -> dev.nezo.burmaldaholic.games.extras.server.DiceGame.incoming(rival.player).getFirst().stake());
+		world.getServer().runOnServer(s -> {
+			rival.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(ExtrasModule.DICE));
+			rival.send(new dev.nezo.burmaldaholic.games.extras.net.ExtrasActionPayload("dice", "accept", MockClient.args("id", id)));
+		});
+		context.waitTicks(10);
+		diceConserved(world, me, rival, before, stake);
+		// the PvP result reaches the open Dice screen (its banner carries the net)
+		try {
+			context.waitFor(mc -> mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h && h.chrome().banner.summary() != null, TIMEOUT);
+		} catch (RuntimeException | AssertionError e) {
+			throw new AssertionError("the duel result never showed on the Dice screen (" + context.computeOnClient(PvpRealFlowClientGameTests::describe) + ")");
+		}
+		context.takeScreenshot("p2b_e2_dice_screen_duel_en_480");
 	}
 }

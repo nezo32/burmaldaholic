@@ -8,8 +8,8 @@ import dev.nezo.burmaldaholic.core.text.Texts;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoKind;
 import dev.nezo.burmaldaholic.worldgen.logic.CasinoRecord;
 import dev.nezo.burmaldaholic.worldgen.logic.Geometry;
-import dev.nezo.burmaldaholic.worldgen.logic.Layout;
 import dev.nezo.burmaldaholic.worldgen.logic.LocateRules;
+import dev.nezo.burmaldaholic.worldgen.logic.PackFiles;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,17 +32,16 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.StructureTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.BuiltinStructures;
-import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureCheckResult;
-import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
@@ -56,7 +55,8 @@ import org.jspecify.annotations.Nullable;
  *       (in memory, monotonic time; operators and the singleplayer host are exempt).</li>
  *   <li>Known casinos: the nearest complete {@link CasinoIndex} record of this dimension.</li>
  *   <li>Not yet explored casinos (only while generation is active): the hosts' random-spread structure grids
- *       (villages, bastions, End Cities that generate in this dimension) are walked ring by ring like vanilla
+ *       (villages — v0.1 casino or v0.2 annex —, the v0.2 standalone casinos of {@code #burmaldaholic:casino}, bastions
+ *       and End Cities — Parlor / Lounge v1 or v2 — that generate in this dimension) are walked ring by ring like vanilla
  *       {@code /locate}, up to the kind's cap ({@link LocateRules#capChunks}) or the known casino's distance,
  *       whichever is nearer. Each candidate start inside the world border is pre-filtered with the generation gate
  *       ({@link LocateRules#gate}), then checked by vanilla's structure check and finally CONFIRMED in the real
@@ -231,6 +231,15 @@ public final class CasinoLocator {
 	 * the GameTest server never generates structures, so they create the starts themselves.
 	 */
 	public static Outcome search(ServerLevel level, double fromX, double fromZ, Runnable searching, Limits limits) {
+		return search(level, fromX, fromZ, searching, limits, hosts(level));
+	}
+
+	/**
+	 * {@link #search(ServerLevel, double, double, Runnable, Limits)} over explicit {@code hosts} (GameTests: the
+	 * GameTest Overworld is superflat, whose generator only places villages, so the standalone casino host is built
+	 * from its structure set by hand — {@link #standaloneHost}).
+	 */
+	public static Outcome search(ServerLevel level, double fromX, double fromZ, Runnable searching, Limits limits, List<Host> hosts) {
 		String dimension = level.dimension().identifier().toString();
 		List<CasinoRecord> known = new ArrayList<>();
 		for (CasinoRecord r : CasinoIndex.get(level.getServer()).casinos()) {
@@ -238,7 +247,6 @@ public final class CasinoLocator {
 				known.add(r);
 			}
 		}
-		List<Host> hosts = hosts(level);
 		if (hosts.isEmpty() && known.isEmpty()) {
 			return Outcome.of(Status.WRONG_DIMENSION);
 		}
@@ -310,7 +318,10 @@ public final class CasinoLocator {
 	/** A host structure family with the random-spread grids it generates on in this dimension. */
 	public record Host(CasinoKind kind, double chance, Map<RandomSpreadStructurePlacement, Set<Holder<Structure>>> grids) {}
 
-	/** Casino hosts that generate in this level (empty in a dimension without villages, bastions and End Cities). */
+	/**
+	 * Casino hosts that generate in this level (empty in a dimension without villages, standalone casinos, bastions and
+	 * End Cities).
+	 */
 	public static List<Host> hosts(ServerLevel level) {
 		Registry<Structure> structures = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
 		ChunkGeneratorStructureState state = level.getChunkSource().getGeneratorState();
@@ -318,11 +329,35 @@ public final class CasinoLocator {
 		List<Holder<Structure>> villages = new ArrayList<>();
 		structures.get(StructureTags.VILLAGE).ifPresent(set -> set.forEach(villages::add));
 		addHost(out, state, CasinoKind.VILLAGE_CASINO, WorldgenRuntime.villageChance(), villages);
+		// v0.2 standalone casinos: their own set (burmaldaholic:casinos), every style listed in the structure tag
+		List<Holder<Structure>> standalone = new ArrayList<>();
+		structures.get(TagKey.create(Registries.STRUCTURE, Identifier.parse(PackFiles.TAG))).ifPresent(set -> set.forEach(standalone::add));
+		if (WorldgenRuntime.standaloneActive()) { // worldgen.standalone.enabled off: no new standalone casino can exist
+			addHost(out, state, CasinoKind.CASINO, 1.0, standalone);
+		}
 		structures.get(BuiltinStructures.BASTION_REMNANT).ifPresent(h ->
 			addHost(out, state, CasinoKind.PIGLIN_PARLOR, WorldgenRuntime.parlorChance(), List.of(h)));
 		structures.get(BuiltinStructures.END_CITY).ifPresent(h ->
 			addHost(out, state, CasinoKind.HIGH_ROLLER, WorldgenRuntime.loungeChance(), List.of(h)));
 		return out;
+	}
+
+	/**
+	 * The standalone casino host straight from the {@code burmaldaholic:casinos} structure set, whether or not this
+	 * level's generator places it (empty when the pack has no such set, or while {@code worldgen.standalone.enabled}
+	 * is off).
+	 */
+	public static Optional<Host> standaloneHost(ServerLevel level) {
+		if (!WorldgenRuntime.standaloneActive()) {
+			return Optional.empty(); // worldgen.standalone.enabled off: nothing unexplored to predict
+		}
+		return level.registryAccess().lookupOrThrow(Registries.STRUCTURE_SET)
+			.getValue(Identifier.parse(PackFiles.SET)) instanceof net.minecraft.world.level.levelgen.structure.StructureSet set
+			&& set.placement() instanceof RandomSpreadStructurePlacement spread
+			? Optional.of(new Host(CasinoKind.CASINO, 1.0, Map.of(spread, set.structures().stream()
+				.map(net.minecraft.world.level.levelgen.structure.StructureSet.StructureSelectionEntry::structure)
+				.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)))))
+			: Optional.empty();
 	}
 
 	private static void addHost(List<Host> out, ChunkGeneratorStructureState state, CasinoKind kind, double chance,
@@ -405,19 +440,15 @@ public final class CasinoLocator {
 			if (structureStart == null || !structureStart.isValid()) {
 				continue;
 			}
-			for (StructurePiece piece : structureStart.getPieces()) {
-				if (!(piece instanceof PoolElementStructurePiece pool)) {
-					continue;
-				}
-				Optional<Layout> layout = CasinoElements.layoutOf(pool.getElement());
-				if (layout.isEmpty()) {
-					continue;
-				}
-				BoundingBox bb = pool.getBoundingBox();
-				Geometry.Box box = CasinoStructures.box(bb);
-				boolean indexed = known.stream().anyMatch(r -> r.box().contains(box.centerX(), box.minY() + 1, box.centerZ()));
-				return Optional.of(candidate(layout.get().kind(), box, !indexed));
+			// the start's casino (v0.1 room, v0.2 annex / Parlor / Lounge, or every piece of a standalone casino): the
+			// same kind + union box the markers register (CasinoPlacement), so "indexed" matches the CasinoIndex record
+			CasinoPlacement.Context casino = CasinoPlacement.of(level.dimension().identifier().toString(), structureStart.getPieces());
+			if (casino == null) {
+				continue;
 			}
+			Geometry.Box box = casino.box();
+			boolean indexed = known.stream().anyMatch(r -> r.box().contains(box.centerX(), box.minY() + 1, box.centerZ()));
+			return Optional.of(candidate(casino.kind(), box, !indexed));
 		}
 		return Optional.empty();
 	}

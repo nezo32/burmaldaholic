@@ -1,9 +1,9 @@
 package dev.nezo.burmaldaholic.games.craps.logic;
 
 /**
- * What a craps table publishes to spectators and its in-world renderer (block entity update tag; tables.md §2.7): the
- * last roll's dice, its time and seed, the point before and after, the shooter's side and the table theme. Encoded as an
- * int array so the update tag stays tiny. Pure.
+ * What a craps table publishes to spectators and its in-world renderer (block entity update tag; tables.md §2.7, CS
+ * §3.1): the last roll's dice, its time and seed, the point before and after, the shooter's side, the server's rest
+ * time of the throw and the table theme. Encoded as an int array so the update tag stays tiny. Pure.
  *
  * @param rolls       roll counter (a change = a new throw)
  * @param rollTime    game time of the roll
@@ -13,20 +13,36 @@ package dev.nezo.burmaldaholic.games.craps.logic;
  * @param shooterDir  0–3 horizontal direction from the table to the shooter (south, west, north, east)
  * @param event       {@link RollEvent.Kind} ordinal, -1 = none
  * @param theme       0 village, 1 bastion, 2 end
+ * @param shooterSide the end of the Pass line the dice are thrown from (0 right, 1 left; CM {@code CrapsThrow})
+ * @param restMs      the server's solved rest time of the throw (0 = unknown: the client solves; v1 data)
+ * @param animV       animation version (2 = the CM dice kit throw; 1 = decoded from a v1 sync)
+ * @param nextSide    the NEXT shooter's end of the Pass line (dice home, the stick's drag target; T-CM M1)
  */
-public record CrapsSync(int rolls, long rollTime, int d1, int d2, int seed, int pointBefore, int point, int shooterDir, int event, int theme) {
-	public static final int VERSION = 1;
+public record CrapsSync(int rolls, long rollTime, int d1, int d2, int seed, int pointBefore, int point, int shooterDir, int event, int theme,
+		int shooterSide, int restMs, int animV, int nextSide) {
+	public static final int VERSION = 3;
+	public static final int ANIM_V = 2;
+	private static final int LEN = 16;
 
 	public int[] encode() {
-		return new int[] {VERSION, rolls, (int) (rollTime >>> 32), (int) rollTime, d1, d2, seed, pointBefore, point, shooterDir, event, theme};
+		return new int[] {VERSION, rolls, (int) (rollTime >>> 32), (int) rollTime, d1, d2, seed, pointBefore, point, shooterDir, event, theme,
+			shooterSide, restMs, animV, nextSide};
 	}
 
-	/** Decodes {@link #encode}; throws on an unknown format. */
+	/** Decodes {@link #encode} (v2: the next side = the last shooter's; v1: the side follows the old {@code shooter_dir == 1} rule). */
 	public static CrapsSync decode(int[] a) {
-		if (a.length != 12 || a[0] != VERSION) {
+		if (a.length == 12 && a[0] == 1) {
+			long time = ((long) a[2] << 32) | (a[3] & 0xFFFFFFFFL);
+			return new CrapsSync(a[1], time, a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[9] == 1 ? 1 : 0, 0, 1, a[9] == 1 ? 1 : 0);
+		}
+		if (a.length == 15 && a[0] == 2) {
+			long time = ((long) a[2] << 32) | (a[3] & 0xFFFFFFFFL);
+			return new CrapsSync(a[1], time, a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[12]);
+		}
+		if (a.length != LEN || a[0] != VERSION) {
 			throw new IllegalArgumentException("craps sync v" + (a.length > 0 ? a[0] : -1));
 		}
 		long time = ((long) a[2] << 32) | (a[3] & 0xFFFFFFFFL);
-		return new CrapsSync(a[1], time, a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11]);
+		return new CrapsSync(a[1], time, a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
 	}
 }

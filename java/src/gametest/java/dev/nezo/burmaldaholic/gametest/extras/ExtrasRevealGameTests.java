@@ -165,11 +165,11 @@ public class ExtrasRevealGameTests {
 		CompoundTag update = wheel.getUpdateTag(helper.getLevel().registryAccess());
 		helper.assertTrue(WheelSync.decode(update.getIntArray(WheelBlockEntity.SYNC_KEY).orElseThrow()).equals(first), "the update tag carries it");
 		helper.assertTrue(WheelAnim.segmentAt(first.angle(first.totalMs(), false), first.segmentCount()) == first.index(), "lands on the drawn segment");
-		helper.runAfterDelay(WheelBlockEntity.SPIN_TICKS + 2, () -> {
+		helper.runAfterDelay(WheelBlockEntity.SPIN_TICKS + dev.nezo.burmaldaholic.core.anim.sync.SyncLead.WHEEL + 2, () -> {
 			wheel.onAction(p, "spin", chips(10));
 			WheelSync second = wheel.wheelSync();
 			helper.assertTrue(second.prevIndex() == first.index() && second.prevSeq() == first.seq(), "the next spin starts from the last rest");
-			helper.runAfterDelay(WheelBlockEntity.SPIN_TICKS + 2, () -> {
+			helper.runAfterDelay(WheelBlockEntity.SPIN_TICKS + dev.nezo.burmaldaholic.core.anim.sync.SyncLead.WHEEL + 2, () -> {
 				helper.getLevel().getServer().getPlayerList().remove(p);
 				helper.succeed();
 			});
@@ -192,7 +192,7 @@ public class ExtrasRevealGameTests {
 		helper.assertTrue(s.edge() == (s.bin() == 0 || s.bin() == 12), "edge = the High jackpot");
 		// the chat line / celebration wait for the landing of the screen's timeline
 		helper.assertTrue(PlinkoBlockEntity.DROP_TICKS * 50 >= s.landMs(), "settled lines never before the ball lands");
-		helper.runAfterDelay(PlinkoBlockEntity.DROP_TICKS + 2, () -> {
+		helper.runAfterDelay(PlinkoBlockEntity.DROP_TICKS + dev.nezo.burmaldaholic.core.anim.sync.SyncLead.PLINKO + 2, () -> {
 			helper.getLevel().getServer().getPlayerList().remove(p);
 			helper.succeed();
 		});

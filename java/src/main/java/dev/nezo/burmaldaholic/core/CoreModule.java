@@ -96,6 +96,8 @@ public final class CoreModule implements CasinoModule {
 		Earnings.register();
 		HeartPenalties.register();
 		TableNetworking.register(ctx);
+		dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.register(ctx); // EC-1: counter payloads (cashier / store / comps)
+		dev.nezo.burmaldaholic.core.store.StoreService.register(ctx); // EC-1: chip store, /casino store, merchant role
 		TableLifecycle.register(); // review M1: tables play out on chunk unload / server stop
 		CasinoCommands.register();
 		OddsService.get().setStreakSource(StreakTracker::get, StreakTracker::settings);

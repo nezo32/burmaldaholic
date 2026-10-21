@@ -1,18 +1,108 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,part=single": {
       "model": "burmaldaholic:block/uth/table_player_banked"
     },
-    "facing=east": {
+    "facing=north,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/main"
+    },
+    "facing=north,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/left"
+    },
+    "facing=north,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/right"
+    },
+    "facing=north,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_left"
+    },
+    "facing=north,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back"
+    },
+    "facing=north,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_right"
+    },
+    "facing=east,part=single": {
       "model": "burmaldaholic:block/uth/table_player_banked",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/main",
+      "y": 90
+    },
+    "facing=east,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/left",
+      "y": 90
+    },
+    "facing=east,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/right",
+      "y": 90
+    },
+    "facing=east,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_left",
+      "y": 90
+    },
+    "facing=east,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back",
+      "y": 90
+    },
+    "facing=east,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_right",
+      "y": 90
+    },
+    "facing=south,part=single": {
       "model": "burmaldaholic:block/uth/table_player_banked",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/main",
+      "y": 180
+    },
+    "facing=south,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/left",
+      "y": 180
+    },
+    "facing=south,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/right",
+      "y": 180
+    },
+    "facing=south,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_left",
+      "y": 180
+    },
+    "facing=south,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back",
+      "y": 180
+    },
+    "facing=south,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_right",
+      "y": 180
+    },
+    "facing=west,part=single": {
       "model": "burmaldaholic:block/uth/table_player_banked",
+      "y": 270
+    },
+    "facing=west,part=main": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/main",
+      "y": 270
+    },
+    "facing=west,part=left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/left",
+      "y": 270
+    },
+    "facing=west,part=right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/right",
+      "y": 270
+    },
+    "facing=west,part=back_left": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_left",
+      "y": 270
+    },
+    "facing=west,part=back": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back",
+      "y": 270
+    },
+    "facing=west,part=back_right": {
+      "model": "burmaldaholic:block/tables/uth_table_player_banked/back_right",
       "y": 270
     }
   }

@@ -16,7 +16,9 @@ import java.util.List;
  *       {@code weighted(holdWeights)} per initial coin (ascending cell), then per respin for every empty cell in
  *       ascending order {@code nextInt(1 000 000) < coinPpm}, then one {@code weighted} per new coin; Dragon Wheel
  *       = {@code nextInt(ring length)} per ring reached;</li>
- *   <li>free spins: 5 stops per spin, until the spins run out or the max-win cap is reached.</li>
+ *   <li>free spins: 5 stops per spin, until the spins run out or the max-win cap is reached;</li>
+ *   <li>jackpot gem (paid base spins only, when configured): one {@code nextInt(1 000 000)}; below Mini ppm = Mini, below
+ *       Mini + Minor ppm = Minor (SLOTS.md §5.4). Drawn LAST so every earlier draw is unchanged.</li>
  * </ol>
  * Jackpots are awarded in tape order (hunt reveal order, hoard coins as above then the Grand for a full grid,
  * the wheel). Progressive awards: {@code floor(pool × min(bet, ref) / ref)}; a second hit of the same tier comes
@@ -67,7 +69,22 @@ public final class SlotDraw {
 			fsAward = def.freeSpins()[0];
 		}
 		SpinTape.FreeSpins fs = fsAward > 0 && !acc.capHit ? freeSpins(def, fsAward, acc, rng) : null;
-		return new SpinTape(def.machine(), q.bet(), q.buy(), stops, fs, hunt, hoard, wheel, acc.jackpots, acc.total, acc.capHit);
+		int gem = 0;
+		if (!q.buy() && f.hasGem()) {
+			int g = gemTier(f, rng.nextInt(1_000_000));
+			if (g > 0 && !acc.capHit) {
+				acc.jackpot(g);
+				gem = g;
+			}
+		}
+		return new SpinTape(def.machine(), q.bet(), q.buy(), stops, fs, hunt, hoard, wheel, acc.jackpots, acc.total, acc.capHit, gem);
+	}
+
+	/** Jackpot gem tier for a draw {@code u} in [0, 1 000 000): 1 Mini, 2 Minor, 0 none. */
+	public static int gemTier(MachineDef.Features f, int u) {
+		if (u < f.gemPpm(1)) return Jackpots.MINI;
+		if (u < f.gemPpm(1) + f.gemPpm(2)) return Jackpots.MINOR;
+		return 0;
 	}
 
 	/** Running total (fifths, capped) and jackpot awards of one draw. */

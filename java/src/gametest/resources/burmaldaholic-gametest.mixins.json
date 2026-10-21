@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "dev.nezo.burmaldaholic.gametest.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"GameTestServerMixin"
+	],
+	"client": [
+		"HouseDealerRenderProbeMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

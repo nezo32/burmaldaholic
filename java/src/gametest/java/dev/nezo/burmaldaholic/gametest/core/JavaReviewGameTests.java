@@ -215,11 +215,10 @@ public class JavaReviewGameTests {
 			p.getInventory().add(new ItemStack(Chips.item(100), 2));
 			helper.assertTrue(cashier.depositAll(p) == 100, "one 100 chip fits");
 			helper.assertTrue(balance(p) == max - 50 && p.getInventory().countItem(Chips.item(100)) == 1, "the other stays in the inventory");
-			int rate = CashierBlockEntity.emeraldBuyRate(p);
+			int rate = CasinoConfig.economy().exchange.get("emerald").toChips;
 			p.getInventory().add(new ItemStack(Items.EMERALD, 64));
-			CompoundTag buy = new CompoundTag();
-			buy.putInt("count", 64);
-			cashier.onAction(p, "buy", buy);
+			dev.nezo.burmaldaholic.core.cashier.counter.CounterSessions.resetCooldown(p);
+			cashier.exchange(p, "emerald", false, 0, true);
 			long bought = 50 / rate;
 			helper.assertTrue(p.getInventory().countItem(Items.EMERALD) == 64 - bought, "only " + bought + " emeralds taken");
 			helper.assertTrue(balance(p) == max - 50 + bought * rate, "nothing lost to the cap");
@@ -340,7 +339,10 @@ public class JavaReviewGameTests {
 
 	// ---- m1 / m7 --------------------------------------------------------------------------------
 
-	/** m1: a scratched card's item carries only id + mask; the face lives in world data until the card is finished. */
+	/**
+	 * m1: a scratched card's face never reaches the client: since B4 (v0.2.0) nothing at all is written on the stack;
+	 * the card (face + mask) lives in world data as the player's active card until it is finished.
+	 */
 	@GameTest
 	public void m1ScratchFaceNeverOnTheItem(GameTestHelper helper) {
 		ServerPlayer p = player(helper, 0);
@@ -352,20 +354,17 @@ public class JavaReviewGameTests {
 			first.putString("id", "");
 			first.putInt("cell", 0);
 			ScratchGame.action(p, "scratch", first);
-			ItemStack card = ItemStack.EMPTY;
 			for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
-				if (ScratchGame.data(p.getInventory().getItem(i)) != null) {
-					card = p.getInventory().getItem(i);
+				ItemStack card = p.getInventory().getItem(i);
+				CompoundTag onItem = card.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+				helper.assertFalse(onItem.contains(ScratchGame.DATA_KEY), "no card state on the item: " + onItem);
+				for (String secret : List.of("cells", "prize", "creeper", "top", "mask")) {
+					helper.assertFalse(onItem.toString().contains(secret), "'" + secret + "' is not on the item: " + onItem);
 				}
 			}
-			helper.assertFalse(card.isEmpty(), "card started");
-			CompoundTag onItem = card.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getCompoundOrEmpty(ScratchGame.DATA_KEY);
-			String id = onItem.getStringOr("id", "");
-			helper.assertTrue(!id.isEmpty() && onItem.getIntOr("mask", 0) == 1, "id + mask on the item: " + onItem);
-			for (String secret : List.of("cells", "prize", "creeper", "top")) {
-				helper.assertFalse(onItem.contains(secret), "'" + secret + "' is not client-visible: " + onItem);
-			}
-			helper.assertTrue(ScratchData.get(server).face(id) != null, "face kept server-side");
+			String id = ScratchData.get(server).active(p.getUUID(), "basic");
+			helper.assertTrue(id != null && ScratchData.get(server).face(id) != null && ScratchData.get(server).face(id).getIntOr("mask", 0) == 1,
+				"face + mask kept server-side");
 			CompoundTag all = new CompoundTag();
 			all.putString("kind", "basic");
 			all.putString("id", id);

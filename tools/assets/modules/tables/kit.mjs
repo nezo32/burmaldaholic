@@ -2,7 +2,7 @@
 // plates, text buttons, big round action buttons, icon buttons, chips (tray / layout / grey for seat tint),
 // banners and the bet timer. No words: every label is drawn by the screen with the font.
 import { BONE, GOLD, INK, THEME } from './theme.mjs';
-import { CHIPS } from '../../lib/palette.mjs';
+import { CHIPS, CHIP_DENOMS, chipLabel } from '../../lib/palette.mjs';
 import {
   P, R, blend, c, desaturate, disc, ellipseFill, grid, image, inked, lightAt, line, over, put, ramp, ring, rng, rrect, textC, vgrad,
 } from './draw.mjs';
@@ -433,7 +433,7 @@ export const ICON_NAMES = Object.keys(ICON_ROWS);
 export const icon = (name) => inked(grid(ICON_ROWS[name], ICON_PAL), INK, 0.8);
 
 // ---- chips ------------------------------------------------------------------------------------------------------------
-const DENOMS = [1, 5, 25, 100, 500];
+const DENOMS = CHIP_DENOMS;
 export { DENOMS };
 const chipCol = (d) => (d === 'grey' ? { base: '#E0E0E0', stripe: '#8A8A8A' } : CHIPS[d]);
 const darker = (hex, k) => {
@@ -469,8 +469,8 @@ export function trayChip(d) {
       }
     }
   if (d !== 'grey') {
-    const label = String(d);
-    const ink = d === 100 || d === 500 ? '#F4ECF8' : d === 1 ? '#1A3A8A' : '#180A28';
+    const label = chipLabel(d);
+    const ink = d >= 1000 ? CHIPS[d].digit : d === 100 || d === 500 ? '#F4ECF8' : d === 1 ? '#1A3A8A' : '#180A28';
     textC(img, label, 12, 12, ink, { font: 'small' });
   }
   return img;

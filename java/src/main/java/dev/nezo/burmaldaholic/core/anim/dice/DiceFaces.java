@@ -3,6 +3,11 @@ package dev.nezo.burmaldaholic.core.anim.dice;
 /**
  * Face-to-orientation table for rendered dice cubes (tables.md §2.6: "the final orientation shows d1 and d2 on the top
  * faces"). A standard die: opposite faces sum to 7. Pure.
+ *
+ * <p>Since v0.2.0 (PHASE2B §3.3) this is a thin view on {@link CubeGroup}: the canonical model there carries the same
+ * labels ({@link #modelNormal} = {@code CubeGroup.normal} with the tray → MC axis swap {@code (x, y, z) → (x, z, y)}),
+ * and {@link #groupIndex} names the group element of each {@link #layout}. The item model keeps using
+ * {@link #upRotation}.
  */
 public final class DiceFaces {
 	/** Face indices of {@link #layout}. */
@@ -46,6 +51,23 @@ public final class DiceFaces {
 			case 4 -> new double[] {0, 0, 1, -90};
 			default -> throw new IllegalArgumentException("face " + face);
 		};
+	}
+
+	/**
+	 * The {@link CubeGroup} element (tray frame) of a die resting with {@code top} up and {@link #layout layout(top)}'s
+	 * north face toward {@code −y}. (The legacy {@link #layout} picks east/west by label order, which is the mirror image
+	 * of a real die for some tops; the group element is always a real rotation, so only top and north are matched.)
+	 */
+	public static int groupIndex(int top) {
+		int north = layout(top)[NORTH];
+		double[] v = new double[3];
+		for (int k = 0; k < 4; k++) {
+			int i = CubeGroup.index(top, k);
+			int[] n = CubeGroup.normal(north);
+			Quat.rotate(CubeGroup.element(i), n[0], n[1], n[2], v, 0);
+			if (v[1] < -0.5) return i;
+		}
+		throw new IllegalStateException("no element for " + top);
 	}
 
 	/** Outward normal of {@code face} on the unrotated model ({@link #upRotation}). */

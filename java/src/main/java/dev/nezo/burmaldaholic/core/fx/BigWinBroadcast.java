@@ -39,12 +39,23 @@ public final class BigWinBroadcast {
 		return tierOf(r.payout(), r.bet(), threshold).ordinal() >= WinTier.EPIC.ordinal();
 	}
 
+	/**
+	 * The chat line: chip glyph, space, translated text. The glyph is a SIBLING under an empty root, never the
+	 * parent: children inherit the parent's font, and {@link #GLYPHS} maps only U+E100–E1FF, so text under it
+	 * renders as tofu in every language (owner playtest B2).
+	 */
+	static MutableComponent line(Component playerName, long net, String gameId) {
+		return Component.empty()
+			.append(Texts.raw(CHIP_GLYPH).withStyle(s -> s.withFont(GLYPHS))) // literal-ok: font glyph
+			.append(Texts.raw(" ")) // literal-ok: separator
+			.append(Component.translatable("msg.burmaldaholic.core.big_win", playerName, Texts.chipsAcc(net),
+				Component.translatable("gui.burmaldaholic.common.game." + gameId)));
+	}
+
 	static void onResolved(ServerPlayer player, PlayResult r) {
 		CoreConfig cfg = CasinoConfig.core();
 		if (!announces(r, cfg.announceBigWins, cfg.bigWinThreshold)) return;
-		MutableComponent line = Texts.raw(CHIP_GLYPH).withStyle(s -> s.withFont(GLYPHS)).append(Texts.raw(" "))
-			.append(Component.translatable("msg.burmaldaholic.core.big_win", player.getDisplayName(), Texts.chipsAcc(r.net()),
-				Component.translatable("gui.burmaldaholic.common.game." + r.gameId())));
+		MutableComponent line = line(player.getDisplayName(), r.net(), r.gameId());
 		player.level().getServer().getPlayerList().broadcastSystemMessage(line, false);
 		ServerFx.get().broadcast(player, WinTier.EPIC, r.net(), r.gameId());
 	}

@@ -53,8 +53,8 @@ public final class StreakTracker {
 	 * unless {@code pvp.affectsStreak} (PVP.md §3.4, §3.12).
 	 */
 	public static boolean counts(CasinoEvents.PlayResult result) {
-		if (BotRounds.vsBots(result)) {
-			return false;
+		if (BotRounds.vsBots(result) || result.stakeKind() == dev.nezo.burmaldaholic.core.wager.Stake.Kind.TOKEN) {
+			return false; // EC-2: free-bet token rounds never move the streak
 		}
 		return !"pvp".equals(result.gameId()) || CasinoConfig.pvp().affectsStreak;
 	}

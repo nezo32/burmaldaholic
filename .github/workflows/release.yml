@@ -10,7 +10,7 @@
 # optional var CURSEFORGE_GAME_VERSIONS.
 # Modrinth (repository level or in the Environment named by var MODRINTH_ENVIRONMENT, default = the CurseForge one):
 # secret MODRINTH_TOKEN (unset = Modrinth skipped with a warning); optional vars MODRINTH_PROJECT_ID (id or slug,
-# default burmaldaholic) and MODRINTH_GAME_VERSIONS (default 26.2,26.3).
+# default burmaldaholic) and MODRINTH_GAME_VERSIONS (default 26.3).
 # Re-running an existing tag REBUILDS the jar (not byte-identical) and replaces the GitHub release asset: to publish
 # an already released jar to Modrinth only, use publish-modrinth.yml instead.
 name: Release
@@ -81,8 +81,8 @@ jobs:
       tag: ${{ inputs.tag }}
       release-branch: main
 
-  # One jar for the whole supported range: compiled against the lowest version (mc in gradle.properties);
-  # `build` runs the unit tests, gametests and checkLinkage against the other supported versions.
+  # One jar for Minecraft 26.3 (mc / supported_mc_range in java/gradle.properties);
+  # `build` runs the unit tests and gametests (checkLinkage is a no-op while only one version is supported).
   build-mod:
     needs: version
     if: ${{ !cancelled() && !failure() }}
@@ -117,8 +117,8 @@ jobs:
       environment: ${{ vars.CURSEFORGE_ENVIRONMENT || 'Burmaldaholic' }}
       artifact-pattern: java-mod
       primary-file: "burmaldaholic-!(*-sources).jar"
-      # When a 26.2.x / 26.3.x patch ships, add it to the repo var; no code change needed.
-      game-versions: ${{ vars.CURSEFORGE_GAME_VERSIONS || '26.2,26.3,Fabric,Java 25,Client,Server' }}
+      # Minecraft 26.3 only. When a 26.3.x patch ships, add it to the repo var; no code change needed.
+      game-versions: ${{ vars.CURSEFORGE_GAME_VERSIONS || '26.3,Fabric,Java 25,Client,Server' }}
       release-type: ${{ needs.version.outputs.release-type }}
       display-name: Burmaldaholic ${{ needs.version.outputs.version }} (Fabric)
       relations: fabric-api:requiredDependency
@@ -140,7 +140,7 @@ jobs:
       primary-file: "burmaldaholic-!(*-sources).jar"
       version-number: ${{ needs.version.outputs.version }}
       name: Burmaldaholic ${{ needs.version.outputs.version }}
-      game-versions: ${{ vars.MODRINTH_GAME_VERSIONS || '26.2,26.3' }}
+      game-versions: ${{ vars.MODRINTH_GAME_VERSIONS || '26.3' }}
       loaders: fabric
       release-type: ${{ needs.version.outputs.release-type }}
       dependencies: fabric-api:required

@@ -1,18 +1,48 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_copper"
     },
-    "facing=east": {
+    "facing=north,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/main"
+    },
+    "facing=north,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/upper"
+    },
+    "facing=east,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_copper",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/main",
+      "y": 90
+    },
+    "facing=east,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/upper",
+      "y": 90
+    },
+    "facing=south,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_copper",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/main",
+      "y": 180
+    },
+    "facing=south,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/upper",
+      "y": 180
+    },
+    "facing=west,part=single": {
       "model": "burmaldaholic:block/slots/slot_machine_copper",
+      "y": 270
+    },
+    "facing=west,part=main": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/main",
+      "y": 270
+    },
+    "facing=west,part=upper": {
+      "model": "burmaldaholic:block/core/machines/slot_machine_copper/upper",
       "y": 270
     }
   }

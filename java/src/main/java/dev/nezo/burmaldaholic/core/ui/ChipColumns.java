@@ -5,8 +5,8 @@ package dev.nezo.burmaldaholic.core.ui;
  * stacked {@link #PITCH} px apart, at most {@link #MAX_VISIBLE} per column (taller stacks show "×N"). Pure.
  */
 public final class ChipColumns {
-	/** Denominations, largest first (GAME_DESIGN §3.1). */
-	public static final int[] DENOMS = {500, 100, 25, 5, 1};
+	/** Denominations, largest first: {@link dev.nezo.burmaldaholic.core.chips.ChipMath#DENOMINATIONS} (the one list). */
+	public static final int[] DENOMS = dev.nezo.burmaldaholic.core.chips.ChipMath.DENOMINATIONS;
 	public static final int PITCH = 2;
 	public static final int MAX_VISIBLE = 12;
 

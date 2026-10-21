@@ -42,6 +42,8 @@ public final class CoinDuelScreen extends PvpPanel implements PvpScreens.ModeScr
 	private static final Identifier PIPS = Kit.sheet("extras/chain_pips");
 	private static final Identifier MINI = Kit.sheet("extras/coin_mini");
 	private static final int CY = 140;
+	/** Panel y of the info line under the coin (at most two wrapped lines). */
+	private static final int INFO_Y = 186;
 	/** Chain results seen this session: chain id → {heads, you won} per link. */
 	private static final Map<String, List<int[]>> CHAINS = new HashMap<>();
 
@@ -136,7 +138,7 @@ public final class CoinDuelScreen extends PvpPanel implements PvpScreens.ModeScr
 
 	@Override
 	protected int layout() {
-		Flow flow = new Flow(left + 20, top + 207, 360);
+		Flow flow = new Flow(left + 20, dockY(), 360);
 		JsonObject d = view.decision();
 		String id = d == null ? "" : MatchView.str(d, "id", "");
 		if (d != null && !id.equals(sentDecision)) {
@@ -171,7 +173,8 @@ public final class CoinDuelScreen extends PvpPanel implements PvpScreens.ModeScr
 			}
 		});
 		flow.button(Component.translatable("gui.burmaldaholic.common.close"), 56, b -> onClose());
-		return Math.min(flow.bottom(), top + 232);
+		// the content ends with the two-line info under the coin (content() y 186); the Dock row is not content
+		return top + INFO_Y + 2 * font.lineHeight;
 	}
 
 	/** One line under the coin: landed / takes, the chain, the decision (the most recent that applies). */
@@ -259,7 +262,7 @@ public final class CoinDuelScreen extends PvpPanel implements PvpScreens.ModeScr
 		chainPips(g);
 		coin(g, now, rm);
 		Component info = infoLine();
-		if (info != null) Kit.wrapCentered(g, font, info, left + 200, top + 186, 360, 2, Kit.BONE, true);
+		if (info != null) Kit.wrapCentered(g, font, info, left + 200, top + INFO_Y, 360, 2, Kit.BONE, true);
 		if (bannerAt >= 0) {
 			PvpDraw.modeBanner(g, font, Component.translatable("gui.burmaldaholic.pvp.coin.all_square_title"), left + 200, top + 96, 300, now - bannerAt);
 		}

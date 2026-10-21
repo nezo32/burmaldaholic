@@ -39,30 +39,6 @@ def shade(c, f):
 CLEAR = (0, 0, 0, 0)
 
 
-def chip(base, stripe):
-    """Round casino chip seen slightly from above: rim with 8 edge stripes, inner ring, centre inlay."""
-    px = [[CLEAR] * 16 for _ in range(16)]
-    cx = cy = 7.5
-    import math
-    for y in range(16):
-        for x in range(16):
-            dx, dy = x - cx, (y - cy) * 1.0
-            r = math.hypot(dx, dy)
-            if r > 7.6:
-                continue
-            ang = (math.degrees(math.atan2(dy, dx)) + 360) % 360
-            if r > 6.2:  # rim with edge spots
-                c = stripe if int(ang // 22.5) % 2 == 0 else base
-                px[y][x] = shade(c, 0.8 if dy > 3 else 1.0)
-            elif r > 5.2:
-                px[y][x] = shade(base, 0.7)
-            elif r > 3.0:
-                px[y][x] = shade(base, 1.05 - 0.04 * dy)
-            else:
-                px[y][x] = shade(stripe, 0.95 - 0.03 * dy)
-    return px
-
-
 def card():
     px = [[CLEAR] * 16 for _ in range(16)]
     gold, dark, green = (212, 175, 55), (30, 30, 36), (24, 110, 60)
@@ -110,14 +86,6 @@ def write_json(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-CHIPS = {
-    1: ((236, 236, 236), (60, 90, 200)),
-    5: ((200, 30, 35), (245, 245, 245)),
-    25: ((30, 150, 60), (245, 245, 245)),
-    100: ((28, 28, 32), (230, 200, 60)),
-    500: ((120, 45, 170), (245, 235, 120)),
-}
-
 CASHIERS = {
     "cashier": ((110, 72, 40), (205, 160, 60), (70, 45, 25)),
     "nether_cashier": ((45, 28, 32), (240, 190, 50), (110, 20, 25)),
@@ -125,12 +93,8 @@ CASHIERS = {
 
 
 def main() -> None:
-    for value, (base, stripe) in CHIPS.items():
-        name = f"chip_{value}"
-        png(ASSETS / "textures" / "item" / "core" / f"{name}.png", chip(base, stripe))
-        write_json(ASSETS / "models" / "item" / "core" / f"{name}.json",
-                   {"parent": "minecraft:item/generated", "textures": {"layer0": f"burmaldaholic:item/core/{name}"}})
-        write_json(ASSETS / "items" / f"{name}.json", {"model": {"type": "minecraft:model", "model": f"burmaldaholic:item/core/{name}"}})
+    # Chip items: textures come from the Node generator (tools/assets, `npm run gen:assets`: one chip per
+    # ChipMath.DENOMINATIONS value); their item / model JSONs (count-based range_dispatch) are hand-kept resources.
 
     png(ASSETS / "textures" / "item" / "core" / "casino_card.png", card())
     write_json(ASSETS / "models" / "item" / "core" / "casino_card.json",

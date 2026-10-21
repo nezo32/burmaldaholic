@@ -10,9 +10,10 @@ import org.junit.jupiter.api.Test;
 class ChipMathTest {
 	@Test
 	void greedySplitUsesLargestDenominations() {
-		assertArrayEquals(new long[] {2, 3, 1, 0, 3}, ChipMath.split(1328));
-		assertArrayEquals(new long[] {0, 0, 0, 0, 0}, ChipMath.split(0));
-		assertArrayEquals(new long[] {0, 0, 0, 1, 4}, ChipMath.split(9));
+		assertArrayEquals(new long[] {0, 0, 1, 0, 3, 1, 0, 3}, ChipMath.split(1328));
+		assertArrayEquals(new long[8], ChipMath.split(0));
+		assertArrayEquals(new long[] {0, 0, 0, 0, 0, 0, 1, 4}, ChipMath.split(9));
+		assertArrayEquals(new long[] {4, 0, 0, 0, 0, 0, 0, 0}, ChipMath.split(100_000), "100k = four 25k chips (owner playtest E4)");
 		for (long n = 0; n < 2000; n++) {
 			long[] c = ChipMath.split(n);
 			long sum = 0;
@@ -25,7 +26,7 @@ class ChipMathTest {
 
 	@Test
 	void preferredDenominationSplit() {
-		assertArrayEquals(new long[] {0, 0, 21, 0, 3}, ChipMath.split(528, 25));
+		assertArrayEquals(new long[] {0, 0, 0, 0, 0, 21, 0, 3}, ChipMath.split(528, 25));
 		assertArrayEquals(ChipMath.split(528), ChipMath.split(528, 7), "unknown denomination = auto");
 	}
 
@@ -53,5 +54,21 @@ class ChipMathTest {
 				assertTrue(c <= n && ChipMath.stacks(d > 0 ? ChipMath.split(c, d) : ChipMath.split(c), 64) <= 36, n + "/" + d);
 			}
 		}
+	}
+
+	@Test
+	void oneListOfDenominations() {
+		assertArrayEquals(new long[] {1, 5, 25, 100, 500, 1000, 5000, 25000}, ChipMath.ascending());
+		assertEquals(7, ChipMath.indexOf(1));
+		assertEquals(0, ChipMath.indexOf(25_000));
+		assertEquals(-1, ChipMath.indexOf(7));
+		assertEquals(1000, ChipMath.largestAtMost(4999));
+		assertEquals(1, ChipMath.largestAtMost(0));
+		assertEquals("25K", ChipMath.label(25_000));
+		assertEquals("500", ChipMath.label(500));
+		int[] out = new int[4];
+		assertEquals(4, ChipMath.discs(60_000, out));
+		assertArrayEquals(new int[] {25_000, 25_000, 5_000, 5_000}, out);
+		assertEquals(0, ChipMath.discs(0, out));
 	}
 }

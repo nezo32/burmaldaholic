@@ -803,7 +803,7 @@ public final class TableBots {
 			if (p == null || p.level() != level) {
 				return true;
 			}
-			return pos != null && p.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) > max * max;
+			return pos != null && !dev.nezo.burmaldaholic.core.table.parts.TableParts.inRange(p.position(), level, pos, max);
 		});
 	}
 

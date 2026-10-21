@@ -40,6 +40,20 @@ class InputsTest {
 		assertFalse(Inputs.isMiddle(Inputs.MOUSE_LEFT));
 	}
 
+	/** EC-1: Shift+click / Ctrl+Enter read the modifier bits of the running version. */
+	@Test
+	void modifiersMatchTheRunningVersion() throws ReflectiveOperationException {
+		assertEquals(constant("MOD_SHIFT"), Inputs.MOD_SHIFT);
+		assertEquals(constant("MOD_CONTROL"), Inputs.MOD_CONTROL);
+		assertTrue(Inputs.shift(Inputs.MOD_SHIFT));
+		assertTrue(Inputs.shift(Inputs.MOD_SHIFT | Inputs.MOD_CONTROL));
+		assertFalse(Inputs.shift(0));
+		assertFalse(Inputs.shift(Inputs.MOD_CONTROL & ~Inputs.MOD_SHIFT));
+		assertTrue(Inputs.ctrl(Inputs.MOD_CONTROL));
+		assertFalse(Inputs.ctrl(Inputs.MOD_SHIFT & ~Inputs.MOD_CONTROL));
+		assertFalse(Inputs.ctrl(0));
+	}
+
 	@Test
 	void everyKeyMatchesInputConstants() throws ReflectiveOperationException {
 		int keys = 0;

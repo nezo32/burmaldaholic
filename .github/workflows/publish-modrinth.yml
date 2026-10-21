@@ -71,7 +71,7 @@ jobs:
       primary-file: "burmaldaholic-!(*-sources).jar"
       version-number: ${{ needs.version.outputs.version }}
       name: Burmaldaholic ${{ needs.version.outputs.version }}
-      game-versions: ${{ vars.MODRINTH_GAME_VERSIONS || '26.2,26.3' }}
+      game-versions: ${{ vars.MODRINTH_GAME_VERSIONS || '26.3' }}
       loaders: fabric
       release-type: ${{ needs.version.outputs.release-type }}
       dependencies: fabric-api:required

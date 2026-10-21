@@ -1,143 +1,207 @@
 package dev.nezo.burmaldaholic.gametest.uth;
 
-import dev.nezo.burmaldaholic.client.input.Inputs;
-import dev.nezo.burmaldaholic.client.table.cards.CardButton;
-import dev.nezo.burmaldaholic.core.anim.cards.CardLayout;
+import dev.nezo.burmaldaholic.client.ui.v2.V2Chrome;
 import dev.nezo.burmaldaholic.core.economy.Economies;
 import dev.nezo.burmaldaholic.games.uth.UthModule;
 import dev.nezo.burmaldaholic.games.uth.UthTableBlockEntity;
 import dev.nezo.burmaldaholic.games.uth.client.UthScreen;
 import dev.nezo.burmaldaholic.games.uth.logic.UthRound;
 import dev.nezo.burmaldaholic.gametest.ClientTestWorlds;
+import dev.nezo.burmaldaholic.gametest.v2.RealFlow;
+import dev.nezo.burmaldaholic.games.poker.present.ClickGuard;
+import dev.nezo.burmaldaholic.client.input.Inputs;
+import net.minecraft.network.chat.Component;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.events.GuiEventListener;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
 import org.jspecify.annotations.Nullable;
 
 /**
- * v0.1.2 hotfix, REAL player flow for "I cannot change the UTH bet": a 1920 × 1080 window at GUI scale 4 (Auto at 1080p,
- * a 480 × 270 GUI) and 3; the player looks at an Ultimate Texas Hold'em table and presses Use, clicks Sit down, sets the
- * Ante with the chip rack (real mouse clicks at the drawn chips), presses Deal and plays the round to its payout by
- * clicking the decision buttons. Asserts the SERVER state after every step: the dealt Ante / Trips are exactly what was
- * clicked, the balance moves by the round's return. Then changes the bet for the next round (a chip above the table
- * limit is refused with an error and the Ante clamps, − undoes it, the Trips target, Clear + Rebet) and deals again.
- * Screenshots {@code uth_flow_*}.
+ * v0.1.2 hotfix, REAL player flow for "I cannot change the UTH bet", re-pointed to the table UI v2 screen (HitMap ids
+ * {@code primary}, {@code chip.N}, {@code tool.*}, {@code felt.trips}, {@code action.*}): a 1920 x 1080 window at GUI
+ * scale 4 (480 x 270) and 3; the player looks at an Ultimate Texas Hold'em table and presses Use, clicks Sit down, builds
+ * the Ante with real clicks on the tray chips, presses Deal and plays the round to its payout by clicking the decision
+ * buttons. Asserts the SERVER state after every step: the dealt Ante / Trips are exactly the draft that was built, the
+ * balance moves by the round's return. Then changes the bet for the next round (R-AB M5: a chip that takes the Ante over
+ * the table limit is clamped to the largest allowed Ante and the status says why, Deal stays live, the chips grey at the
+ * cap; Undo takes it back, a chip on the Trips spot), confirms it while a second seat still bets (R-AB M4: a chip click
+ * on the confirmed bet changes nothing on the server and says "press Change bet"; Change bet refunds and keeps the
+ * amounts), deals, then Clear + Rebet. Screenshots {@code uth_flow_*}.
  */
 public class UthRealFlowClientGameTests implements FabricClientGameTest {
 	private static final int TIMEOUT = 600;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!RealFlow.enabled("B") && !RealFlow.enabled("hotfix")) return;
 		context.runOnClient(mc -> mc.gui.setScreen(null));
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
 				ClientTestWorlds.Quiet q = ClientTestWorlds.quiet(context, world)) {
+			RealFlow f = new RealFlow(context, world);
 			context.waitTicks(20);
 			context.runOnClient(mc -> mc.gui.setScreen(null));
 			world.getServer().runCommand("casino balance set @p 1000");
 			world.getServer().runOnServer(server -> dev.nezo.burmaldaholic.core.config.CasinoConfig.chaos().enabled = false);
-			context.getInput().resizeWindow(1920, 1080);
-			context.waitTicks(3);
-			guiScale(context, 4);
+			f.size(1920, 1080, 4);
 			String gui = context.computeOnClient(mc -> mc.getWindow().getGuiScaledWidth() + "x" + mc.getWindow().getGuiScaledHeight());
-			check(gui.equals("480x270"), "GUI scale 4 at 1920 × 1080 is 480 × 270, got " + gui);
+			check(gui.equals("480x270"), "GUI scale 4 at 1920 x 1080 is 480 x 270, got " + gui);
 
 			BlockPos pos = placeTable(world);
 			openByUse(context, world, pos);
 			context.takeScreenshot("uth_flow_s4_opened");
 
-			// Sit down (a real click on the console button)
-			clickButton(context, "gui.burmaldaholic.poker.sit_down");
+			// Sit down (a real click on the primary button)
+			waitTarget(f, "primary");
+			click(f, "primary");
 			waitServer(context, world, "seated", s -> table(s, pos).seats().seatOf(player(s).getUUID()).isPresent());
 			context.waitTicks(5);
 			context.takeScreenshot("uth_flow_s4_seated");
 
-			// Round 1: an Ante of 10 — two 5 chips — then Deal
-			clickChip(context, 1);
-			clickChip(context, 1);
+			// Round 1: an Ante of 10 (two 5 chips), then Deal
+			click(f, chip(f, 5));
+			click(f, chip(f, 5));
 			context.waitTicks(3);
+			check(draft(f)[0] == 10 && draft(f)[1] == 0, "two 5 chips make an Ante of 10, draft " + draft(f)[0] + "/" + draft(f)[1]);
 			context.takeScreenshot("uth_flow_s4_ante10");
 			long before = balance(world);
-			clickButton(context, "gui.burmaldaholic.common.deal");
-			waitServer(context, world, "round 1 dealt", s -> mySeat(s, pos) != null);
-			long[] dealt = dealt(world, pos);
-			check(dealt[0] == 10 && dealt[1] == 0, "round 1: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", clicked 10/0");
-			check(balance(world) == before - 20, "round 1: Ante + Blind debited (" + before + " → " + balance(world) + ")");
-			playToPayout(context, world, pos, before, "round1");
+			click(f, "primary");
+			// R3 money bug (a Check click registered as Bet ×4): the settle time is stretched for this step so "a click right
+			// after the Dock changed" does not depend on the machine's tick speed
+			ClickGuard.settleMs = 5000;
+			long[] dealt;
+			try {
+				waitServer(context, world, "round 1 dealt", s -> mySeat(s, pos) != null);
+				dealt = dealt(world, pos);
+				check(dealt[0] == 10 && dealt[1] == 0, "round 1: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", clicked 10/0");
+				check(balance(world) == before - 20, "round 1: Ante + Blind debited (" + before + " -> " + balance(world) + ")");
+				context.waitFor(mc -> mc.gui.screen() instanceof UthScreen s && s.currentView() != null && s.currentView().deciding()
+					&& "bet_4x".equals(s.chrome().primary.gate().action()), TIMEOUT);
+				// the root cause: the Dock was laid out with the last state's status and jumped to its compact row a few ticks
+				// after the street opened. Now the decision Dock stays put.
+				String first = decisionDock(f);
+				for (int t = 1; t <= 15; t++) {
+					context.waitTick();
+					String now = decisionDock(f);
+					check(now.equals(first), "the pre-flop Dock moved with no input at t+" + t + ": " + first + " -> " + now);
+				}
+				// a click at the real pixel of the primary that just turned into Bet ×4 (Deal / wait → Bet ×4 under the cursor):
+				// refused on the client, nothing reaches the server, the status says why
+				double[] p = f.windowPoint("primary");
+				context.getInput().setCursorPos(p[0], p[1]);
+				context.waitTick();
+				context.getInput().pressMouse(Inputs.MOUSE_LEFT);
+				context.waitTicks(6);
+				UthRound.Seat seat = world.getServer().computeOnServer(s -> mySeat(s, pos));
+				check(seat != null && !seat.decided && seat.playMultiple == 0, "a click on a primary that just became Bet ×4 placed the bet");
+				check(balance(world) == before - 20, "a refused click took chips: " + before + " -> " + balance(world));
+				String moved = f.client(mc -> Component.translatable("gui.burmaldaholic.poker.v2.reason.moved").getString());
+				check(f.status().equals(moved), "the refused click says why: '" + f.status() + "'");
+			} finally {
+				ClickGuard.settleMs = ClickGuard.SETTLE_MS;
+			}
+			playToPayout(f, world, pos, before, "round1");
 
-			// Round 2: the bet is changed. The 25 chip is above the bronze limit (6 × Ante ≤ 100): refused with a message, the
-			// Ante clamps to the largest allowed (16); − undoes it (10); +5 → 15; the Trips target gets one 1 chip.
+			// Round 2: the bet is changed. The 25 chip would take the Ante over the bronze limit (6 x Ante <= 100): it is clamped
+			// to the largest allowed Ante (16) and the status says why (R-AB M5, the v0.1.2 hotfix behaviour); Deal stays live.
+			// Undo takes it back (10); +5 +1 -> 16; a 1 chip on the Trips spot.
 			context.waitTicks(5);
 			context.takeScreenshot("uth_flow_s4_round2_betting");
-			check(pendingAnte(context) == 10, "round 2 starts from the last Ante (10), pending " + pendingAnte(context));
-			clickChip(context, 2);
+			check(draft(f)[0] == 10, "round 2 starts from the last Ante (10), draft " + draft(f)[0]);
+			long beforeLimit = balance(world);
+			click(f, chip(f, 25));
 			context.waitTicks(2);
-			check(pendingAnte(context) == 16, "a chip above the limit clamps the Ante to 16, pending " + pendingAnte(context));
-			check(errorShown(context), "a chip above the limit tells the player why");
-			context.takeScreenshot("uth_flow_s4_limit_error");
-			clickButton(context, "gui.burmaldaholic.uth.undo");
-			check(pendingAnte(context) == 10, "− undoes the last chip, pending " + pendingAnte(context));
-			clickChip(context, 1);
-			clickButton(context, "gui.burmaldaholic.uth.target.ante");
-			clickChip(context, 0);
+			check(draft(f)[0] == 16, "the 25 chip clamps the Ante to the largest allowed (16), draft " + draft(f)[0]);
+			check(f.status().contains("16"), "the clamp says why (max Ante 16): '" + f.status() + "'");
+			check(f.enabledTarget("primary"), "Deal stays live with the clamped Ante");
+			check(!f.enabledTarget(chip(f, 1)), "the chips grey out at the cap");
+			check(balance(world) == beforeLimit, "nothing was debited by the clamp");
+			context.takeScreenshot("uth_flow_s4_limit_clamped");
+			click(f, "tool.undo");
+			check(draft(f)[0] == 10, "Undo takes the clamped chip back, draft " + draft(f)[0]);
+			click(f, chip(f, 5));
+			click(f, chip(f, 1));
+			click(f, "felt.trips"); // the Trips spot takes the selected chip (1)
 			context.waitTicks(3);
-			context.takeScreenshot("uth_flow_s4_ante15_trips1");
-			before = balance(world);
-			clickButton(context, "gui.burmaldaholic.common.deal");
-			waitServer(context, world, "round 2 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == 15);
-			dealt = dealt(world, pos);
-			check(dealt[0] == 15 && dealt[1] == 1, "round 2: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", clicked 15/1");
-			playToPayout(context, world, pos, before, "round2");
+			long[] d2 = draft(f);
+			check(d2[0] == 16 && d2[1] == 1, "Ante 16 / Trips 1 built, draft " + d2[0] + "/" + d2[1]);
+			context.takeScreenshot("uth_flow_s4_ante16_trips1");
 
-			// Round 3 at GUI scale 3: Clear, then Rebet restores 15 / 1; Deal
-			guiScale(context, 3);
+			// R-AB M4: a second player (online, next to the table, never betting) keeps bets open, so the confirmed bet waits
+			// for the deal. An absent UUID would be unseated by the table's online sweep within a second.
+			UUID other = world.getServer().computeOnServer(s -> {
+				ServerPlayer p = secondPlayer(s, pos);
+				table(s, pos).seats().sit(p.getUUID(), "Alex");
+				return p.getUUID();
+			});
+			context.waitTicks(4);
+			check(world.getServer().computeOnServer(s -> table(s, pos).seatedHumans().size() == 2), "the second player is seated");
+			before = balance(world);
+			click(f, "primary");
+			waitServer(context, world, "round 2 bet confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
+			long[] conf = world.getServer().computeOnServer(s -> table(s, pos).confirmedBet(player(s).getUUID()).orElseThrow());
+			check(conf[0] == 16 && conf[1] == 1, "the server holds 16/1, got " + conf[0] + "/" + conf[1]);
+			context.waitTicks(4);
+			click(f, chip(f, 5)); // locked: changes nothing, says "press Change bet"
+			context.waitTicks(4);
+			long[] still = world.getServer().computeOnServer(s -> table(s, pos).confirmedBet(player(s).getUUID()).orElse(new long[] {-1, -1}));
+			check(still[0] == 16 && still[1] == 1, "a chip click on a confirmed bet leaves the server bet alone, got " + still[0] + "/" + still[1]);
+			check(balance(world) == before - 33, "still debited once (Ante + Blind + Trips = 33): " + (before - balance(world)));
+			check(draft(f)[0] == 16 && draft(f)[1] == 1, "the draft is unchanged, draft " + draft(f)[0] + "/" + draft(f)[1]);
+			check(!f.status().isEmpty(), "the locked chip says why: '" + f.status() + "'");
+			context.takeScreenshot("uth_flow_s4_confirmed_locked");
+			click(f, "primary"); // Change bet: refund, the amounts stay in the draft
+			waitServer(context, world, "Change bet refunded", s -> table(s, pos).confirmedBet(player(s).getUUID()).isEmpty());
+			check(balance(world) == before, "Change bet refunded the bet");
+			context.waitTicks(4);
+			check(draft(f)[0] == 16 && draft(f)[1] == 1, "Change bet keeps 16/1 in the draft, draft " + draft(f)[0] + "/" + draft(f)[1]);
+			click(f, "primary"); // Deal again
+			waitServer(context, world, "round 2 bet re-confirmed", s -> table(s, pos).confirmedBet(player(s).getUUID()).isPresent());
+			world.getServer().runOnServer(s -> {
+				ServerPlayer p = s.getPlayerList().getPlayer(other);
+				if (p != null) s.getPlayerList().remove(p); // leaves the table (disconnect: the bet timer deals our round)
+			});
+			waitServer(context, world, "round 2 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == d2[0]);
+			dealt = dealt(world, pos);
+			check(dealt[0] == d2[0] && dealt[1] == d2[1], "round 2: dealt Ante/Trips " + dealt[0] + "/" + dealt[1] + ", built " + d2[0] + "/" + d2[1]);
+			playToPayout(f, world, pos, before, "round2");
+
+			// Round 3 at GUI scale 3: Clear, then Rebet restores 16 / 1; Deal
+			f.size(1920, 1080, 3);
 			context.waitTicks(5);
-			clickButton(context, "gui.burmaldaholic.common.clear");
-			check(pendingAnte(context) == 0, "Clear empties the Ante, pending " + pendingAnte(context));
-			clickButton(context, "gui.burmaldaholic.common.rebet");
+			waitTarget(f, "tool.clear");
+			click(f, "tool.clear");
+			check(draft(f)[0] == 0 && draft(f)[1] == 0, "Clear empties the draft, draft " + draft(f)[0]);
+			click(f, "tool.rebet");
 			context.waitTicks(3);
+			check(draft(f)[0] == d2[0] && draft(f)[1] == d2[1], "Rebet restores the last bet, draft " + draft(f)[0] + "/" + draft(f)[1]);
 			context.takeScreenshot("uth_flow_s3_rebet");
 			before = balance(world);
-			clickButton(context, "gui.burmaldaholic.common.deal");
-			waitServer(context, world, "round 3 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == 15);
+			click(f, "primary");
+			waitServer(context, world, "round 3 dealt", s -> mySeat(s, pos) != null && mySeat(s, pos).ante == d2[0]);
 			dealt = dealt(world, pos);
-			check(dealt[0] == 15 && dealt[1] == 1, "round 3 (rebet): dealt Ante/Trips " + dealt[0] + "/" + dealt[1]);
-			playToPayout(context, world, pos, before, "round3");
+			check(dealt[0] == d2[0] && dealt[1] == d2[1], "round 3 (rebet): dealt Ante/Trips " + dealt[0] + "/" + dealt[1]);
+			playToPayout(f, world, pos, before, "round3");
 
-			// 1280 × 720 at GUI scale 3 (427 × 240: the full canvas, tight), then the compact frame (forced: GUIs under
-			// 427 × 240); the rack and the bet builder must not overlap
-			context.getInput().resizeWindow(1280, 720);
-			context.waitTicks(3);
-			guiScale(context, 3);
+			// 1280 x 720 at GUI scale 3 (427 x 240, tight): the bet bar is still there and clickable
+			f.size(1280, 720, 3);
 			context.waitTicks(5);
 			context.takeScreenshot("uth_flow_720p_s3_betting");
-			context.runOnClient(mc -> dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = true);
-			context.getInput().resizeWindow(1920, 1080);
-			context.waitTicks(3);
-			guiScale(context, 3);
-			context.waitTicks(5);
-			context.takeScreenshot("uth_flow_compact_betting");
-			String overlap = context.computeOnClient(mc -> {
-				if (!(mc.gui.screen() instanceof UthScreen s) || !s.compact()) return "not the compact frame";
-				for (GuiEventListener c : s.children()) {
-					if (c instanceof CardButton b && b.visible && b.getY() > 100 && b.getX() < 4 + 5 * 25) return "button over the chip rack at x " + b.getX();
-				}
-				return null;
-			});
-			check(overlap == null, "compact layout: " + overlap);
+			check(f.box("primary").isPresent() && f.box("tool.undo").isPresent(), "427 x 240: the primary and the bet tools are on screen");
 
-			context.runOnClient(mc -> mc.gui.setScreen(null));
+			f.close();
 			context.waitTicks(20);
+			check(MISCLICKS.isEmpty(), "decision clicks pressed another target: " + MISCLICKS);
 		} finally {
-			context.runOnClient(mc -> dev.nezo.burmaldaholic.client.table.cards.CardTableScreen.forceCompact = false);
 			context.getInput().resizeWindow(854, 480);
-			guiScale(context, 0);
+			context.runOnClient(mc -> {
+				mc.options.guiScale().set(0);
+				mc.resizeGui();
+			});
 		}
 	}
 
@@ -180,8 +244,9 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 		context.waitTicks(10);
 	}
 
-	/** Clicks Check while it is legal, then Bet ×1 at the river, until the round settles; checks the payout. */
-	private static void playToPayout(ClientGameTestContext context, TestSingleplayerContext world, BlockPos pos, long before, String name) {
+	/** Clicks Check while it is legal, then Bet x1 at the river, until the round settles; checks the payout. */
+	private static void playToPayout(RealFlow f, TestSingleplayerContext world, BlockPos pos, long before, String name) {
+		ClientGameTestContext context = f.context();
 		boolean shotDecision = false;
 		for (int waited = 0; waited < 2400; waited += 5) {
 			UthRound.Seat seat = world.getServer().computeOnServer(s -> mySeat(s, pos));
@@ -192,19 +257,29 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 				context.waitTicks(40);
 				context.takeScreenshot("uth_flow_" + name + "_payout");
 				long after = balance(world);
-				check(after == before + net, name + ": balance " + before + " − staked " + seat.result.staked() + " + return " + ret + " = " + (before + net)
+				check(after == before + net, name + ": balance " + before + " - staked " + seat.result.staked() + " + return " + ret + " = " + (before + net)
 					+ ", got " + after);
-				context.waitFor(mc -> buttonCenter(mc, "gui.burmaldaholic.common.deal") != null, TIMEOUT);
+				context.waitFor(mc -> mc.gui.screen() instanceof UthScreen s && s.currentView() != null && s.currentView().betting()
+					&& !s.currentView().deciding(), TIMEOUT);
+				context.waitTicks(5);
 				return;
 			}
-			String id = context.computeOnClient(mc -> buttonCenter(mc, "gui.burmaldaholic.uth.check") != null ? "gui.burmaldaholic.uth.check"
-				: buttonCenter(mc, "gui.burmaldaholic.uth.button.bet_1x") != null ? "gui.burmaldaholic.uth.button.bet_1x" : null);
+			boolean deciding = context.computeOnClient(mc -> mc.gui.screen() instanceof UthScreen s && s.currentView() != null && s.currentView().deciding());
+			String id = !deciding ? null : offered(f, "check") ? "check" : offered(f, "bet_1x") ? "bet_1x" : null;
 			if (id != null && seat != null && !seat.decided) {
 				if (!shotDecision) {
 					context.takeScreenshot("uth_flow_" + name + "_decision");
 					shotDecision = true;
 				}
-				clickButton(context, id);
+				String target = f.enabledTarget("action." + id) ? "action." + id : "primary";
+				String layout = targets(f);
+				try {
+					click(f, target);
+				} catch (AssertionError e) {
+					// a decision click that lands on another target is a money risk: keep the evidence, finish the flow, fail at the end
+					context.takeScreenshot("uth_flow_" + name + "_misclick");
+					MISCLICKS.add(name + ": " + e.getMessage() + " | before: " + layout + " | after: " + targets(f) + " | vp " + f.viewport());
+				}
 				context.waitTicks(10);
 			} else {
 				context.waitTicks(5);
@@ -213,56 +288,73 @@ public class UthRealFlowClientGameTests implements FabricClientGameTest {
 		throw new AssertionError(name + ": the round did not settle");
 	}
 
+	private static final java.util.List<io.netty.channel.embedded.EmbeddedChannel> CHANNELS = new java.util.ArrayList<>();
+
+	/** A second server player on an embedded connection, standing next to the table (server thread). */
+	private static ServerPlayer secondPlayer(MinecraftServer server, BlockPos pos) {
+		var cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(new com.mojang.authlib.GameProfile(UUID.randomUUID(), "Alex"), false);
+		ServerPlayer p = new ServerPlayer(server, server.overworld(), cookie.gameProfile(), cookie.clientInformation());
+		net.minecraft.network.Connection c = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+		CHANNELS.add(new io.netty.channel.embedded.EmbeddedChannel(c));
+		server.getPlayerList().placeNewPlayer(c, p, cookie);
+		p.snapTo(net.minecraft.world.phys.Vec3.atCenterOf(pos).add(1.5, 0, 0));
+		return p;
+	}
+
+	/** Decision clicks that pressed another target (reported at the end of the run). */
+	private static final java.util.List<String> MISCLICKS = new java.util.ArrayList<>();
+
+	/** A real click once the open screen's layout has settled (a control is clickable after one reaction time, R3). */
+	private static void click(RealFlow f, String id) {
+		f.context().waitFor(mc -> !(mc.gui.screen() instanceof UthScreen s) || s.clickSettled(), TIMEOUT);
+		f.click(id);
+	}
+
+	/** The decision Dock (actions + primary, boxes only). */
+	private static String decisionDock(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+			? h.chrome().hits().targets().stream().filter(t -> t.id().startsWith("action.") || t.id().equals("primary"))
+				.map(t -> t.id() + "@" + t.box()).collect(java.util.stream.Collectors.joining(",")) : "-");
+	}
+
+	/** The open screen's targets: id@box (diagnostics). */
+	private static String targets(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+			? h.chrome().hits().targets().stream().filter(t -> t.id().startsWith("action.") || t.id().equals("primary") || t.id().startsWith("felt."))
+				.map(t -> t.id() + "@" + t.box()).collect(java.util.stream.Collectors.joining(",")) : "-");
+	}
+
+	/** Decision {@code id} is offered: as an action button, or as the primary (the flow puts one decision there). */
+	private static boolean offered(RealFlow f, String id) {
+		if (f.enabledTarget("action." + id)) return true;
+		return f.enabledTarget("primary") && f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+			&& id.equals(h.chrome().primary.gate().action()));
+	}
+
 	// ---- input ------------------------------------------------------------------------------------------------------
 
-	/** Canvas → window pixels (the card canvas: integer scale k, centred; CardTableScreen#init). */
-	private static double[] toWindow(Minecraft mc, double cx, double cy) {
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
-		int k = CardLayout.scale(w, h);
-		check(k >= 1, "the full card canvas fits " + w + "x" + h);
-		int ox = (int) Math.floor((w - CardLayout.CANVAS_W * k) / 2f);
-		int oy = (int) Math.floor((h - CardLayout.CANVAS_H * k) / 2f);
-		double s = mc.getWindow().getGuiScale();
-		return new double[] {(ox + cx * k) * s, (oy + cy * k) * s};
+	/** The tray chip of denomination {@code value} ({@code chip.<index>}; the tray offers only what fits the limits). */
+	private static String chip(RealFlow f, long value) {
+		int i = f.client(mc -> {
+			if (!(mc.gui.screen() instanceof V2Chrome.Holder h)) return -1;
+			long[] chips = h.chrome().bet.chips();
+			for (int k = 0; k < chips.length; k++) if (chips[k] == value) return k;
+			return -1;
+		});
+		check(i >= 0, "the tray offers a " + value + " chip");
+		return "chip." + i;
 	}
 
-	private static double @Nullable [] buttonCenter(Minecraft mc, String key) {
-		if (!(mc.gui.screen() instanceof UthScreen screen)) return null;
-		for (GuiEventListener c : screen.children()) {
-			if (c instanceof CardButton b && b.visible && b.active && b.getMessage().getContents() instanceof TranslatableContents t && t.getKey().equals(key)) {
-				return toWindow(mc, b.getX() + b.getWidth() / 2.0, b.getY() + b.getHeight() / 2.0);
-			}
-		}
-		return null;
-	}
-
-	private static void clickButton(ClientGameTestContext context, String key) {
-		context.waitFor(mc -> buttonCenter(mc, key) != null, TIMEOUT);
-		double[] at = context.computeOnClient(mc -> buttonCenter(mc, key));
-		click(context, at);
-	}
-
-	/** The chip rack as drawn: chips 1, 5, 25, 100, 500 at canvas (8 + 25 i, 211), 22 × 22. */
-	private static void clickChip(ClientGameTestContext context, int i) {
-		click(context, context.computeOnClient(mc -> toWindow(mc, 8 + 25 * i + 11, 211 + 11)));
-	}
-
-	private static void click(ClientGameTestContext context, double[] at) {
-		context.getInput().setCursorPos(at[0], at[1]);
-		context.waitTicks(1);
-		context.getInput().pressMouse(Inputs.MOUSE_LEFT);
-		context.waitTicks(2);
+	private static void waitTarget(RealFlow f, String id) {
+		f.context().waitFor(mc -> mc.gui.screen() instanceof V2Chrome.Holder h
+			&& h.chrome().hits().targets().stream().anyMatch(t -> t.id().equals(id) && t.enabled()), TIMEOUT);
 	}
 
 	// ---- state ------------------------------------------------------------------------------------------------------
 
-	private static long pendingAnte(ClientGameTestContext context) {
-		return context.computeOnClient(mc -> mc.gui.screen() instanceof UthScreen s ? s.pendingForTests()[0] : -1L);
-	}
-
-	private static boolean errorShown(ClientGameTestContext context) {
-		return context.computeOnClient(mc -> mc.gui.screen() instanceof UthScreen s && s.errorForTests() != null);
+	/** The client's bet draft {Ante, Trips}. */
+	private static long[] draft(RealFlow f) {
+		return f.client(mc -> mc.gui.screen() instanceof UthScreen s ? new long[] {s.draft().ante(), s.draft().trips()} : new long[] {-1, -1});
 	}
 
 	private static ServerPlayer player(MinecraftServer server) {
