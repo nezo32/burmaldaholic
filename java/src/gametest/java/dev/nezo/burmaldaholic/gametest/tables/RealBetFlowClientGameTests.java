@@ -224,7 +224,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 			Optional<Box> b = h.chrome().hits().box(id);
 			if (b.isEmpty()) return null;
 			Viewport vp = h.chrome().viewport();
-			return new double[] {vp.toWindow(b.get().x() + b.get().w() / 2.0), vp.toWindow(b.get().y() + b.get().h() / 2.0)};
+			return new double[] {vp.windowX(b.get().x() + b.get().w() / 2.0), vp.windowY(b.get().y() + b.get().h() / 2.0)};
 		});
 		if (at == null) {
 			failures.add(name + ": no target " + id);
@@ -286,7 +286,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 			var b = h.chrome().hits().box(id);
 			if (b.isEmpty()) return null;
 			var vp = h.chrome().viewport();
-			return new double[] {vp.toWindow(b.get().x() + b.get().w() / 2.0), vp.toWindow(b.get().y() + b.get().h() / 2.0)};
+			return new double[] {vp.windowX(b.get().x() + b.get().w() / 2.0), vp.windowY(b.get().y() + b.get().h() / 2.0)};
 		});
 		if (at == null) return false;
 		click(context, at[0], at[1]);
@@ -487,7 +487,7 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 		for (var t : chrome.hits().targets()) {
 			if (!t.id().equals(id) || enabledOnly && !t.enabled()) continue;
 			var vp = chrome.viewport();
-			return new double[] {vp.toWindow(t.box().x() + t.box().w() / 2.0), vp.toWindow(t.box().y() + t.box().h() / 2.0)};
+			return new double[] {vp.windowX(t.box().x() + t.box().w() / 2.0), vp.windowY(t.box().y() + t.box().h() / 2.0)};
 		}
 		return null;
 	}
@@ -584,6 +584,8 @@ public class RealBetFlowClientGameTests implements FabricClientGameTest {
 	}
 
 	private static void click(ClientGameTestContext context, double wx, double wy) {
+		// the kit's ClickGuard (K2) refuses a click on a control that just appeared: wait one reaction time, like a player
+		context.waitFor(mc -> !(mc.gui.screen() instanceof V2Chrome.Holder h) || h.chrome().clickSettled(), 200);
 		context.getInput().setCursorPos(wx, wy);
 		context.waitTicks(1);
 		context.getInput().pressMouse(Inputs.MOUSE_LEFT);

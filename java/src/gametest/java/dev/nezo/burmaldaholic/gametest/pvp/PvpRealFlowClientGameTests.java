@@ -274,6 +274,8 @@ public class PvpRealFlowClientGameTests implements FabricClientGameTest {
 			if (pos == null) context.waitTicks(2);
 		}
 		if (pos == null) throw new AssertionError("no v2 target '" + id + "' (" + what + ") on " + context.computeOnClient(PvpRealFlowClientGameTests::describe));
+		// the kit's ClickGuard (K2) refuses a click on a control that just appeared: wait one reaction time, like a player
+		context.waitFor(mc -> !(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h) || h.chrome().clickSettled(), TIMEOUT);
 		context.getInput().setCursorPos(pos[0], pos[1]);
 		context.waitTicks(1);
 		context.getInput().pressMouse(Inputs.MOUSE_LEFT);

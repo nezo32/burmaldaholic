@@ -415,6 +415,8 @@ public class RealFlowClientGameTests implements FabricClientGameTest {
 
 	/** Clicks v2 target {@code id} where it is drawn (fails when it is missing or disabled). */
 	private static void clickV2(ClientGameTestContext ctx, String id) {
+		// the kit's ClickGuard (K2) refuses a click on a control that just appeared: wait one reaction time, like a player
+		ctx.waitFor(mc -> !(mc.gui.screen() instanceof dev.nezo.burmaldaholic.client.ui.v2.V2Chrome.Holder h) || h.chrome().clickSettled(), 200);
 		double[] at = ctx.computeOnClient(mc -> v2Point(mc, id));
 		if (at == null) throw new AssertionError("no enabled v2 target '" + id + "': " + describe(ctx));
 		clickWindow(ctx, at[0], at[1]);
