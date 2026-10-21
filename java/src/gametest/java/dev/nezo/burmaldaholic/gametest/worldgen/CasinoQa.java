@@ -414,6 +414,112 @@ public final class CasinoQa {
 		return s.isEmpty() ? 0 : s.max(Direction.Axis.Y);
 	}
 
+	/** Path cost of a level step, a step down and a climb: a player walks the aisles and climbs only where needed. */
+	private static final int COST_FLAT = 1, COST_DOWN = 3, COST_UP = 12;
+
+	/**
+	 * Cheapest walk (4-neighbour, steps of ±1 block) from {@code from} to {@code to} inside {@code area}; empty if the
+	 * target cannot be reached on foot. Like a player it keeps to the floor: climbs cost more than detours, and it never
+	 * stands on furniture tops (stools, end rods, trapdoors, walls), only on sturdy floors or low blocks in the cell
+	 * (O2: the old BFS took shortcuts over slot stools and lamp posts and the walker stuck there).
+	 */
+	public static java.util.Optional<List<BlockPos>> floorPath(ServerLevel level, BlockPos from, BlockPos to, BoundingBox area) {
+		java.util.Map<BlockPos, BlockPos> prev = new java.util.HashMap<>();
+		java.util.Map<BlockPos, Integer> cost = new java.util.HashMap<>();
+		java.util.PriorityQueue<Object[]> queue = new java.util.PriorityQueue<>(java.util.Comparator.comparingInt(o -> (Integer) o[1]));
+		BlockPos start = from;
+		if (!stand(level, start) && stand(level, start.above())) {
+			start = start.above();
+		}
+		prev.put(start, start);
+		cost.put(start, 0);
+		queue.add(new Object[] {start, 0});
+		while (!queue.isEmpty()) {
+			Object[] head = queue.poll();
+			BlockPos c = (BlockPos) head[0];
+			int cc = (Integer) head[1];
+			if (cc > cost.get(c)) {
+				continue;
+			}
+			if (c.equals(to)) {
+				List<BlockPos> out = new ArrayList<>();
+				for (BlockPos p = c; !p.equals(start); p = prev.get(p)) {
+					out.add(p);
+				}
+				java.util.Collections.reverse(out);
+				return java.util.Optional.of(out);
+			}
+			for (Direction d : Direction.Plane.HORIZONTAL) {
+				for (int dy : new int[] {0, 1, -1}) {
+					BlockPos n = c.relative(d).above(dy);
+					if (!area.isInside(n) || !stand(level, n) || !floor(level, n) && !n.equals(to)) {
+						continue;
+					}
+					if (dy == 1 && !level.getBlockState(c.above(2)).getCollisionShape(level, c.above(2)).isEmpty()) {
+						continue; // no head room to jump up
+					}
+					if (dy == -1 && !walkable(level, c.relative(d))) {
+						continue; // the step down must be open at the current height
+					}
+					int nc = cc + (dy == 0 ? COST_FLAT : dy > 0 ? COST_UP : COST_DOWN);
+					if (nc < cost.getOrDefault(n, Integer.MAX_VALUE)) {
+						cost.put(n, nc);
+						prev.put(n, c);
+						queue.add(new Object[] {n, nc});
+					}
+					break;
+				}
+			}
+		}
+		return java.util.Optional.empty();
+	}
+
+	/** A floor a player walks on: a low block in the cell (carpet, slab), a sturdy full top, or stairs (a staircase). */
+	private static boolean floor(ServerLevel level, BlockPos p) {
+		if (feetHeight(level, p) > 0) {
+			return true;
+		}
+		BlockPos b = p.below();
+		var below = level.getBlockState(b);
+		if (below.getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
+			// a staircase climbs on: the next stair up / landing is in the direction the stairs face
+			return below.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM
+				&& stairRun(level, b);
+		}
+		return below.isCollisionShapeFullBlock(level, b);
+	}
+
+	/**
+	 * True when the stair at {@code b} climbs on: one step up along its facing is another stair of the same facing or a
+	 * landing (full block with room above). A lone stool stair has neither (it stands in front of a machine, not a floor).
+	 */
+	private static boolean stairRun(ServerLevel level, BlockPos b) {
+		Direction f = level.getBlockState(b).getValue(net.minecraft.world.level.block.StairBlock.FACING);
+		for (BlockPos n : new BlockPos[] {b.relative(f).above(), b.relative(f)}) {
+			var s = level.getBlockState(n);
+			if (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock && s.getValue(net.minecraft.world.level.block.StairBlock.FACING) == f
+				|| s.isCollisionShapeFullBlock(level, n) && walkable(level, n.above())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** A walkable cell outside the building, {@code distance} blocks in front of the cell nearest to {@code toward}. */
+	public static BlockPos outside(ServerLevel level, BoundingBox box, BlockPos toward, int distance) {
+		int cx = (box.minX() + box.maxX()) / 2;
+		int cz = (box.minZ() + box.maxZ()) / 2;
+		Direction side = Direction.getApproximateNearest(toward.getX() - cx, 0, toward.getZ() - cz);
+		BlockPos edge = switch (side) {
+			case NORTH -> new BlockPos(toward.getX(), toward.getY(), box.minZ() - distance);
+			case SOUTH -> new BlockPos(toward.getX(), toward.getY(), box.maxZ() + distance);
+			case WEST -> new BlockPos(box.minX() - distance, toward.getY(), toward.getZ());
+			default -> new BlockPos(box.maxX() + distance, toward.getY(), toward.getZ());
+		};
+		int y = groundY(level, edge.getX(), edge.getZ()) + 1;
+		return new BlockPos(edge.getX(), y, edge.getZ());
+	}
+
 	/** Placement problems of one building (empty = fine): facings, support, player cells, families, clearance. */
 	public static List<String> structuralProblems(ServerLevel level, Placed placed) {
 		List<String> bad = new ArrayList<>();

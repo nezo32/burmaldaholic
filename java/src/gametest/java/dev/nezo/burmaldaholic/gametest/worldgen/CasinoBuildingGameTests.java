@@ -685,6 +685,42 @@ public class CasinoBuildingGameTests {
 		forced.clear();
 	}
 
+	/**
+	 * O2: a real player reaches every game of the Grand Casino on foot from outside, walking the floor (no climbing onto
+	 * stools, lamp posts or trapdoors): the same path the client walker follows.
+	 */
+	@GameTest(maxTicks = 200, environment = CasinoQa.ENV)
+	public void everyGameReachableOnTheFloor(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Target t = CasinoQa.standalone(level.getServer()).stream().filter(x -> x.name().equals("casino_riviera")).findFirst()
+			.orElseThrow(() -> helper.assertionException("no casino_riviera target"));
+		BlockPos at = region(3, 7);
+		Placed p = CasinoQa.place(level, t, at, 2);
+		helper.assertTrue(p.spots().size() >= 20, "Grand Casino game blocks found: " + p.spots().size());
+		// after the tables' first ticks (legacy unfold, house dealers), like the client world the walker plays in
+		helper.runAfterDelay(100, () -> {
+			List<String> bad = new ArrayList<>();
+			try {
+				BlockPos start = CasinoQa.outside(level, p.box(), p.spots().getFirst().pos(), 8);
+				BoundingBox area = p.box().inflatedBy(14, 4, 14);
+				BlockPos from = start;
+				for (Spot s : p.spots()) { // in visiting order, from the previous game like the client walker
+					if (CasinoQa.floorPath(level, from, s.playerCell(), area).isEmpty()) {
+						BlockPos c = s.playerCell();
+						bad.add(s + " -> " + c.toShortString() + " (feet " + level.getBlockState(c).getBlock() + ", below "
+							+ level.getBlockState(c.below()) + ", from " + from.toShortString() + ")");
+					}
+					from = s.playerCell();
+				}
+				CasinoQa.log("everyGameReachableOnTheFloor: {} games, {} unreachable", p.spots().size(), bad.size());
+			} finally {
+				CasinoQa.reset(level, at, 56, 40);
+			}
+			helper.assertTrue(bad.isEmpty(), "games a player cannot walk to on the floor: " + String.join(" | ", bad));
+			helper.succeed();
+		});
+	}
+
 	/** O3: natural leaves inside a casino box are cleared, indoors and on the apron; persistent (template) leaves stay. */
 	@net.fabricmc.fabric.api.gametest.v1.GameTest
 	public void foliageSweepClearsTreeLeavesIndoors(net.minecraft.gametest.framework.GameTestHelper helper) {
