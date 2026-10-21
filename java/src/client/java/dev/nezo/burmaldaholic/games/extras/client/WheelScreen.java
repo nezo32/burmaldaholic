@@ -87,7 +87,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 	@Override
 	protected ExtrasView view(CompoundTag s) {
 		PAWN.validate(s);
-		boolean busy = spinning();
+		boolean busy = spinning() || serverBusy();
 		if (!chips()) {
 			long max = PAWN.max(s);
 			return ExtrasView.pawn(busy, null, PAWN.kind().equals(BetControl.ITEM) ? s.getLongOr("held_value", 0) : PAWN.amount(), max);
@@ -197,6 +197,16 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 
 	private CompoundTag result() {
 		return state().getCompoundOrEmpty("result");
+	}
+
+	/**
+	 * T-SYW D1: the server's round end ({@code busy_until}, its tick) gates the next press, so the button never
+	 * re-enables while the server still refuses. The client's level time trails the server's by the latency and can lead
+	 * it by at most the tick in flight, hence the strict compare (enabled from {@code busy_until + 1}).
+	 */
+	private boolean serverBusy() {
+		long until = state().getLongOr("busy_until", -1);
+		return until >= 0 && minecraft != null && minecraft.level != null && minecraft.level.getGameTime() <= until;
 	}
 
 	private boolean spinning() {

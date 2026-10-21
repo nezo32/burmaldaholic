@@ -123,8 +123,8 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 	private final Map<Long, Long> flipSeen = new HashMap<>();
 	/** S1: one first-seen anchor per deal index (late cards still fly). */
 	private final dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals = new dev.nezo.burmaldaholic.client.table.cards.DealAnchors();
-	/** Tests: the last drawn slide progress per card key. */
-	private final Map<Long, Float> lastDealU = new HashMap<>();
+	/** Tests: the last drawn slide progress per card key; null (no per-frame boxing) until a test asks for it. */
+	private @Nullable Map<Long, Float> lastDealU;
 	private int bannerRound = -1, celebratedRound = -1;
 	private long settledAt = -1;
 	private final Map<Integer, Long> stampSeen = new HashMap<>();
@@ -849,15 +849,16 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		}
 	}
 
-	/** Tests (NetLag lane): the slide progress last drawn per card key. */
+	/** Tests (NetLag lane): the slide progress last drawn per card key (recording starts at the first call). */
 	public Map<Long, Float> dealProbe() {
+		if (lastDealU == null) lastDealU = new HashMap<>();
 		return lastDealU;
 	}
 
 	private void drawCard(GuiGraphicsExtractor g, Box b, int code, int at, double nowMs, Box shoe, int back, long key, int argb) {
 		double dealMs = (m.roundTick + at) * 50.0;
 		float u = m.roundTick > 0 ? CardsV2.deal(deals, key, nowMs, dealMs) : 1;
-		lastDealU.put(key, u);
+		if (lastDealU != null) lastDealU.put(key, u);
 		if (u <= 0) return;
 		float e = CardsV2.ease(u);
 		int x = Math.round(shoe.x() + (b.x() - shoe.x()) * e);

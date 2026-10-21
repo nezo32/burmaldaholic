@@ -20,8 +20,9 @@ import net.minecraft.core.BlockPos;
 /**
  * T-SYW (lane SYWT): the SY server lead on the actor-anchored Plinko / Wheel must not break the re-press contract. The
  * screen animates the actor's drop / spin from the result's ARRIVAL for the full duration and re-enables Drop / Spin
- * when it lands; the server's busy gate now ends at {@code decided + SyncLead + duration}. A player who presses again
- * the moment the screen allows it must be accepted (real clicks, server state asserted; live wall clock, no lag).
+ * when it lands; the server's busy gate ends at {@code decided + SyncLead + duration} and is sent as {@code busy_until},
+ * which also gates the press (D1). A player who presses on the first frame the screen allows it must be accepted (real
+ * clicks, server state asserted; live wall clock, no lag).
  */
 public class SywRepressClientGameTests implements FabricClientGameTest {
 	private final List<String> failures = new ArrayList<>();
@@ -29,7 +30,7 @@ public class SywRepressClientGameTests implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		if (!RealFlow.enabled("SYWT") && !RealFlow.enabled("SywRepressClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
+		if (!RealFlow.enabled("SYW") && !RealFlow.enabled("SYWT") && !RealFlow.enabled("SywRepressClientGameTests")) return; // lane gate (BURMALDAHOLIC_CGT)
 		try (TestSingleplayerContext world = ClientTestWorlds.casino(context).create();
 			ClientTestWorlds.Quiet quiet = ClientTestWorlds.quiet(context, world)) {
 			context.waitTicks(20);
@@ -75,22 +76,18 @@ public class SywRepressClientGameTests implements FabricClientGameTest {
 				failures.add(name + " round " + round + ": first press not accepted (seq " + seq0 + " -> " + seq1 + ")");
 				return;
 			}
-			f.waitChrome(c -> c.primary.gate().enabled(), name + " primary re-enabled");
-			// the player presses again right away (one reaction tick)
+			// D1: the first frame (tick) the screen enables the press, the player presses: the server must accept it
+			int waited = 0;
+			for (; waited < 200; waited++) {
+				if (f.client(mc -> mc.gui.screen() instanceof V2Chrome.Holder h && h.chrome().primary.gate().enabled())) break;
+				f.context().waitTick();
+			}
 			f.click(KeyMap.Ids.PRIMARY);
 			f.context().waitTicks(6);
 			int seq2 = seq(f, pos, plinko);
 			String status = f.status();
-			report.add(name + " round " + round + ": landed after " + ticks + " ticks; re-press seq " + seq1 + " -> " + seq2 + ", status '" + status + "'");
-			if (seq2 <= seq1) {
-				// control: the same press SyncLead ticks later is accepted (the refusal is the lead window)
-				f.context().waitTicks(5);
-				f.click(KeyMap.Ids.PRIMARY);
-				f.context().waitTicks(6);
-				int seq3 = seq(f, pos, plinko);
-				report.add(name + " round " + round + ": control press 5 ticks later seq " + seq2 + " -> " + seq3);
-			}
-			if (seq2 <= seq1) failures.add(name + " round " + round + ": the immediate re-press was refused by the server (seq " + seq1 + " -> " + seq2 + ", status '" + status + "')");
+			report.add(name + " round " + round + ": landed after " + ticks + " ticks, enabled " + waited + " ticks later; re-press seq " + seq1 + " -> " + seq2 + ", status '" + status + "'");
+			if (seq2 <= seq1) failures.add(name + " round " + round + ": the press on the first enabled frame was refused by the server (seq " + seq1 + " -> " + seq2 + ", status '" + status + "')");
 			// let the accepted (or not) one finish before the next round
 			f.context().waitTicks(plinko ? 140 : 120);
 		}

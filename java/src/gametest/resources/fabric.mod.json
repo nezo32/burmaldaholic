@@ -115,6 +115,7 @@
 			"dev.nezo.burmaldaholic.gametest.core.SyncClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.SyncAdversarialClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.SyncWiringClientGameTests",
+			"dev.nezo.burmaldaholic.gametest.core.SywRepressClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.comps.CompsClientGameTests",
 			"dev.nezo.burmaldaholic.gametest.core.CounterClientGameTests"
 		]

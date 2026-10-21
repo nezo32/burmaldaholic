@@ -106,7 +106,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	protected ExtrasView view(CompoundTag s) {
 		long bal = shownBalance();
 		bet.clamp(s.getLongOr("max", 0), s.getLongOr("balance", 0));
-		boolean busy = dropping();
+		boolean busy = dropping() || serverBusy();
 		double top = top(table(risk));
 		return ExtrasView.chips(bet.view(minFor(s, risk), s.getLongOr("max", 0), bal, busy), busy, null, (long) Math.floor(bet.amount() * top));
 	}
@@ -187,6 +187,16 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 
 	private CompoundTag result() {
 		return state().getCompoundOrEmpty("result");
+	}
+
+	/**
+	 * T-SYW D1: the server's round end ({@code busy_until}, its tick) gates the next press, so the button never
+	 * re-enables while the server still refuses. The client's level time trails the server's by the latency and can lead
+	 * it by at most the tick in flight, hence the strict compare (enabled from {@code busy_until + 1}).
+	 */
+	private boolean serverBusy() {
+		long until = state().getLongOr("busy_until", -1);
+		return until >= 0 && minecraft != null && minecraft.level != null && minecraft.level.getGameTime() <= until;
 	}
 
 	private boolean dropping() {
