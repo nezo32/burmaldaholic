@@ -220,7 +220,7 @@ public class HouseDealer extends PathfinderMob implements GesturingDealer, Deale
 	/** Body yaw: the bound table's facing (the dealer looks at its players), else the home yaw. */
 	private float facingYaw() {
 		BlockPos t = table();
-		if (t != null) {
+		if (t != null && level().hasChunkAt(t)) { // never pull in the table's chunk from an entity tick (GENPERF)
 			BlockState s = level().getBlockState(t);
 			if (TableParts.gameOf(s) != null) {
 				return TableParts.facingOf(s).toYRot();
