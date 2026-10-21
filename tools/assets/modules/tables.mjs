@@ -241,10 +241,18 @@ export default function generate() {
   for (const k of ['neutral', 'natural', 'craps', 'point']) sprite(`craps/total_${k}`, D.totalBadge(k));
   anim('craps/point_glow', D.pointGlow(), 3, 48, 40);
   anim('craps/flame', D.flame(), 3, 32, 10);
-  // v2 felt (lane D): dice per tier (faces row + tumble row) and the puck per tier
+  // v2 felt (lane D): dice per tier (faces row + tumble row) and the puck per tier (7 flip frames, CM)
   for (const s of C2.DIE_SIZES) gui(`craps/v2/dice_${s}`, C2.diceSheet(s));
   for (const s of C2.PUCK_SIZES) gui(`craps/v2/puck_${s}`, C2.puckSheet(s));
   out.push(png(`${T}/entity/craps/board_print.png`, C2.boardPrint()));
+  // CM: back wall strips (IDLE / HIT / HOT rows), the stickman's stick, in-world wall + puck textures
+  for (const h of C2.WALL_HEIGHTS) gui(`craps/v2/back_wall_${h}`, C2.backWallStrip(h));
+  for (const n of C2.STICK_WIDTHS) {
+    gui(`craps/v2/stick_shaft_${n}`, C2.stickShaft(n));
+    gui(`craps/v2/stick_hook_${n}`, C2.stickHook(n));
+  }
+  out.push(png(`${T}/entity/craps/wall.png`, C2.wallTexture()));
+  out.push(png(`${T}/entity/craps/puck.png`, C2.puckTexture()));
   out.push(png(`${T}/entity/craps/dice.png`, diceWorld()));
   out.push(png(`${T}/item/extras/dice_display.png`, diceDisplay()));
 

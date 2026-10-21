@@ -71,8 +71,15 @@ public class CrapsGameTests {
 			var res = state.getListOrEmpty("last_res");
 			helper.assertTrue(res.size() == 1 && "win".equals(res.getCompoundOrEmpty(0).getStringOr("outcome", ""))
 				&& res.getCompoundOrEmpty(0).getLongOr("ret", 0) == 20, "last_res with the server return: " + res);
-			helper.assertTrue(table.windowEnd() >= state.getLongOr("roll_time", 0) + dev.nezo.burmaldaholic.games.craps.logic.CrapsBeats.REVEAL_DELAY_TICKS,
-				"the next window opens after the reveal");
+			// CM: the reveal follows the solved throw: revealTicks = ceil((restMs + 330) / 50), the same solve every client makes
+			var thrown = dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.solve(sync.shooterSide(), sync.seed(), 5, 6, sync.pointBefore());
+			helper.assertTrue(sync.restMs() == thrown.restMs() && sync.restMs() == table.restMs() && sync.animV() == 2,
+				"sync carries the server's rest time: " + sync + " vs " + thrown.restMs());
+			helper.assertTrue(table.revealTicks() == (int) Math.ceil((thrown.restMs() + 330) / 50.0), "reveal ticks " + table.revealTicks());
+			helper.assertTrue(state.getIntOr("rest_ms", -1) == thrown.restMs() && state.getIntOr("anim_v", 0) == 2 && state.contains("shooter_side"),
+				"state carries rest_ms / anim_v / shooter_side");
+			helper.assertTrue(table.windowEnd() == state.getLongOr("roll_time", 0) + table.revealTicks(), "the next window opens after the reveal");
+			helper.assertTrue(table.pendingLines() > 0, "chat lines wait for the reveal");
 		});
 		helper.succeed();
 	}

@@ -43,6 +43,13 @@ final class DiceFixtures {
 		for (int len : new int[] {2, 4, 8}) l.add(new Case("world" + len, DiceTray.worldLane(len), ThrowSpec.chest(), 1200));
 		l.add(new Case("crapsBig", crapsBig(), ThrowSpec.hand(0, 47.5, 18.6), 1700));
 		l.add(new Case("crapsCompact", crapsCompact(), ThrowSpec.hand(1, 4.5, 13.8), 1700));
+		// CM: the shipped craps tray (CrapsThrow) from both ends of the Pass line, at both ends of its target range
+		l.add(new Case("crapsCmR", dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.tray(),
+			dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.spec(dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.RIGHT),
+			dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.TARGET_MIN));
+		l.add(new Case("crapsCmL", dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.tray(8),
+			dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.spec(dev.nezo.burmaldaholic.games.craps.present.CrapsThrow.LEFT),
+			1700));
 		return l;
 	}
 }

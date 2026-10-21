@@ -37,8 +37,11 @@ class CrapsLayoutTest {
 		CrapsLayout l = CrapsLayout.of(TableGrid.of(480, 270));
 		assertEquals(Tier.T2, l.tier);
 		assertEquals(new Box(10, 30, 460, 184), l.felt);
+		assertEquals(new Box(10, 30, 460, 6), l.backWall);
 		assertTrue(Math.abs(l.dontCome.w() - 78) <= 1, "Don't Come box 0.17 w: " + l.dontCome);
-		assertEquals(18, l.die1.w());
+		assertEquals(18, l.die);
+		assertEquals(30, CrapsLayout.of(TableGrid.of(960, 540)).die, "ROOMY 30-px dice");
+		assertEquals(10, CrapsLayout.of(TableGrid.of(960, 540)).backWall.h());
 		assertEquals(2, l.pointScale);
 		assertEquals(3, CrapsLayout.of(TableGrid.of(640, 360)).pointScale);
 		// rows in the mockup's order
@@ -71,11 +74,31 @@ class CrapsLayoutTest {
 			for (Box f : l.fieldGlyphs) assertTrue(f.inside(l.field), at + "field glyph " + f);
 			// dice + total + caption inside COME, not on the COME word
 			LayoutAudit come = new LayoutAudit(l.come);
-			come.add("word", l.comeWord).add("die1", l.die1).add("die2", l.die2).add("total", l.total).add("caption", l.pointCaption)
+			Box diceArea = l.diceZone.inset(-l.die / 2);
+			come.add("word", l.comeWord).add("dice", diceArea).add("total", l.total).add("caption", l.pointCaption)
 				.add("mine", l.stack("come", 0, Layer.MINE)).add("others", l.stack("come", 0, Layer.OTHERS));
 			assertEquals(List.of(), come.problems(), at);
-			assertTrue(l.restRegion.inside(l.come), at + "rest region " + l.restRegion);
-			assertTrue(l.throwX < l.felt.right() && l.throwY < l.felt.bottom(), at + "throw start on the felt");
+			assertTrue(diceArea.inside(l.come), at + "dice zone " + diceArea + " in " + l.come);
+			assertTrue(l.diceZone.w() >= 2 * l.die, at + "two dice fit side by side " + l.diceZone);
+			// the wall strip on top, every row under it
+			assertTrue(l.backWall.inside(l.felt) && l.backWall.y() == l.felt.y() && l.backWall.bottom() < l.points[0].y(), at + "wall " + l.backWall);
+			// dice home: on the Pass line, two dice wide, clear of the odds word and every stack
+			for (Box home : new Box[] {l.diceHomeL, l.diceHomeR}) {
+				assertTrue(home.inside(l.pass), at + "home " + home);
+				assertTrue(!home.intersects(l.oddsWord) && !home.intersects(l.passWord), at + "home off the words " + home);
+				for (Layer ly : Layer.values()) assertTrue(!home.intersects(l.stack("pass", 0, ly)), at + "home off the pass stacks " + ly);
+			}
+			// the arena: rest zone inside diceZone ± 1 px, wall plane on the wall's bottom, home on dice home
+			var map = l.arenaMap();
+			var rz = CrapsThrow.restZone();
+			Box zg = l.diceZone.inset(-1);
+			assertTrue(map.x(rz.x0()) >= zg.x() && map.x(rz.x1()) <= zg.right() && map.y(rz.y0()) >= zg.y() && map.y(rz.y1()) <= zg.bottom(),
+				at + "arena rest zone x " + map.x(rz.x0()) + ".." + map.x(rz.x1()) + " y " + map.y(rz.y0()) + ".." + map.y(rz.y1()) + " in " + l.diceZone);
+			assertEquals(l.backWall.bottom(), map.y(0), 1e-9, at + "wall plane");
+			for (int side : new int[] {CrapsThrow.LEFT, CrapsThrow.RIGHT}) {
+				double[] h = CrapsThrow.home(side);
+				assertTrue(l.diceHome(side).inset(-l.die / 2).contains(map.x(h[0]), map.y(h[1])), at + "home " + side + " at " + map.x(h[0]) + "," + map.y(h[1]));
+			}
 			// stacks
 			for (String kind : new String[] {"pass", "dont_pass", "field", "dont_come"}) {
 				Box area = area(l, kind);
@@ -99,7 +122,7 @@ class CrapsLayoutTest {
 			// banner region: free of numbers, stacks and dice
 			Box banner = l.bannerRegion();
 			assertTrue(banner.w() >= 60 && banner.inside(l.come), at + "banner " + banner);
-			assertTrue(!banner.intersects(l.die1) && !banner.intersects(l.stack("come", 0, Layer.MINE)), at + "banner free");
+			assertTrue(!banner.intersects(l.diceZone.inset(-l.die / 2)) && !banner.intersects(l.stack("come", 0, Layer.MINE)), at + "banner free");
 			// labels (EN / RU) fit their print boxes
 			assertTrue(FONT.applyAsInt("FIELD") * l.wordScale <= l.fieldWord.w() || FONT.applyAsInt("ФИЛД") <= l.fieldWord.w(), at + "FIELD");
 			assertTrue(FONT.applyAsInt("point") <= l.pointCaption.w() + 2 && FONT.applyAsInt("поинт") <= l.pointCaption.w() + 2, at + "point caption");
@@ -134,8 +157,9 @@ class CrapsLayoutTest {
 			put.accept("dpWord", l.dontPassWord);
 			put.accept("passWord", l.passWord);
 			put.accept("oddsWord", l.oddsWord);
-			put.accept("die1", l.die1);
-			put.accept("die2", l.die2);
+			put.accept("wall", l.backWall);
+			put.accept("diceZone", l.diceZone);
+			put.accept("homeR", l.diceHomeR);
 			put.accept("total", l.total);
 			put.accept("caption", l.pointCaption);
 			put.accept("puck8", l.puckBox(8));
@@ -148,6 +172,55 @@ class CrapsLayoutTest {
 			put.accept("banner", l.bannerRegion());
 			String root = System.getProperty("burmaldaholic.projectDir", ".");
 			java.nio.file.Files.writeString(java.nio.file.Path.of(root, "build", "craps_layout_" + wh[0] + ".txt"), sb.toString());
+		}
+	}
+
+	/** T-D2 V1: your value pills never sit on a printed number / word, the dice zone or the total, at every size. */
+	@Test
+	void valuePillsStayOffThePrint() {
+		for (int[] s : sizes()) {
+			for (int strip : new int[] {0, 11}) {
+				CrapsLayout l = CrapsLayout.of(TableGrid.of(s[0], s[1]), strip);
+				List<Box> placed = new ArrayList<>();
+				List<Box> stacks = new ArrayList<>(List.of(l.stack("pass", 0, Layer.MINE), l.stack("pass", 0, Layer.ODDS), l.stack("field", 0, Layer.MINE),
+					l.stack("dont_pass", 0, Layer.MINE), l.stack("come", 0, Layer.MINE)));
+				stacks.add(l.stack("come", 6, Layer.MINE));
+				stacks.add(l.stack("come", 6, Layer.ODDS));
+				for (Box st : stacks) {
+					Box tag = l.valueTag(st, 4, 6 * 3 + 6, placed);
+					for (Box gl : l.glyphs()) assertTrue(!tag.intersects(gl), s[0] + "x" + s[1] + " strip " + strip + " pill " + tag + " on glyph " + gl);
+					assertTrue(!tag.intersects(l.total) && !tag.intersects(l.diceZone.inset(-l.die / 2)), s[0] + "x" + s[1] + " pill " + tag + " on the dice / total");
+					assertTrue(tag.inside(l.felt), s[0] + "x" + s[1] + " pill " + tag + " off the felt");
+				}
+			}
+		}
+	}
+
+	/** T-D2 V4: ON / OFF / ВКЛ / ВЫКЛ always fit inside the puck's face, at every puck size and GUI scale. */
+	@Test
+	void puckWordFitsTheFace() {
+		for (String word : new String[] {"ON", "OFF", "ВКЛ", "ВЫКЛ"}) {
+			int w = FONT.applyAsInt(word);
+			for (int sheet : new int[] {10, 12, 16, 20, 26}) {
+				for (int k = 1; k <= 9; k++) {
+					double sc = CrapsLayout.puckWordScale(sheet, w, k);
+					assertTrue(sc > 0 && sc <= 1 && w * sc <= sheet * CrapsLayout.PUCK_FACE + 1e-9, word + " on " + sheet + " px at k " + k + ": " + w * sc);
+					if (sc >= 1.0 / k && sc < 1) assertEquals(Math.round(sc * k), sc * k, 1e-9, "whole physical px " + sc);
+				}
+			}
+		}
+	}
+
+	/** T-D2 V5: the felt ends above the Dock's hint strip (it never runs under the flashed status line). */
+	@Test
+	void feltEndsAboveTheHintStrip() {
+		for (int[] s : sizes()) {
+			TableGrid g = TableGrid.of(s[0], s[1]);
+			for (int strip : new int[] {0, 9, 11, 14}) {
+				CrapsLayout l = CrapsLayout.of(g, strip);
+				assertTrue(l.felt.bottom() <= g.play.bottom() - strip, s[0] + "x" + s[1] + " strip " + strip + ": felt " + l.felt + " play " + g.play);
+				assertTrue(l.felt.inside(g.play), s[0] + "x" + s[1] + " felt in play");
+			}
 		}
 	}
 

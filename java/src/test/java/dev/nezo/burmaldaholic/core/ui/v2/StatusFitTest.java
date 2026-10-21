@@ -43,16 +43,7 @@ class StatusFitTest {
 	private static final Pattern ARG = Pattern.compile("%(\\d\\$)?s");
 
 	/** Game status / reason strings over two T1 lines today (lang file, key); the game packages shorten them. */
-	static final Set<String> GAME_OVERLONG = Set.of(
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.need_line",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.no_shooter",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.point_box",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.point_box_come_out",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.odds_need_point",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.odds_need_pass",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.already_placed",
-		"craps/ru_ru gui.burmaldaholic.craps.v2.reason.come_needs_point",
-		"craps/en_us gui.burmaldaholic.craps.v2.reason.already_placed");
+	static final Set<String> GAME_OVERLONG = Set.of();
 
 	@Test
 	void wrapKeepsEveryWordOrEndsWithAnEllipsis() {

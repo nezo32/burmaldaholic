@@ -7,6 +7,7 @@ import dev.nezo.burmaldaholic.core.ui.v2.Gate;
 import dev.nezo.burmaldaholic.core.ui.v2.V2Keys;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsView.BetPub;
 
 /**
@@ -57,7 +58,8 @@ public final class CrapsFlow {
 			return Gate.off("roll", K + "primary.roll", V2Keys.REASON_NOT_ENOUGH_MIN, v.min());
 		}
 		if (v.youShoot()) {
-			if (v.canRoll()) return Gate.on("roll", K + "primary.roll");
+			// D5: the chips and the stickman finish before the next throw (skip with Space / a click)
+			if (v.canRoll()) return v.settling() ? Gate.off("roll", K + "primary.roll", K + "reason.wait_settling") : Gate.on("roll", K + "primary.roll");
 			if (v.needLine()) return Gate.off("roll", K + "primary.roll", K + "reason.need_line");
 			if (v.windowSeconds() >= 0) return Gate.off("roll", K + "primary.roll", K + "reason.wait_roll", v.windowSeconds());
 			return Gate.off("roll", K + "primary.roll", K + "reason.wait_settling");
@@ -84,7 +86,8 @@ public final class CrapsFlow {
 	public static Gate tool(String id, CrapsView v) {
 		String label = BetGates.CLEAR.equals(id) ? V2Keys.TOOL_CLEAR : V2Keys.TOOL_UNDO;
 		if (!BetGates.UNDO.equals(id) && !BetGates.CLEAR.equals(id)) return Gate.off(id, label, K + "reason.no_tool");
-		// chips put down after the throw can be taken back even while it is still shown (the server already settled it)
+		// R-CDE M5: nothing is taken back while the throw is shown (no chip can go down then either: the felt is closed)
+		if (v.rolling()) return Gate.off(id, label, V2Keys.REASON_ROLLING);
 		if (v.canUndo()) return Gate.on(id, label);
 		return Gate.off(id, label, "gui.burmaldaholic.craps.nothing_to_undo");
 	}
@@ -139,6 +142,8 @@ public final class CrapsFlow {
 	/** What clicking the felt spot {@code spotId} with the {@code chip} selected does. */
 	public static Click click(CrapsView v, String spotId, long chip) {
 		if (!v.enabled()) return Click.error(K + "reason.disabled");
+		// R-CDE M5: the felt is closed while the dice fly (the bets drawn then are the ones the roll saw)
+		if (v.rolling()) return Click.error(V2Keys.REASON_ROLLING);
 		String kind = CrapsLayout.kindOf(spotId);
 		if ("point".equals(kind)) {
 			int p = CrapsLayout.pointOf(spotId);
@@ -154,7 +159,7 @@ public final class CrapsFlow {
 		if ("pass_odds".equals(kind)) {
 			BetPub target = lineBet(v, "pass");
 			if (target != null && target.room() > 0) return odds(target, chip, v);
-			if (v.allowed("pass")) return flat(v, "pass", chip);
+			// R-CDE M6: the odds lane never places the Pass line itself (on the come-out it names the reason)
 			if (target != null && v.point() != 0) return Click.error(K + "reason.odds_full");
 			return Click.error(v.comeOut() ? K + "reason.odds_need_point" : K + "reason.odds_need_pass");
 		}
@@ -195,6 +200,15 @@ public final class CrapsFlow {
 			if (b.kind().equals(kind) && b.point() == 0) return b;
 		}
 		return null;
+	}
+
+	/**
+	 * T-D2 P-1: the line flashed with a flat bet sent for a chip under the table minimum (the bet goes down at the
+	 * minimum: say so); null for any other click.
+	 */
+	public static @Nullable Line minRaised(CrapsView v, Click c, long chip) {
+		if (!c.sends() || !"bet".equals(c.action()) || chip >= v.min()) return null;
+		return new Line(K + "reason.min_raised", v.min());
 	}
 
 	/** Hover readout for a spot (status line while hovering): the bet's name and what it pays. */

@@ -18,6 +18,7 @@ import dev.nezo.burmaldaholic.core.rng.OddsContext;
 import dev.nezo.burmaldaholic.core.rng.OddsService;
 import dev.nezo.burmaldaholic.core.data.OfflineMail;
 import dev.nezo.burmaldaholic.core.service.CoreServices;
+import dev.nezo.burmaldaholic.core.service.TablePresetProvider;
 import dev.nezo.burmaldaholic.core.table.CasinoTableBlockEntity;
 import dev.nezo.burmaldaholic.core.table.TableSeats;
 import dev.nezo.burmaldaholic.core.table.TableType;
@@ -39,6 +40,7 @@ import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable;
 import dev.nezo.burmaldaholic.games.craps.logic.CrapsTable.OddsInfo;
 import dev.nezo.burmaldaholic.games.craps.logic.RollEvent;
 import dev.nezo.burmaldaholic.games.craps.present.CrapsPub;
+import dev.nezo.burmaldaholic.games.craps.present.CrapsThrow;
 import dev.nezo.burmaldaholic.games.craps.logic.ShooterRotation.SeatInfo;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -109,6 +111,8 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	private long botBetAt = -1;
 	/** "Bots bet (for fun): …" results of the last roll (display) */
 	private @Nullable Component lastBotResults;
+	/** the bots' nets of the last roll (in-world plates) */
+	private final Map<UUID, Long> lastBotNets = new LinkedHashMap<>();
 
 	// ---- presentation (animation wave, lane J-L6; docs/design/animation/tables.md §2.7) ---------------------------
 	private static final String SYNC_KEY = "craps_sync";
@@ -147,6 +151,10 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	private int rollSeed;
 	private int pointBefore;
 	private int shooterDir;
+	/** CM: the end of the Pass line the last throw left from, its solved rest time and the reveal delay derived from it. */
+	private int shooterSide;
+	private int restMs;
+	private int revealTicks = CrapsBeats.revealTicks(1700);
 	/** 0 village, 1 bastion, 2 end (-1 = not resolved yet) */
 	private int theme = -1;
 	/** client side: the last update-tag sync (the in-world dice) */
@@ -171,9 +179,60 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		return CasinoConfig.craps().seats;
 	}
 
+	/** The table's generated-casino preset, resolved once (a placed table's preset never changes). */
+	private java.util.@Nullable Optional<TablePresetProvider.TablePreset> presetCache;
+
+	/**
+	 * {@link #preset()} cached. While the table is being removed / its chunk unloads it is never looked up: the provider
+	 * may read the world (BaccaratPresets reads block entities), which re-enters the chunk system mid-unload.
+	 */
+	private java.util.Optional<TablePresetProvider.TablePreset> tablePreset() {
+		if (presetCache == null) {
+			if (removing() || !(level instanceof ServerLevel)) {
+				return java.util.Optional.empty();
+			}
+			presetCache = preset();
+		}
+		return presetCache;
+	}
+
 	@Override
 	protected long minBet() {
-		return CasinoConfig.craps().minBet;
+		// a generated casino's preset (e.g. the High Roller Lounge, min 100) raises the table minimum (CB-G request)
+		long preset = tablePreset().map(TablePresetProvider.TablePreset::minBet).orElse(0L);
+		return Math.max(CasinoConfig.craps().minBet, preset);
+	}
+
+	/** The preset's "multiplier × VIP tier max" table (0 = none). */
+	private double presetMaxMultiplier() {
+		return tablePreset().map(TablePresetProvider.TablePreset::tierMaxMultiplier).orElse(0.0);
+	}
+
+	/** Preset table: max = multiplier × tier max (like the High-Roller blackjack / baccarat), owner max still applies. */
+	@Override
+	public long[] limitsFor(ServerPlayer player) {
+		long[] base = super.limitsFor(player);
+		double mult = presetMaxMultiplier();
+		if (mult <= 0) {
+			return base;
+		}
+		long tierMax = CoreServices.vip().maxBet(player.level().getServer(), player.getUUID());
+		long max = (long) Math.floor(tierMax * mult);
+		long ownerMax = ownership().map(o -> o.maxBet()).orElse(0L);
+		if (ownerMax > 0) {
+			max = Math.min(max, ownerMax);
+		}
+		return new long[] {base[0], max};
+	}
+
+	/** The preset's VIP tier: refused with the reason below it. */
+	private boolean presetTierAllowed(ServerPlayer player) {
+		int need = tablePreset().map(TablePresetProvider.TablePreset::minTier).orElse(0);
+		if (need <= 0 || CoreServices.vip().tier(player.level().getServer(), player.getUUID()) >= need) {
+			return true;
+		}
+		sendError(player, Component.translatable("gui.burmaldaholic.error.vip_required", dev.nezo.burmaldaholic.core.service.VipTiers.name(need)));
+		return false;
 	}
 
 	// ---- actions --------------------------------------------------------------------------------
@@ -199,6 +258,10 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	public boolean sit(ServerPlayer player) {
 		if (isSeated(player)) {
 			return true;
+		}
+		// T-D2 V8: a preset's VIP tier is checked at the seat (like High-Roller blackjack), not after it at the first bet
+		if (!presetTierAllowed(player)) {
+			return false;
 		}
 		// Seats & Bots: private table, someone's BOTS_ONLY table, claimant of a bot seat (BOTS.md §3.2)
 		Result<Boolean> admit = bots.admit(player);
@@ -267,9 +330,25 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			}));
 			return;
 		}
+		if (!presetTierAllowed(player)) {
+			return;
+		}
+		boolean presetMax = presetMaxMultiplier() > 0;
+		if (presetMax) {
+			// above the tier max up to the preset's multiple: checked here against limitsFor (same as High-Roller blackjack)
+			long[] lim = limitsFor(player);
+			long balance = dev.nezo.burmaldaholic.core.economy.Economies.get().balance(player);
+			int tier = CoreServices.vip().tier(player.level().getServer(), player.getUUID());
+			Component limErr = dev.nezo.burmaldaholic.core.wager.BetLimits.message(
+				dev.nezo.burmaldaholic.core.wager.BetLimits.check(amount, lim[0], lim[1], lim[1], balance), lim[0], lim[1], lim[1], tier, balance);
+			if (limErr != null) {
+				sendError(player, limErr);
+				return;
+			}
+		}
 		Bet bet = table.addBet(player.getUUID(), kind, amount);
 		long reserve = CrapsMath.flatWorstCase(kind, amount, table.rules());
-		if (!placeBet(player, key(bet.id()), amount, minBet(), 0, reserve, true).isOk()) {
+		if (!placeBet(player, key(bet.id()), amount, minBet(), 0, reserve, !presetMax).isOk()) {
 			table.removeBet(bet.id());
 			return;
 		}
@@ -376,7 +455,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	/** Bets close {@code craps.betWindowTicks} after each roll when more than one player is seated. */
 	public long windowEnd() {
 		// tables.md §2.7: the window starts after the reveal, so nobody has to bet while the dice are still moving
-		return lastRollTime + CrapsBeats.REVEAL_DELAY_TICKS + (seats().occupied().size() > 1 ? CasinoConfig.craps().betWindowTicks : 0);
+		return lastRollTime + revealTicks + (seats().occupied().size() > 1 ? CasinoConfig.craps().betWindowTicks : 0);
 	}
 
 	boolean windowOpen() {
@@ -477,6 +556,12 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		CrapsTable.TableRoll tr = table.roll(d1, d2, seats);
 		chipLog.clear(); // the roll has seen every bet: none can be taken back now
 		rollSeed = SeedMix.mix(SeedMix.mixLong(worldPosition.asLong()), table.rollCount());
+		// CM: the throw is solved once here (cosmetic seed, never CasinoRng); its rest time paces every reveal below
+		// (the human seat index: never touch the bot seat model here, the roll is the bots' safe point)
+		int shooterSeat = shooterForRun == null ? -1 : seats().seatOf(shooterForRun).orElse(-1);
+		shooterSide = CrapsThrow.sideOfSeat(shooterSeat, seats().size());
+		restMs = CrapsThrow.solve(shooterSide, rollSeed, d1, d2, pointBefore).restMs();
+		revealTicks = CrapsBeats.revealTicks(restMs);
 		lastRes.clear();
 		for (BetResolution res : tr.result().resolutions()) {
 			Bet b = res.bet();
@@ -515,7 +600,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		Component headline = Component.translatable(M + "rolled", Texts.raw(shooterName), Texts.number(d1), Texts.number(d2), Texts.number(total));
 		List<Component> event = eventLines(tr.result().event());
 		MinecraftServer server = level instanceof ServerLevel sl ? sl.getServer() : null;
-		// Text trails the dice (tables.md §0.6.3): every line waits REVEAL_DELAY; the money is already settled above.
+		// Text trails the dice (tables.md §0.6.3): every line waits revealTicks (the throw's rest + 330 ms); the money is already settled above.
 		long at = revealAt();
 		for (TableSeats.Seat seat : seats().occupied()) {
 			pending.add(new Pending(at, seat.player(), headline));
@@ -525,14 +610,37 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		if (tr.sevenOut()) {
 			announcedShooter = null;
 		}
+		if (level instanceof ServerLevel sl) {
+			// tables.md §2.6 / CS §6: a cue for clients without the mod, at the moment the dice rest
+			RollEvent.Kind kind = tr.result().event().kind();
+			pending.add(new Pending(lastRollTime + (long) Math.ceil(restMs / 50.0), null, null, () -> restParticles(sl, kind)));
+		}
 		botSafePoint();
 		rearm();
 		publishSync();
 	}
 
+	private void restParticles(ServerLevel sl, RollEvent.Kind kind) {
+		double x = worldPosition.getX() + 0.5;
+		double y = worldPosition.getY() + 1.1;
+		double z = worldPosition.getZ() + 0.5;
+		if (kind == RollEvent.Kind.NATURAL) sl.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, x, y, z, 3, 0.2, 0.05, 0.2, 0.05);
+		else if (kind == RollEvent.Kind.SEVEN_OUT) sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, x, y, z, 4, 0.2, 0.05, 0.2, 0.01);
+	}
+
 	/** Game time at which the last roll's text may be shown. */
 	private long revealAt() {
-		return lastRollTime + CrapsBeats.REVEAL_DELAY_TICKS;
+		return lastRollTime + revealTicks;
+	}
+
+	/** Reveal delay of the last roll in ticks ({@code ceil((restMs + 330) / 50)}; tests). */
+	public int revealTicks() {
+		return revealTicks;
+	}
+
+	/** Solved rest time of the last throw, ms (tests). */
+	public int restMs() {
+		return restMs;
 	}
 
 	/** 0–3: horizontal direction from the table to the shooter (south, west, north, east), for the throw's origin. */
@@ -618,7 +726,18 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	public CrapsSync sync() {
 		RollEvent ev = table.lastEvent();
 		return new CrapsSync(table.rollCount(), lastRollTime < 0 ? 0 : lastRollTime, table.lastD1(), table.lastD2(), rollSeed, pointBefore, table.point(),
-			shooterDir, ev == null ? -1 : ev.kind().ordinal(), theme());
+			shooterDir, ev == null ? -1 : ev.kind().ordinal(), theme(), shooterSide, restMs, CrapsSync.ANIM_V, nextSide());
+	}
+
+	/**
+	 * T-CM M1: the NEXT shooter's end of the Pass line (dice home, where the stick drags the dice and the hand picks them
+	 * up): the current shooter's human seat; with no shooter the dice stay where the last throw left them.
+	 */
+	public int nextSide() {
+		UUID next = table.shooter();
+		if (next == null) return shooterSide;
+		int seat = seats().seatOf(next).orElse(-1);
+		return seat < 0 ? shooterSide : CrapsThrow.sideOfSeat(seat, seats().size());
 	}
 
 	/** GameTests / previews: forces the location theme (0 village, 1 bastion, 2 end). */
@@ -652,26 +771,65 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 	 * the last roll. Nothing about craps is secret.
 	 */
 	public CrapsPub pub() {
+		Map<UUID, Integer> seatOf = publicSeatIndex();
 		List<CrapsPub.Stack> stacks = new ArrayList<>();
 		for (Bet b : table.bets()) {
-			int seat = seats().seatOf(b.owner()).orElse(-1);
+			int seat = seatOf.getOrDefault(b.owner(), -1);
 			stacks.add(new CrapsPub.Stack(seat, b.kind().id(), b.point(), b.flat(), b.odds()));
 		}
 		stacks.sort((a, b) -> Long.compare(b.flat() + b.odds(), a.flat() + a.odds()));
+		// R-CDE m2/m3: the bots' (virtual) bets are on the layout too, on their own seat of the bot-aware seat model
+		// (after the players' stacks: when the layout is crowded the players' own chips are the ones kept)
+		List<CrapsPub.Stack> botStacks = new ArrayList<>();
+		for (Bet b : botTable.shadow().bets()) {
+			Integer seat = seatOf.get(b.owner());
+			if (seat != null) botStacks.add(new CrapsPub.Stack(seat, b.kind().id(), b.point(), b.flat(), b.odds()));
+		}
+		botStacks.sort((a, b) -> Long.compare(b.flat() + b.odds(), a.flat() + a.odds()));
+		stacks.addAll(botStacks);
 		Map<Integer, Long> nets = new LinkedHashMap<>();
 		for (LastRes r : lastRes) {
 			if ("move".equals(r.outcome()) || "stay".equals(r.outcome())) {
 				continue;
 			}
-			int seat = seats().seatOf(r.owner()).orElse(-1);
+			int seat = seatOf.getOrDefault(r.owner(), -1);
 			if (seat >= 0) {
 				nets.merge(seat, r.ret() - r.flat() - r.odds(), Long::sum);
 			}
 		}
+		lastBotNets.forEach((owner, net) -> {
+			Integer seat = seatOf.get(owner);
+			if (seat != null) nets.merge(seat, net, Long::sum);
+		});
 		List<CrapsPub.Net> netList = new ArrayList<>();
 		nets.forEach((k, v) -> netList.add(new CrapsPub.Net(k, v)));
 		int seq = java.util.Objects.hash(stacks, netList, table.rollCount());
 		return new CrapsPub(seq, stacks, netList);
+	}
+
+	/**
+	 * Owner → seat index of the PUBLIC seat header (R-CDE m3): the bot-aware seat model the in-world plates are drawn
+	 * from ({@code occupants()}: humans by their UUID, bots by their virtual UUID), so a stack and its plate share a seat.
+	 */
+	private Map<UUID, Integer> publicSeatIndex() {
+		Map<UUID, Integer> out = new HashMap<>();
+		try {
+			List<dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant> occ = bots.occupants();
+			for (int i = 0; i < occ.size(); i++) {
+				var o = occ.get(i);
+				if (o instanceof dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant.Human h) out.put(h.id(), i);
+				else if (o instanceof dev.nezo.burmaldaholic.core.bots.logic.SeatOccupant.Bot bot) out.put(VirtualSeats.botUuid(bot.key()), i);
+			}
+		} catch (RuntimeException e) {
+			// bots not ready yet (no level): the base seats
+		}
+		for (TableSeats.Seat s : seats().occupied()) out.putIfAbsent(s.player(), s.index());
+		return out;
+	}
+
+	/** Game time of the last in-world board publish (tests). */
+	public long lastPublishTime() {
+		return lastPublish;
 	}
 
 	/** Client side: the last public layout (stacks, nets). */
@@ -713,6 +871,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		for (UUID owner : botTable.owners()) {
 			if (!live.contains(owner)) {
 				botTable.remove(owner);
+				markPublic();
 			}
 		}
 		botBetAt = live.isEmpty() || seats().isEmpty() ? -1 : gameTime() + bots.betDelay();
@@ -732,11 +891,13 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				Burmaldaholic.LOGGER.error("craps bot bet failed", e);
 			}
 		}
+		markPublic(); // R-CDE m2: the bots' chips show on the in-world board
 	}
 
 	/** The same dice resolve the bots' virtual bets (no extra throw, no stake); seven-out quip. */
 	private void botsRolled(int pointBefore, int d1, int d2, boolean sevenOut) {
 		lastBotResults = null;
+		lastBotNets.clear();
 		if (botTable.owners().isEmpty()) {
 			return;
 		}
@@ -753,6 +914,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				loser = res.bet().owner();
 			}
 		}
+		lastBotNets.putAll(net);
 		List<Component> parts = new ArrayList<>();
 		for (VirtualBot b : bots.bots()) {
 			UUID owner = VirtualSeats.botUuid(b.key);
@@ -763,7 +925,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 			if (owner.equals(loser) && level instanceof ServerLevel sl) {
 				var profile = b.profile();
 				// the quip would tell the seven-out before the dice land (tables.md §0.6.3)
-				pending.add(new Pending(gameTime() + CrapsBeats.REVEAL_DELAY_TICKS, null, null, () -> bots.quip(sl, profile, "seven_out", null)));
+				pending.add(new Pending(gameTime() + revealTicks, null, null, () -> bots.quip(sl, profile, "seven_out", null)));
 			}
 		}
 		lastBotResults = parts.isEmpty() ? null : Component.translatable("gui.burmaldaholic.bots.virtual_bets", joined(parts));
@@ -850,6 +1012,10 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 		tag.putLong("game_time", gameTime());
 		tag.putInt("seed", rollSeed);
 		tag.putInt("shooter_dir", shooterDir);
+		tag.putInt("shooter_side", shooterSide);
+		tag.putInt("next_side", nextSide());
+		tag.putInt("rest_ms", restMs);
+		tag.putInt("anim_v", CrapsSync.ANIM_V);
 		tag.putInt("points_in_row", pointsInRow);
 		tag.putInt("point_before", pointBefore);
 		tag.putString("theme", new String[] {"village", "bastion", "end"}[theme()]); // J-L2 kit: CasinoTableScreen#theme()
@@ -1007,7 +1173,7 @@ public class CrapsTableBlockEntity extends CasinoTableBlockEntity implements Bot
 				pointsInRow++;
 				if (pointsInRow >= 3 && level instanceof ServerLevel sl) {
 					// the toast waits for the dice like the chat lines (tables.md §2.7)
-					pending.add(new Pending(gameTime() + CrapsBeats.REVEAL_DELAY_TICKS, null, null,
+					pending.add(new Pending(gameTime() + revealTicks, null, null,
 						() -> CasinoAdvancements.grant(sl.getServer(), shooter, "hot_shooter")));
 				}
 			}
