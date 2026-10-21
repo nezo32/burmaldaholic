@@ -386,7 +386,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 
 	/**
 	 * Tests (NetLag lane): {spin t, ball x, ball y (fractions of Rw), visible 0/1, solved 0/1, the pocket it rests in
-	 * (−1 unsolved), rest t} of the next frame; null without a running spin.
+	 * (−1 unsolved), rest t, spin seq} of the next frame; null without a running spin.
 	 */
 	public double @Nullable [] poseProbe() {
 		RouletteSpin sp = spin;
@@ -395,7 +395,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 		RouletteSpin.Sample smp = sp.sample(t, new RouletteSpin.Sample());
 		double a = Math.toRadians(smp.abs);
 		return new double[] {t, smp.r * Math.sin(a), -smp.r * Math.cos(a), smp.visible ? 1 : 0, sp.solved() ? 1 : 0,
-			sp.solved() ? sp.pocketUnder(sp.restMs() + 100) : -1, sp.restMs()};
+			sp.solved() ? sp.pocketUnder(sp.restMs() + 100) : -1, sp.restMs(), spinSeqBuilt};
 	}
 
 	/** Tests: the ball {x, y} (fractions of Rw) of the current spin model at spin time {@code t}; null without a spin. */

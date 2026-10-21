@@ -178,7 +178,13 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 		SmoothClock.Test.reset();
 	}
 
+	/**
+	 * Before an animation: a fresh clock epoch (the previous run's −1 s jump leaves the clock ahead for seconds, which
+	 * would swallow this run's +1 s), then NetLag on.
+	 */
 	private static void lag(RealFlow f) {
+		f.context().runOnClient(mc -> SmoothClock.Test.reset());
+		f.context().waitTicks(2);
 		f.context().runOnClient(mc -> NetLag.install(300, 150, 1000));
 	}
 
@@ -382,10 +388,24 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 				return s.chrome().hits().box("primary").map(b -> new double[] {vp.windowX(b.x() + b.w() / 2.0), vp.windowY(b.y() + b.h() / 2.0)})
 					.orElseThrow(() -> new AssertionError("no slots primary"));
 			});
-			f.context().getInput().setCursorPos(px[0], px[1]);
-			f.context().waitTick();
-			f.context().getInput().pressMouse(dev.nezo.burmaldaholic.client.input.Inputs.MOUSE_LEFT);
+			boolean rolling = false;
+			for (int attempt = 0; attempt < 5 && !rolling; attempt++) {
+				f.settle();
+				f.context().getInput().setCursorPos(px[0], px[1]);
+				f.context().waitTick();
+				f.context().getInput().pressMouse(dev.nezo.burmaldaholic.client.input.Inputs.MOUSE_LEFT);
+				f.context().waitTick();
+				rolling = f.client(mc -> stage(mc) != null && stage(mc).preRolling());
+				if (!rolling) {
+					report.add("slots jump " + jump + ": click " + attempt + " did not start the pre-roll: " + f.client(mc -> mc.gui.screen() instanceof SlotMachineV2Screen sc
+						? "pressed '" + sc.chrome().lastPressed() + "' gate " + sc.chrome().primary.gate() + " playable " + sc.body().model().playable + " lock "
+							+ sc.body().model().lockReason + " finished " + stage(mc).finished() : "screen " + mc.gui.screen()));
+					f.context().waitTicks(40);
+				}
+			}
 			boolean handoff = false;
+			boolean sawPreRoll = rolling;
+			boolean wasPreRolling = false;
 			boolean jumped = false;
 			double[] prev = null;
 			double lastT = Double.NEGATIVE_INFINITY;
@@ -400,15 +420,25 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 					if (st == null) return null;
 					double[] top = new double[5];
 					int[] len = new int[5];
+					// the pre-roll is drawn while it runs (the last spin's sampler stays on the stage until the result):
+					// its pose this frame from the pre-roll model at this frame's wall time (preRollTop is only refreshed
+					// by the draw, so it can be a frame stale)
+					double[][] pre = st.preRolling() ? st.reels().preRollPose(dev.nezo.burmaldaholic.games.slots.client.SpinClock.wallNow()) : null;
 					for (int r = 0; r < 5; r++) {
-						top[r] = st.frames() == null ? st.reels().preRollTop(r) : st.frames().top[r];
+						top[r] = pre != null ? pre[0][r] : st.frames() == null ? st.reels().preRollTop(r) : st.frames().top[r];
 						len[r] = st.def().stripLength(r);
 					}
 					return new Object[] {st.frames() != null && st.frames().handoff() != null, top, st.frames() == null ? -1 : st.frames().phase, st.finished(), len,
 						st.clock() == null ? Double.NaN : st.clock().lastT(), st.preRolling()};
 				});
-				if (snap == null) break;
-				handoff |= (boolean) snap[0];
+				if (snap == null) {
+					report.add("slots jump " + jump + ": the stage went away at tick " + tick + ": " + f.client(mc -> String.valueOf(mc.gui.screen())));
+					break;
+				}
+				// this run's spin: the pre-roll seen, then the result handed off from it (the last spin's sampler and
+				// "finished" stay on the stage until the new result arrives)
+				sawPreRoll |= (boolean) snap[6];
+				handoff |= sawPreRoll && !(boolean) snap[6] && (boolean) snap[0];
 				double[] top = (double[]) snap[1];
 				int phase = (int) snap[2];
 				double t = (double) snap[5];
@@ -420,6 +450,9 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 						jumped = true;
 					}
 				}
+				// the press: the pre-roll starts at the rest stops (the last sampler's frame uses another convention)
+				if ((boolean) snap[6] && !wasPreRolling) prev = null;
+				wasPreRolling = (boolean) snap[6];
 				if ((phase == 0 || (boolean) snap[6]) && prev != null) {
 					for (int r = 0; r < 5; r++) {
 						int len = ((int[]) snap[4])[r];
@@ -447,7 +480,7 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 				if (st == null || !st.finished()) return "the spin did not finish";
 				return rest != null && Arrays.equals(st.frames().snapshot().cells(), rest) ? null : "screen ends off the server's rest window " + Arrays.toString(rest);
 			});
-			if (end != null) fail("slots jump " + jump + ": " + end);
+			if (end != null) fail("slots jump " + jump + ": " + end + " (handoff " + handoff + ", frames " + frames + ")");
 			f.context().waitTicks(30);
 		}
 		f.server(server -> {
@@ -532,9 +565,14 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 			java.util.UUID me = f.server(s -> RealFlow.player(s).getUUID());
 			f.waitServer(pos, RouletteTableBlockEntity.class, be -> Bets.totalStaked(be.betsOf(me)) > 0, "a bet on 17");
 			Track tr = new Track("roulette jump " + jump);
+			double seq0 = f.client(mc -> {
+				double[] q = mc.gui.screen() instanceof RouletteScreen s ? s.poseProbe() : null;
+				return q == null ? -1.0 : q[7];
+			});
 			lag(f);
 			f.click(KeyMap.Ids.PRIMARY);
 			boolean jumped = false;
+			boolean fresh = false;
 			double[] last = null;
 			for (int k = 0; k < 1200; k++) {
 				f.context().waitTick();
@@ -545,6 +583,12 @@ public class SyncWiringClientGameTests implements FabricClientGameTest {
 					return q;
 				});
 				if (p == null || p[0] < 0) continue;
+				if (p[7] != seq0) fresh = true; // this round's spin, not the last one at rest
+				if (!fresh) {
+					tr.prev = null;
+					tr.frames = 0;
+					continue;
+				}
 				if (!jumped && p[0] > 3000) {
 					jump(f, jump);
 					jumped = true;
