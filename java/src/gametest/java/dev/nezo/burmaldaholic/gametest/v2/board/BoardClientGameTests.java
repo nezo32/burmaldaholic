@@ -190,9 +190,15 @@ public class BoardClientGameTests implements FabricClientGameTest {
 		double[] c = feltCentre(pos);
 		world.getServer().runCommand(String.format(Locale.ROOT, "summon minecraft:text_display %.2f %d %.2f {text:\"Welcome\",billboard:\"center\"}", c[0] - 2.2,
 			pos.getY() + 2, c[1]));
+		// bot plates exist only while a non-spectator player is near (BotAvatars skips spectators): watch in creative
+		world.getServer().runCommand("gamemode creative @p");
 		look(context, world, pos, 4, 0, 0);
 		context.waitTicks(10);
 		int[] near = tagCounts(context, pos);
+		for (int waited = 0; waited < 60 && near[0] == 0; waited += 5) {
+			context.waitTicks(5);
+			near = tagCounts(context, pos);
+		}
 		context.takeScreenshot("p2_w2_bj_tags_4m");
 		look(context, world, pos, 20, 0, 0);
 		context.waitTicks(10);
@@ -202,6 +208,7 @@ public class BoardClientGameTests implements FabricClientGameTest {
 		if (near[0] == 0) throw new AssertionError("no bot nameplate text displays near the table");
 		if (near[1] != near[0]) throw new AssertionError("bot tags not hidden at 4 m: " + near[1] + "/" + near[0]);
 		if (far[1] != 0) throw new AssertionError("bot tags hidden at 20 m: " + far[1]);
+		world.getServer().runCommand("gamemode spectator @p");
 		if (near[2] == 0) throw new AssertionError("the plain text display is missing");
 		if (near[3] != 0 || far[3] != 0) throw new AssertionError("a plain text display beside the table was hidden");
 	}

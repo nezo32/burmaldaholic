@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.MinecraftServer;
@@ -142,7 +142,7 @@ public class MultiBlockTableClientGameTests implements FabricClientGameTest {
 			context.takeScreenshot("mt_use_far_part_aim");
 			context.getInput().pressKey(o -> o.keyUse);
 			context.waitTicks(15);
-			BlockPos opened = context.computeOnClient(mc -> mc.gui.screen() instanceof AbstractContainerScreen<?> s && s.getMenu() instanceof CasinoTableMenu m ? m.pos() : null);
+			BlockPos opened = context.computeOnClient(mc -> mc.gui.screen() instanceof MenuAccess<?> s && s.getMenu() instanceof CasinoTableMenu m ? m.pos() : null);
 			context.takeScreenshot("mt_use_far_part_screen");
 			if (!main.equals(opened)) {
 				throw new AssertionError("use key on the back-left part (looking at " + looked + ") should open the table at " + main.toShortString()
