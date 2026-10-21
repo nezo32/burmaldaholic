@@ -287,7 +287,7 @@ public class SlotsGameTests {
 			helper.assertTrue(machine.spinning(), "round started");
 			SpinTape tape = machine.roundTape();
 			long before = machine.writeClientState(player).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin").getLongOr("start_tick", -1);
-			machine.onAction(player, "skip", new CompoundTag()); // same tick: still inside START_LEAD_TICKS
+			machine.onAction(player, "skip", new CompoundTag()); // same tick: still inside SyncLead.SLOTS
 			long after = machine.writeClientState(player).getCompoundOrEmpty("v2").getCompoundOrEmpty("spin").getLongOr("start_tick", -1);
 			helper.assertTrue(after < before, "the early skip moved the shared clock (" + before + " -> " + after + ")");
 			helper.assertTrue(tape.equals(machine.roundTape()), "skip never changes the tape");

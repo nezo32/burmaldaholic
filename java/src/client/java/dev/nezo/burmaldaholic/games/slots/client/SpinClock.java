@@ -21,8 +21,8 @@ import java.util.function.DoubleSupplier;
  *       spectators read the shared clock;</li>
  *   <li>{@code t} is monotonic (only skip / finish / hold move it, and only forward).</li>
  * </ul>
- * The shared clock comes from a swappable {@link TimeSource} ({@link #timeSource}) so the SY {@code SmoothClock}
- * (p2/sy) can replace {@code AnimClock} without touching this class, and tests can drive it.
+ * The clocks come from a swappable {@link TimeSource} ({@link #timeSource}); production reads the shared SY
+ * {@code SmoothClock} ({@link #SMOOTH_CLOCK}), tests can drive it.
  */
 public final class SpinClock {
 	/** Where shared (server) time comes from; swappable (SY SmoothClock, tests). */
@@ -37,8 +37,12 @@ public final class SpinClock {
 		double wallMs();
 	}
 
-	/** Production source: {@code AnimClock} (SY will point this at {@code SmoothClock}). */
-	public static final TimeSource ANIM_CLOCK = new TimeSource() {
+	/**
+	 * Production source: the ONE shared {@link dev.nezo.burmaldaholic.client.anim.SmoothClock} (SY-SPEC §1) for shared
+	 * and level time, and its wall clock ({@code SmoothClock.wallMs}, the same nano clock as {@code Util.getMillis()};
+	 * a test {@code SmoothClock.Test.source} drives it) for the actor anchor, the pre-roll and the local part.
+	 */
+	public static final TimeSource SMOOTH_CLOCK = new TimeSource() {
 		@Override
 		public double sharedMs(TimelineSeed seed, float partialTick) {
 			return dev.nezo.burmaldaholic.client.anim.AnimClock.sharedMs(seed, partialTick);
@@ -46,25 +50,30 @@ public final class SpinClock {
 
 		@Override
 		public double levelMs(float partialTick) {
-			return dev.nezo.burmaldaholic.client.anim.AnimClock.levelMs(partialTick);
+			return dev.nezo.burmaldaholic.client.anim.SmoothClock.nowMs(partialTick);
 		}
 
 		@Override
 		public double wallMs() {
-			return net.minecraft.util.Util.getMillis();
+			return Math.floor(dev.nezo.burmaldaholic.client.anim.SmoothClock.wallMs());
 		}
 	};
 
-	private static volatile TimeSource source = ANIM_CLOCK;
+	/** The wall clock of the current source in whole ms (the stage, the pre-roll and the actor anchor share it). */
+	public static long wallNow() {
+		return (long) source.wallMs();
+	}
+
+	private static volatile TimeSource source = SMOOTH_CLOCK;
 
 	/** The current shared-time source. */
 	public static TimeSource timeSource() {
 		return source;
 	}
 
-	/** Swaps the shared-time source ({@code null} = {@link #ANIM_CLOCK}). */
+	/** Swaps the shared-time source ({@code null} = {@link #SMOOTH_CLOCK}). */
 	public static void timeSource(TimeSource s) {
-		source = s == null ? ANIM_CLOCK : s;
+		source = s == null ? SMOOTH_CLOCK : s;
 	}
 
 	private Timeline timeline;
@@ -118,7 +127,7 @@ public final class SpinClock {
 
 	/** Wall-clock driven (preview / solo fallback) starting now. */
 	public static SpinClock wall(Timeline timeline, long startWallMs) {
-		return new SpinClock(timeline, () -> net.minecraft.util.Util.getMillis() - (double) startWallMs);
+		return new SpinClock(timeline, () -> wallNow() - (double) startWallMs);
 	}
 
 	/** Anchored on the actor's local time (never late). */

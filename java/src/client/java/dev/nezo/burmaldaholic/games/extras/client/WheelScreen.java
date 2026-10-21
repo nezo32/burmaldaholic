@@ -36,7 +36,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -236,7 +236,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 				from = angle;
 				rest = WheelAnim.restAngle(index, n, SeedMix.mix(SeedMix.hash("wheel"), seq));
 				room = WheelAnim.settleRoom(rest, index, n);
-				spinStart = Util.getMillis();
+				spinStart = AnimClock.localMs();
 				spinMs = Kit.reduceMotion() ? WheelAnim.REDUCED_MS : newState.getIntOr("spin_ticks", 80) * 50.0 * 100 / Kit.speedPct();
 				skipAt = -1;
 				stopAt = -1;
@@ -253,9 +253,19 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		return from + WheelAnim.travel(from, rest, Kit.reduceMotion() ? 0 : WheelAnim.EXTRA_TURNS);
 	}
 
+	/** Tests (NetLag lane): {the angle the next frame draws, settled 0/1, the server's segment index}. */
+	public double[] poseProbe() {
+		return new double[] {currentAngle(), settledDone ? 1 : 0, result().getIntOr("index", -1)};
+	}
+
+	/** Tests: the angle the wheel rests at for the current result. */
+	public double endAngleProbe() {
+		return endAngle();
+	}
+
 	private double currentAngle() {
 		if (spinStart < 0 || settledDone) return angle;
-		long now = Util.getMillis();
+		long now = AnimClock.localMs();
 		if (skipAt >= 0) {
 			double a = WheelAnim.skip(skipFrom, endAngle(), now - skipAt);
 			if (now - skipAt >= WheelAnim.SKIP_MS) finish(true);
@@ -275,7 +285,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 	private boolean skip() {
 		if (!spinning() || skipAt >= 0) return false;
 		skipFrom = currentAngle();
-		skipAt = Util.getMillis();
+		skipAt = AnimClock.localMs();
 		return true;
 	}
 
@@ -283,7 +293,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		if (settledDone) return;
 		settledDone = true;
 		angle = endAngle();
-		stopAt = Util.getMillis();
+		stopAt = AnimClock.localMs();
 		heldBalance = -1;
 		CompoundTag r = result();
 		String code = r.getStringOr("code", "B");
@@ -305,7 +315,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 	@Override
 	protected void containerTick() {
 		super.containerTick();
-		if (stopAt >= 0 && Wheel.CREEPER.equals(result().getStringOr("code", "")) && Util.getMillis() - stopAt > 1000 && minecraft != null) {
+		if (stopAt >= 0 && Wheel.CREEPER.equals(result().getStringOr("code", "")) && AnimClock.localMs() - stopAt > 1000 && minecraft != null) {
 			stopAt = -1;
 			onClose(); // the chaos mob wave starts (server)
 		}
@@ -408,7 +418,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		int wy = 0;
 		WheelDraw.stand(g, wx, wy);
 		WheelDraw.face(g, wx, wy, segs, theta);
-		double beat = stopAt >= 0 ? Util.getMillis() - stopAt : settledDone && spinStart >= 0 ? STOP_MS : -1;
+		double beat = stopAt >= 0 ? AnimClock.localMs() - stopAt : settledDone && spinStart >= 0 ? STOP_MS : -1;
 		CompoundTag r = result();
 		boolean shown = r.getIntOr("seq", -1) >= 0 && settledDone;
 		if (shown) {
@@ -441,7 +451,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 			g.pose().popMatrix();
 		}
 		WheelDraw.rim(g, wx, wy);
-		long now = Util.getMillis();
+		long now = AnimClock.localMs();
 		boolean still = Kit.reduceMotion();
 		WheelDraw.bulbs(g, wx, wy, i -> {
 			if (spinning() && !still) return (i + (int) Math.floor(theta / 15)) % 3 == 0 ? 1 : 0;
@@ -479,7 +489,7 @@ final class WheelScreen extends V2TableScreen<ExtrasView> implements dev.nezo.bu
 		if (!spinning()) return;
 		long peg = WheelAnim.pegCount(theta, pitch);
 		if (peg == lastPeg) return;
-		long now = Util.getMillis();
+		long now = AnimClock.localMs();
 		long passed = Math.abs(peg - lastPeg);
 		lastPeg = peg;
 		if (now - lastTickMs < 50) return;

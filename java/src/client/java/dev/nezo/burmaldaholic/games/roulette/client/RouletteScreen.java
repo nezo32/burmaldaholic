@@ -4,6 +4,8 @@ import dev.nezo.burmaldaholic.client.fx.CelebrationOverlay;
 import dev.nezo.burmaldaholic.client.fx.CelebrationRequest;
 import dev.nezo.burmaldaholic.client.fx.FxSettings;
 import dev.nezo.burmaldaholic.client.fx.FxSounds;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
+import dev.nezo.burmaldaholic.client.anim.SmoothClock;
 import dev.nezo.burmaldaholic.client.table.fx.TableClock;
 import dev.nezo.burmaldaholic.client.table.fx.TableGfx;
 import dev.nezo.burmaldaholic.client.table.fx.TableKit;
@@ -76,13 +78,10 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	static final String FELT_ALL = "felt.layout";
 
 	private final TableClock clock = new TableClock();
-	/** S1: the smoothed spin time (monotonic, slewed; SY's SmoothClock replaces the raw source later). */
+	/** S1: the spin time's per-launch monotonic guard over the shared {@link SmoothClock} (a pass-through while it is smooth). */
 	private final dev.nezo.burmaldaholic.games.roulette.present.RouletteTime spinTime = new dev.nezo.burmaldaholic.games.roulette.present.RouletteTime();
-	/**
-	 * The raw shared clock: ms since a server tick (the seam for SY's SmoothClock). Default: this screen's
-	 * {@link TableClock}.
-	 */
-	private final java.util.function.LongToDoubleFunction rawClock = tick -> clock.msSince(tick, this.partial);
+	/** The shared clock: ms since a server tick on the ONE {@link SmoothClock} (SY-SPEC §1; the in-world board reads it too). */
+	private final java.util.function.LongToDoubleFunction rawClock = tick -> SmoothClock.nowMs(this.partial) - tick * 50.0;
 	private TableTheme theme = TableTheme.VILLAGE;
 	private @Nullable RouletteLayout layout;
 	private float partial;
@@ -389,7 +388,7 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 	double spinT() {
 		DoubleSupplier test = testClock;
 		if (test != null) return test.getAsDouble();
-		return spinTime.advance(launchTick, rawClock.applyAsDouble(launchTick), System.nanoTime() / 1e6);
+		return spinTime.advance(launchTick, rawClock.applyAsDouble(launchTick), SmoothClock.wallMs());
 	}
 
 	/** The newest settled number before the current launch: the ball being picked up / riding at idle. */
@@ -443,17 +442,17 @@ public class RouletteScreen extends V2TableScreen<RouletteView> {
 			// S1: a very late result still rolls past the SPIN end; the beats (rake, payout) wait for the ball to rest
 			if (localStartFor != start) resultSkipped = false;
 			localStartFor = start;
-			resultLocalStart = Util.getMillis();
+			resultLocalStart = AnimClock.localMs();
 			return 0;
 		}
 		double shared = phaseMs();
 		if (localStartFor != start) {
 			localStartFor = start;
 			resultSkipped = shared >= 0.85 * RESULT_MS;
-			resultLocalStart = Util.getMillis() - (long) Math.max(0, shared);
+			resultLocalStart = AnimClock.localMs() - (long) Math.max(0, shared);
 		}
 		if (resultSkipped) return RESULT_MS * 2;
-		return (Util.getMillis() - resultLocalStart) * (FxSettings.speed().pct / 100.0);
+		return (AnimClock.localMs() - resultLocalStart) * (FxSettings.speed().pct / 100.0);
 	}
 
 	private Map<Spot, Long> spots(String key) {

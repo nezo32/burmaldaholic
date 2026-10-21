@@ -169,12 +169,14 @@ public class PlinkoBlockEntity extends CasinoTableBlockEntity {
 		t.putLong("net", net);
 		t.putLong("stake", bet); // the celebration's tier base (extras-pvp.md §0.4)
 		lastDrop.put(player.getUUID(), t);
-		busyUntil.put(player.getUUID(), now + DROP_TICKS);
+		// SY-SPEC §4: the drop starts SyncLead.PLINKO ticks ahead, so the packet reaches viewers before the ball leaves
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(now, dev.nezo.burmaldaholic.core.anim.sync.SyncLead.PLINKO);
+		busyUntil.put(player.getUUID(), start + DROP_TICKS);
 		boolean jackpot = ExtrasTiers.plinkoJackpot(risk, drop.bin(), table.length);
-		pending.add(new Pending(player.getUUID(), now + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
+		pending.add(new Pending(player.getUUID(), start + DROP_TICKS, Component.translatable("gui.burmaldaholic.extras.plinko.result",
 			Texts.decimal(Payouts.formatMultiplier(drop.multiplier())), ExtrasGames.resultLine(net)), bet, ret, jackpot));
 		pub = dev.nezo.burmaldaholic.games.extras.present.MachinePub.plinko(player.getGameProfile().name(), risk.ordinal(), table);
-		publish(new PlinkoSync(seq, now, Plinko.encode(drop.path()), STEP_TICKS, PlinkoAnim.tier(drop.multiplier()), jackpot));
+		publish(new PlinkoSync(seq, start, Plinko.encode(drop.path()), STEP_TICKS, PlinkoAnim.tier(drop.multiplier()), jackpot));
 		syncViewers();
 	}
 

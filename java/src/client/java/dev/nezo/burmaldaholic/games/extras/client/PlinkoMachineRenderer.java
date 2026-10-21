@@ -211,7 +211,8 @@ public final class PlinkoMachineRenderer extends SpectatorBlockEntityRenderer<Pl
 				if (!reduced && s.distSq <= AUDIO_RANGE_SQ && !viewingOwnScreen(be)) pegs(be, c, sync, t);
 			}
 			// after the landing the ball rests in its cup and the cap stays lit (the last result reads from afar)
-			if (t >= sync.landMs() || t < 0) {
+			// (inside the SY-SPEC §4 server lead, t < 0, the drop has not started: no outcome shown yet)
+			if (t >= sync.landMs()) {
 				landedShown = true;
 				s.lit = sync.bin();
 				if (full) {

@@ -68,6 +68,10 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 	/** Chips put down this coup, newest first: box index and the chip's amount (Undo / right-click take one back). */
 	private final Deque<long[]> placed = new ArrayDeque<>();
 	private final Map<Long, Long> flipSeen = new HashMap<>();
+	/** S1: one first-seen anchor per deal index (late cards still fly). */
+	private final dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals = new dev.nezo.burmaldaholic.client.table.cards.DealAnchors();
+	/** Tests: the last drawn slide progress per deal index (player 0–2, banker 10–12; NaN = not drawn). */
+	private final float[] lastDealU = new float[20];
 	private long lastCoup = -1;
 	private long bannerCoup = -1, celebratedCoup = -1, resultAt = -1;
 	/** A big Banco asks for a second press within 3 s (T-A2 R4). */
@@ -202,9 +206,9 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		return net;
 	}
 
+	/** The shared clock ({@link dev.nezo.burmaldaholic.client.anim.SmoothClock}, SY-SPEC §1; was the raw level time). */
 	private double nowMs() {
-		var level = Minecraft.getInstance().level;
-		return level == null ? 0 : level.getGameTime() * 50.0;
+		return Minecraft.getInstance().level == null ? 0 : dev.nezo.burmaldaholic.client.anim.SmoothClock.nowMs(0f);
 	}
 
 	private List<Card> cardsOf(String key) {
@@ -477,7 +481,9 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		Tier t = grid.tier;
 		var theme = theme();
 		int print = V2Felt.print(theme);
-		double now = Minecraft.getInstance().level == null ? 0 : (Minecraft.getInstance().level.getGameTime() + partial) * 50.0;
+		// S1: the ONE smoothed shared clock with the partial tick (was raw level time: jumped on every time packet)
+		double now = Minecraft.getInstance().level == null ? 0 : dev.nezo.burmaldaholic.client.anim.SmoothClock.nowMs(partial);
+		deals.frame(state().getLongOr("rv_start", 0));
 		// the players' rail along the bottom (decor, under the plates)
 		if (l.plates().length > 0) {
 			Box p0 = l.plates()[0];
@@ -586,6 +592,11 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		return pt > bt ? 1 : bt > pt ? 2 : 3;
 	}
 
+	/** Tests (NetLag lane): the slide progress last drawn for deal index {@code k} (player 0–2, banker 10–12). */
+	public float dealProbe(int k) {
+		return k >= 0 && k < lastDealU.length ? lastDealU[k] : Float.NaN;
+	}
+
 	private void hand(GuiGraphicsExtractor g, Tier t, Box box, Box fan, Box label, Box totalBox, String key, int edge, boolean won, boolean tie, double now) {
 		V2Draw.fill(g, box, CasinoPalette.withAlpha(CasinoPalette.V2_INK, 0.35f));
 		int e = won ? CasinoPalette.V2_GOLD : edge;
@@ -601,13 +612,14 @@ public class BaccaratScreen extends V2TableScreen<BaccaratView> {
 		for (int i = 0; i < codes.length; i++) {
 			Box slot = BaccaratLayout.card(fan, i, cw);
 			double dealMs = (rv + (i < deal.length ? deal[i] : 0)) * 50.0;
-			float u = rv > 0 ? CardsV2.deal(now, dealMs) : 1;
+			long k = (key.equals("player") ? 0 : 10) + i;
+			float u = rv > 0 ? CardsV2.deal(deals, k, now, dealMs) : 1;
 			if (u <= 0) continue;
 			float ee = CardsV2.ease(u);
 			Box from = layout == null ? slot : new Box(chrome.grid().play.right() - 40, chrome.grid().play.y() + 4, slot.w(), slot.h());
 			Box at = new Box(Math.round(from.x() + (slot.x() - from.x()) * ee), Math.round(from.y() + (slot.y() - from.y()) * ee), slot.w(), slot.h());
+			if (k < 20) lastDealU[(int) k] = u;
 			float flip = 1;
-			long k = (key.equals("player") ? 0 : 10) + i;
 			if (codes[i] >= 0) {
 				anyFace = true;
 				Long seen = flipSeen.get(k);

@@ -207,7 +207,8 @@ public final class WheelOfFortuneRenderer extends SpectatorBlockEntityRenderer<W
 				net.minecraft.network.chat.Component.translatable(Wheel.segmentKey(code)).withColor(col)).getVisualOrderText();
 		}
 		double t = s.levelMs - sync.startTick() * 50.0;
-		boolean stopped = t < 0 || sync.stopped(t, FxSettings.reduceMotion());
+		// SY-SPEC §4: inside the server lead (t < 0) the wheel has not turned yet: the plate must not name the outcome
+		boolean stopped = t >= 0 && sync.stopped(t, FxSettings.reduceMotion());
 		s.plate = stopped ? c.result : c.name;
 		s.plateScale = dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.textPx(dev.nezo.burmaldaholic.core.ui.v2.board.HoloScale.BOARD_BASE,
 			Math.sqrt(s.distSq), mc.options.fov().get(), mc.getWindow().getHeight());

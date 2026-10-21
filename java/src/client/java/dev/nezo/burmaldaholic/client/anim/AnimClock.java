@@ -1,7 +1,6 @@
 package dev.nezo.burmaldaholic.client.anim;
 
 import dev.nezo.burmaldaholic.core.anim.TimelineSeed;
-import net.minecraft.util.Util;
 
 /**
  * Frame-rate independent time sources for the client animation runtime (docs/architecture/animation.md §2.1).
@@ -15,27 +14,6 @@ import net.minecraft.util.Util;
  */
 public final class AnimClock {
 	private AnimClock() {}
-
-	/**
-	 * Freezes the shared clock at level time {@code levelMs} for client GameTests.
-	 *
-	 * @deprecated forwards to {@link SmoothClock.Test#freezeLevelMs}; kept through v0.2.0 for the game owners' anim
-	 *     tests, removed in v0.2.1.
-	 */
-	@Deprecated
-	public static void freezeForTest(double levelMs) {
-		SmoothClock.Test.freezeLevelMs(levelMs);
-	}
-
-	/**
-	 * Releases {@link #freezeForTest}.
-	 *
-	 * @deprecated use {@code SmoothClock.Test.freezeLevelMs(Double.NaN)}.
-	 */
-	@Deprecated
-	public static void unfreezeForTest() {
-		SmoothClock.Test.freezeLevelMs(Double.NaN);
-	}
 
 	/** The test level time every client clock reads ({@link SmoothClock.Test#frozenLevelMs}), else NaN. */
 	public static double testLevelMs() {
@@ -60,8 +38,11 @@ public final class AnimClock {
 		return SmoothClock.nowMs(partialTick);
 	}
 
-	/** Wall-clock milliseconds for local-time beats. */
+	/**
+	 * Wall-clock milliseconds for local-time beats: {@link SmoothClock#wallMs} (the same monotonic nano clock as
+	 * {@code Util.getMillis()} in production; a test {@link SmoothClock.Test#source} drives it).
+	 */
 	public static long localMs() {
-		return Util.getMillis();
+		return (long) Math.floor(SmoothClock.wallMs());
 	}
 }

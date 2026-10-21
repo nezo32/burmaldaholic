@@ -311,8 +311,11 @@ public final class DiceGame {
 		DiceDuel.PvpDuel duel = DiceDuel.duelPvp(OddsService.get().fair(), DiceDuel.PVP_MAX_ROLLS);
 		DiceDuel.PvpRound last = duel.rounds().get(duel.rounds().size() - 1);
 		// text trails the dice (tables.md §3.6): each round's lines at its reveal on the screens; the money settles now
-		long start = now(server);
-		int seed = SeedMix.mix(SeedMix.hash(a.getUUID().toString()), SeedMix.hash(b.getUUID().toString()), (int) start);
+		long decided = now(server);
+		// SY-SPEC §4: the shared duel starts SyncLead.PVP_DICE ticks ahead (on top of the cup's SHAKE_LEAD), so the
+		// stage packet reaches both screens before the first beat; the cosmetic seed stays keyed on the decision tick
+		long start = dev.nezo.burmaldaholic.core.anim.sync.SyncLead.startTick(decided, dev.nezo.burmaldaholic.core.anim.sync.SyncLead.PVP_DICE);
+		int seed = SeedMix.mix(SeedMix.hash(a.getUUID().toString()), SeedMix.hash(b.getUUID().toString()), (int) decided);
 		for (int i = 0; i < duel.rounds().size(); i++) {
 			DiceDuel.PvpRound round = duel.rounds().get(i);
 			long at = start + DuelTimeline.revealTick(i);

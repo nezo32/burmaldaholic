@@ -33,7 +33,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import dev.nezo.burmaldaholic.client.anim.AnimClock;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -238,7 +238,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				if (dropping()) land(false);
 				shownSeq = seq;
 				bet.ack(); // the server played the amount: it becomes Rebet
-				dropStart = Util.getMillis();
+				dropStart = AnimClock.localMs();
 				landed = false;
 				landedAt = -1;
 				skipAt = -1;
@@ -251,13 +251,25 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		super.onStateChanged(newState);
 	}
 
+	/**
+	 * Tests (NetLag lane): {ms since the drop on this screen's clock, ball x, ball y, landed 0/1, server bin} — the ball
+	 * pose the next frame draws ({@code -1} ms = no drop running).
+	 */
+	public double[] poseProbe() {
+		CompoundTag r = result();
+		int path = r.getIntOr("path", 0);
+		double ms = dropping() ? dropMs() : -1;
+		PlinkoAnim.Ball b = ms < 0 || Kit.reduceMotion() ? null : PlinkoAnim.sample(path, rowMs(), ms);
+		return new double[] {ms, b == null ? Double.NaN : b.x(), b == null ? Double.NaN : b.y(), landed ? 1 : 0, r.getIntOr("bin", -1), path, rowMs()};
+	}
+
 	private double durationMs() {
 		return Kit.reduceMotion() ? PlinkoAnim.reducedMs() : PlinkoAnim.landMs(rowMs()) * 100.0 / Kit.speedPct();
 	}
 
 	private double dropMs() {
 		if (dropStart < 0) return -1;
-		double ms = Util.getMillis() - dropStart;
+		double ms = AnimClock.localMs() - dropStart;
 		return Kit.reduceMotion() ? ms : ms * Kit.speedPct() / 100.0;
 	}
 
@@ -268,7 +280,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 
 	private boolean skip() {
 		if (!dropping()) return false;
-		skipAt = Util.getMillis();
+		skipAt = AnimClock.localMs();
 		land(true);
 		return true;
 	}
@@ -277,7 +289,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 	private void land(boolean viaSkip) {
 		if (landed) return;
 		landed = true;
-		landedAt = Util.getMillis();
+		landedAt = AnimClock.localMs();
 		heldBalance = -1;
 		double mult = result().getDoubleOr("mult", 0);
 		last.add(mult);
@@ -414,7 +426,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 		double press = 0;
 		double pop = -1;
 		if (landed && landedAt >= 0) {
-			double since = Util.getMillis() - landedAt;
+			double since = AnimClock.localMs() - landedAt;
 			press = rm || since > 80 ? 0 : Math.sin(Math.PI * since / 80);
 			pop = rm ? -1 : Math.min(1, since / 300.0);
 		}
@@ -431,7 +443,7 @@ final class PlinkoScreen extends V2TableScreen<ExtrasView> implements dev.nezo.b
 				PlinkoAnim.Ball b = PlinkoAnim.sample(path, rowMs, ms);
 				PlinkoDraw.ball(g, 0, 0, b.x(), b.y(), b.roll(), b.sx(), b.sy(), false, 1);
 			}
-		} else if (skipAt >= 0 && Util.getMillis() - skipAt < 150) {
+		} else if (skipAt >= 0 && AnimClock.localMs() - skipAt < 150) {
 			PlinkoDraw.dottedPath(g, 0, 0, path, PlinkoAnim.ROWS, 0xFFFFE680);
 		}
 		PlinkoDraw.bins(g, font, 0, 0, table, lit, press, pop, false);

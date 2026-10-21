@@ -416,7 +416,7 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 		Minecraft mc = Minecraft.getInstance();
 		if (holdMs >= 0 && mc.level != null) {
 			// the server's shared clock stands at the Treasure Hunt pause: start the local clock there
-			startTick = mc.level.getGameTime() - holdMs / 50;
+			startTick = (long) Math.floor(SpinClock.timeSource().levelMs(0f) / 50.0) - holdMs / 50;
 		}
 		SpinTape.Hunt h = tape.hunt();
 		huntOpened = h == null ? 0 : h.opened();
@@ -432,7 +432,7 @@ public class SlotMachineV2Screen extends V2TableScreen<SlotView> {
 		boolean actor = mine && holdMs < 0 && (body.stage().preRolling() || sharedNow < ACTOR_FRESH_MS);
 		double elapsed;
 		if (actor) {
-			elapsed = body.stage().playActor(tape, tl, seed, Util.getMillis());
+			elapsed = body.stage().playActor(tape, tl, seed, SpinClock.wallNow());
 		} else {
 			body.stage().play(tape, tl, SpinClock.server(tl, ts, () -> mc.getDeltaTracker().getGameTimeDeltaPartialTick(false)), seed);
 			elapsed = sharedNow;

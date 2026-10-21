@@ -121,6 +121,10 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 	private boolean queuedRebet;
 	private @Nullable BlackjackLayout layout;
 	private final Map<Long, Long> flipSeen = new HashMap<>();
+	/** S1: one first-seen anchor per deal index (late cards still fly). */
+	private final dev.nezo.burmaldaholic.client.table.cards.DealAnchors deals = new dev.nezo.burmaldaholic.client.table.cards.DealAnchors();
+	/** Tests: the last drawn slide progress per card key. */
+	private final Map<Long, Float> lastDealU = new HashMap<>();
 	private int bannerRound = -1, celebratedRound = -1;
 	private long settledAt = -1;
 	private final Map<Integer, Long> stampSeen = new HashMap<>();
@@ -608,7 +612,9 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		Tier t = grid.tier;
 		var theme = theme();
 		int back = CardSprites.BACK_CRIMSON;
-		double nowMs = Minecraft.getInstance().level == null ? 0 : (Minecraft.getInstance().level.getGameTime() + partial) * 50.0;
+		// S1: the ONE smoothed shared clock with the partial tick (was raw level time: jumped on every time packet)
+		double nowMs = Minecraft.getInstance().level == null ? 0 : dev.nezo.burmaldaholic.client.anim.SmoothClock.nowMs(partial);
+		deals.frame(m.roundTick);
 		// the crescent rail (decor, under the seats), the dealer rail, rack, shoe, discard
 		dev.nezo.burmaldaholic.client.table.cards.RailArc.draw(g, grid.play, t, grid.play.bottom() - (t == Tier.T1 ? 4 : 7),
 			grid.fy(0.18), V2Felt.rail(theme), CasinoPalette.V2_RAIL_DARK, CasinoPalette.V2_RAIL_HI);
@@ -843,9 +849,15 @@ public class BlackjackScreen extends V2TableScreen<BlackjackView> {
 		}
 	}
 
+	/** Tests (NetLag lane): the slide progress last drawn per card key. */
+	public Map<Long, Float> dealProbe() {
+		return lastDealU;
+	}
+
 	private void drawCard(GuiGraphicsExtractor g, Box b, int code, int at, double nowMs, Box shoe, int back, long key, int argb) {
 		double dealMs = (m.roundTick + at) * 50.0;
-		float u = m.roundTick > 0 ? CardsV2.deal(nowMs, dealMs) : 1;
+		float u = m.roundTick > 0 ? CardsV2.deal(deals, key, nowMs, dealMs) : 1;
+		lastDealU.put(key, u);
 		if (u <= 0) return;
 		float e = CardsV2.ease(u);
 		int x = Math.round(shoe.x() + (b.x() - shoe.x()) * e);

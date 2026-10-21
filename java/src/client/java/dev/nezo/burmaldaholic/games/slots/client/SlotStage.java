@@ -78,7 +78,7 @@ public final class SlotStage {
 		this.machine = machine;
 		this.def = def;
 		this.restCells = window(def, restStops);
-		this.idleSince = net.minecraft.util.Util.getMillis();
+		this.idleSince = SpinClock.wallNow();
 	}
 
 	private static int[] window(MachineDef def, int[] stops) {
@@ -201,7 +201,7 @@ public final class SlotStage {
 
 	/** Interrupt (Esc / close / disconnect, F8): jump to the terminal frame at once. */
 	public void finishNow() {
-		if (clock != null) clock.finish(net.minecraft.util.Util.getMillis());
+		if (clock != null) clock.finish(SpinClock.wallNow());
 		if (script != null) {
 			t = script.timeline().endMs();
 			frames.sample(t);
